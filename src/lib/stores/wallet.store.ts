@@ -21,7 +21,7 @@ import {
 	type SwapUpdateEvent,
 	ERC20_ABI
 } from '@bittasker/wallet-core';
-import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
+import type { SwapPairsCache, TokenBalance, GasMode, DelegationState } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -63,9 +63,14 @@ import {
 	unregisterSwapResumeHandler
 } from '$lib/utils/wallet/swapMonitor';
 
-// Extended wallet state with processed transactions
+// Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
+	activeChain: 'rsk' | 'bsc';
+	gasMode: GasMode;
+	delegationState: DelegationState;
+	pendingTransactions: Map<number, string>;
+	chainLock: boolean;
 };
 
 // Initial state
@@ -119,7 +124,14 @@ const initialState: WalletStateExtended = {
 	rbtcRateError: false,
 
 	activeNetwork: 'rsk',
-	selectedAsset: 'rBTC'
+	selectedAsset: 'rBTC',
+
+	// Phase 1.7: EIP-7702 multi-chain delegation state
+	activeChain: 'rsk',
+	gasMode: 'USDT_GAS' as GasMode,
+	delegationState: 'IDLE' as DelegationState,
+	pendingTransactions: new Map<number, string>(),
+	chainLock: false
 };
 
 // Create the wallet store

@@ -266,7 +266,7 @@ export interface ProcessedTransaction {
 
 	// Raw data for advanced use
 	rawMethod?: string; // method selector
-	decodedInput?: Record<string, unknown>;
+	decodedInput?: Record<string, unknown> | string;
 
 	// Token info for BSC
 	tokenSymbol?: string;
@@ -305,4 +305,64 @@ export interface BidAcceptanceResult {
 	success: boolean;
 	transactionResult?: ContractTransactionResult;
 	error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// EIP-7702 Delegation & Gas Abstraction Types (Phase 1.6)
+// ---------------------------------------------------------------------------
+
+/**
+ * EIP-7702 delegation state machine.
+ *
+ * IDLE -> AUTH_SIGNING -> AUTH_SIGNED -> TX1_SUBMITTED -> TX1_MINED
+ *     -> CLEANUP_NEEDED -> TX2_SUBMITTED -> TX2_MINED -> IDLE
+ * TX1_MINED --(timeout)--> RECOVERY_NEEDED
+ * TX2_MINED --(timeout)--> RECOVERY_NEEDED
+ */
+export type DelegationState =
+	| 'IDLE'
+	| 'AUTH_SIGNING'
+	| 'AUTH_SIGNED'
+	| 'TX1_SUBMITTED'
+	| 'TX1_MINED'
+	| 'CLEANUP_NEEDED'
+	| 'TX2_SUBMITTED'
+	| 'TX2_MINED'
+	| 'RECOVERY_NEEDED';
+
+/**
+ * Gas payment mode.
+ * - 'USDT_GAS': User-facing default -- gas paid in USDT via EIP-7702 delegation.
+ * - 'BNB_FALLBACK': Hidden emergency path -- gas paid with BNB when paymaster is
+ *   unavailable. Never surfaced in UI.
+ */
+export type GasMode = 'USDT_GAS' | 'BNB_FALLBACK';
+
+/**
+ * Environment discriminator for chain configuration.
+ */
+export type ChainEnvironment = 'mainnet' | 'testnet';
+
+/**
+ * Represents a token amount on a specific chain.
+ */
+export interface TokenAmount {
+	token: string;
+	chainId: number;
+	amount: string; // Raw amount in smallest unit (BigInt serialised)
+	formattedAmount: string; // Human-readable amount
+	usdValue?: number;
+}
+
+/**
+ * Persistent journal entry recording a single delegation lifecycle.
+ * Stored in Capacitor Preferences for recovery across app restarts.
+ */
+export interface DelegationJournalEntry {
+	id: string;
+	state: DelegationState;
+	tx1Hash?: string;
+	tx2Hash?: string;
+	timestamp: number;
+	chainId: number;
 }
