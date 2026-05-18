@@ -20,6 +20,7 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
+	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
 
 	let isLoading = $state(false);
 
@@ -133,6 +134,45 @@
 		selectedNetwork: string;
 		chargeFeesToPayer: boolean;
 	} | null>(null);
+
+	// BankingMenu event listeners
+	let bankingMenuOpen = $state(false);
+
+	function openBankingMenu() {
+		bankingMenuOpen = true;
+		// Use tick to ensure dialog is in DOM before calling showModal
+		requestAnimationFrame(() => {
+			(document.getElementById('banking-menu-modal') as HTMLDialogElement)?.showModal();
+		});
+	}
+
+	function closeBankingMenu() {
+		bankingMenuOpen = false;
+		(document.getElementById('banking-menu-modal') as HTMLDialogElement)?.close();
+	}
+
+	$effect(() => {
+		if (!bankingMenuOpen) return;
+		const el = document.getElementById('banking-menu-modal');
+		if (!el) return;
+
+		function handleSend() {
+			closeBankingMenu();
+			showSendModal = true;
+		}
+		function handleReceive() {
+			closeBankingMenu();
+			showReceiveModal = true;
+		}
+
+		el.addEventListener('banking:send', handleSend);
+		el.addEventListener('banking:receive', handleReceive);
+
+		return () => {
+			el.removeEventListener('banking:send', handleSend);
+			el.removeEventListener('banking:receive', handleReceive);
+		};
+	});
 </script>
 
 <svelte:head>
@@ -299,6 +339,26 @@
 					</button>
 				</div>
 
+				<!-- More Options Button -->
+				<div class="flex justify-center">
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm"
+						onclick={openBankingMenu}
+						aria-label={$t('wallet.more_options')}
+					>
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 12h.01M12 12h.01M19 12h.01"
+							/>
+						</svg>
+						{$t('wallet.more_options')}
+					</button>
+				</div>
+
 				<!-- Learn More Section - Below buttons -->
 				<div class="flex justify-center">
 					<div class="text-base-content/70 text-xs sm:text-sm">
@@ -339,6 +399,9 @@
 	</div>
 </div>
 
+<!-- Banking Menu Modal -->
+<BankingMenu onclose={closeBankingMenu} />
+
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>
 	<ReceivePaymentForm
@@ -358,7 +421,10 @@
 			? {
 					...receiveFormState,
 					// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
-					currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
+					currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ||
+					receiveFormState.selectedNetwork === 'usdt-bsc'
+						? 1
+						: 2) as 1 | 2
 				}
 			: undefined}
 	/>

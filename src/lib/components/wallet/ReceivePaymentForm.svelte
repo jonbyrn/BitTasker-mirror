@@ -51,11 +51,15 @@
 		chargeFeesToPayer: false
 	});
 
+	// Receive tab selection and QR code data
+	let receiveTab = $state<'rbtc' | 'usdt'>('rbtc');
+
 	// Mobile form container for keyboard scroll handling
 	let mobileFormContainer: HTMLDivElement | undefined = $state(undefined);
 
 	// Grouped State: UI State
 	let uiState = $state({
+		sourceExpanded: false,
 		descriptionExpanded: false,
 		networkExpanded: false,
 		calculatorKey: 0
@@ -142,7 +146,7 @@
 
 	// Check if amount is below swap minimum (for networks that require swaps)
 	const isBelowSwapMinimum = $derived.by(() => {
-		// Only check for networks that require swaps (not rootstock)
+		// Only check for networks that require swaps (not rootstock, usdt-bsc)
 		const networksRequiringSwaps = ['lightning-bitcoin', 'liquid-bitcoin', 'bitcoin'];
 		if (!networksRequiringSwaps.includes(formInput.selectedNetwork)) return false;
 		if (!feeState.swapLimits || amountPayerPays === 0) return false;
@@ -197,6 +201,14 @@
 			icon: '/images/chains/Bitcoin.svg',
 			available: false, // Disabled - Coming Soon
 			swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info')
+		},
+		{
+			value: 'usdt-bsc',
+			label: $t('wallet.receive_form.networks.bsc_usdt.label'),
+			description: $t('wallet.receive_form.networks.bsc_usdt.description'),
+			icon: '/images/chains/Binance-logo.svg',
+			available: $walletStore.bsc.connected,
+			swapFeeInfo: $t('wallet.receive_form.networks.bsc_usdt.fee_info')
 		}
 	]);
 
@@ -342,6 +354,15 @@
 					};
 					// TODO: Fetch swap limits for on-chain Bitcoin if it requires swaps
 					feeState.swapLimits = null;
+					break;
+				case 'usdt-bsc':
+					// BSC USDT - gas fees are near-zero with paymaster abstraction
+					feeState.estimated = {
+						serviceFee: 0,
+						networkFee: 0, // Covered by paymaster gas abstraction
+						totalFees: 0
+					};
+					feeState.swapLimits = null; // No swap limits needed
 					break;
 				default:
 					feeState.estimated = null;
@@ -539,6 +560,27 @@
 						chargeFeesToPayer: formInput.chargeFeesToPayer
 					}
 				});
+			} else if (formInput.selectedNetwork === 'usdt-bsc') {
+				// BSC USDT - show BSC address for direct deposit
+				if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
+					return appStore.showErrorToast($t('wallet.bsc.not_connected'));
+				}
+				onOpenPaymentRequest({
+					address: $walletStore.bsc.address,
+					network: 'usdt-bsc',
+					amount: Math.floor(invoiceAmount),
+					memo: formInput.memo || undefined,
+					chargeFeesToPayer: formInput.chargeFeesToPayer,
+					totalFees: feeState.estimated?.totalFees || 0,
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
+				});
 			} else {
 				appStore.showErrorToast($t('wallet.receive_form.network_not_available'));
 				return;
@@ -577,6 +619,84 @@
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- Scrollable Content Area -->
 	<div class="min-h-0 flex-1 space-y-3 overflow-y-auto sm:space-y-4">
+		<!-- Receive Address Tabs -->
+		<div class="flex flex-col gap-3 sm:gap-4">
+			<!-- Source Wallet Accordion (same pattern as Send screen) -->
+			<div class="form-control">
+				<div
+					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+					class:collapse-open={uiState.sourceExpanded}
+				>
+					<button
+						type="button"
+						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+						onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
+					>
+						<span class="text-base-content/60">{$t('wallet.from')}:</span>
+						{#if receiveTab === 'rbtc'}
+							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
+							<span>{$t('wallet.rbtc')}</span>
+							<span class="mr-6 ml-auto text-xs">
+								{formatSats($walletStore.totalBalances.sats)} Sats
+							</span>
+						{:else}
+							<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+							<span>USD</span>
+							<span class="mr-6 ml-auto text-xs">
+								{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+									? '$' +
+										parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
+											minimumFractionDigits: 2,
+											maximumFractionDigits: 2
+										})
+									: '$0.00'}
+							</span>
+						{/if}
+					</button>
+					<div class="collapse-content px-2">
+						<div class="space-y-1">
+							<button
+								type="button"
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {receiveTab ===
+								'rbtc'
+									? 'bg-primary/10'
+									: ''}"
+								onclick={() => {
+									receiveTab = 'rbtc';
+									uiState.sourceExpanded = false;
+								}}
+							>
+								<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
+								<span>{$t('wallet.rbtc')}</span>
+								<span class="ml-auto text-xs opacity-70">
+									{formatSats($walletStore.totalBalances.sats)} Sats
+								</span>
+							</button>
+							<button
+								type="button"
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 pt-2 pb-0 transition-colors {receiveTab ===
+								'usdt'
+									? 'bg-primary/10'
+									: ''}"
+								onclick={() => {
+									receiveTab = 'usdt';
+									uiState.sourceExpanded = false;
+								}}
+							>
+								<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+								<span>USD</span>
+								<span class="ml-auto text-xs opacity-70">
+									{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+										? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+										: '$0.00'}
+								</span>
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<!-- Amount Input Section (Mobile) -->
 		<div class="block space-y-2 sm:hidden">
 			<AmountInputSection

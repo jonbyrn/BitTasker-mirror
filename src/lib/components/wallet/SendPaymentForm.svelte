@@ -29,6 +29,13 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
+	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
+	import { resolveRoute, type SourceWallet, type Destination } from '$lib/services/route-resolver';
+	import {
+		startSwapChain,
+		type SwapChainState,
+		getSwapChainStatus
+	} from '$lib/services/swap-chain.service';
 
 	let { onCancel, onSuccess } = $props<{
 		onCancel: () => void;
@@ -82,7 +89,8 @@
 		amount: '',
 		unit: 'usd' as 'sats' | 'usd',
 		mathExpression: '',
-		memo: ''
+		memo: '',
+		selectedSource: 'rootstock-bitcoin' as 'rootstock-bitcoin' | 'usdt-bsc'
 	});
 
 	// Grouped State: Parsed Payment Data
@@ -112,7 +120,8 @@
 		networkFeeExpanded: false,
 		calculatorKey: 0,
 		showRecentAddresses: false,
-		currentStep: 1 as 1 | 2 // Step 1: Address + Amount, Step 2: Details
+		currentStep: 1 as 1 | 2, // Step 1: Address + Amount, Step 2: Details
+		sourceExpanded: false
 	});
 
 	// Grouped State: QR Scan State
@@ -168,6 +177,7 @@
 		pendingAmount: number | null;
 		pendingAddress: string | null;
 		pendingSwapId: string | null; // For lightning swaps
+		pendingSwapChain: SwapChainState | null;
 	}>({
 		isSending: false,
 		error: null,
@@ -177,12 +187,61 @@
 		pendingNetwork: null,
 		pendingAmount: null,
 		pendingAddress: null,
-		pendingSwapId: null
+		pendingSwapId: null,
+		pendingSwapChain: null
 	});
 
 	// Cached Data
 	let btcPrice = $state<number>(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
+
+	// Route-picking state
+	let selectedRouteId = $state<string>('');
+
+	function toSourceWallet(source: string): SourceWallet {
+		if (source === 'rootstock-bitcoin') return 'rbtc';
+		if (source === 'usdt-bsc') return 'usdt-bsc';
+		console.warn('Unknown source wallet:', source);
+		return 'usdt-bsc';
+	}
+
+	function toDestination(network: string | null, address: string): Destination | null {
+		if (!network || !address) return null;
+		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		const isMainnet = rskNetwork === 'mainnet';
+		switch (network) {
+			case 'rootstock-bitcoin':
+				return { type: 'address', chainId: isMainnet ? 30 : 31, address };
+			case 'usdt-bsc':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 56 : 97, address };
+			case 'lightning-bitcoin':
+				return { type: 'invoice', network: 'lightning', invoice: address };
+			case 'bitcoin':
+				return { type: 'invoice', network: 'onchain', invoice: address };
+			default:
+				return null;
+		}
+	}
+
+	let availableRoutes = $derived.by(() => {
+		const sourceWallet = toSourceWallet(formInput.selectedSource);
+		const dest = toDestination(
+			parsedPayment.detectedNetwork,
+			parsedPayment.data?.address || formInput.addressInput.trim()
+		);
+		if (!dest) return [];
+		return resolveRoute(sourceWallet, dest);
+	});
+
+	$effect(() => {
+		const routes = availableRoutes;
+		if (routes.length > 0) {
+			if (!routes.find((r) => r.id === selectedRouteId)) selectedRouteId = routes[0].id;
+		} else {
+			selectedRouteId = '';
+		}
+	});
 
 	// Derived values
 	const amountInSats = $derived.by(() => {
@@ -862,8 +921,28 @@
 		sendState.pendingTxHash = null;
 		sendState.pendingSwapId = null;
 		sendState.isSending = false;
+		
+		const dest = toDestination(
+			parsedPayment.detectedNetwork,
+			parsedPayment.data?.address || formInput.addressInput.trim()
+		);
+		const selectedRoute = availableRoutes.find((r) => r.id === selectedRouteId);
 
 		try {
+			if (selectedRoute && selectedRoute.hops.length > 1 && dest) {
+				sendState.pendingSwapChain = { phase: 'IDLE' } as SwapChainState;
+				const result = await startSwapChain(
+					selectedRoute,
+					toSourceWallet(formInput.selectedSource),
+					dest,
+					String(amountInSats)
+				);
+				const status = getSwapChainStatus(result);
+				if (status.isComplete) return;
+				if (status.isPartial || status.isFailed) throw new Error('Swap chain failed');
+				return;
+			}
+
 			let txHash: string | null = null;
 
 			if (network === 'lightning-bitcoin') {
@@ -1269,6 +1348,89 @@
 				<!-- Mobile Step 1: Address Input and Amount Input -->
 				<div class="block space-y-2 sm:hidden">
 					{#if uiState.currentStep === 1}
+						<!-- Source Wallet Accordion -->
+						<div class="form-control">
+							<div
+								class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+								class:collapse-open={uiState.sourceExpanded}
+							>
+								<button
+									type="button"
+									class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+									onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
+								>
+									<span class="text-base-content/60">{$t('wallet.from')}:</span>
+									{#if formInput.selectedSource === 'rootstock-bitcoin'}
+										<img
+											src="/images/chains/Bitcoin-Rootstock-logo.webp"
+											alt="rBTC"
+											class="h-5 w-5"
+										/>
+										<span>{$t('wallet.rbtc')}</span>
+										<span class="mr-6 ml-auto text-xs"
+											>{formatSats($walletStore.totalBalances.sats)} Sats</span
+										>
+									{:else}
+										<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+										<span>USD</span>
+										<span class="mr-6 ml-auto text-xs"
+											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+												? '$' +
+													parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString(
+														'en-US',
+														{ minimumFractionDigits: 2, maximumFractionDigits: 2 }
+													)
+												: '$0.00'}</span
+										>
+									{/if}
+								</button>
+								<div class="collapse-content px-2">
+									<div class="space-y-1">
+										<button
+											type="button"
+											class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+											'rootstock-bitcoin'
+												? 'bg-primary/10'
+												: ''}"
+											onclick={() => {
+												formInput.selectedSource = 'rootstock-bitcoin';
+												uiState.sourceExpanded = false;
+											}}
+										>
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt="rBTC"
+												class="h-5 w-5"
+											/>
+											<span>{$t('wallet.rbtc')}</span>
+											<span class="ml-auto text-xs opacity-70"
+												>{formatSats($walletStore.totalBalances.sats)} Sats</span
+											>
+										</button>
+										<button
+											type="button"
+											class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 pt-2 pb-0 transition-colors {formInput.selectedSource ===
+											'usdt-bsc'
+												? 'bg-primary/10'
+												: ''}"
+											onclick={() => {
+												formInput.selectedSource = 'usdt-bsc';
+												uiState.sourceExpanded = false;
+											}}
+										>
+											<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+											<span>USD</span>
+											<span class="ml-auto text-xs opacity-70"
+												>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+													? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+													: '$0.00'}</span
+											>
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+
 						<!-- Address Input -->
 						<div class="form-control">
 							<div class="relative">
@@ -1355,6 +1517,14 @@
 								{/if}
 							</div>
 						</div>
+
+						{#if availableRoutes.length > 0 && parsedPayment.detectedNetwork}
+							<RoutePicker
+								routes={availableRoutes}
+								{selectedRouteId}
+								onSelect={(id) => (selectedRouteId = id)}
+							/>
+						{/if}
 
 						<!-- Amount Field (Mobile Step 1) -->
 						<div class="form-control">
@@ -1626,6 +1796,89 @@
 
 				<!-- Desktop: Always show all fields -->
 				<div class="hidden space-y-3 sm:block sm:space-y-4">
+					<!-- Source Wallet Accordion (Desktop) -->
+					<div class="form-control">
+						<div
+							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+							class:collapse-open={uiState.sourceExpanded}
+						>
+							<button
+								type="button"
+								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+								onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
+							>
+								<span class="text-base-content/60">{$t('wallet.from')}:</span>
+								{#if formInput.selectedSource === 'rootstock-bitcoin'}
+									<img
+										src="/images/chains/Bitcoin-Rootstock-logo.webp"
+										alt="rBTC"
+										class="h-5 w-5"
+									/>
+									<span>{$t('wallet.rbtc')}</span>
+									<span class="mr-6 ml-auto text-xs"
+										>{formatSats($walletStore.totalBalances.sats)} Sats</span
+									>
+								{:else}
+									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+									<span>USD</span>
+									<span class="mr-6 ml-auto text-xs"
+										>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+											? '$' +
+												parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 2
+												})
+											: '$0.00'}</span
+									>
+								{/if}
+							</button>
+							<div class="collapse-content px-2">
+								<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										'rootstock-bitcoin'
+											? 'bg-primary/10'
+											: ''}"
+										onclick={() => {
+											formInput.selectedSource = 'rootstock-bitcoin';
+											uiState.sourceExpanded = false;
+										}}
+									>
+										<img
+											src="/images/chains/Bitcoin-Rootstock-logo.webp"
+											alt="rBTC"
+											class="h-5 w-5"
+										/>
+										<span>{$t('wallet.rbtc')}</span>
+										<span class="ml-auto text-xs opacity-70"
+											>{formatSats($walletStore.totalBalances.sats)} Sats</span
+										>
+									</button>
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										'usdt-bsc'
+											? 'bg-primary/10'
+											: ''}"
+										onclick={() => {
+											formInput.selectedSource = 'usdt-bsc';
+											uiState.sourceExpanded = false;
+										}}
+									>
+										<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+										<span>USD</span>
+										<span class="ml-auto text-xs opacity-70"
+											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+												? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+												: '$0.00'}</span
+										>
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+
 					<!-- Address Input -->
 					<div class="form-control">
 						<div class="relative">
@@ -1756,6 +2009,14 @@
 								{$t('wallet.send.network_not_available')}
 							</div>
 						{/if}
+					{/if}
+
+					{#if availableRoutes.length > 0 && parsedPayment.detectedNetwork}
+						<RoutePicker
+							routes={availableRoutes}
+							{selectedRouteId}
+							onSelect={(id) => (selectedRouteId = id)}
+						/>
 					{/if}
 
 					<!-- Amount Field -->

@@ -288,7 +288,7 @@
 				</div>
 			</button>
 			<div class="collapse-content">
-				<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
+				<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
 					<!-- L2 BTC Entry with Lightning Bolt Icon -->
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-1.5 sm:gap-2">
@@ -355,7 +355,7 @@
 
 		<!-- USD Accordion -->
 		<div
-			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2 opacity-50"
+			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 			class:collapse-open={usdExpanded}
 		>
 			<button
@@ -374,24 +374,34 @@
 					<span class="text-base-content/70">{$t('wallet.usd')}</span>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
-					<div class="text-base-content/70 text-sm font-semibold sm:text-base">
-						{$t('wallet.coming_soon')}
-					</div>
+					{#if isLoading || isRefreshing}
+						<div class="text-sm font-semibold sm:text-base">
+							<span class="loading loading-spinner loading-sm"></span>
+						</div>
+					{:else if balancesHidden}
+						<div class="text-sm font-semibold sm:text-base">$••••</div>
+					{:else if usdtAsset}
+						<div class="text-sm font-semibold sm:text-base">${usdtAsset.usdValue.toFixed(2)}</div>
+					{:else if $walletStore.bsc.formattedUsdtBalance}
+						<div class="text-sm font-semibold sm:text-base">
+							${parseFloat($walletStore.bsc.formattedUsdtBalance).toFixed(2)}
+						</div>
+					{:else}
+						<div class="text-base-content/70 text-sm font-semibold sm:text-base">$0.00</div>
+					{/if}
 				</div>
 			</button>
 			<div class="collapse-content">
-				<div class="space-y-1.5 px-2 pb-1.5 sm:space-y-2 sm:pb-2">
-					<!-- USDT (Binance Chain) - show actual balance if available -->
+				<div class="space-y-1.5 px-2 sm:space-y-2">
+					<!-- USDT (Binance Chain) -->
 					<div class="flex items-center gap-1.5 sm:gap-2">
 						<img
 							src="/images/chains/Binance-logo.svg"
 							alt="USDT (Binance Chain)"
-							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
+							class="h-4 w-4 sm:h-5 sm:w-5"
 						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base"
-							>{$t('wallet.usdt_binance_chain')}</span
-						>
-						<div class="text-base-content/50 ml-auto text-xs">
+						<span class="text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span>
+						<div class="text-base-content/70 ml-auto text-xs">
 							{#if balancesHidden}
 								$••••
 							{:else if usdtAsset}
@@ -400,31 +410,6 @@
 								${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
 							{/if}
 						</div>
-					</div>
-
-					<!-- USDT (Liquid) - Coming Soon -->
-					<div class="flex items-center gap-1.5 sm:gap-2">
-						<img
-							src="/images/chains/Tether-USD.svg"
-							alt="USDT"
-							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base"
-							>{$t('wallet.usdt_liquid')}</span
-						>
-						<div class="text-base-content/50 ml-auto text-xs">
-							{#if balancesHidden}
-								$••••
-							{:else}
-								$0.00
-							{/if}
-						</div>
-					</div>
-
-					<div class="mt-2 text-center sm:mt-4">
-						<p class="text-base-content/50 text-sm font-bold sm:text-base">
-							{$t('wallet.coming_soon')}
-						</p>
 					</div>
 				</div>
 			</div>

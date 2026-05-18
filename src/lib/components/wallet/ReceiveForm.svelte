@@ -9,7 +9,7 @@
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
 	let selectedNetwork = $state<string>('lightning-bitcoin');
 	let errorMessage = $state<string | null>(null);
-	let generatedAddress = $state<string | null>(null);
+	let _generatedAddress = $state<string | null>(null);
 	let dropdownKey = $state(0);
 
 	// Asset options (Bitcoin and USD)
@@ -60,14 +60,7 @@
 				}
 			];
 		} else {
-			return [
-				{
-					value: 'liquid-usdt',
-					label: $t('wallet.receive_form.networks.liquid_usdt.label'),
-					description: $t('wallet.receive_form.networks.liquid_usdt.description'),
-					icon: '/images/chains/Tether-USD.svg'
-				}
-			];
+			return [];
 		}
 	});
 
@@ -83,7 +76,7 @@
 			selectedNetwork = networks[0].value;
 		}
 		// Reset form state when network changes
-		generatedAddress = null;
+		_generatedAddress = null;
 		errorMessage = null;
 	});
 
@@ -91,7 +84,7 @@
 		dropdownKey++;
 	}
 
-	let availableBalance = $derived(() => {
+	let _availableBalance = $derived(() => {
 		const rskAssets = $allAssets.filter((asset) => asset.network === 'RSK');
 		return rskAssets.length > 0 ? rskAssets[0].formattedBalance : '0.00';
 	});
@@ -123,7 +116,7 @@
 			<span class="label-text font-medium">{$t('wallet.receive_form.select_asset')}</span>
 		</label>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-			{#each assetOptions as asset}
+			{#each assetOptions as asset (asset.value)}
 				<label class="cursor-pointer">
 					<input
 						type="radio"
@@ -142,7 +135,11 @@
 						<div class="card-body p-4">
 							<div class="flex items-center gap-3">
 								{#if asset.icon.startsWith('/')}
-									<img src={asset.icon} alt={$t('wallet.receive_form.asset_icon')} class="h-8 w-8" />
+									<img
+										src={asset.icon}
+										alt={$t('wallet.receive_form.asset_icon')}
+										class="h-8 w-8"
+									/>
 								{:else}
 									<span class="text-2xl">{asset.icon}</span>
 								{/if}
@@ -234,7 +231,7 @@
 						</svg>
 					</div>
 					<ul class="dropdown-content menu bg-base-100 rounded-box w-full p-2 shadow">
-						{#each networkOptions() as network}
+						{#each networkOptions() as network (network.value)}
 							<li>
 								<button
 									class="flex w-full items-center justify-start gap-2"
