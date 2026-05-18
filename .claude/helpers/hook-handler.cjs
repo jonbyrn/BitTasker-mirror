@@ -15,8 +15,80 @@
 
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 
 const helpersDir = __dirname;
+
+/**
+ * Fire-and-forget Ruflo CLI dispatch.
+ * Runs `npx @claude-flow/cli hooks <subcommand>` in the background
+ * with a short timeout. Never blocks the hook return. Failures are silent.
+ *
+ * Maps local hook commands to their Ruflo equivalents:
+ *   route        → hooks route -t "<prompt>"
+ *   pre-bash     → hooks pre-command -c "<cmd>" --dry-run
+ *   post-edit    → hooks post-edit -f "<file>" --success true
+ *   session-restore → hooks session-restore
+ *   session-end  → hooks session-end
+ *   pre-task     → hooks pre-task -d "<desc>"
+ *   post-task    → hooks post-task --success true
+ */
+function spawnRuflo(localCommand, context) {
+  try {
+    const args = ['@claude-flow/cli', 'hooks'];
+    const timeoutMs = 4000;
+
+    switch (localCommand) {
+      case 'route':
+        if (context.prompt) args.push('route', '-t', context.prompt.substring(0, 500));
+        else args.push('route', '-t', 'task');
+        break;
+      case 'pre-bash': {
+        const cmd = (context.command || '').substring(0, 300);
+        args.push('pre-command', '-c', cmd || 'shell command', '--dry-run');
+        break;
+      }
+      case 'post-edit': {
+        const file = context.file_path || '';
+        if (file) args.push('post-edit', '-f', file, '--success', 'true');
+        else args.push('post-edit', '-f', 'unknown', '--success', 'true');
+        break;
+      }
+      case 'post-bash': {
+        const cmd = (context.command || '').substring(0, 300);
+        args.push('post-command', '-c', cmd || 'shell command', '--success', 'true');
+        break;
+      }
+      case 'session-restore':
+        args.push('session-restore');
+        break;
+      case 'session-end':
+        args.push('session-end');
+        break;
+      case 'pre-task':
+        if (context.prompt) args.push('pre-task', '-d', context.prompt.substring(0, 500));
+        else args.push('pre-task', '-d', 'task');
+        break;
+      case 'post-task':
+        args.push('post-task', '--success', 'true');
+        break;
+      default:
+        return; // Unknown command — don't dispatch
+    }
+
+    const child = spawn('npx', args, {
+      cwd: process.env.CLAUDE_PROJECT_DIR || process.cwd(),
+      stdio: 'ignore',
+      detached: true,
+      timeout: timeoutMs,
+    });
+
+    child.on('error', () => { /* silent — CLI unavailable */ });
+    child.unref();
+  } catch (_) {
+    // Non-fatal — hook must never crash Claude Code
+  }
+}
 
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
@@ -84,6 +156,9 @@ async function main() {
 
 const handlers = {
   'route': () => {
+    // Fire-and-forget Ruflo intelligence routing (async, non-blocking)
+    spawnRuflo('route', { prompt });
+
     // Inject ranked intelligence context before routing
     if (intelligence && intelligence.getContext) {
       try {
@@ -134,6 +209,9 @@ const handlers = {
   },
 
   'pre-bash': () => {
+    // Fire-and-forget Ruflo command risk assessment
+    spawnRuflo('pre-bash', { command: hookInput.command || prompt });
+
     // Basic command safety check — prefer stdin command data from Claude Code
     const cmd = (hookInput.command || prompt).toLowerCase();
     const dangerous = ['rm -rf /', 'format c:', 'del /s /q c:\\', ':(){:|:&};:'];
@@ -147,6 +225,11 @@ const handlers = {
   },
 
   'post-edit': () => {
+    // Fire-and-forget Ruflo edit outcome recording
+    const file = hookInput.file_path || (hookInput.toolInput && hookInput.toolInput.file_path)
+      || process.env.TOOL_INPUT_file_path || args[0] || '';
+    spawnRuflo('post-edit', { file_path: file });
+
     // Record edit for session metrics
     if (session && session.metric) {
       try { session.metric('edits'); } catch (e) { /* no active session */ }
@@ -163,6 +246,9 @@ const handlers = {
   },
 
   'session-restore': () => {
+    // Fire-and-forget Ruflo session restore
+    spawnRuflo('session-restore', {});
+
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();
@@ -198,6 +284,9 @@ const handlers = {
   },
 
   'session-end': () => {
+    // Fire-and-forget Ruflo session end
+    spawnRuflo('session-end', {});
+
     // Consolidate intelligence before ending session
     if (intelligence && intelligence.consolidate) {
       try {
@@ -215,6 +304,9 @@ const handlers = {
   },
 
   'pre-task': () => {
+    // Fire-and-forget Ruflo task start
+    spawnRuflo('pre-task', { prompt });
+
     if (session && session.metric) {
       try { session.metric('tasks'); } catch (e) { /* no active session */ }
     }
@@ -228,6 +320,9 @@ const handlers = {
   },
 
   'post-task': () => {
+    // Fire-and-forget Ruflo task completion
+    spawnRuflo('post-task', {});
+
     // Implicit success feedback for intelligence
     if (intelligence && intelligence.feedback) {
       try {
@@ -235,6 +330,12 @@ const handlers = {
       } catch (e) { /* non-fatal */ }
     }
     console.log('[OK] Task completed');
+  },
+
+  'post-bash': () => {
+    // Fire-and-forget Ruflo command outcome recording
+    spawnRuflo('post-bash', { command: hookInput.command || prompt });
+    console.log('[OK] Command recorded');
   },
 
   'stats': () => {
@@ -258,7 +359,7 @@ const handlers = {
     // Unknown command - pass through without error
     console.log(`[OK] Hook: ${command}`);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-bash|post-bash|post-edit|session-restore|session-end|pre-task|post-task|stats>');
   }
 }
 
