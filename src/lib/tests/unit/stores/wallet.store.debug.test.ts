@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { walletStore, walletManager } from '$lib/stores/wallet.store';
+import type { GasMode, DelegationState } from '$lib/types/wallet';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -160,7 +161,12 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
 			activeNetwork: 'rsk',
-			selectedAsset: 'rBTC'
+			selectedAsset: 'rBTC',
+			activeChain: 'rsk',
+			gasMode: 'USDT_GAS' as GasMode,
+			delegationState: 'IDLE' as DelegationState,
+			pendingTransactions: new Map<number, string>(),
+			chainLock: false
 		});
 	});
 
