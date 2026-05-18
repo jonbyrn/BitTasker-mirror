@@ -34,7 +34,7 @@
 	});
 
 	onMount(async () => {
-		if (initialPendingReviews !== undefined && initialPendingReviews.length > 0) {
+		if (initialPendingReviews !== undefined) {
 			return;
 		}
 

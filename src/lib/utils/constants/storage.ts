@@ -41,7 +41,10 @@ export const StorageKeys = {
 	TRANSLATION_MSG_CACHE: 'bittasker_translation_msg_cache',
 
 	// Deep link
-	DEEP_LINK: 'bt_deeplink'
+	DEEP_LINK: 'bt_deeplink',
+
+	// Reviews
+	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed'
 } as const;
 
 // Type to get autocomplete for storage keys
