@@ -130,6 +130,15 @@ VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://reviews-attestation-backend-dev.scott-0e4.workers.dev"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
+# Changelly proxy API keys for local dev (set as secrets for prod):
+#   wrangler secret put CHANGELLY_API_KEY
+#   wrangler secret put CHANGELLY_API_SECRET
+#   wrangler secret put CHANGELLY_FIAT_API_KEY
+#   wrangler secret put CHANGELLY_FIAT_API_SECRET
+CHANGELLY_API_KEY = "dev-placeholder"
+CHANGELLY_API_SECRET = "dev-placeholder"
+CHANGELLY_FIAT_API_KEY = "dev-placeholder"
+CHANGELLY_FIAT_API_SECRET = "dev-placeholder"
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================
@@ -170,6 +179,7 @@ VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
+# Changelly API keys set as Dashboard secrets: CHANGELLY_API_KEY, CHANGELLY_API_SECRET, CHANGELLY_FIAT_API_KEY, CHANGELLY_FIAT_API_SECRET
 
 # ============================================
 # PRODUCTION Environment
@@ -242,6 +252,7 @@ VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://review-attestation.bittasker.com"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
+# Changelly API keys set as Dashboard secrets: CHANGELLY_API_KEY, CHANGELLY_API_SECRET, CHANGELLY_FIAT_API_KEY, CHANGELLY_FIAT_API_SECRET
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================

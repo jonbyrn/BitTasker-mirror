@@ -19,6 +19,8 @@
 
 import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
+import { handleChangellyRoute } from './handlers/changelly.js';
+import { handleChangellyFiatRoute } from './handlers/changelly-fiat.js';
 
 /**
  * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
@@ -74,6 +76,16 @@ export default {
 
 		if (pathname.startsWith('/api/explorer/')) {
 			return handleExplorerRoute(request);
+		}
+		
+		// Changelly swap API proxy
+		if (pathname.startsWith('/api/changelly/swap/')) {
+			return handleChangellyRoute(request, env);
+		}
+
+		// Changelly fiat API proxy
+		if (pathname.startsWith('/api/changelly/fiat/')) {
+			return handleChangellyFiatRoute(request, env);
 		}
 
 		// Future images endpoint
