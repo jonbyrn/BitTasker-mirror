@@ -85,7 +85,7 @@ describe('getPendingReviewCount', () => {
 		mockFetchNdkPaymentContractsForUser.mockResolvedValue([]);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect(await getPendingReviewCount()).toEqual({ count: 0, contractIds: [] });
 	});
 
 	it('returns 0 when user has no pending-pubkey', async () => {
@@ -93,7 +93,7 @@ describe('getPendingReviewCount', () => {
 		mockFetchNdkPaymentContractsForUser.mockResolvedValue([makeContract('c1')]);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect(await getPendingReviewCount()).toEqual({ count: 0, contractIds: [] });
 	});
 
 	it('returns 0 when all contracts have been reviewed (dual e-tag format)', async () => {
@@ -117,7 +117,7 @@ describe('getPendingReviewCount', () => {
 		mockFetchLatestStatusFromNostr.mockResolvedValue(statusMap([]));
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect(await getPendingReviewCount()).toEqual({ count: 0, contractIds: [] });
 		expect(mockFetchLatestStatusFromNostr).not.toHaveBeenCalled();
 	});
 
@@ -133,7 +133,7 @@ describe('getPendingReviewCount', () => {
 		);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(1);
+		expect((await getPendingReviewCount()).count).toBe(1);
 	});
 
 	it('does not count contracts in non-reviewable status', async () => {
@@ -147,7 +147,7 @@ describe('getPendingReviewCount', () => {
 		);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect((await getPendingReviewCount()).count).toBe(0);
 	});
 
 	it('does not count contracts with no Kind 31006 status event', async () => {
@@ -159,7 +159,7 @@ describe('getPendingReviewCount', () => {
 		mockFetchLatestStatusFromNostr.mockResolvedValue(statusMap([]));
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect((await getPendingReviewCount()).count).toBe(0);
 	});
 
 	it('handles mix of reviewed and unreviewed contracts correctly', async () => {
@@ -186,7 +186,7 @@ describe('getPendingReviewCount', () => {
 		);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		const count = await getPendingReviewCount();
+		const { count } = await getPendingReviewCount();
 
 		expect(count).toBe(1);
 		// Status was only queried for the unreviewed contract, not the reviewed one
@@ -212,7 +212,7 @@ describe('getPendingReviewCount', () => {
 		);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(1); // still pending because WE haven't reviewed
+		expect((await getPendingReviewCount()).count).toBe(1); // still pending because WE haven't reviewed
 	});
 
 	it('handles old single-e-tag attestations gracefully (no crash, falls through to status check)', async () => {
@@ -238,7 +238,7 @@ describe('getPendingReviewCount', () => {
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
 		// Old format: counted as pending (acceptable — old attestation cannot be linked)
-		expect(await getPendingReviewCount()).toBe(1);
+		expect((await getPendingReviewCount()).count).toBe(1);
 	});
 
 	it('counts all three reviewable statuses (FundsReleased=7, FundsClaimed=8, DisputeResolved=2)', async () => {
@@ -265,7 +265,7 @@ describe('getPendingReviewCount', () => {
 		);
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(3);
+		expect((await getPendingReviewCount()).count).toBe(3);
 	});
 
 	it('skips malformed attestation content without throwing', async () => {
@@ -289,13 +289,13 @@ describe('getPendingReviewCount', () => {
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
 		// Malformed attestation is skipped, contract remains unreviewed, count = 1
-		expect(await getPendingReviewCount()).toBe(1);
+		expect((await getPendingReviewCount()).count).toBe(1);
 	});
 
 	it('returns 0 when an unexpected error is thrown', async () => {
 		mockGetNpub.mockRejectedValue(new Error('auth failure'));
 
 		const { getPendingReviewCount } = await import('$lib/utils/reviews/helpers');
-		expect(await getPendingReviewCount()).toBe(0);
+		expect((await getPendingReviewCount()).count).toBe(0);
 	});
 });

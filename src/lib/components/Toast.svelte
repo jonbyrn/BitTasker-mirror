@@ -9,7 +9,7 @@
 </script>
 
 <div
-	class="toast-container pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col items-center gap-3"
+	class="toast-container pointer-events-none fixed inset-x-0 bottom-0 z-200 flex flex-col items-center gap-3"
 	style="padding-bottom: calc(var(--app-footer-height, 0px) + 1.25rem);"
 >
 	{#each $appStore.toasts as toast (toast.id)}
@@ -21,7 +21,7 @@
 		>
 			{#if isBanner}
 				<div
-					class="bg-base-100 border-base-300 relative rounded-xl border p-4 shadow-lg ring-1 ring-black/5"
+					class="bg-base-100 border-primary/20 shadow-primary/10 relative rounded-xl border p-4 shadow-lg ring-1 ring-black/5"
 				>
 					<!-- Close button — top right -->
 					{#if toast.dismissible !== false}

@@ -24,6 +24,8 @@ import { StorageKeys } from '../constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from '$lib/stores/app.store';
+import { t } from 'svelte-i18n';
+import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('reviews:helpers');
@@ -128,15 +130,15 @@ async function fetchUserContracts(): Promise<IContractForReview[]> {
  * which is never in our contractIds set. We must check ALL e tags and
  * intersect with the known contract ID set.
  */
-export async function getPendingReviewCount(): Promise<number> {
+export async function getPendingReviewCount(): Promise<{ count: number; contractIds: string[] }> {
 	try {
 		const currentUserPubkey = await getNpub();
 		d.log('getPendingReviewCount: Current user pubkey:', currentUserPubkey?.slice(0, 16));
-		if (!currentUserPubkey) return 0;
+		if (!currentUserPubkey) return { count: 0, contractIds: [] };
 
 		// 1. Fetch user's contracts (Kind 30006)
 		const ndkContracts = await fetchNdkPaymentContractsForUser(100);
-		if (ndkContracts.length === 0) return 0;
+		if (ndkContracts.length === 0) return { count: 0, contractIds: [] };
 
 		const contractIds = ndkContracts.map((c) => c.id).filter(Boolean);
 		const contractIdSet = new Set(contractIds);
@@ -174,13 +176,17 @@ export async function getPendingReviewCount(): Promise<number> {
 		//    Only count those in a terminal reviewable state (FundsReleased, FundsClaimed,
 		//    DisputeResolved).
 		const unreviewedIds = contractIds.filter((id) => !reviewedContractIds.has(id));
-		if (unreviewedIds.length === 0) return 0;
+		if (unreviewedIds.length === 0) return { count: 0, contractIds: [] };
 
 		const statusMap = await fetchLatestStatusFromNostr(unreviewedIds);
 
 		let count = 0;
-		for (const [, status] of statusMap) {
-			if (isReviewableStatus(status)) count++;
+		const reviewableIds: string[] = [];
+		for (const [contractId, status] of statusMap) {
+			if (isReviewableStatus(status)) {
+				count++;
+				reviewableIds.push(contractId);
+			}
 		}
 
 		d.log(
@@ -189,10 +195,10 @@ export async function getPendingReviewCount(): Promise<number> {
 			reviewedContractIds.size,
 			unreviewedIds.length
 		);
-		return count;
+		return { count, contractIds: reviewableIds };
 	} catch (err) {
 		d.error('getPendingReviewCount: failed', err);
-		return 0;
+		return { count: 0, contractIds: [] };
 	}
 }
 
@@ -275,27 +281,53 @@ export async function getPendingReviewsCount(contracts: IContractForReview[]): P
 // ── Banner trigger ───────────────────────────────────
 
 interface BannerDismissState {
-	count: number;
+	/** Sorted, comma-joined reviewable contract event IDs at time of dismissal */
+	contractIds: string;
+	/** Epoch ms when the current 24h dismissal window expires */
 	until: number;
+	/** Number of times the user has dismissed this set of reviews (0–3) */
+	dismissCount: number;
 }
 
-async function wasBannerDismissed(currentCount: number): Promise<boolean> {
+async function wasBannerDismissed(currentContractIds: string[]): Promise<boolean> {
 	try {
 		const raw = await Preferences.get({ key: StorageKeys.PENDING_REVIEW_BANNER_DISMISSED });
 		if (!raw.value) return false;
 		const state: BannerDismissState = JSON.parse(raw.value);
+		const currentIds = [...currentContractIds].sort().join(',');
+		// Different set of reviews → not dismissed
+		if (currentIds !== state.contractIds) return false;
+		// 3 strikes used for this set → permanently dismissed
+		if (state.dismissCount >= 3) return true;
+		// 24h window expired → show again
 		if (Date.now() > state.until) return false;
-		if (currentCount > state.count) return false;
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-async function updateDismissState(count: number) {
+async function updateDismissState(contractIds: string[]) {
+	const currentIds = [...contractIds].sort().join(',');
+	let dismissCount = 1;
+
+	// If dismissing the same set of reviews, increment the counter (up to 3)
+	try {
+		const raw = await Preferences.get({ key: StorageKeys.PENDING_REVIEW_BANNER_DISMISSED });
+		if (raw.value) {
+			const prev: BannerDismissState = JSON.parse(raw.value);
+			if (prev.contractIds === currentIds) {
+				dismissCount = Math.min(prev.dismissCount + 1, 3);
+			}
+		}
+	} catch {
+		/* corrupt state — start fresh */
+	}
+
 	const state: BannerDismissState = {
-		count,
-		until: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+		contractIds: currentIds,
+		until: Date.now() + 24 * 60 * 60 * 1000,
+		dismissCount
 	};
 	await Preferences.set({
 		key: StorageKeys.PENDING_REVIEW_BANNER_DISMISSED,
@@ -305,8 +337,9 @@ async function updateDismissState(count: number) {
 
 /**
  * Checks pending review count and shows a banner toast if needed.
- * Deduplication ensures only one banner exists at a time (per count).
- * Dismissal is remembered in Preferences and reset when count changes.
+ * Deduplication ensures only one banner exists at a time (per set of reviewable contracts).
+ * Dismissal is remembered in Preferences for 24h, repeating up to 3 times
+ * before becoming permanent for that set of reviews.
  * Returns the toast id, or null if no banner was shown.
  */
 export async function triggerPendingReviewBanner(
@@ -314,15 +347,20 @@ export async function triggerPendingReviewBanner(
 	dismissLabel: string
 ): Promise<number | null> {
 	try {
-		const count = await getPendingReviewCount();
-		if (count <= 0 || (await wasBannerDismissed(count))) return null;
+		const { count, contractIds } = await getPendingReviewCount();
+		if (count <= 0 || (await wasBannerDismissed(contractIds))) return null;
 
+		const i18nKey =
+			count === 1 ? 'reviews.pending.banner_count_one' : 'reviews.pending.banner_count_other';
 		const message =
-			count === 1 ? `You have ${count} pending review` : `You have ${count} pending reviews`;
+			get(t)(i18nKey, { values: { count } }) ||
+			(count === 1 ? `You have ${count} pending review` : `You have ${count} pending reviews`);
 
-		const dedupKey = `pending-review-banner-${count}`;
+		const dedupKey = `pending-review-banner-${[...contractIds].sort().join(',')}`;
 
-		return appStore.showBanner({
+		let toastId: number | null = null;
+
+		toastId = appStore.showBanner({
 			message,
 			dedupKey,
 			actions: [
@@ -333,13 +371,18 @@ export async function triggerPendingReviewBanner(
 				},
 				{
 					label: dismissLabel,
-					onClick: () => updateDismissState(count),
+					onClick: () => {
+						updateDismissState(contractIds);
+						if (toastId !== null) appStore.dismissBanner(toastId);
+					},
 					variant: 'ghost'
 				}
 			],
-			dismissible: true,
+			dismissible: false,
 			duration: 0
 		});
+
+		return toastId;
 	} catch {
 		return null;
 	}
