@@ -669,6 +669,12 @@
 				}
 				case 'rootstock-bitcoin': {
 					feeState.swapLimits = null;
+					// USDT-BSC source: swap handles delivery, no RSK gas needed
+					if (formInput.selectedSource === 'usdt-bsc') {
+						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
+						break;
+					}
+
 					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 						const networkFee = 3000; // Fallback
 						feeState.estimated = {
@@ -710,9 +716,14 @@
 					break;
 				}
 				case 'usdt-bsc': {
-					// C1: Conservative BSC gas estimate since paymaster handles gas abstraction
-					const networkFee = 3000;
-					feeState.estimated = { serviceFee: 0, networkFee, totalFees: networkFee };
+					// Network fee depends on source wallet
+					if (formInput.selectedSource === 'rootstock-bitcoin') {
+						// rBTC source: only RSK gas to send the source asset (~100 sats)
+						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
+					} else {
+						// USDT-BSC source: BSC gas handled by paymaster
+						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
+					}
 					break;
 				}
 				default:
