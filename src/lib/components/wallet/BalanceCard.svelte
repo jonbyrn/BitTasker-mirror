@@ -359,7 +359,7 @@
 						alt="USD"
 						class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
 					/>
-					<span class="text-base-content/70">{$t('wallet.usd')}</span>
+					<span>{$t('wallet.usd')}</span>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
 					{#if isLoading || isRefreshing}
@@ -375,7 +375,7 @@
 							${parseFloat($walletStore.bsc.formattedUsdtBalance).toFixed(2)}
 						</div>
 					{:else}
-						<div class="text-base-content/70 text-sm font-semibold sm:text-base">$0.00</div>
+						<div class="text-sm font-semibold sm:text-base">$0.00</div>
 					{/if}
 				</div>
 			</button>
@@ -389,7 +389,7 @@
 							class="h-4 w-4 sm:h-5 sm:w-5"
 						/>
 						<span class="text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span>
-						<div class="text-base-content/70 ml-auto text-xs">
+						<div class="ml-auto text-sm font-semibold sm:text-base">
 							{#if balancesHidden}
 								$••••
 							{:else if usdtAsset}
