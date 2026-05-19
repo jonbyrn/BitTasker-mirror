@@ -21,6 +21,8 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
+	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
+	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 
 	let isLoading = $state(false);
 
@@ -51,6 +53,8 @@
 	// Modal state for new UX
 	let showReceiveModal = $state(false);
 	let showSendModal = $state(false);
+	let showBuySell = $state(false);
+	let showSwap = $state(false);
 	let showTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
@@ -164,13 +168,31 @@
 			closeBankingMenu();
 			showReceiveModal = true;
 		}
+		function handleBuy() {
+			closeBankingMenu();
+			showBuySell = true;
+		}
+		function handleSell() {
+			closeBankingMenu();
+			showBuySell = true;
+		}
+		function handleSwap() {
+			closeBankingMenu();
+			showSwap = true;
+		}
 
 		el.addEventListener('banking:send', handleSend);
 		el.addEventListener('banking:receive', handleReceive);
+		el.addEventListener('banking:buy', handleBuy);
+		el.addEventListener('banking:sell', handleSell);
+		el.addEventListener('banking:swap', handleSwap);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
 			el.removeEventListener('banking:receive', handleReceive);
+			el.removeEventListener('banking:buy', handleBuy);
+			el.removeEventListener('banking:sell', handleSell);
+			el.removeEventListener('banking:swap', handleSwap);
 		};
 	});
 </script>
@@ -401,6 +423,30 @@
 
 <!-- Banking Menu Modal -->
 <BankingMenu onclose={closeBankingMenu} />
+
+<!-- Buy/Sell Modal -->
+{#if showBuySell}
+	<dialog class="modal modal-open">
+		<div class="modal-box max-w-md p-0">
+			<BuySellForm />
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => (showBuySell = false)}>close</button>
+		</form>
+	</dialog>
+{/if}
+
+<!-- Swap Modal -->
+{#if showSwap}
+	<dialog class="modal modal-open">
+		<div class="modal-box max-w-md p-0">
+			<SwapForm />
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => (showSwap = false)}>close</button>
+		</form>
+	</dialog>
+{/if}
 
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>
