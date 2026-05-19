@@ -732,13 +732,29 @@
 					break;
 				}
 				case 'bitcoin': {
-					// Providers (LI.FI, Symbiosis) cover destination chain costs.
-					// Only source chain gas is paid by user.
+					// Providers cover destination chain costs. Source chain gas only.
 					if (formInput.selectedSource === 'usdt-bsc') {
 						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-					} else {
-						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
+						break;
 					}
+					// rBTC source: estimate RSK gas (same as rootstock-bitcoin case)
+					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+						feeState.estimated = { serviceFee: 0, networkFee: 3000, totalFees: 3000 };
+						break;
+					}
+					const btcAmountRBTC = (amountToUse / 100_000_000).toFixed(8);
+					const btcGasEstimation = await walletManager.estimateRBTCGas(
+						$walletStore.rsk.address,
+						btcAmountRBTC
+					);
+					const btcNetworkFee = Math.floor(
+						parseFloat(btcGasEstimation.totalCostFormatted) * 100_000_000
+					);
+					feeState.estimated = {
+						serviceFee: 0,
+						networkFee: btcNetworkFee,
+						totalFees: btcNetworkFee
+					};
 					break;
 				}
 				default:
