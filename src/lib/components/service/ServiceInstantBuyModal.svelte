@@ -660,6 +660,9 @@
 								availableBalance={selectedSource === 'usdt'
 									? usdtBalanceUsd || usdtBalance || '$0.00'
 									: undefined}
+								iconSrc={selectedSource === 'usdt'
+									? '/images/chains/Tether-USD.svg'
+									: '/images/chains/Bitcoin.svg'}
 							/>
 
 							<!-- Pricing Card -->

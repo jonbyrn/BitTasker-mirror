@@ -23,7 +23,8 @@
 		verificationStatus = 'idle',
 		verificationMessage = '',
 		forceOpen = false,
-		availableBalance = undefined
+		availableBalance = undefined,
+		iconSrc = '/images/chains/Bitcoin.svg'
 	} = $props<{
 		title?: string;
 		iconAlt?: string;
@@ -46,6 +47,7 @@
 		verificationMessage?: string;
 		forceOpen?: boolean;
 		availableBalance?: string;
+		iconSrc?: string;
 	}>();
 
 	let expanded = $state(false);
@@ -108,11 +110,7 @@
 		onkeydown={(e) => e.key === 'Enter' && (expanded = !expanded)}
 	>
 		<div class="flex min-w-0 flex-1 items-center gap-2">
-			<img
-				src="/images/chains/Bitcoin.svg"
-				alt={resolvedIconAlt}
-				class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-			/>
+			<img src={iconSrc} alt={resolvedIconAlt} class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 			<div class="flex items-center gap-2 overflow-hidden">
 				<span class="truncate">{resolvedTitle}</span>
 				{#if onRefresh}
