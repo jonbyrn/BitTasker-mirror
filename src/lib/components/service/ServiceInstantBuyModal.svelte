@@ -548,13 +548,11 @@
 												class="h-5 w-5"
 											/>
 											<span>{$t('wallet.bitcoin')}</span>
-											<span class="mr-10 ml-auto text-xs opacity-70 sm:mr-12"
-												>{walletBalanceSats} Sats</span
-											>
+											<span class="mr-8 ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 										{:else}
 											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
 											<span>USDT (BSC)</span>
-											<span class="mr-10 ml-auto text-xs opacity-70 sm:mr-12"
+											<span class="mr-8 ml-auto text-xs opacity-70"
 												>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
 											>
 										{/if}
