@@ -54,36 +54,31 @@
 
 	const SUPPORTED_SEND_NETWORKS = new Set(['rootstock-bitcoin', 'lightning-bitcoin', 'usdt-bsc']);
 
-	const netwokrOption = {
+	const networkOption = {
 		'rootstock-bitcoin': {
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			name: $t('wallet.transaction.network.rootstock_bitcoin'),
-			confirmationTime: 30,
-			fallbackFee: 3000
+			confirmationTime: 30
 		},
 		'lightning-bitcoin': {
 			icon: '/images/chains/lightning.svg',
 			name: $t('wallet.networks.lightning'),
-			confirmationTime: 0,
-			fallbackFee: 4000
+			confirmationTime: 0
 		},
 		'liquid-bitcoin': {
 			icon: '/images/chains/Liquid-Bitcoin.svg',
 			name: $t('wallet.networks.liquid'),
-			confirmationTime: 60,
-			fallbackFee: 4000
+			confirmationTime: 60
 		},
 		bitcoin: {
 			icon: '/images/chains/Bitcoin.svg',
 			name: $t('wallet.networks.bitcoin'),
-			confirmationTime: 600,
-			fallbackFee: 4000
+			confirmationTime: 600
 		},
 		'usdt-bsc': {
 			icon: '/images/chains/Binance-logo.svg',
 			name: $t('wallet.transaction.network.binance_smart_chain'),
-			confirmationTime: 5,
-			fallbackFee: 4000
+			confirmationTime: 5
 		}
 	};
 
@@ -1145,7 +1140,7 @@
 			amountUSD={amountInUSD}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
-			networkOptions={netwokrOption}
+			networkOptions={networkOption}
 			txHash={sendState.pendingTxHash ?? ''}
 			swapId={sendState.pendingSwapId}
 			swapType={sendState.pendingNetwork === 'lightning-bitcoin' ? 'submarine' : undefined}
@@ -1335,7 +1330,7 @@
 						<!-- Network Display -->
 						{#if parsedPayment.detectedNetwork}
 							{@const network =
-								netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+								networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
 							{@const recipientAddress =
 								parsedPayment.data?.address || formInput.addressInput.trim()}
 							{@const explorerUrl = getAddressExplorerUrl(
@@ -1413,8 +1408,8 @@
 
 			{#if uiState.activeTab === 'enter'}
 				<!-- Enter Payment Details Tab -->
-				<!-- Mobile: Single scrollable send flow -->
-				<div class="block space-y-2 sm:hidden">
+				<!-- Single scrollable send flow -->
+				<div class="space-y-2 sm:space-y-4">
 					<!-- Source Wallet Accordion -->
 					<div class="form-control">
 						<div
@@ -1614,7 +1609,7 @@
 					<!-- Auto-detected Network Display -->
 					{#if parsedPayment.detectedNetwork}
 						{@const network =
-							netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+							networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
 						{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
 						{@const explorerUrl = getAddressExplorerUrl(
 							recipientAddress,
@@ -1707,8 +1702,9 @@
 							: formInput.unit}
 						usdValue={totalToSendUSD}
 						isError={hasInsufficientBalance}
+						placeholder={$t('wallet.send.enter_address_and_amount_to_estimate')}
 					/>
-					<!-- Address Error (e.g., amountless invoice) - Mobile Step 2 -->
+					<!-- Address Error (e.g., amountless invoice) -->
 					{#if parsedPayment.addressError}
 						<div class="alert alert-outline alert-error mt-2 text-sm">
 							<svg
@@ -1727,297 +1723,6 @@
 							<span>{parsedPayment.addressError}</span>
 						</div>
 					{/if}
-				</div>
-
-				<!-- Desktop: Always show all fields -->
-				<div class="hidden space-y-3 sm:block sm:space-y-4">
-					<!-- Source Wallet Accordion (Desktop) -->
-					<div class="form-control">
-						<div
-							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-							class:collapse-open={uiState.sourceExpanded}
-						>
-							<button
-								type="button"
-								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
-								onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
-							>
-								<span class="text-base-content/60">{$t('wallet.from')}:</span>
-								{#if formInput.selectedSource === 'rootstock-bitcoin'}
-									<img
-										src="/images/chains/Bitcoin-Rootstock-logo.webp"
-										alt="rBTC"
-										class="h-5 w-5"
-									/>
-									<span>{$t('wallet.rbtc')}</span>
-									<span class="mr-6 ml-auto text-xs"
-										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
-									>
-								{:else}
-									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-									<span>USD</span>
-									<span class="mr-6 ml-auto text-xs"
-										>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-											? '$' +
-												parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: 2
-												})
-											: '$0.00'}</span
-									>
-								{/if}
-							</button>
-							<div class="collapse-content px-2">
-								<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
-										'rootstock-bitcoin'
-											? 'bg-primary/10'
-											: ''}"
-										onclick={() => {
-											formInput.selectedSource = 'rootstock-bitcoin';
-											uiState.sourceExpanded = false;
-										}}
-									>
-										<img
-											src="/images/chains/Bitcoin-Rootstock-logo.webp"
-											alt="rBTC"
-											class="h-5 w-5"
-										/>
-										<span>{$t('wallet.rbtc')}</span>
-										<span class="ml-auto text-xs opacity-70"
-											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
-										>
-									</button>
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
-										'usdt-bsc'
-											? 'bg-primary/10'
-											: ''}"
-										onclick={() => {
-											formInput.selectedSource = 'usdt-bsc';
-											uiState.sourceExpanded = false;
-										}}
-									>
-										<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-										<span>USD</span>
-										<span class="ml-auto text-xs opacity-70"
-											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-												? $walletStore.bsc.formattedUsdtBalance + ' USDT'
-												: '$0.00'}</span
-										>
-									</button>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Address Input -->
-					<div class="form-control">
-						<div class="relative">
-							<div
-								class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-								class:border-primary={!parsedPayment.data?.isValid && !parsedPayment.addressError}
-								class:border-success={parsedPayment.data?.isValid &&
-									!parsedPayment.addressError &&
-									formInput.addressInput.trim()}
-								class:border-error={!!parsedPayment.addressError}
-							>
-								<!-- Input field with validation icons -->
-								<div class="bg-base-200 relative flex flex-1 items-center p-2">
-									<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
-										<input
-											id="address-input-desktop"
-											type="text"
-											class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
-											placeholder={$t('wallet.send.address_placeholder')}
-											bind:value={formInput.addressInput}
-											oninput={handleAddressInput}
-											onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
-											onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
-										/>
-										{#if formInput.addressInput.trim()}
-											<div
-												class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
-											>
-												{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-													<IconCheck class="text-success h-5 w-5" />
-												{:else if parsedPayment.addressError}
-													<IconClose class="text-error h-5 w-5" />
-												{/if}
-											</div>
-										{/if}
-									</div>
-									<!-- Clear button -->
-									{#if formInput.addressInput.trim()}
-										<button
-											type="button"
-											class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-											style="-webkit-tap-highlight-color: transparent;"
-											onclick={() => {
-												formInput.addressInput = '';
-												parsedPayment.data = null;
-												parsedPayment.detectedNetwork = null;
-												parsedPayment.detectedAmount = null;
-												parsedPayment.detectedMemo = null;
-												parsedPayment.addressError = null;
-												parsedPayment.amountRequired = true;
-												feeState.estimated = null;
-												feeState.error = null;
-												uiState.showRecentAddresses = false;
-											}}
-											aria-label="Clear address"
-										>
-											<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
-										</button>
-									{/if}
-								</div>
-							</div>
-							{#if uiState.showRecentAddresses && recentAddresses.length > 0}
-								<div
-									class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
-								>
-									{#each recentAddresses as recentAddress (recentAddress.address)}
-										<button
-											class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
-											onclick={() => {
-												formInput.addressInput = recentAddress.address;
-												uiState.showRecentAddresses = false;
-												handleAddressInput();
-											}}
-										>
-											<div class="min-w-0 flex-1">
-												<div class="truncate font-semibold">
-													{recentAddress.label || recentAddress.address.slice(0, 20)}...
-												</div>
-												<div class="text-base-content/70 text-xs">{recentAddress.network}</div>
-											</div>
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Auto-detected Network Display -->
-					{#if parsedPayment.detectedNetwork}
-						{@const network =
-							netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
-						{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
-						{@const explorerUrl = getAddressExplorerUrl(
-							recipientAddress,
-							parsedPayment.detectedNetwork
-						)}
-						<div
-							class="border-base-300 {isNetworkSupported
-								? 'bg-primary/10'
-								: 'bg-base-300 opacity-60'} rounded-lg border p-1.5 sm:p-2"
-						>
-							<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
-								<div class="flex items-center gap-1.5 sm:gap-2">
-									{#if network?.icon}
-										<img src={network?.icon} alt={network?.name} class="h-4 w-4 sm:h-5 sm:w-5" />
-									{/if}
-									<span class="text-sm font-medium sm:text-base">{network?.name}</span>
-									{#if !isNetworkSupported}
-										<span class="badge badge-sm badge-ghost">{$t('wallet.coming_soon')}</span>
-									{/if}
-								</div>
-								{#if explorerUrl && isNetworkSupported}
-									<a
-										href={explorerUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-										style="-webkit-tap-highlight-color: transparent;"
-										aria-label={$t('wallet.view_explorer')}
-									>
-										<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
-									</a>
-								{/if}
-							</div>
-						</div>
-						{#if !isNetworkSupported}
-							<div class="alert alert-outline alert-warning mt-2 py-2 text-xs">
-								{$t('wallet.send.network_not_available')}
-							</div>
-						{/if}
-					{/if}
-
-					<!-- Amount Field -->
-					<div class="form-control min-h-0 space-y-3 sm:space-y-4">
-						<AmountInputSection
-							amount={formInput.amount}
-							unit={formInput.unit}
-							mathExpression={formInput.mathExpression}
-							calculatorKey={uiState.calculatorKey}
-							memo={formInput.memo}
-							descriptionExpanded={uiState.descriptionExpanded}
-							network={parsedPayment.detectedNetwork}
-							isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-							disabled={parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0}
-							hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
-							onAmountChange={handleAmountInputChange}
-							onUnitChange={handleUnitChange}
-							onCalculationChange={handleCalculationChange}
-							onClear={handleClearCalculator}
-							onMaxAmount={handleMaxAmount}
-							onMemoChange={(value) => (formInput.memo = value)}
-							onDescriptionToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
-							descriptionDisabled={!!parsedPayment.detectedMemo}
-							descriptionLabelText={parsedPayment.detectedMemo
-								? 'wallet.send.from_invoice'
-								: undefined}
-						/>
-						{#if showLargeAmountWarning}
-							<p class="text-error text-center text-sm">
-								{$t('wallet.send.large_amount_warning.message', {
-									values: { amount: formatUsd(amountInUSD) }
-								})}
-							</p>
-						{/if}
-					</div>
-
-					{#if feeState.error}
-						<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
-							<span>{feeState.error}</span>
-						</div>
-					{:else if routeResult.routes.length > 0 && parsedPayment.detectedNetwork}
-						<RoutePicker
-							routes={routeResult.routes}
-							{selectedRouteId}
-							onSelect={(id) => (selectedRouteId = id)}
-							totalFeeSats={feeState.estimated?.totalFees ?? 0}
-							serviceFeeSats={feeState.estimated?.serviceFee ?? 0}
-							networkFeeSats={feeState.estimated?.networkFee ?? 0}
-							isLoadingFee={feeState.isLoading || routeLoading}
-							feeError={feeState.error}
-							{btcPrice}
-							network={parsedPayment.detectedNetwork}
-						/>
-					{:else}
-						<RoutePicker
-							routes={[]}
-							selectedRouteId=""
-							onSelect={() => {}}
-							totalFeeSats={0}
-							isLoadingFee={feeState.isLoading || routeLoading}
-							feeError={feeState.error}
-							{btcPrice}
-							network={parsedPayment.detectedNetwork}
-						/>
-					{/if}
-
-					<TotalAmountCard
-						label={$t('wallet.send.total_to_send')}
-						amount={totalToSend}
-						unit={formInput.unit}
-						usdValue={totalToSendUSD}
-						isError={hasInsufficientBalance}
-						placeholder={$t('wallet.send.enter_address_and_amount_to_estimate')}
-					/>
 
 					<!-- Transaction Error Display -->
 					{#if sendState.error}
@@ -2039,26 +1744,6 @@
 								<span class="font-semibold">{$t('wallet.send.transaction_failed')}</span>
 								<span class="text-sm opacity-90">{sendState.error}</span>
 							</div>
-						</div>
-					{/if}
-
-					<!-- Address Error (e.g., amountless invoice) -->
-					{#if parsedPayment.addressError}
-						<div class="alert alert-outline alert-error text-sm">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<span>{parsedPayment.addressError}</span>
 						</div>
 					{/if}
 				</div>
@@ -2130,7 +1815,7 @@
 		{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
 		{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 		{@const estimatedTime =
-			netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]?.confirmationTime}
+			networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]?.confirmationTime}
 		<div class="modal modal-open z-120">
 			<div class="modal-box max-w-md">
 				<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>
