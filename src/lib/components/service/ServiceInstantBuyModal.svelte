@@ -697,8 +697,13 @@
 															values: { fee: PLATFORM_FEE_PERCENT_LABEL }
 														}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
 													</span>
-													<span data-testid="service-agreement-platform-fee">
-														{platformFeeLabel}
+													<span>
+														{#if savingsValue != null && savingsValue > 0}
+															<span class="text-success">-{savingsLabel}</span>
+														{/if}
+														<span data-testid="service-agreement-platform-fee">
+															{platformFeeLabel}
+														</span>
 													</span>
 												</div>
 											{/if}
