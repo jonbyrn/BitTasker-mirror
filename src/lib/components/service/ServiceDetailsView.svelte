@@ -29,6 +29,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import IconClose from '~icons/mdi/close';
@@ -36,6 +37,7 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconStar from '~icons/mdi/star';
 	import IconCheck from '~icons/mdi/check';
+	import IconPlay from '~icons/mdi/play';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import ServiceShareButton from './ServiceShareButton.svelte';
@@ -1388,7 +1390,7 @@
 						{ kinds: [KINDS.CONTRACT], '#p': [pubkey], limit: 50 },
 						{ closeOnEose: true }
 					);
-					const serviceKeys = new Set<string>();
+					const serviceKeys = new SvelteSet<string>();
 					if (service.id) serviceKeys.add(service.id);
 					if ((service as Record<string, unknown>).uniqueId) serviceKeys.add((service as Record<string, unknown>).uniqueId as string);
 
@@ -1633,6 +1635,50 @@
 		currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
 	}
 	// --- End Carousel Logic ---
+
+	// --- Video Gallery Logic ---
+	const videoPortfolioItems = $derived(
+		(service?.portfolio ?? []).filter((a: Attachment) => {
+			if (!a.url) return false;
+			if (a.cloudflareId) return true;
+			if (a.type?.startsWith('video/')) return true;
+			if (isVideoFile(a.url)) return true;
+			return false;
+		})
+	);
+
+	function buildVideoThumbnailUrl(cloudflareId: string): string {
+		return `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${cloudflareId}/thumbnails/thumbnail.jpg`;
+	}
+
+	let showVideoModal = $state(false);
+	let selectedVideoCloudflareId = $state<string | null>(null);
+	let selectedVideoUrl = $state<string | null>(null);
+	let selectedVideoThumbnailUrl = $state<string | null>(null);
+	let selectedVideoAlt = $state('');
+
+	function openVideoModal(item: Attachment) {
+		if (item.cloudflareId) {
+			selectedVideoCloudflareId = item.cloudflareId;
+			selectedVideoThumbnailUrl = buildVideoThumbnailUrl(item.cloudflareId);
+			selectedVideoUrl = null;
+		} else {
+			selectedVideoUrl = item.url;
+			selectedVideoCloudflareId = null;
+			selectedVideoThumbnailUrl = null;
+		}
+		selectedVideoAlt = item.alt || ($t('dashboard.services.detail.attachment') as string);
+		showVideoModal = true;
+	}
+
+	function closeVideoModal() {
+		showVideoModal = false;
+		selectedVideoCloudflareId = null;
+		selectedVideoUrl = null;
+		selectedVideoThumbnailUrl = null;
+		selectedVideoAlt = '';
+	}
+	// --- End Video Gallery Logic ---
 
 	type ServiceRuntimeFields = Service & {
 		instantBuyLeadHours?: number | null;
@@ -2584,6 +2630,42 @@
 			</div>
 		</div>
 
+		<!-- Video Portfolio -->
+		{#if videoPortfolioItems.length > 0}
+			<div class="mt-8">
+				<h2 class="mb-6 text-2xl font-bold">
+					{detailText('dashboard.services.detail.portfolio_videos', 'Videos')}
+				</h2>
+				<div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+					{#each videoPortfolioItems as item (item.url || item.cloudflareId)}
+						<button
+							class="group relative aspect-video w-full overflow-hidden rounded-xl bg-black"
+							onclick={() => openVideoModal(item)}
+							aria-label={item.alt || 'Play video'}
+						>
+							{#if item.cloudflareId}
+								<img
+									src={buildVideoThumbnailUrl(item.cloudflareId)}
+									alt={item.alt || ''}
+									class="h-full w-full object-cover transition-opacity group-hover:opacity-80"
+									loading="lazy"
+								/>
+							{:else}
+								<div class="flex h-full w-full items-center justify-center bg-base-300">
+									<IconPlay class="h-12 w-12 text-base-content/40" />
+								</div>
+							{/if}
+							<div class="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity group-hover:bg-black/40">
+								<div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-110">
+									<IconPlay class="h-6 w-6 text-black" />
+								</div>
+							</div>
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<!-- Mobile Fixed Bottom CTA (Single Row Cart) -->
 		{#if !isPreview && !isDraft && !isOwner && service.status === 'active'}
 			{@const displayDeliveryTime =
@@ -2866,6 +2948,32 @@
 			/>
 		</WalletPaymentModal>
 	{/if}
+	<!-- Video Portfolio Preview Modal -->
+	<Modal
+		isOpen={showVideoModal}
+		title={selectedVideoAlt}
+		onClose={closeVideoModal}
+		size="xl"
+	>
+		{#if selectedVideoCloudflareId}
+			<StreamPlayer
+				videoUid={selectedVideoCloudflareId}
+				poster={selectedVideoThumbnailUrl}
+				controls={true}
+				autoplay={true}
+			/>
+		{:else if selectedVideoUrl}
+			<video
+				src={selectedVideoUrl}
+				controls
+				autoplay
+				playsinline
+				class="w-full rounded-lg"
+			>
+				<track kind="captions" />
+			</video>
+		{/if}
+	</Modal>
 </div>
 
 <style>

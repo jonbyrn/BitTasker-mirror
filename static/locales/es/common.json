@@ -592,7 +592,9 @@
 				"failed_to_load_image": "Error al cargar imagen",
 				"invalid_file": "Archivo inválido",
 				"processing_error": "Error procesando archivo",
-				"video_file_too_large": "El archivo de video es muy grande. El tamaño máximo es {maxSize}MB."
+				"video_file_too_large": "El archivo de video es muy grande. El tamaño máximo es {maxSize}MB.",
+				"video_evidence": "Evidencia de Video",
+				"video_introduction": "Video de Presentación"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Abrir ayuda de solución de problemas",

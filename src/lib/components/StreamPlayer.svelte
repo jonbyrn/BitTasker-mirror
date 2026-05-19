@@ -126,20 +126,43 @@
 
 	// ── Svelte actions (use: directive) — replace $effect blocks ──────
 
-	// Action: encoding polling + online listener lifecycle
+	// Action: encoding polling + network listener lifecycle (Capacitor-aware)
 	function encodingPoll(_node: HTMLElement) {
 		startEncodingPoll();
 
-		const handleOnline = () => {
-			clearTimers();
-			startEncodingPoll();
-		};
-		window.addEventListener('online', handleOnline);
+		let networkCleanup: (() => void) | undefined;
+
+		// Register network-status listener (Capacitor on native, window event on web)
+		(async () => {
+			try {
+				const { Capacitor } = await import('@capacitor/core');
+				if (Capacitor.isNativePlatform()) {
+					const { Network } = await import('@capacitor/network');
+					const handle = await Network.addListener('networkStatusChange', (status) => {
+						if (status.connected) {
+							clearTimers();
+							startEncodingPoll();
+						}
+					});
+					networkCleanup = () => handle.remove();
+					return;
+				}
+			} catch {
+				// Fall through to web
+			}
+			// Web fallback
+			const handler = () => {
+				clearTimers();
+				startEncodingPoll();
+			};
+			window.addEventListener('online', handler);
+			networkCleanup = () => window.removeEventListener('online', handler);
+		})();
 
 		return {
 			destroy() {
 				clearTimers();
-				window.removeEventListener('online', handleOnline);
+				if (networkCleanup) networkCleanup();
 				pollingActive = false;
 			}
 		};
@@ -415,6 +438,7 @@
 			class="h-full w-full"
 			loading="lazy"
 			onload={() => {
+				onready?.(videoUid);
 				addBreadcrumb({
 					category: 'stream',
 					message: 'StreamPlayer: iframe loaded',

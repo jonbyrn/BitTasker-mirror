@@ -11,6 +11,7 @@
 	import { t } from 'svelte-i18n';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import VideoUploader from '$lib/components/VideoUploader.svelte';
 
 	let { errors, direction, attachmentsToRemove = $bindable([]) } = $props();
 
@@ -203,6 +204,41 @@
 					filePreviewUrls.delete(removedFile);
 				}
 			}
+		}
+	}
+
+	// Video upload handler — called when VideoUploader encoding completes
+	function handleVideoReady(result: {
+		uid: string;
+		thumbnailUrl: string;
+		hlsUrl: string;
+		duration: number;
+		size: number;
+		filename: string;
+	}) {
+		if (($store.service.portfolio?.length || 0) >= 10) return;
+
+		const attachment: Attachment = {
+			url: result.hlsUrl,
+			key: result.uid,
+			type: 'video/*',
+			alt: result.filename,
+			size: result.size,
+			cloudflareId: result.uid
+		};
+
+		store.updateService({
+			portfolio: [...($store.service.portfolio || []), attachment]
+		});
+	}
+
+	// Video remove handler — called when user removes video from VideoUploader
+	function handleVideoRemove(uid: string) {
+		const attachment = $store.service.portfolio?.find((att) => att.key === uid);
+		if (attachment) {
+			attachmentsToRemove = [...attachmentsToRemove, attachment];
+			const newPortfolio = ($store.service.portfolio || []).filter((att) => att.key !== uid);
+			store.updateService({ portfolio: newPortfolio });
 		}
 	}
 
@@ -558,7 +594,7 @@
 							id="portfolio-upload"
 							type="file"
 							class="hidden"
-							accept="image/*,video/*"
+							accept="image/*"
 							multiple
 							onchange={handleFileChange}
 						/>
@@ -598,6 +634,17 @@
 
 		{#if error}
 			<div class="text-error text-sm">{error}</div>
+		{/if}
+
+		{#if ($store.service.portfolio || []).length < 10}
+			<div class="w-full max-w-md">
+				<VideoUploader
+					maxDuration={120}
+					maxFileSize={500 * 1024 * 1024}
+					onReady={handleVideoReady}
+					onRemove={handleVideoRemove}
+				/>
+			</div>
 		{/if}
 	</div>
 

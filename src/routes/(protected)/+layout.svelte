@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { createDebug } from '$lib/utils/debug';
+	import { triggerPendingReviewBanner } from '$lib/utils/reviews';
 	import IconTrendingUp from '~icons/mdi/trending-up';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -18,7 +19,6 @@
 	import IconCog from '~icons/mdi/cog';
 	import IconStarOutline from '~icons/mdi/star-outline';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
-	import { triggerPendingReviewBanner } from '$lib/utils/reviews';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 
 	const { children } = $props();
@@ -46,8 +46,8 @@
 			// Trigger pending review banner (skip on /reviews)
 			if (page.url.pathname !== '/reviews') {
 				triggerPendingReviewBanner(
-					$t('reviews.pending.review_now') || 'Review Now',
-					$t('reviews.pending.dismiss') || 'Dismiss'
+					'reviews.pending.review_now',
+					'reviews.pending.dismiss'
 				);
 			}
 		} catch (error) {

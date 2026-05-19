@@ -169,7 +169,7 @@ class UploadService extends BaseApiService {
 					});
 
 					// Use TUS resumable upload with Uppy
-					const { uploadVideoWithTus } = await import('$lib/utils/video-upload');
+					const { uploadVideoWithTus } = await import('$lib/utils/videoUpload');
 					await uploadVideoWithTus(processedFile, tusEndpoint, {
 						onProgress: (progress) => {
 							options.onProgress?.(progress.bytesUploaded, progress.bytesTotal);

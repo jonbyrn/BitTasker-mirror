@@ -14,6 +14,8 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
@@ -39,6 +41,21 @@
 	let isCheckingDelete = $state(false);
 	let canEdit = $state(true);
 	let isCheckingEdit = $state(false);
+
+	let selectedVideo = $state<Attachment | null>(null);
+
+	const videoAttachments = $derived(
+		(service.attachments || []).filter((a: Attachment) => {
+			const urlLower = a.url?.toLowerCase() || '';
+			const typeLower = a.type?.toLowerCase() || '';
+			return (
+				typeLower.startsWith('video/') ||
+				urlLower.endsWith('.mp4') ||
+				urlLower.endsWith('.webm') ||
+				urlLower.endsWith('.mov')
+			);
+		})
+	);
 
 	function tr(key: string, fallback: string): string {
 		try {
@@ -402,6 +419,43 @@
 				{/await}
 			{/if}
 
+			<!-- Videos -->
+			{#if videoAttachments.length > 0}
+				<div class="mt-2 w-full">
+					<small class="text-base-content/60 mb-1 block text-sm">
+						{tr('dashboard.services.detail.videos', 'Videos')}
+					</small>
+					<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+						{#each videoAttachments as video (video.key || video.url)}
+							<button
+								class="bg-base-300 relative aspect-video cursor-pointer overflow-hidden rounded-lg group"
+								onclick={() => (selectedVideo = video)}
+							>
+								{#if video.cloudflareId}
+									<img
+										src={`https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${video.cloudflareId}/thumbnails/thumbnail.jpg`}
+										alt={video.alt || 'Video thumbnail'}
+										class="h-full w-full object-cover"
+										loading="lazy"
+									/>
+								{:else}
+									<div class="flex h-full w-full items-center justify-center text-base-content/40">
+										<svg class="h-8 w-8" viewBox="0 0 24 24" fill="currentColor">
+											<path d="M8 5v14l11-7z" />
+										</svg>
+									</div>
+								{/if}
+								<div class="absolute right-2 bottom-2 rounded-full bg-black/60 p-1.5">
+									<svg class="h-3 w-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+										<path d="M8 5v14l11-7z" />
+									</svg>
+								</div>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			<!-- Posted date -->
 			<div>
 				<small class="text-base-content/60 block text-sm">
@@ -574,4 +628,24 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if selectedVideo}
+		<Modal
+			isOpen={true}
+			title=""
+			onClose={() => (selectedVideo = null)}
+			size="lg"
+			hideHeader={true}
+			showCloseButton={true}
+		>
+			<StreamPlayer
+				videoUid={selectedVideo.cloudflareId || ''}
+				controls={true}
+				poster={selectedVideo.cloudflareId
+					? `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${selectedVideo.cloudflareId}/thumbnails/thumbnail.jpg`
+					: null}
+				videoUrl={!selectedVideo.cloudflareId ? selectedVideo.url : undefined}
+			/>
+		</Modal>
+	{/if}
 </div>

@@ -99,6 +99,9 @@ const KINDS = {
 	/** Mute a user in channel context (NIP-28) */
 	MUTE_CHANNEL_USER: 44,
 
+	/** Video event (NIP-96) — used for profile video introductions */
+	VIDEO: 21,
+
 	/** Review System (Attestation-Based Verified Reviews) */
 	REVIEW: 6430, // Review content (signed by reviewer, published by client)
 	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)

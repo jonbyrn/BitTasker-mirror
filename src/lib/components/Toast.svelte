@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { appStore } from '$lib/stores/app.store';
 	import { fly, fade } from 'svelte/transition';
+	import { t } from 'svelte-i18n';
 	import IconClose from '~icons/mdi/close';
 
 	function handleDismiss(toast: { id: number; dismissKey?: string }) {
@@ -40,7 +41,11 @@
 							? 'pr-8'
 							: ''}"
 					>
-						<p class="text-base-content flex-1 text-sm leading-relaxed">{toast.message}</p>
+						<p class="text-base-content flex-1 text-sm leading-relaxed">
+							{typeof toast.message === 'string'
+								? toast.message
+								: $t(toast.message.key, { values: toast.message.values })}
+						</p>
 						{#if toast.actions && toast.actions.length > 0}
 							<div class="flex shrink-0 flex-wrap justify-end gap-2">
 								{#each toast.actions as action (action.label)}
@@ -52,7 +57,7 @@
 												: 'btn-primary'} btn-sm"
 										onclick={action.onClick}
 									>
-										{action.label}
+										{$t(action.label)}
 									</button>
 								{/each}
 							</div>

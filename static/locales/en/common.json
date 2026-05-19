@@ -593,7 +593,9 @@
 				"failed_to_load_image": "Failed to load image",
 				"invalid_file": "Invalid file",
 				"processing_error": "Error processing file",
-				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB."
+				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB.",
+				"video_evidence": "Video Evidence",
+				"video_introduction": "Video Introduction"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",

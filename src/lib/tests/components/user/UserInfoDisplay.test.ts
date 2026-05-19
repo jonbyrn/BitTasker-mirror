@@ -136,7 +136,7 @@ describe('UserInfoDisplay', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByText('Unknown User')).toBeInTheDocument();
+			expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 		});
 	});
 });

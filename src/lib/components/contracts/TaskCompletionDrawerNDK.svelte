@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import type { Attachment } from '$lib/types/task';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
+	import VideoUploader from '$lib/components/VideoUploader.svelte';
 	import uploadService, { type UploadResult } from '$lib/api/services/upload.service';
 	import { appStore } from '$lib/stores/app.store';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
@@ -231,7 +232,7 @@
 				id="ndk-completion-drawer-uploader"
 				maxFiles={5}
 				maxFileSize={10}
-				allowedTypes={['image/*', 'video/*']}
+				allowedTypes={['image/*']}
 				maxDuration={300}
 				uploadFolder="task-completion"
 				enableImageCompression={true}
@@ -244,6 +245,28 @@
 				className="border-base-300 hover:border-primary flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed transition-colors"
 				label={$t('dashboard.contracts.timeline.completion.upload_evidence')}
 			/>
+
+			<div class="mt-4">
+				<p class="mb-2 text-sm font-medium">{$t('common.components.media_uploader.video_evidence')}</p>
+				<VideoUploader
+					maxFileSize={10 * 1024 * 1024}
+					maxDuration={300}
+					private={true}
+					onReady={(result) => {
+						completionAttachments = [...completionAttachments, {
+							key: result.uid,
+							url: result.hlsUrl,
+							type: 'video',
+							cloudflareId: result.uid,
+							alt: 'Completion evidence',
+							size: result.size
+						}];
+					}}
+					onError={(msg) => {
+						appStore.showErrorToast(msg);
+					}}
+				/>
+			</div>
 
 			{#if isUploading && uploadProgress.total > 0}
 				<div class="mt-3">

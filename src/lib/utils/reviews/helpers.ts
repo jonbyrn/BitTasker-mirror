@@ -24,8 +24,6 @@ import { StorageKeys } from '../constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from '$lib/stores/app.store';
-import { t } from 'svelte-i18n';
-import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('reviews:helpers');
@@ -352,16 +350,13 @@ export async function triggerPendingReviewBanner(
 
 		const i18nKey =
 			count === 1 ? 'reviews.pending.banner_count_one' : 'reviews.pending.banner_count_other';
-		const message =
-			get(t)(i18nKey, { values: { count } }) ||
-			(count === 1 ? `You have ${count} pending review` : `You have ${count} pending reviews`);
 
 		const dedupKey = `pending-review-banner-${[...contractIds].sort().join(',')}`;
 
 		let toastId: number | null = null;
 
 		toastId = appStore.showBanner({
-			message,
+			message: { key: i18nKey, values: { count } },
 			dedupKey,
 			actions: [
 				{

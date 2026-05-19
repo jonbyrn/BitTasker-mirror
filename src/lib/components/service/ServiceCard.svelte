@@ -48,6 +48,7 @@
 	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 
 	let currentImageIndex = $state(0);
+	let currentVideoIndex = $state(0);
 	let resolvedCreatorName = $state<string | null>(null);
 
 	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
@@ -186,12 +187,43 @@
 					!url.endsWith('.mp4') &&
 					!url.endsWith('.webm') &&
 					!url.endsWith('.ogg') &&
-					!url.endsWith('.mov')
+					!url.endsWith('.mov') &&
+					!item.cloudflareId
 				);
 			});
 		}
 		return [];
-	});
+		});
+
+		// Get portfolio videos
+		let portfolioVideos = $derived.by<Attachment[]>(() => {
+			if (service.portfolio && service.portfolio.length > 0) {
+				return service.portfolio.filter((item: Attachment) => {
+					if (item?.cloudflareId) return true;
+					if (!item?.url) return false;
+					const url = item.url.toLowerCase();
+					if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
+					return (
+						url.endsWith('.mp4') ||
+						url.endsWith('.webm') ||
+						url.endsWith('.ogg') ||
+						url.endsWith('.mov')
+					);
+				});
+		}
+		return [];
+		});
+
+		// Helper to get video thumbnail URL for display
+		function getVideoThumbnailUrl(item: Attachment): string {
+			if (item.cloudflareId) {
+				const customerCode = import.meta.env.VITE_STREAM_CUSTOMER_CODE as string;
+				if (customerCode) {
+					return `https://customer-${customerCode}.cloudflarestream.com/${item.cloudflareId}/thumbnails/thumbnail.jpg`;
+				}
+			}
+			return item?.url || '';
+		}
 </script>
 
 <div
@@ -265,6 +297,73 @@
 					{/if}
 				{/if}
 			</div>
+		{:else if portfolioVideos.length > 0}
+			<div class="relative h-full w-full">
+				<img
+					src={getVideoThumbnailUrl(portfolioVideos[currentVideoIndex])}
+					alt={portfolioVideos[currentVideoIndex]?.alt || displayTitle || 'Service video'}
+					class="h-full w-full object-cover transition-opacity duration-300"
+					loading="lazy"
+				/>
+				<!-- Play icon overlay -->
+				<div
+					class="absolute right-1 bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="ml-0.5 h-3 w-3 text-white"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path d="M8 5v14l11-7z" />
+					</svg>
+				</div>
+				<!-- Carousel Controls -->
+				{#if portfolioVideos.length > 1}
+					{#if currentVideoIndex > 0}
+						<button
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							onclick={(e) => {
+								e.stopPropagation();
+								currentVideoIndex = Math.max(0, currentVideoIndex - 1);
+							}}
+							aria-label="Previous video"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+							</svg>
+						</button>
+					{/if}
+					{#if currentVideoIndex < portfolioVideos.length - 1}
+						<button
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							onclick={(e) => {
+								e.stopPropagation();
+								currentVideoIndex = Math.min(portfolioVideos.length - 1, currentVideoIndex + 1);
+							}}
+							aria-label="Next video"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						</button>
+					{/if}
+				{/if}
+			</div>
 		{:else}
 			<div
 				class="from-primary/20 to-secondary/20 flex h-full w-full items-center justify-center bg-linear-to-br"
@@ -313,7 +412,7 @@
 							contentType="service"
 							reportedPubkey={service.npub}
 							reportedEventId={service.id}
-							username={resolvedCreatorName}
+							username={resolvedCreatorName || undefined}
 						/>
 					{/if}
 				</span>

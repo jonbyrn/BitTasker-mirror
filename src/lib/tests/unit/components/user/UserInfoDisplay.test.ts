@@ -356,8 +356,8 @@ describe('UserInfoDisplay', () => {
 		});
 	});
 
-	describe('Shows "Unknown User" when no valid profile', () => {
-		it('should show "Unknown User" when profile fetch returns empty', async () => {
+	describe('Shows truncated npub when no valid profile', () => {
+		it('should show truncated npub when profile fetch returns empty', async () => {
 			// mockProfileConfig already has all undefined
 
 			render(UserInfoDisplay, {
@@ -367,13 +367,13 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
 		});
 
-		it('should show "Unknown User" when profile fetch fails', async () => {
+		it('should show truncated npub when profile fetch fails', async () => {
 			mockProfileConfig.shouldReject = true;
 
 			render(UserInfoDisplay, {
@@ -383,13 +383,13 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
 		});
 
-		it('should show "Unknown User" when profile has no displayName or name', async () => {
+		it('should show truncated npub when profile has no displayName or name', async () => {
 			mockProfileConfig.picture = 'https://example.com/avatar.png';
 
 			render(UserInfoDisplay, {
@@ -399,7 +399,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
@@ -415,7 +415,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
@@ -431,7 +431,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
@@ -554,7 +554,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
@@ -568,7 +568,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
@@ -650,7 +650,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Unknown User')).toBeInTheDocument();
+					expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);

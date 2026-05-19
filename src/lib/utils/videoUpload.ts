@@ -76,8 +76,7 @@ export async function getBatteryLevel(): Promise<number | null> {
 		// Web fallback
 		if ('getBattery' in navigator) {
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const battery = await (navigator as any).getBattery();
+				const battery = await navigator.getBattery();
 				return Math.round(battery.level * 100);
 			} catch {
 				return null;
@@ -175,8 +174,7 @@ async function uploadVideoNative(
 	try {
 		const { Uploader } = await import('@capgo/capacitor-uploader');
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const filePath = (file as any).path || '';
+		const filePath = (file as unknown as { path: string }).path || '';
 
 		return new Promise((resolve, reject) => {
 			let videoUid: string | null = null;

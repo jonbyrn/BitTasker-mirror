@@ -10,7 +10,7 @@ interface ToastAction {
 
 interface Toast {
 	type: 'success' | 'error' | 'info' | 'banner';
-	message: string;
+	message: string | { key: string; values?: Record<string, unknown> };
 	id: number;
 	actions?: ToastAction[];
 	dismissible?: boolean;
@@ -105,7 +105,7 @@ const createAppStore = () => {
 			addToast({ type: 'info', message }, timeout);
 		},
 		showBanner: (options: {
-			message: string;
+			message: string | { key: string; values?: Record<string, unknown> };
 			actions?: ToastAction[];
 			dismissible?: boolean;
 			dismissKey?: string;

@@ -164,22 +164,22 @@ describe('StreamPlayer Component', () => {
 			);
 		});
 
-		it('renders encoding state with skeleton when status is encoding', async () => {
+		it('renders encoding state with spinner and progress bar', async () => {
 			render(StreamPlayer, { ...defaultProps, status: 'encoding' });
 			await tick();
 
 			expect(screen.getByText('Processing video...')).toBeInTheDocument();
-			expect(document.querySelector('.skeleton')).toBeInTheDocument();
+			expect(document.querySelector('.loading-spinner')).toBeInTheDocument();
 			expect(document.querySelector('iframe')).toBeNull();
 			expect(document.querySelector('video')).toBeNull();
 		});
 
-		it('renders queued state when status is queued', async () => {
+		it('renders queued state with spinner and progress bar', async () => {
 			render(StreamPlayer, { ...defaultProps, status: 'queued' });
 			await tick();
 
 			expect(screen.getByText('In queue')).toBeInTheDocument();
-			expect(document.querySelector('.skeleton')).toBeInTheDocument();
+			expect(document.querySelector('.loading-spinner')).toBeInTheDocument();
 			expect(document.querySelector('iframe')).toBeNull();
 			expect(document.querySelector('video')).toBeNull();
 		});
