@@ -725,8 +725,8 @@
 											</div>
 											<!-- Savings line -->
 											{#if savingsValue != null && savingsValue > 0}
-												<div class="text-success text-center text-xs">
-													You Save {savingsLabel} paying with Bitcoin
+												<div class="text-primary text-center text-xs font-bold">
+													You save {savingsLabel} paying with Bitcoin
 												</div>
 											{/if}
 										</div>
