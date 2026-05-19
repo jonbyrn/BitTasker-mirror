@@ -66,6 +66,7 @@
 		) {
 			formInput.selectedNetwork = 'lightning-bitcoin';
 		}
+		handleAmountOrNetworkChange();
 	});
 
 	// Mobile form container for keyboard scroll handling
@@ -808,12 +809,19 @@
 									{$t('wallet.receive.network')}
 								</span>
 							</div>
-							{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
+							{#if selectedNetworkFee}
 								<div class="text-base-content/60 text-xs font-normal sm:ml-auto">
-									{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
-									{$t('wallet.sats')} | {btcPrice.price > 0
-										? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
-										: '—'}
+									{$t('wallet.receive.fee')}:
+									{#if selectedNetworkFee.totalFees > 0}
+										{formatSats(selectedNetworkFee.totalFees)}
+										{$t('wallet.sats')}
+										{#if btcPrice.price > 0}
+											|
+											{formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)}
+										{/if}
+									{:else}
+										Free
+									{/if}
 								</div>
 							{/if}
 						</div>
@@ -1093,12 +1101,19 @@
 							<span class="font-medium">
 								{selectedNetworkInfo?.label}
 								{$t('wallet.receive.network')}
-								{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
+								{#if selectedNetworkFee}
 									<span class="text-base-content/60 text-xs font-normal">
-										{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
-										{$t('wallet.sats')} | {btcPrice.price > 0
-											? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
-											: '—'}
+										{$t('wallet.receive.fee')}:
+										{#if selectedNetworkFee.totalFees > 0}
+											{formatSats(selectedNetworkFee.totalFees)}
+											{$t('wallet.sats')}
+											{#if btcPrice.price > 0}
+												|
+												{formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)}
+											{/if}
+										{:else}
+											Free
+										{/if}
 									</span>
 								{/if}
 							</span>
