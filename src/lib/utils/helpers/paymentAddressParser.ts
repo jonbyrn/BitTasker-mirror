@@ -216,8 +216,16 @@ function validateLiquidAddress(address: string): boolean {
  * Parse payment address/invoice and extract network, amount, and memo
  * Supports Lightning invoices, Lightning addresses, RSK addresses, Bitcoin addresses, BSC addresses, Liquid addresses
  * Supports EIP-681 format with chain IDs (e.g., ethereum:0x...@56)
+ *
+ * @param input - The payment address/invoice string
+ * @param sourceHint - Optional source wallet hint ('rootstock-bitcoin' | 'usdt-bsc') to
+ *   disambiguate EVM addresses. When a plain 0x... address matches both RSK and BSC,
+ *   sourceHint determines the default network. If omitted, defaults to 'rootstock-bitcoin'.
  */
-export function parsePaymentAddress(input: string): ParsedPaymentAddress {
+export function parsePaymentAddress(
+	input: string,
+	sourceHint?: 'rootstock-bitcoin' | 'usdt-bsc' | null
+): ParsedPaymentAddress {
 	const trimmed = input.trim();
 
 	if (!trimmed) {
@@ -631,11 +639,16 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			}
 		}
 
+		// Use source hint to disambiguate EVM addresses.
+		// When sending from USDT/BSC, assume the destination is BSC unless explicitly
+		// marked as RSK (e.g. rsk: prefix). When no hint, default to rootstock-bitcoin.
+		const network = !isRskUri && sourceHint === 'usdt-bsc' ? 'usdt-bsc' : 'rootstock-bitcoin';
+
 		// Always use normalizedAddress (it's already normalized from addressPart)
 		return {
 			isValid: true,
 			address: normalizedAddress,
-			network: 'rootstock-bitcoin',
+			network,
 			amount,
 			memo: queryParams.get('message') || null
 		};

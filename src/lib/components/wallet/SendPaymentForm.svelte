@@ -237,6 +237,24 @@
 	let _routeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let _routeAbortController: AbortController | null = null;
 
+	// Re-parse address when source wallet changes (EVM addresses need source context)
+	$effect(() => {
+		const _source = formInput.selectedSource;
+		const _addr = formInput.addressInput.trim();
+		// Only re-parse if address is present and looks like an EVM address
+		// (LNURL/Lightning/Bitcoin addresses don't depend on source)
+		if (_addr && /^0x[a-fA-F0-9]{40}$/.test(_addr) && parsedPayment.detectedNetwork) {
+			const reparsed = parsePaymentAddress(_addr, _source);
+			if (reparsed.isValid) {
+				parsedPayment.data = reparsed;
+				parsedPayment.detectedNetwork = reparsed.network;
+				parsedPayment.detectedAmount = reparsed.amount;
+				parsedPayment.detectedMemo = reparsed.memo;
+				parsedPayment.amountRequired = reparsed.amount === null;
+			}
+		}
+	});
+
 	$effect(() => {
 		// Read all reactive dependencies first
 		const source = formInput.selectedSource;
@@ -449,7 +467,7 @@
 	async function handleQRScan(barcode: Barcode | string) {
 		try {
 			const qrValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
-			const parsed = parsePaymentAddress(qrValue);
+			const parsed = parsePaymentAddress(qrValue, formInput.selectedSource);
 
 			// Clear previous error state
 			qrScanState.error = null;
@@ -563,7 +581,7 @@
 		}
 
 		try {
-			const parsed = parsePaymentAddress(formInput.addressInput);
+			const parsed = parsePaymentAddress(formInput.addressInput, formInput.selectedSource);
 			if (parsed.isValid) {
 				parsedPayment.data = parsed;
 				parsedPayment.detectedNetwork = parsed.network;
