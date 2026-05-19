@@ -54,6 +54,20 @@
 	// Receive tab selection and QR code data
 	let receiveTab = $state<'rbtc' | 'usdt'>('rbtc');
 
+	// Auto-select correct network when tab changes
+	$effect(() => {
+		const tab = receiveTab;
+		if (tab === 'usdt') {
+			formInput.selectedNetwork = 'usdt-bsc';
+		} else if (
+			!['lightning-bitcoin', 'rootstock-bitcoin', 'liquid-bitcoin', 'bitcoin'].includes(
+				formInput.selectedNetwork
+			)
+		) {
+			formInput.selectedNetwork = 'lightning-bitcoin';
+		}
+	});
+
 	// Mobile form container for keyboard scroll handling
 	let mobileFormContainer: HTMLDivElement | undefined = $state(undefined);
 
@@ -169,48 +183,56 @@
 	});
 
 	// Network options
-	const networkOptions = $derived([
-		{
-			value: 'lightning-bitcoin',
-			label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
-			description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
-			icon: null,
-			available: $walletStore.isConnected,
-			swapFeeInfo: $t('wallet.receive_form.networks.lightning_bitcoin.fee_info')
-		},
-		{
-			value: 'rootstock-bitcoin',
-			label: $t('wallet.receive_form.networks.rootstock_bitcoin.label'),
-			description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
-			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			available: $walletStore.isConnected,
-			swapFeeInfo: $t('wallet.receive_form.networks.rootstock_bitcoin.fee_info')
-		},
-		{
-			value: 'liquid-bitcoin',
-			label: $t('wallet.receive_form.networks.liquid_bitcoin.label'),
-			description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			available: $walletStore.isConnected,
-			swapFeeInfo: $t('wallet.receive_form.networks.liquid_bitcoin.fee_info')
-		},
-		{
-			value: 'bitcoin',
-			label: $t('wallet.receive_form.networks.bitcoin.label'),
-			description: $t('wallet.receive_form.networks.bitcoin.description'),
-			icon: '/images/chains/Bitcoin.svg',
-			available: false, // Disabled - Coming Soon
-			swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info')
-		},
-		{
-			value: 'usdt-bsc',
-			label: $t('wallet.receive_form.networks.bsc_usdt.label'),
-			description: $t('wallet.receive_form.networks.bsc_usdt.description'),
-			icon: '/images/chains/Binance-logo.svg',
-			available: $walletStore.bsc.connected,
-			swapFeeInfo: $t('wallet.receive_form.networks.bsc_usdt.fee_info')
-		}
-	]);
+	const networkOptions = $derived.by(() => {
+		const allNetworks = [
+			{
+				value: 'lightning-bitcoin',
+				label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
+				description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
+				icon: null,
+				available: $walletStore.isConnected,
+				swapFeeInfo: $t('wallet.receive_form.networks.lightning_bitcoin.fee_info'),
+				tabs: ['rbtc']
+			},
+			{
+				value: 'rootstock-bitcoin',
+				label: $t('wallet.receive_form.networks.rootstock_bitcoin.label'),
+				description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
+				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+				available: $walletStore.isConnected,
+				swapFeeInfo: $t('wallet.receive_form.networks.rootstock_bitcoin.fee_info'),
+				tabs: ['rbtc']
+			},
+			{
+				value: 'liquid-bitcoin',
+				label: $t('wallet.receive_form.networks.liquid_bitcoin.label'),
+				description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
+				icon: '/images/chains/Liquid-Bitcoin.svg',
+				available: $walletStore.isConnected,
+				swapFeeInfo: $t('wallet.receive_form.networks.liquid_bitcoin.fee_info'),
+				tabs: ['rbtc']
+			},
+			{
+				value: 'bitcoin',
+				label: $t('wallet.receive_form.networks.bitcoin.label'),
+				description: $t('wallet.receive_form.networks.bitcoin.description'),
+				icon: '/images/chains/Bitcoin.svg',
+				available: false, // Disabled - Coming Soon
+				swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info'),
+				tabs: ['rbtc']
+			},
+			{
+				value: 'usdt-bsc',
+				label: $t('wallet.receive_form.networks.bsc_usdt.label'),
+				description: $t('wallet.receive_form.networks.bsc_usdt.description'),
+				icon: '/images/chains/Binance-logo.svg',
+				available: $walletStore.bsc.connected,
+				swapFeeInfo: $t('wallet.receive_form.networks.bsc_usdt.fee_info'),
+				tabs: ['usdt']
+			}
+		];
+		return allNetworks.filter((n) => n.tabs.includes(receiveTab));
+	});
 
 	// Get selected network info
 	const selectedNetworkInfo = $derived(
@@ -674,7 +696,7 @@
 							</button>
 							<button
 								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 pt-2 pb-0 transition-colors {receiveTab ===
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {receiveTab ===
 								'usdt'
 									? 'bg-primary/10'
 									: ''}"
@@ -969,14 +991,20 @@
 						</span>
 					{:else if totalReceived > 0 && feeState.estimated}
 						<div class="flex items-center gap-1.5">
-							<span class="text-primary text-xl font-bold">
-								{formatSats(totalReceived)}
-								{$t('wallet.sats')}
-							</span>
-							<span class="text-xs opacity-60">|</span>
-							<span class="text-xs opacity-60">
-								≈ {formatUsd(totalReceivedUSD)}
-							</span>
+							{#if receiveTab === 'usdt'}
+								<span class="text-primary text-xl font-bold">
+									{formatUsd(totalReceivedUSD)}
+								</span>
+							{:else}
+								<span class="text-primary text-xl font-bold">
+									{formatSats(totalReceived)}
+									{$t('wallet.sats')}
+								</span>
+								<span class="text-xs opacity-60">|</span>
+								<span class="text-xs opacity-60">
+									≈ {formatUsd(totalReceivedUSD)}
+								</span>
+							{/if}
 						</div>
 					{:else}
 						<span class="text-xs opacity-60">{$t('wallet.receive.enter_amount_to_estimate')}</span>
@@ -1292,14 +1320,20 @@
 					{#if totalReceived > 0 && feeState.estimated}
 						<span class="text-sm opacity-70">{$t('wallet.swap.total_received_est')}</span>
 						<div class="flex items-center gap-2">
-							<span class="text-primary text-xl font-bold">
-								{formatSats(totalReceived)}
-								{$t('wallet.sats')}
-							</span>
-							{#if btcPrice.price > 0}
-								<span class="text-sm opacity-60">
-									≈ {formatUsd(totalReceivedUSD)}
+							{#if receiveTab === 'usdt'}
+								<span class="text-primary text-xl font-bold">
+									{formatUsd(totalReceivedUSD)}
 								</span>
+							{:else}
+								<span class="text-primary text-xl font-bold">
+									{formatSats(totalReceived)}
+									{$t('wallet.sats')}
+								</span>
+								{#if btcPrice.price > 0}
+									<span class="text-sm opacity-60">
+										≈ {formatUsd(totalReceivedUSD)}
+									</span>
+								{/if}
 							{/if}
 						</div>
 					{:else}
