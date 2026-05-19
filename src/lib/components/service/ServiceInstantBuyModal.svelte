@@ -36,6 +36,8 @@
 		walletConnected = false,
 		walletBalanceSats = '',
 		walletBalanceUsd = '',
+		usdtBalance = '',
+		usdtBalanceUsd = '',
 		requiredBalanceSats = '',
 		requiredBalanceUsd = '',
 		walletVerificationStatus = 'idle',
@@ -81,6 +83,8 @@
 		walletConnected?: boolean;
 		walletBalanceSats?: string;
 		walletBalanceUsd?: string;
+		usdtBalance?: string;
+		usdtBalanceUsd?: string;
 		requiredBalanceSats?: string;
 		requiredBalanceUsd?: string;
 		walletVerificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
@@ -111,8 +115,16 @@
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
-	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
-	const PLATFORM_FEE_PERCENT_LABEL = `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%`;
+	const USDT_PLATFORM_FEE_RATE = 0.1; // 10% for USDT payments
+	const RBTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
+
+	let selectedSource = $state<'rbtc' | 'usdt'>('rbtc');
+	let sourceExpanded = $state(false);
+
+	let platformFeeRate = $derived(
+		selectedSource === 'usdt' ? USDT_PLATFORM_FEE_RATE : RBTC_PLATFORM_FEE_RATE
+	);
+	const PLATFORM_FEE_PERCENT_LABEL = $derived(`${(platformFeeRate * 100).toFixed(1)}%`);
 
 	function formatUsdLabel(value: number | null): string {
 		if (value == null || !Number.isFinite(value)) {
@@ -128,7 +140,7 @@
 		amountUsd != null && Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : null
 	);
 	const platformFeeValue = $derived(
-		baseAmountValue != null ? baseAmountValue * PLATFORM_FEE_RATE : null
+		baseAmountValue != null ? baseAmountValue * platformFeeRate : null
 	);
 	const totalPaymentValue = $derived(
 		baseAmountValue != null && platformFeeValue != null
@@ -516,6 +528,74 @@
 								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
+
+							<!-- Source Wallet Selector -->
+							<div class="form-control">
+								<div
+									class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+									class:collapse-open={sourceExpanded}
+								>
+									<button
+										type="button"
+										class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+										onclick={() => (sourceExpanded = !sourceExpanded)}
+									>
+										<span class="text-base-content/60">{$t('wallet.from')}:</span>
+										{#if selectedSource === 'rbtc'}
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt="Bitcoin"
+												class="h-5 w-5"
+											/>
+											<span>{$t('wallet.bitcoin')}</span>
+										{:else}
+											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
+											<span>USDT (BSC)</span>
+											<span class="badge badge-warning ml-1 text-[10px]">10% fee</span>
+										{/if}
+									</button>
+									<div class="collapse-content px-2">
+										<div class="space-y-1">
+											<button
+												type="button"
+												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedSource ===
+												'rbtc'
+													? 'bg-primary/10'
+													: ''}"
+												onclick={() => {
+													selectedSource = 'rbtc';
+													sourceExpanded = false;
+												}}
+											>
+												<img
+													src="/images/chains/Bitcoin-Rootstock-logo.webp"
+													alt="Bitcoin"
+													class="h-5 w-5"
+												/>
+												<span>{$t('wallet.bitcoin')}</span>
+												<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
+											</button>
+											<button
+												type="button"
+												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedSource ===
+												'usdt'
+													? 'bg-primary/10'
+													: ''}"
+												onclick={() => {
+													selectedSource = 'usdt';
+													sourceExpanded = false;
+												}}
+											>
+												<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
+												<span>USDT (BSC)</span>
+												<span class="ml-auto text-xs opacity-70"
+													>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
+												>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
 
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">
