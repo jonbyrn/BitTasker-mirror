@@ -45,10 +45,11 @@
 	let selectedVideo = $state<Attachment | null>(null);
 
 	const videoAttachments = $derived(
-		(service.attachments || []).filter((a: Attachment) => {
+		(service.portfolio || []).filter((a: Attachment) => {
 			const urlLower = a.url?.toLowerCase() || '';
 			const typeLower = a.type?.toLowerCase() || '';
 			return (
+				a.cloudflareId ||
 				typeLower.startsWith('video/') ||
 				urlLower.endsWith('.mp4') ||
 				urlLower.endsWith('.webm') ||
@@ -402,8 +403,8 @@
 			</div>
 
 			<!-- Portfolio Images / Gallery -->
-			{#if service.attachments && service.attachments.length > 0}
-				{#await prepareGalleryImages(service.attachments) then galleryImages}
+			{#if service.portfolio && service.portfolio.length > 0}
+				{#await prepareGalleryImages(service.portfolio) then galleryImages}
 					{#if galleryImages.length > 0}
 						<div class="mt-2 w-full">
 							<small class="text-base-content/60 mb-1 block text-sm">
@@ -428,7 +429,7 @@
 					<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
 						{#each videoAttachments as video (video.key || video.url)}
 							<button
-								class="bg-base-300 relative aspect-video cursor-pointer overflow-hidden rounded-lg group"
+								class="bg-base-300 group relative aspect-video cursor-pointer overflow-hidden rounded-lg"
 								onclick={() => (selectedVideo = video)}
 							>
 								{#if video.cloudflareId}
@@ -439,7 +440,7 @@
 										loading="lazy"
 									/>
 								{:else}
-									<div class="flex h-full w-full items-center justify-center text-base-content/40">
+									<div class="text-base-content/40 flex h-full w-full items-center justify-center">
 										<svg class="h-8 w-8" viewBox="0 0 24 24" fill="currentColor">
 											<path d="M8 5v14l11-7z" />
 										</svg>

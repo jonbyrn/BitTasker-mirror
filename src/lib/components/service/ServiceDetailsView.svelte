@@ -128,6 +128,19 @@
 		previewCreator?: PreviewCreator | null;
 	}>();
 
+	let requestQuoteModalOpen = $state(false);
+	let instantBuyModalOpen = $state(false);
+	let instantBuyPreparing = $state(false);
+	let instantBuySubmitting = $state(false);
+	let instantBuyErrorMessage = $state('');
+	let instantBuyErrorHint = $state('');
+
+	// Tasker location for TASKER_LOCATION services (Book Now flow)
+	let bookNowTaskerLocation = $state<Location | null>(null);
+	let bookNowLocationValidation = $state<RadiusValidationResult | null>(null);
+
+	let playingVideoKey = $state<string | null>(null);
+
 	const effectiveCreator = $derived(
 		isDraft && previewCreator ? { ...service?.creator, ...previewCreator } : service?.creator
 	);
@@ -278,17 +291,6 @@
 			requestRushDelivery = false;
 		}
 	});
-
-	let requestQuoteModalOpen = $state(false);
-	let instantBuyModalOpen = $state(false);
-	let instantBuyPreparing = $state(false);
-	let instantBuySubmitting = $state(false);
-	let instantBuyErrorMessage = $state('');
-	let instantBuyErrorHint = $state('');
-
-	// Tasker location for TASKER_LOCATION services (Book Now flow)
-	let bookNowTaskerLocation = $state<Location | null>(null);
-	let bookNowLocationValidation = $state<RadiusValidationResult | null>(null);
 
 	// Check if service requires tasker location input for booking
 	const requiresTaskerLocationForBooking = $derived(
@@ -620,13 +622,13 @@
 	}
 
 	function isVideoFile(url: string): boolean {
-		return /\.(mp4|webm|ogg|mov)$/i.test(url);
+		return /\.(mp4|webm|ogg|mov|m3u8)$/i.test(url);
 	}
 
 	async function prepareGalleryImages(attachments: Attachment[]) {
 		const seenUrls = new SvelteSet<string>();
 		const imagePromises = attachments
-			.filter((a) => a.url && !isVideoFile(a.url))
+			.filter((a) => a.url && !isVideoFile(a.url) && !a.cloudflareId)
 			.filter((a) => {
 				if (seenUrls.has(a.url)) return false;
 				seenUrls.add(a.url);
@@ -1382,35 +1384,43 @@
 
 		const quoteThreads = await queryTaskeeServiceQuoteThreads(service.id);
 
-			let activeContractCount = 0;
-			const pubkey = ndk.$currentPubkey;
-			if (pubkey && service) {
-				try {
-					const events = await ndk.fetchEvents(
-						{ kinds: [KINDS.CONTRACT], '#p': [pubkey], limit: 50 },
-						{ closeOnEose: true }
-					);
-					const serviceKeys = new SvelteSet<string>();
-					if (service.id) serviceKeys.add(service.id);
-					if ((service as Record<string, unknown>).uniqueId) serviceKeys.add((service as Record<string, unknown>).uniqueId as string);
+		let activeContractCount = 0;
+		const pubkey = ndk.$currentPubkey;
+		if (pubkey && service) {
+			try {
+				const events = await ndk.fetchEvents(
+					{ kinds: [KINDS.CONTRACT], '#p': [pubkey], limit: 50 },
+					{ closeOnEose: true }
+				);
+				const serviceKeys = new SvelteSet<string>();
+				if (service.id) serviceKeys.add(service.id);
+				if ((service as Record<string, unknown>).uniqueId)
+					serviceKeys.add((service as Record<string, unknown>).uniqueId as string);
 
-					for (const ev of events) {
-						const cType = ev.tags.find((t: string[]) => t[0] === 'contextType')?.[1];
-						if (cType !== 'service') continue;
-						const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
-						if (sTag && ['2','3','5','6','7','8'].includes(sTag)) continue;
-						const cServiceId = ev.tags.find((t: string[]) => t[0] === 'serviceId')?.[1];
-						if (cServiceId && serviceKeys.has(cServiceId)) { activeContractCount++; continue; }
-						const cServiceAddr = ev.tags.find((t: string[]) => t[0] === 'serviceAddress')?.[1];
-						if (cServiceAddr && serviceKeys.has(cServiceAddr)) { activeContractCount++; }
+				for (const ev of events) {
+					const cType = ev.tags.find((t: string[]) => t[0] === 'contextType')?.[1];
+					if (cType !== 'service') continue;
+					const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
+					if (sTag && ['2', '3', '5', '6', '7', '8'].includes(sTag)) continue;
+					const cServiceId = ev.tags.find((t: string[]) => t[0] === 'serviceId')?.[1];
+					if (cServiceId && serviceKeys.has(cServiceId)) {
+						activeContractCount++;
+						continue;
 					}
-				} catch { /* NDK query failed */ }
+					const cServiceAddr = ev.tags.find((t: string[]) => t[0] === 'serviceAddress')?.[1];
+					if (cServiceAddr && serviceKeys.has(cServiceAddr)) {
+						activeContractCount++;
+					}
+				}
+			} catch {
+				/* NDK query failed */
 			}
+		}
 
-			return {
-				...summarizeDeleteGuardForThreads(quoteThreads, activeContractCount),
-				activeContractCount
-			};
+		return {
+			...summarizeDeleteGuardForThreads(quoteThreads, activeContractCount),
+			activeContractCount
+		};
 	}
 
 	async function handleDeleteService() {
@@ -1626,21 +1636,23 @@
 	});
 
 	function nextImage() {
-		if (galleryImages.length === 0) return;
-		currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+		if (carouselItems.length === 0) return;
+		playingVideoKey = null;
+		currentImageIndex = (currentImageIndex + 1) % carouselItems.length;
 	}
 
 	function prevImage() {
-		if (galleryImages.length === 0) return;
-		currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+		if (carouselItems.length === 0) return;
+		playingVideoKey = null;
+		currentImageIndex = (currentImageIndex - 1 + carouselItems.length) % carouselItems.length;
 	}
 	// --- End Carousel Logic ---
 
 	// --- Video Gallery Logic ---
 	const videoPortfolioItems = $derived(
 		(service?.portfolio ?? []).filter((a: Attachment) => {
-			if (!a.url) return false;
 			if (a.cloudflareId) return true;
+			if (!a.url) return false;
 			if (a.type?.startsWith('video/')) return true;
 			if (isVideoFile(a.url)) return true;
 			return false;
@@ -1651,33 +1663,35 @@
 		return `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${cloudflareId}/thumbnails/thumbnail.jpg`;
 	}
 
-	let showVideoModal = $state(false);
-	let selectedVideoCloudflareId = $state<string | null>(null);
-	let selectedVideoUrl = $state<string | null>(null);
-	let selectedVideoThumbnailUrl = $state<string | null>(null);
-	let selectedVideoAlt = $state('');
+	interface CarouselItem {
+		url: string;
+		width: number;
+		height: number;
+		isVideo: boolean;
+		cloudflareId?: string;
+		hlsUrl?: string;
+		alt?: string;
+		size?: number;
+	}
 
-	function openVideoModal(item: Attachment) {
-		if (item.cloudflareId) {
-			selectedVideoCloudflareId = item.cloudflareId;
-			selectedVideoThumbnailUrl = buildVideoThumbnailUrl(item.cloudflareId);
-			selectedVideoUrl = null;
-		} else {
-			selectedVideoUrl = item.url;
-			selectedVideoCloudflareId = null;
-			selectedVideoThumbnailUrl = null;
+	const carouselItems = $derived.by<CarouselItem[]>(() => {
+		const items: CarouselItem[] = galleryImages.map((img) => ({
+			...img,
+			isVideo: false
+		}));
+		for (const v of videoPortfolioItems) {
+			items.push({
+				url: v.cloudflareId ? buildVideoThumbnailUrl(v.cloudflareId) : v.url,
+				width: 1200,
+				height: 630,
+				isVideo: true,
+				cloudflareId: v.cloudflareId,
+				hlsUrl: v.url,
+				alt: v.alt
+			});
 		}
-		selectedVideoAlt = item.alt || ($t('dashboard.services.detail.attachment') as string);
-		showVideoModal = true;
-	}
-
-	function closeVideoModal() {
-		showVideoModal = false;
-		selectedVideoCloudflareId = null;
-		selectedVideoUrl = null;
-		selectedVideoThumbnailUrl = null;
-		selectedVideoAlt = '';
-	}
+		return items;
+	});
 	// --- End Video Gallery Logic ---
 
 	type ServiceRuntimeFields = Service & {
@@ -1737,28 +1751,87 @@
 		<!-- Hero Section / Media -->
 		<div class="group relative w-full overflow-hidden bg-black">
 			<div class="flex aspect-video max-h-[60vh] w-full items-center justify-center">
-				{#if galleryImages.length > 0}
+				{#if carouselItems.length > 0}
 					<div class="relative h-full w-full" id="service-gallery">
-						{#each galleryImages as image, i (image.url || i)}
-							<a
-								href={image.url}
-								data-pswp-width={image.width || 1200}
-								data-pswp-height={image.height || 630}
-								class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex
-									? 'z-10 opacity-100'
-									: 'z-0 opacity-0'}"
-							>
-								<img
-									src={image.url}
-									alt={image.alt || ''}
-									class="h-full w-full object-cover"
-									loading={i === 0 ? 'eager' : 'lazy'}
-									decoding="async"
-								/>
-							</a>
+						{#each carouselItems as item, i (item.url || i)}
+							{#if item.isVideo}
+								<div
+									class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex
+										? 'z-10 opacity-100'
+										: 'z-0 opacity-0'}"
+								>
+									{#if playingVideoKey === (item.cloudflareId || item.hlsUrl || item.url)}
+										<div class="relative h-full w-full bg-black">
+											{#if item.cloudflareId}
+												<StreamPlayer
+													videoUid={item.cloudflareId}
+													controls={true}
+													autoplay={true}
+													aspectRatio="video"
+												/>
+											{:else}
+												<video
+													src={item.hlsUrl || item.url}
+													controls
+													autoplay
+													playsinline
+													class="h-full w-full"
+												>
+													<track kind="captions" />
+												</video>
+											{/if}
+											<button
+												class="absolute top-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+												onclick={() => (playingVideoKey = null)}
+												aria-label="Close video"
+											>
+												<IconClose class="h-5 w-5" />
+											</button>
+										</div>
+									{:else}
+										<button
+											class="relative h-full w-full cursor-pointer"
+											onclick={() =>
+												(playingVideoKey = (item.cloudflareId || item.hlsUrl || item.url) ?? null)}
+										>
+											<img
+												src={item.url}
+												alt={item.alt || ''}
+												class="h-full w-full object-cover"
+												loading={i === 0 ? 'eager' : 'lazy'}
+												decoding="async"
+											/>
+											<div class="absolute inset-0 flex items-center justify-center bg-black/30">
+												<div
+													class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg"
+												>
+													<IconPlay class="h-7 w-7 text-black" />
+												</div>
+											</div>
+										</button>
+									{/if}
+								</div>
+							{:else}
+								<a
+									href={item.url}
+									data-pswp-width={item.width || 1200}
+									data-pswp-height={item.height || 630}
+									class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex
+										? 'z-10 opacity-100'
+										: 'z-0 opacity-0'}"
+								>
+									<img
+										src={item.url}
+										alt={item.alt || ''}
+										class="h-full w-full object-cover"
+										loading={i === 0 ? 'eager' : 'lazy'}
+										decoding="async"
+									/>
+								</a>
+							{/if}
 						{/each}
 
-						{#if galleryImages.length > 1}
+						{#if carouselItems.length > 1}
 							<!-- Full-height arrow navigation -->
 							<button
 								class="absolute top-0 left-0 z-10 flex h-full w-12 items-center justify-center bg-black/30 text-white hover:bg-black/50"
@@ -2630,42 +2703,6 @@
 			</div>
 		</div>
 
-		<!-- Video Portfolio -->
-		{#if videoPortfolioItems.length > 0}
-			<div class="mt-8">
-				<h2 class="mb-6 text-2xl font-bold">
-					{detailText('dashboard.services.detail.portfolio_videos', 'Videos')}
-				</h2>
-				<div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-					{#each videoPortfolioItems as item (item.url || item.cloudflareId)}
-						<button
-							class="group relative aspect-video w-full overflow-hidden rounded-xl bg-black"
-							onclick={() => openVideoModal(item)}
-							aria-label={item.alt || 'Play video'}
-						>
-							{#if item.cloudflareId}
-								<img
-									src={buildVideoThumbnailUrl(item.cloudflareId)}
-									alt={item.alt || ''}
-									class="h-full w-full object-cover transition-opacity group-hover:opacity-80"
-									loading="lazy"
-								/>
-							{:else}
-								<div class="flex h-full w-full items-center justify-center bg-base-300">
-									<IconPlay class="h-12 w-12 text-base-content/40" />
-								</div>
-							{/if}
-							<div class="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity group-hover:bg-black/40">
-								<div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-110">
-									<IconPlay class="h-6 w-6 text-black" />
-								</div>
-							</div>
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
 		<!-- Mobile Fixed Bottom CTA (Single Row Cart) -->
 		{#if !isPreview && !isDraft && !isOwner && service.status === 'active'}
 			{@const displayDeliveryTime =
@@ -2948,32 +2985,6 @@
 			/>
 		</WalletPaymentModal>
 	{/if}
-	<!-- Video Portfolio Preview Modal -->
-	<Modal
-		isOpen={showVideoModal}
-		title={selectedVideoAlt}
-		onClose={closeVideoModal}
-		size="xl"
-	>
-		{#if selectedVideoCloudflareId}
-			<StreamPlayer
-				videoUid={selectedVideoCloudflareId}
-				poster={selectedVideoThumbnailUrl}
-				controls={true}
-				autoplay={true}
-			/>
-		{:else if selectedVideoUrl}
-			<video
-				src={selectedVideoUrl}
-				controls
-				autoplay
-				playsinline
-				class="w-full rounded-lg"
-			>
-				<track kind="captions" />
-			</video>
-		{/if}
-	</Modal>
 </div>
 
 <style>

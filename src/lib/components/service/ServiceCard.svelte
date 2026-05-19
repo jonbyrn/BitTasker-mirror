@@ -47,8 +47,7 @@
 	const displayTitle = $derived(getServiceDisplayTitle(service, currentLocale));
 	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 
-	let currentImageIndex = $state(0);
-	let currentVideoIndex = $state(0);
+	let currentIndex = $state(0);
 	let resolvedCreatorName = $state<string | null>(null);
 
 	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
@@ -175,55 +174,43 @@
 		}
 	}
 
-	// Get portfolio images (non-video)
-	let portfolioImages = $derived.by<Attachment[]>(() => {
-		if (service.portfolio && service.portfolio.length > 0) {
-			return service.portfolio.filter((item: Attachment) => {
-				if (!item?.url) return false;
-				const url = item.url.toLowerCase();
-				// Only allow http/https URLs — block javascript:, data:, etc.
-				if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
-				return (
-					!url.endsWith('.mp4') &&
-					!url.endsWith('.webm') &&
-					!url.endsWith('.ogg') &&
-					!url.endsWith('.mov') &&
-					!item.cloudflareId
-				);
-			});
-		}
-		return [];
-		});
+	interface PortfolioItem extends Attachment {
+		isVideo: boolean;
+	}
 
-		// Get portfolio videos
-		let portfolioVideos = $derived.by<Attachment[]>(() => {
-			if (service.portfolio && service.portfolio.length > 0) {
-				return service.portfolio.filter((item: Attachment) => {
-					if (item?.cloudflareId) return true;
-					if (!item?.url) return false;
-					const url = item.url.toLowerCase();
-					if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
-					return (
-						url.endsWith('.mp4') ||
-						url.endsWith('.webm') ||
-						url.endsWith('.ogg') ||
-						url.endsWith('.mov')
-					);
-				});
-		}
-		return [];
-		});
+	function itemIsVideo(item: Attachment): boolean {
+		if (item?.cloudflareId) return true;
+		if (!item?.url) return false;
+		const url = item.url.toLowerCase();
+		return (
+			url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg') || url.endsWith('.mov')
+		);
+	}
 
-		// Helper to get video thumbnail URL for display
-		function getVideoThumbnailUrl(item: Attachment): string {
-			if (item.cloudflareId) {
-				const customerCode = import.meta.env.VITE_STREAM_CUSTOMER_CODE as string;
-				if (customerCode) {
-					return `https://customer-${customerCode}.cloudflarestream.com/${item.cloudflareId}/thumbnails/thumbnail.jpg`;
-				}
+	// Single portfolio items preserving original upload order — mark each as video if applicable
+	let portfolioItems = $derived.by<PortfolioItem[]>(() => {
+		if (!service.portfolio || service.portfolio.length === 0) return [];
+		const validItems = service.portfolio.filter((item: Attachment) => {
+			if (!item?.url) return false;
+			const url = item.url.toLowerCase();
+			return url.startsWith('http://') || url.startsWith('https://');
+		});
+		return validItems.map((item: Attachment) => ({
+			...item,
+			isVideo: itemIsVideo(item)
+		}));
+	});
+
+	// Helper to get video thumbnail URL for display
+	function getVideoThumbnailUrl(item: Attachment): string {
+		if (item.cloudflareId) {
+			const customerCode = import.meta.env.VITE_STREAM_CUSTOMER_CODE as string;
+			if (customerCode) {
+				return `https://customer-${customerCode}.cloudflarestream.com/${item.cloudflareId}/thumbnails/thumbnail.jpg`;
 			}
-			return item?.url || '';
 		}
+		return item?.url || '';
+	}
 </script>
 
 <div
@@ -241,25 +228,45 @@
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
 	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
-		{#if portfolioImages.length > 0}
+		{#if portfolioItems.length > 0}
 			<div class="relative h-full w-full">
-				<img
-					src={portfolioImages[currentImageIndex]?.url}
-					alt={displayTitle || 'Service image'}
-					class="h-full w-full object-cover transition-opacity duration-300"
-					loading="lazy"
-				/>
-				<!-- Carousel Controls - Show if 2 or more images -->
-				{#if portfolioImages.length > 1}
+				{#if portfolioItems[currentIndex]?.isVideo}
+					<img
+						src={getVideoThumbnailUrl(portfolioItems[currentIndex])}
+						alt={portfolioItems[currentIndex]?.alt || displayTitle || 'Service video'}
+						class="h-full w-full object-cover transition-opacity duration-300"
+						loading="lazy"
+					/>
+					<!-- Play icon overlay -->
+					<div class="absolute right-1 bottom-1 rounded-full bg-black/60 p-1">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-3 w-3 text-white"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path d="M8 5v14l11-7z" />
+						</svg>
+					</div>
+				{:else}
+					<img
+						src={portfolioItems[currentIndex]?.url}
+						alt={displayTitle || 'Service image'}
+						class="h-full w-full object-cover transition-opacity duration-300"
+						loading="lazy"
+					/>
+				{/if}
+				<!-- Carousel Controls - Show if 2 or more items -->
+				{#if portfolioItems.length > 1}
 					<!-- Previous Button -->
-					{#if currentImageIndex > 0}
+					{#if currentIndex > 0}
 						<button
 							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
-								currentImageIndex = Math.max(0, currentImageIndex - 1);
+								currentIndex = Math.max(0, currentIndex - 1);
 							}}
-							aria-label="Previous image"
+							aria-label="Previous item"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -274,81 +281,14 @@
 						</button>
 					{/if}
 					<!-- Next Button -->
-					{#if currentImageIndex < portfolioImages.length - 1}
+					{#if currentIndex < portfolioItems.length - 1}
 						<button
 							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
-								currentImageIndex = Math.min(portfolioImages.length - 1, currentImageIndex + 1);
+								currentIndex = Math.min(portfolioItems.length - 1, currentIndex + 1);
 							}}
-							aria-label="Next image"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						</button>
-					{/if}
-				{/if}
-			</div>
-		{:else if portfolioVideos.length > 0}
-			<div class="relative h-full w-full">
-				<img
-					src={getVideoThumbnailUrl(portfolioVideos[currentVideoIndex])}
-					alt={portfolioVideos[currentVideoIndex]?.alt || displayTitle || 'Service video'}
-					class="h-full w-full object-cover transition-opacity duration-300"
-					loading="lazy"
-				/>
-				<!-- Play icon overlay -->
-				<div
-					class="absolute right-1 bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="ml-0.5 h-3 w-3 text-white"
-						fill="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path d="M8 5v14l11-7z" />
-					</svg>
-				</div>
-				<!-- Carousel Controls -->
-				{#if portfolioVideos.length > 1}
-					{#if currentVideoIndex > 0}
-						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
-							onclick={(e) => {
-								e.stopPropagation();
-								currentVideoIndex = Math.max(0, currentVideoIndex - 1);
-							}}
-							aria-label="Previous video"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-							</svg>
-						</button>
-					{/if}
-					{#if currentVideoIndex < portfolioVideos.length - 1}
-						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
-							onclick={(e) => {
-								e.stopPropagation();
-								currentVideoIndex = Math.min(portfolioVideos.length - 1, currentVideoIndex + 1);
-							}}
-							aria-label="Next video"
+							aria-label="Next item"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"

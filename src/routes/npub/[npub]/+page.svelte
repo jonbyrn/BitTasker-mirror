@@ -723,7 +723,8 @@
 										<div class="flex flex-col items-center gap-1 lg:items-start">
 											<div class="flex items-center gap-2">
 												<h3 class="text-base-content font-bold">
-													{userProfile?.name || (page.params.npub ? truncateNpub(page.params.npub) : '')}
+													{userProfile?.name ||
+														(page.params.npub ? truncateNpub(page.params.npub) : '')}
 												</h3>
 												{#if averageRating}
 													<div class="flex items-center gap-1">
@@ -855,17 +856,17 @@
 					<!-- Video Introduction -->
 					{#if userProfile?.videoIntro?.uid}
 						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-4">
-								<p class="mb-3 text-xl font-bold">{$t('common.components.media_uploader.video_introduction')}</p>
-								<div class="mx-auto max-w-2xl overflow-hidden rounded-lg">
-									<div class="aspect-video">
-										<StreamPlayer
-											videoUid={userProfile.videoIntro.uid}
-											poster={userProfile.videoIntro.thumbnailUrl}
-											controls={true}
-											private={false}
-										/>
-									</div>
+							<div class="card-body py-4">
+								<p class="mb-3 text-xl font-bold">
+									{$t('common.components.media_uploader.video_introduction')}
+								</p>
+								<div class="aspect-video w-full rounded-lg sm:min-h-64">
+									<StreamPlayer
+										videoUid={userProfile.videoIntro.uid}
+										poster={userProfile.videoIntro.thumbnailUrl}
+										controls={true}
+										private={false}
+									/>
 								</div>
 							</div>
 						</div>

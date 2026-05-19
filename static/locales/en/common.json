@@ -595,7 +595,9 @@
 				"processing_error": "Error processing file",
 				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB.",
 				"video_evidence": "Video Evidence",
-				"video_introduction": "Video Introduction"
+				"video_introduction": "Video Introduction",
+				"upload_title": "Upload Video",
+				"drag_or_click": "Drag & drop or click to browse"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",

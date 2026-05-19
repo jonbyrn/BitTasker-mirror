@@ -47,13 +47,15 @@
 	});
 
 	function handleFileUpload(results: UploadResult[]) {
-		completionAttachments = results.map((result) => ({
+		const newAttachments = results.map((result) => ({
 			key: result.key,
 			url: result.url,
 			type: result.type as string,
 			alt: 'Completion evidence',
 			size: result.size
 		}));
+		// Append images to existing attachments (don't wipe videos added by VideoUploader)
+		completionAttachments = [...completionAttachments, ...newAttachments];
 		isUploading = false;
 		d.log('completion evidence ready', {
 			count: completionAttachments.length,
@@ -247,20 +249,26 @@
 			/>
 
 			<div class="mt-4">
-				<p class="mb-2 text-sm font-medium">{$t('common.components.media_uploader.video_evidence')}</p>
+				<p class="mb-2 text-sm font-medium">
+					{$t('common.components.media_uploader.video_evidence')}
+				</p>
 				<VideoUploader
+					variant="compact"
 					maxFileSize={10 * 1024 * 1024}
 					maxDuration={300}
 					private={true}
 					onReady={(result) => {
-						completionAttachments = [...completionAttachments, {
-							key: result.uid,
-							url: result.hlsUrl,
-							type: 'video',
-							cloudflareId: result.uid,
-							alt: 'Completion evidence',
-							size: result.size
-						}];
+						completionAttachments = [
+							...completionAttachments,
+							{
+								key: result.uid,
+								url: result.hlsUrl,
+								type: 'video/mp4',
+								cloudflareId: result.uid,
+								alt: 'Completion evidence',
+								size: result.size
+							}
+						];
 					}}
 					onError={(msg) => {
 						appStore.showErrorToast(msg);

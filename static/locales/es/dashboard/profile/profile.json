@@ -52,10 +52,8 @@
 		},
 		"video": {
 			"description": "Sube un video corto de introducción (máximo 3 minutos)",
-			"upload_title": "Subir Video",
 			"upload_desc": "Graba o sube un video corto de introducción",
 			"upload_note": "Máx {maxSize}MB, {maxDuration} minutos",
-			"drag_or_click": "Arrastra y suelta o haz clic para seleccionar",
 			"preview": "Vista previa del video",
 			"remaining": "restante",
 			"max_size": "Tamaño máximo del archivo: 100MB",

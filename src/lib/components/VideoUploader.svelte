@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { addBreadcrumb } from '@sentry/sveltekit';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import { TUS_CHUNK_SIZE, TUS_RETRY_DELAYS } from '$lib/utils/videoUpload';
 
 	// Lightweight Uppy interface — avoids @uppy/core's complex generics.
-	interface UppyCallback { (...args: unknown[]): void }
+	interface UppyCallback {
+		(...args: unknown[]): void;
+	}
 	interface UppyInstance {
 		use(plugin: unknown, opts: Record<string, unknown>): void;
 		on(event: string, cb: UppyCallback): void;
@@ -52,6 +54,8 @@
 		onError?: (error: string) => void;
 		onRemove?: (uid: string) => void;
 		showRemoveButton?: boolean;
+		variant?: 'full' | 'compact';
+		initialFile?: File;
 	}
 
 	let {
@@ -73,7 +77,9 @@
 		onReady,
 		onError,
 		onRemove,
-		showRemoveButton = true
+		showRemoveButton = true,
+		variant = 'full' as 'full' | 'compact',
+		initialFile = undefined as File | undefined
 	}: Props = $props();
 
 	const isPlaybackMode = $derived(!!existingVideoUid);
@@ -101,8 +107,8 @@
 	let pollAttempt = $state(0);
 
 	// ── Uploaded UID (init from existing prop, then overwritten on new upload) ──
-	let uploadedUid = $state('');                                                        // Mutable, set during upload
-	const videoUid = $derived(existingVideoUid || uploadedUid);          // Reactive read from both sources
+	let uploadedUid = $state(''); // Mutable, set during upload
+	const videoUid = $derived(existingVideoUid || uploadedUid); // Reactive read from both sources
 	let videoResult = $state<VideoUploadResult | null>(null);
 
 	// Non-reactive locals
@@ -165,15 +171,26 @@
 					const mediaId = res.getHeader('stream-media-id');
 					if (mediaId) {
 						uploadedUid = mediaId;
-						addBreadcrumb({ category: 'stream', message: `VideoUploader: received media ID - ${mediaId}`, level: 'info' });
+						addBreadcrumb({
+							category: 'stream',
+							message: `VideoUploader: received media ID - ${mediaId}`,
+							level: 'info'
+						});
 					}
 				}
 			});
 
 			instance.on('file-added', async (file: unknown) => {
-				const f = file as { id: string; data: File | Blob; meta: Record<string, string>; name: string; type: string };
+				const f = file as {
+					id: string;
+					data: File | Blob;
+					meta: Record<string, string>;
+					name: string;
+					type: string;
+				};
 				uploadError = null;
-				const videoFile = f.data instanceof File ? f.data : new File([f.data], f.name, { type: f.type });
+				const videoFile =
+					f.data instanceof File ? f.data : new File([f.data], f.name, { type: f.type });
 				if (previewUrl) URL.revokeObjectURL(previewUrl);
 				previewUrl = URL.createObjectURL(videoFile);
 				selectedFile = videoFile;
@@ -194,24 +211,27 @@
 					instance.setFileMeta(f.id, {
 						...f.meta,
 						maxDurationSeconds: String(Math.ceil(videoDuration * 1.5))
-						});
-
+					});
 				} catch {
 					uploadError = 'Failed to validate video';
 					instance.removeFile(f.id);
 					return;
 				}
 				mode = 'preview';
+				if (variant === 'compact') startUpload();
 			});
-			instance.on('upload-progress', (_file: unknown, progress: { bytesTotal: number | null; bytesUploaded: number | null }) => {
-				if (progress.bytesTotal && progress.bytesUploaded != null) {
-					uploadedBytes = progress.bytesUploaded;
-					totalBytes = progress.bytesTotal;
-					uploadProgress = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
-					const elapsed = (Date.now() - uploadStartTime) / 1000;
-					uploadSpeed = elapsed > 0 ? progress.bytesUploaded / elapsed : 0;
+			instance.on(
+				'upload-progress',
+				(_file: unknown, progress: { bytesTotal: number | null; bytesUploaded: number | null }) => {
+					if (progress.bytesTotal && progress.bytesUploaded != null) {
+						uploadedBytes = progress.bytesUploaded;
+						totalBytes = progress.bytesTotal;
+						uploadProgress = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
+						const elapsed = (Date.now() - uploadStartTime) / 1000;
+						uploadSpeed = elapsed > 0 ? progress.bytesUploaded / elapsed : 0;
+					}
 				}
-			});
+			);
 			instance.on('upload-success', (_file: unknown, _response: unknown) => {
 				const uid = videoUid;
 				if (!uid) {
@@ -267,7 +287,11 @@
 		try {
 			await uppyInstance.upload();
 		} catch (e) {
-			addBreadcrumb({ category: 'stream', message: `VideoUploader: upload failed - ${e}`, level: 'error' });
+			addBreadcrumb({
+				category: 'stream',
+				message: `VideoUploader: upload failed - ${e}`,
+				level: 'error'
+			});
 		}
 	}
 
@@ -330,8 +354,14 @@
 
 	// ── Encoding polling (use: action) ──
 	function clearTimers() {
-		if (encodingTimer) { clearTimeout(encodingTimer); encodingTimer = null; }
-		if (pollingTimer) { clearTimeout(pollingTimer); pollingTimer = null; }
+		if (encodingTimer) {
+			clearTimeout(encodingTimer);
+			encodingTimer = null;
+		}
+		if (pollingTimer) {
+			clearTimeout(pollingTimer);
+			pollingTimer = null;
+		}
 	}
 
 	function startEncodingPoll() {
@@ -343,14 +373,24 @@
 
 		const backoffDelays = [3_000, 6_000, 12_000, 30_000];
 
-		encodingTimer = setTimeout(() => {
-			addBreadcrumb({ category: 'stream', message: `VideoUploader: encoding timed out for ${videoUid}`, level: 'warning' });
-		}, 30 * 60 * 1000);
+		encodingTimer = setTimeout(
+			() => {
+				addBreadcrumb({
+					category: 'stream',
+					message: `VideoUploader: encoding timed out for ${videoUid}`,
+					level: 'warning'
+				});
+			},
+			30 * 60 * 1000
+		);
 
 		async function poll() {
 			try {
 				const res = await fetch(`/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`);
-				if (!res.ok) { scheduleNext(); return; }
+				if (!res.ok) {
+					scheduleNext();
+					return;
+				}
 				const data = await res.json();
 
 				if (data.state === 'ready') {
@@ -360,20 +400,36 @@
 						if (manifestRes.ok) {
 							pollingActive = false;
 							clearTimers();
-							addBreadcrumb({ category: 'stream', message: `VideoUploader: encoding complete + manifest confirmed for ${videoUid}`, level: 'info' });
+							addBreadcrumb({
+								category: 'stream',
+								message: `VideoUploader: encoding complete + manifest confirmed for ${videoUid}`,
+								level: 'info'
+							});
 							mode = 'playing';
 							if (videoResult) onReady?.(videoResult);
-						} else { scheduleNext(); }
-					} catch { scheduleNext(); }
+						} else {
+							scheduleNext();
+						}
+					} catch {
+						scheduleNext();
+					}
 				} else if (data.state === 'error') {
 					pollingActive = false;
 					clearTimers();
-					addBreadcrumb({ category: 'stream', message: `VideoUploader: encoding failed for ${videoUid}`, level: 'error' });
+					addBreadcrumb({
+						category: 'stream',
+						message: `VideoUploader: encoding failed for ${videoUid}`,
+						level: 'error'
+					});
 					uploadError = data.errorReason || 'Video processing failed';
 					mode = 'error';
 					onError?.(data.errorReason || 'Video processing failed');
-				} else { scheduleNext(); }
-			} catch { scheduleNext(); }
+				} else {
+					scheduleNext();
+				}
+			} catch {
+				scheduleNext();
+			}
 		}
 
 		function scheduleNext() {
@@ -407,16 +463,30 @@
 	// ── Svelte action: dropzone drag-and-drop + lazy Uppy init ──
 	function dropzoneAction(node: HTMLElement) {
 		ensureUppy();
-		function onDragOver(e: DragEvent) { e.preventDefault(); node.classList.add('border-primary', 'bg-primary/5'); }
-		function onDragLeave() { node.classList.remove('border-primary', 'bg-primary/5'); }
+		function onDragOver(e: DragEvent) {
+			e.preventDefault();
+			node.classList.add('border-primary', 'bg-primary/5');
+		}
+		function onDragLeave() {
+			node.classList.remove('border-primary', 'bg-primary/5');
+		}
 		async function onDrop(e: DragEvent) {
 			e.preventDefault();
 			node.classList.remove('border-primary', 'bg-primary/5');
 			await ensureUppy();
 			const file = e.dataTransfer?.files?.[0];
 			if (file && uppyInstance) {
-				try { uppyInstance.addFile({ name: file.name, type: file.type, data: file, source: 'Local', isRemote: false }); }
-				catch { /* restriction failed handled by Uppy event */ }
+				try {
+					uppyInstance.addFile({
+						name: file.name,
+						type: file.type,
+						data: file,
+						source: 'Local',
+						isRemote: false
+					});
+				} catch {
+					/* restriction failed handled by Uppy event */
+				}
 			}
 		}
 		node.addEventListener('dragover', onDragOver);
@@ -431,13 +501,40 @@
 		};
 	}
 
+	// Auto-add initialFile in compact mode when provided by parent
+	onMount(() => {
+		if (initialFile) {
+			const addInitialFile = async () => {
+				await ensureUppy();
+				if (uppyInstance && initialFile) {
+					try {
+						uppyInstance.addFile({
+							name: initialFile.name,
+							type: initialFile.type,
+							data: initialFile,
+							source: 'Local',
+							isRemote: false
+						});
+					} catch {
+						/* restriction failed handled by Uppy event */
+					}
+				}
+			};
+			addInitialFile();
+		}
+	});
+
 	// ── Cleanup ──
 	onDestroy(() => {
 		clearTimers();
 		pollingActive = false;
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 		if (uppyInstance) {
-			try { uppyInstance.destroy(); } catch { /* ignore */ }
+			try {
+				uppyInstance.destroy();
+			} catch {
+				/* ignore */
+			}
 		}
 	});
 
@@ -447,17 +544,26 @@
 		if (!file) return;
 		await ensureUppy();
 		if (!uppyInstance) return;
-		try { uppyInstance.addFile({ name: file.name, type: file.type, data: file, source: 'Local', isRemote: false }); }
-		catch { /* restriction failed */ }
+		try {
+			uppyInstance.addFile({
+				name: file.name,
+				type: file.type,
+				data: file,
+				source: 'Local',
+				isRemote: false
+			});
+		} catch {
+			/* restriction failed */
+		}
 	}
 </script>
 
-<div class="video-uploader {className}">
-	{#if ((isPlaybackMode && mode !== 'finalizing') || mode === 'playing') && videoUid}
+<div class="video-uploader h-full {className}">
+	{#if variant === 'full' && ((isPlaybackMode && mode !== 'finalizing') || mode === 'playing') && videoUid}
 		<StreamPlayer
-			videoUid={videoUid}
+			{videoUid}
 			poster={videoResult?.thumbnailUrl ?? existingPoster}
-			videoUrl={videoUrl}
+			{videoUrl}
 			status={existingStatus ?? 'ready'}
 			{controls}
 			{loop}
@@ -465,8 +571,14 @@
 			{muted}
 			private={isPrivate}
 			{aspectRatio}
-			onerror={(msg) => { uploadError = msg; mode = 'error'; onError?.(msg); }}
-				onready={() => { mode = 'playing'; if (videoResult) onReady?.(videoResult); }}
+			onerror={(msg) => {
+				uploadError = msg;
+				mode = 'error';
+				onError?.(msg);
+			}}
+			onready={() => {
+				mode = 'playing';
+			}}
 		/>
 		{#if showRemoveButton}
 			<button
@@ -478,63 +590,62 @@
 				{$t('common.components.media_uploader.remove_file')}
 			</button>
 		{/if}
-
 	{:else if mode === 'error'}
-		<div class="bg-base-200 flex h-full flex-col items-center justify-center p-4 text-center" role="alert">
+		<div
+			class="bg-base-200 flex h-full flex-col items-center justify-center p-4 text-center"
+			role="alert"
+		>
 			<p class="text-error mb-2 text-sm">{uploadError || $t('stream_player.status.error')}</p>
-			<button type="button" class="btn btn-sm btn-outline" onclick={handleErrorRetry}
-				aria-label={$t('stream_player.action.retry')}>
+			<button
+				type="button"
+				class="btn btn-sm btn-outline"
+				onclick={handleErrorRetry}
+				aria-label={$t('stream_player.action.retry')}
+			>
 				{$t('stream_player.action.retry')}
 			</button>
 		</div>
-
-	{:else}
-		{#if mode === 'dropzone'}
-			<div
-				class="bg-base-200 hover:bg-base-300 border-primary/30 hover:border-primary/60 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors"
-				use:dropzoneAction
-			>
-				<input
-					type="file"
-					class="hidden"
-					accept={allowedTypes.join(',')}
-					onchange={handleFileInput}
-					id="video-uploader-input"
-				/>
-				<label for="video-uploader-input" class="flex cursor-pointer flex-col items-center">
-					<div class="bg-primary/10 mb-3 rounded-full p-4">
-						<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-8 w-8" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
-						</svg>
-					</div>
-					<p class="text-base-content mb-1 text-center font-medium">{$t('profile.video.upload_title')}</p>
-					<p class="text-base-content/60 text-center text-sm">{$t('profile.video.drag_or_click')}</p>
-					<p class="text-base-content/40 mt-2 text-center text-xs">
-						MP4, WebM, MOV &bull; {maxFileSize / (1024 * 1024)}MB max &bull; {maxDuration / 60}min
-					</p>
-				</label>
-			</div>
-
-		{:else if mode === 'preview' || mode === 'uploading' || mode === 'finalizing'}
-			<div class="relative h-full w-full">
-				{#if previewUrl}
-					<video
-						src={previewUrl}
-						class="h-full w-full object-cover"
-						muted
-						playsinline
-						aria-label="Video preview"
+	{:else if variant === 'compact'}
+		<!-- Compact mode: hidden input, no dropzone, progress overlay only -->
+		<input
+			type="file"
+			class="hidden"
+			accept={allowedTypes.join(',')}
+			onchange={handleFileInput}
+			id="video-uploader-input"
+		/>
+		<label
+			for="video-uploader-input"
+			class="block h-full w-full cursor-pointer"
+			aria-label="Upload video"
+		>
+			{#if mode === 'dropzone'}
+				<div
+					class="border-base-300 hover:bg-base-300 flex h-full w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-2 transition-colors"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content/50 h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
 					>
-						<track kind="captions" />
-					</video>
-				{/if}
-
-				{#if mode === 'uploading'}
-					<div class="absolute inset-0 flex items-center justify-center bg-black/60">
-						<div class="text-center text-white">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					</svg>
+				</div>
+			{:else if mode === 'preview' || mode === 'uploading' || mode === 'finalizing'}
+				<div class="relative h-full w-full">
+					{#if previewUrl}
+						<video src={previewUrl} class="h-full w-full rounded-lg object-cover" muted playsinline>
+							<track kind="captions" />
+						</video>
+					{/if}
+					{#if mode === 'uploading'}
+						<div class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60">
 							<div
-								class="radial-progress text-primary mb-2"
-								style="--value:{uploadProgress}; --size:4rem; --thickness:4px;"
+								class="radial-progress text-primary"
+								style="--value:{uploadProgress}; --size:2.5rem; --thickness:3px;"
 								role="progressbar"
 								aria-valuenow={uploadProgress}
 								aria-valuemin={0}
@@ -542,69 +653,158 @@
 							>
 								{uploadProgress}%
 							</div>
-							<p class="text-sm font-medium">
-								{isPaused
-									? $t('stream_player.status.paused')
-									: $t('stream_player.status.uploading', { values: { progress: uploadProgress } })}
-							</p>
-							{#if formattedSpeed && !isPaused}
-								<p class="text-xs opacity-80">
-									{formattedSpeed}
-									{#if formattedTimeRemaining}
-										&bull; {formattedTimeRemaining} remaining
-									{/if}
-								</p>
-							{/if}
 						</div>
-					</div>
-				{:else if mode === 'finalizing'}
-					<div class="absolute inset-0 flex items-center justify-center bg-black/20">
-						<span class="loading loading-spinner loading-md text-primary"></span>
-					</div>
-				{/if}
-			</div>
+					{:else if mode === 'finalizing'}
+						<div class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/20">
+							<span class="loading loading-spinner loading-sm text-primary"></span>
+						</div>
+					{/if}
+				</div>
+			{:else if mode === 'playing'}
+				<div
+					class="border-success/50 flex h-full w-full items-center justify-center rounded-lg border-2 border-dashed p-2"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-success h-6 w-6"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</div>
+			{/if}
+		</label>
+	{:else if mode === 'dropzone'}
+		<div
+			class="bg-base-200 hover:bg-base-300 border-primary/30 hover:border-primary/60 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors"
+			use:dropzoneAction
+		>
+			<input
+				type="file"
+				class="hidden"
+				accept={allowedTypes.join(',')}
+				onchange={handleFileInput}
+				id="video-uploader-input"
+			/>
+			<label for="video-uploader-input" class="flex cursor-pointer flex-col items-center">
+				<div class="bg-primary/10 mb-3 rounded-full p-4">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-primary h-8 w-8"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						aria-hidden="true"
+					>
+						<path
+							d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
+						/>
+					</svg>
+				</div>
+				<p class="text-base-content mb-1 text-center font-medium">
+					{$t('common.components.media_uploader.upload_title')}
+				</p>
+				<p class="text-base-content/60 text-center text-sm">
+					{$t('common.components.media_uploader.drag_or_click')}
+				</p>
+				<p class="text-base-content/40 mt-2 text-center text-xs">
+					MP4, WebM, MOV &bull; {maxFileSize / (1024 * 1024)}MB max &bull; {maxDuration / 60}min
+				</p>
+			</label>
+		</div>
+	{:else if mode === 'preview' || mode === 'uploading' || mode === 'finalizing'}
+		<div class="relative h-full w-full">
+			{#if previewUrl}
+				<video
+					src={previewUrl}
+					class="h-full w-full object-cover"
+					muted
+					playsinline
+					aria-label="Video preview"
+				>
+					<track kind="captions" />
+				</video>
+			{/if}
 
-			<!-- Action buttons (below the preview) -->
-			{#if mode === 'preview' || mode === 'uploading'}
-				<div class="mt-3 flex flex-wrap gap-2">
-					{#if uploadError}
-						<button type="button" class="btn btn-primary btn-sm flex-1" onclick={retryUpload}>
-							{$t('stream_player.action.retry')}
-						</button>
-					{:else if mode === 'uploading'}
-						{#if isPaused}
-							<button type="button" class="btn btn-primary btn-sm flex-1" onclick={resumeUpload}>
-								{$t('stream_player.action.resume')}
-							</button>
-						{:else}
-							<button type="button" class="btn btn-secondary btn-sm flex-1" onclick={pauseUpload}>
-								{$t('stream_player.action.pause')}
-							</button>
+			{#if mode === 'uploading'}
+				<div class="absolute inset-0 flex items-center justify-center bg-black/60">
+					<div class="text-center text-white">
+						<div
+							class="radial-progress text-primary mb-2"
+							style="--value:{uploadProgress}; --size:4rem; --thickness:4px;"
+							role="progressbar"
+							aria-valuenow={uploadProgress}
+							aria-valuemin={0}
+							aria-valuemax={100}
+						>
+							{uploadProgress}%
+						</div>
+						<p class="text-sm font-medium">
+							{isPaused
+								? $t('stream_player.status.paused')
+								: $t('stream_player.status.uploading', { values: { progress: uploadProgress } })}
+						</p>
+						{#if formattedSpeed && !isPaused}
+							<p class="text-xs opacity-80">
+								{formattedSpeed}
+								{#if formattedTimeRemaining}
+									&bull; {formattedTimeRemaining} remaining
+								{/if}
+							</p>
 						{/if}
+					</div>
+				</div>
+			{:else if mode === 'finalizing'}
+				<div class="absolute inset-0 flex items-center justify-center bg-black/20">
+					<span class="loading loading-spinner loading-md text-primary"></span>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Action buttons (below the preview) -->
+		{#if mode === 'preview' || mode === 'uploading'}
+			<div class="mt-3 flex flex-wrap gap-2">
+				{#if uploadError}
+					<button type="button" class="btn btn-primary btn-sm flex-1" onclick={retryUpload}>
+						{$t('stream_player.action.retry')}
+					</button>
+				{:else if mode === 'uploading'}
+					{#if isPaused}
+						<button type="button" class="btn btn-primary btn-sm flex-1" onclick={resumeUpload}>
+							{$t('stream_player.action.resume')}
+						</button>
 					{:else}
-						<button type="button" class="btn btn-primary btn-sm flex-1" onclick={startUpload}>
-							{$t('common.buttons.upload')}
+						<button type="button" class="btn btn-secondary btn-sm flex-1" onclick={pauseUpload}>
+							{$t('stream_player.action.pause')}
 						</button>
 					{/if}
-					<button type="button" class="btn btn-ghost btn-sm flex-1" onclick={cancelUpload}>
-						{$t('common.buttons.cancel')}
+				{:else}
+					<button type="button" class="btn btn-primary btn-sm flex-1" onclick={startUpload}>
+						{$t('common.buttons.upload')}
 					</button>
-				</div>
-
-				{#if uploadError}
-					<div class="alert alert-error alert-sm mt-3">
-						<span>{uploadError}</span>
-					</div>
 				{/if}
-			{/if}
-		{/if}
+				<button type="button" class="btn btn-ghost btn-sm flex-1" onclick={cancelUpload}>
+					{$t('common.buttons.cancel')}
+				</button>
+			</div>
 
-		<!-- Lifecycle driver: encoding poll action (only when finalizing) -->
-		{#if mode === 'finalizing' && browser && videoUid}
-			<div style="display:none" aria-hidden="true" use:encodingPollAction></div>
+			{#if uploadError}
+				<div class="alert alert-error alert-sm mt-3">
+					<span>{uploadError}</span>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>
+
+<!-- Lifecycle driver: encoding poll action (only when finalizing) -->
+{#if mode === 'finalizing' && browser && videoUid}
+	<div style="display:none" aria-hidden="true" use:encodingPollAction></div>
+{/if}
 
 <style>
 	.radial-progress {

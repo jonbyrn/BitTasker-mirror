@@ -52,10 +52,8 @@
 		},
 		"video": {
 			"description": "Upload a short video introducing yourself and your services",
-			"upload_title": "Upload Video",
 			"upload_desc": "Drag and drop your video here or click to browse",
 			"upload_note": "Max {maxSize}MB, {maxDuration} minutes",
-			"drag_or_click": "Drag & drop or click to browse",
 			"preview": "Video preview",
 			"remaining": "remaining",
 			"max_size": "Maximum file size: 100MB",

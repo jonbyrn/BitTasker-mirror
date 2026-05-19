@@ -57,9 +57,13 @@
 	const timelineDisplayCount = $derived(timelineRows.length);
 
 	function isVideoFile(url: string): boolean {
-		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m3u8'];
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	function isStreamVideo(att: Attachment): boolean {
+		return !!att.cloudflareId && (att.type || '').toLowerCase().startsWith('video/');
 	}
 
 	function getStreamUid(attachment: Attachment): string | undefined {
@@ -483,7 +487,7 @@
 								</div>
 							{/if}
 
-							{#if (contractRune.completionAttachments || []).filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+							{#if (contractRune.completionAttachments || []).filter((att: Attachment) => !isVideoFile(att.url) && !isStreamVideo(att)).length > 0}
 								<div class="mb-4">
 									{#await prepareGalleryImages(contractRune.completionAttachments || []) then galleryImages}
 										<Gallery
@@ -495,9 +499,9 @@
 								</div>
 							{/if}
 
-							{#if (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
+							{#if (contractRune.completionAttachments || []).filter((att: Attachment) => isVideoFile(att.url) || isStreamVideo(att)).length > 0}
 								<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-									{#each (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ) as attachment (attachment.url)}
+									{#each (contractRune.completionAttachments || []).filter((att: Attachment) => isVideoFile(att.url) || isStreamVideo(att)) as attachment (attachment.url)}
 										<div class="group relative">
 											<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
 												{#if getStreamUid(attachment)}
