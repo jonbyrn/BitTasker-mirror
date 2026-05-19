@@ -99,18 +99,18 @@
 
 			<!-- Route options (only show if multiple) -->
 			{#if routes.length > 1}
-				<div class="border-base-300 mt-1.5 border-t pt-1.5">
+				<div class="border-base-300 mt-2 flex flex-col gap-2 border-t pt-2">
 					{#each routes as route (route.id)}
 						{@const _routeFee = Math.round(amountSats * (route.totalFeePercent / 100))}
 						<button
 							type="button"
-							class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-xs transition-colors {selectedRouteId ===
+							class="hover:bg-base-200 flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-sm transition-colors {selectedRouteId ===
 							route.id
 								? 'bg-primary/5'
 								: ''}"
 							onclick={() => onSelect(route.id)}
 						>
-							<span class="text-primary/70 text-base leading-none">
+							<span class="text-primary/70 text-lg leading-none">
 								{selectedRouteId === route.id ? '●' : '○'}
 							</span>
 							<span class="min-w-0 flex-1">
