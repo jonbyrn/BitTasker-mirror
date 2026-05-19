@@ -537,7 +537,7 @@
 								>
 									<button
 										type="button"
-										class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+										class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-sm font-medium sm:pr-12"
 										onclick={() => (sourceExpanded = !sourceExpanded)}
 									>
 										<span class="text-base-content/60">{$t('wallet.from')}:</span>
@@ -548,11 +548,11 @@
 												class="h-5 w-5"
 											/>
 											<span>{$t('wallet.bitcoin')}</span>
-											<span class="mr-8 ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
+											<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 										{:else}
 											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
 											<span>USDT (BSC)</span>
-											<span class="mr-8 ml-auto text-xs opacity-70"
+											<span class="ml-auto text-xs opacity-70"
 												>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
 											>
 										{/if}
