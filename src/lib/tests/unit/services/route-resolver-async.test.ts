@@ -159,13 +159,16 @@ describe('resolveRouteAsync', () => {
 			expect(result.hardcodedRoutes.length).toBeGreaterThanOrEqual(1);
 		});
 
-		it('marks lowest-fee route as recommended', async () => {
+		it('puts cheapest route first', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(makeLifiRoute());
 			vi.mocked(symbiosisService.getQuote).mockResolvedValue(makeSymbiosisQuote());
 
 			const result = await resolveRouteAsync('rbtc', dest, amount, userAddress);
 
-			expect(result.routes[0].recommended).toBe(true);
+			// Winner is cheapest — first by fee, then by time
+			expect(result.routes[0].totalFeePercent).toBeLessThanOrEqual(
+				result.routes[1].totalFeePercent
+			);
 		});
 	});
 

@@ -256,10 +256,15 @@
 			return;
 		}
 
-		// Show hardcoded routes immediately
+		// Show hardcoded routes immediately, sorted cheapest first
+		const initialRoutes = resolveRoute(sourceWallet, dest).sort(
+			(a, b) =>
+				a.totalFeePercent - b.totalFeePercent ||
+				a.hops[0].estimatedTimeMin - b.hops[0].estimatedTimeMin
+		);
 		routeResult = {
-			routes: resolveRoute(sourceWallet, dest),
-			hardcodedRoutes: resolveRoute(sourceWallet, dest),
+			routes: initialRoutes,
+			hardcodedRoutes: initialRoutes,
 			providerResults: [
 				{ provider: 'lifi', status: 'skipped', routes: [] },
 				{ provider: 'symbiosis', status: 'skipped', routes: [] }

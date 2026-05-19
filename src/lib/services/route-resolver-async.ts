@@ -327,14 +327,7 @@ export async function resolveRouteAsync(
 			a.hops[0].estimatedTimeMin - b.hops[0].estimatedTimeMin
 	);
 
-	// Mark the lowest-fee route as recommended
-	if (mergedRoutes.length > 0) {
-		for (const route of mergedRoutes) {
-			route.recommended = false;
-		}
-		mergedRoutes[0].recommended = true;
-	}
-
+	// Cheapest route is first — no recommended flag needed
 	return {
 		routes: mergedRoutes,
 		hardcodedRoutes,

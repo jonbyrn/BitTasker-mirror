@@ -93,15 +93,6 @@
 						<span>{feeDisplay(networkFeeSats)}</span>
 					</div>
 				{/if}
-				<!-- Total row when both present -->
-				{#if swapFeeSats > 0 && networkFeeSats > 0}
-					<div
-						class="border-base-300 flex items-center justify-between border-t pt-1 text-xs font-semibold"
-					>
-						<span>Total</span>
-						<span>{feeDisplay(totalFeeSats)}</span>
-					</div>
-				{/if}
 			{/if}
 
 			<!-- Route options (only show if multiple) -->
