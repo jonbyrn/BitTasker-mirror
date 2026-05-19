@@ -201,8 +201,10 @@
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
 					{/if}
-					{@render toggleButton()}
-					{@render refreshButton()}
+					<div class="flex flex-col items-center gap-1">
+						{@render toggleButton()}
+						{@render refreshButton()}
+					</div>
 				</div>
 			</div>
 		</div>
