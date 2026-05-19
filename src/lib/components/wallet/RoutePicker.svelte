@@ -44,11 +44,13 @@
 	 * When btcPrice is available, append USD equivalent in parens.
 	 */
 	function feeDisplay(sats: number): string {
-		if (isUSDT) return `$${(sats / 100_000_000).toFixed(2)}`;
+		const usdValue = btcPrice > 0 && sats > 0 ? (sats / 100_000_000) * btcPrice : 0;
+		if (isUSDT) {
+			return usdValue > 0 ? formatUsd(usdValue) : '$0.00';
+		}
 		const satsStr = `${formatSats(sats)} ${$t('wallet.sats')}`;
-		if (btcPrice > 0 && sats > 0) {
-			const usd = formatUsd((sats / 100_000_000) * btcPrice);
-			return `${satsStr} (${usd})`;
+		if (usdValue > 0) {
+			return `${satsStr} (${formatUsd(usdValue)})`;
 		}
 		return satsStr;
 	}
@@ -102,7 +104,7 @@
 						{@const _routeFee = Math.round(amountSats * (route.totalFeePercent / 100))}
 						<button
 							type="button"
-							class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors {selectedRouteId ===
+							class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-xs transition-colors {selectedRouteId ===
 							route.id
 								? 'bg-primary/5'
 								: ''}"

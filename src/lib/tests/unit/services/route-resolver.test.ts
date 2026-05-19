@@ -59,14 +59,14 @@ describe('resolveRoute — source: rbtc', () => {
 	});
 
 	describe('destination: address (BSC chain)', () => {
-		it('returns 3 routes for BSC mainnet (chain 56)', () => {
+		it('returns 2 routes for BSC mainnet (chain 56)', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes).toHaveLength(3);
+			expect(routes).toHaveLength(2);
 		});
 
-		it('returns 3 routes for BSC testnet (chain 97)', () => {
+		it('returns 2 routes for BSC testnet (chain 97)', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(97));
-			expect(routes).toHaveLength(3);
+			expect(routes).toHaveLength(2);
 		});
 
 		it('returns LI.FI route as first (recommended) for rBTC to BSC', () => {
@@ -81,12 +81,6 @@ describe('resolveRoute — source: rbtc', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(56));
 			expect(routes[1].id).toBe('rbtc-to-bsc-via-symbiosis');
 			expect(routes[1].hops[0].service).toBe('symbiosis');
-		});
-
-		it('returns Changelly route as third for rBTC to BSC', () => {
-			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes[2].id).toBe('rbtc-to-bsc-via-changelly');
-			expect(routes[2].hops[0].service).toBe('changelly');
 		});
 
 		it('LI.FI rBTC to BSC route has 0.5% fee', () => {
@@ -201,14 +195,14 @@ describe('resolveRoute — source: usdt-bsc', () => {
 	});
 
 	describe('destination: address (RSK chain)', () => {
-		it('returns 4 routes for RSK mainnet (chain 30)', () => {
+		it('returns 2 routes for RSK mainnet (chain 30)', () => {
 			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
-			expect(routes).toHaveLength(4);
+			expect(routes).toHaveLength(2);
 		});
 
-		it('returns 4 routes for RSK testnet (chain 31)', () => {
+		it('returns 2 routes for RSK testnet (chain 31)', () => {
 			const routes = resolveRoute('usdt-bsc', makeAddressDest(31));
-			expect(routes).toHaveLength(4);
+			expect(routes).toHaveLength(2);
 		});
 
 		it('first route is recommended LI.FI', () => {
@@ -223,32 +217,6 @@ describe('resolveRoute — source: usdt-bsc', () => {
 			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
 			expect(routes[1].id).toBe('usdt-to-rbtc-via-symbiosis');
 			expect(routes[1].hops[0].service).toBe('symbiosis');
-		});
-
-		it('third route is recommended 2-hop Changelly + Boltz', () => {
-			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
-			expect(routes[2].id).toBe('usdt-to-rbtc-via-changelly-boltz');
-			expect(routes[2].hops).toHaveLength(2);
-			expect(routes[2].hops[0].service).toBe('changelly');
-			expect(routes[2].hops[1].service).toBe('boltz');
-		});
-
-		it('2-hop USDT to rBTC fee is 0.35% (compound)', () => {
-			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
-			// routes[2] is now Changelly+Boltz compound
-			expect(routes[2].totalFeePercent).toBe(0.35);
-		});
-
-		it('fourth route is non-recommended 1-hop Changelly direct', () => {
-			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
-			expect(routes[3].id).toBe('usdt-to-rbtc-via-changelly-direct');
-			expect(routes[3].recommended).toBe(false);
-			expect(routes[3].hops).toHaveLength(1);
-		});
-
-		it('1-hop Changelly direct route has 4% fee', () => {
-			const routes = resolveRoute('usdt-bsc', makeAddressDest(30));
-			expect(routes[3].totalFeePercent).toBe(4);
 		});
 	});
 
@@ -337,11 +305,11 @@ describe('determinism', () => {
 		expect(result1).toEqual(result2);
 	});
 
-	it('returns identical results for same USDT -> RSK inputs (4 routes)', () => {
+	it('returns identical results for same USDT -> RSK inputs (2 routes)', () => {
 		const dest = makeAddressDest(30);
 		const result1 = resolveRoute('usdt-bsc', dest);
 		const result2 = resolveRoute('usdt-bsc', dest);
-		expect(result1).toHaveLength(4);
+		expect(result1).toHaveLength(2);
 		expect(result1).toEqual(result2);
 	});
 });

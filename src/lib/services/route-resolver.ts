@@ -57,9 +57,7 @@ const BSC_CHAIN_IDS = new Set([56, 97]);
 // ---------------------------------------------------------------------------
 
 const FEE_DIRECT = 0;
-const FEE_CHANGELLY_RBTC_USDT = 0.25;
 const FEE_CHANGELLY_USDT_BTC = 0.25;
-const FEE_CHANGELLY_USDT_RBTC_DIRECT = 4;
 const FEE_CHANGELLY_USDT_ARB_USDT = 0.25;
 const FEE_BOLTZ_SUBMARINE = 0.1;
 const FEE_BOLTZ_CHAIN_SWAP = 0.1;
@@ -206,23 +204,6 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						}
 					],
 					recommended: false
-				}),
-				buildRoute({
-					id: 'rbtc-to-bsc-via-changelly',
-					label: 'Changelly',
-					hops: [
-						{
-							service: 'changelly',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_CHANGELLY_RBTC_USDT,
-							estimatedTimeMin: TIME_CHANGELLY_MIN,
-							estimatedTimeMax: TIME_CHANGELLY_MAX
-						}
-					],
-					recommended: false
 				})
 			];
 		}
@@ -337,50 +318,6 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				}),
-				buildRoute({
-					id: 'usdt-to-rbtc-via-changelly-boltz',
-					label: 'Changelly + Boltz',
-					hops: [
-						{
-							service: 'changelly',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_BTC,
-							toChain: CHAIN_BITCOIN,
-							feePercent: FEE_CHANGELLY_USDT_BTC,
-							estimatedTimeMin: TIME_CHANGELLY_MIN,
-							estimatedTimeMax: TIME_CHANGELLY_MAX
-						},
-						{
-							service: 'boltz',
-							fromAsset: ASSET_BTC,
-							fromChain: CHAIN_BITCOIN,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_BOLTZ_CHAIN_SWAP,
-							estimatedTimeMin: TIME_BOLTZ_MIN,
-							estimatedTimeMax: TIME_BOLTZ_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'usdt-to-rbtc-via-changelly-direct',
-					label: 'Changelly Direct',
-					hops: [
-						{
-							service: 'changelly',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_CHANGELLY_USDT_RBTC_DIRECT,
-							estimatedTimeMin: TIME_CHANGELLY_MIN,
-							estimatedTimeMax: TIME_CHANGELLY_MAX
 						}
 					],
 					recommended: false

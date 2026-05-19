@@ -118,7 +118,7 @@ describe('resolveRouteAsync', () => {
 
 			const result = await resolveRouteAsync('rbtc', dest, amount, userAddress);
 
-			expect(result.routes.length).toBeGreaterThanOrEqual(3);
+			expect(result.routes.length).toBeGreaterThanOrEqual(2);
 			expect(result.providerResults).toHaveLength(2);
 			expect(result.providerResults.find((p) => p.provider === 'lifi')!.status).toBe('success');
 			expect(result.providerResults.find((p) => p.provider === 'symbiosis')!.status).toBe(
