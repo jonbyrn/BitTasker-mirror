@@ -160,10 +160,20 @@
 	let walletCardBalanceSecondary = $derived(selectedSource === 'usdt' ? '' : walletBalanceUsd);
 	let walletCardIconAlt = $derived(selectedSource === 'usdt' ? 'USDT' : 'Bitcoin');
 
+	// Effective balance/required that switch based on selected source
+	let effectiveBalance = $derived(
+		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceUsd
+	);
+	let effectiveRequired = $derived(requiredBalanceUsd);
+
+	function parseUsdString(value: string): number {
+		return parseFloat(value.replace(/[$,]/g, ''));
+	}
+
 	const remainingBalanceUsd = $derived.by(() => {
-		if (!walletBalanceUsd || !requiredBalanceUsd) return '—';
-		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
-		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (!effectiveBalance || !effectiveRequired) return '—';
+		const walletNum = parseUsdString(effectiveBalance);
+		const requiredNum = parseUsdString(effectiveRequired);
 		if (isNaN(walletNum) || isNaN(requiredNum)) return '—';
 		const remaining = walletNum - requiredNum;
 		if (remaining < 0) {
@@ -173,9 +183,9 @@
 	});
 
 	const remainingIsNegative = $derived.by(() => {
-		if (!walletBalanceUsd || !requiredBalanceUsd) return false;
-		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
-		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (!effectiveBalance || !effectiveRequired) return false;
+		const walletNum = parseUsdString(effectiveBalance);
+		const requiredNum = parseUsdString(effectiveRequired);
 		if (isNaN(walletNum) || isNaN(requiredNum)) return false;
 		return walletNum < requiredNum;
 	});
