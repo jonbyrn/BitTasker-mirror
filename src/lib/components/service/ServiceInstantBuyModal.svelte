@@ -657,6 +657,9 @@
 									? ''
 									: walletVerificationMessage}
 								forceOpen={false}
+								availableBalance={selectedSource === 'usdt'
+									? usdtBalanceUsd || usdtBalance || '$0.00'
+									: undefined}
 							/>
 
 							<!-- Pricing Card -->

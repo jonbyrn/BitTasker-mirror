@@ -22,7 +22,8 @@
 		connectionError = '',
 		verificationStatus = 'idle',
 		verificationMessage = '',
-		forceOpen = false
+		forceOpen = false,
+		availableBalance = undefined
 	} = $props<{
 		title?: string;
 		iconAlt?: string;
@@ -44,6 +45,7 @@
 		verificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
 		verificationMessage?: string;
 		forceOpen?: boolean;
+		availableBalance?: string;
 	}>();
 
 	let expanded = $state(false);
@@ -148,7 +150,7 @@
 		<div class="space-y-2 px-3 pb-1.5 sm:px-4 sm:pb-2">
 			<div class="flex items-center justify-between gap-2 text-sm">
 				<span class="text-base-content/70">{resolvedAvailableLabel}</span>
-				<span>{balanceUsd}</span>
+				<span>{availableBalance ?? balanceUsd}</span>
 			</div>
 			<div class="flex items-center justify-between gap-2 text-sm">
 				<span class="text-base-content/70">{resolvedRequiredLabel}</span>
