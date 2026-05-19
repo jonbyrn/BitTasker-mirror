@@ -153,6 +153,13 @@
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const resolvedErrorMessage = $derived(errorMessage);
 
+	// Wallet card props — switch based on selected source
+	let walletCardBalancePrimary = $derived(
+		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceSats
+	);
+	let walletCardBalanceSecondary = $derived(selectedSource === 'usdt' ? '' : walletBalanceUsd);
+	let walletCardIconAlt = $derived(selectedSource === 'usdt' ? 'USDT' : 'Bitcoin');
+
 	const remainingBalanceUsd = $derived.by(() => {
 		if (!walletBalanceUsd || !requiredBalanceUsd) return '—';
 		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
@@ -603,10 +610,12 @@
 							<!-- Wallet Balance Accordion -->
 							<ContractFundingWalletCard
 								title={$t('dashboard.services.detail.book_now_drawer.wallet_balance')}
-								iconAlt={$t('dashboard.services.detail.book_now_drawer.wallet_icon_alt')}
-								balanceSats={walletBalanceSats}
-								balanceUsd={walletBalanceUsd}
-								satsLabel={$t('dashboard.services.detail.book_now_drawer.sats')}
+								iconAlt={walletCardIconAlt}
+								balanceSats={walletCardBalancePrimary}
+								balanceUsd={walletCardBalanceSecondary}
+								satsLabel={selectedSource === 'usdt'
+									? 'USDT'
+									: $t('dashboard.services.detail.book_now_drawer.sats')}
 								notConnectedLabel={$t(
 									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
 								)}
