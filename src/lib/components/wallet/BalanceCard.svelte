@@ -190,6 +190,7 @@
 					{/if}
 				</div>
 				<!-- Breakdown row -->
+				<!-- Toggle row -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
 						<p class="flex-1 text-lg text-white opacity-70 sm:text-xl">
@@ -201,10 +202,11 @@
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
 					{/if}
-					<div class="flex flex-col items-center gap-1">
-						{@render toggleButton()}
-						{@render refreshButton()}
-					</div>
+					{@render toggleButton()}
+				</div>
+				<!-- Refresh row -->
+				<div class="flex items-center justify-end gap-2">
+					{@render refreshButton()}
 				</div>
 			</div>
 		</div>
