@@ -1475,7 +1475,7 @@
 										alt="rBTC"
 										class="h-5 w-5"
 									/>
-									<span>{$t('wallet.rbtc')}</span>
+									<span>{$t('wallet.bitcoin')}</span>
 									<span class="mr-6 ml-auto text-xs"
 										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
 									>
@@ -1511,7 +1511,7 @@
 											alt="rBTC"
 											class="h-5 w-5"
 										/>
-										<span>{$t('wallet.rbtc')}</span>
+										<span>{$t('wallet.bitcoin')}</span>
 										<span class="ml-auto text-xs opacity-70"
 											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
 										>

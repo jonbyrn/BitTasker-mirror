@@ -658,7 +658,7 @@
 						<span class="text-base-content/60">{$t('wallet.to')}:</span>
 						{#if receiveTab === 'rbtc'}
 							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-							<span>{$t('wallet.rbtc')}</span>
+							<span>{$t('wallet.bitcoin')}</span>
 							<span class="mr-6 ml-auto text-xs">
 								{formatSats($walletStore.totalBalances.sats)} Sats
 							</span>
@@ -690,7 +690,7 @@
 								}}
 							>
 								<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-								<span>{$t('wallet.rbtc')}</span>
+								<span>{$t('wallet.bitcoin')}</span>
 								<span class="ml-auto text-xs opacity-70">
 									{formatSats($walletStore.totalBalances.sats)} Sats
 								</span>
