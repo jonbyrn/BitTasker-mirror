@@ -220,10 +220,7 @@ export function normalizedQuoteToRoute(quote: NormalizedQuote, recommended: bool
 		estimatedTimeMax: Math.ceil(quote.estimatedTimeMinutes * 1.5)
 	};
 
-	const label =
-		quote.provider === 'lifi'
-			? `${quote.fromAsset} to ${quote.toAsset} via LI.FI`
-			: `${quote.fromAsset} to ${quote.toAsset} via Symbiosis`;
+	const label = quote.provider === 'lifi' ? 'LI.FI' : 'Symbiosis';
 
 	return {
 		id: `${quote.fromChain}-to-${quote.toChain}-via-${quote.provider}-${quote.providerRouteId}`,

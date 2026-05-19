@@ -1676,9 +1676,9 @@
 							serviceFeeSats={feeState.estimated?.serviceFee ?? 0}
 							networkFeeSats={feeState.estimated?.networkFee ?? 0}
 							isLoadingFee={feeState.isLoading || routeLoading}
-							feeError={feeState.error}
 							{btcPrice}
 							network={parsedPayment.detectedNetwork}
+							amountSats={amountInSats}
 						/>
 					{:else}
 						<RoutePicker
@@ -1687,9 +1687,9 @@
 							onSelect={() => {}}
 							totalFeeSats={0}
 							isLoadingFee={feeState.isLoading || routeLoading}
-							feeError={feeState.error}
 							{btcPrice}
 							network={parsedPayment.detectedNetwork}
+							amountSats={amountInSats}
 						/>
 					{/if}
 

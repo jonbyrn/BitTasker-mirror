@@ -153,7 +153,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 			return [
 				buildRoute({
 					id: 'rbtc-to-rbtc-direct',
-					label: 'rBTC to rBTC (Direct)',
+					label: 'Direct',
 					hops: [
 						{
 							service: 'direct',
@@ -175,7 +175,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 			return [
 				buildRoute({
 					id: 'rbtc-to-bsc-via-lifi',
-					label: 'rBTC to BSC via LI.FI',
+					label: 'LI.FI',
 					hops: [
 						{
 							service: 'lifi',
@@ -192,7 +192,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 				}),
 				buildRoute({
 					id: 'rbtc-to-bsc-via-symbiosis',
-					label: 'rBTC to BSC via Symbiosis',
+					label: 'Symbiosis',
 					hops: [
 						{
 							service: 'symbiosis',
@@ -209,7 +209,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 				}),
 				buildRoute({
 					id: 'rbtc-to-bsc-via-changelly',
-					label: 'rBTC to BSC via Changelly',
+					label: 'Changelly',
 					hops: [
 						{
 							service: 'changelly',
@@ -234,7 +234,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 		return [
 			buildRoute({
 				id: 'rbtc-to-lightning-via-boltz',
-				label: 'rBTC to Lightning via Boltz',
+				label: 'Boltz',
 				hops: [
 					{
 						service: 'boltz',
@@ -256,7 +256,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 		return [
 			buildRoute({
 				id: 'rbtc-to-btc-via-boltz',
-				label: 'rBTC to BTC via Boltz',
+				label: 'Boltz',
 				hops: [
 					{
 						service: 'boltz',
@@ -287,7 +287,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 			return [
 				buildRoute({
 					id: 'usdt-to-bsc-direct',
-					label: 'USDT to BSC (Direct)',
+					label: 'Direct',
 					hops: [
 						{
 							service: 'direct',
@@ -309,7 +309,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 			return [
 				buildRoute({
 					id: 'usdt-to-rbtc-via-lifi',
-					label: 'USDT to rBTC via LI.FI',
+					label: 'LI.FI',
 					hops: [
 						{
 							service: 'lifi',
@@ -326,7 +326,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 				}),
 				buildRoute({
 					id: 'usdt-to-rbtc-via-symbiosis',
-					label: 'USDT to rBTC via Symbiosis',
+					label: 'Symbiosis',
 					hops: [
 						{
 							service: 'symbiosis',
@@ -343,7 +343,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 				}),
 				buildRoute({
 					id: 'usdt-to-rbtc-via-changelly-boltz',
-					label: 'USDT to rBTC via Changelly + Boltz',
+					label: 'Changelly + Boltz',
 					hops: [
 						{
 							service: 'changelly',
@@ -370,7 +370,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 				}),
 				buildRoute({
 					id: 'usdt-to-rbtc-via-changelly-direct',
-					label: 'USDT to rBTC via Changelly (Direct)',
+					label: 'Changelly Direct',
 					hops: [
 						{
 							service: 'changelly',
@@ -395,7 +395,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 		return [
 			buildRoute({
 				id: 'usdt-to-lightning-via-changelly-boltz',
-				label: 'USDT to Lightning via Changelly + Boltz',
+				label: 'Changelly + Boltz',
 				hops: [
 					{
 						service: 'changelly',
@@ -427,7 +427,7 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 		return [
 			buildRoute({
 				id: 'usdt-to-btc-via-changelly',
-				label: 'USDT to BTC via Changelly',
+				label: 'Changelly',
 				hops: [
 					{
 						service: 'changelly',
