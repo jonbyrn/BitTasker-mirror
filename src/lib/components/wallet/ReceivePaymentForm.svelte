@@ -218,7 +218,7 @@
 				label: $t('wallet.receive_form.networks.bitcoin.label'),
 				description: $t('wallet.receive_form.networks.bitcoin.description'),
 				icon: '/images/chains/Bitcoin.svg',
-				available: false, // Disabled - Coming Soon
+				available: $walletStore.isConnected,
 				swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info'),
 				tabs: ['rbtc']
 			},

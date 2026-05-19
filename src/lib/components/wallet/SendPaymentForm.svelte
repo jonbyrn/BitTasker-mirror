@@ -52,7 +52,12 @@
 	// Platform detection
 	const isWeb = Capacitor.getPlatform() === 'web';
 
-	const SUPPORTED_SEND_NETWORKS = new Set(['rootstock-bitcoin', 'lightning-bitcoin', 'usdt-bsc']);
+	const SUPPORTED_SEND_NETWORKS = new Set([
+		'rootstock-bitcoin',
+		'lightning-bitcoin',
+		'bitcoin',
+		'usdt-bsc'
+	]);
 
 	const networkOption = {
 		'rootstock-bitcoin': {
