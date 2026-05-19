@@ -9,8 +9,11 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
 		parsePaymentAddress,
+		resolveLNURLPaymentAddress,
+		isLNURL,
 		type ParsedPaymentAddress
 	} from '$lib/utils/helpers/paymentAddressParser';
+	import { fetchLNURLPayInvoice } from '$lib/services/lnurl-pay.service';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { detectLightningType, parseLightningInvoice } from '$lib/utils/helpers/lightningInvoice';
@@ -406,6 +409,21 @@
 			return false;
 		}
 
+		// LNURL amount bounds validation (amount in sats vs limits in msats)
+		const lnurlMinSats =
+			parsedPayment.data?.lnurlMinSendable !== undefined
+				? Math.ceil(parsedPayment.data.lnurlMinSendable / 1000)
+				: 0;
+		const lnurlMaxSats =
+			parsedPayment.data?.lnurlMaxSendable !== undefined
+				? Math.floor(parsedPayment.data.lnurlMaxSendable / 1000)
+				: 0;
+		if (parsedPayment.data?.lnurlCallback) {
+			if (amountInSats < lnurlMinSats || amountInSats > lnurlMaxSats) {
+				return false;
+			}
+		}
+
 		// Insufficient funds
 		if (hasInsufficientBalance) {
 			return false;
@@ -489,6 +507,24 @@
 			// Switch to Enter Payment Details tab - the form will reactively update
 			uiState.activeTab = 'enter';
 			uiState.showConfirmation = false;
+
+			// If this is an LNURL, resolve the full details asynchronously
+			if (isLNURL(qrValue)) {
+				try {
+					const lnurlParsed = await resolveLNURLPaymentAddress(qrValue);
+					parsedPayment.data = lnurlParsed;
+					parsedPayment.detectedMemo = lnurlParsed.memo;
+					if (lnurlParsed.lnurlDescription) {
+						formInput.memo = lnurlParsed.lnurlDescription;
+						uiState.descriptionExpanded = true;
+					}
+				} catch (err) {
+					console.error('Failed to resolve LNURL:', err);
+					qrScanState.error = $t('wallet.send.failed_to_parse_qr');
+					return;
+				}
+			}
+
 			await updateFeeEstimate();
 		} catch (error) {
 			console.error('Failed to parse QR code:', error);
@@ -553,6 +589,31 @@
 				// Use tick() to ensure reactive updates complete before checking amountInSats
 				const { tick } = await import('svelte');
 				await tick();
+
+				// If this is an LNURL, resolve the full details asynchronously
+				if (isLNURL(formInput.addressInput)) {
+					try {
+						const lnurlParsed = await resolveLNURLPaymentAddress(formInput.addressInput);
+						parsedPayment.data = lnurlParsed;
+						parsedPayment.detectedMemo = lnurlParsed.memo;
+						if (lnurlParsed.lnurlDescription) {
+							formInput.memo = lnurlParsed.lnurlDescription;
+							uiState.descriptionExpanded = true;
+						}
+					} catch (err) {
+						console.error('Failed to resolve LNURL:', err);
+						parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
+						parsedPayment.data = null;
+						parsedPayment.detectedNetwork = null;
+						parsedPayment.detectedAmount = null;
+						parsedPayment.detectedMemo = null;
+						parsedPayment.amountRequired = true;
+						feeState.estimated = null;
+						feeState.error = null;
+						formInput.unit = 'usd';
+						return;
+					}
+				}
 
 				// Trigger fee estimation if we have:
 				// 1. Amount detected from address, OR
@@ -1055,9 +1116,16 @@
 			let txHash: string | null = null;
 
 			if (network === 'lightning-bitcoin') {
+				// Resolve invoice for LNURL payments
+				let invoiceToPay = recipient;
+				if (isLNURL(recipient) && parsedPayment.data?.lnurlCallback) {
+					const amountMsats = amountInSats * 1000;
+					invoiceToPay = await fetchLNURLPayInvoice(parsedPayment.data.lnurlCallback, amountMsats);
+				}
+
+				// Lightning send via submarine swap
 				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
 				sendState.pendingSwapId = swapResult.swapId;
-
 				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
 				txHash = lockResult.txHash;
 

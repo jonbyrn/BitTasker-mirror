@@ -1,6 +1,18 @@
 import { detectLightningType, parseLightningInvoice } from './lightningInvoice';
 import { validateBitcoinAddress } from './validators';
 import { address as liquidAddress } from 'liquidjs-lib';
+import {
+	isLNURL,
+	isLNURLWithdraw,
+	extractLNURLUrl,
+	fetchLNURLPayDetails,
+	fetchLNURLPayInvoice,
+	parseLNURLMetadata
+} from '$lib/services/lnurl-pay.service';
+import {
+	isLightningAddress as isLnAddr,
+	resolveLightningAddress
+} from '$lib/services/lightning-address.service';
 
 export interface ParsedPaymentAddress {
 	isValid: boolean;
@@ -15,6 +27,13 @@ export interface ParsedPaymentAddress {
 	amount: number | null; // Amount in sats, null if not specified
 	memo: string | null;
 	errorMessage?: string; // Optional error message with context
+	paymentType?: 'send' | 'withdraw'; // Whether this is a send or withdraw payment
+	// LNURL-specific fields (populated after async resolution)
+	lnurlCallback?: string;
+	lnurlMinSendable?: number; // minimum amount in millisatoshis
+	lnurlMaxSendable?: number; // maximum amount in millisatoshis
+	lnurlDescription?: string;
+	lnurlImage?: string;
 }
 
 // Constants
@@ -211,7 +230,34 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		};
 	}
 
-	// 1. Check for Lightning invoice/address
+	// 0. Check for LNURL-withdraw (must come before general LNURL check)
+	// lnurlw:// is a protocol prefix specifically for withdraw; lnurl1... bech32
+	// strings will be distinguished later by fetching the endpoint.
+	if (isLNURLWithdraw(trimmed)) {
+		return {
+			isValid: true,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null,
+			memo: null,
+			paymentType: 'withdraw'
+		};
+	}
+
+	// 1. Check for LNURL-pay (must come before lightning checks)
+	// LNURL detection is synchronous; the async resolution happens in the component.
+	if (isLNURL(trimmed)) {
+		return {
+			isValid: true,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null, // Amount required — user must pick within LNURL min/max
+			memo: null, // Will be populated after async resolution
+			paymentType: 'send'
+		};
+	}
+
+	// 2. Check for Lightning invoice/address
 	const lightningType = detectLightningType(trimmed);
 
 	// BOLT12 offers/invoices are not yet supported
@@ -257,7 +303,8 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			address: trimmed,
 			network: 'lightning-bitcoin',
 			amount: null, // Lightning addresses require amount to be specified
-			memo: null
+			memo: null,
+			paymentType: 'send' // Lightning address resolves to LNURL-pay (send)
 		};
 	}
 
@@ -613,4 +660,75 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		amount: null,
 		memo: null
 	};
+}
+
+/**
+ * Resolve an LNURL string or Lightning Address to a full ParsedPaymentAddress
+ * by fetching its pay request endpoint. This is an async operation that should
+ * be called from the component after initial address detection.
+ *
+ * Handles:
+ *   - LNURL bech32 strings (`lnurl1...`)
+ *   - LNURL protocol prefixes (`lnurlp://...`)
+ *   - Lightning URIs (`lightning:lnurl1...`)
+ *   - Direct URLs (`https://...`)
+ *   - Lightning Addresses (`user@domain.com`) — resolves via LUD-16
+ *
+ * @param input - The LNURL string or Lightning Address
+ * @returns A fully-resolved ParsedPaymentAddress with LNURL metadata
+ */
+export async function resolveLNURLPaymentAddress(input: string): Promise<ParsedPaymentAddress> {
+	// Check if this is a Lightning Address (user@domain)
+	if (isLnAddr(input)) {
+		const details = await resolveLightningAddress(input);
+		const metadata = parseLNURLMetadata(details.metadata);
+
+		return {
+			isValid: true,
+			address: input,
+			network: 'lightning-bitcoin',
+			amount: null, // Amount must be chosen by user within min/max
+			memo: metadata.description || null,
+			paymentType: 'send',
+			lnurlCallback: details.callback,
+			lnurlMinSendable: details.minSendable,
+			lnurlMaxSendable: details.maxSendable,
+			lnurlDescription: metadata.description || undefined,
+			lnurlImage: metadata.image
+		};
+	}
+
+	// Standard LNURL resolution (bech32, protocol prefixes, direct URLs)
+	const url = extractLNURLUrl(input);
+	const details = await fetchLNURLPayDetails(url);
+	const metadata = parseLNURLMetadata(details.metadata);
+
+	return {
+		isValid: true,
+		address: input,
+		network: 'lightning-bitcoin',
+		amount: null, // Amount must be chosen by user within min/max
+		memo: metadata.description || null,
+		paymentType: 'send',
+		lnurlCallback: details.callback,
+		lnurlMinSendable: details.minSendable,
+		lnurlMaxSendable: details.maxSendable,
+		lnurlDescription: metadata.description || undefined,
+		lnurlImage: metadata.image
+	};
+}
+
+/**
+ * Resolve a BOLT11 invoice from an LNURL callback URL.
+ * Thin wrapper around fetchLNURLPayInvoice for convenience.
+ *
+ * @param callbackUrl - The LNURL callback URL
+ * @param amountMillisats - The amount in millisatoshis
+ * @returns The BOLT11 invoice string
+ */
+export async function resolveLNURLInvoice(
+	callbackUrl: string,
+	amountMillisats: number
+): Promise<string> {
+	return fetchLNURLPayInvoice(callbackUrl, amountMillisats);
 }
