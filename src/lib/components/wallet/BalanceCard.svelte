@@ -168,7 +168,7 @@
 	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">
 			<div class="flex flex-col gap-1 sm:gap-0.5">
-				<!-- Combined total -->
+				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
 						<p
@@ -188,9 +188,9 @@
 							{@render helpButton()}
 						</p>
 					{/if}
+					{@render toggleButton()}
 				</div>
-				<!-- Breakdown row -->
-				<!-- Toggle row -->
+				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
 						<p class="flex-1 text-lg text-white opacity-70 sm:text-xl">
@@ -202,10 +202,6 @@
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
 					{/if}
-					{@render toggleButton()}
-				</div>
-				<!-- Refresh row -->
-				<div class="flex items-center justify-end gap-2">
 					{@render refreshButton()}
 				</div>
 			</div>
