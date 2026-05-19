@@ -193,11 +193,11 @@
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
-						<p class="flex-1 text-lg text-white opacity-70 sm:text-xl">
+						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<p class="flex-1 text-lg text-white opacity-70 sm:text-xl">
+						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
 							{satsDisplay}
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
