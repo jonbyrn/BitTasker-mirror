@@ -55,12 +55,16 @@ type SourceDestKey = `${SourceWallet}->${string}`;
 
 const LIFI_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:bsc',
-	'usdt-bsc->address:rsk'
+	'usdt-bsc->address:rsk',
+	'rbtc->invoice:onchain',
+	'usdt-bsc->invoice:onchain'
 ]);
 
 const SYMBIOSIS_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:bsc',
-	'usdt-bsc->address:rsk'
+	'usdt-bsc->address:rsk',
+	'rbtc->invoice:onchain',
+	'usdt-bsc->invoice:onchain'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -79,13 +83,21 @@ function isRSKChain(chainId: number): boolean {
  * Determine the pair key for provider eligibility checking.
  */
 function getPairKey(source: SourceWallet, destination: Destination): SourceDestKey | null {
-	if (destination.type !== 'address') return null;
-
-	if (source === 'rbtc' && isBSCChain(destination.chainId)) {
-		return 'rbtc->address:bsc';
+	// Address destinations
+	if (destination.type === 'address') {
+		if (source === 'rbtc' && isBSCChain(destination.chainId)) {
+			return 'rbtc->address:bsc';
+		}
+		if (source === 'usdt-bsc' && isRSKChain(destination.chainId)) {
+			return 'usdt-bsc->address:rsk';
+		}
+		return null;
 	}
-	if (source === 'usdt-bsc' && isRSKChain(destination.chainId)) {
-		return 'usdt-bsc->address:rsk';
+
+	// Invoice destinations
+	if (destination.type === 'invoice' && destination.network === 'onchain') {
+		if (source === 'rbtc') return 'rbtc->invoice:onchain';
+		if (source === 'usdt-bsc') return 'usdt-bsc->invoice:onchain';
 	}
 
 	return null;
@@ -106,20 +118,31 @@ async function callLifi(
 	amount: string,
 	userAddress: string
 ): Promise<ProviderRouteResult> {
-	if (destination.type !== 'address') {
+	// Determine chain IDs and tokens based on destination type
+	const isBtcOnchain = destination.type === 'invoice' && destination.network === 'onchain';
+
+	if (!isBtcOnchain && destination.type !== 'address') {
 		return { provider: 'lifi', status: 'skipped', routes: [] };
 	}
 
 	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
-	const toChainId = isRSKChain(destination.chainId) ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
+	const toChainId = isBtcOnchain
+		? 0 // Bitcoin mainnet (chain ID 0 in LI.FI)
+		: isRSKChain((destination as { chainId: number }).chainId)
+			? RSK_MAINNET_CHAIN_ID
+			: BSC_MAINNET_CHAIN_ID;
 
 	const fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
-	const toToken = source === 'rbtc' ? USDT_BSC_ADDRESS : EVM_NATIVE_TOKEN_ADDRESS;
+	const toToken = isBtcOnchain
+		? 'BTC'
+		: source === 'rbtc'
+			? USDT_BSC_ADDRESS
+			: EVM_NATIVE_TOKEN_ADDRESS;
 
 	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = source === 'rbtc' ? 'USDT' : 'RBTC';
+	const toAsset = isBtcOnchain ? 'BTC' : source === 'rbtc' ? 'USDT' : 'RBTC';
 	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = source === 'rbtc' ? 'bsc' : 'rsk';
+	const toChain = isBtcOnchain ? 'bitcoin' : source === 'rbtc' ? 'bsc' : 'rsk';
 
 	try {
 		const lifiRoute: LifiRoute = await withTimeout(
@@ -163,17 +186,23 @@ async function callSymbiosis(
 	amount: string,
 	userAddress: string
 ): Promise<ProviderRouteResult> {
-	if (destination.type !== 'address') {
+	const isBtcOnchain = destination.type === 'invoice' && destination.network === 'onchain';
+
+	if (!isBtcOnchain && destination.type !== 'address') {
 		return { provider: 'symbiosis', status: 'skipped', routes: [] };
 	}
 
 	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
-	const toChainId = isRSKChain(destination.chainId) ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
+	const toChainId = isBtcOnchain
+		? 0
+		: isRSKChain((destination as { chainId: number }).chainId)
+			? RSK_MAINNET_CHAIN_ID
+			: BSC_MAINNET_CHAIN_ID;
 
 	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = source === 'rbtc' ? 'USDT' : 'RBTC';
+	const toAsset = isBtcOnchain ? 'BTC' : source === 'rbtc' ? 'USDT' : 'RBTC';
 	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = source === 'rbtc' ? 'bsc' : 'rsk';
+	const toChain = isBtcOnchain ? 'bitcoin' : source === 'rbtc' ? 'bsc' : 'rsk';
 
 	try {
 		const quote: SymbiosisQuoteResponse = await withTimeout(
@@ -185,10 +214,14 @@ async function callSymbiosis(
 					decimals: 18
 				},
 				tokenOut: {
-					address: source === 'rbtc' ? USDT_BSC_ADDRESS : EVM_NATIVE_TOKEN_ADDRESS,
+					address: isBtcOnchain
+						? 'BTC'
+						: source === 'rbtc'
+							? USDT_BSC_ADDRESS
+							: EVM_NATIVE_TOKEN_ADDRESS,
 					chainId: toChainId,
 					symbol: toAsset,
-					decimals: 18
+					decimals: isBtcOnchain ? 8 : 18
 				},
 				amount,
 				from: userAddress,

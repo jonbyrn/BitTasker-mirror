@@ -236,6 +236,40 @@ function resolveFromRBTC(destination: Destination): Route[] {
 	if (destination.network === 'onchain') {
 		return [
 			buildRoute({
+				id: 'rbtc-to-btc-via-lifi',
+				label: 'LI.FI',
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				],
+				recommended: true
+			}),
+			buildRoute({
+				id: 'rbtc-to-btc-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				],
+				recommended: false
+			}),
+			buildRoute({
 				id: 'rbtc-to-btc-via-boltz',
 				label: 'Boltz',
 				hops: [
@@ -362,6 +396,40 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 
 	if (destination.network === 'onchain') {
 		return [
+			buildRoute({
+				id: 'usdt-to-btc-via-lifi',
+				label: 'LI.FI',
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				],
+				recommended: true
+			}),
+			buildRoute({
+				id: 'usdt-to-btc-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				],
+				recommended: false
+			}),
 			buildRoute({
 				id: 'usdt-to-btc-via-changelly',
 				label: 'Changelly',

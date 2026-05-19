@@ -136,26 +136,33 @@ describe('resolveRoute — source: rbtc', () => {
 	});
 
 	describe('destination: invoice (onchain/BTC)', () => {
-		it('returns 1 route for onchain BTC destination', () => {
+		it('returns 3 routes for onchain BTC destination', () => {
 			const routes = resolveRoute('rbtc', makeInvoiceDest('onchain'));
-			expect(routes).toHaveLength(1);
+			expect(routes).toHaveLength(3);
 		});
 
-		it('returns Boltz chain swap route for rBTC to BTC', () => {
+		it('returns LI.FI route first for rBTC to BTC', () => {
 			const routes = resolveRoute('rbtc', makeInvoiceDest('onchain'));
-			expect(routes[0].id).toBe('rbtc-to-btc-via-boltz');
+			expect(routes[0].id).toBe('rbtc-to-btc-via-lifi');
 			expect(routes[0].hops).toHaveLength(1);
-			expect(routes[0].hops[0].service).toBe('boltz');
+			expect(routes[0].hops[0].service).toBe('lifi');
 		});
 
-		it('rBTC to BTC route has ~0.1% fee', () => {
+		it('returns Symbiosis route second for rBTC to BTC', () => {
 			const routes = resolveRoute('rbtc', makeInvoiceDest('onchain'));
-			expect(routes[0].totalFeePercent).toBe(0.1);
+			expect(routes[1].id).toBe('rbtc-to-btc-via-symbiosis');
+			expect(routes[1].hops[0].service).toBe('symbiosis');
 		});
 
-		it('rBTC to BTC route is recommended', () => {
+		it('returns Boltz route third for rBTC to BTC', () => {
 			const routes = resolveRoute('rbtc', makeInvoiceDest('onchain'));
-			expect(routes[0].recommended).toBe(true);
+			expect(routes[2].id).toBe('rbtc-to-btc-via-boltz');
+			expect(routes[2].hops[0].service).toBe('boltz');
+		});
+
+		it('rBTC to BTC LI.FI route has 0.5% fee', () => {
+			const routes = resolveRoute('rbtc', makeInvoiceDest('onchain'));
+			expect(routes[0].totalFeePercent).toBe(0.5);
 		});
 	});
 });
@@ -221,26 +228,32 @@ describe('resolveRoute — source: usdt-bsc', () => {
 	});
 
 	describe('destination: invoice (onchain/BTC)', () => {
-		it('returns 1 route for onchain BTC destination', () => {
+		it('returns 3 routes for onchain BTC destination', () => {
 			const routes = resolveRoute('usdt-bsc', makeInvoiceDest('onchain'));
-			expect(routes).toHaveLength(1);
+			expect(routes).toHaveLength(3);
 		});
 
-		it('returns Changelly route for USDT to BTC', () => {
+		it('returns LI.FI route first for USDT to BTC', () => {
 			const routes = resolveRoute('usdt-bsc', makeInvoiceDest('onchain'));
-			expect(routes[0].id).toBe('usdt-to-btc-via-changelly');
+			expect(routes[0].id).toBe('usdt-to-btc-via-lifi');
 			expect(routes[0].hops).toHaveLength(1);
-			expect(routes[0].hops[0].service).toBe('changelly');
+			expect(routes[0].hops[0].service).toBe('lifi');
 		});
 
-		it('USDT to BTC route has 0.25% fee', () => {
+		it('returns Symbiosis route second for USDT to BTC', () => {
 			const routes = resolveRoute('usdt-bsc', makeInvoiceDest('onchain'));
-			expect(routes[0].totalFeePercent).toBe(0.25);
+			expect(routes[1].id).toBe('usdt-to-btc-via-symbiosis');
+			expect(routes[1].hops[0].service).toBe('symbiosis');
 		});
 
-		it('USDT to BTC route is recommended', () => {
+		it('returns Changelly route third for USDT to BTC', () => {
 			const routes = resolveRoute('usdt-bsc', makeInvoiceDest('onchain'));
-			expect(routes[0].recommended).toBe(true);
+			expect(routes[2].id).toBe('usdt-to-btc-via-changelly');
+		});
+
+		it('USDT to BTC LI.FI route has 0.5% fee', () => {
+			const routes = resolveRoute('usdt-bsc', makeInvoiceDest('onchain'));
+			expect(routes[0].totalFeePercent).toBe(0.5);
 		});
 	});
 

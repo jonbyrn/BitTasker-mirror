@@ -213,6 +213,19 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 
 	// 1. Check for Lightning invoice/address
 	const lightningType = detectLightningType(trimmed);
+
+	// BOLT12 offers/invoices are not yet supported
+	if (lightningType === 'bolt12') {
+		return {
+			isValid: false,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null,
+			memo: null,
+			errorMessage: 'bolt12_unsupported'
+		};
+	}
+
 	if (lightningType === 'bolt11') {
 		const parsed = parseLightningInvoice(trimmed);
 
