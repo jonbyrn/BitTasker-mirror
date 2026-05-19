@@ -655,7 +655,7 @@
 						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
 						onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
 					>
-						<span class="text-base-content/60">{$t('wallet.from')}:</span>
+						<span class="text-base-content/60">{$t('wallet.to')}:</span>
 						{#if receiveTab === 'rbtc'}
 							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
 							<span>{$t('wallet.rbtc')}</span>
