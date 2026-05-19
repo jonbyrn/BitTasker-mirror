@@ -24,10 +24,19 @@ import {
 	FeatureFlagService,
 	FEATURE_FLAGS,
 	isChangeallySwapsEnabled,
-	isChangeallyFiatEnabled
+	isChangeallyFiatEnabled,
+	isLifiEnabled,
+	isSymbiosisEnabled
 } from './kill-switch';
 
-export { FEATURE_FLAGS, isChangeallySwapsEnabled, isChangeallyFiatEnabled, FeatureFlagService };
+export {
+	FEATURE_FLAGS,
+	isChangeallySwapsEnabled,
+	isChangeallyFiatEnabled,
+	isLifiEnabled,
+	isSymbiosisEnabled,
+	FeatureFlagService
+};
 
 /**
  * Convenience wrapper to check if any named feature is enabled.

@@ -8,7 +8,9 @@ const debug = createDebug('kill-switch');
  */
 export const FEATURE_FLAGS = {
 	CHANGELLY_SWAPS: 'changelly-swaps',
-	CHANGELLY_FIAT: 'changelly-fiat'
+	CHANGELLY_FIAT: 'changelly-fiat',
+	LIFI_SWAPS: 'lifi-swaps',
+	SYMBIOSIS_SWAPS: 'symbiosis-swaps'
 } as const;
 
 /**
@@ -29,6 +31,14 @@ export function isChangeallySwapsEnabled(): boolean {
  */
 export function isChangeallyFiatEnabled(): boolean {
 	return import.meta.env.VITE_CHANGELLY_FIAT_ENABLED === 'true';
+}
+
+export function isLifiEnabled(): boolean {
+	return import.meta.env.VITE_LIFI_ENABLED === 'true';
+}
+
+export function isSymbiosisEnabled(): boolean {
+	return import.meta.env.VITE_SYMBIOSIS_ENABLED === 'true';
 }
 
 /**
@@ -54,6 +64,10 @@ export const FeatureFlagService = {
 				return isChangeallySwapsEnabled();
 			case FEATURE_FLAGS.CHANGELLY_FIAT:
 				return isChangeallyFiatEnabled();
+			case FEATURE_FLAGS.LIFI_SWAPS:
+				return isLifiEnabled();
+			case FEATURE_FLAGS.SYMBIOSIS_SWAPS:
+				return isSymbiosisEnabled();
 			default:
 				debug.warn('Unknown feature flag queried: %s', feature);
 				return false;

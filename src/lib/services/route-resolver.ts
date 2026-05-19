@@ -16,7 +16,7 @@ export type Destination =
 	| { type: 'invoice'; network: 'lightning' | 'onchain'; invoice: string };
 
 export interface RouteHop {
-	service: 'direct' | 'changelly' | 'boltz';
+	service: 'direct' | 'changelly' | 'boltz' | 'lifi' | 'symbiosis';
 	fromAsset: string;
 	fromChain: string;
 	toAsset: string;
@@ -64,6 +64,8 @@ const FEE_CHANGELLY_USDT_ARB_USDT = 0.25;
 const FEE_BOLTZ_SUBMARINE = 0.1;
 const FEE_BOLTZ_CHAIN_SWAP = 0.1;
 const FEE_BOLTZ_USDT_ARB_LIGHTNING = 0.88;
+const FEE_LIFI_DEFAULT = 0.5;
+const FEE_SYMBIOSIS_DEFAULT = 0.3;
 
 // ---------------------------------------------------------------------------
 // Constants — time in minutes
@@ -75,6 +77,10 @@ const TIME_CHANGELLY_MIN = 10;
 const TIME_CHANGELLY_MAX = 30;
 const TIME_BOLTZ_MIN = 5;
 const TIME_BOLTZ_MAX = 15;
+const TIME_LIFI_MIN = 5;
+const TIME_LIFI_MAX = 15;
+const TIME_SYMBIOSIS_MIN = 3;
+const TIME_SYMBIOSIS_MAX = 10;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -168,6 +174,40 @@ function resolveFromRBTC(destination: Destination): Route[] {
 		if (isBSCChain(destination.chainId)) {
 			return [
 				buildRoute({
+					id: 'rbtc-to-bsc-via-lifi',
+					label: 'rBTC to BSC via LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_BSC,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'rbtc-to-bsc-via-symbiosis',
+					label: 'rBTC to BSC via Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_BSC,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				}),
+				buildRoute({
 					id: 'rbtc-to-bsc-via-changelly',
 					label: 'rBTC to BSC via Changelly',
 					hops: [
@@ -182,7 +222,7 @@ function resolveFromRBTC(destination: Destination): Route[] {
 							estimatedTimeMax: TIME_CHANGELLY_MAX
 						}
 					],
-					recommended: true
+					recommended: false
 				})
 			];
 		}
@@ -267,6 +307,40 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 
 		if (isRSKChain(destination.chainId)) {
 			return [
+				buildRoute({
+					id: 'usdt-to-rbtc-via-lifi',
+					label: 'USDT to rBTC via LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'usdt-to-rbtc-via-symbiosis',
+					label: 'USDT to rBTC via Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				}),
 				buildRoute({
 					id: 'usdt-to-rbtc-via-changelly-boltz',
 					label: 'USDT to rBTC via Changelly + Boltz',
