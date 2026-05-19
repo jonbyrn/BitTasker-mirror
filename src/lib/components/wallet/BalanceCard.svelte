@@ -184,7 +184,7 @@
 						<p
 							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
-							${combinedTotal}
+							≈ ${combinedTotal}
 							{@render helpButton()}
 						</p>
 					{/if}
