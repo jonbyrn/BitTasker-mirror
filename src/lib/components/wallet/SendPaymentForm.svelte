@@ -731,6 +731,17 @@
 					}
 					break;
 				}
+				case 'bitcoin': {
+					// Bitcoin onchain — fee depends on source
+					if (formInput.selectedSource === 'usdt-bsc') {
+						// USDT source: swap handles Bitcoin side, BSC gas via paymaster
+						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
+					} else {
+						// rBTC source: conservative BTC miner fee (~2,000 sats)
+						feeState.estimated = { serviceFee: 0, networkFee: 2000, totalFees: 2000 };
+					}
+					break;
+				}
 				default:
 					feeState.estimated = null;
 			}
