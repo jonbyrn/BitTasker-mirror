@@ -1471,7 +1471,7 @@
 									</button>
 									<button
 										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 pt-2 pb-0 transition-colors {formInput.selectedSource ===
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
 										'usdt-bsc'
 											? 'bg-primary/10'
 											: ''}"
