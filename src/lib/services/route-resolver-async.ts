@@ -320,9 +320,13 @@ export async function resolveRouteAsync(
 		}
 	}
 
-	// Merge: live routes first (sorted by fee), then hardcoded routes
+	// Merge: live routes first (sorted by fee then time), then hardcoded routes
 	const mergedRoutes = [
-		...liveRoutes.sort((a, b) => a.totalFeePercent - b.totalFeePercent),
+		...liveRoutes.sort(
+			(a, b) =>
+				a.totalFeePercent - b.totalFeePercent ||
+				a.hops[0].estimatedTimeMin - b.hops[0].estimatedTimeMin
+		),
 		...hardcodedRoutes
 	];
 

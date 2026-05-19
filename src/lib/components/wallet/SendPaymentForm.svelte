@@ -230,30 +230,38 @@
 
 	let routeResult = $state<AsyncRouteResult>(createInitialAsyncRouteResult());
 	let routeLoading = $state<boolean>(false);
-	let _routeDebounceTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	let _routeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let _routeAbortController: AbortController | null = null;
 
 	$effect(() => {
-		// Read reactive dependencies
+		// Read all reactive dependencies first
 		const source = formInput.selectedSource;
 		const destNetwork = parsedPayment.detectedNetwork;
 		const destAddress = parsedPayment.data?.address || formInput.addressInput.trim();
 		const sourceWallet = toSourceWallet(source);
 		const dest = toDestination(destNetwork, destAddress);
+		const sats = amountInSats;
+		const userAddress = source === 'usdt-bsc' ? $walletStore.bsc.address : $walletStore.rsk.address;
 
-		// Track the latest request
-		let cancelled = false;
+		// Cancel any in-flight work
+		if (_routeDebounceTimer) {
+			clearTimeout(_routeDebounceTimer);
+			_routeDebounceTimer = null;
+		}
+		if (_routeAbortController) {
+			_routeAbortController.abort();
+			_routeAbortController = null;
+		}
 
-		// Clear previous debounce
-		if (_routeDebounceTimer) clearTimeout(_routeDebounceTimer);
-
-		if (!dest || !destAddress) {
+		// No valid destination — clear routes
+		if (!dest || !destAddress || !sats || !userAddress) {
 			routeResult = createInitialAsyncRouteResult();
 			routeLoading = false;
-			selectedRouteId = '';
 			return;
 		}
 
-		// Show hardcoded routes immediately for responsiveness
+		// Show hardcoded routes immediately
 		routeResult = {
 			routes: resolveRoute(sourceWallet, dest),
 			hardcodedRoutes: resolveRoute(sourceWallet, dest),
@@ -265,31 +273,32 @@
 		};
 		routeLoading = true;
 
-		// Debounce async resolution
+		// Debounce async resolution (capture current values)
+		const capturedSourceWallet = sourceWallet;
+		const capturedDest = dest;
+		const capturedAmount = String(sats);
+		const capturedAddress = userAddress;
+
 		_routeDebounceTimer = setTimeout(async () => {
-			if (cancelled) return;
-
 			try {
-				const amount = String(amountInSats);
-				const userAddress =
-					source === 'usdt-bsc' ? $walletStore.bsc.address : $walletStore.rsk.address;
-
-				if (!amount || !userAddress) return;
-
-				const result = await resolveRouteAsync(sourceWallet, dest, amount, userAddress);
-				if (cancelled) return;
-
+				const result = await resolveRouteAsync(
+					capturedSourceWallet,
+					capturedDest,
+					capturedAmount,
+					capturedAddress
+				);
 				routeResult = result;
 				routeLoading = false;
 			} catch (_err) {
-				if (cancelled) return;
 				routeLoading = false;
 			}
-		}, 300);
+		}, 400);
 
 		return () => {
-			cancelled = true;
-			if (_routeDebounceTimer) clearTimeout(_routeDebounceTimer);
+			if (_routeDebounceTimer) {
+				clearTimeout(_routeDebounceTimer);
+				_routeDebounceTimer = null;
+			}
 		};
 	});
 
