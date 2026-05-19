@@ -23,6 +23,9 @@ import {
 	type ProviderRouteResult,
 	type AsyncRouteResult
 } from '$lib/services/quote-normalizer';
+
+export type { AsyncRouteResult } from '$lib/services/quote-normalizer';
+
 import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
 
 // ---------------------------------------------------------------------------
