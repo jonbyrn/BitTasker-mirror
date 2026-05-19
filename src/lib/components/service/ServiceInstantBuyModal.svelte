@@ -148,7 +148,18 @@
 			: null
 	);
 	const baseAmountLabel = $derived(formatUsdLabel(baseAmountValue));
+	const usdtPlatformFeeValue = $derived(
+		baseAmountValue != null ? baseAmountValue * USDT_PLATFORM_FEE_RATE : null
+	);
+	const usdtPlatformFeeLabel = $derived(formatUsdLabel(usdtPlatformFeeValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
+	const savingsValue = $derived.by(() => {
+		if (usdtPlatformFeeValue != null && platformFeeValue != null && selectedSource === 'rbtc') {
+			return usdtPlatformFeeValue - platformFeeValue;
+		}
+		return null;
+	});
+	const savingsLabel = $derived(formatUsdLabel(savingsValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const resolvedErrorMessage = $derived(errorMessage);
@@ -157,7 +168,9 @@
 	let walletCardBalancePrimary = $derived(
 		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceSats
 	);
-	let walletCardBalanceSecondary = $derived(selectedSource === 'usdt' ? '$0.00' : walletBalanceUsd);
+	let walletCardBalanceSecondary = $derived(
+		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceUsd
+	);
 	let walletCardIconAlt = $derived(selectedSource === 'usdt' ? 'USDT' : 'Bitcoin');
 
 	// Effective balance/required that switch based on selected source
@@ -568,7 +581,7 @@
 											<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 										{:else}
 											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
-											<span>USDT (BSC)</span>
+											<span>USD</span>
 											<span class="ml-auto text-xs opacity-70"
 												>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
 											>
@@ -607,7 +620,7 @@
 												}}
 											>
 												<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
-												<span>USDT (BSC)</span>
+												<span>USD</span>
 												<span class="ml-auto text-xs opacity-70"
 													>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
 												>
@@ -624,7 +637,7 @@
 								balanceSats={walletCardBalancePrimary}
 								balanceUsd={walletCardBalanceSecondary}
 								satsLabel={selectedSource === 'usdt'
-									? 'USDT'
+									? ''
 									: $t('dashboard.services.detail.book_now_drawer.sats')}
 								notConnectedLabel={$t(
 									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
@@ -659,16 +672,36 @@
 												</span>
 												<span data-testid="service-agreement-base-amount">{baseAmountLabel}</span>
 											</div>
+											<!-- USDT platform fee (strikethrough when paying Bitcoin) -->
 											<div class="flex items-center justify-between gap-3 text-xs">
-												<span class="text-base-content/70">
+												<span
+													class="text-base-content/70"
+													class:line-through={selectedSource === 'rbtc'}
+												>
 													{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
-														values: { fee: PLATFORM_FEE_PERCENT_LABEL }
-													}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
+														values: { fee: '10.0%' }
+													}) || 'Platform Fee (10.0%)'}
 												</span>
-												<span data-testid="service-agreement-platform-fee">
-													{platformFeeLabel}
+												<span
+													class:line-through={selectedSource === 'rbtc'}
+													data-testid="service-agreement-usdt-platform-fee"
+												>
+													{usdtPlatformFeeLabel}
 												</span>
 											</div>
+											<!-- Bitcoin platform fee (hidden when paying USDT) -->
+											{#if selectedSource === 'rbtc'}
+												<div class="flex items-center justify-between gap-3 text-xs">
+													<span class="text-base-content/70">
+														{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
+															values: { fee: PLATFORM_FEE_PERCENT_LABEL }
+														}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
+													</span>
+													<span data-testid="service-agreement-platform-fee">
+														{platformFeeLabel}
+													</span>
+												</div>
+											{/if}
 											<div class="flex items-center justify-between gap-3 text-xs italic">
 												<span class="text-base-content/70">
 													{$t('dashboard.services.detail.book_now_drawer.estimated_network_fee')}
@@ -690,6 +723,12 @@
 													</span>
 												</div>
 											</div>
+											<!-- Savings line -->
+											{#if savingsValue != null && savingsValue > 0}
+												<div class="text-success text-center text-xs">
+													You Save {savingsLabel} paying with Bitcoin
+												</div>
+											{/if}
 										</div>
 
 										{#if selectedTierLabel}
