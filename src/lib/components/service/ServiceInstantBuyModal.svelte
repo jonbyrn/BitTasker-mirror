@@ -168,9 +168,7 @@
 	let walletCardBalancePrimary = $derived(
 		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceSats
 	);
-	let walletCardBalanceSecondary = $derived(
-		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceUsd
-	);
+	let walletCardBalanceSecondary = $derived(selectedSource === 'usdt' ? '' : walletBalanceUsd);
 	let walletCardIconAlt = $derived(selectedSource === 'usdt' ? 'USDT' : 'Bitcoin');
 
 	// Effective balance/required that switch based on selected source
