@@ -462,7 +462,7 @@ export function formatDurationBetweenDates(
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;
-	const conjunction = tKey('and');
+	const conjunction = t('common.components.date_input.and');
 	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 
