@@ -7,15 +7,10 @@
 		routes: Route[];
 		selectedRouteId: string;
 		onSelect: (routeId: string) => void;
-		/** Total fee in sats (swap + network combined) */
-		totalFeeSats: number;
-		/** Fee breakdown */
-		serviceFeeSats?: number;
 		networkFeeSats?: number;
 		isLoadingFee?: boolean;
 		btcPrice: number;
 		network?: string | null;
-		/** Amount being sent in sats — used to compute actual route fees */
 		amountSats?: number;
 	}
 
@@ -23,8 +18,6 @@
 		routes,
 		selectedRouteId,
 		onSelect,
-		totalFeeSats,
-		serviceFeeSats = 0,
 		networkFeeSats = 0,
 		isLoadingFee = false,
 		btcPrice = 0,
@@ -37,14 +30,12 @@
 	let selectedRoute = $derived(routes.find((r) => r.id === selectedRouteId));
 	let isUSDT = $derived(network === 'usdt-bsc');
 
-	/** Fee for the selected route in sats, computed from route.feePercent and amountSats. */
-	let routeFeeSats = $derived.by(() => {
-		if (!selectedRoute || amountSats <= 0) return 0;
-		return Math.round(amountSats * (selectedRoute.totalFeePercent / 100));
+	/** Total fee: route swap fee + network transaction fee. */
+	let totalFeeSatsCombined = $derived.by(() => {
+		if (!selectedRoute || amountSats <= 0) return networkFeeSats;
+		const swapFee = Math.round(amountSats * (selectedRoute.totalFeePercent / 100));
+		return swapFee + networkFeeSats;
 	});
-
-	/** Total fee: combined swap + network, or the route's computed fee if totalFeeSats is 0. */
-	let displayFeeSats = $derived(totalFeeSats > 0 ? totalFeeSats : routeFeeSats);
 
 	function getFiatFee(sats: number): string {
 		if (btcPrice <= 0 || sats <= 0) return '';
@@ -65,30 +56,35 @@
 		<span>{$t('wallet.network_fee')}:</span>
 		{#if isLoadingFee}
 			<span class="loading loading-spinner loading-xs ml-1.5"></span>
-		{:else if displayFeeSats > 0}
+		{:else if totalFeeSatsCombined > 0}
 			{#if isUSDT}
-				<span class="ml-1.5 font-semibold">${(displayFeeSats / 100_000_000).toFixed(2)}</span>
+				<span class="ml-1.5 font-semibold">${(totalFeeSatsCombined / 100_000_000).toFixed(2)}</span>
 			{:else}
-				<span class="ml-1.5 font-semibold">{formatSats(displayFeeSats)} {$t('wallet.sats')}</span>
+				<span class="ml-1.5 font-semibold"
+					>{formatSats(totalFeeSatsCombined)} {$t('wallet.sats')}</span
+				>
 				{#if btcPrice > 0}
-					<span class="ml-1 text-xs opacity-60">≈ {getFiatFee(displayFeeSats)}</span>
+					<span class="ml-1 text-xs opacity-60">≈ {getFiatFee(totalFeeSatsCombined)}</span>
 				{/if}
-			{/if}
-			{#if selectedRoute}
-				<span class="mr-6 ml-auto text-xs opacity-50">~{selectedRoute.estimatedTime}</span>
 			{/if}
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
+		{/if}
+		{#if selectedRoute}
+			<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">~{selectedRoute.estimatedTime}</span>
 		{/if}
 	</button>
 	<div class="collapse-content px-2">
 		<div class="space-y-1.5 px-2 pt-1">
 			<!-- Fee breakdown -->
-			{#if displayFeeSats > 0}
-				{#if serviceFeeSats > 0}
+			{#if totalFeeSatsCombined > 0}
+				{@const swapFeeSats = Math.round(
+					amountSats * ((selectedRoute?.totalFeePercent ?? 0) / 100)
+				)}
+				{#if swapFeeSats > 0}
 					<div class="flex items-center justify-between text-xs opacity-70">
 						<span>{$t('wallet.swap.swap_fee')}</span>
-						<span>{formatSats(serviceFeeSats)} {$t('wallet.sats')}</span>
+						<span>{formatSats(swapFeeSats)} {$t('wallet.sats')}</span>
 					</div>
 				{/if}
 				{#if networkFeeSats > 0}
@@ -98,12 +94,12 @@
 					</div>
 				{/if}
 				<!-- Combined total when both swap + network exist -->
-				{#if serviceFeeSats > 0 && networkFeeSats > 0}
+				{#if swapFeeSats > 0 && networkFeeSats > 0}
 					<div
 						class="border-base-300 flex items-center justify-between border-t pt-1 text-xs font-semibold"
 					>
 						<span>Total</span>
-						<span>{formatSats(totalFeeSats)} {$t('wallet.sats')}</span>
+						<span>{formatSats(totalFeeSatsCombined)} {$t('wallet.sats')}</span>
 					</div>
 				{/if}
 			{/if}
@@ -140,7 +136,7 @@
 				</div>
 			{/if}
 
-			{#if !displayFeeSats && !isLoadingFee}
+			{#if !totalFeeSatsCombined && !isLoadingFee}
 				<div class="text-center text-xs opacity-70">
 					{$t('wallet.send.enter_address_and_amount_to_estimate')}
 				</div>

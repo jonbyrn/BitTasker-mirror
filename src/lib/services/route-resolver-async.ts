@@ -320,15 +320,12 @@ export async function resolveRouteAsync(
 		}
 	}
 
-	// Merge: live routes first (sorted by fee then time), then hardcoded routes
-	const mergedRoutes = [
-		...liveRoutes.sort(
-			(a, b) =>
-				a.totalFeePercent - b.totalFeePercent ||
-				a.hops[0].estimatedTimeMin - b.hops[0].estimatedTimeMin
-		),
-		...hardcodedRoutes
-	];
+	// Merge and sort ALL routes: cheapest first, then fastest
+	const mergedRoutes = [...liveRoutes, ...hardcodedRoutes].sort(
+		(a, b) =>
+			a.totalFeePercent - b.totalFeePercent ||
+			a.hops[0].estimatedTimeMin - b.hops[0].estimatedTimeMin
+	);
 
 	// Mark the lowest-fee route as recommended
 	if (mergedRoutes.length > 0) {
