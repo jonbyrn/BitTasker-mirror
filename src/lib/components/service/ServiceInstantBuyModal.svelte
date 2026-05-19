@@ -548,10 +548,13 @@
 												class="h-5 w-5"
 											/>
 											<span>{$t('wallet.bitcoin')}</span>
+											<span class="mr-6 ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 										{:else}
 											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
 											<span>USDT (BSC)</span>
-											<span class="badge badge-warning ml-1 text-[10px]">10% fee</span>
+											<span class="mr-6 ml-auto text-xs opacity-70"
+												>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
+											>
 										{/if}
 									</button>
 									<div class="collapse-content px-2">
@@ -596,6 +599,35 @@
 									</div>
 								</div>
 							</div>
+
+							<!-- Wallet Balance Accordion -->
+							<ContractFundingWalletCard
+								title={$t('dashboard.services.detail.book_now_drawer.wallet_balance')}
+								iconAlt={$t('dashboard.services.detail.book_now_drawer.wallet_icon_alt')}
+								balanceSats={walletBalanceSats}
+								balanceUsd={walletBalanceUsd}
+								satsLabel={$t('dashboard.services.detail.book_now_drawer.sats')}
+								notConnectedLabel={$t(
+									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
+								)}
+								availableLabel={$t('dashboard.services.detail.book_now_drawer.available_balance')}
+								requiredLabel={$t('dashboard.services.detail.book_now_drawer.required_balance')}
+								requiredUsd={requiredBalanceUsd}
+								requiredSats={requiredBalanceSats}
+								remainingUsd={remainingBalanceUsd}
+								{remainingIsNegative}
+								loading={walletLoading}
+								connected={walletConnected}
+								verificationStatus={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
+									? 'idle'
+									: walletVerificationStatus}
+								verificationMessage={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
+									? ''
+									: walletVerificationMessage}
+								forceOpen={false}
+							/>
 
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">
@@ -697,34 +729,6 @@
 									{/if}
 								</div>
 							{/if}
-
-							<ContractFundingWalletCard
-								title={$t('dashboard.services.detail.book_now_drawer.wallet_balance')}
-								iconAlt={$t('dashboard.services.detail.book_now_drawer.wallet_icon_alt')}
-								balanceSats={walletBalanceSats}
-								balanceUsd={walletBalanceUsd}
-								satsLabel={$t('dashboard.services.detail.book_now_drawer.sats')}
-								notConnectedLabel={$t(
-									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
-								)}
-								availableLabel={$t('dashboard.services.detail.book_now_drawer.available_balance')}
-								requiredLabel={$t('dashboard.services.detail.book_now_drawer.required_balance')}
-								requiredUsd={requiredBalanceUsd}
-								requiredSats={requiredBalanceSats}
-								remainingUsd={remainingBalanceUsd}
-								{remainingIsNegative}
-								loading={walletLoading}
-								connected={walletConnected}
-								verificationStatus={walletVerificationStatus === 'error' ||
-								walletVerificationStatus === 'ready'
-									? 'idle'
-									: walletVerificationStatus}
-								verificationMessage={walletVerificationStatus === 'error' ||
-								walletVerificationStatus === 'ready'
-									? ''
-									: walletVerificationMessage}
-								forceOpen={false}
-							/>
 
 							{#if walletVerificationErrorCode === 'insufficient_funds'}
 								<div class="alert alert-error alert-outline mt-2 shadow-sm">
