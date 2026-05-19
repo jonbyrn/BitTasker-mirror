@@ -699,7 +699,7 @@
 													</span>
 													<span>
 														{#if savingsValue != null && savingsValue > 0}
-															<span class="text-success">-{savingsLabel}</span>
+															<span class="text-success">(-{savingsLabel})</span>
 														{/if}
 														<span data-testid="service-agreement-platform-fee">
 															{platformFeeLabel}
