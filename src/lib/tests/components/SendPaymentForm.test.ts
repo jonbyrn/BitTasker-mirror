@@ -123,7 +123,7 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 	}
 }));
 
-// Mock payment address parser (synchronous)
+// Mock payment address parser (synchronous + async LNURL)
 vi.mock('$lib/utils/helpers/paymentAddressParser', () => ({
 	parsePaymentAddress: vi.fn().mockReturnValue({
 		isValid: true,
@@ -131,7 +131,22 @@ vi.mock('$lib/utils/helpers/paymentAddressParser', () => ({
 		network: 'rootstock-bitcoin',
 		amount: null,
 		memo: null
-	})
+	}),
+	isLNURL: vi.fn().mockReturnValue(false),
+	resolveLNURLPaymentAddress: vi.fn().mockResolvedValue({
+		isValid: true,
+		address:
+			'lnurl1dp68gurn8ghj7um9wfmxjcm99ejhsctdwpkx2tnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhh2um9wgqqqqqq',
+		network: 'lightning-bitcoin',
+		amount: null,
+		memo: 'Test donation',
+		lnurlCallback: 'https://service.example.com/lnurlp/callback',
+		lnurlMinSendable: 1000,
+		lnurlMaxSendable: 100000000,
+		lnurlDescription: 'Test donation',
+		lnurlImage: undefined
+	}),
+	resolveLNURLInvoice: vi.fn().mockResolvedValue('lnbc100n1pj...')
 }));
 
 // Mock biometrics

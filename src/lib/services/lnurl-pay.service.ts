@@ -148,6 +148,8 @@ export function decodeLNURL(lnurl: string): string {
  *   - `lnurlp://...` (protocol prefix for pay)
  *   - `lnurlw://...` (protocol prefix for withdraw)
  *   - `lightning:lnurl1...` (lightning URI with bech32)
+ *   - `https://...?lightning=lnurl1...` (URL with LNURL query param, e.g. blink.sv)
+ *   - `https://...&lightning=lnurl1...` (LNURL query param elsewhere in URL)
  *
  * @param value - The string to check
  * @returns `true` if the string appears to be an LNURL
@@ -161,7 +163,9 @@ export function isLNURL(value: string): boolean {
 		trimmed.startsWith('lnurl1') ||
 		trimmed.startsWith('lnurlp://') ||
 		trimmed.startsWith('lnurlw://') ||
-		trimmed.startsWith('lightning:lnurl1')
+		trimmed.startsWith('lightning:lnurl1') ||
+		// URLs with lightning=LNURL1... query parameter (e.g. pay.blink.sv share links)
+		(trimmed.startsWith('https://') && /(\?|&)lightning=lnurl1/i.test(trimmed))
 	);
 }
 
@@ -183,8 +187,13 @@ export function isLNURL(value: string): boolean {
 export function extractLNURLUrl(input: string): string {
 	const trimmed = input.trim();
 
-	// Already a URL
-	if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+	// Already a URL — check for embedded LNURL in ?lightning= param (BIP-21 style)
+	if (/^https?:\/\//i.test(trimmed)) {
+		// Extract LNURL bech32 from ?lightning= or &lightning= query parameter
+		const lnurlParam = trimmed.match(/[?&]lightning=(lnurl1[02-9a-hj-np-z]*)/i);
+		if (lnurlParam) {
+			return decodeLNURL(lnurlParam[1]);
+		}
 		return trimmed;
 	}
 

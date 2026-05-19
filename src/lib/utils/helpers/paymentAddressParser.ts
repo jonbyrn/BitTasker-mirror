@@ -677,6 +677,10 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
  * @param input - The LNURL string or Lightning Address
  * @returns A fully-resolved ParsedPaymentAddress with LNURL metadata
  */
+// Re-export functions needed by components
+export { isLNURL, isLNURLWithdraw } from '$lib/services/lnurl-pay.service';
+export { isLightningAddress } from '$lib/services/lightning-address.service';
+
 export async function resolveLNURLPaymentAddress(input: string): Promise<ParsedPaymentAddress> {
 	// Check if this is a Lightning Address (user@domain)
 	if (isLnAddr(input)) {
