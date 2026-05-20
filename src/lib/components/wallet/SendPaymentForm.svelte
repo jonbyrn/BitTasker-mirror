@@ -389,16 +389,22 @@
 	});
 	// Destination chain picker — always visible, locked when address is unambiguous
 	let hasAddress = $derived(parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null);
-	// Lock for networks with explicit scheme/chain ID. Ambiguous 0x addresses (defaulted to RSK) stay unlocked.
-	const UNAMBIGUOUS_NETWORKS = new Set([
-		'lightning-bitcoin',
-		'bitcoin',
-		'liquid-bitcoin'
-		// Only BSC addresses with explicit bsc: scheme or @56 chain ID are unambiguous
-	]);
-	let isDestinationLocked = $derived(
-		hasAddress && UNAMBIGUOUS_NETWORKS.has(parsedPayment.detectedNetwork ?? '')
-	);
+	// Lock when address has explicit scheme/chain-id, Liquid/Bitcoin/Lightning.
+	// Ambiguous plain 0x... stays unlocked so user can pick chain.
+	let isDestinationLocked = $derived.by(() => {
+		if (!hasAddress) return true; // No address → locked with "(Enter Address)"
+		const raw = formInput.addressInput.trim();
+		const lower = raw.toLowerCase();
+		const isExplicitEVM =
+			lower.startsWith('rsk:') ||
+			lower.startsWith('bsc:') ||
+			lower.startsWith('ethereum:') ||
+			/@\d+/.test(raw); // EIP-681 chain ID
+		const net = parsedPayment.detectedNetwork;
+		return (
+			isExplicitEVM || net === 'lightning-bitcoin' || net === 'bitcoin' || net === 'liquid-bitcoin'
+		);
+	});
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
 	// Filter destination options to only networks matching the address type
