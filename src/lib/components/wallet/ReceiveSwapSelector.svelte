@@ -93,6 +93,14 @@
 			icon: '/images/chains/avalanche.png',
 			network: 'usdt-avalanche',
 			group: 'usdt'
+		},
+		{
+			id: 'usdt-trx',
+			asset: 'USDT',
+			label: 'TRON',
+			icon: '/images/chains/tron.png',
+			network: 'usdt-tron',
+			group: 'usdt'
 		}
 	] as const;
 
@@ -184,7 +192,7 @@
 				<div class="flex justify-center gap-1">
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'btc'
+						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'btc'
 							? 'btn-primary'
 							: 'btn-ghost'}"
 						onclick={() => selectGroup('btc')}
@@ -193,7 +201,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'usdt'
+						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'usdt'
 							? 'btn-primary'
 							: 'btn-ghost'}"
 						onclick={() => selectGroup('usdt')}
@@ -202,7 +210,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'other'
+						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'other'
 							? 'btn-primary'
 							: 'btn-ghost'}"
 						onclick={() => selectGroup('other')}
