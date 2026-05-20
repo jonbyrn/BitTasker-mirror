@@ -148,16 +148,6 @@ export async function detectMetaMaskProviders(): Promise<MetaMaskProvider[]> {
 	return providers;
 }
 
-/**
- * Quick synchronous check for MetaMask availability.
- * Does not perform EIP-6963 discovery — only checks window.ethereum.
- */
-export function isMetaMaskAvailable(): boolean {
-	if (typeof window === 'undefined') return false;
-	const ethereum = (window as { ethereum?: { isMetaMask?: boolean } }).ethereum;
-	return !!ethereum?.isMetaMask;
-}
-
 // ---------------------------------------------------------------------------
 // Chain Switching
 // ---------------------------------------------------------------------------
@@ -345,7 +335,7 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	}
 
 	// Detect current chain
-	const chainIdHex = provider.chainId || '0x1e';
+	const chainIdHex = provider.chainId ?? '0x1e';
 	const connectedChainId = parseInt(chainIdHex, 16);
 
 	// Dynamically import ethers (large module, lazy load only when connecting)
