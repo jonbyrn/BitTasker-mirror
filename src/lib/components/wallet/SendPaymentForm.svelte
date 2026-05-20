@@ -361,10 +361,12 @@
 		return 30; // rBTC → RSK
 	});
 	// Destination chain picker — always visible, disabled when network is specific
+	let hasAddress = $derived(parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null);
 	let isDestinationLocked = $derived(
-		parsedPayment.data?.isValid &&
-			parsedPayment.detectedNetwork !== null &&
-			!['rootstock-bitcoin', 'usdt-bsc'].includes(parsedPayment.detectedNetwork)
+		!hasAddress ||
+			(parsedPayment.data?.isValid &&
+				parsedPayment.detectedNetwork !== null &&
+				!['rootstock-bitcoin', 'usdt-bsc'].includes(parsedPayment.detectedNetwork))
 	);
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
@@ -1947,10 +1949,16 @@
 								disabled={isDestinationLocked}
 							>
 								<span class="text-base-content/60">{$t('wallet.to')}:</span>
-								{#if selectedChain?.icon}
-									<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
+								{#if !hasAddress}
+									<span class="text-base-content/40 text-xs"
+										>({$t('wallet.send.enter_address')})</span
+									>
+								{:else}
+									{#if selectedChain?.icon}
+										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
+									{/if}
+									<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
 								{/if}
-								<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
 							</button>
 							<div class="collapse-content px-2">
 								<div class="space-y-1">
