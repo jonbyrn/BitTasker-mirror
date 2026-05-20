@@ -52,8 +52,16 @@
 	// Constants
 	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
 
-	// ── Destination chain options (shown for rBTC and USDT sources) ──────────
+	// ── Destination chain options (always visible) ───────────────────────────
 	const DESTINATION_CHAIN_OPTIONS = [
+		{
+			id: 30,
+			testnetId: 31,
+			network: 'rootstock-bitcoin',
+			label: 'Rootstock Bitcoin',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			short: 'RSK'
+		},
 		{
 			id: 56,
 			testnetId: 97,
@@ -67,7 +75,7 @@
 			testnetId: 11155111,
 			network: 'usdt-ethereum',
 			label: 'Ethereum',
-			icon: '',
+			icon: '/images/chains/ethereum.svg',
 			short: 'ETH'
 		},
 		{
@@ -75,7 +83,7 @@
 			testnetId: 421614,
 			network: 'usdt-arbitrum',
 			label: 'Arbitrum',
-			icon: '',
+			icon: '/images/chains/arbitrum.svg',
 			short: 'Arb'
 		},
 		{
@@ -83,7 +91,7 @@
 			testnetId: 80002,
 			network: 'usdt-polygon',
 			label: 'Polygon',
-			icon: '',
+			icon: '/images/chains/polygon.svg',
 			short: 'Poly'
 		},
 		{
@@ -91,33 +99,54 @@
 			testnetId: 11155420,
 			network: 'usdt-optimism',
 			label: 'Optimism',
-			icon: '',
+			icon: '/images/chains/optimism.svg',
 			short: 'OP'
 		},
-		{ id: 8453, testnetId: 84532, network: 'usdt-base', label: 'Base', icon: '', short: 'Base' },
+		{
+			id: 8453,
+			testnetId: 84532,
+			network: 'usdt-base',
+			label: 'Base',
+			icon: '/images/chains/base.svg',
+			short: 'Base'
+		},
 		{
 			id: 43114,
 			testnetId: 43113,
 			network: 'usdt-avalanche',
 			label: 'Avalanche',
-			icon: '',
+			icon: '/images/chains/avalanche.svg',
 			short: 'Avax'
 		},
 		{
-			id: 30,
-			testnetId: 31,
-			network: 'rootstock-bitcoin',
-			label: 'Rootstock (RSK)',
-			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			short: 'RSK'
+			id: -1,
+			network: 'lightning-bitcoin',
+			label: 'Lightning',
+			icon: '/images/chains/lightning.svg',
+			short: 'LN'
+		},
+		{
+			id: -2,
+			network: 'bitcoin',
+			label: 'Bitcoin',
+			icon: '/images/chains/Bitcoin.svg',
+			short: 'BTC'
 		}
 	] as const;
 
 	function getChainOption(chainId: number | null) {
-		if (!chainId) return null;
-		return (
-			DESTINATION_CHAIN_OPTIONS.find((c) => c.id === chainId || c.testnetId === chainId) ?? null
+		if (chainId === null) return null;
+		// Match by id/testnetId
+		const byId = DESTINATION_CHAIN_OPTIONS.find(
+			(c) => c.id === chainId || ('testnetId' in c && c.testnetId === chainId)
 		);
+		if (byId) return byId;
+		// Match by detected network
+		const net = parsedPayment.detectedNetwork;
+		if (net) {
+			return DESTINATION_CHAIN_OPTIONS.find((c) => 'network' in c && c.network === net) ?? null;
+		}
+		return null;
 	}
 
 	// Platform detection
@@ -318,10 +347,26 @@
 	}
 
 	// Effective destination chain — user selection overrides auto-detection
-	let effectiveDestinationChainId = $derived(formInput.destinationChainId);
-	let showDestinationPicker = $derived(
-		parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null
+	// Resolve which chain is selected — explicit override, or default from source/address
+	let effectiveDestinationChainId = $derived.by(() => {
+		if (formInput.destinationChainId !== null) return formInput.destinationChainId;
+		// If specific network detected (lightning, bitcoin, liquid), use its chain
+		const detectedNet = parsedPayment.detectedNetwork;
+		if (detectedNet) {
+			const match = DESTINATION_CHAIN_OPTIONS.find((c) => c.network === detectedNet);
+			if (match) return match.id;
+		}
+		// Ambiguous: default to the source wallet's chain
+		if (formInput.selectedSource === 'usdt-bsc') return 56;
+		return 30; // rBTC → RSK
+	});
+	// Destination chain picker — always visible, disabled when network is specific
+	let isDestinationLocked = $derived(
+		parsedPayment.data?.isValid &&
+			parsedPayment.detectedNetwork !== null &&
+			!['rootstock-bitcoin', 'usdt-bsc'].includes(parsedPayment.detectedNetwork)
 	);
+	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
 	function toDestination(
 		network: string | null,
@@ -1871,58 +1916,60 @@
 					</div>
 
 					<!-- Destination Chain Selector -->
-					{#if showDestinationPicker}
-						{@const selectedChain = getChainOption(effectiveDestinationChainId)}
-						<div class="form-control">
-							<div
-								class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-								class:collapse-open={uiState.destinationExpanded}
+					<div class="form-control">
+						<div
+							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+							class:collapse-open={uiState.destinationExpanded}
+							class:opacity-70={isDestinationLocked}
+						>
+							<button
+								type="button"
+								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+								onclick={() => (uiState.destinationExpanded = !uiState.destinationExpanded)}
+								disabled={isDestinationLocked}
 							>
-								<button
-									type="button"
-									class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
-									onclick={() => (uiState.destinationExpanded = !uiState.destinationExpanded)}
-								>
-									<span class="text-base-content/60">{$t('wallet.to')}:</span>
-									{#if selectedChain?.icon}
-										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
-									{/if}
-									<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
-								</button>
-								<div class="collapse-content px-2">
-									<div class="space-y-1">
-										{#each DESTINATION_CHAIN_OPTIONS as chain (chain.id)}
-											<button
-												type="button"
-												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {effectiveDestinationChainId ===
-													chain.id || effectiveDestinationChainId === chain.testnetId
-													? 'bg-primary/10'
-													: ''}"
-												onclick={() => {
-													formInput.destinationChainId = chain.id;
-													uiState.destinationExpanded = false;
-												}}
-											>
-												{#if chain.icon}
-													<img src={chain.icon} alt={chain.short} class="h-5 w-5" />
-												{:else}
-													<span
-														class="text-base-content/60 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-														>{chain.short.slice(0, 2)}</span
-													>
-												{/if}
-												<span class="text-sm">{chain.label}</span>
-												{#if effectiveDestinationChainId === chain.id || effectiveDestinationChainId === chain.testnetId}
-													<span class="text-primary ml-auto text-xs">●</span>
-												{/if}
-											</button>
-										{/each}
-									</div>
+								<span class="text-base-content/60">{$t('wallet.to')}:</span>
+								{#if selectedChain?.icon}
+									<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
+								{/if}
+								<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
+							</button>
+							<div class="collapse-content px-2">
+								<div class="space-y-1">
+									{#each DESTINATION_CHAIN_OPTIONS as chain (chain.id)}
+										<button
+											type="button"
+											disabled={isDestinationLocked}
+											class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {isDestinationLocked
+												? 'cursor-not-allowed opacity-50'
+												: ''} {effectiveDestinationChainId === chain.id ||
+											effectiveDestinationChainId === chain.testnetId
+												? 'bg-primary/10'
+												: ''}"
+											onclick={() => {
+												if (isDestinationLocked) return;
+												formInput.destinationChainId = chain.id;
+												uiState.destinationExpanded = false;
+											}}
+										>
+											{#if chain.icon}
+												<img src={chain.icon} alt={chain.short} class="h-5 w-5" />
+											{:else}
+												<span
+													class="text-base-content/60 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
+													>{chain.short.slice(0, 2)}</span
+												>
+											{/if}
+											<span class="text-sm">{chain.label}</span>
+											{#if effectiveDestinationChainId === chain.id || effectiveDestinationChainId === chain.testnetId}
+												<span class="text-primary ml-auto text-xs">●</span>
+											{/if}
+										</button>
+									{/each}
 								</div>
 							</div>
 						</div>
-					{/if}
-
+					</div>
 					<!-- Amount Field (Mobile Step 1) -->
 					<div class="form-control min-h-0">
 						<AmountInputSection
