@@ -76,7 +76,7 @@
 		{:else if totalFeeSats > 0}
 			<span class="ml-1.5 font-semibold">{feeDisplay(totalFeeSats)}</span>
 			{#if selectedRoute}
-				<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">~{selectedRoute.estimatedTime}</span>
+				<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">{selectedRoute.estimatedTime}</span>
 			{/if}
 		{:else if !hasAddress && !hasAmount}
 			<span class="ml-1.5 text-xs opacity-70">(Enter address and amount)</span>
@@ -125,7 +125,7 @@
 							</span>
 							<span class="min-w-0 flex-1">
 								<span class="font-medium">{route.label}</span>
-								<span class="ml-1 opacity-50">~{route.estimatedTime}</span>
+								<span class="ml-1 opacity-50">{route.estimatedTime}</span>
 							</span>
 							<span class="ml-auto shrink-0 font-medium">
 								{_routeFee > 0 ? feeDisplay(_routeFee) : 'Free'}
