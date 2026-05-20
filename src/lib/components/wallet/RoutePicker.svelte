@@ -42,6 +42,15 @@
 
 	/** Total fee: swap fee + network transaction fee. */
 	let totalFeeSats = $derived(swapFeeSats + networkFeeSats);
+	$inspect(
+		totalFeeSats,
+		swapFeeSats,
+		networkFeeSats,
+		selectedRoute?.id,
+		amountSats,
+		hasAddress,
+		hasAmount
+	);
 
 	/**
 	 * Format a sats amount as "XXX Sats" or "$X.XX".
