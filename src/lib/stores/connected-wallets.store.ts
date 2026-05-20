@@ -162,9 +162,32 @@ export async function restoreConnectedWalletState(): Promise<void> {
 			return;
 		}
 
-		// Persisted state only stores metadata — actual connections
-		// are restored by the connector modules (WC sessions, etc.)
-		// This function validates stored state didn't get corrupted.
+		// Restore persisted wallet metadata into the store
+		connectedWalletsStore.update((state) => ({
+			...state,
+			wallets: parsed.wallets.map((w) => ({
+				id: w.id,
+				walletName: w.walletName,
+				walletType: w.walletType,
+				address: w.address,
+				chainIds: w.chainIds,
+				balances: {},
+				connectedAt: w.connectedAt
+			}))
+		}));
+
+		// Trigger WalletConnect session restoration in background
+		// (must not throw into this try/catch)
+		(async () => {
+			try {
+				const { restoreWCSession } = await import(
+					'$lib/services/external-wallet/walletconnect-connector'
+				);
+				await restoreWCSession().catch(() => {});
+			} catch {
+				// WalletConnect module may not be available
+			}
+		})();
 	} catch (error) {
 		console.error('[ConnectedWallets] Failed to restore state:', error);
 		await Preferences.remove({ key: PREFERENCES_KEY });
