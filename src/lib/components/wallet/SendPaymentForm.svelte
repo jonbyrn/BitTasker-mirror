@@ -52,7 +52,7 @@
 	// Constants
 	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
 
-	// ── Destination chain options (shown when source is USDT) ────────────────
+	// ── Destination chain options (shown for rBTC and USDT sources) ──────────
 	const DESTINATION_CHAIN_OPTIONS = [
 		{
 			id: 56,
@@ -318,21 +318,10 @@
 	}
 
 	// Effective destination chain — user selection overrides auto-detection
-	let effectiveDestinationChainId = $derived(
-		formInput.destinationChainId ?? (formInput.selectedSource === 'usdt-bsc' ? 56 : 30)
-	);
+	let effectiveDestinationChainId = $derived(formInput.destinationChainId);
 	let showDestinationPicker = $derived(
-		formInput.selectedSource === 'usdt-bsc' &&
-			parsedPayment.data?.isValid &&
-			parsedPayment.detectedNetwork !== null
+		parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null
 	);
-
-	// Reset destination chain override when source wallet changes to rBTC
-	$effect(() => {
-		if (formInput.selectedSource === 'rootstock-bitcoin') {
-			formInput.destinationChainId = null;
-		}
-	});
 
 	function toDestination(
 		network: string | null,
