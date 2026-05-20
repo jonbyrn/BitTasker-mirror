@@ -945,7 +945,9 @@
 					: 0;
 
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
-			feeState.estimated = null;
+			if (!parsedPayment.detectedNetwork) {
+				feeState.estimated = null;
+			}
 			feeState.error = null;
 			feeState.swapLimits = null;
 			return;
