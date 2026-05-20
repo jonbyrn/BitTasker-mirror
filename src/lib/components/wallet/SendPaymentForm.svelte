@@ -1002,8 +1002,7 @@
 						// Fallback if Boltz API fails
 						const serviceFee = Math.ceil((amountToUse * 0.1) / 100);
 						const minerFee = 32; // Conservative miner fee estimate
-						const FALLBACK_RSK_GAS = 4000;
-						const networkFee = minerFee + FALLBACK_RSK_GAS; // Miner fee + conservative RSK gas estimate
+						const networkFee = minerFee + 4000; // Miner fee + conservative gas estimate
 						feeState.estimated = {
 							serviceFee,
 							networkFee,
