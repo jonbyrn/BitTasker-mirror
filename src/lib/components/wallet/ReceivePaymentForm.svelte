@@ -778,6 +778,15 @@
 			</div>
 		</div>
 
+		<!-- Payer Source Network Selector -->
+		<ReceiveSwapSelector
+			receiveCurrency={receiveTab}
+			onChange={(network) => {
+				payerNetwork = network;
+				handleAmountOrNetworkChange();
+			}}
+		/>
+
 		<!-- Amount Input Section (Mobile) -->
 		<div class="block space-y-2 sm:hidden">
 			<AmountInputSection
@@ -828,15 +837,6 @@
 				bind:this={mobileFormContainer}
 				style="padding-bottom: env(keyboard-inset-bottom, 0px);"
 			>
-				<!-- Payer Source Network Selector -->
-				<ReceiveSwapSelector
-					receiveCurrency={receiveTab}
-					onChange={(network) => {
-						payerNetwork = network;
-						handleAmountOrNetworkChange();
-					}}
-				/>
-
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -1148,15 +1148,6 @@
 		<!-- Desktop: All fields always visible -->
 		<div class="hidden sm:block">
 			<div class="flex flex-col space-y-2">
-				<!-- Payer Source Network Selector -->
-				<ReceiveSwapSelector
-					receiveCurrency={receiveTab}
-					onChange={(network) => {
-						payerNetwork = network;
-						handleAmountOrNetworkChange();
-					}}
-				/>
-
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
