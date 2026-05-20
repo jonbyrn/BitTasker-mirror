@@ -52,6 +52,74 @@
 	// Constants
 	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
 
+	// ── Destination chain options (shown when source is USDT) ────────────────
+	const DESTINATION_CHAIN_OPTIONS = [
+		{
+			id: 56,
+			testnetId: 97,
+			network: 'usdt-bsc',
+			label: 'Binance Smart Chain',
+			icon: '/images/chains/Binance-logo.svg',
+			short: 'BSC'
+		},
+		{
+			id: 1,
+			testnetId: 11155111,
+			network: 'usdt-ethereum',
+			label: 'Ethereum',
+			icon: '',
+			short: 'ETH'
+		},
+		{
+			id: 42161,
+			testnetId: 421614,
+			network: 'usdt-arbitrum',
+			label: 'Arbitrum',
+			icon: '',
+			short: 'Arb'
+		},
+		{
+			id: 137,
+			testnetId: 80002,
+			network: 'usdt-polygon',
+			label: 'Polygon',
+			icon: '',
+			short: 'Poly'
+		},
+		{
+			id: 10,
+			testnetId: 11155420,
+			network: 'usdt-optimism',
+			label: 'Optimism',
+			icon: '',
+			short: 'OP'
+		},
+		{ id: 8453, testnetId: 84532, network: 'usdt-base', label: 'Base', icon: '', short: 'Base' },
+		{
+			id: 43114,
+			testnetId: 43113,
+			network: 'usdt-avalanche',
+			label: 'Avalanche',
+			icon: '',
+			short: 'Avax'
+		},
+		{
+			id: 30,
+			testnetId: 31,
+			network: 'rootstock-bitcoin',
+			label: 'Rootstock (RSK)',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			short: 'RSK'
+		}
+	] as const;
+
+	function getChainOption(chainId: number | null) {
+		if (!chainId) return null;
+		return (
+			DESTINATION_CHAIN_OPTIONS.find((c) => c.id === chainId || c.testnetId === chainId) ?? null
+		);
+	}
+
 	// Platform detection
 	const isWeb = Capacitor.getPlatform() === 'web';
 
@@ -87,6 +155,41 @@
 			icon: '/images/chains/Binance-logo.svg',
 			name: $t('wallet.transaction.network.binance_smart_chain'),
 			confirmationTime: 5
+		},
+		'usdt-ethereum': {
+			icon: '/images/chains/ethereum.svg',
+			name: 'Ethereum',
+			confirmationTime: 15
+		},
+		'usdt-arbitrum': {
+			icon: '/images/chains/arbitrum.svg',
+			name: 'Arbitrum',
+			confirmationTime: 15
+		},
+		'usdt-polygon': {
+			icon: '/images/chains/polygon.svg',
+			name: 'Polygon',
+			confirmationTime: 10
+		},
+		'usdt-optimism': {
+			icon: '/images/chains/optimism.svg',
+			name: 'Optimism',
+			confirmationTime: 10
+		},
+		'usdt-base': {
+			icon: '/images/chains/base.svg',
+			name: 'Base',
+			confirmationTime: 10
+		},
+		'usdt-avalanche': {
+			icon: '/images/chains/avalanche.svg',
+			name: 'Avalanche',
+			confirmationTime: 5
+		},
+		'usdt-tron': {
+			icon: '/images/chains/tron.svg',
+			name: 'TRON',
+			confirmationTime: 60
 		}
 	};
 
@@ -97,7 +200,8 @@
 		unit: 'usd' as 'sats' | 'usd',
 		mathExpression: '',
 		memo: '',
-		selectedSource: 'rootstock-bitcoin' as 'rootstock-bitcoin' | 'usdt-bsc'
+		selectedSource: 'rootstock-bitcoin' as 'rootstock-bitcoin' | 'usdt-bsc',
+		destinationChainId: null as number | null // null = auto-detect from address
 	});
 
 	// Grouped State: Parsed Payment Data
@@ -128,7 +232,8 @@
 		calculatorKey: 0,
 		showRecentAddresses: false,
 		currentStep: 1 as 1 | 2, // Step 1: Address + Amount, Step 2: Details
-		sourceExpanded: false
+		sourceExpanded: false,
+		destinationExpanded: false
 	});
 
 	// Grouped State: QR Scan State
@@ -212,16 +317,51 @@
 		return 'usdt-bsc';
 	}
 
-	function toDestination(network: string | null, address: string): Destination | null {
+	// Effective destination chain — user selection overrides auto-detection
+	let effectiveDestinationChainId = $derived(
+		formInput.destinationChainId ?? (formInput.selectedSource === 'usdt-bsc' ? 56 : 30)
+	);
+	let showDestinationPicker = $derived(
+		formInput.selectedSource === 'usdt-bsc' &&
+			parsedPayment.data?.isValid &&
+			parsedPayment.detectedNetwork !== null
+	);
+
+	function toDestination(
+		network: string | null,
+		address: string,
+		overrideChainId?: number | null
+	): Destination | null {
 		if (!network || !address) return null;
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 		const isMainnet = rskNetwork === 'mainnet';
+		const chainId = overrideChainId ?? null;
+
+		// Explicit chain ID overrides network-based mapping
+		if (chainId !== null && chainId !== undefined) {
+			return { type: 'address', chainId, address };
+		}
+
 		switch (network) {
 			case 'rootstock-bitcoin':
 				return { type: 'address', chainId: isMainnet ? 30 : 31, address };
 			case 'usdt-bsc':
 				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 56 : 97, address };
+			case 'usdt-ethereum':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 1 : 11155111, address };
+			case 'usdt-arbitrum':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 42161 : 421614, address };
+			case 'usdt-polygon':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 137 : 80002, address };
+			case 'usdt-optimism':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 10 : 11155420, address };
+			case 'usdt-base':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 8453 : 84532, address };
+			case 'usdt-avalanche':
+				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 43114 : 43113, address };
+			case 'usdt-tron':
+				return { type: 'address', chainId: 0, address }; // TRON: chainId 0 placeholder
 			case 'lightning-bitcoin':
 				return { type: 'invoice', network: 'lightning', invoice: address };
 			case 'bitcoin':
@@ -261,7 +401,7 @@
 		const destNetwork = parsedPayment.detectedNetwork;
 		const destAddress = parsedPayment.data?.address || formInput.addressInput.trim();
 		const sourceWallet = toSourceWallet(source);
-		const dest = toDestination(destNetwork, destAddress);
+		const dest = toDestination(destNetwork, destAddress, effectiveDestinationChainId);
 		const sats = amountInSats;
 		const userAddress = source === 'usdt-bsc' ? $walletStore.bsc.address : $walletStore.rsk.address;
 
@@ -806,6 +946,21 @@
 						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
 					} else {
 						// USDT-BSC source: BSC gas handled by paymaster
+						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
+					}
+					break;
+				}
+				case 'usdt-ethereum':
+				case 'usdt-arbitrum':
+				case 'usdt-polygon':
+				case 'usdt-optimism':
+				case 'usdt-base':
+				case 'usdt-avalanche':
+				case 'usdt-tron': {
+					// Cross-chain EVM: swap provider handles destination chain gas
+					if (formInput.selectedSource === 'rootstock-bitcoin') {
+						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
+					} else {
 						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
 					}
 					break;
@@ -1782,6 +1937,59 @@
 								{$t('wallet.send.network_not_available')}
 							</div>
 						{/if}
+					{/if}
+
+					<!-- Destination Chain Selector (USDT source only) -->
+					{#if showDestinationPicker}
+						{@const selectedChain = getChainOption(effectiveDestinationChainId)}
+						<div class="form-control">
+							<div
+								class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+								class:collapse-open={uiState.destinationExpanded}
+							>
+								<button
+									type="button"
+									class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+									onclick={() => (uiState.destinationExpanded = !uiState.destinationExpanded)}
+								>
+									<span class="text-base-content/60">{$t('wallet.send.send_to')}:</span>
+									{#if selectedChain?.icon}
+										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
+									{/if}
+									<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
+								</button>
+								<div class="collapse-content px-2">
+									<div class="space-y-1">
+										{#each DESTINATION_CHAIN_OPTIONS as chain (chain.id)}
+											<button
+												type="button"
+												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {effectiveDestinationChainId ===
+													chain.id || effectiveDestinationChainId === chain.testnetId
+													? 'bg-primary/10'
+													: ''}"
+												onclick={() => {
+													formInput.destinationChainId = chain.id;
+													uiState.destinationExpanded = false;
+												}}
+											>
+												{#if chain.icon}
+													<img src={chain.icon} alt={chain.short} class="h-5 w-5" />
+												{:else}
+													<span
+														class="text-base-content/60 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
+														>{chain.short.slice(0, 2)}</span
+													>
+												{/if}
+												<span class="text-sm">{chain.label}</span>
+												{#if effectiveDestinationChainId === chain.id || effectiveDestinationChainId === chain.testnetId}
+													<span class="text-primary ml-auto text-xs">●</span>
+												{/if}
+											</button>
+										{/each}
+									</div>
+								</div>
+							</div>
+						</div>
 					{/if}
 
 					<!-- Description Accordion -->
