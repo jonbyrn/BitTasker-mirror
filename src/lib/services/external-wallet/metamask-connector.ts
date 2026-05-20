@@ -293,9 +293,8 @@ export function getUSDTContractAddress(): string {
 	if (bscNetwork === 'mainnet') {
 		return '0x55d398326f99059ff775485246999027b3197955';
 	}
-	// BSC testnet commonly uses this address for USDT
-	// This may vary — the stablecoin registry has the canonical value
-	return '0x55d398326f99059ff775485246999027b3197955';
+	// BSC testnet USDT — deployed at a different address than mainnet
+	return '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd';
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +395,16 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 			const txResponse = await signer.sendTransaction(
 				txParams as unknown as ethers.TransactionRequest
 			);
-			const receipt = await txResponse.wait();
+			const TX_WAIT_TIMEOUT_MS = 5 * 60_000; // 5 minutes
+			const receipt = await Promise.race([
+				txResponse.wait(),
+				new Promise<never>((_, reject) =>
+					setTimeout(
+						() => reject(new Error('Transaction confirmation timed out after 5 minutes')),
+						TX_WAIT_TIMEOUT_MS
+					)
+				)
+			]);
 
 			return {
 				txHash: receipt?.hash || txResponse.hash,

@@ -66,10 +66,10 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 		showOnTrezor: false
 	});
 
-	const address =
-		addrResult.success && addrResult.payload?.address
-			? addrResult.payload.address
-			: xpub.slice(0, 42);
+	if (!addrResult.success || !addrResult.payload?.address) {
+		throw new Error('Failed to derive Trezor address. Please try again.');
+	}
+	const address = addrResult.payload.address;
 
 	const connectorId = `trezor-${address}`;
 

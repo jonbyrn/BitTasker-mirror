@@ -35,7 +35,7 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 
 	try {
 		if (transportType === 'ble') {
-			const BleTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
+			const BleTransport = (await import('@ledgerhq/hw-transport-web-ble')).default;
 			transport = (await BleTransport.create()) as unknown as { close(): Promise<void> };
 		} else {
 			const UsbTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
@@ -54,7 +54,12 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 
 		const xpubInfo = await btc.getWalletXpub({ path: BTC_TAPROOT_PATH });
 		xpub = xpubInfo.publicKey;
-		address = xpubInfo.bitcoinAddress || xpubInfo.publicKey.slice(0, 42);
+		if (!xpubInfo.bitcoinAddress) {
+			throw new Error(
+				'Failed to derive Ledger Bitcoin address. Ensure the Bitcoin app is open on your device.'
+			);
+		}
+		address = xpubInfo.bitcoinAddress;
 	} catch (error) {
 		if (error instanceof Error && error.message?.includes('disconnect')) {
 			throw new DeviceDisconnectedError('Ledger');
