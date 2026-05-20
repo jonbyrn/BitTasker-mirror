@@ -149,6 +149,14 @@
 			asset: 'USDT',
 			icon: '/images/chains/tron.png',
 			short: 'TRX'
+		},
+		{
+			id: -4,
+			network: 'liquid-bitcoin',
+			label: 'Liquid',
+			asset: 'BTC',
+			icon: '/images/chains/Liquid-Bitcoin.svg',
+			short: 'L-BTC'
 		}
 	] as const;
 
@@ -173,6 +181,7 @@
 	const SUPPORTED_SEND_NETWORKS = new Set([
 		'rootstock-bitcoin',
 		'lightning-bitcoin',
+		'liquid-bitcoin',
 		'bitcoin',
 		'usdt-bsc'
 	]);
@@ -378,14 +387,10 @@
 		if (formInput.selectedSource === 'usdt-bsc') return 56;
 		return 30; // rBTC → RSK
 	});
-	// Destination chain picker — always visible, disabled when network is specific
+	// Destination chain picker — always visible, locked when address is unambiguous
 	let hasAddress = $derived(parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null);
-	let isDestinationLocked = $derived(
-		!hasAddress ||
-			(parsedPayment.data?.isValid &&
-				parsedPayment.detectedNetwork !== null &&
-				!['rootstock-bitcoin', 'usdt-bsc'].includes(parsedPayment.detectedNetwork))
-	);
+	// Lock for ALL detected networks — the To: accordion shows the detected network disabled
+	let isDestinationLocked = $derived(!!hasAddress);
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
 	// Filter destination options to only networks matching the address type
@@ -401,6 +406,12 @@
 		// Bitcoin on-chain → only Bitcoin
 		if (net === 'bitcoin') {
 			return DESTINATION_CHAIN_OPTIONS.filter((c) => 'network' in c && c.network === 'bitcoin');
+		}
+		// Liquid address → only Liquid
+		if (net === 'liquid-bitcoin') {
+			return DESTINATION_CHAIN_OPTIONS.filter(
+				(c) => 'network' in c && c.network === 'liquid-bitcoin'
+			);
 		}
 		// EVM-compatible address (0x...) → only EVM chains
 		return DESTINATION_CHAIN_OPTIONS.filter((c) => 'id' in c && c.id > 0);
@@ -1238,9 +1249,12 @@
 	}
 
 	// Handle max amount click (simplified - single-pass calculation)
+	let _maxCalcInFlight = false;
 	async function handleMaxAmount() {
+		if (_maxCalcInFlight) return;
 		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
 
+		_maxCalcInFlight = true;
 		feeState.maxCalculation.isLoading = true;
 
 		try {
@@ -1271,6 +1285,7 @@
 			console.error('Failed to calculate max amount:', error);
 		} finally {
 			feeState.maxCalculation.isLoading = false;
+			_maxCalcInFlight = false;
 		}
 	}
 
