@@ -933,10 +933,8 @@
 		}
 	}
 
-	// Update fee estimate (guarded against overlapping calls)
-	let _feeSeq = 0;
+	// Update fee estimate
 	async function updateFeeEstimate() {
-		const seq = ++_feeSeq;
 		// Check if we have a network and an amount (either from input or detected from address)
 		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
 		const amountToUse =
@@ -1123,12 +1121,11 @@
 					feeState.estimated = null;
 			}
 		} catch (error) {
-			if (seq !== _feeSeq) return; // Stale — newer call started
 			console.error('Failed to estimate fees:', error);
 			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
 			feeState.estimated = null;
 		} finally {
-			if (seq === _feeSeq) feeState.isLoading = false;
+			feeState.isLoading = false;
 		}
 	}
 
