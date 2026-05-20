@@ -169,7 +169,7 @@
 	>
 		<button
 			type="button"
-			class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-sm font-medium sm:pr-12"
+			class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2 pr-10 text-sm font-medium sm:pr-12"
 			onclick={() => (expanded = !expanded)}
 		>
 			<span class="text-base-content/60">{$t('wallet.from')}:</span>
@@ -181,24 +181,24 @@
 		<div class="collapse-content px-2">
 			<div class="space-y-2">
 				<!-- Filter chips -->
-				<div class="flex gap-1">
+				<div class="flex justify-center gap-1">
 					<button
 						type="button"
-						class="btn btn-xs {activeGroup === 'btc' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] {activeGroup === 'btc' ? 'btn-primary' : 'btn-ghost'}"
 						onclick={() => selectGroup('btc')}
 					>
 						BTC
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs {activeGroup === 'usdt' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] {activeGroup === 'usdt' ? 'btn-primary' : 'btn-ghost'}"
 						onclick={() => selectGroup('usdt')}
 					>
 						USDT
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs {activeGroup === 'other' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] {activeGroup === 'other' ? 'btn-primary' : 'btn-ghost'}"
 						onclick={() => selectGroup('other')}
 					>
 						{$t('wallet.receive.other')}
