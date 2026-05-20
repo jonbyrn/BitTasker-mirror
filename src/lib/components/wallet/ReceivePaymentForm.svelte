@@ -708,7 +708,8 @@
 							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
 							<span>{$t('wallet.bitcoin')}</span>
 							<span class="mr-6 ml-auto text-xs">
-								{formatSats($walletStore.totalBalances.sats)} Sats
+								{formatSats($walletStore.totalBalances.sats)} Sats ≈
+								{formatUsd(($walletStore.totalBalances.sats / 100_000_000) * btcPrice.price)}
 							</span>
 						{:else}
 							<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
@@ -740,7 +741,8 @@
 								<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
 								<span>{$t('wallet.bitcoin')}</span>
 								<span class="ml-auto text-xs opacity-70">
-									{formatSats($walletStore.totalBalances.sats)} Sats
+									{formatSats($walletStore.totalBalances.sats)} Sats ≈
+									{formatUsd(($walletStore.totalBalances.sats / 100_000_000) * btcPrice.price)}
 								</span>
 							</button>
 							<button
@@ -758,7 +760,11 @@
 								<span>USD</span>
 								<span class="ml-auto text-xs opacity-70">
 									{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-										? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+										? '$' +
+											parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
+												minimumFractionDigits: 2,
+												maximumFractionDigits: 2
+											})
 										: '$0.00'}
 								</span>
 							</button>
