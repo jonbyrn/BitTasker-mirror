@@ -389,8 +389,16 @@
 	});
 	// Destination chain picker — always visible, locked when address is unambiguous
 	let hasAddress = $derived(parsedPayment.data?.isValid && parsedPayment.detectedNetwork !== null);
-	// Lock for ALL detected networks — the To: accordion shows the detected network disabled
-	let isDestinationLocked = $derived(!!hasAddress);
+	// Lock for networks with explicit scheme/chain ID. Ambiguous 0x addresses (defaulted to RSK) stay unlocked.
+	const UNAMBIGUOUS_NETWORKS = new Set([
+		'lightning-bitcoin',
+		'bitcoin',
+		'liquid-bitcoin'
+		// Only BSC addresses with explicit bsc: scheme or @56 chain ID are unambiguous
+	]);
+	let isDestinationLocked = $derived(
+		hasAddress && UNAMBIGUOUS_NETWORKS.has(parsedPayment.detectedNetwork ?? '')
+	);
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
 	// Filter destination options to only networks matching the address type
