@@ -1896,7 +1896,7 @@
 						{/if}
 					</div>
 
-					<!-- Destination Chain Selector (USDT source only) -->
+					<!-- Destination Chain Selector -->
 					{#if showDestinationPicker}
 						{@const selectedChain = getChainOption(effectiveDestinationChainId)}
 						<div class="form-control">
