@@ -1909,7 +1909,9 @@
 										/>
 										<span>{$t('wallet.bitcoin')}</span>
 										<span class="ml-auto text-xs opacity-70"
-											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
+											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats
+											≈
+											{formatUsd(parseFloat($walletStore.rsk.formattedBalance) * btcPrice)}</span
 										>
 									</button>
 									<button
