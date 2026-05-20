@@ -1,20 +1,7 @@
 <script lang="ts">
-	/**
-	 * ReceiveSwapSelector — "Payer sends from" network picker
-	 *
-	 * Shows all supported source networks the payer can send from,
-	 * filtered by asset type (BTC/USDT/Other). Mirrors the send form's
-	 * "To:" destination picker pattern.
-	 */
 	import { t } from 'svelte-i18n';
-	import { lifiService } from '$lib/services/lifi.service';
-	import { symbiosisService } from '$lib/services/symbiosis.service';
-	import { tryCatch } from '$lib/utils/tryCatch';
 
-	// ── Source network options — hardcoded fallback ───────────────────────────
-
-	const HARDCODED_NETWORKS = [
-		// BTC networks
+	const SOURCE_NETWORKS = [
 		{
 			id: 'rbtc-rsk',
 			asset: 'rBTC',
@@ -39,7 +26,6 @@
 			network: 'lightning-bitcoin',
 			group: 'btc'
 		},
-		// USDT networks
 		{
 			id: 'usdt-bsc',
 			asset: 'USDT',
@@ -106,188 +92,57 @@
 		}
 	];
 
-	interface SourceNetwork {
-		id: string;
-		asset: string;
-		label: string;
-		icon: string;
-		network: string;
-		group: string;
-	}
-
-	// ── Props ─────────────────────────────────────────────────────────────────
-
 	let { receiveCurrency = 'rbtc', onChange = (_network: string) => {} } = $props<{
 		receiveCurrency: 'rbtc' | 'usdt';
 		onChange?: (network: string) => void;
 	}>();
 
-	// ── Dynamic network fetching ──────────────────────────────────────────────
+	let expanded = $state(false);
+	let activeGroup = $state<'btc' | 'usdt'>('btc');
+	let searchQuery = $state('');
+	let selectedId = $state('');
 
-	/** Chain icon mapping — maps chain IDs/keys to icons for known chains */
-	const CHAIN_ICONS: Record<string, string> = {
-		ethereum: '/images/chains/ethereum.png',
-		arbitrum: '/images/chains/arbitrum.png',
-		polygon: '/images/chains/polygon.png',
-		optimism: '/images/chains/optimism.png',
-		base: '/images/chains/base.png',
-		avalanche: '/images/chains/avalanche.png',
-		avalanchec: '/images/chains/avalanche.png',
-		tron: '/images/chains/tron.png',
-		binance: '/images/chains/Binance-logo.svg',
-		bsc: '/images/chains/Binance-logo.svg',
-		rootstock: '/images/chains/Bitcoin-Rootstock-logo.webp',
-		rsk: '/images/chains/Bitcoin-Rootstock-logo.webp',
-		bitcoin: '/images/chains/Bitcoin.svg',
-		lightning: '/images/chains/lightning.svg'
-	};
+	let filteredNetworks = $derived.by(() => {
+		const net =
+			activeGroup === 'btc'
+				? SOURCE_NETWORKS.filter((n) => n.group === 'btc')
+				: SOURCE_NETWORKS.filter((n) => n.group === 'usdt');
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return net;
+		return net.filter(
+			(n) => n.label.toLowerCase().includes(q) || n.network.toLowerCase().includes(q)
+		);
+	});
 
-	const CACHE_KEY = 'bittasker_swap_source_networks';
-	const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+	let selectedNetwork = $derived(SOURCE_NETWORKS.find((n) => n.id === selectedId));
 
-	let dynamicNetworks = $state<SourceNetwork[]>([]);
-	let _networksLoading = $state(false);
-
-	async function fetchDynamicNetworks() {
-		// Check cache
-		try {
-			const cached = localStorage.getItem(CACHE_KEY);
-			if (cached) {
-				const { data, timestamp } = JSON.parse(cached);
-				if (Date.now() - timestamp < CACHE_TTL_MS && Array.isArray(data)) {
-					dynamicNetworks = data as SourceNetwork[];
-					return;
-				}
-			}
-		} catch {
-			/* ignore cache errors */
-		}
-
-		_networksLoading = true;
-		const results: SourceNetwork[] = [];
-
-		// Fetch from LI.FI
-		const { data: lifiChains } = await tryCatch(lifiService.getChains());
-		if (lifiChains) {
-			for (const c of lifiChains) {
-				if (!c.mainnet) continue;
-				const key = c.key?.toLowerCase() ?? '';
-				const asset =
-					key === 'rootstock' || key === 'rsk' || key === 'bitcoin' ? 'rBTC/BTC' : 'USDT';
-				const group = asset === 'rBTC/BTC' ? 'btc' : 'usdt';
-				results.push({
-					id: `lifi-${c.id}`,
-					asset: key === 'rootstock' || key === 'rsk' ? 'rBTC' : key === 'bitcoin' ? 'BTC' : 'USDT',
-					label: c.name,
-					icon: CHAIN_ICONS[key] ?? '',
-					network: key.includes('bitcoin') ? 'bitcoin' : `usdt-${key}`,
-					group
-				});
-			}
-		}
-
-		// Fetch from Symbiosis
-		const { data: symbiosisChains } = await tryCatch(symbiosisService.getChains());
-		if (symbiosisChains) {
-			for (const c of symbiosisChains) {
-				const name = c.name?.toLowerCase() ?? '';
-				if (results.some((r) => r.label.toLowerCase() === name)) continue; // dedupe
-				const asset = name.includes('bitcoin') || name.includes('rootstock') ? 'BTC' : 'USDT';
-				const group = asset === 'BTC' ? 'btc' : 'usdt';
-				results.push({
-					id: `sym-${c.chainId}`,
-					asset,
-					label: c.name,
-					icon: CHAIN_ICONS[name] ?? '',
-					network: name.includes('bitcoin') ? 'bitcoin' : `usdt-${name}`,
-					group
-				});
-			}
-		}
-
-		if (results.length > 0) {
-			dynamicNetworks = results;
-			try {
-				localStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
-			} catch {
-				/* ignore */
-			}
-		}
-		_networksLoading = false;
+	function selectGroup(group: 'btc' | 'usdt') {
+		activeGroup = group;
 	}
 
-	// Always start with hardcoded; enrich with API data on mount
-	let _fetched = false;
+	function selectNetwork(id: string) {
+		selectedId = id;
+		expanded = false;
+		const net = SOURCE_NETWORKS.find((n) => n.id === id);
+		if (net) onChange(net.network);
+	}
+
+	// Init defaults
+	let _inited = false;
 	$effect(() => {
-		if (!_fetched) {
-			_fetched = true;
-			fetchDynamicNetworks();
-		}
-	});
-
-	// ── State ─────────────────────────────────────────────────────────────────
-
-	let expanded = $state(false);
-	let activeGroup = $state<'btc' | 'usdt' | 'other'>('btc');
-	let searchQuery = $state('');
-	let selectedId = $state<string>('');
-
-	// ── Derived ───────────────────────────────────────────────────────────────
-
-	// Use API data when available, fall back to hardcoded
-	let activeNetworks = $derived(
-		dynamicNetworks.length > 0 ? dynamicNetworks : [...HARDCODED_NETWORKS]
-	);
-
-	/** Networks filtered by the active group chip */
-	let filteredNetworks = $derived.by(() => {
-		const source = activeNetworks;
-		if (activeGroup === 'other') {
-			const q = searchQuery.toLowerCase().trim();
-			if (!q) return source;
-			return source.filter(
-				(n) =>
-					n.asset.toLowerCase().includes(q) ||
-					n.label.toLowerCase().includes(q) ||
-					n.network.toLowerCase().includes(q)
-			);
-		}
-		return source.filter((n) => n.group === activeGroup);
-	});
-
-	let selectedNetwork = $derived(activeNetworks.find((n) => n.id === selectedId));
-
-	// ── Init ──────────────────────────────────────────────────────────────────
-
-	// Default to the asset matching the receive currency (run once)
-	let _defaultsApplied = false;
-	$effect(() => {
-		if (_defaultsApplied) return;
-		const defaultGroup = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
-		const defaultAsset = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
-		activeGroup = defaultGroup;
-		const defaults = HARDCODED_NETWORKS.filter((n) => n.group === defaultGroup);
-		const direct = defaults.find((n) => n.asset === defaultAsset);
-		const id = direct?.id ?? defaults[0]?.id ?? '';
+		if (_inited) return;
+		const g: 'btc' | 'usdt' = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
+		const a = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
+		activeGroup = g;
+		const defs = SOURCE_NETWORKS.filter((n) => n.group === g);
+		const direct = defs.find((n) => n.asset === a);
+		const id = direct?.id ?? defs[0]?.id ?? '';
 		if (id) {
 			selectedId = id;
 			onChange(direct?.network ?? '');
-			_defaultsApplied = true;
+			_inited = true;
 		}
 	});
-
-	// ── Handlers ──────────────────────────────────────────────────────────────
-
-	function selectGroup(group: 'btc' | 'usdt' | 'other') {
-		activeGroup = group;
-		searchQuery = '';
-	}
-
-	function selectNetwork(network: SourceNetwork) {
-		selectedId = network.id;
-		expanded = false;
-		onChange(network.network);
-	}
 </script>
 
 <div class="form-control">
@@ -301,57 +156,29 @@
 			onclick={() => (expanded = !expanded)}
 		>
 			<span class="text-base-content/60">{$t('wallet.from')}:</span>
-			{#if _networksLoading}
-				<span class="loading loading-spinner loading-xs ml-1"></span>
-			{:else if selectedNetwork?.icon}
+			{#if selectedNetwork?.icon}
 				<img src={selectedNetwork.icon} alt={selectedNetwork.label} class="h-5 w-5" />
 			{/if}
 			<span class="text-sm">{selectedNetwork?.asset} ({selectedNetwork?.label ?? 'Unknown'})</span>
 		</button>
 		<div class="collapse-content px-2">
 			<div class="space-y-2">
-				<!-- Filter chips -->
-				<div class="flex justify-center gap-1">
+				<div class="flex gap-1">
 					<button
 						type="button"
 						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'btc'
 							? 'btn-primary'
 							: 'btn-ghost'}"
-						onclick={() => selectGroup('btc')}
+						onclick={() => selectGroup('btc')}>BTC</button
 					>
-						BTC
-					</button>
 					<button
 						type="button"
 						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'usdt'
 							? 'btn-primary'
 							: 'btn-ghost'}"
-						onclick={() => selectGroup('usdt')}
+						onclick={() => selectGroup('usdt')}>USDT</button
 					>
-						USDT
-					</button>
-					<button
-						type="button"
-						class="btn btn-sm min-h-[44px] flex-1 {activeGroup === 'other'
-							? 'btn-primary'
-							: 'btn-ghost'}"
-						onclick={() => selectGroup('other')}
-					>
-						{$t('wallet.receive.other')}
-					</button>
 				</div>
-
-				<!-- Search bar (Other only) -->
-				{#if activeGroup === 'other'}
-					<input
-						type="text"
-						class="input input-bordered input-sm w-full"
-						placeholder={$t('wallet.receive.search_networks')}
-						bind:value={searchQuery}
-					/>
-				{/if}
-
-				<!-- Network list -->
 				<div class="max-h-48 space-y-1 overflow-y-auto">
 					{#each filteredNetworks as network (network.id)}
 						<button
@@ -360,7 +187,7 @@
 							network.id
 								? 'bg-primary/10'
 								: ''}"
-							onclick={() => selectNetwork(network)}
+							onclick={() => selectNetwork(network.id)}
 						>
 							{#if network.icon}
 								<img src={network.icon} alt={network.label} class="h-5 w-5" />
@@ -372,11 +199,6 @@
 							{/if}
 						</button>
 					{/each}
-					{#if filteredNetworks.length === 0}
-						<span class="text-base-content/50 text-xs"
-							>{$t('wallet.receive.no_networks_found')}</span
-						>
-					{/if}
 				</div>
 			</div>
 		</div>
