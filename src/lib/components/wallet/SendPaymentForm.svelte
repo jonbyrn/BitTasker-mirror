@@ -368,6 +368,24 @@
 	);
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
+	// Filter destination options to only networks matching the address type
+	let filteredChainOptions = $derived.by(() => {
+		const net = parsedPayment.detectedNetwork;
+		if (!net) return DESTINATION_CHAIN_OPTIONS;
+		// Lightning invoice → only Lightning
+		if (net === 'lightning-bitcoin') {
+			return DESTINATION_CHAIN_OPTIONS.filter(
+				(c) => 'network' in c && c.network === 'lightning-bitcoin'
+			);
+		}
+		// Bitcoin on-chain → only Bitcoin
+		if (net === 'bitcoin') {
+			return DESTINATION_CHAIN_OPTIONS.filter((c) => 'network' in c && c.network === 'bitcoin');
+		}
+		// EVM-compatible address (0x...) → only EVM chains
+		return DESTINATION_CHAIN_OPTIONS.filter((c) => 'id' in c && c.id > 0);
+	});
+
 	function toDestination(
 		network: string | null,
 		address: string,
@@ -1936,7 +1954,7 @@
 							</button>
 							<div class="collapse-content px-2">
 								<div class="space-y-1">
-									{#each DESTINATION_CHAIN_OPTIONS as chain (chain.id)}
+									{#each filteredChainOptions as chain (chain.id)}
 										<button
 											type="button"
 											disabled={isDestinationLocked}
