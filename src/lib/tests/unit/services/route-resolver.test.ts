@@ -473,12 +473,12 @@ describe('edge cases', () => {
 		}
 	});
 
-	it('Direct routes use estimated time "~1 min"', () => {
+	it('Direct routes use estimated time "~1 min" for RSK, "~1 sec" for BSC', () => {
 		const rbtcDirect = resolveRoute('rbtc', makeAddressDest(30));
 		expect(rbtcDirect[0].estimatedTime).toBe('~1 min');
 
 		const usdtDirect = resolveRoute('usdt-bsc', makeAddressDest(56));
-		expect(usdtDirect[0].estimatedTime).toBe('~1 min');
+		expect(usdtDirect[0].estimatedTime).toBe('~1 sec');
 	});
 });
 

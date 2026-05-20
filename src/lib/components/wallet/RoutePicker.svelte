@@ -84,6 +84,8 @@
 			<span class="ml-1.5 text-xs opacity-70">(Enter address)</span>
 		{:else if !hasAmount}
 			<span class="ml-1.5 text-xs opacity-70">(Enter amount)</span>
+		{:else if hasAddress && hasAmount}
+			<span class="ml-1.5 font-semibold">Free</span>
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
 		{/if}

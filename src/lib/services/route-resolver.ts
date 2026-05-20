@@ -49,8 +49,28 @@ const ASSET_RBTC = 'RBTC';
 const ASSET_USDT = 'USDT';
 const ASSET_BTC = 'BTC';
 
-const RSK_CHAIN_IDS = new Set([30, 31]);
+const RSK_CHAIN_IDS = new Set([30, 31, 33]);
 const BSC_CHAIN_IDS = new Set([56, 97]);
+const ETH_CHAIN_IDS = new Set([1, 11155111]);
+const ARB_CHAIN_IDS = new Set([42161, 421614]);
+const POLY_CHAIN_IDS = new Set([137, 80002]);
+const OP_CHAIN_IDS = new Set([10, 11155420]);
+const BASE_CHAIN_IDS = new Set([8453, 84532]);
+const AVAX_CHAIN_IDS = new Set([43114, 43113]);
+
+/** All non-BSC, non-RSK EVM chain ID sets (for cross-chain routing). */
+const ALL_CROSS_CHAIN_IDS = [
+	...ETH_CHAIN_IDS,
+	...ARB_CHAIN_IDS,
+	...POLY_CHAIN_IDS,
+	...OP_CHAIN_IDS,
+	...BASE_CHAIN_IDS,
+	...AVAX_CHAIN_IDS
+];
+
+function isCrossChainEVM(chainId: number): boolean {
+	return ALL_CROSS_CHAIN_IDS.includes(chainId);
+}
 
 // ---------------------------------------------------------------------------
 // Constants — fee percent
@@ -92,11 +112,12 @@ function isBSCChain(chainId: number): boolean {
 	return BSC_CHAIN_IDS.has(chainId);
 }
 
-function formatEstimatedTime(min: number, max: number): string {
+function formatEstimatedTime(min: number, max: number, unit?: string): string {
+	const u = unit ?? 'min';
 	if (min === 0 && max <= 1) {
-		return '~1 min';
+		return `~1 ${u}`;
 	}
-	return `${min}-${max} min`;
+	return `${min}-${max} ${u}`;
 }
 
 /**
@@ -126,6 +147,7 @@ function buildRoute(opts: {
 	label: string;
 	hops: RouteHop[];
 	recommended: boolean;
+	timeUnit?: string;
 }): Route {
 	const totalFeePercent = calculateTotalFee(opts.hops);
 	const overallMin = opts.hops[0].estimatedTimeMin;
@@ -136,7 +158,7 @@ function buildRoute(opts: {
 		label: opts.label,
 		hops: opts.hops,
 		totalFeePercent,
-		estimatedTime: formatEstimatedTime(overallMin, overallMax),
+		estimatedTime: formatEstimatedTime(overallMin, overallMax, opts.timeUnit),
 		recommended: opts.recommended
 	};
 }
@@ -198,6 +220,46 @@ function resolveFromRBTC(destination: Destination): Route[] {
 							fromChain: CHAIN_RSK,
 							toAsset: ASSET_USDT,
 							toChain: CHAIN_BSC,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// Cross-chain EVM: rBTC → USDT on destination chain via bridge
+		if (isCrossChainEVM(destination.chainId)) {
+			return [
+				buildRoute({
+					id: `rbtc-to-usdt-chain-${destination.chainId}-via-lifi`,
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: `rbtc-to-usdt-chain-${destination.chainId}-via-symbiosis`,
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX
@@ -311,11 +373,12 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 							toAsset: ASSET_USDT,
 							toChain: CHAIN_BSC,
 							feePercent: FEE_DIRECT,
-							estimatedTimeMin: TIME_DIRECT_MIN,
-							estimatedTimeMax: TIME_DIRECT_MAX
+							estimatedTimeMin: 0,
+							estimatedTimeMax: 1
 						}
 					],
-					recommended: true
+					recommended: true,
+					timeUnit: 'sec'
 				})
 			];
 		}
@@ -349,6 +412,46 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 							fromChain: CHAIN_BSC,
 							toAsset: ASSET_RBTC,
 							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// Cross-chain EVM: USDT on BSC → USDT on destination chain via bridge
+		if (isCrossChainEVM(destination.chainId)) {
+			return [
+				buildRoute({
+					id: `usdt-bsc-to-usdt-chain-${destination.chainId}-via-lifi`,
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: `usdt-bsc-to-usdt-chain-${destination.chainId}-via-symbiosis`,
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX
