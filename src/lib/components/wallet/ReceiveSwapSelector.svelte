@@ -184,21 +184,27 @@
 				<div class="flex justify-center gap-1">
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] {activeGroup === 'btc' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'btc'
+							? 'btn-primary'
+							: 'btn-ghost'}"
 						onclick={() => selectGroup('btc')}
 					>
 						BTC
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] {activeGroup === 'usdt' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'usdt'
+							? 'btn-primary'
+							: 'btn-ghost'}"
 						onclick={() => selectGroup('usdt')}
 					>
 						USDT
 					</button>
 					<button
 						type="button"
-						class="btn btn-xs min-h-[44px] {activeGroup === 'other' ? 'btn-primary' : 'btn-ghost'}"
+						class="btn btn-xs min-h-[44px] flex-1 {activeGroup === 'other'
+							? 'btn-primary'
+							: 'btn-ghost'}"
 						onclick={() => selectGroup('other')}
 					>
 						{$t('wallet.receive.other')}
