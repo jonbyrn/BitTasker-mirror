@@ -10,7 +10,10 @@ export const FEATURE_FLAGS = {
 	CHANGELLY_SWAPS: 'changelly-swaps',
 	CHANGELLY_FIAT: 'changelly-fiat',
 	LIFI_SWAPS: 'lifi-swaps',
-	SYMBIOSIS_SWAPS: 'symbiosis-swaps'
+	SYMBIOSIS_SWAPS: 'symbiosis-swaps',
+	CONNECTED_WALLETS: 'connected-wallets',
+	CONNECTED_METAMASK: 'connected-metamask',
+	CONNECTED_WALLETCONNECT: 'connected-walletconnect'
 } as const;
 
 /**
@@ -41,6 +44,18 @@ export function isSymbiosisEnabled(): boolean {
 	return import.meta.env.VITE_SYMBIOSIS_ENABLED === 'true';
 }
 
+export function isConnectedWalletsEnabled(): boolean {
+	return import.meta.env.VITE_CONNECTED_WALLETS_ENABLED === 'true';
+}
+
+export function isConnectedMetaMaskEnabled(): boolean {
+	return import.meta.env.VITE_CONNECTED_METAMASK_ENABLED === 'true';
+}
+
+export function isConnectedWalletConnectEnabled(): boolean {
+	return import.meta.env.VITE_CONNECTED_WALLETCONNECT_ENABLED === 'true';
+}
+
 /**
  * Runtime feature flag service for gating functionality by feature name.
  * All checks are pure functions backed by build-time environment variables.
@@ -68,6 +83,12 @@ export const FeatureFlagService = {
 				return isLifiEnabled();
 			case FEATURE_FLAGS.SYMBIOSIS_SWAPS:
 				return isSymbiosisEnabled();
+			case FEATURE_FLAGS.CONNECTED_WALLETS:
+				return isConnectedWalletsEnabled();
+			case FEATURE_FLAGS.CONNECTED_METAMASK:
+				return isConnectedMetaMaskEnabled();
+			case FEATURE_FLAGS.CONNECTED_WALLETCONNECT:
+				return isConnectedWalletConnectEnabled();
 			default:
 				debug.warn('Unknown feature flag queried: %s', feature);
 				return false;

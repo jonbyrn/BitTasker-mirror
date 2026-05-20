@@ -1,0 +1,195 @@
+/**
+ * Connected Wallets Store — Manages external wallet connections and balances.
+ *
+ * Separate from wallet.store.ts to prevent regression risk for built-in
+ * wallet functionality (imported by 30+ files). This store is only imported
+ * by the Connected tab and send form when the feature flag is enabled.
+ *
+ * Single-writer principle: this store is the sole writer of connected
+ * wallet state. Connectors return results; they never write to the store.
+ */
+
+import { writable, derived, get } from 'svelte/store';
+import { Preferences } from '@capacitor/preferences';
+import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+import type { ConnectorHandle } from '$lib/services/external-wallet/types';
+import type { ConnectedWalletState } from '$lib/services/external-wallet/types';
+import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+const PREFERENCES_KEY = 'bittasker_connected_wallets';
+
+export interface ConnectedWalletEntry {
+	id: string;
+	walletName: string;
+	walletType: 'metamask' | 'walletconnect' | 'trezor' | 'ledger';
+	address: string;
+	chainIds: number[];
+	balances: Record<string, { raw: string; formatted: string; loading: boolean }>;
+	connectedAt: number;
+}
+
+export interface ConnectedWalletsState {
+	wallets: ConnectedWalletEntry[];
+	activeWalletId: string | null;
+	error: string | null;
+	connectingType: string | null;
+}
+
+function createInitialState(): ConnectedWalletsState {
+	return { wallets: [], activeWalletId: null, error: null, connectingType: null };
+}
+
+export const connectedWalletsStore = writable<ConnectedWalletsState>(createInitialState());
+
+// ---------------------------------------------------------------------------
+// Derived stores
+// ---------------------------------------------------------------------------
+
+/** Whether any connected wallets are available */
+export const hasConnectedWallets = derived(connectedWalletsStore, ($s) => $s.wallets.length > 0);
+
+/** Currently selected connected wallet entry */
+export const activeConnectedWallet = derived(connectedWalletsStore, ($s) => {
+	if (!$s.activeWalletId) return null;
+	return $s.wallets.find((w) => w.id === $s.activeWalletId) ?? null;
+});
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+export function registerConnectedWallet(handle: ConnectorHandle): void {
+	if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)) return;
+
+	connectorRegistry.register(handle);
+
+	const entry: ConnectedWalletEntry = {
+		id: handle.id,
+		walletName: handle.walletName,
+		walletType: handle.walletType,
+		address: handle.address,
+		chainIds: handle.chainIds,
+		balances: {},
+		connectedAt: Date.now()
+	};
+
+	connectedWalletsStore.update((state) => ({
+		...state,
+		wallets: [...state.wallets, entry],
+		activeWalletId: handle.id,
+		error: null,
+		connectingType: null
+	}));
+
+	persistState();
+}
+
+export function unregisterConnectedWallet(walletId: string): void {
+	connectorRegistry.unregister(walletId);
+
+	connectedWalletsStore.update((state) => ({
+		...state,
+		wallets: state.wallets.filter((w) => w.id !== walletId),
+		activeWalletId: state.activeWalletId === walletId ? null : state.activeWalletId,
+		error: null
+	}));
+
+	persistState();
+}
+
+export function setConnectingType(type: string | null): void {
+	connectedWalletsStore.update((state) => ({ ...state, connectingType: type, error: null }));
+}
+
+export function setConnectedWalletError(error: string): void {
+	connectedWalletsStore.update((state) => ({ ...state, error, connectingType: null }));
+}
+
+export function setActiveWallet(walletId: string | null): void {
+	connectedWalletsStore.update((state) => ({ ...state, activeWalletId: walletId }));
+}
+
+export function updateConnectedBalances(
+	walletId: string,
+	balances: Record<string, { raw: string; formatted: string; loading: boolean }>
+): void {
+	connectedWalletsStore.update((state) => ({
+		...state,
+		wallets: state.wallets.map((w) =>
+			w.id === walletId ? { ...w, balances: { ...w.balances, ...balances } } : w
+		)
+	}));
+}
+
+// ---------------------------------------------------------------------------
+// Persistence
+// ---------------------------------------------------------------------------
+
+async function persistState(): Promise<void> {
+	try {
+		const state = get(connectedWalletsStore);
+		const toPersist: ConnectedWalletState = {
+			version: 1,
+			wallets: state.wallets.map((w) => ({
+				id: w.id,
+				walletName: w.walletName,
+				walletType: w.walletType,
+				address: w.address,
+				chainIds: w.chainIds,
+				connectedAt: w.connectedAt
+			}))
+		};
+		await Preferences.set({ key: PREFERENCES_KEY, value: JSON.stringify(toPersist) });
+	} catch (error) {
+		console.error('[ConnectedWallets] Failed to persist state:', error);
+	}
+}
+
+export async function restoreConnectedWalletState(): Promise<void> {
+	if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)) return;
+
+	try {
+		const { value } = await Preferences.get({ key: PREFERENCES_KEY });
+		if (!value) return;
+
+		const parsed: unknown = JSON.parse(value);
+		if (!isValidPersistedState(parsed)) {
+			await Preferences.remove({ key: PREFERENCES_KEY });
+			return;
+		}
+
+		// Persisted state only stores metadata — actual connections
+		// are restored by the connector modules (WC sessions, etc.)
+		// This function validates stored state didn't get corrupted.
+	} catch (error) {
+		console.error('[ConnectedWallets] Failed to restore state:', error);
+		await Preferences.remove({ key: PREFERENCES_KEY });
+	}
+}
+
+function isValidPersistedState(data: unknown): data is ConnectedWalletState {
+	if (!data || typeof data !== 'object') return false;
+	const d = data as Record<string, unknown>;
+	if (typeof d.version !== 'number' || d.version < 1) return false;
+	if (!Array.isArray(d.wallets)) return false;
+	for (const w of d.wallets) {
+		if (
+			typeof w !== 'object' ||
+			typeof w.id !== 'string' ||
+			typeof w.address !== 'string' ||
+			typeof w.walletType !== 'string'
+		)
+			return false;
+	}
+	return true;
+}
+
+export async function clearConnectedWalletState(): Promise<void> {
+	connectorRegistry.clear();
+	connectedWalletsStore.set(createInitialState());
+	await Preferences.remove({ key: PREFERENCES_KEY });
+}

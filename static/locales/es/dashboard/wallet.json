@@ -1,6 +1,11 @@
 {
 	"wallet": {
 		"title": "Billetera",
+		"tab_wallet": "Billetera",
+		"tab_connected": "Conectado",
+		"connected": {
+			"connect": "Conectar Billetera"
+		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
 		"tab_send": "Enviar",

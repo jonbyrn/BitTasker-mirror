@@ -2,11 +2,16 @@
 	"wallet": {
 		"title": "Wallet",
 		"learn_more": "Learn More",
+		"tab_wallet": "Wallet",
+		"tab_connected": "Connected",
 		"tab_balance": "Balance",
 		"tab_receive": "Receive",
 		"tab_send": "Send",
 		"tab_buy_sell": "Buy & Sell",
 		"tab_swap": "Swap",
+		"connected": {
+			"connect": "Connect a Wallet"
+		},
 		"tab_transactions": "Transactions",
 		"total_balance": "Total Balance",
 		"show_balances": "Show Balances",

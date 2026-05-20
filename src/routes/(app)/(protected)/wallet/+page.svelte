@@ -23,6 +23,10 @@
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
+	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
+	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
+
+	let walletsEnabled = $state(isConnectedWalletsEnabled());
 
 	let isLoading = $state(false);
 
@@ -138,6 +142,9 @@
 		selectedNetwork: string;
 		chargeFeesToPayer: boolean;
 	} | null>(null);
+
+	// Tab state: 'wallet' | 'connected'
+	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -322,72 +329,100 @@
 		{/if}
 
 		{#if $walletStore.isConnected || !hasErrors}
-			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-				<!-- Balance Card with History and Accordions -->
-				<BalanceCard {isLoading} />
-
-				<!-- Transactions Button -->
-				<div>
+			<!-- Tab Bar (only shown when connected wallets feature is enabled) -->
+			{#if walletsEnabled}
+				<div class="tabs tabs-bordered bg-base-100 rounded-lg">
 					<button
-						type="button"
-						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-						onclick={() => (showTransactionsModal = true)}
+						class="tab tab-sm sm:tab-md flex-1 {activeTab === 'wallet'
+							? 'tab-active font-semibold'
+							: ''}"
+						onclick={() => (activeTab = 'wallet')}
 					>
-						<div class="flex min-w-0 flex-1 items-center gap-2">
-							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-							<span>{$t('wallet.tab_transactions')}</span>
+						{$t('wallet.tab_wallet')}
+					</button>
+					<button
+						class="tab tab-sm sm:tab-md flex-1 {activeTab === 'connected'
+							? 'tab-active font-semibold'
+							: ''}"
+						onclick={() => (activeTab = 'connected')}
+					>
+						{$t('wallet.tab_connected')}
+					</button>
+				</div>
+			{/if}
+
+			{#if !walletsEnabled || activeTab === 'wallet'}
+				<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+					<!-- Balance Card with History and Accordions -->
+					<BalanceCard {isLoading} />
+
+					<!-- Transactions Button -->
+					<div>
+						<button
+							type="button"
+							class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+							onclick={() => (showTransactionsModal = true)}
+						>
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+								<span>{$t('wallet.tab_transactions')}</span>
+							</div>
+							<div class="absolute right-2 flex items-center sm:right-3">
+								<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+							</div>
+						</button>
+					</div>
+
+					<!-- Send and Receive Buttons -->
+					<div class="flex flex-row gap-2 sm:gap-4">
+						<button
+							class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
+							onclick={() => (showReceiveModal = true)}
+						>
+							<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+							{$t('wallet.tab_receive')}
+						</button>
+						<button
+							class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+							onclick={() => (showSendModal = true)}
+						>
+							<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+							{$t('wallet.send_button')}
+						</button>
+					</div>
+
+					<!-- More Options Button -->
+					<div class="flex justify-center">
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm"
+							onclick={openBankingMenu}
+							aria-label={$t('wallet.more_options')}
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 12h.01M12 12h.01M19 12h.01"
+								/>
+							</svg>
+							{$t('wallet.more_options')}
+						</button>
+					</div>
+
+					<!-- Learn More Section - Below buttons -->
+					<div class="flex justify-center">
+						<div class="text-base-content/70 text-xs sm:text-sm">
+							<HelpModal />
 						</div>
-						<div class="absolute right-2 flex items-center sm:right-3">
-							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-						</div>
-					</button>
-				</div>
-
-				<!-- Send and Receive Buttons -->
-				<div class="flex flex-row gap-2 sm:gap-4">
-					<button
-						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
-						onclick={() => (showReceiveModal = true)}
-					>
-						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						{$t('wallet.tab_receive')}
-					</button>
-					<button
-						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
-						onclick={() => (showSendModal = true)}
-					>
-						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						{$t('wallet.send_button')}
-					</button>
-				</div>
-
-				<!-- More Options Button -->
-				<div class="flex justify-center">
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm"
-						onclick={openBankingMenu}
-						aria-label={$t('wallet.more_options')}
-					>
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 12h.01M12 12h.01M19 12h.01"
-							/>
-						</svg>
-						{$t('wallet.more_options')}
-					</button>
-				</div>
-
-				<!-- Learn More Section - Below buttons -->
-				<div class="flex justify-center">
-					<div class="text-base-content/70 text-xs sm:text-sm">
-						<HelpModal />
 					</div>
 				</div>
-			</div>
+			{:else if activeTab === 'connected'}
+				<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+					<ConnectedWallets />
+				</div>
+			{/if}
 		{:else}
 			<!-- No wallets connected - show setup options -->
 			<div class="py-12 text-center">
