@@ -6,6 +6,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { debounce } from '$lib/utils/helpers/common';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
+	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
+	import { resolveRoute, type SourceWallet } from '$lib/services/route-resolver';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -106,6 +108,24 @@
 		swapLimits: null
 	});
 
+	// Swap routing state — resuses the send form's route resolver
+	let payerSourceWallet = $state<'rbtc' | 'usdt-bsc'>('rbtc');
+	let selectedRouteId = $state<string>('');
+	let _routeLoading = $state(false);
+	let swapRoutes = $derived.by(() => {
+		if (amountInSats === 0) return [];
+		// Resolve routes from payer source → receiver network
+		const sourceWallet: SourceWallet = payerSourceWallet;
+		const destNetwork = formInput.selectedNetwork;
+		// Map receiver network to Destination type
+		let chainId = 30;
+		if (destNetwork === 'usdt-bsc') chainId = 56;
+		else if (destNetwork === 'rootstock-bitcoin') chainId = 30;
+		else return []; // Non-address networks handled via Boltz directly
+		const destination = { type: 'address' as const, chainId, address: '0x0' };
+		return resolveRoute(sourceWallet, destination);
+	});
+
 	// Invoice generation state (simplified)
 	let isGenerating = $state(false);
 
@@ -136,6 +156,16 @@
 			const usdAmount = parseFloat(formInput.amount);
 			if (isNaN(usdAmount) || btcPrice.price === 0) return 0;
 			return Math.floor((usdAmount / btcPrice.price) * 100_000_000);
+		}
+	});
+
+	// Auto-select cheapest swap route
+	$effect(() => {
+		const routes = swapRoutes;
+		if (routes.length > 0) {
+			if (!routes.find((r) => r.id === selectedRouteId)) selectedRouteId = routes[0].id;
+		} else {
+			selectedRouteId = '';
 		}
 	});
 
@@ -982,6 +1012,22 @@
 						></div>
 						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 					</button>
+				{/if}
+
+				<!-- Swap Route Picker -->
+				{#if swapRoutes.length > 1 && totalReceived > 0}
+					<RoutePicker
+						routes={swapRoutes}
+						{selectedRouteId}
+						onSelect={(id) => (selectedRouteId = id)}
+						networkFeeSats={feeState.estimated?.networkFee ?? 0}
+						isLoadingFee={_routeLoading}
+						btcPrice={btcPrice.price}
+						network={formInput.selectedNetwork}
+						amountSats={amountInSats}
+						hasAddress={true}
+						hasAmount={amountInSats > 0}
+					/>
 				{/if}
 
 				<!-- Total Received Card (Mobile) -->
