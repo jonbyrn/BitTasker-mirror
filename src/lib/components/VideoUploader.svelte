@@ -5,6 +5,7 @@
 	import { addBreadcrumb } from '@sentry/sveltekit';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import { TUS_CHUNK_SIZE, TUS_RETRY_DELAYS } from '$lib/utils/videoUpload';
+	import { CapacitorNativeHttpStack, captureNativeXHR } from '$lib/utils/native-http-stack';
 
 	// Lightweight Uppy interface — avoids @uppy/core's complex generics.
 	interface UppyCallback {
@@ -119,6 +120,12 @@
 	let uppyInstance: UppyInstance | null = null;
 	let uploadStartTime = 0;
 
+	// ── Native upload state (Android/iOS) ──
+	let isNativePlatform = $state(false);
+	let nativeUploadId: string | null = null;
+	let nativeTempFilename: string | null = null;
+	let nativeListenerHandle: { remove: () => Promise<void> } | null = null;
+
 	// ── Derived ──
 	let timeRemaining = $derived.by(() => {
 		if (!uploadSpeed || uploadSpeed === 0 || !totalBytes) return null;
@@ -142,6 +149,207 @@
 		return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 	});
 
+	// ── Native upload helpers ──
+
+	/** Convert ArrayBuffer to base64 string without stack-overflow risk (chunked). */
+	function arrayBufferToBase64(buffer: ArrayBuffer): string {
+		const bytes = new Uint8Array(buffer);
+		let binary = '';
+		const SLICE = 8192;
+		for (let i = 0; i < bytes.byteLength; i += SLICE) {
+			binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + SLICE, bytes.byteLength)));
+		}
+		return btoa(binary);
+	}
+
+	/** Delete the temp cache file on native, silently ignoring errors. */
+	async function cleanupNativeTempFile(path: string): Promise<void> {
+		if (!path) return;
+		try {
+			const { Filesystem, Directory } = await import('@capacitor/filesystem');
+			await Filesystem.deleteFile({ path, directory: Directory.Cache });
+		} catch {
+			// cleanup errors are non-fatal
+		}
+		if (nativeTempFilename === path) nativeTempFilename = null;
+	}
+
+	/**
+	 * Full native upload flow for Android/iOS:
+	 * 1. Get a one-time Cloudflare direct-upload URL via CapacitorHttp (bypasses WebView).
+	 * 2. Write the File to native Cache in 4 MB chunks (avoids OOM from base64 inflation).
+	 * 3. Upload the cached file via @capgo/capacitor-uploader (native networking + progress).
+	 * 4. Use CapacitorHttp for encoding status polling (same bypass reason as step 1).
+	 */
+	async function startNativeUpload(): Promise<void> {
+		if (!selectedFile) {
+			uploadError = 'No file selected';
+			mode = 'error';
+			return;
+		}
+
+		const file = selectedFile;
+		const { CapacitorHttp } = await import('@capacitor/core');
+
+		try {
+			// ── Step 1: Get Cloudflare direct-upload URL ──
+			const maxDurSecs = videoDuration ? Math.min(Math.ceil(videoDuration * 1.5), 3600) : 600;
+			const urlRes = await CapacitorHttp.request({
+				url: `${window.location.origin}/api/cloudflare/stream/upload-url`,
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				data: { maxDurationSeconds: maxDurSecs },
+				responseType: 'json'
+			});
+
+			if (urlRes.status !== 200 || !urlRes.data?.uploadURL) {
+				throw new Error(`Failed to get upload URL (${urlRes.status})`);
+			}
+
+			const uploadURL: string = urlRes.data.uploadURL;
+			const uid: string = urlRes.data.uid;
+			uploadedUid = uid;
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `VideoUploader native: got upload URL uid=${uid}`,
+				level: 'info'
+			});
+
+			// ── Step 2: Write file to native cache in 4 MB chunks ──
+			const { Filesystem, Directory } = await import('@capacitor/filesystem');
+			const ext = file.name.split('.').pop() || 'mp4';
+			const tmpName = `bittasker_upload_${Date.now()}.${ext}`;
+			nativeTempFilename = tmpName;
+
+			const FILE_CHUNK = 4 * 1024 * 1024; // 4 MB → ~5.4 MB base64 peak per chunk
+			for (let offset = 0; offset < file.size; offset += FILE_CHUNK) {
+				const ab = await file.slice(offset, offset + FILE_CHUNK).arrayBuffer();
+				const b64 = arrayBufferToBase64(ab);
+				if (offset === 0) {
+					await Filesystem.writeFile({
+						path: tmpName,
+						data: b64,
+						directory: Directory.Cache,
+						recursive: true
+					});
+				} else {
+					await Filesystem.appendFile({ path: tmpName, data: b64, directory: Directory.Cache });
+				}
+			}
+
+			const { uri } = await Filesystem.getUri({ path: tmpName, directory: Directory.Cache });
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `VideoUploader native: cached file at ${uri} (${file.size} bytes)`,
+				level: 'info'
+			});
+
+			// ── Step 3: Upload via @capgo/capacitor-uploader ──
+			const { Uploader } = await import('@capgo/capacitor-uploader');
+
+			let currentUploadId = '';
+
+			const handle = await Uploader.addListener(
+				'events',
+				(event: {
+					name: 'uploading' | 'completed' | 'failed';
+					payload: { percent?: number; error?: string; statusCode?: number };
+					id: string;
+				}) => {
+					// Filter events to only our upload once we have an ID.
+					if (currentUploadId && event.id !== currentUploadId) return;
+
+					if (event.name === 'uploading') {
+						const pct = event.payload?.percent ?? 0;
+						uploadProgress = pct;
+						uploadedBytes = Math.round((pct / 100) * file.size);
+						totalBytes = file.size;
+						const elapsed = (Date.now() - uploadStartTime) / 1000;
+						uploadSpeed = elapsed > 0.5 ? uploadedBytes / elapsed : 0;
+					} else if (event.name === 'completed') {
+						handle.remove();
+						nativeListenerHandle = null;
+						nativeUploadId = null;
+						cleanupNativeTempFile(tmpName);
+
+						const result: VideoUploadResult = {
+							uid,
+							thumbnailUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg`,
+							hlsUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/manifest/video.m3u8`,
+							duration: videoDuration || 0,
+							size: file.size,
+							filename: file.name
+						};
+						videoResult = result;
+						onUploadComplete?.(result);
+						mode = 'finalizing';
+
+						addBreadcrumb({
+							category: 'stream',
+							message: `VideoUploader native: upload completed uid=${uid}`,
+							level: 'info'
+						});
+					} else if (event.name === 'failed') {
+						handle.remove();
+						nativeListenerHandle = null;
+						nativeUploadId = null;
+						cleanupNativeTempFile(tmpName);
+
+						uploadError = event.payload?.error || 'Upload failed';
+						mode = 'error';
+						onError?.($t('common.components.media_uploader.upload_failed') as string);
+
+						addBreadcrumb({
+							category: 'stream',
+							message: `VideoUploader native: upload failed - ${uploadError}`,
+							level: 'error'
+						});
+					}
+				}
+			);
+
+			nativeListenerHandle = handle;
+
+			const { id } = await Uploader.startUpload({
+				filePath: uri,
+				serverUrl: uploadURL,
+				method: 'POST',
+				uploadType: 'multipart',
+				fileField: 'file',
+				mimeType: file.type || 'video/mp4',
+				headers: {},
+				notificationTitle: 'Uploading video…',
+				maxRetries: 2
+			});
+
+			currentUploadId = id;
+			nativeUploadId = id;
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `VideoUploader native: upload started id=${id}`,
+				level: 'info'
+			});
+		} catch (e) {
+			nativeListenerHandle?.remove();
+			nativeListenerHandle = null;
+			nativeUploadId = null;
+			cleanupNativeTempFile(nativeTempFilename || '');
+
+			uploadError = e instanceof Error ? e.message : 'Upload failed';
+			mode = 'error';
+			onError?.($t('common.components.media_uploader.upload_failed') as string);
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `VideoUploader native: error - ${uploadError}`,
+				level: 'error'
+			});
+		}
+	}
+
 	// ── Initialization ──
 	async function initUppy() {
 		if (!browser) return;
@@ -150,6 +358,20 @@
 				import('@uppy/core'),
 				import('@uppy/tus')
 			]);
+
+			// On Capacitor native, use a custom HttpStack that routes same-origin
+			// requests through CapacitorHttp (bypassing WebViewLocalServer) and
+			// cross-origin requests through a saved native XHR (preserving progress).
+			let isNative = false;
+			try {
+				const { Capacitor: cap } = await import('@capacitor/core');
+				isNative = cap.isNativePlatform();
+			} catch {
+				/* web — no Capacitor */
+			}
+			if (isNative) {
+				captureNativeXHR();
+			}
 
 			const instance = new Uppy({
 				id: 'video-uploader',
@@ -162,7 +384,7 @@
 				meta: { folder: 'videos-intro' }
 			}) as unknown as UppyInstance;
 
-			instance.use(Tus, {
+			const tusOpts: Record<string, unknown> = {
 				endpoint: '/api/cloudflare/stream/tus',
 				retryDelays: TUS_RETRY_DELAYS,
 				chunkSize: TUS_CHUNK_SIZE,
@@ -178,7 +400,13 @@
 						});
 					}
 				}
-			});
+			};
+
+			if (isNative) {
+				tusOpts.httpStack = new CapacitorNativeHttpStack();
+			}
+
+			instance.use(Tus, tusOpts);
 
 			instance.on('file-added', async (file: unknown) => {
 				const f = file as {
@@ -286,9 +514,15 @@
 
 	// ── Upload controls ──
 	async function startUpload() {
-		if (!uppyInstance) return;
 		uploadStartTime = Date.now();
 		mode = 'uploading';
+
+		if (isNativePlatform) {
+			await startNativeUpload();
+			return;
+		}
+
+		if (!uppyInstance) return;
 		try {
 			await uppyInstance.upload();
 		} catch (e) {
@@ -320,8 +554,21 @@
 		}
 	}
 
-	function cancelUpload() {
-		uppyInstance?.cancelAll();
+	async function cancelUpload() {
+		if (isNativePlatform && nativeUploadId) {
+			try {
+				const { Uploader } = await import('@capgo/capacitor-uploader');
+				await Uploader.removeUpload({ id: nativeUploadId });
+			} catch {
+				// ignore cancellation errors
+			}
+			nativeListenerHandle?.remove();
+			nativeListenerHandle = null;
+			nativeUploadId = null;
+			cleanupNativeTempFile(nativeTempFilename || '');
+		} else {
+			uppyInstance?.cancelAll();
+		}
 		resetUploadState();
 	}
 
@@ -391,12 +638,29 @@
 
 		async function poll() {
 			try {
-				const res = await fetch(`/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`);
-				if (!res.ok) {
+				let data: { state?: string; errorReason?: string } | null = null;
+
+				if (isNativePlatform) {
+					const { CapacitorHttp } = await import('@capacitor/core');
+					const r = await CapacitorHttp.request({
+						url: `${window.location.origin}/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`,
+						method: 'GET',
+						responseType: 'json'
+					});
+					if (r.status >= 200 && r.status < 300) {
+						data = r.data as { state?: string; errorReason?: string };
+					}
+				} else {
+					const res = await fetch(`/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`);
+					if (res.ok) {
+						data = (await res.json()) as { state?: string; errorReason?: string };
+					}
+				}
+
+				if (!data) {
 					scheduleNext();
 					return;
 				}
-				const data = await res.json();
 
 				if (data.state === 'ready') {
 					try {
@@ -507,25 +771,30 @@
 	}
 
 	// Auto-add initialFile in compact mode when provided by parent
-	onMount(() => {
+	onMount(async () => {
+		// Detect native platform first so all subsequent branches work correctly.
+		try {
+			const { Capacitor: cap } = await import('@capacitor/core');
+			isNativePlatform = cap.isNativePlatform();
+		} catch {
+			/* web — no Capacitor */
+		}
+
 		if (initialFile) {
-			const addInitialFile = async () => {
-				await ensureUppy();
-				if (uppyInstance && initialFile) {
-					try {
-						uppyInstance.addFile({
-							name: initialFile.name,
-							type: initialFile.type,
-							data: initialFile,
-							source: 'Local',
-							isRemote: false
-						});
-					} catch {
-						/* restriction failed handled by Uppy event */
-					}
+			await ensureUppy();
+			if (uppyInstance && initialFile) {
+				try {
+					uppyInstance.addFile({
+						name: initialFile.name,
+						type: initialFile.type,
+						data: initialFile,
+						source: 'Local',
+						isRemote: false
+					});
+				} catch {
+					/* restriction failed handled by Uppy event */
 				}
-			};
-			addInitialFile();
+			}
 		}
 	});
 
@@ -540,6 +809,20 @@
 			} catch {
 				/* ignore */
 			}
+		}
+		// Native: remove event listener and cancel any in-progress upload.
+		if (nativeListenerHandle) {
+			nativeListenerHandle.remove().catch(() => {});
+			nativeListenerHandle = null;
+		}
+		if (nativeUploadId) {
+			import('@capgo/capacitor-uploader')
+				.then(({ Uploader }) => Uploader.removeUpload({ id: nativeUploadId! }))
+				.catch(() => {});
+			nativeUploadId = null;
+		}
+		if (nativeTempFilename) {
+			cleanupNativeTempFile(nativeTempFilename);
 		}
 	});
 
@@ -603,15 +886,15 @@
 			<p class="text-error mb-2 text-sm">
 				{variant === 'compact'
 					? $t('common.components.media_uploader.upload_failed')
-					: (uploadError || $t('stream_player.status.error'))}
+					: uploadError || $t('common.stream_player.status.error')}
 			</p>
 			<button
 				type="button"
 				class="btn btn-sm btn-outline"
 				onclick={handleErrorRetry}
-				aria-label={$t('stream_player.action.retry')}
+				aria-label={$t('common.stream_player.action.retry')}
 			>
-				{$t('stream_player.action.retry')}
+				{$t('common.stream_player.action.retry')}
 			</button>
 		</div>
 	{:else if variant === 'compact'}
@@ -754,8 +1037,10 @@
 						</div>
 						<p class="text-sm font-medium">
 							{isPaused
-								? $t('stream_player.status.paused')
-								: $t('stream_player.status.uploading', { values: { progress: uploadProgress } })}
+								? $t('common.stream_player.status.paused')
+								: $t('common.stream_player.status.uploading', {
+										values: { progress: uploadProgress }
+									})}
 						</p>
 						{#if formattedSpeed && !isPaused}
 							<p class="text-xs opacity-80">
@@ -779,17 +1064,19 @@
 			<div class="mt-3 flex flex-wrap gap-2">
 				{#if uploadError}
 					<button type="button" class="btn btn-primary btn-sm flex-1" onclick={retryUpload}>
-						{$t('stream_player.action.retry')}
+						{$t('common.stream_player.action.retry')}
 					</button>
 				{:else if mode === 'uploading'}
-					{#if isPaused}
-						<button type="button" class="btn btn-primary btn-sm flex-1" onclick={resumeUpload}>
-							{$t('stream_player.action.resume')}
-						</button>
-					{:else}
-						<button type="button" class="btn btn-secondary btn-sm flex-1" onclick={pauseUpload}>
-							{$t('stream_player.action.pause')}
-						</button>
+					{#if !isNativePlatform}
+						{#if isPaused}
+							<button type="button" class="btn btn-primary btn-sm flex-1" onclick={resumeUpload}>
+								{$t('common.stream_player.action.resume')}
+							</button>
+						{:else}
+							<button type="button" class="btn btn-secondary btn-sm flex-1" onclick={pauseUpload}>
+								{$t('common.stream_player.action.pause')}
+							</button>
+						{/if}
 					{/if}
 				{:else}
 					<button type="button" class="btn btn-primary btn-sm flex-1" onclick={startUpload}>

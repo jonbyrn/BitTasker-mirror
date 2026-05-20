@@ -17,6 +17,7 @@
 
 import { browser } from '$app/environment';
 import { addBreadcrumb } from '@sentry/sveltekit';
+import { CapacitorNativeHttpStack, captureNativeXHR } from './native-http-stack';
 
 /** TUS chunk size: 50 MB (divisible by 256 KiB = 262,144 bytes) */
 export const TUS_CHUNK_SIZE = 52_428_800;
@@ -161,8 +162,58 @@ export async function uploadVideoWithTus(
 }
 
 /**
+ * Convert ArrayBuffer to base64 without stack overflow (chunked processing).
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+	const bytes = new Uint8Array(buffer);
+	let binary = '';
+	const SLICE = 8192;
+	for (let i = 0; i < bytes.byteLength; i += SLICE) {
+		binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + SLICE, bytes.byteLength)));
+	}
+	return btoa(binary);
+}
+
+/**
+ * Write a File blob to the native cache directory in 4 MB chunks to avoid OOM.
+ * Returns the native `file://` URI of the written file.
+ */
+async function writeFileToNativeCache(file: File): Promise<string> {
+	const { Filesystem, Directory } = await import('@capacitor/filesystem');
+	const ext = file.name.split('.').pop() || 'mp4';
+	const tmpName = `bittasker_upload_${Date.now()}.${ext}`;
+	const CHUNK = 4 * 1024 * 1024; // 4 MB → ~5.4 MB base64 peak per chunk
+
+	for (let offset = 0; offset < file.size; offset += CHUNK) {
+		const ab = await file.slice(offset, offset + CHUNK).arrayBuffer();
+		const b64 = arrayBufferToBase64(ab);
+		if (offset === 0) {
+			await Filesystem.writeFile({
+				path: tmpName,
+				data: b64,
+				directory: Directory.Cache,
+				recursive: true
+			});
+		} else {
+			await Filesystem.appendFile({ path: tmpName, data: b64, directory: Directory.Cache });
+		}
+	}
+
+	const { uri } = await Filesystem.getUri({ path: tmpName, directory: Directory.Cache });
+
+	addBreadcrumb({
+		category: 'stream',
+		message: `writeFileToNativeCache: written ${file.size} bytes to ${uri}`,
+		level: 'info'
+	});
+
+	return uri;
+}
+
+/**
  * Native video upload using @capgo/capacitor-uploader.
- * Provides background upload support on iOS/Android.
+ * Writes the File to the native cache directory first (avoids the missing .path
+ * property on WebView File objects) then uploads using native networking.
  */
 async function uploadVideoNative(
 	file: File,
@@ -171,13 +222,16 @@ async function uploadVideoNative(
 ): Promise<UploadResult> {
 	const { onProgress, onError, onSuccess } = callbacks;
 
+	let tempUri: string | null = null;
+
 	try {
+		// Write the file to native cache so capacitor-uploader gets a real file:// URI.
+		tempUri = await writeFileToNativeCache(file);
+
 		const { Uploader } = await import('@capgo/capacitor-uploader');
 
-		const filePath = (file as unknown as { path: string }).path || '';
-
 		return new Promise((resolve, reject) => {
-			let videoUid: string | null = null;
+			let currentUploadId = '';
 
 			const setupListener = async () => {
 				const handle = await Uploader.addListener(
@@ -185,7 +239,10 @@ async function uploadVideoNative(
 					(event: {
 						name: string;
 						payload?: { percent?: number; statusCode?: number; error?: string; id?: string };
+						id: string;
 					}) => {
+						if (currentUploadId && event.id !== currentUploadId) return;
+
 						if (event.name === 'uploading') {
 							const percent = event.payload?.percent ?? 0;
 							onProgress?.({
@@ -199,10 +256,22 @@ async function uploadVideoNative(
 								message: 'uploadVideoNative: completed',
 								level: 'info'
 							});
-
-							const result: UploadResult = { uid: videoUid || event.payload?.id || '' };
-							onSuccess?.(result);
 							handle.remove();
+							// Clean up the temp file.
+							if (tempUri) {
+								import('@capacitor/filesystem')
+									.then(({ Filesystem, Directory }) => {
+										const fileName = (tempUri as string).split('/').pop() || '';
+										if (fileName) {
+											Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }).catch(
+												() => {}
+											);
+										}
+									})
+									.catch(() => {});
+							}
+							const result: UploadResult = { uid: event.payload?.id || '' };
+							onSuccess?.(result);
 							resolve(result);
 						} else if (event.name === 'failed') {
 							const error = new Error(event.payload?.error || 'Native upload failed');
@@ -211,8 +280,8 @@ async function uploadVideoNative(
 								message: `uploadVideoNative: failed - ${error.message}`,
 								level: 'error'
 							});
-							onError?.(error);
 							handle.remove();
+							onError?.(error);
 							reject(error);
 						}
 					}
@@ -224,18 +293,18 @@ async function uploadVideoNative(
 			setupListener()
 				.then(async () => {
 					const result = await Uploader.startUpload({
-						filePath,
+						filePath: tempUri as string,
 						serverUrl: uploadURL,
 						method: 'POST',
 						uploadType: 'multipart',
-						headers: {},
 						mimeType: file.type || 'video/mp4',
 						fileField: 'file',
+						headers: {},
 						notificationTitle: 'Uploading video...',
 						maxRetries: 3
 					});
 
-					videoUid = result.id;
+					currentUploadId = result.id;
 
 					addBreadcrumb({
 						category: 'stream',
@@ -252,7 +321,7 @@ async function uploadVideoNative(
 	} catch (e) {
 		addBreadcrumb({
 			category: 'stream',
-			message: `uploadVideoNative: plugin failed, falling back to web - ${e}`,
+			message: `uploadVideoNative: error, falling back to web - ${e}`,
 			level: 'warning'
 		});
 		// Fall back to web upload
@@ -277,6 +346,19 @@ async function uploadVideoUppy(
 		import('@uppy/tus')
 	]);
 
+	// On Capacitor native, route same-origin TUS creation through CapacitorHttp
+	// to bypass WebViewLocalServer interception while preserving XHR upload progress
+	let isNativePlatform = false;
+	try {
+		const { Capacitor: cap } = await import('@capacitor/core');
+		isNativePlatform = cap.isNativePlatform();
+	} catch {
+		/* web — no Capacitor */
+	}
+	if (isNativePlatform) {
+		captureNativeXHR();
+	}
+
 	return new Promise((resolve, reject) => {
 		let videoUid: string | null = null;
 
@@ -295,7 +377,7 @@ async function uploadVideoUppy(
 		});
 
 		// Configure TUS plugin for Cloudflare Stream
-		uppy.use(Tus, {
+		const tusOpts: Record<string, unknown> = {
 			endpoint: tusEndpoint,
 			chunkSize: TUS_CHUNK_SIZE,
 			retryDelays: TUS_RETRY_DELAYS,
@@ -303,7 +385,7 @@ async function uploadVideoUppy(
 			headers: {
 				'Upload-Creator': 'bittasker-web'
 			},
-			onAfterResponse: (_req, res) => {
+			onAfterResponse: (_req: unknown, res: { getHeader: (name: string) => string | null }) => {
 				// Extract video UID from response headers
 				const mediaId = res.getHeader('stream-media-id');
 				if (mediaId) {
@@ -315,7 +397,13 @@ async function uploadVideoUppy(
 					});
 				}
 			}
-		});
+		};
+
+		if (isNativePlatform) {
+			tusOpts.httpStack = new CapacitorNativeHttpStack();
+		}
+
+		uppy.use(Tus, tusOpts);
 
 		// Track upload progress
 		uppy.on('upload-progress', (_uppyFile, progress) => {
