@@ -1887,7 +1887,6 @@
 											style="-webkit-tap-highlight-color: transparent;"
 											onclick={() => {
 												formInput.addressInput = '';
-												formInput.amount = '';
 												formInput.destinationChainId = null;
 												parsedPayment.data = null;
 												parsedPayment.detectedNetwork = null;
