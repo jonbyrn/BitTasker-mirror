@@ -1892,7 +1892,7 @@
 								<div class="space-y-1">
 									<button
 										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										class="hover:border-primary flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {formInput.selectedSource ===
 										'rootstock-bitcoin'
 											? 'bg-primary/10'
 											: ''}"
@@ -1913,7 +1913,7 @@
 									</button>
 									<button
 										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										class="hover:border-primary flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {formInput.selectedSource ===
 										'usdt-bsc'
 											? 'bg-primary/10'
 											: ''}"
@@ -1947,12 +1947,12 @@
 								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
 								onclick={() => (uiState.destinationExpanded = !uiState.destinationExpanded)}
 								disabled={isDestinationLocked}
+								class:cursor-not-allowed={isDestinationLocked}
+								class:cursor-pointer={!isDestinationLocked}
 							>
 								<span class="text-base-content/60">{$t('wallet.to')}:</span>
 								{#if !hasAddress}
-									<span class="text-base-content/40 text-xs"
-										>({$t('wallet.send.enter_address')})</span
-									>
+									<span class="text-base-content/40 text-xs">(Enter Address)</span>
 								{:else}
 									{#if selectedChain?.icon}
 										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
@@ -1966,7 +1966,7 @@
 										<button
 											type="button"
 											disabled={isDestinationLocked}
-											class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {isDestinationLocked
+											class="hover:border-primary flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {isDestinationLocked
 												? 'cursor-not-allowed opacity-50'
 												: ''} {effectiveDestinationChainId === chain.id ||
 											effectiveDestinationChainId === chain.testnetId
