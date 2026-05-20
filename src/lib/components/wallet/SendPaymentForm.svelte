@@ -1896,51 +1896,6 @@
 						{/if}
 					</div>
 
-					<!-- Auto-detected Network Display -->
-					{#if parsedPayment.detectedNetwork}
-						{@const network =
-							networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
-						{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
-						{@const explorerUrl = getAddressExplorerUrl(
-							recipientAddress,
-							parsedPayment.detectedNetwork
-						)}
-						<div
-							class="border-base-300 {isNetworkSupported
-								? 'bg-primary/10'
-								: 'bg-base-300 opacity-60'} rounded-lg border p-1.5 sm:p-2"
-						>
-							<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
-								<div class="flex items-center gap-1.5 sm:gap-2">
-									{#if network?.icon}
-										<img src={network?.icon} alt={network?.name} class="h-4 w-4 sm:h-5 sm:w-5" />
-									{/if}
-									<span class="text-sm font-medium sm:text-base">{network?.name}</span>
-									{#if !isNetworkSupported}
-										<span class="badge badge-sm badge-ghost">{$t('wallet.coming_soon')}</span>
-									{/if}
-								</div>
-								{#if explorerUrl && isNetworkSupported}
-									<a
-										href={explorerUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-										style="-webkit-tap-highlight-color: transparent;"
-										aria-label={$t('wallet.view_explorer')}
-									>
-										<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
-									</a>
-								{/if}
-							</div>
-						</div>
-						{#if !isNetworkSupported}
-							<div class="alert alert-outline alert-warning mt-2 py-2 text-xs">
-								{$t('wallet.send.network_not_available')}
-							</div>
-						{/if}
-					{/if}
-
 					<!-- Destination Chain Selector (USDT source only) -->
 					{#if showDestinationPicker}
 						{@const selectedChain = getChainOption(effectiveDestinationChainId)}
@@ -1954,7 +1909,7 @@
 									class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
 									onclick={() => (uiState.destinationExpanded = !uiState.destinationExpanded)}
 								>
-									<span class="text-base-content/60">{$t('wallet.send.send_to')}:</span>
+									<span class="text-base-content/60">{$t('wallet.to')}:</span>
 									{#if selectedChain?.icon}
 										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
 									{/if}
