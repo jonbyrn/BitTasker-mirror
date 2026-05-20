@@ -59,6 +59,7 @@
 			testnetId: 31,
 			network: 'rootstock-bitcoin',
 			label: 'Rootstock Bitcoin',
+			asset: 'rBTC',
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			short: 'RSK'
 		},
@@ -67,6 +68,7 @@
 			testnetId: 97,
 			network: 'usdt-bsc',
 			label: 'Binance Smart Chain',
+			asset: 'USDT',
 			icon: '/images/chains/Binance-logo.svg',
 			short: 'BSC'
 		},
@@ -75,6 +77,7 @@
 			testnetId: 11155111,
 			network: 'usdt-ethereum',
 			label: 'Ethereum',
+			asset: 'USDT',
 			icon: '/images/chains/ethereum.svg',
 			short: 'ETH'
 		},
@@ -83,6 +86,7 @@
 			testnetId: 421614,
 			network: 'usdt-arbitrum',
 			label: 'Arbitrum',
+			asset: 'USDT',
 			icon: '/images/chains/arbitrum.svg',
 			short: 'Arb'
 		},
@@ -91,6 +95,7 @@
 			testnetId: 80002,
 			network: 'usdt-polygon',
 			label: 'Polygon',
+			asset: 'USDT',
 			icon: '/images/chains/polygon.svg',
 			short: 'Poly'
 		},
@@ -99,6 +104,7 @@
 			testnetId: 11155420,
 			network: 'usdt-optimism',
 			label: 'Optimism',
+			asset: 'USDT',
 			icon: '/images/chains/optimism.svg',
 			short: 'OP'
 		},
@@ -107,6 +113,7 @@
 			testnetId: 84532,
 			network: 'usdt-base',
 			label: 'Base',
+			asset: 'USDT',
 			icon: '/images/chains/base.svg',
 			short: 'Base'
 		},
@@ -115,6 +122,7 @@
 			testnetId: 43113,
 			network: 'usdt-avalanche',
 			label: 'Avalanche',
+			asset: 'USDT',
 			icon: '/images/chains/avalanche.svg',
 			short: 'Avax'
 		},
@@ -122,6 +130,7 @@
 			id: -1,
 			network: 'lightning-bitcoin',
 			label: 'Lightning',
+			asset: 'BTC',
 			icon: '/images/chains/lightning.svg',
 			short: 'LN'
 		},
@@ -129,6 +138,7 @@
 			id: -2,
 			network: 'bitcoin',
 			label: 'Bitcoin',
+			asset: 'BTC',
 			icon: '/images/chains/Bitcoin.svg',
 			short: 'BTC'
 		}
@@ -1964,7 +1974,11 @@
 									{#if selectedChain?.icon}
 										<img src={selectedChain.icon} alt={selectedChain.short} class="h-5 w-5" />
 									{/if}
-									<span>{selectedChain?.label ?? selectedChain?.short ?? 'Unknown'}</span>
+									<span
+										>{selectedChain?.asset ?? ''} ({selectedChain?.label ??
+											selectedChain?.short ??
+											'Unknown'})</span
+									>
 								{/if}
 							</button>
 							<div class="collapse-content px-2">
@@ -1993,7 +2007,7 @@
 													>{chain.short.slice(0, 2)}</span
 												>
 											{/if}
-											<span class="text-sm">{chain.label}</span>
+											<span class="text-sm">{chain.asset ?? ''} ({chain.label})</span>
 											{#if effectiveDestinationChainId === chain.id || effectiveDestinationChainId === chain.testnetId}
 												<span class="text-primary ml-auto text-xs">●</span>
 											{/if}
