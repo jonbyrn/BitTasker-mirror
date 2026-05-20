@@ -259,17 +259,20 @@
 
 	// ── Init ──────────────────────────────────────────────────────────────────
 
-	// Default to the asset matching the receive currency
+	// Default to the asset matching the receive currency (run once)
+	let _defaultsApplied = false;
 	$effect(() => {
-		if (!selectedId) {
-			const defaultGroup = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
-			const defaultAsset = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
-			activeGroup = defaultGroup;
-			const defaults = activeNetworks.filter((n) => n.group === defaultGroup);
-			const direct = defaults.find((n) => n.asset === defaultAsset);
-			const id = direct?.id ?? defaults[0]?.id ?? '';
+		if (_defaultsApplied) return;
+		const defaultGroup = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
+		const defaultAsset = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
+		activeGroup = defaultGroup;
+		const defaults = HARDCODED_NETWORKS.filter((n) => n.group === defaultGroup);
+		const direct = defaults.find((n) => n.asset === defaultAsset);
+		const id = direct?.id ?? defaults[0]?.id ?? '';
+		if (id) {
 			selectedId = id;
-			if (id) onChange(direct?.network ?? '');
+			onChange(direct?.network ?? '');
+			_defaultsApplied = true;
 		}
 	});
 
