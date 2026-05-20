@@ -1700,89 +1700,6 @@
 				<!-- Enter Payment Details Tab -->
 				<!-- Single scrollable send flow -->
 				<div class="space-y-2 sm:space-y-4">
-					<!-- Source Wallet Accordion -->
-					<div class="form-control">
-						<div
-							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-							class:collapse-open={uiState.sourceExpanded}
-						>
-							<button
-								type="button"
-								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
-								onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
-							>
-								<span class="text-base-content/60">{$t('wallet.from')}:</span>
-								{#if formInput.selectedSource === 'rootstock-bitcoin'}
-									<img
-										src="/images/chains/Bitcoin-Rootstock-logo.webp"
-										alt="rBTC"
-										class="h-5 w-5"
-									/>
-									<span>{$t('wallet.bitcoin')}</span>
-									<span class="mr-6 ml-auto text-xs"
-										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
-									>
-								{:else}
-									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-									<span>USD</span>
-									<span class="mr-6 ml-auto text-xs"
-										>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-											? '$' +
-												parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: 2
-												})
-											: '$0.00'}</span
-									>
-								{/if}
-							</button>
-							<div class="collapse-content px-2">
-								<div class="space-y-1">
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
-										'rootstock-bitcoin'
-											? 'bg-primary/10'
-											: ''}"
-										onclick={() => {
-											formInput.selectedSource = 'rootstock-bitcoin';
-											uiState.sourceExpanded = false;
-										}}
-									>
-										<img
-											src="/images/chains/Bitcoin-Rootstock-logo.webp"
-											alt="rBTC"
-											class="h-5 w-5"
-										/>
-										<span>{$t('wallet.bitcoin')}</span>
-										<span class="ml-auto text-xs opacity-70"
-											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
-										>
-									</button>
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
-										'usdt-bsc'
-											? 'bg-primary/10'
-											: ''}"
-										onclick={() => {
-											formInput.selectedSource = 'usdt-bsc';
-											uiState.sourceExpanded = false;
-										}}
-									>
-										<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-										<span>USD</span>
-										<span class="ml-auto text-xs opacity-70"
-											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-												? $walletStore.bsc.formattedUsdtBalance + ' USDT'
-												: '$0.00'}</span
-										>
-									</button>
-								</div>
-							</div>
-						</div>
-					</div>
-
 					<!-- Address Input -->
 					<div class="form-control">
 						<div class="relative">
@@ -1870,30 +1787,87 @@
 						</div>
 					</div>
 
-					<!-- Amount Field (Mobile Step 1) -->
-					<div class="form-control min-h-0">
-						<AmountInputSection
-							amount={formInput.amount}
-							unit={formInput.unit}
-							mathExpression={formInput.mathExpression}
-							calculatorKey={uiState.calculatorKey}
-							network={parsedPayment.detectedNetwork}
-							isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-							disabled={parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0}
-							hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
-							onAmountChange={handleAmountInputChange}
-							onUnitChange={handleUnitChange}
-							onCalculationChange={handleCalculationChange}
-							onClear={handleClearCalculator}
-							onMaxAmount={handleMaxAmount}
-						/>
-						{#if showLargeAmountWarning}
-							<p class="text-error text-center text-sm">
-								{$t('wallet.send.large_amount_warning.message', {
-									values: { amount: formatUsd(amountInUSD) }
-								})}
-							</p>
-						{/if}
+					<!-- Source Wallet Accordion -->
+					<div class="form-control">
+						<div
+							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+							class:collapse-open={uiState.sourceExpanded}
+						>
+							<button
+								type="button"
+								class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+								onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
+							>
+								<span class="text-base-content/60">{$t('wallet.from')}:</span>
+								{#if formInput.selectedSource === 'rootstock-bitcoin'}
+									<img
+										src="/images/chains/Bitcoin-Rootstock-logo.webp"
+										alt="rBTC"
+										class="h-5 w-5"
+									/>
+									<span>{$t('wallet.bitcoin')}</span>
+									<span class="mr-6 ml-auto text-xs"
+										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
+									>
+								{:else}
+									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+									<span>USD</span>
+									<span class="mr-6 ml-auto text-xs"
+										>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+											? '$' +
+												parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 2
+												})
+											: '$0.00'}</span
+									>
+								{/if}
+							</button>
+							<div class="collapse-content px-2">
+								<div class="space-y-1">
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										'rootstock-bitcoin'
+											? 'bg-primary/10'
+											: ''}"
+										onclick={() => {
+											formInput.selectedSource = 'rootstock-bitcoin';
+											uiState.sourceExpanded = false;
+										}}
+									>
+										<img
+											src="/images/chains/Bitcoin-Rootstock-logo.webp"
+											alt="rBTC"
+											class="h-5 w-5"
+										/>
+										<span>{$t('wallet.bitcoin')}</span>
+										<span class="ml-auto text-xs opacity-70"
+											>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
+										>
+									</button>
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {formInput.selectedSource ===
+										'usdt-bsc'
+											? 'bg-primary/10'
+											: ''}"
+										onclick={() => {
+											formInput.selectedSource = 'usdt-bsc';
+											uiState.sourceExpanded = false;
+										}}
+									>
+										<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
+										<span>USD</span>
+										<span class="ml-auto text-xs opacity-70"
+											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
+												? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+												: '$0.00'}</span
+										>
+									</button>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<!-- Destination Chain Selector -->
@@ -1949,16 +1923,30 @@
 						</div>
 					{/if}
 
-					<!-- Description Accordion -->
-					<div class="form-control">
-						<DescriptionAccordion
-							memo={formInput.memo}
-							expanded={uiState.descriptionExpanded}
-							disabled={false}
-							labelText={parsedPayment.detectedMemo ? 'wallet.send.from_invoice' : undefined}
-							onMemoChange={(value) => (formInput.memo = value)}
-							onToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
+					<!-- Amount Field (Mobile Step 1) -->
+					<div class="form-control min-h-0">
+						<AmountInputSection
+							amount={formInput.amount}
+							unit={formInput.unit}
+							mathExpression={formInput.mathExpression}
+							calculatorKey={uiState.calculatorKey}
+							network={parsedPayment.detectedNetwork}
+							isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
+							disabled={parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0}
+							hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
+							onAmountChange={handleAmountInputChange}
+							onUnitChange={handleUnitChange}
+							onCalculationChange={handleCalculationChange}
+							onClear={handleClearCalculator}
+							onMaxAmount={handleMaxAmount}
 						/>
+						{#if showLargeAmountWarning}
+							<p class="text-error text-center text-sm">
+								{$t('wallet.send.large_amount_warning.message', {
+									values: { amount: formatUsd(amountInUSD) }
+								})}
+							</p>
+						{/if}
 					</div>
 
 					{#if feeState.error}
@@ -2002,6 +1990,18 @@
 						isError={hasInsufficientBalance}
 						placeholder={$t('wallet.send.enter_address_and_amount_to_estimate')}
 					/>
+					<!-- Description Accordion -->
+					<div class="form-control">
+						<DescriptionAccordion
+							memo={formInput.memo}
+							expanded={uiState.descriptionExpanded}
+							disabled={false}
+							labelText={parsedPayment.detectedMemo ? 'wallet.send.from_invoice' : undefined}
+							onMemoChange={(value) => (formInput.memo = value)}
+							onToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
+						/>
+					</div>
+
 					<!-- Address Error (e.g., amountless invoice) -->
 					{#if parsedPayment.addressError}
 						<div class="alert alert-outline alert-error mt-2 text-sm">
