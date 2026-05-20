@@ -108,22 +108,40 @@
 		swapLimits: null
 	});
 
-	// Swap routing state — resuses the send form's route resolver
+	// Swap routing state — reuses the send form's route resolver
 	let payerSourceWallet = $state<'rbtc' | 'usdt-bsc'>('rbtc');
 	let selectedRouteId = $state<string>('');
 	let _routeLoading = $state(false);
 	let swapRoutes = $derived.by(() => {
 		if (amountInSats === 0) return [];
-		// Resolve routes from payer source → receiver network
 		const sourceWallet: SourceWallet = payerSourceWallet;
 		const destNetwork = formInput.selectedNetwork;
 		// Map receiver network to Destination type
 		let chainId = 30;
 		if (destNetwork === 'usdt-bsc') chainId = 56;
 		else if (destNetwork === 'rootstock-bitcoin') chainId = 30;
-		else return []; // Non-address networks handled via Boltz directly
-		const destination = { type: 'address' as const, chainId, address: '0x0' };
-		return resolveRoute(sourceWallet, destination);
+		else return []; // Lightning/Bitcoin/Liquid handled via Boltz directly
+		const dest = { type: 'address' as const, chainId, address: $walletStore.rsk.address ?? '' };
+		return resolveRoute(sourceWallet, dest);
+	});
+
+	// When payer network matches receiver wallet → no swap needed (direct)
+	let needsSwap = $derived.by(() => {
+		const dest = formInput.selectedNetwork;
+		if (payerSourceWallet === 'usdt-bsc' && dest === 'usdt-bsc') return false;
+		if (
+			payerSourceWallet === 'rbtc' &&
+			(dest === 'rootstock-bitcoin' || dest === 'lightning-bitcoin' || dest === 'bitcoin')
+		)
+			return false;
+		return swapRoutes.length > 1; // Show swap picker only when multiple routes available
+	});
+
+	// Selected swap route
+	let selectedSwapRoute = $derived(swapRoutes.find((r) => r.id === selectedRouteId));
+	let swapFeeSats = $derived.by(() => {
+		if (!selectedSwapRoute || amountInSats <= 0) return 0;
+		return Math.round(amountInSats * (selectedSwapRoute.totalFeePercent / 100));
 	});
 
 	// Invoice generation state (simplified)
@@ -181,10 +199,10 @@
 	// Amount payer will pay (includes fees if chargeFeesToPayer is true)
 	const amountPayerPays = $derived.by(() => {
 		if (amountInSats === 0) return 0;
-		// If fees not estimated yet, return base amount (will update when fees load)
 		if (!feeState.estimated) return amountInSats;
+		const swapFees = needsSwap ? swapFeeSats : 0;
 		if (formInput.chargeFeesToPayer) {
-			return amountInSats + feeState.estimated.totalFees;
+			return amountInSats + swapFees + feeState.estimated.totalFees;
 		}
 		return amountInSats;
 	});
