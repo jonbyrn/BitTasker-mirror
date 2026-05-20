@@ -191,8 +191,10 @@
 				uploadError = null;
 				const videoFile =
 					f.data instanceof File ? f.data : new File([f.data], f.name, { type: f.type });
-				if (previewUrl) URL.revokeObjectURL(previewUrl);
-				previewUrl = URL.createObjectURL(videoFile);
+				if (previewUrl) URL.revokeObjectURL(previewUrl.split('#')[0]);
+				// #t=0.001 forces iOS/WKWebView to seek to the first video frame,
+				// preventing the common black-screen thumbnail on mobile Safari.
+				previewUrl = URL.createObjectURL(videoFile) + '#t=0.001';
 				selectedFile = videoFile;
 				try {
 					const video = document.createElement('video');
@@ -255,6 +257,9 @@
 			instance.on('upload-error', (_file: unknown, err: Error) => {
 				uploadError = (err as Error).message || 'Upload failed';
 				mode = 'error';
+				// Notify parent so it can remove the grid item and surface a friendly message
+				// below the upload grid rather than showing the raw TUS error string inside the cell.
+				onError?.($t('common.components.media_uploader.upload_failed') as string);
 			});
 			instance.on('restriction-failed', (_file: unknown, err: { message: string }) => {
 				uploadError = err.message;
@@ -332,7 +337,7 @@
 		pollingActive = false;
 		pollAttempt = 0;
 		if (previewUrl) {
-			URL.revokeObjectURL(previewUrl);
+			URL.revokeObjectURL(previewUrl.split('#')[0]);
 			previewUrl = null;
 		}
 		mode = 'dropzone';
@@ -595,7 +600,11 @@
 			class="bg-base-200 flex h-full flex-col items-center justify-center p-4 text-center"
 			role="alert"
 		>
-			<p class="text-error mb-2 text-sm">{uploadError || $t('stream_player.status.error')}</p>
+			<p class="text-error mb-2 text-sm">
+				{variant === 'compact'
+					? $t('common.components.media_uploader.upload_failed')
+					: (uploadError || $t('stream_player.status.error'))}
+			</p>
 			<button
 				type="button"
 				class="btn btn-sm btn-outline"

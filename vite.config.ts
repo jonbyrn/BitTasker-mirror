@@ -207,12 +207,12 @@ export default defineConfig(({ mode }) => {
 			// NestJS backend and video keys are not valid Stream UIDs.
 			proxy: {
 				'/api/cloudflare/stream': {
-					target: 'https://worker.dev.bittasker.com',
+					target: 'https://dev.bittasker.com',
 					changeOrigin: true,
 					secure: true
 				},
 				'/api/cloudflare/images': {
-					target: 'https://worker.dev.bittasker.com',
+					target: 'https://dev.bittasker.com',
 					changeOrigin: true,
 					secure: true
 				}

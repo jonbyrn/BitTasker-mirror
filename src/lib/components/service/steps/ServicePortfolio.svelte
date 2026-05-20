@@ -1,15 +1,14 @@
 <script lang="ts">
+	import type { Attachment } from '$lib/types/task';
+	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { serviceStore as store } from '$lib/stores/service.store';
-	import type { Attachment } from '$lib/types/task';
-	import { get } from 'svelte/store';
+	import { serviceStore } from '$lib/stores/service.store';
 	import { browser } from '$app/environment';
-	import uploadService from '$lib/api/services/upload.service';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
-	import { t } from 'svelte-i18n';
+	import uploadService from '$lib/api/services/upload.service';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import VideoUploader from '$lib/components/VideoUploader.svelte';
 
@@ -40,12 +39,12 @@
 	const customerCode = browser ? import.meta.env.VITE_STREAM_CUSTOMER_CODE : '';
 
 	onMount(() => {
-		if (!$store.service.portfolio) {
-			store.updateService({
+		if (!$serviceStore.service.portfolio) {
+			serviceStore.updateService({
 				portfolio: []
 			});
 		}
-		allGridItems = [...($store.service.portfolio || [])];
+		allGridItems = [...($serviceStore.service.portfolio || [])];
 	});
 
 	onDestroy(() => {
@@ -134,8 +133,8 @@
 		if (!selectedFiles) return;
 
 		const totalFiles =
-			($store.service.portfolio?.length || 0) +
-			(get(store).pendingFiles?.length || 0) +
+			($serviceStore.service.portfolio?.length || 0) +
+			($serviceStore.pendingFiles?.length || 0) +
 			pendingVideoUploads.length;
 		if (totalFiles + selectedFiles.length > 10) {
 			error = $t('dashboard.services.create.portfolio.max_files_limit', {
@@ -171,16 +170,17 @@
 		const imageFiles = validFiles.filter((f) => f.type.startsWith('image/'));
 		const videoFiles = validFiles.filter((f) => f.type.startsWith('video/'));
 
-		// Add image files to pending (existing flow)
+		// Append all files to the grid in picker order (not split by type)
+		allGridItems = [...allGridItems, ...validFiles];
+
+		// Route each type to its upload path
 		if (imageFiles.length > 0) {
-			store.updateStore({ pendingFiles: [...(get(store).pendingFiles || []), ...imageFiles] });
-			allGridItems = [...allGridItems, ...imageFiles];
+			serviceStore.updateStore({ pendingFiles: [...($serviceStore.pendingFiles || []), ...imageFiles] });
 		}
 
 		// Route video files to per-file VideoUploader
 		if (videoFiles.length > 0) {
 			pendingVideoUploads = [...pendingVideoUploads, ...videoFiles];
-			allGridItems = [...allGridItems, ...videoFiles];
 		}
 		error = '';
 
@@ -199,23 +199,23 @@
 			// Remove from portfolio (already uploaded)
 			const attachment = file as Attachment;
 			attachmentsToRemove = [...attachmentsToRemove, attachment];
-			const portfolioIndex = $store.service.portfolio?.findIndex(
+			const portfolioIndex = $serviceStore.service.portfolio?.findIndex(
 				(att) => att.url === attachment.url
 			);
 			if (portfolioIndex !== undefined && portfolioIndex >= 0) {
-				const newPortfolio = [...($store.service.portfolio || [])];
+				const newPortfolio = [...($serviceStore.service.portfolio || [])];
 				newPortfolio.splice(portfolioIndex, 1);
-				store.updateService({ portfolio: newPortfolio });
+				serviceStore.updateService({ portfolio: newPortfolio });
 			}
 		} else if (file instanceof File) {
 			// Check if it's a pending image
-			const pendingFiles = get(store).pendingFiles || [];
+			const pendingFiles = $serviceStore.pendingFiles || [];
 			const pendingIndex = pendingFiles.findIndex((f) => f === file);
 			if (pendingIndex >= 0) {
 				// Remove from pending files and cleanup object URL
 				const newPendingFiles = [...pendingFiles];
 				newPendingFiles.splice(pendingIndex, 1);
-				store.updateStore({ pendingFiles: newPendingFiles });
+				serviceStore.updateStore({ pendingFiles: newPendingFiles });
 
 				// Cleanup object URL
 				const objectUrl = filePreviewUrls.get(file);
@@ -233,7 +233,9 @@
 		allGridItems = allGridItems.filter((_, i) => i !== index);
 	}
 
-	// Video upload handler — called when VideoUploader encoding completes
+	// Video upload handler — called when VideoUploader encoding completes.
+	// Returns the attachment only; the caller is responsible for updating
+	// both allGridItems and service.portfolio in the correct order.
 	function handleVideoReady(result: {
 		uid: string;
 		thumbnailUrl: string;
@@ -242,9 +244,9 @@
 		size: number;
 		filename: string;
 	}): Attachment | undefined {
-		if (($store.service.portfolio?.length || 0) >= 10) return;
+		if (($serviceStore.service.portfolio?.length || 0) >= 10) return;
 
-		const attachment: Attachment = {
+		return {
 			url: result.hlsUrl,
 			key: result.uid,
 			type: 'video/*',
@@ -252,12 +254,6 @@
 			size: result.size,
 			cloudflareId: result.uid
 		};
-
-		store.updateService({
-			portfolio: [...($store.service.portfolio || []), attachment]
-		});
-
-		return attachment;
 	}
 
 	// Stable key for grid items to preserve identity across re-renders
@@ -270,7 +266,7 @@
 
 	// Compress and upload pending files (called immediately when files are selected)
 	async function uploadPendingFiles(): Promise<Attachment[]> {
-		const pendingFiles = get(store).pendingFiles;
+		const pendingFiles = $serviceStore.pendingFiles;
 		if (!pendingFiles || pendingFiles.length === 0) {
 			return [];
 		}
@@ -362,24 +358,27 @@
 				return attachment;
 			});
 
-			// Add to portfolio
-			const currentPortfolio = $store.service.portfolio || [];
-			store.updateService({
-				portfolio: [...currentPortfolio, ...attachments]
-			});
-
-			// Replace pending files in allGridItems with their uploaded attachments
-			// preserving insertion order
+			// Replace pending files in allGridItems with their uploaded attachments,
+			// preserving picker order via in-place index replacement
+			let updatedGridItems = allGridItems;
 			for (let i = 0; i < pendingFiles.length; i++) {
 				const file = pendingFiles[i];
 				const attachment = attachments[i];
 				if (file && attachment) {
-					const idx = allGridItems.indexOf(file);
+					const idx = updatedGridItems.indexOf(file);
 					if (idx >= 0) {
-						allGridItems = allGridItems.with(idx, attachment);
+						updatedGridItems = updatedGridItems.with(idx, attachment);
 					}
 				}
 			}
+			allGridItems = updatedGridItems;
+
+			// Rebuild portfolio from allGridItems order (preserves picker order)
+			serviceStore.updateService({
+				portfolio: updatedGridItems.filter(
+					(item): item is Attachment => typeof item === 'object' && 'url' in item
+				)
+			});
 
 			// Cleanup object URLs for uploaded files
 			pendingFiles.forEach((file) => {
@@ -391,7 +390,7 @@
 			});
 
 			// Clear pending files
-			store.updateStore({ pendingFiles: [] });
+			serviceStore.updateStore({ pendingFiles: [] });
 
 			return attachments;
 		} catch (err) {
@@ -571,7 +570,15 @@
 										if (attachment) {
 											const idx = allGridItems.indexOf(file);
 											if (idx >= 0) {
-												allGridItems = allGridItems.with(idx, attachment);
+												const updated = allGridItems.with(idx, attachment);
+												allGridItems = updated;
+												// Rebuild portfolio from allGridItems to preserve picker order
+												serviceStore.updateService({
+													portfolio: updated.filter(
+														(item): item is Attachment =>
+															typeof item === 'object' && 'url' in item
+													)
+												});
 											}
 										} else {
 											allGridItems = allGridItems.filter((f) => f !== file);
@@ -640,7 +647,7 @@
 				</div>
 			{/each}
 
-			{#if ($store.service.portfolio || []).length + (get(store).pendingFiles || []).length + (pendingVideoUploads || []).length < 10 && !isUploading}
+			{#if ($serviceStore.service.portfolio || []).length + ($serviceStore.pendingFiles || []).length + (pendingVideoUploads || []).length < 10 && !isUploading}
 				<div class="relative aspect-square h-24 w-full sm:h-28 md:h-32">
 					<label
 						for="portfolio-upload"

@@ -1649,16 +1649,6 @@
 	// --- End Carousel Logic ---
 
 	// --- Video Gallery Logic ---
-	const videoPortfolioItems = $derived(
-		(service?.portfolio ?? []).filter((a: Attachment) => {
-			if (a.cloudflareId) return true;
-			if (!a.url) return false;
-			if (a.type?.startsWith('video/')) return true;
-			if (isVideoFile(a.url)) return true;
-			return false;
-		})
-	);
-
 	function buildVideoThumbnailUrl(cloudflareId: string): string {
 		return `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${cloudflareId}/thumbnails/thumbnail.jpg`;
 	}
@@ -1675,22 +1665,52 @@
 	}
 
 	const carouselItems = $derived.by<CarouselItem[]>(() => {
-		const items: CarouselItem[] = galleryImages.map((img) => ({
-			...img,
-			isVideo: false
-		}));
-		for (const v of videoPortfolioItems) {
-			items.push({
-				url: v.cloudflareId ? buildVideoThumbnailUrl(v.cloudflareId) : v.url,
-				width: 1200,
-				height: 630,
-				isVideo: true,
-				cloudflareId: v.cloudflareId,
-				hlsUrl: v.url,
-				alt: v.alt
-			});
-		}
-		return items;
+		// Build a dimension lookup from the async-loaded gallery images (for PhotoSwipe)
+		const dimMap = new Map(
+			galleryImages.map((g) => [g.url, { width: g.width, height: g.height, alt: g.alt }])
+		);
+		const seen = new Set<string>();
+
+		// Walk service.portfolio once in its stored order so the carousel
+		// always respects the original upload sequence (video, photo, video, photo → same order).
+		return (service?.portfolio ?? []).flatMap((a: Attachment): CarouselItem[] => {
+			const isVideo = !!(
+				a.cloudflareId ||
+				(a.url && a.type?.startsWith('video/')) ||
+				(a.url && isVideoFile(a.url))
+			);
+
+			if (isVideo) {
+				const key = a.cloudflareId ?? a.url;
+				if (!key || seen.has(key)) return [];
+				seen.add(key);
+				return [
+					{
+						url: a.cloudflareId ? buildVideoThumbnailUrl(a.cloudflareId) : a.url,
+						width: 1200,
+						height: 630,
+						isVideo: true,
+						cloudflareId: a.cloudflareId,
+						hlsUrl: a.url || undefined,
+						alt: a.alt
+					}
+				];
+			} else {
+				if (!a.url || seen.has(a.url)) return [];
+				seen.add(a.url);
+				const dims = dimMap.get(a.url);
+				return [
+					{
+						url: a.url,
+						width: dims?.width ?? 0,
+						height: dims?.height ?? 0,
+						isVideo: false,
+						alt: dims?.alt ?? a.alt,
+						size: a.size
+					}
+				];
+			}
+		});
 	});
 	// --- End Video Gallery Logic ---
 

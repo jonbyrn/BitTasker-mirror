@@ -66,8 +66,7 @@ name = "bittasker-dev-worker"
 workers_dev = false
 
 [env.dev.route]
-pattern = "worker.dev.bittasker.com/*"
-# Replace with actual zone ID if needed
+pattern = "dev.bittasker.com/*"
 zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.dev.observability.logs]
@@ -135,7 +134,7 @@ workers_dev = false
 
 [env.staging.route]
 pattern = "staging.bittasker.com/*"
-zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.staging.observability.logs]
 enabled = true
@@ -171,8 +170,8 @@ name = "bittasker-prod-worker"
 workers_dev = false
 
 [env.production.route]
-pattern = "worker.prod.bittasker.com/*"
-zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
+pattern = "bittasker.com/*"
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.production.observability.logs]
 enabled = true
@@ -193,7 +192,7 @@ id = "5c05d20983c54e1d89269e838122dc4f"
 crons = ["0 3 * * SUN"]
 
 [env.production.vars]
-VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
+VITE_CLIENT_URL = "https://bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
