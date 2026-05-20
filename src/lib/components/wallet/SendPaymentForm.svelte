@@ -1872,7 +1872,8 @@
 									/>
 									<span>{$t('wallet.bitcoin')}</span>
 									<span class="mr-6 ml-auto text-xs"
-										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats</span
+										>{formatSats(parseFloat($walletStore.rsk.formattedBalance) * 100_000_000)} Sats ≈
+										{formatUsd(parseFloat($walletStore.rsk.formattedBalance) * btcPrice)}</span
 									>
 								{:else}
 									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
@@ -1926,7 +1927,11 @@
 										<span>USD</span>
 										<span class="ml-auto text-xs opacity-70"
 											>{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-												? $walletStore.bsc.formattedUsdtBalance + ' USDT'
+												? '$' +
+													parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString(
+														'en-US',
+														{ minimumFractionDigits: 2, maximumFractionDigits: 2 }
+													)
 												: '$0.00'}</span
 										>
 									</button>
