@@ -327,6 +327,13 @@
 			parsedPayment.detectedNetwork !== null
 	);
 
+	// Reset destination chain override when source wallet changes to rBTC
+	$effect(() => {
+		if (formInput.selectedSource === 'rootstock-bitcoin') {
+			formInput.destinationChainId = null;
+		}
+	});
+
 	function toDestination(
 		network: string | null,
 		address: string,
