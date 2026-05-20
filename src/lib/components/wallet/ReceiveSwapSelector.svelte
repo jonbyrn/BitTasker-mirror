@@ -172,7 +172,7 @@
 			class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-sm font-medium sm:pr-12"
 			onclick={() => (expanded = !expanded)}
 		>
-			<span class="text-base-content/60">{$t('wallet.receive.payer_sends_from')}:</span>
+			<span class="text-base-content/60">{$t('wallet.from')}:</span>
 			{#if selectedNetwork?.icon}
 				<img src={selectedNetwork.icon} alt={selectedNetwork.label} class="h-5 w-5" />
 			{/if}
