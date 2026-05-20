@@ -42,15 +42,6 @@
 
 	/** Total fee: swap fee + network transaction fee. */
 	let totalFeeSats = $derived(swapFeeSats + networkFeeSats);
-	$inspect(
-		totalFeeSats,
-		swapFeeSats,
-		networkFeeSats,
-		selectedRoute?.id,
-		amountSats,
-		hasAddress,
-		hasAmount
-	);
 
 	/**
 	 * Format a sats amount as "XXX Sats" or "$X.XX".
@@ -91,10 +82,7 @@
 		{:else if !hasAmount}
 			<span class="ml-1.5 text-xs opacity-70">(Enter amount)</span>
 		{:else if hasAddress && hasAmount}
-			<span class="ml-1.5 font-semibold"
-				>Free (sF={swapFeeSats} nF={networkFeeSats} tF={totalFeeSats} aS={amountSats} rI={selectedRoute?.id ??
-					'none'})</span
-			>
+			<span class="ml-1.5 font-semibold">Free</span>
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
 		{/if}
