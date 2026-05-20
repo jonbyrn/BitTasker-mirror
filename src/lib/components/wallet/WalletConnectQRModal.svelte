@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import QRCode from 'qrcode';
 	import IconClose from '~icons/mdi/close';
 
@@ -112,13 +113,23 @@
 		class="bg-base-100 fixed inset-0 z-101 flex flex-col items-center justify-center px-4 py-8"
 		role="dialog"
 		aria-modal="true"
-		aria-label="WalletConnect QR code"
+		aria-label={$t('wallet.connected.walletconnect_name')}
+		aria-describedby="qr-modal-desc"
+		tabindex="-1"
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Escape') handleCancel();
+		}}
 	>
+		<span id="qr-modal-desc" class="sr-only">{$t('wallet.connected.qr.sr_description')}</span>
 		<div class="w-full max-w-sm space-y-6">
 			<!-- Header -->
 			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-bold">WalletConnect</h2>
-				<button class="btn btn-ghost btn-sm btn-square" onclick={handleCancel} aria-label="Cancel">
+				<h2 class="text-lg font-bold">{$t('wallet.connected.walletconnect_name')}</h2>
+				<button
+					class="btn btn-ghost btn-sm btn-square"
+					onclick={handleCancel}
+					aria-label={$t('common.cancel')}
+				>
 					<IconClose class="h-5 w-5" />
 				</button>
 			</div>
@@ -130,7 +141,8 @@
 					<div class="bg-base-200 flex h-[280px] w-[280px] items-center justify-center rounded-xl">
 						<div class="flex flex-col items-center gap-3">
 							<span class="loading loading-spinner loading-lg text-primary"></span>
-							<span class="text-base-content/60 text-sm">Preparing QR code...</span>
+							<span class="text-base-content/60 text-sm">{$t('wallet.connected.qr.preparing')}</span
+							>
 						</div>
 					</div>
 				{:else if isError}
@@ -140,8 +152,8 @@
 							<div class="text-error text-4xl">&#x26A0;</div>
 							<p class="text-base-content/70 text-sm">
 								{isTimedOut
-									? 'QR code expired. Please try again.'
-									: error || 'Failed to generate QR code'}
+									? $t('wallet.connected.qr.expired_message')
+									: error || $t('wallet.connected.qr.error')}
 							</p>
 						</div>
 					</div>
@@ -150,7 +162,7 @@
 					<div class="rounded-xl bg-white p-3 shadow-lg">
 						<img
 							src={qrDataUrl}
-							alt="WalletConnect QR Code"
+							alt={$t('wallet.connected.walletconnect_name')}
 							class="h-[280px] w-[280px]"
 							width="280"
 							height="280"
@@ -161,20 +173,22 @@
 					<div class="bg-base-200 flex h-[280px] w-[280px] items-center justify-center rounded-xl">
 						<div class="flex flex-col items-center gap-3">
 							<span class="loading loading-spinner loading-lg text-primary"></span>
-							<span class="text-base-content/60 text-sm">Initializing connection...</span>
+							<span class="text-base-content/60 text-sm"
+								>{$t('wallet.connected.qr.initializing')}</span
+							>
 						</div>
 					</div>
 				{/if}
 
 				<!-- Instruction Text -->
 				<p class="text-base-content/80 text-center text-sm">
-					Scan this QR code with your mobile wallet app
+					{$t('wallet.connected.qr.scan_instruction')}
 				</p>
 
 				<!-- Countdown Timer -->
 				<div class="flex items-center gap-2">
 					{#if isTimedOut}
-						<span class="text-error text-sm font-medium">Expired</span>
+						<span class="text-error text-sm font-medium">{$t('wallet.connected.qr.expired')}</span>
 					{:else}
 						<span
 							class="countdown text-base-content/70 font-mono text-xl"
@@ -193,7 +207,7 @@
 				class="btn btn-outline btn-block min-h-[44px] touch-manipulation transition-transform duration-100 select-none active:scale-95"
 				onclick={handleCancel}
 			>
-				Cancel
+				{$t('common.cancel')}
 			</button>
 		</div>
 	</div>

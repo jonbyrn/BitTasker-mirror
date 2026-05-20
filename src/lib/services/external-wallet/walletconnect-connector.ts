@@ -47,7 +47,7 @@ const WC_METADATA = {
 	url: 'https://bittasker.com',
 	icons: ['https://bittasker.com/favicon.ico']
 };
-const ENCRYPTION_KEY = 'bittasker-wc-enc-v1';
+const WC_ENCRYPTION_KEY_STORE = 'bittasker_wc_enc_key';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,13 +87,44 @@ let sessionDeleteHandler: (() => void) | null = null;
 // ---------------------------------------------------------------------------
 
 async function getEncryptionKey(): Promise<CryptoKey> {
-	const encoder = new TextEncoder();
-	const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, '\0').slice(0, 32)) as BufferSource;
+	// Check Preferences for a previously persisted key
+	const { value: storedKey } = await Preferences.get({ key: WC_ENCRYPTION_KEY_STORE });
+
+	let keyBytes: Uint8Array;
+
+	if (storedKey) {
+		// Decode stored base64-encoded key
+		const binaryStr = atob(storedKey);
+		keyBytes = new Uint8Array(binaryStr.length);
+		for (let i = 0; i < binaryStr.length; i++) {
+			keyBytes[i] = binaryStr.charCodeAt(i);
+		}
+	} else {
+		// Derive a 256-bit key from the WalletConnect project ID via SHA-256
+		const projectId = getProjectId();
+		const encoder = new TextEncoder();
+		const hashBuffer = await crypto.subtle.digest(
+			'SHA-256',
+			encoder.encode(projectId) as BufferSource
+		);
+		keyBytes = new Uint8Array(hashBuffer);
+
+		// Persist the derived key for future sessions (base64-encoded)
+		let binary = '';
+		for (let i = 0; i < keyBytes.length; i++) {
+			binary += String.fromCharCode(keyBytes[i]);
+		}
+		await Preferences.set({ key: WC_ENCRYPTION_KEY_STORE, value: btoa(binary) });
+	}
+
 	const { data: key, error } = await tryCatch(
-		crypto.subtle.importKey('raw', keyData, { name: 'AES-CBC', length: 256 }, false, [
-			'encrypt',
-			'decrypt'
-		])
+		crypto.subtle.importKey(
+			'raw',
+			keyBytes as BufferSource,
+			{ name: 'AES-CBC', length: 256 },
+			false,
+			['encrypt', 'decrypt']
+		)
 	);
 	if (error || !key) {
 		throw new Error('Failed to create encryption key for session storage');

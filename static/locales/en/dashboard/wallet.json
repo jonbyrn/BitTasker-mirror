@@ -10,7 +10,25 @@
 		"tab_buy_sell": "Buy & Sell",
 		"tab_swap": "Swap",
 		"connected": {
-			"connect": "Connect a Wallet"
+			"connect": "Connect a Wallet",
+			"connect_modal_title": "Connect a Wallet",
+			"metamask_name": "MetaMask",
+			"metamask_desc": "Browser extension wallet",
+			"walletconnect_name": "WalletConnect",
+			"walletconnect_desc": "Scan QR code to connect",
+			"connecting": "Connecting {type}...",
+			"disconnect_title": "Disconnect?",
+			"disconnect_msg": "Funds remain safe in your wallet.",
+			"remove": "Remove",
+			"qr": {
+				"preparing": "Preparing QR code...",
+				"initializing": "Initializing connection...",
+				"scan_instruction": "Scan this QR code with your mobile wallet app",
+				"expired": "Expired",
+				"expired_message": "QR code expired. Please try again.",
+				"error": "Failed to generate QR code",
+				"sr_description": "Scan the QR code with your mobile wallet app to connect via WalletConnect. This modal includes a countdown timer and a cancel button."
+			}
 		},
 		"tab_transactions": "Transactions",
 		"total_balance": "Total Balance",

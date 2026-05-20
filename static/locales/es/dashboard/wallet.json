@@ -4,7 +4,25 @@
 		"tab_wallet": "Billetera",
 		"tab_connected": "Conectado",
 		"connected": {
-			"connect": "Conectar Billetera"
+			"connect": "Conectar Billetera",
+			"connect_modal_title": "Conectar una Billetera",
+			"metamask_name": "MetaMask",
+			"metamask_desc": "Billetera de extensi\u00f3n del navegador",
+			"walletconnect_name": "WalletConnect",
+			"walletconnect_desc": "Escanear c\u00f3digo QR para conectar",
+			"connecting": "Conectando {type}...",
+			"disconnect_title": "\u00bfDesconectar?",
+			"disconnect_msg": "Los fondos permanecen seguros en su billetera.",
+			"remove": "Eliminar",
+			"qr": {
+				"preparing": "Preparando c\u00f3digo QR...",
+				"initializing": "Inicializando conexi\u00f3n...",
+				"scan_instruction": "Escanee este c\u00f3digo QR con su aplicaci\u00f3n de billetera m\u00f3vil",
+				"expired": "Expirado",
+				"expired_message": "El c\u00f3digo QR expir\u00f3. Intente de nuevo.",
+				"error": "Error al generar el c\u00f3digo QR",
+				"sr_description": "Escanea el c\u00f3digo QR con tu aplicaci\u00f3n de billetera m\u00f3vil para conectarte a trav\u00e9s de WalletConnect. Este modal incluye un temporizador de cuenta regresiva y un bot\u00f3n de cancelar."
+			}
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",

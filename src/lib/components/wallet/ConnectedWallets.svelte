@@ -108,7 +108,11 @@
 		{#if $connectedWalletsStore.connectingType}
 			<div class="alert alert-outline alert-info py-2 text-sm">
 				<span class="loading loading-spinner loading-xs"></span>
-				<span>Connecting {$connectedWalletsStore.connectingType}...</span>
+				<span
+					>{$t('wallet.connected.connecting', {
+						values: { type: $connectedWalletsStore.connectingType }
+					})}</span
+				>
 			</div>
 		{/if}
 
@@ -160,14 +164,20 @@
 
 		<!-- Connect Modal -->
 		{#if showConnectModal}
-			<dialog class="modal modal-open" onclick={closeConnectModal}>
+			<dialog
+				class="modal modal-open"
+				onclick={closeConnectModal}
+				onkeydown={(e: KeyboardEvent) => {
+					if (e.key === 'Escape') closeConnectModal();
+				}}
+			>
 				<div
 					class="modal-box max-w-sm"
 					onclick={(e: Event) => e.stopPropagation()}
 					role="dialog"
 					aria-modal="true"
 				>
-					<h3 class="mb-3 text-lg font-bold">Connect a Wallet</h3>
+					<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>
 
 					<div class="space-y-2">
 						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
@@ -175,10 +185,10 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectMetaMask}
 							>
-								<span class="text-xl">🦊</span>
+								<IconWallet class="h-5 w-5 text-orange-500" />
 								<div>
-									<div class="font-medium">MetaMask</div>
-									<div class="text-xs opacity-60">Browser extension wallet</div>
+									<div class="font-medium">{$t('wallet.connected.metamask_name')}</div>
+									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
 								</div>
 							</button>
 						{/if}
@@ -190,15 +200,17 @@
 							>
 								<IconCellphoneLink class="h-5 w-5" />
 								<div>
-									<div class="font-medium">WalletConnect</div>
-									<div class="text-xs opacity-60">Scan QR code to connect</div>
+									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
+									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
 								</div>
 							</button>
 						{/if}
 					</div>
 
 					<div class="mt-4">
-						<button class="btn btn-ghost btn-sm w-full" onclick={closeConnectModal}>Cancel</button>
+						<button class="btn btn-ghost btn-sm w-full" onclick={closeConnectModal}
+							>{$t('common.cancel')}</button
+						>
 					</div>
 				</div>
 				<form method="dialog" class="modal-backdrop">
@@ -213,23 +225,33 @@
 		<!-- Disconnect Confirmation -->
 		{#if showDisconnectId}
 			{@const wallet = $connectedWalletsStore.wallets.find((w) => w.id === showDisconnectId)}
-			<dialog class="modal modal-open" onclick={cancelDisconnect}>
+			<dialog
+				class="modal modal-open"
+				onclick={cancelDisconnect}
+				onkeydown={(e: KeyboardEvent) => {
+					if (e.key === 'Escape') cancelDisconnect();
+				}}
+			>
 				<div
 					class="modal-box max-w-sm"
 					onclick={(e: Event) => e.stopPropagation()}
 					role="alertdialog"
 					aria-modal="true"
 				>
-					<h3 class="mb-2 text-lg font-bold">Disconnect?</h3>
+					<h3 class="mb-2 text-lg font-bold">{$t('wallet.connected.disconnect_title')}</h3>
 					{#if wallet}
 						<p class="mb-2 text-sm opacity-70">
 							{wallet.walletName} · {wallet.address.slice(0, 10)}...
 						</p>
 					{/if}
-					<p class="mb-4 text-sm">Funds remain safe in your wallet.</p>
+					<p class="mb-4 text-sm">{$t('wallet.connected.disconnect_msg')}</p>
 					<div class="flex justify-end gap-2">
-						<button class="btn btn-ghost btn-sm" onclick={cancelDisconnect}>Cancel</button>
-						<button class="btn btn-error btn-sm" onclick={handleDisconnect}>Remove</button>
+						<button class="btn btn-ghost btn-sm" onclick={cancelDisconnect}
+							>{$t('common.cancel')}</button
+						>
+						<button class="btn btn-error btn-sm" onclick={handleDisconnect}
+							>{$t('wallet.connected.remove')}</button
+						>
 					</div>
 				</div>
 				<form method="dialog" class="modal-backdrop">
