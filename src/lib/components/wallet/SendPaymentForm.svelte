@@ -67,7 +67,7 @@
 			id: 56,
 			testnetId: 97,
 			network: 'usdt-bsc',
-			label: 'Binance Smart Chain',
+			label: 'Binance',
 			asset: 'USDT',
 			icon: '/images/chains/Binance-logo.svg',
 			short: 'BSC'
@@ -2059,6 +2059,9 @@
 							{btcPrice}
 							network={parsedPayment.detectedNetwork}
 							amountSats={amountInSats}
+							hasAddress={parsedPayment.data?.isValid === true &&
+								parsedPayment.detectedNetwork !== null}
+							hasAmount={amountInSats > 0}
 						/>
 					{:else}
 						<RoutePicker
@@ -2070,6 +2073,9 @@
 							{btcPrice}
 							network={parsedPayment.detectedNetwork}
 							amountSats={amountInSats}
+							hasAddress={parsedPayment.data?.isValid === true &&
+								parsedPayment.detectedNetwork !== null}
+							hasAmount={amountInSats > 0}
 						/>
 					{/if}
 

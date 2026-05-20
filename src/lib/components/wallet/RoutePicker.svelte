@@ -12,6 +12,8 @@
 		btcPrice: number;
 		network?: string | null;
 		amountSats?: number;
+		hasAddress?: boolean;
+		hasAmount?: boolean;
 	}
 
 	let {
@@ -22,7 +24,9 @@
 		isLoadingFee = false,
 		btcPrice = 0,
 		network = null,
-		amountSats = 0
+		amountSats = 0,
+		hasAddress = false,
+		hasAmount = false
 	}: Props = $props();
 
 	let expanded = $state(false);
@@ -74,6 +78,12 @@
 			{#if selectedRoute}
 				<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">~{selectedRoute.estimatedTime}</span>
 			{/if}
+		{:else if !hasAddress && !hasAmount}
+			<span class="ml-1.5 text-xs opacity-70">(Enter address and amount)</span>
+		{:else if !hasAddress}
+			<span class="ml-1.5 text-xs opacity-70">(Enter address)</span>
+		{:else if !hasAmount}
+			<span class="ml-1.5 text-xs opacity-70">(Enter amount)</span>
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
 		{/if}
@@ -127,7 +137,13 @@
 
 			{#if !totalFeeSats && !isLoadingFee}
 				<div class="text-center text-xs opacity-70">
-					{$t('wallet.send.enter_address_and_amount_to_estimate')}
+					{#if !hasAddress && !hasAmount}
+						Enter address and amount to calculate fees
+					{:else if !hasAddress}
+						Enter address to calculate fees
+					{:else if !hasAmount}
+						Enter amount to calculate fees
+					{/if}
 				</div>
 			{/if}
 		</div>
