@@ -78,7 +78,7 @@
 			network: 'usdt-ethereum',
 			label: 'Ethereum',
 			asset: 'USDT',
-			icon: '/images/chains/ethereum.svg',
+			icon: '/images/chains/ethereum.png',
 			short: 'ETH'
 		},
 		{
@@ -87,7 +87,7 @@
 			network: 'usdt-arbitrum',
 			label: 'Arbitrum',
 			asset: 'USDT',
-			icon: '/images/chains/arbitrum.svg',
+			icon: '/images/chains/arbitrum.png',
 			short: 'Arb'
 		},
 		{
@@ -96,7 +96,7 @@
 			network: 'usdt-polygon',
 			label: 'Polygon',
 			asset: 'USDT',
-			icon: '/images/chains/polygon.svg',
+			icon: '/images/chains/polygon.png',
 			short: 'Poly'
 		},
 		{
@@ -105,7 +105,7 @@
 			network: 'usdt-optimism',
 			label: 'Optimism',
 			asset: 'USDT',
-			icon: '/images/chains/optimism.svg',
+			icon: '/images/chains/optimism.png',
 			short: 'OP'
 		},
 		{
@@ -114,7 +114,7 @@
 			network: 'usdt-base',
 			label: 'Base',
 			asset: 'USDT',
-			icon: '/images/chains/base.svg',
+			icon: '/images/chains/base.png',
 			short: 'Base'
 		},
 		{
@@ -123,7 +123,7 @@
 			network: 'usdt-avalanche',
 			label: 'Avalanche',
 			asset: 'USDT',
-			icon: '/images/chains/avalanche.svg',
+			icon: '/images/chains/avalanche.png',
 			short: 'Avax'
 		},
 		{
@@ -141,6 +141,14 @@
 			asset: 'BTC',
 			icon: '/images/chains/Bitcoin.svg',
 			short: 'BTC'
+		},
+		{
+			id: -3,
+			network: 'usdt-tron',
+			label: 'TRON',
+			asset: 'USDT',
+			icon: '/images/chains/tron.png',
+			short: 'TRX'
 		}
 	] as const;
 
@@ -196,37 +204,37 @@
 			confirmationTime: 5
 		},
 		'usdt-ethereum': {
-			icon: '/images/chains/ethereum.svg',
+			icon: '/images/chains/ethereum.png',
 			name: 'Ethereum',
 			confirmationTime: 15
 		},
 		'usdt-arbitrum': {
-			icon: '/images/chains/arbitrum.svg',
+			icon: '/images/chains/arbitrum.png',
 			name: 'Arbitrum',
 			confirmationTime: 15
 		},
 		'usdt-polygon': {
-			icon: '/images/chains/polygon.svg',
+			icon: '/images/chains/polygon.png',
 			name: 'Polygon',
 			confirmationTime: 10
 		},
 		'usdt-optimism': {
-			icon: '/images/chains/optimism.svg',
+			icon: '/images/chains/optimism.png',
 			name: 'Optimism',
 			confirmationTime: 10
 		},
 		'usdt-base': {
-			icon: '/images/chains/base.svg',
+			icon: '/images/chains/base.png',
 			name: 'Base',
 			confirmationTime: 10
 		},
 		'usdt-avalanche': {
-			icon: '/images/chains/avalanche.svg',
+			icon: '/images/chains/avalanche.png',
 			name: 'Avalanche',
 			confirmationTime: 5
 		},
 		'usdt-tron': {
-			icon: '/images/chains/tron.svg',
+			icon: '/images/chains/tron.png',
 			name: 'TRON',
 			confirmationTime: 60
 		}
