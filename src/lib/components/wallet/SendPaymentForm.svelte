@@ -935,6 +935,12 @@
 
 	// Update fee estimate
 	async function updateFeeEstimate() {
+		console.log(
+			'[FEE] updateFeeEstimate called. network:',
+			parsedPayment.detectedNetwork,
+			'amountToUse:',
+			amountInSats > 0 ? amountInSats : (parsedPayment.detectedAmount ?? 0)
+		);
 		// Check if we have a network and an amount (either from input or detected from address)
 		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
 		const amountToUse =
