@@ -23,6 +23,13 @@ export interface ParsedPaymentAddress {
 		| 'liquid-bitcoin'
 		| 'bitcoin'
 		| 'usdt-bsc'
+		| 'usdt-ethereum'
+		| 'usdt-tron'
+		| 'usdt-arbitrum'
+		| 'usdt-polygon'
+		| 'usdt-optimism'
+		| 'usdt-base'
+		| 'usdt-avalanche'
 		| null;
 	amount: number | null; // Amount in sats, null if not specified
 	memo: string | null;
@@ -43,20 +50,67 @@ const MIN_CHAIN_ID = 1;
 const MAX_CHAIN_ID = 999999; // Reasonable upper bound for chain IDs
 
 /**
- * Map chain IDs to networks
+ * Map chain IDs to networks.
+ * Covers the ~90% of USDT transaction volume across 9 chains.
  */
-const CHAIN_ID_TO_NETWORK: Record<number, 'rootstock-bitcoin' | 'usdt-bsc'> = {
-	30: 'rootstock-bitcoin', // RSK Mainnet
-	31: 'rootstock-bitcoin', // RSK Testnet
-	33: 'rootstock-bitcoin', // RSK Regtest
-	56: 'usdt-bsc', // BSC Mainnet
-	97: 'usdt-bsc' // BSC Testnet
+const CHAIN_ID_TO_NETWORK: Record<number, string> = {
+	// RSK
+	30: 'rootstock-bitcoin',
+	31: 'rootstock-bitcoin',
+	33: 'rootstock-bitcoin',
+	// BSC
+	56: 'usdt-bsc',
+	97: 'usdt-bsc',
+	// Ethereum
+	1: 'usdt-ethereum',
+	11155111: 'usdt-ethereum',
+	// Arbitrum
+	42161: 'usdt-arbitrum',
+	421614: 'usdt-arbitrum',
+	// Polygon
+	137: 'usdt-polygon',
+	80002: 'usdt-polygon',
+	// Optimism
+	10: 'usdt-optimism',
+	11155420: 'usdt-optimism',
+	// Base
+	8453: 'usdt-base',
+	84532: 'usdt-base',
+	// Avalanche
+	43114: 'usdt-avalanche',
+	43113: 'usdt-avalanche'
 };
 
 // Compiled regexes (cached for performance)
-const ETHEREUM_SCHEME_REGEX = /^(ethereum|bsc|rsk):/i;
+const ETHEREUM_SCHEME_REGEX = /^(ethereum|bsc|rsk|arbitrum|polygon|optimism|base|avalanche|tron):/i;
 const CHAIN_ID_REGEX = /@(\d+)(?:\?|$)/;
 const ETHEREUM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
+const TRON_ADDRESS_REGEX = /^T[A-HJ-NP-Za-km-z1-9]{33}$/;
+
+/**
+ * Map scheme prefixes (e.g. "bsc:", "arbitrum:") to network strings.
+ */
+const SCHEME_TO_NETWORK: Record<string, string> = {
+	ethereum: 'usdt-ethereum',
+	bsc: 'usdt-bsc',
+	rsk: 'rootstock-bitcoin',
+	arbitrum: 'usdt-arbitrum',
+	polygon: 'usdt-polygon',
+	optimism: 'usdt-optimism',
+	base: 'usdt-base',
+	avalanche: 'usdt-avalanche',
+	tron: 'usdt-tron'
+};
+
+/**
+ * Detect the network from a scheme prefix (e.g. "bsc:0x..." → "usdt-bsc").
+ * Returns null if no recognised scheme prefix is present.
+ */
+function detectSchemeNetwork(lowerTrimmed: string): string | null {
+	const match = lowerTrimmed.match(ETHEREUM_SCHEME_REGEX);
+	if (!match) return null;
+	return SCHEME_TO_NETWORK[match[1].toLowerCase()] ?? null;
+}
 // Liquid address prefix check (for quick filtering before full validation)
 // lq1: Liquid mainnet (Bech32), tex1: Liquid testnet, ert1: Elements regtest, VJL: Legacy P2SH, ex1: Elements
 const LIQUID_ADDRESS_PREFIX_REGEX = /^(lq1|tex1|ert1|VJL|ex1)/i;
@@ -499,18 +553,22 @@ export function parsePaymentAddress(
 		}
 	}
 
-	// 4. Check for Ethereum-compatible addresses (RSK, BSC) with chain ID detection
+	// 4. Check for Ethereum-compatible addresses (RSK, BSC, + 6 more EVM chains)
 	// Only extract components if input looks like Ethereum address (optimization)
 	const lowerTrimmed = trimmed.toLowerCase();
-	const looksLikeEthereum =
-		lowerTrimmed.startsWith('0x') ||
-		lowerTrimmed.startsWith('ethereum:') ||
-		lowerTrimmed.startsWith('bsc:') ||
-		lowerTrimmed.startsWith('rsk:') ||
-		ETHEREUM_ADDRESS_REGEX.test(trimmed);
 
-	if (!looksLikeEthereum) {
-		// Not an Ethereum-compatible address, return invalid
+	// 5. Check for TRON address (after lowerTrimmed is available; TRON uses T-prefix base58)
+	if (lowerTrimmed.startsWith('tron:') || TRON_ADDRESS_REGEX.test(trimmed)) {
+		const tronAddr = lowerTrimmed.startsWith('tron:') ? trimmed.slice(5).trim() : trimmed;
+		if (TRON_ADDRESS_REGEX.test(tronAddr)) {
+			return {
+				isValid: true,
+				address: tronAddr,
+				network: 'usdt-tron',
+				amount: null,
+				memo: null
+			};
+		}
 		return {
 			isValid: false,
 			address: trimmed,
@@ -519,6 +577,28 @@ export function parsePaymentAddress(
 			memo: null
 		};
 	}
+	const looksLikeEthereum =
+		lowerTrimmed.startsWith('0x') ||
+		/************************************************************************/
+		/* Scheme-prefixed addresses: ethereum: bsc: rsk: arbitrum: polygon:    */
+		/* optimism: base: avalanche: — all extract to 0x EVM address           */
+		/************************************************************************/
+		ETHEREUM_SCHEME_REGEX.test(lowerTrimmed) ||
+		ETHEREUM_ADDRESS_REGEX.test(trimmed);
+
+	if (!looksLikeEthereum) {
+		// Not an Ethereum-compatible or TRON address, return invalid
+		return {
+			isValid: false,
+			address: trimmed,
+			network: null,
+			amount: null,
+			memo: null
+		};
+	}
+
+	// Detect scheme prefix for default network assignment
+	const schemeNetwork = detectSchemeNetwork(lowerTrimmed);
 
 	const ethereumComponents = extractEthereumComponents(trimmed);
 	const { address: addressPart, chainId, queryParams } = ethereumComponents;
@@ -584,38 +664,13 @@ export function parsePaymentAddress(
 		};
 	}
 
-	// 5. Check for BSC USDT address (BSC uses Ethereum address format: 0x...)
-	// Only treat as BSC if explicitly using bsc: scheme (not ethereum: without chain ID)
-	const isBscUri = lowerTrimmed.startsWith('bsc:');
-
-	// If it's a BSC URI scheme and valid Ethereum address, treat as BSC
-	if (isBscUri && isEthereumAddress) {
-		let amount: number | null = null;
-		const valueParam = queryParams.get('value');
-		if (valueParam) {
-			try {
-				const wei = BigInt(valueParam);
-				amount = weiToSats(wei);
-			} catch {
-				// Invalid value parameter, ignore
-			}
-		}
-
-		return {
-			isValid: true,
-			address: normalizedAddress,
-			network: 'usdt-bsc',
-			amount,
-			memo: queryParams.get('message') || queryParams.get('label') || null
-		};
-	}
-
-	// 6. Check for RSK address (with optional query params)
-	// Check for RSK URI scheme or plain Ethereum address format (default fallback)
+	// 5. Determine network from scheme prefix, source hint, or default
+	//    Priority: chainId > scheme prefix > source hint > default (RSK)
 	const isRskUri = lowerTrimmed.startsWith('rsk:');
+	const isEthereumUri = lowerTrimmed.startsWith('ethereum:');
 
-	// Reject ethereum: scheme without chain ID (ambiguous - could be Ethereum mainnet)
-	if (lowerTrimmed.startsWith('ethereum:') && !chainId) {
+	// Reject bare `ethereum:` scheme without chain ID (ambiguous — Ethereum mainnet)
+	if (isEthereumUri && !chainId) {
 		return {
 			isValid: false,
 			address: normalizedAddress || trimmed,
@@ -623,36 +678,39 @@ export function parsePaymentAddress(
 			amount: null,
 			memo: null,
 			errorMessage:
-				'Ethereum mainnet (chain ID 1) is not supported. Use bsc: for BSC or rsk: for RSK, or specify chain ID with @'
+				'Ethereum mainnet (chain ID 1) is not supported without explicit chain ID. Use "ethereum:0x...@1" or select chain from the destination picker.'
 		};
 	}
 
-	if (isRskUri || (isEthereumAddress && !isBscUri)) {
-		let amount: number | null = null;
-		const valueParam = queryParams.get('value');
-		if (valueParam) {
-			try {
-				const wei = BigInt(valueParam);
-				amount = weiToSats(wei);
-			} catch {
-				// Invalid value parameter, ignore
-			}
+	// If an explicit scheme prefix is present, use its network (unless chainId overrides)
+	let network: string;
+	if (schemeNetwork) {
+		network = schemeNetwork;
+	} else if (!isRskUri && sourceHint === 'usdt-bsc') {
+		// No scheme prefix + source is USDT → default to BSC
+		network = 'usdt-bsc';
+	} else {
+		network = 'rootstock-bitcoin';
+	}
+
+	let amount: number | null = null;
+	const valueParam = queryParams.get('value');
+	if (valueParam) {
+		try {
+			const wei = BigInt(valueParam);
+			amount = weiToSats(wei);
+		} catch {
+			// Invalid value parameter, ignore
 		}
-
-		// Use source hint to disambiguate EVM addresses.
-		// When sending from USDT/BSC, assume the destination is BSC unless explicitly
-		// marked as RSK (e.g. rsk: prefix). When no hint, default to rootstock-bitcoin.
-		const network = !isRskUri && sourceHint === 'usdt-bsc' ? 'usdt-bsc' : 'rootstock-bitcoin';
-
-		// Always use normalizedAddress (it's already normalized from addressPart)
-		return {
-			isValid: true,
-			address: normalizedAddress,
-			network,
-			amount,
-			memo: queryParams.get('message') || null
-		};
 	}
+
+	return {
+		isValid: true,
+		address: normalizedAddress,
+		network,
+		amount,
+		memo: queryParams.get('message') || queryParams.get('label') || null
+	};
 
 	// Invalid address format
 	// If we got here but addressPart looks like Ethereum address, normalize it anyway

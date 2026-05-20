@@ -436,17 +436,8 @@
 	</dialog>
 {/if}
 
-<!-- Swap Modal -->
-{#if showSwap}
-	<dialog class="modal modal-open">
-		<div class="modal-box max-w-md p-0">
-			<SwapForm />
-		</div>
-		<form method="dialog" class="modal-backdrop">
-			<button type="button" onclick={() => (showSwap = false)}>close</button>
-		</form>
-	</dialog>
-{/if}
+<!-- Swap Drawer -->
+<SwapForm isOpen={showSwap} onClose={() => (showSwap = false)} />
 
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>
