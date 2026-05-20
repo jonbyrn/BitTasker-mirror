@@ -11,6 +11,11 @@
 		type UploadResult,
 		type UploadOptions
 	} from '$lib/api/services/upload.service';
+	import VideoUploader from '$lib/components/VideoUploader.svelte';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface MediaUploaderProps extends Omit<UploaderProps, 'onChange'> {
 		enableImageCompression?: boolean;
@@ -20,6 +25,8 @@
 		useCloudflare?: boolean;
 		generateVariants?: boolean;
 		uploadFolder?: string;
+		/** Bindable: true while any image is uploading or any video is still encoding. */
+		hasPendingUploads?: boolean;
 		onChange?: (results: UploadResult[]) => void;
 		onUploadProgress?: (completed: number, total: number, currentFile: string) => void;
 		onCompressionProgress?: (progress: {
@@ -33,14 +40,14 @@
 		id = 'media-uploader',
 		label = '',
 		maxFiles = 1,
-		maxDuration = 30, // In seconds
-		maxFileSize = 2, // In MB for compressed images
+		maxDuration = 30,
+		maxFileSize = 2,
 		allowedTypes = ['image/*'],
-		files = [],
+		files: _files = [],
 		error = '',
 		width,
 		height,
-		className = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
+		className = '',
 		enableImageCompression = true,
 		compressionQuality = 0.8,
 		maxImageDimension = 3840,
@@ -48,6 +55,7 @@
 		useCloudflare = true,
 		generateVariants = true,
 		uploadFolder = 'uploads',
+		hasPendingUploads = $bindable(false),
 		onChange = () => {},
 		onRemove = () => {},
 		onError = () => {},
@@ -55,63 +63,103 @@
 		onUploadProgress = () => {}
 	}: MediaUploaderProps = $props();
 
-	// State
-	let isCompressing = $state(false);
+	// ── State ──
+
+	// Single ordered grid: File (pending) and UploadResult (completed) in insertion order.
+	// `allGridItemIds` is a parallel array of stable slot IDs — one per entry in `allGridItems`.
+	// Keys are assigned when items enter the grid and stay with the slot even after a
+	// File→UploadResult replacement, so duplicate server keys / identical files never cause
+	// Svelte's each_key_duplicate crash.
+	let allGridItems = $state<(File | UploadResult)[]>([]);
+	let allGridItemIds = $state<string[]>([]);
+	let _idSeq = 0;
+
 	let isUploading = $state(false);
-	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
-	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let compressionInfo = $state<CompressionResult[]>([]);
-	let uploadResults = $state<UploadResult[]>([]);
-	let detectedVideoDuration = $state<number | null>(null);
 
-	// Label is now passed as a prop and doesn't need to be overridden
+	// Per-file upload progress tracking (matches ServicePortfolio pattern)
+	let fileUploadProgress = $state(
+		new SvelteMap<File, { status: 'uploading' | 'done'; progress: number }>()
+	);
 
-	// Helper function to detect if a URL is a video
-	function isVideoURL(url: string): boolean {
-		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
-		const urlLower = url.toLowerCase();
-		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	// Video playback overlay
+	let playingVideo = $state<UploadResult | null>(null);
+
+	// Object URL map for pending image previews (cleaned up on destroy)
+	let filePreviewUrls = new SvelteMap<File, string>();
+
+	const customerCode = browser ? import.meta.env.VITE_STREAM_CUSTOMER_CODE : '';
+
+	// ── Expose pending state to parent ──
+
+	$effect(() => {
+		hasPendingUploads = isUploading || allGridItems.some((item) => item instanceof File);
+	});
+
+	// ── Derived ──
+
+	let fileTypeText = $derived(
+		allowedTypes
+			.map((type) => {
+				if (type === 'image/*') return $t('common.components.media_uploader.images');
+				if (type === 'video/*') return $t('common.components.media_uploader.videos');
+				return type.split('/')[1].toUpperCase();
+			})
+			.join(', ')
+	);
+
+	let durationInfo = $derived(
+		maxDuration
+			? $t('common.components.media_uploader.duration_info', {
+					values: { duration: maxDuration / 60 }
+				})
+			: ''
+	);
+
+	/** True while any video File is still being processed/encoded. */
+	let hasEncodingVideos = $derived(
+		allGridItems.some((item) => item instanceof File && item.type.startsWith('video/'))
+	);
+
+	// ── Helpers ──
+
+	function videoResultToUploadResult(result: {
+		uid: string;
+		hlsUrl: string;
+		size: number;
+	}): UploadResult {
+		return {
+			url: result.hlsUrl,
+			key: result.uid,
+			cloudflareId: result.uid,
+			type: 'video',
+			size: result.size
+		};
 	}
 
-	// Get file preview URL
-	function getFilePreview(file: File | string | UploadResult): string {
-		if (typeof file === 'string') {
-			return file;
-		}
-		if (file instanceof File) {
-			return URL.createObjectURL(file);
-		}
-		// UploadResult
-		return uploadService.getImageUrl(file, 'medium');
+	function getCompletedResults(): UploadResult[] {
+		return allGridItems.filter((item): item is UploadResult => !(item instanceof File));
 	}
 
-	// Check if file is video
-	function isVideoFile(file: File | string | UploadResult): boolean {
-		if (typeof file === 'string') {
-			return isVideoURL(file);
-		}
-		if (file instanceof File) {
-			return file.type.startsWith('video/');
-		}
-		// UploadResult
-		return file.type === 'video';
+	/** Build Cloudflare Stream thumbnail URL for a completed video UploadResult. */
+	function getVideoThumbnailUrl(item: UploadResult): string | null {
+		if (!customerCode) return null;
+		const uid = item.cloudflareId || item.key;
+		if (!uid) return null;
+		return `https://customer-${customerCode}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg`;
 	}
 
-	async function validateAndProcessFile(file: File): Promise<File | null> {
-		// Validate file type
+	// ── File validation (type check + dimensions/duration, no compression) ──
+
+	async function validateFile(file: File): Promise<boolean> {
 		const isImageAllowed = allowedTypes.includes('image/*');
 		const isVideoAllowed = allowedTypes.includes('video/*');
 		const isImageFile = file.type.startsWith('image/');
 		const isVideoFile = file.type.startsWith('video/');
 
-		// Check if the file type is valid
 		let isValidType = false;
-
-		if (isImageAllowed && isImageFile) {
-			isValidType = true;
-		} else if (isVideoAllowed && isVideoFile) {
-			isValidType = true;
-		}
+		if (isImageAllowed && isImageFile) isValidType = true;
+		else if (isVideoAllowed && isVideoFile) isValidType = true;
 
 		if (!isValidType) {
 			if (isImageAllowed && isVideoAllowed) {
@@ -124,54 +172,34 @@
 				error = $t('common.components.media_uploader.invalid_file_type');
 			}
 			onError(error);
-			return null;
+			return false;
 		}
 
-		// Process image files with compression
-		if (isImageFile && enableImageCompression) {
-			// Validate image file before compression
+		if (isImageFile) {
 			const validation = validateImageFile(file);
 			if (!validation.isValid) {
 				error = validation.error || $t('common.components.media_uploader.invalid_image');
 				onError(error);
-				return null;
+				return false;
 			}
-
-			try {
-				// Compress the image
-				const compressionResult = await compressImage(file, {
-					maxSizeMB: maxFileSize,
-					maxWidthOrHeight: maxImageDimension,
-					quality: compressionQuality,
-					fileType: 'image/webp'
-				});
-
-				// Store compression info if requested
-				if (showCompressionInfo) {
-					compressionInfo = [...compressionInfo, compressionResult];
-				}
-
-				return compressionResult.file;
-			} catch (err) {
-				console.error('Image compression failed:', err);
-				error = $t('common.components.media_uploader.compression_failed', {
-					values: { error: (err as Error).message }
+			// Only enforce size limit when compression is disabled (compression handles size reduction)
+			if (!enableImageCompression && file.size > maxFileSize * 1024 * 1024) {
+				error = $t('common.components.media_uploader.file_size_limit', {
+					values: { maxSize: maxFileSize }
 				});
 				onError(error);
-				return null;
+				return false;
 			}
 		}
 
-		// For non-image files or when compression is disabled, validate file size
-		if (file.size > maxFileSize * 1024 * 1024) {
+		if (!isImageFile && file.size > maxFileSize * 1024 * 1024) {
 			error = $t('common.components.media_uploader.file_size_limit', {
 				values: { maxSize: maxFileSize }
 			});
 			onError(error);
-			return null;
+			return false;
 		}
 
-		// Validate video duration if applicable
 		if (isVideoAllowed && maxDuration && isVideoFile) {
 			try {
 				const video = document.createElement('video');
@@ -188,22 +216,18 @@
 					});
 					onError(error);
 					URL.revokeObjectURL(video.src);
-					return null;
+					return false;
 				}
-
-				// Store detected duration for Cloudflare optimization
-				detectedVideoDuration = Math.ceil(video.duration);
 
 				URL.revokeObjectURL(video.src);
 			} catch (err) {
 				console.error('Failed to validate video duration:', err);
 				error = $t('common.components.media_uploader.failed_validate_video');
 				onError(error);
-				return null;
+				return false;
 			}
 		}
 
-		// Validate image dimensions if specified (for non-compressed images)
 		if (isImageAllowed && (width || height) && isImageFile && !enableImageCompression) {
 			try {
 				const img = new Image();
@@ -219,7 +243,7 @@
 					});
 					onError(error);
 					URL.revokeObjectURL(img.src);
-					return null;
+					return false;
 				}
 
 				URL.revokeObjectURL(img.src);
@@ -227,191 +251,340 @@
 				console.error('Failed to validate image dimensions:', err);
 				error = $t('common.components.media_uploader.failed_load_image');
 				onError(error);
-				return null;
+				return false;
 			}
 		}
 
-		return file;
+		return true;
 	}
+
+	// ── File selection and upload ──
 
 	async function handleFileChange(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
-		if (files?.length + selectedFiles.length > maxFiles) {
-			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
+		if (allGridItems.length + selectedFiles.length > maxFiles) {
+			error = $t('common.components.media_uploader.max_files_limit', {
+				values: { maxFiles }
+			});
 			onError?.(error);
 			return;
 		}
 
-		// Set compression state
 		const selectedFilesArray = Array.from(selectedFiles);
-		const hasImages = selectedFilesArray.some((file) => file.type.startsWith('image/'));
-
-		if (hasImages && enableImageCompression) {
-			isCompressing = true;
-			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
-		}
-
-		// Process files sequentially to avoid memory issues with large files
-		const processedFiles: File[] = [];
+		const validFiles: File[] = [];
 		let hasErrors = false;
 
-		for (let i = 0; i < selectedFilesArray.length; i++) {
-			const file = selectedFilesArray[i];
-
-			// Update compression progress
-			if (hasImages && enableImageCompression) {
-				compressionProgress = {
-					processed: i,
-					total: selectedFilesArray.length,
-					currentFile: file.name
-				};
-				onCompressionProgress(compressionProgress);
-			}
-
-			const processedFile = await validateAndProcessFile(file);
-			if (!processedFile) {
+		// Step 1: Validate each file and create image preview URLs IMMEDIATELY from the original
+		for (const file of selectedFilesArray) {
+			const isValid = await validateFile(file);
+			if (!isValid) {
 				hasErrors = true;
 				break;
 			}
-			processedFiles.push(processedFile);
+			validFiles.push(file);
+
+			// Create object URL from the original file right away so the thumbnail appears instantly
+			if (file.type.startsWith('image/')) {
+				filePreviewUrls.set(file, URL.createObjectURL(file));
+			}
 		}
 
-		// Finalize compression state
-		if (hasImages && enableImageCompression) {
-			isCompressing = false;
-			compressionProgress = {
-				processed: selectedFilesArray.length,
-				total: selectedFilesArray.length,
-				currentFile: ''
-			};
-		}
+		if (hasErrors) return;
 
-		if (hasErrors) {
-			return;
-		}
+		// Step 2: Add ALL validated files to the grid IMMEDIATELY (preserves picker order).
+		// Assign a unique slot ID to each incoming file — independent of file content so
+		// uploading the same file twice still produces two distinct keys.
+		const newIds = validFiles.map(() => `slot-${_idSeq++}`);
+		allGridItems = [...allGridItems, ...validFiles];
+		allGridItemIds = [...allGridItemIds, ...newIds];
 
-		// Upload files
-		isUploading = true;
-		uploadProgress = { completed: 0, total: processedFiles.length, currentFile: '' };
+		const imageFiles = validFiles.filter((f) => f.type.startsWith('image/'));
 
-		try {
+		// Reset input
+		input.value = '';
+
+		// Step 3: Upload images with inline compression (no separate banner step)
+		if (imageFiles.length > 0) {
+			// Mark all images as uploading (per-file progress, matches ServicePortfolio)
+			const progressMap = new SvelteMap<File, { status: 'uploading' | 'done'; progress: number }>();
+			for (const file of imageFiles) {
+				progressMap.set(file, { status: 'uploading', progress: 0 });
+			}
+			fileUploadProgress = progressMap;
+			isUploading = true;
+
 			const uploadOptions: UploadOptions = {
 				folder: uploadFolder,
 				useCloudflare,
-				enableCompression: false, // Already compressed client-side
+				enableCompression: false,
 				generateVariants,
 				metadata: {
 					uploadedAt: new Date().toISOString(),
-					clientCompressed: enableImageCompression && hasImages,
-					...(detectedVideoDuration != null ? { maxDuration: detectedVideoDuration } : {})
+					clientCompressed: enableImageCompression
 				}
 			};
 
-			const results = await uploadService.uploadMultipleFiles(
-				processedFiles,
-				uploadOptions,
-				(completed, total, currentFile) => {
-					uploadProgress = { completed, total, currentFile };
-					onUploadProgress(completed, total, currentFile);
+			try {
+				// Compress each image inline; fall back to original on failure
+				const filesToUpload: File[] = [];
+				for (let i = 0; i < imageFiles.length; i++) {
+					const file = imageFiles[i];
+					if (enableImageCompression) {
+						try {
+							const compressionResult = await compressImage(file, {
+								maxSizeMB: maxFileSize,
+								maxWidthOrHeight: maxImageDimension,
+								quality: compressionQuality,
+								fileType: 'image/webp'
+							});
+							if (showCompressionInfo) {
+								compressionInfo = [...compressionInfo, compressionResult];
+							}
+							filesToUpload.push(compressionResult.file);
+						} catch (err) {
+							console.error('Compression failed for', file.name, err);
+							filesToUpload.push(file);
+						}
+					} else {
+						filesToUpload.push(file);
+					}
+					onCompressionProgress({
+						processed: i + 1,
+						total: imageFiles.length,
+						currentFile: file.name
+					});
 				}
-			);
 
-			uploadResults = [...uploadResults, ...results];
-			files = [
-				...files,
-				...results.map((result) => (typeof result === 'string' ? result : result.url))
-			];
-			error = '';
-			onChange(uploadResults);
-		} catch (err) {
-			console.error('Upload failed:', err);
-			error = $t('common.components.media_uploader.upload_failed', {
-				values: { error: (err as Error).message }
-			});
-			onError(error);
-		} finally {
-			isUploading = false;
-			uploadProgress = { completed: 0, total: 0, currentFile: '' };
-			detectedVideoDuration = null;
+				const results = await uploadService.uploadMultipleFiles(
+					filesToUpload,
+					uploadOptions,
+					(completed, total, currentFile) => {
+						for (let i = 0; i < completed && i < imageFiles.length; i++) {
+							progressMap.set(imageFiles[i], { status: 'done', progress: 100 });
+						}
+						fileUploadProgress = new SvelteMap(progressMap);
+						onUploadProgress(completed, total, currentFile);
+					}
+				);
+
+				// Replace each original File entry with its UploadResult in-place (preserves order)
+				let updatedGrid = allGridItems;
+				for (let i = 0; i < imageFiles.length; i++) {
+					const originalFile = imageFiles[i];
+					const result = results[i];
+					const idx = updatedGrid.indexOf(originalFile);
+					if (idx >= 0) {
+						updatedGrid = updatedGrid.with(idx, result);
+					}
+					// Clean up preview URL now that we have the permanent CDN URL
+					const url = filePreviewUrls.get(originalFile);
+					if (url) {
+						URL.revokeObjectURL(url);
+						filePreviewUrls.delete(originalFile);
+					}
+				}
+				allGridItems = updatedGrid;
+
+				error = '';
+				onChange(getCompletedResults());
+			} catch (err) {
+				console.error('Upload failed:', err);
+				// Remove failed File entries from both parallel arrays in one pass
+				const failedSet = new Set<File>(imageFiles);
+				allGridItemIds = allGridItemIds.filter((_, i) => !failedSet.has(allGridItems[i] as File));
+				allGridItems = allGridItems.filter((item) => !(item instanceof File && failedSet.has(item)));
+				for (const f of imageFiles) {
+					const url = filePreviewUrls.get(f);
+					if (url) {
+						URL.revokeObjectURL(url);
+						filePreviewUrls.delete(f);
+					}
+				}
+				error = $t('common.components.media_uploader.upload_failed', {
+					values: { error: (err as Error).message }
+				});
+				onError(error);
+			} finally {
+				isUploading = false;
+				fileUploadProgress = new SvelteMap();
+			}
 		}
 	}
 
-	function removeFile(index: number) {
-		const file = files[index];
-		files = files.filter((_, i) => i !== index);
+	// ── Video callbacks ──
 
-		// Remove from upload results if it's an UploadResult
-		if (uploadResults[index]) {
-			uploadResults = uploadResults.filter((_, i) => i !== index);
+	function handleVideoReady(
+		file: File,
+		result: { uid: string; hlsUrl: string; size: number; filename: string }
+	) {
+		const uploadResult = videoResultToUploadResult(result);
+		const idx = allGridItems.indexOf(file);
+		if (idx >= 0) {
+			allGridItems = allGridItems.with(idx, uploadResult);
+		}
+		error = '';
+		onChange(getCompletedResults());
+	}
+
+	function handleVideoError(file: File, msg: string) {
+		// Filter IDs first (uses current allGridItems for lookup), then filter items
+		allGridItemIds = allGridItemIds.filter((_, i) => allGridItems[i] !== file);
+		allGridItems = allGridItems.filter((item) => item !== file);
+		error = msg;
+		onError(msg);
+	}
+
+	// ── Remove file ──
+
+	function removeFile(index: number) {
+		const item = allGridItems[index];
+		if (!item) return;
+
+		if (!(item instanceof File)) {
+			// Completed UploadResult — compute index within completed-only list for parent callback
+			let completedIndex = 0;
+			for (let i = 0; i < index; i++) {
+				if (!(allGridItems[i] instanceof File)) {
+					completedIndex++;
+				}
+			}
+			uploadService.deleteFile(item).catch(console.error);
+			onRemove(completedIndex, item.url);
+		} else {
+			// Pending File — clean up preview URL
+			const url = filePreviewUrls.get(item);
+			if (url) {
+				URL.revokeObjectURL(url);
+				filePreviewUrls.delete(item);
+			}
 		}
 
-		onRemove(index, file);
+		allGridItems = allGridItems.filter((_, i) => i !== index);
+		allGridItemIds = allGridItemIds.filter((_, i) => i !== index);
+		onChange(getCompletedResults());
 		error = '';
 	}
 
-	// Get translation strings reactively
-	let imagesText = $state('');
-	let videosText = $state('');
-	$effect(() => {
-		imagesText = $t('common.components.media_uploader.images');
-		videosText = $t('common.components.media_uploader.videos');
+	// ── Cleanup ──
+
+	onDestroy(() => {
+		filePreviewUrls.forEach((url) => {
+			URL.revokeObjectURL(url);
+		});
+		filePreviewUrls.clear();
 	});
-
-	// Get file type display text
-	let fileTypeText = $derived(
-		allowedTypes
-			.map((type) => {
-				if (type === 'image/*') return imagesText;
-				if (type === 'video/*') return videosText;
-				return type.split('/')[1].toUpperCase();
-			})
-			.join(', ')
-	);
-
-	// Get duration info if applicable
-	let durationInfo = $derived(
-		maxDuration
-			? $t('common.components.media_uploader.duration_info', {
-					values: { duration: maxDuration / 60 }
-				})
-			: ''
-	);
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4 {className}">
+	<!-- Single ordered grid (like ServicePortfolio's allGridItems) -->
 	<div
-		class={maxFiles > 1
-			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
-			: 'h-full w-full'}
+		class={maxFiles > 1 ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4' : 'h-full w-full'}
 	>
-		{#each files as file, index (index)}
-			<div class="relative {className}">
-				{#if isVideoFile(file)}
-					<video
-						src={getFilePreview(file)}
-						class="h-full w-full cursor-pointer rounded-lg object-cover"
-						controls
-						muted={false}
-						autoplay={false}
-						loop={false}
-					>
-						<track kind="captions" />
-					</video>
-				{:else}
-					<img
-						src={getFilePreview(file)}
-						alt={$t('common.components.media_uploader.preview')}
-						class="h-full w-full rounded-lg object-cover"
-					/>
-				{/if}
+		{#each allGridItems as item, i (allGridItemIds[i])}
+			<div class="relative aspect-square h-24 w-full sm:h-28 md:h-32">
+				<div class="border-base-300 h-full w-full overflow-hidden rounded-lg border">
+					{#if item instanceof File}
+						<!-- Pending file -->
+						{#if item.type.startsWith('video/')}
+							<!-- Pending video — render VideoUploader in compact mode (auto-uploads) -->
+							<div class="relative h-full w-full">
+								<VideoUploader
+									variant="compact"
+									initialFile={item}
+									{maxDuration}
+									maxFileSize={maxFileSize * 1024 * 1024}
+									private={false}
+									showRemoveButton={false}
+									onReady={(result) => handleVideoReady(item, result)}
+									onError={(msg) => handleVideoError(item, msg)}
+								/>
+							</div>
+						{:else}
+							<!-- Pending image — show original file preview with per-file upload overlay -->
+							{@const previewUrl = filePreviewUrls.get(item)}
+							<div class="relative h-full w-full">
+								{#if previewUrl}
+									<img src={previewUrl} alt="" class="h-full w-full object-cover" />
+								{:else}
+									<div class="bg-base-200 flex h-full w-full items-center justify-center">
+										<span class="loading loading-spinner loading-sm"></span>
+									</div>
+								{/if}
+								{#if fileUploadProgress.get(item)?.status === 'uploading'}
+									<div
+										class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60"
+									>
+										<span class="loading loading-spinner loading-sm text-primary"></span>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					{:else if item.type === 'video'}
+						<!-- Completed video — show Cloudflare thumbnail with play overlay -->
+						{@const vidThumbnailUrl = getVideoThumbnailUrl(item)}
+						<button
+							type="button"
+							class="relative h-full w-full cursor-pointer overflow-hidden"
+							onclick={() => (playingVideo = item)}
+						>
+							{#if vidThumbnailUrl}
+								<img
+									src={vidThumbnailUrl}
+									alt=""
+									class="h-full w-full object-cover"
+									loading="lazy"
+								/>
+							{:else}
+								<div
+									class="bg-base-200 flex h-full w-full flex-col items-center justify-center p-2"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-base-content/50 mb-1 h-8 w-8"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+								</div>
+							{/if}
+							<div class="absolute inset-0 flex items-center justify-center bg-black/30">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-8 w-8 text-white"
+									fill="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path d="M8 5v14l11-7z" />
+								</svg>
+							</div>
+						</button>
+					{:else}
+						<!-- Completed image -->
+						<img
+							src={uploadService.getImageUrl(item, 'medium')}
+							alt=""
+							class="h-full w-full object-cover"
+							loading="lazy"
+						/>
+					{/if}
+				</div>
+
+				<!-- Remove button -->
 				<button
 					aria-label={$t('common.components.media_uploader.remove_file')}
 					type="button"
-					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
-					onclick={() => removeFile(index)}
+					class="bg-error text-error-content absolute -top-2 -right-2 z-10 h-6 w-6 cursor-pointer rounded-full p-1 shadow-md hover:opacity-90"
+					onclick={() => removeFile(i)}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -429,13 +602,14 @@
 			</div>
 		{/each}
 
-		{#if files.length < maxFiles && !isUploading}
-			<div class="relative overflow-hidden {className}">
+		<!-- Add-file cell (dashed border) — hidden while images are uploading -->
+		{#if allGridItems.length < maxFiles && !isUploading}
+			<div class="relative aspect-square h-24 w-full sm:h-28 md:h-32">
 				<label
 					for="file-upload-{id}"
-					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
+					class="border-base-300 bg-base-200 hover:bg-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-2 text-center transition-colors"
 				>
-					<div class="flex flex-col items-center justify-center pt-5 pb-6">
+					<div class="flex flex-col items-center justify-center py-2">
 						<svg
 							class="label label-text mb-1 h-4 w-4 sm:mb-2 sm:h-8 sm:w-8"
 							aria-hidden="true"
@@ -451,10 +625,10 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="label label-text mb-1 text-[10px] sm:mb-2 sm:text-xs">
-							<span class="font-semibold">{label}</span>
+						<p class="label label-text mb-1 text-[10px] font-semibold sm:mb-2 sm:text-xs">
+							{label}
 						</p>
-						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
+						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2 sm:text-xs">
 							{fileTypeText}
 							{$t('common.components.media_uploader.max_info', {
 								values: { size: maxFileSize, durationInfo }
@@ -468,86 +642,35 @@
 					class="hidden"
 					accept={allowedTypes.join(',')}
 					onchange={handleFileChange}
-					multiple={files.length + 1 < maxFiles}
+					multiple={allGridItems.length + 1 < maxFiles}
 					disabled={isUploading}
 				/>
 			</div>
 		{/if}
 	</div>
 
-	<!-- Compression Progress -->
-	{#if isCompressing && compressionProgress.total > 0}
-		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
-			<div class="flex w-full items-center gap-2">
-				<svg
-					class="text-info h-4 w-4 animate-spin"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle>
-					<path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path>
-				</svg>
-				<div class="flex-1">
-					<div class="text-xs font-medium">
-						{$t('common.components.media_uploader.compressing_images')} ({compressionProgress.processed}/{compressionProgress.total})
-					</div>
-					{#if compressionProgress.currentFile}
-						<div class="text-xs opacity-70">{compressionProgress.currentFile}</div>
-					{/if}
-					<div class="bg-base-300 mt-1 h-1 w-full rounded-full">
-						<div
-							class="bg-info h-1 rounded-full transition-all duration-300"
-							style="width: {(compressionProgress.processed / compressionProgress.total) * 100}%"
-						></div>
-					</div>
-				</div>
-			</div>
+	<!-- Encoding in progress warning — shown while any video is still being processed -->
+	{#if hasEncodingVideos}
+		<div class="alert alert-outline alert-warning alert-xs sm:alert-sm py-2">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4 shrink-0"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+				/>
+			</svg>
+			<span class="text-xs">{$t('common.components.media_uploader.videos_encoding')}</span>
 		</div>
 	{/if}
 
-	<!-- Upload Progress -->
-	{#if isUploading && uploadProgress.total > 0}
-		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
-			<div class="flex w-full items-center gap-2">
-				<svg
-					class="text-info h-4 w-4 animate-spin"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle>
-					<path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path>
-				</svg>
-				<div class="flex-1">
-					<div class="text-xs font-medium">
-						{$t('common.components.media_uploader.uploading_files')} ({uploadProgress.completed}/{uploadProgress.total})
-					</div>
-					{#if uploadProgress.currentFile}
-						<div class="text-xs opacity-70">{uploadProgress.currentFile}</div>
-					{/if}
-					<div class="bg-base-300 mt-1 h-1 w-full rounded-full">
-						<div
-							class="bg-info h-1 rounded-full transition-all duration-300"
-							style="width: {(uploadProgress.completed / uploadProgress.total) * 100}%"
-						></div>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Compression Info -->
+	<!-- Compression Info (optional) -->
 	{#if showCompressionInfo && compressionInfo.length > 0}
 		<div class="alert alert-outline alert-success alert-xs sm:alert-sm py-2">
 			<svg
@@ -567,9 +690,9 @@
 				<div class="font-medium">{$t('common.components.media_uploader.compression_success')}</div>
 				{#each compressionInfo as info, index (index)}
 					<div class="opacity-70">
-						{$t('common.components.media_uploader.file_number', { values: { index: index + 1 } })}: {formatFileSize(
-							info.originalSize
-						)} → {formatFileSize(info.compressedSize)}
+						{$t('common.components.media_uploader.file_number', {
+							values: { index: index + 1 }
+						})}: {formatFileSize(info.originalSize)} → {formatFileSize(info.compressedSize)}
 						({Math.round((1 - info.compressedSize / info.originalSize) * 100)}% reduction)
 					</div>
 				{/each}
@@ -597,3 +720,42 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Fullscreen video playback overlay -->
+{#if playingVideo}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={() => (playingVideo = null)}
+		onkeydown={(e) => e.key === 'Escape' && (playingVideo = null)}
+	>
+		<div class="aspect-video w-full max-w-2xl" role="none" onclick={(e) => e.stopPropagation()}>
+			<StreamPlayer
+				videoUid={playingVideo.cloudflareId || playingVideo.key}
+				controls={true}
+				autoplay={true}
+			/>
+		</div>
+		<button
+			type="button"
+			class="absolute top-4 right-4 h-8 w-8 cursor-pointer rounded-full bg-white/20 text-white hover:bg-white/40"
+			onclick={() => (playingVideo = null)}
+			aria-label={$t('common.components.media_uploader.close_preview')}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="mx-auto h-5 w-5"
+				viewBox="0 0 20 20"
+				fill="currentColor"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+					clip-rule="evenodd"
+				/>
+			</svg>
+		</button>
+	</div>
+{/if}

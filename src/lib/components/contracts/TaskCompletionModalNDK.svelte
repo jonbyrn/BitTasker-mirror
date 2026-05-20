@@ -29,6 +29,7 @@
 	let isUploading = $state(false);
 	let isCompleting = $state(false);
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
+	let mediaHasPendingUploads = $state(false);
 
 	$effect(() => {
 		if (!isOpen) {
@@ -184,6 +185,7 @@
 					enableImageCompression={true}
 					useCloudflare={true}
 					generateVariants={true}
+					bind:hasPendingUploads={mediaHasPendingUploads}
 					onChange={handleFileUpload}
 					onUploadProgress={handleUploadProgress}
 					onError={handleUploaderError}
@@ -220,7 +222,7 @@
 					type="button"
 					class="btn btn-primary"
 					onclick={handleCompleteTask}
-					disabled={isCompleting || completionAttachments.length === 0}
+					disabled={isCompleting || completionAttachments.length === 0 || mediaHasPendingUploads}
 				>
 					{#if isCompleting}
 						<span class="loading loading-spinner loading-sm"></span>

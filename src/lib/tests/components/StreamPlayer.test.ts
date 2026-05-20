@@ -11,16 +11,16 @@ import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	const translations: Record<string, string> = {
-		'stream_player.status.offline': 'You are offline',
-		'stream_player.status.uploading': 'Uploading {progress}%',
-		'stream_player.status.encoding': 'Processing video...',
-		'stream_player.status.queued': 'In queue',
-		'stream_player.status.error': 'An error occurred',
-		'stream_player.status.expired': 'This video has expired',
-		'stream_player.action.retry': 'Retry',
-		'stream_player.action.refresh': 'Refresh',
-		'stream_player.a11y.upload_progress': 'Upload progress: {progress}%',
-		'stream_player.error.token_failed': 'Failed to load video token'
+		'common.stream_player.status.offline': 'You are offline',
+		'common.stream_player.status.uploading': 'Uploading {progress}%',
+		'common.stream_player.status.encoding': 'Processing video...',
+		'common.stream_player.status.queued': 'In queue',
+		'common.stream_player.status.error': 'An error occurred',
+		'common.stream_player.status.expired': 'This video has expired',
+		'common.stream_player.action.retry': 'Retry',
+		'common.stream_player.action.refresh': 'Refresh',
+		'common.stream_player.a11y.upload_progress': 'Upload progress: {progress}%',
+		'common.stream_player.error.token_failed': 'Failed to load video token'
 	};
 	const tStore = readable((key: string, values?: { values?: Record<string, string | number> }) => {
 		let result: string = translations[key] ?? key;

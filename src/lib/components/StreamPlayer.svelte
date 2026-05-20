@@ -300,7 +300,7 @@
 			class="bg-base-200 text-base-content/60 flex h-full flex-col items-center justify-center p-4 text-center"
 			role="alert"
 		>
-			<p>{$t('stream_player.status.offline')}</p>
+			<p>{$t('common.stream_player.status.offline')}</p>
 		</div>
 
 		<!-- uploading -->
@@ -315,12 +315,12 @@
 					class="progress progress-primary w-full"
 					value={uploadProgress}
 					max="100"
-					aria-label={$t('stream_player.a11y.upload_progress', {
+					aria-label={$t('common.stream_player.a11y.upload_progress', {
 						values: { progress: uploadProgress }
 					})}
 				></progress>
 				<p class="mt-2 text-center text-sm">
-					{$t('stream_player.status.uploading', {
+					{$t('common.stream_player.status.uploading', {
 						values: { progress: Math.round(uploadProgress) }
 					})}
 				</p>
@@ -343,8 +343,8 @@
 						<span class="loading loading-spinner loading-lg text-primary mb-3"></span>
 						<p class="text-sm font-medium text-white">
 							{status === 'queued'
-								? $t('stream_player.status.queued')
-								: $t('stream_player.status.encoding')}
+								? $t('common.stream_player.status.queued')
+								: $t('common.stream_player.status.encoding')}
 						</p>
 						<progress class="progress progress-primary mt-2 w-48"></progress>
 					</div>
@@ -354,8 +354,8 @@
 				<progress class="progress progress-primary w-full max-w-xs"></progress>
 				<p class="mt-2 text-center text-sm">
 					{status === 'queued'
-						? $t('stream_player.status.queued')
-						: $t('stream_player.status.encoding')}
+						? $t('common.stream_player.status.queued')
+						: $t('common.stream_player.status.encoding')}
 				</p>
 			{/if}
 		</div>
@@ -378,10 +378,10 @@
 			role="alert"
 		>
 			<p class="text-error mb-2 text-sm">
-				{tokenError ? $t('stream_player.error.token_failed') : $t('stream_player.status.error')}
+				{tokenError ? $t('common.stream_player.error.token_failed') : $t('common.stream_player.status.error')}
 			</p>
 			<button class="btn btn-sm btn-outline" onclick={handleRetry} autofocus>
-				{$t('stream_player.action.retry')}
+				{$t('common.stream_player.action.retry')}
 			</button>
 		</div>
 
@@ -391,9 +391,9 @@
 			class="bg-base-200 flex h-full flex-col items-center justify-center p-4 text-center"
 			role="alert"
 		>
-			<p class="text-warning mb-2 text-sm">{$t('stream_player.status.expired')}</p>
+			<p class="text-warning mb-2 text-sm">{$t('common.stream_player.status.expired')}</p>
 			<button class="btn btn-sm btn-outline" onclick={handleRetry} autofocus>
-				{$t('stream_player.action.refresh')}
+				{$t('common.stream_player.action.refresh')}
 			</button>
 		</div>
 
@@ -420,7 +420,7 @@
 		</div>
 	{:else if !videoUid && !videoUrl}
 		<div class="bg-base-200 text-base-content/60 flex h-full items-center justify-center">
-			<p class="text-sm">{$t('stream_player.status.error')}</p>
+			<p class="text-sm">{$t('common.stream_player.status.error')}</p>
 		</div>
 	{:else if videoUrl && !isStreamUid}
 		<video src={videoUrl} controls playsinline class="h-full w-full" aria-label={ariaLabel}>
@@ -453,6 +453,6 @@
 	<div
 		class="aspect-{aspectRatio} bg-base-200 flex items-center justify-center overflow-hidden rounded-lg {className}"
 	>
-		<p class="text-base-content/60 text-sm">{$t('stream_player.status.error')}</p>
+		<p class="text-base-content/60 text-sm">{$t('common.stream_player.status.error')}</p>
 	</div>
 </noscript>
