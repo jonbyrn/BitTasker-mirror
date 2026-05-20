@@ -75,9 +75,6 @@
 			<span class="loading loading-spinner loading-xs ml-1.5"></span>
 		{:else if totalFeeSats > 0}
 			<span class="ml-1.5 font-semibold">{feeDisplay(totalFeeSats)}</span>
-			{#if selectedRoute}
-				<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">{selectedRoute.estimatedTime}</span>
-			{/if}
 		{:else if !hasAddress && !hasAmount}
 			<span class="ml-1.5 text-xs opacity-70">(Enter address and amount)</span>
 		{:else if !hasAddress}
@@ -88,6 +85,9 @@
 			<span class="ml-1.5 font-semibold">Free</span>
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
+		{/if}
+		{#if selectedRoute && hasAddress && hasAmount}
+			<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">{selectedRoute.estimatedTime}</span>
 		{/if}
 	</button>
 	<div class="collapse-content px-2">
