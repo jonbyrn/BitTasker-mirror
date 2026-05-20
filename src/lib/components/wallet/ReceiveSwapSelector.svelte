@@ -7,11 +7,13 @@
 	 * "To:" destination picker pattern.
 	 */
 	import { t } from 'svelte-i18n';
+	import { lifiService } from '$lib/services/lifi.service';
+	import { symbiosisService } from '$lib/services/symbiosis.service';
+	import { tryCatch } from '$lib/utils/tryCatch';
 
-	// ── Source network options ────────────────────────────────────────────────
-	// Mirrors DESTINATION_CHAIN_OPTIONS from SendPaymentForm, organized by asset
+	// ── Source network options — hardcoded fallback ───────────────────────────
 
-	const SOURCE_NETWORKS = [
+	const HARDCODED_NETWORKS = [
 		// BTC networks
 		{
 			id: 'rbtc-rsk',
@@ -102,9 +104,16 @@
 			network: 'usdt-tron',
 			group: 'usdt'
 		}
-	] as const;
+	];
 
-	type SourceNetwork = (typeof SOURCE_NETWORKS)[number];
+	interface SourceNetwork {
+		id: string;
+		asset: string;
+		label: string;
+		icon: string;
+		network: string;
+		group: string;
+	}
 
 	// ── Props ─────────────────────────────────────────────────────────────────
 
@@ -112,6 +121,109 @@
 		receiveCurrency: 'rbtc' | 'usdt';
 		onChange?: (network: string) => void;
 	}>();
+
+	// ── Dynamic network fetching ──────────────────────────────────────────────
+
+	/** Chain icon mapping — maps chain IDs/keys to icons for known chains */
+	const CHAIN_ICONS: Record<string, string> = {
+		ethereum: '/images/chains/ethereum.png',
+		arbitrum: '/images/chains/arbitrum.png',
+		polygon: '/images/chains/polygon.png',
+		optimism: '/images/chains/optimism.png',
+		base: '/images/chains/base.png',
+		avalanche: '/images/chains/avalanche.png',
+		avalanchec: '/images/chains/avalanche.png',
+		tron: '/images/chains/tron.png',
+		binance: '/images/chains/Binance-logo.svg',
+		bsc: '/images/chains/Binance-logo.svg',
+		rootstock: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		rsk: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		bitcoin: '/images/chains/Bitcoin.svg',
+		lightning: '/images/chains/lightning.svg'
+	};
+
+	const CACHE_KEY = 'bittasker_swap_source_networks';
+	const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+	let dynamicNetworks = $state<SourceNetwork[]>([]);
+	let _networksLoading = $state(false);
+
+	async function fetchDynamicNetworks() {
+		// Check cache
+		try {
+			const cached = localStorage.getItem(CACHE_KEY);
+			if (cached) {
+				const { data, timestamp } = JSON.parse(cached);
+				if (Date.now() - timestamp < CACHE_TTL_MS && Array.isArray(data)) {
+					dynamicNetworks = data as SourceNetwork[];
+					return;
+				}
+			}
+		} catch {
+			/* ignore cache errors */
+		}
+
+		_networksLoading = true;
+		const results: SourceNetwork[] = [];
+
+		// Fetch from LI.FI
+		const { data: lifiChains } = await tryCatch(lifiService.getChains());
+		if (lifiChains) {
+			for (const c of lifiChains) {
+				if (!c.mainnet) continue;
+				const key = c.key?.toLowerCase() ?? '';
+				const asset =
+					key === 'rootstock' || key === 'rsk' || key === 'bitcoin' ? 'rBTC/BTC' : 'USDT';
+				const group = asset === 'rBTC/BTC' ? 'btc' : 'usdt';
+				results.push({
+					id: `lifi-${c.id}`,
+					asset: key === 'rootstock' || key === 'rsk' ? 'rBTC' : key === 'bitcoin' ? 'BTC' : 'USDT',
+					label: c.name,
+					icon: CHAIN_ICONS[key] ?? '',
+					network: key.includes('bitcoin') ? 'bitcoin' : `usdt-${key}`,
+					group
+				});
+			}
+		}
+
+		// Fetch from Symbiosis
+		const { data: symbiosisChains } = await tryCatch(symbiosisService.getChains());
+		if (symbiosisChains) {
+			for (const c of symbiosisChains) {
+				const name = c.name?.toLowerCase() ?? '';
+				if (results.some((r) => r.label.toLowerCase() === name)) continue; // dedupe
+				const asset = name.includes('bitcoin') || name.includes('rootstock') ? 'BTC' : 'USDT';
+				const group = asset === 'BTC' ? 'btc' : 'usdt';
+				results.push({
+					id: `sym-${c.chainId}`,
+					asset,
+					label: c.name,
+					icon: CHAIN_ICONS[name] ?? '',
+					network: name.includes('bitcoin') ? 'bitcoin' : `usdt-${name}`,
+					group
+				});
+			}
+		}
+
+		if (results.length > 0) {
+			dynamicNetworks = results;
+			try {
+				localStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
+			} catch {
+				/* ignore */
+			}
+		}
+		_networksLoading = false;
+	}
+
+	// Always start with hardcoded; enrich with API data on mount
+	let _fetched = false;
+	$effect(() => {
+		if (!_fetched) {
+			_fetched = true;
+			fetchDynamicNetworks();
+		}
+	});
 
 	// ── State ─────────────────────────────────────────────────────────────────
 
@@ -122,22 +234,28 @@
 
 	// ── Derived ───────────────────────────────────────────────────────────────
 
+	// Use API data when available, fall back to hardcoded
+	let activeNetworks = $derived(
+		dynamicNetworks.length > 0 ? dynamicNetworks : [...HARDCODED_NETWORKS]
+	);
+
 	/** Networks filtered by the active group chip */
 	let filteredNetworks = $derived.by(() => {
+		const source = activeNetworks;
 		if (activeGroup === 'other') {
 			const q = searchQuery.toLowerCase().trim();
-			if (!q) return SOURCE_NETWORKS;
-			return SOURCE_NETWORKS.filter(
+			if (!q) return source;
+			return source.filter(
 				(n) =>
 					n.asset.toLowerCase().includes(q) ||
 					n.label.toLowerCase().includes(q) ||
 					n.network.toLowerCase().includes(q)
 			);
 		}
-		return SOURCE_NETWORKS.filter((n) => n.group === activeGroup);
+		return source.filter((n) => n.group === activeGroup);
 	});
 
-	let selectedNetwork = $derived(SOURCE_NETWORKS.find((n) => n.id === selectedId));
+	let selectedNetwork = $derived(activeNetworks.find((n) => n.id === selectedId));
 
 	// ── Init ──────────────────────────────────────────────────────────────────
 
@@ -147,8 +265,7 @@
 			const defaultGroup = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
 			const defaultAsset = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
 			activeGroup = defaultGroup;
-			const defaults = SOURCE_NETWORKS.filter((n) => n.group === defaultGroup);
-			// Pick the direct match first (same chain, no swap)
+			const defaults = activeNetworks.filter((n) => n.group === defaultGroup);
 			const direct = defaults.find((n) => n.asset === defaultAsset);
 			const id = direct?.id ?? defaults[0]?.id ?? '';
 			selectedId = id;
@@ -181,7 +298,9 @@
 			onclick={() => (expanded = !expanded)}
 		>
 			<span class="text-base-content/60">{$t('wallet.from')}:</span>
-			{#if selectedNetwork?.icon}
+			{#if _networksLoading}
+				<span class="loading loading-spinner loading-xs ml-1"></span>
+			{:else if selectedNetwork?.icon}
 				<img src={selectedNetwork.icon} alt={selectedNetwork.label} class="h-5 w-5" />
 			{/if}
 			<span class="text-sm">{selectedNetwork?.asset} ({selectedNetwork?.label ?? 'Unknown'})</span>
