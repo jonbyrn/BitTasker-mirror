@@ -404,8 +404,8 @@
 		"swap_title": "Swap",
 		"swaps": "Swaps",
 		"swap_claimed": "Swap claimed",
-		"lightning_to_rbtc_swap": "Lightning → rBTC swap claimed",
-		"lbtc_to_rbtc_swap": "L-BTC → rBTC swap claimed",
+		"lightning_to_rbtc_swap": "Lightning \u2192 rBTC swap claimed",
+		"lbtc_to_rbtc_swap": "L-BTC \u2192 rBTC swap claimed",
 		"view_all_transactions_tab": "Switch to the transactions tab to see activity",
 		"send": {
 			"title": "Send Payment",
@@ -516,7 +516,7 @@
 		"no_rsk_address_available": "No RSK address available",
 		"rsk_network_warning": "Only send {currency} and RSK-compatible tokens to this address. Sending other cryptocurrencies may result in permanent loss.",
 		"testnet_warning": {
-			"title": "⚠️ TESTNET MODE ACTIVE",
+			"title": "\u26a0\ufe0f TESTNET MODE ACTIVE",
 			"do_not_send_real_assets": "DO NOT send real assets!",
 			"description": "This app is currently running on Rootstock Testnet. Any funds sent to this wallet will be lost permanently as they are test tokens only.",
 			"your_address": "Your Testnet Address:",
@@ -607,6 +607,7 @@
 			"kyc_description": "You may need to complete identity verification for this transaction.",
 			"continue": "Continue",
 			"cancel": "Cancel",
+			"close": "Close",
 			"estimated_receive": "Estimated Receive",
 			"estimated_send": "Estimated Send",
 			"processing_fee": "Processing Fee",
@@ -674,15 +675,15 @@
 			"pending_swaps": "Pending Swaps",
 			"creating": "Creating swap...",
 			"deleting": "Deleting...",
-			"dev_tools": "🧪 Developer Tools",
+			"dev_tools": "\ud83e\uddea Developer Tools",
 			"dev_tools_description": "Clear test data from Nostr storage",
 			"delete_all": "Delete All Swaps",
-			"confirm_delete": "⚠️ Delete this swap from storage? This cannot be undone.",
-			"confirm_delete_all": "⚠️ This will delete ALL swap events from Nostr. Continue?",
-			"deleted": "✅ Swap deleted",
-			"deleted_count": "✅ Deleted {count} swap events",
-			"invoice_copied": "✅ Invoice copied to clipboard!",
-			"address_copied": "✅ Address copied to clipboard!",
+			"confirm_delete": "\u26a0\ufe0f Delete this swap from storage? This cannot be undone.",
+			"confirm_delete_all": "\u26a0\ufe0f This will delete ALL swap events from Nostr. Continue?",
+			"deleted": "\u2705 Swap deleted",
+			"deleted_count": "\u2705 Deleted {count} swap events",
+			"invoice_copied": "\u2705 Invoice copied to clipboard!",
+			"address_copied": "\u2705 Address copied to clipboard!",
 			"amount_btc": "Amount (BTC)",
 			"amount_sats": "Amount (sats)",
 			"amount_from_invoice": "Amount from invoice",
@@ -741,7 +742,7 @@
 				"amount_above_maximum": "Amount above maximum ({max} sats)",
 				"create_failed": "Failed to create swap",
 				"claim_failed": "Failed to claim RBTC",
-				"delete_failed": "❌ Failed to delete swap",
+				"delete_failed": "\u274c Failed to delete swap",
 				"insufficient_balance_with_fees": "Insufficient balance. Need {needed} sats, have {available} sats (shortfall: {shortfall} sats)",
 				"insufficient_balance_with_gas": "Insufficient balance. Need {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Available: {available} sats. Shortfall: {shortfall} sats",
 				"fee_fetch_failed": "Failed to fetch fee estimate",
@@ -751,12 +752,12 @@
 				"swap_failed": "Swap failed. Please try again."
 			},
 			"lightning": {
-				"title": "Lightning → rBTC Swap",
+				"title": "Lightning \u2192 rBTC Swap",
 				"description": "Receive Lightning payments and automatically convert them to rBTC. Boltz service fee: ~0.4-0.5% plus network transaction fees.",
 				"invoice_created": "Lightning invoice created!",
-				"rbtc_received": "✅ RBTC received!",
+				"rbtc_received": "\u2705 RBTC received!",
 				"claiming_gasless": "Claiming RBTC...",
-				"claimed_success": "✅ RBTC claimed successfully!",
+				"claimed_success": "\u2705 RBTC claimed successfully!",
 				"generate_invoice": "Generate Lightning Invoice",
 				"view_invoice": "View Invoice",
 				"claim_now": "Claim Now",
@@ -767,8 +768,8 @@
 					"ready_to_claim": "Ready to claim rBTC!",
 					"claiming": "Claiming rBTC...",
 					"claim_failed": "Claim failed - retry",
-					"completed": "Swap completed! ✓",
-					"claimed": "rBTC claimed successfully! ✓",
+					"completed": "Swap completed! \u2713",
+					"claimed": "rBTC claimed successfully! \u2713",
 					"expired": "Swap expired - Delete to remove",
 					"failed": "Swap failed - Delete to remove"
 				},
@@ -779,10 +780,10 @@
 				}
 			},
 			"lbtc": {
-				"title": "L-BTC → rBTC Swap",
+				"title": "L-BTC \u2192 rBTC Swap",
 				"description": "Send L-BTC and automatically receive rBTC. Fees: ~0.4-0.5%",
 				"address_created": "L-BTC address created!",
-				"rbtc_received": "✅ RBTC received!",
+				"rbtc_received": "\u2705 RBTC received!",
 				"generate_address": "Generate L-BTC Address",
 				"view_payment_details": "View Payment Details",
 				"status": {
@@ -792,7 +793,7 @@
 					"locking_rbtc": "Boltz locking RBTC...",
 					"claiming_rbtc": "Claiming RBTC...",
 					"claim_pending": "Claim submitted, confirming...",
-					"claimed": "rBTC claimed successfully! ✓",
+					"claimed": "rBTC claimed successfully! \u2713",
 					"expired": "Swap expired - Delete to remove",
 					"failed": "Swap failed - Delete to remove"
 				},
@@ -804,7 +805,7 @@
 				}
 			},
 			"submarine": {
-				"title": "Pay Lightning Invoice (rBTC → Lightning)",
+				"title": "Pay Lightning Invoice (rBTC \u2192 Lightning)",
 				"description": "Pay Lightning invoices by locking rBTC. Fees: ~0.4-0.5%",
 				"invoice_label": "Lightning Invoice",
 				"invoice_placeholder": "lnbc... (paste or scan QR code)",
@@ -815,7 +816,7 @@
 				"lock_funds_button": "Lock {amount} rBTC & Pay Invoice",
 				"pay_invoice_button": "Pay Invoice",
 				"locking_funds": "Locking rBTC...",
-				"invoice_paid": "✅ Invoice paid by Boltz!",
+				"invoice_paid": "\u2705 Invoice paid by Boltz!",
 				"generate_swap": "Create Swap",
 				"swap_amount": "Swap Amount",
 				"gas_fees": "Gas Fees (estimated)",
@@ -828,8 +829,8 @@
 					"ready_to_lock": "Ready - lock rBTC to pay invoice",
 					"funds_locked": "Funds locked - Waiting for confirmations...",
 					"lockup_confirmed": "Confirmed - Boltz paying invoice...",
-					"invoice_paid": "Invoice paid successfully! ✅",
-					"swap_complete": "Swap completed! ✓",
+					"invoice_paid": "Invoice paid successfully! \u2705",
+					"swap_complete": "Swap completed! \u2713",
 					"expired": "Expired - Delete to remove",
 					"failed": "Failed - Delete to remove",
 					"refunded": "Refunded",
@@ -974,14 +975,12 @@
 				"estimated_time_remaining": "Estimated Time Remaining"
 			}
 		},
-
 		"chain_selector": {
 			"label": "Network",
 			"select_placeholder": "Select network",
 			"chain_name": "{chainName}",
 			"native_currency": "Native: {symbol}"
 		},
-
 		"gas_fee_display": {
 			"estimating": "Estimating gas...",
 			"gas_fee": "Gas fee",
@@ -995,7 +994,6 @@
 			"paymaster_status_grey": "Paymaster not available for this operation",
 			"paymaster_status_red": "Paymaster unavailable"
 		},
-
 		"delegation_recovery": {
 			"title": "Cleanup Required",
 			"description": "Your previous transaction didn't finish cleaning up. Your funds are safe.",
@@ -1014,5 +1012,11 @@
 			"status_tx2_mined": "Cleanup complete",
 			"status_recovery_needed": "Recovery needed"
 		}
+	},
+	"receive": {
+		"payer_sends_from": "Payer sends from",
+		"other": "Other",
+		"search_networks": "Search networks...",
+		"no_networks_found": "No networks found"
 	}
 }

@@ -7,6 +7,7 @@
 	import { debounce } from '$lib/utils/helpers/common';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
+	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
 	import { resolveRoute, type SourceWallet } from '$lib/services/route-resolver';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
@@ -109,7 +110,10 @@
 	});
 
 	// Swap routing state — reuses the send form's route resolver
-	let payerSourceWallet = $state<'rbtc' | 'usdt-bsc'>('rbtc');
+	let payerNetwork = $state<string>('rootstock-bitcoin');
+	let payerSourceWallet = $derived<'rbtc' | 'usdt-bsc'>(
+		payerNetwork === 'usdt-bsc' ? 'usdt-bsc' : 'rbtc'
+	);
 	let selectedRouteId = $state<string>('');
 	let _routeLoading = $state(false);
 	let swapRoutes = $derived.by(() => {
@@ -824,6 +828,15 @@
 				bind:this={mobileFormContainer}
 				style="padding-bottom: env(keyboard-inset-bottom, 0px);"
 			>
+				<!-- Payer Source Network Selector -->
+				<ReceiveSwapSelector
+					receiveCurrency={receiveTab}
+					onChange={(network) => {
+						payerNetwork = network;
+						handleAmountOrNetworkChange();
+					}}
+				/>
+
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -1135,6 +1148,15 @@
 		<!-- Desktop: All fields always visible -->
 		<div class="hidden sm:block">
 			<div class="flex flex-col space-y-2">
+				<!-- Payer Source Network Selector -->
+				<ReceiveSwapSelector
+					receiveCurrency={receiveTab}
+					onChange={(network) => {
+						payerNetwork = network;
+						handleAmountOrNetworkChange();
+					}}
+				/>
+
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
