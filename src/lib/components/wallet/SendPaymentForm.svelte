@@ -746,7 +746,7 @@
 				formInput.unit = 'usd';
 			}
 			if (parsed.network === 'lightning-bitcoin') {
-				formInput.memo = parsed.memo || 'Send to Lightning address';
+				formInput.memo = parsed.memo || $t('wallet.send.lightning_default_memo');
 			} else if (parsed.memo) {
 				formInput.memo = parsed.memo;
 				uiState.descriptionExpanded = true;
@@ -828,7 +828,7 @@
 					formInput.unit = 'usd';
 				}
 				if (parsed.network === 'lightning-bitcoin') {
-					formInput.memo = parsed.memo || 'Send to Lightning address';
+					formInput.memo = parsed.memo || $t('wallet.send.lightning_default_memo');
 				} else if (parsed.memo) {
 					formInput.memo = parsed.memo;
 					uiState.descriptionExpanded = true;
@@ -898,8 +898,10 @@
 		}
 	}
 
-	// Update fee estimate
+	// Update fee estimate (guarded against overlapping calls)
+	let _feeSeq = 0;
 	async function updateFeeEstimate() {
+		const seq = ++_feeSeq;
 		// Check if we have a network and an amount (either from input or detected from address)
 		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
 		const amountToUse =
@@ -1085,11 +1087,12 @@
 					feeState.estimated = null;
 			}
 		} catch (error) {
+			if (seq !== _feeSeq) return; // Stale — newer call started
 			console.error('Failed to estimate fees:', error);
 			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
 			feeState.estimated = null;
 		} finally {
-			feeState.isLoading = false;
+			if (seq === _feeSeq) feeState.isLoading = false;
 		}
 	}
 
@@ -2067,8 +2070,6 @@
 							routes={routeResult.routes}
 							{selectedRouteId}
 							onSelect={(id) => (selectedRouteId = id)}
-							totalFeeSats={feeState.estimated?.totalFees ?? 0}
-							serviceFeeSats={feeState.estimated?.serviceFee ?? 0}
 							networkFeeSats={feeState.estimated?.networkFee ?? 0}
 							isLoadingFee={feeState.isLoading || routeLoading}
 							{btcPrice}
