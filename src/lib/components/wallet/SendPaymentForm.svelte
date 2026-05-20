@@ -937,7 +937,10 @@
 	}
 
 	// Update fee estimate
+	let _feeCallCount = 0;
 	async function updateFeeEstimate() {
+		const callNum = ++_feeCallCount;
+		console.log('[FEE] updateFeeEstimate #' + callNum + ' network:', parsedPayment.detectedNetwork);
 		// Check if we have a network and an amount (either from input or detected from address)
 		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
 		const amountToUse =
@@ -948,6 +951,12 @@
 					: 0;
 
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
+			console.log(
+				'[FEE] #' + callNum + ' early return — amountToUse:',
+				amountToUse,
+				'network:',
+				parsedPayment.detectedNetwork
+			);
 			if (!parsedPayment.detectedNetwork) {
 				feeState.estimated = null;
 			}
