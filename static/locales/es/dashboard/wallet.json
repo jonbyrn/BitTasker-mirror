@@ -615,7 +615,11 @@
 			"description_characters": "Caracteres",
 			"below_swap_minimum": "Monto por debajo del m\u00ednimo de intercambio: {minAmount} Sats",
 			"invoice_total": "Total de la factura",
-			"fee": "Comisi\u00f3n"
+			"fee": "Comisi\u00f3n",
+			"payer_sends_from": "El pagador env\u00eda desde",
+			"other": "Otro",
+			"search_networks": "Buscar redes...",
+			"no_networks_found": "No se encontraron redes"
 		},
 		"swap": {
 			"title": "Intercambiar Activos Digitales",
@@ -971,11 +975,5 @@
 				"estimated_time_remaining": "Tiempo Estimado Restante"
 			}
 		}
-	},
-	"receive": {
-		"payer_sends_from": "El pagador env\u00eda desde",
-		"other": "Otro",
-		"search_networks": "Buscar redes...",
-		"no_networks_found": "No se encontraron redes"
 	}
 }

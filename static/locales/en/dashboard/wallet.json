@@ -580,7 +580,11 @@
 			"description_characters": "Characters",
 			"below_swap_minimum": "Amount below swap minimum: {minAmount} Sats",
 			"invoice_total": "Invoice total",
-			"fee": "Fee"
+			"fee": "Fee",
+			"payer_sends_from": "Payer sends from",
+			"other": "Other",
+			"search_networks": "Search networks...",
+			"no_networks_found": "No networks found"
 		},
 		"initializing": "Initializing wallet...",
 		"buy_sell": {
@@ -1012,11 +1016,5 @@
 			"status_tx2_mined": "Cleanup complete",
 			"status_recovery_needed": "Recovery needed"
 		}
-	},
-	"receive": {
-		"payer_sends_from": "Payer sends from",
-		"other": "Other",
-		"search_networks": "Search networks...",
-		"no_networks_found": "No networks found"
 	}
 }
