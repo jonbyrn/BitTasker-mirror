@@ -201,7 +201,7 @@
 		'usdt-bsc': {
 			icon: '/images/chains/Binance-logo.svg',
 			name: $t('wallet.transaction.network.binance_smart_chain'),
-			confirmationTime: 5
+			confirmationTime: 1
 		},
 		'usdt-ethereum': {
 			icon: '/images/chains/ethereum.png',
@@ -485,6 +485,8 @@
 		const userAddress = source === 'usdt-bsc' ? $walletStore.bsc.address : $walletStore.rsk.address;
 
 		// Cancel any in-flight work
+		let cancelled = false;
+
 		if (_routeDebounceTimer) {
 			clearTimeout(_routeDebounceTimer);
 			_routeDebounceTimer = null;
@@ -532,14 +534,17 @@
 					capturedAmount,
 					capturedAddress
 				);
+				if (cancelled) return;
 				routeResult = result;
 				routeLoading = false;
 			} catch (_err) {
+				if (cancelled) return;
 				routeLoading = false;
 			}
 		}, 400);
 
 		return () => {
+			cancelled = true;
 			if (_routeDebounceTimer) {
 				clearTimeout(_routeDebounceTimer);
 				_routeDebounceTimer = null;
@@ -1359,16 +1364,18 @@
 		try {
 			if (selectedRoute && selectedRoute.hops.length > 1 && dest) {
 				sendState.pendingSwapChain = { phase: 'IDLE' } as SwapChainState;
-				const result = await startSwapChain(
+				const { data: swapData, error: swapError } = await startSwapChain(
 					selectedRoute,
 					toSourceWallet(formInput.selectedSource),
 					dest,
 					String(amountInSats)
 				);
-				const status = getSwapChainStatus(result);
-				if (status.isComplete) return;
-				if (status.isPartial || status.isFailed) throw new Error('Swap chain failed');
-				return;
+				if (swapError || !swapData) {
+					throw new Error(swapError?.message || 'Swap chain failed');
+				}
+				const status = getSwapChainStatus(swapData);
+				if (status.isComplete || status.isActive) return;
+				throw new Error(status.message || 'Swap chain failed');
 			}
 
 			let txHash: string | null = null;
