@@ -473,6 +473,12 @@
 		}
 	});
 
+	// Update fee estimate when source wallet changes
+	$effect(() => {
+		const _source = formInput.selectedSource;
+		void updateFeeEstimate();
+	});
+
 	// Derived values
 	const amountInSats = $derived.by(() => {
 		if (parsedPayment.detectedAmount !== null) return parsedPayment.detectedAmount;
