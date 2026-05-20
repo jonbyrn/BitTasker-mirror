@@ -407,6 +407,16 @@
 	});
 	let selectedChain = $derived(getChainOption(effectiveDestinationChainId));
 
+	// Clear user's destination override when address changes
+	let _prevNetwork = $state<string | null>(null);
+	$effect(() => {
+		const currentNet = parsedPayment.detectedNetwork;
+		if (currentNet !== _prevNetwork) {
+			formInput.destinationChainId = null;
+			_prevNetwork = currentNet;
+		}
+	});
+
 	// Filter destination options to only networks matching the address type
 	let filteredChainOptions = $derived.by(() => {
 		const net = parsedPayment.detectedNetwork;
@@ -1868,6 +1878,7 @@
 											onclick={() => {
 												formInput.addressInput = '';
 												formInput.amount = '';
+												formInput.destinationChainId = null;
 												parsedPayment.data = null;
 												parsedPayment.detectedNetwork = null;
 												parsedPayment.detectedAmount = null;
