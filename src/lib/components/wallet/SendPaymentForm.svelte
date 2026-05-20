@@ -453,7 +453,10 @@
 		const chainId = overrideChainId ?? null;
 
 		// Explicit chain ID overrides network-based mapping
-		if (chainId !== null && chainId !== undefined) {
+		// Override chain ID only for EVM-compatible networks (not Lightning/Bitcoin/Liquid)
+		const isNonEVM =
+			network === 'lightning-bitcoin' || network === 'bitcoin' || network === 'liquid-bitcoin';
+		if (!isNonEVM && chainId !== null && chainId !== undefined) {
 			return { type: 'address', chainId, address };
 		}
 
