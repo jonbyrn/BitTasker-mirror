@@ -10,6 +10,7 @@
 	import ReviewList from '$lib/components/reviews/ReviewList.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import PendingReviewsList from '$lib/components/reviews/PendingReviewsList.svelte';
+	import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 
 	const ALL_REVIEWS_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -19,7 +20,6 @@
 	};
 
 	let currentUserPubkey = $state<string | null>(null);
-	let hasResolvedCurrentUser = $state(false);
 	let receivedReviews = $state<NostrVerifiedReview[]>([]);
 	let givenReviews = $state<NostrVerifiedReview[]>([]);
 	let pendingReviews = $state<PendingReview[]>([]);
@@ -178,25 +178,45 @@
 	}
 
 	$effect(() => {
+		// Track NDK signer: re-runs when wallet initialises and the NDK signer becomes available.
+		// Without this guard, Nostr queries fire before ndk.cacheAdapter is set, returning empty
+		// results that permanently block reload via the lastLoadedPubkey dedup check.
+		const isNdkReady = ndkIdentity.hasSigner;
 		let cancelled = false;
-
-		hasResolvedCurrentUser = false;
-		currentUserPubkey = null;
 
 		(async () => {
 			try {
 				const pubkey = await getNpub();
-				if (!cancelled) {
-					currentUserPubkey = pubkey;
+				if (cancelled) return;
+
+				currentUserPubkey = pubkey;
+
+				if (!pubkey) {
+					lastLoadedPubkey = null;
+					isLoading = false;
+					return;
 				}
+
+				// Defer Nostr queries until the NDK signer is ready.
+				// The effect re-runs automatically when ndkIdentity.hasSigner flips to true,
+				// so the spinner stays visible and data loads as soon as NDK is initialised.
+				if (!isNdkReady) {
+					return;
+				}
+
+				if (lastLoadedPubkey === pubkey) {
+					isLoading = false;
+					return;
+				}
+
+				lastLoadedPubkey = pubkey;
+				await loadReviewData(pubkey);
 			} catch (err) {
-				console.error('Failed to get current user pubkey:', err);
+				console.error('Failed to resolve user pubkey:', err);
 				if (!cancelled) {
 					error = $t('reviews.profile.load_user_error');
-				}
-			} finally {
-				if (!cancelled) {
-					hasResolvedCurrentUser = true;
+					currentUserPubkey = null;
+					isLoading = false;
 				}
 			}
 		})();
@@ -205,26 +225,6 @@
 			cancelled = true;
 			activeRequestId += 1;
 		};
-	});
-
-	// Load reviews when pubkey is available
-	$effect(() => {
-		if (!hasResolvedCurrentUser) {
-			return;
-		}
-
-		if (!currentUserPubkey) {
-			lastLoadedPubkey = null;
-			isLoading = false;
-			return;
-		}
-
-		if (lastLoadedPubkey === currentUserPubkey) {
-			return;
-		}
-
-		lastLoadedPubkey = currentUserPubkey;
-		loadReviewData(currentUserPubkey);
 	});
 
 	function handleTabChange(tab: 'received' | 'given' | 'pending') {

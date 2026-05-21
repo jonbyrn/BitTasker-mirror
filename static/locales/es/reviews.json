@@ -132,6 +132,7 @@
 			"banner_count_one": "Tienes {count} calificación pendiente",
 			"banner_count_other": "Tienes {count} calificaciones pendientes",
 			"review_now": "Calificar Ahora",
+			"dismiss": "Descartar",
 			"only_current_user": "Las calificaciones pendientes solo son visibles para el propietario de la cuenta"
 		},
 		"management": {
@@ -139,6 +140,10 @@
 			"description": "Gestiona tus calificaciones, ve calificaciones pendientes y revisa las calificaciones que has dado y recibido",
 			"loading": "Cargando calificaciones",
 			"partial_load_warning": "Las calificaciones recibidas están disponibles, pero no se pudieron actualizar algunos datos de gestión de calificaciones."
+		},
+		"notification": {
+			"title": "{reviewerName} te envió una calificación",
+			"body": "Calícala ahora!"
 		},
 		"prompt": {
 			"title": "Escribir una Calificación",

@@ -408,7 +408,7 @@
 								</h5>
 							</div>
 							<div class="space-y-2">
-								{#each timeline.request.content.inquiry.attachments as attachment (attachment.url)}
+								{#each timeline.request.content.inquiry.attachments as attachment, idx (`${attachment.key || attachment.url || idx}-${idx}`)}
 									<a
 										href={attachment.url}
 										target="_blank"

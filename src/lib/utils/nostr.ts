@@ -710,3 +710,16 @@ export async function queryNostrEvents(
 		throw err;
 	}
 }
+
+/**
+ * Truncate npub string to `npub1a23...4567` format
+ * @param npub - Nostr public key in npub format (e.g., "npub1abc123...")
+ * @returns Truncated npub string (e.g., "npub1a23...4567")
+ */
+export function truncateNpub(_npub: string): string {
+	let npub = _npub;
+	if (!npub.startsWith('npub')) {
+		npub = nip19.npubEncode(npub);
+	}
+	return npub.slice(0, 6) + '...' + npub.slice(-6);
+}

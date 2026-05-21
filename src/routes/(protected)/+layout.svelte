@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { createDebug } from '$lib/utils/debug';
+	import { triggerPendingReviewBanner } from '$lib/utils/reviews';
 	import IconTrendingUp from '~icons/mdi/trending-up';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -40,6 +41,14 @@
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
 				await walletManager.initialize();
 				walletState = get(walletStore);
+			}
+
+			// Trigger pending review banner (skip on /reviews)
+			if (page.url.pathname !== '/reviews') {
+				triggerPendingReviewBanner(
+					'reviews.pending.review_now',
+					'reviews.pending.dismiss'
+				);
 			}
 		} catch (error) {
 			const d = createDebug('layout');

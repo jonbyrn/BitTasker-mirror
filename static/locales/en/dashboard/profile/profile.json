@@ -52,8 +52,10 @@
 		},
 		"video": {
 			"description": "Upload a short video introducing yourself and your services",
-			"upload_title": "Upload Video",
 			"upload_desc": "Drag and drop your video here or click to browse",
+			"upload_note": "Max {maxSize}MB, {maxDuration} minutes",
+			"preview": "Video preview",
+			"remaining": "remaining",
 			"max_size": "Maximum file size: 100MB",
 			"failed_to_connect": "Failed to connect to Nostr relay. Please try again later.",
 			"failed_to_upload": "Failed to upload video",
@@ -61,7 +63,9 @@
 			"failed_to_save_recording": "Failed to save recording",
 			"failed_to_remove": "Failed to remove video",
 			"stop_recording": "Stop Recording",
-			"record_video": "Record Video"
+			"record_video": "Record Video",
+			"upload_warning_title": "Upload Warning",
+			"continue_upload": "Continue Upload"
 		},
 		"portfolio": {
 			"title": "Portfolio",

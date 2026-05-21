@@ -305,8 +305,14 @@ class CloudflareMediaService {
 	 * @returns Upload URL and video UID
 	 */
 	async requestStreamUploadUrl(
-		maxDurationSeconds = 3600
+		maxDurationSeconds = 3600,
+		actualDurationSeconds?: number
 	): Promise<{ uploadURL: string; uid: string }> {
+		// When we know the actual video duration, use it (with 50% headroom) so Cloudflare
+		// can optimize encoding for a realistic duration instead of always preparing for 10 min.
+		const effectiveMaxDuration = actualDurationSeconds
+			? Math.min(Math.ceil(actualDurationSeconds * 1.5), 600)
+			: Math.min(maxDurationSeconds, 600);
 		addBreadcrumb({
 			category: 'stream',
 			message: 'requestStreamUploadUrl: requested',
@@ -316,7 +322,7 @@ class CloudflareMediaService {
 			const res = await fetch('/api/cloudflare/stream/upload-url', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ maxDurationSeconds: Math.min(maxDurationSeconds, 600) })
+				body: JSON.stringify({ maxDurationSeconds: effectiveMaxDuration })
 			});
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}));
@@ -333,6 +339,104 @@ class CloudflareMediaService {
 			addBreadcrumb({
 				category: 'stream',
 				message: `requestStreamUploadUrl: error - ${e instanceof Error ? e.message : 'Unknown error'}`,
+				level: 'error'
+			});
+			throw e;
+		}
+	}
+
+	/**
+	 * Request a TUS Upload URL for Cloudflare Stream resumable uploads.
+	 * Use this for large files that benefit from chunked, resumable uploads.
+	 * Calls the Worker TUS proxy endpoint — no API token needed client-side.
+	 *
+	 * This method sends a TUS creation request with proper headers:
+	 * - Upload-Length: File size in bytes
+	 * - Upload-Metadata: Base64-encoded metadata (filename, filetype, maxDurationSeconds)
+	 * - Tus-Resumable: TUS protocol version
+	 *
+	 * @param fileSize - Size of the file in bytes (required for TUS)
+	 * @param maxDurationSeconds - Maximum video duration in seconds (capped at 600)
+	 * @param metadata - Optional metadata (filename, filetype)
+	 * @returns TUS upload URL and video UID
+	 *
+	 * @see https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#resumable-uploads-with-tus-for-large-files
+	 */
+	async requestTusUploadUrl(
+		fileSize: number,
+		maxDurationSeconds = 600,
+		metadata: { filename?: string; filetype?: string; actualDurationSeconds?: number } = {}
+	): Promise<{ tusEndpoint: string; uid: string }> {
+		addBreadcrumb({
+			category: 'stream',
+			message: `requestTusUploadUrl: requested - size=${fileSize}`,
+			level: 'info'
+		});
+
+		try {
+			// Build TUS Upload-Metadata header (base64 key-value pairs)
+			const metadataParts: string[] = [];
+			if (metadata.filename) {
+				metadataParts.push(`filename ${btoa(metadata.filename)}`);
+			}
+			if (metadata.filetype) {
+				metadataParts.push(`filetype ${btoa(metadata.filetype)}`);
+			}
+			const effectiveMaxDuration = metadata.actualDurationSeconds
+				? Math.min(Math.ceil(metadata.actualDurationSeconds * 1.5), 600)
+				: Math.min(maxDurationSeconds, 600);
+			metadataParts.push(`maxDurationSeconds ${btoa(String(effectiveMaxDuration))}`);
+
+			const headers: Record<string, string> = {
+				'Tus-Resumable': '1.0.0',
+				'Upload-Length': String(fileSize)
+			};
+
+			if (metadataParts.length > 0) {
+				headers['Upload-Metadata'] = metadataParts.join(',');
+			}
+
+			const res = await fetch('/api/cloudflare/stream/tus', {
+				method: 'POST',
+				headers
+			});
+
+			if (!res.ok) {
+				const errorText = await res.text();
+				let errorMessage = `TUS upload URL request failed: HTTP ${res.status}`;
+				try {
+					const err = JSON.parse(errorText);
+					if (err?.error?.message) {
+						errorMessage = err.error.message;
+					}
+				} catch {
+					// Use default error message
+				}
+				throw new Error(errorMessage);
+			}
+
+			// TUS protocol returns 201 Created with Location header
+			const location = res.headers.get('Location');
+			const streamMediaId = res.headers.get('Stream-Media-Id');
+
+			if (!location) {
+				throw new Error('TUS endpoint did not return a Location header');
+			}
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `requestTusUploadUrl: success - uid=${streamMediaId || 'unknown'}`,
+				level: 'info'
+			});
+
+			return {
+				tusEndpoint: location,
+				uid: streamMediaId || ''
+			};
+		} catch (e) {
+			addBreadcrumb({
+				category: 'stream',
+				message: `requestTusUploadUrl: error - ${e instanceof Error ? e.message : 'Unknown error'}`,
 				level: 'error'
 			});
 			throw e;

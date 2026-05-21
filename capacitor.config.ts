@@ -88,6 +88,9 @@ const config: CapacitorConfig = {
 			// Sets the background color of the Android system navigation bar.
 			// Uses WindowInsetsControllerCompat under the hood (required for SDK 35+).
 			navigationBarColor: '#2d2d2d'
+		},
+		CapacitorHttp: {
+			enabled: true
 		}
 	}
 };

@@ -473,12 +473,12 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	skills?: Array<
 		| string
 		| {
-				name: string;
-				level: number;
-				verificationStatus?: string;
-				endorsements?: number;
-				certifications?: SkillCertification[];
-		  }
+			name: string;
+			level: number;
+			verificationStatus?: string;
+			endorsements?: number;
+			certifications?: SkillCertification[];
+		}
 	>;
 	portfolio?: Array<{
 		id: string;
@@ -505,13 +505,20 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		fileUrl: string;
 	}>;
 	createdAt?: string;
+	videoIntro?: {
+		uid: string;
+		url: string;
+		thumbnailUrl: string;
+		duration: number;
+		size: number;
+	};
 }> {
 	type ProfileSkillEntry =
 		| string
 		| (NostrSkill & {
-				translations?: Record<string, unknown>;
-				id?: string;
-		  });
+			translations?: Record<string, unknown>;
+			id?: string;
+		});
 	type ComprehensiveProfileData = {
 		name: string;
 		display_name: string;
@@ -525,14 +532,14 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		skills: Array<
 			| string
 			| {
-					name: string;
-					level: number;
-					verificationStatus?: string;
-					endorsements?: number;
-					certifications?: SkillCertification[];
-					translations?: Record<string, unknown>;
-					id?: string;
-			  }
+				name: string;
+				level: number;
+				verificationStatus?: string;
+				endorsements?: number;
+				certifications?: SkillCertification[];
+				translations?: Record<string, unknown>;
+				id?: string;
+			}
 		>;
 		portfolio: Array<{
 			id: string;
@@ -560,6 +567,13 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 			fileUrl: string;
 		}>;
 		createdAt?: string;
+		videoIntro?: {
+			uid: string;
+			url: string;
+			thumbnailUrl: string;
+			duration: number;
+			size: number;
+		};
 	};
 
 	try {
@@ -588,7 +602,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				KINDS.PROFILE_SKILLS, // Skills (30000)
 				KINDS.PROFILE_PORTFOLIO, // Portfolio (30001)
 				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
-				KINDS.PROFILE_REVIEWS // Reviews (30004)
+				KINDS.PROFILE_REVIEWS, // Reviews (30004)
+				KINDS.VIDEO // Profile video (21)
 			],
 			authors: [hexPubkey],
 			limit: 50
@@ -616,7 +631,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				breakBetweenBookings: 60
 			},
 			reviews: [],
-			certifications: []
+			certifications: [],
+			videoIntro: undefined
 		};
 
 		// Sort events by created_at (newest first)
@@ -747,6 +763,29 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 							verified: content.verified,
 							fileUrl: content.fileUrl
 						});
+						break;
+
+					case KINDS.VIDEO: // Profile video (21)
+						// Only parse if tagged as profile-video
+						const hasProfileVideoTag = event.tags.some(
+							(t: string[]) => t[0] === 't' && t[1] === 'profile-video'
+						);
+						if (hasProfileVideoTag) {
+							const videoUid = event.tags.find((t: string[]) => t[0] === 'x')?.[1] || '';
+							const videoUrl = event.tags.find((t: string[]) => t[0] === 'url')?.[1] || '';
+							const thumbnailUrl = event.tags.find((t: string[]) => t[0] === 'thumb')?.[1] || '';
+							const duration = Number(event.tags.find((t: string[]) => t[0] === 'duration')?.[1]) || 0;
+							const size = Number(event.tags.find((t: string[]) => t[0] === 'size')?.[1]) || 0;
+							if (videoUid && videoUrl) {
+								profileData.videoIntro = {
+									uid: videoUid,
+									url: videoUrl,
+									thumbnailUrl,
+									duration,
+									size
+								};
+							}
+						}
 						break;
 				}
 			} catch (e) {

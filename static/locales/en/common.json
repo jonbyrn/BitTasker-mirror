@@ -52,7 +52,8 @@
 			"cancel": "Cancel",
 			"retry": "Retry",
 			"close": "Close",
-			"refresh": "Refresh"
+			"refresh": "Refresh",
+			"upload": "Upload"
 		},
 		"toast": {
 			"link_copied": "Link copied to clipboard",
@@ -592,7 +593,13 @@
 				"failed_to_load_image": "Failed to load image",
 				"invalid_file": "Invalid file",
 				"processing_error": "Error processing file",
-				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB."
+				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB.",
+				"video_evidence": "Video Evidence",
+				"video_introduction": "Video Introduction",
+				"upload_title": "Upload Video",
+				"drag_or_click": "Drag & drop or click to browse",
+				"close_preview": "Close preview",
+				"videos_encoding": "Video is being processed. Please wait before continuing."
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",
@@ -829,6 +836,51 @@
 				"hours": "hours",
 				"day": "day",
 				"days": "days"
+			}
+		},
+		"stream_player": {
+			"status": {
+				"uploading": "Uploading... {progress}%",
+				"encoding": "Processing video...",
+				"queued": "Video is queued for processing...",
+				"paused": "Upload paused",
+				"token_loading": "Loading video...",
+				"poster_loading": "Loading preview...",
+				"error": "Video could not be loaded",
+				"expired": "Playback link expired",
+				"offline": "No internet connection - video will play when connected"
+			},
+			"error": {
+				"upload_interrupted": "Upload interrupted - tap to resume",
+				"upload_failed": "Upload failed - tap to retry",
+				"encoding_failed": "Video could not be processed by our servers",
+				"token_failed": "Could not load video - tap to try again",
+				"token_expired": "Playback link expired - refreshing..."
+			},
+			"action": {
+				"retry": "Retry",
+				"resume": "Resume",
+				"pause": "Pause",
+				"refresh": "Refresh",
+				"cancel": "Cancel"
+			},
+			"thumbnail": {
+				"upload": "Upload custom thumbnail",
+				"auto": "Auto-generated thumbnail",
+				"uploading": "Uploading thumbnail..."
+			},
+			"warning": {
+				"keep_open": "Please keep the app open during video upload",
+				"cellular_data": "Uploading over cellular will use data. Continue?",
+				"low_battery": "Battery is low. Upload may be interrupted.",
+				"large_file": "This video is {size} MB. Upload may take several minutes."
+			},
+			"a11y": {
+				"player_label": "Video player",
+				"upload_progress": "Upload progress: {progress} percent",
+				"encoding_status": "Video is being processed",
+				"playback_ready": "Video ready to play",
+				"playback_error": "Video playback error: {error}"
 			}
 		}
 	}

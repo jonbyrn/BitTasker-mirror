@@ -16,11 +16,12 @@
 	import { parseDMEvent } from '$lib/utils/nostr-message';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { appStore } from '$lib/stores/app.store';
-	import Avatar from '$lib/components/Avatar.svelte';
-	import KINDS from '$lib/utils/constants/kinds';
 	import { messageTranslations } from '$lib/stores/translation.store';
 	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { muteStore } from '$lib/stores/mute.store';
+	import { truncateNpub } from '$lib/utils/nostr';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	/**
 	 * Helper function to get display content for a conversation
@@ -124,7 +125,7 @@
 	let showModal = $state(false);
 	let newMessagePubkey = $state('');
 	let newMessageError = $state('');
-	let newMessageProfile = $state<{ name?: string; picture?: string } | null>(null);
+	let newMessageProfile = $state<{ name?: string; picture?: string; pubkey?: string } | null>(null);
 	let isProfileLoading = $state(false);
 
 	// Username search state
@@ -566,7 +567,7 @@
 		const selectedUser = usernameSearchResults.find((user) => user.pubkey === pubkey);
 		if (selectedUser) {
 			newMessagePubkey = pubkey;
-			newMessageProfile = selectedUser.profile;
+			newMessageProfile = { ...selectedUser.profile, pubkey: selectedUser.pubkey };
 			showUsernameResults = false;
 			usernameSearchResults = [];
 		}
@@ -757,7 +758,7 @@
 											{#if result.profile.picture}
 												<img
 													src={result.profile.picture}
-													alt={result.profile.name || 'Unknown User'}
+													alt={result.profile.name || truncateNpub(result.pubkey)}
 													class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
 													width={40}
 													height={40}
@@ -791,7 +792,7 @@
 										</div>
 										<div class="min-w-0 flex-1 text-left">
 											<h5 class="text-base-content truncate text-sm font-medium">
-												{result.profile.name || $t('messages.unknown_user')}
+												{result.profile.name || truncateNpub(result.pubkey)}
 											</h5>
 											<p class="text-base-content/60 truncate font-mono text-xs">
 												{result.pubkey.slice(0, 12)}...{result.pubkey.slice(-8)}
@@ -880,7 +881,7 @@
 								{#if newMessageProfile.picture}
 									<img
 										src={newMessageProfile.picture}
-										alt={newMessageProfile.name || $t('messages.unknown_user')}
+										alt={newMessageProfile.name || (newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
 										class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
 										width={40}
 										height={40}
@@ -914,7 +915,7 @@
 							</div>
 							<div class="min-w-0 flex-1">
 								<p class="truncate font-medium">
-									{newMessageProfile.name || $t('messages.unknown_user')}
+									{newMessageProfile.name || (newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
 								</p>
 								<p class="text-base-content/60 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')

@@ -16,7 +16,6 @@
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
-	import PendingReviewBanner from '$lib/components/reviews/PendingReviewBanner.svelte';
 	import {
 		createDashboardUrl,
 		getTaskerTimelines,
@@ -435,9 +434,6 @@
 			<span>{activeTab.buttonLabel}</span>
 		</a>
 	</div>
-
-	<!-- Pending Review Banner -->
-	<PendingReviewBanner />
 
 	<!-- Dashboard Tabs -->
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />

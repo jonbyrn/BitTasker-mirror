@@ -7,7 +7,6 @@
 	import ContractTimelineNDK from './ContractTimelineNDK.svelte';
 	import ContractActionsDrawerNDK from './ContractActionsDrawerNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
-	import Gallery from '$lib/components/Gallery.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import {
 		getStatusColorClass,
@@ -24,7 +23,7 @@
 	import { adaptNDKContract } from '$lib/utils/reviews/contractAdapter';
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import { reviewStore } from '$lib/stores/review.store';
-	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import Gallery, { type GalleryItem } from '$lib/components/Gallery.svelte';
 
 	const { isOpen, onClose, contractRune, btcPrice } = $props<{
 		isOpen: boolean;
@@ -56,46 +55,15 @@
 	);
 	const timelineDisplayCount = $derived(timelineRows.length);
 
-	function isVideoFile(url: string): boolean {
-		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
-		const urlLower = url.toLowerCase();
-		return videoExtensions.some((ext) => urlLower.endsWith(ext));
-	}
-
-	function getStreamUid(attachment: Attachment): string | undefined {
-		return attachment.cloudflareId;
-	}
-
-	const prepareGalleryImages = async (attachments: Attachment[]) => {
-		const imagePromises = attachments
-			.filter((attachment) => !isVideoFile(attachment.url))
-			.map((attachment) => {
-				return new Promise((resolve) => {
-					const img = new Image();
-					img.onload = () => {
-						resolve({
-							url: attachment.url,
-							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
-							width: img.naturalWidth,
-							height: img.naturalHeight,
-							size: attachment.size
-						});
-					};
-					img.onerror = () => {
-						resolve({
-							url: attachment.url,
-							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
-							width: 0,
-							height: 0,
-							size: attachment.size
-						});
-					};
-					img.src = attachment.url;
-				});
-			});
-
-		return await Promise.all(imagePromises);
-	};
+	// Map completion attachments to GalleryItem so Gallery handles image/video rendering.
+	const completionGalleryItems = $derived<GalleryItem[]>(
+		(contractRune?.completionAttachments ?? []).map((att: Attachment) => ({
+			url: att.url,
+			alt: att.alt || undefined,
+			type: att.type || undefined,
+			cloudflareId: att.cloudflareId || undefined
+		}))
+	);
 
 	function formatRBTC(amount: number): string {
 		const num = Number(amount);
@@ -125,7 +93,12 @@
 
 	const liveEscrowStatus = $derived.by(() => {
 		if (!contractRune) return undefined;
-		const status = contractRune.optimisticBlockchainStatus ?? contractRune.blockchainStatus;
+		// Use displayStatus (lifecycle-aware) instead of raw blockchainStatus so that V1 contracts
+		// correctly map chain Completed → FundsReleased via Kind 31006 status events.
+		// DisplayOnlyStatus values (InProgress=13, DisputeResolutionProposed=12) are not present
+		// in ContractStatus so ContractStatus[status] returns undefined, causing adaptNDKContract
+		// to fall back to the Nostr contract.status tag instead.
+		const status = contractRune.displayStatus;
 		return status !== undefined ? ContractStatus[status] : undefined;
 	});
 
@@ -478,47 +451,12 @@
 								</div>
 							{/if}
 
-							{#if (contractRune.completionAttachments || []).filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-								<div class="mb-4">
-									{#await prepareGalleryImages(contractRune.completionAttachments || []) then galleryImages}
-										<Gallery
-											galleryID={`completion-evidence-gallery-ndk-${contract.paymentId || contract.id}`}
-											images={galleryImages}
-											thumbnailSize="h-40 w-40"
-										/>
-									{/await}
-								</div>
-							{/if}
-
-							{#if (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
-								<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-									{#each (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ) as attachment (attachment.url)}
-										<div class="group relative">
-											<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
-												{#if getStreamUid(attachment)}
-													<StreamPlayer
-														videoUid={getStreamUid(attachment)!}
-														private={true}
-														className="h-full w-full"
-													/>
-												{:else}
-													<video
-														src={attachment.url}
-														class="h-full w-full object-cover"
-														controls
-														preload="metadata"
-													>
-														<track kind="captions" src="" label="No captions available" />
-													</video>
-												{/if}
-											</div>
-											<div class="text-base-content/60 mt-2 truncate text-xs">
-												{attachment.alt || 'Evidence'}
-											</div>
-										</div>
-									{/each}
-								</div>
-							{/if}
+						{#if completionGalleryItems.length > 0}
+							<Gallery
+								galleryID="contract-completion-gallery"
+								items={completionGalleryItems}
+							/>
+						{/if}
 						</div>
 					</div>
 				{/if}

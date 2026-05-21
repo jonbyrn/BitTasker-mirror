@@ -6,6 +6,7 @@
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import { calculateUserRanking, type UserRanking } from '$lib/utils/reviews/ranking';
+	import { truncateNpub } from '$lib/utils/nostr';
 
 	// ── Module-level review cache (one fetch per pubkey per session) ──────────
 	interface CachedReviewData {
@@ -67,7 +68,7 @@
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
 		memberSince?: Date | number | string | null; // Date, timestamp, or ISO string
 		profileLink?: string | null; // npub or hex pubkey for profile link
-		/** Callback invoked with the resolved display name after fetch completes or username changes. Never returns the fallback "Unknown User" string. */
+		/** Callback invoked with the resolved display name after fetch completes or username changes. */
 		onResolvedName?: ((name: string) => void) | null;
 		showRanking?: boolean;
 		showReviewCount?: boolean;
@@ -226,14 +227,10 @@
 	const normalizedFetchedProfileName = $derived.by(() => sanitizeDisplayName(fetchedProfile?.name));
 
 	const fallbackDisplayName = $derived.by(() => {
-		try {
-			const value = $t('messages.unknown_user');
-			return typeof value === 'string' && value !== 'messages.unknown_user'
-				? value
-				: 'Unknown User';
-		} catch {
-			return 'Unknown User';
+		if (pubkey) {
+			return truncateNpub(pubkey);
 		}
+		return '';
 	});
 
 	/**
@@ -250,7 +247,7 @@
 		return fallbackDisplayName;
 	});
 
-	// Notify parent when a real display name resolves (skip fallback "Unknown User")
+	// Notify parent when a real display name resolves (skip fallback)
 	$effect(() => {
 		if (!onResolvedName) return;
 		const name = normalizedFetchedProfileName || normalizedUsername;

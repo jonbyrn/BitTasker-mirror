@@ -1,16 +1,22 @@
 /**
  * Cloudflare Stream API endpoints
  *
- * POST /api/cloudflare/stream/upload-url - generate one-time upload URL
+ * POST /api/cloudflare/stream/upload-url - generate one-time basic POST upload URL (< 200MB)
+ * POST /api/cloudflare/stream/tus        - TUS protocol proxy for resumable uploads (any size)
  * GET  /api/cloudflare/stream/token/:uid  - generate signed playback JWT
  * GET  /api/cloudflare/stream/status/:uid - poll encoding status
+ *
+ * @see https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/
+ * @see https://developers.cloudflare.com/stream/uploading-videos/resumable-uploads/
  */
 
 const ALLOWED_ORIGINS = [
 	'https://bittasker.com',
+	'https://dev.bittasker.com',
 	'https://worker.dev.bittasker.com',
 	'https://worker.prod.bittasker.com',
-	'https://staging.bittasker.com'
+	'https://staging.bittasker.com',
+	'http://localhost:3000'
 ];
 
 function getAllowedOrigin(request) {
@@ -23,6 +29,19 @@ const CORS_UPLOAD = {
 	'Access-Control-Allow-Origin': '*',
 	'Access-Control-Allow-Methods': 'POST, OPTIONS',
 	'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
+
+// TUS protocol requires specific headers for resumable uploads
+const CORS_TUS = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'POST, OPTIONS, HEAD, PATCH, DELETE',
+	'Access-Control-Allow-Headers':
+		'Content-Type, Authorization, Upload-Length, Upload-Metadata, Upload-Offset, Tus-Resumable, Tus-Version, Tus-Extension, Tus-Max-Size, X-HTTP-Method-Override, Upload-Creator',
+	'Access-Control-Expose-Headers':
+		'Upload-Offset, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Location, Stream-Media-Id',
+	'Tus-Resumable': '1.0.0',
+	'Tus-Version': '1.0.0',
+	'Tus-Extension': 'creation,creation-with-upload,termination,concatenation,creation-defer-length'
 };
 
 const CORS_STATUS = {
@@ -96,7 +115,7 @@ export async function handleStreamRoute(request, env) {
 	const pathname = url.pathname;
 	const method = request.method;
 
-	// OPTIONS preflight for Capacitor WebView
+	// OPTIONS preflight for Capacitor WebView and TUS protocol
 	if (method === 'OPTIONS') {
 		if (pathname.includes('/token/')) {
 			return new Response(null, { headers: tokenCors(request) });
@@ -104,10 +123,13 @@ export async function handleStreamRoute(request, env) {
 		if (pathname.includes('/status/')) {
 			return new Response(null, { headers: CORS_STATUS });
 		}
+		if (pathname === '/api/cloudflare/stream/tus') {
+			return new Response(null, { status: 204, headers: CORS_TUS });
+		}
 		return new Response(null, { headers: CORS_UPLOAD });
 	}
 
-	// POST /api/cloudflare/stream/upload-url
+	// POST /api/cloudflare/stream/upload-url (basic POST for < 200MB)
 	if (method === 'POST' && pathname === '/api/cloudflare/stream/upload-url') {
 		try {
 			const body = await request.json().catch(() => ({}));
@@ -121,6 +143,100 @@ export async function handleStreamRoute(request, env) {
 				500,
 				CORS_UPLOAD
 			);
+		}
+	}
+
+	// POST /api/cloudflare/stream/tus — TUS protocol proxy for resumable uploads
+	// This endpoint proxies TUS creation requests to Cloudflare's REST API.
+	// The client sends TUS headers (Upload-Length, Upload-Metadata) and we forward them
+	// to Cloudflare, returning the Location header with the actual TUS upload URL.
+	//
+	// @see https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#direct-creator-uploads-with-tus-protocol
+	if (method === 'POST' && pathname === '/api/cloudflare/stream/tus') {
+		try {
+			const uploadLength = request.headers.get('Upload-Length');
+			const uploadMetadata = request.headers.get('Upload-Metadata');
+
+			if (!uploadLength) {
+				return error('MISSING_UPLOAD_LENGTH', 'Upload-Length header is required', 400, CORS_TUS);
+			}
+
+			// Validate chunk size requirements (5MB minimum for TUS)
+			const fileSize = parseInt(uploadLength, 10);
+			if (isNaN(fileSize) || fileSize <= 0) {
+				return error(
+					'INVALID_UPLOAD_LENGTH',
+					'Upload-Length must be a positive integer',
+					400,
+					CORS_TUS
+				);
+			}
+
+			// Build the TUS creation request to Cloudflare's REST API
+			// Using direct_user=true for direct creator uploads
+			const tusEndpoint = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream?direct_user=true`;
+
+			const tusHeaders = {
+				Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+				'Tus-Resumable': '1.0.0',
+				'Upload-Length': uploadLength
+			};
+
+			// Forward Upload-Metadata if provided (contains filename, filetype, maxDurationSeconds, etc.)
+			if (uploadMetadata) {
+				tusHeaders['Upload-Metadata'] = uploadMetadata;
+			}
+
+			const tusResponse = await fetch(tusEndpoint, {
+				method: 'POST',
+				headers: tusHeaders
+			});
+
+			if (!tusResponse.ok) {
+				const errorText = await tusResponse.text();
+				console.error('[Stream TUS] Cloudflare API error:', tusResponse.status, errorText);
+				return error(
+					'TUS_CREATION_FAILED',
+					`Failed to create TUS upload: ${tusResponse.status}`,
+					tusResponse.status,
+					CORS_TUS
+				);
+			}
+
+			// Extract the Location header which contains the TUS upload URL
+			const location = tusResponse.headers.get('Location');
+			let streamMediaId = tusResponse.headers.get('stream-media-id');
+
+			if (!location) {
+				return error(
+					'TUS_NO_LOCATION',
+					'Cloudflare did not return a Location header',
+					500,
+					CORS_TUS
+				);
+			}
+
+			// Extract video UID from Location URL if stream-media-id header is not provided
+			// Location format: https://upload.cloudflarestream.com/tus/{video_uid}
+			if (!streamMediaId) {
+				const uidMatch = location.match(/\/tus\/([a-f0-9]{32})(?:\?|$)/);
+				if (uidMatch) {
+					streamMediaId = uidMatch[1];
+				}
+			}
+
+			// Return 201 Created with Location header as per TUS protocol
+			return new Response(null, {
+				status: 201,
+				headers: {
+					...CORS_TUS,
+					Location: location,
+					'Stream-Media-Id': streamMediaId || ''
+				}
+			});
+		} catch (e) {
+			console.error('[Stream TUS] Error:', e);
+			return error('TUS_ERROR', e.message || 'TUS upload creation failed', 500, CORS_TUS);
 		}
 	}
 
@@ -194,12 +310,66 @@ export async function handleStreamRoute(request, env) {
 			return error('INVALID_UID', 'Invalid video UID', 400, CORS_STATUS);
 		}
 		try {
+			// Check KV cache first (valid for 10 seconds)
 			const cached = env.VIDEO_STATUS ? await env.VIDEO_STATUS.get(uid, 'json') : null;
-			if (cached) {
+			if (cached && cached.state === 'ready') {
 				return json(cached, 200, CORS_STATUS);
 			}
-			return json({ uid, state: 'encoding' }, 200, CORS_STATUS);
+
+			// Query Cloudflare Stream API for actual status
+			const cfResponse = await fetch(
+				`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/${uid}`,
+				{
+					headers: {
+						Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+						'Content-Type': 'application/json'
+					}
+				}
+			);
+
+			if (!cfResponse.ok) {
+				// Video might not exist yet or still processing
+				if (cfResponse.status === 404) {
+					return json({ uid, state: 'encoding' }, 200, CORS_STATUS);
+				}
+				const cfError = await cfResponse.text();
+				console.error('Cloudflare status API error:', cfError);
+				return json({ uid, state: 'encoding' }, 200, CORS_STATUS);
+			}
+
+			const cfData = await cfResponse.json();
+			const video = cfData.result;
+
+			// Map Cloudflare status to our status
+			let state = 'encoding';
+			let errorReason = null;
+
+			if (video.status?.state === 'ready' || video.readyToStream) {
+				state = 'ready';
+			} else if (video.status?.state === 'error') {
+				state = 'error';
+				errorReason = video.status?.errorReasonText || 'Video processing failed';
+			} else if (video.status?.state === 'queued' || video.status?.state === 'inprogress') {
+				state = 'encoding';
+			}
+
+			const statusData = {
+				uid,
+				state,
+				pctComplete: video.status?.pctComplete ? parseFloat(video.status.pctComplete) : undefined,
+				errorReason,
+				duration: video.duration,
+				readyToStream: video.readyToStream
+			};
+
+			// Cache ready/error states in KV for 60 seconds
+			if (env.VIDEO_STATUS && (state === 'ready' || state === 'error')) {
+				await env.VIDEO_STATUS.put(uid, JSON.stringify(statusData), { expirationTtl: 60 });
+			}
+
+			return json(statusData, 200, CORS_STATUS);
 		} catch (e) {
+			console.error('Status check error:', e);
 			return error('STATUS_FAILED', e.message || 'Failed to get video status', 500, CORS_STATUS);
 		}
 	}

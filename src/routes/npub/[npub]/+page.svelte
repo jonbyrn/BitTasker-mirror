@@ -10,6 +10,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+	import { truncateNpub } from '$lib/utils/nostr';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
@@ -20,6 +21,7 @@
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import type { ReviewStats } from '$lib/types/review';
 	import { SvelteSet } from 'svelte/reactivity';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -187,6 +189,13 @@
 			fileUrl: string;
 		}>;
 		createdAt?: string;
+		videoIntro?: {
+			uid: string;
+			url: string;
+			thumbnailUrl: string;
+			duration: number;
+			size: number;
+		};
 	} | null>(null);
 	let loadingProfile = $state(true);
 	let profileError = $state<string | null>(null);
@@ -714,7 +723,8 @@
 										<div class="flex flex-col items-center gap-1 lg:items-start">
 											<div class="flex items-center gap-2">
 												<h3 class="text-base-content font-bold">
-													{userProfile?.name || 'Unknown User'}
+													{userProfile?.name ||
+														(page.params.npub ? truncateNpub(page.params.npub) : '')}
 												</h3>
 												{#if averageRating}
 													<div class="flex items-center gap-1">
@@ -842,6 +852,26 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- Video Introduction -->
+					{#if userProfile?.videoIntro?.uid}
+						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+							<div class="card-body py-4">
+								<p class="mb-3 text-xl font-bold">
+									{$t('common.components.media_uploader.video_introduction')}
+								</p>
+								<div class="aspect-video w-full rounded-lg sm:min-h-64">
+									<StreamPlayer
+										videoUid={userProfile.videoIntro.uid}
+										poster={userProfile.videoIntro.thumbnailUrl}
+										controls={true}
+										private={false}
+									/>
+								</div>
+							</div>
+						</div>
+					{/if}
+
 					<!-- About and Skills Section -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
@@ -1248,7 +1278,7 @@
 					<div>
 						<h4 class="text-sm font-semibold">{$t('common.profile.send_message')}</h4>
 						<p class="text-base-content/60 text-xs">
-							To: {userProfile?.name || 'Unknown User'}
+							To: {userProfile?.name || (page.params.npub ? truncateNpub(page.params.npub) : '')}
 						</p>
 					</div>
 				</div>

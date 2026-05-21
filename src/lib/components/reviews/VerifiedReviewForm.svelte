@@ -2,9 +2,13 @@
 	import { t } from 'svelte-i18n';
 	import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
 	import { buildSignedReviewEvent, submitAttestedReview } from '$lib/utils/reviews/attestation';
+	import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { appStore } from '$lib/stores/app.store';
+	import { profileStore } from '$lib/stores/profile.store';
+	import { user } from '$lib/stores/user.store';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import type { TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
 	import { createDebug } from '$lib/utils/debug';
 	import { portal } from '$lib/utils/portal';
@@ -231,6 +235,43 @@
 		return Object.keys(newErrors).length === 0;
 	}
 
+	async function resolveWallets(): Promise<{ tasker: string; taskee: string } | null> {
+		if (!contract) return null;
+		const paymentId = contract.paymentId?.trim();
+		const contractAddress = contract.contractAddress?.trim();
+		if (!paymentId || !contractAddress) return null;
+
+		try {
+			const data = await loadPaymentContractDetails(paymentId, contractAddress, 'rsk');
+			if (data?.tasker && data?.taskee) {
+				return { tasker: data.tasker, taskee: data.taskee };
+			}
+		} catch (err) {
+			d.error('resolveWallets: chain read failed', err);
+		}
+		return null;
+	}
+
+	async function sendReviewNotification(revieweePubkey: string) {
+		try {
+			const reviewerPubkey = await getNpub();
+			if (!reviewerPubkey) return;
+			const reviewerName = $profileStore.data?.name || $user.name || 'Someone';
+
+			await pushNotificationService.sendNotificationToNpubs({
+				npubs: [revieweePubkey],
+				title:
+					$t('reviews.notification.title', { values: { reviewerName } }) ||
+					`${reviewerName} sent you a review`,
+				body: $t('reviews.notification.body') || 'Rate them back!',
+				type: 'review_received',
+				clickAction: '/reviews'
+			});
+		} catch {
+			// Silently fail — notification is best-effort, review was submitted
+		}
+	}
+
 	async function handleSubmit() {
 		if (isCheckingExistingReview || !validateForm() || isSubmitting || alreadyReviewed) {
 			return;
@@ -265,9 +306,8 @@
 			let eventId: string;
 
 			// Use attestation flow when IContractForReview is provided
+			const normalizedReviewee = normalizeNostrPubkey(revieweePubkey) ?? revieweePubkey;
 			if (contract) {
-				const normalizedReviewee = normalizeNostrPubkey(revieweePubkey) ?? revieweePubkey;
-
 				// Map reviewee role to both roles
 				const resolvedReviewerRole: 'tasker' | 'taskee' =
 					revieweeRole === 'taskee' ? 'tasker' : 'taskee';
@@ -281,15 +321,27 @@
 							: contract.taskerWalletAddress?.trim();
 					return w ?? '';
 				};
-				const revieweeWalletResolved = walletForChainRole(resolvedRevieweeRole);
-				const reviewerWalletResolved = walletForChainRole(resolvedReviewerRole);
+				let revieweeWalletResolved = walletForChainRole(resolvedRevieweeRole);
+				let reviewerWalletResolved = walletForChainRole(resolvedReviewerRole);
+
+				if (!revieweeWalletResolved || !reviewerWalletResolved) {
+					const wallets = await resolveWallets();
+					if (wallets) {
+						revieweeWalletResolved =
+							resolvedRevieweeRole === 'taskee' ? wallets.taskee : wallets.tasker;
+						reviewerWalletResolved =
+							resolvedReviewerRole === 'taskee' ? wallets.taskee : wallets.tasker;
+					}
+				}
+
 				if (!revieweeWalletResolved || !reviewerWalletResolved) {
 					appStore.showErrorToast(
 						getFormErrorText(
 							'missing_party_wallet_addresses',
-							'Counterparty wallet addresses are still loading. Open the contract and wait a moment, then try again.'
+							'Counterparty wallet addresses could not be resolved. Please try again.'
 						)
 					);
+					isSubmitting = false;
 					return;
 				}
 
@@ -356,6 +408,9 @@
 			}
 
 			appStore.showSuccessToast(getFormText('success', 'Review submitted successfully!'));
+
+			sendReviewNotification(normalizedReviewee);
+
 			onSubmit?.(eventId);
 		} catch (error) {
 			d.error('Failed to submit review:', error);

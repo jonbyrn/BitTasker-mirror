@@ -52,8 +52,10 @@
 		},
 		"video": {
 			"description": "Sube un video corto de introducción (máximo 3 minutos)",
-			"upload_title": "Subir Video",
 			"upload_desc": "Graba o sube un video corto de introducción",
+			"upload_note": "Máx {maxSize}MB, {maxDuration} minutos",
+			"preview": "Vista previa del video",
+			"remaining": "restante",
 			"max_size": "Tamaño máximo del archivo: 100MB",
 			"failed_to_connect": "Error al conectar con el relay de Nostr. Intenta de nuevo más tarde.",
 			"failed_to_upload": "Error al subir video",
@@ -61,7 +63,9 @@
 			"failed_to_save_recording": "Error al guardar grabación",
 			"failed_to_remove": "Error al eliminar video",
 			"stop_recording": "Detener Grabación",
-			"record_video": "Grabar Video"
+			"record_video": "Grabar Video",
+			"upload_warning_title": "Advertencia de Subida",
+			"continue_upload": "Continuar Subida"
 		},
 		"portfolio": {
 			"title": "Portafolio",

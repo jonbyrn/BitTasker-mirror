@@ -163,8 +163,6 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/recomendations', 'categories');
 		// Include moderation namespace for report/mute menus on task cards
 		namespaces.push('moderation');
-		// StreamPlayer component for contract drawers and task evidence
-		namespaces.push('stream_player');
 	}
 	// Protected workspace routes
 	// Earning routes
@@ -228,19 +226,15 @@ export function getNamespacesForRoute(route: string): string[] {
 			);
 		}
 		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create', 'categories', 'uploader', 'stream_player');
+			namespaces.push('dashboard/tasks/create', 'categories', 'uploader');
 		}
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
 		if (route.includes('/create-service')) {
-			namespaces.push('dashboard/services/create', 'categories', 'uploader', 'stream_player');
+			namespaces.push('dashboard/services/create', 'categories', 'uploader');
 		}
 
-		// StreamPlayer component appears in contract drawers and profile video
-		if (route.includes('/contract') || route.includes('/profile')) {
-			namespaces.push('stream_player');
-		}
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
@@ -255,8 +249,7 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/services/create',
 			'dashboard/services/detail',
 			'categories',
-			'moderation',
-			'stream_player'
+			'moderation'
 		);
 	}
 

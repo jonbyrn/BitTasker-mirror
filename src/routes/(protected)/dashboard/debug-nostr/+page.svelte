@@ -802,7 +802,7 @@
 				</div>
 				{#if !tp.name}
 					<div class="warn">
-						⚠ This user has no profile name set — will show as "Unknown User" on listing pages
+						⚠ This user has no profile name set — will show as truncated npub on listing pages
 					</div>
 				{/if}
 			</div>
@@ -911,7 +911,7 @@
 				</div>
 				{#if !pd.name}
 					<div class="warn">
-						⚠ No profile name — user will appear as "Unknown User" in listing pages
+						⚠ No profile name — user will appear as truncated npub in listing pages
 					</div>
 				{/if}
 				{#if pd.relays && pd.relays.length > 0}

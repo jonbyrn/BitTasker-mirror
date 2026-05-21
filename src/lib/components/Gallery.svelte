@@ -3,47 +3,88 @@
 	import { t } from 'svelte-i18n';
 	import PhotoSwipeLightbox from 'photoswipe/lightbox';
 	import 'photoswipe/style.css';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
-	const { galleryID = 'my-gallery', images = [], thumbnailSize = 'h-40 w-40' } = $props();
+	export interface GalleryItem {
+		url?: string;
+		largeURL?: string;
+		thumbnailURL?: string;
+		alt?: string;
+		width?: number;
+		height?: number;
+		/** MIME type, e.g. "video/mp4" or "image/jpeg" */
+		type?: string;
+		/** Cloudflare Stream video UID – presence implies a stream video */
+		cloudflareId?: string;
+	}
+
+	const {
+		galleryID = 'my-gallery',
+		// Legacy prop – kept for backward compatibility with existing callers.
+		// Typed as unknown[] so pre-existing callers that pass untyped arrays
+		// continue to compile without changes.  New callers should prefer `items`.
+		images = [],
+		// New mixed prop: pass an ordered array of images AND/OR videos.
+		items,
+		thumbnailSize = 'h-full w-full'
+	} = $props<{
+		galleryID?: string;
+		images?: unknown[];
+		items?: GalleryItem[];
+		thumbnailSize?: string;
+	}>();
+
+	// Merge legacy + new props; `items` takes precedence when provided.
+	const allItems = $derived<GalleryItem[]>((items ?? (images as GalleryItem[])) as GalleryItem[]);
+
+	function isVideoItem(item: GalleryItem): boolean {
+		if (item.cloudflareId) return true;
+		if (item.type && item.type.toLowerCase().startsWith('video/')) return true;
+		if (item.url) {
+			const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m3u8'];
+			return videoExtensions.some((ext) => (item.url ?? '').toLowerCase().endsWith(ext));
+		}
+		return false;
+	}
+
+	const hasImages = $derived(allItems.some((i) => !isVideoItem(i)));
 
 	let lightboxInstance: PhotoSwipeLightbox | null = $state(null);
 	let initializationPending = $state(false);
 
-	// Initialize PhotoSwipe when images or galleryID changes
 	$effect(() => {
-		// Access reactive values to track them - this makes the effect reactive to changes
 		const currentGalleryID = galleryID;
-		const currentImages = images;
-		const imagesCount = currentImages?.length || 0;
-		const hasImages = imagesCount > 0;
+		// Track all items so the effect re-runs when they change.
+		const _items = allItems;
 
-		// Only initialize if we have images
-		if (hasImages && imagesCount > 0) {
-			// Mark initialization as pending to prevent race conditions
+		if (hasImages) {
 			initializationPending = true;
 
-			// Use tick to wait for DOM updates, then initialize
 			tick().then(() => {
-				// Check if initialization is still pending (effect hasn't been cleaned up)
 				if (!initializationPending) return;
 
 				const galleryElement = document.getElementById(currentGalleryID);
-				if (galleryElement && galleryElement.children.length > 0) {
-					// Destroy existing instance if it exists
+				// Only pick up image anchors (not video divs).
+				const imageLinks = galleryElement
+					? galleryElement.querySelectorAll('a[data-pswp-width]')
+					: null;
+
+				if (galleryElement && imageLinks && imageLinks.length > 0) {
 					if (lightboxInstance) {
 						try {
 							lightboxInstance.destroy();
-						} catch (error) {
-							// Ignore errors when destroying
+						} catch {
+							// ignore
 						}
 						lightboxInstance = null;
 					}
 
-					// Create new PhotoSwipe instance
 					try {
 						const lightbox = new PhotoSwipeLightbox({
 							gallery: '#' + currentGalleryID,
-							children: 'a',
+							// Only treat image anchor elements as gallery items;
+							// video <div>s are ignored.
+							children: 'a[data-pswp-width]',
 							mouseMovePan: true,
 							initialZoomLevel: 'fit',
 							secondaryZoomLevel: 1.5,
@@ -65,14 +106,13 @@
 			initializationPending = false;
 		}
 
-		// Cleanup function - runs when effect re-runs or component unmounts
 		return () => {
 			initializationPending = false;
 			if (lightboxInstance) {
 				try {
 					lightboxInstance.destroy();
-				} catch (error) {
-					// Ignore cleanup errors
+				} catch {
+					// ignore
 				}
 				lightboxInstance = null;
 			}
@@ -80,24 +120,52 @@
 	});
 </script>
 
-{#if images && images.length > 0}
-	<div class="pswp-gallery gap-3" id={galleryID}>
-		{#each images as image, index}
-			<a
-				href={image.url || image.largeURL}
-				data-pswp-width={image.width}
-				data-pswp-height={image.height}
-				target="_blank"
-				rel="noreferrer"
-				class="inline-block"
-			>
-				<img
-					src={image.url || image.thumbnailURL}
-					alt={image.alt ||
-						$t('common.components.gallery.image_alt', { values: { index: index + 1 } })}
-					class="cursor-pointer rounded-2xl px-2 shadow transition-transform hover:scale-105 {thumbnailSize} object-cover"
-				/>
-			</a>
+{#if allItems.length > 0}
+	<!--
+		The outer div carries the pswp-gallery id so PhotoSwipe can discover the
+		image anchors inside.  Video items are rendered as <div>s so PhotoSwipe's
+		`children: 'a[data-pswp-width]'` selector ignores them automatically.
+	-->
+	<div class="pswp-gallery grid grid-cols-2 gap-3" id={galleryID}>
+		{#each allItems as item, index}
+			{#if isVideoItem(item)}
+				<!-- Video item – rendered inline, never opened in PhotoSwipe -->
+				<div class="bg-base-300 aspect-square w-full overflow-hidden rounded-2xl shadow">
+					{#if item.cloudflareId}
+						<StreamPlayer
+							videoUid={item.cloudflareId}
+							private={false}
+							className="h-full w-full"
+						/>
+					{:else}
+						<video
+							src={item.url}
+							class="h-full w-full object-cover"
+							controls
+							preload="metadata"
+						>
+							<track kind="captions" />
+						</video>
+					{/if}
+				</div>
+			{:else}
+				<!-- Image item – opened in PhotoSwipe lightbox on click -->
+				<a
+					href={item.url || item.largeURL}
+					data-pswp-width={item.width ?? 1200}
+					data-pswp-height={item.height ?? 900}
+					target="_blank"
+					rel="noreferrer"
+					class="block"
+				>
+					<img
+						src={item.url || item.thumbnailURL}
+						alt={item.alt ||
+							$t('common.components.gallery.image_alt', { values: { index: index + 1 } })}
+						class="aspect-square w-full cursor-pointer rounded-2xl object-cover shadow transition-transform hover:scale-105 {thumbnailSize}"
+					/>
+				</a>
+			{/if}
 		{/each}
 	</div>
 {/if}

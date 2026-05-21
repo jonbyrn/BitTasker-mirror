@@ -214,7 +214,7 @@
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
-		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m3u8'];
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
@@ -579,17 +579,17 @@
 										<UserRatingDisplay userPubkey={task.npub} size="md" showCount={true} />
 										<a
 											href="/dashboard/profile?user={task.npub}&tab=reviews"
-											class="text-xs text-primary hover:underline"
+											class="text-primary text-xs hover:underline"
 										>
 											{$t('reviews.view_all')}
 										</a>
 									</div>
 								{:else}
 									<div class="flex items-center">
-										{#each Array(5) as _, i}	
+										{#each Array(5) as _, i (i)}
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="h-4 w-4 text-base-content/30"
+												class="text-base-content/30 h-4 w-4"
 												fill="currentColor"
 												viewBox="0 0 24 24"
 											>

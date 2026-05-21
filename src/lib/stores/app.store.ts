@@ -2,10 +2,21 @@ import type { BiometricData } from '$lib/types/auth';
 import { SimplePool } from 'nostr-tools';
 import { get, writable } from 'svelte/store';
 
+interface ToastAction {
+	label: string;
+	onClick: () => void;
+	variant?: 'primary' | 'secondary' | 'ghost';
+}
+
 interface Toast {
-	type: 'success' | 'error' | 'info';
-	message: string;
+	type: 'success' | 'error' | 'info' | 'banner';
+	message: string | { key: string; values?: Record<string, unknown> };
 	id: number;
+	actions?: ToastAction[];
+	dismissible?: boolean;
+	dismissKey?: string;
+	dedupKey?: string;
+	duration?: number;
 }
 
 interface AppStore {
@@ -28,8 +39,6 @@ const createAppStore = () => {
 
 	const ensurePool = (): SimplePool => {
 		if (!pool) {
-			// Delay pool construction until runtime usage so shared layout imports
-			// never instantiate nostr-tools during app bootstrap.
 			pool = new SimplePool();
 		}
 
@@ -63,20 +72,23 @@ const createAppStore = () => {
 
 	let toastId = 0;
 
-	const addToast = (toast: Omit<Toast, 'id'>, timeout: number) => {
+	const addToast = (toast: Omit<Toast, 'id'>, timeout: number): number => {
 		const id = toastId++;
 		update((state) => ({
 			...state,
 			toasts: [...state.toasts, { ...toast, id }]
 		}));
 
-		// Auto-remove toast after 3 seconds
-		setTimeout(() => {
-			update((state) => ({
-				...state,
-				toasts: state.toasts.filter((t) => t.id !== id)
-			}));
-		}, timeout);
+		if (timeout > 0) {
+			setTimeout(() => {
+				update((state) => ({
+					...state,
+					toasts: state.toasts.filter((t) => t.id !== id)
+				}));
+			}, timeout);
+		}
+
+		return id;
 	};
 
 	return {
@@ -92,10 +104,42 @@ const createAppStore = () => {
 		showInfoToast: (message: string, timeout: number = 3000) => {
 			addToast({ type: 'info', message }, timeout);
 		},
-		/**
-		 * Reset user-specific state (nostrKeys, biometricData)
-		 * Called on logout to prevent stale data
-		 */
+		showBanner: (options: {
+			message: string | { key: string; values?: Record<string, unknown> };
+			actions?: ToastAction[];
+			dismissible?: boolean;
+			dismissKey?: string;
+			dedupKey?: string;
+			duration?: number;
+		}): number | null => {
+			const { message, actions, dismissible = true, dismissKey, dedupKey, duration = 0 } = options;
+			if (dismissKey) {
+				const dismissedUntil = localStorage.getItem(dismissKey);
+				if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
+					return null;
+				}
+			}
+			if (dedupKey) {
+				update((state) => ({
+					...state,
+					toasts: state.toasts.filter((t) => t.dedupKey !== dedupKey)
+				}));
+			}
+			return addToast(
+				{ type: 'banner', message, actions, dismissible, dismissKey, dedupKey, duration },
+				duration
+			);
+		},
+		dismissBanner: (toastId: number, dismissKey?: string, dismissDurationMs?: number) => {
+			if (dismissKey) {
+				const until = Date.now() + (dismissDurationMs ?? 24 * 60 * 60 * 1000);
+				localStorage.setItem(dismissKey, String(until));
+			}
+			update((state) => ({
+				...state,
+				toasts: state.toasts.filter((t) => t.id !== toastId)
+			}));
+		},
 		resetUserState: () => {
 			update((state) => ({
 				...state,
