@@ -50,24 +50,29 @@
 		unit: 'usd' as 'sats' | 'usd',
 		mathExpression: '',
 		memo: '',
-		selectedNetwork: 'lightning-bitcoin',
+		selectedNetwork: 'rootstock-bitcoin',
 		chargeFeesToPayer: false
 	});
 
 	// Receive tab selection and QR code data
 	let receiveTab = $state<'rbtc' | 'usdt'>('rbtc');
 
-	// Auto-select correct network when tab changes
+	// Auto-select destination network based on receive tab and payer source
 	$effect(() => {
 		const tab = receiveTab;
 		if (tab === 'usdt') {
 			formInput.selectedNetwork = 'usdt-bsc';
-		} else if (
-			!['lightning-bitcoin', 'rootstock-bitcoin', 'liquid-bitcoin', 'bitcoin'].includes(
-				formInput.selectedNetwork
-			)
-		) {
-			formInput.selectedNetwork = 'lightning-bitcoin';
+		} else if (tab === 'rbtc') {
+			// Match destination to payer's source for Bitcoin-family networks
+			if (payerNetwork === 'lightning-bitcoin') {
+				formInput.selectedNetwork = 'lightning-bitcoin';
+			} else if (payerNetwork === 'bitcoin') {
+				formInput.selectedNetwork = 'bitcoin';
+			} else if (payerNetwork === 'liquid-bitcoin') {
+				formInput.selectedNetwork = 'liquid-bitcoin';
+			} else {
+				formInput.selectedNetwork = 'rootstock-bitcoin';
+			}
 		}
 		handleAmountOrNetworkChange();
 	});
