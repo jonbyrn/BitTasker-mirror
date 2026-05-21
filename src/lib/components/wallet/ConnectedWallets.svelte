@@ -10,7 +10,12 @@
 		restoreConnectedWalletState
 	} from '$lib/stores/connected-wallets.store';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
-	import { isMetaMaskAvailable } from '$lib/services/external-wallet/platform-checks';
+	import {
+		isMetaMaskAvailable,
+		isTrezorAvailable,
+		getLedgerTransport,
+		getPlatformInfo
+	} from '$lib/services/external-wallet/platform-checks';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import { onMount, onDestroy } from 'svelte';
 	import IconClose from '~icons/mdi/close';
@@ -85,6 +90,53 @@
 		showWCModal = false;
 		wcQRUri = null;
 		setConnectedWalletError('');
+	}
+
+	async function handleConnectTrezor(): Promise<void> {
+		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)) return;
+		const info = getPlatformInfo(window.navigator);
+		if (!isTrezorAvailable(info)) {
+			setConnectedWalletError('Trezor requires a desktop browser or Android with USB OTG.');
+			return;
+		}
+		setConnectingType('trezor');
+		closeConnectModal();
+
+		try {
+			const { connectTrezor } = await import('$lib/services/external-wallet/trezor-connector');
+			const handle = await connectTrezor({
+				registry: connectorRegistry,
+				navigator: window.navigator
+			});
+			registerConnectedWallet(handle);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to connect Trezor';
+			setConnectedWalletError(message);
+		}
+	}
+
+	async function handleConnectLedger(): Promise<void> {
+		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)) return;
+		const info = getPlatformInfo(window.navigator);
+		const transport = getLedgerTransport(info);
+		if (transport === 'unavailable') {
+			setConnectedWalletError('Ledger requires Bluetooth (mobile) or USB (desktop).');
+			return;
+		}
+		setConnectingType('ledger');
+		closeConnectModal();
+
+		try {
+			const { connectLedger } = await import('$lib/services/external-wallet/ledger-connector');
+			const handle = await connectLedger({
+				registry: connectorRegistry,
+				navigator: window.navigator
+			});
+			registerConnectedWallet(handle);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to connect Ledger';
+			setConnectedWalletError(message);
+		}
 	}
 
 	function confirmDisconnect(walletId: string): void {
@@ -202,6 +254,32 @@
 								<div>
 									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
+								</div>
+							</button>
+						{/if}
+
+						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)}
+							<button
+								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+								onclick={handleConnectTrezor}
+							>
+								<IconUsbFlashDrive class="h-5 w-5" />
+								<div>
+									<div class="font-medium">Trezor</div>
+									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
+								</div>
+							</button>
+						{/if}
+
+						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)}
+							<button
+								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+								onclick={handleConnectLedger}
+							>
+								<IconLock class="h-5 w-5" />
+								<div>
+									<div class="font-medium">Ledger</div>
+									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
 								</div>
 							</button>
 						{/if}

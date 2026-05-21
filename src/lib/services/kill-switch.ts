@@ -13,7 +13,9 @@ export const FEATURE_FLAGS = {
 	SYMBIOSIS_SWAPS: 'symbiosis-swaps',
 	CONNECTED_WALLETS: 'connected-wallets',
 	CONNECTED_METAMASK: 'connected-metamask',
-	CONNECTED_WALLETCONNECT: 'connected-walletconnect'
+	CONNECTED_WALLETCONNECT: 'connected-walletconnect',
+	CONNECTED_TREZOR: 'connected-trezor',
+	CONNECTED_LEDGER: 'connected-ledger'
 } as const;
 
 /**
@@ -56,6 +58,14 @@ export function isConnectedWalletConnectEnabled(): boolean {
 	return import.meta.env.VITE_CONNECTED_WALLETCONNECT_ENABLED === 'true';
 }
 
+export function isConnectedTrezorEnabled(): boolean {
+	return import.meta.env.VITE_CONNECTED_TREZOR_ENABLED === 'true';
+}
+
+export function isConnectedLedgerEnabled(): boolean {
+	return import.meta.env.VITE_CONNECTED_LEDGER_ENABLED === 'true';
+}
+
 /**
  * Runtime feature flag service for gating functionality by feature name.
  * All checks are pure functions backed by build-time environment variables.
@@ -89,6 +99,10 @@ export const FeatureFlagService = {
 				return isConnectedMetaMaskEnabled();
 			case FEATURE_FLAGS.CONNECTED_WALLETCONNECT:
 				return isConnectedWalletConnectEnabled();
+			case FEATURE_FLAGS.CONNECTED_TREZOR:
+				return isConnectedTrezorEnabled();
+			case FEATURE_FLAGS.CONNECTED_LEDGER:
+				return isConnectedLedgerEnabled();
 			default:
 				debug.warn('Unknown feature flag queried: %s', feature);
 				return false;

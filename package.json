@@ -239,6 +239,7 @@
 	},
 	"optionalDependencies": {
 		"@ledgerhq/hw-app-btc": "^10.22.1",
+		"@ledgerhq/hw-app-eth": "^7.8.2",
 		"@ledgerhq/hw-transport-ble": "npm:null@*",
 		"@ledgerhq/hw-transport-web-ble": "^6.34.2",
 		"@ledgerhq/hw-transport-webusb": "^6.34.2",
