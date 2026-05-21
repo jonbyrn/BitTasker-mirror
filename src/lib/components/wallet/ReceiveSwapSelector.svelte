@@ -15,6 +15,7 @@
 		network: string;
 		group: 'btc' | 'usdt' | 'other';
 		chainName?: string;
+		recommended?: boolean;
 	}
 
 	// -----------------------------------------------------------------------
@@ -31,7 +32,8 @@
 			label: 'Rootstock Bitcoin',
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			network: 'rootstock-bitcoin',
-			group: 'btc'
+			group: 'btc',
+			recommended: true
 		},
 		{
 			id: 'btc-lightning',
@@ -64,7 +66,8 @@
 			label: 'Binance',
 			icon: '/images/chains/Binance-logo.svg',
 			network: 'usdt-bsc',
-			group: 'usdt'
+			group: 'usdt',
+			recommended: true
 		},
 		{
 			id: 'usdt-arb',
@@ -436,6 +439,11 @@
 									</div>
 								{/if}
 							</div>
+							{#if network.recommended}
+								<span class="badge badge-primary badge-xs shrink-0 text-[10px]"
+									>{$t('wallet.recommended')}</span
+								>
+							{/if}
 							{#if selectedId === network.id}
 								<span
 									class="text-primary ml-auto shrink-0 text-xs {network.group === 'other'

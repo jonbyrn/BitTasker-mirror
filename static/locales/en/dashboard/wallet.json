@@ -82,6 +82,7 @@
 		"tx_network": "Network",
 		"from": "From",
 		"to": "To",
+		"recommended": "Recommended",
 		"status_confirmed": "Confirmed",
 		"status_pending": "Pending",
 		"status_failed": "Failed",

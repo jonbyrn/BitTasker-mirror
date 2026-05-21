@@ -82,6 +82,7 @@
 		"tx_network": "Red",
 		"from": "De",
 		"to": "Para",
+		"recommended": "Recomendado",
 		"status_confirmed": "Confirmado",
 		"status_pending": "Pendiente",
 		"status_failed": "Fallido",
