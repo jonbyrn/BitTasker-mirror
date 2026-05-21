@@ -18,6 +18,8 @@
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconWallet from '~icons/mdi/wallet';
+	import IconCellphoneLink from '~icons/mdi/cellphone-link';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
@@ -331,21 +333,27 @@
 		{#if $walletStore.isConnected || !hasErrors}
 			<!-- Tab Bar (only shown when connected wallets feature is enabled) -->
 			{#if walletsEnabled}
-				<div class="tabs tabs-bordered bg-base-100 rounded-lg">
+				<div
+					class="tabs tabs-boxed tabs-reversed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+				>
 					<button
-						class="tab tab-sm sm:tab-md flex-1 {activeTab === 'wallet'
-							? 'tab-active font-semibold'
-							: ''}"
+						class="tab flex-1"
+						class:bg-primary={activeTab === 'wallet'}
+						class:text-primary-content={activeTab === 'wallet'}
+						class:tab-active={activeTab === 'wallet'}
 						onclick={() => (activeTab = 'wallet')}
 					>
+						<IconWallet class="mr-1 h-4 w-4" />
 						{$t('wallet.tab_wallet')}
 					</button>
 					<button
-						class="tab tab-sm sm:tab-md flex-1 {activeTab === 'connected'
-							? 'tab-active font-semibold'
-							: ''}"
+						class="tab flex-1"
+						class:bg-primary={activeTab === 'connected'}
+						class:text-primary-content={activeTab === 'connected'}
+						class:tab-active={activeTab === 'connected'}
 						onclick={() => (activeTab = 'connected')}
 					>
+						<IconCellphoneLink class="mr-1 h-4 w-4" />
 						{$t('wallet.tab_connected')}
 					</button>
 				</div>
