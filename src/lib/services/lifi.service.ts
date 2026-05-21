@@ -52,12 +52,26 @@ export interface LifiToken {
 	chainId: number;
 	decimals: number;
 	name: string;
+	logoURI?: string;
 }
 
 export interface LifiChain {
 	id: number;
 	name: string;
 	key: string;
+}
+
+export interface LifiConnection {
+	fromChainId: number;
+	toChainId: number;
+	fromTokens: Array<{
+		address: string;
+		chainId: number;
+		symbol?: string;
+		name?: string;
+		decimals?: number;
+		logoURI?: string;
+	}>;
 }
 
 export interface LifiStep {
@@ -253,5 +267,26 @@ export const lifiService = {
 		const url = `${LIFI_BASE_URL}/tokens?chain=${chainId}`;
 		const response = await fetchLifi<{ tokens: LifiToken[] }>(url);
 		return response.tokens ?? [];
+	},
+
+	/**
+	 * Get available token transfer connections for swap pair verification.
+	 *
+	 * Verifies which tokens on a source chain can be swapped to a destination chain.
+	 *
+	 * @param fromChain - The source chain ID
+	 * @param toChain - The destination chain ID
+	 * @returns Connection info with available source tokens
+	 */
+	async getConnections(fromChain: number, toChain: number): Promise<LifiConnection[]> {
+		requireLifiEnabled();
+
+		if (!fromChain || !toChain || fromChain <= 0 || toChain <= 0) {
+			throw new Error('getConnections requires valid fromChain and toChain');
+		}
+
+		const url = `${LIFI_BASE_URL}/connections?fromChain=${fromChain}&toChain=${toChain}`;
+		const response = await fetchLifi<{ connections: LifiConnection[] }>(url);
+		return response.connections ?? [];
 	}
 };
