@@ -23,8 +23,37 @@
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import { ensureEVMChain } from '$lib/services/external-wallet/metamask-connector';
 
 	let copiedAddress = $state<string | null>(null);
+	let switchingChain = $state<{ walletId: string; chain: string } | null>(null);
+
+	async function switchChain(
+		walletId: string,
+		targetChainId: number,
+		chainName: string
+	): Promise<void> {
+		switchingChain = { walletId, chain: chainName };
+		try {
+			const ethereum = (
+				window as {
+					ethereum?: {
+						request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+						on(event: string, cb: (...a: unknown[]) => void): void;
+						removeListener(event: string, cb: (...a: unknown[]) => void): void;
+						chainId?: string;
+					};
+				}
+			).ethereum;
+			if (!ethereum) throw new Error('MetaMask provider not found');
+			await ensureEVMChain(ethereum, targetChainId);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to switch chain';
+			setConnectedWalletError(message);
+		} finally {
+			switchingChain = null;
+		}
+	}
 
 	async function copyAddress(addr: string): Promise<void> {
 		await copyToClipboard(addr);
@@ -277,13 +306,28 @@
 													alt="rBTC"
 													class="h-4 w-4"
 												/>
-												rBTC {#if !onRSK}(switch chain){/if}
+												rBTC
 											</span>
-											<span class="font-semibold"
-												>{onRSK && wallet.balances?.rbtc?.raw
-													? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
-													: '0'} Sats</span
-											>
+											{#if onRSK}
+												<span class="font-semibold"
+													>{wallet.balances?.rbtc?.raw
+														? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
+														: '0'} Sats</span
+												>
+											{:else if wallet.walletType === 'metamask'}
+												<button
+													class="btn btn-xs btn-outline btn-primary"
+													onclick={() => switchChain(wallet.id, 30, 'RSK')}
+													disabled={switchingChain?.walletId === wallet.id}
+												>
+													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'RSK'}
+														<span class="loading loading-spinner loading-xs"></span>
+													{/if}
+													Switch
+												</button>
+											{:else}
+												<span class="text-xs opacity-50">0 Sats</span>
+											{/if}
 										</div>
 									{/if}
 
@@ -292,17 +336,32 @@
 										<div class="flex items-center justify-between text-sm">
 											<span class="flex items-center gap-1.5">
 												<img src="/images/chains/Binance-logo.svg" alt="USDT" class="h-4 w-4" />
-												USDT (BSC) {#if !onBSC}(switch chain){/if}
+												USDT (BSC)
 											</span>
-											<span class="font-semibold"
-												>{onBSC && wallet.balances?.usdt?.raw
-													? '$' +
-														(Number(wallet.balances.usdt.raw) / 1e6).toLocaleString('en-US', {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2
-														})
-													: '$0.00'}</span
-											>
+											{#if onBSC}
+												<span class="font-semibold"
+													>{wallet.balances?.usdt?.raw
+														? '$' +
+															(Number(wallet.balances.usdt.raw) / 1e6).toLocaleString('en-US', {
+																minimumFractionDigits: 2,
+																maximumFractionDigits: 2
+															})
+														: '$0.00'}</span
+												>
+											{:else if wallet.walletType === 'metamask'}
+												<button
+													class="btn btn-xs btn-outline btn-primary"
+													onclick={() => switchChain(wallet.id, 56, 'BSC')}
+													disabled={switchingChain?.walletId === wallet.id}
+												>
+													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'BSC'}
+														<span class="loading loading-spinner loading-xs"></span>
+													{/if}
+													Switch
+												</button>
+											{:else}
+												<span class="text-xs opacity-50">$0.00</span>
+											{/if}
 										</div>
 									{/if}
 								{/if}
