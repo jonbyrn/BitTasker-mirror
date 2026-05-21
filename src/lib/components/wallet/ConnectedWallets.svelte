@@ -32,6 +32,37 @@
 	const RSK_CHAIN_ID = getChainIdForNetwork('rootstock-bitcoin');
 	const BSC_CHAIN_ID = getChainIdForNetwork('usdt-bsc');
 
+	// Read current MetaMask chain reactively (not from stale connect-time data)
+	let currentMetaMaskChainId = $state<number | null>(null);
+	$effect(() => {
+		const ethereum = (
+			window as {
+				ethereum?: {
+					chainId?: string;
+					on(event: string, cb: (...a: unknown[]) => void): void;
+					removeListener(event: string, cb: (...a: unknown[]) => void): void;
+				};
+			}
+		).ethereum;
+		if (!ethereum) return;
+		const update = () => {
+			const hex = ethereum.chainId;
+			if (hex) currentMetaMaskChainId = parseInt(hex, 16);
+		};
+		update();
+		ethereum.on('chainChanged', update);
+		return () => {
+			ethereum.removeListener('chainChanged', update);
+		};
+	});
+
+	function isOnChain(chainId: number): boolean {
+		// Check live MetaMask chain first, then stored chainIds
+		if (currentMetaMaskChainId === chainId) return true;
+		// For WalletConnect/Trezor/Ledger, check stored chainIds
+		return $connectedWalletsStore.wallets.some((w) => w.chainIds.includes(chainId));
+	}
+
 	async function switchChain(
 		walletId: string,
 		targetChainId: number,
@@ -360,8 +391,8 @@
 										wallet.walletType === 'metamask' ||
 										wallet.walletType === 'walletconnect' ||
 										isHardwareWallet}
-									{@const onRSK = wallet.chainIds.some((c) => c === RSK_CHAIN_ID)}
-									{@const onBSC = wallet.chainIds.some((c) => c === BSC_CHAIN_ID)}
+									{@const onRSK = isOnChain(RSK_CHAIN_ID)}
+									{@const onBSC = isOnChain(BSC_CHAIN_ID)}
 
 									<!-- Bitcoin L1 — only hardware wallets -->
 									{#if isHardwareWallet}
