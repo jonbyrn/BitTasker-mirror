@@ -23,10 +23,7 @@
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		ensureEVMChain,
-		getChainIdForNetwork
-	} from '$lib/services/external-wallet/metamask-connector';
+	import { getChainIdForNetwork } from '$lib/services/external-wallet/metamask-connector';
 
 	let copiedAddress = $state<string | null>(null);
 	let switchingChain = $state<{ walletId: string; chain: string } | null>(null);
@@ -41,23 +38,97 @@
 		chainName: string
 	): Promise<void> {
 		switchingChain = { walletId, chain: chainName };
+		const ethereum = (
+			window as {
+				ethereum?: { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
+			}
+		).ethereum;
+		console.log(
+			'[SwitchChain] Starting switch to',
+			chainName,
+			'chainId:',
+			targetChainId,
+			'ethereum:',
+			!!ethereum
+		);
+		if (!ethereum) {
+			console.error('[SwitchChain] No ethereum provider found on window');
+			setConnectedWalletError('MetaMask not detected');
+			switchingChain = null;
+			return;
+		}
+		const hexChainId = '0x' + targetChainId.toString(16);
+		console.log('[SwitchChain] Calling wallet_switchEthereumChain with hex:', hexChainId);
 		try {
-			const ethereum = (
-				window as {
-					ethereum?: {
-						request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-						on(event: string, cb: (...a: unknown[]) => void): void;
-						removeListener(event: string, cb: (...a: unknown[]) => void): void;
-						chainId?: string;
+			await ethereum.request({
+				method: 'wallet_switchEthereumChain',
+				params: [{ chainId: hexChainId }]
+			});
+			console.log('[SwitchChain] Successfully switched to', chainName);
+		} catch (switchError: unknown) {
+			const err = switchError as { code?: number; message?: string };
+			console.warn('[SwitchChain] Switch failed (code:', err.code, '):', err.message);
+			if (err.code === 4902) {
+				console.log('[SwitchChain] Chain not added, attempting wallet_addEthereumChain');
+				try {
+					const chains: Record<
+						number,
+						{ name: string; rpc: string; explorer: string; symbol: string }
+					> = {
+						30: {
+							name: 'Rootstock Mainnet',
+							rpc: 'https://rpc.mainnet.rootstock.io',
+							explorer: 'https://explorer.rootstock.io',
+							symbol: 'RBTC'
+						},
+						31: {
+							name: 'Rootstock Testnet',
+							rpc: 'https://rpc.testnet.rootstock.io',
+							explorer: 'https://explorer.testnet.rootstock.io',
+							symbol: 'tRBTC'
+						},
+						56: {
+							name: 'BNB Smart Chain',
+							rpc: 'https://bsc-dataseed1.binance.org',
+							explorer: 'https://bscscan.com',
+							symbol: 'BNB'
+						},
+						97: {
+							name: 'BNB Smart Chain Testnet',
+							rpc: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+							explorer: 'https://testnet.bscscan.com',
+							symbol: 'tBNB'
+						}
 					};
+					const c = chains[targetChainId];
+					if (c) {
+						await ethereum.request({
+							method: 'wallet_addEthereumChain',
+							params: [
+								{
+									chainId: hexChainId,
+									chainName: c.name,
+									nativeCurrency: { name: c.symbol, symbol: c.symbol, decimals: 18 },
+									rpcUrls: [c.rpc],
+									blockExplorerUrls: [c.explorer]
+								}
+							]
+						});
+						console.log('[SwitchChain] Successfully added and switched to', chainName);
+					} else {
+						throw new Error(`Unsupported chain ID: ${targetChainId}`);
+					}
+				} catch (addError: unknown) {
+					const ae = addError as { message?: string };
+					console.error('[SwitchChain] Add chain failed:', ae.message);
+					throw new Error(ae.message || 'Failed to add chain');
 				}
-			).ethereum;
-			if (!ethereum) throw new Error('MetaMask provider not found');
-			await ensureEVMChain(ethereum, targetChainId);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to switch chain';
-			setConnectedWalletError(message);
+			} else {
+				console.error('[SwitchChain] Unexpected error:', err.message);
+				throw new Error(err.message || 'Failed to switch chain');
+			}
 		} finally {
+			console.log('[SwitchChain] Done, clearing switchingChain');
 			switchingChain = null;
 		}
 	}
@@ -252,15 +323,18 @@
 				>
 					<button
 						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-base font-medium"
 						onclick={() => (expandedWalletId = isExpanded ? null : wallet.id)}
 					>
 						{#if logo}
-							<img src={logo} alt={wallet.walletName} class="h-5 w-5 shrink-0" />
+							<img src={logo} alt={wallet.walletName} class="h-6 w-6 shrink-0" />
 						{/if}
 						<span>{wallet.walletName}</span>
+						<span class="text-base-content/50 ml-auto truncate pr-6 text-sm font-normal">
+							{wallet.address.slice(0, 10)}...{wallet.address.slice(-6)}
+						</span>
 					</button>
-					<div class="collapse-content px-2 py-2">
+					<div class="collapse-content px-2">
 						<div class="border-base-300 space-y-2 border-t pt-2">
 							<!-- Copy-able address -->
 							<button
