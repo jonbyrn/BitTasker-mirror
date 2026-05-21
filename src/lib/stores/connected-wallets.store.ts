@@ -164,7 +164,7 @@ async function persistState(): Promise<void> {
 	try {
 		const state = get(connectedWalletsStore);
 		const toPersist: ConnectedWalletState = {
-			version: 1,
+			version: 2,
 			wallets: state.wallets.map((w) => ({
 				id: w.id,
 				walletName: w.walletName,
@@ -190,6 +190,13 @@ export async function restoreConnectedWalletState(): Promise<void> {
 		const parsed: unknown = JSON.parse(value);
 		if (!isValidPersistedState(parsed)) {
 			await Preferences.remove({ key: PREFERENCES_KEY });
+			return;
+		}
+
+		// Migration: clear old data if version < 2 (pre-Multichain SDK)
+		if (parsed.version < 2) {
+			await Preferences.remove({ key: PREFERENCES_KEY });
+			connectedWalletsStore.set(createInitialState());
 			return;
 		}
 
