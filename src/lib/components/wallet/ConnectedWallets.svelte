@@ -19,7 +19,21 @@
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import { onMount, onDestroy } from 'svelte';
 	import IconClose from '~icons/mdi/close';
+	import IconContentCopy from '~icons/mdi/content-copy';
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
+
+	let copiedAddress = $state<string | null>(null);
+
+	async function copyAddress(addr: string): Promise<void> {
+		await copyToClipboard(addr);
+		copiedAddress = addr;
+		appStore.showSuccessToast('Address copied');
+		setTimeout(() => {
+			copiedAddress = null;
+		}, 2000);
+	}
 
 	function walletLogo(type: string): string {
 		switch (type) {
@@ -206,38 +220,78 @@
 						onclick={() => (expandedWalletId = isExpanded ? null : wallet.id)}
 					>
 						{#if logo}
-							<img src={logo} alt={wallet.walletName} class="h-5 w-5" />
+							<img src={logo} alt={wallet.walletName} class="h-5 w-5 shrink-0" />
 						{/if}
-						<span class="min-w-0 flex-1 truncate">{wallet.walletName}</span>
-						<span class="text-xs opacity-70"
-							>{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
-						>
+						<span>{wallet.walletName}</span>
 					</button>
 					<div class="collapse-content px-2 pb-2">
-						<div class="border-base-300 space-y-1.5 border-t pt-2">
-							<div class="flex items-center justify-between text-xs opacity-70">
-								<span>Address</span>
-								<span class="font-mono"
-									>{wallet.address.slice(0, 10)}...{wallet.address.slice(-8)}</span
-								>
-							</div>
-							{#if Object.keys(wallet.balances).length > 0}
-								{#each Object.entries(wallet.balances) as [asset, bal] (asset)}
-									{#if bal.formatted !== '0' && bal.formatted !== '0.00'}
-										<div class="flex items-center justify-between text-sm">
-											<span class="font-medium">{asset}</span>
-											<span class="font-semibold">{bal.formatted}</span>
-										</div>
-									{/if}
-								{/each}
-							{/if}
+						<div class="border-base-300 space-y-2 border-t pt-2">
+							<!-- Copy-able address -->
 							<button
-								class="btn btn-ghost btn-xs text-error mt-1"
-								onclick={() => confirmDisconnect(wallet.id)}
+								type="button"
+								class="hover:bg-base-200 flex w-full items-center justify-between gap-2 rounded p-1.5 text-xs transition-colors"
+								onclick={() => copyAddress(wallet.address)}
+								title="Copy address"
 							>
-								<IconClose class="mr-1 h-3 w-3" />
-								Disconnect
+								<span class="truncate font-mono opacity-60">{wallet.address}</span>
+								<IconContentCopy
+									class="h-4 w-4 shrink-0 {copiedAddress === wallet.address
+										? 'text-success'
+										: 'opacity-40'}"
+								/>
 							</button>
+
+							<!-- Balances: Bitcoin, rBTC, USDT on BSC -->
+							<div class="space-y-1">
+								{#if wallet.chainIds.some((c) => c === 0 || c === 1)}
+									<!-- Bitcoin (L1) — Trezor/Ledger -->
+									<div class="flex items-center justify-between text-sm">
+										<span class="flex items-center gap-1.5">
+											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+											Bitcoin
+										</span>
+										<span class="font-semibold"
+											>{wallet.balances?.btc?.formatted ?? '0.00000000'} BTC</span
+										>
+									</div>
+								{/if}
+								{#if wallet.chainIds.some((c) => c === 30 || c === 31)}
+									<!-- rBTC on RSK -->
+									<div class="flex items-center justify-between text-sm">
+										<span class="flex items-center gap-1.5">
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt="rBTC"
+												class="h-4 w-4"
+											/>
+											rBTC
+										</span>
+										<span class="font-semibold">{wallet.balances?.rbtc?.formatted ?? '0'} rBTC</span
+										>
+									</div>
+								{/if}
+								{#if wallet.chainIds.some((c) => c === 56 || c === 97)}
+									<!-- USDT on BSC -->
+									<div class="flex items-center justify-between text-sm">
+										<span class="flex items-center gap-1.5">
+											<img src="/images/chains/Binance-logo.svg" alt="USDT" class="h-4 w-4" />
+											USDT (BSC)
+										</span>
+										<span class="font-semibold">{wallet.balances?.usdt?.formatted ?? '$0.00'}</span>
+									</div>
+								{/if}
+							</div>
+
+							<!-- Disconnect button — min 44px, right-aligned -->
+							<div class="flex justify-end">
+								<button
+									class="btn btn-ghost btn-sm text-error min-h-[44px]"
+									onclick={() => confirmDisconnect(wallet.id)}
+								>
+									<IconClose class="mr-1 h-4 w-4" />
+									Disconnect
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -271,7 +325,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectMetaMask}
 							>
-								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-5 w-5" />
+								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-7 w-7" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.metamask_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
@@ -284,7 +338,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectWC}
 							>
-								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-5 w-5" />
+								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-7 w-7" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
@@ -297,7 +351,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectTrezor}
 							>
-								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-5 w-5" />
+								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-7 w-7" />
 								<div>
 									<div class="font-medium">Trezor</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
@@ -310,7 +364,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectLedger}
 							>
-								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-5 w-5" />
+								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-7 w-7" />
 								<div>
 									<div class="font-medium">Ledger</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
