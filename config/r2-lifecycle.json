@@ -1,0 +1,23 @@
+{
+	"_comment": "Cloudflare R2 lifecycle rules for BitTasker database backups. Apply with: npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json",
+	"Rules": [
+		{
+			"ID": "Prune daily backups after 7 days",
+			"Status": "Enabled",
+			"Filter": { "Prefix": "daily/" },
+			"Expiration": { "Days": 7 }
+		},
+		{
+			"ID": "Prune weekly backups after 28 days",
+			"Status": "Enabled",
+			"Filter": { "Prefix": "weekly/" },
+			"Expiration": { "Days": 28 }
+		},
+		{
+			"ID": "Prune monthly backups after 90 days",
+			"Status": "Enabled",
+			"Filter": { "Prefix": "monthly/" },
+			"Expiration": { "Days": 90 }
+		}
+	]
+}

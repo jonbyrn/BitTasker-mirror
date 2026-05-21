@@ -55,6 +55,7 @@
 stages:
   - validate
   - deploy
+  - backup
 
 # ============================================
 # BUILD - Single build for E2E and deploy (validate stage)
@@ -276,3 +277,37 @@ deploy-development:
 #     url: https://worker.prod.bittasker.com
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == "master"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Runs pg_dump for all three Railway PostgreSQL databases and uploads to
+# Cloudflare R2 under RETENTION_TYPE prefix (daily/weekly/monthly).
+#
+# Three GitLab pipeline schedules trigger this job:
+#   - Daily   → RETENTION_TYPE=daily,   cron: 0 3 * * *
+#   - Weekly  → RETENTION_TYPE=weekly,  cron: 0 3 * * 0
+#   - Monthly → RETENTION_TYPE=monthly, cron: 0 3 1 * *
+#
+# Required CI/CD variables (set in GitLab → Settings → CI/CD → Variables):
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+#   PG_HOST_API, PG_HOST_RELAY_TASKS, PG_HOST_RELAY_GENERAL
+#   PGUSER_BACKUP, PGPASSWORD_BACKUP
+#
+# See docs/ci/server-backup.md for full setup instructions.
+# ═══════════════════════════════════════════════════════════════════════════════
+db-backup:
+  image: postgres:16-alpine
+  stage: backup
+  tags:
+    - self-hosted
+  before_script:
+    - apk add --no-cache python3 py3-pip
+    - pip3 install --break-system-packages --quiet awscli
+  script:
+    - bash scripts/backup-databases.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  environment:
+    name: production
