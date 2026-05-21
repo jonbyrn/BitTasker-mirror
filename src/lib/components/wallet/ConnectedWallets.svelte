@@ -224,7 +224,7 @@
 						{/if}
 						<span>{wallet.walletName}</span>
 					</button>
-					<div class="collapse-content px-2 pb-2">
+					<div class="collapse-content px-2 py-2">
 						<div class="border-base-300 space-y-2 border-t pt-2">
 							<!-- Copy-able address -->
 							<button
@@ -241,49 +241,70 @@
 								/>
 							</button>
 
-							<!-- Balances: Bitcoin, rBTC, USDT on BSC -->
+							<!-- Balances: by wallet type + available chains -->
 							<div class="space-y-1">
-								{#if wallet.chainIds.some((c) => c === 0 || c === 1)}
-									<!-- Bitcoin (L1) — Trezor/Ledger -->
-									<div class="flex items-center justify-between text-sm">
-										<span class="flex items-center gap-1.5">
-											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-											Bitcoin
-										</span>
-										<span class="font-semibold"
-											>{wallet.balances?.btc?.raw
-												? Number(wallet.balances.btc.raw).toLocaleString('en-US')
-												: '0'} Sats</span
-										>
-									</div>
-								{/if}
-								{#if wallet.chainIds.some((c) => c === 30 || c === 31)}
-									<!-- rBTC on RSK -->
-									<div class="flex items-center justify-between text-sm">
-										<span class="flex items-center gap-1.5">
-											<img
-												src="/images/chains/Bitcoin-Rootstock-logo.webp"
-												alt="rBTC"
-												class="h-4 w-4"
-											/>
-											rBTC
-										</span>
-										<span class="font-semibold"
-											>{wallet.balances?.rbtc?.raw
-												? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
-												: '0'} Sats</span
-										>
-									</div>
-								{/if}
-								{#if wallet.chainIds.some((c) => c === 56 || c === 97)}
-									<!-- USDT on BSC -->
-									<div class="flex items-center justify-between text-sm">
-										<span class="flex items-center gap-1.5">
-											<img src="/images/chains/Binance-logo.svg" alt="USDT" class="h-4 w-4" />
-											USDT (BSC)
-										</span>
-										<span class="font-semibold">{wallet.balances?.usdt?.formatted ?? '$0.00'}</span>
-									</div>
+								{#if true}
+									{@const isHardwareWallet =
+										wallet.walletType === 'trezor' || wallet.walletType === 'ledger'}
+									{@const isEVM =
+										wallet.walletType === 'metamask' ||
+										wallet.walletType === 'walletconnect' ||
+										isHardwareWallet}
+									{@const onRSK = wallet.chainIds.some((c) => c === 30 || c === 31)}
+									{@const onBSC = wallet.chainIds.some((c) => c === 56 || c === 97)}
+
+									<!-- Bitcoin L1 — only hardware wallets -->
+									{#if isHardwareWallet}
+										<div class="flex items-center justify-between text-sm">
+											<span class="flex items-center gap-1.5">
+												<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+												Bitcoin
+											</span>
+											<span class="font-semibold"
+												>{wallet.balances?.btc?.raw
+													? Number(wallet.balances.btc.raw).toLocaleString('en-US')
+													: '0'} Sats</span
+											>
+										</div>
+									{/if}
+
+									<!-- rBTC on RSK — all EVM wallets + hardware -->
+									{#if isEVM}
+										<div class="flex items-center justify-between text-sm">
+											<span class="flex items-center gap-1.5">
+												<img
+													src="/images/chains/Bitcoin-Rootstock-logo.webp"
+													alt="rBTC"
+													class="h-4 w-4"
+												/>
+												rBTC {#if !onRSK}(switch chain){/if}
+											</span>
+											<span class="font-semibold"
+												>{onRSK && wallet.balances?.rbtc?.raw
+													? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
+													: '0'} Sats</span
+											>
+										</div>
+									{/if}
+
+									<!-- USDT on BSC — all EVM wallets + hardware -->
+									{#if isEVM}
+										<div class="flex items-center justify-between text-sm">
+											<span class="flex items-center gap-1.5">
+												<img src="/images/chains/Binance-logo.svg" alt="USDT" class="h-4 w-4" />
+												USDT (BSC) {#if !onBSC}(switch chain){/if}
+											</span>
+											<span class="font-semibold"
+												>{onBSC && wallet.balances?.usdt?.raw
+													? '$' +
+														(Number(wallet.balances.usdt.raw) / 1e6).toLocaleString('en-US', {
+															minimumFractionDigits: 2,
+															maximumFractionDigits: 2
+														})
+													: '$0.00'}</span
+											>
+										</div>
+									{/if}
 								{/if}
 							</div>
 
@@ -359,7 +380,7 @@
 								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">Trezor</div>
-									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
+									<div class="text-xs opacity-60">Hardware wallet</div>
 								</div>
 							</button>
 						{/if}
@@ -372,7 +393,7 @@
 								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">Ledger</div>
-									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
+									<div class="text-xs opacity-60">Hardware wallet</div>
 								</div>
 							</button>
 						{/if}
