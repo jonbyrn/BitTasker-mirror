@@ -23,146 +23,10 @@
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { getChainIdForNetwork } from '$lib/services/external-wallet/metamask-connector';
-
 	let copiedAddress = $state<string | null>(null);
-	let switchingChain = $state<{ walletId: string; chain: string } | null>(null);
 
-	// Resolve correct chain IDs based on environment (mainnet vs testnet)
-	const RSK_CHAIN_ID = getChainIdForNetwork('rootstock-bitcoin');
-	const BSC_CHAIN_ID = getChainIdForNetwork('usdt-bsc');
-
-	// Read current MetaMask chain reactively (not from stale connect-time data)
-	let currentMetaMaskChainId = $state<number | null>(null);
-	$effect(() => {
-		const ethereum = (
-			window as {
-				ethereum?: {
-					chainId?: string;
-					on(event: string, cb: (...a: unknown[]) => void): void;
-					removeListener(event: string, cb: (...a: unknown[]) => void): void;
-				};
-			}
-		).ethereum;
-		if (!ethereum) return;
-		const update = () => {
-			const hex = ethereum.chainId;
-			if (hex) currentMetaMaskChainId = parseInt(hex, 16);
-		};
-		update();
-		ethereum.on('chainChanged', update);
-		return () => {
-			ethereum.removeListener('chainChanged', update);
-		};
-	});
-
-	function isOnChain(chainId: number): boolean {
-		// Check live MetaMask chain first, then stored chainIds
-		if (currentMetaMaskChainId === chainId) return true;
-		// For WalletConnect/Trezor/Ledger, check stored chainIds
-		return $connectedWalletsStore.wallets.some((w) => w.chainIds.includes(chainId));
-	}
-
-	async function switchChain(
-		walletId: string,
-		targetChainId: number,
-		chainName: string
-	): Promise<void> {
-		switchingChain = { walletId, chain: chainName };
-		const ethereum = (
-			window as {
-				ethereum?: { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
-			}
-		).ethereum;
-		console.log(
-			'[SwitchChain] Starting switch to',
-			chainName,
-			'chainId:',
-			targetChainId,
-			'ethereum:',
-			!!ethereum
-		);
-		if (!ethereum) {
-			console.error('[SwitchChain] No ethereum provider found on window');
-			setConnectedWalletError('MetaMask not detected');
-			switchingChain = null;
-			return;
-		}
-		const hexChainId = '0x' + targetChainId.toString(16);
-		console.log('[SwitchChain] Calling wallet_switchEthereumChain with hex:', hexChainId);
-		try {
-			await ethereum.request({
-				method: 'wallet_switchEthereumChain',
-				params: [{ chainId: hexChainId }]
-			});
-			console.log('[SwitchChain] Successfully switched to', chainName);
-		} catch (switchError: unknown) {
-			const err = switchError as { code?: number; message?: string };
-			console.warn('[SwitchChain] Switch failed (code:', err.code, '):', err.message);
-			if (err.code === 4902) {
-				console.log('[SwitchChain] Chain not added, attempting wallet_addEthereumChain');
-				try {
-					const chains: Record<
-						number,
-						{ name: string; rpc: string; explorer: string; symbol: string }
-					> = {
-						30: {
-							name: 'Rootstock Mainnet',
-							rpc: 'https://rpc.mainnet.rootstock.io',
-							explorer: 'https://explorer.rootstock.io',
-							symbol: 'RBTC'
-						},
-						31: {
-							name: 'Rootstock Testnet',
-							rpc: 'https://rpc.testnet.rootstock.io',
-							explorer: 'https://explorer.testnet.rootstock.io',
-							symbol: 'tRBTC'
-						},
-						56: {
-							name: 'BNB Smart Chain',
-							rpc: 'https://bsc-dataseed1.binance.org',
-							explorer: 'https://bscscan.com',
-							symbol: 'BNB'
-						},
-						97: {
-							name: 'BNB Smart Chain Testnet',
-							rpc: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-							explorer: 'https://testnet.bscscan.com',
-							symbol: 'tBNB'
-						}
-					};
-					const c = chains[targetChainId];
-					if (c) {
-						await ethereum.request({
-							method: 'wallet_addEthereumChain',
-							params: [
-								{
-									chainId: hexChainId,
-									chainName: c.name,
-									nativeCurrency: { name: c.symbol, symbol: c.symbol, decimals: 18 },
-									rpcUrls: [c.rpc],
-									blockExplorerUrls: [c.explorer]
-								}
-							]
-						});
-						console.log('[SwitchChain] Successfully added and switched to', chainName);
-					} else {
-						throw new Error(`Unsupported chain ID: ${targetChainId}`);
-					}
-				} catch (addError: unknown) {
-					const ae = addError as { message?: string };
-					console.error('[SwitchChain] Add chain failed:', ae.message);
-					throw new Error(ae.message || 'Failed to add chain');
-				}
-			} else {
-				console.error('[SwitchChain] Unexpected error:', err.message);
-				throw new Error(err.message || 'Failed to switch chain');
-			}
-		} finally {
-			console.log('[SwitchChain] Done, clearing switchingChain');
-			switchingChain = null;
-		}
-	}
+	// With Multichain SDK, MetaMask connects to ALL configured chains simultaneously.
+	// Balances queried from all scopes — no manual switching needed.
 
 	async function copyAddress(addr: string): Promise<void> {
 		await copyToClipboard(addr);
@@ -391,8 +255,6 @@
 										wallet.walletType === 'metamask' ||
 										wallet.walletType === 'walletconnect' ||
 										isHardwareWallet}
-									{@const onRSK = isOnChain(RSK_CHAIN_ID)}
-									{@const onBSC = isOnChain(BSC_CHAIN_ID)}
 
 									<!-- Bitcoin L1 — only hardware wallets -->
 									{#if isHardwareWallet}
@@ -420,26 +282,11 @@
 												/>
 												rBTC
 											</span>
-											{#if onRSK}
-												<span class="font-semibold"
-													>{wallet.balances?.rbtc?.raw
-														? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
-														: '0'} Sats</span
-												>
-											{:else if wallet.walletType === 'metamask'}
-												<button
-													class="btn btn-xs btn-outline btn-primary"
-													onclick={() => switchChain(wallet.id, RSK_CHAIN_ID, 'RSK')}
-													disabled={switchingChain?.walletId === wallet.id}
-												>
-													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'RSK'}
-														<span class="loading loading-spinner loading-xs"></span>
-													{/if}
-													Switch
-												</button>
-											{:else}
-												<span class="text-xs opacity-50">0 Sats</span>
-											{/if}
+											<span class="font-semibold"
+												>{wallet.balances?.rbtc?.raw
+													? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
+													: '0'} Sats</span
+											>
 										</div>
 									{/if}
 
@@ -450,30 +297,15 @@
 												<img src="/images/chains/Binance-logo.svg" alt="USDT" class="h-4 w-4" />
 												USDT (BSC)
 											</span>
-											{#if onBSC}
-												<span class="font-semibold"
-													>{wallet.balances?.usdt?.raw
-														? '$' +
-															(Number(wallet.balances.usdt.raw) / 1e6).toLocaleString('en-US', {
-																minimumFractionDigits: 2,
-																maximumFractionDigits: 2
-															})
-														: '$0.00'}</span
-												>
-											{:else if wallet.walletType === 'metamask'}
-												<button
-													class="btn btn-xs btn-outline btn-primary"
-													onclick={() => switchChain(wallet.id, BSC_CHAIN_ID, 'BSC')}
-													disabled={switchingChain?.walletId === wallet.id}
-												>
-													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'BSC'}
-														<span class="loading loading-spinner loading-xs"></span>
-													{/if}
-													Switch
-												</button>
-											{:else}
-												<span class="text-xs opacity-50">$0.00</span>
-											{/if}
+											<span class="font-semibold"
+												>{wallet.balances?.usdt?.raw
+													? '$' +
+														(Number(wallet.balances.usdt.raw) / 1e6).toLocaleString('en-US', {
+															minimumFractionDigits: 2,
+															maximumFractionDigits: 2
+														})
+													: '$0.00'}</span
+											>
 										</div>
 									{/if}
 								{/if}
