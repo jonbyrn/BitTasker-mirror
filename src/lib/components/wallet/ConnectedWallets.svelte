@@ -229,11 +229,11 @@
 							<!-- Copy-able address -->
 							<button
 								type="button"
-								class="hover:bg-base-200 flex w-full items-center justify-between gap-2 rounded p-1.5 text-xs transition-colors"
+								class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
 								onclick={() => copyAddress(wallet.address)}
 								title="Copy address"
 							>
-								<span class="truncate font-mono opacity-60">{wallet.address}</span>
+								<span class="truncate text-right font-mono opacity-60">{wallet.address}</span>
 								<IconContentCopy
 									class="h-4 w-4 shrink-0 {copiedAddress === wallet.address
 										? 'text-success'
@@ -251,7 +251,9 @@
 											Bitcoin
 										</span>
 										<span class="font-semibold"
-											>{wallet.balances?.btc?.formatted ?? '0.00000000'} BTC</span
+											>{wallet.balances?.btc?.raw
+												? Number(wallet.balances.btc.raw).toLocaleString('en-US')
+												: '0'} Sats</span
 										>
 									</div>
 								{/if}
@@ -266,7 +268,10 @@
 											/>
 											rBTC
 										</span>
-										<span class="font-semibold">{wallet.balances?.rbtc?.formatted ?? '0'} rBTC</span
+										<span class="font-semibold"
+											>{wallet.balances?.rbtc?.raw
+												? Number(wallet.balances.rbtc.raw).toLocaleString('en-US')
+												: '0'} Sats</span
 										>
 									</div>
 								{/if}
@@ -325,7 +330,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectMetaMask}
 							>
-								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-7 w-7" />
+								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.metamask_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
@@ -338,7 +343,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectWC}
 							>
-								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-7 w-7" />
+								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
@@ -351,7 +356,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectTrezor}
 							>
-								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-7 w-7" />
+								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">Trezor</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
@@ -364,7 +369,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectLedger}
 							>
-								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-7 w-7" />
+								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
 								<div>
 									<div class="font-medium">Ledger</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
