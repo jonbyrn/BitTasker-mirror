@@ -324,7 +324,11 @@
 			{/each}
 		{/if}
 
-		<button class="btn btn-ghost btn-sm w-full" onclick={openConnectModal}>
+		<button
+			class="btn btn-primary btn-block min-h-[44px] touch-manipulation transition-transform duration-100 select-none active:scale-95"
+			style="-webkit-tap-highlight-color: transparent"
+			onclick={openConnectModal}
+		>
 			{'+ ' + $t('wallet.connected.connect')}
 		</button>
 
