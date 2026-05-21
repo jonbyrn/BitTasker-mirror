@@ -85,7 +85,17 @@
 
 		try {
 			const { connectMetaMask } = await import('$lib/services/external-wallet/metamask-connector');
-			const handle = await connectMetaMask({ registry: connectorRegistry, onEvent: () => {} });
+			const handle = await connectMetaMask({
+				registry: connectorRegistry,
+				onEvent: (event) => {
+					if (event.type === 'disconnect') {
+						// Find and unregister the wallet by address from the store
+						const wallets = $connectedWalletsStore.wallets;
+						const w = wallets.find((w) => w.walletType === 'metamask');
+						if (w) unregisterConnectedWallet(w.id);
+					}
+				}
+			});
 			registerConnectedWallet(handle);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Failed to connect MetaMask';
