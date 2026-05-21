@@ -193,10 +193,12 @@ export async function restoreConnectedWalletState(): Promise<void> {
 			return;
 		}
 
-		// Restore persisted wallet metadata into the store
+		// Restore persisted wallet metadata into the store.
+		// Skip MetaMask — Multichain SDK sessions can't survive page reload.
+		const restorable = parsed.wallets.filter((w) => w.walletType !== 'metamask');
 		connectedWalletsStore.update((state) => ({
 			...state,
-			wallets: parsed.wallets.map((w) => ({
+			wallets: restorable.map((w) => ({
 				id: w.id,
 				walletName: w.walletName,
 				walletType: w.walletType,

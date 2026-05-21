@@ -18,6 +18,7 @@ import { createMultichainClient } from '@metamask/connect-multichain';
 
 type MultiChainClient = Awaited<ReturnType<typeof createMultichainClient>>;
 let multichainClient: MultiChainClient | null = null;
+let clientPromise: Promise<MultiChainClient> | null = null;
 
 export interface ConnectMetaMaskConfig {
 	registry: ConnectorRegistry;
@@ -27,8 +28,9 @@ export interface ConnectMetaMaskConfig {
 const DEFAULT_SCOPES = ['eip155:30', 'eip155:31', 'eip155:56', 'eip155:97', 'eip155:1'] as const;
 
 async function getClient(): Promise<MultiChainClient> {
-	if (!multichainClient) {
-		multichainClient = await createMultichainClient({
+	// Deferred promise prevents race on concurrent connectMetaMask calls
+	if (!clientPromise) {
+		clientPromise = createMultichainClient({
 			dapp: {
 				name: 'BitTasker',
 				url: typeof window !== 'undefined' ? window.location.href : 'https://bittasker.com'
@@ -43,8 +45,11 @@ async function getClient(): Promise<MultiChainClient> {
 				}
 			}
 		});
+		clientPromise.then((c) => {
+			multichainClient = c;
+		});
 	}
-	return multichainClient;
+	return clientPromise;
 }
 
 /**
@@ -70,7 +75,9 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	// Collect accounts from all scopes
 	const accounts: string[] = [];
 	const chainIds: number[] = [];
-	for (const scopeId of DEFAULT_SCOPES) {
+	// Include both default scopes + any user-approved extras
+	const scopeKeys = new Set([...DEFAULT_SCOPES, ...Object.keys(session.sessionScopes)]);
+	for (const scopeId of scopeKeys) {
 		const scope = session.sessionScopes[scopeId];
 		if (scope?.accounts) {
 			for (const acct of scope.accounts) {
@@ -93,8 +100,20 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	const connectorId = `metamask-${address}`;
 
 	// Listen for session events
-	client.on('session_update' as never, () => {
-		config.onEvent({ type: 'accountsChanged', accounts });
+	client.on('session_update' as never, async () => {
+		try {
+			const upd = await provider.getSession();
+			const current: string[] = [];
+			for (const s of Object.keys(upd.sessionScopes)) {
+				for (const a of upd.sessionScopes[s].accounts) {
+					const ad = a.includes(':') ? a.split(':').pop()!.toLowerCase() : a.toLowerCase();
+					if (!current.includes(ad)) current.push(ad);
+				}
+			}
+			config.onEvent({ type: 'accountsChanged', accounts: current });
+		} catch {
+			// best-effort
+		}
 	});
 
 	client.on('disconnect' as never, () => {
