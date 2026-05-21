@@ -19,16 +19,28 @@
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import { onMount, onDestroy } from 'svelte';
 	import IconClose from '~icons/mdi/close';
-	import IconCellphoneLink from '~icons/mdi/cellphone-link';
-	import IconWallet from '~icons/mdi/wallet';
-	import IconUsbFlashDrive from '~icons/mdi/usb-flash-drive';
-	import IconLock from '~icons/mdi/lock';
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
+
+	function walletLogo(type: string): string {
+		switch (type) {
+			case 'metamask':
+				return '/images/wallets/metamask.svg';
+			case 'walletconnect':
+				return '/images/wallets/walletconnect.svg';
+			case 'trezor':
+				return '/images/wallets/trezor.svg';
+			case 'ledger':
+				return '/images/wallets/ledger.svg';
+			default:
+				return '';
+		}
+	}
 
 	let showConnectModal = $state(false);
 	let showDisconnectId = $state<string | null>(null);
 	let showWCModal = $state(false);
 	let wcQRUri = $state<string | null>(null);
+	let expandedWalletId = $state<string | null>(null);
 
 	onDestroy(() => {
 		connectorRegistry.clear();
@@ -182,29 +194,51 @@
 
 		{#if $hasConnectedWallets}
 			{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
-				<div class="border-primary bg-base-100 rounded-lg border-2 p-3">
-					<div class="flex items-center justify-between gap-2">
-						<div class="flex min-w-0 items-center gap-2">
-							<span class="text-lg">
-								{#if wallet.walletType === 'metamask'}<IconWallet class="h-5 w-5 text-orange-500" />
-								{:else if wallet.walletType === 'walletconnect'}<IconCellphoneLink
-										class="h-5 w-5 text-blue-500"
-									/>
-								{:else if wallet.walletType === 'trezor'}<IconUsbFlashDrive class="h-5 w-5" />
-								{:else}<IconLock class="h-5 w-5" />
-								{/if}
-							</span>
-							<div class="min-w-0">
-								<div class="text-sm font-medium">{wallet.walletName}</div>
-								<div class="truncate text-xs opacity-60">{wallet.address}</div>
-							</div>
-						</div>
-						<button
-							class="btn btn-ghost btn-sm text-error"
-							onclick={() => confirmDisconnect(wallet.id)}
+				{@const logo = walletLogo(wallet.walletType)}
+				{@const isExpanded = expandedWalletId === wallet.id}
+				<div
+					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+					class:collapse-open={isExpanded}
+				>
+					<button
+						type="button"
+						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+						onclick={() => (expandedWalletId = isExpanded ? null : wallet.id)}
+					>
+						{#if logo}
+							<img src={logo} alt={wallet.walletName} class="h-5 w-5" />
+						{/if}
+						<span class="min-w-0 flex-1 truncate">{wallet.walletName}</span>
+						<span class="text-xs opacity-70"
+							>{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
 						>
-							<IconClose class="h-4 w-4" />
-						</button>
+					</button>
+					<div class="collapse-content px-2 pb-2">
+						<div class="border-base-300 space-y-1.5 border-t pt-2">
+							<div class="flex items-center justify-between text-xs opacity-70">
+								<span>Address</span>
+								<span class="font-mono"
+									>{wallet.address.slice(0, 10)}...{wallet.address.slice(-8)}</span
+								>
+							</div>
+							{#if Object.keys(wallet.balances).length > 0}
+								{#each Object.entries(wallet.balances) as [asset, bal] (asset)}
+									{#if bal.formatted !== '0' && bal.formatted !== '0.00'}
+										<div class="flex items-center justify-between text-sm">
+											<span class="font-medium">{asset}</span>
+											<span class="font-semibold">{bal.formatted}</span>
+										</div>
+									{/if}
+								{/each}
+							{/if}
+							<button
+								class="btn btn-ghost btn-xs text-error mt-1"
+								onclick={() => confirmDisconnect(wallet.id)}
+							>
+								<IconClose class="mr-1 h-3 w-3" />
+								Disconnect
+							</button>
+						</div>
 					</div>
 				</div>
 			{/each}
@@ -237,7 +271,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectMetaMask}
 							>
-								<IconWallet class="h-5 w-5 text-orange-500" />
+								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-5 w-5" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.metamask_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
@@ -250,7 +284,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectWC}
 							>
-								<IconCellphoneLink class="h-5 w-5" />
+								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-5 w-5" />
 								<div>
 									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
@@ -263,7 +297,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectTrezor}
 							>
-								<IconUsbFlashDrive class="h-5 w-5" />
+								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-5 w-5" />
 								<div>
 									<div class="font-medium">Trezor</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
@@ -276,7 +310,7 @@
 								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 								onclick={handleConnectLedger}
 							>
-								<IconLock class="h-5 w-5" />
+								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-5 w-5" />
 								<div>
 									<div class="font-medium">Ledger</div>
 									<div class="text-xs opacity-60">Hardware wallet — BTC + RSK</div>
