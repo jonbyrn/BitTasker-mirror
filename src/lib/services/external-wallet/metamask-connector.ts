@@ -63,29 +63,53 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	const connectFn = client.connect as unknown as (
 		scopes: string[],
 		accounts: never[]
-	) => Promise<void>;
-	await connectFn(DEFAULT_SCOPES as unknown as string[], []);
+	) => Promise<unknown>;
+	const connectResult = await connectFn(DEFAULT_SCOPES as unknown as string[], []);
+	console.log('[MetaMask SDK] connect result:', connectResult);
 
-	// Get session to find authorized accounts
-	const provider = client.provider as unknown as {
-		getSession(): Promise<{ sessionScopes: Record<string, { accounts: string[] }> }>;
-	};
-	const session = await provider.getSession();
+	// Try multiple session access patterns — SDK APIs vary by version
+	let sessionData: Record<string, { accounts?: string[] }> | null = null;
+	try {
+		// Pattern 1: client.provider.getSession() → { sessionScopes }
+		const p = client.provider as unknown as {
+			getSession?: () => Promise<{ sessionScopes?: Record<string, { accounts?: string[] }> }>;
+		};
+		if (typeof p?.getSession === 'function') {
+			const s = await p.getSession();
+			console.log('[MetaMask SDK] getSession result:', s);
+			sessionData = s.sessionScopes ?? (s as unknown as Record<string, { accounts?: string[] }>);
+		}
+	} catch (e) {
+		console.warn('[MetaMask SDK] getSession failed, trying connect result:', e);
+	}
+
+	// Pattern 2: connect() returns the session directly
+	if (!sessionData && connectResult && typeof connectResult === 'object') {
+		const cr = connectResult as Record<string, unknown>;
+		if (cr.sessionScopes) {
+			sessionData = cr.sessionScopes as Record<string, { accounts?: string[] }>;
+		} else if (cr.approvedScopes) {
+			sessionData = cr.approvedScopes as Record<string, { accounts?: string[] }>;
+		} else if (cr.scopes) {
+			sessionData = cr.scopes as Record<string, { accounts?: string[] }>;
+		}
+	}
+
+	if (!sessionData) {
+		throw new Error('Unable to read session data from MetaMask SDK. Check console for API shape.');
+	}
 
 	// Collect accounts from all scopes
 	const accounts: string[] = [];
 	const chainIds: number[] = [];
-	// Include both default scopes + any user-approved extras
-	const scopeKeys = new Set([...DEFAULT_SCOPES, ...Object.keys(session.sessionScopes)]);
+	const scopeKeys = new Set([...DEFAULT_SCOPES, ...Object.keys(sessionData)]);
 	for (const scopeId of scopeKeys) {
-		const scope = session.sessionScopes[scopeId];
+		const scope = sessionData[scopeId];
 		if (scope?.accounts) {
 			for (const acct of scope.accounts) {
-				// Parse CAIP-10: "eip155:30:0xabc..." → "0xabc..."
 				const addr = acct.includes(':') ? acct.split(':').pop()!.toLowerCase() : acct.toLowerCase();
 				if (!accounts.includes(addr)) accounts.push(addr);
 			}
-			// Extract chain ID from CAIP-2 scope (eip155:30 → 30)
 			const chainId = parseInt(scopeId.split(':')[1], 10);
 			if (!chainIds.includes(chainId)) chainIds.push(chainId);
 		}
@@ -100,17 +124,23 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	const connectorId = `metamask-${address}`;
 
 	// Listen for session events
+	const maybeProvider = client.provider as unknown as {
+		getSession?: () => Promise<{ sessionScopes?: Record<string, { accounts?: string[] }> }>;
+	};
 	client.on('session_update' as never, async () => {
 		try {
-			const upd = await provider.getSession();
-			const current: string[] = [];
-			for (const s of Object.keys(upd.sessionScopes)) {
-				for (const a of upd.sessionScopes[s].accounts) {
-					const ad = a.includes(':') ? a.split(':').pop()!.toLowerCase() : a.toLowerCase();
-					if (!current.includes(ad)) current.push(ad);
+			if (typeof maybeProvider?.getSession === 'function') {
+				const upd = await maybeProvider.getSession();
+				const scopes = upd?.sessionScopes ?? (upd as Record<string, { accounts?: string[] }>);
+				const current: string[] = [];
+				for (const s of Object.keys(scopes)) {
+					for (const a of scopes[s].accounts ?? []) {
+						const ad = a.includes(':') ? a.split(':').pop()!.toLowerCase() : a.toLowerCase();
+						if (!current.includes(ad)) current.push(ad);
+					}
 				}
+				config.onEvent({ type: 'accountsChanged', accounts: current });
 			}
-			config.onEvent({ type: 'accountsChanged', accounts: current });
 		} catch {
 			// best-effort
 		}
