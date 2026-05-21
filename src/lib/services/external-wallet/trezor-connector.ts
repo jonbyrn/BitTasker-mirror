@@ -26,8 +26,8 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 		throw new Error('Trezor not available on iOS');
 	}
 
-	const TrezorConnect = await import('@trezor/connect-web');
-	const api = TrezorConnect as unknown as {
+	const TrezorConnectModule = await import('@trezor/connect-web');
+	const api = (TrezorConnectModule.default ?? TrezorConnectModule) as unknown as {
 		init(params: Record<string, unknown>): Promise<void>;
 		dispose(): void;
 		getPublicKey(params: {
@@ -91,7 +91,8 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 			return true;
 		},
 		async sendTransaction(tx): Promise<{ txHash: string; from: string; chainId: number }> {
-			const TrezorConnect = await import('@trezor/connect-web');
+			const TrezorConnectModule = await import('@trezor/connect-web');
+			const TrezorConnect = TrezorConnectModule.default ?? TrezorConnectModule;
 			const ethersModule = await import('ethers');
 
 			// Get nonce from config provider if available
@@ -255,7 +256,8 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 			}
 
 			// Sign with Trezor
-			const TrezorConnect = await import('@trezor/connect-web');
+			const TrezorConnectModule = await import('@trezor/connect-web');
+			const TrezorConnect = TrezorConnectModule.default ?? TrezorConnectModule;
 			const signResult = await (
 				TrezorConnect as unknown as {
 					signTransaction(params: {
