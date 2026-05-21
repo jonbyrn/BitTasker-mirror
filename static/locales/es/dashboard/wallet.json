@@ -415,8 +415,13 @@
 				"success": "Transacci\u00f3n Confirmada",
 				"confirmed": "Confirmada",
 				"confirmations": "Confirmaciones",
-				"error": "Transacci\u00f3n Fallida"
+				"error": "Transacci\u00f3n Fallida",
+				"retry": "Reintentar"
 			},
+			"lightning_default_memo": "Pago Lightning",
+			"text_copied": "Texto copiado",
+			"copy_failed": "Copia fallida",
+			"clear_address": "Limpiar direcci\u00f3n",
 			"processing": "Procesando...",
 			"processing_transaction": "Procesando transacci\u00f3n...",
 			"please_wait": "Por favor espere. Esto puede tomar un momento.",

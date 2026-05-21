@@ -444,8 +444,13 @@
 				"success": "Transaction Confirmed",
 				"confirmed": "Confirmed",
 				"confirmations": "Confirmations",
-				"error": "Transaction Failed"
+				"error": "Transaction Failed",
+				"retry": "Retry"
 			},
+			"lightning_default_memo": "Lightning payment",
+			"text_copied": "Text copied",
+			"copy_failed": "Copy failed",
+			"clear_address": "Clear address",
 			"processing": "Processing...",
 			"processing_transaction": "Processing transaction...",
 			"please_wait": "Please wait. This may take a moment.",
