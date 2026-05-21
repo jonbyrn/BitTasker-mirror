@@ -12,6 +12,10 @@ import { nip19 } from 'nostr-tools';
 import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
 import type { ContractChain, SecurePaymentLegacy } from '$lib/utils/contract/types';
 import { ContractStatus } from '$lib/utils/contract/types';
+import {
+	isLegacyContractStatusWireVersion,
+	normalizeLegacyEscrowStatusTagToContractStatus
+} from '$lib/utils/contract/v1/legacyEscrowStatusToContractStatus';
 import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
 import { adaptNDKContract } from '$lib/utils/reviews/contractAdapter';
 import { createDebug } from '$lib/utils/debug';
@@ -48,7 +52,7 @@ export async function fetchLatestStatusFromNostr(
 		{ closeOnEose: true }
 	);
 
-	const newest = new Map<string, { created_at: number; rawS: string }>();
+	const newest = new Map<string, { created_at: number; rawS: string; version?: string }>();
 	for (const event of events) {
 		const parentId = event.tagValue('e');
 		if (!parentId) continue;
@@ -56,15 +60,25 @@ export async function fetchLatestStatusFromNostr(
 		if (!existing || (event.created_at ?? 0) > existing.created_at) {
 			newest.set(parentId, {
 				created_at: event.created_at ?? 0,
-				rawS: event.tagValue('s') ?? ''
+				rawS: event.tagValue('s') ?? '',
+				version: event.tagValue('v')
 			});
 		}
 	}
 
-	for (const [contractId, { rawS }] of newest) {
+	for (const [contractId, { rawS, version }] of newest) {
 		const num = parseInt(rawS, 10);
-		if (!isNaN(num) && num >= 0 && num <= 11) {
-			out.set(contractId, num as ContractStatus);
+		if (isNaN(num)) continue;
+
+		let status: ContractStatus | undefined;
+		if (isLegacyContractStatusWireVersion(version)) {
+			status = normalizeLegacyEscrowStatusTagToContractStatus(num);
+		} else if (num >= ContractStatus.Funded && num <= ContractStatus.InDisputeWorkInProgress) {
+			status = num as ContractStatus;
+		}
+
+		if (status !== undefined) {
+			out.set(contractId, status);
 		}
 	}
 

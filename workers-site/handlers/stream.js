@@ -304,15 +304,23 @@ export async function handleStreamRoute(request, env) {
 	}
 
 	// GET /api/cloudflare/stream/status/:uid
+	// Returns granular video status for progress tracking:
+	// - notfound: Video doesn't exist yet (upload may still be in transit)
+	// - pendingupload: Cloudflare received metadata, waiting for bytes
+	// - downloading: Cloudflare is receiving/processing bytes
+	// - queued: Bytes received, waiting for encoder
+	// - inprogress: Encoding in progress (pctComplete available)
+	// - ready: Video ready to stream
+	// - error: Processing failed
 	if (method === 'GET' && pathname.startsWith('/api/cloudflare/stream/status/')) {
 		const uid = pathname.split('/').pop();
 		if (!uid || uid.length < 10) {
 			return error('INVALID_UID', 'Invalid video UID', 400, CORS_STATUS);
 		}
 		try {
-			// Check KV cache first (valid for 10 seconds)
+			// Check KV cache first for terminal states
 			const cached = env.VIDEO_STATUS ? await env.VIDEO_STATUS.get(uid, 'json') : null;
-			if (cached && cached.state === 'ready') {
+			if (cached && (cached.state === 'ready' || cached.state === 'error')) {
 				return json(cached, 200, CORS_STATUS);
 			}
 
@@ -328,38 +336,46 @@ export async function handleStreamRoute(request, env) {
 			);
 
 			if (!cfResponse.ok) {
-				// Video might not exist yet or still processing
+				// 404 = video doesn't exist yet (upload still in transit or failed)
 				if (cfResponse.status === 404) {
-					return json({ uid, state: 'encoding' }, 200, CORS_STATUS);
+					return json({ uid, state: 'notfound' }, 200, CORS_STATUS);
 				}
 				const cfError = await cfResponse.text();
 				console.error('Cloudflare status API error:', cfError);
-				return json({ uid, state: 'encoding' }, 200, CORS_STATUS);
+				return json({ uid, state: 'notfound' }, 200, CORS_STATUS);
 			}
 
 			const cfData = await cfResponse.json();
 			const video = cfData.result;
 
-			// Map Cloudflare status to our status
-			let state = 'encoding';
+			// Return actual Cloudflare state for granular progress tracking
+			// Cloudflare states: pendingupload, downloading, queued, inprogress, ready, error
+			const cfState = video.status?.state || 'unknown';
+			let state = cfState;
 			let errorReason = null;
 
-			if (video.status?.state === 'ready' || video.readyToStream) {
+			// Override with readyToStream flag if set
+			if (video.readyToStream && cfState !== 'error') {
 				state = 'ready';
-			} else if (video.status?.state === 'error') {
-				state = 'error';
-				errorReason = video.status?.errorReasonText || 'Video processing failed';
-			} else if (video.status?.state === 'queued' || video.status?.state === 'inprogress') {
-				state = 'encoding';
+			}
+
+			if (cfState === 'error') {
+				errorReason =
+					video.status?.errorReasonText ||
+					video.status?.errorReasonCode ||
+					'Video processing failed';
 			}
 
 			const statusData = {
 				uid,
 				state,
-				pctComplete: video.status?.pctComplete ? parseFloat(video.status.pctComplete) : undefined,
+				pctComplete:
+					video.status?.pctComplete != null ? parseFloat(video.status.pctComplete) : undefined,
 				errorReason,
 				duration: video.duration,
-				readyToStream: video.readyToStream
+				readyToStream: video.readyToStream,
+				size: video.size,
+				created: video.created
 			};
 
 			// Cache ready/error states in KV for 60 seconds

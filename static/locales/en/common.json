@@ -599,7 +599,13 @@
 				"upload_title": "Upload Video",
 				"drag_or_click": "Drag & drop or click to browse",
 				"close_preview": "Close preview",
-				"videos_encoding": "Video is being processed. Please wait before continuing."
+				"videos_encoding": "Video is being processed. Please wait before continuing.",
+				"verifying": "Verifying upload...",
+				"processing": "Processing...",
+				"queued": "Queued for encoding...",
+				"encoding": "Encoding {progress}%...",
+				"ready": "Ready",
+				"failed": "Processing failed"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",
