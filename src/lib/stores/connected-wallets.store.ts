@@ -15,6 +15,7 @@ import { connectorRegistry } from '$lib/services/external-wallet/connector-regis
 import type { ConnectorHandle } from '$lib/services/external-wallet/types';
 import type { ConnectedWalletState } from '$lib/services/external-wallet/types';
 import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
+import { balancePoller } from '$lib/services/external-wallet/balance-poller';
 
 // ---------------------------------------------------------------------------
 // State
@@ -85,11 +86,41 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		connectingType: null
 	}));
 
+	// Start balance polling for this wallet
+	balancePoller.init().then(() => {
+		balancePoller.start(handle.id, async () => {
+			try {
+				const provider = handle.provider;
+				if (!provider) return;
+
+				const balance = await provider.getBalance(handle.address);
+				const raw = balance.toString();
+
+				// Format as ether units (18 decimals) without importing ethers
+				const padded = raw.padStart(19, '0');
+				const whole = padded.slice(0, padded.length - 18).replace(/^0+/, '') || '0';
+				const fraction = padded.slice(-18).slice(0, 6);
+
+				updateConnectedBalances(handle.id, {
+					native: {
+						raw,
+						formatted: `${whole}.${fraction}`,
+						loading: false
+					}
+				});
+			} catch {
+				// Polling errors are non-fatal
+			}
+		});
+	});
+
 	persistState();
 }
 
 export function unregisterConnectedWallet(walletId: string): void {
 	connectorRegistry.unregister(walletId);
+
+	balancePoller.stop(walletId);
 
 	connectedWalletsStore.update((state) => ({
 		...state,

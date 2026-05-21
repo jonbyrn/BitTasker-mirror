@@ -19,10 +19,12 @@ import { ethers } from 'ethers';
 import { tryCatch } from '$lib/utils/tryCatch';
 import type {
 	ConnectorHandle,
+	ConnectorEventCallback,
 	EVMSigner,
 	EVMTransactionRequest,
 	EVMTransactionResult
 } from './types';
+import { sendLock } from '$lib/services/external-wallet/send-lock';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -58,6 +60,7 @@ export type QRUriCallback = (uri: string) => void;
 export interface WCConfig {
 	chains?: number[];
 	projectId?: string;
+	onEvent?: ConnectorEventCallback;
 }
 
 interface StoredSessionData {
@@ -262,7 +265,8 @@ function buildConnectorHandle(
 	provider: WCProvider,
 	address: string,
 	chainId: number,
-	chains: number[]
+	chains: number[],
+	onEvent: ConnectorEventCallback
 ): ConnectorHandle {
 	const connectorId = `walletconnect-${address}`;
 
@@ -278,34 +282,39 @@ function buildConnectorHandle(
 			return providerInstance?.connected ?? false;
 		},
 		async sendTransaction(tx: EVMTransactionRequest): Promise<EVMTransactionResult> {
-			const p = providerInstance;
-			if (!p) {
-				throw new Error('WalletConnect provider not initialized');
-			}
+			sendLock.acquire(connectorId, () => {});
+			try {
+				const p = providerInstance;
+				if (!p) {
+					throw new Error('WalletConnect provider not initialized');
+				}
 
-			const params: Record<string, unknown> = {
-				from: address,
-				to: tx.to,
-				chainId: `0x${tx.chainId.toString(16)}`
-			};
-			if (tx.value !== undefined) {
-				params.value = `0x${tx.value.toString(16)}`;
-			}
-			if (tx.data) {
-				params.data = tx.data;
-			}
+				const params: Record<string, unknown> = {
+					from: address,
+					to: tx.to,
+					chainId: `0x${tx.chainId.toString(16)}`
+				};
+				if (tx.value !== undefined) {
+					params.value = `0x${tx.value.toString(16)}`;
+				}
+				if (tx.data) {
+					params.data = tx.data;
+				}
 
-			const { data: txHash, error } = await tryCatch<string>(
-				p.request({ method: 'eth_sendTransaction', params: [params] }) as Promise<string>
-			);
-
-			if (error || !txHash) {
-				throw new Error(
-					`WalletConnect transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+				const { data: txHash, error } = await tryCatch<string>(
+					p.request({ method: 'eth_sendTransaction', params: [params] }) as Promise<string>
 				);
-			}
 
-			return { txHash, from: address, chainId: tx.chainId };
+				if (error || !txHash) {
+					throw new Error(
+						`WalletConnect transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+					);
+				}
+
+				return { txHash, from: address, chainId: tx.chainId };
+			} finally {
+				sendLock.release(connectorId);
+			}
 		}
 	};
 
@@ -328,7 +337,7 @@ function buildConnectorHandle(
 		chainIds: [chainId, ...chains.filter((c) => c !== chainId)],
 		evmSigner,
 		provider: providerField,
-		onEvent: () => {},
+		onEvent,
 		unsubscribe: () => {
 			removeWCEventListeners(provider);
 		}
@@ -366,7 +375,7 @@ function wireWCEvents(
 	chainChangedHandler = chHandler;
 
 	const dcHandler = () => {
-		handle.onEvent({ type: 'disconnect', reason: 'WalletConnect session ended' });
+		handle.onEvent({ type: 'disconnect', reason: 'session_delete' });
 		onDisconnect();
 	};
 	provider.on('session_delete', dcHandler);
@@ -501,7 +510,8 @@ export async function connectWC(
 		const address = accounts[0].toLowerCase();
 		const chainId = provider.chainId || chains[0];
 
-		const handle = buildConnectorHandle(provider, address, chainId, chains);
+		const onEvent = config.onEvent ?? (() => {});
+		const handle = buildConnectorHandle(provider, address, chainId, chains, onEvent);
 
 		wireWCEvents(provider, handle, () => {
 			disconnectWC().catch(() => {});
@@ -533,7 +543,9 @@ export async function connectWC(
  *
  * @returns ConnectorHandle if restored successfully, null otherwise
  */
-export async function restoreWCSession(): Promise<ConnectorHandle | null> {
+export async function restoreWCSession(
+	onEvent?: ConnectorEventCallback
+): Promise<ConnectorHandle | null> {
 	const sessionData = await loadStoredSession();
 	if (!sessionData) return null;
 
@@ -550,7 +562,13 @@ export async function restoreWCSession(): Promise<ConnectorHandle | null> {
 				const address = provider.accounts[0].toLowerCase();
 				const chainId = provider.chainId || sessionData.chainId;
 
-				const handle = buildConnectorHandle(provider, address, chainId, chains);
+				const handle = buildConnectorHandle(
+					provider,
+					address,
+					chainId,
+					chains,
+					onEvent ?? (() => {})
+				);
 
 				wireWCEvents(provider, handle, () => {
 					disconnectWC().catch(() => {});
@@ -570,7 +588,13 @@ export async function restoreWCSession(): Promise<ConnectorHandle | null> {
 						const address = provider.accounts[0].toLowerCase();
 						const chainId = provider.chainId || sessionData.chainId;
 
-						const handle = buildConnectorHandle(provider, address, chainId, chains);
+						const handle = buildConnectorHandle(
+							provider,
+							address,
+							chainId,
+							chains,
+							onEvent ?? (() => {})
+						);
 
 						wireWCEvents(provider, handle, () => {
 							disconnectWC().catch(() => {});

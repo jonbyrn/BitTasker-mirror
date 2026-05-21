@@ -63,6 +63,9 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 
 	const xpub = pkResult.payload.xpub;
 
+	// Pre-initialize BIP86 derivation for Taproot change addresses (lazy, cached)
+	const changeDeriver = await initChangeDerivation(xpub);
+
 	const addrResult = await api.getAddress({
 		path: `${BTC_TAPROOT_PATH}/0/0`,
 		coin: 'btc',
@@ -174,8 +177,8 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 		isConnected(): boolean {
 			return true;
 		},
-		deriveChangeAddress(_index: number): string {
-			return ''; // Full derivation at send time via bitcoinjs-lib
+		deriveChangeAddress(index: number): string {
+			return changeDeriver(index);
 		},
 		async sendBitcoin(req: BitcoinSendRequest): Promise<never> {
 			const { accumulative } = await import('coinselect');
@@ -329,4 +332,48 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 	};
 
 	return handle;
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper: BIP86 change-address derivation (lazy, cached)
+// ---------------------------------------------------------------------------
+
+/**
+ * Initialize BIP86 change address derivation from an xpub.
+ *
+ * Dynamically imports bip32 + bitcoinjs-lib at connection time so the
+ * large libraries are never loaded unless a hardware wallet is connected.
+ * Results are cached by address index.
+ *
+ * Derivation path: m/86'/0'/0'/1/{index}  (BIP86 change chain)
+ */
+async function initChangeDerivation(xpub: string): Promise<(index: number) => string> {
+	try {
+		const { BIP32Factory } = await import('bip32');
+		const ecc = await import('tiny-secp256k1');
+		const { payments } = await import('bitcoinjs-lib');
+
+		const bip32 = BIP32Factory(ecc);
+		const masterNode = bip32.fromBase58(xpub);
+		const changeCache = new Map<number, string>();
+
+		return (index: number): string => {
+			const cached = changeCache.get(index);
+			if (cached) return cached;
+
+			// Derive m/86'/0'/0'/1/{index}
+			const changeNode = masterNode.derive(1).derive(index);
+
+			// toXOnly: strip the first byte (parity prefix) from the
+			// 33-byte compressed public key, leaving the 32-byte x-only key.
+			const internalPubkey = changeNode.publicKey.subarray(1, 33);
+			const address = payments.p2tr({ internalPubkey }).address!;
+			changeCache.set(index, address);
+			return address;
+		};
+	} catch (err) {
+		throw new Error(
+			`Failed to initialize change address derivation: ${err instanceof Error ? err.message : String(err)}`
+		);
+	}
 }

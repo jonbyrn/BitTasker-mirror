@@ -17,6 +17,7 @@ import type {
 	EVMTransactionResult
 } from './types';
 import type { ConnectorRegistry } from './connector-registry';
+import { sendLock } from '$lib/services/external-wallet/send-lock';
 
 // ---------------------------------------------------------------------------
 // Internal Types
@@ -363,44 +364,49 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		},
 
 		async sendTransaction(tx: EVMTransactionRequest): Promise<EVMTransactionResult> {
-			// Ensure we're on the correct chain before sending
-			await ensureEVMChain(provider, tx.chainId);
+			sendLock.acquire(connectorId, () => {});
+			try {
+				// Ensure we're on the correct chain before sending
+				await ensureEVMChain(provider, tx.chainId);
 
-			// Build transaction parameters for ethers v6
-			const txParams: Record<string, unknown> = {
-				from: address,
-				to: tx.to
-			};
+				// Build transaction parameters for ethers v6
+				const txParams: Record<string, unknown> = {
+					from: address,
+					to: tx.to
+				};
 
-			if (tx.value !== undefined && tx.value > 0n) {
-				txParams.value = '0x' + tx.value.toString(16);
-			}
+				if (tx.value !== undefined && tx.value > 0n) {
+					txParams.value = '0x' + tx.value.toString(16);
+				}
 
-			if (tx.data !== undefined && tx.data.length > 2) {
-				txParams.data = tx.data;
-			}
+				if (tx.data !== undefined && tx.data.length > 2) {
+					txParams.data = tx.data;
+				}
 
-			// Get a fresh signer each time to handle account switches
-			const signer = await browserProvider.getSigner();
-			const txResponse = await signer.sendTransaction(
-				txParams as unknown as ethers.TransactionRequest
-			);
-			const TX_WAIT_TIMEOUT_MS = 5 * 60_000; // 5 minutes
-			const receipt = await Promise.race([
-				txResponse.wait(),
-				new Promise<never>((_, reject) =>
-					setTimeout(
-						() => reject(new Error('Transaction confirmation timed out after 5 minutes')),
-						TX_WAIT_TIMEOUT_MS
+				// Get a fresh signer each time to handle account switches
+				const signer = await browserProvider.getSigner();
+				const txResponse = await signer.sendTransaction(
+					txParams as unknown as ethers.TransactionRequest
+				);
+				const TX_WAIT_TIMEOUT_MS = 5 * 60_000; // 5 minutes
+				const receipt = await Promise.race([
+					txResponse.wait(),
+					new Promise<never>((_, reject) =>
+						setTimeout(
+							() => reject(new Error('Transaction confirmation timed out after 5 minutes')),
+							TX_WAIT_TIMEOUT_MS
+						)
 					)
-				)
-			]);
+				]);
 
-			return {
-				txHash: receipt?.hash || txResponse.hash,
-				from: address,
-				chainId: tx.chainId
-			};
+				return {
+					txHash: receipt?.hash || txResponse.hash,
+					from: address,
+					chainId: tx.chainId
+				};
+			} finally {
+				sendLock.release(connectorId);
+			}
 		}
 	};
 
