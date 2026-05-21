@@ -74,7 +74,9 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		const scope = session.sessionScopes[scopeId];
 		if (scope?.accounts) {
 			for (const acct of scope.accounts) {
-				if (!accounts.includes(acct)) accounts.push(acct);
+				// Parse CAIP-10: "eip155:30:0xabc..." → "0xabc..."
+				const addr = acct.includes(':') ? acct.split(':').pop()!.toLowerCase() : acct.toLowerCase();
+				if (!accounts.includes(addr)) accounts.push(addr);
 			}
 			// Extract chain ID from CAIP-2 scope (eip155:30 → 30)
 			const chainId = parseInt(scopeId.split(':')[1], 10);
@@ -85,7 +87,9 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	if (accounts.length === 0)
 		throw new Error('No accounts authorized. Please approve the connection in MetaMask.');
 
-	const address = accounts[0].toLowerCase();
+	const rawAddr = accounts[0];
+	// Parse CAIP-10 format: "eip155:30:0xabc..." → "0xabc..."
+	const address = (rawAddr.includes(':') ? rawAddr.split(':').pop()! : rawAddr).toLowerCase();
 	const connectorId = `metamask-${address}`;
 
 	// Listen for session events
@@ -133,13 +137,30 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		}
 	};
 
+	// Create an ethers JsonRpcProvider for balance polling.
+	// The Multichain SDK doesn't expose an ethers Provider, so we
+	// use the known RPC URL for the first configured scope.
+	const rpcUrl =
+		typeof window !== 'undefined'
+			? 'https://rpc.testnet.rootstock.io'
+			: 'https://rpc.testnet.rootstock.io';
+	let rpcProvider: { getBalance(addr: string, block?: string): Promise<bigint> } | null = null;
+	try {
+		const ethersModule = await import('ethers');
+		rpcProvider = new ethersModule.JsonRpcProvider(rpcUrl) as unknown as {
+			getBalance(addr: string, block?: string): Promise<bigint>;
+		};
+	} catch {
+		// ethers not available — balances will be queried via SDK
+	}
+
 	const handle: ConnectorHandle = {
 		id: connectorId,
 		walletName: 'MetaMask',
 		walletType: 'metamask',
 		address,
 		chainIds,
-		provider: null,
+		provider: rpcProvider != null ? (rpcProvider as unknown as import('ethers').Provider) : null,
 		evmSigner,
 		onEvent: config.onEvent,
 		unsubscribe() {
