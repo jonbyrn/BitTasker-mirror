@@ -184,6 +184,8 @@ async function writeFileToNativeCache(file: File): Promise<string> {
 	const tmpName = `bittasker_upload_${Date.now()}.${ext}`;
 	const CHUNK = 4 * 1024 * 1024; // 4 MB → ~5.4 MB base64 peak per chunk
 
+	// When no `encoding` is specified, Capacitor treats data as base64 and writes
+	// actual binary bytes to disk — the correct behavior for video files.
 	for (let offset = 0; offset < file.size; offset += CHUNK) {
 		const ab = await file.slice(offset, offset + CHUNK).arrayBuffer();
 		const b64 = arrayBufferToBase64(ab);
@@ -200,11 +202,15 @@ async function writeFileToNativeCache(file: File): Promise<string> {
 	}
 
 	const { uri } = await Filesystem.getUri({ path: tmpName, directory: Directory.Cache });
+	const { size: writtenSize } = await Filesystem.stat({
+		path: tmpName,
+		directory: Directory.Cache
+	});
 
 	addBreadcrumb({
 		category: 'stream',
-		message: `writeFileToNativeCache: written ${file.size} bytes to ${uri}`,
-		level: 'info'
+		message: `writeFileToNativeCache: original=${file.size} written=${writtenSize} uri=${uri}`,
+		level: writtenSize === file.size ? 'info' : 'warning'
 	});
 
 	return uri;
@@ -232,6 +238,7 @@ async function uploadVideoNative(
 
 		return new Promise((resolve, reject) => {
 			let currentUploadId = '';
+			let isHandled = false;
 
 			const setupListener = async () => {
 				const handle = await Uploader.addListener(
@@ -242,6 +249,7 @@ async function uploadVideoNative(
 						id: string;
 					}) => {
 						if (currentUploadId && event.id !== currentUploadId) return;
+						if (isHandled) return;
 
 						if (event.name === 'uploading') {
 							const percent = event.payload?.percent ?? 0;
@@ -251,6 +259,7 @@ async function uploadVideoNative(
 								bytesTotal: file.size
 							});
 						} else if (event.name === 'completed') {
+							isHandled = true;
 							addBreadcrumb({
 								category: 'stream',
 								message: 'uploadVideoNative: completed',
@@ -274,6 +283,7 @@ async function uploadVideoNative(
 							onSuccess?.(result);
 							resolve(result);
 						} else if (event.name === 'failed') {
+							isHandled = true;
 							const error = new Error(event.payload?.error || 'Native upload failed');
 							addBreadcrumb({
 								category: 'stream',
@@ -297,11 +307,10 @@ async function uploadVideoNative(
 						serverUrl: uploadURL,
 						method: 'POST',
 						uploadType: 'multipart',
-						mimeType: file.type || 'video/mp4',
 						fileField: 'file',
 						headers: {},
 						notificationTitle: 'Uploading video...',
-						maxRetries: 3
+						maxRetries: 0
 					});
 
 					currentUploadId = result.id;
@@ -571,11 +580,10 @@ export async function uploadVideoFile(
 				serverUrl: uploadURL,
 				method: 'POST',
 				uploadType: 'multipart',
-				headers: {},
-				mimeType: file.type || 'video/mp4',
 				fileField: 'file',
+				headers: {},
 				notificationTitle: 'Uploading video...',
-				maxRetries: 3
+				maxRetries: 0
 			});
 
 			await handle.remove();

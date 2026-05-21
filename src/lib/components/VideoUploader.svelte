@@ -92,6 +92,19 @@
 	type Mode = 'dropzone' | 'preview' | 'uploading' | 'finalizing' | 'playing' | 'error';
 	let mode = $state<Mode>('dropzone');
 
+	// ── Processing sub-phases (within 'finalizing' mode) ──
+	// Granular states from Cloudflare: notfound, pendingupload, downloading, queued, inprogress, ready, error
+	type ProcessingPhase =
+		| 'verifying'
+		| 'pendingupload'
+		| 'downloading'
+		| 'queued'
+		| 'inprogress'
+		| 'ready'
+		| 'error';
+	let processingPhase = $state<ProcessingPhase>('verifying');
+	let encodingProgress = $state(0); // pctComplete from Cloudflare (0-100)
+
 	// ── Upload state ──
 	let uploadProgress = $state(0);
 	let uploadSpeed = $state(0);
@@ -217,6 +230,8 @@
 			});
 
 			// ── Step 2: Write file to native cache in 4 MB chunks ──
+			// When no `encoding` is specified, Capacitor treats data as base64 and writes
+			// actual binary bytes to disk — this is the correct behavior for video files.
 			const { Filesystem, Directory } = await import('@capacitor/filesystem');
 			const ext = file.name.split('.').pop() || 'mp4';
 			const tmpName = `bittasker_upload_${Date.now()}.${ext}`;
@@ -239,17 +254,54 @@
 			}
 
 			const { uri } = await Filesystem.getUri({ path: tmpName, directory: Directory.Cache });
+			const { size: writtenSize } = await Filesystem.stat({
+				path: tmpName,
+				directory: Directory.Cache
+			});
 
 			addBreadcrumb({
 				category: 'stream',
-				message: `VideoUploader native: cached file at ${uri} (${file.size} bytes)`,
-				level: 'info'
+				message: `VideoUploader native: file written — original=${file.size} written=${writtenSize} uri=${uri}`,
+				level: writtenSize === file.size ? 'info' : 'warning'
 			});
 
 			// ── Step 3: Upload via @capgo/capacitor-uploader ──
 			const { Uploader } = await import('@capgo/capacitor-uploader');
 
 			let currentUploadId = '';
+			let isHandled = false;
+
+			// Helper to transition to verification/finalizing mode
+			const transitionToVerification = () => {
+				if (isHandled) return;
+				isHandled = true;
+				handle.remove();
+				nativeListenerHandle = null;
+				nativeUploadId = null;
+				cleanupNativeTempFile(tmpName);
+
+				// Create preliminary result (will be confirmed during polling)
+				const result: VideoUploadResult = {
+					uid,
+					thumbnailUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg`,
+					hlsUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/manifest/video.m3u8`,
+					duration: videoDuration || 0,
+					size: file.size,
+					filename: file.name
+				};
+				videoResult = result;
+
+				// Enter finalizing mode with 'verifying' phase
+				// This will trigger polling to confirm upload reached Cloudflare
+				processingPhase = 'verifying';
+				mode = 'finalizing';
+
+				addBreadcrumb({
+					category: 'stream',
+					message: `VideoUploader native: upload bytes sent, verifying uid=${uid}`,
+					level: 'info'
+				});
+			};
 
 			const handle = await Uploader.addListener(
 				'events',
@@ -260,6 +312,7 @@
 				}) => {
 					// Filter events to only our upload once we have an ID.
 					if (currentUploadId && event.id !== currentUploadId) return;
+					if (isHandled) return;
 
 					if (event.name === 'uploading') {
 						const pct = event.payload?.percent ?? 0;
@@ -268,44 +321,43 @@
 						totalBytes = file.size;
 						const elapsed = (Date.now() - uploadStartTime) / 1000;
 						uploadSpeed = elapsed > 0.5 ? uploadedBytes / elapsed : 0;
-					} else if (event.name === 'completed') {
-						handle.remove();
-						nativeListenerHandle = null;
-						nativeUploadId = null;
-						cleanupNativeTempFile(tmpName);
 
-						const result: VideoUploadResult = {
-							uid,
-							thumbnailUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg`,
-							hlsUrl: `https://customer-${customerCode}.cloudflarestream.com/${uid}/manifest/video.m3u8`,
-							duration: videoDuration || 0,
-							size: file.size,
-							filename: file.name
-						};
-						videoResult = result;
-						onUploadComplete?.(result);
-						mode = 'finalizing';
+						// If we've reached ~100% progress, preemptively transition to verification
+						// This handles cases where the 'completed' event is unreliable
+						if (pct >= 99) {
+							addBreadcrumb({
+								category: 'stream',
+								message: `VideoUploader native: progress reached ${pct}%, initiating verification`,
+								level: 'info'
+							});
+							// Small delay to allow any final events to fire
+							setTimeout(() => transitionToVerification(), 500);
+						}
+					} else if (event.name === 'completed') {
+						// Upload completed - transition to verification
+						transitionToVerification();
 
 						addBreadcrumb({
 							category: 'stream',
-							message: `VideoUploader native: upload completed uid=${uid}`,
+							message: `VideoUploader native: completed event received uid=${uid}`,
 							level: 'info'
 						});
 					} else if (event.name === 'failed') {
-						handle.remove();
-						nativeListenerHandle = null;
-						nativeUploadId = null;
-						cleanupNativeTempFile(tmpName);
-
-						uploadError = event.payload?.error || 'Upload failed';
-						mode = 'error';
-						onError?.($t('common.components.media_uploader.upload_failed') as string);
+						// DON'T trust 'failed' event immediately!
+						// The upload may have actually succeeded (known gotev/OkHttp issue).
+						// Instead, transition to verification and poll Cloudflare for actual status.
+						const statusCode = event.payload?.statusCode;
+						const rawErr = event.payload?.error || '';
 
 						addBreadcrumb({
 							category: 'stream',
-							message: `VideoUploader native: upload failed - ${uploadError}`,
-							level: 'error'
+							message: `VideoUploader native: 'failed' event received - status=${statusCode} err=${rawErr} - will verify with server`,
+							level: 'warning'
 						});
+
+						// Transition to verification mode instead of error mode
+						// The polling will determine if the upload actually succeeded
+						transitionToVerification();
 					}
 				}
 			);
@@ -318,10 +370,9 @@
 				method: 'POST',
 				uploadType: 'multipart',
 				fileField: 'file',
-				mimeType: file.type || 'video/mp4',
 				headers: {},
 				notificationTitle: 'Uploading video…',
-				maxRetries: 2
+				maxRetries: 0
 			});
 
 			currentUploadId = id;
@@ -340,7 +391,7 @@
 
 			uploadError = e instanceof Error ? e.message : 'Upload failed';
 			mode = 'error';
-			onError?.($t('common.components.media_uploader.upload_failed') as string);
+			onError?.(uploadError);
 
 			addBreadcrumb({
 				category: 'stream',
@@ -485,9 +536,7 @@
 			instance.on('upload-error', (_file: unknown, err: Error) => {
 				uploadError = (err as Error).message || 'Upload failed';
 				mode = 'error';
-				// Notify parent so it can remove the grid item and surface a friendly message
-				// below the upload grid rather than showing the raw TUS error string inside the cell.
-				onError?.($t('common.components.media_uploader.upload_failed') as string);
+				onError?.(uploadError);
 			});
 			instance.on('restriction-failed', (_file: unknown, err: { message: string }) => {
 				uploadError = err.message;
@@ -583,12 +632,41 @@
 		videoDuration = null;
 		pollingActive = false;
 		pollAttempt = 0;
+		notFoundCount = 0;
+		processingPhase = 'verifying';
+		encodingProgress = 0;
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl.split('#')[0]);
 			previewUrl = null;
 		}
 		mode = 'dropzone';
 	}
+
+	// ── Derived: Processing phase label for UI ──
+	let processingPhaseLabel = $derived.by(() => {
+		switch (processingPhase) {
+			case 'verifying':
+				return $t('common.components.media_uploader.verifying');
+			case 'pendingupload':
+			case 'downloading':
+				return $t('common.components.media_uploader.processing');
+			case 'queued':
+				return $t('common.components.media_uploader.queued');
+			case 'inprogress':
+				return $t('common.components.media_uploader.encoding', {
+					values: { progress: encodingProgress }
+				});
+			case 'ready':
+				return $t('common.components.media_uploader.ready');
+			case 'error':
+				return $t('common.components.media_uploader.failed');
+			default:
+				return $t('common.components.media_uploader.processing');
+		}
+	});
+
+	// Show encoding progress when in inprogress phase
+	let showEncodingProgress = $derived(processingPhase === 'inprogress' && encodingProgress > 0);
 
 	// ── Remove existing video ──
 	function handleRemove(uid: string) {
@@ -605,6 +683,11 @@
 	}
 
 	// ── Encoding polling (use: action) ──
+	// Polls Cloudflare for video status with granular phase tracking
+	// States: notfound → pendingupload → downloading → queued → inprogress → ready/error
+	let notFoundCount = 0;
+	const MAX_NOT_FOUND_ATTEMPTS = 15; // Max ~45 seconds of 'notfound' before declaring failure
+
 	function clearTimers() {
 		if (encodingTimer) {
 			clearTimeout(encodingTimer);
@@ -616,29 +699,59 @@
 		}
 	}
 
+	interface VideoStatusResponse {
+		state?: string;
+		pctComplete?: number;
+		errorReason?: string;
+		duration?: number;
+		readyToStream?: boolean;
+	}
+
 	function startEncodingPoll() {
 		if (pollingActive) return;
 		if (!videoUid) return;
 		pollingActive = true;
 		clearTimers();
 		pollAttempt = 0;
+		notFoundCount = 0;
+		processingPhase = 'verifying';
+		encodingProgress = 0;
 
-		const backoffDelays = [3_000, 6_000, 12_000, 30_000];
+		// Fast polling during verification, slower during encoding
+		const getDelay = () => {
+			// During verification (notfound/verifying), poll frequently
+			if (processingPhase === 'verifying' || notFoundCount > 0) {
+				return 2_000; // 2 seconds
+			}
+			// During pendingupload/downloading, poll moderately
+			if (processingPhase === 'pendingupload' || processingPhase === 'downloading') {
+				return 3_000; // 3 seconds
+			}
+			// During encoding, use backoff
+			const backoffDelays = [3_000, 5_000, 8_000, 15_000, 30_000];
+			return backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+		};
 
+		// Overall timeout for encoding (30 minutes)
 		encodingTimer = setTimeout(
 			() => {
+				pollingActive = false;
+				clearTimers();
 				addBreadcrumb({
 					category: 'stream',
 					message: `VideoUploader: encoding timed out for ${videoUid}`,
 					level: 'warning'
 				});
+				uploadError = 'Video processing timed out';
+				mode = 'error';
+				onError?.('Video processing timed out');
 			},
 			30 * 60 * 1000
 		);
 
 		async function poll() {
 			try {
-				let data: { state?: string; errorReason?: string } | null = null;
+				let data: VideoStatusResponse | null = null;
 
 				if (isNativePlatform) {
 					const { CapacitorHttp } = await import('@capacitor/core');
@@ -648,12 +761,12 @@
 						responseType: 'json'
 					});
 					if (r.status >= 200 && r.status < 300) {
-						data = r.data as { state?: string; errorReason?: string };
+						data = r.data as VideoStatusResponse;
 					}
 				} else {
 					const res = await fetch(`/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`);
 					if (res.ok) {
-						data = (await res.json()) as { state?: string; errorReason?: string };
+						data = (await res.json()) as VideoStatusResponse;
 					}
 				}
 
@@ -662,47 +775,133 @@
 					return;
 				}
 
-				if (data.state === 'ready') {
-					try {
-						const manifestUrl = `https://customer-${customerCode}.cloudflarestream.com/${videoUid}/manifest/video.mpd?parentOrigin=${encodeURIComponent(window.location.origin)}`;
-						const manifestRes = await fetch(manifestUrl, { method: 'HEAD' });
-						if (manifestRes.ok) {
+				const state = data.state || 'unknown';
+
+				// Handle different states
+				switch (state) {
+					case 'notfound':
+						// Video not yet visible in Cloudflare - upload may still be in transit
+						notFoundCount++;
+						processingPhase = 'verifying';
+
+						if (notFoundCount >= MAX_NOT_FOUND_ATTEMPTS) {
+							// Too many not-found responses - upload likely failed
 							pollingActive = false;
 							clearTimers();
 							addBreadcrumb({
 								category: 'stream',
-								message: `VideoUploader: encoding complete + manifest confirmed for ${videoUid}`,
-								level: 'info'
+								message: `VideoUploader: video not found after ${notFoundCount} attempts for ${videoUid}`,
+								level: 'error'
 							});
-							mode = 'playing';
-							if (videoResult) onReady?.(videoResult);
-						} else {
+							uploadError = 'Upload failed - video not received by server';
+							mode = 'error';
+							onError?.('Upload failed - video not received by server');
+							return;
+						}
+
+						addBreadcrumb({
+							category: 'stream',
+							message: `VideoUploader: video not found yet (attempt ${notFoundCount}/${MAX_NOT_FOUND_ATTEMPTS}) for ${videoUid}`,
+							level: 'info'
+						});
+						scheduleNext();
+						break;
+
+					case 'pendingupload':
+					case 'downloading':
+						// Video metadata received, bytes being processed
+						notFoundCount = 0; // Reset - video exists!
+						processingPhase = state as ProcessingPhase;
+						// Notify parent that upload was received (even though still processing)
+						if (videoResult && !videoResult.uid) {
+							onUploadComplete?.(videoResult);
+						}
+						scheduleNext();
+						break;
+
+					case 'queued':
+						// Bytes received, waiting for encoder
+						notFoundCount = 0;
+						processingPhase = 'queued';
+						// Trigger onUploadComplete now that we know bytes were received
+						if (videoResult) {
+							onUploadComplete?.(videoResult);
+						}
+						scheduleNext();
+						break;
+
+					case 'inprogress':
+						// Encoding in progress - update progress bar
+						notFoundCount = 0;
+						processingPhase = 'inprogress';
+						encodingProgress = data.pctComplete ?? 0;
+						scheduleNext();
+						break;
+
+					case 'ready':
+						// Video ready - verify manifest is accessible
+						try {
+							const manifestUrl = `https://customer-${customerCode}.cloudflarestream.com/${videoUid}/manifest/video.mpd?parentOrigin=${encodeURIComponent(window.location.origin)}`;
+							const manifestRes = await fetch(manifestUrl, { method: 'HEAD' });
+							if (manifestRes.ok) {
+								pollingActive = false;
+								clearTimers();
+								processingPhase = 'ready';
+								encodingProgress = 100;
+
+								addBreadcrumb({
+									category: 'stream',
+									message: `VideoUploader: video ready + manifest confirmed for ${videoUid}`,
+									level: 'info'
+								});
+
+								mode = 'playing';
+								if (videoResult) {
+									onUploadComplete?.(videoResult);
+									onReady?.(videoResult);
+								}
+							} else {
+								// Manifest not ready yet, keep polling
+								scheduleNext();
+							}
+						} catch {
 							scheduleNext();
 						}
-					} catch {
+						break;
+
+					case 'error':
+						// Processing failed
+						pollingActive = false;
+						clearTimers();
+						processingPhase = 'error';
+
+						addBreadcrumb({
+							category: 'stream',
+							message: `VideoUploader: processing failed for ${videoUid} - ${data.errorReason}`,
+							level: 'error'
+						});
+
+						uploadError = data.errorReason || 'Video processing failed';
+						mode = 'error';
+						onError?.(data.errorReason || 'Video processing failed');
+						break;
+
+					default:
+						// Unknown state - keep polling
 						scheduleNext();
-					}
-				} else if (data.state === 'error') {
-					pollingActive = false;
-					clearTimers();
-					addBreadcrumb({
-						category: 'stream',
-						message: `VideoUploader: encoding failed for ${videoUid}`,
-						level: 'error'
-					});
-					uploadError = data.errorReason || 'Video processing failed';
-					mode = 'error';
-					onError?.(data.errorReason || 'Video processing failed');
-				} else {
-					scheduleNext();
 				}
-			} catch {
+			} catch (e) {
+				addBreadcrumb({
+					category: 'stream',
+					message: `VideoUploader: poll error - ${e}`,
+					level: 'warning'
+				});
 				scheduleNext();
 			}
 		}
 
 		function scheduleNext() {
-			const delay = backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+			const delay = getDelay();
 			pollAttempt++;
 			pollingTimer = setTimeout(poll, delay);
 		}
@@ -885,7 +1084,9 @@
 		>
 			<p class="text-error mb-2 text-sm">
 				{variant === 'compact'
-					? $t('common.components.media_uploader.upload_failed')
+					? $t('common.components.media_uploader.upload_failed', {
+							values: { error: uploadError || '' }
+						})
 					: uploadError || $t('common.stream_player.status.error')}
 			</p>
 			<button
@@ -947,8 +1148,24 @@
 							</div>
 						</div>
 					{:else if mode === 'finalizing'}
-						<div class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/20">
-							<span class="loading loading-spinner loading-sm text-primary"></span>
+						<div
+							class="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-black/60"
+						>
+							{#if showEncodingProgress}
+								<div
+									class="radial-progress text-primary"
+									style="--value:{encodingProgress}; --size:2.5rem; --thickness:3px;"
+									role="progressbar"
+									aria-valuenow={encodingProgress}
+									aria-valuemin={0}
+									aria-valuemax={100}
+								>
+									{Math.round(encodingProgress)}%
+								</div>
+							{:else}
+								<span class="loading loading-spinner loading-sm text-primary"></span>
+							{/if}
+							<p class="mt-1 text-xs text-white/80">{processingPhaseLabel}</p>
 						</div>
 					{/if}
 				</div>
@@ -1053,8 +1270,24 @@
 					</div>
 				</div>
 			{:else if mode === 'finalizing'}
-				<div class="absolute inset-0 flex items-center justify-center bg-black/20">
-					<span class="loading loading-spinner loading-md text-primary"></span>
+				<div class="absolute inset-0 flex items-center justify-center bg-black/60">
+					<div class="text-center text-white">
+						{#if showEncodingProgress}
+							<div
+								class="radial-progress text-primary mb-2"
+								style="--value:{encodingProgress}; --size:4rem; --thickness:4px;"
+								role="progressbar"
+								aria-valuenow={encodingProgress}
+								aria-valuemin={0}
+								aria-valuemax={100}
+							>
+								{Math.round(encodingProgress)}%
+							</div>
+						{:else}
+							<span class="loading loading-spinner loading-md text-primary mb-2"></span>
+						{/if}
+						<p class="text-sm font-medium">{processingPhaseLabel}</p>
+					</div>
 				</div>
 			{/if}
 		</div>

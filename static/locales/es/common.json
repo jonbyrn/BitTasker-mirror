@@ -598,7 +598,13 @@
 				"upload_title": "Subir Video",
 				"drag_or_click": "Arrastra y suelta o haz clic para seleccionar",
 				"close_preview": "Cerrar vista previa",
-				"videos_encoding": "El video todavía se está procesando. Por favor espera antes de continuar."
+				"videos_encoding": "El video todavía se está procesando. Por favor espera antes de continuar.",
+				"verifying": "Verificando subida...",
+				"processing": "Procesando...",
+				"queued": "En cola para codificación...",
+				"encoding": "Codificando {progress}%...",
+				"ready": "Listo",
+				"failed": "Procesamiento fallido"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Abrir ayuda de solución de problemas",
