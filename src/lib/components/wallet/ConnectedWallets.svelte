@@ -23,10 +23,17 @@
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { ensureEVMChain } from '$lib/services/external-wallet/metamask-connector';
+	import {
+		ensureEVMChain,
+		getChainIdForNetwork
+	} from '$lib/services/external-wallet/metamask-connector';
 
 	let copiedAddress = $state<string | null>(null);
 	let switchingChain = $state<{ walletId: string; chain: string } | null>(null);
+
+	// Resolve correct chain IDs based on environment (mainnet vs testnet)
+	const RSK_CHAIN_ID = getChainIdForNetwork('rootstock-bitcoin');
+	const BSC_CHAIN_ID = getChainIdForNetwork('usdt-bsc');
 
 	async function switchChain(
 		walletId: string,
@@ -279,8 +286,8 @@
 										wallet.walletType === 'metamask' ||
 										wallet.walletType === 'walletconnect' ||
 										isHardwareWallet}
-									{@const onRSK = wallet.chainIds.some((c) => c === 30 || c === 31)}
-									{@const onBSC = wallet.chainIds.some((c) => c === 56 || c === 97)}
+									{@const onRSK = wallet.chainIds.some((c) => c === RSK_CHAIN_ID)}
+									{@const onBSC = wallet.chainIds.some((c) => c === BSC_CHAIN_ID)}
 
 									<!-- Bitcoin L1 — only hardware wallets -->
 									{#if isHardwareWallet}
@@ -317,7 +324,7 @@
 											{:else if wallet.walletType === 'metamask'}
 												<button
 													class="btn btn-xs btn-outline btn-primary"
-													onclick={() => switchChain(wallet.id, 30, 'RSK')}
+													onclick={() => switchChain(wallet.id, RSK_CHAIN_ID, 'RSK')}
 													disabled={switchingChain?.walletId === wallet.id}
 												>
 													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'RSK'}
@@ -351,7 +358,7 @@
 											{:else if wallet.walletType === 'metamask'}
 												<button
 													class="btn btn-xs btn-outline btn-primary"
-													onclick={() => switchChain(wallet.id, 56, 'BSC')}
+													onclick={() => switchChain(wallet.id, BSC_CHAIN_ID, 'BSC')}
 													disabled={switchingChain?.walletId === wallet.id}
 												>
 													{#if switchingChain?.walletId === wallet.id && switchingChain?.chain === 'BSC'}
