@@ -8,7 +8,7 @@
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
-	import { resolveRoute, type SourceWallet } from '$lib/services/route-resolver';
+	import { resolveRoute, type SourceWallet, type Route } from '$lib/services/route-resolver';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -120,13 +120,24 @@
 		if (amountInSats === 0) return [];
 		const sourceWallet: SourceWallet = payerSourceWallet;
 		const destNetwork = formInput.selectedNetwork;
-		// Map receiver network to Destination type
-		let chainId = 30;
-		if (destNetwork === 'usdt-bsc') chainId = 56;
-		else if (destNetwork === 'rootstock-bitcoin') chainId = 30;
-		else return []; // Lightning/Bitcoin/Liquid handled via Boltz directly
-		const dest = { type: 'address' as const, chainId, address: $walletStore.rsk.address ?? '' };
-		return resolveRoute(sourceWallet, dest);
+		let routes: Route[] = [];
+		// Address-type destinations (RSK, BSC)
+		if (destNetwork === 'usdt-bsc' || destNetwork === 'rootstock-bitcoin') {
+			const chainId = destNetwork === 'usdt-bsc' ? 56 : 30;
+			const dest = { type: 'address' as const, chainId, address: $walletStore.rsk.address ?? '' };
+			routes = resolveRoute(sourceWallet, dest);
+		}
+		// Invoice-type destinations (Lightning, Bitcoin, Liquid)
+		else if (destNetwork === 'lightning-bitcoin') {
+			routes = resolveRoute(sourceWallet, { type: 'invoice', network: 'lightning', invoice: '' });
+		} else if (destNetwork === 'bitcoin') {
+			routes = resolveRoute(sourceWallet, { type: 'invoice', network: 'onchain', invoice: '' });
+		}
+		// Liquid: treat as Bitcoin onchain swap via Boltz
+		else if (destNetwork === 'liquid-bitcoin') {
+			routes = resolveRoute(sourceWallet, { type: 'invoice', network: 'onchain', invoice: '' });
+		}
+		return routes.sort((a, b) => a.totalFeePercent - b.totalFeePercent);
 	});
 
 	// When payer network matches receiver wallet → no swap needed (direct)
@@ -163,11 +174,10 @@
 		}
 	});
 
-	// Auto-select cheapest swap route
+	// Auto-select cheapest swap route (swapRoutes is pre-sorted by fee)
 	$effect(() => {
-		const routes = swapRoutes;
-		if (routes.length > 0) {
-			if (!routes.find((r) => r.id === selectedRouteId)) selectedRouteId = routes[0].id;
+		if (swapRoutes.length > 0) {
+			if (!swapRoutes.find((r) => r.id === selectedRouteId)) selectedRouteId = swapRoutes[0].id;
 		} else {
 			selectedRouteId = '';
 		}
@@ -217,69 +227,6 @@
 		}
 	});
 
-	// Network options
-	const networkOptions = $derived.by(() => {
-		const allNetworks = [
-			{
-				value: 'lightning-bitcoin',
-				label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
-				description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
-				icon: null,
-				available: $walletStore.isConnected,
-				swapFeeInfo: $t('wallet.receive_form.networks.lightning_bitcoin.fee_info'),
-				tabs: ['rbtc']
-			},
-			{
-				value: 'rootstock-bitcoin',
-				label: $t('wallet.receive_form.networks.rootstock_bitcoin.label'),
-				description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
-				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-				available: $walletStore.isConnected,
-				swapFeeInfo: $t('wallet.receive_form.networks.rootstock_bitcoin.fee_info'),
-				tabs: ['rbtc']
-			},
-			{
-				value: 'liquid-bitcoin',
-				label: $t('wallet.receive_form.networks.liquid_bitcoin.label'),
-				description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
-				icon: '/images/chains/Liquid-Bitcoin.svg',
-				available: $walletStore.isConnected,
-				swapFeeInfo: $t('wallet.receive_form.networks.liquid_bitcoin.fee_info'),
-				tabs: ['rbtc']
-			},
-			{
-				value: 'bitcoin',
-				label: $t('wallet.receive_form.networks.bitcoin.label'),
-				description: $t('wallet.receive_form.networks.bitcoin.description'),
-				icon: '/images/chains/Bitcoin.svg',
-				available: $walletStore.isConnected,
-				swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info'),
-				tabs: ['rbtc']
-			},
-			{
-				value: 'usdt-bsc',
-				label: $t('wallet.receive_form.networks.bsc_usdt.label'),
-				description: $t('wallet.receive_form.networks.bsc_usdt.description'),
-				icon: '/images/chains/Binance-logo.svg',
-				available: $walletStore.bsc.connected,
-				swapFeeInfo: $t('wallet.receive_form.networks.bsc_usdt.fee_info'),
-				tabs: ['usdt']
-			}
-		];
-		return allNetworks.filter((n) => n.tabs.includes(receiveTab));
-	});
-
-	// Get selected network info
-	const selectedNetworkInfo = $derived(
-		networkOptions.find((network) => network.value === formInput.selectedNetwork)
-	);
-
-	// Get fee for selected network (for accordion title display)
-	const selectedNetworkFee = $derived.by(() => {
-		if (amountInSats === 0 || !feeState.estimated) return null;
-		return feeState.estimated;
-	});
-
 	// Debounced fee update function
 	const debouncedUpdateFeeEstimate = debounce(async () => {
 		await updateFeeEstimate();
@@ -320,11 +267,12 @@
 
 	// Manual fee update - called when amount or network changes
 	function handleAmountOrNetworkChange() {
+		// Clear stale estimate immediately so UI shows "loading" not old fee
+		feeState.estimated = null;
+		feeState.swapLimits = null;
 		if (amountInSats > 0) {
+			feeState.isLoading = true;
 			debouncedUpdateFeeEstimate();
-		} else {
-			feeState.estimated = null;
-			feeState.swapLimits = null;
 		}
 	}
 
@@ -345,7 +293,7 @@
 					await estimateLightningFees();
 					break;
 				case 'rootstock-bitcoin':
-					await estimateRootstockFees();
+					estimateRootstockFees();
 					feeState.swapLimits = null; // Rootstock doesn't need swap limits
 					break;
 				case 'liquid-bitcoin':
@@ -387,8 +335,10 @@
 	// Estimate fees for Lightning reverse swap
 	async function estimateLightningFees() {
 		const pairsData = await walletManager.getCachedReverseSwapPairs();
-		const pair = pairsData?.['BTC']?.['RBTC'];
+		// Guard: bail if network changed while awaiting
+		if (formInput.selectedNetwork !== 'lightning-bitcoin') return;
 
+		const pair = pairsData?.['BTC']?.['RBTC'];
 		if (!pair) {
 			throw new Error('Lightning swap pair not available');
 		}
@@ -415,30 +365,22 @@
 		}
 	}
 
-	// Estimate fees for Rootstock (gas fees)
+	// Estimate fees for Rootstock (receiving is free — no gas needed by receiver)
 	async function estimateRootstockFees() {
-		// Wallet is always connected at this point
-		if (!$walletStore.rsk.address) {
-			throw new Error('RSK wallet address not available');
-		}
-
-		// Convert sats to RBTC
-		const amountRBTC = (amountInSats / 100_000_000).toFixed(8);
-		const gasEstimation = await walletManager.estimateRBTCGas($walletStore.rsk.address, amountRBTC);
-
-		const gasFeeSats = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
-
 		feeState.estimated = {
-			serviceFee: 0, // No service fee for direct sends
-			networkFee: gasFeeSats,
-			totalFees: gasFeeSats
+			serviceFee: 0,
+			networkFee: 0, // Receiver doesn't pay gas for incoming transactions
+			totalFees: 0
 		};
-		feeState.swapLimits = null; // Rootstock doesn't need swap limits
+		feeState.swapLimits = null;
 	}
 
 	// Estimate fees for Liquid chain swap
 	async function estimateLiquidFees() {
 		const pairsData = await walletManager.getCachedChainSwapPairs();
+		// Guard: bail if network changed while awaiting
+		if (formInput.selectedNetwork !== 'liquid-bitcoin') return;
+
 		const pair = pairsData?.['L-BTC']?.['RBTC'];
 
 		if (!pair) {
@@ -768,30 +710,19 @@
 				bind:this={mobileFormContainer}
 				style="padding-bottom: env(keyboard-inset-bottom, 0px);"
 			>
-				<!-- Network Fee Display -->
-				<div
-					class="border-primary bg-base-100 flex items-center gap-2 rounded-lg border-2 px-3 py-2"
-				>
-					{#if selectedNetworkInfo?.icon}
-						<img src={selectedNetworkInfo.icon} alt={selectedNetworkInfo.label} class="h-5 w-5" />
-					{/if}
-					<span class="text-sm font-medium"
-						>{selectedNetworkInfo?.label} {$t('wallet.receive.network')}</span
-					>
-					<span class="text-base-content/60 ml-auto text-xs">
-						{$t('wallet.receive.fee')}:
-						{#if feeState.isLoading}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
-							{formatSats(selectedNetworkFee.totalFees)}
-							{$t('wallet.sats')}
-							{#if btcPrice.price > 0}
-								| {formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)}{/if}
-						{:else}
-							Free
-						{/if}
-					</span>
-				</div>
+				<!-- Network Fee Accordion (RoutePicker) -->
+				<RoutePicker
+					routes={swapRoutes}
+					{selectedRouteId}
+					onSelect={(id) => (selectedRouteId = id)}
+					networkFeeSats={feeState.estimated?.networkFee ?? 0}
+					isLoadingFee={feeState.isLoading || _routeLoading}
+					btcPrice={btcPrice.price}
+					network={formInput.selectedNetwork}
+					amountSats={amountInSats}
+					hasAddress={true}
+					hasAmount={amountInSats > 0}
+				/>
 
 				<!-- Charge Fees to Payer Toggle (Mobile - visible on both steps, BEFORE Total) -->
 				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
@@ -834,22 +765,6 @@
 						></div>
 						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 					</button>
-				{/if}
-
-				<!-- Swap Route Picker -->
-				{#if swapRoutes.length > 1 && totalReceived > 0}
-					<RoutePicker
-						routes={swapRoutes}
-						{selectedRouteId}
-						onSelect={(id) => (selectedRouteId = id)}
-						networkFeeSats={feeState.estimated?.networkFee ?? 0}
-						isLoadingFee={_routeLoading}
-						btcPrice={btcPrice.price}
-						network={formInput.selectedNetwork}
-						amountSats={amountInSats}
-						hasAddress={true}
-						hasAmount={amountInSats > 0}
-					/>
 				{/if}
 
 				<!-- Total Received Card (Mobile) -->
@@ -933,30 +848,19 @@
 		<!-- Desktop: All fields always visible -->
 		<div class="hidden sm:block">
 			<div class="flex flex-col space-y-2">
-				<!-- Network Fee Display -->
-				<div
-					class="border-primary bg-base-100 flex items-center gap-2 rounded-lg border-2 px-3 py-2"
-				>
-					{#if selectedNetworkInfo?.icon}
-						<img src={selectedNetworkInfo.icon} alt={selectedNetworkInfo.label} class="h-5 w-5" />
-					{/if}
-					<span class="text-sm font-medium"
-						>{selectedNetworkInfo?.label} {$t('wallet.receive.network')}</span
-					>
-					<span class="text-base-content/60 ml-auto text-xs">
-						{$t('wallet.receive.fee')}:
-						{#if feeState.isLoading}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
-							{formatSats(selectedNetworkFee.totalFees)}
-							{$t('wallet.sats')}
-							{#if btcPrice.price > 0}
-								| {formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)}{/if}
-						{:else}
-							Free
-						{/if}
-					</span>
-				</div>
+				<!-- Network Fee Accordion (RoutePicker) -->
+				<RoutePicker
+					routes={swapRoutes}
+					{selectedRouteId}
+					onSelect={(id) => (selectedRouteId = id)}
+					networkFeeSats={feeState.estimated?.networkFee ?? 0}
+					isLoadingFee={feeState.isLoading || _routeLoading}
+					btcPrice={btcPrice.price}
+					network={formInput.selectedNetwork}
+					amountSats={amountInSats}
+					hasAddress={true}
+					hasAmount={amountInSats > 0}
+				/>
 
 				<!-- Swap Minimum Warning -->
 				{#if isBelowSwapMinimum && feeState.swapLimits}
