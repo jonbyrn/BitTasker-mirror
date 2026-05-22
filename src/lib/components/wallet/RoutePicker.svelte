@@ -37,10 +37,10 @@
 	let selectedRoute = $derived(routes.find((r) => r.id === selectedRouteId));
 	let isUSDT = $derived(network === 'usdt-bsc');
 
-	/** Swap fee: uses live API override when provided, otherwise falls back to route %. */
+	/** Swap fee: uses live API override when > 0, otherwise falls back to route %. */
 	let swapFeeSats = $derived.by(() => {
 		if (amountSats <= 0) return 0;
-		if (swapFeeOverride !== undefined) return swapFeeOverride;
+		if (swapFeeOverride && swapFeeOverride > 0) return swapFeeOverride;
 		if (!selectedRoute) return 0;
 		return Math.round(amountSats * (selectedRoute.totalFeePercent / 100));
 	});
