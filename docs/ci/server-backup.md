@@ -4,7 +4,7 @@
 
 BitTasker's production infrastructure runs on Railway: one NestJS API and two Nostr relays (NestJS + Rust), all backed by PostgreSQL. Railway has no built-in cross-platform failover. When Railway is down, everything is down. This plan defines a phased approach to backup, disaster recovery, and failover.
 
-**Bottom line**: Railway outages happen (~98.9% uptime in May 2026 = ~8h downtime/month). You're on the Hobby plan which does NOT include automatic PITR. The pragmatic first step is enabling Railway volume backups (available on Hobby, free) followed by automated external backups via GitLab CI to Cloudflare R2. Full automatic failover is significant engineering effort and may not be the right investment at this stage.
+**Bottom line**: Railway outages happen (~98.9% uptime in May 2026 = ~8h downtime/month). You're on the Hobby plan which has NO backup features — no PITR, no volume backups, no snapshots of any kind. The only backup mechanism available is external: automated `pg_dump` via GitLab CI to Cloudflare R2. This is fully implemented. Full automatic failover is significant engineering effort and may not be the right investment at this stage.
 
 ---
 
@@ -20,7 +20,7 @@ PITR lets you restore a database to any specific moment in time — not just the
 
 **Example**: If a buggy deploy at 2:33 PM accidentally deletes critical Nostr events from the database, PITR lets you restore to exactly 2:32 PM — just before the bad deploy — losing only 1 minute of data instead of everything since the last nightly backup.
 
-**On Railway Hobby**: PITR is NOT available. Railway's managed PostgreSQL does not expose the configuration knobs (`archive_mode`, `archive_command`) needed for WAL archiving. You can only restore to snapshot points (volume backups), not to arbitrary timestamps.
+**On Railway Hobby**: PITR is NOT available. Railway's Hobby plan has no backup features at all — no PITR, no volume snapshots, no automated backups. The only way to back up your data is externally (pg_dump from outside Railway).
 
 ### RPO (Recovery Point Objective)
 
@@ -52,7 +52,7 @@ RTO answers: "How fast do you need to be back online?" It measures the time from
 | **Volume backup**            | Snapshot of the entire disk where database files live                                | Fast to create and restore; captures everything at once                                                      | Can't restore individual tables; tied to the same PostgreSQL version; stays within the same platform (Railway) |
 | **Logical backup (pg_dump)** | SQL commands that recreate the database — tables, indexes, data as INSERT statements | Portable across PostgreSQL versions; can restore individual tables; can be stored anywhere (R2, your laptop) | Slower for large databases; no PITR (only restores to the dump moment); single-threaded                        |
 
-**The strategy**: Use both. Volume backups (on Railway) for fast, full recovery within Railway. pg_dump to Cloudflare R2 for portable, off-platform backups you can restore anywhere.
+**The strategy**: Since no backup features are available on the Hobby plan, the strategy is external `pg_dump` to Cloudflare R2 — portable, off-platform backups you can restore anywhere. This is the only backup mechanism, and it's sufficient.
 
 ### WAL (Write-Ahead Log)
 
@@ -61,7 +61,7 @@ PostgreSQL's internal journal. Before any change is written to the actual data f
 - **Without WAL archiving**: Once a WAL segment is no longer needed for crash recovery, PostgreSQL recycles it. You can only restore to your last backup.
 - **With WAL archiving**: WAL segments are copied to safe storage (S3, R2) before being recycled. You can replay them to restore to any point in time.
 
-**On Railway Hobby**: WAL archiving is NOT configurable. Railway's managed PostgreSQL doesn't give you access to set `archive_mode = on` or `archive_command`.
+**On Railway Hobby**: WAL archiving is NOT configurable. Railway's managed PostgreSQL doesn't give you access to set `archive_mode = on` or `archive_command`. Combined with no volume backups, your only option is external logical dumps (pg_dump).
 
 ### Retention Policy / "Configure Retention"
 
@@ -154,7 +154,7 @@ Cloudflare R2 is technically "hot" storage (instant access) but priced like cold
 
 **Impact**: Database corruption or failure. Can affect one or all three services.
 
-**What we need**: Railway volume backups + external backups in R2. RTO: 30-60 min (restore volume backup, or download from R2 + pg_restore). RPO: Since PITR is not available on Hobby, RPO = time since last pg_dump (hours, depending on schedule).
+**What we need**: External backups in R2 + documented recovery playbook. RTO: 30-60 min (download from R2, pg_restore, verify). RPO: Time since last pg_dump (daily = 24h RPO, reduce by scheduling more frequent backups).
 
 ### Scenario 3: Railway Platform Outage (region down)
 
@@ -208,7 +208,7 @@ The NestJS API is a centralized service. When it's down:
 | Railway uptime           | ~99% historically, ~8h downtime/month at worst                                                                                                       |
 | Relay downtime impact    | Low — Nostr clients use multiple relays; your relays are currently the only ones but this is a client configuration issue, not an infrastructure one |
 | API downtime impact      | Medium — core Nostr identity still works offline                                                                                                     |
-| Data loss risk           | Low with volume backups + external dumps                                                                                                             |
+| Data loss risk           | Low with external dumps to R2                                                                                                                        |
 | Failback complexity      | High — bidirectional sync is the hardest problem in DR                                                                                               |
 | Backend update frequency | Rare — you rarely push updates to backend or relay projects                                                                                          |
 | Recovery approach        | Since updates are rare, deploying to a fresh server and restoring backups is practical — no need for always-on standby                               |
@@ -219,26 +219,20 @@ The NestJS API is a centralized service. When it's down:
 
 ## Implementation Plan
 
-### Phase 1: Railway Volume Backups + Documentation (15 min, immediate)
+### Phase 1: Document & Prepare (15 min, immediate)
 
-Railway volume backups ARE available on the Hobby plan. They are disk-level snapshots of your PostgreSQL volumes. While they don't provide PITR (you can only restore to snapshot times, not arbitrary moments), they give you fast recovery within Railway.
+Railway Hobby plan has **no backup features**. No PITR, no volume snapshots, no scheduled backups of any kind. This was confirmed against the actual Railway dashboard. The only backup mechanism available is external `pg_dump` (Phase 2).
 
-**Railway volume backup retention** (same on Hobby and Pro):
-| Schedule | Retention |
-|----------|-----------|
-| Daily | 6 days |
-| Weekly | 1 month |
-| Monthly | 3 months |
-
-**What you DON'T get on Hobby**: PITR with WAL archiving. Railway's documentation mentions PITR as a Pro feature, and even then it requires configuration that may not be exposed on managed PostgreSQL. Without `archive_mode` and `archive_command` access, true PITR with sub-second RPO is not achievable on Railway — which is exactly why external dumps to R2 (Phase 2) matter.
+This phase is about documenting what exists so you can recover if Railway goes down.
 
 **Actions:**
 
-1. **Enable volume backups on all three PostgreSQL services**
+1. **Document database connection details for all three PostgreSQL services**
 
-   - Go to each PostgreSQL service in Railway dashboard → Backups tab
-   - Enable daily + weekly schedules
-   - Cost: included in plan (incremental, billed per GB/minute — typically pennies per month for small databases)
+   - Go to each PostgreSQL service in Railway dashboard → Connect tab
+   - Copy the "Public Host" (looks like `interchange.proxy.rlwy.net:PORT`) for each
+   - Copy the database name for each (usually `railway` by default)
+   - Store these somewhere accessible (password manager)
 
 2. **Document current Railway environment variables**
 
@@ -248,21 +242,21 @@ Railway volume backups ARE available on the Hobby plan. They are disk-level snap
    railway variables list --service=bittasker-nostr-rs-relay --environment=production
    ```
 
-   Store these securely (password manager or GitLab CI variables). If Railway is completely down, you need these to deploy to a standby server.
+   Store these securely. If Railway is completely down, you need these to deploy to a recovery server.
 
-3. **Test a volume backup restore**
-   - In Railway, restore a backup to a new temporary database
-   - Verify tables and row counts match
+3. **Set low DNS TTL** on `api.bittasker.com`, `relay1.bittasker.com`, `relay2.bittasker.com`
+   - In Cloudflare DNS dashboard, set TTL to 60-300 seconds
+   - This enables fast DNS failover if you need to switch to a recovery server
 
 **Verification:**
 
-- [ ] Volume backups enabled on all 3 PostgreSQL instances
+- [ ] Database hostnames and names documented for all 3 services
 - [ ] Railway env vars documented and stored externally
-- [ ] Test restore of one volume backup to a temporary database
+- [ ] DNS TTL set to 60-300s on all 3 service domains
 
 ### Phase 2: Automated External Backups via GitLab CI (2-4 hours)
 
-Railway volume backups stay within Railway. If the platform itself is the problem, you need backups _outside_ Railway. This phase sets up automated `pg_dump` → Cloudflare R2 via GitLab CI scheduled pipelines.
+Railway Hobby has no backup features. You need backups _outside_ Railway. This phase sets up automated `pg_dump` → Cloudflare R2 via GitLab CI scheduled pipelines.
 
 **Why Cloudflare R2 instead of Backblaze B2:**
 
@@ -328,18 +322,18 @@ Repeat for each of the three databases.
 
 In GitLab → Settings → CI/CD → Variables, add these **masked** variables:
 
-| Variable               | Value                                               | Type                   |
-| ---------------------- | --------------------------------------------------- | ---------------------- |
-| `R2_ACCOUNT_ID`        | Your Cloudflare Account ID (found in dashboard URL) | Variable               |
-| `R2_ACCESS_KEY_ID`     | R2 API token access key                             | Variable               |
-| `R2_SECRET_ACCESS_KEY` | R2 API token secret                                 | **Masked**             |
-| `R2_BUCKET`            | `bittasker-backups`                                 | Variable               |
-| `R2_ENDPOINT`          | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`     | Variable               |
-| `PGHOST_API`           | api.bittasker.com PostgreSQL host                   | Variable (protected)   |
-| `PGHOST_RELAY_TASKS`   | relay2.bittasker.com PostgreSQL host                | Variable (protected)   |
-| `PGHOST_RELAY_GENERAL` | relay1.bittasker.com PostgreSQL host                | Variable (protected)   |
-| `PGUSER_BACKUP`        | `backup_user`                                       | Variable               |
-| `PGPASSWORD_BACKUP`    | Backup user password                                | **Masked** (protected) |
+| Variable                | Value                                               | Type                   |
+| ----------------------- | --------------------------------------------------- | ---------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare Account ID (found in dashboard URL) | Variable               |
+| `R2_ACCESS_KEY_ID`      | R2 API token access key                             | Variable               |
+| `R2_SECRET_ACCESS_KEY`  | R2 API token secret                                 | **Masked**             |
+| `R2_BUCKET`             | `bittasker-backups`                                 | Variable               |
+| `R2_ENDPOINT`           | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`     | Variable               |
+| `PGHOST_API`            | api.bittasker.com PostgreSQL host                   | Variable (protected)   |
+| `PGHOST_RELAY_TASKS`    | relay2.bittasker.com PostgreSQL host                | Variable (protected)   |
+| `PGHOST_RELAY_GENERAL`  | relay1.bittasker.com PostgreSQL host                | Variable (protected)   |
+| `PGUSER_BACKUP`         | `backup_user`                                       | Variable               |
+| `PGPASSWORD_BACKUP`     | Backup user password                                | **Masked** (protected) |
 
 #### Step 5: GitLab CI backup job (implemented)
 
@@ -397,7 +391,7 @@ GitLab automatically notifies you of pipeline failures if you configure it:
 **Manual (see checklist above):**
 
 - [ ] R2 bucket created + API token
-- [ ] Railway volume backups enabled on all 3 databases
+- [ ] PostgreSQL hostnames documented from Railway dashboard (Phase 1)
 - [ ] Read-only PostgreSQL backup user created on each database
 - [ ] GitLab CI variables added
 - [ ] Three pipeline schedules created (daily, weekly, monthly)
@@ -577,15 +571,15 @@ Railway health checks only run at deploy time, not continuously. Set up:
 
 ## Cost Estimate
 
-| Item                                             | Monthly Cost                               |
-| ------------------------------------------------ | ------------------------------------------ |
-| Railway volume backups (incremental, 3 DBs)      | ~$1-3 (incremental, billed per GB/minute)  |
-| Cloudflare R2 (external dumps, ~5 GB retained)   | $0.00-$0.075 (within free 10 GB tier)      |
-| External VM (4 vCPU, 8 GB, 80 GB — Hetzner CX42) | ~$24 (only if running a warm standby 24/7) |
-| **Total (Phase 1-2)**                            | **~$1-3/month**                            |
-| **Total (Phase 1-3, with warm standby)**         | **~$25-27/month**                          |
+| Item                                           | Monthly Cost                               |
+| ---------------------------------------------- | ------------------------------------------ |
+| Cloudflare R2 (external dumps, ~5 GB retained) | $0.00 (within free 10 GB tier)             |
+| GitLab CI pipeline (backup jobs)               | $0.00 (self-hosted runner)                 |
+| External VM for recovery (Hetzner CX42)        | ~$24 (only if running a warm standby 24/7) |
+| **Total (Phase 1-2)**                          | **$0.00/month**                            |
+| **Total (Phase 1-3, with warm standby)**       | **~$24/month**                             |
 
-Without a warm standby (just R2 backups + documented recovery playbook), the monthly cost is essentially just Railway volume backup charges — a few dollars.
+The backup pipeline itself costs nothing — R2 free tier covers storage, and the self-hosted GitLab runner handles the CI jobs.
 
 ---
 
@@ -593,7 +587,7 @@ Without a warm standby (just R2 backups + documented recovery playbook), the mon
 
 ```
                     Effort    Impact    Priority
-Phase 1 (Volume)    15 min    HIGH      ██████████ DO NOW
+Phase 1 (Document)  15 min    MEDIUM    ██████████ DO NOW
 Phase 2 (R2 Dumps)  2-4 hrs   HIGH      ██████████ THIS WEEK
 Phase 3 (Standby)   4-8 hrs   MEDIUM    ██████     AS NEEDED
 Phase 4 (Repl)      Days      LOW       ██         FUTURE (UNLIKELY NEEDED)
@@ -602,10 +596,6 @@ Phase 4 (Repl)      Days      LOW       ██         FUTURE (UNLIKELY NEEDED)
 ---
 
 ## Appendix: Quick-Start Commands
-
-### Enable volume backups on Railway PostgreSQL
-
-Via Railway dashboard: Service → Backups → Enable daily + weekly schedule. No CLI needed.
 
 ### Manual pg_dump via Railway CLI
 
@@ -640,17 +630,17 @@ npx wrangler r2 bucket lifecycle list bittasker-backups
 
 ```bash
 aws s3 cp backup.dump "s3://bittasker-backups/daily/api/backup.dump" \
-  --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+  --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 ```
 
 ### Download latest backup from R2
 
 ```bash
 LATEST=$(aws s3 ls "s3://bittasker-backups/daily/api/" \
-  --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+  --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" \
   | sort | tail -1 | awk '{print $4}')
 aws s3 cp "s3://bittasker-backups/daily/api/${LATEST}" . \
-  --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+  --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 ```
 
 ---
@@ -684,9 +674,7 @@ These steps require manual actions in external dashboards. Complete them in orde
 
 ### Railway Dashboard
 
-- [ ] **Enable volume backups** on all 3 PostgreSQL services
-  - Each service → Backups tab → Enable daily + weekly schedule
-- [ ] **Get PostgreSQL hostnames** for each database
+- [ ] **Get PostgreSQL hostnames** for each database (Phase 1)
   - Each PostgreSQL service → Connect tab → Copy the "Public Host" (looks like `interchange.proxy.rlwy.net:PORT`)
   - You need 3 hosts: API database, Tasks Relay database, General Relay database
 - [ ] **Create read-only backup user** on each database
@@ -699,6 +687,7 @@ These steps require manual actions in external dashboards. Complete them in orde
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO backup_user;
     ```
   - Use the **same password** for all three (simplifies CI variable setup)
+  - Verify role exists: `SELECT rolname FROM pg_roles;`
   - Database names: The API DB is `railway` (default Railway name) or check in `.env` for the exact name. The relay DBs may also use `railway` or custom names — verify in their respective Railway dashboard.
 
 ### GitLab CI
@@ -706,7 +695,7 @@ These steps require manual actions in external dashboards. Complete them in orde
 - [ ] **Add CI/CD variables** (Settings → CI/CD → Variables)
       | Variable | Value | Protected | Masked |
       |----------|-------|-----------|--------|
-      | `R2_ACCOUNT_ID` | Cloudflare Account ID | Yes | No |
+      | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID | Yes | No |
       | `R2_ACCESS_KEY_ID` | R2 API token access key | Yes | No |
       | `R2_SECRET_ACCESS_KEY` | R2 API token secret | Yes | **Yes** |
       | `R2_BUCKET` | `bittasker-backups` | Yes | No |
@@ -731,7 +720,7 @@ These steps require manual actions in external dashboards. Complete them in orde
 
 - [ ] Run from your machine (after the R2 bucket and API token are set up):
   ```bash
-  export R2_ACCOUNT_ID="<your-account-id>"
+  export CLOUDFLARE_ACCOUNT_ID="<your-account-id>"
   npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json
   npx wrangler r2 bucket lifecycle list bittasker-backups  # verify
   ```
@@ -745,9 +734,13 @@ These steps require manual actions in external dashboards. Complete them in orde
     --host="<PG_HOST_API>" --port=5432 \
     --username=backup_user --dbname=railway \
     --format=custom --compress=9 --no-owner --no-acl \
-    --file=/tmp/test.dump
+    --file=dist/test.dump
   # Verify the dump is valid:
   pg_restore --list /tmp/test.dump | head -20
+  ```
+
+  ```bash
+  pg_dump "database public link" --format=custom --compress=9 --no-owner --no-acl --file=dist/test.dump
   ```
 
 - [ ] **Trigger a manual pipeline test**

@@ -3,11 +3,22 @@
 # -----------------------------------------------------------------------------------------------
 # STAGES
 # -----------------------------------------------------------------------------------------------
-#   validate  → build + unit (branch pushes only) + coverage (MR only). No duplicate test runs.
-#   deploy    → deploy-development (dev branch), deploy-staging / deploy-production (commented)
+#   validate  → build (branch pushes only) + coverage (MR only). No duplicate test runs.
+#   deploy    → deploy-development (dev branch), deploy-production (master branch)
+#   backup    → db-backup (scheduled pipelines only)
 #
-# Build runs once; deploy reuses build/ (wrangler deploy, no rebuild).
+# Build runs once per deploy pipeline; deploy reuses build/ artifact (wrangler deploy, no rebuild).
 # Unit tests (Vitest) run against source; no built app needed.
+#
+# -----------------------------------------------------------------------------------------------
+# PIPELINE STRATEGY
+# -----------------------------------------------------------------------------------------------
+#   Merge requests  → coverage only (quality gate). No build (coverage runs vitest against source).
+#   Push to dev     → build + deploy-development.
+#   Push to master  → build-production + deploy-production.
+#   Scheduled       → db-backup.
+#
+#   Pipelines auto-cancel on new commits to the same ref (interruptible: true).
 #
 # -----------------------------------------------------------------------------------------------
 # RUNNERS
@@ -15,58 +26,31 @@
 #   All jobs use tags: [self-hosted] so the pipeline runs on your self-hosted GitLab runner.
 #
 # -----------------------------------------------------------------------------------------------
-# BRANCH STRATEGY (no feature-branch names — use long-lived branches only)
-# -----------------------------------------------------------------------------------------------
-#   When to run the pipeline:
-#     - Merge requests  → build + coverage (tests with coverage for MR widget). No unit job (coverage does it).
-#     - Push to dev     → build + unit. deploy-development runs (deploys to worker.dev.bittasker.com).
-#     - Push to master  → build + unit. deploy-production commented out; uncomment when ready.
-#
-#   What to include in rules:
-#     Use merge_request_event for MRs, and explicit branch names for the branches you actually use:
-#     dev, master (or main). Do NOT hardcode feature branches (e.g. feat/unit-test-audit); when you
-#     work on a feature, open an MR to dev → pipeline runs via merge_request_event. When you merge
-#     to dev, the dev pipeline runs and deploys. To test deploy from a feature branch temporarily,
-#     add one rule to deploy-development: - if: $CI_COMMIT_BRANCH == "your-feature-branch".
-#
-#   See docs/ci/pipeline-branch-strategy.md for the full approach.
-#
-# -----------------------------------------------------------------------------------------------
-# E2E (PLAYWRIGHT) — COMMENTED OUT
-# -----------------------------------------------------------------------------------------------
-#   Playwright is disabled until the development backend is updated for E2E. When re-enabling:
-#   - Uncomment the playwright job below.
-#   - Add needs: [build, playwright] to deploy-development (and deploy-staging/deploy-production).
-#   - Ensure VITE_API_URL, VITE_E2E_TURNSTILE_BYPASS, VITE_NOSTR_RELAY_URL are set in CI/CD Variables.
-#
-# -----------------------------------------------------------------------------------------------
 # CACHE
 # -----------------------------------------------------------------------------------------------
 #   Key from package-lock.json so the same lockfile reuses cache across branches and MRs.
-#   Build job uses policy: pull-push (creates/updates cache). Other jobs use policy: pull only
-#   (restore but don't upload), saving ~1–2 min per job and avoiding duplicate uploads.
-#   "No URL provided" in logs = cache is local to the runner; for multiple runners configure
-#   a distributed cache (e.g. S3) in the runner's config.toml.
+#   Build jobs use policy: pull-push (creates/updates cache). Other jobs use policy: pull only.
 # -----------------------------------------------------------------------------------------------
 # WRANGLER / VARIABLES
 # -----------------------------------------------------------------------------------------------
 #   GitLab injects CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. Build-time VITE_* in GitLab.
 # -----------------------------------------------------------------------------------------------
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
 stages:
   - validate
   - deploy
   - backup
 
 # ============================================
-# BUILD - Single build for E2E and deploy (validate stage)
+# BUILD - Development build (dev branch only)
 # ============================================
-# Runs once. Artifact build/ is used by playwright (preview only) and deploy-development (wrangler deploy).
-# environment: development → GitLab injects variables scoped to "development" (VITE_*, etc.).
-# For staging/production later: add build-staging (environment: staging) and build-production (environment: production),
-# or use environment-scoped variables and one build job per branch (e.g. rules + environment per job).
 build:
   image: node:22-bookworm-slim
   stage: validate
+  interruptible: true
   tags:
     - self-hosted
   environment:
@@ -80,8 +64,6 @@ build:
       - .npm/
     policy: pull-push
   before_script:
-    # bookworm-slim omits CA certificates; install them so sentry-cli can reach sentry.io over HTTPS.
-    # Skip apt-get update if ca-certificates is already present (e.g. warm runner cache).
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
@@ -92,21 +74,19 @@ build:
       - .svelte-kit/output/
     expire_in: 1 hour
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "dev"
-    - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
-# UNIT - Unit tests (no coverage)
+# BUILD-PRODUCTION - Production build (master branch only)
 # ============================================
-# Runs test:ci on branch pushes. Does NOT run on MRs (coverage runs there) or on dev/master
-# (coverage runs there too so GitLab has a stored baseline for "change vs. target" in the MR widget).
-# One test run per pipeline.
-unit:
+build-production:
   image: node:22-bookworm-slim
   stage: validate
+  interruptible: true
   tags:
     - self-hosted
+  environment:
+    name: production
   cache:
     key:
       files:
@@ -114,34 +94,29 @@ unit:
     paths:
       - node_modules/
       - .npm/
-    policy: pull
+    policy: pull-push
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
-    - npm run test:ci
-  environment:
-    name: development
+    - npm run build:production
+  artifacts:
+    paths:
+      - build/
+      - .svelte-kit/output/
+    expire_in: 1 hour
   rules:
-    # Skip on MR (coverage runs) and on dev/master (coverage runs for baseline)
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: never
-    - if: $CI_COMMIT_BRANCH == "dev"
-      when: never
     - if: $CI_COMMIT_BRANCH == "master"
-      when: never
-    # Run on other branch pushes (if any)
-    - when: on_success
 
 # ============================================
-# COVERAGE - MR and target branches (for widget % and "change vs. target")
+# COVERAGE - MR only (quality gate)
 # ============================================
-# Runs unit tests with coverage and reports to GitLab so the MR shows:
-#   - Coverage percentage and change vs. target branch (from coverage: regex)
-#   - Line-by-line coverage in MR diff (from artifacts: reports: coverage_report)
-# Runs on merge_request_event (MRs) and on push to dev/master so GitLab has a stored
-# coverage for the target branch; without that, the widget cannot show "change vs. target".
+# Runs unit tests with coverage and reports to GitLab so the MR shows coverage percentage.
+# Runs on merge_request_event only — no duplicate test runs on branch pushes.
 coverage:
   image: node:22-bookworm-slim
   stage: validate
+  interruptible: true
   tags:
     - self-hosted
   cache:
@@ -168,9 +143,6 @@ coverage:
     expire_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "dev"
-    - if: $CI_COMMIT_BRANCH == "master"
-
 # ============================================
 # PLAYWRIGHT E2E - COMMENTED OUT (backend not ready)
 # ============================================
@@ -193,17 +165,16 @@ coverage:
 #     name: development
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_COMMIT_BRANCH == "dev"
-#     - if: $CI_COMMIT_BRANCH == "master"
+##     - if: $CI_COMMIT_BRANCH == "dev"
+##     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
 # DEPLOY DEVELOPMENT (worker.dev.bittasker.com)
 # ============================================
-# Reuses build/ artifact (no rebuild). Needs only build until Playwright is re-enabled.
-# Requires: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 deploy-development:
   image: node:22-bookworm-slim
   stage: deploy
+  interruptible: true
   tags:
     - self-hosted
   cache:
@@ -227,56 +198,33 @@ deploy-development:
     - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
-# DEPLOY STAGING - dev branch only
+# DEPLOY PRODUCTION (bittasker.com via Workers)
 # ============================================
-# COMMENTED. Uncomment to deploy dev → staging. Reuse build artifact (needs: [build, playwright]); no npm run build.
-# For staging you may want a separate build job with staging VITE_* (see "Environments" in docs).
-# deploy-staging:
-#   image: node:22-bookworm-slim
-#   stage: deploy
-#   cache:
-#     key: $CI_COMMIT_REF_SLUG
-#     paths:
-#       - node_modules/
-#       - .npm/
-#   needs:
-#     - build
-#     - playwright
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler deploy --env staging
-#     - ENVIRONMENT=staging node scripts/purge-cache.js
-#   environment:
-#     name: staging
-#     url: https://staging.bittasker.com
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "dev"
-
-# ============================================
-# DEPLOY PRODUCTION - master branch only
-# ============================================
-# COMMENTED. Uncomment to deploy master → production. Use a dedicated build job with production VITE_* (e.g. build:production)
-# and pass that artifact; or needs: [build, playwright] if the single build job uses production vars on main.
-# deploy-production:
-#   image: node:22-bookworm-slim
-#   stage: deploy
-#   cache:
-#     key: $CI_COMMIT_REF_SLUG
-#     paths:
-#       - node_modules/
-#       - .npm/
-#   needs:
-#     - build
-#     - playwright
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler deploy --env production
-#     - ENVIRONMENT=production node scripts/purge-cache.js
-#   environment:
-#     name: production
-#     url: https://worker.prod.bittasker.com
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "master"
+deploy-production:
+  image: node:22-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  needs:
+    - build-production
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler deploy --env production
+    - ENVIRONMENT=production node scripts/purge-cache.js
+  environment:
+    name: production
+    url: https://worker.prod.bittasker.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
@@ -291,7 +239,7 @@ deploy-development:
 #   - Monthly → RETENTION_TYPE=monthly, cron: 0 3 1 * *
 #
 # Required CI/CD variables (set in GitLab → Settings → CI/CD → Variables):
-#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+#   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 #   PG_HOST_API, PG_HOST_RELAY_TASKS, PG_HOST_RELAY_GENERAL
 #   PGUSER_BACKUP, PGPASSWORD_BACKUP
 #

@@ -6,7 +6,7 @@
 # compressed custom-format dumps to Cloudflare R2.
 #
 # Required environment variables (set as GitLab CI variables):
-#   R2_ACCOUNT_ID        — Cloudflare account ID (36-char hex)
+#   CLOUDFLARE_ACCOUNT_ID        — Cloudflare account ID (36-char hex)
 #   R2_ACCESS_KEY_ID     — R2 API token access key
 #   R2_SECRET_ACCESS_KEY — R2 API token secret
 #   R2_BUCKET            — R2 bucket name (e.g. "bittasker-backups")
@@ -24,7 +24,7 @@ set -euo pipefail
 
 # ── Validate required variables ─────────────────────────────────────────────
 REQUIRED_VARS=(
-  R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET
+  CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET
   PG_HOST_API PG_HOST_RELAY_TASKS PG_HOST_RELAY_GENERAL
   PGUSER_BACKUP PGPASSWORD_BACKUP RETENTION_TYPE
 )
@@ -49,7 +49,7 @@ case "$RETENTION_TYPE" in
 esac
 
 # ── Derived values ──────────────────────────────────────────────────────────
-R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
 export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}"
 export AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}"

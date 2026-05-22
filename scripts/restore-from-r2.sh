@@ -6,7 +6,7 @@
 # Prompts for confirmation before overwriting any data.
 #
 # Required environment variables:
-#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+#   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 #
 # Usage:
 #   bash scripts/restore-from-r2.sh api [target_db_url]
@@ -37,7 +37,7 @@ case "$LABEL" in
 esac
 
 # ── Validate required variables ─────────────────────────────────────────────
-REQUIRED_VARS=(R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET)
+REQUIRED_VARS=(CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET)
 MISSING=()
 for VAR in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!VAR:-}" ]; then
@@ -52,7 +52,7 @@ fi
 
 export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}"
 export AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}"
-R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # ── Ensure aws CLI is available ─────────────────────────────────────────────
 if ! command -v aws &>/dev/null; then
