@@ -86,18 +86,29 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		connectingType: null
 	}));
 
+	// Fetch balances immediately, then start polling
+	const fetcher = (
+		handle as {
+			fetchBalances?: () => Promise<
+				Record<string, { raw: string; formatted: string; loading: boolean }>
+			>;
+		}
+	).fetchBalances;
+	if (fetcher) {
+		console.log('[ConnectedWallets] SDK wallet, fetching balances immediately...');
+		fetcher()
+			.then((balances) => {
+				console.log('[ConnectedWallets] Initial balances:', balances);
+				updateConnectedBalances(handle.id, balances);
+			})
+			.catch((e) => console.error('[ConnectedWallets] Initial fetch failed:', e));
+	}
+
 	// Start balance polling for this wallet
 	balancePoller.init().then(() => {
 		balancePoller.start(handle.id, async () => {
 			try {
 				// SDK-based wallets: use fetchBalances if available
-				const fetcher = (
-					handle as {
-						fetchBalances?: () => Promise<
-							Record<string, { raw: string; formatted: string; loading: boolean }>
-						>;
-					}
-				).fetchBalances;
 				if (fetcher) {
 					const balances = await fetcher();
 					updateConnectedBalances(handle.id, balances);

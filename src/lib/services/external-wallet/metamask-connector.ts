@@ -169,6 +169,7 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 				request: { method: string; params: unknown[] };
 			}) => Promise<string>;
 
+			console.log('[MetaMask] fetchBalances: querying chains', chainIds, 'address', address);
 			// rBTC on RSK — get native balance
 			for (const chainId of chainIds.filter((c) => c === 30 || c === 31)) {
 				try {
@@ -182,8 +183,8 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 						formatted: (Number(raw) / 1e18).toFixed(8),
 						loading: false
 					};
-				} catch {
-					/* chain not connected */
+				} catch (e) {
+					console.warn('[MetaMask] fetchBalances rBTC failed for chain', chainId, e);
 				}
 			}
 
@@ -210,11 +211,12 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 							}),
 						loading: false
 					};
-				} catch {
-					/* chain not connected */
+				} catch (e) {
+					console.warn('[MetaMask] fetchBalances USDT failed for chain', chainId, e);
 				}
 			}
 
+			console.log('[MetaMask] fetchBalances result:', result);
 			return result;
 		}
 	} as ConnectorHandle & {
