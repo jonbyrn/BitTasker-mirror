@@ -50,6 +50,41 @@ async function getClient(): Promise<MultiChainClient> {
 export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<ConnectorHandle> {
 	const sdkClient = await getClient();
 
+	// Register session listener BEFORE connect() — the SDK may fire the event
+	// synchronously during connect() and we'd miss it otherwise.
+	let resolveSession: (v: { accounts: string[]; chainIds: number[] }) => void;
+	let rejectSession: (e: Error) => void;
+	const sessionPromise = new Promise<{ accounts: string[]; chainIds: number[] }>((res, rej) => {
+		resolveSession = res;
+		rejectSession = rej;
+	});
+	const timeout = setTimeout(
+		() => rejectSession(new Error('Session data timeout — try again')),
+		10_000
+	);
+	sdkClient.on(
+		'wallet_sessionChanged' as never,
+		((session: unknown) => {
+			clearTimeout(timeout);
+			const s = session as { sessionScopes?: Record<string, { accounts?: string[] }> };
+			const accts: string[] = [];
+			const chIds: number[] = [];
+			if (s?.sessionScopes) {
+				for (const scopeId of Object.keys(s.sessionScopes)) {
+					for (const acct of s.sessionScopes[scopeId]?.accounts ?? []) {
+						const addr = acct.includes(':')
+							? acct.split(':').pop()!.toLowerCase()
+							: acct.toLowerCase();
+						if (!accts.includes(addr)) accts.push(addr);
+					}
+					const chainId = parseInt(scopeId.split(':')[1], 10);
+					if (!chIds.includes(chainId)) chIds.push(chainId);
+				}
+			}
+			resolveSession({ accounts: accts, chainIds: chIds });
+		}) as (...a: unknown[]) => void
+	);
+
 	await (sdkClient.connect as unknown as (scopes: string[], accounts: never[]) => Promise<void>)(
 		DEFAULT_SCOPES as unknown as string[],
 		[]
@@ -59,37 +94,8 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		(sdkClient as unknown as Record<string, unknown>).status
 	);
 
-	// Wait for wallet_sessionChanged event to get account data
-	const sessionData: { accounts: string[]; chainIds: number[] } = await new Promise(
-		(resolve, reject) => {
-			const timeout = setTimeout(
-				() => reject(new Error('Session data timeout — try again')),
-				10_000
-			);
-			sdkClient.on(
-				'wallet_sessionChanged' as never,
-				((session: unknown) => {
-					clearTimeout(timeout);
-					const s = session as { sessionScopes?: Record<string, { accounts?: string[] }> };
-					const accts: string[] = [];
-					const chIds: number[] = [];
-					if (s?.sessionScopes) {
-						for (const scopeId of Object.keys(s.sessionScopes)) {
-							for (const acct of s.sessionScopes[scopeId]?.accounts ?? []) {
-								const addr = acct.includes(':')
-									? acct.split(':').pop()!.toLowerCase()
-									: acct.toLowerCase();
-								if (!accts.includes(addr)) accts.push(addr);
-							}
-							const chainId = parseInt(scopeId.split(':')[1], 10);
-							if (!chIds.includes(chainId)) chIds.push(chainId);
-						}
-					}
-					resolve({ accounts: accts, chainIds: chIds });
-				}) as (...a: unknown[]) => void
-			);
-		}
-	);
+	// Now wait for the session data (event may fire during or after connect)
+	const sessionData = await sessionPromise;
 
 	const accounts = sessionData.accounts;
 	const chainIds = sessionData.chainIds;
