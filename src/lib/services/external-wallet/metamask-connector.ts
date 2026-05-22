@@ -11,12 +11,12 @@ import type { ConnectorRegistry } from './connector-registry';
 import { sendLock } from '$lib/services/external-wallet/send-lock';
 
 // ---------------------------------------------------------------------------
-// Multichain SDK
+// Multichain SDK (lazy-loaded — no static import to prevent SSR crashes)
 // ---------------------------------------------------------------------------
 
-import { createMultichainClient } from '@metamask/connect-multichain';
-
-type MultiChainClient = Awaited<ReturnType<typeof createMultichainClient>>;
+type MultiChainClient = Awaited<
+	ReturnType<typeof import('@metamask/connect-multichain').createMultichainClient>
+>;
 let multichainClient: MultiChainClient | null = null;
 let clientPromise: Promise<MultiChainClient> | null = null;
 
@@ -30,7 +30,8 @@ const DEFAULT_SCOPES = ['eip155:30', 'eip155:31', 'eip155:56', 'eip155:97', 'eip
 async function getClient(): Promise<MultiChainClient> {
 	// Deferred promise prevents race on concurrent connectMetaMask calls
 	if (!clientPromise) {
-		clientPromise = createMultichainClient({
+		const { createMultichainClient: createClient } = await import('@metamask/connect-multichain');
+		clientPromise = createClient({
 			dapp: {
 				name: 'BitTasker',
 				url: typeof window !== 'undefined' ? window.location.href : 'https://bittasker.com'
