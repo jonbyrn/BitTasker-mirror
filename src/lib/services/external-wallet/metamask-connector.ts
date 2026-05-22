@@ -33,6 +33,10 @@ async function getClient(): Promise<MultiChainClient> {
 				name: 'BitTasker',
 				url: typeof window !== 'undefined' ? window.location.href : 'https://bittasker.com'
 			},
+			ui: {
+				headless: true, // No SDK modal — we show our own connect UI
+				preferExtension: true // Use browser extension (MetaMask), not QR
+			},
 			api: {
 				supportedNetworks: {
 					'eip155:30': 'https://rpc.mainnet.rootstock.io',
