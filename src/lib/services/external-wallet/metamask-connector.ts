@@ -145,24 +145,13 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		}
 	};
 
-	const rpcUrl = 'https://rpc.testnet.rootstock.io';
-	let rpcProvider: { getBalance(addr: string, block?: string): Promise<bigint> } | null = null;
-	try {
-		const ethersModule = await import('ethers');
-		rpcProvider = new ethersModule.JsonRpcProvider(rpcUrl) as unknown as {
-			getBalance(addr: string, block?: string): Promise<bigint>;
-		};
-	} catch {
-		/* no-op */
-	}
-
 	return {
 		id: connectorId,
 		walletName: 'MetaMask',
 		walletType: 'metamask',
 		address,
 		chainIds,
-		provider: rpcProvider != null ? (rpcProvider as unknown as import('ethers').Provider) : null,
+		provider: null, // SDK balances come via invokeMethod, not ethers Provider
 		evmSigner,
 		onEvent: config.onEvent,
 		unsubscribe() {
