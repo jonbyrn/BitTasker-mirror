@@ -74,25 +74,37 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 			(sdkClient as unknown as Record<string, unknown>).status
 		);
 
-		// SDK uses wallet_sessionChanged event for session updates
-		sdkClient.on(
-			'wallet_sessionChanged' as never,
-			((session: unknown) => {
-				const s = session as { sessionScopes?: Record<string, { accounts?: string[] }> };
-				if (s?.sessionScopes) {
-					for (const scopeId of Object.keys(s.sessionScopes)) {
-						const scopeAccts = s.sessionScopes[scopeId]?.accounts ?? [];
-						for (const acct of scopeAccts) {
-							const addr = acct.includes(':')
-								? acct.split(':').pop()!.toLowerCase()
-								: acct.toLowerCase();
-							if (!accounts.includes(addr)) accounts.push(addr);
+		// Wait for session data to arrive (wallet_sessionChanged fires after connect)
+		const sessionData: { accounts: string[]; chainIds: number[] } = await new Promise(
+			(resolve, reject) => {
+				const timeout = setTimeout(() => reject(new Error('Session data timeout')), 10_000);
+				sdkClient!.on(
+					'wallet_sessionChanged' as never,
+					((session: unknown) => {
+						clearTimeout(timeout);
+						const s = session as { sessionScopes?: Record<string, { accounts?: string[] }> };
+						const accts: string[] = [];
+						const chIds: number[] = [];
+						if (s?.sessionScopes) {
+							for (const scopeId of Object.keys(s.sessionScopes)) {
+								for (const acct of s.sessionScopes[scopeId]?.accounts ?? []) {
+									const addr = acct.includes(':')
+										? acct.split(':').pop()!.toLowerCase()
+										: acct.toLowerCase();
+									if (!accts.includes(addr)) accts.push(addr);
+								}
+								const chainId = parseInt(scopeId.split(':')[1], 10);
+								if (!chIds.includes(chainId)) chIds.push(chainId);
+							}
 						}
-					}
-					config.onEvent({ type: 'accountsChanged', accounts });
-				}
-			}) as (...a: unknown[]) => void
+						resolve({ accounts: accts, chainIds: chIds });
+					}) as (...a: unknown[]) => void
+				);
+			}
 		);
+		accounts = sessionData.accounts;
+		chainIds = sessionData.chainIds;
+		console.log('[MetaMask] SDK session ready. Accounts:', accounts, 'Chains:', chainIds);
 	} catch (sdkErr) {
 		console.warn('[MetaMask] SDK connect failed, falling back to window.ethereum:', sdkErr);
 		useSDK = false;
@@ -129,6 +141,8 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		}) as (...a: unknown[]) => void);
 	}
 
+	if (accounts.length === 0)
+		throw new Error('No accounts authorized. Please approve the connection in MetaMask.');
 	const address = accounts[0];
 	const connectorId = `metamask-${address}`;
 
