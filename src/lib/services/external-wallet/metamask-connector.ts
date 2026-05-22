@@ -68,36 +68,85 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	const connectResult = await connectFn(DEFAULT_SCOPES as unknown as string[], []);
 	console.log('[MetaMask SDK] connect result:', connectResult);
 
-	// Try multiple session access patterns — SDK APIs vary by version
+	// Exhaustive SDK API probing
+	console.log(
+		'[MetaMask SDK] client keys:',
+		Object.keys(client as unknown as Record<string, unknown>)
+	);
+	console.log('[MetaMask SDK] client.provider type:', typeof client.provider);
+	if (client.provider)
+		console.log(
+			'[MetaMask SDK] provider keys:',
+			Object.keys(client.provider as Record<string, unknown>)
+		);
+
 	let sessionData: Record<string, { accounts?: string[] }> | null = null;
-	try {
-		// Pattern 1: client.provider.getSession() → { sessionScopes }
-		const p = client.provider as unknown as {
-			getSession?: () => Promise<{ sessionScopes?: Record<string, { accounts?: string[] }> }>;
-		};
-		if (typeof p?.getSession === 'function') {
-			const s = await p.getSession();
-			console.log('[MetaMask SDK] getSession result:', s);
-			sessionData = s.sessionScopes ?? (s as unknown as Record<string, { accounts?: string[] }>);
+
+	// Pattern 1: connect() return value
+	if (connectResult && typeof connectResult === 'object') {
+		const cr = connectResult as Record<string, unknown>;
+		for (const key of ['sessionScopes', 'approvedScopes', 'scopes', 'accounts']) {
+			if (cr[key] && typeof cr[key] === 'object') {
+				sessionData = cr[key] as Record<string, { accounts?: string[] }>;
+				console.log('[MetaMask SDK] Found via connect().' + key);
+				break;
+			}
 		}
-	} catch (e) {
-		console.warn('[MetaMask SDK] getSession failed, trying connect result:', e);
 	}
 
-	// Pattern 2: connect() returns the session directly
-	if (!sessionData && connectResult && typeof connectResult === 'object') {
-		const cr = connectResult as Record<string, unknown>;
-		if (cr.sessionScopes) {
-			sessionData = cr.sessionScopes as Record<string, { accounts?: string[] }>;
-		} else if (cr.approvedScopes) {
-			sessionData = cr.approvedScopes as Record<string, { accounts?: string[] }>;
-		} else if (cr.scopes) {
-			sessionData = cr.scopes as Record<string, { accounts?: string[] }>;
+	// Pattern 2: client.provider.getSession
+	if (!sessionData) {
+		const prov = client.provider as Record<string, unknown> | null | undefined;
+		if (prov) {
+			console.log('[MetaMask SDK] Trying provider methods...');
+			for (const key of ['getSession', 'session', 'request']) {
+				try {
+					const val = prov[key];
+					if (typeof val === 'function') {
+						const result = await (val as () => Promise<unknown>)();
+						console.log('[MetaMask SDK] provider.' + key + '() result:', result, typeof result);
+						if (result && typeof result === 'object') {
+							const obj = result as Record<string, unknown>;
+							for (const sk of ['sessionScopes', 'scopes', 'accounts']) {
+								const v = obj[sk];
+								if (v && typeof v === 'object') {
+									sessionData = v as Record<string, { accounts?: string[] }>;
+									console.log('[MetaMask SDK] Found via provider.' + key + '().' + sk);
+									break;
+								}
+							}
+						}
+					}
+					if (sessionData) break;
+				} catch (e) {
+					console.warn('[MetaMask SDK] provider.' + key + ' error:', e);
+				}
+			}
+		}
+	}
+
+	// Pattern 3: client.session / client.activeSession
+	if (!sessionData) {
+		for (const key of ['session', 'activeSession']) {
+			const val = (client as Record<string, unknown>)[key];
+			if (val && typeof val === 'object') {
+				const obj = val as Record<string, unknown>;
+				for (const sk of ['sessionScopes', 'scopes']) {
+					if (obj[sk]) {
+						sessionData = obj[sk] as Record<string, { accounts?: string[] }>;
+						console.log('[MetaMask SDK] Found via client.' + key);
+						break;
+					}
+				}
+			}
+			if (sessionData) break;
 		}
 	}
 
 	if (!sessionData) {
-		throw new Error('Unable to read session data from MetaMask SDK. Check console for API shape.');
+		throw new Error(
+			'Unable to read session data from MetaMask SDK. See console for client keys + API shape.'
+		);
 	}
 
 	// Collect accounts from all scopes
