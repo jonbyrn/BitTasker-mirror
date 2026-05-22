@@ -200,7 +200,7 @@
 		feeState.error = null;
 
 		try {
-			feeState.estimated = null; // clear stale
+			feeState.estimated = null;
 			const result = await computeFee();
 			if (gen !== _feeGen) return; // stale — newer call is in-flight
 			feeState.estimated = result;
@@ -210,7 +210,7 @@
 			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
 			feeState.estimated = null;
 		} finally {
-			if (gen === _feeGen) feeState.isLoading = false;
+			feeState.isLoading = false;
 		}
 	}
 
