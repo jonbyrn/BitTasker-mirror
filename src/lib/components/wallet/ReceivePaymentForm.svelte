@@ -514,15 +514,11 @@
 		onCancel();
 	}
 
-	// Handle invoice generation
-	function handleGenerate() {
-		if (formInput.selectedNetwork === 'rootstock-bitcoin') {
-			handleGenerateInvoice();
-			return;
-		}
-		if (amountInSats > 0) {
-			handleGenerateInvoice();
-		}
+	// Shared unit change handler (avoids mobile/desktop duplication)
+	function handleUnitChange(newUnit: 'sats' | 'usd') {
+		formInput.unit = newUnit;
+		formInput.mathExpression = '';
+		estimateFee();
 	}
 </script>
 
@@ -631,14 +627,7 @@
 				calculatorKey={uiState.calculatorKey}
 				{isBelowSwapMinimum}
 				onAmountChange={(value) => (formInput.amount = value)}
-				onUnitChange={(newUnit) => {
-					formInput.unit = newUnit;
-					// Keep amount when switching units - user may have entered amount before selecting unit
-					formInput.mathExpression = '';
-					// Don't increment calculatorKey - preserve calculator state and amount
-					// Trigger fee update when unit changes (amount in sats might change)
-					estimateFee();
-				}}
+				onUnitChange={handleUnitChange}
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
 			/>
@@ -652,14 +641,7 @@
 				mathExpression={formInput.mathExpression}
 				calculatorKey={uiState.calculatorKey}
 				onAmountChange={(value) => (formInput.amount = value)}
-				onUnitChange={(newUnit) => {
-					formInput.unit = newUnit;
-					// Keep amount when switching units - user may have entered amount before selecting unit
-					formInput.mathExpression = '';
-					// Don't increment calculatorKey - preserve calculator state and amount
-					// Trigger fee update when unit changes (amount in sats might change)
-					estimateFee();
-				}}
+				onUnitChange={handleUnitChange}
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
 			/>
@@ -969,7 +951,7 @@
 		<button
 			class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 			style="-webkit-tap-highlight-color: transparent;"
-			onclick={handleGenerate}
+			onclick={handleGenerateInvoice}
 			disabled={!isFormValid ||
 				feeState.isLoading ||
 				$walletStore.isInitializing ||
