@@ -63,7 +63,16 @@
 	});
 
 	onMount(async () => {
-		await restoreConnectedWalletState();
+		console.log('[ConnectedWallets] Component mounted, restoring...');
+		try {
+			await restoreConnectedWalletState();
+			console.log(
+				'[ConnectedWallets] Restore complete, wallets:',
+				$connectedWalletsStore.wallets.length
+			);
+		} catch (e) {
+			console.error('[ConnectedWallets] Restore failed:', e);
+		}
 	});
 
 	function openConnectModal(): void {
@@ -75,8 +84,13 @@
 	}
 
 	async function handleConnectMetaMask(): Promise<void> {
-		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)) return;
+		console.log('[ConnectedWallets] handleConnectMetaMask CALLED');
+		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)) {
+			console.log('[ConnectedWallets] MetaMask feature flag is DISABLED');
+			return;
+		}
 		if (!isMetaMaskAvailable()) {
+			console.log('[ConnectedWallets] MetaMask not detected');
 			setConnectedWalletError('MetaMask not detected. Please install MetaMask to continue.');
 			return;
 		}
