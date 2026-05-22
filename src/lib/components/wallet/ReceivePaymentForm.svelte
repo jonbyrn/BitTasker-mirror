@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { untrack } from 'svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { debounce } from '$lib/utils/helpers/common';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
@@ -16,7 +14,7 @@
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
 
-	let { onCancel, onOpenPaymentRequest, initialFormState } = $props<{
+	let { onCancel, onOpenPaymentRequest } = $props<{
 		onCancel: () => void;
 		onOpenPaymentRequest: (data: {
 			swapId?: string;
@@ -44,8 +42,6 @@
 			chargeFeesToPayer: boolean;
 		};
 	}>();
-
-	let lastRestoredSignature = $state<string>('');
 
 	// Grouped State: Form Input
 	let formInput = $state({
@@ -77,7 +73,7 @@
 				formInput.selectedNetwork = 'rootstock-bitcoin';
 			}
 		}
-		handleAmountOrNetworkChange();
+		estimateFee();
 	});
 
 	// Mobile form container for keyboard scroll handling
@@ -92,38 +88,22 @@
 	});
 
 	// Grouped State: Fee & Swap Information
+	type FeeEstimate = { serviceFee: number; networkFee: number; totalFees: number };
+
 	let feeState = $state<{
-		estimated: {
-			serviceFee: number;
-			networkFee: number;
-			totalFees: number;
-		} | null;
+		estimated: FeeEstimate | null;
 		isLoading: boolean;
 		error: string | null;
-		swapFees: {
-			percentage: number;
-			lockupFee: number;
-			claimFee: number;
-		} | null;
-		swapLimits: {
-			minimal: number;
-			maximal: number;
-		} | null;
-	}>({
-		estimated: null,
-		isLoading: false,
-		error: null,
-		swapFees: null,
-		swapLimits: null
-	});
+		swapLimits: { minimal: number; maximal: number } | null;
+	}>({ estimated: null, isLoading: false, error: null, swapLimits: null });
 
 	// Swap routing state — reuses the send form's route resolver
 	let payerNetwork = $state<string>('rootstock-bitcoin');
+	let _feeGen = $state(0);
 	let payerSourceWallet = $derived<'rbtc' | 'usdt-bsc'>(
 		payerNetwork === 'usdt-bsc' ? 'usdt-bsc' : 'rbtc'
 	);
 	let selectedRouteId = $state<string>('');
-	let _routeLoading = $state(false);
 	let swapRoutes = $derived.by(() => {
 		if (amountInSats === 0) return [];
 		const sourceWallet: SourceWallet = payerSourceWallet;
@@ -209,151 +189,126 @@
 		return (totalReceived / 100_000_000) * btcPrice.price;
 	});
 
-	// Trigger fee estimation when amountInSats changes and we don't have estimates yet
-	$effect(() => {
-		if (amountInSats > 0 && !feeState.estimated && !feeState.isLoading && !feeState.error) {
-			untrack(() => {
-				handleAmountOrNetworkChange();
-			});
-		}
-	});
+	//
+	const EVM_NATIVE = '0x0000000000000000000000000000000000000000';
+	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
 
-	// Debounced fee update function
-	const debouncedUpdateFeeEstimate = debounce(async () => {
-		await updateFeeEstimate();
-	}, 500); // 500ms debounce
-
-	// Restore form state when initialFormState prop is provided
-	$effect(() => {
-		if (!initialFormState) return;
-		const signature = [
-			initialFormState.amount,
-			initialFormState.unit,
-			initialFormState.mathExpression,
-			initialFormState.memo,
-			initialFormState.selectedNetwork,
-			String(initialFormState.chargeFeesToPayer)
-		].join('|');
-
-		if (signature === lastRestoredSignature) return;
-
-		{
-			formInput.amount = initialFormState.amount;
-			formInput.unit = initialFormState.unit;
-			formInput.mathExpression = initialFormState.mathExpression;
-			formInput.memo = initialFormState.memo;
-			if (initialFormState.selectedNetwork) {
-				formInput.selectedNetwork = initialFormState.selectedNetwork;
-			}
-			formInput.chargeFeesToPayer = initialFormState.chargeFeesToPayer;
-			lastRestoredSignature = signature;
-			// Trigger fee estimation after restoring state
-			untrack(() => {
-				if (amountInSats > 0) {
-					handleAmountOrNetworkChange();
-				}
-			});
-		}
-	});
-
-	// Manual fee update - called when amount or network changes
-	function handleAmountOrNetworkChange() {
-		// Clear stale estimate immediately so UI shows "loading" not old fee
-		feeState.estimated = null;
-		feeState.swapLimits = null;
-		if (amountInSats > 0) {
-			feeState.isLoading = true;
-			debouncedUpdateFeeEstimate();
-		}
-	}
-
-	// Update fee estimate based on network
-	async function updateFeeEstimate() {
-		if (amountInSats === 0) {
-			feeState.estimated = null;
-			feeState.swapLimits = null;
-			return;
-		}
-
+	// ---- Unified fee estimation (single write path, generation counter) ----
+	async function estimateFee() {
+		const gen = ++_feeGen;
 		feeState.isLoading = true;
 		feeState.error = null;
 
 		try {
-			switch (formInput.selectedNetwork) {
-				case 'lightning-bitcoin':
-					await estimateLightningFees();
-					break;
-				case 'rootstock-bitcoin':
-					estimateRootstockFees();
-					feeState.swapLimits = null; // Rootstock doesn't need swap limits
-					break;
-				case 'liquid-bitcoin':
-					await estimateLiquidFees();
-					break;
-				case 'bitcoin':
-					// On-chain Bitcoin - minimal fees (just network fees)
-					feeState.estimated = {
-						serviceFee: 0,
-						networkFee: 0, // Will be determined at send time
-						totalFees: 0
-					};
-					// TODO: Fetch swap limits for on-chain Bitcoin if it requires swaps
-					feeState.swapLimits = null;
-					break;
-				case 'usdt-bsc':
-					// BSC USDT - gas fees are near-zero with paymaster abstraction
-					feeState.estimated = {
-						serviceFee: 0,
-						networkFee: 0, // Covered by paymaster gas abstraction
-						totalFees: 0
-					};
-					feeState.swapLimits = null; // No swap limits needed
-					break;
-				default:
-					feeState.estimated = null;
-					feeState.swapLimits = null;
-			}
-
-			// Cross-chain swap: payer and receiver are on different chains
-			if (payerSourceWallet === 'rbtc' && formInput.selectedNetwork === 'usdt-bsc') {
-				await estimateCrossChainFees(30, 56, EVM_NATIVE, USDT_BSC);
-			} else if (
-				payerSourceWallet === 'usdt-bsc' &&
-				formInput.selectedNetwork === 'rootstock-bitcoin'
-			) {
-				await estimateCrossChainFees(56, 30, USDT_BSC, EVM_NATIVE);
-			}
-		} catch (error) {
-			console.error('Failed to estimate fees:', error);
+			feeState.estimated = null; // clear stale
+			const result = await computeFee();
+			if (gen !== _feeGen) return; // stale — newer call is in-flight
+			feeState.estimated = result;
+		} catch (err) {
+			if (gen !== _feeGen) return;
+			console.error('[ReceiveForm] Fee estimation failed:', err);
 			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
 			feeState.estimated = null;
-			feeState.swapLimits = null;
 		} finally {
-			feeState.isLoading = false;
+			if (gen === _feeGen) feeState.isLoading = false;
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Cross-chain swap estimation (LI.FI + Symbiosis)
-	// -----------------------------------------------------------------------
-	const EVM_NATIVE = '0x0000000000000000000000000000000000000000';
-	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
+	/** Pure-ish: takes amount + network + source, returns FeeEstimate. */
+	async function computeFee(): Promise<FeeEstimate | null> {
+		if (amountInSats === 0) return null;
 
-	async function estimateCrossChainFees(
+		const network = formInput.selectedNetwork;
+		const source = payerSourceWallet;
+
+		// Direct sends — zero fees
+		if (
+			(source === 'rbtc' && network === 'rootstock-bitcoin') ||
+			(source === 'usdt-bsc' && network === 'usdt-bsc')
+		) {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+
+		// Boltz reverse swap (Lightning)
+		if (network === 'lightning-bitcoin') {
+			if (source !== 'rbtc') return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			return computeLightningFee();
+		}
+
+		// Boltz chain swap (Liquid)
+		if (network === 'liquid-bitcoin') {
+			return computeLiquidFee();
+		}
+
+		// Bitcoin on-chain
+		if (network === 'bitcoin') {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+
+		// Cross-chain rBTC <-> USDT
+		if (source === 'rbtc' && network === 'usdt-bsc') {
+			return computeCrossChainFee(30, 56, EVM_NATIVE, USDT_BSC);
+		}
+		if (source === 'usdt-bsc' && network === 'rootstock-bitcoin') {
+			return computeCrossChainFee(56, 30, USDT_BSC, EVM_NATIVE);
+		}
+
+		return null;
+	}
+
+	async function computeLightningFee(): Promise<FeeEstimate | null> {
+		try {
+			const pairsData = await walletManager.getCachedReverseSwapPairs();
+			const pair = pairsData?.['BTC']?.['RBTC'];
+			if (!pair) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+
+			const percentage = pair.fees.percentage;
+			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
+			const lockupFee = pair.fees.minerFees.lockup || 0;
+			const claimFee = pair.fees.minerFees.claim || 0;
+			const networkFee = lockupFee + claimFee;
+
+			if (pair.limits) {
+				feeState.swapLimits = { minimal: pair.limits.minimal, maximal: pair.limits.maximal };
+			}
+			return { serviceFee, networkFee, totalFees: serviceFee + networkFee };
+		} catch {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+	}
+
+	async function computeLiquidFee(): Promise<FeeEstimate | null> {
+		try {
+			const pairsData = await walletManager.getCachedChainSwapPairs();
+			const pair = pairsData?.['L-BTC']?.['RBTC'];
+			if (!pair) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+
+			const percentage = pair.fees.percentage;
+			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
+			const lockupFee = pair.fees.minerFees.user?.lockup || 0;
+			const claimFee = pair.fees.minerFees.user?.claim || 0;
+			const networkFee = lockupFee + claimFee;
+
+			if (pair.limits) {
+				feeState.swapLimits = { minimal: pair.limits.minimal, maximal: pair.limits.maximal };
+			}
+			return { serviceFee, networkFee, totalFees: serviceFee + networkFee };
+		} catch {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+	}
+
+	async function computeCrossChainFee(
 		fromChain: number,
 		toChain: number,
 		fromToken: string,
 		toToken: string
-	) {
-		const probeAmount = '1000000000000000000'; // 1 token in wei
+	): Promise<FeeEstimate | null> {
+		const probeAmount = '1000000000000000000';
 		const userAddr = $walletStore.rsk.address || '';
-		if (!userAddr) return; // LI.FI requires non-zero address
+		if (!userAddr) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 
-		const promises: Promise<{
-			provider: string;
-			feePercent: number;
-			estimatedTime: number;
-		} | null>[] = [];
+		const promises: Promise<{ provider: string; feePercent: number } | null>[] = [];
 
 		if (isLifiEnabled()) {
 			promises.push(
@@ -369,17 +324,13 @@
 					.then((r) => {
 						const fromAmt = parseFloat(r.estimate?.fromAmount || '0');
 						const toAmt = parseFloat(r.estimate?.toAmountMin || r.estimate?.toAmount || '0');
-						const pct = fromAmt > 0 ? ((fromAmt - toAmt) / fromAmt) * 100 : 0.5;
 						return {
 							provider: 'LI.FI',
-							feePercent: parseFloat(pct.toFixed(2)),
-							estimatedTime: r.estimate?.executionDuration || 300
+							feePercent:
+								fromAmt > 0 ? parseFloat((((fromAmt - toAmt) / fromAmt) * 100).toFixed(2)) : 0.5
 						};
 					})
-					.catch((err) => {
-						console.warn('[ReceiveForm] LI.FI:', err?.message || err);
-						return null;
-					})
+					.catch(() => null)
 			);
 		}
 		if (isSymbiosisEnabled()) {
@@ -402,114 +353,21 @@
 						from: userAddr,
 						to: userAddr
 					})
-					.then((r) => ({
-						provider: 'Symbiosis',
-						feePercent: r.feePercent ?? 0.3,
-						estimatedTime: r.estimatedTime || 300
-					}))
-					.catch((err) => {
-						console.warn('[ReceiveForm] Symbiosis:', err?.message || err);
-						return null;
-					})
+					.then((r) => ({ provider: 'Symbiosis', feePercent: r.feePercent ?? 0.3 }))
+					.catch(() => null)
 			);
 		}
 
 		const results = await Promise.all(promises);
-		const valid = results.filter(Boolean) as {
-			provider: string;
-			feePercent: number;
-			estimatedTime: number;
-		}[];
+		const valid = results.filter(Boolean) as { provider: string; feePercent: number }[];
 		if (valid.length > 0) {
 			const best = valid.sort((a, b) => a.feePercent - b.feePercent)[0];
 			const serviceFee = Math.ceil((amountInSats * best.feePercent) / 100);
-			feeState.estimated = { serviceFee, networkFee: 0, totalFees: serviceFee };
+			return { serviceFee, networkFee: 0, totalFees: serviceFee };
 		}
+		return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 	}
 
-	// Estimate fees for Lightning reverse swap
-	async function estimateLightningFees() {
-		// Reverse swap (rBTC→Lightning) only applies when payer sends rBTC
-		if (payerSourceWallet !== 'rbtc') {
-			feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-			return;
-		}
-		const pairsData = await walletManager.getCachedReverseSwapPairs();
-		// Guard: bail if network changed while awaiting
-		if (formInput.selectedNetwork !== 'lightning-bitcoin') return;
-
-		const pair = pairsData?.['BTC']?.['RBTC'];
-		if (!pair) {
-			throw new Error('Lightning swap pair not available');
-		}
-
-		const percentage = pair.fees.percentage;
-		const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-		const lockupFee = pair.fees.minerFees.lockup || 0;
-		const claimFee = pair.fees.minerFees.claim || 0;
-		const networkFee = lockupFee + claimFee;
-
-		feeState.swapFees = { percentage, lockupFee, claimFee };
-		feeState.estimated = {
-			serviceFee,
-			networkFee,
-			totalFees: serviceFee + networkFee
-		};
-
-		// Update swap limits
-		if (pair.limits) {
-			feeState.swapLimits = {
-				minimal: pair.limits.minimal,
-				maximal: pair.limits.maximal
-			};
-		}
-	}
-
-	// Estimate fees for Rootstock (receiving is free — no gas needed by receiver)
-	async function estimateRootstockFees() {
-		feeState.estimated = {
-			serviceFee: 0,
-			networkFee: 0, // Receiver doesn't pay gas for incoming transactions
-			totalFees: 0
-		};
-		feeState.swapLimits = null;
-	}
-
-	// Estimate fees for Liquid chain swap
-	async function estimateLiquidFees() {
-		const pairsData = await walletManager.getCachedChainSwapPairs();
-		// Guard: bail if network changed while awaiting
-		if (formInput.selectedNetwork !== 'liquid-bitcoin') return;
-
-		const pair = pairsData?.['L-BTC']?.['RBTC'];
-
-		if (!pair) {
-			throw new Error('Liquid swap pair not available');
-		}
-
-		const percentage = pair.fees.percentage;
-		const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-		const lockupFee = pair.fees.minerFees.user?.lockup || 0;
-		const claimFee = pair.fees.minerFees.user?.claim || 0;
-		const networkFee = lockupFee + claimFee;
-
-		feeState.swapFees = { percentage, lockupFee, claimFee };
-		feeState.estimated = {
-			serviceFee,
-			networkFee,
-			totalFees: serviceFee + networkFee
-		};
-
-		// Update swap limits
-		if (pair.limits) {
-			feeState.swapLimits = {
-				minimal: pair.limits.minimal,
-				maximal: pair.limits.maximal
-			};
-		}
-	}
-
-	// Handle calculation change from calculator (auto-update amount and expression)
 	function handleCalculationChange(expression: string, result: number) {
 		// Store the math expression
 		formInput.mathExpression = expression;
@@ -524,7 +382,7 @@
 		}
 
 		// Trigger fee update when amount changes
-		handleAmountOrNetworkChange();
+		estimateFee();
 	}
 
 	// Clear calculator field
@@ -760,7 +618,7 @@
 			receiveCurrency={receiveTab}
 			onChange={(network) => {
 				payerNetwork = network;
-				handleAmountOrNetworkChange();
+				estimateFee();
 			}}
 		/>
 
@@ -779,7 +637,7 @@
 					formInput.mathExpression = '';
 					// Don't increment calculatorKey - preserve calculator state and amount
 					// Trigger fee update when unit changes (amount in sats might change)
-					handleAmountOrNetworkChange();
+					estimateFee();
 				}}
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
@@ -800,7 +658,7 @@
 					formInput.mathExpression = '';
 					// Don't increment calculatorKey - preserve calculator state and amount
 					// Trigger fee update when unit changes (amount in sats might change)
-					handleAmountOrNetworkChange();
+					estimateFee();
 				}}
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
@@ -820,7 +678,7 @@
 					{selectedRouteId}
 					onSelect={(id) => (selectedRouteId = id)}
 					networkFeeSats={feeState.estimated?.networkFee ?? 0}
-					isLoadingFee={feeState.isLoading || _routeLoading}
+					isLoadingFee={feeState.isLoading}
 					btcPrice={btcPrice.price}
 					network={formInput.selectedNetwork}
 					amountSats={amountInSats}
@@ -843,10 +701,6 @@
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
 							formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
-							// Trigger fee recalculation when toggling chargeFeesToPayer to update displayed totals
-							if (amountInSats > 0) {
-								handleAmountOrNetworkChange();
-							}
 						}}
 					>
 						<div
@@ -963,7 +817,7 @@
 					{selectedRouteId}
 					onSelect={(id) => (selectedRouteId = id)}
 					networkFeeSats={feeState.estimated?.networkFee ?? 0}
-					isLoadingFee={feeState.isLoading || _routeLoading}
+					isLoadingFee={feeState.isLoading}
 					btcPrice={btcPrice.price}
 					network={formInput.selectedNetwork}
 					amountSats={amountInSats}
@@ -1035,10 +889,6 @@
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
 							formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
-							// Trigger fee recalculation when toggling chargeFeesToPayer to update displayed totals
-							if (amountInSats > 0) {
-								handleAmountOrNetworkChange();
-							}
 						}}
 					>
 						<div
