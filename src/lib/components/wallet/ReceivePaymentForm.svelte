@@ -345,7 +345,11 @@
 		fromToken: string,
 		toToken: string
 	) {
-		const amountWei = Math.floor(amountInSats * 10_000_000_000).toString(); // sats → wei
+		// Use a minimal but non-zero amount (1 USD worth) to get fee percentage
+		const probeAmount =
+			fromToken === EVM_NATIVE
+				? (1_000_000_000_000_000).toString() // 0.001 RBTC in wei
+				: (1_000_000_000_000_000_000).toString(); // 1 USDT in wei
 		const userAddr = $walletStore.rsk.address || EVM_NATIVE;
 
 		const promises: Promise<{
@@ -362,15 +366,23 @@
 						toChain,
 						fromToken,
 						toToken,
-						fromAmount: amountWei,
+						fromAmount: probeAmount,
 						fromAddress: userAddr
 					})
-					.then((r) => ({
-						provider: 'LI.FI',
-						feePercent: 0.5,
-						estimatedTime: r.estimate?.executionDuration || 300
-					}))
-					.catch(() => null)
+					.then((r) => {
+						const fromAmt = parseFloat(r.estimate?.fromAmount || '0');
+						const toAmt = parseFloat(r.estimate?.toAmountMin || r.estimate?.toAmount || '0');
+						const pct = fromAmt > 0 ? ((fromAmt - toAmt) / fromAmt) * 100 : 0.5;
+						return {
+							provider: 'LI.FI',
+							feePercent: parseFloat(pct.toFixed(2)),
+							estimatedTime: r.estimate?.executionDuration || 300
+						};
+					})
+					.catch((err) => {
+						console.warn('[ReceiveForm] LI.FI quote failed:', err?.message || err);
+						return null;
+					})
 			);
 		}
 		if (isSymbiosisEnabled()) {
@@ -389,7 +401,7 @@
 							symbol: toToken === EVM_NATIVE ? 'RBTC' : 'USDT',
 							decimals: 18
 						},
-						amount: amountWei,
+						amount: probeAmount,
 						from: userAddr,
 						to: userAddr
 					})
@@ -398,7 +410,10 @@
 						feePercent: r.feePercent ?? 0.3,
 						estimatedTime: r.estimatedTime || 300
 					}))
-					.catch(() => null)
+					.catch((err) => {
+						console.warn('[ReceiveForm] Symbiosis quote failed:', err?.message || err);
+						return null;
+					})
 			);
 		}
 
@@ -416,6 +431,8 @@
 				networkFee: 0,
 				totalFees: serviceFee
 			};
+		} else {
+			console.warn('[ReceiveForm] No cross-chain quotes available');
 		}
 	}
 
