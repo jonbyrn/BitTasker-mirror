@@ -84,6 +84,11 @@
 		"to": "Para",
 		"recommended": "Recomendado",
 		"free": "Gratis",
+		"route_picker": {
+			"no_routes": "Sin rutas disponibles",
+			"enter_address_and_amount": "Ingrese dirección y monto",
+			"enter_address": "Ingrese dirección"
+		},
 		"status_confirmed": "Confirmado",
 		"status_pending": "Pendiente",
 		"status_failed": "Fallido",
@@ -746,8 +751,10 @@
 			"desc_rbtc_to_usdt": "Recibe USDT en Binance Smart Chain",
 			"desc_rbtc_to_btc": "Convierte a Bitcoin nativo v\u00eda puente",
 			"desc_usdt_to_rbtc": "Recibe rBTC en Rootstock para pagos",
-			"btc_not_available": "Conecta una billetera hardware Bitcoin para habilitar intercambios BTC",
+			"btc_not_available": "Conecta una billetera hardware Bitcoin para habilitar intercambios Bitcoin",
 			"irreversible_warning": "Los intercambios cross-chain no pueden revertirse una vez enviados. Verifica todos los detalles cuidadosamente.",
+			"you_send": "Tú envías",
+			"you_get": "Tú recibes",
 			"swap_percent": "Porcentaje a intercambiar",
 			"action": {
 				"refund": "Reembolsar",

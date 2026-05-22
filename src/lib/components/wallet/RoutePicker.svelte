@@ -78,18 +78,22 @@
 		<span>{$t('wallet.network_fee')}:</span>
 		{#if isLoadingFee}
 			<span class="loading loading-spinner loading-xs ml-1.5"></span>
+		{:else if routes.length === 0 && hasAddress && hasAmount}
+			<span class="ml-1.5 text-xs opacity-70">{$t('wallet.route_picker.no_routes')}</span>
 		{:else if totalFeeSats > 0}
 			<span class="ml-1.5 font-semibold">{feeDisplay(totalFeeSats)}</span>
 		{:else if !hasAddress && !hasAmount}
-			<span class="ml-1.5 text-xs opacity-70">(Enter address and amount)</span>
+			<span class="ml-1.5 text-xs opacity-70"
+				>{$t('wallet.route_picker.enter_address_and_amount')}</span
+			>
 		{:else if !hasAddress}
-			<span class="ml-1.5 text-xs opacity-70">(Enter address)</span>
+			<span class="ml-1.5 text-xs opacity-70">{$t('wallet.route_picker.enter_address')}</span>
 		{:else if !hasAmount}
-			<span class="ml-1.5 text-xs opacity-70">(Enter amount)</span>
+			<span class="ml-1.5">—</span>
 		{:else if hasAddress && hasAmount}
-			<span class="ml-1.5 font-semibold">{$t('wallet.free')}</span>
+			<span class="ml-1.5">—</span>
 		{:else}
-			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
+			<span class="ml-1.5">—</span>
 		{/if}
 		{#if selectedRoute && hasAddress && hasAmount}
 			<span class="mr-6 ml-auto shrink-0 text-xs opacity-50">{selectedRoute.estimatedTime}</span>

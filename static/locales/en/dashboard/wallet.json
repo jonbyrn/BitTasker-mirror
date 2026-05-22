@@ -84,6 +84,11 @@
 		"to": "To",
 		"recommended": "Recommended",
 		"free": "Free",
+		"route_picker": {
+			"no_routes": "No routes available",
+			"enter_address_and_amount": "Enter address and amount",
+			"enter_address": "Enter address"
+		},
 		"status_confirmed": "Confirmed",
 		"status_pending": "Pending",
 		"status_failed": "Failed",
@@ -750,8 +755,10 @@
 			"desc_rbtc_to_usdt": "Receive USDT on Binance Smart Chain",
 			"desc_rbtc_to_btc": "Convert to native Bitcoin via bridge",
 			"desc_usdt_to_rbtc": "Receive rBTC on Rootstock for payments",
-			"btc_not_available": "Connect a Bitcoin hardware wallet to enable BTC swaps",
+			"btc_not_available": "Connect a Bitcoin hardware wallet to enable Bitcoin swaps",
 			"irreversible_warning": "Cross-chain swaps cannot be reversed once submitted. Verify all details carefully.",
+			"you_send": "You send",
+			"you_get": "You get",
 			"swap_percent": "Amount to swap",
 			"action": {
 				"refund": "Refund",
