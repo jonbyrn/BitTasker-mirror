@@ -62,7 +62,6 @@
 		if (tab === 'usdt') {
 			formInput.selectedNetwork = 'usdt-bsc';
 		} else if (tab === 'rbtc') {
-			// Match destination to payer's source for Bitcoin-family networks
 			if (payerNetwork === 'lightning-bitcoin') {
 				formInput.selectedNetwork = 'lightning-bitcoin';
 			} else if (payerNetwork === 'bitcoin') {
@@ -73,7 +72,6 @@
 				formInput.selectedNetwork = 'rootstock-bitcoin';
 			}
 		}
-		estimateFee();
 	});
 
 	// Mobile form container for keyboard scroll handling
