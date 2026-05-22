@@ -345,12 +345,9 @@
 		fromToken: string,
 		toToken: string
 	) {
-		// Use a minimal but non-zero amount (1 USD worth) to get fee percentage
-		const probeAmount =
-			fromToken === EVM_NATIVE
-				? (1_000_000_000_000_000).toString() // 0.001 RBTC in wei
-				: (1_000_000_000_000_000_000).toString(); // 1 USDT in wei
-		const userAddr = $walletStore.rsk.address || EVM_NATIVE;
+		const probeAmount = '1000000000000000000'; // 1 token in wei
+		const userAddr = $walletStore.rsk.address || '';
+		if (!userAddr) return; // LI.FI requires non-zero address
 
 		const promises: Promise<{
 			provider: string;
@@ -380,7 +377,7 @@
 						};
 					})
 					.catch((err) => {
-						console.warn('[ReceiveForm] LI.FI quote failed:', err?.message || err);
+						console.warn('[ReceiveForm] LI.FI:', err?.message || err);
 						return null;
 					})
 			);
@@ -411,7 +408,7 @@
 						estimatedTime: r.estimatedTime || 300
 					}))
 					.catch((err) => {
-						console.warn('[ReceiveForm] Symbiosis quote failed:', err?.message || err);
+						console.warn('[ReceiveForm] Symbiosis:', err?.message || err);
 						return null;
 					})
 			);
@@ -426,13 +423,7 @@
 		if (valid.length > 0) {
 			const best = valid.sort((a, b) => a.feePercent - b.feePercent)[0];
 			const serviceFee = Math.ceil((amountInSats * best.feePercent) / 100);
-			feeState.estimated = {
-				serviceFee,
-				networkFee: 0,
-				totalFees: serviceFee
-			};
-		} else {
-			console.warn('[ReceiveForm] No cross-chain quotes available');
+			feeState.estimated = { serviceFee, networkFee: 0, totalFees: serviceFee };
 		}
 	}
 

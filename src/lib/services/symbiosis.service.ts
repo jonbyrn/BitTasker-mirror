@@ -159,7 +159,8 @@ export const symbiosisService = {
 				address: tokenAmountIn.address,
 				chainId: tokenAmountIn.chainId,
 				symbol: tokenAmountIn.symbol,
-				decimals: tokenAmountIn.decimals
+				decimals: tokenAmountIn.decimals,
+				amount
 			},
 			tokenOut: {
 				address: tokenOut.address,
@@ -167,7 +168,7 @@ export const symbiosisService = {
 				symbol: tokenOut.symbol,
 				decimals: tokenOut.decimals
 			},
-			amount,
+			slippage: 50, // 0.5%
 			from,
 			to: to ?? from
 		};
