@@ -14,6 +14,8 @@
 		amountSats?: number;
 		hasAddress?: boolean;
 		hasAmount?: boolean;
+		/** Live swap fee from API — overrides route-based calculation when provided. */
+		swapFeeOverride?: number;
 	}
 
 	let {
@@ -26,7 +28,8 @@
 		network = null,
 		amountSats = 0,
 		hasAddress = false,
-		hasAmount = false
+		hasAmount = false,
+		swapFeeOverride = undefined as number | undefined
 	}: Props = $props();
 
 	let expanded = $state(false);
@@ -34,9 +37,11 @@
 	let selectedRoute = $derived(routes.find((r) => r.id === selectedRouteId));
 	let isUSDT = $derived(network === 'usdt-bsc');
 
-	/** Swap fee for the selected route in sats. */
+	/** Swap fee: uses live API override when provided, otherwise falls back to route %. */
 	let swapFeeSats = $derived.by(() => {
-		if (!selectedRoute || amountSats <= 0) return 0;
+		if (amountSats <= 0) return 0;
+		if (swapFeeOverride !== undefined) return swapFeeOverride;
+		if (!selectedRoute) return 0;
 		return Math.round(amountSats * (selectedRoute.totalFeePercent / 100));
 	});
 
@@ -82,7 +87,7 @@
 		{:else if !hasAmount}
 			<span class="ml-1.5 text-xs opacity-70">(Enter amount)</span>
 		{:else if hasAddress && hasAmount}
-			<span class="ml-1.5 font-semibold">Free</span>
+			<span class="ml-1.5 font-semibold">{$t('wallet.free')}</span>
 		{:else}
 			<span class="ml-1.5 font-semibold">{isUSDT ? '$0.00' : '0 ' + $t('wallet.sats')}</span>
 		{/if}

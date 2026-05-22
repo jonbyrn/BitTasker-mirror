@@ -712,6 +712,7 @@
 					amountSats={amountInSats}
 					hasAddress={true}
 					hasAmount={amountInSats > 0}
+					swapFeeOverride={feeState.estimated?.serviceFee}
 				/>
 
 				{#if feeState.error}
