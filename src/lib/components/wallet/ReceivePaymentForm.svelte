@@ -303,7 +303,7 @@
 		fromToken: string,
 		toToken: string
 	): Promise<FeeEstimate | null> {
-		const probeAmount = '1000000000000000000';
+		const probeAmount = '100000000000000000000'; // 100 tokens in wei
 		const userAddr = $walletStore.rsk.address || '';
 		if (!userAddr) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 
