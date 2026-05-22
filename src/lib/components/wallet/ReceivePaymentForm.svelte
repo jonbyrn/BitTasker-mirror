@@ -437,6 +437,13 @@
 	async function handleGenerateInvoice() {
 		if (!isFormValid || isGenerating) return;
 
+		// Validate that a route exists for swap-required networks
+		const swapNetworks = ['lightning-bitcoin', 'liquid-bitcoin', 'bitcoin'];
+		if (swapNetworks.includes(formInput.selectedNetwork) && swapRoutes.length === 0) {
+			appStore.showErrorToast($t('wallet.swap.error.no_routes'));
+			return;
+		}
+
 		isGenerating = true;
 		try {
 			// Calculate invoice amount: use amountPayerPays when charging fees to payer, otherwise use amountInSats
