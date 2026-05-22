@@ -856,6 +856,10 @@
 					hasAmount={amountInSats > 0}
 				/>
 
+				{#if feeState.error}
+					<div class="text-error text-xs">{$t('wallet.swap.error.fee_fetch_failed')}</div>
+				{/if}
+
 				<!-- Swap Minimum Warning -->
 				{#if isBelowSwapMinimum && feeState.swapLimits}
 					{@const minUsd =
