@@ -145,25 +145,6 @@
 		return routes.sort((a, b) => a.totalFeePercent - b.totalFeePercent);
 	});
 
-	// When payer network matches receiver wallet → no swap needed (direct)
-	let needsSwap = $derived.by(() => {
-		const dest = formInput.selectedNetwork;
-		if (payerSourceWallet === 'usdt-bsc' && dest === 'usdt-bsc') return false;
-		if (
-			payerSourceWallet === 'rbtc' &&
-			(dest === 'rootstock-bitcoin' || dest === 'lightning-bitcoin' || dest === 'bitcoin')
-		)
-			return false;
-		return swapRoutes.length > 1; // Show swap picker only when multiple routes available
-	});
-
-	// Selected swap route
-	let selectedSwapRoute = $derived(swapRoutes.find((r) => r.id === selectedRouteId));
-	let swapFeeSats = $derived.by(() => {
-		if (!selectedSwapRoute || amountInSats <= 0) return 0;
-		return Math.round(amountInSats * (selectedSwapRoute.totalFeePercent / 100));
-	});
-
 	// Invoice generation state (simplified)
 	let isGenerating = $state(false);
 
@@ -198,12 +179,14 @@
 	});
 
 	// Amount payer will pay (includes fees if chargeFeesToPayer is true)
+	// When charging fees to payer: add the total estimated fee (service + network).
+	// feeState.estimated.totalFees already includes any swap service fee from Boltz APIs.
+	// swapFeeSats from route-resolver are informational only (shown in RoutePicker).
 	const amountPayerPays = $derived.by(() => {
 		if (amountInSats === 0) return 0;
 		if (!feeState.estimated) return amountInSats;
-		const swapFees = needsSwap ? swapFeeSats : 0;
 		if (formInput.chargeFeesToPayer) {
-			return amountInSats + swapFees + feeState.estimated.totalFees;
+			return amountInSats + feeState.estimated.totalFees;
 		}
 		return amountInSats;
 	});
@@ -339,6 +322,11 @@
 
 	// Estimate fees for Lightning reverse swap
 	async function estimateLightningFees() {
+		// Reverse swap (rBTC→Lightning) only applies when payer sends rBTC
+		if (payerSourceWallet !== 'rbtc') {
+			feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			return;
+		}
 		const pairsData = await walletManager.getCachedReverseSwapPairs();
 		// Guard: bail if network changed while awaiting
 		if (formInput.selectedNetwork !== 'lightning-bitcoin') return;
@@ -443,10 +431,7 @@
 	}
 
 	// Validate form
-	const isFormValid = $derived.by(() => {
-		if (formInput.selectedNetwork === 'rootstock-bitcoin') return true;
-		return amountInSats > 0;
-	});
+	const isFormValid = $derived.by(() => amountInSats > 0);
 
 	// Handle invoice generation
 	async function handleGenerateInvoice() {
@@ -728,6 +713,10 @@
 					hasAddress={true}
 					hasAmount={amountInSats > 0}
 				/>
+
+				{#if feeState.error}
+					<div class="text-error text-xs">{$t('wallet.swap.error.fee_fetch_failed')}</div>
+				{/if}
 
 				<!-- Charge Fees to Payer Toggle (Mobile - visible on both steps, BEFORE Total) -->
 				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
