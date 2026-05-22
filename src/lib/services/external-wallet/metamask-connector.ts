@@ -8,6 +8,7 @@
 import type { ConnectorHandle, EVMTransactionRequest, EVMTransactionResult } from './types';
 import type { ConnectorRegistry } from './connector-registry';
 import { sendLock } from '$lib/services/external-wallet/send-lock';
+import { getUSDTContractAddress } from './chain-utils';
 
 // ---------------------------------------------------------------------------
 // Multichain SDK (lazy-loaded — no static import to prevent SSR crashes)
@@ -151,13 +152,73 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		walletType: 'metamask',
 		address,
 		chainIds,
-		provider: null, // SDK balances come via invokeMethod, not ethers Provider
+		provider: null,
 		evmSigner,
 		onEvent: config.onEvent,
 		unsubscribe() {
 			sdkClient.disconnect().catch(() => {});
 			clientPromise = null;
+		},
+		// SDK balance fetcher — the poller calls this instead of provider.getBalance
+		async fetchBalances(): Promise<
+			Record<string, { raw: string; formatted: string; loading: boolean }>
+		> {
+			const result: Record<string, { raw: string; formatted: string; loading: boolean }> = {};
+			const invoke = sdkClient.invokeMethod as unknown as (opts: {
+				scope: string;
+				request: { method: string; params: unknown[] };
+			}) => Promise<string>;
+
+			// rBTC on RSK — get native balance
+			for (const chainId of chainIds.filter((c) => c === 30 || c === 31)) {
+				try {
+					const hexBalance = await invoke({
+						scope: `eip155:${chainId}`,
+						request: { method: 'eth_getBalance', params: [address, 'latest'] }
+					});
+					const raw = BigInt(hexBalance);
+					result.rbtc = {
+						raw: raw.toString(),
+						formatted: (Number(raw) / 1e18).toFixed(8),
+						loading: false
+					};
+				} catch {
+					/* chain not connected */
+				}
+			}
+
+			// USDT on BSC — ERC20 balanceOf
+			const usdtContract = getUSDTContractAddress();
+			const balanceOfData = '0x70a08231000000000000000000000000' + address.slice(2);
+			for (const chainId of chainIds.filter((c) => c === 56 || c === 97)) {
+				try {
+					const hexBalance = await invoke({
+						scope: `eip155:${chainId}`,
+						request: {
+							method: 'eth_call',
+							params: [{ to: usdtContract, data: balanceOfData }, 'latest']
+						}
+					});
+					const raw = BigInt(hexBalance);
+					result.usdt = {
+						raw: raw.toString(),
+						formatted:
+							'$' +
+							(Number(raw) / 1e6).toLocaleString('en-US', {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2
+							}),
+						loading: false
+					};
+				} catch {
+					/* chain not connected */
+				}
+			}
+
+			return result;
 		}
+	} as ConnectorHandle & {
+		fetchBalances?(): Promise<Record<string, { raw: string; formatted: string; loading: boolean }>>;
 	};
 }
 

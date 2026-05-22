@@ -90,23 +90,32 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 	balancePoller.init().then(() => {
 		balancePoller.start(handle.id, async () => {
 			try {
+				// SDK-based wallets: use fetchBalances if available
+				const fetcher = (
+					handle as {
+						fetchBalances?: () => Promise<
+							Record<string, { raw: string; formatted: string; loading: boolean }>
+						>;
+					}
+				).fetchBalances;
+				if (fetcher) {
+					const balances = await fetcher();
+					updateConnectedBalances(handle.id, balances);
+					return;
+				}
+
+				// Legacy ethers Provider-based wallets
 				const provider = handle.provider;
 				if (!provider) return;
 
 				const balance = await provider.getBalance(handle.address);
 				const raw = balance.toString();
-
-				// Format as ether units (18 decimals) without importing ethers
 				const padded = raw.padStart(19, '0');
 				const whole = padded.slice(0, padded.length - 18).replace(/^0+/, '') || '0';
 				const fraction = padded.slice(-18).slice(0, 6);
 
 				updateConnectedBalances(handle.id, {
-					native: {
-						raw,
-						formatted: `${whole}.${fraction}`,
-						loading: false
-					}
+					native: { raw, formatted: `${whole}.${fraction}`, loading: false }
 				});
 			} catch {
 				// Polling errors are non-fatal
@@ -181,10 +190,16 @@ async function persistState(): Promise<void> {
 }
 
 export async function restoreConnectedWalletState(): Promise<void> {
+	console.log(
+		'[ConnectedWallets] restoreConnectedWalletState called, flag:',
+		FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)
+	);
 	if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)) return;
 
 	try {
+		console.log('[ConnectedWallets] Reading Preferences...');
 		const { value } = await Preferences.get({ key: PREFERENCES_KEY });
+		console.log('[ConnectedWallets] Preferences value:', value ? 'found' : 'empty');
 		if (!value) return;
 
 		const parsed: unknown = JSON.parse(value);
