@@ -54,32 +54,51 @@ async function getClient(): Promise<MultiChainClient> {
  * Single approval prompt for all supported chains.
  */
 export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<ConnectorHandle> {
-	// Try Multichain SDK first. If it fails (SDK internal error, no MetaMask extension, etc.),
-	// fall back to direct window.ethereum which is more reliable in browser contexts.
+	// Try Multichain SDK first with correct API per package README.
+	// Falls back to window.ethereum if SDK connect() fails.
 	let accounts: string[] = [];
 	let chainIds: number[] = [];
 	let useSDK = false;
+	let sdkClient: Awaited<ReturnType<typeof getClient>> | null = null;
 
 	try {
-		const client = await getClient();
-		const connectFn = client.connect as unknown as (
-			scopes: string[],
-			accounts: never[]
-		) => Promise<unknown>;
-		await connectFn(DEFAULT_SCOPES as unknown as string[], []);
-		useSDK = true;
-		console.log('[MetaMask] Multichain SDK connected, reading session...');
-		// Session reading would go here if SDK connect succeeds
-	} catch (sdkErr) {
-		console.warn(
-			'[MetaMask] Multichain SDK connect failed, falling back to window.ethereum:',
-			sdkErr
+		sdkClient = await getClient();
+		// Per README: client.connect(scopes, caipAccountIds) — scopes are string[]
+		await (sdkClient.connect as unknown as (scopes: string[], accounts: never[]) => Promise<void>)(
+			DEFAULT_SCOPES as unknown as string[],
+			[]
 		);
+		useSDK = true;
+		console.log(
+			'[MetaMask] SDK connected. Status:',
+			(sdkClient as unknown as Record<string, unknown>).status
+		);
+
+		// SDK uses wallet_sessionChanged event for session updates
+		sdkClient.on(
+			'wallet_sessionChanged' as never,
+			((session: unknown) => {
+				const s = session as { sessionScopes?: Record<string, { accounts?: string[] }> };
+				if (s?.sessionScopes) {
+					for (const scopeId of Object.keys(s.sessionScopes)) {
+						const scopeAccts = s.sessionScopes[scopeId]?.accounts ?? [];
+						for (const acct of scopeAccts) {
+							const addr = acct.includes(':')
+								? acct.split(':').pop()!.toLowerCase()
+								: acct.toLowerCase();
+							if (!accounts.includes(addr)) accounts.push(addr);
+						}
+					}
+					config.onEvent({ type: 'accountsChanged', accounts });
+				}
+			}) as (...a: unknown[]) => void
+		);
+	} catch (sdkErr) {
+		console.warn('[MetaMask] SDK connect failed, falling back to window.ethereum:', sdkErr);
 		useSDK = false;
 	}
 
 	if (!useSDK) {
-		// Fallback: direct window.ethereum EIP-1193 approach
 		const ethereum = (
 			window as {
 				ethereum?: {
@@ -127,15 +146,31 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		async sendTransaction(tx: EVMTransactionRequest): Promise<EVMTransactionResult> {
 			sendLock.acquire(connectorId, () => {});
 			try {
+				const scope = `eip155:${tx.chainId}`;
+				const txParams: Record<string, unknown> = { from: address, to: tx.to };
+				if (tx.value) txParams.value = '0x' + tx.value.toString(16);
+				if (tx.data) txParams.data = tx.data;
+
+				// SDK path: invokeMethod({ scope, request: { method, params } }) per README
+				if (useSDK && sdkClient) {
+					const invoke = sdkClient.invokeMethod as unknown as (opts: {
+						scope: string;
+						request: { method: string; params: unknown[] };
+					}) => Promise<string>;
+					const txHash = await invoke({
+						scope,
+						request: { method: 'eth_sendTransaction', params: [txParams] }
+					});
+					return { txHash, from: address, chainId: tx.chainId };
+				}
+
+				// EIP-1193 fallback
 				const ethereum = (
 					window as {
 						ethereum?: { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 					}
 				).ethereum;
 				if (!ethereum) throw new Error('MetaMask provider not available');
-				const txParams: Record<string, unknown> = { from: address, to: tx.to };
-				if (tx.value) txParams.value = '0x' + tx.value.toString(16);
-				if (tx.data) txParams.data = tx.data;
 				const txHash = (await ethereum.request({
 					method: 'eth_sendTransaction',
 					params: [txParams]
@@ -168,8 +203,9 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		evmSigner,
 		onEvent: config.onEvent,
 		unsubscribe() {
-			if (useSDK) getClient().then((c) => c.disconnect().catch(() => {}));
+			if (useSDK && sdkClient) sdkClient.disconnect().catch(() => {});
 			clientPromise = null;
+			sdkClient = null;
 		}
 	};
 	return handle;
