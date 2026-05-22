@@ -70,6 +70,36 @@
 				'[ConnectedWallets] Restore complete, wallets:',
 				$connectedWalletsStore.wallets.length
 			);
+
+			// Auto-reconnect MetaMask SDK sessions (silent, no popup)
+			const mmWallets = $connectedWalletsStore.wallets.filter((w) => w.walletType === 'metamask');
+			if (mmWallets.length > 0) {
+				console.log(
+					'[ConnectedWallets] Auto-reconnecting',
+					mmWallets.length,
+					'MetaMask wallet(s)...'
+				);
+				for (const w of mmWallets) {
+					try {
+						const { connectMetaMask } = await import(
+							'$lib/services/external-wallet/metamask-connector'
+						);
+						const handle = await connectMetaMask({
+							registry: connectorRegistry,
+							onEvent: () => {}
+						});
+						// Replace the restored entry with the live handle
+						unregisterConnectedWallet(w.id);
+						registerConnectedWallet(handle);
+						console.log('[ConnectedWallets] Auto-reconnected MetaMask:', handle.address);
+					} catch (e) {
+						console.log(
+							'[ConnectedWallets] Auto-reconnect failed, wallet needs manual reconnect:',
+							e
+						);
+					}
+				}
+			}
 		} catch (e) {
 			console.error('[ConnectedWallets] Restore failed:', e);
 		}
