@@ -98,8 +98,10 @@
 		closeConnectModal();
 
 		try {
-			const { connectMetaMask } = await import('$lib/services/external-wallet/metamask-connector');
-			const handle = await connectMetaMask({
+			console.log('[ConnectedWallets] Importing metamask-connector...');
+			const mod = await import('$lib/services/external-wallet/metamask-connector');
+			console.log('[ConnectedWallets] Import successful, keys:', Object.keys(mod));
+			const handle = await mod.connectMetaMask({
 				registry: connectorRegistry,
 				onEvent: (event) => {
 					if (event.type === 'disconnect') {
@@ -112,6 +114,7 @@
 			});
 			registerConnectedWallet(handle);
 		} catch (error) {
+			console.error('[ConnectedWallets] connectMetaMask FAILED:', error);
 			const message = error instanceof Error ? error.message : 'Failed to connect MetaMask';
 			setConnectedWalletError(message);
 		}
