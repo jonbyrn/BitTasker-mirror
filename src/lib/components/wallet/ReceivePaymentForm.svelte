@@ -195,6 +195,7 @@
 
 	// ---- Unified fee estimation (single write path, generation counter) ----
 	async function estimateFee() {
+		if (feeState.isLoading) return; // already computing
 		const gen = ++_feeGen;
 		feeState.isLoading = true;
 		feeState.error = null;
