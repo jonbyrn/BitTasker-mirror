@@ -9,6 +9,9 @@
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
 	import { resolveRoute, type SourceWallet, type Route } from '$lib/services/route-resolver';
+	import { lifiService } from '$lib/services/lifi.service';
+	import { symbiosisService } from '$lib/services/symbiosis.service';
+	import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -310,6 +313,16 @@
 					feeState.estimated = null;
 					feeState.swapLimits = null;
 			}
+
+			// Cross-chain swap: payer and receiver are on different chains
+			if (payerSourceWallet === 'rbtc' && formInput.selectedNetwork === 'usdt-bsc') {
+				await estimateCrossChainFees(30, 56, EVM_NATIVE, USDT_BSC);
+			} else if (
+				payerSourceWallet === 'usdt-bsc' &&
+				formInput.selectedNetwork === 'rootstock-bitcoin'
+			) {
+				await estimateCrossChainFees(56, 30, USDT_BSC, EVM_NATIVE);
+			}
 		} catch (error) {
 			console.error('Failed to estimate fees:', error);
 			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
@@ -317,6 +330,92 @@
 			feeState.swapLimits = null;
 		} finally {
 			feeState.isLoading = false;
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Cross-chain swap estimation (LI.FI + Symbiosis)
+	// -----------------------------------------------------------------------
+	const EVM_NATIVE = '0x0000000000000000000000000000000000000000';
+	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
+
+	async function estimateCrossChainFees(
+		fromChain: number,
+		toChain: number,
+		fromToken: string,
+		toToken: string
+	) {
+		const amountWei = Math.floor(amountInSats * 10_000_000_000).toString(); // sats → wei
+		const userAddr = $walletStore.rsk.address || EVM_NATIVE;
+
+		const promises: Promise<{
+			provider: string;
+			feePercent: number;
+			estimatedTime: number;
+		} | null>[] = [];
+
+		if (isLifiEnabled()) {
+			promises.push(
+				lifiService
+					.getQuote({
+						fromChain,
+						toChain,
+						fromToken,
+						toToken,
+						fromAmount: amountWei,
+						fromAddress: userAddr
+					})
+					.then((r) => ({
+						provider: 'LI.FI',
+						feePercent: 0.5,
+						estimatedTime: r.estimate?.executionDuration || 300
+					}))
+					.catch(() => null)
+			);
+		}
+		if (isSymbiosisEnabled()) {
+			promises.push(
+				symbiosisService
+					.getQuote({
+						tokenAmountIn: {
+							address: fromToken,
+							chainId: fromChain,
+							symbol: fromToken === EVM_NATIVE ? 'RBTC' : 'USDT',
+							decimals: 18
+						},
+						tokenOut: {
+							address: toToken,
+							chainId: toChain,
+							symbol: toToken === EVM_NATIVE ? 'RBTC' : 'USDT',
+							decimals: 18
+						},
+						amount: amountWei,
+						from: userAddr,
+						to: userAddr
+					})
+					.then((r) => ({
+						provider: 'Symbiosis',
+						feePercent: r.feePercent ?? 0.3,
+						estimatedTime: r.estimatedTime || 300
+					}))
+					.catch(() => null)
+			);
+		}
+
+		const results = await Promise.all(promises);
+		const valid = results.filter(Boolean) as {
+			provider: string;
+			feePercent: number;
+			estimatedTime: number;
+		}[];
+		if (valid.length > 0) {
+			const best = valid.sort((a, b) => a.feePercent - b.feePercent)[0];
+			const serviceFee = Math.ceil((amountInSats * best.feePercent) / 100);
+			feeState.estimated = {
+				serviceFee,
+				networkFee: 0,
+				totalFees: serviceFee
+			};
 		}
 	}
 
