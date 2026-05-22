@@ -1,1 +1,1 @@
-# npm run test:ci  # Temporarily disabled due to pre-existing test failures
+npm run test:ci

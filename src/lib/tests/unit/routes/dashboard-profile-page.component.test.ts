@@ -91,20 +91,16 @@ describe('dashboard profile page', () => {
 		expect(mocks.profileStoreInit).toHaveBeenCalledTimes(1);
 	});
 
-	it('defaults to current-user reviews when only the reviews tab is requested', () => {
+	it('shows profile edit view when only the reviews tab is requested', () => {
 		mocks.page.url = new URL('https://example.com/dashboard/profile?tab=reviews');
 
 		render(DashboardProfilePage);
 
-		expect(mocks.ProfileReviewsSection.mock.calls[0]?.[1]).toEqual(
-			expect.objectContaining({
-				isCurrentUser: true
-			})
-		);
+		// When no user param, shows the profile edit view (not reviews)
+		expect(mocks.ProfileReviewsSection).not.toHaveBeenCalled();
 		expect(mocks.profileStoreInit).toHaveBeenCalledTimes(2);
 		expect(mocks.ProfileHeader).toHaveBeenCalledTimes(1);
-		expect(mocks.ProfileStats).not.toHaveBeenCalled();
-		expect(mocks.ProfileInfoSection).not.toHaveBeenCalled();
-		expect(mocks.ProfileSidebar).not.toHaveBeenCalled();
+		expect(mocks.ProfileInfoSection).toHaveBeenCalledTimes(1);
+		expect(mocks.ProfileSidebar).toHaveBeenCalledTimes(1);
 	});
 });

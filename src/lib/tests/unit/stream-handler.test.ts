@@ -36,6 +36,8 @@ function createMockEnv(overrides = {}) {
 			createDirectUpload: vi.fn(),
 			video: vi.fn(() => ({ generateToken: vi.fn() }))
 		},
+		CLOUDFLARE_ACCOUNT_ID: 'test-account-id',
+		CLOUDFLARE_API_TOKEN: 'test-api-token',
 		CLOUDFLARE_STREAM_WEBHOOK_SECRET: 'test-webhook-secret',
 		VIDEO_STATUS: { get: vi.fn(), put: vi.fn() },
 		...overrides
@@ -192,9 +194,25 @@ describe('handleStreamRoute', () => {
 			expect(data).toEqual(cached);
 			expect(env.VIDEO_STATUS.get).toHaveBeenCalledWith('video-uid-12345', 'json');
 		});
-
-		it('returns { uid, state: "encoding" } when no cached entry exists', async () => {
+		it('returns Cloudflare status when no cached entry exists', async () => {
 			env.VIDEO_STATUS.get.mockResolvedValue(null);
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(
+					new Response(
+						JSON.stringify({
+							result: {
+								status: { state: 'inprogress', pctComplete: '75.5' },
+								duration: 120,
+								size: 5_000_000,
+								created: '2026-01-01T00:00:00Z',
+								readyToStream: false
+							}
+						}),
+						{ status: 200 }
+					)
+				)
+			);
 
 			const res = await handleStreamRoute(
 				createRequest(`${BASE_URL}${STATUS_PATH}video-uid-12345`),
@@ -203,11 +221,30 @@ describe('handleStreamRoute', () => {
 
 			expect(res.status).toBe(200);
 			const data = await res.json();
-			expect(data).toEqual({ uid: 'video-uid-12345', state: 'encoding' });
+			expect(data.uid).toBe('video-uid-12345');
+			expect(data.state).toBe('inprogress');
+			expect(data.pctComplete).toBe(75.5);
 		});
 
-		it('returns { uid, state: "encoding" } when VIDEO_STATUS KV is not bound', async () => {
+		it('returns Cloudflare status when VIDEO_STATUS KV is not bound', async () => {
 			env.VIDEO_STATUS = undefined;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(
+					new Response(
+						JSON.stringify({
+							result: {
+								status: { state: 'queued' },
+								duration: 0,
+								size: 0,
+								created: '2026-01-01T00:00:00Z',
+								readyToStream: false
+							}
+						}),
+						{ status: 200 }
+					)
+				)
+			);
 
 			const res = await handleStreamRoute(
 				createRequest(`${BASE_URL}${STATUS_PATH}video-uid-12345`),
@@ -216,7 +253,8 @@ describe('handleStreamRoute', () => {
 
 			expect(res.status).toBe(200);
 			const data = await res.json();
-			expect(data).toEqual({ uid: 'video-uid-12345', state: 'encoding' });
+			expect(data.uid).toBe('video-uid-12345');
+			expect(data.state).toBe('queued');
 		});
 
 		it('returns 400 for empty UID', async () => {

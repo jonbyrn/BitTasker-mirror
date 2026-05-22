@@ -54,7 +54,7 @@ export default defineConfig({
 		},
 		server: {
 			deps: {
-				inline: ['@testing-library/svelte']
+				inline: ['@testing-library/svelte', '@sentry/sveltekit']
 			}
 		},
 		// Coverage configuration
@@ -88,8 +88,13 @@ export default defineConfig({
 		conditions: ['browser', 'development'],
 		alias: {
 			$lib: resolve(__dirname, './src/lib'),
-			$app: resolve(__dirname, './.svelte-kit/runtime/app'),
-			'$app/environment': resolve(__dirname, './src/lib/mocks/app-environment.ts')
+			'$app/environment': resolve(__dirname, './src/lib/mocks/app-environment.ts'),
+			'$app/stores': resolve(__dirname, './src/lib/mocks/app-stores.ts'),
+			'$app/navigation': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
+			'$app/state': resolve(__dirname, './src/lib/mocks/app-state.ts'),
+			'$app/forms': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
+			'$app/paths': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
+			'$app/server': resolve(__dirname, './src/lib/mocks/app-navigation.ts')
 		}
 	},
 	ssr: {

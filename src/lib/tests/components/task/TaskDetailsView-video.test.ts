@@ -180,6 +180,11 @@ function createMockEvent(attachments: Attachment[]) {
 				createdAt: Date.now(),
 				id: EVENT_ID,
 				npub: 'b'.repeat(64),
+				creator: {
+					username: 'testuser',
+					avatar: '',
+					rating: 4.5
+				},
 				isRemovals: false,
 				isBoosted: false,
 				boostPercentage: null,
