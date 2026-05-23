@@ -131,14 +131,10 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 				if (tx.value) txParams.value = '0x' + tx.value.toString(16);
 				if (tx.data) txParams.data = tx.data;
 
-				const invoke = sdkClient.invokeMethod as unknown as (opts: {
-					scope: string;
-					request: { method: string; params: unknown[] };
-				}) => Promise<string>;
-				const txHash = await invoke({
+				const txHash = (await sdkClient.invokeMethod({
 					scope: `eip155:${tx.chainId}`,
 					request: { method: 'eth_sendTransaction', params: [txParams] }
-				});
+				})) as unknown as string;
 				return { txHash, from: address, chainId: tx.chainId };
 			} finally {
 				sendLock.release(connectorId);
@@ -164,20 +160,15 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 			Record<string, { raw: string; formatted: string; loading: boolean }>
 		> {
 			const result: Record<string, { raw: string; formatted: string; loading: boolean }> = {};
-			const invoke = sdkClient.invokeMethod as unknown as (opts: {
-				scope: string;
-				request: { method: string; params: unknown[] };
-			}) => Promise<string>;
-
 			console.log('[MetaMask] fetchBalances: querying chains', chainIds, 'address', address);
 			// rBTC on RSK — get native balance
 			for (const chainId of chainIds.filter((c) => c === 30 || c === 31)) {
 				try {
-					const hexBalance = await invoke({
+					const hexBalance = (await sdkClient.invokeMethod({
 						scope: `eip155:${chainId}`,
 						request: { method: 'eth_getBalance', params: [address, 'latest'] }
-					});
-					const raw = BigInt(hexBalance);
+					})) as unknown as string;
+					const raw = BigInt(hexBalance || '0x0');
 					result.rbtc = {
 						raw: raw.toString(),
 						formatted: (Number(raw) / 1e18).toFixed(8),
@@ -193,14 +184,14 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 			const balanceOfData = '0x70a08231000000000000000000000000' + address.slice(2);
 			for (const chainId of chainIds.filter((c) => c === 56 || c === 97)) {
 				try {
-					const hexBalance = await invoke({
+					const hexBalance = (await sdkClient.invokeMethod({
 						scope: `eip155:${chainId}`,
 						request: {
 							method: 'eth_call',
 							params: [{ to: usdtContract, data: balanceOfData }, 'latest']
 						}
-					});
-					const raw = BigInt(hexBalance);
+					})) as unknown as string;
+					const raw = BigInt(hexBalance || '0x0');
 					result.usdt = {
 						raw: raw.toString(),
 						formatted:
