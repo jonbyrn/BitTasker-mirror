@@ -1,161 +1,422 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { walletStore } from '$lib/stores/wallet.store';
-	import { swapStore } from '$lib/stores/swap.store';
-	import { isChangeallySwapsEnabled } from '$lib/services/kill-switch';
-	import type { CurrentSwap } from '$lib/stores/swap.store';
+	import { fly, fade, scale } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { walletStore, formatSats } from '$lib/stores/wallet.store';
+	import { type Route, type SourceWallet, type Destination } from '$lib/services/route-resolver';
+	import {
+		resolveRouteAsync,
+		createInitialAsyncRouteResult,
+		type AsyncRouteResult
+	} from '$lib/services/route-resolver-async';
+	import { startSwapChain } from '$lib/services/swap-chain.service';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import Drawer from '$lib/components/Drawer.svelte';
+	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	// -----------------------------------------------------------------------
-	// Feature flag — entire component is hidden when swaps are disabled
+	// Props
 	// -----------------------------------------------------------------------
-	let featureEnabled = $state(isChangeallySwapsEnabled());
+	let { isOpen, onClose } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
+	}>();
 
 	// -----------------------------------------------------------------------
-	// Swap store subscription
+	// Destination type enum
 	// -----------------------------------------------------------------------
-	let currentSwap = $state<CurrentSwap | null>(null);
-	let isSwapActive = $state(false);
+	type DestType = 'usdt-bsc' | 'rbtc-rsk' | 'btc-onchain';
 
-	$effect(() => {
-		const unsubSwap = swapStore.subscribe((s) => {
-			currentSwap = s.currentSwap;
-			isSwapActive = s.currentSwap !== null && s.currentSwap.status !== 'idle';
-		});
-		return () => unsubSwap();
-	});
-
-	// -----------------------------------------------------------------------
-	// UI state
-	// -----------------------------------------------------------------------
-	let fromToken = $state<{
-		ticker: string;
-		name: string;
+	interface DestOption {
+		id: DestType;
+		asset: string;
+		label: string;
+		description: string;
+		icon: string;
 		network: string;
-	}>({ ticker: 'usdt', name: 'USDT (BSC)', network: 'bsc' });
-	let toToken = $state<{
-		ticker: string;
-		name: string;
-		network: string;
-	}>({ ticker: 'rbtc', name: 'rBTC', network: 'rsk' });
-	let fromAmount = $state<string>('');
-	let toAmount = $state<string>('');
-	let destinationAddress = $state<string>('');
-	let showPreview = $state<boolean>(false);
-	let quoteResult = $state<{
-		estimatedAmount: string;
-		rate: string;
-		fee: string;
-		minerFee: string;
-	} | null>(null);
-	let errorMessage = $state<string>('');
-
-	// Changelly-supported tokens. In production the worker proxy returns
-	// the live list; this static set covers the most common pairs.
-	const supportedTokens = [
-		{ ticker: 'btc', name: 'Bitcoin', network: 'bitcoin' },
-		{ ticker: 'eth', name: 'Ethereum', network: 'ethereum' },
-		{ ticker: 'usdt', name: 'USDT (BSC)', network: 'bsc' },
-		{ ticker: 'usdt', name: 'USDT (Ethereum)', network: 'ethereum' },
-		{ ticker: 'usdc', name: 'USDC (Ethereum)', network: 'ethereum' },
-		{ ticker: 'rbtc', name: 'rBTC', network: 'rsk' },
-		{ ticker: 'bnb', name: 'BNB', network: 'bsc' }
-	];
-
-	// -----------------------------------------------------------------------
-	// Wallet balances from walletStore
-	// -----------------------------------------------------------------------
-	function getBalance(token: { ticker: string; network: string }): string {
-		if (token.network === 'rsk' && token.ticker === 'rbtc') {
-			return $walletStore.rsk?.formattedBalance || '0.00';
-		}
-		if (token.network === 'bsc') {
-			if (token.ticker === 'usdt') {
-				return $walletStore.bsc?.formattedUsdtBalance || '0.00';
-			}
-			if (token.ticker === 'bnb') {
-				return $walletStore.bsc?.formattedBnbBalance || '0.00';
-			}
-		}
-		return '0.00';
+		chainId: number;
+		available: boolean;
 	}
+
+	// -----------------------------------------------------------------------
+	// State
+	// -----------------------------------------------------------------------
+	let sourceType = $state<SourceWallet>('rbtc');
+	let destType = $state<DestType>('usdt-bsc');
+	let amount = $state('');
+	let selectedRouteId = $state('');
+	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'complete' | 'failed'>('form');
+	let errorMessage = $state('');
+	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
+	let isFlipping = $state(false);
+	let swapPercent = $state(0);
+
+	// -----------------------------------------------------------------------
+	// BTC wallet detection
+	// -----------------------------------------------------------------------
+	let hasExternalBtcWallet = $derived(
+		$connectedWalletsStore.wallets.some((w) => {
+			// Any connected wallet of type trezor/ledger that supports Bitcoin
+			if (w.walletType === 'trezor' || w.walletType === 'ledger') return true;
+			// Or any wallet with BTC balance
+			if (w.balances?.btc?.raw) return true;
+			return false;
+		})
+	);
+
+	/**
+	 * Get external BTC wallet address for the destination.
+	 * Uses the first connected wallet that has a BTC signer/address.
+	 */
+	function getExternalBtcAddress(): string {
+		const handles = connectorRegistry.list();
+		for (const handle of handles) {
+			try {
+				const signer = handle.bitcoinSigner;
+				if (signer?.address) return signer.address;
+			} catch {
+				// Handle doesn't support BTC signing
+			}
+		}
+		// Fallback: check connected wallets store
+		const btcWallet = $connectedWalletsStore.wallets.find(
+			(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
+		);
+		return btcWallet?.address ?? '';
+	}
+
+	// -----------------------------------------------------------------------
+	// Chain icon/asset data
+	// -----------------------------------------------------------------------
+	const CHAIN_RSK = {
+		asset: 'rBTC',
+		label: 'Rootstock',
+		short: 'RSK',
+		icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		network: 'rootstock-bitcoin',
+		chainId: 30
+	};
+	const CHAIN_BSC = {
+		asset: 'USDT',
+		label: 'Binance Smart Chain',
+		short: 'BSC',
+		icon: '/images/chains/Tether-USD.svg',
+		network: 'usdt-bsc',
+		chainId: 56
+	};
+	const CHAIN_BTC = {
+		asset: 'BTC',
+		label: 'Bitcoin',
+		short: 'BTC',
+		icon: '/images/chains/Bitcoin.svg',
+		network: 'bitcoin',
+		chainId: -1 // Bitcoin mainnet (not EVM)
+	};
+
+	// -----------------------------------------------------------------------
+	// Destination options (computed from source)
+	// -----------------------------------------------------------------------
+	let destOptions = $derived.by<DestOption[]>(() => {
+		const options: DestOption[] = [];
+
+		if (sourceType === 'rbtc') {
+			// rBTC → USDT on BSC
+			options.push({
+				id: 'usdt-bsc',
+				asset: CHAIN_BSC.asset,
+				label: CHAIN_BSC.label,
+				description: $t('wallet.swap.desc_rbtc_to_usdt'),
+				icon: CHAIN_BSC.icon,
+				network: CHAIN_BSC.network,
+				chainId: CHAIN_BSC.chainId,
+				available: true
+			});
+
+			// rBTC → BTC on-chain (only if external BTC wallet)
+			options.push({
+				id: 'btc-onchain',
+				asset: CHAIN_BTC.asset,
+				label: CHAIN_BTC.label,
+				description: $t('wallet.swap.desc_rbtc_to_btc'),
+				icon: CHAIN_BTC.icon,
+				network: CHAIN_BTC.network,
+				chainId: CHAIN_BTC.chainId,
+				available: hasExternalBtcWallet
+			});
+		} else {
+			// USDT → rBTC on RSK
+			options.push({
+				id: 'rbtc-rsk',
+				asset: CHAIN_RSK.asset,
+				label: CHAIN_RSK.label,
+				description: $t('wallet.swap.desc_usdt_to_rbtc'),
+				icon: CHAIN_RSK.icon,
+				network: CHAIN_RSK.network,
+				chainId: CHAIN_RSK.chainId,
+				available: true
+			});
+		}
+
+		return options;
+	});
 
 	// -----------------------------------------------------------------------
 	// Derived
 	// -----------------------------------------------------------------------
-	let isInsufficientBalance = $derived(() => {
-		const balance = getBalance(fromToken);
-		return balance ? parseFloat(fromAmount) > parseFloat(balance) : false;
+	let sourceAsset = $derived(sourceType === 'rbtc' ? 'rBTC' : 'USDT');
+	let sourceChainLabel = $derived(sourceType === 'rbtc' ? 'Rootstock' : 'BSC');
+	let sourceIcon = $derived(
+		sourceType === 'rbtc'
+			? '/images/chains/Bitcoin-Rootstock-logo.webp'
+			: '/images/chains/Tether-USD.svg'
+	);
+
+	/** Wallet balance in token units (rBTC or USDT) */
+	let walletBalanceToken = $derived(
+		sourceType === 'rbtc'
+			? $walletStore.rsk?.formattedBalance || '0.00'
+			: $walletStore.bsc?.formattedUsdtBalance || '0.00'
+	);
+
+	/** Actual BTC/USD price from Coinbase, fetched async. Default 0 until loaded. */
+	let btcUsdPrice = $state(0);
+
+	// Fetch BTC/USD price on mount
+	onMount(async () => {
+		try {
+			btcUsdPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch {
+			// Leave at 0; estimatedOutput will show 0 until price loads
+		}
 	});
 
-	// -----------------------------------------------------------------------
-	// Convert to sats for display (keeps existing pattern)
-	// -----------------------------------------------------------------------
-	function convertToSats(amount: string, token: { ticker: string; network: string }): string {
-		if (!amount) return '0';
-		const numAmount = parseFloat(amount);
-		if (token.ticker === 'rbtc') {
-			return Math.round(numAmount * 100000000).toLocaleString();
+	/** Convert amount string to source token units (handles sats→rBTC when source is rBTC) */
+	let amountInTokenUnits = $derived.by(() => {
+		const amt = parseFloat(amount);
+		if (!Number.isFinite(amt) || amt <= 0) return 0;
+		if (sourceType === 'rbtc') return amt / 100_000_000; // sats → rBTC
+		return amt; // USDT
+	});
+
+	/** Wallet balance in display units (sats for rBTC, USDT for USDT) */
+	let walletBalanceDisplay = $derived.by(() => {
+		const num = parseFloat(walletBalanceToken);
+		if (!Number.isFinite(num)) return '0';
+		if (sourceType === 'rbtc') {
+			return formatSats(Math.round(num * 100_000_000));
 		}
-		if (token.ticker === 'usdt' || token.ticker === 'usdc') {
-			return Math.round(numAmount * 100).toLocaleString();
-		}
-		if (token.ticker === 'btc') {
-			return Math.round(numAmount * 100000000).toLocaleString();
-		}
-		return numAmount.toLocaleString();
+		return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	});
+
+	/** Estimated output in destination token units, with cross-currency conversion */
+	/** Format sats with USD equivalent: "5,000,000 Sats ≈ $5,000.00" */
+	function satsUsd(sats: number): string {
+		const s = formatSats(sats);
+		if (btcUsdPrice <= 0) return `${s} ${$t('wallet.sats')}`;
+		const usd = (sats / 100_000_000) * btcUsdPrice;
+		return `${s} ${$t('wallet.sats')} ≈ $${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 	}
+
+	/** Sync amount from percentage slider (works with display units) */
+	function applyPercent(pct: number) {
+		const bal = parseFloat(walletBalanceToken);
+		if (!Number.isFinite(bal) || bal <= 0) return;
+		swapPercent = pct;
+		if (sourceType === 'rbtc') {
+			// Amount in sats
+			amount = Math.round((pct / 100) * bal * 100_000_000).toString();
+		} else {
+			amount = ((pct / 100) * bal).toFixed(6);
+		}
+	}
+
+	/** Sync percentage from manual amount input */
+	$effect(() => {
+		const bal = parseFloat(walletBalanceToken);
+		if (!Number.isFinite(bal) || bal <= 0 || amountInTokenUnits <= 0) {
+			if (swapPercent !== 0) swapPercent = 0;
+			return;
+		}
+		const pct = Math.round((amountInTokenUnits / bal) * 100);
+		if (pct !== swapPercent && pct >= 0 && pct <= 100) {
+			swapPercent = pct;
+		}
+	});
+
+	let visibleDestOptions = $derived(destOptions.filter((o) => o.available));
+
+	let selectedDest = $derived(
+		visibleDestOptions.find((o) => o.id === destType) || visibleDestOptions[0]
+	);
+
+	/** Build the appropriate Destination object for the route resolver */
+	let routeDest = $derived.by<Destination>(() => {
+		if (!selectedDest) {
+			return { type: 'address', chainId: 56, address: '' };
+		}
+		if (selectedDest.id === 'btc-onchain') {
+			return {
+				type: 'invoice',
+				network: 'onchain',
+				invoice: getExternalBtcAddress() || ''
+			};
+		}
+		return {
+			type: 'address',
+			chainId: selectedDest.chainId,
+			address: ''
+		};
+	});
+
+	let asyncRouteResult = $state<AsyncRouteResult>(createInitialAsyncRouteResult());
+	let routeLoading = $state(false);
+	let _routeTimer: ReturnType<typeof setTimeout> | null = null;
+
+	/** Live API routes from Symbiosis + LI.FI. No hardcoded fallback. */
+	let liveRoutes = $derived(asyncRouteResult.routes);
+
+	let sortedRoutes = $derived(
+		[...liveRoutes].sort((a, b) => a.totalFeePercent - b.totalFeePercent)
+	);
+
+	let activeRoute = $derived(
+		sortedRoutes.find((r) => r.id === selectedRouteId) || sortedRoutes[0] || null
+	);
+
+	// Debounced async route fetch when source/dest/amount changes
+	$effect(() => {
+		if (_routeTimer) clearTimeout(_routeTimer);
+
+		if (amountInTokenUnits <= 0) {
+			asyncRouteResult = createInitialAsyncRouteResult();
+			routeLoading = false;
+			return;
+		}
+
+		routeLoading = true;
+		const source = sourceType;
+		const dest = routeDest;
+		const amt = amountInTokenUnits.toString();
+
+		_routeTimer = setTimeout(async () => {
+			try {
+				const userAddr =
+					source === 'rbtc' ? ($walletStore.rsk.address ?? '') : ($walletStore.bsc.address ?? '');
+				const result = await resolveRouteAsync(source, dest, amt, userAddr);
+				asyncRouteResult = result;
+			} catch {
+				// Keep existing routes on API error
+			}
+			routeLoading = false;
+		}, 400);
+
+		return () => {
+			if (_routeTimer) clearTimeout(_routeTimer);
+		};
+	});
+
+	let estimatedOutput = $derived.by(() => {
+		if (!activeRoute || amountInTokenUnits <= 0) return '0';
+		const fee = 1 - activeRoute.totalFeePercent / 100;
+		const sourceAmt = amountInTokenUnits;
+
+		let output: number;
+		if (sourceType === 'rbtc' && selectedDest?.id === 'usdt-bsc') {
+			// rBTC → USDT: rBTC ≈ BTC, so rBTC amount * BTC/USD price * fee
+			output = sourceAmt * btcUsdPrice * fee;
+		} else if (sourceType === 'usdt-bsc' && selectedDest?.id === 'rbtc-rsk') {
+			// USDT → rBTC: USDT amount / BTC/USD price * fee
+			output = btcUsdPrice > 0 ? (sourceAmt / btcUsdPrice) * fee : 0;
+		} else if (sourceType === 'rbtc' && selectedDest?.id === 'btc-onchain') {
+			// rBTC → BTC: ~1:1 in BTC terms, output in BTC token units
+			output = sourceAmt * fee;
+		} else {
+			output = sourceAmt * fee;
+		}
+		return output.toFixed(6);
+	});
+
+	let amountSats = $derived.by(() => {
+		if (amountInTokenUnits <= 0) return 0;
+		if (sourceType === 'rbtc') {
+			return Math.round(amountInTokenUnits * 100_000_000);
+		}
+		// USDT → approximate sats via BTC/USD price
+		return btcUsdPrice > 0 ? Math.round((amountInTokenUnits / btcUsdPrice) * 100_000_000) : 0;
+	});
+
+	let isInsufficientBalance = $derived(
+		amountInTokenUnits > 0 && Number.isFinite(parseFloat(walletBalanceToken))
+			? amountInTokenUnits > parseFloat(walletBalanceToken)
+			: false
+	);
+
+	let isValidAmount = $derived(amountInTokenUnits > 0 && !isInsufficientBalance);
+	let canSwap = $derived(isValidAmount && activeRoute !== null && swapPhase === 'form');
+
+	let routePickerNetwork = $derived(selectedDest?.network ?? null);
+
+	// Sync destType when source changes
+	$effect(() => {
+		const available = visibleDestOptions;
+		if (available.length > 0 && !available.find((o) => o.id === destType)) {
+			destType = available[0]!.id;
+		}
+	});
+
+	// Auto-select cheapest route (sorted by fee ascending)
+	$effect(() => {
+		if (sortedRoutes.length > 0) {
+			const cheapest = sortedRoutes[0];
+			if (cheapest && selectedRouteId !== cheapest.id) {
+				selectedRouteId = cheapest.id;
+			}
+		}
+	});
+
+	// Reset when drawer opens
+	$effect(() => {
+		if (!isOpen) return;
+		selectedRouteId = '';
+		errorMessage = '';
+	});
 
 	// -----------------------------------------------------------------------
 	// Methods
 	// -----------------------------------------------------------------------
-	function swapTokens() {
-		const temp = fromToken;
-		fromToken = toToken;
-		toToken = temp;
-		fromAmount = '';
-		toAmount = '';
-		showPreview = false;
-		quoteResult = null;
+	function swapDirection() {
+		triggerHaptic(ImpactStyle.Light);
+		isFlipping = true;
+		setTimeout(() => (isFlipping = false), 300);
+
+		if (sourceType === 'rbtc') {
+			sourceType = 'usdt-bsc';
+			destType = 'rbtc-rsk';
+		} else {
+			sourceType = 'rbtc';
+			destType = 'usdt-bsc';
+		}
+		amount = '';
+		swapPercent = 0;
+		selectedRouteId = '';
 		errorMessage = '';
+		swapPhase = 'form';
 	}
 
-	async function handleFromAmountChange() {
-		showPreview = false;
-		errorMessage = '';
-
-		if (fromAmount && parseFloat(fromAmount) > 0) {
-			await fetchQuote();
+	function setMaxAmount() {
+		triggerHaptic(ImpactStyle.Light);
+		swapPercent = 100;
+		if (sourceType === 'rbtc') {
+			amount = Math.round(parseFloat(walletBalanceToken) * 100_000_000).toString();
 		} else {
-			quoteResult = null;
-			toAmount = '';
+			amount = walletBalanceToken;
 		}
 	}
 
-	async function fetchQuote() {
-		if (!featureEnabled) return;
-
-		const result = await swapStore.initiateSwap({
-			fromToken: fromToken.ticker,
-			toToken: toToken.ticker,
-			fromAmount
-		});
-
-		if (result.success && result.estimatedAmount) {
-			toAmount = result.estimatedAmount;
-			quoteResult = {
-				estimatedAmount: result.estimatedAmount,
-				rate: result.rate || '0',
-				fee: result.fee || '0',
-				minerFee: result.minerFee || '0'
-			};
-		} else {
-			errorMessage = result.error || 'Failed to fetch quote';
-			toAmount = '';
-			quoteResult = null;
-		}
-	}
-
-	function handleKeyPress(event: KeyboardEvent) {
+	function handleKeyPress(e: KeyboardEvent) {
 		const allowedKeys = [
 			'0',
 			'1',
@@ -175,73 +436,463 @@
 			'ArrowLeft',
 			'ArrowRight'
 		];
-		const isControlKey = event.ctrlKey || event.metaKey || event.altKey;
-		if (!allowedKeys.includes(event.key) && !isControlKey) {
-			event.preventDefault();
+		const isControlKey = e.ctrlKey || e.metaKey || e.altKey;
+		if (!allowedKeys.includes(e.key) && !isControlKey) {
+			e.preventDefault();
 		}
-		const currentValue = (event.target as HTMLInputElement).value;
-		if (event.key === '.' && currentValue.includes('.')) {
-			event.preventDefault();
-		}
-	}
-
-	function setMaxAmount() {
-		const balance = getBalance(fromToken);
-		if (balance && balance !== '0.00') {
-			fromAmount = balance;
-			handleFromAmountChange();
+		const currentValue = (e.target as HTMLInputElement).value;
+		if (e.key === '.' && currentValue.includes('.')) {
+			e.preventDefault();
 		}
 	}
 
-	function handleSwap(event: Event) {
-		event.preventDefault();
-		if (!fromAmount || !toAmount || isInsufficientBalance() || !featureEnabled) {
-			return;
-		}
-		showPreview = true;
+	function goToConfirm() {
+		if (!canSwap) return;
+		triggerHaptic(ImpactStyle.Medium);
+		swapPhase = 'confirm';
+		errorMessage = '';
 	}
 
-	async function confirmSwap() {
-		if (!destinationAddress) {
-			errorMessage = 'Destination address is required';
-			return;
-		}
-
-		const result = await swapStore.confirmAndCreateSwap(destinationAddress);
-
-		if (!result.success) {
-			errorMessage = result.error || 'Swap creation failed';
-		}
-		// On success the store transitions to 'polling'; the UI stays on
-		// the preview panel showing the swapId.
-	}
-
-	function cancelSwap() {
-		showPreview = false;
+	function cancelConfirm() {
+		swapPhase = 'form';
 		errorMessage = '';
 	}
 
 	function resetForm() {
-		fromAmount = '';
-		toAmount = '';
-		destinationAddress = '';
-		showPreview = false;
-		quoteResult = null;
+		// Guard: don't reset mid-execution
+		if (swapPhase === 'executing') return;
+		amount = '';
+		swapPercent = 0;
+		selectedRouteId = '';
+		swapPhase = 'form';
 		errorMessage = '';
-		swapStore.clearCurrentSwap();
+		swapResult = null;
+	}
+
+	function handleClose() {
+		// Block close during swap execution — prevent orphaning swap state
+		if (swapPhase === 'executing') return;
+		resetForm();
+		onClose();
+	}
+
+	async function executeSwap() {
+		// Double-execution guard: only allow from confirm phase
+		if (swapPhase !== 'confirm') return;
+		if (!activeRoute || !amount || isInsufficientBalance) return;
+
+		swapPhase = 'executing';
+		errorMessage = '';
+		triggerHaptic(ImpactStyle.Heavy);
+
+		// Get destination address
+		let destAddress = '';
+		if (selectedDest?.id === 'rbtc-rsk') {
+			destAddress = $walletStore.rsk.address ?? '';
+		} else if (selectedDest?.id === 'btc-onchain') {
+			destAddress = getExternalBtcAddress();
+		} else {
+			destAddress = $walletStore.bsc.address ?? '';
+		}
+
+		if (!destAddress) {
+			errorMessage = $t('wallet.swap.error.no_dest_address');
+			swapPhase = 'failed';
+			return;
+		}
+
+		// Build proper destination with the actual user address
+		const execDest: Destination =
+			selectedDest?.id === 'btc-onchain'
+				? { type: 'invoice', network: 'onchain', invoice: destAddress }
+				: { type: 'address', chainId: selectedDest?.chainId ?? 56, address: destAddress };
+
+		// Amount in source token units (not display units like sats)
+		const execAmount = amountInTokenUnits.toString();
+
+		const { data: result, error } = await startSwapChain(
+			activeRoute,
+			sourceType,
+			execDest,
+			execAmount
+		);
+
+		if (error || !result) {
+			errorMessage = error?.message || $t('wallet.swap.error.swap_failed');
+			swapPhase = 'failed';
+			return;
+		}
+
+		if (result.phase === 'COMPLETE') {
+			swapResult = {
+				swapId: result.swap1Id ?? undefined,
+				txHash: result.swap1Id ?? undefined
+			};
+			swapPhase = 'complete';
+			triggerHaptic(ImpactStyle.Heavy);
+		} else if (result.phase === 'FAILED' || result.phase === 'PARTIAL') {
+			errorMessage = result.error || $t('wallet.swap.error.swap_failed');
+			swapPhase = 'failed';
+			triggerHaptic(ImpactStyle.Heavy);
+		} else {
+			// Unhandled phase — treat as still pending
+			errorMessage = $t('wallet.swap.error.swap_failed');
+			swapPhase = 'failed';
+		}
+	}
+
+	function getProviderLabel(route: Route): string {
+		const service = route.hops[0]?.service;
+		switch (service) {
+			case 'lifi':
+				return 'LI.FI';
+			case 'symbiosis':
+				return 'Symbiosis';
+			case 'boltz':
+				return 'Boltz';
+			case 'changelly':
+				return 'Changelly';
+			default:
+				return route.label;
+		}
 	}
 </script>
 
-{#if featureEnabled}
-	<div class="space-y-4 md:space-y-6">
-		<!-- Swap Form -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body p-4 md:p-6">
-				<h3 class="card-title text-lg md:text-xl">{$t('wallet.swap.swap_digital_assets')}</h3>
-				<div class="alert alert-outline alert-info mb-4">
-					<div class="flex items-start">
+<Drawer
+	{isOpen}
+	onClose={handleClose}
+	title={$t('wallet.swap.swap_assets')}
+	position="right"
+	isScrollable={true}
+	isSubmitting={swapPhase === 'executing'}
+>
+	<div class="flex flex-col gap-4">
+		{#if swapPhase === 'form'}
+			<div transition:fly={{ y: 10, duration: 200 }}>
+				<div class="flex flex-col gap-4">
+					<!-- Source Wallet Card -->
+					<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
+						<div class="relative shrink-0">
+							<img
+								src={sourceIcon}
+								alt={sourceAsset}
+								class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
+							/>
+							{#if sourceType === 'usdt-bsc'}
+								<img
+									src="/images/chains/Binance-logo.svg"
+									alt="BSC"
+									class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
+								/>
+							{/if}
+						</div>
+						<div class="min-w-0 flex-1">
+							<div class="text-sm font-semibold sm:text-base">
+								Bitcoin ({sourceAsset})
+							</div>
+							<div class="text-base-content/60 text-xs sm:text-sm">
+								{sourceChainLabel} &middot;
+								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
+									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
+									: `${walletBalanceDisplay}`}
+							</div>
+						</div>
+					</div>
+
+					<!-- Swap Direction Button -->
+					<div class="relative flex items-center justify-center py-1">
+						<div class="border-base-300 absolute inset-x-0 top-1/2 border-t"></div>
+						<button
+							type="button"
+							class="btn btn-circle btn-outline bg-base-100 relative z-10 min-h-[44px] min-w-[44px] touch-manipulation border-2 transition-transform duration-300 active:scale-95 sm:min-h-[48px] sm:min-w-[48px]"
+							class:rotate-180={isFlipping}
+							onclick={swapDirection}
+							aria-label={$t('wallet.swap.swap_direction')}
+							style="-webkit-tap-highlight-color: transparent;"
+						>
+							<svg
+								class="h-5 w-5 sm:h-6 sm:w-6"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+								/>
+							</svg>
+						</button>
+					</div>
+
+					<!-- Destination Selection Cards -->
+					<div class="space-y-2">
+						{#each visibleDestOptions as option (option.id)}
+							{@const isSelected = destType === option.id}
+							<button
+								type="button"
+								class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
+									? 'border-primary bg-primary/5 shadow-sm'
+									: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
+								onclick={() => {
+									destType = option.id;
+									selectedRouteId = '';
+								}}
+								style="-webkit-tap-highlight-color: transparent;"
+							>
+								<div
+									class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 {isSelected
+										? 'border-primary'
+										: 'border-base-300'}"
+								>
+									{#if isSelected}
+										<div class="bg-primary h-3 w-3 rounded-full"></div>
+									{/if}
+								</div>
+								<div class="relative shrink-0">
+									<img
+										src={option.icon}
+										alt={option.asset}
+										class="h-8 w-8 rounded-full sm:h-10 sm:w-10"
+									/>
+									{#if option.asset === 'USDT'}
+										<img
+											src="/images/chains/Binance-logo.svg"
+											alt="BSC"
+											class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
+										/>
+									{/if}
+								</div>
+								<div class="min-w-0 flex-1">
+									<div class="text-sm font-semibold sm:text-base">
+										{option.asset === 'USDT' ? 'USD' : option.asset} ({option.asset === 'USDT'
+											? 'Binance'
+											: option.label})
+									</div>
+									<div class="text-base-content/60 text-xs sm:text-sm">
+										{#if option.id === 'rbtc-rsk'}
+											{$t('wallet.available_balance')}: {satsUsd(
+												Math.round(
+													parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000
+												)
+											)}
+										{:else if option.id === 'btc-onchain'}
+											{$t('wallet.available_balance')}: {satsUsd(
+												Number(
+													$connectedWalletsStore.wallets.find(
+														(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
+													)?.balances?.btc?.raw || 0
+												)
+											)}
+										{:else}
+											{$t('wallet.available_balance')}: {parseFloat(
+												$walletStore.bsc?.formattedUsdtBalance || '0'
+											).toLocaleString('en-US', {
+												minimumFractionDigits: 2,
+												maximumFractionDigits: 6
+											})} USDT
+										{/if}
+									</div>
+								</div>
+							</button>
+						{/each}
+
+						<!-- BTC not available hint (always shown when no BTC wallet) -->
+						{#if !hasExternalBtcWallet}
+							<div
+								class="text-base-content/40 flex items-center gap-2 px-1 py-1 text-xs sm:text-sm"
+							>
+								<svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<span>{$t('wallet.swap.btc_not_available')}</span>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Amount Input -->
+					<div class="form-control">
+						<label for="swap-amount" class="label px-1 py-1">
+							<span class="label-text text-sm sm:text-base">
+								{sourceType === 'rbtc' ? $t('wallet.sats') : 'USDT'}
+							</span>
+						</label>
+						<div class="join w-full">
+							<input
+								id="swap-amount"
+								type="number"
+								class="input input-bordered join-item min-h-[48px] flex-1 rounded-r-none text-base sm:min-h-[52px]"
+								placeholder={sourceType === 'rbtc' ? '0' : '0.00'}
+								bind:value={amount}
+								onkeypress={handleKeyPress}
+								min="0"
+								step={sourceType === 'rbtc' ? '1' : '0.000001'}
+								inputmode="numeric"
+							/>
+							<button
+								type="button"
+								class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
+								onclick={setMaxAmount}
+								style="-webkit-tap-highlight-color: transparent;"
+							>
+								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
+							</button>
+						</div>
+						<div class="label px-1 py-1">
+							<span class="label-text-alt text-xs sm:text-sm">
+								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
+									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
+									: `${walletBalanceDisplay}`}
+							</span>
+						</div>
+					</div>
+
+					<!-- Percent Slider -->
+					<div class="form-control -mt-2">
+						<div class="flex items-center gap-3">
+							<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
+								>{swapPercent}%</span
+							>
+							<input
+								id="swap-percent"
+								type="range"
+								min="0"
+								max="100"
+								step="1"
+								value={swapPercent}
+								class="range range-primary range-sm flex-1"
+								oninput={(e) => {
+									const pct = parseInt((e.target as HTMLInputElement).value);
+									applyPercent(pct);
+								}}
+							/>
+						</div>
+					</div>
+
+					<!-- RoutePicker — always visible -->
+					<RoutePicker
+						routes={sortedRoutes}
+						{selectedRouteId}
+						onSelect={(id: string) => (selectedRouteId = id)}
+						btcPrice={btcUsdPrice}
+						network={routePickerNetwork}
+						{amountSats}
+						isLoadingFee={routeLoading}
+						hasAddress={true}
+						hasAmount={amountSats > 0}
+					/>
+					{#if sortedRoutes.length === 0 && !routeLoading}
+						<div class="text-base-content/40 px-2 text-xs">
+							{$t('wallet.swap.error.no_routes')}
+						</div>
+					{/if}
+
+					<!-- Total Card — always visible -->
+					<div
+						class="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4"
+						transition:fade={{ duration: 200 }}
+					>
+						<div class="min-w-0 flex-1">
+							<div class="text-base-content/60 text-xs sm:text-sm">
+								{$t('wallet.swap.estimated_output')}
+							</div>
+							<div class="text-base font-bold sm:text-lg">
+								{#if activeRoute && selectedDest}
+									{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+										{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
+									{:else}
+										${parseFloat(estimatedOutput).toLocaleString('en-US', {
+											minimumFractionDigits: 2,
+											maximumFractionDigits: 2
+										})}
+									{/if}
+								{:else}
+									<span class="text-base-content/30">—</span>
+								{/if}
+							</div>
+						</div>
+						<div class="shrink-0 text-right">
+							<div class="text-base-content/60 text-xs">
+								{$t('wallet.swap.estimated_time')}
+							</div>
+							<div class="text-sm font-semibold">
+								{#if activeRoute}
+									{activeRoute.estimatedTime}
+								{:else}
+									<span class="text-base-content/30">—</span>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<!-- Insufficient balance -->
+					{#if isInsufficientBalance}
+						<div class="alert alert-outline alert-error py-2 sm:py-3">
+							<span class="text-xs sm:text-sm">
+								{$t('wallet.swap.insufficient_balance')}
+							</span>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Confirm Phase -->
+		{#if swapPhase === 'confirm' && activeRoute && selectedDest}
+			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col gap-4">
+				<h4 class="text-base font-semibold sm:text-lg">{$t('wallet.swap.swap_preview')}</h4>
+
+				<!-- Source Card -->
+				<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
+					<div class="relative shrink-0">
+						<img
+							src={sourceIcon}
+							alt={sourceAsset}
+							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
+						/>
+						{#if sourceType === 'usdt-bsc'}
+							<img
+								src="/images/chains/Binance-logo.svg"
+								alt="BSC"
+								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
+							/>
+						{/if}
+					</div>
+					<div class="min-w-0 flex-1">
+						<div class="text-base-content/60 text-xs sm:text-sm">
+							{$t('wallet.swap.you_send')}
+						</div>
+						<div class="text-sm font-semibold sm:text-base">Bitcoin ({sourceAsset})</div>
+					</div>
+					<div class="shrink-0 text-right">
+						<div class="text-sm font-bold sm:text-base">
+							{sourceType === 'rbtc'
+								? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
+								: `$${parseFloat(amount || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+						</div>
+						{#if sourceType === 'rbtc'}
+							{@const satsVal = Math.round(parseFloat(amount || '0'))}
+							<div class="text-base-content/50 text-xs">
+								${((satsVal / 100_000_000) * btcUsdPrice).toLocaleString('en-US', {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2
+								})}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Provider Bridge -->
+				<div class="flex items-center justify-center py-1">
+					<div class="bg-base-200 flex items-center gap-2 rounded-full px-4 py-2">
 						<svg
-							class="mt-0.5 mr-2 h-5 w-5 shrink-0"
+							class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -250,320 +901,349 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-							></path>
+								d="M17 8l4 4m0 0l-4 4m4-4H3"
+							/>
 						</svg>
-						<span class="text-xs font-medium md:text-sm">{$t('wallet.swap.timing_note')}</span>
+						<span class="text-sm font-semibold">{getProviderLabel(activeRoute)}</span>
+						<span class="text-base-content/60 text-xs">
+							{activeRoute.totalFeePercent > 0 && amountSats > 0 && btcUsdPrice > 0
+								? `$${((amountSats / 100_000_000) * btcUsdPrice * (activeRoute.totalFeePercent / 100)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+								: ''} · {activeRoute.estimatedTime}
+						</span>
+						<svg
+							class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M17 8l4 4m0 0l-4 4m4-4H3"
+							/>
+						</svg>
 					</div>
 				</div>
 
-				{#if currentSwap && (currentSwap.status === 'polling' || currentSwap.status === 'completed' || currentSwap.status === 'failed')}
-					<!-- Post-swap status -->
-					<div class="space-y-4">
-						{#if currentSwap.status === 'completed'}
-							<div class="alert alert-outline alert-success">
-								<span class="text-sm md:text-base">{$t('wallet.swap.swap_successful')}</span>
-							</div>
-						{:else if currentSwap.status === 'failed'}
-							<div class="alert alert-outline alert-error">
-								<span class="text-sm md:text-base"
-									>{currentSwap.error || $t('wallet.swap.swap_failed')}</span
-								>
-							</div>
-						{:else}
-							<div class="alert alert-outline alert-info">
-								<span class="loading loading-spinner loading-sm mr-2"></span>
-								<span class="text-sm md:text-base">
-									{$t('wallet.swap.creating')} ({currentSwap.swapId || ''})
-								</span>
-							</div>
+				<!-- Destination Card -->
+				<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
+					<div class="relative shrink-0">
+						<img
+							src={selectedDest.icon}
+							alt={selectedDest.asset}
+							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
+						/>
+						{#if selectedDest.asset === 'USDT'}
+							<img
+								src="/images/chains/Binance-logo.svg"
+								alt="BSC"
+								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
+							/>
 						{/if}
-
-						{#if currentSwap.swapId}
-							<div class="bg-base-200 rounded-lg p-3 text-xs md:text-sm">
-								<div class="flex justify-between">
-									<span class="font-medium">Swap ID:</span>
-									<span class="font-mono">{currentSwap.swapId}</span>
-								</div>
-							</div>
-						{/if}
-
-						<button class="btn btn-primary min-h-[48px] w-full sm:w-auto" onclick={resetForm}>
-							<span class="text-sm md:text-base">{$t('wallet.swap.swap_now')}</span>
-						</button>
 					</div>
-				{:else if !showPreview}
-					<!-- Swap Form -->
-					<form onsubmit={handleSwap} class="space-y-4">
-						<!-- From Token -->
-						<div class="form-control">
-							<label for="from-token" class="label">
-								<span class="label-text text-sm md:text-base">{$t('wallet.swap.from')}</span>
-							</label>
-							<div class="flex flex-col gap-2">
-								<select
-									id="from-token"
-									class="select select-bordered min-h-[48px] w-full text-base"
-									bind:value={fromToken}
-									onchange={() => {
-										fromAmount = '';
-										toAmount = '';
-										quoteResult = null;
-									}}
-								>
-									{#each supportedTokens as token (token.name)}
-										<option value={token}>{token.name}</option>
-									{/each}
-								</select>
-								<div class="join w-full">
-									<input
-										type="number"
-										class="input input-bordered join-item min-h-[48px] flex-1 rounded-r-none text-base"
-										placeholder={$t('wallet.swap.enter_amount')}
-										bind:value={fromAmount}
-										oninput={handleFromAmountChange}
-										onkeypress={handleKeyPress}
-										min="0"
-										step="0.000001"
-										pattern="[0-9]*"
-										inputmode="numeric"
-									/>
-									<button
-										type="button"
-										class="btn btn-primary join-item min-h-[48px] rounded-l-none"
-										onclick={setMaxAmount}
-									>
-										<span class="text-xs md:text-sm">{$t('wallet.max')}</span>
-									</button>
-								</div>
-							</div>
-							<div class="label">
-								<span class="label-text-alt text-xs md:text-sm">
-									{$t('wallet.available_balance')}: {getBalance(fromToken) || '0.00'}
-									({convertToSats(getBalance(fromToken), fromToken)}
-									{$t('wallet.sats')})
-								</span>
-							</div>
+					<div class="min-w-0 flex-1">
+						<div class="text-base-content/60 text-xs sm:text-sm">{$t('wallet.swap.you_get')}</div>
+						<div class="text-sm font-semibold sm:text-base">
+							{selectedDest.asset === 'USDT' ? 'USD' : selectedDest.asset} ({selectedDest.asset ===
+							'USDT'
+								? 'Binance'
+								: selectedDest.label})
 						</div>
-
-						<!-- Swap Direction Button -->
-						<div class="flex justify-center">
-							<button
-								type="button"
-								class="btn btn-circle btn-outline min-h-[48px] min-w-[48px]"
-								onclick={swapTokens}
-								aria-label="Swap tokens"
-							>
-								<svg
-									class="h-5 w-5 md:h-6 md:w-6"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-									></path>
-								</svg>
-							</button>
-						</div>
-
-						<!-- To Token -->
-						<div class="form-control">
-							<label for="to-token" class="label">
-								<span class="label-text text-sm md:text-base">{$t('wallet.swap.to')}</span>
-							</label>
-							<div class="flex flex-col gap-2 sm:flex-row">
-								<select
-									id="to-token"
-									class="select select-bordered min-h-[48px] flex-1 text-base"
-									bind:value={toToken}
-									onchange={() => {
-										fromAmount = '';
-										toAmount = '';
-										quoteResult = null;
-									}}
-								>
-									{#each supportedTokens as token (token.name)}
-										<option value={token}>{token.name}</option>
-									{/each}
-								</select>
-								<input
-									type="number"
-									class="input input-bordered min-h-[48px] flex-1 text-base"
-									placeholder={$t('wallet.swap.enter_amount')}
-									bind:value={toAmount}
-									readonly
-								/>
-							</div>
-							<div class="label">
-								<span class="label-text-alt text-xs md:text-sm">
-									{$t('wallet.available_balance')}: {getBalance(toToken) || '0.00'}
-									({convertToSats(getBalance(toToken), toToken)}
-									{$t('wallet.sats')})
-								</span>
-							</div>
-						</div>
-
-						<!-- Quote / rate info -->
-						{#if quoteResult}
-							<div class="alert alert-outline alert-info">
-								<div class="space-y-1 text-xs md:text-sm">
-									<div>
-										{$t('wallet.swap.swap_rate')}: 1 {fromToken.ticker.toUpperCase()} = {quoteResult.rate}
-										{toToken.ticker.toUpperCase()}
-									</div>
-									<div>
-										{$t('wallet.swap.network_fee')}: {quoteResult.fee}
-										{fromToken.ticker.toUpperCase()}
-									</div>
-									<div>
-										{$t('wallet.swap.miner_fee')}: {quoteResult.minerFee}
-										{fromToken.ticker.toUpperCase()}
-									</div>
-								</div>
-							</div>
-						{/if}
-
-						<!-- Error -->
-						{#if errorMessage}
-							<div class="alert alert-outline alert-error">
-								<span class="text-xs md:text-sm">{errorMessage}</span>
-							</div>
-						{/if}
-
-						<!-- Insufficient balance -->
-						{#if isInsufficientBalance()}
-							<div class="alert alert-outline alert-error">
-								<span class="text-xs md:text-sm">{$t('wallet.swap.insufficient_balance')}</span>
-							</div>
-						{/if}
-
-						<!-- Submit -->
-						<div class="card-actions justify-stretch sm:justify-end">
-							<button
-								type="submit"
-								class="btn btn-primary min-h-[48px] w-full sm:w-auto"
-								disabled={!fromAmount || !toAmount || isInsufficientBalance() || isSwapActive}
-							>
-								{#if isSwapActive}
-									<span class="loading loading-spinner loading-sm mr-2"></span>
-								{/if}
-								<span class="text-sm md:text-base">{$t('wallet.swap.swap_now')}</span>
-							</button>
-						</div>
-					</form>
-				{:else}
-					<!-- Preview & Confirm -->
-					<div class="space-y-4">
-						<h4 class="text-lg font-semibold md:text-xl">{$t('wallet.swap.swap_preview')}</h4>
-
-						<div class="bg-base-200 space-y-3 rounded-lg p-4">
-							<div class="flex items-center justify-between">
-								<span class="text-sm md:text-base">{$t('wallet.swap.from')}:</span>
-								<span class="text-sm font-semibold md:text-base"
-									>{fromAmount} {fromToken.ticker.toUpperCase()}</span
-								>
-							</div>
-							<div class="text-base-content/70 text-right text-xs md:text-sm">
-								{convertToSats(fromAmount, fromToken)}
+					</div>
+					<div class="shrink-0 text-right">
+						<div class="text-sm font-bold sm:text-base">
+							{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+								{formatSats(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 								{$t('wallet.sats')}
-							</div>
-
-							<div class="flex items-center justify-between">
-								<span class="text-sm md:text-base">{$t('wallet.swap.to')}:</span>
-								<span class="text-sm font-semibold md:text-base"
-									>{toAmount} {toToken.ticker.toUpperCase()}</span
-								>
-							</div>
-							<div class="text-base-content/70 text-right text-xs md:text-sm">
-								{convertToSats(toAmount, toToken)}
-								{$t('wallet.sats')}
-							</div>
-
-							{#if quoteResult}
-								<div class="flex items-center justify-between">
-									<span class="text-sm md:text-base">{$t('wallet.swap.swap_rate')}:</span>
-									<span class="text-xs md:text-sm"
-										>1 {fromToken.ticker.toUpperCase()} = {quoteResult.rate}
-										{toToken.ticker.toUpperCase()}</span
-									>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="text-sm md:text-base">{$t('wallet.swap.network_fee')}:</span>
-									<span class="text-xs md:text-sm"
-										>{quoteResult.fee} {fromToken.ticker.toUpperCase()}</span
-									>
-								</div>
+							{:else}
+								${parseFloat(estimatedOutput).toLocaleString('en-US', {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2
+								})}
 							{/if}
-
-							<!-- Destination Address -->
-							<div class="form-control">
-								<label for="dest-address" class="label">
-									<span class="label-text text-sm md:text-base"
-										>{$t('wallet.swap.destination')}</span
-									>
-								</label>
-								<input
-									id="dest-address"
-									type="text"
-									class="input input-bordered min-h-[48px] text-base"
-									placeholder={$t('wallet.swap.enter_address_placeholder', {
-										values: { crypto: toToken.ticker.toUpperCase() }
-									})}
-									bind:value={destinationAddress}
-								/>
-							</div>
-
-							<div class="border-base-300 flex items-center justify-between border-t pt-2">
-								<span class="text-sm font-semibold md:text-base"
-									>{$t('wallet.swap.estimated_total')}:</span
-								>
-								<span class="text-sm font-semibold md:text-base"
-									>{toAmount} {toToken.ticker.toUpperCase()}</span
-								>
-							</div>
 						</div>
-
-						{#if errorMessage}
-							<div class="alert alert-outline alert-error">
-								<span class="text-xs md:text-sm">{errorMessage}</span>
+						{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+							{@const outSats = Math.round(parseFloat(estimatedOutput) * 100_000_000)}
+							<div class="text-base-content/50 text-xs">
+								${((outSats / 100_000_000) * btcUsdPrice).toLocaleString('en-US', {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2
+								})}
 							</div>
 						{/if}
-
-						<div class="card-actions justify-stretch gap-2 sm:justify-end">
-							<button class="btn btn-outline min-h-[48px] w-full sm:w-auto" onclick={cancelSwap}>
-								<span class="text-sm md:text-base">{$t('wallet.buy_sell.cancel')}</span>
-							</button>
-							<button
-								class="btn btn-primary min-h-[48px] w-full sm:w-auto"
-								onclick={confirmSwap}
-								disabled={isSwapActive || !destinationAddress}
-							>
-								{#if isSwapActive}
-									<span class="loading loading-spinner loading-sm mr-2"></span>
-								{/if}
-								<span class="text-sm md:text-base">{$t('wallet.swap.confirm_swap')}</span>
-							</button>
-						</div>
 					</div>
-				{/if}
-			</div>
-		</div>
+				</div>
 
-		<!-- Information Card -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body p-4 md:p-6">
-				<h3 class="card-title text-lg md:text-xl">{$t('wallet.information.swap_info_title')}</h3>
-				<div class="text-base-content/70 space-y-2 text-xs md:text-sm">
-					<p>• {$t('wallet.information.swap_info_1')}</p>
-					<p>• {$t('wallet.information.swap_info_2')}</p>
-					<p>• {$t('wallet.information.swap_info_3')}</p>
-					<p>• {$t('wallet.information.swap_info_4')}</p>
+				<!-- Warning -->
+				<div class="alert alert-outline alert-warning py-2 text-xs sm:text-sm">
+					<svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<span>{$t('wallet.swap.irreversible_warning')}</span>
 				</div>
 			</div>
-		</div>
+		{/if}
+
+		<!-- Executing Phase -->
+		{#if swapPhase === 'executing'}
+			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col items-center gap-4 py-6">
+				<span class="loading loading-spinner loading-lg text-primary"></span>
+				<p class="text-sm font-medium sm:text-base">
+					{$t('wallet.swap.swap_executing')}
+				</p>
+				<p class="text-base-content/60 text-xs sm:text-sm">
+					{$t('wallet.swap.timing_note')}
+				</p>
+				<p class="text-base-content/50 pt-2 text-xs italic">
+					{$t('wallet.swap.navigate_away_note')}
+				</p>
+			</div>
+		{/if}
+
+		<!-- Success Phase -->
+		{#if swapPhase === 'complete'}
+			<div class="flex flex-col gap-4" transition:scale={{ duration: 300, start: 0.95 }}>
+				<!-- Success Header -->
+				<div class="flex flex-col items-center gap-2 py-2">
+					<div class="bg-success/10 rounded-full p-3">
+						<svg
+							class="text-success h-10 w-10 sm:h-12 sm:w-12"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					</div>
+					<h4 class="text-lg font-bold sm:text-xl">{$t('wallet.swap.swap_complete')}</h4>
+				</div>
+
+				<!-- Swap Summary Cards -->
+				<div class="bg-base-200 space-y-3 rounded-xl p-4">
+					<!-- Source row -->
+					<div class="flex items-center gap-3">
+						<img
+							src={sourceIcon}
+							alt={sourceAsset}
+							class="h-7 w-7 shrink-0 rounded-full sm:h-8 sm:w-8"
+						/>
+						<div class="min-w-0 flex-1 text-xs sm:text-sm">
+							<div class="text-base-content/60">{$t('wallet.swap.you_send')}</div>
+							<div class="font-semibold">
+								{sourceType === 'rbtc'
+									? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
+									: `$${parseFloat(amount || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${sourceAsset}`}
+							</div>
+						</div>
+					</div>
+
+					<!-- Provider bridge -->
+					<div class="flex items-center justify-center">
+						<div class="bg-base-100 flex items-center gap-2 rounded-full px-3 py-1 text-xs">
+							<span>{getProviderLabel(activeRoute!)}</span>
+							<svg
+								class="text-primary h-3 w-3 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M17 8l4 4m0 0l-4 4m4-4H3"
+								/></svg
+							>
+						</div>
+					</div>
+
+					<!-- Destination row -->
+					<div class="flex items-center gap-3">
+						<div class="relative shrink-0">
+							<img
+								src={selectedDest!.icon}
+								alt={selectedDest!.asset}
+								class="h-7 w-7 rounded-full sm:h-8 sm:w-8"
+							/>
+							{#if selectedDest!.asset === 'USDT'}<img
+									src="/images/chains/Binance-logo.svg"
+									alt="BSC"
+									class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border"
+								/>{/if}
+						</div>
+						<div class="min-w-0 flex-1 text-xs sm:text-sm">
+							<div class="text-base-content/60">{$t('wallet.swap.you_get')}</div>
+							<div class="font-semibold">
+								{#if selectedDest!.asset === 'rBTC' || selectedDest!.id === 'btc-onchain'}
+									{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
+								{:else}
+									${parseFloat(estimatedOutput).toLocaleString('en-US', {
+										minimumFractionDigits: 2,
+										maximumFractionDigits: 2
+									})}
+									{selectedDest!.asset}
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Fee + Time row -->
+				<div
+					class="bg-base-200 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-4 py-3 text-xs sm:text-sm"
+				>
+					<span class="text-base-content/60"
+						>{$t('wallet.swap.fee_percent')}:
+						<span class="text-base-content font-semibold">{activeRoute!.totalFeePercent}%</span
+						></span
+					>
+					<span class="text-base-content/60"
+						>{$t('wallet.swap.estimated_time')}:
+						<span class="text-base-content font-semibold">{activeRoute!.estimatedTime}</span></span
+					>
+				</div>
+
+				<!-- TX link -->
+				{#if swapResult?.swapId}
+					{@const hash = swapResult.swapId}
+					{@const truncated = `${hash.slice(0, 6)}...${hash.slice(-4)}`}
+					{@const explorerUrl =
+						sourceType === 'rbtc'
+							? `https://explorer.rootstock.io/tx/${hash}`
+							: `https://bscscan.com/tx/${hash}`}
+					<a
+						href={explorerUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="bg-base-200 hover:bg-base-300 flex items-center gap-2 rounded-xl p-3 text-xs transition-colors sm:text-sm"
+					>
+						<span class="text-base-content/60">TX:</span>
+						<span class="font-mono">{truncated}</span>
+						<svg
+							class="text-base-content/40 ml-auto h-4 w-4 shrink-0"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+							/></svg
+						>
+					</a>
+				{/if}
+
+				<!-- Navigate away note -->
+				<p class="text-base-content/50 px-1 text-center text-xs italic">
+					{$t('wallet.swap.navigate_away_note')}
+				</p>
+
+				<button
+					class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
+					onclick={resetForm}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					{$t('wallet.swap.swap_another')}
+				</button>
+			</div>
+		{/if}
+
+		<!-- Error Phase -->
+		{#if swapPhase === 'failed'}
+			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col items-center gap-3 py-6">
+				<div class="bg-error/10 rounded-full p-3">
+					<svg
+						class="text-error h-10 w-10 sm:h-12 sm:w-12"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				</div>
+				<h4 class="text-lg font-bold sm:text-xl">
+					{$t('wallet.swap.swap_failed')}
+				</h4>
+				<p class="text-base-content/60 text-center text-xs sm:text-sm">{errorMessage}</p>
+				<button
+					class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
+					onclick={resetForm}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					{$t('common.buttons.retry')}
+				</button>
+			</div>
+		{/if}
+
+		<!-- General error message -->
+		{#if errorMessage && swapPhase !== 'failed'}
+			<div class="alert alert-outline alert-error py-2 sm:py-3">
+				<span class="text-xs sm:text-sm">{errorMessage}</span>
+			</div>
+		{/if}
 	</div>
-{/if}
+	{#snippet footer()}
+		{#if swapPhase === 'form'}
+			<div class="flex gap-3">
+				<button
+					class="btn btn-outline btn-error min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={handleClose}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.buy_sell.cancel')}</span>
+				</button>
+				<button
+					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={goToConfirm}
+					disabled={!canSwap}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.swap.swap_preview')}</span>
+				</button>
+			</div>
+		{:else if swapPhase === 'confirm'}
+			<div class="flex gap-3">
+				<button
+					class="btn btn-outline min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={cancelConfirm}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					<span class="text-sm sm:text-base">{$t('common.back')}</span>
+				</button>
+				<button
+					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={executeSwap}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.swap.confirm_swap')}</span>
+				</button>
+			</div>
+		{:else if swapPhase === 'complete' || swapPhase === 'failed'}
+			<div class="flex gap-3">
+				<button
+					class="btn btn-outline min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={handleClose}
+					style="-webkit-tap-highlight-color: transparent;"
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.buy_sell.close')}</span>
+				</button>
+			</div>
+		{/if}
+	{/snippet}
+</Drawer>
