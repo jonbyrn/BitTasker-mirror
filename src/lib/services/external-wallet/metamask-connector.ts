@@ -169,9 +169,10 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 						request: { method: 'eth_getBalance', params: [address, 'latest'] }
 					})) as unknown as string;
 					const raw = BigInt(hexBalance || '0x0');
+					const sats = Number(raw / 10_000_000_000n); // wei → sats (1e10)
 					result.rbtc = {
-						raw: raw.toString(),
-						formatted: (Number(raw) / 1e18).toFixed(8),
+						raw: String(sats),
+						formatted: sats.toLocaleString('en-US') + ' Sats',
 						loading: false
 					};
 				} catch (e) {
@@ -192,14 +193,10 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 						}
 					})) as unknown as string;
 					const raw = BigInt(hexBalance || '0x0');
+					const dollars = Number(raw) / 1e18; // BSC USDT: 18 decimals
 					result.usdt = {
 						raw: raw.toString(),
-						formatted:
-							'$' +
-							(Number(raw) / 1e18).toLocaleString('en-US', {
-								minimumFractionDigits: 2,
-								maximumFractionDigits: 2
-							}),
+						formatted: '$' + dollars.toFixed(2),
 						loading: false
 					};
 				} catch (e) {
