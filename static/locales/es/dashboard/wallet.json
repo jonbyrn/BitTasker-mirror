@@ -95,6 +95,7 @@
 		"status_confirmations": "Confirmaciones",
 		"transaction": {
 			"hash_copied": "Hash de transacci\u00f3n copiado al portapapeles",
+			"metaroute": "Ruta",
 			"status": {
 				"confirmed": "Confirmado",
 				"pending": "Pendiente",
@@ -753,6 +754,7 @@
 			"desc_usdt_to_rbtc": "Recibe rBTC en Rootstock para pagos",
 			"btc_not_available": "Conecta una billetera hardware Bitcoin para habilitar intercambios Bitcoin",
 			"irreversible_warning": "Los intercambios cross-chain no pueden revertirse una vez enviados. Verifica todos los detalles cuidadosamente.",
+			"navigate_away_note": "Puedes navegar fuera de esta pantalla — tu intercambio continuará en segundo plano.",
 			"you_send": "Tú envías",
 			"you_get": "Tú recibes",
 			"swap_percent": "Porcentaje a intercambiar",

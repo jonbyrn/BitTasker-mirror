@@ -95,6 +95,7 @@
 		"status_confirmations": "Confirmations",
 		"transaction": {
 			"hash_copied": "Transaction hash copied",
+			"metaroute": "Route",
 			"status": {
 				"confirmed": "Confirmed",
 				"pending": "Pending",
@@ -757,6 +758,7 @@
 			"desc_usdt_to_rbtc": "Receive rBTC on Rootstock for payments",
 			"btc_not_available": "Connect a Bitcoin hardware wallet to enable Bitcoin swaps",
 			"irreversible_warning": "Cross-chain swaps cannot be reversed once submitted. Verify all details carefully.",
+			"navigate_away_note": "You can safely navigate away — your swap will continue in the background.",
 			"you_send": "You send",
 			"you_get": "You get",
 			"swap_percent": "Amount to swap",
