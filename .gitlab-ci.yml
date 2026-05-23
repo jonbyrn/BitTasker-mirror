@@ -312,20 +312,20 @@ android-build-internal:
   variables:
     VERSION_CODE: $CI_PIPELINE_ID
   before_script:
-    - export VERSION_NAME="${CI_COMMIT_TAG#v}"
-    - echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE"
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
-    - gem install bundler -v '~>2.5' --no-document
-    - bundle install --quiet
-    - echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
     - |
+      export VERSION_NAME="${CI_COMMIT_TAG#v}"
+      echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
+      gem install bundler -v '~>2.5' --no-document
+      bundle install --quiet
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
       cat > android/keystore.properties << EOF
       storeFile=upload-keystore.jks
       storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
-    - echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
   script:
     - bundle exec fastlane android internal
   after_script:
@@ -361,20 +361,19 @@ android-release-production:
         echo "ERROR: Tag $CI_COMMIT_TAG is not on master. Production releases must be tagged from master."
         exit 1
       fi
-    - export VERSION_NAME="${CI_COMMIT_TAG#v}"
-    - echo "Production release: versionName=$VERSION_NAME (versionCode auto-incremented by fastlane)"
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
-    - gem install bundler -v '~>2.5' --no-document
-    - bundle install --quiet
-    - echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
-    - |
+      export VERSION_NAME="${CI_COMMIT_TAG#v}"
+      echo "Production release: versionName=$VERSION_NAME (versionCode auto-incremented by fastlane)"
+      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
+      gem install bundler -v '~>2.5' --no-document
+      bundle install --quiet
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
       cat > android/keystore.properties << EOF
       storeFile=upload-keystore.jks
       storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
-    - echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
   script:
     - bundle exec fastlane android production
   after_script:
