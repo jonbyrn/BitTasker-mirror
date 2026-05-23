@@ -105,7 +105,7 @@
 	let combinedTotal = $derived.by(() => {
 		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
-		return ($totalBalances.usd + $totalBalances.usdt).toFixed(2);
+		return $totalBalances.usd.toFixed(2);
 	});
 
 	let satsDisplay = $derived.by(() => {
