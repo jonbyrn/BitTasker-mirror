@@ -40,9 +40,9 @@ async function getClient(): Promise<MultiChainClient> {
 			},
 			api: {
 				supportedNetworks: {
-					'eip155:30': 'https://rpc.mainnet.rootstock.io',
-					'eip155:31': 'https://rpc.testnet.rootstock.io',
-					'eip155:56': 'https://bsc-dataseed1.binance.org',
+					'eip155:30': 'https://public-node.rsk.co',
+					'eip155:31': 'https://public-node.testnet.rsk.co',
+					'eip155:56': 'https://bsc-dataseed.binance.org',
 					'eip155:97': 'https://data-seed-prebsc-1-s1.binance.org:8545',
 					'eip155:1': 'https://mainnet.infura.io/v3/' + (import.meta.env.VITE_INFURA_API_KEY || '')
 				}
@@ -196,7 +196,7 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 						raw: raw.toString(),
 						formatted:
 							'$' +
-							(Number(raw) / 1e6).toLocaleString('en-US', {
+							(Number(raw) / 1e18).toLocaleString('en-US', {
 								minimumFractionDigits: 2,
 								maximumFractionDigits: 2
 							}),
