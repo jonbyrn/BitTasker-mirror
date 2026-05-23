@@ -6,6 +6,7 @@ BitTasker currently publishes Android updates to Google Play **manually**. This 
 
 ### Why fastlane
 
+
 | Factor          | fastlane                                        | Gradle Play Publisher                             |
 | --------------- | ----------------------------------------------- | ------------------------------------------------- |
 | Maintenance     | Actively maintained by Google + community       | Maintenance mode ("issues ignored, PRs accepted") |
@@ -13,6 +14,7 @@ BitTasker currently publishes Android updates to Google Play **manually**. This 
 | iOS support     | Built-in (future-proof)                         | Android only                                      |
 | Community       | 40K+ stars, extensive docs, Slack/StackOverflow | 850 stars, single maintainer                      |
 | Track promotion | Via re-upload or API script                     | Built-in `promoteArtifact` task                   |
+
 
 fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on the self-hosted runner — in exchange for a battle-tested toolchain that handles metadata, staged rollouts, release notes, and future iOS publishing. Gradle Play Publisher is a viable lighter-weight alternative (see Appendix), but its maintenance-mode status makes it a riskier choice for a production pipeline.
 
@@ -22,6 +24,7 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 
 ### What exists today
 
+
 | Asset                   | Location                                              | Status                                        |
 | ----------------------- | ----------------------------------------------------- | --------------------------------------------- |
 | GitLab CI pipeline      | `.gitlab-ci.yml`                                      | Web-only (Cloudflare Workers deploy)          |
@@ -30,15 +33,16 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 | Google Play listing     | Google Play Console                                   | Published, manual updates                     |
 | Upload keystore         | `android/upload-keystore.jks`                         | On disk, not in git                           |
 | Upload key credentials  | `android/keystore.properties` (commented-out section) | Plaintext on local disk                       |
-| versionCode             | `android/app/build.gradle:17`                         | 15 (current in Play Store)                   |
-| versionName             | `android/app/build.gradle:18`                         | "1.1.7" (current in Play Store)              |
+| versionCode             | `android/app/build.gradle:17`                         | 15 (current in Play Store)                    |
+| versionName             | `android/app/build.gradle:18`                         | "1.1.7" (current in Play Store)               |
 | Self-hosted runner      | GitLab tags: `self-hosted`                            | Docker executor, runs `node:22-bookworm-slim` |
+
 
 ### Security issues to fix
 
 1. **Plaintext keystore passwords** in `android/keystore.properties` — move to GitLab CI Variables
-2. **`.jks` files in git history** — both `upload-keystore.jks` and `bittasker-release-key.jks` were committed before `.gitignore` rules were added; should be purged from history
-3. **`google-services.json` tracked in git** — acceptable (Firebase API keys are bundle-ID-restricted), but worth noting
+2. `**.jks` files in git history** — both `upload-keystore.jks` and `bittasker-release-key.jks` were committed before `.gitignore` rules were added; should be purged from history
+3. `**google-services.json` tracked in git** — acceptable (Firebase API keys are bundle-ID-restricted), but worth noting
 
 ---
 
@@ -48,13 +52,16 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 
 **Every release — internal testing, closed testing, and production — is triggered by a git tag on `master`.** Nothing runs on branch pushes or merge requests. Tags give you full control: you decide when to build, what to call it, and which track it goes to.
 
-| Trigger                                     | Track               | Gate      | Notes                                                    |
-| ------------------------------------------- | --------------------| --------- | -------------------------------------------------------- |
-| Git tag `v*alpha*` or `v*beta*` on `master` | Internal testing    | Auto      | Fast, no review. Push a pre-release tag when ready for internal testing |
-| Git tag `v*rc*` on `master`                 | Closed testing      | Auto      | Release candidate for broader tester group               |
-| Git tag `vX.Y.Z` (no suffix) on `master`    | Production          | Manual    | **The only production trigger.** Tag must be on `master` (enforced in CI) |
+
+| Trigger                                     | Track            | Gate   | Notes                                                                     |
+| ------------------------------------------- | ---------------- | ------ | ------------------------------------------------------------------------- |
+| Git tag `v*alpha*` or `v*beta*` on `master` | Internal testing | Auto   | Fast, no review. Push a pre-release tag when ready for internal testing   |
+| Git tag `v*rc*` on `master`                 | Closed testing   | Auto   | Release candidate for broader tester group                                |
+| Git tag `vX.Y.Z` (no suffix) on `master`    | Production       | Manual | **The only production trigger.** Tag must be on `master` (enforced in CI) |
+
 
 **What does NOT trigger a release:**
+
 - Push to `dev` branch (dev gets too many commits — building AABs on every push is wasteful)
 - Push to `master` without a tag
 - Merge requests (any branch)
@@ -66,12 +73,14 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 
 ### Google Play testing tracks
 
-| Track               | Review delay    | Max testers | User-visible?    | Purpose                                          |
-| ------------------- | --------------- | ------------| -----------------| ------------------------------------------------ |
-| **Internal testing** | None (instant) | 100         | No               | CI builds, daily dev testing, core team dogfooding |
+
+| Track                | Review delay   | Max testers | User-visible?    | Purpose                                              |
+| -------------------- | -------------- | ----------- | ---------------- | ---------------------------------------------------- |
+| **Internal testing** | None (instant) | 100         | No               | CI builds, daily dev testing, core team dogfooding   |
 | **Closed testing**   | Hours          | 100K+       | No               | Pre-release validation with trusted external testers |
-| **Open testing**     | Hours          | Unlimited   | Yes (Play Store) | Soft launch, large-scale beta                    |
-| **Production**       | Hours–days     | Unlimited   | Yes (Play Store) | Public release                                   |
+| **Open testing**     | Hours          | Unlimited   | Yes (Play Store) | Soft launch, large-scale beta                        |
+| **Production**       | Hours–days     | Unlimited   | Yes (Play Store) | Public release                                       |
+
 
 BitTasker uses **Internal Testing** for pre-release CI builds and **Production** for public releases. Closed and Open testing can be added later if needed.
 
@@ -79,10 +88,12 @@ BitTasker uses **Internal Testing** for pre-release CI builds and **Production**
 
 Google Play uses **two** version fields — it's critical to understand the difference:
 
-| Field          | Type    | Users see it?       | Must increase? | Example      | Source of truth     |
-|---------------|---------|----------------------|----------------|-------------|---------------------|
-| **versionCode** | Integer | **Never** — Google Play internal only. Used to determine which build is "newer." | Yes — each upload must be strictly higher than the last | `16` | `android/app/build.gradle` (auto-incremented by fastlane, committed back) |
-| **versionName** | String  | **Yes** — displayed on Play Store listing, in-app About screen, Settings → Apps | No — purely cosmetic | `"1.1.8"` | Git tag (e.g., `v1.1.8` → `"1.1.8"`) |
+
+| Field           | Type    | Users see it?                                                                    | Must increase?                                          | Example   | Source of truth                                                           |
+| --------------- | ------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- | ------------------------------------------------------------------------- |
+| **versionCode** | Integer | **Never** — Google Play internal only. Used to determine which build is "newer." | Yes — each upload must be strictly higher than the last | `16`      | `android/app/build.gradle` (auto-incremented by fastlane, committed back) |
+| **versionName** | String  | **Yes** — displayed on Play Store listing, in-app About screen, Settings → Apps  | No — purely cosmetic                                    | `"1.1.8"` | Git tag (e.g., `v1.1.8` → `"1.1.8"`)                                      |
+
 
 Users see `versionName "1.1.8"` on the Play Store. They never see `versionCode 16`. Google Play uses `versionCode` only to determine update eligibility — a device with `versionCode 15` will receive an update to `versionCode 16` regardless of what `versionName` says.
 
@@ -91,6 +102,7 @@ Users see `versionName "1.1.8"` on the Play Store. They never see `versionCode 1
 **You tag the version you WANT to release — the tag IS the version.**
 
 Example: the app currently has `"1.1.7"` on the Play Store. You want to release a patch bump.
+
 - **Tag `v1.1.8`** (the NEW version, not the current one)
 - Push the tag → pipeline picks it up
 - Pipeline reads the tag, strips the `v` prefix → `versionName = "1.1.8"`
@@ -106,10 +118,12 @@ Example: the app currently has `"1.1.7"` on the Play Store. You want to release 
 
 **Internal testing / pre-release tags:** Uses `$CI_PIPELINE_ID` as versionCode (always unique, always increasing). No commit-back needed for pre-release builds.
 
-| Release type         | versionCode source           | Committed back? | Example versionCode |
-|---------------------|------------------------------|-----------------|---------------------|
-| Production (`vX.Y.Z`) | `increment_version_code` (sequential) | Yes (auto-commit) | 16 → 17 → 18 |
-| Pre-release (`v*-alpha*`) | `$CI_PIPELINE_ID` (unique, always up) | No | 50231 → 50298 → 50362 |
+
+| Release type              | versionCode source                    | Committed back?   | Example versionCode   |
+| ------------------------- | ------------------------------------- | ----------------- | --------------------- |
+| Production (`vX.Y.Z`)     | `increment_version_code` (sequential) | Yes (auto-commit) | 16 → 17 → 18          |
+| Pre-release (`v*-alpha`*) | `$CI_PIPELINE_ID` (unique, always up) | No                | 50231 → 50298 → 50362 |
+
 
 #### How versionName flows
 
@@ -120,29 +134,29 @@ git tag v1.1.8  ──→  CI strips "v"  ──→  VERSION_NAME="1.1.8"  ─�
 #### Step-by-step: what happens when you push a production tag
 
 1. **You** decide to release patch `1.1.8` from current `1.1.7`:
-   ```bash
+  ```bash
    git checkout master && git pull
    git tag v1.1.8
    git push origin v1.1.8
-   ```
-
+  ```
 2. **Pipeline** triggers, does:
-   - Verifies tag is on `master` ← guard
-   - `VERSION_NAME="1.1.8"` ← from tag
-   - fastlane reads `versionCode 15` from `build.gradle`, bumps to 16
-   - Builds AAB: versionName="1.1.8", versionCode=16
-   - Uploads to Play Store Production
-   - Commits versionCode bump: `git commit -m "ci: bump versionCode to 16 [skip ci]"` and pushes
-
+  - Verifies tag is on `master` ← guard
+  - `VERSION_NAME="1.1.8"` ← from tag
+  - fastlane reads `versionCode 15` from `build.gradle`, bumps to 16
+  - Builds AAB: versionName="1.1.8", versionCode=16
+  - Uploads to Play Store Production
+  - Commits versionCode bump: `git commit -m "ci: bump versionCode to 16 [skip ci]"` and pushes
 3. **Result:** Play Store has versionCode=16, versionName="1.1.8". Repo has versionCode=16 in `build.gradle`. Tag `v1.1.8` is permanent in git history.
 
 #### Source of truth
 
-| Value        | Source of truth          | Updated by                         |
-|-------------|--------------------------|------------------------------------|
-| versionName  | Git tag                  | Developer (when creating the tag)  |
-| versionCode  | `android/app/build.gradle` | fastlane (auto-incremented and committed back) |
-| app version  | Git tag                  | `package.json` version is unrelated (web layer) |
+
+| Value       | Source of truth            | Updated by                                      |
+| ----------- | -------------------------- | ----------------------------------------------- |
+| versionName | Git tag                    | Developer (when creating the tag)               |
+| versionCode | `android/app/build.gradle` | fastlane (auto-incremented and committed back)  |
+| app version | Git tag                    | `package.json` version is unrelated (web layer) |
+
 
 ### Signing strategy
 
@@ -203,6 +217,7 @@ before_script:
 ```
 
 **When to switch:** Option A is fine for the current release cadence. Switch to Option B when:
+
 - You cut releases more than 2-3 times per week
 - The 2-minute Ruby install becomes noticeable in the pipeline duration
 - You want faster feedback on internal testing builds
@@ -231,27 +246,29 @@ build-android-ci-image:
 ### 1. Google Cloud Service Account
 
 1. Open [Google Cloud Console](https://console.cloud.google.com) — ensure the project linked to your Play Console is selected
-   - To verify: Play Console → Settings → Developer account → Account details → "Google Cloud Project ID"
+  - To verify: Play Console → Settings → Developer account → Account details → "Google Cloud Project ID"
 2. Enable the [Google Play Android Developer API](https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/)
 3. Go to [IAM & Admin → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 4. Create a new service account named `fastlane-supply`, assign the **Editor** role
 5. Create a JSON key for the service account → download as `play-store-credentials.json`
 6. In Google Play Console → Users and Permissions → Invite the service account email with these permissions:
-   - **View app information**
-   - **Manage production releases**
-   - **Manage testing tracks** (internal, alpha)
+  - **View app information**
+  - **Manage production releases**
+  - **Manage testing tracks** (internal, alpha)
 
 ### 2. GitLab CI Variables
 
 In GitLab → Settings → CI/CD → Variables, add:
 
-| Variable                          | Type     | Protected | Masked          | Value                                                        |
-| --------------------------------- | -------- | --------- | --------------- | ------------------------------------------------------------ |
-| `ANDROID_KEYSTORE_BASE64`         | Variable | Yes       | Yes             | Base64-encoded `upload-keystore.jks` (see below)             |
-| `ANDROID_KEYSTORE_STORE_PASSWORD` | Variable | Yes       | Yes             | Upload keystore password                                     |
-| `ANDROID_KEYSTORE_KEY_ALIAS`      | Variable | Yes       | Yes             | `upload`                                                     |
-| `ANDROID_KEYSTORE_KEY_PASSWORD`   | Variable | Yes       | Yes             | Upload keystore password                                     |
-| `PLAY_STORE_CREDENTIALS_JSON`     | Variable | Yes       | No (multi-line) | Full content of `play-store-credentials.json`                |
+
+| Variable                          | Type     | Protected | Masked          | Value                                            |
+| --------------------------------- | -------- | --------- | --------------- | ------------------------------------------------ |
+| `ANDROID_KEYSTORE_BASE64`         | Variable | Yes       | Yes             | Base64-encoded `upload-keystore.jks` (see below) |
+| `ANDROID_KEYSTORE_STORE_PASSWORD` | Variable | Yes       | Yes             | Upload keystore password                         |
+| `ANDROID_KEYSTORE_KEY_ALIAS`      | Variable | Yes       | No (too short)  | `upload`                                         |
+| `ANDROID_KEYSTORE_KEY_PASSWORD`   | Variable | Yes       | Yes             | Upload keystore password                         |
+| `PLAY_STORE_CREDENTIALS_JSON`     | Variable | Yes       | No (multi-line) | Full content of `play-store-credentials.json`    |
+
 
 **Why base64?** GitLab "File" type variables aren't available in all setups. The `.jks` keystore is a binary file — it can't be pasted as a raw string variable. Base64 encoding converts it to a text string that fits in a regular "Variable" type entry. Decoded back to binary in CI:
 
@@ -286,6 +303,8 @@ The runner must be able to pull `reactnativecommunity/react-native-android` from
 
 ```bash
 docker pull reactnativecommunity/react-native-android:latest
+# Enable QEMU emulation, supports arm64 and linux/amd64
+docker pull --platform linux/amd64 reactnativecommunity/react-native-android:latest 
 ```
 
 ---
@@ -295,29 +314,17 @@ docker pull reactnativecommunity/react-native-android:latest
 ### Immediate actions (before pipeline goes live)
 
 1. **Purge `.jks` files from git history**:
-
-   ```bash
+  ```bash
    git filter-repo --path android/upload-keystore.jks \
                    --path android/app/bittasker-release-key.jks \
                    --invert-paths
-   ```
-
+  ```
    Coordinate this with all contributors (requires re-cloning after rewrite).
-
 2. **Move keystore passwords out of `keystore.properties`**:
-   Replace the local `android/keystore.properties` with a template:
-
-   ```properties
-   storeFile=upload-keystore.jks
-   storePassword=REPLACE_WITH_CI_VARIABLE
-   keyAlias=upload
-   keyPassword=REPLACE_WITH_CI_VARIABLE
-   ```
-
+  Replace the local `android/keystore.properties` with a template:
    The real values only live in GitLab CI Variables (already `.gitignore`d).
-
 3. **Consider rotating the upload key** if the plaintext password exposure is a concern.
-   Google Play allows resetting the upload key: Play Console → Setup → App integrity → App signing → Request upload key reset.
+  Google Play allows resetting the upload key: Play Console → Setup → App integrity → App signing → Request upload key reset.
 
 ---
 
@@ -327,21 +334,21 @@ docker pull reactnativecommunity/react-native-android:latest
 
 Create these files at project root:
 
-**`Gemfile`**:
+`**Gemfile`**:
 
 ```ruby
 source "https://rubygems.org"
 gem "fastlane", "~> 2.228"
 ```
 
-**`fastlane/Appfile`**:
+`**fastlane/Appfile**`:
 
 ```ruby
 json_key_file("fastlane/play-store-credentials.json")
 package_name("com.bittasker.app")
 ```
 
-**`fastlane/Fastfile`**:
+`**fastlane/Fastfile**`:
 
 ```ruby
 default_platform(:android)
@@ -480,13 +487,13 @@ platform :android do
 end
 ```
 
-**`fastlane/.gitignore`**:
+`**fastlane/.gitignore**`:
 
 ```
 play-store-credentials.json
 ```
 
-**`.gitignore` additions** (at project root):
+`**.gitignore` additions** (at project root):
 
 ```
 fastlane/play-store-credentials.json
@@ -509,11 +516,13 @@ defaultConfig {
 
 **How this works:**
 
-| Scenario                                        | versionCode source                                    | versionName source              |
-| ------------------------------------------------| ------------------------------------------------------| ------------------------------- |
-| **Local build** (dev machine)                   | Fallback value in `build.gradle`                      | Fallback value in `build.gradle` |
-| **CI internal testing** (`v*-alpha*` tag)       | `$CI_PIPELINE_ID` (env var)                           | From git tag                    |
-| **CI production** (`vX.Y.Z` tag)               | `increment_version_code` reads from file, bumps +1    | From git tag                    |
+
+| Scenario                                  | versionCode source                                 | versionName source               |
+| ----------------------------------------- | -------------------------------------------------- | -------------------------------- |
+| **Local build** (dev machine)             | Fallback value in `build.gradle`                   | Fallback value in `build.gradle` |
+| **CI internal testing** (`v*-alpha`* tag) | `$CI_PIPELINE_ID` (env var)                        | From git tag                     |
+| **CI production** (`vX.Y.Z` tag)          | `increment_version_code` reads from file, bumps +1 | From git tag                     |
+
 
 - **Local builds**: env vars are not set → fallbacks used. `versionCode 15`, `versionName "1.1.7"` for local testing.
 - **CI internal testing**: `VERSION_CODE=$CI_PIPELINE_ID` and `VERSION_NAME` from tag. No repo modifications.
@@ -657,24 +666,29 @@ This downloads existing Play Store metadata into `fastlane/metadata/android/`. C
 
 ### Quick reference
 
-| What you want to do                | Command                                          | Track           | Gate   |
-| ---------------------------------- | ------------------------------------------------ | --------------- | ------ |
-| Internal testing build             | `git tag v1.2.0-alpha.1 && git push origin v1.2.0-alpha.1` | Internal testing | Auto   |
-| Release candidate for wider test   | `git tag v1.2.0-rc.1 && git push origin v1.2.0-rc.1`     | Closed testing   | Auto   |
-| Production release                 | `git tag v1.2.0 && git push origin v1.2.0`               | Production       | Manual |
+
+| What you want to do              | Command                                                    | Track            | Gate   |
+| -------------------------------- | ---------------------------------------------------------- | ---------------- | ------ |
+| Internal testing build           | `git tag v1.2.0-alpha.1 && git push origin v1.2.0-alpha.1` | Internal testing | Auto   |
+| Release candidate for wider test | `git tag v1.2.0-rc.1 && git push origin v1.2.0-rc.1`       | Closed testing   | Auto   |
+| Production release               | `git tag v1.2.0 && git push origin v1.2.0`                 | Production       | Manual |
+
 
 **All tags must be on `master`**. The pipeline automatically rejects tags on any other branch.
 
 ### Tag naming convention
 
-| Tag pattern           | Example            | Track             | versionCode source     |
-|-----------------------|--------------------|--------------------|------------------------|
-| `vX.Y.Z-alpha.N`      | `v1.2.0-alpha.1`   | Internal testing   | `$CI_PIPELINE_ID`     |
-| `vX.Y.Z-beta.N`       | `v1.2.0-beta.1`    | Internal testing   | `$CI_PIPELINE_ID`     |
-| `vX.Y.Z-rc.N`         | `v1.2.0-rc.1`      | Closed testing     | `$CI_PIPELINE_ID`     |
-| `vX.Y.Z` (no suffix)  | `v1.2.0`           | Production         | `increment_version_code` (sequential, committed back) |
+
+| Tag pattern          | Example          | Track            | versionCode source                                    |
+| -------------------- | ---------------- | ---------------- | ----------------------------------------------------- |
+| `vX.Y.Z-alpha.N`     | `v1.2.0-alpha.1` | Internal testing | `$CI_PIPELINE_ID`                                     |
+| `vX.Y.Z-beta.N`      | `v1.2.0-beta.1`  | Internal testing | `$CI_PIPELINE_ID`                                     |
+| `vX.Y.Z-rc.N`        | `v1.2.0-rc.1`    | Closed testing   | `$CI_PIPELINE_ID`                                     |
+| `vX.Y.Z` (no suffix) | `v1.2.0`         | Production       | `increment_version_code` (sequential, committed back) |
+
 
 **You tag the version you WANT to release, not the current version.** If the app is currently at `1.1.7` on the Play Store:
+
 - **Tag `v1.1.8`** ← correct (the new version)
 - ~~Tag `v1.1.7`~~ ← wrong (already released)
 
@@ -698,35 +712,29 @@ The pipeline uploads to Internal Testing automatically (no manual gate). version
 **Worked example: releasing v1.2.0 when current Play Store version is 1.1.7**
 
 1. Ensure the release-ready commit is on `master`:
-   ```bash
+  ```bash
    git checkout master
    git pull origin master
    git merge dev --ff-only   # or via MR
    git push origin master
-   ```
-
+  ```
 2. Create and push a production tag **on master**:
-   ```bash
+  ```bash
    git tag v1.2.0
    git push origin v1.2.0
-   ```
-
+  ```
 3. What happens automatically:
-   - CI verifies the tag is an ancestor of `master` → passes
-   - CI sets `VERSION_NAME="1.2.0"` from the tag
-   - `android-release-production` job appears with **manual gate** (play button icon)
-   - Nothing is built or uploaded until you approve
-
+  - CI verifies the tag is an ancestor of `master` → passes
+  - CI sets `VERSION_NAME="1.2.0"` from the tag
+  - `android-release-production` job appears with **manual gate** (play button icon)
+  - Nothing is built or uploaded until you approve
 4. When ready, click the **play button** on `android-release-production` in GitLab CI → Pipelines.
-
 5. The job runs:
-   - fastlane's `increment_version_code` bumps versionCode 15 → 16
-   - `npm ci` → `npm run build` → `npx cap sync android` → Gradle AAB build
-   - AAB is uploaded to Production track: versionName=`"1.2.0"`, versionCode=`16`
-   - fastlane commits versionCode bump back: `"ci: bump versionCode to 16 [skip ci]"` and pushes
-
+  - fastlane's `increment_version_code` bumps versionCode 15 → 16
+  - `npm ci` → `npm run build` → `npx cap sync android` → Gradle AAB build
+  - AAB is uploaded to Production track: versionName=`"1.2.0"`, versionCode=`16`
+  - fastlane commits versionCode bump back: `"ci: bump versionCode to 16 [skip ci]"` and pushes
 6. Google Play processes the release (typically 1-2 hours for established apps).
-
 7. **End state:** Play Store has versionCode=`16`, versionName=`"1.2.0"`. Repo's `build.gradle` has `versionCode 16` (committed back by fastlane). Tag `v1.2.0` is permanent.
 
 **The `[skip ci]` in the commit message prevents the version bump from triggering another pipeline.**
@@ -734,16 +742,20 @@ The pipeline uploads to Internal Testing automatically (no manual gate). version
 ### What happens with unexpected tags
 
 **Tag not on master?** Pipeline fails immediately:
+
 ```
 ERROR: Tag v1.2.0 is not on master. Production releases must be tagged from master.
 ```
+
 Fix: delete the tag, ensure master is up to date, re-tag from master.
 
 **Wrong version tagged?** Delete the tag immediately:
+
 ```bash
 git push origin --delete v1.2.0   # remove from remote
 git tag -d v1.2.0                  # remove locally
 ```
+
 The pipeline fires but the manual gate means nothing happens unless approved.
 
 ### Pre-release flow (alpha/beta/rc)
@@ -772,6 +784,7 @@ git push origin v1.2.0
 ### Rollback
 
 fastlane cannot "roll back" a published Play Store release. Options:
+
 1. **Hotfix**: tag a new higher version (e.g., `v1.2.1`) with the fix — the higher `versionCode` (17) replaces the bad release (versionCode 16)
 2. **Google Play Console**: manually promote a previous release in the Play Console UI
 3. **For internal testing**: just push another pre-release tag — the previous internal build is automatically superseded by the higher `$CI_PIPELINE_ID`
@@ -783,45 +796,38 @@ fastlane cannot "roll back" a published Play Store release. Options:
 ### Before going live
 
 1. **Test the Docker image locally**:
-
-   ```bash
+  ```bash
    docker run -it reactnativecommunity/react-native-android:latest bash
    # Inside container: verify java -version, node -v, echo $ANDROID_HOME
-   ```
-
+  ```
 2. **Test fastlane credentials locally**:
-
-   ```bash
+  ```bash
    bundle exec fastlane run validate_play_store_json_key json_key:"fastlane/play-store-credentials.json"
-   ```
-
+  ```
 3. **Dry-run the pipeline**:
-
-   - Push a pre-release tag to `master` (e.g., `v1.1.8-alpha.1`) and verify `android-build-internal` job succeeds
-   - Check the Internal Testing track in Play Console for the uploaded AAB
-   - Verify versionCode used `$CI_PIPELINE_ID` (not the increment pattern — that's only for production)
-
+  - Push a pre-release tag to `master` (e.g., `v1.1.8-alpha.1`) and verify `android-build-internal` job succeeds
+  - Check the Internal Testing track in Play Console for the uploaded AAB
+  - Verify versionCode used `$CI_PIPELINE_ID` (not the increment pattern — that's only for production)
 4. **Test the production tag flow**:
-   - Push a non-semver production tag (e.g., `v1.1.7-test`) — it won't match the regex, so the pipeline won't fire
-   - Push a semver tag (e.g., `v1.1.8`) and verify the manual gate appears
-   - Verify the tag-on-master guard (try tagging from a branch)
-   - Delete the test tags **without** clicking approve
-
+  - Push a non-semver production tag (e.g., `v1.1.7-test`) — it won't match the regex, so the pipeline won't fire
+  - Push a semver tag (e.g., `v1.1.8`) and verify the manual gate appears
+  - Verify the tag-on-master guard (try tagging from a branch)
+  - Delete the test tags **without** clicking approve
 5. **Test production with a real tag**:
-   - Push a production tag → approve → verify the AAB appears in Play Console Production track
-   - Verify `commit_version_bump` pushed a commit with `[skip ci]` to master
+  - Push a production tag → approve → verify the AAB appears in Play Console Production track
+  - Verify `commit_version_bump` pushed a commit with `[skip ci]` to master
 
 ### Validation checklist
 
-- [ ] Internal testing: push `v*-alpha*` tag → `android-build-internal` auto-deploys → AAB appears in Internal Testing track
-- [ ] Production: push `vX.Y.Z` tag → manual gate appears → approve → AAB appears in Production track
-- [ ] Tag-on-master guard: tag not on master → pipeline fails with clear error
-- [ ] `increment_version_code` bumps versionCode correctly in `build.gradle`
-- [ ] `commit_version_bump` commits and pushes back to repo with `[skip ci]`
-- [ ] AAB is signed and accepted by Play Console
-- [ ] `keystore.properties` is NOT committed to git
-- [ ] `.jks` files are NOT committed to git
-- [ ] `fastlane/play-store-credentials.json` is NOT committed
+- Internal testing: push `v*-alpha*` tag → `android-build-internal` auto-deploys → AAB appears in Internal Testing track
+- Production: push `vX.Y.Z` tag → manual gate appears → approve → AAB appears in Production track
+- Tag-on-master guard: tag not on master → pipeline fails with clear error
+- `increment_version_code` bumps versionCode correctly in `build.gradle`
+- `commit_version_bump` commits and pushes back to repo with `[skip ci]`
+- AAB is signed and accepted by Play Console
+- `keystore.properties` is NOT committed to git
+- `.jks` files are NOT committed to git
+- `fastlane/play-store-credentials.json` is NOT committed
 
 ---
 
@@ -829,35 +835,35 @@ fastlane cannot "roll back" a published Play Store release. Options:
 
 ### Phase 1: Setup (one developer, ~1 hour)
 
-- [ ] Create GCP service account, download JSON key
-- [ ] Add service account to Play Console permissions
-- [ ] Add CI variables to GitLab
-- [ ] Transfer upload keystore to CI runner or GitLab Secure Files
-- [ ] Purge `.jks` files from git history (coordinate with team)
+- Create GCP service account, download JSON key
+- Add service account to Play Console permissions
+- Add CI variables to GitLab
+- Transfer upload keystore to CI runner or GitLab Secure Files
+- Purge `.jks` files from git history (coordinate with team)
 
 ### Phase 2: Implementation (~2 hours)
 
-- [ ] Add `Gemfile`, `fastlane/Appfile`, `fastlane/Fastfile`
-- [ ] Modify `android/app/build.gradle` for CI version injection
-- [ ] Update `.gitlab-ci.yml` with Android stages and jobs
-- [ ] Run `fastlane supply init` and commit metadata
+- Add `Gemfile`, `fastlane/Appfile`, `fastlane/Fastfile`
+- Modify `android/app/build.gradle` for CI version injection
+- Update `.gitlab-ci.yml` with Android stages and jobs
+- Run `fastlane supply init` and commit metadata
 
 ### Phase 3: Testing (~1 hour)
 
-- [ ] Test internal testing pipeline by pushing a pre-release tag (`v1.1.8-alpha.1`) to `master`
-- [ ] Verify upload appears in Play Console Internal Testing track
-- [ ] Test production pipeline with a proper semver tag (`v1.1.8`) to `master`
-- [ ] Verify manual gate appears, do NOT approve
-- [ ] Verify tag-not-on-master guard (tag from a branch → should fail)
-- [ ] Delete all test tags
+- Test internal testing pipeline by pushing a pre-release tag (`v1.1.8-alpha.1`) to `master`
+- Verify upload appears in Play Console Internal Testing track
+- Test production pipeline with a proper semver tag (`v1.1.8`) to `master`
+- Verify manual gate appears, do NOT approve
+- Verify tag-not-on-master guard (tag from a branch → should fail)
+- Delete all test tags
 
 ### Phase 4: Production Go-Live (~30 minutes)
 
-- [ ] Ensure release-ready code is on `master`
-- [ ] Tag the first production release: `git tag v1.1.8 && git push origin v1.1.8`
-- [ ] In GitLab CI, approve the `android-release-production` manual job
-- [ ] Verify the release appears in Play Console Production track
-- [ ] Verify `commit_version_bump` committed back to `master` with `[skip ci]`
+- Ensure release-ready code is on `master`
+- Tag the first production release: `git tag v1.1.8 && git push origin v1.1.8`
+- In GitLab CI, approve the `android-release-production` manual job
+- Verify the release appears in Play Console Production track
+- Verify `commit_version_bump` committed back to `master` with `[skip ci]`
 
 ---
 
@@ -867,13 +873,13 @@ For teams that want to avoid the Ruby dependency entirely, the Gradle Play Publi
 
 ### Setup summary
 
-**`android/build.gradle`** (root) — add to `buildscript.dependencies`:
+`**android/build.gradle`** (root) — add to `buildscript.dependencies`:
 
 ```groovy
 classpath 'com.github.triplet.play:com.github.triplet.play.gradle.plugin:3.13.0'
 ```
 
-**`android/app/build.gradle`** — add plugin and config:
+`**android/app/build.gradle**` — add plugin and config:
 
 ```groovy
 plugins {
@@ -909,6 +915,7 @@ android-publish:
 
 ### Trade-offs vs fastlane
 
+
 | Factor          | GPP                                       | fastlane                         |
 | --------------- | ----------------------------------------- | -------------------------------- |
 | CI dependencies | JDK + Android SDK only                    | JDK + Android SDK + Ruby         |
@@ -918,6 +925,7 @@ android-publish:
 | Maintenance     | Mode: "issues ignored, PRs accepted"      | Active (Google-maintained)       |
 | Risk            | If abandoned, fork is viable (stable API) | Near-zero                        |
 
+
 GPP is a solid choice for Android-only teams who prioritize CI simplicity. The maintenance-mode status is mitigated by the fact that it wraps a stable API (Google Play Developer API v3) and the 4.0.0 release (Jan 2026) demonstrates ongoing community contributions. For BitTasker specifically, if iOS automation is not planned within 6-12 months, GPP is a defensible choice.
 
 ---
@@ -926,21 +934,23 @@ GPP is a solid choice for Android-only teams who prioritize CI simplicity. The m
 
 ### Common failure modes
 
-| Symptom                                 | Likely cause                          | Fix                                                                          |
-| --------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| `versionCode X already exists`          | `increment_version_code` couldn't push back | Check CI push permissions; verify `build.gradle` versionCode matches last release; manually bump if needed |
-| `ERROR: Tag vX.Y.Z is not on master`    | Tag created on wrong branch           | Move tag to master: `git checkout master && git pull && git tag vX.Y.Z && git push origin vX.Y.Z` |
-| Pipeline not triggering for tag         | Tag doesn't match pattern             | Production: `v1.2.0` (three numbers, `v` prefix, no suffix). Internal: `v1.2.0-alpha.1` |
-| `fastlane: command not found`           | Ruby/bundler not installed            | Verify `before_script` installs ruby-full and gem install bundler            |
-| `Invalid JSON key`                      | Service account JSON is malformed     | Re-download JSON from GCP; verify CI variable isn't truncated                |
-| `Keystore was tampered with`            | Wrong keystore or password            | Verify `keystore.properties` is generated correctly in CI                    |
-| `Bundle was not signed`                 | Signing config not applied            | Check Gradle `signingConfigs.release` is assigned to `buildTypes.release`    |
-| `ANDROID_HOME not set`                  | Android SDK not in Docker image       | Use `reactnativecommunity/react-native-android` image                        |
-| `Google Play API quota exceeded`        | Too many API calls in short period    | Add retry with backoff; default quota is 200K queries/day                    |
-| `push_to_git_remote` fails              | CI lacks push access to repo          | Ensure `CI_JOB_TOKEN` has write permissions or configure a deploy token      |
-| versionCode in `build.gradle` is stale  | `commit_version_bump` didn't push     | Check if the pipeline had push access; manually update fallback value        |
-| `base64: invalid input`                 | `ANDROID_KEYSTORE_BASE64` is corrupted or truncated | Re-encode: `base64 -i android/upload-keystore.jks` and verify no newlines were added |
-| `Keystore was tampered with or password incorrect` | Base64 decoded incorrectly or wrong password | Verify base64 string is exactly as generated (no extra whitespace); verify password variables |
+
+| Symptom                                            | Likely cause                                        | Fix                                                                                                        |
+| -------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `versionCode X already exists`                     | `increment_version_code` couldn't push back         | Check CI push permissions; verify `build.gradle` versionCode matches last release; manually bump if needed |
+| `ERROR: Tag vX.Y.Z is not on master`               | Tag created on wrong branch                         | Move tag to master: `git checkout master && git pull && git tag vX.Y.Z && git push origin vX.Y.Z`          |
+| Pipeline not triggering for tag                    | Tag doesn't match pattern                           | Production: `v1.2.0` (three numbers, `v` prefix, no suffix). Internal: `v1.2.0-alpha.1`                    |
+| `fastlane: command not found`                      | Ruby/bundler not installed                          | Verify `before_script` installs ruby-full and gem install bundler                                          |
+| `Invalid JSON key`                                 | Service account JSON is malformed                   | Re-download JSON from GCP; verify CI variable isn't truncated                                              |
+| `Keystore was tampered with`                       | Wrong keystore or password                          | Verify `keystore.properties` is generated correctly in CI                                                  |
+| `Bundle was not signed`                            | Signing config not applied                          | Check Gradle `signingConfigs.release` is assigned to `buildTypes.release`                                  |
+| `ANDROID_HOME not set`                             | Android SDK not in Docker image                     | Use `reactnativecommunity/react-native-android` image                                                      |
+| `Google Play API quota exceeded`                   | Too many API calls in short period                  | Add retry with backoff; default quota is 200K queries/day                                                  |
+| `push_to_git_remote` fails                         | CI lacks push access to repo                        | Ensure `CI_JOB_TOKEN` has write permissions or configure a deploy token                                    |
+| versionCode in `build.gradle` is stale             | `commit_version_bump` didn't push                   | Check if the pipeline had push access; manually update fallback value                                      |
+| `base64: invalid input`                            | `ANDROID_KEYSTORE_BASE64` is corrupted or truncated | Re-encode: `base64 -i android/upload-keystore.jks` and verify no newlines were added                       |
+| `Keystore was tampered with or password incorrect` | Base64 decoded incorrectly or wrong password        | Verify base64 string is exactly as generated (no extra whitespace); verify password variables              |
+
 
 ### Keeping the pipeline healthy
 
@@ -948,3 +958,4 @@ GPP is a solid choice for Android-only teams who prioritize CI simplicity. The m
 2. **Check AGP compatibility** before upgrading Android Gradle Plugin: `fastlane supply` uses the Play Developer API directly and is independent of AGP version
 3. **Test on dev first** — always let the `internal` track pipeline run on `dev` push before tagging for production
 4. **Monitor CI runner disk** — Gradle caches grow over time. Periodically clear `~/.gradle/caches/` on the self-hosted runner (older than 30 days)
+
