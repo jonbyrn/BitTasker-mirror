@@ -20,10 +20,13 @@ import { get } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { changellyService } from '$lib/services/changelly.service';
+import { lifiService } from '$lib/services/lifi.service';
+import { symbiosisService } from '$lib/services/symbiosis.service';
 import {
 	walletStore,
 	sendRBTC,
 	sendBSCUSDT,
+	sendRawTransaction,
 	createSubmarineSwap,
 	lockSubmarineSwapFunds,
 	createChainSwap
@@ -562,40 +565,49 @@ async function executeLifiHop(
 		return { data: null, error: new Error('Amount is required for LI.FI swap') };
 	}
 
-	// LI.FI cross-chain swaps are initiated by sending the source asset
-	// to the LI.FI contract. For now, we delegate to direct send for the
-	// source asset and track the transaction hash.
-	//
-	// The full LI.FI execution flow (calldata submission) requires
-	// additional contract interaction that will be integrated when the
-	// swap-chain adds support for provider-specific calldata.
-	//
-	// For Phase 1, rBTC source sends via sendRBTC; USDT source sends via sendBSCUSDT.
-	if (hop.fromAsset === 'RBTC') {
-		// Send rBTC to the destination address via direct transfer.
-		// LI.FI swap execution with calldata will be added in a follow-up.
-		const { data: txHash, error } = await tryCatch(sendRBTC(state.destination.address, amount));
-		if (error !== null) {
-			return {
-				data: null,
-				error: error instanceof Error ? error : new Error(String(error))
-			};
-		}
-		return { data: txHash ?? null, error: null };
-	}
+	// LI.FI cross-chain swap: fetch step transaction data and submit
+	const fromChainId = hop.fromChain === 'rsk' ? 30 : 56;
+	const toChainId = hop.toChain === 'bsc' ? 56 : hop.toChain === 'rsk' ? 30 : 0;
+	const fromTokenAddr =
+		hop.fromAsset === 'RBTC'
+			? '0x0000000000000000000000000000000000000000'
+			: '0x55d398326f99059fF775485246999027B3197955'; // USDT BSC
+	const toTokenAddr =
+		hop.toAsset === 'USDT'
+			? '0x55d398326f99059fF775485246999027B3197955'
+			: '0x0000000000000000000000000000000000000000';
 
-	if (hop.fromAsset === 'USDT') {
-		const { data: txHash, error } = await tryCatch(sendBSCUSDT(state.destination.address, amount));
-		if (error !== null) {
-			return {
-				data: null,
-				error: error instanceof Error ? error : new Error(String(error))
-			};
-		}
-		return { data: txHash ?? null, error: null };
-	}
+	const userAddr =
+		hop.fromAsset === 'RBTC'
+			? (get(walletStore).rsk.address ?? '').toLowerCase()
+			: (get(walletStore).bsc.address ?? '').toLowerCase();
 
-	return { data: null, error: new Error(`Unsupported asset for LI.FI hop: ${hop.fromAsset}`) };
+	// Convert amount to token's smallest unit (wei for 18 decimals, 1e6 for USDT)
+	const amountDecimal = parseFloat(state.amount!);
+	const fromAmountWei =
+		hop.fromAsset === 'RBTC'
+			? BigInt(Math.round(amountDecimal * 1e18)).toString()
+			: BigInt(Math.round(amountDecimal * 1e18)).toString();
+
+	try {
+		const txReq = await lifiService.getStepTransaction({
+			fromChain: fromChainId,
+			toChain: toChainId,
+			fromToken: fromTokenAddr,
+			toToken: toTokenAddr,
+			fromAmount: fromAmountWei,
+			fromAddress: userAddr
+		});
+		const txHash = await sendRawTransaction({
+			to: txReq.to,
+			data: txReq.data,
+			value: txReq.value
+		});
+		return { data: txHash, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'LI.FI execution failed';
+		return { data: null, error: new Error(message) };
+	}
 }
 
 /**
@@ -623,36 +635,66 @@ async function executeSymbiosisHop(
 		return { data: null, error: new Error('Amount is required for Symbiosis swap') };
 	}
 
-	// Symbiosis cross-chain swaps accept the source asset and deliver
-	// the destination asset. For Phase 1, the source asset is sent
-	// directly to the destination.
-	//
-	// Full Symbiosis swap execution (deposit address + status polling)
-	// will be integrated when the swap-chain adds provider-specific
-	// execution with the Symbiosis API.
-	if (hop.fromAsset === 'RBTC') {
-		const { data: txHash, error } = await tryCatch(sendRBTC(state.destination.address, amount));
-		if (error !== null) {
-			return {
-				data: null,
-				error: error instanceof Error ? error : new Error(String(error))
-			};
-		}
-		return { data: txHash ?? null, error: null };
-	}
+	// Symbiosis cross-chain swap: fetch quote with calldata and submit
+	const fromChainId = hop.fromChain === 'rsk' ? 30 : 56;
+	const toChainId = hop.toChain === 'bsc' ? 56 : hop.toChain === 'rsk' ? 30 : 0;
+	const fromTokenAddr =
+		hop.fromAsset === 'RBTC'
+			? '0x0000000000000000000000000000000000000000'
+			: '0x55d398326f99059fF775485246999027B3197955';
+	const toTokenAddr =
+		hop.toAsset === 'USDT'
+			? '0x55d398326f99059fF775485246999027B3197955'
+			: '0x0000000000000000000000000000000000000000';
 
-	if (hop.fromAsset === 'USDT') {
-		const { data: txHash, error } = await tryCatch(sendBSCUSDT(state.destination.address, amount));
-		if (error !== null) {
-			return {
-				data: null,
-				error: error instanceof Error ? error : new Error(String(error))
-			};
-		}
-		return { data: txHash ?? null, error: null };
-	}
+	const symUserAddr =
+		hop.fromAsset === 'RBTC'
+			? (get(walletStore).rsk.address ?? '')
+			: (get(walletStore).bsc.address ?? '');
 
-	return { data: null, error: new Error(`Unsupported asset for Symbiosis hop: ${hop.fromAsset}`) };
+	// Convert to smallest unit
+	const symAmountDecimal = parseFloat(state.amount!);
+	const symFromAmountWei =
+		hop.fromAsset === 'RBTC'
+			? BigInt(Math.round(symAmountDecimal * 1e18)).toString()
+			: BigInt(Math.round(symAmountDecimal * 1e18)).toString();
+
+	try {
+		const quote = await symbiosisService.getQuote({
+			tokenAmountIn: {
+				address: fromTokenAddr,
+				chainId: fromChainId,
+				symbol: hop.fromAsset,
+				decimals: 18,
+				amount: symFromAmountWei
+			},
+			tokenOut: {
+				address: toTokenAddr,
+				chainId: toChainId,
+				symbol: hop.toAsset,
+				decimals: hop.toAsset === 'BTC' ? 8 : 18
+			},
+			from: symUserAddr,
+			to: state.destination?.type === 'address' ? state.destination.address : symUserAddr,
+			slippage: 50
+		});
+
+		const tx = quote.tx;
+		if (!tx?.data) {
+			return { data: null, error: new Error('Symbiosis returned no calldata for execution') };
+		}
+
+		// Submit the Symbiosis transaction with the exact tx data from the API
+		const txHash = await sendRawTransaction({
+			to: tx.to,
+			data: tx.data,
+			value: tx.value
+		});
+		return { data: txHash, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Symbiosis execution failed';
+		return { data: null, error: new Error(message) };
+	}
 }
 
 /**

@@ -44,6 +44,10 @@ const CHAIN_BSC = 'bsc';
 const CHAIN_BITCOIN = 'bitcoin';
 const CHAIN_LIGHTNING = 'lightning';
 const CHAIN_ARBITRUM = 'arbitrum';
+const CHAIN_TRON = 'tron';
+
+/** Pseudo chain ID for TRON (non-EVM, used as placeholder in Destination). */
+const TRON_PSEUDO_CHAIN_ID = 0;
 
 const ASSET_RBTC = 'RBTC';
 const ASSET_USDT = 'USDT';
@@ -91,14 +95,14 @@ const FEE_SYMBIOSIS_DEFAULT = 0.3;
 
 const TIME_DIRECT_MIN = 0;
 const TIME_DIRECT_MAX = 1;
-const TIME_CHANGELLY_MIN = 10;
-const TIME_CHANGELLY_MAX = 30;
+const TIME_CHANGELLY_MIN = 1;
+const TIME_CHANGELLY_MAX = 5;
 const TIME_BOLTZ_MIN = 1;
-const TIME_BOLTZ_MAX = 10;
-const TIME_LIFI_MIN = 5;
-const TIME_LIFI_MAX = 15;
-const TIME_SYMBIOSIS_MIN = 3;
-const TIME_SYMBIOSIS_MAX = 10;
+const TIME_BOLTZ_MAX = 5;
+const TIME_LIFI_MIN = 1;
+const TIME_LIFI_MAX = 5;
+const TIME_SYMBIOSIS_MIN = 1;
+const TIME_SYMBIOSIS_MAX = 5;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -110,6 +114,10 @@ function isRSKChain(chainId: number): boolean {
 
 function isBSCChain(chainId: number): boolean {
 	return BSC_CHAIN_IDS.has(chainId);
+}
+
+function isTRONChain(chainId: number): boolean {
+	return chainId === TRON_PSEUDO_CHAIN_ID;
 }
 
 function formatEstimatedTime(min: number, max: number, unit?: string): string {
@@ -194,23 +202,6 @@ function resolveFromRBTC(destination: Destination): Route[] {
 		if (isBSCChain(destination.chainId)) {
 			return [
 				buildRoute({
-					id: 'rbtc-to-bsc-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
 					id: 'rbtc-to-bsc-via-symbiosis',
 					label: 'Symbiosis',
 					hops: [
@@ -223,6 +214,23 @@ function resolveFromRBTC(destination: Destination): Route[] {
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'rbtc-to-bsc-via-lifi',
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_BSC,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
 						}
 					],
 					recommended: false
@@ -260,6 +268,46 @@ function resolveFromRBTC(destination: Destination): Route[] {
 							fromChain: CHAIN_RSK,
 							toAsset: ASSET_USDT,
 							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// TRON: rBTC → USDT on TRON via bridge (non-EVM)
+		if (isTRONChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'rbtc-to-usdt-tron-via-lifi',
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_TRON,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'rbtc-to-usdt-tron-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_TRON,
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX
@@ -452,6 +500,46 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 							fromChain: CHAIN_BSC,
 							toAsset: ASSET_USDT,
 							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// TRON: USDT on BSC → USDT on TRON via bridge (non-EVM)
+		if (isTRONChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'usdt-bsc-to-usdt-tron-via-lifi',
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_TRON,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'usdt-bsc-to-usdt-tron-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT,
+							fromChain: CHAIN_BSC,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_TRON,
 							feePercent: FEE_SYMBIOSIS_DEFAULT,
 							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 							estimatedTimeMax: TIME_SYMBIOSIS_MAX

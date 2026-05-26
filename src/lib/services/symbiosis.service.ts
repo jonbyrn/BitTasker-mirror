@@ -39,19 +39,32 @@ export interface SymbiosisToken {
 }
 
 export interface SymbiosisQuoteRequest {
-	tokenAmountIn: SymbiosisToken;
+	tokenAmountIn: SymbiosisToken & { amount: string };
 	tokenOut: SymbiosisToken;
-	amount: string;
 	from: string;
 	to: string;
+	slippage?: number;
 }
 
 export interface SymbiosisQuoteResponse {
-	amountOut: string;
-	feePercent?: number;
-	route?: unknown[];
+	tokenAmountOut?: {
+		amount: string;
+		symbol: string;
+		address: string;
+		chainId: number;
+		decimals: number;
+	};
+	tokenAmountOutMin?: { amount: string };
+	amountInUsd?: { amount: string };
+	fee?: string;
 	estimatedTime?: number;
-	tokenOut?: SymbiosisToken;
+	routes?: unknown[];
+	tx?: {
+		chainId: number;
+		data: string;
+		to: string;
+		value: string;
+	};
 	calldata?: string;
 }
 
@@ -148,7 +161,8 @@ export const symbiosisService = {
 	async getQuote(params: SymbiosisQuoteRequest): Promise<SymbiosisQuoteResponse> {
 		requireSymbiosisEnabled();
 
-		const { tokenAmountIn, tokenOut, amount, from, to } = params;
+		const { tokenAmountIn, tokenOut, from, to, slippage } = params;
+		const amount = tokenAmountIn.amount;
 
 		if (!tokenAmountIn || !tokenOut || !amount || !from) {
 			throw new Error('getQuote requires tokenAmountIn, tokenOut, amount, and from address');
@@ -168,7 +182,7 @@ export const symbiosisService = {
 				symbol: tokenOut.symbol,
 				decimals: tokenOut.decimals
 			},
-			slippage: 50, // 0.5%
+			slippage: slippage ?? 50,
 			from,
 			to: to ?? from
 		};

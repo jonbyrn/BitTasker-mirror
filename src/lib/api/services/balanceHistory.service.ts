@@ -37,6 +37,23 @@ interface Period {
 // Constants
 const LATEST_BLOCK_CACHE_TTL = 60 * 1000; // 60 seconds
 const CACHE_KEY_PREFIX = 'balance_history_';
+const FETCH_TIMEOUT_MS = 10_000; // 10-second timeout for individual fetch calls
+const _BALANCE_HISTORY_TIMEOUT_MS = 20_000; // 20-second overall timeout
+
+/** Fetch with AbortController timeout */
+async function fetchWithTimeout(
+	url: string,
+	options?: RequestInit,
+	timeoutMs = FETCH_TIMEOUT_MS
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		return await fetch(url, { ...options, signal: controller.signal });
+	} finally {
+		clearTimeout(timer);
+	}
+}
 
 /**
  * Historical Balance Service
@@ -72,6 +89,27 @@ class HistoricalBalanceService {
 			return this.getEmptyBalanceChanges();
 		}
 
+		// Race against a timeout — hung network calls (Blockscout, RPC) must
+		// not leave the UI in an endless loading state.
+		const BALANCE_HISTORY_TIMEOUT_MS = 20_000;
+		try {
+			return await Promise.race([
+				this._getBalanceChanges(currentSats, currentUsd, provider, address),
+				new Promise<BalanceChange[]>((resolve) =>
+					setTimeout(() => resolve(this.getEmptyBalanceChanges()), BALANCE_HISTORY_TIMEOUT_MS)
+				)
+			]);
+		} catch {
+			return this.getEmptyBalanceChanges();
+		}
+	}
+
+	private async _getBalanceChanges(
+		currentSats: number,
+		currentUsd: number,
+		provider: ethers.Provider,
+		address: string
+	): Promise<BalanceChange[]> {
 		// Clear old cache formats on first use (one-time migration)
 		// This ensures old cache formats are removed immediately
 		if (!this.oldCacheFormatsCleared) {
@@ -233,7 +271,7 @@ class HistoricalBalanceService {
 				const timestampSeconds = Math.floor(targetTimestamp / 1000);
 				const apiUrl = `${explorerApiUrl}?module=block&action=getblocknobytime&timestamp=${timestampSeconds}&closest=before`;
 
-				const response = await fetch(apiUrl);
+				const response = await fetchWithTimeout(apiUrl);
 				if (!response.ok) {
 					console.warn(`[BalanceHistoryService] RSK API returned status ${response.status}`);
 					return null;
@@ -275,7 +313,7 @@ class HistoricalBalanceService {
 				const rpcUrl = bscConfig.rpcUrl || 'https://bsc-dataseed.binance.org/';
 
 				// Get current block to estimate target block
-				const currentBlockResponse = await fetch(rpcUrl, {
+				const currentBlockResponse = await fetchWithTimeout(rpcUrl, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -361,7 +399,7 @@ class HistoricalBalanceService {
 			const mid = Math.floor((left + right) / 2);
 
 			try {
-				const response = await fetch(rpcUrl, {
+				const response = await fetchWithTimeout(rpcUrl, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -466,12 +504,12 @@ class HistoricalBalanceService {
 			// Use estimated block (good enough for historical comparisons)
 			this.blockNumberCache.set(cacheKey, estimatedBlock);
 			return estimatedBlock;
-		} catch (error) {
+		} catch (error: unknown) {
 			// Check for BSC indexing errors
+			const err = error as { message?: string; code?: number };
 			if (
 				network === 'bsc' &&
-				(error?.message?.includes("state histories haven't been fully indexed") ||
-					error?.code === -32000)
+				(err.message?.includes("state histories haven't been fully indexed") || err.code === -32000)
 			) {
 				console.warn('[BalanceHistoryService] BSC historical indexing not available');
 				this.bscIndexingUnavailable = true;

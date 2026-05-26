@@ -96,10 +96,17 @@ export interface SymbiosisTokenOut {
 }
 
 export interface SymbiosisQuoteResponse {
-	amountOut: string;
-	feePercent?: number;
-	route?: unknown[];
+	tokenAmountOut?: {
+		amount: string;
+		symbol: string;
+		address: string;
+		chainId: number;
+		decimals: number;
+	};
+	tokenAmountOutMin?: { amount: string };
+	fee?: string;
 	estimatedTime?: number;
+	routes?: unknown[];
 }
 
 // ---------------------------------------------------------------------------
@@ -173,16 +180,14 @@ export function normalizeSymbiosisQuote(
 	fromChain: string,
 	toChain: string
 ): NormalizedQuote | null {
-	if (!quote?.amountOut) return null;
+	const outAmount = quote?.tokenAmountOut?.amount;
+	if (!outAmount) return null;
 
-	const amountOut = parseFloat(quote.amountOut);
-	if (Number.isNaN(amountOut) || amountOut <= 0) return null;
-
-	// Symbiosis may return its own feePercent
-	const feePercent = quote.feePercent ?? 0.3;
-
-	// Symbiosis may return an estimated time; default to 5 minutes
+	// Symbiosis estimated time, default 5 min
 	const estimatedTimeMinutes = quote.estimatedTime ?? 5;
+
+	// Fee percent is reported by Symbiosis or computed from amountInUsd vs output
+	const feePercent = quote.fee ? parseFloat(quote.fee) : 0.3;
 
 	return {
 		provider: 'symbiosis',
@@ -190,7 +195,7 @@ export function normalizeSymbiosisQuote(
 		fromChain,
 		toAsset,
 		toChain,
-		estimatedToAmount: quote.amountOut,
+		estimatedToAmount: outAmount,
 		feePercent: Math.max(0, Math.round(feePercent * 100) / 100),
 		estimatedTimeMinutes,
 		providerRouteId: `symbiosis-${fromChain}-${toChain}-${Date.now()}`

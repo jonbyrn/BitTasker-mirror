@@ -117,16 +117,21 @@ export interface LifiStatusResponse {
  * @param url - Full API URL
  * @returns The parsed JSON response
  */
-async function fetchLifi<TResponse>(url: string): Promise<TResponse> {
-	debug.log('GET %s', url);
+async function fetchLifi<TResponse>(
+	url: string,
+	options?: { method?: string; body?: string; headers?: Record<string, string> }
+): Promise<TResponse> {
+	const method = options?.method || 'GET';
+	debug.log('%s %s', method, url);
 
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), LIFI_REQUEST_TIMEOUT_MS);
 
 	const { data: response, error: fetchError } = await tryCatch(
 		fetch(url, {
-			method: 'GET',
-			headers: { 'Content-Type': 'application/json' },
+			method,
+			headers: options?.headers ?? { 'Content-Type': 'application/json' },
+			body: options?.body,
 			signal: controller.signal
 		})
 	);
@@ -215,10 +220,53 @@ export const lifiService = {
 		const response = await fetchLifi<LifiQuoteResponse>(url);
 
 		if (!response.routes || response.routes.length === 0) {
-			throw new Error('LI.FI returned no routes for this pair');
+			throw new Error(
+				'LI.FI has no liquidity for this pair right now. Try again later or use a different provider.'
+			);
 		}
 
 		return response.routes[0];
+	},
+
+	/**
+	 * Get step transaction data for executing a LI.FI swap on-chain.
+	 * Re-fetches the quote and calls the step transaction endpoint.
+	 */
+	async getStepTransaction(params: {
+		fromChain: number;
+		toChain: number;
+		fromToken: string;
+		toToken: string;
+		fromAmount: string;
+		fromAddress: string;
+	}): Promise<{ to: string; data: string; value: string; chainId: number }> {
+		requireLifiEnabled();
+		const route = await this.getQuote(params);
+		if (!route.steps || route.steps.length === 0) {
+			throw new Error('LI.FI returned no steps for execution');
+		}
+		const step = route.steps[0];
+
+		const url = `${LIFI_BASE_URL}/advanced/stepTransaction`;
+		const body = JSON.stringify({
+			type: 'lifi',
+			route,
+			step,
+			order: 'RECOMMENDED'
+		});
+
+		const response = await fetchLifi<{
+			transactionRequest: { to: string; data: string; value: string; chainId: number };
+		}>(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body
+		});
+
+		if (!response.transactionRequest) {
+			throw new Error('LI.FI returned no transaction request');
+		}
+		return response.transactionRequest;
 	},
 
 	/**

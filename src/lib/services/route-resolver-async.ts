@@ -43,6 +43,8 @@ const RSK_MAINNET_CHAIN_ID = 30;
 const BSC_MAINNET_CHAIN_ID = 56;
 const RSK_TESTNET_CHAIN_ID = 31;
 const BSC_TESTNET_CHAIN_ID = 97;
+/** Pseudo chain ID for TRON (non-EVM, used as placeholder in Destination). */
+const TRON_PSEUDO_CHAIN_ID = 0;
 
 /** Timeout for individual provider calls (ms). */
 const PROVIDER_TIMEOUT_MS = 10_000;
@@ -57,14 +59,26 @@ const LIFI_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:bsc',
 	'usdt-bsc->address:rsk',
 	'rbtc->invoice:onchain',
-	'usdt-bsc->invoice:onchain'
+	'usdt-bsc->invoice:onchain',
+	// Cross-chain EVM (any non-BSC, non-RSK EVM chain)
+	'usdt-bsc->address:crosschain',
+	'rbtc->address:crosschain',
+	// TRON (non-EVM, chainId 0 placeholder)
+	'usdt-bsc->address:tron',
+	'rbtc->address:tron'
 ]);
 
 const SYMBIOSIS_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:bsc',
 	'usdt-bsc->address:rsk',
 	'rbtc->invoice:onchain',
-	'usdt-bsc->invoice:onchain'
+	'usdt-bsc->invoice:onchain',
+	// Cross-chain EVM (any non-BSC, non-RSK EVM chain)
+	'usdt-bsc->address:crosschain',
+	'rbtc->address:crosschain',
+	// TRON (non-EVM, chainId 0 placeholder)
+	'usdt-bsc->address:tron',
+	'rbtc->address:tron'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -90,6 +104,18 @@ function getPairKey(source: SourceWallet, destination: Destination): SourceDestK
 		}
 		if (source === 'usdt-bsc' && isRSKChain(destination.chainId)) {
 			return 'usdt-bsc->address:rsk';
+		}
+		// TRON (non-EVM, chainId 0 placeholder)
+		if (destination.chainId === TRON_PSEUDO_CHAIN_ID) {
+			if (source === 'usdt-bsc') return 'usdt-bsc->address:tron';
+			if (source === 'rbtc') return 'rbtc->address:tron';
+		}
+		// Cross-chain EVM (Arbitrum, Ethereum, Polygon, Optimism, Base, Avalanche)
+		if (source === 'usdt-bsc') {
+			return 'usdt-bsc->address:crosschain';
+		}
+		if (source === 'rbtc') {
+			return 'rbtc->address:crosschain';
 		}
 		return null;
 	}
@@ -125,34 +151,56 @@ async function callLifi(
 		return { provider: 'lifi', status: 'skipped', routes: [] };
 	}
 
+	const destChainId = (destination as { chainId: number }).chainId;
 	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
 	const toChainId = isBtcOnchain
 		? 0 // Bitcoin mainnet (chain ID 0 in LI.FI)
-		: isRSKChain((destination as { chainId: number }).chainId)
-			? RSK_MAINNET_CHAIN_ID
-			: BSC_MAINNET_CHAIN_ID;
+		: destChainId; // Use actual destination chain ID for cross-chain EVM
+
+	// Determine if this is a cross-chain EVM destination (not BSC, not RSK, not BTC)
+	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
 
 	const fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
 	const toToken = isBtcOnchain
 		? 'BTC'
-		: source === 'rbtc'
-			? USDT_BSC_ADDRESS
-			: EVM_NATIVE_TOKEN_ADDRESS;
+		: isCrossChainEVM
+			? USDT_BSC_ADDRESS // USDT on destination EVM chain
+			: source === 'rbtc'
+				? USDT_BSC_ADDRESS
+				: EVM_NATIVE_TOKEN_ADDRESS;
 
 	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = isBtcOnchain ? 'BTC' : source === 'rbtc' ? 'USDT' : 'RBTC';
+	const toAsset = isBtcOnchain
+		? 'BTC'
+		: isCrossChainEVM
+			? 'USDT'
+			: source === 'rbtc'
+				? 'USDT'
+				: 'RBTC';
 	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = isBtcOnchain ? 'bitcoin' : source === 'rbtc' ? 'bsc' : 'rsk';
+	const toChain = isBtcOnchain
+		? 'bitcoin'
+		: isCrossChainEVM
+			? `chain-${destChainId}`
+			: source === 'rbtc'
+				? 'bsc'
+				: 'rsk';
 
 	try {
+		// LI.FI requires fromAddress (lowercase) and fromAmount in wei (smallest unit).
+		const lifiFromAddr = userAddress.toLowerCase();
+		const lifiFromAmount =
+			fromAsset === 'RBTC'
+				? BigInt(Math.round(parseFloat(amount) * 1e18)).toString()
+				: BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
 		const lifiRoute: LifiRoute = await withTimeout(
 			lifiService.getQuote({
 				fromChain: fromChainId,
 				toChain: toChainId,
 				fromToken,
 				toToken,
-				fromAmount: amount,
-				fromAddress: userAddress
+				fromAmount: lifiFromAmount,
+				fromAddress: lifiFromAddr
 			}),
 			PROVIDER_TIMEOUT_MS
 		);
@@ -192,40 +240,59 @@ async function callSymbiosis(
 		return { provider: 'symbiosis', status: 'skipped', routes: [] };
 	}
 
+	const destChainId = (destination as { chainId: number }).chainId;
+	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
+
 	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
-	const toChainId = isBtcOnchain
-		? 0
-		: isRSKChain((destination as { chainId: number }).chainId)
-			? RSK_MAINNET_CHAIN_ID
-			: BSC_MAINNET_CHAIN_ID;
+	const toChainId = isBtcOnchain ? 0 : destChainId;
 
 	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = isBtcOnchain ? 'BTC' : source === 'rbtc' ? 'USDT' : 'RBTC';
+	const toAsset = isBtcOnchain
+		? 'BTC'
+		: isCrossChainEVM
+			? 'USDT'
+			: source === 'rbtc'
+				? 'USDT'
+				: 'RBTC';
 	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = isBtcOnchain ? 'bitcoin' : source === 'rbtc' ? 'bsc' : 'rsk';
+	const toChain = isBtcOnchain
+		? 'bitcoin'
+		: isCrossChainEVM
+			? `chain-${destChainId}`
+			: source === 'rbtc'
+				? 'bsc'
+				: 'rsk';
 
 	try {
+		// Symbiosis expects amount in token's smallest unit inside tokenAmountIn
+		const symbiosisAmount =
+			fromAsset === 'RBTC'
+				? BigInt(Math.round(parseFloat(amount) * 1e18)).toString()
+				: BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
 		const quote: SymbiosisQuoteResponse = await withTimeout(
 			symbiosisService.getQuote({
 				tokenAmountIn: {
 					address: source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS,
 					chainId: fromChainId,
 					symbol: fromAsset,
-					decimals: 18
+					decimals: 18,
+					amount: symbiosisAmount
 				},
 				tokenOut: {
 					address: isBtcOnchain
 						? 'BTC'
-						: source === 'rbtc'
+						: isCrossChainEVM
 							? USDT_BSC_ADDRESS
-							: EVM_NATIVE_TOKEN_ADDRESS,
+							: source === 'rbtc'
+								? USDT_BSC_ADDRESS
+								: EVM_NATIVE_TOKEN_ADDRESS,
 					chainId: toChainId,
 					symbol: toAsset,
 					decimals: isBtcOnchain ? 8 : 18
 				},
-				amount,
 				from: userAddress,
-				to: userAddress
+				to: userAddress,
+				slippage: 50
 			}),
 			PROVIDER_TIMEOUT_MS
 		);
