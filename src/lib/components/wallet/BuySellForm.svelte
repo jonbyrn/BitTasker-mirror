@@ -30,19 +30,52 @@
 	// Source wallet
 	let source = $state<string>('builtin');
 	let sourceExpanded = $state(false);
+	let sourceInitialized = $state(false);
 
+	// Auto-select first connected wallet on first mount only
 	$effect(() => {
-		if (source !== 'builtin' && !$connectedWalletsStore.wallets.some((w) => w.id === source)) {
-			source = 'builtin';
-		}
-	});
-	$effect(() => {
-		if ($connectedWalletsStore.wallets.length > 0 && source === 'builtin') {
+		if (!sourceInitialized && $connectedWalletsStore.wallets.length > 0) {
 			source = $connectedWalletsStore.wallets[0].id;
+			sourceInitialized = true;
+		} else if (
+			sourceInitialized &&
+			source !== 'builtin' &&
+			!$connectedWalletsStore.wallets.some((w) => w.id === source)
+		) {
+			// Wallet disconnected while selected — reset to built-in
+			source = 'builtin';
 		}
 	});
 
 	let isConnectedSource = $derived(source !== 'builtin');
+
+	// Wallet USD balance helpers
+
+	function usdBalanceFor(wallet: { balances?: Record<string, { raw: string }> }): string {
+		const cur = wallet.balances;
+		if (!cur) return '$0.00';
+		const sats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+		const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
+		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+		return usd.toLocaleString('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
+	}
+
+	function totalBuiltinUsd(): string {
+		const sats = $walletStore.totalBalances.sats;
+		const usdt = $walletStore.totalBalances.usdt;
+		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+		return usd.toLocaleString('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
+	}
 
 	// Balances
 	let rbtcBalance = $derived.by(() => {
@@ -284,6 +317,7 @@
 
 		<!-- Source Wallet Accordion -->
 		{#if $connectedWalletsStore.wallets.length > 0}
+			{@const builtinUsd = totalBuiltinUsd()}
 			<div class="form-control">
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -291,13 +325,18 @@
 				>
 					<button
 						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
+						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-6 text-sm font-medium"
 						onclick={() => (sourceExpanded = !sourceExpanded)}
 					>
 						<span class="text-base-content/60">From:</span>
 						{#if source === 'builtin'}
-							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-							<span>BitTasker Wallet</span>
+							<img
+								src="/images/chains/Bitcoin-Rootstock-logo.webp"
+								alt="rBTC"
+								class="h-5 w-5 shrink-0"
+							/>
+							<span class="font-medium">BitTasker Wallet</span>
+							<span class="text-base-content/50 ml-auto tabular-nums">{builtinUsd}</span>
 						{:else}
 							{@const w = $connectedWalletsStore.wallets.find((w) => w.id === source)}
 							{#if w}
@@ -311,9 +350,7 @@
 												: '💾'}</span
 								>
 								<span class="font-medium">{w.walletName}</span>
-								<span class="text-base-content/50 ml-auto truncate text-xs"
-									>{w.address.slice(0, 10)}...{w.address.slice(-4)}</span
-								>
+								<span class="text-base-content/50 ml-auto tabular-nums">{usdBalanceFor(w)}</span>
 							{/if}
 						{/if}
 					</button>
@@ -324,13 +361,18 @@
 								'builtin'
 									? 'bg-primary/10'
 									: 'hover:bg-base-200'}"
-								onclick={() => {
+								onmousedown={() => {
 									source = 'builtin';
 									sourceExpanded = false;
 								}}
 							>
-								<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-								<span>BitTasker Wallet</span>
+								<img
+									src="/images/chains/Bitcoin-Rootstock-logo.webp"
+									alt="rBTC"
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="text-sm font-medium">BitTasker Wallet</span>
+								<span class="text-base-content/50 ml-auto text-xs tabular-nums">{builtinUsd}</span>
 							</button>
 						</div>
 						<div class="divider my-1 text-xs">Connected</div>
@@ -341,7 +383,7 @@
 									wallet.id
 										? 'bg-primary/10'
 										: 'hover:bg-base-200'}"
-									onclick={() => {
+									onmousedown={() => {
 										source = wallet.id;
 										sourceExpanded = false;
 									}}
@@ -357,10 +399,10 @@
 									>
 									<div class="min-w-0 flex-1 text-left">
 										<div class="text-sm font-medium">{wallet.walletName}</div>
-										<div class="truncate text-xs opacity-50">
-											{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
-										</div>
 									</div>
+									<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums"
+										>{usdBalanceFor(wallet)}</span
+									>
 								</button>
 							{/each}
 						</div>
