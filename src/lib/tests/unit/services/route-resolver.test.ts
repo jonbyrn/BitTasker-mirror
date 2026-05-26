@@ -69,28 +69,28 @@ describe('resolveRoute — source: rbtc', () => {
 			expect(routes).toHaveLength(2);
 		});
 
-		it('returns LI.FI route as first (recommended) for rBTC to BSC', () => {
+		it('returns Symbiosis route as first (recommended) for rBTC to BSC', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes[0].id).toBe('rbtc-to-bsc-via-lifi');
+			expect(routes[0].id).toBe('rbtc-to-bsc-via-symbiosis');
 			expect(routes[0].hops).toHaveLength(1);
-			expect(routes[0].hops[0].service).toBe('lifi');
+			expect(routes[0].hops[0].service).toBe('symbiosis');
 			expect(routes[0].recommended).toBe(true);
 		});
 
-		it('returns Symbiosis route as second for rBTC to BSC', () => {
+		it('returns LI.FI route as second for rBTC to BSC', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes[1].id).toBe('rbtc-to-bsc-via-symbiosis');
-			expect(routes[1].hops[0].service).toBe('symbiosis');
-		});
-
-		it('LI.FI rBTC to BSC route has 0.5% fee', () => {
-			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes[0].totalFeePercent).toBe(0.5);
+			expect(routes[1].id).toBe('rbtc-to-bsc-via-lifi');
+			expect(routes[1].hops[0].service).toBe('lifi');
 		});
 
 		it('Symbiosis rBTC to BSC route has 0.3% fee', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(56));
-			expect(routes[1].totalFeePercent).toBe(0.3);
+			expect(routes[0].totalFeePercent).toBe(0.3);
+		});
+
+		it('LI.FI rBTC to BSC route has 0.5% fee', () => {
+			const routes = resolveRoute('rbtc', makeAddressDest(56));
+			expect(routes[1].totalFeePercent).toBe(0.5);
 		});
 	});
 
@@ -100,9 +100,11 @@ describe('resolveRoute — source: rbtc', () => {
 			expect(routes).toHaveLength(0);
 		});
 
-		it('returns empty for chain ID 0', () => {
+		it('returns TRON routes for chain ID 0 (TRON pseudo chain)', () => {
 			const routes = resolveRoute('rbtc', makeAddressDest(0));
-			expect(routes).toHaveLength(0);
+			expect(routes).toHaveLength(2);
+			expect(routes[0].id).toBe('rbtc-to-usdt-tron-via-lifi');
+			expect(routes[1].id).toBe('rbtc-to-usdt-tron-via-symbiosis');
 		});
 
 		it('returns empty for negative chain ID', () => {

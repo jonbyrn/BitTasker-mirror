@@ -134,7 +134,7 @@ describe('connected-wallets.store', () => {
 			const callArg = vi.mocked(Preferences.set).mock.calls[0]?.[0];
 			expect(callArg).toBeDefined();
 			const persisted = JSON.parse(callArg.value as string);
-			expect(persisted.version).toBe(1);
+			expect(persisted.version).toBe(2);
 			expect(persisted.wallets).toHaveLength(1);
 			expect(persisted.wallets[0].id).toBe('persist-me');
 		});
@@ -381,7 +381,7 @@ describe('connected-wallets.store', () => {
 
 		it('is a no-op when persisted state is valid', async () => {
 			const validState = {
-				version: 1,
+				version: 2,
 				wallets: [
 					{
 						id: 'wallet-1',

@@ -4,7 +4,6 @@ import { waitFor } from '@testing-library/svelte';
 import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 import { walletStore } from '$lib/stores/wallet.store';
-import { writable } from 'svelte/store';
 
 // Mock the balance history service
 vi.mock('$lib/api/services/balanceHistory.service', () => ({
@@ -15,8 +14,20 @@ vi.mock('$lib/api/services/balanceHistory.service', () => ({
 
 // Mock wallet store - component imports walletStore, totalBalances, formatSats
 vi.mock('$lib/stores/wallet.store', () => {
-	const { writable, derived } = require('svelte/store');
-	const mockWalletStore = writable({
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { writable: _writable, derived } = require('svelte/store');
+	interface MockStoreValue {
+		rsk: {
+			provider: object;
+			address: string;
+			connected: boolean;
+			balance: string;
+			formattedBalance: string;
+		};
+		bsc: { connected: boolean; address: string | null };
+		totalBalances: { sats: number; usd: number };
+	}
+	const initialValue: MockStoreValue = {
 		rsk: {
 			provider: {},
 			address: '0x1234567890123456789012345678901234567890',
@@ -29,8 +40,9 @@ vi.mock('$lib/stores/wallet.store', () => {
 			sats: 100000000,
 			usd: 50000
 		}
-	});
-	const totalBalances = derived(mockWalletStore, ($s) => $s.totalBalances);
+	};
+	const mockWalletStore = writable(initialValue);
+	const totalBalances = derived(mockWalletStore, ($s: MockStoreValue) => $s.totalBalances);
 	return {
 		walletStore: mockWalletStore,
 		totalBalances,
@@ -40,6 +52,7 @@ vi.mock('$lib/stores/wallet.store', () => {
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
 	const { readable } = require('svelte/store');
 	const t = readable((key: string) =>
 		key === 'wallet.balance_history.error' ? 'Failed to load balance history' : key
@@ -96,7 +109,7 @@ describe('BalanceHistory', () => {
 			},
 			bsc: { connected: false, address: null },
 			totalBalances: { sats: 100000000, usd: 50000 }
-		} as any);
+		} as unknown);
 	});
 
 	it('should render loading state initially', () => {
@@ -259,4 +272,3 @@ describe('BalanceHistory', () => {
 		expect(container.textContent).toMatch(/-.*5[,.]?000/);
 	});
 });
-

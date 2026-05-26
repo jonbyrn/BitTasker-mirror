@@ -32,8 +32,13 @@ function makeSymbiosisQuoteResponse(
 	overrides?: Partial<SymbiosisQuoteResponse>
 ): SymbiosisQuoteResponse {
 	return {
-		amountOut: '500000000000000000000',
-		feePercent: 0.3,
+		tokenAmountOut: {
+			amount: '500000000000000000000',
+			symbol: 'USDT',
+			address: '0x55d3',
+			chainId: 56,
+			decimals: 18
+		},
 		estimatedTime: 5,
 		...overrides
 	};
@@ -59,7 +64,8 @@ describe('symbiosisService', () => {
 				address: '0x0000000000000000000000000000000000000000',
 				chainId: 30,
 				symbol: 'RBTC',
-				decimals: 18
+				decimals: 18,
+				amount: '1000000000000000000'
 			},
 			tokenOut: {
 				address: '0x55d398326f99059fF775485246999027B3197955',
@@ -67,7 +73,6 @@ describe('symbiosisService', () => {
 				symbol: 'USDT',
 				decimals: 18
 			},
-			amount: '1000000000000000000',
 			from: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
 			to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
 		};
@@ -80,8 +85,7 @@ describe('symbiosisService', () => {
 			);
 
 			const result = await symbiosisService.getQuote(validParams);
-			expect(result.amountOut).toBe('500000000000000000000');
-			expect(result.feePercent).toBe(0.3);
+			expect(result.tokenAmountOut?.amount).toBe('500000000000000000000');
 		});
 
 		it('throws when feature flag is disabled', async () => {
@@ -97,7 +101,6 @@ describe('symbiosisService', () => {
 				symbiosisService.getQuote({
 					tokenAmountIn: null as unknown as typeof validParams.tokenAmountIn,
 					tokenOut: validParams.tokenOut,
-					amount: validParams.amount,
 					from: validParams.from,
 					to: validParams.to
 				})
@@ -107,9 +110,8 @@ describe('symbiosisService', () => {
 		it('throws on missing amount', async () => {
 			await expect(
 				symbiosisService.getQuote({
-					tokenAmountIn: validParams.tokenAmountIn,
+					tokenAmountIn: { ...validParams.tokenAmountIn, amount: '' },
 					tokenOut: validParams.tokenOut,
-					amount: '',
 					from: validParams.from,
 					to: validParams.to
 				})
@@ -137,15 +139,15 @@ describe('symbiosisService', () => {
 			await expect(symbiosisService.getQuote(validParams)).rejects.toThrow('Bad request');
 		});
 
-		it('returns quote with zero feePercent', async () => {
-			const quote = makeSymbiosisQuoteResponse({ feePercent: 0 });
+		it('returns quote with zero fee', async () => {
+			const quote = makeSymbiosisQuoteResponse({ fee: '0' });
 			vi.stubGlobal(
 				'fetch',
 				vi.fn().mockResolvedValue(new Response(JSON.stringify(quote), { status: 200 }))
 			);
 
 			const result = await symbiosisService.getQuote(validParams);
-			expect(result.feePercent).toBe(0);
+			expect(result.fee).toBe('0');
 		});
 	});
 

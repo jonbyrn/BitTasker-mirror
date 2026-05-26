@@ -190,23 +190,30 @@ describe('normalizeSymbiosisQuote', () => {
 		).toBeNull();
 	});
 
-	it('returns null for quote with no amountOut', () => {
+	it('returns null for quote with no tokenAmountOut', () => {
 		const quote = makeSymbiosisQuoteResponse({
-			amountOut: ''
+			tokenAmountOut: undefined
 		}) as unknown as SymbiosisQuoteResponse;
-		// amountOut is empty string, which is falsy
 		const result = normalizeSymbiosisQuote(quote, 'RBTC', 'USDT', 'rsk', 'bsc');
 		expect(result).toBeNull();
 	});
 
-	it('returns null for NaN amountOut', () => {
-		const quote = makeSymbiosisQuoteResponse({ amountOut: 'invalid' });
+	it('returns null for NaN tokenAmountOut', () => {
+		const quote = makeSymbiosisQuoteResponse({
+			tokenAmountOut: {
+				amount: 'invalid',
+				symbol: 'USDT',
+				address: '0x55d3',
+				chainId: 56,
+				decimals: 18
+			}
+		});
 		const result = normalizeSymbiosisQuote(quote, 'RBTC', 'USDT', 'rsk', 'bsc');
 		expect(result).toBeNull();
 	});
 
-	it('uses default feePercent when not provided', () => {
-		const quote = makeSymbiosisQuoteResponse({ feePercent: undefined });
+	it('uses default fee when not provided', () => {
+		const quote = makeSymbiosisQuoteResponse({ fee: undefined });
 		const result = normalizeSymbiosisQuote(quote, 'RBTC', 'USDT', 'rsk', 'bsc');
 		expect(result!.feePercent).toBe(0.3);
 	});
@@ -217,8 +224,8 @@ describe('normalizeSymbiosisQuote', () => {
 		expect(result!.estimatedTimeMinutes).toBe(5);
 	});
 
-	it('feePercent never goes negative', () => {
-		const quote = makeSymbiosisQuoteResponse({ feePercent: -1 });
+	it('fee never goes negative', () => {
+		const quote = makeSymbiosisQuoteResponse({ fee: '-1' });
 		const result = normalizeSymbiosisQuote(quote, 'RBTC', 'USDT', 'rsk', 'bsc');
 		expect(result!.feePercent).toBeGreaterThanOrEqual(0);
 	});
@@ -298,8 +305,14 @@ function makeSymbiosisQuoteResponse(
 	overrides?: Partial<SymbiosisQuoteResponse>
 ): SymbiosisQuoteResponse {
 	return {
-		amountOut: '500000000000000000000',
-		feePercent: 0.3,
+		tokenAmountOut: {
+			amount: '500000000000000000000',
+			symbol: 'USDT',
+			address: '0x55d3',
+			chainId: 56,
+			decimals: 18
+		},
+		fee: '0.3',
 		estimatedTime: 5,
 		...overrides
 	};
