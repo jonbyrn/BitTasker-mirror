@@ -53,6 +53,7 @@
 	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
 	let swapPercent = $state(0);
+	let slideDir = $state(-1); // 1 = forward, -1 = reverse; toggles each swap
 
 	// -----------------------------------------------------------------------
 	// BTC wallet detection
@@ -367,11 +368,11 @@
 		}
 	});
 
-	// Auto-select cheapest route (sorted by fee ascending)
+	// Auto-select cheapest route only when no route is selected yet
 	$effect(() => {
-		if (sortedRoutes.length > 0) {
+		if (sortedRoutes.length > 0 && !selectedRouteId) {
 			const cheapest = sortedRoutes[0];
-			if (cheapest && selectedRouteId !== cheapest.id) {
+			if (cheapest) {
 				selectedRouteId = cheapest.id;
 			}
 		}
@@ -391,6 +392,7 @@
 		triggerHaptic(ImpactStyle.Light);
 		isFlipping = true;
 		setTimeout(() => (isFlipping = false), 300);
+		slideDir *= -1; // reverse slide direction each swap
 
 		if (sourceType === 'rbtc') {
 			sourceType = 'usdt-bsc';
@@ -571,34 +573,40 @@
 			<div transition:fly={{ y: 10, duration: 200 }}>
 				<div class="flex flex-col gap-4">
 					<!-- Source Wallet Card -->
-					<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
-						<div class="relative shrink-0">
-							<img
-								src={sourceIcon}
-								alt={sourceAsset}
-								class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
-							/>
-							{#if sourceType === 'usdt-bsc'}
+					{#key sourceType}
+						<div
+							class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4"
+							style="animation: {slideDir > 0 ? 'slideFromRight' : 'slideFromLeft'} 0.25s ease"
+						>
+							<div class="relative shrink-0">
 								<img
-									src="/images/chains/Binance-logo.svg"
-									alt="BSC"
-									class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
+									src={sourceIcon}
+									alt={sourceAsset}
+									class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
 								/>
-							{/if}
-						</div>
-						<div class="min-w-0 flex-1">
-							<div class="text-sm font-semibold sm:text-base">
-								Bitcoin ({sourceAsset})
+								{#if sourceType === 'usdt-bsc'}
+									<img
+										src="/images/chains/Binance-logo.svg"
+										alt="BSC"
+										class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
+									/>
+								{/if}
 							</div>
-							<div class="text-base-content/60 text-xs sm:text-sm">
-								{sourceChainLabel} &middot;
-								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
-									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
-									: `${walletBalanceDisplay}`}
+							<div class="min-w-0 flex-1">
+								<div class="text-sm font-semibold sm:text-base">
+									{sourceAsset === 'USDT' ? 'USD' : 'Bitcoin'} ({sourceAsset === 'USDT'
+										? 'Binance'
+										: sourceAsset})
+								</div>
+								<div class="text-base-content/60 text-xs sm:text-sm">
+									{sourceChainLabel} &middot;
+									{$t('wallet.available_balance')}: {sourceType === 'rbtc'
+										? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
+										: `${walletBalanceDisplay}`}
+								</div>
 							</div>
 						</div>
-					</div>
-
+					{/key}
 					<!-- Swap Direction Button -->
 					<div class="relative flex items-center justify-center py-1">
 						<div class="border-base-300 absolute inset-x-0 top-1/2 border-t"></div>
@@ -627,100 +635,115 @@
 					</div>
 
 					<!-- Destination Selection Cards -->
-					<div class="space-y-2">
-						{#each visibleDestOptions as option (option.id)}
-							{@const isSelected = destType === option.id}
-							<button
-								type="button"
-								class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
-									? 'border-primary bg-primary/5 shadow-sm'
-									: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
-								onclick={() => {
-									destType = option.id;
-									selectedRouteId = '';
-								}}
-								style="-webkit-tap-highlight-color: transparent;"
-							>
-								<div
-									class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 {isSelected
-										? 'border-primary'
-										: 'border-base-300'}"
+					{#key sourceType}
+						<div
+							class="space-y-2"
+							style="animation: {slideDir < 0 ? 'slideFromRight' : 'slideFromLeft'} 0.25s ease"
+						>
+							{#each visibleDestOptions as option (option.id)}
+								{@const isSelected = destType === option.id}
+								<button
+									type="button"
+									class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
+										? 'border-primary bg-primary/5 shadow-sm'
+										: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
+									onclick={() => {
+										destType = option.id;
+										selectedRouteId = '';
+									}}
+									style="-webkit-tap-highlight-color: transparent;"
 								>
-									{#if isSelected}
-										<div class="bg-primary h-3 w-3 rounded-full"></div>
-									{/if}
-								</div>
-								<div class="relative shrink-0">
-									<img
-										src={option.icon}
-										alt={option.asset}
-										class="h-8 w-8 rounded-full sm:h-10 sm:w-10"
-									/>
-									{#if option.asset === 'USDT'}
-										<img
-											src="/images/chains/Binance-logo.svg"
-											alt="BSC"
-											class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
-										/>
-									{/if}
-								</div>
-								<div class="min-w-0 flex-1">
-									<div class="text-sm font-semibold sm:text-base">
-										{option.asset === 'USDT' ? 'USD' : option.asset} ({option.asset === 'USDT'
-											? 'Binance'
-											: option.label})
-									</div>
-									<div class="text-base-content/60 text-xs sm:text-sm">
-										{#if option.id === 'rbtc-rsk'}
-											{$t('wallet.available_balance')}: {satsUsd(
-												Math.round(
-													parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000
-												)
-											)}
-										{:else if option.id === 'btc-onchain'}
-											{$t('wallet.available_balance')}: {satsUsd(
-												Number(
-													$connectedWalletsStore.wallets.find(
-														(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
-													)?.balances?.btc?.raw || 0
-												)
-											)}
-										{:else}
-											{$t('wallet.available_balance')}: ${parseFloat(
-												$walletStore.bsc?.formattedUsdtBalance || '0'
-											).toLocaleString('en-US', {
-												minimumFractionDigits: 2,
-												maximumFractionDigits: 2
-											})}
+									<div
+										class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 {isSelected
+											? 'border-primary'
+											: 'border-base-300'}"
+									>
+										{#if isSelected}
+											<div class="bg-primary h-3 w-3 rounded-full"></div>
 										{/if}
 									</div>
-								</div>
-							</button>
-						{/each}
+									<div class="relative shrink-0">
+										<img
+											src={option.icon}
+											alt={option.asset}
+											class="h-8 w-8 rounded-full sm:h-10 sm:w-10"
+										/>
+										{#if option.asset === 'USDT'}
+											<img
+												src="/images/chains/Binance-logo.svg"
+												alt="BSC"
+												class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
+											/>
+										{/if}
+									</div>
+									<div class="min-w-0 flex-1">
+										<div class="text-sm font-semibold sm:text-base">
+											{option.asset === 'USDT' ? 'USD' : 'Bitcoin'} ({option.asset === 'USDT'
+												? 'Binance'
+												: option.asset})
+										</div>
+										<div class="text-base-content/60 text-xs sm:text-sm">
+											{#if option.id === 'rbtc-rsk'}
+												{$t('wallet.available_balance')}: {satsUsd(
+													Math.round(
+														parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000
+													)
+												)}
+											{:else if option.id === 'btc-onchain'}
+												{$t('wallet.available_balance')}: {satsUsd(
+													Number(
+														$connectedWalletsStore.wallets.find(
+															(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
+														)?.balances?.btc?.raw || 0
+													)
+												)}
+											{:else}
+												{$t('wallet.available_balance')}: ${parseFloat(
+													$walletStore.bsc?.formattedUsdtBalance || '0'
+												).toLocaleString('en-US', {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 2
+												})}
+											{/if}
+										</div>
+									</div>
+								</button>
+							{/each}
 
-						<!-- BTC not available hint (always shown when no BTC wallet) -->
-						{#if !hasExternalBtcWallet}
-							<div
-								class="text-base-content/40 flex items-center gap-2 px-1 py-1 text-xs sm:text-sm"
-							>
-								<svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<span>{$t('wallet.swap.btc_not_available')}</span>
-							</div>
-						{/if}
-					</div>
+							<!-- BTC not available hint (always shown when no BTC wallet) -->
+							{#if !hasExternalBtcWallet}
+								<div
+									class="text-base-content/40 flex items-center gap-2 px-1 py-1 text-xs sm:text-sm"
+								>
+									<svg
+										class="h-4 w-4 shrink-0"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span>{$t('wallet.swap.btc_not_available')}</span>
+								</div>
+							{/if}
+						</div>
+					{/key}
 
 					<!-- Amount Input -->
 					<div class="form-control">
-						<label for="swap-amount" class="label px-1 py-1">
+						<label for="swap-amount" class="label flex justify-between px-1 py-1">
 							<span class="label-text text-sm sm:text-base">
 								{sourceType === 'rbtc' ? $t('wallet.sats') : 'USDT'}
+							</span>
+							<span class="label-text-alt text-xs sm:text-sm">
+								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
+									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
+									: `${walletBalanceDisplay}`}
 							</span>
 						</label>
 						<div class="join w-full">
@@ -744,17 +767,10 @@
 								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
 							</button>
 						</div>
-						<div class="label px-1 py-1">
-							<span class="label-text-alt text-xs sm:text-sm">
-								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
-									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
-									: `${walletBalanceDisplay}`}
-							</span>
-						</div>
 					</div>
 
 					<!-- Percent Slider -->
-					<div class="form-control -mt-2">
+					<div class="form-control py-2">
 						<div class="flex items-center gap-3">
 							<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
 								>{swapPercent}%</span
@@ -787,12 +803,6 @@
 						hasAddress={true}
 						hasAmount={amountSats > 0}
 					/>
-					{#if sortedRoutes.length === 0 && !routeLoading}
-						<div class="text-base-content/40 px-2 text-xs">
-							{$t('wallet.swap.error.no_routes')}
-						</div>
-					{/if}
-
 					<!-- Total Card — always visible -->
 					<div
 						class="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4"
@@ -1247,3 +1257,26 @@
 		{/if}
 	{/snippet}
 </Drawer>
+
+<style>
+	@keyframes slideFromLeft {
+		from {
+			transform: translateX(-60px);
+			opacity: 0;
+		}
+		to {
+			transform: translateX(0);
+			opacity: 1;
+		}
+	}
+	@keyframes slideFromRight {
+		from {
+			transform: translateX(60px);
+			opacity: 0;
+		}
+		to {
+			transform: translateX(0);
+			opacity: 1;
+		}
+	}
+</style>

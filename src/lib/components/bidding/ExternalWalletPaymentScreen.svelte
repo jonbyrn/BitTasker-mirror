@@ -4,6 +4,9 @@
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { EVMSignerNotAvailableError } from '$lib/services/external-wallet/types';
 
 	// Props
 	const props = $props<{
@@ -21,6 +24,9 @@
 
 	// State
 	let copied = $state(false);
+	let selectedPayerWallet = $state<string | null>(null);
+	let isPaying = $state(false);
+	let payError = $state<string | null>(null);
 
 	// Calculate totals
 	let totalFiatPrice = $derived((props.bid.amount / 100000000) * props.btcPrice);
@@ -69,6 +75,43 @@
 	// Confirm payment
 	function confirmPayment() {
 		props.onPaymentConfirmed();
+	}
+
+	// Pay from connected wallet
+	async function handlePayFromWallet(walletId: string) {
+		selectedPayerWallet = walletId;
+		isPaying = true;
+		payError = null;
+
+		try {
+			const handle = connectorRegistry.get(walletId);
+			if (!handle?.evmSigner) throw new EVMSignerNotAvailableError(walletId);
+
+			if (props.escrowDetails.paymentMethod === 'lbtc-liquid') {
+				const chainId = 30; // RSK mainnet
+				const amountWei = BigInt(props.bid.amount);
+				await handle.evmSigner.sendTransaction({
+					to: props.escrowDetails.address,
+					value: amountWei * 10n ** 10n, // sats → wei (RBTC 18 decimals)
+					chainId
+				});
+
+				appStore.showSuccessToast($t('common.components.bidding.external_wallet.payment_sent'));
+				isPaying = false;
+				props.onPaymentConfirmed();
+			} else {
+				// Lightning payments from connected wallets are not supported
+				appStore.showErrorToast(
+					$t('common.components.bidding.external_wallet.lightning_not_supported')
+				);
+				selectedPayerWallet = null;
+				isPaying = false;
+				return;
+			}
+		} catch (err) {
+			payError = err instanceof Error ? err.message : 'Payment failed';
+			isPaying = false;
+		}
 	}
 </script>
 
@@ -218,6 +261,37 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- Connected Wallet Payment Section -->
+		{#if $connectedWalletsStore.wallets.length > 0}
+			<div class="divider text-xs">Or pay directly from</div>
+			<div class="space-y-2">
+				{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
+					<button
+						class="btn btn-outline min-h-[44px] w-full justify-start gap-3"
+						onclick={() => handlePayFromWallet(wallet.id)}
+						disabled={isPaying}
+					>
+						<div class="text-left">
+							<div class="text-sm font-medium">{wallet.walletName}</div>
+							<div class="text-xs opacity-50">
+								{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
+							</div>
+						</div>
+						{#if selectedPayerWallet === wallet.id && isPaying}
+							<span class="loading loading-spinner loading-sm ml-auto"></span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Payment Error -->
+		{#if payError}
+			<div class="alert alert-error mt-3">
+				<span class="text-sm">{payError}</span>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Action Buttons -->

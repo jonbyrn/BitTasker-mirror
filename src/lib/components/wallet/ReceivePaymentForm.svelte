@@ -10,8 +10,10 @@
 	import { lifiService } from '$lib/services/lifi.service';
 	import { symbiosisService } from '$lib/services/symbiosis.service';
 	import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
-	import IconCashMultiple from '~icons/mdi/cash-multiple';
-	import IconClose from '~icons/mdi/close';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
+
 	import IconCheck from '~icons/mdi/check';
 
 	let { onCancel, onOpenPaymentRequest } = $props<{
@@ -56,8 +58,21 @@
 	// Receive tab selection and QR code data
 	let receiveTab = $state<'rbtc' | 'usdt'>('rbtc');
 
+	// Connected wallet receiving account
+	// null = use built-in wallet, string = connected wallet ID
+	let selectedReceiveWalletId = $state<string | null>(null);
+
+	/** Validate selectedReceiveWalletId is still connected */
+	let isReceiveWalletValid = $derived.by(() => {
+		if (!selectedReceiveWalletId) return false;
+		return $connectedWalletsStore.wallets.some((w) => w.id === selectedReceiveWalletId);
+	});
+
 	// Auto-select destination network based on receive tab and payer source
 	$effect(() => {
+		// When a connected wallet is selected, stick with the current network
+		if (selectedReceiveWalletId && isReceiveWalletValid) return;
+
 		const tab = receiveTab;
 		if (tab === 'usdt') {
 			formInput.selectedNetwork = 'usdt-bsc';
@@ -414,11 +429,19 @@
 			const invoiceAmount =
 				formInput.chargeFeesToPayer && feeState.estimated ? amountPayerPays : amountInSats;
 
-			if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
-				return appStore.showErrorToast($t('wallet.rsk_not_connected'));
-			}
+			// Determine receiving address: connected wallet or built-in
+			const useConnected = selectedReceiveWalletId && isReceiveWalletValid;
 
 			if (formInput.selectedNetwork === 'lightning-bitcoin') {
+				// Lightning swaps not supported from connected wallets
+				if (useConnected) {
+					appStore.showErrorToast('Lightning swaps are not available for connected wallets.');
+					isGenerating = false;
+					return;
+				}
+				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+					return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+				}
 				// Create Lightning reverse swap
 				const result = await walletManager.createReverseSwap(Math.floor(invoiceAmount));
 
@@ -435,10 +458,24 @@
 					}
 				});
 			} else if (formInput.selectedNetwork === 'rootstock-bitcoin') {
-				// Rootstock direct payment - use EIP-1191 checksummed address only
+				let address: string;
+				if (useConnected) {
+					const handle = connectorRegistry.get(selectedReceiveWalletId!);
+					if (!handle?.address) {
+						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
+						isGenerating = false;
+						return;
+					}
+					address = handle.address;
+				} else {
+					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+						return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					}
+					address = $walletStore.rsk.address;
+				}
 				// Call parent callback with direct payment data and form state for restoration
 				onOpenPaymentRequest({
-					address: $walletStore.rsk.address, // EIP-1191 checksummed address
+					address,
 					network: 'rootstock-bitcoin',
 					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
@@ -454,6 +491,15 @@
 					}
 				});
 			} else if (formInput.selectedNetwork === 'liquid-bitcoin') {
+				// Liquid swaps not supported from connected wallets
+				if (useConnected) {
+					appStore.showErrorToast('Liquid chain swaps are not available for connected wallets.');
+					isGenerating = false;
+					return;
+				}
+				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+					return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+				}
 				// Create Liquid chain swap
 				const result = await walletManager.createChainSwap(Math.floor(invoiceAmount));
 
@@ -470,12 +516,23 @@
 					}
 				});
 			} else if (formInput.selectedNetwork === 'usdt-bsc') {
-				// BSC USDT - show BSC address for direct deposit
-				if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
-					return appStore.showErrorToast($t('wallet.bsc.not_connected'));
+				let address: string;
+				if (useConnected) {
+					const handle = connectorRegistry.get(selectedReceiveWalletId!);
+					if (!handle?.address) {
+						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
+						isGenerating = false;
+						return;
+					}
+					address = handle.address;
+				} else {
+					if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
+						return appStore.showErrorToast($t('wallet.bsc.not_connected'));
+					}
+					address = $walletStore.bsc.address;
 				}
 				onOpenPaymentRequest({
-					address: $walletStore.bsc.address,
+					address,
 					network: 'usdt-bsc',
 					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
@@ -538,7 +595,39 @@
 						onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
 					>
 						<span class="text-base-content/60">{$t('wallet.to')}:</span>
-						{#if receiveTab === 'rbtc'}
+						{#if selectedReceiveWalletId && isReceiveWalletValid}
+							{@const wallet = $connectedWalletsStore.wallets.find(
+								(w) => w.id === selectedReceiveWalletId
+							)}
+							{#if wallet}
+								{#if wallet.walletType === 'metamask'}
+									<span class="text-lg">🦊</span>
+								{:else if wallet.walletType === 'walletconnect'}
+									<span class="text-lg">🔗</span>
+								{:else if wallet.walletType === 'trezor'}
+									<span class="text-lg">🔐</span>
+								{:else if wallet.walletType === 'ledger'}
+									<span class="text-lg">💾</span>
+								{/if}
+								{#if receiveTab === 'rbtc'}
+									<img
+										src="/images/chains/Bitcoin-Rootstock-logo.webp"
+										alt="rBTC"
+										class="h-4 w-4"
+									/>
+									<span class="font-medium">{wallet.walletName}</span>
+									<span class="text-base-content/50 mr-6 ml-auto truncate text-xs"
+										>rBTC (RSK) · {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
+									>
+								{:else}
+									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-4 w-4" />
+									<span class="font-medium">{wallet.walletName}</span>
+									<span class="text-base-content/50 mr-6 ml-auto truncate text-xs"
+										>USDT (BSC) · {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
+									>
+								{/if}
+							{/if}
+						{:else if receiveTab === 'rbtc'}
 							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
 							<span>{$t('wallet.bitcoin')}</span>
 							<span class="mr-6 ml-auto text-xs">
@@ -563,11 +652,12 @@
 						<div class="space-y-1">
 							<button
 								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {receiveTab ===
-								'rbtc'
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {!selectedReceiveWalletId &&
+								receiveTab === 'rbtc'
 									? 'bg-primary/10'
 									: ''}"
 								onclick={() => {
+									selectedReceiveWalletId = null;
 									receiveTab = 'rbtc';
 									uiState.sourceExpanded = false;
 								}}
@@ -581,11 +671,12 @@
 							</button>
 							<button
 								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {receiveTab ===
-								'usdt'
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {!selectedReceiveWalletId &&
+								receiveTab === 'usdt'
 									? 'bg-primary/10'
 									: ''}"
 								onclick={() => {
+									selectedReceiveWalletId = null;
 									receiveTab = 'usdt';
 									uiState.sourceExpanded = false;
 								}}
@@ -602,20 +693,79 @@
 										: '$0.00'}
 								</span>
 							</button>
+
+							<!-- Connected Wallets Section -->
+							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS) && $connectedWalletsStore.wallets.length > 0}
+								<div class="divider my-1 text-xs">Connected</div>
+								{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedReceiveWalletId ===
+										wallet.id
+											? 'bg-primary/10'
+											: ''}"
+										onclick={() => {
+											selectedReceiveWalletId = wallet.id;
+											uiState.sourceExpanded = false;
+										}}
+									>
+										{#if wallet.walletType === 'metamask'}
+											🦊
+										{:else if wallet.walletType === 'walletconnect'}
+											🔗
+										{:else if wallet.walletType === 'trezor'}
+											🔐
+										{:else if wallet.walletType === 'ledger'}
+											💾
+										{/if}
+										{#if receiveTab === 'rbtc'}
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt="rBTC"
+												class="h-4 w-4"
+											/>
+											<div class="min-w-0 flex-1 text-left">
+												<div class="text-sm font-medium">{wallet.walletName}</div>
+												<div class="truncate text-xs opacity-50">
+													{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
+												</div>
+											</div>
+											{@const rawRbtc = Number(wallet.balances?.rbtc?.raw ?? 0)}
+											<span class="ml-auto text-xs font-semibold tabular-nums"
+												>{rawRbtc > 0 ? formatSats(rawRbtc) + ' Sats' : '0 Sats'}</span
+											>
+										{:else}
+											<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-4 w-4" />
+											<div class="min-w-0 flex-1 text-left">
+												<div class="text-sm font-medium">{wallet.walletName}</div>
+												<div class="truncate text-xs opacity-50">
+													{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
+												</div>
+											</div>
+											{@const rawUsdt = Number(wallet.balances?.usdt?.raw ?? 0)}
+											<span class="ml-auto text-xs font-semibold tabular-nums"
+												>{rawUsdt > 0 ? '$' + (rawUsdt / 1e18).toFixed(2) : '$0.00'}</span
+											>
+										{/if}
+									</button>
+								{/each}
+							{/if}
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Payer Source Network Selector -->
-		<ReceiveSwapSelector
-			receiveCurrency={receiveTab}
-			onChange={(network) => {
-				payerNetwork = network;
-				estimateFee();
-			}}
-		/>
+		<!-- Payer Source Network Selector (hidden when receiving to connected wallet) -->
+		{#if !selectedReceiveWalletId}
+			<ReceiveSwapSelector
+				receiveCurrency={receiveTab}
+				onChange={(network) => {
+					payerNetwork = network;
+					estimateFee();
+				}}
+			/>
+		{/if}
 
 		<!-- Amount Input Section (Mobile) -->
 		<div class="block space-y-2 sm:hidden">
@@ -811,20 +961,81 @@
 					<div class="text-error text-xs">{$t('wallet.swap.error.fee_fetch_failed')}</div>
 				{/if}
 
-				<!-- Swap Minimum Warning -->
-				{#if isBelowSwapMinimum && feeState.swapLimits}
-					{@const minUsd =
-						btcPrice.price > 0
-							? formatUsd((feeState.swapLimits.minimal / 100_000_000) * btcPrice.price)
-							: null}
-					<div class="text-warning mt-1 text-xs sm:mt-2">
-						{$t('wallet.receive.below_swap_minimum', {
-							values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-						})}{minUsd ? ` (≈ ${minUsd})` : ''}
-					</div>
+				<!-- Charge Fees to Payer Toggle (Desktop - AFTER RoutePicker, BEFORE Total) -->
+				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
+					<button
+						type="button"
+						class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none {formInput.chargeFeesToPayer
+							? 'bg-primary text-primary-content hover:bg-primary/90'
+							: 'btn-outline bg-base-100'}"
+						style="-webkit-tap-highlight-color: transparent;"
+						onclick={() => {
+							formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+						}}
+					>
+						<div
+							class="flex h-4 w-4 items-center justify-center rounded border-2 {formInput.chargeFeesToPayer
+								? 'border-primary-content bg-primary-content'
+								: 'border-base-content/30'}"
+						>
+							{#if formInput.chargeFeesToPayer}
+								<IconCheck
+									class="text-primary h-3.5 w-3.5"
+									style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+								/>
+							{/if}
+						</div>
+						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50"
+						disabled
+					>
+						<div
+							class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2"
+						></div>
+						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+					</button>
 				{/if}
 
-				<!-- Memo/Description Field (Accordion) -->
+				<!-- Total Received Card (Desktop) -->
+				<div
+					class="bg-base-200 flex flex-row items-center justify-between gap-1.5 rounded-lg border-2 p-1.5"
+					class:border-primary={!isBelowSwapMinimum}
+					class:border-error={isBelowSwapMinimum}
+				>
+					<span class="text-xs opacity-70">{$t('wallet.swap.total_received_est')}</span>
+					{#if isBelowSwapMinimum && feeState.swapLimits}
+						<span class="text-error text-xs">
+							{$t('wallet.receive.below_swap_minimum', {
+								values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+							})}
+						</span>
+					{:else if totalReceived > 0 && feeState.estimated}
+						<div class="flex items-center gap-1.5">
+							{#if receiveTab === 'usdt'}
+								<span class="text-primary text-xl font-bold">
+									{formatUsd(totalReceivedUSD)}
+								</span>
+							{:else}
+								<span class="text-primary text-xl font-bold">
+									{formatSats(totalReceived)}
+									{$t('wallet.sats')}
+								</span>
+								<span class="text-xs opacity-60">|</span>
+								<span class="text-xs opacity-60">
+									≈ {formatUsd(totalReceivedUSD)}
+								</span>
+							{/if}
+						</div>
+					{:else}
+						<span class="text-xs opacity-60">{$t('wallet.receive.enter_amount_to_estimate')}</span>
+					{/if}
+				</div>
+
+				<!-- Memo/Description Field (Accordion - Desktop) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 					class:collapse-open={uiState.descriptionExpanded}
@@ -836,8 +1047,8 @@
 					>
 						{$t('wallet.description')} ({$t('wallet.optional')})
 					</button>
-					<div class="collapse-content">
-						<div class="form-control px-3 sm:px-4">
+					<div class="collapse-content pb-0">
+						<div class="form-control px-2 py-2 sm:px-4">
 							<textarea
 								id="memo-input-desktop"
 								class="textarea textarea-bordered w-full text-sm sm:text-base"
@@ -859,147 +1070,27 @@
 						</div>
 					</div>
 				</div>
-
-				<!-- Charge Fees to Payer Toggle (Desktop) -->
-				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
-					<button
-						type="button"
-						class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none sm:gap-3 sm:text-base {formInput.chargeFeesToPayer
-							? 'bg-primary text-primary-content hover:bg-primary/90'
-							: 'btn-outline bg-base-100'}"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
-							formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
-						}}
-					>
-						<div
-							class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
-								? 'border-primary-content bg-primary-content'
-								: 'border-base-content/30'}"
-						>
-							{#if formInput.chargeFeesToPayer}
-								<IconCheck
-									class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
-									style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
-								/>
-							{/if}
-						</div>
-						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-					</button>
-				{:else}
-					<button
-						type="button"
-						class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50 sm:gap-3 sm:text-base"
-						disabled
-					>
-						<div
-							class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
-						></div>
-						<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-					</button>
-				{/if}
-
-				<!-- Total Received Card (Desktop) -->
-				<div
-					class="bg-base-200 flex items-center justify-between gap-3 rounded-lg border-2 px-4 py-3"
-					class:border-primary={!isBelowSwapMinimum}
-					class:border-error={isBelowSwapMinimum}
-				>
-					{#if totalReceived > 0 && feeState.estimated}
-						<span class="text-sm opacity-70">{$t('wallet.swap.total_received_est')}</span>
-						<div class="flex items-center gap-2">
-							{#if receiveTab === 'usdt'}
-								<span class="text-primary text-xl font-bold">
-									{formatUsd(totalReceivedUSD)}
-								</span>
-							{:else}
-								<span class="text-primary text-xl font-bold">
-									{formatSats(totalReceived)}
-									{$t('wallet.sats')}
-								</span>
-								{#if btcPrice.price > 0}
-									<span class="text-sm opacity-60">
-										≈ {formatUsd(totalReceivedUSD)}
-									</span>
-								{/if}
-							{/if}
-						</div>
-					{:else}
-						<span class="text-sm opacity-60">
-							{$t('wallet.receive.enter_amount_to_estimate')}
-						</span>
-					{/if}
-				</div>
 			</div>
 		</div>
 	</div>
 
-	<!-- Action Buttons -->
-	<div
-		class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
-	>
-		<!-- Mobile: Cancel and Get Paid -->
-		<button
-			class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
-			style="-webkit-tap-highlight-color: transparent;"
-			onclick={handleCancel}
+	<!-- Bottom Action Button -->
+	<div class="flex gap-2 border-t pt-3 sm:pt-4">
+		<button class="btn btn-ghost min-h-[44px] flex-1" onclick={handleCancel}
+			>{$t('common.cancel')}</button
 		>
-			<IconClose class="h-4 w-4" />
-			<span class="text-sm">{$t('wallet.receive.cancel')}</span>
-		</button>
 		<button
-			class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
-			style="-webkit-tap-highlight-color: transparent;"
+			class="btn btn-primary min-h-[44px] flex-1"
 			onclick={handleGenerateInvoice}
-			disabled={!isFormValid ||
-				feeState.isLoading ||
-				$walletStore.isInitializing ||
-				isGenerating ||
-				isBelowSwapMinimum}
+			disabled={!isFormValid || isGenerating || feeState.isLoading}
 		>
-			{#if feeState.isLoading || $walletStore.isInitializing || isGenerating}
-				<span class="loading loading-spinner loading-sm"></span>
+			{#if isGenerating}
+				<span class="loading loading-spinner loading-xs"></span>
+				{$t('wallet.receive.generating')}
 			{:else}
-				<IconCashMultiple class="h-4 w-4" />
-				<span class="text-sm">{$t('wallet.receive.get_paid')}</span>
-			{/if}
-		</button>
-
-		<!-- Desktop: Always show Cancel and Get Paid -->
-		<button
-			class="btn btn-error hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
-			style="-webkit-tap-highlight-color: transparent;"
-			onclick={handleCancel}
-		>
-			<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-			<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
-		</button>
-		<button
-			class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
-			style="-webkit-tap-highlight-color: transparent;"
-			onclick={handleGenerateInvoice}
-			disabled={!isFormValid ||
-				feeState.isLoading ||
-				$walletStore.isInitializing ||
-				isGenerating ||
-				isBelowSwapMinimum}
-		>
-			{#if feeState.isLoading || $walletStore.isInitializing || isGenerating}
-				<span class="loading loading-spinner loading-sm"></span>
-			{:else}
-				<IconCashMultiple class="h-4 w-4 sm:h-5 sm:w-5" />
-				<span class="text-sm sm:text-base">{$t('wallet.receive.get_paid')}</span>
+				<IconCheck class="h-4 w-4 sm:h-5 sm:w-5" />
+				{$t('wallet.receive.generate_invoice')}
 			{/if}
 		</button>
 	</div>
-
-	<!-- Wallet Initialization Message (Bottom) -->
-	{#if $walletStore.isInitializing}
-		<div
-			class="bg-base-200 border-base-300 flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5 sm:px-4 sm:py-2"
-		>
-			<span class="loading loading-spinner loading-xs"></span>
-			<span class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.initializing')}</span>
-		</div>
-	{/if}
 </div>
