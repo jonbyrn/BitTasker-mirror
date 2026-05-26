@@ -41,7 +41,9 @@ workflow:
 
 stages:
   - validate
+  - build-android
   - deploy
+  - deploy-android
   - backup
 
 # ============================================
@@ -259,3 +261,130 @@ db-backup:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   environment:
     name: production
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANDROID — Google Play Store release pipeline (fastlane)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Internal testing: push v*-alpha* or v*-beta* tag on master → auto-deploy.
+# Production: push vX.Y.Z tag on master → manual gate (click play to release).
+#
+# Required CI/CD variables (set in GitLab → Settings → CI/CD → Variables):
+#   ANDROID_KEYSTORE_BASE64 — upload-keystore.jks base64-encoded (binary can't be a raw string var)
+#   ANDROID_KEYSTORE_STORE_PASSWORD, ANDROID_KEYSTORE_KEY_ALIAS, ANDROID_KEYSTORE_KEY_PASSWORD
+#   PLAY_STORE_CREDENTIALS_JSON — Google service account JSON (multi-line string var)
+#
+# Secrets are cleaned up in after_script (never stored in artifacts or on the runner).
+#
+# See docs/ci/play-store-pipeline.md for full setup instructions.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Gradle cache — speeds up Android builds by caching dependencies
+.android-cache:
+  cache:
+    - key:
+        files:
+          - android/build.gradle
+          - android/app/build.gradle
+      paths:
+        - .gradle/caches/
+      policy: pull-push
+    - key:
+        files:
+          - android/gradle/wrapper/gradle-wrapper.properties
+      paths:
+        - .gradle/wrapper/
+      policy: pull-push
+
+# ─── Android: Internal Testing (v*-alpha* or v*-beta* tag on master) ────────
+# Uses $CI_PIPELINE_ID as versionCode (always unique, always increasing).
+# versionName from tag (auto, no manual gate).
+# Decode upload keystore from base64 CI variable (binary can't be stored as raw string)
+# Generate keystore.properties from CI variables
+# Write service account credentials from CI variable
+android-build-internal:
+  extends: .android-cache
+  stage: build-android
+  image: reactnativecommunity/react-native-android:latest
+  tags:
+    - self-hosted
+  variables:
+    VERSION_CODE: $CI_PIPELINE_ID
+  before_script:
+    - |
+      export VERSION_NAME="${CI_COMMIT_TAG#v}"
+      echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
+      gem install bundler -v '~>2.5' --no-document
+      bundle install --quiet
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
+      cat > android/keystore.properties << EOF
+      storeFile=upload-keystore.jks
+      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
+      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
+      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
+      EOF
+      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+  script:
+    - bundle exec fastlane android internal
+  after_script:
+    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+  artifacts:
+    paths:
+      - android/app/build/outputs/bundle/release/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-(alpha|beta)/
+  environment:
+    name: internal-testing
+
+# ─── Android: Production release (manual gate, tag vX.Y.Z on master only) ──
+# versionCode is auto-incremented by fastlane (increment_version_code) and
+# committed back to the repo. versionName comes from the git tag.
+# Enforces that the tag is an ancestor of master before building.
+# ── Guard: tag must be on master ───────────────────────────────────────
+# ── versionName from tag ────────────────────────────────────────────────
+# ── Install Ruby + fastlane ─────────────────────────────────────────────
+# Decode upload keystore from base64 CI variable (binary can't be stored as raw string)
+# ── Generate signing config from CI variables ───────────────────────────
+# ── Write Play Store credentials ────────────────────────────────────────
+android-release-production:
+  extends: .android-cache
+  stage: deploy-android
+  image: reactnativecommunity/react-native-android:latest
+  tags:
+    - self-hosted
+  before_script:
+    - |
+      if ! git merge-base --is-ancestor "$CI_COMMIT_TAG" origin/master; then
+        echo "ERROR: Tag $CI_COMMIT_TAG is not on master. Production releases must be tagged from master."
+        exit 1
+      fi
+      export VERSION_NAME="${CI_COMMIT_TAG#v}"
+      echo "Production release: versionName=$VERSION_NAME (versionCode auto-incremented by fastlane)"
+      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
+      gem install bundler -v '~>2.5' --no-document
+      bundle install --quiet
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
+      cat > android/keystore.properties << EOF
+      storeFile=upload-keystore.jks
+      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
+      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
+      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
+      EOF
+      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+  script:
+    - bundle exec fastlane android production
+  after_script:
+    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+  artifacts:
+    paths:
+      - android/app/build/outputs/bundle/release/
+    expire_in: 30 days
+  when: manual
+  allow_failure: false
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  environment:
+    name: production
+    url: https://play.google.com/store/apps/details?id=com.bittasker.app

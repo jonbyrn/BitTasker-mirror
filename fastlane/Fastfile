@@ -1,0 +1,129 @@
+default_platform(:android)
+
+platform :android do
+  # Builds signed AAB and uploads to Internal Testing track
+  # Trigger: v*-alpha* or v*-beta* tag on master
+  # versionCode = $CI_PIPELINE_ID (always unique, always increasing — no commit-back needed)
+  # versionName = from tag (e.g., v1.1.8-alpha.1 → "1.1.8-alpha.1")
+  desc "Build and upload to Internal Testing"
+  lane :internal do
+    ensure_git_status_clean unless is_ci?
+
+    sh("npm", "ci") if is_ci?
+    sh("npm", "run", "build")
+    sh("npx", "cap", "sync", "android")
+
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/",
+      print_command: true
+    )
+
+    upload_to_play_store(
+      track: "internal",
+      release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_screenshots: true,
+      skip_upload_images: true
+    )
+  end
+
+  # Builds signed AAB and uploads to Production
+  # Trigger: vX.Y.Z tag on master (manual gate in CI)
+  # versionName = from tag (e.g., v1.1.8 → "1.1.8")
+  # versionCode = auto-incremented from build.gradle and committed back
+  desc "Build and upload to Production"
+  lane :production do
+    ensure_git_status_clean unless is_ci?
+
+    increment_version_code(
+      gradle_file_path: "android/app/build.gradle"
+    )
+
+    sh("npm", "ci") if is_ci?
+    sh("npm", "run", "build")
+    sh("npx", "cap", "sync", "android")
+
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/",
+      print_command: true
+    )
+
+    upload_to_play_store(
+      track: "production",
+      release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_screenshots: true,
+      skip_upload_images: true
+    )
+
+    commit_version_bump(
+      message: "ci: bump versionCode to #{lane_context[SharedValues::VERSION_CODE]} [skip ci]",
+      force: true
+    )
+    push_to_git_remote
+  end
+
+  # Builds signed AAB and uploads to Closed Testing track
+  # Trigger: v*-rc* tag on master
+  desc "Build and upload to Closed Testing"
+  lane :closed_testing do
+    ensure_git_status_clean unless is_ci?
+
+    sh("npm", "ci") if is_ci?
+    sh("npm", "run", "build")
+    sh("npx", "cap", "sync", "android")
+
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/",
+      print_command: true
+    )
+
+    upload_to_play_store(
+      track: "internal",
+      release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_screenshots: true,
+      skip_upload_images: true
+    )
+  end
+
+  # Promote internal release to closed testing
+  desc "Promote internal to closed testing"
+  lane :promote_to_closed do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "closed",
+      track_promote_release_status: "completed"
+    )
+  end
+
+  # Promote closed testing to production (no rebuild)
+  desc "Promote closed testing to production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      track: "closed",
+      track_promote_to: "production",
+      track_promote_release_status: "completed"
+    )
+  end
+
+  # Metadata-only update
+  desc "Update store listing metadata only"
+  lane :update_metadata do
+    upload_to_play_store(
+      track: "internal",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      metadata_path: "fastlane/metadata/android"
+    )
+  end
+end

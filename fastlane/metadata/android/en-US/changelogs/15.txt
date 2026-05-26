@@ -1,0 +1,1 @@
+Video support is here — add videos to tasks, services, and your portfolio. Stream them back with adaptive playback. The review system is now fully verifiable with cryptographic proof, so you know every review is authentic.
