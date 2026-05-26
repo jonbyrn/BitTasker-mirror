@@ -81,5 +81,8 @@ scripts/ignored/*
 ruvector.db
 agentdb.rvf
 
+# gitlab-ci-local state (auto-generated, do not commit)
+.gitlab-ci-local/
+
 # fastlane Play Store credentials (NEVER commit)
 fastlane/play-store-credentials.json

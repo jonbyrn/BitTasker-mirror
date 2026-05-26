@@ -286,7 +286,6 @@ db-backup:
         files:
           - android/build.gradle
           - android/app/build.gradle
-          - android/variables.gradle
       paths:
         - .gradle/caches/
       policy: pull-push
