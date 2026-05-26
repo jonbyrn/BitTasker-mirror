@@ -17,9 +17,11 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
+	import IconCash from '~icons/mdi/cash';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconWallet from '~icons/mdi/wallet';
-	import IconCellphoneLink from '~icons/mdi/cellphone-link';
+	import IconCellphoneLink from '~icons/mdi/usb-flash-drive';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
@@ -151,14 +153,6 @@
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
 
-	function openBankingMenu() {
-		bankingMenuOpen = true;
-		// Use tick to ensure dialog is in DOM before calling showModal
-		requestAnimationFrame(() => {
-			(document.getElementById('banking-menu-modal') as HTMLDialogElement)?.showModal();
-		});
-	}
-
 	function closeBankingMenu() {
 		bankingMenuOpen = false;
 		(document.getElementById('banking-menu-modal') as HTMLDialogElement)?.close();
@@ -179,11 +173,13 @@
 		}
 		function handleBuy() {
 			closeBankingMenu();
-			showBuySell = true;
+			// Delay by one frame so the browser finishes removing the
+			// <dialog> from the top layer before the Drawer mounts.
+			requestAnimationFrame(() => (showBuySell = true));
 		}
 		function handleSell() {
 			closeBankingMenu();
-			showBuySell = true;
+			requestAnimationFrame(() => (showBuySell = true));
 		}
 		function handleSwap() {
 			closeBankingMenu();
@@ -399,23 +395,21 @@
 						</button>
 					</div>
 
-					<!-- More Options Button -->
-					<div class="flex justify-center">
+					<!-- Swap / BuySell Buttons -->
+					<div class="flex flex-row gap-2 sm:gap-4">
 						<button
-							type="button"
-							class="btn btn-ghost btn-sm"
-							onclick={openBankingMenu}
-							aria-label={$t('wallet.more_options')}
+							class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
+							onclick={() => (showSwap = true)}
 						>
-							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 12h.01M12 12h.01M19 12h.01"
-								/>
-							</svg>
-							{$t('wallet.more_options')}
+							<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+							Swap
+						</button>
+						<button
+							class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
+							onclick={() => (showBuySell = true)}
+						>
+							<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+							Buy & Sell
 						</button>
 					</div>
 
@@ -428,7 +422,12 @@
 				</div>
 			{:else if activeTab === 'connected'}
 				<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-					<ConnectedWallets />
+					<ConnectedWallets
+						onSend={() => (showSendModal = true)}
+						onReceive={() => (showReceiveModal = true)}
+						onSwap={() => (showSwap = true)}
+						onBuySell={() => (showBuySell = true)}
+					/>
 				</div>
 			{/if}
 		{:else}
@@ -467,17 +466,8 @@
 <!-- Banking Menu Modal -->
 <BankingMenu onclose={closeBankingMenu} />
 
-<!-- Buy/Sell Modal -->
-{#if showBuySell}
-	<dialog class="modal modal-open">
-		<div class="modal-box max-w-md p-0">
-			<BuySellForm />
-		</div>
-		<form method="dialog" class="modal-backdrop">
-			<button type="button" onclick={() => (showBuySell = false)}>close</button>
-		</form>
-	</dialog>
-{/if}
+<!-- Buy/Sell Drawer -->
+<BuySellForm isOpen={showBuySell} onClose={() => (showBuySell = false)} />
 
 <!-- Swap Drawer -->
 <SwapForm isOpen={showSwap} onClose={() => (showSwap = false)} />

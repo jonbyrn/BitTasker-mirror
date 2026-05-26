@@ -537,6 +537,89 @@
 									</div>
 								</div>
 							</div>
+
+							<!-- What is USDT and how do I use it? -->
+							<div
+								class="collapse-arrow border-base-300 collapse rounded-lg border"
+								class:collapse-open={openFaqIndex === 4}
+							>
+								<button
+									type="button"
+									class="collapse-title text-base-content py-2 text-left text-sm font-medium sm:py-3 sm:text-base"
+									onclick={() => toggleFaq(4)}
+								>
+									What is USDT and how do I use it?
+								</button>
+								<div class="collapse-content">
+									<div class="space-y-2 sm:space-y-3">
+										<p class="text-base-content/80 text-xs sm:text-sm">
+											<strong>USDT (Tether)</strong> is a stablecoin — a digital dollar. Each USDT
+											is worth exactly $1. It runs on the <strong>Binance Smart Chain (BSC)</strong>
+											network, which means transactions are fast and cheap (often under $0.10).
+										</p>
+										<ul
+											class="text-base-content/70 list-inside list-disc space-y-0.5 text-xs sm:space-y-1"
+										>
+											<li>
+												<strong>Send USDT</strong> — Enter a BSC address and the amount in dollars. The
+												app routes it on-chain.
+											</li>
+											<li>
+												<strong>Receive USDT</strong> — Select the USDT tab, share your BSC address or
+												generate an invoice. The payer sends USDT from any supported chain.
+											</li>
+											<li>
+												<strong>Swap with rBTC</strong> — You can convert between rBTC (Rootstock Bitcoin)
+												and USDT using built-in swap routes (LI.FI or Symbiosis). This lets you pay for
+												services in whichever currency the other person prefers.
+											</li>
+										</ul>
+									</div>
+								</div>
+							</div>
+
+							<!-- Can I use my own wallet (MetaMask, Ledger)? -->
+							<div
+								class="collapse-arrow border-base-300 collapse rounded-lg border"
+								class:collapse-open={openFaqIndex === 5}
+							>
+								<button
+									type="button"
+									class="collapse-title text-base-content py-2 text-left text-sm font-medium sm:py-3 sm:text-base"
+									onclick={() => toggleFaq(5)}
+								>
+									Can I use my own wallet (MetaMask, Ledger)?
+								</button>
+								<div class="collapse-content">
+									<div class="space-y-2 sm:space-y-3">
+										<p class="text-base-content/80 text-xs sm:text-sm">
+											Yes. You can <strong>connect your own wallet</strong> — MetaMask, WalletConnect,
+											Trezor, or Ledger — from the Connected tab. This lets you:
+										</p>
+										<ul
+											class="text-base-content/70 list-inside list-disc space-y-0.5 text-xs sm:space-y-1"
+										>
+											<li>
+												<strong>Send payments</strong> directly from your connected wallet instead of
+												the built-in BitTasker wallet. When sending, pick your connected wallet as the
+												source.
+											</li>
+											<li>
+												<strong>Receive payments</strong> to your connected wallet's address. When creating
+												a receive request, select your connected wallet as the destination.
+											</li>
+											<li>
+												<strong>See all your balances</strong> in one place — the total balance card
+												at the top of the Connected tab shows the combined value across all your wallets.
+											</li>
+										</ul>
+										<p class="text-base-content/80 text-xs sm:text-sm">
+											Your wallet stays connected between visits. The app never has access to your
+											private keys — you confirm every transaction in your wallet.
+										</p>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
