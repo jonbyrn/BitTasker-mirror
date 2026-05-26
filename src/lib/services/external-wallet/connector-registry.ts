@@ -23,6 +23,15 @@ export class ConnectorRegistry {
 		this.connectors.set(handle.id, handle);
 	}
 
+	/**
+	 * Replace a connector handle WITHOUT calling unsubscribe() on the old
+	 * one — used during auto-reconnect where the SDK session must survive
+	 * the handle swap.
+	 */
+	replace(handle: ConnectorHandle): void {
+		this.connectors.set(handle.id, handle);
+	}
+
 	/** Unregister and clean up a connector. Idempotent — no-op if not found. */
 	unregister(id: string): void {
 		const handle = this.connectors.get(id);

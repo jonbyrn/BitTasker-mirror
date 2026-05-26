@@ -16,6 +16,8 @@ import type { ConnectorHandle } from '$lib/services/external-wallet/types';
 import type { ConnectedWalletState } from '$lib/services/external-wallet/types';
 import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 import { balancePoller } from '$lib/services/external-wallet/balance-poller';
+import { createDebug } from '$lib/utils/debug';
+const d = createDebug('connectedWallets');
 
 // ---------------------------------------------------------------------------
 // State
@@ -95,13 +97,13 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		}
 	).fetchBalances;
 	if (fetcher) {
-		console.log('[ConnectedWallets] SDK wallet, fetching balances immediately...');
+		d.log('SDK wallet, fetching balances immediately...');
 		fetcher()
 			.then((balances) => {
-				console.log('[ConnectedWallets] Initial balances:', balances);
+				d.log('Initial balances:', balances);
 				updateConnectedBalances(handle.id, balances);
 			})
-			.catch((e) => console.error('[ConnectedWallets] Initial fetch failed:', e));
+			.catch((e) => d.error('Initial fetch failed:', e));
 	}
 
 	// Start balance polling for this wallet
@@ -128,6 +130,65 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 				updateConnectedBalances(handle.id, {
 					native: { raw, formatted: `${whole}.${fraction}`, loading: false }
 				});
+			} catch {
+				// Polling errors are non-fatal
+			}
+		});
+	});
+
+	persistState();
+}
+
+/**
+ * Replace a wallet's live handle without disconnecting the SDK session.
+ * Used during auto-reconnect when the session is still valid — the old
+ * handle is swapped for a new one without calling unsubscribe().
+ */
+export function replaceConnectedWallet(handle: ConnectorHandle): void {
+	connectorRegistry.replace(handle);
+
+	balancePoller.stop(handle.id);
+
+	const entry: ConnectedWalletEntry = {
+		id: handle.id,
+		walletName: handle.walletName,
+		walletType: handle.walletType,
+		address: handle.address,
+		chainIds: handle.chainIds,
+		balances: {},
+		connectedAt: Date.now()
+	};
+
+	connectedWalletsStore.update((state) => ({
+		...state,
+		wallets: state.wallets.map((w) => (w.id === handle.id ? entry : w)),
+		activeWalletId: handle.id,
+		error: null,
+		connectingType: null
+	}));
+
+	// Fetch balances immediately
+	const fetcher = (
+		handle as {
+			fetchBalances?: () => Promise<
+				Record<string, { raw: string; formatted: string; loading: boolean }>
+			>;
+		}
+	).fetchBalances;
+	if (fetcher) {
+		fetcher()
+			.then((balances) => updateConnectedBalances(handle.id, balances))
+			.catch((e) => d.error('Initial fetch after replace failed:', e));
+	}
+
+	// Resume polling
+	balancePoller.init().then(() => {
+		balancePoller.start(handle.id, async () => {
+			try {
+				if (fetcher) {
+					const balances = await fetcher();
+					updateConnectedBalances(handle.id, balances);
+				}
 			} catch {
 				// Polling errors are non-fatal
 			}
@@ -196,21 +257,21 @@ async function persistState(): Promise<void> {
 		};
 		await Preferences.set({ key: PREFERENCES_KEY, value: JSON.stringify(toPersist) });
 	} catch (error) {
-		console.error('[ConnectedWallets] Failed to persist state:', error);
+		d.error('Failed to persist state:', error);
 	}
 }
 
 export async function restoreConnectedWalletState(): Promise<void> {
-	console.log(
-		'[ConnectedWallets] restoreConnectedWalletState called, flag:',
+	d.log(
+		'restoreConnectedWalletState called, flag:',
 		FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)
 	);
 	if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)) return;
 
 	try {
-		console.log('[ConnectedWallets] Reading Preferences...');
+		d.log('Reading Preferences...');
 		const { value } = await Preferences.get({ key: PREFERENCES_KEY });
-		console.log('[ConnectedWallets] Preferences value:', value ? 'found' : 'empty');
+		d.log('Preferences value:', value ? 'found' : 'empty');
 		if (!value) return;
 
 		const parsed: unknown = JSON.parse(value);
@@ -226,8 +287,17 @@ export async function restoreConnectedWalletState(): Promise<void> {
 			return;
 		}
 
-		// Restore all persisted wallets into the store.
-		// MetaMask Multichain SDK sessions auto-restore via silent reconnect.
+		// Only restore if the store is empty — on SvelteKit navigation the
+		// store already holds live wallet handles and must not be overwritten
+		// with stale persisted data (which would unregister live SDK handles
+		// and disconnect the MetaMask session).
+		const currentWallets = get(connectedWalletsStore).wallets;
+		if (currentWallets.length > 0) {
+			d.log('Store already has wallets, skipping restore from persistence');
+			return;
+		}
+
+		// Restore persisted wallets into the store (first load / page refresh).
 		connectedWalletsStore.update((state) => ({
 			...state,
 			wallets: parsed.wallets.map((w) => ({
@@ -254,7 +324,7 @@ export async function restoreConnectedWalletState(): Promise<void> {
 			}
 		})();
 	} catch (error) {
-		console.error('[ConnectedWallets] Failed to restore state:', error);
+		d.error('Failed to restore state:', error);
 		await Preferences.remove({ key: PREFERENCES_KEY });
 	}
 }

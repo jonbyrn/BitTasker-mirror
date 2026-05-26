@@ -1121,6 +1121,25 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 }
 
 /**
+ * Send a raw transaction with calldata (for contract interactions like LI.FI swaps).
+ */
+export async function sendRawTransaction(params: {
+	to: string;
+	data: string;
+	value: string;
+}): Promise<string> {
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
+	const tx = await wallet.sendTransaction({
+		to: params.to,
+		data: params.data,
+		value: params.value
+	});
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	return tx.hash;
+}
+
+/**
  * Send ERC-20 token transaction
  *
  * @param tokenAddress - ERC-20 token contract address

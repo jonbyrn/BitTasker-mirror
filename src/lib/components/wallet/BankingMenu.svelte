@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { isChangeallySwapsEnabled, isChangeallyFiatEnabled } from '$lib/services/kill-switch';
+	import {
+		isChangeallySwapsEnabled,
+		isChangeallyFiatEnabled,
+		isSymbiosisEnabled,
+		isLifiEnabled
+	} from '$lib/services/kill-switch';
 
 	// -----------------------------------------------------------------------
 	// Feature flags
 	// -----------------------------------------------------------------------
-	let swapsEnabled = $state(isChangeallySwapsEnabled());
+	let swapsEnabled = $state(isChangeallySwapsEnabled() || isSymbiosisEnabled() || isLifiEnabled());
 	let fiatEnabled = $state(isChangeallyFiatEnabled());
 
 	// -----------------------------------------------------------------------

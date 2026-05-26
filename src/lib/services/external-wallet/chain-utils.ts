@@ -34,7 +34,7 @@ export function encodeERC20Transfer(to: string, amount: bigint): string {
 }
 
 /** BSC USDT contract address for the current network. */
-export function getUSDTContractAddress(): string {
+export function getBSCUSDTContractAddress(): string {
 	const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 	if (bscNetwork === 'mainnet') {
 		return '0x55d398326f99059ff775485246999027b3197955';
