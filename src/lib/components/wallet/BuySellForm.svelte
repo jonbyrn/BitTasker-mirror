@@ -71,7 +71,7 @@
 	let digitalAssetOptions = $derived.by(() => {
 		const opts: { id: string; name: string; icon: string }[] = [
 			{ id: 'rbtc', name: 'Bitcoin (rBTC)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
-			{ id: 'usdt-bsc', name: 'USD (Binance)', icon: '/images/chains/Tether-USD.svg' }
+			{ id: 'usdt-bsc', name: 'USDT (Binance Smart Chain)', icon: '/images/chains/Tether-USD.svg' }
 		];
 		if (hasBtcWallet) {
 			opts.push({ id: 'btc-onchain', name: 'Bitcoin (BTC)', icon: '/images/chains/Bitcoin.svg' });
@@ -523,6 +523,9 @@
 							placeholder={isSatsField ? '0' : '0.00'}
 							bind:value={amount}
 							oninput={handleAmountInput}
+							onkeypress={(e) => {
+								if (isSatsField && e.key === '.') e.preventDefault();
+							}}
 							min="0"
 							step={isSatsField ? '1' : '0.01'}
 							pattern="[0-9]*"
@@ -652,12 +655,17 @@
 							</div>
 							<div class="text-sm font-semibold sm:text-base">
 								{#if quoteLoading}<span class="text-base-content/40">...</span>
-								{:else if quoteData}{activeTab === 'buy' ? estimatedReceive : estimatedSend}<span
-										class="text-base-content/60 ml-1 text-xs font-normal"
+								{:else if quoteData}<span
+										>{activeTab === 'sell' && selectedCrypto !== 'usdt-bsc'
+											? '$'
+											: ''}{activeTab === 'buy' ? estimatedReceive : estimatedSend}</span
+									><span class="text-base-content/60 ml-1 text-xs font-normal"
 										>{activeTab === 'buy'
-											? selectedCrypto === 'btc-onchain'
-												? 'BTC'
-												: selectedCrypto.toUpperCase()
+											? selectedCrypto === 'usdt-bsc'
+												? 'USDT'
+												: selectedCrypto === 'btc-onchain'
+													? 'BTC'
+													: 'rBTC'
 											: '$'}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
