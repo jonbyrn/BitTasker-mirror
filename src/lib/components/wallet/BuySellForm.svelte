@@ -505,27 +505,26 @@
 						<span class="label-text text-xs font-medium sm:text-sm">
 							Amount: {activeTab === 'buy'
 								? 'USD'
-								: selectedCrypto === 'rbtc'
-									? 'rBTC'
-									: selectedCrypto === 'usdt-bsc'
-										? 'USDT'
-										: 'BTC'}
+								: selectedCrypto === 'usdt-bsc'
+									? 'USDT'
+									: 'Sats'}
 						</span>
 					</label>
 					<div class="join w-full">
+						{@const isSatsField = activeTab === 'sell' && selectedCrypto !== 'usdt-bsc'}
 						<span
 							class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
-							>$</span
+							>{isSatsField ? '₿' : '$'}</span
 						>
 						<input
 							id="amount-input"
 							type="number"
 							class="input input-bordered join-item min-h-[48px] flex-1 text-base sm:min-h-[52px]"
-							placeholder="0.00"
+							placeholder={isSatsField ? '0' : '0.00'}
 							bind:value={amount}
 							oninput={handleAmountInput}
 							min="0"
-							step="0.01"
+							step={isSatsField ? '1' : '0.01'}
 							pattern="[0-9]*"
 							inputmode="numeric"
 						/>
