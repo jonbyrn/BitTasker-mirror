@@ -168,5 +168,6 @@ export interface ConnectedWalletState {
 		address: string;
 		chainIds: number[];
 		connectedAt: number;
+		btcAddress?: string;
 	}>;
 }

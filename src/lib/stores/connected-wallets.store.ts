@@ -33,6 +33,7 @@ export interface ConnectedWalletEntry {
 	chainIds: number[];
 	balances: Record<string, { raw: string; formatted: string; loading: boolean }>;
 	connectedAt: number;
+	btcAddress?: string;
 }
 
 export interface ConnectedWalletsState {
@@ -77,7 +78,10 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		address: handle.address,
 		chainIds: handle.chainIds,
 		balances: {},
-		connectedAt: Date.now()
+		connectedAt: Date.now(),
+		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
+			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
+			: undefined
 	};
 
 	connectedWalletsStore.update((state) => {
@@ -262,7 +266,8 @@ async function persistState(): Promise<void> {
 				walletType: w.walletType,
 				address: w.address,
 				chainIds: w.chainIds,
-				connectedAt: w.connectedAt
+				connectedAt: w.connectedAt,
+				...(w.btcAddress ? { btcAddress: w.btcAddress } : {})
 			}))
 		};
 		await Preferences.set({ key: PREFERENCES_KEY, value: JSON.stringify(toPersist) });
@@ -308,6 +313,8 @@ export async function restoreConnectedWalletState(): Promise<void> {
 		}
 
 		// Restore persisted wallets into the store (first load / page refresh).
+		// Also rebuild the connector registry entry for wallets with BTC data
+		// so the btcConnectedWallets derived check can find the bitcoinSigner.
 		connectedWalletsStore.update((state) => ({
 			...state,
 			wallets: parsed.wallets.map((w) => ({
@@ -317,9 +324,48 @@ export async function restoreConnectedWalletState(): Promise<void> {
 				address: w.address,
 				chainIds: w.chainIds,
 				balances: {},
-				connectedAt: w.connectedAt
+				connectedAt: w.connectedAt,
+				...(w.btcAddress ? { btcAddress: w.btcAddress } : {})
 			}))
 		}));
+
+		// Register a minimal handle in the connector registry for wallets that
+		// have BTC data. This allows the btcConnectedWallets derived check in
+		// ConnectedWallets.svelte to detect the Bitcoin signer without needing
+		// a live device connection (the address is available for display, real
+		// signing re-establishes transport on demand).
+		for (const w of parsed.wallets) {
+			if (w.btcAddress) {
+				const stubHandle = {
+					id: w.id,
+					walletName: w.walletName,
+					walletType: w.walletType,
+					address: w.address,
+					chainIds: w.chainIds,
+					provider: null,
+					onEvent: () => {},
+					unsubscribe: () => {},
+					bitcoinSigner: {
+						type: 'bitcoin' as const,
+						label: 'Ledger',
+						address: w.btcAddress,
+						xpub: '',
+						derivationPath: '',
+						getAddress: () => w.btcAddress ?? '',
+						getXPUB: () => '',
+						isConnected: () => true,
+						deriveChangeAddress: () => '',
+						sendBitcoin: async () => {
+							throw new Error('Reconnect Ledger to send Bitcoin');
+						},
+						signPSBT: async () => {
+							throw new Error('Reconnect Ledger to sign PSBT');
+						}
+					}
+				};
+				connectorRegistry.register(stubHandle);
+			}
+		}
 
 		// Trigger WalletConnect session restoration in background
 		// (must not throw into this try/catch)

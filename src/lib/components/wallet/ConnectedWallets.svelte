@@ -998,16 +998,12 @@
 								Your Ledger is connected via the Ethereum app. Would you like to also add
 								<strong>Bitcoin (BTC)</strong> support?
 							</p>
+							<p class="text-info text-xs leading-relaxed">
+								Open the <strong>Bitcoin (BTC) app</strong> on your Ledger device, then click Connect
+								below. The app must be open and showing "Bitcoin Ready".
+							</p>
 							<div class="flex w-full flex-col gap-2">
-								{#if ledgerBtcConnecting}
-									<div class="flex flex-col items-center gap-3">
-										<span class="loading loading-spinner loading-md text-info"></span>
-										<p class="text-base-content/70 text-xs leading-relaxed">
-											Please open the <strong>Bitcoin (BTC) app</strong> on your Ledger device to connect.
-											The app must be open and showing "Bitcoin Ready".
-										</p>
-									</div>
-								{:else if ledgerBtcError}
+								{#if ledgerBtcError}
 									<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
 										{ledgerBtcError}
 									</div>
