@@ -762,6 +762,8 @@
 								</div>
 							{/if}
 
+							<div class="divider my-0"></div>
+
 							<!-- EVM address row with chain indicator -->
 							<button
 								type="button"
