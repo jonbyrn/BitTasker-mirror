@@ -1,18 +1,34 @@
 /**
- * Ledger Connector — Hardware wallet for Bitcoin L1 + EVM chains.
+ * Ledger Connector — Hardware wallet for EVM + Bitcoin chains.
  *
- * Bitcoin: BIP86 Taproot (m/86'/0'/0' — bc1p... addresses)
+ * EVM-first approach:
+ * 1. Connect via WebUSB/BLE transport
+ * 2. Open the Ethereum app → derive EVM address (m/44'/60'/0'/0/0)
+ * 3. Optionally open the Bitcoin app → derive BTC xpub (best-effort, BIP86 → BIP84)
+ *
  * Transport: BLE on mobile, WebUSB on desktop.
  * Lazy-loaded: only imported when user taps "Connect Ledger".
+ * All signing methods re-establish transport on demand to avoid
+ * requiring a specific app to be open during initial connection.
  */
 
 import type { ConnectorHandle, EVMSigner, BitcoinSigner, BitcoinSendRequest } from './types';
 import type { Provider } from 'ethers';
 import type { ConnectorRegistry } from './connector-registry';
+import type Transport from '@ledgerhq/hw-transport';
 import { DeviceDisconnectedError } from './types';
 import { getPlatformInfo, getLedgerTransport } from './platform-checks';
 
-const BTC_TAPROOT_PATH = "m/86'/0'/0'";
+const ETH_DERIVATION_PATH = "m/44'/60'/0'/0/0";
+
+/** Bitcoin derivation paths tried in order (prefer Taproot, fall back to Native SegWit) */
+const BTC_DERIVATION_PATHS = [
+	{ path: "m/86'/0'/0'", purpose: 86, desc: 'Taproot (bc1p)' },
+	{ path: "m/84'/0'/0'", purpose: 84, desc: 'Native SegWit (bc1q)' }
+];
+
+/** Bitcoin mainnet xpub version bytes (0x04 0x88 0xb2 0x1e) */
+const BTC_XPUB_VERSION = 0x0488b21e;
 
 export interface LedgerConnectionConfig {
 	registry: ConnectorRegistry;
@@ -20,8 +36,12 @@ export interface LedgerConnectionConfig {
 	provider?: Provider;
 }
 
-export async function connectLedger(config: LedgerConnectionConfig): Promise<ConnectorHandle> {
-	const info = getPlatformInfo(config.navigator);
+// ---------------------------------------------------------------------------
+// Transport helpers
+// ---------------------------------------------------------------------------
+
+async function createLedgerTransport(navigator: Navigator): Promise<Transport> {
+	const info = getPlatformInfo(navigator);
 	const transportType = getLedgerTransport(info);
 
 	if (transportType === 'unavailable') {
@@ -31,50 +51,167 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 		);
 	}
 
-	let transport: { close(): Promise<void> };
-	let address: string;
-	let xpub: string;
+	if (transportType === 'ble') {
+		const BleTransport = (await import('@ledgerhq/hw-transport-web-ble')).default;
+		return (await BleTransport.create()) as unknown as Transport;
+	}
+	const UsbTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
+	return (await UsbTransport.create()) as unknown as Transport;
+}
 
+// ---------------------------------------------------------------------------
+// EVM: derive address from the Ethereum app
+// ---------------------------------------------------------------------------
+
+async function deriveEVMAddress(
+	transport: Transport
+): Promise<{ address: string; chainId: number }> {
+	const EthApp = (await import('@ledgerhq/hw-app-eth')).default;
+	const eth = new EthApp(transport);
+
+	// Derive the first address at m/44'/60'/0'/0/0
 	try {
-		if (transportType === 'ble') {
-			const BleTransport = (await import('@ledgerhq/hw-transport-web-ble')).default;
-			transport = (await BleTransport.create()) as unknown as { close(): Promise<void> };
-		} else {
-			const UsbTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
-			transport = (await UsbTransport.create()) as unknown as { close(): Promise<void> };
+		const result = await eth.getAddress(ETH_DERIVATION_PATH);
+		return { address: result.address, chainId: 30 };
+	} catch (e) {
+		if (e instanceof Error) {
+			const msg = e.message ?? '';
+			// 0x6511 = Ethereum app execution error (wrong app, locked device, etc.)
+			if (msg.includes('0x6511') || msg.includes('0x65')) {
+				throw new Error(
+					'Unable to connect to the Ethereum app. Please make sure the ' +
+						'Ethereum (ETH) app is open on your Ledger device, then try again.'
+				);
+			}
+			// 0x6e00 / 0x6d00 = wrong app or INS not supported
+			if (msg.includes('0x6e00') || msg.includes('0x6d00')) {
+				throw new Error(
+					'Please open the Ethereum (ETH) app on your Ledger device and try again. ' +
+						'The current app does not support this request.'
+				);
+			}
+			if (msg.includes('disconnect') || msg.includes('DISCONNECT')) {
+				throw new DeviceDisconnectedError('Ledger');
+			}
 		}
+		throw e;
+	}
+}
 
+// ---------------------------------------------------------------------------
+// Bitcoin: derive xpub + address (optional, best-effort)
+// ---------------------------------------------------------------------------
+
+interface BtcResult {
+	xpub: string;
+	address: string;
+	derivationPath: string;
+	purpose: number;
+}
+
+async function deriveBTCAddress(transport: Transport): Promise<BtcResult | null> {
+	try {
 		const BtcApp = (await import('@ledgerhq/hw-app-btc')).default;
-		const btc = new BtcApp({
-			transport: transport as unknown as import('@ledgerhq/hw-transport').default
-		}) as unknown as {
-			getWalletXpub(params: {
-				path: string;
-			}): Promise<{ publicKey: string; bitcoinAddress?: string }>;
-			close(): Promise<void>;
-		};
+		const btc = new BtcApp({ transport });
 
-		const xpubInfo = await btc.getWalletXpub({ path: BTC_TAPROOT_PATH });
-		xpub = xpubInfo.publicKey;
-		if (!xpubInfo.bitcoinAddress) {
-			throw new Error(
-				'Failed to derive Ledger Bitcoin address. Ensure the Bitcoin app is open on your device.'
-			);
+		for (const dp of BTC_DERIVATION_PATHS) {
+			try {
+				const result = await btc.getWalletXpub({
+					path: dp.path,
+					xpubVersion: BTC_XPUB_VERSION
+				});
+
+				// BtcNew returns a raw xpub string; BtcOld returns an object
+				let rawXpub: string;
+				if (typeof result === 'string') {
+					rawXpub = result;
+				} else {
+					rawXpub = (result as Record<string, string>).publicKey ?? '';
+				}
+				if (!rawXpub) continue;
+
+				// Derive the base address locally from xpub
+				const address = await deriveBitcoinAddress(rawXpub, dp.purpose);
+
+				return { xpub: rawXpub, address, derivationPath: dp.path, purpose: dp.purpose };
+			} catch (e) {
+				if (e instanceof Error) {
+					const msg = e.message ?? '';
+					if (msg.includes('disconnect')) {
+						throw new DeviceDisconnectedError('Ledger');
+					}
+					if (
+						msg.includes('0x6d') ||
+						msg.includes('UNKNOWN_ERROR') ||
+						msg.includes('TransportError') ||
+						msg.includes('device') ||
+						msg.includes('APP_NOT_FOUND') ||
+						msg.includes('CLA_NOT_SUPPORTED')
+					) {
+						continue; // try next path
+					}
+				}
+				throw e;
+			}
 		}
-		address = xpubInfo.bitcoinAddress;
-	} catch (error) {
-		if (error instanceof Error && error.message?.includes('disconnect')) {
-			throw new DeviceDisconnectedError('Ledger');
-		}
-		throw error;
+	} catch {
+		// Any error during BTC derivation is non-fatal — return null
+	}
+	return null;
+}
+
+// ---------------------------------------------------------------------------
+// Main connection entry point
+// ---------------------------------------------------------------------------
+
+export async function connectLedger(config: LedgerConnectionConfig): Promise<ConnectorHandle> {
+	const transport = await createLedgerTransport(config.navigator);
+
+	// Step 1: Derive EVM address (always succeeds, this is the primary)
+	const { address: evmAddress } = await deriveEVMAddress(transport);
+	const connectorId = `ledger-${evmAddress}`;
+
+	// Step 2: Optionally derive BTC (best-effort, user must switch to Bitcoin app)
+	const btcResult = await deriveBTCAddress(transport).catch(() => null);
+
+	transport.close().catch(() => {});
+
+	// Build signers
+	const evmSigner = buildEVMSigner(evmAddress, config);
+
+	let bitcoinSigner: BitcoinSigner | undefined;
+	if (btcResult) {
+		const changeDeriver = await initChangeDerivation(btcResult.xpub, btcResult.purpose);
+		bitcoinSigner = buildBitcoinSigner(
+			btcResult.address,
+			btcResult.xpub,
+			btcResult.derivationPath,
+			changeDeriver
+		);
 	}
 
-	// Pre-initialize BIP86 derivation for Taproot change addresses (lazy, cached)
-	const changeDeriver = await initChangeDerivation(xpub);
+	const handle: ConnectorHandle = {
+		id: connectorId,
+		walletName: 'Ledger',
+		walletType: 'ledger',
+		address: evmAddress,
+		chainIds: [30, 31, 56, 97],
+		provider: config.provider ?? null,
+		evmSigner,
+		...(bitcoinSigner ? { bitcoinSigner } : {}),
+		onEvent() {},
+		unsubscribe() {}
+	};
 
-	const connectorId = `ledger-${address}`;
+	return handle;
+}
 
-	const evmSigner: EVMSigner = {
+// ---------------------------------------------------------------------------
+// EVM signer builder
+// ---------------------------------------------------------------------------
+
+function buildEVMSigner(address: string, config: LedgerConnectionConfig): EVMSigner {
+	return {
 		type: 'evm' as const,
 		label: 'Ledger',
 		address,
@@ -85,24 +222,12 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 		isConnected(): boolean {
 			return true;
 		},
-		async sendTransaction(tx): Promise<{ txHash: string; from: string; chainId: number }> {
+		async sendTransaction(tx) {
 			const ethersModule = await import('ethers');
 			const EthApp = (await import('@ledgerhq/hw-app-eth')).default;
-
-			// Re-establish transport for signing
-			const transportType = getLedgerTransport(getPlatformInfo(config.navigator));
-			let transport: { close(): Promise<void> };
-			if (transportType === 'ble') {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-web-ble')
-				).default.create()) as unknown as { close(): Promise<void> };
-			} else {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-webusb')
-				).default.create()) as unknown as { close(): Promise<void> };
-			}
-
+			const transport = await createLedgerTransport(config.navigator);
 			const eth = new EthApp(transport);
+
 			const provider = config.provider as ethers.Provider | null;
 			const nonce = provider ? await provider.getTransactionCount(address) : 0;
 
@@ -123,9 +248,9 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 			unsignedTx.gasPrice =
 				(await provider?.getFeeData().catch(() => null))?.gasPrice || 1_000_000_000n;
 
-			const rawTx = unsignedTx.unsignedSerialized.slice(2); // strip 0x
+			const rawTx = unsignedTx.unsignedSerialized.slice(2);
 			const resolution = (await eth.resolveTransaction(
-				"m/44'/60'/0'/0/0",
+				ETH_DERIVATION_PATH,
 				rawTx,
 				{}
 			)) as unknown as { r: string; s: string; v: string };
@@ -144,13 +269,24 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 			return { txHash: txResponse.hash, from: address, chainId: tx.chainId };
 		}
 	};
+}
 
-	const bitcoinSigner: BitcoinSigner = {
+// ---------------------------------------------------------------------------
+// Bitcoin signer builder
+// ---------------------------------------------------------------------------
+
+function buildBitcoinSigner(
+	address: string,
+	xpub: string,
+	derivationPath: string,
+	changeDeriver: (index: number) => string
+): BitcoinSigner {
+	return {
 		type: 'bitcoin' as const,
 		label: 'Ledger',
 		address,
 		xpub,
-		derivationPath: BTC_TAPROOT_PATH,
+		derivationPath,
 		getAddress(): string {
 			return address;
 		},
@@ -216,21 +352,9 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 				psbt.addOutput({ address: output.address!, value: output.value } as unknown);
 			}
 
-			// Re-establish transport and sign
-			const transportType = getLedgerTransport(getPlatformInfo(config.navigator));
-			let transport: { close(): Promise<void> };
-			if (transportType === 'ble') {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-web-ble')
-				).default.create()) as unknown as { close(): Promise<void> };
-			} else {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-webusb')
-				).default.create()) as unknown as { close(): Promise<void> };
-			}
-
+			const transport = await createLedgerTransport(navigator);
 			const BtcApp = (await import('@ledgerhq/hw-app-btc')).default;
-			const btc = new BtcApp({ transport: transport as unknown as never }) as unknown as {
+			const btc = new BtcApp({ transport }) as unknown as {
 				signPSBT(psbtBase64: string): Promise<unknown>;
 			};
 
@@ -247,21 +371,9 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 			} as never;
 		},
 		async signPSBT(psbtB64: string): Promise<string> {
-			const transportType = getLedgerTransport(getPlatformInfo(config.navigator));
-			let transport: { close(): Promise<void> };
-			if (transportType === 'ble') {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-web-ble')
-				).default.create()) as unknown as { close(): Promise<void> };
-			} else {
-				transport = (await (
-					await import('@ledgerhq/hw-transport-webusb')
-				).default.create()) as unknown as { close(): Promise<void> };
-			}
+			const transport = await createLedgerTransport(navigator);
 			const BtcApp = (await import('@ledgerhq/hw-app-btc')).default;
-			const btc = new BtcApp({
-				transport: transport as unknown as import('@ledgerhq/hw-transport').default
-			}) as unknown as {
+			const btc = new BtcApp({ transport }) as unknown as {
 				signPSBT(psbtBase64: string): Promise<[string, string[]]>;
 				close(): Promise<void>;
 			};
@@ -270,65 +382,65 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 			return psbtB64;
 		}
 	};
-
-	const handle: ConnectorHandle = {
-		id: connectorId,
-		walletName: 'Ledger',
-		walletType: 'ledger',
-		address,
-		chainIds: [30, 31, 56, 97],
-		provider: config.provider ?? null,
-		evmSigner,
-		bitcoinSigner,
-		onEvent() {},
-		unsubscribe() {
-			transport.close().catch(() => {});
-		}
-	};
-
-	return handle;
 }
 
 // ---------------------------------------------------------------------------
-// Shared helper: BIP86 change-address derivation (lazy, cached)
+// Bitcoin address derivation from xpub
 // ---------------------------------------------------------------------------
 
-/**
- * Initialize BIP86 change address derivation from an xpub.
- *
- * Dynamically imports bip32 + bitcoinjs-lib at connection time so the
- * large libraries are never loaded unless a hardware wallet is connected.
- * Results are cached by address index.
- *
- * Derivation path: m/86'/0'/0'/1/{index}  (BIP86 change chain)
- */
-async function initChangeDerivation(xpub: string): Promise<(index: number) => string> {
-	try {
-		const { BIP32Factory } = await import('bip32');
-		const ecc = await import('tiny-secp256k1');
-		const { payments } = await import('bitcoinjs-lib');
+async function deriveBitcoinAddress(xpub: string, purpose: number): Promise<string> {
+	const { BIP32Factory } = await import('bip32');
+	const ecc = await import('tiny-secp256k1');
+	const { payments } = await import('bitcoinjs-lib');
 
-		const bip32 = BIP32Factory(ecc);
-		const masterNode = bip32.fromBase58(xpub);
-		const changeCache = new Map<number, string>();
+	const bip32 = BIP32Factory(ecc);
+	const masterNode = bip32.fromBase58(xpub);
+	const addressNode = masterNode.derive(0).derive(0);
 
-		return (index: number): string => {
-			const cached = changeCache.get(index);
-			if (cached) return cached;
-
-			// Derive m/86'/0'/0'/1/{index}
-			const changeNode = masterNode.derive(1).derive(index);
-
-			// toXOnly: strip the first byte (parity prefix) from the
-			// 33-byte compressed public key, leaving the 32-byte x-only key.
-			const internalPubkey = changeNode.publicKey.subarray(1, 33);
-			const address = payments.p2tr({ internalPubkey }).address!;
-			changeCache.set(index, address);
-			return address;
-		};
-	} catch (err) {
-		throw new Error(
-			`Failed to initialize change address derivation: ${err instanceof Error ? err.message : String(err)}`
-		);
+	if (purpose === 86) {
+		const internalPubkey = addressNode.publicKey.subarray(1, 33);
+		const addr = payments.p2tr({ internalPubkey }).address;
+		if (!addr) throw new Error('Failed to derive Taproot address');
+		return addr;
 	}
+
+	const addr = payments.p2wpkh({ pubkey: addressNode.publicKey }).address;
+	if (!addr) throw new Error('Failed to derive Native SegWit address');
+	return addr;
+}
+
+// ---------------------------------------------------------------------------
+// Change address derivation (BIP86 / BIP84)
+// ---------------------------------------------------------------------------
+
+async function initChangeDerivation(
+	xpub: string,
+	purpose: number
+): Promise<(index: number) => string> {
+	const { BIP32Factory } = await import('bip32');
+	const ecc = await import('tiny-secp256k1');
+	const { payments } = await import('bitcoinjs-lib');
+
+	const bip32 = BIP32Factory(ecc);
+	const masterNode = bip32.fromBase58(xpub);
+	const changeCache = new Map<number, string>();
+
+	return (index: number): string => {
+		const cached = changeCache.get(index);
+		if (cached) return cached;
+
+		const changeNode = masterNode.derive(1).derive(index);
+
+		let addr: string | undefined;
+		if (purpose === 86) {
+			const internalPubkey = changeNode.publicKey.subarray(1, 33);
+			addr = payments.p2tr({ internalPubkey }).address;
+		} else {
+			addr = payments.p2wpkh({ pubkey: changeNode.publicKey }).address;
+		}
+
+		if (!addr) throw new Error(`Failed to derive change address for index ${index}`);
+		changeCache.set(index, addr);
+		return addr;
+	};
 }
