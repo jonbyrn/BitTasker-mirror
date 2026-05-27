@@ -37,6 +37,18 @@
 	let copiedAddress = $state<string | null>(null);
 	let showLedgerConnect = $state(false);
 	let ledgerConnectError = $state('');
+	let showLedgerBtcStep = $state(false);
+	let ledgerBtcError = $state('');
+
+	// Which Ledger wallet IDs have Bitcoin connected (checked via connector registry)
+	let btcConnectedWallets = $derived.by(() => {
+		return $connectedWalletsStore.wallets
+			.filter((w) => {
+				const handle = connectorRegistry.get(w.id);
+				return handle && 'bitcoinSigner' in handle;
+			})
+			.map((w) => w.id);
+	});
 
 	// Callback props for parent page to open modals
 	let { onSend, onReceive, onSwap, onBuySell } = $props<{
@@ -462,27 +474,25 @@
 			return;
 		}
 
-		// Keep the connect modal open with a prompt screen
+		// Step 1: EVM — keep the modal open with a prompt screen
 		showLedgerConnect = true;
 		showConnectModal = true;
 		ledgerConnectError = '';
+		showLedgerBtcStep = false;
+		ledgerBtcError = '';
 		setConnectingType('ledger');
 
+		let handle: import('$lib/services/external-wallet/types').ConnectorHandle;
 		try {
 			const { connectLedger } = await import('$lib/services/external-wallet/ledger-connector');
-			const handle = await connectLedger({
+			handle = await connectLedger({
 				registry: connectorRegistry,
 				navigator: window.navigator
 			});
-			showLedgerConnect = false;
-			showConnectModal = false;
-			registerConnectedWallet(handle);
 		} catch (error) {
 			const msg =
 				error instanceof Error ? error.message : $t('wallet.connected.error_ledger_connect');
 
-			// If the error is about opening the Ethereum app, stay on the prompt
-			// screen so the user can try again. Other errors close the modal.
 			if (
 				msg.toLowerCase().includes('ethereum') ||
 				msg.toLowerCase().includes('open the') ||
@@ -490,6 +500,72 @@
 			) {
 				ledgerConnectError = msg;
 			} else {
+				showLedgerConnect = false;
+				showConnectModal = false;
+				setConnectedWalletError(msg);
+			}
+			return;
+		}
+
+		// Step 2: Register EVM, then ask if user wants to add Bitcoin
+		registerConnectedWallet(handle);
+		showLedgerConnect = true; // keep modal for BTC step
+		ledgerConnectError = '';
+		showLedgerBtcStep = true;
+		ledgerBtcError = '';
+	}
+
+	async function handleAddLedgerBitcoin(): Promise<void> {
+		const info = getPlatformInfo(window.navigator);
+		const transport = getLedgerTransport(info);
+		if (transport === 'unavailable') {
+			ledgerBtcError = $t('wallet.connected.error_ledger_platform');
+			return;
+		}
+
+		ledgerBtcError = '';
+		try {
+			const { addBitcoinToLedger } = await import('$lib/services/external-wallet/ledger-connector');
+			const result = await addBitcoinToLedger({
+				registry: connectorRegistry,
+				navigator: window.navigator
+			});
+
+			// Find the existing Ledger handle in the registry and add bitcoinSigner
+			const existingHandle = connectorRegistry.get(`ledger-${result.btcAddress}`) as
+				| import('$lib/services/external-wallet/types').ConnectorHandle
+				| null;
+
+			// Search by walletType since addresses may differ (EVM vs BTC)
+			const ledgerWallet = $connectedWalletsStore.wallets.find((w) => w.walletType === 'ledger');
+			if (ledgerWallet) {
+				const currentHandle = connectorRegistry.get(ledgerWallet.id);
+				if (currentHandle) {
+					const updatedHandle = {
+						...currentHandle,
+						bitcoinSigner: result.bitcoinSigner
+					} as import('$lib/services/external-wallet/types').ConnectorHandle & {
+						bitcoinSigner: import('$lib/services/external-wallet/types').BitcoinSigner;
+					};
+					replaceConnectedWallet(updatedHandle);
+				}
+			}
+
+			showLedgerBtcStep = false;
+			showLedgerConnect = false;
+			showConnectModal = false;
+		} catch (error) {
+			const msg =
+				error instanceof Error ? error.message : $t('wallet.connected.error_ledger_connect');
+
+			if (
+				msg.toLowerCase().includes('bitcoin') ||
+				msg.toLowerCase().includes('open the') ||
+				msg.toLowerCase().includes('ledger device')
+			) {
+				ledgerBtcError = msg;
+			} else {
+				showLedgerBtcStep = false;
 				showLedgerConnect = false;
 				showConnectModal = false;
 				setConnectedWalletError(msg);
@@ -680,8 +756,22 @@
 								</div>
 							{/if}
 
-							<!-- Disconnect button — min 44px, right-aligned -->
-							<div class="flex justify-end">
+							<!-- Connect Bitcoin / Disconnect buttons -->
+							<div class="flex flex-wrap items-center justify-end gap-2">
+								{#if wallet.walletType === 'ledger' && !btcConnectedWallets.includes(wallet.id)}
+									<button
+										class="btn btn-outline btn-sm min-h-[44px]"
+										onclick={() => {
+											showLedgerConnect = true;
+											showConnectModal = true;
+											showLedgerBtcStep = true;
+											ledgerBtcError = '';
+										}}
+									>
+										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+										Connect Bitcoin
+									</button>
+								{/if}
 								<button
 									class="btn btn-ghost btn-sm text-error min-h-[44px]"
 									onclick={() => confirmDisconnect(wallet.id)}
@@ -758,8 +848,8 @@
 					role="dialog"
 					aria-modal="true"
 				>
-					{#if showLedgerConnect}
-						<!-- Ledger Connecting / Prompt View -->
+					{#if showLedgerConnect && !showLedgerBtcStep}
+						<!-- Ledger Step 1: Connect Ethereum App -->
 						<div class="flex flex-col items-center gap-4 py-4 text-center">
 							<div class="bg-info/10 rounded-full p-4">
 								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-12 w-12" />
@@ -791,6 +881,57 @@
 							>
 								{$t('common.cancel')}
 							</button>
+						</div>
+					{:else if showLedgerBtcStep}
+						<!-- Ledger Step 2: Optional Bitcoin -->
+						<div class="flex flex-col items-center gap-4 py-4 text-center">
+							<div class="bg-success/10 rounded-full p-4">
+								<svg
+									class="text-success h-8 w-8"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/></svg
+								>
+							</div>
+							<h3 class="text-lg font-bold">Ethereum Connected</h3>
+							<p class="text-base-content/70 text-sm leading-relaxed">
+								Your Ledger is connected via the Ethereum app. Would you like to also add
+								<strong>Bitcoin (BTC)</strong> support?
+							</p>
+							<div class="flex w-full flex-col gap-2">
+								{#if ledgerBtcError}
+									<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
+										{ledgerBtcError}
+									</div>
+								{/if}
+								<button
+									class="btn btn-primary btn-block min-h-[44px]"
+									onclick={handleAddLedgerBitcoin}
+								>
+									{#if ledgerBtcError}
+										Try Again
+									{:else}
+										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-5 w-5" />
+										Connect Bitcoin
+									{/if}
+								</button>
+								<button
+									class="btn btn-ghost btn-block min-h-[44px]"
+									onclick={() => {
+										showLedgerBtcStep = false;
+										showLedgerConnect = false;
+										closeConnectModal();
+									}}
+								>
+									Skip — EVM only
+								</button>
+							</div>
 						</div>
 					{:else}
 						<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>

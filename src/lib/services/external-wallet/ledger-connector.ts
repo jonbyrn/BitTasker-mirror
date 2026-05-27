@@ -164,6 +164,36 @@ async function deriveBTCAddress(transport: Transport): Promise<BtcResult | null>
 // Main connection entry point
 // ---------------------------------------------------------------------------
 
+/**
+ * Connect to a Ledger and derive only the Bitcoin address/xpub.
+ * Used for the "Connect Bitcoin" sequential step and the "Connect Bitcoin"
+ * button on existing Ledger wallet cards.
+ */
+export async function addBitcoinToLedger(
+	config: LedgerConnectionConfig
+): Promise<{ bitcoinSigner: BitcoinSigner; xpub: string; btcAddress: string }> {
+	const transport = await createLedgerTransport(config.navigator);
+
+	const btcResult = await deriveBTCAddress(transport);
+	transport.close().catch(() => {});
+
+	if (!btcResult) {
+		throw new Error(
+			'Could not derive Bitcoin address. Please open the Bitcoin app on your Ledger device.'
+		);
+	}
+
+	const changeDeriver = await initChangeDerivation(btcResult.xpub, btcResult.purpose);
+	const bitcoinSigner = buildBitcoinSigner(
+		btcResult.address,
+		btcResult.xpub,
+		btcResult.derivationPath,
+		changeDeriver
+	);
+
+	return { bitcoinSigner, xpub: btcResult.xpub, btcAddress: btcResult.address };
+}
+
 export async function connectLedger(config: LedgerConnectionConfig): Promise<ConnectorHandle> {
 	const transport = await createLedgerTransport(config.navigator);
 
