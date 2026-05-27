@@ -44,10 +44,11 @@
 	}
 
 	$effect(() => {
-		if (!sourceInitialized) {
+		if ($connectedWalletsStore.wallets.length > 0 && !sourceInitialized) {
 			source = defaultWalletId();
 			sourceInitialized = true;
 		} else if (
+			sourceInitialized &&
 			source !== 'builtin' &&
 			!$connectedWalletsStore.wallets.some((w) => w.id === source)
 		) {
