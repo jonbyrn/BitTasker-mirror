@@ -7,49 +7,76 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
-	// Props
-	let { isOpen, onClose } = $props<{
-		isOpen: boolean;
-		onClose: () => void;
-	}>();
+	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
 
-	// State
 	let activeTab = $state<'buy' | 'sell'>('buy');
-	let selectedCrypto = $state<'rbtc' | 'usdt-bsc'>('rbtc');
+	let selectedCrypto = $state<'rbtc' | 'usdt-bsc' | 'btc-onchain'>('rbtc');
 	let amount = $state<string>('');
 	let bankDetails = $state<string>('');
-	let isLoading = $state<boolean>(false);
+	let isLoading = $state(false);
 	let quoteData = $state<{
 		estimatedAmount: string;
 		fee: string;
 		totalCost: string;
 		btcPrice: number;
 	} | null>(null);
-	let quoteLoading = $state<boolean>(false);
+	let quoteLoading = $state(false);
 
-	// Source wallet
-	let source = $state<string>('builtin');
+	let source = $state('builtin');
 	let sourceExpanded = $state(false);
 	let sourceInitialized = $state(false);
 
-	// Auto-select first connected wallet on first mount only
+	// % slider
+	let swapPercent = $state(0);
+
+	// Default wallet: built-in unless it's $0, then first connected wallet with balance > $0
+	function defaultWalletId(): string {
+		if ($walletStore.totalBalances.sats > 0 || $walletStore.totalBalances.usdt > 0)
+			return 'builtin';
+		const firstWithBalance = $connectedWalletsStore.wallets.find((w) => {
+			const b = w.balances;
+			if (!b) return false;
+			const sats = Number(b.btc?.raw ?? 0) + Number(b.rbtc?.raw ?? 0);
+			const usdt = Number(b.usdt?.raw ?? 0);
+			return sats > 0 || usdt > 0;
+		});
+		return firstWithBalance?.id ?? 'builtin';
+	}
+
 	$effect(() => {
-		if (!sourceInitialized && $connectedWalletsStore.wallets.length > 0) {
-			source = $connectedWalletsStore.wallets[0].id;
+		if (!sourceInitialized) {
+			source = defaultWalletId();
 			sourceInitialized = true;
 		} else if (
-			sourceInitialized &&
 			source !== 'builtin' &&
 			!$connectedWalletsStore.wallets.some((w) => w.id === source)
 		) {
-			// Wallet disconnected while selected — reset to built-in
 			source = 'builtin';
 		}
 	});
 
 	let isConnectedSource = $derived(source !== 'builtin');
 
-	// Wallet USD balance helpers
+	// BTC on-chain detection
+	let hasBtcWallet = $derived(
+		$connectedWalletsStore.wallets.some(
+			(w) =>
+				w.walletType === 'trezor' ||
+				w.walletType === 'ledger' ||
+				Number(w.balances?.btc?.raw ?? 0) > 0
+		)
+	);
+
+	let digitalAssetOptions = $derived.by(() => {
+		const opts: { id: string; name: string; icon: string }[] = [
+			{ id: 'rbtc', name: 'Bitcoin (rBTC)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
+			{ id: 'usdt-bsc', name: 'USD (Binance)', icon: '/images/chains/Tether-USD.svg' }
+		];
+		if (hasBtcWallet) {
+			opts.push({ id: 'btc-onchain', name: 'Bitcoin (BTC)', icon: '/images/chains/Bitcoin.svg' });
+		}
+		return opts;
+	});
 
 	function usdBalanceFor(wallet: { balances?: Record<string, { raw: string }> }): string {
 		const cur = wallet.balances;
@@ -77,7 +104,6 @@
 		});
 	}
 
-	// Balances
 	let rbtcBalance = $derived.by(() => {
 		if (isConnectedSource) {
 			const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
@@ -99,8 +125,7 @@
 	let rbtcBalanceDisplay = $derived.by(() => {
 		const sats = Math.round(parseFloat(rbtcBalance) * 100_000_000);
 		if (sats <= 0) return '0 Sats';
-		const btc = sats / 100_000_000;
-		const usd = btc * btcPrice.price;
+		const usd = (sats / 100_000_000) * btcPrice.price;
 		const usdStr =
 			usd >= 1
 				? usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -114,11 +139,6 @@
 		return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 	});
 
-	const digitalAssetOptions = [
-		{ id: 'rbtc', name: 'Bitcoin (rBTC)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
-		{ id: 'usdt-bsc', name: 'USD (Binance)', icon: '/images/chains/Tether-USD.svg' }
-	];
-
 	let estimatedReceive = $derived(
 		!amount || !selectedCrypto || !quoteData ? '0.00' : (quoteData.estimatedAmount ?? '0.00')
 	);
@@ -126,16 +146,14 @@
 		!amount || !selectedCrypto || !quoteData ? '0.00' : (quoteData.estimatedAmount ?? '0.00')
 	);
 
-	// Helpers
 	function convertToSats(value: string, tokenId: string): string {
 		if (!value) return '0';
-		const numAmount = parseFloat(value);
-		if (tokenId === 'rbtc') return Math.round(numAmount * 100000000).toLocaleString();
-		if (tokenId === 'usdt-bsc') return Math.round(numAmount * 100).toLocaleString();
+		const n = parseFloat(value);
+		if (tokenId === 'rbtc') return Math.round(n * 100000000).toLocaleString();
+		if (tokenId === 'usdt-bsc') return Math.round(n * 100).toLocaleString();
 		return value;
 	}
 
-	// Tab switching
 	function switchTab(tab: 'buy' | 'sell') {
 		if (tab === activeTab) return;
 		cancelQuoteFetch();
@@ -144,20 +162,18 @@
 		bankDetails = '';
 		quoteData = null;
 		quoteLoading = false;
+		swapPercent = 0;
 	}
 
-	// Crypto selection
 	function handleCryptoChange(cryptoId: string) {
-		if (cryptoId === 'rbtc' || cryptoId === 'usdt-bsc') {
-			cancelQuoteFetch();
-			selectedCrypto = cryptoId;
-			amount = '';
-			quoteData = null;
-			quoteLoading = false;
-		}
+		cancelQuoteFetch();
+		selectedCrypto = cryptoId as typeof selectedCrypto;
+		amount = '';
+		quoteData = null;
+		quoteLoading = false;
+		swapPercent = 0;
 	}
 
-	// Max amount
 	function setMaxAmount() {
 		triggerHaptic(ImpactStyle.Light);
 		let maxVal: string;
@@ -165,6 +181,9 @@
 			const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
 			if (selectedCrypto === 'rbtc') {
 				const raw = Number(w?.balances?.rbtc?.raw ?? 0);
+				maxVal = String(isNaN(raw) ? 0 : Math.floor(raw / 100_000_000));
+			} else if (selectedCrypto === 'btc-onchain') {
+				const raw = Number(w?.balances?.btc?.raw ?? 0);
 				maxVal = String(isNaN(raw) ? 0 : Math.floor(raw / 100_000_000));
 			} else {
 				const raw = Number(w?.balances?.usdt?.raw ?? 0);
@@ -174,10 +193,35 @@
 			maxVal = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance).toString() : usdtBalance;
 		}
 		amount = maxVal;
+		swapPercent = 100;
 		fetchQuoteForAmount(maxVal);
 	}
 
-	// Amount input
+	function applyPercent(pct: number) {
+		swapPercent = pct;
+		const w = isConnectedSource
+			? $connectedWalletsStore.wallets.find((w) => w.id === source)
+			: null;
+		let fullBalance: number;
+		if (isConnectedSource && w) {
+			if (selectedCrypto === 'rbtc')
+				fullBalance = Math.floor(Number(w.balances?.rbtc?.raw ?? 0) / 100_000_000);
+			else if (selectedCrypto === 'btc-onchain')
+				fullBalance = Math.floor(Number(w.balances?.btc?.raw ?? 0) / 100_000_000);
+			else fullBalance = Number(w.balances?.usdt?.raw ?? 0) / 1e18;
+		} else {
+			fullBalance = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance) : parseFloat(usdtBalance);
+		}
+		const val = (fullBalance * pct) / 100;
+		const precision = selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain' ? 6 : 2;
+		amount = val.toFixed(precision);
+		if (val > 0 && pct > 0) fetchQuoteForAmount(amount);
+		else {
+			quoteData = null;
+			quoteLoading = false;
+		}
+	}
+
 	function handleAmountInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const raw = input.value;
@@ -207,10 +251,9 @@
 			if (ctrl.signal.aborted) return;
 			await new Promise((resolve) => setTimeout(resolve, 500));
 			if (ctrl.signal.aborted) return;
-
 			const amt = parseFloat(rawAmount);
 			let estimatedAmount: string;
-			if (selectedCrypto === 'rbtc') {
+			if (selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain') {
 				estimatedAmount = (activeTab === 'buy' ? amt / price : amt * price).toFixed(
 					activeTab === 'buy' ? 6 : 2
 				);
@@ -231,20 +274,12 @@
 		}
 	}
 
-	// Submit
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		if (!amount || (activeTab === 'sell' && !bankDetails)) return;
 		isLoading = true;
 		try {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
-			console.log('Transaction initiated:', {
-				activeTab,
-				selectedCrypto,
-				amount,
-				bankDetails,
-				quoteData
-			});
 		} catch (error) {
 			console.error('Transaction failed:', error);
 		} finally {
@@ -260,8 +295,9 @@
 		quoteData = null;
 		quoteLoading = false;
 		isLoading = false;
-		source =
-			$connectedWalletsStore.wallets.length > 0 ? $connectedWalletsStore.wallets[0].id : 'builtin';
+		source = defaultWalletId();
+		sourceInitialized = false;
+		swapPercent = 0;
 		onClose();
 	}
 </script>
@@ -315,7 +351,7 @@
 			</button>
 		</div>
 
-		<!-- Source Wallet Accordion -->
+		<!-- Wallet Accordion -->
 		{#if $connectedWalletsStore.wallets.length > 0}
 			{@const builtinUsd = totalBuiltinUsd()}
 			<div class="form-control">
@@ -325,10 +361,10 @@
 				>
 					<button
 						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-6 text-sm font-medium"
+						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 pl-3 text-sm font-medium"
 						onclick={() => (sourceExpanded = !sourceExpanded)}
 					>
-						<span class="text-base-content/60">From:</span>
+						<span class="text-base-content/60">{activeTab === 'buy' ? 'To:' : 'From:'}</span>
 						{#if source === 'builtin'}
 							<img
 								src="/images/chains/Bitcoin-Rootstock-logo.webp"
@@ -340,7 +376,7 @@
 						{:else}
 							{@const w = $connectedWalletsStore.wallets.find((w) => w.id === source)}
 							{#if w}
-								<span class="text-lg"
+								<span class="shrink-0 text-lg"
 									>{w.walletType === 'metamask'
 										? '🦊'
 										: w.walletType === 'walletconnect'
@@ -371,8 +407,11 @@
 									alt="rBTC"
 									class="h-5 w-5 shrink-0"
 								/>
-								<span class="text-sm font-medium">BitTasker Wallet</span>
-								<span class="text-base-content/50 ml-auto text-xs tabular-nums">{builtinUsd}</span>
+								<div class="min-w-0 flex-1 text-left">
+									<div class="text-sm font-medium">BitTasker Wallet</div>
+								</div>
+								<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums">{builtinUsd}</span
+								>
 							</button>
 						</div>
 						<div class="divider my-1 text-xs">Connected</div>
@@ -388,7 +427,7 @@
 										sourceExpanded = false;
 									}}
 								>
-									<span class="text-lg"
+									<span class="shrink-0 text-lg"
 										>{wallet.walletType === 'metamask'
 											? '🦊'
 											: wallet.walletType === 'walletconnect'
@@ -415,7 +454,7 @@
 		<div class="space-y-2">
 			{#each digitalAssetOptions as asset (asset.id)}
 				{@const isSelected = selectedCrypto === asset.id}
-				{@const balanceText = asset.id === 'rbtc' ? rbtcBalanceDisplay : usdtBalanceDisplay}
+				{@const balanceText = asset.id === 'usdt-bsc' ? usdtBalanceDisplay : rbtcBalanceDisplay}
 				<button
 					type="button"
 					class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
@@ -455,8 +494,8 @@
 		<div class="bg-base-200 rounded-xl p-4 sm:p-5">
 			<div class="text-sm font-semibold sm:text-base">
 				{activeTab === 'buy'
-					? $t('wallet.buy_sell.buy_with_fiat')
-					: $t('wallet.buy_sell.sell_to_fiat')}
+					? 'Pay with debit / credit card or bank transfer'
+					: 'Sell to your bank account'}
 			</div>
 			<form onsubmit={handleSubmit} class="mt-3 space-y-4">
 				<div class="join w-full">
@@ -494,6 +533,27 @@
 					</button>
 				</div>
 
+				<!-- Percent Slider (sell only) -->
+				{#if activeTab === 'sell'}
+					<div class="form-control py-1">
+						<div class="flex items-center gap-3">
+							<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
+								>{swapPercent}%</span
+							>
+							<input
+								id="swap-percent"
+								type="range"
+								min="0"
+								max="100"
+								step="1"
+								value={swapPercent}
+								class="range range-primary range-sm flex-1"
+								oninput={(e) => applyPercent(parseInt((e.target as HTMLInputElement).value))}
+							/>
+						</div>
+					</div>
+				{/if}
+
 				{#if activeTab === 'sell'}
 					<div class="form-control">
 						<label for="bank-details" class="label py-1"
@@ -515,16 +575,18 @@
 					<div class="bg-base-100 flex items-center gap-3 rounded-xl p-3 sm:p-4">
 						<div class="bg-info/10 rounded-full p-2">
 							{#if quoteLoading}<span class="loading loading-spinner loading-sm text-info"></span>
-							{:else}
-								<svg class="text-info h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+							{:else}<svg
+									class="text-info h-5 w-5"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
 									><path
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
 										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 									/></svg
-								>
-							{/if}
+								>{/if}
 						</div>
 						<div class="min-w-0 flex-1">
 							<div class="text-base-content/60 text-xs sm:text-sm">
@@ -536,17 +598,30 @@
 								{#if quoteLoading}<span class="text-base-content/40">...</span>
 								{:else if quoteData}{activeTab === 'buy' ? estimatedReceive : estimatedSend}<span
 										class="text-base-content/60 ml-1 text-xs font-normal"
-										>{activeTab === 'buy' ? selectedCrypto.toUpperCase() : '$'}</span
+										>{activeTab === 'buy'
+											? selectedCrypto === 'btc-onchain'
+												? 'BTC'
+												: selectedCrypto.toUpperCase()
+											: '$'}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
 							</div>
-							{#if activeTab === 'buy' && quoteData}<div class="text-base-content/50 text-xs">
+							{#if activeTab === 'buy' && selectedCrypto !== 'usdt-bsc' && quoteData}
+								<div class="text-base-content/50 text-xs">
 									{convertToSats(estimatedReceive, selectedCrypto)} sats
-								</div>{/if}
+								</div>
+							{/if}
 						</div>
 					</div>
 				{/if}
 			</form>
+		</div>
+
+		<!-- Changelly KYC note -->
+		<div class="text-base-content/50 text-xs leading-relaxed">
+			Powered by <strong>Changelly</strong> and their banking partners. A one-time KYC (identity verification)
+			may be required for your first purchase or sale. This is handled securely by Changelly — BitTasker
+			never sees your documents.
 		</div>
 	</div>
 </Drawer>
