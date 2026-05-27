@@ -352,103 +352,102 @@
 		</div>
 
 		<!-- Wallet Accordion -->
-		{#if $connectedWalletsStore.wallets.length > 0}
-			{@const builtinUsd = totalBuiltinUsd()}
-			<div class="form-control">
-				<div
-					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-					class:collapse-open={sourceExpanded}
+		{@const builtinUsd = totalBuiltinUsd()}
+		<div class="form-control">
+			<div
+				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+				class:collapse-open={sourceExpanded}
+			>
+				<button
+					type="button"
+					class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 pl-3 text-sm font-medium"
+					onclick={() => (sourceExpanded = !sourceExpanded)}
 				>
-					<button
-						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 pl-3 text-sm font-medium"
-						onclick={() => (sourceExpanded = !sourceExpanded)}
-					>
-						<span class="text-base-content/60">{activeTab === 'buy' ? 'To:' : 'From:'}</span>
-						{#if source === 'builtin'}
+					<span class="text-base-content/60">{activeTab === 'buy' ? 'To:' : 'From:'}</span>
+					{#if source === 'builtin'}
+						<img
+							src="/images/chains/Bitcoin-Rootstock-logo.webp"
+							alt="rBTC"
+							class="h-5 w-5 shrink-0"
+						/>
+						<span class="font-medium">BitTasker Wallet</span>
+						<span class="text-base-content/50 ml-auto tabular-nums">{builtinUsd}</span>
+					{:else}
+						{@const w = $connectedWalletsStore.wallets.find((w) => w.id === source)}
+						{#if w}
+							<span class="shrink-0 text-lg"
+								>{w.walletType === 'metamask'
+									? '🦊'
+									: w.walletType === 'walletconnect'
+										? '🔗'
+										: w.walletType === 'trezor'
+											? '🔐'
+											: '💾'}</span
+							>
+							<span class="font-medium">{w.walletName}</span>
+							<span class="text-base-content/50 ml-auto tabular-nums">{usdBalanceFor(w)}</span>
+						{/if}
+					{/if}
+				</button>
+				<div class="collapse-content px-2">
+					<div class="space-y-1">
+						<button
+							class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {source ===
+							'builtin'
+								? 'bg-primary/10'
+								: 'hover:bg-base-200'}"
+							onmousedown={() => {
+								source = 'builtin';
+								sourceExpanded = false;
+							}}
+						>
 							<img
 								src="/images/chains/Bitcoin-Rootstock-logo.webp"
 								alt="rBTC"
 								class="h-5 w-5 shrink-0"
 							/>
-							<span class="font-medium">BitTasker Wallet</span>
-							<span class="text-base-content/50 ml-auto tabular-nums">{builtinUsd}</span>
-						{:else}
-							{@const w = $connectedWalletsStore.wallets.find((w) => w.id === source)}
-							{#if w}
-								<span class="shrink-0 text-lg"
-									>{w.walletType === 'metamask'
-										? '🦊'
-										: w.walletType === 'walletconnect'
-											? '🔗'
-											: w.walletType === 'trezor'
-												? '🔐'
-												: '💾'}</span
-								>
-								<span class="font-medium">{w.walletName}</span>
-								<span class="text-base-content/50 ml-auto tabular-nums">{usdBalanceFor(w)}</span>
-							{/if}
-						{/if}
-					</button>
-					<div class="collapse-content px-2">
-						<div class="space-y-1">
+							<div class="min-w-0 flex-1 text-left">
+								<div class="text-sm font-medium">BitTasker Wallet</div>
+							</div>
+							<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums">{builtinUsd}</span>
+						</button>
+					</div>
+					{#if $connectedWalletsStore.wallets.length > 0}
+						<div class="divider my-1 text-xs">Connected</div>
+					{/if}
+					<div class="space-y-1">
+						{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
 							<button
 								class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {source ===
-								'builtin'
+								wallet.id
 									? 'bg-primary/10'
 									: 'hover:bg-base-200'}"
 								onmousedown={() => {
-									source = 'builtin';
+									source = wallet.id;
 									sourceExpanded = false;
 								}}
 							>
-								<img
-									src="/images/chains/Bitcoin-Rootstock-logo.webp"
-									alt="rBTC"
-									class="h-5 w-5 shrink-0"
-								/>
+								<span class="shrink-0 text-lg"
+									>{wallet.walletType === 'metamask'
+										? '🦊'
+										: wallet.walletType === 'walletconnect'
+											? '🔗'
+											: wallet.walletType === 'trezor'
+												? '🔐'
+												: '💾'}</span
+								>
 								<div class="min-w-0 flex-1 text-left">
-									<div class="text-sm font-medium">BitTasker Wallet</div>
+									<div class="text-sm font-medium">{wallet.walletName}</div>
 								</div>
-								<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums">{builtinUsd}</span
+								<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums"
+									>{usdBalanceFor(wallet)}</span
 								>
 							</button>
-						</div>
-						<div class="divider my-1 text-xs">Connected</div>
-						<div class="space-y-1">
-							{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
-								<button
-									class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {source ===
-									wallet.id
-										? 'bg-primary/10'
-										: 'hover:bg-base-200'}"
-									onmousedown={() => {
-										source = wallet.id;
-										sourceExpanded = false;
-									}}
-								>
-									<span class="shrink-0 text-lg"
-										>{wallet.walletType === 'metamask'
-											? '🦊'
-											: wallet.walletType === 'walletconnect'
-												? '🔗'
-												: wallet.walletType === 'trezor'
-													? '🔐'
-													: '💾'}</span
-									>
-									<div class="min-w-0 flex-1 text-left">
-										<div class="text-sm font-medium">{wallet.walletName}</div>
-									</div>
-									<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums"
-										>{usdBalanceFor(wallet)}</span
-									>
-								</button>
-							{/each}
-						</div>
+						{/each}
 					</div>
 				</div>
 			</div>
-		{/if}
+		</div>
 
 		<!-- Digital Asset Selection -->
 		<div class="space-y-2">
@@ -530,7 +529,7 @@
 						{#if activeTab === 'sell'}
 							<button
 								type="button"
-								class="btn btn-outline join-item min-h-[48px] sm:min-h-[52px]"
+								class="btn btn-primary join-item min-h-[48px] rounded-r-lg sm:min-h-[52px]"
 								onclick={setMaxAmount}
 							>
 								{$t('wallet.max')}
@@ -552,7 +551,7 @@
 
 				<!-- Quick amount buttons (buy only) -->
 				{#if activeTab === 'buy'}
-					<div class="flex flex-wrap gap-2">
+					<div class="flex flex-wrap justify-center gap-2">
 						<button
 							type="button"
 							class="btn btn-ghost btn-sm border-base-300 border"
