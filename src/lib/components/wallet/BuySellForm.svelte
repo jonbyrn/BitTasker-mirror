@@ -56,6 +56,7 @@
 	});
 
 	let isConnectedSource = $derived(source !== 'builtin');
+	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt-bsc');
 
 	// BTC on-chain detection
 	let hasBtcWallet = $derived(
@@ -511,7 +512,6 @@
 						</span>
 					</label>
 					<div class="join w-full">
-						{@const isSatsField = activeTab === 'sell' && selectedCrypto !== 'usdt-bsc'}
 						<span
 							class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
 							>{isSatsField ? '₿' : '$'}</span
