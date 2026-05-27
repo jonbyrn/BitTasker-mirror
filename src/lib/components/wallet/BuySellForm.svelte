@@ -132,11 +132,23 @@
 
 	let digitalAssetOptions = $derived.by(() => {
 		const opts: { id: string; name: string; icon: string }[] = [
-			{ id: 'rbtc', name: 'Bitcoin (rBTC)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
-			{ id: 'usdt-bsc', name: 'USDT (Binance)', icon: '/images/chains/Tether-USD.svg' }
+			{
+				id: 'rbtc',
+				name: $t('wallet.buy_sell.bitcoin_rbtc'),
+				icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
+			},
+			{
+				id: 'usdt-bsc',
+				name: $t('wallet.buy_sell.usdt_binance'),
+				icon: '/images/chains/Tether-USD.svg'
+			}
 		];
 		if (hasBtcWallet) {
-			opts.push({ id: 'btc-onchain', name: 'Bitcoin (BTC)', icon: '/images/chains/Bitcoin.svg' });
+			opts.push({
+				id: 'btc-onchain',
+				name: $t('wallet.buy_sell.bitcoin_btc'),
+				icon: '/images/chains/Bitcoin.svg'
+			});
 		}
 		return opts;
 	});
@@ -376,11 +388,11 @@
 		});
 		try {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
-			appStore.showSuccessToast('Order submitted successfully');
+			appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
 			handleClose();
 		} catch (error) {
 			Sentry.captureException(error);
-			appStore.showErrorToast('Transaction failed. Please try again.');
+			appStore.showErrorToast($t('wallet.buy_sell.transaction_failed'));
 		} finally {
 			isLoading = false;
 		}
@@ -516,8 +528,8 @@
 		<div class="bg-base-200 rounded-xl p-4 sm:p-5">
 			<div class="text-sm font-semibold sm:text-base">
 				{activeTab === 'buy'
-					? 'Pay with debit / credit card or bank transfer'
-					: 'Sell to your bank account'}
+					? $t('wallet.buy_sell.pay_with_fiat_long')
+					: $t('wallet.buy_sell.sell_to_fiat_long')}
 			</div>
 			<form onsubmit={handleSubmit} class="mt-3 space-y-4">
 				<div class="form-control">
@@ -713,9 +725,7 @@
 
 		<!-- Changelly KYC note -->
 		<div class="text-base-content/50 text-xs leading-relaxed">
-			Powered by <strong>Changelly</strong> and their banking partners. A one-time KYC (identity verification)
-			may be required for your first purchase or sale. This is handled securely by Changelly — BitTasker
-			never sees your documents.
+			{$t('wallet.buy_sell.kyc_disclaimer')}
 		</div>
 	</div>
 </Drawer>

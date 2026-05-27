@@ -244,7 +244,7 @@
 				}
 			}
 		}
-		appStore.showSuccessToast('Balances refreshed');
+		appStore.showSuccessToast($t('wallet.connected.balances_refreshed'));
 	}
 
 	// With Multichain SDK, MetaMask connects to ALL configured chains simultaneously.
@@ -367,7 +367,7 @@
 		}
 		if (!isMetaMaskAvailable()) {
 			console.log('[ConnectedWallets] MetaMask not detected');
-			setConnectedWalletError('MetaMask not detected. Please install MetaMask to continue.');
+			setConnectedWalletError($t('wallet.connected.error_metamask_detection'));
 			return;
 		}
 		setConnectingType('metamask');
@@ -390,7 +390,8 @@
 			registerConnectedWallet(handle);
 		} catch (error) {
 			console.error('[ConnectedWallets] connectMetaMask FAILED:', error);
-			const message = error instanceof Error ? error.message : 'Failed to connect MetaMask';
+			const message =
+				error instanceof Error ? error.message : $t('wallet.connected.error_metamask_connect');
 			setConnectedWalletError(message);
 		}
 	}
@@ -408,7 +409,8 @@
 			});
 			registerConnectedWallet(handle);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'WalletConnect failed';
+			const message =
+				error instanceof Error ? error.message : $t('wallet.connected.error_walletconnect');
 			setConnectedWalletError(message);
 		} finally {
 			showWCModal = false;
@@ -426,7 +428,7 @@
 		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)) return;
 		const info = getPlatformInfo(window.navigator);
 		if (!isTrezorAvailable(info)) {
-			setConnectedWalletError('Trezor requires a desktop browser or Android with USB OTG.');
+			setConnectedWalletError($t('wallet.connected.error_trezor_platform'));
 			return;
 		}
 		setConnectingType('trezor');
@@ -440,7 +442,8 @@
 			});
 			registerConnectedWallet(handle);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to connect Trezor';
+			const message =
+				error instanceof Error ? error.message : $t('wallet.connected.error_trezor_connect');
 			setConnectedWalletError(message);
 		}
 	}
@@ -450,7 +453,7 @@
 		const info = getPlatformInfo(window.navigator);
 		const transport = getLedgerTransport(info);
 		if (transport === 'unavailable') {
-			setConnectedWalletError('Ledger requires Bluetooth (mobile) or USB (desktop).');
+			setConnectedWalletError($t('wallet.connected.error_ledger_platform'));
 			return;
 		}
 		setConnectingType('ledger');
@@ -464,7 +467,8 @@
 			});
 			registerConnectedWallet(handle);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to connect Ledger';
+			const message =
+				error instanceof Error ? error.message : $t('wallet.connected.error_ledger_connect');
 			setConnectedWalletError(message);
 		}
 	}
@@ -527,11 +531,13 @@
 								type="button"
 								class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl flex shrink-0 items-center gap-1 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:p-2"
 								onclick={toggleBalances}
-								aria-label={balancesHidden ? 'Show balances' : 'Hide balances'}
+								aria-label={balancesHidden
+									? $t('wallet.show_balances')
+									: $t('wallet.hide_balances')}
 							>
 								{#if balancesHidden}
 									<IconEyeOff class="h-6 w-6" />
-									<span class="text-xs font-semibold sm:text-sm">Show</span>
+									<span class="text-xs font-semibold sm:text-sm">{$t('wallet.show')}</span>
 								{:else}
 									<IconEye class="h-6 w-6" />
 									{#if countdownSeconds > 0}
@@ -549,7 +555,7 @@
 								type="button"
 								class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl shrink-0 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:p-2"
 								onclick={handleRefreshBalances}
-								aria-label="Refresh balances"
+								aria-label={$t('wallet.connected.refresh_balances')}
 							>
 								<IconRefresh class="h-6 w-6" />
 							</button>
@@ -579,7 +585,8 @@
 						{/if}
 						<span>{wallet.walletName}</span>
 						<span class="text-base-content/50 ml-auto truncate pr-2 text-sm font-normal">
-							{balancesHidden ? '•••• available' : stableWalletAvailableUsd(wallet) + ' available'}
+							{balancesHidden ? '••••' : stableWalletAvailableUsd(wallet)}
+							{$t('wallet.connected.available_label')}
 						</span>
 					</button>
 					<div class="collapse-content px-2">
@@ -683,14 +690,14 @@
 					onclick={() => onReceive?.()}
 				>
 					<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					Receive
+					{$t('wallet.tab_receive')}
 				</button>
 				<button
 					class="btn btn-secondary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
 					onclick={() => onSend?.()}
 				>
 					<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					Send
+					{$t('wallet.tab_send')}
 				</button>
 			</div>
 
@@ -700,14 +707,14 @@
 					onclick={() => onSwap?.()}
 				>
 					<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					Swap
+					{$t('wallet.tab_swap')}
 				</button>
 				<button
 					class="btn btn-outline border-primary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
 					onclick={() => onBuySell?.()}
 				>
 					<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					Buy/Sell
+					{$t('wallet.tab_buy_sell')}
 				</button>
 			</div>
 		{/if}

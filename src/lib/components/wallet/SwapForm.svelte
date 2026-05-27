@@ -693,7 +693,7 @@
 									if (sourceType !== 'rbtc') swapDirection();
 								}}
 							>
-								rBTC
+								{$t('wallet.rbtc')}
 							</button>
 							<button
 								type="button"
@@ -704,7 +704,7 @@
 									if (sourceType !== 'usdt-bsc') swapDirection();
 								}}
 							>
-								USDT
+								{$t('wallet.usdt')}
 							</button>
 						</div>
 					</div>
@@ -998,7 +998,7 @@
 						<div class="text-base-content/60 text-xs sm:text-sm">
 							{$t('wallet.swap.you_send')}
 						</div>
-						<div class="text-sm font-semibold sm:text-base">Bitcoin ({sourceAsset})</div>
+						<div class="text-sm font-semibold sm:text-base">{$t('wallet.btc')} ({sourceAsset})</div>
 					</div>
 					<div class="shrink-0 text-right">
 						<div class="text-sm font-bold sm:text-base">
