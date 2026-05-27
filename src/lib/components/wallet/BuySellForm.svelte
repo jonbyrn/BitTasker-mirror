@@ -498,40 +498,96 @@
 					: 'Sell to your bank account'}
 			</div>
 			<form onsubmit={handleSubmit} class="mt-3 space-y-4">
-				<div class="join w-full">
-					<input
-						id="amount-input"
-						type="number"
-						class="input input-bordered join-item min-h-[48px] flex-1 rounded-r-none text-base sm:min-h-[52px]"
-						placeholder={$t('wallet.buy_sell.enter_amount')}
-						bind:value={amount}
-						oninput={handleAmountInput}
-						min="0"
-						step="0.01"
-						pattern="[0-9]*"
-						inputmode="numeric"
-					/>
-					{#if activeTab === 'sell'}
+				<div class="form-control">
+					<label for="amount-input" class="label py-1">
+						<span class="label-text text-xs font-medium sm:text-sm">
+							Amount: {activeTab === 'buy'
+								? 'USD'
+								: selectedCrypto === 'rbtc'
+									? 'rBTC'
+									: selectedCrypto === 'usdt-bsc'
+										? 'USDT'
+										: 'BTC'}
+						</span>
+					</label>
+					<div class="join w-full">
+						<span class="btn btn-outline join-item min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
+							>$</span
+						>
+						<input
+							id="amount-input"
+							type="number"
+							class="input input-bordered join-item min-h-[48px] flex-1 rounded-none text-base sm:min-h-[52px]"
+							placeholder="0.00"
+							bind:value={amount}
+							oninput={handleAmountInput}
+							min="0"
+							step="0.01"
+							pattern="[0-9]*"
+							inputmode="numeric"
+						/>
+						{#if activeTab === 'sell'}
+							<button
+								type="button"
+								class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
+								onclick={setMaxAmount}
+								style="-webkit-tap-highlight-color: transparent;"
+							>
+								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
+							</button>
+						{/if}
+						<button
+							type="submit"
+							class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
+							disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
+						>
+							{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
+							<span class="text-xs sm:text-sm"
+								>{activeTab === 'buy'
+									? $t('wallet.buy_sell.buy')
+									: $t('wallet.buy_sell.sell')}</span
+							>
+						</button>
+					</div>
+				</div>
+
+				<!-- Quick amount buttons (buy only) -->
+				{#if activeTab === 'buy'}
+					<div class="flex flex-wrap gap-2">
 						<button
 							type="button"
-							class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
-							onclick={setMaxAmount}
-							style="-webkit-tap-highlight-color: transparent;"
+							class="btn btn-ghost btn-sm border-base-300 border"
+							onclick={() => {
+								amount = '10';
+								fetchQuoteForAmount('10');
+							}}>$10</button
 						>
-							<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
-						</button>
-					{/if}
-					<button
-						type="submit"
-						class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
-						disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
-					>
-						{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
-						<span class="text-xs sm:text-sm"
-							>{activeTab === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}</span
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm border-base-300 border"
+							onclick={() => {
+								amount = '20';
+								fetchQuoteForAmount('20');
+							}}>$20</button
 						>
-					</button>
-				</div>
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm border-base-300 border"
+							onclick={() => {
+								amount = '50';
+								fetchQuoteForAmount('50');
+							}}>$50</button
+						>
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm border-base-300 border"
+							onclick={() => {
+								amount = '100';
+								fetchQuoteForAmount('100');
+							}}>$100</button
+						>
+					</div>
+				{/if}
 
 				<!-- Percent Slider (sell only) -->
 				{#if activeTab === 'sell'}
