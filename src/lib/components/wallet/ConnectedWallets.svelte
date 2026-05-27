@@ -114,9 +114,12 @@
 	});
 
 	let satsBreakdownDisplay = $derived.by(() => {
-		if (balancesHidden)
-			return `${walletCount} wallet${walletCount === 1 ? '' : 's'} · •••• Sats + ••••`;
-		return `${walletCount} ${walletCount === 1 ? 'wallet' : 'wallets'} · ${stableSats} Sats + ${stableUsdt}`;
+		const walletLabel =
+			walletCount === 1
+				? $t('wallet.connected.wallet_singular')
+				: $t('wallet.connected.wallet_plural');
+		if (balancesHidden) return `${walletCount} ${walletLabel} · •••• Sats + ••••`;
+		return `${walletCount} ${walletLabel} · ${stableSats} Sats + ${stableUsdt}`;
 	});
 
 	function showBalances() {

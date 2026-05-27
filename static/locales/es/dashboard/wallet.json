@@ -31,6 +31,8 @@
 			"error_trezor_connect": "Error al conectar Trezor",
 			"error_ledger_platform": "Ledger requiere Bluetooth (m\u00f3vil) o USB (escritorio).",
 			"error_ledger_connect": "Error al conectar Ledger",
+			"wallet_singular": "billetera",
+			"wallet_plural": "billeteras",
 			"qr": {
 				"preparing": "Preparando c\u00f3digo QR...",
 				"initializing": "Inicializando conexi\u00f3n...",

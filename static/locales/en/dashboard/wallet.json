@@ -37,6 +37,8 @@
 			"error_trezor_connect": "Failed to connect Trezor",
 			"error_ledger_platform": "Ledger requires Bluetooth (mobile) or USB (desktop).",
 			"error_ledger_connect": "Failed to connect Ledger",
+			"wallet_singular": "wallet",
+			"wallet_plural": "wallets",
 			"qr": {
 				"preparing": "Preparing QR code...",
 				"initializing": "Initializing connection...",
