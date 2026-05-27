@@ -355,12 +355,12 @@
 				</div>
 			{/if}
 
-			{#if !walletsEnabled || activeTab === 'wallet'}
-				<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-					<!-- Balance Card with History and Accordions -->
-					<BalanceCard {isLoading} />
+			<!-- Balance Card (always visible across both tabs) -->
+			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+				<BalanceCard {isLoading} />
 
-					<!-- Transactions Button -->
+				<!-- Transactions Button (Wallet tab only) -->
+				{#if !walletsEnabled || activeTab === 'wallet'}
 					<div>
 						<button
 							type="button"
@@ -376,60 +376,61 @@
 							</div>
 						</button>
 					</div>
+				{/if}
 
-					<!-- Send and Receive Buttons -->
-					<div class="flex flex-row gap-2 sm:gap-4">
-						<button
-							class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
-							onclick={() => (showReceiveModal = true)}
-						>
-							<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-							{$t('wallet.tab_receive')}
-						</button>
-						<button
-							class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
-							onclick={() => (showSendModal = true)}
-						>
-							<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-							{$t('wallet.send_button')}
-						</button>
-					</div>
-
-					<!-- Swap / BuySell Buttons -->
-					<div class="flex flex-row gap-2 sm:gap-4">
-						<button
-							class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
-							onclick={() => (showSwap = true)}
-						>
-							<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-							Swap
-						</button>
-						<button
-							class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
-							onclick={() => (showBuySell = true)}
-						>
-							<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-							Buy & Sell
-						</button>
-					</div>
-
-					<!-- Learn More Section - Below buttons -->
-					<div class="flex justify-center">
-						<div class="text-base-content/70 text-xs sm:text-sm">
-							<HelpModal />
-						</div>
-					</div>
+				<!-- Send and Receive Buttons (always visible) -->
+				<div class="flex flex-row gap-2 sm:gap-4">
+					<button
+						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
+						onclick={() => (showReceiveModal = true)}
+					>
+						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						{$t('wallet.tab_receive')}
+					</button>
+					<button
+						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+						onclick={() => (showSendModal = true)}
+					>
+						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						{$t('wallet.send_button')}
+					</button>
 				</div>
-			{:else if activeTab === 'connected'}
-				<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+
+				<!-- Swap / BuySell Buttons (always visible) -->
+				<div class="flex flex-row gap-2 sm:gap-4">
+					<button
+						class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
+						onclick={() => (showSwap = true)}
+					>
+						<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						Swap
+					</button>
+					<button
+						class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
+						onclick={() => (showBuySell = true)}
+					>
+						<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						Buy & Sell
+					</button>
+				</div>
+
+				<!-- Connected Wallet List (only on connected tab) -->
+				{#if activeTab === 'connected'}
 					<ConnectedWallets
 						onSend={() => (showSendModal = true)}
 						onReceive={() => (showReceiveModal = true)}
 						onSwap={() => (showSwap = true)}
 						onBuySell={() => (showBuySell = true)}
 					/>
+				{/if}
+
+				<!-- Learn More Section - Below buttons -->
+				<div class="flex justify-center">
+					<div class="text-base-content/70 text-xs sm:text-sm">
+						<HelpModal />
+					</div>
 				</div>
-			{/if}
+			</div>
 		{:else}
 			<!-- No wallets connected - show setup options -->
 			<div class="py-12 text-center">
