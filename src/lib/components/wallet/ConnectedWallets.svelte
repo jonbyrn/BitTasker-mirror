@@ -795,19 +795,37 @@
 
 							<!-- Connect Bitcoin / Disconnect buttons -->
 							<div class="flex flex-wrap items-center justify-end gap-2">
-								{#if wallet.walletType === 'ledger' && !btcConnectedWallets.includes(wallet.id)}
-									<button
-										class="btn btn-outline btn-sm min-h-[44px]"
-										onclick={() => {
-											showLedgerConnect = true;
-											showConnectModal = true;
-											showLedgerBtcStep = true;
-											ledgerBtcError = '';
-										}}
-									>
-										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-										Connect Bitcoin
-									</button>
+								{#if wallet.walletType === 'ledger'}
+									{#if btcConnectedWallets.includes(wallet.id)}
+										<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
+											<svg
+												class="text-success h-4 w-4"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M5 13l4 4L19 7"
+												/></svg
+											>
+											Connected
+										</button>
+									{:else}
+										<button
+											class="btn btn-outline btn-sm min-h-[44px]"
+											onclick={() => {
+												showLedgerConnect = true;
+												showConnectModal = true;
+												showLedgerBtcStep = true;
+												ledgerBtcError = '';
+											}}
+										>
+											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+											Connect Bitcoin
+										</button>
+									{/if}
 								{/if}
 								<button
 									class="btn btn-ghost btn-sm text-error min-h-[44px]"
