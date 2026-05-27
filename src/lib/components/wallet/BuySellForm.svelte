@@ -510,14 +510,15 @@
 										: 'BTC'}
 						</span>
 					</label>
-					<div class="join w-full">
-						<span class="btn btn-outline join-item min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
+					<div class="relative">
+						<span
+							class="text-base-content/50 absolute top-1/2 left-3 -translate-y-1/2 text-sm select-none"
 							>$</span
 						>
 						<input
 							id="amount-input"
 							type="number"
-							class="input input-bordered join-item min-h-[48px] flex-1 rounded-none text-base sm:min-h-[52px]"
+							class="input input-bordered min-h-[48px] w-full pl-8 text-base sm:min-h-[52px]"
 							placeholder="0.00"
 							bind:value={amount}
 							oninput={handleAmountInput}
@@ -526,29 +527,30 @@
 							pattern="[0-9]*"
 							inputmode="numeric"
 						/>
-						{#if activeTab === 'sell'}
-							<button
-								type="button"
-								class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
-								onclick={setMaxAmount}
-								style="-webkit-tap-highlight-color: transparent;"
-							>
-								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
-							</button>
-						{/if}
-						<button
-							type="submit"
-							class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
-							disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
-						>
-							{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
-							<span class="text-xs sm:text-sm"
-								>{activeTab === 'buy'
-									? $t('wallet.buy_sell.buy')
-									: $t('wallet.buy_sell.sell')}</span
-							>
-						</button>
 					</div>
+				</div>
+
+				<div class="flex flex-row gap-2">
+					{#if activeTab === 'sell'}
+						<button
+							type="button"
+							class="btn btn-outline min-h-[48px] touch-manipulation active:scale-95 sm:min-h-[52px]"
+							onclick={setMaxAmount}
+							style="-webkit-tap-highlight-color: transparent;"
+						>
+							<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
+						</button>
+					{/if}
+					<button
+						type="submit"
+						class="btn btn-primary min-h-[48px] flex-1 touch-manipulation active:scale-95 sm:min-h-[52px]"
+						disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
+					>
+						{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
+						<span class="text-xs sm:text-sm"
+							>{activeTab === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}</span
+						>
+					</button>
 				</div>
 
 				<!-- Quick amount buttons (buy only) -->
