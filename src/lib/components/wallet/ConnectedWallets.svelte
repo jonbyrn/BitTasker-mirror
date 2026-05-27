@@ -40,6 +40,7 @@
 	let showLedgerBtcStep = $state(false);
 	let showLedgerBtcSuccess = $state(false);
 	let ledgerBtcError = $state('');
+	let ledgerBtcConnecting = $state(false);
 
 	// Which Ledger wallet IDs have Bitcoin connected (checked via connector registry)
 	let btcConnectedWallets = $derived.by(() => {
@@ -540,6 +541,7 @@
 		}
 
 		ledgerBtcError = '';
+		ledgerBtcConnecting = true;
 		try {
 			const { addBitcoinToLedger } = await import('$lib/services/external-wallet/ledger-connector');
 			const result = await addBitcoinToLedger({
@@ -564,6 +566,7 @@
 			}
 
 			// Show success briefly before closing
+			ledgerBtcConnecting = false;
 			showLedgerBtcStep = false;
 			showLedgerBtcSuccess = true;
 			await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -579,8 +582,10 @@
 				msg.toLowerCase().includes('open the') ||
 				msg.toLowerCase().includes('ledger device')
 			) {
+				ledgerBtcConnecting = false;
 				ledgerBtcError = msg;
 			} else {
+				ledgerBtcConnecting = false;
 				showLedgerBtcStep = false;
 				showLedgerConnect = false;
 				showConnectModal = false;
@@ -707,42 +712,6 @@
 					</button>
 					<div class="collapse-content px-2">
 						<div class="border-base-300 space-y-2 border-t pt-2">
-							<!-- Copy-able address -->
-							<button
-								type="button"
-								class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
-								onclick={() => copyAddress(wallet.address)}
-								title={$t('wallet.connected.copy_address_title')}
-							>
-								<span class="truncate text-right font-mono opacity-60">{wallet.address}</span>
-								<IconContentCopy
-									class="h-4 w-4 shrink-0 {copiedAddress === wallet.address
-										? 'text-success'
-										: 'opacity-40'}"
-								/>
-							</button>
-
-							<!-- BTC address (only shown when Bitcoin is connected) -->
-							{#if btcConnectedWallets.includes(wallet.id)}
-								{@const btcAddr = btcAddressFor[wallet.id] ?? ''}
-								{#if btcAddr}
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
-										onclick={() => copyAddress(btcAddr)}
-										title={$t('wallet.connected.copy_address_title')}
-									>
-										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
-										<span class="truncate text-right font-mono opacity-60">{btcAddr}</span>
-										<IconContentCopy
-											class="h-4 w-4 shrink-0 {copiedAddress === btcAddr
-												? 'text-success'
-												: 'opacity-40'}"
-										/>
-									</button>
-								{/if}
-							{/if}
-
 							<!-- Balances: by wallet type + available chains -->
 							{#if true}
 								{@const hideBal = balancesHidden}
@@ -793,11 +762,56 @@
 								</div>
 							{/if}
 
+							<!-- EVM address row with chain indicator -->
+							<button
+								type="button"
+								class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors"
+								onclick={() => copyAddress(wallet.address)}
+								title={$t('wallet.connected.copy_address_title')}
+							>
+								<div class="text-base-content/40 flex items-center gap-1">
+									<img
+										src="/images/chains/Bitcoin-Rootstock-logo.webp"
+										alt="RSK"
+										class="h-3.5 w-3.5"
+									/>
+									<span>rBTC / USDT</span>
+								</div>
+								<span class="ml-auto truncate font-mono opacity-60">{wallet.address}</span>
+								<IconContentCopy
+									class="h-4 w-4 shrink-0 {copiedAddress === wallet.address
+										? 'text-success'
+										: 'opacity-40'}"
+								/>
+							</button>
+
+							<!-- BTC address (only shown when Bitcoin is connected) -->
+							{#if btcConnectedWallets.includes(wallet.id)}
+								{@const btcAddr = btcAddressFor[wallet.id] ?? ''}
+								{#if btcAddr}
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
+										onclick={() => copyAddress(btcAddr)}
+										title={$t('wallet.connected.copy_address_title')}
+									>
+										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
+										<span class="truncate text-right font-mono opacity-60">{btcAddr}</span>
+										<IconContentCopy
+											class="h-4 w-4 shrink-0 {copiedAddress === btcAddr
+												? 'text-success'
+												: 'opacity-40'}"
+										/>
+									</button>
+								{/if}
+							{/if}
+
 							<!-- Connect Bitcoin / Disconnect buttons -->
 							<div class="flex flex-wrap items-center justify-end gap-2">
 								{#if wallet.walletType === 'ledger'}
 									{#if btcConnectedWallets.includes(wallet.id)}
 										<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
+											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
 											<svg
 												class="text-success h-4 w-4"
 												fill="none"
@@ -983,16 +997,28 @@
 								<strong>Bitcoin (BTC)</strong> support?
 							</p>
 							<div class="flex w-full flex-col gap-2">
-								{#if ledgerBtcError}
+								{#if ledgerBtcConnecting}
+									<div class="flex flex-col items-center gap-3">
+										<span class="loading loading-spinner loading-md text-info"></span>
+										<p class="text-base-content/70 text-xs leading-relaxed">
+											Please open the <strong>Bitcoin (BTC) app</strong> on your Ledger device to connect.
+											The app must be open and showing "Bitcoin Ready".
+										</p>
+									</div>
+								{:else if ledgerBtcError}
 									<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
 										{ledgerBtcError}
 									</div>
 								{/if}
 								<button
 									class="btn btn-primary btn-block min-h-[44px]"
+									disabled={ledgerBtcConnecting}
 									onclick={handleAddLedgerBitcoin}
 								>
-									{#if ledgerBtcError}
+									{#if ledgerBtcConnecting}
+										<span class="loading loading-spinner loading-sm"></span>
+										Connecting...
+									{:else if ledgerBtcError}
 										Try Again
 									{:else}
 										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-5 w-5" />
@@ -1001,6 +1027,7 @@
 								</button>
 								<button
 									class="btn btn-ghost btn-block min-h-[44px]"
+									disabled={ledgerBtcConnecting}
 									onclick={() => {
 										showLedgerBtcStep = false;
 										showLedgerConnect = false;
