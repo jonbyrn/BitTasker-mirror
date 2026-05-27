@@ -117,65 +117,35 @@ async function deriveBTCAddress(transport: Transport): Promise<BtcResult | null>
 
 		for (const dp of BTC_DERIVATION_PATHS) {
 			try {
-				// Try getWalletPublicKey first (recommended by Ledger docs for address
-				// derivation). Falls back to getWalletXpub + local derivation on some
-				// firmware combinations where getWalletPublicKey isn't supported.
-				let address = '';
-				let publicKey = '';
-				let chainCode = '';
+				// Get address + xpub from the device.
+				// getWalletPublicKey returns { publicKey, bitcoinAddress, chainCode }
+				// at a leaf-level path (m/{purpose}'/0'/0'/0/0). Then getWalletXpub
+				// returns the account-level xpub for change address derivation.
+				const format = (dp.purpose === 86 ? 'bech32m' : 'bech32') as 'bech32m' | 'bech32';
+				const leafPath = `${dp.path}/0/0`;
+				const pubKeyResult = await btc.getWalletPublicKey(leafPath, { format });
+				const address = pubKeyResult.bitcoinAddress;
+				if (!address) continue;
 
-				try {
-					const format = (dp.purpose === 86 ? 'bech32m' : 'bech32') as 'bech32m' | 'bech32';
-					const leafPath = `${dp.path}/0/0`;
-					const pubKeyResult = await btc.getWalletPublicKey(leafPath, { format });
-					address = pubKeyResult.bitcoinAddress ?? '';
-					publicKey = pubKeyResult.publicKey ?? '';
-					chainCode = pubKeyResult.chainCode ?? '';
-				} catch {
-					// getWalletPublicKey failed — will try getWalletXpub below
-				}
-
-				// Step 2: Get the xpub for change address derivation.
+				// Get the xpub for change address derivation
 				let rawXpub = '';
-				if (!address) {
-					// Fallback: use getWalletXpub (some firmware versions don't support
-					// getWalletPublicKey) + derive address locally
-					try {
-						const xpubResult = await btc.getWalletXpub({
-							path: dp.path,
-							xpubVersion: BTC_XPUB_VERSION
-						});
-						if (typeof xpubResult === 'string') {
-							rawXpub = xpubResult;
-						} else {
-							rawXpub = (xpubResult as Record<string, string>).publicKey ?? '';
-						}
-					} catch {
-						rawXpub = '';
+				try {
+					const xpubResult = await btc.getWalletXpub({
+						path: dp.path,
+						xpubVersion: BTC_XPUB_VERSION
+					});
+					if (typeof xpubResult === 'string') {
+						rawXpub = xpubResult;
+					} else {
+						rawXpub = (xpubResult as Record<string, string>).publicKey ?? '';
 					}
-					if (!rawXpub) continue;
-					address = await deriveBitcoinAddress(rawXpub, dp.purpose);
-				} else {
-					// getWalletPublicKey succeeded — now get the xpub
-					try {
-						const xpubResult = await btc.getWalletXpub({
-							path: dp.path,
-							xpubVersion: BTC_XPUB_VERSION
-						});
-						if (typeof xpubResult === 'string') {
-							rawXpub = xpubResult;
-						} else {
-							rawXpub = (xpubResult as Record<string, string>).publicKey ?? '';
-						}
-					} catch {
-						// xpub version mismatch — build from publicKey + chainCode
-					}
-					if (!rawXpub && publicKey && chainCode) {
-						rawXpub = await buildXpubFromPubkey(publicKey, chainCode);
-					}
+				} catch {
+					rawXpub = '';
 				}
-
-				if (!address || !rawXpub) continue;
+				if (!rawXpub && pubKeyResult.publicKey && pubKeyResult.chainCode) {
+					rawXpub = await buildXpubFromPubkey(pubKeyResult.publicKey, pubKeyResult.chainCode);
+				}
+				if (!rawXpub) continue;
 
 				return {
 					xpub: rawXpub,
@@ -509,27 +479,6 @@ async function buildXpubFromPubkey(publicKeyHex: string, chainCodeHex: string): 
 // Bitcoin address derivation from xpub (fallback when getWalletPublicKey
 // isn't supported by the device firmware)
 // ---------------------------------------------------------------------------
-
-async function deriveBitcoinAddress(xpub: string, purpose: number): Promise<string> {
-	const { BIP32Factory } = await import('bip32');
-	const ecc = await import('tiny-secp256k1');
-	const { payments } = await import('bitcoinjs-lib');
-
-	const bip32 = BIP32Factory(ecc);
-	const masterNode = bip32.fromBase58(xpub);
-	const addressNode = masterNode.derive(0).derive(0);
-
-	if (purpose === 86) {
-		const internalPubkey = addressNode.publicKey.subarray(1, 33);
-		const addr = payments.p2tr({ internalPubkey }).address;
-		if (!addr) throw new Error('Failed to derive Taproot address');
-		return addr;
-	}
-
-	const addr = payments.p2wpkh({ pubkey: addressNode.publicKey }).address;
-	if (!addr) throw new Error('Failed to derive Native SegWit address');
-	return addr;
-}
 
 // ---------------------------------------------------------------------------
 // Change address derivation (BIP86 / BIP84)
