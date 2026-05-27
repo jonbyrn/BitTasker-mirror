@@ -80,13 +80,23 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		connectedAt: Date.now()
 	};
 
-	connectedWalletsStore.update((state) => ({
-		...state,
-		wallets: [...state.wallets, entry],
-		activeWalletId: handle.id,
-		error: null,
-		connectingType: null
-	}));
+	connectedWalletsStore.update((state) => {
+		// Hardware wallets (Ledger, Trezor) can only have one active instance.
+		// If an old entry from persistence has a different address (e.g. BTC
+		// address from a previous session vs EVM address from a fresh connect),
+		// remove the stale entry before adding the new one.
+		const isHardware = handle.walletType === 'ledger' || handle.walletType === 'trezor';
+		const filtered = isHardware
+			? state.wallets.filter((w) => w.walletType !== handle.walletType)
+			: state.wallets.filter((w) => w.id !== handle.id);
+		return {
+			...state,
+			wallets: [...filtered, entry],
+			activeWalletId: handle.id,
+			error: null,
+			connectingType: null
+		};
+	});
 
 	// Fetch balances immediately, then start polling
 	const fetcher = (

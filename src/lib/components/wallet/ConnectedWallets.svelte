@@ -35,6 +35,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	let copiedAddress = $state<string | null>(null);
+	let showLedgerConnect = $state(false);
+	let ledgerConnectError = $state('');
 
 	// Callback props for parent page to open modals
 	let { onSend, onReceive, onSwap, onBuySell } = $props<{
@@ -459,8 +461,12 @@
 			setConnectedWalletError($t('wallet.connected.error_ledger_platform'));
 			return;
 		}
+
+		// Keep the connect modal open with a prompt screen
+		showLedgerConnect = true;
+		showConnectModal = true;
+		ledgerConnectError = '';
 		setConnectingType('ledger');
-		closeConnectModal();
 
 		try {
 			const { connectLedger } = await import('$lib/services/external-wallet/ledger-connector');
@@ -468,11 +474,26 @@
 				registry: connectorRegistry,
 				navigator: window.navigator
 			});
+			showLedgerConnect = false;
+			showConnectModal = false;
 			registerConnectedWallet(handle);
 		} catch (error) {
-			const message =
+			const msg =
 				error instanceof Error ? error.message : $t('wallet.connected.error_ledger_connect');
-			setConnectedWalletError(message);
+
+			// If the error is about opening the Ethereum app, stay on the prompt
+			// screen so the user can try again. Other errors close the modal.
+			if (
+				msg.toLowerCase().includes('ethereum') ||
+				msg.toLowerCase().includes('open the') ||
+				msg.toLowerCase().includes('ledger device')
+			) {
+				ledgerConnectError = msg;
+			} else {
+				showLedgerConnect = false;
+				showConnectModal = false;
+				setConnectedWalletError(msg);
+			}
 		}
 	}
 
@@ -737,67 +758,109 @@
 					role="dialog"
 					aria-modal="true"
 				>
-					<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>
-
-					<div class="space-y-2">
-						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
-								onclick={handleConnectMetaMask}
-							>
-								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-8 w-8" />
-								<div>
-									<div class="font-medium">MetaMask</div>
-									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
+					{#if showLedgerConnect}
+						<!-- Ledger Connecting / Prompt View -->
+						<div class="flex flex-col items-center gap-4 py-4 text-center">
+							<div class="bg-info/10 rounded-full p-4">
+								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-12 w-12" />
+							</div>
+							<h3 class="text-lg font-bold">Connect Ledger</h3>
+							{#if ledgerConnectError}
+								<div class="alert alert-warning py-2 text-xs leading-relaxed">
+									{ledgerConnectError}
 								</div>
-							</button>
-						{/if}
-
-						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETCONNECT)}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
-								onclick={handleConnectWC}
-							>
-								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-8 w-8" />
-								<div>
-									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
-									<div class="text-xs opacity-60">{$t('wallet.connected.walletconnect_desc')}</div>
+								<button class="btn btn-primary btn-sm min-h-[44px]" onclick={handleConnectLedger}>
+									Try Again
+								</button>
+							{:else}
+								<p class="text-base-content/70 text-sm leading-relaxed">
+									Please open the <strong>Ethereum (ETH) app</strong> on your Ledger device to connect.
+									The app must be open and showing "Ethereum Ready".
+								</p>
+								<div class="flex items-center gap-2">
+									<span class="loading loading-spinner loading-sm text-info"></span>
+									<span class="text-base-content/50 text-xs">Waiting for connection...</span>
 								</div>
-							</button>
-						{/if}
-
-						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)}
+							{/if}
 							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
-								onclick={handleConnectTrezor}
+								class="btn btn-ghost btn-sm mt-2"
+								onclick={() => {
+									showLedgerConnect = false;
+									closeConnectModal();
+								}}
 							>
-								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
-								<div>
-									<div class="font-medium">Trezor</div>
-									<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
-								</div>
+								{$t('common.cancel')}
 							</button>
-						{/if}
+						</div>
+					{:else}
+						<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>
 
-						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
-								onclick={handleConnectLedger}
+						<div class="space-y-2">
+							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
+								<button
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									onclick={handleConnectMetaMask}
+								>
+									<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-8 w-8" />
+									<div>
+										<div class="font-medium">MetaMask</div>
+										<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
+									</div>
+								</button>
+							{/if}
+
+							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETCONNECT)}
+								<button
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									onclick={handleConnectWC}
+								>
+									<img
+										src="/images/wallets/walletconnect.svg"
+										alt="WalletConnect"
+										class="h-8 w-8"
+									/>
+									<div>
+										<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
+										<div class="text-xs opacity-60">
+											{$t('wallet.connected.walletconnect_desc')}
+										</div>
+									</div>
+								</button>
+							{/if}
+
+							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)}
+								<button
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									onclick={handleConnectTrezor}
+								>
+									<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
+									<div>
+										<div class="font-medium">Trezor</div>
+										<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
+									</div>
+								</button>
+							{/if}
+
+							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)}
+								<button
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									onclick={handleConnectLedger}
+								>
+									<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
+									<div>
+										<div class="font-medium">Ledger</div>
+										<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
+									</div>
+								</button>
+							{/if}
+						</div>
+
+						<div class="mt-4">
+							<button class="btn btn-ghost btn-sm w-full" onclick={closeConnectModal}
+								>{$t('common.cancel')}</button
 							>
-								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
-								<div>
-									<div class="font-medium">Ledger</div>
-									<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
-								</div>
-							</button>
-						{/if}
-					</div>
-
-					<div class="mt-4">
-						<button class="btn btn-ghost btn-sm w-full" onclick={closeConnectModal}
-							>{$t('common.cancel')}</button
-						>
-					</div>
+						</div>
+					{/if}
 				</div>
 				<form method="dialog" class="modal-backdrop">
 					<button>{$t('wallet.connected.close')}</button>
