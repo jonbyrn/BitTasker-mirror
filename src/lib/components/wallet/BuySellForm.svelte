@@ -3,11 +3,71 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
-	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import {
+		connectedWalletsStore,
+		restoreConnectedWalletState,
+		replaceConnectedWallet
+	} from '$lib/stores/connected-wallets.store';
+	import WalletSelector from './WalletSelector.svelte';
+	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { get } from 'svelte/store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { appStore } from '$lib/stores/app.store';
+	import * as Sentry from '@sentry/sveltekit';
 
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
+
+	// Restore persisted connected wallets and try to reconnect for live balances.
+	// restoreConnectedWalletState restores metadata (name, address) but with empty
+	// balances — live SDK reconnection is needed to fetch balances. This mirrors the
+	// same reconnection logic in ConnectedWallets.svelte's onMount.
+	(async () => {
+		await restoreConnectedWalletState();
+		const wallets = get(connectedWalletsStore).wallets;
+
+		// MetaMask: auto-reconnect via SDK (silent if session exists)
+		const mmWallets = wallets.filter((w) => w.walletType === 'metamask');
+		for (const w of mmWallets) {
+			try {
+				const { connectMetaMask } = await import(
+					'$lib/services/external-wallet/metamask-connector'
+				);
+				const handle = await connectMetaMask({
+					registry: connectorRegistry,
+					onEvent: () => {},
+					knownAddress: w.address,
+					knownChainIds: w.chainIds,
+					longTimeout: true
+				});
+				replaceConnectedWallet(handle);
+			} catch {
+				// Auto-reconnect silently fails — wallet shows with $0 balance
+			}
+		}
+
+		// WalletConnect: restoreWC was already attempted inside
+		// restoreConnectedWalletState but its returned handle was discarded, leaving
+		// the store entry with empty balances. Try again and register the live handle.
+		const wcWallets = wallets.filter((w) => w.walletType === 'walletconnect');
+		for (const _ of wcWallets) {
+			try {
+				const { restoreWCSession } = await import(
+					'$lib/services/external-wallet/walletconnect-connector'
+				);
+				const handle = await restoreWCSession(() => {});
+				if (handle) {
+					replaceConnectedWallet(handle);
+				}
+			} catch {
+				// WalletConnect session restoration failed — shows $0 balance
+			}
+		}
+
+		// Trezor / Ledger are hardware wallets that require physical device
+		// interaction — no auto-reconnect is possible here. They show $0 balance
+		// until the user visits the Connected tab and reconnects.
+	})();
 
 	let activeTab = $state<'buy' | 'sell'>('buy');
 	let selectedCrypto = $state<'rbtc' | 'usdt-bsc' | 'btc-onchain'>('rbtc');
@@ -21,6 +81,7 @@
 		btcPrice: number;
 	} | null>(null);
 	let quoteLoading = $state(false);
+	let quoteError = $state(false);
 
 	let source = $state('builtin');
 	let sourceExpanded = $state(false);
@@ -164,6 +225,7 @@
 		bankDetails = '';
 		quoteData = null;
 		quoteLoading = false;
+		quoteError = false;
 		swapPercent = 0;
 	}
 
@@ -173,6 +235,7 @@
 		amount = '';
 		quoteData = null;
 		quoteLoading = false;
+		quoteError = false;
 		swapPercent = 0;
 	}
 
@@ -246,7 +309,8 @@
 	}
 
 	function handleAmountInput(e: Event) {
-		const input = e.target as HTMLInputElement;
+		const input = e.target;
+		if (!(input instanceof HTMLInputElement)) return;
 		const raw = input.value;
 		amount = raw;
 		if (raw && parseFloat(raw) > 0) {
@@ -269,6 +333,8 @@
 		const ctrl = new AbortController();
 		quoteAbort = ctrl;
 		quoteLoading = true;
+		quoteError = false;
+		Sentry.addBreadcrumb({ category: 'wallet', message: 'Fetching buy/sell quote', level: 'info' });
 		try {
 			const price = await cryptoPriceService.getCurrentPrice('BTC');
 			if (ctrl.signal.aborted) return;
@@ -288,6 +354,8 @@
 		} catch (error) {
 			if (ctrl.signal.aborted) return;
 			console.error('Failed to fetch quote:', error);
+			Sentry.captureException(error);
+			quoteError = true;
 			quoteData = null;
 		} finally {
 			if (!ctrl.signal.aborted) {
@@ -301,10 +369,18 @@
 		event.preventDefault();
 		if (!amount || (activeTab === 'sell' && !bankDetails)) return;
 		isLoading = true;
+		Sentry.addBreadcrumb({
+			category: 'wallet',
+			message: 'Submitting buy/sell order',
+			level: 'info'
+		});
 		try {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
+			appStore.showSuccessToast('Order submitted successfully');
+			handleClose();
 		} catch (error) {
-			console.error('Transaction failed:', error);
+			Sentry.captureException(error);
+			appStore.showErrorToast('Transaction failed. Please try again.');
 		} finally {
 			isLoading = false;
 		}
@@ -317,6 +393,7 @@
 		bankDetails = '';
 		quoteData = null;
 		quoteLoading = false;
+		quoteError = false;
 		isLoading = false;
 		source = defaultWalletId();
 		sourceInitialized = false;
@@ -336,13 +413,16 @@
 	<div class="flex flex-col gap-4">
 		<!-- Tab Bar -->
 		<div
-			class="tabs tabs-boxed tabs-reversed border-base-300 mb-1 shrink-0 overflow-hidden rounded-lg border sm:mb-2"
+			class="tabs tabs-boxed border-base-300 mb-1 shrink-0 overflow-hidden rounded-lg border sm:mb-2"
+			role="tablist"
 		>
 			<button
-				class="tab flex-1"
+				class="tab min-h-[44px] flex-1"
 				class:bg-primary={activeTab === 'buy'}
 				class:text-primary-content={activeTab === 'buy'}
 				class:tab-active={activeTab === 'buy'}
+				role="tab"
+				aria-selected={activeTab === 'buy'}
 				onclick={() => switchTab('buy')}
 			>
 				<svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -356,10 +436,12 @@
 				{$t('wallet.buy_sell.buy')}
 			</button>
 			<button
-				class="tab flex-1"
+				class="tab min-h-[44px] flex-1"
 				class:bg-primary={activeTab === 'sell'}
 				class:text-primary-content={activeTab === 'sell'}
 				class:tab-active={activeTab === 'sell'}
+				role="tab"
+				aria-selected={activeTab === 'sell'}
 				onclick={() => switchTab('sell')}
 			>
 				<svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -375,105 +457,20 @@
 		</div>
 
 		<!-- Wallet Accordion -->
-		{#if true}
-			{@const builtinUsd = totalBuiltinUsd()}
-			<div class="form-control">
-				<div
-					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-					class:collapse-open={sourceExpanded}
-				>
-					<button
-						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 pl-3 text-sm font-medium"
-						onclick={() => (sourceExpanded = !sourceExpanded)}
-					>
-						<span class="text-base-content/60">{activeTab === 'buy' ? 'To:' : 'From:'}</span>
-						{#if source === 'builtin'}
-							<img
-								src="/images/chains/Bitcoin-Rootstock-logo.webp"
-								alt="rBTC"
-								class="h-5 w-5 shrink-0"
-							/>
-							<span class="font-medium">BitTasker Wallet</span>
-							<span class="text-base-content/50 ml-auto tabular-nums">{builtinUsd}</span>
-						{:else}
-							{@const w = $connectedWalletsStore.wallets.find((w) => w.id === source)}
-							{#if w}
-								<span class="shrink-0 text-lg"
-									>{w.walletType === 'metamask'
-										? '🦊'
-										: w.walletType === 'walletconnect'
-											? '🔗'
-											: w.walletType === 'trezor'
-												? '🔐'
-												: '💾'}</span
-								>
-								<span class="font-medium">{w.walletName}</span>
-								<span class="text-base-content/50 ml-auto tabular-nums">{usdBalanceFor(w)}</span>
-							{/if}
-						{/if}
-					</button>
-					<div class="collapse-content px-2">
-						<div class="space-y-1">
-							<button
-								class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {source ===
-								'builtin'
-									? 'bg-primary/10'
-									: 'hover:bg-base-200'}"
-								onmousedown={() => {
-									source = 'builtin';
-									sourceExpanded = false;
-								}}
-							>
-								<img
-									src="/images/chains/Bitcoin-Rootstock-logo.webp"
-									alt="rBTC"
-									class="h-5 w-5 shrink-0"
-								/>
-								<div class="min-w-0 flex-1 text-left">
-									<div class="text-sm font-medium">BitTasker Wallet</div>
-								</div>
-								<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums">{builtinUsd}</span
-								>
-							</button>
-						</div>
-						{#if $connectedWalletsStore.wallets.length > 0}
-							<div class="divider my-1 text-xs">Connected</div>
-						{/if}
-						<div class="space-y-1">
-							{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
-								<button
-									class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {source ===
-									wallet.id
-										? 'bg-primary/10'
-										: 'hover:bg-base-200'}"
-									onmousedown={() => {
-										source = wallet.id;
-										sourceExpanded = false;
-									}}
-								>
-									<span class="shrink-0 text-lg"
-										>{wallet.walletType === 'metamask'
-											? '🦊'
-											: wallet.walletType === 'walletconnect'
-												? '🔗'
-												: wallet.walletType === 'trezor'
-													? '🔐'
-													: '💾'}</span
-									>
-									<div class="min-w-0 flex-1 text-left">
-										<div class="text-sm font-medium">{wallet.walletName}</div>
-									</div>
-									<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums"
-										>{usdBalanceFor(wallet)}</span
-									>
-								</button>
-							{/each}
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
+		<WalletSelector
+			label={activeTab === 'buy' ? $t('wallet.to') + ':' : $t('wallet.from') + ':'}
+			selectedId={source}
+			onSelect={(id) => (source = id)}
+			builtinBalance={totalBuiltinUsd()}
+			connectedWallets={$connectedWalletsStore.wallets}
+			walletBalanceFor={(id) => {
+				if (id === 'builtin') return totalBuiltinUsd();
+				const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
+				return w ? usdBalanceFor(w) : '$0.00';
+			}}
+			expanded={sourceExpanded}
+			onToggle={() => (sourceExpanded = !sourceExpanded)}
+		/>
 
 		<!-- Digital Asset Selection -->
 		<div class="space-y-2">
@@ -524,56 +521,46 @@
 			</div>
 			<form onsubmit={handleSubmit} class="mt-3 space-y-4">
 				<div class="form-control">
-					<label for="amount-input" class="label py-1">
-						<span class="label-text text-xs font-medium sm:text-sm">
-							Amount: {activeTab === 'buy'
-								? 'USD'
-								: selectedCrypto === 'usdt-bsc'
-									? 'USDT'
-									: 'Sats'}
-						</span>
-					</label>
-					<div class="join w-full">
-						<span
-							class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
-							>{isSatsField ? '₿' : '$'}</span
-						>
-						<input
-							id="amount-input"
-							type="number"
-							class="input input-bordered join-item min-h-[48px] flex-1 text-base sm:min-h-[52px]"
-							placeholder={isSatsField ? '0' : '0.00'}
-							bind:value={amount}
-							oninput={handleAmountInput}
-							onkeypress={(e) => {
-								if (isSatsField && e.key === '.') e.preventDefault();
-							}}
-							min="0"
-							step={isSatsField ? '1' : '0.01'}
-							pattern="[0-9]*"
-							inputmode="numeric"
-						/>
-						{#if activeTab === 'sell'}
-							<button
-								type="button"
-								class="btn btn-primary join-item min-h-[48px] rounded-r-lg sm:min-h-[52px]"
-								onclick={setMaxAmount}
+					<div class="flex items-start gap-2">
+						<div class="join min-w-0 flex-1">
+							<span
+								class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
+								>{isSatsField ? '₿' : '$'}</span
 							>
-								{$t('wallet.max')}
-							</button>
-						{/if}
+							<input
+								id="amount-input"
+								type="number"
+								class="input input-bordered join-item min-h-[48px] flex-1 text-base sm:min-h-[52px]"
+								placeholder={isSatsField ? '0' : '0.00'}
+								bind:value={amount}
+								oninput={handleAmountInput}
+								onkeypress={(e) => {
+									if (isSatsField && e.key === '.') e.preventDefault();
+								}}
+								min="0"
+								step={isSatsField ? '1' : '0.01'}
+								pattern="[0-9]*"
+								inputmode="numeric"
+							/>
+							{#if activeTab === 'sell'}
+								<button
+									type="button"
+									class="btn btn-primary join-item min-h-[48px] rounded-r-lg sm:min-h-[52px]"
+									onclick={setMaxAmount}
+								>
+									{$t('wallet.max')}
+								</button>
+							{/if}
+						</div>
+						<button
+							type="submit"
+							class="btn btn-primary min-h-[48px] shrink-0 sm:min-h-[52px]"
+							disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
+						>
+							{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
+							{activeTab === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}
+						</button>
 					</div>
-				</div>
-
-				<div class="mt-3">
-					<button
-						type="submit"
-						class="btn btn-primary min-h-[48px] w-full sm:min-h-[52px]"
-						disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
-					>
-						{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
-						{activeTab === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}
-					</button>
 				</div>
 
 				<!-- Quick amount buttons (buy only) -->
@@ -581,7 +568,7 @@
 					<div class="flex flex-wrap justify-center gap-2">
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm border-base-300 border"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
 							onclick={() => {
 								amount = '10';
 								fetchQuoteForAmount('10');
@@ -589,7 +576,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm border-base-300 border"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
 							onclick={() => {
 								amount = '20';
 								fetchQuoteForAmount('20');
@@ -597,7 +584,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm border-base-300 border"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
 							onclick={() => {
 								amount = '50';
 								fetchQuoteForAmount('50');
@@ -605,7 +592,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm border-base-300 border"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
 							onclick={() => {
 								amount = '100';
 								fetchQuoteForAmount('100');
@@ -629,7 +616,11 @@
 								step="1"
 								value={swapPercent}
 								class="range range-primary range-sm flex-1"
-								oninput={(e) => applyPercent(parseInt((e.target as HTMLInputElement).value))}
+								oninput={(e) => {
+									const input = e.target;
+									if (!(input instanceof HTMLInputElement)) return;
+									applyPercent(parseInt(input.value));
+								}}
 							/>
 						</div>
 					</div>
@@ -655,7 +646,21 @@
 				{#if amount && parseFloat(amount) > 0}
 					<div class="bg-base-100 flex items-center gap-3 rounded-xl p-3 sm:p-4">
 						<div class="bg-info/10 rounded-full p-2">
-							{#if quoteLoading}<span class="loading loading-spinner loading-sm text-info"></span>
+							{#if quoteLoading}
+								<span class="loading loading-spinner loading-sm text-info"></span>
+							{:else if quoteError}
+								<svg
+									class="text-error h-5 w-5"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+									/></svg
+								>
 							{:else}<svg
 									class="text-info h-5 w-5"
 									fill="none"
@@ -676,24 +681,28 @@
 									: $t('wallet.buy_sell.estimated_send')}
 							</div>
 							<div class="text-sm font-semibold sm:text-base">
-								{#if quoteLoading}<span class="text-base-content/40">...</span>
-								{:else if quoteData}{activeTab === 'sell' ? '$' : ''}{activeTab === 'buy'
-										? estimatedReceive
-										: estimatedSend}
+								{#if quoteLoading}
+									<span class="text-base-content/40">...</span>
+								{:else if quoteError}
+									<span class="text-error">{$t('wallet.error.quote_failed')}</span>
+								{:else if quoteData}{activeTab === 'sell' || selectedCrypto === 'usdt-bsc'
+										? '$'
+										: ''}{activeTab === 'buy' ? estimatedReceive : estimatedSend}
 									<span class="text-base-content/60 ml-1 text-xs font-normal"
 										>{activeTab === 'buy'
 											? selectedCrypto === 'usdt-bsc'
-												? 'USDT (Binance Smart Chain)'
+												? $t('wallet.buy_sell.usdt_bsc')
 												: selectedCrypto === 'btc-onchain'
-													? 'BTC'
-													: 'rBTC'
-											: 'USDT'}</span
+													? $t('wallet.btc')
+													: $t('wallet.rbtc')
+											: $t('wallet.usdt')}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
 							</div>
 							{#if activeTab === 'buy' && selectedCrypto !== 'usdt-bsc' && quoteData}
 								<div class="text-base-content/50 text-xs">
-									{convertToSats(estimatedReceive, selectedCrypto)} sats
+									{convertToSats(estimatedReceive, selectedCrypto)}
+									{$t('wallet.sats')}
 								</div>
 							{/if}
 						</div>

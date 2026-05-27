@@ -203,7 +203,8 @@
 			"retry_rsk": "Reintentar RSK",
 			"retry_both_wallets": "Reintentar ambas billeteras",
 			"retry": "Reintentar",
-			"no_connection": "Billetera no conectada"
+			"no_connection": "Billetera no conectada",
+			"quote_failed": "Cotización no disponible"
 		},
 		"setup": {
 			"import_wallet": "Importar billetera",

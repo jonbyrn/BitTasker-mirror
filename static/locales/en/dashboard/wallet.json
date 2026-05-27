@@ -203,7 +203,8 @@
 			"retry_rsk": "Retry RSK",
 			"retry_both_wallets": "Retry Both Wallets",
 			"retry": "Retry",
-			"no_connection": "Wallet not connected"
+			"no_connection": "Wallet not connected",
+			"quote_failed": "Quote unavailable"
 		},
 		"setup": {
 			"import_wallet": "Import Wallet",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
@@ -10,12 +11,18 @@
 		type AsyncRouteResult
 	} from '$lib/services/route-resolver-async';
 	import { startSwapChain } from '$lib/services/swap-chain.service';
-	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import {
+		connectedWalletsStore,
+		restoreConnectedWalletState,
+		replaceConnectedWallet
+	} from '$lib/stores/connected-wallets.store';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
+	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -54,6 +61,104 @@
 	let isFlipping = $state(false);
 	let swapPercent = $state(0);
 	let slideDir = $state(-1); // 1 = forward, -1 = reverse; toggles each swap
+
+	// -----------------------------------------------------------------------
+	// Wallet accordion state
+	// -----------------------------------------------------------------------
+	let sourceWallet = $state<'builtin' | string>('builtin');
+	let destWallet = $state<'builtin' | string>('builtin');
+	let sourceExpand = $state(false);
+	let destExpand = $state(false);
+
+	let isConnectedSource = $derived(sourceWallet !== 'builtin');
+	let isConnectedDest = $derived(destWallet !== 'builtin');
+
+	// Restore persisted connected wallets on mount
+	(async () => {
+		await restoreConnectedWalletState();
+		const wallets = get(connectedWalletsStore).wallets;
+
+		// MetaMask auto-reconnect for live balances
+		for (const w of wallets.filter((w) => w.walletType === 'metamask')) {
+			try {
+				const { connectMetaMask } = await import(
+					'$lib/services/external-wallet/metamask-connector'
+				);
+				const handle = await connectMetaMask({
+					registry: connectorRegistry,
+					onEvent: () => {},
+					knownAddress: w.address,
+					knownChainIds: w.chainIds,
+					longTimeout: true
+				});
+				replaceConnectedWallet(handle);
+			} catch {
+				// Silently fail
+			}
+		}
+
+		// WalletConnect auto-reconnect
+		for (const _ of wallets.filter((w) => w.walletType === 'walletconnect')) {
+			try {
+				const { restoreWCSession } = await import(
+					'$lib/services/external-wallet/walletconnect-connector'
+				);
+				const handle = await restoreWCSession(() => {});
+				if (handle) replaceConnectedWallet(handle);
+			} catch {
+				// Silently fail
+			}
+		}
+	})();
+
+	/** Source wallet address for route resolution */
+	let sourceAddr = $derived.by(() => {
+		if (!isConnectedSource) {
+			return sourceType === 'rbtc'
+				? ($walletStore.rsk.address ?? '')
+				: ($walletStore.bsc.address ?? '');
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
+		return w?.address ?? '';
+	});
+
+	/** Destination wallet address for execution */
+	let destAddr = $derived.by(() => {
+		if (!isConnectedDest) {
+			if (destType === 'btc-onchain') return getExternalBtcAddress();
+			return destType === 'rbtc-rsk'
+				? ($walletStore.rsk.address ?? '')
+				: ($walletStore.bsc.address ?? '');
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
+		return w?.address ?? '';
+	});
+
+	/** Format USD balance for a wallet in WalletSelector */
+	function walletBalanceFor(walletId: string): string {
+		if (walletId === 'builtin') {
+			const sats = $walletStore.totalBalances.sats;
+			const usdt = $walletStore.totalBalances.usdt;
+			const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+			return usd.toLocaleString('en-US', {
+				style: 'currency',
+				currency: 'USD',
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 2
+			});
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === walletId);
+		if (!w?.balances) return '$0.00';
+		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
+		const usdt = Number(w.balances.usdt?.raw ?? 0) / 1e18;
+		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
+		return usd.toLocaleString('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
+	}
 
 	// -----------------------------------------------------------------------
 	// BTC wallet detection
@@ -168,7 +273,6 @@
 	// Derived
 	// -----------------------------------------------------------------------
 	let sourceAsset = $derived(sourceType === 'rbtc' ? 'rBTC' : 'USDT');
-	let sourceChainLabel = $derived(sourceType === 'rbtc' ? 'Rootstock' : 'BSC');
 	let sourceIcon = $derived(
 		sourceType === 'rbtc'
 			? '/images/chains/Bitcoin-Rootstock-logo.webp'
@@ -304,9 +408,7 @@
 
 		_routeTimer = setTimeout(async () => {
 			try {
-				const userAddr =
-					source === 'rbtc' ? ($walletStore.rsk.address ?? '') : ($walletStore.bsc.address ?? '');
-				const result = await resolveRouteAsync(source, dest, amt, userAddr);
+				const result = await resolveRouteAsync(source, dest, amt, sourceAddr);
 				asyncRouteResult = result;
 			} catch {
 				// Keep existing routes on API error
@@ -487,15 +589,8 @@
 		errorMessage = '';
 		triggerHaptic(ImpactStyle.Heavy);
 
-		// Get destination address
-		let destAddress = '';
-		if (selectedDest?.id === 'rbtc-rsk') {
-			destAddress = $walletStore.rsk.address ?? '';
-		} else if (selectedDest?.id === 'btc-onchain') {
-			destAddress = getExternalBtcAddress();
-		} else {
-			destAddress = $walletStore.bsc.address ?? '';
-		}
+		// Get destination address from selected wallet
+		const destAddress = destAddr;
 
 		if (!destAddress) {
 			errorMessage = $t('wallet.swap.error.no_dest_address');
@@ -572,41 +667,48 @@
 		{#if swapPhase === 'form'}
 			<div transition:fly={{ y: 10, duration: 200 }}>
 				<div class="flex flex-col gap-4">
-					<!-- Source Wallet Card -->
-					{#key sourceType}
+					<!-- From: Wallet Accordion -->
+					<WalletSelector
+						label={$t('wallet.from') + ':'}
+						selectedId={sourceWallet}
+						onSelect={(id) => (sourceWallet = id)}
+						builtinBalance={walletBalanceFor('builtin')}
+						connectedWallets={$connectedWalletsStore.wallets}
+						{walletBalanceFor}
+						expanded={sourceExpand}
+						onToggle={() => (sourceExpand = !sourceExpand)}
+					/>
+
+					<!-- Source Asset Toggle -->
+					<div class="flex items-center justify-center px-2">
 						<div
-							class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4"
-							style="animation: {slideDir > 0 ? 'slideFromRight' : 'slideFromLeft'} 0.25s ease"
+							class="bg-base-200 flex items-center gap-1 rounded-xl p-1 text-xs font-medium sm:text-sm"
 						>
-							<div class="relative shrink-0">
-								<img
-									src={sourceIcon}
-									alt={sourceAsset}
-									class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
-								/>
-								{#if sourceType === 'usdt-bsc'}
-									<img
-										src="/images/chains/Binance-logo.svg"
-										alt="BSC"
-										class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
-									/>
-								{/if}
-							</div>
-							<div class="min-w-0 flex-1">
-								<div class="text-sm font-semibold sm:text-base">
-									{sourceAsset === 'USDT' ? 'USD' : 'Bitcoin'} ({sourceAsset === 'USDT'
-										? 'Binance'
-										: sourceAsset})
-								</div>
-								<div class="text-base-content/60 text-xs sm:text-sm">
-									{sourceChainLabel} &middot;
-									{$t('wallet.available_balance')}: {sourceType === 'rbtc'
-										? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
-										: `${walletBalanceDisplay}`}
-								</div>
-							</div>
+							<button
+								type="button"
+								class="rounded-lg px-3 py-1.5 transition-colors {sourceType === 'rbtc'
+									? 'bg-primary text-primary-content shadow-sm'
+									: 'text-base-content/60 hover:text-base-content'}"
+								onclick={() => {
+									if (sourceType !== 'rbtc') swapDirection();
+								}}
+							>
+								rBTC
+							</button>
+							<button
+								type="button"
+								class="rounded-lg px-3 py-1.5 transition-colors {sourceType === 'usdt-bsc'
+									? 'bg-primary text-primary-content shadow-sm'
+									: 'text-base-content/60 hover:text-base-content'}"
+								onclick={() => {
+									if (sourceType !== 'usdt-bsc') swapDirection();
+								}}
+							>
+								USDT
+							</button>
 						</div>
-					{/key}
+					</div>
+
 					<!-- Swap Direction Button -->
 					<div class="relative flex items-center justify-center py-1">
 						<div class="border-base-300 absolute inset-x-0 top-1/2 border-t"></div>
@@ -614,7 +716,13 @@
 							type="button"
 							class="btn btn-circle btn-outline bg-base-100 relative z-10 min-h-[44px] min-w-[44px] touch-manipulation border-2 transition-transform duration-300 active:scale-95 sm:min-h-[48px] sm:min-w-[48px]"
 							class:rotate-180={isFlipping}
-							onclick={swapDirection}
+							onclick={() => {
+								// Swap wallets too
+								const tmpWallet = sourceWallet;
+								sourceWallet = destWallet;
+								destWallet = tmpWallet;
+								swapDirection();
+							}}
 							aria-label={$t('wallet.swap.swap_direction')}
 							style="-webkit-tap-highlight-color: transparent;"
 						>
@@ -634,7 +742,19 @@
 						</button>
 					</div>
 
-					<!-- Destination Selection Cards -->
+					<!-- To: Wallet Accordion -->
+					<WalletSelector
+						label={$t('wallet.to') + ':'}
+						selectedId={destWallet}
+						onSelect={(id) => (destWallet = id)}
+						builtinBalance={walletBalanceFor('builtin')}
+						connectedWallets={$connectedWalletsStore.wallets}
+						{walletBalanceFor}
+						expanded={destExpand}
+						onToggle={() => (destExpand = !destExpand)}
+					/>
+
+					<!-- Destination Asset Selection -->
 					{#key sourceType}
 						<div
 							class="space-y-2"
