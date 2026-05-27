@@ -38,6 +38,7 @@
 	let showLedgerConnect = $state(false);
 	let ledgerConnectError = $state('');
 	let showLedgerBtcStep = $state(false);
+	let showLedgerBtcSuccess = $state(false);
 	let ledgerBtcError = $state('');
 
 	// Which Ledger wallet IDs have Bitcoin connected (checked via connector registry)
@@ -48,6 +49,21 @@
 				return handle && 'bitcoinSigner' in handle;
 			})
 			.map((w) => w.id);
+	});
+
+	// BTC address for each wallet (empty string if not connected)
+	let btcAddressFor = $derived.by(() => {
+		const map: Record<string, string> = {};
+		for (const w of $connectedWalletsStore.wallets) {
+			const handle = connectorRegistry.get(w.id);
+			if (handle && 'bitcoinSigner' in handle) {
+				const signer = (handle as Record<string, unknown>).bitcoinSigner as {
+					address?: string;
+				};
+				map[w.id] = signer?.address ?? '';
+			}
+		}
+		return map;
 	});
 
 	// Callback props for parent page to open modals
@@ -547,7 +563,11 @@
 				}
 			}
 
+			// Show success briefly before closing
 			showLedgerBtcStep = false;
+			showLedgerBtcSuccess = true;
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+			showLedgerBtcSuccess = false;
 			showLedgerConnect = false;
 			showConnectModal = false;
 		} catch (error) {
@@ -702,6 +722,27 @@
 								/>
 							</button>
 
+							<!-- BTC address (only shown when Bitcoin is connected) -->
+							{#if btcConnectedWallets.includes(wallet.id)}
+								{@const btcAddr = btcAddressFor[wallet.id] ?? ''}
+								{#if btcAddr}
+									<button
+										type="button"
+										class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
+										onclick={() => copyAddress(btcAddr)}
+										title={$t('wallet.connected.copy_address_title')}
+									>
+										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
+										<span class="truncate text-right font-mono opacity-60">{btcAddr}</span>
+										<IconContentCopy
+											class="h-4 w-4 shrink-0 {copiedAddress === btcAddr
+												? 'text-success'
+												: 'opacity-40'}"
+										/>
+									</button>
+								{/if}
+							{/if}
+
 							<!-- Balances: by wallet type + available chains -->
 							{#if true}
 								{@const hideBal = balancesHidden}
@@ -844,7 +885,30 @@
 					role="dialog"
 					aria-modal="true"
 				>
-					{#if showLedgerConnect && !showLedgerBtcStep}
+					{#if showLedgerBtcSuccess}
+						<!-- Ledger Step 3: Success -->
+						<div class="flex flex-col items-center gap-4 py-4 text-center">
+							<div class="bg-success/10 rounded-full p-4">
+								<svg
+									class="text-success h-10 w-10"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/></svg
+								>
+							</div>
+							<h3 class="text-lg font-bold">Both Connected</h3>
+							<p class="text-base-content/70 text-sm">
+								Your Ledger is now connected via
+								<strong>Ethereum</strong> and <strong>Bitcoin</strong>.
+							</p>
+						</div>
+					{:else if showLedgerConnect && !showLedgerBtcStep}
 						<!-- Ledger Step 1: Connect Ethereum App -->
 						<div class="flex flex-col items-center gap-4 py-4 text-center">
 							<div class="bg-info/10 rounded-full p-4">
