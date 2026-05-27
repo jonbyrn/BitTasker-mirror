@@ -38,7 +38,7 @@
 			<span class="text-base-content/60">{label}</span>
 			{#if selectedId === 'builtin'}
 				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5 shrink-0" />
-				<span class="font-medium">BitTasker Wallet</span>
+				<span class="font-medium">{$t('wallet.builtin_wallet')}</span>
 				<span class="text-base-content/50 ml-auto tabular-nums">{builtinBalance}</span>
 			{:else}
 				{@const w = connectedWallets.find((w) => w.id === selectedId)}
@@ -80,7 +80,7 @@
 						class="h-5 w-5 shrink-0"
 					/>
 					<div class="min-w-0 flex-1 text-left">
-						<div class="text-sm font-medium">BitTasker Wallet</div>
+						<div class="text-sm font-medium">{$t('wallet.builtin_wallet')}</div>
 					</div>
 					<span class="ml-auto shrink-0 text-xs font-semibold tabular-nums">{builtinBalance}</span>
 				</button>

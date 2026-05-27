@@ -2,6 +2,7 @@
 	"wallet": {
 		"title": "Billetera",
 		"tab_wallet": "Billetera",
+		"builtin_wallet": "Billetera BitTasker",
 		"tab_connected": "Conectado",
 		"connected": {
 			"connect": "Conectar Billetera",
