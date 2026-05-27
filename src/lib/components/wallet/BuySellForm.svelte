@@ -276,7 +276,7 @@
 			const amt = parseFloat(rawAmount);
 			let estimatedAmount: string;
 			if (selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain') {
-				estimatedAmount = (activeTab === 'buy' ? amt / price : amt * price).toFixed(
+				estimatedAmount = (activeTab === 'buy' ? amt / price : (amt / 100_000_000) * price).toFixed(
 					activeTab === 'buy' ? 6 : 2
 				);
 			} else {
@@ -676,7 +676,9 @@
 							</div>
 							<div class="text-sm font-semibold sm:text-base">
 								{#if quoteLoading}<span class="text-base-content/40">...</span>
-								{:else if quoteData}{activeTab === 'buy' ? estimatedReceive : estimatedSend}
+								{:else if quoteData}{activeTab === 'sell' ? '$' : ''}{activeTab === 'buy'
+										? estimatedReceive
+										: estimatedSend}
 									<span class="text-base-content/60 ml-1 text-xs font-normal"
 										>{activeTab === 'buy'
 											? selectedCrypto === 'usdt-bsc'
@@ -684,9 +686,7 @@
 												: selectedCrypto === 'btc-onchain'
 													? 'BTC'
 													: 'rBTC'
-											: selectedCrypto === 'usdt-bsc'
-												? '$'
-												: 'sats'}</span
+											: 'USDT'}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
 							</div>
