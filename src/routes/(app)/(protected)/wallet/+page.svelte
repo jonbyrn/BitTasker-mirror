@@ -355,9 +355,9 @@
 				</div>
 			{/if}
 
-			<!-- Balance Card (always visible across both tabs) -->
+			<!-- Balance Card -->
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-				<BalanceCard {isLoading} />
+				<BalanceCard {isLoading} hideDetails={activeTab === 'connected'} />
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}
@@ -403,18 +403,18 @@
 						onclick={() => (showSwap = true)}
 					>
 						<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						Swap
+						{$t('wallet.tab_swap')}
 					</button>
 					<button
 						class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
 						onclick={() => (showBuySell = true)}
 					>
 						<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						Buy & Sell
+						{$t('wallet.tab_buy_sell')}
 					</button>
 				</div>
 
-				<!-- Connected Wallet List (only on connected tab) -->
+				<!-- Connected Wallet List (only on connected tab, below buttons) -->
 				{#if activeTab === 'connected'}
 					<ConnectedWallets
 						onSend={() => (showSendModal = true)}
@@ -424,7 +424,7 @@
 					/>
 				{/if}
 
-				<!-- Learn More Section - Below buttons -->
+				<!-- Learn More Section -->
 				<div class="flex justify-center">
 					<div class="text-base-content/70 text-xs sm:text-sm">
 						<HelpModal />

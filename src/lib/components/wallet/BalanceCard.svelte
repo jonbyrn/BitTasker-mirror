@@ -16,7 +16,7 @@
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
-	const { isLoading = false } = $props();
+	const { isLoading = false, hideDetails = false } = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -208,11 +208,12 @@
 		</div>
 	</div>
 
-	<!-- Historical Balance Indicators -->
-	<BalanceHistory {balancesHidden} />
+	{#if !hideDetails}
+		<!-- Historical Balance Indicators -->
+		<BalanceHistory {balancesHidden} />
 
-	<!-- Network Breakdown -->
-	<div class="space-y-2 sm:space-y-4">
+		<!-- Network Breakdown -->
+		<div class="space-y-2 sm:space-y-4">
 		<!-- Bitcoin Accordion -->
 		<div
 			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -400,7 +401,7 @@
 						</div>
 					</div>
 				</div>
-			</div>
-		</div>
-	</div>
+			</div> <!-- /USD Accordion -->
+		</div> <!-- /Network Breakdown -->
+	{/if}
 </div>
