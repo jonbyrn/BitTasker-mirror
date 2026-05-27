@@ -766,7 +766,7 @@
 							</div>
 							<h3 class="text-lg font-bold">Connect Ledger</h3>
 							{#if ledgerConnectError}
-								<div class="alert alert-warning py-2 text-xs leading-relaxed">
+								<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
 									{ledgerConnectError}
 								</div>
 								<button class="btn btn-primary btn-sm min-h-[44px]" onclick={handleConnectLedger}>
