@@ -6,6 +6,7 @@
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
+	import WalletIcon from '$lib/components/wallet/WalletIcon.svelte';
 	import { resolveRoute, type SourceWallet, type Route } from '$lib/services/route-resolver';
 	import { lifiService } from '$lib/services/lifi.service';
 	import { symbiosisService } from '$lib/services/symbiosis.service';
@@ -15,6 +16,7 @@
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 
 	import IconCheck from '~icons/mdi/check';
+	import IconClose from '~icons/mdi/close';
 
 	let { onCancel, onOpenPaymentRequest } = $props<{
 		onCancel: () => void;
@@ -113,9 +115,7 @@
 	// Swap routing state — reuses the send form's route resolver
 	let payerNetwork = $state<string>('rootstock-bitcoin');
 	let _feeGen = $state(0);
-	let payerSourceWallet = $derived<'rbtc' | 'usdt-bsc'>(
-		payerNetwork === 'usdt-bsc' ? 'usdt-bsc' : 'rbtc'
-	);
+	let payerSourceWallet = $derived<SourceWallet>(getSourceFromNetwork(payerNetwork));
 	let selectedRouteId = $state<string>('');
 	let swapRoutes = $derived.by(() => {
 		if (amountInSats === 0) return [];
@@ -205,6 +205,92 @@
 	//
 	const EVM_NATIVE = '0x0000000000000000000000000000000000000000';
 	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
+	const USDT0_RSK = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
+	const _DOC_RSK = '0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db';  
+
+	/** Map payerNetwork strings to { chainId, tokenAddress } for fee computation. */
+	const SOURCE_CHAIN_MAP: Record<string, { chainId: number; address: string } | undefined> = {
+		'usdt-bsc': { chainId: 56, address: USDT_BSC },
+		'usdt-arbitrum': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
+		'usdt-avalanche': { chainId: 43114, address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' },
+		'usdt-base': { chainId: 8453, address: '0x4200000000000000000000000000000000000023' },
+		'usdt-ethereum': { chainId: 1, address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
+		'usdt-optimism': { chainId: 10, address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58' },
+		'usdt-polygon': { chainId: 137, address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' },
+		'usdt0-arbitrum': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
+		'usdt0-rootstock': { chainId: 30, address: USDT0_RSK },
+		'usdt-tron': { chainId: 0, address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }
+	};
+
+	/** Extract the source type from a payerNetwork string. */
+	function getSourceFromNetwork(network: string): SourceWallet {
+		if (network === 'usdt-bsc') return 'usdt-bsc';
+		if (network === 'usdt0-rootstock') return 'usdt0-rsk';
+		if (network === 'doc-rootstock') return 'doc-rsk';
+		// Any other usdt-* network → treat as USDT stablecoin source
+		if (network.startsWith('usdt-') || network.startsWith('usdt0-')) return 'usdt-bsc';
+		// dyn- tokens that look like stablecoins → treat as USDT source
+		if (network.startsWith('dyn-')) {
+			const symbol = network.split('-')[1]?.toLowerCase() ?? '';
+			if (symbol === 'usdt' || symbol === 'usdc' || symbol === 'dai' || symbol === 'usd0') {
+				return 'usdt-bsc';
+			}
+		}
+		return 'rbtc';
+	}
+
+	/** Sentinel IDs for non-EVM destinations routed via Boltz. */
+	const BOLTZ_LIGHTNING_ID = -1;
+	const BOLTZ_LIQUID_ID = -2;
+	const BOLTZ_BITCOIN_ID = -3;
+
+	/**
+	 * Derive chain/token info from any network string (payer or destination).
+	 * Returns null for unknown/unparseable networks.
+	 */
+	function deriveChainInfo(network: string): {
+		chainId: number;
+		address: string;
+		asset: string;
+		decimals: number;
+	} | null {
+		// Destination networks used in formInput.selectedNetwork
+		switch (network) {
+			case 'rootstock-bitcoin':
+				return { chainId: 30, address: EVM_NATIVE, asset: 'RBTC', decimals: 18 };
+			case 'usdt-bsc':
+				return { chainId: 56, address: USDT_BSC, asset: 'USDT', decimals: 18 };
+			case 'bitcoin':
+				return { chainId: BOLTZ_BITCOIN_ID, address: 'BTC', asset: 'BTC', decimals: 8 };
+			case 'lightning-bitcoin':
+				return { chainId: BOLTZ_LIGHTNING_ID, address: 'LIGHTNING', asset: 'BTC', decimals: 8 };
+			case 'liquid-bitcoin':
+				return { chainId: BOLTZ_LIQUID_ID, address: 'L-BTC', asset: 'L-BTC', decimals: 8 };
+		}
+
+		// Payer source networks from SOURCE_CHAIN_MAP
+		const known = SOURCE_CHAIN_MAP[network];
+		if (known) {
+			const asset = network.startsWith('usdt0-')
+				? 'USDT0'
+				: network.startsWith('usdt-')
+					? 'USDT'
+					: 'UNKNOWN';
+			return { ...known, asset, decimals: 18 };
+		}
+
+		// dyn-* networks: dyn-{symbol}-{chainId}
+		if (network.startsWith('dyn-')) {
+			const parts = network.split('-');
+			const symbol = parts[1]?.toUpperCase() ?? 'UNKNOWN';
+			const chainId = parseInt(parts[parts.length - 1], 10);
+			if (!isNaN(chainId)) {
+				return { chainId, address: '', asset: symbol, decimals: 18 };
+			}
+		}
+
+		return null;
+	}
 
 	// ---- Unified fee estimation (single write path, generation counter) ----
 	async function estimateFee() {
@@ -228,46 +314,52 @@
 		}
 	}
 
-	/** Pure-ish: takes amount + network + source, returns FeeEstimate. */
+	/** Generalized fee computation: derive both sides, route through cheapest provider. */
 	async function computeFee(): Promise<FeeEstimate | null> {
 		if (amountInSats === 0) return null;
 
-		const network = formInput.selectedNetwork;
-		const source = payerSourceWallet;
+		const from = deriveChainInfo(payerNetwork);
+		const to = deriveChainInfo(formInput.selectedNetwork);
+		if (!from || !to) return null;
 
-		// Direct sends — zero fees
-		if (
-			(source === 'rbtc' && network === 'rootstock-bitcoin') ||
-			(source === 'usdt-bsc' && network === 'usdt-bsc')
-		) {
+		// Direct send: same chain, same asset → zero fees
+		if (from.chainId === to.chainId && from.asset === to.asset) {
 			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 		}
 
-		// Boltz reverse swap (Lightning)
-		if (network === 'lightning-bitcoin') {
-			if (source !== 'rbtc') return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		// ── Boltz paths (specialized, cheapest for these pairs) ──
+
+		// Lightning destination: Boltz reverse swap (RBTC → Lightning)
+		if (to.chainId === BOLTZ_LIGHTNING_ID) {
+			if (from.asset !== 'RBTC') return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 			return computeLightningFee();
 		}
 
-		// Boltz chain swap (Liquid)
-		if (network === 'liquid-bitcoin') {
+		// Liquid destination: Boltz chain swap
+		if (to.chainId === BOLTZ_LIQUID_ID) {
 			return computeLiquidFee();
 		}
 
-		// Bitcoin on-chain
-		if (network === 'bitcoin') {
-			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		// BTC on-chain destination from RBTC: Boltz chain swap (cheapest)
+		if (to.chainId === BOLTZ_BITCOIN_ID && from.asset === 'RBTC') {
+			return computeBoltzChainFee();
 		}
 
-		// Cross-chain rBTC <-> USDT
-		if (source === 'rbtc' && network === 'usdt-bsc') {
-			return computeCrossChainFee(30, 56, EVM_NATIVE, USDT_BSC);
-		}
-		if (source === 'usdt-bsc' && network === 'rootstock-bitcoin') {
-			return computeCrossChainFee(56, 30, USDT_BSC, EVM_NATIVE);
+		// BTC on-chain from non-RBTC: needs intermediate swap to RBTC first
+		if (
+			to.chainId === BOLTZ_BITCOIN_ID ||
+			to.chainId === BOLTZ_LIQUID_ID ||
+			to.chainId === BOLTZ_LIGHTNING_ID
+		) {
+			// Route via RBTC: swap to RBTC on RSK first, then Boltz handles the rest
+			const rbtcFee = await computeCrossChainFee(from.chainId, 30, from.address, EVM_NATIVE);
+			if (!rbtcFee) return null;
+			const boltzFee = Math.ceil(amountInSats * 0.001); // ~0.1% Boltz fee estimate
+			return { ...rbtcFee, totalFees: rbtcFee.totalFees + boltzFee };
 		}
 
-		return null;
+		// ── General path: LI.FI / Symbiosis for any EVM ↔ EVM or on-chain swap ──
+		return computeCrossChainFee(from.chainId, to.chainId, from.address, to.address);
 	}
 
 	async function computeLightningFee(): Promise<FeeEstimate | null> {
@@ -295,6 +387,27 @@
 		try {
 			const pairsData = await walletManager.getCachedChainSwapPairs();
 			const pair = pairsData?.['L-BTC']?.['RBTC'];
+			if (!pair) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+
+			const percentage = pair.fees.percentage;
+			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
+			const lockupFee = pair.fees.minerFees.user?.lockup || 0;
+			const claimFee = pair.fees.minerFees.user?.claim || 0;
+			const networkFee = lockupFee + claimFee;
+
+			if (pair.limits) {
+				feeState.swapLimits = { minimal: pair.limits.minimal, maximal: pair.limits.maximal };
+			}
+			return { serviceFee, networkFee, totalFees: serviceFee + networkFee };
+		} catch {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+	}
+
+	async function computeBoltzChainFee(): Promise<FeeEstimate | null> {
+		try {
+			const pairsData = await walletManager.getCachedChainSwapPairs();
+			const pair = pairsData?.['BTC']?.['RBTC'];
 			if (!pair) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 
 			const percentage = pair.fees.percentage;
@@ -380,6 +493,46 @@
 			return { serviceFee, networkFee: 0, totalFees: serviceFee };
 		}
 		return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+	}
+
+	/** Compute fee for a Symbiosis on-chain swap on RSK (e.g. USDT0→rBTC or DOC→rBTC). */
+	async function _computeSymbiosisOnChainFee(
+		chainId: number,
+		fromTokenAddr: string,
+		toTokenAddr: string,
+		defaultFeePercent: number
+	): Promise<FeeEstimate | null> {
+		const probeAmount = '100000000000000000000'; // 100 tokens in wei
+		const userAddr = $walletStore.rsk.address || '';
+		if (!userAddr) return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+
+		if (isSymbiosisEnabled()) {
+			try {
+				await symbiosisService.getQuote({
+					tokenAmountIn: {
+						address: fromTokenAddr,
+						chainId,
+						symbol: fromTokenAddr === USDT0_RSK ? 'USDT0' : 'DOC',
+						decimals: fromTokenAddr === USDT0_RSK ? 6 : 18,
+						amount: probeAmount
+					},
+					tokenOut: {
+						address: toTokenAddr,
+						chainId,
+						symbol: toTokenAddr === EVM_NATIVE ? 'RBTC' : 'USDT0',
+						decimals: toTokenAddr === EVM_NATIVE ? 18 : 6
+					},
+					from: userAddr,
+					to: userAddr,
+					slippage: 50
+				});
+			} catch {
+				// fall through to default fee estimate
+			}
+		}
+
+		const serviceFee = Math.ceil((amountInSats * defaultFeePercent) / 100);
+		return { serviceFee, networkFee: 0, totalFees: serviceFee };
 	}
 
 	function handleCalculationChange(expression: string, result: number) {
@@ -600,15 +753,7 @@
 								(w) => w.id === selectedReceiveWalletId
 							)}
 							{#if wallet}
-								{#if wallet.walletType === 'metamask'}
-									<span class="text-lg">🦊</span>
-								{:else if wallet.walletType === 'walletconnect'}
-									<span class="text-lg">🔗</span>
-								{:else if wallet.walletType === 'trezor'}
-									<span class="text-lg">🔐</span>
-								{:else if wallet.walletType === 'ledger'}
-									<span class="text-lg">💾</span>
-								{/if}
+								<WalletIcon walletType={wallet.walletType} className="h-5 w-5 shrink-0" />
 								{#if receiveTab === 'rbtc'}
 									<img
 										src="/images/chains/Bitcoin-Rootstock-logo.webp"
@@ -709,15 +854,7 @@
 											uiState.sourceExpanded = false;
 										}}
 									>
-										{#if wallet.walletType === 'metamask'}
-											🦊
-										{:else if wallet.walletType === 'walletconnect'}
-											🔗
-										{:else if wallet.walletType === 'trezor'}
-											🔐
-										{:else if wallet.walletType === 'ledger'}
-											💾
-										{/if}
+										<WalletIcon walletType={wallet.walletType} className="h-5 w-5 shrink-0" />
 										{#if receiveTab === 'rbtc'}
 											<img
 												src="/images/chains/Bitcoin-Rootstock-logo.webp"
@@ -1076,9 +1213,13 @@
 
 	<!-- Bottom Action Button -->
 	<div class="flex gap-2 border-t pt-3 sm:pt-4">
-		<button class="btn btn-ghost min-h-[44px] flex-1" onclick={handleCancel}
-			>{$t('common.cancel')}</button
+		<button
+			class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95"
+			onclick={handleCancel}
 		>
+			<IconClose class="h-4 w-4" />
+			<span class="text-sm">{$t('common.cancel')}</span>
+		</button>
 		<button
 			class="btn btn-primary min-h-[44px] flex-1"
 			onclick={handleGenerateInvoice}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ConnectedWalletEntry } from '$lib/stores/connected-wallets.store';
+	import WalletIcon from './WalletIcon.svelte';
 
 	interface Props {
 		label: string;
@@ -43,15 +44,7 @@
 			{:else}
 				{@const w = connectedWallets.find((w) => w.id === selectedId)}
 				{#if w}
-					<span class="shrink-0 text-lg"
-						>{w.walletType === 'metamask'
-							? '🦊'
-							: w.walletType === 'walletconnect'
-								? '🔗'
-								: w.walletType === 'trezor'
-									? '🔐'
-									: '💾'}</span
-					>
+					<WalletIcon walletType={w.walletType} />
 					<span class="font-medium">{w.walletName}</span>
 					<span class="text-base-content/40 ml-1 text-xs"
 						>..{w.address.slice(-4).toLowerCase()}</span
@@ -100,15 +93,7 @@
 							onToggle();
 						}}
 					>
-						<span class="shrink-0 text-lg"
-							>{wallet.walletType === 'metamask'
-								? '🦊'
-								: wallet.walletType === 'walletconnect'
-									? '🔗'
-									: wallet.walletType === 'trezor'
-										? '🔐'
-										: '💾'}</span
-						>
+						<WalletIcon walletType={wallet.walletType} />
 						<div class="min-w-0 flex-1 text-left">
 							<div class="text-sm font-medium">{wallet.walletName}</div>
 							<div class="text-base-content/40 truncate text-xs">
