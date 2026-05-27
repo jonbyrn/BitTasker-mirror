@@ -71,7 +71,7 @@
 	let digitalAssetOptions = $derived.by(() => {
 		const opts: { id: string; name: string; icon: string }[] = [
 			{ id: 'rbtc', name: 'Bitcoin (rBTC)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
-			{ id: 'usdt-bsc', name: 'USDT (Binance Smart Chain)', icon: '/images/chains/Tether-USD.svg' }
+			{ id: 'usdt-bsc', name: 'USDT (Binance)', icon: '/images/chains/Tether-USD.svg' }
 		];
 		if (hasBtcWallet) {
 			opts.push({ id: 'btc-onchain', name: 'Bitcoin (BTC)', icon: '/images/chains/Bitcoin.svg' });
@@ -182,7 +182,9 @@
 			const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
 			if (selectedCrypto === 'rbtc') {
 				const raw = Number(w?.balances?.rbtc?.raw ?? 0);
-				maxVal = String(isNaN(raw) ? 0 : Math.floor(raw / 100_000_000));
+				maxVal = String(
+					isNaN(raw) ? 0 : Math.floor(raw / (activeTab === 'sell' ? 1 : 100_000_000))
+				);
 			} else if (selectedCrypto === 'btc-onchain') {
 				const raw = Number(w?.balances?.btc?.raw ?? 0);
 				maxVal = String(isNaN(raw) ? 0 : Math.floor(raw / 100_000_000));
@@ -191,7 +193,12 @@
 				maxVal = (isNaN(raw) ? 0 : raw / 1e18).toString();
 			}
 		} else {
-			maxVal = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance).toString() : usdtBalance;
+			if (selectedCrypto === 'rbtc' && activeTab === 'sell') {
+				const sats = $walletStore.totalBalances.sats;
+				maxVal = String(sats);
+			} else {
+				maxVal = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance).toString() : usdtBalance;
+			}
 		}
 		amount = maxVal;
 		swapPercent = 100;
@@ -206,15 +213,29 @@
 		let fullBalance: number;
 		if (isConnectedSource && w) {
 			if (selectedCrypto === 'rbtc')
-				fullBalance = Math.floor(Number(w.balances?.rbtc?.raw ?? 0) / 100_000_000);
+				fullBalance = Math.floor(
+					Number(w.balances?.rbtc?.raw ?? 0) / (activeTab === 'sell' ? 1 : 100_000_000)
+				);
 			else if (selectedCrypto === 'btc-onchain')
-				fullBalance = Math.floor(Number(w.balances?.btc?.raw ?? 0) / 100_000_000);
+				fullBalance = Math.floor(
+					Number(w.balances?.btc?.raw ?? 0) / (activeTab === 'sell' ? 1 : 100_000_000)
+				);
 			else fullBalance = Number(w.balances?.usdt?.raw ?? 0) / 1e18;
 		} else {
-			fullBalance = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance) : parseFloat(usdtBalance);
+			fullBalance =
+				selectedCrypto === 'rbtc' && activeTab === 'sell'
+					? $walletStore.totalBalances.sats
+					: selectedCrypto === 'rbtc'
+						? parseFloat(rbtcBalance)
+						: parseFloat(usdtBalance);
 		}
 		const val = (fullBalance * pct) / 100;
-		const precision = selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain' ? 6 : 2;
+		const precision =
+			selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain'
+				? activeTab === 'sell'
+					? 0
+					: 6
+				: 2;
 		amount = val.toFixed(precision);
 		if (val > 0 && pct > 0) fetchQuoteForAmount(amount);
 		else {
@@ -655,18 +676,17 @@
 							</div>
 							<div class="text-sm font-semibold sm:text-base">
 								{#if quoteLoading}<span class="text-base-content/40">...</span>
-								{:else if quoteData}<span
-										>{activeTab === 'sell' && selectedCrypto !== 'usdt-bsc'
-											? '$'
-											: ''}{activeTab === 'buy' ? estimatedReceive : estimatedSend}</span
-									><span class="text-base-content/60 ml-1 text-xs font-normal"
+								{:else if quoteData}{activeTab === 'buy' ? estimatedReceive : estimatedSend}
+									<span class="text-base-content/60 ml-1 text-xs font-normal"
 										>{activeTab === 'buy'
 											? selectedCrypto === 'usdt-bsc'
-												? 'USDT'
+												? 'USDT (Binance Smart Chain)'
 												: selectedCrypto === 'btc-onchain'
 													? 'BTC'
 													: 'rBTC'
-											: '$'}</span
+											: selectedCrypto === 'usdt-bsc'
+												? '$'
+												: 'sats'}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
 							</div>
