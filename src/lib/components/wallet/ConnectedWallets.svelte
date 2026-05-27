@@ -531,12 +531,8 @@
 				navigator: window.navigator
 			});
 
-			// Find the existing Ledger handle in the registry and add bitcoinSigner
-			const existingHandle = connectorRegistry.get(`ledger-${result.btcAddress}`) as
-				| import('$lib/services/external-wallet/types').ConnectorHandle
-				| null;
-
-			// Search by walletType since addresses may differ (EVM vs BTC)
+			// Find the existing Ledger handle in the registry and add bitcoinSigner.
+			// Search by walletType since EVM and BTC addresses may differ.
 			const ledgerWallet = $connectedWalletsStore.wallets.find((w) => w.walletType === 'ledger');
 			if (ledgerWallet) {
 				const currentHandle = connectorRegistry.get(ledgerWallet.id);
