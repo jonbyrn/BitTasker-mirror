@@ -519,7 +519,7 @@
 						<span class="leading-tight">{$t('wallet.tab_swap')}</span>
 					</button>
 					<button
-						class="btn btn-secondary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs"
+						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-3 text-xs"
 						onclick={() => (showSendModal = true)}
 					>
 						<span class="inline-flex shrink-0"><IconUpload class="h-5 w-5" /></span>
