@@ -28,6 +28,7 @@
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import IconCash from '~icons/mdi/cash';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconBankOutline from '~icons/mdi/bank-outline';
 	import IconWallet from '~icons/mdi/wallet';
 	import IconCellphoneLink from '~icons/mdi/usb-flash-drive';
 	import IconChevronRight from '~icons/mdi/chevron-right';
@@ -408,18 +409,7 @@
 				<!-- Connected tab: explanatory text (only when no wallets) -->
 				{#if activeTab === 'connected' && $connectedWalletsStore.wallets.length === 0}
 					<div class="flex flex-col items-center gap-3 px-4 text-center">
-						<svg
-							class="text-base-content/20 h-10 w-10"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="1"
-								d="M2 21V7l12-6v14l-12 6zm0 0v-4l12-6m0 0l4-2v14l-4-2m0 0L2 17"
-							/></svg
-						>
+						<IconBankOutline class="text-base-content/20 h-10 w-10" />
 						<p class="text-base-content/60 text-xs leading-relaxed">
 							Think of connected wallets like your bank — they're where you store larger amounts
 							securely, accessible via MetaMask, Ledger, or Trezor. Your BitTasker wallet is for
