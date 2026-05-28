@@ -407,7 +407,7 @@
 
 				<!-- Connected tab: explanatory text (only when no wallets) -->
 				{#if activeTab === 'connected' && $connectedWalletsStore.wallets.length === 0}
-					<div class="flex flex-col items-center gap-2 px-2 text-center">
+					<div class="flex flex-col items-center gap-3 px-4 text-center">
 						<svg
 							class="text-base-content/20 h-10 w-10"
 							fill="none"
@@ -417,13 +417,13 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="1"
-								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+								d="M2 21V7l12-6v14l-12 6zm0 0v-4l12-6m0 0l4-2v14l-4-2m0 0L2 17"
 							/></svg
 						>
 						<p class="text-base-content/60 text-xs leading-relaxed">
-							Connect external wallets like MetaMask or a hardware wallet (Ledger, Trezor) to access
-							additional chains and manage Bitcoin on-chain. Connected wallets appear here and can
-							be selected in the Buy/Sell, Swap, Send, and Receive forms.
+							Think of connected wallets like your bank — they're where you store larger amounts
+							securely, accessible via MetaMask, Ledger, or Trezor. Your BitTasker wallet is for
+							daily tasks like sending, swapping, and receiving small amounts.
 						</p>
 					</div>
 
@@ -497,7 +497,7 @@
 				{/if}
 
 				<!-- Learn More — centered below all buttons, always visible -->
-				<div class="flex justify-center">
+				<div class="flex justify-center pb-4">
 					<button
 						class="btn btn-ghost btn-sm text-base-content/50 gap-1 text-xs"
 						onclick={() => {
