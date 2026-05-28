@@ -4,7 +4,6 @@
 	import { onDestroy } from 'svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { tryCatch } from '$lib/utils/tryCatch';
 
 	// Lazy-loaded — ethers/wallet-core are browser-only and crash SSR
@@ -85,7 +84,6 @@
 
 	// Derived: RBTC balance
 	let rbtcBalance = $derived(parseFloat($walletStore.rsk?.formattedBalance || '0'));
-	let rbtcUsdValue = $derived((rbtcBalance * btcPrice.price).toFixed(2));
 
 	// Quote countdown timer
 	let quoteTimer: ReturnType<typeof setInterval> | null = null;
@@ -436,8 +434,6 @@
 			{#if step === 'input'}
 				<LoanInputStep
 					bind:inputAmount
-					{rbtcBalance}
-					{rbtcUsdValue}
 					{feeBreakdown}
 					{remainingSeconds}
 					{hasInsufficientRbtc}

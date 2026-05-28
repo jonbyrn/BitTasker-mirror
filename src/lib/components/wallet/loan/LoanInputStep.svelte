@@ -8,8 +8,6 @@
 
 	let {
 		inputAmount = $bindable(''),
-		rbtcBalance,
-		rbtcUsdValue,
 		feeBreakdown,
 		remainingSeconds,
 		hasInsufficientRbtc,
@@ -22,8 +20,6 @@
 		onNext
 	}: {
 		inputAmount: string;
-		rbtcBalance: number;
-		rbtcUsdValue: string;
 		feeBreakdown: FeeItem[];
 		remainingSeconds: number;
 		hasInsufficientRbtc: boolean;
@@ -40,9 +36,20 @@
 	let sourceExpanded = $state(false);
 	let sourceInitialized = $state(false);
 
+	// Available rBTC balance for currently selected source wallet
+	let availableRbtcSats = $derived.by(() => {
+		if (source === 'builtin') {
+			return $walletStore.totalBalances.sats;
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === source);
+		if (!w?.balances) return 0;
+		return Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
+	});
+	let availableRbtc = $derived(availableRbtcSats / 100_000_000);
+	let availableRbtcUsd = $derived((availableRbtc * btcPrice.price).toFixed(2));
+
 	function totalBuiltinUsd(): string {
-		const sats = $walletStore.totalBalances.sats;
-		const usd = (sats / 100_000_000) * btcPrice.price;
+		const usd = ($walletStore.totalBalances.sats / 100_000_000) * btcPrice.price;
 		return usd.toLocaleString('en-US', {
 			style: 'currency',
 			currency: 'USD',
@@ -87,10 +94,6 @@
 			source = 'builtin';
 		}
 	});
-
-	function handleInput() {
-		onAmountInput(inputAmount);
-	}
 </script>
 
 <div class="text-base-content/70 text-sm font-medium">
@@ -121,8 +124,8 @@
 	<div class="text-base-content/60 text-xs">
 		{$t('wallet.loan.available_rbtc', {
 			values: {
-				sats: Math.floor(rbtcBalance * 100_000_000).toLocaleString(),
-				usd: rbtcUsdValue
+				sats: availableRbtcSats.toLocaleString(),
+				usd: availableRbtcUsd
 			}
 		})}
 	</div>
@@ -137,8 +140,11 @@
 			type="number"
 			class="input input-bordered join-item min-h-[48px] flex-1 text-lg"
 			placeholder="0.00"
-			bind:value={inputAmount}
-			oninput={handleInput}
+			value={inputAmount}
+			oninput={(e) => {
+				inputAmount = e.target.value;
+				onAmountInput(e.target.value);
+			}}
 			min="0"
 			step="0.01"
 			inputmode="decimal"
@@ -147,8 +153,8 @@
 			type="button"
 			class="btn btn-primary join-item min-h-[48px] rounded-r-lg"
 			onclick={() => {
-				inputAmount = rbtcBalance.toFixed(2);
-				handleInput();
+				inputAmount = availableRbtcUsd;
+				onAmountInput(availableRbtcUsd);
 			}}
 		>
 			{$t('wallet.max')}
@@ -214,7 +220,7 @@
 		</svg>
 		<span class="text-xs">
 			{$t('wallet.loan.error_insufficient', {
-				values: { needed: estimatedRbtcNeeded, have: rbtcBalance.toFixed(4) }
+				values: { needed: estimatedRbtcNeeded, have: availableRbtc.toFixed(4) }
 			})}
 		</span>
 	</div>
