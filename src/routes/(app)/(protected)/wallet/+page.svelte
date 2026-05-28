@@ -162,13 +162,28 @@
 	// Tab state: 'wallet' | 'connected'
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
-	// Last known non-zero connected total — cached in module scope so it survives
-	// tab navigation (avoids layout-shift to $0 on warm navigation).
+	// Connected wallet totals
 	let _lastConnectedTotal = 0;
+	let _lastConnectedSats = 0;
+	let _lastConnectedUsdt = 0;
 
-	// Connected wallet total USD (used on Connected tab instead of built-in balance)
-	// Only updates when the value has meaningfully changed — holds the last non-zero
-	// value while balances are reloading so the UI never flashes $0.00.
+	// Debug logging for connected wallet balance changes
+	$effect(() => {
+		const t = connectedTotalUsd;
+		const s = connectedTotalSats;
+		const u = connectedTotalUsdt;
+		const wallets = $connectedWalletsStore.wallets;
+		if (wallets.length === 0) return;
+		const details = wallets.map(
+			(w) =>
+				`${w.walletName}: btc=${w.balances?.btc?.raw ?? '?'} rbtc=${w.balances?.rbtc?.raw ?? '?'} usdt=${w.balances?.usdt?.raw ?? '?'}`
+		);
+		console.log(
+			`[connected-balance] USD=$${t.toFixed(2)} sats=${s} usdt=$${u.toFixed(2)} | wallets=[${details.join(', ')}]`
+		);
+	});
+
+	// Connected wallet total USD
 	let connectedTotalUsd = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) {
 			_lastConnectedTotal = 0;
@@ -183,13 +198,35 @@
 				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
 			}
 		}
-		// Avoid flashing to $0 when balances haven't loaded — hold the last known
-		// non-zero total until new data arrives.
 		if (total === 0 && _lastConnectedTotal > 0) return _lastConnectedTotal;
-		// If the new total is essentially unchanged (rounding tolerance), keep
-		// the old value so the DOM doesn't needlessly re-render.
 		if (Math.abs(total - _lastConnectedTotal) < 0.005) return _lastConnectedTotal;
 		_lastConnectedTotal = total;
+		return total;
+	});
+
+	// Connected wallet total sats (for BalanceCard breakdown)
+	let connectedTotalSats = $derived.by(() => {
+		if ($connectedWalletsStore.wallets.length === 0) return 0;
+		let total = 0;
+		for (const w of $connectedWalletsStore.wallets) {
+			const cur = w.balances;
+			if (cur) total += Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+		}
+		if (total === 0 && _lastConnectedSats > 0) return _lastConnectedSats;
+		if (total !== _lastConnectedSats) _lastConnectedSats = total;
+		return total;
+	});
+
+	// Connected wallet total USDT (for BalanceCard breakdown)
+	let connectedTotalUsdt = $derived.by(() => {
+		if ($connectedWalletsStore.wallets.length === 0) return 0;
+		let total = 0;
+		for (const w of $connectedWalletsStore.wallets) {
+			const cur = w.balances;
+			if (cur) total += Number(cur.usdt?.raw ?? 0) / 1e18;
+		}
+		if (total === 0 && _lastConnectedUsdt > 0) return _lastConnectedUsdt;
+		if (total !== _lastConnectedUsdt) _lastConnectedUsdt = total;
 		return total;
 	});
 
@@ -407,7 +444,13 @@
 			<!-- Balance Card -->
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
 				{#if activeTab === 'connected'}
-					<BalanceCard {isLoading} hideDetails overrideTotalUsd={connectedTotalUsd} />
+					<BalanceCard
+						{isLoading}
+						hideDetails
+						overrideTotalUsd={connectedTotalUsd}
+						overrideSats={connectedTotalSats}
+						overrideUsdt={connectedTotalUsdt}
+					/>
 				{:else}
 					<BalanceCard {isLoading} hideDetails={false} />
 				{/if}

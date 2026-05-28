@@ -163,14 +163,22 @@ export function replaceConnectedWallet(handle: ConnectorHandle): void {
 
 	balancePoller.stop(handle.id);
 
+	// Preserve existing balances from the old wallet entry so the UI
+	// doesn't flash to $0 during handle migration (auto-reconnect, BTC
+	// connection, etc.). Balances are refreshed asynchronously below.
+	const existing = get(connectedWalletsStore).wallets.find((w) => w.id === handle.id);
+
 	const entry: ConnectedWalletEntry = {
 		id: handle.id,
 		walletName: handle.walletName,
 		walletType: handle.walletType,
 		address: handle.address,
 		chainIds: handle.chainIds,
-		balances: {},
-		connectedAt: Date.now()
+		balances: existing?.balances ?? {},
+		connectedAt: Date.now(),
+		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
+			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
+			: undefined
 	};
 
 	connectedWalletsStore.update((state) => ({

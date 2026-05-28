@@ -19,11 +19,15 @@
 	const {
 		isLoading = false,
 		hideDetails = false,
-		overrideTotalUsd
+		overrideTotalUsd,
+		overrideSats,
+		overrideUsdt
 	} = $props<{
 		isLoading?: boolean;
 		hideDetails?: boolean;
 		overrideTotalUsd?: number | null;
+		overrideSats?: number | null;
+		overrideUsdt?: number | null;
 	}>();
 
 	// Refresh state
@@ -132,14 +136,20 @@
 
 	let satsDisplay = $derived.by(() => {
 		if (balancesHidden) return '••••';
-		if (hideDetails) return '0';
+		if (hideDetails) {
+			if (overrideSats != null) return overrideSats > 0 ? formatSats(overrideSats) : '0';
+			return '0';
+		}
 		const sats = $totalBalances?.sats ?? 0;
 		return sats > 0 ? formatSats(sats) : '0';
 	});
 
 	let usdtDisplay = $derived.by(() => {
 		if (balancesHidden) return '••••';
-		if (hideDetails) return '$0.00';
+		if (hideDetails) {
+			if (overrideUsdt != null) return overrideUsdt > 0 ? `$${overrideUsdt.toFixed(2)}` : '$0.00';
+			return '$0.00';
+		}
 		const usdt = $totalBalances?.usdt ?? 0;
 		return usdt > 0 ? `$${usdt.toFixed(2)}` : '$0.00';
 	});
