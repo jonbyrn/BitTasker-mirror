@@ -534,39 +534,35 @@
 					{/if}
 				{/if}
 
-				<!-- Send and Receive Buttons (always visible) -->
-				<div class="flex flex-row gap-2 sm:gap-4">
+				<!-- Action Buttons (all four on one row) -->
+				<div class="flex flex-row gap-1">
 					<button
-						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
-						onclick={() => (showReceiveModal = true)}
+						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs transition-none active:scale-100"
+						onclick={() => (showBuySell = true)}
 					>
-						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						{$t('wallet.tab_receive')}
+						<IconCash class="h-5 w-5" />
+						{$t('wallet.tab_buy_sell')}
 					</button>
 					<button
-						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
-						onclick={() => (showSendModal = true)}
-					>
-						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						{$t('wallet.send_button')}
-					</button>
-				</div>
-
-				<!-- Swap / BuySell Buttons (always visible) -->
-				<div class="flex flex-row gap-2 sm:gap-4">
-					<button
-						class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
+						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs transition-none active:scale-100"
 						onclick={() => (showSwap = true)}
 					>
-						<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						<IconSwapHorizontal class="h-5 w-5" />
 						{$t('wallet.tab_swap')}
 					</button>
 					<button
-						class="btn btn-outline border-primary min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
-						onclick={() => (showBuySell = true)}
+						class="btn btn-secondary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs"
+						onclick={() => (showSendModal = true)}
 					>
-						<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-						{$t('wallet.tab_buy_sell')}
+						<IconUpload class="h-5 w-5" />
+						{$t('wallet.send_button')}
+					</button>
+					<button
+						class="btn btn-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs"
+						onclick={() => (showReceiveModal = true)}
+					>
+						<IconDownload class="h-5 w-5" />
+						{$t('wallet.tab_receive')}
 					</button>
 				</div>
 
