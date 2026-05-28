@@ -7,13 +7,21 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
+	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
+	import type { PendingSwapData } from '$lib/utils/swapAdapter';
+	import {
+		walletManager,
+		rskConnection,
+		walletStore,
+		updateSwapTransaction
+	} from '$lib/stores/wallet.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
-	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
@@ -149,6 +157,21 @@
 
 	// Tab state: 'wallet' | 'connected'
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
+
+	// Connected wallet total USD (used on Connected tab instead of built-in balance)
+	let connectedTotalUsd = $derived.by(() => {
+		if ($connectedWalletsStore.wallets.length === 0) return 0;
+		let total = 0;
+		for (const w of $connectedWalletsStore.wallets) {
+			const cur = w.balances;
+			if (cur) {
+				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
+				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
+			}
+		}
+		return total;
+	});
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -357,7 +380,11 @@
 
 			<!-- Balance Card -->
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-				<BalanceCard {isLoading} hideDetails={activeTab === 'connected'} />
+				<BalanceCard
+					{isLoading}
+					hideDetails={activeTab === 'connected'}
+					overrideTotalUsd={activeTab === 'connected' ? connectedTotalUsd : null}
+				/>
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}
@@ -376,6 +403,51 @@
 							</div>
 						</button>
 					</div>
+				{/if}
+
+				<!-- Connected tab: explanatory text (only when no wallets) -->
+				{#if activeTab === 'connected' && $connectedWalletsStore.wallets.length === 0}
+					<div class="flex flex-col items-center gap-2 px-2 text-center">
+						<svg
+							class="text-base-content/20 h-10 w-10"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="1"
+								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+							/></svg
+						>
+						<p class="text-base-content/60 text-xs leading-relaxed">
+							Connect external wallets like MetaMask or a hardware wallet (Ledger, Trezor) to access
+							additional chains and manage Bitcoin on-chain. Connected wallets appear here and can
+							be selected in the Buy/Sell, Swap, Send, and Receive forms.
+						</p>
+					</div>
+
+					<!-- Connect a Wallet button (above action buttons) -->
+					<button
+						class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
+						onclick={() => {
+							// Open the connected wallets connect modal
+							const connectedSection = document.querySelector(
+								'[data-connect-button]'
+							) as HTMLButtonElement;
+							connectedSection?.click();
+						}}
+					>
+						<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 4v16m8-8H4"
+							/></svg
+						>
+						{$t('wallet.connected.connect_modal_title')}
+					</button>
 				{/if}
 
 				<!-- Send and Receive Buttons (always visible) -->
@@ -414,7 +486,7 @@
 					</button>
 				</div>
 
-				<!-- Connected Wallet List (only on connected tab, below buttons) -->
+				<!-- Connected Wallet List (only on connected tab, below all buttons) -->
 				{#if activeTab === 'connected'}
 					<ConnectedWallets
 						onSend={() => (showSendModal = true)}
@@ -424,11 +496,24 @@
 					/>
 				{/if}
 
-				<!-- Learn More Section -->
+				<!-- Learn More — centered below all buttons, always visible -->
 				<div class="flex justify-center">
-					<div class="text-base-content/70 text-xs sm:text-sm">
-						<HelpModal />
-					</div>
+					<button
+						class="btn btn-ghost btn-sm text-base-content/50 gap-1 text-xs"
+						onclick={() => {
+							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
+						}}
+					>
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/></svg
+						>
+						{$t('wallet.learn_more')}
+					</button>
 				</div>
 			</div>
 		{:else}

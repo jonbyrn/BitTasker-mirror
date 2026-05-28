@@ -391,6 +391,12 @@
 
 	function closeConnectModal(): void {
 		showConnectModal = false;
+		showLedgerConnect = false;
+		showLedgerBtcStep = false;
+		showLedgerBtcSuccess = false;
+		ledgerBtcError = '';
+		ledgerBtcConnecting = false;
+		connectedWalletsStore.update((s) => ({ ...s, error: null, connectingType: null }));
 	}
 
 	async function handleConnectMetaMask(): Promise<void> {

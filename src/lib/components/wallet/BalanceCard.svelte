@@ -16,7 +16,7 @@
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
-	const { isLoading = false, hideDetails = false } = $props();
+	const { isLoading = false, hideDetails = false, overrideTotalUsd = null } = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -105,18 +105,21 @@
 	let combinedTotal = $derived.by(() => {
 		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
+		if (overrideTotalUsd !== null) return overrideTotalUsd.toFixed(2);
 		return $totalBalances.usd.toFixed(2);
 	});
 
 	let satsDisplay = $derived.by(() => {
 		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
+		if (hideDetails) return '0';
 		return $totalBalances.sats > 0 ? formatSats($totalBalances.sats) : '0';
 	});
 
 	let usdtDisplay = $derived.by(() => {
 		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
+		if (hideDetails) return '$0.00';
 		return $totalBalances.usdt > 0 ? `$${$totalBalances.usdt.toFixed(2)}` : '$0.00';
 	});
 </script>
