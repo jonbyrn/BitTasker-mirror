@@ -20,10 +20,16 @@
 	} = $props();
 </script>
 
-<div class="flex flex-col items-center gap-4 py-2">
+<div class="flex flex-col items-center gap-4 py-2" role="alert">
 	<!-- Error icon -->
 	<div class="bg-warning/10 rounded-full p-4">
-		<svg class="text-warning h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<svg
+			class="text-warning h-12 w-12"
+			fill="none"
+			stroke="currentColor"
+			viewBox="0 0 24 24"
+			aria-hidden="true"
+		>
 			<path
 				stroke-linecap="round"
 				stroke-linejoin="round"
@@ -87,7 +93,7 @@
 				class="btn btn-primary min-h-[44px] w-full text-sm sm:text-base"
 				onclick={onResetInput}
 			>
-				{$t('wallet.loan.paused_retry_swap')}
+				{$t('wallet.loan.paused_dismiss')}
 			</button>
 		{/if}
 	</div>

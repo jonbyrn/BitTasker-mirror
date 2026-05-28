@@ -199,14 +199,14 @@
 
 <div class="flex flex-col space-y-3 sm:space-y-4" data-hide-details={hideDetails || undefined}>
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
+	<div class="card bg-primary text-primary-content relative rounded-lg bg-linear-to-br shadow-xl">
 		<div class="card-body p-3 sm:p-4">
 			<div class="flex flex-col gap-1 sm:gap-0.5">
 				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || combinedTotal === null}
 						<p
-							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
+							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
 						>
 							<span class="inline-flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
@@ -216,7 +216,7 @@
 						</p>
 					{:else}
 						<p
-							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
+							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
 						>
 							≈ ${combinedTotal}
 							{@render helpButton()}
@@ -227,11 +227,11 @@
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading}
-						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
+						<p class="text-primary-content flex-1 text-lg font-bold opacity-70 sm:text-xl">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
+						<p class="text-primary-content flex-1 text-lg font-bold opacity-70 sm:text-xl">
 							{satsDisplay}
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
@@ -318,7 +318,7 @@
 							<div class="flex items-center gap-1.5 sm:gap-2">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+									class="text-warning h-4 w-4 sm:h-5 sm:w-5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -440,7 +440,20 @@
 						<!-- DOC on Rootstock (only shown if balance > 0) -->
 						{#if docBalance > 0}
 							<div class="flex items-center gap-1.5 sm:gap-2">
-								<span class="text-sm">📄</span>
+								<svg
+									class="text-base-content/60 h-4 w-4 shrink-0"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+									/>
+								</svg>
 								<span class="text-sm font-medium sm:text-base">DOC (RSK)</span>
 								<div class="ml-auto text-sm font-semibold sm:text-base">
 									{#if balancesHidden}
@@ -455,7 +468,20 @@
 						<!-- USDT0 on Rootstock (only shown if balance > 0) -->
 						{#if usdt0RskBalance > 0}
 							<div class="flex items-center gap-1.5 sm:gap-2">
-								<span class="text-sm">💵</span>
+								<svg
+									class="text-base-content/60 h-4 w-4 shrink-0"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
 								<span class="text-sm font-medium sm:text-base">USDT0 (RSK)</span>
 								<div class="ml-auto text-sm font-semibold sm:text-base">
 									{#if balancesHidden}
@@ -469,7 +495,20 @@
 
 						<!-- USDT0 on Arbitrum (always shown) -->
 						<div class="flex items-center gap-1.5 sm:gap-2">
-							<span class="text-sm">💵</span>
+							<svg
+								class="text-base-content/60 h-4 w-4 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
 							<span class="text-sm font-medium sm:text-base">USDT0 (Arbitrum)</span>
 							<div class="ml-auto text-sm font-semibold sm:text-base">
 								{#if balancesHidden}

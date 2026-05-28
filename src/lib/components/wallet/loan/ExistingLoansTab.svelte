@@ -1,15 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import WalletIcon from '../WalletIcon.svelte';
-
-	export interface DocWalletEntry {
-		walletId: string;
-		walletName: string;
-		walletType: 'builtin' | 'metamask' | 'walletconnect' | 'trezor' | 'ledger';
-		docBalance: number;
-		balanceAvailable: boolean;
-		address?: string;
-	}
+	import type { DocWalletEntry } from './types';
 
 	let {
 		docWallets = [],
@@ -74,7 +66,13 @@
 			<div class="card-body space-y-3 p-4">
 				<div class="flex items-start gap-3">
 					<div class="bg-success/10 rounded-full p-1.5">
-						<svg class="text-success h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg
+							class="text-success h-4 w-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -92,7 +90,13 @@
 				</div>
 				<div class="flex items-start gap-3">
 					<div class="bg-info/10 rounded-full p-1.5">
-						<svg class="text-info h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg
+							class="text-info h-4 w-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -110,7 +114,13 @@
 				</div>
 				<div class="flex items-start gap-3">
 					<div class="bg-primary/10 rounded-full p-1.5">
-						<svg class="text-primary h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg
+							class="text-primary h-4 w-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"

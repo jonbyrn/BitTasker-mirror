@@ -3,7 +3,7 @@
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import type { RedemptionFeeEstimate } from '$lib/services/redemption-fee-estimator';
-	import type { DocWalletEntry } from './ExistingLoansTab.svelte';
+	import type { DocWalletEntry } from './types';
 
 	// ------------------------------------------------------------------
 	// Props
@@ -98,8 +98,9 @@
 			const ethersMod = await import('ethers');
 			const { ethers: eth } = ethersMod;
 			docAmountWei = eth.parseEther(amount).toString();
-		} catch {
+		} catch (e) {
 			feeLoading = false;
+			console.error('Failed to parse DOC amount for fee estimation:', e);
 			return;
 		}
 

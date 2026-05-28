@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -22,7 +23,7 @@
 	import ExistingLoansTab from './loan/ExistingLoansTab.svelte';
 	import LoanRedemptionFlow from './loan/LoanRedemptionFlow.svelte';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import type { DocWalletEntry } from './loan/ExistingLoansTab.svelte';
+	import type { DocWalletEntry } from './loan/types';
 
 	// Props
 	let { isOpen, onClose }: { isOpen: boolean; onClose: () => void } = $props();
@@ -261,7 +262,17 @@
 		}
 
 		// Update state with real values
-		feeBreakdown = estimate.fees;
+		// Map service-internal labels to i18n keys for UI display
+		const serviceLabelMap: Record<string, string> = {
+			'DOC Mint Fee': $t('wallet.loan.fee_doc_mint'),
+			'Swap Impact/Fee': $t('wallet.loan.fee_doc_swap'),
+			'Bridge Fee': $t('wallet.loan.fee_bridge'),
+			'Gas Fee': $t('wallet.loan.fee_gas')
+		};
+		feeBreakdown = estimate.fees.map((f) => ({
+			...f,
+			label: serviceLabelMap[f.label] || f.label
+		}));
 		estimatedRbtcNeeded = estimate.totalRbtcNeeded;
 		estimatedArbReceive = estimate.estimatedArbReceive;
 		quoteExpiresAt = Date.now() + estimate.quoteExpiresIn * 1000;
@@ -334,7 +345,7 @@
 	}
 
 	function handleSwapManually() {
-		window.open('https://app.openocean.finance/swap/rootstock/DOC/USDT0', '_blank');
+		if (browser) window.open('https://app.openocean.finance/swap/rootstock/DOC/USDT0', '_blank');
 	}
 
 	function handleResetInput() {
@@ -343,7 +354,7 @@
 	}
 
 	function handleKeepAsUsdt0() {
-		window.open('https://usdt0.to/transfer', '_blank');
+		if (browser) window.open('https://usdt0.to/transfer', '_blank');
 	}
 
 	// Computed values

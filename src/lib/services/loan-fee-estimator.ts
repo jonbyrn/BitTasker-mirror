@@ -13,9 +13,7 @@
  *   → LayerZero bridge quote → gas estimate → aggregated FeeBreakdown
  */
 
-import { ethers } from 'ethers';
-import { MoCMintingService } from '@bittasker/wallet-core';
-import { Usdt0BridgeService, OFT_RSK_ADDRESS } from '@bittasker/wallet-core';
+import type { ethers } from 'ethers';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 import { openoceanService } from '$lib/services/openocean.service';
@@ -159,6 +157,9 @@ async function getMocEstimate(
 	rbtcPrice: number,
 	fees: FeeItem[]
 ): Promise<MocEstimateResult> {
+	const { ethers } = await import('ethers');
+	const { MoCMintingService } = await import('@bittasker/wallet-core');
+
 	fees.push({ label: 'DOC Mint Fee', amount: '...', loading: true });
 	const stepStart = Date.now();
 
@@ -229,6 +230,7 @@ async function getSwapQuote(
 	docAmountWei: string,
 	fees: FeeItem[]
 ): Promise<SwapQuoteResult> {
+	const { ethers } = await import('ethers');
 	fees.push({ label: 'Swap Impact/Fee', amount: '...', loading: true });
 	const userAddress = await signer.getAddress();
 	const docFormatted = ethers.formatEther(docAmountWei);
@@ -256,6 +258,7 @@ async function trySwapOpenOcean(
 	docFormatted: string,
 	stepStart: number
 ): Promise<SwapQuoteResult | null> {
+	const { ethers } = await import('ethers');
 	const { data: quoteData, error } = await tryCatch(
 		openoceanService.getQuote({ docAmount: docFormatted })
 	);
@@ -285,6 +288,7 @@ async function trySwapLifi(
 	userAddress: string,
 	stepStart: number
 ): Promise<SwapQuoteResult | null> {
+	const { ethers } = await import('ethers');
 	const { data: route, error } = await tryCatch(
 		lifiService.getQuote({
 			fromChain: RSK_CHAIN_ID,
@@ -316,6 +320,7 @@ async function trySwapSymbiosis(
 	userAddress: string,
 	stepStart: number
 ): Promise<SwapQuoteResult | null> {
+	const { ethers } = await import('ethers');
 	const { data: quote, error } = await tryCatch(
 		symbiosisService.getQuote({
 			tokenAmountIn: {
@@ -400,6 +405,9 @@ async function getBridgeQuote(
 	fees.push({ label: 'Bridge Fee', amount: '...', loading: true });
 	const stepStart = Date.now();
 
+	const { ethers } = await import('ethers');
+	const { Usdt0BridgeService, OFT_RSK_ADDRESS } = await import('@bittasker/wallet-core');
+
 	const bridgeService = new Usdt0BridgeService(USDT0_RSK_ADDRESS, OFT_RSK_ADDRESS);
 
 	const { data: bridgeResult, error: bridgeError } = await tryCatch(
@@ -463,6 +471,8 @@ async function getGasEstimate(
 ): Promise<GasEstimateResult> {
 	fees.push({ label: 'Gas Fee', amount: '...', loading: true });
 
+	const { ethers } = await import('ethers');
+
 	// Query on-chain for the live gas price; use documented per-tx gas values for the total
 	const { data: feeData, error: feeDataError } = await tryCatch(provider.getFeeData());
 
@@ -525,6 +535,7 @@ export const loanFeeEstimator = {
 		signer: ethers.Wallet;
 		provider: ethers.JsonRpcProvider;
 	}): Promise<LoanFeeEstimate> {
+		const { ethers } = await import('ethers');
 		const { usdAmount, signer, provider } = params;
 		const startTime = Date.now();
 		const fees: FeeItem[] = [];

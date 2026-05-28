@@ -256,7 +256,7 @@ export async function probeOpenOceanAPI(): Promise<HealthStatus> {
 		})
 	);
 
-	const healthy = error === null && data !== undefined && data.ok;
+	const healthy = error === null && _data !== undefined && _data.ok;
 
 	return {
 		service: 'OpenOcean API',
@@ -278,7 +278,7 @@ export async function probeLifiAPI(): Promise<HealthStatus> {
 		})
 	);
 
-	const healthy = error === null && data !== undefined && data.ok;
+	const healthy = error === null && _data !== undefined && _data.ok;
 
 	return {
 		service: 'LI.FI API',
@@ -300,7 +300,7 @@ export async function probeSymbiosisAPI(): Promise<HealthStatus> {
 		})
 	);
 
-	const healthy = error === null && data !== undefined && data.ok;
+	const healthy = error === null && _data !== undefined && _data.ok;
 
 	return {
 		service: 'Symbiosis API',

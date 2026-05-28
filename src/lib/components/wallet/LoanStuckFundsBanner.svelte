@@ -88,8 +88,7 @@
 			></div>
 
 			<div
-				class="bg-base-100 fixed right-0 bottom-0 left-0 z-60 rounded-t-2xl p-4 shadow-xl"
-				style="padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));"
+				class="bg-base-100 fixed right-0 bottom-0 left-0 z-60 rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-xl"
 			>
 				<div class="mb-3 flex items-center justify-between">
 					<h3 class="text-lg font-bold">

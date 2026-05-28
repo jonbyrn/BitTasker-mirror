@@ -194,6 +194,29 @@ function buildExecutionSteps(): ExecStep[] {
 }
 
 // ---------------------------------------------------------------------------
+// Phase-to-paused mapping helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps the current execution phase to the appropriate paused terminal phase.
+ * Extracted as a pure function to avoid TypeScript control-flow narrowing
+ * pitfalls across try/catch boundaries.
+ */
+function determinePausedPhase(phase: LoanPhase): LoanPhase {
+	if (
+		phase === 'MINTING_DOC' ||
+		phase === 'WAITING_DOC_MINT' ||
+		phase === 'APPROVING_DOC' ||
+		phase === 'SWAPPING_DOC_TO_USDT0' ||
+		phase === 'WAITING_SWAP'
+	)
+		return 'PAUSED_DOC';
+	if (phase === 'APPROVING_USDT0' || phase === 'BRIDGING_TO_ARBITRUM' || phase === 'WAITING_BRIDGE')
+		return 'PAUSED_USDT0_RSK';
+	return 'FAILED';
+}
+
+// ---------------------------------------------------------------------------
 // Default State
 // ---------------------------------------------------------------------------
 
@@ -433,29 +456,9 @@ class LoanOrchestrator {
 			debug.error('Execution failed: %s', err.message);
 			loanMonitoringService.flowError(this.state.phase, err);
 
-			// Determine where to pause based on current phase.
-			// Use phaseSnapshot to avoid TS narrowing issues across try/catch boundary.
-			const phaseSnapshot: LoanPhase = this.state.phase;
-			if (
-				phaseSnapshot === 'MINTING_DOC' ||
-				phaseSnapshot === 'WAITING_DOC_MINT' ||
-				phaseSnapshot === 'APPROVING_DOC' ||
-				phaseSnapshot === 'SWAPPING_DOC_TO_USDT0' ||
-				phaseSnapshot === 'WAITING_SWAP'
-			) {
-				this.transitionTo('PAUSED_DOC');
-				this.state.errorMessage = err.message;
-			} else if (
-				phaseSnapshot === 'APPROVING_USDT0' ||
-				phaseSnapshot === 'BRIDGING_TO_ARBITRUM' ||
-				phaseSnapshot === 'WAITING_BRIDGE'
-			) {
-				this.transitionTo('PAUSED_USDT0_RSK');
-				this.state.errorMessage = err.message;
-			} else {
-				this.transitionTo('FAILED');
-				this.state.errorMessage = err.message;
-			}
+			const pausedPhase = determinePausedPhase(this.state.phase);
+			this.transitionTo(pausedPhase);
+			this.state.errorMessage = err.message;
 		} finally {
 			this.executing = !['COMPLETE', 'FAILED', 'PAUSED_DOC', 'PAUSED_USDT0_RSK'].includes(
 				this.state.phase
