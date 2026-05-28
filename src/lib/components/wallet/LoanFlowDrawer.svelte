@@ -250,10 +250,12 @@
 				provider: provider
 			})
 		);
+		console.log('[LoanFlow] estimateFees result:', { data: !!estimate, error: !!error });
 
 		if (error || !estimate) {
 			console.error('Fee estimation failed:', error);
-			feeBreakdown = [];
+			// Keep the skeleton rows so the section stays visible, clear loading indicators
+			feeBreakdown = feeBreakdown.map((f) => ({ ...f, loading: false, amount: '—' }));
 			errorMessage =
 				error instanceof Error ? error.message : $t('wallet.loan.error_estimate_failed');
 			return;
