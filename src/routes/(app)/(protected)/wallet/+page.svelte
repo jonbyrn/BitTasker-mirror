@@ -406,38 +406,41 @@
 					</div>
 				{/if}
 
-				<!-- Connected tab: explanatory text (only when no wallets) -->
+				<!-- Connected tab: explanatory card (only when no wallets) -->
 				{#if activeTab === 'connected' && $connectedWalletsStore.wallets.length === 0}
-					<div class="flex flex-col items-center gap-3 px-4 text-center">
-						<IconBankOutline class="text-base-content/20 h-10 w-10" />
-						<p class="text-base-content/60 text-xs leading-relaxed">
-							Think of connected wallets like your bank — they're where you store larger amounts
-							securely, accessible via MetaMask, Ledger, or Trezor. Your BitTasker wallet is for
-							daily tasks like sending, swapping, and receiving small amounts.
-						</p>
+					<div class="card bg-base-200 rounded-box p-5">
+						<div class="card-body items-center gap-3 px-2 py-0 text-center">
+							<IconBankOutline class="text-base-content h-8 w-8" />
+							<p class="text-xs leading-relaxed">
+								Think of connected wallets like your bank — they're where you store larger amounts
+								securely, accessible via MetaMask, Ledger, or Trezor.
+							</p>
+							<p class="text-xs leading-relaxed">
+								Your BitTasker wallet is for daily tasks like sending, swapping, and receiving small
+								amounts.
+							</p>
+							<!-- Connect a Wallet button (above action buttons) -->
+							<button
+								class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
+								onclick={() => {
+									const connectedSection = document.querySelector(
+										'[data-connect-button]'
+									) as HTMLButtonElement;
+									connectedSection?.click();
+								}}
+							>
+								<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 4v16m8-8H4"
+									/></svg
+								>
+								{$t('wallet.connected.connect_modal_title')}
+							</button>
+						</div>
 					</div>
-
-					<!-- Connect a Wallet button (above action buttons) -->
-					<button
-						class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
-						onclick={() => {
-							// Open the connected wallets connect modal
-							const connectedSection = document.querySelector(
-								'[data-connect-button]'
-							) as HTMLButtonElement;
-							connectedSection?.click();
-						}}
-					>
-						<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 4v16m8-8H4"
-							/></svg
-						>
-						{$t('wallet.connected.connect_modal_title')}
-					</button>
 				{/if}
 
 				<!-- Send and Receive Buttons (always visible) -->
