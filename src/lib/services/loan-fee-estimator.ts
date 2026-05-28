@@ -64,6 +64,9 @@ const DEFAULT_GAS_COST_USD = 3.5;
 /** MoC DOC mint fee rate: 0.20% (per https://wiki.moneyonchain.com/en/faq). */
 const MOC_FEE_RATE = 0.002;
 
+/** MoC protocol collateral ratio: 200% (2× value locked per DOC minted). */
+const MOC_COVERAGE_RATIO = 2.0;
+
 /** Gas per transaction type on RSK (standard EVM estimates verified on-chain). */
 const GAS_PER_TX = {
 	mint: 152_000, // value transfer to MoC contract (~150k verified via estimateGas)
@@ -193,15 +196,17 @@ async function getMocEstimate(
 		if (mocError || !mocResult) {
 			// MoC on-chain estimate failed — use documented 0.20% rate as fallback
 			const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
-			const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
+			const docAmountUsd = rbtcValueUsd / MOC_COVERAGE_RATIO;
+			const fallbackFeeUsd = docAmountUsd * MOC_FEE_RATE;
+			const docAmountWei = ethers.parseEther(docAmountUsd.toFixed(18));
 			fees[fees.length - 1] = {
 				label: 'DOC Mint Fee',
 				amount: formatUsd(fallbackFeeUsd),
 				loading: false
 			};
 			return {
-				docAmount: rbtcWei,
-				coverageRatio: null,
+				docAmount: docAmountWei.toString(),
+				coverageRatio: MOC_COVERAGE_RATIO,
 				feeUsd: fallbackFeeUsd,
 				rate: MOC_FEE_RATE
 			};
@@ -228,13 +233,20 @@ async function getMocEstimate(
 
 	// mocService is null — use documented 0.20% rate as fallback
 	const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
-	const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
+	const docAmountUsd = rbtcValueUsd / MOC_COVERAGE_RATIO;
+	const fallbackFeeUsd = docAmountUsd * MOC_FEE_RATE;
+	const docAmountWei = ethers.parseEther(docAmountUsd.toFixed(18));
 	fees[fees.length - 1] = {
 		label: 'DOC Mint Fee',
 		amount: formatUsd(fallbackFeeUsd),
 		loading: false
 	};
-	return { docAmount: rbtcWei, coverageRatio: null, feeUsd: fallbackFeeUsd, rate: MOC_FEE_RATE };
+	return {
+		docAmount: docAmountWei.toString(),
+		coverageRatio: MOC_COVERAGE_RATIO,
+		feeUsd: fallbackFeeUsd,
+		rate: MOC_FEE_RATE
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -249,24 +261,23 @@ interface SwapQuoteResult {
 
 async function getSwapQuote(
 	signer: ethers.Wallet,
-	docAmountWei: string,
+	docAmountRaw: string,
 	fees: FeeItem[]
 ): Promise<SwapQuoteResult> {
 	const { ethers } = await import('ethers');
-	fees.push({ label: 'Swap Impact/Fee', amount: '...', loading: true });
+	const docFormatted = ethers.formatEther(docAmountRaw);
 	const userAddress = await signer.getAddress();
-	const docFormatted = ethers.formatEther(docAmountWei);
 	const stepStart = Date.now();
 
-	// --- Primary: OpenOcean ---
-	const ooResult = await trySwapOpenOcean(docFormatted, stepStart);
+	// Try OpenOcean first (fastest, no authentication needed)
+	const ooResult = await trySwapOpenOcean(docAmountRaw, stepStart);
 	if (ooResult) return finalizeSwapFee(fees, ooResult, docFormatted, userAddress);
 
-	// --- Fallback 1: LIFI ---
+	// Fallback 1: LIFI
 	const lifiResult = await trySwapLifi(docFormatted, userAddress, stepStart);
 	if (lifiResult) return finalizeSwapFee(fees, lifiResult, docFormatted, userAddress);
 
-	// --- Fallback 2: Symbiosis ---
+	// Fallback 2: Symbiosis
 	const symbiosisResult = await trySwapSymbiosis(docFormatted, userAddress, stepStart);
 	if (symbiosisResult) return finalizeSwapFee(fees, symbiosisResult, docFormatted, userAddress);
 
@@ -277,19 +288,19 @@ async function getSwapQuote(
 		'All swap providers (OpenOcean, LIFI, Symbiosis) failed to return a quote — using $0.00 fallback'
 	);
 	return {
-		usdt0AmountRaw: docAmountWei,
+		usdt0AmountRaw: docAmountRaw,
 		usdt0Amount: docFormatted,
 		provider: 'fallback'
 	};
 }
 
 async function trySwapOpenOcean(
-	docFormatted: string,
+	docAmountRaw: string,
 	stepStart: number
 ): Promise<SwapQuoteResult | null> {
 	const { ethers } = await import('ethers');
 	const { data: quoteData, error } = await tryCatch(
-		openoceanService.getQuote({ docAmount: docFormatted })
+		openoceanService.getQuote({ docAmount: docAmountRaw })
 	);
 
 	if (error || !quoteData) {
@@ -648,8 +659,8 @@ export const loanFeeEstimator = {
 		// -------------------------------------------------------------------
 		const totalRbtcNeeded = rbtcNeeded + gasResult.gasCostRbtc + bridgeResult.bridgeFeeRbtc;
 		const docFormatted = ethers.formatEther(docAmountWei);
-		const usdt0RskFormatted = swapResult.usdt0Amount;
-
+		// DOC is 1:1 with USD, so the USDT0 receive amount equals the DOC amount
+		const usdt0RskFormatted = docFormatted;
 		const estimate: LoanFeeEstimate = {
 			fees,
 			totalRbtcNeeded: totalRbtcNeeded.toFixed(8),
