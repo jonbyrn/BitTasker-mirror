@@ -1011,7 +1011,9 @@
 			}
 		},
 		"balance_history": {
-			"error": "Error al cargar el historial de saldo"
+			"error": "Error al cargar el historial de saldo",
+			"label": "Actividad",
+			"view_chart": "Ver Gráfico Histórico"
 		},
 		"balance_chart": {
 			"title": "Historial de Saldo",

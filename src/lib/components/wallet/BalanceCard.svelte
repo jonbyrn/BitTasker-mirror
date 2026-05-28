@@ -13,7 +13,6 @@
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
-	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
 	let {
@@ -250,11 +249,6 @@
 			</div>
 		</div>
 	</div>
-
-	{#if !hideDetails}
-		<!-- Historical Balance Indicators -->
-		<BalanceHistory {balancesHidden} />
-	{/if}
 
 	{#if !hideDetails}
 		<!-- Network Breakdown -->

@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
-	 * BalanceHistory Component
+	 * BalanceHistory Accordion
 	 *
-	 * Displays historical balance changes for 24h, 7d, and 30d periods.
-	 * Uses the BalanceHistoryService for data fetching and caching.
+	 * Closed: "Activity · Last 24h" with 24h change inline
+	 * Expanded: 7d + 30d rows, plus "View Historical Chart" button
 	 */
 	import { t } from 'svelte-i18n';
 	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
@@ -13,12 +13,9 @@
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
 
 	let showChartModal = $state(false);
+	let expanded = $state(false);
 
-	/**
-	 * Create a reactive promise that updates when totalBalances changes
-	 */
 	let balanceChangesPromise = $derived.by(() => {
-		// Return promise (not awaited) - {#await} in template handles it
 		return balanceHistoryService.getBalanceChanges(
 			$totalBalances.sats,
 			$totalBalances.usd,
@@ -27,147 +24,136 @@
 		);
 	});
 
-	/**
-	 * Format balance change for display
-	 */
-	function formatBalanceChange(satsChange: number | null, usdChange: number | null) {
-		if (satsChange === null || usdChange === null) {
-			return null;
-		}
-
+	function formatChange(satsChange: number | null, usdChange: number | null) {
+		if (satsChange === null || usdChange === null) return null;
 		const sats = satsChange;
 		const usd = usdChange;
-
-		// Check if sats is neutral (zero or effectively zero)
-		const satsIsZero = sats === 0;
-		const satsIsNeutral = satsIsZero;
-
-		// Check if USD is neutral (zero or below threshold)
-		const usdIsZero = usd === 0;
-		const usdIsBelowThreshold = Math.abs(usd) < 0.01;
-		const usdIsNeutral = usdIsZero || usdIsBelowThreshold;
+		const satsNeutral = sats === 0;
+		const usdNeutral = usd === 0 || Math.abs(usd) < 0.01;
 
 		const formattedUsd = new Intl.NumberFormat('en-US', {
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2
 		}).format(Math.abs(usd));
 
-		const satsDisplay = satsIsNeutral
-			? `${formatSats(Math.abs(sats))}`
-			: sats > 0
-				? `+${formatSats(Math.abs(sats))}`
-				: `-${formatSats(Math.abs(sats))}`;
-
-		const usdDisplay = usdIsNeutral
-			? `$${formattedUsd}`
-			: usd > 0
-				? `+$${formattedUsd}`
-				: `-$${formattedUsd}`;
-
-		// Determine color for sats independently
-		const satsColorClass = satsIsNeutral
-			? 'text-base-content/70' // Match label color for neutral
-			: sats > 0
-				? 'text-success'
-				: 'text-error';
-
-		// Determine color for USD independently
-		const usdColorClass = usdIsNeutral
-			? 'text-base-content/70' // Match label color for neutral
-			: usd > 0
-				? 'text-success/80'
-				: 'text-error/80';
-
 		return {
-			satsDisplay,
-			usdDisplay,
-			satsIsNeutral,
-			usdIsNeutral,
-			satsColorClass,
-			usdColorClass
+			sats: satsNeutral
+				? `${formatSats(Math.abs(sats))}`
+				: sats > 0
+					? `+${formatSats(Math.abs(sats))}`
+					: `-${formatSats(Math.abs(sats))}`,
+			usd: usdNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`,
+			satsColor: satsNeutral ? 'text-base-content/70' : sats > 0 ? 'text-success' : 'text-error',
+			usdColor: usdNeutral ? 'text-base-content/70' : usd > 0 ? 'text-success/80' : 'text-error/80'
 		};
 	}
 </script>
 
-<!-- Historical Balance Indicators Card -->
 <div
-	class="border-primary bg-base-100 hover:bg-base-200 cursor-pointer rounded-lg border-2 transition-colors"
-	onclick={() => {
-		showChartModal = true;
-	}}
-	role="button"
-	tabindex="0"
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			showChartModal = true;
-		}
-	}}
+	class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+	class:collapse-open={expanded}
 	aria-label={$t('wallet.balance_chart.open_chart')}
 >
-	<div class="px-4 py-3">
-		<div class="grid grid-cols-3 gap-2 text-sm">
+	<input type="checkbox" bind:checked={expanded} />
+
+	<!-- Title row (always visible) — 24h inline -->
+	<div class="collapse-title flex min-h-0 items-center gap-3 px-3 py-2 sm:px-4 sm:py-3">
+		<span class="text-sm font-medium sm:text-base">
+			{$t('wallet.balance_history.label')} · <span class="text-base-content/70">24h</span>
+		</span>
+
+		<div class="ml-auto flex items-center gap-3 text-sm sm:text-base">
 			{#await balanceChangesPromise}
-				<!-- Loading state - matching loaded state dimensions to prevent layout shift -->
-				{#each ['24h', '7d', '30d'] as label (label)}
-					<div class="flex flex-col items-center gap-1">
-						<div class="text-base-content/70 font-medium">{label}</div>
-						<!-- Sats amount placeholder with spinner - matching loaded state dimensions -->
-						<div
-							class="text-base-content inline-flex min-w-20 items-center justify-center gap-1 font-semibold"
-						>
-							<span class="loading loading-spinner loading-xs text-primary"></span>
-						</div>
-						<!-- USD amount placeholder with spinner - matching loaded state dimensions -->
-						<div
-							class="text-base-content/70 inline-flex min-w-16 items-center justify-center gap-1"
-						>
-							<span class="loading loading-spinner loading-xs text-primary"></span>
-						</div>
-					</div>
-				{/each}
-			{:then balanceChanges}
-				<!-- Success state -->
-				{#each balanceChanges as change (change.label)}
-					<div class="flex flex-col items-center gap-1">
-						<div class="text-base-content/70 font-medium">{change.label}</div>
+				<span class="loading loading-spinner loading-xs text-primary"></span>
+			{:then changes}
+				{#if changes.length > 0}
+					{@const f24 = formatChange(changes[0]?.satsChange ?? null, changes[0]?.usdChange ?? null)}
+					{#if f24}
 						{#if balancesHidden}
-							<div class="text-base-content/50">••••</div>
-							<div class="text-base-content/50">••••</div>
-						{:else if change.satsChange === null}
-							<!-- Loading indicator - matching loaded state dimensions -->
-							<div
-								class="text-base-content inline-flex min-w-20 items-center justify-center gap-1 font-semibold"
-							>
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							</div>
-							<div
-								class="text-base-content/70 inline-flex min-w-16 items-center justify-center gap-1"
-							>
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							</div>
+							<span class="text-base-content/50">••••</span>
+							<span class="text-base-content/50">••••</span>
 						{:else}
-							{@const formatted = formatBalanceChange(change.satsChange, change.usdChange)}
-							{#if formatted}
-								<div class="font-semibold {formatted.satsColorClass}">
-									{formatted.satsDisplay}
-								</div>
-								<div class={formatted.usdColorClass}>
-									{formatted.usdDisplay}
-								</div>
-							{/if}
+							<span class="font-semibold {f24.satsColor}">{f24.sats}</span>
+							<span class={f24.usdColor}>{f24.usd}</span>
 						{/if}
-					</div>
-				{/each}
+					{/if}
+				{/if}
 			{:catch}
-				<!-- Error state -->
-				<div class="col-span-3 text-center">
-					<span class="text-error text-xs">{$t('wallet.balance_history.error')}</span>
-				</div>
+				<span class="text-base-content/50 text-xs">—</span>
 			{/await}
 		</div>
 	</div>
+
+	<!-- Expanded body — 7d + 30d rows + chart button -->
+	<div class="collapse-content px-3 pb-2 sm:px-4 sm:pb-3">
+		{#await balanceChangesPromise}
+			<div class="flex justify-center py-2">
+				<span class="loading loading-spinner loading-sm text-primary"></span>
+			</div>
+		{:then changes}
+			<div class="space-y-2 pt-1">
+				<!-- 7d row -->
+				{#if changes.length > 1}
+					{@const f7 = formatChange(changes[1]?.satsChange ?? null, changes[1]?.usdChange ?? null)}
+					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
+						<span class="text-base-content/70 text-sm">{changes[1]?.label ?? '7d'}</span>
+						<div class="flex items-center gap-3">
+							{#if f7}
+								{#if balancesHidden}
+									<span class="text-base-content/50">••••</span>
+									<span class="text-base-content/50">••••</span>
+								{:else}
+									<span class="font-semibold {f7.satsColor}">{f7.sats}</span>
+									<span class={f7.usdColor}>{f7.usd}</span>
+								{/if}
+							{:else}
+								<span class="loading loading-spinner loading-xs text-primary"></span>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- 30d row -->
+				{#if changes.length > 2}
+					{@const f30 = formatChange(changes[2]?.satsChange ?? null, changes[2]?.usdChange ?? null)}
+					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
+						<span class="text-base-content/70 text-sm">{changes[2]?.label ?? '30d'}</span>
+						<div class="flex items-center gap-3">
+							{#if f30}
+								{#if balancesHidden}
+									<span class="text-base-content/50">••••</span>
+									<span class="text-base-content/50">••••</span>
+								{:else}
+									<span class="font-semibold {f30.satsColor}">{f30.sats}</span>
+									<span class={f30.usdColor}>{f30.usd}</span>
+								{/if}
+							{:else}
+								<span class="loading loading-spinner loading-xs text-primary"></span>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Divider + Chart button -->
+				<div class="border-base-300 border-t pt-2">
+					<button
+						class="text-primary hover:text-primary-focus inline-flex w-full items-center justify-between px-2 py-1.5 text-sm font-medium"
+						onclick={(e) => {
+							e.stopPropagation();
+							showChartModal = true;
+						}}
+					>
+						<span>{$t('wallet.balance_history.view_chart')}</span>
+						<span class="text-base-content/30">→</span>
+					</button>
+				</div>
+			</div>
+		{:catch}
+			<div class="py-2 text-center">
+				<span class="text-error text-xs">{$t('wallet.balance_history.error')}</span>
+			</div>
+		{/await}
+	</div>
 </div>
 
-<!-- Balance Chart Modal -->
 <BalanceChartModal isOpen={showChartModal} onClose={() => (showChartModal = false)} />

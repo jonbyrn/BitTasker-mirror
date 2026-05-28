@@ -47,6 +47,7 @@
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import LoanFlowDrawer from '$lib/components/wallet/LoanFlowDrawer.svelte';
 	import LoanStuckFundsBanner from '$lib/components/wallet/LoanStuckFundsBanner.svelte';
+	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
@@ -446,6 +447,13 @@
 						{balancesHidden}
 						onToggleBalances={(hidden) => (balancesHidden = hidden)}
 					/>
+				{/if}
+
+				<!-- Activity Accordion (between balances and transactions) -->
+				{#if activeTab !== 'connected'}
+					<div>
+						<BalanceHistory {balancesHidden} />
+					</div>
 				{/if}
 
 				<!-- Transactions Button (Wallet tab only) -->

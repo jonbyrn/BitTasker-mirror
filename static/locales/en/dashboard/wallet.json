@@ -1015,7 +1015,9 @@
 			"faq_ownwallet_footer": "Your wallet stays connected between visits. The app never has access to your private keys — you confirm every transaction in your wallet."
 		},
 		"balance_history": {
-			"error": "Failed to load balance history"
+			"error": "Failed to load balance history",
+			"label": "Activity",
+			"view_chart": "View Historical Chart"
 		},
 		"balance_chart": {
 			"title": "Balance History",
