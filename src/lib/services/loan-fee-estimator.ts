@@ -196,7 +196,7 @@ async function getMocEstimate(
 			const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
 			fees[fees.length - 1] = {
 				label: 'DOC Mint Fee',
-				amount: `≈ $${fallbackFeeUsd.toFixed(2)} (0.20%)`,
+				amount: formatUsd(fallbackFeeUsd),
 				loading: false
 			};
 			return {
@@ -212,7 +212,7 @@ async function getMocEstimate(
 		const feeUsd = feeRbtc * rbtcPrice;
 		fees[fees.length - 1] = {
 			label: 'DOC Mint Fee',
-			amount: `≈ $${feeUsd.toFixed(2)} (${(MOC_FEE_RATE * 100).toFixed(2)}%)`,
+			amount: formatUsd(feeUsd),
 			loading: false
 		};
 		const elapsed = Date.now() - stepStart;
@@ -231,7 +231,7 @@ async function getMocEstimate(
 	const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
 	fees[fees.length - 1] = {
 		label: 'DOC Mint Fee',
-		amount: `≈ $${fallbackFeeUsd.toFixed(2)} (0.20%)`,
+		amount: formatUsd(fallbackFeeUsd),
 		loading: false
 	};
 	return { docAmount: rbtcWei, coverageRatio: null, feeUsd: fallbackFeeUsd, rate: MOC_FEE_RATE };
@@ -392,21 +392,13 @@ function finalizeSwapFee(
 	docFormatted: string,
 	_userAddress: string
 ): SwapQuoteResult {
-	// Compute swap fee: (docIn - usdt0Out) / docIn * 100 (as percentage approximation)
+	// Compute swap fee in USD: difference between DOC in and USDT0 out (both ~$1)
 	const docInNum = parseFloat(docFormatted);
 	const usdt0OutNum = parseFloat(result.usdt0Amount);
-
-	let swapFeePct = 0;
-	if (docInNum > 0) {
-		const diff = docInNum - usdt0OutNum;
-		swapFeePct = Math.max(0, (diff / docInNum) * 100);
-	}
+	const swapFeeUsd = docInNum > 0 ? Math.max(0, docInNum - usdt0OutNum) : 0;
 
 	const idx = fees.findIndex((f) => f.label === 'Swap Impact/Fee' && f.loading);
-	const swapFeeLabel =
-		swapFeePct > 0
-			? `${swapFeePct.toFixed(2)}% (${result.provider})`
-			: `<0.01% (${result.provider})`;
+	const swapFeeLabel = formatUsd(swapFeeUsd);
 
 	if (idx >= 0) {
 		fees[idx] = { label: 'Swap Impact/Fee', amount: swapFeeLabel };
