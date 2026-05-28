@@ -1017,7 +1017,10 @@
 		"balance_history": {
 			"error": "Failed to load balance history",
 			"label": "Activity",
-			"view_chart": "View Historical Chart"
+			"view_chart": "View Historical Chart",
+			"24h": "Last 24 hours",
+			"7d": "Last 7 days",
+			"30d": "Last 30 days"
 		},
 		"balance_chart": {
 			"title": "Balance History",

@@ -1013,7 +1013,10 @@
 		"balance_history": {
 			"error": "Error al cargar el historial de saldo",
 			"label": "Actividad",
-			"view_chart": "Ver Gráfico Histórico"
+			"view_chart": "Ver Gráfico Histórico",
+			"24h": "Últimas 24 horas",
+			"7d": "Últimos 7 días",
+			"30d": "Últimos 30 días"
 		},
 		"balance_chart": {
 			"title": "Historial de Saldo",

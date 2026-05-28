@@ -9,6 +9,7 @@
 	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import BalanceChartModal from './BalanceChartModal.svelte';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
 
@@ -31,10 +32,14 @@
 		const satsNeutral = sats === 0;
 		const usdNeutral = usd === 0 || Math.abs(usd) < 0.01;
 
-		const formattedUsd = new Intl.NumberFormat('en-US', {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(Math.abs(usd));
+		function formatUsdChange(value: number, neutral: boolean): string {
+			const absUsd = new Intl.NumberFormat('en-US', {
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 2
+			}).format(Math.abs(value));
+			if (neutral) return `≈ ($0.00)`;
+			return value > 0 ? `≈ (+$${absUsd})` : `≈ (-$${absUsd})`;
+		}
 
 		return {
 			sats: satsNeutral
@@ -42,7 +47,7 @@
 				: sats > 0
 					? `+${formatSats(Math.abs(sats))}`
 					: `-${formatSats(Math.abs(sats))}`,
-			usd: usdNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`,
+			usd: formatUsdChange(usd, usdNeutral),
 			satsColor: satsNeutral ? 'text-base-content/70' : sats > 0 ? 'text-success' : 'text-error',
 			usdColor: usdNeutral ? 'text-base-content/70' : usd > 0 ? 'text-success/80' : 'text-error/80'
 		};
@@ -57,9 +62,12 @@
 	<input type="checkbox" bind:checked={expanded} />
 
 	<!-- Title row (always visible) — 24h inline -->
-	<div class="collapse-title flex min-h-0 items-center gap-3 px-3 py-2 sm:px-4 sm:py-3">
+	<div
+		class="collapse-title flex min-h-0 items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+	>
 		<span class="text-sm font-medium sm:text-base">
-			{$t('wallet.balance_history.label')} · <span class="text-base-content/70">24h</span>
+			{$t('wallet.balance_history.label')} ·
+			<span class="text-base-content/70">{$t('wallet.balance_history.24h')}</span>
 		</span>
 
 		<div class="ml-auto flex items-center gap-3 text-sm sm:text-base">
@@ -85,7 +93,7 @@
 	</div>
 
 	<!-- Expanded body — 7d + 30d rows + chart button -->
-	<div class="collapse-content px-3 pb-2 sm:px-4 sm:pb-3">
+	<div class="collapse-content px-3 sm:px-4">
 		{#await balanceChangesPromise}
 			<div class="flex justify-center py-2">
 				<span class="loading loading-spinner loading-sm text-primary"></span>
@@ -96,7 +104,7 @@
 				{#if changes.length > 1}
 					{@const f7 = formatChange(changes[1]?.satsChange ?? null, changes[1]?.usdChange ?? null)}
 					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{changes[1]?.label ?? '7d'}</span>
+						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.7d')}</span>
 						<div class="flex items-center gap-3">
 							{#if f7}
 								{#if balancesHidden}
@@ -117,7 +125,7 @@
 				{#if changes.length > 2}
 					{@const f30 = formatChange(changes[2]?.satsChange ?? null, changes[2]?.usdChange ?? null)}
 					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{changes[2]?.label ?? '30d'}</span>
+						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.30d')}</span>
 						<div class="flex items-center gap-3">
 							{#if f30}
 								{#if balancesHidden}
@@ -137,14 +145,14 @@
 				<!-- Divider + Chart button -->
 				<div class="border-base-300 border-t pt-2">
 					<button
-						class="text-primary hover:text-primary-focus inline-flex w-full items-center justify-between px-2 py-1.5 text-sm font-medium"
+						class="hover:bg-primary/10 text-base-content/80 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
 						onclick={(e) => {
 							e.stopPropagation();
 							showChartModal = true;
 						}}
 					>
 						<span>{$t('wallet.balance_history.view_chart')}</span>
-						<span class="text-base-content/30">→</span>
+						<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 					</button>
 				</div>
 			</div>
