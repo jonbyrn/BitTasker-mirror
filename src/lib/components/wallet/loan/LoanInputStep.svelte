@@ -42,8 +42,7 @@
 
 	function totalBuiltinUsd(): string {
 		const sats = $walletStore.totalBalances.sats;
-		const usdt = $walletStore.totalBalances.usdt;
-		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+		const usd = (sats / 100_000_000) * btcPrice.price;
 		return usd.toLocaleString('en-US', {
 			style: 'currency',
 			currency: 'USD',
@@ -56,8 +55,7 @@
 		const cur = wallet.balances;
 		if (!cur) return '$0.00';
 		const sats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
-		const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
-		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+		const usd = (sats / 100_000_000) * btcPrice.price;
 		return usd.toLocaleString('en-US', {
 			style: 'currency',
 			currency: 'USD',
@@ -67,14 +65,12 @@
 	}
 
 	function defaultWalletId(): string {
-		if ($walletStore.totalBalances.sats > 0 || $walletStore.totalBalances.usdt > 0)
-			return 'builtin';
+		if ($walletStore.totalBalances.sats > 0) return 'builtin';
 		const firstWithBalance = $connectedWalletsStore.wallets.find((w) => {
 			const b = w.balances;
 			if (!b) return false;
 			const sats = Number(b.btc?.raw ?? 0) + Number(b.rbtc?.raw ?? 0);
-			const usdt = Number(b.usdt?.raw ?? 0);
-			return sats > 0 || usdt > 0;
+			return sats > 0;
 		});
 		return firstWithBalance?.id ?? 'builtin';
 	}
@@ -117,11 +113,19 @@
 	onToggle={() => (sourceExpanded = !sourceExpanded)}
 />
 
-<!-- Amount input -->
+<!-- Available rBTC + Amount input -->
 <div class="space-y-2">
 	<label for="loan-amount" class="label">
 		<span class="label-text text-sm font-medium">{$t('wallet.loan.amount_label')}</span>
 	</label>
+	<div class="text-base-content/60 text-xs">
+		{$t('wallet.loan.available_rbtc', {
+			values: {
+				sats: Math.floor(rbtcBalance * 100_000_000).toLocaleString(),
+				usd: rbtcUsdValue
+			}
+		})}
+	</div>
 	<div class="join w-full">
 		<span
 			class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-lg"
@@ -139,16 +143,17 @@
 			step="0.01"
 			inputmode="decimal"
 		/>
+		<button
+			type="button"
+			class="btn btn-primary join-item min-h-[48px] rounded-r-lg"
+			onclick={() => {
+				inputAmount = rbtcBalance.toFixed(2);
+				handleInput();
+			}}
+		>
+			{$t('wallet.max')}
+		</button>
 	</div>
-</div>
-
-<!-- Your RBTC display -->
-<div class="bg-base-200 rounded-box flex items-center justify-between p-3">
-	<span class="text-sm font-medium"
-		>{$t('wallet.loan.your_rbtc', {
-			values: { amount: rbtcBalance.toFixed(4), usd: rbtcUsdValue }
-		})}</span
-	>
 </div>
 
 <!-- Fee breakdown -->
@@ -157,13 +162,12 @@
 		<div class="text-sm font-semibold">{$t('wallet.loan.estimated_fees')}</div>
 		<div class="mt-2 space-y-1.5">
 			{#if feeBreakdown.length === 0}
-				<!-- Empty state - skeleton -->
-				<div class="space-y-2 pt-1">
-					<div class="skeleton h-4 w-full rounded"></div>
-					<div class="skeleton h-4 w-3/4 rounded"></div>
-					<div class="skeleton h-4 w-5/6 rounded"></div>
+				<!-- Empty state - show $0.00 -->
+				<div class="flex items-center justify-between py-1">
+					<span class="text-base-content/50 text-sm">{$t('wallet.loan.estimated_fees')}</span>
+					<span class="text-sm font-medium">$0.00</span>
 				</div>
-				<div class="text-base-content/50 mt-2 text-xs">
+				<div class="text-base-content/50 mt-1 text-xs">
 					{$t('wallet.loan.empty_state_desc')}
 				</div>
 			{:else}

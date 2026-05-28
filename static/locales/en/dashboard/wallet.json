@@ -1124,7 +1124,7 @@
 			"status_recovery_needed": "Recovery needed"
 		},
 		"loan": {
-			"from_account": "From Account",
+			"from_account": "From",
 			"button": "Loans",
 			"title": "Bitcoin-backed Loans",
 			"step_input": "Step 1 of 3",
@@ -1229,7 +1229,8 @@
 			"empty_how_feature2_title": "Get USDT Instantly",
 			"empty_how_feature2_desc": "Get USD to spend right now, without selling your Bitcoin.",
 			"empty_how_feature3_title": "Pay Back, Redeem Your Bitcoin",
-			"empty_how_feature3_desc": "Return the USDT to reclaim your Bitcoin anytime. No deadlines, no minimums — your BTC is always yours."
+			"empty_how_feature3_desc": "Return the USDT to reclaim your Bitcoin anytime. No deadlines, no minimums — your BTC is always yours.",
+			"available_rbtc": "{sats} Sats (${usd}) available"
 		},
 		"address_accordion": {
 			"collapse": "Collapse address",

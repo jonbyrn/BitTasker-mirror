@@ -1083,7 +1083,7 @@
 			}
 		},
 		"loan": {
-			"from_account": "Desde la Cuenta",
+			"from_account": "De",
 			"button": "Préstamos",
 			"title": "Préstamos respaldados por Bitcoin",
 			"step_input": "Paso 1 de 3",
@@ -1188,7 +1188,8 @@
 			"empty_how_feature2_title": "Obtén USDT al Instante",
 			"empty_how_feature2_desc": "Obtén USD para gastar ahora mismo, sin vender tu Bitcoin.",
 			"empty_how_feature3_title": "Devuelve y Recupera tu Bitcoin",
-			"empty_how_feature3_desc": "Devuelve el USDT para reclamar tu Bitcoin en cualquier momento. Sin plazos, sin mínimos — tu BTC siempre es tuyo."
+			"empty_how_feature3_desc": "Devuelve el USDT para reclamar tu Bitcoin en cualquier momento. Sin plazos, sin mínimos — tu BTC siempre es tuyo.",
+			"available_rbtc": "{sats} Sats (${usd}) disponible"
 		},
 		"address_accordion": {
 			"collapse": "Colapsar dirección",
