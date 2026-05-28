@@ -132,19 +132,23 @@
 			if (overrideTotalUsd === null) return null; // loading
 			return overrideTotalUsd.toFixed(2);
 		}
-		return $totalBalances.usd.toFixed(2);
+		const usd = $totalBalances?.usd;
+		if (usd == null || isNaN(usd)) return '0.00';
+		return usd.toFixed(2);
 	});
 
 	let satsDisplay = $derived.by(() => {
 		if (balancesHidden) return '••••';
 		if (hideDetails) return '0';
-		return $totalBalances.sats > 0 ? formatSats($totalBalances.sats) : '0';
+		const sats = $totalBalances?.sats ?? 0;
+		return sats > 0 ? formatSats(sats) : '0';
 	});
 
 	let usdtDisplay = $derived.by(() => {
 		if (balancesHidden) return '••••';
 		if (hideDetails) return '$0.00';
-		return $totalBalances.usdt > 0 ? `$${$totalBalances.usdt.toFixed(2)}` : '$0.00';
+		const usdt = $totalBalances?.usdt ?? 0;
+		return usdt > 0 ? `$${usdt.toFixed(2)}` : '$0.00';
 	});
 </script>
 
@@ -293,7 +297,7 @@
 							<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
 						{:else}
 							<div class="text-sm font-semibold sm:text-base">
-								{formatSats($totalBalances.sats)}
+								{formatSats($totalBalances?.sats ?? 0)}
 								{$t('wallet.sats')}
 							</div>
 							{#if bitcoinAsset?.usdValue}
