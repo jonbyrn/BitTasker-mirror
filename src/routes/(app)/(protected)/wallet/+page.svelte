@@ -162,9 +162,18 @@
 	// Tab state: 'wallet' | 'connected'
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
+	// Last known non-zero connected total — cached in module scope so it survives
+	// tab navigation (avoids layout-shift to $0 on warm navigation).
+	let _lastConnectedTotal = 0;
+
 	// Connected wallet total USD (used on Connected tab instead of built-in balance)
+	// Only updates when the value has meaningfully changed — holds the last non-zero
+	// value while balances are reloading so the UI never flashes $0.00.
 	let connectedTotalUsd = $derived.by(() => {
-		if ($connectedWalletsStore.wallets.length === 0) return 0;
+		if ($connectedWalletsStore.wallets.length === 0) {
+			_lastConnectedTotal = 0;
+			return 0;
+		}
 		let total = 0;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
@@ -174,6 +183,13 @@
 				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
 			}
 		}
+		// Avoid flashing to $0 when balances haven't loaded — hold the last known
+		// non-zero total until new data arrives.
+		if (total === 0 && _lastConnectedTotal > 0) return _lastConnectedTotal;
+		// If the new total is essentially unchanged (rounding tolerance), keep
+		// the old value so the DOM doesn't needlessly re-render.
+		if (Math.abs(total - _lastConnectedTotal) < 0.005) return _lastConnectedTotal;
+		_lastConnectedTotal = total;
 		return total;
 	});
 
