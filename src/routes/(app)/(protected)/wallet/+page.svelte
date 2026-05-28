@@ -163,24 +163,17 @@
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
 	// Connected wallet total USD (used on Connected tab instead of built-in balance)
-	// Returns null when wallets exist but haven't loaded any balance data yet.
-	// Returns the total when data is available (may be 0 if all wallets are empty).
 	let connectedTotalUsd = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
 		let total = 0;
-		let hasAnyKeys = false;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
 			if (cur) {
-				const keys = Object.keys(cur);
-				if (keys.length > 0) hasAnyKeys = true;
 				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
 				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
 				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
 			}
 		}
-		// If wallets exist but have only empty {} balance objects, still loading
-		if (!hasAnyKeys) return null;
 		return total;
 	});
 
@@ -397,11 +390,11 @@
 
 			<!-- Balance Card -->
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
-				<BalanceCard
-					{isLoading}
-					hideDetails={activeTab === 'connected'}
-					overrideTotalUsd={activeTab === 'connected' ? connectedTotalUsd : null}
-				/>
+				{#if activeTab === 'connected'}
+					<BalanceCard {isLoading} hideDetails overrideTotalUsd={connectedTotalUsd} />
+				{:else}
+					<BalanceCard {isLoading} hideDetails={false} />
+				{/if}
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}
@@ -428,12 +421,7 @@
 						<div class="card-body items-center gap-3 px-2 py-0 text-center">
 							<IconBankOutline class="text-base-content h-8 w-8" />
 							<p class="text-xs leading-relaxed">
-								Think of connected wallets like your bank — they're where you store larger amounts
-								securely, accessible via MetaMask, Ledger, or Trezor.
-							</p>
-							<p class="text-xs leading-relaxed">
-								Your BitTasker wallet is for daily tasks like sending, swapping, and receiving small
-								amounts.
+								{$t('wallet.connected.explanation')}
 							</p>
 							<!-- Connect a Wallet button (above action buttons) -->
 							<button

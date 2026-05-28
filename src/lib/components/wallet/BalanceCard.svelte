@@ -125,15 +125,8 @@
 	let combinedTotal = $derived.by(() => {
 		if (isLoading) return null;
 		if (balancesHidden) return '••••';
-		// overrideTotalUsd === undefined: not on Connected tab, show built-in
-		// overrideTotalUsd === null: Connected tab, balances still loading
-		// overrideTotalUsd >= 0: Connected tab, show this value
-		if (overrideTotalUsd !== undefined) {
-			if (overrideTotalUsd === null) return null; // loading
-			return overrideTotalUsd.toFixed(2);
-		}
-		const usd = $totalBalances?.usd;
-		if (usd == null || isNaN(usd)) return '0.00';
+		if (overrideTotalUsd !== undefined) return overrideTotalUsd.toFixed(2);
+		const usd = $totalBalances?.usd ?? 0;
 		return usd.toFixed(2);
 	});
 
