@@ -864,7 +864,8 @@
 		{/if}
 
 		<button
-			class="btn btn-primary btn-block tap-highlight-none min-h-[44px] touch-manipulation transition-transform duration-100 select-none active:scale-95"
+			class="btn btn-primary btn-block tap-highlight-none hidden min-h-[44px] touch-manipulation transition-transform duration-100 select-none active:scale-95"
+			data-connect-button
 			onclick={openConnectModal}
 		>
 			{'+ ' + $t('wallet.connected.connect')}
