@@ -79,8 +79,9 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		chainIds: handle.chainIds,
 		balances: {},
 		connectedAt: Date.now(),
-		btcAddress: (handle as unknown as { bitcoinSigner?: { address?: string } }).bitcoinSigner
-			?.address
+		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
+			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
+			: undefined
 	};
 
 	connectedWalletsStore.update((state) => {
@@ -175,8 +176,9 @@ export function replaceConnectedWallet(handle: ConnectorHandle): void {
 		chainIds: handle.chainIds,
 		balances: existing?.balances ?? {},
 		connectedAt: Date.now(),
-		btcAddress: (handle as unknown as { bitcoinSigner?: { address?: string } }).bitcoinSigner
-			?.address
+		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
+			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
+			: undefined
 	};
 
 	connectedWalletsStore.update((state) => ({

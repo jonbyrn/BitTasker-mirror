@@ -229,17 +229,17 @@ export interface OpenOceanQuoteResponse {
  * @returns A NormalizedQuote, or null if the input is invalid
  */
 export function normalizeOpenOceanQuote(
-	quote: OpenOceanQuoteResponse,
+	quote: OpenOceanQuoteData,
 	fromAsset: string,
 	toAsset: string,
 	fromChain: string,
 	toChain: string
 ): NormalizedQuote | null {
-	if (!quote?.data?.outAmount) return null;
+	if (!quote?.outAmount) return null;
 
-	const outAmount = quote.data.outAmount;
-	const estimatedGas = quote.data.estimatedGas;
-	const priceImpact = parseFloat(quote.data.priceImpact || '0');
+	const outAmount = quote.outAmount;
+	const _estimatedGas = quote.estimatedGas;
+	const priceImpact = parseFloat(quote.priceImpact || '0');
 
 	return {
 		provider: 'openocean',

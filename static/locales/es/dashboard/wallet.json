@@ -1050,6 +1050,7 @@
 			}
 		},
 		"loan": {
+			"from_account": "Desde la Cuenta",
 			"button": "Obtén USDT0 usando RBTC",
 			"title": "USDT0 en Arbitrum",
 			"step_input": "Paso 1 de 3",

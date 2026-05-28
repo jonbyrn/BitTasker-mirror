@@ -24,7 +24,7 @@ import {
 	normalizedQuoteToRoute,
 	type ProviderRouteResult,
 	type AsyncRouteResult,
-	type OpenOceanQuoteResponse
+	type OpenOceanQuoteData
 } from '$lib/services/quote-normalizer';
 
 export type { AsyncRouteResult } from '$lib/services/quote-normalizer';
@@ -548,8 +548,7 @@ async function callSymbiosis(
 async function callOpenOcean(
 	source: SourceWallet,
 	destination: Destination,
-	amount: string,
-	userAddress: string
+	amount: string
 ): Promise<ProviderRouteResult> {
 	// Only DOC→USDT0 on RSK is supported via OpenOcean
 	if (source !== 'doc-rsk') {
@@ -557,11 +556,8 @@ async function callOpenOcean(
 	}
 
 	try {
-		const response: OpenOceanQuoteResponse = await openoceanService.getQuote({
-			fromToken: 'DOC',
-			toToken: 'USDT0',
-			amount,
-			userAddress
+		const response: OpenOceanQuoteData = await openoceanService.getQuote({
+			docAmount: amount
 		});
 
 		const normalized = normalizeOpenOceanQuote(response, 'DOC', 'USDT0', 'rsk', 'rsk');

@@ -1091,6 +1091,7 @@
 			"status_recovery_needed": "Recovery needed"
 		},
 		"loan": {
+			"from_account": "From Account",
 			"button": "Get USDT0 using RBTC",
 			"title": "USDT0 on Arbitrum",
 			"step_input": "Step 1 of 3",
