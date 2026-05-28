@@ -61,8 +61,11 @@
 	});
 
 	// Callback props for parent page to open modals
-	let { onSend: _onSend, onReceive: _onReceive }: { onSend?: () => void; onReceive?: () => void } =
-		$props();
+	let {
+		onSend: _onSend,
+		onReceive: _onReceive,
+		balancesHidden = false
+	}: { onSend?: () => void; onReceive?: () => void; balancesHidden?: boolean } = $props();
 
 	const satsFormatter = new Intl.NumberFormat('en-US');
 	const usdFormatter = new Intl.NumberFormat('en-US', {
@@ -78,92 +81,6 @@
 		const usd = btc * btcPrice.price;
 		const usdStr = usdFormatter.format(usd);
 		return `${satsStr} Sats (${usdStr})`;
-	}
-
-	/** Aggregate balance across ALL connected wallets */
-	let totalBalanceUsd = $derived.by(() => {
-		let total = 0;
-		let totalSats = 0;
-		let totalUsdt = 0;
-		for (const w of $connectedWalletsStore.wallets) {
-			const b = w.balances;
-			if (!b) continue;
-			totalSats += Number(b.btc?.raw ?? 0) + Number(b.rbtc?.raw ?? 0);
-			totalUsdt += Number(b.usdt?.raw ?? 0) / 1e18;
-		}
-		total = (totalSats / 100_000_000) * btcPrice.price + totalUsdt;
-		return { usd: total, sats: totalSats, usdt: totalUsdt };
-	});
-
-	let walletCount = $derived($connectedWalletsStore.wallets.length);
-
-	// Snapshot last non-zero aggregate to avoid $0 flash during refresh/reload
-	let lastKnownTotal = $state({ usd: 0, sats: 0, usdt: 0 });
-
-	// Effect: cache current non-zero total for fallback during refresh gaps
-	$effect(() => {
-		const cur = totalBalanceUsd;
-		if (cur.usd > 0 || cur.sats > 0 || cur.usdt > 0) {
-			lastKnownTotal = cur;
-		}
-	});
-
-	// Pure derived: prefers current value when > 0, otherwise falls back to last known
-	let stableTotal = $derived.by(() => {
-		const cur = totalBalanceUsd;
-		if (cur.usd > 0 || cur.sats > 0 || cur.usdt > 0) return cur;
-		return walletCount > 0 ? lastKnownTotal : cur;
-	});
-
-	let stableSats = $derived.by(() => {
-		return stableTotal.sats > 0 ? satsFormatter.format(stableTotal.sats) : '0';
-	});
-
-	let stableUsdt = $derived.by(() => {
-		return stableTotal.usdt > 0 ? usdFormatter.format(stableTotal.usdt) : '$0.00';
-	});
-
-	// Balance visibility state — same pattern as BalanceCard
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
-	let countdownSeconds = $state(0);
-	let countdownInterval: ReturnType<typeof setInterval> | null = null;
-
-	let _combinedTotalDisplay = $derived.by(() => {
-		if (balancesHidden) return '••••';
-		return usdFormatter.format(stableTotal.usd);
-	});
-
-	let _satsBreakdownDisplay = $derived.by(() => {
-		const walletLabel =
-			walletCount === 1
-				? $t('wallet.connected.wallet_singular')
-				: $t('wallet.connected.wallet_plural');
-		if (balancesHidden) return `${walletCount} ${walletLabel} · •••• Sats + ••••`;
-		return `${walletCount} ${walletLabel} · ${stableSats} Sats + ${stableUsdt}`;
-	});
-
-	function showBalances() {
-		balancesHidden = false;
-		countdownSeconds = 45;
-		if (countdownInterval) clearInterval(countdownInterval);
-		countdownInterval = setInterval(() => {
-			countdownSeconds--;
-			if (countdownSeconds <= 0) hideBalances();
-		}, 1000);
-	}
-
-	function hideBalances() {
-		balancesHidden = true;
-		countdownSeconds = 0;
-		if (countdownInterval) {
-			clearInterval(countdownInterval);
-			countdownInterval = null;
-		}
-	}
-
-	function _toggleBalances() {
-		if (balancesHidden) showBalances();
-		else hideBalances();
 	}
 
 	// Per-wallet last-known balances — module-level to survive tab switches
@@ -310,7 +227,6 @@
 
 	onDestroy(() => {
 		clearTimeout(reconnectTimer);
-		if (countdownInterval) clearInterval(countdownInterval);
 	});
 
 	// Do NOT disconnect SDK sessions on component unmount — SvelteKit

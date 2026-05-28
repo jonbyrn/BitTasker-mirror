@@ -16,25 +16,32 @@
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
-	const {
+	let {
 		isLoading = false,
 		hideDetails = false,
 		overrideTotalUsd,
 		overrideSats,
-		overrideUsdt
+		overrideUsdt,
+		balancesHidden: propBalancesHidden,
+		onToggleBalances
 	} = $props<{
 		isLoading?: boolean;
 		hideDetails?: boolean;
 		overrideTotalUsd?: number | null;
 		overrideSats?: number | null;
 		overrideUsdt?: number | null;
+		balancesHidden?: boolean;
+		onToggleBalances?: (hidden: boolean) => void;
 	}>();
 
 	// Refresh state
 	let isRefreshing = $state(false);
 
-	// Balance visibility state - default to hidden
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	// Balance visibility state — uses external prop if provided, else internal state
+	let _internalHidden = $state(process.env.NODE_ENV !== 'development');
+	let balancesHidden = $derived.by(() => {
+		return propBalancesHidden ?? _internalHidden;
+	});
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -62,7 +69,8 @@
 	let usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
 
 	function showBalances() {
-		balancesHidden = false;
+		_internalHidden = false;
+		onToggleBalances?.(false);
 		countdownSeconds = 45;
 
 		// Clear existing interval if any
@@ -80,7 +88,8 @@
 	}
 
 	function hideBalances() {
-		balancesHidden = true;
+		_internalHidden = true;
+		onToggleBalances?.(true);
 		countdownSeconds = 0;
 		if (countdownInterval) {
 			clearInterval(countdownInterval);

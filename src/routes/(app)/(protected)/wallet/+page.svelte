@@ -52,6 +52,8 @@
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
 
 	let isLoading = $state(false);
+	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	let unsubscribeFromSwaps: (() => void) | null = null;
 
 	async function initializeWallet(): Promise<void> {
 		try {
@@ -431,12 +433,19 @@
 					<BalanceCard
 						{isLoading}
 						hideDetails
+						{balancesHidden}
+						onToggleBalances={(hidden) => (balancesHidden = hidden)}
 						overrideTotalUsd={connectedTotalUsd}
 						overrideSats={connectedTotalSats}
 						overrideUsdt={connectedTotalUsdt}
 					/>
 				{:else}
-					<BalanceCard {isLoading} hideDetails={false} />
+					<BalanceCard
+						{isLoading}
+						hideDetails={false}
+						{balancesHidden}
+						onToggleBalances={(hidden) => (balancesHidden = hidden)}
+					/>
 				{/if}
 
 				<!-- Transactions Button (Wallet tab only) -->
@@ -485,7 +494,7 @@
 
 				<!-- Connected Wallet List (Connected tab, above buttons) -->
 				{#if activeTab === 'connected'}
-					<ConnectedWallets />
+					<ConnectedWallets {balancesHidden} />
 
 					<!-- Full-width Connect a Wallet (when wallets exist, above buttons) -->
 					{#if $connectedWalletsStore.wallets.length > 0}
