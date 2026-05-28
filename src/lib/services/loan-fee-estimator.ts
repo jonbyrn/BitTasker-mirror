@@ -38,7 +38,7 @@ const USDT0_RSK_ADDRESS: string = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
 const RSK_CHAIN_ID = 30;
 
 /** LayerZero EID for RSK. */
-const LZ_EID_RSK = 30333;
+const _LZ_EID_RSK = 30333;
 
 /** LayerZero EID for Arbitrum. */
 const LZ_EID_ARBITRUM = 30110;
@@ -51,6 +51,9 @@ const USDT0_DECIMALS = 6;
 
 /** Quote expiry time in seconds. */
 const QUOTE_EXPIRY_SECONDS = 30;
+
+/** USDT0 OFT bridge contract address on RSK. */
+const OFT_RSK_ADDRESS: string = '0x1a594d5d5d1c426281C1064B07f23F57B2716B61';
 
 /** Default bridge fee in USD (used when on-chain LayerZero quote fails). */
 const DEFAULT_BRIDGE_FEE_USD = 0.5;
@@ -432,68 +435,67 @@ async function getBridgeQuote(
 	const stepStart = Date.now();
 
 	const { ethers } = await import('ethers');
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let bridgeService: any = null;
+
 	try {
-		const { Usdt0BridgeService, OFT_RSK_ADDRESS } = await import('@bittasker/wallet-core');
-		if (Usdt0BridgeService) {
-			bridgeService = new Usdt0BridgeService(USDT0_RSK_ADDRESS, OFT_RSK_ADDRESS);
-		}
-	} catch {
-		// Dynamic import failed — fall through to use default estimate
-	}
+		// LayerZero OFT quoteSend ABI (minimal)
+		const oftAbi = [
+			'function quoteSend((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, bytes _extraOptions, bool _payInLzToken, bytes _composeMsg, bytes _oftCmd) external view returns ((uint256 nativeFee, uint256 lzTokenFee) msgFee, (uint256 minAmountLD, uint256 maxAmountLD) oftLimit, (uint256 amountSentLD, uint256 amountReceivedLD) oftReceipt, (uint256 feeAmountLD, string description)[] oftFeeDetails)'
+		];
 
-	if (!bridgeService) {
-		const defaultFeeRbtc = DEFAULT_BRIDGE_FEE_USD / rbtcPrice;
+		const oftContract = new ethers.Contract(OFT_RSK_ADDRESS, oftAbi, signer.provider);
+		const userAddr = await signer.getAddress();
+		const toBytes32 = ethers.zeroPadValue(userAddr, 32);
+
+		const sendParam = {
+			dstEid: LZ_EID_ARBITRUM,
+			to: toBytes32,
+			amountLD: usdt0AmountRaw,
+			minAmountLD: usdt0AmountRaw,
+			extraOptions: '0x',
+			composeMsg: '0x',
+			oftCmd: '0x'
+		};
+
+		const [msgFee] = await oftContract.quoteSend(
+			sendParam,
+			'0x', // _extraOptions
+			false, // _payInLzToken
+			'0x', // _composeMsg
+			'0x' // _oftCmd
+		);
+
+		loanMonitoringService.healthCheck('layerzero-bridge', true, Date.now() - stepStart);
+
+		const bridgeFeeRbtc = parseFloat(ethers.formatEther(msgFee.nativeFee));
+		const bridgeFeeUsd = bridgeFeeRbtc * rbtcPrice;
+
 		const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
-		if (idx >= 0) fees[idx] = { label: 'Bridge Fee', amount: formatUsd(DEFAULT_BRIDGE_FEE_USD) };
-		return { bridgeFeeRbtc: defaultFeeRbtc };
-	}
+		if (idx >= 0) {
+			fees[idx] = { label: 'Bridge Fee', amount: formatUsd(bridgeFeeUsd) };
+		} else {
+			fees.push({ label: 'Bridge Fee', amount: formatUsd(bridgeFeeUsd) });
+		}
 
-	const { data: bridgeResult, error: bridgeError } = await tryCatch(
-		bridgeService.quoteBridge(usdt0AmountRaw, LZ_EID_RSK, LZ_EID_ARBITRUM, signer)
-	);
-
-	if (bridgeError || !bridgeResult) {
+		return { bridgeFeeRbtc };
+	} catch (err) {
 		debug.warn(
 			'LayerZero bridge quote failed, using default $%.2f: %s',
 			DEFAULT_BRIDGE_FEE_USD,
-			bridgeError?.message ?? 'no data'
+			(err as Error)?.message ?? 'unknown'
 		);
-		loanMonitoringService.healthCheck(
-			'layerzero-bridge',
-			false,
-			Date.now() - stepStart,
-			bridgeError?.message
-		);
-
-		// Use default estimate
-		const defaultFeeRbtc = DEFAULT_BRIDGE_FEE_USD / rbtcPrice;
-		const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
-		if (idx >= 0) fees[idx] = { label: 'Bridge Fee', amount: formatUsd(DEFAULT_BRIDGE_FEE_USD) };
-		return { bridgeFeeRbtc: defaultFeeRbtc };
 	}
 
-	loanMonitoringService.healthCheck('layerzero-bridge', true, Date.now() - stepStart);
-
-	// nativeFee is in wei (18 decimals, RBTC on RSK)
-	const bridgeFeeRbtc = parseFloat(ethers.formatEther(bridgeResult.nativeFee));
-	const bridgeFeeUsd = bridgeFeeRbtc * rbtcPrice;
-
+	// Fallback: all on-chain methods failed
+	const defaultFeeRbtc = DEFAULT_BRIDGE_FEE_USD / rbtcPrice;
 	const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
-	if (idx >= 0) {
-		fees[idx] = { label: 'Bridge Fee', amount: formatUsd(bridgeFeeUsd) };
-	} else {
-		fees.push({ label: 'Bridge Fee', amount: formatUsd(bridgeFeeUsd) });
-	}
-
-	debug.log(
-		'Bridge quote: nativeFee=%s rbtc lzTokenFee=%s',
-		ethers.formatEther(bridgeResult.nativeFee),
-		ethers.formatEther(bridgeResult.lzTokenFee)
+	if (idx >= 0) fees[idx] = { label: 'Bridge Fee', amount: formatUsd(DEFAULT_BRIDGE_FEE_USD) };
+	loanMonitoringService.healthCheck(
+		'layerzero-bridge',
+		false,
+		Date.now() - stepStart,
+		'all methods failed'
 	);
-
-	return { bridgeFeeRbtc };
+	return { bridgeFeeRbtc: defaultFeeRbtc };
 }
 
 // ---------------------------------------------------------------------------
