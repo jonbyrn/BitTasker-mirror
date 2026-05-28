@@ -123,7 +123,7 @@
 
 	// Compute balance display values
 	let combinedTotal = $derived.by(() => {
-		if (isLoading || isRefreshing) return null;
+		if (isLoading) return null;
 		if (balancesHidden) return '••••';
 		// overrideTotalUsd === undefined: not on Connected tab, show built-in
 		// overrideTotalUsd === null: Connected tab, balances still loading
@@ -136,14 +136,12 @@
 	});
 
 	let satsDisplay = $derived.by(() => {
-		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
 		if (hideDetails) return '0';
 		return $totalBalances.sats > 0 ? formatSats($totalBalances.sats) : '0';
 	});
 
 	let usdtDisplay = $derived.by(() => {
-		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
 		if (hideDetails) return '$0.00';
 		return $totalBalances.usdt > 0 ? `$${$totalBalances.usdt.toFixed(2)}` : '$0.00';
@@ -199,7 +197,7 @@
 			<div class="flex flex-col gap-1 sm:gap-0.5">
 				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
-					{#if isLoading || isRefreshing || combinedTotal === null}
+					{#if isLoading || combinedTotal === null}
 						<p
 							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
@@ -221,7 +219,7 @@
 				</div>
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
-					{#if isLoading || isRefreshing}
+					{#if isLoading}
 						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
@@ -284,8 +282,7 @@
 						</div>
 					</div>
 					<div class="ml-2 shrink-0 text-right">
-						{#if isLoading || isRefreshing}
-							<!-- Loading state - single spinner matching two-line height to prevent layout shift -->
+						{#if isLoading}
 							<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
 								<span class="loading loading-spinner loading-md"></span>
 							</div>
@@ -394,7 +391,7 @@
 						<span>{$t('wallet.usd')}</span>
 					</div>
 					<div class="ml-2 shrink-0 text-right">
-						{#if isLoading || isRefreshing}
+						{#if isLoading}
 							<div class="text-sm font-semibold sm:text-base">
 								<span class="loading loading-spinner loading-sm"></span>
 							</div>

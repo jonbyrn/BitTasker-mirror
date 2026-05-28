@@ -163,22 +163,24 @@
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
 	// Connected wallet total USD (used on Connected tab instead of built-in balance)
-	// Returns null when wallets are still loading (no balance data yet)
+	// Returns null when wallets exist but haven't loaded any balance data yet.
+	// Returns the total when data is available (may be 0 if all wallets are empty).
 	let connectedTotalUsd = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
 		let total = 0;
-		let hasAnyData = false;
+		let hasAnyKeys = false;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
 			if (cur) {
+				const keys = Object.keys(cur);
+				if (keys.length > 0) hasAnyKeys = true;
 				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
 				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
-				if (btcSats > 0 || usdt > 0) hasAnyData = true;
 				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
 			}
 		}
-		// If wallets exist but have zero balances and no data has loaded yet, show loading
-		if (!hasAnyData && $connectedWalletsStore.wallets.length > 0) return null;
+		// If wallets exist but have only empty {} balance objects, still loading
+		if (!hasAnyKeys) return null;
 		return total;
 	});
 
