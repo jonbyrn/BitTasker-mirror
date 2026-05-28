@@ -42,7 +42,27 @@
 				"expired_message": "El código QR expiró. Intente de nuevo.",
 				"error": "Error al generar el código QR",
 				"sr_description": "Escanea el código QR con tu aplicación de billetera móvil para conectarte a través de WalletConnect. Este modal incluye un temporizador de cuenta regresiva y un botón de cancelar."
-			}
+			},
+			"ledger": {
+				"step1_title": "Conectar Ledger",
+				"step1_instructions": "Abre la app <strong>Ethereum (ETH)</strong> en tu dispositivo Ledger para conectar. La app debe estar abierta y mostrar \"Ethereum Ready\".",
+				"waiting": "Esperando conexión...",
+				"try_again": "Reintentar",
+				"step2_title": "Ethereum Conectado",
+				"step2_prompt": "Tu Ledger está conectado mediante la app Ethereum. ¿Quieres agregar también soporte para <strong>Bitcoin (BTC)</strong>?",
+				"step2_instructions": "Abre la app <strong>Bitcoin (BTC)</strong> en tu dispositivo Ledger, luego haz clic en Conectar abajo. La app debe estar abierta y mostrar \"Bitcoin Ready\".",
+				"connecting": "Conectando...",
+				"connect_btc": "Conectar Bitcoin",
+				"skip_evm": "Saltar — Solo EVM",
+				"step3_title": "Ambos Conectados",
+				"step3_message": "Tu Ledger ahora está conectado mediante <strong>Ethereum</strong> y <strong>Bitcoin</strong>."
+			},
+			"balance_bitcoin": "Bitcoin",
+			"balance_rbtc": "Bitcoin (rBTC)",
+			"balance_usdt": "USDT (Binance)",
+			"address_rbtc_usdt": "rBTC / USDT",
+			"connected_label": "Conectado",
+			"connect_bitcoin": "Conectar Bitcoin"
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
@@ -542,7 +562,8 @@
 			"qr_generation_failed": "Error al generar el código QR",
 			"share": "Compartir Factura",
 			"share_title": "Solicitud de Pago",
-			"share_text": "Por favor envía {amount} sats a: {address}"
+			"share_text": "Por favor envía {amount} sats a: {address}",
+			"qr_alt": "Código QR de pago"
 		},
 		"receive_rbtc": "Recibir rBTC",
 		"your_rsk_address": "Tu Dirección RSK",
@@ -684,7 +705,8 @@
 			"payer_sends_from": "El pagador envía desde",
 			"other": "Otro",
 			"search_networks": "Buscar redes...",
-			"no_networks_found": "No se encontraron redes"
+			"no_networks_found": "No se encontraron redes",
+			"generating": "Generando..."
 		},
 		"swap": {
 			"title": "Intercambiar Activos Digitales",
@@ -929,7 +951,18 @@
 			"buy_sell_info_2": "El dinero fiat será enviado a tu cuenta bancaria o tarjeta",
 			"buy_sell_info_3": "Las transacciones son procesadas por socios de Changelly",
 			"buy_sell_info_4": "Tiempo de procesamiento: 5-30 minutos para activos digitales, 1-3 días hábiles para fiat",
-			"buy_sell_info_5": "La verificación KYC puede ser requerida para montos más grandes"
+			"buy_sell_info_5": "La verificación KYC puede ser requerida para montos más grandes",
+			"faq_usdt_title": "¿Qué es USDT y cómo lo uso?",
+			"faq_usdt_body": "<strong>USDT (Tether)</strong> es una stablecoin — un dólar digital. Cada USDT vale exactamente $1. Funciona en la red <strong>Binance Smart Chain (BSC)</strong>, por lo que las transacciones son rápidas y baratas (a menudo menos de $0.10).",
+			"faq_usdt_bullet_1": "<strong>Enviar USDT</strong> — Ingresa una dirección BSC y el monto en dólares. La app lo envía en cadena.",
+			"faq_usdt_bullet_2": "<strong>Recibir USDT</strong> — Selecciona la pestaña USDT, comparte tu dirección BSC o genera una factura. El pagador envía USDT desde cualquier red compatible.",
+			"faq_usdt_bullet_3": "<strong>Intercambiar con rBTC</strong> — Puedes convertir entre rBTC (Bitcoin Rootstock) y USDT usando rutas de intercambio integradas (LI.FI o Symbiosis). Te permite pagar servicios en la moneda que prefiera la otra persona.",
+			"faq_ownwallet_title": "¿Puedo usar mi propia billetera (MetaMask, Ledger)?",
+			"faq_ownwallet_body": "Sí. Puedes <strong>conectar tu propia billetera</strong> — MetaMask, WalletConnect, Trezor o Ledger — desde la pestaña Conectadas. Esto te permite:",
+			"faq_ownwallet_bullet_1": "<strong>Enviar pagos</strong> directamente desde tu billetera conectada en lugar de la billetera integrada. Al enviar, elige tu billetera conectada como origen.",
+			"faq_ownwallet_bullet_2": "<strong>Recibir pagos</strong> en la dirección de tu billetera conectada. Al crear una solicitud de recibo, selecciona tu billetera conectada como destino.",
+			"faq_ownwallet_bullet_3": "<strong>Ver todos tus saldos</strong> en un solo lugar — la tarjeta de saldo total en la parte superior de la pestaña Conectadas muestra el valor combinado de todas tus billeteras.",
+			"faq_ownwallet_footer": "Tu billetera permanece conectada entre visitas. La app nunca tiene acceso a tus claves privadas — confirmas cada transacción en tu billetera."
 		},
 		"receive_form": {
 			"select_asset": "Seleccionar Activo",
@@ -1156,6 +1189,10 @@
 			"empty_how_feature2_desc": "Obtén USD para gastar ahora mismo, sin vender tu Bitcoin.",
 			"empty_how_feature3_title": "Devuelve y Recupera tu Bitcoin",
 			"empty_how_feature3_desc": "Devuelve el USDT para reclamar tu Bitcoin en cualquier momento. Sin plazos, sin mínimos — tu BTC siempre es tuyo."
+		},
+		"address_accordion": {
+			"collapse": "Colapsar dirección",
+			"expand": "Expandir dirección"
 		}
 	}
 }

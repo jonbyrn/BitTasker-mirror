@@ -572,7 +572,8 @@
 					"copied": "Copied!",
 					"copy": "Copy",
 					"cancel": "Cancel",
-					"payment_sent": "I've Sent the Payment"
+					"payment_sent": "I've Sent the Payment",
+					"lightning_not_supported": "Lightning is not currently supported for this payment."
 				}
 			},
 			"media_uploader": {

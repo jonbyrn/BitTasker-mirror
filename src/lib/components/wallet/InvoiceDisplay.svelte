@@ -185,7 +185,7 @@
 		{:else if qrCodeDataUrl}
 			<div class="rounded-lg bg-white p-2 shadow-lg">
 				<div class="w-[300px] md:w-[400px]">
-					<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
+					<img src={qrCodeDataUrl} alt={$t('wallet.invoice.qr_alt')} class="h-full w-full" />
 				</div>
 			</div>
 		{:else}

@@ -48,7 +48,27 @@
 				"expired_message": "QR code expired. Please try again.",
 				"error": "Failed to generate QR code",
 				"sr_description": "Scan the QR code with your mobile wallet app to connect via WalletConnect. This modal includes a countdown timer and a cancel button."
-			}
+			},
+			"ledger": {
+				"step1_title": "Connect Ledger",
+				"step1_instructions": "Please open the <strong>Ethereum (ETH) app</strong> on your Ledger device to connect. The app must be open and showing \"Ethereum Ready\".",
+				"waiting": "Waiting for connection...",
+				"try_again": "Try Again",
+				"step2_title": "Ethereum Connected",
+				"step2_prompt": "Your Ledger is connected via the Ethereum app. Would you like to also add <strong>Bitcoin (BTC)</strong> support?",
+				"step2_instructions": "Open the <strong>Bitcoin (BTC) app</strong> on your Ledger device, then click Connect below. The app must be open and showing \"Bitcoin Ready\".",
+				"connecting": "Connecting...",
+				"connect_btc": "Connect Bitcoin",
+				"skip_evm": "Skip — EVM only",
+				"step3_title": "Both Connected",
+				"step3_message": "Your Ledger is now connected via <strong>Ethereum</strong> and <strong>Bitcoin</strong>."
+			},
+			"balance_bitcoin": "Bitcoin",
+			"balance_rbtc": "Bitcoin (rBTC)",
+			"balance_usdt": "USDT (Binance)",
+			"address_rbtc_usdt": "rBTC / USDT",
+			"connected_label": "Connected",
+			"connect_bitcoin": "Connect Bitcoin"
 		},
 		"tab_transactions": "Transactions",
 		"total_balance": "Total Balance",
@@ -442,7 +462,8 @@
 			"qr_generation_failed": "Failed to generate QR code",
 			"share": "Share Invoice",
 			"share_title": "Payment Request",
-			"share_text": "Please send {amount} sats to: {address}"
+			"share_text": "Please send {amount} sats to: {address}",
+			"qr_alt": "Payment QR Code"
 		},
 		"all": "All",
 		"all_networks": "All Networks",
@@ -641,7 +662,8 @@
 			"payer_sends_from": "Payer sends from",
 			"other": "Other",
 			"search_networks": "Search networks...",
-			"no_networks_found": "No networks found"
+			"no_networks_found": "No networks found",
+			"generating": "Generating..."
 		},
 		"initializing": "Initializing wallet...",
 		"buy_sell": {
@@ -979,7 +1001,18 @@
 			"buy_sell_info_2": "Fiat will be sent to your bank account or card",
 			"buy_sell_info_3": "Transactions are processed by Changelly partners",
 			"buy_sell_info_4": "Processing time: 5-30 minutes for digital assets, 1-3 business days for fiat",
-			"buy_sell_info_5": "KYC verification may be required for larger amounts"
+			"buy_sell_info_5": "KYC verification may be required for larger amounts",
+			"faq_usdt_title": "What is USDT and how do I use it?",
+			"faq_usdt_body": "<strong>USDT (Tether)</strong> is a stablecoin — a digital dollar. Each USDT is worth exactly $1. It runs on the <strong>Binance Smart Chain (BSC)</strong> network, which means transactions are fast and cheap (often under $0.10).",
+			"faq_usdt_bullet_1": "<strong>Send USDT</strong> — Enter a BSC address and the amount in dollars. The app routes it on-chain.",
+			"faq_usdt_bullet_2": "<strong>Receive USDT</strong> — Select the USDT tab, share your BSC address or generate an invoice. The payer sends USDT from any supported chain.",
+			"faq_usdt_bullet_3": "<strong>Swap with rBTC</strong> — You can convert between rBTC (Rootstock Bitcoin) and USDT using built-in swap routes (LI.FI or Symbiosis). This lets you pay for services in whichever currency the other person prefers.",
+			"faq_ownwallet_title": "Can I use my own wallet (MetaMask, Ledger)?",
+			"faq_ownwallet_body": "Yes. You can <strong>connect your own wallet</strong> — MetaMask, WalletConnect, Trezor, or Ledger — from the Connected tab. This lets you:",
+			"faq_ownwallet_bullet_1": "<strong>Send payments</strong> directly from your connected wallet instead of the built-in BitTasker wallet. When sending, pick your connected wallet as the source.",
+			"faq_ownwallet_bullet_2": "<strong>Receive payments</strong> to your connected wallet's address. When creating a receive request, select your connected wallet as the destination.",
+			"faq_ownwallet_bullet_3": "<strong>See all your balances</strong> in one place — the total balance card at the top of the Connected tab shows the combined value across all your wallets.",
+			"faq_ownwallet_footer": "Your wallet stays connected between visits. The app never has access to your private keys — you confirm every transaction in your wallet."
 		},
 		"balance_history": {
 			"error": "Failed to load balance history"
@@ -1197,6 +1230,10 @@
 			"empty_how_feature2_desc": "Get USD to spend right now, without selling your Bitcoin.",
 			"empty_how_feature3_title": "Pay Back, Redeem Your Bitcoin",
 			"empty_how_feature3_desc": "Return the USDT to reclaim your Bitcoin anytime. No deadlines, no minimums — your BTC is always yours."
+		},
+		"address_accordion": {
+			"collapse": "Collapse address",
+			"expand": "Expand address"
 		}
 	}
 }

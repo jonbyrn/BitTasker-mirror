@@ -76,7 +76,7 @@
 			})
 			.catch((err: unknown) => {
 				console.error('[WalletConnectQRModal] Failed to generate QR code:', err);
-				error = err instanceof Error ? err.message : 'Failed to generate QR code';
+				error = err instanceof Error ? err.message : $t('wallet.connected.qr.error');
 				isLoadingQR = false;
 			});
 	});

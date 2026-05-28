@@ -26,7 +26,7 @@
 			qrCodeData = await generateQrCodeUrl(qrUri);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
-			appStore.showErrorToast('Failed to generate QR code');
+			appStore.showErrorToast($t('wallet.connected.qr.error'));
 		}
 	}
 

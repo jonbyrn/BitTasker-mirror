@@ -1,3 +1,4 @@
+<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import {
@@ -667,7 +668,7 @@
 								{@const balanceRows = [
 									{
 										key: 'btc',
-										label: 'Bitcoin',
+										label: $t('wallet.connected.balance_bitcoin'),
 										img: '/images/chains/Bitcoin.svg',
 										alt: 'BTC',
 										condition: isHardwareWallet,
@@ -675,7 +676,7 @@
 									},
 									{
 										key: 'rbtc',
-										label: 'Bitcoin (rBTC)',
+										label: $t('wallet.connected.balance_rbtc'),
 										img: '/images/chains/Bitcoin-Rootstock-logo.webp',
 										alt: 'rBTC',
 										condition: isEVM,
@@ -683,7 +684,7 @@
 									},
 									{
 										key: 'usdt',
-										label: 'USDT (Binance)',
+										label: $t('wallet.connected.balance_usdt'),
 										img: '/images/chains/Binance-logo.svg',
 										alt: 'USDT',
 										condition: isEVM,
@@ -720,7 +721,7 @@
 										alt="RSK"
 										class="h-3.5 w-3.5"
 									/>
-									<span>rBTC / USDT</span>
+									<span>{$t('wallet.connected.address_rbtc_usdt')}</span>
 								</div>
 								<span class="ml-auto truncate font-mono opacity-60">{wallet.address}</span>
 								<IconContentCopy
@@ -769,7 +770,7 @@
 													d="M5 13l4 4L19 7"
 												/></svg
 											>
-											Connected
+											{$t('wallet.connected.connected_label')}
 										</button>
 									{:else}
 										<button
@@ -782,7 +783,7 @@
 											}}
 										>
 											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-											Connect Bitcoin
+											{$t('wallet.connected.connect_bitcoin')}
 										</button>
 									{/if}
 								{/if}
@@ -843,10 +844,10 @@
 									/></svg
 								>
 							</div>
-							<h3 class="text-lg font-bold">Both Connected</h3>
+							<h3 class="text-lg font-bold">{$t('wallet.connected.ledger.step3_title')}</h3>
 							<p class="text-base-content/70 text-sm">
-								Your Ledger is now connected via
-								<strong>Ethereum</strong> and <strong>Bitcoin</strong>.
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+								{@html $t('wallet.connected.ledger.step3_message')}
 							</p>
 						</div>
 					{:else if showLedgerConnect && !showLedgerBtcStep}
@@ -855,22 +856,24 @@
 							<div class="bg-info/10 rounded-full p-4">
 								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-12 w-12" />
 							</div>
-							<h3 class="text-lg font-bold">Connect Ledger</h3>
+							<h3 class="text-lg font-bold">{$t('wallet.connected.ledger.step1_title')}</h3>
 							{#if ledgerConnectError}
 								<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
 									{ledgerConnectError}
 								</div>
 								<button class="btn btn-primary btn-sm min-h-[44px]" onclick={handleConnectLedger}>
-									Try Again
+									{$t('wallet.connected.ledger.try_again')}
 								</button>
 							{:else}
 								<p class="text-base-content/70 text-sm leading-relaxed">
-									Please open the <strong>Ethereum (ETH) app</strong> on your Ledger device to connect.
-									The app must be open and showing "Ethereum Ready".
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+									{@html $t('wallet.connected.ledger.step1_instructions')}
 								</p>
 								<div class="flex items-center gap-2">
 									<span class="loading loading-spinner loading-sm text-info"></span>
-									<span class="text-base-content/50 text-xs">Waiting for connection...</span>
+									<span class="text-base-content/50 text-xs"
+										>{$t('wallet.connected.ledger.waiting')}</span
+									>
 								</div>
 							{/if}
 							<button
@@ -900,14 +903,14 @@
 									/></svg
 								>
 							</div>
-							<h3 class="text-lg font-bold">Ethereum Connected</h3>
+							<h3 class="text-lg font-bold">{$t('wallet.connected.ledger.step2_title')}</h3>
 							<p class="text-base-content/70 text-sm leading-relaxed">
-								Your Ledger is connected via the Ethereum app. Would you like to also add
-								<strong>Bitcoin (BTC)</strong> support?
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+								{@html $t('wallet.connected.ledger.step2_prompt')}
 							</p>
 							<p class="text-info text-xs leading-relaxed">
-								Open the <strong>Bitcoin (BTC) app</strong> on your Ledger device, then click Connect
-								below. The app must be open and showing "Bitcoin Ready".
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+								{@html $t('wallet.connected.ledger.step2_instructions')}
 							</p>
 							<div class="flex w-full flex-col gap-2">
 								{#if ledgerBtcError}
@@ -922,12 +925,12 @@
 								>
 									{#if ledgerBtcConnecting}
 										<span class="loading loading-spinner loading-sm"></span>
-										Connecting...
+										{$t('wallet.connected.ledger.connecting')}
 									{:else if ledgerBtcError}
-										Try Again
+										{$t('wallet.connected.ledger.try_again')}
 									{:else}
 										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-5 w-5" />
-										Connect Bitcoin
+										{$t('wallet.connected.ledger.connect_btc')}
 									{/if}
 								</button>
 								<button
@@ -939,7 +942,7 @@
 										closeConnectModal();
 									}}
 								>
-									Skip — EVM only
+									{$t('wallet.connected.ledger.skip_evm')}
 								</button>
 							</div>
 						</div>

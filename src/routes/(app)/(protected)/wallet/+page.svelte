@@ -376,7 +376,6 @@
 										<IconContentCopy class="h-4 w-4" />
 									</button>
 								</div>
-								<HelpModal />
 							</div>
 						{/if}
 
@@ -583,6 +582,9 @@
 
 <!-- Banking Menu Modal -->
 <BankingMenu onclose={closeBankingMenu} />
+
+<!-- Help Modal (always in DOM so Learn More button works on all tabs) -->
+<HelpModal />
 
 <!-- Buy/Sell Drawer -->
 <BuySellForm isOpen={showBuySell} onClose={() => (showBuySell = false)} />

@@ -571,7 +571,8 @@
 					"copied": "¡Copiado!",
 					"copy": "Copiar",
 					"cancel": "Cancelar",
-					"payment_sent": "He Enviado el Pago"
+					"payment_sent": "He Enviado el Pago",
+					"lightning_not_supported": "Lightning no está disponible para este pago actualmente."
 				}
 			},
 			"media_uploader": {
