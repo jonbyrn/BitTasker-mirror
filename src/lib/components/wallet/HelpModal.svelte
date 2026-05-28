@@ -56,7 +56,7 @@
 <!-- Help Button - Always in DOM but hidden on mobile (visible on tablet/desktop) for programmatic access -->
 {#if showButton}
 	<button
-		class="btn btn-ghost hidden gap-2 sm:inline-flex"
+		class="btn btn-ghost hidden gap-2"
 		onclick={openModal}
 		title={$t('common.components.wallet_help_modal.button_title')}
 		data-help-modal

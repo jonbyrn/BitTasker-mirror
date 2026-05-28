@@ -15,7 +15,10 @@ export const FEATURE_FLAGS = {
 	CONNECTED_METAMASK: 'connected-metamask',
 	CONNECTED_WALLETCONNECT: 'connected-walletconnect',
 	CONNECTED_TREZOR: 'connected-trezor',
-	CONNECTED_LEDGER: 'connected-ledger'
+	CONNECTED_LEDGER: 'connected-ledger',
+	LOAN_FLOW: 'loan-flow',
+	USDT0_BRIDGE: 'usdt0-bridge',
+	OPENOCEAN_SWAPS: 'openocean-swaps'
 } as const;
 
 /**
@@ -66,6 +69,24 @@ export function isConnectedLedgerEnabled(): boolean {
 	return import.meta.env.VITE_CONNECTED_LEDGER_ENABLED === 'true';
 }
 
+export function isLoanFlowEnabled(): boolean {
+	return import.meta.env.VITE_LOAN_FLOW_ENABLED === 'true';
+}
+
+export function isUsdt0BridgeEnabled(): boolean {
+	return import.meta.env.VITE_USDT0_BRIDGE_ENABLED === 'true';
+}
+
+/**
+ * Returns whether OpenOcean DEX aggregator swaps are enabled.
+ * Controlled by the VITE_OPENOCEAN_ENABLED environment variable set at build time.
+ *
+ * @returns true when VITE_OPENOCEAN_ENABLED is set to 'true', false otherwise.
+ */
+export function isOpenOceanEnabled(): boolean {
+	return import.meta.env.VITE_OPENOCEAN_ENABLED === 'true';
+}
+
 /**
  * Runtime feature flag service for gating functionality by feature name.
  * All checks are pure functions backed by build-time environment variables.
@@ -103,6 +124,12 @@ export const FeatureFlagService = {
 				return isConnectedTrezorEnabled();
 			case FEATURE_FLAGS.CONNECTED_LEDGER:
 				return isConnectedLedgerEnabled();
+			case FEATURE_FLAGS.LOAN_FLOW:
+				return isLoanFlowEnabled();
+			case FEATURE_FLAGS.USDT0_BRIDGE:
+				return isUsdt0BridgeEnabled();
+			case FEATURE_FLAGS.OPENOCEAN_SWAPS:
+				return isOpenOceanEnabled();
 			default:
 				debug.warn('Unknown feature flag queried: %s', feature);
 				return false;

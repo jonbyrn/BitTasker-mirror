@@ -35,6 +35,17 @@ interface BlockscoutTokenBalance {
 	token_instance: string | null; // May be present in response
 }
 
+/**
+ * Blockscout API response structure
+ * Can be either a direct array or an object with items property (for pagination)
+ */
+type BlockscoutResponse =
+	| BlockscoutTokenBalance[]
+	| {
+			items: BlockscoutTokenBalance[];
+			next_page_params?: any;
+	  };
+
 interface CachedTokenBalances {
 	balances: TokenBalance[];
 	timestamp: number;
@@ -251,6 +262,104 @@ class TokenBalanceService {
 		const normalizedAddress = address.toLowerCase();
 
 		this.tokenBalanceCache.delete(normalizedAddress);
+	}
+
+	/**
+	 * Get a token balance on Arbitrum using the RPC (erc20 balanceOf).
+	 *
+	 * Uses ethers provider with the hardcoded Arbitrum RPC URL.
+	 * Follows the same cache TTL pattern as RSK token balances.
+	 *
+	 * @param address - Wallet address on Arbitrum
+	 * @param tokenAddress - ERC-20 token contract address on Arbitrum
+	 * @returns Token balance or null if fetch fails
+	 */
+	async getArbitrumTokenBalance(
+		address: string,
+		tokenAddress: string
+	): Promise<TokenBalance | null> {
+		const normalizedAddress = address.toLowerCase();
+		const cacheKey = `arb:${normalizedAddress}:${tokenAddress.toLowerCase()}`;
+
+		console.log('[TokenBalanceService] getArbitrumTokenBalance called', {
+			address,
+			tokenAddress,
+			normalizedAddress,
+			cacheKey,
+			timestamp: new Date().toISOString()
+		});
+
+		// Check cache
+		const cached = this.tokenBalanceCache.get(cacheKey);
+		if (cached) {
+			const age = Date.now() - cached.timestamp;
+			if (age < this.BALANCE_CACHE_TTL) {
+				console.log('[TokenBalanceService] Returning cached Arbitrum balance', {
+					cacheKey,
+					balance: cached.balances[0]?.formattedBalance,
+					cacheAge: `${Math.floor(age / 1000)}s`
+				});
+				return cached.balances[0] ?? null;
+			}
+			this.tokenBalanceCache.delete(cacheKey);
+		}
+
+		try {
+			const rpcUrl = 'https://arb1.arbitrum.io/rpc';
+			const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+			// Minimal ERC-20 ABI for balanceOf, decimals, name, symbol
+			const erc20Abi = [
+				'function balanceOf(address) view returns (uint256)',
+				'function decimals() view returns (uint8)',
+				'function name() view returns (string)',
+				'function symbol() view returns (string)'
+			];
+
+			const contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+
+			const [balance, decimals, name, symbol] = await Promise.all([
+				contract.balanceOf(address).catch(() => BigInt(0)),
+				contract.decimals().catch(() => 6),
+				contract.name().catch(() => 'Unknown Token'),
+				contract.symbol().catch(() => 'UNKNOWN')
+			]);
+
+			const formattedBalance = ethers.formatUnits(balance, Number(decimals));
+
+			const result: TokenBalance = {
+				address: tokenAddress,
+				name: typeof name === 'string' ? name : 'Unknown Token',
+				symbol: typeof symbol === 'string' ? symbol : 'UNKNOWN',
+				decimals: Number(decimals),
+				balance: balance.toString(),
+				formattedBalance,
+				isNative: false
+			};
+
+			// Cache result
+			this.tokenBalanceCache.set(cacheKey, {
+				balances: [result],
+				timestamp: Date.now()
+			});
+
+			console.log('[TokenBalanceService] Arbitrum token balance fetched', {
+				address,
+				tokenAddress,
+				symbol: result.symbol,
+				balance: result.formattedBalance,
+				decimals: result.decimals
+			});
+
+			return result;
+		} catch (error) {
+			console.error('[TokenBalanceService] Failed to fetch Arbitrum token balance', {
+				address,
+				tokenAddress,
+				error: error instanceof Error ? error.message : String(error)
+			});
+			return null;
+		}
 	}
 }
 

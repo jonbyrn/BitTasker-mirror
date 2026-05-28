@@ -16,17 +16,20 @@ import {
 } from '$lib/services/route-resolver';
 import { lifiService, type LifiRoute } from '$lib/services/lifi.service';
 import { symbiosisService, type SymbiosisQuoteResponse } from '$lib/services/symbiosis.service';
+import { openoceanService } from '$lib/services/openocean.service';
 import {
 	normalizeLifiQuote,
 	normalizeSymbiosisQuote,
+	normalizeOpenOceanQuote,
 	normalizedQuoteToRoute,
 	type ProviderRouteResult,
-	type AsyncRouteResult
+	type AsyncRouteResult,
+	type OpenOceanQuoteResponse
 } from '$lib/services/quote-normalizer';
 
 export type { AsyncRouteResult } from '$lib/services/quote-normalizer';
 
-import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
+import { isLifiEnabled, isSymbiosisEnabled, isOpenOceanEnabled } from '$lib/services/kill-switch';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,6 +40,12 @@ const EVM_NATIVE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /** USDT BEP-20 contract address on BSC mainnet */
 const USDT_BSC_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
+
+/** USDT0 contract address on Rootstock mainnet */
+const USDT0_RSK_ADDRESS = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
+
+/** DOC contract address on Rootstock mainnet */
+const DOC_RSK_ADDRESS = '0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db';
 
 /** Chain IDs */
 const RSK_MAINNET_CHAIN_ID = 30;
@@ -65,7 +74,19 @@ const LIFI_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:crosschain',
 	// TRON (non-EVM, chainId 0 placeholder)
 	'usdt-bsc->address:tron',
-	'rbtc->address:tron'
+	'rbtc->address:tron',
+	// USDT0 on Rootstock
+	'usdt0-rsk->address:rsk',
+	'usdt0-rsk->address:bsc',
+	'usdt0-rsk->address:crosschain',
+	'usdt0-rsk->invoice:onchain',
+	'usdt0-rsk->invoice:lightning',
+	// DOC on Rootstock
+	'doc-rsk->address:rsk',
+	'doc-rsk->address:bsc',
+	'doc-rsk->address:crosschain',
+	'doc-rsk->invoice:onchain',
+	'doc-rsk->invoice:lightning'
 ]);
 
 const SYMBIOSIS_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
@@ -78,7 +99,24 @@ const SYMBIOSIS_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
 	'rbtc->address:crosschain',
 	// TRON (non-EVM, chainId 0 placeholder)
 	'usdt-bsc->address:tron',
-	'rbtc->address:tron'
+	'rbtc->address:tron',
+	// USDT0 on Rootstock — Symbiosis on-chain & cross-chain
+	'usdt0-rsk->address:rsk',
+	'usdt0-rsk->address:bsc',
+	'usdt0-rsk->address:crosschain',
+	'usdt0-rsk->invoice:onchain',
+	'usdt0-rsk->invoice:lightning',
+	// DOC on Rootstock — Symbiosis on-chain (DOC→USDT0→rBTC) & cross-chain
+	'doc-rsk->address:rsk',
+	'doc-rsk->address:bsc',
+	'doc-rsk->address:crosschain',
+	'doc-rsk->invoice:onchain',
+	'doc-rsk->invoice:lightning'
+]);
+
+/** OpenOcean-only supported pair — DOC→USDT0 same-chain on RSK */
+const OPENOCEAN_SUPPORTED_PAIRS: Set<SourceDestKey> = new Set([
+	'doc-rsk->address:rsk' // DOC→USDT0 same-chain swap via OpenOcean aggregator
 ]);
 
 // ---------------------------------------------------------------------------
@@ -110,7 +148,29 @@ function getPairKey(source: SourceWallet, destination: Destination): SourceDestK
 			if (source === 'usdt-bsc') return 'usdt-bsc->address:tron';
 			if (source === 'rbtc') return 'rbtc->address:tron';
 		}
+		// USDT0 on Rootstock → RSK (on-chain swap)
+		if (source === 'usdt0-rsk' && isRSKChain(destination.chainId)) {
+			return 'usdt0-rsk->address:rsk';
+		}
+		// USDT0 on Rootstock → BSC (cross-chain)
+		if (source === 'usdt0-rsk' && isBSCChain(destination.chainId)) {
+			return 'usdt0-rsk->address:bsc';
+		}
+		// DOC on Rootstock → RSK (on-chain swap)
+		if (source === 'doc-rsk' && isRSKChain(destination.chainId)) {
+			return 'doc-rsk->address:rsk';
+		}
+		// DOC on Rootstock → BSC (cross-chain)
+		if (source === 'doc-rsk' && isBSCChain(destination.chainId)) {
+			return 'doc-rsk->address:bsc';
+		}
 		// Cross-chain EVM (Arbitrum, Ethereum, Polygon, Optimism, Base, Avalanche)
+		if (source === 'usdt0-rsk') {
+			return 'usdt0-rsk->address:crosschain';
+		}
+		if (source === 'doc-rsk') {
+			return 'doc-rsk->address:crosschain';
+		}
 		if (source === 'usdt-bsc') {
 			return 'usdt-bsc->address:crosschain';
 		}
@@ -121,9 +181,18 @@ function getPairKey(source: SourceWallet, destination: Destination): SourceDestK
 	}
 
 	// Invoice destinations
-	if (destination.type === 'invoice' && destination.network === 'onchain') {
-		if (source === 'rbtc') return 'rbtc->invoice:onchain';
-		if (source === 'usdt-bsc') return 'usdt-bsc->invoice:onchain';
+	if (destination.type === 'invoice') {
+		if (destination.network === 'lightning') {
+			if (source === 'usdt0-rsk') return 'usdt0-rsk->invoice:lightning';
+			if (source === 'doc-rsk') return 'doc-rsk->invoice:lightning';
+			if (source === 'rbtc') return null; // handled by hardcoded routes
+		}
+		if (destination.network === 'onchain') {
+			if (source === 'rbtc') return 'rbtc->invoice:onchain';
+			if (source === 'usdt-bsc') return 'usdt-bsc->invoice:onchain';
+			if (source === 'usdt0-rsk') return 'usdt0-rsk->invoice:onchain';
+			if (source === 'doc-rsk') return 'doc-rsk->invoice:onchain';
+		}
 	}
 
 	return null;
@@ -152,39 +221,110 @@ async function callLifi(
 	}
 
 	const destChainId = (destination as { chainId: number }).chainId;
-	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
+
+	// Determine from chain ID based on source
+	let fromChainId: number;
+	switch (source) {
+		case 'rbtc':
+		case 'usdt0-rsk':
+		case 'doc-rsk':
+			fromChainId = RSK_MAINNET_CHAIN_ID;
+			break;
+		case 'usdt-bsc':
+			fromChainId = BSC_MAINNET_CHAIN_ID;
+			break;
+		default:
+			return { provider: 'lifi', status: 'skipped', routes: [] };
+	}
+
 	const toChainId = isBtcOnchain
 		? 0 // Bitcoin mainnet (chain ID 0 in LI.FI)
 		: destChainId; // Use actual destination chain ID for cross-chain EVM
 
 	// Determine if this is a cross-chain EVM destination (not BSC, not RSK, not BTC)
 	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
+	// Determine if this is a same-chain swap on RSK
+	const isSameChainRSK =
+		!isBtcOnchain && isRSKChain(destChainId) && (source === 'usdt0-rsk' || source === 'doc-rsk');
 
-	const fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
-	const toToken = isBtcOnchain
-		? 'BTC'
-		: isCrossChainEVM
-			? USDT_BSC_ADDRESS // USDT on destination EVM chain
-			: source === 'rbtc'
-				? USDT_BSC_ADDRESS
-				: EVM_NATIVE_TOKEN_ADDRESS;
+	let fromToken: string;
+	let toToken: string;
+	let fromAsset: string;
+	let toAsset: string;
+	let fromChain: string;
+	let toChain: string;
 
-	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = isBtcOnchain
-		? 'BTC'
-		: isCrossChainEVM
-			? 'USDT'
-			: source === 'rbtc'
-				? 'USDT'
-				: 'RBTC';
-	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = isBtcOnchain
-		? 'bitcoin'
-		: isCrossChainEVM
-			? `chain-${destChainId}`
-			: source === 'rbtc'
-				? 'bsc'
-				: 'rsk';
+	switch (source) {
+		case 'usdt0-rsk':
+			fromToken = USDT0_RSK_ADDRESS;
+			fromAsset = 'USDT0';
+			fromChain = 'rsk';
+			if (isBtcOnchain) {
+				toToken = 'BTC';
+				toAsset = 'BTC';
+				toChain = 'bitcoin';
+			} else if (isSameChainRSK) {
+				toToken = EVM_NATIVE_TOKEN_ADDRESS;
+				toAsset = 'RBTC';
+				toChain = 'rsk';
+			} else if (isCrossChainEVM) {
+				toToken = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toChain = `chain-${destChainId}`;
+			} else {
+				toToken = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toChain = 'bsc';
+			}
+			break;
+		case 'doc-rsk':
+			fromToken = DOC_RSK_ADDRESS;
+			fromAsset = 'DOC';
+			fromChain = 'rsk';
+			if (isBtcOnchain) {
+				toToken = 'BTC';
+				toAsset = 'BTC';
+				toChain = 'bitcoin';
+			} else if (isSameChainRSK) {
+				toToken = EVM_NATIVE_TOKEN_ADDRESS;
+				toAsset = 'RBTC';
+				toChain = 'rsk';
+			} else if (isCrossChainEVM) {
+				toToken = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toChain = `chain-${destChainId}`;
+			} else {
+				toToken = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toChain = 'bsc';
+			}
+			break;
+		default:
+			fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
+			fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
+			fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
+			toToken = isBtcOnchain
+				? 'BTC'
+				: isCrossChainEVM
+					? USDT_BSC_ADDRESS
+					: source === 'rbtc'
+						? USDT_BSC_ADDRESS
+						: EVM_NATIVE_TOKEN_ADDRESS;
+			toAsset = isBtcOnchain
+				? 'BTC'
+				: isCrossChainEVM
+					? 'USDT'
+					: source === 'rbtc'
+						? 'USDT'
+						: 'RBTC';
+			toChain = isBtcOnchain
+				? 'bitcoin'
+				: isCrossChainEVM
+					? `chain-${destChainId}`
+					: source === 'rbtc'
+						? 'bsc'
+						: 'rsk';
+	}
 
 	try {
 		// LI.FI requires fromAddress (lowercase) and fromAmount in wei (smallest unit).
@@ -242,53 +382,137 @@ async function callSymbiosis(
 
 	const destChainId = (destination as { chainId: number }).chainId;
 	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
+	const isSameChainRSK =
+		!isBtcOnchain && isRSKChain(destChainId) && (source === 'usdt0-rsk' || source === 'doc-rsk');
 
-	const fromChainId = source === 'rbtc' ? RSK_MAINNET_CHAIN_ID : BSC_MAINNET_CHAIN_ID;
+	// Determine from chain ID based on source
+	let fromChainId: number;
+	switch (source) {
+		case 'rbtc':
+		case 'usdt0-rsk':
+		case 'doc-rsk':
+			fromChainId = RSK_MAINNET_CHAIN_ID;
+			break;
+		case 'usdt-bsc':
+			fromChainId = BSC_MAINNET_CHAIN_ID;
+			break;
+		default:
+			return { provider: 'symbiosis', status: 'skipped', routes: [] };
+	}
+
 	const toChainId = isBtcOnchain ? 0 : destChainId;
 
-	const fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-	const toAsset = isBtcOnchain
-		? 'BTC'
-		: isCrossChainEVM
-			? 'USDT'
-			: source === 'rbtc'
-				? 'USDT'
-				: 'RBTC';
-	const fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-	const toChain = isBtcOnchain
-		? 'bitcoin'
-		: isCrossChainEVM
-			? `chain-${destChainId}`
-			: source === 'rbtc'
-				? 'bsc'
-				: 'rsk';
+	// Determine token addresses and symbols based on source
+	let fromTokenAddr: string;
+	let fromAsset: string;
+	let fromDecimals: number;
+	let toTokenAddr: string;
+	let toAsset: string;
+	let toDecimals: number;
+	let fromChain: string;
+	let toChain: string;
+
+	switch (source) {
+		case 'usdt0-rsk':
+			fromTokenAddr = USDT0_RSK_ADDRESS;
+			fromAsset = 'USDT0';
+			fromDecimals = 6;
+			fromChain = 'rsk';
+			if (isBtcOnchain) {
+				toTokenAddr = 'BTC';
+				toAsset = 'BTC';
+				toDecimals = 8;
+				toChain = 'bitcoin';
+			} else if (isSameChainRSK) {
+				toTokenAddr = EVM_NATIVE_TOKEN_ADDRESS;
+				toAsset = 'RBTC';
+				toDecimals = 18;
+				toChain = 'rsk';
+			} else if (isCrossChainEVM) {
+				toTokenAddr = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toDecimals = 18;
+				toChain = `chain-${destChainId}`;
+			} else {
+				toTokenAddr = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toDecimals = 18;
+				toChain = 'bsc';
+			}
+			break;
+		case 'doc-rsk':
+			fromTokenAddr = DOC_RSK_ADDRESS;
+			fromAsset = 'DOC';
+			fromDecimals = 18;
+			fromChain = 'rsk';
+			if (isBtcOnchain) {
+				toTokenAddr = 'BTC';
+				toAsset = 'BTC';
+				toDecimals = 8;
+				toChain = 'bitcoin';
+			} else if (isSameChainRSK) {
+				toTokenAddr = EVM_NATIVE_TOKEN_ADDRESS;
+				toAsset = 'RBTC';
+				toDecimals = 18;
+				toChain = 'rsk';
+			} else if (isCrossChainEVM) {
+				toTokenAddr = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toDecimals = 18;
+				toChain = `chain-${destChainId}`;
+			} else {
+				toTokenAddr = USDT_BSC_ADDRESS;
+				toAsset = 'USDT';
+				toDecimals = 18;
+				toChain = 'bsc';
+			}
+			break;
+		default:
+			fromTokenAddr = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
+			fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
+			fromDecimals = 18;
+			fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
+			toTokenAddr = isBtcOnchain
+				? 'BTC'
+				: isCrossChainEVM
+					? USDT_BSC_ADDRESS
+					: source === 'rbtc'
+						? USDT_BSC_ADDRESS
+						: EVM_NATIVE_TOKEN_ADDRESS;
+			toAsset = isBtcOnchain
+				? 'BTC'
+				: isCrossChainEVM
+					? 'USDT'
+					: source === 'rbtc'
+						? 'USDT'
+						: 'RBTC';
+			toDecimals = isBtcOnchain ? 8 : 18;
+			toChain = isBtcOnchain
+				? 'bitcoin'
+				: isCrossChainEVM
+					? `chain-${destChainId}`
+					: source === 'rbtc'
+						? 'bsc'
+						: 'rsk';
+	}
 
 	try {
 		// Symbiosis expects amount in token's smallest unit inside tokenAmountIn
-		const symbiosisAmount =
-			fromAsset === 'RBTC'
-				? BigInt(Math.round(parseFloat(amount) * 1e18)).toString()
-				: BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
+		const symbiosisAmount = BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
 		const quote: SymbiosisQuoteResponse = await withTimeout(
 			symbiosisService.getQuote({
 				tokenAmountIn: {
-					address: source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS,
+					address: fromTokenAddr,
 					chainId: fromChainId,
 					symbol: fromAsset,
-					decimals: 18,
+					decimals: fromDecimals,
 					amount: symbiosisAmount
 				},
 				tokenOut: {
-					address: isBtcOnchain
-						? 'BTC'
-						: isCrossChainEVM
-							? USDT_BSC_ADDRESS
-							: source === 'rbtc'
-								? USDT_BSC_ADDRESS
-								: EVM_NATIVE_TOKEN_ADDRESS,
+					address: toTokenAddr,
 					chainId: toChainId,
 					symbol: toAsset,
-					decimals: isBtcOnchain ? 8 : 18
+					decimals: toDecimals
 				},
 				from: userAddress,
 				to: userAddress,
@@ -312,6 +536,49 @@ async function callSymbiosis(
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Symbiosis API request failed';
 		return { provider: 'symbiosis', status: 'error', routes: [], error: message };
+	}
+}
+
+/**
+ * Call OpenOcean for a DOC→USDT0 same-chain swap quote on RSK.
+ *
+ * OpenOcean only supports the doc-rsk→address:rsk pair (DOC→USDT0 on RSK).
+ * Returns a ProviderRouteResult with success, error, or skipped status.
+ */
+async function callOpenOcean(
+	source: SourceWallet,
+	destination: Destination,
+	amount: string,
+	userAddress: string
+): Promise<ProviderRouteResult> {
+	// Only DOC→USDT0 on RSK is supported via OpenOcean
+	if (source !== 'doc-rsk') {
+		return { provider: 'openocean', status: 'skipped', routes: [] };
+	}
+
+	try {
+		const response: OpenOceanQuoteResponse = await openoceanService.getQuote({
+			fromToken: 'DOC',
+			toToken: 'USDT0',
+			amount,
+			userAddress
+		});
+
+		const normalized = normalizeOpenOceanQuote(response, 'DOC', 'USDT0', 'rsk', 'rsk');
+		if (!normalized) {
+			return {
+				provider: 'openocean',
+				status: 'error',
+				routes: [],
+				error: 'Failed to normalize OpenOcean quote'
+			};
+		}
+
+		const route = normalizedQuoteToRoute(normalized, false);
+		return { provider: 'openocean', status: 'success', routes: [route] };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'OpenOcean API request failed';
+		return { provider: 'openocean', status: 'error', routes: [], error: message };
 	}
 }
 
@@ -351,15 +618,18 @@ export async function resolveRouteAsync(
 	const lifiEligible = pairKey !== null && LIFI_SUPPORTED_PAIRS.has(pairKey) && isLifiEnabled();
 	const symbiosisEligible =
 		pairKey !== null && SYMBIOSIS_SUPPORTED_PAIRS.has(pairKey) && isSymbiosisEnabled();
+	const openoceanEligible =
+		pairKey !== null && OPENOCEAN_SUPPORTED_PAIRS.has(pairKey) && isOpenOceanEnabled();
 
-	// If neither provider is eligible, return hardcoded routes immediately
-	if (!lifiEligible && !symbiosisEligible) {
+	// If no provider is eligible, return hardcoded routes immediately
+	if (!lifiEligible && !symbiosisEligible && !openoceanEligible) {
 		return {
 			routes: hardcodedRoutes,
 			hardcodedRoutes,
 			providerResults: [
 				{ provider: 'lifi', status: 'skipped', routes: [] },
-				{ provider: 'symbiosis', status: 'skipped', routes: [] }
+				{ provider: 'symbiosis', status: 'skipped', routes: [] },
+				{ provider: 'openocean', status: 'skipped', routes: [] }
 			],
 			isLoading: false
 		};
@@ -384,14 +654,24 @@ export async function resolveRouteAsync(
 		);
 	}
 
+	if (openoceanEligible) {
+		promises.push(callOpenOcean(source, destination, amount, userAddress));
+	} else {
+		promises.push(
+			Promise.resolve({ provider: 'openocean' as const, status: 'skipped' as const, routes: [] })
+		);
+	}
+
 	const settled = await Promise.allSettled(promises);
 
-	const providerResults: ProviderRouteResult[] = settled.map((result) => {
+	const providerResults: ProviderRouteResult[] = settled.map((result, i) => {
+		const provider =
+			i === 0 ? ('lifi' as const) : i === 1 ? ('symbiosis' as const) : ('openocean' as const);
 		if (result.status === 'fulfilled') {
 			return result.value;
 		}
 		return {
-			provider: 'lifi' as const,
+			provider,
 			status: 'error' as const,
 			routes: [],
 			error: 'Provider crashed'
@@ -445,7 +725,8 @@ export function createInitialAsyncRouteResult(): AsyncRouteResult {
 		hardcodedRoutes: [],
 		providerResults: [
 			{ provider: 'lifi', status: 'skipped', routes: [] },
-			{ provider: 'symbiosis', status: 'skipped', routes: [] }
+			{ provider: 'symbiosis', status: 'skipped', routes: [] },
+			{ provider: 'openocean', status: 'skipped', routes: [] }
 		],
 		isLoading: true
 	};

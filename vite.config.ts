@@ -305,8 +305,17 @@ export default defineConfig(({ mode }) => {
 					'**/data/memory/**',
 					// Claude project-local config (hooks, skills, settings)
 					'**/.claude/**',
-					// E2E test artifacts (generated while dev server runs)
-					'**/playwright-report/**'
+          // E2E test artifacts (generated while dev server runs)
+              '**/playwright-report/**',
+              // Kilo Code / OpenCode tooling — prevent hot reloads from agent writes
+              '**/.kilo/**',
+              '**/.kilocode/**',
+              '**/.opencode/**',
+              // Kilo config file (frequently written by agent)
+              '**/kilo.json',
+              // Other tooling configs at project root
+              '**/claude-flow.config.json',
+              '**/.mcp.json'
 				]
 			}
 		}

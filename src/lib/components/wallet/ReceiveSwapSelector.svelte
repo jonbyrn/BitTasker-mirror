@@ -70,8 +70,8 @@
 			recommended: true
 		},
 		{
-			id: 'usdt-arb',
-			asset: 'USDT',
+			id: 'usdt0-arb',
+			asset: 'USDT0',
 			label: 'Arbitrum',
 			icon: '/images/chains/arbitrum.png',
 			network: 'usdt-arbitrum',
@@ -102,16 +102,16 @@
 			group: 'usdt'
 		},
 		{
-			id: 'usdt-op',
-			asset: 'USDT',
+			id: 'usdt0-op',
+			asset: 'USDT0',
 			label: 'Optimism',
 			icon: '/images/chains/optimism.png',
 			network: 'usdt-optimism',
 			group: 'usdt'
 		},
 		{
-			id: 'usdt-poly',
-			asset: 'USDT',
+			id: 'usdt0-poly',
+			asset: 'USDT0',
 			label: 'Polygon',
 			icon: '/images/chains/polygon.png',
 			network: 'usdt-polygon',
@@ -124,6 +124,22 @@
 			icon: '/images/chains/tron.png',
 			network: 'usdt-tron',
 			group: 'usdt'
+		},
+		{
+			id: 'usdt0-rsk',
+			asset: 'USDT0',
+			label: 'Rootstock',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			network: 'usdt0-rootstock',
+			group: 'usdt'
+		},
+		{
+			id: 'doc-rsk',
+			asset: 'DOC',
+			label: 'Dollar on Chain',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			network: 'doc-rootstock',
+			group: 'usdt'
 		}
 	];
 
@@ -131,6 +147,7 @@
 	const CHAIN_NAME: Record<number, string> = {
 		1: 'Ethereum',
 		10: 'Optimism',
+		30: 'Rootstock',
 		56: 'Binance',
 		100: 'Gnosis',
 		137: 'Polygon',
@@ -351,7 +368,7 @@
 						'usdt'
 							? 'btn-primary'
 							: 'btn-ghost'}"
-						onclick={() => selectGroup('usdt')}>$ USDT</button
+						onclick={() => selectGroup('usdt')}>$ USD</button
 					>
 					{#if _loading || showOtherGroup}
 						<button

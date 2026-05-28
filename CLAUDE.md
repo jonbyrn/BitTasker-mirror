@@ -15,7 +15,7 @@
 - ALWAYS prefer editing an existing file to creating a new one
 - NEVER proactively create documentation files (\*.md) or README files unless explicitly requested
 - NEVER save working files, text/mds, or tests to the root folder
-- Never continuously check status after spawning a swarm — wait for results
+- Never continuously check status after spawning agents — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - NEVER disable ESLint or TypeScript rules (`eslint-disable`, `ts-ignore`, `ts-expect-error`, `as any`). These rules exist to enforce quality and safety. Instead of suppressing them, fix the underlying issue: implement proper types, use correct imports, or refactor the code to satisfy the compiler statically.
@@ -32,7 +32,7 @@ Before making any decision, implementation, or change, follow this process:
 
 4. **Iterate to ≥95% confidence** — Do not make decisions, implement, or declare completion until you have at least 95% confidence in your analysis. If you are uncertain, gather more context, run more tests, or ask clarifying questions. Confidence comes from verification, not from intuition.
 
-5. **Review and iterate again** — Once you reach a final state, ask Ruflo to review the implementation. Take the feedback seriously. Iterate from step 1 again until you reach a final state that passes review.
+5. **Review and iterate again** — Once you reach a final state, review the implementation. Take feedback seriously. Iterate from step 1 again until the implementation is correct and complete.
 
 ## File Organization
 
@@ -55,9 +55,7 @@ Before making any decision, implementation, or change, follow this process:
 
 ### Project Config
 
-- **Topology**: hierarchical-mesh
-- **Max Agents**: 15
-- **Memory**: hybrid
+- **Memory**: mcp-memory
 - **HNSW**: Enabled
 - **Neural**: Enabled
 
@@ -75,7 +73,7 @@ npm run storybook    # Storybook dev server (port 6006)
 ```
 
 - **Do NOT run `npm run build` for isolated changes** (single component, utility, or type edit). Use `npm run check` + `npm run lint` for fast validation.
-- **In swarms: defer `npm run build` to the final integration step** — it serializes all of SvelteKit and is the slowest command in the pipeline.
+- **In multi-agent work: defer `npm run build` to the final integration step** — it serializes all of SvelteKit and is the slowest command in the pipeline.
 - **Do NOT run `npm run test` (full suite) first.** Use targeted commands: `npm run test:unit:components`, `npm run test:unit:stores`, `npm run test:unit:api`, etc. Run the full suite only after targeted tests pass.
 - Always run `npm run check` after TypeScript changes — catches type errors without a full build.
 - **Before committing when i18n keys have changed**: run `python3 scripts/find-missing-translations.py --fix-suggestions` to detect missing or mismatched translation keys. Fix all issues before committing.
@@ -122,41 +120,25 @@ static/locales/     # i18n translation files (en, es)
 - After spawning agents: STOP — do NOT poll or check status
 - When agent results arrive: review ALL before proceeding
 
-## Swarm Orchestration (RuFlo) — DEFAULT MODE
+## Multi-Agent Orchestration
 
-**Swarm orchestration is the ONLY way to work on this project.** Every task — no matter how small — runs through the swarm. Direct edits bypassing the swarm are not permitted.
+For complex work, spawn specialized agents via the `task` tool for parallel multi-agent execution. Use the `task` tool to dispatch work items that run concurrently.
 
-### Daemon — MUST be running
-
-- **MANDATORY: verify daemon is running before any work.** Run `npx @claude-flow/cli@latest daemon status`. If STOPPED: `npx @claude-flow/cli@latest daemon start`
-- The daemon handles background sync, consolidation, worker scheduling, and memory bridge — without it, memory and coordination are degraded
-- If the daemon is already running, skip this check on subsequent tasks in the same session
-
-### Swarm Init — once per session
-
-- **MANDATORY: `mcp__claude-flow__swarm_init` with topology `hierarchical-mesh`, max 8 agents, strategy `specialized`, raft consensus**
-- Initialize once per session. Use the same swarmId for all subsequent agent spawns
-- All work is dispatched via `mcp__claude-flow__agent_spawn` — never run tools directly from the main thread when the swarm is active
-- Use Edit tool directly only when `[AGENT_BOOSTER_AVAILABLE]` appears AND the task is a single-line fix
-
-### Key RuFlo MCP Tools
+### Key Tool Reference
 
 | Trigger                                  | Tool                                                             |
 | ---------------------------------------- | ---------------------------------------------------------------- |
-| **MANDATORY: session start**             | `daemon start` (if stopped) → `swarm_init` (if not initialized)  |
-| **MANDATORY: before starting any task**  | `mcp__claude-flow__memory_search` — check for prior patterns     |
-| **MANDATORY: after completing any task** | `mcp__claude-flow__memory_store` — save learnings                |
-| **MANDATORY: all work**                  | `mcp__claude-flow__agent_spawn` — dispatch via swarm             |
-| Multi-agent coordination                 | `mcp__claude-flow__swarm_init` + `mcp__claude-flow__agent_spawn` |
-| Before any edit                          | `mcp__gitnexus__impact` — blast radius check                     |
-| Before committing                        | `mcp__gitnexus__detect_changes` — verify affected scope          |
+| **MANDATORY: before starting any task**  | `mcp-memory_memory_search` — check for prior patterns           |
+| **MANDATORY: after completing any task** | `mcp-memory_memory_store` — save learnings                       |
+| Multi-agent coordination                 | `task` tool — spawn parallel subagents                           |
+| Before any edit                          | `gitnexus_impact` — blast radius check                           |
+| Before committing                        | `gitnexus_detect_changes` — verify affected scope                |
 
 ## Security
 
 - NEVER hardcode API keys, secrets, or credentials
 - NEVER commit .env files or any file containing secrets
 - Validate user input at system boundaries; sanitize file paths
-- Run `npx @claude-flow/cli@latest security scan` after security-related changes
 - Never log, store, or expose nsec private keys, mnemonics, or seed phrases in code or logs
 
 ## Domain Skills
@@ -232,7 +214,7 @@ Before considering code complete, verify:
 - [ ] Error state (API failure / network error / invalid data)
 - [ ] Boundary values (max length, zero, negative, overflow)
 - [ ] Platform variance (web vs iOS vs Android behavior differences)
-- [ ] **Memory**: searched AgentDB for prior patterns before starting (`mcp__claude-flow__memory_search`)
+- [ ] **Memory**: searched for prior patterns before starting (`mcp-memory_memory_search`)
 
 ## Automated Testing
 
@@ -276,7 +258,7 @@ Mark code as complete only when:
 - [ ] `npm run lint` passes (no style violations)
 - [ ] Targeted test suite passes (`npm run test:unit:components`, etc.)
 - [ ] E2E tests pass for any changed user flows (`npm run test:e2e`)
-- [ ] **Memory stored**: learnings, patterns, and key decisions saved via `mcp__claude-flow__memory_store`
+- [ ] **Memory stored**: learnings, patterns, and key decisions saved via `mcp-memory_memory_store`
 
 ## High-Confidence Code
 

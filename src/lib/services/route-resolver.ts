@@ -9,14 +9,14 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type SourceWallet = 'rbtc' | 'usdt-bsc';
+export type SourceWallet = 'rbtc' | 'usdt-bsc' | 'usdt0-rsk' | 'doc-rsk';
 
 export type Destination =
 	| { type: 'address'; chainId: number; address: string }
 	| { type: 'invoice'; network: 'lightning' | 'onchain'; invoice: string };
 
 export interface RouteHop {
-	service: 'direct' | 'changelly' | 'boltz' | 'lifi' | 'symbiosis';
+	service: 'direct' | 'changelly' | 'boltz' | 'lifi' | 'symbiosis' | 'openocean';
 	fromAsset: string;
 	fromChain: string;
 	toAsset: string;
@@ -51,6 +51,8 @@ const TRON_PSEUDO_CHAIN_ID = 0;
 
 const ASSET_RBTC = 'RBTC';
 const ASSET_USDT = 'USDT';
+const ASSET_USDT0 = 'USDT0';
+const ASSET_DOC = 'DOC';
 const ASSET_BTC = 'BTC';
 
 const RSK_CHAIN_IDS = new Set([30, 31, 33]);
@@ -88,6 +90,7 @@ const FEE_BOLTZ_CHAIN_SWAP = 0.1;
 const FEE_BOLTZ_USDT_ARB_LIGHTNING = 0.88;
 const FEE_LIFI_DEFAULT = 0.5;
 const FEE_SYMBIOSIS_DEFAULT = 0.3;
+const FEE_SYMBIOSIS_ONCHAIN = 0.3;
 
 // ---------------------------------------------------------------------------
 // Constants — time in minutes
@@ -645,6 +648,316 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 }
 
 // ---------------------------------------------------------------------------
+// Route matrix — USDT0 on Rootstock source
+// ---------------------------------------------------------------------------
+
+function resolveFromUSDT0RSK(destination: Destination): Route[] {
+	if (destination.type === 'address') {
+		// USDT0 → rBTC on RSK via Symbiosis on-chain swap
+		if (isRSKChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'usdt0-rsk-to-rbtc-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_ONCHAIN,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		// USDT0 on RSK → USDT on BSC via Symbiosis cross-chain
+		if (isBSCChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'usdt0-rsk-to-bsc-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_BSC,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		// Cross-chain EVM: USDT0 on RSK → USDT on destination chain
+		if (isCrossChainEVM(destination.chainId)) {
+			return [
+				buildRoute({
+					id: `usdt0-rsk-to-usdt-chain-${destination.chainId}-via-symbiosis`,
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		return [];
+	}
+
+	if (destination.network === 'lightning') {
+		return [
+			buildRoute({
+				id: 'usdt0-rsk-to-lightning-via-symbiosis-boltz',
+				label: 'Symbiosis + Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_LIGHTNING,
+						feePercent: FEE_BOLTZ_SUBMARINE,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	if (destination.network === 'onchain') {
+		return [
+			buildRoute({
+				id: 'usdt0-rsk-to-btc-via-symbiosis-boltz',
+				label: 'Symbiosis + Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	return [];
+}
+
+// ---------------------------------------------------------------------------
+// Route matrix — DOC on Rootstock source
+// ---------------------------------------------------------------------------
+
+function resolveFromDOCRSK(destination: Destination): Route[] {
+	if (destination.type === 'address') {
+		// DOC → rBTC on RSK via Symbiosis on-chain swap
+		if (isRSKChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'doc-rsk-to-rbtc-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_DOC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_ONCHAIN,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		// DOC on RSK → USDT on BSC via Symbiosis (two-hop: DOC→USDT0 on RSK, then cross-chain)
+		if (isBSCChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'doc-rsk-to-bsc-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_DOC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT0,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_ONCHAIN,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						},
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: CHAIN_BSC,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		// Cross-chain EVM: DOC on RSK → USDT on destination chain
+		if (isCrossChainEVM(destination.chainId)) {
+			return [
+				buildRoute({
+					id: `doc-rsk-to-usdt-chain-${destination.chainId}-via-symbiosis`,
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_DOC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT0,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_ONCHAIN,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						},
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		return [];
+	}
+
+	if (destination.network === 'lightning') {
+		return [
+			buildRoute({
+				id: 'doc-rsk-to-lightning-via-symbiosis-boltz',
+				label: 'Symbiosis + Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_DOC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_LIGHTNING,
+						feePercent: FEE_BOLTZ_SUBMARINE,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	if (destination.network === 'onchain') {
+		return [
+			buildRoute({
+				id: 'doc-rsk-to-btc-via-symbiosis-boltz',
+				label: 'Symbiosis + Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_DOC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	return [];
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -674,6 +987,10 @@ export function resolveRoute(source: SourceWallet, destination: Destination): Ro
 			return resolveFromRBTC(destination);
 		case 'usdt-bsc':
 			return resolveFromUSDTBSC(destination);
+		case 'usdt0-rsk':
+			return resolveFromUSDT0RSK(destination);
+		case 'doc-rsk':
+			return resolveFromDOCRSK(destination);
 		default:
 			return [];
 	}

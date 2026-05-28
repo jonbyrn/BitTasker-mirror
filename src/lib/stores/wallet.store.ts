@@ -66,11 +66,25 @@ import {
 // Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
-	activeChain: 'rsk' | 'bsc';
+	activeChain: 'rsk' | 'bsc' | 'arb';
 	gasMode: GasMode;
 	delegationState: DelegationState;
 	pendingTransactions: Map<number, string>;
 	chainLock: boolean;
+	arb: {
+		connected: boolean;
+		connecting: boolean;
+		error: string | null;
+		address: string | null;
+		ethBalance: string;
+		formattedEthBalance: string;
+		usdt0Balance: string;
+		formattedUsdt0Balance: string;
+		blockNumber: number | null;
+		provider: any | null;
+		wallet: any | null;
+		usdt0Contract: any | null;
+	};
 };
 
 // Initial state
@@ -108,6 +122,21 @@ const initialState: WalletStateExtended = {
 		paymasterConnected: false,
 		paymasterAddress: null,
 		canPayFeesInUsdt: false
+	},
+
+	arb: {
+		connected: false,
+		connecting: false,
+		error: null,
+		address: null,
+		ethBalance: '0',
+		formattedEthBalance: '0.00',
+		usdt0Balance: '0',
+		formattedUsdt0Balance: '0.00',
+		blockNumber: null,
+		provider: null,
+		wallet: null,
+		usdt0Contract: null
 	},
 
 	assets: [],
@@ -601,8 +630,17 @@ async function loadAssets(): Promise<void> {
 		let totalUsd = 0;
 		let priceError = false;
 
+		const walletAddress = state.rsk.address || state.bsc.address;
+
 		// Fetch ALL data in parallel with retry logic for balance fetches
-		const [rbtcPriceResult, bnbPriceResult, rskBalanceData, bscBalances] = await Promise.all([
+		const [
+			rbtcPriceResult,
+			bnbPriceResult,
+			rskBalanceData,
+			bscBalances,
+			rskTokenBalances,
+			arbUsdt0Balance
+		] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch((err) => {
 				console.warn('[WALLET-STORE] Failed to fetch RBTC price:', err);
 				return null; // null indicates price unavailable (vs 0 which means no value)
@@ -616,6 +654,17 @@ async function loadAssets(): Promise<void> {
 				: Promise.resolve(null),
 			state.bsc.connected && manager.bscWallet
 				? fetchWithRetry(() => manager.bscWallet.getBalances())
+				: Promise.resolve(null),
+			state.rsk.connected && walletAddress
+				? fetchWithRetry(() => tokenBalanceService.getRSKTokenBalances(walletAddress, true))
+				: Promise.resolve(null),
+			walletAddress
+				? fetchWithRetry(() =>
+						tokenBalanceService.getArbitrumTokenBalance(
+							walletAddress,
+							'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' // USDT0 on Arbitrum
+						)
+					)
 				: Promise.resolve(null)
 		]);
 
@@ -665,6 +714,92 @@ async function loadAssets(): Promise<void> {
 					error: 'Failed to fetch balance. Please refresh.'
 				}
 			}));
+		}
+
+		// Process RSK token balances (DOC, USDT0, and other ERC-20 tokens)
+		if (rskTokenBalances && rskTokenBalances.length > 0) {
+			for (const token of rskTokenBalances) {
+				const tokenBalance = parseFloat(token.formattedBalance || '0');
+				if (tokenBalance <= 0) continue;
+
+				if (token.symbol === 'DOC') {
+					totalUsdt += tokenBalance;
+					totalUsd += tokenBalance;
+
+					assets.push({
+						assetId: 'doc-rsk',
+						name: token.name || 'DOC',
+						ticker: 'DOC',
+						precision: token.decimals || 18,
+						icon: '📄',
+						balance: tokenBalance,
+						formattedBalance: token.formattedBalance || '0',
+						network: 'RSK',
+						usdValue: tokenBalance
+					});
+				} else if (token.symbol === 'USDT0' || token.symbol === 'USDT0 (Rootstock)') {
+					totalUsdt += tokenBalance;
+					totalUsd += tokenBalance;
+
+					assets.push({
+						assetId: 'usdt0-rsk',
+						name: token.name || 'USDT0 (RSK)',
+						ticker: 'USDT0',
+						precision: token.decimals || 6,
+						icon: '💵',
+						balance: tokenBalance,
+						formattedBalance: token.formattedBalance || '0',
+						network: 'RSK',
+						usdValue: tokenBalance
+					});
+				}
+			}
+		}
+
+		// Process Arbitrum USDT0 balance
+		if (arbUsdt0Balance) {
+			const arbUsdt0Formatted = parseFloat(arbUsdt0Balance.formattedBalance || '0');
+			const usdt0UsdValue = arbUsdt0Formatted; // USDT0 is 1:1 with USD
+
+			totalUsdt += arbUsdt0Formatted;
+			totalUsd += usdt0UsdValue;
+
+			// Update store with Arbitrum balance
+			walletStore.update((s) => ({
+				...s,
+				arb: {
+					...s.arb,
+					usdt0Balance: arbUsdt0Balance.balance?.toString() || '0',
+					formattedUsdt0Balance: arbUsdt0Balance.formattedBalance || '0.00',
+					connected: true,
+					error: null
+				}
+			}));
+
+			assets.push({
+				assetId: 'usdt0-arb',
+				name: 'USDT0 (Arbitrum)',
+				ticker: 'USDT0',
+				precision: 6,
+				icon: '💵',
+				balance: arbUsdt0Formatted,
+				formattedBalance: arbUsdt0Balance.formattedBalance || '0.00',
+				network: 'RSK',
+				usdValue: usdt0UsdValue
+			});
+		} else if (walletAddress) {
+			// Show zero USDT0 Arbitrum for awareness (even when no balance)
+			assets.push({
+				assetId: 'usdt0-arb',
+				name: 'USDT0 (Arbitrum)',
+				ticker: 'USDT0',
+				precision: 6,
+				icon: '💵',
+				balance: 0,
+				formattedBalance: '0.00',
+				network: 'RSK',
+				usdValue: 0
+			});
 		}
 
 		// Process BSC assets

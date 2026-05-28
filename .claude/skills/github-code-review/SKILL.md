@@ -8,7 +8,6 @@ author: Claude Code Flow
 requires:
   - github-cli
   - ruv-swarm
-  - claude-flow
 capabilities:
   - Multi-agent code review
   - Automated PR management
@@ -1012,45 +1011,6 @@ fi
 
 ---
 
-## 🔗 Integration with Claude Code
-
-### Workflow Pattern
-
-1. **Claude Code** reads PR diff and context
-2. **Swarm** coordinates review approach based on PR type
-3. **Agents** work in parallel on different review aspects
-4. **Progress** updates posted to PR automatically
-5. **Final review** performed before marking ready
-
-### Example: Complete PR Management
-
-```javascript
-[Single Message - Parallel Execution]:
-  // Initialize coordination
-  mcp__claude-flow__swarm_init { topology: "hierarchical", maxAgents: 5 }
-  mcp__claude-flow__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
-  mcp__claude-flow__agent_spawn { type: "tester", name: "QA Engineer" }
-  mcp__claude-flow__agent_spawn { type: "coordinator", name: "Merge Coordinator" }
-
-  // Create and manage PR using gh CLI
-  Bash("gh pr create --title 'Feature: Add authentication' --base main")
-  Bash("gh pr view 54 --json files,diff")
-  Bash("gh pr review 54 --approve --body 'LGTM after automated review'")
-
-  // Execute tests and validation
-  Bash("npm test")
-  Bash("npm run lint")
-  Bash("npm run build")
-
-  // Track progress
-  TodoWrite { todos: [
-    { content: "Complete code review", status: "completed", activeForm: "Completing code review" },
-    { content: "Run test suite", status: "completed", activeForm: "Running test suite" },
-    { content: "Validate security", status: "completed", activeForm: "Validating security" },
-    { content: "Merge when ready", status: "pending", activeForm: "Merging when ready" }
-  ]}
-```
-
 ---
 
 ## 🆘 Troubleshooting
@@ -1120,7 +1080,7 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 ### Documentation
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 - [RUV Swarm Guide](https://github.com/ruvnet/ruv-swarm)
-- [Claude Flow Integration](https://github.com/ruvnet/claude-flow)
+- [RUV Swarm Guide](https://github.com/ruvnet/ruv-swarm)
 
 ### Support
 - GitHub Issues: Report bugs and request features
@@ -1131,10 +1091,10 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 
 ## 📄 License
 
-This skill is part of the Claude Code Flow project and is licensed under the MIT License.
+This skill is licensed under the MIT License.
 
 ---
 
 **Last Updated:** 2025-10-19
 **Version:** 1.0.0
-**Maintainer:** Claude Code Flow Team
+**Maintainer:** Open Source

@@ -37,6 +37,7 @@
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
+	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import LoanFlowDrawer from '$lib/components/wallet/LoanFlowDrawer.svelte';
 	import LoanStuckFundsBanner from '$lib/components/wallet/LoanStuckFundsBanner.svelte';
 	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
@@ -392,6 +393,7 @@
 										<IconContentCopy class="h-4 w-4" />
 									</button>
 								</div>
+								<HelpModal />
 							</div>
 						{/if}
 

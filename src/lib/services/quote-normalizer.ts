@@ -14,7 +14,7 @@ import type { Route, RouteHop } from '$lib/services/route-resolver';
 
 /** A normalized quote from any swap provider. */
 export interface NormalizedQuote {
-	provider: 'lifi' | 'symbiosis';
+	provider: 'lifi' | 'symbiosis' | 'openocean';
 	fromAsset: string;
 	fromChain: string;
 	toAsset: string;
@@ -30,7 +30,7 @@ export interface NormalizedQuote {
  * Result from a single provider during async route resolution.
  */
 export interface ProviderRouteResult {
-	provider: 'lifi' | 'symbiosis';
+	provider: 'lifi' | 'symbiosis' | 'openocean';
 	status: 'success' | 'error' | 'skipped';
 	routes: Route[];
 	error?: string;
@@ -203,6 +203,58 @@ export function normalizeSymbiosisQuote(
 }
 
 // ---------------------------------------------------------------------------
+// OpenOcean response shapes
+// ---------------------------------------------------------------------------
+
+export interface OpenOceanQuoteData {
+	inAmount: string;
+	outAmount: string;
+	estimatedGas: string;
+	dexes: Array<{ dexCode: string; swapAmount: string }>;
+	priceImpact: string;
+}
+
+export interface OpenOceanQuoteResponse {
+	data: OpenOceanQuoteData;
+}
+
+/**
+ * Normalize an OpenOcean quote into a provider-agnostic format.
+ *
+ * @param quote - The quote response from OpenOcean
+ * @param fromAsset - The source asset ticker (e.g. 'DOC')
+ * @param toAsset - The destination asset ticker (e.g. 'USDT0')
+ * @param fromChain - The source chain name (e.g. 'rsk')
+ * @param toChain - The destination chain name (e.g. 'rsk')
+ * @returns A NormalizedQuote, or null if the input is invalid
+ */
+export function normalizeOpenOceanQuote(
+	quote: OpenOceanQuoteResponse,
+	fromAsset: string,
+	toAsset: string,
+	fromChain: string,
+	toChain: string
+): NormalizedQuote | null {
+	if (!quote?.data?.outAmount) return null;
+
+	const outAmount = quote.data.outAmount;
+	const estimatedGas = quote.data.estimatedGas;
+	const priceImpact = parseFloat(quote.data.priceImpact || '0');
+
+	return {
+		provider: 'openocean',
+		fromAsset,
+		fromChain,
+		toAsset,
+		toChain,
+		estimatedToAmount: outAmount,
+		feePercent: Math.max(0, Math.round(priceImpact * 100) / 100),
+		estimatedTimeMinutes: 1, // Same-chain swap, fast execution
+		providerRouteId: `openocean-${fromChain}-${toChain}-${Date.now()}`
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Quote-to-Route conversion
 // ---------------------------------------------------------------------------
 
@@ -225,7 +277,12 @@ export function normalizedQuoteToRoute(quote: NormalizedQuote, recommended: bool
 		estimatedTimeMax: Math.ceil(quote.estimatedTimeMinutes * 1.5)
 	};
 
-	const label = quote.provider === 'lifi' ? 'LI.FI' : 'Symbiosis';
+	const label =
+		quote.provider === 'lifi'
+			? 'LI.FI'
+			: quote.provider === 'openocean'
+				? 'OpenOcean'
+				: 'Symbiosis';
 
 	return {
 		id: `${quote.fromChain}-to-${quote.toChain}-via-${quote.provider}-${quote.providerRouteId}`,
