@@ -262,6 +262,14 @@
 		}
 
 		// Update state with real values
+		// Check for MoC contract errors (global cap exceeded, paused, etc.)
+		if (estimate.mocError) {
+			feeBreakdown = [];
+			errorMessage = estimate.mocError;
+			errorType = 'moc';
+			return;
+		}
+
 		// Map service-internal labels to i18n keys for UI display
 		const serviceLabelMap: Record<string, string> = {
 			'DOC Mint Fee': $t('wallet.loan.fee_doc_mint'),

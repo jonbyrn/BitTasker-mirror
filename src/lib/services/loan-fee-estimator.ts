@@ -115,6 +115,8 @@ export interface LoanFeeEstimate {
 	routeProvider: string;
 	/** Seconds until this quote should be considered stale. */
 	quoteExpiresIn: number;
+	/** Non-null when the MoC contract reverted (cap exceeded, paused, etc.). */
+	mocError?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +196,22 @@ async function getMocEstimate(
 		);
 
 		if (mocError || !mocResult) {
-			// MoC on-chain estimate failed — use documented 0.20% rate as fallback
+			const isContractRevert =
+				mocError?.code === 'CALL_EXCEPTION' || mocError?.shortMessage?.includes('reverted');
+
+			if (isContractRevert) {
+				// Contract reverted — surface the error (cap exceeded, paused, etc.)
+				const reason = mocError?.shortMessage ?? mocError?.reason ?? 'contract revert';
+				debug.warn('MoC contract revert: %s', reason);
+				fees[fees.length - 1] = {
+					label: 'DOC Mint Fee',
+					amount: formatUsd(0),
+					loading: false
+				};
+				throw new Error(reason.startsWith('MOE') ? reason : `MoC contract: ${reason}`);
+			}
+
+			// Non-contract error (provider, network, dynamic import) — use fallback
 			const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
 			const docAmountUsd = rbtcValueUsd / MOC_COVERAGE_RATIO;
 			const fallbackFeeUsd = docAmountUsd * MOC_FEE_RATE;
@@ -607,19 +624,28 @@ export const loanFeeEstimator = {
 		// -------------------------------------------------------------------
 		let docAmountWei = rbtcWei.toString();
 		let coverageRatio: number | null = null;
+		let mocError: string | undefined;
 		try {
 			const mocResult = await getMocEstimate(signer, docAmountWei, rbtcPrice, fees);
 			docAmountWei = mocResult.docAmount;
 			coverageRatio = mocResult.coverageRatio;
 		} catch (err) {
-			debug.error('MoC estimate threw: %s', (err as Error)?.message);
-			// fees row is already pushed and left as loading — mark it with fallback
-			const idx = fees.findIndex((f) => f.label === 'DOC Mint Fee' && f.loading);
-			if (idx >= 0)
-				fees[idx] = {
-					label: 'DOC Mint Fee',
-					amount: formatUsd(parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice * MOC_FEE_RATE)
-				};
+			const msg = (err as Error)?.message ?? '';
+			const isContractRevert = msg.startsWith('MoC contract:') || msg.startsWith('MOE');
+
+			if (isContractRevert) {
+				mocError = msg.replace('MoC contract: ', '');
+				debug.warn('MoC contract error (not using fallback): %s', mocError);
+			} else {
+				// Provider/network error — use fallback estimate
+				debug.error('MoC estimate threw: %s', msg);
+				const idx = fees.findIndex((f) => f.label === 'DOC Mint Fee' && f.loading);
+				if (idx >= 0)
+					fees[idx] = {
+						label: 'DOC Mint Fee',
+						amount: formatUsd(parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice * MOC_FEE_RATE)
+					};
+			}
 		}
 
 		// -------------------------------------------------------------------
@@ -679,7 +705,8 @@ export const loanFeeEstimator = {
 			usdt0RskAmount: usdt0RskFormatted,
 			coverageRatio,
 			routeProvider,
-			quoteExpiresIn: QUOTE_EXPIRY_SECONDS
+			quoteExpiresIn: QUOTE_EXPIRY_SECONDS,
+			mocError
 		};
 
 		debug.log(
