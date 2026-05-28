@@ -1105,7 +1105,7 @@
 			"existing_builtin_label": "Built-in Wallet",
 			"existing_connected_label": "Connected Wallets",
 			"existing_doc_balance": "{amount} DOC (~${usd})",
-			"existing_empty_desc": "When you mint DOC by collateralizing RBTC, your active DOC balances will appear here. You can redeem them anytime for RBTC.",
+			"existing_empty_desc": "Borrow USDT against your Bitcoin with 0% APR. Pay back anytime to redeem your BTC — no deadlines, no credit checks.",
 			"existing_empty_title": "No Active Loans",
 			"existing_pay_off": "Pay Off",
 			"existing_title": "Your Active Loans",
@@ -1179,6 +1179,8 @@
 			"keep_as_usdt0": "Keep as USDT0 on RSK",
 			"error_offline": "You are offline. Please check your internet connection and try again.",
 			"error_network": "A network error occurred. Please try again.",
+			"error_wallet_not_initialized": "Wallet not initialized. Please try again.",
+			"error_estimate_failed": "Failed to fetch fee estimate. Please try again.",
 			"how_much_subtitle": "How much USDT0 do you need?",
 			"review_step_collateralize": "Use your RBTC as collateral",
 			"review_step_convert": "Convert to USDT0 on RSK",
@@ -1188,7 +1190,13 @@
 			"executing_step_send": "Sending to Arbitrum",
 			"complete_balance_banner": "USDT0 on Arbitrum now shown in your balances",
 			"loan_subtitle": "No interest, no repayments — collateralize your RBTC for USDT0 on Arbitrum",
-			"refresh_quote": "Refresh quote"
+			"refresh_quote": "Refresh quote",
+			"empty_how_feature1_title": "0% APR — No Interest Ever",
+			"empty_how_feature1_desc": "Use your Bitcoin as collateral without paying a cent in interest. Only a one-time 0.20% protocol fee.",
+			"empty_how_feature2_title": "Get USDT Instantly",
+			"empty_how_feature2_desc": "Get USD to spend right now, without selling your Bitcoin.",
+			"empty_how_feature3_title": "Pay Back, Redeem Your Bitcoin",
+			"empty_how_feature3_desc": "Return the USDT to reclaim your Bitcoin anytime. No deadlines, no minimums — your BTC is always yours."
 		}
 	}
 }

@@ -1064,7 +1064,7 @@
 			"existing_builtin_label": "Billetera Integrada",
 			"existing_connected_label": "Billeteras Conectadas",
 			"existing_doc_balance": "{amount} DOC (~${usd})",
-			"existing_empty_desc": "Cuando acuñas DOC usando RBTC como garantía, tus saldos activos de DOC aparecerán aquí. Puedes canjearlos por RBTC en cualquier momento.",
+			"existing_empty_desc": "Obtén USDT usando tu Bitcoin como garantía al 0% TAE. Devuelve cuando quieras para recuperar tu BTC — sin plazos, sin verificación de crédito.",
 			"existing_empty_title": "Sin Préstamos Activos",
 			"existing_pay_off": "Pagar",
 			"existing_title": "Tus Préstamos Activos",
@@ -1138,6 +1138,8 @@
 			"keep_as_usdt0": "Mantener como USDT0 en RSK",
 			"error_offline": "Estás desconectado. Verifica tu conexión a internet e inténtalo de nuevo.",
 			"error_network": "Ocurrió un error de red. Inténtalo de nuevo.",
+			"error_wallet_not_initialized": "Billetera no inicializada. Inténtalo de nuevo.",
+			"error_estimate_failed": "Error al obtener estimación de tarifas. Inténtalo de nuevo.",
 			"how_much_subtitle": "¿Cuánto USDT0 necesitas?",
 			"review_step_collateralize": "Usa tu RBTC como garantía",
 			"review_step_convert": "Convierte a USDT0 en RSK",
@@ -1147,7 +1149,13 @@
 			"executing_step_send": "Enviando a Arbitrum",
 			"complete_balance_banner": "USDT0 en Arbitrum ahora visible en tus balances",
 			"loan_subtitle": "Sin intereses, sin pagos — garantiza tu RBTC para obtener USDT0 en Arbitrum",
-			"refresh_quote": "Actualizar cotización"
+			"refresh_quote": "Actualizar cotización",
+			"empty_how_feature1_title": "0% TAE — Sin Intereses",
+			"empty_how_feature1_desc": "Usa tu Bitcoin como garantía sin pagar intereses. Solo una tarifa única del 0.20% del protocolo.",
+			"empty_how_feature2_title": "Obtén USDT al Instante",
+			"empty_how_feature2_desc": "Obtén USD para gastar ahora mismo, sin vender tu Bitcoin.",
+			"empty_how_feature3_title": "Devuelve y Recupera tu Bitcoin",
+			"empty_how_feature3_desc": "Devuelve el USDT para reclamar tu Bitcoin en cualquier momento. Sin plazos, sin mínimos — tu BTC siempre es tuyo."
 		}
 	}
 }

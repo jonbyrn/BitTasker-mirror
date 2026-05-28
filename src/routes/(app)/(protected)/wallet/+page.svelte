@@ -32,6 +32,13 @@
 	import IconWallet from '~icons/mdi/wallet';
 	import IconCellphoneLink from '~icons/mdi/usb-flash-drive';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import IconCloseCircle from '~icons/mdi/close-circle';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import IconPlus from '~icons/mdi/plus';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconBank from '~icons/mdi/bank';
+	import IconLock from '~icons/mdi/lock';
+	import IconClose from '~icons/mdi/close';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
@@ -306,19 +313,7 @@
 			<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="mr-2 h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
+						<IconCloseCircle class="text-error mr-2 h-6 w-6 shrink-0" />
 						<div>
 							<div class="font-bold">{$t('wallet.page.connection_error')}</div>
 							<div class="text-sm">
@@ -346,19 +341,7 @@
 		{#if $appStore.network === 'testnet'}
 			<div class="alert alert-outline alert-warning mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-2 h-5 w-5 shrink-0 stroke-current sm:mr-3 sm:h-6 sm:w-6"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-						/>
-					</svg>
+					<IconAlertCircle class="text-warning mr-2 h-5 w-5 shrink-0 sm:mr-3 sm:h-6 sm:w-6" />
 					<div class="flex-1">
 						<div class="text-warning text-center text-sm font-bold sm:text-base">
 							{$t('wallet.testnet_warning.title')}
@@ -494,14 +477,7 @@
 									connectedSection?.click();
 								}}
 							>
-								<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 4v16m8-8H4"
-									/></svg
-								>
+								<IconPlus class="mr-1 h-5 w-5" />
 								{$t('wallet.connected.connect_modal_title')}
 							</button>
 						</div>
@@ -521,14 +497,7 @@
 								btn?.click();
 							}}
 						>
-							<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/></svg
-							>
+							<IconPlus class="mr-1 h-5 w-5" />
 							{$t('wallet.connected.connect')}
 						</button>
 					{/if}
@@ -537,32 +506,32 @@
 				<!-- Action Buttons (all four on one row) -->
 				<div class="flex flex-row gap-1">
 					<button
-						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-2.5 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs transition-none active:scale-100"
 						onclick={() => (showBuySell = true)}
 					>
-						<IconCash class="h-5 w-5 shrink-0" />
-						{$t('wallet.tab_buy_sell')}
+						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" /></span>
+						<span class="leading-tight">{$t('wallet.tab_buy_sell')}</span>
 					</button>
 					<button
-						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-2.5 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs transition-none active:scale-100"
 						onclick={() => (showSwap = true)}
 					>
-						<IconSwapHorizontal class="h-5 w-5 shrink-0" />
-						{$t('wallet.tab_swap')}
+						<span class="inline-flex shrink-0"><IconSwapHorizontal class="h-5 w-5" /></span>
+						<span class="leading-tight">{$t('wallet.tab_swap')}</span>
 					</button>
 					<button
-						class="btn btn-secondary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-2.5 text-xs"
+						class="btn btn-secondary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs"
 						onclick={() => (showSendModal = true)}
 					>
-						<IconUpload class="h-5 w-5 shrink-0" />
-						{$t('wallet.send_button')}
+						<span class="inline-flex shrink-0"><IconUpload class="h-5 w-5" /></span>
+						<span class="leading-tight">{$t('wallet.send_button')}</span>
 					</button>
 					<button
-						class="btn btn-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-2.5 text-xs"
+						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs"
 						onclick={() => (showReceiveModal = true)}
 					>
-						<IconDownload class="h-5 w-5 shrink-0" />
-						{$t('wallet.tab_receive')}
+						<span class="inline-flex shrink-0"><IconDownload class="h-5 w-5" /></span>
+						<span class="leading-tight">{$t('wallet.tab_receive')}</span>
 					</button>
 				</div>
 
@@ -573,20 +542,7 @@
 							class="btn btn-primary min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
 							onclick={() => (showLoanFlow = true)}
 						>
-							<svg
-								class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								aria-hidden="true"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-								/>
-							</svg>
+							<IconBank class="mr-1 h-4 w-4 shrink-0 sm:mr-2 sm:h-5 sm:w-5" />
 							{$t('wallet.loan.button')}
 						</button>
 					</div>
@@ -600,14 +556,7 @@
 							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
 						}}
 					>
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/></svg
-						>
+						<IconInformationOutline class="h-4 w-4 shrink-0" />
 						{$t('wallet.learn_more')}
 					</button>
 				</div>
@@ -616,20 +565,7 @@
 			<!-- No wallets connected - show setup options -->
 			<div class="py-12 text-center">
 				<div class="mb-6">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="1"
-							d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-						/>
-					</svg>
+					<IconLock class="text-base-content/30 mx-auto h-16 w-16" />
 				</div>
 				<h3 class="mb-4 text-xl font-semibold">{$t('wallet.error.no_mnemonic.title')}</h3>
 				<p class="text-base-content/70 mx-auto mb-6 max-w-md">
@@ -707,20 +643,7 @@
 			onclick={() => (showTransactionsModal = false)}
 			aria-label="Close transactions modal"
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M6 18L18 6M6 6l12 12"
-				/>
-			</svg>
+			<IconClose class="h-5 w-5" />
 		</button>
 	</div>
 	<TransactionHistory
