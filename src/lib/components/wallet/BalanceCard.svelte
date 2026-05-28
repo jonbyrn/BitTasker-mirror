@@ -16,7 +16,15 @@
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
-	const { isLoading = false, hideDetails = false, overrideTotalUsd = null } = $props();
+	const {
+		isLoading = false,
+		hideDetails = false,
+		overrideTotalUsd
+	} = $props<{
+		isLoading?: boolean;
+		hideDetails?: boolean;
+		overrideTotalUsd?: number | null;
+	}>();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -36,6 +44,18 @@
 	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
 	let usdAssets = $derived($allAssets.filter((a) => a.assetId === 'usdt' || a.assetId === 'bnb'));
 	let usdtAsset = $derived(usdAssets.find((a) => a.assetId === 'usdt'));
+
+	// DOC (RSK) — only shown when non-zero
+	let docAsset = $derived($allAssets.find((a) => a.assetId === 'doc-rsk'));
+	let docBalance = $derived(docAsset?.balance ?? 0);
+
+	// USDT0 (RSK) — only shown when non-zero
+	let usdt0RskAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-rsk'));
+	let usdt0RskBalance = $derived(usdt0RskAsset?.balance ?? 0);
+
+	// USDT0 (Arbitrum) — always shown
+	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
+	let usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
 
 	function showBalances() {
 		balancesHidden = false;
@@ -105,7 +125,13 @@
 	let combinedTotal = $derived.by(() => {
 		if (isLoading || isRefreshing) return null;
 		if (balancesHidden) return '••••';
-		if (overrideTotalUsd !== null) return overrideTotalUsd.toFixed(2);
+		// overrideTotalUsd === undefined: not on Connected tab, show built-in
+		// overrideTotalUsd === null: Connected tab, balances still loading
+		// overrideTotalUsd >= 0: Connected tab, show this value
+		if (overrideTotalUsd !== undefined) {
+			if (overrideTotalUsd === null) return null; // loading
+			return overrideTotalUsd.toFixed(2);
+		}
 		return $totalBalances.usd.toFixed(2);
 	});
 
@@ -173,7 +199,7 @@
 			<div class="flex flex-col gap-1 sm:gap-0.5">
 				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
-					{#if isLoading || isRefreshing}
+					{#if isLoading || isRefreshing || combinedTotal === null}
 						<p
 							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
@@ -403,6 +429,49 @@
 									${usdtAsset.usdValue.toFixed(2)}
 								{:else}
 									${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
+								{/if}
+							</div>
+						</div>
+
+						<!-- DOC on Rootstock (only shown if balance > 0) -->
+						{#if docBalance > 0}
+							<div class="flex items-center gap-1.5 sm:gap-2">
+								<span class="text-sm">📄</span>
+								<span class="text-sm font-medium sm:text-base">DOC (RSK)</span>
+								<div class="ml-auto text-sm font-semibold sm:text-base">
+									{#if balancesHidden}
+										••••
+									{:else}
+										{docBalance.toFixed(2)}
+									{/if}
+								</div>
+							</div>
+						{/if}
+
+						<!-- USDT0 on Rootstock (only shown if balance > 0) -->
+						{#if usdt0RskBalance > 0}
+							<div class="flex items-center gap-1.5 sm:gap-2">
+								<span class="text-sm">💵</span>
+								<span class="text-sm font-medium sm:text-base">USDT0 (RSK)</span>
+								<div class="ml-auto text-sm font-semibold sm:text-base">
+									{#if balancesHidden}
+										••••
+									{:else}
+										{usdt0RskBalance.toFixed(2)}
+									{/if}
+								</div>
+							</div>
+						{/if}
+
+						<!-- USDT0 on Arbitrum (always shown) -->
+						<div class="flex items-center gap-1.5 sm:gap-2">
+							<span class="text-sm">💵</span>
+							<span class="text-sm font-medium sm:text-base">USDT0 (Arbitrum)</span>
+							<div class="ml-auto text-sm font-semibold sm:text-base">
+								{#if balancesHidden}
+									••••
+								{:else}
+									{usdt0ArbBalance.toFixed(2)}
 								{/if}
 							</div>
 						</div>

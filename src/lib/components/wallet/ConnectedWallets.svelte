@@ -21,16 +21,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import IconDownload from '~icons/mdi/download';
-	import IconUpload from '~icons/mdi/upload';
-	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
-	import IconCash from '~icons/mdi/cash';
-	import IconEye from '~icons/mdi/eye';
-	import IconEyeOff from '~icons/mdi/eye-off';
-	import IconRefresh from '~icons/mdi/refresh';
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import HelpModal from './HelpModal.svelte';
-	import HelpButton from './HelpButton.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -68,12 +60,8 @@
 	});
 
 	// Callback props for parent page to open modals
-	let { onSend, onReceive, onSwap, onBuySell } = $props<{
-		onSend?: () => void;
-		onReceive?: () => void;
-		onSwap?: () => void;
-		onBuySell?: () => void;
-	}>();
+	let { onSend: _onSend, onReceive: _onReceive }: { onSend?: () => void; onReceive?: () => void } =
+		$props();
 
 	const satsFormatter = new Intl.NumberFormat('en-US');
 	const usdFormatter = new Intl.NumberFormat('en-US', {
@@ -139,12 +127,12 @@
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
-	let combinedTotalDisplay = $derived.by(() => {
+	let _combinedTotalDisplay = $derived.by(() => {
 		if (balancesHidden) return '••••';
 		return usdFormatter.format(stableTotal.usd);
 	});
 
-	let satsBreakdownDisplay = $derived.by(() => {
+	let _satsBreakdownDisplay = $derived.by(() => {
 		const walletLabel =
 			walletCount === 1
 				? $t('wallet.connected.wallet_singular')
@@ -172,7 +160,7 @@
 		}
 	}
 
-	function toggleBalances() {
+	function _toggleBalances() {
 		if (balancesHidden) showBalances();
 		else hideBalances();
 	}
@@ -240,7 +228,7 @@
 		return usdFormatter.format(0);
 	}
 
-	async function handleRefreshBalances() {
+	async function _handleRefreshBalances() {
 		// Fetch all wallet balances in parallel, then batch-update once
 		// to avoid intermediate zero-flashes in the aggregate total
 		const wallets = $connectedWalletsStore.wallets;
@@ -617,7 +605,7 @@
 </script>
 
 {#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)}
-	<div class="space-y-3 pb-2">
+	<div class="space-y-2">
 		{#if $connectedWalletsStore.connectingType}
 			<div class="alert alert-outline alert-info py-2 text-sm">
 				<span class="loading loading-spinner loading-xs"></span>
@@ -638,57 +626,6 @@
 				>
 					<IconClose class="h-4 w-4" />
 				</button>
-			</div>
-		{/if}
-
-		<!-- Total Balance Card — aggregates all connected wallets -->
-		{#if $hasConnectedWallets}
-			<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
-				<div class="card-body p-3 sm:p-4">
-					<div class="flex flex-col gap-1 sm:gap-0.5">
-						<!-- Grand total + toggle -->
-						<div class="flex items-center gap-2">
-							<p
-								class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
-							>
-								≈ {combinedTotalDisplay}
-								<HelpButton ariaLabel="Learn more" />
-							</p>
-							<button
-								type="button"
-								class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl flex shrink-0 items-center gap-1 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:p-2"
-								onclick={toggleBalances}
-								aria-label={balancesHidden
-									? $t('wallet.show_balances')
-									: $t('wallet.hide_balances')}
-							>
-								{#if balancesHidden}
-									<IconEyeOff class="h-6 w-6" />
-									<span class="text-xs font-semibold sm:text-sm">{$t('wallet.show')}</span>
-								{:else}
-									<IconEye class="h-6 w-6" />
-									{#if countdownSeconds > 0}
-										<span class="text-xs font-semibold sm:text-sm">{countdownSeconds}s</span>
-									{/if}
-								{/if}
-							</button>
-						</div>
-						<!-- Breakdown + refresh -->
-						<div class="flex items-center gap-2">
-							<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
-								{satsBreakdownDisplay}
-							</p>
-							<button
-								type="button"
-								class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl shrink-0 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:p-2"
-								onclick={handleRefreshBalances}
-								aria-label={$t('wallet.connected.refresh_balances')}
-							>
-								<IconRefresh class="h-6 w-6" />
-							</button>
-						</div>
-					</div>
-				</div>
 			</div>
 		{/if}
 
@@ -873,43 +810,6 @@
 
 		<!-- Help Modal (uses default showButton=true — the [data-help-modal] element is in the DOM for the help icon to trigger) -->
 		<HelpModal />
-
-		<!-- Send / Receive / More Buttons (below connect, matching wallet tab pattern) -->
-		{#if $hasConnectedWallets}
-			<div class="flex flex-row gap-2 sm:gap-4">
-				<button
-					class="btn btn-primary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
-					onclick={() => onReceive?.()}
-				>
-					<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					{$t('wallet.tab_receive')}
-				</button>
-				<button
-					class="btn btn-secondary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
-					onclick={() => onSend?.()}
-				>
-					<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					{$t('wallet.tab_send')}
-				</button>
-			</div>
-
-			<div class="flex flex-row gap-2 sm:gap-4">
-				<button
-					class="btn btn-outline border-primary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
-					onclick={() => onSwap?.()}
-				>
-					<IconSwapHorizontal class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					{$t('wallet.tab_swap')}
-				</button>
-				<button
-					class="btn btn-outline border-primary tap-highlight-none min-h-[44px] flex-1 py-2 text-sm transition-none active:scale-100 sm:py-3 sm:text-base"
-					onclick={() => onBuySell?.()}
-				>
-					<IconCash class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-					{$t('wallet.tab_buy_sell')}
-				</button>
-			</div>
-		{/if}
 
 		<!-- Connect Modal -->
 		{#if showConnectModal}

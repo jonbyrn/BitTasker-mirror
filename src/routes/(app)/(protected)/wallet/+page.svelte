@@ -37,7 +37,9 @@
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
-	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
+	import LoanFlowDrawer from '$lib/components/wallet/LoanFlowDrawer.svelte';
+	import LoanStuckFundsBanner from '$lib/components/wallet/LoanStuckFundsBanner.svelte';
+	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
 
@@ -72,6 +74,7 @@
 	let showSendModal = $state(false);
 	let showBuySell = $state(false);
 	let showSwap = $state(false);
+	let showLoanFlow = $state(false);
 	let showTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
@@ -160,17 +163,22 @@
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
 	// Connected wallet total USD (used on Connected tab instead of built-in balance)
+	// Returns null when wallets are still loading (no balance data yet)
 	let connectedTotalUsd = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
 		let total = 0;
+		let hasAnyData = false;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
 			if (cur) {
 				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
 				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
+				if (btcSats > 0 || usdt > 0) hasAnyData = true;
 				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
 			}
 		}
+		// If wallets exist but have zero balances and no data has loaded yet, show loading
+		if (!hasAnyData && $connectedWalletsStore.wallets.length > 0) return null;
 		return total;
 	});
 
@@ -209,12 +217,17 @@
 			closeBankingMenu();
 			showSwap = true;
 		}
+		function handleLoan() {
+			closeBankingMenu();
+			requestAnimationFrame(() => (showLoanFlow = true));
+		}
 
 		el.addEventListener('banking:send', handleSend);
 		el.addEventListener('banking:receive', handleReceive);
 		el.addEventListener('banking:buy', handleBuy);
 		el.addEventListener('banking:sell', handleSell);
 		el.addEventListener('banking:swap', handleSwap);
+		el.addEventListener('banking:loan', handleLoan);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
@@ -222,6 +235,7 @@
 			el.removeEventListener('banking:buy', handleBuy);
 			el.removeEventListener('banking:sell', handleSell);
 			el.removeEventListener('banking:swap', handleSwap);
+			el.removeEventListener('banking:loan', handleLoan);
 		};
 	});
 </script>
@@ -443,6 +457,32 @@
 					</div>
 				{/if}
 
+				<!-- Connected Wallet List (Connected tab, above buttons) -->
+				{#if activeTab === 'connected'}
+					<ConnectedWallets />
+
+					<!-- Full-width Connect a Wallet (when wallets exist, above buttons) -->
+					{#if $connectedWalletsStore.wallets.length > 0}
+						<button
+							class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
+							onclick={() => {
+								const btn = document.querySelector('[data-connect-button]') as HTMLButtonElement;
+								btn?.click();
+							}}
+						>
+							<svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 4v16m8-8H4"
+								/></svg
+							>
+							{$t('wallet.connected.connect')}
+						</button>
+					{/if}
+				{/if}
+
 				<!-- Send and Receive Buttons (always visible) -->
 				<div class="flex flex-row gap-2 sm:gap-4">
 					<button
@@ -479,14 +519,29 @@
 					</button>
 				</div>
 
-				<!-- Connected Wallet List (only on connected tab, below all buttons) -->
-				{#if activeTab === 'connected'}
-					<ConnectedWallets
-						onSend={() => (showSendModal = true)}
-						onReceive={() => (showReceiveModal = true)}
-						onSwap={() => (showSwap = true)}
-						onBuySell={() => (showBuySell = true)}
-					/>
+				<!-- Loan Flow Button -->
+				{#if isLoanFlowEnabled()}
+					<div class="flex flex-row gap-2 sm:gap-4">
+						<button
+							class="btn btn-primary min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
+							onclick={() => (showLoanFlow = true)}
+						>
+							<svg
+								class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+								/>
+							</svg>
+							{$t('wallet.loan.button')}
+						</button>
+					</div>
 				{/if}
 
 				<!-- Learn More — centered below all buttons, always visible -->
@@ -550,6 +605,12 @@
 
 <!-- Swap Drawer -->
 <SwapForm isOpen={showSwap} onClose={() => (showSwap = false)} />
+
+<!-- Loan Flow Components -->
+{#if isLoanFlowEnabled()}
+	<LoanStuckFundsBanner />
+	<LoanFlowDrawer isOpen={showLoanFlow} onClose={() => (showLoanFlow = false)} />
+{/if}
 
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>
