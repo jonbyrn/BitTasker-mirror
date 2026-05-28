@@ -14,7 +14,6 @@
 		estimatedRbtcNeeded,
 		estimatedArbReceive,
 		totalFees,
-		totalFeesPercent,
 		canProceed,
 		onAmountInput,
 		onNext
@@ -26,7 +25,6 @@
 		estimatedRbtcNeeded: string;
 		estimatedArbReceive: string;
 		totalFees: string;
-		totalFeesPercent: string;
 		canProceed: boolean;
 		onAmountInput: (value: string) => void;
 		onNext: () => void;
@@ -203,7 +201,7 @@
 							values: { amount: estimatedArbReceive }
 						})}</span
 					>
-					<span class="text-sm">{totalFees} ({totalFeesPercent}%)</span>
+					<span class="text-sm">{totalFees}</span>
 				</div>
 			{/if}
 		</div>

@@ -367,13 +367,6 @@
 		return `$${sum.toFixed(2)}`;
 	});
 
-	let totalFeesPercent = $derived.by(() => {
-		const input = parseFloat(inputAmount);
-		if (!input || input <= 0) return '0.00';
-		const fees = parseFloat(totalFees.replace('$', ''));
-		return ((fees / input) * 100).toFixed(2);
-	});
-
 	let hasInsufficientRbtc = $derived.by(() => {
 		const needed = parseFloat(estimatedRbtcNeeded);
 		return needed > rbtcBalance && inputAmount !== '' && parseFloat(inputAmount) > 0;
@@ -442,7 +435,6 @@
 					{estimatedRbtcNeeded}
 					{estimatedArbReceive}
 					{totalFees}
-					{totalFeesPercent}
 					{canProceed}
 					onAmountInput={handleAmountInput}
 					onNext={goToReview}
@@ -452,7 +444,6 @@
 					{estimatedRbtcNeeded}
 					{estimatedArbReceive}
 					{totalFees}
-					{totalFeesPercent}
 					{remainingSeconds}
 					{isSubmitting}
 					onConfirm={handleConfirm}

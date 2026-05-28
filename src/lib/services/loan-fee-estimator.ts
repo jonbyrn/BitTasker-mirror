@@ -590,7 +590,14 @@ export const loanFeeEstimator = {
 			throw new Error('USD amount must be greater than zero');
 		}
 		const rbtcPrice = await getRbtcPrice();
-		const rbtcNeeded = usdAmountNum / rbtcPrice;
+		const totalRbtcInput = usdAmountNum / rbtcPrice;
+
+		// Deduct gas and bridge fees from the input amount so the user
+		// can enter the max and never get an "insufficient rbtc" error.
+		// Gas and bridge fees are estimated first so we can subtract them.
+		const estimatedGasRbtc = DEFAULT_GAS_COST_USD / rbtcPrice;
+		const estimatedBridgeRbtc = DEFAULT_BRIDGE_FEE_USD / rbtcPrice;
+		const rbtcNeeded = Math.max(0, totalRbtcInput - estimatedGasRbtc - estimatedBridgeRbtc);
 		const rbtcWei = ethers.parseEther(rbtcNeeded.toFixed(18));
 
 		debug.log('RBTC needed: %s (wei: %s)', rbtcNeeded.toFixed(8), rbtcWei.toString());
@@ -633,9 +640,9 @@ export const loanFeeEstimator = {
 		// -------------------------------------------------------------------
 		// Step 4: LayerZero Bridge Quote (on-chain)
 		// -------------------------------------------------------------------
-		let bridgeResult: BridgeQuoteResult = { bridgeFeeRbtc: DEFAULT_BRIDGE_FEE_USD / rbtcPrice };
+		let _bridgeResult: BridgeQuoteResult = { bridgeFeeRbtc: DEFAULT_BRIDGE_FEE_USD / rbtcPrice };
 		try {
-			bridgeResult = await getBridgeQuote(signer, swapResult.usdt0AmountRaw, rbtcPrice, fees);
+			_bridgeResult = await getBridgeQuote(signer, swapResult.usdt0AmountRaw, rbtcPrice, fees);
 		} catch (err) {
 			debug.error('Bridge quote threw: %s', (err as Error)?.message);
 			const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
@@ -645,9 +652,9 @@ export const loanFeeEstimator = {
 		// -------------------------------------------------------------------
 		// Step 5: Gas Estimate (on-chain)
 		// -------------------------------------------------------------------
-		let gasResult: GasEstimateResult = { gasCostRbtc: DEFAULT_GAS_COST_USD / rbtcPrice };
+		let _gasResult: GasEstimateResult = { gasCostRbtc: DEFAULT_GAS_COST_USD / rbtcPrice };
 		try {
-			gasResult = await getGasEstimate(provider, rbtcPrice, fees);
+			_gasResult = await getGasEstimate(provider, rbtcPrice, fees);
 		} catch (err) {
 			debug.error('Gas estimate threw: %s', (err as Error)?.message);
 			const idx = fees.findIndex((f) => f.label === 'Gas Fee' && f.loading);
@@ -655,12 +662,15 @@ export const loanFeeEstimator = {
 		}
 
 		// -------------------------------------------------------------------
-		// Aggregate totals
-		// -------------------------------------------------------------------
-		const totalRbtcNeeded = rbtcNeeded + gasResult.gasCostRbtc + bridgeResult.bridgeFeeRbtc;
+		// Aggregate totals — gas and bridge are deducted from input, not added on top
+		const totalRbtcNeeded = totalRbtcInput;
 		const docFormatted = ethers.formatEther(docAmountWei);
-		// DOC is 1:1 with USD, so the USDT0 receive amount equals the DOC amount
-		const usdt0RskFormatted = docFormatted;
+		// DOC is 1:1 with USD, round USDT0 receive amount to 2 decimals
+		const docFormattedNum = parseFloat(docFormatted);
+		const usdt0RskFormatted = docFormattedNum.toLocaleString('en-US', {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
 		const estimate: LoanFeeEstimate = {
 			fees,
 			totalRbtcNeeded: totalRbtcNeeded.toFixed(8),

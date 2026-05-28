@@ -5,7 +5,6 @@
 		estimatedRbtcNeeded,
 		estimatedArbReceive,
 		totalFees,
-		totalFeesPercent,
 		remainingSeconds,
 		isSubmitting,
 		onConfirm,
@@ -15,7 +14,6 @@
 		estimatedRbtcNeeded: string;
 		estimatedArbReceive: string;
 		totalFees: string;
-		totalFeesPercent: string;
 		remainingSeconds: number;
 		isSubmitting: boolean;
 		onConfirm: () => void;
@@ -81,7 +79,7 @@
 			<span class="text-sm font-semibold"
 				>{$t('wallet.loan.you_receive', { values: { amount: estimatedArbReceive } })}</span
 			>
-			<span class="badge badge-soft">{totalFees} ({totalFeesPercent}%)</span>
+			<span class="badge badge-soft">{totalFees}</span>
 		</div>
 	</div>
 </div>
