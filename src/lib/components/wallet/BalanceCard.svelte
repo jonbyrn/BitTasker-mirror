@@ -199,14 +199,14 @@
 
 <div class="flex flex-col space-y-3 sm:space-y-4" data-hide-details={hideDetails || undefined}>
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-primary text-primary-content relative rounded-lg bg-linear-to-br shadow-xl">
+	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">
 			<div class="flex flex-col gap-1 sm:gap-0.5">
 				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || combinedTotal === null}
 						<p
-							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							<span class="inline-flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
@@ -216,7 +216,7 @@
 						</p>
 					{:else}
 						<p
-							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							≈ ${combinedTotal}
 							{@render helpButton()}
@@ -227,11 +227,11 @@
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading}
-						<p class="text-primary-content flex-1 text-lg font-bold opacity-70 sm:text-xl">
+						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<p class="text-primary-content flex-1 text-lg font-bold opacity-70 sm:text-xl">
+						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
 							{satsDisplay}
 							{$t('wallet.sats')} + {usdtDisplay}
 						</p>
