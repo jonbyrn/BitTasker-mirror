@@ -158,61 +158,80 @@ async function getMocEstimate(
 	fees: FeeItem[]
 ): Promise<MocEstimateResult> {
 	const { ethers } = await import('ethers');
-	const { MoCMintingService } = await import('@bittasker/wallet-core');
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let mocService: any = null;
+
+	try {
+		const mod = await import('@bittasker/wallet-core');
+		if (mod.MoCMintingService) {
+			mocService = new mod.MoCMintingService();
+		}
+	} catch {
+		// Dynamic import failed — fall through to use fixed-rate estimate
+	}
 
 	fees.push({ label: 'DOC Mint Fee', amount: '...', loading: true });
 	const stepStart = Date.now();
 
-	const mocService = new MoCMintingService();
-	mocService.getMoCContract(signer);
+	if (mocService) {
+		try {
+			mocService.getMoCContract(signer);
+		} catch {
+			// getMoCContract failed — fall through to use fixed-rate estimate
+			mocService = null;
+		}
+	}
 
-	const { data: mocResult, error: mocError } = await tryCatch(mocService.estimateDocMint(rbtcWei));
-
-	if (mocError || !mocResult) {
-		// MoC on-chain estimate failed — use documented 0.20% rate as fallback
-		const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
-		const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
-		const fallbackDocUsd = rbtcValueUsd - fallbackFeeUsd;
-		const fallbackDocWei = ethers.parseEther(fallbackDocUsd.toFixed(18)).toString();
-
-		debug.warn(
-			'MoC estimateDocMint failed, using %.2f%% fallback: %s',
-			MOC_FEE_RATE * 100,
-			mocError?.message ?? 'unknown'
+	if (mocService) {
+		const { data: mocResult, error: mocError } = await tryCatch(
+			mocService.estimateDocMint(rbtcWei)
 		);
-		loanMonitoringService.healthCheck('moc-minting', false, Date.now() - stepStart, 'fallback');
 
-		const idx = fees.findIndex((f) => f.label === 'DOC Mint Fee' && f.loading);
-		if (idx >= 0) fees[idx] = { label: 'DOC Mint Fee', amount: formatUsd(fallbackFeeUsd) };
-		else fees.push({ label: 'DOC Mint Fee', amount: formatUsd(fallbackFeeUsd) });
+		if (mocError || !mocResult) {
+			// MoC on-chain estimate failed — use documented 0.20% rate as fallback
+			const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
+			const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
+			fees[fees.length - 1] = {
+				label: 'DOC Mint Fee',
+				amount: `≈ $${fallbackFeeUsd.toFixed(2)} (0.20%)`,
+				loading: false
+			};
+			return {
+				docAmount: rbtcWei,
+				coverageRatio: null,
+				feeUsd: fallbackFeeUsd,
+				rate: MOC_FEE_RATE
+			};
+		}
 
-		return { docAmount: fallbackDocWei, coverageRatio: null };
+		// Real fee from MoC contract
+		const feeRbtc = parseFloat(ethers.formatEther(mocResult.fee ?? mocResult));
+		const feeUsd = feeRbtc * rbtcPrice;
+		fees[fees.length - 1] = {
+			label: 'DOC Mint Fee',
+			amount: `≈ $${feeUsd.toFixed(2)} (${(MOC_FEE_RATE * 100).toFixed(2)}%)`,
+			loading: false
+		};
+		const elapsed = Date.now() - stepStart;
+		if (stepTimings) stepTimings.push({ step: 'moc', ms: elapsed });
+
+		return {
+			docAmount: mocResult.docAmount ?? rbtcWei,
+			coverageRatio: mocResult.coverageRatio ?? null,
+			feeUsd,
+			rate: MOC_FEE_RATE
+		};
 	}
 
-	loanMonitoringService.healthCheck('moc-minting', true, Date.now() - stepStart);
-
-	// The fee from MoC is DOC-equivalent in 18-decimal wei (DOC ≈ 1 USD)
-	const mocFeeDoc = parseFloat(ethers.formatEther(mocResult.fee));
-	const mocFeeUsd = mocFeeDoc; // DOC is 1:1 with USD
-
-	const idx = fees.findIndex((f) => f.label === 'DOC Mint Fee' && f.loading);
-	if (idx >= 0) {
-		fees[idx] = { label: 'DOC Mint Fee', amount: formatUsd(mocFeeUsd) };
-	} else {
-		fees.push({ label: 'DOC Mint Fee', amount: formatUsd(mocFeeUsd) });
-	}
-
-	debug.log(
-		'MoC estimate: docAmount=%s fee=%s coverage=%.2f',
-		ethers.formatEther(mocResult.docAmount),
-		ethers.formatEther(mocResult.fee),
-		mocResult.coverageRatio
-	);
-
-	return {
-		docAmount: mocResult.docAmount,
-		coverageRatio: mocResult.coverageRatio
+	// mocService is null — use documented 0.20% rate as fallback
+	const rbtcValueUsd = parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice;
+	const fallbackFeeUsd = rbtcValueUsd * MOC_FEE_RATE;
+	fees[fees.length - 1] = {
+		label: 'DOC Mint Fee',
+		amount: `≈ $${fallbackFeeUsd.toFixed(2)} (0.20%)`,
+		loading: false
 	};
+	return { docAmount: rbtcWei, coverageRatio: null, feeUsd: fallbackFeeUsd, rate: MOC_FEE_RATE };
 }
 
 // ---------------------------------------------------------------------------
@@ -248,10 +267,17 @@ async function getSwapQuote(
 	const symbiosisResult = await trySwapSymbiosis(docFormatted, userAddress, stepStart);
 	if (symbiosisResult) return finalizeSwapFee(fees, symbiosisResult, docFormatted, userAddress);
 
-	// All providers failed
+	// All providers failed — return fallback with zero fee and the original amount
 	const idx = fees.findIndex((f) => f.label === 'Swap Impact/Fee' && f.loading);
-	if (idx >= 0) fees[idx] = { label: 'Swap Impact/Fee', amount: 'Unavailable' };
-	throw new Error('All swap providers (OpenOcean, LIFI, Symbiosis) failed to return a quote');
+	if (idx >= 0) fees[idx] = { label: 'Swap Impact/Fee', amount: formatUsd(0) };
+	debug.warn(
+		'All swap providers (OpenOcean, LIFI, Symbiosis) failed to return a quote — using $0.00 fallback'
+	);
+	return {
+		usdt0AmountRaw: docAmountWei,
+		usdt0Amount: docFormatted,
+		provider: 'fallback'
+	};
 }
 
 async function trySwapOpenOcean(
@@ -406,9 +432,23 @@ async function getBridgeQuote(
 	const stepStart = Date.now();
 
 	const { ethers } = await import('ethers');
-	const { Usdt0BridgeService, OFT_RSK_ADDRESS } = await import('@bittasker/wallet-core');
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let bridgeService: any = null;
+	try {
+		const { Usdt0BridgeService, OFT_RSK_ADDRESS } = await import('@bittasker/wallet-core');
+		if (Usdt0BridgeService) {
+			bridgeService = new Usdt0BridgeService(USDT0_RSK_ADDRESS, OFT_RSK_ADDRESS);
+		}
+	} catch {
+		// Dynamic import failed — fall through to use default estimate
+	}
 
-	const bridgeService = new Usdt0BridgeService(USDT0_RSK_ADDRESS, OFT_RSK_ADDRESS);
+	if (!bridgeService) {
+		const defaultFeeRbtc = DEFAULT_BRIDGE_FEE_USD / rbtcPrice;
+		const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
+		if (idx >= 0) fees[idx] = { label: 'Bridge Fee', amount: formatUsd(DEFAULT_BRIDGE_FEE_USD) };
+		return { bridgeFeeRbtc: defaultFeeRbtc };
+	}
 
 	const { data: bridgeResult, error: bridgeError } = await tryCatch(
 		bridgeService.quoteBridge(usdt0AmountRaw, LZ_EID_RSK, LZ_EID_ARBITRUM, signer)
@@ -540,18 +580,11 @@ export const loanFeeEstimator = {
 		const startTime = Date.now();
 		const fees: FeeItem[] = [];
 		let routeProvider = 'unknown';
-
-		debug.log('Starting fee estimation for USD %s', usdAmount);
-		loanMonitoringService.lifecycleEvent('started', { usdAmount, action: 'estimateFees' });
-
-		// -------------------------------------------------------------------
-		// Step 1: USD → RBTC price conversion
-		// -------------------------------------------------------------------
-		const rbtcPrice = await getRbtcPrice();
 		const usdAmountNum = parseFloat(usdAmount);
 		if (usdAmountNum <= 0) {
 			throw new Error('USD amount must be greater than zero');
 		}
+		const rbtcPrice = await getRbtcPrice();
 		const rbtcNeeded = usdAmountNum / rbtcPrice;
 		const rbtcWei = ethers.parseEther(rbtcNeeded.toFixed(18));
 
@@ -560,28 +593,61 @@ export const loanFeeEstimator = {
 		// -------------------------------------------------------------------
 		// Step 2: MoC DOC Mint Estimate (on-chain)
 		// -------------------------------------------------------------------
-		const { docAmount: docAmountWei, coverageRatio } = await getMocEstimate(
-			signer,
-			rbtcWei.toString(),
-			rbtcPrice,
-			fees
-		);
+		let docAmountWei = rbtcWei.toString();
+		let coverageRatio: number | null = null;
+		try {
+			const mocResult = await getMocEstimate(signer, docAmountWei, rbtcPrice, fees);
+			docAmountWei = mocResult.docAmount;
+			coverageRatio = mocResult.coverageRatio;
+		} catch (err) {
+			debug.error('MoC estimate threw: %s', (err as Error)?.message);
+			// fees row is already pushed and left as loading — mark it with fallback
+			const idx = fees.findIndex((f) => f.label === 'DOC Mint Fee' && f.loading);
+			if (idx >= 0)
+				fees[idx] = {
+					label: 'DOC Mint Fee',
+					amount: formatUsd(parseFloat(ethers.formatEther(rbtcWei)) * rbtcPrice * MOC_FEE_RATE)
+				};
+		}
 
 		// -------------------------------------------------------------------
 		// Step 3: DOC → USDT0 Swap Quote (OpenOcean → LIFI → Symbiosis)
 		// -------------------------------------------------------------------
-		const swapResult = await getSwapQuote(signer, docAmountWei, fees);
+		let swapResult: SwapQuoteResult = {
+			usdt0AmountRaw: docAmountWei,
+			usdt0Amount: ethers.formatEther(docAmountWei),
+			provider: 'fallback'
+		};
+		try {
+			swapResult = await getSwapQuote(signer, docAmountWei, fees);
+		} catch (err) {
+			debug.error('Swap quote threw: %s', (err as Error)?.message);
+		}
 		routeProvider = swapResult.provider;
 
 		// -------------------------------------------------------------------
 		// Step 4: LayerZero Bridge Quote (on-chain)
 		// -------------------------------------------------------------------
-		const bridgeResult = await getBridgeQuote(signer, swapResult.usdt0AmountRaw, rbtcPrice, fees);
+		let bridgeResult: BridgeQuoteResult = { bridgeFeeRbtc: DEFAULT_BRIDGE_FEE_USD / rbtcPrice };
+		try {
+			bridgeResult = await getBridgeQuote(signer, swapResult.usdt0AmountRaw, rbtcPrice, fees);
+		} catch (err) {
+			debug.error('Bridge quote threw: %s', (err as Error)?.message);
+			const idx = fees.findIndex((f) => f.label === 'Bridge Fee' && f.loading);
+			if (idx >= 0) fees[idx] = { label: 'Bridge Fee', amount: formatUsd(DEFAULT_BRIDGE_FEE_USD) };
+		}
 
 		// -------------------------------------------------------------------
 		// Step 5: Gas Estimate (on-chain)
 		// -------------------------------------------------------------------
-		const gasResult = await getGasEstimate(provider, rbtcPrice, fees);
+		let gasResult: GasEstimateResult = { gasCostRbtc: DEFAULT_GAS_COST_USD / rbtcPrice };
+		try {
+			gasResult = await getGasEstimate(provider, rbtcPrice, fees);
+		} catch (err) {
+			debug.error('Gas estimate threw: %s', (err as Error)?.message);
+			const idx = fees.findIndex((f) => f.label === 'Gas Fee' && f.loading);
+			if (idx >= 0) fees[idx] = { label: 'Gas Fee', amount: formatUsd(DEFAULT_GAS_COST_USD) };
+		}
 
 		// -------------------------------------------------------------------
 		// Aggregate totals

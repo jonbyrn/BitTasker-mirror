@@ -142,10 +142,19 @@
 			placeholder="0.00"
 			value={inputAmount}
 			oninput={(e) => {
-				inputAmount = e.target.value;
-				onAmountInput(e.target.value);
+				const raw = e.target.value;
+				const val = parseFloat(raw);
+				const max = parseFloat(availableRbtcUsd);
+				// Clamp to available balance — silently cap at max
+				const clamped = !isNaN(val) && val > max ? availableRbtcUsd : raw;
+				if (clamped !== raw) {
+					(e.target as HTMLInputElement).value = clamped;
+				}
+				inputAmount = clamped;
+				onAmountInput(clamped);
 			}}
 			min="0"
+			max={availableRbtcUsd}
 			step="0.01"
 			inputmode="decimal"
 		/>
