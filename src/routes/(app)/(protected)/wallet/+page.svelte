@@ -540,28 +540,28 @@
 						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs transition-none active:scale-100"
 						onclick={() => (showBuySell = true)}
 					>
-						<IconCash class="h-5 w-5" />
+						<IconCash class="h-5 w-5 shrink-0" />
 						{$t('wallet.tab_buy_sell')}
 					</button>
 					<button
 						class="btn btn-outline border-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs transition-none active:scale-100"
 						onclick={() => (showSwap = true)}
 					>
-						<IconSwapHorizontal class="h-5 w-5" />
+						<IconSwapHorizontal class="h-5 w-5 shrink-0" />
 						{$t('wallet.tab_swap')}
 					</button>
 					<button
 						class="btn btn-secondary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs"
 						onclick={() => (showSendModal = true)}
 					>
-						<IconUpload class="h-5 w-5" />
+						<IconUpload class="h-5 w-5 shrink-0" />
 						{$t('wallet.send_button')}
 					</button>
 					<button
 						class="btn btn-primary min-h-0 flex-1 !flex-col items-center justify-center px-2 py-1.5 text-xs"
 						onclick={() => (showReceiveModal = true)}
 					>
-						<IconDownload class="h-5 w-5" />
+						<IconDownload class="h-5 w-5 shrink-0" />
 						{$t('wallet.tab_receive')}
 					</button>
 				</div>
@@ -578,6 +578,7 @@
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
+								aria-hidden="true"
 							>
 								<path
 									stroke-linecap="round"
