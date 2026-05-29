@@ -62,7 +62,9 @@
 			"balance_usdt": "USDT (Binance)",
 			"address_rbtc_usdt": "rBTC / USDT",
 			"connected_label": "Conectado",
-			"connect_bitcoin": "Conectar Bitcoin"
+			"connect_bitcoin": "Conectar Bitcoin",
+			"error_ledger_usb_in_use": "El Ledger está en uso por otra app. Cierra Ledger Live y cualquier otra aplicación que use el dispositivo, luego inténtalo de nuevo.",
+			"bitcoin_label": "Bitcoin"
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
@@ -621,7 +623,7 @@
 		"lightning": "Lightning",
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Bitcoin Rootstock",
-		"l2_btc": "L2 BTC",
+		"l2_btc": "L2 Bitcoin",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Próximamente",
 		"retry": "Reintentar",
@@ -1208,6 +1210,7 @@
 			"earn_lending": "Préstamos (Aave)",
 			"earn_lp": "LP (Uniswap)",
 			"close": "Cerrar",
+			"fee_breakdown": "Desglose de comisiones",
 			"needs_wbtc": "Requiere WBTC como garantía",
 			"needs_usdt0": "Requiere USDT0 para depositar",
 			"needs_both": "Necesitas WBTC y USDT0",
@@ -1259,6 +1262,7 @@
 				"offline": "Sin conexión — DeFi requiere internet",
 				"pending_tx": "Transacción en proceso..."
 			}
-		}
+		},
+		"usdt0_arbitrum": "USDT0 (Arbitrum)"
 	}
 }

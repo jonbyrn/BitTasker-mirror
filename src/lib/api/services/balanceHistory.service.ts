@@ -130,7 +130,10 @@ async function fetchWithTimeout(
 /** Get RPC URL from provider with type-safe guard */
 export function getRpcUrl(provider: ethers.Provider | null): string {
 	if (provider instanceof ethers.JsonRpcProvider) {
-		return provider.connection?.url || 'https://public-node.rsk.co';
+		return (
+			((provider as Record<string, unknown>).connection as { url?: string })?.url ||
+			'https://public-node.rsk.co'
+		);
 	}
 	return 'https://public-node.rsk.co';
 }
@@ -191,7 +194,7 @@ class HistoricalBalanceService {
 	private async _getBalanceChanges(
 		currentSats: number,
 		currentUsd: number,
-		provider: ethers.Provider,
+		provider: ethers.Provider | null,
 		address: string
 	): Promise<BalanceChange[]> {
 		// Clear old cache formats on first use (one-time migration)
@@ -309,9 +312,10 @@ class HistoricalBalanceService {
 	 * Get cached latest block (cached for 60 seconds to avoid repeated calls)
 	 */
 	private async getCachedLatestBlock(
-		provider: ethers.Provider,
+		provider: ethers.Provider | null,
 		network: 'rsk' | 'bsc'
 	): Promise<ethers.Block | null> {
+		if (!provider) return null;
 		const cacheKey = network;
 		const cached = this.latestBlockCache.get(cacheKey);
 		const now = Date.now();
@@ -542,7 +546,7 @@ class HistoricalBalanceService {
 	 * Get block number closest to a timestamp (optimized: API first, then RPC fallback)
 	 */
 	private async getBlockNumberAtTimestamp(
-		provider: ethers.Provider,
+		provider: ethers.Provider | null,
 		targetTimestamp: number,
 		network: 'rsk' | 'bsc',
 		providedCurrentBlockPromise?: Promise<ethers.Block | null>

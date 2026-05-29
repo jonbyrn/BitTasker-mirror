@@ -42,9 +42,11 @@
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
+	import DeFiFlowDrawer from '$lib/components/wallet/DeFiFlowDrawer.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import DefiPositionCard from '$lib/components/wallet/defi/DefiPositionCard.svelte';
 	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
@@ -248,6 +250,7 @@
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
+	let showDeFi = $state(false);
 
 	function closeBankingMenu() {
 		bankingMenuOpen = false;
@@ -283,7 +286,7 @@
 		}
 		function handleDefi() {
 			closeBankingMenu();
-			// Placeholder — DeFiFlowDrawer will be built in a later phase
+			showDeFi = true;
 		}
 
 		el.addEventListener('banking:send', handleSend);
@@ -454,6 +457,9 @@
 					/>
 				{/if}
 
+				<!-- DeFi Position Card (v1: empty state — renders on both tabs) -->
+				<DefiPositionCard />
+
 				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->
 				{#if activeTab === 'wallet'}
 					<div>
@@ -608,6 +614,11 @@
 
 <!-- Help Modal (always in DOM so Learn More button works on all tabs) -->
 <HelpModal />
+
+<!-- DeFi Drawer -->
+{#if showDeFi}
+	<DeFiFlowDrawer isOpen={showDeFi} onClose={() => (showDeFi = false)} />
+{/if}
 
 <!-- Buy/Sell Drawer -->
 <BuySellForm isOpen={showBuySell} onClose={() => (showBuySell = false)} />

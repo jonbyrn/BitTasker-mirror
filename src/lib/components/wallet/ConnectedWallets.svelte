@@ -122,10 +122,8 @@
 		if (raw > 0) {
 			if (key === 'usdt') return `$${(raw / 1e18).toFixed(2)}`;
 			if (key === 'wbtc') {
-				const formatted = bal?.formatted;
-				return formatted && formatted !== '0'
-					? `${parseFloat(formatted).toFixed(6)} WBTC`
-					: '0 WBTC';
+				const sats = Math.round(raw / 10_000_000_000);
+				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 			}
 			return formatSatsWithUsd(raw);
 		}
@@ -135,16 +133,14 @@
 			if (cachedRaw > 0) {
 				if (key === 'usdt') return `$${(cachedRaw / 1e18).toFixed(2)}`;
 				if (key === 'wbtc') {
-					const cachedFormatted = (cached as Record<string, string>)[`${key}Fmt`];
-					return cachedFormatted && cachedFormatted !== '0'
-						? `${parseFloat(cachedFormatted).toFixed(6)} WBTC`
-						: '0 WBTC';
+					const sats = Math.round(cachedRaw / 10_000_000_000);
+					return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 				}
 				return formatSatsWithUsd(cachedRaw);
 			}
 		}
 		if (key === 'usdt') return '$0.00';
-		if (key === 'wbtc') return '0 WBTC';
+		if (key === 'wbtc') return '0 Sats';
 		return '0 Sats';
 	}
 
@@ -216,6 +212,11 @@
 
 	// With Multichain SDK, MetaMask connects to ALL configured chains simultaneously.
 	// Balances queried from all scopes — no manual switching needed.
+
+	function formatAddress(addr: string): string {
+		if (!addr || addr.length < 12) return addr;
+		return addr.slice(0, 6) + '...' + addr.slice(-4);
+	}
 
 	async function copyAddress(addr: string): Promise<void> {
 		const ok = await copyToClipboard(addr);
@@ -448,12 +449,19 @@
 			const msg =
 				error instanceof Error ? error.message : $t('wallet.connected.error_ledger_connect');
 
+			// USB contention: another app (Ledger Live, etc.) is using the device
+			const isUsbContention =
+				msg.toLowerCase().includes('claiminterface') ||
+				msg.toLowerCase().includes('claim interface') ||
+				msg.toLowerCase().includes('in use');
+
 			if (
+				isUsbContention ||
 				msg.toLowerCase().includes('ethereum') ||
 				msg.toLowerCase().includes('open the') ||
 				msg.toLowerCase().includes('ledger device')
 			) {
-				ledgerConnectError = msg;
+				ledgerConnectError = isUsbContention ? $t('wallet.connected.error_ledger_usb_in_use') : msg;
 			} else {
 				showLedgerConnect = false;
 				showConnectModal = false;
@@ -627,9 +635,9 @@
 									},
 									{
 										key: 'usdt',
-										label: $t('wallet.connected.balance_usdt'),
-										img: '/images/chains/Binance-logo.svg',
-										alt: 'USDT',
+										label: $t('wallet.usdt0_arbitrum'),
+										img: '/images/chains/arbitrum.png',
+										alt: 'USDT0 (Arbitrum)',
 										condition: isEVM,
 										format: (v: unknown) => (v as { formatted?: string })?.formatted ?? '$0.00'
 									},
@@ -641,9 +649,9 @@
 										condition: isEVM,
 										format: (v: unknown) => {
 											const bal = v as { formatted?: string; raw?: string };
-											return bal.formatted && bal.formatted !== '0'
-												? `${parseFloat(bal.formatted).toFixed(6)} WBTC`
-												: '0 WBTC';
+											const raw = Number(bal.raw ?? '0');
+											const sats = Math.round(raw / 10_000_000_000);
+											return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 										}
 									}
 								]}
@@ -679,9 +687,12 @@
 									/>
 									<span>{$t('wallet.connected.address_rbtc_usdt')}</span>
 								</div>
-								<span class="ml-auto truncate font-mono opacity-60">{wallet.address}</span>
+								<span class="ml-auto truncate font-mono opacity-60"
+									>{formatAddress(wallet.address)}</span
+								>
 								<IconContentCopy
-									class="h-4 w-4 shrink-0 {copiedAddress === wallet.address
+									class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress ===
+									wallet.address
 										? 'text-success'
 										: 'opacity-40'}"
 								/>
@@ -693,14 +704,24 @@
 								{#if btcAddr}
 									<button
 										type="button"
-										class="hover:bg-base-200 flex w-full items-center justify-end gap-2 rounded p-1.5 text-xs transition-colors"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors"
 										onclick={() => copyAddress(btcAddr)}
 										title={$t('wallet.connected.copy_address_title')}
 									>
-										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
-										<span class="truncate text-right font-mono opacity-60">{btcAddr}</span>
+										<div class="text-base-content/40 flex items-center gap-1">
+											<img
+												src="/images/chains/Bitcoin.svg"
+												alt="BTC"
+												class="h-3.5 w-3.5 shrink-0"
+											/>
+											<span>{$t('wallet.connected.bitcoin_label')}</span>
+										</div>
+										<span class="ml-auto truncate text-right font-mono opacity-60"
+											>{formatAddress(btcAddr)}</span
+										>
 										<IconContentCopy
-											class="h-4 w-4 shrink-0 {copiedAddress === btcAddr
+											class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress ===
+											btcAddr
 												? 'text-success'
 												: 'opacity-40'}"
 										/>

@@ -1,13 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
-	import {
-		allAssets,
-		totalBalances,
-		walletManager,
-		walletStore,
-		formatSats
-	} from '$lib/stores/wallet.store';
+	import { allAssets, totalBalances, walletManager, formatSats } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import IconRefresh from '~icons/mdi/refresh';
@@ -52,20 +46,16 @@
 	let bitcoinAsset = $derived($allAssets.find((a) => a.assetId === 'rbtc'));
 
 	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
-	let usdAssets = $derived($allAssets.filter((a) => a.assetId === 'usdt' || a.assetId === 'bnb'));
-	let usdtAsset = $derived(usdAssets.find((a) => a.assetId === 'usdt'));
-
-	// DOC (RSK) — only shown when non-zero
-	let docAsset = $derived($allAssets.find((a) => a.assetId === 'doc-rsk'));
-	let docBalance = $derived(docAsset?.balance ?? 0);
-
-	// USDT0 (RSK) — only shown when non-zero
-	let usdt0RskAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-rsk'));
-	let usdt0RskBalance = $derived(usdt0RskAsset?.balance ?? 0);
-
-	// USDT0 (Arbitrum) — always shown
+	let _usdAssets = $derived(
+		$allAssets.filter(
+			(a) => a.assetId === 'usdt0-arb' || a.assetId === 'usdt0-rsk' || a.assetId === 'doc-rsk'
+		)
+	);
 	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
-	let usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
+	let usdt0RskAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-rsk'));
+	let docBalance = $derived($allAssets.find((a) => a.assetId === 'doc-rsk')?.balance ?? 0);
+	let usdt0RskBalance = $derived(usdt0RskAsset?.balance ?? 0);
+	let _usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
 
 	// WBTC (Arbitrum) — always shown
 	let wbtcAsset = $derived($allAssets.find((a) => a.assetId === 'wbtc-arb'));
@@ -360,6 +350,32 @@
 								{/if}
 							</div>
 						</div>
+
+						<!-- WBTC (Arbitrum) — sats / USD like L2 Bitcoin -->
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-1.5 sm:gap-2">
+								<img
+									src="/images/chains/arbitrum.png"
+									alt="Arbitrum"
+									class="h-4 w-4 sm:h-5 sm:w-5"
+								/>
+								<span class="text-sm font-medium sm:text-base">WBTC (Arbitrum)</span>
+							</div>
+							<div class="text-right">
+								{#if balancesHidden}
+									<div class="text-sm font-semibold sm:text-base">•••• Sats</div>
+									<div class="text-xs opacity-70">$••••</div>
+								{:else if wbtcAsset}
+									{@const wbtcSats = Math.floor(wbtcAsset.balance * 100_000_000)}
+									<div class="text-sm font-semibold sm:text-base">{formatSats(wbtcSats)} Sats</div>
+									{#if wbtcAsset.usdValue > 0}
+										<div class="text-xs opacity-70">${wbtcAsset.usdValue.toFixed(2)}</div>
+									{/if}
+								{:else}
+									<div class="text-sm font-semibold sm:text-base">0 Sats</div>
+								{/if}
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -391,11 +407,9 @@
 							</div>
 						{:else if balancesHidden}
 							<div class="text-sm font-semibold sm:text-base">$••••</div>
-						{:else if usdtAsset}
-							<div class="text-sm font-semibold sm:text-base">${usdtAsset.usdValue.toFixed(2)}</div>
-						{:else if $walletStore.bsc.formattedUsdtBalance}
+						{:else if usdt0ArbAsset}
 							<div class="text-sm font-semibold sm:text-base">
-								${parseFloat($walletStore.bsc.formattedUsdtBalance).toFixed(2)}
+								${usdt0ArbAsset.usdValue.toFixed(2)}
 							</div>
 						{:else}
 							<div class="text-sm font-semibold sm:text-base">$0.00</div>
@@ -404,22 +418,21 @@
 				</button>
 				<div class="collapse-content">
 					<div class="space-y-1.5 px-2 sm:space-y-2">
-						<!-- USDT (Binance Chain) -->
+						<!-- USDT0 (Arbitrum) -->
 						<div class="flex items-center gap-1.5 sm:gap-2">
 							<img
-								src="/images/chains/Binance-logo.svg"
-								alt="USDT (Binance Chain)"
+								src="/images/chains/arbitrum.png"
+								alt="USDT0 (Arbitrum)"
 								class="h-4 w-4 sm:h-5 sm:w-5"
 							/>
-							<span class="text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span
-							>
+							<span class="text-sm font-medium sm:text-base">{$t('wallet.usdt0_arbitrum')}</span>
 							<div class="ml-auto text-sm font-semibold sm:text-base">
 								{#if balancesHidden}
 									$••••
-								{:else if usdtAsset}
-									${usdtAsset.usdValue.toFixed(2)}
+								{:else if usdt0ArbAsset}
+									${usdt0ArbAsset.usdValue.toFixed(2)}
 								{:else}
-									${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
+									$0.00
 								{/if}
 							</div>
 						</div>
@@ -479,32 +492,6 @@
 								</div>
 							</div>
 						{/if}
-
-						<!-- USDT0 on Arbitrum (always shown) -->
-						<div class="flex items-center gap-1.5 sm:gap-2">
-							<img src="/images/chains/arbitrum.png" alt="Arbitrum" class="h-4 w-4 sm:h-5 sm:w-5" />
-							<span class="text-sm font-medium sm:text-base">USDT0 (Arbitrum)</span>
-							<div class="ml-auto text-sm font-semibold sm:text-base">
-								{#if balancesHidden}
-									••••
-								{:else}
-									{usdt0ArbBalance.toFixed(2)}
-								{/if}
-							</div>
-						</div>
-
-						<!-- WBTC (Arbitrum) -->
-						<div class="flex items-center gap-1.5 sm:gap-2">
-							<img src="/images/chains/arbitrum.png" alt="Arbitrum" class="h-4 w-4 sm:h-5 sm:w-5" />
-							<span class="text-sm font-medium sm:text-base">WBTC (Arbitrum)</span>
-							<div class="ml-auto text-sm font-semibold sm:text-base">
-								{#if balancesHidden}
-									•••• WBTC
-								{:else if wbtcAsset}
-									{wbtcAsset.formattedBalance ?? '0'} WBTC
-								{/if}
-							</div>
-						</div>
 					</div>
 				</div>
 			</div>

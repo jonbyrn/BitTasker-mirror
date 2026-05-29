@@ -68,7 +68,9 @@
 			"balance_usdt": "USDT (Binance)",
 			"address_rbtc_usdt": "rBTC / USDT",
 			"connected_label": "Connected",
-			"connect_bitcoin": "Connect Bitcoin"
+			"connect_bitcoin": "Connect Bitcoin",
+			"error_ledger_usb_in_use": "Ledger is in use by another app. Close Ledger Live and any other applications using the device, then try again.",
+			"bitcoin_label": "Bitcoin"
 		},
 		"tab_transactions": "Transactions",
 		"total_balance": "Total Balance",
@@ -625,7 +627,7 @@
 		"lightning": "Lightning",
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Rootstock Bitcoin",
-		"l2_btc": "L2 BTC",
+		"l2_btc": "L2 Bitcoin",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Coming Soon",
 		"retry": "Retry",
@@ -1249,6 +1251,7 @@
 			"earn_lending": "Lending (Aave)",
 			"earn_lp": "LP (Uniswap)",
 			"close": "Close",
+			"fee_breakdown": "Fee Breakdown",
 			"needs_wbtc": "Requires WBTC as collateral",
 			"needs_usdt0": "Requires USDT0 to supply",
 			"needs_both": "You need both WBTC and USDT0",
@@ -1300,6 +1303,7 @@
 				"offline": "You're offline — DeFi requires network connection",
 				"pending_tx": "Transaction processing..."
 			}
-		}
+		},
+		"usdt0_arbitrum": "USDT0 (Arbitrum)"
 	}
 }
