@@ -236,10 +236,15 @@
 			const cur = w.balances;
 			if (cur) total += Number(cur.usdt?.raw ?? 0) / 1e18;
 		}
-		if (total === 0 && _lastConnectedUsdt > 0) return _lastConnectedUsdt;
-		if (total !== _lastConnectedUsdt) _lastConnectedUsdt = total;
 		return total;
 	});
+
+	// First connected wallet's individual sats + BTC-USD for Activity accordion
+	let firstCwSats = $derived.by(() => {
+		if ($connectedWalletsStore.wallets.length === 0) return 0;
+		return Number($connectedWalletsStore.wallets[0]?.balances?.rbtc?.raw ?? 0);
+	});
+	let firstCwUsd = $derived.by(() => (firstCwSats / 100_000_000) * btcPrice.price);
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -449,12 +454,19 @@
 					/>
 				{/if}
 
-				<!-- Activity Accordion (between balances and transactions) -->
-				{#if activeTab === 'wallet' || $connectedWalletsStore.wallets.length > 0}
-					<div>
-						<BalanceHistory {balancesHidden} />
-					</div>
-				{/if}
+				<!-- Activity Accordion (wallet: built-in, connected: no historical data yet) -->
+				<div>
+					<BalanceHistory
+						{balancesHidden}
+						overrideSats={activeTab === 'connected' ? firstCwSats : 0}
+						overrideUsd={activeTab === 'connected' ? firstCwUsd : 0}
+						overrideAddress={activeTab === 'connected'
+							? $connectedWalletsStore.wallets[0]?.address || ''
+							: ''}
+						noHistoricalData={activeTab === 'connected' &&
+							$connectedWalletsStore.wallets.length > 0}
+					/>
+				</div>
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}

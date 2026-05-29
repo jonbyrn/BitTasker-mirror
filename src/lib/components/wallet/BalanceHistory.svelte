@@ -12,7 +12,21 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
-	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
+	let {
+		balancesHidden,
+		overrideSats = 0,
+		overrideUsd = 0,
+		overrideProvider = null,
+		overrideAddress = '',
+		noHistoricalData = false
+	}: {
+		balancesHidden: boolean;
+		overrideSats?: number;
+		overrideUsd?: number;
+		overrideProvider?: Record<string, unknown> | null;
+		overrideAddress?: string;
+		noHistoricalData?: boolean;
+	} = $props();
 
 	let showChartModal = $state(false);
 	let expanded = $state(false);
@@ -48,11 +62,18 @@
 	 */
 	let currentRpcSats = $state(0);
 	$effect(() => {
-		const provider = $walletStore.rsk.provider;
-		const address = $walletStore.rsk.address;
-		if (!provider || !address) return;
+		const provider = overrideProvider || $walletStore.rsk.provider;
+		const address = overrideAddress || $walletStore.rsk.address;
+		if (!address) return;
 
-		const rpcUrl = provider.connection?.url || 'https://public-node.rsk.co';
+		// Use public RPC when provider is unavailable (e.g. connected wallet tab)
+		const rpcUrl =
+			typeof provider === 'object' && provider !== null
+				? ((provider as Record<string, unknown>).connection as Record<string, string> | undefined)
+						?.url ||
+					((provider as Record<string, unknown>)['url'] as string | undefined) ||
+					'https://public-node.rsk.co'
+				: 'https://public-node.rsk.co';
 		fetch(rpcUrl, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -69,18 +90,29 @@
 				currentRpcSats = Number(wei / BigInt(10_000_000_000n));
 			})
 			.catch(() => {
-				// Fallback to store value on RPC failure
-				currentRpcSats = $totalBalances.sats;
+				// Fallback to store/override value on RPC failure
+				currentRpcSats = overrideSats || $totalBalances.sats;
 			});
 	});
 
+	const hasOverride = overrideSats > 0 || overrideAddress !== '';
+
 	let balanceChangesPromise = $derived.by(() => {
-		return balanceHistoryService.getBalanceChanges(
-			currentRpcSats || $totalBalances.sats,
-			rskUsd,
-			$walletStore.rsk.provider,
-			$walletStore.rsk.address
-		);
+		const sats = currentRpcSats || overrideSats || $totalBalances.sats;
+
+		// Connected wallets: no historical provider available — show synced data
+		if (noHistoricalData && overrideAddress) {
+			return Promise.resolve([
+				{ label: '24h', satsChange: null, usdChange: null },
+				{ label: '7d', satsChange: null, usdChange: null },
+				{ label: '30d', satsChange: null, usdChange: null }
+			]);
+		}
+
+		const usd = hasOverride ? overrideUsd : rskUsd;
+		const provider = overrideProvider || $walletStore.rsk.provider;
+		const address = overrideAddress || $walletStore.rsk.address;
+		return balanceHistoryService.getBalanceChanges(sats, usd, provider, address);
 	});
 
 	function formatChange(satsChange: number | null, usdChange: number | null) {
@@ -142,6 +174,12 @@
 							<span class="font-semibold {f24.satsColor}">{f24.sats}</span>
 							<span class={f24.usdColor}>{f24.usd}</span>
 						{/if}
+					{:else if noHistoricalData && overrideSats > 0}
+						{#if balancesHidden}
+							<span class="text-base-content/50">•••• Sats</span>
+						{:else}
+							<span class="text-base-content/70">{formatSats(overrideSats)} Sats</span>
+						{/if}
 					{/if}
 				{/if}
 			{:catch}
@@ -157,63 +195,85 @@
 				<span class="loading loading-spinner loading-sm text-primary"></span>
 			</div>
 		{:then changes}
-			<div class="space-y-2 pt-1">
-				<!-- 7d row -->
-				{#if changes.length > 1}
-					{@const f7 = formatChange(changes[1]?.satsChange ?? null, changes[1]?.usdChange ?? null)}
-					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.7d')}</span>
-						<div class="flex items-center gap-3 text-sm sm:text-base">
-							{#if f7}
-								{#if balancesHidden}
-									<span class="text-base-content/50">•••• Sats</span>
-									<span class="text-base-content/50">••••</span>
-								{:else}
-									<span class="font-semibold {f7.satsColor}">{f7.sats}</span>
-									<span class={f7.usdColor}>{f7.usd}</span>
-								{/if}
-							{:else}
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							{/if}
-						</div>
+			{#if noHistoricalData}
+				<div class="space-y-2 pt-1">
+					<div class="text-base-content/50 px-2 py-3 text-center text-sm">
+						{$t('wallet.balance_history.no_connected_data')}
 					</div>
-				{/if}
-
-				<!-- 30d row -->
-				{#if changes.length > 2}
-					{@const f30 = formatChange(changes[2]?.satsChange ?? null, changes[2]?.usdChange ?? null)}
-					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.30d')}</span>
-						<div class="flex items-center gap-3 text-sm sm:text-base">
-							{#if f30}
-								{#if balancesHidden}
-									<span class="text-base-content/50">•••• Sats</span>
-									<span class="text-base-content/50">••••</span>
-								{:else}
-									<span class="font-semibold {f30.satsColor}">{f30.sats}</span>
-									<span class={f30.usdColor}>{f30.usd}</span>
-								{/if}
-							{:else}
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							{/if}
-						</div>
+					<div class="border-base-300 border-t pt-2">
+						<span
+							class="text-base-content/30 inline-flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm"
+						>
+							<span>{$t('wallet.balance_history.view_chart')}</span>
+							<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						</span>
 					</div>
-				{/if}
-
-				<!-- Divider + Chart button -->
-				<div class="border-base-300 border-t pt-2">
-					<button
-						class="hover:bg-primary/10 text-base-content/80 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
-						onclick={(e) => {
-							e.stopPropagation();
-							showChartModal = true;
-						}}
-					>
-						<span>{$t('wallet.balance_history.view_chart')}</span>
-						<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-					</button>
 				</div>
-			</div>
+			{:else}
+				<div class="space-y-2 pt-1">
+					<!-- 7d row -->
+					{#if changes.length > 1}
+						{@const f7 = formatChange(
+							changes[1]?.satsChange ?? null,
+							changes[1]?.usdChange ?? null
+						)}
+						<div class="flex items-center justify-between gap-3 px-2 py-1.5">
+							<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.7d')}</span>
+							<div class="flex items-center gap-3 text-sm sm:text-base">
+								{#if f7}
+									{#if balancesHidden}
+										<span class="text-base-content/50">•••• Sats</span>
+										<span class="text-base-content/50">••••</span>
+									{:else}
+										<span class="font-semibold {f7.satsColor}">{f7.sats}</span>
+										<span class={f7.usdColor}>{f7.usd}</span>
+									{/if}
+								{:else}
+									<span class="loading loading-spinner loading-xs text-primary"></span>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- 30d row -->
+					{#if changes.length > 2}
+						{@const f30 = formatChange(
+							changes[2]?.satsChange ?? null,
+							changes[2]?.usdChange ?? null
+						)}
+						<div class="flex items-center justify-between gap-3 px-2 py-1.5">
+							<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.30d')}</span>
+							<div class="flex items-center gap-3 text-sm sm:text-base">
+								{#if f30}
+									{#if balancesHidden}
+										<span class="text-base-content/50">•••• Sats</span>
+										<span class="text-base-content/50">••••</span>
+									{:else}
+										<span class="font-semibold {f30.satsColor}">{f30.sats}</span>
+										<span class={f30.usdColor}>{f30.usd}</span>
+									{/if}
+								{:else}
+									<span class="loading loading-spinner loading-xs text-primary"></span>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Divider + Chart button -->
+					<div class="border-base-300 border-t pt-2">
+						<button
+							class="hover:bg-primary/10 text-base-content/80 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
+							onclick={(e) => {
+								e.stopPropagation();
+								showChartModal = true;
+							}}
+						>
+							<span>{$t('wallet.balance_history.view_chart')}</span>
+							<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						</button>
+					</div>
+				</div>
+			{/if}
 		{:catch}
 			<div class="py-2 text-center">
 				<span class="text-error text-xs">{$t('wallet.balance_history.error')}</span>

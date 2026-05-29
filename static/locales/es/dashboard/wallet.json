@@ -1016,7 +1016,8 @@
 			"view_chart": "Ver Gráfico Histórico",
 			"24h": "Últimas 24 horas",
 			"7d": "Últimos 7 días",
-			"30d": "Últimos 30 días"
+			"30d": "Últimos 30 días",
+			"no_connected_data": "Datos históricos aún no disponibles para billeteras conectadas"
 		},
 		"balance_chart": {
 			"title": "Historial de Saldo",
