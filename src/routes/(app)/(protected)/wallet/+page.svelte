@@ -36,7 +36,6 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconPlus from '~icons/mdi/plus';
 	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconBank from '~icons/mdi/bank';
 	import IconLock from '~icons/mdi/lock';
 	import IconClose from '~icons/mdi/close';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
@@ -45,10 +44,8 @@
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
-	import LoanFlowDrawer from '$lib/components/wallet/LoanFlowDrawer.svelte';
-	import LoanStuckFundsBanner from '$lib/components/wallet/LoanStuckFundsBanner.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
-	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
+	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
 
@@ -85,7 +82,6 @@
 	let showSendModal = $state(false);
 	let showBuySell = $state(false);
 	let showSwap = $state(false);
-	let showLoanFlow = $state(false);
 	let showTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
@@ -187,7 +183,7 @@
 		if (wallets.length === 0) return;
 		const details = wallets.map(
 			(w) =>
-				`${w.walletName}: btc=${w.balances?.btc?.raw ?? '?'} rbtc=${w.balances?.rbtc?.raw ?? '?'} usdt=${w.balances?.usdt?.raw ?? '?'}`
+				`${w.walletName}: btc=${w.balances?.btc?.raw ?? '?'} rbtc=${w.balances?.rbtc?.raw ?? '?'} usdt=${w.balances?.usdt?.raw ?? '?'} wbtc=${w.balances?.wbtc?.raw ?? '?'}`
 		);
 		console.log(
 			`[connected-balance] USD=$${t.toFixed(2)} sats=${s} usdt=$${u.toFixed(2)} | wallets=[${details.join(', ')}]`
@@ -205,8 +201,12 @@
 			const cur = w.balances;
 			if (cur) {
 				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+				const wbtcSats = Number(cur.wbtc?.raw ?? 0);
 				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
-				total += (btcSats / 100_000_000) * btcPrice.price + usdt;
+				total +=
+					(btcSats / 100_000_000) * btcPrice.price +
+					(wbtcSats / 100_000_000) * btcPrice.price +
+					usdt;
 			}
 		}
 		if (total === 0 && _lastConnectedTotal > 0) return _lastConnectedTotal;
@@ -281,9 +281,9 @@
 			closeBankingMenu();
 			showSwap = true;
 		}
-		function handleLoan() {
+		function handleDefi() {
 			closeBankingMenu();
-			requestAnimationFrame(() => (showLoanFlow = true));
+			// Placeholder — DeFiFlowDrawer will be built in a later phase
 		}
 
 		el.addEventListener('banking:send', handleSend);
@@ -291,7 +291,7 @@
 		el.addEventListener('banking:buy', handleBuy);
 		el.addEventListener('banking:sell', handleSell);
 		el.addEventListener('banking:swap', handleSwap);
-		el.addEventListener('banking:loan', handleLoan);
+		el.addEventListener('banking:defi', handleDefi);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
@@ -299,7 +299,7 @@
 			el.removeEventListener('banking:buy', handleBuy);
 			el.removeEventListener('banking:sell', handleSell);
 			el.removeEventListener('banking:swap', handleSwap);
-			el.removeEventListener('banking:loan', handleLoan);
+			el.removeEventListener('banking:defi', handleDefi);
 		};
 	});
 </script>
@@ -570,19 +570,6 @@
 					</button>
 				</div>
 
-				<!-- Loan Flow Button -->
-				{#if isLoanFlowEnabled()}
-					<div class="flex flex-row gap-2 sm:gap-4">
-						<button
-							class="btn btn-primary min-h-[44px] flex-1 py-2 text-sm sm:py-3 sm:text-base"
-							onclick={() => (showLoanFlow = true)}
-						>
-							<IconBank class="mr-1 h-4 w-4 shrink-0 sm:mr-2 sm:h-5 sm:w-5" />
-							{$t('wallet.loan.button')}
-						</button>
-					</div>
-				{/if}
-
 				<!-- Learn More — centered below all buttons, always visible -->
 				<div class="flex justify-center pb-4">
 					<button
@@ -627,12 +614,6 @@
 
 <!-- Swap Drawer -->
 <SwapForm isOpen={showSwap} onClose={() => (showSwap = false)} />
-
-<!-- Loan Flow Components -->
-{#if isLoanFlowEnabled()}
-	<LoanStuckFundsBanner />
-	<LoanFlowDrawer isOpen={showLoanFlow} onClose={() => (showLoanFlow = false)} />
-{/if}
 
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>

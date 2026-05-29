@@ -1200,6 +1200,65 @@
 		"address_accordion": {
 			"collapse": "Colapsar dirección",
 			"expand": "Expandir dirección"
+		},
+		"defi": {
+			"title": "DeFi",
+			"tab_borrow": "Pedir préstamo",
+			"tab_earn": "Ganar",
+			"earn_lending": "Préstamos (Aave)",
+			"earn_lp": "LP (Uniswap)",
+			"close": "Cerrar",
+			"needs_wbtc": "Requiere WBTC como garantía",
+			"needs_usdt0": "Requiere USDT0 para depositar",
+			"needs_both": "Necesitas WBTC y USDT0",
+			"get_wbtc": "Obtener WBTC",
+			"get_usdt0": "Obtener USDT0",
+			"borrow": {
+				"amount_label": "¿Cuánto USDT0 quieres pedir?",
+				"collateral_label": "WBTC a bloquear como garantía",
+				"ltv_label": "Préstamo-Valor",
+				"health_safe": "Seguro",
+				"health_monitor": "Vigilar",
+				"health_risk": "En riesgo — Añadir garantía",
+				"interest_rate": "Tasa de interés",
+				"gas_fee": "Comisión de gas (Arbitrum)",
+				"annual_cost": "Costo anual del préstamo",
+				"button_approve_borrow": "Aprobar y pedir USDT0",
+				"button_repay": "Pagar",
+				"button_add_collateral": "Añadir garantía"
+			},
+			"lend": {
+				"amount_label": "¿Cuánto USDT0 depositar?",
+				"apy_label": "APY actual",
+				"projected_label": "Proyectado después de 1 año",
+				"risk_info": "Sin bloqueo. Retira cuando quieras. Sin pérdida impermanente.",
+				"button_approve_supply": "Aprobar y depositar USDT0",
+				"button_withdraw": "Retirar"
+			},
+			"lp": {
+				"amount_label": "¿Cuánto aportar?",
+				"both_sides_label": "Aportarás",
+				"fee_tier_label": "Nivel de comisión",
+				"fee_tier_005": "0.05% (Alto volumen)",
+				"fee_tier_03": "0.3% (Mayor comisión por swap)",
+				"apy_label": "APY estimado",
+				"il_title": "Riesgo de pérdida impermanente",
+				"il_double": "Si BTC se duplica: ~77% vs 50% manteniendo. La IL es la diferencia entre LP y mantener.",
+				"il_halve": "Si BTC baja a la mitad: ~4% vs 25% manteniendo.",
+				"button_approve_lp": "Aprobar y proveer liquidez",
+				"out_of_range": "Fuera de rango — sin generar comisiones",
+				"rebalance": "Reequilibrar"
+			},
+			"shared": {
+				"no_positions": "Sin posiciones DeFi activas",
+				"no_positions_desc": "Elige una pestaña arriba para pedir préstamos, ganar o proveer liquidez.",
+				"pool_at_capacity": "Pool al límite — intenta más tarde",
+				"gas_too_high": "El gas está inusualmente alto (${amount}). Considera esperar.",
+				"rate_updated": "Tasa actualizada — recalculando...",
+				"switch_to_arbitrum": "Cambiar a Arbitrum",
+				"offline": "Sin conexión — DeFi requiere internet",
+				"pending_tx": "Transacción en proceso..."
+			}
 		}
 	}
 }

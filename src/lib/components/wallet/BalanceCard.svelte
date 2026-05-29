@@ -67,6 +67,9 @@
 	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
 	let usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
 
+	// WBTC (Arbitrum) — always shown
+	let wbtcAsset = $derived($allAssets.find((a) => a.assetId === 'wbtc-arb'));
+
 	function showBalances() {
 		_internalHidden = false;
 		onToggleBalances?.(false);
@@ -486,6 +489,19 @@
 									••••
 								{:else}
 									{usdt0ArbBalance.toFixed(2)}
+								{/if}
+							</div>
+						</div>
+
+						<!-- WBTC (Arbitrum) -->
+						<div class="flex items-center gap-1.5 sm:gap-2">
+							<img src="/images/chains/arbitrum.png" alt="Arbitrum" class="h-4 w-4 sm:h-5 sm:w-5" />
+							<span class="text-sm font-medium sm:text-base">WBTC (Arbitrum)</span>
+							<div class="ml-auto text-sm font-semibold sm:text-base">
+								{#if balancesHidden}
+									•••• WBTC
+								{:else if wbtcAsset}
+									{wbtcAsset.formattedBalance ?? '0'} WBTC
 								{/if}
 							</div>
 						</div>

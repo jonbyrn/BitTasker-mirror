@@ -1241,6 +1241,65 @@
 		"address_accordion": {
 			"collapse": "Collapse address",
 			"expand": "Expand address"
+		},
+		"defi": {
+			"title": "DeFi",
+			"tab_borrow": "Borrow",
+			"tab_earn": "Earn",
+			"earn_lending": "Lending (Aave)",
+			"earn_lp": "LP (Uniswap)",
+			"close": "Close",
+			"needs_wbtc": "Requires WBTC as collateral",
+			"needs_usdt0": "Requires USDT0 to supply",
+			"needs_both": "You need both WBTC and USDT0",
+			"get_wbtc": "Get WBTC",
+			"get_usdt0": "Get USDT0",
+			"borrow": {
+				"amount_label": "How much USDT0 to borrow?",
+				"collateral_label": "WBTC to lock as collateral",
+				"ltv_label": "Loan-to-Value",
+				"health_safe": "Safe",
+				"health_monitor": "Monitor",
+				"health_risk": "At Risk — Add Collateral",
+				"interest_rate": "Interest Rate",
+				"gas_fee": "Gas Fee (Arbitrum)",
+				"annual_cost": "Annual borrowing cost",
+				"button_approve_borrow": "Approve & Borrow USDT0",
+				"button_repay": "Repay",
+				"button_add_collateral": "Add Collateral"
+			},
+			"lend": {
+				"amount_label": "How much USDT0 to supply?",
+				"apy_label": "Current APY",
+				"projected_label": "Projected after 1 year",
+				"risk_info": "No lock-up. Withdraw anytime. No impermanent loss.",
+				"button_approve_supply": "Approve & Supply USDT0",
+				"button_withdraw": "Withdraw"
+			},
+			"lp": {
+				"amount_label": "How much to provide?",
+				"both_sides_label": "You'll provide",
+				"fee_tier_label": "Fee Tier",
+				"fee_tier_005": "0.05% (High Volume)",
+				"fee_tier_03": "0.3% (Higher Fee per Swap)",
+				"apy_label": "Estimated APY",
+				"il_title": "Impermanent Loss Risk",
+				"il_double": "If BTC doubles: up ~77% vs 50% holding. IL is the difference between LP position value and simply holding.",
+				"il_halve": "If BTC halves: down ~4% vs 25% holding.",
+				"button_approve_lp": "Approve & Provide Liquidity",
+				"out_of_range": "Out of range — not earning fees",
+				"rebalance": "Rebalance"
+			},
+			"shared": {
+				"no_positions": "No active DeFi positions",
+				"no_positions_desc": "Choose a tab above to start borrowing, earning, or providing liquidity.",
+				"pool_at_capacity": "Pool at capacity — try again later",
+				"gas_too_high": "Gas is unusually high (${amount}). Consider waiting.",
+				"rate_updated": "Rate updated — recalculating...",
+				"switch_to_arbitrum": "Switch to Arbitrum",
+				"offline": "You're offline — DeFi requires network connection",
+				"pending_tx": "Transaction processing..."
+			}
 		}
 	}
 }

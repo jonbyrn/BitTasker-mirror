@@ -62,6 +62,10 @@ import {
 	registerSwapResumeHandler,
 	unregisterSwapResumeHandler
 } from '$lib/utils/wallet/swapMonitor';
+import { addBreadcrumb } from '@sentry/sveltekit';
+
+/** Arbitrum WBTC contract address (canonical). */
+export const WBTC_ARBITRUM_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
 
 // Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -80,9 +84,15 @@ type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 		formattedEthBalance: string;
 		usdt0Balance: string;
 		formattedUsdt0Balance: string;
+		wbtcBalance: string;
+		formattedWbtcBalance: string;
+		wbtcUsdValue: number;
 		blockNumber: number | null;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		provider: any | null;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		wallet: any | null;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		usdt0Contract: any | null;
 	};
 };
@@ -133,6 +143,9 @@ const initialState: WalletStateExtended = {
 		formattedEthBalance: '0.00',
 		usdt0Balance: '0',
 		formattedUsdt0Balance: '0.00',
+		wbtcBalance: '0',
+		formattedWbtcBalance: '0.00',
+		wbtcUsdValue: 0,
 		blockNumber: null,
 		provider: null,
 		wallet: null,
@@ -636,10 +649,12 @@ async function loadAssets(): Promise<void> {
 		const [
 			rbtcPriceResult,
 			bnbPriceResult,
+			btcPriceResult,
 			rskBalanceData,
 			bscBalances,
 			rskTokenBalances,
-			arbUsdt0Balance
+			arbUsdt0Balance,
+			arbWbtcBalance
 		] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch((err) => {
 				console.warn('[WALLET-STORE] Failed to fetch RBTC price:', err);
@@ -647,6 +662,10 @@ async function loadAssets(): Promise<void> {
 			}),
 			cryptoPriceService.getCurrentPrice('BNB').catch((err) => {
 				console.warn('[WALLET-STORE] Failed to fetch BNB price:', err);
+				return null;
+			}),
+			cryptoPriceService.getCurrentPrice('BTC').catch((err) => {
+				console.warn('[WALLET-STORE] Failed to fetch BTC price:', err);
 				return null;
 			}),
 			state.rsk.connected && manager.rskWallet
@@ -665,13 +684,19 @@ async function loadAssets(): Promise<void> {
 							'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' // USDT0 on Arbitrum
 						)
 					)
+				: Promise.resolve(null),
+			walletAddress
+				? fetchWithRetry(() =>
+						tokenBalanceService.getArbitrumTokenBalance(walletAddress, WBTC_ARBITRUM_ADDRESS)
+					)
 				: Promise.resolve(null)
 		]);
 
 		// Use fallback price of 0 if price fetch failed, but track the error
 		const rbtcPrice = rbtcPriceResult ?? 0;
 		const bnbPrice = bnbPriceResult ?? 0;
-		if (rbtcPriceResult === null || bnbPriceResult === null) {
+		const btcPrice = btcPriceResult ?? 0;
+		if (rbtcPriceResult === null || bnbPriceResult === null || btcPriceResult === null) {
 			priceError = true;
 		}
 
@@ -800,6 +825,72 @@ async function loadAssets(): Promise<void> {
 				network: 'RSK',
 				usdValue: 0
 			});
+		}
+
+		// Process WBTC balance on Arbitrum
+		if (arbWbtcBalance) {
+			addBreadcrumb({
+				category: 'wallet-wbtc',
+				message: 'WBTC balance fetched on Arbitrum',
+				level: 'info',
+				data: {
+					balance: arbWbtcBalance.formattedBalance,
+					address: walletAddress
+				}
+			});
+
+			const wbtcFormatted = parseFloat(arbWbtcBalance.formattedBalance || '0');
+			const wbtcUsdValue = wbtcFormatted * btcPrice;
+
+			totalUsd += wbtcUsdValue;
+
+			// Update store with WBTC balance
+			walletStore.update((s) => ({
+				...s,
+				arb: {
+					...s.arb,
+					wbtcBalance: arbWbtcBalance.balance?.toString() || '0',
+					formattedWbtcBalance: arbWbtcBalance.formattedBalance || '0.00',
+					wbtcUsdValue,
+					connected: true,
+					error: null
+				}
+			}));
+
+			assets.push({
+				assetId: 'wbtc-arb',
+				name: 'WBTC (Arbitrum)',
+				ticker: 'WBTC',
+				precision: 8,
+				icon: '₿',
+				balance: wbtcFormatted,
+				formattedBalance: arbWbtcBalance.formattedBalance || '0.00',
+				network: 'RSK',
+				usdValue: wbtcUsdValue
+			});
+		} else if (walletAddress) {
+			// Show zero WBTC Arbitrum for awareness (even when no balance)
+			assets.push({
+				assetId: 'wbtc-arb',
+				name: 'WBTC (Arbitrum)',
+				ticker: 'WBTC',
+				precision: 8,
+				icon: '₿',
+				balance: 0,
+				formattedBalance: '0.00',
+				network: 'RSK',
+				usdValue: 0
+			});
+
+			walletStore.update((s) => ({
+				...s,
+				arb: {
+					...s.arb,
+					wbtcBalance: '0',
+					formattedWbtcBalance: '0.00',
+					wbtcUsdValue: 0
+				}
+			}));
 		}
 
 		// Process BSC assets

@@ -84,21 +84,26 @@
 	}
 
 	// Per-wallet last-known balances — module-level to survive tab switches
-	let lastKnownWalletBalances: Record<string, { rbtc: string; btc: string; usdt: string }> = {};
+	let lastKnownWalletBalances: Record<
+		string,
+		{ rbtc: string; btc: string; usdt: string; wbtc: string }
+	> = {};
 
 	// Effect: cache current per-wallet balances for fallback during refresh gaps
 	$effect(() => {
-		let next: Record<string, { rbtc: string; btc: string; usdt: string }> = {};
+		let next: Record<string, { rbtc: string; btc: string; usdt: string; wbtc: string }> = {};
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
 			if (!cur) continue;
 			const rbtcRaw = cur.rbtc?.raw ?? '';
 			const btcRaw = cur.btc?.raw ?? '';
 			const usdtRaw = cur.usdt?.raw ?? '';
+			const wbtcRaw = cur.wbtc?.raw ?? '';
 			const sats = Number(rbtcRaw) + Number(btcRaw);
 			const usdt = Number(usdtRaw);
-			if (sats > 0 || usdt > 0) {
-				next[w.id] = { rbtc: rbtcRaw, btc: btcRaw, usdt: usdtRaw };
+			const wbtc = Number(wbtcRaw);
+			if (sats > 0 || usdt > 0 || wbtc > 0) {
+				next[w.id] = { rbtc: rbtcRaw, btc: btcRaw, usdt: usdtRaw, wbtc: wbtcRaw };
 			}
 		}
 		lastKnownWalletBalances = next;
@@ -112,15 +117,35 @@
 		},
 		key: string
 	): string {
-		const raw = Number(wallet.balances?.[key]?.raw ?? 0);
-		if (raw > 0) return key === 'usdt' ? `$${(raw / 1e18).toFixed(2)}` : formatSatsWithUsd(raw);
+		const bal = wallet.balances?.[key];
+		const raw = Number(bal?.raw ?? 0);
+		if (raw > 0) {
+			if (key === 'usdt') return `$${(raw / 1e18).toFixed(2)}`;
+			if (key === 'wbtc') {
+				const formatted = bal?.formatted;
+				return formatted && formatted !== '0'
+					? `${parseFloat(formatted).toFixed(6)} WBTC`
+					: '0 WBTC';
+			}
+			return formatSatsWithUsd(raw);
+		}
 		const cached = lastKnownWalletBalances[wallet.id];
 		if (cached) {
 			const cachedRaw = Number((cached as Record<string, string>)[key] ?? 0);
-			if (cachedRaw > 0)
-				return key === 'usdt' ? `$${(cachedRaw / 1e18).toFixed(2)}` : formatSatsWithUsd(cachedRaw);
+			if (cachedRaw > 0) {
+				if (key === 'usdt') return `$${(cachedRaw / 1e18).toFixed(2)}`;
+				if (key === 'wbtc') {
+					const cachedFormatted = (cached as Record<string, string>)[`${key}Fmt`];
+					return cachedFormatted && cachedFormatted !== '0'
+						? `${parseFloat(cachedFormatted).toFixed(6)} WBTC`
+						: '0 WBTC';
+				}
+				return formatSatsWithUsd(cachedRaw);
+			}
 		}
-		return key === 'usdt' ? '$0.00' : '0 Sats';
+		if (key === 'usdt') return '$0.00';
+		if (key === 'wbtc') return '0 WBTC';
+		return '0 Sats';
 	}
 
 	/** Pure: stable display value for a wallet's accordion title */
@@ -130,7 +155,8 @@
 	}): string {
 		const cur = wallet.balances;
 		if (cur) {
-			const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+			const btcSats =
+				Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
 			const usdtRaw = Number(cur.usdt?.raw ?? 0);
 			if (btcSats > 0 || usdtRaw > 0) {
 				return usdFormatter.format((btcSats / 100_000_000) * btcPrice.price + usdtRaw / 1e18);
@@ -139,7 +165,8 @@
 		const cached = lastKnownWalletBalances[wallet.id];
 		if (cached) {
 			const usd =
-				((Number(cached.rbtc) + Number(cached.btc)) / 100_000_000) * btcPrice.price +
+				((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc)) / 100_000_000) *
+					btcPrice.price +
 				Number(cached.usdt) / 1e18;
 			if (usd > 0) return usdFormatter.format(usd);
 		}
@@ -605,6 +632,19 @@
 										alt: 'USDT',
 										condition: isEVM,
 										format: (v: unknown) => (v as { formatted?: string })?.formatted ?? '$0.00'
+									},
+									{
+										key: 'wbtc',
+										label: 'WBTC (Arbitrum)',
+										img: '/images/chains/arbitrum.png',
+										alt: 'WBTC',
+										condition: isEVM,
+										format: (v: unknown) => {
+											const bal = v as { formatted?: string; raw?: string };
+											return bal.formatted && bal.formatted !== '0'
+												? `${parseFloat(bal.formatted).toFixed(6)} WBTC`
+												: '0 WBTC';
+										}
 									}
 								]}
 								<div class="space-y-1">
