@@ -65,45 +65,46 @@
 		if (!address) return;
 
 		// Use public RPC when provider is unavailable (e.g. connected wallet tab)
-		const rpcUrl =
-			typeof provider === 'object' && provider !== null
-				? ((provider as Record<string, unknown>).connection as Record<string, string> | undefined)
-						?.url ||
-					((provider as Record<string, unknown>)['url'] as string | undefined) ||
-					'https://public-node.rsk.co'
-				: 'https://public-node.rsk.co';
-		fetch(rpcUrl, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				jsonrpc: '2.0',
-				method: 'eth_getBalance',
-				params: [address, 'latest'],
-				id: 1
-			})
-		})
-			.then((r) => r.json())
-			.then((d) => {
+		// instanceof guard avoids `as` assertions
+		let rpcUrl = 'https://public-node.rsk.co';
+		if (provider && typeof provider === 'object' && 'connection' in provider) {
+			const conn = (provider as Record<string, unknown>).connection;
+			if (conn && typeof conn === 'object' && 'url' in conn) {
+				rpcUrl = (conn as Record<string, string>).url;
+			}
+		}
+		const controller = new AbortController();
+
+		async function fetchBalance() {
+			try {
+				const res = await fetch(rpcUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getBalance',
+						params: [address, 'latest'],
+						id: 1
+					}),
+					signal: controller.signal
+				});
+				const d = await res.json();
 				const wei = BigInt(d?.result || '0x0');
 				currentRpcSats = Number(wei / BigInt(10_000_000_000n));
-			})
-			.catch(() => {
-				// Fallback to store/override value on RPC failure
+			} catch (e) {
+				if (e instanceof DOMException && e.name === 'AbortError') return;
 				currentRpcSats = overrideSats || $totalBalances.sats;
-			});
+			}
+		}
+
+		fetchBalance();
+		return () => controller.abort();
 	});
 
 	const hasOverride = overrideAddress !== '';
-	// Force recomputation when overrides change — Svelte 5 sometimes reuses
-	// stale $derived.by closures when props update from template expressions.
-	let _recompute = $derived(overrideAddress + '|' + overrideSats + '|' + overrideUsd);
 
 	let balanceChangesPromise = $derived.by(() => {
-		void _recompute;
-		let sats = currentRpcSats || overrideSats;
-
-		// Fall back to store total only if nothing else is available
-		if (!sats) sats = $totalBalances.sats;
+		const sats = currentRpcSats || overrideSats;
 		if (!sats) return Promise.resolve([]);
 		const usd = hasOverride ? overrideUsd : rskUsd;
 		const provider = overrideProvider || $walletStore.rsk.provider;

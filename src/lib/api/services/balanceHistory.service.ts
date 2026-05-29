@@ -28,8 +28,7 @@ async function fetchStablecoinUsdAtBlock(
 	blockNumber: number
 ): Promise<number> {
 	const hexBlock = '0x' + blockNumber.toString(16);
-	const rpcUrl =
-		(provider as ethers.JsonRpcProvider).connection?.url || 'https://public-node.rsk.co';
+	const rpcUrl = getRpcUrl(provider);
 
 	try {
 		// Direct eth_call via RPC fetch (bypasses ethers v6 address validation)
@@ -80,6 +79,7 @@ async function fetchStablecoinUsdAtBlock(
 
 		return usdtBalance + docBalance;
 	} catch {
+		console.warn('[BalanceHistoryService] Failed to fetch stablecoin balances (non-archive RPC)');
 		return 0; // If historical call fails (non-archive node), stablecoins are assumed 0
 	}
 }
@@ -111,7 +111,6 @@ interface Period {
 const LATEST_BLOCK_CACHE_TTL = 60 * 1000; // 60 seconds
 const CACHE_KEY_PREFIX = 'balance_history_v12_';
 const FETCH_TIMEOUT_MS = 10_000; // 10-second timeout for individual fetch calls
-const _BALANCE_HISTORY_TIMEOUT_MS = 20_000; // 20-second overall timeout
 
 /** Fetch with AbortController timeout */
 async function fetchWithTimeout(
@@ -126,6 +125,14 @@ async function fetchWithTimeout(
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/** Get RPC URL from provider with type-safe guard */
+export function getRpcUrl(provider: ethers.Provider | null): string {
+	if (provider instanceof ethers.JsonRpcProvider) {
+		return provider.connection?.url || 'https://public-node.rsk.co';
+	}
+	return 'https://public-node.rsk.co';
 }
 
 /**
@@ -172,7 +179,11 @@ class HistoricalBalanceService {
 					setTimeout(() => resolve(this.getEmptyBalanceChanges()), BALANCE_HISTORY_TIMEOUT_MS)
 				)
 			]);
-		} catch {
+		} catch (err) {
+			console.warn(
+				'[BalanceHistoryService] getBalanceChanges failed: ' +
+					(err instanceof Error ? err.message : String(err))
+			);
 			return this.getEmptyBalanceChanges();
 		}
 	}
@@ -264,7 +275,6 @@ class HistoricalBalanceService {
 			const results = await Promise.all(
 				this.periods.map(async (period, index) => {
 					try {
-						// const targetTimestamp = now - period.hours * 60 * 60 * 1000;
 						const historicalBalanceSats = historicalBalances[index];
 						const historicalPrice = historicalPrices[index];
 						const stablecoinUsd = historicalStablecoinUsd[index] ?? 0;
@@ -280,7 +290,6 @@ class HistoricalBalanceService {
 							stablecoinUsd,
 							currentSats,
 							currentUsd
-							// targetTimestamp
 						);
 					} catch (error) {
 						console.error(`[BalanceHistoryService] ${period.label} period error:`, error);
@@ -342,7 +351,6 @@ class HistoricalBalanceService {
 		try {
 			// Get network config based on environment
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'mainnet';
-			// const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'mainnet';
 
 			if (network === 'rsk') {
 				// RSK: Use Blockscout API (no API key required)
@@ -453,13 +461,7 @@ class HistoricalBalanceService {
 				const minBlock = Math.max(0, estimatedBlock - searchRange);
 				const maxBlock = Math.min(currentBlockNumber, estimatedBlock + searchRange);
 
-				return await this.binarySearchBlockByTimestamp(
-					rpcUrl,
-					targetTimestamp,
-					minBlock,
-					maxBlock
-					// currentBlockNumber
-				);
+				return await this.binarySearchBlockByTimestamp(rpcUrl, targetTimestamp, minBlock, maxBlock);
 			}
 
 			return null;
@@ -478,7 +480,6 @@ class HistoricalBalanceService {
 		targetTimestamp: number,
 		minBlock: number,
 		maxBlock: number
-		// currentBlockNumber: number
 	): Promise<number | null> {
 		const targetTimestampSeconds = Math.floor(targetTimestamp / 1000);
 		let left = minBlock;
@@ -715,7 +716,7 @@ class HistoricalBalanceService {
 					// Direct RPC fetch — bypasses ethers provider entirely
 					// (ethers v6 send/getBalance may reject non-checksummed
 					// addresses even after ethereum.getAddress normalization)
-					const rpcUrl = rskProvider?.connection?.url || 'https://public-node.rsk.co';
+					const rpcUrl = getRpcUrl(rskProvider);
 					const hexBlock = '0x' + blockNumber.toString(16);
 					const res = await fetch(rpcUrl, {
 						method: 'POST',
@@ -755,7 +756,6 @@ class HistoricalBalanceService {
 		historicalStablecoinUsd: number,
 		currentSats: number,
 		currentUsd: number
-		// targetTimestamp: number
 	): BalanceChange {
 		// Calculate historical USD value using the historical BTC price + stablecoin balances
 		const historicalBtcAmount = historicalBalanceSats / 100_000_000;
@@ -946,7 +946,11 @@ class HistoricalBalanceService {
 					await Preferences.remove({ key: cacheKey });
 				}
 			}
-		} catch {
+		} catch (err) {
+			console.warn(
+				'[BalanceHistoryService] Failed to clear old cache: ' +
+					(err instanceof Error ? err.message : String(err))
+			);
 			// If parsing fails, remove the cache entry
 			await Preferences.remove({ key: cacheKey });
 		}
@@ -1011,8 +1015,7 @@ class HistoricalBalanceService {
 		const latestBlockPromise = this.getCachedLatestBlock(provider, 'rsk');
 
 		// RPC endpoint for direct balance queries
-		const rpcUrl =
-			(provider as ethers.JsonRpcProvider).connection?.url || 'https://public-node.rsk.co';
+		const rpcUrl = getRpcUrl(provider);
 
 		// Fetch balances for each day
 		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
