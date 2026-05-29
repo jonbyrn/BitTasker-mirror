@@ -454,19 +454,12 @@
 					/>
 				{/if}
 
-				<!-- Activity Accordion -->
-				<div>
-					{#key activeTab}
-						<BalanceHistory
-							{balancesHidden}
-							overrideSats={activeTab === 'connected' ? firstCwSats : 0}
-							overrideUsd={activeTab === 'connected' ? firstCwUsd : 0}
-							overrideAddress={activeTab === 'connected'
-								? $connectedWalletsStore.wallets[0]?.address || ''
-								: ''}
-						/>
-					{/key}
-				</div>
+				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->
+				{#if activeTab === 'wallet'}
+					<div>
+						<BalanceHistory {balancesHidden} />
+					</div>
+				{/if}
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}
@@ -515,6 +508,20 @@
 				<!-- Connected Wallet List (Connected tab, above buttons) -->
 				{#if activeTab === 'connected'}
 					<ConnectedWallets {balancesHidden} />
+
+					<!-- Activity Accordion (connected tab — below wallets, above Connect button) -->
+					<div>
+						{#key activeTab}
+							<BalanceHistory
+								{balancesHidden}
+								overrideSats={activeTab === 'connected' ? firstCwSats : 0}
+								overrideUsd={activeTab === 'connected' ? firstCwUsd : 0}
+								overrideAddress={activeTab === 'connected'
+									? $connectedWalletsStore.wallets[0]?.address || ''
+									: ''}
+							/>
+						{/key}
+					</div>
 
 					<!-- Full-width Connect a Wallet (when wallets exist, above buttons) -->
 					{#if $connectedWalletsStore.wallets.length > 0}

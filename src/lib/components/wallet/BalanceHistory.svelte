@@ -100,19 +100,15 @@
 
 	let balanceChangesPromise = $derived.by(() => {
 		void _recompute;
-		const sats = currentRpcSats || overrideSats || $totalBalances.sats;
+		let sats = currentRpcSats || overrideSats;
+
+		// Fall back to store total only if nothing else is available
+		if (!sats) sats = $totalBalances.sats;
+		if (!sats) return Promise.resolve([]);
 		const usd = hasOverride ? overrideUsd : rskUsd;
 		const provider = overrideProvider || $walletStore.rsk.provider;
 		const address = overrideAddress || $walletStore.rsk.address;
-		return balanceHistoryService.getBalanceChanges(sats, usd, provider, address).then((changes) => {
-			if (hasOverride && changes.length > 0) {
-				const price = btcPrice.price;
-				for (const c of changes) {
-					if (c.satsChange !== null) c.usdChange = (c.satsChange / 100_000_000) * price;
-				}
-			}
-			return changes;
-		});
+		return balanceHistoryService.getBalanceChanges(sats, usd, provider, address);
 	});
 
 	function formatChange(satsChange: number | null, usdChange: number | null) {
