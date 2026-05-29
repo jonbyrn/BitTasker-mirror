@@ -49,7 +49,6 @@
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
-	import DefiPositionCard from '$lib/components/wallet/defi/DefiPositionCard.svelte';
 	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
@@ -454,9 +453,6 @@
 						onToggleBalances={(hidden) => (balancesHidden = hidden)}
 					/>
 				{/if}
-
-				<!-- DeFi Position Card (v1: empty state — renders on both tabs) -->
-				<DefiPositionCard />
 
 				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->
 				{#if activeTab === 'wallet'}

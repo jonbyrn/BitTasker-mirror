@@ -8,6 +8,7 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import DefiPositionCard from './defi/DefiPositionCard.svelte';
 
 	let {
 		isLoading = false,
@@ -246,6 +247,7 @@
 	{#if !hideDetails}
 		<!-- Network Breakdown -->
 		<div class="space-y-2 sm:space-y-4">
+			<DefiPositionCard />
 			<!-- Bitcoin Accordion -->
 			<div
 				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
