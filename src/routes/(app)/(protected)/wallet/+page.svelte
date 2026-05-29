@@ -629,7 +629,14 @@
 
 <!-- DeFi Drawer -->
 {#if showBorrow}
-	<BorrowFlowDrawer isOpen={showBorrow} onClose={() => (showBorrow = false)} />
+	<BorrowFlowDrawer
+		isOpen={showBorrow}
+		onClose={() => (showBorrow = false)}
+		onGetWbtc={() => {
+			showBorrow = false;
+			showSwap = true;
+		}}
+	/>
 {/if}
 {#if showEarn}
 	<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} />

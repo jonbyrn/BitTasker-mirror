@@ -3,7 +3,11 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import BorrowStep from './defi/BorrowStep.svelte';
 
-	let { isOpen, onClose }: { isOpen: boolean; onClose: () => void } = $props();
+	let {
+		isOpen,
+		onClose,
+		onGetWbtc
+	}: { isOpen: boolean; onClose: () => void; onGetWbtc?: () => void } = $props();
 </script>
 
 <Drawer
@@ -13,7 +17,7 @@
 	position="right"
 	isScrollable={true}
 >
-	<div class="p-4">
-		<BorrowStep />
+	<div class="p-3">
+		<BorrowStep {onGetWbtc} />
 	</div>
 </Drawer>

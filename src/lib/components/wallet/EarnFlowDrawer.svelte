@@ -10,21 +10,21 @@
 </script>
 
 <Drawer {isOpen} {onClose} title={$t('wallet.defi.tab_earn')} position="right" isScrollable={true}>
-	<div class="p-4">
-		<!-- Sub-selector -->
-		<div class="join mb-4 w-full">
+	<div class="p-3">
+		<!-- Sub-selector — matching wallet/connected tabs pattern -->
+		<div role="tablist" class="tabs tabs-boxed mb-4">
 			<button
-				class="join-item btn btn-sm flex-1"
-				class:btn-active={earnSubTab === 'lending'}
-				aria-pressed={earnSubTab === 'lending'}
+				role="tab"
+				class="tab flex-1"
+				aria-selected={earnSubTab === 'lending'}
 				onclick={() => (earnSubTab = 'lending')}
 			>
 				{$t('wallet.defi.earn_lending')}
 			</button>
 			<button
-				class="join-item btn btn-sm flex-1"
-				class:btn-active={earnSubTab === 'lp'}
-				aria-pressed={earnSubTab === 'lp'}
+				role="tab"
+				class="tab flex-1"
+				aria-selected={earnSubTab === 'lp'}
 				onclick={() => (earnSubTab = 'lp')}
 			>
 				{$t('wallet.defi.earn_lp')}

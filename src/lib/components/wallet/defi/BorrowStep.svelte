@@ -37,7 +37,12 @@
 
 	let wbtcBalance = $derived($walletStore.arb?.formattedWbtcBalance ?? '0');
 	let wbtcBalanceNum = $derived(parseFloat(wbtcBalance) || 0);
+	let wbtcBalanceSats = $derived(Math.round(wbtcBalanceNum * 100_000_000));
 	let wbtcUsdValue = $derived(wbtcBalanceNum * btcPrice.price);
+
+	function formatSats(n: number): string {
+		return n.toLocaleString('en-US');
+	}
 
 	let amountNum = $derived(parseFloat(amount) || 0);
 	let collateralNeeded = $derived(amountNum / ltv);
@@ -94,10 +99,6 @@
 		amount = maxUsdt.toFixed(2);
 	}
 
-	function handleGetWbtc() {
-		onGetWbtc?.();
-	}
-
 	function handleApproveBorrow() {
 		if (!canBorrow) return;
 		onApproveBorrow?.(amountNum);
@@ -109,10 +110,10 @@
 <!-- ===================================================================== -->
 
 {#if !hasWbtc}
-	<div class="alert alert-soft alert-warning mb-4" role="alert">
-		<div class="flex flex-col gap-2">
+	<div class="alert alert-outline alert-warning rounded-box mb-4" role="alert">
+		<div class="flex items-center justify-between gap-2">
 			<p class="text-sm">{$t('wallet.defi.needs_wbtc')}</p>
-			<button type="button" class="btn btn-outline btn-sm self-start" onclick={handleGetWbtc}>
+			<button type="button" class="btn btn-outline btn-sm shrink-0" onclick={() => onGetWbtc?.()}>
 				{$t('wallet.defi.get_wbtc')}
 			</button>
 		</div>
@@ -126,16 +127,19 @@
 <div class="space-y-4">
 	<!-- Source Wallet -->
 	<WalletSelector
-		label={$t('wallet.swap.source_wallet')}
+		label="From:"
 		selectedId="builtin"
 		onSelect={() => {}}
-		builtinBalance={`${wbtcBalanceNum.toFixed(6)} WBTC`}
+		builtinBalance={`${formatSats(wbtcBalanceSats)} Sats`}
 		connectedWallets={$connectedWalletsStore.wallets}
 		walletBalanceFor={(id: string) => {
 			const w = $connectedWalletsStore.wallets.find((c) => c.id === id);
 			if (!w) return '$0';
 			const wbtc = w.balances['wbtc-arb'];
-			return wbtc ? `${wbtc.formatted} WBTC` : '$0';
+			if (!wbtc) return '0 Sats';
+			const raw = Number(wbtc.raw ?? '0');
+			const sats = Math.round(raw / 10_000_000_000);
+			return sats > 0 ? `${formatSats(sats)} Sats` : '0 Sats';
 		}}
 		expanded={sourceExpanded}
 		onToggle={() => (sourceExpanded = !sourceExpanded)}
@@ -180,7 +184,7 @@
 		<div class="flex items-center justify-between">
 			<span class="text-base-content/60">{$t('wallet.defi.borrow.collateral_label')}</span>
 			<span class="font-medium tabular-nums">
-				{collateralWbtc.toFixed(6)} WBTC
+				{formatSats(Math.round(collateralWbtc * 100_000_000))} Sats
 				<span class="text-base-content/50">
 					(${collateralNeeded.toFixed(2)})
 				</span>
@@ -214,11 +218,10 @@
 		<div class="flex items-center gap-2">
 			<progress class="progress flex-1 {healthProgressColor}" value={healthFactor} max="5"
 			></progress>
-			<span class="badge {healthBadgeColor} shrink-0 tabular-nums">
+			<span class="badge {healthBadgeColor} text-base-content shrink-0 tabular-nums">
 				{$t(healthTextKey)}
 				{healthFactor.toFixed(1)}x
 			</span>
-			<span class="text-base-content/60 shrink-0 text-xs">{$t(healthTextKey)}</span>
 		</div>
 	</div>
 
