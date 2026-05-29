@@ -761,6 +761,7 @@
 			class="btn btn-primary btn-block tap-highlight-none hidden min-h-[44px] touch-manipulation transition-transform duration-100 select-none active:scale-95"
 			data-connect-button
 			onclick={openConnectModal}
+			disabled={$connectedWalletsStore.connectingType !== null}
 		>
 			{'+ ' + $t('wallet.connected.connect')}
 		</button>
