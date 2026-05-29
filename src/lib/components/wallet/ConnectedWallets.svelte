@@ -908,7 +908,8 @@
 						<div class="space-y-2">
 							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
 								<button
-									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+									disabled={$connectedWalletsStore.connectingType !== null}
 									onclick={handleConnectMetaMask}
 								>
 									<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-8 w-8" />
@@ -921,7 +922,8 @@
 
 							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETCONNECT)}
 								<button
-									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+									disabled={$connectedWalletsStore.connectingType !== null}
 									onclick={handleConnectWC}
 								>
 									<img
@@ -940,7 +942,8 @@
 
 							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)}
 								<button
-									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+									disabled={$connectedWalletsStore.connectingType !== null}
 									onclick={handleConnectTrezor}
 								>
 									<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
@@ -953,7 +956,8 @@
 
 							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)}
 								<button
-									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+									disabled={$connectedWalletsStore.connectingType !== null}
 									onclick={handleConnectLedger}
 								>
 									<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
