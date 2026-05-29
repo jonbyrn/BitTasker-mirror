@@ -12,10 +12,13 @@
 <Drawer {isOpen} {onClose} title={$t('wallet.defi.tab_earn')} position="right" isScrollable={true}>
 	<div class="p-3">
 		<!-- Sub-selector — matching wallet/connected tabs pattern -->
-		<div role="tablist" class="tabs tabs-boxed mb-4">
+		<div role="tablist" class="tabs tabs-boxed border-base-300 mb-4 shrink-0 rounded-lg border">
 			<button
 				role="tab"
 				class="tab flex-1"
+				class:bg-primary={earnSubTab === 'lending'}
+				class:text-primary-content={earnSubTab === 'lending'}
+				class:tab-active={earnSubTab === 'lending'}
 				aria-selected={earnSubTab === 'lending'}
 				onclick={() => (earnSubTab = 'lending')}
 			>
@@ -24,6 +27,9 @@
 			<button
 				role="tab"
 				class="tab flex-1"
+				class:bg-primary={earnSubTab === 'lp'}
+				class:text-primary-content={earnSubTab === 'lp'}
+				class:tab-active={earnSubTab === 'lp'}
 				aria-selected={earnSubTab === 'lp'}
 				onclick={() => (earnSubTab = 'lp')}
 			>
