@@ -919,8 +919,6 @@
 									{amountSats.toLocaleString('en-US')}
 									{$t('wallet.sats')}
 									(${((amountSats / 100_000_000) * btcPrice.price).toLocaleString('en-US', {
-										style: 'currency',
-										currency: 'USD',
 										minimumFractionDigits: 2,
 										maximumFractionDigits: 2
 									})})
