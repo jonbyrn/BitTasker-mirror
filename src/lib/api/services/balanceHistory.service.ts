@@ -109,7 +109,7 @@ interface Period {
 
 // Constants
 const LATEST_BLOCK_CACHE_TTL = 60 * 1000; // 60 seconds
-const CACHE_KEY_PREFIX = 'balance_history_v11_';
+const CACHE_KEY_PREFIX = 'balance_history_v12_';
 const FETCH_TIMEOUT_MS = 10_000; // 10-second timeout for individual fetch calls
 const _BALANCE_HISTORY_TIMEOUT_MS = 20_000; // 20-second overall timeout
 
@@ -158,7 +158,7 @@ class HistoricalBalanceService {
 		provider: ethers.Provider | null,
 		address: string | null
 	): Promise<BalanceChange[]> {
-		if (!provider || !address) {
+		if (!address) {
 			return this.getEmptyBalanceChanges();
 		}
 
@@ -660,15 +660,12 @@ class HistoricalBalanceService {
 		// Start all block number API calls immediately
 		const blockNumberPromises = periods.map((period) => {
 			const targetTimestamp = now - period.hours * 60 * 60 * 1000;
-			if (rskProvider) {
-				return this.getBlockNumberAtTimestamp(
-					rskProvider,
-					targetTimestamp,
-					'rsk',
-					latestBlockPromise || undefined
-				);
-			}
-			return Promise.resolve(null);
+			return this.getBlockNumberAtTimestamp(
+				rskProvider,
+				targetTimestamp,
+				'rsk',
+				latestBlockPromise || undefined
+			);
 		});
 
 		// Wait for all parallel operations to complete
@@ -691,7 +688,7 @@ class HistoricalBalanceService {
 		rskProvider: ethers.Provider | null,
 		rskAddress: string | null
 	): Promise<Array<number>> {
-		if (!rskProvider || !rskAddress) {
+		if (!rskAddress) {
 			return blockNumbers.map(() => 0);
 		}
 
@@ -718,7 +715,7 @@ class HistoricalBalanceService {
 					// Direct RPC fetch — bypasses ethers provider entirely
 					// (ethers v6 send/getBalance may reject non-checksummed
 					// addresses even after ethereum.getAddress normalization)
-					const rpcUrl = rskProvider.connection?.url || 'https://public-node.rsk.co';
+					const rpcUrl = rskProvider?.connection?.url || 'https://public-node.rsk.co';
 					const hexBlock = '0x' + blockNumber.toString(16);
 					const res = await fetch(rpcUrl, {
 						method: 'POST',
@@ -984,7 +981,7 @@ class HistoricalBalanceService {
 		currentSats: number = 0,
 		currentUsd: number = 0
 	): Promise<Array<{ date: Date; sats: number; usd: number }>> {
-		if (!provider || !address) {
+		if (!address) {
 			return [];
 		}
 
