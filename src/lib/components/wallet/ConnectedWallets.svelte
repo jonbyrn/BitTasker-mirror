@@ -27,6 +27,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import WalletActivity from './WalletActivity.svelte';
 	let copiedAddress = $state<string | null>(null);
 	let showLedgerConnect = $state(false);
 	let ledgerConnectError = $state('');
@@ -667,6 +668,11 @@
 									</button>
 								{/if}
 							{/if}
+
+							<div class="divider my-0"></div>
+
+							<!-- Activity: 24h / 7d / 30d changes -->
+							<WalletActivity address={wallet.address} {balancesHidden} />
 
 							<!-- Connect Bitcoin / Disconnect buttons -->
 							<div class="flex flex-wrap items-center justify-end gap-2">

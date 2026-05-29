@@ -473,7 +473,7 @@
 								size: 11
 							},
 							callback: function (value) {
-								return `$${Number(value).toFixed(2)}`;
+								return '$' + Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
 							}
 						},
 						grid: {
@@ -498,7 +498,9 @@
 								size: 11
 							},
 							callback: function (value) {
-								return formatSats(Number(value));
+								const n = Number(value);
+								if (n >= 1000) return Math.round(n / 1000) + 'k';
+								return n.toLocaleString();
 							}
 						},
 						grid: {

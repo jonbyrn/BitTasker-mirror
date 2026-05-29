@@ -6,20 +6,78 @@
 	 * Expanded: 7d + 30d rows, plus "View Historical Chart" button
 	 */
 	import { t } from 'svelte-i18n';
-	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
+	import { walletStore, totalBalances, allAssets, formatSats } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import BalanceChartModal from './BalanceChartModal.svelte';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
 
 	let showChartModal = $state(false);
 	let expanded = $state(false);
 
+	/**
+	 * Compute the wallet's RBTC-denominated USD value — BTC value plus
+	 * RSK-native stablecoins (USDT/DOC). This excludes BSC, Arbitrum,
+	 * and other chain balances so the comparison against historical
+	 * RSK-only snapshots is valid.
+	 */
+	let rskUsd = $derived.by(() => {
+		const sats = $totalBalances.sats;
+		const rskBtcUsd = (sats / 100_000_000) * btcPrice.price;
+
+		// Sum RSK-native stablecoin balances (USDT on RSK, DOC)
+		let stablecoinUsd = 0;
+		for (const asset of $allAssets) {
+			if (
+				(asset.assetId === 'usdt0-rsk' || asset.assetId === 'doc-rsk') &&
+				typeof asset.balance === 'number'
+			) {
+				stablecoinUsd += asset.balance;
+			}
+		}
+
+		return rskBtcUsd + stablecoinUsd;
+	});
+
+	/**
+	 * Fetch the current RBTC balance directly from the RPC, matching
+	 * the data source used for historical balances. This avoids the
+	 * Blockscout-vs-RPC discrepancy (~25 sats).
+	 */
+	let currentRpcSats = $state(0);
+	$effect(() => {
+		const provider = $walletStore.rsk.provider;
+		const address = $walletStore.rsk.address;
+		if (!provider || !address) return;
+
+		const rpcUrl = provider.connection?.url || 'https://public-node.rsk.co';
+		fetch(rpcUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_getBalance',
+				params: [address, 'latest'],
+				id: 1
+			})
+		})
+			.then((r) => r.json())
+			.then((d) => {
+				const wei = BigInt(d?.result || '0x0');
+				currentRpcSats = Number(wei / BigInt(10_000_000_000n));
+			})
+			.catch(() => {
+				// Fallback to store value on RPC failure
+				currentRpcSats = $totalBalances.sats;
+			});
+	});
+
 	let balanceChangesPromise = $derived.by(() => {
 		return balanceHistoryService.getBalanceChanges(
-			$totalBalances.sats,
-			$totalBalances.usd,
+			currentRpcSats || $totalBalances.sats,
+			rskUsd,
 			$walletStore.rsk.provider,
 			$walletStore.rsk.address
 		);
@@ -43,10 +101,10 @@
 
 		return {
 			sats: satsNeutral
-				? `${formatSats(Math.abs(sats))}`
+				? `${formatSats(Math.abs(sats))} Sats`
 				: sats > 0
-					? `+${formatSats(Math.abs(sats))}`
-					: `-${formatSats(Math.abs(sats))}`,
+					? `+${formatSats(Math.abs(sats))} Sats`
+					: `-${formatSats(Math.abs(sats))} Sats`,
 			usd: formatUsdChange(usd, usdNeutral),
 			satsColor: satsNeutral ? 'text-base-content/70' : sats > 0 ? 'text-success' : 'text-error',
 			usdColor: usdNeutral ? 'text-base-content/70' : usd > 0 ? 'text-success/80' : 'text-error/80'
@@ -78,7 +136,7 @@
 					{@const f24 = formatChange(changes[0]?.satsChange ?? null, changes[0]?.usdChange ?? null)}
 					{#if f24}
 						{#if balancesHidden}
-							<span class="text-base-content/50">••••</span>
+							<span class="text-base-content/50">•••• Sats</span>
 							<span class="text-base-content/50">••••</span>
 						{:else}
 							<span class="font-semibold {f24.satsColor}">{f24.sats}</span>
@@ -105,10 +163,10 @@
 					{@const f7 = formatChange(changes[1]?.satsChange ?? null, changes[1]?.usdChange ?? null)}
 					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
 						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.7d')}</span>
-						<div class="flex items-center gap-3">
+						<div class="flex items-center gap-3 text-sm sm:text-base">
 							{#if f7}
 								{#if balancesHidden}
-									<span class="text-base-content/50">••••</span>
+									<span class="text-base-content/50">•••• Sats</span>
 									<span class="text-base-content/50">••••</span>
 								{:else}
 									<span class="font-semibold {f7.satsColor}">{f7.sats}</span>
@@ -126,10 +184,10 @@
 					{@const f30 = formatChange(changes[2]?.satsChange ?? null, changes[2]?.usdChange ?? null)}
 					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
 						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.30d')}</span>
-						<div class="flex items-center gap-3">
+						<div class="flex items-center gap-3 text-sm sm:text-base">
 							{#if f30}
 								{#if balancesHidden}
-									<span class="text-base-content/50">••••</span>
+									<span class="text-base-content/50">•••• Sats</span>
 									<span class="text-base-content/50">••••</span>
 								{:else}
 									<span class="font-semibold {f30.satsColor}">{f30.sats}</span>

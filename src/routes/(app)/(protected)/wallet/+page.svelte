@@ -450,7 +450,7 @@
 				{/if}
 
 				<!-- Activity Accordion (between balances and transactions) -->
-				{#if activeTab !== 'connected'}
+				{#if activeTab === 'wallet' || $connectedWalletsStore.wallets.length > 0}
 					<div>
 						<BalanceHistory {balancesHidden} />
 					</div>
