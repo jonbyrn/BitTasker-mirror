@@ -38,11 +38,14 @@
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconLock from '~icons/mdi/lock';
 	import IconClose from '~icons/mdi/close';
+	import IconHandCoin from '~icons/mdi/hand-coin';
+	import IconChartLine from '~icons/mdi/chart-line';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import BankingMenu from '$lib/components/wallet/BankingMenu.svelte';
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
-	import DeFiFlowDrawer from '$lib/components/wallet/DeFiFlowDrawer.svelte';
+	import BorrowFlowDrawer from '$lib/components/wallet/BorrowFlowDrawer.svelte';
+	import EarnFlowDrawer from '$lib/components/wallet/EarnFlowDrawer.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
@@ -250,7 +253,8 @@
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
-	let showDeFi = $state(false);
+	let showBorrow = $state(false);
+	let showEarn = $state(false);
 
 	function closeBankingMenu() {
 		bankingMenuOpen = false;
@@ -284,17 +288,12 @@
 			closeBankingMenu();
 			showSwap = true;
 		}
-		function handleDefi() {
-			closeBankingMenu();
-			showDeFi = true;
-		}
 
 		el.addEventListener('banking:send', handleSend);
 		el.addEventListener('banking:receive', handleReceive);
 		el.addEventListener('banking:buy', handleBuy);
 		el.addEventListener('banking:sell', handleSell);
 		el.addEventListener('banking:swap', handleSwap);
-		el.addEventListener('banking:defi', handleDefi);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
@@ -302,7 +301,6 @@
 			el.removeEventListener('banking:buy', handleBuy);
 			el.removeEventListener('banking:sell', handleSell);
 			el.removeEventListener('banking:swap', handleSwap);
-			el.removeEventListener('banking:defi', handleDefi);
 		};
 	});
 </script>
@@ -576,6 +574,24 @@
 					</button>
 				</div>
 
+				<!-- DeFi Buttons (Loans + Earn, one row) -->
+				<div class="flex flex-row gap-1">
+					<button
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs transition-none active:scale-100"
+						onclick={() => (showBorrow = true)}
+					>
+						<IconHandCoin class="h-5 w-5 shrink-0" />
+						<span class="leading-tight font-medium">{$t('wallet.defi.tab_borrow')}</span>
+					</button>
+					<button
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs transition-none active:scale-100"
+						onclick={() => (showEarn = true)}
+					>
+						<IconChartLine class="h-5 w-5 shrink-0" />
+						<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
+					</button>
+				</div>
+
 				<!-- Learn More — centered below all buttons, always visible -->
 				<div class="flex justify-center pb-4">
 					<button
@@ -616,8 +632,11 @@
 <HelpModal />
 
 <!-- DeFi Drawer -->
-{#if showDeFi}
-	<DeFiFlowDrawer isOpen={showDeFi} onClose={() => (showDeFi = false)} />
+{#if showBorrow}
+	<BorrowFlowDrawer isOpen={showBorrow} onClose={() => (showBorrow = false)} />
+{/if}
+{#if showEarn}
+	<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} />
 {/if}
 
 <!-- Buy/Sell Drawer -->
