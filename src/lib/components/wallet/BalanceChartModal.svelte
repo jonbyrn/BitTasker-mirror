@@ -61,9 +61,18 @@
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
+		overrideAddress?: string;
+		overrideSats?: number;
+		overrideUsd?: number;
 	}
 
-	let { isOpen, onClose }: Props = $props();
+	let {
+		isOpen,
+		onClose,
+		overrideAddress = '',
+		overrideSats = 0,
+		overrideUsd = 0
+	}: Props = $props();
 
 	let chartCanvas: HTMLCanvasElement | null = $state(null);
 	let chartInstance: Chart | null = $state(null);
@@ -154,15 +163,13 @@
 			return;
 		}
 
-		if (!$walletStore.rsk.provider) {
-			error = 'Wallet provider not available';
-			return;
-		}
-
-		if (!$walletStore.rsk.address) {
+		const address = overrideAddress || $walletStore.rsk.address;
+		if (!address) {
 			error = 'Wallet address not available';
 			return;
 		}
+
+		const provider = $walletStore.rsk.provider;
 
 		isLoading = true;
 		error = null;
@@ -173,10 +180,10 @@
 			const balances = await balanceHistoryService.getDailyBalances(
 				start,
 				end,
-				$walletStore.rsk.provider,
-				$walletStore.rsk.address,
-				$totalBalances.sats,
-				$totalBalances.usd
+				provider,
+				address,
+				overrideAddress ? overrideSats : $totalBalances.sats,
+				overrideAddress ? overrideUsd : $totalBalances.usd
 			);
 
 			// Ensure we have data - if empty, log for debugging

@@ -634,14 +634,6 @@
 										format: (v: unknown) => formatSatsWithUsd((v as { raw?: string | number })?.raw)
 									},
 									{
-										key: 'usdt',
-										label: $t('wallet.usdt0_arbitrum'),
-										img: '/images/chains/arbitrum.png',
-										alt: 'USDT0 (Arbitrum)',
-										condition: isEVM,
-										format: (v: unknown) => (v as { formatted?: string })?.formatted ?? '$0.00'
-									},
-									{
 										key: 'wbtc',
 										label: 'WBTC (Arbitrum)',
 										img: '/images/chains/arbitrum.png',
@@ -653,6 +645,14 @@
 											const sats = Math.round(raw / 10_000_000_000);
 											return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 										}
+									},
+									{
+										key: 'usdt',
+										label: $t('wallet.usdt0_arbitrum'),
+										img: '/images/chains/arbitrum.png',
+										alt: 'USDT0 (Arbitrum)',
+										condition: isEVM,
+										format: (v: unknown) => (v as { formatted?: string })?.formatted ?? '$0.00'
 									}
 								]}
 								<div class="space-y-1">

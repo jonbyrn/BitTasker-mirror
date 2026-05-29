@@ -251,4 +251,10 @@
 	</div>
 </div>
 
-<BalanceChartModal isOpen={showChartModal} onClose={() => (showChartModal = false)} />
+<BalanceChartModal
+	isOpen={showChartModal}
+	onClose={() => (showChartModal = false)}
+	{overrideAddress}
+	{overrideSats}
+	{overrideUsd}
+/>
