@@ -21,6 +21,8 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
+	import AssetSelector from '$lib/components/wallet/AssetSelector.svelte';
+	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
@@ -35,7 +37,7 @@
 	// -----------------------------------------------------------------------
 	// Destination type enum
 	// -----------------------------------------------------------------------
-	type DestType = 'usdt-bsc' | 'rbtc-rsk' | 'btc-onchain';
+	type DestType = 'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain';
 
 	interface DestOption {
 		id: DestType;
@@ -52,7 +54,7 @@
 	// State
 	// -----------------------------------------------------------------------
 	let sourceType = $state<SourceWallet>('rbtc');
-	let destType = $state<DestType>('usdt-bsc');
+	let destType = $state<DestType>('usdt0-arb');
 	let amount = $state('');
 	let selectedRouteId = $state('');
 	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'complete' | 'failed'>('form');
@@ -60,6 +62,7 @@
 	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
 	let swapPercent = $state(0);
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let slideDir = $state(-1); // 1 = forward, -1 = reverse; toggles each swap
 
 	// -----------------------------------------------------------------------
@@ -68,7 +71,9 @@
 	let sourceWallet = $state<'builtin' | string>('builtin');
 	let destWallet = $state<'builtin' | string>('builtin');
 	let sourceExpand = $state(false);
+	let sourceAssetExpand = $state(false);
 	let destExpand = $state(false);
+	let destAssetExpand = $state(false);
 
 	let isConnectedSource = $derived(sourceWallet !== 'builtin');
 	let isConnectedDest = $derived(destWallet !== 'builtin');
@@ -116,7 +121,7 @@
 		if (!isConnectedSource) {
 			return sourceType === 'rbtc'
 				? ($walletStore.rsk.address ?? '')
-				: ($walletStore.bsc.address ?? '');
+				: ($walletStore.arb?.address ?? '');
 		}
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
 		return w?.address ?? '';
@@ -128,7 +133,7 @@
 			if (destType === 'btc-onchain') return getExternalBtcAddress();
 			return destType === 'rbtc-rsk'
 				? ($walletStore.rsk.address ?? '')
-				: ($walletStore.bsc.address ?? '');
+				: ($walletStore.arb?.address ?? '');
 		}
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
 		return w?.address ?? '';
@@ -138,7 +143,7 @@
 	function walletBalanceFor(walletId: string): string {
 		if (walletId === 'builtin') {
 			const sats = $walletStore.totalBalances.sats;
-			const usdt = $walletStore.totalBalances.usdt;
+			const usdt = parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
 			const usd = (sats / 100_000_000) * btcPrice.price + usdt;
 			return usd.toLocaleString('en-US', {
 				style: 'currency',
@@ -150,7 +155,7 @@
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === walletId);
 		if (!w?.balances) return '$0.00';
 		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
-		const usdt = Number(w.balances.usdt?.raw ?? 0) / 1e18;
+		const usdt = Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e18;
 		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
 		return usd.toLocaleString('en-US', {
 			style: 'currency',
@@ -164,13 +169,17 @@
 	// BTC wallet detection
 	// -----------------------------------------------------------------------
 	let hasExternalBtcWallet = $derived(
-		$connectedWalletsStore.wallets.some((w) => {
-			// Any connected wallet of type trezor/ledger that supports Bitcoin
-			if (w.walletType === 'trezor' || w.walletType === 'ledger') return true;
-			// Or any wallet with BTC balance
-			if (w.balances?.btc?.raw) return true;
-			return false;
-		})
+		(() => {
+			if (destWallet === 'builtin') return false;
+			const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
+			if (!w) return false;
+			return (
+				(w.walletType === 'trezor' ||
+					w.walletType === 'ledger' ||
+					w.walletType === 'walletconnect') &&
+				!!w.btcAddress
+			);
+		})()
 	);
 
 	/**
@@ -205,14 +214,24 @@
 		network: 'rootstock-bitcoin',
 		chainId: 30
 	};
-	const CHAIN_BSC = {
-		asset: 'USDT',
-		label: 'Binance Smart Chain',
-		short: 'BSC',
+	const CHAIN_ARB = {
+		asset: 'USDT0',
+		label: 'Arbitrum',
+		short: 'ARB',
 		icon: '/images/chains/Tether-USD.svg',
-		network: 'usdt-bsc',
-		chainId: 56
+		network: 'usdt0-arb',
+		chainId: 42161
 	};
+
+	const CHAIN_WBTC = {
+		asset: 'WBTC',
+		label: 'wBTC',
+		short: 'WBTC',
+		icon: '/images/chains/arbitrum.png',
+		network: 'wbtc-arb',
+		chainId: 42161 // Arbitrum mainnet
+	};
+
 	const CHAIN_BTC = {
 		asset: 'BTC',
 		label: 'Bitcoin',
@@ -229,19 +248,45 @@
 		const options: DestOption[] = [];
 
 		if (sourceType === 'rbtc') {
-			// rBTC → USDT on BSC
+			// rBTC → USDT on Arbitrum
 			options.push({
-				id: 'usdt-bsc',
-				asset: CHAIN_BSC.asset,
-				label: CHAIN_BSC.label,
+				id: 'usdt0-arb',
+				asset: CHAIN_ARB.asset,
+				label: CHAIN_ARB.label,
 				description: $t('wallet.swap.desc_rbtc_to_usdt'),
-				icon: CHAIN_BSC.icon,
-				network: CHAIN_BSC.network,
-				chainId: CHAIN_BSC.chainId,
+				icon: CHAIN_ARB.icon,
+				network: CHAIN_ARB.network,
+				chainId: CHAIN_ARB.chainId,
 				available: true
 			});
 
-			// rBTC → BTC on-chain (only if external BTC wallet)
+			// Same-wallet transfer: rBTC → rBTC (when source ≠ dest wallet)
+			if (sourceWallet !== destWallet) {
+				options.push({
+					id: 'rbtc-rsk',
+					asset: CHAIN_RSK.asset,
+					label: CHAIN_RSK.label,
+					description: $t('wallet.swap.desc_same_wallet_transfer'),
+					icon: CHAIN_RSK.icon,
+					network: CHAIN_RSK.network,
+					chainId: CHAIN_RSK.chainId,
+					available: destWallet !== 'builtin'
+				});
+			}
+
+			// rBTC → wBTC on Arbitrum
+			options.push({
+				id: 'wbtc-arb',
+				asset: CHAIN_WBTC.asset,
+				label: CHAIN_WBTC.label,
+				description: $t('wallet.swap.desc_rbtc_to_wbtc'),
+				icon: CHAIN_WBTC.icon,
+				network: CHAIN_WBTC.network,
+				chainId: CHAIN_WBTC.chainId,
+				available: true
+			});
+
+			// rBTC → BTC on-chain (only if external BTC wallet, always last)
 			options.push({
 				id: 'btc-onchain',
 				asset: CHAIN_BTC.asset,
@@ -264,6 +309,18 @@
 				chainId: CHAIN_RSK.chainId,
 				available: true
 			});
+
+			// USDT0 → wBTC on Arbitrum (same-chain swap)
+			options.push({
+				id: 'wbtc-arb',
+				asset: CHAIN_WBTC.asset,
+				label: CHAIN_WBTC.label,
+				description: $t('wallet.swap.desc_usdt_to_wbtc'),
+				icon: CHAIN_WBTC.icon,
+				network: CHAIN_WBTC.network,
+				chainId: CHAIN_WBTC.chainId,
+				available: true
+			});
 		}
 
 		return options;
@@ -283,7 +340,7 @@
 	let walletBalanceToken = $derived(
 		sourceType === 'rbtc'
 			? $walletStore.rsk?.formattedBalance || '0.00'
-			: $walletStore.bsc?.formattedUsdtBalance || '0.00'
+			: $walletStore.arb?.formattedUsdt0Balance || '0.00'
 	);
 
 	/** Actual BTC/USD price from Coinbase, fetched async. Default 0 until loaded. */
@@ -352,6 +409,107 @@
 	});
 
 	let visibleDestOptions = $derived(destOptions.filter((o) => o.available));
+
+	/** BTC on-chain balance from any connected wallet that supports BTC signing. */
+	let externalBtcBalanceSats = $derived.by(() => {
+		const w = $connectedWalletsStore.wallets.find(
+			(cw) =>
+				(cw.walletType === 'trezor' ||
+					cw.walletType === 'ledger' ||
+					cw.walletType === 'walletconnect') &&
+				!!cw.btcAddress
+		);
+		if (!w?.balances?.btc?.raw) return 0;
+		return Number(w.balances.btc.raw);
+	});
+
+	let destAssets = $derived<AssetOption[]>(
+		visibleDestOptions.map((o) => ({
+			id: o.id,
+			label:
+				o.asset === 'USDT0'
+					? 'USD (Arbitrum)'
+					: o.asset === 'rBTC'
+						? 'Bitcoin (rBTC)'
+						: o.asset === 'WBTC'
+							? 'Bitcoin (wBTC)'
+							: o.id === 'btc-onchain'
+								? 'Bitcoin (BTC)'
+								: `${o.asset}`,
+			icon: o.icon,
+			subLabel:
+				o.id === 'usdt0-arb'
+					? 'USDT0 on Arbitrum'
+					: o.id === 'wbtc-arb'
+						? 'Wrapped BTC on Arbitrum'
+						: o.id === 'rbtc-rsk'
+							? sourceWallet !== destWallet
+								? `Send to ${$connectedWalletsStore.wallets.find((w) => w.id === destWallet)?.walletName || 'wallet'}`
+								: o.description
+							: o.description,
+			available: o.available,
+			balance:
+				o.id === 'usdt0-arb'
+					? `$${parseFloat($walletStore.arb?.formattedUsdt0Balance || '0').toFixed(2)}`
+					: o.id === 'rbtc-rsk'
+						? formatSats(
+								Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000)
+							) + ' Sats'
+						: o.id === 'wbtc-arb'
+							? formatSats(
+									Math.round(
+										parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000
+									)
+								) + ' Sats'
+							: o.id === 'btc-onchain'
+								? externalBtcBalanceSats > 0
+									? formatSats(externalBtcBalanceSats) + ' Sats'
+									: undefined
+								: undefined,
+			balanceSub:
+				o.id === 'rbtc-rsk'
+					? `≈ $${(parseFloat($walletStore.rsk?.formattedBalance || '0') * btcPrice.price).toFixed(2)}`
+					: o.id === 'wbtc-arb'
+						? `≈ $${(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * btcPrice.price).toFixed(2)}`
+						: o.id === 'btc-onchain'
+							? externalBtcBalanceSats > 0
+								? `≈ $${((externalBtcBalanceSats / 100_000_000) * btcPrice.price).toFixed(2)}`
+								: undefined
+							: undefined
+		}))
+	);
+
+	let sourceAssets = $derived<AssetOption[]>([
+		{
+			id: 'rbtc',
+			label: 'Bitcoin (rBTC)',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			subLabel: 'Bitcoin on Rootstock',
+			balance:
+				formatSats(
+					Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000)
+				) + ' Sats',
+			balanceSub: `≈ $${(parseFloat($walletStore.rsk?.formattedBalance || '0') * btcPrice.price).toFixed(2)}`
+		},
+		{
+			id: 'usdt0-arb',
+			label: 'USD (Arbitrum)',
+			icon: '/images/chains/Tether-USD.svg',
+			subLabel: 'USDT0 on Arbitrum',
+			balance: `$${parseFloat($walletStore.arb?.formattedUsdt0Balance || '0').toFixed(2)}`
+		},
+		{
+			id: 'wbtc-arb',
+			label: 'Bitcoin (wBTC)',
+			icon: '/images/chains/arbitrum.png',
+			subLabel: 'Wrapped BTC on Arbitrum',
+			balance:
+				formatSats(
+					Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000)
+				) + ' Sats',
+			balanceSub: `≈ $${(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * btcPrice.price).toFixed(2)}`
+		}
+	]);
 
 	let selectedDest = $derived(
 		visibleDestOptions.find((o) => o.id === destType) || visibleDestOptions[0]
@@ -427,11 +585,17 @@
 		const sourceAmt = amountInTokenUnits;
 
 		let output: number;
-		if (sourceType === 'rbtc' && selectedDest?.id === 'usdt-bsc') {
+		if (sourceType === 'rbtc' && selectedDest?.id === 'usdt0-arb') {
 			// rBTC → USDT: rBTC ≈ BTC, so rBTC amount * BTC/USD price * fee
 			output = sourceAmt * btcUsdPrice * fee;
-		} else if (sourceType === 'usdt-bsc' && selectedDest?.id === 'rbtc-rsk') {
+		} else if (sourceType === 'usdt0-arb' && selectedDest?.id === 'rbtc-rsk') {
 			// USDT → rBTC: USDT amount / BTC/USD price * fee
+			output = btcUsdPrice > 0 ? (sourceAmt / btcUsdPrice) * fee : 0;
+		} else if (sourceType === 'rbtc' && selectedDest?.id === 'wbtc-arb') {
+			// rBTC → wBTC: ~1:1 in BTC terms via bridge
+			output = sourceAmt * fee;
+		} else if (sourceType === 'usdt0-arb' && selectedDest?.id === 'wbtc-arb') {
+			// USDT0 → wBTC: same-chain swap, USDT / BTC price * fee
 			output = btcUsdPrice > 0 ? (sourceAmt / btcUsdPrice) * fee : 0;
 		} else if (sourceType === 'rbtc' && selectedDest?.id === 'btc-onchain') {
 			// rBTC → BTC: ~1:1 in BTC terms, output in BTC token units
@@ -497,11 +661,11 @@
 		slideDir *= -1; // reverse slide direction each swap
 
 		if (sourceType === 'rbtc') {
-			sourceType = 'usdt-bsc';
+			sourceType = 'usdt0-arb';
 			destType = 'rbtc-rsk';
 		} else {
 			sourceType = 'rbtc';
-			destType = 'usdt-bsc';
+			destType = 'usdt0-arb';
 		}
 		amount = '';
 		swapPercent = 0;
@@ -679,35 +843,16 @@
 						onToggle={() => (sourceExpand = !sourceExpand)}
 					/>
 
-					<!-- Source Asset Toggle -->
-					<div class="flex items-center justify-center px-2">
-						<div
-							class="bg-base-200 flex items-center gap-1 rounded-xl p-1 text-xs font-medium sm:text-sm"
-						>
-							<button
-								type="button"
-								class="rounded-lg px-3 py-1.5 transition-colors {sourceType === 'rbtc'
-									? 'bg-primary text-primary-content shadow-sm'
-									: 'text-base-content/60 hover:text-base-content'}"
-								onclick={() => {
-									if (sourceType !== 'rbtc') swapDirection();
-								}}
-							>
-								{$t('wallet.rbtc')}
-							</button>
-							<button
-								type="button"
-								class="rounded-lg px-3 py-1.5 transition-colors {sourceType === 'usdt-bsc'
-									? 'bg-primary text-primary-content shadow-sm'
-									: 'text-base-content/60 hover:text-base-content'}"
-								onclick={() => {
-									if (sourceType !== 'usdt-bsc') swapDirection();
-								}}
-							>
-								{$t('wallet.usdt')}
-							</button>
-						</div>
-					</div>
+					<!-- Source Asset -->
+					<AssetSelector
+						selectedId={sourceType}
+						onSelect={(id) => {
+							if (id !== sourceType) swapDirection();
+						}}
+						assets={sourceAssets}
+						expanded={sourceAssetExpand}
+						onToggle={() => (sourceAssetExpand = !sourceAssetExpand)}
+					/>
 
 					<!-- Swap Direction Button -->
 					<div class="relative flex items-center justify-center py-1">
@@ -754,111 +899,34 @@
 						onToggle={() => (destExpand = !destExpand)}
 					/>
 
-					<!-- Destination Asset Selection -->
-					{#key sourceType}
-						<div
-							class="space-y-2"
-							style="animation: {slideDir < 0 ? 'slideFromRight' : 'slideFromLeft'} 0.25s ease"
-						>
-							{#each visibleDestOptions as option (option.id)}
-								{@const isSelected = destType === option.id}
-								<button
-									type="button"
-									class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
-										? 'border-primary bg-primary/5 shadow-sm'
-										: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
-									onclick={() => {
-										destType = option.id;
-										selectedRouteId = '';
-									}}
-									style="-webkit-tap-highlight-color: transparent;"
-								>
-									<div
-										class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 {isSelected
-											? 'border-primary'
-											: 'border-base-300'}"
-									>
-										{#if isSelected}
-											<div class="bg-primary h-3 w-3 rounded-full"></div>
-										{/if}
-									</div>
-									<div class="relative shrink-0">
-										<img
-											src={option.icon}
-											alt={option.asset}
-											class="h-8 w-8 rounded-full sm:h-10 sm:w-10"
-										/>
-										{#if option.asset === 'USDT'}
-											<img
-												src="/images/chains/Binance-logo.svg"
-												alt="BSC"
-												class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
-											/>
-										{/if}
-									</div>
-									<div class="min-w-0 flex-1">
-										<div class="text-sm font-semibold sm:text-base">
-											{option.asset === 'USDT' ? 'USD' : 'Bitcoin'} ({option.asset === 'USDT'
-												? 'Binance'
-												: option.asset})
-										</div>
-										<div class="text-base-content/60 text-xs sm:text-sm">
-											{#if option.id === 'rbtc-rsk'}
-												{$t('wallet.available_balance')}: {satsUsd(
-													Math.round(
-														parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000
-													)
-												)}
-											{:else if option.id === 'btc-onchain'}
-												{$t('wallet.available_balance')}: {satsUsd(
-													Number(
-														$connectedWalletsStore.wallets.find(
-															(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
-														)?.balances?.btc?.raw || 0
-													)
-												)}
-											{:else}
-												{$t('wallet.available_balance')}: ${parseFloat(
-													$walletStore.bsc?.formattedUsdtBalance || '0'
-												).toLocaleString('en-US', {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: 2
-												})}
-											{/if}
-										</div>
-									</div>
-								</button>
-							{/each}
-
-							<!-- BTC not available hint (always shown when no BTC wallet) -->
-							{#if !hasExternalBtcWallet}
-								<div
-									class="text-base-content/40 flex items-center gap-2 px-1 py-1 text-xs sm:text-sm"
-								>
-									<svg
-										class="h-4 w-4 shrink-0"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
-									</svg>
-									<span>{$t('wallet.swap.btc_not_available')}</span>
-								</div>
-							{/if}
-						</div>
-					{/key}
+					<!-- Destination Asset Selector (compact accordion) -->
+					<AssetSelector
+						selectedId={destType}
+						onSelect={(id) => {
+							destType = id as DestType;
+							selectedRouteId = '';
+						}}
+						assets={destAssets}
+						expanded={destAssetExpand}
+						onToggle={() => (destAssetExpand = !destAssetExpand)}
+					/>
 
 					<!-- Amount Input -->
 					<div class="form-control">
 						<label for="swap-amount" class="label flex justify-between px-1 py-1">
 							<span class="label-text text-sm sm:text-base">
-								{sourceType === 'rbtc' ? $t('wallet.sats') : 'USDT'}
+								{#if sourceType === 'rbtc' && amountSats > 0}
+									{amountSats.toLocaleString('en-US')}
+									{$t('wallet.sats')}
+									(${((amountSats / 100_000_000) * btcPrice.price).toLocaleString('en-US', {
+										style: 'currency',
+										currency: 'USD',
+										minimumFractionDigits: 2,
+										maximumFractionDigits: 2
+									})})
+								{:else}
+									{sourceType === 'rbtc' ? $t('wallet.sats') : 'USDT'}
+								{/if}
 							</span>
 							<span class="label-text-alt text-xs sm:text-sm">
 								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
@@ -934,7 +1002,7 @@
 							</div>
 							<div class="text-base font-bold sm:text-lg">
 								{#if activeRoute && selectedDest}
-									{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+									{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
 										{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 									{:else}
 										${parseFloat(estimatedOutput).toLocaleString('en-US', {
@@ -986,9 +1054,9 @@
 							alt={sourceAsset}
 							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
 						/>
-						{#if sourceType === 'usdt-bsc'}
+						{#if sourceType === 'usdt0-arb'}
 							<img
-								src="/images/chains/Binance-logo.svg"
+								src="/images/chains/arbitrum.png"
 								alt="BSC"
 								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
 							/>
@@ -1064,10 +1132,10 @@
 							alt={selectedDest.asset}
 							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
 						/>
-						{#if selectedDest.asset === 'USDT'}
+						{#if selectedDest.asset === 'USDT0'}
 							<img
-								src="/images/chains/Binance-logo.svg"
-								alt="BSC"
+								src="/images/chains/arbitrum.png"
+								alt="Arbitrum"
 								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
 							/>
 						{/if}
@@ -1075,15 +1143,18 @@
 					<div class="min-w-0 flex-1">
 						<div class="text-base-content/60 text-xs sm:text-sm">{$t('wallet.swap.you_get')}</div>
 						<div class="text-sm font-semibold sm:text-base">
-							{selectedDest.asset === 'USDT' ? 'USD' : selectedDest.asset} ({selectedDest.asset ===
-							'USDT'
-								? 'Binance'
+							{selectedDest.asset === 'USDT0'
+								? 'USD'
+								: selectedDest.asset === 'WBTC'
+									? 'wBTC'
+									: selectedDest.asset} ({selectedDest.asset === 'USDT0'
+								? 'Arbitrum'
 								: selectedDest.label})
 						</div>
 					</div>
 					<div class="shrink-0 text-right">
 						<div class="text-sm font-bold sm:text-base">
-							{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+							{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
 								{formatSats(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 								{$t('wallet.sats')}
 							{:else}
@@ -1093,7 +1164,7 @@
 								})}
 							{/if}
 						</div>
-						{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain'}
+						{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
 							{@const outSats = Math.round(parseFloat(estimatedOutput) * 100_000_000)}
 							<div class="text-base-content/50 text-xs">
 								${((outSats / 100_000_000) * btcUsdPrice).toLocaleString('en-US', {
@@ -1205,16 +1276,16 @@
 								alt={selectedDest!.asset}
 								class="h-7 w-7 rounded-full sm:h-8 sm:w-8"
 							/>
-							{#if selectedDest!.asset === 'USDT'}<img
-									src="/images/chains/Binance-logo.svg"
-									alt="BSC"
+							{#if selectedDest!.asset === 'USDT0'}<img
+									src="/images/chains/arbitrum.png"
+									alt="Arbitrum"
 									class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border"
 								/>{/if}
 						</div>
 						<div class="min-w-0 flex-1 text-xs sm:text-sm">
 							<div class="text-base-content/60">{$t('wallet.swap.you_get')}</div>
 							<div class="font-semibold">
-								{#if selectedDest!.asset === 'rBTC' || selectedDest!.id === 'btc-onchain'}
+								{#if selectedDest!.asset === 'rBTC' || selectedDest!.id === 'btc-onchain' || selectedDest!.id === 'wbtc-arb'}
 									{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 								{:else}
 									${parseFloat(estimatedOutput).toLocaleString('en-US', {
