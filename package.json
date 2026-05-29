@@ -8,7 +8,7 @@
 	},
 	"lint-staged": {
 		"*.{js,ts,svelte,json,css,md}": "prettier --write",
-		"*.{js,ts,svelte}": "eslint --fix"
+		"*.{js,ts,svelte}": "eslint --fix --cache"
 	},
 	"scripts": {
 		"dev": "vite dev --host --port 3000 --mode production",
