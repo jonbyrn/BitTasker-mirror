@@ -131,7 +131,9 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 	try {
 		await api.init({
 			lazyLoad: true,
+			coreMode: 'auto',
 			manifest: {
+				appName: 'BitTasker',
 				email: 'dev@bittasker.com',
 				appUrl: 'https://bittasker.com'
 			},
@@ -668,7 +670,9 @@ export async function connectTrezorBitcoin(
 	try {
 		await api.init({
 			lazyLoad: false,
+			coreMode: 'auto',
 			manifest: {
+				appName: 'BitTasker',
 				email: 'dev@bittasker.com',
 				appUrl: 'https://bittasker.com'
 			},
