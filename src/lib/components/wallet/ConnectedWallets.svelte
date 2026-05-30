@@ -414,6 +414,9 @@
 				navigator: window.navigator
 			});
 			registerConnectedWallet(handle);
+			appStore.showSuccessToast(
+				$t('wallet.connected.wallet_connected', { values: { name: handle.walletName } })
+			);
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('wallet.connected.error_trezor_connect');
@@ -557,7 +560,7 @@
 </script>
 
 {#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)}
-	<div class="space-y-2">
+	<div class="flex flex-col gap-2">
 		{#if $connectedWalletsStore.connectingType}
 			<div class="alert alert-outline alert-info py-2 text-sm">
 				<span class="loading loading-spinner loading-xs"></span>
@@ -592,15 +595,17 @@
 				>
 					<button
 						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-base font-medium"
+						class="collapse-title flex min-h-0 items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
 						onclick={() => (expandedWalletId = isExpanded ? null : wallet.id)}
 						aria-expanded={isExpanded}
 					>
-						{#if logo}
-							<img src={logo} alt={wallet.walletName} class="h-6 w-6 shrink-0" />
-						{/if}
-						<span>{wallet.walletName}</span>
-						<span class="text-base-content/50 ml-auto truncate pr-2 text-sm font-normal">
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							{#if logo}
+								<img src={logo} alt={wallet.walletName} class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+							{/if}
+							<span class="truncate">{wallet.walletName}</span>
+						</div>
+						<span class="text-base-content/50 ml-2 shrink-0 text-right text-sm font-normal">
 							{balancesHidden ? '••••' : stableWalletAvailableUsd(wallet)}
 							{$t('wallet.connected.available_label')}
 						</span>
@@ -927,7 +932,7 @@
 					{:else}
 						<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>
 
-						<div class="space-y-2">
+						<div class="flex flex-col gap-2">
 							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
 								<button
 									class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
@@ -1050,5 +1055,10 @@
 <style>
 	.tap-highlight-none {
 		-webkit-tap-highlight-color: transparent;
+	}
+
+	.collapse-arrow {
+		margin-top: 0;
+		margin-bottom: 0;
 	}
 </style>
