@@ -191,9 +191,21 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 			changeDeriver = await initChangeDerivation(xpub);
 			_debug('BIP86 change derivation initialized');
 		} else {
-			_debug(
-				'BTC xpub not available on this session (Trezor app-switch limitation) — continuing with EVM-only'
-			);
+			// Same-session BTC failed. Close ETH transport and try BTC-only.
+			_debug('BTC xpub not available on same session — trying separate BTC session...');
+			api.dispose();
+			try {
+				const btcResult = await connectTrezorBitcoin(config);
+				xpub = btcResult.xpub;
+				btcAddress = btcResult.btcAddress;
+				changeDeriver = await initChangeDerivation(xpub);
+				_debug('BTC connected via separate session');
+			} catch (btcErr) {
+				_debug(
+					'Separate BTC session also failed: %s — continuing EVM-only',
+					(btcErr as Error)?.message
+				);
+			}
 		}
 	} catch (e) {
 		_debug('BTC derivation threw (expected app-switch limitation): %s', (e as Error)?.message);
@@ -624,4 +636,87 @@ interface BitcoinSendRequest {
 	amount: string;
 	to?: string;
 	feeRate?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Standalone Bitcoin connection (separate session — Trezor runs one app at a time)
+// ---------------------------------------------------------------------------
+
+export interface TrezorBitcoinResult {
+	bitcoinSigner: BitcoinSigner;
+	xpub: string;
+	btcAddress: string;
+}
+
+/**
+ * Connect to the Trezor Bitcoin app in a SEPARATE transport session.
+ * Call this AFTER connectTrezor() succeeded with ETH.
+ * The user must open the Bitcoin app on their Trezor device first.
+ */
+export async function connectTrezorBitcoin(
+	config: TrezorConnectionConfig
+): Promise<TrezorBitcoinResult> {
+	const info = getPlatformInfo(config.navigator);
+	if (info.platform === 'ios') {
+		throw new Error('Trezor not available on iOS');
+	}
+
+	const _hasWebUSB = typeof navigator !== 'undefined' && 'usb' in config.navigator;
+
+	_debug('[BTC] loading Trezor Connect for Bitcoin session...');
+	const TrezorConnectModule = await import('@trezor/connect-web');
+	const api = (TrezorConnectModule.default ?? TrezorConnectModule) as unknown as {
+		init(params: Record<string, unknown>): Promise<void>;
+		dispose(): void;
+		getPublicKey(params: {
+			path: string;
+			coin: string;
+			showOnTrezor?: boolean;
+			scriptType?: string;
+		}): Promise<{ success: boolean; payload?: { xpub?: string; error?: string } }>;
+	};
+
+	const transports: string[] = _hasWebUSB ? ['WebUsbTransport'] : ['BridgeTransport'];
+	try {
+		await api.init({
+			lazyLoad: false,
+			manifest: {
+				email: 'dev@bittasker.com',
+				appUrl: 'https://bittasker.com'
+			},
+			transports
+		});
+		_debug('[BTC] Trezor Connect initialized (separate BTC session)');
+	} catch (e) {
+		_warn('[BTC] init failed: %s', (e as Error)?.message);
+		throw new Error(`Trezor Bitcoin init failed: ${(e as Error)?.message}`);
+	}
+
+	// Request xpub with device confirmation (user switches to BTC app)
+	_debug('[BTC] requesting BTC xpub at path %s...', BTC_TAPROOT_PATH);
+	const pkResult = await api.getPublicKey({
+		path: BTC_TAPROOT_PATH,
+		coin: 'btc',
+		scriptType: 'SPENDTAPROOT',
+		showOnTrezor: true
+	});
+
+	if (!pkResult.success || !pkResult.payload?.xpub) {
+		const err = pkResult.payload?.error || 'Failed to get Trezor Bitcoin public key';
+		_warn('[BTC] public key failed: %s', err);
+		api.dispose();
+		throw new Error(err);
+	}
+
+	const xpub = pkResult.payload.xpub;
+	_debug('[BTC] xpub received');
+
+	const changeDeriver = await initChangeDerivation(xpub);
+	const btcAddress = await deriveAddressFromXpub(xpub, 0, 0);
+	_debug('[BTC] address (locally derived): %s', btcAddress);
+
+	const bitcoinSigner = buildBitcoinSigner(btcAddress, xpub, changeDeriver, config);
+	api.dispose();
+
+	return { bitcoinSigner, xpub, btcAddress };
 }
