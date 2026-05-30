@@ -35,6 +35,10 @@
 	let ledgerBtcError = $state('');
 	let ledgerBtcConnecting = $state(false);
 
+	let showTrezorBtcStep = $state(false);
+	let trezorBtcError = $state('');
+	let trezorBtcConnecting = $state(false);
+
 	// Which Ledger wallet IDs have Bitcoin connected (checked via connector registry)
 	let btcConnectedWallets = $derived.by(() => {
 		return $connectedWalletsStore.wallets
@@ -327,6 +331,7 @@
 		showLedgerConnect = false;
 		showLedgerBtcStep = false;
 		showLedgerBtcSuccess = false;
+		showTrezorBtcStep = false;
 		ledgerBtcError = '';
 		ledgerBtcConnecting = false;
 		connectedWalletsStore.update((s) => ({ ...s, error: null, connectingType: null }));
@@ -417,6 +422,12 @@
 			appStore.showSuccessToast(
 				$t('wallet.connected.wallet_connected', { values: { name: handle.walletName } })
 			);
+			// If BTC not connected, show the BTC connection step
+			if (!btcConnectedWallets.includes(handle.id)) {
+				showConnectModal = true;
+				showTrezorBtcStep = true;
+				trezorBtcError = '';
+			}
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('wallet.connected.error_trezor_connect');
@@ -540,6 +551,46 @@
 				showConnectModal = false;
 				setConnectedWalletError(msg);
 			}
+		}
+	}
+
+	async function handleAddTrezorBitcoin(): Promise<void> {
+		trezorBtcError = '';
+		trezorBtcConnecting = true;
+		try {
+			const { connectTrezorBitcoin } = await import(
+				'$lib/services/external-wallet/trezor-connector'
+			);
+			const result = await connectTrezorBitcoin({
+				registry: connectorRegistry,
+				navigator: window.navigator
+			});
+
+			// Find the existing Trezor handle and add bitcoinSigner
+			const trezorWallet = $connectedWalletsStore.wallets.find((w) => w.walletType === 'trezor');
+			if (trezorWallet) {
+				const currentHandle = connectorRegistry.get(trezorWallet.id);
+				if (currentHandle) {
+					const updatedHandle = {
+						...currentHandle,
+						bitcoinSigner: result.bitcoinSigner
+					} as import('$lib/services/external-wallet/types').ConnectorHandle & {
+						bitcoinSigner: import('$lib/services/external-wallet/types').BitcoinSigner;
+					};
+					replaceConnectedWallet(updatedHandle);
+				}
+			}
+
+			// Show success briefly before closing
+			trezorBtcConnecting = false;
+			showTrezorBtcStep = false;
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+			showConnectModal = false;
+		} catch (error) {
+			const msg =
+				error instanceof Error ? error.message : $t('wallet.connected.error_trezor_connect');
+			trezorBtcConnecting = false;
+			trezorBtcError = msg;
 		}
 	}
 
@@ -769,6 +820,38 @@
 										</button>
 									{/if}
 								{/if}
+								{#if wallet.walletType === 'trezor'}
+									{#if btcConnectedWallets.includes(wallet.id)}
+										<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
+											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+											<svg
+												class="text-success h-4 w-4"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M5 13l4 4L19 7"
+												/></svg
+											>
+											{$t('wallet.connected.connected_label')}
+										</button>
+									{:else}
+										<button
+											class="btn btn-outline btn-sm min-h-[44px]"
+											onclick={() => {
+												showConnectModal = true;
+												showTrezorBtcStep = true;
+												trezorBtcError = '';
+											}}
+										>
+											<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
+											{$t('wallet.connected.connect_bitcoin')}
+										</button>
+									{/if}
+								{/if}
 								<button
 									class="btn btn-ghost btn-sm text-error min-h-[44px]"
 									onclick={() => confirmDisconnect(wallet.id)}
@@ -929,7 +1012,64 @@
 								</button>
 							</div>
 						</div>
-					{:else}
+					{:else if showTrezorBtcStep}
+						<!-- Trezor Step 2: Optional Bitcoin -->
+						<div class="flex flex-col items-center gap-4 py-4 text-center">
+							<div class="bg-success/10 rounded-full p-4">
+								<svg
+									class="text-success h-8 w-8"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/></svg
+								>
+							</div>
+							<h3 class="text-lg font-bold">{$t('wallet.connected.ledger.step2_title')}</h3>
+							<p class="text-base-content/70 text-sm leading-relaxed">
+								Your Trezor is connected via the Ethereum app. Would you like to also add
+								<strong>Bitcoin (BTC)</strong> support?
+							</p>
+							<p class="text-info text-xs leading-relaxed">
+								Open the <strong>Bitcoin app</strong> on your Trezor device, then click Connect below.
+							</p>
+							<div class="flex w-full flex-col gap-2">
+								{#if trezorBtcError}
+									<div class="alert alert-outline alert-warning py-2 text-xs leading-relaxed">
+										{trezorBtcError}
+									</div>
+								{/if}
+								<button
+									class="btn btn-primary btn-block min-h-[44px]"
+									disabled={trezorBtcConnecting}
+									onclick={handleAddTrezorBitcoin}
+								>
+									{#if trezorBtcConnecting}
+										<span class="loading loading-spinner loading-sm"></span>
+										Connecting...
+									{:else if trezorBtcError}
+										Try Again
+									{:else}
+										<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-5 w-5" />
+										Connect Bitcoin
+									{/if}
+								</button>
+								<button
+									class="btn btn-ghost btn-block min-h-[44px]"
+									disabled={trezorBtcConnecting}
+									onclick={() => {
+										showTrezorBtcStep = false;
+										closeConnectModal();
+									}}
+								>
+									Skip — EVM only
+								</button>
+							</div>
+						</div>
 						<h3 class="mb-3 text-lg font-bold">{$t('wallet.connected.connect_modal_title')}</h3>
 
 						<div class="flex flex-col gap-2">

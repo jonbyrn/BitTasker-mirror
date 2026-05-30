@@ -191,21 +191,9 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 			changeDeriver = await initChangeDerivation(xpub);
 			_debug('BIP86 change derivation initialized');
 		} else {
-			// Same-session BTC failed. Close ETH transport and try BTC-only.
-			_debug('BTC xpub not available on same session — trying separate BTC session...');
-			api.dispose();
-			try {
-				const btcResult = await connectTrezorBitcoin(config);
-				xpub = btcResult.xpub;
-				btcAddress = btcResult.btcAddress;
-				changeDeriver = await initChangeDerivation(xpub);
-				_debug('BTC connected via separate session');
-			} catch (btcErr) {
-				_debug(
-					'Separate BTC session also failed: %s — continuing EVM-only',
-					(btcErr as Error)?.message
-				);
-			}
+			_debug(
+				'BTC xpub not available on this session (Trezor app-switch limitation) — continuing with EVM-only'
+			);
 		}
 	} catch (e) {
 		_debug('BTC derivation threw (expected app-switch limitation): %s', (e as Error)?.message);
