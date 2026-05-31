@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { get } from 'svelte/store';
 	import { t, locale } from 'svelte-i18n';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
@@ -11,11 +10,8 @@
 		type AsyncRouteResult
 	} from '$lib/services/route-resolver-async';
 	import { startSwapChain } from '$lib/services/swap-chain.service';
-	import {
-		connectedWalletsStore,
-		restoreConnectedWalletState,
-		replaceConnectedWallet
-	} from '$lib/stores/connected-wallets.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { createDebug } from '$lib/utils/debug';
@@ -28,7 +24,6 @@
 	const d = createDebug('swap');
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import * as Sentry from '@sentry/sveltekit';
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -93,55 +88,11 @@
 	let isConnectedSource = $derived(sourceWallet !== 'builtin');
 	let isConnectedDest = $derived(destWallet !== 'builtin');
 
-	// Restore persisted connected wallets on mount
-	(async () => {
-		await restoreConnectedWalletState();
-		const wallets = get(connectedWalletsStore).wallets;
-
-		// MetaMask auto-reconnect for live balances
-		for (const w of wallets.filter((w) => w.walletType === 'metamask')) {
-			try {
-				const { connectMetaMask } = await import(
-					'$lib/services/external-wallet/metamask-connector'
-				);
-				const handle = await connectMetaMask({
-					registry: connectorRegistry,
-					onEvent: () => {},
-					knownAddress: w.address,
-					knownChainIds: w.chainIds,
-					longTimeout: true
-				});
-				replaceConnectedWallet(handle);
-			} catch (err) {
-				// Auto-reconnect silently fails — wallet shows with $0 balance
-				console.warn('[SwapForm] MetaMask auto-reconnect failed:', err);
-				Sentry.addBreadcrumb({
-					category: 'wallet',
-					message: 'MetaMask auto-reconnect failed',
-					level: 'warning'
-				});
-			}
-		}
-
-		// WalletConnect auto-reconnect
-		for (const _ of wallets.filter((w) => w.walletType === 'walletconnect')) {
-			try {
-				const { restoreWCSession } = await import(
-					'$lib/services/external-wallet/walletconnect-connector'
-				);
-				const handle = await restoreWCSession(() => {});
-				if (handle) replaceConnectedWallet(handle);
-			} catch (err) {
-				// WalletConnect session restoration failed — shows $0 balance
-				console.warn('[SwapForm] WalletConnect auto-reconnect failed:', err);
-				Sentry.addBreadcrumb({
-					category: 'wallet',
-					message: 'WalletConnect auto-reconnect failed',
-					level: 'warning'
-				});
-			}
-		}
-	})();
+	// Restore persisted connected wallets on mount and re-establish live SDK
+	// sessions for balance fetching. Delegates to the shared reconnect service.
+	onMount(() => {
+		reconnectPersistedWallets();
+	});
 
 	/** Source wallet address for route resolution */
 	let sourceAddr = $derived.by(() => {

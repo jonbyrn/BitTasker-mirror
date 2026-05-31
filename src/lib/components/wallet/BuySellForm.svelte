@@ -3,17 +3,12 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
-	import {
-		connectedWalletsStore,
-		restoreConnectedWalletState,
-		replaceConnectedWallet
-	} from '$lib/stores/connected-wallets.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import WalletSelector from './WalletSelector.svelte';
-	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
-	import { get } from 'svelte/store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
 	import * as Sentry from '@sentry/sveltekit';
 
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
@@ -26,68 +21,9 @@
 		})
 	);
 
-	// Restore persisted connected wallets and try to reconnect for live balances.
-	// restoreConnectedWalletState restores metadata (name, address) but with empty
-	// balances — live SDK reconnection is needed to fetch balances. This mirrors the
-	// same reconnection logic in ConnectedWallets.svelte's onMount.
-	(async () => {
-		await restoreConnectedWalletState();
-		const wallets = get(connectedWalletsStore).wallets;
-
-		// MetaMask: auto-reconnect via SDK (silent if session exists)
-		const mmWallets = wallets.filter((w) => w.walletType === 'metamask');
-		for (const w of mmWallets) {
-			try {
-				const { connectMetaMask } = await import(
-					'$lib/services/external-wallet/metamask-connector'
-				);
-				const handle = await connectMetaMask({
-					registry: connectorRegistry,
-					onEvent: () => {},
-					knownAddress: w.address,
-					knownChainIds: w.chainIds,
-					longTimeout: true
-				});
-				replaceConnectedWallet(handle);
-			} catch (err) {
-				// Auto-reconnect silently fails — wallet shows with $0 balance
-				console.warn('[BuySellForm] MetaMask auto-reconnect failed:', err);
-				Sentry.addBreadcrumb({
-					category: 'wallet',
-					message: 'MetaMask auto-reconnect failed',
-					level: 'warning'
-				});
-			}
-		}
-
-		// WalletConnect: restoreWC was already attempted inside
-		// restoreConnectedWalletState but its returned handle was discarded, leaving
-		// the store entry with empty balances. Try again and register the live handle.
-		const wcWallets = wallets.filter((w) => w.walletType === 'walletconnect');
-		for (const _ of wcWallets) {
-			try {
-				const { restoreWCSession } = await import(
-					'$lib/services/external-wallet/walletconnect-connector'
-				);
-				const handle = await restoreWCSession(() => {});
-				if (handle) {
-					replaceConnectedWallet(handle);
-				}
-			} catch (err) {
-				// WalletConnect session restoration failed — shows $0 balance
-				console.warn('[BuySellForm] WalletConnect auto-reconnect failed:', err);
-				Sentry.addBreadcrumb({
-					category: 'wallet',
-					message: 'WalletConnect auto-reconnect failed',
-					level: 'warning'
-				});
-			}
-		}
-
-		// Trezor / Ledger are hardware wallets that require physical device
-		// interaction — no auto-reconnect is possible here. They show $0 balance
-		// until the user visits the Connected tab and reconnects.
-	})();
+	// Restore persisted connected wallets and attempt SDK reconnection for live
+	// balances. Uses the shared reconnect service (same as SwapForm + ConnectedWallets).
+	reconnectPersistedWallets();
 
 	let activeTab = $state<'buy' | 'sell'>('buy');
 	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'btc-onchain'>('rbtc');

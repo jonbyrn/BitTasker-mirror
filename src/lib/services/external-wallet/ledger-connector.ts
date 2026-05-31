@@ -66,7 +66,7 @@ async function createLedgerTransport(navigator: Navigator): Promise<Transport> {
 			message: 'Ledger BLE transport opened',
 			level: 'info'
 		});
-		return (await BleTransport.create()) as unknown as Transport;
+		return await BleTransport.create();
 	}
 	const UsbTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
 	Sentry.addBreadcrumb({
@@ -74,7 +74,7 @@ async function createLedgerTransport(navigator: Navigator): Promise<Transport> {
 		message: 'Ledger USB transport opened',
 		level: 'info'
 	});
-	return (await UsbTransport.create()) as unknown as Transport;
+	return await UsbTransport.create();
 }
 
 // ---------------------------------------------------------------------------
@@ -331,11 +331,7 @@ function buildEVMSigner(address: string, config: LedgerConnectionConfig): EVMSig
 				(await provider?.getFeeData().catch(() => null))?.gasPrice || 1_000_000_000n;
 
 			const rawTx = unsignedTx.unsignedSerialized.slice(2);
-			const resolution = (await eth.resolveTransaction(
-				ETH_DERIVATION_PATH,
-				rawTx,
-				{}
-			)) as unknown as { r: string; s: string; v: string };
+			const resolution = await eth.clearSignTransaction(ETH_DERIVATION_PATH, rawTx, {});
 
 			const signature = ethersModule.Signature.from({
 				r: resolution.r,
@@ -383,18 +379,7 @@ function buildBitcoinSigner(
 		},
 		async sendBitcoin(req: BitcoinSendRequest): Promise<BitcoinSendResult> {
 			const { accumulative } = await import('coinselect');
-			const bitcoinjs = (await import('bitcoinjs-lib')) as unknown as {
-				networks: { testnet: unknown; bitcoin: unknown };
-				Psbt: {
-					new (params: { network: unknown }): {
-						addInput(params: unknown): unknown;
-						addOutput(params: unknown): unknown;
-						toBase64(): string;
-						extractTransaction(): { toHex(): string };
-					};
-				};
-				address: { toOutputScript(addr: string, network: unknown): Buffer };
-			};
+			const bitcoinjs = (await import('bitcoinjs-lib')) as typeof import('bitcoinjs-lib');
 
 			const apiBase = 'https://mempool.space/testnet/api';
 
@@ -427,11 +412,11 @@ function buildBitcoinSigner(
 						value: input.value
 					},
 					sequence: 0xfffffffd
-				} as unknown);
+				});
 			}
 
 			for (const output of selected.outputs as Array<{ address?: string; value: number }>) {
-				psbt.addOutput({ address: output.address!, value: output.value } as unknown);
+				psbt.addOutput({ address: output.address!, value: output.value });
 			}
 
 			const transport = await createLedgerTransport(navigator);
