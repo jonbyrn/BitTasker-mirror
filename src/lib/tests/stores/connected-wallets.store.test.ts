@@ -20,6 +20,7 @@ import {
 	hasConnectedWallets,
 	activeConnectedWallet,
 	registerConnectedWallet,
+	replaceConnectedWallet,
 	unregisterConnectedWallet,
 	setConnectingType,
 	setConnectedWalletError,
@@ -28,7 +29,7 @@ import {
 	restoreConnectedWalletState,
 	clearConnectedWalletState
 } from '$lib/stores/connected-wallets.store';
-import type { ConnectorHandle } from '$lib/services/external-wallet/types';
+import type { ConnectorHandle, BitcoinSigner } from '$lib/services/external-wallet/types';
 
 // ---------------------------------------------------------------------------
 // Mock connector-registry module
@@ -40,11 +41,19 @@ const { mockRegistryRegister, mockRegistryUnregister, mockRegistryClear } = vi.h
 	mockRegistryClear: vi.fn()
 }));
 
+const { mockRegistryReplace, mockPollerInit, mockPollerStart, mockPollerStop } = vi.hoisted(() => ({
+	mockRegistryReplace: vi.fn(),
+	mockPollerInit: vi.fn().mockResolvedValue(undefined),
+	mockPollerStart: vi.fn(),
+	mockPollerStop: vi.fn()
+}));
+
 vi.mock('$lib/services/external-wallet/connector-registry', () => ({
 	connectorRegistry: {
 		register: mockRegistryRegister,
 		unregister: mockRegistryUnregister,
 		clear: mockRegistryClear,
+		replace: mockRegistryReplace,
 		get: vi.fn(),
 		has: vi.fn(),
 		list: vi.fn().mockReturnValue([]),
@@ -52,6 +61,14 @@ vi.mock('$lib/services/external-wallet/connector-registry', () => ({
 	},
 	ConnectorRegistry: vi.fn(),
 	selectSigner: vi.fn()
+}));
+
+vi.mock('$lib/services/external-wallet/balance-poller', () => ({
+	balancePoller: {
+		init: mockPollerInit,
+		start: mockPollerStart,
+		stop: mockPollerStop
+	}
 }));
 
 // ---------------------------------------------------------------------------
@@ -548,6 +565,509 @@ describe('connected-wallets.store', () => {
 			expect(Preferences.remove).toHaveBeenCalled();
 			const callArg = vi.mocked(Preferences.remove).mock.calls[0]?.[0];
 			expect(callArg).toEqual({ key: 'bittasker_connected_wallets' });
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// replaceConnectedWallet
+	// -----------------------------------------------------------------------
+
+	describe('replaceConnectedWallet', () => {
+		it('replaces wallet entry while preserving existing balance data', () => {
+			const oldHandle = createMockHandle({
+				id: 'wallet-1',
+				address: '0xOLD_ADDRESS',
+				chainIds: [30]
+			});
+			registerConnectedWallet(oldHandle);
+
+			// Set up some existing balances
+			const rskBalance = { raw: '1000000000000000000', formatted: '1.0', loading: false };
+			const bscBalance = { raw: '2000000000000000000', formatted: '2.0', loading: false };
+			updateConnectedBalances('wallet-1', { rsk: rskBalance, bsc: bscBalance });
+
+			vi.clearAllMocks();
+
+			const newHandle = createMockHandle({
+				id: 'wallet-1',
+				address: '0xNEW_ADDRESS',
+				chainIds: [31, 137]
+			});
+			replaceConnectedWallet(newHandle);
+
+			const state = get(connectedWalletsStore);
+			expect(state.wallets).toHaveLength(1);
+			expect(state.wallets[0].id).toBe('wallet-1');
+			expect(state.wallets[0].address).toBe('0xNEW_ADDRESS');
+			expect(state.wallets[0].chainIds).toEqual([31, 137]);
+			expect(state.wallets[0].balances.rsk).toEqual(rskBalance);
+			expect(state.wallets[0].balances.bsc).toEqual(bscBalance);
+			expect(mockRegistryReplace).toHaveBeenCalledWith(newHandle);
+			expect(mockPollerStop).toHaveBeenCalledWith('wallet-1');
+		});
+
+		it("updates walletName to the new handle's value", () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1', walletName: 'MetaMask' }));
+			vi.clearAllMocks();
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1', walletName: 'Renamed Wallet' }));
+
+			expect(get(connectedWalletsStore).wallets[0].walletName).toBe('Renamed Wallet');
+		});
+
+		it('calls fetchBalances when present on the new handle', async () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			vi.clearAllMocks();
+
+			const mockFetch = vi.fn().mockResolvedValue({
+				rsk: { raw: '300', formatted: '0.0003', loading: false }
+			});
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1', fetchBalances: mockFetch }));
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+
+			// Wait for the async fetchBalances promise to resolve
+			await new Promise((r) => setTimeout(r, 50));
+
+			const balances = get(connectedWalletsStore).wallets[0].balances;
+			expect(balances.rsk?.raw).toBe('300');
+		});
+
+		it('keeps existing balances when fetchBalances is absent on new handle', () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			updateConnectedBalances('wallet-1', {
+				rsk: { raw: 'existing', formatted: '0.5', loading: false }
+			});
+			vi.clearAllMocks();
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1', address: '0xCHANGED' }));
+
+			const state = get(connectedWalletsStore);
+			expect(state.wallets[0].balances.rsk?.raw).toBe('existing');
+			expect(state.wallets[0].address).toBe('0xCHANGED');
+		});
+
+		it('persists state after replacement', () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			vi.clearAllMocks();
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1', address: '0xNEW' }));
+
+			expect(Preferences.set).toHaveBeenCalled();
+			const callArg = vi.mocked(Preferences.set).mock.calls[0]?.[0];
+			expect(callArg).toBeDefined();
+			const persisted = JSON.parse(callArg.value as string);
+			expect(persisted.version).toBe(2);
+			expect(persisted.wallets).toHaveLength(1);
+			expect(persisted.wallets[0].address).toBe('0xNEW');
+		});
+
+		it('no-ops when wallet ID does not exist in store', () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			vi.clearAllMocks();
+
+			expect(() => replaceConnectedWallet(createMockHandle({ id: 'non-existent' }))).not.toThrow();
+
+			const state = get(connectedWalletsStore);
+			expect(state.wallets).toHaveLength(1);
+			expect(state.wallets[0].id).toBe('wallet-1');
+		});
+
+		it('clears error and connectingType on replacement', () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			setConnectedWalletError('Previous error');
+			setConnectingType('metamask');
+			vi.clearAllMocks();
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+
+			const state = get(connectedWalletsStore);
+			expect(state.error).toBeNull();
+			expect(state.connectingType).toBeNull();
+		});
+
+		it('sets activeWalletId to the replaced wallet', () => {
+			registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+			registerConnectedWallet(createMockHandle({ id: 'wallet-2' }));
+			vi.clearAllMocks();
+
+			replaceConnectedWallet(createMockHandle({ id: 'wallet-1', address: '0xUPDATED' }));
+
+			expect(get(connectedWalletsStore).activeWalletId).toBe('wallet-1');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Hardware wallet deduplication (registerConnectedWallet)
+	// -----------------------------------------------------------------------
+
+	describe('registerConnectedWallet — hardware wallet deduplication', () => {
+		it('removes old Ledger entry when registering a new Ledger wallet', () => {
+			const oldLedger = createMockHandle({
+				id: 'ledger-old',
+				walletType: 'ledger',
+				walletName: 'Ledger (Old)',
+				address: '0xOLD_LEDGER'
+			});
+			registerConnectedWallet(oldLedger);
+
+			// Register a new Ledger wallet (different ID, different address)
+			const newLedger = createMockHandle({
+				id: 'ledger-new',
+				walletType: 'ledger',
+				walletName: 'Ledger (New)',
+				address: '0xNEW_LEDGER'
+			});
+			registerConnectedWallet(newLedger);
+
+			const state = get(connectedWalletsStore);
+			const ledgerWallets = state.wallets.filter((w) => w.walletType === 'ledger');
+			expect(ledgerWallets).toHaveLength(1);
+			expect(ledgerWallets[0].id).toBe('ledger-new');
+			expect(ledgerWallets[0].address).toBe('0xNEW_LEDGER');
+		});
+
+		it('removes old Trezor entry when registering a new Trezor wallet', () => {
+			const oldTrezor = createMockHandle({
+				id: 'trezor-old',
+				walletType: 'trezor',
+				walletName: 'Trezor (Old)',
+				address: '0xOLD_TREZOR'
+			});
+			registerConnectedWallet(oldTrezor);
+
+			const newTrezor = createMockHandle({
+				id: 'trezor-new',
+				walletType: 'trezor',
+				walletName: 'Trezor (New)',
+				address: '0xNEW_TREZOR'
+			});
+			registerConnectedWallet(newTrezor);
+
+			const state = get(connectedWalletsStore);
+			const trezorWallets = state.wallets.filter((w) => w.walletType === 'trezor');
+			expect(trezorWallets).toHaveLength(1);
+			expect(trezorWallets[0].id).toBe('trezor-new');
+		});
+
+		it('MetaMask re-register removes by exact ID, not by walletType', () => {
+			const mm1 = createMockHandle({
+				id: 'mm-1',
+				walletType: 'metamask',
+				walletName: 'MetaMask 1'
+			});
+			registerConnectedWallet(mm1);
+
+			const mm1rereg = createMockHandle({
+				id: 'mm-1',
+				walletType: 'metamask',
+				walletName: 'MetaMask 1 Re-reg'
+			});
+			registerConnectedWallet(mm1rereg);
+
+			// Only one entry because same ID was replaced
+			expect(get(connectedWalletsStore).wallets).toHaveLength(1);
+			expect(get(connectedWalletsStore).wallets[0].walletName).toBe('MetaMask 1 Re-reg');
+		});
+
+		it('MetaMask re-register with different ID creates separate entries', () => {
+			registerConnectedWallet(createMockHandle({ id: 'mm-1', walletType: 'metamask' }));
+			registerConnectedWallet(createMockHandle({ id: 'mm-2', walletType: 'metamask' }));
+
+			const state = get(connectedWalletsStore);
+			expect(state.wallets).toHaveLength(2);
+			expect(state.wallets.map((w) => w.id).sort()).toEqual(['mm-1', 'mm-2']);
+		});
+
+		it('maintains exactly one wallet of each hardware type after dedup (mixed wallets)', () => {
+			// Register initial hardware wallets
+			registerConnectedWallet(
+				createMockHandle({
+					id: 'ledger-1',
+					walletType: 'ledger',
+					walletName: 'Ledger'
+				})
+			);
+			registerConnectedWallet(
+				createMockHandle({
+					id: 'trezor-1',
+					walletType: 'trezor',
+					walletName: 'Trezor'
+				})
+			);
+			registerConnectedWallet(
+				createMockHandle({
+					id: 'mm-1',
+					walletType: 'metamask',
+					walletName: 'MetaMask'
+				})
+			);
+
+			expect(get(connectedWalletsStore).wallets).toHaveLength(3);
+
+			// Replace Ledger — should keep Trezor and MetaMask
+			registerConnectedWallet(
+				createMockHandle({
+					id: 'ledger-2',
+					walletType: 'ledger',
+					walletName: 'Ledger v2'
+				})
+			);
+
+			const state = get(connectedWalletsStore);
+			expect(state.wallets).toHaveLength(3);
+
+			const ledgerWallets = state.wallets.filter((w) => w.walletType === 'ledger');
+			expect(ledgerWallets).toHaveLength(1);
+			expect(ledgerWallets[0].id).toBe('ledger-2');
+
+			const trezorWallets = state.wallets.filter((w) => w.walletType === 'trezor');
+			expect(trezorWallets).toHaveLength(1);
+			expect(trezorWallets[0].id).toBe('trezor-1');
+
+			const mmWallets = state.wallets.filter((w) => w.walletType === 'metamask');
+			expect(mmWallets).toHaveLength(1);
+			expect(mmWallets[0].id).toBe('mm-1');
+		});
+
+		it('new hardware handle is registered in connectorRegistry, old is not unregistered', () => {
+			registerConnectedWallet(
+				createMockHandle({
+					id: 'ledger-1',
+					walletType: 'ledger',
+					address: '0xLEDGER1'
+				})
+			);
+			vi.clearAllMocks();
+
+			const newHandle = createMockHandle({
+				id: 'ledger-2',
+				walletType: 'ledger',
+				address: '0xLEDGER2'
+			});
+			registerConnectedWallet(newHandle);
+
+			expect(mockRegistryRegister).toHaveBeenCalledWith(newHandle);
+			expect(mockRegistryUnregister).not.toHaveBeenCalledWith('ledger-1');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// navigator.onLine guard
+	// -----------------------------------------------------------------------
+
+	describe('navigator.onLine guard', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		describe('registerConnectedWallet', () => {
+			it('skips balance fetch and warns when navigator.onLine is false', () => {
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				vi.stubGlobal('navigator', { onLine: false });
+
+				const mockFetch = vi.fn();
+				registerConnectedWallet(
+					createMockHandle({ id: 'offline-wallet', fetchBalances: mockFetch })
+				);
+
+				// Wallet is still registered in the store
+				expect(get(connectedWalletsStore).wallets).toHaveLength(1);
+				expect(get(connectedWalletsStore).wallets[0].id).toBe('offline-wallet');
+
+				// fetchBalances was NOT called
+				expect(mockFetch).not.toHaveBeenCalled();
+
+				// Console warning was issued
+				expect(warnSpy).toHaveBeenCalledWith('[Store] Offline — skipping initial balance fetch');
+
+				warnSpy.mockRestore();
+			});
+
+			it('proceeds with balance fetch when navigator.onLine is true', () => {
+				vi.stubGlobal('navigator', { onLine: true });
+
+				const mockFetch = vi.fn().mockResolvedValue({
+					rsk: { raw: '100', formatted: '0.0001', loading: false }
+				});
+				registerConnectedWallet(
+					createMockHandle({ id: 'online-wallet', fetchBalances: mockFetch })
+				);
+
+				expect(mockFetch).toHaveBeenCalledTimes(1);
+			});
+		});
+
+		describe('replaceConnectedWallet', () => {
+			it('skips balance fetch and warns when navigator.onLine is false', () => {
+				registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+				vi.clearAllMocks();
+
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				vi.stubGlobal('navigator', { onLine: false });
+
+				const mockFetch = vi.fn();
+				replaceConnectedWallet(createMockHandle({ id: 'wallet-1', fetchBalances: mockFetch }));
+
+				expect(mockFetch).not.toHaveBeenCalled();
+				expect(warnSpy).toHaveBeenCalledWith(
+					'[Store] Offline — skipping balance fetch after replace'
+				);
+
+				warnSpy.mockRestore();
+			});
+
+			it('proceeds with balance fetch when navigator.onLine is true', () => {
+				registerConnectedWallet(createMockHandle({ id: 'wallet-1' }));
+				vi.clearAllMocks();
+				vi.stubGlobal('navigator', { onLine: true });
+
+				const mockFetch = vi.fn().mockResolvedValue({
+					rsk: { raw: '100', formatted: '0.0001', loading: false }
+				});
+				replaceConnectedWallet(createMockHandle({ id: 'wallet-1', fetchBalances: mockFetch }));
+
+				expect(mockFetch).toHaveBeenCalledTimes(1);
+			});
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// BTC address persistence
+	// -----------------------------------------------------------------------
+
+	describe('BTC address persistence', () => {
+		describe('registerConnectedWallet', () => {
+			it('stores btcAddress when handle has bitcoinSigner with address', () => {
+				const btcSigner: BitcoinSigner = {
+					type: 'bitcoin',
+					label: 'Ledger',
+					address: 'bc1qtestaddress1234567890',
+					xpub: 'xpub123',
+					derivationPath: "m/84'/0'/0'/0/0",
+					getAddress: () => 'bc1qtestaddress1234567890',
+					getXPUB: () => 'xpub123',
+					isConnected: () => true,
+					deriveChangeAddress: () => 'bc1qchange',
+					sendBitcoin: async () => {
+						throw new Error('mock');
+					},
+					signPSBT: async () => {
+						throw new Error('mock');
+					}
+				};
+
+				registerConnectedWallet(
+					createMockHandle({
+						id: 'ledger-btc',
+						walletType: 'ledger',
+						walletName: 'Ledger',
+						bitcoinSigner: btcSigner
+					})
+				);
+
+				const state = get(connectedWalletsStore);
+				expect(state.wallets[0].btcAddress).toBe('bc1qtestaddress1234567890');
+			});
+
+			it('btcAddress is undefined when handle has no bitcoinSigner', () => {
+				registerConnectedWallet(
+					createMockHandle({
+						id: 'no-btc',
+						walletType: 'metamask',
+						walletName: 'MetaMask'
+					})
+				);
+
+				const state = get(connectedWalletsStore);
+				expect(state.wallets[0].btcAddress).toBeUndefined();
+			});
+		});
+
+		describe('restoreConnectedWalletState', () => {
+			it('creates BTC stub handle in registry after restore', async () => {
+				const persistedState = {
+					version: 2,
+					wallets: [
+						{
+							id: 'ledger-1',
+							walletName: 'Ledger',
+							walletType: 'ledger',
+							address: '0x1234',
+							chainIds: [30],
+							connectedAt: Date.now(),
+							btcAddress: 'bc1qrestoredbtcaddress'
+						}
+					]
+				};
+				vi.mocked(Preferences.get).mockResolvedValue({
+					value: JSON.stringify(persistedState)
+				});
+				vi.clearAllMocks();
+
+				await restoreConnectedWalletState();
+
+				expect(mockRegistryRegister).toHaveBeenCalled();
+				const stubHandle = mockRegistryRegister.mock.calls[0]?.[0];
+				expect(stubHandle).toBeDefined();
+				expect(stubHandle.id).toBe('ledger-1');
+				expect(stubHandle.walletType).toBe('ledger');
+				expect(stubHandle.bitcoinSigner).toBeDefined();
+				expect(stubHandle.bitcoinSigner?.address).toBe('bc1qrestoredbtcaddress');
+				expect(stubHandle.bitcoinSigner?.type).toBe('bitcoin');
+			});
+
+			it('does not create BTC stub handle when btcAddress is missing', async () => {
+				const persistedState = {
+					version: 2,
+					wallets: [
+						{
+							id: 'mm-1',
+							walletName: 'MetaMask',
+							walletType: 'metamask',
+							address: '0x1234',
+							chainIds: [30],
+							connectedAt: Date.now()
+						}
+					]
+				};
+				vi.mocked(Preferences.get).mockResolvedValue({
+					value: JSON.stringify(persistedState)
+				});
+				vi.clearAllMocks();
+
+				await restoreConnectedWalletState();
+
+				// No stub handles should be created for non-BTC wallet
+				expect(mockRegistryRegister).not.toHaveBeenCalled();
+			});
+
+			it('restores btcAddress into the store entry after restore', async () => {
+				const persistedState = {
+					version: 2,
+					wallets: [
+						{
+							id: 'ledger-1',
+							walletName: 'Ledger',
+							walletType: 'ledger',
+							address: '0x1234',
+							chainIds: [30],
+							connectedAt: Date.now(),
+							btcAddress: 'bc1qrestoredbtcaddress'
+						}
+					]
+				};
+				vi.mocked(Preferences.get).mockResolvedValue({
+					value: JSON.stringify(persistedState)
+				});
+
+				await restoreConnectedWalletState();
+
+				const state = get(connectedWalletsStore);
+				expect(state.wallets).toHaveLength(1);
+				expect(state.wallets[0].btcAddress).toBe('bc1qrestoredbtcaddress');
+			});
 		});
 	});
 });
