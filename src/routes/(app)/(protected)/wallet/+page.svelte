@@ -36,7 +36,6 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconPlus from '~icons/mdi/plus';
 	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconLock from '~icons/mdi/lock';
 	import IconClose from '~icons/mdi/close';
 	import IconHandCoin from '~icons/mdi/hand-coin';
 	import IconChartLine from '~icons/mdi/chart-line';
@@ -52,6 +51,7 @@
 	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
+	let showConnectModal = $state(false);
 
 	let isLoading = $state(false);
 	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
@@ -434,7 +434,7 @@
 			{/if}
 
 			<!-- Balance Card -->
-			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+			<div class="flex h-full flex-col gap-2 overflow-y-auto sm:gap-4">
 				{#if activeTab === 'connected'}
 					<BalanceCard
 						{isLoading}
@@ -456,28 +456,25 @@
 
 				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->
 				{#if activeTab === 'wallet'}
-					<div>
-						<BalanceHistory {balancesHidden} />
-					</div>
+					<div class="divider my-0"></div>
+					<BalanceHistory {balancesHidden} />
 				{/if}
 
 				<!-- Transactions Button (Wallet tab only) -->
 				{#if !walletsEnabled || activeTab === 'wallet'}
-					<div>
-						<button
-							type="button"
-							class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-							onclick={() => (showTransactionsModal = true)}
-						>
-							<div class="flex min-w-0 flex-1 items-center gap-2">
-								<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-								<span>{$t('wallet.tab_transactions')}</span>
-							</div>
-							<div class="absolute right-2 flex items-center sm:right-3">
-								<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-							</div>
-						</button>
-					</div>
+					<button
+						type="button"
+						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+						onclick={() => (showTransactionsModal = true)}
+					>
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+							<span>{$t('wallet.tab_transactions')}</span>
+						</div>
+						<div class="absolute right-2 flex items-center sm:right-3">
+							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						</div>
+					</button>
 				{/if}
 
 				<!-- Connected tab: explanatory card (only when no wallets) -->
@@ -507,10 +504,12 @@
 
 				<!-- Connected Wallet List (Connected tab, above buttons) -->
 				{#if activeTab === 'connected'}
-					<ConnectedWallets {balancesHidden} />
+					<ConnectedWallets {balancesHidden} bind:showConnectModal />
 
-					<!-- Activity Accordion (connected tab — below wallets, above Connect button) -->
-					<div>
+					{#if $connectedWalletsStore.wallets.length > 0}
+						<div class="divider my-0"></div>
+
+						<!-- Activity Accordion (connected tab — below wallets, above Connect button) -->
 						{#key activeTab}
 							<BalanceHistory
 								{balancesHidden}
@@ -521,21 +520,22 @@
 									: ''}
 							/>
 						{/key}
-					</div>
+					{/if}
 
-					<!-- Full-width Connect a Wallet (when wallets exist, above buttons) -->
+					<!-- Full-width Connect a Wallet (when wallets exist, below activity accordion) -->
 					{#if $connectedWalletsStore.wallets.length > 0}
 						<button
 							class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
-							onclick={() => {
-								const btn = document.querySelector('[data-connect-button]') as HTMLButtonElement;
-								btn?.click();
-							}}
+							onclick={() => (showConnectModal = true)}
 						>
 							<IconPlus class="mr-1 h-5 w-5" />
 							{$t('wallet.connected.connect')}
 						</button>
 					{/if}
+				{/if}
+
+				{#if activeTab === 'wallet' || $connectedWalletsStore.wallets.length > 0}
+					<div class="divider my-0"></div>
 				{/if}
 
 				<!-- Action Buttons (all four on one row) -->
@@ -598,22 +598,6 @@
 					>
 						<IconInformationOutline class="h-4 w-4 shrink-0" />
 						{$t('wallet.learn_more')}
-					</button>
-				</div>
-			</div>
-		{:else}
-			<!-- No wallets connected - show setup options -->
-			<div class="py-12 text-center">
-				<div class="mb-6">
-					<IconLock class="text-base-content/30 mx-auto h-16 w-16" />
-				</div>
-				<h3 class="mb-4 text-xl font-semibold">{$t('wallet.error.no_mnemonic.title')}</h3>
-				<p class="text-base-content/70 mx-auto mb-6 max-w-md">
-					{$t('wallet.error.no_mnemonic.message')}
-				</p>
-				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => await initializeWallet()}>
-						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>
 			</div>

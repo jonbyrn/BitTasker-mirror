@@ -64,7 +64,10 @@
 			"connected_label": "Conectado",
 			"connect_bitcoin": "Conectar Bitcoin",
 			"error_ledger_usb_in_use": "El Ledger está en uso por otra app. Cierra Ledger Live y cualquier otra aplicación que use el dispositivo, luego inténtalo de nuevo.",
-			"bitcoin_label": "Bitcoin"
+			"bitcoin_label": "Bitcoin",
+			"trezor_connecting_title": "Conectando a Trezor",
+			"trezor_connecting_desc": "Confirma en tu dispositivo Trezor cuando se te solicite. No desconectes el dispositivo.",
+			"hardware_tx_confirm_note": "Es posible que necesites tocar para confirmar en tu billetera hardware."
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
@@ -381,7 +384,7 @@
 		"multi_network": "Multi-Red",
 		"multi_network_support": "Soporte Multi-Red",
 		"select_network": "Seleccionar Red",
-		"select_asset": "Seleccionar Activo",
+		"select_asset": "Seleccionar activo",
 		"send_form": {
 			"asset": {
 				"bitcoin": "Bitcoin",
@@ -792,6 +795,19 @@
 			"dest_chain": "Red de destino",
 			"select_dest_chain": "Seleccionar red de destino",
 			"estimated_output": "Recibirás",
+			"total_sent": "Total enviado",
+			"confirm_send": "Confirmar Envío",
+			"direct_transfer_note": "Envía activos directamente de una billetera a otra — sin puente ni intercambio.",
+			"direct_send": "Envío Directo",
+			"send_from": "De billetera",
+			"send_to": "A billetera",
+			"send_complete": "Envío Completado",
+			"sent_from": "de",
+			"sent_to": "a",
+			"subtract_network_fee": "Tarifa de red",
+			"subtract_swap_fee": "Tarifa de intercambio",
+			"you_receive": "Recibes",
+			"enter_amount_for_quote": "Ingresa una cantidad para ver el desglose",
 			"provider": "Proveedor",
 			"best_route": "Mejor",
 			"fee_percent": "Tarifa",
@@ -802,9 +818,11 @@
 			"swap_another": "Nuevo Intercambio",
 			"no_routes": "No hay rutas disponibles para este par",
 			"no_dest_address": "Dirección de billetera de destino no disponible",
-			"desc_rbtc_to_usdt": "Recibe USDT en Binance Smart Chain",
+			"desc_rbtc_to_usdt": "Recibe USDT0 en Arbitrum",
+			"desc_rbtc_to_wbtc": "Intercambia rBTC por BTC envuelto en Arbitrum",
 			"desc_rbtc_to_btc": "Convierte a Bitcoin nativo vía puente",
 			"desc_usdt_to_rbtc": "Recibe rBTC en Rootstock para pagos",
+			"desc_usdt_to_wbtc": "Intercambia USDT0 por BTC envuelto en Arbitrum",
 			"btc_not_available": "Conecta una billetera hardware Bitcoin para habilitar intercambios Bitcoin",
 			"irreversible_warning": "Los intercambios cross-chain no pueden revertirse una vez enviados. Verifica todos los detalles cuidadosamente.",
 			"navigate_away_note": "Puedes navegar fuera de esta pantalla — tu intercambio continuará en segundo plano.",
@@ -940,7 +958,8 @@
 					"waiting_payment": "Esperando que Boltz pague la factura...",
 					"payment_complete": "¡Factura Lightning pagada exitosamente!"
 				}
-			}
+			},
+			"desc_same_wallet_transfer": "Enviar a otra billetera"
 		},
 		"information": {
 			"swap_info_title": "Acerca de Intercambios Cross-Chain",
@@ -1228,7 +1247,9 @@
 				"annual_cost": "Costo anual del préstamo",
 				"button_approve_borrow": "Aprobar y pedir USDT0",
 				"button_repay": "Pagar",
-				"button_add_collateral": "Añadir garantía"
+				"button_add_collateral": "Añadir garantía",
+				"swap_btn": "Intercambiar",
+				"buy_btn": "Comprar"
 			},
 			"lend": {
 				"amount_label": "¿Cuánto USDT0 depositar?",
