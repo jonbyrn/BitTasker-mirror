@@ -26,9 +26,11 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import WalletConnectQRModal from './WalletConnectQRModal.svelte';
 	import HelpModal from './HelpModal.svelte';
+	import WalletIcon from './WalletIcon.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { formatAddress } from '$lib/stores/wallet.store';
 	let copiedAddress = $state<string | null>(null);
 	let showLedgerConnect = $state(false);
 	let ledgerConnectError = $state('');
@@ -218,10 +220,8 @@
 	// With Multichain SDK, MetaMask connects to ALL configured chains simultaneously.
 	// Balances queried from all scopes — no manual switching needed.
 
-	function formatAddress(addr: string): string {
-		if (!addr || addr.length < 12) return addr;
-		return addr.slice(0, 6) + '...' + addr.slice(-4);
-	}
+	// formatAddress imported from '$lib/stores/wallet.store'
+	// walletLogo replaced by <WalletIcon walletType={...} /> component (WalletIcon.svelte)
 
 	async function copyAddress(addr: string): Promise<void> {
 		const ok = await copyToClipboard(addr);
@@ -234,21 +234,6 @@
 		setTimeout(() => {
 			copiedAddress = null;
 		}, 2000);
-	}
-
-	function walletLogo(type: string): string {
-		switch (type) {
-			case 'metamask':
-				return '/images/wallets/metamask.svg';
-			case 'walletconnect':
-				return '/images/wallets/walletconnect.svg';
-			case 'trezor':
-				return '/images/wallets/trezor.svg';
-			case 'ledger':
-				return '/images/wallets/ledger.svg';
-			default:
-				return '';
-		}
 	}
 
 	let showDisconnectId = $state<string | null>(null);
@@ -683,7 +668,6 @@
 		<!-- Individual Wallet Cards -->
 		{#if $hasConnectedWallets}
 			{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
-				{@const logo = walletLogo(wallet.walletType)}
 				{@const isExpanded = expandedWalletId === wallet.id}
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -696,14 +680,10 @@
 						aria-expanded={isExpanded}
 					>
 						<div class="flex min-w-0 flex-1 items-center gap-2">
-							{#if logo}
-								<img
-									src={logo}
-									alt={wallet.walletName}
-									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-									aria-hidden="true"
-								/>
-							{/if}
+							<WalletIcon
+								walletType={wallet.walletType}
+								className="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+							/>
 							<span class="truncate">{wallet.walletName}</span>
 						</div>
 						<span class="text-base-content/50 ml-2 shrink-0 text-right text-sm font-normal">

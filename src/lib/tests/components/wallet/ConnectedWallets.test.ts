@@ -216,6 +216,11 @@ vi.mock('~icons/mdi/swap-horizontal-circle-outline', () => ({ default: mockIcon 
 vi.mock('~icons/mdi/shield-check', () => ({ default: mockIcon }));
 vi.mock('~icons/mdi/lightning-bolt', () => ({ default: mockIcon }));
 vi.mock('~icons/mdi/lock-clock', () => ({ default: mockIcon }));
+vi.mock('$lib/components/wallet/WalletIcon.svelte', () => ({ default: mockIcon }));
+vi.mock('$lib/stores/wallet.store', () => ({
+	formatAddress: (addr: string, start = 6, end = 4) =>
+		addr && addr.length >= start + end ? addr.slice(0, start) + '...' + addr.slice(-end) : addr
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
