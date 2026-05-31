@@ -9,7 +9,9 @@
 		replaceConnectedWallet,
 		setConnectingType,
 		setConnectedWalletError,
-		restoreConnectedWalletState
+		restoreConnectedWalletState,
+		hasBitcoinSigner,
+		getBitcoinAddress
 	} from '$lib/stores/connected-wallets.store';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import {
@@ -41,27 +43,17 @@
 	let trezorBtcError = $state('');
 	let trezorBtcConnecting = $state(false);
 
-	// Which Ledger wallet IDs have Bitcoin connected (checked via connector registry)
+	// Which wallet IDs have Bitcoin connected (checked via store query facade)
 	let btcConnectedWallets = $derived.by(() => {
-		return $connectedWalletsStore.wallets
-			.filter((w) => {
-				const handle = connectorRegistry.get(w.id);
-				return handle && 'bitcoinSigner' in handle;
-			})
-			.map((w) => w.id);
+		return $connectedWalletsStore.wallets.filter((w) => hasBitcoinSigner(w.id)).map((w) => w.id);
 	});
 
 	// BTC address for each wallet (empty string if not connected)
 	let btcAddressFor = $derived.by(() => {
 		const map: Record<string, string> = {};
 		for (const w of $connectedWalletsStore.wallets) {
-			const handle = connectorRegistry.get(w.id);
-			if (handle && 'bitcoinSigner' in handle) {
-				const signer = (handle as Record<string, unknown>).bitcoinSigner as {
-					address?: string;
-				};
-				map[w.id] = signer?.address ?? '';
-			}
+			const addr = getBitcoinAddress(w.id);
+			if (addr) map[w.id] = addr;
 		}
 		return map;
 	});
@@ -111,7 +103,7 @@
 			if (!cur) continue;
 			const rbtcRaw = cur.rbtc?.raw ?? '';
 			const btcRaw = cur.btc?.raw ?? '';
-			const usdtRaw = cur.usdt?.raw ?? '';
+			const usdtRaw = cur['usdt0-arb']?.raw ?? '';
 			const wbtcRaw = cur.wbtc?.raw ?? '';
 			const sats = Number(rbtcRaw) + Number(btcRaw);
 			const usdt = Number(usdtRaw);
@@ -134,7 +126,7 @@
 		const bal = wallet.balances?.[key];
 		const raw = Number(bal?.raw ?? 0);
 		if (raw > 0) {
-			if (key === 'usdt') return `$${(raw / 1e18).toFixed(2)}`;
+			if (key === 'usdt0-arb' || key === 'usdt') return `$${(raw / 1e6).toFixed(2)}`;
 			if (key === 'wbtc') {
 				const sats = Math.round(raw / 10_000_000_000);
 				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
@@ -145,7 +137,7 @@
 		if (cached) {
 			const cachedRaw = Number((cached as Record<string, string>)[key] ?? 0);
 			if (cachedRaw > 0) {
-				if (key === 'usdt') return `$${(cachedRaw / 1e18).toFixed(2)}`;
+				if (key === 'usdt0-arb' || key === 'usdt') return `$${(cachedRaw / 1e6).toFixed(2)}`;
 				if (key === 'wbtc') {
 					const sats = Math.round(cachedRaw / 10_000_000_000);
 					return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
@@ -153,7 +145,7 @@
 				return formatSatsWithUsd(cachedRaw);
 			}
 		}
-		if (key === 'usdt') return '$0.00';
+		if (key === 'usdt0-arb' || key === 'usdt') return '$0.00';
 		if (key === 'wbtc') return '0 Sats';
 		return '0 Sats';
 	}
@@ -167,9 +159,9 @@
 		if (cur) {
 			const btcSats =
 				Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
-			const usdtRaw = Number(cur.usdt?.raw ?? 0);
+			const usdtRaw = Number(cur['usdt0-arb']?.raw ?? 0);
 			if (btcSats > 0 || usdtRaw > 0) {
-				return usdFormatter.format((btcSats / 100_000_000) * btcPrice.price + usdtRaw / 1e18);
+				return usdFormatter.format((btcSats / 100_000_000) * btcPrice.price + usdtRaw / 1e6);
 			}
 		}
 		const cached = lastKnownWalletBalances[wallet.id];
@@ -177,7 +169,7 @@
 			const usd =
 				((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc)) / 100_000_000) *
 					btcPrice.price +
-				Number(cached.usdt) / 1e18;
+				Number(cached.usdt) / 1e6;
 			if (usd > 0) return usdFormatter.format(usd);
 		}
 		return usdFormatter.format(0);
@@ -191,6 +183,7 @@
 
 		const results = await Promise.allSettled(
 			wallets.map(async (w) => {
+				// TODO: migrate to store query facade when fetchBalances access is wrapped
 				const handle = connectorRegistry.get(w.id);
 				if (!handle) return null;
 				const fetcher = (
@@ -536,6 +529,7 @@
 			// Search by walletType since EVM and BTC addresses may differ.
 			const ledgerWallet = $connectedWalletsStore.wallets.find((w) => w.walletType === 'ledger');
 			if (ledgerWallet) {
+				// TODO: migrate to store query facade for read-modify-write pattern
 				const currentHandle = connectorRegistry.get(ledgerWallet.id);
 				if (currentHandle) {
 					const updatedHandle = {
@@ -602,6 +596,7 @@
 			// Find the existing Trezor handle in the registry and add bitcoinSigner.
 			const trezorWallet = $connectedWalletsStore.wallets.find((w) => w.walletType === 'trezor');
 			if (trezorWallet) {
+				// TODO: migrate to store query facade for read-modify-write pattern
 				const currentHandle = connectorRegistry.get(trezorWallet.id);
 				if (currentHandle) {
 					console.log('[ConnectedWallets] Updating Trezor handle with bitcoinSigner');
@@ -664,7 +659,7 @@
 {#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)}
 	<div class="flex flex-col gap-2">
 		{#if $connectedWalletsStore.connectingType}
-			<div class="alert alert-outline alert-info py-2 text-sm">
+			<div class="alert alert-outline alert-info py-2 text-sm" aria-live="polite">
 				<span class="loading loading-spinner loading-xs"></span>
 				<span
 					>{$t('wallet.connected.connecting', {
@@ -675,11 +670,12 @@
 		{/if}
 
 		{#if $connectedWalletsStore.error}
-			<div class="alert alert-outline alert-error py-2 text-sm">
+			<div class="alert alert-outline alert-error py-2 text-sm" role="alert">
 				<span>{$connectedWalletsStore.error}</span>
 				<button
 					class="btn btn-ghost btn-xs"
 					onclick={() => connectedWalletsStore.update((s) => ({ ...s, error: null }))}
+					aria-label="Dismiss error"
 				>
 					<IconClose class="h-4 w-4" />
 				</button>
@@ -903,6 +899,7 @@
 											onclick={() => {
 												console.log('[ConnectedWallets] Trezor Connect Bitcoin button clicked');
 												showConnectModal = true;
+												showLedgerBtcStep = false;
 												showTrezorBtcStep = true;
 												trezorBtcError = '';
 											}}

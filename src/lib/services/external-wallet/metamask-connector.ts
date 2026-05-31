@@ -8,7 +8,6 @@
 import type { ConnectorHandle, EVMTransactionRequest, EVMTransactionResult } from './types';
 import type { ConnectorRegistry } from './connector-registry';
 import { sendLock } from '$lib/services/external-wallet/send-lock';
-import { getBSCUSDTContractAddress } from './chain-utils';
 
 // ---------------------------------------------------------------------------
 // Multichain SDK (lazy-loaded — no static import to prevent SSR crashes)
@@ -53,6 +52,7 @@ async function getClient(): Promise<MultiChainClient> {
 					supportedNetworks: {
 						'eip155:30': 'https://public-node.rsk.co',
 						'eip155:31': 'https://public-node.testnet.rsk.co',
+						'eip155:42161': 'https://arb1.arbitrum.io/rpc',
 						'eip155:56': 'https://bsc-dataseed.binance.org',
 						'eip155:97': 'https://data-seed-prebsc-1-s1.binance.org:8545',
 						'eip155:1':
@@ -170,7 +170,9 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	// SDK, check if this event is now included in the type definitions and
 	// replace these casts with the typed overload.
 	sdkClient.on(
-		'wallet_sessionChanged' as never,
+		// @upgrade-check: SDK v1.x only knows 'wallet_sessionChanged'; remove cast when SDK types include it
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		'wallet_sessionChanged' as any,
 		((session: unknown) => {
 			clearTimeout(timeout);
 			resolveSession(extractSession(session));
@@ -275,7 +277,7 @@ function buildHandle(
 			const result: Record<string, { raw: string; formatted: string; loading: boolean }> = {};
 			console.log('[MetaMask] fetchBalances: querying chains', chainIds, 'address', address);
 
-			const usdtContract = getBSCUSDTContractAddress();
+			const usdt0ArbContract = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'; // USDT0 on Arbitrum
 			const balanceOfData = '0x70a08231000000000000000000000000' + address.slice(2);
 
 			const tasks: Promise<void>[] = [];
@@ -303,33 +305,34 @@ function buildHandle(
 				);
 			}
 
-			// USDT on BSC — ERC20 balanceOf
-			for (const chainId of chainIds.filter((c) => c === 56 || c === 97)) {
-				tasks.push(
-					(async () => {
-						try {
-							const hexBalance = (await sdkClient.invokeMethod({
-								scope: `eip155:${chainId}`,
-								request: {
-									method: 'eth_call',
-									params: [{ to: usdtContract, data: balanceOfData }, 'latest']
-								}
-							})) as unknown as string;
-							const raw = BigInt(hexBalance || '0x0');
-							const dollars = Number(raw) / 1e18; // BSC USDT: 18 decimals
-							result.usdt = {
-								raw: raw.toString(),
-								formatted: '$' + dollars.toFixed(2),
-								loading: false
-							};
-						} catch (e) {
-							console.warn('[MetaMask] fetchBalances USDT failed for chain', chainId, e);
-						}
-					})()
-				);
-			}
-
 			await Promise.allSettled(tasks);
+
+			// USDT0 on Arbitrum — always fetch regardless of chain list
+
+			// USDT0 on Arbitrum — always fetch regardless of chain list
+			// (MetaMask may not have Arbitrum in its session chains)
+			if (!result['usdt0-arb'] || Number(result['usdt0-arb'].raw) === 0) {
+				try {
+					const hexBalance = (await sdkClient.invokeMethod({
+						scope: 'eip155:42161',
+						request: {
+							method: 'eth_call',
+							params: [{ to: usdt0ArbContract, data: balanceOfData }, 'latest']
+						}
+					})) as unknown as string;
+					const raw = BigInt(hexBalance || '0x0');
+					const dollars = Number(raw) / 1e6;
+					if (raw > 0n) {
+						result['usdt0-arb'] = {
+							raw: raw.toString(),
+							formatted: '$' + dollars.toFixed(2),
+							loading: false
+						};
+					}
+				} catch (e) {
+					console.warn('[MetaMask] fetchBalances USDT0 Arb (fallback) failed:', e);
+				}
+			}
 
 			console.log('[MetaMask] fetchBalances result:', result);
 			return result;

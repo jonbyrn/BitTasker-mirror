@@ -63,6 +63,38 @@ export const activeConnectedWallet = derived(connectedWalletsStore, ($s) => {
 });
 
 // ---------------------------------------------------------------------------
+// Query Facade — read-only access to connector registry state.
+// Components should use these helpers instead of calling
+// connectorRegistry.get() directly, to reduce bidirectional coupling.
+//
+// MIGRATION STATUS:
+//   ✅ ConnectedWallets.svelte — derived stores (btcConnectedWallets, btcAddressFor)
+//   ⚠️  ConnectedWallets.svelte — _handleRefreshBalances, handleAdd*Bitcoin (read-modify-write)
+//   ⚠️  ReceivePaymentForm.svelte — 2x connectorRegistry.get() for signer selection
+//   ⚠️  SendPaymentForm.svelte — 3x connectorRegistry.get() for signer/address
+//   ⚠️  ExternalWalletPaymentScreen.svelte — 1x connectorRegistry.get() for BTC signer
+//   ℹ️  Connector init calls pass connectorRegistry as DI parameter (not .get())
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a wallet has a Bitcoin signer registered in the connector registry.
+ * Use this instead of `connectorRegistry.get(walletId)` in component render logic.
+ */
+export function hasBitcoinSigner(walletId: string): boolean {
+	const handle = connectorRegistry.get(walletId);
+	return handle?.bitcoinSigner !== undefined;
+}
+
+/**
+ * Get the Bitcoin address for a wallet, or null if Bitcoin is not connected.
+ * Use this instead of `connectorRegistry.get(walletId)?.bitcoinSigner?.address`.
+ */
+export function getBitcoinAddress(walletId: string): string | null {
+	const handle = connectorRegistry.get(walletId);
+	return handle?.bitcoinSigner?.address ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
 

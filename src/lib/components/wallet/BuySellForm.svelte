@@ -437,7 +437,7 @@
 					type="button"
 					class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
 						? 'border-primary bg-primary/5 shadow-sm'
-						: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
+						: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-95"
 					onclick={() => handleCryptoChange(asset.id)}
 				>
 					<div
@@ -523,7 +523,7 @@
 					<div class="flex flex-wrap justify-center gap-2">
 						<button
 							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
 							onclick={() => {
 								amount = '10';
 								fetchQuoteForAmount('10');
@@ -531,7 +531,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
 							onclick={() => {
 								amount = '20';
 								fetchQuoteForAmount('20');
@@ -539,7 +539,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
 							onclick={() => {
 								amount = '50';
 								fetchQuoteForAmount('50');
@@ -547,7 +547,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm"
+							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
 							onclick={() => {
 								amount = '100';
 								fetchQuoteForAmount('100');

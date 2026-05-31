@@ -70,7 +70,15 @@ vi.mock('$lib/stores/connected-wallets.store', () => ({
 	replaceConnectedWallet: vi.fn(),
 	setConnectingType: vi.fn(),
 	setConnectedWalletError: vi.fn(),
-	setActiveWallet: vi.fn()
+	setActiveWallet: vi.fn(),
+	hasBitcoinSigner: (id: string) => {
+		const h = mockRegistry.get(id) as { bitcoinSigner?: unknown } | undefined;
+		return !!(h && 'bitcoinSigner' in h);
+	},
+	getBitcoinAddress: (id: string) => {
+		const h = mockRegistry.get(id) as { bitcoinSigner?: { address?: string } } | undefined;
+		return h?.bitcoinSigner?.address ?? null;
+	}
 }));
 
 vi.mock('$lib/services/external-wallet/connector-registry', () => ({
