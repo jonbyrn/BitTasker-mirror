@@ -19,6 +19,7 @@
 import { get } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { tryCatch } from '$lib/utils/tryCatch';
+import { createDebug } from '$lib/utils/debug';
 import { changellyService } from '$lib/services/changelly.service';
 import { lifiService } from '$lib/services/lifi.service';
 import { symbiosisService } from '$lib/services/symbiosis.service';
@@ -31,8 +32,12 @@ import {
 	lockSubmarineSwapFunds,
 	createChainSwap
 } from '$lib/stores/wallet.store';
+import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 import type { Route, RouteHop, SourceWallet, Destination } from '$lib/services/route-resolver';
 import type { ChangellySwapStatus } from '$lib/services/changelly.service';
+import type { EVMTransactionRequest } from '$lib/services/external-wallet/types';
+
+const d = createDebug('swap-chain');
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -84,6 +89,9 @@ export interface SwapChainState {
 	/** Destination the funds are being sent to. */
 	destination: Destination | null;
 
+	/** Connected wallet ID when source is external (null = built-in BitTasker wallet). */
+	sourceConnectedWalletId: string | null;
+
 	/** Amount being swapped/sent (decimal string). */
 	amount: string | null;
 
@@ -115,6 +123,7 @@ export const INITIAL_SWAP_CHAIN_STATE: SwapChainState = {
 	route: null,
 	sourceWallet: null,
 	destination: null,
+	sourceConnectedWalletId: null,
 	amount: null,
 	swap1Id: null,
 	swap2Id: null,
@@ -182,6 +191,8 @@ export async function loadSwapChainState(): Promise<SwapChainState> {
 			route: raw.route as Route | null,
 			sourceWallet: raw.sourceWallet as SourceWallet | null,
 			destination: raw.destination as Destination | null,
+			sourceConnectedWalletId:
+				typeof raw.sourceConnectedWalletId === 'string' ? raw.sourceConnectedWalletId : null,
 			amount: typeof raw.amount === 'string' ? raw.amount : null,
 			swap1Id: typeof raw.swap1Id === 'string' ? raw.swap1Id : null,
 			swap2Id: typeof raw.swap2Id === 'string' ? raw.swap2Id : null,
@@ -373,6 +384,11 @@ async function executeHop(
 			return executeLifiHop(hop, state);
 		case 'symbiosis':
 			return executeSymbiosisHop(hop, state);
+		default:
+			return {
+				data: null,
+				error: new Error(`Unknown hop service: ${hop.service}`)
+			};
 	}
 }
 
@@ -391,6 +407,36 @@ async function executeDirectHop(
 		return { data: null, error: new Error('Amount is required for direct transfer') };
 	}
 
+	// If source is a connected wallet, use its EVM signer instead of built-in wallet
+	if (state.sourceConnectedWalletId) {
+		const evmSigner = getEvmSigner(state.sourceConnectedWalletId);
+		d.log('executeDirectHop: using connected wallet %s', state.sourceConnectedWalletId);
+		if (!evmSigner) {
+			return {
+				data: null,
+				error: new Error('Connected wallet EVM signer not available')
+			};
+		}
+
+		if (hop.fromAsset === 'RBTC') {
+			return executeConnectedWalletTransfer(evmSigner, address, amount);
+		}
+
+		if (hop.fromAsset === 'USDT') {
+			// Connected wallet ERC-20 transfer — not yet supported via direct hop
+			return {
+				data: null,
+				error: new Error('USDT transfer from connected wallet is not yet supported')
+			};
+		}
+
+		return {
+			data: null,
+			error: new Error(`Unsupported asset for connected wallet transfer: ${hop.fromAsset}`)
+		};
+	}
+
+	// Built-in wallet path
 	if (hop.fromAsset === 'RBTC') {
 		const { data: txHash, error } = await tryCatch(sendRBTC(address, amount));
 		if (error !== null) {
@@ -408,6 +454,34 @@ async function executeDirectHop(
 	}
 
 	return { data: null, error: new Error(`Unsupported asset for direct hop: ${hop.fromAsset}`) };
+}
+
+/**
+ * Execute an rBTC transfer using a connected wallet's EVM signer.
+ * Converts the amount from rBTC string → wei, builds the transaction,
+ * and sends it via the connector handle.
+ */
+async function executeConnectedWalletTransfer(
+	signer: import('$lib/services/external-wallet/types').EVMSigner,
+	to: string,
+	amount: string
+): Promise<{ data: string | null; error: Error | null }> {
+	try {
+		const amountWei = BigInt(Math.round(parseFloat(amount) * 1e18));
+		const tx: EVMTransactionRequest = {
+			to,
+			value: amountWei,
+			chainId: 30, // RSK mainnet
+			data: '0x'
+		};
+		const result = await signer.sendTransaction(tx);
+		return { data: result.txHash, error: null };
+	} catch (error) {
+		return {
+			data: null,
+			error: error instanceof Error ? error : new Error(String(error))
+		};
+	}
 }
 
 async function executeChangellyHop(
@@ -565,22 +639,49 @@ async function executeLifiHop(
 		return { data: null, error: new Error('Amount is required for LI.FI swap') };
 	}
 
-	// LI.FI cross-chain swap: fetch step transaction data and submit
-	const fromChainId = hop.fromChain === 'rsk' ? 30 : 56;
-	const toChainId = hop.toChain === 'bsc' ? 56 : hop.toChain === 'rsk' ? 30 : 0;
-	const fromTokenAddr =
-		hop.fromAsset === 'RBTC'
-			? '0x0000000000000000000000000000000000000000'
-			: '0x55d398326f99059fF775485246999027B3197955'; // USDT BSC
-	const toTokenAddr =
-		hop.toAsset === 'USDT'
-			? '0x55d398326f99059fF775485246999027B3197955'
-			: '0x0000000000000000000000000000000000000000';
+	// Chain ID mapping — supports RSK (30), BSC (56), Arbitrum (42161)
+	const CHAIN_ID_RSK = 30;
+	const CHAIN_ID_BSC = 56;
+	const CHAIN_ID_ARB = 42161;
+	const USDT0_ARB_ADDR = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+
+	function resolveChain(chainName: string): number {
+		if (chainName === 'rsk') return CHAIN_ID_RSK;
+		if (chainName === 'bsc') return CHAIN_ID_BSC;
+		if (chainName === 'arbitrum') return CHAIN_ID_ARB;
+		if (chainName.startsWith('chain-')) return parseInt(chainName.slice(6), 10) || 0;
+		return 0;
+	}
+
+	function resolveToken(asset: string, chainId: number): string {
+		if (asset === 'RBTC' || asset === 'BTC') return '0x0000000000000000000000000000000000000000';
+		if (asset === 'USDT0') return USDT0_ARB_ADDR;
+		if (asset === 'USDT')
+			return chainId === CHAIN_ID_ARB
+				? USDT0_ARB_ADDR
+				: '0x55d398326f99059fF775485246999027B3197955';
+		return '0x0000000000000000000000000000000000000000';
+	}
+
+	const fromChainId = resolveChain(hop.fromChain);
+	const toChainId = resolveChain(hop.toChain);
+	const fromTokenAddr = resolveToken(hop.fromAsset, fromChainId);
+	const toTokenAddr = resolveToken(hop.toAsset, toChainId);
 
 	const userAddr =
 		hop.fromAsset === 'RBTC'
 			? (get(walletStore).rsk.address ?? '').toLowerCase()
-			: (get(walletStore).bsc.address ?? '').toLowerCase();
+			: ((get(walletStore).arb?.address || get(walletStore).rsk.address) ?? '').toLowerCase();
+
+	d.log(
+		'executeLifiHop: fromChain=%s(%d) toChain=%s(%d) fromToken=%s toToken=%s',
+		hop.fromChain,
+		fromChainId,
+		hop.toChain,
+		toChainId,
+		fromTokenAddr.substring(0, 16),
+		toTokenAddr.substring(0, 16)
+	);
 
 	// Convert amount to token's smallest unit (wei for 18 decimals, 1e6 for USDT)
 	const amountDecimal = parseFloat(state.amount!);
@@ -635,17 +736,51 @@ async function executeSymbiosisHop(
 		return { data: null, error: new Error('Amount is required for Symbiosis swap') };
 	}
 
-	// Symbiosis cross-chain swap: fetch quote with calldata and submit
-	const fromChainId = hop.fromChain === 'rsk' ? 30 : 56;
-	const toChainId = hop.toChain === 'bsc' ? 56 : hop.toChain === 'rsk' ? 30 : 0;
-	const fromTokenAddr =
-		hop.fromAsset === 'RBTC'
-			? '0x0000000000000000000000000000000000000000'
-			: '0x55d398326f99059fF775485246999027B3197955';
-	const toTokenAddr =
-		hop.toAsset === 'USDT'
-			? '0x55d398326f99059fF775485246999027B3197955'
-			: '0x0000000000000000000000000000000000000000';
+	// Chain ID mapping — supports RSK (30), BSC (56), Arbitrum (42161)
+	const CHAIN_ID_RSK = 30;
+	const CHAIN_ID_BSC = 56;
+	const CHAIN_ID_ARB = 42161;
+	const USDT0_ARB_ADDR = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+
+	function resolveChainId(chainName: string): number {
+		if (chainName === 'rsk') return CHAIN_ID_RSK;
+		if (chainName === 'bsc') return CHAIN_ID_BSC;
+		if (chainName === 'arbitrum') return CHAIN_ID_ARB;
+		// Fallback: parse from `chain-NNN` format used for cross-chain EVM
+		if (chainName.startsWith('chain-')) return parseInt(chainName.slice(6), 10) || 0;
+		return 0;
+	}
+
+	const fromChainId = resolveChainId(hop.fromChain);
+	const toChainId = resolveChainId(hop.toChain);
+
+	// Token address mapping
+	const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000';
+	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
+
+	function resolveTokenAddr(asset: string, chainId: number): string {
+		if (asset === 'RBTC' || asset === 'BTC') return NATIVE_TOKEN;
+		if (asset === 'USDT0') return USDT0_ARB_ADDR;
+		if (asset === 'USDT') {
+			if (chainId === CHAIN_ID_ARB) return USDT0_ARB_ADDR;
+			return USDT_BSC;
+		}
+		return NATIVE_TOKEN;
+	}
+
+	const fromTokenAddr = resolveTokenAddr(hop.fromAsset, fromChainId);
+	const toTokenAddr = resolveTokenAddr(hop.toAsset, toChainId);
+
+	d.log(
+		'executeSymbiosisHop: fromChain=%s(%d) toChain=%s(%d) fromToken=%s toToken=%s amount=%s',
+		hop.fromChain,
+		fromChainId,
+		hop.toChain,
+		toChainId,
+		fromTokenAddr.substring(0, 16),
+		toTokenAddr.substring(0, 16),
+		state.amount
+	);
 
 	const symUserAddr =
 		hop.fromAsset === 'RBTC'
@@ -690,9 +825,11 @@ async function executeSymbiosisHop(
 			data: tx.data,
 			value: tx.value
 		});
+		d.log('executeSymbiosisHop: tx submitted hash=%s', txHash.substring(0, 16));
 		return { data: txHash, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Symbiosis execution failed';
+		d.error('executeSymbiosisHop FAILED: %s', message);
 		return { data: null, error: new Error(message) };
 	}
 }
@@ -771,10 +908,20 @@ export async function startSwapChain(
 	route: Route,
 	sourceWallet: SourceWallet,
 	destination: Destination,
-	amount: string
+	amount: string,
+	sourceConnectedWalletId: string | null = null
 ): Promise<{ data: SwapChainState | null; error: Error | null }> {
 	// 0. Amount validation
 	const amountNum = parseFloat(amount);
+	d.log(
+		'startSwapChain: route=%s source=%s dest=%s amount=%s wallet=%s hops=%d',
+		route.id,
+		sourceWallet,
+		destination.type,
+		amount,
+		sourceConnectedWalletId || 'builtin',
+		route.hops.length
+	);
 	if (Number.isNaN(amountNum) || !Number.isFinite(amountNum)) {
 		return { data: null, error: new Error('Invalid amount: must be a finite number') };
 	}
@@ -795,6 +942,7 @@ export async function startSwapChain(
 		sourceWallet,
 		destination,
 		amount,
+		sourceConnectedWalletId,
 		updatedAt: Date.now()
 	};
 

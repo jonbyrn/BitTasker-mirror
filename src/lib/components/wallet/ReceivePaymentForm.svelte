@@ -12,7 +12,7 @@
 	import { symbiosisService } from '$lib/services/symbiosis.service';
 	import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { getHandle } from '$lib/stores/connected-wallets.store';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 
 	import IconCheck from '~icons/mdi/check';
@@ -206,7 +206,7 @@
 	const EVM_NATIVE = '0x0000000000000000000000000000000000000000';
 	const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
 	const USDT0_RSK = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
-	const _DOC_RSK = '0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db';  
+	const _DOC_RSK = '0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db';
 
 	/** Map payerNetwork strings to { chainId, tokenAddress } for fee computation. */
 	const SOURCE_CHAIN_MAP: Record<string, { chainId: number; address: string } | undefined> = {
@@ -613,7 +613,7 @@
 			} else if (formInput.selectedNetwork === 'rootstock-bitcoin') {
 				let address: string;
 				if (useConnected) {
-					const handle = connectorRegistry.get(selectedReceiveWalletId!);
+					const handle = getHandle(selectedReceiveWalletId!);
 					if (!handle?.address) {
 						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
 						isGenerating = false;
@@ -671,7 +671,7 @@
 			} else if (formInput.selectedNetwork === 'usdt-bsc') {
 				let address: string;
 				if (useConnected) {
-					const handle = connectorRegistry.get(selectedReceiveWalletId!);
+					const handle = getHandle(selectedReceiveWalletId!);
 					if (!handle?.address) {
 						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
 						isGenerating = false;

@@ -1,4 +1,3 @@
-
 <script lang="ts">
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import { t } from 'svelte-i18n';

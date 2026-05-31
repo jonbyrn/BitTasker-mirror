@@ -5,7 +5,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { getHandle } from '$lib/stores/connected-wallets.store';
 	import { EVMSignerNotAvailableError } from '$lib/services/external-wallet/types';
 
 	// Props
@@ -84,7 +84,7 @@
 		payError = null;
 
 		try {
-			const handle = connectorRegistry.get(walletId);
+			const handle = getHandle(walletId);
 			if (!handle?.evmSigner) throw new EVMSignerNotAvailableError(walletId);
 
 			if (props.escrowDetails.paymentMethod === 'lbtc-liquid') {

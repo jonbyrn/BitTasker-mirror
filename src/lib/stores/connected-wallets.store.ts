@@ -69,10 +69,12 @@ export const activeConnectedWallet = derived(connectedWalletsStore, ($s) => {
 //
 // MIGRATION STATUS:
 //   ✅ ConnectedWallets.svelte — derived stores (btcConnectedWallets, btcAddressFor)
-//   ⚠️  ConnectedWallets.svelte — _handleRefreshBalances, handleAdd*Bitcoin (read-modify-write)
-//   ⚠️  ReceivePaymentForm.svelte — 2x connectorRegistry.get() for signer selection
-//   ⚠️  SendPaymentForm.svelte — 3x connectorRegistry.get() for signer/address
-//   ⚠️  ExternalWalletPaymentScreen.svelte — 1x connectorRegistry.get() for BTC signer
+//   ✅ wallet-connect-handlers.ts — _handleRefreshBalances
+//   ✅ wallet-btc-handlers.ts — handleAdd*Bitcoin read-modify-write
+//   ✅ ReceivePaymentForm.svelte — 2x connectorRegistry.get() migrated to getHandle()
+//   ✅ SendPaymentForm.svelte — 3x connectorRegistry.get() migrated to getHandle()
+//   ✅ ExternalWalletPaymentScreen.svelte — 1x connectorRegistry.get() migrated to getHandle()
+//   ✅ swap-chain.service.ts — 1x connectorRegistry.get() migrated to getEvmSigner()
 //   ℹ️  Connector init calls pass connectorRegistry as DI parameter (not .get())
 // ---------------------------------------------------------------------------
 
@@ -92,6 +94,30 @@ export function hasBitcoinSigner(walletId: string): boolean {
 export function getBitcoinAddress(walletId: string): string | null {
 	const handle = connectorRegistry.get(walletId);
 	return handle?.bitcoinSigner?.address ?? null;
+}
+
+/**
+ * Get the full ConnectorHandle for a wallet, or undefined if not registered.
+ * Use this instead of `connectorRegistry.get(walletId)` in component logic.
+ */
+export function getHandle(walletId: string): ConnectorHandle | undefined {
+	return connectorRegistry.get(walletId);
+}
+
+/**
+ * Get the EVM signer for a wallet, or undefined if not available.
+ * Use this instead of `connectorRegistry.get(walletId)?.evmSigner`.
+ */
+export function getEvmSigner(walletId: string): ConnectorHandle['evmSigner'] {
+	return connectorRegistry.get(walletId)?.evmSigner;
+}
+
+/**
+ * Get the Bitcoin signer for a wallet, or undefined if not available.
+ * Use this instead of `connectorRegistry.get(walletId)?.bitcoinSigner`.
+ */
+export function getBitcoinSigner(walletId: string): ConnectorHandle['bitcoinSigner'] {
+	return connectorRegistry.get(walletId)?.bitcoinSigner;
 }
 
 // ---------------------------------------------------------------------------
