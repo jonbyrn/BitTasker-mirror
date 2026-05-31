@@ -57,6 +57,17 @@
 				"step3_title": "Ambos Conectados",
 				"step3_message": "Tu Ledger ahora está conectado mediante <strong>Ethereum</strong> y <strong>Bitcoin</strong>."
 			},
+			"trezor": {
+				"btc_step_title": "Ethereum Conectado",
+				"btc_step_prompt": "Tu Trezor está conectado mediante la app Ethereum. ¿Quieres agregar también soporte para <strong>Bitcoin (BTC)</strong>?",
+				"btc_step_instructions": "Abre la app <strong>Bitcoin (BTC)</strong> en tu dispositivo Trezor, luego haz clic en Conectar abajo. La app debe estar abierta en el dispositivo.",
+				"connecting": "Conectando...",
+				"connect_btc": "Conectar Bitcoin",
+				"try_again": "Reintentar",
+				"skip": "Saltar — Solo EVM",
+				"btc_success_title": "Ambos Conectados",
+				"btc_success_message": "Tu Trezor ahora está conectado mediante <strong>Ethereum</strong> y <strong>Bitcoin</strong>."
+			},
 			"balance_bitcoin": "Bitcoin",
 			"balance_rbtc": "Bitcoin (rBTC)",
 			"balance_usdt": "USDT (Binance)",

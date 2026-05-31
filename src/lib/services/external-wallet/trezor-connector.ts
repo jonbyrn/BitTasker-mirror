@@ -15,6 +15,38 @@ import type { ConnectorRegistry } from './connector-registry';
 import { getPlatformInfo } from './platform-checks';
 import type { Provider } from 'ethers';
 
+// ---------------------------------------------------------------------------
+// Trezor Connect CDN loader
+// ---------------------------------------------------------------------------
+
+const TREZOR_CONNECT_CDN = 'https://connect.trezor.io/9/trezor-connect.js';
+
+/** Load Trezor Connect from CDN and return the global API object.
+ *  Caches on `window.TrezorConnect` — only fetches the script once per page load. */
+async function _loadTrezorConnectCDN(): Promise<NonNullable<typeof window.TrezorConnect>> {
+	if (window.TrezorConnect) {
+		_debug('TrezorConnect already loaded from CDN');
+		return window.TrezorConnect;
+	}
+
+	_debug('loading Trezor Connect from CDN: %s', TREZOR_CONNECT_CDN);
+	return new Promise((resolve, reject) => {
+		const script = document.createElement('script');
+		script.src = TREZOR_CONNECT_CDN;
+		script.async = true;
+		script.onload = () => {
+			_debug('Trezor Connect CDN script loaded');
+			if (window.TrezorConnect) {
+				resolve(window.TrezorConnect);
+			} else {
+				reject(new Error('Trezor Connect CDN loaded but window.TrezorConnect is undefined'));
+			}
+		};
+		script.onerror = () => reject(new Error('Failed to load Trezor Connect from CDN'));
+		document.head.appendChild(script);
+	});
+}
+
 const BTC_TAPROOT_PATH = "m/86'/0'/0'";
 const EVM_PATH = "m/44'/60'/0'/0/0";
 
@@ -52,76 +84,16 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 	_debug('platform check passed: %s', info.platform);
 
 	// -----------------------------------------------------------------------
-	// Step 0: Load & init Trezor Connect (WebUSB first, Bridge fallback)
+	// Step 0: Load Trezor Connect from CDN + init
 	// -----------------------------------------------------------------------
-	_debug('loading @trezor/connect-web...');
-	let TrezorConnectModule;
+	_debug('loading Trezor Connect CDN...');
+	let TrezorConnect;
 	try {
-		TrezorConnectModule = await import('@trezor/connect-web');
-		_debug('module loaded successfully');
+		TrezorConnect = await _loadTrezorConnectCDN();
 	} catch (e) {
-		_warn('failed to load @trezor/connect-web: %s', (e as Error)?.message);
+		_warn('failed to load Trezor Connect CDN: %s', (e as Error)?.message);
 		throw new Error(`Could not load Trezor Connect: ${(e as Error)?.message}`);
 	}
-	const api = (TrezorConnectModule.default ?? TrezorConnectModule) as unknown as {
-		init(params: Record<string, unknown>): Promise<void>;
-		dispose(): void;
-		// Bitcoin methods
-		getPublicKey(params: {
-			path: string;
-			coin: string;
-			showOnTrezor?: boolean;
-			scriptType?: string;
-		}): Promise<{ success: boolean; payload?: { xpub?: string; error?: string } }>;
-		getAddress(params: {
-			path: string;
-			coin: string;
-			showOnTrezor?: boolean;
-			scriptType?: string;
-		}): Promise<{ success: boolean; payload?: { address?: string; error?: string } }>;
-		// Ethereum methods
-		ethereumGetAddress(params: {
-			path: string;
-			showOnTrezor?: boolean;
-		}): Promise<{ success: boolean; payload?: { address?: string; error?: string } }>;
-		ethereumSignTransaction(params: {
-			path: string;
-			transaction: {
-				to: string;
-				value: string;
-				data: string;
-				chainId: number;
-				nonce: string;
-				gasLimit: string;
-				gasPrice: string;
-			};
-		}): Promise<{
-			success: boolean;
-			payload?: { r: string; s: string; v: string };
-			error?: string;
-		}>;
-		// BTC signing
-		signTransaction(params: {
-			coin: string;
-			inputs: Array<{
-				address_n: number[];
-				prev_index: number;
-				prev_hash: string;
-				amount: string;
-				script_type: string;
-			}>;
-			outputs: Array<{
-				address: string;
-				amount: string;
-				script_type: string;
-			}>;
-			push?: boolean;
-		}): Promise<{
-			success: boolean;
-			payload?: { signatures: string[]; serializedTx: string };
-			error?: string;
-		}>;
-	};
 
 	// Chrome/Edge: use WebUSB only (Bridge CORS-blocked on dev at 127.0.0.1:21325).
 	// Firefox/Safari: WebUSB unavailable, fall through to BridgeTransport.
@@ -129,7 +101,7 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 	const transports: string[] = _hasWebUSB ? ['WebUsbTransport'] : ['BridgeTransport'];
 	_debug('initializing with transports: %s', transports.join(', '));
 	try {
-		await api.init({
+		await TrezorConnect.init({
 			lazyLoad: true,
 			coreMode: 'auto',
 			manifest: {
@@ -142,117 +114,61 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 		_debug('Trezor Connect initialized (%s)', _hasWebUSB ? 'WebUsbTransport' : 'BridgeTransport');
 	} catch (e) {
 		_warn('Trezor Connect init failed: %s', (e as Error)?.message);
-		api.dispose();
+		TrezorConnect.dispose();
 		throw new Error(`Trezor init failed: ${(e as Error)?.message}`);
 	}
 
 	// -----------------------------------------------------------------------
-	// Step 1: Ethereum address FIRST — establishes the WebUSB session.
-	// Trezor can only run one app at a time (BTC or ETH). Doing ETH first
-	// gives it the fresh transport; BTC runs in a separate session.
+	// Step 1: Ethereum address — establishes the WebUSB session.
+	// BTC is handled separately via connectTrezorBitcoin() to work around
+	// the single-app limitation (Trezor runs ETH or BTC, not both at once).
 	// -----------------------------------------------------------------------
-	let evmAddress: string | null = null;
-
 	_debug('requesting ETH address at path %s, showOnTrezor=true', EVM_PATH);
-	try {
-		const ethResult = await api.ethereumGetAddress({
-			path: EVM_PATH,
-			showOnTrezor: true
-		});
-		_debug('ethereumGetAddress response: %o', JSON.stringify(ethResult));
-		if (ethResult.success && ethResult.payload?.address) {
-			evmAddress = ethResult.payload.address;
-			_debug('EVM address: %s', evmAddress);
-		} else {
-			const err = ethResult.payload?.error || 'failed';
-			_warn('ETH address unavailable: %s', err);
-		}
-	} catch (e) {
-		_warn('ethereumGetAddress threw: %s — continuing with BTC-only', (e as Error)?.message);
-	}
+	const ethResult = await TrezorConnect.ethereumGetAddress({
+		path: EVM_PATH,
+		showOnTrezor: true
+	});
+	_debug('ethereumGetAddress response: success=%s', ethResult.success);
 
-	// -----------------------------------------------------------------------
-	// Step 2: Bitcoin public key — same transport session (ETH unlocked device).
-	// Trezor can switch apps; the handshake remains valid after ETH confirms.
-	// -----------------------------------------------------------------------
-	let xpub: string | null = null;
-	let changeDeriver: ((index: number) => string) | null = null;
-
-	try {
-		_debug('requesting BTC public key at path %s...', BTC_TAPROOT_PATH);
-		const pkResult = await api.getPublicKey({
-			path: BTC_TAPROOT_PATH,
-			coin: 'btc',
-			scriptType: 'SPENDTAPROOT',
-			showOnTrezor: false
-		});
-
-		if (pkResult.success && pkResult.payload?.xpub) {
-			xpub = pkResult.payload.xpub;
-			_debug('BTC xpub received (BIP86 Taproot)');
-			changeDeriver = await initChangeDerivation(xpub);
-			_debug('BIP86 change derivation initialized');
-		} else {
-			_debug(
-				'BTC xpub not available on this session (Trezor app-switch limitation) — continuing with EVM-only'
-			);
-		}
-	} catch (e) {
-		_debug('BTC derivation threw (expected app-switch limitation): %s', (e as Error)?.message);
-	}
-
-	if (!xpub) {
-		if (!evmAddress)
-			throw new Error(
-				'Trezor provided neither EVM nor BTC address. Check that the device is unlocked and the Ethereum app is installed.'
-			);
-		_debug(
-			'No BTC xpub — continuing with EVM-only handle (BTC app-switch requires separate Trezor connection)'
+	if (!ethResult.success || !ethResult.payload?.address) {
+		const err = ethResult.payload?.error || 'Trezor did not return an Ethereum address';
+		_warn('ETH address unavailable: %s — is the Ethereum app open on your Trezor?', err);
+		throw new Error(
+			`Could not get Ethereum address from Trezor. ${err}. Ensure the Ethereum app is open and the device is unlocked.`
 		);
 	}
 
-	// -----------------------------------------------------------------------
-	// Step 3: Derive Bitcoin address locally from xpub (if available)
-	// -----------------------------------------------------------------------
-	let btcAddress: string | null = null;
-	if (xpub) {
-		btcAddress = await deriveAddressFromXpub(xpub, 0, 0);
-		_debug('BTC address (locally derived): %s', btcAddress);
-	}
+	const evmAddress = ethResult.payload.address;
+	_debug('EVM address: %s', evmAddress);
 
 	// -----------------------------------------------------------------------
-	// Build signers
+	// Build EVM-only handle — bitcoinSigner is added later via
+	// connectTrezorBitcoin() when the user clicks "Connect Bitcoin".
 	// -----------------------------------------------------------------------
-	const connectorId = evmAddress ? `trezor-${evmAddress}` : `trezor-${btcAddress}`;
+	const connectorId = `trezor-${evmAddress}`;
 	_debug('connectorId: %s', connectorId);
 
-	const evmSigner = evmAddress ? buildEVMSigner(evmAddress, api, config) : undefined;
-	const bitcoinSigner =
-		btcAddress && xpub && changeDeriver
-			? buildBitcoinSigner(btcAddress, xpub, changeDeriver, config)
-			: undefined;
+	const evmSigner = buildEVMSigner(evmAddress, config);
 
 	const handle: ConnectorHandle = {
 		id: connectorId,
 		walletName: 'Trezor',
 		walletType: 'trezor',
-		address: evmAddress || btcAddress || '',
-		chainIds: evmAddress ? [30, 31, 56, 42161] : [],
+		address: evmAddress,
+		chainIds: [30, 31, 56, 42161],
 		provider: config.provider ?? null,
 		evmSigner,
-		bitcoinSigner,
+		bitcoinSigner: undefined,
 		onEvent() {},
 		unsubscribe() {
 			_debug('disposing Trezor Connect');
-			api.dispose();
+			TrezorConnect.dispose();
 		}
 	};
 
 	_debug(
-		'connection complete: handle.address=%s (evm=%s btc=%s)',
-		handle.address,
-		evmAddress || 'none',
-		btcAddress || 'none'
+		'connection complete: handle.address=%s (EVM only — BTC requires separate Trezor connection)',
+		handle.address
 	);
 	return handle;
 }
@@ -261,28 +177,7 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 // EVM Signer
 // ---------------------------------------------------------------------------
 
-function buildEVMSigner(
-	evmAddress: string,
-	api: {
-		ethereumSignTransaction(params: {
-			path: string;
-			transaction: {
-				to: string;
-				value: string;
-				data: string;
-				chainId: number;
-				nonce: string;
-				gasLimit: string;
-				gasPrice: string;
-			};
-		}): Promise<{
-			success: boolean;
-			payload?: { r: string; s: string; v: string };
-			error?: string;
-		}>;
-	},
-	config: TrezorConnectionConfig
-): EVMSigner {
+function buildEVMSigner(evmAddress: string, config: TrezorConnectionConfig): EVMSigner {
 	return {
 		type: 'evm' as const,
 		label: 'Trezor',
@@ -297,6 +192,7 @@ function buildEVMSigner(
 		async sendTransaction(tx): Promise<{ txHash: string; from: string; chainId: number }> {
 			_debug('sendTransaction: to=%s value=%s chainId=%s', tx.to, tx.value, tx.chainId);
 			const ethersModule = await import('ethers');
+			const TrezorConnect = await _loadTrezorConnectCDN();
 
 			const provider = config.provider as Provider | null;
 			const nonce = provider ? await provider.getTransactionCount(evmAddress) : 0;
@@ -327,7 +223,7 @@ function buildEVMSigner(
 				txParams.gasPrice
 			);
 
-			const result = await api.ethereumSignTransaction({
+			const result = await TrezorConnect.ethereumSignTransaction({
 				path: `${EVM_PATH}/0/0`,
 				transaction: txParams
 			});
@@ -466,30 +362,7 @@ function buildBitcoinSigner(
 
 			// Sign with Trezor
 			_debug('sending BTC transaction to Trezor for signing...');
-			const TrezorConnectModule = await import('@trezor/connect-web');
-			const TrezorConnect = (TrezorConnectModule.default ?? TrezorConnectModule) as {
-				signTransaction(params: {
-					coin: string;
-					inputs: Array<{
-						address_n: number[];
-						prev_index: number;
-						prev_hash: string;
-						amount: string;
-						script_type: string;
-					}>;
-					outputs: Array<{
-						address: string;
-						amount: string;
-						script_type: string;
-					}>;
-					push?: boolean;
-				}): Promise<{
-					success: boolean;
-					payload?: { signatures: string[]; serializedTx: string };
-					error?: string;
-				}>;
-			};
-
+			const TrezorConnect = await _loadTrezorConnectCDN();
 			const signResult = await TrezorConnect.signTransaction({
 				coin: 'btc',
 				inputs: (selected.inputs as Array<{ txId: string; vout: number; value: number }>).map(
@@ -651,24 +524,15 @@ export async function connectTrezorBitcoin(
 		throw new Error('Trezor not available on iOS');
 	}
 
+	// Load Trezor Connect (cached from first CDN load)
+	const TrezorConnect = await _loadTrezorConnectCDN();
+
 	const _hasWebUSB = typeof navigator !== 'undefined' && 'usb' in config.navigator;
 
-	_debug('[BTC] loading Trezor Connect for Bitcoin session...');
-	const TrezorConnectModule = await import('@trezor/connect-web');
-	const api = (TrezorConnectModule.default ?? TrezorConnectModule) as unknown as {
-		init(params: Record<string, unknown>): Promise<void>;
-		dispose(): void;
-		getPublicKey(params: {
-			path: string;
-			coin: string;
-			showOnTrezor?: boolean;
-			scriptType?: string;
-		}): Promise<{ success: boolean; payload?: { xpub?: string; error?: string } }>;
-	};
-
+	_debug('[BTC] initializing Trezor Connect for Bitcoin session...');
 	const transports: string[] = _hasWebUSB ? ['WebUsbTransport'] : ['BridgeTransport'];
 	try {
-		await api.init({
+		await TrezorConnect.init({
 			lazyLoad: false,
 			coreMode: 'auto',
 			manifest: {
@@ -686,7 +550,7 @@ export async function connectTrezorBitcoin(
 
 	// Request xpub with device confirmation (user switches to BTC app)
 	_debug('[BTC] requesting BTC xpub at path %s...', BTC_TAPROOT_PATH);
-	const pkResult = await api.getPublicKey({
+	const pkResult = await TrezorConnect.getPublicKey({
 		path: BTC_TAPROOT_PATH,
 		coin: 'btc',
 		scriptType: 'SPENDTAPROOT',
@@ -696,7 +560,6 @@ export async function connectTrezorBitcoin(
 	if (!pkResult.success || !pkResult.payload?.xpub) {
 		const err = pkResult.payload?.error || 'Failed to get Trezor Bitcoin public key';
 		_warn('[BTC] public key failed: %s', err);
-		api.dispose();
 		throw new Error(err);
 	}
 
@@ -708,7 +571,6 @@ export async function connectTrezorBitcoin(
 	_debug('[BTC] address (locally derived): %s', btcAddress);
 
 	const bitcoinSigner = buildBitcoinSigner(btcAddress, xpub, changeDeriver, config);
-	api.dispose();
 
 	return { bitcoinSigner, xpub, btcAddress };
 }
