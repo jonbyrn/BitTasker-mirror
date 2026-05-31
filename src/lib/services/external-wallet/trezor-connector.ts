@@ -10,10 +10,17 @@
  * Debug logging: set `localStorage.debug = 'trezor'` to enable.
  */
 
-import type { ConnectorHandle, EVMSigner, BitcoinSigner } from './types';
+import type {
+	ConnectorHandle,
+	EVMSigner,
+	BitcoinSigner,
+	BitcoinSendRequest,
+	BitcoinSendResult
+} from './types';
 import type { ConnectorRegistry } from './connector-registry';
 import { getPlatformInfo } from './platform-checks';
 import type { Provider } from 'ethers';
+import * as Sentry from '@sentry/sveltekit';
 
 // ---------------------------------------------------------------------------
 // Trezor Connect CDN loader
@@ -72,6 +79,7 @@ export interface TrezorConnectionConfig {
 	registry: ConnectorRegistry;
 	navigator: Navigator;
 	provider?: Provider;
+	network?: 'mainnet' | 'testnet';
 }
 
 export async function connectTrezor(config: TrezorConnectionConfig): Promise<ConnectorHandle> {
@@ -90,8 +98,15 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 	let TrezorConnect;
 	try {
 		TrezorConnect = await _loadTrezorConnectCDN();
+		_debug('TrezorConnect CDN loaded successfully');
+		Sentry.addBreadcrumb({ category: 'hw-wallet', message: 'Trezor CDN loaded', level: 'info' });
 	} catch (e) {
 		_warn('failed to load Trezor Connect CDN: %s', (e as Error)?.message);
+		Sentry.addBreadcrumb({
+			category: 'hw-wallet',
+			message: 'Trezor CDN load failed',
+			level: 'error'
+		});
 		throw new Error(`Could not load Trezor Connect: ${(e as Error)?.message}`);
 	}
 
@@ -112,6 +127,11 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 			transports
 		});
 		_debug('Trezor Connect initialized (%s)', _hasWebUSB ? 'WebUsbTransport' : 'BridgeTransport');
+		Sentry.addBreadcrumb({
+			category: 'hw-wallet',
+			message: 'Trezor Connect initialized',
+			level: 'info'
+		});
 	} catch (e) {
 		_warn('Trezor Connect init failed: %s', (e as Error)?.message);
 		TrezorConnect.dispose();
@@ -140,6 +160,11 @@ export async function connectTrezor(config: TrezorConnectionConfig): Promise<Con
 
 	const evmAddress = ethResult.payload.address;
 	_debug('EVM address: %s', evmAddress);
+	Sentry.addBreadcrumb({
+		category: 'hw-wallet',
+		message: 'Trezor EVM address derived',
+		level: 'info'
+	});
 
 	// -----------------------------------------------------------------------
 	// Build EVM-only handle — bitcoinSigner is added later via
@@ -191,6 +216,11 @@ function buildEVMSigner(evmAddress: string, config: TrezorConnectionConfig): EVM
 		},
 		async sendTransaction(tx): Promise<{ txHash: string; from: string; chainId: number }> {
 			_debug('sendTransaction: to=%s value=%s chainId=%s', tx.to, tx.value, tx.chainId);
+			Sentry.addBreadcrumb({
+				category: 'hw-wallet',
+				message: 'Trezor EVM transaction signing started',
+				level: 'info'
+			});
 			const ethersModule = await import('ethers');
 			const TrezorConnect = await _loadTrezorConnectCDN();
 
@@ -280,8 +310,8 @@ function buildBitcoinSigner(
 		deriveChangeAddress(index: number): string {
 			return changeDeriver(index);
 		},
-		async sendBitcoin(req: BitcoinSendRequest): Promise<never> {
-			_debug('sendBitcoin: amount=%s', req.amount);
+		async sendBitcoin(req: BitcoinSendRequest): Promise<BitcoinSendResult> {
+			_debug('sendBitcoin: amount=%s', req.amount.toString());
 			const { accumulative } = await import('coinselect');
 			const bitcoin = await import('bitcoinjs-lib');
 			const { fromXpub, toXOnly } = (
@@ -300,7 +330,7 @@ function buildBitcoinSigner(
 				}
 			).Psbt;
 
-			const network = config.provider ? 'mainnet' : 'testnet';
+			const network = config.network ?? (config.provider ? 'mainnet' : 'testnet');
 			const apiBase =
 				network === 'mainnet' ? 'https://mempool.space/api' : 'https://mempool.space/testnet/api';
 
@@ -395,7 +425,7 @@ function buildBitcoinSigner(
 				change: BigInt(0),
 				inputs: [],
 				outputs: []
-			} as never;
+			} as BitcoinSendResult;
 		},
 		async signPSBT(): Promise<string> {
 			throw new Error('Raw PSBT signing not yet implemented');
@@ -491,17 +521,6 @@ async function initChangeDerivation(xpub: string): Promise<(index: number) => st
 }
 
 // ---------------------------------------------------------------------------
-// Type needed for BitcoinSendRequest (imported from types, redeclared here
-// to avoid circular ref noise)
-// ---------------------------------------------------------------------------
-
-interface BitcoinSendRequest {
-	amount: string;
-	to?: string;
-	feeRate?: number;
-}
-
-// ---------------------------------------------------------------------------
 // Standalone Bitcoin connection (separate session — Trezor runs one app at a time)
 // ---------------------------------------------------------------------------
 
@@ -560,11 +579,21 @@ export async function connectTrezorBitcoin(
 	if (!pkResult.success || !pkResult.payload?.xpub) {
 		const err = pkResult.payload?.error || 'Failed to get Trezor Bitcoin public key';
 		_warn('[BTC] public key failed: %s', err);
+		Sentry.addBreadcrumb({
+			category: 'hw-wallet',
+			message: 'Trezor BTC public key failed',
+			level: 'error'
+		});
 		throw new Error(err);
 	}
 
 	const xpub = pkResult.payload.xpub;
 	_debug('[BTC] xpub received');
+	Sentry.addBreadcrumb({
+		category: 'hw-wallet',
+		message: 'Trezor BTC xpub received',
+		level: 'info'
+	});
 
 	const changeDeriver = await initChangeDerivation(xpub);
 	const btcAddress = await deriveAddressFromXpub(xpub, 0, 0);

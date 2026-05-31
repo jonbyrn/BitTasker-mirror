@@ -12,12 +12,19 @@
  * requiring a specific app to be open during initial connection.
  */
 
-import type { ConnectorHandle, EVMSigner, BitcoinSigner, BitcoinSendRequest } from './types';
+import type {
+	ConnectorHandle,
+	EVMSigner,
+	BitcoinSigner,
+	BitcoinSendRequest,
+	BitcoinSendResult
+} from './types';
 import type { Provider } from 'ethers';
 import type { ConnectorRegistry } from './connector-registry';
 import type Transport from '@ledgerhq/hw-transport';
 import { DeviceDisconnectedError } from './types';
 import { getPlatformInfo, getLedgerTransport } from './platform-checks';
+import * as Sentry from '@sentry/sveltekit';
 
 const ETH_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 
@@ -54,9 +61,19 @@ async function createLedgerTransport(navigator: Navigator): Promise<Transport> {
 
 	if (transportType === 'ble') {
 		const BleTransport = (await import('@ledgerhq/hw-transport-web-ble')).default;
+		Sentry.addBreadcrumb({
+			category: 'hw-wallet',
+			message: 'Ledger BLE transport opened',
+			level: 'info'
+		});
 		return (await BleTransport.create()) as unknown as Transport;
 	}
 	const UsbTransport = (await import('@ledgerhq/hw-transport-webusb')).default;
+	Sentry.addBreadcrumb({
+		category: 'hw-wallet',
+		message: 'Ledger USB transport opened',
+		level: 'info'
+	});
 	return (await UsbTransport.create()) as unknown as Transport;
 }
 
@@ -73,6 +90,11 @@ async function deriveEVMAddress(
 	// Derive the first address at m/44'/60'/0'/0/0
 	try {
 		const result = await eth.getAddress(ETH_DERIVATION_PATH);
+		Sentry.addBreadcrumb({
+			category: 'hw-wallet',
+			message: 'Ledger EVM address derived',
+			level: 'info'
+		});
 		return { address: result.address, chainId: 30 };
 	} catch (e) {
 		if (e instanceof Error) {
@@ -139,7 +161,11 @@ async function deriveBTCAddress(transport: Transport): Promise<BtcResult | null>
 					} else {
 						rawXpub = (xpubResult as Record<string, string>).publicKey ?? '';
 					}
-				} catch {
+				} catch (e) {
+					console.warn(
+						'[Ledger] getWalletXpub failed, building xpub from pubkey:',
+						(e as Error)?.message
+					);
 					rawXpub = '';
 				}
 				if (!rawXpub && pubKeyResult.publicKey && pubKeyResult.chainCode) {
@@ -174,8 +200,9 @@ async function deriveBTCAddress(transport: Transport): Promise<BtcResult | null>
 				throw e;
 			}
 		}
-	} catch {
+	} catch (e) {
 		// Any error during BTC derivation is non-fatal — return null
+		console.warn('[Ledger] BTC derivation failed (non-fatal):', (e as Error)?.message);
 	}
 	return null;
 }
@@ -195,7 +222,7 @@ export async function addBitcoinToLedger(
 	const transport = await createLedgerTransport(config.navigator);
 
 	const btcResult = await deriveBTCAddress(transport);
-	transport.close().catch(() => {});
+	transport.close().catch((e) => console.warn('[Ledger] Transport close failed:', e));
 
 	if (!btcResult) {
 		throw new Error(
@@ -224,7 +251,7 @@ export async function connectLedger(config: LedgerConnectionConfig): Promise<Con
 	// Step 2: Optionally derive BTC (best-effort, user must switch to Bitcoin app)
 	const btcResult = await deriveBTCAddress(transport).catch(() => null);
 
-	transport.close().catch(() => {});
+	transport.close().catch((e) => console.warn('[Ledger] Transport close failed:', e));
 
 	// Build signers
 	const evmSigner = buildEVMSigner(evmAddress, config);
@@ -273,6 +300,11 @@ function buildEVMSigner(address: string, config: LedgerConnectionConfig): EVMSig
 			return true;
 		},
 		async sendTransaction(tx) {
+			Sentry.addBreadcrumb({
+				category: 'hw-wallet',
+				message: 'Ledger EVM transaction signing started',
+				level: 'info'
+			});
 			const ethersModule = await import('ethers');
 			const EthApp = (await import('@ledgerhq/hw-app-eth')).default;
 			const transport = await createLedgerTransport(config.navigator);
@@ -314,7 +346,7 @@ function buildEVMSigner(address: string, config: LedgerConnectionConfig): EVMSig
 
 			if (!provider) throw new Error('No provider for broadcast');
 			const txResponse = await provider.broadcastTransaction(unsignedTx.serialized);
-			transport.close().catch(() => {});
+			transport.close().catch((e) => console.warn('[Ledger] Transport close failed:', e));
 
 			return { txHash: txResponse.hash, from: address, chainId: tx.chainId };
 		}
@@ -349,7 +381,7 @@ function buildBitcoinSigner(
 		deriveChangeAddress(index: number): string {
 			return changeDeriver(index);
 		},
-		async sendBitcoin(req: BitcoinSendRequest): Promise<never> {
+		async sendBitcoin(req: BitcoinSendRequest): Promise<BitcoinSendResult> {
 			const { accumulative } = await import('coinselect');
 			const bitcoinjs = (await import('bitcoinjs-lib')) as unknown as {
 				networks: { testnet: unknown; bitcoin: unknown };
@@ -409,7 +441,7 @@ function buildBitcoinSigner(
 			};
 
 			await btc.signPSBT(psbt.toBase64());
-			transport.close().catch(() => {});
+			transport.close().catch((e) => console.warn('[Ledger] Transport close failed:', e));
 
 			return {
 				txHash: psbt.extractTransaction().toHex(),
@@ -418,7 +450,7 @@ function buildBitcoinSigner(
 				change: BigInt(0),
 				inputs: [],
 				outputs: []
-			} as never;
+			} as BitcoinSendResult;
 		},
 		async signPSBT(psbtB64: string): Promise<string> {
 			const transport = await createLedgerTransport(navigator);
@@ -428,7 +460,7 @@ function buildBitcoinSigner(
 				close(): Promise<void>;
 			};
 			await btc.signPSBT(psbtB64);
-			transport.close().catch(() => {});
+			transport.close().catch((e) => console.warn('[Ledger] Transport close failed:', e));
 			return psbtB64;
 		}
 	};

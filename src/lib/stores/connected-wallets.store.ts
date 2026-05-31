@@ -79,9 +79,7 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 		chainIds: handle.chainIds,
 		balances: {},
 		connectedAt: Date.now(),
-		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
-			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
-			: undefined
+		btcAddress: handle.bitcoinSigner?.address ?? undefined
 	};
 
 	connectedWalletsStore.update((state) => {
@@ -103,21 +101,19 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 	});
 
 	// Fetch balances immediately, then start polling
-	const fetcher = (
-		handle as {
-			fetchBalances?: () => Promise<
-				Record<string, { raw: string; formatted: string; loading: boolean }>
-			>;
-		}
-	).fetchBalances;
+	const fetcher = handle.fetchBalances;
 	if (fetcher) {
-		d.log('SDK wallet, fetching balances immediately...');
-		fetcher()
-			.then((balances) => {
-				d.log('Initial balances:', balances);
-				updateConnectedBalances(handle.id, balances);
-			})
-			.catch((e) => d.error('Initial fetch failed:', e));
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			console.warn('[Store] Offline — skipping initial balance fetch');
+		} else {
+			d.log('SDK wallet, fetching balances immediately...');
+			fetcher()
+				.then((balances) => {
+					d.log('Initial balances:', balances);
+					updateConnectedBalances(handle.id, balances);
+				})
+				.catch((e) => d.error('Initial fetch failed:', e));
+		}
 	}
 
 	// Start balance polling for this wallet
@@ -144,8 +140,9 @@ export function registerConnectedWallet(handle: ConnectorHandle): void {
 				updateConnectedBalances(handle.id, {
 					native: { raw, formatted: `${whole}.${fraction}`, loading: false }
 				});
-			} catch {
-				// Polling errors are non-fatal
+			} catch (e) {
+				// Polling errors are non-fatal — the UI shows the last-known balance
+				console.warn('[Poll] Balance fetch failed:', e);
 			}
 		});
 	});
@@ -176,9 +173,7 @@ export function replaceConnectedWallet(handle: ConnectorHandle): void {
 		chainIds: handle.chainIds,
 		balances: existing?.balances ?? {},
 		connectedAt: Date.now(),
-		btcAddress: (handle as Record<string, unknown>).bitcoinSigner
-			? ((handle as Record<string, unknown>).bitcoinSigner as { address?: string }).address
-			: undefined
+		btcAddress: handle.bitcoinSigner?.address ?? undefined
 	};
 
 	connectedWalletsStore.update((state) => ({
@@ -190,17 +185,15 @@ export function replaceConnectedWallet(handle: ConnectorHandle): void {
 	}));
 
 	// Fetch balances immediately
-	const fetcher = (
-		handle as {
-			fetchBalances?: () => Promise<
-				Record<string, { raw: string; formatted: string; loading: boolean }>
-			>;
-		}
-	).fetchBalances;
+	const fetcher = handle.fetchBalances;
 	if (fetcher) {
-		fetcher()
-			.then((balances) => updateConnectedBalances(handle.id, balances))
-			.catch((e) => d.error('Initial fetch after replace failed:', e));
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			console.warn('[Store] Offline — skipping balance fetch after replace');
+		} else {
+			fetcher()
+				.then((balances) => updateConnectedBalances(handle.id, balances))
+				.catch((e) => d.error('Initial fetch after replace failed:', e));
+		}
 	}
 
 	// Resume polling
@@ -211,8 +204,9 @@ export function replaceConnectedWallet(handle: ConnectorHandle): void {
 					const balances = await fetcher();
 					updateConnectedBalances(handle.id, balances);
 				}
-			} catch {
-				// Polling errors are non-fatal
+			} catch (e) {
+				// Polling errors are non-fatal — the UI shows the last-known balance
+				console.warn('[Poll] Balance fetch failed:', e);
 			}
 		});
 	});
@@ -383,8 +377,9 @@ export async function restoreConnectedWalletState(): Promise<void> {
 					'$lib/services/external-wallet/walletconnect-connector'
 				);
 				await restoreWCSession().catch(() => {});
-			} catch {
-				// WalletConnect module may not be available
+			} catch (e) {
+				// WalletConnect module may not be available in all builds
+				console.warn('[Restore] WalletConnect session restore failed:', e);
 			}
 		})();
 	} catch (error) {

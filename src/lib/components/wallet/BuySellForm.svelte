@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
@@ -17,6 +17,14 @@
 	import * as Sentry from '@sentry/sveltekit';
 
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
+
+	// Locale-aware formatter
+	const usdFormatter = $derived(
+		new Intl.NumberFormat($locale, {
+			style: 'currency',
+			currency: 'USD'
+		})
+	);
 
 	// Restore persisted connected wallets and try to reconnect for live balances.
 	// restoreConnectedWalletState restores metadata (name, address) but with empty
@@ -41,8 +49,14 @@
 					longTimeout: true
 				});
 				replaceConnectedWallet(handle);
-			} catch {
+			} catch (err) {
 				// Auto-reconnect silently fails — wallet shows with $0 balance
+				console.warn('[BuySellForm] MetaMask auto-reconnect failed:', err);
+				Sentry.addBreadcrumb({
+					category: 'wallet',
+					message: 'MetaMask auto-reconnect failed',
+					level: 'warning'
+				});
 			}
 		}
 
@@ -59,8 +73,14 @@
 				if (handle) {
 					replaceConnectedWallet(handle);
 				}
-			} catch {
+			} catch (err) {
 				// WalletConnect session restoration failed — shows $0 balance
+				console.warn('[BuySellForm] WalletConnect auto-reconnect failed:', err);
+				Sentry.addBreadcrumb({
+					category: 'wallet',
+					message: 'WalletConnect auto-reconnect failed',
+					level: 'warning'
+				});
 			}
 		}
 
@@ -70,7 +90,7 @@
 	})();
 
 	let activeTab = $state<'buy' | 'sell'>('buy');
-	let selectedCrypto = $state<'rbtc' | 'usdt-bsc' | 'btc-onchain'>('rbtc');
+	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'btc-onchain'>('rbtc');
 	let amount = $state<string>('');
 	let bankDetails = $state<string>('');
 	let isLoading = $state(false);
@@ -98,7 +118,7 @@
 			const b = w.balances;
 			if (!b) return false;
 			const sats = Number(b.btc?.raw ?? 0) + Number(b.rbtc?.raw ?? 0);
-			const usdt = Number(b.usdt?.raw ?? 0);
+			const usdt = Number(b['usdt0-arb']?.raw ?? 0);
 			return sats > 0 || usdt > 0;
 		});
 		return firstWithBalance?.id ?? 'builtin';
@@ -118,15 +138,16 @@
 	});
 
 	let isConnectedSource = $derived(source !== 'builtin');
-	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt-bsc');
+	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt0-arb');
 
-	// BTC on-chain detection
+	// BTC on-chain detection — only for hardware wallets with Bitcoin connected
 	let hasBtcWallet = $derived(
 		$connectedWalletsStore.wallets.some(
 			(w) =>
-				w.walletType === 'trezor' ||
-				w.walletType === 'ledger' ||
-				Number(w.balances?.btc?.raw ?? 0) > 0
+				(w.walletType === 'trezor' ||
+					w.walletType === 'ledger' ||
+					w.walletType === 'walletconnect') &&
+				!!w.btcAddress
 		)
 	);
 
@@ -138,8 +159,8 @@
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 			},
 			{
-				id: 'usdt-bsc',
-				name: $t('wallet.buy_sell.usdt_binance'),
+				id: 'usdt0-arb',
+				name: $t('wallet.usdt0_arbitrum'),
 				icon: '/images/chains/Tether-USD.svg'
 			}
 		];
@@ -159,24 +180,14 @@
 		const sats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
 		const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
 		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-		return usd.toLocaleString('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		});
+		return usdFormatter.format(usd);
 	}
 
 	function totalBuiltinUsd(): string {
 		const sats = $walletStore.totalBalances.sats;
 		const usdt = $walletStore.totalBalances.usdt;
 		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-		return usd.toLocaleString('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		});
+		return usdFormatter.format(usd);
 	}
 
 	let rbtcBalance = $derived.by(() => {
@@ -194,24 +205,21 @@
 			const raw = Number(w?.balances?.usdt?.raw ?? 0);
 			return (isNaN(raw) ? 0 : raw / 1e18).toFixed(2);
 		}
-		return $walletStore.bsc?.formattedUsdtBalance || '0.00';
+		return $walletStore.arb?.formattedUsdt0Balance || '0.00';
 	});
 
 	let rbtcBalanceDisplay = $derived.by(() => {
 		const sats = Math.round(parseFloat(rbtcBalance) * 100_000_000);
 		if (sats <= 0) return '0 Sats';
 		const usd = (sats / 100_000_000) * btcPrice.price;
-		const usdStr =
-			usd >= 1
-				? usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-				: `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
+		const usdStr = usd >= 1 ? usdFormatter.format(usd) : `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
 		return `${formatSats(sats)} (${usdStr})`;
 	});
 
 	let usdtBalanceDisplay = $derived.by(() => {
 		const num = parseFloat(usdtBalance);
 		if (num === 0) return '$0.00';
-		return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		return usdFormatter.format(num);
 	});
 
 	let estimatedReceive = $derived(
@@ -225,7 +233,7 @@
 		if (!value) return '0';
 		const n = parseFloat(value);
 		if (tokenId === 'rbtc') return Math.round(n * 100000000).toLocaleString();
-		if (tokenId === 'usdt-bsc') return Math.round(n * 100).toLocaleString();
+		if (tokenId === 'usdt0-arb') return Math.round(n * 100).toLocaleString();
 		return value;
 	}
 
@@ -488,14 +496,13 @@
 		<div class="space-y-2">
 			{#each digitalAssetOptions as asset (asset.id)}
 				{@const isSelected = selectedCrypto === asset.id}
-				{@const balanceText = asset.id === 'usdt-bsc' ? usdtBalanceDisplay : rbtcBalanceDisplay}
+				{@const balanceText = asset.id === 'usdt0-arb' ? usdtBalanceDisplay : rbtcBalanceDisplay}
 				<button
 					type="button"
 					class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
 						? 'border-primary bg-primary/5 shadow-sm'
 						: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-[0.98]"
 					onclick={() => handleCryptoChange(asset.id)}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<div
 						class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 {isSelected
@@ -506,10 +513,10 @@
 					</div>
 					<div class="relative shrink-0">
 						<img src={asset.icon} alt={asset.name} class="h-8 w-8 rounded-full sm:h-10 sm:w-10" />
-						{#if asset.id === 'usdt-bsc'}
+						{#if asset.id === 'usdt0-arb'}
 							<img
-								src="/images/chains/Binance-logo.svg"
-								alt="BSC"
+								src="/images/chains/arbitrum.png"
+								alt="Arbitrum"
 								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
 							/>
 						{/if}
@@ -584,7 +591,7 @@
 							onclick={() => {
 								amount = '10';
 								fetchQuoteForAmount('10');
-							}}>$10</button
+							}}>{$t('wallet.buy_sell.quick_amount_10')}</button
 						>
 						<button
 							type="button"
@@ -592,7 +599,7 @@
 							onclick={() => {
 								amount = '20';
 								fetchQuoteForAmount('20');
-							}}>$20</button
+							}}>{$t('wallet.buy_sell.quick_amount_20')}</button
 						>
 						<button
 							type="button"
@@ -600,7 +607,7 @@
 							onclick={() => {
 								amount = '50';
 								fetchQuoteForAmount('50');
-							}}>$50</button
+							}}>{$t('wallet.buy_sell.quick_amount_50')}</button
 						>
 						<button
 							type="button"
@@ -608,7 +615,7 @@
 							onclick={() => {
 								amount = '100';
 								fetchQuoteForAmount('100');
-							}}>$100</button
+							}}>{$t('wallet.buy_sell.quick_amount_100')}</button
 						>
 					</div>
 				{/if}
@@ -697,12 +704,12 @@
 									<span class="text-base-content/40">...</span>
 								{:else if quoteError}
 									<span class="text-error">{$t('wallet.error.quote_failed')}</span>
-								{:else if quoteData}{activeTab === 'sell' || selectedCrypto === 'usdt-bsc'
+								{:else if quoteData}{activeTab === 'sell' || selectedCrypto === 'usdt0-arb'
 										? '$'
 										: ''}{activeTab === 'buy' ? estimatedReceive : estimatedSend}
 									<span class="text-base-content/60 ml-1 text-xs font-normal"
 										>{activeTab === 'buy'
-											? selectedCrypto === 'usdt-bsc'
+											? selectedCrypto === 'usdt0-arb'
 												? $t('wallet.buy_sell.usdt_bsc')
 												: selectedCrypto === 'btc-onchain'
 													? $t('wallet.btc')
@@ -711,7 +718,7 @@
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}
 							</div>
-							{#if activeTab === 'buy' && selectedCrypto !== 'usdt-bsc' && quoteData}
+							{#if activeTab === 'buy' && selectedCrypto !== 'usdt0-arb' && quoteData}
 								<div class="text-base-content/50 text-xs">
 									{convertToSats(estimatedReceive, selectedCrypto)}
 									{$t('wallet.sats')}

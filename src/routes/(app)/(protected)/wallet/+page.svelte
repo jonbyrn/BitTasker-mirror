@@ -321,7 +321,7 @@
 			<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
-						<IconCloseCircle class="text-error mr-2 h-6 w-6 shrink-0" />
+						<IconCloseCircle class="text-error mr-2 h-6 w-6 shrink-0" aria-hidden="true" />
 						<div>
 							<div class="font-bold">{$t('wallet.page.connection_error')}</div>
 							<div class="text-sm">
@@ -381,7 +381,7 @@
 										title={$t('wallet.testnet_warning.copy_address')}
 										aria-label={$t('wallet.testnet_warning.copy_address')}
 									>
-										<IconContentCopy class="h-4 w-4" />
+										<IconContentCopy class="h-4 w-4" aria-hidden="true" />
 									</button>
 								</div>
 							</div>
@@ -417,7 +417,7 @@
 						class:tab-active={activeTab === 'wallet'}
 						onclick={() => (activeTab = 'wallet')}
 					>
-						<IconWallet class="mr-1 h-4 w-4" />
+						<IconWallet class="mr-1 h-4 w-4" aria-hidden="true" />
 						{$t('wallet.tab_wallet')}
 					</button>
 					<button
@@ -427,7 +427,7 @@
 						class:tab-active={activeTab === 'connected'}
 						onclick={() => (activeTab = 'connected')}
 					>
-						<IconCellphoneLink class="mr-1 h-4 w-4" />
+						<IconCellphoneLink class="mr-1 h-4 w-4" aria-hidden="true" />
 						{$t('wallet.tab_connected')}
 					</button>
 				</div>
@@ -468,11 +468,11 @@
 						onclick={() => (showTransactionsModal = true)}
 					>
 						<div class="flex min-w-0 flex-1 items-center gap-2">
-							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
 							<span>{$t('wallet.tab_transactions')}</span>
 						</div>
 						<div class="absolute right-2 flex items-center sm:right-3">
-							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" aria-hidden="true" />
 						</div>
 					</button>
 				{/if}
@@ -495,7 +495,7 @@
 									connectedSection?.click();
 								}}
 							>
-								<IconPlus class="mr-1 h-5 w-5" />
+								<IconPlus class="mr-1 h-5 w-5" aria-hidden="true" />
 								{$t('wallet.connected.connect_modal_title')}
 							</button>
 						</div>
@@ -528,7 +528,7 @@
 							class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
 							onclick={() => (showConnectModal = true)}
 						>
-							<IconPlus class="mr-1 h-5 w-5" />
+							<IconPlus class="mr-1 h-5 w-5" aria-hidden="true" />
 							{$t('wallet.connected.connect')}
 						</button>
 					{/if}
@@ -541,31 +541,38 @@
 				<!-- Action Buttons (all four on one row) -->
 				<div class="flex flex-row gap-1">
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
 						onclick={() => (showBuySell = true)}
 					>
-						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" /></span>
+						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" aria-hidden="true" /></span
+						>
 						<span class="leading-tight">{$t('wallet.tab_buy_sell')}</span>
 					</button>
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
 						onclick={() => (showSwap = true)}
 					>
-						<span class="inline-flex shrink-0"><IconSwapHorizontal class="h-5 w-5" /></span>
+						<span class="inline-flex shrink-0"
+							><IconSwapHorizontal class="h-5 w-5" aria-hidden="true" /></span
+						>
 						<span class="leading-tight">{$t('wallet.tab_swap')}</span>
 					</button>
 					<button
-						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-3 text-xs"
+						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-3 text-xs active:scale-95"
 						onclick={() => (showSendModal = true)}
 					>
-						<span class="inline-flex shrink-0"><IconUpload class="h-5 w-5" /></span>
+						<span class="inline-flex shrink-0"
+							><IconUpload class="h-5 w-5" aria-hidden="true" /></span
+						>
 						<span class="leading-tight">{$t('wallet.send_button')}</span>
 					</button>
 					<button
-						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs"
+						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
 						onclick={() => (showReceiveModal = true)}
 					>
-						<span class="inline-flex shrink-0"><IconDownload class="h-5 w-5" /></span>
+						<span class="inline-flex shrink-0"
+							><IconDownload class="h-5 w-5" aria-hidden="true" /></span
+						>
 						<span class="leading-tight">{$t('wallet.tab_receive')}</span>
 					</button>
 				</div>
@@ -573,17 +580,17 @@
 				<!-- DeFi Buttons (Loans + Earn, one row) -->
 				<div class="flex flex-row gap-1">
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
 						onclick={() => (showBorrow = true)}
 					>
-						<IconHandCoin class="h-5 w-5 shrink-0" />
+						<IconHandCoin class="h-5 w-5 shrink-0" aria-hidden="true" />
 						<span class="leading-tight font-medium">{$t('wallet.defi.tab_borrow')}</span>
 					</button>
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs transition-none active:scale-100"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
 						onclick={() => (showEarn = true)}
 					>
-						<IconChartLine class="h-5 w-5 shrink-0" />
+						<IconChartLine class="h-5 w-5 shrink-0" aria-hidden="true" />
 						<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
 					</button>
 				</div>
@@ -596,7 +603,7 @@
 							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
 						}}
 					>
-						<IconInformationOutline class="h-4 w-4 shrink-0" />
+						<IconInformationOutline class="h-4 w-4 shrink-0" aria-hidden="true" />
 						{$t('wallet.learn_more')}
 					</button>
 				</div>
@@ -679,7 +686,7 @@
 			onclick={() => (showTransactionsModal = false)}
 			aria-label="Close transactions modal"
 		>
-			<IconClose class="h-5 w-5" />
+			<IconClose class="h-5 w-5" aria-hidden="true" />
 		</button>
 	</div>
 	<TransactionHistory

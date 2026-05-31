@@ -99,6 +99,9 @@ export interface ConnectorHandle {
 	evmSigner?: EVMSigner;
 	bitcoinSigner?: BitcoinSigner;
 	provider: ethers.Provider | null;
+	fetchBalances?: () => Promise<
+		Record<string, { raw: string; formatted: string; loading: boolean }>
+	>;
 	onEvent: ConnectorEventCallback;
 	unsubscribe: () => void;
 }

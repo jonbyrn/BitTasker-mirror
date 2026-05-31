@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
@@ -18,13 +18,17 @@
 	} from '$lib/stores/connected-wallets.store';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { createDebug } from '$lib/utils/debug';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import AssetSelector from '$lib/components/wallet/AssetSelector.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
+
+	const d = createDebug('swap');
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import * as Sentry from '@sentry/sveltekit';
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -33,6 +37,17 @@
 		isOpen: boolean;
 		onClose: () => void;
 	}>();
+
+	// -----------------------------------------------------------------------
+	// Locale-aware formatters
+	// -----------------------------------------------------------------------
+	const satsFormatter = $derived(new Intl.NumberFormat($locale));
+	const usdFormatter = $derived(
+		new Intl.NumberFormat($locale, {
+			style: 'currency',
+			currency: 'USD'
+		})
+	);
 
 	// -----------------------------------------------------------------------
 	// Destination type enum
@@ -97,8 +112,14 @@
 					longTimeout: true
 				});
 				replaceConnectedWallet(handle);
-			} catch {
-				// Silently fail
+			} catch (err) {
+				// Auto-reconnect silently fails — wallet shows with $0 balance
+				console.warn('[SwapForm] MetaMask auto-reconnect failed:', err);
+				Sentry.addBreadcrumb({
+					category: 'wallet',
+					message: 'MetaMask auto-reconnect failed',
+					level: 'warning'
+				});
 			}
 		}
 
@@ -110,8 +131,14 @@
 				);
 				const handle = await restoreWCSession(() => {});
 				if (handle) replaceConnectedWallet(handle);
-			} catch {
-				// Silently fail
+			} catch (err) {
+				// WalletConnect session restoration failed — shows $0 balance
+				console.warn('[SwapForm] WalletConnect auto-reconnect failed:', err);
+				Sentry.addBreadcrumb({
+					category: 'wallet',
+					message: 'WalletConnect auto-reconnect failed',
+					level: 'warning'
+				});
 			}
 		}
 	})();
@@ -119,9 +146,9 @@
 	/** Source wallet address for route resolution */
 	let sourceAddr = $derived.by(() => {
 		if (!isConnectedSource) {
-			return sourceType === 'rbtc'
-				? ($walletStore.rsk.address ?? '')
-				: ($walletStore.arb?.address ?? '');
+			if (sourceType === 'rbtc') return $walletStore.rsk.address ?? '';
+			// Arbitrum EVM address — same as RSK (same private key)
+			return $walletStore.arb?.address || $walletStore.rsk.address || '';
 		}
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
 		return w?.address ?? '';
@@ -131,12 +158,22 @@
 	let destAddr = $derived.by(() => {
 		if (!isConnectedDest) {
 			if (destType === 'btc-onchain') return getExternalBtcAddress();
-			return destType === 'rbtc-rsk'
-				? ($walletStore.rsk.address ?? '')
-				: ($walletStore.arb?.address ?? '');
+			if (destType === 'rbtc-rsk') return $walletStore.rsk.address ?? '';
+			// Cross-chain destinations use the same EVM address as RSK
+			return $walletStore.arb?.address || $walletStore.rsk.address || '';
 		}
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
 		return w?.address ?? '';
+	});
+
+	$effect(() => {
+		d.log(
+			'addrs: source=%s dest=%s srcWallet=%s destWallet=%s',
+			sourceAddr?.substring(0, 10) || '(none)',
+			destAddr?.substring(0, 10) || '(none)',
+			sourceWallet,
+			destWallet
+		);
 	});
 
 	/** Format USD balance for a wallet in WalletSelector */
@@ -145,24 +182,14 @@
 			const sats = $walletStore.totalBalances.sats;
 			const usdt = parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
 			const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-			return usd.toLocaleString('en-US', {
-				style: 'currency',
-				currency: 'USD',
-				minimumFractionDigits: 2,
-				maximumFractionDigits: 2
-			});
+			return usdFormatter.format(usd);
 		}
 		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === walletId);
 		if (!w?.balances) return '$0.00';
 		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
 		const usdt = Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e18;
 		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
-		return usd.toLocaleString('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		});
+		return usdFormatter.format(usd);
 	}
 
 	// -----------------------------------------------------------------------
@@ -270,7 +297,7 @@
 					icon: CHAIN_RSK.icon,
 					network: CHAIN_RSK.network,
 					chainId: CHAIN_RSK.chainId,
-					available: destWallet !== 'builtin'
+					available: true
 				});
 			}
 
@@ -321,6 +348,20 @@
 				chainId: CHAIN_WBTC.chainId,
 				available: true
 			});
+
+			// Same-wallet transfer: USDT0 → USDT0 on Arbitrum (when source ≠ dest wallet)
+			if (sourceWallet !== destWallet) {
+				options.push({
+					id: 'usdt0-arb',
+					asset: CHAIN_ARB.asset,
+					label: CHAIN_ARB.label,
+					description: $t('wallet.swap.desc_same_wallet_transfer'),
+					icon: CHAIN_ARB.icon,
+					network: CHAIN_ARB.network,
+					chainId: CHAIN_ARB.chainId,
+					available: true
+				});
+			}
 		}
 
 		return options;
@@ -336,23 +377,101 @@
 			: '/images/chains/Tether-USD.svg'
 	);
 
-	/** Wallet balance in token units (rBTC or USDT) */
+	/** Wallet balance in token units (rBTC or USDT0), read from the selected source wallet. */
 	let walletBalanceToken = $derived(
-		sourceType === 'rbtc'
-			? $walletStore.rsk?.formattedBalance || '0.00'
-			: $walletStore.arb?.formattedUsdt0Balance || '0.00'
+		sourceType === 'rbtc' ? (sourceRbtcSats / 100_000_000).toFixed(6) : sourceUsdt0Usd.toFixed(6)
 	);
 
 	/** Actual BTC/USD price from Coinbase, fetched async. Default 0 until loaded. */
 	let btcUsdPrice = $state(0);
+	/** ETH/USD price for Arbitrum gas→sats conversion. */
+	let ethUsdPrice = $state(0);
+	/** Live gas price in wei from RPC (eth_gasPrice). */
+	let rskGasPriceWei = $state(0n);
+	let arbGasPriceWei = $state(0n);
 
-	// Fetch BTC/USD price on mount
+	/**
+	 * Gas limit in wei for the current transaction.
+	 * For simple transfers: fetched from eth_estimateGas RPC.
+	 * For contract calls: 500k (verified from real Symbiosis swap on RSK).
+	 */
+	let rsxGasLimit = $state(0n);
+
+	// -----------------------------------------------------------------------
+	// Live gas price fetching via RPC eth_gasPrice
+	// -----------------------------------------------------------------------
+	const RSK_RPC = 'https://public-node.rsk.co';
+	const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
+
+	async function fetchGasPrice(rpcUrl: string): Promise<bigint> {
+		const resp = await fetch(rpcUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_gasPrice',
+				params: [],
+				id: 1
+			})
+		});
+		if (!resp.ok) throw new Error(`RPC ${rpcUrl} returned ${resp.status}`);
+		const data = (await resp.json()) as { result: string };
+		return BigInt(data.result);
+	}
+
+	async function estimateDirectTransferGas(to: string, amountWei: string): Promise<bigint> {
+		const resp = await fetch(RSK_RPC, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_estimateGas',
+				params: [{ to, value: amountWei }],
+				id: 1
+			})
+		});
+		const data = (await resp.json()) as { result: string; error?: { message: string } };
+		if (data.error) throw new Error(data.error.message);
+		return BigInt(data.result);
+	}
+
+	async function refreshLiveFees() {
+		d.log('refreshLiveFees: fetching gas prices + BTC/ETH rates');
+		// Fetch gas prices in parallel from both chains
+		const [rskResult, arbResult, btcResult, ethResult] = await Promise.allSettled([
+			fetchGasPrice(RSK_RPC),
+			fetchGasPrice(ARB_RPC),
+			cryptoPriceService.getCurrentPrice('BTC'),
+			cryptoPriceService.getCurrentPrice('ETH')
+		]);
+
+		if (rskResult.status === 'fulfilled') rskGasPriceWei = rskResult.value;
+		if (arbResult.status === 'fulfilled') arbGasPriceWei = arbResult.value;
+		if (btcResult.status === 'fulfilled') btcUsdPrice = btcResult.value;
+		if (ethResult.status === 'fulfilled') ethUsdPrice = ethResult.value;
+
+		d.log(
+			'refreshLiveFees done: rskGas=%d gwei arbGas=%d gwei btc=$%s eth=$%s',
+			Number(rskGasPriceWei) / 1e9,
+			Number(arbGasPriceWei) / 1e9,
+			btcUsdPrice || '?',
+			ethUsdPrice || '?'
+		);
+	}
+
+	// Fetch prices on mount + re-fetch when drawer opens
 	onMount(async () => {
-		try {
-			btcUsdPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch {
-			// Leave at 0; estimatedOutput will show 0 until price loads
-		}
+		await refreshLiveFees();
+	});
+
+	let _feeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+	$effect(() => {
+		if (!isOpen) return;
+		// Re-fetch on drawer open (prices may have changed)
+		_feeRefreshTimer = setTimeout(() => refreshLiveFees(), 300);
+		return () => {
+			if (_feeRefreshTimer) clearTimeout(_feeRefreshTimer);
+		};
 	});
 
 	/** Convert amount string to source token units (handles sats→rBTC when source is rBTC) */
@@ -370,7 +489,7 @@
 		if (sourceType === 'rbtc') {
 			return formatSats(Math.round(num * 100_000_000));
 		}
-		return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		return usdFormatter.format(num);
 	});
 
 	/** Estimated output in destination token units, with cross-currency conversion */
@@ -379,7 +498,7 @@
 		const s = formatSats(sats);
 		if (btcUsdPrice <= 0) return `${s} ${$t('wallet.sats')}`;
 		const usd = (sats / 100_000_000) * btcUsdPrice;
-		return `${s} ${$t('wallet.sats')} ≈ $${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		return `${s} ${$t('wallet.sats')} ≈ ${usdFormatter.format(usd)}`;
 	}
 
 	/** Sync amount from percentage slider (works with display units) */
@@ -410,8 +529,12 @@
 
 	let visibleDestOptions = $derived(destOptions.filter((o) => o.available));
 
-	/** BTC on-chain balance from any connected wallet that supports BTC signing. */
-	let externalBtcBalanceSats = $derived.by(() => {
+	/** BTC on-chain balance from any connected wallet that supports BTC signing.
+	 *  Hardware wallets don't implement fetchBalances(), so we fetch the balance
+	 *  live from mempool.space using the wallet's btcAddress. */
+	let externalBtcBalanceSats = $state(0);
+
+	$effect(() => {
 		const w = $connectedWalletsStore.wallets.find(
 			(cw) =>
 				(cw.walletType === 'trezor' ||
@@ -419,8 +542,107 @@
 					cw.walletType === 'walletconnect') &&
 				!!cw.btcAddress
 		);
-		if (!w?.balances?.btc?.raw) return 0;
-		return Number(w.balances.btc.raw);
+		const addr = w?.btcAddress;
+		if (!addr) {
+			externalBtcBalanceSats = 0;
+			return;
+		}
+
+		// Check stored balance first (set by a connector that does implement fetchBalances)
+		if (w?.balances?.btc?.raw) {
+			externalBtcBalanceSats = Number(w.balances.btc.raw);
+			return;
+		}
+
+		// Fetch from mempool.space
+		let cancelled = false;
+		(async () => {
+			try {
+				const resp = await fetch(`https://mempool.space/api/address/${addr}`);
+				if (cancelled) return;
+				const data = (await resp.json()) as {
+					chain_stats?: { funded_txo_sum: number; spent_txo_sum: number };
+					mempool_stats?: { funded_txo_sum: number; spent_txo_sum: number };
+				};
+				const confirmed =
+					(data.chain_stats?.funded_txo_sum ?? 0) - (data.chain_stats?.spent_txo_sum ?? 0);
+				const mempool =
+					(data.mempool_stats?.funded_txo_sum ?? 0) - (data.mempool_stats?.spent_txo_sum ?? 0);
+				const total = confirmed + mempool;
+				if (!cancelled) externalBtcBalanceSats = total;
+			} catch {
+				if (!cancelled) externalBtcBalanceSats = 0;
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	// -----------------------------------------------------------------------
+	// Wallet-aware balance helpers — source/dest wallet changes update these
+	// -----------------------------------------------------------------------
+
+	/** rBTC balance in sats for the currently selected source wallet. */
+	let sourceRbtcSats = $derived.by(() => {
+		if (!isConnectedSource) {
+			return Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000);
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
+		return Number(w?.balances?.rbtc?.raw ?? 0);
+	});
+
+	/** USDT0 balance in USD for the currently selected source wallet. */
+	let sourceUsdt0Usd = $derived.by(() => {
+		if (!isConnectedSource) {
+			return parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
+		return Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
+	});
+
+	/** rBTC balance in sats for the currently selected destination wallet. */
+	let destRbtcSats = $derived.by(() => {
+		if (!isConnectedDest) {
+			return Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000);
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
+		return Number(w?.balances?.rbtc?.raw ?? 0);
+	});
+
+	/** USDT0 balance in USD for the currently selected destination wallet. */
+	let destUsdt0Usd = $derived.by(() => {
+		if (!isConnectedDest) {
+			return parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
+		return Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
+	});
+
+	/** WBTC balance in sats for the currently selected destination wallet. */
+	let destWbtcSats = $derived.by(() => {
+		if (!isConnectedDest) {
+			return Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000);
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
+		// WBTC has 18 decimals
+		const rawWei = Number(w?.balances?.wbtc?.raw ?? 0);
+		if (rawWei <= 0) return 0;
+		// 1 WBTC = 1e18 wei, 1 BTC = 1e8 sats → wei→sats = rawWei / 1e10
+		return Math.round(rawWei / 10_000_000_000);
+	});
+
+	/** WBTC balance in sats for the currently selected source wallet. */
+	let sourceWbtcSats = $derived.by(() => {
+		if (!isConnectedSource) {
+			return Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000);
+		}
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
+		const rawWei = Number(w?.balances?.wbtc?.raw ?? 0);
+		if (rawWei <= 0) return 0;
+		// 1 WBTC = 1e18 wei, 1 BTC = 1e8 sats → wei→sats = rawWei / 1e10
+		return Math.round(rawWei / 10_000_000_000);
 	});
 
 	let destAssets = $derived<AssetOption[]>(
@@ -450,31 +672,21 @@
 			available: o.available,
 			balance:
 				o.id === 'usdt0-arb'
-					? `$${parseFloat($walletStore.arb?.formattedUsdt0Balance || '0').toFixed(2)}`
+					? `$${destUsdt0Usd.toFixed(2)}`
 					: o.id === 'rbtc-rsk'
-						? formatSats(
-								Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000)
-							) + ' Sats'
+						? formatSats(destRbtcSats) + ' Sats'
 						: o.id === 'wbtc-arb'
-							? formatSats(
-									Math.round(
-										parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000
-									)
-								) + ' Sats'
+							? formatSats(destWbtcSats) + ' Sats'
 							: o.id === 'btc-onchain'
-								? externalBtcBalanceSats > 0
-									? formatSats(externalBtcBalanceSats) + ' Sats'
-									: undefined
+								? formatSats(externalBtcBalanceSats) + ' Sats'
 								: undefined,
 			balanceSub:
 				o.id === 'rbtc-rsk'
-					? `≈ $${(parseFloat($walletStore.rsk?.formattedBalance || '0') * btcPrice.price).toFixed(2)}`
+					? `≈ $${((destRbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 					: o.id === 'wbtc-arb'
-						? `≈ $${(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * btcPrice.price).toFixed(2)}`
+						? `≈ $${((destWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 						: o.id === 'btc-onchain'
-							? externalBtcBalanceSats > 0
-								? `≈ $${((externalBtcBalanceSats / 100_000_000) * btcPrice.price).toFixed(2)}`
-								: undefined
+							? `≈ $${((externalBtcBalanceSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 							: undefined
 		}))
 	);
@@ -485,29 +697,23 @@
 			label: 'Bitcoin (rBTC)',
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			subLabel: 'Bitcoin on Rootstock',
-			balance:
-				formatSats(
-					Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000)
-				) + ' Sats',
-			balanceSub: `≈ $${(parseFloat($walletStore.rsk?.formattedBalance || '0') * btcPrice.price).toFixed(2)}`
+			balance: formatSats(sourceRbtcSats) + ' Sats',
+			balanceSub: `≈ $${((sourceRbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 		},
 		{
 			id: 'usdt0-arb',
 			label: 'USD (Arbitrum)',
 			icon: '/images/chains/Tether-USD.svg',
 			subLabel: 'USDT0 on Arbitrum',
-			balance: `$${parseFloat($walletStore.arb?.formattedUsdt0Balance || '0').toFixed(2)}`
+			balance: `$${sourceUsdt0Usd.toFixed(2)}`
 		},
 		{
 			id: 'wbtc-arb',
 			label: 'Bitcoin (wBTC)',
 			icon: '/images/chains/arbitrum.png',
 			subLabel: 'Wrapped BTC on Arbitrum',
-			balance:
-				formatSats(
-					Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000)
-				) + ' Sats',
-			balanceSub: `≈ $${(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * btcPrice.price).toFixed(2)}`
+			balance: formatSats(sourceWbtcSats) + ' Sats',
+			balanceSub: `≈ $${((sourceWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 		}
 	]);
 
@@ -542,7 +748,13 @@
 	let liveRoutes = $derived(asyncRouteResult.routes);
 
 	let sortedRoutes = $derived(
-		[...liveRoutes].sort((a, b) => a.totalFeePercent - b.totalFeePercent)
+		// Routes with live gas data first, then sort by fee
+		[...liveRoutes].sort((a, b) => {
+			const aHasGas = a.gasCostWei ? 0 : 1;
+			const bHasGas = b.gasCostWei ? 0 : 1;
+			if (aHasGas !== bHasGas) return aHasGas - bHasGas;
+			return a.totalFeePercent - b.totalFeePercent;
+		})
 	);
 
 	let activeRoute = $derived(
@@ -565,10 +777,19 @@
 		const amt = amountInTokenUnits.toString();
 
 		_routeTimer = setTimeout(async () => {
+			d.log(
+				'routeResolve: source=%s dest=%s amount=%s addr=%s',
+				source,
+				selectedDest?.id,
+				amt,
+				sourceAddr.substring(0, 10)
+			);
 			try {
 				const result = await resolveRouteAsync(source, dest, amt, sourceAddr);
+				d.log('routeResolve: got %d routes', result.routes.length);
 				asyncRouteResult = result;
-			} catch {
+			} catch (err) {
+				d.warn('routeResolve failed: %s', err instanceof Error ? err.message : String(err));
 				// Keep existing routes on API error
 			}
 			routeLoading = false;
@@ -582,7 +803,10 @@
 	let estimatedOutput = $derived.by(() => {
 		if (!activeRoute || amountInTokenUnits <= 0) return '0';
 		const fee = 1 - activeRoute.totalFeePercent / 100;
-		const sourceAmt = amountInTokenUnits;
+		// Network gas fee in source token units — only affects rBTC source
+		// (on Arbitrum, gas is paid in ETH, not the swap token)
+		const gasInSourceUnits = sourceType === 'rbtc' ? networkFeeSats / 100_000_000 : 0;
+		const sourceAmt = Math.max(0, amountInTokenUnits - gasInSourceUnits);
 
 		let output: number;
 		if (sourceType === 'rbtc' && selectedDest?.id === 'usdt0-arb') {
@@ -626,10 +850,135 @@
 
 	let routePickerNetwork = $derived(selectedDest?.network ?? null);
 
+	/**
+	 * Estimated network (gas) fee in sats for EVERY on-chain transaction.
+	 * Uses live gas prices from eth_gasPrice RPC (RSK + Arbitrum).
+	 * If the active route carries gasCostWei from LI.FI/Symbiosis, that exact
+	 * value is used instead of the estimate.
+	 */
+	let networkFeeSats = $derived.by(() => {
+		if (amountSats <= 0) return 0;
+		if (!selectedDest) return 0;
+
+		// Use exact gas from live API quote when available (LI.FI / Symbiosis)
+		if (activeRoute?.gasCostWei) {
+			const gasWei = BigInt(activeRoute.gasCostWei);
+			const sats = Number(gasWei / 10_000_000_000n);
+			d.log(
+				'networkFeeSats: using live gas from route=%s gasWei=%s → %d sats',
+				activeRoute.label,
+				activeRoute.gasCostWei,
+				sats
+			);
+			return sats;
+		}
+		d.log(
+			'networkFeeSats: no live gas, route=%s gasCostWei=%s',
+			activeRoute?.label || 'none',
+			activeRoute?.gasCostWei || 'null'
+		);
+
+		const isSimpleTransfer =
+			(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
+			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb');
+
+		// RSK source
+		if (sourceType === 'rbtc') {
+			const gasPrice = rskGasPriceWei > 0n ? rskGasPriceWei : 65_000_000n;
+			const gasLimit = rsxGasLimit > 0n ? rsxGasLimit : isSimpleTransfer ? 21_000n : 500_000n;
+			return Number((gasLimit * gasPrice) / 10_000_000_000n);
+		}
+
+		// Arbitrum L2 source — gas is paid in ETH, convert to sats-equivalent
+		if (sourceType === 'usdt0-arb') {
+			const gasLimit = isSimpleTransfer ? 65_000n : 300_000n;
+			const gasPrice = arbGasPriceWei > 0n ? arbGasPriceWei : 30_000_000n;
+			const gasCostWei = gasLimit * gasPrice;
+			const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
+			const btcPrice = btcUsdPrice > 0 ? btcUsdPrice : 74000;
+			const gasCostEth = Number(gasCostWei) / 1e18;
+			const gasCostSats = ((gasCostEth * ethPrice) / btcPrice) * 100_000_000;
+			return Math.round(Math.max(gasCostSats, 1));
+		}
+
+		return 0;
+	});
+
+	/**
+	 * When a simple same-chain transfer is detected, estimate the actual
+	 * gas limit via eth_estimateGas on the RSK public node.
+	 */
+	$effect(() => {
+		const dest = destAddr;
+		if (!dest || amountInTokenUnits <= 0) return;
+		const isSimpleTransfer =
+			(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
+			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb');
+		if (!isSimpleTransfer) {
+			// Contract call — use verified 500k gas (real Symbiosis swap uses ~498k)
+			rsxGasLimit = 500_000n;
+			return;
+		}
+		// Simple transfer — fetch from RPC
+		let cancelled = false;
+		const amountWei = BigInt(Math.round(amountInTokenUnits * 1e18)).toString();
+		estimateDirectTransferGas(dest, amountWei)
+			.then((gas) => {
+				if (!cancelled && gas > 0n) rsxGasLimit = gas;
+			})
+			.catch(() => {
+				if (!cancelled) rsxGasLimit = 21_000n; // fallback
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	/**
+	 * Swap (provider) fee in sats from the selected route.
+	 * Uses LI.FI itemized fees when available, falls back to route percentage.
+	 * Zero for direct same-chain transfers (no swap involved).
+	 */
+	let swapFeeSats = $derived.by(() => {
+		if (amountSats <= 0) return 0;
+		if (!activeRoute) return 0;
+
+		// Use LI.FI's itemized fee data when present
+		if (activeRoute.feeCosts && activeRoute.feeCosts.length > 0) {
+			let totalSats = 0;
+			for (const f of activeRoute.feeCosts) {
+				try {
+					const amt = BigInt(f.amount || '0');
+					if (amt <= 0n) continue;
+					// LI.FI fees in source token wei → /1e10 → sats
+					if (amt > 1_000_000_000n) {
+						totalSats += Number(amt / 10_000_000_000n);
+					} else {
+						// Small fees in destination token units → convert via BTC price
+						const usdtAmt = Number(amt) / 1_000_000;
+						if (btcUsdPrice > 0) totalSats += Math.round((usdtAmt / btcUsdPrice) * 100_000_000);
+					}
+				} catch {
+					/* skip malformed amounts */
+				}
+			}
+			if (totalSats > 0) return totalSats;
+		}
+
+		if (activeRoute.totalFeePercent <= 0) return 0;
+		return Math.round(amountSats * (activeRoute.totalFeePercent / 100));
+	});
+
 	// Sync destType when source changes
 	$effect(() => {
 		const available = visibleDestOptions;
 		if (available.length > 0 && !available.find((o) => o.id === destType)) {
+			d.log(
+				'destType auto-selected: %s → %s (options: %s)',
+				destType,
+				available[0]!.id,
+				available.map((o) => o.id).join(',')
+			);
 			destType = available[0]!.id;
 		}
 	});
@@ -657,6 +1006,11 @@
 	function swapDirection() {
 		triggerHaptic(ImpactStyle.Light);
 		isFlipping = true;
+		d.log(
+			'swapDirection: flipping from %s → %s',
+			sourceType,
+			sourceType === 'rbtc' ? 'usdt0-arb' : 'rbtc'
+		);
 		setTimeout(() => (isFlipping = false), 300);
 		slideDir *= -1; // reverse slide direction each swap
 
@@ -753,6 +1107,16 @@
 		errorMessage = '';
 		triggerHaptic(ImpactStyle.Heavy);
 
+		d.log(
+			'executeSwap: source=%s dest=%s amount=%s sourceAddr=%s destAddr=%s isDirect=%s',
+			sourceType,
+			destType,
+			amountInTokenUnits,
+			sourceAddr.substring(0, 10),
+			destAddr.substring(0, 10),
+			isDirectTransfer
+		);
+
 		// Get destination address from selected wallet
 		const destAddress = destAddr;
 
@@ -771,14 +1135,23 @@
 		// Amount in source token units (not display units like sats)
 		const execAmount = amountInTokenUnits.toString();
 
+		// Pass connected wallet ID so swap-chain uses the correct signer
+		const connectedSourceId = isConnectedSource ? sourceWallet : null;
+		d.log(
+			'executeSwap: calling startSwapChain with connectedWalletId=%s',
+			connectedSourceId || 'null (built-in)'
+		);
+
 		const { data: result, error } = await startSwapChain(
 			activeRoute,
 			sourceType,
 			execDest,
-			execAmount
+			execAmount,
+			connectedSourceId
 		);
 
 		if (error || !result) {
+			d.error('executeSwap FAILED: %s', error?.message || 'no result');
 			errorMessage = error?.message || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			return;
@@ -789,6 +1162,11 @@
 				swapId: result.swap1Id ?? undefined,
 				txHash: result.swap1Id ?? undefined
 			};
+			d.log(
+				'executeSwap COMPLETE: txHash=%s swapId=%s',
+				result.swap1Id?.substring(0, 16),
+				result.swap2Id?.substring(0, 16)
+			);
 			swapPhase = 'complete';
 			triggerHaptic(ImpactStyle.Heavy);
 		} else if (result.phase === 'FAILED' || result.phase === 'PARTIAL') {
@@ -817,6 +1195,42 @@
 				return route.label;
 		}
 	}
+
+	// -----------------------------------------------------------------------
+	// Helpers for confirm/success screens
+	// -----------------------------------------------------------------------
+
+	/** True when this is a same-asset wallet-to-wallet send (not a swap). */
+	let isDirectTransfer = $derived(
+		(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
+			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb')
+	);
+
+	/** Human-readable wallet name for source/dest display. */
+	function walletLabel(id: string): string {
+		if (id === 'builtin') return 'BitTasker';
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
+		return w?.walletName || id;
+	}
+
+	/** Truncated address snippet. */
+	function addrSnippet(addr: string): string {
+		return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+	}
+
+	/** Source wallet label + address for confirm/success cards. */
+	let sourceWalletInfo = $derived.by(() => {
+		const label = walletLabel(sourceWallet);
+		const addr = sourceAddr;
+		return addr ? `${label} (${addrSnippet(addr)})` : label;
+	});
+
+	/** Destination wallet label + address. */
+	let destWalletInfo = $derived.by(() => {
+		const label = walletLabel(destWallet);
+		const addr = destAddr;
+		return addr ? `${label} (${addrSnippet(addr)})` : label;
+	});
 </script>
 
 <Drawer
@@ -869,7 +1283,6 @@
 								swapDirection();
 							}}
 							aria-label={$t('wallet.swap.swap_direction')}
-							style="-webkit-tap-highlight-color: transparent;"
 						>
 							<svg
 								class="h-5 w-5 sm:h-6 sm:w-6"
@@ -916,12 +1329,9 @@
 						<label for="swap-amount" class="label flex justify-between px-1 py-1">
 							<span class="label-text text-sm sm:text-base">
 								{#if sourceType === 'rbtc' && amountSats > 0}
-									{amountSats.toLocaleString('en-US')}
+									{satsFormatter.format(amountSats)}
 									{$t('wallet.sats')}
-									(${((amountSats / 100_000_000) * btcPrice.price).toLocaleString('en-US', {
-										minimumFractionDigits: 2,
-										maximumFractionDigits: 2
-									})})
+									({usdFormatter.format((amountSats / 100_000_000) * btcPrice.price)})
 								{:else}
 									{sourceType === 'rbtc' ? $t('wallet.sats') : 'USDT'}
 								{/if}
@@ -948,7 +1358,6 @@
 								type="button"
 								class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
 								onclick={setMaxAmount}
-								style="-webkit-tap-highlight-color: transparent;"
 							>
 								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
 							</button>
@@ -985,47 +1394,110 @@
 						btcPrice={btcUsdPrice}
 						network={routePickerNetwork}
 						{amountSats}
+						{networkFeeSats}
 						isLoadingFee={routeLoading}
 						hasAddress={true}
 						hasAmount={amountSats > 0}
 					/>
-					<!-- Total Card — always visible -->
-					<div
-						class="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4"
-						transition:fade={{ duration: 200 }}
-					>
-						<div class="min-w-0 flex-1">
-							<div class="text-base-content/60 text-xs sm:text-sm">
-								{$t('wallet.swap.estimated_output')}
+					<!-- Total Card — full fee breakdown -->
+					{#if activeRoute && selectedDest && amountInTokenUnits > 0}
+						<div
+							class="bg-primary/5 border-primary/20 flex flex-col gap-2 rounded-xl border-2 p-3 sm:p-4"
+							transition:fade={{ duration: 200 }}
+						>
+							<!-- Total Sent -->
+							<div class="flex items-center justify-between text-sm">
+								<span class="text-base-content/60">{$t('wallet.swap.total_sent')}</span>
+								<span class="font-semibold tabular-nums">
+									{sourceType === 'rbtc'
+										? satsUsd(amountSats)
+										: usdFormatter.format(amountInTokenUnits)}
+								</span>
 							</div>
-							<div class="text-base font-bold sm:text-lg">
-								{#if activeRoute && selectedDest}
+
+							<!-- Fee rows -->
+							{#if networkFeeSats > 0 || swapFeeSats > 0}
+								<div class="border-base-200 border-t pt-2">
+									{#if networkFeeSats > 0}
+										{@const gasUsd = (networkFeeSats / 100_000_000) * btcUsdPrice}
+										<div class="text-base-content/60 flex items-center justify-between text-xs">
+											<span>{$t('wallet.swap.subtract_network_fee')}</span>
+											<span class="tabular-nums"
+												>−{formatSats(networkFeeSats)}
+												{$t('wallet.sats')}
+												{#if gasUsd >= 0.01}≈ ${gasUsd.toFixed(2)}{/if}</span
+											>
+										</div>
+									{/if}
+									{#if swapFeeSats > 0}
+										{@const swapUsd = (swapFeeSats / 100_000_000) * btcUsdPrice}
+										<div class="text-base-content/60 flex items-center justify-between text-xs">
+											<span
+												>{$t('wallet.swap.subtract_swap_fee')} ({activeRoute.totalFeePercent}%)</span
+											>
+											<span class="tabular-nums"
+												>−{formatSats(swapFeeSats)}
+												{$t('wallet.sats')}
+												{#if swapUsd >= 0.01}≈ ${swapUsd.toFixed(2)}{/if}</span
+											>
+										</div>
+									{/if}
+								</div>
+							{/if}
+
+							<!-- You Receive -->
+							<div class="border-base-200 flex items-center justify-between border-t pt-2">
+								<span class="text-sm font-medium">{$t('wallet.swap.you_receive')}</span>
+								<div class="text-right">
+									<div class="text-base font-bold tabular-nums sm:text-lg">
+										{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
+											{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
+										{:else}
+											{usdFormatter.format(parseFloat(estimatedOutput))}
+										{/if}
+									</div>
+									<div class="text-base-content/50 text-xs">
+										{$t('wallet.swap.estimated_time')}: {activeRoute.estimatedTime}
+									</div>
+								</div>
+							</div>
+						</div>
+					{:else if activeRoute && selectedDest}
+						<div
+							class="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4"
+							transition:fade={{ duration: 200 }}
+						>
+							<div class="min-w-0 flex-1">
+								<div class="text-base-content/60 text-xs sm:text-sm">
+									{$t('wallet.swap.estimated_output')}
+								</div>
+								<div class="text-base font-bold sm:text-lg">
 									{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
 										{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 									{:else}
-										${parseFloat(estimatedOutput).toLocaleString('en-US', {
-											minimumFractionDigits: 2,
-											maximumFractionDigits: 2
-										})}
+										{usdFormatter.format(parseFloat(estimatedOutput))}
 									{/if}
-								{:else}
-									<span class="text-base-content/30">—</span>
-								{/if}
+								</div>
 							</div>
-						</div>
-						<div class="shrink-0 text-right">
-							<div class="text-base-content/60 text-xs">
-								{$t('wallet.swap.estimated_time')}
-							</div>
-							<div class="text-sm font-semibold">
-								{#if activeRoute}
+							<div class="shrink-0 text-right">
+								<div class="text-base-content/60 text-xs">
+									{$t('wallet.swap.estimated_time')}
+								</div>
+								<div class="text-sm font-semibold">
 									{activeRoute.estimatedTime}
-								{:else}
-									<span class="text-base-content/30">—</span>
-								{/if}
+								</div>
 							</div>
 						</div>
-					</div>
+					{:else}
+						<div
+							class="bg-primary/5 border-primary/20 flex items-center rounded-xl border-2 p-3 sm:p-4"
+							transition:fade={{ duration: 200 }}
+						>
+							<span class="text-base-content/30 text-sm"
+								>{$t('wallet.swap.enter_amount_for_quote')}</span
+							>
+						</div>
+					{/if}
 
 					<!-- Insufficient balance -->
 					{#if isInsufficientBalance}
@@ -1042,7 +1514,31 @@
 		<!-- Confirm Phase -->
 		{#if swapPhase === 'confirm' && activeRoute && selectedDest}
 			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col gap-4">
-				<h4 class="text-base font-semibold sm:text-lg">{$t('wallet.swap.swap_preview')}</h4>
+				<!-- Context-aware header -->
+				<div class="flex items-center gap-2">
+					{#if isDirectTransfer}
+						<svg
+							class="text-info h-5 w-5 shrink-0"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+							/></svg
+						>
+					{/if}
+					<h4 class="text-base font-semibold sm:text-lg">
+						{isDirectTransfer ? $t('wallet.swap.confirm_send') : $t('wallet.swap.confirm_swap')}
+					</h4>
+				</div>
+				{#if isDirectTransfer}
+					<p class="text-base-content/60 text-xs sm:text-sm">
+						{$t('wallet.swap.direct_transfer_note')}
+					</p>
+				{/if}
 
 				<!-- Source Card -->
 				<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
@@ -1055,70 +1551,73 @@
 						{#if sourceType === 'usdt0-arb'}
 							<img
 								src="/images/chains/arbitrum.png"
-								alt="BSC"
+								alt="Arbitrum"
 								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
 							/>
 						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
 						<div class="text-base-content/60 text-xs sm:text-sm">
-							{$t('wallet.swap.you_send')}
+							{isDirectTransfer ? $t('wallet.swap.send_from') : $t('wallet.swap.you_send')}
 						</div>
-						<div class="text-sm font-semibold sm:text-base">{$t('wallet.btc')} ({sourceAsset})</div>
+						<div class="text-base-content/70 truncate text-xs font-medium">{sourceWalletInfo}</div>
 					</div>
 					<div class="shrink-0 text-right">
 						<div class="text-sm font-bold sm:text-base">
 							{sourceType === 'rbtc'
 								? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
-								: `$${parseFloat(amount || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+								: usdFormatter.format(parseFloat(amount || '0'))}
 						</div>
 						{#if sourceType === 'rbtc'}
 							{@const satsVal = Math.round(parseFloat(amount || '0'))}
 							<div class="text-base-content/50 text-xs">
-								${((satsVal / 100_000_000) * btcUsdPrice).toLocaleString('en-US', {
-									minimumFractionDigits: 2,
-									maximumFractionDigits: 2
-								})}
+								{usdFormatter.format((satsVal / 100_000_000) * btcUsdPrice)}
 							</div>
 						{/if}
 					</div>
 				</div>
 
-				<!-- Provider Bridge -->
+				<!-- Provider Bridge / Send Arrow -->
 				<div class="flex items-center justify-center py-1">
 					<div class="bg-base-200 flex items-center gap-2 rounded-full px-4 py-2">
-						<svg
-							class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17 8l4 4m0 0l-4 4m4-4H3"
-							/>
-						</svg>
-						<span class="text-sm font-semibold">{getProviderLabel(activeRoute)}</span>
+						{#if isDirectTransfer}
+							<svg
+								class="text-success h-5 w-5 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M17 8l4 4m0 0l-4 4m4-4H3"
+								/></svg
+							>
+							<span class="text-success text-sm font-semibold">{$t('wallet.swap.direct_send')}</span
+							>
+						{:else}
+							<svg
+								class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M17 8l4 4m0 0l-4 4m4-4H3"
+								/></svg
+							>
+							<span class="text-sm font-semibold">{getProviderLabel(activeRoute)}</span>
+						{/if}
 						<span class="text-base-content/60 text-xs">
-							{activeRoute.totalFeePercent > 0 && amountSats > 0 && btcUsdPrice > 0
-								? `$${((amountSats / 100_000_000) * btcUsdPrice * (activeRoute.totalFeePercent / 100)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-								: ''} · {activeRoute.estimatedTime}
+							{#if !isDirectTransfer && activeRoute.totalFeePercent > 0 && amountSats > 0 && btcUsdPrice > 0}
+								{usdFormatter.format(
+									(amountSats / 100_000_000) * btcUsdPrice * (activeRoute.totalFeePercent / 100)
+								)}
+							{/if}
+							{activeRoute.totalFeePercent > 0 ? ' · ' : ''}{activeRoute.estimatedTime}
 						</span>
-						<svg
-							class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17 8l4 4m0 0l-4 4m4-4H3"
-							/>
-						</svg>
 					</div>
 				</div>
 
@@ -1139,16 +1638,10 @@
 						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
-						<div class="text-base-content/60 text-xs sm:text-sm">{$t('wallet.swap.you_get')}</div>
-						<div class="text-sm font-semibold sm:text-base">
-							{selectedDest.asset === 'USDT0'
-								? 'USD'
-								: selectedDest.asset === 'WBTC'
-									? 'wBTC'
-									: selectedDest.asset} ({selectedDest.asset === 'USDT0'
-								? 'Arbitrum'
-								: selectedDest.label})
+						<div class="text-base-content/60 text-xs sm:text-sm">
+							{isDirectTransfer ? $t('wallet.swap.send_to') : $t('wallet.swap.you_get')}
 						</div>
+						<div class="text-base-content/70 truncate text-xs font-medium">{destWalletInfo}</div>
 					</div>
 					<div class="shrink-0 text-right">
 						<div class="text-sm font-bold sm:text-base">
@@ -1156,36 +1649,32 @@
 								{formatSats(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 								{$t('wallet.sats')}
 							{:else}
-								${parseFloat(estimatedOutput).toLocaleString('en-US', {
-									minimumFractionDigits: 2,
-									maximumFractionDigits: 2
-								})}
+								{usdFormatter.format(parseFloat(estimatedOutput))}
 							{/if}
 						</div>
 						{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
 							{@const outSats = Math.round(parseFloat(estimatedOutput) * 100_000_000)}
 							<div class="text-base-content/50 text-xs">
-								${((outSats / 100_000_000) * btcUsdPrice).toLocaleString('en-US', {
-									minimumFractionDigits: 2,
-									maximumFractionDigits: 2
-								})}
+								{usdFormatter.format((outSats / 100_000_000) * btcUsdPrice)}
 							</div>
 						{/if}
 					</div>
 				</div>
 
-				<!-- Warning -->
-				<div class="alert alert-outline alert-warning py-2 text-xs sm:text-sm">
-					<svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-					<span>{$t('wallet.swap.irreversible_warning')}</span>
-				</div>
+				<!-- Warning — only for swaps, not direct sends -->
+				{#if !isDirectTransfer}
+					<div class="alert alert-outline alert-warning py-2 text-xs sm:text-sm">
+						<svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<span>{$t('wallet.swap.irreversible_warning')}</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -1225,10 +1714,21 @@
 							/>
 						</svg>
 					</div>
-					<h4 class="text-lg font-bold sm:text-xl">{$t('wallet.swap.swap_complete')}</h4>
+					<h4 class="text-lg font-bold sm:text-xl">
+						{isDirectTransfer ? $t('wallet.swap.send_complete') : $t('wallet.swap.swap_complete')}
+					</h4>
+					{#if isDirectTransfer}
+						<p class="text-base-content/60 text-xs sm:text-sm">
+							{sourceAsset}
+							{$t('wallet.swap.sent_from')}
+							{walletLabel(sourceWallet)}
+							{$t('wallet.swap.sent_to')}
+							{walletLabel(destWallet)}
+						</p>
+					{/if}
 				</div>
 
-				<!-- Swap Summary Cards -->
+				<!-- Transaction Summary Cards -->
 				<div class="bg-base-200 space-y-3 rounded-xl p-4">
 					<!-- Source row -->
 					<div class="flex items-center gap-3">
@@ -1238,31 +1738,52 @@
 							class="h-7 w-7 shrink-0 rounded-full sm:h-8 sm:w-8"
 						/>
 						<div class="min-w-0 flex-1 text-xs sm:text-sm">
-							<div class="text-base-content/60">{$t('wallet.swap.you_send')}</div>
+							<div class="text-base-content/60">
+								{isDirectTransfer ? $t('wallet.swap.send_from') : $t('wallet.swap.you_send')}
+							</div>
+							<div class="text-base-content/70 truncate text-xs font-medium">
+								{sourceWalletInfo}
+							</div>
 							<div class="font-semibold">
 								{sourceType === 'rbtc'
 									? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
-									: `$${parseFloat(amount || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${sourceAsset}`}
+									: `${usdFormatter.format(parseFloat(amount || '0'))} ${sourceAsset}`}
 							</div>
 						</div>
 					</div>
 
-					<!-- Provider bridge -->
+					<!-- Provider bridge / Send direction -->
 					<div class="flex items-center justify-center">
 						<div class="bg-base-100 flex items-center gap-2 rounded-full px-3 py-1 text-xs">
-							<span>{getProviderLabel(activeRoute!)}</span>
-							<svg
-								class="text-primary h-3 w-3 shrink-0"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M17 8l4 4m0 0l-4 4m4-4H3"
-								/></svg
-							>
+							{#if isDirectTransfer}
+								<svg
+									class="text-success h-3 w-3 shrink-0"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M17 8l4 4m0 0l-4 4m4-4H3"
+									/></svg
+								>
+								<span class="text-success font-medium">{$t('wallet.swap.direct_send')}</span>
+							{:else}
+								<span>{getProviderLabel(activeRoute!)}</span>
+								<svg
+									class="text-primary h-3 w-3 shrink-0"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M17 8l4 4m0 0l-4 4m4-4H3"
+									/></svg
+								>
+							{/if}
 						</div>
 					</div>
 
@@ -1281,15 +1802,15 @@
 								/>{/if}
 						</div>
 						<div class="min-w-0 flex-1 text-xs sm:text-sm">
-							<div class="text-base-content/60">{$t('wallet.swap.you_get')}</div>
+							<div class="text-base-content/60">
+								{isDirectTransfer ? $t('wallet.swap.send_to') : $t('wallet.swap.you_get')}
+							</div>
+							<div class="text-base-content/70 truncate text-xs font-medium">{destWalletInfo}</div>
 							<div class="font-semibold">
 								{#if selectedDest!.asset === 'rBTC' || selectedDest!.id === 'btc-onchain' || selectedDest!.id === 'wbtc-arb'}
 									{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
 								{:else}
-									${parseFloat(estimatedOutput).toLocaleString('en-US', {
-										minimumFractionDigits: 2,
-										maximumFractionDigits: 2
-									})}
+									{usdFormatter.format(parseFloat(estimatedOutput))}
 									{selectedDest!.asset}
 								{/if}
 							</div>
@@ -1297,20 +1818,23 @@
 					</div>
 				</div>
 
-				<!-- Fee + Time row -->
-				<div
-					class="bg-base-200 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-4 py-3 text-xs sm:text-sm"
-				>
-					<span class="text-base-content/60"
-						>{$t('wallet.swap.fee_percent')}:
-						<span class="text-base-content font-semibold">{activeRoute!.totalFeePercent}%</span
-						></span
+				<!-- Fee + Time row — only for swaps -->
+				{#if !isDirectTransfer}
+					<div
+						class="bg-base-200 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-4 py-3 text-xs sm:text-sm"
 					>
-					<span class="text-base-content/60"
-						>{$t('wallet.swap.estimated_time')}:
-						<span class="text-base-content font-semibold">{activeRoute!.estimatedTime}</span></span
-					>
-				</div>
+						<span class="text-base-content/60"
+							>{$t('wallet.swap.fee_percent')}:
+							<span class="text-base-content font-semibold">{activeRoute!.totalFeePercent}%</span
+							></span
+						>
+						<span class="text-base-content/60"
+							>{$t('wallet.swap.estimated_time')}:
+							<span class="text-base-content font-semibold">{activeRoute!.estimatedTime}</span
+							></span
+						>
+					</div>
+				{/if}
 
 				<!-- TX link -->
 				{#if swapResult?.swapId}
@@ -1351,7 +1875,6 @@
 				<button
 					class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
 					onclick={resetForm}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					{$t('wallet.swap.swap_another')}
 				</button>
@@ -1383,7 +1906,6 @@
 				<button
 					class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
 					onclick={resetForm}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					{$t('common.buttons.retry')}
 				</button>
@@ -1403,7 +1925,6 @@
 				<button
 					class="btn btn-outline btn-error min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={handleClose}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.buy_sell.cancel')}</span>
 				</button>
@@ -1411,7 +1932,6 @@
 					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={goToConfirm}
 					disabled={!canSwap}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.swap.swap_preview')}</span>
 				</button>
@@ -1421,14 +1941,12 @@
 				<button
 					class="btn btn-outline min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={cancelConfirm}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<span class="text-sm sm:text-base">{$t('common.back')}</span>
 				</button>
 				<button
 					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={executeSwap}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.swap.confirm_swap')}</span>
 				</button>
@@ -1438,7 +1956,6 @@
 				<button
 					class="btn btn-outline min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={handleClose}
-					style="-webkit-tap-highlight-color: transparent;"
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.buy_sell.close')}</span>
 				</button>

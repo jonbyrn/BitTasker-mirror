@@ -1,6 +1,6 @@
 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <script lang="ts">
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import {
 		connectedWalletsStore,
 		hasConnectedWallets,
@@ -79,11 +79,13 @@
 		showConnectModal?: boolean;
 	} = $props();
 
-	const satsFormatter = new Intl.NumberFormat('en-US');
-	const usdFormatter = new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD'
-	});
+	const satsFormatter = $derived(new Intl.NumberFormat($locale));
+	const usdFormatter = $derived(
+		new Intl.NumberFormat($locale, {
+			style: 'currency',
+			currency: 'USD'
+		})
+	);
 
 	function formatSatsWithUsd(rawSats: string | number | undefined | null): string {
 		const sats = Number(rawSats ?? 0);
@@ -701,7 +703,12 @@
 					>
 						<div class="flex min-w-0 flex-1 items-center gap-2">
 							{#if logo}
-								<img src={logo} alt={wallet.walletName} class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+								<img
+									src={logo}
+									alt={wallet.walletName}
+									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+									aria-hidden="true"
+								/>
 							{/if}
 							<span class="truncate">{wallet.walletName}</span>
 						</div>
@@ -740,7 +747,7 @@
 									},
 									{
 										key: 'wbtc',
-										label: 'WBTC (Arbitrum)',
+										label: $t('wallet.wbtc_arbitrum'),
 										img: '/images/chains/arbitrum.png',
 										alt: 'WBTC',
 										condition: isEVM,
@@ -780,7 +787,7 @@
 							<!-- EVM address row with chain indicator -->
 							<button
 								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors"
+								class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
 								onclick={() => copyAddress(wallet.address)}
 								title={$t('wallet.connected.copy_address_title')}
 							>
@@ -800,6 +807,7 @@
 									wallet.address
 										? 'text-success'
 										: 'opacity-40'}"
+									aria-hidden="true"
 								/>
 							</button>
 
@@ -809,7 +817,7 @@
 								{#if btcAddr}
 									<button
 										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors"
+										class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
 										onclick={() => copyAddress(btcAddr)}
 										title={$t('wallet.connected.copy_address_title')}
 									>
@@ -829,6 +837,7 @@
 											btcAddr
 												? 'text-success'
 												: 'opacity-40'}"
+											aria-hidden="true"
 										/>
 									</button>
 								{/if}
@@ -845,6 +854,7 @@
 												fill="none"
 												stroke="currentColor"
 												viewBox="0 0 24 24"
+												aria-hidden="true"
 												><path
 													stroke-linecap="round"
 													stroke-linejoin="round"
@@ -877,6 +887,7 @@
 												fill="none"
 												stroke="currentColor"
 												viewBox="0 0 24 24"
+												aria-hidden="true"
 												><path
 													stroke-linecap="round"
 													stroke-linejoin="round"
@@ -957,6 +968,7 @@
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
+								aria-hidden="true"
 								><path
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -980,6 +992,7 @@
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
+								aria-hidden="true"
 								><path
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -1021,7 +1034,7 @@
 							</div>
 						{/if}
 						<button
-							class="btn btn-ghost btn-sm mt-2"
+							class="btn btn-ghost btn-sm mt-2 min-h-[44px]"
 							onclick={() => {
 								showLedgerConnect = false;
 								closeConnectModal();
@@ -1039,6 +1052,7 @@
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
+								aria-hidden="true"
 								><path
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -1099,6 +1113,7 @@
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
+								aria-hidden="true"
 								><path
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -1155,13 +1170,18 @@
 					<div class="flex flex-col gap-2">
 						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)}
 							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+								class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
 								disabled={$connectedWalletsStore.connectingType !== null}
 								onclick={handleConnectMetaMask}
 							>
-								<img src="/images/wallets/metamask.svg" alt="MetaMask" class="h-8 w-8" />
+								<img
+									src="/images/wallets/metamask.svg"
+									alt="MetaMask"
+									class="h-8 w-8"
+									aria-hidden="true"
+								/>
 								<div>
-									<div class="font-medium">MetaMask</div>
+									<div class="font-medium">{$t('wallet.connected.metamask_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.metamask_desc')}</div>
 								</div>
 							</button>
@@ -1169,11 +1189,16 @@
 
 						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETCONNECT)}
 							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+								class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
 								disabled={$connectedWalletsStore.connectingType !== null}
 								onclick={handleConnectWC}
 							>
-								<img src="/images/wallets/walletconnect.svg" alt="WalletConnect" class="h-8 w-8" />
+								<img
+									src="/images/wallets/walletconnect.svg"
+									alt="WalletConnect"
+									class="h-8 w-8"
+									aria-hidden="true"
+								/>
 								<div>
 									<div class="font-medium">{$t('wallet.connected.walletconnect_name')}</div>
 									<div class="text-xs opacity-60">
@@ -1185,13 +1210,18 @@
 
 						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)}
 							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+								class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
 								disabled={$connectedWalletsStore.connectingType !== null}
 								onclick={handleConnectTrezor}
 							>
-								<img src="/images/wallets/trezor.svg" alt="Trezor" class="h-8 w-8" />
+								<img
+									src="/images/wallets/trezor.svg"
+									alt="Trezor"
+									class="h-8 w-8"
+									aria-hidden="true"
+								/>
 								<div>
-									<div class="font-medium">Trezor</div>
+									<div class="font-medium">{$t('wallet.connected.trezor_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
 								</div>
 							</button>
@@ -1199,13 +1229,18 @@
 
 						{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_LEDGER)}
 							<button
-								class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-40"
+								class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
 								disabled={$connectedWalletsStore.connectingType !== null}
 								onclick={handleConnectLedger}
 							>
-								<img src="/images/wallets/ledger.svg" alt="Ledger" class="h-8 w-8" />
+								<img
+									src="/images/wallets/ledger.svg"
+									alt="Ledger"
+									class="h-8 w-8"
+									aria-hidden="true"
+								/>
 								<div>
-									<div class="font-medium">Ledger</div>
+									<div class="font-medium">{$t('wallet.connected.ledger_name')}</div>
 									<div class="text-xs opacity-60">{$t('wallet.connected.hardware_wallet')}</div>
 								</div>
 							</button>
@@ -1213,7 +1248,7 @@
 					</div>
 
 					<div class="mt-4">
-						<button class="btn btn-ghost btn-sm w-full" onclick={closeConnectModal}
+						<button class="btn btn-ghost btn-sm min-h-[44px] w-full" onclick={closeConnectModal}
 							>{$t('common.cancel')}</button
 						>
 					</div>
@@ -1252,10 +1287,10 @@
 				{/if}
 				<p class="mb-4 text-sm">{$t('wallet.connected.disconnect_msg')}</p>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-ghost btn-sm" onclick={cancelDisconnect}
+					<button class="btn btn-ghost btn-sm min-h-[44px]" onclick={cancelDisconnect}
 						>{$t('common.cancel')}</button
 					>
-					<button class="btn btn-error btn-sm" onclick={handleDisconnect}
+					<button class="btn btn-error btn-sm min-h-[44px]" onclick={handleDisconnect}
 						>{$t('wallet.connected.remove')}</button
 					>
 				</div>
@@ -1268,10 +1303,6 @@
 {/if}
 
 <style>
-	.tap-highlight-none {
-		-webkit-tap-highlight-color: transparent;
-	}
-
 	.collapse-arrow {
 		margin-top: 0;
 		margin-bottom: 0;
