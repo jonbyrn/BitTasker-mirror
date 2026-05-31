@@ -181,20 +181,18 @@
 		const wallets = $connectedWalletsStore.wallets;
 		if (wallets.length === 0) return;
 
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			console.warn('[ConnectedWallets] Offline — skipping balance refresh');
+			return;
+		}
+
 		const results = await Promise.allSettled(
 			wallets.map(async (w) => {
 				// TODO: migrate to store query facade when fetchBalances access is wrapped
 				const handle = connectorRegistry.get(w.id);
 				if (!handle) return null;
-				const fetcher = (
-					handle as {
-						fetchBalances?: () => Promise<
-							Record<string, { raw: string; formatted: string; loading: boolean }>
-						>;
-					}
-				).fetchBalances;
-				if (!fetcher) return null;
-				const balances = await fetcher();
+				if (!handle.fetchBalances) return null;
+				const balances = await handle.fetchBalances();
 				return { id: w.id, balances };
 			})
 		);
@@ -755,7 +753,7 @@
 										}
 									},
 									{
-										key: 'usdt',
+										key: 'usdt0-arb',
 										label: $t('wallet.usdt0_arbitrum'),
 										img: '/images/chains/arbitrum.png',
 										alt: 'USDT0 (Arbitrum)',
