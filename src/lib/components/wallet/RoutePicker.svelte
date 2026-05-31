@@ -35,7 +35,10 @@
 	let expanded = $state(false);
 
 	let selectedRoute = $derived(routes.find((r) => r.id === selectedRouteId));
-	let isUSDT = $derived(network === 'usdt-bsc');
+	let isUSDT = $derived(
+		typeof network === 'string' &&
+			(network === 'usdt-bsc' || network === 'usdt-arbitrum' || network.startsWith('usdt'))
+	);
 
 	/** Swap fee: uses live API override when > 0, otherwise falls back to route %. */
 	let swapFeeSats = $derived.by(() => {

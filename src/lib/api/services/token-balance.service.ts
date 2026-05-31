@@ -35,17 +35,6 @@ interface BlockscoutTokenBalance {
 	token_instance: string | null; // May be present in response
 }
 
-/**
- * Blockscout API response structure
- * Can be either a direct array or an object with items property (for pagination)
- */
-type BlockscoutResponse =
-	| BlockscoutTokenBalance[]
-	| {
-			items: BlockscoutTokenBalance[];
-			next_page_params?: any;
-	  };
-
 interface CachedTokenBalances {
 	balances: TokenBalance[];
 	timestamp: number;
@@ -306,32 +295,32 @@ class TokenBalanceService {
 
 		try {
 			const rpcUrl = 'https://arb1.arbitrum.io/rpc';
-			const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-			// Minimal ERC-20 ABI for balanceOf, decimals, name, symbol
-			const erc20Abi = [
-				'function balanceOf(address) view returns (uint256)',
-				'function decimals() view returns (uint8)',
-				'function name() view returns (string)',
-				'function symbol() view returns (string)'
-			];
+			// Use raw eth_call to bypass ethers v6 RPC issues (same pattern as balanceHistory.service.ts)
+			const balanceOfSelector =
+				'0x70a08231' + address.toLowerCase().replace('0x', '').padStart(64, '0');
+			const balResp = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_call',
+					params: [{ to: tokenAddress, data: balanceOfSelector }, 'latest'],
+					id: 1
+				})
+			});
+			const balData = (await balResp.json()) as { result: string };
+			const balance = BigInt(balData.result || '0x0');
 
-			const contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
-
-			const [balance, decimals, name, symbol] = await Promise.all([
-				contract.balanceOf(address).catch(() => BigInt(0)),
-				contract.decimals().catch(() => 6),
-				contract.name().catch(() => 'Unknown Token'),
-				contract.symbol().catch(() => 'UNKNOWN')
-			]);
-
-			const formattedBalance = ethers.formatUnits(balance, Number(decimals));
+			// USDT0 on Arbitrum: 6 decimals, symbol USD₮0
+			const decimals = 6;
+			const formattedBalance = (Number(balance) / 1e6).toFixed(6);
 
 			const result: TokenBalance = {
 				address: tokenAddress,
-				name: typeof name === 'string' ? name : 'Unknown Token',
-				symbol: typeof symbol === 'string' ? symbol : 'UNKNOWN',
-				decimals: Number(decimals),
+				name: 'Tether USD',
+				symbol: 'USD₮0',
+				decimals,
 				balance: balance.toString(),
 				formattedBalance,
 				isNative: false

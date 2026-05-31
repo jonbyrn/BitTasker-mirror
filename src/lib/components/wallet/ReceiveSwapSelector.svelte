@@ -23,7 +23,7 @@
 	// -----------------------------------------------------------------------
 
 	// BTC section sorted: Rootstock → Lightning Bitcoin → Liquid Bitcoin → Bitcoin on-chain
-	// USDT section sorted: Binance first, then alphabetical
+	// USDT section sorted: Arbitrum first, then alphabetical
 	const SOURCE_NETWORKS: SourceNetwork[] = [
 		// -- BTC group --
 		{
@@ -59,13 +59,13 @@
 			network: 'bitcoin',
 			group: 'btc'
 		},
-		// -- USDT group (Binance first, rest alphabetical) --
+		// -- USDT group (Arbitrum first, rest alphabetical) --
 		{
-			id: 'usdt-bsc',
+			id: 'usdt-arbitrum',
 			asset: 'USDT',
-			label: 'Binance',
-			icon: '/images/chains/Binance-logo.svg',
-			network: 'usdt-bsc',
+			label: 'Arbitrum',
+			icon: '/images/chains/arbitrum.png',
+			network: 'usdt-arbitrum',
 			group: 'usdt',
 			recommended: true
 		},
@@ -145,18 +145,11 @@
 
 	/** Chain ID → display name. */
 	const CHAIN_NAME: Record<number, string> = {
-		1: 'Ethereum',
-		10: 'Optimism',
-		30: 'Rootstock',
-		56: 'Binance',
-		100: 'Gnosis',
-		137: 'Polygon',
-		250: 'Fantom',
-		8453: 'Base',
-		1284: 'Moonbeam',
-		42220: 'Celo',
+		30: 'Rootstock (RSK)',
+		31: 'Rootstock Testnet',
 		42161: 'Arbitrum',
-		43114: 'Avalanche'
+		421614: 'Arbitrum Testnet',
+		56: 'Binance Smart Chain'
 	};
 
 	// -----------------------------------------------------------------------

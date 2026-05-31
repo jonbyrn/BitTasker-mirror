@@ -100,6 +100,24 @@ export interface LifiQuoteResponse {
 	routes: LifiRoute[];
 }
 
+/**
+ * Single quote response from /v1/quote (used when `order` param is set).
+ * Unlike GET /v1/advanced/routes, this returns a flat object.
+ */
+export interface LifiSingleQuoteResponse {
+	transactionRequest?: {
+		to: string;
+		data: string;
+		value: string;
+		gasLimit?: string;
+	};
+	estimate?: LifiEstimate;
+	includedSteps?: LifiStep[];
+	type?: string;
+	id?: string;
+	tool?: string;
+}
+
 export interface LifiStatusResponse {
 	status: 'NOT_FOUND' | 'PENDING' | 'DONE' | 'FAILED';
 	substatus?: string;
@@ -208,29 +226,53 @@ export const lifiService = {
 			throw new Error('getQuote requires fromChain, toChain, fromToken, toToken, and fromAmount');
 		}
 
+		// LI.FI requires lowercase EVM addresses (raises Invalid extended address otherwise)
+		const normalizedAddress = fromAddress.toLowerCase();
+
 		const url =
 			`${LIFI_BASE_URL}/quote?` +
 			`fromChain=${fromChain}&toChain=${toChain}` +
 			`&fromToken=${encodeURIComponent(fromToken)}` +
 			`&toToken=${encodeURIComponent(toToken)}` +
 			`&fromAmount=${encodeURIComponent(fromAmount)}` +
-			`&fromAddress=${encodeURIComponent(fromAddress)}` +
+			`&fromAddress=${encodeURIComponent(normalizedAddress)}` +
 			`&order=RECOMMENDED`;
 
-		const response = await fetchLifi<LifiQuoteResponse>(url);
+		// /v1/quote returns a flat single-quote object, not { routes: [...] }
+		const singleQuote = await fetchLifi<LifiSingleQuoteResponse>(url);
 
-		if (!response.routes || response.routes.length === 0) {
-			throw new Error(
-				'LI.FI has no liquidity for this pair right now. Try again later or use a different provider.'
-			);
+		if (!singleQuote.estimate) {
+			throw new Error('LI.FI has no liquidity for this pair right now. Try again later.');
 		}
 
-		return response.routes[0];
+		// Convert to LifiRoute shape for downstream consumers
+		return {
+			id: singleQuote.id || 'lifi-quote',
+			fromChainId: fromChain,
+			toChainId: toChain,
+			fromToken: {
+				symbol: 'RBTC',
+				address: fromToken,
+				chainId: fromChain,
+				decimals: 18,
+				name: 'RSK Bitcoin'
+			},
+			toToken: {
+				symbol: 'USDT0',
+				address: toToken,
+				chainId: toChain,
+				decimals: 6,
+				name: 'Tether USD'
+			},
+			steps: singleQuote.includedSteps || [],
+			estimate: singleQuote.estimate
+		};
 	},
 
 	/**
 	 * Get step transaction data for executing a LI.FI swap on-chain.
-	 * Re-fetches the quote and calls the step transaction endpoint.
+	 * The /v1/quote endpoint with order=RECOMMENDED already returns
+	 * transactionRequest — no need to call stepTransaction separately.
 	 */
 	async getStepTransaction(params: {
 		fromChain: number;
@@ -239,34 +281,32 @@ export const lifiService = {
 		toToken: string;
 		fromAmount: string;
 		fromAddress: string;
-	}): Promise<{ to: string; data: string; value: string; chainId: number }> {
+	}): Promise<{ to: string; data: string; value: string; chainId: number; gasLimit?: string }> {
 		requireLifiEnabled();
-		const route = await this.getQuote(params);
-		if (!route.steps || route.steps.length === 0) {
-			throw new Error('LI.FI returned no steps for execution');
-		}
-		const step = route.steps[0];
+		const normalizedParams = { ...params, fromAddress: params.fromAddress.toLowerCase() };
 
-		const url = `${LIFI_BASE_URL}/advanced/stepTransaction`;
-		const body = JSON.stringify({
-			type: 'lifi',
-			route,
-			step,
-			order: 'RECOMMENDED'
-		});
+		const url =
+			`${LIFI_BASE_URL}/quote?` +
+			`fromChain=${normalizedParams.fromChain}&toChain=${normalizedParams.toChain}` +
+			`&fromToken=${encodeURIComponent(normalizedParams.fromToken)}` +
+			`&toToken=${encodeURIComponent(normalizedParams.toToken)}` +
+			`&fromAmount=${encodeURIComponent(normalizedParams.fromAmount)}` +
+			`&fromAddress=${encodeURIComponent(normalizedParams.fromAddress)}` +
+			`&order=RECOMMENDED`;
 
-		const response = await fetchLifi<{
-			transactionRequest: { to: string; data: string; value: string; chainId: number };
-		}>(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body
-		});
+		const rawQuote = await fetchLifi<LifiSingleQuoteResponse>(url);
 
-		if (!response.transactionRequest) {
+		if (!rawQuote.transactionRequest) {
 			throw new Error('LI.FI returned no transaction request');
 		}
-		return response.transactionRequest;
+
+		return {
+			to: rawQuote.transactionRequest.to,
+			data: rawQuote.transactionRequest.data,
+			value: rawQuote.transactionRequest.value,
+			chainId: normalizedParams.fromChain,
+			gasLimit: rawQuote.transactionRequest.gasLimit
+		};
 	},
 
 	/**

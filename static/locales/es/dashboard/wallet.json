@@ -78,7 +78,9 @@
 			"bitcoin_label": "Bitcoin",
 			"trezor_connecting_title": "Conectando a Trezor",
 			"trezor_connecting_desc": "Confirma en tu dispositivo Trezor cuando se te solicite. No desconectes el dispositivo.",
-			"hardware_tx_confirm_note": "Es posible que necesites tocar para confirmar en tu billetera hardware."
+			"hardware_tx_confirm_note": "Es posible que necesites tocar para confirmar en tu billetera hardware.",
+			"trezor_name": "Trezor",
+			"ledger_name": "Ledger"
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
@@ -689,7 +691,11 @@
 			"pending": "Pendiente",
 			"completed": "Completado",
 			"failed": "Fallido",
-			"processing": "Procesando"
+			"processing": "Procesando",
+			"quick_amount_10": "$10",
+			"quick_amount_20": "$20",
+			"quick_amount_50": "$50",
+			"quick_amount_100": "$100"
 		},
 		"calculator": {
 			"clear": "Limpiar",
@@ -1295,6 +1301,7 @@
 				"pending_tx": "Transacción en proceso..."
 			}
 		},
-		"usdt0_arbitrum": "USDT0 (Arbitrum)"
+		"usdt0_arbitrum": "USDT0 (Arbitrum)",
+		"wbtc_arbitrum": "WBTC (Arbitrum)"
 	}
 }

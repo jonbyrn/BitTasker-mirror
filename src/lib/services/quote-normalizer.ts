@@ -24,6 +24,10 @@ export interface NormalizedQuote {
 	estimatedTimeMinutes: number;
 	/** Provider-specific route identifier for later execution. */
 	providerRouteId: string;
+	/** Gas cost in wei from live API quote. */
+	gasCostWei?: string;
+	/** Itemized fees from live API quote. */
+	feeCosts?: Array<{ name: string; amount: string }>;
 }
 
 /**
@@ -64,8 +68,12 @@ export interface LifiFeeCost {
 export interface LifiEstimate {
 	fromAmount: string;
 	toAmount: string;
+	toAmountMin?: string;
+	fromAmountUSD?: string;
+	toAmountUSD?: string;
 	executionDuration: number;
 	feeCosts?: LifiFeeCost[];
+	gasCosts?: LifiFeeCost[];
 }
 
 export interface LifiRoute {
@@ -107,6 +115,7 @@ export interface SymbiosisQuoteResponse {
 	fee?: string;
 	estimatedTime?: number;
 	routes?: unknown[];
+	tx?: { gasLimit?: string; data?: string; to?: string; value?: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -142,15 +151,24 @@ export function normalizeLifiQuote(
 		return null;
 	}
 
-	// Calculate fee percentage from the difference
-	const feePercent = ((fromAmount - toAmount) / fromAmount) * 100;
+	// LI.FI provides USD equivalents — use them for a cleaner fee calc
+	const fromUsd = parseFloat(estimate.fromAmountUSD || '0');
+	const toUsd = parseFloat(estimate.toAmountUSD || '0');
+
+	// Calculate protocol fee percentage from USD equivalents (excludes gas)
+	let feePercent: number;
+	if (fromUsd > 0 && toUsd > 0) {
+		feePercent = ((fromUsd - toUsd) / fromUsd) * 100;
+	} else {
+		feePercent = 0;
+	}
 	// Floor to 2 decimals, never negative
 	const finalFeePercent = Math.max(0, Math.round(feePercent * 100) / 100);
 
 	// Estimate time in minutes from executionDuration (seconds)
 	const estimatedTimeMinutes = Math.ceil((estimate.executionDuration ?? 300) / 60);
 
-	return {
+	const result: NormalizedQuote = {
 		provider: 'lifi',
 		fromAsset,
 		fromChain,
@@ -161,6 +179,23 @@ export function normalizeLifiQuote(
 		estimatedTimeMinutes,
 		providerRouteId: id
 	};
+
+	// Pass LI.FI gas data through so the UI can display real fees
+	if (estimate.gasCosts && estimate.gasCosts.length > 0) {
+		const totalGasWei = estimate.gasCosts.reduce(
+			(sum: bigint, g: { amount: string }) => sum + BigInt(g.amount || '0'),
+			BigInt(0)
+		);
+		result.gasCostWei = totalGasWei.toString();
+	}
+	if (estimate.feeCosts && estimate.feeCosts.length > 0) {
+		result.feeCosts = estimate.feeCosts.map((f: { name: string; amount: string }) => ({
+			name: f.name,
+			amount: f.amount
+		}));
+	}
+
+	return result;
 }
 
 /**
@@ -189,7 +224,7 @@ export function normalizeSymbiosisQuote(
 	// Fee percent is reported by Symbiosis or computed from amountInUsd vs output
 	const feePercent = quote.fee ? parseFloat(quote.fee) : 0.3;
 
-	return {
+	const result: NormalizedQuote = {
 		provider: 'symbiosis',
 		fromAsset,
 		fromChain,
@@ -200,6 +235,15 @@ export function normalizeSymbiosisQuote(
 		estimatedTimeMinutes,
 		providerRouteId: `symbiosis-${fromChain}-${toChain}-${Date.now()}`
 	};
+
+	// Symbiosis quote may include gas estimate in the tx field
+	if (quote.tx?.gasLimit) {
+		// gasLimit is in wei — convert to total gas cost by multiplying with gas price
+		// but Symbiosis doesn't provide gas price, so store the gas limit as wei estimate
+		result.gasCostWei = String(BigInt(quote.tx.gasLimit));
+	}
+
+	return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -274,7 +318,9 @@ export function normalizedQuoteToRoute(quote: NormalizedQuote, recommended: bool
 		toChain: quote.toChain,
 		feePercent: quote.feePercent,
 		estimatedTimeMin: quote.estimatedTimeMinutes,
-		estimatedTimeMax: Math.ceil(quote.estimatedTimeMinutes * 1.5)
+		estimatedTimeMax: Math.ceil(quote.estimatedTimeMinutes * 1.5),
+		gasCostWei: quote.gasCostWei,
+		feeCosts: quote.feeCosts
 	};
 
 	const label =
@@ -290,6 +336,8 @@ export function normalizedQuoteToRoute(quote: NormalizedQuote, recommended: bool
 		hops: [hop],
 		totalFeePercent: quote.feePercent,
 		estimatedTime: `${quote.estimatedTimeMinutes}-${Math.ceil(quote.estimatedTimeMinutes * 1.5)} min`,
-		recommended
+		recommended,
+		gasCostWei: quote.gasCostWei,
+		feeCosts: quote.feeCosts
 	};
 }

@@ -1081,7 +1081,11 @@
 		const execDest: Destination =
 			selectedDest?.id === 'btc-onchain'
 				? { type: 'invoice', network: 'onchain', invoice: destAddress }
-				: { type: 'address', chainId: selectedDest?.chainId ?? 56, address: destAddress };
+				: {
+						type: 'address',
+						chainId: selectedDest?.chainId ?? 42161, // Arbitrum default (was 56 BSC)
+						address: destAddress
+					};
 
 		// Amount in source token units (not display units like sats)
 		const execAmount = amountInTokenUnits.toString();

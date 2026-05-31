@@ -201,7 +201,11 @@
 		isPolling = true;
 		try {
 			const provider = getProvider(
-				network === 'rootstock-bitcoin' || network === 'rsk' ? 'rsk' : 'bsc'
+				network === 'rootstock-bitcoin' || network === 'rsk'
+					? 'rsk'
+					: network === 'usdt-arbitrum' || network === 'arbitrum'
+						? 'arb'
+						: 'bsc'
 			);
 			if (!provider) return;
 

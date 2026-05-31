@@ -9,7 +9,7 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type SourceWallet = 'rbtc' | 'usdt-bsc' | 'usdt0-rsk' | 'doc-rsk';
+export type SourceWallet = 'rbtc' | 'usdt-bsc' | 'usdt0-rsk' | 'usdt0-arb' | 'doc-rsk';
 
 export type Destination =
 	| { type: 'address'; chainId: number; address: string }
@@ -24,6 +24,10 @@ export interface RouteHop {
 	feePercent: number;
 	estimatedTimeMin: number;
 	estimatedTimeMax: number;
+	/** Gas cost in wei from live API quote (LI.FI/Symbiosis). Null = estimated. */
+	gasCostWei?: string;
+	/** Itemized fees from live API quote. */
+	feeCosts?: Array<{ name: string; amount: string }>;
 }
 
 export interface Route {
@@ -33,6 +37,10 @@ export interface Route {
 	totalFeePercent: number;
 	estimatedTime: string;
 	recommended: boolean;
+	/** Aggregate gas cost in wei from all hops with live quotes. */
+	gasCostWei?: string;
+	/** Aggregate itemized fees from all hops with live quotes. */
+	feeCosts?: Array<{ name: string; amount: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -793,6 +801,152 @@ function resolveFromUSDT0RSK(destination: Destination): Route[] {
 }
 
 // ---------------------------------------------------------------------------
+// Route matrix — USDT0 on Arbitrum source
+// ---------------------------------------------------------------------------
+
+function resolveFromUSDT0ARB(destination: Destination): Route[] {
+	if (destination.type === 'address') {
+		// Same-chain USDT0 transfer on Arbitrum (wallet-to-wallet)
+		if (ARB_CHAIN_IDS.has(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'usdt0-arb-to-usdt0-arb-direct',
+					label: 'Direct',
+					hops: [
+						{
+							service: 'direct',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_USDT0,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_DIRECT,
+							estimatedTimeMin: TIME_DIRECT_MIN,
+							estimatedTimeMax: TIME_DIRECT_MAX
+						}
+					],
+					recommended: true
+				})
+			];
+		}
+
+		// USDT0 on Arbitrum → rBTC on RSK via cross-chain bridge (LI.FI + Symbiosis)
+		if (isRSKChain(destination.chainId)) {
+			return [
+				buildRoute({
+					id: 'usdt0-arb-to-rbtc-via-lifi',
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: 'usdt0-arb-to-rbtc-via-symbiosis',
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// Cross-chain EVM: USDT0 on Arbitrum → USDT on destination chain
+		if (isCrossChainEVM(destination.chainId)) {
+			return [
+				buildRoute({
+					id: `usdt0-arb-to-usdt-chain-${destination.chainId}-via-lifi`,
+					label: 'LI.FI',
+					hops: [
+						{
+							service: 'lifi',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
+				}),
+				buildRoute({
+					id: `usdt0-arb-to-usdt-chain-${destination.chainId}-via-symbiosis`,
+					label: 'Symbiosis',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_USDT,
+							toChain: `chain-${destination.chainId}`,
+							feePercent: FEE_SYMBIOSIS_DEFAULT,
+							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+	}
+
+	// BTC on-chain via cross-chain bridge
+	if (destination.type === 'invoice' && destination.network === 'onchain') {
+		return [
+			buildRoute({
+				id: 'usdt0-arb-to-btc-via-symbiosis-boltz',
+				label: 'Symbiosis → Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_BTC,
+						toChain: CHAIN_BITCOIN,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	return [];
+}
+
+// ---------------------------------------------------------------------------
 // Route matrix — DOC on Rootstock source
 // ---------------------------------------------------------------------------
 
@@ -989,6 +1143,8 @@ export function resolveRoute(source: SourceWallet, destination: Destination): Ro
 			return resolveFromUSDTBSC(destination);
 		case 'usdt0-rsk':
 			return resolveFromUSDT0RSK(destination);
+		case 'usdt0-arb':
+			return resolveFromUSDT0ARB(destination);
 		case 'doc-rsk':
 			return resolveFromDOCRSK(destination);
 		default:
