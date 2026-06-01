@@ -108,6 +108,8 @@ build-production:
       - .svelte-kit/output/
     expire_in: 1 hour
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
@@ -197,6 +199,8 @@ deploy-development:
     name: development
     url: https://worker.dev.bittasker.com
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
@@ -226,6 +230,8 @@ deploy-production:
     name: production
     url: https://worker.prod.bittasker.com
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ═══════════════════════════════════════════════════════════════════════════════
