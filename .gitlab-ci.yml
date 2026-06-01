@@ -79,6 +79,8 @@ build:
       - .svelte-kit/output/
     expire_in: 1 hour
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
@@ -265,14 +267,15 @@ deploy-production:
 #
 # Required CI/CD variables (set in GitLab → Settings → CI/CD → Variables):
 #   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
-#   PG_HOST_API, PG_HOST_RELAY_TASKS, PG_HOST_RELAY_GENERAL
-#   PGUSER_BACKUP, PGPASSWORD_BACKUP
+#   DATABASE_URL_API, DATABASE_URL_RELAY_TASKS, DATABASE_URL_RELAY_GENERAL
+#   Each schedule must set RETENTION_TYPE = daily | weekly | monthly
 #
 # See docs/ci/server-backup.md for full setup instructions.
 # ═══════════════════════════════════════════════════════════════════════════════
 db-backup:
   image: postgres:16-alpine
   stage: backup
+  timeout: 1 hour
   tags:
     - self-hosted
   before_script:
