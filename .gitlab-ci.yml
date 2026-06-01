@@ -34,8 +34,9 @@
 # WRANGLER / VARIABLES
 # -----------------------------------------------------------------------------------------------
 #   CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are explicitly
-#   re-declared in each deploy job's `variables:` block to ensure injection on
-#   self-hosted Docker executors. Build-time VITE_* variables also come from GitLab.
+#   re-declared in each deploy job's `variables:` block with `expand: false`
+#   to prevent variable expansion from truncating values containing underscores.
+#   Build-time VITE_* variables also come from GitLab.
 # -----------------------------------------------------------------------------------------------
 workflow:
   auto_cancel:
@@ -194,24 +195,14 @@ deploy-development:
   needs:
     - build
   variables:
-    CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN
-    CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
   script:
     - npm ci --cache .npm --prefer-offline
-    - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
-    - |
-      if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-        echo "TOKEN is SET"
-      else
-        echo "TOKEN is MISSING"
-        exit 1
-      fi
-    - echo "Token length = ${#CLOUDFLARE_API_TOKEN}"
-    - |
-      HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X GET 'https://api.cloudflare.com/client/v4/user/tokens/verify' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>&1 || echo '000')
-      echo "Token validation HTTP = ${HTTP_CODE}"
-    - npx wrangler whoami || echo "wrangler whoami failed"
-    - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env dev
     - ENVIRONMENT=dev node scripts/purge-cache.js
   environment:
@@ -242,24 +233,14 @@ deploy-production:
   needs:
     - build-production
   variables:
-    CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN
-    CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
   script:
     - npm ci --cache .npm --prefer-offline
-    - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
-    - |
-      if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-        echo "TOKEN is SET"
-      else
-        echo "TOKEN is MISSING"
-        exit 1
-      fi
-    - echo "Token length = ${#CLOUDFLARE_API_TOKEN}"
-    - |
-      HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X GET 'https://api.cloudflare.com/client/v4/user/tokens/verify' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>&1 || echo '000')
-      echo "Token validation HTTP = ${HTTP_CODE}"
-    - npx wrangler whoami || echo "wrangler whoami failed"
-    - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env production
     - ENVIRONMENT=production node scripts/purge-cache.js
   environment:
