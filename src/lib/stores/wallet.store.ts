@@ -857,6 +857,28 @@ async function loadAssets(): Promise<void> {
 				network: 'BSC',
 				usdValue: bscUsdtUsdValue
 			});
+			walletStore.update((s) => ({
+				...s,
+				bsc: {
+					...s.bsc,
+					usdtBalance: bscUsdtBalance.balance?.toString() || '0',
+					formattedUsdtBalance: bscUsdtBalance.formattedBalance || '0.00',
+					usdtUsdValue: bscUsdtUsdValue
+				}
+			}));
+		} else if (walletAddress) {
+			// Show zero USDT BSC for awareness (even when no balance)
+			assets.push({
+				assetId: 'usdt-bsc',
+				name: 'USDT (BSC)',
+				ticker: 'USDT',
+				precision: 6,
+				icon: '💵',
+				balance: 0,
+				formattedBalance: '0.00',
+				network: 'BSC',
+				usdValue: 0
+			});
 		}
 
 		// Process WBTC balance on Arbitrum
