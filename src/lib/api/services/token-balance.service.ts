@@ -350,8 +350,58 @@ class TokenBalanceService {
 			return null;
 		}
 	}
+	/**
+	 * Get any ERC-20 token balance on any EVM chain with a given RPC URL.
+	 */
+	async getEVMTokenBalance(
+		address: string,
+		tokenAddress: string,
+		decimals: number,
+		rpcUrl: string,
+		symbol: string,
+		name: string
+	): Promise<TokenBalance | null> {
+		const cacheKey = `evm:${rpcUrl}:${address.toLowerCase()}:${tokenAddress.toLowerCase()}`;
+		const cached = this.tokenBalanceCache.get(cacheKey);
+		if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+			return cached.balances[0] ?? null;
+		}
+		try {
+			const balanceOfSelector =
+				'0x70a08231' + address.toLowerCase().replace('0x', '').padStart(64, '0');
+			const resp = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_call',
+					params: [{ to: tokenAddress, data: balanceOfSelector }, 'latest'],
+					id: 1
+				})
+			});
+			const data = (await resp.json()) as { result: string };
+			const balance = BigInt(data.result || '0x0');
+			if (balance === 0n) return null;
+			const formattedBalance = (Number(balance) / Math.pow(10, decimals)).toFixed(
+				decimals > 6 ? 6 : decimals
+			);
+			const result: TokenBalance = {
+				address: tokenAddress,
+				name,
+				symbol,
+				decimals,
+				balance: balance.toString(),
+				formattedBalance,
+				isNative: false
+			};
+			this.tokenBalanceCache.set(cacheKey, { balances: [result], timestamp: Date.now() });
+			return result;
+		} catch (e) {
+			console.warn('[TokenBalanceService] EVM token balance fetch failed:', e);
+			return null;
+		}
+	}
 }
 
-// Export singleton instance
 const tokenBalanceService = new TokenBalanceService();
 export default tokenBalanceService;

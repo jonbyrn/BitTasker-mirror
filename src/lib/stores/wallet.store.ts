@@ -654,7 +654,8 @@ async function loadAssets(): Promise<void> {
 			bscBalances,
 			rskTokenBalances,
 			arbUsdt0Balance,
-			arbWbtcBalance
+			arbWbtcBalance,
+			bscUsdtBalance
 		] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch((err) => {
 				console.warn('[WALLET-STORE] Failed to fetch RBTC price:', err);
@@ -688,6 +689,16 @@ async function loadAssets(): Promise<void> {
 			walletAddress
 				? fetchWithRetry(() =>
 						tokenBalanceService.getArbitrumTokenBalance(walletAddress, WBTC_ARBITRUM_ADDRESS)
+					)
+				: Promise.resolve(null),
+			walletAddress
+				? tokenBalanceService.getEVMTokenBalance(
+						walletAddress,
+						'0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
+						18,
+						'https://bsc-dataseed.binance.org',
+						'USDT',
+						'Tether USD (BSC)'
 					)
 				: Promise.resolve(null)
 		]);
@@ -824,6 +835,25 @@ async function loadAssets(): Promise<void> {
 				formattedBalance: '0.00',
 				network: 'RSK',
 				usdValue: 0
+			});
+		}
+
+		// Process BSC USDT balance
+		if (bscUsdtBalance) {
+			const bscUsdtFormatted = parseFloat(bscUsdtBalance.formattedBalance || '0');
+			const bscUsdtUsdValue = bscUsdtFormatted;
+			totalUsdt += bscUsdtFormatted;
+			totalUsd += bscUsdtUsdValue;
+			assets.push({
+				assetId: 'usdt-bsc',
+				name: 'USDT (BSC)',
+				ticker: 'USDT',
+				precision: 6,
+				icon: '💵',
+				balance: bscUsdtFormatted,
+				formattedBalance: bscUsdtBalance.formattedBalance || '0.00',
+				network: 'BSC',
+				usdValue: bscUsdtUsdValue
 			});
 		}
 

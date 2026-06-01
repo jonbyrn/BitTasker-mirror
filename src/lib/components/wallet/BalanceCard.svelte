@@ -49,7 +49,11 @@
 	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
 	let _usdAssets = $derived(
 		$allAssets.filter(
-			(a) => a.assetId === 'usdt0-arb' || a.assetId === 'usdt0-rsk' || a.assetId === 'doc-rsk'
+			(a) =>
+				a.assetId === 'usdt0-arb' ||
+				a.assetId === 'usdt0-rsk' ||
+				a.assetId === 'doc-rsk' ||
+				a.assetId === 'usdt-bsc'
 		)
 	);
 	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
