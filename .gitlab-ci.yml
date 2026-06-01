@@ -198,6 +198,12 @@ deploy-development:
     CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
   script:
     - npm ci --cache .npm --prefer-offline
+    - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
+    - test -n "$CLOUDFLARE_API_TOKEN" && echo "TOKEN: SET" || (echo "TOKEN: MISSING" && exit 1)
+    - echo "Token length: ${#CLOUDFLARE_API_TOKEN}"
+    - curl -s -o /dev/null -w "Token validation HTTP: %{http_code}\n" -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" || echo "curl failed"
+    - npx wrangler whoami || echo "wrangler whoami failed"
+    - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env dev
     - ENVIRONMENT=dev node scripts/purge-cache.js
   environment:
@@ -232,6 +238,12 @@ deploy-production:
     CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
   script:
     - npm ci --cache .npm --prefer-offline
+    - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
+    - test -n "$CLOUDFLARE_API_TOKEN" && echo "TOKEN: SET" || (echo "TOKEN: MISSING" && exit 1)
+    - echo "Token length: ${#CLOUDFLARE_API_TOKEN}"
+    - curl -s -o /dev/null -w "Token validation HTTP: %{http_code}\n" -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" || echo "curl failed"
+    - npx wrangler whoami || echo "wrangler whoami failed"
+    - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env production
     - ENVIRONMENT=production node scripts/purge-cache.js
   environment:
