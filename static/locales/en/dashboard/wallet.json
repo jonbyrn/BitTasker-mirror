@@ -828,6 +828,7 @@
 			"subtract_network_fee": "Network fee",
 			"subtract_swap_fee": "Swap fee",
 			"you_receive": "You receive",
+			"route_via": "via",
 			"enter_amount_for_quote": "Enter an amount to see fee breakdown",
 			"provider": "Provider",
 			"best_route": "Best",
@@ -980,7 +981,12 @@
 					"payment_complete": "Lightning invoice paid successfully!"
 				}
 			},
-			"desc_same_wallet_transfer": "Send to another wallet"
+			"desc_same_wallet_transfer": "Send to another wallet",
+			"fallback": {
+				"route_unavailable": "Route unavailable",
+				"route_unavailable_desc": "The cheapest route isn't available right now. Here's the next best option:",
+				"use_this_route": "Use this route"
+			}
 		},
 		"receive_form": {
 			"select_asset": "Select Asset",
@@ -1342,6 +1348,7 @@
 				"pending_tx": "Transaction processing..."
 			}
 		},
+		"tier2_tokens_title": "additional token balances detected",
 		"usdt0_arbitrum": "USDT0 (Arbitrum)",
 		"wbtc_arbitrum": "WBTC (Arbitrum)"
 	}

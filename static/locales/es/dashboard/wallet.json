@@ -824,6 +824,7 @@
 			"subtract_network_fee": "Tarifa de red",
 			"subtract_swap_fee": "Tarifa de intercambio",
 			"you_receive": "Recibes",
+			"route_via": "vía",
 			"enter_amount_for_quote": "Ingresa una cantidad para ver el desglose",
 			"provider": "Proveedor",
 			"best_route": "Mejor",
@@ -976,7 +977,12 @@
 					"payment_complete": "¡Factura Lightning pagada exitosamente!"
 				}
 			},
-			"desc_same_wallet_transfer": "Enviar a otra billetera"
+			"desc_same_wallet_transfer": "Enviar a otra billetera",
+			"fallback": {
+				"route_unavailable": "Ruta no disponible",
+				"route_unavailable_desc": "La ruta más económica no está disponible en este momento. Esta es la siguiente mejor opción:",
+				"use_this_route": "Usar esta ruta"
+			}
 		},
 		"information": {
 			"swap_info_title": "Acerca de Intercambios Cross-Chain",
@@ -1301,6 +1307,7 @@
 				"pending_tx": "Transacción en proceso..."
 			}
 		},
+		"tier2_tokens_title": "saldos de tokens adicionales detectados",
 		"usdt0_arbitrum": "USDT0 (Arbitrum)",
 		"wbtc_arbitrum": "WBTC (Arbitrum)"
 	}

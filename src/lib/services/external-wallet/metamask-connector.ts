@@ -8,6 +8,7 @@
 import type { ConnectorHandle, EVMTransactionRequest, EVMTransactionResult } from './types';
 import type { ConnectorRegistry } from './connector-registry';
 import { sendLock } from '$lib/services/external-wallet/send-lock';
+import { VERIFIED_TOKENS, CHAIN_LABELS } from '$lib/data/verified-tokens';
 
 // ---------------------------------------------------------------------------
 // Multichain SDK (lazy-loaded — no static import to prevent SSR crashes)
@@ -33,6 +34,32 @@ export interface ConnectMetaMaskConfig {
 
 const DEFAULT_SCOPES = ['eip155:30', 'eip155:31', 'eip155:56', 'eip155:97', 'eip155:1'] as const;
 
+/**
+ * Supported RPC endpoints for the MultiChain SDK.
+ *
+ * The SDK routes `invokeMethod()` calls through these endpoints to the
+ * corresponding chain. Read-only calls (eth_getBalance, eth_call) do
+ * NOT trigger user prompts — only eth_sendTransaction does.
+ *
+ * Free/rate-limited endpoints are used for chains without Infura keys.
+ */
+const SUPPORTED_NETWORKS: Record<string, string> = {
+	'eip155:30': 'https://public-node.rsk.co',
+	'eip155:31': 'https://public-node.testnet.rsk.co',
+	'eip155:42161': 'https://arb1.arbitrum.io/rpc',
+	'eip155:56': 'https://bsc-dataseed.binance.org',
+	'eip155:97': 'https://data-seed-prebsc-1-s1.binance.org:8545',
+	'eip155:1': 'https://mainnet.infura.io/v3/' + (import.meta.env.VITE_INFURA_API_KEY || ''),
+	// Free public endpoints (rate-limited, sufficient for balance checks)
+	'eip155:137': 'https://polygon-rpc.com',
+	'eip155:10': 'https://mainnet.optimism.io',
+	'eip155:43114': 'https://api.avax.network/ext/bc/C/rpc',
+	'eip155:8453': 'https://mainnet.base.org',
+	'eip155:42220': 'https://forno.celo.org',
+	'eip155:250': 'https://rpcapi.fantom.network',
+	'eip155:100': 'https://rpc.gnosischain.com'
+} as const;
+
 async function getClient(): Promise<MultiChainClient> {
 	if (!clientPromise) {
 		// Assign synchronously (IIFE) so concurrent callers see the same promise
@@ -49,15 +76,7 @@ async function getClient(): Promise<MultiChainClient> {
 					preferExtension: true // Use browser extension (MetaMask), not QR
 				},
 				api: {
-					supportedNetworks: {
-						'eip155:30': 'https://public-node.rsk.co',
-						'eip155:31': 'https://public-node.testnet.rsk.co',
-						'eip155:42161': 'https://arb1.arbitrum.io/rpc',
-						'eip155:56': 'https://bsc-dataseed.binance.org',
-						'eip155:97': 'https://data-seed-prebsc-1-s1.binance.org:8545',
-						'eip155:1':
-							'https://mainnet.infura.io/v3/' + (import.meta.env.VITE_INFURA_API_KEY || '')
-					}
+					supportedNetworks: SUPPORTED_NETWORKS
 				}
 			});
 		})();
@@ -275,66 +294,110 @@ function buildHandle(
 			Record<string, { raw: string; formatted: string; loading: boolean }>
 		> {
 			const result: Record<string, { raw: string; formatted: string; loading: boolean }> = {};
-			console.log('[MetaMask] fetchBalances: querying chains', chainIds, 'address', address);
+			console.log('[MetaMask] fetchBalances: querying tokens on all supported chains');
 
-			const usdt0ArbContract = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'; // USDT0 on Arbitrum
-			const balanceOfData = '0x70a08231000000000000000000000000' + address.slice(2);
+			// balanceOf(address) ABI-encoded — first 4 bytes selector + padded address
+			const balanceOfSelector = '0x70a08231';
+			const balanceOfData = balanceOfSelector + '000000000000000000000000' + address.slice(2);
 
 			const tasks: Promise<void>[] = [];
 
-			// rBTC on RSK — get native balance
-			for (const chainId of chainIds.filter((c) => c === 30 || c === 31)) {
+			// --- Tier 1: rBTC native balance on RSK ---
+			// Only query the first RSK chain in the session (avoid overwriting)
+			const rskChain = chainIds.find((c) => c === 30 || c === 31);
+			if (rskChain !== undefined) {
 				tasks.push(
 					(async () => {
 						try {
 							const hexBalance = (await sdkClient.invokeMethod({
-								scope: `eip155:${chainId}`,
+								scope: `eip155:${rskChain}`,
 								request: { method: 'eth_getBalance', params: [address, 'latest'] }
 							})) as unknown as string;
 							const raw = BigInt(hexBalance || '0x0');
-							const sats = Number(raw / 10_000_000_000n); // wei → sats (1e10)
+							const sats = Number(raw / 10_000_000_000n);
 							result.rbtc = {
 								raw: String(sats),
 								formatted: sats.toLocaleString('en-US') + ' Sats',
 								loading: false
 							};
 						} catch (e) {
-							console.warn('[MetaMask] fetchBalances rBTC failed for chain', chainId, e);
+							console.warn('[MetaMask] fetchBalances rBTC failed for chain', rskChain, e);
 						}
 					})()
 				);
 			}
 
-			await Promise.allSettled(tasks);
-
-			// USDT0 on Arbitrum — always fetch regardless of chain list
-
-			// USDT0 on Arbitrum — always fetch regardless of chain list
-			// (MetaMask may not have Arbitrum in its session chains)
-			if (!result['usdt0-arb'] || Number(result['usdt0-arb'].raw) === 0) {
-				try {
-					const hexBalance = (await sdkClient.invokeMethod({
-						scope: 'eip155:42161',
-						request: {
-							method: 'eth_call',
-							params: [{ to: usdt0ArbContract, data: balanceOfData }, 'latest']
+			// --- Tier 1: USDT0 on Arbitrum (counts toward total wallet balance) ---
+			const usdt0ArbContract = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+			tasks.push(
+				(async () => {
+					try {
+						const hexBalance = (await sdkClient.invokeMethod({
+							scope: 'eip155:42161',
+							request: {
+								method: 'eth_call',
+								params: [{ to: usdt0ArbContract, data: balanceOfData }, 'latest']
+							}
+						})) as unknown as string;
+						const raw = BigInt(hexBalance || '0x0');
+						const dollars = Number(raw) / 1e6;
+						if (raw > 0n) {
+							result['usdt0-arb'] = {
+								raw: raw.toString(),
+								formatted: '$' + dollars.toFixed(2),
+								loading: false
+							};
 						}
-					})) as unknown as string;
-					const raw = BigInt(hexBalance || '0x0');
-					const dollars = Number(raw) / 1e6;
-					if (raw > 0n) {
-						result['usdt0-arb'] = {
-							raw: raw.toString(),
-							formatted: '$' + dollars.toFixed(2),
-							loading: false
-						};
+					} catch (e) {
+						console.warn('[MetaMask] fetchBalances USDT0 Arb failed:', e);
 					}
-				} catch (e) {
-					console.warn('[MetaMask] fetchBalances USDT0 Arb (fallback) failed:', e);
+				})()
+			);
+
+			// --- Tier 2: Verified stablecoins across all chains ---
+			// USDT on Arbitrum is excluded (already tracked as Tier 1 usdt0-arb).
+			// All Tier 2 tokens use the key format `chainId-tokenSymbol-e.g. '56-USDT'`
+			// and are displayed separately in the wallet UI (not counted in total).
+			for (const [chainIdStr, tokens] of Object.entries(VERIFIED_TOKENS)) {
+				const chainId = Number(chainIdStr);
+				for (const token of tokens) {
+					// Skip Tier 1 duplicates
+					if (chainId === 42161 && token.symbol === 'USDT') continue;
+
+					const balanceKey = `${chainId}-${token.symbol}`;
+					tasks.push(
+						(async () => {
+							try {
+								const hexBalance = (await sdkClient.invokeMethod({
+									scope: `eip155:${chainId}`,
+									request: {
+										method: 'eth_call',
+										params: [{ to: token.address, data: balanceOfData }, 'latest']
+									}
+								})) as unknown as string;
+								const raw = BigInt(hexBalance || '0x0');
+								if (raw > 0n) {
+									const human = Number(raw) / Math.pow(10, token.decimals);
+									const chainLabel = CHAIN_LABELS[chainId] ?? `Chain ${chainId}`;
+									result[balanceKey] = {
+										raw: raw.toString(),
+										formatted: `${human.toFixed(2)} ${token.symbol} (${chainLabel})`,
+										loading: false
+									};
+								}
+							} catch (e) {
+								// Tier 2 failures are expected for chains the user hasn't
+								// added to MetaMask — the SDK may refuse eth_call if the
+								// chain isn't in the session scopes. Silently skip.
+								console.debug('[MetaMask] fetchBalances Tier2 skip', balanceKey, e);
+							}
+						})()
+					);
 				}
 			}
 
-			console.log('[MetaMask] fetchBalances result:', result);
+			await Promise.allSettled(tasks);
+			console.log('[MetaMask] fetchBalances result:', Object.keys(result));
 			return result;
 		}
 		// Cast (handle return): tested against SDK v0.14.0. buildHandle returns a

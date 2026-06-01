@@ -20,6 +20,7 @@
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import UnknownTokensCard from '$lib/components/wallet/UnknownTokensCard.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
@@ -505,6 +506,8 @@
 				<!-- Connected Wallet List (Connected tab, above buttons) -->
 				{#if activeTab === 'connected'}
 					<ConnectedWallets {balancesHidden} bind:showConnectModal />
+
+					<UnknownTokensCard wallets={$connectedWalletsStore.wallets} />
 
 					{#if $connectedWalletsStore.wallets.length > 0}
 						<div class="divider my-0"></div>
