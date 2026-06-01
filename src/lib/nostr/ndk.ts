@@ -10,6 +10,7 @@ import {
 } from '@nostr-dev-kit/ndk';
 import NDKCacheDexie from '@nostr-dev-kit/cache-dexie';
 import { createDebug } from '$lib/utils/debug';
+import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import { appStore } from '$lib/stores/app.store';
 import { NDKBid } from './events/bid';
 import { NDKTask } from './events/task';
@@ -38,8 +39,10 @@ function deleteIndexedDb(dbName: string): Promise<void> {
 	});
 }
 
+const explicitRelayUrls = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+
 export const ndk = createNDK({
-	explicitRelayUrls: [import.meta.env.VITE_NOSTR_RELAY_URL],
+	explicitRelayUrls,
 	// Enable sessions for wallet, follows, mutes, and WoT
 	session: true,
 	enableOutboxModel: false
@@ -49,7 +52,9 @@ registerEventClass(NDKBid as never);
 registerEventClass(NDKTask as never);
 registerEventClass(NDKPaymentContract as never);
 registerEventClass(NDKContractStatus as never);
-ndk.connect();
+if (browser && explicitRelayUrls.length > 0) {
+	ndk.connect();
+}
 
 /**
  * Clears NDK identity and removes the per-user Dexie cache (IndexedDB).
@@ -127,11 +132,14 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		ndk.signer = newSigner;
 		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
 		try {
-			ndk.addExplicitRelay(
-				import.meta.env.VITE_NOSTR_TASK_RELAY_URL
-				// TODO: Add auth policy to the relay
-				// NDKRelayAuthPolicies.signIn({ ndk })
-			);
+			const taskRelayUrls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+			for (const url of taskRelayUrls) {
+				ndk.addExplicitRelay(
+					url
+					// TODO: Add auth policy to the relay
+					// NDKRelayAuthPolicies.signIn({ ndk })
+				);
+			}
 		} catch (err) {
 			d.error('applyNdkSignerFromNsec failed to add relay: %o', err);
 			throw err;
@@ -182,10 +190,7 @@ async function stopUnpublishedEventsRetry(): Promise<void> {
 }
 
 export function getTaskRelay(): NDKRelaySet {
-	const taskRelayUrl = import.meta.env.VITE_NOSTR_TASK_RELAY_URL;
-	const urls = [taskRelayUrl].filter((url): url is string =>
-		Boolean(url && typeof url === 'string' && url.trim().length > 0)
-	);
+	const urls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
 
 	if (urls.length === 0) {
 		d.warn(

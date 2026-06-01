@@ -1,4 +1,5 @@
 import type { BiometricData } from '$lib/types/auth';
+import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { SimplePool } from 'nostr-tools';
 import { get, writable } from 'svelte/store';
 
@@ -65,7 +66,7 @@ const createAppStore = () => {
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
 		pool: lazyPool,
-		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
+		relays: resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL)
 	});
 
 	const { subscribe, set, update } = store;
