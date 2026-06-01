@@ -33,7 +33,10 @@
 # -----------------------------------------------------------------------------------------------
 # WRANGLER / VARIABLES
 # -----------------------------------------------------------------------------------------------
-#   GitLab injects CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. Build-time VITE_* in GitLab.
+#   CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are explicitly
+#   re-declared in each deploy job's `variables:` block with `expand: false`
+#   to prevent variable expansion from truncating values containing underscores.
+#   Build-time VITE_* variables also come from GitLab.
 # -----------------------------------------------------------------------------------------------
 workflow:
   auto_cancel:
@@ -108,6 +111,8 @@ build-production:
       - .svelte-kit/output/
     expire_in: 1 hour
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
@@ -189,6 +194,13 @@ deploy-development:
     policy: pull
   needs:
     - build
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
@@ -197,6 +209,8 @@ deploy-development:
     name: development
     url: https://worker.dev.bittasker.com
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
@@ -218,6 +232,13 @@ deploy-production:
     policy: pull
   needs:
     - build-production
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env production
@@ -226,6 +247,8 @@ deploy-production:
     name: production
     url: https://worker.prod.bittasker.com
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ═══════════════════════════════════════════════════════════════════════════════
