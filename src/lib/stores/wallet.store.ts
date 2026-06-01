@@ -692,13 +692,15 @@ async function loadAssets(): Promise<void> {
 					)
 				: Promise.resolve(null),
 			walletAddress
-				? tokenBalanceService.getEVMTokenBalance(
-						walletAddress,
-						'0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
-						18,
-						'https://bsc-dataseed.binance.org',
-						'USDT',
-						'Tether USD (BSC)'
+				? fetchWithRetry(() =>
+						tokenBalanceService.getEVMTokenBalance(
+							walletAddress,
+							'0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
+							18,
+							'https://bsc-dataseed.binance.org',
+							'USDT',
+							'Tether USD (BSC)'
+						)
 					)
 				: Promise.resolve(null)
 		]);

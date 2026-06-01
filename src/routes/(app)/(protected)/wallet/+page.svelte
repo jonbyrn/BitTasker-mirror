@@ -21,7 +21,6 @@
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import UnknownTokensCard from '$lib/components/wallet/UnknownTokensCard.svelte';
-	import { fetchBuiltinWalletTier2Balances } from '$lib/services/defi/builtin-wallet-tier2';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
@@ -74,9 +73,6 @@
 	onMount(async () => {
 		await initializeWallet();
 		walletManager.markExpectingInbound();
-
-		// Fetch Tier 2 USDT/USDC balances on BSC, Polygon, Arbitrum
-		refreshBuiltinWalletTier2();
 
 		// Open receive modal if tab=receive is in URL
 		const tab = page.url.searchParams.get('tab');
@@ -255,45 +251,6 @@
 		return Number($connectedWalletsStore.wallets[0]?.balances?.rbtc?.raw ?? 0);
 	});
 	let firstCwUsd = $derived.by(() => (firstCwSats / 100_000_000) * btcPrice.price);
-
-	// Built-in wallet Tier 2 balances (USDT/USDC on BSC, Polygon, etc.)
-	let builtinWalletTier2Balances = $state<
-		Record<string, { raw: string; formatted: string; loading: boolean }>
-	>({});
-	let _lastFetchedAddr = $state('');
-
-	async function refreshBuiltinWalletTier2(): Promise<void> {
-		const addr = $walletStore.rsk?.address;
-		console.log('[Wallet] refreshBuiltinWalletTier2: addr=', addr?.slice(0, 10) + '...');
-		if (!addr || addr === _lastFetchedAddr) {
-			console.log('[Wallet] refreshBuiltinWalletTier2: skipping (no addr or already fetched)');
-			return;
-		}
-		_lastFetchedAddr = addr;
-		try {
-			console.log('[Wallet] fetching Tier2 balances for', addr.slice(0, 10) + '...');
-			builtinWalletTier2Balances = await fetchBuiltinWalletTier2Balances(addr);
-			console.log('[Wallet] Tier2 balances fetched:', Object.keys(builtinWalletTier2Balances));
-		} catch (e) {
-			console.warn('[Wallet] Tier2 fetch failed:', e);
-			builtinWalletTier2Balances = {};
-		}
-	}
-
-	// Derived wallets-like array for UnknownTokensCard (works for both tabs)
-	let tier2Wallets = $derived.by(() => {
-		const wallets = [
-			...$connectedWalletsStore.wallets,
-			// Add built-in wallet as a virtual entry if Tier 2 balances exist
-			...($walletStore.rsk?.address && Object.keys(builtinWalletTier2Balances).length > 0
-				? [{ id: 'builtin', balances: builtinWalletTier2Balances }]
-				: [])
-		] as Array<{
-			id: string;
-			balances?: Record<string, { raw: string; formatted: string; loading: boolean }>;
-		}>;
-		return wallets;
-	});
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -656,8 +613,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<UnknownTokensCard wallets={tier2Wallets} />
 	</div>
 </div>
 
