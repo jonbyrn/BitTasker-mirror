@@ -113,7 +113,7 @@ export const VERIFIED_TOKENS: Record<number, VerifiedToken[]> = {
 	42220: [
 		// Celo
 		{
-			address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+			address: '0x617f3112bf5397D0467D315cC709EF968D9ba546',
 			symbol: 'USDT',
 			name: 'Tether USD (wormhole)',
 			decimals: 6
