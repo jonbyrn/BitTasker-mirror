@@ -199,9 +199,17 @@ deploy-development:
   script:
     - npm ci --cache .npm --prefer-offline
     - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
-    - test -n "$CLOUDFLARE_API_TOKEN" && echo "TOKEN: SET" || (echo "TOKEN: MISSING" && exit 1)
-    - echo "Token length: ${#CLOUDFLARE_API_TOKEN}"
-    - curl -s -o /dev/null -w "Token validation HTTP: %{http_code}\n" -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" || echo "curl failed"
+    - |
+      if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+        echo "TOKEN is SET"
+      else
+        echo "TOKEN is MISSING"
+        exit 1
+      fi
+    - echo "Token length = ${#CLOUDFLARE_API_TOKEN}"
+    - |
+      HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X GET 'https://api.cloudflare.com/client/v4/user/tokens/verify' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>&1 || echo '000')
+      echo "Token validation HTTP = ${HTTP_CODE}"
     - npx wrangler whoami || echo "wrangler whoami failed"
     - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env dev
@@ -239,9 +247,17 @@ deploy-production:
   script:
     - npm ci --cache .npm --prefer-offline
     - echo "=== CLOUDFLARE_API_TOKEN DIAGNOSTICS ==="
-    - test -n "$CLOUDFLARE_API_TOKEN" && echo "TOKEN: SET" || (echo "TOKEN: MISSING" && exit 1)
-    - echo "Token length: ${#CLOUDFLARE_API_TOKEN}"
-    - curl -s -o /dev/null -w "Token validation HTTP: %{http_code}\n" -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" || echo "curl failed"
+    - |
+      if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+        echo "TOKEN is SET"
+      else
+        echo "TOKEN is MISSING"
+        exit 1
+      fi
+    - echo "Token length = ${#CLOUDFLARE_API_TOKEN}"
+    - |
+      HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X GET 'https://api.cloudflare.com/client/v4/user/tokens/verify' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>&1 || echo '000')
+      echo "Token validation HTTP = ${HTTP_CODE}"
     - npx wrangler whoami || echo "wrangler whoami failed"
     - echo "=== END DIAGNOSTICS ==="
     - npx wrangler deploy --env production
