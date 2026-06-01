@@ -264,11 +264,18 @@
 
 	async function refreshBuiltinWalletTier2(): Promise<void> {
 		const addr = $walletStore.rsk?.address;
-		if (!addr || addr === _lastFetchedAddr) return;
+		console.log('[Wallet] refreshBuiltinWalletTier2: addr=', addr?.slice(0, 10) + '...');
+		if (!addr || addr === _lastFetchedAddr) {
+			console.log('[Wallet] refreshBuiltinWalletTier2: skipping (no addr or already fetched)');
+			return;
+		}
 		_lastFetchedAddr = addr;
 		try {
+			console.log('[Wallet] fetching Tier2 balances for', addr.slice(0, 10) + '...');
 			builtinWalletTier2Balances = await fetchBuiltinWalletTier2Balances(addr);
-		} catch (_) {
+			console.log('[Wallet] Tier2 balances fetched:', Object.keys(builtinWalletTier2Balances));
+		} catch (e) {
+			console.warn('[Wallet] Tier2 fetch failed:', e);
 			builtinWalletTier2Balances = {};
 		}
 	}
@@ -544,6 +551,8 @@
 				{#if activeTab === 'connected'}
 					<ConnectedWallets {balancesHidden} bind:showConnectModal />
 
+					<UnknownTokensCard wallets={$connectedWalletsStore.wallets} />
+
 					{#if $connectedWalletsStore.wallets.length > 0}
 						<div class="divider my-0"></div>
 
@@ -648,7 +657,6 @@
 			</div>
 		{/if}
 
-		<!-- Tier 2 Token Balances (both tabs — USDT/USDC on BSC, Polygon, etc.) -->
 		<UnknownTokensCard wallets={tier2Wallets} />
 	</div>
 </div>
