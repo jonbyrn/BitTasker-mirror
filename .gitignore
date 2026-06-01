@@ -1,5 +1,8 @@
 node_modules
 
+# ESLint
+.eslintcache
+
 # Output
 .vite-inspect
 .output

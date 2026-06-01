@@ -647,14 +647,14 @@ aws s3 cp "s3://bittasker-backups/daily/api/${LATEST}" . \
 
 ## Implemented Files
 
-These files have been created in the BitTasker repository as part of Phase 2 implementation:
+These files have been created or modified in the BitTasker repository as part of Phase 2 and pipeline hardening:
 
-| File                          | Purpose                                                                                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/backup-databases.sh` | Main backup script — runs `pg_dump` for all 3 databases and uploads to R2 under `daily/`, `weekly/`, or `monthly/` prefix based on `RETENTION_TYPE` env var               |
-| `scripts/restore-from-r2.sh`  | Recovery helper — finds and downloads the latest backup for a given database, optionally restores it. Usage: `bash scripts/restore-from-r2.sh api [target_db_url]`        |
-| `config/r2-lifecycle.json`    | R2 lifecycle rules — auto-prunes daily (7d), weekly (28d), monthly (90d). Apply: `npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json` |
-| `.gitlab-ci.yml`              | Added `backup` stage with `db-backup` job (runs only on scheduled pipelines)                                                                                              |
+| File                          | Purpose                                                                                                                                                                                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/backup-databases.sh` | Main backup script — runs `pg_dump` for all 3 databases and uploads to R2 under `daily/`, `weekly/`, or `monthly/` prefix based on `RETENTION_TYPE` env var                                                                                                           |
+| `scripts/restore-from-r2.sh`  | Recovery helper — finds and downloads the latest backup for a given database, optionally restores it. Usage: `bash scripts/restore-from-r2.sh api [target_db_url]`                                                                                                    |
+| `config/r2-lifecycle.json`    | R2 lifecycle rules — auto-prunes daily (7d), weekly (28d), monthly (90d). Apply: `npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json`                                                                                             |
+| `.gitlab-ci.yml`              | Added `backup` stage with `db-backup` job (runs on scheduled pipelines). Deploy jobs (`deploy-development`, `deploy-production`) explicitly pass `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in their `variables:` block for self-hosted runner compatibility. |
 
 ---
 
@@ -695,7 +695,8 @@ These steps require manual actions in external dashboards. Complete them in orde
 - [ ] **Add CI/CD variables** (Settings → CI/CD → Variables)
       | Variable | Value | Protected | Masked |
       |----------|-------|-----------|--------|
-      | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID | Yes | No |
+      | `CLOUDFLARE_API_TOKEN` | Cloudflare API token (Workers Edit permission) | Yes | **Yes** |
+      | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID (found in dashboard URL) | Yes | No |
       | `R2_ACCESS_KEY_ID` | R2 API token access key | Yes | No |
       | `R2_SECRET_ACCESS_KEY` | R2 API token secret | Yes | **Yes** |
       | `R2_BUCKET` | `bittasker-backups` | Yes | No |
@@ -704,6 +705,18 @@ These steps require manual actions in external dashboards. Complete them in orde
       | `PG_HOST_RELAY_GENERAL` | General Relay PostgreSQL host | Yes | No |
       | `PGUSER_BACKUP` | `backup_user` | Yes | No |
       | `PGPASSWORD_BACKUP` | Backup user password | Yes | **Yes** |
+
+  > **Important for self-hosted runners**: Protected CI/CD variables may not automatically propagate to Docker executor containers on self-hosted GitLab runners. The deploy jobs (`deploy-development`, `deploy-production`) in `.gitlab-ci.yml` explicitly re-declare `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in their `variables:` blocks to force injection:
+  >
+  > ```yaml
+  > variables:
+  >   CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN
+  >   CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+  > ```
+  >
+  > This is Cloudflare's [officially recommended pattern](https://developers.cloudflare.com/workers/ci-cd/external-cicd/gitlab-cicd/) for GitLab CI/CD. If you add new jobs that use `wrangler deploy`, apply the same pattern.
+  >
+  > `CLOUDFLARE_API_TOKEN` must be a Cloudflare API token (not a Global API Key) with at minimum the "Edit Cloudflare Workers" account-level permission. Create it at: https://dash.cloudflare.com/profile/api-tokens
 
 - [ ] **Create pipeline schedules** (Build → Pipeline schedules → New schedule)
       | Schedule | Cron | Target branch | Add variable |

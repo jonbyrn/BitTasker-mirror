@@ -33,7 +33,9 @@
 # -----------------------------------------------------------------------------------------------
 # WRANGLER / VARIABLES
 # -----------------------------------------------------------------------------------------------
-#   GitLab injects CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. Build-time VITE_* in GitLab.
+#   CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are explicitly
+#   re-declared in each deploy job's `variables:` block to ensure injection on
+#   self-hosted Docker executors. Build-time VITE_* variables also come from GitLab.
 # -----------------------------------------------------------------------------------------------
 workflow:
   auto_cancel:
@@ -191,6 +193,9 @@ deploy-development:
     policy: pull
   needs:
     - build
+  variables:
+    CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN
+    CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
@@ -222,6 +227,9 @@ deploy-production:
     policy: pull
   needs:
     - build-production
+  variables:
+    CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN
+    CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env production
