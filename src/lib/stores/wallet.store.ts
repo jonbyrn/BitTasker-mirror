@@ -692,16 +692,20 @@ async function loadAssets(): Promise<void> {
 					)
 				: Promise.resolve(null),
 			walletAddress
-				? fetchWithRetry(() =>
-						tokenBalanceService.getEVMTokenBalance(
+				? fetchWithRetry(() => {
+						console.log(
+							'[WALLET-STORE] fetchBSC-USDT: walletAddress=',
+							walletAddress?.slice(0, 10) + '...'
+						);
+						return tokenBalanceService.getEVMTokenBalance(
 							walletAddress,
 							'0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
 							18,
 							'https://bsc-dataseed.binance.org',
 							'USDT',
 							'Tether USD (BSC)'
-						)
-					)
+						);
+					})
 				: Promise.resolve(null)
 		]);
 
@@ -841,6 +845,12 @@ async function loadAssets(): Promise<void> {
 		}
 
 		// Process BSC USDT balance
+		console.log(
+			'[WALLET-STORE] BSC USDT: bscUsdtBalance=',
+			bscUsdtBalance ? bscUsdtBalance.formattedBalance : 'null',
+			'walletAddress=',
+			walletAddress?.slice(0, 10) + '...'
+		);
 		if (bscUsdtBalance) {
 			const bscUsdtFormatted = parseFloat(bscUsdtBalance.formattedBalance || '0');
 			const bscUsdtUsdValue = bscUsdtFormatted;
@@ -1407,13 +1417,15 @@ export async function sendRawTransaction(params: {
 	to: string;
 	data: string;
 	value: string;
+	gasLimit?: number;
 }): Promise<string> {
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
 	const tx = await wallet.sendTransaction({
 		to: params.to,
 		data: params.data,
-		value: params.value
+		value: params.value,
+		...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
 	});
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
 	return tx.hash;

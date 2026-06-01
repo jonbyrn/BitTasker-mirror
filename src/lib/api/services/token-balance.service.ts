@@ -361,6 +361,11 @@ class TokenBalanceService {
 		symbol: string,
 		name: string
 	): Promise<TokenBalance | null> {
+		console.log('[TokenService] getEVMTokenBalance:', {
+			symbol,
+			address: address.slice(0, 10) + '...',
+			chain: new URL(rpcUrl).hostname
+		});
 		const cacheKey = `evm:${rpcUrl}:${address.toLowerCase()}:${tokenAddress.toLowerCase()}`;
 		const cached = this.tokenBalanceCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
@@ -381,6 +386,10 @@ class TokenBalanceService {
 			});
 			const data = (await resp.json()) as { result: string };
 			const balance = BigInt(data.result || '0x0');
+			console.log('[TokenService] getEVMTokenBalance result:', {
+				symbol,
+				balance: balance.toString()
+			});
 			if (balance === 0n) return null;
 			const formattedBalance = (Number(balance) / Math.pow(10, decimals)).toFixed(
 				decimals > 6 ? 6 : decimals
