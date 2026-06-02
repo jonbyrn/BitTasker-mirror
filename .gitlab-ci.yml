@@ -1,42 +1,55 @@
-# GitLab CI/CD for BitTasker - Cloudflare Pages Deployment
+# GitLab CI/CD for BitTasker
 #
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEPLOYMENT STRATEGY: PAGES PRIMARY
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Cloudflare Pages is the PRIMARY deployment method for frontend.
+# Workers jobs are AVAILABLE but deploy to workers.dev subdomain only (no route conflicts).
+#
+#   Pages (Primary):
+#     - dev-pages   → dev.bittasker.com (production branch: dev)
+#     - prod-pages  → bittasker.com (production branch: master)
+#     - Builds triggered automatically by Cloudflare on git push
+#     - Environment variables configured in Cloudflare Pages dashboard
+#
+#   Workers (Testing/Future):
+#     - Routes are DISABLED in wrangler.toml (commented out)
+#     - Workers deploy to *.workers.dev subdomain only
+#     - Use for testing Workers features (Stream API, Cron triggers, etc.)
+#     - To migrate fully to Workers: see docs/ci/deployment-strategy.md
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT VARIABLES
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# GitLab CI/CD supports ENVIRONMENT-SCOPED VARIABLES:
+#   - Create VITE_API_URL with scope "development" → https://api-dev.bittasker.com
+#   - Create VITE_API_URL with scope "production" → https://api.bittasker.com
+#   - Jobs with environment: development get dev values
+#   - Jobs with environment: production get prod values
+#
+# See docs/ci/environment-variables.md for setup instructions.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
 # STAGES
-# -----------------------------------------------------------------------------------------------
-#   validate  → coverage (MR only). Quality gate for merge requests.
-#   deploy    → (Workers disabled) Cloudflare Pages handles frontend deployment.
-#   backup    → db-backup (scheduled pipelines only)
+# ═══════════════════════════════════════════════════════════════════════════════
+#   validate       → coverage (MR only). Quality gate for merge requests.
+#   build-android  → Android APK/AAB builds
+#   deploy         → Workers deploy (to workers.dev, not main domains)
+#   deploy-android → Play Store releases
+#   backup         → db-backup (scheduled pipelines only)
 #
-# Frontend builds are handled by Cloudflare Pages (not GitLab). Pages uses environment
-# variables configured in the Cloudflare dashboard (including VITE_API_URL).
-#
-# -----------------------------------------------------------------------------------------------
-# PIPELINE STRATEGY
-# -----------------------------------------------------------------------------------------------
-#   Merge requests  → coverage only (quality gate).
-#   Push to dev     → Cloudflare Pages (dev-pages) builds and deploys automatically.
-#   Push to master  → Cloudflare Pages (prod-pages) builds and deploys automatically.
-#   Scheduled       → db-backup.
-#
-#   Pipelines auto-cancel on new commits to the same ref (interruptible: true).
-#
-# -----------------------------------------------------------------------------------------------
-# WORKERS MIGRATION (DISABLED)
-# -----------------------------------------------------------------------------------------------
-#   Workers build/deploy jobs are commented out while using Cloudflare Pages.
-#   To migrate to Workers: uncomment build, build-production, deploy-development,
-#   and deploy-production jobs, and ensure VITE_* variables are set in GitLab CI/CD.
-#
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
 # RUNNERS
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
 #   All jobs use tags: [self-hosted] so the pipeline runs on your self-hosted GitLab runner.
 #
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
 # CACHE
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
 #   Key from package-lock.json so the same lockfile reuses cache across branches and MRs.
-# -----------------------------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════════
 workflow:
   auto_cancel:
     on_new_commit: interruptible
@@ -49,83 +62,86 @@ stages:
   - backup
 
 # ============================================
-# WORKERS BUILD/DEPLOY - DISABLED
+# WORKERS BUILD/DEPLOY
 # ============================================
-# Workers builds and deploys are disabled while using Cloudflare Pages.
-# Cloudflare Pages handles frontend builds with its own environment variables
-# (including VITE_API_URL). Re-enable these jobs when migrating to Workers.
+# Workers deploys to workers.dev subdomain ONLY (routes disabled in wrangler.toml).
+# Pages handles main domains (bittasker.com, dev.bittasker.com).
 #
-# To re-enable: uncomment the build, build-production, deploy-development,
-# and deploy-production jobs below and in the deploy section.
+# These jobs use GitLab's environment-scoped variables:
+#   - Jobs with environment: development get VITE_* scoped to "development"
+#   - Jobs with environment: production get VITE_* scoped to "production"
+#
+# To configure environment-scoped variables in GitLab:
+#   Settings → CI/CD → Variables → Add variable → Set "Environment scope"
 # ============================================
 
-# # ============================================
-# # BUILD - Development build (dev branch only)
-# # ============================================
-# build:
-#   image: node:22-bookworm-slim
-#   stage: validate
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   environment:
-#     name: development
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull-push
-#   before_script:
-#     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npm run build
-#   artifacts:
-#     paths:
-#       - build/
-#       - .svelte-kit/output/
-#     expire_in: 1 hour
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "dev"
+# ============================================
+# BUILD - Development build (dev branch only)
+# ============================================
+build:
+  image: node:22-bookworm-slim
+  stage: validate
+  interruptible: true
+  tags:
+    - self-hosted
+  environment:
+    name: development
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+      - .svelte-kit/output/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
 
-# # ============================================
-# # BUILD-PRODUCTION - Production build (master branch only)
-# # ============================================
-# build-production:
-#   image: node:22-bookworm-slim
-#   stage: validate
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   environment:
-#     name: production
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull-push
-#   before_script:
-#     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npm run build:production
-#   artifacts:
-#     paths:
-#       - build/
-#       - .svelte-kit/output/
-#     expire_in: 1 hour
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "master"
+# ============================================
+# BUILD-PRODUCTION - Production build (master branch only)
+# ============================================
+build-production:
+  image: node:22-bookworm-slim
+  stage: validate
+  interruptible: true
+  tags:
+    - self-hosted
+  environment:
+    name: production
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build:production
+  artifacts:
+    paths:
+      - build/
+      - .svelte-kit/output/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
 # COVERAGE - MR only (quality gate)
@@ -187,81 +203,81 @@ coverage:
 ##     - if: $CI_COMMIT_BRANCH == "dev"
 ##     - if: $CI_COMMIT_BRANCH == "master"
 
-# # ============================================
-# # DEPLOY DEVELOPMENT (worker.dev.bittasker.com)
-# # ============================================
-# deploy-development:
-#   image: node:22-bookworm-slim
-#   stage: deploy
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   needs:
-#     - build
-#   variables:
-#     CLOUDFLARE_API_TOKEN:
-#       value: $CLOUDFLARE_API_TOKEN
-#       expand: false
-#     CLOUDFLARE_ACCOUNT_ID:
-#       value: $CLOUDFLARE_ACCOUNT_ID
-#       expand: false
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler deploy --env dev
-#     - ENVIRONMENT=dev node scripts/purge-cache.js
-#   environment:
-#     name: development
-#     url: https://worker.dev.bittasker.com
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "dev"
+# ============================================
+# DEPLOY DEVELOPMENT (worker.dev.bittasker.com)
+# ============================================
+deploy-development:
+  image: node:22-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  needs:
+    - build
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler deploy --env dev
+    - ENVIRONMENT=dev node scripts/purge-cache.js
+  environment:
+    name: development
+    url: https://worker.dev.bittasker.com
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
 
-# # ============================================
-# # DEPLOY PRODUCTION (bittasker.com via Workers)
-# # ============================================
-# deploy-production:
-#   image: node:22-bookworm-slim
-#   stage: deploy
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   needs:
-#     - build-production
-#   variables:
-#     CLOUDFLARE_API_TOKEN:
-#       value: $CLOUDFLARE_API_TOKEN
-#       expand: false
-#     CLOUDFLARE_ACCOUNT_ID:
-#       value: $CLOUDFLARE_ACCOUNT_ID
-#       expand: false
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler deploy --env production
-#     - ENVIRONMENT=production node scripts/purge-cache.js
-#   environment:
-#     name: production
-#     url: https://worker.prod.bittasker.com
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "master"
+# ============================================
+# DEPLOY PRODUCTION (worker.prod.bittasker.com)
+# ============================================
+deploy-production:
+  image: node:22-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  needs:
+    - build-production
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler deploy --env production
+    - ENVIRONMENT=production node scripts/purge-cache.js
+  environment:
+    name: production
+    url: https://worker.prod.bittasker.com
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
