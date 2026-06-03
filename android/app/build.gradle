@@ -1,5 +1,33 @@
 apply plugin: 'com.android.application'
 
+def isReleaseGradleTask = {
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName.toLowerCase().contains('release')
+    }
+}
+
+def resolveAndroidVersionCode = {
+    def env = System.getenv("VERSION_CODE")
+    if (env != null && !env.isBlank()) {
+        return env.toInteger()
+    }
+    if (isReleaseGradleTask()) {
+        throw new GradleException("VERSION_CODE environment variable is required for release builds")
+    }
+    return 1
+}
+
+def resolveAndroidVersionName = {
+    def env = System.getenv("VERSION_NAME")
+    if (env != null && !env.isBlank()) {
+        return env
+    }
+    if (isReleaseGradleTask()) {
+        throw new GradleException("VERSION_NAME environment variable is required for release builds")
+    }
+    return "0.0.0-dev"
+}
+
 // Load keystore properties
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -14,8 +42,8 @@ android {
         applicationId "com.bittasker.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv("VERSION_CODE")?.toInteger() ?: 15
-        versionName System.getenv("VERSION_NAME") ?: "1.1.7"
+        versionCode resolveAndroidVersionCode()
+        versionName resolveAndroidVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

@@ -126,6 +126,19 @@ These variables are needed for Workers deployment:
 | `VITE_NOSTR_RELAY_URL` | production | Nostr relay for prod |
 | ... | ... | ... |
 
+## Android release variables (Play Store + Zapstore)
+
+Production releases use git tags `vX.Y.Z` on `master`. Configure these in **Settings → CI/CD → Variables** (not environment-scoped unless you choose to):
+
+| Variable | Used by | Masked |
+|----------|---------|--------|
+| `ANDROID_KEYSTORE_*`, `PLAY_STORE_CREDENTIALS_JSON` | Play Store | See [play-store-pipeline.md](./play-store-pipeline.md) |
+| `CI_API_TOKEN` | `android-release-prepare` (GitLab Release + update `ANDROID_RELEASE_VERSION_CODE`) | Yes |
+| `ANDROID_RELEASE_VERSION_CODE` | Bootstrap: current Play Store versionCode (e.g. `15`); auto-updated by prepare | No |
+| `ZAPSTORE_KEYSTORE_*`, `ZAPSTORE_PUBLISHER_NSEC`, `ZAPSTORE_GITLAB_TOKEN` | Zapstore child pipeline | See [zapstore-pipeline.md](./zapstore-pipeline.md) |
+
+`VERSION_NAME` and `VERSION_CODE` are computed in **`android-release-prepare`** (dotenv artifact). Gradle release builds fail if they are unset. Assigned `versionCode` is stored in the **GitLab Release** for the tag and in **`ANDROID_RELEASE_VERSION_CODE`**.
+
 ## Full List of VITE_* Variables
 
 Copy from `.env.example` or `wrangler.toml` for the complete list:

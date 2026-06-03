@@ -69,10 +69,14 @@ fi
 
 # Check for required environment variables (only if publishing)
 if [ "$SHOULD_PUBLISH" = true ]; then
-  if [ -z "$NOSTR_NSEC" ]; then
-    echo -e "${RED}❌ Error: NOSTR_NSEC environment variable not set${NC}"
+  if [ -z "$SIGN_WITH" ] && [ -z "$NOSTR_NSEC" ]; then
+    echo -e "${RED}❌ Error: SIGN_WITH or NOSTR_NSEC must be set${NC}"
     echo "Set your Nostr private key: export NOSTR_NSEC='nsec1...'"
+    echo "Or: export SIGN_WITH='nsec1...' (same as CI ZAPSTORE_PUBLISHER_NSEC)"
     exit 1
+  fi
+  if [ -z "$SIGN_WITH" ] && [ -n "$NOSTR_NSEC" ]; then
+    export SIGN_WITH="$NOSTR_NSEC"
   fi
 fi
 
@@ -81,9 +85,12 @@ command -v npm >/dev/null 2>&1 || { echo -e "${RED}❌ npm not found${NC}"; exit
 command -v npx >/dev/null 2>&1 || { echo -e "${RED}❌ npx not found${NC}"; exit 1; }
 command -v git >/dev/null 2>&1 || { echo -e "${RED}❌ git not found${NC}"; exit 1; }
 
-# Only check for zapstore CLI if we're publishing
+# Only check for zsp (or legacy zapstore CLI) if we're publishing
 if [ "$SHOULD_PUBLISH" = true ]; then
-  command -v zapstore >/dev/null 2>&1 || { echo -e "${RED}❌ zapstore CLI not found${NC}"; exit 1; }
+  if ! command -v zsp >/dev/null 2>&1 && ! command -v zapstore >/dev/null 2>&1; then
+    echo -e "${RED}❌ zsp CLI not found (go install github.com/zapstore/zsp@latest)${NC}"
+    exit 1
+  fi
 fi
 
 # Step 1: Read current version from build.gradle
