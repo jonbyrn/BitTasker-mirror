@@ -4,7 +4,8 @@
 		isChangeallySwapsEnabled,
 		isChangeallyFiatEnabled,
 		isSymbiosisEnabled,
-		isLifiEnabled
+		isLifiEnabled,
+		isLoanFlowEnabled
 	} from '$lib/services/kill-switch';
 
 	// -----------------------------------------------------------------------
@@ -12,6 +13,7 @@
 	// -----------------------------------------------------------------------
 	let swapsEnabled = $state(isChangeallySwapsEnabled() || isSymbiosisEnabled() || isLifiEnabled());
 	let fiatEnabled = $state(isChangeallyFiatEnabled());
+	let loanFlowEnabled = $state(isLoanFlowEnabled());
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -209,37 +211,39 @@
 				</button>
 			{/if}
 
-			<!-- DeFi (placeholder — DeFiFlowDrawer coming in a later phase) -->
-			<button
-				class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
-				onclick={() => {
-					onclose?.();
-					dispatchCustomEvent('banking:defi');
-				}}
-			>
-				<div class="flex flex-col items-center gap-2">
-					<div class="bg-primary/10 rounded-full p-3">
-						<svg
-							class="text-primary h-6 w-6"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							aria-hidden="true"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-							/>
-						</svg>
+			{#if loanFlowEnabled}
+				<!-- DeFi (Earn/Borrow drawer) — gated by single LOAN_FLOW flag for entire Earn surface -->
+				<button
+					class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+					onclick={() => {
+						onclose?.();
+						dispatchCustomEvent('banking:defi');
+					}}
+				>
+					<div class="flex flex-col items-center gap-2">
+						<div class="bg-primary/10 rounded-full p-3">
+							<svg
+								class="text-primary h-6 w-6"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+								/>
+							</svg>
+						</div>
+						<span class="text-sm font-medium">{$t('wallet.defi.title')}</span>
+						<span class="text-base-content/60 text-xs">
+							{$t('wallet.defi.title')}
+						</span>
 					</div>
-					<span class="text-sm font-medium">{$t('wallet.defi.title')}</span>
-					<span class="text-base-content/60 text-xs">
-						{$t('wallet.defi.title')}
-					</span>
-				</div>
-			</button>
+				</button>
+			{/if}
 		</div>
 
 		<!-- Close button at bottom -->

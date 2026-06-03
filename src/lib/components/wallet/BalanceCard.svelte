@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { allAssets, totalBalances, walletManager, formatSats } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -8,6 +8,21 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+
+	// Chain ID → logo path for tier 2 tokens
+	const CHAIN_LOGOS: Record<number, string> = {
+		56: '/images/chains/Binance-logo.svg',
+		10: '/images/chains/optimism.png',
+		250: '/images/chains/fantom.png',
+		100: '/images/chains/ethereum.png', // Gnosis
+		42220: '/images/chains/celo.png',
+		42161: '/images/chains/arbitrum.png',
+		43114: '/images/chains/avalanche.png',
+		137: '/images/chains/polygon.png',
+		8453: '/images/chains/base.png',
+		1: '/images/chains/ethereum.png'
+	};
 	import DefiPositionCard from './defi/DefiPositionCard.svelte';
 
 	let {
@@ -49,11 +64,7 @@
 	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
 	let _usdAssets = $derived(
 		$allAssets.filter(
-			(a) =>
-				a.assetId === 'usdt0-arb' ||
-				a.assetId === 'usdt0-rsk' ||
-				a.assetId === 'doc-rsk' ||
-				a.assetId === 'usdt-bsc'
+			(a) => a.assetId === 'usdt0-arb' || a.assetId === 'usdt0-rsk' || a.assetId === 'doc-rsk'
 		)
 	);
 	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
@@ -62,7 +73,11 @@
 	let usdt0RskBalance = $derived(usdt0RskAsset?.balance ?? 0);
 	let _usdt0ArbBalance = $derived(usdt0ArbAsset?.balance ?? 0);
 
-	// WBTC (Arbitrum) — always shown
+	// All tier 2 assets (USDT/USDC on BSC, Polygon, Arbitrum USDC, etc.)
+	// Filter: assetId matches chainId-SYMBOL pattern (e.g., '56-USDT', '137-USDC')
+	let tier2UsdAssets = $derived($allAssets.filter((a) => /^\d+-[A-Z]+$/.test(a.assetId)));
+
+	// wBTC (Arbitrum wrapped BTC) — always shown under Bitcoin accordion
 	let wbtcAsset = $derived($allAssets.find((a) => a.assetId === 'wbtc-arb'));
 
 	function showBalances() {
@@ -151,13 +166,27 @@
 	});
 
 	let usdtDisplay = $derived.by(() => {
-		if (balancesHidden) return '••••';
+		if (balancesHidden) return '$••••';
+		let usdVal: number;
 		if (hideDetails) {
-			if (overrideUsdt != null) return overrideUsdt > 0 ? `$${overrideUsdt.toFixed(2)}` : '$0.00';
-			return '$0.00';
+			// connected tab: override is precomputed as sum of USDT0-Arbitrum only across connected wallets
+			usdVal = overrideUsdt != null ? overrideUsdt : 0;
+		} else {
+			// built-in wallet tab: ONLY USDT0 on Arbitrum for this breakdown line (not RSK USDT/DOC, BSC, tier2, or other USD assets)
+			const arbAsset = usdt0ArbAsset;
+			usdVal = arbAsset?.usdValue ?? arbAsset?.balance ?? 0;
 		}
-		const usdt = $totalBalances?.usdt ?? 0;
-		return usdt > 0 ? `$${usdt.toFixed(2)}` : '$0.00';
+		const fmt = new Intl.NumberFormat($locale ?? 'en-US', { style: 'currency', currency: 'USD' });
+		return fmt.format(usdVal);
+	});
+
+	// USD value of the sats portion for display format, shown inline in parens after sats on top line of breakdown
+	let satsUsdInline = $derived.by(() => {
+		if (balancesHidden) return '($••••)';
+		const sats = overrideSats != null ? overrideSats : ($totalBalances?.sats ?? 0);
+		const usdValue = (sats / 100_000_000) * btcPrice.price;
+		const fmt = new Intl.NumberFormat($locale ?? 'en-US', { style: 'currency', currency: 'USD' });
+		return `(${fmt.format(usdValue)})`;
 	});
 </script>
 
@@ -237,10 +266,13 @@
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
-							{satsDisplay}
-							{$t('wallet.sats')} + {usdtDisplay}
-						</p>
+						<div class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
+							<div>{satsDisplay} {$t('wallet.sats')} {satsUsdInline}</div>
+							<div>
+								{usdtDisplay}
+								{$t('wallet.usd')}
+							</div>
+						</div>
 					{/if}
 					{@render refreshButton()}
 				</div>
@@ -315,23 +347,14 @@
 				</button>
 				<div class="collapse-content">
 					<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
-						<!-- L2 BTC Entry with Lightning Bolt Icon -->
+						<!-- Bitcoin (rBTC) / L2 entry on Rootstock -->
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-1.5 sm:gap-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-warning h-4 w-4 sm:h-5 sm:w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M13 10V3L4 14h7v7l9-11h-7z"
-									/>
-								</svg>
+								<img
+									src="/images/chains/Bitcoin-Rootstock-logo.webp"
+									alt="Rootstock"
+									class="h-4 w-4 sm:h-5 sm:w-5"
+								/>
 								<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
 							</div>
 							<div class="text-right">
@@ -357,7 +380,7 @@
 							</div>
 						</div>
 
-						<!-- WBTC (Arbitrum) — sats / USD like L2 Bitcoin -->
+						<!-- Bitcoin (wBTC) on Arbitrum -->
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-1.5 sm:gap-2">
 								<img
@@ -365,7 +388,7 @@
 									alt="Arbitrum"
 									class="h-4 w-4 sm:h-5 sm:w-5"
 								/>
-								<span class="text-sm font-medium sm:text-base">WBTC (Arbitrum)</span>
+								<span class="text-sm font-medium sm:text-base">{$t('wallet.wbtc_arbitrum')}</span>
 							</div>
 							<div class="text-right">
 								{#if balancesHidden}
@@ -498,6 +521,29 @@
 								</div>
 							</div>
 						{/if}
+
+						<!-- Tier 2 stablecoins (USDT/USDC on BSC, Polygon, Arbitrum, etc.) -->
+						{#each tier2UsdAssets as asset (asset.assetId)}
+							{@const chainId = parseInt(asset.assetId.split('-')[0])}
+							<div class="flex items-center gap-1.5 sm:gap-2">
+								{#if CHAIN_LOGOS[chainId]}
+									<img
+										src={CHAIN_LOGOS[chainId]}
+										alt=""
+										class="h-4 w-4 sm:h-5 sm:w-5"
+										aria-hidden="true"
+									/>
+								{/if}
+								<span class="text-sm font-medium sm:text-base">{asset.name}</span>
+								<div class="ml-auto text-sm font-semibold sm:text-base">
+									{#if balancesHidden}
+										••••
+									{:else}
+										${asset.usdValue.toFixed(2)}
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			</div>

@@ -49,7 +49,7 @@
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
-	import { isConnectedWalletsEnabled } from '$lib/services/kill-switch';
+	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
 	let showConnectModal = $state(false);
@@ -206,13 +206,13 @@
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
 			if (cur) {
-				const btcSats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+				// rBTC + wBTC sats → USD
+				const rbtcSats = Number(cur.rbtc?.raw ?? 0);
 				const wbtcSats = Number(cur.wbtc?.raw ?? 0);
-				const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
-				total +=
-					(btcSats / 100_000_000) * btcPrice.price +
-					(wbtcSats / 100_000_000) * btcPrice.price +
-					usdt;
+				const satsUsd = ((rbtcSats + wbtcSats) / 100_000_000) * btcPrice.price;
+				// USDT0 on Arbitrum
+				const usdt0Arb = Number(cur['usdt0-arb']?.raw ?? 0) / 1e6;
+				total += satsUsd + usdt0Arb;
 			}
 		}
 		if (total === 0 && _lastConnectedTotal > 0) return _lastConnectedTotal;
@@ -221,26 +221,26 @@
 		return total;
 	});
 
-	// Connected wallet total sats (for BalanceCard breakdown)
+	// Connected wallet total sats (rBTC + wBTC across all wallets)
 	let connectedTotalSats = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
 		let total = 0;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
-			if (cur) total += Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
+			if (cur) total += Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
 		}
 		if (total === 0 && _lastConnectedSats > 0) return _lastConnectedSats;
 		if (total !== _lastConnectedSats) _lastConnectedSats = total;
 		return total;
 	});
 
-	// Connected wallet total USDT (for BalanceCard breakdown)
+	// Connected wallet total USDT0 Arbitrum (for BalanceCard breakdown)
 	let connectedTotalUsdt = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
 		let total = 0;
 		for (const w of $connectedWalletsStore.wallets) {
 			const cur = w.balances;
-			if (cur) total += Number(cur.usdt?.raw ?? 0) / 1e18;
+			if (cur) total += Number(cur['usdt0-arb']?.raw ?? 0) / 1e6;
 		}
 		return total;
 	});
@@ -289,12 +289,18 @@
 			closeBankingMenu();
 			showSwap = true;
 		}
+		function handleDefi() {
+			closeBankingMenu();
+			// Only reachable when LOAN_FLOW enabled (card now gated in BankingMenu). Preview toast until full lifecycle wired.
+			appStore.showInfoToast($t('wallet.defi.shared.pending_tx') || 'DeFi is in preview');
+		}
 
 		el.addEventListener('banking:send', handleSend);
 		el.addEventListener('banking:receive', handleReceive);
 		el.addEventListener('banking:buy', handleBuy);
 		el.addEventListener('banking:sell', handleSell);
 		el.addEventListener('banking:swap', handleSwap);
+		el.addEventListener('banking:defi', handleDefi);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
@@ -302,6 +308,7 @@
 			el.removeEventListener('banking:buy', handleBuy);
 			el.removeEventListener('banking:sell', handleSell);
 			el.removeEventListener('banking:swap', handleSwap);
+			el.removeEventListener('banking:defi', handleDefi);
 		};
 	});
 </script>
@@ -581,23 +588,25 @@
 					</button>
 				</div>
 
-				<!-- DeFi Buttons (Loans + Earn, one row) -->
-				<div class="flex flex-row gap-1">
-					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
-						onclick={() => (showBorrow = true)}
-					>
-						<IconHandCoin class="h-5 w-5 shrink-0" aria-hidden="true" />
-						<span class="leading-tight font-medium">{$t('wallet.defi.tab_borrow')}</span>
-					</button>
-					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
-						onclick={() => (showEarn = true)}
-					>
-						<IconChartLine class="h-5 w-5 shrink-0" aria-hidden="true" />
-						<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
-					</button>
-				</div>
+				<!-- DeFi Buttons (Loans + Earn, one row) — gated by single LOAN_FLOW flag (controls entire Earn surface incl. BankingMenu card) -->
+				{#if isLoanFlowEnabled()}
+					<div class="flex flex-row gap-1">
+						<button
+							class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
+							onclick={() => (showBorrow = true)}
+						>
+							<IconHandCoin class="h-5 w-5 shrink-0" aria-hidden="true" />
+							<span class="leading-tight font-medium">{$t('wallet.defi.tab_borrow')}</span>
+						</button>
+						<button
+							class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
+							onclick={() => (showEarn = true)}
+						>
+							<IconChartLine class="h-5 w-5 shrink-0" aria-hidden="true" />
+							<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
+						</button>
+					</div>
+				{/if}
 
 				<!-- Learn More — centered below all buttons, always visible -->
 				<div class="flex justify-center pb-4">
@@ -622,19 +631,21 @@
 <!-- Help Modal (always in DOM so Learn More button works on all tabs) -->
 <HelpModal />
 
-<!-- DeFi Drawer -->
-{#if showBorrow}
-	<BorrowFlowDrawer
-		isOpen={showBorrow}
-		onClose={() => (showBorrow = false)}
-		onGetWbtc={() => {
-			showBorrow = false;
-			showSwap = true;
-		}}
-	/>
-{/if}
-{#if showEarn}
-	<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} />
+<!-- DeFi Drawer (gated by single LOAN_FLOW flag) -->
+{#if isLoanFlowEnabled()}
+	{#if showBorrow}
+		<BorrowFlowDrawer
+			isOpen={showBorrow}
+			onClose={() => (showBorrow = false)}
+			onGetWbtc={() => {
+				showBorrow = false;
+				showSwap = true;
+			}}
+		/>
+	{/if}
+	{#if showEarn}
+		<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} isSubmitting={false} />
+	{/if}
 {/if}
 
 <!-- Buy/Sell Drawer -->
