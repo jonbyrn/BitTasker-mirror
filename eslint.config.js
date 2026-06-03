@@ -10,7 +10,7 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
 export default ts.config(
 	// Ignore known parser bugs
-	{ ignores: ['src/routes/+page.svelte'] },
+	{ ignores: ['src/routes/+page.svelte', '.kilo/**', '.deepseek/**'] },
 	includeIgnoreFile(gitignorePath),
 	{
 		ignores: [

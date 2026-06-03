@@ -18,3 +18,36 @@ nginx.config.yaml
 
 # Known parser bug with svelte-eslint-parser
 src/routes/+page.svelte
+
+# AI agent tooling, skills, plans, state, and generated artifacts (not application source)
+# These contain YAML, JSON with embedded code, diffs, special markers, etc. that
+# confuse Prettier parsers (especially when prettier-plugin-tailwindcss + babel is involved).
+.claude/
+.cursor/
+.codex-plan-loop/
+.deepseek/
+.kilo/
+.playwright-mcp/
+.claude-flow/
+.swarm/
+.gitnexus/
+
+# Documentation and specification files (many contain code fences, tables, or
+# are maintained externally; format individually if needed).
+docs/
+requirements/
+
+# Other local-only or generated files that should not be auto-formatted
+agentdb.rvf
+*.plan.json
+plan-*.json
+*state.json
+*metrics*.json
+
+# Separate/local package (wallet-core) — has its own src, dist, tests, and formatting.
+# Root-level prettier should not walk or enforce style on it.
+wallet-core/
+
+# Additional build/dist outputs (recursive)
+**/dist/**
+**/build/**

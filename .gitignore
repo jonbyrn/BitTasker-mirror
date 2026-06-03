@@ -96,3 +96,46 @@ agentdb.rvf
 fastlane/play-store-credentials.json
 
 .eslintcache
+
+# Secrets (NEVER commit)
+test-nsec.txt
+*.nsec
+*.nsec.txt
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Build caches
+.ts-morph-cache/
+
+# Runtime databases
+agentdb.rvf
+agentdb.rvf.lock
+ruvector.db
+
+# Dev screenshots (not for repo)
+Screenshots/
+receive-accordion.png
+route-picker-visible.png
+send-accordion-final.png
+send-combined-route.png
+send-deduped.png
+send-final-verified.png
+send-single-screen.png
+send-source-selector-done.png
+send-source-selector.png
+wallet-current-state.png
+wallet-desktop-1280.png
+wallet-mobile-375.png
+wallet-mobile-banking-menu.png
+geekbench_claim.url
+
+# Android build artifacts
+android/.svelte-kit/
+static/images/chains/.svelte-kit/
+
+# Local data directory
+data/
+
+# External wallet-core (installed separately)
+wallet-core/
