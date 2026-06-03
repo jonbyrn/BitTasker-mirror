@@ -31,6 +31,8 @@
 		type="button"
 		class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10 text-sm font-medium"
 		onclick={onToggle}
+		aria-expanded={expanded}
+		aria-controls="asset-selector-panel"
 	>
 		{#if selectedAsset}
 			<img
@@ -38,7 +40,7 @@
 				alt={selectedAsset.label}
 				class="h-5 w-5 shrink-0 rounded-full"
 			/>
-			<span class="font-medium">{selectedAsset.label}</span>
+			<span class="font-medium" id="asset-selector-title">{selectedAsset.label}</span>
 			{#if selectedAsset.balance !== undefined}
 				<div class="ml-auto text-right">
 					<div class="text-xs font-semibold tabular-nums">{selectedAsset.balance}</div>
@@ -50,7 +52,12 @@
 		{/if}
 	</button>
 
-	<div class="collapse-content px-2">
+	<div
+		class="collapse-content px-2"
+		id="asset-selector-panel"
+		role="region"
+		aria-labelledby="asset-selector-title"
+	>
 		<div class="space-y-1">
 			{#each availableAssets as asset (asset.id)}
 				<button

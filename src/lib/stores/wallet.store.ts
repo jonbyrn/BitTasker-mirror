@@ -56,6 +56,11 @@ import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
+import {
+	fetchBuiltinWalletTier2Balances,
+	type Tier2BalanceEntry
+} from '$lib/services/defi/builtin-wallet-tier2';
+import { CHAIN_LABELS } from '$lib/data/verified-tokens';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { Preferences } from '@capacitor/preferences';
 import {
@@ -478,33 +483,44 @@ async function initialize(): Promise<void> {
 		onResume().catch(() => {});
 
 		// Update store with wallet info
+		// Update store with wallet info — set each chain independently so a
+		// failure in one doesn't prevent the others from getting addresses.
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
 
-		if (rskWallet && bscWallet) {
+		const rskUpdate: Partial<typeof initialState.rsk> = {};
+		const bscUpdate: Partial<typeof initialState.bsc> = {};
+		const arbUpdate: Partial<typeof initialState.arb> = {};
+
+		if (rskWallet) {
+			rskUpdate.connected = true;
+			rskUpdate.connecting = false;
+			rskUpdate.error = null;
+			rskUpdate.address = rskWallet.getAddress();
+			rskUpdate.wallet = rskWallet.getWallet() as ethers.Wallet;
+			rskUpdate.provider = rskWallet.getProvider() as ethers.JsonRpcProvider;
+			// Arbitrum uses the same EVM address as RSK
+			arbUpdate.address = rskWallet.getAddress();
+		}
+
+		if (bscWallet) {
+			bscUpdate.connected = true;
+			bscUpdate.connecting = false;
+			bscUpdate.error = null;
+			bscUpdate.address = bscWallet.getAddress();
+			bscUpdate.wallet = bscWallet.getWallet() as ethers.Wallet;
+			bscUpdate.provider = bscWallet.getProvider() as ethers.JsonRpcProvider;
+		}
+
+		if (rskWallet || bscWallet) {
 			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				isInitializing: false,
 				error: null,
-				rsk: {
-					...s.rsk,
-					connected: true,
-					connecting: false,
-					error: null,
-					address: rskWallet.getAddress(),
-					wallet: rskWallet.getWallet() as ethers.Wallet,
-					provider: rskWallet.getProvider() as ethers.JsonRpcProvider
-				},
-				bsc: {
-					...s.bsc,
-					connected: true,
-					connecting: false,
-					error: null,
-					address: bscWallet.getAddress(),
-					wallet: bscWallet.getWallet() as ethers.Wallet,
-					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
-				}
+				rsk: { ...s.rsk, ...rskUpdate },
+				bsc: { ...s.bsc, ...bscUpdate },
+				arb: { ...s.arb, ...arbUpdate }
 			}));
 		}
 	} catch (error) {
@@ -630,7 +646,11 @@ async function fetchWithRetry<T>(
  *
  * @throws {Error} If wallet manager is not initialized
  */
+let _loadAssetsLock = false;
+
 async function loadAssets(): Promise<void> {
+	if (_loadAssetsLock) return;
+	_loadAssetsLock = true;
 	try {
 		const manager = getWalletManager();
 		const state = get(walletStore);
@@ -644,6 +664,8 @@ async function loadAssets(): Promise<void> {
 		let priceError = false;
 
 		const walletAddress = state.rsk.address || state.bsc.address;
+		// For BSC-specific queries, use the BSC address (may differ from RSK)
+		const bscAddress = state.bsc.address || walletAddress;
 
 		// Fetch ALL data in parallel with retry logic for balance fetches
 		const [
@@ -655,7 +677,7 @@ async function loadAssets(): Promise<void> {
 			rskTokenBalances,
 			arbUsdt0Balance,
 			arbWbtcBalance,
-			bscUsdtBalance
+			tier2Balances
 		] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch((err) => {
 				console.warn('[WALLET-STORE] Failed to fetch RBTC price:', err);
@@ -691,28 +713,13 @@ async function loadAssets(): Promise<void> {
 						tokenBalanceService.getArbitrumTokenBalance(walletAddress, WBTC_ARBITRUM_ADDRESS)
 					)
 				: Promise.resolve(null),
-			walletAddress
-				? fetchWithRetry(() => {
-						console.log(
-							'[WALLET-STORE] fetchBSC-USDT: walletAddress=',
-							walletAddress?.slice(0, 10) + '...'
-						);
-						return tokenBalanceService.getEVMTokenBalance(
-							walletAddress,
-							'0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
-							18,
-							'https://bsc-dataseed.binance.org',
-							'USDT',
-							'Tether USD (BSC)'
-						);
-					})
-				: Promise.resolve(null)
+			bscAddress ? fetchBuiltinWalletTier2Balances(bscAddress) : Promise.resolve({})
 		]);
 
 		// Use fallback price of 0 if price fetch failed, but track the error
 		const rbtcPrice = rbtcPriceResult ?? 0;
 		const bnbPrice = bnbPriceResult ?? 0;
-		const btcPrice = btcPriceResult ?? 0;
+		const _btcPrice = btcPriceResult ?? 0;
 		if (rbtcPriceResult === null || bnbPriceResult === null || btcPriceResult === null) {
 			priceError = true;
 		}
@@ -844,71 +851,14 @@ async function loadAssets(): Promise<void> {
 			});
 		}
 
-		// Process BSC USDT balance
-		console.log(
-			'[WALLET-STORE] BSC USDT: bscUsdtBalance=',
-			bscUsdtBalance ? bscUsdtBalance.formattedBalance : 'null',
-			'walletAddress=',
-			walletAddress?.slice(0, 10) + '...'
-		);
-		if (bscUsdtBalance) {
-			const bscUsdtFormatted = parseFloat(bscUsdtBalance.formattedBalance || '0');
-			const bscUsdtUsdValue = bscUsdtFormatted;
-			totalUsdt += bscUsdtFormatted;
-			totalUsd += bscUsdtUsdValue;
-			assets.push({
-				assetId: 'usdt-bsc',
-				name: 'USDT (BSC)',
-				ticker: 'USDT',
-				precision: 6,
-				icon: '💵',
-				balance: bscUsdtFormatted,
-				formattedBalance: bscUsdtBalance.formattedBalance || '0.00',
-				network: 'BSC',
-				usdValue: bscUsdtUsdValue
-			});
-			walletStore.update((s) => ({
-				...s,
-				bsc: {
-					...s.bsc,
-					usdtBalance: bscUsdtBalance.balance?.toString() || '0',
-					formattedUsdtBalance: bscUsdtBalance.formattedBalance || '0.00',
-					usdtUsdValue: bscUsdtUsdValue
-				}
-			}));
-		} else if (walletAddress) {
-			// Show zero USDT BSC for awareness (even when no balance)
-			assets.push({
-				assetId: 'usdt-bsc',
-				name: 'USDT (BSC)',
-				ticker: 'USDT',
-				precision: 6,
-				icon: '💵',
-				balance: 0,
-				formattedBalance: '0.00',
-				network: 'BSC',
-				usdValue: 0
-			});
-		}
-
-		// Process WBTC balance on Arbitrum
+		// Process Arbitrum WBTC balance (critical for DeFi borrow collateral; counts toward main total per L643 comment)
 		if (arbWbtcBalance) {
-			addBreadcrumb({
-				category: 'wallet-wbtc',
-				message: 'WBTC balance fetched on Arbitrum',
-				level: 'info',
-				data: {
-					balance: arbWbtcBalance.formattedBalance,
-					address: walletAddress
-				}
-			});
-
 			const wbtcFormatted = parseFloat(arbWbtcBalance.formattedBalance || '0');
-			const wbtcUsdValue = wbtcFormatted * btcPrice;
+			const wbtcUsdValue = wbtcFormatted * (btcPriceResult ?? 0);
 
 			totalUsd += wbtcUsdValue;
 
-			// Update store with WBTC balance
+			// Update store with Arbitrum wBTC (enables hasWbtc / collateral calcs in BorrowStep + BalanceCard)
 			walletStore.update((s) => ({
 				...s,
 				arb: {
@@ -923,40 +873,59 @@ async function loadAssets(): Promise<void> {
 
 			assets.push({
 				assetId: 'wbtc-arb',
-				name: 'WBTC (Arbitrum)',
+				name: 'Bitcoin (wBTC)',
 				ticker: 'WBTC',
 				precision: 8,
 				icon: '₿',
 				balance: wbtcFormatted,
 				formattedBalance: arbWbtcBalance.formattedBalance || '0.00',
-				network: 'RSK',
+				// TODO(usdt-abstractionkit): 'Arbitrum' support - using 'BSC' as stand-in until WalletAsset.network union is extended in wallet-core
+				network: 'BSC' as WalletAsset['network'],
 				usdValue: wbtcUsdValue
 			});
 		} else if (walletAddress) {
-			// Show zero WBTC Arbitrum for awareness (even when no balance)
+			// Show zero wBTC (Arbitrum) for awareness (even when no balance) — enables BorrowStep pre-check + max
 			assets.push({
 				assetId: 'wbtc-arb',
-				name: 'WBTC (Arbitrum)',
+				name: 'Bitcoin (wBTC)',
 				ticker: 'WBTC',
 				precision: 8,
 				icon: '₿',
 				balance: 0,
 				formattedBalance: '0.00',
-				network: 'RSK',
+				// TODO(usdt-abstractionkit): 'Arbitrum' support - using 'BSC' as stand-in until WalletAsset.network union is extended in wallet-core
+				network: 'BSC' as WalletAsset['network'],
 				usdValue: 0
 			});
-
-			walletStore.update((s) => ({
-				...s,
-				arb: {
-					...s.arb,
-					wbtcBalance: '0',
-					formattedWbtcBalance: '0.00',
-					wbtcUsdValue: 0
-				}
-			}));
 		}
 
+		// Process tier 2 balances (USDT/USDC on BSC, Polygon, Arbitrum, etc.)
+		// Only tokens with balance > 0 are included in the returned map.
+		if (tier2Balances) {
+			const entries = Object.entries(tier2Balances) as [string, Tier2BalanceEntry][];
+			for (const [key, bal] of entries) {
+				const balance = parseFloat(bal.formatted || '0');
+				if (balance <= 0) continue;
+				const chainId = parseInt(key.split('-')[0]);
+				const symbol = key.split('-')[1] || 'USD';
+				const chainLabel = CHAIN_LABELS[chainId] ?? `Chain ${chainId}`;
+				// Tier 2 tokens do NOT count toward the main wallet total
+				// (only rBTC + WBTC + USDT0 Arbitrum do)
+				assets.push({
+					assetId: key,
+					name: `${symbol} (${chainLabel})`,
+					ticker: symbol,
+					precision: 6,
+					icon: '💵',
+					balance,
+					formattedBalance: bal.formatted || '0.00',
+					// TODO(usdt-abstractionkit): tier2 multi-chain abstraction - using 'BSC' as stand-in until WalletAsset.network union is extended in wallet-core
+					network: 'BSC' as WalletAsset['network'],
+					usdValue: balance
+				});
+				console.log('[WALLET-STORE] Tier2 asset:', key, '=', balance);
+			}
+		}
 		// Process BSC assets
 		if (bscBalances) {
 			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
@@ -1012,7 +981,7 @@ async function loadAssets(): Promise<void> {
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
 
 		// Update store with assets and totals
-		// Note: If priceError is true, USD values may be inaccurate but sats balance is correct
+		console.log('[WALLET-STORE] committing assets:', assets.map((a) => a.assetId).join(', '));
 		walletStore.update((s) => ({
 			...s,
 			assets,
@@ -1038,11 +1007,12 @@ async function loadAssets(): Promise<void> {
 		}
 	} catch (error) {
 		console.error('[WALLET-STORE] Failed to load assets:', error);
-		// Don't reset balances on error - keep showing last known values
 		walletStore.update((s) => ({
 			...s,
 			error: 'Failed to refresh balances. Showing cached data.'
 		}));
+	} finally {
+		_loadAssetsLock = false;
 	}
 }
 
@@ -1422,6 +1392,30 @@ export async function sendRawTransaction(params: {
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
 	const tx = await wallet.sendTransaction({
+		to: params.to,
+		data: params.data,
+		value: params.value,
+		...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
+	});
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	return tx.hash;
+}
+
+/**
+ * Send a transaction on Arbitrum using the same wallet key.
+ * Connects to Arbitrum RPC for the transaction.
+ */
+export async function sendArbitrumTransaction(params: {
+	to: string;
+	data: string;
+	value: string;
+	gasLimit?: number;
+}): Promise<string> {
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
+	const arbProvider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+	const arbWallet = wallet.connect(arbProvider);
+	const tx = await arbWallet.sendTransaction({
 		to: params.to,
 		data: params.data,
 		value: params.value,

@@ -35,8 +35,10 @@
 			type="button"
 			class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10 pl-3 text-sm font-medium"
 			onclick={onToggle}
+			aria-expanded={expanded}
+			aria-controls="wallet-selector-panel"
 		>
-			<span class="text-base-content/60">{label}</span>
+			<span class="text-base-content/60" id="wallet-selector-title">{label}</span>
 			{#if selectedId === 'builtin'}
 				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5 shrink-0" />
 				<span class="font-medium">{$t('wallet.builtin_wallet')}</span>
@@ -55,7 +57,12 @@
 				{/if}
 			{/if}
 		</button>
-		<div class="collapse-content px-2">
+		<div
+			class="collapse-content px-2"
+			id="wallet-selector-panel"
+			role="region"
+			aria-labelledby="wallet-selector-title"
+		>
 			<div class="space-y-1">
 				<button
 					class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {selectedId ===

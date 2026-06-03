@@ -5,6 +5,8 @@
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import WalletSelector from './WalletSelector.svelte';
+	import AssetSelector from './AssetSelector.svelte';
+	import type { AssetOption } from './AssetSelector.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
@@ -26,7 +28,7 @@
 	reconnectPersistedWallets();
 
 	let activeTab = $state<'buy' | 'sell'>('buy');
-	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'btc-onchain'>('rbtc');
+	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain'>('rbtc');
 	let amount = $state<string>('');
 	let bankDetails = $state<string>('');
 	let isLoading = $state(false);
@@ -41,6 +43,7 @@
 
 	let source = $state('builtin');
 	let sourceExpanded = $state(false);
+	let assetExpanded = $state(false);
 	let sourceInitialized = $state(false);
 
 	// % slider
@@ -73,38 +76,59 @@
 		}
 	});
 
+	// Reset selectedCrypto if it becomes unavailable (e.g. btc-onchain when switching to built-in wallet)
+	$effect(() => {
+		if (selectedCrypto === 'btc-onchain' && !selectedSourceHasBtc) {
+			selectedCrypto = 'rbtc';
+		}
+	});
+
 	let isConnectedSource = $derived(source !== 'builtin');
 	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt0-arb');
 
-	// BTC on-chain detection — only for hardware wallets with Bitcoin connected
-	let hasBtcWallet = $derived(
-		$connectedWalletsStore.wallets.some(
-			(w) =>
-				(w.walletType === 'trezor' ||
-					w.walletType === 'ledger' ||
-					w.walletType === 'walletconnect') &&
-				!!w.btcAddress
-		)
-	);
+	// BTC on-chain detection — only for the currently selected connected wallet with Bitcoin
+	let selectedSourceHasBtc = $derived.by(() => {
+		if (!isConnectedSource) return false;
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
+		return (
+			(w?.walletType === 'trezor' ||
+				w?.walletType === 'ledger' ||
+				w?.walletType === 'walletconnect') &&
+			!!w?.btcAddress
+		);
+	});
 
-	let digitalAssetOptions = $derived.by(() => {
-		const opts: { id: string; name: string; icon: string }[] = [
+	let assetOptions = $derived.by<AssetOption[]>(() => {
+		const opts: AssetOption[] = [
 			{
 				id: 'rbtc',
-				name: $t('wallet.buy_sell.bitcoin_rbtc'),
-				icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
+				label: $t('wallet.buy_sell.bitcoin_rbtc'),
+				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+				subLabel: 'Bitcoin on Rootstock',
+				balance: rbtcBalanceDisplay
 			},
 			{
 				id: 'usdt0-arb',
-				name: $t('wallet.usdt0_arbitrum'),
-				icon: '/images/chains/Tether-USD.svg'
+				label: $t('wallet.usdt0_arbitrum'),
+				icon: '/images/chains/Tether-USD.svg',
+				subLabel: 'USDT0 on Arbitrum',
+				balance: usdtBalanceDisplay
+			},
+			{
+				id: 'wbtc-arb',
+				label: $t('wallet.wbtc_arbitrum'),
+				icon: '/images/chains/arbitrum.png',
+				subLabel: 'Wrapped BTC on Arbitrum',
+				balance: wbtcBalanceDisplay
 			}
 		];
-		if (hasBtcWallet) {
+		if (selectedSourceHasBtc) {
 			opts.push({
 				id: 'btc-onchain',
-				name: $t('wallet.buy_sell.bitcoin_btc'),
-				icon: '/images/chains/Bitcoin.svg'
+				label: $t('wallet.buy_sell.bitcoin_btc'),
+				icon: '/images/chains/Bitcoin.svg',
+				subLabel: 'Bitcoin on-chain',
+				balance: rbtcBalanceDisplay
 			});
 		}
 		return opts;
@@ -158,6 +182,23 @@
 		return usdFormatter.format(num);
 	});
 
+	let wbtcBalance = $derived.by(() => {
+		if (isConnectedSource) {
+			const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
+			const raw = Number(w?.balances?.wbtc?.raw ?? 0);
+			return (isNaN(raw) ? 0 : raw / 100_000_000).toFixed(6);
+		}
+		return $walletStore.arb?.formattedWbtcBalance || '0.000000';
+	});
+
+	let wbtcBalanceDisplay = $derived.by(() => {
+		const sats = Math.round(parseFloat(wbtcBalance) * 100_000_000);
+		if (sats <= 0) return '0 Sats';
+		const usd = (sats / 100_000_000) * btcPrice.price;
+		const usdStr = usd >= 1 ? usdFormatter.format(usd) : `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
+		return `${formatSats(sats)} (${usdStr})`;
+	});
+
 	let estimatedReceive = $derived(
 		!amount || !selectedCrypto || !quoteData ? '0.00' : (quoteData.estimatedAmount ?? '0.00')
 	);
@@ -168,7 +209,8 @@
 	function convertToSats(value: string, tokenId: string): string {
 		if (!value) return '0';
 		const n = parseFloat(value);
-		if (tokenId === 'rbtc') return Math.round(n * 100000000).toLocaleString();
+		if (tokenId === 'rbtc' || tokenId === 'wbtc-arb')
+			return Math.round(n * 100000000).toLocaleString();
 		if (tokenId === 'usdt0-arb') return Math.round(n * 100).toLocaleString();
 		return value;
 	}
@@ -183,6 +225,7 @@
 		quoteLoading = false;
 		quoteError = false;
 		swapPercent = 0;
+		assetExpanded = false;
 	}
 
 	function handleCryptoChange(cryptoId: string) {
@@ -193,6 +236,7 @@
 		quoteLoading = false;
 		quoteError = false;
 		swapPercent = 0;
+		assetExpanded = false;
 	}
 
 	function setMaxAmount() {
@@ -205,6 +249,11 @@
 				maxVal = String(
 					isNaN(raw) ? 0 : Math.floor(raw / (activeTab === 'sell' ? 1 : 100_000_000))
 				);
+			} else if (selectedCrypto === 'wbtc-arb') {
+				const raw = Number(w?.balances?.wbtc?.raw ?? 0);
+				maxVal = String(
+					isNaN(raw) ? 0 : Math.floor(raw / (activeTab === 'sell' ? 1 : 100_000_000))
+				);
 			} else if (selectedCrypto === 'btc-onchain') {
 				const raw = Number(w?.balances?.btc?.raw ?? 0);
 				maxVal = String(isNaN(raw) ? 0 : Math.floor(raw / 100_000_000));
@@ -213,11 +262,22 @@
 				maxVal = (isNaN(raw) ? 0 : raw / 1e18).toString();
 			}
 		} else {
-			if (selectedCrypto === 'rbtc' && activeTab === 'sell') {
-				const sats = $walletStore.totalBalances.sats;
-				maxVal = String(sats);
+			if (activeTab === 'sell') {
+				if (selectedCrypto === 'rbtc') {
+					maxVal = String($walletStore.totalBalances.sats);
+				} else if (selectedCrypto === 'wbtc-arb') {
+					maxVal = String(Math.round(parseFloat(wbtcBalance) * 100_000_000));
+				} else {
+					maxVal = usdtBalance;
+				}
 			} else {
-				maxVal = selectedCrypto === 'rbtc' ? parseFloat(rbtcBalance).toString() : usdtBalance;
+				if (selectedCrypto === 'rbtc') {
+					maxVal = parseFloat(rbtcBalance).toString();
+				} else if (selectedCrypto === 'wbtc-arb') {
+					maxVal = parseFloat(wbtcBalance).toString();
+				} else {
+					maxVal = usdtBalance;
+				}
 			}
 		}
 		amount = maxVal;
@@ -236,22 +296,31 @@
 				fullBalance = Math.floor(
 					Number(w.balances?.rbtc?.raw ?? 0) / (activeTab === 'sell' ? 1 : 100_000_000)
 				);
+			else if (selectedCrypto === 'wbtc-arb')
+				fullBalance = Math.floor(
+					Number(w.balances?.wbtc?.raw ?? 0) / (activeTab === 'sell' ? 1 : 100_000_000)
+				);
 			else if (selectedCrypto === 'btc-onchain')
 				fullBalance = Math.floor(
 					Number(w.balances?.btc?.raw ?? 0) / (activeTab === 'sell' ? 1 : 100_000_000)
 				);
 			else fullBalance = Number(w.balances?.usdt?.raw ?? 0) / 1e18;
 		} else {
-			fullBalance =
-				selectedCrypto === 'rbtc' && activeTab === 'sell'
-					? $walletStore.totalBalances.sats
-					: selectedCrypto === 'rbtc'
-						? parseFloat(rbtcBalance)
-						: parseFloat(usdtBalance);
+			if (activeTab === 'sell' && selectedCrypto === 'rbtc') {
+				fullBalance = $walletStore.totalBalances.sats;
+			} else if (activeTab === 'sell' && selectedCrypto === 'wbtc-arb') {
+				fullBalance = Math.round(parseFloat(wbtcBalance) * 100_000_000);
+			} else if (selectedCrypto === 'rbtc') {
+				fullBalance = parseFloat(rbtcBalance);
+			} else if (selectedCrypto === 'wbtc-arb') {
+				fullBalance = parseFloat(wbtcBalance);
+			} else {
+				fullBalance = parseFloat(usdtBalance);
+			}
 		}
 		const val = (fullBalance * pct) / 100;
 		const precision =
-			selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain'
+			selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain' || selectedCrypto === 'wbtc-arb'
 				? activeTab === 'sell'
 					? 0
 					: 6
@@ -298,7 +367,11 @@
 			if (ctrl.signal.aborted) return;
 			const amt = parseFloat(rawAmount);
 			let estimatedAmount: string;
-			if (selectedCrypto === 'rbtc' || selectedCrypto === 'btc-onchain') {
+			if (
+				selectedCrypto === 'rbtc' ||
+				selectedCrypto === 'btc-onchain' ||
+				selectedCrypto === 'wbtc-arb'
+			) {
 				estimatedAmount = (activeTab === 'buy' ? amt / price : (amt / 100_000_000) * price).toFixed(
 					activeTab === 'buy' ? 6 : 2
 				);
@@ -354,6 +427,7 @@
 		source = defaultWalletId();
 		sourceInitialized = false;
 		swapPercent = 0;
+		assetExpanded = false;
 		onClose();
 	}
 </script>
@@ -428,44 +502,14 @@
 			onToggle={() => (sourceExpanded = !sourceExpanded)}
 		/>
 
-		<!-- Digital Asset Selection -->
-		<div class="space-y-2">
-			{#each digitalAssetOptions as asset (asset.id)}
-				{@const isSelected = selectedCrypto === asset.id}
-				{@const balanceText = asset.id === 'usdt0-arb' ? usdtBalanceDisplay : rbtcBalanceDisplay}
-				<button
-					type="button"
-					class="flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 sm:p-4 {isSelected
-						? 'border-primary bg-primary/5 shadow-sm'
-						: 'border-base-300 hover:border-primary/30 hover:bg-base-200'} touch-manipulation active:scale-95"
-					onclick={() => handleCryptoChange(asset.id)}
-				>
-					<div
-						class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 {isSelected
-							? 'border-primary'
-							: 'border-base-300'}"
-					>
-						{#if isSelected}<div class="bg-primary h-2.5 w-2.5 rounded-full"></div>{/if}
-					</div>
-					<div class="relative shrink-0">
-						<img src={asset.icon} alt={asset.name} class="h-8 w-8 rounded-full sm:h-10 sm:w-10" />
-						{#if asset.id === 'usdt0-arb'}
-							<img
-								src="/images/chains/arbitrum.png"
-								alt="Arbitrum"
-								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border sm:h-4 sm:w-4"
-							/>
-						{/if}
-					</div>
-					<div class="min-w-0 flex-1">
-						<div class="text-sm font-semibold sm:text-base">{asset.name}</div>
-						<div class="text-base-content/60 text-xs sm:text-sm">
-							{$t('wallet.available_balance')}: {balanceText}
-						</div>
-					</div>
-				</button>
-			{/each}
-		</div>
+		<!-- Asset Selector -->
+		<AssetSelector
+			selectedId={selectedCrypto}
+			onSelect={(id) => handleCryptoChange(id)}
+			assets={assetOptions}
+			expanded={assetExpanded}
+			onToggle={() => (assetExpanded = !assetExpanded)}
+		/>
 
 		<!-- Transaction Form -->
 		<div class="bg-base-200 rounded-xl p-4 sm:p-5">
@@ -649,7 +693,9 @@
 												? $t('wallet.buy_sell.usdt_bsc')
 												: selectedCrypto === 'btc-onchain'
 													? $t('wallet.btc')
-													: $t('wallet.rbtc')
+													: selectedCrypto === 'wbtc-arb'
+														? $t('wallet.wbtc')
+														: $t('wallet.rbtc')
 											: $t('wallet.usdt')}</span
 									>
 								{:else}<span class="text-base-content/40">—</span>{/if}

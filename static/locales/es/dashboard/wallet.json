@@ -118,7 +118,7 @@
 		"payment_description_placeholder": "¿Para qué es este pago?",
 		"recipient_address": "Dirección de destino",
 		"address_placeholder": "Dirección Bitcoin, Lightning o Liquid",
-		"available_balance": "Saldo Disponible",
+		"available_balance": "Disponible",
 		"balance_after": "Saldo",
 		"transaction_fee": "Comisión de transacción",
 		"network_fee": "Comisión de Red",
@@ -632,6 +632,7 @@
 		},
 		"sats": "Sats",
 		"rbtc": "rBTC",
+		"wbtc": "wBTC",
 		"usdt": "USDT",
 		"usd": "USD",
 		"btc": "BTC",
@@ -639,7 +640,7 @@
 		"lightning": "Lightning",
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Bitcoin Rootstock",
-		"l2_btc": "L2 Bitcoin",
+		"l2_btc": "Bitcoin (rBTC)",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Próximamente",
 		"retry": "Reintentar",
@@ -981,7 +982,9 @@
 			"fallback": {
 				"route_unavailable": "Ruta no disponible",
 				"route_unavailable_desc": "La ruta más económica no está disponible en este momento. Esta es la siguiente mejor opción:",
-				"use_this_route": "Usar esta ruta"
+				"use_this_route": "Usar esta ruta",
+				"fallback_routes_available": "Rutas de respaldo disponibles",
+				"use_fallback": "Usar {provider}"
 			}
 		},
 		"information": {
@@ -1012,7 +1015,7 @@
 			"select_asset": "Seleccionar Activo",
 			"select_network": "Seleccionar Red",
 			"asset_icon": "Icono de activo",
-			"available_balance": "Saldo Disponible",
+			"available_balance": "Disponible",
 			"coming_soon": "Próximamente",
 			"usdt_not_available": "La funcionalidad de recepción de USDT aún no está disponible.",
 			"network_not_available": "Esta red aún no está disponible para recibir.",
@@ -1112,7 +1115,7 @@
 				"recipient_address_placeholder": "Ingresa dirección RSK (0x...)",
 				"amount": "Cantidad",
 				"amount_placeholder": "Ingresa cantidad",
-				"available_balance": "Saldo Disponible",
+				"available_balance": "Disponible",
 				"max": "Máx",
 				"send": "Enviar",
 				"sending": "Enviando...",
@@ -1269,6 +1272,8 @@
 				"gas_fee": "Comisión de gas (Arbitrum)",
 				"annual_cost": "Costo anual del préstamo",
 				"button_approve_borrow": "Aprobar y pedir USDT0",
+				"rates_error": "No se pudieron cargar las tasas actuales",
+				"health_factor_aria": "Factor de salud: {factor} de 5. {status}",
 				"button_repay": "Pagar",
 				"button_add_collateral": "Añadir garantía",
 				"swap_btn": "Intercambiar",
@@ -1293,8 +1298,18 @@
 				"il_double": "Si BTC se duplica: ~77% vs 50% manteniendo. La IL es la diferencia entre LP y mantener.",
 				"il_halve": "Si BTC baja a la mitad: ~4% vs 25% manteniendo.",
 				"button_approve_lp": "Aprobar y proveer liquidez",
+				"button_remove_liquidity": "Retirar liquidez",
+				"button_collect_fees": "Cobrar comisiones",
+				"positions_title": "Tus posiciones LP (vista previa — estado local)",
+				"sim_preview": "Los flujos de LP (proveer / retirar / cobrar) usan ejecución simulada + estado local de posiciones. UniswapService + WalletSelector totalmente integrados. Listo para on-chain real (requiere adaptador de firmante EVM para wallets conectadas).",
+				"no_lp_yet": "Aún no hay posiciones LP. Usa Proveer arriba (crea posición de vista previa para demo de retirar/cobrar).",
+				"remove_success": "Liquidez retirada (vista previa)",
+				"collect_success": "Comisiones cobradas (vista previa)",
 				"out_of_range": "Fuera de rango — sin generar comisiones",
-				"rebalance": "Reequilibrar"
+				"rebalance": "Reequilibrar",
+				"clear_select": "Borrar selección",
+				"no_fees_to_collect": "No hay comisiones para cobrar",
+				"simulated_note": "tx simulada + posiciones locales (sustituto de defi-positions.store)"
 			},
 			"shared": {
 				"no_positions": "Sin posiciones DeFi activas",
@@ -1305,10 +1320,19 @@
 				"switch_to_arbitrum": "Cambiar a Arbitrum",
 				"offline": "Sin conexión — DeFi requiere internet",
 				"pending_tx": "Transacción en proceso..."
+			},
+			"approve": {
+				"title": "Aprobar token",
+				"amount": "Cantidad",
+				"spender": "Gastador (contrato)",
+				"button": "Aprobar",
+				"success": "Aprobado {token}",
+				"error": "Aprobación fallida",
+				"failed": "Aprobación fallida"
 			}
 		},
 		"tier2_tokens_title": "saldos de tokens adicionales detectados",
 		"usdt0_arbitrum": "USDT0 (Arbitrum)",
-		"wbtc_arbitrum": "WBTC (Arbitrum)"
+		"wbtc_arbitrum": "Bitcoin (wBTC)"
 	}
 }

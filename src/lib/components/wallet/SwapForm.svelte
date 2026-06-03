@@ -1,29 +1,38 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
-	import { fly, fade, scale } from 'svelte/transition';
+	import { fly, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { walletStore, formatSats } from '$lib/stores/wallet.store';
-	import { type Route, type SourceWallet, type Destination } from '$lib/services/route-resolver';
+	import { get } from 'svelte/store';
+	import { formatSats, walletStore } from '$lib/stores/wallet.store';
 	import {
-		resolveRouteAsync,
-		createInitialAsyncRouteResult,
-		type AsyncRouteResult
-	} from '$lib/services/route-resolver-async';
+		type Route,
+		type SourceWallet,
+		type Destination,
+		type RouteHop
+	} from '$lib/services/route-resolver';
 	import { startSwapChain } from '$lib/services/swap-chain.service';
-	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import type { SmartRoute } from '$lib/services/SmartRouter';
+	// resolveRouteAsync / SmartRouter / createInitial moved to use-swap-routes rune (Phase 1); only type for local fallback smartRoute kept.
+	import SwapFallback from '$lib/components/wallet/SwapFallback.svelte';
 	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
-	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { createDebug } from '$lib/utils/debug';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import AssetSelector from '$lib/components/wallet/AssetSelector.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
-
-	const d = createDebug('swap');
+	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import * as Sentry from '@sentry/sveltekit';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { useSwapWallets } from '$lib/runes/use-swap-wallets.svelte.ts';
+	import { useSwapCalculator } from '$lib/runes/use-swap-calculator.svelte.ts';
+	import { useSwapRoutes } from '$lib/runes/use-swap-routes.svelte.ts';
+	import SwapPartyCard from '$lib/components/wallet/SwapPartyCard.svelte';
+	import SwapEstimateCard from '$lib/components/wallet/SwapEstimateCard.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
+
+	const d = createDebug('swap');
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -43,6 +52,8 @@
 			currency: 'USD'
 		})
 	);
+
+	// SmartRouter instance no longer needed here (routes rune owns its internal or DI one for testability).
 
 	// -----------------------------------------------------------------------
 	// Destination type enum
@@ -65,15 +76,16 @@
 	// -----------------------------------------------------------------------
 	let sourceType = $state<SourceWallet>('rbtc');
 	let destType = $state<DestType>('usdt0-arb');
-	let amount = $state('');
-	let selectedRouteId = $state('');
+	// amount + swapPercent owned by swapCalc rune (full encapsulation for bidir/rounding); access via swapCalc.amount etc.
 	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'complete' | 'failed'>('form');
 	let errorMessage = $state('');
 	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
-	let swapPercent = $state(0);
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let slideDir = $state(-1); // 1 = forward, -1 = reverse; toggles each swap
+	// smartRoute kept local ONLY for SwapFallback retryWithFallback injection (experimental Smart override); main route state in swapRoutes rune.
+	let smartRoute = $state<SmartRoute | null>(null);
+
+	// Network status for offline guards (pattern from EarnLendStep + CLAUDE "network awareness")
+	let isOnline = $derived($browserNetworkStatus.online);
 
 	// -----------------------------------------------------------------------
 	// Wallet accordion state
@@ -86,100 +98,76 @@
 	let destAssetExpand = $state(false);
 
 	let isConnectedSource = $derived(sourceWallet !== 'builtin');
-	let isConnectedDest = $derived(destWallet !== 'builtin');
+	// isConnectedDest removed (dead after rune extraction; was only for legacy, now unused)
 
-	// Restore persisted connected wallets on mount and re-establish live SDK
-	// sessions for balance fetching. Delegates to the shared reconnect service.
-	onMount(() => {
-		reconnectPersistedWallets();
+	const swapWallets = useSwapWallets({
+		getSourceWalletId: () => sourceWallet,
+		getDestWalletId: () => destWallet,
+		getSourceType: () => sourceType,
+		getDestType: () => destType
 	});
 
-	/** Source wallet address for route resolution */
-	let sourceAddr = $derived.by(() => {
-		if (!isConnectedSource) {
-			if (sourceType === 'rbtc') return $walletStore.rsk.address ?? '';
-			// Arbitrum EVM address — same as RSK (same private key)
-			return $walletStore.arb?.address || $walletStore.rsk.address || '';
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
-		return w?.address ?? '';
+	const swapCalc = useSwapCalculator({
+		getWalletBalanceToken: () =>
+			sourceType === 'rbtc'
+				? (sourceWallet === 'builtin' ? builtinRbtcSats : swapWallets.sourceBalances.rbtcSats) /
+					100_000_000
+				: sourceWallet === 'builtin'
+					? builtinUsdt0
+					: swapWallets.sourceBalances.usdt0,
+		getSourceType: () => sourceType,
+		getBtcUsdPrice: () => btcUsdPrice,
+		getIsOnline: () => isOnline
 	});
 
-	/** Destination wallet address for execution */
-	let destAddr = $derived.by(() => {
-		if (!isConnectedDest) {
-			if (destType === 'btc-onchain') return getExternalBtcAddress();
-			if (destType === 'rbtc-rsk') return $walletStore.rsk.address ?? '';
-			// Cross-chain destinations use the same EVM address as RSK
-			return $walletStore.arb?.address || $walletStore.rsk.address || '';
+	// Routes rune (Phase 1) — owns dual Smart+async resolution, fees, outputs. Gas/price feeds kept here (refresh timer ownership).
+	const swapRoutes = useSwapRoutes({
+		getSourceType: () => sourceType,
+		getDestType: () => destType,
+		getAmountSats: () => swapCalc.amountSats,
+		getSourceAddr: () => swapWallets.sourceAddr,
+		getIsOnline: () => isOnline,
+		getBtcUsdPrice: () => btcUsdPrice,
+		getEthUsdPrice: () => ethUsdPrice,
+		getRskGasWei: () => rskGasPriceWei,
+		getArbGasWei: () => arbGasPriceWei
+	});
+
+	// Re-export pure from calc for template (satsUsd used in labels).
+	const satsUsd = swapCalc.satsUsd;
+
+	// Effective smart for display (local fallback override takes precedence for SwapFallback retry path).
+	let effectiveSmartRoute = $derived(smartRoute || swapRoutes.smartRoute);
+
+	// For rBTC (BTC asset) source: allow entering amount in USD via compact toggle left of input.
+	let btcUsdInputMode = $state(false);
+
+	// Sync display amount shown in input (for usd mode on rbtc, we show usd value, but keep calc in native sats)
+	let displayInputAmount = $state('');
+	let syncingFromInput = false;
+
+	$effect(() => {
+		const nativeStr = swapCalc.amount;
+		if (sourceType === 'rbtc' && btcUsdInputMode) {
+			if (syncingFromInput) {
+				syncingFromInput = false;
+				return;
+			}
+			const frac = swapCalc.amountInTokenUnits;
+			const usd = frac * btcUsdPrice;
+			displayInputAmount = usd > 0 ? usd.toFixed(2) : '';
+		} else {
+			displayInputAmount = nativeStr;
 		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
-		return w?.address ?? '';
 	});
 
 	$effect(() => {
-		d.log(
-			'addrs: source=%s dest=%s srcWallet=%s destWallet=%s',
-			sourceAddr?.substring(0, 10) || '(none)',
-			destAddr?.substring(0, 10) || '(none)',
-			sourceWallet,
-			destWallet
-		);
+		// reset usd mode when source changes away from rbtc
+		if (sourceType !== 'rbtc' && btcUsdInputMode) {
+			btcUsdInputMode = false;
+			syncingFromInput = false;
+		}
 	});
-
-	/** Format USD balance for a wallet in WalletSelector */
-	function walletBalanceFor(walletId: string): string {
-		if (walletId === 'builtin') {
-			const sats = $walletStore.totalBalances.sats;
-			const usdt = parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
-			const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-			return usdFormatter.format(usd);
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === walletId);
-		if (!w?.balances) return '$0.00';
-		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
-		const usdt = Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e18;
-		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
-		return usdFormatter.format(usd);
-	}
-
-	// -----------------------------------------------------------------------
-	// BTC wallet detection
-	// -----------------------------------------------------------------------
-	let hasExternalBtcWallet = $derived(
-		(() => {
-			if (destWallet === 'builtin') return false;
-			const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
-			if (!w) return false;
-			return (
-				(w.walletType === 'trezor' ||
-					w.walletType === 'ledger' ||
-					w.walletType === 'walletconnect') &&
-				!!w.btcAddress
-			);
-		})()
-	);
-
-	/**
-	 * Get external BTC wallet address for the destination.
-	 * Uses the first connected wallet that has a BTC signer/address.
-	 */
-	function getExternalBtcAddress(): string {
-		const handles = connectorRegistry.list();
-		for (const handle of handles) {
-			try {
-				const signer = handle.bitcoinSigner;
-				if (signer?.address) return signer.address;
-			} catch {
-				// Handle doesn't support BTC signing
-			}
-		}
-		// Fallback: check connected wallets store
-		const btcWallet = $connectedWalletsStore.wallets.find(
-			(w) => w.walletType === 'trezor' || w.walletType === 'ledger'
-		);
-		return btcWallet?.address ?? '';
-	}
 
 	// -----------------------------------------------------------------------
 	// Chain icon/asset data
@@ -200,23 +188,21 @@
 		network: 'usdt0-arb',
 		chainId: 42161
 	};
-
 	const CHAIN_WBTC = {
 		asset: 'WBTC',
 		label: 'wBTC',
 		short: 'WBTC',
 		icon: '/images/chains/arbitrum.png',
 		network: 'wbtc-arb',
-		chainId: 42161 // Arbitrum mainnet
+		chainId: 42161
 	};
-
 	const CHAIN_BTC = {
 		asset: 'BTC',
 		label: 'Bitcoin',
 		short: 'BTC',
 		icon: '/images/chains/Bitcoin.svg',
 		network: 'bitcoin',
-		chainId: -1 // Bitcoin mainnet (not EVM)
+		chainId: -1
 	};
 
 	// -----------------------------------------------------------------------
@@ -226,7 +212,6 @@
 		const options: DestOption[] = [];
 
 		if (sourceType === 'rbtc') {
-			// rBTC → USDT on Arbitrum
 			options.push({
 				id: 'usdt0-arb',
 				asset: CHAIN_ARB.asset,
@@ -238,7 +223,6 @@
 				available: true
 			});
 
-			// Same-wallet transfer: rBTC → rBTC (when source ≠ dest wallet)
 			if (sourceWallet !== destWallet) {
 				options.push({
 					id: 'rbtc-rsk',
@@ -252,7 +236,6 @@
 				});
 			}
 
-			// rBTC → wBTC on Arbitrum
 			options.push({
 				id: 'wbtc-arb',
 				asset: CHAIN_WBTC.asset,
@@ -264,7 +247,6 @@
 				available: true
 			});
 
-			// rBTC → BTC on-chain (only if external BTC wallet, always last)
 			options.push({
 				id: 'btc-onchain',
 				asset: CHAIN_BTC.asset,
@@ -276,7 +258,6 @@
 				available: hasExternalBtcWallet
 			});
 		} else {
-			// USDT → rBTC on RSK
 			options.push({
 				id: 'rbtc-rsk',
 				asset: CHAIN_RSK.asset,
@@ -288,7 +269,6 @@
 				available: true
 			});
 
-			// USDT0 → wBTC on Arbitrum (same-chain swap)
 			options.push({
 				id: 'wbtc-arb',
 				asset: CHAIN_WBTC.asset,
@@ -300,7 +280,6 @@
 				available: true
 			});
 
-			// Same-wallet transfer: USDT0 → USDT0 on Arbitrum (when source ≠ dest wallet)
 			if (sourceWallet !== destWallet) {
 				options.push({
 					id: 'usdt0-arb',
@@ -328,10 +307,8 @@
 			: '/images/chains/Tether-USD.svg'
 	);
 
-	/** Wallet balance in token units (rBTC or USDT0), read from the selected source wallet. */
-	let walletBalanceToken = $derived(
-		sourceType === 'rbtc' ? (sourceRbtcSats / 100_000_000).toFixed(6) : sourceUsdt0Usd.toFixed(6)
-	);
+	/** Wallet balance in token units (rBTC or USDT0) — delegated to calculator rune (which sources from wallets rune). */
+	let walletBalanceToken = $derived(swapCalc.walletBalanceToken.toFixed(6));
 
 	/** Actual BTC/USD price from Coinbase, fetched async. Default 0 until loaded. */
 	let btcUsdPrice = $state(0);
@@ -341,12 +318,8 @@
 	let rskGasPriceWei = $state(0n);
 	let arbGasPriceWei = $state(0n);
 
-	/**
-	 * Gas limit in wei for the current transaction.
-	 * For simple transfers: fetched from eth_estimateGas RPC.
-	 * For contract calls: 500k (verified from real Symbiosis swap on RSK).
-	 */
-	let rsxGasLimit = $state(0n);
+	/** Gas limit in wei for the current transaction. */
+	// rsxGasLimit $state removed (dead store after extraction; effect still assigns but var unused in current paths, gas now in routes rune for most)
 
 	// -----------------------------------------------------------------------
 	// Live gas price fetching via RPC eth_gasPrice
@@ -370,25 +343,12 @@
 		return BigInt(data.result);
 	}
 
-	async function estimateDirectTransferGas(to: string, amountWei: string): Promise<bigint> {
-		const resp = await fetch(RSK_RPC, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				jsonrpc: '2.0',
-				method: 'eth_estimateGas',
-				params: [{ to, value: amountWei }],
-				id: 1
-			})
-		});
-		const data = (await resp.json()) as { result: string; error?: { message: string } };
-		if (data.error) throw new Error(data.error.message);
-		return BigInt(data.result);
-	}
-
 	async function refreshLiveFees() {
+		if (!isOnline) {
+			d.log('refreshLiveFees: skipped (offline)');
+			return;
+		}
 		d.log('refreshLiveFees: fetching gas prices + BTC/ETH rates');
-		// Fetch gas prices in parallel from both chains
 		const [rskResult, arbResult, btcResult, ethResult] = await Promise.allSettled([
 			fetchGasPrice(RSK_RPC),
 			fetchGasPrice(ARB_RPC),
@@ -410,191 +370,88 @@
 		);
 	}
 
-	// Fetch prices on mount + re-fetch when drawer opens
 	onMount(async () => {
-		await refreshLiveFees();
+		reconnectPersistedWallets();
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'SwapForm mounted',
+			data: { sourceType, destType }
+		});
+		// Fire-and-forget: prices/gas are non-blocking for initial render.
+		// The $effect below re-fetches on every drawer open anyway.
+		refreshLiveFees();
 	});
 
 	let _feeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
 		if (!isOpen) return;
-		// Re-fetch on drawer open (prices may have changed)
 		_feeRefreshTimer = setTimeout(() => refreshLiveFees(), 300);
 		return () => {
 			if (_feeRefreshTimer) clearTimeout(_feeRefreshTimer);
 		};
 	});
 
-	/** Convert amount string to source token units (handles sats→rBTC when source is rBTC) */
-	let amountInTokenUnits = $derived.by(() => {
-		const amt = parseFloat(amount);
-		if (!Number.isFinite(amt) || amt <= 0) return 0;
-		if (sourceType === 'rbtc') return amt / 100_000_000; // sats → rBTC
-		return amt; // USDT
-	});
+	// amountInTokenUnits now from swapCalc (Phase 1 rune)
 
-	/** Wallet balance in display units (sats for rBTC, USDT for USDT) */
-	let walletBalanceDisplay = $derived.by(() => {
-		const num = parseFloat(walletBalanceToken);
-		if (!Number.isFinite(num)) return '0';
-		if (sourceType === 'rbtc') {
-			return formatSats(Math.round(num * 100_000_000));
-		}
-		return usdFormatter.format(num);
-	});
+	// walletBalanceDisplay now from swapCalc (Phase 1 rune)
 
-	/** Estimated output in destination token units, with cross-currency conversion */
-	/** Format sats with USD equivalent: "5,000,000 Sats ≈ $5,000.00" */
-	function satsUsd(sats: number): string {
-		const s = formatSats(sats);
-		if (btcUsdPrice <= 0) return `${s} ${$t('wallet.sats')}`;
-		const usd = (sats / 100_000_000) * btcUsdPrice;
-		return `${s} ${$t('wallet.sats')} ≈ ${usdFormatter.format(usd)}`;
-	}
+	// satsUsd now from swapCalc (Phase 1 rune)
 
-	/** Sync amount from percentage slider (works with display units) */
-	function applyPercent(pct: number) {
-		const bal = parseFloat(walletBalanceToken);
-		if (!Number.isFinite(bal) || bal <= 0) return;
-		swapPercent = pct;
-		if (sourceType === 'rbtc') {
-			// Amount in sats
-			amount = Math.round((pct / 100) * bal * 100_000_000).toString();
-		} else {
-			amount = ((pct / 100) * bal).toFixed(6);
-		}
-	}
+	// applyPercent now from swapCalc (Phase 1 rune)
 
-	/** Sync percentage from manual amount input */
-	$effect(() => {
-		const bal = parseFloat(walletBalanceToken);
-		if (!Number.isFinite(bal) || bal <= 0 || amountInTokenUnits <= 0) {
-			if (swapPercent !== 0) swapPercent = 0;
-			return;
-		}
-		const pct = Math.round((amountInTokenUnits / bal) * 100);
-		if (pct !== swapPercent && pct >= 0 && pct <= 100) {
-			swapPercent = pct;
-		}
-	});
+	// pct sync now in swapCalc rune (Phase 1)
 
 	let visibleDestOptions = $derived(destOptions.filter((o) => o.available));
 
-	/** BTC on-chain balance from any connected wallet that supports BTC signing.
-	 *  Hardware wallets don't implement fetchBalances(), so we fetch the balance
-	 *  live from mempool.space using the wallet's btcAddress. */
-	let externalBtcBalanceSats = $state(0);
+	// hasExternalBtcWallet + balances delegated to swapWallets rune (Phase 1).
+	// externalBtcBalanceSats let removed (dead alias; templates use swapWallets.externalBtcBalanceSats directly).
+	let hasExternalBtcWallet = $derived(swapWallets.hasExternalBtcWallet);
+	// Builtin wallet balances — read directly from the wallet store using
+	// Svelte 5's $auto-subscription. The rune's $derived chain breaks for
+	// nested property access (walletSnap.totalBalances.sats) because $state
+	// mutations inside $effect subscription callbacks don't propagate to
+	// $derived values. $walletStore is the proven reactive path.
+	const builtinRbtcSats = $derived($walletStore.totalBalances?.sats ?? 0);
+	const builtinUsdt0 = $derived(parseFloat($walletStore.arb?.formattedUsdt0Balance || '0'));
+	const builtinWbtcSats = $derived(
+		Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000)
+	);
 
-	$effect(() => {
-		const w = $connectedWalletsStore.wallets.find(
-			(cw) =>
-				(cw.walletType === 'trezor' ||
-					cw.walletType === 'ledger' ||
-					cw.walletType === 'walletconnect') &&
-				!!cw.btcAddress
-		);
-		const addr = w?.btcAddress;
-		if (!addr) {
-			externalBtcBalanceSats = 0;
-			return;
-		}
+	let sourceRbtcSats = $derived(
+		sourceWallet === 'builtin' ? builtinRbtcSats : swapWallets.sourceBalances.rbtcSats
+	);
+	let sourceUsdt0Usd = $derived(
+		sourceWallet === 'builtin' ? builtinUsdt0 : swapWallets.sourceBalances.usdt0
+	);
+	let destRbtcSats = $derived(
+		destWallet === 'builtin' ? builtinRbtcSats : swapWallets.destBalances.rbtcSats
+	);
+	let destUsdt0Usd = $derived(
+		destWallet === 'builtin' ? builtinUsdt0 : swapWallets.destBalances.usdt0
+	);
+	let destWbtcSats = $derived(
+		destWallet === 'builtin' ? builtinWbtcSats : swapWallets.destBalances.wbtcSats
+	);
+	let sourceWbtcSats = $derived(
+		sourceWallet === 'builtin' ? builtinWbtcSats : swapWallets.sourceBalances.wbtcSats
+	);
 
-		// Check stored balance first (set by a connector that does implement fetchBalances)
-		if (w?.balances?.btc?.raw) {
-			externalBtcBalanceSats = Number(w.balances.btc.raw);
-			return;
-		}
-
-		// Fetch from mempool.space
-		let cancelled = false;
-		(async () => {
-			try {
-				const resp = await fetch(`https://mempool.space/api/address/${addr}`);
-				if (cancelled) return;
-				const data = (await resp.json()) as {
-					chain_stats?: { funded_txo_sum: number; spent_txo_sum: number };
-					mempool_stats?: { funded_txo_sum: number; spent_txo_sum: number };
-				};
-				const confirmed =
-					(data.chain_stats?.funded_txo_sum ?? 0) - (data.chain_stats?.spent_txo_sum ?? 0);
-				const mempool =
-					(data.mempool_stats?.funded_txo_sum ?? 0) - (data.mempool_stats?.spent_txo_sum ?? 0);
-				const total = confirmed + mempool;
-				if (!cancelled) externalBtcBalanceSats = total;
-			} catch {
-				if (!cancelled) externalBtcBalanceSats = 0;
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
+	// Wallet-level USD balance — local version using $walletStore directly.
+	// The rune's builtinBalance/walletBalanceFor use $derived which breaks
+	// when $state is mutated inside $effect subscription callbacks.
+	const builtinBalanceUsd = $derived.by(() => {
+		const sats = $walletStore.totalBalances?.sats ?? 0;
+		const usdt = parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
+		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
+		return new Intl.NumberFormat($locale, { style: 'currency', currency: 'USD' }).format(usd);
 	});
 
-	// -----------------------------------------------------------------------
-	// Wallet-aware balance helpers — source/dest wallet changes update these
-	// -----------------------------------------------------------------------
-
-	/** rBTC balance in sats for the currently selected source wallet. */
-	let sourceRbtcSats = $derived.by(() => {
-		if (!isConnectedSource) {
-			return Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000);
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
-		return Number(w?.balances?.rbtc?.raw ?? 0);
-	});
-
-	/** USDT0 balance in USD for the currently selected source wallet. */
-	let sourceUsdt0Usd = $derived.by(() => {
-		if (!isConnectedSource) {
-			return parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
-		return Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
-	});
-
-	/** rBTC balance in sats for the currently selected destination wallet. */
-	let destRbtcSats = $derived.by(() => {
-		if (!isConnectedDest) {
-			return Math.round(parseFloat($walletStore.rsk?.formattedBalance || '0') * 100_000_000);
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
-		return Number(w?.balances?.rbtc?.raw ?? 0);
-	});
-
-	/** USDT0 balance in USD for the currently selected destination wallet. */
-	let destUsdt0Usd = $derived.by(() => {
-		if (!isConnectedDest) {
-			return parseFloat($walletStore.arb?.formattedUsdt0Balance || '0');
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
-		return Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
-	});
-
-	/** WBTC balance in sats for the currently selected destination wallet. */
-	let destWbtcSats = $derived.by(() => {
-		if (!isConnectedDest) {
-			return Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000);
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === destWallet);
-		// WBTC has 18 decimals
-		const rawWei = Number(w?.balances?.wbtc?.raw ?? 0);
-		if (rawWei <= 0) return 0;
-		// 1 WBTC = 1e18 wei, 1 BTC = 1e8 sats → wei→sats = rawWei / 1e10
-		return Math.round(rawWei / 10_000_000_000);
-	});
-
-	/** WBTC balance in sats for the currently selected source wallet. */
-	let sourceWbtcSats = $derived.by(() => {
-		if (!isConnectedSource) {
-			return Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000);
-		}
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === sourceWallet);
-		const rawWei = Number(w?.balances?.wbtc?.raw ?? 0);
-		if (rawWei <= 0) return 0;
-		// 1 WBTC = 1e18 wei, 1 BTC = 1e8 sats → wei→sats = rawWei / 1e10
-		return Math.round(rawWei / 10_000_000_000);
-	});
+	function walletBalanceForFn(walletId: string): string {
+		if (walletId === 'builtin') return builtinBalanceUsd;
+		// Connected wallets: delegate to rune (these work fine — they read
+		// connectedSnap which is updated via a different subscription path).
+		return swapWallets.walletBalanceFor(walletId);
+	}
 
 	let destAssets = $derived<AssetOption[]>(
 		visibleDestOptions.map((o) => ({
@@ -617,7 +474,7 @@
 						? 'Wrapped BTC on Arbitrum'
 						: o.id === 'rbtc-rsk'
 							? sourceWallet !== destWallet
-								? `Send to ${$connectedWalletsStore.wallets.find((w) => w.id === destWallet)?.walletName || 'wallet'}`
+								? `Send to ${swapWallets.connectedWallets.find((w) => w.id === destWallet)?.walletName || 'wallet'}`
 								: o.description
 							: o.description,
 			available: o.available,
@@ -629,7 +486,7 @@
 						: o.id === 'wbtc-arb'
 							? formatSats(destWbtcSats) + ' Sats'
 							: o.id === 'btc-onchain'
-								? formatSats(externalBtcBalanceSats) + ' Sats'
+								? formatSats(swapWallets.externalBtcBalanceSats) + ' Sats'
 								: undefined,
 			balanceSub:
 				o.id === 'rbtc-rsk'
@@ -637,7 +494,7 @@
 					: o.id === 'wbtc-arb'
 						? `≈ $${((destWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 						: o.id === 'btc-onchain'
-							? `≈ $${((externalBtcBalanceSats / 100_000_000) * btcPrice.price).toFixed(2)}`
+							? `≈ $${((swapWallets.externalBtcBalanceSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 							: undefined
 		}))
 	);
@@ -672,253 +529,30 @@
 		visibleDestOptions.find((o) => o.id === destType) || visibleDestOptions[0]
 	);
 
-	/** Build the appropriate Destination object for the route resolver */
-	let routeDest = $derived.by<Destination>(() => {
-		if (!selectedDest) {
-			return { type: 'address', chainId: 56, address: '' };
-		}
-		if (selectedDest.id === 'btc-onchain') {
-			return {
-				type: 'invoice',
-				network: 'onchain',
-				invoice: getExternalBtcAddress() || ''
-			};
-		}
-		return {
-			type: 'address',
-			chainId: selectedDest.chainId,
-			address: ''
-		};
-	});
-
-	let asyncRouteResult = $state<AsyncRouteResult>(createInitialAsyncRouteResult());
-	let routeLoading = $state(false);
-	let _routeTimer: ReturnType<typeof setTimeout> | null = null;
-
-	/** Live API routes from Symbiosis + LI.FI. No hardcoded fallback. */
-	let liveRoutes = $derived(asyncRouteResult.routes);
-
-	let sortedRoutes = $derived(
-		// Routes with live gas data first, then sort by fee
-		[...liveRoutes].sort((a, b) => {
-			const aHasGas = a.gasCostWei ? 0 : 1;
-			const bHasGas = b.gasCostWei ? 0 : 1;
-			if (aHasGas !== bHasGas) return aHasGas - bHasGas;
-			return a.totalFeePercent - b.totalFeePercent;
-		})
+	// Amount/insuff/valid now from swapCalc rune (unified, exact rounding + guards).
+	let amountSats = $derived(swapCalc.amountSats);
+	let isInsufficientBalance = $derived(swapCalc.isInsufficientBalance);
+	let canSwap = $derived(
+		swapCalc.isValidAmount &&
+			(swapRoutes.smartRoute !== null || swapRoutes.asyncRouteResult.routes.length > 0) &&
+			swapPhase === 'form' &&
+			isOnline
 	);
 
-	let activeRoute = $derived(
-		sortedRoutes.find((r) => r.id === selectedRouteId) || sortedRoutes[0] || null
-	);
+	// amountInTokenUnits delegate (used in execute, effects, displays, resets).
+	let amountInTokenUnits = $derived(swapCalc.amountInTokenUnits);
+	let walletBalanceDisplay = $derived(swapCalc.walletBalanceDisplay);
 
-	// Debounced async route fetch when source/dest/amount changes
-	$effect(() => {
-		if (_routeTimer) clearTimeout(_routeTimer);
+	// Route resolution fully delegated to swapRoutes rune (Phase 1 extraction).
+	// Old destinationFor + debounce $effect + direct async/smart state removed (now in rune; see use-swap-routes.svelte.ts).
+	// Use swapRoutes.smartRoute, .routeLoading, .estimatedOutput, .getExecutableRoute() etc.
+	// Local smartRoute kept only for SwapFallback retry injection (sets override for confirm/execute on that path).
 
-		if (amountInTokenUnits <= 0) {
-			asyncRouteResult = createInitialAsyncRouteResult();
-			routeLoading = false;
-			return;
-		}
-
-		routeLoading = true;
-		const source = sourceType;
-		const dest = routeDest;
-		const amt = amountInTokenUnits.toString();
-
-		_routeTimer = setTimeout(async () => {
-			d.log(
-				'routeResolve: source=%s dest=%s amount=%s addr=%s',
-				source,
-				selectedDest?.id,
-				amt,
-				sourceAddr.substring(0, 10)
-			);
-			try {
-				const result = await resolveRouteAsync(source, dest, amt, sourceAddr);
-				d.log('routeResolve: got %d routes', result.routes.length);
-				asyncRouteResult = result;
-			} catch (err) {
-				d.warn('routeResolve failed: %s', err instanceof Error ? err.message : String(err));
-				// Keep existing routes on API error
-			}
-			routeLoading = false;
-		}, 400);
-
-		return () => {
-			if (_routeTimer) clearTimeout(_routeTimer);
-		};
-	});
-
-	let estimatedOutput = $derived.by(() => {
-		if (!activeRoute || amountInTokenUnits <= 0) return '0';
-		const fee = 1 - activeRoute.totalFeePercent / 100;
-		// Network gas fee in source token units — only affects rBTC source
-		// (on Arbitrum, gas is paid in ETH, not the swap token)
-		const gasInSourceUnits = sourceType === 'rbtc' ? networkFeeSats / 100_000_000 : 0;
-		const sourceAmt = Math.max(0, amountInTokenUnits - gasInSourceUnits);
-
-		let output: number;
-		if (sourceType === 'rbtc' && selectedDest?.id === 'usdt0-arb') {
-			// rBTC → USDT: rBTC ≈ BTC, so rBTC amount * BTC/USD price * fee
-			output = sourceAmt * btcUsdPrice * fee;
-		} else if (sourceType === 'usdt0-arb' && selectedDest?.id === 'rbtc-rsk') {
-			// USDT → rBTC: USDT amount / BTC/USD price * fee
-			output = btcUsdPrice > 0 ? (sourceAmt / btcUsdPrice) * fee : 0;
-		} else if (sourceType === 'rbtc' && selectedDest?.id === 'wbtc-arb') {
-			// rBTC → wBTC: ~1:1 in BTC terms via bridge
-			output = sourceAmt * fee;
-		} else if (sourceType === 'usdt0-arb' && selectedDest?.id === 'wbtc-arb') {
-			// USDT0 → wBTC: same-chain swap, USDT / BTC price * fee
-			output = btcUsdPrice > 0 ? (sourceAmt / btcUsdPrice) * fee : 0;
-		} else if (sourceType === 'rbtc' && selectedDest?.id === 'btc-onchain') {
-			// rBTC → BTC: ~1:1 in BTC terms, output in BTC token units
-			output = sourceAmt * fee;
-		} else {
-			output = sourceAmt * fee;
-		}
-		return output.toFixed(6);
-	});
-
-	let amountSats = $derived.by(() => {
-		if (amountInTokenUnits <= 0) return 0;
-		if (sourceType === 'rbtc') {
-			return Math.round(amountInTokenUnits * 100_000_000);
-		}
-		// USDT → approximate sats via BTC/USD price
-		return btcUsdPrice > 0 ? Math.round((amountInTokenUnits / btcUsdPrice) * 100_000_000) : 0;
-	});
-
-	let isInsufficientBalance = $derived(
-		amountInTokenUnits > 0 && Number.isFinite(parseFloat(walletBalanceToken))
-			? amountInTokenUnits > parseFloat(walletBalanceToken)
-			: false
-	);
-
-	let isValidAmount = $derived(amountInTokenUnits > 0 && !isInsufficientBalance);
-	let canSwap = $derived(isValidAmount && activeRoute !== null && swapPhase === 'form');
-
-	let routePickerNetwork = $derived(selectedDest?.network ?? null);
-
-	/**
-	 * Estimated network (gas) fee in sats for EVERY on-chain transaction.
-	 * Uses live gas prices from eth_gasPrice RPC (RSK + Arbitrum).
-	 * If the active route carries gasCostWei from LI.FI/Symbiosis, that exact
-	 * value is used instead of the estimate.
-	 */
-	let networkFeeSats = $derived.by(() => {
-		if (amountSats <= 0) return 0;
-		if (!selectedDest) return 0;
-
-		// Use exact gas from live API quote when available (LI.FI / Symbiosis)
-		if (activeRoute?.gasCostWei) {
-			const gasWei = BigInt(activeRoute.gasCostWei);
-			const sats = Number(gasWei / 10_000_000_000n);
-			d.log(
-				'networkFeeSats: using live gas from route=%s gasWei=%s → %d sats',
-				activeRoute.label,
-				activeRoute.gasCostWei,
-				sats
-			);
-			return sats;
-		}
-		d.log(
-			'networkFeeSats: no live gas, route=%s gasCostWei=%s',
-			activeRoute?.label || 'none',
-			activeRoute?.gasCostWei || 'null'
-		);
-
-		const isSimpleTransfer =
-			(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
-			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb');
-
-		// RSK source
-		if (sourceType === 'rbtc') {
-			const gasPrice = rskGasPriceWei > 0n ? rskGasPriceWei : 65_000_000n;
-			const gasLimit = rsxGasLimit > 0n ? rsxGasLimit : isSimpleTransfer ? 21_000n : 500_000n;
-			return Number((gasLimit * gasPrice) / 10_000_000_000n);
-		}
-
-		// Arbitrum L2 source — gas is paid in ETH, convert to sats-equivalent
-		if (sourceType === 'usdt0-arb') {
-			const gasLimit = isSimpleTransfer ? 65_000n : 300_000n;
-			const gasPrice = arbGasPriceWei > 0n ? arbGasPriceWei : 30_000_000n;
-			const gasCostWei = gasLimit * gasPrice;
-			const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
-			const btcPrice = btcUsdPrice > 0 ? btcUsdPrice : 74000;
-			const gasCostEth = Number(gasCostWei) / 1e18;
-			const gasCostSats = ((gasCostEth * ethPrice) / btcPrice) * 100_000_000;
-			return Math.round(Math.max(gasCostSats, 1));
-		}
-
-		return 0;
-	});
-
-	/**
-	 * When a simple same-chain transfer is detected, estimate the actual
-	 * gas limit via eth_estimateGas on the RSK public node.
-	 */
-	$effect(() => {
-		const dest = destAddr;
-		if (!dest || amountInTokenUnits <= 0) return;
-		const isSimpleTransfer =
-			(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
-			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb');
-		if (!isSimpleTransfer) {
-			// Contract call — use verified 500k gas (real Symbiosis swap uses ~498k)
-			rsxGasLimit = 500_000n;
-			return;
-		}
-		// Simple transfer — fetch from RPC
-		let cancelled = false;
-		const amountWei = BigInt(Math.round(amountInTokenUnits * 1e18)).toString();
-		estimateDirectTransferGas(dest, amountWei)
-			.then((gas) => {
-				if (!cancelled && gas > 0n) rsxGasLimit = gas;
-			})
-			.catch(() => {
-				if (!cancelled) rsxGasLimit = 21_000n; // fallback
-			});
-		return () => {
-			cancelled = true;
-		};
-	});
-
-	/**
-	 * Swap (provider) fee in sats from the selected route.
-	 * Uses LI.FI itemized fees when available, falls back to route percentage.
-	 * Zero for direct same-chain transfers (no swap involved).
-	 */
-	let swapFeeSats = $derived.by(() => {
-		if (amountSats <= 0) return 0;
-		if (!activeRoute) return 0;
-
-		// Use LI.FI's itemized fee data when present
-		if (activeRoute.feeCosts && activeRoute.feeCosts.length > 0) {
-			let totalSats = 0;
-			for (const f of activeRoute.feeCosts) {
-				try {
-					const amt = BigInt(f.amount || '0');
-					if (amt <= 0n) continue;
-					// LI.FI fees in source token wei → /1e10 → sats
-					if (amt > 1_000_000_000n) {
-						totalSats += Number(amt / 10_000_000_000n);
-					} else {
-						// Small fees in destination token units → convert via BTC price
-						const usdtAmt = Number(amt) / 1_000_000;
-						if (btcUsdPrice > 0) totalSats += Math.round((usdtAmt / btcUsdPrice) * 100_000_000);
-					}
-				} catch {
-					/* skip malformed amounts */
-				}
-			}
-			if (totalSats > 0) return totalSats;
-		}
-
-		if (activeRoute.totalFeePercent <= 0) return 0;
-		return Math.round(amountSats * (activeRoute.totalFeePercent / 100));
-	});
+	// Estimated output / fees / active route now from swapRoutes rune (exact parity with prior logic + fallbacks preserved in rune).
+	// Delegates (thin, for template/execute compat during migration):
+	let estimatedOutput = $derived(swapRoutes.estimatedOutput);
+	let totalFeeSats = $derived(swapRoutes.totalFeeSats);
+	// rsx direct gas effect + estimate fn removed (dead post Phase1 extraction; routes rune + startSwapChain handle gas/limits for both simple/direct and swaps).
 
 	// Sync destType when source changes
 	$effect(() => {
@@ -934,21 +568,16 @@
 		}
 	});
 
-	// Auto-select cheapest route only when no route is selected yet
-	$effect(() => {
-		if (sortedRoutes.length > 0 && !selectedRouteId) {
-			const cheapest = sortedRoutes[0];
-			if (cheapest) {
-				selectedRouteId = cheapest.id;
-			}
-		}
-	});
-
 	// Reset when drawer opens
 	$effect(() => {
 		if (!isOpen) return;
-		selectedRouteId = '';
+		smartRoute = null;
 		errorMessage = '';
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'Swap drawer opened',
+			data: { sourceType, destType }
+		});
 	});
 
 	// -----------------------------------------------------------------------
@@ -956,6 +585,11 @@
 	// -----------------------------------------------------------------------
 	function swapDirection() {
 		triggerHaptic(ImpactStyle.Light);
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'swap direction flipped',
+			data: { from: sourceType, to: sourceType === 'rbtc' ? 'usdt0-arb' : 'rbtc' }
+		});
 		isFlipping = true;
 		d.log(
 			'swapDirection: flipping from %s → %s',
@@ -963,7 +597,6 @@
 			sourceType === 'rbtc' ? 'usdt0-arb' : 'rbtc'
 		);
 		setTimeout(() => (isFlipping = false), 300);
-		slideDir *= -1; // reverse slide direction each swap
 
 		if (sourceType === 'rbtc') {
 			sourceType = 'usdt0-arb';
@@ -972,56 +605,55 @@
 			sourceType = 'rbtc';
 			destType = 'usdt0-arb';
 		}
-		amount = '';
-		swapPercent = 0;
-		selectedRouteId = '';
+		swapCalc.resetAmount();
+		btcUsdInputMode = false;
+		displayInputAmount = '';
+		syncingFromInput = false;
+		smartRoute = null;
 		errorMessage = '';
 		swapPhase = 'form';
+		swapRoutes.clearRoutes();
 	}
 
 	function setMaxAmount() {
 		triggerHaptic(ImpactStyle.Light);
-		swapPercent = 100;
-		if (sourceType === 'rbtc') {
-			amount = Math.round(parseFloat(walletBalanceToken) * 100_000_000).toString();
-		} else {
-			amount = walletBalanceToken;
-		}
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'max amount set',
+			data: { sourceType, balance: walletBalanceToken }
+		});
+		swapCalc.setMaxAmount();
 	}
 
-	function handleKeyPress(e: KeyboardEvent) {
-		const allowedKeys = [
-			'0',
-			'1',
-			'2',
-			'3',
-			'4',
-			'5',
-			'6',
-			'7',
-			'8',
-			'9',
-			'.',
-			'Backspace',
-			'Delete',
-			'Tab',
-			'Enter',
-			'ArrowLeft',
-			'ArrowRight'
-		];
-		const isControlKey = e.ctrlKey || e.metaKey || e.altKey;
-		if (!allowedKeys.includes(e.key) && !isControlKey) {
-			e.preventDefault();
-		}
-		const currentValue = (e.target as HTMLInputElement).value;
-		if (e.key === '.' && currentValue.includes('.')) {
-			e.preventDefault();
-		}
+	function applyPercent(pct: number) {
+		swapCalc.applyPercent(pct);
+	}
+
+	/** Returns true if the asset or dest option id represents a bitcoin asset (rBTC, WBTC, onchain BTC, etc).
+	 * Used to decide sats value formatting (sats + ≈ usd) for "you receive" / dest lines in totals when one of source/dest is BTC.
+	 * Mirrors checks in destAssets + selectedDest conditions for DRY.
+	 */
+	function isBitcoinAsset(asset?: string, id?: string): boolean {
+		const a = (asset || '').toUpperCase().replace('BITCOIN', '').trim();
+		const i = (id || '').toLowerCase();
+		return (
+			a === 'RBTC' ||
+			a === 'WBTC' ||
+			a === 'BTC' ||
+			i === 'rbtc-rsk' ||
+			i === 'wbtc-arb' ||
+			i === 'btc-onchain'
+		);
 	}
 
 	function goToConfirm() {
 		if (!canSwap) return;
 		triggerHaptic(ImpactStyle.Medium);
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'swap confirm phase',
+			data: { sourceType, destType, amount: amountInTokenUnits, wallet: sourceWallet }
+		});
 		swapPhase = 'confirm';
 		errorMessage = '';
 	}
@@ -1032,44 +664,72 @@
 	}
 
 	function resetForm() {
-		// Guard: don't reset mid-execution
 		if (swapPhase === 'executing') return;
-		amount = '';
-		swapPercent = 0;
-		selectedRouteId = '';
+		swapCalc.resetAmount();
+		btcUsdInputMode = false;
+		displayInputAmount = '';
+		syncingFromInput = false;
+		smartRoute = null;
 		swapPhase = 'form';
 		errorMessage = '';
 		swapResult = null;
+		swapRoutes.clearRoutes();
 	}
 
 	function handleClose() {
-		// Block close during swap execution — prevent orphaning swap state
 		if (swapPhase === 'executing') return;
 		resetForm();
 		onClose();
 	}
 
-	async function executeSwap() {
-		// Double-execution guard: only allow from confirm phase
-		if (swapPhase !== 'confirm') return;
-		if (!activeRoute || !amount || isInsufficientBalance) return;
+	/**
+	 * Resolve destination address directly from wallet store + connected wallets.
+	 * Bypasses the rune's derived values which can be stale due to Svelte 5
+	 * $state proxy reactivity issues with deeply nested objects.
+	 */
+	function resolveDestAddress(dt: string, isConn: boolean, wid: string): string {
+		if (isConn) {
+			const w = swapWallets.getConnectedWallet(wid);
+			return w?.address ?? '';
+		}
+		const store = get(walletStore);
+		if (dt === 'btc-onchain') {
+			// External BTC address from connected wallets
+			for (const w of swapWallets.connectedWallets) {
+				if (w.btcAddress) return w.btcAddress;
+			}
+			return '';
+		}
+		if (dt === 'rbtc-rsk') return store.rsk?.address ?? '';
+		return store.arb?.address || store.rsk?.address || '';
+	}
 
+	async function executeSwap() {
+		if (swapPhase !== 'confirm') return;
+		if (!swapCalc.amount || isInsufficientBalance) return;
+		// Use rune for executable route (handles Smart + async + usdt0 special LI.FI case internally)
+		if (!swapRoutes.getExecutableRoute() && !smartRoute) return;
+
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'swap execute started',
+			data: { sourceType, destType, amount: amountInTokenUnits, connected: !!isConnectedSource }
+		});
 		swapPhase = 'executing';
 		errorMessage = '';
 		triggerHaptic(ImpactStyle.Heavy);
 
 		d.log(
-			'executeSwap: source=%s dest=%s amount=%s sourceAddr=%s destAddr=%s isDirect=%s',
+			'executeSwap: source=%s dest=%s amount=%s sourceAddr=%s destAddr=%s',
 			sourceType,
 			destType,
 			amountInTokenUnits,
-			sourceAddr.substring(0, 10),
-			destAddr.substring(0, 10),
-			isDirectTransfer
+			swapWallets.sourceAddr.substring(0, 10),
+			swapWallets.destAddr.substring(0, 10)
 		);
 
-		// Get destination address from selected wallet
-		const destAddress = destAddr;
+		const destAddress =
+			swapWallets.destAddr || resolveDestAddress(destType, destWallet !== 'builtin', destWallet);
 
 		if (!destAddress) {
 			errorMessage = $t('wallet.swap.error.no_dest_address');
@@ -1077,28 +737,67 @@
 			return;
 		}
 
-		// Build proper destination with the actual user address
 		const execDest: Destination =
 			selectedDest?.id === 'btc-onchain'
 				? { type: 'invoice', network: 'onchain', invoice: destAddress }
-				: {
-						type: 'address',
-						chainId: selectedDest?.chainId ?? 42161, // Arbitrum default (was 56 BSC)
-						address: destAddress
-					};
+				: selectedDest?.id === 'wbtc-arb'
+					? {
+							type: 'address',
+							chainId: selectedDest?.chainId ?? 42161,
+							address: destAddress,
+							asset: 'WBTC'
+						}
+					: {
+							type: 'address',
+							chainId: selectedDest?.chainId ?? 42161,
+							address: destAddress
+						};
 
-		// Amount in source token units (not display units like sats)
 		const execAmount = amountInTokenUnits.toString();
-
-		// Pass connected wallet ID so swap-chain uses the correct signer
 		const connectedSourceId = isConnectedSource ? sourceWallet : null;
 		d.log(
 			'executeSwap: calling startSwapChain with connectedWalletId=%s',
 			connectedSourceId || 'null (built-in)'
 		);
 
+		// For execute: prefer rune (supports Smart conversion + special usdt0 case + fallback async); fallback to local smartRoute override for SwapFallback retry path.
+		let execRoute: Route | null = swapRoutes.getExecutableRoute();
+		if (!execRoute && smartRoute) {
+			// Convert local fallback Smart to Route shape (minimal, for retry path)
+			execRoute = {
+				id: `smart-${smartRoute.provider}`,
+				label: smartRoute.provider,
+				hops: [
+					{
+						service: (smartRoute.provider as RouteHop['service']) || 'lifi',
+						fromAsset: smartRoute.fromAsset,
+						fromChain: 'arbitrum',
+						toAsset: smartRoute.toAsset,
+						toChain: 'rsk',
+						feePercent: 0,
+						estimatedTimeMin: smartRoute.estimatedTimeMinutes || 1,
+						estimatedTimeMax: (smartRoute.estimatedTimeMinutes || 1) + 1
+					}
+				],
+				totalFeePercent: 0,
+				estimatedTime: `${smartRoute.estimatedTimeMinutes || 5} min`,
+				recommended: true
+			};
+		}
+
+		if (!execRoute) {
+			errorMessage = $t('wallet.swap.error.no_routes') || 'No executable route available';
+			Sentry.addBreadcrumb({
+				category: 'wallet.swap',
+				message: 'swap failed - no route',
+				data: { sourceType, destType }
+			});
+			swapPhase = 'failed';
+			return;
+		}
+
 		const { data: result, error } = await startSwapChain(
-			activeRoute,
+			execRoute,
 			sourceType,
 			execDest,
 			execAmount,
@@ -1107,6 +806,11 @@
 
 		if (error || !result) {
 			d.error('executeSwap FAILED: %s', error?.message || 'no result');
+			Sentry.addBreadcrumb({
+				category: 'wallet.swap',
+				message: 'swap execute failed',
+				data: { error: error?.message }
+			});
 			errorMessage = error?.message || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			return;
@@ -1124,31 +828,24 @@
 			);
 			swapPhase = 'complete';
 			triggerHaptic(ImpactStyle.Heavy);
-		} else if (result.phase === 'FAILED' || result.phase === 'PARTIAL') {
+		} else {
 			errorMessage = result.error || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			triggerHaptic(ImpactStyle.Heavy);
-		} else {
-			// Unhandled phase — treat as still pending
-			errorMessage = $t('wallet.swap.error.swap_failed');
-			swapPhase = 'failed';
 		}
 	}
 
-	function getProviderLabel(route: Route): string {
-		const service = route.hops[0]?.service;
-		switch (service) {
-			case 'lifi':
-				return 'LI.FI';
-			case 'symbiosis':
-				return 'Symbiosis';
-			case 'boltz':
-				return 'Boltz';
-			case 'changelly':
-				return 'Changelly';
-			default:
-				return route.label;
-		}
+	/** Retry swap using a fallback route from SwapFallback. */
+	function retryWithFallback(route: SmartRoute) {
+		smartRoute = route;
+		swapPhase = 'confirm';
+		errorMessage = '';
+	}
+
+	function getProviderLabel(): string {
+		const p = smartRoute?.provider ?? swapRoutes.smartRoute?.provider ?? '';
+		if (!p) return '';
+		return p.charAt(0).toUpperCase() + p.slice(1);
 	}
 
 	// -----------------------------------------------------------------------
@@ -1161,31 +858,10 @@
 			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb')
 	);
 
-	/** Human-readable wallet name for source/dest display. */
-	function walletLabel(id: string): string {
-		if (id === 'builtin') return 'BitTasker';
-		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
-		return w?.walletName || id;
-	}
-
-	/** Truncated address snippet. */
-	function addrSnippet(addr: string): string {
-		return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-	}
-
-	/** Source wallet label + address for confirm/success cards. */
-	let sourceWalletInfo = $derived.by(() => {
-		const label = walletLabel(sourceWallet);
-		const addr = sourceAddr;
-		return addr ? `${label} (${addrSnippet(addr)})` : label;
-	});
-
-	/** Destination wallet label + address. */
-	let destWalletInfo = $derived.by(() => {
-		const label = walletLabel(destWallet);
-		const addr = destAddr;
-		return addr ? `${label} (${addrSnippet(addr)})` : label;
-	});
+	// Wallet labels/info now from swapWallets rune (centralized, no more find + builtin fallback dupe).
+	let sourceWalletInfo = $derived(swapWallets.sourceWalletInfo);
+	let destWalletInfo = $derived(swapWallets.destWalletInfo);
+	// walletLabel/addrSnippet available as swapWallets.walletLabel(id), .addrSnippet if needed for other UI.
 </script>
 
 <Drawer
@@ -1205,9 +881,9 @@
 						label={$t('wallet.from') + ':'}
 						selectedId={sourceWallet}
 						onSelect={(id) => (sourceWallet = id)}
-						builtinBalance={walletBalanceFor('builtin')}
-						connectedWallets={$connectedWalletsStore.wallets}
-						{walletBalanceFor}
+						builtinBalance={builtinBalanceUsd}
+						connectedWallets={swapWallets.connectedWallets}
+						walletBalanceFor={walletBalanceForFn}
 						expanded={sourceExpand}
 						onToggle={() => (sourceExpand = !sourceExpand)}
 					/>
@@ -1231,7 +907,6 @@
 							class="btn btn-circle btn-outline bg-base-100 relative z-10 min-h-[44px] min-w-[44px] touch-manipulation border-2 transition-transform duration-300 active:scale-95 sm:min-h-[48px] sm:min-w-[48px]"
 							class:rotate-180={isFlipping}
 							onclick={() => {
-								// Swap wallets too
 								const tmpWallet = sourceWallet;
 								sourceWallet = destWallet;
 								destWallet = tmpWallet;
@@ -1260,26 +935,26 @@
 						label={$t('wallet.to') + ':'}
 						selectedId={destWallet}
 						onSelect={(id) => (destWallet = id)}
-						builtinBalance={walletBalanceFor('builtin')}
-						connectedWallets={$connectedWalletsStore.wallets}
-						{walletBalanceFor}
+						builtinBalance={builtinBalanceUsd}
+						connectedWallets={swapWallets.connectedWallets}
+						walletBalanceFor={walletBalanceForFn}
 						expanded={destExpand}
 						onToggle={() => (destExpand = !destExpand)}
 					/>
 
-					<!-- Destination Asset Selector (compact accordion) -->
+					<!-- Destination Asset Selector -->
 					<AssetSelector
 						selectedId={destType}
 						onSelect={(id) => {
 							destType = id as DestType;
-							selectedRouteId = '';
+							smartRoute = null;
 						}}
 						assets={destAssets}
 						expanded={destAssetExpand}
 						onToggle={() => (destAssetExpand = !destAssetExpand)}
 					/>
 
-					<!-- Amount Input -->
+					<!-- Amount Input (now unified via AmountInputSection direct variant for DRY + parity) -->
 					<div class="form-control">
 						<label for="swap-amount" class="label flex justify-between px-1 py-1">
 							<span class="label-text text-sm sm:text-base">
@@ -1293,165 +968,94 @@
 							</span>
 							<span class="label-text-alt text-xs sm:text-sm">
 								{$t('wallet.available_balance')}: {sourceType === 'rbtc'
-									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000))
+									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000), btcUsdPrice)
 									: `${walletBalanceDisplay}`}
 							</span>
 						</label>
-						<div class="join w-full">
-							<input
-								id="swap-amount"
-								type="number"
-								class="input input-bordered join-item min-h-[48px] flex-1 rounded-r-none text-base sm:min-h-[52px]"
-								placeholder={sourceType === 'rbtc' ? '0' : '0.00'}
-								bind:value={amount}
-								onkeypress={handleKeyPress}
-								min="0"
-								step={sourceType === 'rbtc' ? '1' : '0.000001'}
-								inputmode="numeric"
-							/>
-							<button
-								type="button"
-								class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-l-none active:scale-95 sm:min-h-[52px]"
-								onclick={setMaxAmount}
-							>
-								<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
-							</button>
-						</div>
+						<AmountInputSection
+							variant="direct"
+							amount={displayInputAmount}
+							onAmountChange={(v: string) => {
+								if (sourceType === 'rbtc' && btcUsdInputMode) {
+									// usd entered for rbtc source -> convert to native sats str for calc
+									const usdNum = parseFloat(v || '0');
+									if (usdNum > 0 && btcUsdPrice > 0) {
+										const frac = usdNum / btcUsdPrice;
+										swapCalc.amount = Math.round(frac * 100_000_000).toString();
+									} else {
+										swapCalc.amount = '';
+									}
+									syncingFromInput = true;
+									displayInputAmount = v; // preserve typed usd value; effect will skip overwrite
+								} else if (sourceType === 'usdt0-arb') {
+									// enforce 2 decimals + floor dust for usdt
+									const n = parseFloat(v || '0');
+									const clean = n > 0 ? (Math.floor(n * 100) / 100).toFixed(2) : '';
+									swapCalc.amount = clean;
+								} else {
+									swapCalc.amount = v;
+								}
+							}}
+							tokenPrefix={sourceType !== 'rbtc' ? '$' : undefined}
+							showPercentSlider={true}
+							sliderDisabled={swapCalc.walletBalanceToken <= 0}
+							percent={swapCalc.swapPercent}
+							onPercentChange={applyPercent}
+							onMaxAmount={async () => setMaxAmount()}
+							disabled={!isOnline}
+							hasInsufficientBalance={isInsufficientBalance}
+							maxDisabled={swapCalc.walletBalanceToken <= 0}
+							supportsBtcUsdToggle={sourceType === 'rbtc'}
+							btcUsdMode={btcUsdInputMode}
+							onBtcUsdModeChange={(isUsd: boolean) => {
+								const wasUsd = btcUsdInputMode;
+								btcUsdInputMode = isUsd;
+								syncingFromInput = false;
+								if (isUsd && !wasUsd) {
+									// native -> usd display (effect will update displayInputAmount)
+								} else if (!isUsd && wasUsd) {
+									// usd -> native
+									const usdNum = parseFloat(displayInputAmount || '0');
+									if (usdNum > 0 && btcUsdPrice > 0) {
+										const frac = usdNum / btcUsdPrice;
+										swapCalc.amount = Math.round(frac * 100_000_000).toString();
+									} else {
+										swapCalc.amount = '';
+									}
+								}
+							}}
+							btcNativeSymbol="₿"
+						/>
 					</div>
 
-					<!-- Percent Slider -->
-					<div class="form-control py-2">
-						<div class="flex items-center gap-3">
-							<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
-								>{swapPercent}%</span
-							>
-							<input
-								id="swap-percent"
-								type="range"
-								min="0"
-								max="100"
-								step="1"
-								value={swapPercent}
-								class="range range-primary range-sm flex-1"
-								oninput={(e) => {
-									const pct = parseInt((e.target as HTMLInputElement).value);
-									applyPercent(pct);
-								}}
-							/>
-						</div>
-					</div>
-
-					<!-- RoutePicker — always visible -->
-					<RoutePicker
-						routes={sortedRoutes}
-						{selectedRouteId}
-						onSelect={(id: string) => (selectedRouteId = id)}
-						btcPrice={btcUsdPrice}
-						network={routePickerNetwork}
-						{amountSats}
-						{networkFeeSats}
-						isLoadingFee={routeLoading}
-						hasAddress={true}
-						hasAmount={amountSats > 0}
-					/>
-					<!-- Total Card — full fee breakdown -->
-					{#if activeRoute && selectedDest && amountInTokenUnits > 0}
-						<div
-							class="bg-primary/5 border-primary/20 flex flex-col gap-2 rounded-xl border-2 p-3 sm:p-4"
-							transition:fade={{ duration: 200 }}
-						>
-							<!-- Total Sent -->
-							<div class="flex items-center justify-between text-sm">
-								<span class="text-base-content/60">{$t('wallet.swap.total_sent')}</span>
-								<span class="font-semibold tabular-nums">
-									{sourceType === 'rbtc'
-										? satsUsd(amountSats)
-										: usdFormatter.format(amountInTokenUnits)}
-								</span>
-							</div>
-
-							<!-- Fee rows -->
-							{#if networkFeeSats > 0 || swapFeeSats > 0}
-								<div class="border-base-200 border-t pt-2">
-									{#if networkFeeSats > 0}
-										{@const gasUsd = (networkFeeSats / 100_000_000) * btcUsdPrice}
-										<div class="text-base-content/60 flex items-center justify-between text-xs">
-											<span>{$t('wallet.swap.subtract_network_fee')}</span>
-											<span class="tabular-nums"
-												>−{formatSats(networkFeeSats)}
-												{$t('wallet.sats')}
-												{#if gasUsd >= 0.01}≈ ${gasUsd.toFixed(2)}{/if}</span
-											>
-										</div>
-									{/if}
-									{#if swapFeeSats > 0}
-										{@const swapUsd = (swapFeeSats / 100_000_000) * btcUsdPrice}
-										<div class="text-base-content/60 flex items-center justify-between text-xs">
-											<span
-												>{$t('wallet.swap.subtract_swap_fee')} ({activeRoute.totalFeePercent}%)</span
-											>
-											<span class="tabular-nums"
-												>−{formatSats(swapFeeSats)}
-												{$t('wallet.sats')}
-												{#if swapUsd >= 0.01}≈ ${swapUsd.toFixed(2)}{/if}</span
-											>
-										</div>
-									{/if}
-								</div>
-							{/if}
-
-							<!-- You Receive -->
-							<div class="border-base-200 flex items-center justify-between border-t pt-2">
-								<span class="text-sm font-medium">{$t('wallet.swap.you_receive')}</span>
-								<div class="text-right">
-									<div class="text-base font-bold tabular-nums sm:text-lg">
-										{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
-											{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
-										{:else}
-											{usdFormatter.format(parseFloat(estimatedOutput))}
-										{/if}
-									</div>
-									<div class="text-base-content/50 text-xs">
-										{$t('wallet.swap.estimated_time')}: {activeRoute.estimatedTime}
-									</div>
-								</div>
-							</div>
-						</div>
-					{:else if activeRoute && selectedDest}
-						<div
-							class="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4"
-							transition:fade={{ duration: 200 }}
-						>
-							<div class="min-w-0 flex-1">
-								<div class="text-base-content/60 text-xs sm:text-sm">
-									{$t('wallet.swap.estimated_output')}
-								</div>
-								<div class="text-base font-bold sm:text-lg">
-									{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
-										{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
-									{:else}
-										{usdFormatter.format(parseFloat(estimatedOutput))}
-									{/if}
-								</div>
-							</div>
-							<div class="shrink-0 text-right">
-								<div class="text-base-content/60 text-xs">
-									{$t('wallet.swap.estimated_time')}
-								</div>
-								<div class="text-sm font-semibold">
-									{activeRoute.estimatedTime}
-								</div>
-							</div>
-						</div>
-					{:else}
-						<div
-							class="bg-primary/5 border-primary/20 flex items-center rounded-xl border-2 p-3 sm:p-4"
-							transition:fade={{ duration: 200 }}
-						>
-							<span class="text-base-content/30 text-sm"
-								>{$t('wallet.swap.enter_amount_for_quote')}</span
-							>
-						</div>
+					<!-- Fee/estimate card — always renders (no layout shift); skeleton while loading, dashes when empty -->
+					{#if selectedDest}
+						<SwapEstimateCard
+							variant="form"
+							totalSent={amountInTokenUnits > 0
+								? sourceType === 'rbtc'
+									? satsUsd(amountSats, btcUsdPrice)
+									: usdFormatter.format(amountInTokenUnits)
+								: undefined}
+							feeDisplay={totalFeeSats > 0
+								? `−${formatSats(totalFeeSats)} ${$t('wallet.sats')}${btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.01 ? ' ≈ ' + usdFormatter.format((totalFeeSats / 100_000_000) * btcUsdPrice) : ''}`
+								: undefined}
+							youReceive={amountInTokenUnits > 0 && estimatedOutput
+								? isBitcoinAsset(selectedDest.asset, selectedDest.id)
+									? satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000), btcUsdPrice)
+									: usdFormatter.format(parseFloat(estimatedOutput))
+								: undefined}
+							providerLabel={swapRoutes.smartRoute || effectiveSmartRoute
+								? getProviderLabel()
+								: swapRoutes.activeRouteForCalc?.label || undefined}
+							estimatedTime={effectiveSmartRoute?.estimatedTimeMinutes
+								? `${effectiveSmartRoute.estimatedTimeMinutes} min`
+								: swapRoutes.activeRouteForCalc?.estimatedTime || undefined}
+							feePercent={effectiveSmartRoute?.totalFeePercent ??
+								swapRoutes.activeRouteForCalc?.totalFeePercent}
+							{isDirectTransfer}
+							loading={swapRoutes.routeLoading}
+						/>
 					{/if}
 
 					<!-- Insufficient balance -->
@@ -1467,7 +1071,7 @@
 		{/if}
 
 		<!-- Confirm Phase -->
-		{#if swapPhase === 'confirm' && activeRoute && selectedDest}
+		{#if swapPhase === 'confirm' && (swapRoutes.smartRoute || smartRoute) && selectedDest}
 			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col gap-4">
 				<!-- Context-aware header -->
 				<div class="flex items-center gap-2">
@@ -1495,42 +1099,20 @@
 					</p>
 				{/if}
 
-				<!-- Source Card -->
-				<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
-					<div class="relative shrink-0">
-						<img
-							src={sourceIcon}
-							alt={sourceAsset}
-							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
-						/>
-						{#if sourceType === 'usdt0-arb'}
-							<img
-								src="/images/chains/arbitrum.png"
-								alt="Arbitrum"
-								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
-							/>
-						{/if}
-					</div>
-					<div class="min-w-0 flex-1">
-						<div class="text-base-content/60 text-xs sm:text-sm">
-							{isDirectTransfer ? $t('wallet.swap.send_from') : $t('wallet.swap.you_send')}
-						</div>
-						<div class="text-base-content/70 truncate text-xs font-medium">{sourceWalletInfo}</div>
-					</div>
-					<div class="shrink-0 text-right">
-						<div class="text-sm font-bold sm:text-base">
-							{sourceType === 'rbtc'
-								? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
-								: usdFormatter.format(parseFloat(amount || '0'))}
-						</div>
-						{#if sourceType === 'rbtc'}
-							{@const satsVal = Math.round(parseFloat(amount || '0'))}
-							<div class="text-base-content/50 text-xs">
-								{usdFormatter.format((satsVal / 100_000_000) * btcUsdPrice)}
-							</div>
-						{/if}
-					</div>
-				</div>
+				<!-- Source Card (reuses SwapPartyCard to eliminate dupe) -->
+				<SwapPartyCard
+					role="source"
+					walletInfo={sourceWalletInfo}
+					asset={sourceAsset}
+					icon={sourceIcon}
+					amountDisplay={sourceType === 'rbtc'
+						? satsUsd(Math.round(parseFloat(swapCalc.amount || '0')), btcUsdPrice)
+						: usdFormatter.format(parseFloat(swapCalc.amount || '0'))}
+					usdEquivalent={undefined}
+					chainBadgeIcon={sourceType === 'usdt0-arb' ? '/images/chains/arbitrum.png' : undefined}
+					{isDirectTransfer}
+					variant="confirm"
+				/>
 
 				<!-- Provider Bridge / Send Arrow -->
 				<div class="flex items-center justify-center py-1">
@@ -1563,58 +1145,39 @@
 									d="M17 8l4 4m0 0l-4 4m4-4H3"
 								/></svg
 							>
-							<span class="text-sm font-semibold">{getProviderLabel(activeRoute)}</span>
+							<span class="text-sm font-semibold">{getProviderLabel()}</span>
 						{/if}
 						<span class="text-base-content/60 text-xs">
-							{#if !isDirectTransfer && activeRoute.totalFeePercent > 0 && amountSats > 0 && btcUsdPrice > 0}
+							{#if !isDirectTransfer && effectiveSmartRoute && effectiveSmartRoute.totalFeePercent > 0 && amountSats > 0 && btcUsdPrice > 0}
 								{usdFormatter.format(
-									(amountSats / 100_000_000) * btcUsdPrice * (activeRoute.totalFeePercent / 100)
+									(amountSats / 100_000_000) *
+										btcUsdPrice *
+										(effectiveSmartRoute.totalFeePercent / 100)
 								)}
 							{/if}
-							{activeRoute.totalFeePercent > 0 ? ' · ' : ''}{activeRoute.estimatedTime}
+							{effectiveSmartRoute && effectiveSmartRoute.totalFeePercent > 0
+								? ' · '
+								: ''}{effectiveSmartRoute ? effectiveSmartRoute.estimatedTime : ''}
 						</span>
 					</div>
 				</div>
 
-				<!-- Destination Card -->
-				<div class="bg-base-200 flex items-center gap-3 rounded-xl p-3 sm:p-4">
-					<div class="relative shrink-0">
-						<img
-							src={selectedDest.icon}
-							alt={selectedDest.asset}
-							class="h-10 w-10 rounded-full sm:h-12 sm:w-12"
-						/>
-						{#if selectedDest.asset === 'USDT0'}
-							<img
-								src="/images/chains/arbitrum.png"
-								alt="Arbitrum"
-								class="border-base-200 absolute -right-0.5 -bottom-0.5 h-4 w-4 rounded-full border sm:h-5 sm:w-5"
-							/>
-						{/if}
-					</div>
-					<div class="min-w-0 flex-1">
-						<div class="text-base-content/60 text-xs sm:text-sm">
-							{isDirectTransfer ? $t('wallet.swap.send_to') : $t('wallet.swap.you_get')}
-						</div>
-						<div class="text-base-content/70 truncate text-xs font-medium">{destWalletInfo}</div>
-					</div>
-					<div class="shrink-0 text-right">
-						<div class="text-sm font-bold sm:text-base">
-							{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
-								{formatSats(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
-								{$t('wallet.sats')}
-							{:else}
-								{usdFormatter.format(parseFloat(estimatedOutput))}
-							{/if}
-						</div>
-						{#if selectedDest.asset === 'rBTC' || selectedDest.id === 'btc-onchain' || selectedDest.id === 'wbtc-arb'}
-							{@const outSats = Math.round(parseFloat(estimatedOutput) * 100_000_000)}
-							<div class="text-base-content/50 text-xs">
-								{usdFormatter.format((outSats / 100_000_000) * btcUsdPrice)}
-							</div>
-						{/if}
-					</div>
-				</div>
+				<!-- Destination Card (reuses SwapPartyCard) -->
+				<SwapPartyCard
+					role="dest"
+					walletInfo={destWalletInfo}
+					asset={selectedDest.asset}
+					icon={selectedDest.icon}
+					amountDisplay={isBitcoinAsset(selectedDest.asset, selectedDest.id)
+						? satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000), btcUsdPrice)
+						: usdFormatter.format(parseFloat(estimatedOutput))}
+					usdEquivalent={undefined}
+					chainBadgeIcon={selectedDest.asset === 'USDT0'
+						? '/images/chains/arbitrum.png'
+						: undefined}
+					{isDirectTransfer}
+					variant="confirm"
+				/>
 
 				<!-- Warning — only for swaps, not direct sends -->
 				{#if !isDirectTransfer}
@@ -1676,38 +1239,28 @@
 						<p class="text-base-content/60 text-xs sm:text-sm">
 							{sourceAsset}
 							{$t('wallet.swap.sent_from')}
-							{walletLabel(sourceWallet)}
+							{swapWallets.walletLabel(sourceWallet)}
 							{$t('wallet.swap.sent_to')}
-							{walletLabel(destWallet)}
+							{swapWallets.walletLabel(destWallet)}
 						</p>
 					{/if}
 				</div>
 
-				<!-- Transaction Summary Cards -->
+				<!-- Transaction Summary Cards (reuses SwapPartyCard for source/dest DRY) -->
 				<div class="bg-base-200 space-y-3 rounded-xl p-4">
-					<!-- Source row -->
-					<div class="flex items-center gap-3">
-						<img
-							src={sourceIcon}
-							alt={sourceAsset}
-							class="h-7 w-7 shrink-0 rounded-full sm:h-8 sm:w-8"
-						/>
-						<div class="min-w-0 flex-1 text-xs sm:text-sm">
-							<div class="text-base-content/60">
-								{isDirectTransfer ? $t('wallet.swap.send_from') : $t('wallet.swap.you_send')}
-							</div>
-							<div class="text-base-content/70 truncate text-xs font-medium">
-								{sourceWalletInfo}
-							</div>
-							<div class="font-semibold">
-								{sourceType === 'rbtc'
-									? `${formatSats(Math.round(parseFloat(amount || '0')))} ${$t('wallet.sats')}`
-									: `${usdFormatter.format(parseFloat(amount || '0'))} ${sourceAsset}`}
-							</div>
-						</div>
-					</div>
+					<SwapPartyCard
+						role="source"
+						walletInfo={sourceWalletInfo}
+						asset={sourceAsset}
+						icon={sourceIcon}
+						amountDisplay={sourceType === 'rbtc'
+							? satsUsd(Math.round(parseFloat(swapCalc.amount || '0')), btcUsdPrice)
+							: `${usdFormatter.format(parseFloat(swapCalc.amount || '0'))} ${sourceAsset}`}
+						variant="success"
+						{isDirectTransfer}
+					/>
 
-					<!-- Provider bridge / Send direction -->
+					<!-- Provider bridge kept (small) -->
 					<div class="flex items-center justify-center">
 						<div class="bg-base-100 flex items-center gap-2 rounded-full px-3 py-1 text-xs">
 							{#if isDirectTransfer}
@@ -1725,7 +1278,7 @@
 								>
 								<span class="text-success font-medium">{$t('wallet.swap.direct_send')}</span>
 							{:else}
-								<span>{getProviderLabel(activeRoute!)}</span>
+								<span>{getProviderLabel()}</span>
 								<svg
 									class="text-primary h-3 w-3 shrink-0"
 									fill="none"
@@ -1742,53 +1295,27 @@
 						</div>
 					</div>
 
-					<!-- Destination row -->
-					<div class="flex items-center gap-3">
-						<div class="relative shrink-0">
-							<img
-								src={selectedDest!.icon}
-								alt={selectedDest!.asset}
-								class="h-7 w-7 rounded-full sm:h-8 sm:w-8"
-							/>
-							{#if selectedDest!.asset === 'USDT0'}<img
-									src="/images/chains/arbitrum.png"
-									alt="Arbitrum"
-									class="border-base-200 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border"
-								/>{/if}
-						</div>
-						<div class="min-w-0 flex-1 text-xs sm:text-sm">
-							<div class="text-base-content/60">
-								{isDirectTransfer ? $t('wallet.swap.send_to') : $t('wallet.swap.you_get')}
-							</div>
-							<div class="text-base-content/70 truncate text-xs font-medium">{destWalletInfo}</div>
-							<div class="font-semibold">
-								{#if selectedDest!.asset === 'rBTC' || selectedDest!.id === 'btc-onchain' || selectedDest!.id === 'wbtc-arb'}
-									{satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000))}
-								{:else}
-									{usdFormatter.format(parseFloat(estimatedOutput))}
-									{selectedDest!.asset}
-								{/if}
-							</div>
-						</div>
-					</div>
+					<SwapPartyCard
+						role="dest"
+						walletInfo={destWalletInfo}
+						asset={selectedDest!.asset}
+						icon={selectedDest!.icon}
+						amountDisplay={isBitcoinAsset(selectedDest!.asset, selectedDest!.id)
+							? satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000), btcUsdPrice)
+							: `${usdFormatter.format(parseFloat(estimatedOutput))} ${selectedDest!.asset}`}
+						variant="success"
+						{isDirectTransfer}
+					/>
 				</div>
 
-				<!-- Fee + Time row — only for swaps -->
+				<!-- Fee + Time row — only for swaps (uses SwapEstimateCard for DRY, success-fee variant) -->
 				{#if !isDirectTransfer}
-					<div
-						class="bg-base-200 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-4 py-3 text-xs sm:text-sm"
-					>
-						<span class="text-base-content/60"
-							>{$t('wallet.swap.fee_percent')}:
-							<span class="text-base-content font-semibold">{activeRoute!.totalFeePercent}%</span
-							></span
-						>
-						<span class="text-base-content/60"
-							>{$t('wallet.swap.estimated_time')}:
-							<span class="text-base-content font-semibold">{activeRoute!.estimatedTime}</span
-							></span
-						>
-					</div>
+					<SwapEstimateCard
+						variant="success-fee"
+						feePercent={effectiveSmartRoute?.totalFeePercent ?? 0}
+						estimatedTime={effectiveSmartRoute?.estimatedTime ?? '—'}
+						{isDirectTransfer}
+					/>
 				{/if}
 
 				<!-- TX link -->
@@ -1836,34 +1363,40 @@
 			</div>
 		{/if}
 
-		<!-- Error Phase -->
+		<!-- Error / Failed Phase (with SwapFallback support) -->
 		{#if swapPhase === 'failed'}
-			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col items-center gap-3 py-6">
-				<div class="bg-error/10 rounded-full p-3">
-					<svg
-						class="text-error h-10 w-10 sm:h-12 sm:w-12"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				</div>
-				<h4 class="text-lg font-bold sm:text-xl">
-					{$t('wallet.swap.swap_failed')}
-				</h4>
-				<p class="text-base-content/60 text-center text-xs sm:text-sm">{errorMessage}</p>
-				<button
-					class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
-					onclick={resetForm}
-				>
-					{$t('common.buttons.retry')}
-				</button>
+			<div transition:fly={{ y: 10, duration: 200 }} class="flex flex-col gap-4 py-4">
+				{#if smartRoute?.fallbackRoutes && smartRoute.fallbackRoutes.length > 0}
+					<SwapFallback {smartRoute} onRetry={(route: SmartRoute) => retryWithFallback(route)} />
+				{:else}
+					<div class="flex flex-col items-center gap-3 py-6">
+						<div class="bg-error/10 rounded-full p-3">
+							<svg
+								class="text-error h-10 w-10 sm:h-12 sm:w-12"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+						</div>
+						<h4 class="text-lg font-bold sm:text-xl">
+							{$t('wallet.swap.swap_failed')}
+						</h4>
+						<p class="text-base-content/60 text-center text-xs sm:text-sm">{errorMessage}</p>
+						<button
+							class="btn btn-primary min-h-[44px] touch-manipulation active:scale-95 sm:min-h-[48px]"
+							onclick={resetForm}
+						>
+							{$t('common.buttons.retry')}
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -1918,26 +1451,3 @@
 		{/if}
 	{/snippet}
 </Drawer>
-
-<style>
-	@keyframes slideFromLeft {
-		from {
-			transform: translateX(-60px);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
-	}
-	@keyframes slideFromRight {
-		from {
-			transform: translateX(60px);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
-	}
-</style>

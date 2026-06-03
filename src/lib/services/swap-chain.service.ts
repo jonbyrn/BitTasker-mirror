@@ -28,6 +28,7 @@ import {
 	sendRBTC,
 	sendBSCUSDT,
 	sendRawTransaction,
+	sendArbitrumTransaction,
 	createSubmarineSwap,
 	lockSubmarineSwapFunds,
 	createChainSwap
@@ -214,17 +215,19 @@ export async function loadSwapChainState(): Promise<SwapChainState> {
  * @returns An error if the write fails, or `null` on success
  */
 export async function saveSwapChainState(state: SwapChainState): Promise<{ error: Error | null }> {
-	const serialised = JSON.stringify({
-		...state,
-		updatedAt: Date.now()
-	});
-
-	const { error } = await tryCatch(Preferences.set({ key: STORAGE_KEY, value: serialised }));
-
-	if (error !== null) {
-		return { error: error instanceof Error ? error : new Error(String(error)) };
+	// Capacitor Preferences not available in browser — skip persistence
+	try {
+		const serialised = JSON.stringify({
+			...state,
+			updatedAt: Date.now()
+		});
+		const { error } = await tryCatch(Preferences.set({ key: STORAGE_KEY, value: serialised }));
+		if (error !== null) {
+			return { error: error instanceof Error ? error : new Error(String(error)) };
+		}
+	} catch {
+		// Preferences unavailable (browser) — non-fatal, skip persistence
 	}
-
 	return { error: null };
 }
 
@@ -549,6 +552,53 @@ async function executeBoltzHop(
 	hop: RouteHop,
 	state: SwapChainState
 ): Promise<{ data: string | null; error: Error | null }> {
+	d.log('executeBoltzHop: fromAsset=%s toChain=%s', hop.fromAsset, hop.toChain);
+
+	// Linked swap: tBTC → Lightning (sub) → rBTC (reverse)
+	if (hop.fromAsset === 'TBTC' && hop.toChain === 'rsk') {
+		const amount = state.amount;
+		if (!amount) return { data: null, error: new Error('Amount is required') };
+		const amountSats = Math.round(parseFloat(amount) * 100_000_000);
+		if (Number.isNaN(amountSats) || amountSats <= 0)
+			return { data: null, error: new Error('Invalid amount') };
+
+		try {
+			const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+			const boltz = new BoltzProvider();
+
+			const rskAddr = get(walletStore).rsk.address;
+			if (!rskAddr) return { data: null, error: new Error('No RSK wallet address') };
+
+			// Step 1: Create reverse swap (LN → rBTC) — generates Lightning invoice
+			d.log('Creating reverse swap (LN → rBTC)...');
+			const revSwap = await boltz.createReverseSwap(amountSats, rskAddr);
+			d.log('Reverse swap: %s invoice=%s...', revSwap.swapId, revSwap.invoice.substring(0, 20));
+
+			// Step 2: Create submarine swap (tBTC → LN) paying the invoice
+			const refundWallet = ethers.Wallet.createRandom();
+			const subSwap = await boltz.createSubmarineSwap(
+				revSwap.invoice,
+				refundWallet.publicKey.slice(2)
+			);
+			d.log('Submarine swap: %s lockup=%s', subSwap.swapId, subSwap.lockupAddress);
+
+			// Step 3: Send tBTC to submarine lockup on Arbitrum
+			const tbtcWei = (BigInt(amountSats) * BigInt(1e10)).toString();
+			const txResult = await sendArbitrumTransaction({
+				to: subSwap.lockupAddress,
+				data: '0x',
+				value: tbtcWei,
+				gasLimit: 500000
+			});
+			d.log('TBTC sent to submarine: %s', txResult);
+
+			return { data: `${revSwap.swapId}/${subSwap.swapId}`, error: null };
+		} catch (err) {
+			d.error('Linked swap failed: %s', (err as Error).message);
+			return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+		}
+	}
+
 	// Submarine swap: RBTC -> Lightning
 	if (hop.fromAsset === 'RBTC' && hop.toChain === 'lightning') {
 		if (!state.destination || state.destination.type !== 'invoice') {
@@ -581,30 +631,97 @@ async function executeBoltzHop(
 		return { data: lockResult?.txHash ?? null, error: null };
 	}
 
-	// Chain swap: RBTC -> BTC (onchain)
+	// Chain swap: RBTC -> BTC (onchain), via existing createChainSwap
 	if (hop.fromAsset === 'RBTC' && hop.toChain === 'bitcoin') {
 		const amount = state.amount;
 		if (!amount) {
 			return { data: null, error: new Error('Amount is required for chain swap') };
 		}
 
-		// Parse amount from decimal string to satoshis
 		const amountSats = parseFloat(amount);
-
 		if (Number.isNaN(amountSats) || amountSats <= 0) {
 			return { data: null, error: new Error('Invalid amount for chain swap') };
 		}
 
 		const { data: swapResult, error: chainError } = await tryCatch(createChainSwap(amountSats));
-
 		if (chainError !== null) {
 			return {
 				data: null,
 				error: chainError instanceof Error ? chainError : new Error(String(chainError))
 			};
 		}
-
 		return { data: swapResult?.swapId ?? null, error: null };
+	}
+
+	// Chain swap: RBTC -> TBTC on Arbitrum
+	if (hop.fromAsset === 'RBTC' && hop.toChain === 'arbitrum') {
+		const amount = state.amount;
+		if (!amount) return { data: null, error: new Error('Amount is required') };
+		const amountSats = Math.round(parseFloat(amount) * 100_000_000);
+		if (Number.isNaN(amountSats) || amountSats <= 0)
+			return { data: null, error: new Error('Invalid amount') };
+
+		try {
+			// Use BoltzProvider for chain swap creation
+			const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+			const boltz = new BoltzProvider();
+
+			// Generate preimage using Web Crypto API (browser-safe)
+			const preimageBytes = new Uint8Array(32);
+			crypto.getRandomValues(preimageBytes);
+			const _preimageHex = Array.from(preimageBytes, (b) => b.toString(16).padStart(2, '0')).join(
+				''
+			);
+			const hashBytes = await crypto.subtle.digest('SHA-256', preimageBytes);
+			const hashHex = Array.from(new Uint8Array(hashBytes), (b) =>
+				b.toString(16).padStart(2, '0')
+			).join('');
+
+			// Generate refund key using ethers (browser-safe)
+			const { ethers } = await import('ethers');
+			const refundWallet = ethers.Wallet.createRandom();
+			const refundPublicKey = refundWallet.publicKey.slice(2); // remove 0x prefix
+
+			// Get Arbitrum claim address (same key as RSK, lowercase for Boltz)
+			const arbAddr = (
+				(get(walletStore).arb?.address || get(walletStore).rsk.address) ??
+				''
+			).toLowerCase();
+			if (!arbAddr) return { data: null, error: new Error('No Arbitrum wallet address available') };
+
+			// Create the swap via Boltz API
+			const swapResult = await boltz.createSwap({
+				amountSats,
+				claimAddress: arbAddr,
+				preimageHash: hashHex,
+				refundPublicKey
+			});
+
+			d.log('Boltz swap created: id=%s lockup=%s', swapResult.swapId, swapResult.lockupAddress);
+
+			// Send rBTC to lockup with manual gasLimit (eth_estimateGas reverts on Boltz contracts)
+			try {
+				const rbtcWei = (BigInt(amountSats) * BigInt(1e10)).toString();
+				d.log('sendRawTransaction: to=%s value=%s wei', swapResult.lockupAddress, rbtcWei);
+				const txHash = await sendRawTransaction({
+					to: swapResult.lockupAddress,
+					data: '0x',
+					value: rbtcWei,
+					gasLimit: 150000 // bypass eth_estimateGas which reverts on Boltz contracts
+				});
+				d.log('Boltz chain swap lockup tx: %s', txHash);
+				return { data: swapResult.swapId, error: null };
+			} catch (sendErr) {
+				d.error('sendRawTransaction failed: %s', (sendErr as Error).message);
+				return {
+					data: null,
+					error: sendErr instanceof Error ? sendErr : new Error(String(sendErr))
+				};
+			}
+		} catch (err) {
+			d.error('Boltz chain swap failed: %s', err instanceof Error ? err.message : String(err));
+			return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+		}
 	}
 
 	return {
@@ -656,6 +773,8 @@ async function executeLifiHop(
 	function resolveToken(asset: string, chainId: number): string {
 		if (asset === 'RBTC' || asset === 'BTC') return '0x0000000000000000000000000000000000000000';
 		if (asset === 'USDT0') return USDT0_ARB_ADDR;
+		if (asset === 'TBTC') return '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
+		if (asset === 'WBTC') return '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
 		if (asset === 'USDT')
 			return chainId === CHAIN_ID_ARB
 				? USDT0_ARB_ADDR
@@ -683,12 +802,19 @@ async function executeLifiHop(
 		toTokenAddr.substring(0, 16)
 	);
 
-	// Convert amount to token's smallest unit (wei for 18 decimals, 1e6 for USDT)
+	// Convert amount to token's smallest unit based on token decimals
 	const amountDecimal = parseFloat(state.amount!);
-	const fromAmountWei =
-		hop.fromAsset === 'RBTC'
-			? BigInt(Math.round(amountDecimal * 1e18)).toString()
-			: BigInt(Math.round(amountDecimal * 1e18)).toString();
+	const TOKEN_DECIMALS: Record<string, number> = {
+		RBTC: 18,
+		BTC: 18,
+		TBTC: 18,
+		WBTC: 8,
+		USDT: 6,
+		USDT0: 6,
+		USDC: 6
+	};
+	const decimals = TOKEN_DECIMALS[hop.fromAsset] ?? 18;
+	const fromAmountWei = BigInt(Math.round(amountDecimal * 10 ** decimals)).toString();
 
 	try {
 		const txReq = await lifiService.getStepTransaction({
@@ -699,14 +825,19 @@ async function executeLifiHop(
 			fromAmount: fromAmountWei,
 			fromAddress: userAddr
 		});
-		const txHash = await sendRawTransaction({
-			to: txReq.to,
-			data: txReq.data,
-			value: txReq.value
-		});
+		const txHash =
+			fromChainId === CHAIN_ID_ARB
+				? await sendArbitrumTransaction({
+						to: txReq.to,
+						data: txReq.data,
+						value: txReq.value,
+						gasLimit: 500000
+					})
+				: await sendRawTransaction({ to: txReq.to, data: txReq.data, value: txReq.value });
 		return { data: txHash, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'LI.FI execution failed';
+		console.error('[executeLifiHop] FAILED:', message);
 		return { data: null, error: new Error(message) };
 	}
 }

@@ -118,7 +118,7 @@
 		"payment_description_placeholder": "What's this payment for?",
 		"recipient_address": "Recipient Address",
 		"address_placeholder": "Bitcoin, Lightning, or Liquid address",
-		"available_balance": "Available Balance",
+		"available_balance": "Available",
 		"balance_after": "Balance",
 		"transaction_fee": "Transaction Fee",
 		"network_fee": "Network Fee",
@@ -636,6 +636,7 @@
 		},
 		"sats": "Sats",
 		"rbtc": "rBTC",
+		"wbtc": "wBTC",
 		"usdt": "USDT",
 		"usd": "USD",
 		"btc": "BTC",
@@ -643,7 +644,7 @@
 		"lightning": "Lightning",
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Rootstock Bitcoin",
-		"l2_btc": "L2 Bitcoin",
+		"l2_btc": "Bitcoin (rBTC)",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Coming Soon",
 		"retry": "Retry",
@@ -985,14 +986,16 @@
 			"fallback": {
 				"route_unavailable": "Route unavailable",
 				"route_unavailable_desc": "The cheapest route isn't available right now. Here's the next best option:",
-				"use_this_route": "Use this route"
+				"use_this_route": "Use this route",
+				"fallback_routes_available": "Fallback routes available",
+				"use_fallback": "Use {provider}"
 			}
 		},
 		"receive_form": {
 			"select_asset": "Select Asset",
 			"select_network": "Select Network",
 			"asset_icon": "Asset icon",
-			"available_balance": "Available Balance",
+			"available_balance": "Available",
 			"coming_soon": "Coming Soon",
 			"usdt_not_available": "USDT receiving functionality is not yet available.",
 			"network_not_available": "This network is not yet available for receiving.",
@@ -1116,7 +1119,7 @@
 				"recipient_address_placeholder": "Enter RSK address (0x...)",
 				"amount": "Amount",
 				"amount_placeholder": "Enter amount",
-				"available_balance": "Available Balance",
+				"available_balance": "Available",
 				"max": "Max",
 				"send": "Send",
 				"sending": "Sending...",
@@ -1310,6 +1313,8 @@
 				"gas_fee": "Gas Fee (Arbitrum)",
 				"annual_cost": "Annual borrowing cost",
 				"button_approve_borrow": "Approve & Borrow USDT0",
+				"rates_error": "Unable to load current rates",
+				"health_factor_aria": "Health factor: {factor} out of 5. {status}",
 				"button_repay": "Repay",
 				"button_add_collateral": "Add Collateral",
 				"swap_btn": "Swap",
@@ -1334,8 +1339,18 @@
 				"il_double": "If BTC doubles: up ~77% vs 50% holding. IL is the difference between LP position value and simply holding.",
 				"il_halve": "If BTC halves: down ~4% vs 25% holding.",
 				"button_approve_lp": "Approve & Provide Liquidity",
+				"button_remove_liquidity": "Remove Liquidity",
+				"button_collect_fees": "Collect Fees",
+				"positions_title": "Your LP Positions (preview — local state)",
+				"sim_preview": "LP flows (provide / remove / collect) use simulated execution + local position state. UniswapService + WalletSelector fully integrated. Real on-chain ready (requires EVM signer adapter for connected wallets).",
+				"no_lp_yet": "No LP positions yet. Use Provide above (creates preview position for remove/collect demo).",
+				"remove_success": "Liquidity removed (preview)",
+				"collect_success": "Fees collected (preview)",
 				"out_of_range": "Out of range — not earning fees",
-				"rebalance": "Rebalance"
+				"rebalance": "Rebalance",
+				"clear_select": "Clear select",
+				"no_fees_to_collect": "No fees to collect",
+				"simulated_note": "simulated tx + local positions (defi-positions.store stand-in)"
 			},
 			"shared": {
 				"no_positions": "No active DeFi positions",
@@ -1346,10 +1361,19 @@
 				"switch_to_arbitrum": "Switch to Arbitrum",
 				"offline": "You're offline — DeFi requires network connection",
 				"pending_tx": "Transaction processing..."
+			},
+			"approve": {
+				"title": "Approve Token",
+				"amount": "Amount",
+				"spender": "Spender (contract)",
+				"button": "Approve",
+				"success": "Approved {token}",
+				"error": "Approval failed",
+				"failed": "Approval failed"
 			}
 		},
 		"tier2_tokens_title": "additional token balances detected",
 		"usdt0_arbitrum": "USDT0 (Arbitrum)",
-		"wbtc_arbitrum": "WBTC (Arbitrum)"
+		"wbtc_arbitrum": "Bitcoin (wBTC)"
 	}
 }
