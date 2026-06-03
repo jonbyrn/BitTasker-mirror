@@ -187,6 +187,10 @@ describe('NIP-44 Message Utilities', () => {
 						}))
 					)
 				);
+				const { getMessageHistory } = await import('$lib/nostr/direct-messages');
+
+				await getMessageHistory(recipientPubkey);
+
 				expect(mockNip44.getConversationKey).toHaveBeenCalled();
 				expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));
 			},
