@@ -12,7 +12,7 @@
 export type SourceWallet = 'rbtc' | 'usdt-bsc' | 'usdt0-rsk' | 'usdt0-arb' | 'doc-rsk';
 
 export type Destination =
-	| { type: 'address'; chainId: number; address: string }
+	| { type: 'address'; chainId: number; address: string; asset?: string }
 	| { type: 'invoice'; network: 'lightning' | 'onchain'; invoice: string };
 
 export interface RouteHop {
@@ -62,6 +62,8 @@ const ASSET_USDT = 'USDT';
 const ASSET_USDT0 = 'USDT0';
 const ASSET_DOC = 'DOC';
 const ASSET_BTC = 'BTC';
+const ASSET_TBTC = 'TBTC';
+const ASSET_WBTC = 'WBTC';
 
 const RSK_CHAIN_IDS = new Set([30, 31, 33]);
 const BSC_CHAIN_IDS = new Set([56, 97]);
@@ -125,6 +127,10 @@ function isRSKChain(chainId: number): boolean {
 
 function isBSCChain(chainId: number): boolean {
 	return BSC_CHAIN_IDS.has(chainId);
+}
+
+function isARBChain(chainId: number): boolean {
+	return ARB_CHAIN_IDS.has(chainId);
 }
 
 function isTRONChain(chainId: number): boolean {
@@ -245,6 +251,39 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						}
 					],
 					recommended: false
+				})
+			];
+		}
+
+		// wBTC on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + LI.FI (tBTC→WBTC)
+		if (isARBChain(destination.chainId) && destination.asset === 'WBTC') {
+			return [
+				buildRoute({
+					id: 'rbtc-to-wbtc-arb-via-boltz-lifi',
+					label: 'Boltz → LI.FI',
+					hops: [
+						{
+							service: 'boltz',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_TBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_BOLTZ_CHAIN_SWAP,
+							estimatedTimeMin: TIME_BOLTZ_MIN,
+							estimatedTimeMax: TIME_BOLTZ_MAX
+						},
+						{
+							service: 'lifi',
+							fromAsset: ASSET_TBTC,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_WBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_LIFI_DEFAULT,
+							estimatedTimeMin: TIME_LIFI_MIN,
+							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: true
 				})
 			];
 		}
