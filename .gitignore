@@ -135,7 +135,7 @@ android/.svelte-kit/
 static/images/chains/.svelte-kit/
 
 # Local data directory
-data/
+/data/
 
 # External wallet-core (installed separately)
 wallet-core/

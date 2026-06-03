@@ -165,7 +165,7 @@ export const CHAIN_LABELS: Record<number, string> = {
 	1: 'Ethereum',
 	10: 'Optimism',
 	30: 'Rootstock',
-	56: 'BSC',
+	56: 'Binance',
 	137: 'Polygon',
 	250: 'Fantom',
 	100: 'Gnosis',
