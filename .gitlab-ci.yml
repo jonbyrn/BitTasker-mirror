@@ -323,18 +323,6 @@ db-backup:
 # Internal testing: push v*-alpha* or v*-beta* tag on master → auto-deploy.
 # Production: push vX.Y.Z tag on master → android-release-prepare (auto) → manual Play / Zapstore.
 # versionName from tag; versionCode auto-incremented once in android-release-prepare (shared by both stores).
-# Separate full builds per store (different signing keystores).
-#
-# Required CI/CD variables (set in GitLab → Settings → CI/CD → Variables):
-#   ANDROID_KEYSTORE_BASE64 — upload-keystore.jks base64-encoded (binary can't be a raw string var)
-#   ANDROID_KEYSTORE_STORE_PASSWORD, ANDROID_KEYSTORE_KEY_ALIAS, ANDROID_KEYSTORE_KEY_PASSWORD
-#   PLAY_STORE_CREDENTIALS_JSON — Google service account JSON (multi-line string var)
-#   CI_PUSH_TOKEN — project access token (write_repository) for prepare job (empty commit on master)
-#   ZAPSTORE_* — see docs/ci/zapstore-pipeline.md (Zapstore child pipeline)
-#
-# Secrets are cleaned up in after_script (never stored in artifacts or on the runner).
-#
-# See docs/ci/play-store-pipeline.md for full setup instructions.
 # ═══════════════════════════════════════════════════════════════════════════════
 include:
   - local: .gitlab/ci/android-release.yml
