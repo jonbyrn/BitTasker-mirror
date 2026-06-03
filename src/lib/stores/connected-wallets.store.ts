@@ -327,7 +327,10 @@ async function persistState(): Promise<void> {
 				address: w.address,
 				chainIds: w.chainIds,
 				connectedAt: w.connectedAt,
-				...(w.btcAddress ? { btcAddress: w.btcAddress } : {})
+				...(w.btcAddress ? { btcAddress: w.btcAddress } : {}),
+				// Persist last-known balances so restored wallets show
+				// instant data instead of $0.00 until the poller refreshes.
+				balances: Object.keys(w.balances).length > 0 ? w.balances : undefined
 			}))
 		};
 		await Preferences.set({ key: PREFERENCES_KEY, value: JSON.stringify(toPersist) });
@@ -383,7 +386,9 @@ export async function restoreConnectedWalletState(): Promise<void> {
 				walletType: w.walletType,
 				address: w.address,
 				chainIds: w.chainIds,
-				balances: {},
+				// Restore last-known balances for instant display (stale > $0.00).
+				// The balance poller will refresh these shortly after reconnect.
+				balances: (w as Record<string, unknown>).balances ?? {},
 				connectedAt: w.connectedAt,
 				...(w.btcAddress ? { btcAddress: w.btcAddress } : {})
 			}))

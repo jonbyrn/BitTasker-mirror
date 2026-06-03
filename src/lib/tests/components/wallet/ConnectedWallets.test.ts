@@ -173,7 +173,7 @@ const t = (key: string, opts?: { values?: Record<string, string> }) => {
 		'wallet.connected.balances_refreshed': 'Balances refreshed',
 		'wallet.connected.address_copied': 'Address copied',
 		'wallet.connected.copy_failed': 'Copy failed',
-		'wallet.wbtc_arbitrum': 'WBTC (Arbitrum)',
+		'wallet.wbtc_arbitrum': 'Bitcoin (wBTC)',
 		'wallet.usdt0_arbitrum': 'USDT0 (Arbitrum)',
 		'common.cancel': 'Cancel'
 	};

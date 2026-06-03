@@ -32,7 +32,7 @@ export interface ConnectMetaMaskConfig {
 	longTimeout?: boolean;
 }
 
-const DEFAULT_SCOPES = ['eip155:30', 'eip155:31', 'eip155:56', 'eip155:97', 'eip155:1'] as const;
+const DEFAULT_SCOPES = ['eip155:30', 'eip155:31', 'eip155:56', 'eip155:97'] as const;
 
 /**
  * Supported RPC endpoints for the MultiChain SDK.
@@ -49,12 +49,9 @@ const SUPPORTED_NETWORKS: Record<string, string> = {
 	'eip155:42161': 'https://arb1.arbitrum.io/rpc',
 	'eip155:56': 'https://bsc-dataseed.binance.org',
 	'eip155:97': 'https://data-seed-prebsc-1-s1.binance.org:8545',
-	'eip155:1': 'https://mainnet.infura.io/v3/' + (import.meta.env.VITE_INFURA_API_KEY || ''),
-	// Free public endpoints (rate-limited, sufficient for balance checks)
-	'eip155:137': 'https://polygon-rpc.com',
+	// Free public RPCs — rate-limited, sufficient for balance checks
 	'eip155:10': 'https://mainnet.optimism.io',
 	'eip155:43114': 'https://api.avax.network/ext/bc/C/rpc',
-	'eip155:8453': 'https://mainnet.base.org',
 	'eip155:42220': 'https://forno.celo.org',
 	'eip155:250': 'https://rpcapi.fantom.network',
 	'eip155:100': 'https://rpc.gnosischain.com'
