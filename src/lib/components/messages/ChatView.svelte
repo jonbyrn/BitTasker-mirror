@@ -4,10 +4,9 @@
 	import {
 		getMessageHistory,
 		sendDirectMessage,
-		fetchProfileMetadata,
-		listenForIncomingMessages,
-		subscribeToProfileUpdates
-	} from '$lib/utils/nostr-message';
+		listenForIncomingMessages
+	} from '$lib/nostr/direct-messages';
+	import { fetchProfileMetadata, subscribeUserProfile } from '$lib/nostr/profile';
 	import ChatMessage from './ChatMessage.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -829,7 +828,7 @@
 			});
 
 		// Setup new subscription for profile updates using hex format
-		profileUnsubscribe = subscribeToProfileUpdates(recipientHex(), (profile) => {
+		profileUnsubscribe = subscribeUserProfile(recipientHex(), (profile) => {
 			// Only update if we get valid profile data, otherwise keep existing
 			if (profile && (profile.name || profile.picture)) {
 				// Create a new object reference to ensure Svelte reactivity
@@ -857,7 +856,7 @@
 			});
 
 		// Setup new subscription for current user profile updates using hex format
-		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
+		currentUserProfileUnsubscribe = subscribeUserProfile(currentUserHex(), (profile) => {
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
 				currentUserProfile = {

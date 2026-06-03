@@ -50,6 +50,50 @@ vi.mock('$app/navigation', () => ({
 	disableScrollHandling: vi.fn()
 }));
 
+// @bittasker/reviews-contracts dist uses extensionless ESM re-exports that fail in Vitest's resolver
+vi.mock('@bittasker/reviews-contracts', () => {
+	const ONCHAIN_STATE_MAP: Record<number, string> = {
+		0: 'funded',
+		1: 'in_dispute',
+		2: 'dispute_resolved',
+		3: 'dispute_unresolved',
+		4: 'completed',
+		5: 'cancelled',
+		6: 'refunded',
+		7: 'funds_released',
+		8: 'funds_claimed',
+		9: 'no_show',
+		10: 'work_in_progress',
+		11: 'in_dispute_wip'
+	};
+
+	function deriveContractOutcomeFromBlockchainState(state: string) {
+		switch (state) {
+			case 'funds_released':
+			case 'funds_claimed':
+			case 'completed':
+				return 'completed';
+			case 'dispute_resolved':
+				return 'disputed_resolved_payout';
+			case 'dispute_unresolved':
+			case 'refunded':
+				return 'refunded';
+			default:
+				return 'completed';
+		}
+	}
+
+	return {
+		deriveContractOutcomeFromOnchainState: (onchainState: number) => {
+			const mapped = ONCHAIN_STATE_MAP[onchainState];
+			if (!mapped) return null;
+			return deriveContractOutcomeFromBlockchainState(mapped);
+		},
+		computeReviewDraftHash: vi.fn(async () => 'mock-draft-hash'),
+		reviewEventPayloadSchema: { parse: vi.fn((payload: unknown) => payload) }
+	};
+});
+
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
 // Individual tests can override with their own vi.mock if needed

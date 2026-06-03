@@ -2,7 +2,7 @@
 	import { locale, t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import type { AttestedReview } from '$lib/types/review';
-	import { fetchContractProfile } from '$lib/utils/nostr-profile';
+	import { fetchContractProfile } from '$lib/nostr/profile';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconStar from '~icons/mdi/star';
 	import IconReply from '~icons/mdi/reply';

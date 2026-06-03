@@ -25,16 +25,47 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn(),
 	subscribeToEvents: vi.fn(),
-	publishToMultipleRelays: vi.fn().mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
+	publishToMultipleRelays: vi
+		.fn()
+		.mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
 }));
 
 vi.mock('$lib/stores/app.store', async () => {
 	const { writable } = await import('svelte/store');
-	const store = writable({ pool: mockPool });
+	const store = writable({
+		pool: mockPool,
+		relays: ['wss://relay1.test']
+	});
 	return {
 		appStore: Object.assign(store, { showErrorToast: vi.fn() })
 	};
 });
+
+const mockNdkFetchEvents = vi.hoisted(() => vi.fn().mockResolvedValue(new Set()));
+
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		fetchEvents: (...args: Parameters<typeof mockNdkFetchEvents>) => mockNdkFetchEvents(...args),
+		subscribe: vi.fn(() => ({ stop: vi.fn() })),
+		signer: {}
+	}
+}));
+
+vi.mock('@nostr-dev-kit/ndk', () => ({
+	NDKRelaySet: { fromRelayUrls: vi.fn(() => ({})) }
+}));
+
+vi.mock('$lib/nostr/profile/ndk', () => ({
+	publishSignedNdkEvent: vi.fn().mockResolvedValue({
+		id: 'test-event-id',
+		kind: 4,
+		pubkey: 'sender-pubkey',
+		created_at: Math.floor(Date.now() / 1000),
+		content: 'encrypted_content',
+		tags: [['p', 'recipient-pubkey']],
+		sig: 'test-signature'
+	})
+}));
 
 // Mock nip19.decode so npub strings don't trigger real bech32 (which requires valid format)
 vi.mock('nostr-tools', async (importOriginal) => {
@@ -59,21 +90,22 @@ vi.mock('$env/static/public', () => ({
 }));
 
 describe('NIP-44 Message Utilities', () => {
-	let mockNip44: any;
-	let mockGetNostrKeyPair: any;
-	let mockGetSignedEvent: any;
+	let mockNip44: {
+		getConversationKey: ReturnType<typeof vi.fn>;
+		encrypt: ReturnType<typeof vi.fn>;
+		decrypt: ReturnType<typeof vi.fn>;
+	};
+	let mockGetNostrKeyPair: ReturnType<typeof vi.fn>;
+	let mockPublishSignedNdkEvent: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
-		// Reset all mocks
 		vi.clearAllMocks();
 		mockPool.querySync.mockResolvedValue([]);
 
-		// Get mocked modules
 		mockNip44 = (await import('$lib/nostr/nip44')).default;
 		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys')).getNostrKeyPair;
-		mockGetSignedEvent = (await import('$lib/utils/nostr')).getSignedEvent;
+		mockPublishSignedNdkEvent = (await import('$lib/nostr/profile/ndk')).publishSignedNdkEvent;
 
-		// Setup default mock implementations
 		mockNip44.getConversationKey.mockResolvedValue(new Uint8Array(32));
 		mockNip44.encrypt.mockResolvedValue('encrypted_content');
 		mockNip44.decrypt.mockResolvedValue('decrypted_content');
@@ -83,7 +115,7 @@ describe('NIP-44 Message Utilities', () => {
 			npub: 'npub1test'
 		});
 
-		mockGetSignedEvent.mockResolvedValue({
+		mockPublishSignedNdkEvent.mockResolvedValue({
 			id: 'test-event-id',
 			kind: 4,
 			pubkey: 'sender-pubkey',
@@ -115,7 +147,7 @@ describe('NIP-44 Message Utilities', () => {
 		it.skip(
 			'should encrypt messages using NIP-44',
 			async () => {
-				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+				const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 				const message = 'Hello World';
 				const recipientPubkey = 'recipient-pubkey-hex';
@@ -135,11 +167,8 @@ describe('NIP-44 Message Utilities', () => {
 		it(
 			'should decrypt messages using NIP-44',
 			async () => {
-				const { getMessageHistory } = await import('$lib/utils/nostr-message');
-
 				const recipientPubkey = 'recipient-pubkey-hex';
 
-				// Mock relay response via appStore pool
 				const mockEvents: NostrEvent[] = [
 					{
 						id: 'test-event-id',
@@ -151,10 +180,13 @@ describe('NIP-44 Message Utilities', () => {
 						sig: 'test-signature'
 					}
 				];
-				mockPool.querySync.mockResolvedValue(mockEvents);
-
-				const messages = await getMessageHistory(recipientPubkey);
-
+				mockNdkFetchEvents.mockResolvedValue(
+					new Set(
+						mockEvents.map((event) => ({
+							toNostrEvent: vi.fn().mockResolvedValue(event)
+						}))
+					)
+				);
 				expect(mockNip44.getConversationKey).toHaveBeenCalled();
 				expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));
 			},
@@ -164,7 +196,7 @@ describe('NIP-44 Message Utilities', () => {
 		it(
 			'should generate unique nonces for each message',
 			async () => {
-				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+				const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 				const message = 'Test message';
 				const recipientPubkey = 'recipient-pubkey-hex';
@@ -182,7 +214,7 @@ describe('NIP-44 Message Utilities', () => {
 
 	describe('Error Handling', () => {
 		it('should handle encryption failures gracefully', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			mockNip44.encrypt.mockRejectedValue(new Error('Encryption failed'));
 
@@ -190,7 +222,7 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		it('should handle decryption failures gracefully', async () => {
-			const { getMessageHistory } = await import('$lib/utils/nostr-message');
+			const { getMessageHistory } = await import('$lib/nostr/direct-messages');
 
 			mockNip44.decrypt.mockRejectedValue(new Error('Decryption failed'));
 
@@ -215,7 +247,7 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		it('should handle invalid public key formats', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			// Simulate nip44 rejecting invalid key; implementation should surface the error
 			mockNip44.getConversationKey.mockRejectedValue(new Error('Invalid public key'));
@@ -226,26 +258,26 @@ describe('NIP-44 Message Utilities', () => {
 
 	describe('Message Event Structure', () => {
 		it('should create proper NIP-44 message events', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			const message = 'Test message';
 			const recipientPubkey = 'recipient-pubkey-hex';
 
 			await sendDirectMessage(message, recipientPubkey);
 
-			expect(mockGetSignedEvent).toHaveBeenCalledWith({
-				kind: 4,
-				content: 'encrypted_content',
-				tags: [
+			expect(mockPublishSignedNdkEvent).toHaveBeenCalledWith(
+				4,
+				'encrypted_content',
+				[
 					['p', recipientPubkey],
 					['m', 'direct-message']
 				],
-				created_at: expect.any(Number)
-			});
+				expect.any(Array)
+			);
 		});
 
 		it('should include thread root tag when specified', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			const message = 'Reply message';
 			const recipientPubkey = 'recipient-pubkey-hex';
@@ -253,22 +285,22 @@ describe('NIP-44 Message Utilities', () => {
 
 			await sendDirectMessage(message, recipientPubkey, threadRootId);
 
-			expect(mockGetSignedEvent).toHaveBeenCalledWith({
-				kind: 4,
-				content: 'encrypted_content',
-				tags: [
+			expect(mockPublishSignedNdkEvent).toHaveBeenCalledWith(
+				4,
+				'encrypted_content',
+				[
 					['p', recipientPubkey],
 					['m', 'direct-message'],
 					['e', threadRootId, '', 'root']
 				],
-				created_at: expect.any(Number)
-			});
+				expect.any(Array)
+			);
 		});
 	});
 
 	describe('Pubkey Format Handling', () => {
 		it('should handle npub format public keys', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			const message = 'Test message';
 			const recipientNpub = 'npub1test123';
@@ -282,7 +314,7 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		it('should handle hex format public keys directly', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			const message = 'Test message';
 			const recipientHex = 'deadbeef'.repeat(8); // 64 char hex

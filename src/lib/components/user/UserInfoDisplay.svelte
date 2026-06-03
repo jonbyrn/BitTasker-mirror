@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { fetchProfileMetadata, getCachedProfile } from '$lib/nostr/profile';
 	import { ndk } from '$lib/nostr/ndk';
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
@@ -315,14 +315,7 @@
 	 */
 	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
-			// Convert hex to npub for fetchProfileMetadata using NDK
-			const npubToFetch = hexToNpub(currentPubkey);
-			if (!npubToFetch) {
-				fetchedProfile = null;
-				return;
-			}
-
-			const profile = await fetchProfileMetadata(npubToFetch);
+			const profile = await fetchProfileMetadata(currentPubkey);
 
 			if (requestId !== activeProfileRequestId) {
 				return;
@@ -424,37 +417,54 @@
 		activeProfileRequestId += 1;
 		const requestId = activeProfileRequestId;
 
-		fetchedProfile = null;
-
 		if (!currentPubkey) {
+			fetchedProfile = null;
 			userRanking = null;
 			reviewCount = 0;
 			calculatedRating = 0;
 			return;
 		}
 
-		// Check cache first — avoid flash of empty state when data is already loaded
-		if (ratingProp === null || ratingProp === undefined) {
-			const cached = getCachedReviews(currentPubkey);
-			if (cached) {
-				reviewCount = cached.reviewCount;
-				calculatedRating = cached.averageRating;
-				userRanking = cached.ranking;
-				isLoadingReviews = false;
-				void loadUserProfile(currentPubkey, requestId);
-				return;
+		const syncProfileAndReviews = async () => {
+			const cachedProfile = await getCachedProfile(currentPubkey);
+			if (requestId !== activeProfileRequestId) return;
+
+			if (cachedProfile) {
+				const hasMeaningful = Boolean(
+					sanitizeDisplayName(cachedProfile.name) ||
+						cachedProfile.picture?.trim() ||
+						cachedProfile.createdAt?.trim()
+				);
+				if (hasMeaningful) {
+					fetchedProfile = cachedProfile;
+				}
 			}
-		}
 
-		// Cache miss — reset and fetch both
-		userRanking = null;
-		reviewCount = 0;
-		calculatedRating = 0;
+			if (ratingProp === null || ratingProp === undefined) {
+				const cachedReviews = getCachedReviews(currentPubkey);
+				if (cachedReviews) {
+					reviewCount = cachedReviews.reviewCount;
+					calculatedRating = cachedReviews.averageRating;
+					userRanking = cachedReviews.ranking;
+					isLoadingReviews = false;
+					await loadUserProfile(currentPubkey, requestId);
+					return;
+				}
+			}
 
-		void Promise.all([
-			loadUserProfile(currentPubkey, requestId),
-			loadUserReviews(currentPubkey, requestId)
-		]);
+			userRanking = null;
+			reviewCount = 0;
+			calculatedRating = 0;
+
+			await Promise.all([
+				loadUserProfile(currentPubkey, requestId),
+				loadUserReviews(currentPubkey, requestId)
+			]);
+		};
+
+		syncProfileAndReviews().catch((error) => {
+			console.error('[UserInfoDisplay] Failed to sync profile and reviews:', error);
+		});
 	});
 </script>
 

@@ -11,7 +11,7 @@ import {
 } from '$lib/utils/reviews/status-mapper';
 import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
 import { getNpub } from '$lib/utils/nostrKeys';
-import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+import { fetchProfileMetadata } from '$lib/nostr/profile';
 import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
 import { ndk } from '$lib/nostr/ndk';
 import {

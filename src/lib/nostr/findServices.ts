@@ -17,7 +17,7 @@ import { findServiceByUniqueId } from './service';
 import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
-import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 
 // Constants

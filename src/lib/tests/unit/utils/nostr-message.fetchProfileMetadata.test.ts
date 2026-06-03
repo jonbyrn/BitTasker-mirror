@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readable } from 'svelte/store';
+import { nip19 } from 'nostr-tools';
 
-const mockQuerySync = vi.hoisted(() => vi.fn());
+const mockFetchEvents = vi.hoisted(() => vi.fn());
 const mockProfileCacheStore = vi.hoisted(
 	() => new Map<string, { name?: string; picture?: string; createdAt?: string }>()
 );
@@ -16,13 +16,58 @@ const mockCacheProfile = vi.hoisted(() =>
 	)
 );
 
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: readable({
-		pool: {
-			querySync: (...args: Parameters<typeof mockQuerySync>) => mockQuerySync(...args)
-		}
-	})
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		fetchEvents: (...args: Parameters<typeof mockFetchEvents>) => mockFetchEvents(...args)
+	}
 }));
+
+vi.mock('@nostr-dev-kit/ndk', () => ({
+	NDKRelaySet: {
+		fromRelayUrls: vi.fn(() => ({}))
+	}
+}));
+
+vi.mock('$lib/utils/session', () => ({
+	destroySession: vi.fn()
+}));
+
+vi.mock('$lib/stores/task.store', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/task.store')>();
+	return {
+		...actual,
+		tasksStore: {
+			subscribe: vi.fn(() => () => {}),
+			update: vi.fn(),
+			set: vi.fn(),
+			reset: vi.fn(),
+			pool: { querySync: vi.fn(() => []), subscribe: vi.fn(() => ({ close: vi.fn() })) }
+		},
+		myTasksStore: {
+			subscribe: vi.fn(() => () => {}),
+			update: vi.fn(),
+			set: vi.fn(),
+			reset: vi.fn()
+		}
+	};
+});
+
+vi.mock('$lib/stores/app.store', () => ({
+	appStore: {
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
+	},
+	get: vi.fn(() => ({ relays: ['wss://relay.example'] }))
+}));
+
+vi.mock('svelte/store', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('svelte/store')>();
+	return {
+		...actual,
+		get: vi.fn(() => ({ relays: ['wss://relay.example'] }))
+	};
+});
 
 vi.mock('$lib/utils/profile-cache', () => ({
 	profileCache: {
@@ -32,8 +77,25 @@ vi.mock('$lib/utils/profile-cache', () => ({
 	}
 }));
 
-import { nip19 } from 'nostr-tools';
-import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+import { fetchProfileMetadata } from '$lib/nostr/profile/display-profile';
+
+function mockNdkProfileEvent(
+	pubkey: string,
+	content: Record<string, unknown>,
+	createdAt = 1_700_000_000
+) {
+	return {
+		toNostrEvent: vi.fn().mockResolvedValue({
+			kind: 0,
+			pubkey,
+			created_at: createdAt,
+			content: JSON.stringify(content),
+			tags: [],
+			id: 'id',
+			sig: 'sig'
+		})
+	};
+}
 
 describe('fetchProfileMetadata', () => {
 	const pubkey = 'c'.repeat(64);
@@ -45,15 +107,11 @@ describe('fetchProfileMetadata', () => {
 	});
 
 	it('does not cache empty profile lookups, allowing later retries to succeed', async () => {
-		mockQuerySync.mockResolvedValueOnce([]).mockResolvedValueOnce([
-			{
-				kind: 0,
-				pubkey,
-				created_at: 1_700_000_000,
-				content: JSON.stringify({ display_name: 'Recovered Name' }),
-				tags: []
-			}
-		]);
+		mockFetchEvents
+			.mockResolvedValueOnce(new Set())
+			.mockResolvedValueOnce(
+				new Set([mockNdkProfileEvent(pubkey, { display_name: 'Recovered Name' })])
+			);
 
 		const firstResult = await fetchProfileMetadata(npub);
 		expect(firstResult).toEqual({});
@@ -65,19 +123,13 @@ describe('fetchProfileMetadata', () => {
 				name: 'Recovered Name'
 			})
 		);
-		expect(mockQuerySync).toHaveBeenCalledTimes(2);
+		expect(mockFetchEvents).toHaveBeenCalledTimes(2);
 	});
 
 	it('uses a canonical cache key so npub and hex lookups share the same cached profile', async () => {
-		mockQuerySync.mockResolvedValueOnce([
-			{
-				kind: 0,
-				pubkey,
-				created_at: 1_700_000_001,
-				content: JSON.stringify({ display_name: 'Canonical User' }),
-				tags: []
-			}
-		]);
+		mockFetchEvents.mockResolvedValueOnce(
+			new Set([mockNdkProfileEvent(pubkey, { display_name: 'Canonical User' })])
+		);
 
 		const firstResult = await fetchProfileMetadata(npub);
 		expect(firstResult).toEqual(
@@ -92,6 +144,6 @@ describe('fetchProfileMetadata', () => {
 				name: 'Canonical User'
 			})
 		);
-		expect(mockQuerySync).toHaveBeenCalledTimes(1);
+		expect(mockFetchEvents).toHaveBeenCalledTimes(1);
 	});
 });

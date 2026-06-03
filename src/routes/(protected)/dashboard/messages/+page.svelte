@@ -6,14 +6,14 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import {
-		fetchProfileMetadata,
 		getMessagedPeople,
-		listenForIncomingMessages
-	} from '$lib/utils/nostr-message';
+		listenForIncomingMessages,
+		parseDMEvent
+	} from '$lib/nostr/direct-messages';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { parseDMEvent } from '$lib/utils/nostr-message';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { appStore } from '$lib/stores/app.store';
 	import { messageTranslations } from '$lib/stores/translation.store';
@@ -881,7 +881,8 @@
 								{#if newMessageProfile.picture}
 									<img
 										src={newMessageProfile.picture}
-										alt={newMessageProfile.name || (newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
+										alt={newMessageProfile.name ||
+											(newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
 										class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
 										width={40}
 										height={40}
@@ -915,7 +916,8 @@
 							</div>
 							<div class="min-w-0 flex-1">
 								<p class="truncate font-medium">
-									{newMessageProfile.name || (newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
+									{newMessageProfile.name ||
+										(newMessageProfile.pubkey ? truncateNpub(newMessageProfile.pubkey) : '')}
 								</p>
 								<p class="text-base-content/60 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')

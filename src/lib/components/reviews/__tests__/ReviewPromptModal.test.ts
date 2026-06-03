@@ -40,8 +40,9 @@ vi.mock('$lib/utils/contract/reviewContractsFromNdk', () => ({
 	fetchIContractForReviewByEscrowId: mocks.fetchIContractForReviewByEscrowId
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
-	fetchProfileMetadata: mocks.fetchProfileMetadata
+vi.mock('$lib/nostr/profile', () => ({
+	fetchProfileMetadata: mocks.fetchProfileMetadata,
+	getCachedProfile: vi.fn().mockResolvedValue(null)
 }));
 
 vi.mock('$lib/nostr/ndk', () => ({

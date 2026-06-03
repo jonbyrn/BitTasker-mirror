@@ -1,0 +1,59 @@
+---
+description: Global BitTasker development preferences from accepted patterns and review cycles
+alwaysApply: true
+---
+
+# User Development Preferences
+
+Apply on every task unless the user overrides in the current message.
+
+## How to work
+
+- **Think before acting**: Read full files; trace dependencies across domains (auth, contracts, payments, reviews, Nostr). Do not trust stale docs or comments—verify in source.
+- **High confidence before done**: Investigate until types, lint, and tests agree (~95% confidence). Surface uncertainty instead of guessing.
+- **Minimal scope**: Smallest correct diff; no drive-by refactors, no extra files unless necessary.
+- **Tests after fixes**: Run targeted tests for the touched area first; full `test:unit` / `test:ci` when the change is broad or before calling work complete.
+- **Iterate until green**: If CI or `test:unit` fails, fix root cause and re-run; do not stop at partial fixes.
+
+## Naming and APIs
+
+- **Function names: at most three words** (e.g. `fetchProfileMetadata`, `parseProfileEvents`, `mergeProfileEvent`).
+- **No redundant suffixes** (`Display`, `Ndk`, `Helper`) when the module or type already conveys context.
+- **No deprecated wrappers**: migrate call sites, then delete old exports—do not leave `@deprecated` shims indefinitely.
+- **Reuse existing code**: search before creating; extend with props/composition instead of duplicating components.
+- **Match local conventions**: naming, imports, error handling, and comment density of the file you edit.
+
+## Code quality
+
+- **TypeScript**: proper types; `unknown` + guards instead of `any`; no `eslint-disable` / `ts-ignore` / `ts-expect-error`.
+- **Svelte 5**: `$state`, `$derived`, `$props`, `onclick`—no legacy `on:`, `export let`, or `createEventDispatcher`.
+- **Functional style**: pure business logic; immutable data; early returns; side effects in stores/services only.
+- **No `void` on promises**: use `async` flows with `.catch()` or explicit handling at the source.
+- **Platform**: guard Capacitor plugins; wrap browser-only APIs in `if (browser)` where the app may SSR/prerender.
+- **Security**: Web Crypto for crypto; never log keys/seeds; validate at boundaries; safe error messages.
+
+## Stack defaults (BitTasker)
+
+- **UI**: DaisyUI + Tailwind; semantic colors; `alert-outline`; mobile-first; no inline hex.
+- **i18n**: every user-facing string via `$t()`; en + es; run `python3 scripts/find-missing-translations.py --fix-suggestions` before commit when locales change.
+- **Nostr I/O**: NDK under `src/lib/nostr/` (profile module, `direct-messages.ts`); avoid resurrecting deleted `nostr-tools` pool monoliths.
+- **Pubkey lookup**: `normalizeProfileLookupKey()` → `.hexPubkey` / `.cacheKey`.
+
+## Testing
+
+- Meaningful tests only—behavior and edge cases, not obvious tautologies.
+- Mock at boundaries (NDK, Capacitor, APIs); update mocks when renaming public exports.
+- `npm run check` after TypeScript changes; `npm run lint` before finish.
+
+## Git and delivery
+
+- **Commit only when the user asks**; new commits (no amend unless hooks require it); never `--no-verify`.
+- **Do not add markdown docs** unless requested.
+- **After large features** (multi-file, new subsystem, or user-visible flow): end the implementation reply with a **suggested commit message** (1–2 sentences, focus on why) and a short **test plan** checklist—even if the user has not asked to commit yet.
+
+## What to avoid
+
+- Over-engineering, 3-line re-export files, and compatibility aliases without a migration plan.
+- Long identifier names and duplicate helpers for the same concept.
+- Assuming the first solution is correct without running checks/tests.
+- Proactive commits or scope creep beyond the request.

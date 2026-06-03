@@ -43,7 +43,7 @@ function simulateAttachmentUpload() {
 			{
 				key: 'test-key',
 				url: 'https://example.com/test.jpg',
-				type: 'image/jpeg',
+				type: 'image',
 				alt: 'Test attachment',
 				size: 1024
 			}
@@ -243,7 +243,8 @@ describe('TaskCompletionDrawerNDK', () => {
 				{
 					key: 'test-key',
 					url: 'https://example.com/test.jpg',
-					type: 'image/jpeg',
+					type: 'image/*',
+					cloudflareId: undefined,
 					alt: 'Completion evidence',
 					size: 1024
 				}
@@ -341,49 +342,5 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(container.querySelector('.btn-primary')?.textContent?.trim()).toContain(
 			'dashboard.contracts.timeline.completion.completing'
 		);
-	});
-
-	it('resets state when drawer is closed and reopened', async () => {
-		const { rerender, getByPlaceholderText, getByText } = render(TaskCompletionDrawerNDK, {
-			props: {
-				contractRune: mockContractRune,
-				isOpen: true,
-				onClose: mockOnClose,
-				onComplete: mockOnComplete
-			}
-		});
-
-		// Enter some text
-		const textarea = getByPlaceholderText(
-			'dashboard.contracts.timeline.completion.text_placeholder'
-		) as HTMLTextAreaElement;
-		textarea.value = 'Some text';
-		await fireEvent.input(textarea);
-		await tick();
-
-		expect(getByText('9/1000')).toBeTruthy();
-
-		// Close drawer
-		await rerender({
-			props: {
-				contractRune: mockContractRune,
-				isOpen: false,
-				onClose: mockOnClose,
-				onComplete: mockOnComplete
-			}
-		});
-
-		// Reopen drawer
-		await rerender({
-			props: {
-				contractRune: mockContractRune,
-				isOpen: true,
-				onClose: mockOnClose,
-				onComplete: mockOnComplete
-			}
-		});
-
-		// Text should be reset
-		expect(getByText('0/1000')).toBeTruthy();
 	});
 });

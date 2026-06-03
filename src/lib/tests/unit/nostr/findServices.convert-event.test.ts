@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { convertEventToService } from '$lib/nostr/findServices';
-import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 import KINDS from '$lib/utils/constants/kinds';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import type { Event } from 'nostr-tools';
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchComprehensiveProfile: vi.fn().mockResolvedValue(null)
 }));
 

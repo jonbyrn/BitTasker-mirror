@@ -36,7 +36,7 @@
 
 		try {
 			// Import the message sending function
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			// Send the message
 			await sendDirectMessage(messageText.trim(), props.recipientPubkey);

@@ -2,7 +2,7 @@
 	import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import { getRevieweeRoleFromContractParticipants } from '$lib/utils/reviews/helpers';
 	import { nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
 	import { fetchIContractForReviewByEscrowId } from '$lib/utils/contract/reviewContractsFromNdk';

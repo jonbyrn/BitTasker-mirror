@@ -18,7 +18,7 @@ vi.mock('$lib/nostr/muteList', () => ({
 	unmutePubkey: mockUnmutePubkey
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchProfileMetadata: mockFetchProfileMetadata
 }));
 

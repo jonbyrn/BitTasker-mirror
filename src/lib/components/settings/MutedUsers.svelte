@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import { muteStore } from '$lib/stores/mute.store';
 	import { unmutePubkey } from '$lib/nostr/muteList';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import { appStore } from '$lib/stores/app.store';
 
 	// Derived directly from the store — reactive, no effect needed

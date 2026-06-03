@@ -9,7 +9,7 @@
 	} from '$lib/types/profile.d';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+	import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 	import { truncateNpub } from '$lib/utils/nostr';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
@@ -422,7 +422,7 @@
 
 		try {
 			// Importar la función de envío de mensajes
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
 			// Enviar el mensaje
 			await sendDirectMessage(messageText.trim(), hexPubkey);
