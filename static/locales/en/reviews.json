@@ -71,7 +71,13 @@
 				"internal_error": "Something went wrong on our end. Please try again later.",
 				"missing_reviewee_wallet": "Reviewee wallet address is missing. Reload the page or open the contract again.",
 				"missing_reviewer_wallet": "Could not resolve your wallet for this contract. Reconnect your RSK wallet.",
-				"missing_party_wallet_addresses": "Participant wallet addresses are still loading from the chain. Wait a moment and try again."
+				"missing_party_wallet_addresses": "Participant wallet addresses are still loading from the chain. Wait a moment and try again.",
+				"challenge_invalid": "Review verification expired or is invalid. Please try again.",
+				"challenge_expired": "Review verification expired. Please submit again.",
+				"participant_mismatch": "Wallet or identity does not match this contract. Reopen the contract and try again.",
+				"settlement_not_reviewable": "This contract is not ready for a review yet.",
+				"rate_limited": "Too many attempts. Please wait and try again.",
+				"review_payload_invalid": "Review data could not be validated. Check ratings and try again."
 			}
 		},
 		"verified": "Verified",

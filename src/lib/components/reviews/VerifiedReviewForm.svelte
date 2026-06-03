@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
+	import { ReviewApiError } from '$lib/api/services/reviewsAttestation.service';
 	import { buildSignedReviewEvent, submitAttestedReview } from '$lib/utils/reviews/attestation';
+	import { resolveContractOutcomeFromStatus } from '$lib/utils/reviews/contractOutcome';
+	import { computeReviewDraftHash, reviewEventPayloadSchema } from '@bittasker/reviews-contracts';
 	import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { getNpub } from '$lib/utils/nostrKeys';
@@ -93,26 +96,34 @@
 		wallet_signature_invalid: 'wallet_signature_invalid',
 		internal_error: 'internal_error',
 		missing_reviewee_wallet: 'missing_reviewee_wallet',
-		missing_reviewer_wallet: 'missing_reviewer_wallet'
+		missing_reviewer_wallet: 'missing_reviewer_wallet',
+		challenge_invalid: 'challenge_invalid',
+		challenge_expired: 'challenge_expired',
+		participant_mismatch: 'participant_mismatch',
+		settlement_not_reviewable: 'settlement_not_reviewable',
+		rate_limited: 'rate_limited',
+		attestation_rate_limited: 'rate_limited',
+		request_invalid: 'review_payload_invalid'
 	};
 
 	const getBackendErrorMessage = (error: unknown): string => {
-		if (error instanceof Error) {
-			const errorCode = error.message.toLowerCase().replace(/\s+/g, '_');
-			const mappedKey = BACKEND_ERROR_CODE_MAP[errorCode];
+		if (error instanceof ReviewApiError) {
+			const mappedKey = BACKEND_ERROR_CODE_MAP[error.code];
 			if (mappedKey) {
 				return getFormErrorText(mappedKey, error.message);
 			}
-
-			for (const [code, translationKey] of Object.entries(BACKEND_ERROR_CODE_MAP)) {
-				if (
-					error.message.toLowerCase().includes(code.replace(/_/g, ' ')) ||
-					error.message.toLowerCase().includes(code)
-				) {
-					return getFormErrorText(translationKey, error.message);
+			return error.message;
+		}
+		if (error instanceof Error) {
+			if (
+				error.message === 'missing_reviewee_wallet' ||
+				error.message === 'missing_reviewer_wallet'
+			) {
+				const mappedKey = BACKEND_ERROR_CODE_MAP[error.message];
+				if (mappedKey) {
+					return getFormErrorText(mappedKey, error.message);
 				}
 			}
-
 			return error.message;
 		}
 		return getFormErrorText('submit_failed', 'Unable to submit review. Please try again.');
@@ -346,17 +357,17 @@
 				}
 
 				const createdAt = Math.floor(Date.now() / 1000);
-				const trimmedComment = comment.trim() || '';
+				const trimmedComment = comment.trim();
+				const contractOutcome = resolveContractOutcomeFromStatus(contract.status);
 
-				// Build canonical payload matching reviewEventPayloadSchema minus reviewDraftHash
-				const canonicalPayload = {
-					schemaVersion: 1,
+				const payloadWithoutHash = {
+					schemaVersion: 1 as const,
 					subjectType: 'task' as const,
 					settlementType: contract.settlementType,
 					revieweePubkey: normalizedReviewee,
 					reviewerRole: resolvedReviewerRole,
 					revieweeRole: resolvedRevieweeRole,
-					contractOutcome: 'completed' as const,
+					contractOutcome,
 					createdAt,
 					rating: { overallRating, categoryRatings: { ...categoryRatings } },
 					content: {
@@ -364,19 +375,14 @@
 						en: { comment: trimmedComment },
 						es: { comment: trimmedComment }
 					},
-					attachments: [] as Array<Record<string, unknown>>
+					attachments: [] as []
 				};
 
-				const canonicalJson = JSON.stringify(canonicalPayload);
-				const hashBuffer = await crypto.subtle.digest(
-					'SHA-256',
-					new TextEncoder().encode(canonicalJson)
-				);
-				const reviewDraftHash = Array.from(new Uint8Array(hashBuffer))
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('');
-
-				const eventPayload = { ...canonicalPayload, reviewDraftHash };
+				const reviewDraftHash = await computeReviewDraftHash(payloadWithoutHash);
+				const eventPayload = reviewEventPayloadSchema.parse({
+					...payloadWithoutHash,
+					reviewDraftHash
+				});
 
 				const signedEvent = await buildSignedReviewEvent(eventPayload, [
 					['p', normalizedReviewee],
@@ -397,7 +403,8 @@
 					contractAddress: contract.contractAddress,
 					revieweeNpub: normalizedReviewee,
 					revieweeWallet: revieweeWalletResolved,
-					reviewerWallet: reviewerWalletResolved
+					reviewerWallet: reviewerWalletResolved,
+					expectedContractOutcome: contractOutcome
 				});
 
 				eventId = result.attestationEventId;

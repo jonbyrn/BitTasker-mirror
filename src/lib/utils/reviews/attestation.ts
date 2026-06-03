@@ -1,4 +1,8 @@
-import { reviewsAttestationClient } from '$lib/api/services/reviewsAttestation.service';
+import {
+	ReviewApiError,
+	reviewsAttestationClient
+} from '$lib/api/services/reviewsAttestation.service';
+import type { ReviewContractOutcome } from '@bittasker/reviews-contracts';
 import type { ReviewChallengeRequest } from '$lib/types/review';
 import type { NostrEventLike } from '@bittasker/reviews-contracts';
 import KINDS from '$lib/utils/constants/kinds';
@@ -49,6 +53,7 @@ export async function submitAttestedReview(params: {
 	revieweeNpub: string;
 	revieweeWallet: string;
 	reviewerWallet: string;
+	expectedContractOutcome: ReviewContractOutcome;
 }): Promise<AttestationFlowResult> {
 	const { npub } = await getNostrKeyPair();
 	if (!npub) throw new Error('Not authenticated');
@@ -87,6 +92,14 @@ export async function submitAttestedReview(params: {
 	};
 
 	const challenge = await reviewsAttestationClient.requestChallenge(challengeRequest);
+
+	if (challenge.contractOutcome !== params.expectedContractOutcome) {
+		throw new ReviewApiError(
+			'Settlement outcome does not match the review payload',
+			'contract_outcome_invalid',
+			409
+		);
+	}
 
 	const [nostrSignature, walletSignature] = await Promise.all([
 		signWithNostr(challenge.challengeMessage),
