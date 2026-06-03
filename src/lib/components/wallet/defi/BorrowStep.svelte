@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
+	import { ethers } from 'ethers';
+	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import HealthFactorGauge from './HealthFactorGauge.svelte';
+	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
 
 	// -----------------------------------------------------------------------
 	// Props — lightweight for v1; will be extended when DeFiFlowDrawer is built
@@ -22,14 +28,45 @@
 
 	let amount = $state('');
 
-	/** Simulated Aave data — replace with real aave.service.ts calls later. */
-	let ltv = $state(0.7); // 70 %
-	let borrowAPR = $state(3.3); // 3.30 %
-	let gasEstimate = $state(0.15); // $0.15
+	// Live Aave data (fetched on mount; falls back to conservative defaults on error)
+	let ltv = $state(0.7);
+	let borrowAPR = $state(3.3);
+	let gasEstimate = $state(0.15);
+
+	let isLoadingRates = $state(true);
+	let ratesError = $state<string | null>(null);
+
+	let isProcessing = $state(false); // for future tx; drives Drawer isSubmitting
+	let isOnline = $derived($browserNetworkStatus.online);
 
 	let feeExpanded = $state(false);
 
 	let sourceExpanded = $state(false);
+
+	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
+
+	async function loadLiveAaveData() {
+		isLoadingRates = true;
+		ratesError = null;
+
+		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
+		const aave = new AaveService(provider);
+
+		const { data: apr, error: aprErr } = await tryCatch(aave.getVariableBorrowAPR(USDT0_ARBITRUM));
+
+		if (aprErr || apr === undefined) {
+			ratesError = 'wallet.defi.borrow.rates_error';
+			// keep conservative defaults
+		} else {
+			borrowAPR = apr;
+		}
+
+		isLoadingRates = false;
+	}
+
+	onMount(() => {
+		void loadLiveAaveData();
+	});
 
 	// -----------------------------------------------------------------------
 	// Derived values
@@ -44,17 +81,37 @@
 		return n.toLocaleString('en-US');
 	}
 
-	let amountNum = $derived(parseFloat(amount) || 0);
-	let collateralNeeded = $derived(amountNum / ltv);
-	let collateralWbtc = $derived(btcPrice.price > 0 ? collateralNeeded / btcPrice.price : 0);
-	let annualCost = $derived(amountNum * (borrowAPR / 100));
+	let amountNum = $derived.by(() => {
+		const n = parseFloat(amount);
+		return isFinite(n) && n > 0 ? n : 0;
+	});
 
-	let healthFactor = $derived(
-		amountNum > 0 && collateralNeeded > 0 ? wbtcUsdValue / collateralNeeded : 5
-	);
+	let collateralNeeded = $derived.by(() => {
+		if (!isFinite(amountNum) || amountNum <= 0 || !isFinite(ltv) || ltv <= 0) return 0;
+		return amountNum / ltv;
+	});
+
+	let collateralWbtc = $derived.by(() => {
+		if (btcPrice.price <= 0 || collateralNeeded <= 0) return 0;
+		const v = collateralNeeded / btcPrice.price;
+		return isFinite(v) ? v : 0;
+	});
+
+	let annualCost = $derived.by(() => {
+		if (!isFinite(amountNum) || !isFinite(borrowAPR)) return 0;
+		return amountNum * (borrowAPR / 100);
+	});
+
+	let healthFactor = $derived.by(() => {
+		if (amountNum <= 0 || collateralNeeded <= 0 || wbtcUsdValue <= 0) return 5;
+		const hf = wbtcUsdValue / collateralNeeded;
+		return isFinite(hf) ? hf : 5;
+	});
 
 	let hasWbtc = $derived(wbtcBalanceNum > 0);
-	let canBorrow = $derived(amountNum > 0 && hasWbtc);
+	let canBorrow = $derived.by(() => {
+		return amountNum > 0 && hasWbtc && isOnline && !ratesError;
+	});
 
 	let healthStatus = $derived(
 		healthFactor > 2
@@ -62,30 +119,6 @@
 			: healthFactor > 1.5
 				? ('monitor' as const)
 				: ('risk' as const)
-	);
-
-	let healthProgressColor = $derived(
-		healthStatus === 'safe'
-			? 'progress-success'
-			: healthStatus === 'monitor'
-				? 'progress-warning'
-				: 'progress-error'
-	);
-
-	let healthBadgeColor = $derived(
-		healthStatus === 'safe'
-			? 'badge-success'
-			: healthStatus === 'monitor'
-				? 'badge-warning'
-				: 'badge-error'
-	);
-
-	let healthTextKey = $derived(
-		healthStatus === 'safe'
-			? 'wallet.defi.borrow.health_safe'
-			: healthStatus === 'monitor'
-				? 'wallet.defi.borrow.health_monitor'
-				: 'wallet.defi.borrow.health_risk'
 	);
 
 	let gasTooHigh = $derived(gasEstimate > 5);
@@ -127,7 +160,7 @@
 <div class="space-y-4">
 	<!-- Source Wallet -->
 	<WalletSelector
-		label="From:"
+		label={$t('wallet.from') + ':'}
 		selectedId="builtin"
 		onSelect={() => {}}
 		builtinBalance={`${formatSats(wbtcBalanceSats)} Sats`}
@@ -154,25 +187,30 @@
 		</label>
 		<div class="join w-full">
 			<span
-				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0 text-lg"
+				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0 text-lg sm:min-h-[52px]"
 			>
 				$
 			</span>
 			<input
 				id="borrow-amount"
-				type="number"
-				class="input input-bordered join-item min-h-[48px] flex-1 text-lg"
+				type="text"
+				class="input input-bordered join-item min-h-[48px] flex-1 text-lg sm:min-h-[52px] sm:text-base"
 				placeholder="0.00"
 				bind:value={amount}
-				min="0"
-				step="0.01"
 				inputmode="decimal"
+				oninput={(e) => {
+					const target = e.currentTarget as HTMLInputElement;
+					// Normalize comma to dot for locale robustness (iOS/Safari number quirks)
+					if (target.value.includes(',')) {
+						target.value = target.value.replace(/,/g, '.');
+					}
+				}}
 			/>
 			<button
 				type="button"
-				class="btn btn-primary join-item min-h-[48px] rounded-l-none active:scale-95"
+				class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-r-lg active:scale-95 sm:min-h-[52px]"
 				onclick={setMaxAmount}
-				disabled={!hasWbtc}
+				disabled={!hasWbtc || !isOnline}
 			>
 				<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
 			</button>
@@ -207,46 +245,44 @@
 		</div>
 	{/if}
 
-	<!-- Health Factor Gauge (Accessible — WCAG 1.4.1 compliant) -->
-	<div
-		role="meter"
-		aria-valuenow={healthFactor}
-		aria-valuemin="0"
-		aria-valuemax="5"
-		aria-label="Health factor: {healthFactor.toFixed(1)} out of 5. {$t(healthTextKey)}"
-	>
-		<div class="flex items-center gap-2">
-			<progress class="progress flex-1 {healthProgressColor}" value={healthFactor} max="5"
-			></progress>
-			<span class="badge {healthBadgeColor} text-base-content shrink-0 tabular-nums">
-				{$t(healthTextKey)}
-				{healthFactor.toFixed(1)}x
-			</span>
-		</div>
-	</div>
+	<!-- Health Factor Gauge (reused, fully i18n'd + accessible) -->
+	<HealthFactorGauge {healthFactor} status={healthStatus} />
 
 	<!-- Fee Breakdown (collapsed by default) -->
-	<div class="collapse-arrow bg-base-200 rounded-box collapse" class:collapse-open={feeExpanded}>
+	<div
+		class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+		class:collapse-open={feeExpanded}
+	>
 		<button
 			type="button"
-			class="collapse-title text-sm font-medium"
+			class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10 pl-3 text-sm font-medium"
 			onclick={() => (feeExpanded = !feeExpanded)}
 		>
 			{$t('wallet.defi.fee_breakdown')}
 		</button>
-		<div class="collapse-content space-y-1.5 text-sm">
-			<div class="flex justify-between">
-				<span class="text-base-content/60">{$t('wallet.defi.borrow.gas_fee')}</span>
-				<span class="tabular-nums">${gasEstimate.toFixed(2)}</span>
-			</div>
-			<div class="flex justify-between">
-				<span class="text-base-content/60">{$t('wallet.defi.borrow.interest_rate')}</span>
-				<span class="tabular-nums">{borrowAPR.toFixed(2)}% APR</span>
-			</div>
-			<div class="flex justify-between font-medium">
-				<span>{$t('wallet.defi.borrow.annual_cost')}</span>
-				<span class="tabular-nums">${annualCost.toFixed(2)}</span>
-			</div>
+		<div class="collapse-content space-y-1.5 px-2 text-sm">
+			{#if isLoadingRates}
+				<div class="skeleton h-4 w-3/4"></div>
+				<div class="skeleton h-4 w-2/3"></div>
+			{:else}
+				{#if ratesError}
+					<div class="alert alert-soft alert-warning py-1 text-xs">
+						{$t(ratesError)}
+					</div>
+				{/if}
+				<div class="flex justify-between">
+					<span class="text-base-content/60">{$t('wallet.defi.borrow.gas_fee')}</span>
+					<span class="tabular-nums">${gasEstimate.toFixed(2)}</span>
+				</div>
+				<div class="flex justify-between">
+					<span class="text-base-content/60">{$t('wallet.defi.borrow.interest_rate')}</span>
+					<span class="tabular-nums">{borrowAPR.toFixed(2)}% APR</span>
+				</div>
+				<div class="flex justify-between font-medium">
+					<span>{$t('wallet.defi.borrow.annual_cost')}</span>
+					<span class="tabular-nums">${annualCost.toFixed(2)}</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -254,9 +290,10 @@
 	<button
 		type="button"
 		class="btn btn-primary min-h-[48px] w-full text-base"
-		disabled={!canBorrow}
+		disabled={!canBorrow || isProcessing}
 		onclick={handleApproveBorrow}
+		aria-busy={isProcessing}
 	>
-		{$t('wallet.defi.borrow.button_approve_borrow')}
+		{isProcessing ? 'Processing...' : $t('wallet.defi.borrow.button_approve_borrow')}
 	</button>
 </div>

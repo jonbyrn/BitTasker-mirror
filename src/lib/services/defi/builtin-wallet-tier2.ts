@@ -19,7 +19,6 @@ const balanceOfSelector = '0x70a08231';
  */
 const FREE_RPC_ENDPOINTS: Record<number, string> = {
 	56: 'https://bsc-dataseed.binance.org',
-	137: 'https://polygon-rpc.com',
 	42161: 'https://arb1.arbitrum.io/rpc'
 };
 

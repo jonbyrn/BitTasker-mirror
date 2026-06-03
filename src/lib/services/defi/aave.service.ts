@@ -1,6 +1,7 @@
-import { ethers } from 'ethers';
+import { ethers, Interface } from 'ethers';
 import { tryCatch } from '$lib/utils/tryCatch';
 import * as Sentry from '@sentry/sveltekit';
+import type { EVMSigner, EVMTransactionResult } from '$lib/services/external-wallet/types';
 
 // ---------------------------------------------------------------------------
 // Contract Addresses (Arbitrum One)
@@ -88,6 +89,11 @@ function usd8ToNumber(value: bigint): number {
 function wadToNumber(value: bigint): number {
 	return Number(value) / 1e18;
 }
+
+/** Signer union for full tx support: ethers.Signer for built-in wallet paths,
+ * EVMSigner for connected external wallets (Arbitrum etc). Abstraction lives
+ * here + caller (WalletSelector + getEvmSigner patterns). */
+export type DeFiSigner = ethers.Signer | EVMSigner;
 
 // ---------------------------------------------------------------------------
 // AaveService
@@ -190,13 +196,48 @@ export class AaveService {
 		};
 	}
 
+	// -- Gas Helpers (for full tx support + connected wallets) -------------
+
+	/**
+	 * Estimate gas for a call with 20% buffer. Falls back to default on error
+	 * (common for complex DeFi tx where eth_estimateGas reverts pre-approval).
+	 * Used by both builtin signer path and EVMSigner tx prep.
+	 */
+	async estimateGasForCall(
+		to: string,
+		data: string,
+		value: bigint = 0n,
+		defaultGas = 300_000n
+	): Promise<bigint> {
+		Sentry.addBreadcrumb({
+			category: 'defi.aave',
+			message: 'estimateGasForCall',
+			data: { to }
+		});
+
+		const { data: gas, error } = await tryCatch(this.provider.estimateGas({ to, data, value }));
+
+		if (error || gas == null) {
+			Sentry.addBreadcrumb({
+				category: 'defi.aave',
+				message: 'estimateGasForCall fallback',
+				data: { error: error?.message || 'no gas' }
+			});
+			return defaultGas;
+		}
+		// 20% buffer for safety on Arbitrum DeFi ops
+		return (gas * 120n) / 100n;
+	}
+
 	// -- Write Operations (require a Signer) -------------------------------
 
-	/** Supply tokens to Aave. Requires prior ERC-20 approval. */
+	/** Supply tokens to Aave. Requires prior ERC-20 approval.
+	 *  signer: DeFiSigner supports ethers.Signer (builtin) and EVMSigner (connected wallets)
+	 *  for full tx abstraction. Current impl for ethers; EVMSigner path via *WithEvmSigner overloads. */
 	async supply(
 		asset: string,
 		amount: bigint,
-		signer: ethers.Signer
+		signer: DeFiSigner
 	): Promise<ethers.TransactionResponse> {
 		Sentry.addBreadcrumb({
 			category: 'defi.aave',
@@ -204,16 +245,30 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
-		const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-		const addr = await signer.getAddress();
-		return pool.supply(asset, amount, addr, 0);
+		const { data: tx, error } = await tryCatch(async () => {
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
+			const addr = await (signer as ethers.Signer).getAddress();
+			return pool.supply(asset, amount, addr, 0);
+		});
+		if (error || !tx) {
+			const msg = `Aave supply failed for ${asset}: ${error?.message}`;
+			Sentry.addBreadcrumb({
+				category: 'defi.aave',
+				message: 'supply error',
+				data: { asset, error: error?.message }
+			});
+			throw new Error(msg);
+		}
+		return tx;
 	}
 
-	/** Borrow tokens from Aave. Requires prior collateral supply. */
+	/** Borrow tokens from Aave. Requires prior collateral supply.
+	 *  signer: DeFiSigner supports ethers.Signer (builtin) and EVMSigner (connected wallets)
+	 *  for full tx abstraction. Current impl for ethers; EVMSigner path via *WithEvmSigner overloads. */
 	async borrow(
 		asset: string,
 		amount: bigint,
-		signer: ethers.Signer
+		signer: DeFiSigner
 	): Promise<ethers.TransactionResponse> {
 		Sentry.addBreadcrumb({
 			category: 'defi.aave',
@@ -221,17 +276,29 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
-		const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-		const addr = await signer.getAddress();
-		// interestRateMode = 2 → VARIABLE (stable rate is deprecated on Arbitrum V3)
-		return pool.borrow(asset, amount, 2, 0, addr);
+		const { data: tx, error } = await tryCatch(async () => {
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
+			const addr = await (signer as ethers.Signer).getAddress();
+			// interestRateMode = 2 → VARIABLE (stable rate is deprecated on Arbitrum V3)
+			return pool.borrow(asset, amount, 2, 0, addr);
+		});
+		if (error || !tx) {
+			const msg = `Aave borrow failed for ${asset}: ${error?.message}`;
+			Sentry.addBreadcrumb({
+				category: 'defi.aave',
+				message: 'borrow error',
+				data: { asset, error: error?.message }
+			});
+			throw new Error(msg);
+		}
+		return tx;
 	}
 
 	/** Repay borrowed tokens to Aave. */
 	async repay(
 		asset: string,
 		amount: bigint,
-		signer: ethers.Signer
+		signer: DeFiSigner
 	): Promise<ethers.TransactionResponse> {
 		Sentry.addBreadcrumb({
 			category: 'defi.aave',
@@ -239,16 +306,28 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
-		const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-		const addr = await signer.getAddress();
-		return pool.repay(asset, amount, 2, addr);
+		const { data: tx, error } = await tryCatch(async () => {
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
+			const addr = await (signer as ethers.Signer).getAddress();
+			return pool.repay(asset, amount, 2, addr);
+		});
+		if (error || !tx) {
+			const msg = `Aave repay failed for ${asset}: ${error?.message}`;
+			Sentry.addBreadcrumb({
+				category: 'defi.aave',
+				message: 'repay error',
+				data: { asset, error: error?.message }
+			});
+			throw new Error(msg);
+		}
+		return tx;
 	}
 
 	/** Withdraw supplied tokens from Aave. */
 	async withdraw(
 		asset: string,
 		amount: bigint,
-		signer: ethers.Signer
+		signer: DeFiSigner
 	): Promise<ethers.TransactionResponse> {
 		Sentry.addBreadcrumb({
 			category: 'defi.aave',
@@ -256,8 +335,143 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
-		const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-		const addr = await signer.getAddress();
-		return pool.withdraw(asset, amount, addr);
+		const { data: tx, error } = await tryCatch(async () => {
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
+			const addr = await (signer as ethers.Signer).getAddress();
+			return pool.withdraw(asset, amount, addr);
+		});
+		if (error || !tx) {
+			const msg = `Aave withdraw failed for ${asset}: ${error?.message}`;
+			Sentry.addBreadcrumb({
+				category: 'defi.aave',
+				message: 'withdraw error',
+				data: { asset, error: error?.message }
+			});
+			throw new Error(msg);
+		}
+		return tx;
+	}
+
+	// -- Connected Wallet (EVMSigner) Tx Paths for Full Support -----------
+	// These provide signer abstraction for connected wallets (via getEvmSigner).
+	// Use after ERC20 approval where needed. Caller responsible for chain (Arbitrum 42161).
+
+	/** Supply via connected EVMSigner (returns EVM result with hash). */
+	async supplyWithEvmSigner(
+		asset: string,
+		amount: bigint,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		Sentry.addBreadcrumb({
+			category: 'defi.aave',
+			message: 'supplyWithEvmSigner',
+			data: { asset, amount: amount.toString() }
+		});
+
+		const poolIface = new Interface(POOL_ABI);
+		const addr = evmSigner.getAddress();
+		const data = poolIface.encodeFunctionData('supply', [asset, amount, addr, 0]);
+
+		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 250_000n);
+
+		const txReq = {
+			to: AAVE_POOL,
+			data,
+			value: 0n,
+			chainId: 42161
+		} as import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		};
+
+		txReq.gasLimit = gasLimit;
+
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** Borrow via connected EVMSigner. */
+	async borrowWithEvmSigner(
+		asset: string,
+		amount: bigint,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		Sentry.addBreadcrumb({
+			category: 'defi.aave',
+			message: 'borrowWithEvmSigner',
+			data: { asset, amount: amount.toString() }
+		});
+
+		const poolIface = new Interface(POOL_ABI);
+		const addr = evmSigner.getAddress();
+		const data = poolIface.encodeFunctionData('borrow', [asset, amount, 2, 0, addr]);
+
+		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 300_000n);
+
+		const txReq = {
+			to: AAVE_POOL,
+			data,
+			value: 0n,
+			chainId: 42161,
+			gasLimit
+		} as unknown;
+
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** Repay via connected EVMSigner. */
+	async repayWithEvmSigner(
+		asset: string,
+		amount: bigint,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		Sentry.addBreadcrumb({
+			category: 'defi.aave',
+			message: 'repayWithEvmSigner',
+			data: { asset, amount: amount.toString() }
+		});
+
+		const poolIface = new Interface(POOL_ABI);
+		const addr = evmSigner.getAddress();
+		const data = poolIface.encodeFunctionData('repay', [asset, amount, 2, addr]);
+
+		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 250_000n);
+
+		const txReq = {
+			to: AAVE_POOL,
+			data,
+			value: 0n,
+			chainId: 42161,
+			gasLimit
+		} as unknown;
+
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** Withdraw via connected EVMSigner. */
+	async withdrawWithEvmSigner(
+		asset: string,
+		amount: bigint,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		Sentry.addBreadcrumb({
+			category: 'defi.aave',
+			message: 'withdrawWithEvmSigner',
+			data: { asset, amount: amount.toString() }
+		});
+
+		const poolIface = new Interface(POOL_ABI);
+		const addr = evmSigner.getAddress();
+		const data = poolIface.encodeFunctionData('withdraw', [asset, amount, addr]);
+
+		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 200_000n);
+
+		const txReq = {
+			to: AAVE_POOL,
+			data,
+			value: 0n,
+			chainId: 42161,
+			gasLimit
+		} as unknown;
+
+		return evmSigner.sendTransaction(txReq);
 	}
 }

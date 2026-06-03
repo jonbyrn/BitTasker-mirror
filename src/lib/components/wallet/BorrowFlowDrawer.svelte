@@ -6,8 +6,14 @@
 	let {
 		isOpen,
 		onClose,
-		onGetWbtc
-	}: { isOpen: boolean; onClose: () => void; onGetWbtc?: () => void } = $props();
+		onGetWbtc,
+		isSubmitting = false
+	}: {
+		isOpen: boolean;
+		onClose: () => void;
+		onGetWbtc?: () => void;
+		isSubmitting?: boolean;
+	} = $props();
 </script>
 
 <Drawer
@@ -16,8 +22,7 @@
 	title={$t('wallet.defi.tab_borrow')}
 	position="right"
 	isScrollable={true}
+	{isSubmitting}
 >
-	<div class="p-3">
-		<BorrowStep {onGetWbtc} />
-	</div>
+	<BorrowStep {onGetWbtc} />
 </Drawer>

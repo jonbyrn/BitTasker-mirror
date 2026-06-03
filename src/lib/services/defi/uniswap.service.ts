@@ -1,5 +1,6 @@
 import {
 	Contract,
+	Interface,
 	ZeroAddress,
 	type Provider,
 	type Signer,
@@ -7,6 +8,7 @@ import {
 } from 'ethers';
 import { addBreadcrumb } from '@sentry/sveltekit';
 import { tryCatch } from '$lib/utils/tryCatch';
+import type { EVMSigner, EVMTransactionResult } from '$lib/services/external-wallet/types';
 
 // ---------------------------------------------------------------------------
 // Verified Contract Addresses — Arbitrum
@@ -107,6 +109,9 @@ export function defaultDeadline(): number {
 	return Math.floor(Date.now() / 1000) + 1200;
 }
 
+/** Signer union for full tx support (parity with aave.service). */
+export type DeFiSigner = Signer | EVMSigner;
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -132,7 +137,12 @@ export class UniswapService {
 		const { data, error } = await tryCatch(factory.getPool(token0, token1, fee));
 
 		if (error) {
-			console.warn('[UniswapService] getPool failed:', error);
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'getPool failed',
+				level: 'warning',
+				data: { error: error.message }
+			});
 			return null;
 		}
 
@@ -194,6 +204,41 @@ export class UniswapService {
 	}
 
 	// -----------------------------------------------------------------------
+	// Gas Helpers (for full tx support + connected wallets, parity with aave)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Estimate gas for a call with 20% buffer. Falls back to default.
+	 * Replaces previous hardcoded gasLimits for better tx reliability.
+	 */
+	async estimateGasForCall(
+		to: string,
+		data: string,
+		value: bigint = 0n,
+		defaultGas = 500_000n
+	): Promise<bigint> {
+		addBreadcrumb({
+			category: 'defi.uniswap',
+			message: 'estimateGasForCall',
+			level: 'info',
+			data: { to }
+		});
+
+		const { data: gas, error } = await tryCatch(this.provider.estimateGas({ to, data, value }));
+
+		if (error || gas == null) {
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'estimateGasForCall fallback',
+				level: 'warning',
+				data: { error: error?.message || 'no gas' }
+			});
+			return defaultGas;
+		}
+		return (gas * 120n) / 100n; // 20% buffer
+	}
+
+	// -----------------------------------------------------------------------
 	// Write operations (require signer)
 	// -----------------------------------------------------------------------
 
@@ -203,7 +248,7 @@ export class UniswapService {
 	 * @returns the transaction response; the emitted event includes the
 	 *   token ID, liquidity amount, and actual token amounts used.
 	 */
-	async addLiquidity(params: MintParams, signer: Signer): Promise<TransactionResponse> {
+	async addLiquidity(params: MintParams, signer: DeFiSigner): Promise<TransactionResponse> {
 		addBreadcrumb({
 			category: 'defi.uniswap',
 			message: 'addLiquidity — minting new position',
@@ -221,8 +266,24 @@ export class UniswapService {
 			}
 		});
 
-		const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
-		return npm.mint(params, { gasLimit: 600000 }) as Promise<TransactionResponse>;
+		const { data: tx, error } = await tryCatch(async () => {
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			// Use dynamic gas helper (no more hardcoded)
+			const iface = new Interface(NPM_ABI);
+			const data = iface.encodeFunctionData('mint', [params]);
+			const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 600_000n);
+			return npm.mint(params, { gasLimit: gas }) as Promise<TransactionResponse>;
+		});
+		if (error || !tx) {
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'addLiquidity error',
+				level: 'error',
+				data: { error: error?.message }
+			});
+			throw new Error(`Uniswap addLiquidity failed: ${error?.message}`);
+		}
+		return tx;
 	}
 
 	/** Add additional liquidity to an existing position (token ID). */
@@ -233,7 +294,7 @@ export class UniswapService {
 		amount0Min: bigint,
 		amount1Min: bigint,
 		deadline: number,
-		signer: Signer
+		signer: DeFiSigner
 	): Promise<TransactionResponse> {
 		addBreadcrumb({
 			category: 'defi.uniswap',
@@ -246,11 +307,24 @@ export class UniswapService {
 			}
 		});
 
-		const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
-		return npm.increaseLiquidity(
-			{ tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline },
-			{ gasLimit: 600000 }
-		) as Promise<TransactionResponse>;
+		const { data: tx, error } = await tryCatch(async () => {
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const args = { tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline };
+			const iface = new Interface(NPM_ABI);
+			const data = iface.encodeFunctionData('increaseLiquidity', [args]);
+			const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 600_000n);
+			return npm.increaseLiquidity(args, { gasLimit: gas }) as Promise<TransactionResponse>;
+		});
+		if (error || !tx) {
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'increaseLiquidity error',
+				level: 'error',
+				data: { error: error?.message }
+			});
+			throw new Error(`Uniswap increaseLiquidity failed: ${error?.message}`);
+		}
+		return tx;
 	}
 
 	/**
@@ -263,7 +337,7 @@ export class UniswapService {
 		amount0Min: bigint,
 		amount1Min: bigint,
 		deadline: number,
-		signer: Signer
+		signer: DeFiSigner
 	): Promise<TransactionResponse> {
 		addBreadcrumb({
 			category: 'defi.uniswap',
@@ -275,11 +349,24 @@ export class UniswapService {
 			}
 		});
 
-		const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
-		return npm.decreaseLiquidity(
-			{ tokenId, liquidity, amount0Min, amount1Min, deadline },
-			{ gasLimit: 400000 }
-		) as Promise<TransactionResponse>;
+		const { data: tx, error } = await tryCatch(async () => {
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const args = { tokenId, liquidity, amount0Min, amount1Min, deadline };
+			const iface = new Interface(NPM_ABI);
+			const data = iface.encodeFunctionData('decreaseLiquidity', [args]);
+			const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 400_000n);
+			return npm.decreaseLiquidity(args, { gasLimit: gas }) as Promise<TransactionResponse>;
+		});
+		if (error || !tx) {
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'removeLiquidity error',
+				level: 'error',
+				data: { error: error?.message }
+			});
+			throw new Error(`Uniswap removeLiquidity failed: ${error?.message}`);
+		}
+		return tx;
 	}
 
 	/**
@@ -289,10 +376,8 @@ export class UniswapService {
 	async collectFees(
 		tokenId: bigint,
 		recipient: string,
-		signer: Signer
+		signer: DeFiSigner
 	): Promise<TransactionResponse> {
-		const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
-
 		// First fetch the position to know how many fees are owed.
 		const pos = await this.getPosition(tokenId);
 
@@ -308,10 +393,24 @@ export class UniswapService {
 			}
 		});
 
-		return npm.collect(
-			{ tokenId, recipient, amount0Max: pos.tokensOwed0, amount1Max: pos.tokensOwed1 },
-			{ gasLimit: 300000 }
-		) as Promise<TransactionResponse>;
+		const { data: tx, error } = await tryCatch(async () => {
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const args = { tokenId, recipient, amount0Max: pos.tokensOwed0, amount1Max: pos.tokensOwed1 };
+			const iface = new Interface(NPM_ABI);
+			const data = iface.encodeFunctionData('collect', [args]);
+			const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 300_000n);
+			return npm.collect(args, { gasLimit: gas }) as Promise<TransactionResponse>;
+		});
+		if (error || !tx) {
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'collectFees error',
+				level: 'error',
+				data: { error: error?.message }
+			});
+			throw new Error(`Uniswap collectFees failed: ${error?.message}`);
+		}
+		return tx;
 	}
 
 	// -----------------------------------------------------------------------
@@ -328,14 +427,24 @@ export class UniswapService {
 		);
 
 		if (error || !pool) {
-			console.warn('[UniswapService] WBTC/USDT0 pool not found:', error);
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'getWbtcUsdt0Pool not found',
+				level: 'warning',
+				data: { error: error?.message }
+			});
 			return null;
 		}
 
 		const { data: info, error: infoErr } = await tryCatch(this.getPoolInfo(pool));
 
 		if (infoErr) {
-			console.warn('[UniswapService] Failed to read WBTC/USDT0 pool info:', infoErr);
+			addBreadcrumb({
+				category: 'defi.uniswap',
+				message: 'getWbtcUsdt0Pool info read failed',
+				level: 'warning',
+				data: { error: infoErr.message }
+			});
 			return null;
 		}
 
@@ -362,5 +471,93 @@ export class UniswapService {
 
 	static get USDT0_ARBITRUM(): string {
 		return USDT0_ARBITRUM;
+	}
+
+	// -- Connected Wallet (EVMSigner) Tx Paths for Full Support (parity with aave) --
+
+	/** addLiquidity via EVMSigner (connected wallet abstraction). */
+	async addLiquidityWithEvmSigner(
+		params: MintParams,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		addBreadcrumb({
+			category: 'defi.uniswap',
+			message: 'addLiquidityWithEvmSigner',
+			level: 'info',
+			data: { token0: params.token0, token1: params.token1 }
+		});
+		const iface = new Interface(NPM_ABI);
+		const data = iface.encodeFunctionData('mint', [params]);
+		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 650_000n);
+		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** increaseLiquidity via EVMSigner. */
+	async increaseLiquidityWithEvmSigner(
+		tokenId: bigint,
+		amount0Desired: bigint,
+		amount1Desired: bigint,
+		amount0Min: bigint,
+		amount1Min: bigint,
+		deadline: number,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		addBreadcrumb({
+			category: 'defi.uniswap',
+			message: 'increaseWithEvmSigner',
+			level: 'info',
+			data: { tokenId: tokenId.toString() }
+		});
+		const args = { tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline };
+		const iface = new Interface(NPM_ABI);
+		const data = iface.encodeFunctionData('increaseLiquidity', [args]);
+		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 650_000n);
+		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** removeLiquidity via EVMSigner. */
+	async removeLiquidityWithEvmSigner(
+		tokenId: bigint,
+		liquidity: bigint,
+		amount0Min: bigint,
+		amount1Min: bigint,
+		deadline: number,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		addBreadcrumb({
+			category: 'defi.uniswap',
+			message: 'removeWithEvmSigner',
+			level: 'info',
+			data: { tokenId: tokenId.toString() }
+		});
+		const args = { tokenId, liquidity, amount0Min, amount1Min, deadline };
+		const iface = new Interface(NPM_ABI);
+		const data = iface.encodeFunctionData('decreaseLiquidity', [args]);
+		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 450_000n);
+		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		return evmSigner.sendTransaction(txReq);
+	}
+
+	/** collectFees via EVMSigner. */
+	async collectFeesWithEvmSigner(
+		tokenId: bigint,
+		recipient: string,
+		evmSigner: EVMSigner
+	): Promise<EVMTransactionResult> {
+		const pos = await this.getPosition(tokenId);
+		addBreadcrumb({
+			category: 'defi.uniswap',
+			message: 'collectWithEvmSigner',
+			level: 'info',
+			data: { tokenId: tokenId.toString() }
+		});
+		const args = { tokenId, recipient, amount0Max: pos.tokensOwed0, amount1Max: pos.tokensOwed1 };
+		const iface = new Interface(NPM_ABI);
+		const data = iface.encodeFunctionData('collect', [args]);
+		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 350_000n);
+		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		return evmSigner.sendTransaction(txReq);
 	}
 }
