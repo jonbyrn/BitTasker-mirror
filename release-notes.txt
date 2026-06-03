@@ -1,0 +1,30 @@
+<en-US>
+Various UI fixes and improvements
+</en-US>
+<en-AU>
+Various UI fixes and improvements
+</en-AU>
+<en-CA>
+Various UI fixes and improvements
+</en-CA>
+<en-GB>
+Various UI fixes and improvements
+</en-GB>
+<en-IN>
+Various UI fixes and improvements
+</en-IN>
+<en-SG>
+Various UI fixes and improvements
+</en-SG>
+<en-ZA>
+Various UI fixes and improvements
+</en-ZA>
+<es-419>
+Varias correcciones y mejoras de interfaz
+</es-419>
+<es-ES>
+Varias correcciones y mejoras de interfaz
+</es-ES>
+<es-US>
+Varias correcciones y mejoras de interfaz
+</es-US>
