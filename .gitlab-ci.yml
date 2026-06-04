@@ -303,7 +303,7 @@ deploy-production:
 # See docs/ci/server-backup.md for full setup instructions.
 # ═══════════════════════════════════════════════════════════════════════════════
 db-backup:
-  image: postgres:16-alpine
+  image: postgres:18-alpine
   stage: backup
   timeout: 1 hour
   tags:
@@ -348,7 +348,7 @@ db-backup:
     name: production
 
 db-backup-verify:
-  image: postgres:16-alpine
+  image: postgres:18-alpine
   stage: backup
   timeout: 15 minutes
   tags:

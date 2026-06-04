@@ -346,7 +346,7 @@ The backup job is a single unified job in `.gitlab-ci.yml` that runs `scripts/ba
 
 - Runs only on `schedules` (never on branch push or MR)
 - `timeout: 1 hour` (three databases × retries; raise if dumps grow)
-- Uses `postgres:16-alpine` image (pg_dump included)
+- Uses `postgres:18-alpine` image (`pg_dump` 18 — matches Railway PG 17/18 servers)
 - Installs `awscli` via pip for R2 upload
 - Calls `bash scripts/backup-databases.sh`
 
@@ -423,9 +423,9 @@ Railway's own template sets `DATABASE_PUBLIC_URL` to the same `postgresql://…@
 | `keepalives_idle`     | `30`            | Yes              | Seconds before first keepalive probe. May help proxies/NAT that drop **idle** TCP sessions during long `pg_dump` runs. Not a fix for active-transfer stalls.                                                                                                                                                                                                                                                                | **Medium**       |
 | `keepalives_interval` | `10`            | Yes              | Seconds between probes. Same as above.                                                                                                                                                                                                                                                                                                                                                                                      | **Medium**       |
 | `keepalives_count`    | `5`             | Yes              | Failed probes before client treats connection as dead. Same as above.                                                                                                                                                                                                                                                                                                                                                       | **Medium**       |
-| `tcp_user_timeout`    | `30000` (ms)    | Yes (Linux)      | Caps time unacknowledged **sent** data blocks before TCP gives up. Useful for detecting half-open connections during large streams. **Ignored on Windows**; GitLab `postgres:16-alpine` on Linux supports it. Can interact with keepalive behavior — tune as a set, not in isolation ([Instacart engineering post](https://tech.instacart.com/the-vanishing-thread-and-postgresql-tcp-connection-parameters-93afc0e1208c)). | **Medium**       |
+| `tcp_user_timeout`    | `30000` (ms)    | Yes (Linux)      | Caps time unacknowledged **sent** data blocks before TCP gives up. Useful for detecting half-open connections during large streams. **Ignored on Windows**; GitLab `postgres:18-alpine` on Linux supports it. Can interact with keepalive behavior — tune as a set, not in isolation ([Instacart engineering post](https://tech.instacart.com/the-vanishing-thread-and-postgresql-tcp-connection-parameters-93afc0e1208c)). | **Medium**       |
 
-**PostgreSQL 17+ client note**: Some external clients default to "direct SSL" and hit `received direct SSL connection request without ALPN`. The backup image is **PostgreSQL 16**, so this is unlikely today. If you upgrade the CI image to 17+, and connections fail with ALPN errors, add `sslnegotiation=postgres` to the URI or set `PGSSLNEGOTIATION=postgres` ([Railway Station](https://station.railway.com/questions/postgres-ssl-connection-issue-from-exter-9cc94f3f)).
+**PostgreSQL 17+ client note**: Some external clients default to "direct SSL" and hit `received direct SSL connection request without ALPN`. If connections fail with ALPN errors after upgrading the backup image, add `sslnegotiation=postgres` to the URI or set `PGSSLNEGOTIATION=postgres` ([Railway Station](https://station.railway.com/questions/postgres-ssl-connection-issue-from-exter-9cc94f3f)).
 
 #### What these parameters cannot fix
 
@@ -452,7 +452,7 @@ Railway's public TCP proxy is a **known weak link** for long-running `pg_dump` /
 
 ```yaml
 db-backup:
-  image: postgres:16-alpine
+  image: postgres:18-alpine
   stage: backup
   timeout: 1 hour
 ```
