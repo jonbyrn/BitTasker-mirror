@@ -37,8 +37,15 @@ export default defineConfig(({ mode }) => {
 	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
 	Object.assign(process.env, env);
+	const sentryUploadRequested =
+		process.env.SENTRY_UPLOAD === 'true' ||
+		process.env.CI === 'true' ||
+		process.env.CI === '1';
 	const sentryEnabled = Boolean(
-		process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+		sentryUploadRequested &&
+			process.env.SENTRY_AUTH_TOKEN &&
+			process.env.SENTRY_ORG &&
+			process.env.SENTRY_PROJECT
 	);
 
 	return {
@@ -144,6 +151,7 @@ export default defineConfig(({ mode }) => {
 							org: process.env.SENTRY_ORG,
 							project: process.env.SENTRY_PROJECT,
 							authToken: process.env.SENTRY_AUTH_TOKEN,
+							telemetry: false,
 							autoInstrument: {
 								load: false, // Disable auto-instrumentation for client-side only app
 								serverLoad: false
@@ -170,10 +178,9 @@ export default defineConfig(({ mode }) => {
 			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
 			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
-			// Raise threshold to suppress warnings for intentionally large vendor chunks
-			// (bip39, firebase). Aggressive manualChunks splitting breaks
-			// SvelteKit's internal chunk ordering and causes "kit.start is not a function".
-			chunkSizeWarningLimit: 1000,
+			// secp256k1 WASM (~1.2 MB) and split vendor chunks (firebase, nostr-ndk) exceed 1 MB by design.
+			// Aggressive manualChunks splitting breaks SvelteKit chunk ordering ("kit.start is not a function").
+			chunkSizeWarningLimit: 2500,
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
@@ -187,12 +194,21 @@ export default defineConfig(({ mode }) => {
 						if (id.includes('src/lib/api/apiService')) {
 							return 'api-base';
 						}
+						if (id.includes('node_modules/firebase/') || id.includes('node_modules/@firebase/')) {
+							return 'firebase';
+						}
+						if (id.includes('node_modules/@nostr-dev-kit/')) {
+							return 'nostr-ndk';
+						}
+						if (id.includes('node_modules/bip39')) {
+							return 'bip39';
+						}
 					}
 				}
 			}
 		},
 		optimizeDeps: {
-			include: ['date-fns', 'axios', 'swiper', 'buffer', 'bip39'],
+			include: ['date-fns', 'axios', 'buffer', 'bip39'],
 			exclude: ['firebase', '@capacitor/device', '@capacitor/preferences', '@capacitor/haptics']
 		},
 		server: {

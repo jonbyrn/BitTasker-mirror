@@ -1,5 +1,16 @@
+import { readFileSync } from 'node:fs';
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+
+/** @param {string} filename @param {number} line */
+function lineUsesSvelteReactiveCollection(filename, line) {
+	try {
+		const sourceLine = readFileSync(filename, 'utf8').split('\n')[line - 1] ?? '';
+		return /new\s+Svelte(?:Map|Set)\s*[<(]/.test(sourceLine);
+	} catch {
+		return false;
+	}
+}
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -8,7 +19,15 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	compilerOptions: {
-		runes: true
+		runes: true,
+		// SvelteMap/SvelteSet are reactive without $state; suppress only those false positives.
+		warningFilter: (warning) => {
+			if (warning.code !== 'non_reactive_update') return true;
+			const filename = warning.filename;
+			const line = warning.start?.line;
+			if (!filename || line == null) return true;
+			return !lineUsesSvelteReactiveCollection(filename, line);
+		}
 	},
 
 	kit: {

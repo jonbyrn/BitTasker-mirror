@@ -27,6 +27,7 @@
 		maxSelections = 3,
 		placeholder = 'Add tags...',
 		className = '',
+		controlId = undefined as string | undefined,
 		onChange = () => {},
 		externalCategoryIds = $bindable([])
 	} = $props();
@@ -145,6 +146,7 @@
 <div class="category-multiselect {className}">
 	{#if categoryOptions.length > 0}
 		<Multiselect
+			id={controlId}
 			options={categoryOptions}
 			bind:selected={selectedCategories}
 			{placeholder}

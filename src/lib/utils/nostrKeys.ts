@@ -26,6 +26,7 @@ import {
 } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
+import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -40,7 +41,6 @@ import authService from '$lib/api/services/auth.service';
  */
 async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
 	if (!browser) return;
-	const { syncNdkSignerFromAppStore } = await import('$lib/nostr/ndk');
 	await syncNdkSignerFromAppStore();
 }
 

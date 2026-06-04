@@ -32,7 +32,7 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';

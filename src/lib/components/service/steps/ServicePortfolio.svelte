@@ -711,11 +711,3 @@
 		<span class="label-text-alt text-error block">{errors.portfolio}</span>
 	{/if}
 </div>
-
-<style>
-	.radial-progress {
-		--value: 0;
-		--size: 3rem;
-		--thickness: 3px;
-	}
-</style>

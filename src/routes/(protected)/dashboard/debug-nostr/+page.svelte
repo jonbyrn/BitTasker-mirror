@@ -485,12 +485,12 @@
 	{#if section === 'explorer'}
 		<div class="controls">
 			<div class="field">
-				<label>npub or hex pubkey</label>
-				<input type="text" bind:value={npub} placeholder="npub1... or 64-char hex" />
+				<label for="debug-nostr-npub">npub or hex pubkey</label>
+				<input id="debug-nostr-npub" type="text" bind:value={npub} placeholder="npub1... or 64-char hex" />
 			</div>
 			<div class="field">
-				<label>Relay</label>
-				<select bind:value={relay}>
+				<label for="debug-nostr-relay">Relay</label>
+				<select id="debug-nostr-relay" bind:value={relay}>
 					<option value="wss://relay1.bittasker.com">relay1 (Prod)</option>
 					<option value="wss://relay1-dev.bittasker.com">relay1 (Dev)</option>
 					<option value="wss://relay2-dev.bittasker.com">relay2 (Dev Tasks)</option>
@@ -578,7 +578,8 @@
 					{@const taskId = tagVal(e.tags, 't')}
 					{@const refE = tagVal(e.tags, 'e')}
 					{@const name = profileName(e.pubkey)}
-					<div
+					<button
+						type="button"
 						class="event-row"
 						class:expanded={expandedEvents.has(e.id)}
 						onclick={() => toggleExpand(e.id)}
@@ -618,7 +619,7 @@
 								<div class="meta">ID: {e.id} | Pubkey: {e.pubkey} | Sig: {short(e.sig, 8)}</div>
 							</div>
 						{/if}
-					</div>
+					</button>
 				{/each}
 			{:else if view === 'chain'}
 				{@const chainData = (() => {
@@ -682,7 +683,8 @@
 				</div>
 			{:else}
 				{#each filteredEvents() as e (e.id)}
-					<div
+					<button
+						type="button"
 						class="event-row"
 						class:expanded={expandedEvents.has(e.id)}
 						onclick={() => toggleExpand(e.id)}
@@ -701,15 +703,19 @@
 						{#if expandedEvents.has(e.id)}
 							<div class="event-detail">
 								<table class="tag-table">
-									{#each e.tags as tag}<tr
-											><td class="tag-key">#{tag[0]}</td><td>{tag.slice(1).join(', ')}</td></tr
-										>{/each}
+									<tbody>
+										{#each e.tags as tag}
+											<tr
+												><td class="tag-key">#{tag[0]}</td><td>{tag.slice(1).join(', ')}</td></tr
+											>
+										{/each}
+									</tbody>
 								</table>
 								<pre class="raw">{e.content || '(empty)'}</pre>
 								<div class="meta">ID: {e.id} | Pubkey: {e.pubkey} | Sig: {short(e.sig, 8)}</div>
 							</div>
 						{/if}
-					</div>
+					</button>
 				{/each}
 			{/if}
 		</div>
@@ -721,8 +727,9 @@
 	{#if section === 'task-inspector'}
 		<div class="controls">
 			<div class="field" style="flex:1">
-				<label>Task d-tag or slug</label>
+				<label for="debug-nostr-task-dtag">Task d-tag or slug</label>
 				<input
+					id="debug-nostr-task-dtag"
 					type="text"
 					bind:value={taskInspectorDtag}
 					placeholder="e.g. necesito-chicles-1778087761-d38f65"
@@ -827,7 +834,8 @@
 				{#each taskInspectorEvents as e (e.id)}
 					{@const st = tagVal(e.tags, 's')}
 					{@const name = profileName(e.pubkey)}
-					<div
+					<button
+						type="button"
 						class="event-row"
 						class:expanded={expandedEvents.has(e.id)}
 						onclick={() => toggleExpand(e.id)}
@@ -855,7 +863,7 @@
 										: e.content || '(empty)'}</pre>
 							</div>
 						{/if}
-					</div>
+					</button>
 				{/each}
 			</div>
 		{:else if !taskInspectorLoading && taskInspectorDtag}
@@ -871,8 +879,9 @@
 	{#if section === 'profile-inspector'}
 		<div class="controls">
 			<div class="field" style="flex:1">
-				<label>npub, nprofile, or hex pubkey</label>
+				<label for="debug-nostr-profile-input">npub, nprofile, or hex pubkey</label>
 				<input
+					id="debug-nostr-profile-input"
 					type="text"
 					bind:value={profileInspectorInput}
 					placeholder="npub1... or hex"
@@ -928,7 +937,8 @@
 		{#if profileInspectorEvents.length > 0}
 			<div class="output" style="max-height:40vh;">
 				{#each profileInspectorEvents as e (e.id)}
-					<div
+					<button
+						type="button"
 						class="event-row"
 						class:expanded={expandedEvents.has(e.id)}
 						onclick={() => toggleExpand(e.id)}
@@ -954,7 +964,7 @@
 										: e.content || '(empty)'}</pre>
 							</div>
 						{/if}
-					</div>
+					</button>
 				{/each}
 			</div>
 		{/if}
@@ -1221,9 +1231,16 @@
 	}
 
 	.event-row {
+		display: block;
+		width: 100%;
+		border: none;
 		border-bottom: 1px solid #2e3347;
 		padding: 10px 14px;
 		cursor: pointer;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
 	}
 	.event-row:hover {
 		background: #242836;

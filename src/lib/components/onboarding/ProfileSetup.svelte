@@ -14,7 +14,7 @@
 		resolveDisplayNameFromProfileMetadataContent,
 		type ProfileSetupMode
 	} from '$lib/nostr/profile';
-	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
+	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { hexToBytes } from '$lib/utils/helpers/encoding';
 	import Uploader from '$lib/components/Uploader.svelte';

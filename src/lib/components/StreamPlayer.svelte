@@ -380,7 +380,7 @@
 			<p class="text-error mb-2 text-sm">
 				{tokenError ? $t('common.stream_player.error.token_failed') : $t('common.stream_player.status.error')}
 			</p>
-			<button class="btn btn-sm btn-outline" onclick={handleRetry} autofocus>
+			<button class="btn btn-sm btn-outline" onclick={handleRetry}>
 				{$t('common.stream_player.action.retry')}
 			</button>
 		</div>
@@ -392,7 +392,7 @@
 			role="alert"
 		>
 			<p class="text-warning mb-2 text-sm">{$t('common.stream_player.status.expired')}</p>
-			<button class="btn btn-sm btn-outline" onclick={handleRetry} autofocus>
+			<button class="btn btn-sm btn-outline" onclick={handleRetry}>
 				{$t('common.stream_player.action.refresh')}
 			</button>
 		</div>

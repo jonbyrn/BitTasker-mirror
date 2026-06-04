@@ -1,4 +1,5 @@
-import { ndk, setNDKSigner, syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
+import { ndk, setNDKSigner } from '$lib/nostr/ndk';
+import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 
 function formatUnlockError(e: unknown): string {
 	if (e instanceof Error) return e.message;

@@ -5,7 +5,8 @@
  * and extract parameters from known contract ABIs.
  */
 
-import { Interface, FunctionFragment } from 'ethers';
+import { Interface } from 'ethers';
+import type { FunctionFragment } from 'ethers';
 import abi from '$lib/utils/contract/v1/abi.json';
 import { hasContractInteraction } from './contractDetection';
 

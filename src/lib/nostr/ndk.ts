@@ -1,29 +1,13 @@
-// lib/ndk.ts
 import { browser } from '$app/environment';
-import { get } from 'svelte/store';
-import { createNDK } from '@nostr-dev-kit/svelte';
-import {
-	NDKPrivateKeySigner,
-	registerEventClass,
-	NDKRelayAuthPolicies,
-	NDKRelaySet
-} from '@nostr-dev-kit/ndk';
-import NDKCacheDexie from '@nostr-dev-kit/cache-dexie';
+import { NDKPrivateKeySigner, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { createDebug } from '$lib/utils/debug';
-import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
-import { appStore } from '$lib/stores/app.store';
-import { NDKBid } from './events/bid';
-import { NDKTask } from './events/task';
+import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { NDKPaymentContract } from './events/contract';
-import { NDKContractStatus } from './events/contractStatus';
+
+export { ndk, ndkCacheDbBaseName } from './ndkInstance';
+import { ndk, ndkCacheDbBaseName } from './ndkInstance';
 
 const d = createDebug('ndk:signer');
-
-/** IndexedDB base name for NDKCacheDexie — must match `setNDKSigner` (Dexie also uses `${name}_modules`). */
-export function ndkCacheDbBaseName(npub: string): string {
-	return `cache-${npub.slice(0, 8)}`;
-}
 
 function deleteIndexedDb(dbName: string): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -37,23 +21,6 @@ function deleteIndexedDb(dbName: string): Promise<void> {
 			resolve();
 		};
 	});
-}
-
-const explicitRelayUrls = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
-
-export const ndk = createNDK({
-	explicitRelayUrls,
-	// Enable sessions for wallet, follows, mutes, and WoT
-	session: true,
-	enableOutboxModel: false
-});
-/** NDK 3 typings expect sync `from`; our classes use async `from` (valid at runtime). */
-registerEventClass(NDKBid as never);
-registerEventClass(NDKTask as never);
-registerEventClass(NDKPaymentContract as never);
-registerEventClass(NDKContractStatus as never);
-if (browser && explicitRelayUrls.length > 0) {
-	ndk.connect();
 }
 
 /**
@@ -101,86 +68,12 @@ export async function ndkLogout(): Promise<void> {
 }
 
 /**
- * Apply `nsec` to the global NDK instance (cache adapter, signer, task relay, retry worker).
- * Idempotent when the same pubkey is already active.
- */
-export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
-	if (!browser) return;
-	if (!nsec?.length) return;
-
-	d.log('applyNdkSignerFromNsec: starting, nsec length=%s', nsec.length);
-	try {
-		const newSigner = new NDKPrivateKeySigner(nsec);
-		const currentSigner = ndk.signer;
-		const npub = newSigner.npub;
-		const cacheDbName = ndkCacheDbBaseName(npub);
-
-		ndk.cacheAdapter = new NDKCacheDexie({ dbName: cacheDbName });
-		d.log('applyNdkSignerFromNsec: cache adapter configured, dbName=%s', cacheDbName);
-
-		if (currentSigner && currentSigner instanceof NDKPrivateKeySigner) {
-			const currentPubkey = currentSigner.pubkey;
-			const newPubkey = newSigner.pubkey;
-			if (currentPubkey === newPubkey) {
-				d.log('applyNdkSignerFromNsec: signer already set for same pubkey, skipping');
-				startUnpublishedEventsRetry();
-				return;
-			}
-			d.log('applyNdkSignerFromNsec: pubkey changed, updating signer');
-		}
-
-		ndk.signer = newSigner;
-		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
-		try {
-			const taskRelayUrls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
-			for (const url of taskRelayUrls) {
-				ndk.addExplicitRelay(
-					url
-					// TODO: Add auth policy to the relay
-					// NDKRelayAuthPolicies.signIn({ ndk })
-				);
-			}
-		} catch (err) {
-			d.error('applyNdkSignerFromNsec failed to add relay: %o', err);
-			throw err;
-		}
-		startUnpublishedEventsRetry();
-	} catch (err) {
-		d.error('applyNdkSignerFromNsec failed: %o', err);
-		throw err;
-	}
-}
-
-/**
- * If `appStore` already has `nsec`/`npub` (e.g. wallet or another flow just unlocked keys),
- * wire them into NDK without calling passkey again.
- */
-export async function syncNdkSignerFromAppStore(): Promise<void> {
-	if (!browser) return;
-	if (ndk.$currentPubkey) return;
-
-	const s = get(appStore);
-	const nsec = s.nostrKeys.nsec;
-	const npub = s.nostrKeys.npub;
-	if (!nsec || !npub) return;
-
-	await applyNdkSignerFromNsec(nsec);
-}
-
-/**
  * Ensure NDK has a signer: loads keys via {@link getNostrKeyPair} (passkey when needed).
  * Successful unlocks also call {@link syncNdkSignerFromAppStore} from inside `nostrKeys`.
  */
 export async function setNDKSigner(): Promise<void> {
 	if (ndk.$currentPubkey) return;
 	await getNostrKeyPair();
-}
-
-function startUnpublishedEventsRetry(): void {
-	if (!browser) return;
-	void import('$lib/runes/unpublishedEventsRetry.svelte').then((m) => {
-		m.unpublishedEventsRetry.start();
-	});
 }
 
 async function stopUnpublishedEventsRetry(): Promise<void> {

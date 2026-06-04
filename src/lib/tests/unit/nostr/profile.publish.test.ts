@@ -31,20 +31,44 @@ vi.mock('$lib/utils/session', () => ({
 	destroySession: vi.fn()
 }));
 
+vi.mock('$lib/nostr/ndkSigner', () => ({
+	syncNdkSignerFromAppStore: vi.fn(),
+	applyNdkSignerFromNsec: vi.fn()
+}));
+
+vi.mock('$lib/nostr/ndkInstance', () => ({
+	ndk: {
+		signer: { pubkey: 'abc' },
+		fetchEvent: mockFetchEvent,
+		fetchEvents: vi.fn().mockResolvedValue(new Set()),
+		$currentPubkey: null,
+		connect: vi.fn()
+	},
+	ndkCacheDbBaseName: vi.fn(() => 'cache-test')
+}));
+
 const mockPublish = vi.fn();
 const mockSign = vi.fn();
 const mockToNostrEvent = vi.fn();
 
 vi.mock('@nostr-dev-kit/ndk', () => ({
-	NDKEvent: vi.fn().mockImplementation(() => ({
-		kind: 0,
-		created_at: 0,
-		content: '',
-		tags: [],
-		sign: mockSign,
-		publish: mockPublish,
-		toNostrEvent: mockToNostrEvent
-	})),
+	NDKEvent: vi.fn(function MockNDKEvent(this: {
+		kind: number;
+		created_at: number;
+		content: string;
+		tags: string[][];
+		sign: typeof mockSign;
+		publish: typeof mockPublish;
+		toNostrEvent: typeof mockToNostrEvent;
+	}) {
+		this.kind = 0;
+		this.created_at = 0;
+		this.content = '';
+		this.tags = [];
+		this.sign = mockSign;
+		this.publish = mockPublish;
+		this.toNostrEvent = mockToNostrEvent;
+	}),
 	NDKRelaySet: {
 		fromRelayUrls: vi.fn(() => ({}))
 	}
@@ -55,7 +79,9 @@ vi.mock('$lib/nostr/ndk', () => ({
 		signer: { pubkey: 'abc' },
 		fetchEvent: mockFetchEvent,
 		fetchEvents: vi.fn().mockResolvedValue(new Set())
-	}
+	},
+	setNDKSigner: vi.fn(),
+	ndkLogout: vi.fn()
 }));
 
 vi.mock('$lib/stores/app.store', () => ({

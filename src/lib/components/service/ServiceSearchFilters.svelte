@@ -179,12 +179,13 @@
 >
 	<!-- Categories -->
 	<div class="mb-4">
-		<label class="label">
+		<label for="categories" class="label">
 			<span class="label-text text-sm font-medium"
 				>{$t('dashboard.services.browse.filters.categories') || 'Categories'}</span
 			>
 		</label>
 		<CategoryMultiselect
+			controlId="categories"
 			bind:externalCategoryIds={filters.categories}
 			onChange={handleCategoryChange}
 			maxSelections={3}
