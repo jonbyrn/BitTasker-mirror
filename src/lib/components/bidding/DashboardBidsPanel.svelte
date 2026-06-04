@@ -491,7 +491,6 @@
 										size="md"
 										avatarAlt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
 										pubkey={bid.taskCreatorPubkey}
-										memberSince={bidEvent.created_at}
 									/>
 								</div>
 							</div>

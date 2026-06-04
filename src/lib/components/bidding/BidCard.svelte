@@ -83,7 +83,6 @@
 						size="md"
 						pubkey={bidContent.bidderId}
 						profileLink={bidContent.bidderId}
-						memberSince={bidContent.timestamp}
 					/>
 				</div>
 

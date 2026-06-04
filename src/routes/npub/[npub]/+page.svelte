@@ -449,22 +449,6 @@
 		}
 	}
 
-	// Función para formatear fecha como "Nov, 2025"
-	function formatMonthYear(dateString: string | undefined): string {
-		if (!dateString) return '';
-		try {
-			const date = new Date(dateString);
-			if (isNaN(date.getTime())) return dateString;
-
-			return new Intl.DateTimeFormat($locale || 'en', {
-				month: 'short',
-				year: 'numeric'
-			}).format(date);
-		} catch {
-			return dateString;
-		}
-	}
-
 	// Calcular rating promedio from attestation-based reviews
 	const averageRating = $derived(
 		reviewStats && reviewStats.totalReviews > 0 ? reviewStats.averageRating.toFixed(1) : null
@@ -762,21 +746,6 @@
 									>
 										{#if profileError}
 											<div class="text-error text-sm">⚠️ {profileError}</div>
-										{:else if userProfile?.createdAt}
-											<div class="flex items-center gap-2">
-												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 01-2 2v12a2 2 0 002 2z"
-													/>
-												</svg>
-												<span
-													>{$t('common.profile.member_since')}
-													{formatMonthYear(userProfile.createdAt)}</span
-												>
-											</div>
 										{/if}
 										{#if userProfile?.location}
 											<div class="flex items-center gap-2">
@@ -1170,28 +1139,6 @@
 											})}
 										{:else}
 											{$t('common.profile.response_time_not_specified')}
-										{/if}
-									</span>
-								</div>
-								<div class="flex items-center gap-2">
-									<svg
-										class="text-base-content/60 h-3 w-3"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-										/>
-									</svg>
-									<span class="text-xs">
-										{#if userProfile?.createdAt}
-											{$t('common.profile.joined')} {formatMonthYear(userProfile.createdAt)}
-										{:else}
-											{$t('common.profile.member_since_unknown')}
 										{/if}
 									</span>
 								</div>

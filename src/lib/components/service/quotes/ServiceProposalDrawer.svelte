@@ -287,7 +287,6 @@
 						pubkey={timeline.request.pubkey}
 						rating={requesterProfile?.averageRating ?? null}
 						size="md"
-						memberSince={timeline.request.created_at}
 						avatarAlt={tr('dashboard.find_tasks.avatar_alt', 'Avatar')}
 					/>
 				</div>

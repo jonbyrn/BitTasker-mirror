@@ -56,7 +56,6 @@
 		avatarAlt = $t('dashboard.find_tasks.avatar_alt') || 'Avatar',
 		size = 'md',
 		pubkey = null, // Optional pubkey to fetch profile if username is invalid
-		memberSince = null, // Optional date/timestamp for "Member since" text
 		profileLink = null, // Optional npub/pubkey for profile link
 		onResolvedName = null,
 		showRanking = false, // Show ranking badge
@@ -69,7 +68,6 @@
 		avatarAlt?: string;
 		size?: 'sm' | 'md' | 'lg';
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
-		memberSince?: Date | number | string | null; // Date, timestamp, or ISO string
 		profileLink?: string | null; // npub or hex pubkey for profile link
 		/** Callback invoked with the resolved display name after fetch completes or username changes. */
 		onResolvedName?: ((name: string) => void) | null;
@@ -78,8 +76,8 @@
 		reviewBadge?: string | null; // Shows a subtle "reviewed you" indicator
 	}>();
 
-	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
-	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
+	// State for fetched profile data (fetchProfileMetadata returns name, picture)
+	let fetchedProfile = $state<{ name?: string; picture?: string } | null>(null);
 	let activeProfileRequestId = 0;
 
 	// State for reviews and ranking
@@ -91,63 +89,29 @@
 	// Size configurations - matching bids page styling
 	const sizeConfig = {
 		sm: {
-			avatar: 'h-8 w-8',
+			avatar: 'h-7 w-7',
 			text: 'text-xs',
 			name: 'text-sm font-semibold',
 			star: 'h-2 w-2',
-			rating: 'text-xs',
-			memberSince: 'text-xs'
+			rating: 'text-xs'
 		},
 		md: {
-			avatar: 'h-12 w-12 sm:h-14 sm:w-14',
+			avatar: 'h-10 w-10 sm:h-12 sm:w-12',
 			text: 'text-base',
 			name: 'text-base font-semibold sm:text-lg',
 			star: 'h-3 w-3',
-			rating: 'text-xs',
-			memberSince: 'text-xs sm:text-sm'
+			rating: 'text-xs'
 		},
 		lg: {
-			avatar: 'h-16 w-16',
+			avatar: 'h-14 w-14',
 			text: 'text-lg',
 			name: 'text-lg font-semibold sm:text-xl',
 			star: 'h-4 w-4 sm:h-5 sm:w-5',
-			rating: 'text-sm sm:text-base',
-			memberSince: 'text-sm sm:text-base'
+			rating: 'text-sm sm:text-base'
 		}
 	};
 
 	const config = $derived(sizeConfig[size as keyof typeof sizeConfig]);
-
-	/**
-	 * Format date for "Member since" display (Month Year format)
-	 */
-	function formatMemberSinceDate(date: Date | number | string): string {
-		try {
-			const dateObj =
-				typeof date === 'number'
-					? new Date(date * 1000) // If timestamp in seconds
-					: typeof date === 'string'
-						? new Date(date)
-						: date;
-
-			return dateObj.toLocaleDateString('en-US', {
-				month: 'short',
-				year: 'numeric'
-			});
-		} catch {
-			return '';
-		}
-	}
-
-	/**
-	 * Get formatted member since text
-	 * Uses memberSince prop when provided, otherwise falls back to fetched profile's createdAt
-	 */
-	const formattedMemberSince = $derived.by(() => {
-		const dateSource = memberSince ?? fetchedProfile?.createdAt;
-		if (!dateSource) return null;
-		return formatMemberSinceDate(dateSource);
-	});
 
 	const hasExplicitRating = $derived(
 		typeof ratingProp === 'number' && Number.isFinite(ratingProp) && ratingProp > 0
@@ -329,7 +293,7 @@
 			}
 
 			const hasMeaningfulProfileData = Boolean(
-				sanitizeDisplayName(profile?.name) || profile?.picture?.trim() || profile?.createdAt?.trim()
+				sanitizeDisplayName(profile?.name) || profile?.picture?.trim()
 			);
 			fetchedProfile = hasMeaningfulProfileData ? profile : null;
 		} catch (error) {
@@ -436,9 +400,7 @@
 
 			if (cachedProfile) {
 				const hasMeaningful = Boolean(
-					sanitizeDisplayName(cachedProfile.name) ||
-						cachedProfile.picture?.trim() ||
-						cachedProfile.createdAt?.trim()
+					sanitizeDisplayName(cachedProfile.name) || cachedProfile.picture?.trim()
 				);
 				if (hasMeaningful) {
 					fetchedProfile = cachedProfile;
@@ -473,7 +435,7 @@
 	});
 </script>
 
-<div class="flex min-w-0 flex-1 items-center gap-4">
+<div class="flex min-w-0 flex-1 items-center gap-3">
 	<!-- Avatar -->
 	{#if profileUrl}
 		<a href={profileUrl} class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80">
@@ -493,15 +455,21 @@
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
 						{#if displayUsername}
-							<span class="text-lg font-semibold sm:text-2xl">
+							<span
+								class="font-semibold {size === 'sm'
+									? 'text-sm'
+									: size === 'md'
+										? 'text-base sm:text-lg'
+										: 'text-lg sm:text-2xl'}"
+							>
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
 						{:else}
 							<IconAccount
 								class="text-base-content/60 {size === 'sm'
-									? 'h-4 w-4'
+									? 'h-3.5 w-3.5'
 									: size === 'md'
-										? 'h-6 w-6'
+										? 'h-5 w-5'
 										: 'h-8 w-8'}"
 							/>
 						{/if}
@@ -527,15 +495,21 @@
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
 						{#if displayUsername}
-							<span class="text-lg font-semibold sm:text-2xl">
+							<span
+								class="font-semibold {size === 'sm'
+									? 'text-sm'
+									: size === 'md'
+										? 'text-base sm:text-lg'
+										: 'text-lg sm:text-2xl'}"
+							>
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
 						{:else}
 							<IconAccount
 								class="text-base-content/60 {size === 'sm'
-									? 'h-4 w-4'
+									? 'h-3.5 w-3.5'
 									: size === 'md'
-										? 'h-6 w-6'
+										? 'h-5 w-5'
 										: 'h-8 w-8'}"
 							/>
 						{/if}
@@ -559,14 +533,6 @@
 			<p class="w-full truncate {config.name}">
 				{displayUsername}
 			</p>
-		{/if}
-
-		<!-- Member since -->
-		{#if formattedMemberSince}
-			<span class="text-base-content/60 {config.memberSince}">
-				{$t('common.profile.member_since')}
-				{formattedMemberSince}
-			</span>
 		{/if}
 
 		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->

@@ -355,7 +355,6 @@
 									size="sm"
 									pubkey={bidContent.bidderId ?? null}
 									profileLink={bidContent.bidderId ?? null}
-									memberSince={bid?.created_at ?? null}
 								/>
 
 								<!-- Start and end times -->
@@ -1003,7 +1002,6 @@
 							rating={bidContent.bidderRating ?? null}
 							size="sm"
 							pubkey={bidContent.bidderId ?? null}
-							memberSince={bid?.created_at ?? null}
 						/>
 					</div>
 					{#if true}

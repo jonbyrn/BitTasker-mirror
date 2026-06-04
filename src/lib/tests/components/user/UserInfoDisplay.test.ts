@@ -15,8 +15,6 @@ vi.mock('svelte-i18n', () => ({
 		switch (key) {
 			case 'dashboard.find_tasks.avatar_alt':
 				return 'Avatar';
-			case 'common.profile.member_since':
-				return 'Member since';
 			case 'messages.unknown_user':
 				return 'Unknown User';
 			default:

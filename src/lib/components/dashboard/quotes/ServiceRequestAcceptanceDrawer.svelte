@@ -382,7 +382,6 @@
 								size="sm"
 								pubkey={latestProposal.pubkey}
 								profileLink={latestProposal.pubkey}
-								memberSince={service?.createdAt ?? timeline?.request.created_at ?? null}
 							/>
 						</div>
 

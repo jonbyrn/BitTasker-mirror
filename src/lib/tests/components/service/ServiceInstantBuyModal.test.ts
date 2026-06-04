@@ -12,9 +12,6 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'common.components.drawer.close') {
 				return 'Close';
 			}
-			if (key === 'common.profile.member_since') {
-				return 'Member since';
-			}
 			if (key === 'common.buttons.retry') {
 				return 'Retry';
 			}
