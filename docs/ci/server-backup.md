@@ -311,14 +311,53 @@ On each database, create a dedicated backup user (avoids using the full-access a
 
 ```sql
 CREATE USER backup_user WITH PASSWORD 'strong_generated_password';
-GRANT CONNECT ON DATABASE bittasker TO backup_user;
-\c bittasker
+GRANT CONNECT ON DATABASE railway TO backup_user;
+\c railway
 GRANT USAGE ON SCHEMA public TO backup_user;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO backup_user;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO backup_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO backup_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO backup_user;
 ```
 
-Repeat for each of the three databases.
+`pg_dump` reads every sequence (`SELECT last_value, is_called`). **SELECT on tables alone is not enough** — missing sequence grants produces errors like `permission denied for sequence EmailVerification_id_seq`.
+
+Audit (read-only) and full grant scripts: `scripts/sql/backup-user-audit.sql`, `scripts/sql/backup-user-grants.sql`.
+
+**Critical — run grants as `postgres` (admin):**
+
+| Who runs the script            | Result                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `postgres` / Railway Query tab | Grants apply; `pg_dump` works                                                              |
+| `backup_user`                  | Warnings `no privileges were granted`, sequence `permission denied` — **CI keeps failing** |
+
+Your terminal showed `postgres` password auth failed locally, then grants were run as `backup_user` — sequence privileges were never granted.
+
+**Easiest on Railway (no `psql` URL encoding):**
+
+1. Open each PostgreSQL service → **Data** → **Query** (uses admin automatically).
+2. Paste the full contents of `scripts/sql/backup-user-grants.sql` → Run.
+3. Repeat for all three services (API port 20476, relay_tasks 15257, relay_general 53634).
+
+**Or with local `psql` (admin password from Railway → Variables → `POSTGRES_PASSWORD` or `DATABASE_URL`):**
+
+```bash
+export PGSSLMODE=require
+export PGPASSWORD='<POSTGRES_PASSWORD from Railway Variables>'   # NOT backup_user password
+
+psql -h ballast.proxy.rlwy.net -p 20476 -U postgres -d railway -f scripts/sql/backup-user-grants.sql
+psql -h ballast.proxy.rlwy.net -p 15257 -U postgres -d railway -f scripts/sql/backup-user-grants.sql
+psql -h ballast.proxy.rlwy.net -p 53634 -U postgres -d railway -f scripts/sql/backup-user-grants.sql
+```
+
+**Verify as `backup_user` (expect zero rows):**
+
+```bash
+export PGPASSWORD='<backup_user password>'
+psql -h ballast.proxy.rlwy.net -p 20476 -U backup_user -d railway -f scripts/sql/backup-user-audit.sql
+```
+
+Repeat for each port. Then run GitLab `db-backup`.
 
 #### Step 4: Add GitLab CI variables
 
@@ -793,15 +832,10 @@ These steps require manual actions in external dashboards. Complete them in orde
 - [ ] **Build full public connection URIs** for each database (Phase 1)
   - Each PostgreSQL service → Connect → **Public Network** → copy host, port, database name
   - Construct three `postgresql://backup_user:PASSWORD@HOST:PORT/DBNAME?sslmode=require&…` URIs (see [Example URI](#example-uri-for-railway-public-tcp-proxy))
-- [ ] **Create read-only backup user** on each database
-  - Connect to each database (via Railway CLI or psql) and run:
-    ```sql
-    CREATE USER backup_user WITH PASSWORD 'generate_a_strong_password_here';
-    GRANT CONNECT ON DATABASE <dbname> TO backup_user;
-    GRANT USAGE ON SCHEMA public TO backup_user;
-    GRANT SELECT ON ALL TABLES IN SCHEMA public TO backup_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO backup_user;
-    ```
+- [ ] **Grant privileges to `backup_user`** on each database (as **postgres admin**, not backup_user)
+  - Railway Query tab: paste `scripts/sql/backup-user-grants.sql` per PostgreSQL service
+  - Or `psql -U postgres` with `POSTGRES_PASSWORD` from Railway Variables (see Step 3 above)
+  - Verify: `scripts/sql/backup-user-audit.sql` as `backup_user` → no rows returned
   - Use the **same password** for all three (simplifies CI variable setup)
   - Verify role exists: `SELECT rolname FROM pg_roles;`
   - Database names: The API DB is `railway` (default Railway name) or check in `.env` for the exact name. The relay DBs may also use `railway` or custom names — verify in their respective Railway dashboard.

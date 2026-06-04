@@ -127,6 +127,39 @@ verify_pg_connection() {
   return 1
 }
 
+# pg_dump needs SELECT on every sequence. Fails fast with a clear message if grants were never applied
+verify_backup_privileges() {
+  local conninfo="$1"
+  local password="$2"
+  local missing
+
+  missing="$(PGPASSWORD="$password" psql -d "$conninfo" -v ON_ERROR_STOP=1 -tA <<'SQL' 2>/dev/null || echo "error"
+SELECT COUNT(*)::text
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind = 'S'
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+  AND NOT has_sequence_privilege(current_user, c.oid, 'SELECT');
+SQL
+)"
+
+  if [ "$missing" = "error" ] || [ -z "$missing" ]; then
+    echo "  WARNING: Could not check sequence privileges" >&2
+    return 0
+  fi
+
+  if [ "$missing" != "0" ]; then
+    echo "  ERROR: backup_user lacks SELECT on ${missing} sequence(s)." >&2
+    echo "  Run scripts/sql/backup-user-grants.sql as Railway postgres (admin), NOT backup_user." >&2
+    echo "  Railway → PostgreSQL → Data → Query, or use POSTGRES_PASSWORD from service Variables." >&2
+    echo "  Then audit: psql -U backup_user … -f scripts/sql/backup-user-audit.sql (expect 0 rows)." >&2
+    return 1
+  fi
+
+  echo "  Sequence privileges OK"
+  return 0
+}
+
 # ── Ensure required tools are available ───────────────────────────────────────
 if [ "$BACKUP_VERIFY_ONLY" != "1" ] && ! command -v aws &>/dev/null; then
   echo "ERROR: aws CLI is required. Install with: pip install awscli" >&2
@@ -167,11 +200,18 @@ for DB_DEF in "${DATABASES[@]}"; do
   fi
 
   if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
-    if verify_pg_connection "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD"; then
+    if verify_pg_connection "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD" \
+      && verify_backup_privileges "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD"; then
       SUCCESS=$((SUCCESS + 1))
     else
       FAILED+=("${LABEL} (connection)")
     fi
+    echo ""
+    continue
+  fi
+
+  if ! verify_backup_privileges "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD"; then
+    FAILED+=("${LABEL} (privileges)")
     echo ""
     continue
   fi
