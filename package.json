@@ -63,7 +63,15 @@
 		"sitemap:generate": "node scripts/generate-sitemap.js",
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
 		"postbuild": "node scripts/purge-cache.js",
-		"test:cache-purge": "node scripts/test-cache-purge.js"
+		"test:cache-purge": "node scripts/test-cache-purge.js",
+		"gitlab:vars:dev": "bash scripts/push-gitlab-variables.sh --scope development --file .env.development",
+		"gitlab:vars:prod": "bash scripts/push-gitlab-variables.sh --scope production --file .env",
+		"gitlab:vars:dev:dry": "bash scripts/push-gitlab-variables.sh --scope development --file .env.development --dry-run",
+		"gitlab:vars:prod:dry": "bash scripts/push-gitlab-variables.sh --scope production --file .env --dry-run",
+		"gitlab:vars:dev:delete": "bash scripts/delete-gitlab-variables.sh --scope development --file .env.development",
+		"gitlab:vars:prod:delete": "bash scripts/delete-gitlab-variables.sh --scope production --file .env",
+		"gitlab:vars:dev:delete:dry": "bash scripts/delete-gitlab-variables.sh --scope development --file .env.development --dry-run",
+		"gitlab:vars:prod:delete:dry": "bash scripts/delete-gitlab-variables.sh --scope production --file .env --dry-run"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^5.0.0",

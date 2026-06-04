@@ -26,7 +26,7 @@
 		isRequesting = true;
 		try {
 			await pushNotificationService.init();
-			permissionStatus = 'granted';
+			await refreshStatus();
 		} catch {
 			// User denied or an error occurred — re-check so we reflect the real state
 			await refreshStatus();

@@ -41,7 +41,28 @@ Worker dependencies are managed in the root `package.json`:
 
 ## Deployment
 
-### Dev Worker (worker.dev.bittasker.com)
+### Cloudflare Workers Builds (CI — recommended)
+
+Push to GitLab triggers build/deploy on Cloudflare (Settings → Builds on each worker).
+
+| Worker                  | Production branch | Build command   | Deploy command                         |
+| ----------------------- | ----------------- | --------------- | -------------------------------------- |
+| `bittasker-dev-worker`  | `dev`             | `npm run build` | `npx wrangler deploy --env dev`        |
+| `bittasker-prod-worker` | `master`          | `npm run build` | `npx wrangler deploy --env production` |
+
+**Build variables and secrets** (Settings → Builds, not runtime Variables & Secrets): all `VITE_*` needed by `npm run build`, plus build-only secrets such as `SENTRY_AUTH_TOKEN`. Runtime-only values stay in `[env.*.vars]` / Worker Variables & Secrets.
+
+Optional cache purge after deploy (add to deploy command if `CLOUDFLARE_CACHE_*` are set as build secrets):
+
+```bash
+npx wrangler deploy --env dev && ENVIRONMENT=dev node scripts/purge-cache.js
+```
+
+GitLab CI no longer runs worker build/deploy; it keeps MR coverage, Android, and DB backups.
+
+### Local deploy
+
+#### Dev Worker (worker.dev.bittasker.com)
 
 ```bash
 npm run deploy:workers:dev
@@ -69,7 +90,14 @@ Deploys to: `bittasker.com` (worker: `bittasker-prod-worker`)
 
 ## Environment Variables
 
-Environment variables are configured in the root `wrangler.toml` file under `[vars]` sections.
+Two separate Cloudflare surfaces (Workers Builds does not merge them):
+
+| Purpose                                       | Where to configure                                                     | Used by                       |
+| --------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------- |
+| **Build-time** (`VITE_*` for Vite)            | Worker → Settings → **Builds** → Build variables and secrets           | `npm run build` on Cloudflare |
+| **Runtime** (Worker `env`, non-secret config) | `wrangler.toml` `[env.*.vars]` and/or Settings → Variables and Secrets | Deployed Worker               |
+
+Secrets: `wrangler secret put` or dashboard.
 
 To add secrets (sensitive data):
 
