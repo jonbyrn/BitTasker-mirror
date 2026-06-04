@@ -27,9 +27,9 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 }));
 
 vi.mock('$lib/utils/swapAdapter', () => ({
-	NostrSwapStorage: vi.fn().mockImplementation(() => ({
-		// Mock swap storage methods
-	}))
+	NostrSwapStorage: vi.fn(function () {
+		return {};
+	})
 }));
 
 vi.mock('$lib/stores/app.store', async () => {
@@ -104,7 +104,9 @@ const mockWalletManager = vi.hoisted(() => {
 
 vi.mock('@bittasker/wallet-core', async () => {
 	return {
-		WalletManager: vi.fn().mockImplementation(() => mockWalletManager),
+		WalletManager: vi.fn(function () {
+			return mockWalletManager;
+		}),
 		ERC20_ABI: [
 			'function transfer(address, uint256) returns (bool)',
 			'function decimals() view returns (uint8)'

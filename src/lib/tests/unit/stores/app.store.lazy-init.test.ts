@@ -15,7 +15,9 @@ describe('appStore lazy pool initialization', () => {
 			get: vi.fn(),
 			close: vi.fn()
 		};
-		const simplePoolConstructor = vi.fn(() => mockPool);
+		const simplePoolConstructor = vi.fn(function () {
+			return mockPool;
+		});
 
 		vi.doMock('nostr-tools', () => ({
 			SimplePool: simplePoolConstructor

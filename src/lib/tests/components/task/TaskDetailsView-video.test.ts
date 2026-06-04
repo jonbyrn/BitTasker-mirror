@@ -134,7 +134,7 @@ vi.mock('~icons/mdi/map-marker-check', () => ({ default: hoisted.createMockIcon 
 const installImageMock = () => {
 	vi.stubGlobal(
 		'Image',
-		vi.fn(() => {
+		vi.fn(function () {
 			const img: Record<string, unknown> = {
 				onload: null,
 				onerror: null,
