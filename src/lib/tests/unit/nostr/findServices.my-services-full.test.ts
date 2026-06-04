@@ -19,7 +19,7 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: () => mockGetNpub()
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchComprehensiveProfile: vi.fn().mockResolvedValue(null)
 }));
 

@@ -1,15 +1,60 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readable } from 'svelte/store';
+import { nip19 } from 'nostr-tools';
 
-const querySync = vi.fn();
+const mockFetchEvents = vi.hoisted(() => vi.fn());
+
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		fetchEvents: (...args: Parameters<typeof mockFetchEvents>) => mockFetchEvents(...args)
+	}
+}));
+
+vi.mock('@nostr-dev-kit/ndk', () => ({
+	NDKRelaySet: {
+		fromRelayUrls: vi.fn(() => ({}))
+	}
+}));
+
+vi.mock('$lib/utils/session', () => ({
+	destroySession: vi.fn()
+}));
+
+vi.mock('$lib/stores/task.store', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/task.store')>();
+	return {
+		...actual,
+		tasksStore: {
+			subscribe: vi.fn(() => () => {}),
+			update: vi.fn(),
+			set: vi.fn(),
+			reset: vi.fn(),
+			pool: { querySync: vi.fn(() => []), subscribe: vi.fn(() => ({ close: vi.fn() })) }
+		},
+		myTasksStore: {
+			subscribe: vi.fn(() => () => {}),
+			update: vi.fn(),
+			set: vi.fn(),
+			reset: vi.fn()
+		}
+	};
+});
 
 vi.mock('$lib/stores/app.store', () => ({
-	appStore: readable({
-		pool: {
-			querySync: (...args: unknown[]) => querySync(...args)
-		}
-	})
+	appStore: {
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
+	},
+	get: vi.fn(() => ({ relays: ['wss://relay.example.com'] }))
 }));
+
+vi.mock('svelte/store', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('svelte/store')>();
+	return {
+		...actual,
+		get: vi.fn(() => ({ relays: ['wss://relay.example.com'] }))
+	};
+});
 
 vi.mock('$lib/utils/profile-cache', () => ({
 	profileCache: {
@@ -19,46 +64,53 @@ vi.mock('$lib/utils/profile-cache', () => ({
 	}
 }));
 
-import { nip19 } from 'nostr-tools';
-import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+import { fetchProfileMetadata } from '$lib/nostr/profile/display-profile';
 
-describe('fetchProfileMetadata (relay pool)', () => {
+function mockNdkProfileEvent(content: Record<string, unknown>, createdAt = 1_700_000_001) {
+	const pubkey = 'c'.repeat(64);
+	return {
+		toNostrEvent: vi.fn().mockResolvedValue({
+			kind: 0,
+			pubkey,
+			created_at: createdAt,
+			content: JSON.stringify(content),
+			tags: [],
+			id: 'id',
+			sig: 'sig'
+		})
+	};
+}
+
+describe('fetchProfileMetadata (NDK)', () => {
 	const pubkey = 'c'.repeat(64);
 	const npub = nip19.npubEncode(pubkey);
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://relay.example.com');
 	});
 
-	it('prefers display_name / displayName over plain name from kind 0', async () => {
-		querySync.mockResolvedValue([
-			{
-				kind: 0,
-				content: JSON.stringify({
-					displayName: 'NDK Test User',
+	it('prefers display_name over plain name from kind 0', async () => {
+		mockFetchEvents.mockResolvedValue(
+			new Set([
+				mockNdkProfileEvent({
+					display_name: 'NDK Test User',
 					name: 'Ignored',
 					picture: 'https://example.com/avatar.jpg'
-				}),
-				created_at: 1_700_000_001
-			}
-		]);
+				})
+			])
+		);
 
 		const result = await fetchProfileMetadata(npub);
 
-		expect(querySync).toHaveBeenCalled();
+		expect(mockFetchEvents).toHaveBeenCalled();
 		expect(result.name).toBe('NDK Test User');
 		expect(result.picture).toBe('https://example.com/avatar.jpg');
 	});
 
 	it('uses name when no display fields are present', async () => {
-		querySync.mockResolvedValue([
-			{
-				kind: 0,
-				content: JSON.stringify({ name: 'Only Name Field' }),
-				created_at: 1_700_000_000
-			}
-		]);
+		mockFetchEvents.mockResolvedValue(
+			new Set([mockNdkProfileEvent({ name: 'Only Name Field' }, 1_700_000_000)])
+		);
 
 		const result = await fetchProfileMetadata(npub);
 
@@ -67,7 +119,7 @@ describe('fetchProfileMetadata (relay pool)', () => {
 	});
 
 	it('returns empty shape when no profile events are returned', async () => {
-		querySync.mockResolvedValue([]);
+		mockFetchEvents.mockResolvedValue(new Set());
 
 		const result = await fetchProfileMetadata(npub);
 
@@ -79,20 +131,16 @@ describe('fetchProfileMetadata (relay pool)', () => {
 	});
 
 	it('normalizes npub and hex pubkey to the same author filter', async () => {
-		querySync.mockResolvedValue([
-			{
-				kind: 0,
-				content: JSON.stringify({ name: 'Test' }),
-				created_at: 1_700_000_000
-			}
-		]);
+		mockFetchEvents.mockResolvedValue(
+			new Set([mockNdkProfileEvent({ display_name: 'Test' }, 1_700_000_000)])
+		);
 
 		await fetchProfileMetadata(npub);
-		const filterNpub = querySync.mock.calls.at(-1)?.[1] as { authors?: string[] };
+		const filterNpub = mockFetchEvents.mock.calls.at(-1)?.[0] as { authors?: string[] };
 		expect(filterNpub?.authors?.[0]).toBe(pubkey);
 
 		await fetchProfileMetadata(pubkey);
-		const filterHex = querySync.mock.calls.at(-1)?.[1] as { authors?: string[] };
+		const filterHex = mockFetchEvents.mock.calls.at(-1)?.[0] as { authors?: string[] };
 		expect(filterHex?.authors?.[0]).toBe(pubkey);
 	});
 });

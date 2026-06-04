@@ -63,11 +63,12 @@ run_worker_first = [
 # ============================================
 [env.dev]
 name = "bittasker-dev-worker"
-workers_dev = false
+workers_dev = true
 
-[env.dev.route]
-pattern = "dev.bittasker.com/*"
-zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+# ROUTE DISABLED: Uncomment when migrating fully to Workers.
+# [env.dev.route]
+# pattern = "dev.bittasker.com/*"
+# zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.dev.observability.logs]
 enabled = true
@@ -130,11 +131,12 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # ============================================
 [env.staging]
 name = "staging"
-workers_dev = false
+workers_dev = true
 
-[env.staging.route]
-pattern = "staging.bittasker.com/*"
-zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+# ROUTE DISABLED: Uncomment when migrating fully to Workers.
+# [env.staging.route]
+# pattern = "staging.bittasker.com/*"
+# zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.staging.observability.logs]
 enabled = true
@@ -167,11 +169,12 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # ============================================
 [env.production]
 name = "bittasker-prod-worker"
-workers_dev = false
+workers_dev = true
 
-[env.production.route]
-pattern = "bittasker.com/*"
-zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+# ROUTE DISABLED: Uncomment when migrating fully to Workers.
+# [env.production.route]
+# pattern = "bittasker.com/*"
+# zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.production.observability.logs]
 enabled = true

@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 
@@ -40,19 +40,21 @@ function hexStr(input: string): string {
 }
 
 // Hoist ALL mock functions together so vi.mock can access them
-const [mockNip19Encode, mockNip19Decode, fetchProfileMetadata] = vi.hoisted(() => [
-	vi.fn((hex: string) => `npub1${hex.slice(0, 8)}...${hex.slice(-8)}`),
-	vi.fn((npub: string) => {
-		if (npub.startsWith('npub1')) {
-			return {
-				type: 'npub',
-				data: hexStr(npub.replace('npub1', '').replace(/^0x/, ''))
-			};
-		}
-		throw new Error('Invalid npub');
-	}),
-	createFetchProfileMetadataMock()
-]);
+const [mockNip19Encode, mockNip19Decode, mockFetchProfileMetadata, mockGetCachedProfile] =
+	vi.hoisted(() => [
+		vi.fn((hex: string) => `npub1${hex.slice(0, 8)}...${hex.slice(-8)}`),
+		vi.fn((npub: string) => {
+			if (npub.startsWith('npub1')) {
+				return {
+					type: 'npub',
+					data: hexStr(npub.replace('npub1', '').replace(/^0x/, ''))
+				};
+			}
+			throw new Error('Invalid npub');
+		}),
+		createFetchProfileMetadataMock(),
+		vi.fn().mockResolvedValue(null)
+	]);
 
 // Mock $app/paths
 vi.mock('$app/paths', () => ({
@@ -83,9 +85,11 @@ vi.mock('nostr-tools', () => ({
 	}
 }));
 
-// Mock $lib/utils/nostr-message
-vi.mock('$lib/utils/nostr-message', () => ({
-	fetchProfileMetadata
+vi.mock('$lib/nostr/profile', () => ({
+	fetchProfileMetadata: (...args: Parameters<typeof mockFetchProfileMetadata>) =>
+		mockFetchProfileMetadata(...args),
+	getCachedProfile: (...args: Parameters<typeof mockGetCachedProfile>) =>
+		mockGetCachedProfile(...args)
 }));
 
 // Mock $lib/nostr/ndk
@@ -143,13 +147,11 @@ describe('UserInfoDisplay', () => {
 			shouldReject: false
 		};
 		// Reset the mock function but keep the same implementation reference
-		fetchProfileMetadata.mockClear();
-		fetchProfileMetadata.mockImplementation(createFetchProfileMetadataMock());
+		mockFetchProfileMetadata.mockClear();
+		mockFetchProfileMetadata.mockImplementation(createFetchProfileMetadataMock());
+		mockGetCachedProfile.mockClear();
+		mockGetCachedProfile.mockResolvedValue(null);
 		mockNip19Encode.mockClear();
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
 	});
 
 	describe('Renders with valid npub pubkey', () => {

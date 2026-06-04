@@ -5,7 +5,7 @@
 	import type { Service } from '$lib/types/service';
 	import type { ServiceProposalEvent, ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import { fetchContractProfile } from '$lib/utils/nostr-profile';
+	import { fetchContractProfile } from '$lib/nostr/profile';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';

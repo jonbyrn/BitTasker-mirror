@@ -222,8 +222,8 @@ export async function generatePasskeyName(npub: string): Promise<{
 		decodedNpub = nip19.decode(npub).data as string;
 	}
 
-	const { getProfileMetaData } = await import('$lib/nostr/profile');
-	const metadataEvent = await getProfileMetaData(decodedNpub);
+	const { getProfileEvent } = await import('$lib/nostr/profile');
+	const metadataEvent = await getProfileEvent(decodedNpub);
 	if (metadataEvent) {
 		const metadata = JSON.parse(metadataEvent.content);
 		passkeyName = metadata.display_name || metadata.displayName || metadata.name;

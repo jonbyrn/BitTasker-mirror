@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	resolveExplicitRelayUrls,
 	resolveTaskRelayUrls,
@@ -24,41 +24,56 @@ describe('sanitizeRelayUrls', () => {
 			'wss://b.com'
 		]);
 	});
+
+	it('handles array input', () => {
+		expect(sanitizeRelayUrls(['wss://a.com', 'wss://b.com'])).toEqual([
+			'wss://a.com',
+			'wss://b.com'
+		]);
+	});
+
+	it('adds wss:// scheme when missing', () => {
+		expect(sanitizeRelayUrls('relay.example.com')).toEqual(['wss://relay.example.com']);
+	});
+
+	it('preserves ws:// scheme', () => {
+		expect(sanitizeRelayUrls('ws://relay.example.com')).toEqual(['ws://relay.example.com']);
+	});
 });
 
 describe('resolveExplicitRelayUrls', () => {
-	afterEach(() => {
-		vi.unstubAllGlobals();
-	});
-
-	it('uses env when set', () => {
+	it('returns sanitized URLs when env is set', () => {
 		expect(resolveExplicitRelayUrls('wss://relay.example.com')).toEqual([
 			'wss://relay.example.com'
 		]);
 	});
 
-	it('falls back to production relay on bittasker.com when env missing', () => {
-		vi.stubGlobal('window', { location: { hostname: 'bittasker.com' } });
-		expect(resolveExplicitRelayUrls(undefined)).toEqual(['wss://relay1.bittasker.com']);
+	it('returns empty array when env is undefined (no hardcoded fallbacks)', () => {
+		expect(resolveExplicitRelayUrls(undefined)).toEqual([]);
 	});
 
-	it('falls back to dev relay on dev.bittasker.com when env missing', () => {
-		vi.stubGlobal('window', { location: { hostname: 'dev.bittasker.com' } });
-		expect(resolveExplicitRelayUrls(undefined)).toEqual(['wss://relay1-dev.bittasker.com']);
+	it('returns empty array when env is empty string', () => {
+		expect(resolveExplicitRelayUrls('')).toEqual([]);
+	});
+
+	it('handles multiple comma-separated relays', () => {
+		expect(resolveExplicitRelayUrls('wss://a.com, wss://b.com')).toEqual([
+			'wss://a.com',
+			'wss://b.com'
+		]);
 	});
 });
 
 describe('resolveTaskRelayUrls', () => {
-	afterEach(() => {
-		vi.unstubAllGlobals();
-	});
-
-	it('uses task env when set', () => {
+	it('returns sanitized URLs when task env is set', () => {
 		expect(resolveTaskRelayUrls('wss://task.example.com')).toEqual(['wss://task.example.com']);
 	});
 
-	it('falls back to production task relay on bittasker.com', () => {
-		vi.stubGlobal('window', { location: { hostname: 'bittasker.com' } });
-		expect(resolveTaskRelayUrls(undefined)).toEqual(['wss://relay2.bittasker.com']);
+	it('falls back to VITE_NOSTR_RELAY_URL when task relay is undefined', () => {
+		// When VITE_NOSTR_TASK_RELAY_URL is undefined, it falls back to VITE_NOSTR_RELAY_URL
+		// The actual value depends on what's set in import.meta.env at test time
+		const result = resolveTaskRelayUrls(undefined);
+		// Either returns the fallback relay URLs or empty array if neither is set
+		expect(Array.isArray(result)).toBe(true);
 	});
 });

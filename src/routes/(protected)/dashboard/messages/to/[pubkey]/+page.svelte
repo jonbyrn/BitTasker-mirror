@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { get } from 'svelte/store';

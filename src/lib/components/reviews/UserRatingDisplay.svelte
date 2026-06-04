@@ -1,8 +1,8 @@
 <script lang="ts">
+	import type { NostrVerifiedReview } from '$lib/types/review';
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
-	import type { NostrVerifiedReview } from '$lib/types/review';
-	import { ndk } from '$lib/nostr/ndk';
+	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { createDebug } from '$lib/utils/debug';
 	import IconStar from '~icons/mdi/star';
 
@@ -53,33 +53,37 @@
 	let isLoading = $state(true);
 	let activeRequestId = 0;
 
-	function getCachedUserRating(pubkey: string): UserRatingSummary | null {
-		const cachedRating = userRatingCache.get(pubkey);
+	function resolveHexPubkey(pubkey: string): string | null {
+		return normalizeNostrPubkey(pubkey);
+	}
+
+	function getCachedUserRating(hexPubkey: string): UserRatingSummary | null {
+		const cachedRating = userRatingCache.get(hexPubkey);
 		if (!cachedRating) {
 			return null;
 		}
 
 		if (Date.now() - cachedRating.fetchedAt > USER_RATING_CACHE_TTL_MS) {
-			userRatingCache.delete(pubkey);
+			userRatingCache.delete(hexPubkey);
 			return null;
 		}
 
 		return cachedRating;
 	}
 
-	async function fetchUserRatingSummary(pubkey: string): Promise<UserRatingSummary> {
-		const cachedRating = getCachedUserRating(pubkey);
+	async function fetchUserRatingSummary(hexPubkey: string): Promise<UserRatingSummary> {
+		const cachedRating = getCachedUserRating(hexPubkey);
 		if (cachedRating) {
 			return cachedRating;
 		}
 
-		const existingRequest = userRatingRequests.get(pubkey);
+		const existingRequest = userRatingRequests.get(hexPubkey);
 		if (existingRequest) {
 			return existingRequest;
 		}
 
 		const request = (async () => {
-			const reviews: NostrVerifiedReview[] = await getReviewsForUser(pubkey, ALL_REVIEWS_LIMIT);
+			const reviews: NostrVerifiedReview[] = await getReviewsForUser(hexPubkey, ALL_REVIEWS_LIMIT);
 			const stats = reviews.length > 0 ? calculateReviewStats(reviews) : null;
 			const nextSummary = stats
 				? {
@@ -93,33 +97,16 @@
 						fetchedAt: Date.now()
 					};
 
-			userRatingCache.set(pubkey, nextSummary);
+			if (nextSummary.reviewCount > 0) {
+				userRatingCache.set(hexPubkey, nextSummary);
+			}
 			return nextSummary;
 		})().finally(() => {
-			userRatingRequests.delete(pubkey);
+			userRatingRequests.delete(hexPubkey);
 		});
 
-		userRatingRequests.set(pubkey, request);
+		userRatingRequests.set(hexPubkey, request);
 		return request;
-	}
-
-	// Convert pubkey to npub format if needed
-	function normalizePubkey(pubkey: string): string {
-		if (!pubkey) return '';
-
-		// If already npub, return as is
-		if (pubkey.startsWith('npub')) {
-			return pubkey;
-		}
-
-		// Try to convert hex to npub using NDK
-		try {
-			const user = ndk.getUser({ pubkey });
-			return user.npub;
-		} catch {
-			// If conversion fails, return as is (might be invalid)
-			return pubkey;
-		}
 	}
 
 	const sizeClasses = {
@@ -140,10 +127,17 @@
 			return;
 		}
 
+		const hexPubkey = resolveHexPubkey(pubkey);
+		if (!hexPubkey) {
+			averageRating = 0;
+			reviewCount = 0;
+			isLoading = false;
+			return;
+		}
+
 		try {
 			isLoading = true;
-			const normalizedPubkey = normalizePubkey(pubkey);
-			const ratingSummary = await fetchUserRatingSummary(normalizedPubkey);
+			const ratingSummary = await fetchUserRatingSummary(hexPubkey);
 
 			if (requestId !== activeRequestId) {
 				return;

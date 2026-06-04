@@ -1,4 +1,4 @@
-import { getMessageHistory } from '$lib/utils/nostr-message';
+import { getMessageHistory } from '$lib/nostr/direct-messages';
 import type { Event as NostrEvent } from 'nostr-tools';
 
 export interface DecryptedMessage {

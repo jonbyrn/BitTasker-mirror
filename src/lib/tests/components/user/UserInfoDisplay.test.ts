@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 import { readable } from 'svelte/store';
 
 const mockFetchProfileMetadata = vi.hoisted(() => vi.fn());
+const mockGetCachedProfile = vi.hoisted(() => vi.fn().mockResolvedValue(null));
 
 vi.mock('$app/paths', () => ({
 	resolve: (path: string) => path
@@ -24,9 +25,11 @@ vi.mock('svelte-i18n', () => ({
 	})
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchProfileMetadata: (...args: Parameters<typeof mockFetchProfileMetadata>) =>
-		mockFetchProfileMetadata(...args)
+		mockFetchProfileMetadata(...args),
+	getCachedProfile: (...args: Parameters<typeof mockGetCachedProfile>) =>
+		mockGetCachedProfile(...args)
 }));
 
 vi.mock('~icons/mdi/account', () => ({

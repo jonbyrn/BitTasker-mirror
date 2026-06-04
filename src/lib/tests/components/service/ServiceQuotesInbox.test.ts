@@ -53,7 +53,7 @@ vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
 	})
 }));
 
-vi.mock('$lib/utils/nostr-profile', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchContractProfile: vi.fn().mockResolvedValue({
 		averageRating: 4.5,
 		tasksCompleted: 12

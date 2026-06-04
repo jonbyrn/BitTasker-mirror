@@ -38,7 +38,7 @@ vi.mock('$lib/utils/reviews/helpers', () => ({
 	findPendingReviews: mocks.findPendingReviews
 }));
 
-vi.mock('$lib/utils/nostr-profile', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchContractProfile: vi.fn().mockResolvedValue({ name: null })
 }));
 

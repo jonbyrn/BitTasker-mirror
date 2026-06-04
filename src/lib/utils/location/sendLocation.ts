@@ -1,5 +1,5 @@
 import type { Location } from '$lib/types/task';
-import { sendDirectMessage } from '$lib/utils/nostr-message';
+import { sendDirectMessage } from '$lib/nostr/direct-messages';
 import { formatLocationAddress, generateGoogleMapsDirectionsLink } from './maps';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
@@ -84,10 +84,12 @@ export async function sendLocationsToTaskee(
 
 		// Helper function to check if location is valid
 		const isValidLocation = (loc: Location | null): boolean => {
-			return loc !== null && 
-				loc.latitude !== null && 
+			return (
+				loc !== null &&
+				loc.latitude !== null &&
 				loc.longitude !== null &&
-				loc.locationLoaded === true;
+				loc.locationLoaded === true
+			);
 		};
 
 		// Get translations (common translations are loaded by default)
@@ -102,7 +104,10 @@ export async function sendLocationsToTaskee(
 				locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
 			}
 			if (isValidLocation(dropoffLocation)) {
-				locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
+				locations.push({
+					location: dropoffLocation!,
+					label: _('common.location.dropoff_location')
+				});
 			}
 		}
 
@@ -131,17 +136,17 @@ export async function sendLocationsToTaskee(
 
 		// Build human-readable message
 		let messageText = '';
-		
+
 		// Add congratulations message and task title (always for remote, or when title is provided)
 		if (options?.taskTitle) {
 			messageText += `🎉 ${_('common.location.task_accepted_congratulations')}\n\n`;
 			messageText += `📋 ${options.taskTitle}\n\n`;
-			
+
 			// Add task description if provided
 			if (options?.taskDescription) {
 				messageText += `${options.taskDescription}\n\n`;
 			}
-			
+
 			// Only show location details message if there are valid locations
 			if (hasValidLocations) {
 				messageText += `${_('common.location.location_details_below')}\n\n`;
@@ -210,7 +215,7 @@ export async function sendTaskCompletionMessageToTasker(
 
 		// Build human-readable message
 		let messageText = '';
-		
+
 		if (options?.taskTitle) {
 			messageText += `✅ ${_('common.location.task_completed_message')}\n\n`;
 			messageText += `📋 ${options.taskTitle}\n\n`;
@@ -221,10 +226,7 @@ export async function sendTaskCompletionMessageToTasker(
 		}
 
 		// Build tags with completion data using centralized tag patterns
-		const tags = TAG_PATTERNS.taskCompletion(
-			options?.taskId || '',
-			options?.escrowId
-		);
+		const tags = TAG_PATTERNS.taskCompletion(options?.taskId || '', options?.escrowId);
 
 		// Send the message
 		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
@@ -271,4 +273,3 @@ export async function sendPaymentReleasedMessageToTaskee(
 		throw error;
 	}
 }
-

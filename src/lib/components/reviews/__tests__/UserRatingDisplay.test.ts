@@ -121,7 +121,7 @@ describe('UserRatingDisplay', () => {
 		});
 
 		await waitFor(() => {
-			expect(mocks.getReviewsForUser).toHaveBeenCalledWith(npubPubkey, Number.MAX_SAFE_INTEGER);
+			expect(mocks.getReviewsForUser).toHaveBeenCalledWith(hexPubkey, Number.MAX_SAFE_INTEGER);
 			expect(firstRender.container).toHaveTextContent('4.1');
 		});
 

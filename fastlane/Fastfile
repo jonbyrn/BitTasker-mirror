@@ -32,19 +32,17 @@ platform :android do
 
   # Builds signed AAB and uploads to Production
   # Trigger: vX.Y.Z tag on master (manual gate in CI)
-  # versionName = from tag (e.g., v1.1.8 → "1.1.8")
-  # versionCode = auto-incremented from build.gradle and committed back
+  # versionName = VERSION_NAME env (from git tag via android-release-prepare)
+  # versionCode = VERSION_CODE env (auto-incremented by android-release-prepare)
   desc "Build and upload to Production"
   lane :production do
     ensure_git_status_clean unless is_ci?
 
-    increment_version_code(
-      gradle_file_path: "android/app/build.gradle"
-    )
-
-    sh("npm", "ci") if is_ci?
-    sh("npm", "run", "build")
-    sh("npx", "cap", "sync", "android")
+    unless ENV["ANDROID_SKIP_WEB_BUILD"] == "1"
+      sh("npm", "ci") if is_ci?
+      sh("npm", "run", "build")
+      sh("npx", "cap", "sync", "android")
+    end
 
     gradle(
       task: "bundle",
@@ -61,12 +59,6 @@ platform :android do
       skip_upload_screenshots: true,
       skip_upload_images: true
     )
-
-    commit_version_bump(
-      message: "ci: bump versionCode to #{lane_context[SharedValues::VERSION_CODE]} [skip ci]",
-      force: true
-    )
-    push_to_git_remote
   end
 
   # Builds signed AAB and uploads to Closed Testing track

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { fetchProfileMetadata, getCachedProfile } from '$lib/nostr/profile';
 	import { ndk } from '$lib/nostr/ndk';
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
@@ -31,6 +31,9 @@
 	}
 
 	function setCachedReviews(pubkey: string, data: CachedReviewData): void {
+		if (data.reviewCount <= 0) {
+			return;
+		}
 		reviewsCache[pubkey] = data;
 		const keys = Object.keys(reviewsCache);
 		if (keys.length > MAX_CACHE_SIZE) {
@@ -145,6 +148,10 @@
 		if (!dateSource) return null;
 		return formatMemberSinceDate(dateSource);
 	});
+
+	const hasExplicitRating = $derived(
+		typeof ratingProp === 'number' && Number.isFinite(ratingProp) && ratingProp > 0
+	);
 
 	/**
 	 * Encode hex pubkey to npub using NDK
@@ -315,14 +322,7 @@
 	 */
 	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
-			// Convert hex to npub for fetchProfileMetadata using NDK
-			const npubToFetch = hexToNpub(currentPubkey);
-			if (!npubToFetch) {
-				fetchedProfile = null;
-				return;
-			}
-
-			const profile = await fetchProfileMetadata(npubToFetch);
+			const profile = await fetchProfileMetadata(currentPubkey);
 
 			if (requestId !== activeProfileRequestId) {
 				return;
@@ -346,8 +346,8 @@
 	 * Load reviews and calculate ranking for a user
 	 */
 	async function loadUserReviews(currentPubkey: string, requestId: number) {
-		if (ratingProp !== null && ratingProp !== undefined) {
-			calculatedRating = ratingProp;
+		if (hasExplicitRating) {
+			calculatedRating = ratingProp as number;
 			return;
 		}
 
@@ -415,46 +415,61 @@
 	/**
 	 * Get display rating - use prop if provided, otherwise calculated from reviews
 	 */
-	const displayRating = $derived(
-		ratingProp !== null && ratingProp !== undefined ? ratingProp : calculatedRating
-	);
+	const displayRating = $derived(hasExplicitRating ? (ratingProp as number) : calculatedRating);
 
 	$effect(() => {
 		const currentPubkey = normalizedHexPubkey;
 		activeProfileRequestId += 1;
 		const requestId = activeProfileRequestId;
 
-		fetchedProfile = null;
-
 		if (!currentPubkey) {
+			fetchedProfile = null;
 			userRanking = null;
 			reviewCount = 0;
 			calculatedRating = 0;
 			return;
 		}
 
-		// Check cache first — avoid flash of empty state when data is already loaded
-		if (ratingProp === null || ratingProp === undefined) {
-			const cached = getCachedReviews(currentPubkey);
-			if (cached) {
-				reviewCount = cached.reviewCount;
-				calculatedRating = cached.averageRating;
-				userRanking = cached.ranking;
-				isLoadingReviews = false;
-				void loadUserProfile(currentPubkey, requestId);
-				return;
+		const syncProfileAndReviews = async () => {
+			const cachedProfile = await getCachedProfile(currentPubkey);
+			if (requestId !== activeProfileRequestId) return;
+
+			if (cachedProfile) {
+				const hasMeaningful = Boolean(
+					sanitizeDisplayName(cachedProfile.name) ||
+						cachedProfile.picture?.trim() ||
+						cachedProfile.createdAt?.trim()
+				);
+				if (hasMeaningful) {
+					fetchedProfile = cachedProfile;
+				}
 			}
-		}
 
-		// Cache miss — reset and fetch both
-		userRanking = null;
-		reviewCount = 0;
-		calculatedRating = 0;
+			if (!hasExplicitRating) {
+				const cachedReviews = getCachedReviews(currentPubkey);
+				if (cachedReviews && cachedReviews.reviewCount > 0) {
+					reviewCount = cachedReviews.reviewCount;
+					calculatedRating = cachedReviews.averageRating;
+					userRanking = cachedReviews.ranking;
+					isLoadingReviews = false;
+					await loadUserProfile(currentPubkey, requestId);
+					return;
+				}
+			}
 
-		void Promise.all([
-			loadUserProfile(currentPubkey, requestId),
-			loadUserReviews(currentPubkey, requestId)
-		]);
+			userRanking = null;
+			reviewCount = 0;
+			calculatedRating = 0;
+
+			await Promise.all([
+				loadUserProfile(currentPubkey, requestId),
+				loadUserReviews(currentPubkey, requestId)
+			]);
+		};
+
+		syncProfileAndReviews().catch((error) => {
+			console.error('[UserInfoDisplay] Failed to sync profile and reviews:', error);
+		});
 	});
 </script>
 

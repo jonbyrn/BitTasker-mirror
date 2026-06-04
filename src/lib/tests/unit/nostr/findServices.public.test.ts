@@ -8,7 +8,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 import { cleanup, findServices } from '$lib/nostr/findServices';
 
 vi.mock('$lib/api/services/nostr/events', () => ({
@@ -18,7 +18,7 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	}
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchComprehensiveProfile: vi.fn().mockResolvedValue(null)
 }));
 

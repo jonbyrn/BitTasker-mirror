@@ -32,6 +32,7 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
@@ -415,6 +416,11 @@
 						res.refresh_token
 					)
 					.then(async () => {
+						await applyNdkSignerFromNsec(privateKey);
+						appStore.update((state) => ({
+							...state,
+							nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub }
+						}));
 						// If the account was pending deletion and the user just logged in,
 						// the backend automatically cancels the deletion. Show a welcome-back toast.
 						if (res.accountRestored) {

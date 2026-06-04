@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
-import { cleanup, findServices, invalidateServiceDiscoveryCaches } from '$lib/nostr/findServices';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, findServices } from '$lib/nostr/findServices';
 import { servicesStore } from '$lib/stores/service.store';
 import KINDS from '$lib/utils/constants/kinds';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 
 vi.mock('$lib/api/services/nostr/events', () => ({
 	default: {
@@ -13,7 +13,7 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	}
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchComprehensiveProfile: vi.fn().mockResolvedValue(null)
 }));
 
@@ -89,7 +89,7 @@ describe('findServices performance fixes', () => {
 			const profilePromise = new Promise((resolve) => {
 				resolveProfile = resolve;
 			});
-			
+
 			const profileCalls: string[] = [];
 			vi.mocked(fetchComprehensiveProfile).mockImplementation(async (pk: string) => {
 				profileCalls.push(pk);
@@ -106,15 +106,15 @@ describe('findServices performance fixes', () => {
 			});
 
 			const resultPromise = findServices({ page: 1, limit: 8 });
-			
-			await new Promise(r => setTimeout(r, 100));
-			
+
+			await new Promise((r) => setTimeout(r, 100));
+
 			resolveProfile!({ reviews: [], npub: pubkey });
-			
+
 			const result = await resultPromise;
 
 			expect(result.services).toHaveLength(3);
-			expect(profileCalls.filter(pk => pk === pubkey)).toHaveLength(1);
+			expect(profileCalls.filter((pk) => pk === pubkey)).toHaveLength(1);
 		});
 	});
 
@@ -131,11 +131,10 @@ describe('findServices performance fixes', () => {
 			});
 
 			await findServices({ page: 1, limit: 8 });
-			const firstDeleteCalls = deleteCallCount;
 
 			deleteCallCount = 0;
 			await findServices({ page: 1, limit: 8 });
-			
+
 			expect(deleteCallCount).toBe(0);
 		});
 	});

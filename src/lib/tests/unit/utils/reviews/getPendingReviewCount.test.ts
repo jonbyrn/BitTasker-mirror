@@ -30,7 +30,7 @@ vi.mock('$lib/utils/contract/reviewContractsFromNdk', () => ({
 	buildIContractForReviewFromNdkWithNostrStatus: vi.fn()
 }));
 
-vi.mock('$lib/utils/nostr-message', () => ({
+vi.mock('$lib/nostr/profile', () => ({
 	fetchProfileMetadata: vi.fn().mockResolvedValue({ name: 'Test' })
 }));
 

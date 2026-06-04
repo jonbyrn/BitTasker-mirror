@@ -71,7 +71,13 @@
 				"internal_error": "Algo salió mal de nuestro lado. Por favor intenta más tarde.",
 				"missing_reviewee_wallet": "Falta la dirección de billetera del destinatario. Recarga la página o abre el contrato de nuevo.",
 				"missing_reviewer_wallet": "No se pudo resolver tu billetera para este contrato. Reconecta tu billetera RSK.",
-				"missing_party_wallet_addresses": "Las direcciones de las partes aún se están cargando desde la cadena. Espera un momento e inténtalo de nuevo."
+				"missing_party_wallet_addresses": "Las direcciones de las partes aún se están cargando desde la cadena. Espera un momento e inténtalo de nuevo.",
+				"challenge_invalid": "La verificación de la calificación expiró o no es válida. Inténtalo de nuevo.",
+				"challenge_expired": "La verificación de la calificación expiró. Envía de nuevo.",
+				"participant_mismatch": "La billetera o identidad no coincide con este contrato. Abre el contrato de nuevo e inténtalo.",
+				"settlement_not_reviewable": "Este contrato aún no está listo para calificar.",
+				"rate_limited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+				"review_payload_invalid": "No se pudieron validar los datos de la calificación. Revisa las puntuaciones e inténtalo de nuevo."
 			}
 		},
 		"verified": "Verificado",

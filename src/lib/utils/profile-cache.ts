@@ -40,6 +40,10 @@ export class ProfileCache {
 		this.setProfile(pubkey, profile);
 	}
 
+	invalidate(pubkey: string): void {
+		this.cache.delete(pubkey);
+	}
+
 	clear() {
 		this.cache.clear();
 	}

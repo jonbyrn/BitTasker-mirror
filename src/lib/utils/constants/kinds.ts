@@ -44,6 +44,9 @@ const KINDS = {
 	/** Recurring task definitions - parameterized replaceable */
 	RECURRING_TASK: 31002,
 
+	/** Event deletion (NIP-09) */
+	EVENT_DELETION: 5,
+
 	/** User preferences (NIP-33) - parameterized replaceable */
 	USER_PREFERENCES: 31003,
 
