@@ -324,17 +324,17 @@ Repeat for each of the three databases.
 
 In GitLab → Settings → CI/CD → Variables, add these **masked** variables:
 
-| Variable                   | Value                                               | Type                   |
-| -------------------------- | --------------------------------------------------- | ---------------------- |
-| `CLOUDFLARE_ACCOUNT_ID`    | Your Cloudflare Account ID (found in dashboard URL) | Variable               |
-| `R2_ACCESS_KEY_ID`         | R2 API token access key                             | Variable               |
-| `R2_SECRET_ACCESS_KEY`     | R2 API token secret                                 | **Masked**             |
-| `R2_BUCKET`                | `bittasker-backups`                                 | Variable               |
-| `DATABASE_URL_API`         | Full public PostgreSQL URI for API DB (see below)   | **Masked** (protected) |
-| `DATABASE_URL_RELAY_TASKS` | Full public PostgreSQL URI for Tasks Relay DB       | **Masked** (protected) |
-| `DATABASE_URL_RELAY_GENERAL` | Full public PostgreSQL URI for General Relay DB   | **Masked** (protected) |
+| Variable                     | Value                                               | Type                   |
+| ---------------------------- | --------------------------------------------------- | ---------------------- |
+| `CLOUDFLARE_ACCOUNT_ID`      | Your Cloudflare Account ID (found in dashboard URL) | Variable               |
+| `R2_ACCESS_KEY_ID`           | R2 API token access key                             | Variable               |
+| `R2_SECRET_ACCESS_KEY`       | R2 API token secret                                 | **Masked**             |
+| `R2_BUCKET`                  | `bittasker-backups`                                 | Variable               |
+| `DATABASE_URL_API`           | Full public PostgreSQL URI for API DB (see below)   | **Masked** (protected) |
+| `DATABASE_URL_RELAY_TASKS`   | Full public PostgreSQL URI for Tasks Relay DB       | **Masked** (protected) |
+| `DATABASE_URL_RELAY_GENERAL` | Full public PostgreSQL URI for General Relay DB     | **Masked** (protected) |
 
-Remove any old `PG_HOST_*`, `PGUSER_BACKUP`, and `PGPASSWORD_BACKUP` variables after migrating — the script no longer reads them.
+The `db-backup` job re-binds these with `expand: false` in `.gitlab-ci.yml` so GitLab does not re-process `$` inside the stored values when injecting them into the job environment.
 
 `R2_ENDPOINT` is derived in the script from `CLOUDFLARE_ACCOUNT_ID` — do not set it as a separate variable unless you have a custom endpoint.
 
@@ -350,18 +350,19 @@ The backup job is a single unified job in `.gitlab-ci.yml` that runs `scripts/ba
 - Installs `awscli` via pip for R2 upload
 - Calls `bash scripts/backup-databases.sh`
 
-The script (`scripts/backup-databases.sh`) loops through all three databases (API, relay_tasks, relay_general), runs `pg_dump --verbose` with full `DATABASE_URL_*` connection strings (`--format=custom --compress=9`), retries failed dumps with exponential backoff, and uploads to `s3://bittasker-backups/${RETENTION_TYPE}/${LABEL}/`.
+The script (`scripts/backup-databases.sh`) loops through all three databases (API, relay*tasks, relay_general), runs `pg_dump --verbose` with full `DATABASE_URL*\*` connection strings (`--format=custom --compress=9`), retries failed dumps with exponential backoff, and uploads to `s3://bittasker-backups/${RETENTION_TYPE}/${LABEL}/`.
 
 **Why one job instead of three**: GitLab schedules each set `RETENTION_TYPE` as a schedule variable. The same job runs with `daily`, `weekly`, or `monthly` based on which schedule triggered it. This avoids duplicating the job definition.
 
 **Pipeline hardening (implemented)**:
 
-| Change | Why |
-| ------ | --- |
-| `timeout: 1 hour` on `db-backup` | Backups can run several minutes per DB; retries add wall time |
-| `pg_dump --verbose` | GitLab can kill jobs with no log output for ~60 minutes; verbose mode streams progress |
-| Full connection URI via `-d "$DATABASE_URL_*"` | Railway public proxy port + SSL + keepalives in one string |
-| `schedule-skip` on `build` and `build-production` | Scheduled pipelines run backup only, not frontend builds |
+| Change                                            | Why                                                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `timeout: 1 hour` on `db-backup`                  | Backups can run several minutes per DB; retries add wall time                          |
+| `pg_dump --verbose`                               | GitLab can kill jobs with no log output for ~60 minutes; verbose mode streams progress |
+| Full connection URI via `-d "$DATABASE_URL_*"`    | Railway public proxy port + SSL + keepalives in one string                             |
+| `expand: false` on backup job variables           | Prevents GitLab from re-expanding `$` inside masked CI/CD values                       |
+| `schedule-skip` on `build` and `build-production` | Scheduled pipelines run backup only, not frontend builds                               |
 
 **Design constraint**: Backups stay **outside** Railway (GitLab CI → TCP proxy → `pg_dump` → R2). Do not move dumps onto Railway cron/services — the goal is recoverability when Railway is down, not dependence on Railway during an outage.
 
@@ -375,13 +376,13 @@ This section validates the proposed full-URL approach and each libpq query param
 
 `pg_dump` accepts a [connection string as `dbname`](https://www.postgresql.org/docs/current/app-pgdump.html) (positional argument or `-d`). Internally, libpq parses URIs and discrete flags the same way, but **several resilience parameters have no `pg_dump` CLI flag** — they are only available as libpq connection parameters (URI query string or keyword/value string).
 
-| Parameter | `pg_dump` flag? | URI query param? | Env var? |
-| --------- | --------------- | ---------------- | -------- |
-| host, port, user, dbname | Yes (`-h`, `-p`, `-U`, database name) | Yes | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` |
-| `sslmode` | No | Yes | `PGSSLMODE` |
-| `connect_timeout` | No | Yes | `PGCONNECT_TIMEOUT` |
-| `keepalives`, `keepalives_idle`, `keepalives_interval`, `keepalives_count` | No | Yes | **No** (URL or keyword string only) |
-| `tcp_user_timeout` | No | Yes | `PGTCPUSER_TIMEOUT` (PostgreSQL 12+) |
+| Parameter                                                                  | `pg_dump` flag?                       | URI query param? | Env var?                                   |
+| -------------------------------------------------------------------------- | ------------------------------------- | ---------------- | ------------------------------------------ |
+| host, port, user, dbname                                                   | Yes (`-h`, `-p`, `-U`, database name) | Yes              | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` |
+| `sslmode`                                                                  | No                                    | Yes              | `PGSSLMODE`                                |
+| `connect_timeout`                                                          | No                                    | Yes              | `PGCONNECT_TIMEOUT`                        |
+| `keepalives`, `keepalives_idle`, `keepalives_interval`, `keepalives_count` | No                                    | Yes              | **No** (URL or keyword string only)        |
+| `tcp_user_timeout`                                                         | No                                    | Yes              | `PGTCPUSER_TIMEOUT` (PostgreSQL 12+)       |
 
 Source: [libpq connection parameters](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS).
 
@@ -410,16 +411,16 @@ Railway's own template sets `DATABASE_PUBLIC_URL` to the same `postgresql://…@
 
 #### Per-parameter validation (libpq + Railway)
 
-| Parameter | Value (example) | Valid for libpq? | Railway / proxy notes | Confidence |
-| --------- | ----------------- | ---------------- | --------------------- | ---------- |
-| `sslmode=require` | `require` | Yes | **Required pattern for external TCP proxy.** Railway uses **self-signed** TLS on the proxy; `verify-full` / `verify-ca` fail with "self-signed certificate in certificate chain". Railway staff confirm CA-signed certs are not available on TCP proxy ([Station thread](https://station.railway.com/questions/verify-full-ssl-mode-on-postgres-databse-4d035b2c)). Use `require` (encrypt, do not verify CA). | **High** |
-| `sslmode=disable` | `disable` | Yes | **Avoid** for public proxy — community reports of immediate disconnects / "server closed the connection unexpectedly" when SSL is disabled externally. | **High** (avoid) |
-| `connect_timeout` | `60` (seconds) | Yes | Limits time spent establishing TCP + SSL per connection attempt. Minimum effective value is 2 seconds if set to `1`. Helps fail fast during proxy black-holes instead of hanging indefinitely. | **High** |
-| `keepalives` | `1` | Yes | Enables client-side TCP keepalive (`SO_KEEPALIVE`). libpq default is already `1`; explicit `1` is documentation-only unless something disabled keepalives. | **High** |
-| `keepalives_idle` | `30` | Yes | Seconds before first keepalive probe. May help proxies/NAT that drop **idle** TCP sessions during long `pg_dump` runs. Not a fix for active-transfer stalls. | **Medium** |
-| `keepalives_interval` | `10` | Yes | Seconds between probes. Same as above. | **Medium** |
-| `keepalives_count` | `5` | Yes | Failed probes before client treats connection as dead. Same as above. | **Medium** |
-| `tcp_user_timeout` | `30000` (ms) | Yes (Linux) | Caps time unacknowledged **sent** data blocks before TCP gives up. Useful for detecting half-open connections during large streams. **Ignored on Windows**; GitLab `postgres:16-alpine` on Linux supports it. Can interact with keepalive behavior — tune as a set, not in isolation ([Instacart engineering post](https://tech.instacart.com/the-vanishing-thread-and-postgresql-tcp-connection-parameters-93afc0e1208c)). | **Medium** |
+| Parameter             | Value (example) | Valid for libpq? | Railway / proxy notes                                                                                                                                                                                                                                                                                                                                                                                                       | Confidence       |
+| --------------------- | --------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `sslmode=require`     | `require`       | Yes              | **Required pattern for external TCP proxy.** Railway uses **self-signed** TLS on the proxy; `verify-full` / `verify-ca` fail with "self-signed certificate in certificate chain". Railway staff confirm CA-signed certs are not available on TCP proxy ([Station thread](https://station.railway.com/questions/verify-full-ssl-mode-on-postgres-databse-4d035b2c)). Use `require` (encrypt, do not verify CA).              | **High**         |
+| `sslmode=disable`     | `disable`       | Yes              | **Avoid** for public proxy — community reports of immediate disconnects / "server closed the connection unexpectedly" when SSL is disabled externally.                                                                                                                                                                                                                                                                      | **High** (avoid) |
+| `connect_timeout`     | `60` (seconds)  | Yes              | Limits time spent establishing TCP + SSL per connection attempt. Minimum effective value is 2 seconds if set to `1`. Helps fail fast during proxy black-holes instead of hanging indefinitely.                                                                                                                                                                                                                              | **High**         |
+| `keepalives`          | `1`             | Yes              | Enables client-side TCP keepalive (`SO_KEEPALIVE`). libpq default is already `1`; explicit `1` is documentation-only unless something disabled keepalives.                                                                                                                                                                                                                                                                  | **High**         |
+| `keepalives_idle`     | `30`            | Yes              | Seconds before first keepalive probe. May help proxies/NAT that drop **idle** TCP sessions during long `pg_dump` runs. Not a fix for active-transfer stalls.                                                                                                                                                                                                                                                                | **Medium**       |
+| `keepalives_interval` | `10`            | Yes              | Seconds between probes. Same as above.                                                                                                                                                                                                                                                                                                                                                                                      | **Medium**       |
+| `keepalives_count`    | `5`             | Yes              | Failed probes before client treats connection as dead. Same as above.                                                                                                                                                                                                                                                                                                                                                       | **Medium**       |
+| `tcp_user_timeout`    | `30000` (ms)    | Yes (Linux)      | Caps time unacknowledged **sent** data blocks before TCP gives up. Useful for detecting half-open connections during large streams. **Ignored on Windows**; GitLab `postgres:16-alpine` on Linux supports it. Can interact with keepalive behavior — tune as a set, not in isolation ([Instacart engineering post](https://tech.instacart.com/the-vanishing-thread-and-postgresql-tcp-connection-parameters-93afc0e1208c)). | **Medium**       |
 
 **PostgreSQL 17+ client note**: Some external clients default to "direct SSL" and hit `received direct SSL connection request without ALPN`. The backup image is **PostgreSQL 16**, so this is unlikely today. If you upgrade the CI image to 17+, and connections fail with ALPN errors, add `sslnegotiation=postgres` to the URI or set `PGSSLNEGOTIATION=postgres` ([Railway Station](https://station.railway.com/questions/postgres-ssl-connection-issue-from-exter-9cc94f3f)).
 
@@ -437,12 +438,12 @@ Railway's public TCP proxy is a **known weak link** for long-running `pg_dump` /
 
 #### GitLab CI timeouts and log output
 
-| Mechanism | Behavior |
-| --------- | -------- |
-| Job `timeout:` in `.gitlab-ci.yml` | Hard limit for the job; on exceed, runner sends SIGTERM, then SIGKILL after grace period |
-| Runner `maximum_timeout` | Caps project/job timeout (lowest wins) |
-| "No output" / stuck job | Long silent phases can cause jobs to be treated as stuck; use `pg_dump --verbose` so logs keep updating during large table dumps |
-| Project `default: timeout:` | Known GitLab bug ([#387528](https://gitlab.com/gitlab-org/gitlab/-/issues/387528)) — set `timeout:` on **`db-backup` directly**, not only under `default:` |
+| Mechanism                          | Behavior                                                                                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job `timeout:` in `.gitlab-ci.yml` | Hard limit for the job; on exceed, runner sends SIGTERM, then SIGKILL after grace period                                                                   |
+| Runner `maximum_timeout`           | Caps project/job timeout (lowest wins)                                                                                                                     |
+| "No output" / stuck job            | Long silent phases can cause jobs to be treated as stuck; use `pg_dump --verbose` so logs keep updating during large table dumps                           |
+| Project `default: timeout:`        | Known GitLab bug ([#387528](https://gitlab.com/gitlab-org/gitlab/-/issues/387528)) — set `timeout:` on **`db-backup` directly**, not only under `default:` |
 
 **Configured in `.gitlab-ci.yml`**:
 
@@ -459,10 +460,10 @@ If dumps outgrow one hour, raise `timeout` and confirm the self-hosted runner's 
 
 In GitLab → Build → Pipeline schedules → New schedule:
 
-| Schedule       | Cron                                | Target branch | Variables (required)        |
-| -------------- | ----------------------------------- | ------------- | --------------------------- |
-| Daily backup   | `0 3 * * *` (3 AM UTC daily)        | `dev` or `master` | `RETENTION_TYPE` = `daily` |
-| Weekly backup  | `0 3 * * 0` (3 AM UTC Sundays)      | `dev` or `master` | `RETENTION_TYPE` = `weekly` |
+| Schedule       | Cron                                | Target branch     | Variables (required)         |
+| -------------- | ----------------------------------- | ----------------- | ---------------------------- |
+| Daily backup   | `0 3 * * *` (3 AM UTC daily)        | `dev` or `master` | `RETENTION_TYPE` = `daily`   |
+| Weekly backup  | `0 3 * * 0` (3 AM UTC Sundays)      | `dev` or `master` | `RETENTION_TYPE` = `weekly`  |
 | Monthly backup | `0 3 1 * *` (3 AM UTC 1st of month) | `dev` or `master` | `RETENTION_TYPE` = `monthly` |
 
 Use a branch that has **protected** CI variables available to the runner. If variables are protected, the schedule target branch must be protected too.
@@ -756,11 +757,11 @@ aws s3 cp "s3://bittasker-backups/daily/api/${LATEST}" . \
 
 These files have been created or modified in the BitTasker repository as part of Phase 2 and pipeline hardening:
 
-| File                          | Purpose                                                                                                                                                                                                                                                               |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/backup-databases.sh` | `DATABASE_URL_*` full URIs, `pg_dump --verbose`, retries, `PGOPTIONS` statement_timeout=0, R2 upload with one retry |
-| `scripts/restore-from-r2.sh`  | Recovery helper — finds and downloads the latest backup for a given database, optionally restores it. Usage: `bash scripts/restore-from-r2.sh api [target_db_url]`                                                                                                    |
-| `config/r2-lifecycle.json`    | R2 lifecycle rules — auto-prunes daily (7d), weekly (28d), monthly (90d). Apply: `npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json`                                                                                             |
+| File                          | Purpose                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/backup-databases.sh` | `DATABASE_URL_*` full URIs, `pg_dump --verbose`, retries, `PGOPTIONS` statement_timeout=0, R2 upload with one retry                                                              |
+| `scripts/restore-from-r2.sh`  | Recovery helper — finds and downloads the latest backup for a given database, optionally restores it. Usage: `bash scripts/restore-from-r2.sh api [target_db_url]`               |
+| `config/r2-lifecycle.json`    | R2 lifecycle rules — auto-prunes daily (7d), weekly (28d), monthly (90d). Apply: `npx wrangler r2 bucket lifecycle set bittasker-backups --file config/r2-lifecycle.json`        |
 | `.gitlab-ci.yml`              | `db-backup` (schedules only, `timeout: 1 hour`). `build` and `build-production` skip scheduled pipelines. Deploy jobs pass through Cloudflare variables for self-hosted runners. |
 
 ### Related frontend / deploy pipeline (not backup)
@@ -806,15 +807,15 @@ These steps require manual actions in external dashboards. Complete them in orde
 
 - [ ] **Add CI/CD variables** (Settings → CI/CD → Variables)
 
-  | Variable | Value | Protected | Masked |
-  |----------|-------|-----------|--------|
-  | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID (dashboard URL) | Yes | No |
-  | `R2_ACCESS_KEY_ID` | R2 API token access key | Yes | No |
-  | `R2_SECRET_ACCESS_KEY` | R2 API token secret | Yes | **Yes** |
-  | `R2_BUCKET` | `bittasker-backups` | Yes | No |
-  | `DATABASE_URL_API` | Full URI for API DB (see **Example URI for Railway** under Connection URLs) | Yes | **Yes** |
-  | `DATABASE_URL_RELAY_TASKS` | Full URI for Tasks Relay DB | Yes | **Yes** |
-  | `DATABASE_URL_RELAY_GENERAL` | Full URI for General Relay DB | Yes | **Yes** |
+  | Variable                     | Value                                                                       | Protected | Masked  |
+  | ---------------------------- | --------------------------------------------------------------------------- | --------- | ------- |
+  | `CLOUDFLARE_ACCOUNT_ID`      | Cloudflare Account ID (dashboard URL)                                       | Yes       | No      |
+  | `R2_ACCESS_KEY_ID`           | R2 API token access key                                                     | Yes       | No      |
+  | `R2_SECRET_ACCESS_KEY`       | R2 API token secret                                                         | Yes       | **Yes** |
+  | `R2_BUCKET`                  | `bittasker-backups`                                                         | Yes       | No      |
+  | `DATABASE_URL_API`           | Full URI for API DB (see **Example URI for Railway** under Connection URLs) | Yes       | **Yes** |
+  | `DATABASE_URL_RELAY_TASKS`   | Full URI for Tasks Relay DB                                                 | Yes       | **Yes** |
+  | `DATABASE_URL_RELAY_GENERAL` | Full URI for General Relay DB                                               | Yes       | **Yes** |
 
   Deploy-related variables (`CLOUDFLARE_API_TOKEN`, etc.) are documented in [zapstore-pipeline.md](./zapstore-pipeline.md) and `.gitlab-ci.yml`; they are separate from backup variables.
 
