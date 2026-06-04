@@ -31,6 +31,9 @@
 	}
 
 	function setCachedReviews(pubkey: string, data: CachedReviewData): void {
+		if (data.reviewCount <= 0) {
+			return;
+		}
 		reviewsCache[pubkey] = data;
 		const keys = Object.keys(reviewsCache);
 		if (keys.length > MAX_CACHE_SIZE) {
@@ -145,6 +148,10 @@
 		if (!dateSource) return null;
 		return formatMemberSinceDate(dateSource);
 	});
+
+	const hasExplicitRating = $derived(
+		typeof ratingProp === 'number' && Number.isFinite(ratingProp) && ratingProp > 0
+	);
 
 	/**
 	 * Encode hex pubkey to npub using NDK
@@ -339,8 +346,8 @@
 	 * Load reviews and calculate ranking for a user
 	 */
 	async function loadUserReviews(currentPubkey: string, requestId: number) {
-		if (ratingProp !== null && ratingProp !== undefined) {
-			calculatedRating = ratingProp;
+		if (hasExplicitRating) {
+			calculatedRating = ratingProp as number;
 			return;
 		}
 
@@ -408,9 +415,7 @@
 	/**
 	 * Get display rating - use prop if provided, otherwise calculated from reviews
 	 */
-	const displayRating = $derived(
-		ratingProp !== null && ratingProp !== undefined ? ratingProp : calculatedRating
-	);
+	const displayRating = $derived(hasExplicitRating ? (ratingProp as number) : calculatedRating);
 
 	$effect(() => {
 		const currentPubkey = normalizedHexPubkey;
@@ -440,9 +445,9 @@
 				}
 			}
 
-			if (ratingProp === null || ratingProp === undefined) {
+			if (!hasExplicitRating) {
 				const cachedReviews = getCachedReviews(currentPubkey);
-				if (cachedReviews) {
+				if (cachedReviews && cachedReviews.reviewCount > 0) {
 					reviewCount = cachedReviews.reviewCount;
 					calculatedRating = cachedReviews.averageRating;
 					userRanking = cachedReviews.ranking;

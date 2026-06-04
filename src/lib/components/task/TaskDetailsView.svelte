@@ -2,7 +2,6 @@
 	import type { Attachment, Category, Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { format } from 'date-fns';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/stores/user.store';
@@ -33,7 +32,7 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -205,11 +204,6 @@
 
 		// Espera a que todas las promesas se resuelvan
 		return await Promise.all(imagePromises);
-	};
-
-	const formatDateString = (date: string | number): string => {
-		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return format(dateObj, 'MMM yyyy');
 	};
 
 	// Helper function to detect video files
@@ -568,23 +562,28 @@
 								</div>
 							{/if}
 
-							<!-- Username and Review Stars -->
-							<div class="flex flex-col">
-								<span class="text-base font-medium">
-									{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
-								</span>
-								<!-- Review Stars from Review System -->
-								{#if task.npub}
-									<div class="flex items-center gap-2">
-										<UserRatingDisplay userPubkey={task.npub} size="md" showCount={true} />
-										<a
-											href="/dashboard/profile?user={task.npub}&tab=reviews"
-											class="text-primary text-xs hover:underline"
-										>
-											{$t('reviews.view_all')}
-										</a>
-									</div>
-								{:else}
+							<!-- Tasker profile -->
+							{#if task.npub}
+								<div class="flex flex-col gap-2">
+									<UserInfoDisplay
+										avatar={task.creator?.avatar}
+										username={task.creator?.username}
+										pubkey={task.npub}
+										size="md"
+										showReviewCount={true}
+									/>
+									<a
+										href="/dashboard/profile?user={task.npub}&tab=reviews"
+										class="text-primary text-xs hover:underline"
+									>
+										{$t('reviews.view_all')}
+									</a>
+								</div>
+							{:else}
+								<div class="flex flex-col">
+									<span class="text-base font-medium">
+										{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
+									</span>
 									<div class="flex items-center">
 										{#each Array(5) as _, i (i)}
 											<svg
@@ -600,12 +599,8 @@
 										{/each}
 										<span class="text-base-content/60 ml-2 text-sm">0</span>
 									</div>
-								{/if}
-								<p class="text-base-content/60 text-sm">
-									{$t('dashboard.task_details_by_task.member_since')}
-									{formatDateString(task.createdAt)}
-								</p>
-							</div>
+								</div>
+							{/if}
 
 							<!-- Categories -->
 							{#if task.categories?.length > 0}
@@ -770,79 +765,59 @@
 							{#if task.creator}
 								<div class="border-base-300 mt-4 border-t pt-4">
 									<h4 class="mb-3 font-semibold">{$t('dashboard.task_details_by_task.tasker')}</h4>
-									<div class="flex items-center gap-3">
-										<!-- Avatar -->
-										<div class="avatar">
-											<div
-												class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
-											>
-												{#if task.creator.avatar}
-													<img
-														src={task.creator.avatar}
-														alt={$t('dashboard.task_details_by_task.avatar_alt')}
-														class="h-12 w-12 rounded-full object-cover"
-													/>
-												{:else}
-													<!-- Placeholder with initials -->
-													<div
-														class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
-													>
-														{#if task.creator.username}
-															<span class="text-xl font-semibold">
-																{task.creator.username.charAt(0).toUpperCase()}
-															</span>
-														{:else}
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-8 w-8"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-																/>
-															</svg>
-														{/if}
-													</div>
-												{/if}
-											</div>
-										</div>
-
-										<!-- Username and Review Stars -->
-										<div class="flex flex-col">
-											<span class="text-base font-medium">
-												{task.creator.username}
-											</span>
-											<!-- Review Stars -->
-											<div class="flex items-center">
-												{#each [0, 1, 2, 3, 4] as i (i)}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="h-4 w-4 {i < (task.creator?.rating || 0)
-															? 'text-yellow-400'
-															: 'text-base-content/30'}"
-														fill="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-														/>
-													</svg>
-												{/each}
-												<span class="text-base-content/60 ml-2 text-sm"
-													>{task.creator?.rating || 0}</span
+									{#if task.npub}
+										<UserInfoDisplay
+											avatar={task.creator.avatar}
+											username={task.creator.username}
+											pubkey={task.npub}
+											size="md"
+											showReviewCount={true}
+										/>
+									{:else}
+										<div class="flex items-center gap-3">
+											<div class="avatar">
+												<div
+													class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
 												>
+													{#if task.creator.avatar}
+														<img
+															src={task.creator.avatar}
+															alt={$t('dashboard.task_details_by_task.avatar_alt')}
+															class="h-12 w-12 rounded-full object-cover"
+														/>
+													{:else}
+														<div
+															class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
+														>
+															{#if task.creator.username}
+																<span class="text-xl font-semibold">
+																	{task.creator.username.charAt(0).toUpperCase()}
+																</span>
+															{:else}
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	class="text-base-content/60 h-8 w-8"
+																	fill="none"
+																	viewBox="0 0 24 24"
+																	stroke="currentColor"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		stroke-width="2"
+																		d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+																	/>
+																</svg>
+															{/if}
+														</div>
+													{/if}
+												</div>
 											</div>
-											<p class="text-base-content/60 text-sm">
-												{$t('dashboard.task_details_by_task.member_since')}
-												{formatDateString(task.createdAt)}
-											</p>
+											<div class="flex flex-col">
+												<span class="text-base font-medium">{task.creator.username}</span>
+											</div>
 										</div>
-									</div>
+									{/if}
 								</div>
 							{/if}
 							<!-- Task Location Map - Only show pickup location -->

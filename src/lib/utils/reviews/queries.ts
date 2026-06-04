@@ -8,7 +8,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { ndk } from '$lib/nostr/ndk';
 import type { NDKSubscription, NDKFilter } from '@nostr-dev-kit/ndk';
 import type { AttestedReview } from '$lib/types/review';
-import { nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
+import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
 import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('reviews:queries');
@@ -271,7 +271,7 @@ function dedupe(reviews: AttestedReview[]): AttestedReview[] {
 async function fetchAttestations(
 	filter: NDKFilter,
 	limit: number,
-	timeoutMs: number = 5000
+	timeoutMs: number = 8000
 ): Promise<AttestedReview[]> {
 	const reviews: AttestedReview[] = [];
 	const pendingCommentFetches: Promise<void>[] = [];
@@ -351,7 +351,14 @@ export function subscribeToUserAttestations(
 	onEvent: (review: AttestedReview) => void,
 	onEose?: () => void
 ): NDKSubscription {
-	const sub = ndk.subscribe({ kinds: [KINDS.ATTESTATION], '#p': [pubkey] }, { closeOnEose: false });
+	const hexPubkey = normalizeNostrPubkey(pubkey);
+	if (!hexPubkey) {
+		throw new Error('Invalid pubkey for attestation subscription');
+	}
+	const sub = ndk.subscribe(
+		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
+		{ closeOnEose: false }
+	);
 	sub.on('event', (event) => {
 		parseAttestation(event).then((parsed) => {
 			if (parsed) onEvent(parsed);
@@ -365,26 +372,33 @@ export async function getReviewsForUser(
 	pubkey: string,
 	limit: number = 50
 ): Promise<AttestedReview[]> {
-	// Attestations include both reviewer and reviewee in #p tags,
-	// so we need to filter to only include reviews where user is the reviewee
+	const hexPubkey = normalizeNostrPubkey(pubkey);
+	if (!hexPubkey) {
+		return [];
+	}
+
+	// Attestations tag reviewee/reviewer as hex in #p — always query with normalized hex.
 	const reviews = await fetchAttestations(
-		{ kinds: [KINDS.ATTESTATION], '#p': [pubkey] },
+		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
 		limit * 2
 	);
-	return reviews.filter((r) => nostrPubkeysMatch(r.revieweePubkey, pubkey)).slice(0, limit);
+	return reviews.filter((r) => nostrPubkeysMatch(r.revieweePubkey, hexPubkey)).slice(0, limit);
 }
 
 export async function getReviewsByReviewer(
 	pubkey: string,
 	limit: number = 50
 ): Promise<AttestedReview[]> {
-	// Attestations include both reviewer and reviewee in #p tags,
-	// so we can use #p filter but need to filter to only include reviews where user is the reviewer
+	const hexPubkey = normalizeNostrPubkey(pubkey);
+	if (!hexPubkey) {
+		return [];
+	}
+
 	const reviews = await fetchAttestations(
-		{ kinds: [KINDS.ATTESTATION], '#p': [pubkey] },
+		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
 		limit * 2
 	);
-	return reviews.filter((r) => nostrPubkeysMatch(r.reviewerPubkey, pubkey)).slice(0, limit);
+	return reviews.filter((r) => nostrPubkeysMatch(r.reviewerPubkey, hexPubkey)).slice(0, limit);
 }
 
 export async function getReviewsForContract(contractId: string): Promise<AttestedReview[]> {
