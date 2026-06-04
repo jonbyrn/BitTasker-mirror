@@ -1,6 +1,13 @@
 default_platform(:android)
 
+# Fastlane runs lanes from fastlane/; Capacitor and Gradle paths are repo-root relative.
+PROJECT_ROOT = File.expand_path("..", File.dirname(__FILE__))
+
 platform :android do
+  before_all do
+    Dir.chdir(PROJECT_ROOT)
+  end
+
   # Builds signed AAB and uploads to Internal Testing track
   # Trigger: v*-alpha* or v*-beta* tag on master
   # versionCode = $CI_PIPELINE_ID (always unique, always increasing — no commit-back needed)
@@ -16,7 +23,7 @@ platform :android do
     gradle(
       task: "bundle",
       build_type: "Release",
-      project_dir: "android/",
+      project_dir: File.join(PROJECT_ROOT, "android"),
       print_command: true
     )
 
@@ -47,7 +54,7 @@ platform :android do
     gradle(
       task: "bundle",
       build_type: "Release",
-      project_dir: "android/",
+      project_dir: File.join(PROJECT_ROOT, "android"),
       print_command: true
     )
 
@@ -74,7 +81,7 @@ platform :android do
     gradle(
       task: "bundle",
       build_type: "Release",
-      project_dir: "android/",
+      project_dir: File.join(PROJECT_ROOT, "android"),
       print_command: true
     )
 
@@ -115,7 +122,7 @@ platform :android do
       track: "internal",
       skip_upload_aab: true,
       skip_upload_apk: true,
-      metadata_path: "fastlane/metadata/android"
+      metadata_path: File.join(PROJECT_ROOT, "fastlane/metadata/android")
     )
   end
 end
