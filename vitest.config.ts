@@ -87,6 +87,8 @@ export default defineConfig({
 	resolve: {
 		conditions: ['browser', 'development'],
 		alias: {
+			bolt11: resolve(__dirname, './src/lib/shims/bolt11.ts'),
+			crypto: resolve(__dirname, './src/lib/shims/crypto.ts'),
 			$lib: resolve(__dirname, './src/lib'),
 			'$app/environment': resolve(__dirname, './src/lib/mocks/app-environment.ts'),
 			'$app/stores': resolve(__dirname, './src/lib/mocks/app-stores.ts'),

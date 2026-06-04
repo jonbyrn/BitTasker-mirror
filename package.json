@@ -165,13 +165,11 @@
 		"@uppy/tus": "^5.1.1",
 		"axios": "^1.8.4",
 		"bip39": "^3.1.0",
-		"bolt11": "^1.4.1",
 		"browser-image-compression": "^2.0.2",
 		"buffer": "^6.0.3",
 		"capacitor-webauthn": "^0.0.12",
 		"chart.js": "^4.5.1",
 		"chartjs-adapter-date-fns": "^3.0.0",
-		"crypto-browserify": "^3.12.1",
 		"date-fns": "^4.1.0",
 		"debug": "^4.4.3",
 		"esm-env": "^1.2.2",
@@ -179,6 +177,7 @@
 		"firebase": "^11.10.0",
 		"html5-qrcode": "^2.3.8",
 		"iconify-icon": "^2.3.0",
+		"light-bolt11-decoder": "^3.2.0",
 		"liquidjs-lib": "^6.0.2-liquid.37",
 		"nostr-tools": "^2.13.0",
 		"photoswipe": "^5.4.4",
@@ -199,6 +198,8 @@
 		"zod": "^4.4.3"
 	},
 	"overrides": {
+		"bolt11": "file:./src/lib/shims/bolt11-package",
+		"crypto-browserify": "file:./src/lib/shims/crypto-browserify-package",
 		"cookie": "^0.7.2",
 		"ws": "^8.21.0",
 		"svelte-i18n": {

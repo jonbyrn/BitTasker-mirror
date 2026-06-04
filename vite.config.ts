@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -8,7 +10,6 @@ import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 // Vite plugin to ensure browser condition is prioritized during tests
 // This fixes the "mount(...) is not available on the server" error
@@ -30,6 +31,10 @@ const addBrowserCondition: Plugin = {
 	}
 };
 
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
+const cryptoShim = resolve(projectRoot, 'src/lib/shims/crypto.ts');
+
 export default defineConfig(({ mode }) => {
 	// Load .env file variables into process.env so build-time plugins (e.g. Sentry)
 	// can read them via process.env. Vite only exposes .env to import.meta.env inside
@@ -38,9 +43,7 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	Object.assign(process.env, env);
 	const sentryUploadRequested =
-		process.env.SENTRY_UPLOAD === 'true' ||
-		process.env.CI === 'true' ||
-		process.env.CI === '1';
+		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
 		sentryUploadRequested &&
 			process.env.SENTRY_AUTH_TOKEN &&
@@ -92,8 +95,9 @@ export default defineConfig(({ mode }) => {
 		resolve: {
 			conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
 			alias: {
+				bolt11: bolt11Shim,
+				crypto: cryptoShim,
 				buffer: 'buffer',
-				crypto: 'crypto-browserify',
 				stream: 'stream-browserify',
 				process: 'process/browser',
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
@@ -109,10 +113,7 @@ export default defineConfig(({ mode }) => {
 			// 3. WASM — sets up WASM module handling before polyfills run
 			wasm(),
 
-			// 4. Top-level await — transforms must happen before polyfills
-			topLevelAwait(),
-
-			// 5. Node polyfills — replaces Node built-ins after all transforms are done
+			// 4. Node polyfills — replaces Node built-ins after all transforms are done
 			nodePolyfills({
 				// Whether to polyfill `node:` protocol imports.
 				protocolImports: true,
@@ -124,12 +125,12 @@ export default defineConfig(({ mode }) => {
 				},
 				// Add specific polyfills for modules required by wallet SDK
 				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
-				include: ['crypto', 'stream', 'buffer', 'util', 'process', 'events'],
+				include: ['stream', 'buffer', 'util', 'process', 'events'],
 				// Explicitly exclude modules that should not be polyfilled
 				exclude: ['fs', 'path']
 			}),
 
-			// 6. Icons — asset resolution, late in the pipeline
+			// 5. Icons — asset resolution, late in the pipeline
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
@@ -138,10 +139,10 @@ export default defineConfig(({ mode }) => {
 				defaultClass: ''
 			}),
 
-			// 7. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
+			// 6. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
 			addBrowserCondition,
 
-			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
+			// 7. sentrySvelteKit — MUST be last: it reads the final source maps output
 			//    and uploads after the adapter runs (closeBundle hook)
 			//    Keep it last only when a real upload is configured;
 			//    local/CI preview builds should not pay the source-map/upload cost without credentials.
@@ -169,7 +170,11 @@ export default defineConfig(({ mode }) => {
 			global: 'globalThis'
 		},
 		build: {
-			target: 'es2020',
+			// es2022: native top-level await for secp256k1 WASM (vite-plugin-wasm).
+			// Do NOT use vite-plugin-top-level-await here — it wraps whole chunks in __tla
+			// IIFEs and breaks SvelteKit's sync onMount probe (preview blank screen).
+			// Vitest keeps the plugin in vitest.config.ts for the test runner target.
+			target: 'es2022',
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.

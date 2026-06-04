@@ -1,0 +1,9 @@
+{
+	"name": "bolt11",
+	"version": "1.4.2",
+	"type": "module",
+	"main": "index.mjs",
+	"dependencies": {
+		"light-bolt11-decoder": "^3.2.0"
+	}
+}
