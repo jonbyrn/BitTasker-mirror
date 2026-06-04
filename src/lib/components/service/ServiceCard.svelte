@@ -438,7 +438,6 @@
 				rating={service.creator?.rating ?? null}
 				size="sm"
 				pubkey={service.npub}
-				memberSince={service.createdAt}
 				onResolvedName={(name) => (resolvedCreatorName = name)}
 			/>
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">

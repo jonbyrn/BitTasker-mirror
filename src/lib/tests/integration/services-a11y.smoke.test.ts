@@ -15,7 +15,6 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'common.cancel') return 'Cancel';
 			if (key === 'common.components.drawer.close') return 'Close';
 			if (key === 'dashboard.find_tasks.avatar_alt') return 'Avatar';
-			if (key === 'common.profile.member_since') return 'Member since';
 			if (key === 'dashboard.services.detail.book_now_drawer.title') return 'Confirm Book Now';
 			if (key === 'dashboard.services.detail.book_now_drawer.confirm_cta') return 'Book Now';
 			if (key === 'dashboard.services.detail.book_now_drawer.day') return 'day';

@@ -108,7 +108,6 @@
 		username?: string | null;
 		rating?: number;
 		ratingCount?: number;
-		memberSince?: string | number;
 		pubkey?: string;
 	}
 
@@ -2216,7 +2215,6 @@
 									username={effectiveCreator?.username}
 									rating={effectiveCreator?.rating}
 									pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
-									memberSince={effectiveCreator?.memberSince ?? service.createdAt}
 									size="md"
 								/>
 							</div>
@@ -2714,7 +2712,6 @@
 								username={effectiveCreator?.username}
 								rating={effectiveCreator?.rating}
 								pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
-								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
 								size="md"
 							/>
 						</div>
@@ -2817,7 +2814,6 @@
 		providerAvatar={effectiveCreator?.avatar ?? null}
 		providerRating={effectiveCreator?.rating ?? null}
 		providerPubkey={service?.npub ?? null}
-		providerMemberSince={service?.createdAt ?? null}
 		amountUsd={instantBuyDraft?.amountUsd ?? null}
 		selectedTierLabel={instantBuyDraft?.selectedTierLabel ?? null}
 		agreementSnapshot={instantBuyDraft?.agreementSnapshot ?? null}

@@ -27,7 +27,6 @@
 		providerAvatar = null,
 		providerRating = null,
 		providerPubkey = null,
-		providerMemberSince = null,
 		amountUsd = null,
 		selectedTierLabel = null,
 		agreementSnapshot = null,
@@ -71,7 +70,6 @@
 		providerAvatar?: string | null;
 		providerRating?: number | null;
 		providerPubkey?: string | null;
-		providerMemberSince?: number | string | Date | null;
 		amountUsd?: number | null;
 		selectedTierLabel?: string | null;
 		agreementSnapshot?: ServiceContractAgreementSnapshot | null;
@@ -427,7 +425,6 @@
 									size="sm"
 									pubkey={providerPubkey}
 									profileLink={providerPubkey}
-									memberSince={providerMemberSince}
 								/>
 							</div>
 

@@ -284,9 +284,6 @@
 				pubkey={providerPubkey}
 				rating={service?.creator?.rating ?? null}
 				size="md"
-				memberSince={service?.createdAt ??
-					timeline.latestProposal?.created_at ??
-					timeline.request.created_at}
 				avatarAlt={translateOrFallback('dashboard.find_tasks.avatar_alt', 'Avatar')}
 			/>
 		</div>

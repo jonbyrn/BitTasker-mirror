@@ -67,8 +67,6 @@ vi.mock('svelte-i18n', () => ({
 		switch (key) {
 			case 'dashboard.find_tasks.avatar_alt':
 				return 'Avatar';
-			case 'common.profile.member_since':
-				return 'Member since';
 			case 'messages.unknown_user':
 				return 'Unknown User';
 			default:
@@ -508,39 +506,6 @@ describe('UserInfoDisplay', () => {
 				() => {
 					expect(screen.getByText('4.0')).toBeInTheDocument();
 					expect(document.querySelectorAll('.text-yellow-400').length).toBe(4);
-				},
-				{ timeout: 5000 }
-			);
-		});
-	});
-
-	describe('Member since display', () => {
-		it('should show member since text when profile has createdAt', async () => {
-			mockProfileConfig.name = 'TestUser';
-			mockProfileConfig.createdAt = '2024-01-01T00:00:00Z';
-
-			render(UserInfoDisplay, {
-				pubkey: VALID_HEX_PUBKEY
-			});
-
-			await waitFor(
-				() => {
-					expect(screen.getByText(/Member since/)).toBeInTheDocument();
-				},
-				{ timeout: 5000 }
-			);
-		});
-
-		it('should not show member since when profile has no createdAt', async () => {
-			mockProfileConfig.name = 'TestUser';
-
-			render(UserInfoDisplay, {
-				pubkey: VALID_HEX_PUBKEY
-			});
-
-			await waitFor(
-				() => {
-					expect(screen.queryByText(/Member since/)).not.toBeInTheDocument();
 				},
 				{ timeout: 5000 }
 			);
