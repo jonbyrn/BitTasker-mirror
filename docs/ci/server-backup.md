@@ -360,8 +360,9 @@ The script (`scripts/backup-databases.sh`) loops through all three databases (AP
 | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `timeout: 1 hour` on `db-backup`                  | Backups can run several minutes per DB; retries add wall time                          |
 | `pg_dump --verbose`                               | GitLab can kill jobs with no log output for ~60 minutes; verbose mode streams progress |
-| Full connection URI via `-d "$DATABASE_URL_*"`    | Railway public proxy port + SSL + keepalives in one string                             |
+| URL parse + `PGPASSWORD` in backup script         | Keeps single `DATABASE_URL_*` vars; passwords may contain `@`                          |
 | `expand: false` on backup job variables           | Prevents GitLab from re-expanding `$` inside masked CI/CD values                       |
+| `db-backup-verify` manual job (web pipeline)      | Fast connection test — `glab ci run -b dev`, then play the manual verify job           |
 | `schedule-skip` on `build` and `build-production` | Scheduled pipelines run backup only, not frontend builds                               |
 
 **Design constraint**: Backups stay **outside** Railway (GitLab CI → TCP proxy → `pg_dump` → R2). Do not move dumps onto Railway cron/services — the goal is recoverability when Railway is down, not dependence on Railway during an outage.
@@ -398,6 +399,8 @@ pg_dump --verbose \
 Use **single quotes** in the shell if typing a URI literally; in CI, pass the URL via a masked variable (no shell interpolation of special characters).
 
 **Passwords with special characters**: Percent-encode `@`, `#`, `&`, `=`, spaces, etc. in the password segment, or omit the password from the URI and set `PGPASSWORD` separately. See [libpq URI encoding](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS).
+
+The backup script (`scripts/backup-databases.sh`) parses each `DATABASE_URL_*` from the **last** `@host:port` anchor so passwords may contain literal `@` characters, then passes the password via `PGPASSWORD` to `pg_dump`. You do not need to split variables or percent-encode `@` in GitLab.
 
 #### Example URI for Railway (public TCP proxy)
 

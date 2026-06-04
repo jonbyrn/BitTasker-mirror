@@ -9,17 +9,19 @@
 #   CLOUDFLARE_ACCOUNT_ID
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 #   DATABASE_URL_API, DATABASE_URL_RELAY_TASKS, DATABASE_URL_RELAY_GENERAL
-#     Full postgresql:// URIs (Railway public TCP proxy). Include sslmode=require
-#     and keepalive/timeout query params — see docs/ci/server-backup.md
+#     Full postgresql:// URIs (Railway public TCP proxy). Passwords may contain
+#     @ or $ — the script parses the URL and passes the password via PGPASSWORD.
 #   RETENTION_TYPE — "daily", "weekly", or "monthly" (set by GitLab schedule)
 #
 # Optional:
+#   BACKUP_VERIFY_ONLY=1 — parse URLs and test connections only (no dump/upload)
 #   PG_DUMP_MAX_ATTEMPTS — default 3
 #   PG_DUMP_RETRY_DELAY_SECONDS — initial backoff, default 30 (doubles each retry)
 #   PGOPTIONS — default "-c statement_timeout=0" for long dumps
 #
 # Usage:
 #   RETENTION_TYPE=daily bash scripts/backup-databases.sh
+#   BACKUP_VERIFY_ONLY=1 RETENTION_TYPE=daily bash scripts/backup-databases.sh
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -63,6 +65,7 @@ export PGOPTIONS="${PGOPTIONS:--c statement_timeout=0}"
 
 PG_DUMP_MAX_ATTEMPTS="${PG_DUMP_MAX_ATTEMPTS:-3}"
 PG_DUMP_RETRY_DELAY_SECONDS="${PG_DUMP_RETRY_DELAY_SECONDS:-30}"
+BACKUP_VERIFY_ONLY="${BACKUP_VERIFY_ONLY:-0}"
 
 # Format: "label|url_variable_name"
 DATABASES=(
@@ -72,27 +75,21 @@ DATABASES=(
 )
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
-# Log connection target without credentials (postgresql://***@host:port/db?…)
-redact_database_url() {
-  local url="$1"
-  if [[ "$url" =~ ^(postgres(ql)?://)[^@]+@(.+)$ ]]; then
-    printf '%s***@%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}"
-  else
-    printf '<redacted-connection-string>'
-  fi
-}
+# shellcheck source=scripts/backup-url-parse.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/backup-url-parse.sh"
 
 run_pg_dump_with_retry() {
-  local database_url="$1"
-  local temp_file="$2"
+  local conninfo="$1"
+  local password="$2"
+  local temp_file="$3"
   local attempt=1
   local delay="$PG_DUMP_RETRY_DELAY_SECONDS"
 
   while true; do
     echo "  pg_dump attempt ${attempt}/${PG_DUMP_MAX_ATTEMPTS}…"
-    if pg_dump \
+    if PGPASSWORD="$password" pg_dump \
       --verbose \
-      -d "$database_url" \
+      -d "$conninfo" \
       --format=custom \
       --compress=9 \
       --no-owner \
@@ -116,9 +113,28 @@ run_pg_dump_with_retry() {
   done
 }
 
-# ── Ensure aws CLI is available ─────────────────────────────────────────────
-if ! command -v aws &>/dev/null; then
+verify_pg_connection() {
+  local conninfo="$1"
+  local password="$2"
+
+  echo "  Testing connection (SELECT 1)…"
+  if PGPASSWORD="$password" psql -d "$conninfo" -v ON_ERROR_STOP=1 -tAc 'SELECT 1' >/dev/null 2>&1; then
+    echo "  Connection OK"
+    return 0
+  fi
+
+  echo "  ERROR: Connection failed" >&2
+  return 1
+}
+
+# ── Ensure required tools are available ───────────────────────────────────────
+if [ "$BACKUP_VERIFY_ONLY" != "1" ] && ! command -v aws &>/dev/null; then
   echo "ERROR: aws CLI is required. Install with: pip install awscli" >&2
+  exit 1
+fi
+
+if ! command -v python3 &>/dev/null; then
+  echo "ERROR: python3 is required for URL parsing" >&2
   exit 1
 fi
 
@@ -127,19 +143,43 @@ FAILED=()
 SUCCESS=0
 TOTAL=${#DATABASES[@]}
 
-echo "=== BitTasker Database Backup ($RETENTION_TYPE) — $TIMESTAMP ==="
+if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
+  echo "=== BitTasker Database Backup VERIFY — $TIMESTAMP ==="
+else
+  echo "=== BitTasker Database Backup ($RETENTION_TYPE) — $TIMESTAMP ==="
+fi
 echo ""
 
 for DB_DEF in "${DATABASES[@]}"; do
   IFS='|' read -r LABEL URL_VAR <<< "$DB_DEF"
   DATABASE_URL="${!URL_VAR}"
 
-  echo "── Backing up: $LABEL ($(redact_database_url "$DATABASE_URL")) ──"
+  if ! prepare_pg_connection "$DATABASE_URL"; then
+    FAILED+=("${LABEL} (parse)")
+    echo ""
+    continue
+  fi
+
+  if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
+    echo "── Verifying: $LABEL ($RESOLVED_TARGET) ──"
+  else
+    echo "── Backing up: $LABEL ($RESOLVED_TARGET) ──"
+  fi
+
+  if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
+    if verify_pg_connection "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD"; then
+      SUCCESS=$((SUCCESS + 1))
+    else
+      FAILED+=("${LABEL} (connection)")
+    fi
+    echo ""
+    continue
+  fi
 
   FILENAME="${TIMESTAMP}_${LABEL}.dump"
   TEMP_FILE="/tmp/${FILENAME}"
 
-  if run_pg_dump_with_retry "$DATABASE_URL" "$TEMP_FILE"; then
+  if run_pg_dump_with_retry "$RESOLVED_CONNINFO" "$RESOLVED_PASSWORD" "$TEMP_FILE"; then
     DUMP_SIZE=$(stat -f%z "${TEMP_FILE}" 2>/dev/null || stat -c%s "${TEMP_FILE}" 2>/dev/null || echo 0)
     echo "  pg_dump OK — ${DUMP_SIZE} bytes ($(( DUMP_SIZE / 1024 / 1024 )) MB)"
 
@@ -176,11 +216,19 @@ for DB_DEF in "${DATABASES[@]}"; do
 done
 
 # ── Summary ─────────────────────────────────────────────────────────────────
-echo "=== Backup Summary: ${SUCCESS}/${TOTAL} succeeded ==="
+if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
+  echo "=== Verify Summary: ${SUCCESS}/${TOTAL} connections OK ==="
+else
+  echo "=== Backup Summary: ${SUCCESS}/${TOTAL} succeeded ==="
+fi
 
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo "FAILED: ${FAILED[*]}" >&2
   exit 1
 fi
 
-echo "All backups completed successfully."
+if [ "$BACKUP_VERIFY_ONLY" = "1" ]; then
+  echo "All database connections verified."
+else
+  echo "All backups completed successfully."
+fi

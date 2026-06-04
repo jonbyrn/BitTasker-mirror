@@ -342,6 +342,50 @@ db-backup:
     - bash scripts/backup-databases.sh
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  environment:
+    name: production
+
+db-backup-verify:
+  image: postgres:16-alpine
+  stage: backup
+  timeout: 15 minutes
+  tags:
+    - self-hosted
+  variables:
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+    R2_ACCESS_KEY_ID:
+      value: $R2_ACCESS_KEY_ID
+      expand: false
+    R2_SECRET_ACCESS_KEY:
+      value: $R2_SECRET_ACCESS_KEY
+      expand: false
+    R2_BUCKET:
+      value: $R2_BUCKET
+      expand: false
+    RETENTION_TYPE:
+      value: $RETENTION_TYPE
+      expand: false
+    DATABASE_URL_API:
+      value: $DATABASE_URL_API
+      expand: false
+    DATABASE_URL_RELAY_TASKS:
+      value: $DATABASE_URL_RELAY_TASKS
+      expand: false
+    DATABASE_URL_RELAY_GENERAL:
+      value: $DATABASE_URL_RELAY_GENERAL
+      expand: false
+  before_script:
+    - apk add --no-cache python3
+  script:
+    - bash scripts/test-backup-url-parse.sh
+    - BACKUP_VERIFY_ONLY=1 bash scripts/backup-databases.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
   environment:
     name: production
 
