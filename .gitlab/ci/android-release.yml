@@ -170,13 +170,17 @@ android-build-internal:
       echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE (pipeline=$CI_PIPELINE_ID)"
     - !reference [.android-ci-setup, before_script]
     - |
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
       cat > android/keystore.properties << EOF
       storeFile=upload-keystore.jks
       storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
+      if [ ! -f android/app/upload-keystore.jks ]; then
+        echo "ERROR: upload keystore missing at android/app/upload-keystore.jks"
+        exit 1
+      fi
       if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
         cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
       else
@@ -185,7 +189,7 @@ android-build-internal:
   script:
     - bundle exec fastlane android internal
   after_script:
-    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+    - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
   artifacts:
     paths:
       - android/app/build/outputs/bundle/release/
@@ -213,13 +217,17 @@ android-release-production:
     - !reference [.android-ci-setup, before_script]
     - |
       npm ci
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
+      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
       cat > android/keystore.properties << EOF
       storeFile=upload-keystore.jks
       storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
+      if [ ! -f android/app/upload-keystore.jks ]; then
+        echo "ERROR: upload keystore missing at android/app/upload-keystore.jks"
+        exit 1
+      fi
       if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
         cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
       else
@@ -228,7 +236,7 @@ android-release-production:
   script:
     - bundle exec fastlane android production
   after_script:
-    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+    - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
   artifacts:
     paths:
       - android/app/build/outputs/bundle/release/

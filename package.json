@@ -64,6 +64,7 @@
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
 		"postbuild": "node scripts/purge-cache.js",
 		"test:cache-purge": "node scripts/test-cache-purge.js",
+		"test:android:ci": "bash scripts/test-android-ci-setup.sh",
 		"gitlab:vars:dev": "bash scripts/push-gitlab-variables.sh --scope development --file .env.development",
 		"gitlab:vars:prod": "bash scripts/push-gitlab-variables.sh --scope production --file .env",
 		"gitlab:vars:dev:dry": "bash scripts/push-gitlab-variables.sh --scope development --file .env.development --dry-run",
