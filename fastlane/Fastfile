@@ -27,14 +27,16 @@ platform :android do
       print_command: true
     )
 
-    upload_to_play_store(
-      track: "internal",
-      release_status: "completed",
-      skip_upload_apk: true,
-      skip_upload_metadata: true,
-      skip_upload_screenshots: true,
-      skip_upload_images: true
-    )
+    unless ENV["ANDROID_SKIP_PLAY_UPLOAD"] == "1"
+      upload_to_play_store(
+        track: "internal",
+        release_status: "completed",
+        skip_upload_apk: true,
+        skip_upload_metadata: true,
+        skip_upload_screenshots: true,
+        skip_upload_images: true
+      )
+    end
   end
 
   # Builds signed AAB and uploads to Production

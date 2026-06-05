@@ -1,6 +1,42 @@
 # Android production + internal release jobs (included from .gitlab-ci.yml).
 # See docs/ci/play-store-pipeline.md and docs/ci/zapstore-pipeline.md
 
+.android-play-keystore-setup:
+  before_script:
+    - |
+      set -eu
+      for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_STORE_PASSWORD ANDROID_KEYSTORE_KEY_ALIAS ANDROID_KEYSTORE_KEY_PASSWORD; do
+        eval "value=\${$var:-}"
+        if [ -z "$value" ]; then
+          echo "ERROR: ${var} is empty"
+          exit 1
+        fi
+      done
+      mkdir -p android/app
+      printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
+      if [ ! -s android/app/upload-keystore.jks ]; then
+        echo "ERROR: decoded keystore is empty"
+        exit 1
+      fi
+      magic=$(head -c 4 android/app/upload-keystore.jks | od -An -tx1 | tr -d ' \n')
+      if [ "$magic" = "feedfeed" ]; then store_type=jks; else store_type=pkcs12; fi
+      printf '%s\n' \
+        "storeFile=upload-keystore.jks" \
+        "storeType=${store_type}" \
+        "storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}" \
+        "keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}" \
+        "keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}" \
+        > android/keystore.properties
+      keytool -list -storetype "$store_type" -keystore android/app/upload-keystore.jks \
+        -storepass "${ANDROID_KEYSTORE_STORE_PASSWORD}" -alias "${ANDROID_KEYSTORE_KEY_ALIAS}" >/dev/null
+      echo "Keystore OK: alias=${ANDROID_KEYSTORE_KEY_ALIAS} storeType=${store_type}"
+    - |
+      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
+        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
+      else
+        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      fi
+
 .android-ci-setup:
   before_script:
     - |
@@ -168,24 +204,8 @@ android-build-internal:
         exit 1
       fi
       echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE (pipeline=$CI_PIPELINE_ID)"
+    - !reference [.android-play-keystore-setup, before_script]
     - !reference [.android-ci-setup, before_script]
-    - |
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
-      cat > android/keystore.properties << EOF
-      storeFile=upload-keystore.jks
-      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
-      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
-      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
-      EOF
-      if [ ! -f android/app/upload-keystore.jks ]; then
-        echo "ERROR: upload keystore missing at android/app/upload-keystore.jks"
-        exit 1
-      fi
-      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
-        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
-      else
-        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
-      fi
   script:
     - bundle exec fastlane android internal
   after_script:
@@ -215,24 +235,8 @@ android-release-production:
   before_script:
     - !reference [.android-release-env-guard, before_script]
     - !reference [.android-ci-setup, before_script]
-    - |
-      npm ci
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
-      cat > android/keystore.properties << EOF
-      storeFile=upload-keystore.jks
-      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
-      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
-      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
-      EOF
-      if [ ! -f android/app/upload-keystore.jks ]; then
-        echo "ERROR: upload keystore missing at android/app/upload-keystore.jks"
-        exit 1
-      fi
-      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
-        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
-      else
-        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
-      fi
+    - npm ci
+    - !reference [.android-play-keystore-setup, before_script]
   script:
     - bundle exec fastlane android production
   after_script:
