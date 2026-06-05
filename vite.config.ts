@@ -152,6 +152,7 @@ export default defineConfig(({ mode }) => {
 							org: process.env.SENTRY_ORG,
 							project: process.env.SENTRY_PROJECT,
 							authToken: process.env.SENTRY_AUTH_TOKEN,
+							sentryUrl: process.env.SENTRY_URL ?? 'https://gt.bittasker.com',
 							telemetry: false,
 							autoInstrument: {
 								load: false, // Disable auto-instrumentation for client-side only app
