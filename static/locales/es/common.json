@@ -324,7 +324,42 @@
 					"import_success": "¡Billetera importada exitosamente!",
 					"continue_to_wallet": "Continuar a la Billetera"
 				}
-			}
+			},
+			"edit": {
+				"languages": "Idiomas",
+				"add_language": "Agregar Idioma",
+				"no_languages": "Aún no se han agregado idiomas.",
+				"proficiency": {
+					"native": "Nativo",
+					"fluent": "Fluido",
+					"conversational": "Conversacional",
+					"basic": "Básico"
+				}
+			},
+			"send_message_short": "Mensaje",
+			"hire_me": "Contratarme",
+			"out_of": "de",
+			"services": "Servicios",
+			"tasks": "Tareas",
+			"reviews": "Resenas",
+			"no_about": "No hay informacion disponible.",
+			"credentials": "Credenciales",
+			"view_certificate": "Ver Certificado",
+			"unavailable": "No disponible",
+			"max_bookings_per_day": "Max {count} reservas por dia",
+			"performance": "Rendimiento",
+			"actions": "Acciones",
+			"general_inquiry": "Consulta General",
+			"verified": "Verificado",
+			"show_more_services": "Mostrar {count} servicios mas",
+			"browse_all": "Ver Todos",
+			"view_service": "Ver Servicio",
+			"view_task": "Ver Tarea",
+			"no_services": "No hay servicios todavia",
+			"no_tasks": "No hay tareas publicadas todavia",
+			"load_more": "Cargar mas",
+			"verified_task": "Tarea verificada",
+			"verified_service": "Servicio verificado"
 		},
 		"nostr_key_import": {
 			"step_indicator": "Paso 2 de 7 - Opcional",
@@ -887,6 +922,78 @@
 				"playback_ready": "Video listo para reproducir",
 				"playback_error": "Error de reproduccion: {error}"
 			}
-		}
-	}
+		},
+		"retry": "Reintentar",
+		"load_more": "Cargar más",
+		"skip_to_content": "Saltar al contenido"
+	},
+	"profile": {
+		"edit": {
+			"languages": "Idiomas",
+			"add_language": "Agregar Idioma",
+			"search_language": "Buscar un idioma",
+			"no_languages_found": "No se encontraron idiomas",
+			"no_languages": "No se han agregado idiomas todavía.",
+			"save_languages": "Guardar Idiomas",
+			"remove_language": "Eliminar idioma",
+			"failed_to_save": "Error al guardar idiomas",
+			"proficiency": {
+				"native": "Nativo",
+				"fluent": "Fluido",
+				"conversational": "Conversacional",
+				"basic": "Básico"
+			}
+		},
+		"services": {
+			"title": "Servicios",
+			"empty": "Aún no hay servicios disponibles.",
+			"price_from": "Desde",
+			"view_service": "Ver Servicio",
+			"browse_all": "Ver Todos los Servicios"
+		},
+		"tasks": {
+			"title": "Tareas",
+			"empty": "Aún no hay tareas disponibles.",
+			"budget": "Presupuesto",
+			"view_task": "Ver Tarea",
+			"browse_all": "Ver Todas las Tareas"
+		},
+		"reviews": {
+			"title": "Reseñas",
+			"empty": "Aún no hay reseñas disponibles.",
+			"total_reviews": "{count} reseñas",
+			"stars": "estrellas",
+			"reviews_count": "reseñas"
+		},
+		"portfolio": {
+			"title": "Portafolio",
+			"empty": "Aún no hay elementos en el portafolio.",
+			"view_images": "Ver imágenes de {title}",
+			"view_project": "Ver Proyecto",
+			"lightbox_title": "Imágenes de {title}"
+		},
+		"video_introduction": "Video de Presentacion",
+		"select_section": "Seleccionar seccion"
+	},
+	"reviews": {
+		"months_ago": "hace {count} meses",
+		"weeks_ago": "hace {count} semanas",
+		"days_ago": "hace {count} dias",
+		"today": "Hoy",
+		"rating": "Calificacion",
+		"out_of": "de",
+		"verified_task": "Tarea verificada",
+		"verified_service": "Servicio verificado",
+		"verified": "Verificado"
+	},
+	"days": {
+		"sunday": "Domingo",
+		"monday": "Lunes",
+		"tuesday": "Martes",
+		"wednesday": "Miercoles",
+		"thursday": "Jueves",
+		"friday": "Viernes",
+		"saturday": "Sabado"
+	},
+	"share": "Compartir"
 }

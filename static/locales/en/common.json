@@ -48,6 +48,8 @@
 		"selected": "Selected",
 		"required": "Required",
 		"optional": "Optional",
+		"filter": "Filter",
+		"all": "All",
 		"buttons": {
 			"cancel": "Cancel",
 			"retry": "Retry",
@@ -325,7 +327,41 @@
 					"import_success": "Wallet imported successfully!",
 					"continue_to_wallet": "Continue to Wallet"
 				}
-			}
+			},
+			"edit": {
+				"languages": "Languages",
+				"add_language": "Add Language",
+				"no_languages": "No languages added yet.",
+				"proficiency": {
+					"native": "Native",
+					"fluent": "Fluent",
+					"conversational": "Conversational",
+					"basic": "Basic"
+				}
+			},
+			"hire_me": "Hire Me",
+			"out_of": "out of",
+			"services": "Services",
+			"tasks": "Tasks",
+			"reviews": "Reviews",
+			"no_about": "No about information available.",
+			"credentials": "Credentials",
+			"view_certificate": "View Certificate",
+			"unavailable": "Unavailable",
+			"max_bookings_per_day": "Max {count} bookings per day",
+			"performance": "Performance",
+			"actions": "Actions",
+			"general_inquiry": "General Inquiry",
+			"verified": "Verified",
+			"show_more_services": "Show {count} more services",
+			"browse_all": "Browse All",
+			"view_service": "View Service",
+			"view_task": "View Task",
+			"no_services": "No services listed yet",
+			"no_tasks": "No tasks posted yet",
+			"load_more": "Load more",
+			"verified_task": "Verified task",
+			"verified_service": "Verified service"
 		},
 		"nostr_key_import": {
 			"step_indicator": "Step 2 of 7 - Optional",
@@ -888,6 +924,78 @@
 				"playback_ready": "Video ready to play",
 				"playback_error": "Video playback error: {error}"
 			}
-		}
-	}
+		},
+		"retry": "Retry",
+		"load_more": "Load more",
+		"skip_to_content": "Skip to content"
+	},
+	"profile": {
+		"edit": {
+			"languages": "Languages",
+			"add_language": "Add Language",
+			"search_language": "Search for a language",
+			"no_languages_found": "No languages found",
+			"no_languages": "No languages added yet.",
+			"save_languages": "Save Languages",
+			"remove_language": "Remove language",
+			"failed_to_save": "Failed to save languages",
+			"proficiency": {
+				"native": "Native",
+				"fluent": "Fluent",
+				"conversational": "Conversational",
+				"basic": "Basic"
+			}
+		},
+		"services": {
+			"title": "Services",
+			"empty": "No services available yet.",
+			"price_from": "From",
+			"view_service": "View Service",
+			"browse_all": "Browse All Services"
+		},
+		"tasks": {
+			"title": "Tasks",
+			"empty": "No tasks available yet.",
+			"budget": "Budget",
+			"view_task": "View Task",
+			"browse_all": "Browse All Tasks"
+		},
+		"reviews": {
+			"title": "Reviews",
+			"empty": "No reviews available yet.",
+			"total_reviews": "{count} reviews",
+			"stars": "stars",
+			"reviews_count": "reviews"
+		},
+		"portfolio": {
+			"title": "Portfolio",
+			"empty": "No portfolio items available yet.",
+			"view_images": "View images for {title}",
+			"view_project": "View Project",
+			"lightbox_title": "{title} images"
+		},
+		"video_introduction": "Video Introduction",
+		"select_section": "Select section"
+	},
+	"reviews": {
+		"months_ago": "{count} months ago",
+		"weeks_ago": "{count} weeks ago",
+		"days_ago": "{count} days ago",
+		"today": "Today",
+		"rating": "Rating",
+		"out_of": "out of",
+		"verified_task": "Verified task",
+		"verified_service": "Verified service",
+		"verified": "Verified"
+	},
+	"days": {
+		"sunday": "Sunday",
+		"monday": "Monday",
+		"tuesday": "Tuesday",
+		"wednesday": "Wednesday",
+		"thursday": "Thursday",
+		"friday": "Friday",
+		"saturday": "Saturday"
+	},
+	"share": "Share"
 }
