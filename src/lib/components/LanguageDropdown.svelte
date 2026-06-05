@@ -127,9 +127,11 @@
 	</button>
 	{#if isDropdownOpen}
 		<ul
+			role="menu"
 			class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
 			transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 		>
 			{#each LANGUAGES as { code, name } (code)}
 				<li>

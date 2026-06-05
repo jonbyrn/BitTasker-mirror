@@ -3,7 +3,7 @@
 	import type { TagsProps } from '$lib/types/props';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import Tags from '$lib/components/Tags.svelte';
-	import { fn } from '@storybook/test';
+	import { fn } from 'storybook/test';
 
 	const { Story } = defineMeta({
 		title: 'Components/Tags',

@@ -80,7 +80,7 @@ stages:
 # ============================================
 # BUILD - Development build (dev branch only)
 # ============================================
-build:
+build-development:
   image: node:22-bookworm-slim
   stage: validate
   interruptible: true
@@ -88,6 +88,8 @@ build:
     - self-hosted
   environment:
     name: development
+  variables:
+    SENTRY_URL: https://gt.bittasker.com
   cache:
     key:
       files:
@@ -100,7 +102,7 @@ build:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
-    - npm run build
+    - npm run build:dev
   artifacts:
     paths:
       - build/
@@ -223,7 +225,7 @@ deploy-development:
       - .npm/
     policy: pull
   needs:
-    - build
+    - build-development
   variables:
     CLOUDFLARE_API_TOKEN:
       value: $CLOUDFLARE_API_TOKEN
@@ -231,13 +233,16 @@ deploy-development:
     CLOUDFLARE_ACCOUNT_ID:
       value: $CLOUDFLARE_ACCOUNT_ID
       expand: false
+    SENTRY_URL: https://gt.bittasker.com
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
     - ENVIRONMENT=dev node scripts/purge-cache.js
   environment:
     name: development
-    url: https://worker.dev.bittasker.com
+    url: https://dev.bittasker.com
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -269,6 +274,8 @@ deploy-production:
     CLOUDFLARE_ACCOUNT_ID:
       value: $CLOUDFLARE_ACCOUNT_ID
       expand: false
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env production

@@ -137,13 +137,17 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 }));
 
 vi.mock('$lib/nostr/ndk', () => ({
-	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
 	ndk: {
 		$currentPubkey: null,
 		signer: null,
 		cacheAdapter: null,
 		addExplicitRelay: vi.fn()
 	}
+}));
+
+vi.mock('$lib/nostr/ndkSigner', () => ({
+	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
+	applyNdkSignerFromNsec: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/runes/unpublishedEventsRetry.svelte', () => ({

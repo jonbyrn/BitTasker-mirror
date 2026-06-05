@@ -8,7 +8,7 @@
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';

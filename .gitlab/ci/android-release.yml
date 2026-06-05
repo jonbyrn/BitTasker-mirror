@@ -118,6 +118,8 @@ android-release-web:
     - npm ci
     - npm run build
     - npx cap sync android
+  environment:
+    name: production
   artifacts:
     paths:
       - build/
@@ -152,7 +154,11 @@ android-build-internal:
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
-      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
+        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
+      else
+        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      fi
   script:
     - bundle exec fastlane android internal
   after_script:
@@ -193,7 +199,11 @@ android-release-production:
       keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
       keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
       EOF
-      echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
+        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
+      else
+        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      fi
   script:
     - bundle exec fastlane android production
   after_script:

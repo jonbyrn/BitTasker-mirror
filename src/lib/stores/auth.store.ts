@@ -9,6 +9,7 @@ import { ndkLogout } from '$lib/nostr/ndk';
 import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
+import { user } from '$lib/stores/user.store';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -73,7 +74,6 @@ const createAuthStore = () => {
 
 			// TODO: To be removed after getting auth method from the server
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
-			const { user } = await import('./user.store');
 			if (userData) user.updateProfile(userData);
 		}
 	};

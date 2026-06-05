@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
 import { walletStore, walletManager } from '$lib/stores/wallet.store';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 
@@ -27,7 +26,9 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 }));
 
 vi.mock('$lib/utils/swapAdapter', () => ({
-	NostrSwapStorage: vi.fn().mockImplementation(() => ({}))
+	NostrSwapStorage: vi.fn(function () {
+		return {};
+	})
 }));
 
 vi.mock('$lib/api/services/crypto-price.service', () => ({
@@ -45,7 +46,10 @@ vi.mock('$lib/api/services/token-balance.service', () => ({
 	}
 }));
 
-const ERC20_ABI_MOCK = ['function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
+const ERC20_ABI_MOCK = [
+	'function transfer(address, uint256) returns (bool)',
+	'function decimals() view returns (uint8)'
+];
 
 vi.mock('@bittasker/wallet-core', async () => {
 	const actual = await vi.importActual('@bittasker/wallet-core').catch(() => ({}));
@@ -61,9 +65,9 @@ const mockWalletManager = vi.hoisted(() => {
 		connect: vi.fn().mockResolvedValue(undefined),
 		disconnect: vi.fn().mockResolvedValue(undefined),
 		getAddress: vi.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
-		getBalance: vi.fn().mockResolvedValue({ 
-			balance: BigInt('1000000000000000000'), 
-			formatted: '1.00' 
+		getBalance: vi.fn().mockResolvedValue({
+			balance: BigInt('1000000000000000000'),
+			formatted: '1.00'
 		}),
 		getWallet: vi.fn().mockReturnValue({
 			address: '0x1234567890123456789012345678901234567890',
@@ -72,7 +76,7 @@ const mockWalletManager = vi.hoisted(() => {
 		getProvider: vi.fn().mockReturnValue({}),
 		send: vi.fn().mockResolvedValue('0xtxhash')
 	};
-	
+
 	const mockBscWallet = {
 		connect: vi.fn().mockResolvedValue(undefined),
 		disconnect: vi.fn().mockResolvedValue(undefined),
@@ -84,7 +88,7 @@ const mockWalletManager = vi.hoisted(() => {
 		getWallet: vi.fn().mockReturnValue(null),
 		getProvider: vi.fn().mockReturnValue(null)
 	};
-	
+
 	return {
 		initialize: vi.fn().mockResolvedValue(undefined),
 		dispose: vi.fn().mockResolvedValue(undefined),
@@ -101,7 +105,9 @@ const mockWalletManager = vi.hoisted(() => {
 
 vi.mock('@bittasker/wallet-core', async () => {
 	return {
-		WalletManager: vi.fn().mockImplementation(() => mockWalletManager)
+		WalletManager: vi.fn(function () {
+			return mockWalletManager;
+		})
 	};
 });
 
@@ -182,7 +188,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			await walletManager.initialize();
 
 			// Set up wallet store with connected state
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -226,7 +232,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -239,7 +245,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			const result = await walletManager.loadRSKTokenBalances();
 
 			// Should filter out zero balance tokens
-			const zeroBalanceTokens = result.filter(t => BigInt(t.balance) === 0n && !t.isNative);
+			const zeroBalanceTokens = result.filter((t) => BigInt(t.balance) === 0n && !t.isNative);
 			expect(zeroBalanceTokens.length).toBe(0);
 		});
 
@@ -252,7 +258,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -265,7 +271,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			const result = await walletManager.loadRSKTokenBalances();
 
 			// Should include native token even if zero
-			const nativeToken = result.find(t => t.isNative);
+			const nativeToken = result.find((t) => t.isNative);
 			expect(nativeToken).toBeDefined();
 			expect(nativeToken?.symbol).toBe('RBTC');
 		});
@@ -273,7 +279,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 		it('should handle missing RSK address', async () => {
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -283,17 +289,17 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 				}
 			}));
 
-			await expect(walletManager.loadRSKTokenBalances()).rejects.toThrow('RSK address not available');
+			await expect(walletManager.loadRSKTokenBalances()).rejects.toThrow(
+				'RSK address not available'
+			);
 		});
 
 		it('should handle API failures gracefully', async () => {
-			vi.mocked(tokenBalanceService.getRSKTokenBalances).mockRejectedValue(
-				new Error('API error')
-			);
+			vi.mocked(tokenBalanceService.getRSKTokenBalances).mockRejectedValue(new Error('API error'));
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -334,15 +340,15 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
 					...s.rsk,
 					connected: true,
 					address: '0x1234567890123456789012345678901234567890',
-					wallet: mockWalletManager.rskWallet.getWallet() as any,
-					provider: mockWalletManager.rskWallet.getProvider() as any
+					wallet: mockWalletManager.rskWallet.getWallet(),
+					provider: mockWalletManager.rskWallet.getProvider()
 				}
 			}));
 
@@ -374,7 +380,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 		it('should return native token balance for "native" address', async () => {
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -408,7 +414,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -429,7 +435,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 
 			await walletManager.initialize();
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -445,4 +451,3 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 		});
 	});
 });
-

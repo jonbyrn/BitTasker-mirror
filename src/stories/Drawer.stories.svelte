@@ -1,7 +1,7 @@
 <script module>
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import Drawer from '../lib/components/Drawer.svelte';
-	import { action } from '@storybook/addon-actions';
+	import { action } from 'storybook/actions';
 
 	const onClose = action('onClose');
 

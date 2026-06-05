@@ -63,12 +63,12 @@ run_worker_first = [
 # ============================================
 [env.dev]
 name = "bittasker-dev-worker"
-workers_dev = true
+workers_dev = false
+preview_urls = true
 
-# ROUTE DISABLED: Uncomment when migrating fully to Workers.
-# [env.dev.route]
-# pattern = "dev.bittasker.com/*"
-# zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+[env.dev.route]
+pattern = "dev.bittasker.com/*"
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.dev.observability.logs]
 enabled = true
@@ -88,6 +88,11 @@ id = "e3ebf37679584874a2a673bcb002e8f1"
 
 [env.dev.triggers]
 crons = ["0 3 * * SUN"]  # Sunday 3am UTC — Cloudflare weekdays are 1–7 or SUN–SAT (not Unix 0–6)
+
+# Used when running `wrangler deploy --env dev` locally (not Cloudflare Workers Builds).
+[env.dev.build]
+command = "npm run build:dev"
+watch_dir = ["src", "static", "scripts"]
 
 [env.dev.vars]
 # Public / client config
@@ -119,6 +124,7 @@ VITE_TX_RELAY_BASE_URL = "https://tx-relay.bittasker.com"
 VITE_BSC_NETWORK = "mainnet"
 SENTRY_ORG = "bittasker"
 SENTRY_PROJECT = "bittasker-dev"
+SENTRY_URL = "https://gt.bittasker.com"
 VITE_SENTRY_DSN = "https://a73b696f38f7474686280e304cc5163c@gt.bittasker.com/2"
 VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
@@ -193,6 +199,11 @@ id = "5c05d20983c54e1d89269e838122dc4f"
 
 [env.production.triggers]
 crons = ["0 3 * * SUN"]
+
+# Used when running `wrangler deploy --env production` locally (not Cloudflare Workers Builds).
+[env.production.build]
+command = "npm run build:production"
+watch_dir = ["src", "static", "scripts"]
 
 [env.production.vars]
 # Public / client config (values from .env — not .env.development)

@@ -7,6 +7,9 @@
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { ContractStatus, type SecurePaymentLegacy } from '$lib/utils/contract/types';
+	import { ndk } from '$lib/nostr/ndk';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
+	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 
 	type HarnessResult = Record<string, unknown>;
 
@@ -133,8 +136,8 @@
 	}
 
 	type BittaskerContractsHarnessGlobals = {
-		ndk: (typeof import('$lib/nostr/ndk'))['ndk'];
-		PaymentContractRune: typeof import('$lib/runes/contractRune.svelte').PaymentContractRune;
+		ndk: typeof ndk;
+		PaymentContractRune: typeof PaymentContractRune;
 		origSubscribe: (filters: NDKFilter | NDKFilter[], opts: NDKSubscriptionOptions) => unknown;
 		origRuneStart: (
 			this: import('$lib/runes/contractRune.svelte').PaymentContractRune
@@ -160,7 +163,6 @@
 		taskerPubkeyHex: string;
 		taskeePubkeyHex: string;
 	}): Promise<import('$lib/nostr/events/contract').NDKPaymentContract> {
-		const { ndk } = await import('$lib/nostr/ndk');
 		const { NDKEvent } = await import('@nostr-dev-kit/ndk');
 		const { NDKPaymentContract } = await import('$lib/nostr/events/contract');
 		const { getPublicKey } = await import('nostr-tools/pure');
@@ -212,11 +214,6 @@
 		synthetic30006: import('$lib/nostr/events/contract').NDKPaymentContract[],
 		chainByPaymentId: Record<string, SecurePaymentLegacy>
 	): Promise<void> {
-		const ndkMod = await import('$lib/nostr/ndk');
-		const runeMod = await import('$lib/runes/contractRune.svelte');
-		const { ndk } = ndkMod;
-		const { PaymentContractRune } = runeMod;
-
 		const existing = getContractsHarnessGlobals();
 		const origSubscribe = existing?.origSubscribe ?? ndk.subscribe.bind(ndk);
 		const origRuneStart =
@@ -1099,7 +1096,6 @@
 						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
 					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
 					const taskerSk = generateSecretKey();
 					const taskeeSk = generateSecretKey();
@@ -1161,7 +1157,6 @@
 						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
 					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
 					const taskerSk = generateSecretKey();
 					const taskeeSk = generateSecretKey();
@@ -1217,7 +1212,6 @@
 						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
 					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
 					const taskerSk = generateSecretKey();
 					const taskeeSk = generateSecretKey();

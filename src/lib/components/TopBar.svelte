@@ -361,9 +361,6 @@
 	 * SystemBars injects --safe-area-inset-* variables for Android WebView < 140
 	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> 0px
 	 */
-	.pt-safe {
-		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;

@@ -18,7 +18,6 @@ import type {
 	ChainSwapData,
 	SubmarineSwapData
 } from '@bittasker/wallet-core';
-import { randomBytes } from 'crypto';
 import { Buffer } from 'buffer';
 import { getPublicKey, finalizeEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
@@ -28,6 +27,12 @@ import { get } from 'svelte/store';
 
 // Define relay URLs
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+
+function randomBytes(length: number): Uint8Array {
+	const bytes = new Uint8Array(length);
+	crypto.getRandomValues(bytes);
+	return bytes;
+}
 
 /**
  * Get the centralized pool instance from appStore
