@@ -1,14 +1,25 @@
 # Android production + internal release jobs (included from .gitlab-ci.yml).
 # See docs/ci/play-store-pipeline.md and docs/ci/zapstore-pipeline.md
+#
+# Protected ANDROID_KEYSTORE_* variables are only auto-injected on protected tags/branches.
+# Release tags (v*-alpha*) must be protected (Settings → Repository → Protected tags → v*)
+# or variables are loaded via GitLab API (.gitlab/ci/fetch-ci-vars.yml).
+
+include:
+  - local: .gitlab/ci/fetch-ci-vars.yml
 
 .android-play-keystore-setup:
   before_script:
+    - !reference [.fetch-ci-var-functions, before_script]
     - |
       set -eu
       for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_STORE_PASSWORD ANDROID_KEYSTORE_KEY_ALIAS ANDROID_KEYSTORE_KEY_PASSWORD; do
+        load_ci_var "$var" || true
+      done
+      for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_STORE_PASSWORD ANDROID_KEYSTORE_KEY_ALIAS ANDROID_KEYSTORE_KEY_PASSWORD; do
         eval "value=\${$var:-}"
         if [ -z "$value" ]; then
-          echo "ERROR: ${var} is empty"
+          explain_empty_secret "$var"
           exit 1
         fi
       done
@@ -31,10 +42,16 @@
         -storepass "${ANDROID_KEYSTORE_STORE_PASSWORD}" -alias "${ANDROID_KEYSTORE_KEY_ALIAS}" >/dev/null
       echo "Keystore OK: alias=${ANDROID_KEYSTORE_KEY_ALIAS} storeType=${store_type}"
     - |
+      set -eu
+      load_ci_var PLAY_STORE_CREDENTIALS_JSON || true
+      if [ -z "${PLAY_STORE_CREDENTIALS_JSON:-}" ]; then
+        explain_empty_secret PLAY_STORE_CREDENTIALS_JSON
+        exit 1
+      fi
       if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
         cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
       else
-        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+        printf '%s' "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
       fi
 
 .android-ci-setup:

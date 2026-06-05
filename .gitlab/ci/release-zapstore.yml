@@ -3,6 +3,9 @@
 # Reuses parent android-release-web artifacts (one npm build + cap sync). Gradle only here (Zapstore JKS).
 # See docs/ci/zapstore-pipeline.md
 
+include:
+  - local: .gitlab/ci/fetch-ci-vars.yml
+
 stages:
   - preflight
   - build
@@ -30,12 +33,16 @@ stages:
 
 .zapstore-keystore-setup:
   before_script:
+    - !reference [.fetch-ci-var-functions, before_script]
     - |
       set -eu
       for var in ZAPSTORE_KEYSTORE_BASE64 ZAPSTORE_KEYSTORE_PASSWORD ZAPSTORE_KEY_ALIAS ZAPSTORE_KEY_PASSWORD; do
+        load_ci_var "$var" || true
+      done
+      for var in ZAPSTORE_KEYSTORE_BASE64 ZAPSTORE_KEYSTORE_PASSWORD ZAPSTORE_KEY_ALIAS ZAPSTORE_KEY_PASSWORD; do
         eval "value=\${$var:-}"
         if [ -z "$value" ]; then
-          echo "ERROR: ${var} is empty"
+          explain_empty_secret "$var"
           exit 1
         fi
       done

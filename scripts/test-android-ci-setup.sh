@@ -33,6 +33,22 @@ if ! grep -q 'keytool -list -storetype' .gitlab/ci/android-release.yml; then
 fi
 echo "OK: Play Store CI validates keystore inline"
 
+if ! grep -q 'load_ci_var' .gitlab/ci/android-release.yml; then
+  echo "FAIL: android-release.yml must load secrets via load_ci_var" >&2
+  exit 1
+fi
+echo "OK: android-release.yml loads secrets via API fallback"
+
+if ! grep -q 'CI_COMMIT_REF_PROTECTED' .gitlab/ci/fetch-ci-vars.yml; then
+  echo "FAIL: fetch-ci-vars.yml must diagnose protected ref issues" >&2
+  exit 1
+fi
+echo "OK: fetch-ci-vars.yml diagnoses protected ref issues"
+
+json='{"key":"ANDROID_KEYSTORE_BASE64","value":"dGVzdA=="}'
+parsed=$(printf '%s' "$json" | node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(d.value)")
+assert_eq "GitLab variable JSON parse" "dGVzdA==" "$parsed"
+
 if grep -q 'setup-android-keystore.sh' .gitlab/ci/android-release.yml; then
   echo "FAIL: android-release.yml must not call setup-android-keystore.sh" >&2
   exit 1
