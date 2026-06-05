@@ -9,7 +9,18 @@ def isReleaseGradleTask = {
 def resolveAndroidVersionCode = {
     def env = System.getenv("VERSION_CODE")
     if (env != null && !env.isBlank()) {
-        return env.toInteger()
+        def code = env.toLong()
+        if (code > Integer.MAX_VALUE) {
+            def offset = System.getenv("ANDROID_PIPELINE_OFFSET")?.toLong() ?: 2_400_000_000L
+            code = code - offset
+            if (code <= 0 || code > Integer.MAX_VALUE) {
+                throw new GradleException(
+                    "VERSION_CODE ${env} is invalid for Android (max ${Integer.MAX_VALUE}). " +
+                    "Adjust ANDROID_PIPELINE_OFFSET (currently ${offset})."
+                )
+            }
+        }
+        return (int) code
     }
     if (isReleaseGradleTask()) {
         throw new GradleException("VERSION_CODE environment variable is required for release builds")
