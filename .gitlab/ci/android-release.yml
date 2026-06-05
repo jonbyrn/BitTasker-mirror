@@ -1,6 +1,17 @@
 # Android production + internal release jobs (included from .gitlab-ci.yml).
 # See docs/ci/play-store-pipeline.md and docs/ci/zapstore-pipeline.md
 
+.android-ci-setup:
+  before_script:
+    - |
+      apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+        ruby-full ruby-dev build-essential openjdk-21-jdk
+      export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+      export PATH="$JAVA_HOME/bin:$PATH"
+      java -version
+      gem install bundler -v '4.0.12' --no-document
+      bundle install --quiet
+
 .android-cache:
   cache:
     - key:
@@ -135,7 +146,8 @@ android-build-internal:
   tags:
     - self-hosted
   variables:
-    VERSION_CODE: $CI_PIPELINE_ID
+    # CI_PIPELINE_ID exceeds Android versionCode int32 max (~2.1B); map into valid range.
+    ANDROID_PIPELINE_OFFSET: "2400000000"
   before_script:
     - |
       export VERSION_NAME="${CI_COMMIT_TAG#v}"
@@ -143,10 +155,14 @@ android-build-internal:
         echo "ERROR: CI_COMMIT_TAG is required for internal testing builds."
         exit 1
       fi
-      echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE"
-      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
-      gem install bundler -v '~>2.5' --no-document
-      bundle install --quiet
+      export VERSION_CODE=$((CI_PIPELINE_ID - ANDROID_PIPELINE_OFFSET))
+      if [ "$VERSION_CODE" -lt 1 ] || [ "$VERSION_CODE" -gt 2147483647 ]; then
+        echo "ERROR: VERSION_CODE out of Android range: $VERSION_CODE (pipeline=$CI_PIPELINE_ID offset=$ANDROID_PIPELINE_OFFSET)"
+        exit 1
+      fi
+      echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE (pipeline=$CI_PIPELINE_ID)"
+    - !reference [.android-ci-setup, before_script]
+    - |
       echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
       cat > android/keystore.properties << EOF
       storeFile=upload-keystore.jks
@@ -187,10 +203,8 @@ android-release-production:
     ANDROID_SKIP_WEB_BUILD: "1"
   before_script:
     - !reference [.android-release-env-guard, before_script]
+    - !reference [.android-ci-setup, before_script]
     - |
-      apt-get update -qq && apt-get install -y -qq --no-install-recommends ruby-full ruby-dev build-essential
-      gem install bundler -v '~>2.5' --no-document
-      bundle install --quiet
       npm ci
       echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
       cat > android/keystore.properties << EOF

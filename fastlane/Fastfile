@@ -10,7 +10,7 @@ platform :android do
 
   # Builds signed AAB and uploads to Internal Testing track
   # Trigger: v*-alpha* or v*-beta* tag on master
-  # versionCode = $CI_PIPELINE_ID (always unique, always increasing — no commit-back needed)
+  # versionCode = CI_PIPELINE_ID - ANDROID_PIPELINE_OFFSET (fits Android int32; monotonic in CI)
   # versionName = from tag (e.g., v1.1.8-alpha.1 → "1.1.8-alpha.1")
   desc "Build and upload to Internal Testing"
   lane :internal do
