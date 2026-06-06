@@ -236,6 +236,8 @@ android-build-internal:
     - !reference [.android-ci-setup, before_script]
   script:
     - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+    - export SUPPLY_PACKAGE_NAME="com.bittasker.app"
+    - bundle exec fastlane android preflight
     - bundle exec fastlane android internal
   after_script:
     - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
@@ -268,6 +270,8 @@ android-release-production:
     - !reference [.android-play-keystore-setup, before_script]
   script:
     - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+    - export SUPPLY_PACKAGE_NAME="com.bittasker.app"
+    - bundle exec fastlane android preflight
     - bundle exec fastlane android production
   after_script:
     - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
