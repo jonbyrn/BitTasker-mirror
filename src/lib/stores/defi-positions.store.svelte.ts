@@ -39,14 +39,14 @@ import { ethers } from 'ethers';
 import * as Sentry from '@sentry/sveltekit';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { walletStore } from '$lib/stores/wallet.store';
-import { _connectedWalletsStore, _getEvmSigner } from '$lib/stores/connected-wallets.store';
+import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 import { browserNetworkStatus } from '$lib/utils/network-status';
 import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 import {
-	UniswapService,
-	_FEE_TIER
-	//	UniswapService as UniswapServiceType // alias for type only
+	UniswapService
+	// FEE_TIER unused
+	// UniswapServiceType unused
 } from '$lib/services/defi/uniswap.service';
 import { createDebug } from '$lib/utils/debug';
 
