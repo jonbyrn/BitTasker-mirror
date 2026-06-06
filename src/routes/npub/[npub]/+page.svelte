@@ -22,6 +22,7 @@
 	import ProfileAboutSection from '$lib/components/profile/ProfileAboutSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	// ── State ──────────────────────────────────────────────────────
@@ -243,10 +244,10 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Top action row: back (mobile) + report/share (all) -->
+		<!-- Top action row: back (mobile) + avatar (mobile) + report/share (all) -->
 		<div class="mx-auto max-w-6xl px-4 pt-4">
 			<div class="flex items-center justify-between">
-				<div class="md:hidden">
+				<div class="flex items-center gap-2 md:hidden">
 					<button
 						class="btn btn-secondary btn-sm"
 						onclick={() => {
@@ -263,6 +264,7 @@
 						>
 						{$t('common.back_2')}
 					</button>
+					<Avatar picture={userPicture} name={displayName} size="sm" />
 				</div>
 				<div class="hidden md:block"></div>
 				<div class="flex items-center gap-1">
