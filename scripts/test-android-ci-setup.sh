@@ -39,6 +39,30 @@ if ! grep -q 'load_ci_var' .gitlab/ci/android-release.yml; then
 fi
 echo "OK: android-release.yml loads secrets via API fallback"
 
+if ! grep -q 'GOOGLE_APPLICATION_CREDENTIALS' .gitlab/ci/android-release.yml; then
+  echo "FAIL: android-release.yml must export GOOGLE_APPLICATION_CREDENTIALS" >&2
+  exit 1
+fi
+echo "OK: android-release.yml exports GOOGLE_APPLICATION_CREDENTIALS"
+
+if ! grep -q 'json_key: play_json_key' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must pass json_key to upload_to_play_store" >&2
+  exit 1
+fi
+echo "OK: Fastfile passes json_key to upload_to_play_store"
+
+if ! grep -q 'PLAY_JSON_KEY' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must define PLAY_JSON_KEY" >&2
+  exit 1
+fi
+echo "OK: Fastfile defines PLAY_JSON_KEY"
+
+if ! grep -q 'play-store-credentials.json' fastlane/Appfile; then
+  echo "FAIL: Appfile must use absolute path for play-store-credentials.json" >&2
+  exit 1
+fi
+echo "OK: Appfile uses absolute path for credentials"
+
 if ! grep -q 'CI_COMMIT_REF_PROTECTED' .gitlab/ci/fetch-ci-vars.yml; then
   echo "FAIL: fetch-ci-vars.yml must diagnose protected ref issues" >&2
   exit 1

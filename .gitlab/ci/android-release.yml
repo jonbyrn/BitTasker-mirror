@@ -48,11 +48,22 @@ include:
         explain_empty_secret PLAY_STORE_CREDENTIALS_JSON
         exit 1
       fi
+      mkdir -p fastlane
       if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
         cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
       else
         printf '%s' "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
       fi
+      if [ ! -s fastlane/play-store-credentials.json ]; then
+        echo "ERROR: play-store-credentials.json is empty"
+        exit 1
+      fi
+      if ! grep -q '"client_email"' fastlane/play-store-credentials.json; then
+        echo "ERROR: play-store-credentials.json is not valid service account JSON (missing client_email)"
+        exit 1
+      fi
+      export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+      echo "Play credentials OK ($(grep -o '"client_email"[[:space:]]*:[[:space:]]*"[^"]*"' fastlane/play-store-credentials.json | head -1))"
 
 .android-ci-setup:
   before_script:
@@ -224,6 +235,7 @@ android-build-internal:
     - !reference [.android-play-keystore-setup, before_script]
     - !reference [.android-ci-setup, before_script]
   script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
     - bundle exec fastlane android internal
   after_script:
     - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
@@ -255,6 +267,7 @@ android-release-production:
     - npm ci
     - !reference [.android-play-keystore-setup, before_script]
   script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
     - bundle exec fastlane android production
   after_script:
     - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties

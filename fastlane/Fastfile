@@ -2,8 +2,19 @@ default_platform(:android)
 
 # Fastlane runs lanes from fastlane/; Capacitor and Gradle paths are repo-root relative.
 PROJECT_ROOT = File.expand_path("..", File.dirname(__FILE__))
+PLAY_JSON_KEY = File.expand_path("play-store-credentials.json", File.dirname(__FILE__))
 
 platform :android do
+  def play_json_key
+    unless File.exist?(PLAY_JSON_KEY)
+      UI.user_error!(
+        "Missing Play Store credentials at #{PLAY_JSON_KEY}. " \
+        "Set PLAY_STORE_CREDENTIALS_JSON in GitLab CI/CD variables."
+      )
+    end
+    PLAY_JSON_KEY
+  end
+
   before_all do
     Dir.chdir(PROJECT_ROOT)
   end
@@ -29,6 +40,7 @@ platform :android do
 
     unless ENV["ANDROID_SKIP_PLAY_UPLOAD"] == "1"
       upload_to_play_store(
+        json_key: play_json_key,
         track: "internal",
         release_status: "completed",
         skip_upload_apk: true,
@@ -61,6 +73,7 @@ platform :android do
     )
 
     upload_to_play_store(
+      json_key: play_json_key,
       track: "production",
       release_status: "completed",
       skip_upload_apk: true,
@@ -88,6 +101,7 @@ platform :android do
     )
 
     upload_to_play_store(
+      json_key: play_json_key,
       track: "internal",
       release_status: "completed",
       skip_upload_apk: true,
@@ -101,6 +115,7 @@ platform :android do
   desc "Promote internal to closed testing"
   lane :promote_to_closed do
     upload_to_play_store(
+      json_key: play_json_key,
       track: "internal",
       track_promote_to: "closed",
       track_promote_release_status: "completed"
@@ -111,6 +126,7 @@ platform :android do
   desc "Promote closed testing to production"
   lane :promote_to_production do
     upload_to_play_store(
+      json_key: play_json_key,
       track: "closed",
       track_promote_to: "production",
       track_promote_release_status: "completed"
@@ -121,6 +137,7 @@ platform :android do
   desc "Update store listing metadata only"
   lane :update_metadata do
     upload_to_play_store(
+      json_key: play_json_key,
       track: "internal",
       skip_upload_aab: true,
       skip_upload_apk: true,
