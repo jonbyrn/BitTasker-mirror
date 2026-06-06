@@ -44,6 +44,16 @@
 		isLoggedIn?: boolean;
 	} = $props();
 
+	function scrollToReviews(e: MouseEvent) {
+		e.preventDefault();
+		const target = document.getElementById('reviews');
+		if (target) {
+			target.scrollIntoView({ behavior: 'smooth' });
+			target.querySelector('h2, h3')?.setAttribute('tabindex', '-1');
+			(target.querySelector('h2, h3') as HTMLElement | null)?.focus({ preventScroll: true });
+		}
+	}
+
 	const currentLocale = $derived($locale || 'en');
 
 	const translatedTitle = $derived(
@@ -149,16 +159,17 @@
 						</span>
 					{/if}
 					{#if formattedRating}
-						<span class="text-base-content/70 flex items-center gap-1 text-sm">
+						<a
+							href="#reviews"
+							onclick={scrollToReviews}
+							class="text-base-content/70 hover:text-base-content flex items-center gap-1 text-sm transition-colors"
+							aria-label="{formattedRating} {$t('common.profile.out_of')} 5, {reviewCount} {$t(
+								'common.reviews'
+							)}"
+						>
 							<IconStar class="text-primary h-4 w-4" aria-hidden="true" />
-							<span
-								aria-label="{formattedRating} {$t('common.profile.out_of')} 5, {reviewCount} {$t(
-									'common.reviews'
-								)}"
-							>
-								{formattedRating}/5 ({reviewCount})
-							</span>
-						</span>
+							<span>{formattedRating}/5 ({reviewCount})</span>
+						</a>
 					{/if}
 				</div>
 
@@ -249,15 +260,30 @@
 					<p class="text-base-content/60 text-xs">{$t('common.profile.tasks_completed')}</p>
 				</div>
 				<div class="bg-base-200 rounded-lg p-3 text-center">
-					<div class="flex items-center justify-center gap-1">
-						{#if formattedRating}
-							<IconStar class="text-primary h-4 w-4" aria-hidden="true" />
-							<p class="text-base-content text-lg font-bold">{formattedRating}</p>
-						{:else}
-							<p class="text-base-content text-lg font-bold">—</p>
-						{/if}
-					</div>
-					<p class="text-base-content/60 text-xs">{$t('common.profile.rating')}</p>
+					<a
+						href="#reviews"
+						onclick={scrollToReviews}
+						class="hover:bg-base-300 -m-1 block rounded-lg p-1 transition-colors"
+						aria-label="{formattedRating || '—'} {$t('common.profile.out_of')} 5, {reviewCount} {$t(
+							'common.reviews'
+						)}"
+					>
+						<div class="flex items-center justify-center gap-1">
+							{#if formattedRating}
+								<IconStar class="text-primary h-4 w-4" aria-hidden="true" />
+								<p class="text-base-content text-lg font-bold">{formattedRating}</p>
+							{:else}
+								<p class="text-base-content text-lg font-bold">—</p>
+							{/if}
+						</div>
+						<p class="text-base-content/60 text-xs">
+							{#if reviewCount > 0}
+								{$t('common.profile.rating')} · {reviewCount}
+							{:else}
+								{$t('common.profile.rating')}
+							{/if}
+						</p>
+					</a>
 				</div>
 				<div class="bg-base-200 rounded-lg p-3 text-center">
 					<p class="text-base-content text-lg font-bold">{skillsCount}</p>
