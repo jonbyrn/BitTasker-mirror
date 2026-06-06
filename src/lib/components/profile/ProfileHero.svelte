@@ -273,7 +273,7 @@
 								<IconStar class="text-primary h-4 w-4" aria-hidden="true" />
 								<p class="text-base-content text-lg font-bold">
 									{formattedRating}{#if reviewCount > 0}
-										<span class="text-sm font-normal">({reviewCount})</span>{/if}
+										({reviewCount}){/if}
 								</p>
 							{:else}
 								<p class="text-base-content text-lg font-bold">—</p>
