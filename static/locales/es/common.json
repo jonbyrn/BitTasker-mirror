@@ -974,7 +974,8 @@
 		},
 		"video_introduction": "Video de Presentacion",
 		"select_section": "Seleccionar seccion",
-		"languages": "Idiomas"
+		"languages": "Idiomas",
+		"hire_me": "Contrátame"
 	},
 	"reviews": {
 		"months_ago": "hace {count} meses",

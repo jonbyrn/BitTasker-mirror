@@ -24,6 +24,17 @@
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import { sections } from '$lib/utils/consts';
+	import IconTrendingUp from '~icons/mdi/trending-up';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
+	import IconAccount from '~icons/mdi/account';
+	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconCog from '~icons/mdi/cog';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	// ── State ──────────────────────────────────────────────────────
 	let hexPubkey = $state<string | null>(null);
@@ -255,182 +266,240 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Top action row: back (mobile) + centered avatar (mobile) + report/share (all) -->
-		<div class="relative mx-auto max-w-6xl px-4 pt-4 pb-20 md:pb-0">
-			<div class="flex items-center justify-between">
-				<!-- Mobile: back button -->
-				<div class="md:hidden">
-					<button
-						class="btn btn-secondary btn-sm"
-						onclick={() => {
-							if (typeof window !== 'undefined') window.history.back();
-						}}
-					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 19l-7-7m0 0l7-7m-7 7h18"
-							/></svg
-						>
-						{$t('common.back_2')}
-					</button>
-				</div>
-				<!-- Mobile: centered avatar (row adapts to avatar size) -->
-				<div class="absolute top-0 left-1/2 -translate-x-1/2 pt-4 md:hidden">
-					<Avatar picture={userPicture} name={displayName} size="xl" />
-				</div>
-				<div class="hidden md:block"></div>
-				<div class="flex items-center gap-1">
-					<button
-						class="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content"
-						aria-label={$t('common.share')}
-						title={$t('common.share')}
-						onclick={() => {
-							if (navigator.share) {
-								navigator.share({ title: displayName, url: window.location.href });
-							} else {
-								navigator.clipboard.writeText(window.location.href);
-							}
-						}}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle
-								cx="18"
-								cy="19"
-								r="3"
-							/>
-							<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line
-								x1="15.41"
-								y1="6.51"
-								x2="8.59"
-								y2="10.49"
-							/>
-						</svg>
-					</button>
-					<ActionsMenu
-						contentType="user"
-						reportedPubkey={hexPubkey || ''}
-						username={displayName}
-						profileMode={true}
-					/>
-				</div>
-			</div>
-		</div>
-
-		<!-- Profile Hero -->
-		<div class="mx-auto max-w-6xl" data-hero>
-			<ProfileHero
-				profile={userProfile}
-				hexPubkey={hexPubkey || ''}
-				{displayName}
-				{userPicture}
-				rating={averageRating}
-				{reviewCount}
-				{tasksCompleted}
-				skillsCount={userProfile?.skills?.length || 0}
-				portfolioCount={userProfile?.portfolio?.length || 0}
-				location={userProfile?.location}
-				website={userProfile?.website}
-				isLoading={false}
-				isLoggedIn={$authState.isAuthenticated}
-			/>
-		</div>
-
-		<!-- Section Navigation -->
-		<ProfileNav />
-
-		<!-- Main content: single column mobile, two columns desktop -->
-		<div class="page-content mx-auto max-w-6xl px-4 py-6">
-			<div class="flex flex-col gap-6 lg:flex-row">
-				<!-- Main content column -->
-				<main class="min-w-0 flex-1 space-y-6">
-					<!-- About Section -->
-					<div use:observeSection={'about'} id="about" class="scroll-mt-20">
-						<section aria-labelledby="about-heading">
-							<ProfileAboutSection
-								profile={userProfile}
-								skills={userProfile?.skills || []}
-								languages={userProfile?.languages || []}
-								certifications={userProfile?.certifications || []}
-								education={[]}
-								availability={userProfile?.availability}
-							/>
-						</section>
+		<div class="flex min-h-0 flex-1 flex-row gap-6">
+			<!-- Left nav sidebar - fixed position, desktop only, logged in only -->
+			{#if $authState.isAuthenticated}
+				<div class="hidden w-full shrink-0 xl:block xl:w-56">
+					<div class="fixed top-24 left-8 z-10 w-56">
+						<div class="card bg-base-100 rounded-xl shadow-xl">
+							<div class="card-body p-4">
+								<ul class="menu bg-base-100 rounded-box w-full">
+									{#each sections as section (section.id)}
+										<li class="my-1">
+											<a
+												data-sveltekit-reload="off"
+												href={section.path}
+												class:menu-active={page.url.pathname + page.url.search === section.path ||
+													page.url.pathname === section.path}
+												class="flex items-center gap-3"
+											>
+												{#if section.icon === 'mdi:briefcase-outline'}
+													<IconBriefcaseOutline class="text-primary" />
+												{:else if section.icon === 'mdi:trending-up'}
+													<IconTrendingUp class="text-primary" />
+												{:else if section.icon === 'mdi:plus-circle-outline'}
+													<IconPlusCircleOutline class="text-primary" />
+												{:else if section.icon === 'mdi:magnify'}
+													<IconMagnify class="text-primary" />
+												{:else if section.icon === 'mdi:briefcase-search'}
+													<IconBriefcaseSearch class="text-primary" />
+												{:else if section.icon === 'mdi:wallet-outline'}
+													<IconWalletOutline class="text-primary" />
+												{:else if section.icon === 'mdi:account'}
+													<IconAccount class="text-primary" />
+												{:else if section.icon === 'mdi:chat-outline'}
+													<IconChatOutline class="text-primary" />
+												{:else if section.icon === 'mdi:cog'}
+													<IconCog class="text-primary" />
+												{:else if section.icon === 'mdi:star-outline'}
+													<IconStarOutline class="text-primary" />
+												{:else}
+													<IconTrendingUp class="text-primary" />
+												{/if}
+												{$t(section.label)}
+											</a>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						</div>
 					</div>
+				</div>
+			{/if}
 
-					<!-- Video Introduction -->
-					{#if userProfile?.videoIntro?.uid}
-						<div class="w-full overflow-hidden rounded-2xl shadow-lg">
-							<StreamPlayer
-								videoUid={userProfile.videoIntro.uid}
-								poster={userProfile.videoIntro.thumbnailUrl || null}
-								autoplay={true}
-								muted={true}
-								loop={true}
-								aspectRatio="video"
-								ariaLabel={$t('profile.video_introduction')}
+			<!-- Profile content column -->
+			<div class="min-h-0 w-full flex-1 overflow-hidden">
+				<!-- Top action row: back (mobile) + centered avatar (mobile) + report/share (all) -->
+				<div class="relative mx-auto max-w-6xl px-4 pt-4 pb-20 md:pb-0">
+					<div class="flex items-center justify-between">
+						<!-- Mobile: back button -->
+						<div class="md:hidden">
+							<button
+								class="btn btn-secondary btn-sm"
+								onclick={() => {
+									if (typeof window !== 'undefined') window.history.back();
+								}}
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 19l-7-7m0 0l7-7m-7 7h18"
+									/></svg
+								>
+								{$t('common.back_2')}
+							</button>
+						</div>
+						<!-- Mobile: centered avatar (row adapts to avatar size) -->
+						<div class="absolute top-0 left-1/2 -translate-x-1/2 pt-4 md:hidden">
+							<Avatar picture={userPicture} name={displayName} size="xl" />
+						</div>
+						<div class="hidden md:block"></div>
+						<div class="flex items-center gap-1">
+							<button
+								class="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content"
+								aria-label={$t('common.share')}
+								title={$t('common.share')}
+								onclick={() => {
+									if (navigator.share) {
+										navigator.share({ title: displayName, url: window.location.href });
+									} else {
+										navigator.clipboard.writeText(window.location.href);
+									}
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle
+										cx="18"
+										cy="19"
+										r="3"
+									/>
+									<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line
+										x1="15.41"
+										y1="6.51"
+										x2="8.59"
+										y2="10.49"
+									/>
+								</svg>
+							</button>
+							<ActionsMenu
+								contentType="user"
+								reportedPubkey={hexPubkey || ''}
+								username={displayName}
+								profileMode={true}
 							/>
 						</div>
-					{/if}
-
-					<div use:observeSection={'services'}>
-						<ProfileServicesSection
-							pubkey={hexPubkey || ''}
-							isActive={visibleSections.has('services')}
-							id="services"
-						/>
 					</div>
+				</div>
 
-					<div use:observeSection={'portfolio'}>
-						<ProfilePortfolioSection
-							pubkey={hexPubkey || ''}
-							isActive={visibleSections.has('portfolio')}
-							id="portfolio"
-						/>
-					</div>
+				<!-- Profile Hero -->
+				<div class="mx-auto max-w-6xl" data-hero>
+					<ProfileHero
+						profile={userProfile}
+						hexPubkey={hexPubkey || ''}
+						{displayName}
+						{userPicture}
+						rating={averageRating}
+						{reviewCount}
+						{tasksCompleted}
+						skillsCount={userProfile?.skills?.length || 0}
+						portfolioCount={userProfile?.portfolio?.length || 0}
+						location={userProfile?.location}
+						website={userProfile?.website}
+						isLoading={false}
+						isLoggedIn={$authState.isAuthenticated}
+					/>
+				</div>
 
-					<div use:observeSection={'reviews'}>
-						<ProfileReviewsSection
-							pubkey={hexPubkey || ''}
-							isActive={visibleSections.has('reviews')}
-							id="reviews"
-						/>
-					</div>
+				<!-- Section Navigation -->
+				<ProfileNav />
 
-					<div use:observeSection={'tasks'}>
-						<ProfileTasksSection
-							pubkey={hexPubkey || ''}
-							isActive={visibleSections.has('tasks')}
-							id="tasks"
-						/>
-					</div>
-				</main>
+				<!-- Main content: single column mobile, two columns desktop -->
+				<div class="page-content mx-auto max-w-6xl px-4 py-6">
+					<div class="flex flex-col gap-6 lg:flex-row">
+						<!-- Main content column -->
+						<main class="min-w-0 flex-1 space-y-6">
+							<!-- About Section -->
+							<div use:observeSection={'about'} id="about" class="scroll-mt-20">
+								<section aria-labelledby="about-heading">
+									<ProfileAboutSection
+										profile={userProfile}
+										skills={userProfile?.skills || []}
+										languages={userProfile?.languages || []}
+										certifications={userProfile?.certifications || []}
+										education={[]}
+										availability={userProfile?.availability}
+									/>
+								</section>
+							</div>
 
-				<!-- Sidebar - desktop only -->
-				<aside class="hidden lg:block lg:w-80 xl:w-96">
-					<div class="sticky top-32">
-						<ProfileSidebar
-							rating={averageRating}
-							{reviewCount}
-							{tasksCompleted}
-							skillsCount={userProfile?.skills?.length || 0}
-							portfolioCount={userProfile?.portfolio?.length || 0}
-							availability={userProfile?.availability}
-							isLoading={isLoadingReviews}
-						/>
+							<!-- Video Introduction -->
+							{#if userProfile?.videoIntro?.uid}
+								<div class="w-full overflow-hidden rounded-2xl shadow-lg">
+									<StreamPlayer
+										videoUid={userProfile.videoIntro.uid}
+										poster={userProfile.videoIntro.thumbnailUrl || null}
+										autoplay={true}
+										muted={true}
+										loop={true}
+										aspectRatio="video"
+										ariaLabel={$t('profile.video_introduction')}
+									/>
+								</div>
+							{/if}
+
+							<div use:observeSection={'services'}>
+								<ProfileServicesSection
+									pubkey={hexPubkey || ''}
+									isActive={visibleSections.has('services')}
+									id="services"
+								/>
+							</div>
+
+							<div use:observeSection={'portfolio'}>
+								<ProfilePortfolioSection
+									pubkey={hexPubkey || ''}
+									isActive={visibleSections.has('portfolio')}
+									id="portfolio"
+								/>
+							</div>
+
+							<div use:observeSection={'reviews'}>
+								<ProfileReviewsSection
+									pubkey={hexPubkey || ''}
+									isActive={visibleSections.has('reviews')}
+									id="reviews"
+								/>
+							</div>
+
+							<div use:observeSection={'tasks'}>
+								<ProfileTasksSection
+									pubkey={hexPubkey || ''}
+									isActive={visibleSections.has('tasks')}
+									id="tasks"
+								/>
+							</div>
+						</main>
+
+						<!-- Sidebar - desktop only -->
+						<aside class="hidden lg:block lg:w-80 lg:shrink-0 xl:w-96">
+							<div class="sticky top-32">
+								<ProfileSidebar
+									hexPubkey={hexPubkey || ''}
+									rating={averageRating}
+									{reviewCount}
+									{tasksCompleted}
+									skillsCount={userProfile?.skills?.length || 0}
+									portfolioCount={userProfile?.portfolio?.length || 0}
+									availability={userProfile?.availability}
+									isLoading={isLoadingReviews}
+								/>
+							</div>
+						</aside>
 					</div>
-				</aside>
+				</div>
 			</div>
+			<!-- close profile content column -->
 		</div>
+		<!-- close outer flex row -->
 
 		<!-- Mobile sticky CTA handled by ProfileHero component -->
 	{/if}

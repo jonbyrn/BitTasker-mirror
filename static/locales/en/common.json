@@ -976,7 +976,8 @@
 		},
 		"video_introduction": "Video Introduction",
 		"select_section": "Select section",
-		"languages": "Languages"
+		"languages": "Languages",
+		"hire_me": "Hire Me"
 	},
 	"reviews": {
 		"months_ago": "{count} months ago",
