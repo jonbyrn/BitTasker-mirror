@@ -7,6 +7,7 @@
 	import Portfolio from '$lib/components/profile/edit/Portfolio.svelte';
 	import VideoIntro from '$lib/components/profile/edit/VideoIntro.svelte';
 	import Availability from '$lib/components/profile/edit/Availability.svelte';
+	import Languages from '$lib/components/profile/edit/Languages.svelte';
 
 	let completedSections = $state({
 		personalInfo: false,
@@ -14,7 +15,8 @@
 		skills: false,
 		portfolio: false,
 		videoIntro: false,
-		availability: false
+		availability: false,
+		languages: false
 		// aiAssistant: false
 	});
 
@@ -24,7 +26,8 @@
 		skills: true,
 		portfolio: true,
 		videoIntro: true,
-		availability: true
+		availability: true,
+		languages: true
 		// aiAssistant: false
 	});
 
@@ -34,6 +37,7 @@
 	let portfolioComponent: Portfolio;
 	let videoIntroComponent: VideoIntro;
 	let availabilityComponent: Availability;
+	let languagesComponent: Languages;
 
 	// Global save state
 	let isSaving = $state(false);
@@ -71,7 +75,8 @@
 				skillsComponent,
 				portfolioComponent,
 				videoIntroComponent,
-				availabilityComponent
+				availabilityComponent,
+				languagesComponent
 			];
 
 			// Find all forms in the components and submit them
@@ -249,6 +254,23 @@
 						bind:this={videoIntroComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('videoIntro', completed, fromSave)}
+					/>
+				</div>
+			</div>
+		</div>
+
+		<!-- Languages -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body p-4">
+				{@render cardTitle($t('common.profile.edit.languages'), 'languages')}
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+					style:max-height={isCollapsed.languages ? '0' : '200rem'}
+				>
+					<Languages
+						bind:this={languagesComponent}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('languages', completed, fromSave)}
 					/>
 				</div>
 			</div>

@@ -188,6 +188,17 @@
 				"elite": "Élite",
 				"elite_desc": "Mejor desempeño con calificaciones sobresalientes"
 			}
-		}
+		},
+		"months_ago": "hace {count} meses",
+		"weeks_ago": "hace {count} semanas",
+		"days_ago": "hace {count} días",
+		"today": "Hoy",
+		"rating": "Calificación",
+		"out_of": "de",
+		"verified_task": "Tarea verificada",
+		"verified_service": "Servicio verificado",
+		"total_reviews": "{count} reseñas",
+		"stars": "estrellas",
+		"reviews_count": "reseñas"
 	}
 }

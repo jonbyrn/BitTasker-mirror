@@ -1,102 +1,152 @@
 <script lang="ts">
-	import { profileStore } from '$lib/stores/profile.store';
-	import { locale, t } from 'svelte-i18n';
-	import {
-		getServiceDisplayDescription,
-		getServiceDisplayTitle
-	} from '$lib/utils/serviceDisplayTranslation';
 	import type { Service } from '$lib/types/service.d';
+	import { t, locale } from 'svelte-i18n';
+	import { findProfileServicesByAuthor } from '$lib/nostr/findProfileServices';
+	import {
+		getServiceDisplayTitle,
+		getServiceDisplayDescription
+	} from '$lib/utils/serviceDisplayTranslation';
+	import FeaturedHomepageCardShell from '$lib/components/homepage/FeaturedHomepageCardShell.svelte';
+
+	const INITIAL_LIMIT = 6;
+
+	let {
+		pubkey,
+		isActive = false,
+		id = 'services'
+	}: {
+		pubkey: string;
+		isActive?: boolean;
+		id?: string;
+	} = $props();
+
+	let services = $state<Service[]>([]);
+	let isLoading = $state(false);
+	let error = $state<string | null>(null);
+	let hasLoaded = $state(false);
+	let showAll = $state(false);
+
+	const displayedServices = $derived(showAll ? services : services.slice(0, INITIAL_LIMIT));
+	const hasMore = $derived(services.length > INITIAL_LIMIT);
+
+	async function fetchServices() {
+		if (!pubkey) return;
+		isLoading = true;
+		error = null;
+		try {
+			const result = await findProfileServicesByAuthor(pubkey, { limit: 50 });
+			services = result;
+			hasLoaded = true;
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	$effect(() => {
+		if (isActive && !hasLoaded && !isLoading && pubkey) {
+			fetchServices();
+		}
+	});
 
 	function getServiceHref(service: Service): string {
 		return `/services/${service.uniqueId || service.id}`;
 	}
 
-	function getServiceTitle(service: Service): string {
-		const translatedTitle = getServiceDisplayTitle(service, $locale || 'en').trim();
-		return translatedTitle || service.title || service.uniqueId || service.id;
+	function getServiceMeta(service: Service): string[] {
+		const meta: string[] = [];
+		if (service.skills?.length) meta.push(...service.skills.slice(0, 3));
+		return meta;
 	}
 
-	function getServiceDescription(service: Service): string {
-		return getServiceDisplayDescription(service, $locale || 'en').trim();
+	function getServicePrice(service: Service): string {
+		const tiers = service.pricing?.tiers;
+		if (!tiers?.length) return '';
+		const first = tiers[0];
+		const price = first?.price;
+		if (typeof price === 'number' && price > 0) {
+			const currency = service.pricing?.currency || 'USD';
+			return new Intl.NumberFormat($locale || 'en', { style: 'currency', currency }).format(price);
+		}
+		return '';
 	}
 </script>
 
-<section class="mb-8" data-testid="profile-services-module">
-	<div class="card bg-base-200 rounded-2xl shadow-lg">
-		<div class="card-body gap-4">
-			<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-				<div class="space-y-1">
-					<h3 class="card-title text-lg">{$t('profile.services_summary.title')}</h3>
-					<p class="text-base-content/70 text-sm">
-						{$t('profile.services_summary.description')}
-					</p>
-				</div>
-				{#if !$profileStore.servicesLoading && !$profileStore.servicesError}
-					<div class="badge badge-outline badge-secondary">
-						{$profileStore.services.length} {$t('stats.activeServices')}
-					</div>
-				{/if}
-			</div>
-
-			{#if $profileStore.servicesLoading}
-				<div class="space-y-3" data-testid="profile-services-loading">
-					<p class="text-base-content/70 text-sm">
-						{$t('profile.services_summary.count_loading')}
-					</p>
-					{#each Array.from({ length: 3 }) as _, index}
-						<div
-							class="bg-base-100/70 animate-pulse rounded-xl p-4"
-							data-testid={`profile-services-loading-row-${index}`}
-						>
-							<div class="bg-base-300 mb-3 h-4 w-1/3 rounded"></div>
-							<div class="bg-base-300 h-3 w-full rounded"></div>
-						</div>
-					{/each}
-				</div>
-			{:else if $profileStore.servicesError}
-				<div class="space-y-3" data-testid="profile-services-error">
-					<div class="alert alert-outline alert-error">
-						<span>{$t('profile.services_summary.load_error')}</span>
-					</div>
-					<p class="text-base-content/60 text-sm">{$profileStore.servicesError}</p>
-				</div>
-			{:else if $profileStore.services.length === 0}
-				<div
-					class="bg-base-100/70 rounded-xl border border-dashed p-6 text-center"
-					data-testid="profile-services-empty"
-				>
-					<p class="mb-3 text-sm">{$t('profile.services_summary.empty')}</p>
-					<a class="btn btn-primary btn-sm" href="/dashboard/create-service">
-						{$t('profile.services_summary.create_cta')}
-					</a>
-				</div>
-			{:else}
-				<div class="grid gap-3 lg:grid-cols-2" data-testid="profile-services-list">
-					{#each $profileStore.services as service (service.id)}
-						<a
-							class="bg-base-100 hover:border-primary/40 hover:bg-base-100/90 block rounded-xl border border-transparent p-4 transition"
-							data-testid={`profile-service-link-${service.uniqueId || service.id}`}
-							href={getServiceHref(service)}
-						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0 flex-1 space-y-2">
-									<h4 class="line-clamp-2 text-base font-semibold">
-										{getServiceTitle(service)}
-									</h4>
-									{#if getServiceDescription(service)}
-										<p class="text-base-content/70 line-clamp-2 text-sm">
-											{getServiceDescription(service)}
-										</p>
-									{/if}
-								</div>
-								<span class="badge badge-ghost shrink-0">
-									{$t('profile.services_summary.active_badge')}
-								</span>
-							</div>
-						</a>
-					{/each}
-				</div>
-			{/if}
-		</div>
+<section
+	{id}
+	class="mb-8 scroll-mt-20"
+	data-testid="profile-services-section"
+	aria-labelledby="{id}-heading"
+>
+	<div class="mb-4">
+		<h2 id="{id}-heading" class="text-xl font-bold">{$t('profile.services.title')}</h2>
 	</div>
+
+	{#if isLoading}
+		<div
+			class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			role="status"
+			aria-busy="true"
+			aria-label={$t('common.loading')}
+			data-testid="profile-services-loading"
+		>
+			{#each Array.from({ length: 3 }) as _, idx (idx)}
+				<div
+					class="skeleton h-72 w-[280px] flex-shrink-0 snap-start rounded-2xl"
+					data-testid="profile-services-loading-row"
+				></div>
+			{/each}
+		</div>
+	{:else if error}
+		<div class="alert alert-error" role="alert" data-testid="profile-services-error">
+			<span>{error}</span>
+			<button
+				class="btn btn-ghost btn-sm"
+				onclick={fetchServices}
+				aria-label={$t('common.buttons.retry')}
+			>
+				{$t('common.buttons.retry')}
+			</button>
+		</div>
+	{:else if hasLoaded && services.length === 0}
+		<div class="text-base-content/60 py-8 text-center" data-testid="profile-services-empty">
+			<p>{$t('profile.services.empty')}</p>
+		</div>
+	{:else if hasLoaded}
+		<div
+			class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			aria-live="polite"
+			data-testid="profile-services-list"
+		>
+			{#each displayedServices as service (service.id)}
+				<div class="max-w-[320px] min-w-[280px] flex-shrink-0 snap-start">
+					<FeaturedHomepageCardShell
+						href={getServiceHref(service)}
+						title={getServiceDisplayTitle(service, $locale || 'en')}
+						description={getServiceDisplayDescription(service, $locale || 'en')}
+						price={getServicePrice(service)}
+						priceLabel={$t('profile.services.price_from')}
+						meta={getServiceMeta(service)}
+						ctaLabel={$t('profile.services.view_service')}
+						testId="profile-service-card"
+						showLocationIcon={false}
+					/>
+				</div>
+			{/each}
+		</div>
+
+		{#if hasMore}
+			<div class="mt-4 flex flex-col items-center gap-2">
+				{#if !showAll}
+					<button class="btn btn-ghost btn-sm" onclick={() => (showAll = true)}>
+						{$t('common.show_more', { values: { count: services.length - INITIAL_LIMIT } })}
+					</button>
+				{/if}
+				<a href="/services" class="btn btn-outline btn-sm">
+					{$t('profile.services.browse_all')}
+				</a>
+			</div>
+		{/if}
+	{/if}
 </section>

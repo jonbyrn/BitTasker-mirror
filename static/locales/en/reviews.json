@@ -188,6 +188,17 @@
 				"elite": "Elite",
 				"elite_desc": "Top performer with outstanding reviews"
 			}
-		}
+		},
+		"months_ago": "{count} months ago",
+		"weeks_ago": "{count} weeks ago",
+		"days_ago": "{count} days ago",
+		"today": "Today",
+		"rating": "Rating",
+		"out_of": "out of",
+		"verified_task": "Verified task",
+		"verified_service": "Verified service",
+		"total_reviews": "{count} reviews",
+		"stars": "stars",
+		"reviews_count": "reviews"
 	}
 }

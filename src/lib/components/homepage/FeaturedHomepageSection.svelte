@@ -14,6 +14,8 @@
 		sectionTestId,
 		cardWidthClass = 'w-80',
 		cardTestIdPrefix = 'homepage-featured-card',
+		sectionClass = 'bg-base-200 py-16',
+		containerClass = 'container mx-auto px-4',
 		card
 	} = $props<{
 		title: string;
@@ -28,6 +30,8 @@
 		sectionTestId: string;
 		cardWidthClass?: string;
 		cardTestIdPrefix?: string;
+		sectionClass?: string;
+		containerClass?: string;
 		card?: Snippet<[unknown]>;
 	}>();
 
@@ -39,13 +43,13 @@
 
 {#if !shouldHideSection}
 	<section
-		class="bg-base-200 py-16"
+		class={sectionClass}
 		data-testid={sectionTestId}
 		data-homepage-featured-shell="true"
 		aria-busy={loading}
 		aria-labelledby={headingId}
 	>
-		<div class="container mx-auto px-4">
+		<div class={containerClass}>
 			<div class="mb-8">
 				<h2 id={headingId}>{title}</h2>
 			</div>

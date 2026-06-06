@@ -2,7 +2,9 @@ import type {
 	ProfileTranslations,
 	SkillTranslations,
 	CertificationTranslations,
-	PortfolioTranslations
+	PortfolioTranslations,
+	LanguageTranslations,
+	NostrProfileLanguage
 } from '$lib/types/profile.d';
 import { translationService, type TranslationResult } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
@@ -349,6 +351,105 @@ export async function generatePortfolioTranslations(
 		};
 	} catch (error) {
 		console.error('Error generating portfolio translations:', error);
+		return undefined;
+	}
+}
+
+/**
+ * Generate translations for profile language proficiency labels
+ * Translates proficiency strings (native, fluent, etc.) to all supported languages
+ */
+export async function generateLanguageTranslations(
+	languages: NostrProfileLanguage[]
+): Promise<LanguageTranslations | undefined> {
+	try {
+		if (!languages || languages.length === 0) {
+			return undefined;
+		}
+
+		// Filter to languages with non-empty codes
+		const validLanguages = languages.filter((lang) => lang.code?.trim());
+		if (validLanguages.length === 0) {
+			return undefined;
+		}
+
+		// Build combined text from proficiency labels for language detection
+		const combinedText = validLanguages
+			.map((lang) => lang.proficiency || '')
+			.join(' ')
+			.trim();
+		if (!combinedText) {
+			return undefined;
+		}
+
+		// Detect source language
+		const detectedLanguage = await translationService.detectLanguage(combinedText);
+		const sourceLanguage =
+			detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)
+				? detectedLanguage
+				: 'en';
+
+		// Get target languages (all except source)
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Collect unique proficiency labels to translate
+		const uniqueProficiencies = [
+			...new Set(validLanguages.map((l) => l.proficiency || '').filter(Boolean))
+		];
+
+		// Translate all proficiency labels to all target languages
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const proficiencyTranslations = await Promise.all(
+				uniqueProficiencies.map(async (prof) => {
+					const result = await translationService.translate(prof, targetLang, sourceLanguage);
+					if ('code' in result) {
+						console.warn(`Language proficiency translation failed for ${targetLang}: ${prof}`);
+						return { original: prof, translated: prof };
+					}
+					return { original: prof, translated: result.translatedText || prof };
+				})
+			);
+
+			// Build a proficiency map for this language
+			const profMap: Record<string, string> = {};
+			proficiencyTranslations.forEach(({ original, translated }) => {
+				profMap[original] = translated;
+			});
+
+			// Build the translated proficiency string: join all translated labels
+			const translatedProficiency = validLanguages
+				.map((lang) => profMap[lang.proficiency || ''] || lang.proficiency || '')
+				.join(', ');
+
+			return {
+				language: targetLang,
+				proficiency: translatedProficiency
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+
+		const translations: LanguageTranslations['translations'] = {};
+		results.forEach((result) => {
+			if (result) {
+				translations[result.language] = {
+					proficiency: result.proficiency
+				};
+			}
+		});
+
+		return {
+			sourceLanguage,
+			translations
+		};
+	} catch (error) {
+		console.error('Error generating language translations:', error);
 		return undefined;
 	}
 }

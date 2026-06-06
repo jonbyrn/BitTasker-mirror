@@ -13,6 +13,11 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('reviews:queries');
 
+export interface PaginatedReviews {
+	reviews: AttestedReview[];
+	cursor: number | null;
+}
+
 async function fetchReviewEventById(eventId: string): Promise<Record<string, unknown> | null> {
 	// Rating data is ONLY stored in the review event (kind 6430), not in attestations (pre-update).
 	// Updated attestations (v1+) include rating data directly.
@@ -370,35 +375,51 @@ export function subscribeToUserAttestations(
 
 export async function getReviewsForUser(
 	pubkey: string,
-	limit: number = 50
-): Promise<AttestedReview[]> {
+	limit: number = 50,
+	before?: number
+): Promise<PaginatedReviews> {
 	const hexPubkey = normalizeNostrPubkey(pubkey);
 	if (!hexPubkey) {
-		return [];
+		return { reviews: [], cursor: null };
 	}
 
 	// Attestations tag reviewee/reviewer as hex in #p — always query with normalized hex.
-	const reviews = await fetchAttestations(
-		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
-		limit * 2
-	);
-	return reviews.filter((r) => nostrPubkeysMatch(r.revieweePubkey, hexPubkey)).slice(0, limit);
+	const filter: NDKFilter = { kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] };
+	if (before) filter.until = before;
+
+	const reviews = await fetchAttestations(filter, limit * 2);
+	const filtered = reviews
+		.filter((r) => nostrPubkeysMatch(r.revieweePubkey, hexPubkey))
+		.slice(0, limit);
+
+	const cursor =
+		filtered.length > 0 ? Math.min(...filtered.map((r) => Math.floor(r.createdAt / 1000))) : null;
+
+	return { reviews: filtered, cursor };
 }
 
 export async function getReviewsByReviewer(
 	pubkey: string,
-	limit: number = 50
-): Promise<AttestedReview[]> {
+	limit: number = 50,
+	before?: number
+): Promise<PaginatedReviews> {
 	const hexPubkey = normalizeNostrPubkey(pubkey);
 	if (!hexPubkey) {
-		return [];
+		return { reviews: [], cursor: null };
 	}
 
-	const reviews = await fetchAttestations(
-		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
-		limit * 2
-	);
-	return reviews.filter((r) => nostrPubkeysMatch(r.reviewerPubkey, hexPubkey)).slice(0, limit);
+	const filter: NDKFilter = { kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] };
+	if (before) filter.until = before;
+
+	const reviews = await fetchAttestations(filter, limit * 2);
+	const filtered = reviews
+		.filter((r) => nostrPubkeysMatch(r.reviewerPubkey, hexPubkey))
+		.slice(0, limit);
+
+	const cursor =
+		filtered.length > 0 ? Math.min(...filtered.map((r) => Math.floor(r.createdAt / 1000))) : null;
+
+	return { reviews: filtered, cursor };
 }
 
 export async function getReviewsForContract(contractId: string): Promise<AttestedReview[]> {

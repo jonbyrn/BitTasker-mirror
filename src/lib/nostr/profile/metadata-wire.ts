@@ -44,7 +44,8 @@ export const PROFILE_METADATA_WIRE_ENRICHMENT_KEYS = [
 	'lud06',
 	'professionalTitle',
 	'location',
-	'translations'
+	'translations',
+	'languages'
 ] as const satisfies readonly (keyof NostrProfile)[];
 
 /**
@@ -143,6 +144,10 @@ export function mergeProfileMetadata(
 
 	if (metadata.translations !== undefined) {
 		merged.translations = metadata.translations;
+	}
+
+	if (metadata.languages !== undefined) {
+		merged.languages = metadata.languages;
 	}
 
 	if (metadata.pictures !== undefined) {

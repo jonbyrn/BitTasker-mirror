@@ -163,6 +163,7 @@
 				"portfolio": "Portfolio",
 				"video": "Video Introduction",
 				"availability": "Availability",
+				"languages": "Languages",
 				"services": "Standard Services",
 				"error": "Failed to load profile data. Please try again later."
 			},

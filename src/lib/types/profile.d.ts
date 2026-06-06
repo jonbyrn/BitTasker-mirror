@@ -8,6 +8,11 @@ export interface NostrProfileImage {
 	size?: number;
 }
 
+export interface NostrProfileLanguage {
+	code: string;
+	proficiency: 'native' | 'fluent' | 'conversational' | 'basic' | string;
+}
+
 export interface NostrReview {
 	id: string;
 	from: string;
@@ -22,6 +27,15 @@ export interface ProfileTranslations {
 		[language: string]: {
 			professionalTitle: string;
 			about: string;
+		};
+	};
+}
+
+export interface LanguageTranslations {
+	sourceLanguage: string;
+	translations: {
+		[language: string]: {
+			proficiency: string;
 		};
 	};
 }
@@ -44,6 +58,7 @@ export interface NostrProfile {
 	professionalTitle?: string;
 	location?: string; // Geographic location
 	translations?: ProfileTranslations; // Translations for all supported languages
+	languages?: NostrProfileLanguage[]; // Languages spoken by the user
 
 	// Deprecated/internal fields (for backwards compatibility)
 	pictures?: NostrProfileImage[]; // Legacy field, prefer picture

@@ -89,3 +89,6 @@ agentdb.rvf
 
 # fastlane Play Store credentials (NEVER commit)
 fastlane/play-store-credentials.json
+.harness/workspace/
+.harness/offloads/
+.harness/threads/
