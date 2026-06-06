@@ -196,8 +196,8 @@
 		</div>
 
 		<!-- Mobile layout (avatar shown in top action row, not here) -->
-		<div class="flex flex-col gap-3 p-4 md:hidden">
-			<div class="text-left">
+		<div class="flex flex-col items-center gap-3 p-4 pt-0 md:hidden">
+			<div class="text-center">
 				<div class="flex items-center justify-center gap-2">
 					<h1 class="text-base-content text-xl font-bold">{displayName}</h1>
 					{#if profile?.nip05}

@@ -244,10 +244,11 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Top action row: back (mobile) + avatar (mobile) + report/share (all) -->
-		<div class="mx-auto max-w-6xl px-4 pt-4">
+		<!-- Top action row: back (mobile) + centered avatar (mobile) + report/share (all) -->
+		<div class="relative mx-auto max-w-6xl px-4 pt-4">
 			<div class="flex items-center justify-between">
-				<div class="flex items-center gap-2 md:hidden">
+				<!-- Mobile: back button -->
+				<div class="md:hidden">
 					<button
 						class="btn btn-secondary btn-sm"
 						onclick={() => {
@@ -264,7 +265,10 @@
 						>
 						{$t('common.back_2')}
 					</button>
-					<Avatar picture={userPicture} name={displayName} size="sm" />
+				</div>
+				<!-- Mobile: centered avatar (row adapts to avatar size) -->
+				<div class="absolute top-0 left-1/2 -translate-x-1/2 pt-4 md:hidden">
+					<Avatar picture={userPicture} name={displayName} size="xl" />
 				</div>
 				<div class="hidden md:block"></div>
 				<div class="flex items-center gap-1">
