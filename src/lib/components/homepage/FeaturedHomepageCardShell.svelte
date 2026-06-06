@@ -14,7 +14,8 @@
 		ctaLabel,
 		testId,
 		imageLoading = 'lazy',
-		fallbackImage = '/images/placeholders/were-hiring-task-image-placeholder.jpg'
+		fallbackImage = '/images/placeholders/were-hiring-task-image-placeholder.jpg',
+		showLocationIcon = true
 	} = $props<{
 		href: string;
 		title: string;
@@ -29,6 +30,7 @@
 		testId?: string;
 		imageLoading?: 'lazy' | 'eager';
 		fallbackImage?: string;
+		showLocationIcon?: boolean;
 	}>();
 </script>
 
@@ -53,12 +55,14 @@
 		</div>
 
 		<!-- Location row -->
-		<div class="flex items-center gap-2" style="min-height:2rem">
-			{#if location}
-				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
-				<span class="line-clamp-1 text-sm">{location}</span>
-			{/if}
-		</div>
+		{#if showLocationIcon}
+			<div class="flex items-center gap-2" style="min-height:2rem">
+				{#if location}
+					<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+					<span class="line-clamp-1 text-sm">{location}</span>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Price and badges row -->
 		<div class="flex items-start justify-between gap-3">
