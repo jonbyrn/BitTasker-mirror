@@ -22,17 +22,17 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 
 ### What exists today
 
-| Asset                   | Location                                              | Status                                        |
-| ----------------------- | ----------------------------------------------------- | --------------------------------------------- |
-| GitLab CI pipeline      | `.gitlab-ci.yml`                                      | Web-only (Cloudflare Workers deploy)          |
-| Android build chain     | `npm run android:bundleRelease`                       | Manual, local only                            |
-| Zapstore publish script | `scripts/publish-to-zapstore.sh`                      | Partially commented out                       |
-| Google Play listing     | Google Play Console                                   | Published, manual updates                     |
-| Upload keystore         | `android/upload-keystore.jks`                         | On disk, not in git                           |
-| Upload key credentials  | `android/keystore.properties` (commented-out section) | Plaintext on local disk                       |
+| Asset                   | Location                                              | Status                                                                   |
+| ----------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| GitLab CI pipeline      | `.gitlab-ci.yml`                                      | Web-only (Cloudflare Workers deploy)                                     |
+| Android build chain     | `npm run android:bundleRelease`                       | Manual, local only                                                       |
+| Zapstore publish script | `scripts/publish-to-zapstore.sh`                      | Partially commented out                                                  |
+| Google Play listing     | Google Play Console                                   | Published, manual updates                                                |
+| Upload keystore         | `android/upload-keystore.jks`                         | On disk, not in git                                                      |
+| Upload key credentials  | `android/keystore.properties` (commented-out section) | Plaintext on local disk                                                  |
 | versionCode             | Prepare commits on `master`                           | 15 (current in Play Store; bootstrap via `ANDROID_RELEASE_VERSION_CODE`) |
-| versionName             | Git tag at release time                               | Set by CI from tag (not stored in repo)       |
-| Self-hosted runner      | GitLab tags: `self-hosted`                            | Docker executor, runs `node:22-bookworm-slim` |
+| versionName             | Git tag at release time                               | Set by CI from tag (not stored in repo)                                  |
+| Self-hosted runner      | GitLab tags: `self-hosted`                            | Docker executor, runs `node:22-bookworm-slim`                            |
 
 ### Security issues to fix
 
@@ -80,10 +80,10 @@ BitTasker uses **Internal Testing** for pre-release CI builds and **Production**
 
 Google Play uses **two** version fields — it's critical to understand the difference:
 
-| Field           | Type    | Users see it?                                                                    | Must increase?                                          | Example   | Source of truth                                                           |
-| --------------- | ------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- | ------------------------------------------------------------------------- |
+| Field           | Type    | Users see it?                                                                    | Must increase?                                          | Example   | Source of truth                                           |
+| --------------- | ------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- | --------------------------------------------------------- |
 | **versionCode** | Integer | **Never** — Google Play internal only. Used to determine which build is "newer." | Yes — each upload must be strictly higher than the last | `16`      | **`android-release-prepare`** (prepare commits on master) |
-| **versionName** | String  | **Yes** — displayed on Play Store listing, in-app About screen, Settings → Apps  | No — purely cosmetic                                    | `"1.1.8"` | Git tag (e.g., `v1.1.8` → `"1.1.8"`)                                      |
+| **versionName** | String  | **Yes** — displayed on Play Store listing, in-app About screen, Settings → Apps  | No — purely cosmetic                                    | `"1.1.8"` | Git tag (e.g., `v1.1.8` → `"1.1.8"`)                      |
 
 Users see `versionName "1.1.8"` on the Play Store. They never see `versionCode 16`. Google Play uses `versionCode` only to determine update eligibility — a device with `versionCode 15` will receive an update to `versionCode 16` regardless of what `versionName` says.
 
@@ -108,10 +108,10 @@ Example: the app currently has `"1.1.7"` on the Play Store. You want to release 
 
 **Internal testing / pre-release tags:** Uses `$CI_PIPELINE_ID` as versionCode (always unique, always increasing). No prepare job.
 
-| Release type               | versionCode source                    | Committed back?   | Example versionCode   |
-| -------------------------- | ------------------------------------- | ----------------- | --------------------- |
-| Production (`vX.Y.Z`)      | `android-release-prepare`             | Yes (`[skip ci]` on master) | 16 → 17 → 18 |
-| Pre-release (`v*-alpha`\*) | `$CI_PIPELINE_ID` (unique, always up) | No                | 50231 → 50298 → 50362 |
+| Release type               | versionCode source                    | Committed back?             | Example versionCode   |
+| -------------------------- | ------------------------------------- | --------------------------- | --------------------- |
+| Production (`vX.Y.Z`)      | `android-release-prepare`             | Yes (`[skip ci]` on master) | 16 → 17 → 18          |
+| Pre-release (`v*-alpha`\*) | `$CI_PIPELINE_ID` (unique, always up) | No                          | 50231 → 50298 → 50362 |
 
 #### How versionName flows
 
@@ -139,11 +139,11 @@ git tag v1.1.8  ──→  android-release-prepare  ──→  VERSION_NAME="1.1
 
 #### Source of truth
 
-| Value       | Source of truth            | Updated by                                      |
-| ----------- | -------------------------- | ----------------------------------------------- |
-| versionName | Git tag                    | Developer (when creating the tag)               |
-| versionCode | `android-release-prepare`  | CI (auto-increment + commit to master)          |
-| app version | Git tag                    | `package.json` version is unrelated (web layer) |
+| Value       | Source of truth           | Updated by                                      |
+| ----------- | ------------------------- | ----------------------------------------------- |
+| versionName | Git tag                   | Developer (when creating the tag)               |
+| versionCode | `android-release-prepare` | CI (auto-increment + commit to master)          |
+| app version | Git tag                   | `package.json` version is unrelated (web layer) |
 
 ### Signing strategy
 
@@ -250,14 +250,23 @@ build-android-ci-image:
 
 In GitLab → Settings → CI/CD → Variables, add:
 
-| Variable                          | Type     | Protected | Masked          | Value                                            |
-| --------------------------------- | -------- | --------- | --------------- | ------------------------------------------------ |
-| `ANDROID_KEYSTORE_BASE64`         | Variable | Yes       | Yes             | Base64-encoded `upload-keystore.jks` (see below) |
-| `ANDROID_KEYSTORE_STORE_PASSWORD` | Variable | Yes       | Yes             | Upload keystore password                         |
-| `ANDROID_KEYSTORE_KEY_ALIAS`      | Variable | Yes       | No (too short)  | `upload`                                         |
-| `ANDROID_KEYSTORE_KEY_PASSWORD`   | Variable | Yes       | Yes             | Upload keystore password                         |
-| `PLAY_STORE_CREDENTIALS_JSON`     | Variable | Yes       | No (multi-line) | Full content of `play-store-credentials.json`    |
-| `CI_API_TOKEN`                   | Variable | Yes       | Yes             | Project access token with `api` scope (prepare job) |
+| Variable                          | Type     | Protected | Masked          | Value                                                                     |
+| --------------------------------- | -------- | --------- | --------------- | ------------------------------------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`         | Variable | Yes       | Yes             | Base64-encoded `upload-keystore.jks` (see below)                          |
+| `ANDROID_KEYSTORE_STORE_PASSWORD` | Variable | Yes       | Yes             | Upload keystore password                                                  |
+| `ANDROID_KEYSTORE_KEY_ALIAS`      | Variable | Yes       | No (too short)  | `upload`                                                                  |
+| `ANDROID_KEYSTORE_KEY_PASSWORD`   | Variable | Yes       | Yes             | Upload keystore password                                                  |
+| `PLAY_STORE_CREDENTIALS_JSON`     | Variable | Yes       | No (multi-line) | Full content of `play-store-credentials.json`                             |
+| `CI_API_TOKEN`                    | Variable | Yes       | Yes             | Project access token with `api` scope (prepare job + secret API fallback) |
+
+### Protected tags (required when variables are Protected)
+
+Android jobs run on **git tags** (`v1.1.8-alpha.6`, `v1.2.0`). If `ANDROID_KEYSTORE_*` is **Protected**, GitLab injects it **only on protected tags**—not on protected branches alone.
+
+1. **Settings → Repository → Protected tags** → add `v*` (covers production and alpha/beta tags)
+2. **Settings → CI/CD → Job token permissions** → enable access to CI/CD variables (fallback when injection fails)
+
+Without protected tags, the job fails with `ANDROID_KEYSTORE_BASE64 is empty` even when the variable exists under scope `*`.
 
 **Why base64?** GitLab "File" type variables aren't available in all setups. The `.jks` keystore is a binary file — it can't be pasted as a raw string variable. Base64 encoding converts it to a text string that fits in a regular "Variable" type entry. Decoded back to binary in CI:
 
@@ -490,11 +499,11 @@ defaultConfig {
 
 **How this works:**
 
-| Scenario                                   | versionCode source                                 | versionName source               |
-| ------------------------------------------ | -------------------------------------------------- | -------------------------------- |
-| **Local debug build**                      | `1` (explicit dev default)                         | `0.0.0-dev`                      |
-| **CI internal testing** (`v*-alpha`\* tag) | `$CI_PIPELINE_ID` (env var)                        | From git tag                     |
-| **CI production** (`vX.Y.Z` tag)           | `android-release-prepare` dotenv                   | From git tag                     |
+| Scenario                                   | versionCode source               | versionName source |
+| ------------------------------------------ | -------------------------------- | ------------------ |
+| **Local debug build**                      | `1` (explicit dev default)       | `0.0.0-dev`        |
+| **CI internal testing** (`v*-alpha`\* tag) | `$CI_PIPELINE_ID` (env var)      | From git tag       |
+| **CI production** (`vX.Y.Z` tag)           | `android-release-prepare` dotenv | From git tag       |
 
 - **CI production:** prepare increments from prior prepare commits on master, exports dotenv; build jobs fail immediately if vars are missing (`.android-release-env-guard`).
 - **Re-run same tag without shipping:** prepare finds existing `ci: release versionCode N for vX.Y.Z [skip ci]` on master and reuses `N`.
@@ -569,7 +578,6 @@ android-build-internal:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-(alpha|beta)/
   environment:
     name: internal-testing
-
 # ─── Android: Resolve production versions (auto on vX.Y.Z tag) ─────────────
 # See android-release-prepare in .gitlab-ci.yml (inline script, no shell scripts).
 # Tracks versionCode via empty prepare commits on master; exports dotenv for Play + Zapstore.
@@ -605,12 +613,12 @@ This downloads existing Play Store metadata into `fastlane/metadata/android/`. C
 
 ### Tag naming convention
 
-| Tag pattern          | Example          | Track            | versionCode source                                    |
-| -------------------- | ---------------- | ---------------- | ----------------------------------------------------- |
-| `vX.Y.Z-alpha.N`     | `v1.2.0-alpha.1` | Internal testing | `$CI_PIPELINE_ID`                                     |
-| `vX.Y.Z-beta.N`      | `v1.2.0-beta.1`  | Internal testing | `$CI_PIPELINE_ID`                                     |
-| `vX.Y.Z-rc.N`        | `v1.2.0-rc.1`    | Closed testing   | `$CI_PIPELINE_ID`                                     |
-| `vX.Y.Z` (no suffix) | `v1.2.0`         | Production       | `android-release-prepare` (committed to master)       |
+| Tag pattern          | Example          | Track            | versionCode source                              |
+| -------------------- | ---------------- | ---------------- | ----------------------------------------------- |
+| `vX.Y.Z-alpha.N`     | `v1.2.0-alpha.1` | Internal testing | `$CI_PIPELINE_ID`                               |
+| `vX.Y.Z-beta.N`      | `v1.2.0-beta.1`  | Internal testing | `$CI_PIPELINE_ID`                               |
+| `vX.Y.Z-rc.N`        | `v1.2.0-rc.1`    | Closed testing   | `$CI_PIPELINE_ID`                               |
+| `vX.Y.Z` (no suffix) | `v1.2.0`         | Production       | `android-release-prepare` (committed to master) |
 
 **You tag the version you WANT to release, not the current version.** If the app is currently at `1.1.7` on the Play Store:
 
@@ -871,21 +879,21 @@ GPP is a solid choice for Android-only teams who prioritize CI simplicity. The m
 
 ### Common failure modes
 
-| Symptom                                            | Likely cause                                        | Fix                                                                                                        |
-| -------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `versionCode X already exists`                     | Prepare used stale master fallback                  | Re-run prepare (idempotent per tag); verify `CI_PUSH_TOKEN` can push to master |
-| versionCode in `build.gradle` is stale             | Prepare push failed                                 | Check `CI_PUSH_TOKEN`; manually align fallback with last Play upload if needed |
-| `ERROR: Tag vX.Y.Z is not on master`               | Tag created on wrong branch                         | Move tag to master: `git checkout master && git pull && git tag vX.Y.Z && git push origin vX.Y.Z`          |
-| Pipeline not triggering for tag                    | Tag doesn't match pattern                           | Production: `v1.2.0` (three numbers, `v` prefix, no suffix). Internal: `v1.2.0-alpha.1`                    |
-| `fastlane: command not found`                      | Ruby/bundler not installed                          | Verify `before_script` installs ruby-full and gem install bundler                                          |
-| `Invalid JSON key`                                 | Service account JSON is malformed                   | Re-download JSON from GCP; verify CI variable isn't truncated                                              |
-| `Keystore was tampered with`                       | Wrong keystore or password                          | Verify `keystore.properties` is generated correctly in CI                                                  |
-| `Bundle was not signed`                            | Signing config not applied                          | Check Gradle `signingConfigs.release` is assigned to `buildTypes.release`                                  |
-| `ANDROID_HOME not set`                             | Android SDK not in Docker image                     | Use `reactnativecommunity/react-native-android` image                                                      |
-| `Google Play API quota exceeded`                   | Too many API calls in short period                  | Add retry with backoff; default quota is 200K queries/day                                                  |
-| `push_to_git_remote` fails                         | CI lacks push access to repo                        | Configure `CI_PUSH_TOKEN` with `write_repository` for prepare job                                          |
-| `base64: invalid input`                            | `ANDROID_KEYSTORE_BASE64` is corrupted or truncated | Re-encode: `base64 -i android/upload-keystore.jks` and verify no newlines were added                       |
-| `Keystore was tampered with or password incorrect` | Base64 decoded incorrectly or wrong password        | Verify base64 string is exactly as generated (no extra whitespace); verify password variables              |
+| Symptom                                            | Likely cause                                        | Fix                                                                                               |
+| -------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `versionCode X already exists`                     | Prepare used stale master fallback                  | Re-run prepare (idempotent per tag); verify `CI_PUSH_TOKEN` can push to master                    |
+| versionCode in `build.gradle` is stale             | Prepare push failed                                 | Check `CI_PUSH_TOKEN`; manually align fallback with last Play upload if needed                    |
+| `ERROR: Tag vX.Y.Z is not on master`               | Tag created on wrong branch                         | Move tag to master: `git checkout master && git pull && git tag vX.Y.Z && git push origin vX.Y.Z` |
+| Pipeline not triggering for tag                    | Tag doesn't match pattern                           | Production: `v1.2.0` (three numbers, `v` prefix, no suffix). Internal: `v1.2.0-alpha.1`           |
+| `fastlane: command not found`                      | Ruby/bundler not installed                          | Verify `before_script` installs ruby-full and gem install bundler                                 |
+| `Invalid JSON key`                                 | Service account JSON is malformed                   | Re-download JSON from GCP; verify CI variable isn't truncated                                     |
+| `Keystore was tampered with`                       | Wrong keystore or password                          | Verify `keystore.properties` is generated correctly in CI                                         |
+| `Bundle was not signed`                            | Signing config not applied                          | Check Gradle `signingConfigs.release` is assigned to `buildTypes.release`                         |
+| `ANDROID_HOME not set`                             | Android SDK not in Docker image                     | Use `reactnativecommunity/react-native-android` image                                             |
+| `Google Play API quota exceeded`                   | Too many API calls in short period                  | Add retry with backoff; default quota is 200K queries/day                                         |
+| `push_to_git_remote` fails                         | CI lacks push access to repo                        | Configure `CI_PUSH_TOKEN` with `write_repository` for prepare job                                 |
+| `base64: invalid input`                            | `ANDROID_KEYSTORE_BASE64` is corrupted or truncated | Re-encode: `base64 -i android/upload-keystore.jks` and verify no newlines were added              |
+| `Keystore was tampered with or password incorrect` | Base64 decoded incorrectly or wrong password        | Verify base64 string is exactly as generated (no extra whitespace); verify password variables     |
 
 ### Keeping the pipeline healthy
 

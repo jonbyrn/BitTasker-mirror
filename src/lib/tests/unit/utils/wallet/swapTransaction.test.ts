@@ -32,6 +32,7 @@ describe('swapTransaction', () => {
 			expect(FAILED_STATUSES).toContain('swap.expired');
 			expect(FAILED_STATUSES).toContain('transaction.failed');
 			expect(FAILED_STATUSES).toContain('transaction.refunded');
+			expect(FAILED_STATUSES).toContain('transaction.claim.failed');
 		});
 
 		it('should have final statuses include completed and key failed', () => {
@@ -76,26 +77,18 @@ describe('swapTransaction', () => {
 	describe('isExpiredSwapSafeToDelete', () => {
 		it('should return false when status is not swap.expired', () => {
 			expect(
-				isExpiredSwapSafeToDelete(
-					{ status: 'swap.created', id: '1' } as any,
-					'reverse'
-				)
+				isExpiredSwapSafeToDelete({ status: 'swap.created', id: '1' } as BoltzSwapData, 'reverse')
 			).toBe(false);
 		});
 
 		it('should return true for reverse swap when expired', () => {
-			expect(
-				isExpiredSwapSafeToDelete(
-					{ status: 'swap.expired', id: '1' } as any,
-					'reverse'
-				)
-			).toBe(true);
+			expect(isExpiredSwapSafeToDelete({ status: 'swap.expired', id: '1' }, 'reverse')).toBe(true);
 		});
 
 		it('should return true for submarine when expired and no lockupTxHash', () => {
 			expect(
 				isExpiredSwapSafeToDelete(
-					{ status: 'swap.expired', id: '1', lockupTxHash: undefined } as any,
+					{ status: 'swap.expired', id: '1', lockupTxHash: undefined },
 					'submarine'
 				)
 			).toBe(true);
@@ -104,7 +97,7 @@ describe('swapTransaction', () => {
 		it('should return false for submarine when expired but user locked funds', () => {
 			expect(
 				isExpiredSwapSafeToDelete(
-					{ status: 'swap.expired', id: '1', lockupTxHash: '0xabc' } as any,
+					{ status: 'swap.expired', id: '1', lockupTxHash: '0xabc' },
 					'submarine'
 				)
 			).toBe(false);
@@ -118,7 +111,7 @@ describe('swapTransaction', () => {
 						id: '1',
 						lockupTxHash: undefined,
 						serverLockupTxHash: undefined
-					} as any,
+					},
 					'chain'
 				)
 			).toBe(true);
@@ -132,7 +125,7 @@ describe('swapTransaction', () => {
 						id: '1',
 						lockupTxHash: '0xuser',
 						serverLockupTxHash: undefined
-					} as any,
+					},
 					'chain'
 				)
 			).toBe(false);
@@ -145,24 +138,20 @@ describe('swapTransaction', () => {
 				shouldShowSwap('transaction.claimed', 'reverse', {
 					status: 'transaction.claimed',
 					id: '1'
-				} as any)
+				})
 			).toBe(false);
 			expect(
 				shouldShowSwap('invoice.settled', 'submarine', {
 					status: 'invoice.settled',
 					id: '1'
-				} as any)
+				})
 			).toBe(false);
 		});
 
 		it('should return false for expired swap safe to delete', () => {
-			expect(
-				shouldShowSwap(
-					'swap.expired',
-					'reverse',
-					{ status: 'swap.expired', id: '1' } as any
-				)
-			).toBe(false);
+			expect(shouldShowSwap('swap.expired', 'reverse', { status: 'swap.expired', id: '1' })).toBe(
+				false
+			);
 		});
 
 		it('should return true for pending status', () => {
@@ -170,18 +159,29 @@ describe('swapTransaction', () => {
 				shouldShowSwap('transaction.mempool', 'submarine', {
 					status: 'transaction.mempool',
 					id: '1'
-				} as any)
+				})
 			).toBe(true);
 		});
 
 		it('should return true for expired submarine when user locked (not safe to delete)', () => {
 			expect(
-				shouldShowSwap(
-					'swap.expired',
-					'submarine',
-					{ status: 'swap.expired', id: '1', lockupTxHash: '0xabc' } as any
-				)
+				shouldShowSwap('swap.expired', 'submarine', {
+					status: 'swap.expired',
+					id: '1',
+					lockupTxHash: '0xabc'
+				})
 			).toBe(true);
+		});
+
+		it('should hide failed submarine swap that never locked funds', () => {
+			expect(
+				shouldShowSwap('invoice.failedToPay', 'submarine', {
+					status: 'invoice.failedToPay',
+					id: '1',
+					invoice: 'ln...',
+					lockupAddress: '0x...'
+				})
+			).toBe(false);
 		});
 	});
 
@@ -194,7 +194,7 @@ describe('swapTransaction', () => {
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 50000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'submarine', 100_000);
 			expect(result.type).toBe('send');
 			expect(result.displayType).toBe('send');
@@ -212,7 +212,7 @@ describe('swapTransaction', () => {
 				createdAt: '2024-01-15T10:00:00Z',
 				invoice: 'ln...',
 				amount: 30000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'reverse', 50_000);
 			expect(result.type).toBe('receive');
 			expect(result.displayType).toBe('receive');
@@ -227,7 +227,7 @@ describe('swapTransaction', () => {
 				status: 'transaction.claim.pending',
 				createdAt: '2024-01-15T10:00:00Z',
 				toAmount: 25000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'chain', 75_000);
 			expect(result.type).toBe('receive');
 			expect(result.displayType).toBe('receive');
@@ -243,10 +243,27 @@ describe('swapTransaction', () => {
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 10000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'submarine', 0);
 			expect(result.status.label).toBe('wallet.transaction.status.pending');
 			expect(result.borderColor).toBe('neutral');
+			expect(result.title).toBe('wallet.swap.pending_send');
+		});
+
+		it('should map transaction.claim.failed to failed without unknown status warn', () => {
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			const swap = {
+				id: 'rev-fail',
+				status: 'transaction.claim.failed',
+				createdAt: '2024-01-15T10:00:00Z',
+				invoice: 'ln...',
+				amount: 3332
+			};
+			const result = mapSwapToTransaction(swap, 'reverse', 0);
+			expect(result.status.label).toBe('wallet.transaction.status.failed');
+			expect(result.title).toBe('wallet.swap.failed_receive');
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
 		});
 
 		it('should set failed status and borderColor error for failed swap', () => {
@@ -257,7 +274,7 @@ describe('swapTransaction', () => {
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 10000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'submarine', 0);
 			expect(result.status.label).toBe('wallet.transaction.status.failed');
 			expect(result.borderColor).toBe('error');
@@ -271,7 +288,7 @@ describe('swapTransaction', () => {
 				createdAt: '2024-01-15T10:00:00Z',
 				invoice: 'ln...',
 				amount: 1000
-			} as any;
+			};
 			const result = mapSwapToTransaction(swap, 'reverse', 0);
 			expect(result.swap).toBeDefined();
 			expect(result.swap?.id).toBe('my-swap-id');
@@ -286,13 +303,11 @@ describe('swapTransaction', () => {
 				id: 'a1',
 				status: 'swap.created',
 				createdAt: '2024-01-15T10:00:00Z'
-			} as any;
+			};
 			const actions = getSwapActions(swap, 'submarine');
 			expect(actions.length).toBeGreaterThanOrEqual(1);
 			expect(actions.some((a) => a.type === 'viewQR')).toBe(true);
-			expect(actions.find((a) => a.type === 'viewQR')?.label).toBe(
-				'wallet.swap.action.view_qr'
-			);
+			expect(actions.find((a) => a.type === 'viewQR')?.label).toBe('wallet.swap.action.view_qr');
 		});
 
 		it('should not include viewQR for final status', () => {
@@ -300,7 +315,7 @@ describe('swapTransaction', () => {
 				id: 'a2',
 				status: 'transaction.claimed',
 				createdAt: '2024-01-15T10:00:00Z'
-			} as any;
+			};
 			const actions = getSwapActions(swap, 'reverse');
 			expect(actions.some((a) => a.type === 'viewQR')).toBe(false);
 		});

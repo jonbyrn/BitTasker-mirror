@@ -6,6 +6,7 @@ import { NDKBid } from './events/bid';
 import { NDKTask } from './events/task';
 import { NDKPaymentContract } from './events/contract';
 import { NDKContractStatus } from './events/contractStatus';
+import { NDKBoltzSwap } from './events/boltzSwap';
 
 /** IndexedDB base name for NDKCacheDexie — must match signer setup (`${name}_modules`). */
 export function ndkCacheDbBaseName(npub: string): string {
@@ -25,6 +26,7 @@ registerEventClass(NDKBid as never);
 registerEventClass(NDKTask as never);
 registerEventClass(NDKPaymentContract as never);
 registerEventClass(NDKContractStatus as never);
+registerEventClass(NDKBoltzSwap as never);
 
 if (browser && explicitRelayUrls.length > 0) {
 	ndk.connect();

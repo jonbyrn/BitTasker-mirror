@@ -1,0 +1,53 @@
+# Shared helpers: load CI/CD variables when GitLab does not inject them into the job env.
+# Common case: Protected variables on an unprotected release tag (v1.2.0-alpha.1).
+# Requires Job token access to CI/CD variables (Settings → CI/CD → Job token permissions)
+# and/or CI_API_TOKEN (project access token, api scope).
+
+.fetch-ci-var-functions:
+  before_script:
+    - |
+      fetch_gitlab_var() {
+        key="$1"
+        scope="$2"
+        url="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables/${key}?filter%5Benvironment_scope%5D=${scope}"
+        json=""
+        if [ -n "${CI_JOB_TOKEN:-}" ]; then
+          json=$(curl -sf --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "$url" 2>/dev/null || true)
+        fi
+        if [ -z "$json" ] && [ -n "${CI_API_TOKEN:-}" ]; then
+          json=$(curl -sf --header "PRIVATE-TOKEN: ${CI_API_TOKEN}" "$url" 2>/dev/null || true)
+        fi
+        if [ -z "$json" ]; then
+          return 1
+        fi
+        printf '%s' "$json" | node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(0,'utf8')); if(d.value) process.stdout.write(d.value)"
+      }
+
+      load_ci_var() {
+        key="$1"
+        eval "current=\${${key}:-}"
+        if [ -n "$current" ]; then
+          return 0
+        fi
+        for scope in "${CI_ENVIRONMENT_NAME:-*}" "*"; do
+          value=$(fetch_gitlab_var "$key" "$scope" 2>/dev/null || true)
+          if [ -n "$value" ]; then
+            export "${key}=${value}"
+            return 0
+          fi
+        done
+        return 1
+      }
+
+      explain_empty_secret() {
+        key="$1"
+        echo "ERROR: ${key} is empty"
+        echo "ref=${CI_COMMIT_TAG:-${CI_COMMIT_BRANCH:-unknown}} protected=${CI_COMMIT_REF_PROTECTED:-false} environment=${CI_ENVIRONMENT_NAME:-none}"
+        if [ "${CI_COMMIT_REF_PROTECTED:-false}" != "true" ]; then
+          echo "Likely cause: ${key} is marked Protected but this tag/branch is not protected."
+          echo "Fix A (recommended): Settings → Repository → Protected tags → add v*"
+          echo "Fix B: Uncheck Protected on ${key} in Settings → CI/CD → Variables"
+        fi
+        echo "Also check duplicate variable rows with a narrower environment scope and an empty value."
+        echo "API fallback failed: enable Job token access to CI/CD variables and/or set CI_API_TOKEN."
+      }

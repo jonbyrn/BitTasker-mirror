@@ -1,5 +1,69 @@
 # Android production + internal release jobs (included from .gitlab-ci.yml).
 # See docs/ci/play-store-pipeline.md and docs/ci/zapstore-pipeline.md
+#
+# Protected ANDROID_KEYSTORE_* variables are only auto-injected on protected tags/branches.
+# Release tags (v*-alpha*) must be protected (Settings → Repository → Protected tags → v*)
+# or variables are loaded via GitLab API (.gitlab/ci/fetch-ci-vars.yml).
+
+include:
+  - local: .gitlab/ci/fetch-ci-vars.yml
+
+.android-play-keystore-setup:
+  before_script:
+    - !reference [.fetch-ci-var-functions, before_script]
+    - |
+      set -eu
+      for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_STORE_PASSWORD ANDROID_KEYSTORE_KEY_ALIAS ANDROID_KEYSTORE_KEY_PASSWORD; do
+        load_ci_var "$var" || true
+      done
+      for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_STORE_PASSWORD ANDROID_KEYSTORE_KEY_ALIAS ANDROID_KEYSTORE_KEY_PASSWORD; do
+        eval "value=\${$var:-}"
+        if [ -z "$value" ]; then
+          explain_empty_secret "$var"
+          exit 1
+        fi
+      done
+      mkdir -p android/app
+      printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
+      if [ ! -s android/app/upload-keystore.jks ]; then
+        echo "ERROR: decoded keystore is empty"
+        exit 1
+      fi
+      magic=$(head -c 4 android/app/upload-keystore.jks | od -An -tx1 | tr -d ' \n')
+      if [ "$magic" = "feedfeed" ]; then store_type=jks; else store_type=pkcs12; fi
+      printf '%s\n' \
+        "storeFile=upload-keystore.jks" \
+        "storeType=${store_type}" \
+        "storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}" \
+        "keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}" \
+        "keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}" \
+        > android/keystore.properties
+      keytool -list -storetype "$store_type" -keystore android/app/upload-keystore.jks \
+        -storepass "${ANDROID_KEYSTORE_STORE_PASSWORD}" -alias "${ANDROID_KEYSTORE_KEY_ALIAS}" >/dev/null
+      echo "Keystore OK: alias=${ANDROID_KEYSTORE_KEY_ALIAS} storeType=${store_type}"
+    - |
+      set -eu
+      load_ci_var PLAY_STORE_CREDENTIALS_JSON || true
+      if [ -z "${PLAY_STORE_CREDENTIALS_JSON:-}" ]; then
+        explain_empty_secret PLAY_STORE_CREDENTIALS_JSON
+        exit 1
+      fi
+      mkdir -p fastlane
+      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
+        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
+      else
+        printf '%s' "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
+      fi
+      if [ ! -s fastlane/play-store-credentials.json ]; then
+        echo "ERROR: play-store-credentials.json is empty"
+        exit 1
+      fi
+      if ! grep -q '"client_email"' fastlane/play-store-credentials.json; then
+        echo "ERROR: play-store-credentials.json is not valid service account JSON (missing client_email)"
+        exit 1
+      fi
+      export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+      echo "Play credentials OK ($(grep -o '"client_email"[[:space:]]*:[[:space:]]*"[^"]*"' fastlane/play-store-credentials.json | head -1))"
 
 .android-ci-setup:
   before_script:
@@ -9,7 +73,7 @@
       export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
       export PATH="$JAVA_HOME/bin:$PATH"
       java -version
-      gem install bundler -v '4.0.12' --no-document
+      gem install bundler -v '~>2.5' --no-document
       bundle install --quiet
 
 .android-cache:
@@ -146,6 +210,8 @@ android-build-internal:
   tags:
     - self-hosted
   variables:
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
     # CI_PIPELINE_ID exceeds Android versionCode int32 max (~2.1B); map into valid range.
     ANDROID_PIPELINE_OFFSET: "2400000000"
   before_script:
@@ -155,30 +221,26 @@ android-build-internal:
         echo "ERROR: CI_COMMIT_TAG is required for internal testing builds."
         exit 1
       fi
+      git fetch origin dev --quiet
+      if ! git merge-base --is-ancestor HEAD origin/dev 2>/dev/null; then
+        echo "ERROR: Internal testing tags must be on dev (tag ${CI_COMMIT_TAG} is not on origin/dev)."
+        exit 1
+      fi
       export VERSION_CODE=$((CI_PIPELINE_ID - ANDROID_PIPELINE_OFFSET))
       if [ "$VERSION_CODE" -lt 1 ] || [ "$VERSION_CODE" -gt 2147483647 ]; then
         echo "ERROR: VERSION_CODE out of Android range: $VERSION_CODE (pipeline=$CI_PIPELINE_ID offset=$ANDROID_PIPELINE_OFFSET)"
         exit 1
       fi
       echo "Internal testing build: versionName=$VERSION_NAME versionCode=$VERSION_CODE (pipeline=$CI_PIPELINE_ID)"
+    - !reference [.android-play-keystore-setup, before_script]
     - !reference [.android-ci-setup, before_script]
-    - |
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
-      cat > android/keystore.properties << EOF
-      storeFile=upload-keystore.jks
-      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
-      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
-      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
-      EOF
-      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
-        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
-      else
-        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
-      fi
   script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+    - export SUPPLY_PACKAGE_NAME="com.bittasker.app"
+    - bundle exec fastlane android preflight
     - bundle exec fastlane android internal
   after_script:
-    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+    - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
   artifacts:
     paths:
       - android/app/build/outputs/bundle/release/
@@ -204,24 +266,15 @@ android-release-production:
   before_script:
     - !reference [.android-release-env-guard, before_script]
     - !reference [.android-ci-setup, before_script]
-    - |
-      npm ci
-      echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/upload-keystore.jks
-      cat > android/keystore.properties << EOF
-      storeFile=upload-keystore.jks
-      storePassword=${ANDROID_KEYSTORE_STORE_PASSWORD}
-      keyAlias=${ANDROID_KEYSTORE_KEY_ALIAS}
-      keyPassword=${ANDROID_KEYSTORE_KEY_PASSWORD}
-      EOF
-      if [ -f "${PLAY_STORE_CREDENTIALS_JSON}" ]; then
-        cp "${PLAY_STORE_CREDENTIALS_JSON}" fastlane/play-store-credentials.json
-      else
-        echo "${PLAY_STORE_CREDENTIALS_JSON}" > fastlane/play-store-credentials.json
-      fi
+    - npm ci
+    - !reference [.android-play-keystore-setup, before_script]
   script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="${CI_PROJECT_DIR}/fastlane/play-store-credentials.json"
+    - export SUPPLY_PACKAGE_NAME="com.bittasker.app"
+    - bundle exec fastlane android preflight
     - bundle exec fastlane android production
   after_script:
-    - rm -f android/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
+    - rm -f android/app/upload-keystore.jks fastlane/play-store-credentials.json android/keystore.properties
   artifacts:
     paths:
       - android/app/build/outputs/bundle/release/

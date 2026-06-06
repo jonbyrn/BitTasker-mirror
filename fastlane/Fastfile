@@ -2,14 +2,65 @@ default_platform(:android)
 
 # Fastlane runs lanes from fastlane/; Capacitor and Gradle paths are repo-root relative.
 PROJECT_ROOT = File.expand_path("..", File.dirname(__FILE__))
+PLAY_JSON_KEY = File.expand_path("play-store-credentials.json", File.dirname(__FILE__))
+PACKAGE_NAME = "com.bittasker.app"
 
 platform :android do
+  def play_json_key
+    unless File.exist?(PLAY_JSON_KEY)
+      UI.user_error!(
+        "Missing Play Store credentials at #{PLAY_JSON_KEY}. " \
+        "Set PLAY_STORE_CREDENTIALS_JSON in GitLab CI/CD variables."
+      )
+    end
+    PLAY_JSON_KEY
+  end
+
+  def play_store_args(**extra)
+    play_json_key
+    {
+      json_key: PLAY_JSON_KEY,
+      package_name: PACKAGE_NAME,
+      **extra
+    }
+  end
+
+  def upload_play(**extra)
+    Dir.chdir(PROJECT_ROOT) do
+      upload_to_play_store(**play_store_args(**extra))
+    end
+  end
+
   before_all do
     Dir.chdir(PROJECT_ROOT)
   end
 
+  desc "Validate Play Store credentials and package name (no build)"
+  lane :preflight do
+    gradle_path = File.join(PROJECT_ROOT, "android/app/build.gradle")
+    unless File.read(gradle_path).include?(%(applicationId "#{PACKAGE_NAME}"))
+      UI.user_error!("PACKAGE_NAME #{PACKAGE_NAME} does not match android/app/build.gradle")
+    end
+
+    if ENV["ANDROID_SKIP_PLAY_UPLOAD"] == "1"
+      UI.success("Play Store preflight OK (upload skipped): package=#{PACKAGE_NAME}")
+    else
+      play_json_key
+      UI.success("Play Store preflight OK: package=#{PACKAGE_NAME}")
+      upload_play(
+        track: "internal",
+        validate_only: true,
+        skip_upload_apk: true,
+        skip_upload_aab: true,
+        skip_upload_metadata: true,
+        skip_upload_screenshots: true,
+        skip_upload_images: true
+      )
+    end
+  end
+
   # Builds signed AAB and uploads to Internal Testing track
-  # Trigger: v*-alpha* or v*-beta* tag on master
+  # Trigger: v*-alpha* or v*-beta* tag on dev
   # versionCode = CI_PIPELINE_ID - ANDROID_PIPELINE_OFFSET (fits Android int32; monotonic in CI)
   # versionName = from tag (e.g., v1.1.8-alpha.1 → "1.1.8-alpha.1")
   desc "Build and upload to Internal Testing"
@@ -27,14 +78,16 @@ platform :android do
       print_command: true
     )
 
-    upload_to_play_store(
-      track: "internal",
-      release_status: "completed",
-      skip_upload_apk: true,
-      skip_upload_metadata: true,
-      skip_upload_screenshots: true,
-      skip_upload_images: true
-    )
+    unless ENV["ANDROID_SKIP_PLAY_UPLOAD"] == "1"
+      upload_play(
+        track: "internal",
+        release_status: "completed",
+        skip_upload_apk: true,
+        skip_upload_metadata: true,
+        skip_upload_screenshots: true,
+        skip_upload_images: true
+      )
+    end
   end
 
   # Builds signed AAB and uploads to Production
@@ -58,7 +111,7 @@ platform :android do
       print_command: true
     )
 
-    upload_to_play_store(
+    upload_play(
       track: "production",
       release_status: "completed",
       skip_upload_apk: true,
@@ -85,7 +138,7 @@ platform :android do
       print_command: true
     )
 
-    upload_to_play_store(
+    upload_play(
       track: "internal",
       release_status: "completed",
       skip_upload_apk: true,
@@ -98,7 +151,7 @@ platform :android do
   # Promote internal release to closed testing
   desc "Promote internal to closed testing"
   lane :promote_to_closed do
-    upload_to_play_store(
+    upload_play(
       track: "internal",
       track_promote_to: "closed",
       track_promote_release_status: "completed"
@@ -108,7 +161,7 @@ platform :android do
   # Promote closed testing to production (no rebuild)
   desc "Promote closed testing to production"
   lane :promote_to_production do
-    upload_to_play_store(
+    upload_play(
       track: "closed",
       track_promote_to: "production",
       track_promote_release_status: "completed"
@@ -118,7 +171,7 @@ platform :android do
   # Metadata-only update
   desc "Update store listing metadata only"
   lane :update_metadata do
-    upload_to_play_store(
+    upload_play(
       track: "internal",
       skip_upload_aab: true,
       skip_upload_apk: true,

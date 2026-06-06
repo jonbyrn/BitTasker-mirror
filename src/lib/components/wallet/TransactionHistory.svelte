@@ -139,13 +139,13 @@
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
 	onMount(async () => {
-		await loadTransactions();
+		await loadTransactionList(false);
 	});
 
 	/**
-	 * Load transactions
+	 * Load transactions — reuse store data on open; full Nostr recovery on refresh only.
 	 */
-	async function loadTransactions() {
+	async function loadTransactionList(forceRecover = false) {
 		isLoading = true;
 		error = null;
 
@@ -180,14 +180,21 @@
 				}
 			}
 
-			// Now load transactions
-			await walletManager.loadTransactions();
+			if (forceRecover) {
+				await walletManager.refreshTransactions();
+			} else {
+				await walletManager.loadTransactions();
+			}
 		} catch (err) {
 			console.error('[TransactionHistory] Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	async function loadTransactions() {
+		await loadTransactionList(true);
 	}
 
 	function formatFee(feeSats: number | undefined): string {

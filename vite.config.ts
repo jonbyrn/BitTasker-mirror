@@ -237,6 +237,11 @@ export default defineConfig(({ mode }) => {
 					target: 'https://dev.bittasker.com',
 					changeOrigin: true,
 					secure: true
+				},
+				'/api/explorer': {
+					target: 'https://dev.bittasker.com',
+					changeOrigin: true,
+					secure: true
 				}
 			},
 			watch: {

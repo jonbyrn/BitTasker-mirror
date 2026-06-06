@@ -5,6 +5,7 @@
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
+	import { UI } from '$lib/utils/constants/wallet.constants';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
 		parsePaymentAddress,
@@ -136,6 +137,10 @@
 			percentage?: number;
 			fixedFee?: number;
 		} | null;
+		swapLimits: {
+			minimal: number;
+			maximal: number;
+		} | null;
 		maxCalculation: {
 			isLoading: boolean;
 			amount: number | null;
@@ -145,6 +150,7 @@
 		isLoading: false,
 		error: null,
 		parameters: null,
+		swapLimits: null,
 		maxCalculation: {
 			isLoading: false,
 			amount: null
@@ -206,6 +212,12 @@
 		return (totalToSend / 100_000_000) * btcPrice;
 	});
 
+	const isBelowSwapMinimum = $derived.by(() => {
+		if (parsedPayment.detectedNetwork !== 'lightning-bitcoin') return false;
+		if (!feeState.swapLimits || amountInSats <= 0) return false;
+		return amountInSats < feeState.swapLimits.minimal;
+	});
+
 	// Calculate available balance based on detected network
 	const availableBalance = $derived.by(() => {
 		switch (parsedPayment.detectedNetwork) {
@@ -265,6 +277,10 @@
 
 		// Balance check: total (including fees) must not exceed available balance
 		if (totalToSend > availableBalance && availableBalance > 0) {
+			return false;
+		}
+
+		if (isBelowSwapMinimum) {
 			return false;
 		}
 
@@ -454,6 +470,7 @@
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
 			feeState.estimated = null;
 			feeState.error = null;
+			feeState.swapLimits = null;
 			return;
 		}
 
@@ -498,6 +515,12 @@
 							networkFee: minerFee + rootstockGasFee, // Miner fee + gas
 							totalFees: serviceFee + minerFee + rootstockGasFee
 						};
+						if (pair.limits) {
+							feeState.swapLimits = {
+								minimal: pair.limits.minimal,
+								maximal: pair.limits.maximal
+							};
+						}
 					} else {
 						// Fallback if Boltz API fails
 						const serviceFee = Math.ceil((amountToUse * 0.1) / 100);
@@ -508,10 +531,16 @@
 							networkFee,
 							totalFees: serviceFee + networkFee
 						};
+						try {
+							feeState.swapLimits = await walletManager.getSubmarineSwapLimits();
+						} catch {
+							feeState.swapLimits = null;
+						}
 					}
 					break;
 				}
 				case 'rootstock-bitcoin': {
+					feeState.swapLimits = null;
 					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 						const networkFee = 3000; // Fallback
 						feeState.estimated = {
@@ -779,6 +808,14 @@
 	}
 
 	// Handle send
+	function clearPendingSendState() {
+		sendState.pendingTxHash = null;
+		sendState.pendingNetwork = null;
+		sendState.pendingAmount = null;
+		sendState.pendingAddress = null;
+		sendState.pendingSwapId = null;
+	}
+
 	async function handleSend() {
 		if (!isFormValid) return;
 
@@ -797,69 +834,70 @@
 			if (lightningType === 'bolt11') {
 				const invoiceParsed = parseLightningInvoice(recipient);
 				if (invoiceParsed.isValid && !invoiceParsed.hasAmount) {
-					appStore.showErrorToast($t('wallet.send.error.amountless_invoice'));
+					appStore.showErrorToast(
+						$t('wallet.send.error.amountless_invoice'),
+						UI.WALLET_TOAST_DURATION_MS
+					);
 					return;
 				}
 			}
+			if (isBelowSwapMinimum && feeState.swapLimits) {
+				appStore.showErrorToast(
+					$t('wallet.receive.below_swap_minimum', {
+						values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+					}),
+					UI.WALLET_TOAST_DURATION_MS
+				);
+				return;
+			}
 		}
 
-		// Show pending transaction screen immediately (optimistically)
-		// We'll update with txHash once we get it
-		sendState.pendingTxHash = 'pending'; // Temporary value, will be replaced with actual hash
-		sendState.pendingNetwork = network;
-		sendState.pendingAmount = amountInSats;
-		sendState.pendingAddress = recipient;
-		sendState.isSending = false; // Set to false so pending screen shows immediately
+		sendState.isSending = true;
 		sendState.error = null;
+
+		const amountInSatsForPending = amountInSats;
+		sendState.pendingNetwork = network;
+		sendState.pendingAmount = amountInSatsForPending;
+		sendState.pendingAddress = recipient;
+		sendState.pendingTxHash = null;
+		sendState.pendingSwapId = null;
+		sendState.isSending = false;
 
 		try {
 			let txHash: string | null = null;
 
 			if (network === 'lightning-bitcoin') {
-				// Lightning send via submarine swap
 				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
+				sendState.pendingSwapId = swapResult.swapId;
+
 				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
 				txHash = lockResult.txHash;
 
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
 				if (txHash) {
 					sendState.pendingTxHash = txHash;
-					sendState.pendingNetwork = network;
-					sendState.pendingAmount = amountInSats;
-					sendState.pendingAddress = recipient;
-					sendState.pendingSwapId = swapResult.swapId; // Store swap ID for monitoring
-					sendState.isSending = false; // Set to false immediately to skip loading screen
-
-					// Show pending transaction screen
-					appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-
-					// Return early - pending screen will monitor swap status
+					appStore.showSuccessToast(
+						$t('wallet.send.transaction_sending'),
+						UI.WALLET_TOAST_DURATION_MS
+					);
 					return;
 				}
 			} else if (network === 'rootstock-bitcoin') {
-				// RSK direct send
 				const amountRBTC = amountInSats / 100_000_000;
 				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8));
 
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
 				sendState.pendingTxHash = txHash;
-				sendState.pendingNetwork = network;
-				sendState.pendingAmount = amountInSats;
-				sendState.pendingAddress = recipient;
-				sendState.isSending = false; // Set to false immediately to skip loading screen
-
-				// Show pending transaction screen
-				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-
-				// Return early - pending screen will be shown
+				appStore.showSuccessToast(
+					$t('wallet.send.transaction_sending'),
+					UI.WALLET_TOAST_DURATION_MS
+				);
 				return;
 			} else if (network === 'liquid-bitcoin') {
 				// Liquid chain swap send
 				// This would use LBTCChainSwapSend component logic
-				appStore.showErrorToast($t('wallet.send.network_not_available'));
-				sendState.isSending = false;
+				appStore.showErrorToast(
+					$t('wallet.send.network_not_available'),
+					UI.WALLET_TOAST_DURATION_MS
+				);
 				return;
 			} else if (network === 'usdt-bsc') {
 				// BSC USDT send
@@ -890,7 +928,7 @@
 				sendState.isSending = false; // Set to false immediately to skip loading screen
 
 				// Show pending transaction screen
-				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
+				appStore.showSuccessToast($t('wallet.send.transaction_sent'), UI.WALLET_TOAST_DURATION_MS);
 
 				// Call onSuccess callback
 				if (onSuccess) {
@@ -901,8 +939,9 @@
 			}
 		} catch (err) {
 			console.error('Send failed:', err);
+			clearPendingSendState();
 			sendState.error = err instanceof Error ? err.message : $t('wallet.send.transaction_failed');
-			appStore.showErrorToast(sendState.error);
+			appStore.showErrorToast(sendState.error, UI.WALLET_TOAST_DURATION_MS);
 		} finally {
 			sendState.isSending = false;
 		}
@@ -953,14 +992,16 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- Pending Transaction Screen (highest priority) -->
-	{#if sendState.pendingTxHash && sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
+	{#if sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
 		<PendingTransactionScreen
 			amountSats={sendState.pendingAmount}
 			amountUSD={amountInUSD}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
 			networkOptions={netwokrOption}
-			txHash={sendState.pendingTxHash}
+			txHash={sendState.pendingTxHash ?? ''}
+			swapId={sendState.pendingSwapId}
+			swapType={sendState.pendingNetwork === 'lightning-bitcoin' ? 'submarine' : undefined}
 			onClose={() => {
 				// Clear pending state
 				sendState.pendingTxHash = null;

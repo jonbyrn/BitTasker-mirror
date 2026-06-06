@@ -43,6 +43,9 @@ export const StorageKeys = {
 	// Deep link
 	DEEP_LINK: 'bt_deeplink',
 
+	// Wallet
+	WALLET_CHAIN_SORT_HINTS: 'bittasker_wallet_chain_sort_hints',
+
 	// Reviews
 	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed'
 } as const;

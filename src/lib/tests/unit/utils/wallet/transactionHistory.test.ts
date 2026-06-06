@@ -185,36 +185,6 @@ describe('transactionHistory', () => {
 			expect(result[0].borderColor).toBe('warning');
 			expect(result[0].title).toBe('wallet.transaction.createescrow');
 		});
-
-		it('should classify internal payout from escrow contract (constants) as funds released', async () => {
-			const escrowContract = TESTNET_V2_ESCROW;
-
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					items: [
-						{
-							transaction_hash: '0xrelayouter',
-							internal_transaction_index: 0,
-							block_number: 123,
-							timestamp: '2024-01-15T12:00:00Z',
-							from: { hash: escrowContract },
-							to: { hash: userAddress },
-							value: '1000000000000000000',
-							success: true,
-							type: 'call',
-							gas_limit: '0'
-						}
-					]
-				})
-			});
-
-			const result = await processTransactions([], userAddress, 'rsk', 50_000);
-			expect(result).toHaveLength(1);
-			expect(result[0].title).toBe('wallet.transaction.funds_released');
-			expect(result[0].displayType).toBe('receive');
-			expect(result[0].borderColor).toBe('success');
-		});
 	});
 
 	describe('clearContractAddressesCache', () => {

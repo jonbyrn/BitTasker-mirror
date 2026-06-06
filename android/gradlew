@@ -117,6 +117,40 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+# Gradle 8.11 runs on Java 8–23 only. macOS Homebrew often defaults to Java 25+.
+pick_jdk21_home () {
+    if [ "$darwin" != true ]; then
+        return 1
+    fi
+    if [ -x /usr/libexec/java_home ]; then
+        /usr/libexec/java_home -v 21 2>/dev/null && return 0
+    fi
+    if [ -x /opt/homebrew/opt/openjdk@21/bin/java ]; then
+        printf '%s\n' /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+        return 0
+    fi
+    if [ -x /usr/local/opt/openjdk@21/bin/java ]; then
+        printf '%s\n' /usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+        return 0
+    fi
+    return 1
+}
+
+if [ -z "${JAVA_HOME:-}" ]; then
+    JAVA_HOME=$(pick_jdk21_home || true)
+else
+    if [ "$darwin" = true ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        java_major=$("$JAVA_HOME/bin/java" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\).*/\1/p' | head -1)
+        if [ -n "$java_major" ] && [ "$java_major" -gt 23 ]; then
+            JAVA_HOME=$(pick_jdk21_home || true)
+        fi
+    fi
+fi
+
+if [ -z "${ANDROID_HOME:-}" ] && [ -d "${HOME}/Library/Android/sdk" ]; then
+    ANDROID_HOME="${HOME}/Library/Android/sdk"
+    export ANDROID_HOME
+fi
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then

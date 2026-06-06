@@ -24,6 +24,7 @@ import { parseFunction } from './functionParsing';
 import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+import { getBlockscoutApiUrl as resolveBlockscoutApiUrl } from './explorerProxy';
 
 type Component = typeof IconArrowUpBold;
 
@@ -586,6 +587,10 @@ export async function processTransactions(
 
 				// Build processed transaction with all properties computed
 				// Note: We've already filtered out transactions with missing to/from, but add defensive checks
+				const txNormalized = normalizeStatus(tx.status || 'pending');
+				const isFailedClaim =
+					displayType === 'swap-claim' && (txNormalized === 'failed' || tx.status === 'error');
+
 				const processedTx: ProcessedTransaction = {
 					// Core fields
 					hash: tx.hash,
@@ -593,7 +598,7 @@ export async function processTransactions(
 					to: tx.to?.hash || '',
 					value: valueSats.toString(),
 					timestamp: tx.timestamp,
-					status: statusUI[normalizeStatus(tx.status || 'pending') as keyof typeof statusUI],
+					status: statusUI[isFailedClaim ? 'failed' : (txNormalized as keyof typeof statusUI)],
 					network: isLightningSwap ? 'lightning' : network,
 
 					// Computed fields
@@ -603,9 +608,9 @@ export async function processTransactions(
 
 					// Display helpers (all computed in one pass)
 					displayType,
-					borderColor,
+					borderColor: isFailedClaim ? 'error' : borderColor,
 					iconConfig, // Pre-computed icon components
-					title, // Translation key for i18n
+					title: isFailedClaim ? 'wallet.swap.failed_receive' : title,
 
 					// Network information (computed once)
 					networkIcon: networkInfo.icon,
@@ -681,15 +686,9 @@ export async function processTransactions(
  */
 function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
 	if (network === 'rsk') {
-		const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-		return rskNetwork === 'mainnet'
-			? 'https://rootstock.blockscout.com/api/v2'
-			: 'https://rootstock-testnet.blockscout.com/api/v2';
-	} else {
-		// BSC: Internal transactions not supported (BSCScan API no longer used)
-		// This function is only called for RSK, but included for type safety
-		return '';
+		return resolveBlockscoutApiUrl();
 	}
+	return '';
 }
 
 /**
@@ -720,6 +719,16 @@ async function fetchInternalTransactions(
 			// 404 is expected for addresses without internal transactions - only log in dev mode
 			if (import.meta.env.DEV && response.status !== 404) {
 				console.error(`Failed to fetch internal transactions: ${response.status}`);
+			}
+			return [];
+		}
+
+		const contentType = response.headers.get('content-type') ?? '';
+		if (!contentType.includes('application/json')) {
+			if (import.meta.env.DEV) {
+				console.warn(
+					'Internal transactions API returned non-JSON (proxy misconfigured?) — skipping'
+				);
 			}
 			return [];
 		}

@@ -3,6 +3,8 @@
  * Fetches transaction status from Blockscout API for RSK/Rootstock networks
  */
 
+import { getBlockscoutApiUrl as resolveBlockscoutApiUrl } from './explorerProxy';
+
 export interface BlockscoutTransaction {
 	hash: string;
 	blockNumber: number | null;
@@ -17,14 +19,8 @@ export interface BlockscoutTransaction {
 export function getBlockscoutApiUrl(network: string | null): string | null {
 	if (!network) return null;
 
-	const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-	const isMainnet = rskNetwork === 'mainnet';
-
-	// Only RSK/Rootstock uses Blockscout
 	if (network === 'rootstock-bitcoin' || network === 'rsk') {
-		return isMainnet
-			? 'https://rootstock.blockscout.com/api/v2'
-			: 'https://rootstock-testnet.blockscout.com/api/v2';
+		return resolveBlockscoutApiUrl();
 	}
 
 	return null;
@@ -32,7 +28,7 @@ export function getBlockscoutApiUrl(network: string | null): string | null {
 
 /**
  * Fetch transaction status from Blockscout API
- * 
+ *
  * @param txHash - Transaction hash
  * @param network - Network identifier ('rootstock-bitcoin' or 'rsk')
  * @returns Transaction status data or null if not found/error
@@ -42,7 +38,7 @@ export async function fetchTransactionStatus(
 	network: string
 ): Promise<BlockscoutTransaction | null> {
 	const apiUrl = getBlockscoutApiUrl(network);
-	
+
 	console.log('[BlockscoutTransactionStatus] fetchTransactionStatus called', {
 		txHash,
 		network,
@@ -58,7 +54,7 @@ export async function fetchTransactionStatus(
 	try {
 		const url = `${apiUrl}/transactions/${txHash}`;
 		console.log('[BlockscoutTransactionStatus] Fetching from URL:', url);
-		
+
 		const fetchStartTime = Date.now();
 		const response = await fetch(url, {
 			signal: AbortSignal.timeout(5000)
@@ -74,7 +70,9 @@ export async function fetchTransactionStatus(
 		});
 
 		if (!response.ok) {
-			console.warn(`[BlockscoutTransactionStatus] API error: ${response.status} ${response.statusText}`);
+			console.warn(
+				`[BlockscoutTransactionStatus] API error: ${response.status} ${response.statusText}`
+			);
 			return null;
 		}
 
@@ -88,11 +86,11 @@ export async function fetchTransactionStatus(
 			hasStatus: data.status !== undefined,
 			rawData: data
 		});
-		
+
 		// Handle different response formats
 		// Blockscout API v2 might return the transaction directly or wrapped
 		const transaction = data.items?.[0] || data;
-		
+
 		const result = {
 			hash: transaction.hash || txHash,
 			blockNumber: transaction.block_number ?? transaction.blockNumber ?? null,
@@ -126,7 +124,7 @@ export async function fetchTransactionStatus(
 
 /**
  * Calculate estimated time remaining for transaction confirmation
- * 
+ *
  * @param currentConfirmations - Current number of confirmations
  * @param targetConfirmations - Target number of confirmations needed
  * @param blockTimeSeconds - Average block time in seconds

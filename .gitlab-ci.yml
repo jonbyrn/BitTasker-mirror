@@ -400,7 +400,7 @@ db-backup-verify:
 # ANDROID — Google Play Store release pipeline (fastlane)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Internal testing: push v*-alpha* or v*-beta* tag on master → auto-deploy.
+# Internal testing: push v*-alpha* or v*-beta* tag on dev → auto-deploy.
 # Production: push vX.Y.Z tag on master → android-release-prepare (auto) → manual Play / Zapstore.
 # versionName from tag; versionCode auto-incremented once in android-release-prepare (shared by both stores).
 # ═══════════════════════════════════════════════════════════════════════════════

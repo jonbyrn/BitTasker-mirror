@@ -56,6 +56,7 @@ export const UI = {
 	/** Debounce delay for gas estimation (in milliseconds) */
 	GAS_ESTIMATION_DEBOUNCE: 300,
 	/** Maximum decimal places for amount input */
-	MAX_DECIMAL_PLACES: 18
+	MAX_DECIMAL_PLACES: 18,
+	/** Wallet operation toasts stay visible longer than generic app toasts */
+	WALLET_TOAST_DURATION_MS: 8000
 } as const;
-
