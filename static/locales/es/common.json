@@ -975,7 +975,9 @@
 		"video_introduction": "Video de Presentacion",
 		"select_section": "Seleccionar seccion",
 		"languages": "Idiomas",
-		"hire_me": "Contrátame"
+		"hire_me": "Contrátame",
+		"hire_me_title": "¿Interesado en trabajar juntos?",
+		"hire_me_description": "Explora mis servicios y envía una solicitud para comenzar."
 	},
 	"reviews": {
 		"months_ago": "hace {count} meses",

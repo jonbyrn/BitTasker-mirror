@@ -977,7 +977,9 @@
 		"video_introduction": "Video Introduction",
 		"select_section": "Select section",
 		"languages": "Languages",
-		"hire_me": "Hire Me"
+		"hire_me": "Hire Me",
+		"hire_me_title": "Interested in working together?",
+		"hire_me_description": "Browse my services and send a request to get started."
 	},
 	"reviews": {
 		"months_ago": "{count} months ago",

@@ -132,7 +132,7 @@
 <nav
 	bind:this={navRef}
 	aria-label="Profile sections"
-	class="bg-base-100 sticky top-[73px] z-10 shadow-md"
+	class="bg-base-100 border-base-300 sticky top-0 z-10 mx-auto max-w-6xl rounded-lg border shadow-md"
 >
 	<!-- Mobile: full-width dropdown -->
 	<div class="px-4 py-2 md:hidden">

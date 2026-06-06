@@ -477,11 +477,26 @@
 									id="tasks"
 								/>
 							</div>
+
+							<!-- Mobile Hire Me card - below tasks, only on mobile -->
+							{#if hexPubkey}
+								<div class="card bg-base-100 border-base-300 border p-6 text-center lg:hidden">
+									<h3 class="text-base-content mb-2 text-lg font-semibold">
+										{$t('profile.hire_me_title')}
+									</h3>
+									<p class="text-base-content/70 mb-4 text-sm">
+										{$t('profile.hire_me_description')}
+									</p>
+									<a href="/services?provider={hexPubkey}" class="btn btn-primary btn-wide mx-auto">
+										{$t('common.profile.hire_me')}
+									</a>
+								</div>
+							{/if}
 						</main>
 
 						<!-- Sidebar - desktop only -->
 						<aside class="hidden lg:block lg:w-80 lg:shrink-0 xl:w-96">
-							<div class="sticky top-32 space-y-4">
+							<div class="sticky top-[68px] space-y-4">
 								<ProfileSidebar
 									hexPubkey={hexPubkey || ''}
 									rating={averageRating}
