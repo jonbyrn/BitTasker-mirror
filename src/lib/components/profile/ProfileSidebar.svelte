@@ -119,16 +119,16 @@
 					<span class="text-base-content font-semibold">{portfolioCount}</span>
 				</div>
 			</div>
-		</div>
 
-		<!-- Hire Me button -->
-		{#if hexPubkey}
-			<div class="flex justify-center pt-2 pb-2">
-				<a href="/services?provider={hexPubkey}" class="btn btn-primary btn-wide">
-					{$t('common.profile.hire_me')}
-				</a>
-			</div>
-		{/if}
+			<!-- Hire Me button -->
+			{#if hexPubkey}
+				<div class="border-base-300 mt-3 flex justify-center border-t pt-3">
+					<a href="/services?provider={hexPubkey}" class="btn btn-primary btn-wide">
+						{$t('common.profile.hire_me')}
+					</a>
+				</div>
+			{/if}
+		</div>
 
 		<!-- Availability Widget -->
 		{#if availability?.timeSlots?.length}

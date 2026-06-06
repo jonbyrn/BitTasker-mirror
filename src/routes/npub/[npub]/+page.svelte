@@ -269,8 +269,8 @@
 		<div class="flex min-h-0 flex-1 flex-row gap-6">
 			<!-- Left nav sidebar - fixed position, desktop only, logged in only -->
 			{#if $authState.isAuthenticated}
-				<div class="hidden w-full shrink-0 xl:block xl:w-56">
-					<div class="fixed top-24 left-8 z-10 w-56">
+				<div class="hidden w-full shrink-0 xl:block xl:w-64">
+					<div class="fixed top-24 left-8 z-10 w-64">
 						<div class="card bg-base-100 rounded-xl shadow-xl">
 							<div class="card-body p-4">
 								<ul class="menu bg-base-100 rounded-box w-full">
@@ -318,7 +318,7 @@
 			{/if}
 
 			<!-- Profile content column -->
-			<div class="min-h-0 w-full flex-1 overflow-hidden">
+			<div class="min-h-0 w-full flex-1">
 				<!-- Top action row: back (mobile) + centered avatar (mobile) + report/share (all) -->
 				<div class="relative mx-auto max-w-6xl px-4 pt-4 pb-20 md:pb-0">
 					<div class="flex items-center justify-between">
@@ -481,7 +481,7 @@
 
 						<!-- Sidebar - desktop only -->
 						<aside class="hidden lg:block lg:w-80 lg:shrink-0 xl:w-96">
-							<div class="sticky top-32">
+							<div class="sticky top-32 space-y-4">
 								<ProfileSidebar
 									hexPubkey={hexPubkey || ''}
 									rating={averageRating}
