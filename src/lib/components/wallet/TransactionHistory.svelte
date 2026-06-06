@@ -181,7 +181,7 @@
 			}
 
 			// Now load transactions
-			await walletManager.loadTransactions();
+			await walletManager.refreshTransactions();
 		} catch (err) {
 			console.error('[TransactionHistory] Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');

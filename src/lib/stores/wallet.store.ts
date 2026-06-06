@@ -36,6 +36,22 @@ import {
 	mapSwapToTransaction,
 	shouldShowSwap
 } from '$lib/utils/wallet/swapTransaction';
+import { isSwapFailed, isSwapFinal } from '$lib/utils/wallet/swapStatusMap';
+import {
+	projectTransactions,
+	applyChainSortHints,
+	mergeSwapUpdate
+} from '$lib/utils/wallet/transactionLedger';
+import {
+	buildChainSortHintsFromSwaps,
+	hydrateChainSortHints,
+	mergeChainSortHints,
+	persistChainSortHint,
+	persistChainSortHintsMap,
+	clearPersistedChainSortHints,
+	toSortIso
+} from '$lib/utils/wallet/chainSortHints';
+import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -111,6 +127,33 @@ let cachedSwapStorages: {
 	chain: NostrSwapStorage;
 	submarine: NostrSwapStorage;
 } | null = null;
+
+// Transaction load coordination
+let loadTransactionsPromise: Promise<void> | null = null;
+let chainRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+const terminalSwapIds = new Set<string>();
+/** Preserves list position when a swap row is replaced by its on-chain tx. */
+const chainSortHints = new Map<string, string>();
+let recoverSwapsOnNextLoad = true;
+
+async function refreshChainSortHintsFromNostr(): Promise<void> {
+	if (!cachedSwapStorages) return;
+
+	const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+		cachedSwapStorages.submarine.loadAllIncludingFinal(),
+		cachedSwapStorages.reverse.loadAllIncludingFinal(),
+		cachedSwapStorages.chain.loadAllIncludingFinal()
+	]);
+
+	const fromNostr = buildChainSortHintsFromSwaps([
+		...submarineSwaps.map((swap) => ({ swapType: 'submarine' as const, swap })),
+		...reverseSwaps.map((swap) => ({ swapType: 'reverse' as const, swap })),
+		...chainSwaps.map((swap) => ({ swapType: 'chain' as const, swap }))
+	]);
+
+	mergeChainSortHints(chainSortHints, fromNostr);
+	await persistChainSortHintsMap(chainSortHints);
+}
 
 // Cache instances for each swap type
 let cachedSwapPairs: {
@@ -196,6 +239,9 @@ async function initialize(): Promise<void> {
 		// Get network from environment
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
 
+		// NDK signer + cache before swap recovery
+		await syncNdkSignerFromAppStore();
+
 		// Create or reuse swap storage instances
 		if (!cachedSwapStorages) {
 			const { nsec } = await getNostrKeyPair();
@@ -205,6 +251,8 @@ async function initialize(): Promise<void> {
 				submarine: new NostrSwapStorage(nsec, 'boltz-swap-submarine')
 			};
 		}
+
+		recoverSwapsOnNextLoad = true;
 
 		// Dispose old manager if exists (but don't reset store state)
 		if (sdkWalletManager) {
@@ -305,6 +353,15 @@ function disconnectWallet(): void {
 
 	// Clear cached swap storages
 	cachedSwapStorages = null;
+	terminalSwapIds.clear();
+	chainSortHints.clear();
+	void clearPersistedChainSortHints();
+	recoverSwapsOnNextLoad = true;
+	if (chainRefreshTimer) {
+		clearTimeout(chainRefreshTimer);
+		chainRefreshTimer = null;
+	}
+	loadTransactionsPromise = null;
 
 	// Clear swap pairs cache
 	cachedSwapPairs = {
@@ -524,11 +581,24 @@ async function loadAssets(): Promise<void> {
 	}
 }
 
+function scheduleChainRefresh(): void {
+	if (chainRefreshTimer) clearTimeout(chainRefreshTimer);
+	chainRefreshTimer = setTimeout(() => {
+		chainRefreshTimer = null;
+		recoverSwapsOnNextLoad = false;
+		loadTransactionsInternal().catch((err) => {
+			console.error('[loadTransactions] Debounced chain refresh failed:', err);
+		});
+	}, 500);
+}
+
 /**
- * Load transactions including pending swaps
+ * Load transactions including pending swaps (single-flight mutex).
  */
-async function loadTransactions(): Promise<void> {
+async function loadTransactionsInternal(): Promise<void> {
 	try {
+		await hydrateChainSortHints(chainSortHints);
+
 		const state = get(walletStore);
 
 		// Ensure wallet is initialized before loading transactions
@@ -560,6 +630,8 @@ async function loadTransactions(): Promise<void> {
 		const manager = getWalletManager();
 		const finalState = get(walletStore);
 
+		await refreshChainSortHintsFromNostr();
+
 		// Validate wallets exist
 		if (!manager.rskWallet || !manager.bscWallet) {
 			throw new Error(
@@ -582,18 +654,40 @@ async function loadTransactions(): Promise<void> {
 			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
-		// Load pending swaps from all services
-		const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
-			manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
-			manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
-			manager.chainSwapService.recoverPendingSwaps().catch(() => [])
-		]);
+		// Recover pending swaps only on init / explicit refresh — not every WS-driven reload
+		let submarineSwaps: SubmarineSwapData[] = [];
+		let reverseSwaps: BoltzSwapData[] = [];
+		let chainSwaps: ChainSwapData[] = [];
+
+		if (recoverSwapsOnNextLoad) {
+			[submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+				manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+				manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+				manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+			]);
+			submarineSwaps = submarineSwaps.filter((s) => shouldShowSwap(s.status, 'submarine', s));
+			reverseSwaps = reverseSwaps.filter((s) => shouldShowSwap(s.status, 'reverse', s));
+			chainSwaps = chainSwaps.filter((s) => shouldShowSwap(s.status, 'chain', s));
+			recoverSwapsOnNextLoad = false;
+		} else {
+			submarineSwaps = manager.submarineSwapService.getActiveSwaps();
+			chainSwaps = manager.chainSwapService.getActiveSwaps();
+			const reverseIds = finalState.transactions
+				.filter((tx) => tx.swap?.type === 'reverse')
+				.map((tx) => tx.swap!.id);
+			reverseSwaps = reverseIds
+				.map((id) => manager.reverseSwapService.getSwap(id))
+				.filter((swap): swap is BoltzSwapData => swap != null);
+		}
 
 		// Defer expired swap cleanup to allow WebSocket to sync status first
 		// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
 		// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
 		setTimeout(() => {
 			cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
+			loadTransactionsInternal().catch((err) => {
+				console.error('[loadTransactions] Post-cleanup refresh failed:', err);
+			});
 		}, 2000); // Wait 2 seconds for WebSocket to sync
 
 		// Map swaps to transaction format (updated filter signature)
@@ -609,18 +703,17 @@ async function loadTransactions(): Promise<void> {
 				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
 		];
 
-		// Combine blockchain transactions
-		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
-		const blockchainTxHashes = new Set(allBlockchainTxs.map((tx) => tx.hash));
+		const mappedSwapIds = new Set(
+			swapTransactions.map((tx) => tx.swap?.id).filter((id): id is string => !!id)
+		);
+		const preservedSwapRows = finalState.transactions.filter((tx) =>
+			shouldPreserveSwapRow(tx, mappedSwapIds)
+		);
 
-		// Filter out swaps that have corresponding blockchain transactions
-		const uniqueSwapTxs = swapTransactions.filter((swapTx) => {
-			return !blockchainTxHashes.has(swapTx.hash);
-		});
-
-		// Combine and sort by timestamp (newest first)
-		const allTransactions = [...allBlockchainTxs, ...uniqueSwapTxs].sort(
-			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
+		const allTransactions = projectTransactions(
+			applyChainSortHints([...processedRskTxs, ...processedBscTxs], chainSortHints),
+			[...swapTransactions, ...preservedSwapRows],
+			currentBalanceSats
 		);
 
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
@@ -639,6 +732,65 @@ async function loadTransactions(): Promise<void> {
 	}
 }
 
+async function loadTransactions(): Promise<void> {
+	if (loadTransactionsPromise) {
+		return loadTransactionsPromise;
+	}
+	loadTransactionsPromise = loadTransactionsInternal().finally(() => {
+		loadTransactionsPromise = null;
+	});
+	return loadTransactionsPromise;
+}
+
+/** Force Nostr swap recovery on next load (manual refresh / modal open). */
+function refreshTransactions(): Promise<void> {
+	recoverSwapsOnNextLoad = true;
+	return loadTransactions();
+}
+
+/** Remember on-chain tx sort position when a swap completes. */
+function recordChainSortHints(
+	swapType: 'submarine' | 'reverse' | 'chain',
+	swap: BoltzSwapData | ChainSwapData | SubmarineSwapData
+): void {
+	if (swapType === 'submarine') {
+		const lockupHash = (swap as SubmarineSwapData).lockupTxHash;
+		const createdAt = toSortIso(swap.createdAt);
+		if (lockupHash && createdAt && /^0x[0-9a-fA-F]{64}$/.test(lockupHash)) {
+			const normalized = lockupHash.toLowerCase();
+			chainSortHints.set(normalized, createdAt);
+			void persistChainSortHint(normalized, createdAt);
+		}
+		return;
+	}
+
+	const claimHash =
+		swapType === 'reverse'
+			? (swap as BoltzSwapData).claimTxHash
+			: (swap as ChainSwapData).claimTxHash;
+	const completionTime = toSortIso(swap.updatedAt) ?? new Date().toISOString();
+
+	if (claimHash && /^0x[0-9a-fA-F]{64}$/.test(claimHash)) {
+		const normalized = claimHash.toLowerCase();
+		chainSortHints.set(normalized, completionTime);
+		void persistChainSortHint(normalized, completionTime);
+	}
+}
+
+function shouldPreserveSwapRow(tx: ProcessedTransaction, mappedSwapIds: Set<string>): boolean {
+	if (!tx.swap || mappedSwapIds.has(tx.swap.id)) {
+		return false;
+	}
+	const rawStatus = tx.swap.rawStatus ?? '';
+	if (isSwapCompleted(rawStatus)) {
+		return false;
+	}
+	if (isSwapFailed(rawStatus) && rawStatus !== 'transaction.claim.failed') {
+		return false;
+	}
+	return true;
+}
+
 /**
  * Update a specific swap transaction in the transactions store
  * without replacing the entire array
@@ -652,50 +804,54 @@ export function updateSwapTransaction(
 	updatedSwap: BoltzSwapData | ChainSwapData | SubmarineSwapData,
 	swapType: 'submarine' | 'reverse' | 'chain'
 ): void {
+	if (terminalSwapIds.has(swapId)) return;
+
 	const state = get(walletStore);
 	const txIndex = state.transactions.findIndex((tx) => tx.swap?.id === swapId);
-	if (txIndex === -1) return;
-
-	const currentTx = state.transactions[txIndex];
-
-	// Preserve the original balanceAfter to prevent recalculation with current balance
-	// balanceAfter should remain constant for a swap transaction
-	const updatedTx = mapSwapToTransaction(updatedSwap, swapType, currentTx.balanceAfter);
-
-	// Compare the ACTUAL Boltz swap status, not the UI representation
-	// The UI status is derived from the raw status and may have the same label for different states
-	const currentSwapStatus = currentTx.swap?.rawStatus;
+	const currentTx = txIndex === -1 ? null : state.transactions[txIndex];
+	const currentSwapStatus = currentTx?.swap?.rawStatus;
 	const newSwapStatus = updatedSwap.status;
 
-	// Check if actual swap data has changed
-	const hasChanged =
-		currentSwapStatus !== newSwapStatus || // Compare actual Boltz status
-		currentTx.value !== updatedTx.value; // Or if amount changed
-
-	if (!hasChanged) {
-		// No actual change in swap data - skip update to prevent unnecessary re-renders
+	if (currentSwapStatus === newSwapStatus) {
 		return;
 	}
 
-	// Check if swap is completed - remove from pending list
-	// (it will appear from blockchain transactions shortly)
-	if (isSwapCompleted(updatedSwap.status)) {
-		loadTransactions().then(() => {
-			walletStore.update((state) => ({
-				...state,
-				transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+	const balanceAnchor = currentTx?.balanceAfter ?? state.totalBalances.sats;
+	const updatedTx = mapSwapToTransaction(updatedSwap, swapType, balanceAnchor);
+
+	if (isSwapFinal(newSwapStatus)) {
+		terminalSwapIds.add(swapId);
+
+		if (isSwapCompleted(newSwapStatus)) {
+			recordChainSortHints(swapType, updatedSwap);
+			walletStore.update((s) => ({
+				...s,
+				transactions: s.transactions.filter((tx) => tx.swap?.id !== swapId)
 			}));
-		});
-		return;
+			scheduleChainRefresh();
+			return;
+		}
+
+		if (isSwapFailed(newSwapStatus)) {
+			if (txIndex === -1) {
+				walletStore.update((s) => ({
+					...s,
+					transactions: projectTransactions(s.transactions, [updatedTx], s.totalBalances.sats)
+				}));
+			} else {
+				walletStore.update((s) => ({
+					...s,
+					transactions: mergeSwapUpdate(s.transactions, swapId, updatedTx, s.totalBalances.sats)
+				}));
+			}
+			return;
+		}
 	}
 
-	// Immutably update only the specific transaction
-	walletStore.update((state) => {
-		return {
-			...state,
-			transactions: state.transactions.map((tx, idx) => (idx === txIndex ? updatedTx : tx))
-		};
-	});
+	walletStore.update((s) => ({
+		...s,
+		transactions: mergeSwapUpdate(s.transactions, swapId, updatedTx, s.totalBalances.sats)
+	}));
 }
 
 /**
@@ -1412,6 +1568,7 @@ export const walletManager = {
 	setActiveTab,
 	loadAssets,
 	loadTransactions,
+	refreshTransactions,
 	loadRbtcExchangeRate,
 	sendRBTC,
 	sendRSKToken,

@@ -28,8 +28,15 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 
 vi.mock('$lib/utils/swapAdapter', () => ({
 	NostrSwapStorage: vi.fn(function () {
-		return {};
+		return {
+			loadAllIncludingFinal: vi.fn().mockResolvedValue([])
+		};
 	})
+}));
+
+vi.mock('$lib/nostr/ndkSigner', () => ({
+	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
+	applyNdkSignerFromNsec: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/stores/app.store', async () => {
@@ -86,7 +93,9 @@ const mockWalletManager = vi.hoisted(() => {
 	};
 
 	const mockSwapService = {
-		recoverPendingSwaps: vi.fn().mockResolvedValue([])
+		recoverPendingSwaps: vi.fn().mockResolvedValue([]),
+		getActiveSwaps: vi.fn().mockReturnValue([]),
+		getSwap: vi.fn().mockReturnValue(undefined)
 	};
 
 	return {

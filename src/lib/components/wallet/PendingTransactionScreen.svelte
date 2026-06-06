@@ -1,12 +1,23 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { formatSats, formatUsd, getProvider } from '$lib/stores/wallet.store';
+	import {
+		formatSats,
+		formatUsd,
+		getProvider,
+		walletManager,
+		transactions
+	} from '$lib/stores/wallet.store';
+	import {
+		mapBoltzModalStatus,
+		getSwapEtaSeconds,
+		type ModalTxStatus,
+		type SwapType
+	} from '$lib/utils/wallet/swapStatusMap';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconLoading from '~icons/mdi/loading';
 	import IconClose from '~icons/mdi/close';
-	// Error icon
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import { fade, scale } from 'svelte/transition';
@@ -18,19 +29,35 @@
 		network: string;
 		networkOptions: Record<string, { icon: string; name: string; confirmationTime: number }>;
 		txHash: string | null;
+		swapId?: string | null;
+		swapType?: SwapType;
 		onClose: () => void;
 	}
 
-	let { amountSats, amountUSD, address, network, networkOptions, txHash, onClose }: Props =
-		$props();
+	let {
+		amountSats,
+		amountUSD,
+		address,
+		network,
+		networkOptions,
+		txHash,
+		swapId = null,
+		swapType,
+		onClose
+	}: Props = $props();
 
-	// Transaction status
-	type TransactionStatus = 'sending' | 'confirming' | 'success' | 'error';
-	let status = $state<TransactionStatus>('sending');
-	let estimatedTimeRemaining = $state<number | null>(null);
+	type TransactionStatus = ModalTxStatus;
+	let receiptStatus = $state<TransactionStatus | null>(null);
+	let receiptError = $state<string | null>(null);
+	let elapsed = $state(0);
 	let pollingInterval: ReturnType<typeof setInterval> | null = null;
-	let isPolling = $state(false);
-	let __errorMessage = $state<string | null>(null);
+	let countdownInterval: ReturnType<typeof setInterval> | null = null;
+	let isPolling = false;
+	let pollErrorCount = 0;
+
+	function isEvmTxHash(hash: string | null | undefined): hash is string {
+		return !!hash && /^0x[0-9a-fA-F]{64}$/.test(hash);
+	}
 
 	// Get network info
 	const networkInfo = $derived.by(() => {
@@ -68,234 +95,57 @@
 
 	const explorerUrl = $derived.by(() => getAddressExplorerUrl(address, network));
 
+	const swapTransaction = $derived.by(() => {
+		if (!swapId) return null;
+		return $transactions.find((tx) => tx.swap?.id === swapId) ?? null;
+	});
+
+	const rawStatus = $derived.by(() => {
+		if (swapTransaction?.swap?.rawStatus) return swapTransaction.swap.rawStatus;
+		if (!swapId || !swapType) return null;
+
+		const svc =
+			swapType === 'submarine'
+				? walletManager.submarineSwapService
+				: swapType === 'reverse'
+					? walletManager.reverseSwapService
+					: walletManager.chainSwapService;
+		return svc.getSwap(swapId)?.status ?? null;
+	});
+
+	const status = $derived.by((): TransactionStatus => {
+		if (swapId && swapType) {
+			return mapBoltzModalStatus(rawStatus, swapType);
+		}
+		return receiptStatus ?? 'sending';
+	});
+
+	const etaSeed = $derived.by(() => {
+		if (swapId && swapType) return getSwapEtaSeconds(rawStatus, swapType);
+		return networkInfo?.confirmationTime ?? 60;
+	});
+
+	const swapErrorMessage = $derived.by(() => {
+		if (!swapId || status !== 'error' || !rawStatus) return null;
+		if (rawStatus === 'transaction.claim.failed') {
+			return $t('wallet.swap.failed_receive');
+		}
+		if (rawStatus === 'swap.expired') {
+			return $t('wallet.swap.lightning.status.expired');
+		}
+		if (rawStatus === 'invoice.failedToPay') {
+			return $t('wallet.swap.lightning.status.failed');
+		}
+		return $t('wallet.send.status.error');
+	});
+
+	const __errorMessage = $derived.by(() => swapErrorMessage ?? receiptError);
+
 	// Format address (truncate)
 	function formatAddress(address: string): string {
 		if (address.length <= 20) return address;
 		return `${address.slice(0, 10)}...${address.slice(-8)}`;
 	}
-
-	// COMMENTED OUT: Transaction monitoring code
-	// Update swap status for lightning transactions
-	/* async function updateSwapStatus() {
-		if (!swapId || network !== 'lightning-bitcoin') return;
-
-		const currentStatusValue: TransactionStatus = status;
-
-		// Don't poll if already confirmed or error
-		if (currentStatusValue === 'success' || currentStatusValue === 'error') {
-			return;
-		}
-
-		if (isPolling) {
-			return;
-		}
-
-		isPolling = true;
-
-		try {
-			const swap = walletManager.submarineSwapService.getSwap(swapId);
-			
-			if (!swap) {
-				isPolling = false;
-				return;
-			}
-
-			// Determine status based on swap status
-			let newStatus: TransactionStatus = status;
-			let newEstimatedTime = estimatedTimeRemaining;
-			let newErrorMessage: string | null = null;
-
-			// Success states
-			if (swap.status === 'invoice.paid' || swap.status === 'transaction.claimed') {
-				newStatus = 'success';
-				newEstimatedTime = 0;
-				// Stop polling and countdown
-				if (pollingInterval) {
-					clearInterval(pollingInterval);
-					pollingInterval = null;
-				}
-				if (countdownInterval) {
-					clearInterval(countdownInterval);
-					countdownInterval = null;
-				}
-			}
-			// Error states
-			else if (swap.status === 'transaction.failed' || swap.status === 'swap.expired' || swap.status === 'swap.refunded') {
-				newStatus = 'error';
-				newEstimatedTime = 0;
-				if (swap.status === 'transaction.failed') {
-					newErrorMessage = $t('wallet.swap.lightning.status.failed');
-				} else if (swap.status === 'swap.expired') {
-					newErrorMessage = $t('wallet.swap.lightning.status.expired');
-				} else if (swap.status === 'swap.refunded') {
-					newErrorMessage = $t('wallet.swap.submarine.status.refunded');
-				}
-				// Stop polling and countdown
-				if (pollingInterval) {
-					clearInterval(pollingInterval);
-					pollingInterval = null;
-				}
-				if (countdownInterval) {
-					clearInterval(countdownInterval);
-					countdownInterval = null;
-				}
-			}
-			// Pending states - estimate time based on status
-			else {
-				newStatus = 'confirming';
-				// Estimate time based on swap status
-				// swap.created -> invoice.set: ~instant (user pays invoice)
-				// invoice.set -> transaction.mempool: ~30s (waiting for lockup tx)
-				// transaction.mempool -> transaction.confirmed: ~30s (waiting for confirmation)
-				// transaction.confirmed -> invoice.paid: ~variable (Boltz pays invoice)
-				const swapStatus = swap.status as string; // Type assertion for status checking
-				if (swapStatus === 'swap.created' || swapStatus === 'invoice.set') {
-					newEstimatedTime = 30; // Waiting for lockup transaction
-				} else if (swapStatus === 'transaction.mempool') {
-					newEstimatedTime = 30; // Waiting for confirmation
-				} else if (swapStatus === 'transaction.confirmed' || swapStatus === 'invoice.pending') {
-					newEstimatedTime = 60; // Waiting for Boltz to pay invoice
-				} else {
-					newEstimatedTime = 60; // Default estimate
-				}
-			}
-
-			// Update state
-			const statusChanged = status !== newStatus;
-			const timeChanged = estimatedTimeRemaining !== newEstimatedTime;
-			const errorChanged = __errorMessage !== newErrorMessage;
-
-			if (statusChanged || timeChanged || errorChanged) {
-				status = newStatus;
-				estimatedTimeRemaining = newEstimatedTime;
-				__errorMessage = newErrorMessage;
-			}
-		} catch (error) {
-			console.error('[PendingTransactionScreen] Error fetching swap status:', error);
-		} finally {
-			isPolling = false;
-		}
-	} */
-
-	// COMMENTED OUT: Update transaction status
-	/* async function updateTransactionStatus() {
-		// For lightning, use swap status monitoring instead
-		if (network === 'lightning-bitcoin' && swapId) {
-			await updateSwapStatus();
-			return;
-		}
-
-		// Capture current status at the start to avoid type narrowing issues
-		const currentStatusValue: TransactionStatus = status;
-
-		// Don't poll if transaction is already confirmed or errored
-		if (currentStatusValue === 'success' || currentStatusValue === 'error') {
-			// Stop polling if still running
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
-			}
-			return;
-		}
-
-		if (!txHash) {
-			return;
-		}
-
-		if (!apiUrl) {
-			return;
-		}
-
-		if (isPolling) {
-			return;
-		}
-
-		isPolling = true;
-		
-		const txData = await fetchTxStatus(txHash, network);
-		isPolling = false;
-
-		if (!txData) {
-			// Transaction not found or API error - keep as "sending"
-			if (status === 'sending') {
-				const fallbackTime = networkInfo?.confirmationTime || 60;
-				estimatedTimeRemaining = fallbackTime;
-			}
-			return;
-		}
-
-		// Update confirmations
-		const oldConfirmations = confirmations;
-		confirmations = txData.confirmations;
-
-		// Determine status based on transaction data
-		let newStatus: TransactionStatus = status as TransactionStatus; // Explicit type to allow all statuses
-		let newEstimatedTime = estimatedTimeRemaining;
-
-		// For Rootstock, 1 confirmation means success
-		const isRootstock = network === 'rootstock-bitcoin' || network === 'rsk';
-		const targetConfirmations = isRootstock ? 1 : 1; // RSK needs 1 confirmation
-
-		if (txData.blockNumber === null) {
-			// Transaction is still in mempool
-			// Estimate time: ~30 seconds to get into a block, then ~30 seconds for first confirmation
-			newStatus = 'sending';
-			const blockTime = networkInfo?.confirmationTime || 30;
-			// Estimate: time to get into block + time for first confirmation
-			newEstimatedTime = blockTime + blockTime; // ~60 seconds total
-		} else if (txData.status === 0) {
-			// Transaction failed - stop polling and show error
-			newStatus = 'sending'; // Keep as sending for now, could add 'failed' state later
-			newEstimatedTime = 0;
-			// Stop polling on error
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
-			}
-		} else if (confirmations >= targetConfirmations) {
-			// Transaction has enough confirmations - consider it successful IMMEDIATELY
-			// For Rootstock, 1 confirmation is sufficient
-			newStatus = 'success';
-			newEstimatedTime = 0;
-			// Stop polling once confirmed
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
-			}
-			// Stop countdown timer as well
-			if (countdownInterval) {
-				clearInterval(countdownInterval);
-				countdownInterval = null;
-			}
-		} else {
-			// Transaction in block but not yet confirmed (0 confirmations or status unknown)
-			// Estimate time until we get 1 confirmation
-			newStatus = 'confirming';
-			const blockTime = networkInfo?.confirmationTime || 30;
-			// Calculate time needed: (target - current) * blockTime
-			// If we have 0 confirmations and need 1, that's 1 * 30 = 30 seconds
-			newEstimatedTime = calculateEstimatedTime(confirmations, targetConfirmations, blockTime);
-		}
-
-		// Update state
-		// Note: We already checked for success at the start of the function and returned early
-		// But error can be set here, so we need to handle it
-
-		const statusChanged = status !== newStatus;
-		const timeChanged = estimatedTimeRemaining !== newEstimatedTime;
-		const confirmationsChanged = oldConfirmations !== confirmations;
-		const isErrorStatus = (newStatus as TransactionStatus) === 'error';
-		const newErrorValue = isErrorStatus ? $t('wallet.send.transaction_failed') : null;
-		const errorChanged = __errorMessage !== newErrorValue;
-
-		if (statusChanged || timeChanged || confirmationsChanged || errorChanged) {
-			status = newStatus;
-			estimatedTimeRemaining = newEstimatedTime;
-			if (isErrorStatus) {
-				__errorMessage = newErrorValue;
-			}
-		}
-	} */
 
 	// Derived values for UI
 	const statusConfig = $derived.by(() => {
@@ -328,7 +178,6 @@
 					textColor: 'text-error',
 					title: $t('wallet.send.status.error')
 				};
-			// Default case to handle any other status (shouldn't happen, but TypeScript needs it)
 			default:
 				return {
 					color: 'primary',
@@ -340,100 +189,45 @@
 	});
 
 	const displayTimeRemaining = $derived.by(() => {
-		if (estimatedTimeRemaining === null) return null;
-		if (estimatedTimeRemaining <= 0) return 0;
-		return Math.ceil(estimatedTimeRemaining);
+		if (status === 'success' || status === 'error') return 0;
+		return Math.max(0, Math.ceil(etaSeed - elapsed));
 	});
 
-	let countdownInterval: ReturnType<typeof setInterval> | null = null;
-
-	// COMMENTED OUT: Start/restart polling when txHash or swapId becomes valid
-	/* $effect(() => {
-		// For lightning, check swapId; for others, check txHash and apiUrl
-		const isLightning = network === 'lightning-bitcoin';
-		const isValidForLightning = isLightning && swapId && txHash && txHash !== 'pending';
-		const isValidForOthers = !isLightning && txHash && txHash !== 'pending' && apiUrl;
-		const shouldPoll = (isValidForLightning || isValidForOthers) && status !== 'success' && status !== 'error';
-
-		// Clear existing polling if txHash/swapId changes
-		if (pollingInterval) {
-			clearInterval(pollingInterval);
-			pollingInterval = null;
-		}
-
-		// Keep countdown timer running - it will decrement the estimatedTimeRemaining
-		// which is updated by API polling based on actual confirmations
-
-		// Start polling if we have valid data and status is not already success/error
-		if (shouldPoll) {
-			// Initial fetch immediately
-			updateTransactionStatus();
-
-			// Poll every 3 seconds, but only if status is not success/error
-			pollingInterval = setInterval(() => {
-				// Stop polling if transaction is already confirmed or errored
-				const currentStatus: TransactionStatus = status; // Capture to avoid type narrowing
-				if (currentStatus === 'success' || currentStatus === 'error') {
-					if (pollingInterval) {
-						clearInterval(pollingInterval);
-						pollingInterval = null;
-					}
-					return;
-				}
-				
-				updateTransactionStatus();
-			}, 3000);
-		}
-
-		// Cleanup function
-		return () => {
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
-			}
-			if (countdownInterval) {
-				clearInterval(countdownInterval);
-				countdownInterval = null;
-			}
-		};
-	}); */
-
-	// Poll for blockchain confirmation
+	// Poll for blockchain confirmation (RBTC/BSC direct sends only — swaps use $transactions)
 	async function pollForConfirmation() {
-		if (!txHash || isPolling) return;
+		if (swapId || !isEvmTxHash(txHash) || isPolling) return;
+		if (receiptStatus === 'success' || receiptStatus === 'error') return;
 
 		isPolling = true;
 		try {
-			// Get provider based on network
 			const provider = getProvider(
 				network === 'rootstock-bitcoin' || network === 'rsk' ? 'rsk' : 'bsc'
 			);
-			if (!provider) {
-				isPolling = false;
-				return;
-			}
+			if (!provider) return;
 
-			// Check if transaction is already confirmed
 			const receipt = await provider.getTransactionReceipt(txHash);
+			pollErrorCount = 0;
 			if (receipt && receipt.blockNumber !== null) {
-				// Transaction is mined - verify it succeeded (status === 1)
 				if (receipt.status === 1) {
-					status = 'success';
-					estimatedTimeRemaining = 0;
+					receiptStatus = 'success';
 				} else {
-					// Transaction was reverted
-					status = 'error';
-					__errorMessage = 'Transaction failed on-chain';
+					receiptStatus = 'error';
+					receiptError = $t('wallet.send.transaction_failed');
 				}
 				stopPolling();
-				isPolling = false;
-				return;
+			} else {
+				receiptStatus = 'confirming';
 			}
-
-			// Transaction found but not yet mined - stay in confirming/sending state
-			isPolling = false;
 		} catch (error) {
-			console.error('[PendingTransactionScreen] Error polling for confirmation:', error);
+			pollErrorCount += 1;
+			if (pollErrorCount >= 3) {
+				receiptStatus = 'error';
+				receiptError = $t('wallet.send.transaction_failed');
+				stopPolling();
+			} else if (import.meta.env.DEV) {
+				console.warn('[PendingTransactionScreen] Error polling for confirmation:', error);
+			}
+		} finally {
 			isPolling = false;
 		}
 	}
@@ -445,28 +239,25 @@
 		}
 	}
 
-	// Initialize component state
 	onMount(() => {
-		// Initial status
-		status = 'sending';
-		estimatedTimeRemaining = networkInfo?.confirmationTime || 60;
+		let lastRawStatus: string | null = rawStatus;
 
-		// Start polling for blockchain confirmation
-		if (txHash) {
-			// Poll immediately, then every 3 seconds
+		if (!swapId && isEvmTxHash(txHash)) {
+			receiptStatus = 'sending';
 			pollForConfirmation();
 			pollingInterval = setInterval(pollForConfirmation, 3000);
+		} else if (!swapId && txHash) {
+			receiptStatus = 'error';
+			receiptError = $t('wallet.send.transaction_failed');
 		}
 
-		// Also keep countdown for UX (estimates time remaining)
 		countdownInterval = setInterval(() => {
-			if (status === 'success') {
-				return;
+			const currentRaw = rawStatus;
+			if (currentRaw !== lastRawStatus) {
+				lastRawStatus = currentRaw;
+				elapsed = 0;
 			}
-
-			if (estimatedTimeRemaining !== null && estimatedTimeRemaining > 0) {
-				estimatedTimeRemaining = Math.max(0, estimatedTimeRemaining - 1);
-			}
+			elapsed += 1;
 		}, 1000);
 	});
 

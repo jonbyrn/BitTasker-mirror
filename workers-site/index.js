@@ -7,10 +7,13 @@
  * API routes run before the fallback:
  *   /api/cloudflare/stream/* - upload URLs, signed tokens, status
  *   /api/cloudflare/images/* - (future) direct image upload URLs
+ *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
+ *   /api/explorer/rsk-testnet/v2/* - Blockscout proxy (RSK testnet)
  *   /__data.json wildcards   - SvelteKit client-side navigation preload
  */
 
 import { handleStreamRoute } from './handlers/stream.js';
+import { handleExplorerRoute } from './handlers/explorer.js';
 
 /**
  * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
@@ -62,6 +65,10 @@ export default {
 		// API routes - checked first so they never hit the SPA fallback
 		if (pathname.startsWith('/api/cloudflare/stream/')) {
 			return handleStreamRoute(request, env);
+		}
+
+		if (pathname.startsWith('/api/explorer/')) {
+			return handleExplorerRoute(request);
 		}
 
 		// Future images endpoint

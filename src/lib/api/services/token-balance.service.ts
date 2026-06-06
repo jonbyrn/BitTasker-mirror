@@ -1,6 +1,6 @@
 /**
  * Token Balance Service
- * 
+ *
  * Fetches all token balances from Blockscout API for Rootstock network.
  * Automatically filters out tokens with zero balance.
  * Includes caching to reduce API calls.
@@ -9,6 +9,7 @@
 import { ethers } from 'ethers';
 import type { TokenBalance, TokenMetadata } from '$lib/types/wallet';
 import { API } from '$lib/utils/constants/wallet.constants';
+import { getBlockscoutApiUrl } from '$lib/utils/wallet/explorerProxy';
 
 /**
  * Blockscout API response structure for token balances
@@ -31,17 +32,8 @@ interface BlockscoutTokenBalance {
 	};
 	value: string; // Balance in smallest unit
 	token_id: string | null; // For NFTs
-	token_instance: any | null; // May be present in response
+	token_instance: string | null; // May be present in response
 }
-
-/**
- * Blockscout API response structure
- * Can be either a direct array or an object with items property (for pagination)
- */
-type BlockscoutResponse = BlockscoutTokenBalance[] | {
-	items: BlockscoutTokenBalance[];
-	next_page_params?: any;
-};
 
 interface CachedTokenBalances {
 	balances: TokenBalance[];
@@ -51,24 +43,20 @@ interface CachedTokenBalances {
 class TokenBalanceService {
 	private tokenMetadataCache: Map<string, TokenMetadata> = new Map();
 	private tokenBalanceCache: Map<string, CachedTokenBalances> = new Map();
-	private readonly METADATA_CACHE_TTL = 300000; // 5 minutes
 	private readonly BALANCE_CACHE_TTL = API.TOKEN_BALANCE_CACHE_TTL; // 1 minute
 
 	/**
 	 * Get explorer API URL for RSK network
 	 */
 	private getExplorerApiUrl(): string {
-		const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-		return rskNetwork === 'mainnet'
-			? 'https://rootstock.blockscout.com/api/v2'
-			: 'https://rootstock-testnet.blockscout.com/api/v2';
+		return getBlockscoutApiUrl();
 	}
 
 	/**
 	 * Fetch all token balances for an address from Blockscout API
 	 * Automatically filters out tokens with zero balance
 	 * Uses caching to reduce API calls
-	 * 
+	 *
 	 * @param address - RSK wallet address
 	 * @param forceRefresh - Force refresh even if cache is valid
 	 * @returns Array of token balances (non-zero only)
@@ -76,14 +64,14 @@ class TokenBalanceService {
 	async getRSKTokenBalances(address: string, forceRefresh = false): Promise<TokenBalance[]> {
 		const normalizedAddress = address.toLowerCase();
 		const startTime = Date.now();
-		
+
 		console.log('[TokenBalanceService] getRSKTokenBalances called', {
 			address,
 			normalizedAddress,
 			forceRefresh,
 			timestamp: new Date().toISOString()
 		});
-		
+
 		// Check cache first
 		if (!forceRefresh) {
 			const cached = this.tokenBalanceCache.get(normalizedAddress);
@@ -91,15 +79,19 @@ class TokenBalanceService {
 				const age = Date.now() - cached.timestamp;
 				const ageSeconds = Math.floor(age / 1000);
 				const ttlSeconds = Math.floor(this.BALANCE_CACHE_TTL / 1000);
-				
+
 				console.log('[TokenBalanceService] Cache check', {
 					address: normalizedAddress,
 					cacheAge: `${ageSeconds}s`,
 					cacheTTL: `${ttlSeconds}s`,
 					tokenCount: cached.balances.length,
-					cachedTokens: cached.balances.map(t => ({ symbol: t.symbol, address: t.address, balance: t.formattedBalance }))
+					cachedTokens: cached.balances.map((t) => ({
+						symbol: t.symbol,
+						address: t.address,
+						balance: t.formattedBalance
+					}))
 				});
-				
+
 				if (age < this.BALANCE_CACHE_TTL) {
 					console.log('[TokenBalanceService] Cache hit - returning cached balances', {
 						address: normalizedAddress,
@@ -108,7 +100,7 @@ class TokenBalanceService {
 					});
 					return cached.balances;
 				}
-				
+
 				// Cache expired, remove it
 				console.log('[TokenBalanceService] Cache expired - removing and fetching fresh data', {
 					address: normalizedAddress,
@@ -126,7 +118,7 @@ class TokenBalanceService {
 				address: normalizedAddress
 			});
 		}
-		
+
 		try {
 			const apiUrl = this.getExplorerApiUrl();
 			const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
@@ -167,7 +159,7 @@ class TokenBalanceService {
 				} else {
 					errorMessage = `Blockscout API error: ${response.status}`;
 				}
-				
+
 				console.error('[TokenBalanceService] API error response', {
 					address,
 					url,
@@ -176,7 +168,7 @@ class TokenBalanceService {
 					errorMessage,
 					fetchDuration: `${fetchDuration}ms`
 				});
-				
+
 				throw new Error(errorMessage);
 			}
 
@@ -189,11 +181,13 @@ class TokenBalanceService {
 				responseType: Array.isArray(data) ? 'array' : typeof data,
 				isArray: Array.isArray(data),
 				hasItems: !Array.isArray(data) && 'items' in data,
-				itemCount: Array.isArray(data) ? data.length : (data.items ? data.items.length : 0),
+				itemCount: Array.isArray(data) ? data.length : data.items ? data.items.length : 0,
 				parseDuration: `${parseDuration}ms`,
-				rawResponseStructure: Array.isArray(data) 
-					? 'direct array' 
-					: (data.items ? 'paginated object' : 'unknown'),
+				rawResponseStructure: Array.isArray(data)
+					? 'direct array'
+					: data.items
+						? 'paginated object'
+						: 'unknown',
 				timestamp: new Date().toISOString()
 			});
 
@@ -204,12 +198,14 @@ class TokenBalanceService {
 				console.log('[TokenBalanceService] Processing direct array response', {
 					address,
 					tokenCount: data.length,
-					firstToken: data[0] ? {
-						address_hash: data[0].token?.address_hash,
-						symbol: data[0].token?.symbol,
-						name: data[0].token?.name,
-						value: data[0].value
-					} : null
+					firstToken: data[0]
+						? {
+								address_hash: data[0].token?.address_hash,
+								symbol: data[0].token?.symbol,
+								name: data[0].token?.name,
+								value: data[0].value
+							}
+						: null
 				});
 				items = data;
 			} else if (data.items && Array.isArray(data.items)) {
@@ -219,12 +215,14 @@ class TokenBalanceService {
 					tokenCount: data.items.length,
 					hasNextPage: !!data.next_page_params,
 					nextPageParams: data.next_page_params,
-					firstToken: data.items[0] ? {
-						address_hash: data.items[0].token?.address_hash,
-						symbol: data.items[0].token?.symbol,
-						name: data.items[0].token?.name,
-						value: data.items[0].value
-					} : null
+					firstToken: data.items[0]
+						? {
+								address_hash: data.items[0].token?.address_hash,
+								symbol: data.items[0].token?.symbol,
+								name: data.items[0].token?.name,
+								value: data.items[0].value
+							}
+						: null
 				});
 				items = data.items;
 			} else {
@@ -259,13 +257,18 @@ class TokenBalanceService {
 			// Filter out zero balance tokens
 			const filterStartTime = Date.now();
 			const zeroBalanceTokens: Array<{ symbol: string; address: string; value: string }> = [];
-			const invalidBalanceTokens: Array<{ symbol: string; address: string; value: string; error: string }> = [];
-			
+			const invalidBalanceTokens: Array<{
+				symbol: string;
+				address: string;
+				value: string;
+				error: string;
+			}> = [];
+
 			const nonZeroTokens = items.filter((item: BlockscoutTokenBalance) => {
 				try {
 					const balance = BigInt(item.value || '0');
 					const isNonZero = balance > 0n;
-					
+
 					if (!isNonZero) {
 						zeroBalanceTokens.push({
 							symbol: item.token?.symbol || 'UNKNOWN',
@@ -273,7 +276,7 @@ class TokenBalanceService {
 							value: item.value || '0'
 						});
 					}
-					
+
 					return isNonZero; // Only include tokens with balance > 0
 				} catch (error) {
 					// Skip invalid balance values
@@ -304,7 +307,7 @@ class TokenBalanceService {
 			console.log('[TokenBalanceService] Processing token balances', {
 				address,
 				tokenCount: nonZeroTokens.length,
-				tokens: nonZeroTokens.map(item => ({
+				tokens: nonZeroTokens.map((item) => ({
 					address_hash: item.token?.address_hash,
 					symbol: item.token?.symbol,
 					name: item.token?.name,
@@ -312,7 +315,7 @@ class TokenBalanceService {
 					value: item.value
 				}))
 			});
-			
+
 			const balances = await Promise.all(
 				nonZeroTokens.map((item, index) => {
 					console.log('[TokenBalanceService] Processing token', {
@@ -329,16 +332,16 @@ class TokenBalanceService {
 				})
 			);
 			const processDuration = Date.now() - processStartTime;
-			
+
 			// Cache the results
 			const cacheTimestamp = Date.now();
 			this.tokenBalanceCache.set(normalizedAddress, {
 				balances,
 				timestamp: cacheTimestamp
 			});
-			
+
 			const totalDuration = Date.now() - startTime;
-			
+
 			console.log('[TokenBalanceService] Token balances processed and cached', {
 				address,
 				normalizedAddress,
@@ -346,7 +349,7 @@ class TokenBalanceService {
 				processDuration: `${processDuration}ms`,
 				totalDuration: `${totalDuration}ms`,
 				cachedAt: new Date(cacheTimestamp).toISOString(),
-				finalBalances: balances.map(b => ({
+				finalBalances: balances.map((b) => ({
 					address: b.address,
 					symbol: b.symbol,
 					name: b.name,
@@ -356,18 +359,20 @@ class TokenBalanceService {
 					hasIcon: !!b.icon
 				}))
 			});
-			
+
 			return balances;
 		} catch (error) {
 			const errorDuration = Date.now() - startTime;
-			
+
 			// If we have cached data and it's a network error, return cached data
 			const cached = this.tokenBalanceCache.get(normalizedAddress);
-			if (cached && error instanceof Error && (
-				error.message.includes('timeout') || 
-				error.message.includes('network') ||
-				error.message.includes('fetch')
-			)) {
+			if (
+				cached &&
+				error instanceof Error &&
+				(error.message.includes('timeout') ||
+					error.message.includes('network') ||
+					error.message.includes('fetch'))
+			) {
 				console.warn('[TokenBalanceService] Network error - returning cached token balances', {
 					address,
 					normalizedAddress,
@@ -380,7 +385,7 @@ class TokenBalanceService {
 				});
 				return cached.balances;
 			}
-			
+
 			console.error('[TokenBalanceService] Failed to fetch token balances', {
 				address,
 				normalizedAddress,
@@ -400,7 +405,7 @@ class TokenBalanceService {
 	private async processTokenBalance(item: BlockscoutTokenBalance): Promise<TokenBalance> {
 		const processStartTime = Date.now();
 		const tokenAddress = item.token.address_hash;
-		
+
 		console.log('[TokenBalanceService] processTokenBalance started', {
 			tokenAddress,
 			rawItem: {
@@ -415,14 +420,14 @@ class TokenBalanceService {
 				hasTokenInstance: !!item.token_instance
 			}
 		});
-		
+
 		try {
 			const balance = BigInt(item.value || '0');
-			
+
 			// Parse decimals from string to number (API returns as string)
 			const decimalsString = item.token.decimals || '18';
 			const decimals = parseInt(decimalsString, 10);
-			
+
 			if (isNaN(decimals)) {
 				console.warn('[TokenBalanceService] Invalid decimals value', {
 					tokenAddress,
@@ -451,7 +456,7 @@ class TokenBalanceService {
 				decimals: decimals,
 				totalSupply: item.token.total_supply
 			};
-			
+
 			const metadataCacheKey = tokenAddress.toLowerCase();
 			const hadExistingMetadata = this.tokenMetadataCache.has(metadataCacheKey);
 			this.tokenMetadataCache.set(metadataCacheKey, metadata);
@@ -479,9 +484,9 @@ class TokenBalanceService {
 				isNative: false,
 				icon: item.token.icon_url || undefined // Use 'icon' to match TokenBalance type
 			};
-			
+
 			const processDuration = Date.now() - processStartTime;
-			
+
 			console.log('[TokenBalanceService] processTokenBalance completed', {
 				tokenAddress,
 				result: {
@@ -495,11 +500,11 @@ class TokenBalanceService {
 				},
 				processDuration: `${processDuration}ms`
 			});
-			
+
 			return result;
 		} catch (error) {
 			const processDuration = Date.now() - processStartTime;
-			
+
 			console.error('[TokenBalanceService] Error processing token balance', {
 				tokenAddress,
 				rawItem: {
@@ -514,14 +519,14 @@ class TokenBalanceService {
 				errorStack: error instanceof Error ? error.stack : undefined,
 				processDuration: `${processDuration}ms`
 			});
-			
+
 			throw error;
 		}
 	}
 
 	/**
 	 * Get token metadata (cached if available)
-	 * 
+	 *
 	 * @param tokenAddress - Token contract address
 	 * @returns Token metadata or null if not found
 	 */
@@ -535,38 +540,40 @@ class TokenBalanceService {
 	clearCache(): void {
 		const metadataCount = this.tokenMetadataCache.size;
 		const balanceCount = this.tokenBalanceCache.size;
-		
+
 		console.log('[TokenBalanceService] clearCache called', {
 			metadataCacheSize: metadataCount,
 			balanceCacheSize: balanceCount,
 			cachedAddresses: Array.from(this.tokenBalanceCache.keys())
 		});
-		
+
 		this.tokenMetadataCache.clear();
 		this.tokenBalanceCache.clear();
-		
+
 		console.log('[TokenBalanceService] Cache cleared', {
 			metadataCleared: metadataCount,
 			balanceCleared: balanceCount
 		});
 	}
-	
+
 	/**
 	 * Clear balance cache for a specific address
 	 */
 	clearBalanceCache(address: string): void {
 		const normalizedAddress = address.toLowerCase();
 		const hadCache = this.tokenBalanceCache.has(normalizedAddress);
-		
+
 		console.log('[TokenBalanceService] clearBalanceCache called', {
 			address,
 			normalizedAddress,
 			hadCache,
-			cachedTokenCount: hadCache ? this.tokenBalanceCache.get(normalizedAddress)?.balances.length : 0
+			cachedTokenCount: hadCache
+				? this.tokenBalanceCache.get(normalizedAddress)?.balances.length
+				: 0
 		});
-		
+
 		this.tokenBalanceCache.delete(normalizedAddress);
-		
+
 		console.log('[TokenBalanceService] Balance cache cleared for address', {
 			address,
 			normalizedAddress,
@@ -578,4 +585,3 @@ class TokenBalanceService {
 // Export singleton instance
 const tokenBalanceService = new TokenBalanceService();
 export default tokenBalanceService;
-
