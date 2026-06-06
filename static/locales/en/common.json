@@ -975,7 +975,8 @@
 			"lightbox_title": "{title} images"
 		},
 		"video_introduction": "Video Introduction",
-		"select_section": "Select section"
+		"select_section": "Select section",
+		"languages": "Languages"
 	},
 	"reviews": {
 		"months_ago": "{count} months ago",
@@ -997,5 +998,11 @@
 		"friday": "Friday",
 		"saturday": "Saturday"
 	},
-	"share": "Share"
+	"share": "Share",
+	"navbar": {
+		"language": {
+			"english": "English",
+			"spanish": "Spanish"
+		}
+	}
 }

@@ -29,9 +29,6 @@
 		scrollLock = true;
 		activeSection = sectionId;
 
-		// Update URL hash for deep linking
-		history.replaceState(null, '', `#${sectionId}`);
-
 		const target = document.getElementById(sectionId);
 		target?.scrollIntoView({ behavior: 'smooth' });
 
@@ -54,6 +51,20 @@
 		setTimeout(() => {
 			scrollLock = false;
 		}, 600);
+
+		// Clear hash after scroll completes. Keeping the hash in the URL causes
+		// it to persist through back-navigation (the hash becomes part of the
+		// history entry, so navigating away and pressing back returns to
+		// profile#section). Remove it once the smooth scroll is done.
+		const clearHash = () => {
+			if (window.location.hash) {
+				history.replaceState(null, '', window.location.pathname + window.location.search);
+			}
+		};
+		if ('onscrollend' in window) {
+			window.addEventListener('scrollend', clearHash, { once: true });
+		}
+		setTimeout(clearHash, 800);
 	}
 
 	function handleKeydown(e: KeyboardEvent, currentIndex: number) {
@@ -90,7 +101,6 @@
 		for (const entry of entries) {
 			if (entry.isIntersecting) {
 				activeSection = entry.target.id;
-				history.replaceState(null, '', `#${entry.target.id}`);
 				break;
 			}
 		}
@@ -132,7 +142,7 @@
 				class="btn no-animation border-base-300 bg-base-100/50 hover:bg-base-100/80 inline-flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border px-4 text-sm font-medium transition-all duration-200"
 				aria-haspopup="listbox"
 				aria-expanded={dropdownOpen}
-				aria-label={$t('common.profile.select_section')}
+				aria-label={$t('profile.select_section')}
 				onclick={(e) => {
 					e.stopPropagation();
 					dropdownOpen = !dropdownOpen;
@@ -151,10 +161,10 @@
 			</button>
 			{#if dropdownOpen}
 				<ul
-					class="menu bg-base-100 border-base-300 z-50 mt-1 max-h-80 w-full overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl"
+					class="dropdown-content menu bg-base-100 border-base-300 z-50 mt-1 max-h-80 w-full overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl"
 					role="listbox"
 					tabindex="-1"
-					aria-label={$t('common.profile.select_section')}
+					aria-label={$t('profile.select_section')}
 				>
 					{#each sections as section (section.id)}
 						<li role="option" aria-selected={activeSection === section.id}>

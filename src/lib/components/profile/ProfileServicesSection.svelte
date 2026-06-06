@@ -54,12 +54,6 @@
 		return `/services/${service.uniqueId || service.id}`;
 	}
 
-	function getServiceMeta(service: Service): string[] {
-		const meta: string[] = [];
-		if (service.skills?.length) meta.push(...service.skills.slice(0, 3));
-		return meta;
-	}
-
 	function getServicePrice(service: Service): string {
 		const tiers = service.pricing?.tiers;
 		if (!tiers?.length) return '';
@@ -85,7 +79,7 @@
 
 	{#if isLoading}
 		<div
-			class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
 			role="status"
 			aria-busy="true"
 			aria-label={$t('common.loading')}
@@ -115,7 +109,7 @@
 		</div>
 	{:else if hasLoaded}
 		<div
-			class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
 			aria-live="polite"
 			data-testid="profile-services-list"
 		>
@@ -127,7 +121,6 @@
 						description={getServiceDisplayDescription(service, $locale || 'en')}
 						price={getServicePrice(service)}
 						priceLabel={$t('profile.services.price_from')}
-						meta={getServiceMeta(service)}
 						ctaLabel={$t('profile.services.view_service')}
 						testId="profile-service-card"
 						showLocationIcon={false}

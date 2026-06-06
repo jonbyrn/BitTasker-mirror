@@ -4,6 +4,8 @@
 	import '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
@@ -21,6 +23,52 @@
 	import '../app.css';
 
 	const { children } = $props();
+
+	// Save scroll position before navigating away, so back/forward can restore it.
+	// SvelteKit's built-in restoration targets window, but this app scrolls inside
+	// .app-shell__content. A Map keyed by URL handles rapid navigations cleanly.
+	const scrollPositions = new SvelteMap<string, number>();
+
+	beforeNavigate((nav) => {
+		if (!browser || !scrollEl) return;
+		const fromUrl = nav.from?.url?.pathname + (nav.from?.url?.hash || '');
+		scrollPositions.set(fromUrl, scrollEl.scrollTop);
+	});
+
+	afterNavigate((nav) => {
+		if (!browser || !scrollEl) return;
+
+		if (nav.type === 'goto' || nav.type === 'enter' || nav.type === 'link') {
+			const hash = nav.to?.url?.hash;
+			if (hash) {
+				requestAnimationFrame(() => {
+					const target = document.getElementById(hash.slice(1));
+					if (target) {
+						target.scrollIntoView({ behavior: 'instant' });
+					} else if (scrollEl) {
+						scrollEl.scrollTop = 0;
+					}
+				});
+			} else {
+				scrollEl.scrollTop = 0;
+			}
+		}
+
+		if (nav.type === 'popstate') {
+			const toUrl = nav.to?.url?.pathname + (nav.to?.url?.hash || '');
+			const savedY = scrollPositions.get(toUrl);
+			if (savedY !== undefined) {
+				// Defer restoration: the page component may need to async-load data
+				// (e.g. loadProfile()) before the DOM is ready. Use a generous delay
+				// to cover async loads, then restore.
+				setTimeout(() => {
+					if (scrollEl) scrollEl.scrollTop = savedY;
+				}, 1500);
+			} else {
+				scrollEl.scrollTop = 0;
+			}
+		}
+	});
 
 	/**
 	 * vite:preloadError fires when a dynamic import chunk fails to load,

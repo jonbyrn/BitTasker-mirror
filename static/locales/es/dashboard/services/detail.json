@@ -235,7 +235,9 @@
 					"service_location_placeholder": "Ingresa dirección o usa ubicación actual",
 					"service_location_required": "La ubicación es requerida para este servicio",
 					"service_location_max_distance": "Dentro de {distance}km del proveedor",
-					"service_location_outside_radius": "Esta ubicación está fuera del área de servicio ({distance}km de distancia, máximo {maxDistance}km)"
+					"service_location_outside_radius": "Esta ubicación está fuera del área de servicio ({distance}km de distancia, máximo {maxDistance}km)",
+					"sent_successfully": "Solicitud de cotización enviada exitosamente",
+					"send_failed": "Error al enviar la solicitud de cotización. Por favor, inténtalo de nuevo."
 				}
 			}
 		}

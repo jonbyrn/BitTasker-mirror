@@ -342,7 +342,7 @@
 			onComplete(languages.length > 0, true);
 		} catch (err) {
 			console.error('Failed to save languages:', err);
-			error = err instanceof Error ? err.message : $t('common.profile.edit.failed_to_save');
+			error = err instanceof Error ? err.message : $t('profile.edit.failed_to_save');
 			// Rollback on failure
 			languages = snapshot;
 		} finally {
@@ -412,7 +412,7 @@
 							{/each}
 						{:else}
 							<li class="text-base-content/50 p-3 text-sm">
-								{$t('common.profile.edit.no_languages_found')}
+								{$t('profile.edit.no_languages_found')}
 							</li>
 						{/if}
 					</ul>
@@ -449,7 +449,7 @@
 
 							<!-- Remove button -->
 							<button
-								aria-label={$t('common.profile.edit.remove_language')}
+								aria-label={$t('profile.edit.remove_language')}
 								class="btn btn-circle btn-accent btn-sm"
 								onclick={() => removeLanguage(lang.code)}
 								disabled={isLoading}

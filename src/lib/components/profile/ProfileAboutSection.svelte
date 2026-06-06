@@ -194,7 +194,7 @@
 		{#if languages.length}
 			<div class="mb-6">
 				<h3 class="text-base-content mb-3 text-lg font-semibold">
-					{$t('common.profile.languages')}
+					{$t('profile.languages')}
 				</h3>
 				<div class="flex flex-wrap gap-2">
 					{#each translatedLanguages as lang (lang.code)}

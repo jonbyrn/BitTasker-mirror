@@ -5,6 +5,7 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import KINDS from '$lib/utils/constants/kinds';
 import type {
 	NostrProfileImage,
+	NostrProfileLanguage,
 	NostrReview,
 	NostrSkill,
 	TimeSlot,
@@ -17,9 +18,11 @@ export type ComprehensiveProfile = {
 	name?: string;
 	about?: string;
 	picture?: string;
-	pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
+	pictures?: NostrProfileImage[];
 	website?: string;
 	professionalTitle?: string;
+	location?: string;
+	languages?: NostrProfileLanguage[];
 	translations?: ProfileTranslations;
 	skills?: Array<string | NostrSkill>;
 	portfolio?: Array<{
@@ -60,10 +63,11 @@ type ComprehensiveProfileData = {
 	name: string;
 	about: string;
 	picture: string;
-	pictures: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
+	pictures: NostrProfileImage[];
 	website: string;
 	professionalTitle: string;
 	location: string;
+	languages: NostrProfileLanguage[];
 	translations?: ProfileTranslations;
 	skills: NonNullable<ComprehensiveProfile['skills']>;
 	portfolio: NonNullable<ComprehensiveProfile['portfolio']>;
@@ -124,6 +128,7 @@ function parseComprehensiveProfileEvents(events: NostrEvent[]): ComprehensivePro
 		website: '',
 		professionalTitle: '',
 		location: '',
+		languages: [],
 		skills: [],
 		portfolio: [],
 		availability: {
@@ -178,6 +183,19 @@ function parseComprehensiveProfileEvents(events: NostrEvent[]): ComprehensivePro
 					}
 					if (event.created_at) {
 						profileData.createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
+					}
+					if (Array.isArray(content.languages)) {
+						profileData.languages = content.languages.map(
+							(lang: { code?: string; proficiency?: string } | string) => {
+								if (typeof lang === 'string') {
+									return { code: lang, proficiency: 'fluent' };
+								}
+								return {
+									code: lang.code || '',
+									proficiency: lang.proficiency || 'fluent'
+								};
+							}
+						);
 					}
 					break;
 				}

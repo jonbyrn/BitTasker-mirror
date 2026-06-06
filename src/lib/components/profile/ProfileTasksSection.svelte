@@ -85,12 +85,6 @@
 		}
 		return '';
 	}
-
-	function getTaskMeta(task: Task): string[] {
-		const meta: string[] = [];
-		if (task.skills?.length) meta.push(...task.skills.slice(0, 3));
-		return meta;
-	}
 </script>
 
 <section
@@ -105,7 +99,7 @@
 
 	{#if isLoading}
 		<div
-			class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
 			role="status"
 			aria-busy="true"
 			aria-label={$t('common.loading')}
@@ -130,7 +124,10 @@
 			<p>{$t('profile.tasks.empty')}</p>
 		</div>
 	{:else if hasLoaded}
-		<div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2" aria-live="polite">
+		<div
+			class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+			aria-live="polite"
+		>
 			{#each displayedTasks as task (task.id)}
 				<div class="max-w-[320px] min-w-[280px] flex-shrink-0 snap-start">
 					<FeaturedHomepageCardShell
@@ -139,7 +136,6 @@
 						description={getTaskDescription(task)}
 						price={getTaskBudget(task)}
 						priceLabel={$t('profile.tasks.budget')}
-						meta={getTaskMeta(task)}
 						ctaLabel={$t('profile.tasks.view_task')}
 						testId="profile-task-card"
 						showLocationIcon={false}

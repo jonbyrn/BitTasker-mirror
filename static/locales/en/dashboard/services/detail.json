@@ -235,7 +235,9 @@
 					"service_location_placeholder": "Enter address or use current location",
 					"service_location_required": "Location is required for this service",
 					"service_location_max_distance": "Within {distance}km of provider",
-					"service_location_outside_radius": "This location is outside the service area ({distance}km away, max {maxDistance}km)"
+					"service_location_outside_radius": "This location is outside the service area ({distance}km away, max {maxDistance}km)",
+					"sent_successfully": "Quote request sent successfully",
+					"send_failed": "Failed to send quote request. Please try again."
 				}
 			}
 		}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
 	import { authState } from '$lib/stores/auth.store';
@@ -49,7 +49,6 @@
 				for (const entry of entries) {
 					if (entry.isIntersecting) {
 						visibleSections.add(sectionId);
-						visibleSections = visibleSections; // trigger reactivity
 						observer.disconnect();
 					}
 				}
@@ -62,7 +61,9 @@
 
 	// ── Derived (Svelte 5: $derived(expression) NOT $derived(() => expression)) ──
 	let userPicture = $derived(
-		userProfile?.pictures?.length > 0 ? userProfile.pictures[0].url : userProfile?.picture || ''
+		(userProfile?.pictures?.length ?? 0) > 0
+			? userProfile!.pictures![0].url
+			: userProfile?.picture || ''
 	);
 
 	const averageRating = $derived(
@@ -189,6 +190,16 @@
 		}
 		hexPubkey = validation.hexPubkey || null;
 		await loadProfile();
+
+		// After the profile loads and the template switches from skeleton to real content,
+		// the IntersectionObserver's initial callback has already fired (during the skeleton
+		// phase, reporting everything as not visible). The DOM change doesn't trigger a new
+		// callback, so sections stay unloaded. Mark all sections visible now so their data
+		// fetches begin. Each section has its own loading state so the UX is unaffected.
+		await tick();
+		for (const sectionId of ['about', 'services', 'portfolio', 'reviews', 'tasks']) {
+			visibleSections.add(sectionId);
+		}
 	});
 </script>
 
@@ -366,7 +377,7 @@
 								muted={true}
 								loop={true}
 								aspectRatio="video"
-								ariaLabel={$t('common.profile.video_introduction')}
+								ariaLabel={$t('profile.video_introduction')}
 							/>
 						</div>
 					{/if}
@@ -428,14 +439,6 @@
 </div>
 
 <style>
-	.sticky-cta-bar {
-		position: sticky;
-		bottom: 0;
-		z-index: 20;
-		background: var(--b1, oklch(var(--b1)));
-		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-		padding-bottom: env(safe-area-inset-bottom, 0px);
-	}
 	.page-content {
 		padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 	}

@@ -51,9 +51,16 @@
 		}
 		error = null;
 		try {
-			const result = await getReviewsForUser(pubkey, PAGE_SIZE, before);
+			// Subtract 1 from cursor to avoid second-level boundary overlaps
+			// (multiple reviews can share the same `createdAt` second)
+			const queryBefore = before !== undefined ? before - 1 : undefined;
+			const result = await getReviewsForUser(pubkey, PAGE_SIZE, queryBefore);
 			if (before) {
-				reviews = [...reviews, ...result.reviews];
+				const existingIds = new Set(reviews.map((r) => r.attestationEventId));
+				const uniqueNewReviews = result.reviews.filter(
+					(r) => !existingIds.has(r.attestationEventId)
+				);
+				reviews = [...reviews, ...uniqueNewReviews];
 			} else {
 				reviews = result.reviews;
 			}
