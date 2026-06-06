@@ -419,8 +419,6 @@
 				<aside class="hidden lg:block lg:w-80 xl:w-96">
 					<div class="sticky top-32">
 						<ProfileSidebar
-							hexPubkey={hexPubkey || ''}
-							username={userProfile?.name || ''}
 							rating={averageRating}
 							{reviewCount}
 							{tasksCompleted}

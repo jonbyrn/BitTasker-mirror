@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
 	import IconStar from '~icons/mdi/star';
 	import IconBriefcase from '~icons/mdi/briefcase';
@@ -8,8 +7,6 @@
 	import IconImage from '~icons/mdi/image';
 
 	let {
-		hexPubkey,
-		username,
 		rating,
 		reviewCount = 0,
 		tasksCompleted = 0,
@@ -18,8 +15,6 @@
 		availability,
 		isLoading = false
 	}: {
-		hexPubkey: string;
-		username: string;
 		rating: number | null;
 		reviewCount?: number;
 		tasksCompleted?: number;
@@ -163,19 +158,6 @@
 					<p class="text-base-content/50 text-sm">{$t('common.profile.availability_not_set')}</p>
 				</div>
 			{/if}
-
-			<!-- Actions: Report -->
-			<div class="bg-base-100 border-base-300 rounded-lg border p-4">
-				<div class="flex items-center justify-between">
-					<span class="text-base-content/70 text-sm">{$t('common.profile.actions')}</span>
-					<ActionsMenu
-						contentType="user"
-						reportedPubkey={hexPubkey}
-						{username}
-						profileMode={true}
-					/>
-				</div>
-			</div>
 		{/if}
 	</div>
 </aside>
