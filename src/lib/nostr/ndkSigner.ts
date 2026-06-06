@@ -9,6 +9,8 @@ import { ndk, ndkCacheDbBaseName } from './ndkInstance';
 
 const d = createDebug('ndk:signer');
 
+let activeSignerPubkey: string | null = null;
+
 function startUnpublishedEventsRetry(): void {
 	if (!browser) return;
 	void import('$lib/runes/unpublishedEventsRetry.svelte').then((m) => {
@@ -27,18 +29,26 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 	d.log('applyNdkSignerFromNsec: starting, nsec length=%s', nsec.length);
 	try {
 		const newSigner = new NDKPrivateKeySigner(nsec);
-		const currentSigner = ndk.signer;
+		const newPubkey = newSigner.pubkey;
+
+		if (activeSignerPubkey === newPubkey && ndk.signer) {
+			d.log('applyNdkSignerFromNsec: signer already set for same pubkey, skipping');
+			startUnpublishedEventsRetry();
+			return;
+		}
+
 		const npub = newSigner.npub;
 		const cacheDbName = ndkCacheDbBaseName(npub);
 
 		ndk.cacheAdapter = new NDKCacheDexie({ dbName: cacheDbName });
 		d.log('applyNdkSignerFromNsec: cache adapter configured, dbName=%s', cacheDbName);
 
+		const currentSigner = ndk.signer;
 		if (currentSigner && currentSigner instanceof NDKPrivateKeySigner) {
 			const currentPubkey = currentSigner.pubkey;
-			const newPubkey = newSigner.pubkey;
 			if (currentPubkey === newPubkey) {
 				d.log('applyNdkSignerFromNsec: signer already set for same pubkey, skipping');
+				activeSignerPubkey = newPubkey;
 				startUnpublishedEventsRetry();
 				return;
 			}
@@ -46,6 +56,7 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		}
 
 		ndk.signer = newSigner;
+		activeSignerPubkey = newPubkey;
 		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
 		try {
 			const taskRelayUrls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);

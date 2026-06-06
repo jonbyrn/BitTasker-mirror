@@ -45,23 +45,47 @@ if ! grep -q 'GOOGLE_APPLICATION_CREDENTIALS' .gitlab/ci/android-release.yml; th
 fi
 echo "OK: android-release.yml exports GOOGLE_APPLICATION_CREDENTIALS"
 
-if ! grep -q 'json_key: play_json_key' fastlane/Fastfile; then
-  echo "FAIL: Fastfile must pass json_key to upload_to_play_store" >&2
+if ! grep -q 'def play_store_args' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must define play_store_args with json_key and package_name" >&2
   exit 1
 fi
-echo "OK: Fastfile passes json_key to upload_to_play_store"
+echo "OK: Fastfile defines play_store_args"
 
-if ! grep -q 'PLAY_JSON_KEY' fastlane/Fastfile; then
-  echo "FAIL: Fastfile must define PLAY_JSON_KEY" >&2
+if ! grep -q 'package_name: PACKAGE_NAME' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must pass package_name to upload_to_play_store" >&2
   exit 1
 fi
-echo "OK: Fastfile defines PLAY_JSON_KEY"
+echo "OK: Fastfile passes package_name to upload_to_play_store"
 
-if ! grep -q 'play-store-credentials.json' fastlane/Appfile; then
-  echo "FAIL: Appfile must use absolute path for play-store-credentials.json" >&2
+if ! grep -q 'PACKAGE_NAME = "com.bittasker.app"' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must define PACKAGE_NAME matching applicationId" >&2
   exit 1
 fi
-echo "OK: Appfile uses absolute path for credentials"
+echo "OK: Fastfile defines PACKAGE_NAME"
+
+if ! grep -q 'package_name("com.bittasker.app")' fastlane/Appfile; then
+  echo "FAIL: Appfile must set package_name" >&2
+  exit 1
+fi
+echo "OK: Appfile sets package_name"
+
+if ! grep -q 'SUPPLY_PACKAGE_NAME' .gitlab/ci/android-release.yml; then
+  echo "FAIL: android-release.yml must export SUPPLY_PACKAGE_NAME" >&2
+  exit 1
+fi
+echo "OK: android-release.yml exports SUPPLY_PACKAGE_NAME"
+
+if ! grep -q 'fastlane android preflight' .gitlab/ci/android-release.yml; then
+  echo "FAIL: android-release.yml must run fastlane preflight before release lanes" >&2
+  exit 1
+fi
+echo "OK: android-release.yml runs fastlane preflight"
+
+if ! grep -q 'test:android:gitlab' package.json; then
+  echo "FAIL: package.json must define test:android:gitlab for local pipeline runs" >&2
+  exit 1
+fi
+echo "OK: package.json defines test:android:gitlab"
 
 if ! grep -q 'CI_COMMIT_REF_PROTECTED' .gitlab/ci/fetch-ci-vars.yml; then
   echo "FAIL: fetch-ci-vars.yml must diagnose protected ref issues" >&2
@@ -208,5 +232,37 @@ if [ -f Gemfile.lock ] && ! awk '/^BUNDLED WITH/{getline; if ($1 ~ /^2\.5\./) fo
 fi
 echo "OK: Gemfile.lock bundled with 2.5.x (if present)"
 
+if command -v npx >/dev/null 2>&1; then
+  gcl_list="$(mktemp)"
+  if npx gitlab-ci-local --variable CI_COMMIT_TAG=v9.9.9-alpha.0 --list >"$gcl_list" 2>&1 \
+    && grep -q 'android-build-internal' "$gcl_list"; then
+    echo "OK: gitlab-ci-local resolves android-build-internal with alpha tag"
+  else
+    echo "FAIL: gitlab-ci-local must list android-build-internal when CI_COMMIT_TAG matches v*-alpha*" >&2
+    rm -f "$gcl_list"
+    exit 1
+  fi
+  rm -f "$gcl_list"
+else
+  echo "SKIP: gitlab-ci-local (npx not available)"
+fi
+
+if command -v bundle >/dev/null 2>&1 && bundle exec fastlane --version >/dev/null 2>&1; then
+  if ANDROID_SKIP_PLAY_UPLOAD=1 bundle exec fastlane android preflight 2>&1 | grep -q 'Play Store preflight OK'; then
+    echo "OK: fastlane preflight lane (upload skipped)"
+  else
+    echo "FAIL: fastlane android preflight must succeed with ANDROID_SKIP_PLAY_UPLOAD=1" >&2
+    exit 1
+  fi
+else
+  echo "SKIP: fastlane preflight (bundle/fastlane not available)"
+fi
+
 echo ""
 echo "All Android CI setup tests passed."
+echo ""
+echo "Local GitLab pipeline (same Docker image as CI):"
+echo "  1. Create .gitlab-ci-local-variables.yml with ANDROID_KEYSTORE_* and PLAY_STORE_CREDENTIALS_JSON"
+echo "  2. npm install"
+echo "  3. npm run test:android:gitlab"
+echo "Full upload test: omit ANDROID_SKIP_PLAY_UPLOAD in .gitlab-ci-local-variables.yml"

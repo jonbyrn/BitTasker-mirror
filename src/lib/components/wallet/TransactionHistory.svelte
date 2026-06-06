@@ -139,26 +139,23 @@
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
 	onMount(async () => {
-		await loadTransactions();
+		await loadTransactionList(false);
 	});
 
 	/**
-	 * Load transactions
+	 * Load transactions — reuse store data on open; full Nostr recovery on refresh only.
 	 */
-	async function loadTransactions() {
+	async function loadTransactionList(forceRecover = false) {
 		isLoading = true;
 		error = null;
 
 		try {
-			// Ensure wallet is initialized before loading transactions
 			const { get } = await import('svelte/store');
 			const { walletStore } = await import('$lib/stores/wallet.store');
 			const state = get(walletStore);
 
 			if (!state.isConnected || state.isInitializing) {
-				// Wait for initialization if in progress, or initialize if not started
 				if (state.isInitializing) {
-					// Wait for initialization to complete (max 10 seconds)
 					const maxWaitTime = 10000;
 					const startTime = Date.now();
 					while (state.isInitializing && Date.now() - startTime < maxWaitTime) {
@@ -169,25 +166,30 @@
 						}
 					}
 				} else {
-					// Initialize wallet if not already initializing
 					await walletManager.initialize();
 				}
 
-				// Re-check state after initialization
 				const updatedState = get(walletStore);
 				if (!updatedState.isConnected) {
 					throw new Error('Wallet initialization failed. Please try again.');
 				}
 			}
 
-			// Now load transactions
-			await walletManager.refreshTransactions();
+			if (forceRecover) {
+				await walletManager.refreshTransactions();
+			} else {
+				await walletManager.loadTransactions();
+			}
 		} catch (err) {
 			console.error('[TransactionHistory] Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	async function loadTransactions() {
+		await loadTransactionList(true);
 	}
 
 	function formatFee(feeSats: number | undefined): string {

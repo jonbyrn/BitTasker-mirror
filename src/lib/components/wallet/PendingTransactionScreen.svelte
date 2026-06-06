@@ -246,7 +246,7 @@
 			receiptStatus = 'sending';
 			pollForConfirmation();
 			pollingInterval = setInterval(pollForConfirmation, 3000);
-		} else if (!swapId && txHash) {
+		} else if (!swapId && txHash && !isEvmTxHash(txHash)) {
 			receiptStatus = 'error';
 			receiptError = $t('wallet.send.transaction_failed');
 		}

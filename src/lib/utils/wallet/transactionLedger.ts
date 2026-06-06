@@ -3,6 +3,7 @@
  */
 
 import type { ProcessedTransaction } from '$lib/types/wallet';
+import { isSwapCompleted } from '$lib/utils/wallet/swapStatusMap';
 
 const REVERSE_CLAIM_PAIR_WINDOW_MS = 15 * 60 * 1000;
 
@@ -117,6 +118,10 @@ export function dedupSwapRows(
 	const bySwapId = new Map<string, ProcessedTransaction>();
 
 	for (const swapTx of swapTxs) {
+		if (swapTx.swap?.rawStatus && isSwapCompleted(swapTx.swap.rawStatus)) {
+			continue;
+		}
+
 		const swapId = swapTx.swap?.id;
 		if (swapId) {
 			const existing = bySwapId.get(swapId);
@@ -128,7 +133,11 @@ export function dedupSwapRows(
 		bySwapId.set(swapTx.hash, swapTx);
 	}
 
-	return [...bySwapId.values()].filter((swapTx) => !blockchainTxHashes.has(swapTx.hash));
+	const normalizedChainHashes = blockchainTxHashes;
+
+	return [...bySwapId.values()].filter(
+		(swapTx) => !normalizedChainHashes.has(swapTx.hash.toLowerCase())
+	);
 }
 
 export function txActivityTime(tx: ProcessedTransaction): number {
@@ -171,7 +180,7 @@ export function projectTransactions(
 	const dedupedChain = dedupePairedReverseClaims(
 		filterMinerFeeClaims(dedupChainClaims(blockchainTxs))
 	);
-	const blockchainHashes = new Set(dedupedChain.map((tx) => tx.hash));
+	const blockchainHashes = new Set(dedupedChain.map((tx) => tx.hash.toLowerCase()));
 	const uniqueSwaps = dedupSwapRows(swapTxs, blockchainHashes);
 	return applyRunningBalance([...dedupedChain, ...uniqueSwaps], currentBalanceSats);
 }

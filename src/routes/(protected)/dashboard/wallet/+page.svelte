@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { linear } from 'svelte/easing';
@@ -9,13 +9,10 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
-	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
-	import type { PendingSwapData } from '$lib/utils/swapAdapter';
 	import {
 		walletManager,
 		rskConnection,
-		walletStore,
-		updateSwapTransaction
+		walletStore
 	} from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
@@ -30,13 +27,7 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 
-	interface SwapUpdateEvent {
-		swapId: string;
-		swapData: PendingSwapData;
-	}
-
 	let isLoading = $state(false);
-	let unsubscribeFromSwaps: (() => void) | null = null;
 
 	async function initializeWallet(): Promise<void> {
 		try {
@@ -52,35 +43,14 @@
 
 	onMount(async () => {
 		await initializeWallet();
+		walletManager.markExpectingInbound();
 
-		// Open receive modal if tab=receive is in URL
 		const tab = page.url.searchParams.get('tab');
 		if (tab === 'receive') {
 			showReceiveModal = true;
 		}
-
-		// Subscribe to real-time swap updates via WebSocket
-		try {
-			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: SwapUpdateEvent) => {
-				// Determine swap type from swap data
-				const swapType = getSwapType(event.swapData);
-
-				// Update the specific swap transaction
-				updateSwapTransaction(event.swapId, event.swapData, swapType);
-			});
-		} catch (err) {
-			console.error('Failed to subscribe to swap updates:', err);
-		}
 	});
 
-	onDestroy(() => {
-		// Only clean up WebSocket subscription, NOT the wallet state
-		// The wallet state should persist across navigation within the app
-		// Full cleanup (disconnectWallet) only happens on explicit logout via session.ts
-		unsubscribeFromSwaps?.();
-	});
-
-	// Reactive state from centralized store
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
 
 	// Modal state for new UX

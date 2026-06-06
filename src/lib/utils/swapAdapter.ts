@@ -30,13 +30,32 @@ function randomBytes(length: number): Uint8Array {
 	return bytes;
 }
 
+let ndkReadyPromise: Promise<string> | null = null;
+let ndkReadyNsecKey: string | null = null;
+
+function nsecCacheKey(nsec: Uint8Array): string {
+	return Buffer.from(nsec).toString('hex');
+}
+
 async function ensureNdkReady(nsec: Uint8Array): Promise<string> {
-	await applyNdkSignerFromNsec(nsec);
-	const npub = getPublicKey(nsec);
-	if (!ndk.signer) {
-		throw new Error('NDK signer not configured');
+	const key = nsecCacheKey(nsec);
+	if (ndkReadyPromise && ndkReadyNsecKey === key) {
+		return ndkReadyPromise;
 	}
-	return npub;
+
+	ndkReadyNsecKey = key;
+	ndkReadyPromise = (async () => {
+		await applyNdkSignerFromNsec(nsec);
+		return getPublicKey(nsec);
+	})();
+
+	try {
+		return await ndkReadyPromise;
+	} catch (error) {
+		ndkReadyPromise = null;
+		ndkReadyNsecKey = null;
+		throw error;
+	}
 }
 
 function swapRelaySet(): NDKRelaySet {

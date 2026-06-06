@@ -76,7 +76,8 @@ const mockWalletManager = vi.hoisted(() => {
 			.mockResolvedValue({ balance: BigInt('1000000000000000000'), formatted: '1.00' }),
 		getWallet: vi.fn().mockReturnValue(null),
 		getProvider: vi.fn().mockReturnValue(null),
-		loadTransactions: vi.fn().mockResolvedValue([])
+		loadTransactions: vi.fn().mockResolvedValue([]),
+		onBlock: vi.fn().mockReturnValue(() => {})
 	};
 
 	const mockBscWallet = {
@@ -101,6 +102,7 @@ const mockWalletManager = vi.hoisted(() => {
 	return {
 		initialize: vi.fn().mockResolvedValue(undefined),
 		dispose: vi.fn().mockResolvedValue(undefined),
+		onSwapUpdate: vi.fn().mockReturnValue(() => {}),
 		rskWallet: mockRskWallet,
 		bscWallet: mockBscWallet,
 		loadAssets: vi.fn().mockResolvedValue([]),

@@ -34,7 +34,8 @@ import {
 import {
 	isSwapCompleted,
 	mapSwapToTransaction,
-	shouldShowSwap
+	shouldShowSwap,
+	getSwapType
 } from '$lib/utils/wallet/swapTransaction';
 import { isSwapFailed, isSwapFinal } from '$lib/utils/wallet/swapStatusMap';
 import {
@@ -131,6 +132,11 @@ let cachedSwapStorages: {
 // Transaction load coordination
 let loadTransactionsPromise: Promise<void> | null = null;
 let chainRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let balanceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let postCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+let unsubscribeSwapUpdates: (() => void) | null = null;
+let unsubscribeBlockWatch: (() => void) | null = null;
+let expectingInboundUntil = 0;
 const terminalSwapIds = new Set<string>();
 /** Preserves list position when a swap row is replaced by its on-chain tx. */
 const chainSortHints = new Map<string, string>();
@@ -153,6 +159,85 @@ async function refreshChainSortHintsFromNostr(): Promise<void> {
 
 	mergeChainSortHints(chainSortHints, fromNostr);
 	await persistChainSortHintsMap(chainSortHints);
+}
+
+function hasActiveInboundSwaps(): boolean {
+	if (!sdkWalletManager) return false;
+
+	const chain = sdkWalletManager.chainSwapService.getActiveSwaps();
+	const chainPending = chain.some((swap) => !isSwapCompleted(swap.status));
+
+	const state = get(walletStore);
+	const reversePending = state.transactions.some(
+		(tx) =>
+			tx.swap?.type === 'reverse' &&
+			tx.swap.rawStatus &&
+			!isSwapCompleted(tx.swap.rawStatus) &&
+			!isSwapFailed(tx.swap.rawStatus)
+	);
+
+	return chainPending || reversePending;
+}
+
+function isExpectingInbound(): boolean {
+	return Date.now() < expectingInboundUntil || hasActiveInboundSwaps();
+}
+
+/** Extend inbound balance watch (receive flows, pending reverse/chain swaps). */
+export function markExpectingInbound(ttlMs = 30 * 60 * 1000): void {
+	expectingInboundUntil = Date.now() + ttlMs;
+	ensureInboundBlockWatch();
+}
+
+function ensureInboundBlockWatch(): void {
+	if (!sdkWalletManager?.rskWallet || unsubscribeBlockWatch) return;
+	if (typeof sdkWalletManager.rskWallet.onBlock !== 'function') return;
+
+	unsubscribeBlockWatch = sdkWalletManager.rskWallet.onBlock(() => {
+		if (!isExpectingInbound()) return;
+		scheduleBalanceRefresh();
+	});
+}
+
+function wireSwapUpdates(): void {
+	if (!sdkWalletManager || typeof sdkWalletManager.onSwapUpdate !== 'function') {
+		return;
+	}
+
+	unsubscribeSwapUpdates?.();
+	unsubscribeSwapUpdates = sdkWalletManager.onSwapUpdate((event: SwapUpdateEvent) => {
+		const swapType = getSwapType(event.swapData);
+		updateSwapTransaction(event.swapId, event.swapData, swapType);
+	});
+}
+
+function scheduleBalanceRefresh(): void {
+	if (balanceRefreshTimer) clearTimeout(balanceRefreshTimer);
+	balanceRefreshTimer = setTimeout(() => {
+		balanceRefreshTimer = null;
+		const address = get(walletStore).rsk.address;
+		if (address) {
+			tokenBalanceService.clearBalanceCache(address);
+		}
+		loadAssets().catch((err) => {
+			console.error('[wallet] Balance refresh failed:', err);
+		});
+	}, 500);
+}
+
+function clearRefreshTimers(): void {
+	if (chainRefreshTimer) {
+		clearTimeout(chainRefreshTimer);
+		chainRefreshTimer = null;
+	}
+	if (balanceRefreshTimer) {
+		clearTimeout(balanceRefreshTimer);
+		balanceRefreshTimer = null;
+	}
+	if (postCleanupTimer) {
+		clearTimeout(postCleanupTimer);
+		postCleanupTimer = null;
+	}
 }
 
 // Cache instances for each swap type
@@ -273,6 +358,9 @@ async function initialize(): Promise<void> {
 		sdkWalletManager = new WalletManager(config);
 		await sdkWalletManager.initialize();
 
+		wireSwapUpdates();
+		ensureInboundBlockWatch();
+
 		// Update store with wallet info
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
@@ -355,12 +443,14 @@ function disconnectWallet(): void {
 	cachedSwapStorages = null;
 	terminalSwapIds.clear();
 	chainSortHints.clear();
+	clearRefreshTimers();
+	unsubscribeSwapUpdates?.();
+	unsubscribeSwapUpdates = null;
+	unsubscribeBlockWatch?.();
+	unsubscribeBlockWatch = null;
+	expectingInboundUntil = 0;
 	void clearPersistedChainSortHints();
 	recoverSwapsOnNextLoad = true;
-	if (chainRefreshTimer) {
-		clearTimeout(chainRefreshTimer);
-		chainRefreshTimer = null;
-	}
 	loadTransactionsPromise = null;
 
 	// Clear swap pairs cache
@@ -585,8 +675,7 @@ function scheduleChainRefresh(): void {
 	if (chainRefreshTimer) clearTimeout(chainRefreshTimer);
 	chainRefreshTimer = setTimeout(() => {
 		chainRefreshTimer = null;
-		recoverSwapsOnNextLoad = false;
-		loadTransactionsInternal().catch((err) => {
+		loadTransactions().catch((err) => {
 			console.error('[loadTransactions] Debounced chain refresh failed:', err);
 		});
 	}, 500);
@@ -600,6 +689,7 @@ async function loadTransactionsInternal(): Promise<void> {
 		await hydrateChainSortHints(chainSortHints);
 
 		const state = get(walletStore);
+		const shouldRecoverSwaps = recoverSwapsOnNextLoad;
 
 		// Ensure wallet is initialized before loading transactions
 		if (!state.isConnected || !sdkWalletManager) {
@@ -630,7 +720,17 @@ async function loadTransactionsInternal(): Promise<void> {
 		const manager = getWalletManager();
 		const finalState = get(walletStore);
 
-		await refreshChainSortHintsFromNostr();
+		if (shouldRecoverSwaps) {
+			await refreshChainSortHintsFromNostr();
+		}
+
+		const previousReceiveHashes = new Set(
+			finalState.transactions
+				.filter(
+					(tx) => tx.displayType === 'receive' || tx.displayType === 'swap-claim'
+				)
+				.map((tx) => tx.hash.toLowerCase())
+		);
 
 		// Validate wallets exist
 		if (!manager.rskWallet || !manager.bscWallet) {
@@ -680,15 +780,23 @@ async function loadTransactionsInternal(): Promise<void> {
 				.filter((swap): swap is BoltzSwapData => swap != null);
 		}
 
-		// Defer expired swap cleanup to allow WebSocket to sync status first
-		// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
-		// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
-		setTimeout(() => {
-			cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
-			loadTransactionsInternal().catch((err) => {
-				console.error('[loadTransactions] Post-cleanup refresh failed:', err);
-			});
-		}, 2000); // Wait 2 seconds for WebSocket to sync
+		// One-shot post-recovery cleanup (not a perpetual reload loop)
+		if (shouldRecoverSwaps) {
+			if (postCleanupTimer) clearTimeout(postCleanupTimer);
+			const cleanupSwaps = { submarineSwaps, reverseSwaps, chainSwaps };
+			postCleanupTimer = setTimeout(() => {
+				postCleanupTimer = null;
+				cleanupExpiredSwaps(
+					manager,
+					cleanupSwaps.submarineSwaps,
+					cleanupSwaps.reverseSwaps,
+					cleanupSwaps.chainSwaps
+				);
+				loadTransactions().catch((err) => {
+					console.error('[loadTransactions] Post-cleanup refresh failed:', err);
+				});
+			}, 2000);
+		}
 
 		// Map swaps to transaction format (updated filter signature)
 		const swapTransactions = [
@@ -717,6 +825,15 @@ async function loadTransactionsInternal(): Promise<void> {
 		);
 
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
+
+		const hasNewReceive = allTransactions.some(
+			(tx) =>
+				(tx.displayType === 'receive' || tx.displayType === 'swap-claim') &&
+				!previousReceiveHashes.has(tx.hash.toLowerCase())
+		);
+		if (hasNewReceive) {
+			scheduleBalanceRefresh();
+		}
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 		console.error('[loadTransactions] Failed to load transactions:', errorMessage, error);
@@ -828,6 +945,9 @@ export function updateSwapTransaction(
 				...s,
 				transactions: s.transactions.filter((tx) => tx.swap?.id !== swapId)
 			}));
+			if (swapType === 'reverse' || swapType === 'chain') {
+				scheduleBalanceRefresh();
+			}
 			scheduleChainRefresh();
 			return;
 		}
@@ -946,8 +1066,7 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.rskWallet.send(to, amount);
 
-	// Refresh data
-	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	void Promise.allSettled([loadAssets(), loadTransactions()]);
 
 	return txHash;
 }
@@ -1098,12 +1217,14 @@ export async function createReverseSwap(
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
 
-	return await manager.reverseSwapService.createReverseSwap({
+	const result = await manager.reverseSwapService.createReverseSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
 		walletSigner,
 		description
 	});
+	markExpectingInbound();
+	return result;
 }
 
 /**
@@ -1122,12 +1243,14 @@ export async function createChainSwap(
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
 
-	return await manager.chainSwapService!.createChainSwap({
+	const result = await manager.chainSwapService!.createChainSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
 		walletSigner,
 		description
 	});
+	markExpectingInbound();
+	return result;
 }
 
 /**
@@ -1181,8 +1304,7 @@ export async function lockSubmarineSwapFunds(
 
 	const result = await manager.submarineSwapService.lockFundsEVM(swapData, signer);
 
-	// Refresh data
-	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	void Promise.allSettled([loadAssets(), loadTransactions()]);
 
 	return result;
 }
@@ -1569,6 +1691,7 @@ export const walletManager = {
 	loadAssets,
 	loadTransactions,
 	refreshTransactions,
+	markExpectingInbound,
 	loadRbtcExchangeRate,
 	sendRBTC,
 	sendRSKToken,

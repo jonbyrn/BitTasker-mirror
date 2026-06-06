@@ -262,6 +262,7 @@
 
 	// Fetch BTC price and initialize swap pairs info
 	onMount(async () => {
+		walletManager.markExpectingInbound();
 		try {
 			// Fetch and cache swap pairs for dropdown display
 			// These are cached with 1-hour TTL, so subsequent calls are fast

@@ -283,4 +283,56 @@ describe('transactionLedger', () => {
 		expect(merged[1].swap?.id).toBe('a');
 		expect(merged[merged.length - 1].hash).toBe('0xsend');
 	});
+
+	it('should drop stale swap rows when lockup exists on-chain', () => {
+		const lockupHash = '0x' + 'A'.repeat(64);
+		const chainTx: ProcessedTransaction = {
+			hash: lockupHash.toLowerCase(),
+			from: 'user',
+			to: 'boltz',
+			value: '3301',
+			timestamp: '2024-06-06T02:33:00Z',
+			status: statusUI.confirmed,
+			network: 'lightning',
+			type: 'send',
+			displayType: 'send',
+			borderColor: 'warning',
+			iconConfig: { base: null as never, overlay: null },
+			title: 'wallet.sent',
+			networkIcon: '',
+			networkDisplayName: 'LN',
+			explorerUrl: null,
+			feeSats: 119,
+			balanceAfter: 0
+		};
+		const staleSwap: ProcessedTransaction = {
+			hash: lockupHash,
+			from: 'user',
+			to: 'boltz',
+			value: '3265',
+			timestamp: '2024-06-06T02:33:00Z',
+			status: statusUI.pending,
+			network: 'lightning',
+			type: 'send',
+			displayType: 'send',
+			borderColor: 'neutral',
+			iconConfig: { base: null as never, overlay: null },
+			title: 'wallet.swap.pending_send',
+			networkIcon: '',
+			networkDisplayName: 'LN',
+			explorerUrl: null,
+			feeSats: 0,
+			balanceAfter: 0,
+			swap: {
+				id: 'swap-1',
+				type: 'submarine',
+				actions: [],
+				rawStatus: 'invoice.pending'
+			}
+		};
+
+		const result = projectTransactions([chainTx], [staleSwap], 4200);
+		expect(result).toHaveLength(1);
+		expect(result[0].hash).toBe(lockupHash.toLowerCase());
+	});
 });
