@@ -271,18 +271,15 @@
 						<div class="flex items-center justify-center gap-1">
 							{#if formattedRating}
 								<IconStar class="text-primary h-4 w-4" aria-hidden="true" />
-								<p class="text-base-content text-lg font-bold">{formattedRating}</p>
+								<p class="text-base-content text-lg font-bold">
+									{formattedRating}{#if reviewCount > 0}
+										<span class="text-sm font-normal">({reviewCount})</span>{/if}
+								</p>
 							{:else}
 								<p class="text-base-content text-lg font-bold">—</p>
 							{/if}
 						</div>
-						<p class="text-base-content/60 text-xs">
-							{#if reviewCount > 0}
-								{$t('common.profile.rating')} · {reviewCount}
-							{:else}
-								{$t('common.profile.rating')}
-							{/if}
-						</p>
+						<p class="text-base-content/60 text-xs">{$t('common.profile.rating')}</p>
 					</a>
 				</div>
 				<div class="bg-base-200 rounded-lg p-3 text-center">
