@@ -245,7 +245,7 @@
 		</div>
 	{:else}
 		<!-- Top action row: back (mobile) + centered avatar (mobile) + report/share (all) -->
-		<div class="relative mx-auto max-w-6xl px-4 pt-4">
+		<div class="relative mx-auto max-w-6xl px-4 pt-4 pb-28 md:pb-0">
 			<div class="flex items-center justify-between">
 				<!-- Mobile: back button -->
 				<div class="md:hidden">
