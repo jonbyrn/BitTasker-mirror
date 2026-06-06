@@ -108,7 +108,7 @@
 
 	$effect(() => {
 		const observer = new IntersectionObserver(handleIntersection, {
-			rootMargin: '-80px 0px -60% 0px',
+			rootMargin: '-73px 0px -60% 0px',
 			threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
 		});
 
@@ -132,7 +132,7 @@
 <nav
 	bind:this={navRef}
 	aria-label="Profile sections"
-	class="bg-base-100 sticky top-16 z-10 shadow-md"
+	class="bg-base-100 sticky top-[73px] z-10 shadow-md"
 >
 	<!-- Mobile: full-width dropdown -->
 	<div class="px-4 py-2 md:hidden">
