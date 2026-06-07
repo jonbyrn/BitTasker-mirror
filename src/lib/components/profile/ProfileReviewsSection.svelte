@@ -27,7 +27,12 @@
 	let cursor = $state<number | null>(null);
 	const hasMore = $derived(cursor !== null);
 
-	function getDistributionBars(): { stars: number; count: number; percent: number }[] {
+	function getDistributionBars(): {
+		stars: number;
+		count: number;
+		percent: number;
+		percentOfTotal: number;
+	}[] {
 		if (!reviews.length) return [];
 		const counts = [0, 0, 0, 0, 0];
 		for (const r of reviews) {
@@ -35,10 +40,12 @@
 			if (rating >= 1 && rating <= 5) counts[rating - 1]++;
 		}
 		const max = Math.max(...counts, 1);
+		const total = reviews.length;
 		return [5, 4, 3, 2, 1].map((stars) => ({
 			stars,
 			count: counts[stars - 1],
-			percent: Math.round((counts[stars - 1] / max) * 100)
+			percent: Math.round((counts[stars - 1] / max) * 100),
+			percentOfTotal: total > 0 ? Math.round((counts[stars - 1] / total) * 100) : 0
 		}));
 	}
 
@@ -167,7 +174,9 @@
 										style="width: {bar.percent}%"
 									></div>
 								</div>
-								<span class="text-base-content/60 w-8 text-right text-xs">{bar.count}</span>
+								<span class="text-base-content/60 w-20 text-right text-xs"
+									>{bar.percentOfTotal}% ({bar.count})</span
+								>
 							</div>
 						{/each}
 					</div>

@@ -210,7 +210,6 @@
 				<div class="space-y-2">
 					{#each [5, 4, 3, 2, 1] as rating (rating)}
 						{@const percentage = getRatingPercentage(stats, rating as 1 | 2 | 3 | 4 | 5)}
-						{@const count = stats.ratingDistribution[rating as 1 | 2 | 3 | 4 | 5]}
 						<div class="flex items-center gap-3">
 							<div class="w-12 text-sm font-medium">{rating}★</div>
 							<div class="flex-1">
@@ -223,8 +222,8 @@
 									></div>
 								</div>
 							</div>
-							<div class="text-base-content/70 w-28 text-right text-sm">
-								{percentage.toFixed(0)}% ({count.toLocaleString()})
+							<div class="text-base-content/70 w-16 text-right text-sm">
+								{percentage.toFixed(0)}%
 							</div>
 						</div>
 					{/each}
