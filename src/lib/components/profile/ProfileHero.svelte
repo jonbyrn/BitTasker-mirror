@@ -27,7 +27,8 @@
 		location,
 		website,
 		isLoading = false,
-		isLoggedIn = false
+		isLoggedIn = false,
+		openQuoteModal = $bindable(false)
 	}: {
 		profile: NostrProfile | null;
 		hexPubkey: string;
@@ -42,7 +43,16 @@
 		website?: string;
 		isLoading?: boolean;
 		isLoggedIn?: boolean;
+		openQuoteModal?: boolean;
 	} = $props();
+
+	// When parent sets openQuoteModal to true, open the modal and reset
+	$effect(() => {
+		if (openQuoteModal) {
+			isQuoteModalOpen = true;
+			openQuoteModal = false;
+		}
+	});
 
 	function scrollToReviews(e: MouseEvent) {
 		e.preventDefault();

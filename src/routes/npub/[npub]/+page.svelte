@@ -45,6 +45,7 @@
 	let reviewStats = $state<ReviewStats | null>(null);
 	let tasksCompleted = $state(0);
 	let isLoadingReviews = $state(false);
+	let openQuoteModal = $state(false);
 
 	// ── Lazy section visibility (C1: only fetch when section enters viewport) ──
 	let visibleSections: Set<string> = new SvelteSet();
@@ -406,6 +407,7 @@
 						website={userProfile?.website}
 						isLoading={false}
 						isLoggedIn={$authState.isAuthenticated}
+						bind:openQuoteModal
 					/>
 				</div>
 
@@ -487,9 +489,12 @@
 									<p class="text-base-content/70 mb-4 text-sm">
 										{$t('profile.hire_me_description')}
 									</p>
-									<a href="/services?provider={hexPubkey}" class="btn btn-primary btn-wide mx-auto">
+									<button
+										class="btn btn-primary btn-wide mx-auto"
+										onclick={() => (openQuoteModal = true)}
+									>
 										{$t('common.profile.hire_me')}
-									</a>
+									</button>
 								</div>
 							{/if}
 						</main>
