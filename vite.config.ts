@@ -169,9 +169,10 @@ export default defineConfig(({ mode }) => {
 		define: {
 			__APP_VERSION__: JSON.stringify(pkg.version),
 			// Unique per-build identifier for version-scoped sessionStorage keys.
-			// CF_PAGES_COMMIT_SHA is injected automatically by Cloudflare Pages CI.
-			// Falls back to a timestamp so every local build also gets a unique value.
-			__BUILD_VERSION__: JSON.stringify(process.env.CF_PAGES_COMMIT_SHA ?? Date.now().toString()),
+			// Priority: Workers Builds → GitLab CI → timestamp fallback.
+			__BUILD_VERSION__: JSON.stringify(
+				process.env.WORKERS_CI_COMMIT_SHA ?? process.env.CI_COMMIT_SHA ?? Date.now().toString()
+			),
 			global: 'globalThis'
 		},
 		build: {
