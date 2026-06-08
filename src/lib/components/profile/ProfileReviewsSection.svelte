@@ -135,9 +135,9 @@
 		<!-- Stats summary -->
 		{#if stats}
 			<div class="bg-base-100 mb-6 rounded-2xl p-4 shadow-sm">
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
+				<div class="flex flex-row items-start gap-4">
 					<!-- Average rating -->
-					<div class="flex flex-col items-center gap-1">
+					<div class="flex w-24 shrink-0 flex-col items-center gap-1">
 						<span class="text-4xl font-bold">{stats.averageRating.toFixed(1)}</span>
 						<div class="flex items-center gap-0.5">
 							{#each Array.from({ length: 5 }) as _, i (i)}
@@ -154,13 +154,13 @@
 					</div>
 
 					<!-- Distribution bars -->
-					<div class="flex-1 space-y-1">
+					<div class="min-w-0 flex-1 space-y-1">
 						{#each getDistributionBars() as bar (bar.stars)}
-							<div class="flex items-center gap-2">
-								<span class="w-6 text-right text-xs font-medium">{bar.stars}</span>
+							<div class="flex items-center gap-1.5">
+								<span class="w-4 text-right text-xs font-medium">{bar.stars}</span>
 								<span class="text-primary text-xs">★</span>
 								<div
-									class="bg-base-200 h-2 flex-1 overflow-hidden rounded-full"
+									class="bg-base-200 h-2 min-w-0 flex-1 overflow-hidden rounded-full"
 									role="meter"
 									aria-label="{bar.stars} {$t('profile.reviews.stars')}: {bar.count} {$t(
 										'profile.reviews.reviews_count'
@@ -174,7 +174,7 @@
 										style="width: {bar.percent}%"
 									></div>
 								</div>
-								<span class="text-base-content/60 w-20 text-right text-xs"
+								<span class="text-base-content/60 w-14 shrink-0 text-right text-xs"
 									>{bar.percentOfTotal}% ({bar.count})</span
 								>
 							</div>
