@@ -398,6 +398,93 @@ export async function getReviewsForUser(
 	return { reviews: filtered, cursor };
 }
 
+/**
+ * Lightweight stats-only fetch. Parses attestation events synchronously and
+ * only uses attestations that already have embedded ratings (new format).
+ * Skips fetchReviewEventById entirely — no individual network calls.
+ *
+ * Old-format attestations (brief error, no embedded ratings) are excluded.
+ * Use this for aggregate stats (average, distribution) where you need a large
+ * sample but don't need full review data (comments, profiles).
+ */
+export async function fetchReviewRatings(
+	pubkey: string,
+	limit: number = 250
+): Promise<AttestedReview[]> {
+	const hexPubkey = normalizeNostrPubkey(pubkey);
+	if (!hexPubkey) return [];
+
+	const filter: NDKFilter = { kinds: [KINDS.ATTESTATION], '#p': [hexPubkey], limit: limit * 2 };
+
+	return new Promise((resolve) => {
+		const reviews: AttestedReview[] = [];
+		let resolved = false;
+
+		const timeout = setTimeout(() => {
+			if (!resolved) {
+				resolved = true;
+				resolve(dedupe(reviews).slice(0, limit));
+			}
+		}, 8000);
+
+		const sub = ndk.subscribe(filter, { closeOnEose: true });
+
+		sub.on('event', (event) => {
+			try {
+				const c = JSON.parse(event.content);
+				if (!c.reviewerPubkey || !c.revieweePubkey) return;
+				if (!nostrPubkeysMatch(c.revieweePubkey, hexPubkey)) return;
+
+				const rating = c.rating as Record<string, unknown> | undefined;
+				if (!rating || typeof rating.overallRating !== 'number' || rating.overallRating <= 0)
+					return;
+
+				const catRatings = (rating.categoryRatings as Record<string, number>) || {};
+				const revieweeRole = (c.revieweeRole as 'tasker' | 'taskee' | undefined) || undefined;
+
+				reviews.push({
+					reviewEventId: typeof c.reviewEventId === 'string' ? c.reviewEventId : '',
+					attestationEventId: event.id,
+					reviewerPubkey: c.reviewerPubkey,
+					revieweePubkey: c.revieweePubkey,
+					content: {
+						overallRating: rating.overallRating,
+						categoryRatings: buildCategoryRatings(
+							{
+								overallRating: rating.overallRating,
+								workQuality: catRatings.workQuality ?? 0,
+								experience: catRatings.experience ?? 0,
+								deliverySpeed: catRatings.deliverySpeed ?? 0,
+								communication: catRatings.communication ?? 0,
+								clarity: catRatings.clarity ?? 0,
+								paymentTimeliness: catRatings.paymentTimeliness ?? 0,
+								comment: '',
+								revieweeRole
+							},
+							revieweeRole
+						),
+						revieweeRole
+					},
+					createdAt: event.created_at ? event.created_at * 1000 : Date.now(),
+					contractId: typeof c.settlementId === 'string' ? c.settlementId : undefined
+				});
+			} catch {
+				// malformed event, skip
+			}
+		});
+
+		sub.on('eose', () => {
+			if (!resolved) {
+				resolved = true;
+				clearTimeout(timeout);
+				resolve(dedupe(reviews).slice(0, limit));
+			}
+		});
+
+		sub.start();
+	});
+}
+
 export async function getReviewsByReviewer(
 	pubkey: string,
 	limit: number = 50,

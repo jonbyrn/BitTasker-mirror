@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { AttestedReview } from '$lib/types/review';
 	import { t } from 'svelte-i18n';
-	import { getReviewsForUser } from '$lib/utils/reviews/queries';
+	import { getReviewsForUser, fetchReviewRatings } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import type { ReviewStats } from '$lib/types/review';
 	import ReviewCard from '$lib/components/profile/ReviewCard.svelte';
 
 	const INITIAL_PAGE_SIZE = 3;
 	const LOAD_MORE_PAGE_SIZE = 5;
-	const STATS_BATCH_SIZE = 50;
+	const STATS_BATCH_SIZE = 250;
 
 	let {
 		pubkey,
@@ -35,19 +35,16 @@
 		percent: number;
 		percentOfTotal: number;
 	}[] {
-		if (!reviews.length) return [];
-		const counts = [0, 0, 0, 0, 0];
-		for (const r of reviews) {
-			const rating = Math.round(r.content.overallRating);
-			if (rating >= 1 && rating <= 5) counts[rating - 1]++;
-		}
-		const max = Math.max(...counts, 1);
-		const total = reviews.length;
+		// Use stats from the 250-review batch, not the 3 displayed reviews
+		if (!stats || stats.totalReviews === 0) return [];
+		const dist = stats.ratingDistribution;
+		const max = Math.max(dist[1], dist[2], dist[3], dist[4], dist[5], 1);
+		const total = stats.totalReviews;
 		return [5, 4, 3, 2, 1].map((stars) => ({
 			stars,
-			count: counts[stars - 1],
-			percent: Math.round((counts[stars - 1] / max) * 100),
-			percentOfTotal: total > 0 ? Math.round((counts[stars - 1] / total) * 100) : 0
+			count: dist[stars as 1 | 2 | 3 | 4 | 5],
+			percent: Math.round((dist[stars as 1 | 2 | 3 | 4 | 5] / max) * 100),
+			percentOfTotal: total > 0 ? Math.round((dist[stars as 1 | 2 | 3 | 4 | 5] / total) * 100) : 0
 		}));
 	}
 
@@ -60,23 +57,32 @@
 		}
 		error = null;
 		try {
-			const pageSize = before ? LOAD_MORE_PAGE_SIZE : STATS_BATCH_SIZE;
-			const queryBefore = before !== undefined ? before - 1 : undefined;
-			const result = await getReviewsForUser(pubkey, pageSize, queryBefore);
-			if (before) {
+			if (!before) {
+				// First load: fetch stats and displayed reviews in parallel.
+				// Stats use a lightweight batch that skips fetchReviewEventById.
+				// Displayed reviews use the full flow for complete data.
+				const [ratingsBatch, displayResult] = await Promise.all([
+					fetchReviewRatings(pubkey, STATS_BATCH_SIZE),
+					getReviewsForUser(pubkey, INITIAL_PAGE_SIZE)
+				]);
+
+				if (!hasLoaded) {
+					stats = calculateReviewStats(
+						ratingsBatch.length > 0 ? ratingsBatch : displayResult.reviews
+					);
+				}
+				reviews = displayResult.reviews;
+				cursor = displayResult.cursor;
+			} else {
+				const queryBefore = before - 1;
+				const result = await getReviewsForUser(pubkey, LOAD_MORE_PAGE_SIZE, queryBefore);
 				const existingIds = new Set(reviews.map((r) => r.attestationEventId));
 				const uniqueNewReviews = result.reviews.filter(
 					(r) => !existingIds.has(r.attestationEventId)
 				);
 				reviews = [...reviews, ...uniqueNewReviews];
-			} else {
-				// First page: use full batch for stats, trim to INITIAL_PAGE_SIZE for display
-				if (!hasLoaded) {
-					stats = calculateReviewStats(result.reviews);
-				}
-				reviews = result.reviews.slice(0, INITIAL_PAGE_SIZE);
+				cursor = result.cursor;
 			}
-			cursor = result.cursor;
 			hasLoaded = true;
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
@@ -175,7 +181,7 @@
 									)}"
 									aria-valuenow={bar.count}
 									aria-valuemin={0}
-									aria-valuemax={reviews.length}
+									aria-valuemax={stats?.totalReviews ?? 0}
 								>
 									<div
 										class="bg-primary h-full rounded-full transition-all duration-300"
