@@ -6,7 +6,7 @@
 	import type { ReviewStats } from '$lib/types/review';
 	import ReviewCard from '$lib/components/profile/ReviewCard.svelte';
 
-	const PAGE_SIZE = 6;
+	const PAGE_SIZE = 3;
 
 	let {
 		pubkey,
