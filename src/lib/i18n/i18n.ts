@@ -238,9 +238,9 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
-	if (route.includes('/reviews')) {
-		namespaces.push('reviews');
-	}
+		if (route.includes('/reviews')) {
+			namespaces.push('reviews');
+		}
 	}
 
 	if (route.includes('/services')) {
@@ -263,7 +263,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	}
 
 	// Company pages (route groups don't show in URL, so check actual paths)
-	if (route.includes('/npub')) namespaces.push('moderation');
+	if (route.includes('/npub')) namespaces.push('moderation', 'dashboard/services/detail');
 	if (route.includes('/about')) namespaces.push('company/about');
 	if (route.includes('/careers')) namespaces.push('company/careers');
 	if (route.includes('/secure-payments')) namespaces.push('company/secure-payments');
