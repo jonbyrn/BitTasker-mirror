@@ -63,7 +63,7 @@ run_worker_first = [
 # ============================================
 [env.dev]
 name = "bittasker-dev-worker"
-workers_dev = false
+workers_dev = true
 preview_urls = true
 
 [env.dev.route]
@@ -137,7 +137,7 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # ============================================
 [env.staging]
 name = "staging"
-workers_dev = true
+workers_dev = false
 
 # ROUTE DISABLED: Uncomment when migrating fully to Workers.
 # [env.staging.route]
@@ -175,12 +175,12 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # ============================================
 [env.production]
 name = "bittasker-prod-worker"
-workers_dev = true
+workers_dev = false
 
 # ROUTE DISABLED: Uncomment when migrating fully to Workers.
-# [env.production.route]
-# pattern = "bittasker.com/*"
-# zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+[env.production.route]
+pattern = "bittasker.com/*"
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 [env.production.observability.logs]
 enabled = true
