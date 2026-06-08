@@ -8,6 +8,7 @@
 
 	const INITIAL_PAGE_SIZE = 3;
 	const LOAD_MORE_PAGE_SIZE = 5;
+	const STATS_BATCH_SIZE = 50;
 
 	let {
 		pubkey,
@@ -59,7 +60,7 @@
 		}
 		error = null;
 		try {
-			const pageSize = before ? LOAD_MORE_PAGE_SIZE : INITIAL_PAGE_SIZE;
+			const pageSize = before ? LOAD_MORE_PAGE_SIZE : STATS_BATCH_SIZE;
 			const queryBefore = before !== undefined ? before - 1 : undefined;
 			const result = await getReviewsForUser(pubkey, pageSize, queryBefore);
 			if (before) {
@@ -69,13 +70,13 @@
 				);
 				reviews = [...reviews, ...uniqueNewReviews];
 			} else {
-				reviews = result.reviews;
+				// First page: use full batch for stats, trim to INITIAL_PAGE_SIZE for display
+				if (!hasLoaded) {
+					stats = calculateReviewStats(result.reviews);
+				}
+				reviews = result.reviews.slice(0, INITIAL_PAGE_SIZE);
 			}
 			cursor = result.cursor;
-			// Lock stats to first page only (I4: prevent stats drift on pagination)
-			if (!hasLoaded) {
-				stats = calculateReviewStats(reviews);
-			}
 			hasLoaded = true;
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
@@ -141,11 +142,18 @@
 						<span class="text-4xl font-bold">{stats.averageRating.toFixed(1)}</span>
 						<div class="flex items-center gap-0.5">
 							{#each Array.from({ length: 5 }) as _, i (i)}
-								<span
-									class={i < Math.round(stats.averageRating)
-										? 'text-primary'
-										: 'text-base-content/30'}>★</span
-								>
+								{@const fill = Math.min(1, Math.max(0, stats.averageRating - i))}
+								{@const clipRight = (1 - fill) * 100}
+								<span class="relative inline-block text-sm">
+									<span class="text-base-content/30">★</span>
+									{#if fill > 0}
+										<span
+											class="text-primary absolute inset-0 overflow-hidden"
+											style="clip-path: inset(0 {clipRight}% 0 0)"
+											aria-hidden="true">★</span
+										>
+									{/if}
+								</span>
 							{/each}
 						</div>
 						<span class="text-base-content/60 text-sm">
