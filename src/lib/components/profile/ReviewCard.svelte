@@ -11,6 +11,7 @@
 	let reviewerName = $state<string>('');
 	let reviewerAvatar = $state<string>('');
 	let isLoadingProfile = $state(true);
+	let showFullComment = $state(false);
 
 	function getRelativeDate(createdAt: number): string {
 		const now = Date.now();
@@ -144,9 +145,28 @@
 				</div>
 
 				{#if review.content.comment}
-					<p class="text-base-content/80 mt-2 text-sm">
-						{review.content.comment}
-					</p>
+					<div class="relative mt-2">
+						<div
+							class="overflow-hidden transition-[max-height] duration-300 ease-out {showFullComment
+								? 'max-h-[50rem]'
+								: 'max-h-[4.5rem]'}"
+						>
+							<p class="text-base-content/80 text-sm whitespace-pre-line">
+								{review.content.comment}
+							</p>
+							{#if !showFullComment}
+								<div
+									class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-6 bg-gradient-to-t to-transparent"
+								></div>
+							{/if}
+						</div>
+						<button
+							class="text-primary mt-1 text-xs font-semibold"
+							onclick={() => (showFullComment = !showFullComment)}
+						>
+							{showFullComment ? $t('common.show_less') : $t('common.show_more')}
+						</button>
+					</div>
 				{/if}
 			</div>
 		</div>
