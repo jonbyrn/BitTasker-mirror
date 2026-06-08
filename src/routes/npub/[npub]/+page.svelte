@@ -350,8 +350,8 @@
 						<div class="flex items-center gap-1">
 							<button
 								class="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content"
-								aria-label={$t('common.share')}
-								title={$t('common.share')}
+								aria-label={$t('share')}
+								title={$t('share')}
 								onclick={() => {
 									if (navigator.share) {
 										navigator.share({ title: displayName, url: window.location.href });
