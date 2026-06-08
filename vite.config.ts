@@ -10,6 +10,7 @@ import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 // Vite plugin to ensure browser condition is prioritized during tests
 // This fixes the "mount(...) is not available on the server" error
@@ -113,7 +114,10 @@ export default defineConfig(({ mode }) => {
 			// 3. WASM — sets up WASM module handling before polyfills run
 			wasm(),
 
-			// 4. Node polyfills — replaces Node built-ins after all transforms are done
+			// 4. Top-level await — transforms must happen before polyfills
+			topLevelAwait(),
+
+			// 5. Node polyfills — replaces Node built-ins after all transforms are done
 			nodePolyfills({
 				// Whether to polyfill `node:` protocol imports.
 				protocolImports: true,
@@ -130,7 +134,7 @@ export default defineConfig(({ mode }) => {
 				exclude: ['fs', 'path']
 			}),
 
-			// 5. Icons — asset resolution, late in the pipeline
+			// 6. Icons — asset resolution, late in the pipeline
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
@@ -139,10 +143,10 @@ export default defineConfig(({ mode }) => {
 				defaultClass: ''
 			}),
 
-			// 6. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
+			// 7. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
 			addBrowserCondition,
 
-			// 7. sentrySvelteKit — MUST be last: it reads the final source maps output
+			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
 			//    and uploads after the adapter runs (closeBundle hook)
 			//    Keep it last only when a real upload is configured;
 			//    local/CI preview builds should not pay the source-map/upload cost without credentials.
@@ -208,6 +212,15 @@ export default defineConfig(({ mode }) => {
 						}
 						if (id.includes('node_modules/bip39')) {
 							return 'bip39';
+						}
+						// Isolate Svelte internals into their own chunk.
+						// Without this, Vite merges Svelte's onMount/onDestroy/state/etc. with
+						// NDK and axios code that has top-level await. The topLevelAwait plugin
+						// then cascades __tla wrapping to the merged chunk, putting onMount inside
+						// an async IIFE. On WebKit, this makes onMount undefined when SvelteKit's
+						// runtime checks onMount.toString() — breaking the app on Safari/iPhone.
+						if (id.includes('node_modules/svelte/src/internal')) {
+							return 'svelte-internal';
 						}
 					}
 				}
