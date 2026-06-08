@@ -163,7 +163,7 @@
 							{/each}
 						</div>
 						<span class="text-base-content/60 text-sm">
-							{$t('profile.reviews.total_reviews', { values: { count: stats.totalReviews } })}
+							({stats.totalReviews.toLocaleString()})
 						</span>
 					</div>
 
