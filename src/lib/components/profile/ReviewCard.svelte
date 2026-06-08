@@ -12,6 +12,18 @@
 	let reviewerAvatar = $state<string>('');
 	let isLoadingProfile = $state(true);
 	let showFullComment = $state(false);
+	let commentElement = $state<HTMLParagraphElement | null>(null);
+	let isTruncated = $state(false);
+
+	$effect(() => {
+		if (!commentElement || !review.content.comment) return;
+		// Measure after layout settles — check if content overflows the clamp height
+		requestAnimationFrame(() => {
+			if (commentElement) {
+				isTruncated = commentElement.scrollHeight > commentElement.clientHeight + 1;
+			}
+		});
+	});
 
 	function getRelativeDate(createdAt: number): string {
 		const now = Date.now();
@@ -151,21 +163,26 @@
 								? 'max-h-[50rem]'
 								: 'max-h-[4.5rem]'}"
 						>
-							<p class="text-base-content/80 text-sm whitespace-pre-line">
+							<p
+								bind:this={commentElement}
+								class="text-base-content/80 text-sm whitespace-pre-line"
+							>
 								{review.content.comment}
 							</p>
-							{#if !showFullComment}
+							{#if isTruncated && !showFullComment}
 								<div
 									class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-6 bg-gradient-to-t to-transparent"
 								></div>
 							{/if}
 						</div>
-						<button
-							class="text-primary mt-1 text-xs font-semibold"
-							onclick={() => (showFullComment = !showFullComment)}
-						>
-							{showFullComment ? $t('common.show_less') : $t('common.show_more')}
-						</button>
+						{#if isTruncated}
+							<button
+								class="text-primary mt-1 text-xs font-semibold"
+								onclick={() => (showFullComment = !showFullComment)}
+							>
+								{showFullComment ? $t('common.show_less') : $t('common.show_more')}
+							</button>
+						{/if}
 					</div>
 				{/if}
 			</div>
