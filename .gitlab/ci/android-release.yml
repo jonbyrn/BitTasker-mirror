@@ -248,7 +248,7 @@ android-build-internal:
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-(alpha|beta)/
   environment:
-    name: internal-testing
+    name: production
 
 android-release-production:
   extends: .android-cache
