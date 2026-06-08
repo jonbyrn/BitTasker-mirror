@@ -4,25 +4,8 @@
 	import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
-	import { cubicOut } from 'svelte/easing';
-	import type { TransitionConfig } from 'svelte/transition';
 	import IconCheck from '~icons/mdi/check';
 	import { clickOutside } from '$lib/utils/clickOutside';
-
-	function popoverTransition(
-		node: Element,
-		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
-	): TransitionConfig {
-		return {
-			duration,
-			easing: cubicOut,
-			css: (t) => {
-				const ty = (1 - t) * y;
-				const s = start + (1 - start) * t;
-				return `transform: translate3d(0, ${ty}px, 0) scale(${s}); opacity: ${t};`;
-			}
-		};
-	}
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
@@ -88,10 +71,7 @@
 	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
-<div
-	class="dropdown dropdown-end language-dropdown {className}"
-	use:clickOutside={{ callback: () => closeDropdown() }}
->
+<div class="language-dropdown {className}" use:clickOutside={{ callback: () => closeDropdown() }}>
 	<button
 		type="button"
 		class="btn btn-ghost flex items-center gap-2"
@@ -128,8 +108,7 @@
 	{#if isDropdownOpen}
 		<ul
 			role="menu"
-			class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
-			transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+			class="menu bg-base-100 rounded-box dropdown-menu z-1 w-52 p-2 shadow-sm"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 		>
@@ -166,20 +145,31 @@
 </div>
 
 <style>
-	/* Ensure proper positioning */
 	.language-dropdown {
 		position: relative;
+		display: inline-block;
 	}
 
-	/* Dropdown content positioning */
-	.language-dropdown .dropdown-content {
+	.language-dropdown .dropdown-menu {
 		position: absolute;
 		top: 100%;
 		left: 0;
 		z-index: 1000;
+		transform-origin: top right;
+		animation: dropdown-popover 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 	}
 
-	/* Prevent focus flash on mobile */
+	@keyframes dropdown-popover {
+		from {
+			opacity: 0;
+			transform: translate3d(0, -8px, 0) scale(0.98);
+		}
+		to {
+			opacity: 1;
+			transform: translate3d(0, 0, 0) scale(1);
+		}
+	}
+
 	.language-dropdown button {
 		-webkit-tap-highlight-color: transparent;
 	}
@@ -188,7 +178,6 @@
 		outline: none;
 	}
 
-	/* Only show focus ring for keyboard navigation */
 	.language-dropdown button:focus-visible {
 		outline: 2px solid currentColor;
 		outline-offset: 2px;
