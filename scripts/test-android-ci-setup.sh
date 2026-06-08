@@ -57,6 +57,18 @@ if ! grep -q 'package_name: PACKAGE_NAME' fastlane/Fastfile; then
 fi
 echo "OK: Fastfile passes package_name to upload_to_play_store"
 
+if ! grep -q 'def validate_play_creds' fastlane/Fastfile; then
+  echo "FAIL: Fastfile preflight must validate Play credentials via validate_play_creds" >&2
+  exit 1
+fi
+echo "OK: Fastfile defines validate_play_creds for preflight"
+
+if grep -q 'validate_only: true' fastlane/Fastfile; then
+  echo "FAIL: Fastfile must not use supply validate_only in preflight (no artifacts to validate)" >&2
+  exit 1
+fi
+echo "OK: Fastfile preflight does not use supply validate_only"
+
 if ! grep -q 'PACKAGE_NAME = "com.bittasker.app"' fastlane/Fastfile; then
   echo "FAIL: Fastfile must define PACKAGE_NAME matching applicationId" >&2
   exit 1
