@@ -6,7 +6,8 @@
 	import type { ReviewStats } from '$lib/types/review';
 	import ReviewCard from '$lib/components/profile/ReviewCard.svelte';
 
-	const PAGE_SIZE = 3;
+	const INITIAL_PAGE_SIZE = 3;
+	const LOAD_MORE_PAGE_SIZE = 5;
 
 	let {
 		pubkey,
@@ -58,10 +59,9 @@
 		}
 		error = null;
 		try {
-			// Subtract 1 from cursor to avoid second-level boundary overlaps
-			// (multiple reviews can share the same `createdAt` second)
+			const pageSize = before ? LOAD_MORE_PAGE_SIZE : INITIAL_PAGE_SIZE;
 			const queryBefore = before !== undefined ? before - 1 : undefined;
-			const result = await getReviewsForUser(pubkey, PAGE_SIZE, queryBefore);
+			const result = await getReviewsForUser(pubkey, pageSize, queryBefore);
 			if (before) {
 				const existingIds = new Set(reviews.map((r) => r.attestationEventId));
 				const uniqueNewReviews = result.reviews.filter(
