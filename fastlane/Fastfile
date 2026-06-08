@@ -31,6 +31,17 @@ platform :android do
     end
   end
 
+  # validate_play_store_json_key equivalent; the built-in action swallows API errors.
+  def validate_play_creds
+    require "supply/client"
+    key = play_json_key
+    client = Supply::Client.make_from_config(params: { json_key: key })
+    client.begin_edit(package_name: PACKAGE_NAME)
+    client.abort_current_edit
+  rescue StandardError => e
+    UI.user_error!("Play Store preflight failed: #{e.message}")
+  end
+
   before_all do
     Dir.chdir(PROJECT_ROOT)
   end
@@ -45,17 +56,8 @@ platform :android do
     if ENV["ANDROID_SKIP_PLAY_UPLOAD"] == "1"
       UI.success("Play Store preflight OK (upload skipped): package=#{PACKAGE_NAME}")
     else
-      play_json_key
+      validate_play_creds
       UI.success("Play Store preflight OK: package=#{PACKAGE_NAME}")
-      upload_play(
-        track: "internal",
-        validate_only: true,
-        skip_upload_apk: true,
-        skip_upload_aab: true,
-        skip_upload_metadata: true,
-        skip_upload_screenshots: true,
-        skip_upload_images: true
-      )
     end
   end
 

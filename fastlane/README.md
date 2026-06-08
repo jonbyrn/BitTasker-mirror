@@ -1,5 +1,4 @@
-fastlane documentation
-----
+## fastlane documentation
 
 # Installation
 
@@ -14,6 +13,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 # Available Actions
 
 ## Android
+
+### android preflight
+
+```sh
+[bundle exec] fastlane android preflight
+```
+
+Validate Play Store credentials and package name (no build)
 
 ### android internal
 
@@ -63,7 +70,7 @@ Promote closed testing to production
 
 Update store listing metadata only
 
-----
+---
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
 
