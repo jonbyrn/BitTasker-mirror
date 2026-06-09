@@ -77,7 +77,7 @@ describe('RequestQuoteModal', () => {
 		expect(getByTestId('mock-media-count').textContent).toBe('1');
 	});
 
-	it.skip('closes and resets after a successful async submit', async () => {
+	it('closes and resets after a successful async submit', async () => {
 		const onConfirm = vi.fn().mockResolvedValue({ success: true });
 		const onClose = vi.fn();
 		const { container, getByText } = render(RequestQuoteModal, {

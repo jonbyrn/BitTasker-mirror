@@ -171,19 +171,23 @@ describe('getCachedViewerNpub', () => {
 
 	describe('error handling', () => {
 		it('should return null when Preferences.get throws an error', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
 			mockPreferencesGet.mockRejectedValue(new Error('Storage error'));
 
 			const result = await getCachedViewerNpub();
 
 			expect(result).toBeNull();
+			vi.restoreAllMocks();
 		});
 
 		it('should return null when Preferences.get throws a non-Error object', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
 			mockPreferencesGet.mockRejectedValue('string error');
 
 			const result = await getCachedViewerNpub();
 
 			expect(result).toBeNull();
+			vi.restoreAllMocks();
 		});
 	});
 });

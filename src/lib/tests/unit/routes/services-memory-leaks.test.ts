@@ -419,9 +419,10 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 
 	it('FIX VERIFICATION: loadingTimeoutTimer should be started when loading begins and cleared on destroy', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved to test timeout behavior
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved to test timeout behavior
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -482,7 +483,7 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 	it('FIX VERIFICATION: loadingTimedOut should be set to true after LOADING_TIMEOUT_MS when loading', async () => {
 		vi.useFakeTimers();
 
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -705,9 +706,10 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 	it('should clear loadingTimeoutTimer when component unmounts during loading', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -738,7 +740,7 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 	});
 
 	it('should clear loadingTimeoutTimer via clearTimeout when unmounted mid-timeout', async () => {
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		hoisted.servicesStore.set({
 			items: [],

@@ -9,6 +9,10 @@ vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId: vi.fn()
 }));
 
+vi.mock('$lib/i18n/i18n', () => ({
+	loadNamespace: vi.fn().mockResolvedValue({})
+}));
+
 function createService(overrides: Partial<Service> = {}): Service {
 	return {
 		id: 'service-event-1',

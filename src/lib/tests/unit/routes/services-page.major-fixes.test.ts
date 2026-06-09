@@ -457,7 +457,7 @@ describe('MAJOR #6: No loading timeout enforcement', () => {
 	});
 
 	it('FIX VERIFICATION: Loading timeout mechanism is in place', async () => {
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 

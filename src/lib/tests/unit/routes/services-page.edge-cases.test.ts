@@ -754,6 +754,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
@@ -767,6 +768,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 		expect(consoleSpy).not.toHaveBeenCalled();
 		consoleSpy.mockRestore();
+		warnSpy.mockRestore();
 	});
 
 	it('handles malformed JSON in localStorage search filters gracefully', async () => {
@@ -797,6 +799,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
@@ -808,6 +811,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 		expect(consoleSpy).not.toHaveBeenCalled();
 		consoleSpy.mockRestore();
+		warnSpy.mockRestore();
 	});
 
 	it('handles sessionStorage with circular reference JSON', async () => {
@@ -844,6 +848,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
@@ -855,5 +860,6 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 		expect(consoleSpy).not.toHaveBeenCalled();
 		consoleSpy.mockRestore();
+		warnSpy.mockRestore();
 	});
 });
