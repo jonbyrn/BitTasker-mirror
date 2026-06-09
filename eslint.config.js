@@ -17,7 +17,8 @@ export default ts.config(
 			'eslint.config.js',
 			'svelte.config.js',
 			'src/**/__tests__/mocks/**/*.svelte',
-			'src/lib/tests/mocks/**/*.svelte'
+			'src/lib/tests/mocks/**/*.svelte',
+			'contracts/**'
 		]
 	},
 	js.configs.recommended,
