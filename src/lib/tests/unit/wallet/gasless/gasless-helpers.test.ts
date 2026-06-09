@@ -1,0 +1,434 @@
+import { describe, it, expect } from 'vitest';
+import {
+  getPaymasterSignatureHash,
+  getNetworkFeeTier,
+  convertToTokenFee,
+  getUSDT0FeeBuffer,
+  validateFeeParameters,
+  validateFeeBufferBounds,
+  validateFeeRecipient,
+  requireTokenInfo,
+  computeTotalGas
+} from '../../../../../wallet/gasless-helpers';
+import {
+  ENTRY_POINT_ADDRESS,
+  USDT0_ADDRESS,
+  WBTC_ADDRESS,
+  TBTC_ADDRESS
+} from '../../../../../wallet/gasless.config';
+
+// Set environment for tests
+process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+
+describe('getPaymasterSignatureHash', () => {
+  it('returns a 32-byte hex hash', () => {
+    const hash = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it('different senders produce different hashes', () => {
+    const hash1 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    const hash2 = getPaymasterSignatureHash(
+      '0x' + '02'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('different nonces produce different hashes', () => {
+    const hash1 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    const hash2 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      1n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('different callData produce different hashes', () => {
+    const hash1 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    const hash2 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xbb',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('different chainId produces different hashes (replay prevention)', () => {
+    const hash1 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    );
+    const hash2 = getPaymasterSignatureHash(
+      '0x' + '01'.repeat(20),
+      0n,
+      '0xaa',
+      ENTRY_POINT_ADDRESS,
+      1n
+    );
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('is deterministic for the same inputs', () => {
+    const args: [string, bigint, string, string, bigint] = [
+      '0x' + 'ab'.repeat(20),
+      42n,
+      '0xdeadbeef',
+      ENTRY_POINT_ADDRESS,
+      42161n
+    ];
+    expect(getPaymasterSignatureHash(...args)).toBe(
+      getPaymasterSignatureHash(...args)
+    );
+  });
+});
+
+describe('getNetworkFeeTier', () => {
+  it('Low tier for 150K gas', () => {
+    expect(getNetworkFeeTier(150_000n).label).toBe('Low');
+  });
+
+  it('Low tier at boundary 200K', () => {
+    expect(getNetworkFeeTier(200_000n).label).toBe('Low');
+  });
+
+  it('Medium tier for 300K gas', () => {
+    expect(getNetworkFeeTier(300_000n).label).toBe('Medium');
+  });
+
+  it('Medium tier at boundary 500K', () => {
+    expect(getNetworkFeeTier(500_000n).label).toBe('Medium');
+  });
+
+  it('High tier for 700K gas', () => {
+    expect(getNetworkFeeTier(700_000n).label).toBe('High');
+  });
+
+  it('High tier at boundary 1M', () => {
+    expect(getNetworkFeeTier(1_000_000n).label).toBe('High');
+  });
+
+  it('Very High tier for 2M gas', () => {
+    expect(getNetworkFeeTier(2_000_000n).label).toBe('Very High');
+  });
+
+  it('Very High tier at boundary 5M', () => {
+    expect(getNetworkFeeTier(5_000_000n).label).toBe('Very High');
+  });
+
+  it('throws for 6M gas (too high)', () => {
+    expect(() => getNetworkFeeTier(6_000_000n)).toThrow('Network fee too high');
+  });
+
+  it('throws for 5000001 gas', () => {
+    expect(() => getNetworkFeeTier(5_000_001n)).toThrow('Network fee too high');
+  });
+});
+
+describe('convertToTokenFee', () => {
+  it('converts 0.01 USD to USDT0 units (1e16)', () => {
+    expect(convertToTokenFee(0.01, 1_000_000_000_000_000_000n, 18)).toBe(
+      10_000_000_000_000_000n
+    );
+  });
+
+  it('converts 0.03 USD to USDT0 units (3e16)', () => {
+    expect(convertToTokenFee(0.03, 1_000_000_000_000_000_000n, 18)).toBe(
+      30_000_000_000_000_000n
+    );
+  });
+
+  it('converts 0.10 USD to USDT0 units (1e17)', () => {
+    expect(convertToTokenFee(0.10, 1_000_000_000_000_000_000n, 18)).toBe(
+      100_000_000_000_000_000n
+    );
+  });
+
+  it('converts 0.01 USD to wBTC units (~16 sats at 66K)', () => {
+    const result = convertToTokenFee(
+      0.01,
+      66_000_000_000_000_000_000_000n,
+      8
+    );
+    expect(result).toBeGreaterThanOrEqual(15n);
+    expect(result).toBeLessThanOrEqual(20n);
+  });
+
+  it('rounds UP to nearest unit', () => {
+    const result = convertToTokenFee(
+      0.01,
+      66_000_000_000_000_000_000_000n,
+      8
+    );
+    expect(result).toBeGreaterThanOrEqual(15n);
+  });
+
+  it('throws for zero token price', () => {
+    expect(() => convertToTokenFee(0.01, 0n, 18)).toThrow('Token price is zero');
+  });
+
+  it('always returns a bigint', () => {
+    const result = convertToTokenFee(0.01, 1_000_000_000_000_000_000n, 18);
+    expect(typeof result).toBe('bigint');
+  });
+});
+
+describe('getUSDT0FeeBuffer', () => {
+  it('returns 1e16 for 0.01 USD', () => {
+    expect(getUSDT0FeeBuffer(0.01)).toBe(10_000_000_000_000_000n);
+  });
+
+  it('returns 3e16 for 0.03 USD', () => {
+    expect(getUSDT0FeeBuffer(0.03)).toBe(30_000_000_000_000_000n);
+  });
+
+  it('returns 5e16 for 0.05 USD', () => {
+    expect(getUSDT0FeeBuffer(0.05)).toBe(50_000_000_000_000_000n);
+  });
+
+  it('returns 1e17 for 0.10 USD', () => {
+    expect(getUSDT0FeeBuffer(0.10)).toBe(100_000_000_000_000_000n);
+  });
+});
+
+describe('validateFeeParameters', () => {
+  const validParams = {
+    callGasLimit: 100_000n,
+    verificationGasLimit: 100_000n,
+    preVerificationGas: 50_000n,
+    maxFeePerGas: 100_000_000n // 0.1 gwei
+  };
+
+  it('accepts valid parameters', () => {
+    expect(() => validateFeeParameters(validParams)).not.toThrow();
+  });
+
+  it('throws for callGasLimit 10M', () => {
+    expect(() =>
+      validateFeeParameters({ ...validParams, callGasLimit: 10_000_000n })
+    ).toThrow('callGasLimit exceeds maximum');
+  });
+
+  it('throws for verificationGasLimit 2M', () => {
+    expect(() =>
+      validateFeeParameters({
+        ...validParams,
+        verificationGasLimit: 2_000_000n
+      })
+    ).toThrow('verificationGasLimit exceeds maximum');
+  });
+
+  it('throws for preVerificationGas 200K', () => {
+    expect(() =>
+      validateFeeParameters({
+        ...validParams,
+        preVerificationGas: 200_000n
+      })
+    ).toThrow('preVerificationGas exceeds maximum');
+  });
+
+  it('throws for maxFeePerGas 10 gwei', () => {
+    expect(() =>
+      validateFeeParameters({
+        ...validParams,
+        maxFeePerGas: 10_000_000_000n
+      })
+    ).toThrow('maxFeePerGas exceeds ceiling');
+  });
+
+  it('throws for total gas > 5M', () => {
+    expect(() =>
+      validateFeeParameters({
+        callGasLimit: 4_900_001n,
+        verificationGasLimit: 100_000n,
+        preVerificationGas: 1n,
+        maxFeePerGas: 100_000_000n
+      })
+    ).toThrow('Network fee too high');
+  });
+
+  it('accepts total gas = 5M', () => {
+    expect(() =>
+      validateFeeParameters({
+        callGasLimit: 4_800_000n,
+        verificationGasLimit: 100_000n,
+        preVerificationGas: 100_000n,
+        maxFeePerGas: 100_000_000n
+      })
+    ).not.toThrow();
+  });
+});
+
+describe('validateFeeBufferBounds', () => {
+  it('accepts valid USDT0 buffer', () => {
+    expect(() =>
+      validateFeeBufferBounds(USDT0_ADDRESS, 10_000_000_000_000_000n)
+    ).not.toThrow();
+  });
+
+  it('accepts valid wBTC buffer', () => {
+    expect(() => validateFeeBufferBounds(WBTC_ADDRESS, 16n)).not.toThrow();
+  });
+
+  it('accepts valid tBTC buffer', () => {
+    expect(() =>
+      validateFeeBufferBounds(TBTC_ADDRESS, 10_000_000_000_000_000n)
+    ).not.toThrow();
+  });
+
+  it('throws for non-allowed token (DAI)', () => {
+    expect(() =>
+      validateFeeBufferBounds(
+        '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+        100n
+      )
+    ).toThrow('Fee token not in allowed list');
+  });
+
+  it('throws for USDT0 below minimum', () => {
+    expect(() => validateFeeBufferBounds(USDT0_ADDRESS, 1n)).toThrow(
+      'Fee buffer below minimum'
+    );
+  });
+
+  it('throws for USDT0 above maximum', () => {
+    expect(() =>
+      validateFeeBufferBounds(USDT0_ADDRESS, 200_000_000_000_000_000n)
+    ).toThrow('Fee buffer above maximum');
+  });
+
+  it('throws for wBTC 1 sat (below min)', () => {
+    expect(() => validateFeeBufferBounds(WBTC_ADDRESS, 1n)).toThrow(
+      'Fee buffer below minimum'
+    );
+  });
+
+  it('throws for wBTC 231 sats (above max)', () => {
+    expect(() => validateFeeBufferBounds(WBTC_ADDRESS, 231n)).toThrow(
+      'Fee buffer above maximum'
+    );
+  });
+
+  it('accepts wBTC minimum (16 sats)', () => {
+    expect(() => validateFeeBufferBounds(WBTC_ADDRESS, 16n)).not.toThrow();
+  });
+
+  it('accepts wBTC maximum (230 sats)', () => {
+    expect(() => validateFeeBufferBounds(WBTC_ADDRESS, 230n)).not.toThrow();
+  });
+});
+
+describe('validateFeeRecipient', () => {
+  it('accepts correct treasury address', () => {
+    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+    expect(() =>
+      validateFeeRecipient('0x1234567890123456789012345678901234567890')
+    ).not.toThrow();
+  });
+
+  it('throws for wrong address', () => {
+    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+    expect(() =>
+      validateFeeRecipient('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    ).toThrow('Fee buffer must go to GAS_TREASURY');
+  });
+
+  it('throws when GAS_TREASURY not configured', () => {
+    delete process.env['GAS_TREASURY'];
+    expect(() =>
+      validateFeeRecipient('0x1234567890123456789012345678901234567890')
+    ).toThrow('GAS_TREASURY not configured');
+    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+  });
+});
+
+describe('requireTokenInfo', () => {
+  it('finds USDT0', () => {
+    expect(requireTokenInfo(USDT0_ADDRESS).symbol).toBe('USDT0');
+  });
+
+  it('finds wBTC with 8 decimals', () => {
+    expect(requireTokenInfo(WBTC_ADDRESS).decimals).toBe(8);
+  });
+
+  it('finds tBTC', () => {
+    expect(requireTokenInfo(TBTC_ADDRESS).symbol).toBe('TBTC');
+  });
+
+  it('is case-insensitive', () => {
+    expect(requireTokenInfo(USDT0_ADDRESS.toLowerCase()).symbol).toBe('USDT0');
+  });
+
+  it('throws for unknown token', () => {
+    expect(() =>
+      requireTokenInfo('0x0000000000000000000000000000000000000001')
+    ).toThrow('Unsupported token');
+  });
+});
+
+describe('computeTotalGas', () => {
+  it('sums all gas components', () => {
+    expect(
+      computeTotalGas({
+        callGasLimit: 100_000n,
+        verificationGasLimit: 50_000n,
+        preVerificationGas: 10_000n
+      })
+    ).toBe(160_000n);
+  });
+
+  it('returns zero for all zeros', () => {
+    expect(
+      computeTotalGas({
+        callGasLimit: 0n,
+        verificationGasLimit: 0n,
+        preVerificationGas: 0n
+      })
+    ).toBe(0n);
+  });
+
+  it('handles large values', () => {
+    expect(
+      computeTotalGas({
+        callGasLimit: 4_000_000n,
+        verificationGasLimit: 900_000n,
+        preVerificationGas: 99_999n
+      })
+    ).toBe(4_999_999n);
+  });
+});
