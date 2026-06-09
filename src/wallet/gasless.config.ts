@@ -1,0 +1,108 @@
+// Gasless Configuration — Arbitrum ERC-4337 + EIP-7702
+import type { TokenInfo, GasBounds, FeeTierDef, GaslessConfig } from '$lib/types/gasless.types';
+
+export const ARBITRUM_CHAIN_ID = 42161;
+export const ENTRY_POINT_ADDRESS = '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' as const;
+export const SIMPLE_7702_ACCOUNT_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B' as const;
+
+export const USDT0_ADDRESS = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' as const;
+export const WBTC_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
+export const TBTC_ADDRESS = '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40' as const;
+
+export const TOKENS: readonly TokenInfo[] = [
+	{ address: USDT0_ADDRESS, symbol: 'USDT0', decimals: 18, chainId: ARBITRUM_CHAIN_ID },
+	{ address: WBTC_ADDRESS, symbol: 'WBTC', decimals: 8, chainId: ARBITRUM_CHAIN_ID },
+	{ address: TBTC_ADDRESS, symbol: 'TBTC', decimals: 18, chainId: ARBITRUM_CHAIN_ID }
+];
+
+export const ALLOWED_FEE_TOKENS: readonly string[] = TOKENS.map((t) => t.address.toLowerCase());
+
+export const GAS_BOUNDS: GasBounds = {
+	maxCallGas: 5_000_000n,
+	maxVerificationGas: 1_000_000n,
+	maxPreVerificationGas: 100_000n,
+	maxFeePerGas: 1_000_000_000n, // 1 gwei
+	maxPriorityFeePerGas: 100_000_000n, // 0.1 gwei
+	maxTotalGas: 5_000_000n
+};
+
+export const FEE_TIERS: readonly FeeTierDef[] = [
+	{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
+	{ label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
+	{ label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
+	{ label: 'Very High', minGas: 1_000_001n, maxGas: 5_000_000n, feeUSD: 0.1 }
+];
+
+export const FEE_BUFFER_MIN: Record<string, bigint> = {
+	[USDT0_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n,
+	[WBTC_ADDRESS.toLowerCase()]: 16n,
+	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n
+};
+
+export const FEE_BUFFER_MAX: Record<string, bigint> = {
+	[USDT0_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n,
+	[WBTC_ADDRESS.toLowerCase()]: 230n,
+	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n
+};
+
+export const GAS_TREASURY = process.env['GAS_TREASURY'] ?? '';
+if (!GAS_TREASURY) {
+	console.warn('[gasless] GAS_TREASURY environment variable is not set. Fee collection will fail.');
+}
+
+export const ALTO_URLS: readonly string[] = [
+	process.env['ALTO_URL_1'] ?? 'http://alto-1:3000',
+	process.env['ALTO_URL_2'] ?? 'http://alto-2:3000'
+];
+
+export const ARBITRUM_RPC_URL = process.env['ARBITRUM_RPC_URL'] ?? '';
+if (!ARBITRUM_RPC_URL) {
+	console.warn('[gasless] ARBITRUM_RPC_URL environment variable is not set. RPC calls will fail.');
+}
+export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:4000';
+
+export const ETH_USD_FEED = '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612' as const;
+export const BTC_USD_FEED = '0x6ce185860a4963106506C203335A2910413708e9' as const;
+export const MAX_ORACLE_STALENESS = 300;
+
+export const PAYMASTER_SIGNER_KEY_FILE =
+	process.env['PAYMASTER_SIGNER_KEY_FILE'] ?? '/run/secrets/paymaster_signer_key';
+
+export const gaslessConfig: GaslessConfig = {
+	tokens: [...TOKENS],
+	gasBounds: GAS_BOUNDS,
+	feeTiers: [...FEE_TIERS],
+	feeBufferBounds: {
+		[USDT0_ADDRESS.toLowerCase()]: {
+			min: FEE_BUFFER_MIN[USDT0_ADDRESS.toLowerCase()],
+			max: FEE_BUFFER_MAX[USDT0_ADDRESS.toLowerCase()]
+		},
+		[WBTC_ADDRESS.toLowerCase()]: {
+			min: FEE_BUFFER_MIN[WBTC_ADDRESS.toLowerCase()],
+			max: FEE_BUFFER_MAX[WBTC_ADDRESS.toLowerCase()]
+		},
+		[TBTC_ADDRESS.toLowerCase()]: {
+			min: FEE_BUFFER_MIN[TBTC_ADDRESS.toLowerCase()],
+			max: FEE_BUFFER_MAX[TBTC_ADDRESS.toLowerCase()]
+		}
+	},
+	treasury: GAS_TREASURY,
+	entryPointAddress: ENTRY_POINT_ADDRESS,
+	chainId: BigInt(ARBITRUM_CHAIN_ID),
+	altoUrls: [...ALTO_URLS],
+	chainlinkFeeds: { ethUsd: ETH_USD_FEED, btcUsd: BTC_USD_FEED }
+};
+
+export function getTokenByAddress(address: string): TokenInfo | undefined {
+	const lower = address.toLowerCase();
+	return TOKENS.find((t) => t.address.toLowerCase() === lower);
+}
+
+export function getTokenBySymbol(symbol: string): TokenInfo | undefined {
+	const upper = symbol.toUpperCase();
+	return TOKENS.find((t) => t.symbol === upper);
+}
+
+export function isAllowedFeeToken(address: string): boolean {
+	return ALLOWED_FEE_TOKENS.includes(address.toLowerCase());
+}
