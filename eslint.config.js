@@ -18,7 +18,13 @@ export default ts.config(
 			'svelte.config.js',
 			'src/**/__tests__/mocks/**/*.svelte',
 			'src/lib/tests/mocks/**/*.svelte',
-			'contracts/**'
+			'contracts/**',
+			'backend/**',
+			'reviews/**',
+			'docker/**',
+			'scripts/**',
+			'requirements/**',
+			'plugins/**'
 		]
 	},
 	js.configs.recommended,
