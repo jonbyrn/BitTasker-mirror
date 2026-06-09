@@ -152,8 +152,8 @@
 				throw receivedResult.reason;
 			}
 
-			receivedReviews = receivedResult.value;
-			stats = calculateReviewStats(receivedResult.value);
+			receivedReviews = receivedResult.value.reviews;
+			stats = calculateReviewStats(receivedResult.value.reviews);
 
 			if (metaResult.status === 'fulfilled') {
 				applyReviewMeta(metaResult.value);

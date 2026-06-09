@@ -111,7 +111,7 @@
 		isLoading = true;
 		error = null;
 		try {
-			const fetchedReviews = await getReviewsForUser(revieweePubkey, limit);
+			const { reviews: fetchedReviews } = await getReviewsForUser(revieweePubkey, limit);
 
 			if (requestId === activeRequestId) {
 				reviews = applyFilterAndSort(fetchedReviews);

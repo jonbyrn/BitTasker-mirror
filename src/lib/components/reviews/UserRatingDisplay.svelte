@@ -83,7 +83,7 @@
 		}
 
 		const request = (async () => {
-			const reviews: NostrVerifiedReview[] = await getReviewsForUser(hexPubkey, ALL_REVIEWS_LIMIT);
+			const { reviews } = await getReviewsForUser(hexPubkey, ALL_REVIEWS_LIMIT);
 			const stats = reviews.length > 0 ? calculateReviewStats(reviews) : null;
 			const nextSummary = stats
 				? {

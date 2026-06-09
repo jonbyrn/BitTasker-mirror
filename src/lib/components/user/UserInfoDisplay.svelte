@@ -335,7 +335,7 @@
 		isLoadingReviews = true;
 
 		const promise = (async (): Promise<CachedReviewData> => {
-			const reviews = await getReviewsForUser(currentPubkey, 100);
+			const { reviews } = await getReviewsForUser(currentPubkey, 100);
 			let result: CachedReviewData;
 			if (reviews.length > 0) {
 				const stats = calculateReviewStats(reviews);

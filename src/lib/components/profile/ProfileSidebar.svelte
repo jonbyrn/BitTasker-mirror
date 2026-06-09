@@ -8,7 +8,7 @@
 
 	let {
 		hexPubkey = '',
-		rating,
+		rating = null,
 		reviewCount = 0,
 		tasksCompleted = 0,
 		skillsCount = 0,
@@ -30,7 +30,7 @@
 		isLoading?: boolean;
 	} = $props();
 
-	const formattedRating = $derived(rating !== null ? rating.toFixed(1) : null);
+	const formattedRating = $derived(rating != null ? rating.toFixed(1) : null);
 
 	// Availability helper functions
 	function formatTimeSlot(start: string, end: string): string {

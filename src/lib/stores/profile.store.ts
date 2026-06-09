@@ -92,7 +92,7 @@ function createProfileStore() {
 				return;
 			}
 
-			const reviews = await getReviewsForUser(currentUserPubkey, 100);
+			const { reviews } = await getReviewsForUser(currentUserPubkey, 100);
 			if (reviews.length === 0) {
 				return;
 			}
