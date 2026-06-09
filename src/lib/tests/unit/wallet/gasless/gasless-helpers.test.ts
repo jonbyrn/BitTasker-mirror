@@ -1,4 +1,151 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// vi.hoisted runs BEFORE vi.mock factories — set env and import ethers here
+const { ethers } = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ethers = require('ethers');
+  process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+  return { ethers };
+});
+
+// Mock viem to use real ethers for keccak256 and ABI encoding
+vi.mock('viem', () => ({
+  keccak256: (data: Uint8Array | string) => {
+    if (typeof data === 'string') {
+      return ethers.keccak256(ethers.getBytes(data));
+    }
+    return ethers.keccak256(new Uint8Array(data));
+  },
+  encodeAbiParameters: (
+    types: Array<{ type: string }>,
+    values: unknown[]
+  ) => {
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    return coder.encode(
+      types.map((t) => t.type),
+      values
+    );
+  },
+  toBytes: (hex: string) => ethers.getBytes(hex),
+}))
+
+// Mock gasless.config — use getter for GAS_TREASURY so tests can modify it via process.env
+vi.mock('../../../../../wallet/gasless.config', () => {
+  const TOKENS = [
+    {
+      address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+      symbol: 'USDT0',
+      decimals: 18,
+      chainId: 42161,
+    },
+    {
+      address: '0x2f2a2543B76A4166549F7aa2e75Bef0aefC5B0f',
+      symbol: 'WBTC',
+      decimals: 8,
+      chainId: 42161,
+    },
+    {
+      address: '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40',
+      symbol: 'TBTC',
+      decimals: 18,
+      chainId: 42161,
+    },
+  ];
+  const ALLOWED_FEE_TOKENS = TOKENS.map((t) => t.address.toLowerCase());
+  const GAS_BOUNDS = {
+    maxCallGas: 5_000_000n,
+    maxVerificationGas: 1_000_000n,
+    maxPreVerificationGas: 100_000n,
+    maxFeePerGas: 1_000_000_000n, // 1 gwei
+    maxPriorityFeePerGas: 100_000_000n, // 0.1 gwei
+    maxTotalGas: 5_000_000n,
+  };
+  const FEE_TIERS = [
+    { label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
+    { label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
+    { label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
+    {
+      label: 'Very High',
+      minGas: 1_000_001n,
+      maxGas: 5_000_000n,
+      feeUSD: 0.1,
+    },
+  ];
+  const FEE_BUFFER_MIN = {
+    '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9':
+      10_000_000_000_000_000n,
+    '0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 16n,
+    '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40':
+      10_000_000_000_000_000n,
+  };
+  const FEE_BUFFER_MAX = {
+    '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9':
+      150_000_000_000_000_000n,
+    '0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 230n,
+    '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40':
+      150_000_000_000_000_000n,
+  };
+  return {
+    ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+    USDT0_ADDRESS: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    WBTC_ADDRESS: '0x2f2a2543B76A4166549F7aa2e75Bef0aefC5B0f',
+    TBTC_ADDRESS: '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40',
+    TOKENS,
+    ALLOWED_FEE_TOKENS,
+    GAS_BOUNDS,
+    FEE_TIERS,
+    FEE_BUFFER_MIN,
+    FEE_BUFFER_MAX,
+    get GAS_TREASURY() { return process.env['GAS_TREASURY'] ?? ''; },
+    ALTO_URLS: ['http://alto-1:3000', 'http://alto-2:3000'],
+    ARBITRUM_RPC_URL: '',
+    API_BASE_URL: 'http://localhost:4000',
+    ETH_USD_FEED: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+    BTC_USD_FEED: '0x6ce185860a4963106506C203335A2910413708e9',
+    MAX_ORACLE_STALENESS: 300,
+    PAYMASTER_SIGNER_KEY_FILE: '/run/secrets/paymaster_signer_key',
+    gaslessConfig: {
+      tokens: [...TOKENS],
+      gasBounds: { ...GAS_BOUNDS },
+      feeTiers: [...FEE_TIERS],
+      feeBufferBounds: {
+        '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': {
+          min: 10_000_000_000_000_000n,
+          max: 150_000_000_000_000_000n,
+        },
+        '0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': {
+          min: 16n,
+          max: 230n,
+        },
+        '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': {
+          min: 10_000_000_000_000_000n,
+          max: 150_000_000_000_000_000n,
+        },
+      },
+      treasury: process.env['GAS_TREASURY'] ?? '',
+      entryPointAddress: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+      chainId: BigInt(42161),
+      altoUrls: ['http://alto-1:3000', 'http://alto-2:3000'],
+      chainlinkFeeds: {
+        ethUsd: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+        btcUsd: '0x6ce185860a4963106506C203335A2910413708e9',
+      },
+    },
+    getTokenByAddress: (address: string) => {
+      const lower = address.toLowerCase();
+      return TOKENS.find((t) => t.address.toLowerCase() === lower);
+    },
+    getTokenBySymbol: (symbol: string) => {
+      const upper = symbol.toUpperCase();
+      return TOKENS.find((t) => t.symbol === upper);
+    },
+    isAllowedFeeToken: (address: string) => {
+      return ALLOWED_FEE_TOKENS.includes(address.toLowerCase());
+    },
+  };
+});
+
+// Now import the modules (mocked viem and config will be used)
 import {
   getPaymasterSignatureHash,
   getNetworkFeeTier,
@@ -8,17 +155,14 @@ import {
   validateFeeBufferBounds,
   validateFeeRecipient,
   requireTokenInfo,
-  computeTotalGas
+  computeTotalGas,
 } from '../../../../../wallet/gasless-helpers';
 import {
   ENTRY_POINT_ADDRESS,
   USDT0_ADDRESS,
   WBTC_ADDRESS,
-  TBTC_ADDRESS
+  TBTC_ADDRESS,
 } from '../../../../../wallet/gasless.config';
-
-// Set environment for tests
-process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
 
 describe('getPaymasterSignatureHash', () => {
   it('returns a 32-byte hex hash', () => {
@@ -110,7 +254,7 @@ describe('getPaymasterSignatureHash', () => {
       42n,
       '0xdeadbeef',
       ENTRY_POINT_ADDRESS,
-      42161n
+      42161n,
     ];
     expect(getPaymasterSignatureHash(...args)).toBe(
       getPaymasterSignatureHash(...args)
@@ -231,7 +375,8 @@ describe('validateFeeParameters', () => {
     callGasLimit: 100_000n,
     verificationGasLimit: 100_000n,
     preVerificationGas: 50_000n,
-    maxFeePerGas: 100_000_000n // 0.1 gwei
+    maxFeePerGas: 100_000_000n, // 0.1 gwei
+    maxPriorityFeePerGas: 10_000_000n, // 0.01 gwei
   };
 
   it('accepts valid parameters', () => {
@@ -248,7 +393,7 @@ describe('validateFeeParameters', () => {
     expect(() =>
       validateFeeParameters({
         ...validParams,
-        verificationGasLimit: 2_000_000n
+        verificationGasLimit: 2_000_000n,
       })
     ).toThrow('verificationGasLimit exceeds maximum');
   });
@@ -257,7 +402,7 @@ describe('validateFeeParameters', () => {
     expect(() =>
       validateFeeParameters({
         ...validParams,
-        preVerificationGas: 200_000n
+        preVerificationGas: 200_000n,
       })
     ).toThrow('preVerificationGas exceeds maximum');
   });
@@ -266,7 +411,7 @@ describe('validateFeeParameters', () => {
     expect(() =>
       validateFeeParameters({
         ...validParams,
-        maxFeePerGas: 10_000_000_000n
+        maxFeePerGas: 10_000_000_000n,
       })
     ).toThrow('maxFeePerGas exceeds ceiling');
   });
@@ -277,7 +422,8 @@ describe('validateFeeParameters', () => {
         callGasLimit: 4_900_001n,
         verificationGasLimit: 100_000n,
         preVerificationGas: 1n,
-        maxFeePerGas: 100_000_000n
+        maxFeePerGas: 100_000_000n,
+        maxPriorityFeePerGas: 10_000_000n,
       })
     ).toThrow('Network fee too high');
   });
@@ -288,7 +434,8 @@ describe('validateFeeParameters', () => {
         callGasLimit: 4_800_000n,
         verificationGasLimit: 100_000n,
         preVerificationGas: 100_000n,
-        maxFeePerGas: 100_000_000n
+        maxFeePerGas: 100_000_000n,
+        maxPriorityFeePerGas: 10_000_000n,
       })
     ).not.toThrow();
   });
@@ -355,25 +502,25 @@ describe('validateFeeBufferBounds', () => {
 
 describe('validateFeeRecipient', () => {
   it('accepts correct treasury address', () => {
-    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
     expect(() =>
       validateFeeRecipient('0x1234567890123456789012345678901234567890')
     ).not.toThrow();
   });
 
   it('throws for wrong address', () => {
-    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
     expect(() =>
       validateFeeRecipient('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     ).toThrow('Fee buffer must go to GAS_TREASURY');
   });
 
   it('throws when GAS_TREASURY not configured', () => {
+    // Mock GAS_TREASURY getter reads from process.env, so delete it
+    const original = process.env['GAS_TREASURY'];
     delete process.env['GAS_TREASURY'];
     expect(() =>
       validateFeeRecipient('0x1234567890123456789012345678901234567890')
     ).toThrow('GAS_TREASURY not configured');
-    process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
+    if (original !== undefined) process.env['GAS_TREASURY'] = original;
   });
 });
 
@@ -407,7 +554,7 @@ describe('computeTotalGas', () => {
       computeTotalGas({
         callGasLimit: 100_000n,
         verificationGasLimit: 50_000n,
-        preVerificationGas: 10_000n
+        preVerificationGas: 10_000n,
       })
     ).toBe(160_000n);
   });
@@ -417,7 +564,7 @@ describe('computeTotalGas', () => {
       computeTotalGas({
         callGasLimit: 0n,
         verificationGasLimit: 0n,
-        preVerificationGas: 0n
+        preVerificationGas: 0n,
       })
     ).toBe(0n);
   });
@@ -427,7 +574,7 @@ describe('computeTotalGas', () => {
       computeTotalGas({
         callGasLimit: 4_000_000n,
         verificationGasLimit: 900_000n,
-        preVerificationGas: 99_999n
+        preVerificationGas: 99_999n,
       })
     ).toBe(4_999_999n);
   });
