@@ -1,11 +1,13 @@
 import { BITTASKER_ORG_JSONLD } from '$lib/utils/constants/seo.constants';
 
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Careers at BitTasker - Bitcoin Jobs | Remote Opportunities',
 		description: 'Join BitTasker\'s mission to democratize work through Bitcoin and decentralized technology. Remote Bitcoin jobs available. Help build the future of work.',
 		keywords: 'BitTasker careers, Bitcoin jobs, remote cryptocurrency jobs, Bitcoin developers, decentralized work, Lightning Network jobs, blockchain careers, Bitcoin startup jobs, remote work Bitcoin, cryptocurrency careers',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Careers at BitTasker - Join the Bitcoin Revolution',
 		ogDescription: 'Help us build the decentralized future of work. Remote Bitcoin jobs available at BitTasker. Join our mission to empower global earning through Bitcoin technology.',
 		twitterTitle: 'Join BitTasker - Remote Bitcoin Jobs Available',

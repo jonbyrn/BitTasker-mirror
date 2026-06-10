@@ -1,10 +1,12 @@
 
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'How BitTasker Works - Bitcoin Task Marketplace Guide',
 		description: 'Discover how BitTasker connects task posters with skilled workers using Bitcoin and Lightning Network. Learn about our secure escrow system and bidding process.',
 		keywords: 'how BitTasker works, Bitcoin task marketplace, decentralized gig economy, Lightning Network payments, task bidding system, Bitcoin escrow, peer-to-peer tasks, cryptocurrency marketplace, blockchain tasks',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'How BitTasker Works - Bitcoin Task Marketplace',
 		ogDescription: 'Learn how BitTasker revolutionizes the gig economy with Bitcoin payments, secure escrow, and decentralized task matching. Discover the future of peer-to-peer work.',
 		twitterTitle: 'How BitTasker Works - The Bitcoin Gig Economy',

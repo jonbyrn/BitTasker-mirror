@@ -573,7 +573,7 @@
 										showReviewCount={true}
 									/>
 									<a
-										href="/dashboard/profile?user={task.npub}&tab=reviews"
+										href="/profile?user={task.npub}&tab=reviews"
 										class="text-primary text-xs hover:underline"
 									>
 										{$t('reviews.view_all')}

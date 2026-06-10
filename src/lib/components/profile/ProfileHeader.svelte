@@ -221,7 +221,7 @@
 						</button>
 						<button
 							class="btn btn-primary btn-md gap-2"
-							onclick={() => goto('/dashboard/profile/edit')}
+							onclick={() => goto('/profile/edit')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -269,7 +269,7 @@
 			</button>
 			<button
 				class="btn btn-primary btn-sm flex-1 gap-2"
-				onclick={() => goto('/dashboard/profile/edit')}
+				onclick={() => goto('/profile/edit')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

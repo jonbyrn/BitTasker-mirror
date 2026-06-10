@@ -63,7 +63,7 @@ export const sections = [
 	},
 	{
 		id: 'profile',
-		path: '/dashboard/profile',
+		path: '/profile',
 		label: 'navbar.profile',
 		icon: 'mdi:account',
 		mobile: false

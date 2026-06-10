@@ -78,7 +78,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.profile',
 				icon: IconAccount,
-				href: '/dashboard/profile'
+				href: '/profile'
 			},
 			{
 				label: 'navbar.wallet',
@@ -366,7 +366,7 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.profile',
 		icon: IconAccount,
-		href: '/dashboard/profile'
+		href: '/profile'
 	},
 	{
 		label: 'navbar.settings',
@@ -387,7 +387,7 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 	{
 		label: 'navbar.profile',
 		icon: IconAccount,
-		href: '/dashboard/profile'
+		href: '/profile'
 	},
 	{
 		label: 'navbar.reviews',

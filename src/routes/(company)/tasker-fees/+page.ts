@@ -1,9 +1,11 @@
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
 		description: 'Discover BitTasker\'s transparent tasker fee structure with tiered pricing that rewards loyalty. Learn about our competitive rates for posting Bitcoin tasks.',
 		keywords: 'BitTasker tasker fees, task posting fees, Bitcoin marketplace pricing, transparent pricing, task platform costs, cryptocurrency task fees, tiered pricing structure',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Tasker Fees & Pricing - BitTasker',
 		ogDescription: 'Learn about BitTasker\'s transparent tasker fee structure with tiered pricing that rewards active users. Competitive rates for posting tasks.',
 		twitterTitle: 'BitTasker Tasker Fees - Transparent Pricing',
@@ -13,7 +15,7 @@ export async function load({ url }) {
 			'@type': 'WebPage',
 			'name': 'Tasker Fees & Pricing - BitTasker',
 			'description': 'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
-			'url': url.href,
+			'url': `${baseUrl}${url.pathname}`,
 
 			'mainEntity': {
 				'@type': 'PriceSpecification',

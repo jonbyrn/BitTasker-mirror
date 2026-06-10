@@ -9,7 +9,7 @@ const primaryRoutes = [
 	'/dashboard/tasks',
 	'/dashboard/create-task',
 	'/dashboard/wallet',
-	'/dashboard/profile',
+	'/profile',
 	'/dashboard/settings',
 	'/earning',
 	'/earning?tab=bids',

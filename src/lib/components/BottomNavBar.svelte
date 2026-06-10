@@ -60,7 +60,7 @@
 			icon: IconAccountCircle,
 			label: 'navbar.my_account',
 			items: [
-				{ href: '/dashboard/profile', icon: IconAccountOutline, label: 'navbar.profile' },
+				{ href: '/profile', icon: IconAccountOutline, label: 'navbar.profile' },
 				{ href: '/dashboard/settings', icon: IconCogOutline, label: 'navbar.settings' },
 				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
 			]

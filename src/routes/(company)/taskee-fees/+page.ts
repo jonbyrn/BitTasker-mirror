@@ -1,10 +1,12 @@
 
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
 		description: 'Learn about BitTasker\'s taskee fee structure and maximize your Bitcoin earnings. Transparent pricing with loyalty rewards for active workers.',
 		keywords: 'BitTasker taskee fees, Bitcoin earning fees, task worker pricing, cryptocurrency earnings, Bitcoin marketplace fees, decentralized work fees, Lightning Network earnings',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Taskee Fees & Earnings - BitTasker',
 		ogDescription: 'Maximize your Bitcoin earnings on BitTasker with our transparent taskee fee structure. Loyalty rewards for active workers.',
 		twitterTitle: 'BitTasker Taskee Fees - Maximize Your Bitcoin Earnings',
@@ -14,7 +16,7 @@ export async function load({ url }) {
 			'@type': 'WebPage',
 			'name': 'Taskee Fees & Earnings - BitTasker',
 			'description': 'Transparent fee structure for task workers on BitTasker with tiered pricing based on activity level',
-			'url': url.href,
+			'url': `${baseUrl}${url.pathname}`,
 
 			'mainEntity': {
 				'@type': 'PriceSpecification',

@@ -31,6 +31,10 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# robots.txt is branch-specific (dev blocks all crawlers, prod allows).
+# Each branch maintains its own copy locally — never commit or merge.
+static/robots.txt
+
 # Test authentication state (contains session data)
 tests/e2e/.auth/
 *.auth.json

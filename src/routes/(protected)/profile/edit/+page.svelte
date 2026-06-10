@@ -91,7 +91,7 @@
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			// Navigate back to profile view
-			goto('/dashboard/profile');
+			goto('/profile');
 		} catch (error) {
 			console.error('Error saving profile:', error);
 			saveError = error instanceof Error ? error.message : 'Failed to save profile';

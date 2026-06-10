@@ -3,13 +3,6 @@
 	import { t } from 'svelte-i18n';
 
 	let { data: seo } = $props();
-
-	// Current date for the "last updated" timestamp
-	const currentDate = new Date().toLocaleDateString('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric'
-	});
 </script>
 
 <svelte:head>
@@ -317,7 +310,7 @@
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center text-center">
 			<h4>{$t('fees.cta.title')}</h4>
-			<a href="/sign-up" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
+			<a href="/auth/signup" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
 		</div>
 	</div>
 </div>

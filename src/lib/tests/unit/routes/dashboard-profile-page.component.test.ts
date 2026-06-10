@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
-import DashboardProfilePage from '../../../../routes/(protected)/dashboard/profile/+page.svelte';
+import DashboardProfilePage from '../../../../routes/(protected)/profile/+page.svelte';
 
 const mocks = vi.hoisted(() => ({
 	profileStoreInit: vi.fn(),
@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 	ProfileSidebar: vi.fn(() => ({ $$: { ctx: [] } })),
 	ProfileReviewsSection: vi.fn(() => ({ $$: { ctx: [] } })),
 	page: {
-		url: new URL('https://example.com/dashboard/profile')
+		url: new URL('https://example.com/profile')
 	}
 }));
 
@@ -68,12 +68,12 @@ vi.mock('$lib/components/profile/ProfileReviewsSection.svelte', () => ({
 describe('dashboard profile page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mocks.page.url = new URL('https://example.com/dashboard/profile');
+		mocks.page.url = new URL('https://example.com/profile');
 	});
 
 	it('honors review query params for another user', () => {
 		mocks.page.url = new URL(
-			'https://example.com/dashboard/profile?user=npub-target-user&tab=reviews'
+			'https://example.com/profile?user=npub-target-user&tab=reviews'
 		);
 
 		render(DashboardProfilePage);
@@ -92,7 +92,7 @@ describe('dashboard profile page', () => {
 	});
 
 	it('shows profile edit view when only the reviews tab is requested', () => {
-		mocks.page.url = new URL('https://example.com/dashboard/profile?tab=reviews');
+		mocks.page.url = new URL('https://example.com/profile?tab=reviews');
 
 		render(DashboardProfilePage);
 
