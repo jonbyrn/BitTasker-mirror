@@ -47,13 +47,13 @@
 
 			// Update the pubkey to hex format for consistency
 			if (hexPubkey !== recipientPubkey) {
-				goto(`/dashboard/messages/to/${hexPubkey}`, { replaceState: true });
+				goto(`/messages/to/${hexPubkey}`, { replaceState: true });
 				return;
 			}
 
 			// Redirect silently if this user is muted — no error needed
 			if (get(muteStore).mutedPubkeys.has(hexPubkey)) {
-				goto('/dashboard/messages', { replaceState: true });
+				goto('/messages', { replaceState: true });
 				return;
 			}
 
@@ -77,7 +77,7 @@
 	});
 
 	function goBackToMessages() {
-		goto('/dashboard/messages');
+		goto('/messages');
 	}
 
 	async function copyPubkey() {

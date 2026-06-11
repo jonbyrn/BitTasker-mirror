@@ -969,7 +969,7 @@
 			});
 		}
 
-		return `/dashboard?tab=contracts&context=services&highlight=${encodeURIComponent(escrowId)}`;
+		return `/hiring/contracts?context=services&highlight=${encodeURIComponent(escrowId)}`;
 	}
 
 	async function handleRefreshInstantBuy() {
@@ -1490,7 +1490,7 @@
 				)
 			);
 
-			goto('/dashboard?tab=my-services');
+			goto('/hiring?tab=my-services');
 		} catch (error) {
 			console.error('[ServiceDetailsView] Failed to delete service', error);
 			clearPendingServiceDelete(service.id);
@@ -2249,8 +2249,8 @@
 									{detailText('dashboard.services.detail.delete_service', 'Delete')}
 								</button>
 								<a
-									href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
-										service.id}"
+								href="/create-service?edit=true&serviceId={service.uniqueId ||
+									service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{detailText('dashboard.services.detail.edit_service', 'Edit')}
@@ -2545,8 +2545,8 @@
 									)}</button
 								>
 								<a
-									href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
-										service.id}"
+								href="/create-service?edit=true&serviceId={service.uniqueId ||
+									service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{$t('dashboard.services.detail.edit_service')}

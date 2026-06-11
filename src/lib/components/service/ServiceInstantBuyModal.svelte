@@ -211,7 +211,7 @@
 			onAddFunds(totalPaymentValue);
 		} else {
 			onClose();
-			goto('/dashboard/wallet?tab=receive');
+			goto('/wallet?tab=receive');
 		}
 	}
 

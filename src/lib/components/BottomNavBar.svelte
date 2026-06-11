@@ -61,7 +61,7 @@
 			label: 'navbar.my_account',
 			items: [
 				{ href: '/profile', icon: IconAccountOutline, label: 'navbar.profile' },
-				{ href: '/dashboard/settings', icon: IconCogOutline, label: 'navbar.settings' },
+				{ href: '/settings', icon: IconCogOutline, label: 'navbar.settings' },
 				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
 			]
 		},
@@ -103,10 +103,10 @@
 		icon: IconBriefcaseOutline,
 		label: 'navbar.hiring',
 		items: [
-			{ href: '/dashboard?tab=tasks', icon: IconPlusCircleOutline, label: 'dashboard.tabs.tasks' },
-			{ href: '/dashboard?tab=contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
+			{ href: '/hiring/my-tasks', icon: IconPlusCircleOutline, label: 'dashboard.tabs.tasks' },
+			{ href: '/hiring/contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
 			{
-				href: '/dashboard?tab=service-requests',
+				href: '/hiring/service-requests',
 				icon: IconCommentTextOutline,
 				label: 'dashboard.tabs.quotes'
 			}
@@ -124,7 +124,7 @@
 			icon: IconBriefcaseOutline,
 			label: 'footer.for_taskers',
 			items: [
-				{ href: '/dashboard/create-task', icon: IconPlusCircleOutline, label: 'footer.post_task' },
+				{ href: '/create-task', icon: IconPlusCircleOutline, label: 'footer.post_task' },
 				{ href: '/taskee-fees', icon: IconCurrencyUsd, label: 'footer.tasker_fees' },
 				{ href: '/secure-payments', icon: IconShieldCheckOutline, label: 'footer.escrow' },
 				{ href: '/faq', icon: IconFrequentlyAskedQuestions, label: 'footer.faq' }
@@ -178,15 +178,15 @@
 	$effect(() => {
 		const path = page.url.pathname;
 		// More specific route detection for active states
-		if (path === '/dashboard' || path === '/earning') {
+		if (path === '/hiring' || path === '/earning') {
 			currentSection = 'home';
 		} else if (path === '/tasks' || path.startsWith('/tasks/')) {
 			currentSection = 'find-tasks';
-		} else if (path.includes('/dashboard/create-task')) {
+		} else if (path.includes('/create-task')) {
 			currentSection = 'create-task';
-		} else if (path.includes('/dashboard/wallet')) {
+		} else if (path.includes('/wallet')) {
 			currentSection = 'wallet';
-		} else if (path.includes('/dashboard/messages')) {
+		} else if (path.includes('/messages')) {
 			currentSection = 'messages';
 		} else if (path === '/') {
 			currentSection = 'home';
@@ -197,7 +197,7 @@
 		} else if (path === '/auth/signup') {
 			currentSection = 'signup';
 		} else {
-			currentSection = path.split('dashboard/')[1] || '';
+			currentSection = path.split('/').filter(Boolean).pop() || '';
 		}
 	});
 
@@ -595,8 +595,8 @@
 						<div class="flex gap-2">
 							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
 							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
-							{@render quickActionLink(
-								'/dashboard/create-service',
+						{@render quickActionLink(
+							'/create-service',
 								IconPlusCircleOutline,
 								'navbar.list_service'
 							)}
@@ -615,9 +615,9 @@
 		class="dock pb-safe bg-primary border-base-300/70 z-80 border-t text-black"
 		onclickcapture={handleBottomNavTap}
 	>
-		{@render dockLink('/dashboard', IconHome, 'navbar.home', 'home')}
+		{@render dockLink('/hiring', IconHome, 'navbar.home', 'home')}
 		{@render dockLink(
-			'/dashboard/create-task',
+			'/create-task',
 			IconPlusCircleOutline,
 			'navbar.new_task',
 			'create-task'
@@ -632,8 +632,8 @@
 			{@render hamburgerButton()}
 		</button>
 
-		{@render dockLink('/dashboard/wallet', IconWalletOutline, 'navbar.wallet', 'wallet')}
-		{@render dockLink('/dashboard/messages', IconChatOutline, 'navbar.messages', 'messages')}
+		{@render dockLink('/wallet', IconWalletOutline, 'navbar.wallet', 'wallet')}
+		{@render dockLink('/messages', IconChatOutline, 'navbar.messages', 'messages')}
 	</div>
 {:else}
 	<div

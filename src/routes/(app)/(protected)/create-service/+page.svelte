@@ -95,7 +95,7 @@
 	onMount(async () => {
 		try {
 			// Load route translations (create service - all 10 steps) same as create-task
-			await loadPageTranslations('/dashboard/create-service');
+			await loadPageTranslations('/create-service');
 			isLoading = true;
 
 			// Check if we're in edit or duplicate mode
@@ -128,7 +128,7 @@
 				}
 			} else if (isDuplicating && serviceIdParam) {
 				// Duplicate option removed: redirect to create
-				goto('/dashboard/create-service');
+				goto('/create-service');
 				return;
 			} else {
 				// New service: restore create draft from storage so user can resume from last step when they come back

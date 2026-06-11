@@ -30,7 +30,7 @@ test.describe('Cross-browser smoke tests', () => {
 	});
 
 	test('wallet page loads', async ({ authenticatedPage: page }) => {
-		await page.goto('/dashboard?tab=wallet');
+		await page.goto('/wallet');
 		await expect(page).toHaveURL(/\/dashboard/);
 	});
 

@@ -250,7 +250,7 @@ class PushNotificationService {
 			return; // Exit early, don't navigate anywhere
 		}
 
-		let targetUrl = '/dashboard';
+		let targetUrl = '/hiring';
 
 		// Check for clickAction first, then fallback to other locations
 		if (data.clickAction) {
@@ -383,7 +383,7 @@ class PushNotificationService {
 
 				const data = notification.notification?.data || {};
 
-				const targetUrl = data.clickAction || data.click_action || '/dashboard';
+				const targetUrl = data.clickAction || data.click_action || '/hiring';
 
 				// Navigate to the target URL
 				window.location.href = targetUrl;
@@ -398,7 +398,7 @@ class PushNotificationService {
 				this.handleNotificationData(notification.notification.extra);
 			} else {
 				// Fallback to dashboard if no data
-				this.navigateToUrl('/dashboard');
+				this.navigateToUrl('/hiring');
 			}
 		});
 	}

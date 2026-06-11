@@ -268,7 +268,7 @@ export class NotificationService extends BaseApiService {
 	 *   body: 'Direct device notification',
 	 *   deviceId: 'unique-device-uuid',
 	 *   type: 'test',
-	 *   clickAction: '/dashboard',
+	 *   clickAction: '/hiring',
 	 * });
 	 * console.log(result.success, result.npub);
 	 * ```
@@ -302,7 +302,7 @@ export class NotificationService extends BaseApiService {
 	 *   body: 'Someone placed a bid on "Fix my roof".',
 	 *   npubs: ['npub1abc...', 'npub1def...'],
 	 *   type: 'bid_received',
-	 *   clickAction: '/dashboard/tasks/123',
+	 *   clickAction: '/tasks/123',
 	 * });
 	 * console.log(`Delivered to ${result.successfulTargets}/${result.totalTargets} users`);
 	 * ```

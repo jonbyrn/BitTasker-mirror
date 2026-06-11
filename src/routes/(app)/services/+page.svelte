@@ -243,7 +243,7 @@
 		appStore.showSuccessToast($t('dashboard.services.browse.quote_request_submitted'));
 
 		await goto(
-			`/dashboard?tab=service-requests&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
 		);
 		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceForQuote = null;
@@ -782,7 +782,7 @@
 			{activeFilterCount}
 			filterDisabled={isApplyingFilters}
 		>
-			<a href="/dashboard/create-service" class="btn btn-primary btn-sm gap-2 whitespace-nowrap">
+			<a href="/create-service" class="btn btn-primary btn-sm gap-2 whitespace-nowrap">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4"
@@ -1011,7 +1011,7 @@
 										<p class="text-base-content/60 mb-4 text-sm">
 											{$t('dashboard.services.browse.no_more_services')}
 										</p>
-										<a href="/dashboard/create-service" class="btn btn-primary gap-2">
+										<a href="/create-service" class="btn btn-primary gap-2">
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												class="h-5 w-5"

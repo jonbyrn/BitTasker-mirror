@@ -160,9 +160,7 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
-			{@const itemHref = item.getDynamicHref
-				? item.getDynamicHref($authState.isAuthenticated)
-				: item.href || '#'}
+			{@const itemHref = item.href || '#'}
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -233,7 +231,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href="/dashboard" class="block">
+		<a href="/hiring" class="block">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}

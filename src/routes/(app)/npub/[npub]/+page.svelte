@@ -445,7 +445,7 @@
 	// Función para navegar directamente al chat
 	function goToChat() {
 		if (hexPubkey) {
-			goto(`/dashboard/messages/to/${hexPubkey}`);
+			goto(`/messages/to/${hexPubkey}`);
 		}
 	}
 

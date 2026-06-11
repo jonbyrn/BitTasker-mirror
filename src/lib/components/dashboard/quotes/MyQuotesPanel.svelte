@@ -1019,7 +1019,7 @@
 	}
 
 	async function viewContract(escrowId: string) {
-		const nextUrl = createDashboardUrl(new URL('/dashboard', window.location.origin), {
+		const nextUrl = createDashboardUrl(new URL('/hiring', window.location.origin), {
 			tab: 'contracts',
 			context: 'services',
 			highlight: escrowId

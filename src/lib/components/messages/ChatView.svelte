@@ -921,7 +921,7 @@
 				title: $user.name || $user.npub.slice(0, 6) + '...',
 				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
 				type: 'message',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/messages/to/${recipientPubkey}`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/messages/to/${recipientPubkey}`,
 				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (err) {

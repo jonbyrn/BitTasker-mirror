@@ -350,7 +350,7 @@ export async function createServiceContract(
 					title: 'Service Quote Accepted',
 					body: `Your quote on "${input.serviceTitle}" has been accepted`,
 					type: 'quote_accepted',
-					clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+					clickAction: `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`,
 					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 				})
 			: Promise.resolve();

@@ -51,8 +51,6 @@ export interface MenuItem {
 	action?: 'logout';
 	/** Error styling */
 	isError?: boolean;
-	/** Dynamic href based on login state */
-	getDynamicHref?: (isLoggedIn: boolean) => string;
 }
 
 export interface MenuSection {
@@ -83,17 +81,17 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.wallet',
 				icon: IconWalletOutline,
-				href: '/dashboard/wallet'
-			},
-			{
-				label: 'navbar.messages',
-				icon: IconChatOutline,
-				href: '/dashboard/messages'
-			},
-			{
-				label: 'navbar.settings',
-				icon: IconCog,
-				href: '/dashboard/settings'
+			href: '/wallet'
+		},
+		{
+			label: 'navbar.messages',
+			icon: IconChatOutline,
+			href: '/messages'
+		},
+		{
+			label: 'navbar.settings',
+			icon: IconCog,
+			href: '/settings'
 			},
 			{
 				label: 'navbar.logout',
@@ -111,12 +109,12 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.hiring',
 				icon: IconChartBoxOutline,
-				href: '/dashboard'
-			},
-			{
-				label: 'navbar.create_task',
-				icon: IconPlusCircleOutline,
-				href: '/dashboard/create-task'
+			href: '/hiring'
+		},
+		{
+			label: 'navbar.create_task',
+			icon: IconPlusCircleOutline,
+			href: '/create-task'
 			},
 			{
 				label: 'navbar.find_services',
@@ -126,12 +124,12 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
-				href: '/dashboard?tab=service-requests'
-			},
-			{
-				label: 'navbar.contracts',
-				icon: IconFileSign,
-				href: '/dashboard?tab=contracts'
+			href: '/hiring/service-requests'
+		},
+		{
+			label: 'navbar.contracts',
+			icon: IconFileSign,
+			href: '/hiring/contracts'
 			}
 		]
 	},
@@ -148,32 +146,32 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.find_tasks',
 				icon: IconMagnify,
-				getDynamicHref: () => '/tasks'
+				href: '/tasks'
 			},
 			{
 				label: 'navbar.bids_sent',
 				icon: IconInvoiceTextSendOutline,
-				href: '/earning?tab=bids'
+				href: '/earning/bids'
 			},
 			{
 				label: 'navbar.requests',
 				icon: IconCommentTextOutline,
-				href: '/earning?tab=requests'
+				href: '/earning/requests'
 			},
 			{
 				label: 'navbar.contracts',
 				icon: IconFileSign,
-				href: '/earning?tab=contracts'
+				href: '/earning/contracts'
 			},
 			{
 				label: 'navbar.my_services',
 				icon: IconBriefcaseSearch,
-				href: '/earning?tab=my-services'
+				href: '/earning/my-services'
 			},
 			{
 				label: 'navbar.saved_searches',
 				icon: IconMagnify,
-				href: '/earning?tab=saved-searches'
+				href: '/earning/alerts'
 			}
 		]
 	},
@@ -244,10 +242,10 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.post_task',
 				icon: IconPlusCircleOutline,
-				href: '/dashboard/create-task'
-			},
-			{
-				label: 'footer.tasker_fees',
+			href: '/create-task'
+		},
+		{
+			label: 'footer.tasker_fees',
 				icon: IconCurrencyUsd,
 				href: '/tasker-fees'
 			},
@@ -271,7 +269,7 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.start_earning',
 				icon: IconMagnify,
-				getDynamicHref: () => '/tasks'
+				href: '/tasks'
 			},
 			{
 				label: 'footer.community_guidelines',
@@ -346,7 +344,7 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.hiring',
 		icon: IconChartBoxOutline,
-		href: '/dashboard'
+		href: '/hiring'
 	},
 	{
 		label: 'navbar.earning',
@@ -356,12 +354,12 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.messages',
 		icon: IconChatOutline,
-		href: '/dashboard/messages'
+		href: '/messages'
 	},
 	{
 		label: 'navbar.wallet',
 		icon: IconWalletOutline,
-		href: '/dashboard/wallet'
+		href: '/wallet'
 	},
 	{
 		label: 'navbar.profile',
@@ -371,7 +369,7 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.settings',
 		icon: IconCog,
-		href: '/dashboard/settings'
+		href: '/settings'
 	},
 	{
 		label: 'navbar.logout',
@@ -397,12 +395,12 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 	{
 		label: 'navbar.settings',
 		icon: IconCog,
-		href: '/dashboard/settings'
+		href: '/settings'
 	},
 	{
 		label: 'navbar.home',
 		icon: IconHome,
-		getDynamicHref: () => '/tasks'
+		href: '/tasks'
 	},
 	{
 		label: 'navbar.how_it_works',

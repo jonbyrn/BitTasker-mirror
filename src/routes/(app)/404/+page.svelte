@@ -51,13 +51,13 @@
 						<a href="/" class="btn btn-outline btn-sm">
 							🏠 Home
 						</a>
-						<a href="/dashboard" class="btn btn-outline btn-sm">
-							📊 Dashboard
-						</a>
-						<a href="/tasks" class="btn btn-outline btn-sm">
-							📋 Browse Tasks
-						</a>
-						<a href="/dashboard/create-task" class="btn btn-outline btn-sm">
+					<a href="/hiring" class="btn btn-outline btn-sm">
+						📊 Dashboard
+					</a>
+					<a href="/tasks" class="btn btn-outline btn-sm">
+						📋 Browse Tasks
+					</a>
+					<a href="/create-task" class="btn btn-outline btn-sm">
 							➕ Create Task
 						</a>
 					</div>

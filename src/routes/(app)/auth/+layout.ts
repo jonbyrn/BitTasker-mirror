@@ -17,12 +17,12 @@ export const load: LayoutLoad = async ({ url }) => {
 		if (url.pathname.includes('/onboarding')) {
 			return { currentStep: 2 };
 		} else {
-			// Check for a pending deep link before defaulting to /dashboard
+			// Check for a pending deep link before defaulting to /hiring
 			const deepLink = await consumeDeepLink();
 			if (deepLink) {
 				redirect(303, deepLink);
 			}
-			redirect(303, '/dashboard');
+			redirect(303, '/hiring');
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {

@@ -38,7 +38,7 @@ function getClientBaseUrl(): URL {
 }
 
 function getDashboardBaseUrl(): URL {
-	return new URL('/dashboard', getClientBaseUrl());
+	return new URL('/hiring', getClientBaseUrl());
 }
 
 function getEarningBaseUrl(): URL {

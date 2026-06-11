@@ -36,7 +36,7 @@
 
 	<!-- Structured Data -->
 	<!-- eslint-disable svelte/no-at-html-tags -->
-	{@html `<\u{73}script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
 <div class="w-full">

@@ -12,7 +12,7 @@ export async function load() {
 			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 			if (token) {
 				const { redirect } = await import('@sveltejs/kit');
-				redirect(303, '/dashboard');
+				redirect(303, '/hiring');
 			}
 		} catch (e) {
 			if (e && typeof e === 'object' && 'status' in e) throw e;

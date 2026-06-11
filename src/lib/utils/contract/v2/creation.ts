@@ -350,7 +350,7 @@ export async function createContract(
 					title: 'Bid Accepted',
 					body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
 					type: 'bid_accepted',
-					clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+					clickAction: `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`,
 					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 				})
 			: Promise.resolve();

@@ -819,7 +819,7 @@
 										const shortfallUsd = Math.max(0, requiredUsd - availableUsd);
 										onAddFunds(shortfallUsd);
 									} else {
-										goto('/dashboard/wallet?tab=receive');
+										goto('/wallet?tab=receive');
 									}
 								}}
 							>

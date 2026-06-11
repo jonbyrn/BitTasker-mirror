@@ -28,7 +28,7 @@
 	let isEditDataLoaded = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
 	let attachmentsToRemove = $state<Attachment[]>([]);
-	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
+	let taskBudgetRef = $state(null); // Reference to TaskBudget component
 	let taskBasicsRef = $state(null);
 
 	// Background function to trigger saved search checks
@@ -98,7 +98,7 @@
 		// Clear the appropriate draft (creation or edit)
 		store.clearDraft(isEditing);
 		// Navigate back to My Tasks
-		goto('/dashboard');
+		goto('/hiring');
 	}
 
 	// Save draft before leaving the page
@@ -321,7 +321,7 @@
 			// Refresh My Tasks list to show new task
 			await refreshMyTasks();
 
-			await goto('/dashboard');
+			await goto('/hiring');
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;

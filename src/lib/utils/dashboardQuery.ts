@@ -324,7 +324,7 @@ export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): st
 }
 
 export function buildEarningQueryUrlV2(baseUrl: URL, state: EarningQueryState): string {
-	// Build path-based URL: /earning/{tab} instead of /earning?tab={tab}
+	// Build path-based URL: /earning/{tab}
 	const url = new URL(`/earning/${state.tab}`, baseUrl.origin);
 
 	if (state.tab === 'contracts' && state.type) {

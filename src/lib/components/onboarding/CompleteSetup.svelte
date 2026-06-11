@@ -39,7 +39,7 @@
 				data-testid="onboarding-go-to-dashboard"
 				onclick={() => {
 					isRedirecting = true;
-					goto('/dashboard').finally(() => {
+					goto('/hiring').finally(() => {
 						isRedirecting = false;
 					});
 				}}

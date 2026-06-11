@@ -98,7 +98,7 @@ export function parseServiceQuoteDashboardQuery(
 	context: DashboardRouteContext,
 	now = Date.now()
 ): DashboardRouteParseResult {
-	const url = new URL('https://bittasker.local/dashboard');
+	const url = new URL('https://bittasker.local/hiring');
 	url.search = searchParams.toString();
 
 	const parsed = parseDashboardQuery(url);
@@ -187,7 +187,7 @@ export function parseServiceQuoteDashboardQuery(
 		}
 	}
 
-	const canonicalUrl = buildDashboardQueryUrl(new URL('https://bittasker.local/dashboard'), {
+	const canonicalUrl = buildDashboardQueryUrl(new URL('https://bittasker.local/hiring'), {
 		tab: normalized.tab,
 		view:
 			normalized.tab === 'service-requests'

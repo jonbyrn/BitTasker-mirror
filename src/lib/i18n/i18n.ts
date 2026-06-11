@@ -186,7 +186,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/contracts/actions');
 	}
 
-	if (route.includes('/dashboard')) {
+	if (['/hiring', '/create-task', '/wallet', '/messages', '/settings', '/create-service', '/task/', '/bids'].some(p => route.includes(p))) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
@@ -279,8 +279,6 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
-	if (route.includes('/dashboard/debug-smart-contract')) namespaces.push('debug');
-
 	return namespaces;
 }
 
@@ -315,11 +313,13 @@ export async function setupI18n(): Promise<void> {
 		// Load only essential translations
 		await loadEssentialTranslations(currentLocale);
 
-		// Initialize svelte-i18n
-		init({
+		// Initialize svelte-i18n — MUST be awaited so $locale is set before components render.
+		// Without await, the language dropdown flag and translated text show stale 'en' values
+		// until svelte-i18n's internal init resolves, causing a visible flash.
+		await init({
 			fallbackLocale: 'en',
 			initialLocale: currentLocale,
-			loadingDelay: 200
+			loadingDelay: 0
 		});
 
 		// Set up locale persistence

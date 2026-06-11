@@ -35,7 +35,9 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<!-- eslint-disable svelte/no-at-html-tags -->
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<!-- eslint-enable svelte/no-at-html-tags -->
 </svelte:head>
 
 <div class="w-full">
@@ -307,7 +309,7 @@
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center">
 			<h4>{$t('tasker.fees.cta.title')}</h4>
-			<a href="/dashboard/create-task" class="btn btn-primary mt-4">{$t('tasker.fees.cta.button')}</a>
+			<a href="/create-task" class="btn btn-primary mt-4">{$t('tasker.fees.cta.button')}</a>
 		</div>
 	</div>
 </div>

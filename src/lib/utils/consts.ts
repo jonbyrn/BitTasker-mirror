@@ -4,14 +4,14 @@
 export const sections = [
 	{
 		id: 'hiring',
-		path: '/dashboard',
+		path: '/hiring',
 		label: 'navbar.hiring',
 		icon: 'mdi:briefcase-outline',
 		mobile: true
 	},
 	{
 		id: 'create-task',
-		path: '/dashboard/create-task',
+		path: '/create-task',
 		label: 'navbar.create_task',
 		icon: 'mdi:plus-circle-outline',
 		mobile: true,
@@ -42,7 +42,7 @@ export const sections = [
 	},
 	{
 		id: 'wallet',
-		path: '/dashboard/wallet',
+		path: '/wallet',
 		label: 'navbar.wallet',
 		icon: 'mdi:wallet-outline',
 		mobile: true
@@ -56,7 +56,7 @@ export const sections = [
 	},
 	{
 		id: 'messages',
-		path: '/dashboard/messages',
+		path: '/messages',
 		label: 'navbar.messages',
 		icon: 'mdi:chat-outline',
 		mobile: true
@@ -70,7 +70,7 @@ export const sections = [
 	},
 	{
 		id: 'settings',
-		path: '/dashboard/settings',
+		path: '/settings',
 		label: 'navbar.settings',
 		icon: 'mdi:cog',
 		mobile: false

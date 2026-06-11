@@ -145,15 +145,17 @@
 	<div class="navbar-start ml-2 flex-1 sm:flex">
 		<a href="/" class="block">
 			<img
-				src="/images/logos/bittasker-logomark.svg"
-				alt={t('common.components.topbar.logo_alt')}
-				class="mx-auto block max-h-10"
-				width="40"
-				height="40"
-				style="aspect-ratio: 1/1;"
+			src="/images/logos/bittasker-logomark.svg"
+			alt={t('common.components.topbar.logo_alt')}
+			class="mx-auto block max-h-10"
+			width="40"
+			height="40"
+			style="aspect-ratio: 1/1;"
 			/>
 		</a>
-		<LanguageDropdown onLanguageChange={closeDropdowns} />
+		{#if browser}
+			<LanguageDropdown onLanguageChange={closeDropdowns} />
+		{/if}
 	</div>
 
 	<div class="navbar-center mx-auto hidden lg:flex">

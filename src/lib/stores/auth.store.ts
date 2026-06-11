@@ -62,12 +62,12 @@ const createAuthStore = () => {
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) {
-			// Respect returnTo param and pending deep links before defaulting to /dashboard
+			// Respect returnTo param and pending deep links before defaulting to /hiring
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
 			const target =
-				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/dashboard';
+				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
 			await goto(target);
 			// Close modal and reset migration state
 			resetMigration();

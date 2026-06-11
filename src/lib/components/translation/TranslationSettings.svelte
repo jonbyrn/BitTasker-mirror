@@ -24,7 +24,7 @@
 	class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors"
 	onclick={async () => {
 		// Ensure translations are loaded before opening modal
-		await loadPageTranslations('/dashboard/messages');
+		await loadPageTranslations('/messages');
 		isOpen = true;
 	}}
 	title="Translation Settings"

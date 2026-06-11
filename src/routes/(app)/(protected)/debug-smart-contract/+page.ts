@@ -3,6 +3,6 @@ import { redirect } from '@sveltejs/kit';
 
 export function load() {
 	if (!dev) {
-		redirect(307, '/dashboard');
+		redirect(307, '/hiring');
 	}
 }

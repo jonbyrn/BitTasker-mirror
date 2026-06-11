@@ -46,7 +46,7 @@ test.describe('service quote contracts browser slice', () => {
 			},
 			search: 'tab=contracts&context=services',
 			messageCode: 'contracts_highlight_not_found',
-			nextUrl: 'https://bittasker.test/dashboard?tab=contracts&context=services'
+			nextUrl: 'https://bittasker.test/hiring/contracts&context=services'
 		});
 	});
 
@@ -79,7 +79,7 @@ test.describe('service quote contracts browser slice', () => {
 
 		expect(result).toEqual({
 			nextUrl:
-				'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-escrow_123',
+				'https://bittasker.test/hiring/contracts&context=services&highlight=svc-escrow_123',
 			state: {
 				tab: 'contracts',
 				view: 'default',
@@ -102,7 +102,7 @@ test.describe('service quote contracts browser slice', () => {
 
 		expect(result).toEqual({
 			nextUrl:
-				'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-escrow_123',
+				'https://bittasker.test/hiring/contracts&context=services&highlight=svc-escrow_123',
 			state: {
 				tab: 'contracts',
 				view: 'default',
@@ -126,7 +126,7 @@ test.describe('service quote contracts browser slice', () => {
 		expect(result).toEqual({
 			highlightEscrowId: 'svc-escrow-123',
 			nextUrl:
-				'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-escrow-123',
+				'https://bittasker.test/hiring/contracts&context=services&highlight=svc-escrow-123',
 			remaining: null
 		});
 	});

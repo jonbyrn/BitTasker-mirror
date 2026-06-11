@@ -296,7 +296,7 @@
 
 	// Handle conversation selection
 	function selectConversation(pubkey: string) {
-		goto(`/dashboard/messages/to/${pubkey}`);
+		goto(`/messages/to/${pubkey}`);
 	}
 
 	// Handle new message
@@ -590,7 +590,7 @@
 		}
 
 		// Navigate to the new chat page
-		goto(`/dashboard/messages/to/${hexPubkey}`);
+		goto(`/messages/to/${hexPubkey}`);
 		showModal = false;
 	}
 </script>

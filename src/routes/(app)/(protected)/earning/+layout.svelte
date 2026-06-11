@@ -37,7 +37,7 @@
 					'dashboard.services.my_services.create_service',
 					'Create Service'
 				),
-				buttonHref: '/dashboard/create-service',
+				buttonHref: '/create-service',
 				icon: 'plus'
 			},
 			{
@@ -55,7 +55,7 @@
 					'dashboard.services.my_services.create_service',
 					'Create Service'
 				),
-				buttonHref: '/dashboard/create-service',
+				buttonHref: '/create-service',
 				icon: 'plus'
 			},
 			{

@@ -931,7 +931,7 @@
 						new URLSearchParams('tab=contracts&type=services&highlight=%25%25%25'),
 						emptyDashboardRouteContext
 					);
-					const url = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
+					const url = createDashboardUrl(new URL('https://bittasker.test/hiring/my-tasks'), {
 						tab: 'contracts',
 						type: 'services',
 						highlight: null
@@ -969,7 +969,7 @@
 					const serviceAddress = `30402:${'a'.repeat(64)}:service-1234`;
 					const nextUrl = createDashboardUrl(
 						new URL(
-							`https://bittasker.test/dashboard?tab=my-services&view=quotes&service=${encodeURIComponent(
+							`https://bittasker.test/earning/my-services&view=quotes&service=${encodeURIComponent(
 								serviceAddress
 							)}&request=qr_valid123`
 						),
@@ -1000,7 +1000,7 @@
 					} = await import('$lib/utils/service-quote/dashboard-route');
 					const nextUrl = createDashboardUrl(
 						new URL(
-							'https://bittasker.test/dashboard?tab=service-requests&view=tasker&request=qr_valid123'
+							'https://bittasker.test/earning/my-service-requests&view=tasker&request=qr_valid123'
 						),
 						{
 							tab: 'contracts',
@@ -1047,7 +1047,7 @@
 						1_700_000_001_000
 					);
 					const nextUrl = highlightEscrowId
-						? createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=contracts'), {
+						? createDashboardUrl(new URL('https://bittasker.test/hiring/contracts'), {
 								tab: 'contracts',
 								type: 'services',
 								highlight: highlightEscrowId

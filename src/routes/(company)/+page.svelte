@@ -164,7 +164,10 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content text-center">
 			<div class="max-w-2xl">
-				<Logo />
+				{#if browser}
+					<Logo />
+				{/if}
+
 				<p class="py-6">{t('homepage.v2.hero.description')}</p>
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->

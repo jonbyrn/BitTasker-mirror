@@ -433,7 +433,7 @@
 							const params = new URLSearchParams(window.location.search);
 							const returnTo = params.get('returnTo');
 							const target =
-								returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/dashboard';
+								returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
 							await goto(target);
 						}
 						if ($passkeyMigration.isOpen) {

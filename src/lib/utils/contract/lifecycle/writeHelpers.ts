@@ -16,7 +16,7 @@ import type { PaymentContractRuneLike } from './types';
 
 const d = createDebug('contract:lifecycle:writeHelpers');
 
-const CONTRACTS_TAB_URL = () => `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`;
+const CONTRACTS_TAB_URL = () => `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`;
 
 const PUSH_ICON = 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg';
 
