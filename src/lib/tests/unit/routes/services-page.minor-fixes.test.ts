@@ -5,7 +5,7 @@ describe('MINOR #19: Invalid transition-filter Tailwind class', () => {
 		const { readFileSync } = await import('fs');
 		const { join } = await import('path');
 
-		const servicesPagePath = join(process.cwd(), 'src/routes/services/+page.svelte');
+		const servicesPagePath = join(process.cwd(), 'src/routes/(app)/services/+page.svelte');
 		const content = readFileSync(servicesPagePath, 'utf-8');
 
 		expect(content).not.toContain('transition-filter');
@@ -36,7 +36,7 @@ describe('MINOR #20: Grid gap consistency', () => {
 		const { readFileSync } = await import('fs');
 		const { join } = await import('path');
 
-		const servicesPagePath = join(process.cwd(), 'src/routes/services/+page.svelte');
+		const servicesPagePath = join(process.cwd(), 'src/routes/(app)/services/+page.svelte');
 		const content = readFileSync(servicesPagePath, 'utf-8');
 
 		const skeletonGapMatch = content.match(/mb-12 grid grid-cols-1 gap-\d+/);
@@ -51,7 +51,7 @@ describe('MINOR #21: Map container height', () => {
 		const { readFileSync } = await import('fs');
 		const { join } = await import('path');
 
-		const servicesPagePath = join(process.cwd(), 'src/routes/services/+page.svelte');
+		const servicesPagePath = join(process.cwd(), 'src/routes/(app)/services/+page.svelte');
 		const content = readFileSync(servicesPagePath, 'utf-8');
 
 		const mapContainerStyles = content.match(/\.map-container-wrapper\s*\{[^}]+\}/s);
@@ -67,7 +67,7 @@ describe('MINOR #15 & #16 & #17: State management checks', () => {
 		const { readFileSync } = await import('fs');
 		const { join } = await import('path');
 
-		const servicesPagePath = join(process.cwd(), 'src/routes/services/+page.svelte');
+		const servicesPagePath = join(process.cwd(), 'src/routes/(app)/services/+page.svelte');
 		const content = readFileSync(servicesPagePath, 'utf-8');
 
 		const clearFiltersIndex = content.indexOf('async function clearFilters()');
@@ -81,7 +81,7 @@ describe('MINOR #15 & #16 & #17: State management checks', () => {
 		const { readFileSync } = await import('fs');
 		const { join } = await import('path');
 
-		const servicesPagePath = join(process.cwd(), 'src/routes/services/+page.svelte');
+		const servicesPagePath = join(process.cwd(), 'src/routes/(app)/services/+page.svelte');
 		const content = readFileSync(servicesPagePath, 'utf-8');
 
 		expect(content).toContain('searchVersion');

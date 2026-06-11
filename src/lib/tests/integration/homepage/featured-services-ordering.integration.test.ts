@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
-import { readable, type Readable } from 'svelte/store';
-import Homepage from '../../../../routes/+page.svelte';
+import { readable } from 'svelte/store';
+import Homepage from '../../../../routes/(company)/+page.svelte';
 
 vi.mock('$lib/components/Logo.svelte', () => ({
 	default: () => null
@@ -63,7 +63,32 @@ describe('homepage featured services ordering', () => {
 					twitterTitle: 'BitTasker',
 					twitterDescription: 'BitTasker home',
 					twitterImage: 'https://bittasker.com/og.png',
-					jsonLd: {}
+					jsonLd: {},
+					homepageData: {
+						services: [
+							{
+								id: 'service-1',
+								href: '/services/service-1',
+								title: 'Featured Service',
+								description: 'Service description',
+								priceLabel: 'From $85',
+								meta: ['Remote'],
+								image: 'https://cdn.example.com/service.jpg',
+								imageAlt: 'Featured Service',
+								ctaLabel: 'View Service'
+							}
+						],
+						tasks: [
+							{
+								id: 'task-1',
+								title: 'Featured Task',
+								budget: 120,
+								proposals: 3,
+								timeLeft: '2 days',
+								image: 'https://cdn.example.com/task.jpg'
+							}
+						]
+					}
 				}
 			}
 		});

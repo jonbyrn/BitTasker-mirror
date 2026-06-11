@@ -9,7 +9,7 @@ describe('buildContractsDashboardLink', () => {
 				contextType: 'service',
 				escrowId: 'svc-123'
 			})
-		).toBe('https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-123');
+		).toBe('https://bittasker.test/hiring/contracts?tab=contracts&context=services&highlight=svc-123');
 	});
 
 	it('builds a task contracts link without the service context filter', () => {
@@ -19,7 +19,7 @@ describe('buildContractsDashboardLink', () => {
 				contextType: 'task',
 				escrowId: 'task-123'
 			})
-		).toBe('https://bittasker.test/dashboard?tab=contracts&highlight=task-123');
+		).toBe('https://bittasker.test/hiring/contracts?tab=contracts&highlight=task-123');
 	});
 
 	it('omits highlight when the escrow id is blank', () => {
@@ -29,6 +29,6 @@ describe('buildContractsDashboardLink', () => {
 				contextType: 'service',
 				escrowId: '   '
 			})
-		).toBe('https://bittasker.test/dashboard?tab=contracts&context=services');
+		).toBe('https://bittasker.test/hiring/contracts?tab=contracts&context=services');
 	});
 });

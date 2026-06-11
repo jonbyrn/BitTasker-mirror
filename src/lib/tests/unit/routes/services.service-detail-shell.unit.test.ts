@@ -71,7 +71,7 @@ describe('services/[serviceId] route shell', () => {
 
 	it('renders the authenticated desktop sidebar when sections do not expose href keys', async () => {
 		const { default: ServicesDetailPage } = await import(
-			'../../../../routes/services/[serviceId]/+page.svelte'
+			'../../../../routes/(app)/services/[serviceId]/+page.svelte'
 		);
 
 		expect(() =>

@@ -280,7 +280,7 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 	});
 
 	it('FIX VERIFICATION: isApplyingFilters should disable filter button while applying', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -341,7 +341,7 @@ describe('MAJOR #4: Live region missing during initial load', () => {
 	});
 
 	it('FIX VERIFICATION: aria-live="polite" region should exist in DOM for accessibility', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -410,7 +410,7 @@ describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
 			});
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -459,7 +459,7 @@ describe('MAJOR #6: No loading timeout enforcement', () => {
 	it('FIX VERIFICATION: Loading timeout mechanism is in place', async () => {
 		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -513,7 +513,7 @@ describe('MAJOR #7: Filter drawer closes before apply completes', () => {
 			});
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 

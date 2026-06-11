@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-	initializeSplashScreen,
 	hideSplashScreen,
 	showSplashScreen,
 	isSplashScreenHidden,
@@ -33,12 +32,6 @@ describe('splashScreen', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
-	});
-
-	describe('initializeSplashScreen', () => {
-		it('should resolve without throwing when browser is true', async () => {
-			await expect(initializeSplashScreen()).resolves.toBeUndefined();
-		});
 	});
 
 	describe('hideSplashScreen', () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 // Import the component: from unit/routes/ up to src then routes/tasks
-import TasksPage from '../../../../routes/tasks/+page.svelte';
+import TasksPage from '../../../../routes/(app)/tasks/+page.svelte';
 import { tasksStore } from '$lib/stores/task.store';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task } from '$lib/types/task.d';

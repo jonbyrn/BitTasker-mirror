@@ -148,7 +148,7 @@ describe('ProfileServicesSection', () => {
 		);
 
 		expect(getByTestId('profile-services-empty')).toBeTruthy();
-		expect(getByRole('link').getAttribute('href')).toBe('/dashboard/create-service');
+		expect(getByRole('link').getAttribute('href')).toBe('/create-service');
 	});
 
 	it('renders an error state when services fail to load', async () => {

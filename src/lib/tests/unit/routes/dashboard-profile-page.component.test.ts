@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
-import DashboardProfilePage from '../../../../routes/(protected)/profile/+page.svelte';
+import DashboardProfilePage from '../../../../routes/(app)/(protected)/profile/+page.svelte';
 
 const mocks = vi.hoisted(() => ({
 	profileStoreInit: vi.fn(),

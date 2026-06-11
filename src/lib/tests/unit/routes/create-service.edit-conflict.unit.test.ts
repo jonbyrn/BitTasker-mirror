@@ -197,7 +197,7 @@ describe('create-service edit conflict handling', () => {
 		);
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.publish'));

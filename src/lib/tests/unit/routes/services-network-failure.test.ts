@@ -254,7 +254,7 @@ describe('Network failure scenarios', () => {
 
 			hoisted.findServices.mockRejectedValue(networkError);
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 
@@ -290,7 +290,7 @@ describe('Network failure scenarios', () => {
 
 			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 
@@ -316,7 +316,7 @@ describe('Network failure scenarios', () => {
 				return new Promise(() => {});
 			});
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 
@@ -363,7 +363,7 @@ describe('Network failure scenarios', () => {
 				});
 			});
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 
@@ -386,7 +386,7 @@ describe('Network failure scenarios', () => {
 
 			hoisted.findServices.mockResolvedValue(undefined);
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 
@@ -402,7 +402,7 @@ describe('Network failure scenarios', () => {
 			hoisted.cryptoPriceService.getCurrentPrice.mockRejectedValue(new Error('Network error'));
 			hoisted.findServices.mockResolvedValue(undefined);
 
-			const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+			const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 			render(ServicesPage);
 

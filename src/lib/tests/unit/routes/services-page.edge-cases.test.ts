@@ -284,7 +284,7 @@ describe('Edge Case: Empty services list', () => {
 	it('displays empty state UI when no services are returned', async () => {
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -300,7 +300,7 @@ describe('Edge Case: Empty services list', () => {
 	});
 
 	it('does not crash when findServices returns empty array', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 
@@ -343,7 +343,7 @@ describe('Edge Case: Single service', () => {
 	});
 
 	it('handles single service correctly', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -356,7 +356,7 @@ describe('Edge Case: Single service', () => {
 	});
 
 	it('does not show pagination for single service', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -410,7 +410,7 @@ describe('Edge Case: Many services (10+)', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -449,7 +449,7 @@ describe('Edge Case: Many services (10+)', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		render(ServicesPage);
 
@@ -497,7 +497,7 @@ describe('Edge Case: Service with missing fields', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 
@@ -536,7 +536,7 @@ describe('Edge Case: Service with missing fields', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 
@@ -575,7 +575,7 @@ describe('Edge Case: Service with missing fields', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 	});
@@ -624,7 +624,7 @@ describe('Edge Case: Service with invalid coordinates', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 	});
@@ -664,7 +664,7 @@ describe('Edge Case: Service with invalid coordinates', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 	});
@@ -707,7 +707,7 @@ describe('Edge Case: Service with invalid coordinates', () => {
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 	});
@@ -756,7 +756,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 
@@ -801,7 +801,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 
@@ -850,7 +850,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import('../../../../routes/(app)/services/+page.svelte');
 
 		expect(() => render(ServicesPage)).not.toThrow();
 

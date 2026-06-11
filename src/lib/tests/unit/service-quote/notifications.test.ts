@@ -153,7 +153,7 @@ describe('service quote notification helpers', () => {
 				title: 'New service contract created for Migration audit',
 				body: 'A buyer placed a Book Now order for Migration audit.',
 				clickAction:
-					'https://bittasker.test/dashboard?tab=contracts&type=services&highlight=svc-123'
+					'https://bittasker.test/hiring?tab=contracts&type=services&highlight=svc-123'
 			})
 		);
 	});

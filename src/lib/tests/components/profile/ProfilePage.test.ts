@@ -69,7 +69,7 @@ describe('dashboard profile page', () => {
 
 	it('initializes and tears down the profile store on mount/unmount', async () => {
 		const component = (
-			await import('../../../../routes/(protected)/profile/+page.svelte')
+			await import('../../../../routes/(app)/(protected)/profile/+page.svelte')
 		).default;
 		const { unmount } = render(component);
 
@@ -81,7 +81,7 @@ describe('dashboard profile page', () => {
 
 	it('renders the profile page heading', async () => {
 		const component = (
-			await import('../../../../routes/(protected)/profile/+page.svelte')
+			await import('../../../../routes/(app)/(protected)/profile/+page.svelte')
 		).default;
 		const { getByText } = render(component);
 
