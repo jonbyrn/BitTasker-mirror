@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import type { SearchServicesParams, Service } from '$lib/types/service.d';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
@@ -260,6 +260,26 @@
 		}
 	});
 
+	// Scroll listener for infinite scroll + scroll-to-top button (same pattern as tasks)
+	$effect(() => {
+		const ref = serviceListRef;
+		let scrollCleanup: (() => void) | undefined;
+
+		if (ref) {
+			ref.addEventListener('scroll', handleScroll, { passive: true });
+			scrollCleanup = () => {
+				ref.removeEventListener('scroll', handleScroll);
+				if (scrollTimeout) {
+					clearTimeout(scrollTimeout);
+					scrollTimeout = null;
+				}
+			};
+		}
+
+		return () => {
+			if (scrollCleanup) scrollCleanup();
+		};
+	});
 	function selectServiceForMap(service: Service) {
 		selectedServiceForMap = service;
 		scrollToServiceCard(service.id);
@@ -543,19 +563,33 @@
 		isApplyingFilters = false;
 	}
 
-	// Load more services
+	// Load more services (cursor-based pagination, same as tasks)
 	async function loadMoreServices() {
 		if (!$servicesStore.hasMore || $servicesStore.loading || isLoadingMore) {
 			return;
 		}
 
-		try {
-			isLoadingMore = true;
+		isLoadingMore = true;
 
+		try {
 			const nextPage = $servicesStore.currentPage + 1;
+
+			const lastRelayTs = $servicesStore.lastRelayTimestamp;
+			const lastItem = $servicesStore.items[$servicesStore.items.length - 1];
+			const cursorTimestamp = lastRelayTs ?? lastItem?.createdAt;
+
+			if (!cursorTimestamp) {
+				console.warn('[FindServices] No cursor timestamp found, cannot load more');
+				isLoadingMore = false;
+				return;
+			}
+
+			const untilTimestamp = cursorTimestamp - 1;
+
 			const newParams: SearchServicesParams = {
 				...searchParams,
-				page: nextPage
+				page: nextPage,
+				until: untilTimestamp
 			};
 
 			await findServicesWithTimeout(newParams);
@@ -594,7 +628,7 @@
 				const { scrollTop: currentScrollTop, scrollHeight, clientHeight } = serviceListRef;
 				const distanceFromBottom = scrollHeight - (currentScrollTop + clientHeight);
 
-				if (distanceFromBottom < 500) {
+				if (distanceFromBottom < 300) {
 					loadMoreServices();
 				}
 			}, 200);
@@ -610,14 +644,7 @@
 		}
 	}
 
-	/**
-	 * Setup infinite scroll with scroll listener (includes scroll-to-top button visibility)
-	 */
-	function setupInfiniteScroll(): void {
-		if (!browser || !serviceListRef) return;
-
-		serviceListRef.addEventListener('scroll', handleScroll, { passive: true });
-	}
+	// Scroll listener is set up via $effect below (same pattern as tasks)
 
 	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
@@ -679,11 +706,7 @@
 			// This ensures sessionStorage data is read before loadNostrData uses searchParams
 			initPromise.then(() => {
 				if (unmounted) return;
-				loadNostrData().then(() => {
-					if (serviceListRef && !unmounted) {
-						setupInfiniteScroll();
-					}
-				});
+				loadNostrData();
 			});
 
 			const cleanupMapPreload = attemptMapPreload();
@@ -722,10 +745,6 @@
 			}
 
 			debouncedSearch.abort();
-
-			if (serviceListRef) {
-				serviceListRef.removeEventListener('scroll', handleScroll);
-			}
 
 			if (appShellContent) {
 				appShellContent.removeAttribute('data-find-services-page');
@@ -1091,7 +1110,7 @@
 				<!-- Mobile Floating Button - Scroll to Top (same as Find Tasks) -->
 				{#if showScrollToTop}
 					<button
-						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex min-h-11 min-w-11 translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-all transition-transform duration-200 duration-300 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex min-h-11 min-w-11 translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-transform duration-200 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
 						title={$t('dashboard.services.browse.scroll_to_top')}

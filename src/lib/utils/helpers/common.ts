@@ -1,28 +1,31 @@
 // Debounce function with abort signal support
-export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
+export function debounce<Args extends unknown[]>(
+	fn: (...args: Args) => void,
+	delay: number
+): (...args: Args) => void {
 	let timeoutId: ReturnType<typeof setTimeout>;
-	return function (...args: Parameters<T>) {
+	return function (this: void, ...args: Args) {
 		clearTimeout(timeoutId);
-		timeoutId = setTimeout(() => fn.apply(this, args), delay);
+		timeoutId = setTimeout(() => fn(...args), delay);
 	};
 }
 
 // Debounce with AbortController support for cancellation
-export function debounceWithAbort<T extends (...args: unknown[]) => void>(
-	fn: T,
+export function debounceWithAbort<Args extends unknown[]>(
+	fn: (...args: Args) => void,
 	delay: number
-): T & { abort(): void } {
+): ((...args: Args) => void) & { abort(): void } {
 	let timeoutId: ReturnType<typeof setTimeout>;
 	const abortController = new AbortController();
 
-	const debouncedFn = function (...args: Parameters<T>) {
+	const debouncedFn = function (this: void, ...args: Args) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
 			if (!abortController.signal.aborted) {
-				fn.apply(this, args);
+				fn(...args);
 			}
 		}, delay);
-	} as T & { abort(): void };
+	} as ((...args: Args) => void) & { abort(): void };
 
 	debouncedFn.abort = () => {
 		clearTimeout(timeoutId);

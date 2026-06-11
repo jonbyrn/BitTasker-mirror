@@ -1,4 +1,4 @@
-import type { Service, SearchServicesParams } from '$lib/types/service.d';
+﻿import type { Service, SearchServicesParams } from '$lib/types/service.d';
 import { type Event, type Filter, nip19 } from 'nostr-tools';
 import { Preferences } from '@capacitor/preferences';
 import { browser } from '$app/environment';
@@ -349,7 +349,8 @@ export async function findServices(
 				items: params.page === 1 ? limitedServices : [...state.items, ...limitedServices],
 				loading: false,
 				currentPage: params.page || 1,
-				hasMore
+				hasMore,
+				lastRelayTimestamp: state.lastRelayTimestamp
 			}));
 
 			return {
@@ -378,6 +379,10 @@ export async function findServices(
 		const rawServices = results
 			.filter((r): r is PromiseFulfilledResult<Service> => r.status === 'fulfilled')
 			.map((r) => r.value);
+
+		// Track oldest relay timestamp BEFORE any filtering (same as findTasks)
+		const lastRelayTimestamp =
+			rawServices.length > 0 ? Math.min(...rawServices.map((s) => s.createdAt ?? 0)) : undefined;
 
 		// Keep only the latest version per logical listing before applying visibility rules.
 		const latestServices = dedupeServicesByUniqueId(rawServices);
@@ -455,7 +460,8 @@ export async function findServices(
 			items: page === 1 ? itemsToAdd : [...state.items, ...itemsToAdd],
 			loading: false,
 			currentPage: page,
-			hasMore
+			hasMore,
+			lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
 		}));
 
 		return {

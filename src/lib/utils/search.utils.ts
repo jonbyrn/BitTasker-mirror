@@ -8,7 +8,7 @@ export function hashSearchParams(params: {
 	pricingType?: string;
 	minPrice?: number;
 	maxPrice?: number;
-	deliveryTime?: string;
+	deliveryTime?: number;
 	location?: string;
 	locationCoords?: { latitude: number; longitude: number };
 }): string {
