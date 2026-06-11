@@ -60,8 +60,8 @@
 
 	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
 
-	// Svelte 5 derived state for current language name
-	const currentLanguageName = $derived(() => {
+	// Svelte 5 derived state for current language name (uses $derived.by for reactive re-evaluation)
+	const currentLanguageName = $derived.by(() => {
 		const currentLocale = $locale as SupportedLanguage;
 		const key = LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale;
 		return $t('navbar.language.' + key) || '';
@@ -80,11 +80,11 @@
 		onclick={toggleDropdown}
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
-		data-tip={!isLanguageLoading ? ` ${currentLanguageName()}` : ''}
+		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
 		<img
 			src={FLAG_IMAGES[$locale as SupportedLanguage]}
-			alt={`${currentLanguageName()} flag`}
+			alt={`${currentLanguageName} flag`}
 			class="h-4.5 w-6 rounded-sm object-cover"
 			width="24"
 			height="18"

@@ -34,7 +34,7 @@ const config = {
 		// Configure the adapter with fallback for SPA navigation
 		adapter: adapter({
 			// Single-page app mode with fallback
-			fallback: 'index.html',
+			fallback: 'app.html',
 			// Path to build output
 			pages: 'build',
 			assets: 'build',

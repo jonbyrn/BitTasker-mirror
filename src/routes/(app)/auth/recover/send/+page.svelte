@@ -28,8 +28,9 @@
 
 			await authService.initiateNostrRecovery(email);
 			success = true;
-		} catch (err: any) {
-			error = err.message || $t('recovery_send.errors.failed_initiate');
+		} catch (err: unknown) {
+			const errorMessage = err instanceof Error ? err.message : $t('recovery_send.errors.failed_initiate');
+			error = errorMessage;
 		} finally {
 			isLoading = false;
 		}

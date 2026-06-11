@@ -8,7 +8,7 @@
 	import { ndk } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
 	import type { EscrowData } from '$lib/types/wallet';
-	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
+	import type { ContractPermissions } from '$lib/types/contract';
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import {
 		completeTask,

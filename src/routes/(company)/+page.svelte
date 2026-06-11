@@ -1,20 +1,15 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { t as i18nT } from 'svelte-i18n';
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
-	import { locale, t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import type {
-		FeaturedService,
-		FeaturedServiceLabels
-	} from '$lib/services/featuredServices.service';
+	import type { FeaturedService } from '$lib/services/featuredServices.service';
 	import type { FeaturedSectionState } from '$lib/services/featuredHomepage';
 	import {
 		FEATURED_HOMEPAGE_LIMIT,
-		createFeaturedSectionState,
 		completeFeaturedSectionState
 	} from '$lib/services/featuredHomepage';
-	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
-	import { FeaturedServicesService } from '$lib/services/featuredServices.service';
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
@@ -22,29 +17,54 @@
 
 	let { data: seo }: { data: PageData } = $props();
 
-	// JSON-LD script for structured data (moved from template to fix parser bugs)
-	// Build string piece by piece to avoid <script being interpreted as tag
+	function delve(obj: unknown, fullKey: string): string | undefined {
+		if (!obj || typeof obj !== 'object') return undefined;
+		const keys = fullKey.split('.');
+		let result: unknown = obj;
+		for (const key of keys) {
+			if (result && typeof result === 'object') {
+				result = (result as Record<string, unknown>)[key];
+			} else {
+				return undefined;
+			}
+		}
+		return typeof result === 'string' ? result : undefined;
+	}
+
+	const t = (key: string): string => {
+		if (browser) {
+			const i18nValue = $i18nT(key);
+			if (i18nValue && i18nValue !== key) return i18nValue;
+		}
+		if (seo.translations) {
+			const value = delve(seo.translations, key);
+			if (value) return value;
+		}
+		return $i18nT(key);
+	};
+
+	// Initialize featured sections from load function data (fetched SSR-safe via nostr-tools)
+	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(
+		completeFeaturedSectionState(seo.homepageData?.tasks || [], null)
+	);
+	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
+		completeFeaturedSectionState(seo.homepageData?.services || [], null, { hideWhenEmpty: true })
+	);
+
 	const jsonLdScript = $derived(
 		seo.jsonLd
 			? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
 			: ''
 	);
 
-	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
-
-	// Feature IDs for the trust features section
 	const featureIds: FeatureId[] = ['bitcoin', 'escrow', 'nostr', 'payments'];
-
-	// Map of feature images - using custom SVG illustrations from static directory
 	const featureImages: Record<FeatureId, string> = {
 		nostr: '/images/features/nostr-decentralized.webp',
 		bitcoin: '/images/features/bitcoin-money.webp',
 		payments: '/images/features/pay-your-way.webp',
 		escrow: '/images/features/bitcoin-escrow.webp'
 	};
-
-	// Translation key mappings for type safety
 	const translationKeys = {
 		bitcoin: {
 			title: 'homepage.v2.trust.bitcoin.title' as const,
@@ -65,124 +85,35 @@
 	};
 
 	let activeFeatureIndex = $state(0);
-	const activeFeatureId = $derived(featureIds[activeFeatureIndex] as FeatureId);
-	const currentLocale = $derived($locale || 'en');
 
 	function resolveHomepageTranslation(key: string, fallback: string): string {
-		const value = $t(key);
+		const value = t(key);
 		return !value || value === key ? fallback : value;
 	}
 
-	const featuredServiceLabels = $derived<FeaturedServiceLabels>({
-		untitledServiceLabel: resolveHomepageTranslation(
-			'dashboard.services.detail.not_found',
-			'Untitled service'
-		),
-		noDescriptionLabel: resolveHomepageTranslation(
-			'common.profile.no_description',
-			'No description available.'
-		),
-		requestQuoteLabel: resolveHomepageTranslation(
-			'dashboard.services.browse.pricing.request_quote',
-			'Request Quote'
-		),
-		serviceListingLabel: resolveHomepageTranslation(
-			'common.homepage.featured.services.meta_fallback',
-			'Service listing'
-		),
-		remoteLabel: resolveHomepageTranslation(
-			'dashboard.services.create.location.remote_title',
-			'Remote'
-		),
-		atProviderLocationLabel: resolveHomepageTranslation(
-			'common.homepage.featured.services.at_provider_location',
-			'At provider location'
-		),
-		travelsToYouLabel: resolveHomepageTranslation(
-			'common.homepage.featured.services.travels_to_you',
-			'Travels to you'
-		),
-		viewServiceLabel: resolveHomepageTranslation(
-			'dashboard.services.browse.view_service',
-			'View Service'
-		)
-	});
-
-	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
-		createFeaturedSectionState()
-	);
-	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(createFeaturedSectionState());
-
-	// Auto-rotation interval reference
 	let carouselInterval: ReturnType<typeof setInterval> | null = null;
 
-	// Function to rotate to the next slide
 	const rotateCarousel = () => {
 		activeFeatureIndex = (activeFeatureIndex + 1) % featureIds.length;
 	};
-
-	// Load featured tasks from Nostr relay
-	const loadFeaturedTasks = async () => {
-		try {
-			const tasks = await FeaturedTasksService.getFeaturedTasks(FEATURED_HOMEPAGE_LIMIT);
-			featuredTasksState = completeFeaturedSectionState(tasks, null);
-		} catch (error) {
-			console.error('Error loading featured tasks:', error);
-			featuredTasksState = completeFeaturedSectionState([], 'Failed to load featured tasks');
-		}
-	};
-
-	const loadFeaturedServices = async () => {
-		try {
-			const result = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
-				locale: currentLocale,
-				labels: featuredServiceLabels
-			});
-			if (result.success) {
-				featuredServicesState = completeFeaturedSectionState(result.services, null, {
-					hideWhenEmpty: true
-				});
-			} else {
-				featuredServicesState = completeFeaturedSectionState([], result.error || 'Failed to load featured services', {
-					hideWhenEmpty: true
-				});
-			}
-		} catch (error) {
-			console.error('Error loading featured services:', error);
-			featuredServicesState = completeFeaturedSectionState([], 'Failed to load featured services', {
-				hideWhenEmpty: true
-			});
-		}
-	};
-
-	// Start carousel auto-rotation
 	const startCarouselRotation = () => {
-		if (!carouselInterval) {
-			carouselInterval = setInterval(rotateCarousel, 5000); // Rotate every 3 seconds
-		}
+		if (!carouselInterval) carouselInterval = setInterval(rotateCarousel, 5000);
 	};
-
-	// Stop carousel auto-rotation (when user interacts with it)
 	const pauseCarouselRotation = () => {
 		if (carouselInterval) {
 			clearInterval(carouselInterval);
 			carouselInterval = null;
 		}
 	};
-
-	// Reset carousel rotation (call after user interaction to restart the timer)
 	const resetCarouselRotation = () => {
 		pauseCarouselRotation();
 		startCarouselRotation();
 	};
 
-	onMount(async () => {
-		// Start carousel auto-rotation
+	onMount(() => {
 		startCarouselRotation();
-		await Promise.all([loadFeaturedServices(), loadFeaturedTasks()]);
 	});
 
-	// Clean up interval when component is destroyed
 	onDestroy(() => {
 		pauseCarouselRotation();
 	});
@@ -234,15 +165,15 @@
 		<div class="hero-content text-center">
 			<div class="max-w-2xl">
 				<Logo />
-				<p class="py-6">{$t('homepage.v2.hero.description')}</p>
+				<p class="py-6">{t('homepage.v2.hero.description')}</p>
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
 					<div class="flex flex-col justify-center gap-4 sm:flex-row">
 						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_tasks')}</a
+							>{t('navbar.browse_tasks')}</a
 						>
 						<a href="/services" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_services')}</a
+							>{t('navbar.browse_services')}</a
 						>
 					</div>
 					<!-- Large primary button below -->
@@ -250,7 +181,7 @@
 						<a
 							href="/auth/signup"
 							class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
-							data-testid="signup-link">{$t('homepage.v2.hero.cta')}</a
+							data-testid="signup-link">{t('homepage.v2.hero.cta')}</a
 						>
 					</div>
 				</div>
@@ -262,7 +193,7 @@
 	<section class="bg-base-200 text-base-content py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 text-center">
-				<h2>{$t('homepage.v2.trust.title')}</h2>
+				<h2>{t('homepage.v2.trust.title')}</h2>
 			</div>
 
 			<!-- DaisyUI Carousel -->
@@ -274,7 +205,7 @@
 						<figure class="md:w-1/2">
 							<img
 								src={featureImages[featureIds[activeFeatureIndex]]}
-								alt={$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
+								alt={t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 								class="h-72 w-full object-cover transition-opacity duration-500 md:h-96"
 								loading={activeFeatureIndex === 0 ? undefined : 'lazy'}
 							/>
@@ -283,10 +214,10 @@
 						<!-- Content section (right on desktop, bottom on mobile) -->
 						<div class="card-body p-6 md:w-1/2 md:p-8">
 							<h3 class="card-title">
-								{$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
+								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 							</h3>
 							<p class="text-base-content/80">
-								{$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].description)}
+								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].description)}
 							</p>
 						</div>
 					</div>
@@ -303,7 +234,7 @@
 							class="btn btn-circle btn-xs {activeFeatureIndex === index
 								? 'btn-primary'
 								: 'btn-outline btn-neutral'}"
-							aria-label={$t('common.slide') + ' ' + (index + 1)}
+							aria-label={t('common.slide') + ' ' + (index + 1)}
 						>
 							<span class="sr-only">{index + 1}</span>
 						</button>
@@ -316,7 +247,7 @@
 	<!-- Section 3: How It Works -->
 	<section class="bg-base-100 text-base-content py-16">
 		<div class="container mx-auto px-4 text-center">
-			<h2 class="mb-12">{$t('homepage.v2.howitworks.title')}</h2>
+			<h2 class="mb-12">{t('homepage.v2.howitworks.title')}</h2>
 			<div class="grid grid-cols-1 gap-8 md:grid-cols-3">
 				<!-- Step 1 -->
 				<div class="flex flex-col items-center">
@@ -325,9 +256,9 @@
 					>
 						<span class="text-2xl font-bold">1</span>
 					</div>
-					<h3 class="mt-4">{$t('homepage.v2.howitworks.step1.title')}</h3>
+					<h3 class="mt-4">{t('homepage.v2.howitworks.step1.title')}</h3>
 					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.howitworks.step1.description')}
+						{t('homepage.v2.howitworks.step1.description')}
 					</p>
 				</div>
 				<!-- Step 2 -->
@@ -337,9 +268,9 @@
 					>
 						<span class="text-2xl font-bold">2</span>
 					</div>
-					<h3 class="mt-4">{$t('homepage.v2.howitworks.step2.title')}</h3>
+					<h3 class="mt-4">{t('homepage.v2.howitworks.step2.title')}</h3>
 					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.howitworks.step2.description')}
+						{t('homepage.v2.howitworks.step2.description')}
 					</p>
 				</div>
 				<!-- Step 3 -->
@@ -349,29 +280,29 @@
 					>
 						<span class="text-2xl font-bold">3</span>
 					</div>
-					<h3 class="mt-4">{$t('homepage.v2.howitworks.step3.title')}</h3>
+					<h3 class="mt-4">{t('homepage.v2.howitworks.step3.title')}</h3>
 					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.howitworks.step3.description')}
+						{t('homepage.v2.howitworks.step3.description')}
 					</p>
 				</div>
 			</div>
 
 			<!-- Learn More Button -->
 			<div class="mt-12 text-center">
-				<a href="/how-it-works" class="btn btn-primary">{$t('homepage.v2.howitworks.learnMore')}</a>
+				<a href="/how-it-works" class="btn btn-primary">{t('homepage.v2.howitworks.learnMore')}</a>
 			</div>
 		</div>
 	</section>
 
 	<FeaturedHomepageSection
-		title={$t('common.homepage.featured.services.title')}
+		title={t('common.homepage.featured.services.title')}
 		browseHref="/services"
 		browseLabel={resolveHomepageTranslation('dashboard.services.browse.title', 'Browse Services')}
 		items={featuredServicesState.items}
 		loading={featuredServicesState.loading}
 		error={featuredServicesState.error}
 		hideWhenEmpty={!featuredServicesState.visible}
-		emptyMessage={$t('common.homepage.featured.services.empty')}
+		emptyMessage={t('common.homepage.featured.services.empty')}
 		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
 		sectionTestId="homepage-featured-services"
 		cardTestIdPrefix="homepage-featured-service-card"
@@ -384,7 +315,7 @@
 	<!-- Section 5: Core Benefits -->
 	<section class="bg-base-100 py-16" data-testid="homepage-benefits">
 		<div class="container mx-auto px-4">
-			<h2 class="mb-12 text-center">{$t('homepage.v2.benefits.title')}</h2>
+			<h2 class="mb-12 text-center">{t('homepage.v2.benefits.title')}</h2>
 			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
 				<div
 					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
@@ -409,10 +340,10 @@
 							</div>
 						</div>
 						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
-							{$t('homepage.v2.benefits.payments.title')}
+							{t('homepage.v2.benefits.payments.title')}
 						</h3>
 						<p class="text-base-content/80 grow">
-							{$t('homepage.v2.benefits.payments.description')}
+							{t('homepage.v2.benefits.payments.description')}
 						</p>
 					</div>
 				</div>
@@ -439,10 +370,10 @@
 							</div>
 						</div>
 						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
-							{$t('homepage.v2.benefits.escrow.title')}
+							{t('homepage.v2.benefits.escrow.title')}
 						</h3>
 						<p class="text-base-content/80 grow">
-							{$t('homepage.v2.benefits.escrow.description')}
+							{t('homepage.v2.benefits.escrow.description')}
 						</p>
 					</div>
 				</div>
@@ -469,10 +400,10 @@
 							</div>
 						</div>
 						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
-							{$t('homepage.v2.benefits.ownership.title')}
+							{t('homepage.v2.benefits.ownership.title')}
 						</h3>
 						<p class="text-base-content/80 grow">
-							{$t('homepage.v2.benefits.ownership.description')}
+							{t('homepage.v2.benefits.ownership.description')}
 						</p>
 					</div>
 				</div>
@@ -505,9 +436,9 @@
 							</div>
 						</div>
 						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
-							{$t('homepage.v2.benefits.fees.title')}
+							{t('homepage.v2.benefits.fees.title')}
 						</h3>
-						<p class="text-base-content/80 grow">{$t('homepage.v2.benefits.fees.description')}</p>
+						<p class="text-base-content/80 grow">{t('homepage.v2.benefits.fees.description')}</p>
 					</div>
 				</div>
 			</div>
@@ -515,13 +446,13 @@
 	</section>
 
 	<FeaturedHomepageSection
-		title={$t('homepage.v2.livetasks.title')}
+		title={t('homepage.v2.livetasks.title')}
 		browseHref="/tasks"
-		browseLabel={$t('navbar.browse_tasks')}
+		browseLabel={t('navbar.browse_tasks')}
 		items={featuredTasksState.items}
 		loading={featuredTasksState.loading}
 		error={featuredTasksState.error}
-		emptyMessage={$t('common.homepage.featured.tasks.empty')}
+		emptyMessage={t('common.homepage.featured.tasks.empty')}
 		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
 		sectionTestId="homepage-featured-tasks"
 		cardTestIdPrefix="homepage-featured-task-card"

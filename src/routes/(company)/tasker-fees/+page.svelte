@@ -307,7 +307,7 @@
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center">
 			<h4>{$t('tasker.fees.cta.title')}</h4>
-			<a href="/create-task" class="btn btn-primary mt-4">{$t('tasker.fees.cta.button')}</a>
+			<a href="/dashboard/create-task" class="btn btn-primary mt-4">{$t('tasker.fees.cta.button')}</a>
 		</div>
 	</div>
 </div>

@@ -59,7 +59,7 @@
 		paymentRequestModal = {
 			isOpen: true,
 			...data
-		} as any;
+		};
 	}
 
 	function closePaymentRequestModal() {

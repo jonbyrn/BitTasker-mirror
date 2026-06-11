@@ -39,7 +39,7 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 [assets]
 directory = "./build"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
+not_found_handling = "none"
 # API routes run through the Worker for Stream upload/token endpoints.
 # __data.json patterns cover SvelteKit client-side navigation preload.
 # Static assets bypass the Worker entirely — served directly from Cloudflare's
@@ -164,6 +164,7 @@ crons = ["0 3 * * SUN"]
 
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
+VITE_ROBOTS_TXT = "prod"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
@@ -208,6 +209,7 @@ watch_dir = ["src", "static", "scripts"]
 [env.production.vars]
 # Public / client config (values from .env — not .env.development)
 VITE_CLIENT_HOSTNAME = "bittasker.com"
+VITE_ROBOTS_TXT = "prod"
 VITE_APP_ID = "com.bittasker.app"
 VITE_APP_NAME = "BitTasker"
 CAPACITOR_DEBUG_WEBVIEW = "false"
