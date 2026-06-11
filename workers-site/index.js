@@ -6,8 +6,8 @@
  *
  * Prerendered pages (/, /about, /faq, etc.) have real HTML content
  * for SEO. Non-prerendered routes (/dashboard, /auth, etc.) fall
- * through to the SPA fallback where SvelteKit's client-side router
- * takes over.
+ * through to Cloudflare's SPA fallback (not_found_handling = "single-page-application")
+ * which serves 200.html where SvelteKit's client-side router takes over.
  *
  * API routes run before the static asset lookup:
  *   /api/cloudflare/stream/* - upload URLs, signed tokens, status
@@ -95,11 +95,11 @@ export default {
 		}
 
 		// Static assets — if not found, serve SPA fallback for client-side routing.
-		// Prerendered pages have their own HTML files and are served directly.
-		// Non-prerendered routes fall through to the SPA fallback.
+		// With not_found_handling = "single-page-application", Cloudflare serves 200.html
+		// automatically. This worker fallback is a safety net for edge cases.
 		const response = await env.ASSETS.fetch(request);
 		if (response.status === 404) {
-			const fallbackUrl = new URL('/app.html', url.origin);
+			const fallbackUrl = new URL('/200.html', url.origin);
 			const fallbackResponse = await env.ASSETS.fetch(new Request(fallbackUrl, request));
 			if (fallbackResponse.status !== 404) {
 				return new Response(fallbackResponse.body, {

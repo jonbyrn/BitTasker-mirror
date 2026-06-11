@@ -39,7 +39,7 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 [assets]
 directory = "./build"
 binding = "ASSETS"
-not_found_handling = "none"
+not_found_handling = "single-page-application"
 # API routes run through the Worker for Stream upload/token endpoints.
 # __data.json patterns cover SvelteKit client-side navigation preload.
 # Static assets bypass the Worker entirely — served directly from Cloudflare's
