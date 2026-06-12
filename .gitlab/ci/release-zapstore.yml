@@ -112,26 +112,10 @@ check-zapstore-release-exists:
     name: production
   variables:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
-    GITLAB_HOST: https://gitlab.com
+    GITLAB_HOST: gitlab.com
   script:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
-      echo "Token length: ${#GLAB_TOKEN}"
-      echo "Token prefix: ${GLAB_TOKEN:0:10}..."
-      # Test basic API access
-      if ! glab api "user" >/dev/null 2>&1; then
-        echo "ERROR: GLAB_TOKEN is not valid. Cannot authenticate with GitLab API."
-        echo "Check ZAPSTORE_GITLAB_TOKEN in CI/CD variables."
-        exit 1
-      fi
-      echo "API auth OK"
-      # Test project access
-      if ! glab api "projects/bittasker%2Fzapstore" >/dev/null 2>&1; then
-        echo "ERROR: Cannot access bittasker/zapstore project."
-        echo "Ensure the token owner has at least Reporter access to bittasker/zapstore."
-        exit 1
-      fi
-      echo "Project access OK"
       if glab release view "${RELEASE_TAG}" --repo bittasker/zapstore >/dev/null 2>&1; then
         echo "GitLab release ${RELEASE_TAG} already exists on bittasker/zapstore — skipping duplicate publish."
         echo "ZAPSTORE_RELEASE_EXISTS=true" >> release.env
@@ -228,7 +212,7 @@ create-zapstore-gitlab-release:
     - check-zapstore-release-exists
   variables:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
-    GITLAB_HOST: https://gitlab.com
+    GITLAB_HOST: gitlab.com
   script:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
