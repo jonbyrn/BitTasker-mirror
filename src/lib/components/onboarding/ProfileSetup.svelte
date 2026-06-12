@@ -209,8 +209,8 @@
 				return;
 			}
 
-			if (profileDescription && profileDescription.trim().length < 100) {
-				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+			if (profileDescription && profileDescription.trim().length < 10) {
+				descriptionError = `${profileDescription.trim().length}/10 ${$t('onboarding_auth.form.min_characters')}`;
 				return;
 			}
 
@@ -391,14 +391,14 @@
 					<label class="label" for="profileDescription">
 						<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
 						<span class="label-text-alt"
-							>{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span
+							>{profileDescription.length}/10 {$t('onboarding_auth.form.min_characters')}</span
 						>
 					</label>
 					<textarea
 						id="profileDescription"
 						data-testid="onboarding-profile-description"
 						bind:value={profileDescription}
-						minlength={profileDescription.length === 0 ? undefined : 100}
+						minlength={profileDescription.length === 0 ? undefined : 10}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"

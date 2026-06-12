@@ -1,11 +1,18 @@
 {
-	"permissions": {
-		"allow": [
-			"Bash(git checkout *)",
-			"PowerShell(Get-Content 'C:\\\\Users\\\\daniel\\\\Desktop\\\\projects\\\\personal_work\\\\Bittasker\\\\src\\\\lib\\\\nostr\\\\findServices.ts' -Encoding UTF8 | Select-Object -Index \\(377..382\\) | ForEach-Object { $_.Replace\\(\"`t\", '[TAB]'\\).Replace\\(' ', '[SP]'\\) })",
-			"Bash(npm run *)",
-			"Bash(npx svelte-check *)"
-		]
-	},
-	"enabledMcpjsonServers": ["claude-flow", "svelte"]
+  "permissions": {
+    "allow": [
+      "Bash(git checkout *)",
+      "PowerShell(Get-Content 'C:\\\\Users\\\\daniel\\\\Desktop\\\\projects\\\\personal_work\\\\Bittasker\\\\src\\\\lib\\\\nostr\\\\findServices.ts' -Encoding UTF8 | Select-Object -Index \\(377..382\\) | ForEach-Object { $_.Replace\\(\"`t\", '[TAB]'\\).Replace\\(' ', '[SP]'\\) })",
+      "Bash(npm run *)",
+      "Bash(npx svelte-check *)",
+      "PowerShell(python3 scripts/find-missing-translations.py --fix-suggestions 2>&1 | Select-Object -First 50)",
+      "PowerShell(python3 scripts/find-missing-translations.py 2>&1 | ForEach-Object { [System.Text.Encoding]::UTF8.GetString\\([System.Text.Encoding]::Default.GetBytes\\($_\\)\\) })",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python3 scripts/find-missing-translations.py 2>&1)",
+      "PowerShell($en = Get-Content \"static/locales/en/home.json\" -Raw | ConvertFrom-Json; $es = Get-Content \"static/locales/es/home.json\" -Raw | ConvertFrom-Json; $enNavbar = $en.navbar.PSObject.Properties.Name | Sort-Object; $esNavbar = $es.navbar.PSObject.Properties.Name | Sort-Object; Write-Host \"EN only:\"; $enNavbar | Where-Object { $_ -notin $esNavbar }; Write-Host \"---\"; Write-Host \"ES only:\"; $esNavbar | Where-Object { $_ -notin $enNavbar })"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "claude-flow",
+    "svelte"
+  ]
 }
