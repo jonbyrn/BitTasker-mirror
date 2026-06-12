@@ -101,6 +101,8 @@ validate-zapstore-keystore:
   tags:
     - self-hosted
   extends: .zapstore-keystore-setup
+  environment:
+    name: production
   script:
     - echo "Zapstore keystore validated in before_script"
 
@@ -109,6 +111,8 @@ check-zapstore-release-exists:
   image: registry.gitlab.com/gitlab-org/cli:latest
   tags:
     - self-hosted
+  environment:
+    name: production
   script:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
@@ -132,6 +136,8 @@ assemble-zapstore-apk:
   extends:
     - .zapstore-env-guard
     - .zapstore-keystore-setup
+  environment:
+    name: production
   before_script:
     - !reference [.zapstore-env-guard, before_script]
     - !reference [.zapstore-keystore-setup, before_script]
@@ -142,6 +148,10 @@ assemble-zapstore-apk:
       job: android-release-web
       artifacts: true
   script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-21-jdk
+    - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+    - export PATH="$JAVA_HOME/bin:$PATH"
+    - java -version
     - npm ci
     - cd android && ./gradlew assembleRelease
     - |
@@ -184,6 +194,8 @@ create-zapstore-gitlab-release:
   tags:
     - self-hosted
   retry: 0
+  environment:
+    name: production
   needs:
     - assemble-zapstore-apk
     - generate-changelog
@@ -214,6 +226,8 @@ publish-zapstore:
     - self-hosted
   retry: 1
   when: manual
+  environment:
+    name: production
   needs:
     - create-zapstore-gitlab-release
   variables:
