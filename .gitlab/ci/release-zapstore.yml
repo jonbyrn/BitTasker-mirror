@@ -154,11 +154,17 @@ assemble-zapstore-apk:
     - java -version
     - npm ci
     - cd android && ./gradlew assembleRelease
+    - ls -la android/app/build/outputs/apk/release/
     - |
-      APK_SRC="android/app/build/outputs/apk/release/app-universal-release.apk"
+      APK_SRC="$(find android/app/build/outputs/apk/release/ -name 'app-universal-release.apk' -o -name '*-universal-*.apk' | head -1)"
+      if [ -z "$APK_SRC" ]; then
+        echo "ERROR: universal APK not found in android/app/build/outputs/apk/release/"
+        ls -la android/app/build/outputs/apk/release/
+        exit 1
+      fi
       APK_DST="android/app/build/outputs/apk/release/bittasker-v${VERSION_NAME}-universal.apk"
       cp "$APK_SRC" "$APK_DST"
-      echo "Built ${APK_DST}"
+      echo "Built ${APK_DST} (from ${APK_SRC})"
   artifacts:
     paths:
       - android/app/build/outputs/apk/release/bittasker-v*-universal.apk
