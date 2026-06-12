@@ -1,6 +1,7 @@
 # Zapstore release child pipeline — triggered from .gitlab-ci.yml on production tags (vX.Y.Z).
 #
-# Reuses parent android-release-web artifacts (one npm build + cap sync). Gradle only here (Zapstore JKS).
+# Self-contained build: npm ci → build → cap sync → gradle assembleRelease (same as Play Store internal lane).
+# No parent pipeline artifacts needed — only VERSION_NAME/VERSION_CODE from android-release-prepare.
 # See docs/ci/zapstore-pipeline.md
 
 include:
@@ -23,10 +24,6 @@ stages:
       fi
       if [ -z "${VERSION_NAME:-}" ] || [ -z "${VERSION_CODE:-}" ]; then
         echo "ERROR: VERSION_NAME and VERSION_CODE are required from android-release-prepare."
-        exit 1
-      fi
-      if [ -z "${PARENT_PIPELINE_ID:-}" ]; then
-        echo "ERROR: PARENT_PIPELINE_ID not set (required for parent web build artifacts)."
         exit 1
       fi
       echo "Zapstore release: tag=${RELEASE_TAG} versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
@@ -144,30 +141,28 @@ assemble-zapstore-apk:
   needs:
     - job: validate-tag
     - job: validate-zapstore-keystore
-    - pipeline: $PARENT_PIPELINE_ID
-      job: android-release-web
-      artifacts: true
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-21-jdk
     - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
     - export PATH="$JAVA_HOME/bin:$PATH"
     - java -version
     - npm ci
-    - ./gradlew assembleRelease -p android
-    - find . -name '*.apk' -path '*/release/*' 2>/dev/null
+    - npm run build
+    - npx cap sync android
+    - cd android && ./gradlew assembleRelease
     - |
-      APK_SRC="$(find . -name 'app-universal-release.apk' -path '*/release/*' | head -1)"
+      APK_SRC="$(find android/app/build/outputs/apk/release/ -name 'app-universal-release.apk' 2>/dev/null | head -1)"
       if [ -z "$APK_SRC" ]; then
-        echo "ERROR: universal APK not found"
+        echo "ERROR: universal APK not found in android/app/build/outputs/apk/release/"
         find . -name '*.apk' 2>/dev/null
         exit 1
       fi
-      APK_DST="$(dirname "$APK_SRC")/bittasker-v${VERSION_NAME}-universal.apk"
+      APK_DST="android/app/build/outputs/apk/release/bittasker-v${VERSION_NAME}-universal.apk"
       cp "$APK_SRC" "$APK_DST"
-      echo "Built ${APK_DST} (from ${APK_SRC})"
+      echo "Built ${APK_DST}"
   artifacts:
     paths:
-      - "**/bittasker-v*-universal.apk"
+      - android/app/build/outputs/apk/release/bittasker-v*-universal.apk
     expire_in: 30 days
 
 generate-changelog:
@@ -212,9 +207,9 @@ create-zapstore-gitlab-release:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
       VERSION="${RELEASE_TAG#v}"
-      APK="$(find . -name "bittasker-v${VERSION}-universal.apk" | head -1)"
-      if [ -z "$APK" ]; then
-        echo "ERROR: APK not found for v${VERSION}"
+      APK="android/app/build/outputs/apk/release/bittasker-v${VERSION}-universal.apk"
+      if [ ! -f "$APK" ]; then
+        echo "ERROR: APK not found at ${APK}"
         find . -name '*.apk' 2>/dev/null
         exit 1
       fi
