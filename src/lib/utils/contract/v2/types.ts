@@ -11,6 +11,13 @@ import type { ContractTransactionResponse, TransactionReceipt } from 'ethers';
 export const GAS_REIMBURSEMENT_PER_OP = 2_523_514_500_000n;
 
 /**
+ * Minimum buffer (seconds) between current time and `estimatedStartTime`.
+ * RSK average block time is ~24s. 3 minutes = 180s gives ~7 blocks of margin,
+ * preventing `InvalidEstimatedTimes()` reverts when the tx is mined after the start time.
+ */
+export const MINIMUM_START_BUFFER_SECONDS = 180;
+
+/**
  * Parameters for createPaymentContract (v2)
  * Fee tiers map directly from v1: taskerFeeTier = clientFeeTier, taskeeFeeTier = freelancerFeeTier
  */
@@ -94,8 +101,14 @@ export type ContractCreationResult =
 			afterBroadcast: Promise<ParallelEffectsReport>;
 			/**
 			 * Call after `tx.wait()` with the mined receipt — parses `paymentId`, republishes Nostr with paymentId.
+			 * Throws if receipt.status === 0 (reverted).
 			 */
 			afterConfirmed: (receipt: TransactionReceipt) => Promise<{ paymentId: number }>;
+			/**
+			 * Call when tx confirmation fails (reverted or error).
+			 * Cleans up Nostr Kind 30006 contract event by republishing with status: 'failed'.
+			 */
+			afterFailed: (txHash: string) => Promise<void>;
 	  }
 	| {
 			success: false;

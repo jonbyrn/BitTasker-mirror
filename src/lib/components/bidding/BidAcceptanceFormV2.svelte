@@ -233,6 +233,11 @@
 					d.warn('handleSubmit: follow-up failed', err);
 					followUpStatus = 'failed';
 					appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+					try {
+						await result.afterFailed(result.transactionHash);
+					} catch (cleanupErr) {
+						d.warn('handleSubmit: afterFailed cleanup error', cleanupErr);
+					}
 				}
 			})();
 		} catch (e) {

@@ -1,6 +1,6 @@
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
-import type { CreatePaymentContractParams } from './types';
+import { MINIMUM_START_BUFFER_SECONDS, type CreatePaymentContractParams } from './types';
 
 /** Thrown when {@link assertValidCreatePaymentContractParams} fails. */
 export class ContractCreationParamsError extends Error {
@@ -31,8 +31,10 @@ export function assertValidCreatePaymentContractParams(params: CreatePaymentCont
 	}
 
 	const now = Math.floor(Date.now() / 1000);
-	if (params.estimatedStartTime <= now) {
-		errors.push('Estimated start time must be in the future');
+	if (params.estimatedStartTime < now + MINIMUM_START_BUFFER_SECONDS) {
+		errors.push(
+			`Estimated start time must be at least ${MINIMUM_START_BUFFER_SECONDS} seconds in the future`
+		);
 	}
 	if (params.estimatedCompletionTime <= params.estimatedStartTime) {
 		errors.push('Completion time must be after start time');

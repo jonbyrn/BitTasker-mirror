@@ -77,6 +77,8 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.computeDisplayStatus(this);
 	});
 	error = $state<string | null>(null);
+	/** Set to true when the on-chain transaction is confirmed reverted (status === 0). */
+	isFailed = $state(false);
 	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
 
@@ -332,6 +334,13 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 			if (!receipt) {
 				throw new Error('Transaction receipt not available');
+			}
+
+			if (receipt.status === 0) {
+				this.isFailed = true;
+				throw new Error(
+					'Transaction reverted on-chain. The contract was not created. Check your wallet or block explorer for details.'
+				);
 			}
 
 			const paymentId = parsePaymentContractCreatedPaymentId(
