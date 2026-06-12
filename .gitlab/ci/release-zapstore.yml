@@ -149,20 +149,22 @@ assemble-zapstore-apk:
     - npm ci
     - npm run build
     - npx cap sync android
-    - cd android && ./gradlew assembleRelease
+    - ./android/gradlew assembleRelease -p android
     - |
-      APK_SRC="$(find android/app/build/outputs/apk/release/ -name 'app-universal-release.apk' 2>/dev/null | head -1)"
+      echo "=== Searching for APK ==="
+      find . -name '*.apk' -not -path '*/debug/*' | head -20
+      APK_SRC="$(find . -name 'app-universal-release.apk' -not -path '*/debug/*' | head -1)"
       if [ -z "$APK_SRC" ]; then
-        echo "ERROR: universal APK not found in android/app/build/outputs/apk/release/"
-        find . -name '*.apk' 2>/dev/null
+        echo "ERROR: universal APK not found anywhere"
         exit 1
       fi
-      APK_DST="android/app/build/outputs/apk/release/bittasker-v${VERSION_NAME}-universal.apk"
+      echo "Found APK at: ${APK_SRC}"
+      APK_DST="$(dirname "$APK_SRC")/bittasker-v${VERSION_NAME}-universal.apk"
       cp "$APK_SRC" "$APK_DST"
       echo "Built ${APK_DST}"
   artifacts:
     paths:
-      - android/app/build/outputs/apk/release/bittasker-v*-universal.apk
+      - "**/bittasker-v*-universal.apk"
     expire_in: 30 days
 
 generate-changelog:
@@ -207,12 +209,13 @@ create-zapstore-gitlab-release:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
       VERSION="${RELEASE_TAG#v}"
-      APK="android/app/build/outputs/apk/release/bittasker-v${VERSION}-universal.apk"
-      if [ ! -f "$APK" ]; then
-        echo "ERROR: APK not found at ${APK}"
-        find . -name '*.apk' 2>/dev/null
+      APK="$(find . -name "bittasker-v${VERSION}-universal.apk" | head -1)"
+      if [ -z "$APK" ]; then
+        echo "ERROR: APK bittasker-v${VERSION}-universal.apk not found"
+        find . -name '*.apk' | head -10
         exit 1
       fi
+      echo "Found APK at: ${APK}"
       if [ "${ZAPSTORE_RELEASE_EXISTS}" = "true" ]; then
         echo "Release already exists — skipping glab release create."
         exit 0
