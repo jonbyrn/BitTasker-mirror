@@ -112,14 +112,19 @@ check-zapstore-release-exists:
     name: production
   variables:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
-    GITLAB_HOST: gitlab.com
   script:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
-      if glab release view "${RELEASE_TAG}" --repo bittasker/zapstore >/dev/null 2>&1; then
-        echo "GitLab release ${RELEASE_TAG} already exists on bittasker/zapstore — skipping duplicate publish."
+      API="https://gitlab.com/api/v4"
+      PROJECT="bittasker%2Fzapstore"
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "PRIVATE-TOKEN: ${ZAPSTORE_GITLAB_TOKEN}" \
+        "${API}/projects/${PROJECT}/releases/${RELEASE_TAG}")
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "Release ${RELEASE_TAG} already exists on bittasker/zapstore."
         echo "ZAPSTORE_RELEASE_EXISTS=true" >> release.env
       else
+        echo "Release ${RELEASE_TAG} does not exist (HTTP ${HTTP_CODE})."
         echo "ZAPSTORE_RELEASE_EXISTS=false" >> release.env
       fi
   artifacts:
@@ -212,9 +217,9 @@ create-zapstore-gitlab-release:
     - check-zapstore-release-exists
   variables:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
-    GITLAB_HOST: gitlab.com
   script:
     - |
+      set -eu
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
       VERSION="${RELEASE_TAG#v}"
       APK="$(find . -name "bittasker-v${VERSION}-universal.apk" | head -1)"
@@ -225,26 +230,64 @@ create-zapstore-gitlab-release:
       fi
       echo "Found APK at: ${APK}"
       if [ "${ZAPSTORE_RELEASE_EXISTS}" = "true" ]; then
-        echo "Release already exists — skipping glab release create."
+        echo "Release already exists — skipping."
         exit 0
       fi
-      # Create the tag first (glab release create tries to create tag + release in one call,
-      # but creating the tag separately gives better error messages)
-      if ! glab api "projects/bittasker%2Fzapstore/repository/tags" \
-        --method POST \
-        -f tag_name="${RELEASE_TAG}" \
-        -f ref="main" >/dev/null 2>&1; then
-        echo "Tag ${RELEASE_TAG} may already exist on bittasker/zapstore, continuing..."
-      fi
-      glab release create "${RELEASE_TAG}" \
-        --repo bittasker/zapstore \
-        --name "BitTasker v${VERSION}" \
-        --notes-file release-notes.md \
-        "${APK}" || {
-        echo "ERROR: Failed to create release on bittasker/zapstore."
-        echo "Ensure ZAPSTORE_GITLAB_TOKEN has 'api' scope and Maintainer role on bittasker/zapstore."
+      API="https://gitlab.com/api/v4"
+      PROJECT="bittasker%2Fzapstore"
+      AUTH="PRIVATE-TOKEN: ${ZAPSTORE_GITLAB_TOKEN}"
+      # Step 1: Create tag on bittasker/zapstore
+      echo "Creating tag ${RELEASE_TAG} on bittasker/zapstore..."
+      TAG_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "$AUTH" \
+        -X POST "${API}/projects/${PROJECT}/repository/tags" \
+        -F "tag_name=${RELEASE_TAG}" \
+        -F "ref=main")
+      if [ "$TAG_HTTP" = "201" ]; then
+        echo "Tag created."
+      elif [ "$TAG_HTTP" = "400" ]; then
+        echo "Tag already exists, continuing."
+      else
+        echo "ERROR: Tag creation returned HTTP ${TAG_HTTP}"
         exit 1
-      }
+      fi
+      # Step 2: Upload APK to bittasker/zapstore
+      echo "Uploading APK..."
+      UPLOAD_JSON=$(curl -sf -H "$AUTH" \
+        -X POST "${API}/projects/${PROJECT}/uploads" \
+        -F "file=@${APK}")
+      UPLOAD_PATH=$(echo "$UPLOAD_JSON" | jq -r '.url // empty')
+      if [ -z "$UPLOAD_PATH" ]; then
+        echo "ERROR: Failed to upload APK. Response: ${UPLOAD_JSON}"
+        exit 1
+      fi
+      DOWNLOAD_URL="https://gitlab.com/bittasker/zapstore${UPLOAD_PATH}"
+      echo "APK uploaded: ${DOWNLOAD_URL}"
+      # Step 3: Create release
+      echo "Creating release ${RELEASE_TAG}..."
+      DESCRIPTION=$(jq -Rs . < release-notes.md)
+      RELEASE_HTTP=$(curl -s -o /tmp/release-response.json -w "%{http_code}" \
+        -H "$AUTH" \
+        -H "Content-Type: application/json" \
+        -X POST "${API}/projects/${PROJECT}/releases" \
+        -d "{
+          \"tag_name\": \"${RELEASE_TAG}\",
+          \"name\": \"BitTasker v${VERSION}\",
+          \"description\": ${DESCRIPTION},
+          \"assets\": {
+            \"links\": [{
+              \"name\": \"bittasker-v${VERSION}-universal.apk\",
+              \"url\": \"${DOWNLOAD_URL}\"
+            }]
+          }
+        }")
+      if [ "$RELEASE_HTTP" = "201" ]; then
+        echo "Release created successfully!"
+      else
+        echo "ERROR: Release creation returned HTTP ${RELEASE_HTTP}"
+        cat /tmp/release-response.json 2>/dev/null
+        exit 1
+      fi
   rules:
     - when: on_success
 
