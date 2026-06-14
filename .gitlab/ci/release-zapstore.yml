@@ -1,6 +1,7 @@
 # Zapstore release child pipeline — triggered from .gitlab-ci.yml on production tags (vX.Y.Z).
 #
-# Reuses parent android-release-web artifacts (one npm build + cap sync). Gradle only here (Zapstore JKS).
+# Self-contained build: npm ci → build → cap sync → gradle assembleRelease (same as Play Store internal lane).
+# No parent pipeline artifacts needed — only VERSION_NAME/VERSION_CODE from android-release-prepare.
 # See docs/ci/zapstore-pipeline.md
 
 include:
@@ -23,10 +24,6 @@ stages:
       fi
       if [ -z "${VERSION_NAME:-}" ] || [ -z "${VERSION_CODE:-}" ]; then
         echo "ERROR: VERSION_NAME and VERSION_CODE are required from android-release-prepare."
-        exit 1
-      fi
-      if [ -z "${PARENT_PIPELINE_ID:-}" ]; then
-        echo "ERROR: PARENT_PIPELINE_ID not set (required for parent web build artifacts)."
         exit 1
       fi
       echo "Zapstore release: tag=${RELEASE_TAG} versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
@@ -113,17 +110,24 @@ check-zapstore-release-exists:
     - self-hosted
   environment:
     name: production
-  script:
-    - |
-      export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
-      if glab release view "${RELEASE_TAG}" --repo bittasker/zapstore >/dev/null 2>&1; then
-        echo "GitLab release ${RELEASE_TAG} already exists on bittasker/zapstore — skipping duplicate publish."
-        echo "ZAPSTORE_RELEASE_EXISTS=true" >> release.env
-      else
-        echo "ZAPSTORE_RELEASE_EXISTS=false" >> release.env
-      fi
   variables:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
+  script:
+    - |
+      apk add --no-cache curl jq >/dev/null 2>&1
+      export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
+      API="https://gitlab.com/api/v4"
+      PROJECT="bittasker%2Fzapstore"
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "PRIVATE-TOKEN: ${ZAPSTORE_GITLAB_TOKEN}" \
+        "${API}/projects/${PROJECT}/releases/${RELEASE_TAG}")
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "Release ${RELEASE_TAG} already exists on bittasker/zapstore."
+        echo "ZAPSTORE_RELEASE_EXISTS=true" >> release.env
+      else
+        echo "Release ${RELEASE_TAG} does not exist (HTTP ${HTTP_CODE})."
+        echo "ZAPSTORE_RELEASE_EXISTS=false" >> release.env
+      fi
   artifacts:
     reports:
       dotenv: release.env
@@ -144,29 +148,37 @@ assemble-zapstore-apk:
   needs:
     - job: validate-tag
     - job: validate-zapstore-keystore
-    - pipeline: $PARENT_PIPELINE_ID
-      job: android-release-web
-      artifacts: true
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-21-jdk
     - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
     - export PATH="$JAVA_HOME/bin:$PATH"
     - java -version
     - npm ci
-    - cd android && ./gradlew assembleRelease
+    - npm run build
+    - npx cap sync android
+    - ./android/gradlew assembleRelease -p android
     - |
-      APK_SRC="android/app/build/outputs/apk/release/app-universal-release.apk"
-      APK_DST="android/app/build/outputs/apk/release/bittasker-v${VERSION_NAME}-universal.apk"
+      echo "=== Searching for APK ==="
+      find . -name '*.apk' -not -path '*/debug/*' | head -20
+      APK_SRC="$(find . -name 'app-universal-release.apk' -not -path '*/debug/*' | head -1)"
+      if [ -z "$APK_SRC" ]; then
+        echo "ERROR: universal APK not found anywhere"
+        exit 1
+      fi
+      echo "Found APK at: ${APK_SRC}"
+      APK_DST="$(dirname "$APK_SRC")/bittasker-v${VERSION_NAME}-universal.apk"
       cp "$APK_SRC" "$APK_DST"
       echo "Built ${APK_DST}"
   artifacts:
     paths:
-      - android/app/build/outputs/apk/release/bittasker-v*-universal.apk
+      - "**/bittasker-v*-universal.apk"
     expire_in: 30 days
 
 generate-changelog:
   stage: changelog
-  image: orhunp/git-cliff:latest
+  image:
+    name: orhunp/git-cliff:latest
+    entrypoint: [""]
   tags:
     - self-hosted
   needs:
@@ -177,11 +189,15 @@ generate-changelog:
   script:
     - |
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
+      if [ -z "$RELEASE_TAG" ]; then
+        echo "ERROR: RELEASE_TAG not set"
+        exit 1
+      fi
       git-cliff --latest --strip all -o release-notes.md
       if [ -f CHANGELOG.md ]; then
-        git-cliff --unreleased --tag "${RELEASE_TAG}" --prepend CHANGELOG.md
+        git-cliff --unreleased --tag "$RELEASE_TAG" --prepend CHANGELOG.md
       else
-        git-cliff --unreleased --tag "${RELEASE_TAG}" -o CHANGELOG.md
+        git-cliff --unreleased --tag "$RELEASE_TAG" -o CHANGELOG.md
       fi
   artifacts:
     paths:
@@ -204,18 +220,76 @@ create-zapstore-gitlab-release:
     GLAB_TOKEN: $ZAPSTORE_GITLAB_TOKEN
   script:
     - |
+      apk add --no-cache curl jq >/dev/null 2>&1
+      set -eu
       export RELEASE_TAG="${PARENT_CI_COMMIT_TAG:-${CI_COMMIT_TAG:-}}"
       VERSION="${RELEASE_TAG#v}"
-      APK="android/app/build/outputs/apk/release/bittasker-v${VERSION}-universal.apk"
+      APK="$(find . -name "bittasker-v${VERSION}-universal.apk" | head -1)"
+      if [ -z "$APK" ]; then
+        echo "ERROR: APK bittasker-v${VERSION}-universal.apk not found"
+        find . -name '*.apk' | head -10
+        exit 1
+      fi
+      echo "Found APK at: ${APK}"
       if [ "${ZAPSTORE_RELEASE_EXISTS}" = "true" ]; then
-        echo "Release already exists — skipping glab release create."
+        echo "Release already exists — skipping."
         exit 0
       fi
-      glab release create "${RELEASE_TAG}" \
-        --repo bittasker/zapstore \
-        --name "BitTasker v${VERSION}" \
-        --notes-file release-notes.md \
-        "${APK}"
+      API="https://gitlab.com/api/v4"
+      PROJECT="bittasker%2Fzapstore"
+      AUTH="PRIVATE-TOKEN: ${ZAPSTORE_GITLAB_TOKEN}"
+      # Step 1: Create tag on bittasker/zapstore
+      echo "Creating tag ${RELEASE_TAG} on bittasker/zapstore..."
+      TAG_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "$AUTH" \
+        -X POST "${API}/projects/${PROJECT}/repository/tags" \
+        -F "tag_name=${RELEASE_TAG}" \
+        -F "ref=main")
+      if [ "$TAG_HTTP" = "201" ]; then
+        echo "Tag created."
+      elif [ "$TAG_HTTP" = "400" ]; then
+        echo "Tag already exists, continuing."
+      else
+        echo "ERROR: Tag creation returned HTTP ${TAG_HTTP}"
+        exit 1
+      fi
+      # Step 2: Upload APK to bittasker/zapstore
+      echo "Uploading APK..."
+      UPLOAD_JSON=$(curl -sf -H "$AUTH" \
+        -X POST "${API}/projects/${PROJECT}/uploads" \
+        -F "file=@${APK}")
+      UPLOAD_PATH=$(echo "$UPLOAD_JSON" | jq -r '.url // empty')
+      if [ -z "$UPLOAD_PATH" ]; then
+        echo "ERROR: Failed to upload APK. Response: ${UPLOAD_JSON}"
+        exit 1
+      fi
+      DOWNLOAD_URL="https://gitlab.com/bittasker/zapstore${UPLOAD_PATH}"
+      echo "APK uploaded: ${DOWNLOAD_URL}"
+      # Step 3: Create release
+      echo "Creating release ${RELEASE_TAG}..."
+      DESCRIPTION=$(jq -Rs . < release-notes.md)
+      RELEASE_HTTP=$(curl -s -o /tmp/release-response.json -w "%{http_code}" \
+        -H "$AUTH" \
+        -H "Content-Type: application/json" \
+        -X POST "${API}/projects/${PROJECT}/releases" \
+        -d "{
+          \"tag_name\": \"${RELEASE_TAG}\",
+          \"name\": \"BitTasker v${VERSION}\",
+          \"description\": ${DESCRIPTION},
+          \"assets\": {
+            \"links\": [{
+              \"name\": \"bittasker-v${VERSION}-universal.apk\",
+              \"url\": \"${DOWNLOAD_URL}\"
+            }]
+          }
+        }")
+      if [ "$RELEASE_HTTP" = "201" ]; then
+        echo "Release created successfully!"
+      else
+        echo "ERROR: Release creation returned HTTP ${RELEASE_HTTP}"
+        cat /tmp/release-response.json 2>/dev/null
+        exit 1
+      fi
   rules:
     - when: on_success
 
@@ -233,9 +307,11 @@ publish-zapstore:
   variables:
     SIGN_WITH: $ZAPSTORE_PUBLISHER_NSEC
   script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends golang-go curl
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl
+    - curl -fsSL https://go.dev/dl/go1.24.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+    - export PATH="/usr/local/go/bin:${PATH}:$(go env GOPATH)/bin"
+    - go version
     - go install github.com/zapstore/zsp@latest
-    - export PATH="${PATH}:$(go env GOPATH)/bin"
     - |
       git clone --depth 1 "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/bittasker/zapstore.git" /tmp/zapstore
       cd /tmp/zapstore
