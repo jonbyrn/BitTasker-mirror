@@ -307,9 +307,11 @@ publish-zapstore:
   variables:
     SIGN_WITH: $ZAPSTORE_PUBLISHER_NSEC
   script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends golang-go curl
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl
+    - curl -fsSL https://go.dev/dl/go1.24.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+    - export PATH="/usr/local/go/bin:${PATH}:$(go env GOPATH)/bin"
+    - go version
     - go install github.com/zapstore/zsp@latest
-    - export PATH="${PATH}:$(go env GOPATH)/bin"
     - |
       git clone --depth 1 "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/bittasker/zapstore.git" /tmp/zapstore
       cd /tmp/zapstore
