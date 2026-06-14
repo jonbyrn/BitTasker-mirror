@@ -299,7 +299,6 @@ publish-zapstore:
   tags:
     - self-hosted
   retry: 1
-  when: manual
   environment:
     name: production
   needs:
@@ -309,7 +308,7 @@ publish-zapstore:
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl
     - curl -fsSL https://go.dev/dl/go1.24.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -
-    - export PATH="/usr/local/go/bin:${PATH}:$(go env GOPATH)/bin"
+    - export PATH="/usr/local/go/bin:$HOME/go/bin:${PATH}"
     - go version
     - go install github.com/zapstore/zsp@latest
     - |
@@ -317,4 +316,4 @@ publish-zapstore:
       cd /tmp/zapstore
       zsp publish -y --quiet zapstore.yaml
   rules:
-    - when: manual
+    - when: on_success
