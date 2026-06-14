@@ -314,6 +314,6 @@ publish-zapstore:
     - |
       git clone --depth 1 "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/bittasker/zapstore.git" /tmp/zapstore
       cd /tmp/zapstore
-      zsp publish -y --quiet zapstore.yaml
+      zsp publish --quiet zapstore.yaml
   rules:
     - when: on_success
