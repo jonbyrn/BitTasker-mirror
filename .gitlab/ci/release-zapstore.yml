@@ -303,6 +303,7 @@ publish-zapstore:
     name: production
   needs:
     - create-zapstore-gitlab-release
+    - assemble-zapstore-apk
   variables:
     SIGN_WITH: $ZAPSTORE_PUBLISHER_NSEC
   script:
@@ -313,6 +314,14 @@ publish-zapstore:
     - go install github.com/zapstore/zsp@latest
     - |
       git clone --depth 1 "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/bittasker/zapstore.git" /tmp/zapstore
+      APK="$(find . -name 'bittasker-v*-universal.apk' | head -1)"
+      if [ -z "$APK" ]; then
+        echo "ERROR: APK artifact not found"
+        exit 1
+      fi
+      cp "$APK" /tmp/zapstore/
+      APK_NAME="$(basename "$APK")"
+      echo "release_source: ./${APK_NAME}" >> /tmp/zapstore/zapstore.yaml
       cd /tmp/zapstore
       zsp publish --quiet zapstore.yaml
   rules:
