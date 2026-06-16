@@ -41,3 +41,30 @@ export function getBSCUSDTContractAddress(): string {
 	}
 	return '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd';
 }
+
+/**
+ * USDT contract address for a given network string.
+ * Used when sending USDT via connected wallet EVM signers — the ERC-20
+ * transfer() calldata is sent TO this contract, not to the recipient directly.
+ */
+export function getUSDTContractAddressForNetwork(network: string): string {
+	const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	const isMainnet = rskNetwork === 'mainnet';
+	switch (network) {
+		case 'usdt-bsc':
+			return getBSCUSDTContractAddress();
+		case 'usdt-ethereum':
+			// Mainnet: 0xdAC17F958D2ee523a2206206994597C13D831ec7 (USDT)
+			// Testnet (Sepolia): no official USDT — use mainnet address as placeholder
+			return '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+		case 'usdt-arbitrum':
+			// USDT0 on Arbitrum (bridged USDT)
+			return isMainnet
+				? '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'
+				: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+		case 'usdt-polygon':
+			return '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
+		default:
+			return getBSCUSDTContractAddress();
+	}
+}
