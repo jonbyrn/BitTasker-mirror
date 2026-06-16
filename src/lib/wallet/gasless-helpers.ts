@@ -10,11 +10,11 @@
 
 import { keccak256, AbiCoder, Interface, getAddress } from 'ethers';
 import {
-	feeTiers,
-	allowedTokens as _allowedTokens,
-	gasBounds as _gasBounds
-} from '../../../gasless.config';
-import type { FeeTier } from '../../types/gasless.types';
+	FEE_TIERS as feeTiers,
+	ALLOWED_FEE_TOKENS as _allowedTokens,
+	GAS_BOUNDS as _gasBounds
+} from '../../wallet/gasless.config';
+import type { FeeTierDef } from '../../types/gasless.types';
 
 // =============================================================================
 // Constants
@@ -36,6 +36,7 @@ export const MIN_GAS_BUFFER: Record<string, bigint> = {
 	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 3_000_000_000_000_000n, // USDT: 0.003
 	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 3_000_000n, // USDC: 0.003
 	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 5n, // WBTC: 5 sats
+	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 3_000_000_000_000_000n, // tBTC: 0.003
 	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 3_000_000_000_000_000n // WETH: 0.003
 };
 
@@ -47,6 +48,7 @@ export const MAX_GAS_BUFFER: Record<string, bigint> = {
 	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 50_000_000_000_000_000n, // USDT: 0.05
 	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 50_000_000n, // USDC: 0.05
 	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 80n, // WBTC: 80 sats
+	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 50_000_000_000_000_000n, // tBTC: 0.05
 	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 50_000_000_000_000_000n // WETH: 0.05
 };
 
@@ -92,18 +94,25 @@ export function getPaymasterSignatureHash(
 // =============================================================================
 
 /**
- * Get the network fee tier configuration by priority level.
+ * Get the network fee tier configuration by estimated total gas.
  *
  * Fee tiers define gas pricing strategy:
- * - standard: Base inclusion, lowest cost (1.0x multiplier)
- * - fast:     Faster inclusion, moderate premium (1.5x multiplier)
- * - urgent:   Near-guaranteed inclusion, highest premium (2.0x multiplier)
+ * - Low:       ≤ 200,000 gas    ($0.01)
+ * - Medium:    ≤ 500,000 gas    ($0.03)
+ * - High:      ≤ 1,000,000 gas  ($0.05)
+ * - Very High: ≤ 5,000,000 gas  ($0.10)
  *
- * @param priority - Fee priority level
- * @returns FeeTier configuration, or undefined if priority is unknown
+ * @param estimatedGas - Total estimated gas for the operation
+ * @returns FeeTierDef configuration
+ * @throws Error if estimatedGas exceeds 5,000,000
  */
-export function getNetworkFeeTier(priority: 'standard' | 'fast' | 'urgent'): FeeTier | undefined {
-	return feeTiers.find((tier) => tier.name === priority);
+export function getNetworkFeeTier(estimatedGas: bigint): FeeTierDef {
+	for (const tier of feeTiers) {
+		if (estimatedGas >= tier.minGas && estimatedGas <= tier.maxGas) {
+			return tier;
+		}
+	}
+	throw new Error('Network fee too high — operation too complex');
 }
 
 /**
@@ -199,7 +208,7 @@ export function buildTransferCalldata(recipient: string, amount: bigint): string
 export function validateFeeParameters(
 	maxFeePerGas: bigint,
 	maxPriorityFeePerGas: bigint,
-	feeTier?: FeeTier
+	feeTier?: FeeTierDef
 ): { isValid: boolean; error?: string } {
 	if (maxFeePerGas <= 0n) {
 		return { isValid: false, error: 'maxFeePerGas must be positive' };
@@ -214,21 +223,10 @@ export function validateFeeParameters(
 	}
 
 	if (feeTier) {
-		const feeLimit = BigInt(feeTier.maxFeePerGas) * 10n;
-		if (maxFeePerGas > feeLimit) {
-			return {
-				isValid: false,
-				error: `maxFeePerGas exceeds ${feeTier.name} tier limit of ${feeLimit}`
-			};
-		}
-
-		const priorityLimit = BigInt(feeTier.maxPriorityFeePerGas) * 10n;
-		if (maxPriorityFeePerGas > priorityLimit) {
-			return {
-				isValid: false,
-				error: `maxPriorityFeePerGas exceeds ${feeTier.name} tier limit of ${priorityLimit}`
-			};
-		}
+		// FeeTierDef defines gas bounds (minGas/maxGas), not gas price limits.
+		// Gas price validation is handled by GAS_BOUNDS in validateFeeParameters (gasless-helpers.ts).
+		// The feeTier parameter is reserved for future tier-based gas price limits.
+		void feeTier;
 	}
 
 	return { isValid: true };

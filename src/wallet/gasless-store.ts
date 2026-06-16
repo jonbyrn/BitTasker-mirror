@@ -17,6 +17,32 @@ import {
 } from './gasless-helpers';
 
 // ---------------------------------------------------------------------------
+// SmartAccount — typed interface for the EIP-7702 account from permissionless
+// ---------------------------------------------------------------------------
+
+/** The EIP-7702 smart account object created by permissionless/accounts. */
+export interface SmartAccount {
+	address: string;
+	signUserOperation: (userOp: {
+		sender: string;
+		nonce: bigint;
+		callData: string;
+		callGasLimit: bigint;
+		verificationGasLimit: bigint;
+		preVerificationGas: bigint;
+		maxFeePerGas: bigint;
+		maxPriorityFeePerGas: bigint;
+		paymasterAndData: string;
+		signature: string;
+		/** EIP-7702 factory sentinel for first-time delegations */
+		factory?: string;
+		/** EIP-7702 initialization data */
+		factoryData?: string;
+	}) => Promise<{ signature: string; [key: string]: unknown }>;
+	getNonce: () => Promise<bigint>;
+}
+
+// ---------------------------------------------------------------------------
 // Minimal ABIs (local — only what we encode)
 // ---------------------------------------------------------------------------
 
@@ -38,9 +64,15 @@ const EXECUTE_BATCH_ABI = [
 		type: 'function' as const,
 		name: 'executeBatch',
 		inputs: [
-			{ type: 'address[]', name: 'dest' },
-			{ type: 'uint256[]', name: 'value' },
-			{ type: 'bytes[]', name: 'func' }
+			{
+				type: 'tuple[]' as const,
+				name: 'calls',
+				components: [
+					{ type: 'address', name: 'target' },
+					{ type: 'uint256', name: 'value' },
+					{ type: 'bytes', name: 'data' }
+				]
+			}
 		],
 		outputs: [],
 		stateMutability: 'nonpayable' as const
@@ -69,6 +101,10 @@ interface GaslessWalletState {
 	ready: boolean;
 	loading: boolean;
 	error: string | null;
+	/** The EIP-7702 smart account object (null until init). Exposes signUserOperation() and getNonce(). */
+	account: SmartAccount | null;
+	/** Raw owner private key — needed for EIP-7702 authorization signing */
+	ownerKey: `0x${string}` | null;
 }
 
 function createGaslessStore() {
@@ -76,20 +112,23 @@ function createGaslessStore() {
 		address: null,
 		ready: false,
 		loading: false,
-		error: null
+		error: null,
+		account: null,
+		ownerKey: null
 	});
 	return {
 		subscribe,
 		async init(privateKey: `0x${string}`): Promise<string> {
 			update((s) => ({ ...s, loading: true, error: null }));
 			try {
+				const permissionlessPath = 'permissionless/accounts';
 				const [
 					{ to7702SimpleSmartAccount },
 					{ privateKeyToAccount },
 					{ createPublicClient, http },
 					{ arbitrum }
 				] = await Promise.all([
-					import('permissionless/accounts'),
+					import(permissionlessPath),
 					import('viem/accounts'),
 					import('viem'),
 					import('viem/chains')
@@ -100,7 +139,14 @@ function createGaslessStore() {
 				});
 				const signer = privateKeyToAccount(privateKey);
 				const account = await to7702SimpleSmartAccount({ client: publicClient, owner: signer });
-				update((s) => ({ ...s, address: account.address, ready: true, loading: false }));
+				update((s) => ({
+					...s,
+					address: account.address,
+					ready: true,
+					loading: false,
+					account: account as unknown as SmartAccount,
+					ownerKey: privateKey
+				}));
 				return account.address;
 			} catch (e) {
 				const msg = e instanceof Error ? e.message : 'Failed to initialize wallet';
@@ -109,7 +155,14 @@ function createGaslessStore() {
 			}
 		},
 		reset(): void {
-			set({ address: null, ready: false, loading: false, error: null });
+			set({
+				address: null,
+				ready: false,
+				loading: false,
+				error: null,
+				account: null,
+				ownerKey: null
+			});
 		}
 	};
 }
@@ -117,6 +170,10 @@ function createGaslessStore() {
 export const gaslessWallet = createGaslessStore();
 export const gaslessAddress = derived(gaslessWallet, ($w) => $w.address);
 export const gaslessReady = derived(gaslessWallet, ($w) => $w.ready);
+export const gaslessAccount = derived(gaslessWallet, ($w) => $w.account);
+export const gaslessLoading = derived(gaslessWallet, ($w) => $w.loading);
+export const gaslessError = derived(gaslessWallet, ($w) => $w.error);
+export const gaslessOwnerKey = derived(gaslessWallet, ($w) => $w.ownerKey);
 
 // ---------------------------------------------------------------------------
 // Build executeBatch callData
@@ -128,27 +185,33 @@ export function buildExecuteBatchCallData(
 	feeBufferAmount: bigint
 ): `0x${string}` {
 	if (calls.length === 0) throw new Error('At least one user call is required');
-	const dests = calls.map((c) => c.to as Address);
-	const values = calls.map((c) => c.value ?? 0n);
-	const funcs = calls.map((c) => c.data as `0x${string}`);
-	dests.push(feeTokenAddress as Address);
-	values.push(0n);
-	funcs.push(
+	const batchCalls: Array<[`0x${string}`, bigint, `0x${string}`]> = calls.map((c) => [
+		c.to as `0x${string}`,
+		c.value ?? 0n,
+		c.data as `0x${string}`
+	]);
+	batchCalls.push([
+		feeTokenAddress as `0x${string}`,
+		0n,
 		encodeFunctionData({
 			abi: ERC20_TRANSFER_ABI,
 			functionName: 'transfer',
 			args: [GAS_TREASURY as Address, feeBufferAmount]
 		})
-	);
+	]);
 	return encodeFunctionData({
 		abi: EXECUTE_BATCH_ABI,
 		functionName: 'executeBatch',
-		args: [dests, values, funcs]
+		args: [batchCalls]
 	});
 }
 
 // ---------------------------------------------------------------------------
-// Send gasless transaction
+// Send gasless transaction (PROGRAMMATIC API — used by tests and scripts)
+//
+// This is the lower-level API that accepts arbitrary batch calls.
+// For UI components (single token transfers), prefer sendToken() from
+// src/lib/wallet/gasless-store.ts — it manages wallet state automatically.
 // ---------------------------------------------------------------------------
 
 export async function sendGasless(
@@ -157,7 +220,7 @@ export async function sendGasless(
 	feeBufferAmount: bigint,
 	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
 	jwt: string,
-	smartAccount: { signUserOp: (op: Record<string, unknown>) => Promise<Record<string, unknown>> }
+	smartAccount: Pick<SmartAccount, 'signUserOperation'>
 ): Promise<string> {
 	const state = get(gaslessWallet);
 	if (!state.ready || !state.address) throw new Error('Wallet not initialized');
@@ -224,7 +287,11 @@ export async function sendGasless(
 }
 
 // ---------------------------------------------------------------------------
-// Convenience: simple token transfer
+// Convenience: simple token transfer (PROGRAMMATIC API)
+//
+// Wraps sendGasless() with a single ERC-20 transfer call for convenience.
+// Requires explicit smartAccount parameter — UI components should use the
+// sendToken() in src/lib/wallet/gasless-store.ts instead.
 // ---------------------------------------------------------------------------
 
 export async function sendToken(
@@ -234,7 +301,7 @@ export async function sendToken(
 	feeBufferAmount: bigint,
 	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
 	jwt: string,
-	smartAccount: { signUserOp: (op: Record<string, unknown>) => Promise<Record<string, unknown>> }
+	smartAccount: Pick<SmartAccount, 'signUserOperation'>
 ): Promise<string> {
 	// Input validation
 	if (!token || !recipient) throw new Error('token and recipient are required');

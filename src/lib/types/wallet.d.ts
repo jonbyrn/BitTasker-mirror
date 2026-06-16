@@ -239,7 +239,8 @@ export interface ProcessedTransaction {
 		icon: ComponentType; // Component type
 		color: string;
 	};
-	network: 'rsk' | 'bsc' | 'lightning';
+	txStatus?: 'confirmed' | 'pending' | 'failed'; // Normalized status for balance logic
+	network: 'rsk' | 'bsc' | 'arb' | 'lightning';
 
 	// Computed transaction classification
 	type: 'send' | 'receive' | 'swap' | 'contract';

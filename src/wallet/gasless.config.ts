@@ -45,28 +45,33 @@ export const FEE_BUFFER_MAX: Record<string, bigint> = {
 	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n
 };
 
-export const GAS_TREASURY = process.env['GAS_TREASURY'] ?? '';
+export const GAS_TREASURY = import.meta.env.VITE_GAS_TREASURY ?? '';
 if (!GAS_TREASURY) {
-	console.warn('[gasless] GAS_TREASURY environment variable is not set. Fee collection will fail.');
+	console.warn(
+		'[gasless] VITE_GAS_TREASURY environment variable is not set. Fee collection will fail.'
+	);
 }
 
 export const ALTO_URLS: readonly string[] = [
-	process.env['ALTO_URL_1'] ?? 'http://alto-1:3000',
-	process.env['ALTO_URL_2'] ?? 'http://alto-2:3000'
+	import.meta.env.VITE_ALTO_URL_1 ?? 'http://alto-1:3000',
+	import.meta.env.VITE_ALTO_URL_2 ?? 'http://alto-2:3000'
 ];
 
-export const ARBITRUM_RPC_URL = process.env['ARBITRUM_RPC_URL'] ?? '';
+export const ARBITRUM_RPC_URL = import.meta.env.VITE_ARBITRUM_RPC_URL ?? '';
 if (!ARBITRUM_RPC_URL) {
-	console.warn('[gasless] ARBITRUM_RPC_URL environment variable is not set. RPC calls will fail.');
+	console.warn(
+		'[gasless] VITE_ARBITRUM_RPC_URL environment variable is not set. RPC calls will fail.'
+	);
 }
-export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:4000';
+export const API_BASE_URL =
+	import.meta.env.VITE_TX_RELAY_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export const ETH_USD_FEED = '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612' as const;
 export const BTC_USD_FEED = '0x6ce185860a4963106506C203335A2910413708e9' as const;
 export const MAX_ORACLE_STALENESS = 300;
 
-export const PAYMASTER_SIGNER_KEY_FILE =
-	process.env['PAYMASTER_SIGNER_KEY_FILE'] ?? '/run/secrets/paymaster_signer_key';
+// Paymaster signer key file path (backend-only, not used client-side)
+export const PAYMASTER_SIGNER_KEY_FILE = '';
 
 export const gaslessConfig: GaslessConfig = {
 	tokens: [...TOKENS],

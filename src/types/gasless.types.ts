@@ -4,6 +4,20 @@
 // =============================================================================
 
 // ---------------------------------------------------------------------------
+// EIP-7702
+// ---------------------------------------------------------------------------
+
+/** EIP-7702 authorization tuple sent alongside the UserOp to the bundler. */
+export interface EIP7702Auth {
+	chainId: string; // hex
+	address: string; // delegate contract address
+	nonce: string; // hex
+	r: string; // hex signature component
+	s: string; // hex signature component
+	v: string; // hex signature component (yParity + 27)
+}
+
+// ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
 
@@ -53,6 +67,10 @@ export interface SerializableUserOperation {
 	maxPriorityFeePerGas: string;
 	paymasterAndData: string;
 	signature: string;
+	/** EIP-7702 factory sentinel for first-time delegations */
+	factory?: string;
+	/** EIP-7702 initialization data (delegate contract address) */
+	factoryData?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +99,12 @@ export interface FeeEstimate {
 	feeCostUSD: number; // Fee cost in USD
 	feeTier: string; // Fee tier label (Low/Medium/High)
 	totalWithBuffer: string; // amount + feeBuffer (string for bigint)
+	/** Estimated gas limits from Alto bundler (decimal strings). */
+	estimatedGas?: {
+		callGasLimit: string;
+		verificationGasLimit: string;
+		preVerificationGas: string;
+	};
 }
 
 /** Gas price result from bundler. */
@@ -155,6 +179,8 @@ export interface DepositHealth {
 export interface RelayUserOpDto {
 	sender: string;
 	userOp: SerializableUserOperation;
+	/** EIP-7702 authorization, required for first-time delegations */
+	eip7702Auth?: EIP7702Auth;
 }
 
 /** Request body for POST /gasless/estimate */

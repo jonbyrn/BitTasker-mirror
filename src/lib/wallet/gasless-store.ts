@@ -1,12 +1,212 @@
 // =============================================================================
 // Gasless Store — Client-side state and API helpers for gasless transfers
 // =============================================================================
+// Calls the NestJS main backend at VITE_TX_RELAY_BASE_URL.
+// Backend endpoints:
+//   POST /gasless/estimate  → { token, amount, recipient }
+//   POST /gasless/relay     → { sender, userOp: SerializableUserOperation }
+// Auth: Bearer JWT via global JwtAuthGuard.
 
-import type { FeeEstimate } from '../../types/gasless.types';
+import { get } from 'svelte/store';
+import { encodeFunctionData, isAddress, type Address } from 'viem';
+import { addBreadcrumb } from '@sentry/sveltekit';
+import type {
+	EIP7702Auth,
+	FeeEstimate,
+	SerializableUserOperation,
+	UserOperation
+} from '../../types/gasless.types';
+import {
+	GAS_TREASURY,
+	GAS_BOUNDS,
+	ENTRY_POINT_ADDRESS,
+	ARBITRUM_RPC_URL,
+	ARBITRUM_CHAIN_ID,
+	SIMPLE_7702_ACCOUNT_IMPL
+} from '../../wallet/gasless.config';
+import {
+	gaslessWallet,
+	gaslessAddress,
+	gaslessReady,
+	gaslessLoading,
+	gaslessError,
+	gaslessAccount,
+	gaslessOwnerKey
+} from '../../wallet/gasless-store';
+
+// =============================================================================
+// EIP-7702 constants
+// =============================================================================
+
+/** EIP-7702 factory sentinel — tells EntryPoint the sender is a 7702-delegated EOA */
+const EIP7702_FACTORY = '0x7702000000000000000000000000000000000000' as const;
+
+/** Gas cost of applying an EIP-7702 authorization (ERC-4337 spec §Support for EIP-7702) */
+const PER_EMPTY_ACCOUNT_COST = 25_000n;
+
+// =============================================================================
+// Minimal ABIs (local — only what we encode)
+// =============================================================================
+
+const ERC20_TRANSFER_ABI = [
+	{
+		type: 'function' as const,
+		name: 'transfer',
+		inputs: [
+			{ type: 'address', name: 'to' },
+			{ type: 'uint256', name: 'amount' }
+		],
+		outputs: [{ type: 'bool' }],
+		stateMutability: 'nonpayable' as const
+	}
+];
+
+const EXECUTE_BATCH_ABI = [
+	{
+		type: 'function' as const,
+		name: 'executeBatch',
+		inputs: [
+			{
+				type: 'tuple[]' as const,
+				name: 'calls',
+				components: [
+					{ type: 'address', name: 'target' },
+					{ type: 'uint256', name: 'value' },
+					{ type: 'bytes', name: 'data' }
+				]
+			}
+		],
+		outputs: [],
+		stateMutability: 'nonpayable' as const
+	}
+];
+
+const ENTRY_POINT_ABI = [
+	{
+		type: 'function' as const,
+		name: 'getNonce',
+		inputs: [
+			{ type: 'address', name: 'sender' },
+			{ type: 'uint192', name: 'key' }
+		],
+		outputs: [{ type: 'uint256' }],
+		stateMutability: 'view' as const
+	}
+];
+
+// =============================================================================
+// Wallet state — re-exported from single source of truth (src/wallet/gasless-store.ts)
+// This avoids the dual-store bug: previously initWallet() initialized a local
+// writable store but sendToken() read gaslessAccount from the wallet store,
+// causing UserOps to be sent unsigned.
+// =============================================================================
+
+export const walletState = gaslessWallet;
+export const walletAddress = gaslessAddress;
+export const walletReady = gaslessReady;
+export const walletLoading = gaslessLoading;
+export const walletError = gaslessError;
+
+/** Convenience alias for component-level init. */
+export async function initWallet(privateKey: `0x${string}`): Promise<string> {
+	return gaslessWallet.init(privateKey);
+}
+
+/** Convenience alias for component-level reset. */
+export function resetWallet(): void {
+	gaslessWallet.reset();
+}
+
+// =============================================================================
+// EIP-7702 delegation signing (shared helper)
+// =============================================================================
+
+/**
+ * Check if the sender needs EIP-7702 delegation and sign the authorization if so.
+ *
+ * Returns `undefined` if the account is already delegated (has code on-chain).
+ * Returns `{ eip7702Auth, factory, extraPreVerificationGas }` if this is the
+ * first transaction and delegation is needed.
+ *
+ * @param sender - The EOA address to check
+ * @param publicClient - viem PublicClient for eth_getCode / getTransactionCount
+ * @returns Delegation data or undefined
+ */
+async function signEip7702AuthIfNeeded(
+	sender: string,
+	publicClient: {
+		getCode: (args: { address: string }) => Promise<string | undefined>;
+		getTransactionCount: (args: { address: string }) => Promise<number>;
+	}
+): Promise<
+	| {
+			eip7702Auth: EIP7702Auth;
+			factory: string;
+			extraPreVerificationGas: bigint;
+	  }
+	| undefined
+> {
+	const existingCode = await publicClient.getCode({ address: sender as Address });
+	const isDelegated = existingCode && existingCode !== '0x' && existingCode.length > 2;
+	if (isDelegated) return undefined;
+
+	const ownerKey = get(gaslessOwnerKey);
+	if (!ownerKey) {
+		throw new Error('Owner private key not available — cannot sign EIP-7702 authorization');
+	}
+
+	const { keccak256, toRlp, toHex, concat } = await import('viem');
+	const { privateKeyToAccount } = await import('viem/accounts');
+
+	const eoaNonce = await publicClient.getTransactionCount({ address: sender as Address });
+
+	// EIP-7702 authorization hash: keccak256(0x05 || rlp([chain_id, address, nonce]))
+	const MAGIC = new Uint8Array([0x05]);
+	const authHash = keccak256(
+		concat([
+			MAGIC,
+			toRlp([
+				toHex(BigInt(ARBITRUM_CHAIN_ID)),
+				SIMPLE_7702_ACCOUNT_IMPL.toLowerCase(),
+				toHex(BigInt(eoaNonce))
+			])
+		])
+	);
+
+	const ownerAccount = privateKeyToAccount(ownerKey);
+	const signature = await ownerAccount.signMessage({ message: { raw: authHash } });
+
+	const r = ('0x' + signature.slice(2, 66)) as `0x${string}`;
+	const s = ('0x' + signature.slice(66, 130)) as `0x${string}`;
+	const v = '0x' + parseInt(signature.slice(130, 132), 16).toString(16);
+
+	return {
+		eip7702Auth: {
+			chainId: '0x' + BigInt(ARBITRUM_CHAIN_ID).toString(16),
+			address: SIMPLE_7702_ACCOUNT_IMPL,
+			nonce: '0x' + BigInt(eoaNonce).toString(16),
+			r,
+			s,
+			v
+		},
+		factory: EIP7702_FACTORY,
+		extraPreVerificationGas: PER_EMPTY_ACCOUNT_COST
+	};
+}
 
 // =============================================================================
 // API helpers
 // =============================================================================
+
+/**
+ * Get the relay API base URL from Vite env.
+ * Reads VITE_TX_RELAY_BASE_URL (e.g. "http://localhost:8000/api/v1").
+ */
+function getRelayBaseUrl(): string {
+	const url = import.meta.env.VITE_TX_RELAY_BASE_URL;
+	if (!url) throw new Error('VITE_TX_RELAY_BASE_URL not configured');
+	return url.replace(/\/$/, '');
+}
 
 /**
  * Estimate the fee for a gasless token transfer via the relay API.
@@ -23,6 +223,10 @@ export async function estimateFee(
 	recipient: string,
 	jwt: string
 ): Promise<FeeEstimate> {
+	if (!isAddress(token)) throw new Error('Invalid token address');
+	if (!isAddress(recipient)) throw new Error('Invalid recipient address');
+	if (amount <= 0n) throw new Error('Amount must be positive');
+
 	const relayUrl = getRelayBaseUrl();
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json'
@@ -41,114 +245,533 @@ export async function estimateFee(
 
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ message: response.statusText }));
-		throw new Error(`Fee estimation failed: ${error.message ?? response.statusText}`);
+		throw new Error(error.message ?? `Fee estimation failed: ${response.statusText}`);
 	}
 
 	return response.json();
 }
 
 /**
- * Send a gasless token transfer via the relay API.
+ * Build executeBatch callData encoding:
+ *   [transfer(recipient, amount), transfer(GAS_TREASURY, feeBuffer)]
  *
- * @param token - Token contract address
+ * The fee buffer transfer MUST be the last call in the batch.
+ */
+function buildExecuteBatchCallData(
+	token: string,
+	recipient: string,
+	amount: bigint,
+	feeBuffer: bigint
+): `0x${string}` {
+	// User's token transfer
+	const transferData = encodeFunctionData({
+		abi: ERC20_TRANSFER_ABI,
+		functionName: 'transfer',
+		args: [recipient as Address, amount]
+	});
+
+	// Fee buffer transfer to treasury
+	const feeTransferData = encodeFunctionData({
+		abi: ERC20_TRANSFER_ABI,
+		functionName: 'transfer',
+		args: [GAS_TREASURY as Address, feeBuffer]
+	});
+
+	return encodeFunctionData({
+		abi: EXECUTE_BATCH_ABI,
+		functionName: 'executeBatch',
+		args: [
+			[
+				[token as Address, 0n, transferData],
+				[token as Address, 0n, feeTransferData]
+			]
+		]
+	});
+}
+
+/**
+ * Send a gasless token transfer via the relay API. (UI-FACING API)
+ *
+ * This is the simplified, UI-focused API used by GaslessSendFlow and other
+ * Svelte components. It handles the full lifecycle internally:
+ *
+ * 1. Reads wallet state and smart account from the Svelte store (no need to
+ *    pass them as parameters).
+ * 2. Encodes executeBatch callData (user transfer + fee buffer to treasury).
+ * 3. Fetches nonce from the EntryPoint contract via viem.
+ * 4. Constructs and signs the UserOp client-side.
+ * 5. Relays to the NestJS backend which submits to the Alto bundler.
+ *
+ * @param token    - Token contract address
  * @param recipient - Recipient address
- * @param amount - Transfer amount in token's smallest unit (bigint)
+ * @param amount    - Transfer amount in token's smallest unit (bigint)
  * @param feeBuffer - Fee buffer amount in token's smallest unit (bigint)
- * @param gasLimits - Optional gas limit overrides
- * @param jwt - Auth token for the relay API
- * @param smartAccount - Smart account address (optional)
- * @returns Transaction hash from the bundler
+ * @param jwt       - Auth token for the relay API
+ * @param estimatedGas - Optional gas estimate from fee estimation (decimal strings).
+ *                       If omitted, falls back to GAS_BOUNDS max values.
+ * @returns UserOp hash from the bundler (hex string)
+ *
+ * NOTE: For programmatic callers that need arbitrary batch calls (multiple
+ * operations in one UserOp), use `sendGasless()` from src/wallet/gasless-store.ts
+ * instead. That function accepts a `calls[]` array for full batch flexibility.
  */
 export async function sendToken(
 	token: string,
 	recipient: string,
 	amount: bigint,
 	feeBuffer: bigint,
-	gasLimits: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
 	jwt: string,
-	smartAccount: string | null
+	estimatedGas?: {
+		callGasLimit: string;
+		verificationGasLimit: string;
+		preVerificationGas: string;
+	}
 ): Promise<string> {
+	// Validate inputs
+	if (!isAddress(token)) throw new Error('Invalid token address');
+	if (!isAddress(recipient)) throw new Error('Invalid recipient address');
+	if (amount <= 0n) throw new Error('Amount must be positive');
+	if (feeBuffer <= 0n) throw new Error('Fee buffer must be positive');
+
+	const state = get(gaslessWallet);
+	if (!state.ready || !state.address) {
+		throw new Error('Wallet not initialized — call initWallet() first');
+	}
+	const sender = state.address;
+
+	// 1. Build executeBatch callData
+	const callData = buildExecuteBatchCallData(token, recipient, amount, feeBuffer);
+
+	// 2. Fetch nonce from EntryPoint contract
+	const { createPublicClient, http } = await import('viem');
+	const { arbitrum } = await import('viem/chains');
+	const publicClient = createPublicClient({
+		chain: arbitrum,
+		transport: http(ARBITRUM_RPC_URL || undefined)
+	});
+
+	const nonce = await publicClient.readContract({
+		address: ENTRY_POINT_ADDRESS as Address,
+		abi: ENTRY_POINT_ABI,
+		functionName: 'getNonce',
+		args: [sender as Address, 0n]
+	});
+
+	// 3. Use estimated gas if provided, otherwise fall back to max bounds
+	const gasLimits = estimatedGas
+		? {
+				callGasLimit: BigInt(estimatedGas.callGasLimit),
+				verificationGasLimit: BigInt(estimatedGas.verificationGasLimit),
+				preVerificationGas: BigInt(estimatedGas.preVerificationGas)
+			}
+		: {
+				callGasLimit: GAS_BOUNDS.maxCallGas,
+				verificationGasLimit: GAS_BOUNDS.maxVerificationGas,
+				preVerificationGas: GAS_BOUNDS.maxPreVerificationGas
+			};
+
+	// 3b. Construct UserOp for signing (bigint fields)
+	const userOp: UserOperation = {
+		sender,
+		nonce,
+		callData,
+		callGasLimit: gasLimits.callGasLimit,
+		verificationGasLimit: gasLimits.verificationGasLimit,
+		preVerificationGas: gasLimits.preVerificationGas,
+		maxFeePerGas: GAS_BOUNDS.maxFeePerGas,
+		maxPriorityFeePerGas: GAS_BOUNDS.maxPriorityFeePerGas,
+		paymasterAndData: '0x',
+		signature: '0x'
+	};
+
+	// 3c. EIP-7702 delegation check — shared helper handles signing if needed
+	const delegation = await signEip7702AuthIfNeeded(sender, publicClient);
+	let eip7702Auth: EIP7702Auth | undefined;
+	if (delegation) {
+		eip7702Auth = delegation.eip7702Auth;
+		userOp.factory = delegation.factory;
+		userOp.preVerificationGas = userOp.preVerificationGas + delegation.extraPreVerificationGas;
+	}
+
+	// 3d. Sign the UserOp client-side if account is available
+	const account = get(gaslessAccount);
+	if (account && typeof account.signUserOperation === 'function') {
+		const signed = await (
+			account.signUserOperation as (op: Record<string, unknown>) => Promise<Record<string, unknown>>
+		)(userOp as unknown as Record<string, unknown>);
+		userOp.signature = (signed.signature as string) ?? '0x';
+	}
+
+	// 3e. Serialize for JSON transport
+	const serializableOp: SerializableUserOperation = {
+		sender: userOp.sender,
+		nonce: userOp.nonce.toString(),
+		callData: userOp.callData,
+		callGasLimit: userOp.callGasLimit.toString(),
+		verificationGasLimit: userOp.verificationGasLimit.toString(),
+		preVerificationGas: userOp.preVerificationGas.toString(),
+		maxFeePerGas: userOp.maxFeePerGas.toString(),
+		maxPriorityFeePerGas: userOp.maxPriorityFeePerGas.toString(),
+		paymasterAndData: userOp.paymasterAndData,
+		signature: userOp.signature,
+		// Include factory sentinel for 7702 first-time delegations
+		...(userOp.factory ? { factory: userOp.factory } : {})
+	};
+
+	// 4. Relay to NestJS backend
 	const relayUrl = getRelayBaseUrl();
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json'
 	};
 	if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
 
+	// Include eip7702Auth for first-time delegations
+	const body: Record<string, unknown> = { sender, userOp: serializableOp };
+	if (eip7702Auth) {
+		body.eip7702Auth = eip7702Auth;
+	}
+
+	addBreadcrumb({
+		category: 'gasless',
+		message: `Relaying UserOp for ${token.slice(0, 10)}...`,
+		level: 'info',
+		data: { sender, token, recipient, hasEip7702Auth: !!eip7702Auth }
+	});
+
 	const response = await fetch(`${relayUrl}/gasless/relay`, {
 		method: 'POST',
 		headers,
-		body: JSON.stringify({
-			token,
-			recipient,
-			amount: amount.toString(),
-			feeBuffer: feeBuffer.toString(),
-			gasLimits: {
-				callGasLimit: gasLimits.callGasLimit.toString(),
-				verificationGasLimit: gasLimits.verificationGasLimit.toString(),
-				preVerificationGas: gasLimits.preVerificationGas.toString()
-			},
-			smartAccount
-		})
+		body: JSON.stringify(body)
 	});
 
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ message: response.statusText }));
-		throw new Error(`Gasless send failed: ${error.message ?? response.statusText}`);
+		addBreadcrumb({
+			category: 'gasless',
+			message: `Relay failed: ${error.message ?? response.statusText}`,
+			level: 'error',
+			data: { status: response.status, sender }
+		});
+		throw new Error(error.message ?? `Gasless relay failed: ${response.statusText}`);
 	}
 
 	const result = await response.json();
-	return result.txHash as string;
+	addBreadcrumb({
+		category: 'gasless',
+		message: 'UserOp relayed successfully',
+		level: 'info',
+		data: { userOpHash: result.userOpHash, sender }
+	});
+	return result.userOpHash as string;
 }
 
 /**
- * Check if the user's balance is sufficient to cover the transfer amount + fee buffer.
+ * Check if the user's on-chain token balance covers transfer + fee buffer.
  *
- * @param token - Token contract address
- * @param recipient - Recipient address (unused in check, reserved for future recipient-based checks)
- * @param amount - Transfer amount in token's smallest unit
- * @param feeBuffer - Fee buffer amount in token's smallest unit
+ * Performs a client-side viem readContract call — no backend endpoint needed.
+ *
+ * @param tokenAddress - ERC-20 token contract address
+ * @param userAddress - User's smart account address
+ * @param transferAmount - Transfer amount in token's smallest unit
+ * @param feeBufferAmount - Fee buffer amount in token's smallest unit
+ * @param rpcUrl - Optional RPC URL override
  * @returns Balance check result
  */
 export async function checkSufficientBalance(
-	token: string,
-	recipient: string,
-	amount: bigint,
-	feeBuffer: bigint
+	tokenAddress: string,
+	userAddress: string,
+	transferAmount: bigint,
+	feeBufferAmount: bigint,
+	rpcUrl?: string
 ): Promise<{
 	sufficient: boolean;
 	balance: bigint;
 	required: bigint;
 }> {
-	const relayUrl = getRelayBaseUrl();
+	if (!isAddress(tokenAddress)) throw new Error('Invalid token address');
+	if (!isAddress(userAddress)) throw new Error('Invalid user address');
+	if (transferAmount < 0n) throw new Error('transferAmount must be non-negative');
+	if (feeBufferAmount < 0n) throw new Error('feeBufferAmount must be non-negative');
 
-	const response = await fetch(`${relayUrl}/gasless/balance`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			token,
-			amount: amount.toString(),
-			feeBuffer: feeBuffer.toString()
-		})
+	const { createPublicClient, http } = await import('viem');
+	const { arbitrum } = await import('viem/chains');
+	const publicClient = createPublicClient({
+		chain: arbitrum,
+		transport: http(rpcUrl || ARBITRUM_RPC_URL || undefined)
 	});
 
-	if (!response.ok) {
-		throw new Error(`Balance check failed: ${response.statusText}`);
-	}
+	const balance = await publicClient.readContract({
+		address: tokenAddress as Address,
+		abi: [
+			{
+				type: 'function' as const,
+				name: 'balanceOf',
+				inputs: [{ type: 'address' }],
+				outputs: [{ type: 'uint256' }],
+				stateMutability: 'view' as const
+			}
+		],
+		functionName: 'balanceOf',
+		args: [userAddress as Address]
+	});
 
-	const result = await response.json();
-	return {
-		sufficient: result.sufficient as boolean,
-		balance: BigInt(result.balance ?? '0'),
-		required: BigInt(result.required ?? '0')
-	};
+	const required = transferAmount + feeBufferAmount;
+	return { sufficient: balance >= required, balance, required };
 }
 
 // =============================================================================
-// Helpers
+// Fallback: Direct ERC-20 transfer (user pays gas in ETH)
 // =============================================================================
 
-function getRelayBaseUrl(): string {
-	const url = import.meta.env.VITE_TX_RELAY_BASE_URL;
-	if (!url) throw new Error('VITE_TX_RELAY_BASE_URL not configured');
-	return url.replace(/\/$/, '');
+/**
+ * Check if the user has enough ETH on Arbitrum to pay for a direct transaction.
+ *
+ * @param userAddress - The user's smart account / EOA address
+ * @param rpcUrl - Optional RPC URL override
+ * @returns ETH balance in wei
+ */
+export async function checkETHBalance(userAddress: string, rpcUrl?: string): Promise<bigint> {
+	if (!isAddress(userAddress)) throw new Error('Invalid user address');
+
+	const { createPublicClient, http } = await import('viem');
+	const { arbitrum } = await import('viem/chains');
+	const publicClient = createPublicClient({
+		chain: arbitrum,
+		transport: http(rpcUrl || ARBITRUM_RPC_URL || undefined)
+	});
+
+	return publicClient.getBalance({ address: userAddress as Address });
+}
+
+/**
+ * Send a direct ERC-20 transfer on Arbitrum, paying gas in ETH.
+ *
+ * This is the emergency fallback when the gasless relay is unavailable.
+ * Uses the owner's private key (from the wallet store) to sign and send
+ * a standard ERC-20 transfer() transaction via viem.
+ *
+ * @param token - ERC-20 token contract address
+ * @param recipient - Recipient address
+ * @param amount - Transfer amount in token's smallest unit (bigint)
+ * @returns Transaction hash
+ */
+export async function sendTokenDirect(
+	token: string,
+	recipient: string,
+	amount: bigint
+): Promise<string> {
+	if (!isAddress(token)) throw new Error('Invalid token address');
+	if (!isAddress(recipient)) throw new Error('Invalid recipient address');
+	if (amount <= 0n) throw new Error('Amount must be positive');
+
+	const ownerKey = get(gaslessOwnerKey);
+	if (!ownerKey) {
+		throw new Error('Owner key not available — cannot sign direct transaction');
+	}
+
+	const { createWalletClient, http, encodeFunctionData } = await import('viem');
+	const { privateKeyToAccount } = await import('viem/accounts');
+	const { arbitrum } = await import('viem/chains');
+
+	const account = privateKeyToAccount(ownerKey);
+	const walletClient = createWalletClient({
+		account,
+		chain: arbitrum,
+		transport: http(ARBITRUM_RPC_URL || undefined)
+	});
+
+	// Encode ERC-20 transfer(recipient, amount)
+	const data = encodeFunctionData({
+		abi: ERC20_TRANSFER_ABI,
+		functionName: 'transfer',
+		args: [recipient as Address, amount]
+	});
+
+	const txHash = await walletClient.sendTransaction({
+		to: token as Address,
+		data,
+		chain: arbitrum
+	});
+
+	return txHash;
+}
+
+// =============================================================================
+// Gasless arbitrary calls (for swaps, bridges, approvals, etc.)
+// =============================================================================
+
+/**
+ * Send arbitrary contract calls through the gasless relay.
+ *
+ * This is the general-purpose gasless function used by swaps, bridges,
+ * approvals, and any other multi-step Arbitrum operations. The calls are
+ * wrapped in an `executeBatch(Call[])` with a fee buffer transfer appended.
+ *
+ * @param calls - Array of contract calls: `{ to, data, value? }`
+ * @param feeToken - Token address used for the fee buffer (must be in ALLOWED_FEE_TOKENS)
+ * @param feeBuffer - Fee buffer amount in token's smallest unit (bigint)
+ * @param jwt - Auth token for the relay API
+ * @param estimatedGas - Optional gas estimate from fee estimation
+ * @returns UserOp hash from the bundler
+ */
+export async function sendGaslessCalls(
+	calls: Array<{ to: string; data: string; value?: bigint }>,
+	feeToken: string,
+	feeBuffer: bigint,
+	jwt: string,
+	estimatedGas?: {
+		callGasLimit: string;
+		verificationGasLimit: string;
+		preVerificationGas: string;
+	}
+): Promise<string> {
+	if (calls.length === 0) throw new Error('At least one call is required');
+	if (!isAddress(feeToken)) throw new Error('Invalid fee token address');
+	if (feeBuffer <= 0n) throw new Error('Fee buffer must be positive');
+
+	const state = get(gaslessWallet);
+	if (!state.ready || !state.address) {
+		throw new Error('Wallet not initialized — call initWallet() first');
+	}
+	const sender = state.address;
+
+	// Build executeBatch callData with the user's calls + fee buffer
+	const batchCalls: Array<[`0x${string}`, bigint, `0x${string}`]> = calls.map((c) => [
+		c.to as `0x${string}`,
+		c.value ?? 0n,
+		c.data as `0x${string}`
+	]);
+
+	// Append fee buffer transfer as the last call
+	batchCalls.push([
+		feeToken as `0x${string}`,
+		0n,
+		encodeFunctionData({
+			abi: ERC20_TRANSFER_ABI,
+			functionName: 'transfer',
+			args: [GAS_TREASURY as Address, feeBuffer]
+		})
+	]);
+
+	const callData = encodeFunctionData({
+		abi: EXECUTE_BATCH_ABI,
+		functionName: 'executeBatch',
+		args: [batchCalls]
+	});
+
+	// Fetch nonce from EntryPoint
+	const { createPublicClient, http } = await import('viem');
+	const { arbitrum } = await import('viem/chains');
+	const publicClient = createPublicClient({
+		chain: arbitrum,
+		transport: http(ARBITRUM_RPC_URL || undefined)
+	});
+
+	const nonce = await publicClient.readContract({
+		address: ENTRY_POINT_ADDRESS as Address,
+		abi: ENTRY_POINT_ABI,
+		functionName: 'getNonce',
+		args: [sender as Address, 0n]
+	});
+
+	// Use estimated gas or fall back to max bounds
+	const gasLimits = estimatedGas
+		? {
+				callGasLimit: BigInt(estimatedGas.callGasLimit),
+				verificationGasLimit: BigInt(estimatedGas.verificationGasLimit),
+				preVerificationGas: BigInt(estimatedGas.preVerificationGas)
+			}
+		: {
+				callGasLimit: GAS_BOUNDS.maxCallGas,
+				verificationGasLimit: GAS_BOUNDS.maxVerificationGas,
+				preVerificationGas: GAS_BOUNDS.maxPreVerificationGas
+			};
+
+	// Construct UserOp
+	const userOp: UserOperation = {
+		sender,
+		nonce,
+		callData,
+		callGasLimit: gasLimits.callGasLimit,
+		verificationGasLimit: gasLimits.verificationGasLimit,
+		preVerificationGas: gasLimits.preVerificationGas,
+		maxFeePerGas: GAS_BOUNDS.maxFeePerGas,
+		maxPriorityFeePerGas: GAS_BOUNDS.maxPriorityFeePerGas,
+		paymasterAndData: '0x',
+		signature: '0x'
+	};
+
+	// EIP-7702 delegation check — shared helper handles signing if needed
+	const delegation = await signEip7702AuthIfNeeded(sender, publicClient);
+	let eip7702Auth: EIP7702Auth | undefined;
+	if (delegation) {
+		eip7702Auth = delegation.eip7702Auth;
+		userOp.factory = delegation.factory;
+		userOp.preVerificationGas = userOp.preVerificationGas + delegation.extraPreVerificationGas;
+	}
+
+	// Sign the UserOp
+	const account = get(gaslessAccount);
+	if (account && typeof account.signUserOperation === 'function') {
+		const signed = await (
+			account.signUserOperation as (op: Record<string, unknown>) => Promise<Record<string, unknown>>
+		)(userOp as unknown as Record<string, unknown>);
+		userOp.signature = (signed.signature as string) ?? '0x';
+	}
+
+	// Serialize
+	const serializableOp: SerializableUserOperation = {
+		sender: userOp.sender,
+		nonce: userOp.nonce.toString(),
+		callData: userOp.callData,
+		callGasLimit: userOp.callGasLimit.toString(),
+		verificationGasLimit: userOp.verificationGasLimit.toString(),
+		preVerificationGas: userOp.preVerificationGas.toString(),
+		maxFeePerGas: userOp.maxFeePerGas.toString(),
+		maxPriorityFeePerGas: userOp.maxPriorityFeePerGas.toString(),
+		paymasterAndData: userOp.paymasterAndData,
+		signature: userOp.signature,
+		...(userOp.factory ? { factory: userOp.factory } : {})
+	};
+
+	// Relay
+	const relayUrl = getRelayBaseUrl();
+	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+	if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
+	const body: Record<string, unknown> = { sender, userOp: serializableOp };
+	if (eip7702Auth) body.eip7702Auth = eip7702Auth;
+
+	addBreadcrumb({
+		category: 'gasless',
+		message: `Relaying batch calls (${calls.length} calls)`,
+		level: 'info',
+		data: { sender, callCount: calls.length, feeToken, hasEip7702Auth: !!eip7702Auth }
+	});
+
+	const response = await fetch(`${relayUrl}/gasless/relay`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify(body)
+	});
+
+	if (!response.ok) {
+		const error = await response.json().catch(() => ({ message: response.statusText }));
+		addBreadcrumb({
+			category: 'gasless',
+			message: `Batch relay failed: ${error.message ?? response.statusText}`,
+			level: 'error',
+			data: { status: response.status, sender }
+		});
+		throw new Error(error.message ?? `Gasless relay failed: ${response.statusText}`);
+	}
+
+	const result = await response.json();
+	addBreadcrumb({
+		category: 'gasless',
+		message: 'Batch UserOp relayed successfully',
+		level: 'info',
+		data: { userOpHash: result.userOpHash, sender, callCount: calls.length }
+	});
+	return result.userOpHash as string;
 }
