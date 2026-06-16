@@ -98,7 +98,8 @@
 		"list_service": "List Service",
 		"service_requests": "Service Requests",
 		"requests": "Requests",
-		"saved_searches": "Saved Searches"
+		"saved_searches": "Saved Searches",
+		"notifications": "Notifications"
 	},
 	"homepage": {
 		"title": "Hello, World!",

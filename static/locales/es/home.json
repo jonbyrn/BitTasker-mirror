@@ -97,7 +97,8 @@
 		"list_service": "Publicar Servicio",
 		"service_requests": "Solicitudes de Servicio",
 		"requests": "Solicitudes",
-		"saved_searches": "Búsquedas Guardadas"
+		"saved_searches": "Búsquedas Guardadas",
+		"notifications": "Notificaciones"
 	},
 	"homepage": {
 		"title": "¡Hola, Mundo!",

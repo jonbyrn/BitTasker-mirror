@@ -16,7 +16,20 @@
 			"remove": "Remove notification"
 		},
 		"filters": {
-			"all": "All Notifications"
+			"all": "All",
+			"unread": "Unread",
+			"read": "Read",
+			"contract": "Contracts",
+			"bid": "Bids",
+			"message": "Messages",
+			"payment": "Payments",
+			"review": "Reviews",
+			"service": "Services",
+			"wallet": "Wallet",
+			"security": "Security",
+			"discovery": "Discovery",
+			"reengagement": "Re-engagement",
+			"account": "Account"
 		},
 		"types": {
 			"bid_response": "Bid Responses",
@@ -26,7 +39,16 @@
 			"message": "Messages",
 			"system": "System",
 			"security": "Security",
-			"other": "Other"
+			"other": "Other",
+			"contract": "Contracts",
+			"bid": "Bids",
+			"task": "Tasks",
+			"review": "Reviews",
+			"service": "Services",
+			"wallet": "Wallet",
+			"discovery": "Discovery",
+			"reengagement": "Re-engagement",
+			"account": "Account"
 		},
 		"stats": {
 			"showing": "Showing",
@@ -222,8 +244,14 @@
 			"marked_read": "Notification marked as read",
 			"deleted": "Notification deleted",
 			"cleared": "Notifications cleared",
-			"settings_updated": "Settings updated"
+			"settings_updated": "Settings updated",
+			"updated": "updated",
+			"enabled": "enabled",
+			"disabled": "disabled"
 		},
+		"clear_all_confirm_title": "Clear All Notifications",
+		"clear_all_confirm_message": "Are you sure you want to clear all notifications? This action cannot be undone.",
+		"offline_indicator": "You're offline. Notifications will update when you're back online.",
 		"aria_labels": {
 			"notifications": "Notifications",
 			"close_notifications": "Close notifications",

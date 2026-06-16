@@ -137,7 +137,7 @@ import { test, expect } from '../fixtures/auth';
 
 test('my authenticated test', async ({ authenticatedPage }) => {
   // authenticatedPage is already authenticated
-  await authenticatedPage.goto('/dashboard');
+  await authenticatedPage.goto('/hiring');
   // ... test code
 });
 ```
@@ -157,7 +157,7 @@ test('my test', async ({ page }) => {
 
 ### Using Shared Passkey Credentials (Cross-File)
 
-For specs that should run after signup-onboarding and reuse the same passkey (e.g. wallet, dashboard flows):
+For specs that should run after signup-onboarding and reuse the same passkey (e.g. wallet, hiring flows):
 
 ```typescript
 import {
@@ -172,7 +172,7 @@ test.describe('My feature', () => {
 
   test('my test', async ({ authenticatedPageFromPasskeyFile }) => {
     // Page is already logged in via passkey (credentials from file)
-    await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
+    await authenticatedPageFromPasskeyFile.goto('/wallet');
     // ... test code
   });
 });

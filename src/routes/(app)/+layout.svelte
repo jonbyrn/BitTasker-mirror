@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -10,6 +11,12 @@
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
+
+	afterNavigate(() => {
+		if (browser) {
+			import('$lib/utils/activityTracker').then(({ trackActivity }) => trackActivity());
+		}
+	});
 
 	const { children } = $props();
 

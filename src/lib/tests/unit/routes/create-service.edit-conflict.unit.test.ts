@@ -69,7 +69,7 @@ const hoisted = vi.hoisted(() => {
 
 vi.mock('$app/stores', () => ({
 	page: readable({
-		url: new URL('http://localhost/dashboard/create-service')
+		url: new URL('http://localhost/create-service')
 	})
 }));
 

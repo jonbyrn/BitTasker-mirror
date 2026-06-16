@@ -383,10 +383,18 @@ class PushNotificationService {
 
 				const data = notification.notification?.data || {};
 
-				const targetUrl = data.clickAction || data.click_action || '/hiring';
+				// Mark as read if notificationId is present
+				if (data.notificationId) {
+					import('$lib/stores/notificationCenter.store')
+						.then(({ notificationCenterStore }) => {
+							notificationCenterStore.markRead(data.notificationId as string);
+						})
+						.catch(() => {});
+				}
 
-				// Navigate to the target URL
-				window.location.href = targetUrl;
+				// Navigate using the existing navigateToUrl method
+				const targetUrl = data.deepLink || data.clickAction || data.click_action || '/hiring';
+				this.navigateToUrl(targetUrl);
 			}
 		);
 

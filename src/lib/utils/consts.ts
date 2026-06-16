@@ -62,6 +62,13 @@ export const sections = [
 		mobile: true
 	},
 	{
+		id: 'notifications',
+		path: '/notifications',
+		label: 'navbar.notifications',
+		icon: 'mdi:bell-outline',
+		mobile: false
+	},
+	{
 		id: 'profile',
 		path: '/profile',
 		label: 'navbar.profile',

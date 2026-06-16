@@ -77,7 +77,7 @@ test.describe('Authentication Flow', () => {
       await submitButton.click();
 
       // Should redirect to dashboard or show success message
-      await expect(page).toHaveURL(/.*\/dashboard|\/onboarding/);
+      await expect(page).toHaveURL(/.*\/hiring|\/onboarding/);
     });
   });
 
@@ -163,7 +163,7 @@ test.describe('Authentication Flow', () => {
     test('should show user profile after successful authentication', async ({ page }) => {
       // This test would require successful authentication
       // For now, we'll test the expected behavior
-      await page.goto('/dashboard');
+      await page.goto('/hiring');
       
       // Should either show login redirect or dashboard content
       const isAuthPage = await page.locator('h1, h2').textContent().then(text => 
@@ -179,8 +179,8 @@ test.describe('Authentication Flow', () => {
 
   test.describe('Logout and Session Management', () => {
     test('should provide logout option in user menu', async ({ page }) => {
-      // Navigate to dashboard (may redirect to login if not authenticated)
-      await page.goto('/dashboard');
+      // Navigate to hiring (may redirect to login if not authenticated)
+      await page.goto('/hiring');
       
       // Look for user menu or profile dropdown
       const userMenu = page.locator('.user-menu, .profile-dropdown, [data-testid="user-menu"]').first();
@@ -196,7 +196,7 @@ test.describe('Authentication Flow', () => {
     test('should clear authentication state on logout', async ({ page }) => {
       // This test would require being logged in first
       // For now, we'll test the expected flow
-      await page.goto('/dashboard');
+      await page.goto('/hiring');
       
       // If we're on dashboard (authenticated), try to logout
       const userMenu = page.locator('.user-menu, .profile-dropdown, [data-testid="user-menu"]').first();

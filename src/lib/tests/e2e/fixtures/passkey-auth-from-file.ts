@@ -77,7 +77,7 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 			// Login flow: /auth/login → Continue with passkey → dashboard
 			await page.goto('/auth/login', { waitUntil: 'load' });
 			await page.getByTestId('login-continue-passkey').click();
-			await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+			await page.waitForURL(/\/hiring/, { timeout: 15_000 });
 
 			await use(page);
 		} finally {

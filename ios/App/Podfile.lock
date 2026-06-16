@@ -41,6 +41,8 @@ PODS:
     - Capacitor
   - CapacitorWebauthn (0.0.12):
     - Capacitor
+  - CapawesomeCapacitorBadge (8.0.2):
+    - Capacitor
   - CapawesomeCapacitorScreenOrientation (7.1.0):
     - Capacitor
   - CapgoCapacitorUploader (8.2.1):
@@ -115,6 +117,7 @@ DEPENDENCIES:
   - "CapacitorSplashScreen (from `../../node_modules/@capacitor/splash-screen`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
   - CapacitorWebauthn (from `../../node_modules/capacitor-webauthn`)
+  - "CapawesomeCapacitorBadge (from `../../node_modules/@capawesome/capacitor-badge`)"
   - "CapawesomeCapacitorScreenOrientation (from `../../node_modules/@capawesome/capacitor-screen-orientation`)"
   - "CapgoCapacitorUploader (from `../../node_modules/@capgo/capacitor-uploader`)"
 
@@ -175,6 +178,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/status-bar"
   CapacitorWebauthn:
     :path: "../../node_modules/capacitor-webauthn"
+  CapawesomeCapacitorBadge:
+    :path: "../../node_modules/@capawesome/capacitor-badge"
   CapawesomeCapacitorScreenOrientation:
     :path: "../../node_modules/@capawesome/capacitor-screen-orientation"
   CapgoCapacitorUploader:
@@ -201,6 +206,7 @@ SPEC CHECKSUMS:
   CapacitorSplashScreen: 4b46c72298db552b3c57ce021ef028b6dc7f1fa7
   CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
   CapacitorWebauthn: 368d3f73ca9a16196ad644e63979609302bc3e27
+  CapawesomeCapacitorBadge: 0d9dca1ab1e770a4524c5a6c35d3c1ee91b296f8
   CapawesomeCapacitorScreenOrientation: 3c69f06737dae8a9340d5f51891a58321987123c
   CapgoCapacitorUploader: 80b48c8ff160853e28680e66d156b821c0397472
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -217,6 +223,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: a7d2abae936bbd93d04d123a6419644ba5e822da
+PODFILE CHECKSUM: f858daba6fe116f0f174e13778a412a3acfe3f1b
 
 COCOAPODS: 1.16.2

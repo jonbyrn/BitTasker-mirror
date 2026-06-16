@@ -7,15 +7,8 @@ import { test, expect } from '../fixtures/auth';
 
 test.describe('Receive Payment Flow', () => {
 	test.beforeEach(async ({ authenticatedPage }) => {
-		// Navigate to wallet page - try /wallet first
 		await authenticatedPage.goto('/wallet');
 		await authenticatedPage.waitForLoadState('networkidle');
-		// If redirected, wait for redirect
-		const currentUrl = authenticatedPage.url();
-		if (!currentUrl.includes('/wallet')) {
-			await authenticatedPage.goto('/dashboard/wallet');
-			await authenticatedPage.waitForLoadState('networkidle');
-		}
 		// Wait for wallet to initialize - look for any wallet content (card, buttons, tabs, or error state)
 		const walletContent = authenticatedPage.locator('.card, button:has-text("Send"), button:has-text("Receive"), .tab, .alert, [class*="wallet"]').first();
 		await expect(walletContent).toBeVisible({ timeout: 15000 });

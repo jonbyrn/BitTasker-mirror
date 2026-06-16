@@ -1,7 +1,7 @@
 # BitTasker Notification Center — Frontend Implementation Plan
 
-**Date:** 2026-06-12 (revised)
-**Status:** Implementation-ready spec
+**Date:** 2026-06-14 (deep audit v2)
+**Status:** Implementation-ready spec (expanded)
 **Audience:** Frontend engineering team (SvelteKit 5 + Capacitor)
 
 ---
@@ -26,6 +26,9 @@
 16. [Accessibility](#16-accessibility)
 17. [Testing Strategy](#17-testing-strategy)
 18. [Implementation Checklist](#18-implementation-checklist)
+19. [Deep Audit — Gaps & Corrections](#19-deep-audit--gaps--corrections)
+20. [Updated File Layout](#20-updated-file-layout)
+21. [Updated Implementation Checklist](#21-updated-implementation-checklist)
 
 ---
 
@@ -77,11 +80,15 @@ The backend doc assumes `socket.io-client` is available. **It is NOT in `package
 - **Option A (recommended):** Install `socket.io-client` and connect to the backend's Socket.IO gateway
 - **Option B (fallback):** Use REST polling (simpler, no new dependency, but less real-time)
 
-### 2.3 `@capacitor/badge` Not Installed
+### 2.3 `@capacitor/badge` — REQUIRED
 
 The backend doc references `Badge.set()` from `@capacitor/badge`. **This plugin is not installed.**
 
-**Correction:** See [Section 11.3](#113-badge-count) for installation and integration.
+`@capacitor/badge` sets the red unread count on the app icon (iOS/Android home screen). It's purely a native UX enhancement — the in-app bell badge works without it. On iOS, FCM push payloads can include a `badge` field that the OS sets automatically. On Android, badge support is launcher-dependent.
+
+**Decision:** This UI update is required. the store's `fetchUnreadCount` success path calls `syncBadge(count)`.
+
+**Installing:** See [Section 11.3](#113-badge-count) for setup. Requires iOS `Info.plist` changes (see Section 19.24).
 
 ### 2.4 Wrong Route Paths
 
@@ -1485,32 +1492,32 @@ PushNotifications.addListener(
 );
 ```
 
-### 11.3 Badge Count
+### 11.3 Badge Count (REQUIRED)
 
-Install `@capacitor/badge`:
+`@capacitor/badge` sets the red unread count on the app icon. This is purely a native UX enhancement — the in-app bell badge works without it.
+
+Installing:
 
 ```bash
 npm install @capacitor/badge
 npx cap sync
 ```
 
-Add badge sync to the notification store's `fetchUnreadCount` success path:
+Guard with a dynamic import so the app works without the plugin:
 
 ```typescript
-import { Badge } from '@capacitor/badge';
-import { Capacitor } from '@capacitor/core';
-
 async function syncBadge(count: number): Promise<void> {
 	if (!Capacitor.isNativePlatform()) return;
 	try {
+		const { Badge } = await import('@capacitor/badge');
 		await Badge.set({ count });
 	} catch {
-		// Badge plugin may not be available on all devices
+		// Badge plugin not installed or not available — skip silently
 	}
 }
 ```
 
-Call `syncBadge(count)` whenever `unreadCount` is updated in the store.
+Call `syncBadge(count)` whenever `unreadCount` is updated in the store. Also call `syncBadge(0)` on logout/session reset.
 
 ### 11.4 Foreground Notification Enhancement
 
@@ -1815,7 +1822,9 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 
 ## 18. Implementation Checklist
 
-### Phase 1: Foundation (1 day)
+> **Note:** This is the original checklist. See [Section 21](#21-updated-implementation-checklist) for the expanded version with all audit findings integrated.
+
+### Phase 1: Foundation
 
 - [ ] Add notification center types to `src/lib/types/notification.d.ts`
 - [ ] Add notification center endpoints to `src/lib/api/endpoints.ts`
@@ -1826,7 +1835,7 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Create `src/lib/utils/notification-icons.ts`
 - [ ] Create `src/lib/utils/notification-deep-link-map.ts`
 
-### Phase 2: UI Components (1-2 days)
+### Phase 2: UI Components
 
 - [ ] Create `NotificationBell.svelte` (replaces disabled `NotificationCenter.svelte`)
 - [ ] Create `NotificationDropdown.svelte`
@@ -1836,7 +1845,7 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Create `/notifications` full page route
 - [ ] Initialize store fetch in `(protected)/+layout.svelte`
 
-### Phase 3: Real-Time (1 day)
+### Phase 3: Real-Time
 
 - [ ] Create `notification-realtime.service.ts` (polling v1)
 - [ ] Add polling lifecycle to `(protected)/+layout.svelte`
@@ -1844,14 +1853,14 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Integrate foreground notification with notification store
 - [ ] (When backend ready) Install `socket.io-client` and switch to WebSocket service
 
-### Phase 4: Push & Badge (0.5 day)
+### Phase 4: Push & Badge
 
 - [ ] Install `@capacitor/badge`
 - [ ] Add badge sync to store's `fetchUnreadCount()`
 - [ ] Enhance push notification click handler with `markRead()`
 - [ ] Enhance foreground handler to refresh store
 
-### Phase 5: Preferences (1 day)
+### Phase 5: Preferences
 
 - [ ] Create `/settings/notifications` page
 - [ ] Implement master toggles (push, email, in-app)
@@ -1861,7 +1870,7 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Debounced save logic
 - [ ] Add navigation link from settings page
 
-### Phase 6: Enrichment & Activity (0.5 day)
+### Phase 6: Enrichment & Activity
 
 - [ ] Create `src/lib/utils/activity-tracker.ts`
 - [ ] Add `afterNavigate` activity tracking to app layout
@@ -1869,7 +1878,7 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Add enrichment calls to contract lifecycle call sites
 - [ ] Add enrichment call to task creation with deadline
 
-### Phase 7: i18n & Polish (1 day)
+### Phase 7: i18n & Polish
 
 - [ ] Add missing i18n keys to `en/notifications.json`
 - [ ] Add missing i18n keys to `es/notifications.json`
@@ -1879,7 +1888,7 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Error handling (offline banner, API error toasts)
 - [ ] Mobile responsive (dropdown full-width, full page preferred)
 
-### Phase 8: Testing (1 day)
+### Phase 8: Testing
 
 - [ ] Unit tests for store (state transitions, optimistic updates)
 - [ ] Unit tests for service (API formatting)
@@ -1892,25 +1901,993 @@ All new keys must have corresponding `es` translations in `static/locales/es/not
 - [ ] Run `npm run test:ci` (full suite)
 - [ ] Run translation verification
 
+---
+
+## 19. Deep Audit — Gaps & Corrections
+
+A second-pass audit against the actual codebase revealed significant gaps in the original plan. This section documents every finding that must be addressed before or during implementation.
+
+---
+
+### 19.1 Session/Logout Integration — MISSING
+
+**Problem:** The plan mentions `notificationCenterStore.reset()` must be called on logout (Section 15.4) but does not specify WHERE.
+
+**Reality:** `src/lib/utils/session.ts` → `resetAllStores()` is the centralized logout cleanup. It resets `bidStore`, `tasksStore`, `myTasksStore`, `profileStore`, `walletManager`, `user`, and `muteStore`. The notification center store must be added here.
+
+**Fix:** Add to `src/lib/utils/session.ts`:
+
+```typescript
+// In resetAllStores():
+import { notificationCenterStore } from '$lib/stores/notification-center.store';
+
+// After muteStore.reset():
+notificationCenterStore.reset();
+```
+
+Also: when resetting, the native badge count must be cleared to 0 (see Section 19.12).
+
+**File to modify:** `src/lib/utils/session.ts` (line ~85)
+
+---
+
+### 19.2 Sentry Breadcrumbs — MISSING ENTIRELY
+
+**Problem:** The CLAUDE.md mandates `Sentry.addBreadcrumb()` for key user actions. The codebase currently has ZERO breadcrumb calls. The plan doesn't mention Sentry at all.
+
+**Fix:** Add breadcrumbs to these notification center operations:
+
+```typescript
+import * as Sentry from '@sentry/sveltekit';
+
+// In notification-center.store.ts — after successful markRead:
+Sentry.addBreadcrumb({
+  category: 'notification',
+  level: 'info',
+  message: 'Notification marked as read',
+  data: { notificationId: id }
+});
+
+// After successful markAllRead:
+Sentry.addBreadcrumb({
+  category: 'notification',
+  level: 'info',
+  message: 'All notifications marked as read'
+});
+
+// After successful deleteNotification:
+Sentry.addBreadcrumb({
+  category: 'notification',
+  level: 'info',
+  message: 'Notification deleted',
+  data: { notificationId: id }
+});
+
+// In notification-realtime.service.ts — when new notifications arrive:
+Sentry.addBreadcrumb({
+  category: 'notification',
+  level: 'info',
+  message: 'New notifications received via polling',
+  data: { count: currentCount - lastUnreadCount }
+});
+
+// In push-notification.service.ts — on push tap:
+Sentry.addBreadcrumb({
+  category: 'notification',
+  level: 'info',
+  message: 'Push notification tapped',
+  data: { notificationId: data.notificationId, deepLink: data.deepLink }
+});
+```
+
+**Files to modify:**
+- `src/lib/stores/notification-center.store.ts` (markRead, markAllRead, deleteNotification, clearAll)
+- `src/lib/api/services/notification-realtime.service.ts` (on new notifications)
+- `src/lib/api/services/push-notification.service.ts` (pushNotificationActionPerformed listener)
+
+---
+
+### 19.3 Network Status Integration — INCOMPLETE
+
+**Problem:** Section 15.2 mentions checking `navigator.onLine` but doesn't reference the existing `browserNetworkStatus` store at `src/lib/utils/network-status.ts`.
+
+**Reality:** The project already has a reactive `readable` store:
+
+```typescript
+export const browserNetworkStatus = readable<BrowserNetworkStatus>(
+  getInitialStatus(), (set) => {
+    window.addEventListener('online', applyOnline);
+    window.addEventListener('offline', applyOffline);
+    return () => { /* cleanup */ };
+  }
+);
+```
+
+**Fix:** Use `browserNetworkStatus` instead of raw `navigator.onLine`:
+
+1. In the polling service — skip polling when offline:
+   ```typescript
+   import { browserNetworkStatus } from '$lib/utils/network-status';
+   import { get } from 'svelte/store';
+
+   const poll = async () => {
+     const network = get(browserNetworkStatus);
+     if (!network.online) return;
+     // ... rest of poll logic
+   };
+   ```
+
+2. In the notification center store — show offline indicator:
+   ```typescript
+   // In the store state, add:
+   isOffline: boolean;
+   ```
+
+3. In `NotificationBell.svelte` — show offline indicator when network is down:
+   ```typescript
+   import { browserNetworkStatus } from '$lib/utils/network-status';
+   let isOffline = $derived(!$browserNetworkStatus.online);
+   ```
+
+4. In the full notification page — show offline banner via `appStore.showBanner()` when offline and there are pending mutations.
+
+**Files to modify:**
+- `src/lib/api/services/notification-realtime.service.ts`
+- `src/lib/stores/notification-center.store.ts`
+- `src/lib/components/notifications/NotificationBell.svelte`
+- `src/routes/(app)/(protected)/notifications/+page.svelte`
+
+---
+
+### 19.5 Skeleton Components — NOT SPECIFIED
+
+**Problem:** Section 15.1 mentions "Skeleton loader (3 rows)" but provides no implementation. The project has `TaskListSkeleton.svelte` as a reference pattern.
+
+**Fix:** Create `NotificationSkeleton.svelte`:
+
+**File:** `src/lib/components/notifications/NotificationSkeleton.svelte`
+
+```svelte
+<script lang="ts">
+  let { count = 3, compact = false }: { count?: number; compact?: boolean } = $props();
+</script>
+
+<div class="divide-base-200 divide-y">
+  {#each Array(count) as _, i (i)}
+    <div class="flex items-start gap-3 {compact ? 'px-4 py-2' : 'px-4 py-3'} animate-pulse">
+      <div class="skeleton h-5 w-5 shrink-0 rounded-full"></div>
+      <div class="min-w-0 flex-1 space-y-2">
+        <div class="skeleton h-4 w-3/4 rounded"></div>
+        <div class="skeleton h-3 w-full rounded"></div>
+        <div class="skeleton h-3 w-1/2 rounded"></div>
+      </div>
+      <div class="skeleton h-3 w-10 shrink-0 rounded"></div>
+    </div>
+  {/each}
+</div>
+```
+
+Use in `NotificationDropdown.svelte` and the full page:
+
+```svelte
+{#if loading}
+  <NotificationSkeleton count={compact ? 3 : 5} {compact} />
+{:else if notifications.length === 0}
+  <NotificationEmptyState {compact} />
+{:else}
+  <!-- ... notification list -->
+{/if}
+```
+
+---
+
+### 19.6 Settings Navigation — NOT DEFINED
+
+**Problem:** The plan creates `/settings/notifications/+page.svelte` but doesn't explain how users navigate to it.
+
+**Reality:** The settings page (`settings/+page.svelte`) uses accordion sections, not sub-routes. There's no sidebar or tab navigation for settings sub-pages. The page renders components directly: `NostrNsec`, `Devices`, `AccRecovery`, `MutedUsers`, `AccActions`.
+
+**Add notification settings as an accordion section on the existing settings page.**
+
+This matches the existing pattern. Add a new `NotificationSettings.svelte` component in `src/lib/components/settings/` and render it in the settings page:
+
+```svelte
+<!-- In settings/+page.svelte, after MutedUsers -->
+<NotificationSettings />
+```
+
+**Files to modify:**
+- `src/routes/(app)/(protected)/settings/+page.svelte` (add component)
+- `src/lib/components/settings/NotificationSettings.svelte` (NEW)
+
+---
+
+### 19.7 Dropdown UX — MISSING PORTAL, TRANSITIONS, AND FOCUS TRAP
+
+**Problem:** The plan's `NotificationDropdown.svelte` renders inline in the DOM. The `ProtectedTopBar.svelte` uses a custom `popoverTransition` for dropdowns and `portal` for z-index layering. The notification dropdown should follow the same pattern.
+
+**Reality from `ProtectedTopBar.svelte`:**
+
+```typescript
+import { portal } from '$lib/utils/portal';
+// Uses custom popoverTransition for smooth enter/exit
+// Avatar dropdown is JS-controlled (not DaisyUI) for iOS compatibility
+```
+
+**Fixes:**
+
+1. **Use `portal` action** on the dropdown to ensure proper z-index stacking:
+   ```svelte
+   <div use:portal={'popovers'} class="...">
+   ```
+
+2. **Add enter/exit transitions** using the project's existing `popoverTransition` or Svelte's `fly`/`fade`:
+   ```svelte
+   import { fly, fade } from 'svelte/transition';
+   
+   {#if showDropdown}
+     <div transition:fly={{ y: -10, duration: 150 }} ...>
+   {/if}
+   ```
+
+3. **Add focus trap** for keyboard accessibility (Section 16.3):
+   ```typescript
+   // On dropdown open, focus first notification
+   $effect(() => {
+     if (showDropdown) {
+       tick().then(() => {
+         const firstCard = dropdownEl?.querySelector('[role="listitem"]');
+         if (firstCard instanceof HTMLElement) firstCard.focus();
+       });
+     }
+   });
+   ```
+
+4. **Handle Escape key** to close dropdown:
+   ```svelte
+   function handleKeydown(event: KeyboardEvent) {
+     if (event.key === 'Escape') closeDropdown();
+   }
+   ```
+
+5. **Add `aria-live="polite"` on unread count** (Section 16.4):
+   ```svelte
+   <span aria-live="polite" class="sr-only">
+     {unreadCount} unread notifications
+   </span>
+   ```
+
+**Files to modify:**
+- `src/lib/components/notifications/NotificationBell.svelte`
+- `src/lib/components/notifications/NotificationDropdown.svelte`
+
+---
+
+### 19.8 Confirmation Dialog for Destructive Actions — MISSING
+
+**Problem:** The `clearAll()` action in the store immediately clears all notifications without user confirmation. The project has `ConfirmModal.svelte` used extensively in contract actions.
+
+**Fix:** Add confirmation before clearAll in the full notification page:
+
+```svelte
+import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+
+let showClearConfirm = $state(false);
+
+function handleClearAll() {
+  showClearConfirm = true;
+}
+
+async function confirmClearAll() {
+  showClearConfirm = false;
+  await notificationCenterStore.clearAll();
+}
+```
+
+```svelte
+{#if showClearConfirm}
+  <ConfirmModal
+    isOpen={true}
+    title={$t('notifications.clear_all_confirm_title')}
+    message={$t('notifications.clear_all_confirm_message')}
+    confirmText={$t('notifications.clear_all')}
+    confirmButtonClass="btn-error"
+    onConfirm={confirmClearAll}
+    onCancel={() => showClearConfirm = false}
+  />
+{/if}
+```
+
+**Files to modify:**
+- `src/routes/(app)/(protected)/notifications/+page.svelte`
+
+---
+
+### 19.9 `timeAgo` Function — SHOULD BE A SHARED UTILITY
+
+**Problem:** The plan defines `timeAgo()` inline in `NotificationCard.svelte` (Section 7.4). This function will be needed in other places (notification page stats, potentially other components).
+
+**Fix:** Extract to `src/lib/utils/time-ago.ts`:
+
+```typescript
+import { get } from 'svelte/store';
+import { t } from 'svelte-i18n';
+
+export function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+  const diffWeek = Math.floor(diffMs / 604800000);
+  const diffMonth = Math.floor(diffMs / 2592000000);
+
+  const $t = get(t);
+
+  if (diffMin < 1) return $t('notifications.just_now');
+  if (diffMin < 60) return $t('notifications.minutes_ago', { values: { count: diffMin } });
+  if (diffHr < 24) return $t('notifications.hours_ago', { values: { count: diffHr } });
+  if (diffDay < 7) return $t('notifications.days_ago', { values: { count: diffDay } });
+  if (diffWeek < 4) return $t('notifications.weeks_ago', { values: { count: diffWeek } });
+  return $t('notifications.months_ago', { values: { count: diffMonth } });
+}
+```
+
+**File to create:** `src/lib/utils/time-ago.ts`
+
+---
+
+### 19.10 Missing `group` Class on NotificationCard — BUG
+
+**Problem:** The `NotificationCard.svelte` (Section 7.4) has a delete button with `opacity-0 group-hover:opacity-100` but the parent `<button>` element does not have the `group` class. The hover effect will never trigger.
+
+**Fix:** Add `group` to the parent button's class list:
+
+```svelte
+<button
+  class="group hover:bg-base-200/50 flex w-full items-start gap-3 px-4 py-3 text-left ..."
+>
+```
+
+---
+
+### 19.11 Push Notification Click Handler — INCOMPLETE ENHANCEMENT
+
+**Problem:** Section 11.2 enhances the push click handler to call `markRead()` but doesn't fix the navigation. The current handler at `push-notification.service.ts:379` uses `window.location.href` which causes a full page reload. The project's `navigateToUrl()` method (which uses `goto()`) is available but not used.
+
+**Current code (line 379-391):**
+```typescript
+PushNotifications.addListener(
+  'pushNotificationActionPerformed',
+  (notification: ActionPerformed) => {
+    const data = notification.notification?.data || {};
+    const targetUrl = data.clickAction || data.click_action || '/hiring';
+    window.location.href = targetUrl;  // ← full reload, bad UX
+  }
+);
+```
+
+**Fix:** Use `navigateToUrl()` and add `markRead`:
+
+```typescript
+PushNotifications.addListener(
+  'pushNotificationActionPerformed',
+  async (notification: ActionPerformed) => {
+    const data = notification.notification?.data || {};
+
+    Sentry.addBreadcrumb({
+      category: 'notification',
+      level: 'info',
+      message: 'Push notification tapped',
+      data: { notificationId: data.notificationId, deepLink: data.deepLink }
+    });
+
+    // Mark as read if notificationId is present
+    if (data.notificationId) {
+      try {
+        const { notificationCenterStore } = await import('$lib/stores/notification-center.store');
+        notificationCenterStore.markRead(data.notificationId as string);
+      } catch {
+        // Non-critical — navigation is more important
+      }
+    }
+
+    // Navigate using SvelteKit router (not full reload)
+    const targetUrl = data.deepLink || data.clickAction || data.click_action || '/hiring';
+    this.navigateToUrl(targetUrl);
+  }
+);
+```
+
+**File to modify:** `src/lib/api/services/push-notification.service.ts` (line ~379)
+
+---
+
+### 19.12 Badge Count Sync on Logout — MISSING
+
+**Problem:** When `notificationCenterStore.reset()` is called on logout, the native badge count should be cleared to 0. The plan doesn't address this.
+
+**Fix:** In the store's `reset()` method — use dynamic import so it's a no-op if the plugin isn't installed:
+
+```typescript
+reset() {
+  set(initialState);
+  // Clear native badge on reset (only if @capacitor/badge is installed)
+  if (Capacitor.isNativePlatform()) {
+    import('@capacitor/badge')
+      .then(({ Badge }) => Badge.set({ count: 0 }))
+      .catch(() => {}); // plugin not installed — skip
+  }
+}
+```
+
+**File to modify:** `src/lib/stores/notification-center.store.ts`
+
+---
+
+### 19.13 `NotificationBell` Dropdown Interaction with Other Dropdowns — NOT HANDLED
+
+**Problem:** The `ProtectedTopBar.svelte` has an avatar dropdown that is JS-controlled. If the notification dropdown is open and the user clicks the avatar dropdown, both could be open simultaneously.
+
+**Fix:** The `clickOutside` action on `NotificationBell` handles closing when clicking outside. But we should also close the notification dropdown when other topbar elements are interacted with. The simplest approach: the `clickOutside` action already handles this — clicking the avatar button is "outside" the notification bell container, so it will close the notification dropdown. This is already correct.
+
+However, verify that `clickOutside` uses capture phase (it does — `document.addEventListener('click', handleClick, true)`). This is correct.
+
+---
+
+### 19.14 i18n Keys — VERIFIED AGAINST ACTUAL FILE
+
+**Problem:** The plan's Section 14.2 lists "missing keys" but some already exist. Verified against `static/locales/en/notifications.json`:
+
+| Key in Plan | Status in File |
+|---|---|
+| `notifications.filters.all` | ✅ EXISTS ("All Notifications") |
+| `notifications.filters.unread` | ❌ MISSING |
+| `notifications.filters.contract` | ❌ MISSING |
+| `notifications.filters.bid` | ❌ MISSING |
+| `notifications.filters.message` | ❌ MISSING |
+| `notifications.filters.payment` | ❌ MISSING |
+| `notifications.filters.review` | ❌ MISSING |
+| `notifications.show_all` | ✅ EXISTS ("Show all") |
+| `notifications.clear_all` | ✅ EXISTS ("Clear all") |
+| `notifications.mark_all_read` | ✅ EXISTS ("Mark all as read") |
+| `notifications.view_all` | ✅ EXISTS ("View all notifications") |
+| `notifications.all_caught_up` | ✅ EXISTS |
+| `notifications.just_now` | ✅ EXISTS |
+| `notifications.minutes_ago` | ✅ EXISTS |
+| `notifications.hours_ago` | ✅ EXISTS |
+| `notifications.days_ago` | ✅ EXISTS |
+| `notifications.weeks_ago` | ✅ EXISTS |
+| `notifications.months_ago` | ✅ EXISTS |
+| `notifications.unread` | ✅ EXISTS |
+| `notifications.notifications_actions.remove` | ✅ EXISTS |
+
+**Actually missing keys to add:**
+
+```json
+{
+  "notifications": {
+    "filters": {
+      "unread": "Unread",
+      "contract": "Contracts",
+      "bid": "Bids",
+      "message": "Messages",
+      "payment": "Payments",
+      "review": "Reviews"
+    },
+    "clear_all_confirm_title": "Clear All Notifications",
+    "clear_all_confirm_message": "Are you sure you want to clear all notifications? This action cannot be undone.",
+    "offline_indicator": "You're offline. Notifications will update when you're back online.",
+    "new_notifications_toast": "{count} new notification{{count > 1 ? 's' : ''}}"
+  }
+}
+```
+
+Also: the Spanish file (`es/notifications.json`) has a structural difference at line 173: `"actions"` key name vs `"noactions"` in English. This should be normalized.
+
+**Files to modify:**
+- `static/locales/en/notifications.json`
+- `static/locales/es/notifications.json`
+
+---
+
+### 19.15 Polling Service — `$effect` vs `onMount` for Lifecycle
+
+**Problem:** Section 10.4 uses `$effect` to start/stop polling based on auth state. But `$effect` runs after every render cycle and could cause multiple starts if auth state is reactive.
+
+**Reality:** The protected layout (`+layout.svelte`) already guards on `$authState.isAuthenticated`. The polling should be started in `onMount` (which only runs once) and stopped on cleanup, not via `$effect`.
+
+**Fix:** Use `onMount` + `onDestroy` pattern in the protected layout:
+
+```typescript
+import { onMount, onDestroy } from 'svelte';
+import { startNotificationPolling, stopNotificationPolling } from '$lib/api/services/notification-realtime.service';
+
+onMount(() => {
+  // ... existing mount logic ...
+
+  // Start notification polling (already inside isAuthenticated guard)
+  startNotificationPolling();
+});
+
+onDestroy(() => {
+  stopNotificationPolling();
+});
+```
+
+Alternatively, if using `$effect` is preferred for reactivity to auth changes, ensure it has proper guards:
+
+```typescript
+let pollingStarted = false;
+
+$effect(() => {
+  if (!browser) return;
+  if ($authState.isAuthenticated && !pollingStarted) {
+    pollingStarted = true;
+    startNotificationPolling();
+  } else if (!$authState.isAuthenticated && pollingStarted) {
+    pollingStarted = false;
+    stopNotificationPolling();
+  }
+});
+```
+
+**File to modify:** `src/routes/(app)/(protected)/+layout.svelte`
+
+---
+
+### 19.16 `VITE_API_URL` Environment Variable — NEEDS VERIFICATION
+
+**Problem:** The Socket.IO service (Section 10.3) references `import.meta.env.VITE_API_URL`. Need to verify this exists.
+
+**Action:** Check `.env`, `.env.example`, or `vite.config.ts` for `VITE_API_URL`. The `BaseApiService` in `apiService.ts` also uses it (via constructor), so it should exist. But verify before implementation.
+
+---
+
+### 19.17 Enrichment Service — `console.warn` Instead of Sentry
+
+**Problem:** The enrichment service (Section 5.3) uses `console.warn` for error handling. The CLAUDE.md says "Silent failures are bugs" and errors should be surfaced via Sentry.
+
+**Fix:**
+
+```typescript
+import * as Sentry from '@sentry/sveltekit';
+
+async enrich(data: EnrichmentRequest): Promise<void> {
+  try {
+    await this.post(ENDPOINTS.REMINDERS.ENRICH, data);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { feature: 'notification-enrichment' },
+      extra: { action: data.action }
+    });
+  }
+}
+```
+
+---
+
+### 19.18 Notification Card — Missing `timeAgo` Reactivity
+
+**Problem:** The `timeAgo` function in `NotificationCard.svelte` is called once when the component renders. If the user leaves the dropdown open, the relative times become stale (e.g., "1m ago" stays "1m ago" even after 5 minutes).
+
+**Fix:** Use `$effect` with an interval to update the display:
+
+```typescript
+let displayTime = $state(timeAgo(notification.createdAt));
+
+$effect(() => {
+  const interval = setInterval(() => {
+    displayTime = timeAgo(notification.createdAt);
+  }, 60_000); // Update every minute
+
+  return () => clearInterval(interval);
+});
+```
+
+---
+
+### 19.19 Missing Error Boundary Routes
+
+**Problem:** The plan creates new routes (`/notifications`, `/settings/notifications`) but doesn't create `+error.svelte` files for them. SvelteKit needs error boundaries.
+
+**Fix:** The routes inherit from `(protected)/+layout.svelte` which inherits from `(app)/+layout.svelte`. If these layouts have error boundaries, the child routes inherit them. Verify this is the case. If not, add `+error.svelte` to the notification routes.
+
+---
+
+### 19.20 `notificationCenterStore` — Missing `isOffline` and `pendingMutations` State
+
+**Problem:** Section 15.3 mentions queuing mutations for retry when offline, but the store doesn't have the state to support this.
+
+**Fix:** Extend the store state:
+
+```typescript
+interface NotificationCenterState {
+  // ... existing fields ...
+  isOffline: boolean;
+  pendingMutations: Array<{
+    id: string;
+    type: 'markRead' | 'markAllRead' | 'delete' | 'clearAll';
+    payload?: string; // notificationId for markRead/delete
+    timestamp: number;
+  }>;
+}
+```
+
+Add mutation queue logic:
+
+```typescript
+async markRead(id: string) {
+  const network = get(browserNetworkStatus);
+  if (!network.online) {
+    // Queue for later
+    update((s) => ({
+      ...s,
+      pendingMutations: [...s.pendingMutations, { id: crypto.randomUUID(), type: 'markRead', payload: id, timestamp: Date.now() }],
+      // Still apply optimistic update
+      notifications: s.notifications.map((n) =>
+        n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+      ),
+      unreadCount: Math.max(0, s.unreadCount - 1)
+    }));
+    return;
+  }
+  // ... existing online logic
+},
+
+async flushPendingMutations() {
+  const state = get({ subscribe });
+  const pending = state.pendingMutations;
+  if (pending.length === 0) return;
+
+  for (const mutation of pending) {
+    try {
+      switch (mutation.type) {
+        case 'markRead':
+          if (mutation.payload) await notificationCenterService.markRead(mutation.payload);
+          break;
+        case 'markAllRead':
+          await notificationCenterService.markAllRead();
+          break;
+        case 'delete':
+          if (mutation.payload) await notificationCenterService.deleteOne(mutation.payload);
+          break;
+        case 'clearAll':
+          await notificationCenterService.deleteMany();
+          break;
+      }
+    } catch {
+      // Keep failed mutations in queue
+      continue;
+    }
+  }
+
+  // Clear successful mutations and refresh
+  update((s) => ({ ...s, pendingMutations: [] }));
+  await this.refresh();
+}
+```
+
+Then in the polling service or network status listener, call `flushPendingMutations()` when the network comes back online.
+
+---
+
+### 19.21 `NotificationCard` — Delete Button Visibility on Mobile
+
+**Problem:** The delete button uses `opacity-0 group-hover:opacity-100` which doesn't work on touch devices (no hover). Mobile users can't delete notifications.
+
+**Fix:** Add a swipe-to-delete gesture on mobile:
+
+```svelte
+<button
+  class="btn btn-ghost btn-xs shrink-0 self-center
+    opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+  onclick={handleDelete}
+  aria-label={$t('notifications.notifications_actions.remove')}
+>
+  <IconDelete class="text-base-content/40 h-3.5 w-3.5" />
+</button>
+```
+
+---
+
+### 19.22 Missing `NotificationPermissionBanner` Integration Check
+
+**Problem:** The existing `NotificationPermissionBanner.svelte` shows when `permissionStatus === 'prompt'`. After the user enables notifications, the banner should dismiss. The plan doesn't mention verifying this flow works with the new notification center.
+
+**Action:** Verify that `NotificationPermissionBanner.svelte` properly dismisses after permission is granted. Read the component — it checks `pushNotificationService.checkPermissionStatus()` on mount and hides when status is not `'prompt'`. This should work correctly.
+
+---
+
+### 19.23 Missing `notificationId` in Push Payload
+
+**Problem:** The plan assumes the push notification payload includes `data.notificationId` for marking as read. The backend must include this field in the push payload. If it doesn't, the `markRead` on push tap will fail silently.
+
+**Action:** Verify with the backend team that push payloads include:
+```json
+{
+  "data": {
+    "notificationId": "uuid-here",
+    "deepLink": "/hiring/my-tasks",
+    "category": "bid",
+    "type": "new_bid_received"
+  }
+}
+```
+
+If the backend doesn't include `notificationId`, the `markRead` call should be skipped gracefully (which the plan already handles with the `if (data.notificationId)` check).
+
+---
+
+### 19.24 Missing `@capacitor/badge` Platform Permissions
+
+**Problem:** `@capacitor/badge` requires additional setup on iOS. The plan only mentions `npm install` and `npx cap sync`.
+
+**Additional iOS setup required:**
+
+1. In `ios/App/App/Info.plist`, add:
+   ```xml
+   <key>UIBackgroundModes</key>
+   <array>
+     <string>remote-notification</string>
+   </array>
+   ```
+
+2. The badge plugin requires notification permission to be granted first (which the existing `NotificationPermissionBanner` handles).
+
+**Action:** Document the iOS-specific setup in the implementation checklist.
+
+---
+
+### 19.25 Missing `NotificationCard` — Keyboard Navigation
+
+**Problem:** Section 16.2 says "Notification cards: focusable, Enter clicks" but the `NotificationCard` uses `<button>` which is naturally focusable. However, the delete button inside needs proper `tabindex` management.
+
+**Fix:** Ensure the card is a single tab stop and the delete button is reachable via Tab:
+
+```svelte
+<button
+  class="group ..."
+  onclick={handleClick}
+  role="listitem"
+  aria-label={notification.title}
+  tabindex={0}
+>
+  <!-- content -->
+  <button
+    class="btn btn-ghost btn-xs ..."
+    onclick={handleDelete}
+    aria-label={$t('notifications.notifications_actions.remove')}
+    tabindex={0}
+  >
+```
+
+The inner button is already a separate `<button>` so it's a separate tab stop. This is correct — Tab goes: Card → Delete button → Next card.
+
+---
+
+### 19.26 Missing `NotificationDropdown` — Click Outside on Touch Devices
+
+**Problem:** The `clickOutside` action uses `document.addEventListener('click', handleClick, true)` with capture phase. On touch devices, this may conflict with the 300ms tap delay or touch event handling.
+
+**Action:** Verify that `clickOutside` works correctly on iOS/Android. The existing `ProtectedTopBar.svelte` already uses it for the avatar dropdown, so it should be tested and working. No change needed, but test during implementation.
+
+---
+
+### 19.27 Missing `NotificationCard` — Long Press on Mobile
+
+**Problem:** No long-press context menu for notification cards on mobile. Consider adding a context menu with "Mark as read", "Delete", "View" options.
+
+**Action:** This is a nice-to-have for v2. Not blocking for v1.
+
+---
+
+### 19.28 Store — Missing `fetchUnreadCount` Debounce
+
+**Problem:** The polling service calls `fetchUnreadCount()` every 30 seconds. If the user is also interacting with notifications (marking as read), the `fetchUnreadCount` call may overwrite the optimistic count.
+
+**Fix:** Add a minimum interval between `fetchUnreadCount` calls:
+
+```typescript
+let lastFetchUnreadCountTime = 0;
+const MIN_FETCH_INTERVAL = 5_000; // 5 seconds
+
+async fetchUnreadCount() {
+  const now = Date.now();
+  if (now - lastFetchUnreadCountTime < MIN_FETCH_INTERVAL) return;
+  lastFetchUnreadCountTime = now;
+
+  try {
+    const count = await notificationCenterService.getUnreadCount();
+    update((s) => ({ ...s, unreadCount: count }));
+  } catch {
+    // Silent fail
+  }
+}
+```
+
+---
+
+### 19.29 Missing `NotificationCard` — Sender Avatar
+
+**Problem:** The plan's `NotificationCard` shows a category icon but no sender avatar. For message and bid notifications, showing the sender's profile picture would improve UX.
+
+**Action:** This is a nice-to-have for v2. The `NotificationData` interface has `senderNpub` which could be used to fetch the sender's profile picture from the existing profile cache. Not blocking for v1.
+
+---
+
+### 19.30 Missing `NotificationCard` — Swipe Actions (Mobile)
+
+**Problem:** Mobile users expect swipe-to-delete or swipe-to-mark-as-read on notification cards. The current plan only has a hover-reveal delete button.
+
+**Action:** This is a nice-to-have for v2. Consider using a touch gesture library or implementing a simple swipe handler. Not blocking for v1.
+
+---
+
+## 20. Updated File Layout
+
+Based on the deep audit, the complete file layout is:
+
+```
+src/lib/
+├── types/
+│   └── notification.d.ts                    # ENHANCE — add NotificationCenter types (Section 4)
+├── api/
+│   ├── endpoints.ts                         # ENHANCE — add NOTIFICATION_CENTER + REMINDERS (Section 5.1)
+│   └── services/
+│       ├── notification.service.ts          # ENHANCE — add updatePreferences() (Section 8)
+│       ├── notification-center.service.ts   # NEW — REST CRUD (Section 5.2)
+│       ├── notification-realtime.service.ts # NEW — polling v1 (Section 10.2)
+│       └── enrichment.service.ts            # NEW — fire-and-forget enrichment (Section 5.3)
+├── stores/
+│   └── notification-center.store.ts         # NEW — writable store (Section 6)
+├── components/
+│   ├── notifications/
+│   │   ├── NotificationCenter.svelte        # REWRITE — replace disabled placeholder
+│   │   ├── NotificationBell.svelte          # NEW (Section 7.2)
+│   │   ├── NotificationDropdown.svelte      # NEW (Section 7.3)
+│   │   ├── NotificationCard.svelte          # NEW (Section 7.4)
+│   │   ├── NotificationEmptyState.svelte    # NEW (Section 7.5)
+│   │   ├── NotificationSkeleton.svelte      # NEW (Section 19.5)
+│   │   └── NotificationPermissionBanner.svelte # EXISTING — no changes
+│   └── settings/
+│       └── NotificationSettings.svelte      # NEW (Section 19.6)
+├── utils/
+│   ├── notification-icons.ts                # NEW (Section 7.1)
+│   ├── notification-deep-link-map.ts        # NEW (Section 9.3)
+│   ├── time-ago.ts                          # NEW (Section 19.9)
+│   └── activity-tracker.ts                  # NEW (Section 12.1)
+└── runes/
+    └── notificationRune.svelte.ts           # NEW (optional — if rune pattern preferred)
+
+src/routes/(app)/(protected)/
+├── notifications/
+│   └── +page.svelte                         # NEW — full notification list page (Section 7.6)
+└── settings/
+    └── +page.svelte                         # ENHANCE — add NotificationSettings component (Section 19.6)
+```
+
+**Files to modify (existing):**
+
+| File | Change |
+|------|--------|
+| `src/lib/types/notification.d.ts` | Add NotificationCenter types |
+| `src/lib/api/endpoints.ts` | Add NOTIFICATION_CENTER + REMINDERS blocks |
+| `src/lib/api/services/notification.service.ts` | Add `updatePreferences()` method |
+| `src/lib/api/services/push-notification.service.ts` | Enhance click handler (Section 19.11), add Sentry breadcrumbs |
+| `src/lib/components/topbar/ProtectedTopBar.svelte` | Replace NotificationCenter import with NotificationBell |
+| `src/lib/components/notifications/NotificationCenter.svelte` | Rewrite or delete (replaced by NotificationBell) |
+| `src/routes/(app)/(protected)/+layout.svelte` | Add store init + polling lifecycle |
+| `src/routes/(app)/(protected)/settings/+page.svelte` | Add NotificationSettings component |
+| `src/lib/utils/session.ts` | Add notificationCenterStore.reset() to resetAllStores() |
+| `static/locales/en/notifications.json` | Add missing filter keys + confirmation strings |
+| `static/locales/es/notifications.json` | Add corresponding Spanish translations |
+
+---
+
+## 21. Updated Implementation Checklist
+
+### Phase 1: Foundation
+
+- [ ] Add notification center types to `src/lib/types/notification.d.ts`
+- [ ] Add notification center endpoints to `src/lib/api/endpoints.ts`
+- [ ] Create `src/lib/api/services/notification-center.service.ts`
+- [ ] Create `src/lib/api/services/enrichment.service.ts` (use Sentry for error reporting)
+- [ ] Add `updatePreferences()` method to `notification.service.ts`
+- [ ] Create `src/lib/stores/notification-center.store.ts` (with offline queue, badge sync, Sentry breadcrumbs)
+- [ ] Create `src/lib/utils/notification-icons.ts`
+- [ ] Create `src/lib/utils/notification-deep-link-map.ts`
+- [ ] Create `src/lib/utils/time-ago.ts`
+- [ ] Add `notificationCenterStore.reset()` to `src/lib/utils/session.ts`
+- [ ] Add missing i18n keys to `en/notifications.json` and `es/notifications.json`
+
+### Phase 2: UI Components
+
+- [ ] Create `NotificationBell.svelte` (with `aria-live`, offline indicator, portal)
+- [ ] Create `NotificationDropdown.svelte` (with portal, transitions, focus trap, skeleton)
+- [ ] Create `NotificationCard.svelte` (with `group` class, mobile delete, `timeAgo` reactivity)
+- [ ] Create `NotificationEmptyState.svelte`
+- [ ] Create `NotificationSkeleton.svelte`
+- [ ] Wire `NotificationBell` into `ProtectedTopBar.svelte`
+- [ ] Create `/notifications` full page route (with `ConfirmModal` for clear all, offline banner)
+- [ ] Initialize store fetch in `(protected)/+layout.svelte`
+- [ ] Delete or replace disabled `NotificationCenter.svelte`
+
+### Phase 3: Real-Time
+
+- [ ] Create `notification-realtime.service.ts` (polling v1, with `browserNetworkStatus` check)
+- [ ] Add polling lifecycle to `(protected)/+layout.svelte` (proper `$effect` guards)
+- [ ] Implement app lifecycle listeners (background/resume)
+- [ ] Integrate foreground notification with notification store
+- [ ] Add Sentry breadcrumbs for new notification events
+- [ ] (When backend ready) Install `socket.io-client` and switch to WebSocket service
+
+### Phase 4: Push Integration
+
+- [ ] Enhance push notification click handler with `markRead()` + `navigateToUrl()` (not `window.location.href`)
+- [ ] Enhance foreground handler to refresh store
+- [ ] Add Sentry breadcrumbs for push tap events
+- [ ] (Optional) Install `@capacitor/badge` for app icon badge count
+  - [ ] iOS `Info.plist` setup (`UIBackgroundModes`)
+  - [ ] Badge sync in store's `fetchUnreadCount()` (dynamic import, no-op if missing)
+  - [ ] Badge clear on logout in store's `reset()`
+
+### Phase 5: Preferences
+
+- [ ] Create `NotificationSettings.svelte` component (accordion section, not separate route)
+- [ ] Add to existing settings page (`settings/+page.svelte`)
+- [ ] Implement master toggles (push, email, in-app)
+- [ ] Implement category toggles
+- [ ] Implement quiet hours UI (if backend supports)
+- [ ] Implement frequency dropdowns (if backend supports)
+- [ ] Debounced save logic
+
+### Phase 6: Enrichment & Activity
+
+- [ ] Create `src/lib/utils/activity-tracker.ts`
+- [ ] Add `afterNavigate` activity tracking to app layout
+- [ ] Add activity tracking on app foreground
+- [ ] Add enrichment calls to contract lifecycle call sites (in `ContractActionsNDK.svelte`, `ContractActionsCardNDK.svelte`, `ContractActionsDrawerNDK.svelte`)
+- [ ] Add enrichment call to task creation with deadline (`create-task/+page.svelte`)
+
+### Phase 7: i18n & Polish
+
+- [ ] Add missing i18n keys to `en/notifications.json`
+- [ ] Add missing i18n keys to `es/notifications.json`
+- [ ] Run `python3 scripts/find-missing-translations.py --fix-suggestions`
+- [ ] Normalize `noactions`/`actions` key difference between en/es
+- [ ] Empty states (no notifications, no unread, filter empty)
+- [ ] Skeleton loaders (NotificationSkeleton component)
+- [ ] Error handling (offline banner via `browserNetworkStatus`, API error toasts)
+- [ ] Mobile responsive (dropdown full-width, delete button always visible on touch)
+- [ ] Add Sentry breadcrumbs to all store mutations
+
+### Phase 8: Testing
+
+- [ ] Unit tests for store (state transitions, optimistic updates, offline queue, flush)
+- [ ] Unit tests for service (API formatting, error handling)
+- [ ] Unit tests for utilities (icons, deep links, timeAgo)
+- [ ] Component tests for bell, dropdown, card, empty state, skeleton
+- [ ] Component tests for notification page (with `ConfirmModal` flow)
+- [ ] Component tests for notification settings
+- [ ] Integration tests: bell → dropdown → click → mark read + navigate
+- [ ] Integration tests: offline → queue mutation → online → flush
+- [ ] Integration tests: push tap → mark read + navigate
+- [ ] Run `npm run check` (type validation)
+- [ ] Run `npm run lint` (style validation)
+- [ ] Run `npm run test:ci` (full suite)
+- [ ] Run translation verification
+
 ### Dependencies to Install
 
 ```bash
-# Required for Phase 4 (badge)
-npm install @capacitor/badge
+# Optional — app icon badge count on native (skip if not needed)
+# npm install @capacitor/badge
+# npx cap sync
 
-# Required for Phase 3 Socket.IO option (deferred)
+# Deferred — when backend Socket.IO gateway is ready
 # npm install socket.io-client
 ```
 
-### Estimated Total: 6-7 days
-
-| Phase                 | Duration |
-| --------------------- | -------- |
-| Foundation            | 1 day    |
-| UI Components         | 1-2 days |
-| Real-Time             | 1 day    |
-| Push & Badge          | 0.5 day  |
-| Preferences           | 1 day    |
-| Enrichment & Activity | 0.5 day  |
-| i18n & Polish         | 1 day    |
-| Testing               | 1 day    |
+No new dependencies are required for the core notification center. The polling approach uses existing infrastructure.

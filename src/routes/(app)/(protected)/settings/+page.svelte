@@ -10,6 +10,7 @@
 	import AccActions from '$lib/components/settings/AccActions.svelte';
 	import Devices from '$lib/components/settings/Devices.svelte';
 	import MutedUsers from '$lib/components/settings/MutedUsers.svelte';
+	import NotificationSettings from '$lib/components/settings/NotificationSettings.svelte';
 
 	let loading = $state(false);
 	let error = $state('');
@@ -141,6 +142,7 @@
 	{:else}
 		<NostrNsec {npub} {nsec} {authMethod} />
 		<Devices {npub} />
+		<NotificationSettings />
 		<AccRecovery {nsec} {npub} {mnemonic} {authMethod} />
 		<MutedUsers />
 		<AccActions />

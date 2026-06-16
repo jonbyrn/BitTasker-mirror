@@ -95,7 +95,6 @@ export class AuthHelper {
   async authenticateWithVirtualPasskey(): Promise<void> {
     // Create virtual authenticator
     const authenticatorId = await this.page.evaluate(async () => {
-      // @ts-ignore - Playwright's virtual authenticator API
       const authenticatorId = await window.playwright?.createVirtualAuthenticator({
         protocol: 'ctap2',
         transport: 'usb',
@@ -119,7 +118,7 @@ export class AuthHelper {
       await biometricButton.click();
       
       // Wait for authentication to complete
-      await this.page.waitForURL(/.*\/dashboard/, { timeout: 10000 });
+      await this.page.waitForURL(/.*\/hiring/, { timeout: 10000 });
       
       // Save auth state
       await this.saveAuthState();
@@ -167,8 +166,8 @@ export class AuthHelper {
     const submitButton = this.page.locator('button[type="submit"], button:has-text("Login")').first();
     await submitButton.click();
 
-    // Wait for redirect to dashboard or success
-    await this.page.waitForURL(/.*\/dashboard/, { timeout: 10000 }).catch(() => {
+    // Wait for redirect to hiring or success
+    await this.page.waitForURL(/.*\/hiring/, { timeout: 10000 }).catch(() => {
       // If redirect doesn't happen, check for success message
       const successMessage = this.page.locator('.alert-success, .success, [data-testid="success"]');
       if (successMessage.isVisible()) {
@@ -197,24 +196,26 @@ export class AuthHelper {
         return false;
       }
 
-      // If we're on dashboard or any protected route (not auth routes), we're authenticated
-      if (currentUrl.includes('/dashboard') || 
+      // If we're on hiring or any protected route (not auth routes), we're authenticated
+      if (currentUrl.includes('/hiring') || 
+          currentUrl.includes('/earning') ||
+          currentUrl.includes('/wallet') ||
           currentUrl.includes('/auth/onboarding') ||
           (currentUrl.includes('localhost') && !currentUrl.includes('/auth/'))) {
-        // Try to find any dashboard or app content
+        // Try to find any app content
         // Wait for page to load
         await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
         
-        // Check for common dashboard elements or just that we're not on login
+        // Check for common app elements or just that we're not on login
         const bodyText = await this.page.locator('body').textContent().catch(() => '');
-        const hasDashboardContent = bodyText && (
-          bodyText.includes('Dashboard') || 
+        const hasAppContent = bodyText && (
           bodyText.includes('Tasks') ||
           bodyText.includes('Wallet') ||
-          currentUrl.includes('/dashboard')
+          currentUrl.includes('/hiring') ||
+          currentUrl.includes('/earning')
         );
         
-        return hasDashboardContent || !currentUrl.includes('/auth/login');
+        return hasAppContent || !currentUrl.includes('/auth/login');
       }
 
       return false;
@@ -263,8 +264,8 @@ export class AuthHelper {
    * Logout user and clear auth state
    */
   async logout(): Promise<void> {
-    // Navigate to dashboard
-    await this.page.goto('/dashboard');
+    // Navigate to hiring
+    await this.page.goto('/hiring');
 
     // Look for user menu
     const userMenu = this.page.locator('.user-menu, .profile-dropdown, [data-testid="user-menu"]').first();

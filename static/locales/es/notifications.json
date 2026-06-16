@@ -16,7 +16,20 @@
 			"remove": "Eliminar notificación"
 		},
 		"filters": {
-			"all": "Todas las Notificaciones"
+			"all": "Todas",
+			"unread": "No leídas",
+			"read": "Leídas",
+			"contract": "Contratos",
+			"bid": "Ofertas",
+			"message": "Mensajes",
+			"payment": "Pagos",
+			"review": "Reseñas",
+			"service": "Servicios",
+			"wallet": "Billetera",
+			"security": "Seguridad",
+			"discovery": "Descubrimiento",
+			"reengagement": "Re-engagement",
+			"account": "Cuenta"
 		},
 		"types": {
 			"bid_response": "Respuestas de Ofertas",
@@ -26,7 +39,16 @@
 			"message": "Mensajes",
 			"system": "Sistema",
 			"security": "Seguridad",
-			"other": "Otros"
+			"other": "Otros",
+			"contract": "Contratos",
+			"bid": "Ofertas",
+			"task": "Tareas",
+			"review": "Reseñas",
+			"service": "Servicios",
+			"wallet": "Billetera",
+			"discovery": "Descubrimiento",
+			"reengagement": "Re-engagement",
+			"account": "Cuenta"
 		},
 		"stats": {
 			"showing": "Mostrando",
@@ -222,8 +244,14 @@
 			"marked_read": "Notificación marcada como leída",
 			"deleted": "Notificación eliminada",
 			"cleared": "Notificaciones limpiadas",
-			"settings_updated": "Configuración actualizada"
+			"settings_updated": "Configuración actualizada",
+			"updated": "actualizado",
+			"enabled": "habilitado",
+			"disabled": "deshabilitado"
 		},
+		"clear_all_confirm_title": "Limpiar Todas las Notificaciones",
+		"clear_all_confirm_message": "¿Estás seguro de que quieres limpiar todas las notificaciones? Esta acción no se puede deshacer.",
+		"offline_indicator": "Estás sin conexión. Las notificaciones se actualizarán cuando vuelvas a estar en línea.",
 		"aria_labels": {
 			"notifications": "Notificaciones",
 			"close_notifications": "Cerrar notificaciones",

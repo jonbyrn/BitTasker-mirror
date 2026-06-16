@@ -37,6 +37,7 @@
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconCogOutline from '~icons/mdi/cog-outline';
 	import IconStarOutline from '~icons/mdi/star-outline';
+	import IconBellOutline from '~icons/mdi/bell-outline';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	type IconComponent = any;
@@ -62,6 +63,7 @@
 			items: [
 				{ href: '/profile', icon: IconAccountOutline, label: 'navbar.profile' },
 				{ href: '/settings', icon: IconCogOutline, label: 'navbar.settings' },
+				{ href: '/notifications', icon: IconBellOutline, label: 'navbar.notifications' },
 				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
 			]
 		},
@@ -595,8 +597,8 @@
 						<div class="flex gap-2">
 							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
 							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
-						{@render quickActionLink(
-							'/create-service',
+							{@render quickActionLink(
+								'/create-service',
 								IconPlusCircleOutline,
 								'navbar.list_service'
 							)}
@@ -616,12 +618,7 @@
 		onclickcapture={handleBottomNavTap}
 	>
 		{@render dockLink('/hiring', IconHome, 'navbar.home', 'home')}
-		{@render dockLink(
-			'/create-task',
-			IconPlusCircleOutline,
-			'navbar.new_task',
-			'create-task'
-		)}
+		{@render dockLink('/create-task', IconPlusCircleOutline, 'navbar.new_task', 'create-task')}
 
 		<button
 			data-menu-button

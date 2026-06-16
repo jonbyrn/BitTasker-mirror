@@ -9,7 +9,7 @@ const serviceAddress = `30402:${'a'.repeat(64)}:service-123`;
 
 describe('dashboard query helpers', () => {
 	it('keeps dashboard task tabs as the default route state', () => {
-		const parsed = parseDashboardQuery(new URL('https://bittasker.test/dashboard'));
+		const parsed = parseDashboardQuery(new URL('https://bittasker.test/hiring'));
 
 		expect(parsed).toEqual({
 			tab: 'tasks',

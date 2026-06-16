@@ -18,6 +18,7 @@
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
 	import IconStarOutline from '~icons/mdi/star-outline';
+	import IconBellOutline from '~icons/mdi/bell-outline';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 
@@ -43,12 +44,23 @@
 				walletState = get(walletStore);
 			}
 
+			// Initialize notification center
+			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
+			await notificationCenterStore.fetchUnreadCount();
+
+			// Connect to notification WebSocket gateway
+			const { connectNotificationSocket } = await import(
+				'$lib/api/services/notificationSocket.service'
+			);
+			connectNotificationSocket();
+
+			// Start activity tracking for re-engagement reminders
+			const { trackActivity } = await import('$lib/utils/activityTracker');
+			trackActivity();
+
 			// Trigger pending review banner (skip on /reviews)
 			if (page.url.pathname !== '/reviews') {
-				triggerPendingReviewBanner(
-					'reviews.pending.review_now',
-					'reviews.pending.dismiss'
-				);
+				triggerPendingReviewBanner('reviews.pending.review_now', 'reviews.pending.dismiss');
 			}
 		} catch (error) {
 			const d = createDebug('layout');
@@ -110,6 +122,8 @@
 													<IconCog class="text-primary" />
 												{:else if section.icon === 'mdi:star-outline'}
 													<IconStarOutline class="text-primary" />
+												{:else if section.icon === 'mdi:bell-outline'}
+													<IconBellOutline class="text-primary" />
 												{:else}
 													<IconTrendingUp class="text-primary" />
 												{/if}

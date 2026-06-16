@@ -187,7 +187,7 @@ describe('ServiceQuotesInbox', () => {
 		quoteUiStoreMock.set({ providerDataFreshnessByService: {} });
 		setNavigatorOnline(true);
 		init({ fallbackLocale: 'en', initialLocale: 'en' });
-		window.history.replaceState({}, '', '/dashboard?tab=my-services&view=quotes');
+		window.history.replaceState({}, '', '/earning/my-services?view=quotes');
 	});
 
 	afterEach(() => {
@@ -686,7 +686,7 @@ describe('ServiceQuotesInbox', () => {
 		await fireEvent.click(getByRole('button', { name: 'Contract' }));
 
 		expect(goto).toHaveBeenCalledWith(
-			'/dashboard?tab=contracts&type=services&highlight=escrow_987'
+			'/earning/my-services?tab=contracts&type=services&highlight=escrow_987'
 		);
 
 		await fireEvent.click(getByRole('button', { name: 'View' }));
@@ -757,7 +757,7 @@ describe('ServiceQuotesInbox', () => {
 		await fireEvent.click(getByRole('button', { name: 'Contract' }));
 
 		expect(goto).toHaveBeenCalledWith(
-			'/dashboard?tab=contracts&type=services&highlight=escrow_syncing'
+			'/earning/my-services?tab=contracts&type=services&highlight=escrow_syncing'
 		);
 	});
 

@@ -11,7 +11,7 @@
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import NotificationCenter from '$lib/components/notifications/NotificationBell.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';

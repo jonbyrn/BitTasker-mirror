@@ -28,6 +28,7 @@ import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 // Import wallet manager for cleanup
 import { walletManager } from '$lib/stores/wallet.store';
 import { muteStore } from '$lib/stores/mute.store';
+import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
 
@@ -83,6 +84,9 @@ function resetAllStores(): void {
 
 	// Reset mute store
 	muteStore.reset();
+
+	// Reset notification center store (clears badge on native)
+	notificationCenterStore.reset();
 
 	if (import.meta.env.DEV) {
 		console.debug('[Session] All stores reset');

@@ -35,6 +35,7 @@ import IconWalletOutline from '~icons/mdi/wallet-outline';
 import IconHome from '~icons/mdi/home';
 import IconLogin from '~icons/mdi/login';
 import IconAccountPlus from '~icons/mdi/account-plus';
+import IconBellOutline from '~icons/mdi/bell-outline';
 
 type IconComponent = typeof IconAccountCircle;
 
@@ -81,17 +82,22 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.wallet',
 				icon: IconWalletOutline,
-			href: '/wallet'
-		},
-		{
-			label: 'navbar.messages',
-			icon: IconChatOutline,
-			href: '/messages'
-		},
-		{
-			label: 'navbar.settings',
-			icon: IconCog,
-			href: '/settings'
+				href: '/wallet'
+			},
+			{
+				label: 'navbar.messages',
+				icon: IconChatOutline,
+				href: '/messages'
+			},
+			{
+				label: 'navbar.notifications',
+				icon: IconBellOutline,
+				href: '/notifications'
+			},
+			{
+				label: 'navbar.settings',
+				icon: IconCog,
+				href: '/settings'
 			},
 			{
 				label: 'navbar.logout',
@@ -109,12 +115,12 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.hiring',
 				icon: IconChartBoxOutline,
-			href: '/hiring'
-		},
-		{
-			label: 'navbar.create_task',
-			icon: IconPlusCircleOutline,
-			href: '/create-task'
+				href: '/hiring'
+			},
+			{
+				label: 'navbar.create_task',
+				icon: IconPlusCircleOutline,
+				href: '/create-task'
 			},
 			{
 				label: 'navbar.find_services',
@@ -124,12 +130,12 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
-			href: '/hiring/service-requests'
-		},
-		{
-			label: 'navbar.contracts',
-			icon: IconFileSign,
-			href: '/hiring/contracts'
+				href: '/hiring/service-requests'
+			},
+			{
+				label: 'navbar.contracts',
+				icon: IconFileSign,
+				href: '/hiring/contracts'
 			}
 		]
 	},
@@ -242,10 +248,10 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.post_task',
 				icon: IconPlusCircleOutline,
-			href: '/create-task'
-		},
-		{
-			label: 'footer.tasker_fees',
+				href: '/create-task'
+			},
+			{
+				label: 'footer.tasker_fees',
 				icon: IconCurrencyUsd,
 				href: '/tasker-fees'
 			},
@@ -355,6 +361,11 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		label: 'navbar.messages',
 		icon: IconChatOutline,
 		href: '/messages'
+	},
+	{
+		label: 'navbar.notifications',
+		icon: IconBellOutline,
+		href: '/notifications'
 	},
 	{
 		label: 'navbar.wallet',
