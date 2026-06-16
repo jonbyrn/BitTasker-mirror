@@ -37,7 +37,7 @@ import IconLogin from '~icons/mdi/login';
 import IconAccountPlus from '~icons/mdi/account-plus';
 import IconBellOutline from '~icons/mdi/bell-outline';
 
-type IconComponent = typeof IconAccountCircle;
+export type IconComponent = typeof IconAccountCircle;
 
 export interface MenuItem {
 	/** Translation key */
