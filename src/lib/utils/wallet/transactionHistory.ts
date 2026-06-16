@@ -144,6 +144,11 @@ const networks = {
 		displayName: 'Rootstock (Bitcoin)',
 		explorerBaseUrl: rskExplorerBaseUrl
 	},
+	bsc: {
+		icon: '/images/chains/Binance-logo.svg',
+		displayName: 'Binance Smart Chain',
+		explorerBaseUrl: 'https://bscscan.com/tx/'
+	},
 	arb: {
 		icon: '/images/chains/arbitrum.png',
 		displayName: 'Arbitrum',
@@ -529,7 +534,7 @@ function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
 export async function processTransactions(
 	rawTransactions: Transaction[],
 	userAddress: string,
-	network: 'rsk' | 'arb',
+	network: 'rsk' | 'bsc' | 'arb',
 	currentBalanceSats: number
 ): Promise<ProcessedTransaction[]> {
 	try {
@@ -723,7 +728,7 @@ export async function processTransactions(
 /**
  * Get explorer API URL based on network
  */
-function getExplorerApiUrl(network: 'rsk' | 'arb'): string {
+function getExplorerApiUrl(network: 'rsk' | 'bsc' | 'arb'): string {
 	if (network === 'rsk') {
 		return resolveBlockscoutApiUrl();
 	}
@@ -743,11 +748,11 @@ function getExplorerApiUrl(network: 'rsk' | 'arb'): string {
  */
 async function fetchInternalTransactions(
 	userAddress: string,
-	network: 'rsk' | 'arb'
+	network: 'rsk' | 'bsc' | 'arb'
 ): Promise<InternalTransaction[]> {
-	// Arbitrum internal transactions not yet supported
+	// Arbitrum and BSC internal transactions not yet supported
 	// Only fetch for RSK network which uses Blockscout
-	if (network === 'arb') {
+	if (network === 'arb' || network === 'bsc') {
 		return [];
 	}
 

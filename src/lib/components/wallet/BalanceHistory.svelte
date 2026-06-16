@@ -128,8 +128,8 @@
 				minimumFractionDigits: 2,
 				maximumFractionDigits: 2
 			}).format(Math.abs(value));
-			if (neutral) return `≈ ($0.00)`;
-			return value > 0 ? `≈ (+$${absUsd})` : `≈ (-$${absUsd})`;
+			if (neutral) return `($0.00)`;
+			return value > 0 ? `(+$${absUsd})` : `(-$${absUsd})`;
 		}
 
 		return {

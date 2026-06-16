@@ -422,13 +422,6 @@ export class FiatSwapOrchestrator {
 		this.balancePollTimer = setInterval(() => this.pollBalance(), BALANCE_POLL_INTERVAL_MS);
 	}
 
-	private stopBalancePolling() {
-		if (this.balancePollTimer) {
-			clearInterval(this.balancePollTimer);
-			this.balancePollTimer = null;
-		}
-	}
-
 	private async pollBalance() {
 		if (!this.flow) return;
 		this.balanceAttempts++;
