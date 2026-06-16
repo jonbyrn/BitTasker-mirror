@@ -1276,6 +1276,7 @@
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 					class:collapse-open={providerExpanded && filteredOffers.length > 0}
+					class:chevron-dimmed={filteredOffers.length === 0 && !quoteLoading && !quoteError}
 				>
 					{#if filteredOffers.length > 0}
 						{@const best = filteredOffers[0]}
@@ -1453,5 +1454,9 @@
 			opacity: 1;
 			transform: translateY(0);
 		}
+	}
+
+	:global(.chevron-dimmed) > :global(.collapse-title)::after {
+		color: color-mix(in oklch, var(--color-base-content) 50%, transparent);
 	}
 </style>
