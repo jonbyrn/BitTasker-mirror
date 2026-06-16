@@ -1,19 +1,28 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
+	import {
+		walletStore,
+		walletManager,
+		formatSats,
+		formatUsd,
+		allAssets
+	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
 	import ReceiveSwapSelector from '$lib/components/wallet/ReceiveSwapSelector.svelte';
-	import WalletIcon from '$lib/components/wallet/WalletIcon.svelte';
+	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
+	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 	import { resolveRoute, type SourceWallet, type Route } from '$lib/services/route-resolver';
 	import { lifiService } from '$lib/services/lifi.service';
 	import { symbiosisService } from '$lib/services/symbiosis.service';
+	import { changellyService } from '$lib/services/changelly.service';
 	import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { getHandle } from '$lib/stores/connected-wallets.store';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
+	import { createConnectedReverseSwap } from '$lib/services/connected-wallet-reverse-swap';
 
 	import IconCheck from '~icons/mdi/check';
 	import IconClose from '~icons/mdi/close';
@@ -58,7 +67,7 @@
 	});
 
 	// Receive tab selection and QR code data
-	let receiveTab = $state<'rbtc' | 'usdt'>('rbtc');
+	let receiveTab = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain' | 'tbtc-arb'>('rbtc');
 
 	// Connected wallet receiving account
 	// null = use built-in wallet, string = connected wallet ID
@@ -70,15 +79,132 @@
 		return $connectedWalletsStore.wallets.some((w) => w.id === selectedReceiveWalletId);
 	});
 
+	// ── SwapPartySelector helpers ────────────────────────────────────────────
+
+	/** BTC sats for a wallet (builtin = rBTC + wBTC + tBTC from walletStore; connected = from balances) */
+	function walletBtcSatsForFn(walletId: string): number {
+		if (walletId === 'builtin') {
+			const rbtcSats = $walletStore.totalBalances.sats;
+			const wbtcAsset = $allAssets.find((a) => a.assetId === 'wbtc-arb');
+			const wbtcSats = wbtcAsset ? Math.floor(wbtcAsset.balance * 100_000_000) : 0;
+			const tbtcAsset = $allAssets.find((a) => a.assetId === 'tbtc-arb');
+			const tbtcSats =
+				tbtcAsset && tbtcAsset.balance > 0 ? Math.floor(tbtcAsset.balance * 100_000_000) : 0;
+			return rbtcSats + wbtcSats + tbtcSats;
+		}
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === walletId);
+		if (!w?.balances) return 0;
+		return (
+			Number(w.balances.rbtc?.raw ?? 0) +
+			Number(w.balances.wbtc?.raw ?? 0) +
+			Number(w.balances.btc?.raw ?? 0)
+		);
+	}
+
+	/** USDT0 on Arbitrum for a wallet (returns USD amount) */
+	function walletUsdt0ForFn(walletId: string): number {
+		if (walletId === 'builtin') {
+			const usdt0Asset = $allAssets.find((a) => a.assetId === 'usdt0-arb');
+			return usdt0Asset?.usdValue ?? usdt0Asset?.balance ?? 0;
+		}
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === walletId);
+		if (!w?.balances) return 0;
+		return Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e6;
+	}
+
+	/** Build asset list for SwapPartySelector — reactive to balances */
+	let receiveAssets: AssetOption[] = $derived.by(() => {
+		const isBuiltin = !selectedReceiveWalletId;
+		const cw = !isBuiltin
+			? $connectedWalletsStore.wallets.find((w) => w.id === selectedReceiveWalletId)
+			: null;
+		const cwBal = cw?.balances;
+
+		// rBTC / Rootstock Bitcoin
+		const rbtcSats = isBuiltin ? $walletStore.totalBalances.sats : Number(cwBal?.rbtc?.raw ?? 0);
+		const rbtcUsd = (rbtcSats / 100_000_000) * btcPrice.price;
+
+		// USDT0 on Arbitrum
+		const usdt0Usd = isBuiltin
+			? (() => {
+					const a = $allAssets.find((a) => a.assetId === 'usdt0-arb');
+					return a && a.balance > 0 ? (a.usdValue ?? a.balance) : 0;
+				})()
+			: Number(cwBal?.['usdt0-arb']?.raw ?? 0) / 1e6;
+
+		// wBTC on Arbitrum
+		const wbtcSats = isBuiltin
+			? (() => {
+					const a = $allAssets.find((a) => a.assetId === 'wbtc-arb');
+					return a ? Math.floor(a.balance * 100_000_000) : 0;
+				})()
+			: Number(cwBal?.wbtc?.raw ?? 0);
+		const wbtcUsd = (wbtcSats / 100_000_000) * btcPrice.price;
+
+		// tBTC on Arbitrum
+		const tbtcSats = isBuiltin
+			? (() => {
+					const a = $allAssets.find((a) => a.assetId === 'tbtc-arb');
+					return a && a.balance > 0 ? Math.floor(a.balance * 100_000_000) : 0;
+				})()
+			: Math.round(Number(cwBal?.['tbtc-arb']?.raw ?? 0) / 10_000_000_000);
+		const tbtcUsd = (tbtcSats / 100_000_000) * btcPrice.price;
+
+		return [
+			{
+				id: 'rbtc',
+				label: 'Bitcoin (rBTC)',
+				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+				subLabel: 'Bitcoin on Rootstock',
+				balance: formatSats(rbtcSats) + ' Sats',
+				balanceSub: rbtcUsd > 0 ? `≈ $${rbtcUsd.toFixed(2)}` : undefined
+			},
+			{
+				id: 'usdt0-arb',
+				label: 'USD',
+				icon: '/images/chains/Tether-USD.svg',
+				subLabel: 'USDT0 on Arbitrum',
+				balance: usdt0Usd > 0 ? `$${usdt0Usd.toFixed(2)}` : '$0.00'
+			},
+			{
+				id: 'wbtc-arb',
+				label: 'Bitcoin (wBTC)',
+				icon: '/images/chains/arbitrum.png',
+				subLabel: 'Wrapped BTC on Arbitrum',
+				balance: formatSats(wbtcSats) + ' Sats',
+				balanceSub: wbtcUsd > 0 ? `≈ $${wbtcUsd.toFixed(2)}` : undefined
+			},
+			...(tbtcSats > 0
+				? [
+						{
+							id: 'tbtc-arb' as const,
+							label: 'Bitcoin (tBTC)',
+							icon: '/images/tokens/tbtc.png',
+							subLabel: 'Bridged BTC on Arbitrum',
+							balance: formatSats(tbtcSats) + ' Sats',
+							balanceSub: tbtcUsd > 0 ? `≈ $${tbtcUsd.toFixed(2)}` : undefined
+						}
+					]
+				: [])
+		];
+	});
+
 	// Auto-select destination network based on receive tab and payer source
 	$effect(() => {
 		// When a connected wallet is selected, stick with the current network
 		if (selectedReceiveWalletId && isReceiveWalletValid) return;
 
 		const tab = receiveTab;
-		if (tab === 'usdt') {
-			formInput.selectedNetwork = 'usdt-bsc';
-		} else if (tab === 'rbtc') {
+		if (tab === 'usdt0-arb') {
+			formInput.selectedNetwork = 'usdt0-arbitrum';
+		} else if (tab === 'wbtc-arb') {
+			formInput.selectedNetwork = 'wbtc-arbitrum';
+		} else if (tab === 'tbtc-arb') {
+			formInput.selectedNetwork = 'tbtc-arbitrum';
+		} else if (tab === 'btc-onchain') {
+			formInput.selectedNetwork = 'bitcoin';
+		} else {
+			// rbtc — use payer network to pick the best BTC destination
 			if (payerNetwork === 'lightning-bitcoin') {
 				formInput.selectedNetwork = 'lightning-bitcoin';
 			} else if (payerNetwork === 'bitcoin') {
@@ -96,7 +222,6 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		sourceExpanded: false,
 		descriptionExpanded: false,
 		networkExpanded: false,
 		calculatorKey: 0
@@ -122,9 +247,22 @@
 		const sourceWallet: SourceWallet = payerSourceWallet;
 		const destNetwork = formInput.selectedNetwork;
 		let routes: Route[] = [];
-		// Address-type destinations (RSK, BSC)
-		if (destNetwork === 'usdt-bsc' || destNetwork === 'rootstock-bitcoin') {
-			const chainId = destNetwork === 'usdt-bsc' ? 56 : 30;
+		// Address-type destinations (RSK, BSC, Arbitrum)
+		if (
+			destNetwork === 'usdt-bsc' ||
+			destNetwork === 'rootstock-bitcoin' ||
+			destNetwork === 'usdt0-arbitrum' ||
+			destNetwork === 'wbtc-arbitrum' ||
+			destNetwork === 'tbtc-arbitrum'
+		) {
+			const chainId =
+				destNetwork === 'usdt-bsc'
+					? 56
+					: destNetwork === 'usdt0-arbitrum' ||
+						  destNetwork === 'wbtc-arbitrum' ||
+						  destNetwork === 'tbtc-arbitrum'
+						? 42161
+						: 30;
 			const dest = { type: 'address' as const, chainId, address: $walletStore.rsk.address ?? '' };
 			routes = resolveRoute(sourceWallet, dest);
 		}
@@ -219,7 +357,9 @@
 		'usdt-polygon': { chainId: 137, address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' },
 		'usdt0-arbitrum': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
 		'usdt0-rootstock': { chainId: 30, address: USDT0_RSK },
-		'usdt-tron': { chainId: 0, address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }
+		'usdt-tron': { chainId: 0, address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
+		'wbtc-arbitrum': { chainId: 42161, address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' },
+		'tbtc-arbitrum': { chainId: 42161, address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40' }
 	};
 
 	/** Extract the source type from a payerNetwork string. */
@@ -227,6 +367,10 @@
 		if (network === 'usdt-bsc') return 'usdt-bsc';
 		if (network === 'usdt0-rootstock') return 'usdt0-rsk';
 		if (network === 'doc-rootstock') return 'doc-rsk';
+		// Arbitrum tokens
+		if (network === 'usdt0-arbitrum' || network === 'usdt0-arb') return 'usdt0-arb';
+		if (network === 'wbtc-arbitrum' || network === 'wbtc-arb') return 'wbtc-arb';
+		if (network === 'tbtc-arbitrum' || network === 'tbtc-arb') return 'tbtc-arb';
 		// Any other usdt-* network → treat as USDT stablecoin source
 		if (network.startsWith('usdt-') || network.startsWith('usdt0-')) return 'usdt-bsc';
 		// dyn- tokens that look like stablecoins → treat as USDT source
@@ -266,6 +410,20 @@
 				return { chainId: BOLTZ_LIGHTNING_ID, address: 'LIGHTNING', asset: 'BTC', decimals: 8 };
 			case 'liquid-bitcoin':
 				return { chainId: BOLTZ_LIQUID_ID, address: 'L-BTC', asset: 'L-BTC', decimals: 8 };
+			case 'wbtc-arbitrum':
+				return {
+					chainId: 42161,
+					address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+					asset: 'wBTC',
+					decimals: 8
+				};
+			case 'tbtc-arbitrum':
+				return {
+					chainId: 42161,
+					address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40',
+					asset: 'tBTC',
+					decimals: 18
+				};
 		}
 
 		// Payer source networks from SOURCE_CHAIN_MAP
@@ -287,6 +445,12 @@
 			if (!isNaN(chainId)) {
 				return { chainId, address: '', asset: symbol, decimals: 18 };
 			}
+		}
+
+		// changelly-* networks: changelly-{ticker}
+		if (network.startsWith('changelly-')) {
+			const ticker = network.replace('changelly-', '').toUpperCase();
+			return { chainId: 0, address: '', asset: ticker, decimals: 18 };
 		}
 
 		return null;
@@ -317,6 +481,11 @@
 	/** Generalized fee computation: derive both sides, route through cheapest provider. */
 	async function computeFee(): Promise<FeeEstimate | null> {
 		if (amountInSats === 0) return null;
+
+		// ── Changelly "other" tab path ──
+		if (payerNetwork.startsWith('changelly-')) {
+			return computeChangellyFee();
+		}
 
 		const from = deriveChainInfo(payerNetwork);
 		const to = deriveChainInfo(formInput.selectedNetwork);
@@ -370,8 +539,10 @@
 
 			const percentage = pair.fees.percentage;
 			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-			const lockupFee = pair.fees.minerFees.lockup || 0;
-			const claimFee = pair.fees.minerFees.claim || 0;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Boltz API returns nested minerFees despite SwapPairs typing it as number
+			const mf = pair.fees.minerFees as any;
+			const lockupFee = mf?.lockup || 0;
+			const claimFee = mf?.claim || 0;
 			const networkFee = lockupFee + claimFee;
 
 			if (pair.limits) {
@@ -391,8 +562,10 @@
 
 			const percentage = pair.fees.percentage;
 			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-			const lockupFee = pair.fees.minerFees.user?.lockup || 0;
-			const claimFee = pair.fees.minerFees.user?.claim || 0;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const mf = pair.fees.minerFees as any;
+			const lockupFee = mf?.user?.lockup || mf?.lockup || 0;
+			const claimFee = mf?.user?.claim || mf?.claim || 0;
 			const networkFee = lockupFee + claimFee;
 
 			if (pair.limits) {
@@ -412,8 +585,10 @@
 
 			const percentage = pair.fees.percentage;
 			const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-			const lockupFee = pair.fees.minerFees.user?.lockup || 0;
-			const claimFee = pair.fees.minerFees.user?.claim || 0;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const mf = pair.fees.minerFees as any;
+			const lockupFee = mf?.user?.lockup || mf?.lockup || 0;
+			const claimFee = mf?.user?.claim || mf?.claim || 0;
 			const networkFee = lockupFee + claimFee;
 
 			if (pair.limits) {
@@ -468,7 +643,8 @@
 							address: fromToken,
 							chainId: fromChain,
 							symbol: fromToken === EVM_NATIVE ? 'RBTC' : 'USDT',
-							decimals: 18
+							decimals: 18,
+							amount: probeAmount
 						},
 						tokenOut: {
 							address: toToken,
@@ -476,11 +652,18 @@
 							symbol: toToken === EVM_NATIVE ? 'RBTC' : 'USDT',
 							decimals: 18
 						},
-						amount: probeAmount,
 						from: userAddr,
 						to: userAddr
 					})
-					.then((r) => ({ provider: 'Symbiosis', feePercent: r.feePercent ?? 0.3 }))
+					.then((r) => {
+						const fromAmt = parseFloat(probeAmount);
+						const toAmt = parseFloat(r.tokenAmountOut?.amount ?? '0');
+						return {
+							provider: 'Symbiosis',
+							feePercent:
+								fromAmt > 0 ? parseFloat((((fromAmt - toAmt) / fromAmt) * 100).toFixed(2)) : 0.3
+						};
+					})
 					.catch(() => null)
 			);
 		}
@@ -493,6 +676,59 @@
 			return { serviceFee, networkFee: 0, totalFees: serviceFee };
 		}
 		return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+	}
+
+	/** Compute fee for a Changelly "other" tab swap. */
+	async function computeChangellyFee(): Promise<FeeEstimate | null> {
+		// Extract ticker from "changelly-{ticker}" network string
+		const fromTicker = payerNetwork.replace('changelly-', '').toUpperCase();
+		// Determine the receive side: BTC or USDT based on receiveTab
+		const toTicker = receiveTab === 'usdt0-arb' ? 'USDT' : 'BTC';
+
+		if (!fromTicker || fromTicker === toTicker) {
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+
+		try {
+			// Get limits to validate the pair exists and get minimum amount
+			const limits = await changellyService.getLimits(
+				fromTicker.toLowerCase(),
+				toTicker.toLowerCase()
+			);
+			if (!limits || !limits.min) {
+				return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			}
+
+			// Use the minimum amount as a probe to get the exchange rate
+			const estimate = await changellyService.estimateSwap({
+				from: fromTicker.toLowerCase(),
+				to: toTicker.toLowerCase(),
+				amount: limits.min
+			});
+
+			if (!estimate || !estimate.estimatedAmount || parseFloat(estimate.estimatedAmount) <= 0) {
+				return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			}
+
+			// Calculate fee from the spread: input value - output value
+			const inputVal = parseFloat(limits.min);
+			const outputVal = parseFloat(estimate.estimatedAmount);
+			const feePercent = inputVal > 0 ? ((inputVal - outputVal) / inputVal) * 100 : 0.5;
+
+			const serviceFee = Math.ceil((amountInSats * Math.max(feePercent, 0.1)) / 100);
+			const minerFee = estimate.minerFee
+				? Math.ceil(parseFloat(estimate.minerFee) * 100_000_000)
+				: 0;
+
+			return {
+				serviceFee,
+				networkFee: minerFee,
+				totalFees: serviceFee + minerFee
+			};
+		} catch (err) {
+			console.warn('[ReceiveForm] Changelly estimate failed:', err);
+			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
 	}
 
 	/** Compute fee for a Symbiosis on-chain swap on RSK (e.g. USDT0→rBTC or DOC→rBTC). */
@@ -586,36 +822,66 @@
 			const useConnected = selectedReceiveWalletId && isReceiveWalletValid;
 
 			if (formInput.selectedNetwork === 'lightning-bitcoin') {
-				// Lightning swaps not supported from connected wallets
 				if (useConnected) {
-					appStore.showErrorToast('Lightning swaps are not available for connected wallets.');
-					isGenerating = false;
-					return;
-				}
-				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
-					return appStore.showErrorToast($t('wallet.rsk_not_connected'));
-				}
-				// Create Lightning reverse swap
-				const result = await walletManager.createReverseSwap(Math.floor(invoiceAmount));
-
-				// Call parent callback with swap data and form state for restoration
-				onOpenPaymentRequest({
-					swapId: result.swapId,
-					formState: {
-						amount: formInput.amount,
-						unit: formInput.unit,
-						mathExpression: formInput.mathExpression,
-						memo: formInput.memo,
-						selectedNetwork: formInput.selectedNetwork,
-						chargeFeesToPayer: formInput.chargeFeesToPayer
+					// Lightning receive to connected wallet via Boltz reverse swap.
+					// The connected wallet's RSK address is the claim address.
+					// Swap data is saved to persistent storage; a background poller
+					// detects when Lightning payment arrives and notifies the user
+					// to claim their RBTC.
+					const handle = getHandle(selectedReceiveWalletId!);
+					if (!handle?.address) {
+						appStore.showErrorToast($t('wallet.receive.connected_wallet_not_found'));
+						isGenerating = false;
+						return;
 					}
-				});
+
+					const swap = await createConnectedReverseSwap(
+						Math.floor(invoiceAmount),
+						handle.address,
+						selectedReceiveWalletId!,
+						handle.walletName
+					);
+
+					appStore.showSuccessToast($t('wallet.receive.lightning_invoice_created'));
+
+					// Open the PaymentRequestModal with the swap invoice
+					onOpenPaymentRequest({
+						swapId: swap.swapId,
+						formState: {
+							amount: formInput.amount,
+							unit: formInput.unit,
+							mathExpression: formInput.mathExpression,
+							memo: formInput.memo,
+							selectedNetwork: formInput.selectedNetwork,
+							chargeFeesToPayer: formInput.chargeFeesToPayer
+						}
+					});
+				} else {
+					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+						return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					}
+					// Create Lightning reverse swap via built-in wallet
+					const result = await walletManager.createReverseSwap(Math.floor(invoiceAmount));
+
+					// Call parent callback with swap data and form state for restoration
+					onOpenPaymentRequest({
+						swapId: result.swapId,
+						formState: {
+							amount: formInput.amount,
+							unit: formInput.unit,
+							mathExpression: formInput.mathExpression,
+							memo: formInput.memo,
+							selectedNetwork: formInput.selectedNetwork,
+							chargeFeesToPayer: formInput.chargeFeesToPayer
+						}
+					});
+				}
 			} else if (formInput.selectedNetwork === 'rootstock-bitcoin') {
 				let address: string;
 				if (useConnected) {
 					const handle = getHandle(selectedReceiveWalletId!);
 					if (!handle?.address) {
-						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
+						appStore.showErrorToast($t('wallet.receive.connected_wallet_not_found'));
 						isGenerating = false;
 						return;
 					}
@@ -646,7 +912,7 @@
 			} else if (formInput.selectedNetwork === 'liquid-bitcoin') {
 				// Liquid swaps not supported from connected wallets
 				if (useConnected) {
-					appStore.showErrorToast('Liquid chain swaps are not available for connected wallets.');
+					appStore.showErrorToast($t('wallet.receive.liquid_not_available_connected'));
 					isGenerating = false;
 					return;
 				}
@@ -673,7 +939,7 @@
 				if (useConnected) {
 					const handle = getHandle(selectedReceiveWalletId!);
 					if (!handle?.address) {
-						appStore.showErrorToast('Connected wallet not found. It may have been disconnected.');
+						appStore.showErrorToast($t('wallet.receive.connected_wallet_not_found'));
 						isGenerating = false;
 						return;
 					}
@@ -687,6 +953,40 @@
 				onOpenPaymentRequest({
 					address,
 					network: 'usdt-bsc',
+					amount: Math.floor(invoiceAmount),
+					memo: formInput.memo || undefined,
+					chargeFeesToPayer: formInput.chargeFeesToPayer,
+					totalFees: feeState.estimated?.totalFees || 0,
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
+				});
+			} else if (
+				['usdt0-arbitrum', 'wbtc-arbitrum', 'tbtc-arbitrum'].includes(formInput.selectedNetwork)
+			) {
+				let address: string;
+				if (useConnected) {
+					const handle = getHandle(selectedReceiveWalletId!);
+					if (!handle?.address) {
+						appStore.showErrorToast($t('wallet.receive.connected_wallet_not_found'));
+						isGenerating = false;
+						return;
+					}
+					address = handle.address;
+				} else {
+					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+						return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					}
+					address = $walletStore.rsk.address;
+				}
+				onOpenPaymentRequest({
+					address,
+					network: formInput.selectedNetwork,
 					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
 					chargeFeesToPayer: formInput.chargeFeesToPayer,
@@ -736,161 +1036,25 @@
 	<div class="min-h-0 flex-1 space-y-3 overflow-y-auto sm:space-y-4">
 		<!-- Receive Address Tabs -->
 		<div class="flex flex-col gap-3 sm:gap-4">
-			<!-- Source Wallet Accordion (same pattern as Send screen) -->
-			<div class="form-control">
-				<div
-					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-					class:collapse-open={uiState.sourceExpanded}
-				>
-					<button
-						type="button"
-						class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 text-sm font-medium"
-						onclick={() => (uiState.sourceExpanded = !uiState.sourceExpanded)}
-					>
-						<span class="text-base-content/60">{$t('wallet.to')}:</span>
-						{#if selectedReceiveWalletId && isReceiveWalletValid}
-							{@const wallet = $connectedWalletsStore.wallets.find(
-								(w) => w.id === selectedReceiveWalletId
-							)}
-							{#if wallet}
-								<WalletIcon walletType={wallet.walletType} className="h-5 w-5 shrink-0" />
-								{#if receiveTab === 'rbtc'}
-									<img
-										src="/images/chains/Bitcoin-Rootstock-logo.webp"
-										alt="rBTC"
-										class="h-4 w-4"
-									/>
-									<span class="font-medium">{wallet.walletName}</span>
-									<span class="text-base-content/50 mr-6 ml-auto truncate text-xs"
-										>rBTC (RSK) · {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
-									>
-								{:else}
-									<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-4 w-4" />
-									<span class="font-medium">{wallet.walletName}</span>
-									<span class="text-base-content/50 mr-6 ml-auto truncate text-xs"
-										>USDT (BSC) · {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span
-									>
-								{/if}
-							{/if}
-						{:else if receiveTab === 'rbtc'}
-							<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-							<span>{$t('wallet.bitcoin')}</span>
-							<span class="mr-6 ml-auto text-xs">
-								{formatSats($walletStore.totalBalances.sats)} Sats ≈
-								{formatUsd(($walletStore.totalBalances.sats / 100_000_000) * btcPrice.price)}
-							</span>
-						{:else}
-							<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-							<span>USD</span>
-							<span class="mr-6 ml-auto text-xs">
-								{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-									? '$' +
-										parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
-											minimumFractionDigits: 2,
-											maximumFractionDigits: 2
-										})
-									: '$0.00'}
-							</span>
-						{/if}
-					</button>
-					<div class="collapse-content px-2">
-						<div class="space-y-1">
-							<button
-								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {!selectedReceiveWalletId &&
-								receiveTab === 'rbtc'
-									? 'bg-primary/10'
-									: ''}"
-								onclick={() => {
-									selectedReceiveWalletId = null;
-									receiveTab = 'rbtc';
-									uiState.sourceExpanded = false;
-								}}
-							>
-								<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="rBTC" class="h-5 w-5" />
-								<span>{$t('wallet.bitcoin')}</span>
-								<span class="ml-auto text-xs opacity-70">
-									{formatSats($walletStore.totalBalances.sats)} Sats ≈
-									{formatUsd(($walletStore.totalBalances.sats / 100_000_000) * btcPrice.price)}
-								</span>
-							</button>
-							<button
-								type="button"
-								class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {!selectedReceiveWalletId &&
-								receiveTab === 'usdt'
-									? 'bg-primary/10'
-									: ''}"
-								onclick={() => {
-									selectedReceiveWalletId = null;
-									receiveTab = 'usdt';
-									uiState.sourceExpanded = false;
-								}}
-							>
-								<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5" />
-								<span>USD</span>
-								<span class="ml-auto text-xs opacity-70">
-									{parseFloat($walletStore.bsc.formattedUsdtBalance) > 0
-										? '$' +
-											parseFloat($walletStore.bsc.formattedUsdtBalance).toLocaleString('en-US', {
-												minimumFractionDigits: 2,
-												maximumFractionDigits: 2
-											})
-										: '$0.00'}
-								</span>
-							</button>
-
-							<!-- Connected Wallets Section -->
-							{#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS) && $connectedWalletsStore.wallets.length > 0}
-								<div class="divider my-1 text-xs">Connected</div>
-								{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
-									<button
-										type="button"
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedReceiveWalletId ===
-										wallet.id
-											? 'bg-primary/10'
-											: ''}"
-										onclick={() => {
-											selectedReceiveWalletId = wallet.id;
-											uiState.sourceExpanded = false;
-										}}
-									>
-										<WalletIcon walletType={wallet.walletType} className="h-5 w-5 shrink-0" />
-										{#if receiveTab === 'rbtc'}
-											<img
-												src="/images/chains/Bitcoin-Rootstock-logo.webp"
-												alt="rBTC"
-												class="h-4 w-4"
-											/>
-											<div class="min-w-0 flex-1 text-left">
-												<div class="text-sm font-medium">{wallet.walletName}</div>
-												<div class="truncate text-xs opacity-50">
-													{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
-												</div>
-											</div>
-											{@const rawRbtc = Number(wallet.balances?.rbtc?.raw ?? 0)}
-											<span class="ml-auto text-xs font-semibold tabular-nums"
-												>{rawRbtc > 0 ? formatSats(rawRbtc) + ' Sats' : '0 Sats'}</span
-											>
-										{:else}
-											<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-4 w-4" />
-											<div class="min-w-0 flex-1 text-left">
-												<div class="text-sm font-medium">{wallet.walletName}</div>
-												<div class="truncate text-xs opacity-50">
-													{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
-												</div>
-											</div>
-											{@const rawUsdt = Number(wallet.balances?.usdt?.raw ?? 0)}
-											<span class="ml-auto text-xs font-semibold tabular-nums"
-												>{rawUsdt > 0 ? '$' + (rawUsdt / 1e18).toFixed(2) : '$0.00'}</span
-											>
-										{/if}
-									</button>
-								{/each}
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
+			<!-- Destination Wallet + Asset Selector (combined accordion from swap screen) -->
+			<SwapPartySelector
+				label={$t('wallet.to')}
+				selectedWalletId={selectedReceiveWalletId ?? 'builtin'}
+				onWalletSelect={(id) => {
+					selectedReceiveWalletId = id === 'builtin' ? null : id;
+				}}
+				connectedWallets={FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)
+					? $connectedWalletsStore.wallets
+					: []}
+				walletBtcSatsFor={walletBtcSatsForFn}
+				walletUsdt0For={walletUsdt0ForFn}
+				btcPrice={btcPrice.price}
+				selectedAssetId={receiveTab}
+				onAssetSelect={(id) => {
+					receiveTab = id as typeof receiveTab;
+				}}
+				assets={receiveAssets}
+			/>
 		</div>
 
 		<!-- Payer Source Network Selector (hidden when receiving to connected wallet) -->
@@ -911,7 +1075,7 @@
 				unit={formInput.unit}
 				mathExpression={formInput.mathExpression}
 				calculatorKey={uiState.calculatorKey}
-				{isBelowSwapMinimum}
+				belowMinimum={isBelowSwapMinimum}
 				onAmountChange={(value) => (formInput.amount = value)}
 				onUnitChange={handleUnitChange}
 				onCalculationChange={handleCalculationChange}
@@ -1013,7 +1177,7 @@
 						</span>
 					{:else if totalReceived > 0 && feeState.estimated}
 						<div class="flex items-center gap-1.5">
-							{#if receiveTab === 'usdt'}
+							{#if receiveTab === 'usdt0-arb'}
 								<span class="text-primary text-xl font-bold">
 									{formatUsd(totalReceivedUSD)}
 								</span>
@@ -1152,7 +1316,7 @@
 						</span>
 					{:else if totalReceived > 0 && feeState.estimated}
 						<div class="flex items-center gap-1.5">
-							{#if receiveTab === 'usdt'}
+							{#if receiveTab === 'usdt0-arb'}
 								<span class="text-primary text-xl font-bold">
 									{formatUsd(totalReceivedUSD)}
 								</span>

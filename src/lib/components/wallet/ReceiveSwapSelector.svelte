@@ -2,6 +2,8 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { changellyService } from '$lib/services/changelly.service';
+	import { isChangeallySwapsEnabled } from '$lib/services/kill-switch';
 
 	// -----------------------------------------------------------------------
 	// Types
@@ -144,7 +146,7 @@
 	];
 
 	/** Chain ID → display name. */
-	const CHAIN_NAME: Record<number, string> = {
+	const _CHAIN_NAME: Record<number, string> = {
 		30: 'Rootstock (RSK)',
 		31: 'Rootstock Testnet',
 		42161: 'Arbitrum',
@@ -157,7 +159,7 @@
 	// -----------------------------------------------------------------------
 
 	let { receiveCurrency = 'rbtc', onChange = (_network: string) => {} } = $props<{
-		receiveCurrency: 'rbtc' | 'usdt';
+		receiveCurrency: 'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain' | 'tbtc-arb';
 		onChange?: (network: string) => void;
 	}>();
 
@@ -173,7 +175,10 @@
 	/** True while the initial API fetch is in progress. */
 	let _loading = $state(true);
 
-	/** Dynamically discovered networks from LI.FI / Symbiosis APIs. */
+	/** Error message if Changelly currencies couldn't be loaded. */
+	let _error = $state<string | null>(null);
+
+	/** Dynamically discovered networks from Changelly API. */
 	let dynamicNetworks = $state<SourceNetwork[]>([]);
 
 	/** Number of items to show in "Other" group (incremental render). */
@@ -203,7 +208,8 @@
 		return merged;
 	});
 
-	let showOtherGroup = $derived(dynamicNetworks.length > 0);
+	/** Always show the "Other" tab — it loads Changelly currencies dynamically. */
+	let _showOtherGroup = $derived(true);
 
 	let filteredNetworks = $derived.by(() => {
 		if (activeGroup === 'other') {
@@ -245,12 +251,18 @@
 	// Initialisation — reads ONLY from hardcoded SOURCE_NETWORKS (safe)
 	// -----------------------------------------------------------------------
 
-	let _lastCurrency: 'rbtc' | 'usdt' | null = null;
+	let _lastCurrency: string | null = null;
 	$effect(() => {
 		if (_lastCurrency === receiveCurrency) return;
 		_lastCurrency = receiveCurrency;
-		const g: 'btc' | 'usdt' = receiveCurrency === 'rbtc' ? 'btc' : 'usdt';
-		const a = receiveCurrency === 'rbtc' ? 'rBTC' : 'USDT';
+		// Map asset to group: all BTC-denominated assets → 'btc', usdt0-arb → 'usdt'
+		const isBtcAsset =
+			receiveCurrency === 'rbtc' ||
+			receiveCurrency === 'wbtc-arb' ||
+			receiveCurrency === 'btc-onchain' ||
+			receiveCurrency === 'tbtc-arb';
+		const g: 'btc' | 'usdt' = isBtcAsset ? 'btc' : 'usdt';
+		const a = isBtcAsset ? 'rBTC' : 'USDT';
 		activeGroup = g;
 		const defs = SOURCE_NETWORKS.filter((n) => n.group === g);
 		const direct = defs.find((n) => n.asset === a);
@@ -261,53 +273,63 @@
 		}
 	});
 
+	// Tickers already covered by the BTC and USDT groups — exclude from "Other"
+	const EXCLUDED_TICKERS = new Set([
+		'btc',
+		'rbtc',
+		'lbtc',
+		'lightning',
+		'usdt',
+		'usdt0',
+		'usdt-tron',
+		'doc',
+		'doc-rsk'
+	]);
+
 	// -----------------------------------------------------------------------
-	// Dynamic chain sourcing — fetch once on mount, never reactively
+	// Dynamic chain sourcing — fetch Changelly supported currencies on mount
 	onMount(async () => {
-		interface TokenManifestEntry {
-			symbol: string;
-			name: string;
-			localPath: string;
-			chainIds: number[];
-		}
-		let tokenManifest: TokenManifestEntry[] = [];
-		try {
-			const res = await fetch('/images/tokens/manifest.json');
-			if (res.ok) {
-				const data = await res.json();
-				if (Array.isArray(data)) tokenManifest = data;
-			}
-		} catch (err) {
-			console.warn('[ReceiveSwapSelector] Failed to load token manifest:', err);
+		if (!isChangeallySwapsEnabled()) {
+			_error = 'Changelly swaps are not enabled.';
+			_loading = false;
+			return;
 		}
 
-		const discovered: SourceNetwork[] = [];
-		const seen = new SvelteSet<string>();
-		for (const t of tokenManifest) {
-			for (const chainId of t.chainIds ?? []) {
-				const id = `dyn-${t.symbol}-${chainId}`;
+		try {
+			const currencies = await changellyService.getCurrencies();
+			const enabledCurrencies = currencies.filter(
+				(c) => c.enabled && !EXCLUDED_TICKERS.has(c.ticker.toLowerCase())
+			);
+
+			const discovered: SourceNetwork[] = [];
+			const seen = new SvelteSet<string>();
+			for (const c of enabledCurrencies) {
+				const ticker = c.ticker.toUpperCase();
+				const id = `changelly-${ticker}`;
 				if (seen.has(id)) continue;
 				seen.add(id);
-				const chainLabel = CHAIN_NAME[chainId] ?? `Chain ${chainId}`;
 				discovered.push({
 					id,
-					asset: t.symbol,
-					label: t.name || t.symbol,
-					icon: t.localPath || '',
-					network: `dyn-${t.symbol.toLowerCase()}-${chainId}`,
+					asset: ticker,
+					label: c.name || ticker,
+					icon: '',
+					network: `changelly-${ticker.toLowerCase()}`,
 					group: 'other',
-					chainName: chainLabel
+					chainName: c.network || undefined
 				});
 			}
-		}
 
-		// Sort once at load — avoids re-sorting on every search keystroke
-		discovered.sort(
-			(a, b) =>
-				a.asset.localeCompare(b.asset) || (a.chainName ?? '').localeCompare(b.chainName ?? '')
-		);
-		dynamicNetworks = discovered;
-		_loading = false;
+			discovered.sort(
+				(a, b) =>
+					a.asset.localeCompare(b.asset) || (a.chainName ?? '').localeCompare(b.chainName ?? '')
+			);
+			dynamicNetworks = discovered;
+		} catch (err) {
+			console.warn('[ReceiveSwapSelector] Failed to load Changelly currencies:', err);
+			_error = err instanceof Error ? err.message : 'Failed to load currencies';
+		} finally {
+			_loading = false;
+		}
 	});
 </script>
 
@@ -363,23 +385,21 @@
 							: 'btn-ghost'}"
 						onclick={() => selectGroup('usdt')}>$ USD</button
 					>
-					{#if _loading || showOtherGroup}
-						<button
-							type="button"
-							role="tab"
-							aria-selected={activeGroup === 'other'}
-							class="btn btn-sm min-h-[44px] flex-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 {activeGroup ===
-							'other'
-								? 'btn-primary'
-								: 'btn-ghost'}"
-							onclick={() => selectGroup('other')}
-						>
-							{#if _loading}
-								<span class="loading loading-spinner loading-xs"></span>
-							{/if}
-							{$t('wallet.receive.other')}
-						</button>
-					{/if}
+					<button
+						type="button"
+						role="tab"
+						aria-selected={activeGroup === 'other'}
+						class="btn btn-sm min-h-[44px] flex-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 {activeGroup ===
+						'other'
+							? 'btn-primary'
+							: 'btn-ghost'}"
+						onclick={() => selectGroup('other')}
+					>
+						{#if _loading}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{$t('wallet.receive.other')}
+					</button>
 				</div>
 
 				<!-- Search bar (only for "Other" group) -->
@@ -467,6 +487,11 @@
 						<div class="flex justify-center py-4">
 							<span class="loading loading-spinner loading-sm"></span>
 						</div>
+					{:else if activeGroup === 'other' && _error}
+						<p class="text-base-content/50 px-2 py-4 text-center text-xs">
+							{$t('wallet.receive.other_tab_unavailable') ||
+								'Other currencies are currently unavailable.'}
+						</p>
 					{:else if filteredNetworks.length === 0 && activeGroup === 'other'}
 						<p class="text-base-content/50 px-2 py-4 text-center text-xs">
 							{$t('wallet.receive.no_networks_found')}
