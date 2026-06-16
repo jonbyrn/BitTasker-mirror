@@ -351,6 +351,63 @@ function buildHandle(
 				})()
 			);
 
+			// --- Tier 1: wBTC on Arbitrum (wrapped BTC, 8 decimals) ---
+			const wbtcArbContract = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
+			tasks.push(
+				(async () => {
+					try {
+						const hexBalance = (await sdkClient.invokeMethod({
+							scope: 'eip155:42161',
+							request: {
+								method: 'eth_call',
+								params: [{ to: wbtcArbContract, data: balanceOfData }, 'latest']
+							}
+						})) as unknown as string;
+						const raw = BigInt(hexBalance || '0x0');
+						if (raw > 0n) {
+							// wBTC contract uses 8 decimals. 1 wBTC = 10^8 raw = 10^8 sats.
+							// Store raw as sats (same convention as rBTC).
+							const sats = Number(raw);
+							result.wbtc = {
+								raw: String(sats),
+								formatted: sats.toLocaleString('en-US') + ' Sats',
+								loading: false
+							};
+						}
+					} catch (e) {
+						console.warn('[MetaMask] fetchBalances wBTC Arb failed:', e);
+					}
+				})()
+			);
+
+			// --- Tier 1: tBTC on Arbitrum (bridged BTC, 18 decimals) ---
+			const tbtcArbContract = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
+			tasks.push(
+				(async () => {
+					try {
+						const hexBalance = (await sdkClient.invokeMethod({
+							scope: 'eip155:42161',
+							request: {
+								method: 'eth_call',
+								params: [{ to: tbtcArbContract, data: balanceOfData }, 'latest']
+							}
+						})) as unknown as string;
+						const raw = BigInt(hexBalance || '0x0');
+						if (raw > 0n) {
+							const human = Number(raw) / 1e18;
+							const sats = Math.round(human * 100_000_000);
+							result['tbtc-arb'] = {
+								raw: raw.toString(),
+								formatted: sats.toLocaleString('en-US') + ' Sats',
+								loading: false
+							};
+						}
+					} catch (e) {
+						console.warn('[MetaMask] fetchBalances tBTC Arb failed:', e);
+					}
+				})()
+			);
+
 			// --- Tier 2: Verified stablecoins across all chains ---
 			// USDT on Arbitrum is excluded (already tracked as Tier 1 usdt0-arb).
 			// All Tier 2 tokens use the key format `chainId-tokenSymbol-e.g. '56-USDT'`

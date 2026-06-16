@@ -37,6 +37,37 @@ const { mockProvider, mockCryptoSubtle } = vi.hoisted(() => {
 	return { mockProvider: provider, mockCryptoSubtle: subtle };
 });
 
+const {
+	mockEthersGetBalance,
+	mockEthersCall,
+	mockEncodeFunctionData: _mockEncodeFunctionData,
+	mockDecodeFunctionResult,
+	mockEthersBrowserProvider,
+	mockEthersInterface
+} = vi.hoisted(() => {
+	const getBalance = vi.fn();
+	const call = vi.fn();
+	const browserProvider = vi.fn().mockImplementation(() => ({
+		getBalance,
+		call
+	}));
+	const encodeFn = vi.fn().mockReturnValue('0x70a08231');
+	const decodeFn = vi.fn();
+	const iface = vi.fn().mockImplementation(() => ({
+		encodeFunctionData: encodeFn,
+		decodeFunctionResult: decodeFn
+	}));
+
+	return {
+		mockEthersGetBalance: getBalance,
+		mockEthersCall: call,
+		mockEthersBrowserProvider: browserProvider,
+		mockEthersInterface: iface,
+		mockEncodeFunctionData: encodeFn,
+		mockDecodeFunctionResult: decodeFn
+	};
+});
+
 // ---------------------------------------------------------------------------
 // Mock @walletconnect/ethereum-provider
 // ---------------------------------------------------------------------------
@@ -44,6 +75,17 @@ const { mockProvider, mockCryptoSubtle } = vi.hoisted(() => {
 vi.mock('@walletconnect/ethereum-provider', () => ({
 	EthereumProvider: {
 		init: vi.fn(() => Promise.resolve(mockProvider))
+	}
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ethers (used by fetchBalances for BrowserProvider + Interface)
+// ---------------------------------------------------------------------------
+
+vi.mock('ethers', () => ({
+	ethers: {
+		BrowserProvider: mockEthersBrowserProvider,
+		Interface: mockEthersInterface
 	}
 }));
 
@@ -412,6 +454,156 @@ describe('walletconnect-connector', () => {
 
 			expect(isWCConnected()).toBe(true);
 			expect(getWCProvider()).toBeDefined();
+		});
+	});
+
+	// ── fetchBalances ────────────────────────────────────────────────────
+
+	describe('fetchBalances', () => {
+		const WC_ADDRESS = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef01';
+
+		beforeEach(() => {
+			// Set up provider to appear connected (required for connectWC to succeed)
+			mockProvider.accounts = [WC_ADDRESS];
+			mockProvider.chainId = 30;
+			mockProvider.connected = true;
+			mockProvider.session = { topic: 'fetch-balances-session' };
+			mockProvider.connect.mockResolvedValue(undefined);
+
+			// Default ethers mock: getBalance returns 1 RBTC in wei (1e18)
+			mockEthersGetBalance.mockResolvedValue(1_000_000_000_000_000_000n);
+			// Default: call returns mock hex
+			mockEthersCall.mockResolvedValue(
+				'0x0000000000000000000000000000000000000000000000000de0b6b3a7640000'
+			);
+			// Default: decodeFunctionResult returns 1 token unit
+			mockDecodeFunctionResult.mockReturnValue([1_000_000_000_000_000_000n]);
+			// Default: BrowserProvider constructor succeeds
+			mockEthersBrowserProvider.mockImplementation(() => ({
+				getBalance: mockEthersGetBalance,
+				call: mockEthersCall
+			}));
+		});
+
+		/**
+		 * Connect WC with optional chains, then call fetchBalances.
+		 * Assumes beforeEach has set up mockProvider for successful connect.
+		 */
+		async function connectAndFetch(
+			chains: number[] = [30]
+		): Promise<Record<string, { raw: string; formatted: string; loading: boolean }>> {
+			const onQRUri = vi.fn();
+			const handle = await connectWC({ chains }, onQRUri);
+			expect(handle.fetchBalances).toBeDefined();
+			return handle.fetchBalances!();
+		}
+
+		it('returns rbtc balance from provider.getBalance', async () => {
+			const balances = await connectAndFetch([30]);
+
+			expect(mockEthersGetBalance).toHaveBeenCalledWith(WC_ADDRESS);
+			expect(balances.rbtc).toBeDefined();
+			// 1e18 wei / 1e10 = 1e8 sats = 100,000,000
+			expect(balances.rbtc!.raw).toBe('100000000');
+			expect(balances.rbtc!.formatted).toBe('100,000,000 Sats');
+			expect(balances.rbtc!.loading).toBe(false);
+		});
+
+		it('returns usdt balance from ERC-20 call on BSC chain', async () => {
+			// 1 USDT (1e18 raw, 18 decimals → human = 1.0)
+			mockDecodeFunctionResult.mockReturnValue([1_000_000_000_000_000_000n]);
+
+			const balances = await connectAndFetch([30, 56]);
+
+			expect(mockEthersCall).toHaveBeenCalled();
+			const callArg = vi.mocked(mockEthersCall).mock.calls[0]?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			expect(callArg).toBeDefined();
+			// Should be calling the BSC USDT contract
+			expect(callArg!.to).toBe('0x55d398326f99059fF775485246999027B3197955');
+			expect(callArg!.data).toBe('0x70a08231');
+
+			expect(balances.usdt).toBeDefined();
+			expect(balances.usdt!.raw).toBe('1000000000000000000');
+			expect(balances.usdt!.formatted).toBe('$1.00');
+			expect(balances.usdt!.loading).toBe(false);
+		});
+
+		it('returns wbtc balance when Arbitrum chain in session', async () => {
+			// 0.5 WBTC (50_000_000 raw, 8 decimals → human = 0.5)
+			mockDecodeFunctionResult.mockReturnValue([50_000_000n]);
+
+			const balances = await connectAndFetch([30, 42161]);
+
+			expect(balances.wbtc).toBeDefined();
+			expect(balances.wbtc!.raw).toBe('50000000');
+			expect(balances.wbtc!.formatted).toBe('0.50000000 WBTC');
+			expect(balances.wbtc!.loading).toBe(false);
+		});
+
+		it('returns no rbtc when getBalance throws, other tokens still work', async () => {
+			mockEthersGetBalance.mockRejectedValue(new Error('RPC unavailable'));
+			mockDecodeFunctionResult.mockReturnValue([1_000_000_000_000_000_000n]);
+
+			const balances = await connectAndFetch([30, 56]);
+
+			expect(balances.rbtc).toBeUndefined();
+			// USDT should still succeed independently
+			expect(balances.usdt).toBeDefined();
+		});
+
+		it('returns no balance for a token when ERC-20 call throws', async () => {
+			mockEthersCall.mockRejectedValue(new Error('BSC RPC call failed'));
+
+			const balances = await connectAndFetch([30, 56]);
+
+			// rbtc (getBalance) should still succeed
+			expect(balances.rbtc).toBeDefined();
+			// USDT (via call) should fail gracefully
+			expect(balances.usdt).toBeUndefined();
+		});
+
+		it('returns empty object when ethers provider is null', async () => {
+			// Simulate BrowserProvider constructor throwing, leaving providerField null
+			mockEthersBrowserProvider.mockImplementation(() => {
+				throw new Error('BrowserProvider not available');
+			});
+
+			const balances = await connectAndFetch([30]);
+
+			expect(Object.keys(balances)).toHaveLength(0);
+			expect(mockEthersGetBalance).not.toHaveBeenCalled();
+			expect(mockEthersCall).not.toHaveBeenCalled();
+		});
+
+		it('formats rbtc balance correctly — raw value and formatted string with thousands separator', async () => {
+			// 0.5 RBTC = 5e17 wei → 5e17/1e10 = 5e7 = 50,000,000 sats
+			mockEthersGetBalance.mockResolvedValue(500_000_000_000_000_000n);
+
+			const balances = await connectAndFetch([30]);
+
+			expect(balances.rbtc!.raw).toBe('50000000');
+			expect(balances.rbtc!.formatted).toBe('50,000,000 Sats');
+			expect(balances.rbtc!.loading).toBe(false);
+		});
+
+		it('does not query rbtc when RSK chain is not in session', async () => {
+			// Override mockProvider chainId to 56 so fetchBalancesChainIds = [56] (no RSK)
+			mockProvider.chainId = 56;
+
+			const balances = await connectAndFetch([56]);
+
+			expect(mockEthersGetBalance).not.toHaveBeenCalled();
+			expect(balances.rbtc).toBeUndefined();
+		});
+
+		it('returns only rbtc when no ERC-20 chains are in session', async () => {
+			const balances = await connectAndFetch([30]);
+
+			expect(balances.rbtc).toBeDefined();
+			expect(balances.usdt).toBeUndefined();
+			expect(balances.wbtc).toBeUndefined();
 		});
 	});
 });

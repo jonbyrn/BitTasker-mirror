@@ -329,14 +329,107 @@ function buildConnectorHandle(
 		providerField = null;
 	}
 
+	// Capture references needed by fetchBalances (closure over address and chainIds)
+	const fetchBalancesAddress = address;
+	const fetchBalancesChainIds = [chainId, ...chains.filter((c) => c !== chainId)];
+
+	async function fetchBalances(): Promise<
+		Record<string, { raw: string; formatted: string; loading: boolean }>
+	> {
+		const result: Record<string, { raw: string; formatted: string; loading: boolean }> = {};
+		console.log('[WalletConnect] fetchBalances: querying balances for', fetchBalancesAddress);
+
+		const ethersProvider = providerField;
+		if (!ethersProvider) {
+			console.warn('[WalletConnect] fetchBalances: no ethers provider available');
+			return result;
+		}
+
+		// --- rBTC native balance on RSK (chain 30) ---
+		const hasRSK = fetchBalancesChainIds.includes(30) || fetchBalancesChainIds.includes(31);
+		if (hasRSK) {
+			try {
+				const balance = await ethersProvider.getBalance(fetchBalancesAddress);
+				// rBTC: 1 RBTC = 10^18 wei → convert to sats (1 RBTC = 10^8 sats, 1 wei = 10^-10 sats)
+				// balance is in wei; divide by 10^10 to get sats
+				const sats = Number(balance / 10_000_000_000n);
+				result.rbtc = {
+					raw: String(sats),
+					formatted: sats.toLocaleString('en-US') + ' Sats',
+					loading: false
+				};
+			} catch (e) {
+				console.warn('[WalletConnect] fetchBalances rBTC failed:', e);
+			}
+		}
+
+		// --- USDT on BSC (chain 56) ---
+		// BSC USDT (BEP-20) — 18 decimals, verified contract address
+		const USDT_BSC_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
+		if (fetchBalancesChainIds.includes(56)) {
+			try {
+				const erc20Interface = new ethers.Interface([
+					'function balanceOf(address) view returns (uint256)'
+				]);
+				const data = erc20Interface.encodeFunctionData('balanceOf', [fetchBalancesAddress]);
+				const hexResult = await ethersProvider.call({
+					to: USDT_BSC_CONTRACT,
+					data
+				});
+				const raw = erc20Interface.decodeFunctionResult('balanceOf', hexResult)[0];
+				const human = Number(raw) / 1e18;
+				if (human > 0) {
+					result.usdt = {
+						raw: raw.toString(),
+						formatted: '$' + human.toFixed(2),
+						loading: false
+					};
+				}
+			} catch (e) {
+				console.warn('[WalletConnect] fetchBalances USDT BSC failed:', e);
+			}
+		}
+
+		// --- WBTC on Arbitrum (chain 42161) ---
+		// Only queried if Arbitrum is in the session's chain list
+		if (fetchBalancesChainIds.includes(42161)) {
+			try {
+				const wbtcArbContract = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
+				const erc20Interface = new ethers.Interface([
+					'function balanceOf(address) view returns (uint256)'
+				]);
+				const data = erc20Interface.encodeFunctionData('balanceOf', [fetchBalancesAddress]);
+				const hexResult = await ethersProvider.call({
+					to: wbtcArbContract,
+					data
+				});
+				const raw = erc20Interface.decodeFunctionResult('balanceOf', hexResult)[0];
+				const human = Number(raw) / 1e8; // WBTC uses 8 decimals
+				if (human > 0) {
+					result.wbtc = {
+						raw: raw.toString(),
+						formatted: human.toFixed(8) + ' WBTC',
+						loading: false
+					};
+				}
+			} catch (e) {
+				console.warn('[WalletConnect] fetchBalances WBTC Arbitrum failed:', e);
+			}
+		}
+
+		console.log('[WalletConnect] fetchBalances result:', Object.keys(result));
+		return result;
+	}
+
 	const handle: ConnectorHandle = {
 		id: connectorId,
 		walletName: 'WalletConnect',
 		walletType: 'walletconnect',
 		address,
-		chainIds: [chainId, ...chains.filter((c) => c !== chainId)],
+		chainIds: fetchBalancesChainIds,
 		evmSigner,
 		provider: providerField,
+		fetchBalances,
 		onEvent,
 		unsubscribe: () => {
 			removeWCEventListeners(provider);

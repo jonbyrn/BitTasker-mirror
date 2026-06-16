@@ -18,7 +18,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	connectTrezor,
-	connectTrezorBitcoin
+	connectTrezorBitcoin,
+	type TrezorBitcoinResult
 } from '$lib/services/external-wallet/trezor-connector';
 import type { TrezorConnectionConfig } from '$lib/services/external-wallet/trezor-connector';
 import { ConnectorRegistry } from '$lib/services/external-wallet/connector-registry';
@@ -39,6 +40,32 @@ const { mockTrezorConnect } = vi.hoisted(() => {
 		signTransaction: vi.fn()
 	};
 	return { mockTrezorConnect: tc };
+});
+
+const { mockPsbt, mockFromBase64, mockFromOutputScript } = vi.hoisted(() => {
+	const psbt: Record<string, unknown> = {
+		data: {
+			inputs: [
+				{
+					witnessUtxo: { script: Buffer.alloc(0), value: 100000 },
+					tapKeySig: undefined as Buffer | undefined
+				}
+			]
+		},
+		__CACHE: {
+			__TX: {
+				ins: [{ hash: Buffer.alloc(32, 0x01), index: 0 }],
+				outs: [{ script: Buffer.alloc(0), value: 50000 }]
+			}
+		},
+		finalizeInput: vi.fn(),
+		toBase64: vi.fn()
+	};
+	return {
+		mockPsbt: psbt,
+		mockFromBase64: vi.fn().mockReturnValue(psbt),
+		mockFromOutputScript: vi.fn(() => 'bc1qtestdestinationaddress12345678')
+	};
 });
 
 // ---------------------------------------------------------------------------
@@ -88,6 +115,13 @@ vi.mock('bitcoinjs-lib', () => ({
 	networks: {
 		bitcoin: { bech32: 'bc' },
 		testnet: { bech32: 'tb' }
+	},
+	Psbt: {
+		fromBase64: mockFromBase64
+	},
+	address: {
+		fromOutputScript: mockFromOutputScript,
+		toOutputScript: vi.fn(() => Buffer.alloc(0))
 	}
 }));
 
@@ -597,6 +631,248 @@ describe('trezor-connector', () => {
 
 			const result = await handle.evmSigner!.sendTransaction(FAKE_TX);
 			expect(result.txHash).toBe('0xtxhash123');
+		});
+	});
+
+	// =========================================================================
+	// BitcoinSigner — signPSBT
+	// =========================================================================
+	describe('BitcoinSigner — signPSBT', () => {
+		const VALID_PSBT_B64 = 'cHNidP8BA...base64mockpsbt==';
+
+		/** Reset the mock PSBT to a clean single-input single-output state */
+		function resetMockPsbt(): void {
+			const hashBuffer = Buffer.alloc(32, 0);
+			hashBuffer[0] = 0xab;
+			hashBuffer[31] = 0xcd;
+
+			(mockPsbt as Record<string, unknown>).data = {
+				inputs: [
+					{
+						witnessUtxo: { script: Buffer.alloc(0), value: 100_000 },
+						tapKeySig: undefined as Buffer | undefined
+					}
+				]
+			};
+			(mockPsbt as Record<string, unknown>).__CACHE = {
+				__TX: {
+					ins: [{ hash: hashBuffer, index: 0 }],
+					outs: [{ script: Buffer.alloc(0), value: 50_000 }]
+				}
+			};
+			mockPsbt.finalizeInput = vi.fn();
+			mockPsbt.toBase64 = vi.fn().mockReturnValue('signed-psbt-base64-hash');
+		}
+
+		beforeEach(() => {
+			mockXPUBSuccess();
+			resetMockPsbt();
+			vi.mocked(mockFromBase64).mockReturnValue(mockPsbt);
+			vi.mocked(mockFromOutputScript).mockReturnValue('bc1qdestination0987654321fedcba');
+		});
+
+		// Helper: connect BTC session and return the bitcoinSigner
+		async function getBitcoinSigner() {
+			const result: TrezorBitcoinResult = await connectTrezorBitcoin(makeConfig());
+			return result.bitcoinSigner;
+		}
+
+		it('signs a valid PSBT, calls TrezorConnect.signTransaction, and returns signed base64', async () => {
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: {
+					signatures: [
+						'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff0011223344556677889900'
+					]
+				}
+			});
+
+			const signer = await getBitcoinSigner();
+			const signed = await signer.signPSBT(VALID_PSBT_B64);
+
+			expect(signed).toBe('signed-psbt-base64-hash');
+			expect(mockFromBase64).toHaveBeenCalledWith(VALID_PSBT_B64);
+			expect(mockTrezorConnect.signTransaction).toHaveBeenCalledTimes(1);
+
+			const callArgs = vi.mocked(mockTrezorConnect.signTransaction).mock.calls[0]?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			expect(callArgs).toBeDefined();
+			expect(callArgs!.coin).toBe('btc');
+			expect(callArgs!.push).toBe(false);
+
+			// Verify finalizeInput was called per input
+			expect(mockPsbt.finalizeInput).toHaveBeenCalledWith(0);
+			// Verify signature was injected
+			const psbtInputs = mockPsbt.data.inputs as Array<{ tapKeySig?: Buffer }>;
+			expect(psbtInputs[0]).toBeDefined();
+			expect(psbtInputs[0]!.tapKeySig).toBeDefined();
+			expect(psbtInputs[0]!.tapKeySig!.length).toBeGreaterThan(0);
+		});
+
+		it('throws when TrezorConnect.signTransaction returns success:false with error', async () => {
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: false,
+				error: 'Device rejected signing'
+			});
+
+			const signer = await getBitcoinSigner();
+
+			await expect(signer.signPSBT(VALID_PSBT_B64)).rejects.toThrow('Device rejected signing');
+		});
+
+		it('throws when TrezorConnect.signTransaction returns success but no signatures in payload', async () => {
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: {}
+			});
+
+			const signer = await getBitcoinSigner();
+
+			await expect(signer.signPSBT(VALID_PSBT_B64)).rejects.toThrow(
+				/Trezor returned 0 signatures but 1 were expected/
+			);
+		});
+
+		it('throws when TrezorConnect.signTransaction returns mismatched signature count', async () => {
+			// Set up PSBT with 2 inputs
+			const hashBuf1 = Buffer.alloc(32, 0x01);
+			const hashBuf2 = Buffer.alloc(32, 0x02);
+			(mockPsbt as Record<string, unknown>).data = {
+				inputs: [
+					{ witnessUtxo: { script: Buffer.alloc(0), value: 50_000 }, tapKeySig: undefined },
+					{ witnessUtxo: { script: Buffer.alloc(0), value: 30_000 }, tapKeySig: undefined }
+				]
+			};
+			(mockPsbt as Record<string, unknown>).__CACHE = {
+				__TX: {
+					ins: [
+						{ hash: hashBuf1, index: 0 },
+						{ hash: hashBuf2, index: 1 }
+					],
+					outs: [{ script: Buffer.alloc(0), value: 70_000 }]
+				}
+			};
+
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: { signatures: ['only-one-sig'] }
+			});
+
+			const signer = await getBitcoinSigner();
+
+			await expect(signer.signPSBT(VALID_PSBT_B64)).rejects.toThrow(
+				/Trezor returned 1 signatures but 2 were expected/
+			);
+		});
+
+		it('parses inputs correctly — passes correct address_n, prev_hash, script_type to Trezor', async () => {
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: {
+					signatures: [
+						'00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
+					]
+				}
+			});
+
+			const signer = await getBitcoinSigner();
+			await signer.signPSBT(VALID_PSBT_B64);
+
+			const callArgs = vi.mocked(mockTrezorConnect.signTransaction).mock.calls[0]?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			const trezorInputs = callArgs!.inputs as Array<Record<string, unknown>> | undefined;
+			expect(trezorInputs).toBeDefined();
+			expect(trezorInputs!.length).toBe(1);
+
+			const input = trezorInputs![0]!;
+			// address_n should be the BIP86 Taproot derivation path (all hardened)
+			expect(input.address_n).toEqual([86 | 0x80000000, 0 | 0x80000000, 0 | 0x80000000, 0, 0]);
+			expect(input.script_type).toBe('SPENDTAPROOT');
+			// prev_index should match the mock input
+			expect(input.prev_index).toBe(0);
+			// prev_hash should be the reversed hash buffer as hex
+			expect(typeof input.prev_hash).toBe('string');
+			expect((input.prev_hash as string).length).toBe(64);
+			// amount should match witnessUtxo value
+			expect(input.amount).toBe('100000');
+		});
+
+		it('parses outputs correctly — passes correct address and amount to Trezor', async () => {
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: {
+					signatures: [
+						'ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100'
+					]
+				}
+			});
+
+			const signer = await getBitcoinSigner();
+			await signer.signPSBT(VALID_PSBT_B64);
+
+			const callArgs = vi.mocked(mockTrezorConnect.signTransaction).mock.calls[0]?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			const trezorOutputs = callArgs!.outputs as Array<Record<string, unknown>> | undefined;
+			expect(trezorOutputs).toBeDefined();
+			expect(trezorOutputs!.length).toBe(1);
+
+			const output = trezorOutputs![0]!;
+			// address should come from address.fromOutputScript mock
+			expect(output.address).toBe('bc1qdestination0987654321fedcba');
+			expect(output.amount).toBe('50000');
+			expect(output.script_type).toBe('PAYTOTAPROOT');
+		});
+
+		it('throws when PSBT has no inputs', async () => {
+			// Override mock PSBT to have zero inputs
+			(mockPsbt as Record<string, unknown>).__CACHE = {
+				__TX: { ins: [], outs: [] }
+			};
+			(mockPsbt as Record<string, unknown>).data = { inputs: [] };
+
+			const signer = await getBitcoinSigner();
+
+			await expect(signer.signPSBT(VALID_PSBT_B64)).rejects.toThrow('PSBT has no inputs');
+		});
+
+		it('throws when PSBT input is missing witnessUtxo', async () => {
+			// Override mock PSBT to have an input without witnessUtxo
+			(mockPsbt as Record<string, unknown>).data = {
+				inputs: [{ nonWitnessUtxo: Buffer.alloc(0) }]
+			};
+
+			const signer = await getBitcoinSigner();
+
+			await expect(signer.signPSBT(VALID_PSBT_B64)).rejects.toThrow(/missing witnessUtxo data/);
+		});
+
+		it('handles non-addressable outputs gracefully (OP_RETURN fallback)', async () => {
+			// Mock fromOutputScript to throw, simulating an OP_RETURN output
+			vi.mocked(mockFromOutputScript).mockImplementation(() => {
+				throw new Error('OP_RETURN not an address');
+			});
+
+			mockTrezorConnect.signTransaction.mockResolvedValue({
+				success: true,
+				payload: {
+					signatures: [
+						'11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff'
+					]
+				}
+			});
+
+			const signer = await getBitcoinSigner();
+			await signer.signPSBT(VALID_PSBT_B64);
+
+			// Output address should be empty string for non-addressable outputs
+			const callArgs = vi.mocked(mockTrezorConnect.signTransaction).mock.calls[0]?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			const trezorOutputs = callArgs!.outputs as Array<Record<string, unknown>> | undefined;
+			expect(trezorOutputs![0]!.address).toBe('');
 		});
 	});
 

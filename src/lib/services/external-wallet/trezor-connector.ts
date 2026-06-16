@@ -19,7 +19,7 @@ import type {
 } from './types';
 import type { ConnectorRegistry } from './connector-registry';
 import { getPlatformInfo } from './platform-checks';
-import type { Provider } from 'ethers';
+import type { Provider, TransactionLike } from 'ethers';
 import * as Sentry from '@sentry/sveltekit';
 
 // ---------------------------------------------------------------------------
@@ -233,14 +233,15 @@ function buildEVMSigner(evmAddress: string, config: TrezorConnectionConfig): EVM
 				data: tx.data || '0x',
 				chainId: tx.chainId,
 				nonce: ethersModule.toQuantity(nonce),
-				gasLimit:
+				gasLimit: ethersModule.toQuantity(
 					(await provider
 						?.estimateGas({
 							to: tx.to,
 							value: tx.value,
 							data: tx.data
 						})
-						.catch(() => ethersModule.toQuantity(21000))) || ethersModule.toQuantity(21000),
+						.catch(() => 21000n)) || 21000n
+				),
 				gasPrice: ethersModule.toQuantity(
 					(await provider?.getFeeData().catch(() => null))?.gasPrice || 1_000_000_000n
 				)
@@ -272,7 +273,7 @@ function buildEVMSigner(evmAddress: string, config: TrezorConnectionConfig): EVM
 			const signedTx = ethersModule.Transaction.from({
 				...txParams,
 				signature
-			}).serialized;
+			} as unknown as TransactionLike).serialized;
 
 			if (!provider) throw new Error('No provider configured for broadcast');
 			const txResponse = await provider.broadcastTransaction(signedTx);
@@ -314,21 +315,14 @@ function buildBitcoinSigner(
 			_debug('sendBitcoin: amount=%s', req.amount.toString());
 			const { accumulative } = await import('coinselect');
 			const bitcoin = await import('bitcoinjs-lib');
-			const { fromXpub, toXOnly } = (
-				bitcoin as {
-					BIP32Factory?: unknown;
-					payments?: { p2tr: (params: { internalPubkey: Buffer }) => { address: string } };
-					Psbt: {
-						new (params: { network: unknown }): {
-							addInput(params: unknown): unknown;
-							addOutput(params: unknown): unknown;
-							signInput(index: number): void;
-							finalizeInput(index: number): void;
-							extractTransaction(): { toHex(): string };
-						};
+			const { fromXpub, toXOnly } = bitcoin as unknown as {
+				fromXpub: (xpub: string) => {
+					derive: (index: number) => {
+						derive: (index: number) => { publicKey: Buffer };
 					};
-				}
-			).Psbt;
+				};
+				toXOnly: (pubkey: Buffer) => Buffer;
+			};
 
 			const network = config.network ?? (config.provider ? 'mainnet' : 'testnet');
 			const apiBase =
@@ -376,7 +370,7 @@ function buildBitcoinSigner(
 					index: input.vout,
 					witnessUtxo: {
 						script: bitcoin.address.toOutputScript(btcAddress, bitcoinNetwork),
-						value: BigInt(input.value)
+						value: input.value
 					},
 					tapInternalKey: toXOnly(fromXpub(xpub).derive(0).derive(0).publicKey),
 					sequence: 0xfffffffd
@@ -386,7 +380,7 @@ function buildBitcoinSigner(
 			for (const output of selected.outputs as Array<{ address?: string; value: number }>) {
 				psbt.addOutput({
 					address: output.address!,
-					value: BigInt(output.value)
+					value: output.value
 				});
 			}
 
@@ -427,8 +421,140 @@ function buildBitcoinSigner(
 				outputs: []
 			} as BitcoinSendResult;
 		},
-		async signPSBT(): Promise<string> {
-			throw new Error('Raw PSBT signing not yet implemented');
+		async signPSBT(psbtB64: string): Promise<string> {
+			_debug('signPSBT called');
+			Sentry.addBreadcrumb({
+				category: 'hw-wallet',
+				message: 'Trezor PSBT signing started',
+				level: 'info'
+			});
+
+			try {
+				const bitcoin = await import('bitcoinjs-lib');
+				const TrezorConnect = await _loadTrezorConnectCDN();
+
+				// Parse the PSBT from base64
+				const psbt = bitcoin.Psbt.fromBase64(psbtB64);
+				const network =
+					config.network === 'mainnet' ? bitcoin.networks.bitcoin : bitcoin.networks.testnet;
+
+				// Access the internal unsigned transaction to extract per-input hash/index.
+				// bitcoinjs-lib stores the transaction in __CACHE.__TX — not on the
+				// public API surface. We access it structurally to avoid `any` casts
+				// while remaining compatible with bitcoinjs-lib v6+ internals.
+				const internal = psbt as unknown as {
+					data: {
+						inputs: Array<{
+							witnessUtxo?: { script: Buffer; value: number };
+							nonWitnessUtxo?: Buffer;
+							tapKeySig?: Buffer;
+						}>;
+					};
+					__CACHE: {
+						__TX: {
+							ins: Array<{ hash: Buffer; index: number }>;
+							outs: Array<{ script: Buffer; value: number }>;
+						};
+					};
+				};
+
+				const txInputs = internal.__CACHE.__TX.ins;
+				const psbtInputs = internal.data.inputs;
+				const txOutputs = internal.__CACHE.__TX.outs;
+
+				if (txInputs.length === 0) {
+					throw new Error('PSBT has no inputs');
+				}
+
+				// Build Trezor-compatible inputs using the BIP86 Taproot derivation.
+				// Each input is assumed to be a SPENDTAPROOT (Taproot key-path spend).
+				// The derivation address_n follows the same fixed pattern as sendBitcoin
+				// — all UTXOs in the same BIP86 account share the same internal key.
+				const trezorInputs = txInputs.map((input, i) => {
+					const psbtInput = psbtInputs[i];
+					const witnessUtxo = psbtInput?.witnessUtxo;
+					if (!witnessUtxo) {
+						throw new Error(
+							`PSBT input ${i} missing witnessUtxo data — Trezor requires witnessUtxo for Taproot signing`
+						);
+					}
+
+					// bitcoinjs-lib stores tx hashes in internal (reversed) byte order.
+					// Trezor expects the standard (RPC) byte order.
+					const prevHash = Buffer.from(input.hash).reverse().toString('hex');
+
+					return {
+						address_n: [86 | 0x80000000, 0 | 0x80000000, 0 | 0x80000000, 0, 0] as number[],
+						prev_index: input.index,
+						prev_hash: prevHash,
+						amount: String(witnessUtxo.value),
+						script_type: 'SPENDTAPROOT' as const
+					};
+				});
+
+				// Build Trezor-compatible outputs — resolve addresses from output scripts.
+				const trezorOutputs = txOutputs.map((output) => {
+					let outAddr = '';
+					try {
+						outAddr = bitcoin.address.fromOutputScript(output.script, network);
+					} catch {
+						// Non-addressable outputs (e.g. OP_RETURN) are left with an
+						// empty address string — Trezor handles these at the protocol level.
+					}
+
+					return {
+						address: outAddr,
+						amount: String(output.value),
+						script_type: 'PAYTOTAPROOT' as const
+					};
+				});
+
+				_debug('signPSBT: %d inputs, %d outputs', trezorInputs.length, trezorOutputs.length);
+
+				// Sign with Trezor — push:false so we add signatures to the PSBT
+				// ourselves rather than broadcasting.
+				const signResult = await TrezorConnect.signTransaction({
+					coin: 'btc',
+					inputs: trezorInputs,
+					outputs: trezorOutputs,
+					push: false
+				});
+
+				if (!signResult.success) {
+					_warn('signPSBT Trezor signing failed: %s', signResult.error);
+					throw new Error(signResult.error || 'Trezor PSBT signing rejected by device');
+				}
+
+				const signatures = signResult.payload?.signatures;
+				if (!signatures || signatures.length !== txInputs.length) {
+					throw new Error(
+						`Trezor returned ${signatures?.length ?? 0} signatures but ${txInputs.length} were expected`
+					);
+				}
+
+				// Inject each Schnorr signature into the PSBT as tapKeySig and finalize.
+				for (let i = 0; i < signatures.length; i++) {
+					internal.data.inputs[i].tapKeySig = Buffer.from(signatures[i], 'hex');
+					psbt.finalizeInput(i);
+				}
+
+				_debug('signPSBT: successfully signed %d inputs', signatures.length);
+				Sentry.addBreadcrumb({
+					category: 'hw-wallet',
+					message: 'Trezor PSBT signed successfully',
+					level: 'info'
+				});
+
+				return psbt.toBase64();
+			} catch (e) {
+				_warn('signPSBT error: %s', (e as Error)?.message);
+				Sentry.addBreadcrumb({
+					category: 'hw-wallet',
+					message: `Trezor PSBT signing failed: ${(e as Error)?.message}`,
+					level: 'error'
+				});
+				throw e;
+			}
 		}
 	};
 }
@@ -443,7 +569,7 @@ function buildBitcoinSigner(
  *
  * Path: m/86'/0'/0'/{change}/{index}
  */
-function deriveAddressFromXpub(xpub: string, change: number, index: number): string {
+function deriveAddressFromXpub(xpub: string, change: number, index: number): Promise<string> {
 	// This dynamically imports the same libraries as initChangeDerivation.
 	// First call triggers the import; subsequent calls use the cached module.
 	return _deriveAddressFromXpub(xpub, change, index);
