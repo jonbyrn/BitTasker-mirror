@@ -220,6 +220,13 @@ export class BoltzProvider {
 		lockupAddress: string;
 		expectedAmount: number;
 		timeoutBlockHeight: number;
+		claimAddress: string;
+		claimDetails?: {
+			lockupAddress: string;
+			amount: number;
+			refundAddress: string;
+			timeoutBlockHeight: number;
+		};
 	}> {
 		if (!params.amountSats || params.amountSats <= 0) throw new Error('Invalid amount');
 		if (!params.claimAddress || !/^0x[a-fA-F0-9]{40}$/.test(params.claimAddress))
@@ -238,7 +245,18 @@ export class BoltzProvider {
 
 		const data = await fetchBoltz<{
 			id: string;
-			lockupDetails?: { lockupAddress: string; amount: number; timeoutBlockHeight?: number };
+			lockupDetails?: {
+				lockupAddress: string;
+				amount: number;
+				timeoutBlockHeight?: number;
+				claimAddress?: string;
+			};
+			claimDetails?: {
+				lockupAddress: string;
+				amount: number;
+				refundAddress: string;
+				timeoutBlockHeight: number;
+			};
 		}>(`${BOLTZ_BASE_URL}/swap/chain`, {
 			method: 'POST',
 			body: JSON.stringify(body)
@@ -246,26 +264,69 @@ export class BoltzProvider {
 
 		const lockupAddr = data.lockupDetails?.lockupAddress;
 		const expectedAmt = data.lockupDetails?.amount || params.amountSats;
+		const claimAddr = data.lockupDetails?.claimAddress || params.claimAddress;
 		if (!data.id || !lockupAddr) {
 			throw new Error('Invalid response from Boltz: missing swap details');
 		}
+
+		debug.log(
+			'createSwap: id=%s lockup=%s claim=%s timeout=%s hasClaimDetails=%s',
+			data.id,
+			lockupAddr,
+			claimAddr,
+			data.lockupDetails?.timeoutBlockHeight,
+			!!data.claimDetails
+		);
 
 		return {
 			swapId: data.id,
 			lockupAddress: lockupAddr,
 			expectedAmount: expectedAmt,
-			timeoutBlockHeight: data.lockupDetails?.timeoutBlockHeight || 0
+			timeoutBlockHeight: data.lockupDetails?.timeoutBlockHeight || 0,
+			claimAddress: claimAddr,
+			claimDetails: data.claimDetails
 		};
 	}
 
 	/**
-	 * Check the current status of a chain swap.
+	 * Check the current status of a swap.
+	 * Uses /v2/swap/{id} (works for chain swaps, submarine swaps, etc.)
+	 * For chain swaps, also returns claimDetails needed for claiming tBTC on Arbitrum.
 	 */
-	async getSwapStatus(swapId: string): Promise<{ status: string; transactionId?: string }> {
-		const data = await fetchBoltz<{ status: string; transaction?: { id: string } }>(
-			`${BOLTZ_BASE_URL}/swap/chain/${swapId}`
-		);
-		return { status: data.status || 'unknown', transactionId: data.transaction?.id };
+	async getSwapStatus(swapId: string): Promise<{
+		status: string;
+		transactionId?: string;
+		claimDetails?: {
+			lockupAddress: string;
+			amount: number;
+			refundAddress: string;
+			timeoutBlockHeight: number;
+		};
+		lockupDetails?: {
+			claimAddress: string;
+			amount: number;
+		};
+	}> {
+		const data = await fetchBoltz<{
+			status: string;
+			transaction?: { id: string };
+			claimDetails?: {
+				lockupAddress: string;
+				amount: number;
+				refundAddress: string;
+				timeoutBlockHeight: number;
+			};
+			lockupDetails?: {
+				claimAddress: string;
+				amount: number;
+			};
+		}>(`${BOLTZ_BASE_URL}/swap/${swapId}`);
+		return {
+			status: data.status || 'unknown',
+			transactionId: data.transaction?.id,
+			claimDetails: data.claimDetails,
+			lockupDetails: data.lockupDetails
+		};
 	}
 
 	/**
@@ -280,16 +341,6 @@ export class BoltzProvider {
 			}
 		);
 		return { transactionHex: data.transactionHex || '' };
-	}
-
-	/**
-	 * Check the current status of a swap.
-	 */
-	async getSwapStatus(swapId: string): Promise<{ status: string; transactionId?: string }> {
-		const data = await fetchBoltz<{ status: string; transaction?: { id: string } }>(
-			`${BOLTZ_BASE_URL}/swap/chain/${swapId}`
-		);
-		return { status: data.status || 'unknown', transactionId: data.transaction?.id };
 	}
 
 	/**

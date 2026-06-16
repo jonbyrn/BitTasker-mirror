@@ -136,6 +136,11 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 	let localeSnap = $state(get(locale) || 'en');
 	let isOnlineSnap = $state(get(browserNetworkStatus).online);
 
+	// Dedicated $state for connected wallets list — separate from connectedSnap
+	// proxy to ensure Svelte 5's reactivity propagates reliably when the store
+	// is updated after initial mount (e.g. from reconnectPersistedWallets).
+	let connectedWalletsList = $state<ConnectedWalletEntry[]>(get(connectedWalletsStore).wallets);
+
 	// Dedicated $state for totalBalances.sats. Svelte 5's $derived doesn't
 	// re-track nested access when the parent proxy is replaced.
 	let builtinRbtcSats = $state(walletSnap.totalBalances?.sats ?? 0);
@@ -164,6 +169,10 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 				connectedSnap.activeWalletId = v.activeWalletId;
 				connectedSnap.error = v.error;
 				connectedSnap.connectingType = v.connectingType;
+				// Also update the dedicated list $state for reliable reactivity.
+				// Setting a top-level $state triggers $derived re-evaluation
+				// more reliably than mutating a property on a $state proxy.
+				connectedWalletsList = v.wallets;
 			})
 		);
 		unsubs.push(locale.subscribe((l) => (localeSnap = l || 'en')));
@@ -430,7 +439,10 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 		return addr ? `${label} (${addrSnippet(addr)})` : label;
 	});
 
-	const connectedWallets = $derived(connectedSnap.wallets);
+	// Use the dedicated $state list instead of connectedSnap.wallets —
+	// top-level $state reassignment triggers $derived reliably, whereas
+	// mutating a property on a $state proxy may not propagate.
+	const connectedWallets = $derived(connectedWalletsList);
 
 	return {
 		isConnectedSource,

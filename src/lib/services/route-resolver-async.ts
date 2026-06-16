@@ -264,8 +264,12 @@ async function callLifi(
 			fromChainId = BSC_MAINNET_CHAIN_ID;
 			break;
 		case 'usdt0-arb':
+		case 'wbtc-arb':
 			fromChainId = ARB_MAINNET_CHAIN_ID;
 			break;
+		case 'btc-onchain':
+			// LI.FI doesn't handle Bitcoin on-chain directly — skip
+			return { provider: 'lifi', status: 'skipped', routes: [] };
 		default:
 			return { provider: 'lifi', status: 'skipped', routes: [] };
 	}
@@ -355,6 +359,29 @@ async function callLifi(
 				toChain = 'bsc';
 			}
 			break;
+		case 'wbtc-arb':
+			fromToken = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'; // WBTC on Arbitrum
+			fromAsset = 'WBTC';
+			fromChain = 'arbitrum';
+			if (isBtcOnchain) {
+				toToken = 'BTC';
+				toAsset = 'BTC';
+				toChain = 'bitcoin';
+			} else if (isRSKChain(destChainId)) {
+				toToken = EVM_NATIVE_TOKEN_ADDRESS;
+				toAsset = 'RBTC';
+				toChain = 'rsk';
+			} else if (isCrossChainEVM) {
+				toToken = getCrossChainUSDTAddress(destChainId);
+				toAsset = 'USDT';
+				toChain = `chain-${destChainId}`;
+			} else {
+				// Same-chain Arbitrum: WBTC → USDT0
+				toToken = USDT0_ARB_ADDRESS;
+				toAsset = 'USDT0';
+				toChain = 'arbitrum';
+			}
+			break;
 		default:
 			fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
 			fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
@@ -383,11 +410,12 @@ async function callLifi(
 	}
 
 	try {
-		// LI.FI requires fromAddress (lowercase) and fromAmount in wei (smallest unit).
+		// LI.FI requires fromAddress (lowercase) and fromAmount in smallest unit.
+		// RBTC/USDT use 18 decimals (×1e18), WBTC uses 8 decimals (sats = smallest unit).
 		const lifiFromAddr = userAddress.toLowerCase();
 		const lifiFromAmount =
-			fromAsset === 'RBTC'
-				? BigInt(Math.round(parseFloat(amount) * 1e18)).toString()
+			fromAsset === 'WBTC'
+				? BigInt(Math.round(parseFloat(amount))).toString() // WBTC 8 dec: sats already smallest unit
 				: BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
 		const lifiRoute: LifiRoute = await withTimeout(
 			lifiService.getQuote({
@@ -455,6 +483,12 @@ async function callSymbiosis(
 		case 'usdt0-arb':
 			fromChainId = ARB_MAINNET_CHAIN_ID;
 			break;
+		case 'wbtc-arb':
+			fromChainId = ARB_MAINNET_CHAIN_ID;
+			break;
+		case 'btc-onchain':
+			// Symbiosis doesn't handle Bitcoin on-chain — skip
+			return { provider: 'symbiosis', status: 'skipped', routes: [] };
 		default:
 			return { provider: 'symbiosis', status: 'skipped', routes: [] };
 	}

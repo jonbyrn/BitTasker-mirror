@@ -9,7 +9,15 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type SourceWallet = 'rbtc' | 'usdt-bsc' | 'usdt0-rsk' | 'usdt0-arb' | 'doc-rsk';
+export type SourceWallet =
+	| 'rbtc'
+	| 'usdt-bsc'
+	| 'usdt0-rsk'
+	| 'usdt0-arb'
+	| 'doc-rsk'
+	| 'btc-onchain'
+	| 'wbtc-arb'
+	| 'tbtc-arb';
 
 export type Destination =
 	| { type: 'address'; chainId: number; address: string; asset?: string }
@@ -101,6 +109,7 @@ const FEE_BOLTZ_USDT_ARB_LIGHTNING = 0.88;
 const FEE_LIFI_DEFAULT = 0.5;
 const FEE_SYMBIOSIS_DEFAULT = 0.3;
 const FEE_SYMBIOSIS_ONCHAIN = 0.3;
+const FEE_SYMBIOSIS_SWAP = 0.3;
 
 // ---------------------------------------------------------------------------
 // Constants — time in minutes
@@ -116,6 +125,8 @@ const TIME_LIFI_MIN = 1;
 const TIME_LIFI_MAX = 5;
 const TIME_SYMBIOSIS_MIN = 1;
 const TIME_SYMBIOSIS_MAX = 5;
+const TIME_SYMBIOSIS_SWAP_MIN = 1;
+const TIME_SYMBIOSIS_SWAP_MAX = 2;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -255,9 +266,36 @@ function resolveFromRBTC(destination: Destination): Route[] {
 			];
 		}
 
-		// wBTC on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + LI.FI (tBTC→WBTC)
+		// wBTC on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + Symbiosis (tBTC→WBTC)
 		if (isARBChain(destination.chainId) && destination.asset === 'WBTC') {
 			return [
+				buildRoute({
+					id: 'rbtc-to-wbtc-arb-via-boltz-symbiosis',
+					label: 'Boltz → Symbiosis',
+					hops: [
+						{
+							service: 'boltz',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_TBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_BOLTZ_CHAIN_SWAP,
+							estimatedTimeMin: TIME_BOLTZ_MIN,
+							estimatedTimeMax: TIME_BOLTZ_MAX
+						},
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_TBTC,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_WBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_SYMBIOSIS_SWAP,
+							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+						}
+					],
+					recommended: true
+				}),
 				buildRoute({
 					id: 'rbtc-to-wbtc-arb-via-boltz-lifi',
 					label: 'Boltz → LI.FI',
@@ -281,6 +319,39 @@ function resolveFromRBTC(destination: Destination): Route[] {
 							feePercent: FEE_LIFI_DEFAULT,
 							estimatedTimeMin: TIME_LIFI_MIN,
 							estimatedTimeMax: TIME_LIFI_MAX
+						}
+					],
+					recommended: false
+				})
+			];
+		}
+
+		// USDT0 on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + Symbiosis (tBTC→USDT0)
+		if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
+			return [
+				buildRoute({
+					id: 'rbtc-to-usdt0-arb-via-boltz-symbiosis',
+					label: 'Boltz → Symbiosis',
+					hops: [
+						{
+							service: 'boltz',
+							fromAsset: ASSET_RBTC,
+							fromChain: CHAIN_RSK,
+							toAsset: ASSET_TBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_BOLTZ_CHAIN_SWAP,
+							estimatedTimeMin: TIME_BOLTZ_MIN,
+							estimatedTimeMax: TIME_BOLTZ_MAX
+						},
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_TBTC,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_USDT0,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_SYMBIOSIS_SWAP,
+							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
 						}
 					],
 					recommended: true
@@ -1150,6 +1221,110 @@ function resolveFromDOCRSK(destination: Destination): Route[] {
 	return [];
 }
 
+/**
+ * Resolve routes from BTC on-chain (connected hardware wallet with BTC signer).
+ *
+ * BTC on-chain can be sent directly to a BTC address (no swap needed) or
+ * swapped to rBTC/USDT via Boltz submarine swap.
+ */
+function resolveFromBTCOnchain(destination: Destination): Route[] {
+	if (destination.type === 'invoice') {
+		// Lightning invoice — could use Boltz submarine swap from BTC
+		// Not yet supported from connected wallet BTC
+		return [];
+	}
+
+	const { chainId } = destination;
+
+	// BTC → BTC on-chain (same wallet transfer — direct send, no swap)
+	if (chainId === 1 || chainId === 0) {
+		// chainId 0 or 1 used for BTC mainnet/testnet in this app
+		return [
+			{
+				id: 'btc-onchain-direct',
+				hops: [
+					{
+						service: 'direct',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'BTC',
+						toChain: 'bitcoin',
+						feePercent: 0,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					}
+				],
+				totalFeePercent: 0,
+				estimatedTimeMin: 10,
+				estimatedTimeMax: 30,
+				recommended: true
+			}
+		];
+	}
+
+	// BTC → rBTC via Boltz reverse swap
+	if (chainId === 30 || chainId === 31) {
+		return [
+			{
+				id: 'btc-to-rbtc-via-boltz',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'RBTC',
+						toChain: 'rsk',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTimeMin: 10,
+				estimatedTimeMax: 30,
+				recommended: true
+			}
+		];
+	}
+
+	// BTC → USDT0 on Arbitrum (multi-hop: BTC → rBTC → USDT0 via LI.FI/Symbiosis)
+	if (chainId === 42161) {
+		return [
+			{
+				id: 'btc-to-usdt0-arb-via-boltz',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'RBTC',
+						toChain: 'rsk',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'lifi',
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'USDT0',
+						toChain: 'arbitrum',
+						feePercent: 0.3,
+						estimatedTimeMin: 5,
+						estimatedTimeMax: 15
+					}
+				],
+				totalFeePercent: 0.8,
+				estimatedTimeMin: 15,
+				estimatedTimeMax: 45,
+				recommended: true
+			}
+		];
+	}
+
+	return [];
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -1186,7 +1361,148 @@ export function resolveRoute(source: SourceWallet, destination: Destination): Ro
 			return resolveFromUSDT0ARB(destination);
 		case 'doc-rsk':
 			return resolveFromDOCRSK(destination);
+		case 'btc-onchain':
+			return resolveFromBTCOnchain(destination);
+		case 'wbtc-arb':
+			return resolveFromWBTC(destination);
+		case 'tbtc-arb':
+			return resolveFromTBTC(destination);
 		default:
 			return [];
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Route matrix — WBTC on Arbitrum source
+// ---------------------------------------------------------------------------
+
+function resolveFromWBTC(destination: Destination): Route[] {
+	if (destination.type !== 'address') return [];
+
+	// WBTC → USDT0 on Arbitrum via Symbiosis
+	if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
+		return [
+			buildRoute({
+				id: 'wbtc-to-usdt0-arb-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_WBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	// WBTC → tBTC on Arbitrum via Symbiosis
+	if (isARBChain(destination.chainId) && destination.asset === 'TBTC') {
+		return [
+			buildRoute({
+				id: 'wbtc-to-tbtc-arb-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_WBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	return [];
+}
+
+// ---------------------------------------------------------------------------
+// Route matrix — tBTC on Arbitrum source
+// ---------------------------------------------------------------------------
+
+function resolveFromTBTC(destination: Destination): Route[] {
+	if (destination.type !== 'address') return [];
+
+	// tBTC → WBTC on Arbitrum via Symbiosis
+	if (isARBChain(destination.chainId) && destination.asset === 'WBTC') {
+		return [
+			buildRoute({
+				id: 'tbtc-to-wbtc-arb-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_WBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	// tBTC → USDT0 on Arbitrum via Symbiosis
+	if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
+		return [
+			buildRoute({
+				id: 'tbtc-to-usdt0-arb-via-symbiosis',
+				label: 'Symbiosis',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	// tBTC → rBTC via Boltz chain swap
+	if (isRSKChain(destination.chainId)) {
+		return [
+			buildRoute({
+				id: 'tbtc-to-rbtc-via-boltz',
+				label: 'Boltz',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				],
+				recommended: true
+			})
+		];
+	}
+
+	return [];
 }

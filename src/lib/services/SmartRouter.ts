@@ -9,6 +9,7 @@
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 import { lifiService } from '$lib/services/lifi.service';
+import { symbiosisService } from '$lib/services/symbiosis.service';
 import { BoltzProvider, type BoltzQuote } from '$lib/services/BoltzProvider';
 import type { SourceWallet } from '$lib/services/route-resolver';
 
@@ -38,7 +39,7 @@ const SAT_TO_WEI = BigInt(1e10);
 // ---------------------------------------------------------------------------
 
 export interface SmartRoute {
-	provider: 'boltz' | 'lifi' | 'paraswap' | 'direct' | 'boltz+lifi';
+	provider: 'boltz' | 'lifi' | 'paraswap' | 'direct' | 'boltz+lifi' | 'symbiosis';
 	fromAsset: string;
 	toAsset: string;
 	estimatedOutput: string;
@@ -48,6 +49,10 @@ export interface SmartRoute {
 	feeCosts?: Array<{ name: string; amount: string }>;
 	routeMetadata?: Record<string, unknown>;
 	fallbackRoutes?: SmartRoute[];
+	/** Chain name for the source asset (e.g. 'rsk', 'arbitrum', 'bitcoin'). */
+	fromChain?: string;
+	/** Chain name for the destination asset (e.g. 'rsk', 'arbitrum', 'bitcoin'). */
+	toChain?: string;
 }
 
 type RouteBuilder = () => Promise<SmartRoute | null>;
@@ -90,16 +95,125 @@ export class SmartRouter {
 			return this.pickBest(builders);
 		}
 
-		// rBTC → USDT0 on Arbitrum: Boltz (cheapest) + LI.FI (direct cross-chain)
+		// rBTC → USDT0 on Arbitrum: Boltz chain swap (RBTC→tBTC) + LI.FI (tBTC→USDT0) + Symbiosis
 		if (fromAsset === 'rbtc' && toAsset === 'usdt0-arb') {
-			builders.set('boltz', () => this.buildBoltzRoute(amountSats));
+			builders.set('boltz+lifi', () => this.buildBoltzLifiUsdtFromRbtcRoute(amountSats));
 			builders.set('lifi', () => this.buildLifiRoute(amountSats));
+			builders.set('symbiosis', () =>
+				this.buildSymbiosisRoute(
+					amountSats,
+					'RBTC',
+					'rsk',
+					CHAIN_ID_RSK,
+					NATIVE_TOKEN,
+					18,
+					'USDT0',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					USDT0_ARB_ADDR,
+					6
+				)
+			);
 		}
 
-		// USDT0 → rBTC: Boltz linked swap (via Lightning) + LI.FI reverse
+		// USDT0 → rBTC: Boltz linked swap (via Lightning) + LI.FI reverse + Symbiosis
 		if (fromAsset === 'usdt0-arb' && toAsset === 'rbtc') {
 			builders.set('boltz', () => this.buildBoltzLinkedRoute(amountSats));
 			builders.set('lifi', () => this.buildReverseLifiRoute(amountSats));
+			builders.set('symbiosis', () =>
+				this.buildSymbiosisRoute(
+					amountSats,
+					'USDT0',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					USDT0_ARB_ADDR,
+					6,
+					'RBTC',
+					'rsk',
+					CHAIN_ID_RSK,
+					NATIVE_TOKEN,
+					18
+				)
+			);
+		}
+
+		// wBTC → rBTC: LI.FI + Symbiosis cross-chain (Arbitrum→RSK)
+		if (fromAsset === 'wbtc-arb' && toAsset === 'rbtc-rsk') {
+			builders.set('lifi', () => this.buildLifiWbtcToRbtcRoute(amountSats));
+			builders.set('symbiosis', () =>
+				this.buildSymbiosisRoute(
+					amountSats,
+					'WBTC',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					WBTC_ARB_ADDR,
+					8,
+					'RBTC',
+					'rsk',
+					CHAIN_ID_RSK,
+					NATIVE_TOKEN,
+					18
+				)
+			);
+		}
+
+		// wBTC → USDT0: LI.FI + Symbiosis same-chain on Arbitrum
+		if (fromAsset === 'wbtc-arb' && toAsset === 'usdt0-arb') {
+			builders.set('lifi', () =>
+				this.buildLifiSameChainRoute(amountSats, WBTC_ARB_ADDR, USDT0_ARB_ADDR, 8, 'WBTC', 'USDT0')
+			);
+			builders.set('symbiosis', () =>
+				this.buildSymbiosisRoute(
+					amountSats,
+					'WBTC',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					WBTC_ARB_ADDR,
+					8,
+					'USDT0',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					USDT0_ARB_ADDR,
+					6
+				)
+			);
+		}
+
+		// USDT0 → wBTC: LI.FI + Symbiosis same-chain on Arbitrum
+		if (fromAsset === 'usdt0-arb' && toAsset === 'wbtc-arb') {
+			builders.set('lifi', () =>
+				this.buildLifiSameChainRoute(amountSats, USDT0_ARB_ADDR, WBTC_ARB_ADDR, 8, 'USDT0', 'WBTC')
+			);
+			builders.set('symbiosis', () =>
+				this.buildSymbiosisRoute(
+					amountSats,
+					'USDT0',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					USDT0_ARB_ADDR,
+					6,
+					'WBTC',
+					'arbitrum',
+					CHAIN_ID_ARB,
+					WBTC_ARB_ADDR,
+					8
+				)
+			);
+		}
+
+		// BTC on-chain → rBTC: Boltz reverse swap
+		if (fromAsset === 'btc-onchain' && toAsset === 'rbtc-rsk') {
+			builders.set('boltz', () => this.buildBoltzReverseRoute(amountSats));
+		}
+
+		// BTC on-chain → USDT0: Boltz reverse (BTC→tBTC) + LI.FI (tBTC→USDT0 on Arb)
+		if (fromAsset === 'btc-onchain' && toAsset === 'usdt0-arb') {
+			builders.set('boltz+lifi', () => this.buildBoltzLifiUsdtRoute(amountSats));
+		}
+
+		// BTC on-chain → wBTC: Boltz reverse (BTC→tBTC) + LI.FI (tBTC→WBTC on Arb)
+		if (fromAsset === 'btc-onchain' && toAsset === 'wbtc-arb') {
+			builders.set('boltz+lifi', () => this.buildBoltzLifiWbtcFromBtcRoute(amountSats));
 		}
 
 		return this.pickBest(builders);
@@ -225,6 +339,8 @@ export class SmartRouter {
 			provider: 'boltz',
 			fromAsset: 'USDT0',
 			toAsset: 'rBTC',
+			fromChain: 'arbitrum',
+			toChain: 'rsk',
 			estimatedOutput: String(tbtcAmount),
 			totalFeeSats,
 			estimatedTimeMinutes: BOLTZ_TIME_MIN,
@@ -274,6 +390,8 @@ export class SmartRouter {
 				provider: 'boltz',
 				fromAsset: 'RBTC',
 				toAsset: 'WBTC',
+				fromChain: 'rsk',
+				toChain: 'arbitrum',
 				estimatedOutput: String(outputSats / 100_000_000),
 				totalFeeSats: boltzQuote.totalFeeSats,
 				estimatedTimeMinutes: BOLTZ_TIME_MIN,
@@ -293,6 +411,8 @@ export class SmartRouter {
 			provider: 'boltz+lifi',
 			fromAsset: 'RBTC',
 			toAsset: 'WBTC',
+			fromChain: 'rsk',
+			toChain: 'arbitrum',
 			estimatedOutput: String(lifiOutputSats / 100_000_000),
 			totalFeeSats,
 			estimatedTimeMinutes: BOLTZ_TIME_MIN + LIFI_TIME_MIN,
@@ -303,6 +423,368 @@ export class SmartRouter {
 				lifiFee: totalFeeSats - boltzQuote.totalFeeSats,
 				tbtcOutputSats,
 				wbtcOutputSats: lifiOutputSats
+			}
+		};
+	}
+
+	/**
+	 * 2-hop route: Boltz chain swap (RBTC→tBTC on Arbitrum) + LI.FI same-chain (tBTC→USDT0 on Arbitrum).
+	 * Same pattern as buildBoltzLifiWbtcRoute but targets USDT0 instead of WBTC.
+	 */
+	private async buildBoltzLifiUsdtFromRbtcRoute(amountSats: number): Promise<SmartRoute | null> {
+		// Step 1: Boltz RBTC→TBTC chain swap quote
+		const { data: boltzQuote, error: boltzErr } = await tryCatch(this.boltz.getQuote(amountSats));
+		if (boltzErr || !boltzQuote) {
+			if (boltzErr) debug.warn('Boltz quote failed for USDT0 route: %s', boltzErr.message);
+			return null;
+		}
+
+		// After Boltz chain swap, received tBTC = amountSats - boltzQuote.totalFeeSats
+		const tbtcOutputSats = Math.max(0, amountSats - boltzQuote.totalFeeSats);
+
+		// Step 2: LI.FI tBTC→USDT0 same-chain on Arbitrum
+		// tBTC has 18 decimals on Arbitrum, USDT0 has 6 decimals
+		const tbtcWei = String(BigInt(tbtcOutputSats) * BigInt(1e10)); // sats → wei (18 decimals)
+		const { data: lifiRoute, error: lifiErr } = await tryCatch(
+			lifiService.getQuote({
+				fromChain: CHAIN_ID_ARB,
+				toChain: CHAIN_ID_ARB,
+				fromToken: TBTC_ARB_ADDR,
+				toToken: USDT0_ARB_ADDR,
+				fromAmount: tbtcWei,
+				fromAddress: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+
+		if (lifiErr || !lifiRoute) {
+			if (lifiErr) debug.warn('LI.FI tBTC→USDT0 quote failed: %s', lifiErr.message);
+			// Return Boltz-only route with tBTC output if LI.FI fails
+			const outputSats = Math.max(0, amountSats - boltzQuote.totalFeeSats);
+			return {
+				provider: 'boltz+lifi',
+				fromAsset: 'RBTC',
+				toAsset: 'TBTC',
+				fromChain: 'rsk',
+				toChain: 'arbitrum',
+				estimatedOutput: String(outputSats / 100_000_000),
+				totalFeeSats: boltzQuote.totalFeeSats,
+				estimatedTimeMinutes: BOLTZ_TIME_MIN,
+				routeMetadata: { warning: 'LI.FI tBTC→USDT0 unavailable, output in tBTC', boltzQuote }
+			};
+		}
+
+		// LI.FI estimate.toAmount is USDT0 with 6 decimals
+		const rawUsdtOutput = lifiRoute.estimate?.toAmount ?? '0';
+		const lifiOutputSats = Math.round(Number(rawUsdtOutput)); // USDT0 6 dec → micro-USDT ≈ sats
+		const totalFeeSats = boltzQuote.totalFeeSats + Math.max(0, tbtcOutputSats - lifiOutputSats);
+
+		// Get gas cost from LI.FI
+		const gasCostWei = lifiRoute.estimate?.gasCosts?.[0]?.amount;
+
+		return {
+			provider: 'boltz+lifi',
+			fromAsset: 'RBTC',
+			toAsset: 'USDT0',
+			fromChain: 'rsk',
+			toChain: 'arbitrum',
+			estimatedOutput: (lifiOutputSats / 1_000_000).toFixed(2), // USDT0 in USD
+			totalFeeSats,
+			estimatedTimeMinutes: BOLTZ_TIME_MIN + LIFI_TIME_MIN,
+			gasCostWei,
+			feeCosts: lifiRoute.estimate?.feeCosts?.map((fc) => ({ name: fc.name, amount: fc.amount })),
+			routeMetadata: {
+				boltzFee: boltzQuote.totalFeeSats,
+				lifiFee: totalFeeSats - boltzQuote.totalFeeSats,
+				tbtcOutputSats,
+				usdt0OutputMicro: lifiOutputSats
+			}
+		};
+	}
+
+	/** wBTC (Arbitrum) → rBTC (RSK) via LI.FI cross-chain */
+	private async buildLifiWbtcToRbtcRoute(amountSats: number): Promise<SmartRoute | null> {
+		const amountWei = String(BigInt(amountSats) * SAT_TO_WEI); // WBTC 8 dec → sats, then to wei for LI.FI
+		const { data: route, error } = await tryCatch(
+			lifiService.getQuote({
+				fromChain: CHAIN_ID_ARB,
+				toChain: CHAIN_ID_RSK,
+				fromToken: WBTC_ARB_ADDR,
+				toToken: NATIVE_TOKEN,
+				fromAmount: amountWei,
+				fromAddress: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+		if (error || !route) {
+			if (error) debug.warn('LI.FI WBTC→RBTC failed: %s', error.message);
+			return null;
+		}
+		return lifiQuoteToSmartRoute(route, 'WBTC', 'rBTC', 1e10);
+	}
+
+	/** Same-chain LI.FI swap on Arbitrum (WBTC↔USDT0) */
+	private async buildLifiSameChainRoute(
+		amountSats: number,
+		fromToken: string,
+		toToken: string,
+		outputDecimals: number,
+		fromAsset: string,
+		toAsset: string
+	): Promise<SmartRoute | null> {
+		// Input in sats. For WBTC (8 dec) sats = smallest unit. For USDT0 (6 dec) convert sats → USDT0 units.
+		const isFromWbtc = fromToken === WBTC_ARB_ADDR;
+		const fromAmount = isFromWbtc
+			? String(BigInt(amountSats)) // WBTC sats = smallest unit
+			: String(BigInt(Math.round((amountSats / 100_000_000) * 1_000_000))); // sats → USDT0 (6 dec)
+
+		const { data: route, error } = await tryCatch(
+			lifiService.getQuote({
+				fromChain: CHAIN_ID_ARB,
+				toChain: CHAIN_ID_ARB,
+				fromToken,
+				toToken,
+				fromAmount,
+				fromAddress: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+		if (error || !route) {
+			if (error) debug.warn('LI.FI same-chain %s→%s failed: %s', fromAsset, toAsset, error.message);
+			return null;
+		}
+		const divisor = outputDecimals === 8 ? 1e8 : 1e6;
+		return lifiQuoteToSmartRoute(route, fromAsset, toAsset, divisor);
+	}
+
+	/** BTC on-chain → rBTC via Boltz reverse swap */
+	private async buildBoltzReverseRoute(amountSats: number): Promise<SmartRoute | null> {
+		const feeSats = await fetchReverseFee();
+		if (feeSats <= 0) return null;
+		const outputSats = Math.max(0, amountSats - feeSats);
+		return {
+			provider: 'boltz',
+			fromAsset: 'BTC',
+			toAsset: 'RBTC',
+			fromChain: 'bitcoin',
+			toChain: 'rsk',
+			estimatedOutput: String(outputSats / 100_000_000),
+			totalFeeSats: feeSats,
+			estimatedTimeMinutes: 10, // Bitcoin confirmation + Boltz claim
+			routeMetadata: { reverseFee: feeSats, outputSats }
+		};
+	}
+
+	/** BTC on-chain → USDT0: Boltz reverse (BTC→tBTC) + LI.FI (tBTC→USDT0 on Arbitrum) */
+	private async buildBoltzLifiUsdtRoute(amountSats: number): Promise<SmartRoute | null> {
+		const feeSats = await fetchReverseFee();
+		if (feeSats <= 0) return null;
+		const tbtcOutputSats = Math.max(0, amountSats - feeSats);
+
+		// LI.FI tBTC→USDT0 same-chain on Arbitrum
+		const tbtcWei = String(BigInt(tbtcOutputSats) * SAT_TO_WEI);
+		const { data: lifiRoute, error: lifiErr } = await tryCatch(
+			lifiService.getQuote({
+				fromChain: CHAIN_ID_ARB,
+				toChain: CHAIN_ID_ARB,
+				fromToken: TBTC_ARB_ADDR,
+				toToken: USDT0_ARB_ADDR,
+				fromAmount: tbtcWei,
+				fromAddress: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+
+		if (lifiErr || !lifiRoute) {
+			if (lifiErr) debug.warn('LI.FI tBTC→USDT0 failed: %s', lifiErr.message);
+			// Boltz-only fallback: output is tBTC (not USDT0)
+			return {
+				provider: 'boltz',
+				fromAsset: 'BTC',
+				toAsset: 'TBTC',
+				fromChain: 'bitcoin',
+				toChain: 'arbitrum',
+				estimatedOutput: String(tbtcOutputSats / 100_000_000),
+				totalFeeSats: feeSats,
+				estimatedTimeMinutes: 10,
+				routeMetadata: { warning: 'LI.FI unavailable, output in tBTC', reverseFee: feeSats }
+			};
+		}
+
+		const rawUsdtOutput = lifiRoute.estimate?.toAmount ?? '0';
+		const lifiOutputUsdt = Number(rawUsdtOutput) / 1_000_000; // 6 decimals
+		// Approximate USDT0→sats conversion (USDT0 ≈ $1, use conservative BTC price)
+		const approxBtcPrice = 73_000; // fallback; live price used in display layer
+		const lifiOutputSats = Math.round(liviOutputUsdt * (100_000_000 / approxBtcPrice));
+		const lifiFeeSats = Math.max(0, tbtcOutputSats - lifiOutputSats);
+		const totalFee = feeSats + lifiFeeSats;
+		const gasCostWei = lifiRoute.estimate?.gasCosts?.[0]?.amount;
+
+		return {
+			provider: 'boltz+lifi',
+			fromAsset: 'BTC',
+			toAsset: 'USDT0',
+			fromChain: 'bitcoin',
+			toChain: 'arbitrum',
+			estimatedOutput: lifiOutputUsdt.toFixed(2),
+			totalFeeSats: totalFee,
+			estimatedTimeMinutes: 10 + LIFI_TIME_MIN,
+			gasCostWei,
+			feeCosts: lifiRoute.estimate?.feeCosts?.map((fc) => ({ name: fc.name, amount: fc.amount })),
+			routeMetadata: { boltzFee: feeSats, lifiFee: lifiFeeSats, tbtcOutputSats }
+		};
+	}
+
+	/** BTC on-chain → wBTC: Boltz reverse (BTC→tBTC) + LI.FI (tBTC→WBTC on Arbitrum) */
+	private async buildBoltzLifiWbtcFromBtcRoute(amountSats: number): Promise<SmartRoute | null> {
+		const feeSats = await fetchReverseFee();
+		if (feeSats <= 0) return null;
+		const tbtcOutputSats = Math.max(0, amountSats - feeSats);
+
+		// LI.FI tBTC→WBTC same-chain on Arbitrum
+		const tbtcWei = String(BigInt(tbtcOutputSats) * SAT_TO_WEI);
+		const { data: lifiRoute, error: lifiErr } = await tryCatch(
+			lifiService.getQuote({
+				fromChain: CHAIN_ID_ARB,
+				toChain: CHAIN_ID_ARB,
+				fromToken: TBTC_ARB_ADDR,
+				toToken: WBTC_ARB_ADDR,
+				fromAmount: tbtcWei,
+				fromAddress: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+
+		if (lifiErr || !lifiRoute) {
+			if (lifiErr) debug.warn('LI.FI tBTC→WBTC failed: %s', lifiErr.message);
+			return {
+				provider: 'boltz',
+				fromAsset: 'BTC',
+				toAsset: 'TBTC',
+				fromChain: 'bitcoin',
+				toChain: 'arbitrum',
+				estimatedOutput: String(tbtcOutputSats / 100_000_000),
+				totalFeeSats: feeSats,
+				estimatedTimeMinutes: 10,
+				routeMetadata: { warning: 'LI.FI unavailable, output in tBTC', reverseFee: feeSats }
+			};
+		}
+
+		const rawWbtcOutput = lifiRoute.estimate?.toAmount ?? '0';
+		const lifiOutputSats = Math.round(Number(rawWbtcOutput)); // WBTC 8 dec = sats
+		const lifiFeeSats = Math.max(0, tbtcOutputSats - lifiOutputSats);
+		const totalFee = feeSats + lifiFeeSats;
+		const gasCostWei = lifiRoute.estimate?.gasCosts?.[0]?.amount;
+
+		return {
+			provider: 'boltz+lifi',
+			fromAsset: 'BTC',
+			toAsset: 'WBTC',
+			fromChain: 'bitcoin',
+			toChain: 'arbitrum',
+			estimatedOutput: String(lifiOutputSats / 100_000_000),
+			totalFeeSats: totalFee,
+			estimatedTimeMinutes: 10 + LIFI_TIME_MIN,
+			gasCostWei,
+			feeCosts: lifiRoute.estimate?.feeCosts?.map((fc) => ({ name: fc.name, amount: fc.amount })),
+			routeMetadata: {
+				boltzFee: feeSats,
+				lifiFee: lifiFeeSats,
+				tbtcOutputSats,
+				wbtcOutputSats: lifiOutputSats
+			}
+		};
+	}
+
+	/**
+	 * Generic Symbiosis cross-chain quote builder.
+	 * Fetches a live quote from Symbiosis API and converts to SmartRoute.
+	 * Works for any EVM↔EVM pair (RSK, Arbitrum, BSC, etc.) including same-chain.
+	 */
+	private async buildSymbiosisRoute(
+		amountSats: number,
+		fromAsset: string,
+		fromChain: string,
+		fromChainId: number,
+		fromTokenAddr: string,
+		fromDecimals: number,
+		toAsset: string,
+		toChain: string,
+		toChainId: number,
+		toTokenAddr: string,
+		toDecimals: number
+	): Promise<SmartRoute | null> {
+		// Convert sats to input token's smallest unit
+		let fromAmount: string;
+		if (fromDecimals === 18) {
+			// RBTC: sats → wei (×1e10)
+			fromAmount = (BigInt(amountSats) * BigInt(1e10)).toString();
+		} else if (fromDecimals === 8) {
+			// WBTC: sats already = smallest unit
+			fromAmount = String(amountSats);
+		} else {
+			// USDT0 (6 dec): sats → USDT units (sats/1e8 * 1e6 = sats/100)
+			fromAmount = String(Math.round((amountSats / 100_000_000) * Math.pow(10, fromDecimals)));
+		}
+
+		const { data: quote, error } = await tryCatch(
+			symbiosisService.getQuote({
+				tokenAmountIn: {
+					address: fromTokenAddr,
+					chainId: fromChainId,
+					symbol: fromAsset,
+					decimals: fromDecimals,
+					amount: fromAmount
+				},
+				tokenOut: {
+					address: toTokenAddr,
+					chainId: toChainId,
+					symbol: toAsset,
+					decimals: toDecimals
+				},
+				from: LIFI_QUOTE_FALLBACK_ADDRESS,
+				to: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+
+		if (error || !quote) {
+			if (error) debug.warn('Symbiosis %s→%s failed: %s', fromAsset, toAsset, error.message);
+			return null;
+		}
+
+		// Parse output amount
+		const rawOutput = quote.tokenAmountOut?.amount ?? '0';
+		let outputHuman: string;
+		let outputSats: number;
+		if (toDecimals === 18) {
+			// Output in wei → convert to BTC (÷1e10 for sats-equivalent)
+			outputSats = Math.round(Number(rawOutput) / 1e10);
+			outputHuman = (outputSats / 100_000_000).toFixed(6);
+		} else if (toDecimals === 8) {
+			// WBTC: output in smallest unit = sats
+			outputSats = Number(rawOutput);
+			outputHuman = (outputSats / 100_000_000).toFixed(6);
+		} else {
+			// USDT0 (6 dec): output in micro-USDT
+			const usdtAmount = Number(rawOutput) / Math.pow(10, toDecimals);
+			outputSats = 0; // Can't convert to sats without price
+			outputHuman = usdtAmount.toFixed(2);
+		}
+
+		// Fee estimate: input sats - output sats (approximate)
+		const feeSats = Math.max(0, amountSats - outputSats);
+
+		// Gas cost from tx data (if available)
+		const gasLimit = quote.tx?.gasLimit;
+
+		return {
+			provider: 'symbiosis',
+			fromAsset,
+			toAsset,
+			estimatedOutput: outputHuman,
+			totalFeeSats: feeSats,
+			estimatedTimeMinutes: quote.estimatedTime ? Math.round(quote.estimatedTime / 60) : 3,
+			routeMetadata: {
+				symbiosisFee: quote.fee,
+				outputSats,
+				gasLimit,
+				fromChain,
+				toChain
 			}
 		};
 	}
@@ -333,6 +815,8 @@ function boltzQuoteToRoute(quote: BoltzQuote, amountSats: number): SmartRoute {
 		provider: 'boltz',
 		fromAsset: quote.fromAsset,
 		toAsset: quote.toAsset,
+		// Don't set fromChain/toChain here — boltzQuoteToRoute doesn't know the target chain.
+		// The SmartRouter callers set them based on the pair context.
 		estimatedOutput: String(outputSats / 100_000_000),
 		totalFeeSats: quote.totalFeeSats,
 		estimatedTimeMinutes: BOLTZ_TIME_MIN,

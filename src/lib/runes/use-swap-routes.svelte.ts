@@ -105,6 +105,9 @@ export interface UseSwapRoutes {
 	networkFeeSats: number;
 	activeRouteForCalc: Route | null; // null when smart present
 
+	/** Minimum swap amount in sats (from Boltz limits or default for Boltz-eligible pairs). 0 = no minimum. */
+	minSwapSats: number;
+
 	// For execute (startSwapChain expects Route; special-cases preserved + Smart conversion per design)
 	getExecutableRoute(): Route | null;
 
@@ -391,6 +394,26 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
 	});
 
+	// minSwapSats — minimum swap amount from Boltz limits (or default for Boltz-eligible pairs).
+	// 0 means no minimum applies (direct transfers, LI.FI-only routes).
+	const BOLTZ_DEFAULT_MIN_SATS = 2500;
+	const minSwapSats = $derived.by(() => {
+		// From smart route metadata (Boltz API limits)
+		if (smartRoute?.routeMetadata?.limits) {
+			const limits = smartRoute.routeMetadata.limits as { min?: number; max?: number };
+			if (typeof limits.min === 'number' && limits.min > 0) return Math.ceil(limits.min);
+		}
+		// Default for Boltz-eligible pairs (rBTC → non-rbtc-rsk destinations)
+		if (currentSourceType === 'rbtc' && currentDestType !== 'rbtc-rsk') {
+			return BOLTZ_DEFAULT_MIN_SATS;
+		}
+		// BTC on-chain also goes through Boltz (reverse swap) — same minimum
+		if (currentSourceType === 'btc-onchain' && currentDestType !== 'btc-onchain') {
+			return BOLTZ_DEFAULT_MIN_SATS;
+		}
+		return 0;
+	});
+
 	// estimatedOutput (exact smart prefer + boltz conv + fallback math from SwapForm:751-774)
 	const estimatedOutput = $derived.by(() => {
 		if (smartRoute?.estimatedOutput && smartRoute.estimatedOutput !== '0') {
@@ -426,6 +449,172 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	function getExecutableRoute(): Route | null {
 		const src = opts.getSourceType(); // fresh read
 		const dst = opts.getDestType?.(); // fresh read
+
+		d.log(
+			'getExecutableRoute: src=%s dst=%s smartRoute=%s asyncRoutes=%d',
+			src,
+			dst,
+			smartRoute?.provider ?? 'null',
+			asyncRouteResult.routes.length
+		);
+
+		// wBTC → rBTC: LI.FI cross-chain
+		if (src === 'wbtc-arb' && dst === 'rbtc-rsk') {
+			return {
+				id: 'wbtc-to-rbtc-via-lifi',
+				label: 'LI.FI',
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: 'WBTC',
+						fromChain: 'arbitrum',
+						toAsset: 'RBTC',
+						toChain: 'rsk',
+						feePercent: 0.3,
+						estimatedTimeMin: 2,
+						estimatedTimeMax: 5
+					}
+				],
+				totalFeePercent: 0.3,
+				estimatedTime: '2-5 min',
+				recommended: true
+			};
+		}
+
+		// wBTC → USDT0: LI.FI same-chain on Arbitrum
+		if (src === 'wbtc-arb' && dst === 'usdt0-arb') {
+			return {
+				id: 'wbtc-to-usdt0-via-lifi',
+				label: 'LI.FI',
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: 'WBTC',
+						fromChain: 'arbitrum',
+						toAsset: 'USDT0',
+						toChain: 'arbitrum',
+						feePercent: 0.3,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.3,
+				estimatedTime: '1-2 min',
+				recommended: true
+			};
+		}
+
+		// USDT0 → wBTC: LI.FI same-chain on Arbitrum
+		if (src === 'usdt0-arb' && dst === 'wbtc-arb') {
+			return {
+				id: 'usdt0-to-wbtc-via-lifi',
+				label: 'LI.FI',
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: 'USDT0',
+						fromChain: 'arbitrum',
+						toAsset: 'WBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.3,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.3,
+				estimatedTime: '1-2 min',
+				recommended: true
+			};
+		}
+
+		// BTC on-chain → rBTC: Boltz reverse swap
+		if (src === 'btc-onchain' && dst === 'rbtc-rsk') {
+			return {
+				id: 'btc-to-rbtc-via-boltz',
+				label: 'Boltz',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'RBTC',
+						toChain: 'rsk',
+						feePercent: 0.25,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					}
+				],
+				totalFeePercent: 0.25,
+				estimatedTime: '10-30 min',
+				recommended: true
+			};
+		}
+
+		// BTC on-chain → USDT0: Boltz reverse + LI.FI
+		if (src === 'btc-onchain' && dst === 'usdt0-arb') {
+			return {
+				id: 'btc-to-usdt0-via-boltz-lifi',
+				label: 'Boltz → LI.FI',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.25,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'lifi',
+						fromAsset: 'TBTC',
+						fromChain: 'arbitrum',
+						toAsset: 'USDT0',
+						toChain: 'arbitrum',
+						feePercent: 0.3,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 5
+					}
+				],
+				totalFeePercent: 0.55,
+				estimatedTime: '11-35 min',
+				recommended: true
+			};
+		}
+
+		// BTC on-chain → wBTC: Boltz reverse + LI.FI
+		if (src === 'btc-onchain' && dst === 'wbtc-arb') {
+			return {
+				id: 'btc-to-wbtc-via-boltz-lifi',
+				label: 'Boltz → LI.FI',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: 'BTC',
+						fromChain: 'bitcoin',
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.25,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'lifi',
+						fromAsset: 'TBTC',
+						fromChain: 'arbitrum',
+						toAsset: 'WBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.5,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 5
+					}
+				],
+				totalFeePercent: 0.75,
+				estimatedTime: '11-35 min',
+				recommended: true
+			};
+		}
 
 		// wBTC on Arbitrum from rBTC: 2-hop route via Boltz (RBTC→tBTC) + LI.FI (tBTC→WBTC)
 		if (dst === 'wbtc-arb' && src === 'rbtc') {
@@ -484,16 +673,72 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		}
 
 		if (smartRoute) {
-			return smartToRoute(smartRoute);
+			const r = smartToRoute(smartRoute);
+			d.log('getExecutableRoute: using smartRoute → %s hops=%d', r.id, r.hops.length);
+			return r;
 		}
-		return asyncRouteResult.routes[0] ?? null;
+		const fallback = asyncRouteResult.routes[0] ?? null;
+		d.log('getExecutableRoute: fallback → %s', fallback?.id ?? 'null');
+		return fallback;
 	}
 
 	// Conversion helper (for getExecutableRoute when Smart present; enables consistent Route shape for startSwapChain)
-	function smartToRoute(s: SmartRoute): Route {
+	function smartToRoute(s: SmartRoute, _src?: string, _dst?: string): Route {
 		const provider = s.provider;
+
+		// Use chains from the SmartRoute if set by the builder. Otherwise derive from asset names.
+		function deriveChain(asset: string, fallback: string): string {
+			const a = (asset || '').toUpperCase();
+			if (a === 'RBTC') return 'rsk';
+			if (a === 'BTC') return 'bitcoin';
+			if (a === 'TBTC' || a === 'USDT0' || a === 'WBTC') return 'arbitrum';
+			return fallback;
+		}
+
+		const fromChain = s.fromChain ?? deriveChain(s.fromAsset, 'rsk');
+		const toChain = s.toChain ?? deriveChain(s.toAsset, 'rsk');
+
+		// boltz+lifi is a 2-hop route: Boltz chain swap (RBTC→tBTC on Arbitrum) + LI.FI same-chain (tBTC→final asset).
+		// The intermediate asset is always TBTC on Arbitrum.
+		if (provider === 'boltz+lifi') {
+			return {
+				id: `smart-${provider}`,
+				label: 'Boltz + LI.FI',
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: s.fromAsset,
+						fromChain,
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 5
+					},
+					{
+						service: 'lifi',
+						fromAsset: 'TBTC',
+						fromChain: 'arbitrum',
+						toAsset: s.toAsset,
+						toChain: 'arbitrum',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 5,
+						gasCostWei: s.gasCostWei,
+						feeCosts: s.feeCosts
+					}
+				],
+				totalFeePercent: 0,
+				estimatedTime: `${s.estimatedTimeMinutes || 5} min`,
+				recommended: true,
+				gasCostWei: s.gasCostWei,
+				feeCosts: s.feeCosts
+			};
+		}
+
 		const service: RouteHop['service'] =
-			provider === 'direct' ? 'direct' : (provider as RouteHop['service']); // lifi/boltz/etc map directly; paraswap etc treated as-is or adapted by caller
+			provider === 'direct' ? 'direct' : (provider as RouteHop['service']);
+
 		return {
 			id: `smart-${provider}`,
 			label: provider.charAt(0).toUpperCase() + provider.slice(1),
@@ -501,10 +746,10 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 				{
 					service,
 					fromAsset: s.fromAsset,
-					fromChain: provider === 'boltz' ? 'rsk' : 'arbitrum',
+					fromChain,
 					toAsset: s.toAsset,
-					toChain: provider === 'boltz' ? 'rsk' : 'arbitrum',
-					feePercent: 0, // Smart expresses via totalFeeSats (display/calc elsewhere)
+					toChain,
+					feePercent: 0,
 					estimatedTimeMin: s.estimatedTimeMinutes || 1,
 					estimatedTimeMax: (s.estimatedTimeMinutes || 1) + 1,
 					gasCostWei: s.gasCostWei,
@@ -565,6 +810,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		},
 		get activeRouteForCalc() {
 			return activeRouteForCalc;
+		},
+		get minSwapSats() {
+			return minSwapSats;
 		},
 
 		getExecutableRoute,

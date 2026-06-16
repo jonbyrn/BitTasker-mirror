@@ -229,8 +229,10 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 			if (swapPercent !== 0) swapPercent = 0;
 			return;
 		}
-		const pct = Math.round((units / bal) * 100);
-		if (pct !== swapPercent && pct >= 0 && pct <= 100) {
+		const rawPct = Math.round((units / bal) * 100);
+		// Clamp to 100 — when user enters more than balance, slider shows 100%
+		const pct = Math.min(100, Math.max(0, rawPct));
+		if (pct !== swapPercent) {
 			swapPercent = pct;
 		}
 	});
