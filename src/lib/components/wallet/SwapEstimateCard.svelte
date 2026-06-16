@@ -26,6 +26,8 @@
 		isDirectTransfer?: boolean;
 		variant?: SwapEstimateVariant;
 		loading?: boolean;
+		/** When true, applies error border color to the card (e.g. amount below minimum). */
+		belowMinimum?: boolean;
 	}
 
 	let {
@@ -37,7 +39,8 @@
 		feePercent,
 		isDirectTransfer = false,
 		variant = 'form',
-		loading = false
+		loading = false,
+		belowMinimum = false
 	}: SwapEstimateCardProps = $props();
 
 	/** True when the user hasn't entered an amount yet (form variant only). */
@@ -46,7 +49,11 @@
 	const sk = 'bg-base-300 animate-pulse rounded inline-block';
 </script>
 
-<div class="bg-primary/5 border-primary/20 flex flex-col gap-2 rounded-xl border-2 p-3 sm:p-4">
+<div
+	class="flex flex-col gap-2 rounded-xl border-2 p-3 transition-colors duration-300 sm:p-4 {belowMinimum
+		? 'bg-error/5 border-error/40'
+		: 'bg-primary/5 border-primary/20'}"
+>
 	{#if variant === 'form'}
 		<!-- Total Sent row -->
 		<div class="flex items-center justify-between text-sm">
@@ -60,21 +67,23 @@
 			{/if}
 		</div>
 
-		<!-- Fee row (hidden for direct transfers) -->
-		{#if !isDirectTransfer}
-			<div class="border-base-200 border-t pt-2">
-				<div class="text-base-content/60 flex items-center justify-between text-xs">
-					<span>{$t('wallet.swap.fee_percent') || 'Fee'}</span>
-					{#if loading}
-						<span class="{sk} h-3.5 w-20"></span>
-					{:else if isEmpty}
-						<span class="text-base-content/30 tabular-nums">—</span>
-					{:else}
-						<span class="tabular-nums">{feeDisplay || '—'}</span>
-					{/if}
-				</div>
+		<!-- Fee row -->
+		<div class="border-base-200 border-t pt-2">
+			<div class="text-base-content/60 flex items-center justify-between text-xs">
+				<span
+					>{isDirectTransfer && (!feePercent || feePercent === 0)
+						? $t('wallet.swap.network_fee') || 'Network fee'
+						: $t('wallet.swap.fee_percent') || 'Fee'}</span
+				>
+				{#if loading}
+					<span class="{sk} h-3.5 w-20"></span>
+				{:else if isEmpty}
+					<span class="text-base-content/30 tabular-nums">—</span>
+				{:else}
+					<span class="tabular-nums">{feeDisplay || '—'}</span>
+				{/if}
 			</div>
-		{/if}
+		</div>
 
 		<!-- You Receive row -->
 		<div class="border-base-200 flex justify-between border-t pt-2">

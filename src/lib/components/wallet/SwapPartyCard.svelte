@@ -1,45 +1,52 @@
 <script lang="ts">
 	/**
 	 * SwapPartyCard — Reusable source/dest summary card for swap confirm/success phases.
-	 * Extracts the duplicated card markup from SwapForm.svelte (confirm source/dest ~1492-1610, success ~1682-1766).
-	 *
-	 * Props per Phase 2 design in swapform-phase1-logic-extraction-design.md
+	 * Shows: asset icon, wallet icon, asset name, wallet info, amount.
+	 * Label ("You send"/"You get") is rendered ABOVE the card by the parent.
 	 */
+
+	import WalletIcon from './WalletIcon.svelte';
 
 	export type SwapPartyRole = 'source' | 'dest';
 	export type SwapPartyVariant = 'confirm' | 'success' | 'compact';
 
 	export interface SwapPartyCardProps {
 		role: SwapPartyRole;
-		walletInfo: string; // "BitTasker (0x1234...abcd)" or label only
-		asset: string; // 'rBTC' | 'USDT' | 'wBTC' | 'BTC'
-		icon: string; // asset icon url
-		amountDisplay: string; // pre-formatted primary e.g. "1,234 sats" or "$12.34"
-		usdEquivalent?: string; // optional "≈ $12.34" sub-line (for rbtc/wbtc)
-		chainBadgeIcon?: string; // e.g. "/images/chains/arbitrum.png" for USDT0/wbtc-arb
+		walletInfo: string;
+		asset: string;
+		icon: string;
+		amountDisplay: string;
+		usdEquivalent?: string;
+		chainBadgeIcon?: string;
 		isDirectTransfer?: boolean;
 		variant?: SwapPartyVariant;
 		loading?: boolean;
-		labelOverride?: string; // e.g. $t('wallet.swap.send_from')
+		walletType?: string;
+		walletAddress?: string;
+		assetName?: string;
+		/** When true, shows amountDisplay as primary (sats) and usdEquivalent as smaller dimmed text below. */
+		showSatsAbove?: boolean;
 	}
 
 	let {
-		role,
+		role: _role,
 		walletInfo,
 		asset,
 		icon,
 		amountDisplay,
 		usdEquivalent,
 		chainBadgeIcon,
-		isDirectTransfer = false,
+		isDirectTransfer: _isDirectTransfer = false,
 		variant = 'confirm',
 		loading = false,
-		labelOverride
+		walletType,
+		walletAddress,
+		assetName,
+		showSatsAbove = false
 	}: SwapPartyCardProps = $props();
 
 	const isConfirm = variant === 'confirm';
 	const isSuccess = variant === 'success';
-	const _isCompact = variant === 'compact';
 
 	const padding = isConfirm ? 'p-3 sm:p-4' : isSuccess ? 'p-4' : 'p-2';
 	const iconSize = isConfirm
@@ -52,18 +59,15 @@
 		: isSuccess
 			? 'text-xs sm:text-sm'
 			: 'text-xs';
-	const labelText =
-		labelOverride ||
-		(role === 'source'
-			? isDirectTransfer
-				? 'Send from'
-				: 'You send'
-			: isDirectTransfer
-				? 'Send to'
-				: 'You get');
+
+	function formatAddr(addr: string): string {
+		if (!addr || addr.length < 10) return '';
+		return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+	}
 </script>
 
 <div class="bg-base-200 flex items-center gap-3 rounded-xl {padding}" class:opacity-50={loading}>
+	<!-- Asset icon with chain badge -->
 	<div class="relative shrink-0">
 		<img src={icon} alt={asset} class="{iconSize} rounded-full" />
 		{#if chainBadgeIcon}
@@ -74,20 +78,42 @@
 			/>
 		{/if}
 	</div>
-	<div class="min-w-0 flex-1">
-		<div class="text-base-content/60 {textSize}">
-			{labelText}
+
+	<!-- Wallet icon + info -->
+	<div class="flex min-w-0 flex-1 items-center gap-2">
+		{#if walletType}
+			<WalletIcon {walletType} className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+		{/if}
+		<div class="min-w-0 flex-1">
+			<div class="truncate {textSize} font-medium">
+				{assetName || asset}
+			</div>
+			<div class="text-base-content/50 truncate text-xs">
+				{walletInfo}{#if walletAddress}
+					· {formatAddr(walletAddress)}{/if}
+			</div>
 		</div>
-		<div class="text-base-content/70 truncate {textSize} font-medium">{walletInfo}</div>
 	</div>
+
+	<!-- Amount -->
 	<div class="shrink-0 text-right">
-		<div class="font-bold {textSize}">
-			{amountDisplay}
-		</div>
-		{#if usdEquivalent}
-			<div class="text-base-content/50 {textSize}">
+		{#if showSatsAbove && usdEquivalent}
+			<!-- BTC variant: sats on top, USD smaller/dimmed below -->
+			<div class="font-bold {textSize}">
+				{amountDisplay}
+			</div>
+			<div class="text-base-content/40 text-xs">
 				{usdEquivalent}
 			</div>
+		{:else}
+			<div class="font-bold {textSize}">
+				{amountDisplay}
+			</div>
+			{#if usdEquivalent}
+				<div class="text-base-content/50 {textSize}">
+					{usdEquivalent}
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
