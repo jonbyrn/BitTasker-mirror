@@ -238,7 +238,8 @@
 			"mark_read_failed": "Error al marcar como leída",
 			"delete_failed": "Error al eliminar notificación",
 			"clear_failed": "Error al limpiar notificaciones",
-			"permission_failed": "Error al solicitar permisos de notificación"
+			"permission_failed": "Error al solicitar permisos de notificación",
+			"settings_error": "Error al guardar la configuración"
 		},
 		"success": {
 			"marked_read": "Notificación marcada como leída",

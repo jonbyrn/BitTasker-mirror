@@ -186,7 +186,18 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/contracts/actions');
 	}
 
-	if (['/hiring', '/create-task', '/wallet', '/messages', '/settings', '/create-service', '/task/', '/bids'].some(p => route.includes(p))) {
+	if (
+		[
+			'/hiring',
+			'/create-task',
+			'/wallet',
+			'/messages',
+			'/settings',
+			'/create-service',
+			'/task/',
+			'/bids'
+		].some((p) => route.includes(p))
+	) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
@@ -205,13 +216,6 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Load contracts actions namespace for contract-related components
 		namespaces.push('dashboard/contracts/actions');
 
-		if (route.includes('/profile')) {
-			namespaces.push(
-				'dashboard/profile/profile',
-				'dashboard/profile/personal',
-				'dashboard/profile/availability'
-			);
-		}
 		if (route.includes('/wallet')) {
 			// Already included above
 		}
@@ -238,9 +242,17 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
-	if (route.includes('/reviews')) {
-		namespaces.push('reviews');
+		if (route.includes('/reviews')) {
+			namespaces.push('reviews');
+		}
 	}
+
+	if (route.includes('/profile')) {
+		namespaces.push(
+			'dashboard/profile/profile',
+			'dashboard/profile/personal',
+			'dashboard/profile/availability'
+		);
 	}
 
 	if (route.includes('/services')) {

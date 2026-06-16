@@ -238,7 +238,8 @@
 			"mark_read_failed": "Failed to mark as read",
 			"delete_failed": "Failed to delete notification",
 			"clear_failed": "Failed to clear notifications",
-			"permission_failed": "Failed to request notification permissions"
+			"permission_failed": "Failed to request notification permissions",
+			"settings_error": "Error saving settings"
 		},
 		"success": {
 			"marked_read": "Notification marked as read",
