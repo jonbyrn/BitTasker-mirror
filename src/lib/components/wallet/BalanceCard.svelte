@@ -80,6 +80,9 @@
 	// wBTC (Arbitrum wrapped BTC) — always shown under Bitcoin accordion
 	let wbtcAsset = $derived($allAssets.find((a) => a.assetId === 'wbtc-arb'));
 
+	// tBTC (Arbitrum bridged BTC) — shown under Bitcoin accordion if balance > 0
+	let tbtcAsset = $derived($allAssets.find((a) => a.assetId === 'tbtc-arb'));
+
 	function showBalances() {
 		_internalHidden = false;
 		onToggleBalances?.(false);
@@ -262,11 +265,11 @@
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading}
-						<p class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
+						<p class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<div class="flex-1 text-lg font-bold text-white opacity-70 sm:text-xl">
+						<div class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
 							<div>{satsDisplay} {$t('wallet.sats')} {satsUsdInline}</div>
 							<div>
 								{usdtDisplay}
@@ -405,6 +408,30 @@
 								{/if}
 							</div>
 						</div>
+
+						<!-- Bitcoin (tBTC) on Arbitrum — only shown if balance > 0 -->
+						{#if tbtcAsset && tbtcAsset.balance > 0}
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-1.5 sm:gap-2">
+									<img src="/images/tokens/tbtc.png" alt="tBTC" class="h-4 w-4 sm:h-5 sm:w-5" />
+									<span class="text-sm font-medium sm:text-base">{$t('wallet.tbtc_arbitrum')}</span>
+								</div>
+								<div class="text-right">
+									{#if balancesHidden}
+										<div class="text-sm font-semibold sm:text-base">•••• Sats</div>
+										<div class="text-xs opacity-70">$••••</div>
+									{:else}
+										{@const tbtcSats = Math.floor(tbtcAsset.balance * 100_000_000)}
+										<div class="text-sm font-semibold sm:text-base">
+											{formatSats(tbtcSats)} Sats
+										</div>
+										{#if tbtcAsset.usdValue > 0}
+											<div class="text-xs opacity-70">${tbtcAsset.usdValue.toFixed(2)}</div>
+										{/if}
+									{/if}
+								</div>
+							</div>
+						{/if}
 					</div>
 				</div>
 			</div>

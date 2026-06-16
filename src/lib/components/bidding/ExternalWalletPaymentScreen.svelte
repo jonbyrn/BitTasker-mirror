@@ -7,13 +7,18 @@
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { getHandle } from '$lib/stores/connected-wallets.store';
 	import { EVMSignerNotAvailableError } from '$lib/services/external-wallet/types';
+	import {
+		encodeERC20Transfer,
+		getBSCUSDTContractAddress,
+		getChainIdForNetwork
+	} from '$lib/services/external-wallet/chain-utils';
 
 	// Props
 	const props = $props<{
 		bid: TaskBid;
 		taskTitle: string;
 		escrowDetails: {
-			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid';
+			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-bsc';
 			address: string;
 			qrCode: string;
 		};
@@ -47,6 +52,13 @@
 					icon: '/currency-symbols/LBTC.svg',
 					color: 'from-cyan-400 to-cyan-600',
 					network: $t('common.components.bidding.external_wallet.networks.liquid')
+				};
+			case 'usdt-bsc':
+				return {
+					name: $t('common.components.bidding.external_wallet.payment_methods.usdt'),
+					icon: '/currency-symbols/USDt.svg',
+					color: 'from-green-400 to-green-600',
+					network: $t('common.components.bidding.external_wallet.networks.bsc')
 				};
 			default:
 				return {
@@ -93,6 +105,24 @@
 				await handle.evmSigner.sendTransaction({
 					to: props.escrowDetails.address,
 					value: amountWei * 10n ** 10n, // sats → wei (RBTC 18 decimals)
+					chainId
+				});
+
+				appStore.showSuccessToast($t('common.components.bidding.external_wallet.payment_sent'));
+				isPaying = false;
+				props.onPaymentConfirmed();
+			} else if (props.escrowDetails.paymentMethod === 'usdt-bsc') {
+				const chainId = getChainIdForNetwork('usdt-bsc');
+				const usdtContract = getBSCUSDTContractAddress();
+				// Convert bid sats to USDT wei: sats * btcPrice / 1e8 * 1e18 = sats * btcPrice * 1e10
+				const usdtAmountWei = BigInt(
+					Math.round((props.bid.amount / 100_000_000) * props.btcPrice * 1e18)
+				);
+				const data = encodeERC20Transfer(props.escrowDetails.address, usdtAmountWei);
+				await handle.evmSigner.sendTransaction({
+					to: usdtContract,
+					value: 0n,
+					data,
 					chainId
 				});
 

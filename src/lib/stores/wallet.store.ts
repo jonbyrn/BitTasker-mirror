@@ -29,6 +29,7 @@ import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers, type JsonRpcProvider } from 'ethers';
 import {
 	processTransactions,
+	fetchArbitrumTransactions,
 	type ProcessedTransaction
 } from '$lib/utils/wallet/transactionHistory';
 import {
@@ -71,6 +72,9 @@ import { addBreadcrumb } from '@sentry/sveltekit';
 
 /** Arbitrum WBTC contract address (canonical). */
 export const WBTC_ARBITRUM_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
+
+/** Arbitrum tBTC contract address (canonical). */
+export const TBTC_ARBITRUM_ADDRESS = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
 
 // Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -677,6 +681,7 @@ async function loadAssets(): Promise<void> {
 			rskTokenBalances,
 			arbUsdt0Balance,
 			arbWbtcBalance,
+			arbTbtcBalance,
 			tier2Balances
 		] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch((err) => {
@@ -711,6 +716,11 @@ async function loadAssets(): Promise<void> {
 			walletAddress
 				? fetchWithRetry(() =>
 						tokenBalanceService.getArbitrumTokenBalance(walletAddress, WBTC_ARBITRUM_ADDRESS)
+					)
+				: Promise.resolve(null),
+			walletAddress
+				? fetchWithRetry(() =>
+						tokenBalanceService.getArbitrumTokenBalance(walletAddress, TBTC_ARBITRUM_ADDRESS, 18)
 					)
 				: Promise.resolve(null),
 			bscAddress ? fetchBuiltinWalletTier2Balances(bscAddress) : Promise.resolve({})
@@ -899,6 +909,28 @@ async function loadAssets(): Promise<void> {
 			});
 		}
 
+		// Process Arbitrum tBTC balance (only shown if balance > 0)
+		if (arbTbtcBalance) {
+			const tbtcFormatted = parseFloat(arbTbtcBalance.formattedBalance || '0');
+			if (tbtcFormatted > 0) {
+				const tbtcUsdValue = tbtcFormatted * (btcPriceResult ?? 0);
+				totalRbtc += tbtcFormatted;
+				totalUsd += tbtcUsdValue;
+
+				assets.push({
+					assetId: 'tbtc-arb',
+					name: 'Bitcoin (tBTC)',
+					ticker: 'TBTC',
+					precision: 18,
+					icon: '₿',
+					balance: tbtcFormatted,
+					formattedBalance: arbTbtcBalance.formattedBalance || '0',
+					network: 'BSC' as WalletAsset['network'],
+					usdValue: tbtcUsdValue
+				});
+			}
+		}
+
 		// Process tier 2 balances (USDT/USDC on BSC, Polygon, Arbitrum, etc.)
 		// Only tokens with balance > 0 are included in the returned map.
 		if (tier2Balances) {
@@ -1085,10 +1117,17 @@ async function loadTransactionsInternal(): Promise<void> {
 			manager.bscWallet.loadTransactions()
 		]);
 
+		// Fetch Arbitrum transactions directly from Blockscout (no wallet instance in manager)
+		const arbAddress = finalState.arb?.address;
+		const arbTxs = arbAddress ? await fetchArbitrumTransactions(arbAddress) : [];
+
 		// Process blockchain transactions
-		const [processedRskTxs, processedBscTxs] = await Promise.all([
-			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk'),
-			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc')
+		const [processedRskTxs, processedBscTxs, processedArbTxs] = await Promise.all([
+			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
+			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats),
+			arbTxs.length > 0
+				? processTransactions(arbTxs, arbAddress, 'arb', currentBalanceSats)
+				: Promise.resolve([])
 		]);
 
 		// Recover pending swaps only on init / explicit refresh — not every WS-driven reload
@@ -1402,8 +1441,11 @@ export async function sendRawTransaction(params: {
 }
 
 /**
- * Send a transaction on Arbitrum using the same wallet key.
- * Connects to Arbitrum RPC for the transaction.
+ * Send a transaction on Arbitrum.
+ *
+ * Tries the gasless relay first (via EIP-7702 smart account) when the gasless
+ * wallet is initialized. Falls back to a direct transaction signed by the
+ * built-in RSK wallet if the relay is unavailable or fails.
  */
 export async function sendArbitrumTransaction(params: {
 	to: string;
@@ -1411,6 +1453,39 @@ export async function sendArbitrumTransaction(params: {
 	value: string;
 	gasLimit?: number;
 }): Promise<string> {
+	// --- Gasless path (smart account via ERC-4337 relay) ---
+	try {
+		const { sendGaslessCalls, walletReady } = await import('$lib/wallet/gasless-store');
+		const { get } = await import('svelte/store');
+
+		if (get(walletReady)) {
+			const jwt = (typeof localStorage !== 'undefined' && localStorage.getItem('auth_token')) || '';
+			if (jwt) {
+				const { USDT0_ADDRESS, FEE_BUFFER_MIN } = await import('$lib/wallet/gasless.config');
+				const feeToken = USDT0_ADDRESS;
+				const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000_000_000_000_000n;
+
+				const callValue = params.value ? BigInt(params.value) : 0n;
+				const txHash = await sendGaslessCalls(
+					[{ to: params.to, data: params.data, value: callValue }],
+					feeToken,
+					feeBuffer,
+					jwt
+				);
+
+				await Promise.allSettled([loadAssets(), loadTransactions()]);
+				return txHash;
+			}
+		}
+	} catch (gaslessErr) {
+		// Gasless relay unavailable or failed — fall through to direct transaction
+		console.warn(
+			'[sendArbitrumTransaction] Gasless relay failed, falling back to direct tx:',
+			gaslessErr
+		);
+	}
+
+	// --- Direct path (RSK wallet signs and sends) ---
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
 	const arbProvider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');

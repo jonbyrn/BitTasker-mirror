@@ -245,11 +245,82 @@ class TokenBalanceService {
 	}
 
 	/**
+	 * Fetch a single ERC-20 token balance on Arbitrum via direct RPC call.
+	 *
+	 * @param address - Wallet address to query
+	 * @param tokenAddress - ERC-20 contract address on Arbitrum
+	 * @param decimals - Token decimals (fetched from contract if omitted)
+	 * @returns Balance object or null if zero / error
+	 */
+	async getArbitrumTokenBalance(
+		address: string,
+		tokenAddress: string,
+		decimals?: number
+	): Promise<{ balance: string; formattedBalance: string } | null> {
+		try {
+			const rpcUrl =
+				(import.meta.env.VITE_ARBITRUM_RPC_URL as string) || 'https://arb1.arbitrum.io/rpc';
+			const balanceOfData =
+				'0x70a08231' + '000000000000000000000000' + address.toLowerCase().slice(2);
+
+			let dec = decimals;
+			const calls: Promise<Response>[] = [
+				fetch(rpcUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_call',
+						params: [{ to: tokenAddress, data: balanceOfData }, 'latest'],
+						id: 1
+					}),
+					signal: AbortSignal.timeout(10_000)
+				})
+			];
+
+			if (dec === undefined) {
+				calls.push(
+					fetch(rpcUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							jsonrpc: '2.0',
+							method: 'eth_call',
+							params: [{ to: tokenAddress, data: '0x313ce567' }, 'latest'],
+							id: 2
+						}),
+						signal: AbortSignal.timeout(10_000)
+					})
+				);
+			}
+
+			const responses = await Promise.all(calls);
+			const balanceJson = await responses[0].json();
+			const hexBalance = balanceJson.result;
+			if (!hexBalance || hexBalance === '0x') return null;
+
+			const raw = BigInt(hexBalance);
+			if (raw === 0n) return null;
+
+			if (dec === undefined && responses[1]) {
+				const decimalsJson = await responses[1].json();
+				dec = decimalsJson.result ? parseInt(decimalsJson.result, 16) : 18;
+			}
+			dec ??= 18;
+
+			const formattedBalance = ethers.formatUnits(raw.toString(), dec);
+			return { balance: raw.toString(), formattedBalance };
+		} catch (e) {
+			console.warn('[TokenBalanceService] getArbitrumTokenBalance failed:', e);
+			return null;
+		}
+	}
+
+	/**
 	 * Clear balance cache for a specific address
 	 */
 	clearBalanceCache(address: string): void {
 		const normalizedAddress = address.toLowerCase();
-
 		this.tokenBalanceCache.delete(normalizedAddress);
 	}
 

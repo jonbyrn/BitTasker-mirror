@@ -20,7 +20,7 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
-	let networkFilter = $state<'all' | 'rsk' | 'bsc' | 'lightning'>('all');
+	let networkFilter = $state<'all' | 'rsk' | 'arb' | 'lightning'>('all');
 	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
@@ -57,9 +57,9 @@
 			isImage: true
 		},
 		{
-			id: 'bsc' as const,
-			label: $t('wallet.transaction.network.bsc'),
-			icon: '/images/chains/Binance-logo.svg',
+			id: 'arb' as const,
+			label: $t('wallet.transaction.network.arbitrum'),
+			icon: '/images/chains/arbitrum.png',
 			isImage: true
 		}
 	];
@@ -121,7 +121,7 @@
 		currentPage = 0;
 	}
 
-	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc' | 'lightning') {
+	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'arb' | 'lightning') {
 		networkFilter = networkId;
 		isNetworkDropdownOpen = false;
 		currentPage = 0;

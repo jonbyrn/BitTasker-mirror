@@ -40,7 +40,7 @@
 	// ---------------------------------------------------------------------------
 	let lastKnownWalletBalances: Record<
 		string,
-		{ rbtc: string; btc: string; usdt: string; wbtc: string }
+		{ rbtc: string; btc: string; usdt: string; wbtc: string; tbtc: string }
 	> = {};
 
 	$effect(() => {
@@ -50,15 +50,18 @@
 		const btcRaw = cur.btc?.raw ?? '';
 		const usdtRaw = cur['usdt0-arb']?.raw ?? '';
 		const wbtcRaw = cur.wbtc?.raw ?? '';
+		const tbtcRaw = cur['tbtc-arb']?.raw ?? '';
 		const sats = Number(rbtcRaw) + Number(btcRaw);
 		const usdt = Number(usdtRaw);
 		const wbtc = Number(wbtcRaw);
-		if (sats > 0 || usdt > 0 || wbtc > 0) {
+		const tbtc = Number(tbtcRaw);
+		if (sats > 0 || usdt > 0 || wbtc > 0 || tbtc > 0) {
 			lastKnownWalletBalances[wallet.id] = {
 				rbtc: rbtcRaw,
 				btc: btcRaw,
 				usdt: usdtRaw,
-				wbtc: wbtcRaw
+				wbtc: wbtcRaw,
+				tbtc: tbtcRaw
 			};
 		}
 	});
@@ -89,7 +92,7 @@
 		const raw = Number(bal?.raw ?? 0);
 		if (raw > 0) {
 			if (key === 'usdt0-arb' || key === 'usdt') return `$${(raw / 1e6).toFixed(2)}`;
-			if (key === 'wbtc') {
+			if (key === 'tbtc-arb') {
 				const sats = Math.round(raw / 10_000_000_000);
 				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 			}
@@ -102,7 +105,7 @@
 				if (key === 'usdt0-arb' || key === 'usdt') {
 					return `$${(cachedRaw / 1e6).toFixed(2)}`;
 				}
-				if (key === 'wbtc') {
+				if (key === 'tbtc-arb') {
 					const sats = Math.round(cachedRaw / 10_000_000_000);
 					return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 				}
@@ -110,7 +113,7 @@
 			}
 		}
 		if (key === 'usdt0-arb' || key === 'usdt') return '$0.00';
-		if (key === 'wbtc') return '0 Sats';
+		if (key === 'tbtc-arb') return '0 Sats';
 		return '0 Sats';
 	}
 
@@ -123,15 +126,20 @@
 		if (cur) {
 			const btcSats =
 				Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
+			const tbtcSats = Math.round(Number(cur['tbtc-arb']?.raw ?? 0) / 10_000_000_000);
 			const usdtRaw = Number(cur['usdt0-arb']?.raw ?? 0);
-			if (btcSats > 0 || usdtRaw > 0) {
-				return usdFormatter.format((btcSats / 100_000_000) * btcPrice.price + usdtRaw / 1e6);
+			if (btcSats > 0 || usdtRaw > 0 || tbtcSats > 0) {
+				return usdFormatter.format(
+					((btcSats + tbtcSats) / 100_000_000) * btcPrice.price + usdtRaw / 1e6
+				);
 			}
 		}
 		const cached = lastKnownWalletBalances[w.id];
 		if (cached) {
+			const tbtcSats = Math.round(Number(cached.tbtc ?? 0) / 10_000_000_000);
 			const usd =
-				((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc)) / 100_000_000) *
+				((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc) + tbtcSats) /
+					100_000_000) *
 					btcPrice.price +
 				Number(cached.usdt) / 1e6;
 			if (usd > 0) return usdFormatter.format(usd);
@@ -172,12 +180,7 @@
 			img: '/images/chains/arbitrum.png',
 			alt: 'WBTC',
 			condition: isEVM,
-			format: (v: unknown) => {
-				const bal = v as { formatted?: string; raw?: string };
-				const raw = Number(bal.raw ?? '0');
-				const sats = Math.round(raw / 10_000_000_000);
-				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
-			}
+			format: (v: unknown) => formatSatsWithUsd((v as { raw?: string | number })?.raw)
 		},
 		{
 			key: 'usdt0-arb',
@@ -186,6 +189,19 @@
 			alt: 'USDT0 (Arbitrum)',
 			condition: isEVM,
 			format: (v: unknown) => (v as { formatted?: string })?.formatted ?? '$0.00'
+		},
+		{
+			key: 'tbtc-arb',
+			label: $t('wallet.tbtc_arbitrum'),
+			img: '/images/tokens/tbtc.png',
+			alt: 'tBTC',
+			condition: isEVM && Number(wallet.balances?.['tbtc-arb']?.raw ?? 0) > 0,
+			format: (v: unknown) => {
+				const bal = v as { raw?: string };
+				const raw = Number(bal.raw ?? '0');
+				const sats = Math.round(raw / 10_000_000_000);
+				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
+			}
 		}
 	]);
 </script>

@@ -96,6 +96,7 @@
 		date: Date;
 		sats: number;
 		usd: number;
+		usdt0: number;
 	}
 
 	let dailyBalances = $state<DailyBalance[]>([]);
@@ -348,12 +349,16 @@
 		// Update dataset labels
 		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
+		const usdtLabel = $t('wallet.balance_chart.chart.usdt_label');
 
 		if (chartInstance.data.datasets[0]) {
 			chartInstance.data.datasets[0].label = bitcoinBalanceLabel;
 		}
 		if (chartInstance.data.datasets[1]) {
 			chartInstance.data.datasets[1].label = totalUsdLabel;
+		}
+		if (chartInstance.data.datasets[2]) {
+			chartInstance.data.datasets[2].label = usdtLabel;
 		}
 
 		chartInstance.update('none');
@@ -426,7 +431,7 @@
 
 								if (datasetLabel.includes('sats') || datasetLabel.includes('Sats')) {
 									return `${datasetLabel}: ${formatSats(Number(value))} ${tooltipSats}`;
-								} else if (datasetLabel.includes('USD')) {
+								} else if (datasetLabel.includes('USD') || datasetLabel.includes('$')) {
 									return `${datasetLabel}: $${Number(value).toFixed(2)}`;
 								}
 								return `${datasetLabel}: ${value}`;
@@ -534,13 +539,20 @@
 		}));
 
 		const usdChartData = dailyBalances.map((b) => ({
-			x: b.date, // Date object for time scale
-			y: b.usd
+			x: b.date,
+			y: b.usd + b.usdt0 // BTC USD + USDT0 on Arbitrum only
 		}));
 
 		// Get translations for dataset labels
 		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
+		const usdtLabel = $t('wallet.balance_chart.chart.usdt_label');
+
+		// USDT0 bars — real historical data from Arbitrum
+		const usdtChartData = dailyBalances.map((b) => ({
+			x: b.date,
+			y: b.usdt0
+		}));
 
 		chartInstance.data = {
 			datasets: [
@@ -550,6 +562,14 @@
 					data: chartData,
 					backgroundColor: '#FF9315', // Bitcoin orange
 					yAxisID: 'y1',
+					order: 3
+				},
+				{
+					type: 'bar',
+					label: usdtLabel,
+					data: usdtChartData,
+					backgroundColor: '#10b981', // Solid green
+					yAxisID: 'y',
 					order: 2
 				},
 				{

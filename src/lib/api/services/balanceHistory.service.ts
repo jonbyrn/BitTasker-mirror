@@ -15,6 +15,12 @@ import { Preferences } from '@capacitor/preferences';
 const USDT_RSK = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
 const DOC_RSK = '0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db';
 
+// Arbitrum token contract addresses
+const USDT0_ARB = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'; // 6 decimals
+const WBTC_ARB = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'; // 8 decimals
+const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
+const ARBITRUM_BLOCK_TIME_MS = 250; // ~250ms per block
+
 // ERC20 balanceOf ABI
 const erc20Interface = new ethers.Interface(['function balanceOf(address) view returns (uint256)']);
 
@@ -82,6 +88,119 @@ async function fetchStablecoinUsdAtBlock(
 		console.warn('[BalanceHistoryService] Failed to fetch stablecoin balances (non-archive RPC)');
 		return 0; // If historical call fails (non-archive node), stablecoins are assumed 0
 	}
+}
+
+/**
+ * Batch-fetch historical USDT0 and wBTC (Arbitrum) balances for multiple days.
+ *
+ * Strategy: fetch latest Arbitrum block once, estimate daily block numbers
+ * from it (Arbitrum ~250ms blocks), then batch all `eth_call` requests
+ * into a single JSON-RPC batch call. Total: 2 HTTP requests for any
+ * number of days × 2 tokens.
+ *
+ * @param address - The wallet address to query
+ * @param endOfDayTimestamps - Array of end-of-day timestamps (ms) to fetch balances for
+ * @returns Object with usdt0 (USD value) and wbtcSats (sats equivalent) Maps
+ */
+async function fetchArbitrumTokensBatch(
+	address: string,
+	endOfDayTimestamps: number[]
+): Promise<{ usdt0Map: Map<number, number>; wbtcSatsMap: Map<number, number> }> {
+	const usdt0Map = new Map<number, number>();
+	const wbtcSatsMap = new Map<number, number>();
+	if (endOfDayTimestamps.length === 0) return { usdt0Map, wbtcSatsMap };
+
+	try {
+		// Step 1: Fetch latest Arbitrum block (1 RPC call)
+		const latestResponse = await fetchWithTimeout(ARBITRUM_RPC, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_getBlockByNumber',
+				params: ['latest', false],
+				id: 1
+			})
+		});
+
+		if (!latestResponse.ok) {
+			console.warn('[BalanceHistoryService] Arbitrum RPC returned status', latestResponse.status);
+			return { usdt0Map, wbtcSatsMap };
+		}
+
+		const latestData = await latestResponse.json();
+		if (!latestData.result) return { usdt0Map, wbtcSatsMap };
+
+		const latestBlockNumber = parseInt(latestData.result.number, 16);
+		const latestTimestamp = parseInt(latestData.result.timestamp, 16) * 1000; // ms
+
+		// Step 2: Estimate block numbers for each day (pure math)
+		const estimatedBlocks = endOfDayTimestamps.map((targetTs) => {
+			if (targetTs >= latestTimestamp) return latestBlockNumber;
+			const timeDiffMs = latestTimestamp - targetTs;
+			const blocksAgo = Math.floor(timeDiffMs / ARBITRUM_BLOCK_TIME_MS);
+			return Math.max(0, latestBlockNumber - blocksAgo);
+		});
+
+		// Step 3: Build JSON-RPC batch — 2 eth_call per day (USDT0 + wBTC)
+		const balanceOfData = erc20Interface.encodeFunctionData('balanceOf', [address]);
+
+		const batchRequest: Array<{ jsonrpc: string; method: string; params: unknown[]; id: number }> =
+			[];
+		for (let i = 0; i < estimatedBlocks.length; i++) {
+			const hexBlock = '0x' + estimatedBlocks[i].toString(16);
+			// USDT0 call (id: i+1)
+			batchRequest.push({
+				jsonrpc: '2.0',
+				method: 'eth_call',
+				params: [{ to: USDT0_ARB, data: balanceOfData }, hexBlock],
+				id: i + 1
+			});
+			// wBTC call (id: i+1 + offset)
+			batchRequest.push({
+				jsonrpc: '2.0',
+				method: 'eth_call',
+				params: [{ to: WBTC_ARB, data: balanceOfData }, hexBlock],
+				id: i + 1 + endOfDayTimestamps.length
+			});
+		}
+
+		// Step 4: Send batch request (1 HTTP call for all days × 2 tokens)
+		const batchResponse = await fetchWithTimeout(ARBITRUM_RPC, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(batchRequest)
+		});
+
+		if (!batchResponse.ok) {
+			console.warn(
+				'[BalanceHistoryService] Arbitrum batch RPC returned status',
+				batchResponse.status
+			);
+			return { usdt0Map, wbtcSatsMap };
+		}
+
+		const batchResults: Array<{ id: number; result?: string }> = await batchResponse.json();
+
+		// Step 5: Parse results
+		const n = endOfDayTimestamps.length;
+		for (const item of batchResults) {
+			if (!item.result || item.result === '0x') continue;
+			const idx = item.id - 1;
+			if (idx >= 0 && idx < n) {
+				// USDT0: 6 decimals → USD value
+				usdt0Map.set(endOfDayTimestamps[idx], parseFloat(ethers.formatUnits(item.result, 6)));
+			} else if (idx >= n && idx < n * 2) {
+				// wBTC: 8 decimals → sats (same precision as BTC)
+				const wbtcSats = Number(BigInt(item.result) / BigInt(10_000_000_000));
+				wbtcSatsMap.set(endOfDayTimestamps[idx - n], wbtcSats);
+			}
+		}
+	} catch (err) {
+		console.warn('[BalanceHistoryService] Failed to fetch Arbitrum token balances:', err);
+	}
+
+	return { usdt0Map, wbtcSatsMap };
 }
 
 // Types
@@ -987,8 +1106,8 @@ class HistoricalBalanceService {
 		provider: ethers.Provider | null,
 		address: string | null,
 		currentSats: number = 0,
-		currentUsd: number = 0
-	): Promise<Array<{ date: Date; sats: number; usd: number }>> {
+		_currentUsd: number = 0
+	): Promise<Array<{ date: Date; sats: number; usd: number; usdt0: number }>> {
 		if (!address) {
 			return [];
 		}
@@ -1002,7 +1121,7 @@ class HistoricalBalanceService {
 			checksummed = address;
 		}
 
-		const results: Array<{ date: Date; sats: number; usd: number }> = [];
+		const results: Array<{ date: Date; sats: number; usd: number; usdt0: number }> = [];
 		const now = Date.now();
 		const endTimestamp = endDate.getTime();
 		const startTimestamp = startDate.getTime();
@@ -1015,32 +1134,46 @@ class HistoricalBalanceService {
 		// Limit to reasonable number of days (max 365)
 		const maxDays = Math.min(daysDiff, 365);
 
+		// Collect all end-of-day timestamps for Arbitrum batch fetch
+		const endOfDayTimestamps: number[] = [];
+		const targetDates: Date[] = [];
+		for (let i = 0; i <= maxDays; i++) {
+			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
+			targetDate.setHours(0, 0, 0, 0);
+			if (targetDate.getTime() > now) continue;
+			targetDates.push(targetDate);
+			const eod = new Date(targetDate);
+			eod.setHours(23, 59, 59, 999);
+			endOfDayTimestamps.push(eod.getTime());
+		}
+
+		// Fire Arbitrum token batch fetch in background (runs in parallel with RSK fetches)
+		const arbTokensPromise = fetchArbitrumTokensBatch(checksummed, endOfDayTimestamps);
+
 		// Get latest block for RPC fallback
 		const latestBlockPromise = this.getCachedLatestBlock(provider, 'rsk');
 
 		// RPC endpoint for direct balance queries
 		const rpcUrl = getRpcUrl(provider);
 
-		// Fetch balances for each day
+		// Fetch RSK balances for each day
 		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
 
-		for (let i = 0; i <= maxDays; i++) {
-			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
-			targetDate.setHours(0, 0, 0, 0);
-			const targetTimestamp = targetDate.getTime();
+		// Pre-fetch current BTC price for "today" USD calculation
+		// (avoids including BSC/RSK/wBTC balances in the chart's $ Value line)
+		const currentBtcPrice = await this.fetchHistoricalPrice(0);
 
-			// Skip future dates
-			if (targetTimestamp > now) {
-				continue;
-			}
+		for (const targetDate of targetDates) {
+			const targetTimestamp = targetDate.getTime();
 
 			// Check if this is today or in the future - use current balance
 			const isTodayOrFuture = targetTimestamp >= today.getTime();
 
 			if (isTodayOrFuture) {
-				// Use current total balance — already includes BTC + stablecoins
+				// BTC-only USD for chart — excludes RSK stablecoins, BSC, wBTC
+				const btcOnlyUsd = currentBtcPrice ? (currentSats / 100_000_000) * currentBtcPrice : 0;
 				balancePromises.push(
-					Promise.resolve({ date: targetDate, sats: currentSats, usd: currentUsd })
+					Promise.resolve({ date: targetDate, sats: currentSats, usd: btcOnlyUsd })
 				);
 				continue;
 			}
@@ -1086,16 +1219,10 @@ class HistoricalBalanceService {
 						const daysAgo = Math.floor((now - targetEndOfDay) / (24 * 60 * 60 * 1000));
 						const btcPrice = await this.fetchHistoricalPrice(daysAgo);
 
-						// Get stablecoin balances at this block (USDT + DOC)
-						const stablecoinUsd = await fetchStablecoinUsdAtBlock(
-							provider,
-							checksummed,
-							blockNumber
-						);
-
-						// Calculate USD value: BTC at historical price + stablecoins
+						// USD = BTC value only (USDT0 on Arbitrum is fetched separately
+						// and merged in below — RSK stablecoins are excluded from the chart)
 						const btcAmount = sats / 100_000_000;
-						const usd = (btcPrice ? btcAmount * btcPrice : 0) + stablecoinUsd;
+						const usd = btcPrice ? btcAmount * btcPrice : 0;
 
 						return { date: targetDate, sats, usd };
 					} catch (error) {
@@ -1110,12 +1237,27 @@ class HistoricalBalanceService {
 			);
 		}
 
-		// Fetch all balances in parallel (but limit concurrency to avoid overwhelming the API)
+		// Fetch all RSK balances in parallel (batch of 10)
+		const rskResults: Array<{ date: Date; sats: number; usd: number }> = [];
 		const batchSize = 10;
 		for (let i = 0; i < balancePromises.length; i += batchSize) {
 			const batch = balancePromises.slice(i, i + batchSize);
 			const batchResults = await Promise.all(batch);
-			results.push(...batchResults);
+			rskResults.push(...batchResults);
+		}
+
+		// Await Arbitrum token results (USDT0 + wBTC)
+		const { usdt0Map, wbtcSatsMap } = await arbTokensPromise;
+
+		// Merge RSK + Arbitrum data
+		for (const rsk of rskResults) {
+			const eod = new Date(rsk.date);
+			eod.setHours(23, 59, 59, 999);
+			const ts = eod.getTime();
+			const usdt0 = usdt0Map.get(ts) ?? 0;
+			const wbtcSats = wbtcSatsMap.get(ts) ?? 0;
+			// Add wBTC sats to BTC sats for the chart's BTC bar
+			results.push({ ...rsk, sats: rsk.sats + wbtcSats, usdt0 });
 		}
 
 		// Sort by date

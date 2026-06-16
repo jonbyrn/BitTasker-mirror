@@ -14,7 +14,7 @@
 		escrowDetails: {
 			method: 'bittasker' | 'external';
 			asset?: 'LBTC';
-			paymentMethod?: 'bitcoin-lightning' | 'lbtc-liquid';
+			paymentMethod?: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-bsc';
 			address?: string;
 			qrCode?: string;
 		};

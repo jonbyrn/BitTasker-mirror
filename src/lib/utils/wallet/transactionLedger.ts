@@ -161,11 +161,20 @@ export function applyRunningBalance(
 		const result = { ...tx, balanceAfter: runningBalance };
 		const txValueSats = Number(tx.value) || 0;
 		const txFeeSats = tx.feeSats || 0;
+		const isFailed = tx.txStatus === 'failed';
 
 		if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
-			runningBalance -= txValueSats;
+			// Failed receives never arrived — don't adjust balance
+			if (!isFailed) {
+				runningBalance -= txValueSats;
+			}
 		} else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
-			runningBalance += txValueSats + txFeeSats;
+			// Failed sends only cost gas fee, not the value
+			if (isFailed) {
+				runningBalance += txFeeSats;
+			} else {
+				runningBalance += txValueSats + txFeeSats;
+			}
 		}
 
 		return result;

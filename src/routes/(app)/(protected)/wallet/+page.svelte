@@ -28,11 +28,9 @@
 	import IconUpload from '~icons/mdi/upload';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import IconCash from '~icons/mdi/cash';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconBankOutline from '~icons/mdi/bank-outline';
 	import IconWallet from '~icons/mdi/wallet';
 	import IconCellphoneLink from '~icons/mdi/usb-flash-drive';
-	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconCloseCircle from '~icons/mdi/close-circle';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconPlus from '~icons/mdi/plus';
@@ -49,7 +47,15 @@
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import PendingClaimBanner from '$lib/components/wallet/PendingClaimBanner.svelte';
+	import ConnectedTransactionHistory from '$lib/components/wallet/ConnectedTransactionHistory.svelte';
 	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
+	import {
+		startPendingSwapPoller,
+		getClaimableSwaps,
+		removePendingSwap,
+		type PendingConnectedSwap
+	} from '$lib/services/connected-wallet-reverse-swap';
 
 	let walletsEnabled = $state(isConnectedWalletsEnabled());
 	let showConnectModal = $state(false);
@@ -89,6 +95,7 @@
 	let showBuySell = $state(false);
 	let showSwap = $state(false);
 	let showTransactionsModal = $state(false);
+	let showConnectedTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
 	let paymentRequestModal = $state<{
@@ -245,12 +252,19 @@
 		return total;
 	});
 
-	// First connected wallet's individual sats + BTC-USD for Activity accordion
-	let firstCwSats = $derived.by(() => {
+	// Aggregate sats across ALL connected wallets (rBTC + BTC) for Activity accordion
+	let connectedAggSats = $derived.by(() => {
 		if ($connectedWalletsStore.wallets.length === 0) return 0;
-		return Number($connectedWalletsStore.wallets[0]?.balances?.rbtc?.raw ?? 0);
+		let total = 0;
+		for (const w of $connectedWalletsStore.wallets) {
+			const cur = w.balances;
+			if (cur) {
+				total += Number(cur.rbtc?.raw ?? 0) + Number(cur.btc?.raw ?? 0);
+			}
+		}
+		return total;
 	});
-	let firstCwUsd = $derived.by(() => (firstCwSats / 100_000_000) * btcPrice.price);
+	let connectedAggUsd = $derived.by(() => (connectedAggSats / 100_000_000) * btcPrice.price);
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -454,6 +468,16 @@
 						overrideSats={connectedTotalSats}
 						overrideUsdt={connectedTotalUsdt}
 					/>
+					<!-- Pending Lightning claim banner -->
+					{#if claimableSwaps.length > 0}
+						<PendingClaimBanner
+							claims={claimableSwaps}
+							onDismiss={async (swapId) => {
+								await removePendingSwap(swapId);
+								claimableSwaps = claimableSwaps.filter((s) => s.swapId !== swapId);
+							}}
+						/>
+					{/if}
 				{:else}
 					<BalanceCard
 						{isLoading}
@@ -466,24 +490,10 @@
 				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->
 				{#if activeTab === 'wallet'}
 					<div class="divider my-0"></div>
-					<BalanceHistory {balancesHidden} />
-				{/if}
-
-				<!-- Transactions Button (Wallet tab only) -->
-				{#if !walletsEnabled || activeTab === 'wallet'}
-					<button
-						type="button"
-						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-						onclick={() => (showTransactionsModal = true)}
-					>
-						<div class="flex min-w-0 flex-1 items-center gap-2">
-							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
-							<span>{$t('wallet.tab_transactions')}</span>
-						</div>
-						<div class="absolute right-2 flex items-center sm:right-3">
-							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" aria-hidden="true" />
-						</div>
-					</button>
+					<BalanceHistory
+						{balancesHidden}
+						onOpenTransactions={() => (showTransactionsModal = true)}
+					/>
 				{/if}
 
 				<!-- Connected tab: explanatory card (only when no wallets) -->
@@ -524,11 +534,12 @@
 						{#key activeTab}
 							<BalanceHistory
 								{balancesHidden}
-								overrideSats={activeTab === 'connected' ? firstCwSats : 0}
-								overrideUsd={activeTab === 'connected' ? firstCwUsd : 0}
+								overrideSats={activeTab === 'connected' ? connectedAggSats : 0}
+								overrideUsd={activeTab === 'connected' ? connectedAggUsd : 0}
 								overrideAddress={activeTab === 'connected'
 									? $connectedWalletsStore.wallets[0]?.address || ''
 									: ''}
+								onOpenTransactions={() => (showConnectedTransactionsModal = true)}
 							/>
 						{/key}
 					{/if}
@@ -552,7 +563,7 @@
 				<!-- Action Buttons (all four on one row) -->
 				<div class="flex flex-row gap-1">
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showBuySell = true)}
 					>
 						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" aria-hidden="true" /></span
@@ -560,7 +571,7 @@
 						<span class="leading-tight">{$t('wallet.tab_buy_sell')}</span>
 					</button>
 					<button
-						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
+						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showSwap = true)}
 					>
 						<span class="inline-flex shrink-0"
@@ -569,7 +580,7 @@
 						<span class="leading-tight">{$t('wallet.tab_swap')}</span>
 					</button>
 					<button
-						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-3 text-xs active:scale-95"
+						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showSendModal = true)}
 					>
 						<span class="inline-flex shrink-0"
@@ -578,7 +589,7 @@
 						<span class="leading-tight">{$t('wallet.send_button')}</span>
 					</button>
 					<button
-						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-3 text-xs active:scale-95"
+						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showReceiveModal = true)}
 					>
 						<span class="inline-flex shrink-0"
@@ -710,6 +721,22 @@
 			openPaymentRequestModal({ swapId }); // Open payment request modal with swap
 		}}
 		onClose={() => (showTransactionsModal = false)}
+	/>
+</WalletPaymentModal>
+
+<!-- Connected Wallet Transactions Modal -->
+<WalletPaymentModal
+	isOpen={showConnectedTransactionsModal}
+	onClose={() => (showConnectedTransactionsModal = false)}
+>
+	<ConnectedTransactionHistory
+		wallets={$connectedWalletsStore.wallets.map((w) => ({
+			id: w.id,
+			walletName: w.walletName,
+			walletType: w.walletType,
+			address: w.address
+		}))}
+		onClose={() => (showConnectedTransactionsModal = false)}
 	/>
 </WalletPaymentModal>
 

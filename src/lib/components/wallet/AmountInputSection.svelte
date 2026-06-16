@@ -52,6 +52,12 @@
 		maxDisabled?: boolean;
 		/** Explicit disable for the % slider only (e.g. when balance is 0). Does not affect the rest of the input. */
 		sliderDisabled?: boolean;
+
+		/** Whether the current amount is below the swap minimum. Adds error border to input. */
+		belowMinimum?: boolean;
+
+		/** Minimum value for the % slider (0-100). Used to enforce swap minimums. */
+		sliderMin?: number;
 	}
 
 	let {
@@ -84,7 +90,9 @@
 		onBtcUsdModeChange,
 		btcNativeSymbol = '₿',
 		maxDisabled = false,
-		sliderDisabled = false
+		sliderDisabled = false,
+		belowMinimum = false,
+		sliderMin = 0
 	}: Props = $props();
 
 	function handleCalculationChange(expression: string, result: number) {
@@ -209,7 +217,9 @@
 			tokenPrefix
 				? ''
 				: 'rounded-r-none'}"
-			placeholder={supportsBtcUsdToggle || tokenPrefix ? '0.00' : '0'}
+			class:border-error={belowMinimum}
+			class:focus:border-error={belowMinimum}
+			placeholder={supportsBtcUsdToggle ? (btcUsdMode ? '0.00' : '0') : tokenPrefix ? '0.00' : '0'}
 			value={amount}
 			oninput={handleDirectInput}
 			onkeypress={handleDirectKeyPress}
@@ -246,10 +256,10 @@
 				>
 				<input
 					type="range"
-					min="0"
+					min={sliderMin}
 					max="100"
 					step="1"
-					value={percent ?? 0}
+					value={Math.max(percent ?? 0, sliderMin)}
 					class="range range-primary range-sm flex-1"
 					oninput={handlePercentInput}
 					disabled={disabled || sliderDisabled}

@@ -10,6 +10,8 @@
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import BalanceChartModal from './BalanceChartModal.svelte';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import IconChartLine from '~icons/mdi/chart-line';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
 	let {
@@ -17,13 +19,15 @@
 		overrideSats = 0,
 		overrideUsd = 0,
 		overrideProvider = null,
-		overrideAddress = ''
+		overrideAddress = '',
+		onOpenTransactions
 	}: {
 		balancesHidden: boolean;
 		overrideSats?: number;
 		overrideUsd?: number;
 		overrideProvider?: Record<string, unknown> | null;
 		overrideAddress?: string;
+		onOpenTransactions?: () => void;
 	} = $props();
 
 	let showChartModal = $state(false);
@@ -229,7 +233,7 @@
 					</div>
 				{/if}
 
-				<!-- Divider + Chart button -->
+				<!-- Divider + Chart button + Transactions button -->
 				<div class="border-base-300 border-t pt-2">
 					<button
 						class="hover:bg-primary/10 text-base-content/80 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
@@ -238,9 +242,30 @@
 							showChartModal = true;
 						}}
 					>
-						<span>{$t('wallet.balance_history.view_chart')}</span>
+						<div class="flex items-center gap-2">
+							<IconChartLine class="text-base-content/50 h-4 w-4 shrink-0" aria-hidden="true" />
+							<span>{$t('wallet.balance_history.historical_chart')}</span>
+						</div>
 						<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 					</button>
+					{#if onOpenTransactions}
+						<button
+							class="hover:bg-primary/10 text-base-content/80 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
+							onclick={(e) => {
+								e.stopPropagation();
+								onOpenTransactions();
+							}}
+						>
+							<div class="flex items-center gap-2">
+								<IconFormatListBulleted
+									class="text-base-content/50 h-4 w-4 shrink-0"
+									aria-hidden="true"
+								/>
+								<span>{$t('wallet.tab_transactions')}</span>
+							</div>
+							<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						</button>
+					{/if}
 				</div>
 			</div>
 		{:catch}
