@@ -1,55 +1,250 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { SvelteMap } from 'svelte/reactivity';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import WalletSelector from './WalletSelector.svelte';
-	import AssetSelector from './AssetSelector.svelte';
 	import type { AssetOption } from './AssetSelector.svelte';
+	import SwapPartySelector from './SwapPartySelector.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
+	import { changellyFiatService, sortOffersByBestRate } from '$lib/services/fiat-ramp.service';
+	import type {
+		ChangellyOfferSuccess,
+		ChangellyCountry,
+		ChangellyPaymentMethodOffer,
+		ChangellyTransactionStatus
+	} from '$lib/services/fiat-ramp.service';
+	import { FiatSwapOrchestrator } from '$lib/services/fiat-swap-orchestrator.service';
+	import type {
+		FiatFlowState,
+		FiatFlowStage,
+		FiatBuyAsset
+	} from '$lib/services/fiat-swap-orchestrator.service';
+	import { Browser } from '@capacitor/browser';
+	import { Capacitor } from '@capacitor/core';
 	import * as Sentry from '@sentry/sveltekit';
+	import IconClose from '~icons/mdi/close';
+
+	import { createDebug } from '$lib/utils/debug';
+	const debug = createDebug('buy-sell-form');
 
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
 
+	// -----------------------------------------------------------------------
 	// Locale-aware formatter
+	// -----------------------------------------------------------------------
 	const usdFormatter = $derived(
-		new Intl.NumberFormat($locale, {
+		new Intl.NumberFormat($locale as string, {
 			style: 'currency',
 			currency: 'USD'
 		})
 	);
 
-	// Restore persisted connected wallets and attempt SDK reconnection for live
-	// balances. Uses the shared reconnect service (same as SwapForm + ConnectedWallets).
+	// -----------------------------------------------------------------------
+	// Wallet reconnect
+	// -----------------------------------------------------------------------
 	reconnectPersistedWallets();
 
+	// -----------------------------------------------------------------------
+	// Tab & crypto selection
+	// -----------------------------------------------------------------------
 	let activeTab = $state<'buy' | 'sell'>('buy');
 	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain'>('rbtc');
 	let amount = $state<string>('');
-	let bankDetails = $state<string>('');
 	let isLoading = $state(false);
-	let quoteData = $state<{
-		estimatedAmount: string;
-		fee: string;
-		totalCost: string;
-		btcPrice: number;
-	} | null>(null);
-	let quoteLoading = $state(false);
-	let quoteError = $state(false);
+	let sellFlowActive = $state(false);
 
+	// -----------------------------------------------------------------------
+	// Wallet source
+	// -----------------------------------------------------------------------
 	let source = $state('builtin');
-	let sourceExpanded = $state(false);
-	let assetExpanded = $state(false);
 	let sourceInitialized = $state(false);
 
-	// % slider
+	// -----------------------------------------------------------------------
+	// Country & state
+	// -----------------------------------------------------------------------
+	let selectedCountry = $state('SV'); // El Salvador — Bitcoin-friendly default
+	let selectedState = $state('');
+	let countries = $state<ChangellyCountry[]>([]);
+	let countriesLoading = $state(false);
+
+	// -----------------------------------------------------------------------
+	// Offer state
+	// -----------------------------------------------------------------------
+	let offers = $state<ChangellyOfferSuccess[]>([]);
+	let selectedOffer = $state<ChangellyOfferSuccess | null>(null);
+	let selectedPaymentMethod = $state<ChangellyPaymentMethodOffer | null>(null);
+	let quoteLoading = $state(false);
+	let quoteError = $state(false);
+	let quoteAbort: AbortController | null = null;
+
+	// Payment method filter
+	let activePaymentFilter = $state<string | null>(null);
+	let providerExpanded = $state(false);
+
+	// All unique payment methods across all offers
+	let allPaymentMethods = $derived.by(() => {
+		const seen = new SvelteMap<string, { method: string; methodName: string }>();
+		for (const offer of offers) {
+			for (const pm of offer.paymentMethodOffer) {
+				if (!seen.has(pm.method)) {
+					seen.set(pm.method, { method: pm.method, methodName: pm.methodName });
+				}
+			}
+		}
+		return [...seen.values()];
+	});
+
+	// Offers filtered by active payment method
+	let filteredOffers = $derived.by(() => {
+		if (!activePaymentFilter) return offers;
+		return offers.filter((o) =>
+			o.paymentMethodOffer.some((pm) => pm.method === activePaymentFilter)
+		);
+	});
+
+	// Provider name formatting (proper case)
+	function formatProviderName(code: string): string {
+		const names: Record<string, string> = {
+			moonpay: 'Moonpay',
+			banxa: 'Banxa',
+			transak: 'Transak',
+			wert: 'Wert'
+		};
+		return names[code] || code.charAt(0).toUpperCase() + code.slice(1);
+	}
+
+	// Convert BTC amount string to sats
+	function btcToSats(btcStr: string): number {
+		return Math.round(parseFloat(btcStr) * 100_000_000);
+	}
+
+	// Format sats with commas
+	function formatSatsAmount(offer: ChangellyOfferSuccess): string {
+		return btcToSats(offer.amountExpectedTo).toLocaleString();
+	}
+
+	// Convert sats to USD using current BTC price
+	function satsToUsd(sats: number): string {
+		const price = btcPrice.price;
+		return ((sats / 100_000_000) * price).toFixed(2);
+	}
+
+	// Format USD equivalent from offer
+	function formatUsdFromSats(offer: ChangellyOfferSuccess): string {
+		return satsToUsd(btcToSats(offer.amountExpectedTo));
+	}
+
+	// Calculate fee as difference between input USD and received value
+	// For BTC assets: input USD - (sats × BTC price)
+	// For stablecoins (USDT0): input USD - received amount (1:1 USD)
+	function calculateFee(offer: ChangellyOfferSuccess): string {
+		const inputUsd = parseFloat(amount) || 0;
+		let receivedUsd: number;
+		if (isBtcAsset) {
+			receivedUsd = parseFloat(formatUsdFromSats(offer));
+		} else {
+			// Stablecoin: amountExpectedTo is already in USD terms
+			receivedUsd = parseFloat(offer.amountExpectedTo) || 0;
+		}
+		const fee = Math.max(0, inputUsd - receivedUsd);
+		return fee.toFixed(2);
+	}
+
+	// Is this the lowest-fee provider?
+	function isLowestFee(offer: ChangellyOfferSuccess): boolean {
+		if (filteredOffers.length <= 1) return true;
+		const fees = filteredOffers.map((o) => parseFloat(calculateFee(o)));
+		const minFee = Math.min(...fees);
+		return parseFloat(calculateFee(offer)) <= minFee;
+	}
+
+	// -----------------------------------------------------------------------
+	// Fiat swap orchestrator (manages Changelly order → monitoring → auto-swap)
+	// -----------------------------------------------------------------------
+	const orchestrator = new FiatSwapOrchestrator();
+	let flowState = $state<FiatFlowState | null>(orchestrator.getActiveFlow());
+
+	// Subscribe to orchestrator updates
+	$effect(() => {
+		const unsub = orchestrator.onStageChange((state) => {
+			flowState = { ...state };
+		});
+		return unsub;
+	});
+
+	// -----------------------------------------------------------------------
+	// Percent slider (sell only)
+	// -----------------------------------------------------------------------
 	let swapPercent = $state(0);
 
-	// Default wallet: built-in unless it's $0, then first connected wallet with balance > $0
+	// Whether the selected crypto is a BTC-type asset (show sats + USD equiv)
+	let isBtcAsset = $derived(
+		selectedCrypto === 'rbtc' || selectedCrypto === 'wbtc-arb' || selectedCrypto === 'btc-onchain'
+	);
+
+	// Whether the selected asset uses a multi-hop flow (buy WBTC, swap to rBTC)
+	let isMultiHop = $derived(selectedCrypto === 'rbtc');
+
+	// Whether an in-progress buy flow is active (replaces amount input with status row)
+	let isFlowActive = $derived(
+		activeTab === 'buy' &&
+			flowState !== null &&
+			flowState.stage !== 'idle' &&
+			flowState.stage !== 'complete'
+	);
+
+	// -----------------------------------------------------------------------
+	// -----------------------------------------------------------------------
+	// Derived: wallet address (used for both buy and sell)
+	// Buy: destination for purchased crypto
+	// Sell: source of crypto being sold (provider redirect handles fiat destination)
+	// -----------------------------------------------------------------------
+	let walletAddress = $derived.by(() => {
+		if (source === 'builtin') {
+			if (selectedCrypto === 'btc-onchain') return '';
+			// rBTC multi-hop: Changelly sends WBTC to Arbitrum, then auto-swaps to rBTC
+			if (
+				selectedCrypto === 'usdt0-arb' ||
+				selectedCrypto === 'wbtc-arb' ||
+				selectedCrypto === 'rbtc'
+			) {
+				return $walletStore.arb?.address ?? '';
+			}
+			return $walletStore.rsk?.address ?? '';
+		}
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
+		if (!w) return '';
+		if (selectedCrypto === 'btc-onchain') return w.btcAddress ?? '';
+		return w.address ?? '';
+	});
+
+	// -----------------------------------------------------------------------
+	// Derived: is Sats field (sell mode, BTC-denominated assets)
+	// -----------------------------------------------------------------------
+	let isConnectedSource = $derived(source !== 'builtin');
+	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt0-arb');
+
+	// -----------------------------------------------------------------------
+	// Derived: selected source has BTC on-chain
+	// -----------------------------------------------------------------------
+	let selectedSourceHasBtc = $derived.by(() => {
+		if (!isConnectedSource) return false;
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
+		return (
+			(w?.walletType === 'trezor' ||
+				w?.walletType === 'ledger' ||
+				w?.walletType === 'walletconnect') &&
+			!!w?.btcAddress
+		);
+	});
+
+	// ===================================================================
+	// Default wallet selection
+	// ===================================================================
 	function defaultWalletId(): string {
 		if ($walletStore.totalBalances.sats > 0 || $walletStore.totalBalances.usdt > 0)
 			return 'builtin';
@@ -64,11 +259,12 @@
 	}
 
 	$effect(() => {
-		if ($connectedWalletsStore.wallets.length > 0 && !sourceInitialized) {
-			source = defaultWalletId();
+		// Fiat buy/sell always defaults to built-in wallet.
+		// Connected wallets can be selected manually via the SwapPartySelector.
+		if (!sourceInitialized) {
+			source = 'builtin';
 			sourceInitialized = true;
 		} else if (
-			sourceInitialized &&
 			source !== 'builtin' &&
 			!$connectedWalletsStore.wallets.some((w) => w.id === source)
 		) {
@@ -76,49 +272,36 @@
 		}
 	});
 
-	// Reset selectedCrypto if it becomes unavailable (e.g. btc-onchain when switching to built-in wallet)
 	$effect(() => {
 		if (selectedCrypto === 'btc-onchain' && !selectedSourceHasBtc) {
 			selectedCrypto = 'rbtc';
 		}
 	});
 
-	let isConnectedSource = $derived(source !== 'builtin');
-	let isSatsField = $derived(activeTab === 'sell' && selectedCrypto !== 'usdt0-arb');
-
-	// BTC on-chain detection — only for the currently selected connected wallet with Bitcoin
-	let selectedSourceHasBtc = $derived.by(() => {
-		if (!isConnectedSource) return false;
-		const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
-		return (
-			(w?.walletType === 'trezor' ||
-				w?.walletType === 'ledger' ||
-				w?.walletType === 'walletconnect') &&
-			!!w?.btcAddress
-		);
-	});
-
+	// ===================================================================
+	// Asset options
+	// ===================================================================
 	let assetOptions = $derived.by<AssetOption[]>(() => {
 		const opts: AssetOption[] = [
 			{
 				id: 'rbtc',
 				label: $t('wallet.buy_sell.bitcoin_rbtc'),
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-				subLabel: 'Bitcoin on Rootstock',
+				subLabel: $t('wallet.buy_sell.sub_rbtc'),
 				balance: rbtcBalanceDisplay
 			},
 			{
 				id: 'usdt0-arb',
-				label: $t('wallet.usdt0_arbitrum'),
+				label: 'USD',
 				icon: '/images/chains/Tether-USD.svg',
-				subLabel: 'USDT0 on Arbitrum',
+				subLabel: $t('wallet.buy_sell.sub_usdt0'),
 				balance: usdtBalanceDisplay
 			},
 			{
 				id: 'wbtc-arb',
 				label: $t('wallet.wbtc_arbitrum'),
 				icon: '/images/chains/arbitrum.png',
-				subLabel: 'Wrapped BTC on Arbitrum',
+				subLabel: $t('wallet.buy_sell.sub_wbtc'),
 				balance: wbtcBalanceDisplay
 			}
 		];
@@ -127,14 +310,17 @@
 				id: 'btc-onchain',
 				label: $t('wallet.buy_sell.bitcoin_btc'),
 				icon: '/images/chains/Bitcoin.svg',
-				subLabel: 'Bitcoin on-chain',
+				subLabel: $t('wallet.buy_sell.sub_btc_onchain'),
 				balance: rbtcBalanceDisplay
 			});
 		}
 		return opts;
 	});
 
-	function usdBalanceFor(wallet: { balances?: Record<string, { raw: string }> }): string {
+	// ===================================================================
+	// Balance helpers
+	// ===================================================================
+	function _usdBalanceFor(wallet: { balances?: Record<string, { raw: string }> }): string {
 		const cur = wallet.balances;
 		if (!cur) return '$0.00';
 		const sats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
@@ -143,11 +329,27 @@
 		return usdFormatter.format(usd);
 	}
 
-	function totalBuiltinUsd(): string {
+	function _totalBuiltinUsd(): string {
 		const sats = $walletStore.totalBalances.sats;
 		const usdt = $walletStore.totalBalances.usdt;
 		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
 		return usdFormatter.format(usd);
+	}
+
+	/** BTC sats for a given wallet (for SwapPartySelector) */
+	function walletBtcSatsForFn(id: string): number {
+		if (id === 'builtin') return $walletStore.totalBalances.sats;
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
+		if (!w) return 0;
+		return Number(w.balances?.rbtc?.raw ?? 0) + Number(w.balances?.btc?.raw ?? 0);
+	}
+
+	/** USDT0 USD for a given wallet (for SwapPartySelector) */
+	function walletUsdt0ForFn(id: string): number {
+		if (id === 'builtin') return $walletStore.totalBalances.usdt;
+		const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
+		if (!w) return 0;
+		return Number(w.balances?.usdt?.raw ?? 0) / 1e18;
 	}
 
 	let rbtcBalance = $derived.by(() => {
@@ -199,14 +401,44 @@
 		return `${formatSats(sats)} (${usdStr})`;
 	});
 
-	let estimatedReceive = $derived(
-		!amount || !selectedCrypto || !quoteData ? '0.00' : (quoteData.estimatedAmount ?? '0.00')
-	);
-	let estimatedSend = $derived(
-		!amount || !selectedCrypto || !quoteData ? '0.00' : (quoteData.estimatedAmount ?? '0.00')
-	);
+	// ===================================================================
+	// Crypto ticker mapping (for Changelly API)
+	// ===================================================================
+	function cryptoTicker(assetId: string): string {
+		switch (assetId) {
+			case 'rbtc':
+				return 'WBTC'; // Multi-hop: buy WBTC, auto-swap WBTC→tBTC→rBTC
+			case 'usdt0-arb':
+				return 'USDTARB';
+			case 'wbtc-arb':
+				return 'WBTC';
+			case 'btc-onchain':
+				return 'BTC';
+			default:
+				return 'BTC';
+		}
+	}
 
-	function convertToSats(value: string, tokenId: string): string {
+	/** Friendly display name for the selected asset (not Changelly ticker) */
+	function friendlyAssetName(assetId: string): string {
+		switch (assetId) {
+			case 'rbtc':
+				return 'rBTC';
+			case 'usdt0-arb':
+				return 'USDT0 on Arbitrum';
+			case 'wbtc-arb':
+				return 'wBTC on Arbitrum';
+			case 'btc-onchain':
+				return 'BTC on-chain';
+			default:
+				return assetId;
+		}
+	}
+
+	// ===================================================================
+	// Helper: convert to sats
+	// ===================================================================
+	function _convertToSats(value: string, tokenId: string): string {
 		if (!value) return '0';
 		const n = parseFloat(value);
 		if (tokenId === 'rbtc' || tokenId === 'wbtc-arb')
@@ -215,30 +447,125 @@
 		return value;
 	}
 
+	// ===================================================================
+	// Helper: format offer error for user display
+	// ===================================================================
+	function _providerErrorMessage(errorType: string): string {
+		switch (errorType) {
+			case 'timeout':
+				return $t('wallet.buy_sell.provider_error_timeout');
+			case 'unavailable':
+				return $t('wallet.buy_sell.provider_error_unavailable');
+			case 'limits':
+				return $t('wallet.buy_sell.provider_error_limits');
+			case 'country':
+				return $t('wallet.buy_sell.provider_error_country');
+			default:
+				return errorType;
+		}
+	}
+
+	// ===================================================================
+	// Status display label
+	// ===================================================================
+	function _statusLabel(status: ChangellyTransactionStatus): string {
+		switch (status) {
+			case 'created':
+				return $t('wallet.buy_sell.status_created');
+			case 'pending':
+				return $t('wallet.buy_sell.status_pending');
+			case 'hold':
+				return $t('wallet.buy_sell.status_hold');
+			case 'complete':
+				return $t('wallet.buy_sell.status_complete');
+			case 'failed':
+				return $t('wallet.buy_sell.status_failed');
+			case 'expired':
+				return $t('wallet.buy_sell.status_expired');
+			case 'refunded':
+				return $t('wallet.buy_sell.status_refunded');
+			default:
+				return status;
+		}
+	}
+
+	// ===================================================================
+	// Load countries on mount + auto-detect from browser locale
+	// ===================================================================
+	$effect(() => {
+		if (!isOpen) return;
+		const ctrl = new AbortController();
+		countriesLoading = true;
+		changellyFiatService
+			.getAvailableCountries()
+			.then((result) => {
+				if (ctrl.signal.aborted) return;
+				countries = result;
+				// Auto-detect country from browser locale (best-effort)
+				// Skip US — it requires state selection, which is bad UX for a default
+				try {
+					const lang = navigator.language || ''; // e.g. "en-US", "es-SV"
+					const region = lang.split('-')[1]?.toUpperCase() ?? '';
+					if (region && region !== 'US' && result.some((c) => c.code === region)) {
+						selectedCountry = region;
+					}
+				} catch {
+					// navigator.language unavailable — keep El Salvador default
+				}
+			})
+			.catch(() => {
+				// Silently fall back to El Salvador — the select will be empty
+				// but the user can still type amounts and see offers once the
+				// API call for offers uses the default country.
+			})
+			.finally(() => {
+				if (!ctrl.signal.aborted) {
+					countriesLoading = false;
+				}
+			});
+		return () => ctrl.abort();
+	});
+
+	// ===================================================================
+	// Country state list
+	// ===================================================================
+	let statesForSelected = $derived(countries.find((c) => c.code === selectedCountry)?.states ?? []);
+
+	// ===================================================================
+	// Tab switching
+	// ===================================================================
 	function switchTab(tab: 'buy' | 'sell') {
 		if (tab === activeTab) return;
-		cancelQuoteFetch();
+		cancelOfferFetch();
 		activeTab = tab;
 		amount = '';
-		bankDetails = '';
-		quoteData = null;
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
 		quoteLoading = false;
 		quoteError = false;
 		swapPercent = 0;
-		assetExpanded = false;
+		sellFlowActive = false;
 	}
 
 	function handleCryptoChange(cryptoId: string) {
-		cancelQuoteFetch();
+		cancelOfferFetch();
 		selectedCrypto = cryptoId as typeof selectedCrypto;
-		amount = '';
-		quoteData = null;
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
 		quoteLoading = false;
 		quoteError = false;
 		swapPercent = 0;
-		assetExpanded = false;
+		// Refetch offers for the new asset if amount is already entered
+		if (amount && parseFloat(amount) > 0) {
+			fetchOffers(amount);
+		}
 	}
 
+	// ===================================================================
+	// Max amount & percent slider
+	// ===================================================================
 	function setMaxAmount() {
 		triggerHaptic(ImpactStyle.Light);
 		let maxVal: string;
@@ -282,7 +609,7 @@
 		}
 		amount = maxVal;
 		swapPercent = 100;
-		fetchQuoteForAmount(maxVal);
+		fetchOffers(maxVal);
 	}
 
 	function applyPercent(pct: number) {
@@ -326,9 +653,11 @@
 					: 6
 				: 2;
 		amount = val.toFixed(precision);
-		if (val > 0 && pct > 0) fetchQuoteForAmount(amount);
+		if (val > 0 && pct > 0) fetchOffers(amount);
 		else {
-			quoteData = null;
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
 			quoteLoading = false;
 		}
 	}
@@ -339,53 +668,103 @@
 		const raw = input.value;
 		amount = raw;
 		if (raw && parseFloat(raw) > 0) {
-			fetchQuoteForAmount(raw);
+			fetchOffers(raw);
 		} else {
-			cancelQuoteFetch();
-			quoteData = null;
+			cancelOfferFetch();
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
 			quoteLoading = false;
 		}
 	}
 
-	let quoteAbort: AbortController | null = null;
-	function cancelQuoteFetch() {
+	function clearAmount() {
+		cancelOfferFetch();
+		amount = '';
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
+		quoteLoading = false;
+		quoteError = false;
+		swapPercent = 0;
+	}
+
+	// ===================================================================
+	// Offer fetching with AbortController
+	// ===================================================================
+	function cancelOfferFetch() {
 		quoteAbort?.abort();
 		quoteAbort = null;
 	}
 
-	async function fetchQuoteForAmount(rawAmount: string) {
-		cancelQuoteFetch();
+	async function fetchOffers(rawAmount: string) {
+		cancelOfferFetch();
 		const ctrl = new AbortController();
 		quoteAbort = ctrl;
 		quoteLoading = true;
 		quoteError = false;
-		Sentry.addBreadcrumb({ category: 'wallet', message: 'Fetching buy/sell quote', level: 'info' });
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
+
+		Sentry.addBreadcrumb({
+			category: 'wallet',
+			message: 'Fetching fiat offers',
+			data: { tab: activeTab, crypto: selectedCrypto, amount: rawAmount, country: selectedCountry },
+			level: 'info'
+		});
+
 		try {
-			const price = await cryptoPriceService.getCurrentPrice('BTC');
-			if (ctrl.signal.aborted) return;
-			await new Promise((resolve) => setTimeout(resolve, 500));
-			if (ctrl.signal.aborted) return;
-			const amt = parseFloat(rawAmount);
-			let estimatedAmount: string;
-			if (
-				selectedCrypto === 'rbtc' ||
-				selectedCrypto === 'btc-onchain' ||
-				selectedCrypto === 'wbtc-arb'
-			) {
-				estimatedAmount = (activeTab === 'buy' ? amt / price : (amt / 100_000_000) * price).toFixed(
-					activeTab === 'buy' ? 6 : 2
-				);
-			} else {
-				estimatedAmount = rawAmount;
+			const currencyFrom = activeTab === 'buy' ? 'USD' : cryptoTicker(selectedCrypto);
+			const currencyTo = activeTab === 'buy' ? cryptoTicker(selectedCrypto) : 'USD';
+
+			// Changelly requires a US state for country=US — wait until selected
+			if (selectedCountry === 'US' && !selectedState) {
+				quoteLoading = false;
+				quoteAbort = null;
+				return;
 			}
+
+			const result = await (activeTab === 'sell'
+				? changellyFiatService.getSellOffers(
+						{
+							currencyFrom,
+							currencyTo,
+							amountFrom: rawAmount,
+							country: selectedCountry,
+							state: selectedState || undefined
+						},
+						ctrl.signal
+					)
+				: changellyFiatService.getOffers(
+						{
+							currencyFrom,
+							currencyTo,
+							amountFrom: rawAmount,
+							country: selectedCountry,
+							state: selectedState || undefined
+						},
+						ctrl.signal
+					));
+
 			if (ctrl.signal.aborted) return;
-			quoteData = { estimatedAmount, fee: '0.5', totalCost: rawAmount, btcPrice: price };
-		} catch (error) {
+
+			offers = sortOffersByBestRate(result);
+			activePaymentFilter = null;
+			if (offers.length > 0) {
+				selectedOffer = offers[0];
+				if (offers[0].paymentMethodOffer.length > 0) {
+					selectedPaymentMethod = offers[0].paymentMethodOffer[0];
+				}
+			} else if (result.length > 0) {
+				// API returned offers but all were errors (e.g. unsupported currency)
+				quoteError = true;
+			}
+		} catch (err) {
 			if (ctrl.signal.aborted) return;
-			console.error('Failed to fetch quote:', error);
-			Sentry.captureException(error);
+			console.error('Failed to fetch offers:', err);
 			quoteError = true;
-			quoteData = null;
+			offers = [];
 		} finally {
 			if (!ctrl.signal.aborted) {
 				quoteLoading = false;
@@ -394,19 +773,93 @@
 		}
 	}
 
+	// ===================================================================
+	// Offer selection (manual)
+	// ===================================================================
+	function _selectOffer(offer: ChangellyOfferSuccess) {
+		selectedOffer = offer;
+		if (offer.paymentMethodOffer.length > 0) {
+			selectedPaymentMethod = offer.paymentMethodOffer[0];
+		} else {
+			selectedPaymentMethod = null;
+		}
+	}
+
+	// ===================================================================
+	// Provider redirect
+	// ===================================================================
+	async function openRedirectUrl(url: string): Promise<Window | null> {
+		const isNative = Capacitor.isNativePlatform();
+		if (isNative && Capacitor.isPluginAvailable('Browser')) {
+			debug.log('Opening redirect in Capacitor Browser: %s', url.substring(0, 80));
+			await Browser.open({ url });
+			return null;
+		} else {
+			debug.log('Opening redirect via window.open: %s', url.substring(0, 80));
+			const popup = window.open(url, '_blank', 'noopener,noreferrer');
+			debug.log('window.open returned: %s', popup ? 'Window' : 'null');
+			return popup;
+		}
+	}
+
+	// ===================================================================
+	// Submit order via orchestrator
+	// ===================================================================
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		if (!amount || (activeTab === 'sell' && !bankDetails)) return;
+		if (!amount || !selectedOffer || !selectedCountry) return;
+
 		isLoading = true;
 		Sentry.addBreadcrumb({
 			category: 'wallet',
-			message: 'Submitting buy/sell order',
+			message: 'Creating fiat order',
+			data: { tab: activeTab, provider: selectedOffer.providerCode, crypto: selectedCrypto },
 			level: 'info'
 		});
+
 		try {
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-			appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
-			handleClose();
+			if (!walletAddress) {
+				appStore.showErrorToast($t('wallet.error.no_connection'));
+				return;
+			}
+
+			if (activeTab === 'buy') {
+				// Use orchestrator for buy flow
+				const { redirectUrl } = await orchestrator.createOrder({
+					asset: selectedCrypto as FiatBuyAsset,
+					fiatAmount: amount,
+					walletAddress,
+					providerCode: selectedOffer.providerCode,
+					country: selectedCountry,
+					state: selectedState || undefined,
+					paymentMethod: selectedPaymentMethod?.method
+				});
+
+				await openRedirectUrl(redirectUrl);
+				debug.log('Checkout opened, tracking return');
+				orchestrator.trackCheckoutReturn();
+				orchestrator.startMonitoring();
+				appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
+			} else {
+				// Sell flow — direct Changelly off-ramp (no orchestrator needed)
+				const order = await changellyFiatService.createOffRampOrder({
+					cryptoCurrency: cryptoTicker(selectedCrypto),
+					cryptoAmount: amount,
+					fiatCurrency: 'USD',
+					fiatAddress: walletAddress,
+					providerCode: selectedOffer.providerCode,
+					country: selectedCountry,
+					state: selectedState || undefined,
+					paymentMethod: selectedPaymentMethod?.method
+				});
+
+				const checkoutPopup = await openRedirectUrl(order.redirectUrl);
+				debug.log('Checkout opened, tracking return (popup=%s)', checkoutPopup ? 'Window' : 'null');
+				// Track when user returns to app — triggers immediate status check
+				orchestrator.trackCheckoutReturn();
+				sellFlowActive = true;
+				appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
+			}
 		} catch (error) {
 			Sentry.captureException(error);
 			appStore.showErrorToast($t('wallet.buy_sell.transaction_failed'));
@@ -415,19 +868,48 @@
 		}
 	}
 
+	// ===================================================================
+	// Stage display helpers
+	// ===================================================================
+	function stageLabel(stage: FiatFlowStage): string {
+		const key: Record<FiatFlowStage, string> = {
+			idle: '',
+			awaiting_payment: 'wallet.buy_sell.stage_awaiting_payment',
+			payment_confirmed: 'wallet.buy_sell.stage_payment_confirmed',
+			crypto_delivered: 'wallet.buy_sell.stage_crypto_delivered',
+			converting: 'wallet.buy_sell.stage_converting',
+			swap_hop1: 'wallet.buy_sell.stage_swap_hop1',
+			swap_hop2: 'wallet.buy_sell.stage_swap_hop2',
+			complete: 'wallet.buy_sell.stage_complete',
+			failed: 'wallet.buy_sell.stage_failed',
+			swap_failed: 'wallet.buy_sell.stage_swap_failed'
+		};
+		return $t(key[stage] || '');
+	}
+
+	function isTerminalStage(stage: FiatFlowStage): boolean {
+		return stage === 'complete' || stage === 'failed' || stage === 'swap_failed';
+	}
+
+	// ===================================================================
+	// Cleanup on close
+	// ===================================================================
 	function handleClose() {
-		cancelQuoteFetch();
+		cancelOfferFetch();
+		orchestrator.destroy();
 		activeTab = 'buy';
 		amount = '';
-		bankDetails = '';
-		quoteData = null;
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
 		quoteLoading = false;
 		quoteError = false;
 		isLoading = false;
 		source = defaultWalletId();
 		sourceInitialized = false;
 		swapPercent = 0;
-		assetExpanded = false;
+		flowState = null;
+		sellFlowActive = false;
 		onClose();
 	}
 </script>
@@ -486,170 +968,353 @@
 			</button>
 		</div>
 
-		<!-- Wallet Accordion -->
-		<WalletSelector
-			label={activeTab === 'buy' ? $t('wallet.to') + ':' : $t('wallet.from') + ':'}
-			selectedId={source}
-			onSelect={(id) => (source = id)}
-			builtinBalance={totalBuiltinUsd()}
-			connectedWallets={$connectedWalletsStore.wallets}
-			walletBalanceFor={(id) => {
-				if (id === 'builtin') return totalBuiltinUsd();
-				const w = $connectedWalletsStore.wallets.find((cw) => cw.id === id);
-				return w ? usdBalanceFor(w) : '$0.00';
-			}}
-			expanded={sourceExpanded}
-			onToggle={() => (sourceExpanded = !sourceExpanded)}
-		/>
+		<!-- Country / State Selectors (same on both tabs) -->
+		<div class="space-y-2">
+			<div class="form-control">
+				<div class="relative">
+					<select
+						id="country-select"
+						class="select border-primary bg-base-100 min-h-[48px] w-full rounded-lg border-2 text-base"
+						class:opacity-50={countriesLoading}
+						disabled={countriesLoading}
+						bind:value={selectedCountry}
+						onchange={() => {
+							selectedState = '';
+							if (amount && parseFloat(amount) > 0) fetchOffers(amount);
+						}}
+					>
+						{#if countries.length === 0}
+							<option value="">{$t('wallet.buy_sell.loading_offers')}</option>
+						{/if}
+						{#each countries as c (c.code)}
+							<option value={c.code}>{c.name} ({c.code})</option>
+						{/each}
+					</select>
+					{#if countriesLoading}
+						<span
+							class="loading loading-spinner loading-sm text-primary absolute top-1/2 right-3 -translate-y-1/2"
+						></span>
+					{/if}
+				</div>
+			</div>
 
-		<!-- Asset Selector -->
-		<AssetSelector
-			selectedId={selectedCrypto}
-			onSelect={(id) => handleCryptoChange(id)}
+			{#if selectedCountry === 'US' && statesForSelected.length > 0}
+				<div class="form-control animate-fade-in">
+					<select
+						id="state-select"
+						class="select border-primary bg-base-100 min-h-[48px] w-full rounded-lg border-2 text-base"
+						bind:value={selectedState}
+						onchange={() => {
+							if (amount && parseFloat(amount) > 0) fetchOffers(amount);
+						}}
+					>
+						<option value="">{$t('wallet.buy_sell.select_state')}</option>
+						{#each statesForSelected as s (s.code)}
+							<option value={s.code}>{s.name}</option>
+						{/each}
+					</select>
+					{#if !selectedState && amount && parseFloat(amount) > 0}
+						<p class="text-base-content/50 mt-1 text-xs">{$t('wallet.buy_sell.state_required')}</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Wallet + Asset Selector (hybrid accordion) -->
+		<SwapPartySelector
+			label={activeTab === 'buy' ? $t('wallet.to') + ':' : $t('wallet.from') + ':'}
+			selectedWalletId={source}
+			onWalletSelect={(id) => (source = id)}
+			connectedWallets={$connectedWalletsStore.wallets}
+			walletBtcSatsFor={walletBtcSatsForFn}
+			walletUsdt0For={walletUsdt0ForFn}
+			btcPrice={btcPrice.price}
+			selectedAssetId={selectedCrypto}
+			onAssetSelect={(id) => handleCryptoChange(id)}
 			assets={assetOptions}
-			expanded={assetExpanded}
-			onToggle={() => (assetExpanded = !assetExpanded)}
 		/>
 
 		<!-- Transaction Form -->
 		<div class="bg-base-200 rounded-xl p-4 sm:p-5">
-			<div class="text-sm font-semibold sm:text-base">
-				{activeTab === 'buy'
-					? $t('wallet.buy_sell.pay_with_fiat_long')
-					: $t('wallet.buy_sell.sell_to_fiat_long')}
-			</div>
-			<form onsubmit={handleSubmit} class="mt-3 space-y-4">
-				<div class="form-control">
-					<div class="flex items-start gap-2">
-						<div class="join min-w-0 flex-1">
-							<span
-								class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
-								>{isSatsField ? '₿' : '$'}</span
+			<form onsubmit={handleSubmit} class="space-y-4">
+				{#if isFlowActive && flowState}
+					<!-- Buy flow: replace input with inline status row -->
+					{@const fs = flowState}
+					<div class="bg-info/5 border-info/20 flex items-center gap-3 rounded-lg border p-3">
+						{#if isTerminalStage(fs.stage)}
+							<svg
+								class="text-error h-4 w-4 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+								/></svg
 							>
-							<input
-								id="amount-input"
-								type="number"
-								class="input input-bordered join-item min-h-[48px] flex-1 text-base sm:min-h-[52px]"
-								placeholder={isSatsField ? '0' : '0.00'}
-								bind:value={amount}
-								oninput={handleAmountInput}
-								onkeypress={(e) => {
-									if (isSatsField && e.key === '.') e.preventDefault();
-								}}
-								min="0"
-								step={isSatsField ? '1' : '0.01'}
-								pattern="[0-9]*"
-								inputmode="numeric"
-							/>
-							{#if activeTab === 'sell'}
-								<button
-									type="button"
-									class="btn btn-primary join-item min-h-[48px] rounded-r-lg sm:min-h-[52px]"
-									onclick={setMaxAmount}
-								>
-									{$t('wallet.max')}
-								</button>
+						{:else}
+							<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
+						{/if}
+						<div class="min-w-0 flex-1">
+							<span class="text-sm font-medium">{stageLabel(fs.stage)}</span>
+							{#if fs.error}
+								<p class="text-error mt-0.5 text-xs">{fs.error}</p>
 							{/if}
 						</div>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs shrink-0"
+							onclick={() => {
+								orchestrator.cancel();
+								flowState = null;
+							}}
+						>
+							{$t('wallet.buy_sell.start_over')}
+						</button>
+					</div>
+				{:else if sellFlowActive}
+					<!-- Sell flow: replace input with inline status row -->
+					<div class="bg-info/5 border-info/20 flex items-center gap-3 rounded-lg border p-3">
+						<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
+						<span class="min-w-0 flex-1 text-sm font-medium"
+							>{$t('wallet.buy_sell.stage_awaiting_payment')}</span
+						>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs shrink-0"
+							onclick={() => {
+								sellFlowActive = false;
+							}}
+						>
+							{$t('wallet.buy_sell.start_over')}
+						</button>
+					</div>
+				{:else}
+					<div class="form-control">
+						<div class="flex items-start gap-2">
+							<div class="join min-w-0 flex-1">
+								<span
+									class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
+									>{isSatsField ? '₿' : '$'}</span
+								>
+								<div class="relative min-w-0 flex-1">
+									<input
+										id="amount-input"
+										type="number"
+										class="input input-bordered join-item min-h-[48px] w-full pr-10 text-base sm:min-h-[52px]"
+										placeholder={isSatsField ? '0' : '0.00'}
+										bind:value={amount}
+										oninput={handleAmountInput}
+										onkeypress={(e) => {
+											if (isSatsField && e.key === '.') e.preventDefault();
+										}}
+										min="0"
+										step={isSatsField ? '1' : '0.01'}
+										pattern="[0-9]*"
+										inputmode="numeric"
+									/>
+									{#if amount && parseFloat(amount) > 0}
+										<button
+											type="button"
+											class="text-error hover:bg-error/20 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
+											onclick={clearAmount}
+											aria-label="Clear amount"
+										>
+											<IconClose class="h-4 w-4" />
+										</button>
+									{/if}
+								</div>
+								{#if activeTab === 'sell'}
+									<button
+										type="button"
+										class="btn btn-primary join-item min-h-[48px] rounded-r-lg sm:min-h-[52px]"
+										onclick={setMaxAmount}
+									>
+										{$t('wallet.max')}
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<!-- Quick amount buttons + Buy button (buy only) -->
+					{#if activeTab === 'buy'}
+						<div class="flex items-center justify-between gap-2">
+							<div class="flex min-w-0 flex-1 flex-wrap gap-2">
+								<button
+									type="button"
+									class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
+									onclick={() => {
+										amount = '10';
+										fetchOffers('10');
+									}}>{$t('wallet.buy_sell.quick_amount_10')}</button
+								>
+								<button
+									type="button"
+									class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
+									onclick={() => {
+										amount = '20';
+										fetchOffers('20');
+									}}>{$t('wallet.buy_sell.quick_amount_20')}</button
+								>
+								<button
+									type="button"
+									class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
+									onclick={() => {
+										amount = '50';
+										fetchOffers('50');
+									}}>{$t('wallet.buy_sell.quick_amount_50')}</button
+								>
+								<button
+									type="button"
+									class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
+									onclick={() => {
+										amount = '100';
+										fetchOffers('100');
+									}}>{$t('wallet.buy_sell.quick_amount_100')}</button
+								>
+							</div>
+							<button
+								type="submit"
+								class="btn btn-primary min-h-[48px] shrink-0 sm:min-h-[52px]"
+								disabled={isLoading || !amount || !selectedOffer || !walletAddress}
+							>
+								{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
+								{$t('wallet.buy_sell.buy')}
+							</button>
+						</div>
+					{/if}
+				{/if}
+
+				<!-- Percent Slider + Sell button (sell only, hidden during active sell flow) -->
+				{#if activeTab === 'sell' && !sellFlowActive}
+					<div class="flex items-center gap-3">
+						<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
+							>{swapPercent}%</span
+						>
+						<input
+							id="swap-percent"
+							type="range"
+							min="0"
+							max="100"
+							step="1"
+							value={swapPercent}
+							class="range range-primary range-sm flex-1"
+							oninput={(e) => {
+								const input = e.target;
+								if (!(input instanceof HTMLInputElement)) return;
+								applyPercent(parseInt(input.value));
+							}}
+						/>
 						<button
 							type="submit"
 							class="btn btn-primary min-h-[48px] shrink-0 sm:min-h-[52px]"
-							disabled={isLoading || !amount || (activeTab === 'sell' && !bankDetails)}
+							disabled={isLoading || !amount || !selectedOffer || !walletAddress}
 						>
 							{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
-							{activeTab === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}
+							{$t('wallet.buy_sell.sell')}
 						</button>
 					</div>
+				{/if}
+
+				<!-- Multi-hop flow info for rBTC -->
+				{#if isMultiHop && activeTab === 'buy'}
+					<p class="text-base-content/50 text-xs">
+						{$t('wallet.buy_sell.multi_hop_label')}
+						{$t('wallet.buy_sell.multi_hop_rbtc_desc')}
+					</p>
+				{/if}
+
+				<!-- Payment method filter badges (always visible, disabled when no offers) -->
+				<div class="flex flex-wrap gap-1.5">
+					<button
+						type="button"
+						class="badge min-h-[28px] cursor-pointer border px-2 text-xs transition-colors"
+						class:badge-primary={!activePaymentFilter && filteredOffers.length > 0}
+						class:badge-ghost={activePaymentFilter !== null || filteredOffers.length === 0}
+						class:border-primary={!activePaymentFilter && filteredOffers.length > 0}
+						class:border-base-300={activePaymentFilter !== null || filteredOffers.length === 0}
+						class:opacity-50={filteredOffers.length === 0}
+						disabled={filteredOffers.length === 0}
+						onclick={() => {
+							activePaymentFilter = null;
+							if (filteredOffers.length > 0) {
+								selectedOffer = filteredOffers[0];
+								selectedPaymentMethod = filteredOffers[0].paymentMethodOffer[0] ?? null;
+							}
+						}}
+					>
+						{$t('wallet.buy_sell.filter_all')}
+					</button>
+					{#each allPaymentMethods as pm (pm.method)}
+						<button
+							type="button"
+							class="badge min-h-[28px] cursor-pointer border px-2 text-xs transition-colors"
+							class:badge-primary={activePaymentFilter === pm.method && filteredOffers.length > 0}
+							class:badge-ghost={activePaymentFilter !== pm.method || filteredOffers.length === 0}
+							class:border-primary={activePaymentFilter === pm.method && filteredOffers.length > 0}
+							class:border-base-300={activePaymentFilter !== pm.method ||
+								filteredOffers.length === 0}
+							class:opacity-50={filteredOffers.length === 0}
+							disabled={filteredOffers.length === 0}
+							onclick={() => {
+								activePaymentFilter = pm.method;
+								if (filteredOffers.length > 0) {
+									selectedOffer = filteredOffers[0];
+									selectedPaymentMethod = filteredOffers[0].paymentMethodOffer[0] ?? null;
+								}
+							}}
+						>
+							{pm.methodName}
+						</button>
+					{/each}
 				</div>
 
-				<!-- Quick amount buttons (buy only) -->
-				{#if activeTab === 'buy'}
-					<div class="flex flex-wrap justify-center gap-2">
+				<!-- Provider accordion (always visible — no layout shift) -->
+				<div
+					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+					class:collapse-open={providerExpanded && filteredOffers.length > 0}
+				>
+					{#if filteredOffers.length > 0}
+						{@const best = filteredOffers[0]}
+						{@const selected = selectedOffer ?? best}
 						<button
 							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
-							onclick={() => {
-								amount = '10';
-								fetchQuoteForAmount('10');
-							}}>{$t('wallet.buy_sell.quick_amount_10')}</button
+							class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10 text-sm font-medium"
+							onclick={() => (providerExpanded = !providerExpanded)}
+							aria-expanded={providerExpanded}
 						>
-						<button
-							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
-							onclick={() => {
-								amount = '20';
-								fetchQuoteForAmount('20');
-							}}>{$t('wallet.buy_sell.quick_amount_20')}</button
-						>
-						<button
-							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
-							onclick={() => {
-								amount = '50';
-								fetchQuoteForAmount('50');
-							}}>{$t('wallet.buy_sell.quick_amount_50')}</button
-						>
-						<button
-							type="button"
-							class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
-							onclick={() => {
-								amount = '100';
-								fetchQuoteForAmount('100');
-							}}>{$t('wallet.buy_sell.quick_amount_100')}</button
-						>
-					</div>
-				{/if}
-
-				<!-- Percent Slider (sell only) -->
-				{#if activeTab === 'sell'}
-					<div class="form-control py-1">
-						<div class="flex items-center gap-3">
-							<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
-								>{swapPercent}%</span
-							>
-							<input
-								id="swap-percent"
-								type="range"
-								min="0"
-								max="100"
-								step="1"
-								value={swapPercent}
-								class="range range-primary range-sm flex-1"
-								oninput={(e) => {
-									const input = e.target;
-									if (!(input instanceof HTMLInputElement)) return;
-									applyPercent(parseInt(input.value));
-								}}
-							/>
-						</div>
-					</div>
-				{/if}
-
-				{#if activeTab === 'sell'}
-					<div class="form-control">
-						<label for="bank-details" class="label py-1"
-							><span class="label-text text-xs font-medium sm:text-sm"
-								>{$t('wallet.buy_sell.bank_details')}</span
-							></label
-						>
-						<input
-							id="bank-details"
-							type="text"
-							class="input input-bordered min-h-[48px] text-base"
-							placeholder={$t('wallet.buy_sell.bank_details_placeholder')}
-							bind:value={bankDetails}
-						/>
-					</div>
-				{/if}
-
-				{#if amount && parseFloat(amount) > 0}
-					<div class="bg-base-100 flex items-center gap-3 rounded-xl p-3 sm:p-4">
-						<div class="bg-info/10 rounded-full p-2">
-							{#if quoteLoading}
-								<span class="loading loading-spinner loading-sm text-info"></span>
-							{:else if quoteError}
+							<div class="min-w-0 flex-1 text-left">
+								<div class="text-sm font-medium">
+									{formatProviderName(selected.providerCode)}
+								</div>
+								<div class="text-base-content/60 text-xs">
+									{$t('wallet.buy_sell.fee')}: ${calculateFee(selected)}
+								</div>
+							</div>
+							<div class="shrink-0 text-right">
+								{#if isBtcAsset}
+									<div class="text-sm font-semibold tabular-nums">
+										{formatSatsAmount(selected)}
+										{$t('wallet.buy_sell.sats')}
+									</div>
+									<div class="text-base-content/60 text-xs tabular-nums">
+										≈ ${formatUsdFromSats(selected)}
+									</div>
+								{:else}
+									<div class="text-sm font-semibold tabular-nums">
+										${selected.amountExpectedTo}
+									</div>
+									<div class="text-base-content/60 text-xs">
+										{friendlyAssetName(selectedCrypto)}
+									</div>
+								{/if}
+							</div>
+							{#if isLowestFee(selected)}
 								<svg
-									class="text-error h-5 w-5"
+									class="text-success h-5 w-5 shrink-0"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -657,60 +1322,115 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 									/></svg
 								>
-							{:else}<svg
-									class="text-info h-5 w-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/></svg
-								>{/if}
-						</div>
-						<div class="min-w-0 flex-1">
-							<div class="text-base-content/60 text-xs sm:text-sm">
-								{activeTab === 'buy'
-									? $t('wallet.buy_sell.estimated_receive')
-									: $t('wallet.buy_sell.estimated_send')}
-							</div>
-							<div class="text-sm font-semibold sm:text-base">
-								{#if quoteLoading}
-									<span class="text-base-content/40">...</span>
-								{:else if quoteError}
-									<span class="text-error">{$t('wallet.error.quote_failed')}</span>
-								{:else if quoteData}{activeTab === 'sell' || selectedCrypto === 'usdt0-arb'
-										? '$'
-										: ''}{activeTab === 'buy' ? estimatedReceive : estimatedSend}
-									<span class="text-base-content/60 ml-1 text-xs font-normal"
-										>{activeTab === 'buy'
-											? selectedCrypto === 'usdt0-arb'
-												? $t('wallet.buy_sell.usdt_bsc')
-												: selectedCrypto === 'btc-onchain'
-													? $t('wallet.btc')
-													: selectedCrypto === 'wbtc-arb'
-														? $t('wallet.wbtc')
-														: $t('wallet.rbtc')
-											: $t('wallet.usdt')}</span
-									>
-								{:else}<span class="text-base-content/40">—</span>{/if}
-							</div>
-							{#if activeTab === 'buy' && selectedCrypto !== 'usdt0-arb' && quoteData}
-								<div class="text-base-content/50 text-xs">
-									{convertToSats(estimatedReceive, selectedCrypto)}
-									{$t('wallet.sats')}
-								</div>
 							{/if}
+						</button>
+						<div class="collapse-content px-2">
+							<div class="space-y-1">
+								{#each filteredOffers as offer (offer.providerCode)}
+									{@const isSelected = selectedOffer?.providerCode === offer.providerCode}
+									{@const isCheapest = isLowestFee(offer)}
+									<button
+										type="button"
+										class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {isSelected
+											? 'bg-primary/10'
+											: 'hover:bg-base-200'}"
+										onclick={() => {
+											selectedOffer = offer;
+											selectedPaymentMethod = offer.paymentMethodOffer[0] ?? null;
+											providerExpanded = false;
+										}}
+									>
+										<div class="min-w-0 flex-1 text-left">
+											<div class="text-sm font-medium">
+												{formatProviderName(offer.providerCode)}
+											</div>
+											<div class="text-base-content/60 text-xs">
+												{$t('wallet.buy_sell.fee')}: ${calculateFee(offer)}
+											</div>
+										</div>
+										<div class="shrink-0 text-right">
+											{#if isBtcAsset}
+												<div class="text-sm font-semibold tabular-nums">
+													{formatSatsAmount(offer)}
+													{$t('wallet.buy_sell.sats')}
+												</div>
+												<div class="text-base-content/60 text-xs tabular-nums">
+													≈ ${formatUsdFromSats(offer)}
+												</div>
+											{:else}
+												<div class="text-sm font-semibold tabular-nums">
+													${offer.amountExpectedTo}
+												</div>
+												<div class="text-base-content/60 text-xs">
+													{friendlyAssetName(selectedCrypto)}
+												</div>
+											{/if}
+										</div>
+										{#if isCheapest}
+											<svg
+												class="text-success h-5 w-5 shrink-0"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+												/></svg
+											>
+										{/if}
+									</button>
+								{/each}
+							</div>
 						</div>
-					</div>
-				{/if}
+					{:else if quoteLoading}
+						<div
+							class="collapse-title flex min-h-[44px] items-center justify-center gap-2 px-3 py-2.5 pr-10"
+						>
+							<span class="loading loading-spinner loading-sm text-info"></span>
+							<span class="text-base-content/60 text-sm"
+								>{$t('wallet.buy_sell.loading_offers')}</span
+							>
+						</div>
+					{:else if quoteError}
+						<div class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10">
+							<svg
+								class="text-error h-4 w-4 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+								/></svg
+							>
+							<span class="text-base-content/60 text-sm">{$t('wallet.buy_sell.no_offers')}</span>
+						</div>
+					{:else}
+						<div
+							class="collapse-title flex min-h-[44px] items-center justify-center px-3 py-2.5 pr-10"
+						>
+							<span class="text-base-content/50 text-sm"
+								>{$t('wallet.buy_sell.enter_amount_prompt')}</span
+							>
+						</div>
+					{/if}
+				</div>
 			</form>
 		</div>
+
+		<!-- Sell flow note (hidden during active sell flow) -->
+		{#if activeTab === 'sell' && !sellFlowActive}
+			<div class="bg-info/5 border-info/20 rounded-lg border p-3 text-xs leading-relaxed">
+				{$t('wallet.buy_sell.sell_redirect_note')}
+			</div>
+		{/if}
 
 		<!-- Changelly KYC note -->
 		<div class="text-base-content/50 text-xs leading-relaxed">
@@ -718,3 +1438,20 @@
 		</div>
 	</div>
 </Drawer>
+
+<style>
+	.animate-fade-in {
+		animation: fadeIn 200ms ease-out;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
