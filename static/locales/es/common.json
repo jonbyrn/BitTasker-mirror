@@ -558,6 +558,7 @@
 					"networks": {
 						"lightning": "Red Lightning",
 						"liquid": "Red Liquid",
+						"bsc": "BNB Smart Chain (BSC)",
 						"unknown": "Red Desconocida"
 					},
 					"instructions": {
