@@ -33,6 +33,7 @@ const {
 	mockDefiPositions,
 	mockFeatureFlag,
 	MockApproveModal,
+	MockSwapPartySelector: _MockSwapPartySelector,
 	mockGetEvmSigner
 } = vi.hoisted(() => {
 	const wState = { current: { arb: { usdt0Balance: '0' } } };
@@ -78,7 +79,7 @@ const {
 
 	const mockFeatureFlag = { isEnabled: vi.fn().mockReturnValue(false) };
 
-	const MockApproveModal = () => 'approve-modal-mock';
+	const MockApproveModal = vi.fn(() => 'approve-modal-mock');
 	const MockWalletSelector = () => 'wallet-selector-mock';
 	const mockGetEvmSigner = vi.fn().mockReturnValue(null);
 
@@ -91,7 +92,7 @@ const {
 		MockAaveService,
 		mockShowInfoToast,
 		appStore,
-		mockConnectedWallets: _mockConnectedWallets,
+		mockConnectedWallets,
 		connectedWalletsStore,
 		mockDefiPositions,
 		mockFeatureFlag,
@@ -142,6 +143,7 @@ vi.mock('svelte-i18n', () => ({
 					'wallet.defi.lend.projected_label': 'Projected after 1 year',
 					'wallet.defi.lend.button_approve_supply': 'Approve & Supply USDT0',
 					'wallet.max': 'MAX',
+					'wallet.from': 'From',
 					'wallet.defi.shared.offline': "You're offline — DeFi requires network connection",
 					'wallet.defi.needs_usdt0': 'Requires USDT0 to supply',
 					'wallet.defi.shared.pending_tx': 'Transaction processing...',
@@ -231,9 +233,12 @@ describe('EarnLendStep (post-Cycle2)', () => {
 		await fireEvent.click(cta);
 
 		expect(cta).toHaveAttribute('aria-busy', 'true');
-		expect(mockShowInfoToast).toHaveBeenCalledWith(
-			expect.stringContaining('Transaction processing')
-		);
+		// Toast fires inside a 200ms setTimeout in handleSupply
+		await waitFor(() => {
+			expect(mockShowInfoToast).toHaveBeenCalledWith(
+				expect.stringContaining('Transaction processing')
+			);
+		});
 	});
 
 	// --- Expanded for full Lend lifecycle, ApproveModal, connected, preview, defi-positions (5-state + mocks) ---
@@ -244,8 +249,8 @@ describe('EarnLendStep (post-Cycle2)', () => {
 		await fireEvent.input(input, { target: { value: '50' } });
 		// preview from polish
 		expect(screen.getByText(/Preview — Approve & Supply/i)).toBeInTheDocument();
-		// selector present (stubbed)
-		expect(screen.getByText(/wallet-selector-mock/i) || screen.getByText(/from/i)).toBeTruthy();
+		expect(screen.getByText(/\$50\.00 USDT0 to Aave/)).toBeInTheDocument();
+		expect(screen.getByText(/Projected after 1y: \$52\.11/)).toBeInTheDocument();
 	});
 
 	it('exercises ApproveModal + approve lifecycle (full Lend, flag on, position refresh)', async () => {
