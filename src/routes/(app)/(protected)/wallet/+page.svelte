@@ -438,7 +438,10 @@
 						class:bg-primary={activeTab === 'wallet'}
 						class:text-primary-content={activeTab === 'wallet'}
 						class:tab-active={activeTab === 'wallet'}
-						onclick={() => (activeTab = 'wallet')}
+						onclick={() => {
+							activeTab = 'wallet';
+							showConnectModal = false;
+						}}
 					>
 						<IconWallet class="mr-1 h-4 w-4" aria-hidden="true" />
 						{$t('wallet.tab_wallet')}
