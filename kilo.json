@@ -1,8 +1,8 @@
 {
 	"$schema": "https://app.kilo.ai/config.json",
-	"model": "deepseek/deepseek-v4-pro",
+	"model": "xiaomi/mimo-v2.5-pro-ultraspeed",
 	"snapshot": true,
-	"small_model": "deepseek/deepseek-v4-flash",
+	"small_model": "xiaomi/mimo-v2.5-pro-ultraspeed",
 	"default_agent": "orchestrator",
 	"instructions": ["AGENTS.md", "CLAUDE.md"],
 	"permission": {

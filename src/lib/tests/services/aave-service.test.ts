@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-// import { tryCatch } from '$lib/utils/tryCatch';
+import { tryCatch } from '$lib/utils/tryCatch';
 import { AaveService, USDT0_ARBITRUM, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
 
 // ---------------------------------------------------------------------------

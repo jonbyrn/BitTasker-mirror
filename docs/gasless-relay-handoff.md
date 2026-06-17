@@ -458,7 +458,73 @@ The preflight simulation failure is caught and logged as a warning — it doesn'
 
 ---
 
-## 9. Key Contacts & Resources
+## 9. Feature Flags (VITE Environment Variables)
+
+The gasless relay and the broader USDT abstraction layer are gated behind feature flags defined in `src/lib/services/kill-switch.ts`. All flags are **build-time** VITE environment variables set in `.env` (production) and `.env.development` (local dev). They must be set **before** `vite build` — changing them at runtime has no effect.
+
+### Gasless-Specific Flags
+
+| Flag | Env Variable | Description | Default (dev) |
+|------|-------------|-------------|---------------|
+| USDT0 Bridge | `VITE_USDT0_BRIDGE_ENABLED` | Enables the USDT0 gasless bridge flow (the core gasless relay) | `true` |
+| Loan Flow | `VITE_LOAN_FLOW_ENABLED` | Enables Aave lend/borrow DeFi flows that use gasless relay for approve+supply | `true` |
+
+### USDT Abstraction Layer Flags
+
+These flags control the broader token swap and payment infrastructure that feeds into the gasless relay:
+
+| Flag | Env Variable | Description | Default (dev) |
+|------|-------------|-------------|---------------|
+| Changelly Swaps | `VITE_CHANGELLY_ENABLED` | Enables Changelly crypto swap provider | `true` |
+| Changelly Fiat | `VITE_CHANGELLY_FIAT_ENABLED` | Enables Changelly fiat on/off ramp (buy/sell) | `true` |
+| LI.FI Swaps | `VITE_LIFI_ENABLED` | Enables LI.FI DEX aggregator for cross-chain swaps | `true` |
+| Symbiosis Swaps | `VITE_SYMBIOSIS_ENABLED` | Enables Symbiosis cross-chain DEX | `true` |
+| OpenOcean Swaps | `VITE_OPENOCEAN_ENABLED` | Enables OpenOcean DEX aggregator | `true` |
+| Connected Wallets | `VITE_CONNECTED_WALLETS_ENABLED` | Master switch for all connected wallet features | `true` |
+| MetaMask | `VITE_CONNECTED_METAMASK_ENABLED` | MetaMask connect button (requires master flag) | `true` |
+| WalletConnect | `VITE_CONNECTED_WALLETCONNECT_ENABLED` | WalletConnect QR modal (requires master flag) | `true` |
+| Trezor | `VITE_CONNECTED_TREZOR_ENABLED` | Trezor hardware wallet support | `true` |
+| Ledger | `VITE_CONNECTED_LEDGER_ENABLED` | Ledger hardware wallet support | `true` |
+
+### How Feature Flags Work
+
+1. **Build-time evaluation**: Vite replaces `import.meta.env.VITE_*` with the actual string value at build time. There is no runtime hot-swapping.
+
+2. **Kill-switch service** (`src/lib/services/kill-switch.ts`): Central registry. Each flag has a dedicated `isXxxEnabled()` function that reads `import.meta.env.VITE_*_ENABLED === 'true'`. The `FeatureFlagService.isEnabled(name)` dispatcher maps string keys to these functions.
+
+3. **Usage pattern in code**:
+   ```typescript
+   import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
+   
+   if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.USDT0_BRIDGE)) {
+     // Feature disabled — show fallback or hide UI
+   }
+   ```
+
+4. **Sub-flags**: Connected wallet sub-flags (MetaMask, WalletConnect, etc.) are checked in addition to the master `CONNECTED_WALLETS` flag. Both must be `true` for the feature to work.
+
+### Adding a New Feature Flag
+
+1. Add the flag constant to `FEATURE_FLAGS` in `src/lib/services/kill-switch.ts`
+2. Add the `isXxxEnabled()` function reading `import.meta.env.VITE_XXX_ENABLED`
+3. Add the `case` to `FeatureFlagService.isEnabled()` switch
+4. Add `VITE_XXX_ENABLED=false` to `.env` and `.env.development` (disabled by default)
+5. Document it in this file
+
+### Key Gasless Env Variables (non-flag)
+
+These are also required for the gasless relay to function:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_GAS_TREASURY` | Address collecting fee buffers (exposed to client) | `0x...` |
+| `VITE_TX_RELAY_BASE_URL` | Backend API base URL | `http://localhost:4000/api/v1` |
+| `VITE_ARBITRUM_RPC_URL` | Arbitrum RPC for client-side checks | `https://arb1.arbitrum.io/rpc` |
+| `VITE_ALTO_URL_1` / `VITE_ALTO_URL_2` | Alto bundler URLs (for client-side estimation) | `http://alto-1:3000` |
+
+---
+
+## 10. Key Contacts & Resources
 
 - **EntryPoint v0.8:** `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` (Arbitrum One)
 - **VerifyingPaymaster:** `0x4C7D20565687A308135a7B38eA0b26a5e292B4c4`

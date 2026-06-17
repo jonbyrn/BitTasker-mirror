@@ -18,7 +18,7 @@ describe('SwapFallback (smoke)', () => {
 
 	it('renders nothing when show=false and no smartRoute', () => {
 		const { container } = render(SwapFallback, {});
-		expect(container.innerHTML).toBe('');
+		expect(container.childElementCount).toBe(0);
 	});
 
 	// Note: Full modal testing would require more i18n + dialog handling.

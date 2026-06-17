@@ -1,7 +1,6 @@
 ---
 description: "Solution design agent. Produces specs, file plans, and blast-radius reports. Checks for existing components and patterns before proposing new ones."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 30
 permission:
   read: allow

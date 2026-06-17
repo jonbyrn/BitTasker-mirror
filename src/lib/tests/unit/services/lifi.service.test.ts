@@ -20,8 +20,7 @@ vi.mock('$lib/services/kill-switch', () => ({
 
 import {
 	lifiService,
-	type LifiRoute,
-	type LifiQuoteResponse,
+	type LifiSingleQuoteResponse,
 	type LifiStatusResponse,
 	type LifiChain,
 	type LifiToken
@@ -32,26 +31,9 @@ import { isLifiEnabled } from '$lib/services/kill-switch';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeLifiRoute(overrides?: Partial<LifiRoute>): LifiRoute {
+function makeSingleQuoteResponse(overrides?: Partial<LifiSingleQuoteResponse>): LifiSingleQuoteResponse {
 	return {
 		id: 'test-route-id',
-		fromChainId: 30,
-		toChainId: 56,
-		fromToken: {
-			symbol: 'RBTC',
-			address: '0x0000000000000000000000000000000000000000',
-			chainId: 30,
-			decimals: 18,
-			name: 'RBTC'
-		},
-		toToken: {
-			symbol: 'USDT',
-			address: '0x55d398326f99059fF775485246999027B3197955',
-			chainId: 56,
-			decimals: 18,
-			name: 'Tether USD'
-		},
-		steps: [],
 		estimate: {
 			fromAmount: '1000000000000000000',
 			toAmount: '500000000000000000000',
@@ -61,10 +43,6 @@ function makeLifiRoute(overrides?: Partial<LifiRoute>): LifiRoute {
 		},
 		...overrides
 	};
-}
-
-function makeQuoteResponse(route?: LifiRoute): LifiQuoteResponse {
-	return { routes: route ? [route] : [makeLifiRoute()] };
 }
 
 // ---------------------------------------------------------------------------
@@ -83,13 +61,12 @@ describe('lifiService', () => {
 
 	describe('getQuote', () => {
 		it('returns the best route on success', async () => {
-			const route = makeLifiRoute();
 			vi.stubGlobal(
 				'fetch',
 				vi
 					.fn()
 					.mockResolvedValue(
-						new Response(JSON.stringify(makeQuoteResponse(route)), { status: 200 })
+						new Response(JSON.stringify(makeSingleQuoteResponse()), { status: 200 })
 					)
 			);
 
@@ -174,7 +151,11 @@ describe('lifiService', () => {
 		it('throws on empty routes', async () => {
 			vi.stubGlobal(
 				'fetch',
-				vi.fn().mockResolvedValue(new Response(JSON.stringify({ routes: [] }), { status: 200 }))
+				vi.fn().mockResolvedValue(
+					new Response(JSON.stringify(makeSingleQuoteResponse({ estimate: undefined })), {
+						status: 200
+					})
+				)
 			);
 
 			await expect(
@@ -186,7 +167,7 @@ describe('lifiService', () => {
 					fromAmount: '1',
 					fromAddress: '0x0'
 				})
-			).rejects.toThrow('no routes');
+			).rejects.toThrow('no liquidity');
 		});
 
 		it('throws on invalid JSON response', async () => {

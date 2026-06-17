@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$lib/services/kill-switch', () => ({
 	isLifiEnabled: vi.fn(() => true),
 	isSymbiosisEnabled: vi.fn(() => true),
+	isOpenOceanEnabled: vi.fn(() => true),
 	isChangeallySwapsEnabled: vi.fn(() => false),
 	isChangeallyFiatEnabled: vi.fn(() => false),
 	FEATURE_FLAGS: {
@@ -34,6 +35,12 @@ vi.mock('$lib/services/symbiosis.service', () => ({
 	symbiosisService: {
 		getQuote: vi.fn(),
 		getChains: vi.fn()
+	}
+}));
+
+vi.mock('$lib/services/openocean.service', () => ({
+	openoceanService: {
+		getQuote: vi.fn()
 	}
 }));
 
@@ -90,8 +97,14 @@ function makeLifiRoute(): LifiRoute {
 
 function makeSymbiosisQuote(): SymbiosisQuoteResponse {
 	return {
-		amountOut: '500000000000000000000',
-		feePercent: 0.3,
+		tokenAmountOut: {
+			amount: '500000000000000000000',
+			symbol: 'USDT',
+			address: '0x55d398326f99059fF775485246999027B3197955',
+			chainId: 56,
+			decimals: 18
+		},
+		fee: '0.3',
 		estimatedTime: 5
 	};
 }
@@ -119,7 +132,7 @@ describe('resolveRouteAsync', () => {
 			const result = await resolveRouteAsync('rbtc', dest, amount, userAddress);
 
 			expect(result.routes.length).toBeGreaterThanOrEqual(2);
-			expect(result.providerResults).toHaveLength(2);
+			expect(result.providerResults).toHaveLength(3);
 			expect(result.providerResults.find((p) => p.provider === 'lifi')!.status).toBe('success');
 			expect(result.providerResults.find((p) => p.provider === 'symbiosis')!.status).toBe(
 				'success'
@@ -236,7 +249,7 @@ describe('createInitialAsyncRouteResult', () => {
 		const result = createInitialAsyncRouteResult();
 		expect(result.isLoading).toBe(true);
 		expect(result.routes).toHaveLength(0);
-		expect(result.providerResults).toHaveLength(2);
+		expect(result.providerResults).toHaveLength(3);
 	});
 });
 

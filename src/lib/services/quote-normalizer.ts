@@ -218,6 +218,9 @@ export function normalizeSymbiosisQuote(
 	const outAmount = quote?.tokenAmountOut?.amount;
 	if (!outAmount) return null;
 
+	// Reject non-numeric amounts
+	if (Number.isNaN(parseFloat(outAmount))) return null;
+
 	// Symbiosis estimated time, default 5 min
 	const estimatedTimeMinutes = quote.estimatedTime ?? 5;
 

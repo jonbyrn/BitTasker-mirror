@@ -1,7 +1,6 @@
 ---
 description: "Implementation agent. Writes production Svelte 5 code. Auto-fixes quality issues before declaring done."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 25
 permission:
   bash: allow

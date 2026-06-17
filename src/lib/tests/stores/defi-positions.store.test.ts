@@ -155,28 +155,47 @@ vi.mock('$lib/stores/connected-wallets.store', () => ({
 vi.mock('$lib/utils/network-status', () => ({
 	browserNetworkStatus: {
 		subscribe(fn: unknown) {
-			fn({ online: true });
+			fn(mockNetwork.current);
 			return () => {};
 		}
 	}
 }));
 vi.mock('$lib/services/kill-switch', () => ({
-	FeatureFlagService: { isEnabled: vi.fn().mockReturnValue(true) },
+	FeatureFlagService: mockKillSwitch,
 	FEATURE_FLAGS: { LOAN_FLOW: 'LOAN_FLOW', CONNECTED_WALLETS: 'CONNECTED_WALLETS' }
 }));
-vi.mock('$lib/services/defi/aave.service', () => ({
-	AaveService: class {
-		getUserAccountData = vi
-			.fn()
-			.mockResolvedValue({ totalCollateralUsd: 1000, totalDebtUsd: 0, healthFactor: 2.5 });
+vi.mock('ethers', () => ({
+	ethers: {
+		JsonRpcProvider: vi.fn(() => ({})),
+		Contract: vi.fn(() => ({
+			getReserveData: vi.fn().mockResolvedValue({
+				aTokenAddress: '0x0000000000000000000000000000000000000001',
+				8: '0x0000000000000000000000000000000000000001'
+			}),
+			balanceOf: vi.fn().mockResolvedValue(0n),
+			decimals: vi.fn().mockResolvedValue(6)
+		})),
+		ZeroAddress: '0x0000000000000000000000000000000000000000',
+		formatUnits: vi.fn(() => '0')
 	},
+	JsonRpcProvider: vi.fn(() => ({})),
+	Contract: vi.fn(() => ({
+		getReserveData: vi.fn().mockResolvedValue({
+			aTokenAddress: '0x0000000000000000000000000000000000000001',
+			8: '0x0000000000000000000000000000000000000001'
+		}),
+		balanceOf: vi.fn().mockResolvedValue(0n),
+		decimals: vi.fn().mockResolvedValue(6)
+	})),
+	ZeroAddress: '0x0000000000000000000000000000000000000000',
+	formatUnits: vi.fn(() => '0')
+}));
+vi.mock('$lib/services/defi/aave.service', () => ({
+	AaveService: vi.fn(() => mockAaveService),
 	USDT0_ARBITRUM: '0xUSDT'
 }));
 vi.mock('$lib/services/defi/uniswap.service', () => ({
-	UniswapService: class {
-		getPosition = vi.fn().mockResolvedValue({ liquidity: 123n, tokensOwed0: 1n, tokensOwed1: 10n });
-		getWbtcUsdt0Pool = vi.fn().mockResolvedValue({ data: { sqrtPriceX96: 0n, address: '0xPool' } });
-	},
+	UniswapService: vi.fn(() => _mockUniswapService),
 	FEE_TIER: { LOW: 500 }
 }));
 vi.mock('$lib/utils/tryCatch', () => ({
@@ -203,7 +222,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	cleanup?.(); // if any
+	// no cleanup needed — store tests don't use render()
 });
 
 describe('defi-positions.store (5-state + full Lend/LP/ApproveModal coverage)', () => {
@@ -211,7 +230,7 @@ describe('defi-positions.store (5-state + full Lend/LP/ApproveModal coverage)', 
 		expect(calculateIL(1)).toBeCloseTo(0);
 		expect(calculateIL(0)).toBe(0);
 		expect(calculateIL(NaN)).toBe(0);
-		expect(calculateIL(4)).toBeCloseTo(-50); // example
+		expect(calculateIL(4)).toBeCloseTo(-20); // (2*sqrt(4))/(1+4) - 1 = -0.2 → -20%
 	});
 
 	it('initial state: empty (5-state empty)', () => {

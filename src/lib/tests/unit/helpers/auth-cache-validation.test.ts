@@ -10,6 +10,9 @@ import {
 } from '$lib/utils/helpers/auth';
 import type { BiometricData, EncryptedData } from '$lib/types/auth';
 
+// Prevent VITE_TEST_MNEMONIC early-return in nostrKeys.ts
+vi.stubEnv('VITE_TEST_MNEMONIC', '');
+
 const mockEncryptedData: EncryptedData = {
 	nostr: {
 		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
@@ -101,6 +104,11 @@ vi.mock('nostr-tools', () => ({
 vi.mock('$lib/utils/helpers/biometrics', () => ({
 	checkBiometricAvailability: vi.fn().mockResolvedValue(true),
 	getBiometricData: vi.fn()
+}));
+
+vi.mock('$lib/nostr/ndkSigner', () => ({
+	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
+	applyNdkSignerFromNsec: vi.fn().mockResolvedValue(undefined)
 }));
 
 describe('Cache Validation Logic', () => {

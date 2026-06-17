@@ -1,7 +1,6 @@
 ---
 description: "UX/UI specialist. Audits visual consistency, accessibility, and user experience. Connects to live browser for inspection."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 15
 permission:
   bash: allow

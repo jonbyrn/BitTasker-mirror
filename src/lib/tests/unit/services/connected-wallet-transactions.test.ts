@@ -206,8 +206,8 @@ describe('connected-wallet-transactions', () => {
 
 			await fetchAllConnectedWalletTransactions([WALLET_A, WALLET_B]);
 
-			// 2 wallets × 2 networks = 4 fetch calls
-			expect(mockFetch).toHaveBeenCalledTimes(4);
+			// 2 wallets × 3 fetches (RSK native + Arbitrum native + Arbitrum token-transfers) = 6
+			expect(mockFetch).toHaveBeenCalledTimes(6);
 		});
 	});
 
@@ -224,7 +224,8 @@ describe('connected-wallet-transactions', () => {
 
 			await fetchConnectedWalletTransactionsForWallet(WALLET_A);
 
-			expect(mockFetch).toHaveBeenCalledTimes(2);
+			// RSK native + Arbitrum native + Arbitrum token-transfers = 3
+			expect(mockFetch).toHaveBeenCalledTimes(3);
 		});
 
 		it('merges and sorts results from both networks', async () => {

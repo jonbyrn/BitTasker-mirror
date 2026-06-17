@@ -1,7 +1,6 @@
 ---
 description: "Epic phase-gate agent. Merges parallel features, runs full test suite, builds, and verifies cross-module coherence."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 20
 permission:
   bash: allow

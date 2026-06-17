@@ -268,11 +268,11 @@ describe('parsePaymentAddress', () => {
 	});
 
 	describe('EIP-681 format with chain IDs', () => {
-		it('should reject unsupported chain ID', () => {
+		it('should accept Ethereum mainnet chain ID', () => {
 			const address = 'ethereum:0x1234567890123456789012345678901234567890@1';
 			const result = parsePaymentAddress(address);
-			expect(result.isValid).toBe(false);
-			expect(result.errorMessage).toContain('Chain ID 1 is not supported');
+			expect(result.isValid).toBe(true);
+			expect(result.network).toBe('usdt-ethereum');
 		});
 
 		it('should reject ethereum: scheme without chain ID', () => {

@@ -1,7 +1,6 @@
 ---
 description: "TDD agent. Writes failing tests first, verifies implementation passes. Runs Playwright smoke tests against live browser."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 20
 permission:
   bash: allow

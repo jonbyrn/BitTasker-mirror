@@ -1,7 +1,6 @@
 ---
 description: "Quality audit agent. Scores code on multiple dimensions. Returns specific fix instructions when below 95%."
 mode: subagent
-model: deepseek/deepseek-v4-flash
 steps: 15
 permission:
   bash: allow

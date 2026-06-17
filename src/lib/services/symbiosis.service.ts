@@ -162,11 +162,12 @@ export const symbiosisService = {
 		requireSymbiosisEnabled();
 
 		const { tokenAmountIn, tokenOut, from, to, slippage } = params;
-		const amount = tokenAmountIn.amount;
 
-		if (!tokenAmountIn || !tokenOut || !amount || !from) {
+		if (!tokenAmountIn || !tokenOut || !tokenAmountIn.amount || !from) {
 			throw new Error('getQuote requires tokenAmountIn, tokenOut, amount, and from address');
 		}
+
+		const amount = tokenAmountIn.amount;
 
 		const body = {
 			tokenAmountIn: {

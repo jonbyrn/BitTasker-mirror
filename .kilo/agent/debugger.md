@@ -1,7 +1,6 @@
 ---
 description: "Bug investigation agent. Traces execution flows, inspects live browser, produces root-cause analysis and fix plan."
 mode: subagent
-model: deepseek/deepseek-v4-pro
 steps: 25
 permission:
   bash: allow

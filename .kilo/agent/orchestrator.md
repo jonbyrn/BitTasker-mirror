@@ -1,7 +1,6 @@
 ---
 description: "Default agent. Auto-routes task complexity and spawns swarms of specialized subagents. All work enters through here."
 mode: primary
-model: deepseek/deepseek-v4-flash
 steps: 40
 permission:
   bash: allow
