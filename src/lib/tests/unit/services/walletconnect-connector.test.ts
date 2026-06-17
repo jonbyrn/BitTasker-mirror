@@ -250,13 +250,17 @@ describe('walletconnect-connector', () => {
 			const onQRUri = vi.fn();
 			const connectPromise = connectWC({}, onQRUri);
 
+			// Catch the rejection early to prevent unhandled rejection
+			const caught = connectPromise.catch((e: Error) => e);
+
 			// Drain any microtasks queued during connectWC initialization
 			await vi.runAllTicks();
 
 			// Advance past the 120-second timeout (QR_TIMEOUT_MS)
 			await vi.advanceTimersByTimeAsync(130_000);
 
-			await expect(connectPromise).rejects.toThrow('timed out');
+			const error = await caught;
+			expect(error.message).toContain('timed out');
 
 			vi.useRealTimers();
 		});
