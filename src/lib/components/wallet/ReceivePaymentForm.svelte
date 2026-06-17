@@ -367,8 +367,10 @@
 		if (network === 'usdt-bsc') return 'usdt-bsc';
 		if (network === 'usdt0-rootstock') return 'usdt0-rsk';
 		if (network === 'doc-rootstock') return 'doc-rsk';
+		if (network === 'bitcoin') return 'btc-onchain';
 		// Arbitrum tokens
-		if (network === 'usdt0-arbitrum' || network === 'usdt0-arb') return 'usdt0-arb';
+		if (network === 'usdt0-arbitrum' || network === 'usdt-arbitrum' || network === 'usdt0-arb')
+			return 'usdt0-arb';
 		if (network === 'wbtc-arbitrum' || network === 'wbtc-arb') return 'wbtc-arb';
 		if (network === 'tbtc-arbitrum' || network === 'tbtc-arb') return 'tbtc-arb';
 		// Any other usdt-* network → treat as USDT stablecoin source
@@ -491,8 +493,8 @@
 		const to = deriveChainInfo(formInput.selectedNetwork);
 		if (!from || !to) return null;
 
-		// Direct send: same chain, same asset → zero fees
-		if (from.chainId === to.chainId && from.asset === to.asset) {
+		// Direct send: same chain, same asset → zero fees (exclude Boltz sentinel IDs)
+		if (from.chainId === to.chainId && from.asset === to.asset && from.chainId > 0) {
 			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 		}
 
@@ -896,6 +898,39 @@
 				onOpenPaymentRequest({
 					address,
 					network: 'rootstock-bitcoin',
+					amount: Math.floor(invoiceAmount),
+					memo: formInput.memo || undefined,
+					chargeFeesToPayer: formInput.chargeFeesToPayer,
+					totalFees: feeState.estimated?.totalFees || 0,
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
+				});
+			} else if (formInput.selectedNetwork === 'bitcoin') {
+				let address: string;
+				if (useConnected) {
+					const handle = getHandle(selectedReceiveWalletId!);
+					const btcAddr = handle?.bitcoinSigner?.address;
+					if (!btcAddr) {
+						appStore.showErrorToast($t('wallet.receive.connected_wallet_not_found'));
+						isGenerating = false;
+						return;
+					}
+					address = btcAddr;
+				} else {
+					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+						return appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					}
+					address = $walletStore.rsk.address;
+				}
+				onOpenPaymentRequest({
+					address,
+					network: 'bitcoin',
 					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
 					chargeFeesToPayer: formInput.chargeFeesToPayer,

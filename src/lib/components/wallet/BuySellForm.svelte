@@ -81,6 +81,10 @@
 	let quoteError = $state(false);
 	let quoteAbort: AbortController | null = null;
 
+	// Supported crypto tickers from Changelly fiat API (pre-fetched)
+	let supportedCryptoTickers = $state<Set<string> | null>(null);
+	let supportedCryptoError = $state<string | null>(null);
+
 	// Payment method filter
 	let activePaymentFilter = $state<string | null>(null);
 	let providerExpanded = $state(false);
@@ -276,6 +280,20 @@
 		if (selectedCrypto === 'btc-onchain' && !selectedSourceHasBtc) {
 			selectedCrypto = 'rbtc';
 		}
+	});
+
+	// Pre-fetch supported crypto tickers from Changelly fiat API
+	$effect(() => {
+		if (!isOpen || supportedCryptoTickers) return;
+		changellyFiatService
+			.getCurrencies({ type: 'crypto' })
+			.then((currencies) => {
+				supportedCryptoTickers = new Set(currencies.map((c) => c.ticker.toUpperCase()));
+			})
+			.catch((err) => {
+				console.warn('[BuySellForm] Failed to fetch supported crypto currencies:', err);
+				supportedCryptoError = 'Unable to verify supported currencies';
+			});
 	});
 
 	// ===================================================================
@@ -544,6 +562,7 @@
 		selectedPaymentMethod = null;
 		quoteLoading = false;
 		quoteError = false;
+		supportedCryptoError = null;
 		swapPercent = 0;
 		sellFlowActive = false;
 	}
@@ -556,6 +575,7 @@
 		selectedPaymentMethod = null;
 		quoteLoading = false;
 		quoteError = false;
+		supportedCryptoError = null;
 		swapPercent = 0;
 		// Refetch offers for the new asset if amount is already entered
 		if (amount && parseFloat(amount) > 0) {
@@ -717,6 +737,15 @@
 		try {
 			const currencyFrom = activeTab === 'buy' ? 'USD' : cryptoTicker(selectedCrypto);
 			const currencyTo = activeTab === 'buy' ? cryptoTicker(selectedCrypto) : 'USD';
+
+			// Check if the crypto ticker is supported by Changelly fiat API
+			const cryptoSide = activeTab === 'buy' ? currencyTo : currencyFrom;
+			if (supportedCryptoTickers && !supportedCryptoTickers.has(cryptoSide.toUpperCase())) {
+				quoteLoading = false;
+				quoteAbort = null;
+				supportedCryptoError = `${friendlyAssetName(selectedCrypto)} is not available for fiat ${activeTab === 'buy' ? 'purchase' : 'sale'} in your region.`;
+				return;
+			}
 
 			// Changelly requires a US state for country=US — wait until selected
 			if (selectedCountry === 'US' && !selectedState) {
@@ -1412,6 +1441,22 @@
 								/></svg
 							>
 							<span class="text-base-content/60 text-sm">{$t('wallet.buy_sell.no_offers')}</span>
+						</div>
+					{:else if supportedCryptoError}
+						<div class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10">
+							<svg
+								class="text-warning h-4 w-4 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+								/></svg
+							>
+							<span class="text-base-content/60 text-sm">{supportedCryptoError}</span>
 						</div>
 					{:else}
 						<div

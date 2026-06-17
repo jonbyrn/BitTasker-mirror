@@ -3,11 +3,11 @@
  *
  * Client-side wrapper for the Changelly v2 swap API.
  * Does NOT call Changelly directly from the client. Instead, it posts to the
- * Cloudflare Worker proxy endpoint at `/api/changelly/swap/*`, which handles
+ * NestJS backend proxy at `/api/v1/changelly/swap/*`, which handles
  * HMAC-SHA256 signing, origin validation, rate limiting, and error filtering.
  *
  * All estimation methods are pure — they fetch data but produce no side effects
- * on the server. Mutation methods (createSwap) are idempotent at the Worker level.
+ * on the server. Mutation methods (createSwap) are idempotent at the backend level.
  *
  * @see requirements/usdt-integration-plan.md §2.5.1
  * @see requirements/usdt-integration-plan.md §Proxy implementation requirements
@@ -23,8 +23,12 @@ const debug = createDebug('changelly-service');
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Base path for the Changelly swap proxy on the CF Worker. */
-const SWAP_PROXY_BASE = '/api/changelly/swap';
+/**
+ * Base path for the Changelly swap API on the NestJS backend.
+ * Uses VITE_API_URL (e.g. http://localhost:8000) + /api/v1/changelly/swap
+ */
+const API_URL = import.meta.env.VITE_API_URL || '';
+const SWAP_PROXY_BASE = `${API_URL}/api/v1/changelly/swap`;
 
 // ---------------------------------------------------------------------------
 // Types — Changelly API v2
@@ -234,7 +238,7 @@ function requireSwapsEnabled(): void {
 /**
  * Changelly Swap API service.
  *
- * All methods are thin wrappers around the CF Worker proxy at `/api/changelly/swap/*`.
+ * All methods are thin wrappers around the NestJS backend proxy at `/api/v1/changelly/swap/*`.
  * Every public method checks the `VITE_CHANGELLY_ENABLED` feature flag before proceeding.
  */
 export const changellyService = {

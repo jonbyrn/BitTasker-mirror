@@ -25,7 +25,7 @@
 	// -----------------------------------------------------------------------
 
 	// BTC section sorted: Rootstock → Lightning Bitcoin → Liquid Bitcoin → Bitcoin on-chain
-	// USDT section sorted: Arbitrum first, then alphabetical
+	// USDT section sorted: USDT0 entries first, then alphabetical
 	const SOURCE_NETWORKS: SourceNetwork[] = [
 		// -- BTC group --
 		{
@@ -61,23 +61,15 @@
 			network: 'bitcoin',
 			group: 'btc'
 		},
-		// -- USDT group (Arbitrum first, rest alphabetical) --
-		{
-			id: 'usdt-arbitrum',
-			asset: 'USDT',
-			label: 'Arbitrum',
-			icon: '/images/chains/arbitrum.png',
-			network: 'usdt-arbitrum',
-			group: 'usdt',
-			recommended: true
-		},
+		// -- USDT group --
 		{
 			id: 'usdt0-arb',
 			asset: 'USDT0',
 			label: 'Arbitrum',
 			icon: '/images/chains/arbitrum.png',
-			network: 'usdt-arbitrum',
-			group: 'usdt'
+			network: 'usdt0-arbitrum',
+			group: 'usdt',
+			recommended: true
 		},
 		{
 			id: 'usdt-avax',
@@ -262,10 +254,9 @@
 			receiveCurrency === 'btc-onchain' ||
 			receiveCurrency === 'tbtc-arb';
 		const g: 'btc' | 'usdt' = isBtcAsset ? 'btc' : 'usdt';
-		const a = isBtcAsset ? 'rBTC' : 'USDT';
 		activeGroup = g;
 		const defs = SOURCE_NETWORKS.filter((n) => n.group === g);
-		const direct = defs.find((n) => n.asset === a);
+		const direct = defs.find((n) => (isBtcAsset ? n.asset === 'rBTC' : n.recommended));
 		const fallback = direct ?? defs[0];
 		if (fallback) {
 			selectedId = fallback.id;
