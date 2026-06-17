@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { authState } from '$lib/stores/auth.store';
@@ -19,29 +18,6 @@
 	});
 
 	const { children } = $props();
-
-	/**
-	 * vite:preloadError fires when a dynamic import chunk fails to load,
-	 * which happens when the user has stale in-memory JS after a new deployment
-	 * replaced the old chunk hashes. Calling event.preventDefault() suppresses
-	 * the error from propagating to unhandledrejection, then we reload once to
-	 * fetch fresh index.html with the new chunk references.
-	 * The key is scoped to the build version so a flag from a previous deployment
-	 * never blocks a reload for a different deployment.
-	 */
-	const CHUNK_RELOAD_KEY = `chunk-reload-${__BUILD_VERSION__}`;
-
-	const handlePreloadError = (event: Event & { payload: Error }) => {
-		if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-			// First failure for this build version: suppress + reload once.
-			event.preventDefault();
-			sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
-			location.reload();
-		}
-		// Flag already set: this is a persistent error (not a stale-cache issue).
-		// Let the error propagate naturally so handleError in hooks.client.ts
-		// can surface it through Sentry.
-	};
 
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
@@ -113,50 +89,14 @@
 	let cleanupKb: (() => void) | undefined;
 
 	onMount(() => {
-		// Keyboard: init asynchronously (dynamic import avoids SSR issues, no-op on web)
 		import('$lib/utils/helpers/keyboard').then((m) => {
 			m.initKeyboard().then((cleanup) => {
 				cleanupKb = cleanup;
 			});
 		});
 
-		window.addEventListener('vite:preloadError', handlePreloadError);
-
-		// Global error handler
-		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
-			const error = event instanceof ErrorEvent ? event.error : event.reason;
-
-			// Skip logging null/undefined errors (often from third-party libraries like SES)
-			if (error === null || error === undefined) {
-				return;
-			}
-
-			// Only log meaningful errors
-			const errorMessage =
-				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
-
-			// Skip empty or meaningless error messages
-			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
-				return;
-			}
-
-			console.error('[Global Error Handler]:', {
-				error: errorMessage,
-				stack: error instanceof Error ? error.stack : undefined,
-				type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
-				timestamp: new Date().toISOString()
-			});
-			if (event instanceof ErrorEvent) event.preventDefault();
-		};
-
-		window.addEventListener('error', handleError);
-		window.addEventListener('unhandledrejection', handleError);
-
 		return () => {
 			cleanupKb?.();
-			window.removeEventListener('vite:preloadError', handlePreloadError);
-			window.removeEventListener('error', handleError);
-			window.removeEventListener('unhandledrejection', handleError);
 		};
 	});
 

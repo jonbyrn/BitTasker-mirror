@@ -3,6 +3,7 @@
 	import { initializeTheme } from '$lib/stores/theme.store';
 	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
@@ -18,6 +19,60 @@
 	onMount(() => {
 		initializeTheme();
 		initializeStatusBar();
+		hideSplashScreenWhenReady(300);
+
+		const CHUNK_RELOAD_KEY = `chunk-reload-${__BUILD_VERSION__}`;
+
+		const onPreloadError = (event: Event & { payload: Error }) => {
+			if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+				event.preventDefault();
+				sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+				location.reload();
+			}
+		};
+
+		const onError = (event: ErrorEvent) => {
+			const error = event.error;
+			if (error === null || error === undefined) return;
+
+			const errorMessage =
+				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') return;
+
+			console.error('[Global Error Handler]:', {
+				error: errorMessage,
+				stack: error instanceof Error ? error.stack : undefined,
+				type: 'error',
+				timestamp: new Date().toISOString()
+			});
+			event.preventDefault();
+		};
+
+		const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+			const error = event.reason;
+			if (error === null || error === undefined) return;
+
+			const errorMessage =
+				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') return;
+
+			console.error('[Global Error Handler]:', {
+				error: errorMessage,
+				stack: error instanceof Error ? error.stack : undefined,
+				type: 'unhandledrejection',
+				timestamp: new Date().toISOString()
+			});
+		};
+
+		window.addEventListener('vite:preloadError', onPreloadError);
+		window.addEventListener('error', onError);
+		window.addEventListener('unhandledrejection', onUnhandledRejection);
+
+		return () => {
+			window.removeEventListener('vite:preloadError', onPreloadError);
+			window.removeEventListener('error', onError);
+			window.removeEventListener('unhandledrejection', onUnhandledRejection);
+		};
 	});
 </script>
 
