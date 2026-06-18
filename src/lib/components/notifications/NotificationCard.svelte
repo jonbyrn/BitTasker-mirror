@@ -89,7 +89,7 @@
 		if (isUnread) {
 			await notificationCenterStore.markRead(notification.id);
 		}
-		// Backend now sends correct frontend routes directly
+
 		const deepLink = notification.data?.deepLink as string | undefined;
 		if (deepLink && deepLink.startsWith('/') && !deepLink.startsWith('//')) {
 			onclose?.();
@@ -104,11 +104,13 @@
 </script>
 
 <div
-	class="group hover:bg-base-200/50 flex w-full items-start gap-3 px-4 text-left
+	class="group hover:bg-base-200/50 flex w-full cursor-pointer items-start gap-3 px-4 text-left
 		transition-colors {isUnread ? 'bg-base-200/30' : ''}
 		{priorityBorder} {compact ? 'py-2' : 'py-3'}"
 	onclick={handleClick}
-	onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') handleClick();
+	}}
 	role="listitem"
 	aria-label={notification.title}
 	tabindex={0}

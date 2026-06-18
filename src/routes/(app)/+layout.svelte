@@ -43,6 +43,30 @@
 		};
 	});
 
+	let scrollEl = $state<HTMLElement | null>(null);
+	let cleanupKb: (() => void) | undefined;
+	let footerEl = $state<HTMLElement | null>(null);
+	let footerObserver: ResizeObserver | null = null;
+
+	// Fetch notification unread count and connect WebSocket for ALL authenticated routes.
+	// The bell icon renders in ProtectedTopBar for any authenticated user, so the count
+	// must be available even on non-protected routes like /tasks and /services.
+	async function fetchNotificationCount() {
+		if (!$authState.isAuthenticated) return;
+
+		try {
+			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
+			await notificationCenterStore.fetchUnreadCount();
+
+			const { connectNotificationSocket } = await import(
+				'$lib/api/services/notificationSocket.service'
+			);
+			await connectNotificationSocket();
+		} catch {
+			// Notification init is non-critical — don't break the layout
+		}
+	}
+
 	// Device store: only needed under (protected)/; follow `isProtectedRoute` on client navigations.
 	$effect(() => {
 		if (!browser || !isProtectedRoute) return;
@@ -79,37 +103,26 @@
 		};
 	});
 
-	let cleanupKb: (() => void) | undefined;
-
-	onMount(() => {
+	onMount(async () => {
 		import('$lib/utils/helpers/keyboard').then((m) => {
 			m.initKeyboard().then((cleanup) => {
 				cleanupKb = cleanup;
 			});
 		});
 
+		// Primary app scroll container (middle area in app-shell layout)
+		appScrollContainer.set(scrollEl);
+
+		await fetchNotificationCount();
+
 		return () => {
 			cleanupKb?.();
+			appScrollContainer.set(null);
 		};
-	});
-
-	// Primary app scroll container (middle area in app-shell layout)
-	let scrollEl = $state<HTMLElement | null>(null);
-	onMount(() => {
-		appScrollContainer.set(scrollEl);
-		return () => appScrollContainer.set(null);
-	});
-
-	$effect(() => {
-		// Keep store up to date when element binds
-		if (scrollEl) appScrollContainer.set(scrollEl);
 	});
 
 	// Measure the actual footer height and expose it as a CSS variable.
 	// This avoids any bottom-nav overlap caused by height rounding, fonts, or safe-area differences.
-	let footerEl = $state<HTMLElement | null>(null);
-	let footerObserver: ResizeObserver | null = null;
-
 	$effect(() => {
 		if (footerObserver) {
 			footerObserver.disconnect();

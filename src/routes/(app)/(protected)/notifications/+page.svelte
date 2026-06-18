@@ -51,12 +51,12 @@
 </svelte:head>
 
 <div class="mx-auto h-full max-w-3xl px-2 py-6 md:px-0">
-	<div class="mb-6 flex items-center justify-between">
+	<div class="mb-6">
 		<div>
 			<h3>{$t('notifications.title')}</h3>
 			<p class="text-base-content/70 text-sm">{$t('notifications.subtitle')}</p>
 		</div>
-		<div class="flex gap-2">
+		<div class="mt-2 flex justify-end gap-2">
 			{#if unreadCount > 0}
 				<button class="btn btn-ghost btn-sm text-primary" onclick={handleMarkAllRead}>
 					{$t('notifications.mark_all_read')}

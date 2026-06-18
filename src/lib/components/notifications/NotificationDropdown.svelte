@@ -42,11 +42,14 @@
 
 <div
 	bind:this={dropdownEl}
-	class="border-base-300 bg-base-100 absolute top-full right-0 z-50 mt-2 w-[400px] max-w-[calc(100vw-2rem)] rounded-xl border shadow-xl"
+	class="border-base-300 bg-base-100 fixed top-[56px] right-2 left-2
+		z-50 mt-1 max-h-[80vh] rounded-xl border shadow-xl
+		sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:max-h-[400px] sm:w-[400px]"
 	role="dialog"
 	aria-label={$t('notifications.aria_labels.notifications')}
 	onkeydown={handleKeydown}
 	transition:fly={{ y: -10, duration: 150 }}
+	tabindex={-1}
 >
 	<div class="border-base-200 flex items-center justify-between border-b px-4 py-3">
 		<h3 class="text-sm font-semibold">{$t('notifications.title')}</h3>

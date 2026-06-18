@@ -44,16 +44,6 @@
 				walletState = get(walletStore);
 			}
 
-			// Initialize notification center
-			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
-			await notificationCenterStore.fetchUnreadCount();
-
-			// Connect to notification WebSocket gateway
-			const { connectNotificationSocket } = await import(
-				'$lib/api/services/notificationSocket.service'
-			);
-			connectNotificationSocket();
-
 			// Start activity tracking for re-engagement reminders
 			const { initActivityTracking } = await import('$lib/utils/activityTracker');
 			initActivityTracking();

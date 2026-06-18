@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+	import { clickOutside } from '$lib/utils/clickOutside';
+	import { page } from '$app/state';
+	import { t } from 'svelte-i18n';
 	import NotificationDropdown from './NotificationDropdown.svelte';
 	import IconBell from '~icons/mdi/bell';
 	import IconBellBadge from '~icons/mdi/bell-badge';
-	import { clickOutside } from '$lib/utils/clickOutside';
-	import { t } from 'svelte-i18n';
 
 	let showDropdown = $state(false);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
 	let hasUnread = $derived(unreadCount > 0);
 
 	function toggleDropdown() {
+		if (page.url.pathname === '/notifications') return;
 		showDropdown = !showDropdown;
 		if (showDropdown && !$notificationCenterStore.initialized) {
 			notificationCenterStore.fetchNotifications(true);
