@@ -19,7 +19,8 @@ import {
 	type ChainSwapData,
 	type SwapPairs,
 	type SwapUpdateEvent,
-	ERC20_ABI
+	ERC20_ABI,
+	ARB_TOKEN_ADDRESSES
 } from '@bittasker/wallet-core';
 import type { SwapPairsCache, TokenBalance, GasMode, DelegationState } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
@@ -70,11 +71,11 @@ import {
 } from '$lib/utils/wallet/swapMonitor';
 import { addBreadcrumb } from '@sentry/sveltekit';
 
-/** Arbitrum WBTC contract address (canonical). */
-export const WBTC_ARBITRUM_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
+/** Arbitrum WBTC contract address (canonical — from @bittasker/wallet-core). */
+export const WBTC_ARBITRUM_ADDRESS = ARB_TOKEN_ADDRESSES.WBTC;
 
-/** Arbitrum tBTC contract address (canonical). */
-export const TBTC_ARBITRUM_ADDRESS = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
+/** Arbitrum tBTC contract address (canonical — from @bittasker/wallet-core). */
+export const TBTC_ARBITRUM_ADDRESS = ARB_TOKEN_ADDRESSES.TBTC;
 
 // Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {

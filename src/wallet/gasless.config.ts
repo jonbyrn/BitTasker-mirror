@@ -1,16 +1,18 @@
 // Gasless Configuration — Arbitrum ERC-4337 + EIP-7702
 import type { TokenInfo, GasBounds, FeeTierDef, GaslessConfig } from '$lib/types/gasless.types';
+import { ARB_TOKEN_ADDRESSES } from '@bittasker/wallet-core';
 
 export const ARBITRUM_CHAIN_ID = 42161;
 export const ENTRY_POINT_ADDRESS = '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' as const;
 export const SIMPLE_7702_ACCOUNT_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B' as const;
 
-export const USDT0_ADDRESS = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' as const;
-export const WBTC_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
-export const TBTC_ADDRESS = '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40' as const;
+/** Canonical Arbitrum token addresses from @bittasker/wallet-core */
+export const USDT0_ADDRESS = ARB_TOKEN_ADDRESSES.USDT0;
+export const WBTC_ADDRESS = ARB_TOKEN_ADDRESSES.WBTC;
+export const TBTC_ADDRESS = ARB_TOKEN_ADDRESSES.TBTC;
 
 export const TOKENS: readonly TokenInfo[] = [
-	{ address: USDT0_ADDRESS, symbol: 'USDT0', decimals: 18, chainId: ARBITRUM_CHAIN_ID },
+	{ address: USDT0_ADDRESS, symbol: 'USDT0', decimals: 6, chainId: ARBITRUM_CHAIN_ID },
 	{ address: WBTC_ADDRESS, symbol: 'WBTC', decimals: 8, chainId: ARBITRUM_CHAIN_ID },
 	{ address: TBTC_ADDRESS, symbol: 'TBTC', decimals: 18, chainId: ARBITRUM_CHAIN_ID }
 ];
