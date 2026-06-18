@@ -55,8 +55,8 @@
 			connectNotificationSocket();
 
 			// Start activity tracking for re-engagement reminders
-			const { trackActivity } = await import('$lib/utils/activityTracker');
-			trackActivity();
+			const { initActivityTracking } = await import('$lib/utils/activityTracker');
+			initActivityTracking();
 
 			// Trigger pending review banner (skip on /reviews)
 			if (page.url.pathname !== '/reviews') {

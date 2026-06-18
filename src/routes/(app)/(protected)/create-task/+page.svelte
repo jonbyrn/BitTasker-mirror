@@ -315,19 +315,7 @@
 				appStore.showSuccessToast($t('task.success.created'));
 			}
 
-			// Clear the appropriate draft (creation or edit)
-			await store.clearDraft(isUpdating);
-
-			// Refresh My Tasks list to show new task
-			await refreshMyTasks();
-
-			await goto('/hiring');
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
-			errors.general = errorMessage;
-			appStore.showErrorToast(errorMessage);
-		} finally {
-			isSubmitting = false;
+			// Trigger saved search check BEFORE clearing draft (store still has task data)
 			if (signedEventId) {
 				const currentTask = {
 					title: $store.task.title,
@@ -345,6 +333,20 @@
 				};
 				triggerSavedSearchChecks(currentTask, signedEventId);
 			}
+
+			// Clear the appropriate draft (creation or edit)
+			await store.clearDraft(isUpdating);
+
+			// Refresh My Tasks list to show new task
+			await refreshMyTasks();
+
+			await goto('/hiring');
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
+			errors.general = errorMessage;
+			appStore.showErrorToast(errorMessage);
+		} finally {
+			isSubmitting = false;
 		}
 	}
 </script>
