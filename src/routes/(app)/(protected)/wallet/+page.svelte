@@ -4,16 +4,10 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
-	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		walletManager,
-		rskConnection,
-		walletStore
-	} from '$lib/stores/wallet.store';
+	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
@@ -145,11 +139,8 @@
 	<title>{$t('wallet.title')} | BitTasker</title>
 </svelte:head>
 
-<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
-	<div
-		transition:fly={{ y: 20, duration: 300, easing: linear }}
-		class="flex h-full flex-col p-3 sm:p-6"
-	>
+<div class="bg-base-100 mx-auto max-w-6xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
+	<div class="flex h-full flex-col p-3 sm:p-6">
 		{#if $rskConnection.connecting}
 			<div class="alert alert-outline alert-info mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">

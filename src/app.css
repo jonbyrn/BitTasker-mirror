@@ -527,6 +527,8 @@ body {
 	overflow-y: auto;
 	overflow-x: clip;
 	overscroll-behavior-y: contain;
+	display: flex;
+	flex-direction: column;
 }
 
 .app-shell__footer {
