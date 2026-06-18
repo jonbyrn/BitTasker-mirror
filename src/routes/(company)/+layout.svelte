@@ -38,7 +38,7 @@
 </header>
 
 <div class="app-shell__content bg-base-200">
-	<div class="bg-base-200 flex min-h-0 flex-col overflow-x-hidden">
+	<div class="bg-base-200 flex shrink-0 grow basis-auto flex-col">
 		{@render children()}
 	</div>
 

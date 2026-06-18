@@ -299,9 +299,9 @@ export async function findServices(
 		const { limit: _limit, ...filterWithoutLimit } = filter;
 		const cacheKey = JSON.stringify(filterWithoutLimit);
 
-		// Check cache
+		// Check cache — bypass when `until` cursor is set (pagination always goes to relay)
 		const cached = cache.get(cacheKey);
-		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+		if (!params.until && cached && Date.now() - cached.timestamp < CACHE_TTL) {
 			// Use optimized filtering with pre-indexed data
 			const { services: filteredServices, metrics } = filterIndexedServices(cached.data, params);
 			metrics.cacheHit = true;
@@ -370,6 +370,10 @@ export async function findServices(
 			response = await nostrEventsService.findEvents(fallbackFilter);
 			events = response.data || [];
 		}
+
+		// Oldest timestamp from raw relay events — used as the pagination cursor.
+		// Read from the last element (relay returns sorted by created_at desc).
+		const lastRelayTimestamp = events.length > 0 ? events[events.length - 1].created_at : undefined;
 
 		// Convert events to services (with async profile data fetching)
 		const results = await Promise.allSettled(
@@ -455,7 +459,8 @@ export async function findServices(
 			items: page === 1 ? itemsToAdd : [...state.items, ...itemsToAdd],
 			loading: false,
 			currentPage: page,
-			hasMore
+			hasMore,
+			lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
 		}));
 
 		return {
