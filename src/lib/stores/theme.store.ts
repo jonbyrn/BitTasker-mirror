@@ -13,10 +13,10 @@ export const darkMode = writable<boolean>(getInitialTheme());
 // Initialize theme from saved preference (called from layout)
 export async function initializeTheme() {
 	if (typeof window === 'undefined') return;
-	
+
 	try {
 		const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
-		
+
 		if (savedDarkMode !== null) {
 			const isDark = savedDarkMode === 'true';
 			darkMode.set(isDark);
@@ -39,9 +39,17 @@ function updateDOM(isDarkMode: boolean) {
 
 // Toggle dark mode and persist
 export async function toggleDarkMode() {
-	darkMode.update(current => {
+	darkMode.update((current) => {
 		const newValue = !current;
-		updateDOM(newValue);
+
+		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+			(
+				document as Document & { startViewTransition: (cb: () => void) => ViewTransition }
+			).startViewTransition(() => updateDOM(newValue));
+		} else {
+			updateDOM(newValue);
+		}
+
 		persistTheme(newValue);
 		return newValue;
 	});

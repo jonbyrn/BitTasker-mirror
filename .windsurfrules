@@ -105,8 +105,13 @@ src/
 - Composition over inheritance
 - Never import $state or $effect from svelte (built-in runes)
 - Use $props for props
-- Use $state for state and $effect for side effects
-- Use $derived for derived values
+- **Svelte 5 rune rules**: See `.ai-rules/svelte-runes.md` for the full decision tree. Summary:
+  - `$state` for mutable reactive state
+  - `$derived` / `$derived.by` for pure computed values (no side effects)
+  - `$effect` ONLY for unavoidable side effects (DOM manipulation, third-party libs, browser APIs) — it is an escape hatch, not a primary tool
+  - NEVER use `$effect` to derive/sync state — use `$derived`
+  - Prefer `$state` in `.svelte.ts` files over writable/readable stores for shared state
+  - In `.svelte` files use `$storeName` auto-subscribe — never manual `.subscribe()`
 - Always add for attribute to labels
 - Imports order:
   - Types imports

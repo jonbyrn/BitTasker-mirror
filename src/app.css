@@ -400,7 +400,7 @@ ul[role='listbox']:focus {
 }
 
 body {
-	@apply text-gray-900 dark:text-gray-100;
+	@apply text-base-content;
 	background-color: var(--color-base-300);
 }
 

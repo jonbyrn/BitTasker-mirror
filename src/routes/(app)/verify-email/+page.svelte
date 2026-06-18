@@ -50,7 +50,7 @@
 				<h2 class="mb-4 text-2xl font-semibold text-red-600">
 					{$t('verify_email.verification_failed_title') || 'Verification Failed'}
 				</h2>
-				<p class="text-white">{error}</p>
+				<p class="text-base-content">{error}</p>
 				<a href="/auth/login" class="text-primary btn btn-ghost btn-outline mt-4 hover:underline">
 					{$t('verify_email.return_to_login') || 'Return to Login'}
 				</a>

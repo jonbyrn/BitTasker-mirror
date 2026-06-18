@@ -342,7 +342,7 @@
 			usdPlaceholder={$t('task.usd_placeholder')}
 			satsPlaceholder={$t('task.sats_placeholder')}
 			btcPriceLabel={$t('task.btc_price')}
-			btcPriceClassName="label-text-alt mt-1 block text-white/70"
+			btcPriceClassName="label-text-alt mt-1 block text-base-content/70"
 			onUsdChange={({ usdAmount: nextUsdAmount }) => updateBudgetAmount(nextUsdAmount)}
 			onSatsChange={({ usdAmount: nextUsdAmount }) => {
 				if (nextUsdAmount != null) {
@@ -384,10 +384,10 @@
 
 	<div class="w-full">
 		<div class="my-5">
-			<label for="attachments" class="label block text-lg font-semibold text-white">
+			<label for="attachments" class="label text-base-content block text-lg font-semibold">
 				{$t('task.attachments_label')}
 			</label>
-			<label for="attachments" class="label-text-alt block text-white/70">
+			<label for="attachments" class="label-text-alt text-base-content/70 block">
 				{$t('task.attachments_hint')}
 			</label>
 		</div>

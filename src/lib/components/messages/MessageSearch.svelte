@@ -359,10 +359,10 @@
 									</div>
 
 									{#each result.snippets as snippet, snippetIndex (`${result.message.event.id ?? result.pubkey}-${snippetIndex}`)}
-										<p class="line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
+										<p class="text-base-content/60 line-clamp-2 text-sm">
 											{#each highlightText(snippet, searchQuery) as segment, segmentIndex (`${snippetIndex}-${segmentIndex}`)}
 												{#if segment.matches}
-													<mark class="bg-yellow-200 dark:bg-yellow-800">{segment.text}</mark>
+													<mark class="bg-warning/30">{segment.text}</mark>
 												{:else}
 													{segment.text}
 												{/if}
