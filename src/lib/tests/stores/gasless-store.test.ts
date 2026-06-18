@@ -14,6 +14,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 
+// Stub VITE_TX_RELAY_BASE_URL for getRelayBaseUrl()
+vi.stubEnv('VITE_TX_RELAY_BASE_URL', 'http://localhost:8000/api/v1');
+
 // ---------------------------------------------------------------------------
 // Hoisted mock variables (must be hoisted to match vi.mock hoisting)
 // ---------------------------------------------------------------------------
@@ -60,6 +63,11 @@ vi.mock('permissionless/accounts', () => ({
 	to7702SimpleSmartAccount: mockTo7702SimpleSmartAccount
 }));
 
+// Mock @sentry/sveltekit
+vi.mock('@sentry/sveltekit', () => ({
+	addBreadcrumb: vi.fn()
+}));
+
 // Mock gasless-helpers
 vi.mock('$lib/../wallet/gasless-helpers', () => ({
 	validateFeeParameters: mockValidateFeeParameters,
@@ -99,10 +107,10 @@ import {
 	gaslessReady,
 	buildExecuteBatchCallData,
 	sendGasless,
-	sendToken,
+	sendTokenProgrammatic,
 	estimateFee,
 	checkSufficientBalance
-} from '$lib/../wallet/gasless-store';
+} from '$lib/wallet/gasless-store';
 
 import {
 	validateFeeParameters,
@@ -442,12 +450,12 @@ describe('gasless-store', () => {
 		});
 	});
 
-	// ── sendToken ─────────────────────────────────────────────────────────
+	// ── sendTokenProgrammatic ─────────────────────────────────────────────
 
-	describe('sendToken', () => {
+	describe('sendTokenProgrammatic', () => {
 		it('throws if wallet is not initialized', async () => {
 			await expect(
-				sendToken(
+				sendTokenProgrammatic(
 					'0xTokenAddress',
 					'0xRecipient',
 					100n,
@@ -480,7 +488,7 @@ describe('gasless-store', () => {
 				json: () => Promise.resolve({ userOpHash: '0xTokenHash' })
 			});
 
-			const result = await sendToken(
+			const result = await sendTokenProgrammatic(
 				'0xTokenAddress',
 				'0xRecipient',
 				100n,
@@ -518,14 +526,14 @@ describe('gasless-store', () => {
 			);
 		});
 
-		it('throws simplified message for network fee too high error', async () => {
+		it('throws the raw message for network fee too high error', async () => {
 			mockFetch.mockResolvedValue({
 				ok: false,
 				json: () => Promise.resolve({ message: 'Network fee too high for this operation' })
 			});
 
 			await expect(estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token')).rejects.toThrow(
-				'This operation is too complex. Please try a simpler transaction.'
+				'Network fee too high for this operation'
 			);
 		});
 
@@ -543,11 +551,12 @@ describe('gasless-store', () => {
 		it('throws default message when response has no JSON', async () => {
 			mockFetch.mockResolvedValue({
 				ok: false,
+				statusText: 'Internal Server Error',
 				json: () => Promise.reject(new Error('No JSON'))
 			});
 
 			await expect(estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token')).rejects.toThrow(
-				'Estimation failed'
+				'Fee estimation failed: Internal Server Error'
 			);
 		});
 	});

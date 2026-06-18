@@ -9,6 +9,11 @@ vi.mock('viem', () => ({
 	})
 }));
 
+// Mock @sentry/sveltekit
+vi.mock('@sentry/sveltekit', () => ({
+	addBreadcrumb: vi.fn()
+}));
+
 // Mock the wallet module
 vi.mock('../../../../../wallet/arbitrum-wallet', () => ({
 	ArbitrumWallet: vi.fn().mockImplementation(() => ({
@@ -50,7 +55,7 @@ import {
 	gaslessAddress,
 	gaslessReady,
 	estimateFee
-} from '../../../../../wallet/gasless-store';
+} from '../../../../wallet/gasless-store';
 
 describe('gasless-store readable stores', () => {
 	beforeEach(() => {
