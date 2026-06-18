@@ -45,10 +45,7 @@
 
 			// Trigger pending review banner (skip on /reviews)
 			if (page.url.pathname !== '/reviews') {
-				triggerPendingReviewBanner(
-					'reviews.pending.review_now',
-					'reviews.pending.dismiss'
-				);
+				triggerPendingReviewBanner('reviews.pending.review_now', 'reviews.pending.dismiss');
 			}
 		} catch (error) {
 			const d = createDebug('layout');
@@ -72,9 +69,9 @@
 	</div>
 {:else if $authState.isAuthenticated}
 	<div
-		class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4"
+		class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col px-2 md:py-4"
 	>
-		<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
+		<div class="flex min-h-0 flex-1 flex-row gap-8">
 			{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && page.url.pathname !== '/feedback'}
 				<!-- Fixed Sidebar - Solo en desktop -->
 				<div class="w-full shrink-0 md:w-64">
@@ -125,7 +122,7 @@
 			{/if}
 
 			<!-- Main Content with left margin for fixed sidebar -->
-			<div class="min-h-0 w-full flex-1 overflow-hidden">
+			<div class="min-h-0 w-full flex-1">
 				{@render children()}
 				<NotificationPermissionBanner />
 				<WarningPopup />
@@ -144,7 +141,6 @@
 	.dashboard-layout {
 		height: 100%;
 		max-height: 100%;
-		overflow: hidden;
 		flex: 1;
 		min-height: 0;
 	}
