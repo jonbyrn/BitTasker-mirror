@@ -54,7 +54,7 @@ describe('gasless.config', () => {
 			const tbtc = TOKENS.find((t) => t.symbol === 'TBTC');
 			expect(tbtc).toBeDefined();
 			expect(tbtc!.decimals).toBe(18);
-			expect(tbtc!.address).toBe('0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40');
+			expect(tbtc!.address.toLowerCase()).toBe('0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40');
 		});
 		it('all tokens are on Arbitrum One', () => {
 			TOKENS.forEach((t) => expect(t.chainId).toBe(42161));
