@@ -18,7 +18,6 @@
 	let qrCodeDataUrl = $state('');
 	let isGeneratingQr = $state(false);
 	let showQrModal = $state(false);
-	let nostrExpanded = $state(false);
 
 	async function generateQrCode() {
 		if (qrCodeDataUrl && !showQrModal) {
@@ -57,18 +56,11 @@
 </script>
 
 <!-- Nostr Identity Section -->
-<div
-	class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
-	class:collapse-open={nostrExpanded}
->
-	<button
-		type="button"
-		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
-		onclick={() => (nostrExpanded = !nostrExpanded)}
-	>
-		<h4 class="text-lg font-semibold">{$t('settings.nostr.title')}</h4>
-	</button>
-	<div class="collapse-content">
+<div class="mb-6">
+	<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">
+		{$t('settings.nostr.title')}
+	</h4>
+	<div>
 		<p class="text-base-content/70 mb-4">
 			{$t('settings.nostr.description')}
 		</p>

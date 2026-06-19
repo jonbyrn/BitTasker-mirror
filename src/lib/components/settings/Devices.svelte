@@ -48,7 +48,6 @@
 	let revokeAllError = $state('');
 
 	// Collapse state
-	let devicesExpanded = $state(false);
 	let inactiveExpanded = $state(false);
 
 	// Derived: sorted and grouped devices
@@ -257,23 +256,14 @@
 </script>
 
 <!-- Devices Section -->
-<div
-	class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
-	class:collapse-open={devicesExpanded}
->
-	<button
-		type="button"
-		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
-		onclick={() => (devicesExpanded = !devicesExpanded)}
-	>
-		<h4 class="text-lg font-semibold">
-			{$t('settings.devices.title')}
-			{#if devices.length > 0}
-				<span class="text-base-content/60 ml-1 text-sm font-normal">({devices.length})</span>
-			{/if}
-		</h4>
-	</button>
-	<div class="collapse-content">
+<div class="mb-6">
+	<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">
+		{$t('settings.devices.title')}
+		{#if devices.length > 0}
+			<span class="text-base-content/60 ml-1 text-sm font-normal">({devices.length})</span>
+		{/if}
+	</h4>
+	<div>
 		<p class="text-base-content/70 mb-6">
 			{$t('settings.devices.description')}
 		</p>

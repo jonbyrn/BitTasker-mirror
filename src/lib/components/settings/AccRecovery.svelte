@@ -35,7 +35,6 @@
 	let passwordError = $state('');
 	let passwordMismatchError = $state('');
 	let copySuccess = $state('');
-	let recoveryExpanded = $state(false);
 
 	// Password strength state
 	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
@@ -194,18 +193,11 @@
 
 <!-- Account Recovery Section -->
 {#if authMethod !== 'alby'}
-	<div
-		class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
-		class:collapse-open={recoveryExpanded}
-	>
-		<button
-			type="button"
-			class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
-			onclick={() => (recoveryExpanded = !recoveryExpanded)}
-		>
-			<h4 class="text-lg font-semibold">{$t('settings.recovery.title')}</h4>
-		</button>
-		<div class="collapse-content">
+	<div class="mb-6">
+		<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">
+			{$t('settings.recovery.title')}
+		</h4>
+		<div>
 			<p class="text-base-content/70 mb-6">
 				{$t('settings.recovery.description')}
 			</p>
