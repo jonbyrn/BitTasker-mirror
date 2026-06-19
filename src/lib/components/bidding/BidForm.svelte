@@ -432,7 +432,7 @@
 				title: 'New Bid Received',
 				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/tasks/${task.id}`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/task/${task.id}/bids`,
 				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 

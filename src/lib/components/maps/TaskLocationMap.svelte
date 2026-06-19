@@ -10,7 +10,6 @@
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
-	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -112,7 +111,7 @@
 	function generateInfoWindowContent(task: Task): string {
 		const statusBadge = getStatusBadge(task.status);
 		const isOpen = task.status === TaskStatusEnum.OPEN;
-		const taskId = getTaskId(task);
+		const taskId = task.id;
 
 		// Get translated task title and description (same logic as TranslatableTask)
 		// Use get() to access stores synchronously in function context
@@ -393,7 +392,7 @@
 
 			let task: Task | undefined;
 			for (const t of currentTasks) {
-				if (getTaskId(t) === taskId) {
+				if (t.id === taskId) {
 					task = t;
 					break;
 				}

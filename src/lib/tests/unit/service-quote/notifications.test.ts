@@ -7,6 +7,16 @@ const publishToMultipleRelays = vi.fn();
 const getNostrKeyPair = vi.fn();
 const getConversationKey = vi.fn();
 const encrypt = vi.fn();
+const debugWarn = vi.fn();
+
+vi.mock('$lib/utils/debug', () => ({
+	createDebug: () => ({
+		log: vi.fn(),
+		warn: debugWarn,
+		error: vi.fn(),
+		extend: vi.fn(() => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }))
+	})
+}));
 
 vi.mock('$lib/api/services/push-notification.service', () => ({
 	pushNotificationService: {
@@ -84,7 +94,6 @@ describe('service quote notification helpers', () => {
 	});
 
 	it('sends optional proposal DM mirrors with canonical tags and keeps push non-blocking on failure', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		publishToMultipleRelays.mockResolvedValueOnce([
 			{ relay: 'wss://relay.example', success: false }
 		]);
@@ -123,12 +132,11 @@ describe('service quote notification helpers', () => {
 			})
 		);
 		await vi.waitFor(() => {
-			expect(warnSpy).toHaveBeenCalledWith(
+			expect(debugWarn).toHaveBeenCalledWith(
 				'Failed to send service proposal DM mirror',
 				expect.any(Error)
 			);
 		});
-		warnSpy.mockRestore();
 	});
 
 	it('reuses the shared contract-created foundation for service contracts', async () => {
@@ -152,8 +160,7 @@ describe('service quote notification helpers', () => {
 				type: 'contract_created',
 				title: 'New service contract created for Migration audit',
 				body: 'A buyer placed a Book Now order for Migration audit.',
-				clickAction:
-					'https://bittasker.test/hiring?tab=contracts&type=services&highlight=svc-123'
+				clickAction: 'https://bittasker.test/hiring?tab=contracts&type=services&highlight=svc-123'
 			})
 		);
 	});

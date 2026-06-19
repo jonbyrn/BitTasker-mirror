@@ -9,12 +9,15 @@ import type {
 } from '$lib/types/service-quote';
 import type { Service } from '$lib/types/service.d';
 import KINDS from '$lib/utils/constants/kinds';
+import { createDebug } from '$lib/utils/debug';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { nip44 } from 'nostr-tools';
 import { buildDashboardQueryUrl } from '$lib/utils/dashboardQuery';
 import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
+
+const d = createDebug('service-quote:notifications');
 
 const SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY = 'bittasker.serviceQuote.sideEffects';
 const SERVICE_QUOTE_NOTIFICATION_ICON =
@@ -33,7 +36,11 @@ export interface ServiceContractCreatedNotificationInput {
 }
 
 function getClientBaseUrl(): URL {
-	const configuredBaseUrl = import.meta.env.VITE_CLIENT_URL || 'https://bittasker.local';
+	const configuredBaseUrl = import.meta.env.VITE_CLIENT_URL;
+	if (!configuredBaseUrl) {
+		d.warn('client URL is not set — notification click actions will use the current origin');
+		return new URL(window.location.origin);
+	}
 	return new URL(configuredBaseUrl);
 }
 
@@ -246,7 +253,7 @@ function createProposalMirrorPayload(event: ServiceProposalEvent): ServiceQuoteM
 
 function runNonBlockingSideEffect(effect: Promise<void>, label: string): void {
 	void effect.catch((error) => {
-		console.warn(label, error);
+		d.warn(label, error);
 	});
 }
 

@@ -12,6 +12,16 @@ const getServiceQuoteMessageType = vi.fn();
 const sendNotificationToNpubs = vi.fn();
 const encrypt = vi.fn();
 const getConversationKey = vi.fn();
+const debugWarn = vi.fn();
+
+vi.mock('$lib/utils/debug', () => ({
+	createDebug: () => ({
+		log: vi.fn(),
+		warn: debugWarn,
+		error: vi.fn(),
+		extend: vi.fn(() => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }))
+	})
+}));
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent,
@@ -88,7 +98,6 @@ describe('service quote messaging mirror integration', () => {
 	});
 
 	it('keeps canonical request publish successful when push and DM mirror both fail', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const { publishServiceQuoteRequest } = await import('$lib/utils/service-quote/publish');
 
 		const service = {
@@ -156,7 +165,7 @@ describe('service quote messaging mirror integration', () => {
 		await vi.waitFor(() => {
 			expect(getSignedEvent).toHaveBeenCalledTimes(2);
 			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-			expect(warnSpy).toHaveBeenCalled();
+			expect(debugWarn).toHaveBeenCalled();
 		});
 		expect(getSignedEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -169,6 +178,5 @@ describe('service quote messaging mirror integration', () => {
 				])
 			})
 		);
-		warnSpy.mockRestore();
 	});
 });

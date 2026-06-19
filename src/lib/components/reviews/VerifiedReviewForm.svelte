@@ -276,7 +276,7 @@
 					`${reviewerName} sent you a review`,
 				body: $t('reviews.notification.body') || 'Rate them back!',
 				type: 'review_received',
-				clickAction: '/reviews'
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/reviews`
 			});
 		} catch {
 			// Silently fail — notification is best-effort, review was submitted
