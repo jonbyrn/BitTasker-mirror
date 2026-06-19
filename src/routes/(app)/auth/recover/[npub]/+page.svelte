@@ -214,7 +214,8 @@
 				deviceId,
 				deviceName,
 				platform: checkNativePlatform() ? 'mobile' : 'web',
-				revokeAll
+				revokeAll,
+				timezoneOffset: new Date().getTimezoneOffset()
 			});
 
 			if (access_token && user) {

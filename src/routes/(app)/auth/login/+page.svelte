@@ -104,7 +104,8 @@
 				deviceName,
 				platform: isNativePlatform ? 'mobile' : 'web',
 				response: credentails.response,
-				appVersion: __APP_VERSION__
+				appVersion: __APP_VERSION__,
+				timezoneOffset: new Date().getTimezoneOffset()
 			});
 
 			let nsec = '';
@@ -359,7 +360,8 @@
 				clientDataJSON: credentialData.clientDataJSON,
 				attestationObject: credentialData.attestationObject,
 				appVersion: __APP_VERSION__,
-				platform: isNativePlatform ? 'mobile' : 'web'
+				platform: isNativePlatform ? 'mobile' : 'web',
+				timezoneOffset: new Date().getTimezoneOffset()
 			});
 
 			if (res.isMigrated) {
