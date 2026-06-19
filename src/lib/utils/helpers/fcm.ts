@@ -63,6 +63,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 			console.warn('⚠️ No active service worker found to send config to');
 		}
 
+		// Check for a newer version of the service worker on every app load.
+		// Browsers normally throttle these checks, but calling update() ensures
+		// we don't wait up to 24h for the automatic check.
+		registration.update();
+
 		// Set up navigation message handler
 		setupNavigationHandler();
 

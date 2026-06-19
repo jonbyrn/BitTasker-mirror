@@ -17,6 +17,16 @@ const initialAuthState: AuthState = {
 	error: null
 };
 
+async function initNotifications() {
+	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
+	await notificationCenterStore.fetchUnreadCount();
+
+	const { connectNotificationSocket } = await import(
+		'$lib/api/services/notificationSocket.service'
+	);
+	await connectNotificationSocket();
+}
+
 const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(initialAuthState);
 
@@ -24,6 +34,12 @@ const createAuthStore = () => {
 		const { default: authService } = await import('$lib/api/services/auth.service');
 		// Revoke refresh token on the backend (best-effort)
 		await authService.logout();
+
+		// Disconnect notification WebSocket before clearing auth state
+		const { disconnectNotificationSocket } = await import(
+			'$lib/api/services/notificationSocket.service'
+		);
+		disconnectNotificationSocket();
 
 		await ndkLogout();
 		ndkIdentity.reset();
@@ -59,6 +75,13 @@ const createAuthStore = () => {
 		// Lazy load user store only when needed
 		authState.login();
 
+		// Initialize notification count and WebSocket after login.
+		// The layout's onMount handles first load, but on re-login the layout
+		// doesn't remount, so we must explicitly re-init here.
+		initNotifications().catch(() => {
+			// Non-critical — layout will also attempt this on mount
+		});
+
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) {
@@ -66,8 +89,7 @@ const createAuthStore = () => {
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
-			const target =
-				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
+			const target = returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
 			await goto(target);
 			// Close modal and reset migration state
 			resetMigration();

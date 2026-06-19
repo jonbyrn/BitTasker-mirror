@@ -228,6 +228,8 @@
 			"quiet_hours_enabled": "Horas de silencio habilitadas",
 			"quiet_hours_start": "Inicio",
 			"quiet_hours_end": "Fin",
+			"quiet_hours_start_label": "Hora de inicio de silencio",
+			"quiet_hours_end_label": "Hora de fin de silencio",
 			"quiet_hours_timezone": "Zona horaria",
 			"save_settings": "Guardar Configuración",
 			"settings_saved": "Configuración guardada exitosamente",
@@ -248,7 +250,10 @@
 			"settings_updated": "Configuración actualizada",
 			"updated": "actualizado",
 			"enabled": "habilitado",
-			"disabled": "deshabilitado"
+			"disabled": "deshabilitado",
+			"toggle_enabled": "{setting} activado",
+			"toggle_disabled": "{setting} desactivado",
+			"value_updated": "{setting} actualizado"
 		},
 		"clear_all_confirm_title": "Limpiar Todas las Notificaciones",
 		"clear_all_confirm_message": "¿Estás seguro de que quieres limpiar todas las notificaciones? Esta acción no se puede deshacer.",

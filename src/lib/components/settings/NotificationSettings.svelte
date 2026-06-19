@@ -18,12 +18,12 @@
 		['reengagementNotifications', 'reengagement']
 	];
 
-	const FIELD_I18N: Record<string, string> = {
+	const FIELD_TOAST_I18N: Record<string, string> = {
 		pushEnabled: 'notifications.settings.push',
 		emailEnabled: 'notifications.settings.email',
-		quietHoursEnabled: 'notifications.settings.quiet_hours_enabled',
-		quietHoursStart: 'notifications.settings.quiet_hours_start',
-		quietHoursEnd: 'notifications.settings.quiet_hours_end',
+		quietHoursEnabled: 'notifications.settings.quiet_hours',
+		quietHoursStart: 'notifications.settings.quiet_hours_start_label',
+		quietHoursEnd: 'notifications.settings.quiet_hours_end_label',
 		contractUpdates: 'notifications.types.contract',
 		bidUpdates: 'notifications.types.bid',
 		taskMatches: 'notifications.types.task',
@@ -61,15 +61,17 @@
 			if (!prefs) return;
 			try {
 				await notificationCenterService.updatePreferences(prefs);
-				const labelKey = FIELD_I18N[field];
-				const label = labelKey ? $t(labelKey) : field;
+				const labelKey = FIELD_TOAST_I18N[field];
+				const setting = labelKey ? $t(labelKey) : field;
 				if (typeof newValue === 'boolean') {
-					const state = newValue
-						? $t('notifications.success.enabled')
-						: $t('notifications.success.disabled');
-					appStore.showSuccessToast(`${label} ${state}`);
+					const message = newValue
+						? $t('notifications.success.toggle_enabled', { values: { setting } })
+						: $t('notifications.success.toggle_disabled', { values: { setting } });
+					appStore.showSuccessToast(message);
 				} else {
-					appStore.showSuccessToast(`${label} ${$t('notifications.success.updated')}`);
+					appStore.showSuccessToast(
+						$t('notifications.success.value_updated', { values: { setting } })
+					);
 				}
 			} catch {
 				appStore.showErrorToast($t('notifications.errors.settings_error'));

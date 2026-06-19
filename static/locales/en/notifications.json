@@ -228,6 +228,8 @@
 			"quiet_hours_enabled": "Quiet hours enabled",
 			"quiet_hours_start": "Start",
 			"quiet_hours_end": "End",
+			"quiet_hours_start_label": "Quiet hours start time",
+			"quiet_hours_end_label": "Quiet hours end time",
 			"quiet_hours_timezone": "Timezone",
 			"save_settings": "Save Settings",
 			"settings_saved": "Settings saved successfully",
@@ -248,7 +250,10 @@
 			"settings_updated": "Settings updated",
 			"updated": "updated",
 			"enabled": "enabled",
-			"disabled": "disabled"
+			"disabled": "disabled",
+			"toggle_enabled": "{setting} enabled",
+			"toggle_disabled": "{setting} disabled",
+			"value_updated": "{setting} updated"
 		},
 		"clear_all_confirm_title": "Clear All Notifications",
 		"clear_all_confirm_message": "Are you sure you want to clear all notifications? This action cannot be undone.",

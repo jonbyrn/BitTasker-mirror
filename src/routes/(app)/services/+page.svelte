@@ -35,6 +35,7 @@
 	const LOADING_TIMEOUT_MS = 30000;
 	const FETCH_TIMEOUT_MS = 15000;
 	const BTC_PRICE_TIMEOUT_MS = 5000;
+	const INITIAL_SKELETON_COUNT = 20;
 	const RETRY_COOLDOWN_MS = 2000;
 	const BTC_PRICE_CACHE_KEY = 'btc_price_cache';
 	const BTC_PRICE_CACHE_TTL = 5 * 60 * 1000;
@@ -738,7 +739,7 @@
 
 						{#if showSkeleton && !dataLoaded}
 							<div class="mb-12 grid grid-cols-1 gap-6">
-								{#each Array.from({ length: 4 }, (_, index) => index) as index (index)}
+								{#each Array.from({ length: INITIAL_SKELETON_COUNT }, (_, index) => index) as index (index)}
 									<div class="card bg-base-100 flex h-full flex-col overflow-hidden shadow-md">
 										<figure
 											class="bg-base-200 relative h-[88px] w-full shrink-0 animate-pulse overflow-hidden"

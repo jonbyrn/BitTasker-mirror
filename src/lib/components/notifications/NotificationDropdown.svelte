@@ -52,7 +52,7 @@
 	tabindex={-1}
 >
 	<div class="border-base-200 flex items-center justify-between border-b px-4 py-3">
-		<h3 class="text-sm font-semibold">{$t('notifications.title')}</h3>
+		<h4 class="text-xs font-semibold sm:text-sm">{$t('notifications.title')}</h4>
 		{#if unreadCount > 0}
 			<button class="btn btn-ghost btn-xs text-primary gap-1" onclick={handleMarkAllRead}>
 				<IconCheckAll class="h-3.5 w-3.5" />

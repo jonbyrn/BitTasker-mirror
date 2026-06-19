@@ -172,14 +172,15 @@
 
 	.language-dropdown button {
 		-webkit-tap-highlight-color: transparent;
+		background-color: transparent !important;
 	}
 
-	.language-dropdown button:focus {
-		outline: none;
-	}
-
+	.language-dropdown button:hover,
+	.language-dropdown button:focus,
+	.language-dropdown button:active,
 	.language-dropdown button:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
+		background-color: transparent !important;
+		box-shadow: none !important;
+		outline: none !important;
 	}
 </style>

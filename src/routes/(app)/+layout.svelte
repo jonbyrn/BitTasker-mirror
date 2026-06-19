@@ -51,6 +51,8 @@
 	// Fetch notification unread count and connect WebSocket for ALL authenticated routes.
 	// The bell icon renders in ProtectedTopBar for any authenticated user, so the count
 	// must be available even on non-protected routes like /tasks and /services.
+	// Note: re-login also triggers this via setupAuthData() in auth.store.ts, since
+	// onMount only fires once per component lifecycle.
 	async function fetchNotificationCount() {
 		if (!$authState.isAuthenticated) return;
 
