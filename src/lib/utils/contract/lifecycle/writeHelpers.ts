@@ -13,10 +13,11 @@ import { runParallelNamed } from '$lib/utils/contract/parallelEffects';
 import type { Attachment } from '$lib/types/task';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { PaymentContractRuneLike } from './types';
+import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 
 const d = createDebug('contract:lifecycle:writeHelpers');
 
-const CONTRACTS_TAB_URL = () => `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`;
+const CONTRACTS_TAB_URL = () => `${getClientOrigin()}/hiring/contracts`;
 
 const PUSH_ICON = 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg';
 

@@ -21,6 +21,7 @@
 	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
 	import { muteStore } from '$lib/stores/mute.store';
@@ -921,7 +922,7 @@
 				title: $user.name || $user.npub.slice(0, 6) + '...',
 				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
 				type: 'message',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/messages/to/${recipientPubkey}`,
+				clickAction: `${getClientOrigin()}/messages/to/${recipientPubkey}`,
 				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (err) {

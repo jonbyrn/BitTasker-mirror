@@ -12,6 +12,7 @@ import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
 import { coerceUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 import { createDebug } from '$lib/utils/debug';
+import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
 	MINIMUM_START_BUFFER_SECONDS,
@@ -370,13 +371,13 @@ export async function createContract(
 
 		const pushPromise = taskeeNpub
 			? pushNotificationService.sendNotificationToNpubs({
-				npubs: [taskeeNpub],
-				title: 'Bid Accepted',
-				body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
-				type: 'bid_accepted',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`,
-				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-			})
+					npubs: [taskeeNpub],
+					title: 'Bid Accepted',
+					body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
+					type: 'bid_accepted',
+					clickAction: `${getClientOrigin()}/hiring/contracts`,
+					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+				})
 			: Promise.resolve();
 
 		const afterBroadcast = runParallelNamed([

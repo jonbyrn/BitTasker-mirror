@@ -33,6 +33,7 @@ import type {
 	ServiceContractAgreementSnapshot
 } from '$lib/types/contract';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 import type { TransactionReceipt } from 'ethers';
 import { parsePaymentContractCreatedPaymentId } from './creation';
 
@@ -350,7 +351,7 @@ export async function createServiceContract(
 					title: 'Service Quote Accepted',
 					body: `Your quote on "${input.serviceTitle}" has been accepted`,
 					type: 'quote_accepted',
-					clickAction: `${import.meta.env.VITE_CLIENT_URL}/hiring/contracts`,
+					clickAction: `${getClientOrigin()}/hiring/contracts`,
 					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 				})
 			: Promise.resolve();

@@ -12,6 +12,7 @@
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
 	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
@@ -432,7 +433,7 @@
 				title: 'New Bid Received',
 				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/task/${task.id}/bids`,
+				clickAction: `${getClientOrigin()}/task/${task.id}/bids`,
 				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 

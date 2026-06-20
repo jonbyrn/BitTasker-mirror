@@ -12,6 +12,7 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 	import type { TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
 	import { createDebug } from '$lib/utils/debug';
 	import { portal } from '$lib/utils/portal';
@@ -276,7 +277,7 @@
 					`${reviewerName} sent you a review`,
 				body: $t('reviews.notification.body') || 'Rate them back!',
 				type: 'review_received',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/reviews`
+				clickAction: `${getClientOrigin()}/reviews`
 			});
 		} catch {
 			// Silently fail — notification is best-effort, review was submitted

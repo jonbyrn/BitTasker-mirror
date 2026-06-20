@@ -16,6 +16,7 @@ import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { nip44 } from 'nostr-tools';
 import { buildDashboardQueryUrl } from '$lib/utils/dashboardQuery';
 import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
+import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 
 const d = createDebug('service-quote:notifications');
 
@@ -36,12 +37,7 @@ export interface ServiceContractCreatedNotificationInput {
 }
 
 function getClientBaseUrl(): URL {
-	const configuredBaseUrl = import.meta.env.VITE_CLIENT_URL;
-	if (!configuredBaseUrl) {
-		d.warn('client URL is not set — notification click actions will use the current origin');
-		return new URL(window.location.origin);
-	}
-	return new URL(configuredBaseUrl);
+	return new URL(getClientOrigin());
 }
 
 function getDashboardBaseUrl(): URL {
