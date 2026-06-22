@@ -1,23 +1,23 @@
 # GitLab CI/CD for BitTasker
 #
 # ═══════════════════════════════════════════════════════════════════════════════
-# DEPLOYMENT STRATEGY: PAGES PRIMARY
+# DEPLOYMENT STRATEGY: WORKERS PRIMARY
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Cloudflare Pages is the PRIMARY deployment method for frontend.
-# Workers jobs are AVAILABLE but deploy to workers.dev subdomain only (no route conflicts).
+# Cloudflare Workers is the PRIMARY deployment method for frontend.
+# Static assets served via Workers Static Assets ([assets] in wrangler.toml).
 #
-#   Pages (Primary):
-#     - dev-pages   → dev.bittasker.com (production branch: dev)
-#     - prod-pages  → bittasker.com (production branch: master)
-#     - Builds triggered automatically by Cloudflare on git push
-#     - Environment variables configured in Cloudflare Pages dashboard
+#   Workers (Primary):
+#     - dev         → dev.bittasker.com (branch: dev)
+#     - production  → bittasker.com (branch: master)
+#     - preview     → <slug>.bittasker-dev-worker.workers.dev (sub-branches)
+#     - Builds and deploys via GitLab CI (this file)
 #
-#   Workers (Testing/Future):
-#     - Routes are DISABLED in wrangler.toml (commented out)
-#     - Workers deploy to *.workers.dev subdomain only
-#     - Use for testing Workers features (Stream API, Cron triggers, etc.)
-#     - To migrate fully to Workers: see docs/ci/deployment-strategy.md
+#   Preview Deployments:
+#     - Any branch that is NOT dev or master gets a preview deployment
+#     - Uses `wrangler versions upload --env dev` to create a versioned deploy
+#     - Preview URL appears in GitLab environment and Cloudflare dashboard
+#     - Auto-stops after 1 week of inactivity
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENVIRONMENT VARIABLES
@@ -34,10 +34,10 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # STAGES
 # ═══════════════════════════════════════════════════════════════════════════════
-#   validate         → coverage (MR only). Quality gate for merge requests.
+#   validate         → build + coverage. Dev/prod/preview builds (branch-dependent).
 #   android-prepare  → production tag version resolve (auto on vX.Y.Z)
 #   build-android    → Android APK/AAB builds
-#   deploy           → Workers deploy (to workers.dev, not main domains)
+#   deploy           → Workers deploy (dev, production, and preview branches)
 #   deploy-android   → Play Store + Zapstore releases (manual gates)
 #   backup         → db-backup (scheduled pipelines only)
 #
@@ -64,14 +64,18 @@ stages:
   - backup
 
 # ============================================
-# WORKERS BUILD/DEPLOY
+# WORKERS BUILD/DEPLOY (PRIMARY)
 # ============================================
-# Workers deploys to workers.dev subdomain ONLY (routes disabled in wrangler.toml).
-# Pages handles main domains (bittasker.com, dev.bittasker.com).
+# Workers is the primary deployment method for all environments.
+# Routes are configured in wrangler.toml (dev.bittasker.com, bittasker.com).
 #
 # These jobs use GitLab's environment-scoped variables:
 #   - Jobs with environment: development get VITE_* scoped to "development"
 #   - Jobs with environment: production get VITE_* scoped to "production"
+#
+# Preview deployments: any branch that is NOT dev or master gets a
+# versioned upload via `wrangler versions upload --env dev`, producing
+# a preview URL on *.workers.dev.
 #
 # To configure environment-scoped variables in GitLab:
 #   Settings → CI/CD → Variables → Add variable → Set "Environment scope"
@@ -287,6 +291,122 @@ deploy-production:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_BRANCH == "master"
+
+# ============================================
+# BUILD - Preview (any branch except dev/master)
+# ============================================
+build-preview:
+  image: node:22-bookworm-slim
+  stage: validate
+  interruptible: true
+  tags:
+    - self-hosted
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+  variables:
+    SENTRY_URL: https://gt.bittasker.com
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build:dev
+  artifacts:
+    paths:
+      - build/
+      - .svelte-kit/output/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+# ============================================
+# DEPLOY PREVIEW (branch preview via versions upload)
+# ============================================
+deploy-preview:
+  image: node:22-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  needs:
+    - build-preview
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+    SENTRY_URL: https://gt.bittasker.com
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler versions upload --env dev
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://$CI_COMMIT_REF_SLUG.bittasker-dev-worker.workers.dev
+    on_stop: stop-preview
+    auto_stop_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+# ============================================
+# STOP PREVIEW (manual cleanup)
+# ============================================
+stop-preview:
+  image: node:22-bookworm-slim
+  stage: deploy
+  tags:
+    - self-hosted
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+  script:
+    - echo "Preview environment stopped for $CI_COMMIT_REF_SLUG"
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    action: stop
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH
+      when: manual
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
