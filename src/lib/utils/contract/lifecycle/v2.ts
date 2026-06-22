@@ -44,8 +44,39 @@ import type {
 	PaymentContractRuneLike
 } from './types';
 import { permissionsNowSeconds } from './time';
+import type { EnrichmentRequest } from '$lib/types/notification';
 
 const d = createDebug('contract:lifecycle:v2');
+
+function buildEnrichment(
+	rune: PaymentContractRuneLike,
+	action: string,
+	escrowId: string
+): EnrichmentRequest | undefined {
+	const data = rune.blockchainData;
+	if (!data) return undefined;
+
+	const base: EnrichmentRequest = { action, escrowId };
+
+	if (action === 'task_completed' || action === 'dispute_raised') {
+		if (!data.timelockEnd) return undefined;
+		const remainingSeconds = data.timelockEnd - Math.floor(Date.now() / 1000);
+		if (remainingSeconds <= 0) return undefined;
+		return { ...base, timelockDuration: remainingSeconds };
+	}
+
+	if (action === 'work_started') {
+		if (!data.estimatedCompletionTime) return undefined;
+		return { ...base, estimatedCompletionTime: data.estimatedCompletionTime };
+	}
+
+	if (action === 'no_show_marked') {
+		if (!data.timelockEnd) return undefined;
+		return { ...base, responseDeadline: data.timelockEnd };
+	}
+
+	return base;
+}
 
 export async function loadPaymentContractDetailsV2ForRune(
 	rune: PaymentContractRuneLike,
@@ -135,24 +166,18 @@ export async function markTaskCompleteV2(
 		});
 	}
 
-	await broadcastThenParallelEffects(
-		'markTaskCompleteV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'markTaskCompleteV2',
 		ids,
 		signer,
 		transactionHash,
-		taskerPk,
-		ContractStatus.Completed,
-		'completeTask',
-		{
-			title: 'Task marked complete',
-			body: `"${rune.taskTitle}" was marked complete. Open Contracts to review.`,
-			type: 'contract_task_completed'
-		},
-		undefined,
+		recipientPubkey: taskerPk,
+		chainStatus: ContractStatus.Completed,
+		writeMethod: 'completeTask',
 		completionAttachments,
 		completionText,
-		undefined
-	);
+		enrichment: buildEnrichment(rune, 'task_completed', ids.paymentId)
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -217,21 +242,16 @@ export async function acceptTaskV2(
 		}
 	};
 
-	await broadcastThenParallelEffects(
-		'acceptTaskV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'acceptTaskV2',
 		ids,
 		signer,
 		transactionHash,
-		taskeePk,
-		ContractStatus.FundsReleased,
-		'acceptTask',
-		{
-			title: 'Payment released',
-			body: `"${rune.taskTitle}" — payment was released. Open Contracts to review.`,
-			type: 'contract_payment_released'
-		},
-		[{ name: 'taskPublishReplaceable', run: publishTaskCompleted }]
-	);
+		recipientPubkey: taskeePk,
+		chainStatus: ContractStatus.FundsReleased,
+		writeMethod: 'acceptTask',
+		extraTasks: [{ name: 'taskPublishReplaceable', run: publishTaskCompleted }]
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -284,20 +304,15 @@ export async function refundTaskerV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelEffects(
-		'refundTaskerV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'refundTaskerV2',
 		ids,
 		signer,
 		transactionHash,
-		taskerPk,
-		ContractStatus.Refunded,
-		'refundTasker',
-		{
-			title: 'Contract refunded',
-			body: `"${rune.taskTitle}" — funds were returned to you. Open Contracts to review.`,
-			type: 'contract_refund_to_tasker'
-		}
-	);
+		recipientPubkey: taskerPk,
+		chainStatus: ContractStatus.Refunded,
+		writeMethod: 'refundTasker'
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -350,20 +365,15 @@ export async function cancelPaymentContractV2(
 
 	const counterpartyPk = rune.isTasker ? taskeePk : taskerPk;
 
-	await broadcastThenParallelEffects(
-		'cancelPaymentContractV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'cancelPaymentContractV2',
 		ids,
 		signer,
 		transactionHash,
-		counterpartyPk,
-		ContractStatus.Cancelled,
-		'cancelPaymentContract',
-		{
-			title: 'Contract cancelled',
-			body: `"${rune.taskTitle}" — the secure payment was cancelled. Open Contracts to review.`,
-			type: 'contract_payment_cancelled'
-		}
-	);
+		recipientPubkey: counterpartyPk,
+		chainStatus: ContractStatus.Cancelled,
+		writeMethod: 'cancelPaymentContract'
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -416,20 +426,16 @@ export async function markNoShowV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelEffects(
-		'markNoShowV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'markNoShowV2',
 		ids,
 		signer,
 		transactionHash,
-		taskeePk,
-		ContractStatus.NoShow,
-		'markNoShow',
-		{
-			title: 'No-show marked',
-			body: `"${rune.taskTitle}" — the taskee was marked no-show. Open Contracts to review.`,
-			type: 'contract_no_show_marked'
-		}
-	);
+		recipientPubkey: taskeePk,
+		chainStatus: ContractStatus.NoShow,
+		writeMethod: 'markNoShow',
+		enrichment: buildEnrichment(rune, 'no_show_marked', ids.paymentId)
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -484,20 +490,16 @@ export async function markWorkInProgressV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelEffects(
-		'markWorkInProgressV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'markWorkInProgressV2',
 		ids,
 		signer,
 		transactionHash,
-		taskerPk,
-		ContractStatus.WorkInProgress,
-		'markWorkInProgress',
-		{
-			title: 'Work in progress',
-			body: `"${rune.taskTitle}" — work was marked in progress. Open Contracts to review.`,
-			type: 'contract_work_in_progress'
-		}
-	);
+		recipientPubkey: taskerPk,
+		chainStatus: ContractStatus.WorkInProgress,
+		writeMethod: 'markWorkInProgress',
+		enrichment: buildEnrichment(rune, 'work_started', ids.paymentId)
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -550,20 +552,15 @@ export async function claimNoShowRefundV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelEffects(
-		'claimNoShowRefundV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'claimNoShowRefundV2',
 		ids,
 		signer,
 		transactionHash,
-		taskeePk,
-		ContractStatus.FundsClaimed,
-		'claimNoShowRefund',
-		{
-			title: 'No-show refund claimed',
-			body: `"${rune.taskTitle}" — the no-show refund was claimed. Open Contracts to review.`,
-			type: 'contract_no_show_refund_claimed'
-		}
-	);
+		recipientPubkey: taskeePk,
+		chainStatus: ContractStatus.FundsClaimed,
+		writeMethod: 'claimNoShowRefund'
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -631,23 +628,16 @@ export async function disputeTaskV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelEffects(
-		'disputeTaskV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'disputeTaskV2',
 		ids,
 		signer,
 		transactionHash,
-		taskeePk,
-		nextStatus,
-		'disputeTask',
-		{
-			title: 'Dispute raised',
-			body: `"${rune.taskTitle}" — a dispute was raised. Open Contracts to review.`,
-			type: 'contract_dispute_raised'
-		},
-		undefined,
-		undefined,
-		undefined
-	);
+		recipientPubkey: taskeePk,
+		chainStatus: nextStatus,
+		writeMethod: 'disputeTask',
+		enrichment: buildEnrichment(rune, 'dispute_raised', ids.paymentId)
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -743,23 +733,16 @@ export async function proposeResolutionV2(
 	const proposedTaskeeAmount = ethers.formatEther(taskeeAmountWei);
 	const proposedTaskerAmount = ethers.formatEther(proposedTaskerWei);
 
-	await broadcastThenParallelEffects(
-		'proposeResolutionV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'proposeResolutionV2',
 		ids,
 		signer,
 		transactionHash,
 		recipientPubkey,
 		chainStatus,
-		'proposeResolution',
-		{
-			title: 'Resolution proposed',
-			body: `"${rune.taskTitle}" — a resolution was proposed. Open Contracts to review.`,
-			type: 'contract_resolution_proposed'
-		},
-		undefined,
-		undefined,
-		{ proposedTaskeeAmount, proposedTaskerAmount }
-	);
+		writeMethod: 'proposeResolution',
+		proposedAmounts: { proposedTaskeeAmount, proposedTaskerAmount }
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -809,23 +792,15 @@ export async function acceptProposalV2(
 
 	const recipientPubkey = rune.isTasker ? taskeePk : taskerPk;
 
-	await broadcastThenParallelEffects(
-		'acceptProposalV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'acceptProposalV2',
 		ids,
 		signer,
 		transactionHash,
 		recipientPubkey,
-		ContractStatus.DisputeResolved,
-		'acceptProposal',
-		{
-			title: 'Dispute resolved',
-			body: `"${rune.taskTitle}" — the proposed resolution was accepted. Open Contracts to review.`,
-			type: 'contract_dispute_resolved'
-		},
-		undefined,
-		undefined,
-		undefined
-	);
+		chainStatus: ContractStatus.DisputeResolved,
+		writeMethod: 'acceptProposal'
+	});
 
 	return { ok: true, transactionHash };
 }
@@ -901,23 +876,15 @@ export async function resolveAfterTimelockV2(
 		chainStatus = ContractStatus.DisputeResolved;
 	}
 
-	await broadcastThenParallelEffects(
-		'resolveAfterTimelockV2',
+	await broadcastThenParallelEffects({
+		logLabel: 'resolveAfterTimelockV2',
 		ids,
 		signer,
 		transactionHash,
 		recipientPubkey,
 		chainStatus,
-		'resolveAfterTimelock',
-		{
-			title: 'Timelock resolution',
-			body: `"${rune.taskTitle}" — the contract was resolved after the timelock. Open Contracts to review.`,
-			type: 'contract_timelock_resolved'
-		},
-		undefined,
-		undefined,
-		undefined
-	);
+		writeMethod: 'resolveAfterTimelock'
+	});
 
 	return { ok: true, transactionHash };
 }

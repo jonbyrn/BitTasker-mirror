@@ -54,6 +54,7 @@ import {
 } from '$lib/utils/wallet/chainSortHints';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
+import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
@@ -726,9 +727,7 @@ async function loadTransactionsInternal(): Promise<void> {
 
 		const previousReceiveHashes = new Set(
 			finalState.transactions
-				.filter(
-					(tx) => tx.displayType === 'receive' || tx.displayType === 'swap-claim'
-				)
+				.filter((tx) => tx.displayType === 'receive' || tx.displayType === 'swap-claim')
 				.map((tx) => tx.hash.toLowerCase())
 		);
 
@@ -949,6 +948,8 @@ export function updateSwapTransaction(
 				scheduleBalanceRefresh();
 			}
 			scheduleChainRefresh();
+			// Enrich backend for wallet notification
+			notificationCenterService.enrich({ action: 'swap_completed' }).catch(() => {});
 			return;
 		}
 
@@ -964,6 +965,8 @@ export function updateSwapTransaction(
 					transactions: mergeSwapUpdate(s.transactions, swapId, updatedTx, s.totalBalances.sats)
 				}));
 			}
+			// Enrich backend for wallet notification
+			notificationCenterService.enrich({ action: 'swap_failed' }).catch(() => {});
 			return;
 		}
 	}

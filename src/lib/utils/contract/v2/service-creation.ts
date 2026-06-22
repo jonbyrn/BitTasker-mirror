@@ -32,8 +32,6 @@ import type {
 	ServiceContractPricingSnapshot,
 	ServiceContractAgreementSnapshot
 } from '$lib/types/contract';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 import type { TransactionReceipt } from 'ethers';
 import { parsePaymentContractCreatedPaymentId } from './creation';
 
@@ -289,7 +287,6 @@ export async function createServiceContract(
 		const transactionHash = tx.hash;
 		d.log('createServiceContract: broadcast ok — pending confirmation', { transactionHash });
 
-		const taskeeNpub = taskeePubkey.startsWith('npub') ? taskeePubkey : undefined;
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const paymentContractAddress = getSecurePaymentContractAddress();
 
@@ -345,21 +342,10 @@ export async function createServiceContract(
 
 		const publishPromise = contractEvent.publish();
 
-		const pushPromise = taskeeNpub
-			? pushNotificationService.sendNotificationToNpubs({
-					npubs: [taskeeNpub],
-					title: 'Service Quote Accepted',
-					body: `Your quote on "${input.serviceTitle}" has been accepted`,
-					type: 'quote_accepted',
-					clickAction: `${getClientOrigin()}/hiring/contracts`,
-					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-				})
-			: Promise.resolve();
+		// Push notification removed — backend's Nostr indexer handles proposal_accepted
+		// via the reminder engine when it processes the Kind 30006 contract event.
 
-		const afterBroadcast = runParallelNamed([
-			{ name: 'nostrPublish', run: () => publishPromise },
-			{ name: 'push', run: () => pushPromise }
-		]);
+		const afterBroadcast = runParallelNamed([{ name: 'nostrPublish', run: () => publishPromise }]);
 
 		const afterConfirmed = async (receipt: TransactionReceipt) => {
 			const paymentId = parsePaymentContractCreatedPaymentId(

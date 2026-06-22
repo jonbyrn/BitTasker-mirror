@@ -8,11 +8,7 @@
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
-	import {
-		TaskStatusEnum,
-		TaskStepEnum,
-		TaskTypeEnum
-	} from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
 	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
@@ -22,6 +18,7 @@
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
@@ -313,6 +310,19 @@
 				}
 
 				appStore.showSuccessToast($t('task.success.created'));
+
+				// Enrich backend with task deadline for scheduled reminders
+				if (signedEventId) {
+					const deadlineStr = $store.task.deadline ?? $store.task.dateRange?.end;
+					const taskDeadline = deadlineStr
+						? Math.floor(new Date(deadlineStr).getTime() / 1000)
+						: undefined;
+					notificationCenterService.enrich({
+						action: 'task_created',
+						taskId: signedEventId,
+						taskDeadline
+					});
+				}
 			}
 
 			// Trigger saved search check BEFORE clearing draft (store still has task data)

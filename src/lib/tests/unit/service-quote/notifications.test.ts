@@ -138,30 +138,4 @@ describe('service quote notification helpers', () => {
 			);
 		});
 	});
-
-	it('reuses the shared contract-created foundation for service contracts', async () => {
-		const { dispatchServiceContractCreatedNotification } = await import(
-			'$lib/utils/service-quote/notifications'
-		);
-
-		dispatchServiceContractCreatedNotification({
-			recipientPubkey: 'c'.repeat(64),
-			escrowId: 'svc-123',
-			serviceTitle: 'Migration audit',
-			purchaseMode: 'instant_buy'
-		});
-
-		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		});
-
-		expect(sendNotificationToNpubs).toHaveBeenCalledWith(
-			expect.objectContaining({
-				type: 'contract_created',
-				title: 'New service contract created for Migration audit',
-				body: 'A buyer placed a Book Now order for Migration audit.',
-				clickAction: 'https://bittasker.test/hiring?tab=contracts&type=services&highlight=svc-123'
-			})
-		);
-	});
 });

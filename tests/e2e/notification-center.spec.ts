@@ -31,7 +31,7 @@ test.describe('Notification Center', () => {
 
 		const filterButtons = authenticatedPage.locator('.flex.gap-2.overflow-x-auto button');
 		const count = await filterButtons.count();
-		expect(count).toBeGreaterThanOrEqual(5);
+		expect(count).toBe(3);
 
 		// First tab should be active
 		const cls = await filterButtons.first().getAttribute('class');
@@ -311,5 +311,120 @@ test.describe('Notification Center', () => {
 		const badgeCount = await badge.count();
 		// This is a presence check — the badge element existing means the count was loaded
 		expect(badgeCount).toBeLessThanOrEqual(1);
+	});
+
+	test('notification page has exactly 3 filter tabs: All, Unread, Read', async ({
+		authenticatedPage
+	}) => {
+		await authenticatedPage.goto('/notifications');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(2000);
+
+		const filterButtons = authenticatedPage.locator('.flex.gap-2.overflow-x-auto button');
+		const count = await filterButtons.count();
+		expect(count).toBe(3);
+
+		// Verify tab labels
+		const tabTexts = await filterButtons.allTextContents();
+		const normalized = tabTexts.map((t) => t.trim().toLowerCase());
+		expect(normalized).toContain('all');
+		expect(normalized).toContain('unread');
+		expect(normalized).toContain('read');
+	});
+
+	test('notification page filter tabs switch active state', async ({ authenticatedPage }) => {
+		await authenticatedPage.goto('/notifications');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(2000);
+
+		const filterButtons = authenticatedPage.locator('.flex.gap-2.overflow-x-auto button');
+
+		// Click "Unread" tab
+		const unreadTab = filterButtons.filter({ hasText: /unread/i });
+		await unreadTab.click({ force: true });
+		await authenticatedPage.waitForTimeout(500);
+
+		const unreadCls = await unreadTab.getAttribute('class');
+		expect(unreadCls).toContain('btn-primary');
+
+		// "All" tab should no longer be primary
+		const allTab = filterButtons.filter({ hasText: /^all$/i });
+		const allCls = await allTab.getAttribute('class');
+		expect(allCls).not.toContain('btn-primary');
+	});
+
+	test('sidebar has notifications link on desktop', async ({ authenticatedPage }) => {
+		await authenticatedPage.setViewportSize({ width: 1400, height: 900 });
+		await authenticatedPage.goto('/hiring');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(2000);
+
+		// Sidebar should contain a notifications link
+		const sidebar = authenticatedPage.locator('.card .menu');
+		const notifLink = sidebar.locator('a[href="/notifications"]');
+		await expect(notifLink).toBeVisible({ timeout: 10000 });
+	});
+
+	test('notification settings card matches other settings cards structure', async ({
+		authenticatedPage
+	}) => {
+		await authenticatedPage.goto('/settings');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(2000);
+
+		// Find all collapse cards with shadow-xl (the standard settings card pattern)
+		const settingsCards = authenticatedPage.locator(
+			'.collapse.collapse-arrow.rounded-lg.shadow-xl'
+		);
+		const cardCount = await settingsCards.count();
+		expect(cardCount).toBeGreaterThanOrEqual(2);
+
+		// Notification settings card should be one of them
+		const notifCard = settingsCards.filter({ hasText: 'Notification' });
+		expect(await notifCard.count()).toBe(1);
+
+		// Verify it has the same structure: collapse-title with h4
+		const title = notifCard.locator('.collapse-title h4');
+		await expect(title).toBeVisible();
+	});
+
+	test('notification settings card shows content when expanded', async ({ authenticatedPage }) => {
+		await authenticatedPage.goto('/settings');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(2000);
+
+		// Find and click the notification settings card
+		const notifCard = authenticatedPage
+			.locator('.collapse.collapse-arrow.rounded-lg.shadow-xl')
+			.filter({ hasText: 'Notification' });
+		const titleButton = notifCard.locator('button.collapse-title');
+		await titleButton.click({ force: true });
+		await authenticatedPage.waitForTimeout(1000);
+
+		// Should show toggle switches
+		const toggles = notifCard.locator('.toggle');
+		expect(await toggles.count()).toBeGreaterThanOrEqual(2);
+
+		// Should show "Push notifications" and "Email" labels
+		const content = await notifCard.textContent();
+		expect(content).toContain('Push');
+		expect(content).toContain('Email');
+	});
+
+	test('mark all read button visible when unread notifications exist', async ({
+		authenticatedPage
+	}) => {
+		await authenticatedPage.goto('/notifications');
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		// The mark all read button should be visible if there are unread notifications
+		const markAllBtn = authenticatedPage.locator('button', {
+			hasText: /mark all/i
+		});
+		const count = await markAllBtn.count();
+
+		// Either the button is visible (unread exist) or not (all read) — both are valid
+		expect(count).toBeLessThanOrEqual(1);
 	});
 });

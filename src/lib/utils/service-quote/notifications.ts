@@ -29,13 +29,6 @@ const pendingSideEffects = new Set<string>();
 
 type SideEffectChannel = 'push' | 'dm';
 
-export interface ServiceContractCreatedNotificationInput {
-	recipientPubkey: string;
-	escrowId?: string;
-	serviceTitle?: string;
-	purchaseMode: 'quote' | 'instant_buy';
-}
-
 function getClientBaseUrl(): URL {
 	return new URL(getClientOrigin());
 }
@@ -62,14 +55,6 @@ function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: s
 		serviceAddress,
 		requestId: quoteRequestId
 	}).toString();
-}
-
-function buildContractsClickAction(escrowId?: string): string {
-	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
-		tab: 'contracts',
-		type: 'services',
-		highlight: escrowId ?? null
-	});
 }
 
 function buildLedgerKey(channel: SideEffectChannel, action: string, entityId: string): string {
@@ -312,27 +297,6 @@ export function dispatchProposalPublishedSideEffects(
 			'Failed to send service proposal DM mirror'
 		);
 	}
-}
-
-export function dispatchServiceContractCreatedNotification(
-	input: ServiceContractCreatedNotificationInput
-): void {
-	const actionEntityId = input.escrowId ?? `${input.purchaseMode}:${input.recipientPubkey}`;
-	const contextTitle = input.serviceTitle?.trim() || 'service';
-
-	runNonBlockingSideEffect(
-		sendPushNotificationOnce('contract_created', actionEntityId, {
-			recipientPubkey: input.recipientPubkey,
-			title: `New service contract created for ${contextTitle}`,
-			body:
-				input.purchaseMode === 'instant_buy'
-					? `A buyer placed a Book Now order for ${contextTitle}.`
-					: `Your service proposal for ${contextTitle} has been accepted.`,
-			type: 'contract_created',
-			clickAction: buildContractsClickAction(input.escrowId)
-		}),
-		'Failed to send service contract notification'
-	);
 }
 
 export async function resetServiceQuoteSideEffectLedger(): Promise<void> {

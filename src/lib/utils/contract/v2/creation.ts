@@ -12,7 +12,6 @@ import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
 import { coerceUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 import { createDebug } from '$lib/utils/debug';
-import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
 	MINIMUM_START_BUFFER_SECONDS,
@@ -29,10 +28,10 @@ import abi from './abi.json';
 import type { NDKBid } from '$lib/nostr/events/bid';
 import type { NDKTask } from '$lib/nostr/events/task';
 import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
+import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 
 const d = createDebug('contract:v2');
 
@@ -319,7 +318,6 @@ export async function createContract(
 		const transactionHash = tx.hash;
 		d.log('createContract: broadcast ok — pending confirmation', { transactionHash });
 
-		const taskeeNpub = bid.author?.npub;
 		const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
@@ -369,22 +367,13 @@ export async function createContract(
 			display.wasTimeAdjusted ? params.estimatedStartTime : undefined
 		);
 
-		const pushPromise = taskeeNpub
-			? pushNotificationService.sendNotificationToNpubs({
-					npubs: [taskeeNpub],
-					title: 'Bid Accepted',
-					body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
-					type: 'bid_accepted',
-					clickAction: `${getClientOrigin()}/hiring/contracts`,
-					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-				})
-			: Promise.resolve();
+		// Push notification removed — backend's Nostr indexer handles bid_accepted_notify
+		// via the reminder engine when it processes the Kind 30006 contract event.
 
 		const afterBroadcast = runParallelNamed([
 			{ name: 'nostrPublish', run: () => publishPromise },
 			{ name: 'sendLocations', run: () => dmPromise },
-			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise },
-			{ name: 'push', run: () => pushPromise }
+			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise }
 		]);
 
 		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
@@ -413,6 +402,20 @@ export async function createContract(
 					paymentId
 				});
 			}
+
+			// Enrich backend with contract timeline data for scheduled reminders
+			try {
+				await notificationCenterService.enrich({
+					action: 'contract_created',
+					escrowId: String(paymentId),
+					estimatedStartTime: params.estimatedStartTime,
+					amount: display.baseAmount?.toString(),
+					taskTitle: taskContent.title ?? undefined
+				});
+			} catch (e) {
+				d.warn('createContract: enrichment failed (non-blocking)', e);
+			}
+
 			return { paymentId };
 		};
 
