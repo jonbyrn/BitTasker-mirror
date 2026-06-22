@@ -206,6 +206,10 @@
 			"actions": {
 				"title": "Acciones",
 				"description": "Cerrar sesión o eliminar tu cuenta"
+			},
+			"notifications": {
+				"title": "Notificaciones",
+				"description": "Gestionar push, email y horario silencioso"
 			}
 		},
 		"back": "Volver a Configuración"

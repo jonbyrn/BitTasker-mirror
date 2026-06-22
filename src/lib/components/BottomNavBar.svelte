@@ -25,10 +25,6 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconLogout from '~icons/mdi/logout';
 	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconAccountOutline from '~icons/mdi/account-outline';
-	import IconCogOutline from '~icons/mdi/cog-outline';
-	import IconStarOutline from '~icons/mdi/star-outline';
-	import IconBellOutline from '~icons/mdi/bell-outline';
 	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
@@ -66,17 +62,8 @@
 			id: 'account',
 			icon: IconAccountCircle,
 			label: 'navbar.my_account',
-<<<<<<< HEAD
-			items: [
-				{ href: '/profile', icon: IconAccountOutline, label: 'navbar.profile' },
-				{ href: '/settings', icon: IconCogOutline, label: 'navbar.settings' },
-				{ href: '/notifications', icon: IconBellOutline, label: 'navbar.notifications' },
-				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
-			]
-=======
 			action: 'group',
 			groupId: 'my-account'
->>>>>>> cef4de6f (ui: Enhance navigation dock UI)
 		},
 		{
 			id: 'find-services',
@@ -325,39 +312,12 @@
 						{/if}
 					</div>
 				</div>
-<<<<<<< HEAD
-
-				{#if $authState.isAuthenticated}
-					<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
-						<div class="flex gap-2">
-							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
-							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
-							{@render quickActionLink(
-								'/create-service',
-								IconPlusCircleOutline,
-								'navbar.list_service'
-							)}
-						</div>
-					</div>
-				{/if}
-=======
->>>>>>> cef4de6f (ui: Enhance navigation dock UI)
 			</div>
 		</div>
 	</div>
 {/if}
 
 {#if $authState.isAuthenticated}
-<<<<<<< HEAD
-	<div
-		bind:this={dockEl}
-		class="dock pb-safe bg-primary border-base-300/70 z-80 border-t text-black"
-		onclickcapture={handleBottomNavTap}
-	>
-		{@render dockLink('/hiring', IconHome, 'navbar.home', 'home')}
-		{@render dockLink('/create-task', IconPlusCircleOutline, 'navbar.new_task', 'create-task')}
-
-=======
 	<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
 		<DockIcon
 			href="/hiring"
@@ -371,7 +331,6 @@
 			label={$t('navbar.new_task')}
 			isActive={currentSection === 'create-task'}
 		/>
->>>>>>> cef4de6f (ui: Enhance navigation dock UI)
 		<button
 			class="dock-menu-btn"
 			onclick={toggleMenu}

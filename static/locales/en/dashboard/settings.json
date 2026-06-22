@@ -206,6 +206,10 @@
 			"actions": {
 				"title": "Actions",
 				"description": "Logout or delete your account"
+			},
+			"notifications": {
+				"title": "Notifications",
+				"description": "Manage push, email, and quiet hours settings"
 			}
 		},
 		"back": "Back to Settings"

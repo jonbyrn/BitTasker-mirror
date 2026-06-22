@@ -36,6 +36,13 @@
 			color: 'var(--color-warning)'
 		},
 		{
+			slug: 'notifications',
+			title: $t('settings.cards.notifications.title'),
+			description: $t('settings.cards.notifications.description'),
+			animation: 'icon-pulse-glow',
+			color: 'var(--color-info)'
+		},
+		{
 			slug: 'actions',
 			title: $t('settings.cards.actions.title'),
 			description: $t('settings.cards.actions.description'),
@@ -72,7 +79,7 @@
 </script>
 
 <div bind:this={gridEl} class="settings-grid grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-	{#each cards as card}
+	{#each cards as card (card.slug)}
 		<a
 			href="/settings/{card.slug}"
 			class="settings-card group border-base-300/50 bg-base-100 relative block overflow-hidden rounded-2xl border p-6 shadow-lg transition-all duration-300 active:scale-[0.97] active:brightness-95 sm:hover:scale-[1.02] sm:hover:shadow-xl"
@@ -152,6 +159,20 @@
 								cy="7"
 								r="4"
 							/><line x1="18" y1="8" x2="23" y2="13" /><line x1="23" y1="8" x2="18" y2="13" /></svg
+						>
+					{:else if card.slug === 'notifications'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-8 w-8"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path
+								d="M13.73 21a2 2 0 0 1-3.46 0"
+							/></svg
 						>
 					{:else}
 						<svg

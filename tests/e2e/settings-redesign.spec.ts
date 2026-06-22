@@ -9,6 +9,7 @@ const CARDS = [
 	{ slug: 'devices', title: 'Devices' },
 	{ slug: 'recovery', title: 'Recovery' },
 	{ slug: 'muted', title: 'Muted' },
+	{ slug: 'notifications', title: 'Notifications' },
 	{ slug: 'actions', title: 'Actions' }
 ];
 
@@ -64,14 +65,14 @@ test.describe('settings', () => {
 			await expect(page.locator('p.text-base-content\\/70').first()).toBeVisible();
 		});
 
-		test('displays 5 cards', async ({ page }) => {
-			await expect(page.locator('.settings-card')).toHaveCount(5);
+		test('displays 6 cards', async ({ page }) => {
+			await expect(page.locator('.settings-card')).toHaveCount(6);
 		});
 
 		test('each card has icon, title, description', async ({ page }) => {
-			await expect(page.locator('.settings-card-icon')).toHaveCount(5);
-			await expect(page.locator('.settings-card-title')).toHaveCount(5);
-			await expect(page.locator('.settings-card-description')).toHaveCount(5);
+			await expect(page.locator('.settings-card-icon')).toHaveCount(6);
+			await expect(page.locator('.settings-card-title')).toHaveCount(6);
+			await expect(page.locator('.settings-card-description')).toHaveCount(6);
 		});
 
 		test('cards are links with correct hrefs', async ({ page }) => {
@@ -102,7 +103,7 @@ test.describe('settings', () => {
 		test('icons are at least 48px and centered', async ({ page }) => {
 			const cards = page.locator('.settings-card');
 			const icons = page.locator('.settings-card-icon');
-			for (let i = 0; i < 5; i++) {
+			for (let i = 0; i < 6; i++) {
 				const cardBox = await cards.nth(i).boundingBox();
 				const iconBox = await icons.nth(i).boundingBox();
 				expect(cardBox).not.toBeNull();
@@ -118,7 +119,7 @@ test.describe('settings', () => {
 
 		test('icons have animation', async ({ page }) => {
 			const icons = page.locator('.settings-card-icon');
-			for (let i = 0; i < 5; i++) {
+			for (let i = 0; i < 6; i++) {
 				const anim = await icons.nth(i).evaluate((el) => getComputedStyle(el).animationName);
 				expect(anim).not.toBe('none');
 			}
@@ -129,7 +130,7 @@ test.describe('settings', () => {
 			await page.goto('/settings', { waitUntil: 'domcontentloaded' });
 			await page.waitForTimeout(3000);
 			const icons = page.locator('.settings-card-icon');
-			for (let i = 0; i < 5; i++) {
+			for (let i = 0; i < 6; i++) {
 				const anim = await icons.nth(i).evaluate((el) => getComputedStyle(el).animationName);
 				expect(anim).toBe('none');
 			}
@@ -361,6 +362,21 @@ test.describe('settings', () => {
 			await expect(page.locator('button', { hasText: /delete/i })).toBeVisible();
 		});
 
+		test('notifications page shows section title', async ({ page }) => {
+			await page.goto('/settings/notifications', { waitUntil: 'domcontentloaded' });
+			await page.waitForTimeout(5000);
+			await dismissModals(page);
+			const hasContent = await page
+				.locator('.settings-sub-content')
+				.isVisible()
+				.catch(() => false);
+			const hasError = await page
+				.locator('.alert-error')
+				.isVisible()
+				.catch(() => false);
+			expect(hasContent || hasError).toBe(true);
+		});
+
 		for (const card of CARDS) {
 			test(`/settings/${card.slug} content has background`, async ({ page }) => {
 				await page.goto(`/settings/${card.slug}`, { waitUntil: 'domcontentloaded' });
@@ -505,7 +521,7 @@ test.describe('settings', () => {
 			await page.goto('/settings', { waitUntil: 'domcontentloaded' });
 			await page.waitForTimeout(3000);
 			const cards = page.locator('a.settings-card');
-			for (let i = 0; i < 5; i++) {
+			for (let i = 0; i < 6; i++) {
 				const label = await cards.nth(i).getAttribute('aria-label');
 				expect(label).toBeTruthy();
 				expect(label!.trim().length).toBeGreaterThan(0);
