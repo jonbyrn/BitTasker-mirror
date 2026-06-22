@@ -17,7 +17,6 @@
 #     - Any branch that is NOT dev or master gets a preview deployment
 #     - Uses `wrangler versions upload --env dev` to create a versioned deploy
 #     - Preview URL appears in GitLab environment and Cloudflare dashboard
-#     - Auto-stops after 1 week of inactivity
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENVIRONMENT VARIABLES
@@ -295,6 +294,10 @@ deploy-production:
 # ============================================
 # BUILD - Preview (any branch except dev/master)
 # ============================================
+# Uses development environment scope to inherit CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID. Does NOT affect the dev deployment — build-preview
+# produces artifacts only, and deploy-preview uses `wrangler versions upload`
+# (separate versioned deploy), not `wrangler deploy` (which owns dev.bittasker.com).
 build-preview:
   image: node:22-bookworm-slim
   stage: validate
@@ -302,7 +305,7 @@ build-preview:
   tags:
     - self-hosted
   environment:
-    name: review/$CI_COMMIT_REF_SLUG
+    name: development
   variables:
     SENTRY_URL: https://gt.bittasker.com
   cache:
@@ -365,10 +368,8 @@ deploy-preview:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler versions upload --env dev
   environment:
-    name: review/$CI_COMMIT_REF_SLUG
+    name: development
     url: https://$CI_COMMIT_REF_SLUG.bittasker-dev-worker.workers.dev
-    on_stop: stop-preview
-    auto_stop_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -377,36 +378,6 @@ deploy-preview:
     - if: $CI_COMMIT_BRANCH == "master"
       when: never
     - if: $CI_COMMIT_BRANCH
-
-# ============================================
-# STOP PREVIEW (manual cleanup)
-# ============================================
-stop-preview:
-  image: node:22-bookworm-slim
-  stage: deploy
-  tags:
-    - self-hosted
-  variables:
-    CLOUDFLARE_API_TOKEN:
-      value: $CLOUDFLARE_API_TOKEN
-      expand: false
-    CLOUDFLARE_ACCOUNT_ID:
-      value: $CLOUDFLARE_ACCOUNT_ID
-      expand: false
-  script:
-    - echo "Preview environment stopped for $CI_COMMIT_REF_SLUG"
-  environment:
-    name: review/$CI_COMMIT_REF_SLUG
-    action: stop
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_BRANCH == "dev"
-      when: never
-    - if: $CI_COMMIT_BRANCH == "master"
-      when: never
-    - if: $CI_COMMIT_BRANCH
-      when: manual
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
