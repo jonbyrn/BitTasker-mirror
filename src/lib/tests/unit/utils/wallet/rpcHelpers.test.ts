@@ -11,11 +11,9 @@ describe('rpcHelpers', () => {
 
 	describe('executeWithRetry', () => {
 		it('should return result on first successful call', async () => {
-			const result = await executeWithRetry(
-				() => Promise.resolve(42),
-				'test-op',
-				{ timeoutMs: 5000 }
-			);
+			const result = await executeWithRetry(() => Promise.resolve(42), 'test-op', {
+				timeoutMs: 5000
+			});
 			expect(result).toBe(42);
 		});
 
@@ -72,9 +70,7 @@ describe('rpcHelpers', () => {
 
 		it('should throw on timeout when operation exceeds timeoutMs', async () => {
 			const operation = () =>
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error('slow')), 100)
-				);
+				new Promise((_, reject) => setTimeout(() => reject(new Error('slow')), 100));
 			await expect(
 				executeWithRetry(operation, 'test-op', {
 					maxRetries: 0,
@@ -89,12 +85,9 @@ describe('rpcHelpers', () => {
 			const mockContract = {
 				getBalance: vi.fn().mockResolvedValue(100n)
 			};
-			const result = await callContractMethod(
-				mockContract as any,
-				'getBalance',
-				['0x123'],
-				{ timeoutMs: 5000 }
-			);
+			const result = await callContractMethod(mockContract, 'getBalance', ['0x123'], {
+				timeoutMs: 5000
+			});
 			expect(result).toBe(100n);
 			expect(mockContract.getBalance).toHaveBeenCalledWith('0x123');
 		});
@@ -104,7 +97,7 @@ describe('rpcHelpers', () => {
 				transfer: vi.fn().mockRejectedValue(new Error('revert'))
 			};
 			await expect(
-				callContractMethod(mockContract as any, 'transfer', ['0xabc', 100], {
+				callContractMethod(mockContract, 'transfer', ['0xabc', 100], {
 					maxRetries: 0,
 					timeoutMs: 5000
 				})

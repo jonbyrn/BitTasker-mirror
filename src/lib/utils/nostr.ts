@@ -1,8 +1,6 @@
 import { type Event as NostrEvent, type Filter, nip19, nip44 } from 'nostr-tools';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { finalizeEvent, validateEvent, getPublicKey } from 'nostr-tools/pure';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { hexToBytes } from '$lib/utils/helpers/encoding';
@@ -95,57 +93,24 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
 		content: metadata.content || ''
 	};
 
-	const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+	const { npub, nsec } = await getNostrKeyPair();
 
-	// TODO: To be improved by getting auth method from the server
-	if (authMethod === 'alby') {
-		if (!window || !window.nostr) {
-			throw new Error('Nostr extension not available');
-		}
-
-		let { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-
-		if (!npub) {
-			const pubkey = await window.nostr.getPublicKey();
-			if (!pubkey) {
-				throw new Error('No public key returned from Nostr extension');
-			}
-			npub = pubkey;
-		}
-
-		const { sig } = await window.nostr.signEvent({
-			...initialEvent,
-			pubkey: npub
-		});
-		return {
-			...initialEvent,
-			pubkey: npub,
-			id: '',
-			sig
-		} as NostrEvent;
-	} else {
-		const { npub, nsec } = await getNostrKeyPair();
-
-		if (!npub || !nsec) {
-			throw new Error('No pubkey or private key found');
-		}
-
-		// Create the event with required properties in correct order
-		const event = {
-			...initialEvent,
-			pubkey: npub
-		};
-
-		// Finalize the event (calculate id and sign)
-		const signedEvent = finalizeEvent(event, nsec);
-
-		// Validate the event
-		if (!validateEvent(signedEvent)) {
-			throw new Error('Invalid event');
-		}
-
-		return signedEvent;
+	if (!npub || !nsec) {
+		throw new Error('No pubkey or private key found');
 	}
+
+	const event = {
+		...initialEvent,
+		pubkey: npub
+	};
+
+	const signedEvent = finalizeEvent(event, nsec);
+
+	if (!validateEvent(signedEvent)) {
+		throw new Error('Invalid event');
+	}
+
+	return signedEvent;
 }
 
 /**
@@ -167,7 +132,9 @@ export async function publishEvent(
 		// Wait for the publish to complete
 		await Promise.race([
 			Promise.all(pub),
-			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS))
+			new Promise((_, reject) =>
+				setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)
+			)
 		]);
 	} catch (error) {
 		console.error('Failed to publish event:', error);
@@ -350,7 +317,9 @@ export async function publishToMultipleRelays(
 			const relayPublish = pool.publish([relay], event);
 			await Promise.race([
 				Promise.all(relayPublish),
-				new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS))
+				new Promise((_, reject) =>
+					setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)
+				)
 			]);
 			return { relay, success: true };
 		} catch (error) {

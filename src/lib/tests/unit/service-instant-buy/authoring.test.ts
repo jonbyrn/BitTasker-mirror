@@ -17,7 +17,10 @@ describe('service instant-buy authoring helpers', () => {
 
 	it('sanitizes lead hours fail-closed for unsupported pricing or invalid values', () => {
 		expect(
-			sanitizeInstantBuyLeadHours(ServicePricingTypeEnum.INQUIRY_REQUIRED, DEFAULT_INSTANT_BUY_LEAD_HOURS)
+			sanitizeInstantBuyLeadHours(
+				ServicePricingTypeEnum.INQUIRY_REQUIRED,
+				DEFAULT_INSTANT_BUY_LEAD_HOURS
+			)
 		).toBeUndefined();
 		expect(sanitizeInstantBuyLeadHours(ServicePricingTypeEnum.FIXED, -1)).toBeUndefined();
 		expect(sanitizeInstantBuyLeadHours(ServicePricingTypeEnum.FIXED, 721)).toBeUndefined();

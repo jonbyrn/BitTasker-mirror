@@ -68,9 +68,6 @@ const getBiometrics = async (): Promise<Credentials | null> => {
  * 2. **Local storage (Preferences):** Check if npub was cached from previous session (fast, local I/O)
  * 3. **Biometric authentication:** If not cached, prompt user for authentication (slow, requires interaction)
  *
- * Special handling for Alby extension: Retrieves public key from browser extension if using Alby auth
- *
- * @returns The Nostr public key (npub) as a hex string
  * @throws {Error} If no public key can be retrieved or biometric authentication fails
  *
  * @example

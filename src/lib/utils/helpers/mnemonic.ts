@@ -23,9 +23,15 @@ export async function getMnemonic(): Promise<string> {
 		}
 	}
 
+	// Tier 1: Check if mnemonic is already decrypted in store
+	const currentState = get(appStore);
+	if (currentState.nostrKeys.mnemonic) {
+		return currentState.nostrKeys.mnemonic;
+	}
+
 	try {
-		// Check if we have biometric data with master key format
-		const biometricData = get(appStore)?.biometricData;
+		// Tier 2: Check if we have biometric data with master key format
+		const biometricData = currentState.biometricData;
 		if (biometricData && biometricData.encryptedData) {
 			return await decryptWalletMnemonicWithBiometrics(
 				biometricData.encryptedData,

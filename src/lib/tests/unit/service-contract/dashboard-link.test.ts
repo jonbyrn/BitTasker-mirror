@@ -9,7 +9,9 @@ describe('buildContractsDashboardLink', () => {
 				contextType: 'service',
 				escrowId: 'svc-123'
 			})
-		).toBe('https://bittasker.test/hiring/contracts?tab=contracts&context=services&highlight=svc-123');
+		).toBe(
+			'https://bittasker.test/hiring/contracts?tab=contracts&context=services&highlight=svc-123'
+		);
 	});
 
 	it('builds a task contracts link without the service context filter', () => {

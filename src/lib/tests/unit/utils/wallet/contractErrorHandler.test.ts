@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-	extractContractError,
-	getErrorMessage
-} from '$lib/utils/wallet/contractErrorHandler';
+import { extractContractError, getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 
 const translateFn = vi.fn((key: string) => key);
 
@@ -56,9 +53,7 @@ describe('contractErrorHandler', () => {
 		});
 
 		it('should map "insufficient balance" with "transaction cost" to insufficient_gas', () => {
-			const result = extractContractError(
-				new Error('Insufficient balance for transaction cost')
-			);
+			const result = extractContractError(new Error('Insufficient balance for transaction cost'));
 			expect(result.userMessage).toBe('dashboard.contracts.errors.insufficient_gas');
 			expect(result.errorCode).toBe('INSUFFICIENT_GAS');
 		});

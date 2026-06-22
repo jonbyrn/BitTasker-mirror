@@ -30,15 +30,20 @@
 		try {
 			if (!$authState.isAuthenticated) return;
 
-			// Only fetch user data and init push notifications if authenticated
 			await user.getUserData();
 
-			// Ensure wallet is initialized BEFORE loading dashboard
+			// Eagerly load all keys — caches in appStore for all child routes.
+			// This MUST happen before wallet init so getMnemonic()/getNostrKeyPair()
+			// hit Tier 1 cache and never race with each other.
+			const { getAllKeys } = await import('$lib/utils/nostrKeys');
+			await getAllKeys();
+
+			// Initialize wallet — keys are now cached, so getMnemonic() and
+			// getNostrKeyPair() inside walletManager.initialize() return instantly.
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
 			const { get } = await import('svelte/store');
 			let walletState = get(walletStore);
 
-			// Wait for wallet initialization if not already initialized
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
 				await walletManager.initialize();
 				walletState = get(walletStore);
