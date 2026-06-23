@@ -13,7 +13,7 @@
 
 	let dropdownEl = $state<HTMLDivElement | null>(null);
 
-	let notifications = $derived($notificationCenterStore.notifications.slice(0, 10));
+	let notifications = $derived($notificationCenterStore.notifications.slice(0, 5));
 	let loading = $derived($notificationCenterStore.loading);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
 

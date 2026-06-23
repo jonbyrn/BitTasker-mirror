@@ -36,9 +36,15 @@ vi.mock('@sentry/sveltekit', () => ({
 
 import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
-import type { NotificationCenterItem, NotificationCenterListResponse } from '$lib/types/notification';
+import { syncBadge } from '$lib/utils/badgeSync';
+import type {
+	NotificationCenterItem,
+	NotificationCenterListResponse
+} from '$lib/types/notification';
 
-function createNotification(overrides: Partial<NotificationCenterItem> = {}): NotificationCenterItem {
+function createNotification(
+	overrides: Partial<NotificationCenterItem> = {}
+): NotificationCenterItem {
 	return {
 		id: 'test-id-1',
 		recipientNpub: 'npub1abc',
@@ -159,6 +165,32 @@ describe('notification-center.store', () => {
 			expect(n1?.readAt).toBeTruthy();
 			expect(notificationCenterService.markRead).toHaveBeenCalledWith('n1');
 		});
+
+		it('reverts count on API failure', async () => {
+			const items = [
+				createNotification({ id: 'n1', isRead: false }),
+				createNotification({ id: 'n2', isRead: false })
+			];
+			vi.mocked(notificationCenterService.list)
+				.mockResolvedValueOnce(createListResponse(items))
+				.mockResolvedValueOnce(createListResponse(items));
+			vi.mocked(notificationCenterService.getUnreadCount).mockResolvedValue(2);
+			vi.mocked(notificationCenterService.markRead).mockRejectedValueOnce(
+				new Error('Server error')
+			);
+
+			await notificationCenterStore.fetchNotifications(true);
+			await notificationCenterStore.fetchUnreadCount();
+
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+
+			await notificationCenterStore.markRead('n1');
+
+			// After fix: fetchUnreadCount reverts count from optimistic 1 back to 2
+			// Before fix: count stays at 1 (optimistic decrement not reverted)
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+			expect(notificationCenterService.getUnreadCount).toHaveBeenCalledTimes(2);
+		});
 	});
 
 	describe('markAllRead', () => {
@@ -178,6 +210,31 @@ describe('notification-center.store', () => {
 			expect(state.notifications.every((n) => n.isRead)).toBe(true);
 			expect(notificationCenterService.markAllRead).toHaveBeenCalled();
 		});
+
+		it('reverts count on API failure', async () => {
+			const items = [
+				createNotification({ id: 'n1', isRead: false }),
+				createNotification({ id: 'n2', isRead: false })
+			];
+			vi.mocked(notificationCenterService.list)
+				.mockResolvedValueOnce(createListResponse(items))
+				.mockResolvedValueOnce(createListResponse(items));
+			vi.mocked(notificationCenterService.getUnreadCount).mockResolvedValue(2);
+			vi.mocked(notificationCenterService.markAllRead).mockRejectedValueOnce(
+				new Error('Server error')
+			);
+
+			await notificationCenterStore.fetchNotifications(true);
+			await notificationCenterStore.fetchUnreadCount();
+
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+
+			await notificationCenterStore.markAllRead();
+
+			// After fix: fetchUnreadCount reverts count from optimistic 0 back to 2
+			// Before fix: count stays at 0
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+		});
 	});
 
 	describe('deleteNotification', () => {
@@ -194,6 +251,31 @@ describe('notification-center.store', () => {
 			expect(state.notifications[0].id).toBe('n2');
 			expect(notificationCenterService.deleteOne).toHaveBeenCalledWith('n1');
 		});
+
+		it('reverts count on API failure', async () => {
+			const items = [
+				createNotification({ id: 'n1', isRead: false }),
+				createNotification({ id: 'n2', isRead: false })
+			];
+			vi.mocked(notificationCenterService.list)
+				.mockResolvedValueOnce(createListResponse(items))
+				.mockResolvedValueOnce(createListResponse(items));
+			vi.mocked(notificationCenterService.getUnreadCount).mockResolvedValue(2);
+			vi.mocked(notificationCenterService.deleteOne).mockRejectedValueOnce(
+				new Error('Server error')
+			);
+
+			await notificationCenterStore.fetchNotifications(true);
+			await notificationCenterStore.fetchUnreadCount();
+
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+
+			await notificationCenterStore.deleteNotification('n1');
+
+			// After fix: fetchUnreadCount reverts count from optimistic 1 back to 2
+			// Before fix: count stays at 1
+			expect(get(notificationCenterStore).unreadCount).toBe(2);
+		});
 	});
 
 	describe('clearAll', () => {
@@ -209,6 +291,29 @@ describe('notification-center.store', () => {
 			expect(state.notifications).toEqual([]);
 			expect(state.total).toBe(0);
 			expect(notificationCenterService.deleteMany).toHaveBeenCalled();
+		});
+
+		it('reverts state and badge on API failure', async () => {
+			const items = [createNotification({ id: 'n1' })];
+			vi.mocked(notificationCenterService.list).mockResolvedValueOnce(createListResponse(items));
+			vi.mocked(notificationCenterService.deleteMany).mockRejectedValueOnce(
+				new Error('Server error')
+			);
+			vi.mocked(notificationCenterService.getUnreadCount).mockResolvedValue(1);
+
+			await notificationCenterStore.fetchNotifications(true);
+			await notificationCenterStore.fetchUnreadCount();
+
+			expect(get(notificationCenterStore).unreadCount).toBe(1);
+
+			await notificationCenterStore.clearAll();
+
+			// State reverted by set(prev)
+			expect(get(notificationCenterStore).notifications).toHaveLength(1);
+			// After fix: fetchUnreadCount reverts count and badge
+			// Before fix: syncBadge(0) is called even on failure
+			expect(get(notificationCenterStore).unreadCount).toBe(1);
+			expect(syncBadge).toHaveBeenLastCalledWith(1);
 		});
 	});
 
@@ -236,6 +341,25 @@ describe('notification-center.store', () => {
 			expect(state.notifications).toHaveLength(1);
 			expect(state.notifications[0].id).toBe('realtime-1');
 			expect(state.total).toBe(1);
+		});
+
+		it('skips duplicate notifications by id', async () => {
+			vi.mocked(notificationCenterService.list).mockResolvedValueOnce(createListResponse([]));
+			await notificationCenterStore.fetchNotifications(true);
+
+			const notif = createNotification({ id: 'dup-1', title: 'First arrival' });
+			notificationCenterStore.addFromRealtime(notif);
+			expect(get(notificationCenterStore).notifications).toHaveLength(1);
+			expect(get(notificationCenterStore).unreadCount).toBe(1);
+
+			// Same notification arrives again (e.g., WebSocket re-send or REST fetch overlap)
+			const duplicate = createNotification({ id: 'dup-1', title: 'Duplicate' });
+			notificationCenterStore.addFromRealtime(duplicate);
+
+			// After fix: still 1 notification, count still 1
+			// Before fix: 2 notifications, count is 2
+			expect(get(notificationCenterStore).notifications).toHaveLength(1);
+			expect(get(notificationCenterStore).unreadCount).toBe(1);
 		});
 	});
 

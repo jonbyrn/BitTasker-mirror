@@ -103,8 +103,7 @@ function createNotificationCenterStore() {
 					isOffline: false
 				}));
 			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : 'Failed to load notifications';
+				const message = error instanceof Error ? error.message : 'Failed to load notifications';
 				update((s) => ({
 					...s,
 					loading: false,
@@ -178,6 +177,7 @@ function createNotificationCenterStore() {
 				});
 			} catch {
 				await this.refresh();
+				await this.fetchUnreadCount();
 			}
 		},
 
@@ -206,6 +206,7 @@ function createNotificationCenterStore() {
 
 			try {
 				await notificationCenterService.markAllRead();
+				await syncBadge(0);
 				Sentry.addBreadcrumb({
 					category: 'notification',
 					level: 'info',
@@ -213,9 +214,8 @@ function createNotificationCenterStore() {
 				});
 			} catch {
 				await this.refresh();
+				await this.fetchUnreadCount();
 			}
-
-			await syncBadge(0);
 		},
 
 		async deleteNotification(id: string) {
@@ -253,6 +253,7 @@ function createNotificationCenterStore() {
 				});
 			} catch {
 				await this.refresh();
+				await this.fetchUnreadCount();
 			}
 		},
 
@@ -274,6 +275,7 @@ function createNotificationCenterStore() {
 
 			try {
 				await notificationCenterService.deleteMany();
+				await syncBadge(0);
 				Sentry.addBreadcrumb({
 					category: 'notification',
 					level: 'info',
@@ -281,9 +283,8 @@ function createNotificationCenterStore() {
 				});
 			} catch {
 				set(prev);
+				await this.fetchUnreadCount();
 			}
-
-			await syncBadge(0);
 		},
 
 		setFilter(filter: string) {
@@ -292,12 +293,17 @@ function createNotificationCenterStore() {
 		},
 
 		addFromRealtime(notification: NotificationCenterItem) {
-			update((s) => ({
-				...s,
-				notifications: [notification, ...s.notifications],
-				unreadCount: s.unreadCount + 1,
-				total: s.total + 1
-			}));
+			update((s) => {
+				if (s.notifications.some((n) => n.id === notification.id)) {
+					return s;
+				}
+				return {
+					...s,
+					notifications: [notification, ...s.notifications],
+					unreadCount: s.unreadCount + 1,
+					total: s.total + 1
+				};
+			});
 		},
 
 		async flushPendingMutations() {
@@ -311,15 +317,13 @@ function createNotificationCenterStore() {
 				try {
 					switch (mutation.type) {
 						case 'markRead':
-							if (mutation.payload)
-								await notificationCenterService.markRead(mutation.payload);
+							if (mutation.payload) await notificationCenterService.markRead(mutation.payload);
 							break;
 						case 'markAllRead':
 							await notificationCenterService.markAllRead();
 							break;
 						case 'delete':
-							if (mutation.payload)
-								await notificationCenterService.deleteOne(mutation.payload);
+							if (mutation.payload) await notificationCenterService.deleteOne(mutation.payload);
 							break;
 						case 'clearAll':
 							await notificationCenterService.deleteMany();

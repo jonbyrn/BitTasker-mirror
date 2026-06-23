@@ -117,9 +117,29 @@
 
 		await fetchNotificationCount();
 
+		// Re-fetch notification count when app resumes from background.
+		// This reconciles any missed WebSocket events during the background period.
+		let lastResumeFetch = 0;
+		const RESUME_DEBOUNCE_MS = 30_000;
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible' && $authState.isAuthenticated) {
+				const now = Date.now();
+				if (now - lastResumeFetch > RESUME_DEBOUNCE_MS) {
+					lastResumeFetch = now;
+					import('$lib/stores/notificationCenter.store')
+						.then(({ notificationCenterStore }) => notificationCenterStore.fetchUnreadCount())
+						.catch(() => {});
+				}
+			}
+		};
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
 		return () => {
 			cleanupKb?.();
 			appScrollContainer.set(null);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
 

@@ -384,12 +384,14 @@ class PushNotificationService {
 				const data = notification.notification?.data || {};
 
 				// Mark as read if notificationId is present
-				if (data.notificationId) {
+				if (data.notificationId && typeof data.notificationId === 'string') {
 					import('$lib/stores/notificationCenter.store')
 						.then(({ notificationCenterStore }) => {
 							notificationCenterStore.markRead(data.notificationId as string);
 						})
-						.catch(() => {});
+						.catch((err) => {
+							console.error('Failed to mark notification as read:', err);
+						});
 				}
 
 				// Navigate using the existing navigateToUrl method
@@ -403,7 +405,18 @@ class PushNotificationService {
 			console.log('🔔 Local notification action performed:', notification);
 			// Handle the local notification tap the same way as push notifications
 			if (notification.notification.extra) {
-				this.handleNotificationData(notification.notification.extra);
+				const extra = notification.notification.extra as Record<string, unknown>;
+				// Mark as read if notificationId is present (mirrors push tap handler)
+				if (extra.notificationId && typeof extra.notificationId === 'string') {
+					import('$lib/stores/notificationCenter.store')
+						.then(({ notificationCenterStore }) => {
+							notificationCenterStore.markRead(extra.notificationId as string);
+						})
+						.catch((err) => {
+							console.error('Failed to mark notification as read:', err);
+						});
+				}
+				this.handleNotificationData(extra);
 			} else {
 				// Fallback to dashboard if no data
 				this.navigateToUrl('/hiring');

@@ -14,8 +14,11 @@
 	function toggleDropdown() {
 		if (page.url.pathname === '/notifications') return;
 		showDropdown = !showDropdown;
-		if (showDropdown && !$notificationCenterStore.initialized) {
-			notificationCenterStore.fetchNotifications(true);
+		if (showDropdown) {
+			const state = $notificationCenterStore;
+			if (!state.initialized || (state.notifications.length === 0 && state.unreadCount > 0)) {
+				notificationCenterStore.fetchNotifications(true);
+			}
 		}
 	}
 
