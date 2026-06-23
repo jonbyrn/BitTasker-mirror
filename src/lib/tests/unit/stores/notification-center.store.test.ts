@@ -330,7 +330,7 @@ describe('notification-center.store', () => {
 	});
 
 	describe('addFromRealtime', () => {
-		it('prepends a notification and increments count', async () => {
+		it('prepends a notification without touching unreadCount', async () => {
 			vi.mocked(notificationCenterService.list).mockResolvedValueOnce(createListResponse([]));
 			await notificationCenterStore.fetchNotifications(true);
 
@@ -341,6 +341,9 @@ describe('notification-center.store', () => {
 			expect(state.notifications).toHaveLength(1);
 			expect(state.notifications[0].id).toBe('realtime-1');
 			expect(state.total).toBe(1);
+			// unreadCount is NOT incremented — the backend's notification:unread-count
+			// event is the single source of truth for the count
+			expect(state.unreadCount).toBe(0);
 		});
 
 		it('skips duplicate notifications by id', async () => {
@@ -350,16 +353,13 @@ describe('notification-center.store', () => {
 			const notif = createNotification({ id: 'dup-1', title: 'First arrival' });
 			notificationCenterStore.addFromRealtime(notif);
 			expect(get(notificationCenterStore).notifications).toHaveLength(1);
-			expect(get(notificationCenterStore).unreadCount).toBe(1);
 
 			// Same notification arrives again (e.g., WebSocket re-send or REST fetch overlap)
 			const duplicate = createNotification({ id: 'dup-1', title: 'Duplicate' });
 			notificationCenterStore.addFromRealtime(duplicate);
 
-			// After fix: still 1 notification, count still 1
-			// Before fix: 2 notifications, count is 2
+			// Still 1 notification — duplicate was skipped
 			expect(get(notificationCenterStore).notifications).toHaveLength(1);
-			expect(get(notificationCenterStore).unreadCount).toBe(1);
 		});
 	});
 

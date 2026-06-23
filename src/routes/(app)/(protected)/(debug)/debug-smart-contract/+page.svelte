@@ -138,33 +138,33 @@
 
 		try {
 			const events = await ndk.fetchEvents(
-					{ kinds: [KINDS.CONTRACT], '#p': [address], limit: 100 },
-					{ closeOnEose: true }
-				);
-				const contracts = [...events].map((ev) => {
-					const pTags = ev.tags.filter((t: string[]) => t[0] === 'p').map((t: string[]) => t[1]);
-					const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
-					const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
-					const amountTag = ev.tags.find((t: string[]) => t[0] === 'amount')?.[1];
-					return {
-						id: dTag ?? '',
-						client: pTags[0] ?? '',
-						freelancer: pTags[1] ?? address,
-						baseAmount: amountTag ?? '0',
-						clientFee: '0',
-						freelancerFee: '0',
-						totalAmount: amountTag ?? '0',
-						status: sTag ? parseInt(sTag, 10) : 0,
-						estimatedStartTime: 0,
-						estimatedCompletionTime: 0,
-						completionTime: 0,
-						timelockExpiry: 0,
-						clientFeeTier: 0,
-						freelancerFeeTier: 0,
-						createdAt: ev.created_at ?? 0,
-						lastUpdated: ev.created_at ?? 0
-					} as EscrowData;
-				});
+				{ kinds: [KINDS.CONTRACT], '#p': [address], limit: 100 },
+				{ closeOnEose: true }
+			);
+			const contracts = [...events].map((ev) => {
+				const pTags = ev.tags.filter((t: string[]) => t[0] === 'p').map((t: string[]) => t[1]);
+				const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
+				const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
+				const amountTag = ev.tags.find((t: string[]) => t[0] === 'amount')?.[1];
+				return {
+					id: dTag ?? '',
+					client: pTags[0] ?? '',
+					freelancer: pTags[1] ?? address,
+					baseAmount: amountTag ?? '0',
+					clientFee: '0',
+					freelancerFee: '0',
+					totalAmount: amountTag ?? '0',
+					status: sTag ? parseInt(sTag, 10) : 0,
+					estimatedStartTime: 0,
+					estimatedCompletionTime: 0,
+					completionTime: 0,
+					timelockExpiry: 0,
+					clientFeeTier: 0,
+					freelancerFeeTier: 0,
+					createdAt: ev.created_at ?? 0,
+					lastUpdated: ev.created_at ?? 0
+				} as EscrowData;
+			});
 
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {

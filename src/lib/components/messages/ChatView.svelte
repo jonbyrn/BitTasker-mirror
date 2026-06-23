@@ -21,6 +21,8 @@
 	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
+	import type { NotificationPreferencesExtended } from '$lib/types/notification';
 	import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
@@ -74,6 +76,9 @@
 	let showEmojiPicker = $state(false);
 	let emojiButtonRef = $state<HTMLElement | null>(null);
 
+	// Notification preferences (cached for message preview check)
+	let notificationPrefs = $state<NotificationPreferencesExtended | null>(null);
+
 	// Pagination state
 	let isLoadingMore = $state(false);
 	let hasMoreMessages = $state(true);
@@ -104,6 +109,15 @@
 		unsubscribeAppScroll = appScrollContainer.subscribe((el) => {
 			appScrollEl = el;
 		});
+
+		notificationCenterService
+			.getPreferences()
+			.then((prefs) => {
+				notificationPrefs = prefs;
+			})
+			.catch(() => {
+				// Preferences fetch is best-effort; defaults to sending preview
+			});
 	});
 
 	// Configuration
@@ -916,15 +930,22 @@
 			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
 
-			// Send notification to recipient
-			await pushNotificationService.sendNotificationToNpubs({
-				npubs: [recipientPubkey],
-				title: $user.name || $user.npub.slice(0, 6) + '...',
-				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
-				type: 'message',
-				clickAction: `${getClientOrigin()}/messages/to/${recipientPubkey}`,
-				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
-			});
+			// Send notification to recipient (fire-and-forget — don't block on failure)
+			const shouldShowPreview = notificationPrefs?.messagePreview !== false;
+			pushNotificationService
+				.sendNotificationToNpubs({
+					npubs: [recipientPubkey],
+					title: $user.name || $user.npub.slice(0, 6) + '...',
+					body: shouldShowPreview
+						? messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : '')
+						: $t('messages.new_message'),
+					type: 'message',
+					clickAction: `${getClientOrigin()}/messages/to/${recipientPubkey}`,
+					icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
+				})
+				.catch((err) => {
+					console.warn('Message notification failed (non-blocking):', err);
+				});
 		} catch (err) {
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);

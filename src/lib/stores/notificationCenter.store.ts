@@ -300,7 +300,6 @@ function createNotificationCenterStore() {
 				return {
 					...s,
 					notifications: [notification, ...s.notifications],
-					unreadCount: s.unreadCount + 1,
 					total: s.total + 1
 				};
 			});

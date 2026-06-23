@@ -69,6 +69,8 @@
 	let npub = $state('');
 	let hexPubkey = $state('');
 	let relay = $state('wss://relay1.bittasker.com');
+	let customRelay = $state('');
+	let relayMode = $state<'preset' | 'custom'>('preset');
 	let connected = $state(false);
 	let connecting = $state(false);
 	let events: (NostrEvent & { _role?: string })[] = $state([]);
@@ -486,17 +488,48 @@
 		<div class="controls">
 			<div class="field">
 				<label for="debug-nostr-npub">npub or hex pubkey</label>
-				<input id="debug-nostr-npub" type="text" bind:value={npub} placeholder="npub1... or 64-char hex" />
+				<input
+					id="debug-nostr-npub"
+					type="text"
+					bind:value={npub}
+					placeholder="npub1... or 64-char hex"
+				/>
 			</div>
 			<div class="field">
 				<label for="debug-nostr-relay">Relay</label>
-				<select id="debug-nostr-relay" bind:value={relay}>
-					<option value="wss://relay1.bittasker.com">relay1 (Prod)</option>
-					<option value="wss://relay1-dev.bittasker.com">relay1 (Dev)</option>
-					<option value="wss://relay2-dev.bittasker.com">relay2 (Dev Tasks)</option>
-					<option value="wss://relay.damus.io">damus.io (Public)</option>
-					<option value="wss://nos.lol">nos.lol (Public)</option>
-				</select>
+				<div class="relay-input-group">
+					<select
+						id="debug-nostr-relay"
+						value={relayMode === 'custom' ? 'custom' : relay}
+						onchange={(e) => {
+							const val = e.currentTarget.value;
+							if (val === 'custom') {
+								relayMode = 'custom';
+							} else {
+								relayMode = 'preset';
+								relay = val;
+							}
+						}}
+					>
+						<option value="wss://relay1.bittasker.com">relay1 (Prod)</option>
+						<option value="wss://relay1-dev.bittasker.com">relay1 (Dev)</option>
+						<option value="wss://relay2-dev.bittasker.com">relay2 (Dev Tasks)</option>
+						<option value="wss://relay.damus.io">damus.io (Public)</option>
+						<option value="wss://nos.lol">nos.lol (Public)</option>
+						<option value="custom">Custom relay...</option>
+					</select>
+					{#if relayMode === 'custom'}
+						<input
+							type="text"
+							class="custom-relay-input"
+							bind:value={customRelay}
+							oninput={() => {
+								relay = customRelay;
+							}}
+							placeholder="wss://your-relay.com"
+						/>
+					{/if}
+				</div>
 			</div>
 			<button class="btn-primary" onclick={connect} disabled={connecting}>
 				<IconMagnify />
@@ -705,9 +738,7 @@
 								<table class="tag-table">
 									<tbody>
 										{#each e.tags as tag}
-											<tr
-												><td class="tag-key">#{tag[0]}</td><td>{tag.slice(1).join(', ')}</td></tr
-											>
+											<tr><td class="tag-key">#{tag[0]}</td><td>{tag.slice(1).join(', ')}</td></tr>
 										{/each}
 									</tbody>
 								</table>
@@ -1070,6 +1101,16 @@
 		outline: none;
 	}
 	select {
+		min-width: 200px;
+	}
+
+	.relay-input-group {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+	.custom-relay-input {
+		flex: 1;
 		min-width: 200px;
 	}
 

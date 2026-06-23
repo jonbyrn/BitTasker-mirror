@@ -15,6 +15,10 @@
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import IconClose from '~icons/mdi/close';
+	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+	import { bidStore } from '$lib/stores/bid.store';
+	import { appStore } from '$lib/stores/app.store';
 
 	type ReceiveFormState = {
 		amount: string;
@@ -99,6 +103,11 @@
 	let selectedBidderId = $state<string | null>(null);
 	let selectedBidderName = $state<string>('');
 
+	// Reject confirmation modal state
+	let showRejectModal = $state(false);
+	let bidToReject = $state<NDKBid | null>(null);
+	let rejectingBidId = $state<string | null>(null);
+
 	async function handleAcceptBid(bid: NDKBid) {
 		d.log('accepting bid', bid);
 		bidToAccept = bid;
@@ -106,8 +115,47 @@
 	}
 
 	async function handleRejectBid(bid: NDKBid) {
-		d.log('rejecting bid', bid);
-		return;
+		bidToReject = bid;
+		showRejectModal = true;
+	}
+
+	function closeRejectModal() {
+		showRejectModal = false;
+		bidToReject = null;
+	}
+
+	async function confirmRejectBid() {
+		if (!bidToReject) return;
+
+		const bid = bidToReject;
+		const bidContent = bid.bidContent;
+		const bidderPubkey = bidContent?.bidderId;
+		const taskIdFromTag = bid.tags?.find((t) => t[0] === 't')?.[1];
+		const taskId = taskIdFromTag || page.params.taskId;
+
+		if (!bidderPubkey) {
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.failed_to_reject_bid'));
+			closeRejectModal();
+			return;
+		}
+
+		try {
+			rejectingBidId = bid.id;
+			showRejectModal = false;
+
+			bidStore.addProcessingBid(bid.id);
+			await sendBidStatusUpdate(bid.id, taskId, bidderPubkey, BidStatusEnum.REJECTED);
+			// sendBidStatusUpdate handles its own success toast and cache clearing internally
+		} catch (err) {
+			console.error('Error rejecting bid:', err);
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.failed_to_reject_bid'));
+		} finally {
+			rejectingBidId = null;
+			bidToReject = null;
+			// sendBidStatusUpdate also calls removeProcessingBid internally,
+			// but we call it again as a safety net
+			bidStore.removeProcessingBid(bid.id);
+		}
 	}
 
 	function handleCloseBid() {
@@ -180,6 +228,7 @@
 					onAcceptBid={handleAcceptBid}
 					onRejectBid={handleRejectBid}
 					onOpenMessage={openMessageModal}
+					isRejecting={rejectingBidId === bid.id}
 				/>
 			{/each}
 		</div>
@@ -211,6 +260,45 @@
 		recipientPubkey={selectedBidderId}
 		onClose={closeMessageModal}
 	/>
+{/if}
+
+<!-- Reject Bid Confirmation Modal -->
+{#if showRejectModal && bidToReject}
+	<div
+		class="modal modal-open modal-middle z-120"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="reject-modal-title"
+	>
+		<div class="modal-box flex max-h-[90vh] max-w-md flex-col p-4">
+			<h3 id="reject-modal-title" class="shrink-0 text-lg font-bold">
+				{$t('dashboard.bids.bid_acceptance.reject_confirm_title')}
+			</h3>
+			<div class="min-h-0 flex-1 py-3">
+				<p class="text-sm">
+					{$t('dashboard.bids.bid_acceptance.reject_confirm_message')}
+				</p>
+			</div>
+			<div class="modal-action border-base-300 shrink-0 gap-3 border-t pt-4">
+				<button type="button" class="btn btn-ghost flex-1" onclick={closeRejectModal}>
+					{$t('dashboard.bids.bid_acceptance.reject_confirm_cancel')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-error flex-1"
+					onclick={confirmRejectBid}
+					disabled={rejectingBidId !== null}
+				>
+					{#if rejectingBidId}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{$t('dashboard.bids.bid_acceptance.reject_confirm_submit')}
+				</button>
+			</div>
+		</div>
+		<button type="button" class="modal-backdrop" onclick={closeRejectModal} aria-label="Close modal"
+		></button>
+	</div>
 {/if}
 
 <WalletPaymentModal isOpen={isReceiveModalOpen} onClose={() => (isReceiveModalOpen = false)}>
