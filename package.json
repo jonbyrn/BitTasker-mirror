@@ -30,7 +30,7 @@
 		"deploy:workers:dev": "npm run build:dev && wrangler deploy --env dev && ENVIRONMENT=dev node scripts/purge-cache.js",
 		"deploy:workers:production": "npm run build:production && wrangler deploy --env production && ENVIRONMENT=production node scripts/purge-cache.js",
 		"deploy:workers:staging": "npm run build && wrangler deploy --env=staging && ENVIRONMENT=staging node scripts/purge-cache.js",
-		"deploy:preview": "npm run build:dev && wrangler versions upload --env dev --preview-alias $(git branch --show-current | tr '/' '-')",
+		"deploy:preview": "wrangler versions upload --env dev --env-file .env.development --preview-alias $(git branch --show-current | tr '/' '-')",
 		"secrets:upload": "bash scripts/upload-secrets.sh staging",
 		"secrets:upload:production": "bash scripts/upload-secrets.sh production",
 		"release:zapstore": "bash scripts/publish-to-zapstore.sh",

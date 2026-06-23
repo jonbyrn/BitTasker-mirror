@@ -2,9 +2,8 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { animate, stagger } from 'motion';
-	import { prefersReducedMotion } from 'svelte/motion';
 
-	const reduced = $derived(prefersReducedMotion.current);
+	let reduced = $state(false);
 
 	const cards = $derived([
 		{
@@ -54,6 +53,7 @@
 	let gridEl = $state<HTMLElement | null>(null);
 
 	onMount(() => {
+		reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (!gridEl || reduced) return;
 		const items = gridEl.querySelectorAll('.settings-card');
 		if (items.length === 0) return;
