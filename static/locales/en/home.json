@@ -99,7 +99,13 @@
 		"service_requests": "Service Requests",
 		"requests": "Requests",
 		"saved_searches": "Saved Searches",
-		"notifications": "Notifications"
+		"notifications": "Notifications",
+		"settings_nostr": "Login Info",
+		"settings_devices": "Devices",
+		"settings_recovery": "Recovery",
+		"settings_muted": "Muted",
+		"settings_notifications": "Notifications",
+		"settings_actions": "Actions"
 	},
 	"homepage": {
 		"title": "Hello, World!",

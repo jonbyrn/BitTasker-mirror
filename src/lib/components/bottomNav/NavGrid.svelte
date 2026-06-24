@@ -109,6 +109,7 @@
 								Icon={centeredItem.icon}
 								label={$t(centeredItem.label)}
 								variant={centeredItem.variant}
+								isGroup={centeredItem.action === 'group'}
 								onclick={() => handleItemClick(centeredItem)}
 							/>
 						{/each}
@@ -118,6 +119,7 @@
 						Icon={item.icon}
 						label={$t(item.label)}
 						variant={item.variant}
+						isGroup={item.action === 'group'}
 						onclick={() => handleItemClick(item)}
 					/>
 				{/if}
@@ -166,14 +168,14 @@
 		gap: 0.25rem;
 		padding: 0.25rem 0.375rem;
 		border-radius: 0.5rem;
-		color: hsl(var(--p));
+		color: var(--color-primary);
 		font-size: 0.8125rem;
 		transition: background 150ms ease;
 		-webkit-tap-highlight-color: transparent;
 	}
 
 	.nav-grid-back:hover {
-		background: hsl(var(--p) / 0.08);
+		background: color-mix(in srgb, var(--color-primary), transparent 92%);
 	}
 
 	@media (prefers-reduced-motion: reduce) {

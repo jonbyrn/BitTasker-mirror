@@ -61,7 +61,9 @@
 			duration: 0.3,
 			delay: stagger(0.06, { startDelay: 0.1 }),
 			easing: [0, 0, 0, 1]
-		} as Parameters<typeof animate>[2]);
+		} as Parameters<typeof animate>[2]).finished.then(() => {
+			if (gridEl) gridEl.classList.add('entrance-done');
+		});
 	});
 
 	function handleMouseMove(e: MouseEvent, card: HTMLElement) {
@@ -82,7 +84,7 @@
 	{#each cards as card (card.slug)}
 		<a
 			href="/settings/{card.slug}"
-			class="settings-card group border-base-300/50 bg-base-100 relative block overflow-hidden rounded-2xl border p-6 shadow-lg transition-all duration-300 active:scale-[0.97] active:brightness-95 sm:hover:scale-[1.02] sm:hover:shadow-xl"
+			class="settings-card group border-base-300/50 bg-base-100 relative block overflow-hidden rounded-2xl border p-6 shadow-lg active:scale-[0.97] active:brightness-95 sm:hover:scale-[1.02] sm:hover:shadow-xl"
 			onmousemove={(e) => handleMouseMove(e, e.currentTarget)}
 			onmouseleave={(e) => handleMouseLeave(e.currentTarget)}
 			aria-label="{card.title} - {card.description}"
@@ -191,9 +193,9 @@
 					{/if}
 				</div>
 
-				<h3 class="settings-card-title text-base-content mb-1 text-sm font-semibold">
+				<h5 class="settings-card-title text-base-content mb-1 text-sm font-semibold">
 					{card.title}
-				</h3>
+				</h5>
 				<p class="settings-card-description text-base-content/60 text-xs">
 					{card.description}
 				</p>
@@ -285,26 +287,42 @@
 
 	.icon-float {
 		animation: icon-float 3s ease-in-out infinite;
+		will-change: transform;
 	}
 
 	.icon-pulse-glow {
 		animation: icon-pulse-glow 2.5s ease-in-out infinite;
+		will-change: filter, transform;
 	}
 
 	.icon-rotate-oscillate {
 		animation: icon-rotate-oscillate 3s ease-in-out infinite;
+		will-change: transform;
 	}
 
 	.icon-vibrate {
 		animation: icon-vibrate 2s ease-in-out infinite;
+		will-change: transform;
 	}
 
 	.icon-spin-slow {
 		animation: icon-spin-slow 8s linear infinite;
+		will-change: transform;
 	}
 
 	.settings-card:active {
 		transform: scale(0.97);
+	}
+
+	.settings-card {
+		contain: layout style paint;
+	}
+
+	:global(.entrance-done) .settings-card {
+		transition:
+			transform 300ms ease,
+			box-shadow 300ms ease,
+			filter 300ms ease;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

@@ -77,6 +77,61 @@ test.describe('bottom navbar', () => {
 		});
 	});
 
+	test.describe('group indicator dots', () => {
+		test.beforeEach(async ({ page }) => {
+			await page.setViewportSize({ width: 390, height: 844 });
+			await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+			await page.waitForTimeout(2000);
+		});
+
+		test('group items show indicator dot', async ({ page }) => {
+			await page.click('.dock-menu-btn');
+			await page.waitForTimeout(600);
+
+			// In logged-out state: For Taskers (2), For Taskees (3), Company (4) are groups
+			for (const idx of [2, 3, 4]) {
+				const item = page.locator('.nav-grid-item').nth(idx);
+				const dot = item.locator('.nav-grid-group-dot');
+				await expect(dot).toBeVisible();
+			}
+		});
+
+		test('non-group items do not show indicator dot', async ({ page }) => {
+			await page.click('.dock-menu-btn');
+			await page.waitForTimeout(600);
+
+			// Home (0) and How It Works (1) are navigate items, not groups
+			for (const idx of [0, 1]) {
+				const item = page.locator('.nav-grid-item').nth(idx);
+				const dot = item.locator('.nav-grid-group-dot');
+				await expect(dot).not.toBeAttached();
+			}
+		});
+	});
+
+	test.describe('closing animation', () => {
+		test('drawer animates out on close (not instant)', async ({ page }) => {
+			await page.setViewportSize({ width: 390, height: 844 });
+			await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+			await page.waitForTimeout(2000);
+
+			await page.click('.dock-menu-btn');
+			await page.waitForTimeout(600);
+
+			const backdrop = page.locator('.drawer-backdrop');
+			await backdrop.click({ position: { x: 10, y: 10 } });
+
+			// Immediately after click - drawer should still be transitioning
+			const drawerImmediately = page.locator('.drawer-panel');
+			const visibleImmediately = await drawerImmediately.isVisible();
+			expect(visibleImmediately).toBe(true);
+
+			// After animation completes - drawer should be gone
+			await page.waitForTimeout(500);
+			await expect(drawerImmediately).not.toBeVisible({ timeout: 3000 });
+		});
+	});
+
 	test.describe('animation performance', () => {
 		test('drawer open completes within 1 second', async ({ page }) => {
 			await page.setViewportSize({ width: 390, height: 844 });

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
-	import { staggerGridItems, animateDrawerPanelOpen } from '$lib/utils/animations';
+	import { staggerGridItems } from '$lib/utils/animations';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
 		LOGGED_OUT_MENU_SECTIONS,
@@ -29,6 +31,13 @@
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconDomain from '~icons/mdi/domain';
+	import IconCog from '~icons/mdi/cog';
+	import IconFlash from '~icons/mdi/flash';
+	import IconCellphone from '~icons/mdi/cellphone';
+	import IconAccountOff from '~icons/mdi/account-off';
+	import IconConsole from '~icons/mdi/console';
+	import IconBellOutline from '~icons/mdi/bell-outline';
+	import IconShieldKey from '~icons/mdi/shield-key';
 
 	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
 		return sections
@@ -66,25 +75,11 @@
 			groupId: 'my-account'
 		},
 		{
-			id: 'find-services',
-			icon: IconBriefcaseSearch,
-			label: 'navbar.find_services',
-			action: 'navigate',
-			href: '/services'
-		},
-		{
-			id: 'list-service',
-			icon: IconPlusCircleOutline,
-			label: 'navbar.list_service',
-			action: 'navigate',
-			href: '/create-service'
-		},
-		{
-			id: 'earning',
-			icon: IconInvoiceTextSendOutline,
-			label: 'navbar.earning',
+			id: 'settings',
+			icon: IconCog,
+			label: 'navbar.settings',
 			action: 'group',
-			groupId: 'earning'
+			groupId: 'settings'
 		},
 		{
 			id: 'find-tasks',
@@ -94,18 +89,32 @@
 			href: '/tasks'
 		},
 		{
-			id: 'create-task',
-			icon: IconPlusCircleOutline,
-			label: 'navbar.new_task',
-			action: 'navigate',
-			href: '/create-task'
-		},
-		{
 			id: 'hiring',
 			icon: IconBriefcaseOutline,
 			label: 'navbar.hiring',
 			action: 'group',
 			groupId: 'hiring'
+		},
+		{
+			id: 'list-service',
+			icon: IconPlusCircleOutline,
+			label: 'navbar.list_service',
+			action: 'navigate',
+			href: '/create-service'
+		},
+		{
+			id: 'find-services',
+			icon: IconBriefcaseSearch,
+			label: 'navbar.find_services',
+			action: 'navigate',
+			href: '/services'
+		},
+		{
+			id: 'earning',
+			icon: IconInvoiceTextSendOutline,
+			label: 'navbar.earning',
+			action: 'group',
+			groupId: 'earning'
 		}
 	];
 
@@ -157,9 +166,27 @@
 	const gridItems = $derived(
 		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
 	);
+	const settingsNavGroup: NavGroup = {
+		id: 'settings',
+		icon: IconCog,
+		label: 'navbar.settings',
+		items: [
+			{ href: '/settings/actions', icon: IconFlash, label: 'navbar.settings_actions' },
+			{ href: '/settings/devices', icon: IconCellphone, label: 'navbar.settings_devices' },
+			{ href: '/settings/muted', icon: IconAccountOff, label: 'navbar.settings_muted' },
+			{ href: '/settings/nostr', icon: IconConsole, label: 'navbar.settings_nostr' },
+			{
+				href: '/settings/notifications',
+				icon: IconBellOutline,
+				label: 'navbar.settings_notifications'
+			},
+			{ href: '/settings/recovery', icon: IconShieldKey, label: 'navbar.settings_recovery' }
+		]
+	};
+
 	const navGroups = $derived(
 		$authState.isAuthenticated
-			? sectionsToGroups(LOGGED_IN_MENU_SECTIONS)
+			? [...sectionsToGroups(LOGGED_IN_MENU_SECTIONS), settingsNavGroup]
 			: sectionsToGroups(LOGGED_OUT_MENU_SECTIONS)
 	);
 
@@ -194,7 +221,6 @@
 	async function openMenu() {
 		isMenuOpen = true;
 		await tick();
-		if (drawerPanelEl) animateDrawerPanelOpen(drawerPanelEl);
 		if (gridContainerEl) staggerGridItems(gridContainerEl);
 	}
 
@@ -253,7 +279,7 @@
 {/snippet}
 
 {#if isMenuOpen}
-	<div class="drawer-overlay">
+	<div class="drawer-overlay" transition:fade|global={{ duration: 200, easing: cubicOut }}>
 		<button
 			type="button"
 			class="drawer-backdrop"
@@ -266,6 +292,7 @@
 			aria-modal="true"
 			tabindex="-1"
 			class="drawer-panel"
+			transition:fly|global={{ y: '80%', duration: 300, easing: cubicOut }}
 			bind:this={drawerPanelEl}
 		>
 			<div class="drawer-content bg-base-100 border-base-300 rounded-t-2xl border-t shadow-lg">

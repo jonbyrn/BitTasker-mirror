@@ -7,11 +7,13 @@
 		Icon,
 		label,
 		variant,
+		isGroup,
 		onclick
 	}: {
 		Icon: IconComponent;
 		label: string;
 		variant?: 'danger';
+		isGroup?: boolean;
 		onclick: () => void;
 	} = $props();
 
@@ -39,7 +41,12 @@
 	{onclick}
 	type="button"
 >
-	<Icon class="nav-grid-icon text-primary" />
+	<div class="nav-grid-icon-wrap">
+		<Icon class="nav-grid-icon text-primary" />
+		{#if isGroup}
+			<span class="nav-grid-group-dot"></span>
+		{/if}
+	</div>
 	<span class="nav-grid-label">{label}</span>
 </button>
 
@@ -52,8 +59,6 @@
 		gap: 0.375rem;
 		padding: 0.75rem 0.5rem;
 		border-radius: 0.75rem;
-		background: hsl(var(--b2) / 0.5);
-		border: 1px solid hsl(var(--b3) / 0.3);
 		min-height: 72px;
 		cursor: pointer;
 		transition: background 150ms ease;
@@ -62,12 +67,11 @@
 	}
 
 	.nav-grid-item:hover {
-		background: hsl(var(--b2));
+		background: color-mix(in srgb, var(--color-base-content), transparent 92%);
 	}
 
 	.nav-grid-item-danger {
-		background: hsl(var(--er) / 0.06);
-		border-color: hsl(var(--er) / 0.15);
+		color: var(--color-error);
 	}
 
 	.nav-grid-item-danger:hover {
@@ -80,7 +84,7 @@
 	}
 
 	.nav-grid-item-danger :global(.nav-grid-icon) {
-		color: hsl(var(--er)) !important;
+		color: var(--color-error) !important;
 	}
 
 	.nav-grid-label {
@@ -88,11 +92,30 @@
 		font-weight: 500;
 		text-align: center;
 		line-height: 1.2;
-		color: hsl(var(--bc));
+		color: var(--color-base-content);
+	}
+
+	.nav-grid-icon-wrap {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+	}
+
+	.nav-grid-group-dot {
+		position: absolute;
+		top: -3px;
+		right: -5px;
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		background: var(--color-primary);
 	}
 
 	.nav-grid-item-danger .nav-grid-label {
-		color: hsl(var(--er));
+		color: var(--color-error);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
