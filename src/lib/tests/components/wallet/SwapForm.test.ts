@@ -429,11 +429,16 @@ describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
 			destroy();
 		}
 		// usdt exec
-		const opts2 = { ...opts, getSourceType: () => 'usdt0-arb' as unknown, getIsOnline: () => true };
+		const opts2 = {
+			...opts,
+			getSourceType: () => 'usdt0-arb' as unknown,
+			getDestType: () => 'rbtc-rsk' as unknown,
+			getIsOnline: () => true
+		};
 		const { result: r2, destroy: d2 } = runInEffectRoot(() => useSwapRoutes(opts2));
 		try {
 			const exec = r2.getExecutableRoute();
-			expect(exec?.id).toBe('lifi-usdt0-to-rbtc');
+			expect(exec?.id).toBe('symbiosis-boltz-usdt0-to-rbtc');
 		} finally {
 			d2();
 		}

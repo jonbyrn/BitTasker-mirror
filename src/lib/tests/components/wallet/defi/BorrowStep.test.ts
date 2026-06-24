@@ -39,7 +39,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import BorrowStep from '$lib/components/wallet/defi/BorrowStep.svelte';
-import BorrowFlowDrawer from '$lib/components/wallet/BorrowFlowDrawer.svelte';
 // import { tryCatch } from '$lib/utils/tryCatch';
 
 // ---------------------------------------------------------------------------
@@ -432,28 +431,23 @@ describe('BorrowStep + BorrowFlowDrawer (RED PHASE — post live-wiring 5-state 
 	// ---------------------------------------------------------------------------
 	// BorrowFlowDrawer integration + page wiring smoke
 	// ---------------------------------------------------------------------------
-	describe('BorrowFlowDrawer wrapper + page wiring (network + onGetWbtc passthrough)', () => {
-		it('RED: drawer renders BorrowStep and title; onGetWbtc from page flows through', () => {
-			render(BorrowFlowDrawer, {
+	describe('BorrowStep + page wiring (network + onGetWbtc passthrough)', () => {
+		it('RED: BorrowStep receives onGetWbtc and renders Get WBTC in empty state', () => {
+			render(BorrowStep, {
 				props: {
-					isOpen: true,
-					onClose: vi.fn(),
 					onGetWbtc: mockOnGetWbtc
 				}
 			});
 
-			expect(screen.getByText('Borrow')).toBeTruthy(); // drawer title
-			// Step inside receives the handler; empty state button present when no wbtc
+			// Empty state button present when no wbtc
 			expect(screen.getByText('Get WBTC')).toBeTruthy();
 		});
 
-		it('RED: page-level offline still propagates into drawer step canBorrow (integration)', async () => {
+		it('RED: offline disables canBorrow button even with wbtc + amount', async () => {
 			setOnline(false);
 			setWbtcBalance('2.0');
 
-			render(BorrowFlowDrawer, {
-				props: { isOpen: true, onClose: vi.fn() }
-			});
+			render(BorrowStep);
 
 			// Amount + wbtc present but network false → button disabled inside
 			const amountInput = screen.getByLabelText(/How much USDT0 to borrow/i) as HTMLInputElement;
