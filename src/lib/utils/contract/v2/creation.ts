@@ -29,6 +29,8 @@ import type { NDKBid } from '$lib/nostr/events/bid';
 import type { NDKTask } from '$lib/nostr/events/task';
 import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
@@ -369,11 +371,22 @@ export async function createContract(
 
 		// Push notification removed — backend's Nostr indexer handles bid_accepted_notify
 		// via the reminder engine when it processes the Kind 30006 contract event.
+		// Send Kind 30008 bid status event so the bidder gets an instant notification.
+		const bidStatusUpdatePromise = sendBidStatusUpdate(
+			bid.id,
+			taskId,
+			taskeePubkey,
+			BidStatusEnum.ACCEPTED,
+			undefined,
+			undefined,
+			transactionHash
+		);
 
 		const afterBroadcast = runParallelNamed([
 			{ name: 'nostrPublish', run: () => publishPromise },
 			{ name: 'sendLocations', run: () => dmPromise },
-			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise }
+			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise },
+			{ name: 'bidStatusUpdate', run: () => bidStatusUpdatePromise }
 		]);
 
 		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
@@ -408,6 +421,8 @@ export async function createContract(
 				await notificationCenterService.enrich({
 					action: 'contract_created',
 					escrowId: String(paymentId),
+					bidEventId: bid.id,
+					taskId,
 					estimatedStartTime: params.estimatedStartTime,
 					amount: display.baseAmount?.toString(),
 					taskTitle: taskContent.title ?? undefined

@@ -237,6 +237,81 @@ test.describe('Bid decline flow', () => {
 		}
 	});
 
+	test('already-accepted bid has disabled decline button', async ({ authenticatedPage }) => {
+		const fakeTaskId = `e2e-accept-test-${Date.now()}`;
+
+		await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		const bidCards = authenticatedPage.locator('.rounded-2xl.border.p-4.shadow-sm');
+		const bidCount = await bidCards.count();
+
+		if (bidCount === 0) {
+			return;
+		}
+
+		// Find any bid card that shows "Accepted" badge
+		const acceptedBadge = authenticatedPage.locator('.badge-success').filter({
+			hasText: /accepted/i
+		});
+		const acceptedCount = await acceptedBadge.count();
+
+		if (acceptedCount > 0) {
+			// Find the parent bid card and its decline button
+			const acceptedCard = acceptedBadge
+				.first()
+				.locator('xpath=ancestor::div[contains(@class, "rounded-2xl")]');
+			const declineBtn = acceptedCard
+				.locator('button.btn-error')
+				.filter({ hasText: /decline/i });
+
+			if (await declineBtn.isVisible()) {
+				const isDisabled = await declineBtn.isDisabled();
+				// BUG: Decline button is NOT disabled for accepted bids.
+				// The button only checks bidContent.status === 'ACCEPTED' but the
+				// actual accepted state is tracked via acceptedBidId from the task event.
+				expect(isDisabled).toBe(true);
+			}
+		}
+	});
+
+	test('accepted bid shows accepted badge and hides accept button', async ({ authenticatedPage }) => {
+		const fakeTaskId = `e2e-accept-badge-test-${Date.now()}`;
+
+		await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		const bidCards = authenticatedPage.locator('.rounded-2xl.border.p-4.shadow-sm');
+		const bidCount = await bidCards.count();
+
+		if (bidCount === 0) {
+			return;
+		}
+
+		// Find bid cards with "Accepted" badge
+		const acceptedBadge = authenticatedPage.locator('.badge-success').filter({
+			hasText: /accepted/i
+		});
+
+		if ((await acceptedBadge.count()) > 0) {
+			const acceptedCard = acceptedBadge
+				.first()
+				.locator('xpath=ancestor::div[contains(@class, "rounded-2xl")]');
+
+			// Should show disabled "Accepted" button instead of active "Accept" button
+			const acceptedBtn = acceptedCard.locator('button.btn-success[disabled]').filter({
+				hasText: /accepted/i
+			});
+			await expect(acceptedBtn).toBeVisible({ timeout: 3000 });
+		}
+	});
+
 	test('no critical console errors on bids page', async ({ authenticatedPage }) => {
 		const consoleErrors: string[] = [];
 		authenticatedPage.on('console', (msg) => {

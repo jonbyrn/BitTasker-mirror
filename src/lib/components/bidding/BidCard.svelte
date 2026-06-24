@@ -272,7 +272,7 @@
 				<button
 					class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 					onclick={() => onRejectBid(bid)}
-					disabled={isRejecting || isRejected || bidContent.status === 'REJECTED' || bidContent.status === 'ACCEPTED'}
+					disabled={isRejecting || isRejected || bidContent.status === 'REJECTED' || bidContent.status === 'ACCEPTED' || acceptedBidId === bid.id}
 				>
 					{#if isRejecting}
 						<span class="loading loading-spinner loading-xs"></span>
