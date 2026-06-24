@@ -16,7 +16,8 @@
 		onAcceptBid,
 		onRejectBid,
 		onOpenMessage,
-		isRejecting = false
+		isRejecting = false,
+		isRejected = false
 	}: {
 		bid: NDKBid;
 		acceptedBidId?: string | null;
@@ -24,6 +25,7 @@
 		onRejectBid: (bid: NDKBid) => void;
 		onOpenMessage: (bidderId: string, bidderName: string) => void;
 		isRejecting?: boolean;
+		isRejected?: boolean;
 	} = $props();
 
 	let detailsExpanded = $state(false);
@@ -92,6 +94,11 @@
 					{#if acceptedBidId === bid.id || bidContent.status === 'ACCEPTED'}
 						<div class="badge badge-success badge-sm text-primary-content">
 							{$t('dashboard.bids.bid_acceptance.accepted')}
+						</div>
+					{/if}
+					{#if isRejected || bidContent.status === 'REJECTED'}
+						<div class="badge badge-error badge-sm">
+							{$t('dashboard.bids.bid_acceptance.rejected')}
 						</div>
 					{/if}
 					{#if bidContent.bidderId}
@@ -265,9 +272,7 @@
 				<button
 					class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 					onclick={() => onRejectBid(bid)}
-					disabled={isRejecting ||
-						bidContent.status === 'REJECTED' ||
-						bidContent.status === 'ACCEPTED'}
+					disabled={isRejecting || isRejected || bidContent.status === 'REJECTED' || bidContent.status === 'ACCEPTED'}
 				>
 					{#if isRejecting}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -287,10 +292,10 @@
 							/>
 						</svg>
 					{/if}
-					{#if bidContent.status === 'REJECTED'}
-						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
-						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
-					{:else}
+				{#if isRejected || bidContent.status === 'REJECTED'}
+					<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+					<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+				{:else}
 						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.decline')}</span>
 						<span class="sm:hidden"
 							>{$t('dashboard.bids.bid_acceptance.decline_short') || 'Decline'}</span
@@ -345,7 +350,7 @@
 					<button
 						class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 						onclick={() => onAcceptBid(bid)}
-						disabled={bidContent.status === 'REJECTED'}
+						disabled={isRejected || bidContent.status === 'REJECTED'}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

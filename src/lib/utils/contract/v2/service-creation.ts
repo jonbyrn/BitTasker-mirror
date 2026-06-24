@@ -34,6 +34,7 @@ import type {
 } from '$lib/types/contract';
 import type { TransactionReceipt } from 'ethers';
 import { parsePaymentContractCreatedPaymentId } from './creation';
+import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 
 const d = createDebug('contract:v2:service');
 
@@ -369,6 +370,18 @@ export async function createServiceContract(
 					transactionHash,
 					paymentId
 				});
+			}
+
+			try {
+				await notificationCenterService.enrich({
+					action: 'contract_created',
+					escrowId: String(paymentId),
+					estimatedStartTime: params.estimatedStartTime,
+					amount: display.baseAmount?.toString(),
+					taskTitle: input.serviceTitle
+				});
+			} catch (e) {
+				d.warn('createServiceContract: enrichment failed (non-blocking)', e);
 			}
 
 			return { paymentId };

@@ -426,6 +426,12 @@
 				"balance_verified": "Tu saldo disponible cubre este contrato.",
 				"accept_short": "Aceptar",
 				"decline_short": "Rechazar",
+				"reject_confirm_title": "¿Rechazar oferta?",
+				"reject_confirm_message": "¿Estás seguro de que quieres rechazar esta oferta? El postor será notificado.",
+				"reject_confirm_submit": "Rechazar",
+				"reject_confirm_cancel": "Cancelar",
+				"bid_rejected": "Oferta rechazada exitosamente",
+				"failed_to_reject_bid": "Error al rechazar la oferta",
 				"funding_confirm_failed": "No pudimos confirmar este pago en cadena. Verifica tu billetera o explorador de bloques para la transacción."
 			},
 			"bid_card": {

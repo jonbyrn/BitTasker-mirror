@@ -320,7 +320,8 @@
 					notificationCenterService.enrich({
 						action: 'task_created',
 						taskId: signedEventId,
-						taskDeadline
+						taskDeadline,
+						taskTitle: $store.task.title || undefined
 					});
 				}
 			}

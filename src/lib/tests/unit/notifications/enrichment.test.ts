@@ -123,19 +123,133 @@ describe('enrichment calls', () => {
 		});
 	});
 
-	it('task_created enrichment includes taskId and taskDeadline', async () => {
+	it('task_created enrichment includes taskId, taskDeadline, and taskTitle', async () => {
 		const deadline = Math.floor(Date.now() / 1000) + 7 * 86400;
 
 		await notificationCenterService.enrich({
 			action: 'task_created',
 			taskId: 'task-xyz',
-			taskDeadline: deadline
+			taskDeadline: deadline,
+			taskTitle: 'Build landing page'
 		});
 
 		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
 			action: 'task_created',
 			taskId: 'task-xyz',
-			taskDeadline: deadline
+			taskDeadline: deadline,
+			taskTitle: 'Build landing page'
+		});
+	});
+
+	it('funds_released enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'funds_released',
+			escrowId: 'payment-789',
+			taskTitle: 'Build landing page',
+			amount: '0.01'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'funds_released',
+			escrowId: 'payment-789',
+			taskTitle: 'Build landing page',
+			amount: '0.01'
+		});
+	});
+
+	it('refunded enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'refunded',
+			escrowId: 'payment-abc',
+			taskTitle: 'Fix bugs',
+			amount: '0.05'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'refunded',
+			escrowId: 'payment-abc',
+			taskTitle: 'Fix bugs',
+			amount: '0.05'
+		});
+	});
+
+	it('cancelled enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'cancelled',
+			escrowId: 'payment-def',
+			taskTitle: 'Design logo',
+			amount: '0.02'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'cancelled',
+			escrowId: 'payment-def',
+			taskTitle: 'Design logo',
+			amount: '0.02'
+		});
+	});
+
+	it('dispute_resolved enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'dispute_resolved',
+			escrowId: 'payment-ghi',
+			taskTitle: 'Write docs',
+			amount: '0.03'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'dispute_resolved',
+			escrowId: 'payment-ghi',
+			taskTitle: 'Write docs',
+			amount: '0.03'
+		});
+	});
+
+	it('no_show_refund_claimed enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'no_show_refund_claimed',
+			escrowId: 'payment-jkl',
+			taskTitle: 'Build API',
+			amount: '0.04'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'no_show_refund_claimed',
+			escrowId: 'payment-jkl',
+			taskTitle: 'Build API',
+			amount: '0.04'
+		});
+	});
+
+	it('resolution_proposed enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'resolution_proposed',
+			escrowId: 'payment-mno',
+			taskTitle: 'Fix bugs',
+			amount: '0.02'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'resolution_proposed',
+			escrowId: 'payment-mno',
+			taskTitle: 'Fix bugs',
+			amount: '0.02'
+		});
+	});
+
+	it('timelock_resolved enrichment includes escrowId, taskTitle, and amount', async () => {
+		await notificationCenterService.enrich({
+			action: 'timelock_resolved',
+			escrowId: 'payment-pqr',
+			taskTitle: 'Design logo',
+			amount: '0.03'
+		});
+
+		expect(notificationCenterService.enrich).toHaveBeenCalledWith({
+			action: 'timelock_resolved',
+			escrowId: 'payment-pqr',
+			taskTitle: 'Design logo',
+			amount: '0.03'
 		});
 	});
 

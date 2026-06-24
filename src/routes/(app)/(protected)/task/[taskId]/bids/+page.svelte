@@ -72,41 +72,80 @@
 
 	const d = createDebug('BidsPage');
 
+	// Task lives on a separate relay — must be its own subscription.
 	const taskSub = ndk.$subscribe<NDKTask>(() => {
-		// No subscription until we have the users pubkey
 		if (!ndk.$currentPubkey) return undefined;
 		return {
 			filters: [
 				{ kinds: [KINDS.TASK_CREATION], authors: [ndk.$currentPubkey], '#d': [page.params.taskId] }
 			],
-			wrap: true, // Wrap the event in a NDKTask object
-			relaySet: getTaskRelay(), // Only pull from task relay
-			noDedupe: true // No deduplication to ensure we get the latest task
+			wrap: true,
+			relaySet: getTaskRelay(),
+			noDedupe: true
 		};
 	});
 
 	let task = $derived(taskSub.events[0]);
 
-	const bidsSub = ndk.$subscribe<NDKBid>(() => {
-		// No subscription until we have the users pubkey
+	// Single subscription for both bids (30007) and their status events (30008).
+	// Both use the same relay pool and the same task tag — no reason for two subscriptions.
+	// wrap: true is required so NDK calls NDKBid.from() which decrypts bid content.
+	// Kind 30008 has no registered event class so it stays as raw NDKEvent.
+	const bidsAndStatusSub = ndk.$subscribe(() => {
 		if (!ndk.$currentPubkey) return undefined;
 		return {
 			filters: [
-				{ kinds: [KINDS.BIDS], limit: 50, '#p': [ndk.$currentPubkey], '#t': [page.params.taskId] }
+				{ kinds: [KINDS.BIDS], '#p': [ndk.$currentPubkey], '#t': [page.params.taskId], limit: 50 },
+				{ kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }
 			],
 			wrap: true
 		};
 	});
 
-	// Message modal state
-	let showMessageModal = $state(false);
-	let selectedBidderId = $state<string | null>(null);
-	let selectedBidderName = $state<string>('');
+	// Bid events (kind 30007) — already wrapped as NDKBid by NDK's event class registry.
+	const bids = $derived(
+		(bidsAndStatusSub.events as (NDKBid | import('@nostr-dev-kit/ndk').NDKEvent)[]).filter(
+			(e) => e.kind === KINDS.BIDS
+		) as NDKBid[]
+	);
+
+	// Status map: bid event id → latest status string, derived from kind 30008 tags (plaintext).
+	// Keeps only the most recent status per bid.
+	const statusMap = $derived.by(() => {
+		const map = new Map<string, string>();
+		const timestamps = new Map<string, number>();
+		for (const event of bidsAndStatusSub.events) {
+			if (event.kind !== KINDS.BID_STATUS) continue;
+			const statusTag = event.tags.find((t) => t[0] === 's');
+			const bidEventIdTag = event.tags.find((t) => t[0] === 'e');
+			if (!statusTag?.[1] || !bidEventIdTag?.[1]) continue;
+			const eventTs = event.created_at ?? 0;
+			const existingTs = timestamps.get(bidEventIdTag[1]) ?? 0;
+			if (eventTs >= existingTs) {
+				map.set(bidEventIdTag[1], statusTag[1]);
+				timestamps.set(bidEventIdTag[1], eventTs);
+			}
+		}
+		return map;
+	});
 
 	// Reject confirmation modal state
 	let showRejectModal = $state(false);
 	let bidToReject = $state<NDKBid | null>(null);
 	let rejectingBidId = $state<string | null>(null);
+	let rejectedBidIds = $state(new Set<string>());
+
+	function getBidStatus(bidId: string): string | undefined {
+		// Local optimistic state takes priority (instant feedback after reject click)
+		if (rejectedBidIds.has(bidId)) return BidStatusEnum.REJECTED;
+		// Fall back to server-persisted status from kind 30008 events
+		return statusMap.get(bidId);
+	}
+
+	// Message modal state
+	let showMessageModal = $state(false);
+	let selectedBidderId = $state<string | null>(null);
+	let selectedBidderName = $state<string>('');
 
 	async function handleAcceptBid(bid: NDKBid) {
 		d.log('accepting bid', bid);
@@ -144,16 +183,19 @@
 			showRejectModal = false;
 
 			bidStore.addProcessingBid(bid.id);
-			await sendBidStatusUpdate(bid.id, taskId, bidderPubkey, BidStatusEnum.REJECTED);
-			// sendBidStatusUpdate handles its own success toast and cache clearing internally
+			const success = await sendBidStatusUpdate(bid.id, taskId, bidderPubkey, BidStatusEnum.REJECTED);
+
+			if (success) {
+				rejectedBidIds = new Set([...rejectedBidIds, bid.id]);
+			} else {
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.failed_to_reject_bid'));
+			}
 		} catch (err) {
 			console.error('Error rejecting bid:', err);
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.failed_to_reject_bid'));
 		} finally {
 			rejectingBidId = null;
 			bidToReject = null;
-			// sendBidStatusUpdate also calls removeProcessingBid internally,
-			// but we call it again as a safety net
 			bidStore.removeProcessingBid(bid.id);
 		}
 	}
@@ -163,7 +205,6 @@
 		bidToAccept = null;
 	}
 
-	// Function to open the message modal
 	function openMessageModal(bidderId: string, bidderName: string) {
 		selectedBidderId = bidderId;
 		selectedBidderName = bidderName;
@@ -182,7 +223,6 @@
 		isReceiveModalOpen = true;
 	}
 
-	// Function to close the message modal
 	function closeMessageModal() {
 		showMessageModal = false;
 		selectedBidderId = null;
@@ -217,11 +257,18 @@
 			</button>
 		</div>
 	</div>
-	{#if bidsSub.events.length === 0}
+	{#if !bidsAndStatusSub.eosed}
+		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
+		<div class="flex items-center justify-center py-6">
+			<div class="loading loading-spinner loading-md"></div>
+			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
+		</div>
+	{:else if bids.length === 0}
 		<NoBids onRetry={() => {}} />
 	{:else}
 		<div class="space-y-4">
-			{#each bidsSub.events as bid (bid.id)}
+			{#each bids as bid (bid.id)}
+				{@const status = getBidStatus(bid.id)}
 				<BidCard
 					{bid}
 					acceptedBidId={task?.acceptedBid}
@@ -229,6 +276,7 @@
 					onRejectBid={handleRejectBid}
 					onOpenMessage={openMessageModal}
 					isRejecting={rejectingBidId === bid.id}
+					isRejected={status === BidStatusEnum.REJECTED}
 				/>
 			{/each}
 		</div>

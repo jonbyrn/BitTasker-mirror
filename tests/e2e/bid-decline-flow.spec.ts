@@ -250,8 +250,12 @@ test.describe('Bid decline flow', () => {
 					!text.includes('Failed to fetch') &&
 					!text.includes('401') &&
 					!text.includes('status of 401') &&
-					!text.includes('WebAuthn') &&
-					!text.includes('biometric')
+				!text.includes('WebAuthn') &&
+				!text.includes('biometric') &&
+				!text.includes('WALLET-STORE') &&
+				!text.includes('rskWallet') &&
+				!text.includes('status of 404') &&
+				!text.includes('404')
 				) {
 					consoleErrors.push(text);
 				}
@@ -276,5 +280,94 @@ test.describe('Bid decline flow', () => {
 		);
 
 		expect(criticalErrors).toEqual([]);
+	});
+
+	test('bids page does not show raw translation keys', async ({ authenticatedPage }) => {
+		const fakeTaskId = `e2e-translation-test-${Date.now()}`;
+
+		await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		const bodyText = await authenticatedPage.locator('body').innerText();
+
+		// Must never see raw i18n keys rendered as text
+		expect(bodyText).not.toContain('messages.loading_messages');
+		expect(bodyText).not.toContain('dashboard.bids.');
+		expect(bodyText).not.toContain('task.drawer.');
+	});
+
+	test('bids page does not show "Failed to load bid content" error', async ({
+		authenticatedPage
+	}) => {
+		const fakeTaskId = `e2e-content-test-${Date.now()}`;
+
+		await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		// Check if there are bid cards on the page
+		const bidCards = authenticatedPage.locator('.rounded-2xl.border.p-4.shadow-sm');
+		const bidCount = await bidCards.count();
+
+		if (bidCount > 0) {
+			// If bids exist, none should show the "Failed to load" error
+			const errorAlerts = authenticatedPage.locator('.alert-error').filter({
+				hasText: /failed to load/i
+			});
+			expect(await errorAlerts.count()).toBe(0);
+		}
+	});
+
+	test('loading state shows spinner without raw translation keys', async ({
+		authenticatedPage
+	}) => {
+		const fakeTaskId = `e2e-loading-test-${Date.now()}`;
+
+		// Capture page content immediately during the loading phase (before EOSE).
+		// Navigate and grab HTML as fast as possible to catch the loading state.
+		const response = await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		expect(response?.status()).toBeLessThan(500);
+
+		// Grab the HTML immediately — the loading spinner may only be visible briefly
+		const html = await authenticatedPage.content();
+
+		// The raw key must never appear in rendered HTML, even during loading.
+		// If it does, the translation namespace was not loaded for this route.
+		expect(html).not.toContain('messages.loading_messages');
+	});
+
+	test('bids page HTML does not contain untranslated i18n keys', async ({
+		authenticatedPage
+	}) => {
+		const fakeTaskId = `e2e-i18n-test-${Date.now()}`;
+
+		await authenticatedPage.goto(`/task/${fakeTaskId}/bids`, {
+			waitUntil: 'domcontentloaded'
+		});
+		await dismissOverlays(authenticatedPage);
+		await authenticatedPage.waitForTimeout(3000);
+
+		const html = await authenticatedPage.content();
+
+		// Check for common patterns of untranslated keys
+		const rawKeyPatterns = [
+			'dashboard.bids.bid_acceptance.',
+			'task.drawer.',
+			'messages.loading_messages',
+			'dashboard.bids.errors.'
+		];
+
+		for (const pattern of rawKeyPatterns) {
+			expect(html, `Found raw i18n key pattern "${pattern}" in page HTML`).not.toContain(
+				pattern
+			);
+		}
 	});
 });

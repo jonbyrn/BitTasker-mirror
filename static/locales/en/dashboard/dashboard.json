@@ -427,6 +427,12 @@
 				"balance_verified": "Your available balance covers this contract.",
 				"accept_short": "Accept",
 				"decline_short": "Decline",
+				"reject_confirm_title": "Decline Bid?",
+				"reject_confirm_message": "Are you sure you want to decline this bid? The bidder will be notified.",
+				"reject_confirm_submit": "Decline",
+				"reject_confirm_cancel": "Cancel",
+				"bid_rejected": "Bid declined successfully",
+				"failed_to_reject_bid": "Failed to decline bid",
 				"funding_confirm_failed": "We could not confirm this payment on-chain. Check your wallet or block explorer for the transaction."
 			},
 			"bid_card": {

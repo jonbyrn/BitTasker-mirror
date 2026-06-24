@@ -316,7 +316,8 @@ export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | n
 }
 
 /**
- * Send a bid status update (acceptance or rejection) via encrypted DM
+ * Send a bid status update (acceptance or rejection) via encrypted DM.
+ * Returns `true` on success, `false` on failure. Never throws.
  */
 export async function sendBidStatusUpdate(
 	bidEventId: string,
@@ -326,7 +327,7 @@ export async function sendBidStatusUpdate(
 	message?: string,
 	escrowId?: string,
 	transactionHash?: string
-): Promise<void> {
+): Promise<boolean> {
 	try {
 		const statusData: NostrBidStatus = {
 			type: 'bid-status',
@@ -347,15 +348,13 @@ export async function sendBidStatusUpdate(
 		// This is more efficient than clearing all caches
 		clearBidCache(taskId);
 
-		bidStore.removeProcessingBid(bidEventId);
 		appStore.showInfoToast(`Bid status updated to ${status}`);
+		return true;
 	} catch (error) {
-		// Log error but don't throw - allow UI to continue
 		console.warn('Error sending bid status update:', error);
-		// Ensure cleanup happens even if sending status update fails
-		// This prevents bid from being stuck in processing state
+		return false;
+	} finally {
+		// Always clean up processing state — even on failure
 		bidStore.removeProcessingBid(bidEventId);
-		// Don't throw - let the caller handle the error if needed
-		// The UI should show a warning but not break
 	}
 }

@@ -56,7 +56,12 @@ function buildEnrichment(
 	const data = rune.blockchainData;
 	if (!data) return undefined;
 
-	const base: EnrichmentRequest = { action, escrowId };
+	const base: EnrichmentRequest = {
+		action,
+		escrowId,
+		taskTitle: rune.taskTitle,
+		amount: data.amount
+	};
 
 	if (action === 'task_completed' || action === 'dispute_raised') {
 		if (!data.timelockEnd) return undefined;
@@ -250,7 +255,8 @@ export async function acceptTaskV2(
 		recipientPubkey: taskeePk,
 		chainStatus: ContractStatus.FundsReleased,
 		writeMethod: 'acceptTask',
-		extraTasks: [{ name: 'taskPublishReplaceable', run: publishTaskCompleted }]
+		extraTasks: [{ name: 'taskPublishReplaceable', run: publishTaskCompleted }],
+		enrichment: buildEnrichment(rune, 'funds_released', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -311,7 +317,8 @@ export async function refundTaskerV2(
 		transactionHash,
 		recipientPubkey: taskerPk,
 		chainStatus: ContractStatus.Refunded,
-		writeMethod: 'refundTasker'
+		writeMethod: 'refundTasker',
+		enrichment: buildEnrichment(rune, 'refunded', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -372,7 +379,8 @@ export async function cancelPaymentContractV2(
 		transactionHash,
 		recipientPubkey: counterpartyPk,
 		chainStatus: ContractStatus.Cancelled,
-		writeMethod: 'cancelPaymentContract'
+		writeMethod: 'cancelPaymentContract',
+		enrichment: buildEnrichment(rune, 'cancelled', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -559,7 +567,8 @@ export async function claimNoShowRefundV2(
 		transactionHash,
 		recipientPubkey: taskeePk,
 		chainStatus: ContractStatus.FundsClaimed,
-		writeMethod: 'claimNoShowRefund'
+		writeMethod: 'claimNoShowRefund',
+		enrichment: buildEnrichment(rune, 'no_show_refund_claimed', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -741,7 +750,8 @@ export async function proposeResolutionV2(
 		recipientPubkey,
 		chainStatus,
 		writeMethod: 'proposeResolution',
-		proposedAmounts: { proposedTaskeeAmount, proposedTaskerAmount }
+		proposedAmounts: { proposedTaskeeAmount, proposedTaskerAmount },
+		enrichment: buildEnrichment(rune, 'resolution_proposed', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -799,7 +809,8 @@ export async function acceptProposalV2(
 		transactionHash,
 		recipientPubkey,
 		chainStatus: ContractStatus.DisputeResolved,
-		writeMethod: 'acceptProposal'
+		writeMethod: 'acceptProposal',
+		enrichment: buildEnrichment(rune, 'dispute_resolved', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
@@ -883,7 +894,8 @@ export async function resolveAfterTimelockV2(
 		transactionHash,
 		recipientPubkey,
 		chainStatus,
-		writeMethod: 'resolveAfterTimelock'
+		writeMethod: 'resolveAfterTimelock',
+		enrichment: buildEnrichment(rune, 'timelock_resolved', ids.paymentId)
 	});
 
 	return { ok: true, transactionHash };
