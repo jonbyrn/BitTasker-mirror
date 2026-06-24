@@ -19,10 +19,7 @@ describe('sanitizeRelayUrls', () => {
 	});
 
 	it('splits comma-separated urls', () => {
-		expect(sanitizeRelayUrls('wss://a.com, wss://b.com')).toEqual([
-			'wss://a.com',
-			'wss://b.com'
-		]);
+		expect(sanitizeRelayUrls('wss://a.com, wss://b.com')).toEqual(['wss://a.com', 'wss://b.com']);
 	});
 
 	it('handles array input', () => {

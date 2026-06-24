@@ -31,7 +31,7 @@ function makeMockTask(overrides: Record<string, unknown> = {}) {
 		tags: [] as string[][],
 		removeTag: vi.fn(),
 		push: Array.prototype.push
-	} as any;
+	};
 }
 
 function makeMockBid() {
@@ -49,13 +49,13 @@ function makeMockBid() {
 			cancellationFee: 0,
 			upfrontDeposit: 0
 		}
-	} as any;
+	};
 }
 
 const mockTx = {
 	hash: '0xabc123',
 	wait: vi.fn()
-} as any;
+};
 
 const mockContractEvent = {
 	publish: mockPublish,
@@ -95,7 +95,7 @@ vi.mock('$lib/nostr/events/contract', () => {
 	class MockNDKPaymentContract {
 		publish = mockPublish;
 		publishReplaceable = vi.fn(() => Promise.resolve());
-		author: any = null;
+		author = null;
 		dTag = '';
 		taskId = '';
 		taskeePubkey = '';
@@ -111,11 +111,11 @@ vi.mock('$lib/nostr/events/contract', () => {
 		estimatedCompletionTime = 0;
 		transactionHash = '';
 		contractAddress = '';
-		ndk: any = {};
+		ndk = {};
 		tags: string[][] = [];
 		id = 'event-id-789';
 
-		constructor(_ndk?: any) {}
+		constructor(_ndk) {}
 
 		static from = vi.fn(() =>
 			Promise.resolve({
@@ -132,8 +132,17 @@ vi.mock('$lib/nostr/events/task', () => ({
 }));
 
 vi.mock('$lib/utils/contract/v2/blockchainWrites', () => ({
-	createPaymentContract: vi.fn(() => Promise.resolve({ tx: mockTx, estimatedCostFormatted: '0.001' })),
-	estimateWrite: vi.fn(() => Promise.resolve({ success: true, estimatedGas: 100000n, estimatedCostWei: 1000000n, estimatedCostFormatted: '0.001' }))
+	createPaymentContract: vi.fn(() =>
+		Promise.resolve({ tx: mockTx, estimatedCostFormatted: '0.001' })
+	),
+	estimateWrite: vi.fn(() =>
+		Promise.resolve({
+			success: true,
+			estimatedGas: 100000n,
+			estimatedCostWei: 1000000n,
+			estimatedCostFormatted: '0.001'
+		})
+	)
 }));
 
 vi.mock('$lib/utils/contract/v2/contractAddress', () => ({
@@ -155,7 +164,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 // ── tests ──────────────────────────────────────────────────────────
 
-import { createContract, deriveContractCreationParams } from '$lib/utils/contract/v2/creation';
+import { createContract } from '$lib/utils/contract/v2/creation';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
 
 describe('Contract conflict fix — out-of-box verification', () => {
@@ -188,11 +197,13 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
-				logs: [{
-					address: '0x10169472537Cc354D9E24Aebe221aF15827e6378',
-					topics: [],
-					data: '0x'
-				}]
+				logs: [
+					{
+						address: '0x10169472537Cc354D9E24Aebe221aF15827e6378',
+						topics: [],
+						data: '0x'
+					}
+				]
 			});
 
 			const result = await createContract(bid, task, 100000);
@@ -209,7 +220,9 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			// BUG: The task's dateRange.start should reflect the adjusted start time
 			// Expected: dateRange.start === new Date((now + 180) * 1000).toISOString()
-			const expectedAdjustedStart = new Date((now + MINIMUM_START_BUFFER_SECONDS) * 1000).toISOString();
+			const expectedAdjustedStart = new Date(
+				(now + MINIMUM_START_BUFFER_SECONDS) * 1000
+			).toISOString();
 
 			// This test EXPOSES the bug — the task dateRange.start is NOT updated
 			// If this test fails with "expected !== received", the bug is confirmed:
@@ -232,11 +245,13 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
-				logs: [{
-					address: '0x10169472537Cc354D9E24Aebe221aF15827e6378',
-					topics: [],
-					data: '0x'
-				}]
+				logs: [
+					{
+						address: '0x10169472537Cc354D9E24Aebe221aF15827e6378',
+						topics: [],
+						data: '0x'
+					}
+				]
 			});
 
 			const result = await createContract(bid, task, 100000);
@@ -307,7 +322,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const revertedReceipt = {
 				status: 0,
 				logs: []
-			} as any;
+			};
 
 			await expect(result.afterConfirmed(revertedReceipt)).rejects.toThrow(
 				/Transaction reverted on-chain/
@@ -334,12 +349,14 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			const successReceipt = {
 				status: 1,
-				logs: [{
-					address: contractAddress,
-					topics: encodedData.topics as string[],
-					data: encodedData.data
-				}]
-			} as any;
+				logs: [
+					{
+						address: contractAddress,
+						topics: encodedData.topics as string[],
+						data: encodedData.data
+					}
+				]
+			};
 
 			const { paymentId } = await result.afterConfirmed(successReceipt);
 			expect(paymentId).toBe(42);
@@ -362,7 +379,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 
 			// Simulate tx.wait() returning a reverted receipt
-			const revertedReceipt = { status: 0, logs: [] } as any;
+			const revertedReceipt = { status: 0, logs: [] };
 
 			// afterConfirmed should throw
 			try {
@@ -385,7 +402,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const bid = {
 				...makeMockBid(),
 				author: { pubkey: undefined, npub: undefined }
-			} as any;
+			};
 
 			const result = await createContract(bid, task, 100000);
 			expect(result.success).toBe(false);

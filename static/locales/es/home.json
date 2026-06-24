@@ -98,7 +98,13 @@
 		"service_requests": "Solicitudes de Servicio",
 		"requests": "Solicitudes",
 		"saved_searches": "Búsquedas Guardadas",
-		"notifications": "Notificaciones"
+		"notifications": "Notificaciones",
+		"settings_nostr": "Info de acceso",
+		"settings_devices": "Dispositivos",
+		"settings_recovery": "Recuperación",
+		"settings_muted": "Silenciados",
+		"settings_notifications": "Notificaciones",
+		"settings_actions": "Acciones"
 	},
 	"homepage": {
 		"title": "¡Hola, Mundo!",

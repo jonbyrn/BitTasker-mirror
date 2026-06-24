@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { getContext, onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import {
@@ -9,9 +11,8 @@
 	} from '$lib/utils/helpers/deviceIdentity';
 	import Modal from '$lib/components/Modal.svelte';
 
-	let { npub }: { npub: string } = $props();
+	const settings = getContext<{ npub: string; keysReady: boolean; error: string }>('settings');
 
-	// Types based on GraphQL schema
 	interface UserDevice {
 		id: string;
 		deviceId: string;
@@ -31,27 +32,36 @@
 		currentDevice?: boolean;
 	}
 
-	// Component state
+	const DEVICE_ICONS: Record<string, string> = {
+		ANDROID:
+			'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>',
+		IOS: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>',
+		WEB: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'
+	};
+	const DEFAULT_ICON =
+		'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>';
+
+	const PLATFORM_I18N: Record<string, string> = {
+		ANDROID: 'common.components.devices.platforms.android',
+		IOS: 'common.components.devices.platforms.ios',
+		WEB: 'common.components.devices.platforms.web'
+	};
+
 	let devices = $state<UserDevice[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 
-	// Modal state
 	let showRevokeModal = $state(false);
 	let deviceToRevoke = $state<UserDevice | null>(null);
 	let revokeLoading = $state(false);
 	let revokeError = $state('');
 
-	// Revoke all modal state
 	let showRevokeAllModal = $state(false);
 	let revokeAllLoading = $state(false);
 	let revokeAllError = $state('');
 
-	// Collapse state
-	let devicesExpanded = $state(false);
 	let inactiveExpanded = $state(false);
 
-	// Derived: sorted and grouped devices
 	let currentDevice = $derived(devices.find((d) => d.currentDevice) ?? null);
 	let activeDevices = $derived(
 		devices
@@ -73,10 +83,8 @@
 	);
 	let otherDevices = $derived([...activeDevices, ...inactiveDevices]);
 
-	onMount(async () => {
-		if (npub) {
-			await loadDevices();
-		}
+	onMount(() => {
+		loadDevices();
 	});
 
 	async function loadDevices() {
@@ -85,21 +93,17 @@
 			error = '';
 			const currentDeviceId = await getDeviceIdentifier();
 
-			// Create device names for both npub and hex formats since the device might have been
-			// registered with either format
-			const deviceNameNpub = await createUserDeviceShortName(npub);
+			const deviceNameNpub = await createUserDeviceShortName(settings.npub);
 			let deviceNameHex = '';
 
-			// Convert npub to hex if needed for comparison
-			if (npub.startsWith('npub')) {
-				const { data } = nip19.decode(npub);
+			if (settings.npub.startsWith('npub')) {
+				const { data } = nip19.decode(settings.npub);
 				deviceNameHex = await createUserDeviceShortName(data as string);
 			}
 
 			const items = await pushNotificationService.getMyDevices();
 
 			devices = items.map((item) => {
-				// Check if this device matches current device ID and either device name format
 				const isCurrentDevice =
 					item.deviceId === currentDeviceId &&
 					(item.deviceName === deviceNameNpub ||
@@ -112,37 +116,6 @@
 			error = $t('settings.devices.error.loadFailed');
 		} finally {
 			loading = false;
-		}
-	}
-
-	function getDeviceIcon(platform?: string | null): string {
-		switch (platform?.toUpperCase()) {
-			case 'ANDROID':
-			case 'IOS':
-				return `
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-				`;
-			case 'WEB':
-				return `
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-				`;
-			default:
-				return `
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-				`;
-		}
-	}
-
-	function getDevicePlatformName(platform?: string | null): string {
-		switch (platform?.toUpperCase()) {
-			case 'ANDROID':
-				return $t('common.components.devices.platforms.android');
-			case 'IOS':
-				return $t('common.components.devices.platforms.ios');
-			case 'WEB':
-				return $t('common.components.devices.platforms.web');
-			default:
-				return $t('common.components.devices.platforms.unknown');
 		}
 	}
 
@@ -172,9 +145,13 @@
 			return $t('settings.devices.thisDevice');
 		}
 
-		let deviceName = device.deviceName || getDevicePlatformName(device.platform);
+		let deviceName =
+			device.deviceName ||
+			$t(
+				PLATFORM_I18N[(device.platform || '').toUpperCase()] ||
+					'common.components.devices.platforms.unknown'
+			);
 
-		// Remove the 8-character suffix from createUserDeviceShortName
 		if (deviceName.includes('-') && deviceName.length > 8) {
 			const lastDashIndex = deviceName.lastIndexOf('-');
 			const suffix = deviceName.substring(lastDashIndex + 1);
@@ -205,16 +182,13 @@
 			revokeLoading = true;
 			revokeError = '';
 
-			// Call the revoke device API
 			const deviceName = getDeviceDisplayName(deviceToRevoke);
 			const revocationMessage = `Your device "${deviceName}" has been revoked from your BitTasker account for security reasons. Please log in again if this was not intended.`;
 
 			await pushNotificationService.revokeDevice(deviceToRevoke.deviceId, revocationMessage);
 
-			// Reload devices list
 			await loadDevices();
 
-			// Close modal
 			closeRevokeModal();
 		} catch (err) {
 			console.error('Failed to revoke device:', err);
@@ -256,66 +230,154 @@
 	}
 </script>
 
-<!-- Devices Section -->
-<div
-	class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
-	class:collapse-open={devicesExpanded}
->
-	<button
-		type="button"
-		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
-		onclick={() => (devicesExpanded = !devicesExpanded)}
-	>
-		<h4 class="text-lg font-semibold">
-			{$t('settings.devices.title')}
-			{#if devices.length > 0}
-				<span class="text-base-content/60 ml-1 text-sm font-normal">({devices.length})</span>
-			{/if}
-		</h4>
-	</button>
-	<div class="collapse-content">
-		<p class="text-base-content/70 mb-6">
-			{$t('settings.devices.description')}
-		</p>
+<div in:fly={{ x: 300, duration: 250, easing: cubicOut }}>
+	<div class="mb-4">
+		<a href="/settings" class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg
+			>
+			{$t('settings.back')}
+		</a>
+	</div>
 
-		{#if loading}
-			<div class="flex justify-center py-8">
-				<span class="loading loading-spinner loading-md"></span>
-			</div>
-		{:else if error}
-			<div class="alert alert-error alert-outline mb-4">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>{error}</span>
-			</div>
-		{:else if devices.length === 0}
-			<div class="py-8 text-center">
-				<p class="text-base-content/70">{$t('settings.devices.noDevices')}</p>
-			</div>
-		{:else}
-			<div class="divide-base-300 -mx-2 divide-y">
-				<!-- Current Device -->
-				{#if currentDevice}
-					<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-3">
-						{@render deviceRow(currentDevice)}
-					</div>
-				{/if}
+	{#if settings.keysReady && !settings.error}
+		<div class="settings-sub-content bg-base-100 rounded-xl p-4 shadow-lg">
+			<div class="mb-6">
+				<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">
+					{$t('settings.devices.title')}
+					{#if devices.length > 0}
+						<span class="text-base-content/60 ml-1 text-sm font-normal">({devices.length})</span>
+					{/if}
+				</h4>
+				<div>
+					<p class="text-base-content/70 mb-6">
+						{$t('settings.devices.description')}
+					</p>
 
-				<!-- Revoke All Other Devices -->
-				{#if otherDevices.length > 0}
-					<div class="px-3 pt-3">
-						<button class="btn btn-outline btn-error btn-sm w-full" onclick={openRevokeAllModal}>
+					{#if loading}
+						<div class="flex justify-center py-8">
+							<span class="loading loading-spinner loading-md"></span>
+						</div>
+					{:else if error}
+						<div class="alert alert-error alert-outline mb-4">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{error}</span>
+						</div>
+					{:else if devices.length === 0}
+						<div class="py-8 text-center">
+							<p class="text-base-content/70">{$t('settings.devices.noDevices')}</p>
+						</div>
+					{:else}
+						<div class="divide-base-300 -mx-2 divide-y">
+							{#if currentDevice}
+								<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-3">
+									{@render deviceRow(currentDevice)}
+								</div>
+							{/if}
+
+							{#if otherDevices.length > 0}
+								<div class="px-3 pt-3">
+									<button
+										class="btn btn-outline btn-error btn-sm w-full"
+										onclick={openRevokeAllModal}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+											/>
+										</svg>
+										{$t('settings.devices.revokeAll')}
+									</button>
+								</div>
+							{/if}
+
+							{#if activeDevices.length > 0}
+								<div class="pt-2">
+									<div
+										class="text-base-content/60 mb-1 px-3 text-xs font-semibold tracking-wider uppercase"
+									>
+										{$t('settings.devices.sections.active')} ({activeDevices.length})
+									</div>
+									{#each activeDevices as device (device.id)}
+										<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
+											{@render deviceRow(device)}
+										</div>
+									{/each}
+								</div>
+							{/if}
+
+							{#if inactiveDevices.length > 0}
+								<div class="pt-2">
+									<div
+										class="collapse-arrow collapse rounded-lg"
+										class:collapse-open={inactiveExpanded}
+									>
+										<button
+											type="button"
+											class="collapse-title flex items-center gap-2 px-3 py-3 text-sm font-medium"
+											onclick={() => (inactiveExpanded = !inactiveExpanded)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="text-base-content/40 h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+												/>
+											</svg>
+											<span>{$t('settings.devices.sections.inactive')}</span>
+											<span class="badge badge-outline badge-sm ml-1">{inactiveDevices.length}</span
+											>
+										</button>
+										<div class="collapse-content px-0 pb-0">
+											{#each inactiveDevices as device (device.id)}
+												<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
+													{@render deviceRow(device)}
+												</div>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					<div class="mt-6 flex justify-center">
+						<button class="btn btn-outline btn-sm" onclick={loadDevices} disabled={loading}>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-4 w-4"
@@ -327,96 +389,20 @@
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									stroke-width="2"
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 								/>
 							</svg>
-							{$t('settings.devices.revokeAll')}
+							{$t('settings.devices.refresh')}
 						</button>
 					</div>
-				{/if}
-
-				<!-- Active Devices -->
-				{#if activeDevices.length > 0}
-					<div class="pt-2">
-						<div
-							class="text-base-content/60 mb-1 px-3 text-xs font-semibold tracking-wider uppercase"
-						>
-							{$t('settings.devices.sections.active')} ({activeDevices.length})
-						</div>
-						{#each activeDevices as device (device.id)}
-							<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
-								{@render deviceRow(device)}
-							</div>
-						{/each}
-					</div>
-				{/if}
-
-				<!-- Inactive Devices (Collapsed) -->
-				{#if inactiveDevices.length > 0}
-					<div class="pt-2">
-						<div class="collapse-arrow collapse rounded-lg" class:collapse-open={inactiveExpanded}>
-							<button
-								type="button"
-								class="collapse-title flex items-center gap-2 px-3 py-3 text-sm font-medium"
-								onclick={() => (inactiveExpanded = !inactiveExpanded)}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-									/>
-								</svg>
-								<span>{$t('settings.devices.sections.inactive')}</span>
-								<span class="badge badge-outline badge-sm ml-1">{inactiveDevices.length}</span>
-							</button>
-							<div class="collapse-content px-0 pb-0">
-								{#each inactiveDevices as device (device.id)}
-									<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
-										{@render deviceRow(device)}
-									</div>
-								{/each}
-							</div>
-						</div>
-					</div>
-				{/if}
+				</div>
 			</div>
-		{/if}
-
-		<!-- Refresh Button -->
-		<div class="mt-6 flex justify-center">
-			<button class="btn btn-outline btn-sm" onclick={loadDevices} disabled={loading}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
-				{$t('settings.devices.refresh')}
-			</button>
 		</div>
-	</div>
+	{/if}
 </div>
 
-<!-- Device Row Snippet -->
 {#snippet deviceRow(device: UserDevice)}
 	<div class="flex items-center gap-3">
-		<!-- Platform Icon -->
 		<div
 			class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
 		>
@@ -428,11 +414,10 @@
 				stroke="currentColor"
 			>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html getDeviceIcon(device.platform)}
+				{@html DEVICE_ICONS[(device.platform || '').toUpperCase()] || DEFAULT_ICON}
 			</svg>
 		</div>
 
-		<!-- Device Info -->
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
 				<span class="truncate text-sm font-semibold">
@@ -445,13 +430,15 @@
 				{/if}
 			</div>
 			<div class="text-base-content/60 text-xs">
-				{getDevicePlatformName(device.platform)}
+				{$t(
+					PLATFORM_I18N[(device.platform || '').toUpperCase()] ||
+						'common.components.devices.platforms.unknown'
+				)}
 				<span class="mx-1 opacity-50">&middot;</span>
 				{$t('settings.devices.lastUsed.label')}: {formatLastUsed(device.lastUsedAt)}
 			</div>
 		</div>
 
-		<!-- Status Dot -->
 		<div
 			class="shrink-0"
 			title={device.isActive
@@ -470,7 +457,6 @@
 			{/if}
 		</div>
 
-		<!-- Revoke Button -->
 		<button
 			class="btn btn-ghost btn-xs text-base-content/40 hover:text-error shrink-0"
 			onclick={() => openRevokeModal(device)}
@@ -497,7 +483,6 @@
 	</div>
 {/snippet}
 
-<!-- Revoke Device Confirmation Modal -->
 <Modal
 	isOpen={showRevokeModal}
 	title={$t('settings.devices.revokeModal.title')}
@@ -541,7 +526,7 @@
 						stroke="currentColor"
 					>
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html getDeviceIcon(deviceToRevoke.platform)}
+						{@html DEVICE_ICONS[(deviceToRevoke.platform || '').toUpperCase()] || DEFAULT_ICON}
 					</svg>
 					<span class="font-semibold">
 						{getDeviceDisplayName(deviceToRevoke)}
@@ -586,7 +571,6 @@
 	</div>
 </Modal>
 
-<!-- Revoke All Devices Confirmation Modal -->
 <Modal
 	isOpen={showRevokeAllModal}
 	title={$t('settings.devices.revokeAllModal.title')}

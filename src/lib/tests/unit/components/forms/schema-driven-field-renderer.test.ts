@@ -85,7 +85,9 @@ describe('SchemaDrivenFieldRenderer', () => {
 		});
 
 		const select = screen.getByRole('combobox') as HTMLSelectElement;
-		expect(screen.getByRole('option', { name: 'dashboard.services.detail.request_quote_modal.choose' })).toBeTruthy();
+		expect(
+			screen.getByRole('option', { name: 'dashboard.services.detail.request_quote_modal.choose' })
+		).toBeTruthy();
 
 		await fireEvent.change(select, { target: { value: 'Growth' } });
 

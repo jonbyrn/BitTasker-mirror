@@ -1,291 +1,245 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
+	import { staggerGridItems } from '$lib/utils/animations';
+	import {
+		LOGGED_IN_MENU_SECTIONS,
+		LOGGED_OUT_MENU_SECTIONS,
+		type MenuSection
+	} from '$lib/utils/constants/menu.constants';
+	import type { GridItem, NavGroup } from './bottomNav/NavGrid.svelte';
+	import NavGrid from './bottomNav/NavGrid.svelte';
+	import DockIcon from './bottomNav/DockIcon.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-
-	import IconLogout from '~icons/mdi/logout';
-	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
-	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
-	import IconEmailOutline from '~icons/mdi/email-outline';
-	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
-	import IconShieldAccount from '~icons/mdi/shield-account';
-	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
-	import IconMagnify from '~icons/mdi/magnify';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
-	import IconChatOutline from '~icons/mdi/chat-outline';
-	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconLogin from '~icons/mdi/login';
-	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconHome from '~icons/mdi/home';
-	import IconCurrencyUsd from '~icons/mdi/currency-usd';
-	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
-	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-	import IconCurrencyBtc from '~icons/mdi/currency-btc';
-	import IconAccountGroup from '~icons/mdi/account-group';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
-	import IconDomain from '~icons/mdi/domain';
-	import IconShieldCheck from '~icons/mdi/shield-check';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
+	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
+	import IconAccountPlus from '~icons/mdi/account-plus';
+	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
-	import IconNewspaper from '~icons/mdi/newspaper';
-	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
+	import IconLogout from '~icons/mdi/logout';
 	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconAccountOutline from '~icons/mdi/account-outline';
-	import IconCogOutline from '~icons/mdi/cog-outline';
-	import IconStarOutline from '~icons/mdi/star-outline';
+	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
+	import IconDomain from '~icons/mdi/domain';
+	import IconCog from '~icons/mdi/cog';
+	import IconFlash from '~icons/mdi/flash';
+	import IconCellphone from '~icons/mdi/cellphone';
+	import IconAccountOff from '~icons/mdi/account-off';
+	import IconConsole from '~icons/mdi/console';
 	import IconBellOutline from '~icons/mdi/bell-outline';
+	import IconShieldKey from '~icons/mdi/shield-key';
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	type IconComponent = any;
-
-	interface NavLink {
-		href: string;
-		icon: IconComponent;
-		label: string;
+	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
+		return sections
+			.filter((s) => s.items.length > 0)
+			.map((s) => ({
+				id: s.id,
+				icon: s.icon,
+				label: s.label,
+				items: s.items
+					.filter((item) => item.href)
+					.map((item) => ({ href: item.href!, icon: item.icon, label: item.label }))
+			}));
 	}
 
-	interface NavGroup {
-		id: string;
-		icon: IconComponent;
-		label: string;
-		items: NavLink[];
-	}
-
-	const loggedInGroups: NavGroup[] = [
+	const loggedInGridItemsData: GridItem[] = [
+		{
+			id: 'logout',
+			icon: IconLogout,
+			label: 'navbar.logout',
+			action: 'navigate',
+			variant: 'danger'
+		},
+		{
+			id: 'support',
+			icon: IconHelpCircleOutline,
+			label: 'navbar.support_help',
+			action: 'group',
+			groupId: 'support-help'
+		},
 		{
 			id: 'account',
 			icon: IconAccountCircle,
 			label: 'navbar.my_account',
-			items: [
-				{ href: '/profile', icon: IconAccountOutline, label: 'navbar.profile' },
-				{ href: '/settings', icon: IconCogOutline, label: 'navbar.settings' },
-				{ href: '/notifications', icon: IconBellOutline, label: 'navbar.notifications' },
-				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
-			]
+			action: 'group',
+			groupId: 'my-account'
 		},
 		{
-			id: 'company',
-			icon: IconHelpCircleOutline,
-			label: 'navbar.support_help',
-			items: [
-				{ href: '/how-it-works', icon: IconHelpCircleOutline, label: 'navbar.how_it_works' },
-				{ href: '/faq', icon: IconFrequentlyAskedQuestions, label: 'navbar.faq' },
-				{ href: '/contact', icon: IconEmailOutline, label: 'navbar.contact_support' },
-				{ href: '/feedback', icon: IconCommentTextOutline, label: 'navbar.feedback' },
-				{ href: '/security', icon: IconShieldCheck, label: 'footer.security' }
-			]
+			id: 'settings',
+			icon: IconCog,
+			label: 'navbar.settings',
+			action: 'group',
+			groupId: 'settings'
+		},
+		{
+			id: 'find-tasks',
+			icon: IconMagnify,
+			label: 'navbar.find_tasks',
+			action: 'navigate',
+			href: '/tasks'
+		},
+		{
+			id: 'hiring',
+			icon: IconBriefcaseOutline,
+			label: 'navbar.hiring',
+			action: 'group',
+			groupId: 'hiring'
+		},
+		{
+			id: 'list-service',
+			icon: IconPlusCircleOutline,
+			label: 'navbar.list_service',
+			action: 'navigate',
+			href: '/create-service'
+		},
+		{
+			id: 'find-services',
+			icon: IconBriefcaseSearch,
+			label: 'navbar.find_services',
+			action: 'navigate',
+			href: '/services'
+		},
+		{
+			id: 'earning',
+			icon: IconInvoiceTextSendOutline,
+			label: 'navbar.earning',
+			action: 'group',
+			groupId: 'earning'
 		}
 	];
 
-	// Earning accordion items (tabs from earning page)
-	const loggedInEarningGroup: NavGroup = {
-		id: 'earning',
-		icon: IconInvoiceTextSendOutline,
-		label: 'navbar.earning',
-		items: [
-			{ href: '/earning/bids', icon: IconMagnify, label: 'dashboard.tabs.bids' },
-			{ href: '/earning/requests', icon: IconBriefcaseOutline, label: 'dashboard.tabs.requests' },
-			{ href: '/earning/contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
-			{
-				href: '/earning/my-services',
-				icon: IconBriefcaseSearch,
-				label: 'dashboard.services.my_services.title'
-			},
-			{ href: '/earning/alerts', icon: IconNewspaper, label: 'dashboard.tabs.saved_searches' }
-		]
-	};
-
-	// Hiring accordion items (tabs from dashboard page)
-	const loggedInHiringGroup: NavGroup = {
-		id: 'hiring',
-		icon: IconBriefcaseOutline,
-		label: 'navbar.hiring',
-		items: [
-			{ href: '/hiring/my-tasks', icon: IconPlusCircleOutline, label: 'dashboard.tabs.tasks' },
-			{ href: '/hiring/contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
-			{
-				href: '/hiring/service-requests',
-				icon: IconCommentTextOutline,
-				label: 'dashboard.tabs.quotes'
-			}
-		]
-	};
-
-	const loggedOutTopLinks: NavLink[] = [
-		{ href: '/tasks', icon: IconHome, label: 'navbar.home' },
-		{ href: '/how-it-works', icon: IconHelpCircleOutline, label: 'footer.how_it_works' }
-	];
-
-	const loggedOutGroups: NavGroup[] = [
+	const loggedOutGridItemsData: GridItem[] = [
+		{ id: 'home', icon: IconHome, label: 'navbar.home', action: 'navigate', href: '/tasks' },
+		{
+			id: 'how-it-works',
+			icon: IconHelpCircleOutline,
+			label: 'footer.how_it_works',
+			action: 'navigate',
+			href: '/how-it-works'
+		},
 		{
 			id: 'taskers',
 			icon: IconBriefcaseOutline,
 			label: 'footer.for_taskers',
-			items: [
-				{ href: '/create-task', icon: IconPlusCircleOutline, label: 'footer.post_task' },
-				{ href: '/taskee-fees', icon: IconCurrencyUsd, label: 'footer.tasker_fees' },
-				{ href: '/secure-payments', icon: IconShieldCheckOutline, label: 'footer.escrow' },
-				{ href: '/faq', icon: IconFrequentlyAskedQuestions, label: 'footer.faq' }
-			]
+			action: 'group',
+			groupId: 'for-taskers'
 		},
 		{
 			id: 'taskees',
 			icon: IconAccountHardHat,
 			label: 'footer.for_taskees',
-			items: [
-				{ href: '/tasks', icon: IconCurrencyBtc, label: 'footer.start_earning' },
-				{
-					href: '/community-guidelines',
-					icon: IconAccountGroup,
-					label: 'footer.community_guidelines'
-				},
-				{ href: '/taskee-fees', icon: IconCurrencyUsd, label: 'footer.tasker_fees' },
-				{
-					href: '/tasker-principles',
-					icon: IconInvoiceTextSendOutline,
-					label: 'footer.tasker_principles'
-				},
-				{ href: '/faq', icon: IconFrequentlyAskedQuestions, label: 'footer.tasker_faq' }
-			]
+			action: 'group',
+			groupId: 'for-taskees'
 		},
 		{
 			id: 'company',
 			icon: IconDomain,
 			label: 'footer.company',
-			items: [
-				{ href: '/about', icon: IconInformationOutline, label: 'footer.about_us' },
-				{ href: '/security', icon: IconShieldCheck, label: 'footer.security' },
-				{ href: '/careers', icon: IconBriefcaseSearch, label: 'footer.careers' },
-				{ href: '/press', icon: IconNewspaper, label: 'footer.press' },
-				{ href: '/terms', icon: IconFileDocumentOutline, label: 'footer.terms' },
-				{ href: '/privacy', icon: IconShieldAccount, label: 'footer.privacy' },
-				{ href: '/contact', icon: IconEmailOutline, label: 'footer.contact' }
-			]
+			action: 'group',
+			groupId: 'company'
 		}
 	];
 
-	let currentSection = $state('');
-
-	function handleBottomNavTap(event: MouseEvent) {
-		const target = event.target as HTMLElement | null;
-		if (!target) return;
-		const interactive = target.closest('a,button,[role="button"]');
-		if (!interactive) return;
-	}
-
-	$effect(() => {
+	const currentSection = $derived.by(() => {
 		const path = page.url.pathname;
-		// More specific route detection for active states
-		if (path === '/hiring' || path === '/earning') {
-			currentSection = 'home';
-		} else if (path === '/tasks' || path.startsWith('/tasks/')) {
-			currentSection = 'find-tasks';
-		} else if (path.includes('/create-task')) {
-			currentSection = 'create-task';
-		} else if (path.includes('/wallet')) {
-			currentSection = 'wallet';
-		} else if (path.includes('/messages')) {
-			currentSection = 'messages';
-		} else if (path === '/') {
-			currentSection = 'home';
-		} else if (path === '/about') {
-			currentSection = 'about';
-		} else if (path === '/how-it-works') {
-			currentSection = 'help';
-		} else if (path === '/auth/signup') {
-			currentSection = 'signup';
-		} else {
-			currentSection = path.split('/').filter(Boolean).pop() || '';
-		}
+		if (path === '/hiring' || path === '/earning' || path === '/') return 'home';
+		if (path === '/tasks' || path.startsWith('/tasks/')) return 'find-tasks';
+		if (path.includes('/create-task')) return 'create-task';
+		if (path.includes('/wallet')) return 'wallet';
+		if (path.includes('/messages')) return 'messages';
+		if (path === '/about') return 'about';
+		if (path === '/how-it-works') return 'help';
+		if (path === '/auth/signup') return 'signup';
+		return path.split('/').filter(Boolean).pop() || '';
 	});
 
+	const gridItems = $derived(
+		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
+	);
+	const settingsNavGroup: NavGroup = {
+		id: 'settings',
+		icon: IconCog,
+		label: 'navbar.settings',
+		items: [
+			{ href: '/settings/actions', icon: IconFlash, label: 'navbar.settings_actions' },
+			{ href: '/settings/devices', icon: IconCellphone, label: 'navbar.settings_devices' },
+			{ href: '/settings/muted', icon: IconAccountOff, label: 'navbar.settings_muted' },
+			{ href: '/settings/nostr', icon: IconConsole, label: 'navbar.settings_nostr' },
+			{
+				href: '/settings/notifications',
+				icon: IconBellOutline,
+				label: 'navbar.settings_notifications'
+			},
+			{ href: '/settings/recovery', icon: IconShieldKey, label: 'navbar.settings_recovery' }
+		]
+	};
+
+	const navGroups = $derived(
+		$authState.isAuthenticated
+			? [...sectionsToGroups(LOGGED_IN_MENU_SECTIONS), settingsNavGroup]
+			: sectionsToGroups(LOGGED_OUT_MENU_SECTIONS)
+	);
+
 	let isMenuOpen = $state(false);
-	let isMenuClosing = $state(false);
-	let isMenuExpanding = $state(false);
 	let showLogoutConfirm = $state(false);
-
-	// Measure actual dock height (avoid relying on 80px fallback)
 	let dockEl = $state<HTMLElement | null>(null);
-	let dockObserver: ResizeObserver | null = null;
+	let drawerPanelEl = $state<HTMLElement | null>(null);
+	let gridContainerEl = $state<HTMLElement | null>(null);
+	let navGridRef = $state<{ reset(): void } | null>(null);
 
-	$effect(() => {
-		if (dockObserver) {
-			dockObserver.disconnect();
-			dockObserver = null;
-		}
-
+	onMount(() => {
 		if (!dockEl || typeof ResizeObserver === 'undefined') return;
 
 		const updateVar = () => {
 			const measured = Math.ceil(dockEl?.getBoundingClientRect().height ?? 0);
-			if (measured <= 0) return;
-			document.documentElement.style.setProperty('--app-dock-height', `${measured}px`);
+			if (measured > 0) {
+				document.documentElement.style.setProperty('--app-dock-height', `${measured}px`);
+			}
 		};
 
 		updateVar();
-		dockObserver = new ResizeObserver(() => updateVar());
-		dockObserver.observe(dockEl);
+		const observer = new ResizeObserver(updateVar);
+		observer.observe(dockEl);
 
-		return () => {
-			dockObserver?.disconnect();
-			dockObserver = null;
-		};
+		return () => observer.disconnect();
 	});
 
-	let openGroupId = $state<string | null>(null);
-
-	function toggleGroup(id: string) {
-		openGroupId = openGroupId === id ? null : id;
-	}
-
-	function closeAllCollapses() {
-		openGroupId = null;
-	}
-
-	// Close menu before any navigation
 	beforeNavigate(() => {
-		if (isMenuOpen && !isMenuClosing) {
-			closeMenu();
-		}
+		if (isMenuOpen) isMenuOpen = false;
 	});
 
-	async function toggleMenu() {
-		if (isMenuOpen) {
-			closeMenu();
-		} else {
-			// Render the menu in a collapsed state first
-			isMenuOpen = true;
-			isMenuClosing = false;
-			isMenuExpanding = false;
-			// Wait for DOM to mount the element
-			await tick();
-			// Ensure the collapsed state is painted before transitioning (mobile Safari/Chrome)
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			// Now enable expand class to trigger transition
-			isMenuExpanding = true;
-		}
+	async function openMenu() {
+		isMenuOpen = true;
+		await tick();
+		if (gridContainerEl) staggerGridItems(gridContainerEl);
 	}
 
 	function closeMenu() {
-		if (isMenuOpen && !isMenuClosing) {
-			// Stop the expand state so collapse animation takes precedence
-			isMenuExpanding = false;
-			isMenuClosing = true;
-			// Close all collapses when closing the menu
-			closeAllCollapses();
-			// Close logout confirm if open
-			showLogoutConfirm = false;
-			// Wait for slide-down animation to complete before hiding
-			setTimeout(() => {
-				isMenuOpen = false;
-				isMenuClosing = false;
-			}, 300); // Match animation duration
+		isMenuOpen = false;
+		showLogoutConfirm = false;
+	}
+
+	function toggleMenu() {
+		if (isMenuOpen) {
+			closeMenu();
+		} else {
+			openMenu();
 		}
+	}
+
+	async function handleNavigate(href: string) {
+		closeMenu();
+		await goto(href, { noScroll: false, replaceState: false });
 	}
 
 	function handleLogoutClick() {
@@ -302,356 +256,161 @@
 	function handleLogoutCancel() {
 		showLogoutConfirm = false;
 	}
-
-	async function handleNavWithMenuClose(event: MouseEvent, href: string) {
-		event.preventDefault();
-		event.stopPropagation();
-		closeMenu();
-		await goto(href, { noScroll: false, replaceState: false });
-	}
 </script>
 
-{#snippet menuLink(link: NavLink)}
-	{@const LinkIcon = link.icon}
-	<li>
-		<a
-			href={link.href}
-			onclick={(e) => handleNavWithMenuClose(e, link.href)}
-			class="min-h-[44px] py-2 pl-6"
-		>
-			<LinkIcon class="text-primary" />
-			<span class="font-medium">{$t(link.label)}</span>
-		</a>
-	</li>
-{/snippet}
-
-{#snippet topLevelLink(link: NavLink)}
-	{@const LinkIcon = link.icon}
-	<li>
-		<a
-			href={link.href}
-			onclick={(e) => handleNavWithMenuClose(e, link.href)}
-			class="min-h-[48px] py-3"
-		>
-			<LinkIcon class="text-primary" />
-			<span class="font-medium">{$t(link.label)}</span>
-		</a>
-	</li>
-{/snippet}
-
-{#snippet hamburgerButton()}
+{#snippet hamburgerIcon()}
 	<div class="flex h-6 w-6 flex-col items-center justify-center">
 		<span
 			class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
-			class:rotate-45={isMenuOpen && !isMenuClosing}
-			class:translate-y-2={isMenuOpen && !isMenuClosing}
+			class:rotate-45={isMenuOpen}
+			class:translate-y-2={isMenuOpen}
 		></span>
 		<span
 			class="bg-primary-content my-1 block h-0.5 w-5 transition-opacity duration-300"
-			class:opacity-0={isMenuOpen && !isMenuClosing}
+			class:opacity-0={isMenuOpen}
 		></span>
 		<span
 			class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
-			class:rotate-[-45deg]={isMenuOpen && !isMenuClosing}
-			class:translate-y-[-4px]={isMenuOpen && !isMenuClosing}
+			class:rotate-[-45deg]={isMenuOpen}
+			class:translate-y-[-4px]={isMenuOpen}
 		></span>
 	</div>
 	<span class="text-primary-content text-xs font-medium">{$t('navbar.menu')}</span>
 {/snippet}
 
-{#snippet dockLink(href: string, Icon: IconComponent, label: string, section: string)}
-	<a
-		{href}
-		class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
-		section
-			? 'dock-active'
-			: ''}"
-		data-sveltekit-reload="off"
-	>
-		<Icon class="text-primary-content" />
-		<span class="dock-label font-medium">{$t(label)}</span>
-	</a>
-{/snippet}
-
-{#snippet quickActionLink(href: string, Icon: IconComponent, label: string)}
-	<a
-		{href}
-		onclick={(e) => handleNavWithMenuClose(e, href)}
-		class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors"
-	>
-		<Icon class="text-primary h-6 w-6" />
-		<span class="text-center text-xs font-medium">{$t(label)}</span>
-	</a>
-{/snippet}
-
-<!-- Bottom-sheet menu overlay (under the dock) -->
-{#if isMenuOpen || isMenuClosing}
-	<div class="fixed inset-0 z-70 flex flex-col justify-end" onclickcapture={handleBottomNavTap}>
+{#if isMenuOpen}
+	<div class="drawer-overlay" transition:fade|global={{ duration: 200, easing: cubicOut }}>
 		<button
 			type="button"
-			class="bottom-nav-backdrop flex-1 bg-black"
-			class:backdrop-visible={isMenuExpanding && !isMenuClosing}
+			class="drawer-backdrop"
 			aria-label={$t('navbar.close_menu')}
-			onclick={() => {
-				if (isMenuOpen && !isMenuClosing) closeMenu();
-			}}
+			onclick={closeMenu}
 		></button>
 
 		<div
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
-			class="bottom-nav-menu w-full bg-black/30"
-			class:menu-expand={isMenuExpanding && !isMenuClosing}
-			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
+			class="drawer-panel"
+			transition:fly|global={{ y: '80%', duration: 300, easing: cubicOut }}
+			bind:this={drawerPanelEl}
 		>
-			<div class="bg-base-100 border-base-300 overflow-hidden rounded-t-2xl border-t shadow-lg">
-				<div class="bottom-nav-scroll max-h-[70vh] overflow-y-auto pt-2">
-					<div class="p-2">
+			<div class="drawer-content bg-base-100 border-base-300 rounded-t-2xl border-t shadow-lg">
+				<div class="drawer-scroll">
+					<div class="drawer-inner" bind:this={gridContainerEl}>
 						{#if $authState.isAuthenticated}
-							<ul class="menu w-full">
-								<!-- 1. Logout -->
-								<li>
-									<button onclick={handleLogoutClick} class="min-h-[48px] w-full py-3 text-left">
-										<IconLogout class="text-error" />
-										<span class="text-error font-medium">{$t('navbar.logout')}</span>
-									</button>
-								</li>
-
-								<!-- 2. Support & Help (Accordion) -->
-								<li>
-									<button onclick={() => toggleGroup('company')} class="min-h-[48px] py-3">
-										<IconHelpCircleOutline class="text-primary" />
-										<span class="font-medium">{$t('navbar.support_help')}</span>
-										<svg
-											class="dropdown-arrow ml-auto h-4 w-4"
-											class:dropdown-open={openGroupId === 'company'}
-											fill="currentColor"
-											viewBox="0 0 20 20"
-											stroke="currentColor"
-											stroke-width="1"
-										>
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-									</button>
-								</li>
-								<li class="submenu-grid" class:submenu-open={openGroupId === 'company'}>
-									<ul class="submenu-inner">
-										{#each loggedInGroups.find((g) => g.id === 'company')?.items || [] as link (link.label)}
-											{@render menuLink(link)}
-										{/each}
-									</ul>
-								</li>
-
-								<!-- 3. My Account (Accordion) -->
-								<li>
-									<button onclick={() => toggleGroup('account')} class="min-h-[48px] py-3">
-										<IconAccountCircle class="text-primary" />
-										<span class="font-medium">{$t('navbar.my_account')}</span>
-										<svg
-											class="dropdown-arrow ml-auto h-4 w-4"
-											class:dropdown-open={openGroupId === 'account'}
-											fill="currentColor"
-											viewBox="0 0 20 20"
-											stroke="currentColor"
-											stroke-width="1"
-										>
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-									</button>
-								</li>
-								<li class="submenu-grid" class:submenu-open={openGroupId === 'account'}>
-									<ul class="submenu-inner">
-										{#each loggedInGroups.find((g) => g.id === 'account')?.items || [] as link (link.label)}
-											{@render menuLink(link)}
-										{/each}
-									</ul>
-								</li>
-
-								<!-- 4. Earning (Accordion) -->
-								<li>
-									<button onclick={() => toggleGroup('earning')} class="min-h-[48px] py-3">
-										<IconInvoiceTextSendOutline class="text-primary" />
-										<span class="font-medium">{$t('navbar.earning')}</span>
-										<svg
-											class="dropdown-arrow ml-auto h-4 w-4"
-											class:dropdown-open={openGroupId === 'earning'}
-											fill="currentColor"
-											viewBox="0 0 20 20"
-											stroke="currentColor"
-											stroke-width="1"
-										>
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-									</button>
-								</li>
-								<li class="submenu-grid" class:submenu-open={openGroupId === 'earning'}>
-									<ul class="submenu-inner">
-										{#each loggedInEarningGroup.items as link (link.label)}
-											{@render menuLink(link)}
-										{/each}
-									</ul>
-								</li>
-
-								<!-- 5. Hiring (Accordion) -->
-								<li>
-									<button onclick={() => toggleGroup('hiring')} class="min-h-[48px] py-3">
-										<IconBriefcaseOutline class="text-primary" />
-										<span class="font-medium">{$t('navbar.hiring')}</span>
-										<svg
-											class="dropdown-arrow ml-auto h-4 w-4"
-											class:dropdown-open={openGroupId === 'hiring'}
-											fill="currentColor"
-											viewBox="0 0 20 20"
-											stroke="currentColor"
-											stroke-width="1"
-										>
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-									</button>
-								</li>
-								<li class="submenu-grid" class:submenu-open={openGroupId === 'hiring'}>
-									<ul class="submenu-inner">
-										{#each loggedInHiringGroup.items as link (link.label)}
-											{@render menuLink(link)}
-										{/each}
-									</ul>
-								</li>
-							</ul>
+							<NavGrid
+								bind:this={navGridRef}
+								items={gridItems}
+								groups={navGroups}
+								onNavigate={handleNavigate}
+								onLogout={handleLogoutClick}
+							/>
 						{:else}
-							<div class="mb-2 flex items-center justify-around">
+							<div class="auth-buttons">
 								<a
 									href="/auth/login"
-									class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
-									onclick={(e) => handleNavWithMenuClose(e, '/auth/login')}
+									class="btn btn-secondary btn-sm flex-1"
+									onclick={(e) => {
+										e.preventDefault();
+										handleNavigate('/auth/login');
+									}}
 								>
-									<IconLogin />
 									{$t('navbar.login')}
 								</a>
 								<a
 									href="/auth/signup"
-									class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
-									onclick={(e) => handleNavWithMenuClose(e, '/auth/signup')}
+									class="btn btn-primary btn-sm flex-1"
+									onclick={(e) => {
+										e.preventDefault();
+										handleNavigate('/auth/signup');
+									}}
 								>
-									<IconAccountPlus />
 									{$t('navbar.signup')}
 								</a>
 							</div>
-							<ul class="menu w-full">
-								{#each loggedOutTopLinks as link (link.href)}
-									{@render topLevelLink(link)}
-								{/each}
-								{#each loggedOutGroups as group (group.id)}
-									<!-- Group dropdown -->
-									<li>
-										<button onclick={() => toggleGroup(group.id)} class="min-h-[48px] py-3">
-											<group.icon class="text-primary" />
-											<span class="font-medium">{$t(group.label)}</span>
-											<svg
-												class="dropdown-arrow ml-auto h-4 w-4"
-												class:dropdown-open={openGroupId === group.id}
-												fill="currentColor"
-												viewBox="0 0 20 20"
-												stroke="currentColor"
-												stroke-width="1"
-											>
-												<path
-													fill-rule="evenodd"
-													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-										</button>
-									</li>
-									<li class="submenu-grid" class:submenu-open={openGroupId === group.id}>
-										<ul class="submenu-inner">
-											{#each group.items as link (link.label)}
-												{@render menuLink(link)}
-											{/each}
-										</ul>
-									</li>
-								{/each}
-							</ul>
+							<NavGrid
+								bind:this={navGridRef}
+								items={gridItems}
+								groups={navGroups}
+								onNavigate={handleNavigate}
+								onLogout={handleLogoutClick}
+							/>
 						{/if}
 					</div>
 				</div>
-
-				{#if $authState.isAuthenticated}
-					<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
-						<div class="flex gap-2">
-							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
-							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
-							{@render quickActionLink(
-								'/create-service',
-								IconPlusCircleOutline,
-								'navbar.list_service'
-							)}
-						</div>
-					</div>
-				{/if}
 			</div>
 		</div>
 	</div>
 {/if}
 
-<!-- Bottom Navigation Bar -->
 {#if $authState.isAuthenticated}
-	<div
-		bind:this={dockEl}
-		class="dock pb-safe bg-primary border-base-300/70 z-80 border-t text-black"
-		onclickcapture={handleBottomNavTap}
-	>
-		{@render dockLink('/hiring', IconHome, 'navbar.home', 'home')}
-		{@render dockLink('/create-task', IconPlusCircleOutline, 'navbar.new_task', 'create-task')}
-
+	<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
+		<DockIcon
+			href="/hiring"
+			Icon={IconHome}
+			label={$t('navbar.home')}
+			isActive={currentSection === 'home'}
+		/>
+		<DockIcon
+			href="/create-task"
+			Icon={IconPlusCircleOutline}
+			label={$t('navbar.new_task')}
+			isActive={currentSection === 'create-task'}
+		/>
 		<button
-			data-menu-button
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
+			class="dock-menu-btn"
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
 		>
-			{@render hamburgerButton()}
+			{@render hamburgerIcon()}
 		</button>
-
-		{@render dockLink('/wallet', IconWalletOutline, 'navbar.wallet', 'wallet')}
-		{@render dockLink('/messages', IconChatOutline, 'navbar.messages', 'messages')}
+		<DockIcon
+			href="/wallet"
+			Icon={IconWalletOutline}
+			label={$t('navbar.wallet')}
+			isActive={currentSection === 'wallet'}
+		/>
+		<DockIcon
+			href="/messages"
+			Icon={IconChatOutline}
+			label={$t('navbar.messages')}
+			isActive={currentSection === 'messages'}
+		/>
 	</div>
 {:else}
-	<div
-		bind:this={dockEl}
-		class="dock pb-safe bg-primary border-base-300/70 z-80 border-t text-black"
-		onclickcapture={handleBottomNavTap}
-	>
-		{@render dockLink('/tasks', IconHome, 'navbar.home', 'home')}
-		{@render dockLink('/about', IconInformationOutline, 'navbar.about', 'about')}
-
+	<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
+		<DockIcon
+			href="/tasks"
+			Icon={IconHome}
+			label={$t('navbar.home')}
+			isActive={currentSection === 'home'}
+		/>
+		<DockIcon
+			href="/about"
+			Icon={IconInformationOutline}
+			label={$t('navbar.about')}
+			isActive={currentSection === 'about'}
+		/>
 		<button
-			data-menu-button
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
+			class="dock-menu-btn"
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
 		>
-			{@render hamburgerButton()}
+			{@render hamburgerIcon()}
 		</button>
-
-		{@render dockLink('/how-it-works', IconHelpCircleOutline, 'navbar.help', 'help')}
-		{@render dockLink('/auth/signup', IconAccountPlus, 'navbar.signup', 'signup')}
+		<DockIcon
+			href="/how-it-works"
+			Icon={IconHelpCircleOutline}
+			label={$t('navbar.help')}
+			isActive={currentSection === 'help'}
+		/>
+		<DockIcon
+			href="/auth/signup"
+			Icon={IconAccountPlus}
+			label={$t('navbar.signup')}
+			isActive={currentSection === 'signup'}
+		/>
 	</div>
 {/if}
 
@@ -664,10 +423,6 @@
 />
 
 <style>
-	/*
-	 * SystemBars fallback pattern for Android WebView < 140:
-	 * var(--safe-area-inset-*, env(safe-area-inset-*, 0px))
-	 */
 	.pb-safe {
 		padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 	}
@@ -681,105 +436,104 @@
 		min-height: 64px;
 		height: auto;
 		width: 100%;
+		z-index: 80;
 	}
 
-	.dock .dock-label {
-		white-space: nowrap;
+	.dock-menu-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		min-height: 48px;
+		min-width: 48px;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.75rem;
+		transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
+		-webkit-tap-highlight-color: transparent;
 	}
 
-	.bottom-nav-backdrop {
-		opacity: 0;
-		transition: opacity 300ms ease;
-		-webkit-backdrop-filter: blur(8px);
-		backdrop-filter: blur(8px);
+	.dock-menu-btn:active {
+		transform: scale(0.88);
 	}
 
-	.bottom-nav-backdrop.backdrop-visible {
-		opacity: 0.3;
+	.dock-menu-btn:hover {
+		background: hsl(var(--pc) / 0.1);
 	}
 
-	.bottom-nav-menu {
-		transform: translateY(100%);
-		transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+	/*
+	 * Drawer overlay: fills the full screen. The dark backdrop is always
+	 * visible once the overlay mounts, so the user sees it immediately.
+	 * The drawer-panel slides up from behind the dock using CSS transform.
+	 * The panel itself has a solid bg-base-100 background so the rounded
+	 * corners of drawer-content blend seamlessly into the panel.
+	 */
+	.drawer-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 70;
+	}
+
+	.drawer-backdrop {
+		position: absolute;
+		inset: 0;
+		background: hsl(0 0% 0% / 0.35);
+	}
+
+	.drawer-panel {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: hsl(var(--b1));
 		will-change: transform;
-		backface-visibility: hidden;
-
-		/* Panel extends behind the dock so it appears to slide from behind it */
-		max-height: calc(52rem + var(--app-footer-height, var(--bottom-nav-height-safe)));
-		/* Reserve space for the dock — uses measured dock height directly */
+		max-height: calc(
+			52rem + var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)))
+		);
 		padding-bottom: var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)));
+	}
+
+	.drawer-content {
 		overflow: hidden;
 	}
-	.menu-expand {
-		transform: translateY(0);
-	}
-	.menu-collapse {
-		transform: translateY(100%);
+
+	.drawer-scroll {
+		max-height: 70vh;
+		overflow-y: auto;
+		overflow-x: hidden;
+		overscroll-behavior: contain;
+		padding: 0.5rem 0.5rem 0.75rem;
 	}
 
-	.bottom-nav-menu::-webkit-scrollbar {
+	.drawer-inner {
+		position: relative;
+	}
+
+	.auth-buttons {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dock-menu-btn:active {
+			transform: none;
+		}
+	}
+
+	.drawer-scroll::-webkit-scrollbar {
 		width: 4px;
 	}
 
-	.bottom-nav-menu::-webkit-scrollbar-track {
+	.drawer-scroll::-webkit-scrollbar-track {
 		background: transparent;
 	}
 
-	.bottom-nav-menu::-webkit-scrollbar-thumb {
+	.drawer-scroll::-webkit-scrollbar-thumb {
 		background: hsl(var(--p));
 		border-radius: 2px;
 	}
 
-	.bottom-nav-menu::-webkit-scrollbar-thumb:hover {
+	.drawer-scroll::-webkit-scrollbar-thumb:hover {
 		background: hsl(var(--p) / 0.8);
-	}
-
-	/*
-	 * Submenu reveal using grid-template-rows trick for smooth layout pushing.
-	 * Modern browsers optimize this heavily for performance.
-	 */
-	.submenu-grid {
-		display: grid;
-		grid-template-rows: 0fr;
-		transition: grid-template-rows 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-		overflow: hidden;
-		list-style: none;
-	}
-
-	.submenu-grid.submenu-open {
-		grid-template-rows: 1fr;
-	}
-
-	.submenu-inner {
-		min-height: 0;
-		padding: 0;
-		margin: 0;
-		list-style: none;
-		overflow: hidden;
-	}
-
-	.dropdown-arrow {
-		transform-origin: center;
-		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-		will-change: transform;
-		transform: rotate(0deg);
-	}
-
-	.dropdown-arrow.dropdown-open {
-		transform: rotate(180deg);
-	}
-
-	.menu li > button:hover .dropdown-arrow {
-		transform: rotate(0deg) scale(1.05);
-	}
-
-	.menu li > button:hover .dropdown-arrow.dropdown-open {
-		transform: rotate(180deg) scale(1.05);
-	}
-
-	.dock button[data-menu-button] span {
-		will-change: transform, opacity;
-		transform-origin: center;
-		backface-visibility: hidden;
 	}
 </style>

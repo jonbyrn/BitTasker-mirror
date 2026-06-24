@@ -69,19 +69,11 @@ describe('service acceptance snapshot', () => {
 
 	it('derives chain and contract config from the active RSK network', () => {
 		vi.stubEnv('VITE_RSK_NETWORK', 'mainnet');
-		vi.stubEnv(
-			'VITE_RSK_CONTRACT_ADDRESS_MAINNET',
-			'0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-		);
-		vi.stubEnv(
-			'VITE_RSK_CONTRACT_ADDRESS_TESTNET',
-			'0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
-		);
+		vi.stubEnv('VITE_RSK_CONTRACT_ADDRESS_MAINNET', '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+		vi.stubEnv('VITE_RSK_CONTRACT_ADDRESS_TESTNET', '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');
 
 		expect(getConfiguredRskChainId()).toBe(30);
-		expect(getConfiguredRskContractAddress()).toBe(
-			'0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-		);
+		expect(getConfiguredRskContractAddress()).toBe('0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
 		expect(getConfiguredVerificationRpcLabel()).toBe('rsk:mainnet');
 	});
 

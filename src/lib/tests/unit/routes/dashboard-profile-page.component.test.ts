@@ -72,9 +72,7 @@ describe('dashboard profile page', () => {
 	});
 
 	it('honors review query params for another user', () => {
-		mocks.page.url = new URL(
-			'https://example.com/profile?user=npub-target-user&tab=reviews'
-		);
+		mocks.page.url = new URL('https://example.com/profile?user=npub-target-user&tab=reviews');
 
 		render(DashboardProfilePage);
 

@@ -214,6 +214,14 @@ export default defineConfig(({ mode }) => {
 						if (id.includes('node_modules/bip39')) {
 							return 'bip39';
 						}
+						// Isolate the `debug` CJS module into its own chunk.
+						// When merged with NDK/Dexie into a single chunk, Rollup's
+						// `getDefaultExportFromCjs` returns the raw `exports` object
+						// instead of the `createDebug` function, causing "b is not a
+						// function" at runtime on every page.
+						if (id.includes('node_modules/debug/')) {
+							return 'debug';
+						}
 						// Isolate Svelte internals into their own chunk.
 						// Without this, Vite merges Svelte's onMount/onDestroy/state/etc. with
 						// NDK and axios code that has top-level await. The topLevelAwait plugin

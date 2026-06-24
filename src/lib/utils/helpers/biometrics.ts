@@ -157,6 +157,12 @@ export async function setBiometricKey({
 }
 
 /**
+ * Single-flight mutex: concurrent callers share one passkey prompt
+ * instead of racing and hitting "A request is already pending".
+ */
+let pendingBiometricRequest: Promise<Credentials | null> | null = null;
+
+/**
  * Get biometric data using shared unPackKeys format
  * @param checkNpub For already logged in users check biometric npub against localStorage npub
  * @returns Promise<Credentials | null>
@@ -164,6 +170,23 @@ export async function setBiometricKey({
 export async function getBiometricData(
 	checkNpub: boolean = false,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = []
+): Promise<Credentials | null> {
+	if (pendingBiometricRequest) {
+		return pendingBiometricRequest;
+	}
+
+	pendingBiometricRequest = executeBiometricData(checkNpub, allowCredentials);
+
+	try {
+		return await pendingBiometricRequest;
+	} finally {
+		pendingBiometricRequest = null;
+	}
+}
+
+async function executeBiometricData(
+	checkNpub: boolean,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[]
 ): Promise<Credentials | null> {
 	try {
 		// Force WebAuthn if authMethod is 'passkey'

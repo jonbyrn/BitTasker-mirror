@@ -74,9 +74,7 @@ describe('service instant-buy time derivation', () => {
 				]
 			}
 		};
-		expect(
-			deriveServiceInstantBuySchedule(service, 'premium', 1_700_000_000, true)
-		).toEqual({
+		expect(deriveServiceInstantBuySchedule(service, 'premium', 1_700_000_000, true)).toEqual({
 			estimatedStartTime: 1_700_043_200,
 			estimatedEndTime: 1_700_302_400,
 			deliverySeconds: 259200

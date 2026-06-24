@@ -3,13 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$app/environment', () => ({ browser: true, dev: false }));
 
 // Must be imported after $app/environment mock
-const {
-	detectOS,
-	detectBrowser,
-	detectDeviceType,
-	requiresHTTPS,
-	isWebAuthnSupported
-} = await import('$lib/utils/helpers/deviceCompatibility');
+const { detectOS, detectBrowser, detectDeviceType, requiresHTTPS, isWebAuthnSupported } =
+	await import('$lib/utils/helpers/deviceCompatibility');
 
 describe('deviceCompatibility', () => {
 	const originalUserAgent = navigator.userAgent;

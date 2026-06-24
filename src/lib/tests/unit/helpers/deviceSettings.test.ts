@@ -86,9 +86,9 @@ describe('deviceSettings', () => {
 
 	describe('openDeviceSettings', () => {
 		it('should throw for web platform', async () => {
-			await expect(
-				openDeviceSettings('windows', 'web')
-			).rejects.toThrow('Cannot open device settings from web browser');
+			await expect(openDeviceSettings('windows', 'web')).rejects.toThrow(
+				'Cannot open device settings from web browser'
+			);
 		});
 	});
 });
