@@ -1,0 +1,167 @@
+<script lang="ts">
+	import { t } from 'svelte-i18n';
+	import { ethers } from 'ethers';
+	import { tryCatch } from '$lib/utils/tryCatch';
+	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
+	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { calculateBtcLiquidationPrice } from '$lib/services/defi/aave.service';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
+
+	interface Props {
+		walletId: string;
+		address: string;
+		onBack: () => void;
+		onComplete: () => void;
+		onProject?: (data: { liqPrice: number; collateralUsd: number }) => void;
+	}
+
+	let { walletId, address: _address, onBack: _onBack, onComplete, onProject }: Props = $props();
+
+	let amount = $state('');
+	let sliderPercent = $state(0);
+	let isProcessing = $state(false);
+	let isOnline = $derived($browserNetworkStatus.online);
+
+	let position = $derived(
+		walletId === 'builtin' ? defiPositions.aavePositions.get('builtin') : null
+	);
+	let currentDebtUsd = $derived(position?.totalDebtUsd ?? 0);
+	let currentCollateralUsd = $derived(position?.totalCollateralUsd ?? 0);
+	let liqThreshold = $derived(position?.liquidationThreshold ?? 7800);
+
+	let amountNum = $derived.by(() => {
+		const n = parseFloat(amount);
+		return isFinite(n) && n > 0 ? n : 0;
+	});
+
+	let projectedDebtUsd = $derived(Math.max(0, currentDebtUsd - amountNum));
+
+	let projectedLiqPrice = $derived.by(() => {
+		if (projectedDebtUsd <= 0 || currentCollateralUsd <= 0) return 0;
+		const collateralBtc = btcPrice.price > 0 ? currentCollateralUsd / btcPrice.price : 0;
+		const result = calculateBtcLiquidationPrice(
+			projectedDebtUsd,
+			collateralBtc,
+			liqThreshold,
+			btcPrice.price
+		);
+		return result?.liquidationBtcPrice ?? 0;
+	});
+
+	// Report projected values to parent on every change
+	$effect(() => {
+		// Read all reactive deps explicitly to ensure tracking
+		const liq = projectedLiqPrice;
+		const coll = currentCollateralUsd;
+		const debt = projectedDebtUsd;
+		void debt; // ensure tracking
+		onProject?.({ liqPrice: liq, collateralUsd: coll });
+	});
+
+	let canRepay = $derived(amountNum > 0 && isOnline && amountNum <= currentDebtUsd);
+
+	function setMax() {
+		sliderPercent = 100;
+		amount = currentDebtUsd.toFixed(2);
+	}
+
+	function handleAmountInput(e: Event) {
+		amount = (e.currentTarget as HTMLInputElement).value.replace(/,/g, '.');
+		const n = parseFloat(amount || '0');
+		sliderPercent =
+			isFinite(n) && n > 0 && currentDebtUsd > 0 ? Math.min(100, (n / currentDebtUsd) * 100) : 0;
+	}
+
+	function handleSlider(e: Event) {
+		const pct = parseFloat((e.currentTarget as HTMLInputElement).value);
+		sliderPercent = pct;
+		if (pct <= 0 || currentDebtUsd <= 0) {
+			amount = '';
+			return;
+		}
+		amount = ((currentDebtUsd * pct) / 100).toFixed(2);
+	}
+
+	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
+
+	async function handleRepay() {
+		if (!canRepay || isProcessing) return;
+		isProcessing = true;
+		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
+		const aave = new AaveService(provider);
+		const rawAmount = BigInt(Math.floor(amountNum * 1_000_000));
+		const signer = new ethers.Wallet('0x' + '00'.repeat(32), provider);
+
+		const { data: tx, error } = await tryCatch(aave.repay(USDT0_ARBITRUM, rawAmount, signer));
+		if (error || !tx) {
+			isProcessing = false;
+			return;
+		}
+
+		const { data: receipt } = await tryCatch(tx.wait());
+		isProcessing = false;
+		if (receipt) onComplete();
+	}
+</script>
+
+<div class="flex flex-col gap-4">
+	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
+		<div class="flex items-center justify-between">
+			<span class="text-base-content/60">Current Debt</span>
+			<span class="font-medium tabular-nums">${currentDebtUsd.toFixed(2)}</span>
+		</div>
+	</div>
+
+	<div>
+		<div class="join w-full">
+			<span
+				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0"
+				>$
+			</span>
+			<input
+				type="text"
+				class="input input-bordered join-item min-h-[48px] flex-1 tabular-nums"
+				placeholder="0.00"
+				value={amount}
+				oninput={handleAmountInput}
+				inputmode="decimal"
+			/>
+			<button
+				type="button"
+				class="btn btn-primary join-item min-h-[48px] rounded-r-lg"
+				onclick={setMax}
+				disabled={currentDebtUsd <= 0}
+			>
+				{$t('wallet.max')}
+			</button>
+		</div>
+		<div class="form-control py-2">
+			<div class="flex items-center gap-3">
+				<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
+					>{Math.round(sliderPercent)}%</span
+				>
+				<input
+					type="range"
+					min="0"
+					max="100"
+					step="1"
+					value={Math.round(sliderPercent)}
+					class="range range-primary range-sm flex-1"
+					oninput={handleSlider}
+					disabled={currentDebtUsd <= 0}
+				/>
+			</div>
+		</div>
+	</div>
+
+	<button
+		type="button"
+		class="btn btn-primary min-h-[48px] w-full"
+		disabled={!canRepay || isProcessing}
+		onclick={handleRepay}
+		aria-busy={isProcessing}
+	>
+		{isProcessing ? $t('wallet.defi.shared.pending_tx') : `Repay $${amountNum.toFixed(2)}`}
+	</button>
+</div>
