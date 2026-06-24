@@ -38,7 +38,9 @@ export async function connectNotificationSocket(): Promise<void> {
 
 	socket.on('notification:new', (notification: NotificationCenterItem) => {
 		notificationCenterStore.addFromRealtime(notification);
-		appStore.showInfoToast(notification.title);
+		appStore.showInfoToast(notification.title, 3000, {
+			dedupKey: `toast-dedup:${notification.title}`
+		});
 
 		Sentry.addBreadcrumb({
 			category: 'notification',

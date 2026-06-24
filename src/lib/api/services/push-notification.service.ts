@@ -218,11 +218,9 @@ class PushNotificationService {
 	private async handleForegroundMessage(payload: MessagePayload): Promise<void> {
 		// Handle data payload first (includes device revocation)
 		if (payload.data) {
-			const dedupKey = payload.data.notificationId
-				? `notification:${payload.data.notificationId}`
-				: `fcm:${payload.data.title}:${payload.data.type ?? ''}`;
-			appStore.showInfoToast(payload.data.title || 'New notification received', 3000, {
-				dedupKey
+			const title = payload.data.title || 'New notification received';
+			appStore.showInfoToast(title, 3000, {
+				dedupKey: `toast-dedup:${title}`
 			});
 
 			/**
