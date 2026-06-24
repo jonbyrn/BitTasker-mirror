@@ -59,7 +59,16 @@
 		formState: null
 	});
 
-	function openPaymentRequestModal(data: Record<string, unknown>) {
+	function openPaymentRequestModal(data: {
+		swapId?: string;
+		address?: string;
+		network?: string;
+		amount?: number;
+		memo?: string;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number;
+		formState?: ReceiveFormState | null;
+	}) {
 		paymentRequestModal = {
 			isOpen: true,
 			...data

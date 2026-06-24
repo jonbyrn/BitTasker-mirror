@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import type { SmartRoute } from '$lib/services/SmartRouter';
 
 	const PROVIDER_LABELS: Record<string, string> = {
 		boltz: 'Boltz',
@@ -24,8 +25,8 @@
 		show?: boolean;
 		onConfirm?: () => void;
 		onCancel?: () => void;
-		smartRoute?: unknown;
-		onRetry?: (route: unknown) => void;
+		smartRoute?: SmartRoute | null;
+		onRetry?: (route: SmartRoute) => void;
 	} = $props();
 
 	function handleKeydown(e: KeyboardEvent) {

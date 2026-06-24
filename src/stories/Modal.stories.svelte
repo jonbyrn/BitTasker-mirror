@@ -9,6 +9,10 @@
 		title: 'Components/Modal',
 		component: Modal,
 		tags: ['autodocs'],
+		args: {
+			title: 'Modal Title',
+			isOpen: true
+		},
 		argTypes: {
 			isOpen: { control: 'boolean' },
 			title: { control: 'text' },
@@ -64,7 +68,7 @@
 	<div class="p-8">
 		<Modal {...args} {onClose}>
 			<div class="space-y-4">
-				{#each Array(10) as _}
+				{#each Array(10) as _, i (i)}
 					<div class="bg-base-200 rounded p-4">
 						<h3 class="font-bold">Scrollable Content</h3>
 						<p>

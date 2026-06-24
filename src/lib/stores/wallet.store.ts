@@ -1127,7 +1127,7 @@ async function loadTransactionsInternal(): Promise<void> {
 			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
 			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats),
 			arbTxs.length > 0
-				? processTransactions(arbTxs, arbAddress, 'arb', currentBalanceSats)
+				? processTransactions(arbTxs, arbAddress ?? '', 'arb', currentBalanceSats)
 				: Promise.resolve([])
 		]);
 

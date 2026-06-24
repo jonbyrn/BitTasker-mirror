@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
-import type { Service } from '$lib/types/service.d';
+import type { Service } from '$lib/types/service';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { tick } from 'svelte';
 
@@ -149,7 +149,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) => hoisted.findServices(...args),
 	cleanup: vi.fn()
 }));
 
@@ -192,7 +192,7 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args) => hoisted.persistServiceSearchFilters(...args),
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
 	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 

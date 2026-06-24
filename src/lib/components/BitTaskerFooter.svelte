@@ -296,6 +296,44 @@
 			</div>
 		</div>
 
+		<!-- Popular Learn Topics -->
+		<div class="border-base-content/10 mt-8 border-t pt-8">
+			<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.learn_topics')}</h4>
+			<div class="flex flex-wrap gap-x-4 gap-y-2">
+				<a
+					href="/learn/wallet/best-bitcoin-wallet/"
+					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_wallet_guide')}</a
+				>
+				<span class="text-base-content/30">·</span>
+				<a
+					href="/learn/wallet/ledger-vs-trezor/"
+					class="hover:text-primary text-sm transition-colors"
+					>{$t('footer.learn_ledger_vs_trezor')}</a
+				>
+				<span class="text-base-content/30">·</span>
+				<a
+					href="/learn/freelancing/upwork-alternatives/"
+					class="hover:text-primary text-sm transition-colors"
+					>{$t('footer.learn_upwork_alternatives')}</a
+				>
+				<span class="text-base-content/30">·</span>
+				<a
+					href="/learn/bitcoin/lightning-network/"
+					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_lightning')}</a
+				>
+				<span class="text-base-content/30">·</span>
+				<a
+					href="/learn/rootstock/bittasker-escrow-contracts/"
+					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_escrow')}</a
+				>
+				<span class="text-base-content/30">·</span>
+				<a
+					href="/learn/security/is-bittasker-safe/"
+					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_is_safe')}</a
+				>
+			</div>
+		</div>
+
 		<div class="border-base-content/10 mt-12 border-t pt-8 pb-6 text-center">
 			<p>
 				© {new Date().getFullYear()}

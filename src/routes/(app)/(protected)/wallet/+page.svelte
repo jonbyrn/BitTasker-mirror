@@ -45,6 +45,7 @@
 	import BorrowFlowDrawer from '$lib/components/wallet/BorrowFlowDrawer.svelte';
 	import EarnFlowDrawer from '$lib/components/wallet/EarnFlowDrawer.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
+	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import PendingClaimBanner from '$lib/components/wallet/PendingClaimBanner.svelte';
@@ -80,6 +81,11 @@
 		await initializeWallet();
 		walletManager.markExpectingInbound();
 
+		// Load DeFi positions (Aave V3) if feature enabled
+		if (isLoanFlowEnabled()) {
+			defiPositions.refreshAllAave().catch(() => {});
+		}
+
 		// Open receive modal if tab=receive is in URL
 		const tab = page.url.searchParams.get('tab');
 		if (tab === 'receive') {
@@ -95,6 +101,13 @@
 	let showBuySell = $state(false);
 	let showSwap = $state(false);
 	let showTransactionsModal = $state(false);
+	// Default asset overrides when opened from loan flow
+	let loanFlowSwapDest = $state<'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain' | undefined>(
+		undefined
+	);
+	let loanFlowBuyCrypto = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain' | undefined>(
+		undefined
+	);
 	let showConnectedTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
@@ -652,8 +665,14 @@
 			isOpen={showBorrow}
 			onClose={() => (showBorrow = false)}
 			onGetWbtc={() => {
+				loanFlowSwapDest = 'wbtc-arb';
 				showBorrow = false;
 				showSwap = true;
+			}}
+			onBuyWbtc={() => {
+				loanFlowBuyCrypto = 'wbtc-arb';
+				showBorrow = false;
+				showBuySell = true;
 			}}
 		/>
 	{/if}
@@ -663,10 +682,24 @@
 {/if}
 
 <!-- Buy/Sell Drawer -->
-<BuySellForm isOpen={showBuySell} onClose={() => (showBuySell = false)} />
+<BuySellForm
+	isOpen={showBuySell}
+	onClose={() => {
+		showBuySell = false;
+		loanFlowBuyCrypto = undefined;
+	}}
+	defaultCrypto={loanFlowBuyCrypto}
+/>
 
 <!-- Swap Drawer -->
-<SwapForm isOpen={showSwap} onClose={() => (showSwap = false)} />
+<SwapForm
+	isOpen={showSwap}
+	onClose={() => {
+		showSwap = false;
+		loanFlowSwapDest = undefined;
+	}}
+	defaultDestType={loanFlowSwapDest}
+/>
 
 <!-- New UX Modals -->
 <WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>

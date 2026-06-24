@@ -58,6 +58,8 @@
 
 		/** Minimum value for the % slider (0-100). Used to enforce swap minimums. */
 		sliderMin?: number;
+		/** Custom label for the MAX button (defaults to $t('wallet.max')). */
+		maxLabel?: string;
 	}
 
 	let {
@@ -92,7 +94,8 @@
 		maxDisabled = false,
 		sliderDisabled = false,
 		belowMinimum = false,
-		sliderMin = 0
+		sliderMin = 0,
+		maxLabel
 	}: Props = $props();
 
 	function handleCalculationChange(expression: string, result: number) {
@@ -242,7 +245,7 @@
 				{#if isLoadingMaxCalculation}
 					<span class="loading loading-spinner loading-xs"></span>
 				{:else}
-					<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
+					<span class="text-xs sm:text-sm">{maxLabel ?? $t('wallet.max')}</span>
 				{/if}
 			</button>
 		{/if}
@@ -252,7 +255,7 @@
 		<div class="form-control py-2">
 			<div class="flex items-center gap-3" class:opacity-50={disabled || sliderDisabled}>
 				<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
-					>{percent ?? 0}%</span
+					>{Math.round(percent ?? 0)}%</span
 				>
 				<input
 					type="range"
@@ -335,7 +338,7 @@
 					{#if isLoadingMaxCalculation}
 						<span class="loading loading-spinner loading-xs"></span>
 					{:else}
-						{$t('wallet.max')}
+						{maxLabel ?? $t('wallet.max')}
 					{/if}
 				</button>
 			{/if}

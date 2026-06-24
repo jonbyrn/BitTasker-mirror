@@ -42,6 +42,8 @@ import {
 	encodeERC20Transfer,
 	getBSCUSDTContractAddress
 } from '$lib/services/external-wallet/chain-utils';
+import { saveSwapToNostr, recoverSwapsFromNostr } from '$lib/utils/swapAdapter';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 const d = createDebug('swap-chain');
 
@@ -64,14 +66,191 @@ interface SwapClaimData {
 const swapClaimData = new Map<string, SwapClaimData>();
 
 /**
+ * Storage for Boltz refund data keyed by swap ID.
+ * Needed to call `EtherSwap.refund(preimageHash)` on RSK after the
+ * Boltz timelock expires, allowing the user to recover locked rBTC.
+ */
+interface SwapRefundData {
+	/** SHA-256 hash of the preimage — the lock key in EtherSwap.lock() */
+	preimageHash: string;
+	/** RSK EtherSwap contract address where rBTC was locked */
+	lockupAddress: string;
+	/** RSK block height after which refund is possible */
+	timeoutBlockHeight: number;
+	/** Boltz claim address on RSK (used in lock() calldata) */
+	claimAddress: string;
+}
+const swapRefundData = new Map<string, SwapRefundData>();
+const REFUND_DATA_KEY = 'bittasker_swap_refund_data';
+
+/**
+ * Persist the refund data map to Capacitor Preferences.
+ * Called whenever a new Boltz swap is created.
+ */
+async function persistRefundData(): Promise<void> {
+	try {
+		const obj = Object.fromEntries(swapRefundData);
+		await Preferences.set({ key: REFUND_DATA_KEY, value: JSON.stringify(obj) });
+	} catch {
+		d.warn('Failed to persist refund data — refund may not be possible after refresh');
+	}
+}
+
+/**
+ * Load persisted refund data from Capacitor Preferences into the in-memory map.
+ * Called at module init so refund data survives page refreshes.
+ */
+async function loadPersistedRefundData(): Promise<void> {
+	try {
+		const { value } = await Preferences.get({ key: REFUND_DATA_KEY });
+		if (value) {
+			const obj = JSON.parse(value) as Record<string, SwapRefundData>;
+			for (const [key, val] of Object.entries(obj)) {
+				if (!swapRefundData.has(key)) {
+					swapRefundData.set(key, val);
+				}
+			}
+			d.log('Loaded %d persisted refund data entries', Object.keys(obj).length);
+		}
+	} catch {
+		d.warn('Failed to load persisted refund data');
+	}
+}
+
+// Load persisted refund data on module init (best-effort)
+loadPersistedRefundData();
+
+/**
+ * Persist the claim data map to Capacitor Preferences.
+ * Called whenever a new Boltz swap is created and claim data is stored.
+ */
+async function persistClaimData(): Promise<void> {
+	try {
+		const obj = Object.fromEntries(swapClaimData);
+		await Preferences.set({ key: CLAIM_DATA_KEY, value: JSON.stringify(obj) });
+	} catch {
+		d.warn('Failed to persist claim data — swap may break on refresh');
+	}
+}
+
+/**
+ * Load persisted claim data from Capacitor Preferences into the in-memory map.
+ * Called at module init so claim data survives page refreshes.
+ */
+async function loadPersistedClaimData(): Promise<void> {
+	try {
+		const { value } = await Preferences.get({ key: CLAIM_DATA_KEY });
+		if (value) {
+			const obj = JSON.parse(value) as Record<string, SwapClaimData>;
+			for (const [key, val] of Object.entries(obj)) {
+				if (!swapClaimData.has(key)) {
+					swapClaimData.set(key, val);
+				}
+			}
+			d.log('Loaded %d persisted claim data entries', Object.keys(obj).length);
+		}
+	} catch {
+		d.warn('Failed to load persisted claim data');
+	}
+}
+
+// Load persisted claim data on module init (best-effort)
+loadPersistedClaimData();
+
+/**
+ * Save a single chain swap's claim data to Nostr (NIP-44 encrypted).
+ * This is the primary persistence mechanism — survives app reinstall,
+ * device change, and relay replication. Preferences is the fallback.
+ *
+ * The event is encrypted to the user's own pubkey, so only they can read it.
+ * Uses kind 30078 (parameterized replaceable) with `d` tag = swapId,
+ * so re-saving the same swap overwrites the previous event.
+ */
+async function saveClaimDataToNostr(swapId: string, claimData: SwapClaimData): Promise<void> {
+	try {
+		const { nsec } = await getNostrKeyPair();
+		const now = Math.floor(Date.now() / 1000);
+		// Build a minimal ChainSwapData-compatible object for the adapter.
+		// The adapter serializes all fields into NIP-44 encrypted content.
+		const swapRecord = {
+			id: swapId,
+			type: 'chain' as const,
+			preimage: claimData.preimageHex,
+			preimageHash: '', // not needed for claim, but satisfies type
+			status: 'transaction.server.confirmed' as const,
+			createdAt: now,
+			updatedAt: now,
+			expiresAt: now + 3600,
+			// Boltz RBTC→TBTC specific fields (serialized by adapter)
+			claimDetails: claimData.claimDetails,
+			lockupClaimAddress: claimData.lockupClaimAddress,
+			// Required ChainSwapData fields (not used for RBTC→TBTC but needed for type)
+			fromAsset: 'L-BTC' as const,
+			fromAmount: 0,
+			lockupAddress: '',
+			blindingKey: '',
+			liquidUri: '',
+			lockupTimeoutBlockHeight: 0,
+			toAsset: 'RBTC' as const,
+			toAmount: 0,
+			rbtcAddress: '',
+			claimTimeoutBlockHeight: 0,
+			refundPublicKey: '',
+			refundPrivateKey: '',
+			refundAddress: ''
+		};
+		await saveSwapToNostr(
+			swapRecord as unknown as Parameters<typeof saveSwapToNostr>[0],
+			nsec,
+			'boltz-swap-chain'
+		);
+		d.log('Saved claim data to Nostr for swap %s', swapId);
+	} catch (err) {
+		d.warn('Failed to save claim data to Nostr for swap %s: %s', swapId, (err as Error).message);
+	}
+}
+
+/**
+ * Load claim data from Nostr for a specific swap ID.
+ * Used as a last-resort fallback when both in-memory and Preferences are empty
+ * (e.g. after app reinstall or Preferences data loss).
+ *
+ * Returns the SwapClaimData if found, null otherwise.
+ */
+async function loadClaimDataFromNostr(swapId: string): Promise<SwapClaimData | null> {
+	try {
+		const { nsec } = await getNostrKeyPair();
+		const swaps = await recoverSwapsFromNostr(nsec, 'boltz-swap-chain', true);
+
+		for (const swap of swaps) {
+			const s = swap as unknown as Record<string, unknown>;
+			if (s.id === swapId && s.preimage) {
+				d.log('Recovered claim data from Nostr for swap %s', swapId);
+				return {
+					preimageHex: s.preimage as string,
+					claimDetails: s.claimDetails as SwapClaimData['claimDetails'],
+					lockupClaimAddress: (s.lockupClaimAddress as string) || ''
+				};
+			}
+		}
+		return null;
+	} catch (err) {
+		d.warn('Failed to load claim data from Nostr for swap %s: %s', swapId, (err as Error).message);
+		return null;
+	}
+}
+
+/**
  * Observable swap progress for UI status tracking.
  * Updated at key steps during swap execution so the UI can show a
  * step-by-step tracker instead of just a spinner.
  */
 export type SwapProgressStep =
 	| 'locking-rbtc'
+	| 'locking-tbtc'
 	| 'waiting-for-boltz'
 	| 'claiming-tbtc'
+	| 'claiming-rbtc'
 	| 'swapping-tbtc'
 	| 'complete'
 	| 'failed';
@@ -218,6 +397,14 @@ async function executeConnectedERC20Transfer(
 /** Capacitor Preferences storage key. */
 const STORAGE_KEY = 'bittasker_swap_chain';
 
+/**
+ * Storage key for Boltz chain swap claim data.
+ * Persists the preimage + claim details so they survive page refreshes.
+ * Without this, `pollBoltzChainSwapCompletion` cannot claim tBTC after
+ * Boltz confirms the lockup if the user reloads the app mid-swap.
+ */
+const CLAIM_DATA_KEY = 'bittasker_swap_claim_data';
+
 /** How often to poll for Changelly swap completion (ms). */
 const CHANGELLY_POLL_INTERVAL_MS = 5000;
 
@@ -311,10 +498,10 @@ export const INITIAL_SWAP_CHAIN_STATE: SwapChainState = {
 
 const VALID_TRANSITIONS: Record<SwapChainPhase, SwapChainPhase[]> = {
 	IDLE: ['SWAP_1_PENDING'],
-	SWAP_1_PENDING: ['SWAP_1_CONFIRMED', 'FAILED'],
-	SWAP_1_CONFIRMED: ['SWAP_2_PENDING', 'COMPLETE', 'FAILED'],
+	SWAP_1_PENDING: ['SWAP_1_CONFIRMED', 'FAILED', 'PARTIAL'],
+	SWAP_1_CONFIRMED: ['SWAP_2_PENDING', 'COMPLETE', 'FAILED', 'PARTIAL'],
 	SWAP_2_PENDING: ['SWAP_2_CONFIRMED', 'FAILED', 'PARTIAL'],
-	SWAP_2_CONFIRMED: ['COMPLETE', 'FAILED'],
+	SWAP_2_CONFIRMED: ['COMPLETE', 'FAILED', 'PARTIAL'],
 	COMPLETE: [],
 	FAILED: [],
 	PARTIAL: []
@@ -916,6 +1103,9 @@ async function executeBoltzHop(
 				// Generate preimage (same as RBTC→Arbitrum path)
 				const preimageBytes = new Uint8Array(32);
 				crypto.getRandomValues(preimageBytes);
+				const _preimageHex = Array.from(preimageBytes, (b) => b.toString(16).padStart(2, '0')).join(
+					''
+				);
 				const hashBytes = await crypto.subtle.digest('SHA-256', preimageBytes);
 				const hashHex = Array.from(new Uint8Array(hashBytes), (b) =>
 					b.toString(16).padStart(2, '0')
@@ -949,6 +1139,15 @@ async function executeBoltzHop(
 					swapResult.claimAddress,
 					swapResult.timeoutBlockHeight
 				);
+
+				// Store refund data so user can recover rBTC if swap fails/times out
+				swapRefundData.set(swapResult.swapId, {
+					preimageHash: hashHex,
+					lockupAddress: swapResult.lockupAddress,
+					timeoutBlockHeight: swapResult.timeoutBlockHeight,
+					claimAddress: swapResult.claimAddress
+				});
+				void persistRefundData();
 
 				// ABI-encode the EtherSwap.lock() call (same as RBTC→Arbitrum path)
 				const etherSwapIface = new ethers.Interface([
@@ -988,6 +1187,122 @@ async function executeBoltzHop(
 		return { data: swapResult?.swapId ?? null, error: null };
 	}
 
+	// Chain swap: TBTC on Arbitrum -> RBTC on RSK
+	// User sends tBTC to Boltz lockup on Arbitrum, Boltz locks rBTC on RSK.
+	// After Boltz confirms lockup, user claims rBTC on RSK by calling EtherSwap.claim().
+	if (hop.fromAsset === 'TBTC' && hop.toChain === 'rsk') {
+		const amount = state.amount;
+		if (!amount) return { data: null, error: new Error('Amount is required') };
+		// amount is in tBTC sats (from previous Symbiosis same-chain hop)
+		const amountSats = Math.round(parseFloat(amount) * 100_000_000);
+		if (Number.isNaN(amountSats) || amountSats <= 0)
+			return { data: null, error: new Error('Invalid tBTC amount') };
+
+		d.log('executeBoltzHop TBTC→RSK: amount=%s (%d sats)', amount, amountSats);
+
+		try {
+			const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+			const boltz = new BoltzProvider();
+
+			// Generate preimage
+			const preimageBytes = new Uint8Array(32);
+			crypto.getRandomValues(preimageBytes);
+			const preimageHex = Array.from(preimageBytes, (b) => b.toString(16).padStart(2, '0')).join(
+				''
+			);
+			const hashBytes = await crypto.subtle.digest('SHA-256', preimageBytes);
+			const hashHex = Array.from(new Uint8Array(hashBytes), (b) =>
+				b.toString(16).padStart(2, '0')
+			).join('');
+
+			// Generate refund key
+			const { ethers } = await import('ethers');
+			const refundWallet = ethers.Wallet.createRandom();
+			const refundPublicKey = refundWallet.publicKey.slice(2);
+
+			// User's RSK address for receiving rBTC
+			const rskAddr = state.sourceConnectedWalletId
+				? (getHandle(state.sourceConnectedWalletId)?.address ?? '').toLowerCase()
+				: (get(walletStore).rsk.address ?? '').toLowerCase();
+			if (!rskAddr) return { data: null, error: new Error('No RSK wallet address available') };
+
+			// Create Boltz chain swap: TBTC → RBTC
+			const swapResult = await boltz.createSwap({
+				amountSats,
+				claimAddress: rskAddr,
+				preimageHash: hashHex,
+				refundPublicKey
+			});
+
+			d.log(
+				'Boltz TBTC→RBTC swap created: id=%s lockup=%s',
+				swapResult.swapId,
+				swapResult.lockupAddress
+			);
+			setSwapProgress('locking-tbtc', `Locking tBTC → ${swapResult.swapId}`);
+
+			// Store claim data (preimage needed to claim rBTC on RSK)
+			if (swapResult.claimDetails) {
+				swapClaimData.set(swapResult.swapId, {
+					preimageHex,
+					claimDetails: swapResult.claimDetails,
+					lockupClaimAddress: swapResult.claimAddress
+				});
+				void persistClaimData();
+				void saveClaimDataToNostr(swapResult.swapId, swapClaimData.get(swapResult.swapId)!);
+			}
+
+			// Store refund data
+			swapRefundData.set(swapResult.swapId, {
+				preimageHash: hashHex,
+				lockupAddress: swapResult.lockupAddress,
+				timeoutBlockHeight: swapResult.timeoutBlockHeight,
+				claimAddress: swapResult.claimAddress
+			});
+			void persistRefundData();
+
+			// Send tBTC to Boltz lockup on Arbitrum via ERC-20 transfer
+			const TBTC_ARB = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
+			const tbtcWei = BigInt(amountSats) * BigInt(1e10); // sats → wei (18 decimals)
+			const transferCalldata = encodeERC20Transfer(swapResult.lockupAddress, tbtcWei);
+
+			d.log(
+				'Sending tBTC to Boltz lockup: %s (%s wei)',
+				swapResult.lockupAddress,
+				tbtcWei.toString()
+			);
+
+			let lockupTxHash: string;
+			if (state.sourceConnectedWalletId) {
+				const evmSigner = getEvmSigner(state.sourceConnectedWalletId);
+				if (!evmSigner)
+					return { data: null, error: new Error('Connected wallet EVM signer not available') };
+				const txRequest: EVMTransactionRequest = {
+					to: TBTC_ARB,
+					data: transferCalldata,
+					value: 0n,
+					chainId: 42161
+				};
+				const result = await evmSigner.sendTransaction(txRequest);
+				lockupTxHash = result.txHash;
+			} else {
+				lockupTxHash = await sendArbitrumTransaction({
+					to: TBTC_ARB,
+					data: transferCalldata,
+					value: '0',
+					gasLimit: 100000
+				});
+			}
+
+			d.log('tBTC lockup tx: %s', lockupTxHash);
+
+			return { data: swapResult.swapId, error: null };
+		} catch (err) {
+			d.error('Boltz TBTC→RBTC swap failed: %s', err instanceof Error ? err.message : String(err));
+			return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+		}
+	}
+
 	// Chain swap: RBTC or BTC -> TBTC on Arbitrum
 	// Handles both 'RBTC' (from SmartRouter boltz+lifi route) and 'BTC' (from legacy boltzQuoteToRoute)
 	if ((hop.fromAsset === 'RBTC' || hop.fromAsset === 'BTC') && hop.toChain === 'arbitrum') {
@@ -1012,6 +1327,9 @@ async function executeBoltzHop(
 			// Generate preimage using Web Crypto API (browser-safe)
 			const preimageBytes = new Uint8Array(32);
 			crypto.getRandomValues(preimageBytes);
+			const preimageHex = Array.from(preimageBytes, (b) => b.toString(16).padStart(2, '0')).join(
+				''
+			);
 			const hashBytes = await crypto.subtle.digest('SHA-256', preimageBytes);
 			const hashHex = Array.from(new Uint8Array(hashBytes), (b) =>
 				b.toString(16).padStart(2, '0')
@@ -1049,12 +1367,29 @@ async function executeBoltzHop(
 			// claimDetails from Boltz API + preimage needed for ERC20Swap.claim()
 			if (swapResult.claimDetails) {
 				swapClaimData.set(swapResult.swapId, {
-					preimageHex: hashHex,
+					preimageHex: preimageHex,
 					claimDetails: swapResult.claimDetails,
 					lockupClaimAddress: swapResult.claimAddress
 				});
+				void persistClaimData(); // Persist to Preferences (local fallback)
+				void saveClaimDataToNostr(swapResult.swapId, swapClaimData.get(swapResult.swapId)!); // Persist to Nostr (survives reinstall)
 				d.log('Stored claim data for swap %s (will claim tBTC on Arbitrum)', swapResult.swapId);
 			}
+
+			// Store refund data so user can recover rBTC if swap fails/times out
+			swapRefundData.set(swapResult.swapId, {
+				preimageHash: hashHex,
+				lockupAddress: swapResult.lockupAddress,
+				timeoutBlockHeight: swapResult.timeoutBlockHeight,
+				claimAddress: swapResult.claimAddress
+			});
+			void persistRefundData();
+			d.log(
+				'Stored refund data for swap %s (lockup=%s timeout=%s)',
+				swapResult.swapId,
+				swapResult.lockupAddress,
+				swapResult.timeoutBlockHeight
+			);
 
 			// ABI-encode the EtherSwap.lock() call:
 			//   lock(bytes32 preimageHash, address claimAddress, uint256 timelock) payable
@@ -1551,7 +1886,8 @@ async function pollChangellySwap(
 async function pollBoltzChainSwapCompletion(
 	swapId: string,
 	sourceConnectedWalletId: string | null,
-	maxWaitMs: number = 900_000 // 15 minutes — chain swaps need claim time
+	maxWaitMs: number = 900_000, // 15 minutes — chain swaps need claim time
+	direction: 'rbtc-to-tbtc' | 'tbtc-to-rbtc' = 'rbtc-to-tbtc'
 ): Promise<{ data: string | null; error: Error | null }> {
 	const BOLTZ_POLL_INTERVAL_MS = 5000;
 	const startTime = Date.now();
@@ -1605,40 +1941,81 @@ async function pollBoltzChainSwapCompletion(
 
 		// Server confirmed lockup — we need to claim tBTC on Arbitrum
 		if (status === 'transaction.server.confirmed') {
-			const claimData = swapClaimData.get(swapId);
+			let claimData = swapClaimData.get(swapId);
+			if (!claimData) {
+				// Try loading persisted claim data (survives page refresh)
+				dBoltz.log('No in-memory claim data for %s — attempting persisted load', swapId);
+				await loadPersistedClaimData();
+				claimData = swapClaimData.get(swapId);
+			}
+			if (!claimData) {
+				// Last resort: load from Nostr (survives app reinstall, device change)
+				dBoltz.log('No Preferences claim data for %s — attempting Nostr recovery', swapId);
+				const nostrData = await loadClaimDataFromNostr(swapId);
+				if (nostrData) {
+					swapClaimData.set(swapId, nostrData);
+					claimData = nostrData;
+					dBoltz.log('Recovered claim data from Nostr for swap %s', swapId);
+				}
+			}
 			if (!claimData) {
 				dBoltz.error('No claim data stored for swap %s — cannot claim', swapId);
 				return { data: null, error: new Error('Missing claim data for tBTC claim') };
 			}
 
-			dBoltz.log(
-				'Claiming tBTC on Arbitrum: contract=%s amount=%d token=%s',
-				claimData.claimDetails.lockupAddress,
-				claimData.claimDetails.amount,
-				TBTC_ARB
-			);
-			setSwapProgress('claiming-tbtc', 'Claiming tBTC on Arbitrum...');
+			// Claim on the correct chain based on swap direction
+			if (direction === 'tbtc-to-rbtc') {
+				// TBTC→RBTC: claim rBTC on RSK by calling EtherSwap.claim()
+				dBoltz.log('Claiming rBTC on RSK for swap %s (TBTC→RBTC direction)', swapId);
+				setSwapProgress('claiming-rbtc', 'Claiming rBTC on RSK...');
 
-			const claimError = await claimTbtcOnArbitrum({
-				contractAddress: claimData.claimDetails.lockupAddress,
-				preimageHex: '0x' + claimData.preimageHex,
-				amount: claimData.claimDetails.amount,
-				tokenAddress: TBTC_ARB,
-				claimAddress: claimData.lockupClaimAddress,
-				refundAddress: claimData.claimDetails.refundAddress,
-				timelock: claimData.claimDetails.timeoutBlockHeight,
-				sourceConnectedWalletId
-			});
+				const claimError = await claimRbtcOnRsk({
+					preimageHex: claimData.preimageHex,
+					amount: claimData.claimDetails.amount,
+					claimAddress: claimData.lockupClaimAddress,
+					refundAddress: claimData.claimDetails.refundAddress,
+					timelock: claimData.claimDetails.timeoutBlockHeight,
+					sourceConnectedWalletId
+				});
 
-			if (claimError !== null) {
-				dBoltz.error('tBTC claim failed: %s', claimError.message);
-				// Don't return error yet — retry on next poll
-				await sleep(BOLTZ_POLL_INTERVAL_MS);
-				continue;
+				if (claimError !== null) {
+					dBoltz.error('rBTC claim failed: %s', claimError.message);
+					await sleep(BOLTZ_POLL_INTERVAL_MS);
+					continue;
+				}
+
+				dBoltz.log('rBTC claim submitted on RSK — waiting for confirmation');
+				swapClaimData.delete(swapId);
+			} else {
+				// RBTC→TBTC: claim tBTC on Arbitrum by calling ERC20Swap.claim()
+				dBoltz.log(
+					'Claiming tBTC on Arbitrum: contract=%s amount=%d token=%s',
+					claimData.claimDetails.lockupAddress,
+					claimData.claimDetails.amount,
+					TBTC_ARB
+				);
+				setSwapProgress('claiming-tbtc', 'Claiming tBTC on Arbitrum...');
+
+				const claimError = await claimTbtcOnArbitrum({
+					contractAddress: claimData.claimDetails.lockupAddress,
+					preimageHex: '0x' + claimData.preimageHex,
+					amount: claimData.claimDetails.amount,
+					tokenAddress: TBTC_ARB,
+					claimAddress: claimData.lockupClaimAddress,
+					refundAddress: claimData.claimDetails.refundAddress,
+					timelock: claimData.claimDetails.timeoutBlockHeight,
+					sourceConnectedWalletId
+				});
+
+				if (claimError !== null) {
+					dBoltz.error('tBTC claim failed: %s', claimError.message);
+					await sleep(BOLTZ_POLL_INTERVAL_MS);
+					continue;
+				}
+
+				dBoltz.log('tBTC claim submitted on Arbitrum — waiting for confirmation');
+				swapClaimData.delete(swapId);
 			}
-
-			dBoltz.log('tBTC claim submitted on Arbitrum — waiting for confirmation');
-			swapClaimData.delete(swapId); // Claimed, cleanup
 		}
 
 		// Non-terminal states: swap.created, swap.mempool, swap.confirmed — keep waiting
@@ -1747,6 +2124,93 @@ async function claimTbtcOnArbitrum(params: {
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		dClaim.error('claimTbtcOnArbitrum failed: %s', message);
+		return new Error(message);
+	}
+}
+
+/**
+ * Claim rBTC on RSK by calling EtherSwap.claim().
+ *
+ * After Boltz detects the tBTC lockup on Arbitrum, it locks rBTC on RSK.
+ * The user calls EtherSwap.claim() with the preimage to release rBTC.
+ *
+ * The claim call is: claim(bytes32 preimage, uint256 amount, address claimAddress, uint256 timelock)
+ * where claimAddress = Boltz's claim address, amount = sats locked, timelock = block height.
+ *
+ * @returns Error if claim failed, null on success
+ */
+async function claimRbtcOnRsk(params: {
+	preimageHex: string;
+	amount: number;
+	claimAddress: string;
+	refundAddress: string;
+	timelock: number;
+	sourceConnectedWalletId: string | null;
+}): Promise<Error | null> {
+	const dClaim = createDebug('swap-chain:claim-rbtc');
+	const ETHERSWAP_ADDRESS = '0xe761e1354097757c019855637746e7dd1bef1654';
+
+	try {
+		const { ethers } = await import('ethers');
+
+		// EtherSwap.claim(bytes32 preimage, uint256 amount, address claimAddress, uint256 timelock)
+		const iface = new ethers.Interface([
+			'function claim(bytes32 preimage, uint256 amount, address claimAddress, uint256 timelock)'
+		]);
+
+		const amountSats = BigInt(params.amount);
+		const calldata = iface.encodeFunctionData('claim', [
+			'0x' + params.preimageHex,
+			amountSats * BigInt(1e10), // sats → wei
+			params.claimAddress,
+			BigInt(params.timelock)
+		]);
+
+		dClaim.log(
+			'Claim calldata: selector=%s to=%s wallet=%s',
+			calldata.substring(0, 10),
+			ETHERSWAP_ADDRESS,
+			params.sourceConnectedWalletId ?? 'builtin'
+		);
+
+		let txHash: string;
+
+		if (params.sourceConnectedWalletId) {
+			const evmSigner = getEvmSigner(params.sourceConnectedWalletId);
+			if (!evmSigner) {
+				return new Error('Connected wallet EVM signer not available for RSK claim');
+			}
+			dClaim.log('Claiming via connected wallet %s on RSK', params.sourceConnectedWalletId);
+			const result = await evmSigner.sendTransaction({
+				to: ETHERSWAP_ADDRESS,
+				data: calldata,
+				value: 0n,
+				chainId: 30
+			});
+			txHash = result.txHash;
+		} else {
+			dClaim.log('Claiming via built-in wallet on RSK');
+			txHash = await sendRawTransaction({
+				to: ETHERSWAP_ADDRESS,
+				data: calldata,
+				value: '0',
+				gasLimit: 150_000
+			});
+		}
+
+		dClaim.log('rBTC claim tx: %s', txHash);
+
+		Sentry.addBreadcrumb({
+			category: 'boltz',
+			message: `rBTC claimed on RSK: ${txHash}`,
+			level: 'info',
+			data: { contract: ETHERSWAP_ADDRESS }
+		});
+
+		return null;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		dClaim.error('claimRbtcOnRsk failed: %s', message);
 		return new Error(message);
 	}
 }
@@ -1902,7 +2366,7 @@ export async function startSwapChain(
 	if (hop1.service === 'boltz' && hop1Id) {
 		d.log('hop 1 is Boltz (id=%s) — polling for completion before hop 2', hop1Id);
 		setSwapProgress('waiting-for-boltz', 'Waiting for Boltz to confirm lockup on RSK...');
-		const pollResult = await pollBoltzChainSwapCompletion(hop1Id, state.sourceConnectedWalletId);
+		const pollResult = await pollBoltzChainSwapCompletion(hop1Id, sourceConnectedWalletId);
 		if (pollResult.error !== null) {
 			d.error('Boltz completion poll failed: %s', pollResult.error.message);
 			const { data: partialState, error: ptError } = await transitionTo(
@@ -1953,7 +2417,38 @@ export async function startSwapChain(
 		return { data: partialState, error: null };
 	}
 
-	// 6. Mark complete
+	// 6. If hop 2 is Boltz: poll for chain swap completion before marking complete.
+	// Boltz chain swaps are asynchronous — the user locks source token, Boltz locks
+	// destination token, then the user claims. This can take several minutes.
+	if (hop2.service === 'boltz' && hop2Id) {
+		d.log('hop 2 is Boltz (id=%s) — polling for completion', hop2Id);
+		setSwapProgress('waiting-for-boltz', 'Waiting for Boltz to complete chain swap...');
+
+		const direction = hop2.fromAsset === 'TBTC' ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+		const pollResult = await pollBoltzChainSwapCompletion(
+			hop2Id,
+			sourceConnectedWalletId,
+			900_000,
+			direction
+		);
+
+		if (pollResult.error !== null) {
+			d.error('Boltz hop 2 poll failed: %s', pollResult.error.message);
+			const { data: partialState, error: ptError } = await transitionTo(
+				{ ...pendingState2, swap1Id: hop1Id, swap2Id: hop2Id },
+				'PARTIAL',
+				{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
+			);
+			if (ptError !== null) {
+				return { data: null, error: ptError };
+			}
+			return { data: partialState, error: null };
+		}
+
+		d.log('Boltz hop 2 completed successfully');
+	}
+
+	// 7. Mark complete
 	const { data: finalState, error: finalError } = await transitionTo(
 		{
 			...pendingState2,
@@ -2054,6 +2549,31 @@ export async function resumeSwapChain(): Promise<{
 			return { data: partialState, error: null };
 		}
 
+		// If hop 2 is Boltz: poll for chain swap completion before marking complete
+		if (hop2.service === 'boltz' && hop2Id) {
+			d.log('resume: hop 2 is Boltz (id=%s) — polling for completion', hop2Id);
+			const direction = hop2.fromAsset === 'TBTC' ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+			const pollResult = await pollBoltzChainSwapCompletion(
+				hop2Id,
+				state.sourceConnectedWalletId,
+				900_000,
+				direction
+			);
+			if (pollResult.error !== null) {
+				d.error('resume: Boltz hop 2 poll failed: %s', pollResult.error.message);
+				const { data: partialState, error: ptError } = await transitionTo(
+					{ ...pendingState2, swap2Id: hop2Id },
+					'PARTIAL',
+					{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
+				);
+				if (ptError !== null) {
+					return { data: null, error: ptError };
+				}
+				return { data: partialState, error: null };
+			}
+			d.log('resume: Boltz hop 2 completed');
+		}
+
 		const { data: completedState, error: completeError } = await transitionTo(
 			{ ...pendingState2, swap2Id: hop2Id },
 			'COMPLETE'
@@ -2064,6 +2584,16 @@ export async function resumeSwapChain(): Promise<{
 		}
 
 		return { data: completedState, error: null };
+	}
+
+	// SWAP_1_CONFIRMED with single-hop route — hop 1 is done, mark complete
+	if (state.phase === 'SWAP_1_CONFIRMED' && state.route && state.route.hops.length === 1) {
+		d.log('resume: single-hop SWAP_1_CONFIRMED — marking complete');
+		const { data: completed, error: completeError } = await transitionTo(state, 'COMPLETE');
+		if (completeError !== null) {
+			return { data: null, error: completeError };
+		}
+		return { data: completed, error: null };
 	}
 
 	// SWAP_1_PENDING or SWAP_2_PENDING — return as-is for caller to verify
@@ -2077,6 +2607,454 @@ export async function resumeSwapChain(): Promise<{
  */
 export async function getSwapChainState(): Promise<SwapChainState> {
 	return loadSwapChainState();
+}
+
+/**
+ * Check whether a refund is available for the current stuck swap.
+ * Returns the refund data and whether the timelock has expired.
+ *
+ * @returns Refund availability info, or null if no refund data exists
+ */
+export async function getRefundInfo(): Promise<{
+	preimageHash: string;
+	lockupAddress: string;
+	timeoutBlockHeight: number;
+	claimAddress: string;
+	canRefund: boolean;
+	message: string;
+} | null> {
+	const state = await loadSwapChainState();
+	if (!state.swap1Id) return null;
+
+	// Try in-memory first, then persisted
+	let rd = swapRefundData.get(state.swap1Id);
+	if (!rd) {
+		await loadPersistedRefundData();
+		rd = swapRefundData.get(state.swap1Id);
+	}
+	if (!rd) return null;
+
+	// Check if timelock has expired by querying RSK current block
+	let canRefund = false;
+	let message = '';
+	try {
+		const { ethers: ethersLib } = await import('ethers');
+		const rskProvider = new ethersLib.JsonRpcProvider('https://mainnet.sovryn.app/rpc');
+		const currentBlock = await rskProvider.getBlockNumber();
+		if (currentBlock >= rd.timeoutBlockHeight) {
+			canRefund = true;
+			message = `Timelock expired at block ${rd.timeoutBlockHeight} (current: ${currentBlock}) — refund available`;
+		} else {
+			const blocksRemaining = rd.timeoutBlockHeight - currentBlock;
+			const minutesRemaining = Math.ceil((blocksRemaining * 30) / 60); // ~30s RSK block time
+			message = `Timelock at block ${rd.timeoutBlockHeight} (current: ${currentBlock}) — ~${minutesRemaining}m remaining`;
+		}
+	} catch (err) {
+		d.warn('Failed to check RSK block number: %s', (err as Error).message);
+		message = 'Unable to check timelock status — try refund anyway';
+		canRefund = true; // Let the user try
+	}
+
+	return { ...rd, canRefund, message };
+}
+
+/**
+ * Execute a refund for a stuck Boltz chain swap.
+ * Calls EtherSwap.refund(preimageHash) on RSK to recover locked rBTC.
+ *
+ * @returns The refund transaction hash, or an error
+ */
+export async function refundSwapChain(): Promise<{
+	txHash: string | null;
+	error: Error | null;
+}> {
+	const dRefund = createDebug('swap-chain:refund');
+	const state = await loadSwapChainState();
+	if (!state.swap1Id) {
+		return { txHash: null, error: new Error('No swap ID found in state') };
+	}
+
+	// Get refund data
+	let rd = swapRefundData.get(state.swap1Id);
+	if (!rd) {
+		await loadPersistedRefundData();
+		rd = swapRefundData.get(state.swap1Id);
+	}
+	if (!rd) {
+		return {
+			txHash: null,
+			error: new Error(
+				'No refund data found — cannot recover funds automatically. Lockup address and preimageHash are needed.'
+			)
+		};
+	}
+
+	dRefund.log(
+		'Refunding swap %s: lockup=%s preimageHash=%s timeout=%s',
+		state.swap1Id,
+		rd.lockupAddress,
+		rd.preimageHash.substring(0, 16) + '...',
+		rd.timeoutBlockHeight
+	);
+
+	try {
+		const { ethers } = await import('ethers');
+
+		// ABI-encode the EtherSwap.refund() call
+		const etherSwapIface = new ethers.Interface([
+			'function refund(bytes32 preimageHash, address claimAddress, uint256 timelock)'
+		]);
+		const refundCalldata = etherSwapIface.encodeFunctionData('refund', [
+			'0x' + rd.preimageHash,
+			rd.claimAddress,
+			BigInt(rd.timeoutBlockHeight)
+		]);
+
+		// Send the refund transaction from the built-in wallet
+		const refundTxHash = await sendRawTransaction({
+			to: rd.lockupAddress,
+			data: refundCalldata,
+			value: '0',
+			gasLimit: 150000
+		});
+
+		dRefund.log('Refund tx sent: %s', refundTxHash);
+
+		// Transition to COMPLETE — funds recovered
+		const { data: _completedState, error: completeError } = await transitionTo(state, 'COMPLETE', {
+			error: `Refund successful: ${refundTxHash}`
+		});
+		if (completeError !== null) {
+			dRefund.warn('Failed to transition to COMPLETE after refund: %s', completeError.message);
+		}
+
+		// Clean up persisted data
+		swapRefundData.delete(state.swap1Id);
+		void persistRefundData();
+		swapClaimData.delete(state.swap1Id);
+		void persistClaimData();
+
+		return { txHash: refundTxHash, error: null };
+	} catch (err) {
+		const errorMsg = (err as Error).message;
+		dRefund.error('Refund failed: %s', errorMsg);
+		return { txHash: null, error: new Error(`Refund failed: ${errorMsg}`) };
+	}
+}
+
+/**
+ * Recover refund data from RSK on-chain Lockup event logs.
+ * Queries the Boltz EtherSwap contract for Lockup events indexed by the
+ * user's RSK address, matches the swap amount, and stores the refund data.
+ *
+ * This is the primary recovery mechanism for EVM chains — Boltz persists
+ * all swap parameters in contract event logs.
+ *
+ * @returns The recovered refund data, or an error
+ */
+export async function recoverRefundDataFromChain(): Promise<{
+	data: SwapRefundData | null;
+	error: Error | null;
+}> {
+	const dRecover = createDebug('swap-chain:recover');
+	const state = await loadSwapChainState();
+
+	if (!state.swap1Id || !state.amount) {
+		return { data: null, error: new Error('No swap ID or amount in state') };
+	}
+
+	// Get user's RSK address
+	const { getRSKAddress } = await import('$lib/stores/wallet.store');
+	const rskAddress = await getRSKAddress();
+	if (!rskAddress) {
+		return { data: null, error: new Error('No RSK address available') };
+	}
+
+	dRecover.log(
+		'Recovering refund data for swap %s (amount=%s, addr=%s)',
+		state.swap1Id,
+		state.amount,
+		rskAddress
+	);
+
+	try {
+		// Compute the expected amount in wei (state.amount is decimal string of RBTC)
+		const expectedAmountWei = BigInt(Math.round(parseFloat(state.amount) * 1e18));
+
+		// Pad RSK address to 32 bytes for topic filtering
+		const paddedAddr = '0x' + rskAddress.toLowerCase().slice(2).padStart(64, '0');
+
+		// Lockup event: topic0 = event sig, topic1 = preimageHash (indexed), topic2 = refundAddress (indexed)
+		const LOCKUP_TOPIC = '0x15b4b8206809535e547317cd5cedc86cff6e7d203551f93701786ddaf14fd9f9';
+		const CLAIM_TOPIC = '0x5664142af3dcfc3dc3de45a43f75c746bd1d8c11170a5037fdf98bdb35775137';
+		const ETHERSWAP_ADDRESS = '0xe761e1354097757c019855637746e7dd1bef1654';
+
+		// Query Blockscout for Lockup events
+		const lockupUrl = `https://rootstock.blockscout.com/api?module=logs&action=getLogs&address=${ETHERSWAP_ADDRESS}&topic0=${LOCKUP_TOPIC}&topic2=${paddedAddr}&topic0_2_opr=and&fromBlock=0&toBlock=latest`;
+		const lockupResp = await fetch(lockupUrl);
+		const lockupData = (await lockupResp.json()) as {
+			result?: Array<{
+				topics: string[];
+				data: string;
+				blockNumber: string;
+				transactionHash: string;
+			}>;
+		};
+
+		if (!lockupData.result || !Array.isArray(lockupData.result)) {
+			return { data: null, error: new Error('Failed to query Lockup events from Blockscout') };
+		}
+
+		dRecover.log('Found %d Lockup events for address %s', lockupData.result.length, rskAddress);
+
+		// Create provider + contract once for on-chain existence checks
+		const { ethers: ethersCheck } = await import('ethers');
+		const checkProvider = new ethersCheck.JsonRpcProvider('https://mainnet.sovryn.app/rpc');
+		const swapAbi = [
+			'function swaps(bytes32) view returns (uint256, address, address, uint256, bytes32, address)'
+		];
+		const swapContract = new ethersCheck.Contract(ETHERSWAP_ADDRESS, swapAbi, checkProvider);
+
+		// Parse events and find matching amount
+		for (const ev of lockupData.result) {
+			const topics = ev.topics;
+			const dataHex = ev.data;
+			if (topics.length < 2 || dataHex.length < 194) continue;
+
+			const preimageHash = topics[1];
+			const amountWei = BigInt('0x' + dataHex.slice(2, 66));
+			const claimAddress = '0x' + dataHex.slice(90, 130);
+			const timelock = Number(BigInt('0x' + dataHex.slice(130, 194)));
+
+			// Match by amount (within 1% tolerance for dust differences)
+			const diff =
+				amountWei > expectedAmountWei
+					? amountWei - expectedAmountWei
+					: expectedAmountWei - amountWei;
+			if (diff > expectedAmountWei / 100n) continue;
+
+			dRecover.log(
+				'Matching Lockup: amount=%s preimageHash=%s timelock=%s',
+				amountWei.toString(),
+				preimageHash.substring(0, 18) + '...',
+				timelock
+			);
+
+			// Check if already claimed
+			const claimUrl = `https://rootstock.blockscout.com/api?module=logs&action=getLogs&address=${ETHERSWAP_ADDRESS}&topic0=${CLAIM_TOPIC}&topic1=${preimageHash}&topic0_1_opr=and&fromBlock=0&toBlock=latest`;
+			const claimResp = await fetch(claimUrl);
+			const claimData = (await claimResp.json()) as { result?: Array<unknown> };
+
+			if (claimData.result && Array.isArray(claimData.result) && claimData.result.length > 0) {
+				dRecover.log('Lockup already claimed, skipping');
+				continue;
+			}
+
+			// Verify the swap still exists in contract storage
+			try {
+				const onChain = await swapContract.swaps(preimageHash);
+				if (onChain[0] === 0n) {
+					dRecover.log('Lockup already resolved (no on-chain data), skipping');
+					continue;
+				}
+			} catch {
+				// swaps() decode error = all zeros = already resolved
+				dRecover.log('Lockup already resolved (decode error), skipping');
+				continue;
+			}
+
+			// Found an unclaimed lockup — store refund data
+			const refundData: SwapRefundData = {
+				preimageHash: preimageHash.startsWith('0x') ? preimageHash.slice(2) : preimageHash,
+				lockupAddress: ETHERSWAP_ADDRESS,
+				timeoutBlockHeight: timelock,
+				claimAddress
+			};
+
+			swapRefundData.set(state.swap1Id, refundData);
+			await persistRefundData();
+
+			dRecover.log(
+				'Recovered refund data: preimageHash=%s timelock=%s claimAddress=%s',
+				preimageHash.substring(0, 18) + '...',
+				timelock,
+				claimAddress
+			);
+
+			return { data: refundData, error: null };
+		}
+
+		return { data: null, error: new Error('No matching unclaimed Lockup event found on-chain') };
+	} catch (err) {
+		dRecover.error('Recovery failed: %s', (err as Error).message);
+		return { data: null, error: new Error(`Recovery failed: ${(err as Error).message}`) };
+	}
+}
+
+/**
+ * Represents an unclaimed Boltz EtherSwap lockup found on-chain.
+ */
+export interface UnclaimedLockup {
+	/** Preimage hash (without 0x prefix) — the lock key */
+	preimageHash: string;
+	/** RSK EtherSwap contract address */
+	lockupAddress: string;
+	/** Boltz claim address on RSK */
+	claimAddress: string;
+	/** Locked amount in satoshis */
+	amountSats: number;
+	/** RSK block height after which refund is possible */
+	timeoutBlockHeight: number;
+	/** Current RSK block height */
+	currentBlock: number;
+	/** Whether the timelock has expired */
+	expired: boolean;
+	/** RSK transaction hash of the lockup */
+	txHash: string;
+	/** RSK block number of the lockup */
+	blockNumber: number;
+	/** Whether the lockup has been resolved (claimed or refunded) on-chain */
+	resolved: boolean;
+}
+
+/**
+ * Scan the RSK blockchain for all unclaimed Boltz EtherSwap lockups
+ * belonging to the user's RSK address.
+ */
+export async function scanUnclaimedLockups(): Promise<{
+	data: UnclaimedLockup[];
+	error: Error | null;
+}> {
+	const dScan = createDebug('swap-chain:scan');
+
+	try {
+		const { getRSKAddress } = await import('$lib/stores/wallet.store');
+		const rskAddress = await getRSKAddress();
+		if (!rskAddress) {
+			return { data: [], error: new Error('No RSK address available') };
+		}
+
+		const paddedAddr = '0x' + rskAddress.toLowerCase().slice(2).padStart(64, '0');
+		const LOCKUP_TOPIC = '0x15b4b8206809535e547317cd5cedc86cff6e7d203551f93701786ddaf14fd9f9';
+		const ETHERSWAP = '0xe761e1354097757c019855637746e7dd1bef1654';
+
+		const url = `https://rootstock.blockscout.com/api?module=logs&action=getLogs&address=${ETHERSWAP}&topic0=${LOCKUP_TOPIC}&topic2=${paddedAddr}&topic0_2_opr=and&fromBlock=0&toBlock=latest`;
+		const resp = await fetch(url);
+		const data = (await resp.json()) as {
+			result?: Array<{
+				topics: string[];
+				data: string;
+				blockNumber: string;
+				transactionHash: string;
+			}>;
+		};
+
+		if (!data.result || !Array.isArray(data.result)) {
+			return { data: [], error: new Error('Failed to query Lockup events') };
+		}
+
+		dScan.log('Found %d Lockup events for %s', data.result.length, rskAddress);
+
+		const { ethers: ethersLib } = await import('ethers');
+		const provider = new ethersLib.JsonRpcProvider('https://mainnet.sovryn.app/rpc');
+		const currentBlock = await provider.getBlockNumber();
+
+		// Create contract instance for on-chain existence checks
+		const swapAbi = [
+			'function swaps(bytes32) view returns (uint256, address, address, uint256, bytes32, address)'
+		];
+		const swapContract = new ethersLib.Contract(ETHERSWAP, swapAbi, provider);
+
+		const results: UnclaimedLockup[] = [];
+
+		for (const ev of data.result) {
+			const topics = ev.topics;
+			const dataHex = ev.data;
+			if (topics.length < 2 || dataHex.length < 194) continue;
+
+			const preimageHash = topics[1];
+			const amountWei = BigInt('0x' + dataHex.slice(2, 66));
+			const claimAddress = '0x' + dataHex.slice(90, 130);
+			const timelock = Number(BigInt('0x' + dataHex.slice(130, 194)));
+
+			// Check if already resolved on-chain (claimed or refunded)
+			let resolved = false;
+			try {
+				const onChain = await swapContract.swaps(preimageHash);
+				if (onChain[0] === 0n) {
+					dScan.log('Lockup %s already resolved (no on-chain data)', preimageHash.slice(0, 10));
+					resolved = true;
+				}
+			} catch {
+				// swaps() decode error = all zeros = already resolved
+				dScan.log('Lockup %s already resolved (decode error)', preimageHash.slice(0, 10));
+				resolved = true;
+			}
+
+			results.push({
+				preimageHash: preimageHash.startsWith('0x') ? preimageHash.slice(2) : preimageHash,
+				lockupAddress: ETHERSWAP,
+				claimAddress,
+				amountSats: Number(amountWei / 10000000000n),
+				timeoutBlockHeight: timelock,
+				currentBlock,
+				expired: currentBlock >= timelock,
+				txHash: ev.transactionHash,
+				blockNumber: parseInt(ev.blockNumber, 16),
+				resolved
+			});
+		}
+
+		dScan.log('Found %d unclaimed lockups', results.length);
+		return { data: results, error: null };
+	} catch (err) {
+		dScan.error('Scan failed: %s', (err as Error).message);
+		return { data: [], error: new Error(`Scan failed: ${(err as Error).message}`) };
+	}
+}
+
+/**
+ * Refund a specific on-chain lockup directly.
+ */
+export async function refundLockupDirect(lockup: UnclaimedLockup): Promise<{
+	txHash: string | null;
+	error: Error | null;
+}> {
+	const dRefund = createDebug('swap-chain:refund-direct');
+
+	dRefund.log(
+		'Refunding lockup: preimageHash=%s timelock=%s amount=%d sats',
+		lockup.preimageHash.substring(0, 16) + '...',
+		lockup.timeoutBlockHeight,
+		lockup.amountSats
+	);
+
+	try {
+		const { ethers: ethersLib } = await import('ethers');
+
+		const etherSwapIface = new ethersLib.Interface([
+			'function refund(bytes32 preimageHash, address claimAddress, uint256 timelock)'
+		]);
+		const refundCalldata = etherSwapIface.encodeFunctionData('refund', [
+			'0x' + lockup.preimageHash,
+			lockup.claimAddress,
+			BigInt(lockup.timeoutBlockHeight)
+		]);
+
+		const refundTxHash = await sendRawTransaction({
+			to: lockup.lockupAddress,
+			data: refundCalldata,
+			value: '0',
+			gasLimit: 150000
+		});
+
+		dRefund.log('Refund tx sent: %s', refundTxHash);
+		return { txHash: refundTxHash, error: null };
+	} catch (err) {
+		const errorMsg = (err as Error).message;
+		dRefund.error('Refund failed: %s', errorMsg);
+		return { txHash: null, error: new Error(`Refund failed: ${errorMsg}`) };
+	}
 }
 
 /**

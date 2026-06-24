@@ -62,7 +62,7 @@
 		}
 
 		// Get translation for current language
-		const translation = skill.translations.translations[currentLang];
+		const translation = skill.translations.translations?.[currentLang];
 		if (translation) {
 			return translation.name || originalName;
 		}
@@ -93,7 +93,7 @@
 		}
 
 		// Get translation for current language
-		const translation = item.translations.translations[currentLang];
+		const translation = item.translations.translations?.[currentLang];
 		if (translation) {
 			return translation.title || originalTitle;
 		}
@@ -124,7 +124,7 @@
 		}
 
 		// Get translation for current language
-		const translation = item.translations.translations[currentLang];
+		const translation = item.translations.translations?.[currentLang];
 		if (translation) {
 			return translation.description || originalDescription;
 		}

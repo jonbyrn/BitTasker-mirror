@@ -34,7 +34,7 @@ import {
 	validateStatusAuthorRole
 } from './protocol';
 import { getServiceQuoteFeatureFlags } from '$lib/utils/features/serviceQuotes';
-import { nip19, nip44, type Event as NostrEvent } from 'nostr-tools';
+import { nip19, nip44, type Event as NostrEvent, type Filter } from 'nostr-tools';
 import {
 	dispatchProposalPublishedSideEffects,
 	dispatchQuoteRequestPublishedSideEffects
@@ -454,22 +454,24 @@ export async function findExistingDuplicate(
 	author: string,
 	dTag: string
 ): Promise<NostrEvent | null> {
-	const primary = await queryNostrEvents({
+	const primaryFilter: Filter = {
 		kinds: [kind],
 		authors: [author],
 		...TAG_FILTERS.byIdentifier(dTag),
 		limit: 10
-	});
+	};
+	const primary = await queryNostrEvents(primaryFilter);
 	if (primary.length > 0) {
 		return primary[0];
 	}
 
-	const fallback = await queryNostrEvents({
+	const fallbackFilter: Filter = {
 		kinds: [kind],
 		authors: [author],
 		since: unixNow() - FALLBACK_DUPLICATE_LOOKBACK_SECONDS,
 		limit: 200
-	});
+	};
+	const fallback = await queryNostrEvents(fallbackFilter);
 
 	return (
 		fallback.find((event) => event.tags.some((tag) => tag[0] === 'd' && tag[1] === dTag)) ?? null
@@ -534,12 +536,13 @@ function unixNow(): number {
 }
 
 async function assertProposalRequestLinkage(params: PublishServiceProposalParams): Promise<void> {
+	const requestFilter: Filter = {
+		kinds: [KINDS.SERVICE_QUOTE_REQUEST],
+		ids: [params.requestEventId],
+		limit: 1
+	};
 	const requestEvents = await queryNostrEvents(
-		{
-			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
-			ids: [params.requestEventId],
-			limit: 1
-		},
+		requestFilter,
 		undefined,
 		undefined,
 		getDefaultRelays(params.relays)

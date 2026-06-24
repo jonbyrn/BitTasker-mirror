@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { createDebug } from '$lib/utils/debug';
+	import IconArrowRight from '~icons/mdi/arrow-right';
 	import {
 		type PendingConnectedSwap,
 		getActivePendingSwaps,
@@ -12,7 +13,14 @@
 	import {
 		getSwapChainState,
 		getSwapChainStatus,
-		type SwapChainState
+		resumeSwapChain,
+		refundSwapChain,
+		getRefundInfo,
+		recoverRefundDataFromChain,
+		scanUnclaimedLockups,
+		refundLockupDirect,
+		type SwapChainState,
+		type UnclaimedLockup
 	} from '$lib/services/swap-chain.service';
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 
@@ -24,6 +32,22 @@
 	let swapChainState = $state<SwapChainState | null>(null);
 	let claimingId = $state<string | null>(null);
 	let dismissConfirmId = $state<string | null>(null);
+	let resuming = $state(false);
+	let checkingStatus = $state(false);
+	let checkStatusMessage = $state('');
+	let refundInfo = $state<Awaited<ReturnType<typeof getRefundInfo>>>(null);
+	let recovering = $state(false);
+	let unclaimedLockups = $state<UnclaimedLockup[]>([]);
+	let scanningLockups = $state(false);
+
+	// Per-card recovery state: 'idle' | 'loading' | 'success' | 'error'
+	type CardRecovery = {
+		status: 'idle' | 'loading' | 'success' | 'error';
+		txHash?: string;
+		error?: string;
+	};
+	let chainSwapRecovery = $state<CardRecovery>({ status: 'idle' });
+	let lockupRecoveries = $state<Record<string, CardRecovery>>({});
 
 	// ── Derived ─────────────────────────────────────────────────────────────
 	const swapChainActive = $derived(
@@ -81,9 +105,52 @@
 				pendingSwaps.length,
 				swapChainState?.phase ?? 'idle'
 			);
+			// Scan for on-chain lockups in background
+			void scanLockups();
 		} catch (err) {
 			d.error('Failed to load pending swaps: %s', (err as Error).message);
 		}
+	}
+
+	async function scanLockups() {
+		if (scanningLockups) return;
+		scanningLockups = true;
+		try {
+			const { data, error: scanError } = await scanUnclaimedLockups();
+			if (scanError) {
+				d.error('Lockup scan failed: %s', scanError.message);
+			} else {
+				unclaimedLockups = data;
+				d.log('Found %d unclaimed lockups', data.length);
+			}
+		} catch (err) {
+			d.error('Lockup scan threw: %s', (err as Error).message);
+		} finally {
+			scanningLockups = false;
+		}
+	}
+
+	async function handleRefundLockup(lockup: UnclaimedLockup) {
+		const key = lockup.txHash;
+		lockupRecoveries[key] = { status: 'loading' };
+		try {
+			const { txHash, error: refundError } = await refundLockupDirect(lockup);
+			if (refundError) {
+				lockupRecoveries[key] = { status: 'error', error: refundError.message };
+				d.error('Lockup refund failed: %s', refundError.message);
+			} else {
+				lockupRecoveries[key] = { status: 'success', txHash: txHash ?? undefined };
+				d.log('Lockup refund succeeded: %s', txHash);
+			}
+		} catch (err) {
+			lockupRecoveries[key] = { status: 'error', error: (err as Error).message };
+			d.error('Lockup refund threw: %s', (err as Error).message);
+		}
+	}
+
+	function dismissLockup(txHash: string) {
+		unclaimedLockups = unclaimedLockups.filter((l) => l.txHash !== txHash);
+		delete lockupRecoveries[txHash];
 	}
 
 	// ── Actions ─────────────────────────────────────────────────────────────
@@ -107,8 +174,108 @@
 		await refresh();
 	}
 
-	function handleResumeChain() {
+	async function handleResumeChain() {
 		d.log('Resume chain requested');
+		resuming = true;
+		try {
+			const result = await resumeSwapChain();
+			if (result.error) {
+				d.error('Resume failed: %s', result.error.message);
+			} else {
+				d.log('Resume succeeded, phase=%s', result.data?.phase);
+			}
+			await refresh();
+		} catch (err) {
+			d.error('Resume threw: %s', (err as Error).message);
+		} finally {
+			resuming = false;
+		}
+	}
+
+	async function handleRefund() {
+		d.log('Refund requested');
+		chainSwapRecovery = { status: 'loading' };
+		try {
+			const { txHash, error: refundError } = await refundSwapChain();
+			if (refundError) {
+				chainSwapRecovery = { status: 'error', error: refundError.message };
+				d.error('Refund failed: %s', refundError.message);
+			} else {
+				chainSwapRecovery = { status: 'success', txHash: txHash ?? undefined };
+				d.log('Refund succeeded, tx=%s', txHash);
+			}
+			await refresh();
+		} catch (err) {
+			chainSwapRecovery = { status: 'error', error: (err as Error).message };
+			d.error('Refund threw: %s', (err as Error).message);
+		}
+	}
+
+	async function handleRecover() {
+		d.log('On-chain recovery requested');
+		recovering = true;
+		try {
+			const { data, error: recoverError } = await recoverRefundDataFromChain();
+			if (recoverError) {
+				d.error('Recovery failed: %s', recoverError.message);
+			} else {
+				d.log('Recovery succeeded, timelock=%s', data?.timeoutBlockHeight);
+				refundInfo = await getRefundInfo();
+			}
+		} catch (err) {
+			d.error('Recovery threw: %s', (err as Error).message);
+		} finally {
+			recovering = false;
+		}
+	}
+
+	// Load refund info when swap is in PARTIAL/FAILED state
+	$effect(() => {
+		if (
+			swapChainState &&
+			(getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial)
+		) {
+			getRefundInfo().then((info) => {
+				refundInfo = info;
+			});
+		} else {
+			refundInfo = null;
+		}
+	});
+
+	async function handleCheckBoltzStatus() {
+		if (!swapChainState?.swap1Id) return;
+		checkingStatus = true;
+		checkStatusMessage = '';
+		try {
+			const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+			const boltz = new BoltzProvider();
+			const status = await boltz.getSwapStatus(swapChainState.swap1Id);
+			checkStatusMessage = formatBoltzStatus(status.status);
+			d.log('Boltz status check: %s', status.status);
+
+			// If Boltz says it's done or ready, try resume to advance the state
+			if (
+				status.status === 'transaction.claimed' ||
+				status.status === 'transaction.server.confirmed' ||
+				status.status === 'transaction.confirmed'
+			) {
+				d.log('Boltz swap ready (status=%s) — resuming chain', status.status);
+				await handleResumeChain();
+			} else if (
+				status.status === 'swap.expired' ||
+				status.status === 'transaction.failed' ||
+				status.status === 'swap.failed'
+			) {
+				checkStatusMessage = `${formatBoltzStatus(status.status)} — dismiss to clean up`;
+			}
+			await refresh();
+		} catch (err) {
+			checkStatusMessage = `Check failed: ${(err as Error).message}`;
+			d.error('Boltz status check failed: %s', (err as Error).message);
+		} finally {
+			checkingStatus = false;
+		}
 	}
 
 	// ── Formatting ──────────────────────────────────────────────────────────
@@ -125,6 +292,15 @@
 		if (hr < 24) return `${hr}h ago`;
 		const day = Math.floor(hr / 24);
 		return `${day}d ago`;
+	}
+
+	// ── Boltz status translation ─────────────────────────────────────────────
+	function formatBoltzStatus(status: string): string {
+		const key = `wallet.pending_swaps.boltz_status_${status.replace(/\./g, '_')}`;
+		const translated = $t(key);
+		// svelte-i18n returns the key itself when not found — fall back to a readable version
+		if (translated && translated !== key) return translated;
+		return status.replace(/\./g, ' ');
 	}
 
 	// ── Reverse swap status messages ────────────────────────────────────────
@@ -288,34 +464,39 @@
 					{@const cs = chainSwapStatusInfo(swapChainState)}
 					{@const route = getChainSwapRoute(swapChainState)}
 					<div class="bg-base-200 border-base-300 rounded-lg border p-3">
-						<!-- Route with icons + status badge right-aligned -->
+						<!-- Route: source left, destination right -->
 						<div class="mb-2 flex items-center gap-2">
-							<img src={route.from.icon} alt={route.from.name} class="h-5 w-5 shrink-0" />
-							<span class="text-sm font-medium">{route.from.name}</span>
-							<span class="text-base-content/40">→</span>
-							<img src={route.to.icon} alt={route.to.name} class="h-5 w-5 shrink-0" />
-							<span class="text-sm font-medium">{route.to.name}</span>
-							<span class="ml-auto shrink-0">
-								<span class="badge badge-sm {cs.badge}">{cs.label}</span>
-							</span>
+							<div class="flex items-center gap-1.5">
+								<img src={route.from.icon} alt={route.from.name} class="h-5 w-5 shrink-0" />
+								<span class="text-sm font-medium">{route.from.name}</span>
+							</div>
+							<span class="text-primary flex flex-1 items-center justify-center"
+								><IconArrowRight class="h-6 w-6" /></span
+							>
+							<div class="flex items-center gap-1.5">
+								<img src={route.to.icon} alt={route.to.name} class="h-5 w-5 shrink-0" />
+								<span class="text-sm font-medium">{route.to.name}</span>
+							</div>
 						</div>
 
-						<!-- Amount + timestamp on same line -->
+						<!-- Amount + badge | Swap ID + timestamp -->
 						{#if swapChainState.amount}
 							<div class="flex items-center justify-between text-xs">
 								<span class="text-base-content/60">
 									{fmtSats(Math.round(parseFloat(swapChainState.amount) * 100_000_000))}
 								</span>
-								<span class="text-base-content/40">
-									{fmtTime(swapChainState.updatedAt)}
-								</span>
+								<span class="badge badge-sm {cs.badge}">{cs.label}</span>
 							</div>
 						{/if}
 
-						<!-- Transaction ID -->
 						{#if swapChainState.swap1Id}
-							<div class="text-base-content/50 mt-1 font-mono text-xs break-all">
-								Swap ID: {swapChainState.swap1Id}
+							<div class="mt-0.5 flex items-center justify-between text-xs">
+								<span class="text-base-content/50 font-mono break-all">
+									Swap ID: {swapChainState.swap1Id}
+								</span>
+								<span class="text-base-content/40 ml-2 shrink-0">
+									{fmtTime(swapChainState.updatedAt)}
+								</span>
 							</div>
 						{/if}
 
@@ -333,35 +514,233 @@
 								<span class="text-base-content/50 text-xs">
 									{cs.message}
 								</span>
-							{:else if getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial}
-								{#if dismissConfirmId === 'chain-swap'}
-									<button
-										class="btn btn-error btn-xs min-h-[36px]"
-										onclick={() => {
-											dismissConfirmId = null;
-										}}
+								<!-- View on Boltz link -->
+								{#if swapChainState.swap1Id}
+									<a
+										href="https://boltz.exchange/swap/{swapChainState.swap1Id}"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary text-xs"
 									>
-										{$t('wallet.pending_swaps.dismiss_confirm')}
-									</button>
-									<button
-										class="btn btn-ghost btn-xs min-h-[36px]"
-										onclick={() => (dismissConfirmId = null)}
-									>
-										{$t('wallet.pending_swaps.cancel')}
-									</button>
-								{:else}
-									<button class="btn btn-warning btn-xs min-h-[36px]" onclick={handleResumeChain}>
-										{$t('wallet.pending_swaps.resume')}
-									</button>
-									<button
-										class="btn btn-ghost btn-xs text-base-content/50 min-h-[36px]"
-										onclick={() => (dismissConfirmId = 'chain-swap')}
-									>
-										{$t('wallet.pending_swaps.dismiss')}
-									</button>
+										{$t('wallet.pending_swaps.view_on_boltz') || 'View on Boltz'}
+									</a>
 								{/if}
+								<!-- Check Status button -->
+								<button
+									class="btn btn-ghost btn-xs min-h-[36px]"
+									disabled={checkingStatus}
+									onclick={handleCheckBoltzStatus}
+								>
+									{#if checkingStatus}
+										<span class="loading loading-spinner loading-xs"></span>
+									{:else}
+										🔄
+									{/if}
+									{$t('wallet.pending_swaps.check_status') || 'Check Status'}
+								</button>
+								<!-- Resume button -->
+								<button
+									class="btn btn-primary btn-xs ml-auto min-h-[36px]"
+									disabled={resuming}
+									onclick={handleResumeChain}
+								>
+									{#if resuming}
+										<span class="loading loading-spinner loading-xs"></span>
+									{/if}
+									{$t('wallet.pending_swaps.resume') || 'Resume'}
+								</button>
+								{#if checkStatusMessage}
+									<span class="text-base-content/50 text-xs">{checkStatusMessage}</span>
+								{/if}
+							{:else if getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial}
+								<!-- Refund / timelock info -->
+								<div class="bg-base-300 mb-2 rounded-md p-2 text-xs">
+									{#if refundInfo}
+										{#if refundInfo.canRefund}
+											<span class="text-success font-medium">
+												{$t('wallet.pending_swaps.timelock_expired') || 'Timelock expired'} —
+												{$t('wallet.pending_swaps.refund_available') || 'refund available'}
+											</span>
+										{:else}
+											<span class="text-base-content/60">{refundInfo.message}</span>
+										{/if}
+									{:else}
+										<div class="flex items-center justify-between gap-2">
+											<span class="text-base-content/60">
+												{$t('wallet.pending_swaps.recover_description') ||
+													'Scan the RSK blockchain to recover refund data for this swap.'}
+											</span>
+											<button
+												class="btn btn-outline btn-xs shrink-0"
+												disabled={recovering}
+												onclick={handleRecover}
+											>
+												{#if recovering}
+													<span class="loading loading-spinner loading-xs"></span>
+												{/if}
+												{$t('wallet.pending_swaps.recover') || 'Recover from chain'}
+											</button>
+										</div>
+									{/if}
+								</div>
+
+								<!-- Recovery state -->
+								{#if chainSwapRecovery.status === 'success'}
+									<div class="border-success/30 bg-success/5 mt-2 rounded-md border p-2 text-xs">
+										<p class="text-success font-medium">✓ Refund successful</p>
+										{#if chainSwapRecovery.txHash}
+											<a
+												href="https://rootstock.blockscout.com/tx/{chainSwapRecovery.txHash}"
+												target="_blank"
+												rel="noopener noreferrer"
+												class="text-success/70 mt-0.5 block truncate font-mono text-[11px] underline"
+											>
+												{chainSwapRecovery.txHash}
+											</a>
+										{/if}
+									</div>
+								{:else if chainSwapRecovery.status === 'error'}
+									<div class="border-error/30 bg-error/5 mt-2 rounded-md border p-2 text-xs">
+										<p class="text-error font-medium">Refund failed</p>
+										<p class="text-error/70 mt-0.5">{chainSwapRecovery.error}</p>
+									</div>
+								{/if}
+
+								<div class="flex items-center justify-end gap-2">
+									{#if refundInfo && chainSwapRecovery.status !== 'success'}
+										<button
+											class="btn btn-primary btn-xs min-h-[36px]"
+											disabled={chainSwapRecovery.status === 'loading' || !refundInfo.canRefund}
+											onclick={handleRefund}
+										>
+											{#if chainSwapRecovery.status === 'loading'}
+												<span class="loading loading-spinner loading-xs"></span>
+											{/if}
+											{$t('wallet.pending_swaps.refund') || 'Recover funds'}
+										</button>
+									{/if}
+								</div>
 							{/if}
 						</div>
+					</div>
+				{/if}
+
+				<!-- Unclaimed on-chain lockup cards -->
+				{#each unclaimedLockups as lockup (lockup.txHash)}
+					{@const expired = lockup.expired}
+					{@const recovery = lockupRecoveries[lockup.txHash]}
+					<div
+						class="bg-base-200 border-base-300 rounded-lg border p-3 {recovery?.status === 'success'
+							? 'border-success/30 bg-success/5'
+							: lockup.resolved
+								? 'opacity-60'
+								: ''}"
+					>
+						<!-- Header: source → destination -->
+						<div class="mb-1.5 flex items-center gap-2">
+							<div class="flex items-center gap-1.5">
+								<img
+									src="/images/chains/Bitcoin-Rootstock-logo.webp"
+									alt="Bitcoin (rBTC)"
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+							</div>
+							<span class="text-primary flex flex-1 items-center justify-center"
+								><IconArrowRight class="h-6 w-6" /></span
+							>
+							<div class="flex items-center gap-1.5">
+								<img
+									src="/images/chains/Bitcoin-Rootstock-logo.webp"
+									alt="Bitcoin (rBTC)"
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+							</div>
+						</div>
+
+						<!-- Amount + badge -->
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-base-content/60">
+								{lockup.amountSats.toLocaleString()} sats
+							</span>
+							{#if recovery?.status === 'success'}
+								<span class="badge badge-success badge-xs">✓ Recovered</span>
+							{:else if lockup.resolved}
+								<span class="badge badge-ghost badge-xs">Already resolved</span>
+							{:else}
+								<span class="badge {expired ? 'badge-success' : 'badge-warning'} badge-xs">
+									{expired
+										? $t('wallet.pending_swaps.refund_available') || 'Refund available'
+										: $t('wallet.pending_swaps.timelock_remaining') || 'Timelock remaining'}
+								</span>
+							{/if}
+						</div>
+
+						<!-- Status message (idle) or recovery result -->
+						{#if recovery?.status === 'success'}
+							<div class="mt-1 text-xs">
+								<p class="text-success font-medium">✓ Refund successful</p>
+								{#if recovery.txHash}
+									<a
+										href="https://rootstock.blockscout.com/tx/{recovery.txHash}"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-success/70 mt-0.5 block truncate font-mono text-[11px] underline"
+									>
+										{recovery.txHash}
+									</a>
+								{/if}
+							</div>
+						{:else if recovery?.status === 'error'}
+							<div class="mt-1 text-xs">
+								<p class="text-error font-medium">Refund failed</p>
+								<p class="text-error/70 mt-0.5">{recovery.error}</p>
+							</div>
+						{:else if lockup.resolved}
+							<p class="text-base-content/40 mt-1 text-xs">
+								This lockup has already been claimed or refunded on-chain.
+							</p>
+						{:else}
+							<p class="text-base-content/50 mt-1 text-xs">
+								{expired
+									? $t('wallet.pending_swaps.lockup_expired_msg') ||
+										'Swap timed out — funds locked in contract. Refund now available.'
+									: $t('wallet.pending_swaps.lockup_pending_msg') ||
+										'Swap timed out — funds locked in contract. Refund available after timelock.'}
+							</p>
+						{/if}
+
+						<!-- Actions -->
+						<div class="border-base-300 mt-2 flex items-center justify-end gap-2 border-t pt-2">
+							{#if recovery?.status === 'success' || lockup.resolved}
+								<button
+									class="btn btn-ghost btn-xs min-h-[36px]"
+									onclick={() => dismissLockup(lockup.txHash)}
+								>
+									Dismiss
+								</button>
+							{:else}
+								<button
+									class="btn btn-primary btn-xs min-h-[36px]"
+									disabled={!expired || recovery?.status === 'loading'}
+									onclick={() => handleRefundLockup(lockup)}
+								>
+									{#if recovery?.status === 'loading'}
+										<span class="loading loading-spinner loading-xs"></span>
+									{/if}
+									{$t('wallet.pending_swaps.refund') || 'Recover funds'}
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
+
+				<!-- Scanning indicator -->
+				{#if scanningLockups && unclaimedLockups.length === 0}
+					<div class="text-base-content/40 flex items-center justify-center gap-2 py-2 text-xs">
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('wallet.pending_swaps.scanning') || 'Scanning blockchain for recoverable funds...'}
 					</div>
 				{/if}
 
@@ -369,23 +748,26 @@
 				{#each pendingSwaps as swap (swap.swapId)}
 					{@const si = reverseSwapStatusInfo(swap)}
 					<div class="bg-base-200 border-base-300 rounded-lg border p-3">
-						<!-- Route + status badge right-aligned -->
+						<!-- Route: source left, destination right -->
 						<div class="mb-2 flex items-center gap-2">
-							<img src="/images/chains/Bitcoin.svg" alt="Lightning" class="h-5 w-5 shrink-0" />
-							<span class="text-sm font-medium">Lightning</span>
-							<span class="text-base-content/40">→</span>
-							<img
-								src="/images/chains/Bitcoin-Rootstock-logo.webp"
-								alt="Bitcoin (rBTC)"
-								class="h-5 w-5 shrink-0"
-							/>
-							<span class="text-sm font-medium">Bitcoin (rBTC)</span>
-							<span class="ml-auto shrink-0">
-								<span class="badge badge-sm {si.badge}">{si.label}</span>
-							</span>
+							<div class="flex items-center gap-1.5">
+								<img src="/images/chains/Bitcoin.svg" alt="Lightning" class="h-5 w-5 shrink-0" />
+								<span class="text-sm font-medium">Lightning</span>
+							</div>
+							<span class="text-primary flex flex-1 items-center justify-center"
+								><IconArrowRight class="h-6 w-6" /></span
+							>
+							<div class="flex items-center gap-1.5">
+								<img
+									src="/images/chains/Bitcoin-Rootstock-logo.webp"
+									alt="Bitcoin (rBTC)"
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+							</div>
 						</div>
 
-						<!-- Amount + timestamp on same line -->
+						<!-- Amount + badge -->
 						<div class="flex items-center justify-between text-xs">
 							<span class="text-base-content/60">
 								{fmtSats(swap.expectedAmount)}
@@ -393,15 +775,18 @@
 									· {swap.connectedWalletName}
 								{/if}
 							</span>
-							<span class="text-base-content/40">
-								{fmtTime(swap.createdAt)}
-							</span>
+							<span class="badge badge-sm {si.badge}">{si.label}</span>
 						</div>
 
-						<!-- Claim transaction ID (full) -->
+						<!-- Swap ID + timestamp -->
 						{#if swap.claimTxHash}
-							<div class="text-base-content/50 mt-1 font-mono text-xs break-all">
-								Swap ID: {swap.claimTxHash}
+							<div class="mt-0.5 flex items-center justify-between text-xs">
+								<span class="text-base-content/50 font-mono break-all">
+									Swap ID: {swap.claimTxHash}
+								</span>
+								<span class="text-base-content/40 ml-2 shrink-0">
+									{fmtTime(swap.createdAt)}
+								</span>
 							</div>
 						{/if}
 

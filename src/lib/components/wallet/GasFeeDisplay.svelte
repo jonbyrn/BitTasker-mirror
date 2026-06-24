@@ -8,7 +8,7 @@
 	/**
 	 * Token metadata passed to the display.
 	 */
-	export interface FeeTokenInfo {
+	interface FeeTokenInfo {
 		/** Token ticker symbol (e.g. 'USDT', 'BNB') */
 		symbol: string;
 	}
@@ -16,7 +16,7 @@
 	/**
 	 * Gas fee estimate returned by a GasAbstractionProvider.
 	 */
-	export interface GasEstimate {
+	interface GasEstimate {
 		/** Human-readable fee string (e.g. '0.02') */
 		formattedTokenCost: string;
 		/** Optional USD equivalent */
@@ -28,7 +28,7 @@
 	/**
 	 * Status of the paymaster for gas abstraction.
 	 */
-	export type PaymasterStatus = 'available' | 'degraded' | 'unavailable';
+	type PaymasterStatus = 'available' | 'degraded' | 'unavailable';
 
 	// -----------------------------------------------------------------------
 	// Props

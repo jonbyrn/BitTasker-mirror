@@ -21,7 +21,7 @@
 	let { direction } = $props();
 
 	// Helper function to translate a single category
-	function translateCategory(category: string): string {
+	function translateCategory(category: string | { id: string }): string {
 		try {
 			// Extract ID from category (handle both string and object)
 			const categoryId = typeof category === 'string' ? category : category.id;

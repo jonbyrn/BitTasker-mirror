@@ -44,7 +44,7 @@ function buildPresentation(
 	return {
 		label,
 		mapLink: snapshot.location
-			? generateGoogleMapsLink(snapshot.location, { label })
+			? generateGoogleMapsLink(snapshot.location)
 			: buildMapSearchLink(label),
 		mode: snapshot.mode
 	};

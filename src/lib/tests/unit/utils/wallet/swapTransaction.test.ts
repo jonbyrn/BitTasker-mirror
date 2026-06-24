@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { BoltzSwapData } from '@bittasker/wallet-core';
 import {
 	PENDING_STATUSES,
 	COMPLETED_STATUSES,

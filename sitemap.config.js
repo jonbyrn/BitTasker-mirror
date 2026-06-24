@@ -19,6 +19,8 @@ const sitemap = createSitemap('https://bittasker.com', {
 		'/taskee-fees',
 		'/tasker-principles',
 		'/terms',
+		// Learn hub
+		'/learn',
 		// Auth pages
 		'/auth/login',
 		'/auth/signup',
@@ -54,4 +56,4 @@ const sitemap = createSitemap('https://bittasker.com', {
 	}
 });
 
-export default sitemap; 
+export default sitemap;

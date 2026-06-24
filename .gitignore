@@ -154,3 +154,6 @@ fastlane/play-store-credentials.json
 
 # WebAuthn credentials (NEVER commit)
 scripts/credentials.json
+
+# Private keys — NEVER commit
+docker/secrets/

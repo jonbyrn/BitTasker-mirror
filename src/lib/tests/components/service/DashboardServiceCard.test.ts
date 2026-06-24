@@ -38,6 +38,7 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-1',
 			uniqueId: 'service-1',
+			npub: 'a'.repeat(64),
 			title: 'Logo package',
 			description: 'Professional logo design packages.',
 			status: 'active',
@@ -52,6 +53,9 @@ describe('DashboardServiceCard', () => {
 				}
 			},
 			instantBuyLeadHours: 48,
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			pricing: {
 				type: 'TIERED',
 				currency: 'USD',
@@ -103,6 +107,7 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-2',
 			uniqueId: 'service-2',
+			npub: 'a'.repeat(64),
 			title: 'On-site troubleshooting',
 			description: 'Send details and I will quote the visit.',
 			status: 'active',
@@ -112,6 +117,9 @@ describe('DashboardServiceCard', () => {
 					useGlobalLocation: false
 				}
 			},
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			pricing: {
 				type: 'INQUIRY_REQUIRED',
 				currency: 'USD'
@@ -132,6 +140,7 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-3',
 			uniqueId: 'service-3',
+			npub: 'a'.repeat(64),
 			title: 'Remote audit',
 			description: 'Remote accessibility review.',
 			status: 'active',

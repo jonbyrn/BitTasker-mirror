@@ -8,7 +8,7 @@ const meta = {
 		layout: 'centered'
 	},
 	tags: ['autodocs']
-} satisfies Meta<LanguageDropdown>;
+} satisfies Meta<typeof LanguageDropdown>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -56,4 +56,4 @@ export const Minimal: Story = {
 		showCheckmark: false,
 		className: ''
 	}
-}; 
+};

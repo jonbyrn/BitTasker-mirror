@@ -56,7 +56,7 @@ export interface SmartAccount {
 		factory?: string;
 		/** EIP-7702 initialization data */
 		factoryData?: string;
-	}) => Promise<{ signature: string; [key: string]: unknown }>;
+	}) => Promise<UserOperation>;
 	getNonce: () => Promise<bigint>;
 }
 
@@ -408,7 +408,7 @@ export async function sendGasless(
 	};
 	validateFeeParameters(userOp);
 
-	const signedUserOp = await smartAccount.signUserOp(userOp);
+	const signedUserOp = await smartAccount.signUserOperation(userOp);
 
 	const serializableOp: SerializableUserOperation = {
 		sender: signedUserOp.sender,
@@ -667,10 +667,8 @@ export async function sendToken(
 	// 3d. Sign the UserOp client-side if account is available
 	const account = get(gaslessAccount);
 	if (account && typeof account.signUserOperation === 'function') {
-		const signed = await (
-			account.signUserOperation as (op: Record<string, unknown>) => Promise<Record<string, unknown>>
-		)(userOp as unknown as Record<string, unknown>);
-		userOp.signature = (signed.signature as string) ?? '0x';
+		const signed = await account.signUserOperation(userOp);
+		userOp.signature = signed.signature;
 	}
 
 	// 3e. Serialize for JSON transport
@@ -988,10 +986,8 @@ export async function sendGaslessCalls(
 	// Sign the UserOp
 	const account = get(gaslessAccount);
 	if (account && typeof account.signUserOperation === 'function') {
-		const signed = await (
-			account.signUserOperation as (op: Record<string, unknown>) => Promise<Record<string, unknown>>
-		)(userOp as unknown as Record<string, unknown>);
-		userOp.signature = (signed.signature as string) ?? '0x';
+		const signed = await account.signUserOperation(userOp);
+		userOp.signature = signed.signature;
 	}
 
 	// Serialize

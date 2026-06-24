@@ -13,7 +13,7 @@
 	/**
 	 * Recovery state passed into the modal.
 	 */
-	export interface RecoveryState {
+	interface RecoveryState {
 		/** Current delegation state from the state machine */
 		delegState: DelegationState;
 		/** Human-readable status message */

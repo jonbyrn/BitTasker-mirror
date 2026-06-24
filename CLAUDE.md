@@ -19,6 +19,7 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - NEVER disable ESLint or TypeScript rules (`eslint-disable`, `ts-ignore`, `ts-expect-error`, `as any`). These rules exist to enforce quality and safety. Instead of suppressing them, fix the underlying issue: implement proper types, use correct imports, or refactor the code to satisfy the compiler statically.
+- NEVER checkout or reset git without stashing changes first. There may be unsaved work; do NOT destroy it
 
 ## Thinking Methodology (Always Enforced)
 

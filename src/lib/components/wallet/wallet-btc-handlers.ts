@@ -53,7 +53,6 @@ export interface CopyAddressParams {
 export interface DisconnectHandlersParams {
 	connectedWalletsStore: Writable<ConnectedWalletsState>;
 	unregisterConnectedWallet: (walletId: string) => void;
-	showDisconnectId: Writable<string | null>;
 }
 
 // ---------------------------------------------------------------------------

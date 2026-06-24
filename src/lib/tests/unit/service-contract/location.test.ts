@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { Service } from '$lib/types/service.d';
 import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 import {
 	buildServiceContractLocationSnapshot,
 	validateServiceLocation
 } from '$lib/utils/service-contract/location';
+
+type _ServiceLocationInput = Pick<Service, 'serviceLocationTypes' | 'locationDetails'>;
 
 describe('buildServiceContractLocationSnapshot', () => {
 	it('returns undefined when serviceLocationTypes is empty', () => {

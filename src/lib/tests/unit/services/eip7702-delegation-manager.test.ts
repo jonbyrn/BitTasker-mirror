@@ -59,6 +59,20 @@ vi.mock('$lib/services/stablecoin-registry', () => ({
 // ---------------------------------------------------------------------------
 
 /**
+ * Type for the mock ethers provider used across tests.
+ */
+type MockProvider = {
+	getBlockNumber: ReturnType<typeof vi.fn>;
+	getFeeData: ReturnType<typeof vi.fn>;
+	estimateGas: ReturnType<typeof vi.fn>;
+	getBalance: ReturnType<typeof vi.fn>;
+	getCode: ReturnType<typeof vi.fn>;
+	waitForTransaction: ReturnType<typeof vi.fn>;
+	getTransactionCount: ReturnType<typeof vi.fn>;
+	broadcastTransaction: ReturnType<typeof vi.fn>;
+};
+
+/**
  * Create a mock ethers provider that returns sensible defaults.
  */
 function createMockProvider(overrides?: {
@@ -69,7 +83,7 @@ function createMockProvider(overrides?: {
 	balance?: bigint;
 	getCode?: string;
 	waitForTx?: { status: number; blockNumber: number };
-}): ReturnType<typeof vi.mocked> {
+}): MockProvider {
 	const {
 		blockNumber = 42_000_000,
 		gasPrice = 3_000_000_000n,
@@ -97,7 +111,7 @@ function createMockProvider(overrides?: {
 
 	vi.mocked(JsonRpcProvider).mockReturnValue(mockProvider as unknown as JsonRpcProvider);
 
-	return mockProvider as unknown as ReturnType<typeof vi.mocked>;
+	return mockProvider;
 }
 
 /**
@@ -519,7 +533,7 @@ describe('delegation state transitions (pure)', () => {
 // ---------------------------------------------------------------------------
 
 describe('EIP7702DelegationManager (class)', () => {
-	let mockProvider: ReturnType<typeof createMockProvider>;
+	let mockProvider: MockProvider;
 
 	beforeEach(() => {
 		vi.clearAllMocks();

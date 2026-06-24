@@ -245,9 +245,10 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
+		const ethersSigner = signer as ethers.Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-			const addr = await (signer as ethers.Signer).getAddress();
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+			const addr = await ethersSigner.getAddress();
 			return pool.supply(asset, amount, addr, 0);
 		});
 		if (error || !tx) {
@@ -276,9 +277,10 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
+		const ethersSigner = signer as ethers.Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-			const addr = await (signer as ethers.Signer).getAddress();
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+			const addr = await ethersSigner.getAddress();
 			// interestRateMode = 2 → VARIABLE (stable rate is deprecated on Arbitrum V3)
 			return pool.borrow(asset, amount, 2, 0, addr);
 		});
@@ -306,9 +308,10 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
+		const ethersSigner = signer as ethers.Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-			const addr = await (signer as ethers.Signer).getAddress();
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+			const addr = await ethersSigner.getAddress();
 			return pool.repay(asset, amount, 2, addr);
 		});
 		if (error || !tx) {
@@ -335,9 +338,10 @@ export class AaveService {
 			data: { asset, amount: amount.toString() }
 		});
 
+		const ethersSigner = signer as ethers.Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, signer);
-			const addr = await (signer as ethers.Signer).getAddress();
+			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+			const addr = await ethersSigner.getAddress();
 			return pool.withdraw(asset, amount, addr);
 		});
 		if (error || !tx) {
@@ -406,13 +410,15 @@ export class AaveService {
 
 		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 300_000n);
 
-		const txReq = {
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = {
 			to: AAVE_POOL,
 			data,
 			value: 0n,
 			chainId: 42161,
 			gasLimit
-		} as unknown;
+		};
 
 		return evmSigner.sendTransaction(txReq);
 	}
@@ -435,13 +441,15 @@ export class AaveService {
 
 		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 250_000n);
 
-		const txReq = {
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = {
 			to: AAVE_POOL,
 			data,
 			value: 0n,
 			chainId: 42161,
 			gasLimit
-		} as unknown;
+		};
 
 		return evmSigner.sendTransaction(txReq);
 	}
@@ -464,14 +472,180 @@ export class AaveService {
 
 		const gasLimit = await this.estimateGasForCall(AAVE_POOL, data, 0n, 200_000n);
 
-		const txReq = {
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = {
 			to: AAVE_POOL,
 			data,
 			value: 0n,
 			chainId: 42161,
 			gasLimit
-		} as unknown;
+		};
 
 		return evmSigner.sendTransaction(txReq);
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Pure DeFi Math Utilities
+// ---------------------------------------------------------------------------
+
+import type { MaxSafeWithdrawResult, LiquidationPriceResult } from '$lib/types/defi';
+
+export function calculateMaxSafeWithdraw(
+	currentCollateralUsd: number,
+	currentDebtUsd: number,
+	liquidationThresholdBps: number,
+	currentHealthFactor: number,
+	collateralPriceUsd: number,
+	collateralDecimals: number = 8,
+	bufferMultiplier: number = 1.05
+): MaxSafeWithdrawResult {
+	if (
+		!isFinite(currentCollateralUsd) ||
+		!isFinite(currentDebtUsd) ||
+		!isFinite(liquidationThresholdBps) ||
+		!isFinite(currentHealthFactor) ||
+		!isFinite(collateralPriceUsd) ||
+		!isFinite(bufferMultiplier) ||
+		!isFinite(collateralDecimals)
+	) {
+		return {
+			maxSafeCollateralUsd: 0,
+			maxSafeCollateralAssetAmount: 0n,
+			postWithdrawHealthFactor: 0,
+			currentHealthFactor: 0,
+			buffer: bufferMultiplier,
+			isAtRisk: false
+		};
+	}
+
+	if (currentDebtUsd <= 0) {
+		const maxAmount =
+			collateralPriceUsd > 0
+				? BigInt(Math.floor((currentCollateralUsd / collateralPriceUsd) * 10 ** collateralDecimals))
+				: 0n;
+		return {
+			maxSafeCollateralUsd: Math.max(0, currentCollateralUsd),
+			maxSafeCollateralAssetAmount: maxAmount,
+			postWithdrawHealthFactor: 999,
+			currentHealthFactor,
+			buffer: bufferMultiplier,
+			isAtRisk: false
+		};
+	}
+
+	const liqThreshold = liquidationThresholdBps / 10000;
+	if (liqThreshold <= 0) {
+		return {
+			maxSafeCollateralUsd: 0,
+			maxSafeCollateralAssetAmount: 0n,
+			postWithdrawHealthFactor: 0,
+			currentHealthFactor,
+			buffer: bufferMultiplier,
+			isAtRisk: true
+		};
+	}
+
+	const maxSafeCollateralUsd = Math.max(
+		0,
+		currentCollateralUsd - (currentDebtUsd * bufferMultiplier) / liqThreshold
+	);
+
+	const maxSafeCollateralAssetAmount =
+		collateralPriceUsd > 0
+			? BigInt(Math.floor((maxSafeCollateralUsd / collateralPriceUsd) * 10 ** collateralDecimals))
+			: 0n;
+
+	const remainingCollateral = currentCollateralUsd - maxSafeCollateralUsd;
+	const postWithdrawHf =
+		currentDebtUsd > 0 ? (remainingCollateral * liqThreshold) / currentDebtUsd : 999;
+
+	return {
+		maxSafeCollateralUsd,
+		maxSafeCollateralAssetAmount,
+		postWithdrawHealthFactor: postWithdrawHf,
+		currentHealthFactor,
+		buffer: bufferMultiplier,
+		isAtRisk: currentHealthFactor < 1.5
+	};
+}
+
+export function calculateBtcLiquidationPrice(
+	debtUsd: number,
+	collateralBtcAmount: number,
+	liquidationThresholdBps: number,
+	currentBtcPrice: number
+): LiquidationPriceResult {
+	if (
+		!isFinite(debtUsd) ||
+		!isFinite(collateralBtcAmount) ||
+		!isFinite(liquidationThresholdBps) ||
+		!isFinite(currentBtcPrice)
+	) {
+		return { liquidationBtcPrice: 0, currentBtcPrice: 0, distancePercent: 0 };
+	}
+
+	if (debtUsd <= 0 || collateralBtcAmount <= 0 || currentBtcPrice <= 0) {
+		return { liquidationBtcPrice: 0, currentBtcPrice, distancePercent: 100 };
+	}
+
+	const liqThreshold = liquidationThresholdBps / 10000;
+	if (liqThreshold <= 0) {
+		return { liquidationBtcPrice: 0, currentBtcPrice, distancePercent: 0 };
+	}
+
+	const liquidationBtcPrice = debtUsd / (collateralBtcAmount * liqThreshold);
+	const distancePercent =
+		currentBtcPrice > 0 ? ((currentBtcPrice - liquidationBtcPrice) / currentBtcPrice) * 100 : 0;
+
+	return {
+		liquidationBtcPrice,
+		currentBtcPrice,
+		distancePercent: Math.max(-100, distancePercent)
+	};
+}
+
+export function calculateProjectedHealthFactor(
+	currentCollateralUsd: number,
+	currentDebtUsd: number,
+	liquidationThresholdBps: number,
+	actionDeltaCollateralUsd: number = 0,
+	actionDeltaDebtUsd: number = 0
+): number {
+	if (
+		!isFinite(currentCollateralUsd) ||
+		!isFinite(currentDebtUsd) ||
+		!isFinite(liquidationThresholdBps) ||
+		!isFinite(actionDeltaCollateralUsd) ||
+		!isFinite(actionDeltaDebtUsd)
+	) {
+		return 0;
+	}
+
+	const newCollateral = Math.max(0, currentCollateralUsd + actionDeltaCollateralUsd);
+	const newDebt = Math.max(0, currentDebtUsd + actionDeltaDebtUsd);
+
+	if (newDebt <= 0) return 999;
+
+	const liqThreshold = liquidationThresholdBps / 10000;
+	if (liqThreshold <= 0) return 0;
+
+	const hf = (newCollateral * liqThreshold) / newDebt;
+	return isFinite(hf) ? Math.max(0, hf) : 0;
+}
+
+export function calculateLtv(debtUsd: number, collateralUsd: number): number {
+	if (!isFinite(debtUsd) || !isFinite(collateralUsd) || collateralUsd <= 0 || debtUsd < 0) {
+		return 0;
+	}
+
+	return (debtUsd / collateralUsd) * 10000;
+}
+
+export function deriveHealthStatus(healthFactor: number): 'safe' | 'monitor' | 'risk' {
+	if (Number.isNaN(healthFactor) || healthFactor < 0) return 'risk';
+	if (healthFactor >= 2) return 'safe';
+	if (healthFactor >= 1.5) return 'monitor';
+	return 'risk';
 }

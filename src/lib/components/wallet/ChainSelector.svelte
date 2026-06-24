@@ -173,11 +173,13 @@
 
 						<div class="flex min-w-0 flex-col">
 							<span class="text-sm font-medium">
-								{$t('wallet.chain_selector.chain_name', { chainName: config.chainName })}
+								{$t('wallet.chain_selector.chain_name', {
+									values: { chainName: config.chainName }
+								})}
 							</span>
 							<span class="text-base-content/60 text-xs">
 								{$t('wallet.chain_selector.native_currency', {
-									symbol: config.nativeCurrency.symbol
+									values: { symbol: config.nativeCurrency.symbol }
 								})}
 							</span>
 						</div>

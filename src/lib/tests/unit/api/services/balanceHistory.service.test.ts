@@ -70,7 +70,10 @@ function createFetchMockForBalance(ethBalance: string) {
 }
 
 describe('BalanceHistoryService', () => {
-	let mockProvider: Record<string, unknown>;
+	let mockProvider: ethers.JsonRpcProvider & {
+		getBlock: ReturnType<typeof vi.fn>;
+		getBalance: ReturnType<typeof vi.fn>;
+	};
 	const mockAddress = '0x1234567890123456789012345678901234567890';
 
 	beforeEach(() => {
@@ -87,6 +90,9 @@ describe('BalanceHistoryService', () => {
 		mockProvider = {
 			getBlock: vi.fn(),
 			getBalance: vi.fn()
+		} as unknown as ethers.JsonRpcProvider & {
+			getBlock: ReturnType<typeof vi.fn>;
+			getBalance: ReturnType<typeof vi.fn>;
 		};
 
 		// Mock global fetch by default to fail with a parseable JSON body

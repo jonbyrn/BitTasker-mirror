@@ -46,12 +46,12 @@ const { subscribe, update, set } = writable<ChainLockState>({
 /**
  * A derived store that is `true` when the chain is locked.
  */
-export const isLocked = derived(subscribe, ($state) => $state.isLocked);
+export const isLocked = derived({ subscribe }, ($state) => $state.isLocked);
 
 /**
  * A derived store containing the locked chain ID, or `null`.
  */
-export const lockedChainId = derived(subscribe, ($state) => $state.lockedChainId);
+export const lockedChainId = derived({ subscribe }, ($state) => $state.lockedChainId);
 
 // ---------------------------------------------------------------------------
 // Mutations

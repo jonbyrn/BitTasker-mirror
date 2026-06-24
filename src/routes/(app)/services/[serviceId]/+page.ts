@@ -267,7 +267,10 @@ export const load: PageLoad = async ({ params, parent }) => {
 	}
 
 	const parentData = await parent();
-	const existingService = parentData?.service as Service | null | undefined;
+	const existingService = (parentData as Record<string, unknown>)?.service as
+		| Service
+		| null
+		| undefined;
 
 	const tr = createTranslator();
 	const requestedServiceId = normalizeServiceId(params.serviceId, params.serviceId);

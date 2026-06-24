@@ -62,7 +62,15 @@ const d = createDebug('swap-calculator');
 
 // ---------------------------------------------------------------------------
 // Typed Interfaces (public API, co-located, per design + CLAUDE)
-export type SwapSourceType = 'rbtc' | 'usdt0-arb';
+export type SwapSourceType =
+	| 'rbtc'
+	| 'usdt0-arb'
+	| 'btc-onchain'
+	| 'wbtc-arb'
+	| 'tbtc-arb'
+	| 'usdt-bsc'
+	| 'usdt0-rsk'
+	| 'doc-rsk';
 
 export interface UseSwapCalculatorOptions {
 	/** From wallets rune (or direct/temporary deriveds in SwapForm for calc-first extraction). In token units (rbtc frac or usdt). */

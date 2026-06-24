@@ -939,9 +939,37 @@ function resolveFromUSDT0ARB(destination: Destination): Route[] {
 			];
 		}
 
-		// USDT0 on Arbitrum → rBTC on RSK via cross-chain bridge (LI.FI + Symbiosis)
+		// USDT0 on Arbitrum → rBTC on RSK via 2-hop: Symbiosis (USDT0→tBTC) + Boltz (tBTC→rBTC)
+		// Two-hop is cheaper than direct LI.FI/Symbiosis because Boltz tBTC→rBTC is 1:1 with minimal fees.
 		if (isRSKChain(destination.chainId)) {
 			return [
+				buildRoute({
+					id: 'usdt0-arb-to-rbtc-via-symbiosis-boltz',
+					label: 'Symbiosis → Boltz',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: ASSET_USDT0,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_TBTC,
+							toChain: CHAIN_ARBITRUM,
+							feePercent: FEE_SYMBIOSIS_SWAP,
+							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+						},
+						{
+							service: 'boltz',
+							fromAsset: ASSET_TBTC,
+							fromChain: CHAIN_ARBITRUM,
+							toAsset: ASSET_RBTC,
+							toChain: CHAIN_RSK,
+							feePercent: FEE_BOLTZ_CHAIN_SWAP,
+							estimatedTimeMin: TIME_BOLTZ_MIN,
+							estimatedTimeMax: TIME_BOLTZ_MAX
+						}
+					],
+					recommended: true
+				}),
 				buildRoute({
 					id: 'usdt0-arb-to-rbtc-via-lifi',
 					label: 'LI.FI',
@@ -957,7 +985,7 @@ function resolveFromUSDT0ARB(destination: Destination): Route[] {
 							estimatedTimeMax: TIME_LIFI_MAX
 						}
 					],
-					recommended: true
+					recommended: false
 				}),
 				buildRoute({
 					id: 'usdt0-arb-to-rbtc-via-symbiosis',
@@ -1240,8 +1268,9 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 	if (chainId === 1 || chainId === 0) {
 		// chainId 0 or 1 used for BTC mainnet/testnet in this app
 		return [
-			{
+			buildRoute({
 				id: 'btc-onchain-direct',
+				label: 'Direct',
 				hops: [
 					{
 						service: 'direct',
@@ -1254,19 +1283,17 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMax: 30
 					}
 				],
-				totalFeePercent: 0,
-				estimatedTimeMin: 10,
-				estimatedTimeMax: 30,
 				recommended: true
-			}
+			})
 		];
 	}
 
 	// BTC → rBTC via Boltz reverse swap
 	if (chainId === 30 || chainId === 31) {
 		return [
-			{
+			buildRoute({
 				id: 'btc-to-rbtc-via-boltz',
+				label: 'Boltz',
 				hops: [
 					{
 						service: 'boltz',
@@ -1279,19 +1306,17 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMax: 30
 					}
 				],
-				totalFeePercent: 0.5,
-				estimatedTimeMin: 10,
-				estimatedTimeMax: 30,
 				recommended: true
-			}
+			})
 		];
 	}
 
 	// BTC → USDT0 on Arbitrum (multi-hop: BTC → rBTC → USDT0 via LI.FI/Symbiosis)
 	if (chainId === 42161) {
 		return [
-			{
+			buildRoute({
 				id: 'btc-to-usdt0-arb-via-boltz',
+				label: 'Boltz + LI.FI',
 				hops: [
 					{
 						service: 'boltz',
@@ -1314,11 +1339,8 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMax: 15
 					}
 				],
-				totalFeePercent: 0.8,
-				estimatedTimeMin: 15,
-				estimatedTimeMax: 45,
 				recommended: true
-			}
+			})
 		];
 	}
 

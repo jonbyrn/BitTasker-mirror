@@ -266,8 +266,9 @@ export class UniswapService {
 			}
 		});
 
+		const ethersSigner = signer as Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, ethersSigner);
 			// Use dynamic gas helper (no more hardcoded)
 			const iface = new Interface(NPM_ABI);
 			const data = iface.encodeFunctionData('mint', [params]);
@@ -307,8 +308,9 @@ export class UniswapService {
 			}
 		});
 
+		const ethersSigner = signer as Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, ethersSigner);
 			const args = { tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline };
 			const iface = new Interface(NPM_ABI);
 			const data = iface.encodeFunctionData('increaseLiquidity', [args]);
@@ -349,8 +351,9 @@ export class UniswapService {
 			}
 		});
 
+		const ethersSigner = signer as Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, ethersSigner);
 			const args = { tokenId, liquidity, amount0Min, amount1Min, deadline };
 			const iface = new Interface(NPM_ABI);
 			const data = iface.encodeFunctionData('decreaseLiquidity', [args]);
@@ -393,8 +396,9 @@ export class UniswapService {
 			}
 		});
 
+		const ethersSigner = signer as Signer;
 		const { data: tx, error } = await tryCatch(async () => {
-			const npm = new Contract(UNISWAP_NPM, NPM_ABI, signer);
+			const npm = new Contract(UNISWAP_NPM, NPM_ABI, ethersSigner);
 			const args = { tokenId, recipient, amount0Max: pos.tokensOwed0, amount1Max: pos.tokensOwed1 };
 			const iface = new Interface(NPM_ABI);
 			const data = iface.encodeFunctionData('collect', [args]);
@@ -489,7 +493,9 @@ export class UniswapService {
 		const iface = new Interface(NPM_ABI);
 		const data = iface.encodeFunctionData('mint', [params]);
 		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 650_000n);
-		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas };
 		return evmSigner.sendTransaction(txReq);
 	}
 
@@ -513,7 +519,9 @@ export class UniswapService {
 		const iface = new Interface(NPM_ABI);
 		const data = iface.encodeFunctionData('increaseLiquidity', [args]);
 		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 650_000n);
-		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas };
 		return evmSigner.sendTransaction(txReq);
 	}
 
@@ -536,7 +544,9 @@ export class UniswapService {
 		const iface = new Interface(NPM_ABI);
 		const data = iface.encodeFunctionData('decreaseLiquidity', [args]);
 		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 450_000n);
-		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas };
 		return evmSigner.sendTransaction(txReq);
 	}
 
@@ -557,7 +567,9 @@ export class UniswapService {
 		const iface = new Interface(NPM_ABI);
 		const data = iface.encodeFunctionData('collect', [args]);
 		const gas = await this.estimateGasForCall(UNISWAP_NPM, data, 0n, 350_000n);
-		const txReq = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas } as unknown;
+		const txReq: import('$lib/services/external-wallet/types').EVMTransactionRequest & {
+			gasLimit?: bigint;
+		} = { to: UNISWAP_NPM, data, value: 0n, chainId: 42161, gasLimit: gas };
 		return evmSigner.sendTransaction(txReq);
 	}
 }

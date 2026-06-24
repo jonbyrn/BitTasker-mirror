@@ -3,21 +3,35 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServicePricing from '$lib/components/service/steps/ServicePricing.svelte';
 
 const hoisted = vi.hoisted(() => {
-	function createStore<T>(initialValue: T) {
+	type StoreState = {
+		service: {
+			pricing:
+				| {
+						type: string;
+						currency: string;
+						amount: number;
+				  }
+				| undefined;
+			instantBuyLeadHours: number | undefined;
+			instantBuyDeliveryHours: number | undefined;
+		};
+	};
+
+	function createStore(initialValue: StoreState) {
 		let value = initialValue;
-		const subscribers = new Set<(nextValue: T) => void>();
+		const subscribers = new Set<(nextValue: StoreState) => void>();
 
 		return {
-			set(nextValue: T) {
+			set(nextValue: StoreState) {
 				value = nextValue;
 				for (const subscriber of subscribers) {
 					subscriber(value);
 				}
 			},
-			update(updater: (currentValue: T) => T) {
+			update(updater: (currentValue: StoreState) => StoreState) {
 				this.set(updater(value));
 			},
-			subscribe(subscriber: (nextValue: T) => void) {
+			subscribe(subscriber: (nextValue: StoreState) => void) {
 				subscriber(value);
 				subscribers.add(subscriber);
 				return () => subscribers.delete(subscriber);
@@ -92,17 +106,20 @@ describe('ServicePricing instant-buy authoring controls', () => {
 	});
 
 	function readStoreState() {
-		let currentValue: {
+		type StoreState = {
 			service: {
-				pricing: {
-					type: string;
-					currency: string;
-					amount?: number;
-				};
+				pricing:
+					| {
+							type: string;
+							currency: string;
+							amount: number;
+					  }
+					| undefined;
 				instantBuyLeadHours?: number;
 				instantBuyDeliveryHours?: number;
 			};
-		} | null = null;
+		};
+		let currentValue: StoreState | null = null;
 		const unsubscribe = hoisted.storeState.subscribe((value) => {
 			currentValue = value;
 		});

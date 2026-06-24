@@ -113,7 +113,12 @@
 		const usd = hasOverride ? overrideUsd : rskUsd;
 		const provider = overrideProvider || $walletStore.rsk.provider;
 		const address = overrideAddress || $walletStore.rsk.address;
-		return balanceHistoryService.getBalanceChanges(sats, usd, provider, address);
+		return balanceHistoryService.getBalanceChanges(
+			sats,
+			usd,
+			provider as import('ethers').Provider | null,
+			address
+		);
 	});
 
 	function formatChange(satsChange: number | null, usdChange: number | null) {

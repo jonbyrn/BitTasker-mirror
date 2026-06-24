@@ -39,7 +39,14 @@ const SAT_TO_WEI = BigInt(1e10);
 // ---------------------------------------------------------------------------
 
 export interface SmartRoute {
-	provider: 'boltz' | 'lifi' | 'paraswap' | 'direct' | 'boltz+lifi' | 'symbiosis';
+	provider:
+		| 'boltz'
+		| 'lifi'
+		| 'paraswap'
+		| 'direct'
+		| 'boltz+lifi'
+		| 'symbiosis'
+		| 'symbiosis+boltz';
 	fromAsset: string;
 	toAsset: string;
 	estimatedOutput: string;
@@ -53,6 +60,10 @@ export interface SmartRoute {
 	fromChain?: string;
 	/** Chain name for the destination asset (e.g. 'rsk', 'arbitrum', 'bitcoin'). */
 	toChain?: string;
+	/** Total fee as a percentage (0-100). Computed from totalFeeSats when available. */
+	totalFeePercent?: number;
+	/** Human-readable estimated time (e.g. '5 min'). Derived from estimatedTimeMinutes. */
+	estimatedTime?: string;
 }
 
 type RouteBuilder = () => Promise<SmartRoute | null>;
@@ -116,8 +127,10 @@ export class SmartRouter {
 			);
 		}
 
-		// USDT0 → rBTC: Boltz linked swap (via Lightning) + LI.FI reverse + Symbiosis
+		// USDT0 → rBTC: 2-hop via Symbiosis same-chain (USDT0→tBTC) + Boltz chain swap (tBTC→rBTC)
+		// This is cheaper than direct LI.FI/Symbiosis because Boltz tBTC→rBTC is 1:1 with minimal fees.
 		if (fromAsset === 'usdt0-arb' && toAsset === 'rbtc') {
+			builders.set('symbiosis+boltz', () => this.buildSymbiosisBoltzRbtcRoute(amountSats));
 			builders.set('boltz', () => this.buildBoltzLinkedRoute(amountSats));
 			builders.set('lifi', () => this.buildReverseLifiRoute(amountSats));
 			builders.set('symbiosis', () =>
@@ -501,6 +514,85 @@ export class SmartRouter {
 		};
 	}
 
+	/**
+	 * 2-hop route: Symbiosis same-chain (USDT0→tBTC on Arbitrum) + Boltz chain swap (tBTC→rBTC on RSK).
+	 *
+	 * This is the cheapest route for USDT0→rBTC because:
+	 * - Symbiosis does a same-chain DEX swap (USDT0→tBTC) with low slippage
+	 * - Boltz does a 1:1 chain swap (tBTC→rBTC) with only 0.25% + ~69 sats miner fee
+	 *
+	 * Direct LI.FI/Symbiosis cross-chain routes charge $2-3 flat bridge fees which
+	 * are proportionally expensive for smaller amounts.
+	 */
+	private async buildSymbiosisBoltzRbtcRoute(amountSats: number): Promise<SmartRoute | null> {
+		const SYMBIOSIS_TIME_MIN = 1;
+
+		// Step 1: Symbiosis same-chain quote (USDT0 → tBTC on Arbitrum)
+		// amountSats is in BTC sats equivalent; convert to USDT0 micro-units (6 decimals)
+		const usdt0Amount = String(Math.round((amountSats / 100_000_000) * 1e6));
+		const { data: symQuote, error: symErr } = await tryCatch(
+			symbiosisService.getQuote({
+				tokenAmountIn: {
+					address: USDT0_ARB_ADDR,
+					chainId: CHAIN_ID_ARB,
+					symbol: 'USDT0',
+					decimals: 6,
+					amount: usdt0Amount
+				},
+				tokenOut: {
+					address: TBTC_ARB_ADDR,
+					chainId: CHAIN_ID_ARB,
+					symbol: 'tBTC',
+					decimals: 18
+				},
+				slippage: 50,
+				from: LIFI_QUOTE_FALLBACK_ADDRESS,
+				to: LIFI_QUOTE_FALLBACK_ADDRESS
+			})
+		);
+
+		if (symErr || !symQuote?.tokenAmountOut?.amount) {
+			if (symErr) debug.warn('Symbiosis USDT0→tBTC quote failed: %s', symErr.message);
+			return null;
+		}
+
+		// Parse tBTC output (18 decimals → sats)
+		const tbtcOutputSats = Math.round(Number(symQuote.tokenAmountOut.amount) / 1e10);
+		if (tbtcOutputSats <= 0) return null;
+
+		// Step 2: Boltz chain swap quote (tBTC → rBTC)
+		const { data: boltzQuote, error: boltzErr } = await tryCatch(
+			this.boltz.getQuote(tbtcOutputSats)
+		);
+		if (boltzErr || !boltzQuote) {
+			if (boltzErr) debug.warn('Boltz tBTC→rBTC quote failed: %s', boltzErr.message);
+			return null;
+		}
+
+		const rBtcOutputSats = Math.max(0, tbtcOutputSats - boltzQuote.totalFeeSats);
+		const totalFeeSats = Math.max(0, amountSats - rBtcOutputSats);
+		const symFeeSats = amountSats - tbtcOutputSats;
+
+		return {
+			provider: 'symbiosis+boltz',
+			fromAsset: 'USDT0',
+			toAsset: 'rBTC',
+			fromChain: 'arbitrum',
+			toChain: 'rsk',
+			estimatedOutput: (rBtcOutputSats / 100_000_000).toFixed(8),
+			totalFeeSats,
+			estimatedTimeMinutes: SYMBIOSIS_TIME_MIN + BOLTZ_TIME_MIN,
+			routeMetadata: {
+				hop1: 'Symbiosis same-chain (USDT0→tBTC on Arbitrum)',
+				hop2: 'Boltz chain swap (tBTC→rBTC)',
+				symbiosisFee: symFeeSats,
+				boltzFee: boltzQuote.totalFeeSats,
+				tbtcOutputSats,
+				rBtcOutputSats
+			}
+		};
+	}
+
 	/** wBTC (Arbitrum) → rBTC (RSK) via LI.FI cross-chain */
 	private async buildLifiWbtcToRbtcRoute(amountSats: number): Promise<SmartRoute | null> {
 		const amountWei = String(BigInt(amountSats) * SAT_TO_WEI); // WBTC 8 dec → sats, then to wei for LI.FI
@@ -611,7 +703,7 @@ export class SmartRouter {
 		const lifiOutputUsdt = Number(rawUsdtOutput) / 1_000_000; // 6 decimals
 		// Approximate USDT0→sats conversion (USDT0 ≈ $1, use conservative BTC price)
 		const approxBtcPrice = 73_000; // fallback; live price used in display layer
-		const lifiOutputSats = Math.round(liviOutputUsdt * (100_000_000 / approxBtcPrice));
+		const lifiOutputSats = Math.round(lifiOutputUsdt * (100_000_000 / approxBtcPrice));
 		const lifiFeeSats = Math.max(0, tbtcOutputSats - lifiOutputSats);
 		const totalFee = feeSats + lifiFeeSats;
 		const gasCostWei = lifiRoute.estimate?.gasCosts?.[0]?.amount;

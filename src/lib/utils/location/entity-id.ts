@@ -16,7 +16,7 @@ export function resolveTaskLocationEntityId(
 	taskEvent: Pick<NostrEvent, 'tags' | 'content'>
 ): string | null {
 	const dTag = taskEvent.tags?.find((tag) => tag[0] === 'd')?.[1];
-	if (getStringValue(dTag)) {
+	if (dTag && getStringValue(dTag)) {
 		return dTag.trim();
 	}
 

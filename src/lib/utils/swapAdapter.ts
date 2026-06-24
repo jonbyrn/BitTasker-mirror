@@ -2,6 +2,8 @@
  * Nostr-based Swap Storage Adapter (NDK)
  *
  * Implements SwapStorage for Boltz swaps via NDK + NIP-44 encryption.
+ * All swap data is encrypted to the user's own pubkey via NIP-44,
+ * ensuring zero-knowledge persistence — relays cannot read swap contents.
  */
 
 import type {
@@ -118,6 +120,14 @@ function buildSwapContent(
 		content.claimTimeoutBlockHeight = chainSwap.claimTimeoutBlockHeight;
 		content.serverLockupTxHash = chainSwap.serverLockupTxHash;
 		content.refundAddress = chainSwap.refundAddress;
+
+		// Boltz RBTC→TBTC chain swaps: persist claim details needed to
+		// claim tBTC on Arbitrum. These fields are NOT in the SDK ChainSwapData
+		// type (which is Liquid↔RBTC specific) but are present on our custom data.
+		const ext = swapData as unknown as Record<string, unknown>;
+		if (ext.claimDetails) content.claimDetails = ext.claimDetails;
+		if (ext.lockupClaimAddress) content.lockupClaimAddress = ext.lockupClaimAddress;
+		if (ext.timeoutBlockHeight) content.timeoutBlockHeight = ext.timeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-submarine') {
 		const submarineSwap = swapData as SubmarineSwapData;
 		content.type = 'submarine';
@@ -139,7 +149,7 @@ function buildSwapContent(
 	return content;
 }
 
-async function saveSwapToNostr(
+export async function saveSwapToNostr(
 	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
 	nsec: Uint8Array,
 	swapType: SwapType
@@ -189,7 +199,7 @@ async function saveSwapToNostr(
 	}
 }
 
-async function recoverSwapsFromNostr(
+export async function recoverSwapsFromNostr(
 	nsec: Uint8Array,
 	swapType: SwapType,
 	includeFinal: boolean
@@ -224,6 +234,10 @@ async function recoverSwapsFromNostr(
 
 		for (const event of latestBySwapId.values()) {
 			try {
+				// Guard: skip events with empty or obviously invalid content
+				if (!event.content || typeof event.content !== 'string') {
+					continue;
+				}
 				const decryptedContent = await nip44.decrypt(event.content, conversationKey);
 				const data = JSON.parse(decryptedContent) as PendingSwapData;
 
@@ -233,7 +247,10 @@ async function recoverSwapsFromNostr(
 
 				swaps.push(data);
 			} catch (err) {
-				console.error('Failed to process swap event:', err);
+				// Silently skip events that can't be decrypted (may be NIP-04 encrypted
+				// from older versions, corrupted, or encrypted with a different key).
+				// These are not critical — the swap will be re-created on next use.
+				console.debug('Skipping undecryptable swap event:', err);
 			}
 		}
 

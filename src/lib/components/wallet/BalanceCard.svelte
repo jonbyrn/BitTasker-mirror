@@ -9,6 +9,7 @@
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import DefiPositionCard from './defi/DefiPositionCard.svelte';
 
 	// Chain ID → logo path for tier 2 tokens
 	const CHAIN_LOGOS: Record<number, string> = {
@@ -23,8 +24,6 @@
 		8453: '/images/chains/base.png',
 		1: '/images/chains/ethereum.png'
 	};
-	import DefiPositionCard from './defi/DefiPositionCard.svelte';
-
 	let {
 		isLoading = false,
 		hideDetails = false,
@@ -286,7 +285,6 @@
 	{#if !hideDetails}
 		<!-- Network Breakdown -->
 		<div class="space-y-2 sm:space-y-4">
-			<DefiPositionCard />
 			<!-- Bitcoin Accordion -->
 			<div
 				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -574,6 +572,9 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Loan Accordion -->
+			<DefiPositionCard />
 		</div>
 	{/if}
 </div>

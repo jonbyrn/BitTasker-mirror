@@ -125,7 +125,7 @@ const MOCK_PRIVATE_KEY = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234
 const MOCK_ACCOUNT_ADDRESS = '0xABCDEF1234567890ABCDEF1234567890ABCDEF12';
 const MOCK_SMART_ACCOUNT = {
 	address: MOCK_ACCOUNT_ADDRESS,
-	signUserOp: vi.fn()
+	signUserOperation: vi.fn()
 };
 
 // ---------------------------------------------------------------------------
@@ -349,7 +349,7 @@ describe('gasless-store', () => {
 				paymasterAndData: '0x',
 				signature: '0xSig'
 			};
-			MOCK_SMART_ACCOUNT.signUserOp.mockResolvedValue(mockSignedOp);
+			MOCK_SMART_ACCOUNT.signUserOperationeration.mockResolvedValue(mockSignedOp);
 
 			mockFetch.mockResolvedValue({
 				ok: true,
@@ -366,7 +366,7 @@ describe('gasless-store', () => {
 			);
 
 			expect(result).toBe('0xUserOpHash123');
-			expect(MOCK_SMART_ACCOUNT.signUserOp).toHaveBeenCalled();
+			expect(MOCK_SMART_ACCOUNT.signUserOperationeration).toHaveBeenCalled();
 			expect(mockFetch).toHaveBeenCalledWith(
 				'http://localhost:8000/api/v1/gasless/relay',
 				expect.objectContaining({
@@ -384,7 +384,7 @@ describe('gasless-store', () => {
 		it('throws error when relay returns non-ok response', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
-			MOCK_SMART_ACCOUNT.signUserOp.mockResolvedValue({
+			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue({
 				sender: MOCK_ACCOUNT_ADDRESS,
 				nonce: 0n,
 				callData: '0x',
@@ -418,7 +418,7 @@ describe('gasless-store', () => {
 		it('throws generic message when relay response has no JSON body', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
-			MOCK_SMART_ACCOUNT.signUserOp.mockResolvedValue({
+			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue({
 				sender: MOCK_ACCOUNT_ADDRESS,
 				nonce: 0n,
 				callData: '0x',
@@ -470,7 +470,7 @@ describe('gasless-store', () => {
 		it('sends token transfer via sendGasless', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
-			MOCK_SMART_ACCOUNT.signUserOp.mockResolvedValue({
+			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue({
 				sender: MOCK_ACCOUNT_ADDRESS,
 				nonce: 0n,
 				callData: '0x',

@@ -100,6 +100,7 @@ export const BITTASKER_SITE_NAVIGATION_JSONLD = {
 	url: [
 		'https://bittasker.com/',
 		'https://bittasker.com/how-it-works',
+		'https://bittasker.com/learn/',
 		'https://bittasker.com/security',
 		'https://bittasker.com/about',
 		'https://bittasker.com/contact',

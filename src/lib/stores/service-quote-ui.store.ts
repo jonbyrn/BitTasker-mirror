@@ -826,9 +826,11 @@ function createServiceQuoteUiStore() {
 	 * so most "sync pending" scenarios don't occur.
 	 */
 	async function reconcileAcceptanceState(timeline: ServiceQuoteTimelineEntry): Promise<{
-		status: 'no_change' | 'accepted' | 'contract_sync_pending';
+		status: 'no_change' | 'accepted' | 'contract_sync_pending' | 'accept_failed';
 		escrowId?: string;
 		transactionHash?: string;
+		acceptanceSnapshot?: ServiceAcceptanceSnapshot;
+		error?: string;
 	}> {
 		logAcceptanceReconciliationDebug('reconcile-state-start', {
 			quoteRequestId: timeline.request.content.quoteRequestId,
@@ -872,7 +874,9 @@ function createServiceQuoteUiStore() {
 							};
 						}
 					}
-				} catch { /* NDK query failed */ }
+				} catch {
+					/* NDK query failed */
+				}
 			}
 		}
 

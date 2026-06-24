@@ -81,7 +81,7 @@ export async function decrypt(encryptedData: CryptoEncryptedData, key: CryptoKey
 			tagLength: 128
 		},
 		key,
-		combinedBytes
+		toBufferSource(combinedBytes)
 	);
 
 	return decoder.decode(decryptedData);

@@ -209,6 +209,18 @@ export function parseServiceQuoteDashboardQuery(
 	};
 }
 
+export const emptyDashboardRouteContext: DashboardRouteContext = {
+	taskerTimelines: [],
+	providerTimelinesByService: {},
+	taskerLoaded: false,
+	providerLoadedByService: {},
+	focusSync: {
+		requestId: null,
+		serviceAddress: null,
+		expiresAt: null
+	}
+};
+
 export function createDashboardUrl(baseUrl: URL, updates: Partial<DashboardRouteState>): URL {
 	const current = parseServiceQuoteDashboardQuery(baseUrl.searchParams, {
 		taskerTimelines: [],

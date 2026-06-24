@@ -40,7 +40,14 @@
 		"terms": "Terms of Service",
 		"privacy": "Privacy Policy",
 		"contact": "Contact Us",
-		"copyright": "All rights reserved."
+		"copyright": "All rights reserved.",
+		"learn_topics": "Popular Topics",
+		"learn_wallet_guide": "Bitcoin Wallet Guide",
+		"learn_ledger_vs_trezor": "Ledger vs Trezor",
+		"learn_upwork_alternatives": "Upwork Alternatives",
+		"learn_lightning": "Lightning Network",
+		"learn_escrow": "Bitcoin Escrow",
+		"learn_is_safe": "Is BitTasker Safe?"
 	},
 	"navbar": {
 		"home": "Home",
@@ -105,7 +112,8 @@
 		"settings_recovery": "Recovery",
 		"settings_muted": "Muted",
 		"settings_notifications": "Notifications",
-		"settings_actions": "Actions"
+		"settings_actions": "Actions",
+		"learn": "Learn"
 	},
 	"homepage": {
 		"title": "Hello, World!",

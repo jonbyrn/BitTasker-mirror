@@ -16,11 +16,13 @@ export async function calculatePOW(budget: number, uniqueId?: string): Promise<[
 		const data = `${budget}:${uniqueId || ''}:${nonce}`;
 
 		try {
-			hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data)).then((buffer) =>
-				Array.from(new Uint8Array(buffer))
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('')
-			);
+			hash = await crypto.subtle
+				.digest('SHA-256', new TextEncoder().encode(data) as BufferSource)
+				.then((buffer) =>
+					Array.from(new Uint8Array(buffer))
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('')
+				);
 		} catch (error) {
 			console.error('❌ Error calculating hash:', error);
 			throw new Error('Failed to calculate hash for POW');

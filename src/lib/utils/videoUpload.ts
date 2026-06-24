@@ -77,7 +77,10 @@ export async function getBatteryLevel(): Promise<number | null> {
 		// Web fallback
 		if ('getBattery' in navigator) {
 			try {
-				const battery = await navigator.getBattery();
+				const navWithBattery = navigator as Navigator & {
+					getBattery: () => Promise<BatteryManager>;
+				};
+				const battery = await navWithBattery.getBattery();
 				return Math.round(battery.level * 100);
 			} catch {
 				return null;

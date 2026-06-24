@@ -279,6 +279,7 @@
 			amountUSD={0}
 			address={recipient}
 			network="usdt-arbitrum"
+			networkOptions={{}}
 			txHash={pendingTxHash}
 			onClose={onCancel}
 		/>

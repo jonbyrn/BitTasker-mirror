@@ -388,7 +388,11 @@ export async function restoreConnectedWalletState(): Promise<void> {
 				chainIds: w.chainIds,
 				// Restore last-known balances for instant display (stale > $0.00).
 				// The balance poller will refresh these shortly after reconnect.
-				balances: (w as Record<string, unknown>).balances ?? {},
+				balances:
+					((w as Record<string, unknown>).balances as
+						| Record<string, { raw: string; formatted: string; loading: boolean }>
+						| undefined) ??
+					({} as Record<string, { raw: string; formatted: string; loading: boolean }>),
 				connectedAt: w.connectedAt,
 				...(w.btcAddress ? { btcAddress: w.btcAddress } : {})
 			}))

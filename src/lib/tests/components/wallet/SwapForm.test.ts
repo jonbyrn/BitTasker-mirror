@@ -123,7 +123,9 @@ vi.mock('$lib/utils/helpers/haptics', () => ({
 	triggerHaptic: vi.fn(),
 	ImpactStyle: { Light: 1 }
 }));
-vi.mock('$lib/utils/debug', () => ({ createDebug: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
+vi.mock('$lib/utils/debug', () => ({
+	createDebug: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() })
+}));
 
 // Mock connectorRegistry (used by useSwapWallets for external BTC detection)
 vi.mock('$lib/services/external-wallet/connector-registry', () => ({
@@ -342,15 +344,15 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 // Covers Phase 1 extraction per plan. Hoisted boundary mocks reused.
 // Runes using $effect must be instantiated inside $effect.root() via the harness.
 // ---------------------------------------------------------------------------
-import { useSwapWallets, type UseSwapWalletsOptions } from '$lib/runes/use-swap-wallets.svelte.ts';
+import { useSwapWallets, type UseSwapWalletsOptions } from '$lib/runes/use-swap-wallets.svelte';
 import {
 	useSwapCalculator,
 	parseAmount,
 	satsUsd,
 	type UseSwapCalculatorOptions
-} from '$lib/runes/use-swap-calculator.svelte.ts';
-import { useSwapRoutes, type UseSwapRoutesOptions } from '$lib/runes/use-swap-routes.svelte.ts';
-import { runInEffectRoot } from '$lib/tests/helpers/rune-test-harness.svelte.ts';
+} from '$lib/runes/use-swap-calculator.svelte';
+import { useSwapRoutes, type UseSwapRoutesOptions } from '$lib/runes/use-swap-routes.svelte';
+import { runInEffectRoot } from '$lib/tests/helpers/rune-test-harness.svelte';
 
 describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
 	// Minimal opts factories (reactive getters simulate Svelte state)

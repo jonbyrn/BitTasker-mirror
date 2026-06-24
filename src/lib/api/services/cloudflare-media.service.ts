@@ -104,7 +104,7 @@ class CloudflareMediaService {
 
 		// Add metadata if provided
 		Object.keys(metadata).forEach((key) => {
-			formData.append(`metadata[${key}]`, metadata[key]);
+			formData.append(`metadata[${key}]`, String(metadata[key]));
 		});
 
 		const response = await fetch(`${this.IMAGES_API_BASE}/${this.accountId}/images/v1`, {
@@ -209,7 +209,7 @@ class CloudflareMediaService {
 
 		// Add metadata if provided
 		Object.keys(metadata).forEach((key) => {
-			formData.append(`meta[${key}]`, metadata[key]);
+			formData.append(`meta[${key}]`, String(metadata[key]));
 		});
 
 		const response = await fetch(`${this.STREAM_API_BASE}/${this.accountId}/stream`, {

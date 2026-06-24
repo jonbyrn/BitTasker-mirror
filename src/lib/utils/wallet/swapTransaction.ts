@@ -6,6 +6,7 @@
  */
 
 import type { BoltzSwapData, ChainSwapData, SubmarineSwapData } from '@bittasker/wallet-core';
+import type { Component } from 'svelte';
 import type { ProcessedTransaction } from './transactionHistory';
 import { statusUI } from '$lib/utils/constants/transactions.constants';
 import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
@@ -136,7 +137,7 @@ export function mapSwapToTransaction(
 	// Determine transaction type and display properties
 	let displayType: ProcessedTransaction['displayType'];
 	let borderColor: ProcessedTransaction['borderColor'];
-	let iconBase: Record<string, unknown>;
+	let iconBase: Component;
 	let title: string;
 	let value: string;
 

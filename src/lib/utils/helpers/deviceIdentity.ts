@@ -93,8 +93,8 @@ interface BrowserInfo {
  */
 async function generateBrowserFingerprint(): Promise<string> {
 	const userAgent = navigator.userAgent;
-	// @ts-expect-error - userAgentData is not always available
-	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
+	const navWithUAData = navigator as Navigator & { userAgentData?: { platform?: string } };
+	const platform = navWithUAData.userAgentData?.platform || navigator.platform || 'unknown';
 	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;

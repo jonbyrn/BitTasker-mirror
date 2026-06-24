@@ -14,7 +14,7 @@ export interface InstantBuyTierLike {
 	id: string;
 	price: number;
 	deliveryTime?: DeliveryTimeLike;
-	rushDelivery?: { enabled: boolean };
+	rushDelivery?: { enabled: boolean; deliveryTime?: DeliveryTimeLike };
 }
 
 export interface InstantBuyServiceLike {

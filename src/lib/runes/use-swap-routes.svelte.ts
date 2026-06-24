@@ -649,25 +649,36 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			};
 		}
 
-		if (src === 'usdt0-arb') {
-			// Exact hardcoded from current (LI.FI direct for usdt0->rbtc, proven reliable)
+		if (src === 'usdt0-arb' && dst === 'rbtc-rsk') {
+			// Two-hop: Symbiosis same-chain (USDT0→tBTC) + Boltz chain swap (tBTC→rBTC)
+			// Cheaper than direct LI.FI/Symbiosis cross-chain because Boltz tBTC→rBTC is 1:1.
 			return {
-				id: 'lifi-usdt0-to-rbtc',
-				label: 'LI.FI',
+				id: 'symbiosis-boltz-usdt0-to-rbtc',
+				label: 'Symbiosis → Boltz',
 				hops: [
 					{
-						service: 'lifi',
-						fromAsset: 'USDT',
+						service: 'symbiosis',
+						fromAsset: 'USDT0',
+						fromChain: 'arbitrum',
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.3,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					},
+					{
+						service: 'boltz',
+						fromAsset: 'TBTC',
 						fromChain: 'arbitrum',
 						toAsset: 'RBTC',
 						toChain: 'rsk',
-						feePercent: 0,
+						feePercent: 0.25,
 						estimatedTimeMin: 1,
-						estimatedTimeMax: 2
+						estimatedTimeMax: 5
 					}
 				],
-				totalFeePercent: 0.3,
-				estimatedTime: '1-2 min',
+				totalFeePercent: 0.55,
+				estimatedTime: '2-7 min',
 				recommended: true
 			};
 		}
@@ -733,6 +744,39 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 				recommended: true,
 				gasCostWei: s.gasCostWei,
 				feeCosts: s.feeCosts
+			};
+		}
+
+		// symbiosis+boltz is a 2-hop route: Symbiosis same-chain (USDT0→tBTC on Arbitrum) + Boltz chain swap (tBTC→rBTC on RSK).
+		if (provider === 'symbiosis+boltz') {
+			return {
+				id: `smart-${provider}`,
+				label: 'Symbiosis → Boltz',
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: s.fromAsset,
+						fromChain,
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					},
+					{
+						service: 'boltz',
+						fromAsset: 'TBTC',
+						fromChain: 'arbitrum',
+						toAsset: s.toAsset,
+						toChain,
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 5
+					}
+				],
+				totalFeePercent: 0,
+				estimatedTime: `${s.estimatedTimeMinutes || 4} min`,
+				recommended: true
 			};
 		}
 

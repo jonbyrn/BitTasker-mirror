@@ -114,7 +114,7 @@ export async function loadNamespace(
 			{ ...currentMessages },
 			data as unknown as Record<string, unknown>
 		);
-		addMessages(locale, mergedMessages);
+		addMessages(locale, mergedMessages as import('svelte-i18n').LocaleDictionary);
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
@@ -291,6 +291,13 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
+	if (route.includes('/dashboard/debug-smart-contract')) namespaces.push('debug');
+
+	// Learn section (English and Spanish)
+	if (route.startsWith('/learn') || route.startsWith('/aprende')) {
+		namespaces.push('learn');
+	}
+
 	return namespaces;
 }
 

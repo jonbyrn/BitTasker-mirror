@@ -4,7 +4,7 @@
  * This file contains wallet-related type definitions that extend or complement
  * the types from @bittasker/wallet-core package.
  */
-import type { SwapPairs, Transaction } from '@bittasker/wallet-core';
+import type { SwapPairs, Transaction, FeeTier } from '@bittasker/wallet-core';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { ComponentType } from 'svelte';
 
@@ -268,6 +268,9 @@ export interface ProcessedTransaction {
 	// Raw data for advanced use
 	rawMethod?: string; // method selector
 	decodedInput?: Record<string, unknown> | string;
+
+	// Sorting hint applied by merge logic
+	sortTimestamp?: string;
 
 	// Token info for BSC
 	tokenSymbol?: string;

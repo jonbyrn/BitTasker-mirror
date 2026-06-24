@@ -16,6 +16,7 @@ This project is indexed by GitNexus as **BitTasker** (42278 symbols, 78720 relat
 
 ## Never Do
 
+- NEVER perform a git checkout or reset without stashing changes first
 - NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.

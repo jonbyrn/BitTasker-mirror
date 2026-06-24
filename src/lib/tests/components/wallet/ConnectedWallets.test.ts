@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
 import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
+import type { ConnectedWalletEntry } from '$lib/stores/connected-wallets.store';
 
 // ---------------------------------------------------------------------------
 // Mock state — ALL inside vi.hoisted(). vitest hoists both vi.mock() and
@@ -257,7 +258,7 @@ vi.mock('$lib/components/wallet/wallet-btc-handlers', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeWallet(overrides: Partial<WalletEntry> = {}): WalletEntry {
+function makeWallet(overrides: Partial<ConnectedWalletEntry> = {}): ConnectedWalletEntry {
 	return {
 		id: 'metamask-0x123',
 		walletName: 'MetaMask',

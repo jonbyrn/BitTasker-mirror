@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Attachment } from '$lib/types/task.d';
+import type { Attachment } from '$lib/types/task';
 import {
 	clearFeaturedHomepageCache,
 	completeFeaturedSectionState,

@@ -73,6 +73,16 @@ export interface AaveLendingPosition {
 	totalCollateralUsd: number;
 	/** Aggregate debt USD (0 for pure lend positions). */
 	totalDebtUsd: number;
+	/** Available borrows in USD (from getUserAccountData). */
+	availableBorrowsUsd: number;
+	/** LTV in basis points (from getUserAccountData). */
+	ltv: number;
+	/** Liquidation threshold in basis points (from getUserAccountData). */
+	liquidationThreshold: number;
+	/** BTC price at which this position would be liquidated (HF=1.0). Undefined if no debt. */
+	liquidationPriceBtc?: number;
+	/** Current BTC price used for liquidation calculation. */
+	currentBtcPrice?: number;
 	lastUpdated: Date;
 	error?: string | null;
 }
@@ -162,10 +172,18 @@ class DefiPositionsStore {
 		return w?.address ?? null;
 	}
 
-	/** Resolve address for a walletId using patterns from BorrowStep + connected store facade. */
+	/** Resolve address for a walletId using patterns from BorrowStep + connected store facade.
+	 *  Always checksums the result — ethers v6 rejects addresses with invalid EIP-55 checksums. */
 	resolveAddress(walletId: 'builtin' | string): string | null {
-		if (walletId === 'builtin') return this.getBuiltinAddress();
-		return this.getConnectedAddress(walletId);
+		let addr: string | null;
+		if (walletId === 'builtin') addr = this.getBuiltinAddress();
+		else addr = this.getConnectedAddress(walletId);
+		if (!addr) return null;
+		try {
+			return ethers.getAddress(addr.toLowerCase());
+		} catch {
+			return addr;
+		}
 	}
 
 	/** Whether we should allow DeFi ops (loan/earn + connected wallets). */
@@ -204,7 +222,7 @@ class DefiPositionsStore {
 	 * Uses public RPC + AaveService (matches Earn/Borrow read pattern).
 	 * Fetches aggregate health + specific USDT0 supplied via aToken balanceOf.
 	 */
-	async refreshAavePosition(walletId: 'builtin' | string): Promise<void> {
+	async refreshAavePosition(walletId: 'builtin' | string, force = false): Promise<void> {
 		if (!this.isDeFiEnabled()) {
 			d.log('LOAN_FLOW / CONNECTED disabled — skipping Aave position refresh');
 			return;
@@ -225,9 +243,14 @@ class DefiPositionsStore {
 			return;
 		}
 
-		// Staleness guard (explicit refresh still honors short cache)
+		// Staleness guard (explicit refresh still honors short cache unless forced)
 		const last = this.lastUpdated[walletId];
-		if (last && Date.now() - last.getTime() < STALE_MS && this.aavePositions.has(walletId)) {
+		if (
+			!force &&
+			last &&
+			Date.now() - last.getTime() < STALE_MS &&
+			this.aavePositions.has(walletId)
+		) {
 			d.log('Aave position fresh, skipping', { walletId });
 			return;
 		}
@@ -303,6 +326,26 @@ class DefiPositionsStore {
 		}
 
 		const health = wadToNum(userData.healthFactor);
+
+		let liqPriceBtc: number | undefined;
+		let btcPriceVal: number | undefined;
+		if (userData.totalDebtUsd > 0 && userData.totalCollateralUsd > 0) {
+			try {
+				const { btcPrice } = await import('$lib/runes/btcPrice.svelte');
+				btcPriceVal = btcPrice.price;
+				if (btcPriceVal > 0) {
+					const collateralBtc = userData.totalCollateralUsd / btcPriceVal;
+					const liqThreshold = (userData.liquidationThreshold ?? 7800) / 10_000;
+					if (collateralBtc > 0 && liqThreshold > 0) {
+						const raw = userData.totalDebtUsd / (collateralBtc * liqThreshold);
+						liqPriceBtc = isFinite(raw) ? raw : undefined;
+					}
+				}
+			} catch {
+				btcPriceVal = undefined;
+			}
+		}
+
 		const pos: AaveLendingPosition = {
 			walletId,
 			address,
@@ -312,6 +355,11 @@ class DefiPositionsStore {
 			healthFactor: health > 0 ? health : 999,
 			totalCollateralUsd: userData.totalCollateralUsd ?? 0,
 			totalDebtUsd: userData.totalDebtUsd ?? 0,
+			availableBorrowsUsd: userData.availableBorrowsUsd ?? 0,
+			ltv: userData.ltv ?? 0,
+			liquidationThreshold: userData.liquidationThreshold ?? 0,
+			liquidationPriceBtc: liqPriceBtc,
+			currentBtcPrice: btcPriceVal,
 			lastUpdated: new Date(),
 			error: null
 		};

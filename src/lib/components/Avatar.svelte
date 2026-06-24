@@ -23,7 +23,9 @@
 
 	// Reactive derived values that update when stores change
 	let userName = $derived(name || $user.name || '');
-	let userPicture = $derived(picture || null);
+	let userPicture = $derived(
+		picture ? (Array.isArray(picture) ? (picture[0] ?? null) : picture) : null
+	);
 
 	// Get user initials for badge
 	function getUserInitials(name: string): string {

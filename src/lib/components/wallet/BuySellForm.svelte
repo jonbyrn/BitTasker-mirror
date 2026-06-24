@@ -31,7 +31,11 @@
 	import { createDebug } from '$lib/utils/debug';
 	const debug = createDebug('buy-sell-form');
 
-	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
+	let { isOpen, onClose, defaultCrypto } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
+		defaultCrypto?: 'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain';
+	}>();
 
 	// -----------------------------------------------------------------------
 	// Locale-aware formatter
@@ -279,6 +283,13 @@
 	$effect(() => {
 		if (selectedCrypto === 'btc-onchain' && !selectedSourceHasBtc) {
 			selectedCrypto = 'rbtc';
+		}
+	});
+
+	// Apply default crypto asset when drawer opens (e.g. wBTC from loan flow)
+	$effect(() => {
+		if (isOpen && defaultCrypto) {
+			selectedCrypto = defaultCrypto;
 		}
 	});
 

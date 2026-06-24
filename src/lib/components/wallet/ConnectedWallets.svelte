@@ -1,6 +1,7 @@
 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import {
 		connectedWalletsStore,
 		hasConnectedWallets,
@@ -61,7 +62,6 @@
 	let showWCModal = $state(false);
 	let wcQRUri = $state<string | null>(null);
 	let expandedWalletId = $state<string | null>(null);
-	let showDisconnectId = $state<string | null>(null);
 	let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// BTC state (derived via store query facade)
@@ -92,9 +92,9 @@
 	} = $props();
 
 	// Formatters
-	const satsFormatter = $derived(new Intl.NumberFormat($locale));
+	const satsFormatter = $derived(new Intl.NumberFormat($locale ?? 'en'));
 	const usdFormatter = $derived(
-		new Intl.NumberFormat($locale, { style: 'currency', currency: 'USD' })
+		new Intl.NumberFormat($locale ?? 'en', { style: 'currency', currency: 'USD' })
 	);
 
 	// -----------------------------------------------------------------------
@@ -113,7 +113,9 @@
 		setTrezorBtcConnecting: (v) => (trezorBtcConnecting = v),
 		connectedWalletsStore,
 		setConnectingType,
-		setConnectedWalletError
+		setConnectedWalletError,
+		registerConnectedWallet,
+		unregisterConnectedWallet
 	});
 
 	const handleConnectMetaMask = createConnectMetaMaskHandler({
@@ -121,9 +123,7 @@
 		setConnectedWalletError,
 		closeConnectModal,
 		registerConnectedWallet,
-		unregisterConnectedWallet,
-		connectorRegistry,
-		t
+		unregisterConnectedWallet
 	});
 
 	const handleConnectWC = createConnectWCHandler({
@@ -131,9 +131,9 @@
 		setConnectedWalletError,
 		closeConnectModal,
 		registerConnectedWallet,
+		unregisterConnectedWallet,
 		setShowWCModal: (v) => (showWCModal = v),
-		setWcQRUri: (v) => (wcQRUri = v),
-		t
+		setWcQRUri: (v) => (wcQRUri = v)
 	});
 
 	const handleWCCancel = createWCCancelHandler({
@@ -146,64 +146,63 @@
 		setConnectingType,
 		setConnectedWalletError,
 		registerConnectedWallet,
-		connectorRegistry,
+		unregisterConnectedWallet,
 		setShowTrezorBtcStep: (v) => (showTrezorBtcStep = v),
 		setTrezorBtcError: (v) => (trezorBtcError = v),
-		t
+		setTrezorBtcConnecting: (v) => (trezorBtcConnecting = v)
 	});
 
 	const handleConnectLedger = createConnectLedgerHandler({
 		setConnectingType,
 		setConnectedWalletError,
 		registerConnectedWallet,
-		connectorRegistry,
-		setShowLedgerConnect: (v) => (showLedgerConnect = v),
+		unregisterConnectedWallet,
 		setShowConnectModal: (v) => (showConnectModal = v),
+		setShowLedgerConnect: (v) => (showLedgerConnect = v),
 		setLedgerConnectError: (v) => (ledgerConnectError = v),
 		setShowLedgerBtcStep: (v) => (showLedgerBtcStep = v),
-		setLedgerBtcError: (v) => (ledgerBtcError = v),
-		t
+		setLedgerBtcError: (v) => (ledgerBtcError = v)
 	});
 
 	const handleAddLedgerBitcoin = createAddLedgerBitcoinHandler({
 		connectedWalletsStore,
 		replaceConnectedWallet,
 		setConnectedWalletError,
-		setLedgerBtcError: (v) => (ledgerBtcError = v),
-		setLedgerBtcConnecting: (v) => (ledgerBtcConnecting = v),
-		setShowLedgerBtcStep: (v) => (showLedgerBtcStep = v),
-		setShowLedgerBtcSuccess: (v) => (showLedgerBtcSuccess = v),
-		setShowLedgerConnect: (v) => (showLedgerConnect = v),
-		setShowConnectModal: (v) => (showConnectModal = v),
+		setLedgerBtcError: (v: string) => (ledgerBtcError = v),
+		setLedgerBtcConnecting: (v: boolean) => (ledgerBtcConnecting = v),
+		setLedgerBtcStep: (v: boolean) => (showLedgerBtcStep = v),
+		setLedgerBtcSuccess: (v: boolean) => (showLedgerBtcSuccess = v),
+		setLedgerConnect: (v: boolean) => (showLedgerConnect = v),
+		setShowConnectModal: (v: boolean) => (showConnectModal = v),
 		connectorRegistry,
-		t
+		t: (key: string) => get(t)(key)
 	});
 
 	const handleAddTrezorBitcoin = createAddTrezorBitcoinHandler({
 		connectedWalletsStore,
 		replaceConnectedWallet,
 		setConnectedWalletError,
-		setTrezorBtcError: (v) => (trezorBtcError = v),
-		setTrezorBtcConnecting: (v) => (trezorBtcConnecting = v),
-		setShowTrezorBtcStep: (v) => (showTrezorBtcStep = v),
-		setShowTrezorBtcSuccess: (v) => (showTrezorBtcSuccess = v),
-		setShowConnectModal: (v) => (showConnectModal = v),
+		setTrezorBtcError: (v: string) => (trezorBtcError = v),
+		setTrezorBtcConnecting: (v: boolean) => (trezorBtcConnecting = v),
+		setTrezorBtcStep: (v: boolean) => (showTrezorBtcStep = v),
+		setTrezorBtcSuccess: (v: boolean) => (showTrezorBtcSuccess = v),
+		setShowConnectModal: (v: boolean) => (showConnectModal = v),
 		connectorRegistry,
-		t
+		t: (key: string) => get(t)(key)
 	});
 
 	const copyAddress = createCopyAddressHandler({
 		copyToClipboard,
 		setCopiedAddress: (v) => (copiedAddress = v),
 		appStore,
-		t
+		t: (key: string) => get(t)(key)
 	});
 
-	const { confirmDisconnect, handleDisconnect, cancelDisconnect } = createDisconnectHandlers({
-		connectedWalletsStore,
-		unregisterConnectedWallet,
-		showDisconnectId
-	});
+	const { showDisconnectId, confirmDisconnect, handleDisconnect, cancelDisconnect } =
+		createDisconnectHandlers({
+			connectedWalletsStore,
+			unregisterConnectedWallet
+		});
 
 	// -----------------------------------------------------------------------
 	// Lifecycle
@@ -327,11 +326,11 @@
 	<WalletConnectQRModal isOpen={showWCModal} qrUri={wcQRUri} onCancel={handleWCCancel} />
 
 	<DisconnectDialog
-		show={showDisconnectId !== null}
-		walletName={$connectedWalletsStore.wallets.find((w) => w.id === showDisconnectId)?.walletName ??
-			''}
+		show={$showDisconnectId !== null}
+		walletName={$connectedWalletsStore.wallets.find((w) => w.id === $showDisconnectId)
+			?.walletName ?? ''}
 		walletAddress={$connectedWalletsStore.wallets
-			.find((w) => w.id === showDisconnectId)
+			.find((w) => w.id === $showDisconnectId)
 			?.address?.slice(0, 10) ?? ''}
 		onCancel={cancelDisconnect}
 		onConfirm={handleDisconnect}

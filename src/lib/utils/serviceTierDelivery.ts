@@ -96,7 +96,8 @@ export function tierDeliveryTimeToHours(
 		hour: 1,
 		day: 24,
 		week: 168,
-		month: 720
+		month: 720,
+		minute: 1 / 60
 	};
 
 	return value * hoursPerUnit[input.unit];

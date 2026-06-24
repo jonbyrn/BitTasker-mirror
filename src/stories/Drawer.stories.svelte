@@ -15,9 +15,6 @@
 			position: {
 				control: { type: 'select', options: ['left', 'right'] }
 			},
-			width: {
-				control: { type: 'select', options: ['sm', 'md', 'lg', 'full'] }
-			},
 			isScrollable: { control: 'boolean' }
 		}
 	});
@@ -48,7 +45,6 @@
 		isOpen: true,
 		title: 'Example Drawer',
 		position: 'right',
-		width: 'md',
 		isScrollable: false
 	}}
 />
@@ -83,7 +79,6 @@
 		isOpen: true,
 		title: 'Menu',
 		position: 'left',
-		width: 'sm',
 		isScrollable: true
 	}}
 />
@@ -132,7 +127,6 @@
 		isOpen: true,
 		title: 'Task Details',
 		position: 'right',
-		width: 'md',
 		isScrollable: true
 	}}
 />
@@ -145,7 +139,7 @@
 				<h3 class="text-xl font-bold">Detailed Report</h3>
 
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-					{#each Array(6) as _, i}
+					{#each Array(6) as _, i (i)}
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body">
 								<h4 class="card-title">Section {i + 1}</h4>
@@ -182,7 +176,6 @@
 		isOpen: true,
 		title: 'Full Report View',
 		position: 'right',
-		width: 'full',
 		isScrollable: true
 	}}
 />
@@ -193,7 +186,7 @@
 		<Drawer {...args} {onClose}>
 			<div class="space-y-4">
 				<h3 class="font-bold">Scrollable Content</h3>
-				{#each Array(15) as _, i}
+				{#each Array(15) as _, i (i)}
 					<div class="card bg-base-200 mb-4 shadow-sm">
 						<div class="card-body">
 							<h4 class="card-title">Item {i + 1}</h4>
@@ -219,7 +212,6 @@
 		isOpen: true,
 		title: 'Long Content Drawer',
 		position: 'right',
-		width: 'lg',
 		isScrollable: true
 	}}
 />

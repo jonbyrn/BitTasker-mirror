@@ -204,7 +204,7 @@
 				network === 'rootstock-bitcoin' || network === 'rsk'
 					? 'rsk'
 					: network === 'usdt-arbitrum' || network === 'arbitrum'
-						? 'arb'
+						? 'rsk'
 						: 'bsc'
 			);
 			if (!provider) return;

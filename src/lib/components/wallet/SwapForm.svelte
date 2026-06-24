@@ -30,9 +30,9 @@
 	import * as Sentry from '@sentry/sveltekit';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { useSwapWallets } from '$lib/runes/use-swap-wallets.svelte.ts';
-	import { useSwapCalculator } from '$lib/runes/use-swap-calculator.svelte.ts';
-	import { useSwapRoutes } from '$lib/runes/use-swap-routes.svelte.ts';
+	import { useSwapWallets } from '$lib/runes/use-swap-wallets.svelte';
+	import { useSwapCalculator } from '$lib/runes/use-swap-calculator.svelte';
+	import { useSwapRoutes } from '$lib/runes/use-swap-routes.svelte';
 	import SwapPartyCard from '$lib/components/wallet/SwapPartyCard.svelte';
 	import SwapEstimateCard from '$lib/components/wallet/SwapEstimateCard.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
@@ -40,28 +40,7 @@
 	const d = createDebug('swap');
 
 	// -----------------------------------------------------------------------
-	// Props
-	// -----------------------------------------------------------------------
-	let { isOpen, onClose } = $props<{
-		isOpen: boolean;
-		onClose: () => void;
-	}>();
-
-	// -----------------------------------------------------------------------
-	// Locale-aware formatters
-	// -----------------------------------------------------------------------
-	const satsFormatter = $derived(new Intl.NumberFormat($locale));
-	const usdFormatter = $derived(
-		new Intl.NumberFormat($locale, {
-			style: 'currency',
-			currency: 'USD'
-		})
-	);
-
-	// SmartRouter instance no longer needed here (routes rune owns its internal or DI one for testability).
-
-	// -----------------------------------------------------------------------
-	// Destination type enum
+	// Destination type enum (defined before Props since Props references it)
 	// -----------------------------------------------------------------------
 	type DestType = 'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain';
 
@@ -75,6 +54,28 @@
 		chainId: number;
 		available: boolean;
 	}
+
+	// -----------------------------------------------------------------------
+	// Props
+	// -----------------------------------------------------------------------
+	let { isOpen, onClose, defaultDestType } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
+		defaultDestType?: DestType;
+	}>();
+
+	// -----------------------------------------------------------------------
+	// Locale-aware formatters
+	// -----------------------------------------------------------------------
+	const satsFormatter = $derived(new Intl.NumberFormat($locale ?? 'en'));
+	const usdFormatter = $derived(
+		new Intl.NumberFormat($locale ?? 'en', {
+			style: 'currency',
+			currency: 'USD'
+		})
+	);
+
+	// SmartRouter instance no longer needed here (routes rune owns its internal or DI one for testability).
 
 	// -----------------------------------------------------------------------
 	// State
@@ -105,16 +106,6 @@
 	const SWAP_STEP_ORDER = ['locking-rbtc', 'waiting-for-boltz', 'claiming-tbtc', 'swapping-tbtc'];
 	const currentStepIdx = $derived(SWAP_STEP_ORDER.indexOf(swapProgressStep));
 
-	// Pre-swap ETH balance check for boltz+lifi routes that require claiming on Arbitrum
-	let arbEthBalance = $state<string | null>(null);
-	let arbEthCheckDone = $state(false);
-	const needsArbEth = $derived(
-		((smartRoute?.provider === 'boltz+lifi' || smartRoute?.provider === 'boltz+symbiosis') &&
-			smartRoute?.toChain === 'arbitrum') ||
-			((swapRoutes.smartRoute?.provider === 'boltz+lifi' ||
-				swapRoutes.smartRoute?.provider === 'boltz+symbiosis') &&
-				swapRoutes.smartRoute?.toChain === 'arbitrum')
-	);
 	// smartRoute kept local ONLY for SwapFallback retryWithFallback injection (experimental Smart override); main route state in swapRoutes rune.
 	let smartRoute = $state<SmartRoute | null>(null);
 
@@ -167,6 +158,17 @@
 		getRskGasWei: () => rskGasPriceWei,
 		getArbGasWei: () => arbGasPriceWei
 	});
+
+	// Pre-swap ETH balance check for boltz+lifi routes that require claiming on Arbitrum
+	let arbEthBalance = $state<string | null>(null);
+	let arbEthCheckDone = $state(false);
+	const needsArbEth = $derived(
+		((smartRoute?.provider === 'boltz+lifi' || smartRoute?.provider === 'boltz+symbiosis') &&
+			smartRoute?.toChain === 'arbitrum') ||
+			((swapRoutes.smartRoute?.provider === 'boltz+lifi' ||
+				swapRoutes.smartRoute?.provider === 'boltz+symbiosis') &&
+				swapRoutes.smartRoute?.toChain === 'arbitrum')
+	);
 
 	// Re-export pure from calc for template (satsUsd used in labels).
 	const satsUsd = swapCalc.satsUsd;
@@ -481,6 +483,10 @@
 	let _feeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
 		if (!isOpen) return;
+		// Apply default destination type when drawer opens (e.g. wBTC from loan flow)
+		if (defaultDestType) {
+			destType = defaultDestType;
+		}
 		_feeRefreshTimer = setTimeout(() => refreshLiveFees(), 300);
 		return () => {
 			if (_feeRefreshTimer) clearTimeout(_feeRefreshTimer);
@@ -675,13 +681,6 @@
 	// Amount/insuff/valid now from swapCalc rune (unified, exact rounding + guards).
 	let amountSats = $derived(swapCalc.amountSats);
 	let isInsufficientBalance = $derived(swapCalc.isInsufficientBalance);
-	let canSwap = $derived(
-		swapCalc.isValidAmount &&
-			!isBelowMinimum &&
-			(swapRoutes.smartRoute !== null || swapRoutes.asyncRouteResult.routes.length > 0) &&
-			swapPhase === 'form' &&
-			isOnline
-	);
 
 	// amountInTokenUnits delegate (used in execute, effects, displays, resets).
 	let amountInTokenUnits = $derived(swapCalc.amountInTokenUnits);
@@ -701,6 +700,14 @@
 	// Below minimum check (reactive, no layout shift — note always rendered, color changes)
 	let isBelowMinimum = $derived(
 		minSwapSats > 0 && swapCalc.amountSats > 0 && swapCalc.amountSats < minSwapSats
+	);
+
+	let canSwap = $derived(
+		swapCalc.isValidAmount &&
+			!isBelowMinimum &&
+			(swapRoutes.smartRoute !== null || swapRoutes.asyncRouteResult.routes.length > 0) &&
+			swapPhase === 'form' &&
+			isOnline
 	);
 
 	// Combined amount error: below minimum OR above balance
@@ -872,7 +879,18 @@
 
 	async function checkArbEthBalance() {
 		try {
-			const addr = swapWallets.sourceAddr || walletStore.rsk?.address || '';
+			// For connected wallets the EVM address is the same across chains.
+			// For the built-in wallet we must use the Arbitrum address, NOT the RSK address,
+			// because the built-in wallet derives separate addresses per chain.
+			let addr = '';
+			if (sourceWallet !== 'builtin') {
+				// Connected wallet — address is the same on all EVM chains
+				addr = swapWallets.sourceAddr || '';
+			} else {
+				// Built-in wallet — use the Arbitrum address from the wallet store
+				const store = get(walletStore);
+				addr = store.arb?.address || store.rsk?.address || '';
+			}
 			if (!addr) {
 				arbEthBalance = '0';
 				arbEthCheckDone = true;
@@ -1314,6 +1332,8 @@
 						<AmountInputSection
 							variant="direct"
 							amount={displayInputAmount}
+							unit="sats"
+							onUnitChange={() => {}}
 							onAmountChange={(v: string) => {
 								if ((sourceType === 'rbtc' || sourceType === 'btc-onchain') && btcUsdInputMode) {
 									// usd entered for rbtc source -> convert to native sats str for calc
@@ -1417,9 +1437,6 @@
 						/>
 					{/if}
 
-					<!-- Pending swaps accordion -->
-					<PendingSwaps />
-
 					<!-- Insufficient balance -->
 					{#if isInsufficientBalance}
 						<div class="alert alert-outline alert-error py-2 sm:py-3">
@@ -1428,6 +1445,9 @@
 							</span>
 						</div>
 					{/if}
+
+					<!-- Pending swaps accordion -->
+					<PendingSwaps />
 				</div>
 			</div>
 		{/if}
@@ -1842,10 +1862,6 @@
 				<button
 					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={executeSwap}
-					disabled={needsArbEth &&
-						arbEthCheckDone &&
-						arbEthBalance !== 'unknown' &&
-						parseFloat(arbEthBalance) < 0.0001}
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.swap.confirm_swap')}</span>
 				</button>
@@ -1866,10 +1882,7 @@
 							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
 						/>
 					</svg>
-					<span
-						>ETH is required on Arbitrum for this swap. Your balance: {arbEthBalance} ETH. You'll need
-						~0.001 ETH for gas.</span
-					>
+					<span>{$t('wallet.swap.arb_eth_warning', { values: { balance: arbEthBalance } })}</span>
 				</div>
 			{/if}
 		{:else if swapPhase === 'complete' || swapPhase === 'failed'}

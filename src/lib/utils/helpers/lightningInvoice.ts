@@ -5,7 +5,9 @@ import { decode as decodeBolt11 } from 'bolt11';
  * @param input - The input string to check
  * @returns 'bolt11' | 'bolt12' | 'lightning-address' | 'unknown'
  */
-export function detectLightningType(input: string): 'bolt11' | 'bolt12' | 'lightning-address' | 'unknown' {
+export function detectLightningType(
+	input: string
+): 'bolt11' | 'bolt12' | 'lightning-address' | 'unknown' {
 	if (!input || typeof input !== 'string') {
 		return 'unknown';
 	}
@@ -19,13 +21,22 @@ export function detectLightningType(input: string): 'bolt11' | 'bolt12' | 'light
 
 	// Check for BOLT12 prefixes (must come before BOLT11 check)
 	// BOLT12 uses: lno (offer), lnr (invoice request), lni (invoice)
-	if (lowerInput.startsWith('lno') || lowerInput.startsWith('lnr') || lowerInput.startsWith('lni')) {
+	if (
+		lowerInput.startsWith('lno') ||
+		lowerInput.startsWith('lnr') ||
+		lowerInput.startsWith('lni')
+	) {
 		return 'bolt12';
 	}
 
 	// Check for BOLT11 prefixes
 	// BOLT11 uses: lnbc (mainnet), lntb (testnet), lnbcrt (regtest), or just ln
-	if (lowerInput.startsWith('lnbc') || lowerInput.startsWith('lntb') || lowerInput.startsWith('lnbcrt') || lowerInput.startsWith('ln')) {
+	if (
+		lowerInput.startsWith('lnbc') ||
+		lowerInput.startsWith('lntb') ||
+		lowerInput.startsWith('lnbcrt') ||
+		lowerInput.startsWith('ln')
+	) {
 		return 'bolt11';
 	}
 
@@ -75,9 +86,14 @@ export function parseLightningInvoice(invoice: string): {
 		// Extract description/memo from tags (tag with tagName 'description' contains description)
 		let description: string | null = null;
 		if (decoded.tags && Array.isArray(decoded.tags)) {
-			const descriptionTag = decoded.tags.find((tag: any) => tag.tagName === 'description');
+			const descriptionTag = decoded.tags.find(
+				(tag: { tagName?: string; data?: unknown }) => tag.tagName === 'description'
+			);
 			if (descriptionTag && descriptionTag.data) {
-				description = typeof descriptionTag.data === 'string' ? descriptionTag.data : String(descriptionTag.data);
+				description =
+					typeof descriptionTag.data === 'string'
+						? descriptionTag.data
+						: String(descriptionTag.data);
 			}
 		}
 
@@ -130,4 +146,3 @@ export function isLightningAddress(input: string): boolean {
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	return emailRegex.test(input);
 }
-
