@@ -11,7 +11,7 @@
 	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
-	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
+	import { defiPositions, type AaveLendingPosition } from '$lib/stores/defi-positions.store.svelte';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import * as Sentry from '@sentry/sveltekit';
@@ -62,7 +62,7 @@
 	let approveAmount = $state<string | number>(0);
 	let showApproveModal = $state(false);
 	let pendingSupplyAfterApprove = $state(false);
-	let currentPosition = $state<unknown>(null);
+	let currentPosition = $state<AaveLendingPosition | null>(null);
 
 	// Selected USDT0 (for connected support in selector + real flows)
 	let selectedUsdt0BalanceStr = $derived.by(() => {

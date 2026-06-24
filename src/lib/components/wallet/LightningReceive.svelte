@@ -63,8 +63,8 @@
 				// Set fees
 				fees = {
 					percentage: pair.fees.percentage,
-					claimFee: pair.fees.minerFees.claim,
-					lockupFee: pair.fees.minerFees.lockup
+					claimFee: (pair.fees.minerFees as unknown as { claim: number }).claim,
+					lockupFee: (pair.fees.minerFees as unknown as { lockup: number }).lockup
 				};
 			}
 
@@ -460,7 +460,7 @@
 		<div class="space-y-4">
 			<div class="divider">{$t('wallet.swap.pending_swaps')}</div>
 
-			{#each pendingSwaps as swap, i (swap.id)}
+			{#each pendingSwaps as swap (swap.id)}
 				<PendingSwap
 					{swap}
 					swapType="lightning"
