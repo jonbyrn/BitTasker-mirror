@@ -52,3 +52,40 @@ export function animatePressRelease(el: HTMLElement) {
 		typeof animate
 	>[2]);
 }
+
+const FOOTER_HIDE_DURATION = 0.22;
+const FOOTER_SHOW_DURATION = 0.25;
+
+/**
+ * Animate the bottom dock out of view (keyboard opening).
+ * Runs on GPU (transform + opacity only). Returns a Promise that resolves
+ * when the visual animation completes — caller should then collapse layout.
+ */
+export function animateFooterHide(dock: HTMLElement): Promise<void> {
+	if (prefersReducedMotion()) {
+		dock.style.opacity = '0';
+		dock.style.transform = 'translateY(100%)';
+		return Promise.resolve();
+	}
+	return animate(dock, { y: '100%', opacity: 0 }, {
+		duration: FOOTER_HIDE_DURATION,
+		easing: [0.4, 0, 1, 1]
+	} as Parameters<typeof animate>[2]).finished;
+}
+
+/**
+ * Animate the bottom dock into view (keyboard closing).
+ * Caller should expand layout BEFORE calling this.
+ * Runs on GPU (transform + opacity only).
+ */
+export function animateFooterShow(dock: HTMLElement): Promise<void> {
+	if (prefersReducedMotion()) {
+		dock.style.opacity = '1';
+		dock.style.transform = 'translateY(0)';
+		return Promise.resolve();
+	}
+	return animate(dock, { y: '0%', opacity: 1 }, {
+		duration: FOOTER_SHOW_DURATION,
+		easing: [0.2, 0, 0, 1]
+	} as Parameters<typeof animate>[2]).finished;
+}

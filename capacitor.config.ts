@@ -60,13 +60,12 @@ const config: CapacitorConfig = {
 			hidden: false
 		},
 		Keyboard: {
-			// iOS: 'Body' resizes the <body> element when keyboard appears, which is more
-			// reliable than 'Native' (which has known bugs) or 'None' (requires manual handling).
-			// Android: resize option is ignored; use resizeOnFullScreen instead.
-			resize: KeyboardResize.Body,
+			// 'None' prevents the WebView from resizing when the keyboard appears.
+			// We handle layout changes manually via VisualViewport API in keyboard.ts.
+			// This eliminates the dual-resize problem (KeyboardResize.Body + dvh units)
+			// and gives us full control over animation timing and scroll behavior.
+			resize: KeyboardResize.None,
 			style: KeyboardStyle.Default,
-			// Must be true to prevent keyboard from overlaying the WebView
-			// when the app uses edge-to-edge display.
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {

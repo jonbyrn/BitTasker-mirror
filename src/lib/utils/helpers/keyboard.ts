@@ -12,6 +12,7 @@ let keyboardDidHideListener: { remove: () => Promise<void> } | null = null;
 let appStateChangeListener: { remove: () => Promise<void> } | null = null;
 let appResumeListener: { remove: () => Promise<void> } | null = null;
 let phantomKeyboardCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+let vvResizeListener: (() => void) | null = null;
 
 function getRoot(): HTMLElement | null {
 	return typeof document !== 'undefined' ? document.documentElement : null;
@@ -107,6 +108,7 @@ function checkAndResetPhantomKeyboard(): void {
 	if (detectPhantomKeyboard()) {
 		console.debug('[Keyboard] Phantom keyboard detected (immediate), resetting state');
 		setKeyboardClosed();
+		animateFooterShow();
 		return;
 	}
 
@@ -115,6 +117,7 @@ function checkAndResetPhantomKeyboard(): void {
 		if (detectPhantomKeyboard()) {
 			console.debug('[Keyboard] Phantom keyboard detected (delayed), resetting state');
 			setKeyboardClosed();
+			animateFooterShow();
 		}
 		phantomKeyboardCheckTimeout = null;
 	}, 300);
@@ -161,11 +164,91 @@ function handleAppResume(): void {
 }
 
 /**
- * Scroll the currently focused input into view after keyboard appears.
- * Uses scrollIntoViewIfNeeded when available (WebKit), falls back to scrollIntoView.
- *
- * We wait for the body/viewport resize to stabilize before scrolling,
- * since KeyboardResize.Body mode resizes the body asynchronously.
+ * Get the dock element from the footer for Motion animation.
+ */
+function getDockElement(): HTMLElement | null {
+	return document.querySelector('.app-shell__footer .dock') as HTMLElement | null;
+}
+
+/**
+ * Get the footer wrapper for layout collapse.
+ */
+function getFooterWrapper(): HTMLElement | null {
+	return document.querySelector('.app-shell__footer') as HTMLElement | null;
+}
+
+/**
+ * Collapse the footer layout space (called AFTER the dock slide-out animation).
+ * Sets max-height to 0 so the grid row collapses and content area expands.
+ */
+function collapseFooterLayout(): void {
+	const footer = getFooterWrapper();
+	if (!footer) return;
+	footer.style.maxHeight = '0px';
+	footer.style.overflow = 'hidden';
+}
+
+/**
+ * Expand the footer layout space (called BEFORE the dock slide-in animation).
+ * Restores max-height so the grid row allocates space for the dock.
+ */
+function expandFooterLayout(): void {
+	const footer = getFooterWrapper();
+	if (!footer) return;
+	footer.style.maxHeight = '';
+	footer.style.overflow = '';
+}
+
+/**
+ * Animate the footer dock out of view using Motion library (GPU-accelerated).
+ * After the visual animation completes, collapses the layout space.
+ */
+async function animateFooterHide(): Promise<void> {
+	const dock = getDockElement();
+	if (!dock) {
+		collapseFooterLayout();
+		return;
+	}
+
+	try {
+		const { animateFooterHide: hide } = await import('$lib/utils/animations');
+		await hide(dock);
+		collapseFooterLayout();
+	} catch {
+		// Fallback: instant hide if Motion fails to load
+		dock.style.opacity = '0';
+		dock.style.transform = 'translateY(100%)';
+		collapseFooterLayout();
+	}
+}
+
+/**
+ * Animate the footer dock into view using Motion library (GPU-accelerated).
+ * Expands layout space first, then animates the dock in.
+ */
+async function animateFooterShow(): Promise<void> {
+	const dock = getDockElement();
+	if (!dock) {
+		expandFooterLayout();
+		return;
+	}
+
+	try {
+		expandFooterLayout();
+		const { animateFooterShow: show } = await import('$lib/utils/animations');
+		await show(dock);
+	} catch {
+		// Fallback: instant show if Motion fails to load
+		expandFooterLayout();
+		dock.style.opacity = '1';
+		dock.style.transform = 'translateY(0)';
+	}
+}
+
+/**
+ * Scroll the focused input into view.
+ * Uses scrollIntoViewIfNeeded without centering (block: 'nearest' equivalent)
+ * to avoid the jarring centering jump when the input is already visible.
  */
 function scrollFocusedInputIntoView(): void {
 	if (typeof document === 'undefined') return;
@@ -180,22 +263,53 @@ function scrollFocusedInputIntoView(): void {
 
 	if (!isInput) return;
 
-	// Wait for layout to stabilize after keyboard resize.
-	// We use a combination of:
-	// 1. requestAnimationFrame to wait for the next paint
-	// 2. Instant scroll (no smooth) for immediate feedback
 	requestAnimationFrame(() => {
-		// scrollIntoViewIfNeeded is non-standard but supported in WebKit (iOS/Android WebView)
-		// Pass `true` to center the element vertically
+		// scrollIntoViewIfNeeded without `true` = don't center, just ensure visible
 		if ('scrollIntoViewIfNeeded' in active && typeof active.scrollIntoViewIfNeeded === 'function') {
 			(
 				active as HTMLElement & { scrollIntoViewIfNeeded: (center?: boolean) => void }
-			).scrollIntoViewIfNeeded(true);
+			).scrollIntoViewIfNeeded();
 		} else {
-			// Use instant scroll for immediate feedback, smooth can feel laggy
-			active.scrollIntoView({ behavior: 'instant', block: 'center' });
+			active.scrollIntoView({ behavior: 'instant', block: 'nearest' });
 		}
 	});
+}
+
+/**
+ * Listen for VisualViewport resize events to detect keyboard changes.
+ * This supplements Capacitor keyboard events with viewport-based detection,
+ * providing a fallback for edge cases and phantom keyboard detection.
+ */
+function initVisualViewportListener(): void {
+	if (typeof window === 'undefined' || !window.visualViewport) return;
+
+	let previousHeight = window.visualViewport.height;
+
+	vvResizeListener = () => {
+		const vv = window.visualViewport;
+		if (!vv) return;
+
+		const currentHeight = vv.height;
+		const heightDiff = previousHeight - currentHeight;
+		previousHeight = currentHeight;
+
+		// Significant viewport shrink (>150px) likely means keyboard opened
+		if (heightDiff > 150 && isInputElementFocused()) {
+			if (!get(keyboardVisible)) {
+				setKeyboardOpen(Math.round(heightDiff));
+				animateFooterHide();
+				// Delay scroll to let layout settle
+				requestAnimationFrame(() => scrollFocusedInputIntoView());
+			}
+		}
+		// Significant viewport grow (>150px) likely means keyboard closed
+		else if (heightDiff < -150 && get(keyboardVisible)) {
+			setKeyboardClosed();
+			animateFooterShow();
+		}
+	};
+
+	window.visualViewport.addEventListener('resize', vvResizeListener);
 }
 
 /**
@@ -223,42 +337,53 @@ export async function initKeyboard(): Promise<() => void> {
 	setKeyboardClosed();
 
 	// keyboardWillShow: fires at the START of keyboard animation.
-	// Use this to immediately hide the footer (CSS transition handles the visual).
+	// Immediately hide footer and set keyboard state. With KeyboardResize.None,
+	// the body doesn't resize, so it's safe to animate the footer out now.
 	keyboardWillShowListener = await Keyboard.addListener('keyboardWillShow', (info) => {
 		setKeyboardOpen(info.keyboardHeight || 0);
+		animateFooterHide();
 	});
 
-	// keyboardDidShow: fires when keyboard is fully visible and body has resized.
-	// Use this to scroll the focused input into view.
+	// keyboardDidShow: fires when keyboard is fully visible.
+	// Scroll the focused input into view (single scroll, no double-scroll).
 	keyboardDidShowListener = await Keyboard.addListener('keyboardDidShow', () => {
 		scrollFocusedInputIntoView();
 	});
 
 	// keyboardWillHide: fires at the START of keyboard hide animation.
-	// We wait for didHide to avoid content jumping before keyboard is gone.
+	// Start footer show animation NOW, synced with keyboard slide-away.
+	// With KeyboardResize.None, the body doesn't resize, so no content jump.
 	keyboardWillHideListener = await Keyboard.addListener('keyboardWillHide', () => {
-		// Intentionally empty - we wait for didHide
+		if (get(keyboardVisible)) {
+			setKeyboardClosed();
+			animateFooterShow();
+		}
 	});
 
 	// keyboardDidHide: fires when keyboard is fully hidden.
+	// Safety net: ensure state is correct even if willHide didn't fire.
 	keyboardDidHideListener = await Keyboard.addListener('keyboardDidHide', () => {
-		setKeyboardClosed();
+		if (get(keyboardVisible)) {
+			setKeyboardClosed();
+			animateFooterShow();
+		}
 	});
 
 	// App state change listener - more reliable than visibilitychange on Android
-	// Fires when Activity.onResume() and Activity.onStop() are called
 	appStateChangeListener = await App.addListener('appStateChange', ({ isActive }) => {
 		handleAppStateChange(isActive);
 	});
 
-	// App resume listener - fires specifically when app comes to foreground
-	// This is critical for detecting phantom keyboard after PiP/split-screen usage
+	// App resume listener - critical for phantom keyboard detection
 	appResumeListener = await App.addListener('resume', () => {
 		handleAppResume();
 	});
 
-	// Web fallback for visibilitychange (works on web and as backup on native)
+	// Web fallback for visibilitychange
 	document.addEventListener('visibilitychange', handleVisibilityChange);
+
+	// VisualViewport listener for supplementary keyboard detection
+	initVisualViewportListener();
 
 	return cleanupKeyboard;
 }
@@ -267,13 +392,11 @@ export async function cleanupKeyboard(): Promise<void> {
 	if (!initialized) return;
 	initialized = false;
 
-	// Clear any pending phantom keyboard check
 	if (phantomKeyboardCheckTimeout) {
 		clearTimeout(phantomKeyboardCheckTimeout);
 		phantomKeyboardCheckTimeout = null;
 	}
 
-	// Remove keyboard listeners
 	await keyboardWillShowListener?.remove();
 	await keyboardDidShowListener?.remove();
 	await keyboardWillHideListener?.remove();
@@ -283,7 +406,6 @@ export async function cleanupKeyboard(): Promise<void> {
 	keyboardWillHideListener = null;
 	keyboardDidHideListener = null;
 
-	// Remove app state listeners
 	await appStateChangeListener?.remove();
 	await appResumeListener?.remove();
 	appStateChangeListener = null;
@@ -293,31 +415,24 @@ export async function cleanupKeyboard(): Promise<void> {
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
 	}
 
+	if (vvResizeListener && window.visualViewport) {
+		window.visualViewport.removeEventListener('resize', vvResizeListener);
+		vvResizeListener = null;
+	}
+
 	setKeyboardClosed();
 }
 
-/**
- * Utility to check if keyboard is currently visible.
- * Can be used in components that need to react to keyboard state.
- */
 export function isKeyboardVisible(): boolean {
 	return get(keyboardVisible);
 }
 
-/**
- * Force reset keyboard state to closed.
- * Use this as a manual escape hatch when phantom keyboard is detected
- * but automatic detection doesn't catch it.
- */
 export function forceResetKeyboardState(): void {
 	console.debug('[Keyboard] Force resetting keyboard state');
 	setKeyboardClosed();
+	animateFooterShow();
 }
 
-/**
- * Trigger a phantom keyboard check manually.
- * Useful for debugging or when you know an app transition occurred.
- */
 export function triggerPhantomKeyboardCheck(): void {
 	checkAndResetPhantomKeyboard();
 }

@@ -542,26 +542,22 @@ body {
 	 */
 	max-height: 200px;
 	/*
-	 * Footer REAPPEARING: animate smoothly when keyboard closes.
-	 * We only transition max-height; opacity and transform are instant on close.
+	 * Footer animation is driven by Motion library (keyboard.ts), not CSS transitions.
+	 * NOTE: Do NOT add will-change:transform here — it creates a containing block
+	 * that traps the drawer's position:fixed overlay inside the footer bounds.
+	 * The Motion library's temporary transform during animation is acceptable because
+	 * the drawer cannot be opened while the keyboard is visible (footer is hidden).
 	 */
-	transition: max-height 200ms ease-out;
 }
 
 /*
  * Collapse the bottom dock when keyboard is open.
  * max-height: 0 + overflow: hidden makes the element take no space in the grid.
- * The grid row with `auto` height will shrink to 0.
- *
- * Footer HIDING: instant (no transition) to avoid flickering.
- * The translateY provides a smooth exit animation while max-height collapses the space.
+ * The visual animation (transform + opacity) is handled by Motion library.
  */
 :root[data-keyboard-visible] .app-shell__footer {
-	transform: translateY(100%);
 	max-height: 0;
-	opacity: 0;
 	pointer-events: none;
-	transition: none;
 }
 
 /*
@@ -579,6 +575,12 @@ body {
 	bottom: auto !important;
 	left: auto !important;
 	right: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dock-menu-btn:active {
+		transform: none;
+	}
 }
 
 /*

@@ -7,51 +7,41 @@
 	let { error } = $props();
 
 	// Debug logging to understand error structure
-	
 
-	// Get basic error info - try multiple sources
 	const getErrorInfo = () => {
-		// Try to get error info from props first
-		if (error) {
-			return {
-				status: error?.status || error?.code || 500,
-				message: error?.message || error?.body?.message || 'An unexpected error occurred'
-			};
-		}
-		// If no error in props, try to get from page store
-		else if (page.error) {
-			// Handle different error types
-			const pageError = page.error as any;
+		const errObj = error ?? page.error;
+		const pathname = page.url.pathname;
 
-			// Check if this is a "Not Found" error (common for 404s)
-			if (pageError?.message === 'Not Found' || pageError?.message?.includes('Not found')) {
-				return {
-					status: 404,
-					message: `The page "${page.url.pathname}" was not found.`
-				};
+		if (errObj) {
+			const e = errObj as Record<string, unknown>;
+			const status =
+				(typeof e.status === 'number' ? e.status : undefined) ??
+				(typeof e.code === 'number' ? e.code : undefined);
+			const message =
+				(typeof e.message === 'string' ? e.message : undefined) ??
+				(typeof (e.body as Record<string, unknown>)?.message === 'string'
+					? ((e.body as Record<string, unknown>).message as string)
+					: undefined);
+
+			const isNotFound =
+				status === 404 ||
+				message === 'Not Found' ||
+				(typeof message === 'string' && message.toLowerCase().includes('not found'));
+
+			if (isNotFound) {
+				return { status: 404, message: `The page "${pathname}" was not found.` };
 			}
 
-			return {
-				status: pageError?.status || pageError?.code || 500,
-				message: pageError?.message || pageError?.body?.message || 'An unexpected error occurred'
-			};
-		}
-		// If still no error info, try to infer from URL (common for 404s)
-		else {
-			// Check if this looks like a 404 based on the URL
-			const pathname = page.url.pathname;
-			if (pathname && pathname !== '/') {
-				// This is likely a 404 - no route matched
-				return {
-					status: 404,
-					message: `The page "${pathname}" was not found.`
-				};
+			if (status) {
+				return { status, message: message ?? 'An unexpected error occurred' };
 			}
-			return {
-				status: 500,
-				message: 'An unexpected error occurred'
-			};
 		}
+
+		if (pathname && pathname !== '/') {
+			return { status: 404, message: `The page "${pathname}" was not found.` };
+		}
+
+		return { status: 500, message: 'An unexpected error occurred' };
 	};
 
 	// Simple error content based on status

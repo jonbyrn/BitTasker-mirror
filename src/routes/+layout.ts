@@ -6,6 +6,11 @@ import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 export const prerender = true;
 
 export async function load({ url }: { url: URL }) {
+	if (url.pathname.startsWith('/dashboard')) {
+		const subPath = url.pathname.replace('/dashboard', '');
+		redirect(301, '/hiring' + subPath);
+	}
+
 	if (browser) {
 		await setupI18n();
 		await loadPageTranslations(url.pathname);
