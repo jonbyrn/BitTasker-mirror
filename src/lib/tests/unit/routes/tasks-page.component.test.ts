@@ -302,9 +302,9 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 			await tick(); // Extra tick for store reactivity
 
-			// Check for task list container or scroll container
+			// Check for task list container
 			const taskListContainer =
-				container.querySelector('.task-list-scroll-container') ||
+				container.querySelector('[data-tasks-list-column]') ||
 				container.querySelector('.task-list-items') ||
 				container.querySelector('[data-task-id]');
 			expect(taskListContainer).toBeTruthy();
