@@ -127,7 +127,7 @@ class PushNotificationService {
 
 			// Handle foreground messages
 			onMessage(this.messaging, async (payload) => {
-				console.log('📨 Message received in foreground: ', payload);
+				console.log('📨 Message received in foreground: ', payload.data?.title);
 				await this.handleForegroundMessage(payload);
 			});
 
@@ -218,7 +218,10 @@ class PushNotificationService {
 	private async handleForegroundMessage(payload: MessagePayload): Promise<void> {
 		// Handle data payload first (includes device revocation)
 		if (payload.data) {
-			appStore.showInfoToast(payload.data.title || 'New notification received');
+			const title = payload.data.title || 'New notification received';
+			appStore.showInfoToast(title, 3000, {
+				dedupKey: `toast-dedup:${title}`
+			});
 
 			/**
 			 * Avoid directly navigating to the URL in the notification

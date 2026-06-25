@@ -157,6 +157,12 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 	pushNotificationService: { sendNotificationToNpubs: vi.fn(() => Promise.resolve()) }
 }));
 
+const mockSendBidStatusUpdate = vi.fn(() => Promise.resolve(true));
+vi.mock('$lib/utils/nostr-bid', () => ({
+	sendBidStatusUpdate: (...args: unknown[]) => mockSendBidStatusUpdate(...args),
+	clearBidCache: vi.fn()
+}));
+
 vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: { 1: { percentage: 250 } },
 	normalizeRskAddress: (addr: string) => addr
@@ -166,6 +172,8 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 import { createContract } from '$lib/utils/contract/v2/creation';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 describe('Contract conflict fix — out-of-box verification', () => {
 	beforeEach(() => {
@@ -430,6 +438,53 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			}
 
 			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
+		});
+	});
+
+	describe('BUG: bid status event (Kind 30008) must be broadcast when bid is accepted', () => {
+		it('calls sendBidStatusUpdate with ACCEPTED status during afterBroadcast', async () => {
+			const now = Math.floor(Date.now() / 1000);
+			const task = makeMockTask();
+			const bid = makeMockBid();
+			bid.bidContent.startDateTime = now + 600;
+			bid.bidContent.endDateTime = now + 7200;
+
+			mockSendBidStatusUpdate.mockClear();
+			mockSendBidStatusUpdate.mockResolvedValue(true);
+
+			const result = await createContract(bid, task, 100000);
+			if (!result.success) throw new Error(result.error);
+
+			await result.afterBroadcast;
+
+			expect(mockSendBidStatusUpdate).toHaveBeenCalledWith(
+				'bid-456',
+				'task-123',
+				'taskee-pubkey',
+				BidStatusEnum.ACCEPTED,
+				undefined,
+				undefined,
+				'0xabc123'
+			);
+		});
+
+		it('afterBroadcast does not fail when sendBidStatusUpdate throws', async () => {
+			const now = Math.floor(Date.now() / 1000);
+			const task = makeMockTask();
+			const bid = makeMockBid();
+			bid.bidContent.startDateTime = now + 600;
+			bid.bidContent.endDateTime = now + 7200;
+
+			mockSendBidStatusUpdate.mockRejectedValue(new Error('Relay unavailable'));
+
+			const result = await createContract(bid, task, 100000);
+			if (!result.success) throw new Error(result.error);
+
+			// afterBroadcast should complete without throwing even if bid status update fails
+			const report = await result.afterBroadcast;
+			// The failure should be captured in the report
+			expect(report.failures.length).toBeGreaterThanOrEqual(1);
+			expect(report.failures.some((f) => f.name === 'bidStatusUpdate')).toBe(true);
 		});
 	});
 });

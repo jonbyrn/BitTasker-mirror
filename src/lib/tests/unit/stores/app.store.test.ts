@@ -104,6 +104,79 @@ describe('appStore', () => {
 		});
 	});
 
+	describe('toast deduplication', () => {
+		it('should deduplicate toasts with the same dedupKey', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			appStore.showInfoToast('Msg', 3000, { dedupKey: 'key-1' });
+			appStore.showInfoToast('Msg', 3000, { dedupKey: 'key-1' });
+			appStore.showInfoToast('Msg', 3000, { dedupKey: 'key-1' });
+
+			expect(get(appStore).toasts).toHaveLength(1);
+		});
+
+		it('should allow toasts with different dedupKeys', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			appStore.showInfoToast('A', 3000, { dedupKey: 'key-a' });
+			appStore.showInfoToast('B', 3000, { dedupKey: 'key-b' });
+
+			expect(get(appStore).toasts).toHaveLength(2);
+		});
+
+		it('should allow toasts without dedupKey to duplicate', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			appStore.showInfoToast('Repeated');
+			appStore.showInfoToast('Repeated');
+
+			expect(get(appStore).toasts).toHaveLength(2);
+		});
+
+		it('should deduplicate showSuccessToast with dedupKey', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			appStore.showSuccessToast('Done', 3000, { dedupKey: 'success-dedup' });
+			appStore.showSuccessToast('Done', 3000, { dedupKey: 'success-dedup' });
+
+			expect(get(appStore).toasts).toHaveLength(1);
+		});
+
+		it('should deduplicate showErrorToast with dedupKey', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			appStore.showErrorToast('Fail', 3000, { dedupKey: 'error-dedup' });
+			appStore.showErrorToast('Fail', 3000, { dedupKey: 'error-dedup' });
+
+			expect(get(appStore).toasts).toHaveLength(1);
+		});
+
+		it('should allow new toast with same dedupKey after expiry', () => {
+			vi.useFakeTimers();
+			appStore.update((s) => ({ ...s, toasts: [] }));
+
+			appStore.showInfoToast('First', 500, { dedupKey: 'expire-test' });
+			expect(get(appStore).toasts).toHaveLength(1);
+
+			// Advance past toast auto-dismiss (500ms) + dedup min retention (3000ms)
+			vi.advanceTimersByTime(4000);
+			expect(get(appStore).toasts).toHaveLength(0);
+
+			// Same dedupKey should now be allowed
+			appStore.showInfoToast('Second', 3000, { dedupKey: 'expire-test' });
+			expect(get(appStore).toasts).toHaveLength(1);
+			expect(get(appStore).toasts[0].message).toBe('Second');
+		});
+
+		it('should simulate WebSocket + FCM duplicate (same dedupKey → one toast)', () => {
+			appStore.update((s) => ({ ...s, toasts: [] }));
+			const title = 'New bid received';
+			const dedupKey = `toast-dedup:${title}`;
+
+			// WebSocket fires first (notificationSocket.service.ts pattern)
+			appStore.showInfoToast(title, 3000, { dedupKey });
+			// FCM fires immediately after with the same key (push-notification.service.ts pattern)
+			appStore.showInfoToast(title, 3000, { dedupKey });
+
+			expect(get(appStore).toasts).toHaveLength(1);
+		});
+	});
+
 	describe('initializePool', () => {
 		it('should return existing pool when already set', () => {
 			const poolBefore = get(appStore).pool;

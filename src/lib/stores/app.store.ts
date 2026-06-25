@@ -20,6 +20,10 @@ interface Toast {
 	duration?: number;
 }
 
+interface ToastOptions {
+	dedupKey?: string;
+}
+
 interface AppStore {
 	nostrKeys: {
 		nsec: Uint8Array | null;
@@ -73,7 +77,30 @@ const createAppStore = () => {
 
 	let toastId = 0;
 
+	/** Active dedup keys — prevents duplicate toasts within a time window. */
+	const activeDedupKeys = new Map<string, number>();
+	const DEDUP_MIN_RETENTION_MS = 3000;
+
+	const removeDedupKey = (key: string) => {
+		const addedAt = activeDedupKeys.get(key);
+		if (addedAt !== undefined) {
+			const elapsed = Date.now() - addedAt;
+			if (elapsed < DEDUP_MIN_RETENTION_MS) {
+				setTimeout(() => activeDedupKeys.delete(key), DEDUP_MIN_RETENTION_MS - elapsed);
+			} else {
+				activeDedupKeys.delete(key);
+			}
+		}
+	};
+
 	const addToast = (toast: Omit<Toast, 'id'>, timeout: number): number => {
+		if (toast.dedupKey) {
+			if (activeDedupKeys.has(toast.dedupKey)) {
+				return -1;
+			}
+			activeDedupKeys.set(toast.dedupKey, Date.now());
+		}
+
 		const id = toastId++;
 		update((state) => ({
 			...state,
@@ -86,6 +113,7 @@ const createAppStore = () => {
 					...state,
 					toasts: state.toasts.filter((t) => t.id !== id)
 				}));
+				if (toast.dedupKey) removeDedupKey(toast.dedupKey);
 			}, timeout);
 		}
 
@@ -96,14 +124,14 @@ const createAppStore = () => {
 		subscribe,
 		set,
 		update,
-		showSuccessToast: (message: string, timeout: number = 3000) => {
-			addToast({ type: 'success', message }, timeout);
+		showSuccessToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
+			addToast({ type: 'success', message, dedupKey: options?.dedupKey }, timeout);
 		},
-		showErrorToast: (message: string, timeout: number = 3000) => {
-			addToast({ type: 'error', message }, timeout);
+		showErrorToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
+			addToast({ type: 'error', message, dedupKey: options?.dedupKey }, timeout);
 		},
-		showInfoToast: (message: string, timeout: number = 3000) => {
-			addToast({ type: 'info', message }, timeout);
+		showInfoToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
+			addToast({ type: 'info', message, dedupKey: options?.dedupKey }, timeout);
 		},
 		showBanner: (options: {
 			message: string | { key: string; values?: Record<string, unknown> };
