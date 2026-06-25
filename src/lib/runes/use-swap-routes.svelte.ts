@@ -47,6 +47,7 @@
 import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
 import type { Route, SourceWallet, Destination } from '$lib/services/route-resolver';
 import { createDebug } from '$lib/utils/debug';
+import { tryCatch } from '$lib/utils/tryCatch';
 import * as Sentry from '@sentry/sveltekit';
 
 const d = createDebug('swap-routes');
@@ -137,7 +138,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const s = opts.getSourceType?.();
 			return (s as SourceWallet) || 'rbtc';
-		} catch {
+		} catch (e) {
+			d.warn('getSourceType failed', e);
 			return 'rbtc';
 		}
 	});
@@ -146,7 +148,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const dt = opts.getDestType?.();
 			return (dt as DestType) || 'usdt0-arb';
-		} catch {
+		} catch (e) {
+			d.warn('getDestType failed', e);
 			return 'usdt0-arb';
 		}
 	});
@@ -155,7 +158,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const a = opts.getSourceAddr?.();
 			return typeof a === 'string' ? a : '';
-		} catch {
+		} catch (e) {
+			d.warn('getSourceAddr failed', e);
 			return '';
 		}
 	});
@@ -163,7 +167,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	const isOnline = $derived.by(() => {
 		try {
 			return !!opts.getIsOnline?.();
-		} catch {
+		} catch (e) {
+			d.warn('getIsOnline failed', e);
 			return true;
 		}
 	});
@@ -173,7 +178,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const p = opts.getBtcUsdPrice?.();
 			return Number.isFinite(p) && (p as number) > 0 ? (p as number) : 0;
-		} catch {
+		} catch (e) {
+			d.warn('getBtcUsdPrice failed', e);
 			return 0;
 		}
 	});
@@ -182,7 +188,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const p = opts.getEthUsdPrice?.();
 			return Number.isFinite(p) && (p as number) > 0 ? (p as number) : 0;
-		} catch {
+		} catch (e) {
+			d.warn('getEthUsdPrice failed', e);
 			return 0;
 		}
 	});
@@ -191,7 +198,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const g = opts.getRskGasWei?.();
 			return typeof g === 'bigint' && g > 0n ? g : 0n;
-		} catch {
+		} catch (e) {
+			d.warn('getRskGasWei failed', e);
 			return 0n;
 		}
 	});
@@ -200,7 +208,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		try {
 			const g = opts.getArbGasWei?.();
 			return typeof g === 'bigint' && g > 0n ? g : 0n;
-		} catch {
+		} catch (e) {
+			d.warn('getArbGasWei failed', e);
 			return 0n;
 		}
 	});
@@ -213,7 +222,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		const amt = amountSats;
 		const src = currentSourceType;
 		const dst = currentDestType;
-		const adr = sourceAddr;
+		const _adr = sourceAddr;
 		const online = isOnline;
 		const _nonce = refreshNonce;
 
@@ -239,7 +248,6 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		const snapshotAmt = amt;
 		const snapshotSrc = src;
 		const snapshotDst = dst;
-		const snapshotAdr = adr; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 		currentController = new AbortController();
 
@@ -249,16 +257,20 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			const routeDest = destinationFor(snapshotDst);
 			const resolveFn = opts.resolveRoutesFn ?? resolveRoutes;
 
-			try {
-				const result = await resolveFn(
-					snapshotSrc,
-					routeDest,
-					snapshotAmt,
-					currentController?.signal
-				);
+			const { data: result, error } = await tryCatch(
+				resolveFn(snapshotSrc, routeDest, snapshotAmt, currentController?.signal)
+			);
 
+			if (error) {
 				if (currentController?.signal.aborted) return;
-
+				d.warn('resolveRoutes failed: %s', error.message);
+				Sentry.addBreadcrumb({
+					category: 'wallet.swap.routes',
+					message: 'resolveRoutes failed',
+					data: { source: snapshotSrc, dest: snapshotDst, error: String(error) }
+				});
+				engineResult = EMPTY_RESULT;
+			} else if (!currentController?.signal.aborted && result) {
 				engineResult = result;
 				d.log(
 					'Resolved %d routes (%d errors), recommended: %s',
@@ -266,15 +278,6 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 					result.errors.length,
 					result.recommended?.id ?? 'none'
 				);
-			} catch (err) {
-				if (currentController?.signal.aborted) return;
-				d.warn('resolveRoutes failed in routes rune', err);
-				Sentry.addBreadcrumb({
-					category: 'wallet.swap.routes',
-					message: 'resolveRoutes failed',
-					data: { source: snapshotSrc, dest: snapshotDst, error: String(err) }
-				});
-				engineResult = EMPTY_RESULT;
 			}
 
 			routeLoading = false;

@@ -44,6 +44,10 @@
 	import GaslessSendFlow from './GaslessSendFlow.svelte';
 	import { resolveRoute, type SourceWallet, type Destination } from '$lib/services/route-resolver';
 	import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
+	import { tryCatch } from '$lib/utils/tryCatch';
+	import { createDebug } from '$lib/utils/debug';
+	import * as Sentry from '@sentry/sveltekit';
+
 	import {
 		startSwapChain,
 		type SwapChainState,
@@ -66,6 +70,8 @@
 		getBSCUSDTContractAddress,
 		getUSDTContractAddressForNetwork
 	} from '$lib/services/external-wallet/chain-utils';
+
+	const d = createDebug('send-payment');
 
 	let { onCancel, onSuccess } = $props<{
 		onCancel: () => void;
@@ -769,18 +775,24 @@
 		const capturedSignal = _routeAbortController.signal;
 
 		_routeDebounceTimer = setTimeout(async () => {
-			try {
-				const result = await resolveRoutes(
-					capturedSourceWallet,
-					capturedDest,
-					capturedAmount,
-					capturedSignal
-				);
+			const { data: result, error } = await tryCatch(
+				resolveRoutes(capturedSourceWallet, capturedDest, capturedAmount, capturedSignal)
+			);
+			if (error) {
 				if (cancelled) return;
-				routeResult = result;
+				d.warn('resolveRoutes failed', error);
+				Sentry.addBreadcrumb({
+					category: 'wallet.send.routes',
+					message: 'resolveRoutes failed',
+					data: {
+						source: capturedSourceWallet,
+						dest: capturedDest,
+						error: String(error)
+					}
+				});
 				routeLoading = false;
-			} catch (_err) {
-				if (cancelled) return;
+			} else if (!cancelled && result) {
+				routeResult = result;
 				routeLoading = false;
 			}
 		}, 400);

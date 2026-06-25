@@ -105,19 +105,6 @@ vi.mock('$lib/services/swap-chain.service', () => ({
 	onSwapProgress: vi.fn(() => () => {}) // returns unsubscribe fn
 }));
 
-vi.mock('$lib/services/SmartRouter', () => ({
-	SmartRouter: class {
-		async getBestRoute() {
-			return null;
-		}
-	}
-}));
-
-vi.mock('$lib/services/route-resolver-async', () => ({
-	resolveRouteAsync: vi.fn().mockResolvedValue({ routes: [] }),
-	createInitialAsyncRouteResult: vi.fn(() => ({ routes: [] }))
-}));
-
 vi.mock('$lib/services/route-engine', () => ({
 	resolveRoutes: vi.fn().mockResolvedValue({
 		routes: [],
