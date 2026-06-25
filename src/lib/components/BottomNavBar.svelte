@@ -32,12 +32,6 @@
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconDomain from '~icons/mdi/domain';
 	import IconCog from '~icons/mdi/cog';
-	import IconFlash from '~icons/mdi/flash';
-	import IconCellphone from '~icons/mdi/cellphone';
-	import IconAccountOff from '~icons/mdi/account-off';
-	import IconConsole from '~icons/mdi/console';
-	import IconBellOutline from '~icons/mdi/bell-outline';
-	import IconShieldKey from '~icons/mdi/shield-key';
 
 	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
 		return sections
@@ -166,27 +160,9 @@
 	const gridItems = $derived(
 		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
 	);
-	const settingsNavGroup: NavGroup = {
-		id: 'settings',
-		icon: IconCog,
-		label: 'navbar.settings',
-		items: [
-			{ href: '/settings/actions', icon: IconFlash, label: 'navbar.settings_actions' },
-			{ href: '/settings/devices', icon: IconCellphone, label: 'navbar.settings_devices' },
-			{ href: '/settings/muted', icon: IconAccountOff, label: 'navbar.settings_muted' },
-			{ href: '/settings/nostr', icon: IconConsole, label: 'navbar.settings_nostr' },
-			{
-				href: '/settings/notifications',
-				icon: IconBellOutline,
-				label: 'navbar.settings_notifications'
-			},
-			{ href: '/settings/recovery', icon: IconShieldKey, label: 'navbar.settings_recovery' }
-		]
-	};
-
 	const navGroups = $derived(
 		$authState.isAuthenticated
-			? [...sectionsToGroups(LOGGED_IN_MENU_SECTIONS), settingsNavGroup]
+			? sectionsToGroups(LOGGED_IN_MENU_SECTIONS)
 			: sectionsToGroups(LOGGED_OUT_MENU_SECTIONS)
 	);
 

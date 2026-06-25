@@ -262,4 +262,110 @@ test.describe('Services Infinite Scroll', () => {
 		// Existing cards should still be visible after failed load more
 		await expect(cards).toHaveCount(20);
 	});
+
+	test('infinite scroll works after switching views and changing filters', async ({ page }) => {
+		const page1Events = createServiceEvents(20);
+		// Page 2 events must have different indices (21-30) to avoid dedup
+		const page2Events = Array.from({ length: 10 }, (_, i) =>
+			createServiceEvent(i + 21, 1_699_998_000 - i * 100)
+		);
+
+		const logs: string[] = [];
+		page.on('console', (msg) => logs.push(msg.text()));
+
+		let requestCount = 0;
+		await page.route('**/api/v1/events**', async (route) => {
+			const url = route.request().url();
+			const method = route.request().method();
+
+			if (method !== 'GET' || !url.includes('kinds')) {
+				await route.continue();
+				return;
+			}
+
+			const requestUrl = new URL(url);
+			const rawKinds = requestUrl.searchParams
+				.getAll('kinds')
+				.concat(requestUrl.searchParams.getAll('kinds[]'));
+			const isServiceRequest = rawKinds.some((kind) =>
+				kind.includes(String(SERVICE_KIND))
+			);
+
+			if (!isServiceRequest) {
+				await route.continue();
+				return;
+			}
+
+			requestCount++;
+			const hasUntil = requestUrl.searchParams.has('until');
+			const data = hasUntil ? page2Events : page1Events;
+			console.log(`[MOCK] Request #${requestCount} hasUntil=${hasUntil} returning ${data.length} events`);
+
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ data })
+			});
+		});
+		await mockDeletionEvents(page);
+
+		await page.goto('/services');
+		await page.waitForLoadState('networkidle');
+
+		const cards = page.locator('[data-service-id]');
+		await expect(cards.first()).toBeVisible({ timeout: 10000 });
+		await expect(cards).toHaveCount(20);
+
+		// Switch to map view and back
+		const mapToggle = page.getByRole('button', { name: /map/i }).first();
+		if (await mapToggle.isVisible()) {
+			await mapToggle.click();
+			await page.waitForTimeout(500);
+			await mapToggle.click();
+			await page.waitForTimeout(500);
+		}
+
+		// Verify cards are still there
+		await expect(cards).toHaveCount(20);
+
+		// Open filter drawer, apply a filter, then clear it
+		const filterButton = page.getByRole('button', { name: /filter/i }).first();
+		if (await filterButton.isVisible()) {
+			await filterButton.click();
+			await page.waitForTimeout(500);
+
+			// Apply filter
+			const applyButton = page.getByRole('button', { name: /apply/i }).first();
+			if (await applyButton.isVisible()) {
+				await applyButton.click();
+				await page.waitForTimeout(2000);
+			}
+
+			// Clear filters
+			const clearButton = page.getByRole('button', { name: /clear/i }).first();
+			if (await clearButton.isVisible()) {
+				await clearButton.click();
+				await page.waitForTimeout(2000);
+			}
+		}
+
+		// After filter cycle, verify cards are loaded
+		await expect(cards.first()).toBeVisible({ timeout: 10000 });
+		const countAfterFilter = await cards.count();
+		console.log('Cards after filter cycle:', countAfterFilter);
+
+		// Scroll to bottom
+		const scrollContainer = page.locator('.app-shell__content');
+		await scrollContainer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+		await page.waitForTimeout(1000);
+		await scrollContainer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+		await page.waitForTimeout(1000);
+
+		const finalCount = await cards.count();
+		console.log('Final card count:', finalCount);
+		console.log('SYNC logs:', logs.filter((l) => l.includes('[SYNC]')).join('\n'));
+		console.log('MOCK logs:', logs.filter((l) => l.includes('[MOCK]')).join('\n'));
+
+		expect(finalCount).toBeGreaterThan(20);
+	});
 });

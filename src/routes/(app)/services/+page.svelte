@@ -166,9 +166,21 @@
 		}
 	});
 
-	// Keep scroll.hasMore in sync with the store
+	// Keep scroll.hasMore in sync with the store.
+	// After filter/view changes, dispatch a scroll event to trigger the
+	// InfiniteScroll component's fallback listener, which re-checks distance.
 	function syncScrollHasMore() {
 		scroll.update((s) => ({ ...s, hasMore: $servicesStore.hasMore }));
+
+		if (browser && $servicesStore.hasMore && !$servicesStore.loading) {
+			requestAnimationFrame(() => {
+				const scrollEl = document.querySelector('.app-shell__content');
+				if (scrollEl) {
+					// Trigger the InfiniteScroll fallback's onScroll handler
+					scrollEl.dispatchEvent(new Event('scroll'));
+				}
+			});
+		}
 	}
 
 	// ── Data fetching ──────────────────────────────────────────────────────────
@@ -443,6 +455,18 @@
 		viewMode = viewMode === 'list' ? 'map' : 'list';
 		if (viewMode === 'map' && !mapLoaded) {
 			void loadMapComponent();
+		}
+
+		// On mobile, prevent scrolling when in map view
+		if (browser) {
+			const scrollEl = document.querySelector('.app-shell__content');
+			if (scrollEl instanceof HTMLElement) {
+				if (viewMode === 'map' && windowWidth < DESKTOP_MIN_WIDTH) {
+					scrollEl.style.overflowY = 'hidden';
+				} else {
+					scrollEl.style.overflowY = '';
+				}
+			}
 		}
 	}
 

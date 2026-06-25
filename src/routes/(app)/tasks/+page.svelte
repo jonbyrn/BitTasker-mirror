@@ -8,6 +8,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser, dev } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
+	import { scroll } from '$lib/stores/infiniteScroll.store';
+	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
@@ -41,8 +43,6 @@
 
 	// Scroll constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
-	const INFINITE_SCROLL_TRIGGER_DISTANCE = 300; // px - Load more tasks when within this distance from bottom
-	const SCROLL_DEBOUNCE_DELAY = 200; // ms - Delay for scroll event debouncing
 
 	// Search constants
 	const SEARCH_DEBOUNCE_DELAY = 1000; // ms - Delay before executing search
@@ -53,7 +53,6 @@
 	const DATE_CACHE_MAX_SIZE = 1000; // Maximum entries in LRU cache for date formatting
 
 	// Data loading constants
-	const DOM_QUERY_MAX_RETRIES = 10; // Maximum retries for DOM element queries
 	const BTC_PRICE_FALLBACK = 120000; // Default fallback BTC price in USD
 	const LOADING_TIMEOUT_MS = 10000; // 10 seconds timeout for loading
 
@@ -68,6 +67,37 @@
 	let BidForm: typeof BidFormComponent | null = $state(null);
 	let SaveSearchForm: typeof SaveSearchFormComponent | null = $state(null);
 	let TaskTab: typeof TaskTabComponent | null = $state(null);
+
+	// Configure the layout's InfiniteScroll component at init time
+	scroll.set({
+		hasMore: true,
+		threshold: 500,
+		elementScroll: null,
+		page: 0,
+		horizontal: false,
+		loadMore: async () => {
+			if (!$tasksStore.hasMore || $tasksStore.loading) return;
+
+			const lastRelayTs = $tasksStore.lastRelayTimestamp;
+			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
+			const cursorTimestamp = lastRelayTs ?? lastItem?.createdAt;
+			if (!cursorTimestamp) return;
+
+			try {
+				const nextPage = $tasksStore.currentPage + 1;
+				await findTasks({
+					...searchParams,
+					page: nextPage,
+					until: cursorTimestamp - 1,
+					limit: TASKS_PER_PAGE
+				});
+			} catch (error) {
+				console.error('[FindTasks] Error loading more tasks:', error);
+			}
+
+			scroll.update((s) => ({ ...s, hasMore: $tasksStore.hasMore }));
+		}
+	});
 
 	// Component loading states
 	let drawersLoaded = $state(false);
@@ -116,8 +146,6 @@
 	// Scroll state
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
 	let taskListRef = $state.raw<HTMLElement | null>(null);
-	// Module-scoped timeout (not reactive state)
-	let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Scroll to top button state
 	let showScrollToTop = $state(false);
@@ -146,10 +174,6 @@
 
 	// Infinite scroll state - use atomic flag to prevent race conditions
 	let isLoadingMore = $state(false);
-
-	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
-	// Using $state.raw for DOM element reference - only reassigned, not mutated
-	let appShellContent: HTMLElement | null = $state.raw(null);
 
 	// ============================================================================
 	// STORE MANAGEMENT FUNCTIONS
@@ -255,72 +279,22 @@
 	// SCROLL FUNCTIONS
 	// ============================================================================
 
-	/**
-	 * Combined scroll handler for both scroll-to-top button and infinite scroll
-	 * Optimized to avoid forced reflows by batching DOM reads in requestAnimationFrame
-	 */
-	function handleScroll() {
-		if (!taskListRef) return;
-
-		// Use requestAnimationFrame to batch DOM reads and avoid forced reflows
-		// This prevents the "Forced reflow" warnings by deferring DOM reads
-		requestAnimationFrame(() => {
-			if (!taskListRef) return;
-
-			// Batch all DOM reads together to minimize reflows
-			const scrollTop = taskListRef.scrollTop;
-
-			// Show/hide scroll to top button (lightweight check)
-			showScrollToTop = scrollTop > SCROLL_TO_TOP_THRESHOLD;
-
-			// Handle infinite scroll with debouncing
-			if (scrollTimeout) {
-				clearTimeout(scrollTimeout);
-				scrollTimeout = null;
-			}
-
-			scrollTimeout = setTimeout(() => {
-				// Clear timeout reference when it executes
-				scrollTimeout = null;
-
-				if (!taskListRef || !$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
-					return;
-				}
-
-				// Re-read DOM properties in setTimeout to ensure they're current
-				// This is acceptable since it's debounced and only runs when needed
-				const currentScrollTop = taskListRef.scrollTop;
-				const currentScrollHeight = taskListRef.scrollHeight;
-				const currentClientHeight = taskListRef.clientHeight;
-				const distanceFromBottom = currentScrollHeight - (currentScrollTop + currentClientHeight);
-
-				// Load more when within trigger distance of bottom
-				if (distanceFromBottom < INFINITE_SCROLL_TRIGGER_DISTANCE) {
-					loadMoreTasks();
-				}
-			}, SCROLL_DEBOUNCE_DELAY);
-		});
+	function scrollToTop(): void {
+		$appScrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
-	/**
-	 * Scroll to top of task list
-	 */
-	function scrollToTop() {
-		if (taskListRef) {
-			taskListRef.scrollTo({
-				top: 0,
-				behavior: 'smooth'
+	// Configure the layout's InfiniteScroll component
+	// After filter/view changes, dispatch scroll event to trigger fallback check.
+	function syncScrollHasMore() {
+		scroll.update((s) => ({ ...s, hasMore: $tasksStore.hasMore }));
+
+		if (browser && $tasksStore.hasMore && !$tasksStore.loading) {
+			requestAnimationFrame(() => {
+				const scrollEl = document.querySelector('.app-shell__content');
+				if (scrollEl) {
+					scrollEl.dispatchEvent(new Event('scroll'));
+				}
 			});
-		}
-	}
-
-	/**
-	 * Cleanup scroll listener and timeout
-	 */
-	function cleanupScrollListener(): void {
-		if (scrollTimeout) {
-			clearTimeout(scrollTimeout);
-			scrollTimeout = null;
 		}
 	}
 
@@ -509,6 +483,7 @@
 
 			$tasksStore.searchParamsKey = currentSearchKey;
 			loadingState = 'loaded';
+			syncScrollHasMore();
 		} catch (error) {
 			loadingState = 'error';
 			// Set error in store for user-facing error message
@@ -647,18 +622,6 @@
 
 	// Combined effect: Setup scroll listener and loading timeout management
 	$effect(() => {
-		// Setup scroll listener when taskListRef is available
-		const ref = taskListRef;
-		let scrollCleanup: (() => void) | undefined;
-
-		if (ref) {
-			ref.addEventListener('scroll', handleScroll, { passive: true });
-			scrollCleanup = () => {
-				ref.removeEventListener('scroll', handleScroll);
-				cleanupScrollListener();
-			};
-		}
-
 		// Handle loading timeout for Nostr data
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if ($tasksStore.loading && searchParams.page === 1 && loadingState === 'loading') {
@@ -675,7 +638,6 @@
 		}
 
 		return () => {
-			if (scrollCleanup) scrollCleanup();
 			if (timer) clearTimeout(timer);
 		};
 	});
@@ -785,23 +747,14 @@
 			}
 		}
 
-		// Find app-shell__content element once on mount
-		// Use multiple attempts to ensure DOM is ready with retry limit
-		let retryCount = 0;
-		const addClass = () => {
-			const content = document.querySelector('.app-shell__content');
-			// Type guard: check if element is HTMLElement
-			if (content instanceof HTMLElement && !content.hasAttribute('data-find-tasks-page')) {
-				appShellContent = content;
-				// Use data attribute for targeting (simpler than class + attribute)
-				content.setAttribute('data-find-tasks-page', 'true');
-			} else if (!content && retryCount < DOM_QUERY_MAX_RETRIES) {
-				// Retry if element not found yet, up to max retries
-				retryCount++;
-				requestAnimationFrame(addClass);
-			}
-		};
-		requestAnimationFrame(addClass);
+		// Scroll-to-top visibility via $appScrollContainer
+		const scrollEl = $appScrollContainer ?? document.querySelector('.app-shell__content');
+		if (scrollEl instanceof HTMLElement) {
+			const onScroll = () => {
+				showScrollToTop = scrollEl.scrollTop > SCROLL_TO_TOP_THRESHOLD;
+			};
+			scrollEl.addEventListener('scroll', onScroll, { passive: true });
+		}
 
 		// Sync searchQuery with searchParams.search
 		searchQuery = searchParams.search || '';
@@ -845,8 +798,6 @@
 	});
 
 	onDestroy(() => {
-		cleanupScrollListener();
-
 		if (mountCleanup.idleCallbackId && window.cancelIdleCallback) {
 			window.cancelIdleCallback(mountCleanup.idleCallbackId);
 		}
@@ -855,17 +806,6 @@
 		}
 		if (mountCleanup.preloadCleanup) {
 			mountCleanup.preloadCleanup();
-		}
-
-		// Remove data attribute from app-shell__content
-		if (appShellContent) {
-			appShellContent.removeAttribute('data-find-tasks-page');
-		} else {
-			// Fallback: try to find and remove even if reference is lost
-			const content = document.querySelector('.app-shell__content');
-			if (content instanceof HTMLElement) {
-				content.removeAttribute('data-find-tasks-page');
-			}
 		}
 
 		cleanup();
@@ -1008,32 +948,33 @@
 <!-- Mismas dimensiones que Mi Panel -->
 <main
 	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
-	data-find-tasks-page="true"
 >
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
 		aria-labelledby="tab-find-tasks"
-		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
+		class="flex min-h-0 min-h-full flex-col lg:min-h-0"
 	>
-		<!-- Search and Filter Controls -->
-		<TaskListControls
-			bind:searchQuery
-			searchInputClass={getSearchInputClass()}
-			searchPlaceholder={getSearchPlaceholder()}
-			onSearchInput={debouncedSearch}
-			onFilterClick={() => (isFilterDrawerOpen = true)}
-			onSaveSearch={async () => {
-				if (!drawersLoaded) await loadDrawerComponents();
-				isSaveSearchOpen = true;
-			}}
-			canSaveSearch={$tasksStore.searchParamsKey !== ''}
-			{viewMode}
-			onToggleViewMode={toggleViewMode}
-			user={$user}
-			{drawersLoaded}
-			{loadDrawerComponents}
-		/>
+		<!-- Search and Filter Controls — sticky wrapper -->
+		<div class="tasks-controls-wrapper">
+			<TaskListControls
+				bind:searchQuery
+				searchInputClass={getSearchInputClass()}
+				searchPlaceholder={getSearchPlaceholder()}
+				onSearchInput={debouncedSearch}
+				onFilterClick={() => (isFilterDrawerOpen = true)}
+				onSaveSearch={async () => {
+					if (!drawersLoaded) await loadDrawerComponents();
+					isSaveSearchOpen = true;
+				}}
+				canSaveSearch={$tasksStore.searchParamsKey !== ''}
+				{viewMode}
+				onToggleViewMode={toggleViewMode}
+				user={$user}
+				{drawersLoaded}
+				{loadDrawerComponents}
+			/>
+		</div>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
 		<section class="min-h-0 flex-1" data-tasks-content-area>
@@ -1052,95 +993,90 @@
 					{/if}
 
 					<!-- Tasks List (scrolls) - Grid column 1 -->
-					<div class="min-h-0" data-tasks-list-column>
-						<div
-							class="task-list-scroll-container box-border h-full w-full overflow-y-auto"
-							bind:this={taskListRef}
-						>
-							<!-- Skeleton Loading -->
-							{#if showSkeleton}
-								<TaskListSkeleton count={4} />
-							{:else if loadingState === 'timeout'}
-								<!-- Loading Timeout Warning -->
-								<div class="alert alert-warning alert-outline mb-3 rounded-xl">
-									<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
-									<div>
-										<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
-										<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
-									</div>
-									<button class="btn btn-sm" onclick={() => window.location.reload()}>
-										{$t('find_tasks.refresh')}
-									</button>
+					<div class="min-h-0" data-tasks-list-column bind:this={taskListRef}>
+						<!-- Skeleton Loading -->
+						{#if showSkeleton}
+							<TaskListSkeleton count={4} />
+						{:else if loadingState === 'timeout'}
+							<!-- Loading Timeout Warning -->
+							<div class="alert alert-warning alert-outline mb-3 rounded-xl">
+								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
+								<div>
+									<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
+									<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
 								</div>
-							{:else if loadingState === 'error'}
-								<!-- Error State -->
-								<div class="py-8 text-center">
-									<div class="text-base-content/60 mb-3">
-										<IconAlertCircle class="mx-auto h-12 w-12" />
-									</div>
-									<h3 class="mb-2 text-lg font-semibold">
-										{$t('find_tasks.error_loading_title') || 'Error Loading Tasks'}
-									</h3>
-									<p class="text-base-content/70 mb-3">
-										{$tasksStore.error ||
-											$t('find_tasks.error_loading_message') ||
-											'An error occurred while loading tasks. Please try again.'}
-									</p>
-									<button class="btn btn-primary" onclick={() => window.location.reload()}>
-										{$t('find_tasks.refresh') || 'Refresh'}
-									</button>
+								<button class="btn btn-sm" onclick={() => window.location.reload()}>
+									{$t('find_tasks.refresh')}
+								</button>
+							</div>
+						{:else if loadingState === 'error'}
+							<!-- Error State -->
+							<div class="py-8 text-center">
+								<div class="text-base-content/60 mb-3">
+									<IconAlertCircle class="mx-auto h-12 w-12" />
 								</div>
-							{:else if $tasksStore.items.length > 0}
-								<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
-									{#each $tasksStore.items as task (task.id)}
-										<li role="listitem">
-											<TaskCard
-												{task}
-												selectedTask={selectedTaskForMap}
-												{btcPrice}
-												{onSelectTask}
-												{onViewTask}
-												{drawersLoaded}
-												{loadDrawerComponents}
-												onSelectTaskForMap={selectTaskForMap}
-												{isMapVisible}
-												hasBid={false}
-												onMuted={(removedCount) => {
-													if (removedCount > 0) loadMoreTasks(removedCount);
-												}}
-											/>
-										</li>
-									{/each}
-								</ul>
+								<h3 class="mb-2 text-lg font-semibold">
+									{$t('find_tasks.error_loading_title') || 'Error Loading Tasks'}
+								</h3>
+								<p class="text-base-content/70 mb-3">
+									{$tasksStore.error ||
+										$t('find_tasks.error_loading_message') ||
+										'An error occurred while loading tasks. Please try again.'}
+								</p>
+								<button class="btn btn-primary" onclick={() => window.location.reload()}>
+									{$t('find_tasks.refresh') || 'Refresh'}
+								</button>
+							</div>
+						{:else if $tasksStore.items.length > 0}
+							<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
+								{#each $tasksStore.items as task (task.id)}
+									<li role="listitem">
+										<TaskCard
+											{task}
+											selectedTask={selectedTaskForMap}
+											{btcPrice}
+											{onSelectTask}
+											{onViewTask}
+											{drawersLoaded}
+											{loadDrawerComponents}
+											onSelectTaskForMap={selectTaskForMap}
+											{isMapVisible}
+											hasBid={false}
+											onMuted={(removedCount) => {
+												if (removedCount > 0) loadMoreTasks(removedCount);
+											}}
+										/>
+									</li>
+								{/each}
+							</ul>
 
-								<!-- Skeleton Loading for new tasks -->
-								{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
-									<TaskListSkeleton count={3} />
-								{/if}
-							{:else if $tasksStore.loading}
-								<!-- Loading State Fallback (when skeleton is false but still loading) -->
-								<div class="flex h-full items-center justify-center py-8">
-									<div class="text-center">
-										<span class="loading loading-spinner loading-lg text-primary"></span>
-										<p class="text-base-content/70 mt-4">
-											{$t('find_tasks.loading') || 'Loading tasks...'}
-										</p>
-									</div>
-								</div>
-							{:else}
-								<!-- No Results -->
-								<div class="py-8 text-center">
-									<div class="text-base-content/60 mb-3">
-										<IconMagnify class="mx-auto h-12 w-12" />
-									</div>
-									<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
-									<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
-									<button class="btn btn-primary" onclick={clearFilters}>
-										{$t('dashboard.contracts.clear_filters')}
-									</button>
-								</div>
+							<!-- Skeleton Loading for new tasks -->
+							{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
+								<TaskListSkeleton count={3} />
 							{/if}
-						</div>
+						{:else if $tasksStore.loading}
+							<!-- Loading State Fallback (when skeleton is false but still loading) -->
+							<div class="flex h-full items-center justify-center py-8">
+								<div class="text-center">
+									<span class="loading loading-spinner loading-lg text-primary"></span>
+									<p class="text-base-content/70 mt-4">
+										{$t('find_tasks.loading') || 'Loading tasks...'}
+									</p>
+								</div>
+							</div>
+						{:else}
+							<!-- No Results -->
+							<div class="py-8 text-center">
+								<div class="text-base-content/60 mb-3">
+									<IconMagnify class="mx-auto h-12 w-12" />
+								</div>
+								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
+								<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
+								<button class="btn btn-primary" onclick={clearFilters}>
+									{$t('dashboard.contracts.clear_filters')}
+								</button>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
@@ -1185,7 +1121,7 @@
 			{:else}
 				<!-- Map View - Full Width (Mobile only) -->
 				<section
-					class="map-container-wrapper relative min-h-0 w-full lg:hidden"
+					class="map-container-wrapper map-fullscreen relative min-h-0 w-full lg:hidden"
 					data-tasks-map-view
 				>
 					{#if mapLoaded && TaskLocationMap}
@@ -1278,37 +1214,23 @@
 
 	/* Prevent app-shell__content from scrolling on find-tasks page only */
 	/* This page handles its own internal scrolling */
-	/* Use data attribute for simpler, more stable targeting */
-	:global(.app-shell__content[data-find-tasks-page]) {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		min-height: 0;
-	}
-
-	/* On desktop, allow page to scroll normally when content exceeds viewport */
-	@media (min-width: 1024px) {
-		:global(.app-shell__content[data-find-tasks-page]) {
-			overflow-y: auto;
-			height: auto;
-			min-height: 100%;
-		}
-	}
-
 	/* ============================================================================
 	 * CSS Variables for Height Calculations
 	 * Consolidates repeated calc() expressions
 	 * ============================================================================ */
 	.find-tasks-container {
-		--tasks-content-height-mobile: calc(
-			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) -
-				var(--header-controls-height, 10rem)
-		);
+		--listing-controls-height: 60px;
+		--app-header-height: 73px;
 	}
 
-	/* ============================================================================
-	 * Tasks Content Area - Flattened Structure
-	 * ============================================================================ */
+	.tasks-controls-wrapper {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		padding-top: 0.5rem;
+		background-color: var(--color-base-200, oklch(var(--b2)));
+	}
+
 	[data-tasks-content-area] {
 		display: flex;
 		flex-direction: column;
@@ -1332,55 +1254,35 @@
 
 	/* Mobile Layout (< 1024px) */
 	@media (max-width: 1023px) {
-		.task-list-scroll-container {
-			max-height: var(--tasks-content-height-mobile);
-			height: var(--tasks-content-height-mobile);
-		}
-
-		.task-list-scroll-container .task-list-items {
-			padding-bottom: 0;
-			margin-bottom: 0;
-		}
-
-		.map-container-wrapper {
-			max-height: var(--tasks-content-height-mobile);
-			height: var(--tasks-content-height-mobile);
-			min-height: var(--tasks-content-height-mobile);
-		}
-
-		.map-container-wrapper > * {
-			height: 100%;
+		.map-fullscreen {
+			flex: 1 1 0%;
+			height: 0;
+			max-height: none;
 		}
 
 		[data-tasks-list-column],
 		[data-tasks-map-column] {
-			height: 100%;
 			min-height: 0;
+			min-width: 0;
 		}
 	}
 
 	/* Desktop Layout (>= 1024px) */
 	@media (min-width: 1024px) {
 		[data-tasks-list-view] {
-			height: 100%;
-			max-height: 80vh;
+			height: auto;
 		}
 
-		[data-tasks-list-column],
+		[data-tasks-list-column] {
+			max-height: none;
+		}
+
 		[data-tasks-map-column] {
-			height: 100%;
-			min-height: 0;
-			max-height: 100%;
-		}
-
-		.map-container-wrapper {
-			height: 100%;
-			max-height: 100%;
-		}
-
-		.task-list-scroll-container {
-			height: 100%;
-			max-height: 100%;
+			position: sticky;
+			top: var(--listing-controls-height);
+			height: calc(90dvh - var(--listing-controls-height));
+			max-height: calc(90dvh - var(--listing-controls-height));
+			align-self: flex-start;
 		}
 	}
 

@@ -80,6 +80,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/profile'
 			},
 			{
+				label: 'navbar.reviews',
+				icon: IconStar,
+				href: '/reviews'
+			},
+			{
 				label: 'navbar.wallet',
 				icon: IconWalletOutline,
 				href: '/wallet'
@@ -93,11 +98,6 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.notifications',
 				icon: IconBellOutline,
 				href: '/notifications'
-			},
-			{
-				label: 'navbar.settings',
-				icon: IconCog,
-				href: '/settings'
 			},
 			{
 				label: 'navbar.logout',
@@ -225,6 +225,43 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.privacy_policy',
 				icon: IconShieldAccount,
 				href: '/privacy'
+			}
+		]
+	},
+	{
+		id: 'settings',
+		label: 'navbar.settings',
+		icon: IconCog,
+		items: [
+			{
+				label: 'navbar.settings_actions',
+				icon: IconStar,
+				href: '/settings/actions'
+			},
+			{
+				label: 'navbar.settings_devices',
+				icon: IconBellOutline,
+				href: '/settings/devices'
+			},
+			{
+				label: 'navbar.settings_muted',
+				icon: IconAccount,
+				href: '/settings/muted'
+			},
+			{
+				label: 'navbar.settings_nostr',
+				icon: IconCog,
+				href: '/settings/nostr'
+			},
+			{
+				label: 'navbar.settings_notifications',
+				icon: IconBellOutline,
+				href: '/settings/notifications'
+			},
+			{
+				label: 'navbar.settings_recovery',
+				icon: IconShieldAccount,
+				href: '/settings/recovery'
 			}
 		]
 	}

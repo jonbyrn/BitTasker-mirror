@@ -342,7 +342,10 @@ export async function findServices(
 
 			// Limit results to requested batch size for initial load
 			const limitedServices = cleanServices.slice(0, limit);
-			const hasMore = limitedServices.length >= limit && cleanServices.length > limit;
+			// If we got a full page, there might be more on the relay.
+			// Match the fresh-fetch logic: hasMore = items >= limit.
+			// An extra request returning 0 is better than killing infinite scroll.
+			const hasMore = limitedServices.length >= limit;
 
 			servicesStore.update((state) => ({
 				...state,

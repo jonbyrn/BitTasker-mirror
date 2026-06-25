@@ -306,9 +306,9 @@
 		</div>
 	</div>
 {:else if currentScreen === 'form'}
-	<!-- Layout like dashboard modals: scrollable content + fixed action buttons at bottom -->
+	<!-- Layout like dashboard modals: content flows naturally inside Drawer's scroll area -->
 	<div
-		class="flex max-h-[calc(100vh-8rem)] min-h-0 flex-col overflow-x-hidden"
+		class="flex min-h-0 flex-col"
 		in:fly={{
 			duration: 200,
 			easing: linear,
@@ -316,8 +316,8 @@
 			x: -20
 		}}
 	>
-		<!-- Scrollable content -->
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		<!-- Content (no inner scroll — Drawer's .drawer-scroll-area handles scrolling) -->
+		<div class="flex-1">
 			<!-- Container with gap for even spacing -->
 			<div class="flex flex-col gap-4">
 				<!-- Unified Responsive Layout -->

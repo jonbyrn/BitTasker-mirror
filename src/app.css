@@ -523,6 +523,7 @@ body {
 .app-shell__content {
 	grid-area: content;
 	min-height: 0;
+	position: relative;
 	/* critical for scroll inside grid */
 	overflow-y: auto;
 	overflow-x: clip;
