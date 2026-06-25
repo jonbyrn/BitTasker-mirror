@@ -118,6 +118,15 @@ vi.mock('$lib/services/route-resolver-async', () => ({
 	createInitialAsyncRouteResult: vi.fn(() => ({ routes: [] }))
 }));
 
+vi.mock('$lib/services/route-engine', () => ({
+	resolveRoutes: vi.fn().mockResolvedValue({
+		routes: [],
+		recommended: null,
+		errors: [],
+		isLive: false
+	})
+}));
+
 vi.mock('$lib/runes/btcPrice.svelte', () => ({ btcPrice: { price: 65000 } }));
 vi.mock('$lib/utils/helpers/haptics', () => ({
 	triggerHaptic: vi.fn(),
@@ -227,18 +236,50 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 	describe('Deeper Phase Transitions + Failure Paths', () => {
 		it('drives form → confirm phase with real route data + waitFor', async () => {
 			// Make route resolution succeed so canSwap becomes true
-			const resolveRouteAsync = vi.mocked(
-				(await import('$lib/services/route-resolver-async')).resolveRouteAsync
-			);
-			resolveRouteAsync.mockResolvedValueOnce({
+			const resolveRoutesFn = vi.mocked((await import('$lib/services/route-engine')).resolveRoutes);
+			resolveRoutesFn.mockResolvedValueOnce({
 				routes: [
 					{
 						id: 'test',
 						label: 'Test Route',
+						hops: [
+							{
+								service: 'boltz',
+								fromAsset: 'RBTC',
+								fromChain: 'rsk',
+								toAsset: 'TBTC',
+								toChain: 'arbitrum',
+								feePercent: 0.5,
+								estimatedTimeMin: 2,
+								estimatedTimeMax: 4
+							}
+						],
 						totalFeePercent: 0.5,
-						estimatedTime: '2-4 min'
+						estimatedTime: '2-4 min',
+						recommended: true
 					}
-				]
+				],
+				recommended: {
+					id: 'test',
+					label: 'Test Route',
+					hops: [
+						{
+							service: 'boltz',
+							fromAsset: 'RBTC',
+							fromChain: 'rsk',
+							toAsset: 'TBTC',
+							toChain: 'arbitrum',
+							feePercent: 0.5,
+							estimatedTimeMin: 2,
+							estimatedTimeMax: 4
+						}
+					],
+					totalFeePercent: 0.5,
+					estimatedTime: '2-4 min',
+					recommended: true
+				},
+				errors: [],
+				isLive: true
 			});
 
 			render(SwapForm, { isOpen: true, onClose: vi.fn() });
@@ -255,7 +296,8 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 			await fireEvent.click(screen.getByRole('button', { name: /Preview Swap/i }));
 
 			// Confirm phase UI should appear (text from confirm section)
-			expect(screen.getByText(/Confirm Swap|You send|You get/i)).toBeTruthy();
+			const confirmElements = screen.getAllByText(/Confirm Swap|You send|You get/i);
+			expect(confirmElements.length).toBeGreaterThan(0);
 		});
 
 		it('drives failure path that shows error after swap fails', async () => {
@@ -264,19 +306,31 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 			);
 			startSwapChain.mockResolvedValueOnce({ data: null, error: new Error('swap failed') });
 
-			const resolveRouteAsync = vi.mocked(
-				(await import('$lib/services/route-resolver-async')).resolveRouteAsync
-			);
-			resolveRouteAsync.mockResolvedValueOnce({
-				routes: [
+			const resolveRoutesFn = vi.mocked((await import('$lib/services/route-engine')).resolveRoutes);
+			const testRoute = {
+				id: 't',
+				label: 'T',
+				hops: [
 					{
-						id: 't',
-						label: 'T',
-						totalFeePercent: 0.5,
-						estimatedTime: '2 min',
-						fallbackRoutes: [{ id: 'fb1', provider: 'lifi', label: 'LI.FI Fallback' }]
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.5,
+						estimatedTimeMin: 2,
+						estimatedTimeMax: 4
 					}
-				]
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '2 min',
+				recommended: true
+			};
+			resolveRoutesFn.mockResolvedValueOnce({
+				routes: [testRoute],
+				recommended: testRoute,
+				errors: [],
+				isLive: true
 			});
 
 			render(SwapForm, { isOpen: true, onClose: vi.fn() });
@@ -312,11 +366,31 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 				error: null
 			});
 
-			const resolveRouteAsync = vi.mocked(
-				(await import('$lib/services/route-resolver-async')).resolveRouteAsync
-			);
-			resolveRouteAsync.mockResolvedValueOnce({
-				routes: [{ id: 't', label: 'T', totalFeePercent: 0.5, estimatedTime: '2 min' }]
+			const resolveRoutesFn = vi.mocked((await import('$lib/services/route-engine')).resolveRoutes);
+			const testRoute = {
+				id: 't',
+				label: 'T',
+				hops: [
+					{
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'TBTC',
+						toChain: 'arbitrum',
+						feePercent: 0.5,
+						estimatedTimeMin: 2,
+						estimatedTimeMax: 4
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '2 min',
+				recommended: true
+			};
+			resolveRoutesFn.mockResolvedValueOnce({
+				routes: [testRoute],
+				recommended: testRoute,
+				errors: [],
+				isLive: true
 			});
 
 			render(SwapForm, { isOpen: true, onClose: vi.fn() });
@@ -411,36 +485,111 @@ describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
 		}
 	});
 
-	it('routes: offline clears, amount<=0 clears, getExecutableRoute usdt special + smart convert', () => {
-		const opts: UseSwapRoutesOptions = {
-			getSourceType: () => 'rbtc',
-			getDestType: () => 'usdt0-arb',
-			getAmountSats: () => 100000000,
-			getSourceAddr: () => '0xabc',
-			getIsOnline: () => false,
-			getBtcUsdPrice: () => 65000
-		};
-		const { result: r, destroy } = runInEffectRoot(() => useSwapRoutes(opts));
+	it('routes: offline clears, amount<=0 clears, getExecutableRoute usdt special + smart convert', async () => {
+		vi.useFakeTimers();
 		try {
-			// offline
-			expect(r.routeLoading).toBe(false);
-			expect(r.smartRoute).toBeNull();
+			const opts: UseSwapRoutesOptions = {
+				getSourceType: () => 'rbtc',
+				getDestType: () => 'usdt0-arb',
+				getAmountSats: () => 100000000,
+				getSourceAddr: () => '0xabc',
+				getIsOnline: () => false,
+				getBtcUsdPrice: () => 65000
+			};
+			const { result: r, destroy } = runInEffectRoot(() => useSwapRoutes(opts));
+			try {
+				// offline
+				expect(r.routeLoading).toBe(false);
+				expect(r.smartRoute).toBeNull();
+			} finally {
+				destroy();
+			}
+			// usdt exec
+			const mockResolveRoutes = vi.fn().mockResolvedValue({
+				routes: [
+					{
+						id: 'symbiosis-boltz-usdt0-to-rbtc',
+						label: 'Symbiosis → Boltz',
+						hops: [
+							{
+								service: 'symbiosis',
+								fromAsset: 'USDT0',
+								fromChain: 'arbitrum',
+								toAsset: 'TBTC',
+								toChain: 'arbitrum',
+								feePercent: 0.3,
+								estimatedTimeMin: 1,
+								estimatedTimeMax: 2
+							},
+							{
+								service: 'boltz',
+								fromAsset: 'TBTC',
+								fromChain: 'arbitrum',
+								toAsset: 'RBTC',
+								toChain: 'rsk',
+								feePercent: 0.25,
+								estimatedTimeMin: 1,
+								estimatedTimeMax: 5
+							}
+						],
+						totalFeePercent: 0.55,
+						estimatedTime: '2-7 min',
+						recommended: true
+					}
+				],
+				recommended: {
+					id: 'symbiosis-boltz-usdt0-to-rbtc',
+					label: 'Symbiosis → Boltz',
+					hops: [
+						{
+							service: 'symbiosis',
+							fromAsset: 'USDT0',
+							fromChain: 'arbitrum',
+							toAsset: 'TBTC',
+							toChain: 'arbitrum',
+							feePercent: 0.3,
+							estimatedTimeMin: 1,
+							estimatedTimeMax: 2
+						},
+						{
+							service: 'boltz',
+							fromAsset: 'TBTC',
+							fromChain: 'arbitrum',
+							toAsset: 'RBTC',
+							toChain: 'rsk',
+							feePercent: 0.25,
+							estimatedTimeMin: 1,
+							estimatedTimeMax: 5
+						}
+					],
+					totalFeePercent: 0.55,
+					estimatedTime: '2-7 min',
+					recommended: true
+				},
+				errors: [],
+				isLive: true
+			});
+			const opts2 = {
+				...opts,
+				getSourceType: () => 'usdt0-arb' as unknown,
+				getDestType: () => 'rbtc-rsk' as unknown,
+				getIsOnline: () => true,
+				resolveRoutesFn: mockResolveRoutes
+			};
+			const { result: r2, destroy: d2 } = runInEffectRoot(() => useSwapRoutes(opts2));
+			try {
+				// Advance past the 400ms debounce
+				await vi.advanceTimersByTimeAsync(500);
+				await vi.waitFor(() => {
+					expect(r2.routeLoading).toBe(false);
+				});
+				const exec = r2.getExecutableRoute();
+				expect(exec?.id).toBe('symbiosis-boltz-usdt0-to-rbtc');
+			} finally {
+				d2();
+			}
 		} finally {
-			destroy();
-		}
-		// usdt exec
-		const opts2 = {
-			...opts,
-			getSourceType: () => 'usdt0-arb' as unknown,
-			getDestType: () => 'rbtc-rsk' as unknown,
-			getIsOnline: () => true
-		};
-		const { result: r2, destroy: d2 } = runInEffectRoot(() => useSwapRoutes(opts2));
-		try {
-			const exec = r2.getExecutableRoute();
-			expect(exec?.id).toBe('symbiosis-boltz-usdt0-to-rbtc');
-		} finally {
-			d2();
+			vi.useRealTimers();
 		}
 	});
 

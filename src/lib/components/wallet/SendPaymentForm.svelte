@@ -43,11 +43,7 @@
 	import TotalAmountCard from './TotalAmountCard.svelte';
 	import GaslessSendFlow from './GaslessSendFlow.svelte';
 	import { resolveRoute, type SourceWallet, type Destination } from '$lib/services/route-resolver';
-	import {
-		resolveRouteAsync,
-		createInitialAsyncRouteResult,
-		type AsyncRouteResult
-	} from '$lib/services/route-resolver-async';
+	import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
 	import {
 		startSwapChain,
 		type SwapChainState,
@@ -687,7 +683,13 @@
 		}
 	}
 
-	let routeResult = $state<AsyncRouteResult>(createInitialAsyncRouteResult());
+	const EMPTY_ROUTE_RESULT: RouteEngineResult = {
+		routes: [],
+		recommended: null,
+		errors: [],
+		isLive: false
+	};
+	let routeResult = $state<RouteEngineResult>(EMPTY_ROUTE_RESULT);
 	let routeLoading = $state<boolean>(false);
 
 	let _routeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -740,7 +742,7 @@
 
 		// No valid destination — clear routes
 		if (!dest || !destAddress || !sats || !userAddress) {
-			routeResult = createInitialAsyncRouteResult();
+			routeResult = EMPTY_ROUTE_RESULT;
 			routeLoading = false;
 			return;
 		}
@@ -753,28 +755,26 @@
 		);
 		routeResult = {
 			routes: initialRoutes,
-			hardcodedRoutes: initialRoutes,
-			providerResults: [
-				{ provider: 'lifi', status: 'skipped', routes: [] },
-				{ provider: 'symbiosis', status: 'skipped', routes: [] }
-			],
-			isLoading: true
+			recommended: initialRoutes[0] ?? null,
+			errors: [],
+			isLive: false
 		};
 		routeLoading = true;
 
 		// Debounce async resolution (capture current values)
 		const capturedSourceWallet = sourceWallet;
 		const capturedDest = dest;
-		const capturedAmount = String(sats);
-		const capturedAddress = userAddress;
+		const capturedAmount = sats;
+		_routeAbortController = new AbortController();
+		const capturedSignal = _routeAbortController.signal;
 
 		_routeDebounceTimer = setTimeout(async () => {
 			try {
-				const result = await resolveRouteAsync(
+				const result = await resolveRoutes(
 					capturedSourceWallet,
 					capturedDest,
 					capturedAmount,
-					capturedAddress
+					capturedSignal
 				);
 				if (cancelled) return;
 				routeResult = result;

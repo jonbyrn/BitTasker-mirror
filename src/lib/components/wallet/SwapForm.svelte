@@ -162,19 +162,30 @@
 	// Pre-swap ETH balance check for boltz+lifi routes that require claiming on Arbitrum
 	let arbEthBalance = $state<string | null>(null);
 	let arbEthCheckDone = $state(false);
-	const needsArbEth = $derived(
-		((smartRoute?.provider === 'boltz+lifi' || smartRoute?.provider === 'boltz+symbiosis') &&
-			smartRoute?.toChain === 'arbitrum') ||
-			((swapRoutes.smartRoute?.provider === 'boltz+lifi' ||
-				swapRoutes.smartRoute?.provider === 'boltz+symbiosis') &&
-				swapRoutes.smartRoute?.toChain === 'arbitrum')
-	);
+	const needsArbEth = $derived.by(() => {
+		// Local SmartRoute (SwapFallback retry path)
+		if (smartRoute?.provider === 'boltz+lifi' && smartRoute?.toChain === 'arbitrum') {
+			return true;
+		}
+		// Engine's recommended Route — check hops for boltz+lifi multi-hop to Arbitrum
+		const rec = swapRoutes.engineResult?.recommended;
+		if (rec && rec.hops.length > 1) {
+			const hasBoltz = rec.hops.some((h) => h.service === 'boltz');
+			const hasLifiOrSymbiosis = rec.hops.some(
+				(h) => h.service === 'lifi' || h.service === 'symbiosis'
+			);
+			const targetsArbitrum = rec.hops[rec.hops.length - 1]?.toChain === 'arbitrum';
+			if (hasBoltz && hasLifiOrSymbiosis && targetsArbitrum) return true;
+		}
+		return false;
+	});
 
 	// Re-export pure from calc for template (satsUsd used in labels).
 	const satsUsd = swapCalc.satsUsd;
 
-	// Effective smart for display (local fallback override takes precedence for SwapFallback retry path).
-	let effectiveSmartRoute = $derived(smartRoute || swapRoutes.smartRoute);
+	// Effective smart for display (local SmartRoute from SwapFallback retry path only).
+	// The rune's smartRoute is now Route | null (from route engine), not SmartRoute.
+	let effectiveSmartRoute = $derived(smartRoute);
 
 	// For rBTC (BTC asset) source: allow entering amount in USD via compact toggle left of input.
 	let btcUsdInputMode = $state(false);
@@ -705,7 +716,7 @@
 	let canSwap = $derived(
 		swapCalc.isValidAmount &&
 			!isBelowMinimum &&
-			(swapRoutes.smartRoute !== null || swapRoutes.asyncRouteResult.routes.length > 0) &&
+			(swapRoutes.engineResult.recommended !== null || swapRoutes.engineResult.routes.length > 0) &&
 			swapPhase === 'form' &&
 			isOnline
 	);
@@ -1121,20 +1132,23 @@
 	}
 
 	function getProviderLabel(): string {
-		const p = smartRoute?.provider ?? swapRoutes.smartRoute?.provider ?? '';
-		if (!p) return '';
-		// Format provider names user-friendly: "boltz+lifi" → "Boltz + LI.FI"
-		return p
-			.split('+')
-			.map((part) => {
-				const trimmed = part.trim().toLowerCase();
-				if (trimmed === 'lifi') return 'LI.FI';
-				if (trimmed === 'boltz') return 'Boltz';
-				if (trimmed === 'symbiosis') return 'Symbiosis';
-				if (trimmed === 'changelly') return 'Changelly';
-				return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-			})
-			.join(' + ');
+		// Local SmartRoute (SwapFallback retry path) — format provider name
+		const p = smartRoute?.provider ?? '';
+		if (p) {
+			return p
+				.split('+')
+				.map((part) => {
+					const trimmed = part.trim().toLowerCase();
+					if (trimmed === 'lifi') return 'LI.FI';
+					if (trimmed === 'boltz') return 'Boltz';
+					if (trimmed === 'symbiosis') return 'Symbiosis';
+					if (trimmed === 'changelly') return 'Changelly';
+					return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+				})
+				.join(' + ');
+		}
+		// Engine's recommended Route — use label directly (already formatted by engine)
+		return swapRoutes.engineResult?.recommended?.label ?? '';
 	}
 
 	// -----------------------------------------------------------------------

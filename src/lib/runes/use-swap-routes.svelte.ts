@@ -1,79 +1,67 @@
 /**
  * use-swap-routes.svelte.ts
  *
- * Svelte 5 rune for dual SmartRouter + resolveRouteAsync swap route orchestration.
- * Extracted per Phase 1 design (docs/wallet/swapform-phase1-logic-extraction-design.md).
+ * Svelte 5 rune for swap route orchestration via the Route Engine.
+ * Replaces the former dual SmartRouter + resolveRouteAsync system with a
+ * single `resolveRoutes()` call that queries all providers in parallel.
  *
- * Responsibilities (exact from design + current SwapForm.svelte post-June-2026 logic):
- * - Own/instantiate (or DI) SmartRouter + asyncRouteResult/smartRoute/routeLoading state.
- * - 400ms debounced $effect: on (amountSats + source/dest/addr/online changes), Promise.allSettled([resolveRouteAsync, smart.getBestRoute]), snapshot inputs, cleanup timer + AbortController.
+ * Responsibilities:
+ * - Owns engineResult (RouteEngineResult) + routeLoading state.
+ * - 400ms debounced $effect: on (amountSats + source/dest/addr/online changes),
+ *   calls resolveRoutes(), snapshots inputs, cleans up timer + AbortController.
  * - destinationFor (internal, exposed for debug).
- * - Exact fee/output deriveds with current fallback logic (lines ~749-835 in SwapForm):
- *   - estimatedOutput: prefer smart (with boltz tBTC->USD conv for usdt0 dest), else activeRouteForCalc + fee% + gas deduct (rbtc source) + cross-price convs.
- *   - activeRouteForCalc: null if smartRoute (Smart "handles fee display separately"), else async.routes[0].
- *   - networkFeeSats: smart.gasCostWei ( /1e10 ) > fallback.gasCostWei > compute (rsk/arb gasPrice + limits + eth/btc price conv for arb; isSimpleTransfer special-cases; defaults 65m/30m gwei, 21k/65k/300k/500k limits, 2500/74000 prices).
- *   - totalFeeSats: smart.totalFeeSats > network + (amt * route.totalFeePercent / 100).
- * - getExecutableRoute: special-case hardcoded LI.FI Route for usdt0-arb source (exact from executeSwap), convert Smart? or pick async[0] (design spec; enables retryWithFallback to affect exec).
- * - Proper DI: reactive getters for amountSats/sourceType/destType/sourceAddr/isOnline + optional price/gas (keeps refreshLiveFees + rsx estimate in caller per design wiring example); optional smartRouter/resolveRouteAsyncFn for testability (mock-first, London TDD).
- * - isOnline guard + amount<=0 early clear; AbortSignal support; defensive isFinite/NaN guards; createDebug + Sentry breadcrumbs on key paths; tryCatch ready.
- * - No amount/wallet/execute ownership (callers (wallets+calculator runes) provide via getters); no side effects outside effect; pure helpers exported.
- * - <200 LOC target; typed public API; follows defi-positions + btcPrice + CLAUDE runes patterns (getters for reactivity, $state/$derived.by, browser awareness via effects, single-source).
+ * - Fee/output deriveds with fallback logic (gas cost from engine, computed from
+ *   route totalFeePercent, gas price/gas limit defaults for rBTC/arb sources).
+ * - getExecutableRoute: returns engineResult.recommended or first route.
+ * - Proper DI: reactive getters for amountSats/sourceType/destType/sourceAddr/isOnline +
+ *   optional price/gas feeds; optional resolveRoutesFn for testability.
+ * - isOnline guard + amount<=0 early clear; AbortSignal support; defensive isFinite/NaN
+ *   guards; createDebug + Sentry breadcrumbs on key paths.
+ * - No amount/wallet/execute ownership (callers provide via getters).
  *
  * Data deps (passed via opts or DI):
- * - resolveRouteAsync + createInitial + types (route-resolver-async + route-resolver).
- * - SmartRouter + SmartRoute (SmartRouter.ts).
- * - btcPrice rune (or local via getBtcUsdPrice getter; used for convs).
- * - Gas/price feeds from caller (see wiring below).
+ * - resolveRoutes (route-engine).
+ * - btcPrice rune (or local via getBtcUsdPrice getter; used for conversions).
+ * - Gas/price feeds from caller.
  *
- * Usage (from design + SwapForm wiring example):
+ * Usage:
  *   const swapRoutes = useSwapRoutes({
  *     getSourceType: () => sourceType,
  *     getDestType: () => destType,
  *     getAmountSats: () => swapCalc.amountSats,
  *     getSourceAddr: () => swapWallets.sourceAddr,
  *     getIsOnline: () => isOnline,
- *     getBtcUsdPrice: () => btcPrice.price,  // or ethUsdPrice local etc.
+ *     getBtcUsdPrice: () => btcPrice.price,
  *     getEthUsdPrice: () => ethUsdPrice,
  *     getRskGasWei: () => rskGasPriceWei,
  *     getArbGasWei: () => arbGasPriceWei,
- *     // smartRouter?: new SmartRouter(), resolveRouteAsyncFn? for DI/tests
+ *     // resolveRoutesFn?: for DI/tests
  *   });
- *   // Then: swapRoutes.estimatedOutput, .networkFeeSats, .totalFeeSats, .activeRouteForCalc, .smartRoute, .getExecutableRoute(), .clearRoutes(), .refreshRoutes(), .routeLoading
+ *   // Then: swapRoutes.engineResult, .routeLoading, .estimatedOutput,
+ *   //       .totalFeeSats, .networkFeeSats, .activeRouteForCalc,
+ *   //       .getExecutableRoute(), .clearRoutes(), .refreshRoutes()
  *
- * Testability: High (mock getters + injected routers; fake timers for debounce; settlement order; price=0/NaN edges; amount=0/offline; smart wins vs fallback calc). Unit deriveds standalone. See SwapForm.test.ts mocks + route-resolver* suites.
- *
- * Exact current fallback logic preserved (verified via full reads of SwapForm.svelte:687-859, 749-835, 788-825, 830-835 + SmartRouter + resolveRouteAsync + design).
- *
- * Future: integrate (replace inline in SwapForm), 5-state rune tests (90%+ branch), svelte-autofixer (n/a), npm check/lint, gitnexus_*, etc. per Phase 1.
- *
- * References (all full/targeted reads + greps performed before skeleton):
- * - Design: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/docs/wallet/swapform-phase1-logic-extraction-design.md (esp. §3, API, responsibilities, risks, wiring @410)
- * - Current logic: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/components/wallet/SwapForm.svelte (full structure + targeted 687-1167 + gas/fee/execute sections; also 345-437 for price/gas states)
- * - Services: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/services/SmartRouter.ts (full), /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/services/route-resolver-async.ts (resolveRouteAsync + createInitial + types @686+), /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/services/quote-normalizer.ts (AsyncRouteResult), /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/services/route-resolver.ts (Route/Dest/SourceWallet)
- * - Audit context: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/docs/wallet/swap-drawer-audit-report.md (dual orchestration, fee deriveds)
- * - Test/mocks: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/tests/components/wallet/SwapForm.test.ts
- * - Patterns: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/runes/btcPrice.svelte.ts, /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/stores/defi-positions.store.svelte.ts, CLAUDE.md / AGENTS.md / .cursor/rules/*
- *
- * Absolute path for target: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/runes/use-swap-routes.svelte.ts
+ * Absolute path: /home/foxx/Documents/dev-Bittasker/dev/dev-BitTasker/src/lib/runes/use-swap-routes.svelte.ts
  */
 
-import { SmartRouter } from '$lib/services/SmartRouter';
-import type { SmartRoute } from '$lib/services/SmartRouter';
-import {
-	resolveRouteAsync,
-	createInitialAsyncRouteResult,
-	type AsyncRouteResult
-} from '$lib/services/route-resolver-async';
-import type { Route, SourceWallet, Destination, RouteHop } from '$lib/services/route-resolver';
+import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
+import type { Route, SourceWallet, Destination } from '$lib/services/route-resolver';
 import { createDebug } from '$lib/utils/debug';
 import * as Sentry from '@sentry/sveltekit';
-// import { tryCatch } from '$lib/utils/tryCatch'; // ready for async wrappers
 
 const d = createDebug('swap-routes');
 
 // ---------------------------------------------------------------------------
 /** Destination types (narrowed for Swap; matches SwapForm + design). */
 export type DestType = 'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain';
+
+/** Empty engine result constant — used for initial state and resets. */
+const EMPTY_RESULT: RouteEngineResult = {
+	routes: [],
+	recommended: null,
+	errors: [],
+	isLive: false
+};
 
 export interface UseSwapRoutesOptions {
 	getSourceType: () => SourceWallet;
@@ -82,50 +70,59 @@ export interface UseSwapRoutesOptions {
 	getSourceAddr: () => string;
 	getIsOnline: () => boolean;
 
-	// Gas/price feeds (caller-owned refreshLiveFees + cryptoPriceService + onMount/300ms timers per design; avoids dupe).
-	// Use btcPrice rune or local $state (see wiring example in design).
+	// Gas/price feeds (caller-owned; avoids duplicate polling).
 	getBtcUsdPrice?: () => number;
 	getEthUsdPrice?: () => number;
 	getRskGasWei?: () => bigint;
 	getArbGasWei?: () => bigint;
 
-	// DI for testability (mock-first / London TDD; SwapForm.test.ts style hoisted mocks).
-	smartRouter?: SmartRouter;
-	resolveRouteAsyncFn?: typeof resolveRouteAsync;
+	// DI for testability (mock-first / London TDD).
+	resolveRoutesFn?: typeof resolveRoutes;
 }
 
 export interface UseSwapRoutes {
-	smartRoute: SmartRoute | null;
-	asyncRouteResult: AsyncRouteResult;
+	/** Full engine result (routes, recommended, errors, isLive). */
+	engineResult: RouteEngineResult;
+
+	/** @deprecated Use engineResult.recommended. Kept for backward compat. */
+	smartRoute: Route | null;
+
+	/** @deprecated Use engineResult. Kept for backward compat. */
+	asyncRouteResult: {
+		routes: Route[];
+		hardcodedRoutes: Route[];
+		providerResults: unknown[];
+		isLoading: boolean;
+	};
+
 	routeLoading: boolean;
 
 	// Primary for UI/confirm (exact current deriveds + fallbacks)
 	estimatedOutput: string; // human (token frac or USD)
 	totalFeeSats: number;
 	networkFeeSats: number;
-	activeRouteForCalc: Route | null; // null when smart present
+	activeRouteForCalc: Route | null;
 
-	/** Minimum swap amount in sats (from Boltz limits or default for Boltz-eligible pairs). 0 = no minimum. */
+	/** Minimum swap amount in sats (default for Boltz-eligible pairs). 0 = no minimum. */
 	minSwapSats: number;
 
-	// For execute (startSwapChain expects Route; special-cases preserved + Smart conversion per design)
+	// For execute (startSwapChain expects Route)
 	getExecutableRoute(): Route | null;
 
 	// Control
 	clearRoutes(): void;
 	refreshRoutes(): void; // forces re-resolution via nonce (no-op if amt<=0)
 
-	// Debug/internal (per design)
+	// Debug/internal
 	destinationFor(dest: DestType): Destination;
 }
 
 export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	// Reactive state (Svelte 5 runes)
-	let smartRoute = $state<SmartRoute | null>(null);
-	let asyncRouteResult = $state<AsyncRouteResult>(createInitialAsyncRouteResult());
+	let engineResult = $state<RouteEngineResult>(EMPTY_RESULT);
 	let routeLoading = $state(false);
 
-	// Timers + abort for debounce + cleanup (exact from current effect)
+	// Timers + abort for debounce + cleanup
 	let _routeTimer: ReturnType<typeof setTimeout> | null = null;
 	let currentController: AbortController | null = null;
 	let refreshNonce = $state(0);
@@ -147,8 +144,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 
 	const currentDestType = $derived.by((): DestType => {
 		try {
-			const d = opts.getDestType?.();
-			return (d as DestType) || 'usdt0-arb';
+			const dt = opts.getDestType?.();
+			return (dt as DestType) || 'usdt0-arb';
 		} catch {
 			return 'usdt0-arb';
 		}
@@ -208,7 +205,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		}
 	});
 
-	// Dual orchestration effect (exact 400ms debounce + Promise.allSettled from SwapForm:702-746 + design)
+	// ---------------------------------------------------------------------------
+	// Route resolution effect (400ms debounce + single resolveRoutes call)
+	// ---------------------------------------------------------------------------
 	$effect(() => {
 		// Subscribe to all inputs (amount + types + addr + online + nonce for refresh)
 		const amt = amountSats;
@@ -229,19 +228,18 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		}
 
 		if (amt <= 0 || !online) {
-			smartRoute = null;
-			asyncRouteResult = createInitialAsyncRouteResult();
+			engineResult = EMPTY_RESULT;
 			routeLoading = false;
 			return;
 		}
 
 		routeLoading = true;
 
-		// Snapshot at scheduling time (re-entrancy / flip safety; current captures source/addr/sats)
+		// Snapshot at scheduling time (re-entrancy / flip safety)
 		const snapshotAmt = amt;
 		const snapshotSrc = src;
 		const snapshotDst = dst;
-		const snapshotAdr = adr;
+		const snapshotAdr = adr; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 		currentController = new AbortController();
 
@@ -249,45 +247,34 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			if (currentController?.signal.aborted) return;
 
 			const routeDest = destinationFor(snapshotDst);
-			const resolveFn = opts.resolveRouteAsyncFn ?? resolveRouteAsync;
-			const router = opts.smartRouter ?? new SmartRouter();
+			const resolveFn = opts.resolveRoutesFn ?? resolveRoutes;
 
-			// Dual (Smart experimental/preferred for display; resolve primary + hardcoded fallbacks)
-			// Amount as string per resolve sig (current passes num; design: handle coerce)
-			const [asyncRes, smartRes] = await Promise.allSettled([
-				resolveFn(snapshotSrc, routeDest, String(snapshotAmt), snapshotAdr, {
-					signal: currentController?.signal
-				}),
-				router.getBestRoute(
+			try {
+				const result = await resolveFn(
 					snapshotSrc,
-					snapshotDst as SourceWallet | 'wbtc-arb' | 'btc-onchain',
-					snapshotAmt
-				)
-			]);
+					routeDest,
+					snapshotAmt,
+					currentController?.signal
+				);
 
-			if (currentController?.signal.aborted) return;
+				if (currentController?.signal.aborted) return;
 
-			if (asyncRes.status === 'fulfilled') {
-				asyncRouteResult = asyncRes.value;
-			} else {
-				d.warn('resolveRouteAsync rejected in routes rune', asyncRes.reason);
-				// Sentry breadcrumb for production debugging (per CLAUDE + current patterns elsewhere in form)
+				engineResult = result;
+				d.log(
+					'Resolved %d routes (%d errors), recommended: %s',
+					result.routes.length,
+					result.errors.length,
+					result.recommended?.id ?? 'none'
+				);
+			} catch (err) {
+				if (currentController?.signal.aborted) return;
+				d.warn('resolveRoutes failed in routes rune', err);
 				Sentry.addBreadcrumb({
 					category: 'wallet.swap.routes',
-					message: 'resolveRouteAsync failed',
-					data: { source: snapshotSrc, dest: snapshotDst, error: String(asyncRes.reason) }
+					message: 'resolveRoutes failed',
+					data: { source: snapshotSrc, dest: snapshotDst, error: String(err) }
 				});
-			}
-
-			if (smartRes.status === 'fulfilled' && smartRes.value) {
-				smartRoute = smartRes.value;
-				d.log(
-					'SmartRouter found route: provider=%s fee=%d',
-					smartRes.value.provider,
-					smartRes.value.totalFeeSats
-				);
-			} else if (smartRes.status === 'rejected') {
-				d.warn('SmartRouter rejected', smartRes.reason);
+				engineResult = EMPTY_RESULT;
 			}
 
 			routeLoading = false;
@@ -305,7 +292,11 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		};
 	});
 
-	// destinationFor (exact from SwapForm:689-698; internal but exposed per design)
+	// ---------------------------------------------------------------------------
+	// Helpers
+	// ---------------------------------------------------------------------------
+
+	/** Convert DestType to Destination (exact from SwapForm:689-698). */
 	function destinationFor(dt: DestType): Destination {
 		if (dt === 'btc-onchain') {
 			return { type: 'invoice', network: 'onchain', invoice: '' };
@@ -317,8 +308,11 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return { type: 'address', chainId, address: '' };
 	}
 
-	// amountInTokenUnits recovery (for estimatedOutput fallback calc; exact math from form amountSats + amountInTokenUnits)
-	// Uses amountSats + source + btcPrice (no direct dep on calculator rune; design opts only getAmountSats)
+	// ---------------------------------------------------------------------------
+	// Derived values
+	// ---------------------------------------------------------------------------
+
+	// amountInTokenUnits recovery (for estimatedOutput calc; exact math from form)
 	const amountInTokenUnits = $derived.by(() => {
 		const sats = amountSats;
 		if (sats <= 0) return 0;
@@ -331,27 +325,30 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return p > 0 ? (sats / 100_000_000) * p : 0;
 	});
 
-	// activeRouteForCalc (exact comment + logic from SwapForm:779-782)
+	// activeRouteForCalc — the route used for fee/output calculations.
+	// Prefers the engine's recommended route, falls back to first available.
 	const activeRouteForCalc = $derived.by((): Route | null => {
-		if (smartRoute) return null; // SmartRouter handles fee display separately
-		return asyncRouteResult.routes[0] ?? null;
+		return engineResult.recommended ?? engineResult.routes[0] ?? null;
 	});
 
-	// networkFeeSats (exact fallback chain + isSimple + gas math + defaults + logs from SwapForm:788-825)
+	// networkFeeSats (exact fallback chain + gas math + defaults from SwapForm:788-825)
 	const networkFeeSats = $derived.by(() => {
 		if (amountSats <= 0) return 0;
 
-		if (smartRoute?.gasCostWei) {
+		// 1. Try recommended route's gasCostWei
+		const rec = engineResult.recommended;
+		if (rec?.gasCostWei) {
 			try {
-				const gasWei = BigInt(smartRoute.gasCostWei);
+				const gasWei = BigInt(rec.gasCostWei);
 				const sats = Number(gasWei / 10_000_000_000n);
-				d.log('networkFeeSats: using gasCostWei from SmartRouter → %d sats', sats);
+				d.log('networkFeeSats: using recommended gasCostWei → %d sats', sats);
 				return sats;
 			} catch (e) {
-				d.warn('Failed to parse SmartRouter gasCostWei', e);
+				d.warn('Failed to parse recommended gasCostWei', e);
 			}
 		}
 
+		// 2. Try any route with gasCostWei
 		const fallbackRoute = activeRouteForCalc;
 		if (fallbackRoute?.gasCostWei) {
 			try {
@@ -362,6 +359,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			}
 		}
 
+		// 3. Compute from gas price and limits
 		const isSimpleTransfer =
 			(currentSourceType === 'rbtc' && currentDestType === 'rbtc-rsk') ||
 			(currentSourceType === 'usdt0-arb' && currentDestType === 'usdt0-arb');
@@ -388,21 +386,15 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 
 	// totalFeeSats (exact from SwapForm:830-835)
 	const totalFeeSats = $derived.by(() => {
-		if (smartRoute?.totalFeeSats != null) return smartRoute.totalFeeSats;
 		const route = activeRouteForCalc;
-		if (!route || amountSats <= 0) return 0;
+		if (!route || amountSats <= 0) return networkFeeSats;
 		return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
 	});
 
-	// minSwapSats — minimum swap amount from Boltz limits (or default for Boltz-eligible pairs).
+	// minSwapSats — minimum swap amount for Boltz-eligible pairs.
 	// 0 means no minimum applies (direct transfers, LI.FI-only routes).
 	const BOLTZ_DEFAULT_MIN_SATS = 2500;
 	const minSwapSats = $derived.by(() => {
-		// From smart route metadata (Boltz API limits)
-		if (smartRoute?.routeMetadata?.limits) {
-			const limits = smartRoute.routeMetadata.limits as { min?: number; max?: number };
-			if (typeof limits.min === 'number' && limits.min > 0) return Math.ceil(limits.min);
-		}
 		// Default for Boltz-eligible pairs (rBTC → non-rbtc-rsk destinations)
 		if (currentSourceType === 'rbtc' && currentDestType !== 'rbtc-rsk') {
 			return BOLTZ_DEFAULT_MIN_SATS;
@@ -414,19 +406,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return 0;
 	});
 
-	// estimatedOutput (exact smart prefer + boltz conv + fallback math from SwapForm:751-774)
+	// estimatedOutput (exact computation from SwapForm:751-774)
 	const estimatedOutput = $derived.by(() => {
-		if (smartRoute?.estimatedOutput && smartRoute.estimatedOutput !== '0') {
-			const out = parseFloat(smartRoute.estimatedOutput);
-			if (!Number.isFinite(out)) return '0';
-			// Boltz output is in TBTC (≈ BTC), convert to USD for non-BTC destinations
-			if (smartRoute.provider === 'boltz' && currentDestType === 'usdt0-arb') {
-				return (out * btcUsdPrice).toFixed(2);
-			}
-			return out.toFixed(6);
-		}
-
-		// Compute from fallback route resolver (exact)
+		// Compute from route resolver
 		const route = activeRouteForCalc;
 		if (!route || amountInTokenUnits <= 0) return '0';
 		const fee = 1 - route.totalFeePercent / 100;
@@ -444,369 +426,25 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return output.toFixed(6);
 	});
 
-	// getExecutableRoute helper (per design: converts Smart? or picks async[0] or hardcoded lifi-usdt0)
-	// Replicates + extends current executeSwap special-case (SwapForm:1046-1069) for Smart support on retry.
+	// ---------------------------------------------------------------------------
+	// getExecutableRoute — returns the engine's recommended or first available route
+	// ---------------------------------------------------------------------------
 	function getExecutableRoute(): Route | null {
-		const src = opts.getSourceType(); // fresh read
-		const dst = opts.getDestType?.(); // fresh read
-
+		const route = engineResult.recommended ?? engineResult.routes[0] ?? null;
 		d.log(
-			'getExecutableRoute: src=%s dst=%s smartRoute=%s asyncRoutes=%d',
-			src,
-			dst,
-			smartRoute?.provider ?? 'null',
-			asyncRouteResult.routes.length
+			'getExecutableRoute: src=%s dst=%s recommended=%s routes=%d → %s',
+			opts.getSourceType(),
+			opts.getDestType?.() ?? '?',
+			engineResult.recommended?.id ?? 'null',
+			engineResult.routes.length,
+			route?.id ?? 'null'
 		);
-
-		// wBTC → rBTC: LI.FI cross-chain
-		if (src === 'wbtc-arb' && dst === 'rbtc-rsk') {
-			return {
-				id: 'wbtc-to-rbtc-via-lifi',
-				label: 'LI.FI',
-				hops: [
-					{
-						service: 'lifi',
-						fromAsset: 'WBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'RBTC',
-						toChain: 'rsk',
-						feePercent: 0.3,
-						estimatedTimeMin: 2,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0.3,
-				estimatedTime: '2-5 min',
-				recommended: true
-			};
-		}
-
-		// wBTC → USDT0: LI.FI same-chain on Arbitrum
-		if (src === 'wbtc-arb' && dst === 'usdt0-arb') {
-			return {
-				id: 'wbtc-to-usdt0-via-lifi',
-				label: 'LI.FI',
-				hops: [
-					{
-						service: 'lifi',
-						fromAsset: 'WBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'USDT0',
-						toChain: 'arbitrum',
-						feePercent: 0.3,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 2
-					}
-				],
-				totalFeePercent: 0.3,
-				estimatedTime: '1-2 min',
-				recommended: true
-			};
-		}
-
-		// USDT0 → wBTC: LI.FI same-chain on Arbitrum
-		if (src === 'usdt0-arb' && dst === 'wbtc-arb') {
-			return {
-				id: 'usdt0-to-wbtc-via-lifi',
-				label: 'LI.FI',
-				hops: [
-					{
-						service: 'lifi',
-						fromAsset: 'USDT0',
-						fromChain: 'arbitrum',
-						toAsset: 'WBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.3,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 2
-					}
-				],
-				totalFeePercent: 0.3,
-				estimatedTime: '1-2 min',
-				recommended: true
-			};
-		}
-
-		// BTC on-chain → rBTC: Boltz reverse swap
-		if (src === 'btc-onchain' && dst === 'rbtc-rsk') {
-			return {
-				id: 'btc-to-rbtc-via-boltz',
-				label: 'Boltz',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: 'BTC',
-						fromChain: 'bitcoin',
-						toAsset: 'RBTC',
-						toChain: 'rsk',
-						feePercent: 0.25,
-						estimatedTimeMin: 10,
-						estimatedTimeMax: 30
-					}
-				],
-				totalFeePercent: 0.25,
-				estimatedTime: '10-30 min',
-				recommended: true
-			};
-		}
-
-		// BTC on-chain → USDT0: Boltz reverse + LI.FI
-		if (src === 'btc-onchain' && dst === 'usdt0-arb') {
-			return {
-				id: 'btc-to-usdt0-via-boltz-lifi',
-				label: 'Boltz → LI.FI',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: 'BTC',
-						fromChain: 'bitcoin',
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.25,
-						estimatedTimeMin: 10,
-						estimatedTimeMax: 30
-					},
-					{
-						service: 'lifi',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'USDT0',
-						toChain: 'arbitrum',
-						feePercent: 0.3,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0.55,
-				estimatedTime: '11-35 min',
-				recommended: true
-			};
-		}
-
-		// BTC on-chain → wBTC: Boltz reverse + LI.FI
-		if (src === 'btc-onchain' && dst === 'wbtc-arb') {
-			return {
-				id: 'btc-to-wbtc-via-boltz-lifi',
-				label: 'Boltz → LI.FI',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: 'BTC',
-						fromChain: 'bitcoin',
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.25,
-						estimatedTimeMin: 10,
-						estimatedTimeMax: 30
-					},
-					{
-						service: 'lifi',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'WBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.5,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0.75,
-				estimatedTime: '11-35 min',
-				recommended: true
-			};
-		}
-
-		// wBTC on Arbitrum from rBTC: 2-hop route via Boltz (RBTC→tBTC) + LI.FI (tBTC→WBTC)
-		if (dst === 'wbtc-arb' && src === 'rbtc') {
-			return {
-				id: 'rbtc-to-wbtc-arb-via-boltz-lifi',
-				label: 'Boltz → LI.FI',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: 'RBTC',
-						fromChain: 'rsk',
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.1,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					},
-					{
-						service: 'lifi',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'WBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.5,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0.6,
-				estimatedTime: '2-10 min',
-				recommended: true
-			};
-		}
-
-		if (src === 'usdt0-arb' && dst === 'rbtc-rsk') {
-			// Two-hop: Symbiosis same-chain (USDT0→tBTC) + Boltz chain swap (tBTC→rBTC)
-			// Cheaper than direct LI.FI/Symbiosis cross-chain because Boltz tBTC→rBTC is 1:1.
-			return {
-				id: 'symbiosis-boltz-usdt0-to-rbtc',
-				label: 'Symbiosis → Boltz',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: 'USDT0',
-						fromChain: 'arbitrum',
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0.3,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 2
-					},
-					{
-						service: 'boltz',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: 'RBTC',
-						toChain: 'rsk',
-						feePercent: 0.25,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0.55,
-				estimatedTime: '2-7 min',
-				recommended: true
-			};
-		}
-
-		if (smartRoute) {
-			const r = smartToRoute(smartRoute);
-			d.log('getExecutableRoute: using smartRoute → %s hops=%d', r.id, r.hops.length);
-			return r;
-		}
-		const fallback = asyncRouteResult.routes[0] ?? null;
-		d.log('getExecutableRoute: fallback → %s', fallback?.id ?? 'null');
-		return fallback;
+		return route;
 	}
 
-	// Conversion helper (for getExecutableRoute when Smart present; enables consistent Route shape for startSwapChain)
-	function smartToRoute(s: SmartRoute, _src?: string, _dst?: string): Route {
-		const provider = s.provider;
-
-		// Use chains from the SmartRoute if set by the builder. Otherwise derive from asset names.
-		function deriveChain(asset: string, fallback: string): string {
-			const a = (asset || '').toUpperCase();
-			if (a === 'RBTC') return 'rsk';
-			if (a === 'BTC') return 'bitcoin';
-			if (a === 'TBTC' || a === 'USDT0' || a === 'WBTC') return 'arbitrum';
-			return fallback;
-		}
-
-		const fromChain = s.fromChain ?? deriveChain(s.fromAsset, 'rsk');
-		const toChain = s.toChain ?? deriveChain(s.toAsset, 'rsk');
-
-		// boltz+lifi is a 2-hop route: Boltz chain swap (RBTC→tBTC on Arbitrum) + LI.FI same-chain (tBTC→final asset).
-		// The intermediate asset is always TBTC on Arbitrum.
-		if (provider === 'boltz+lifi') {
-			return {
-				id: `smart-${provider}`,
-				label: 'Boltz + LI.FI',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: s.fromAsset,
-						fromChain,
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					},
-					{
-						service: 'lifi',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: s.toAsset,
-						toChain: 'arbitrum',
-						feePercent: 0,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5,
-						gasCostWei: s.gasCostWei,
-						feeCosts: s.feeCosts
-					}
-				],
-				totalFeePercent: 0,
-				estimatedTime: `${s.estimatedTimeMinutes || 5} min`,
-				recommended: true,
-				gasCostWei: s.gasCostWei,
-				feeCosts: s.feeCosts
-			};
-		}
-
-		// symbiosis+boltz is a 2-hop route: Symbiosis same-chain (USDT0→tBTC on Arbitrum) + Boltz chain swap (tBTC→rBTC on RSK).
-		if (provider === 'symbiosis+boltz') {
-			return {
-				id: `smart-${provider}`,
-				label: 'Symbiosis → Boltz',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: s.fromAsset,
-						fromChain,
-						toAsset: 'TBTC',
-						toChain: 'arbitrum',
-						feePercent: 0,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 2
-					},
-					{
-						service: 'boltz',
-						fromAsset: 'TBTC',
-						fromChain: 'arbitrum',
-						toAsset: s.toAsset,
-						toChain,
-						feePercent: 0,
-						estimatedTimeMin: 1,
-						estimatedTimeMax: 5
-					}
-				],
-				totalFeePercent: 0,
-				estimatedTime: `${s.estimatedTimeMinutes || 4} min`,
-				recommended: true
-			};
-		}
-
-		const service: RouteHop['service'] =
-			provider === 'direct' ? 'direct' : (provider as RouteHop['service']);
-
-		return {
-			id: `smart-${provider}`,
-			label: provider.charAt(0).toUpperCase() + provider.slice(1),
-			hops: [
-				{
-					service,
-					fromAsset: s.fromAsset,
-					fromChain,
-					toAsset: s.toAsset,
-					toChain,
-					feePercent: 0,
-					estimatedTimeMin: s.estimatedTimeMinutes || 1,
-					estimatedTimeMax: (s.estimatedTimeMinutes || 1) + 1,
-					gasCostWei: s.gasCostWei,
-					feeCosts: s.feeCosts
-				}
-			],
-			totalFeePercent: 0,
-			estimatedTime: `${s.estimatedTimeMinutes || 5} min`,
-			recommended: true,
-			gasCostWei: s.gasCostWei,
-			feeCosts: s.feeCosts
-		};
-	}
+	// ---------------------------------------------------------------------------
+	// Control
+	// ---------------------------------------------------------------------------
 
 	function clearRoutes(): void {
 		if (_routeTimer) {
@@ -817,8 +455,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			currentController.abort();
 			currentController = null;
 		}
-		smartRoute = null;
-		asyncRouteResult = createInitialAsyncRouteResult();
+		engineResult = EMPTY_RESULT;
 		routeLoading = false;
 		d.log('clearRoutes');
 	}
@@ -829,15 +466,30 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		// Effect re-runs (reads nonce) and re-schedules if amt > 0
 	}
 
-	// Public API (reactive primitives + fns; consumers destructure/use in $derived/template)
+	// ---------------------------------------------------------------------------
+	// Public API (reactive primitives + fns; consumers use in $derived/template)
+	// ---------------------------------------------------------------------------
 	return {
-		// state
+		// New engine API
+		get engineResult() {
+			return engineResult;
+		},
+
+		// Backward compat: smartRoute was SmartRoute | null, now returns Route | null
 		get smartRoute() {
-			return smartRoute;
+			return engineResult.recommended;
 		},
+
+		// Backward compat: asyncRouteResult shape
 		get asyncRouteResult() {
-			return asyncRouteResult;
+			return {
+				routes: engineResult.routes,
+				hardcodedRoutes: [] as Route[],
+				providerResults: [] as unknown[],
+				isLoading: routeLoading
+			};
 		},
+
 		get routeLoading() {
 			return routeLoading;
 		},
@@ -866,15 +518,13 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	};
 }
 
-// Pure helper exports (testable standalone, per design "pure helpers exported")
+// Pure helper exports (testable standalone)
 export function createInitialRoutesState(): {
-	smartRoute: SmartRoute | null;
-	asyncRouteResult: AsyncRouteResult;
+	engineResult: RouteEngineResult;
 	routeLoading: boolean;
 } {
 	return {
-		smartRoute: null,
-		asyncRouteResult: createInitialAsyncRouteResult(),
+		engineResult: EMPTY_RESULT,
 		routeLoading: false
 	};
 }
