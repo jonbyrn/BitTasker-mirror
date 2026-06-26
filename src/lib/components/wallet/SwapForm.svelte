@@ -136,6 +136,12 @@
 					100_000_000
 				);
 			}
+			if (sourceType === 'wbtc-arb' || sourceType === 'tbtc-arb') {
+				return (
+					(sourceWallet === 'builtin' ? builtinWbtcSats : swapWallets.sourceBalances.wbtcSats) /
+					100_000_000
+				);
+			}
 			if (sourceType === 'btc-onchain') {
 				return (sourceWallet === 'builtin' ? 0 : swapWallets.externalBtcBalanceSats) / 100_000_000;
 			}

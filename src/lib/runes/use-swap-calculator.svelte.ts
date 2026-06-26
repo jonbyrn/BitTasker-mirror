@@ -112,14 +112,20 @@ function isFiniteNum(n: unknown): n is number {
 	return typeof n === 'number' && isFinite(n);
 }
 
+/** True for all BTC-denominated source types (amount in sats, not USD). */
+function isBtcSourceType(st: SwapSourceType): boolean {
+	return st === 'rbtc' || st === 'wbtc-arb' || st === 'tbtc-arb' || st === 'btc-onchain';
+}
+
 export function parseAmount(amt: string, sourceType: SwapSourceType): number {
 	const n = parseFloat(amt || '0');
 	if (!isFiniteNum(n) || n <= 0) return 0;
-	let val = sourceType === 'rbtc' ? n / 100_000_000 : n;
-	if (sourceType !== 'rbtc') {
-		// USDT: enforce 2 decimal places, floor to avoid dust below penny
-		val = Math.floor(val * 100) / 100;
+	if (isBtcSourceType(sourceType)) {
+		// All BTC-denominated: input is sats → convert to BTC
+		return n / 100_000_000;
 	}
+	// USDT/USD: enforce 2 decimal places, floor to avoid dust below penny
+	const val = Math.floor(n * 100) / 100;
 	return val;
 }
 
@@ -155,7 +161,7 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 	const walletBalanceDisplay = $derived.by(() => {
 		const num = walletBalanceToken;
 		if (!isFiniteNum(num) || num <= 0) return '0';
-		if (getSourceType() === 'rbtc') {
+		if (isBtcSourceType(getSourceType())) {
 			return formatSats(Math.round(num * 100_000_000));
 		}
 		return formatUsd(num);
@@ -174,7 +180,7 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 	const amountSats = $derived.by(() => {
 		const units = amountInTokenUnits;
 		if (units <= 0) return 0;
-		if (getSourceType() === 'rbtc') {
+		if (isBtcSourceType(getSourceType())) {
 			return Math.round(units * 100_000_000);
 		}
 		const price = getBtcUsdPrice();
@@ -188,7 +194,7 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 			return;
 		}
 		swapPercent = pct;
-		if (getSourceType() === 'rbtc') {
+		if (isBtcSourceType(getSourceType())) {
 			amount = Math.round((pct / 100) * bal * 100_000_000).toString();
 		} else {
 			// USDT: 2 decimals, floor dust
@@ -211,7 +217,7 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 			return;
 		}
 		swapPercent = 100;
-		if (getSourceType() === 'rbtc') {
+		if (isBtcSourceType(getSourceType())) {
 			amount = Math.round(bal * 100_000_000).toString();
 		} else {
 			// USDT: 2 decimals, floor to avoid sub-penny dust
