@@ -31,3 +31,5 @@ export interface LiquidationPriceResult {
 export type WizardStep = 'wallet' | 'positions' | 'supply' | 'borrow' | 'success';
 export type PositionAction = 'repay' | 'addCollateral' | 'withdraw' | 'close';
 export type BorrowAction = 'supply' | 'borrow' | 'repay' | 'addCollateral' | 'withdraw' | 'close';
+export type EarnAction = 'supply' | 'withdraw' | 'close';
+export type LPAction = 'provide' | 'remove' | 'collect' | 'close';
