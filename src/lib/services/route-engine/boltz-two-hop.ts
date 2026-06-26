@@ -99,7 +99,10 @@ function composeTwoHopRoute(
 		estimatedTime: `${minTime}-${maxTime} min`,
 		recommended: false,
 		...(gasCostWei ? { gasCostWei } : {}),
-		...(feeCosts.length > 0 ? { feeCosts } : {})
+		...(feeCosts.length > 0 ? { feeCosts } : {}),
+		outputSats,
+		outputAmount: String(outputSats),
+		outputDecimals: 8
 	};
 }
 

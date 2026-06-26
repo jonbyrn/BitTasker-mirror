@@ -125,7 +125,10 @@ export const lifiProvider: SwapProvider = {
 			estimatedTime: `${Math.max(1, Math.ceil(route.estimate.executionDuration / 60))} min`,
 			recommended: false,
 			gasCostWei,
-			feeCosts
+			feeCosts,
+			outputSats,
+			outputAmount: route.estimate.toAmount,
+			outputDecimals: to.decimals
 		};
 
 		return result;

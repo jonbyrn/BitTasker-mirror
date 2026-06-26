@@ -42,7 +42,10 @@ export const directProvider: SwapProvider = {
 			hops: [hop],
 			totalFeePercent: 0,
 			estimatedTime: '<1 min',
-			recommended: false
+			recommended: false,
+			outputSats: amountSats,
+			outputAmount: String(amountSats),
+			outputDecimals: to.decimals
 		};
 	}
 };

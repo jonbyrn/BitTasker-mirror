@@ -101,6 +101,29 @@ export const symbiosisProvider: SwapProvider = {
 
 		const feePercent = amountSats > 0 ? ((amountSats - outputSats) / amountSats) * 100 : 0;
 
+		// Convert Symbiosis bridge fee to wei format (18-decimal equivalent).
+		// The rune's networkFeeSats divides gasCostWei by 1e10 to get sats,
+		// so we normalize all fee units to wei regardless of output token decimals.
+		// - 18 dec (RBTC): fee already in wei → use as-is
+		// - 8 dec (WBTC): fee in sats → multiply by 1e10
+		// - 6 dec (USDT0): fee in micro → multiply by 1e12
+		let gasCostWei: string | undefined;
+		if (quote.fee) {
+			try {
+				const feeRaw = BigInt(quote.fee);
+				const weiScale = BigInt(10) ** BigInt(18 - to.decimals);
+				gasCostWei = (feeRaw * weiScale).toString();
+				debug.log(
+					'Symbiosis fee: raw=%s %s dec → gasCostWei=%s',
+					quote.fee,
+					to.decimals,
+					gasCostWei
+				);
+			} catch (_e) {
+				debug.warn('Failed to parse Symbiosis fee: %s', quote.fee);
+			}
+		}
+
 		const route: Route = {
 			id: `symbiosis-${from.key}-${to.key}`,
 			label: `Symbiosis (${from.symbol} → ${to.symbol})`,
@@ -113,12 +136,17 @@ export const symbiosisProvider: SwapProvider = {
 					toChain: to.chain,
 					feePercent: Math.max(0, feePercent),
 					estimatedTimeMin: 1,
-					estimatedTimeMax: quote.estimatedTime ?? 10
+					estimatedTimeMax: quote.estimatedTime ?? 10,
+					gasCostWei
 				}
 			],
 			totalFeePercent: Math.max(0, feePercent),
 			estimatedTime: `${quote.estimatedTime ?? 10} min`,
-			recommended: false
+			recommended: false,
+			gasCostWei,
+			outputSats,
+			outputAmount: quote.tokenAmountOut.amount,
+			outputDecimals: to.decimals
 		};
 
 		return route;

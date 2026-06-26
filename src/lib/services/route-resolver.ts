@@ -49,6 +49,12 @@ export interface Route {
 	gasCostWei?: string;
 	/** Aggregate itemized fees from all hops with live quotes. */
 	feeCosts?: Array<{ name: string; amount: string }>;
+	/** Output amount in BTC satoshis, computed by the provider from the live quote. */
+	outputSats?: number;
+	/** Raw output amount in the destination token's smallest unit (from provider API). */
+	outputAmount?: string;
+	/** Decimals of the destination token (for interpreting outputAmount). */
+	outputDecimals?: number;
 }
 
 // ---------------------------------------------------------------------------

@@ -115,7 +115,13 @@ function humanAmountToSats(amount: string): number {
 // Route builder
 // ---------------------------------------------------------------------------
 
-function buildChangellyRoute(from: Token, to: Token, inputSats: number, outputSats: number): Route {
+function buildChangellyRoute(
+	from: Token,
+	to: Token,
+	inputSats: number,
+	outputSats: number,
+	rawOutputAmount?: string
+): Route {
 	const feePercent = inputSats > 0 ? ((inputSats - outputSats) / inputSats) * 100 : 0;
 
 	const hop: RouteHop = {
@@ -135,7 +141,10 @@ function buildChangellyRoute(from: Token, to: Token, inputSats: number, outputSa
 		hops: [hop],
 		totalFeePercent: feePercent,
 		estimatedTime: `${ESTIMATED_TIME_MIN}-${ESTIMATED_TIME_MAX} min`,
-		recommended: false
+		recommended: false,
+		outputSats,
+		outputAmount: rawOutputAmount,
+		outputDecimals: to.decimals
 	};
 }
 
@@ -200,6 +209,6 @@ export const changellyProvider: SwapProvider = {
 			return null;
 		}
 
-		return buildChangellyRoute(from, to, amountSats, outputSats);
+		return buildChangellyRoute(from, to, amountSats, outputSats, estimate.estimatedAmount);
 	}
 };

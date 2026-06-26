@@ -196,7 +196,7 @@
 
 	$effect(() => {
 		const nativeStr = swapCalc.amount;
-		if ((sourceType === 'rbtc' || sourceType === 'btc-onchain') && btcUsdInputMode) {
+		if (isBtcSource && btcUsdInputMode) {
 			if (syncingFromInput) {
 				syncingFromInput = false;
 				return;
@@ -211,7 +211,7 @@
 
 	$effect(() => {
 		// reset usd mode when source changes away from BTC-denominated assets
-		if (sourceType !== 'rbtc' && sourceType !== 'btc-onchain' && btcUsdInputMode) {
+		if (!isBtcSource && btcUsdInputMode) {
 			btcUsdInputMode = false;
 			syncingFromInput = false;
 		}
@@ -798,10 +798,17 @@
 		const prevSourceWallet = sourceWallet;
 		const prevDestWallet = destWallet;
 
+		// Map DestType → SourceWallet (for the new source)
+		const DEST_TO_SOURCE: Record<string, SourceWallet> = {
+			'rbtc-rsk': 'rbtc',
+			'usdt0-arb': 'usdt0-arb',
+			'wbtc-arb': 'wbtc-arb',
+			'btc-onchain': 'btc-onchain'
+		};
+		const reverseSource = DEST_TO_SOURCE[prevDest] ?? 'rbtc';
+
 		// Check if the reverse pair is valid (dest asset must be available as source)
 		const validSourceAssets = sourceAssets.map((a) => a.id);
-		const reverseSource = prevDest === 'rbtc-rsk' ? 'rbtc' : prevDest;
-
 		if (!validSourceAssets.includes(reverseSource)) {
 			d.log('swapDirection: reverse source %s not in sourceAssets, skipping', reverseSource);
 			return;
@@ -817,12 +824,20 @@
 		d.log('swapDirection: %s/%s ↔ %s/%s', prevSourceWallet, prevSource, prevDestWallet, prevDest);
 		setTimeout(() => (isFlipping = false), 300);
 
+		// Map SourceWallet → DestType (for the new dest)
+		const SOURCE_TO_DEST: Record<string, DestType> = {
+			rbtc: 'rbtc-rsk',
+			'wbtc-arb': 'wbtc-arb',
+			'btc-onchain': 'btc-onchain',
+			'usdt0-arb': 'usdt0-arb',
+			'tbtc-arb': 'wbtc-arb'
+		};
+
 		// Swap wallets and assets
 		sourceWallet = prevDestWallet;
 		destWallet = prevSourceWallet;
 		sourceType = reverseSource as SourceWallet;
-		destType =
-			prevSource === 'rbtc' ? 'usdt0-arb' : prevSource === 'btc-onchain' ? 'usdt0-arb' : 'rbtc-rsk';
+		destType = SOURCE_TO_DEST[prevSource] ?? 'rbtc-rsk';
 
 		// Validate dest is available for new source, auto-correct if not
 		const available = visibleDestOptions;
@@ -870,6 +885,14 @@
 			i === 'btc-onchain'
 		);
 	}
+
+	/** True when the source is a BTC-denominated asset (sats-based input). */
+	let isBtcSource = $derived(
+		sourceType === 'rbtc' ||
+			sourceType === 'wbtc-arb' ||
+			sourceType === 'tbtc-arb' ||
+			sourceType === 'btc-onchain'
+	);
 
 	function goToConfirm() {
 		if (!canSwap) return;
@@ -1322,7 +1345,7 @@
 					<div class="form-control">
 						<label for="swap-amount" class="label flex justify-between px-1 py-1">
 							<span class="label-text text-sm sm:text-base">
-								{#if sourceType === 'rbtc' && amountSats > 0}
+								{#if isBtcSource && amountSats > 0}
 									{#if btcUsdInputMode}
 										{usdFormatter.format((amountSats / 100_000_000) * btcPrice.price)}
 									{:else}
@@ -1330,15 +1353,14 @@
 										{$t('wallet.sats')}
 										({usdFormatter.format((amountSats / 100_000_000) * btcPrice.price)})
 									{/if}
-								{:else if sourceType === 'rbtc' || sourceType === 'btc-onchain'}
+								{:else if isBtcSource}
 									{btcUsdInputMode ? '$USD' : $t('wallet.sats')}
 								{:else}
 									'USDT'
 								{/if}
 							</span>
 							<span class="label-text-alt text-xs sm:text-sm">
-								{$t('wallet.available_balance')}: {sourceType === 'rbtc' ||
-								sourceType === 'btc-onchain'
+								{$t('wallet.available_balance')}: {isBtcSource
 									? satsUsd(Math.round(parseFloat(walletBalanceToken) * 100_000_000), btcUsdPrice)
 									: `${walletBalanceDisplay}`}
 							</span>
@@ -1349,8 +1371,8 @@
 							unit="sats"
 							onUnitChange={() => {}}
 							onAmountChange={(v: string) => {
-								if ((sourceType === 'rbtc' || sourceType === 'btc-onchain') && btcUsdInputMode) {
-									// usd entered for rbtc source -> convert to native sats str for calc
+								if (isBtcSource && btcUsdInputMode) {
+									// usd entered for btc source -> convert to native sats str for calc
 									const usdNum = parseFloat(v || '0');
 									if (usdNum > 0 && btcUsdPrice > 0) {
 										const frac = usdNum / btcUsdPrice;
@@ -1371,7 +1393,7 @@
 									displayInputAmount = v;
 								}
 							}}
-							tokenPrefix={sourceType !== 'rbtc' && sourceType !== 'btc-onchain' ? '$' : undefined}
+							tokenPrefix={isBtcSource ? undefined : '$'}
 							showPercentSlider={true}
 							sliderDisabled={swapCalc.walletBalanceToken <= 0}
 							sliderMin={minSliderPercent}
@@ -1381,7 +1403,7 @@
 							disabled={!isOnline}
 							hasInsufficientBalance={isInsufficientBalance}
 							maxDisabled={swapCalc.walletBalanceToken <= 0}
-							supportsBtcUsdToggle={sourceType === 'rbtc' || sourceType === 'btc-onchain'}
+							supportsBtcUsdToggle={isBtcSource}
 							btcUsdMode={btcUsdInputMode}
 							onBtcUsdModeChange={(isUsd: boolean) => {
 								const wasUsd = btcUsdInputMode;
@@ -1423,7 +1445,7 @@
 						<SwapEstimateCard
 							variant="form"
 							totalSent={amountInTokenUnits > 0
-								? sourceType === 'rbtc' || sourceType === 'btc-onchain'
+								? isBtcSource
 									? satsUsd(amountSats, btcUsdPrice)
 									: usdFormatter.format(amountInTokenUnits)
 								: undefined}
@@ -1688,7 +1710,7 @@
 						walletInfo={sourceWalletInfo}
 						asset={sourceAsset}
 						icon={sourceIcon}
-						amountDisplay={sourceType === 'rbtc' || sourceType === 'btc-onchain'
+						amountDisplay={isBtcSource
 							? satsUsd(Math.round(parseFloat(swapCalc.amount || '0')), btcUsdPrice)
 							: `${usdFormatter.format(parseFloat(swapCalc.amount || '0'))} ${sourceAsset}`}
 						variant="success"

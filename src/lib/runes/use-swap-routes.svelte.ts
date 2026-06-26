@@ -321,7 +321,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		if (sats <= 0) return 0;
 		const src = currentSourceType;
 		const p = btcUsdPrice;
-		if (src === 'rbtc') {
+		// All BTC-denominated sources (rbtc, wbtc, tbtc, btc-onchain): sats → BTC
+		if (src === 'rbtc' || src === 'wbtc-arb' || src === 'tbtc-arb' || src === 'btc-onchain') {
 			return sats / 100_000_000;
 		}
 		// usdt0 source: recover from sats (which was derived using price in calculator)
@@ -365,7 +366,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		// 3. Compute from gas price and limits
 		const isSimpleTransfer =
 			(currentSourceType === 'rbtc' && currentDestType === 'rbtc-rsk') ||
-			(currentSourceType === 'usdt0-arb' && currentDestType === 'usdt0-arb');
+			(currentSourceType === 'usdt0-arb' && currentDestType === 'usdt0-arb') ||
+			(currentSourceType === 'wbtc-arb' && currentDestType === 'wbtc-arb') ||
+			(currentSourceType === 'tbtc-arb' && currentDestType === 'wbtc-arb');
 
 		if (currentSourceType === 'rbtc') {
 			const gasPrice = rskGasPriceWei > 0n ? rskGasPriceWei : 65_000_000n;
@@ -373,7 +376,11 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			return Number((gasLimit * gasPrice) / 10_000_000_000n);
 		}
 
-		if (currentSourceType === 'usdt0-arb') {
+		if (
+			currentSourceType === 'usdt0-arb' ||
+			currentSourceType === 'wbtc-arb' ||
+			currentSourceType === 'tbtc-arb'
+		) {
 			const gasLimit = isSimpleTransfer ? 65_000n : 300_000n;
 			const gasPrice = arbGasPriceWei > 0n ? arbGasPriceWei : 30_000_000n;
 			const gasCostWei = gasLimit * gasPrice;
@@ -409,14 +416,40 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return 0;
 	});
 
-	// estimatedOutput (exact computation from SwapForm:751-774)
+	// estimatedOutput — output amount in the unit expected by SwapForm display.
+	// For bitcoin-denominated destinations: returns BTC (e.g. 0.001234)
+	// For USD-denominated destinations: returns USD (e.g. 15.87)
+	// Uses route.outputAmount + outputDecimals from providers when available (authoritative).
 	const estimatedOutput = $derived.by(() => {
-		// Compute from route resolver
 		const route = activeRouteForCalc;
 		if (!route || amountInTokenUnits <= 0) return '0';
+
+		// Prefer provider-computed outputAmount (from live API quote)
+		if (route.outputAmount && route.outputDecimals !== undefined) {
+			const raw = Number(route.outputAmount);
+			if (!isFinite(raw) || raw <= 0) return '0';
+
+			if (
+				currentDestType === 'rbtc-rsk' ||
+				currentDestType === 'wbtc-arb' ||
+				currentDestType === 'btc-onchain'
+			) {
+				// BTC-denominated dest: convert to BTC
+				return (raw / 10 ** route.outputDecimals).toFixed(8);
+			}
+			// USD-denominated dest: convert to USD
+			if (route.outputDecimals === 6) {
+				// USDT0/USDC: raw is micro-units → USD
+				return (raw / 1e6).toFixed(2);
+			}
+			// Other: convert smallest unit → BTC → USD
+			const btcAmt = raw / 10 ** route.outputDecimals;
+			return (btcAmt * btcUsdPrice).toFixed(2);
+		}
+
+		// Fallback: compute from fee percent (legacy paths)
 		const fee = 1 - route.totalFeePercent / 100;
 		let sourceAmt = amountInTokenUnits;
-		// Deduct gas for rBTC source
 		if (currentSourceType === 'rbtc') {
 			sourceAmt = Math.max(0, sourceAmt - networkFeeSats / 100_000_000);
 		}
