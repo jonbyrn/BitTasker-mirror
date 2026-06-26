@@ -691,7 +691,7 @@
 		{
 			id: 'wbtc-arb',
 			label: 'Bitcoin (wBTC)',
-			icon: '/images/chains/arbitrum.png',
+			icon: '/images/chains/Wrapped-Bitcoin-Logo.webp',
 			subLabel: 'Wrapped BTC on Arbitrum',
 			balance: formatSats(sourceWbtcSats) + ' Sats',
 			balanceSub: `≈ $${((sourceWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
@@ -866,8 +866,8 @@
 		sourceWallet = prevDestWallet;
 		destWallet = prevSourceWallet;
 		sourceType = reverseSource as SourceWallet;
-		// Prefer prevDest as new dest (preserves cross-token flips like wbtc→usdt0 ↔ usdt0→wbtc)
-		destType = DEST_TO_SOURCE[prevDest] ? prevDest : (SOURCE_TO_DEST[prevSource] ?? 'rbtc-rsk');
+		// New dest = DestType equivalent of the previous source
+		destType = SOURCE_TO_DEST[prevSource] ?? 'rbtc-rsk';
 
 		// Validate dest is available for new source, auto-correct if not
 		const available = visibleDestOptions;
@@ -1386,7 +1386,7 @@
 								{:else if isBtcSource}
 									{btcUsdInputMode ? '$USD' : $t('wallet.sats')}
 								{:else}
-									'USDT'
+									USD
 								{/if}
 							</span>
 							<span class="label-text-alt text-xs sm:text-sm">

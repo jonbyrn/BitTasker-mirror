@@ -100,8 +100,8 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('BOLTZ_TWO_HOP_PAIRS', () => {
-	it('has exactly 5 entries', () => {
-		expect(Object.keys(BOLTZ_TWO_HOP_PAIRS)).toHaveLength(5);
+	it('has exactly 7 entries', () => {
+		expect(Object.keys(BOLTZ_TWO_HOP_PAIRS)).toHaveLength(7);
 	});
 
 	it('each entry uses tbtc-arb as intermediary', () => {

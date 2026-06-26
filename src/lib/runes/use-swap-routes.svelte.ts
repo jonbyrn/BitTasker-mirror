@@ -307,7 +307,10 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		if (dt === 'wbtc-arb') {
 			return { type: 'address', chainId: 42161, address: '', asset: 'WBTC' };
 		}
-		const chainId = dt === 'rbtc-rsk' ? 30 : dt === 'usdt0-arb' ? 42161 : 30;
+		if (dt === 'usdt0-arb') {
+			return { type: 'address', chainId: 42161, address: '', asset: 'USDT0' };
+		}
+		const chainId = dt === 'rbtc-rsk' ? 30 : 30;
 		return { type: 'address', chainId, address: '' };
 	}
 

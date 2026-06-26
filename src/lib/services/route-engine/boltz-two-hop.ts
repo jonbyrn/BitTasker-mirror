@@ -57,6 +57,8 @@ export const BOLTZ_TWO_HOP_PAIRS: Record<
 	'rbtc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
 	'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
 	'usdt0-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
+	'wbtc-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
+	'wbtc-arb->usdt0-arb': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
 	'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] },
 	'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] }
 };
