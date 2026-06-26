@@ -359,6 +359,7 @@
 				});
 			}
 		} else {
+			// wbtc-arb, usdt0-arb, tbtc-arb sources
 			options.push({
 				id: 'rbtc-rsk',
 				asset: CHAIN_RSK.asset,
@@ -370,26 +371,48 @@
 				available: true
 			});
 
+			// USDT0 on Arbitrum — always available as a swap target
 			options.push({
-				id: 'wbtc-arb',
-				asset: CHAIN_WBTC.asset,
-				label: CHAIN_WBTC.label,
-				description: $t('wallet.swap.desc_usdt_to_wbtc'),
-				icon: CHAIN_WBTC.icon,
-				network: CHAIN_WBTC.network,
-				chainId: CHAIN_WBTC.chainId,
+				id: 'usdt0-arb',
+				asset: CHAIN_ARB.asset,
+				label: CHAIN_ARB.label,
+				description: $t('wallet.swap.desc_usdt_to_rbtc'),
+				icon: CHAIN_ARB.icon,
+				network: CHAIN_ARB.network,
+				chainId: CHAIN_ARB.chainId,
 				available: true
 			});
 
+			// Self-swap (same asset) — only for cross-wallet transfers
 			if (sourceWallet !== destWallet) {
 				options.push({
-					id: 'usdt0-arb',
-					asset: CHAIN_ARB.asset,
-					label: CHAIN_ARB.label,
+					id: sourceType,
+					asset: sourceAsset,
+					label:
+						sourceType === 'wbtc-arb'
+							? CHAIN_WBTC.label
+							: sourceType === 'usdt0-arb'
+								? CHAIN_ARB.label
+								: CHAIN_WBTC.label,
 					description: $t('wallet.swap.desc_same_wallet_transfer'),
-					icon: CHAIN_ARB.icon,
-					network: CHAIN_ARB.network,
-					chainId: CHAIN_ARB.chainId,
+					icon:
+						sourceType === 'wbtc-arb'
+							? CHAIN_WBTC.icon
+							: sourceType === 'usdt0-arb'
+								? CHAIN_ARB.icon
+								: CHAIN_WBTC.icon,
+					network:
+						sourceType === 'wbtc-arb'
+							? CHAIN_WBTC.network
+							: sourceType === 'usdt0-arb'
+								? CHAIN_ARB.network
+								: CHAIN_WBTC.network,
+					chainId:
+						sourceType === 'wbtc-arb'
+							? CHAIN_WBTC.chainId
+							: sourceType === 'usdt0-arb'
+								? CHAIN_ARB.chainId
+								: CHAIN_WBTC.chainId,
 					available: true
 				});
 			}
@@ -811,6 +834,15 @@
 			'wbtc-arb': 'wbtc-arb',
 			'btc-onchain': 'btc-onchain'
 		};
+
+		// Map SourceWallet → DestType (for the new dest — prefer prevDest for cross-token flips)
+		const SOURCE_TO_DEST: Record<string, DestType> = {
+			rbtc: 'rbtc-rsk',
+			'wbtc-arb': 'wbtc-arb',
+			'btc-onchain': 'btc-onchain',
+			'usdt0-arb': 'usdt0-arb',
+			'tbtc-arb': 'wbtc-arb'
+		};
 		const reverseSource = DEST_TO_SOURCE[prevDest] ?? 'rbtc';
 
 		// Check if the reverse pair is valid (dest asset must be available as source)
@@ -830,20 +862,12 @@
 		d.log('swapDirection: %s/%s ↔ %s/%s', prevSourceWallet, prevSource, prevDestWallet, prevDest);
 		setTimeout(() => (isFlipping = false), 300);
 
-		// Map SourceWallet → DestType (for the new dest)
-		const SOURCE_TO_DEST: Record<string, DestType> = {
-			rbtc: 'rbtc-rsk',
-			'wbtc-arb': 'wbtc-arb',
-			'btc-onchain': 'btc-onchain',
-			'usdt0-arb': 'usdt0-arb',
-			'tbtc-arb': 'wbtc-arb'
-		};
-
 		// Swap wallets and assets
 		sourceWallet = prevDestWallet;
 		destWallet = prevSourceWallet;
 		sourceType = reverseSource as SourceWallet;
-		destType = SOURCE_TO_DEST[prevSource] ?? 'rbtc-rsk';
+		// Prefer prevDest as new dest (preserves cross-token flips like wbtc→usdt0 ↔ usdt0→wbtc)
+		destType = DEST_TO_SOURCE[prevDest] ? prevDest : (SOURCE_TO_DEST[prevSource] ?? 'rbtc-rsk');
 
 		// Validate dest is available for new source, auto-correct if not
 		const available = visibleDestOptions;
