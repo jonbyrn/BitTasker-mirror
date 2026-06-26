@@ -10,10 +10,9 @@
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
-		isSubmitting?: boolean;
 	}
 
-	let { isOpen, onClose, isSubmitting: _isSubmittingProp }: Props = $props();
+	let { isOpen, onClose }: Props = $props();
 
 	let expandedWalletId = $state<string | null>(null);
 	let toastMessage = $state<string | null>(null);

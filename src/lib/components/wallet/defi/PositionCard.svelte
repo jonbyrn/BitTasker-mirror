@@ -166,7 +166,7 @@
 		class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12"
 		onclick={(e) => {
 			onToggle();
-			(e.currentTarget as HTMLElement).blur();
+			setTimeout(() => (e.currentTarget as HTMLElement)?.blur(), 50);
 		}}
 	>
 		<div class="flex min-w-0 flex-1 items-center gap-2">
@@ -199,11 +199,13 @@
 				</div>
 				<div class="flex items-center justify-between gap-2">
 					<span class="text-base-content/50 font-mono text-xs">{shortAddress}</span>
-					<div class="flex shrink-0 items-center gap-1.5">
+					<div class="flex items-center gap-1.5">
 						<span class="text-base-content/60 text-xs tabular-nums">
 							{$t('wallet.defi.ltv_display', { values: { ltv: ltvPct.toFixed(1) } })}
 						</span>
-						<span class="badge {badge.cls} badge-xs shrink-0 px-1.5 py-0.5 text-[10px] font-medium">
+						<span
+							class="badge {badge.cls} badge-xs shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-medium"
+						>
 							{badge.label}
 						</span>
 					</div>

@@ -31,7 +31,8 @@
 		overrideSats,
 		overrideUsdt,
 		balancesHidden: propBalancesHidden,
-		onToggleBalances
+		onToggleBalances,
+		onManageLoans
 	} = $props<{
 		isLoading?: boolean;
 		hideDetails?: boolean;
@@ -40,6 +41,7 @@
 		overrideUsdt?: number | null;
 		balancesHidden?: boolean;
 		onToggleBalances?: (hidden: boolean) => void;
+		onManageLoans?: () => void;
 	}>();
 
 	// Refresh state
@@ -574,7 +576,7 @@
 			</div>
 
 			<!-- Loan Accordion -->
-			<DefiPositionCard />
+			<DefiPositionCard onManage={onManageLoans} />
 		</div>
 	{/if}
 </div>

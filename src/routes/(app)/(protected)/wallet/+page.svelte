@@ -7,14 +7,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
-	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
-	import type { PendingSwapData } from '$lib/utils/swapAdapter';
-	import {
-		walletManager,
-		rskConnection,
-		walletStore,
-		updateSwapTransaction
-	} from '$lib/stores/wallet.store';
+	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
@@ -52,8 +45,6 @@
 	import ConnectedTransactionHistory from '$lib/components/wallet/ConnectedTransactionHistory.svelte';
 	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
 	import {
-		startPendingSwapPoller,
-		getClaimableSwaps,
 		removePendingSwap,
 		type PendingConnectedSwap
 	} from '$lib/services/connected-wallet-reverse-swap';
@@ -63,7 +54,7 @@
 
 	let isLoading = $state(false);
 	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
-	let unsubscribeFromSwaps: (() => void) | null = null;
+	let claimableSwaps = $state<PendingConnectedSwap[]>([]);
 
 	async function initializeWallet(): Promise<void> {
 		try {
@@ -500,6 +491,7 @@
 						hideDetails={false}
 						{balancesHidden}
 						onToggleBalances={(hidden) => (balancesHidden = hidden)}
+						onManageLoans={() => (showBorrow = true)}
 					/>
 				{/if}
 
@@ -661,20 +653,7 @@
 <!-- DeFi Drawer (gated by single LOAN_FLOW flag) -->
 {#if isLoanFlowEnabled()}
 	{#if showBorrow}
-		<BorrowFlowDrawer
-			isOpen={showBorrow}
-			onClose={() => (showBorrow = false)}
-			onGetWbtc={() => {
-				loanFlowSwapDest = 'wbtc-arb';
-				showBorrow = false;
-				showSwap = true;
-			}}
-			onBuyWbtc={() => {
-				loanFlowBuyCrypto = 'wbtc-arb';
-				showBorrow = false;
-				showBuySell = true;
-			}}
-		/>
+		<BorrowFlowDrawer isOpen={showBorrow} onClose={() => (showBorrow = false)} />
 	{/if}
 	{#if showEarn}
 		<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} isSubmitting={false} />

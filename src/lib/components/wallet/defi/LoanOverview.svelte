@@ -4,6 +4,10 @@
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import IconHelpCircle from '~icons/mdi/help-circle';
+	import LoanHelpModal from './LoanHelpModal.svelte';
+
+	let helpOpen = $state(false);
 
 	let allPositions = $derived(Array.from(defiPositions.aavePositions.values()));
 
@@ -36,7 +40,6 @@
 	// Loan power = max borrow capacity across ALL collateral (locked + loose rBTC + loose wBTC)
 	// Aave V3 max LTV for WBTC is 73%
 	let availableLoanPowerUsd = $derived(Math.max(0, totalCollateralUsd * 0.73 - totalDebtUsd));
-
 	// Bar: full width = total collateral. Debt segment fills from left.
 	// Capacity marker at 73% of total collateral (Aave max LTV)
 	let debtPct = $derived(
@@ -54,14 +57,24 @@
 		critical: { bar: 'bg-error', badge: 'badge-error', label: 'At Risk' }
 	};
 	let risk = $derived(RISK[riskLevel]);
-	let hasAnyCollateral = $derived(totalCollateralUsd > 0);
+	let hasAnyCollateral = $derived(allPositions.length > 0 || totalCollateralUsd > 0);
 </script>
 
 {#if hasAnyCollateral}
 	<div class="border-primary bg-base-100 rounded-lg border p-4">
-		<!-- Header: title + risk badge -->
+		<!-- Header: title + help button + risk badge -->
 		<div class="mb-2 flex items-center justify-between">
-			<span class="text-sm font-semibold">{$t('wallet.defi.position.overview_title')}</span>
+			<div class="flex items-center gap-1.5">
+				<span class="text-sm font-semibold">{$t('wallet.defi.position.overview_title')}</span>
+				<button
+					type="button"
+					class="text-base-content/40 hover:text-base-content/70 transition-colors"
+					onclick={() => (helpOpen = true)}
+					aria-label="Help"
+				>
+					<IconHelpCircle class="h-5 w-5" />
+				</button>
+			</div>
 			<span class="badge {risk.badge} badge-sm px-2 py-1 text-xs font-medium">
 				{risk.label}
 			</span>
@@ -130,3 +143,5 @@
 		</div>
 	</div>
 {/if}
+
+<LoanHelpModal isOpen={helpOpen} onClose={() => (helpOpen = false)} />

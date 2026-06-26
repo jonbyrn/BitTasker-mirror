@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { ethers, Interface } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore, sendArbitrumTransaction } from '$lib/stores/wallet.store';
@@ -19,6 +19,7 @@
 	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
+	import LoanHealthBadge from '../LoanHealthBadge.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 
 	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
@@ -79,7 +80,12 @@
 		address: string;
 		onSuccess: (txHash: string) => void;
 		minimal?: boolean;
-		onProjectedValues?: (vals: { debt?: number; collateral?: number; available?: number }) => void;
+		onProjectedValues?: (vals: {
+			debt?: number;
+			collateral?: number;
+			available?: number;
+			liqPrice?: number;
+		}) => void;
 	}
 
 	let { walletId, address, onSuccess, minimal = false, onProjectedValues }: Props = $props();
@@ -92,6 +98,8 @@
 	let txPhase: TxPhase = $state('idle');
 	let showConfirmModal = $state(false);
 	let confirmError = $state<string | null>(null);
+	let successTxHash = $state<string | null>(null);
+	let successTimeoutId: ReturnType<typeof setTimeout> | null = $state(null);
 	let feeExpanded = $state(false);
 	let sliderPercent = $state(0);
 	let riskAcknowledged = $state(false);
@@ -182,6 +190,10 @@
 		}
 	});
 
+	onDestroy(() => {
+		if (successTimeoutId) clearTimeout(successTimeoutId);
+	});
+
 	function handleWalletSelect(_id: string) {}
 
 	async function loadRates() {
@@ -234,13 +246,45 @@
 
 	function openConfirm() {
 		confirmError = null;
+		successTxHash = null;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
 		showConfirmModal = true;
+	}
+
+	function confirmSuccess() {
+		const txHash = successTxHash;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		if (txHash) onSuccess(txHash);
+		successTxHash = null;
+	}
+
+	function handleRetry() {
+		confirmError = null;
+		void handleBorrow();
+	}
+
+	function closeModal() {
+		if (isProcessing) return;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		successTxHash = null;
 	}
 
 	async function handleBorrow() {
 		if (!canBorrow || isProcessing) return;
 		isProcessing = true;
 		confirmError = null;
+		successTxHash = null;
 
 		const rawAmount = BigInt(Math.round(amountNum * 1_000_000));
 		const maxRaw = BigInt(Math.floor(maxSafeBorrowUsd * 1_000_000));
@@ -281,13 +325,16 @@
 					data: { txHash }
 				});
 
-				// Don't invalidate here — handleSuccess will refreshAavePosition(force=true)
-				// which replaces the map entry in-place. Calling invalidate() first would
-				// empty aavePositions, causing LoanOverview to disappear momentarily.
 				txPhase = 'done';
 				isProcessing = false;
-				showConfirmModal = false;
-				onSuccess(txHash);
+				successTxHash = txHash;
+				successTimeoutId = setTimeout(() => {
+					if (successTxHash) {
+						showConfirmModal = false;
+						onSuccess(successTxHash);
+						successTxHash = null;
+					}
+				}, 5000);
 			} else {
 				const evmSigner = getEvmSigner(walletId);
 				if (!evmSigner) {
@@ -310,11 +357,16 @@
 					data: { txHash: result.txHash }
 				});
 
-				// Don't invalidate here — handleSuccess will refreshAavePosition(force=true)
 				txPhase = 'done';
 				isProcessing = false;
-				showConfirmModal = false;
-				onSuccess(result.txHash);
+				successTxHash = result.txHash;
+				successTimeoutId = setTimeout(() => {
+					if (successTxHash) {
+						showConfirmModal = false;
+						onSuccess(successTxHash);
+						successTxHash = null;
+					}
+				}, 5000);
 			}
 		} catch (err) {
 			const contractErr = extractContractError(err);
@@ -475,104 +527,122 @@
 		<div class="modal-box max-w-md">
 			<h3 class="text-lg font-bold">{$t('wallet.defi.wizard.borrow_usdt0')}</h3>
 
-			<div class="space-y-4 py-4">
-				<p class="text-sm">
-					{$t('wallet.defi.position.confirm_borrow_desc', {
-						values: { amount: `$${amountNum.toFixed(2)}` }
-					})}
-				</p>
-
-				<LoanHealthBar
-					totalCollateralUsd={currentCollateralUsd}
-					totalDebtUsd={projectedDebtUsd}
-					availableBorrowsUsd={Math.max(0, availableBorrowsUsd - amountNum)}
-				/>
-
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
-					<span class="font-medium tabular-nums">{projectedLtvPct.toFixed(1)}%</span>
+			{#if successTxHash}
+				<!-- Success state -->
+				<div class="flex flex-col items-center gap-3 py-6">
+					<div class="bg-success/10 flex h-12 w-12 items-center justify-center rounded-full">
+						<svg class="text-success h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					</div>
+					<p class="text-sm font-medium">{$t('wallet.defi.shared.tx_confirmed')}</p>
+					<p class="text-base-content/60 text-xs">{$t('wallet.defi.shared.closing_shortly')}</p>
 				</div>
-
-				<div class="bg-base-200 space-y-1 rounded-lg p-3 text-sm">
-					<div class="flex items-center justify-between">
-						<span class="text-base-content/60">{$t('wallet.defi.borrow.interest_rate')}</span>
-						<span class="tabular-nums">{borrowAPR.toFixed(2)}% APR</span>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-base-content/60">{$t('wallet.defi.borrow.annual_cost')}</span>
-						<span class="tabular-nums">${annualCost.toFixed(2)}</span>
-					</div>
+				<div class="modal-action">
+					<button class="btn btn-primary w-full" onclick={confirmSuccess}>
+						{$t('wallet.defi.wizard.done')}
+					</button>
 				</div>
+			{:else}
+				<div class="space-y-4 py-4">
+					<p class="text-sm">
+						{$t('wallet.defi.position.confirm_borrow_desc', {
+							values: { amount: `$${amountNum.toFixed(2)}` }
+						})}
+					</p>
 
-				{#if confirmError}
-					<div class="alert alert-error py-2">
-						<span class="text-sm">{confirmError}</span>
+					<LoanHealthBar
+						totalCollateralUsd={currentCollateralUsd}
+						totalDebtUsd={projectedDebtUsd}
+						availableBorrowsUsd={Math.max(0, availableBorrowsUsd - amountNum)}
+					/>
+
+					<div class="flex items-center justify-between text-xs">
+						<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
+						<LoanHealthBadge ltvPct={projectedLtvPct} showLtv />
 					</div>
-				{/if}
 
-				{#if isProcessing && txPhase !== 'idle'}
-					<div class="space-y-2 pt-2">
-						<div class="flex items-center gap-2 text-sm">
-							{#if txPhase === 'borrowing'}
-								<span class="loading loading-spinner loading-xs"></span>
-								<span>{$t('wallet.defi.wizard.borrow_pending')}</span>
-							{:else if txPhase === 'done'}
-								<svg
-									class="text-success h-4 w-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
-								<span>{$t('wallet.defi.wizard.supply_confirmed')}</span>
-							{/if}
+					<div class="bg-base-200 space-y-1 rounded-lg p-3 text-sm">
+						<div class="flex items-center justify-between">
+							<span class="text-base-content/60">{$t('wallet.defi.borrow.interest_rate')}</span>
+							<span class="tabular-nums">{borrowAPR.toFixed(2)}% APR</span>
 						</div>
-						<ul class="steps steps-horizontal w-full text-xs">
-							<li class="step step-primary">{$t('wallet.defi.wizard.step_approve')}</li>
-							<li
-								class="step {txPhase === 'borrowing' || txPhase === 'done' ? 'step-primary' : ''}"
-							>
-								{$t('wallet.defi.wizard.step_supply')}
-							</li>
-						</ul>
+						<div class="flex items-center justify-between">
+							<span class="text-base-content/60">{$t('wallet.defi.borrow.annual_cost')}</span>
+							<span class="tabular-nums">${annualCost.toFixed(2)}</span>
+						</div>
 					</div>
-				{/if}
-			</div>
 
-			<div class="modal-action">
-				<button
-					class="btn btn-ghost"
-					onclick={() => (showConfirmModal = false)}
-					disabled={isProcessing}
-				>
-					{$t('common.cancel')}
-				</button>
-				<button class="btn btn-primary" onclick={handleBorrow} disabled={isProcessing}>
-					{#if isProcessing}
-						<span class="loading loading-spinner loading-sm"></span>
-						{#if txPhase === 'borrowing'}
-							{$t('wallet.defi.wizard.borrow_pending')}
-						{:else}
-							{$t('wallet.defi.wizard.borrow_usdt0')}
-						{/if}
-					{:else}
-						{$t('wallet.defi.wizard.borrow_btn', { values: { amount: amountNum.toFixed(2) } })}
+					{#if confirmError}
+						<div class="alert alert-error py-2">
+							<div class="flex flex-col gap-2">
+								<span class="text-sm">{confirmError}</span>
+								<button class="btn btn-error btn-sm btn-soft self-end" onclick={handleRetry}>
+									{$t('wallet.defi.shared.retry')}
+								</button>
+							</div>
+						</div>
 					{/if}
-				</button>
-			</div>
+
+					{#if isProcessing && txPhase !== 'idle'}
+						<div class="space-y-2 pt-2">
+							<div class="flex items-center gap-2 text-sm">
+								{#if txPhase === 'borrowing'}
+									<span class="loading loading-spinner loading-xs"></span>
+									<span>{$t('wallet.defi.wizard.borrow_pending')}</span>
+								{:else if txPhase === 'done'}
+									<svg
+										class="text-success h-4 w-4"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+									<span>{$t('wallet.defi.shared.tx_confirmed')}</span>
+								{/if}
+							</div>
+							<ul class="steps steps-horizontal w-full text-xs">
+								<li class="step step-primary">{$t('wallet.defi.wizard.step_approve')}</li>
+								<li
+									class="step {txPhase === 'borrowing' || txPhase === 'done' ? 'step-primary' : ''}"
+								>
+									{$t('wallet.defi.wizard.step_supply')}
+								</li>
+							</ul>
+						</div>
+					{/if}
+				</div>
+
+				<div class="modal-action">
+					<button class="btn btn-ghost" onclick={closeModal} disabled={isProcessing}>
+						{$t('common.cancel')}
+					</button>
+					<button class="btn btn-primary" onclick={handleBorrow} disabled={isProcessing}>
+						{#if isProcessing}
+							<span class="loading loading-spinner loading-sm"></span>
+							{#if txPhase === 'borrowing'}
+								{$t('wallet.defi.wizard.borrow_pending')}
+							{:else}
+								{$t('wallet.defi.wizard.borrow_usdt0')}
+							{/if}
+						{:else}
+							{$t('wallet.defi.wizard.borrow_btn', { values: { amount: amountNum.toFixed(2) } })}
+						{/if}
+					</button>
+				</div>
+			{/if}
 		</div>
-		<button
-			class="modal-backdrop"
-			onclick={() => {
-				if (!isProcessing) showConfirmModal = false;
-			}}
-			aria-label="Close"
-		></button>
+		<button class="modal-backdrop" onclick={closeModal} aria-label="Close"></button>
 	</div>
 {/if}

@@ -3,17 +3,11 @@
 
 	let {
 		isOpen,
-		onClose,
-		onGetWbtc,
-		onBuyWbtc,
-		isSubmitting = false
+		onClose
 	}: {
 		isOpen: boolean;
 		onClose: () => void;
-		onGetWbtc?: () => void;
-		onBuyWbtc?: () => void;
-		isSubmitting?: boolean;
 	} = $props();
 </script>
 
-<LoanWizardDrawer {isOpen} {onClose} {onGetWbtc} {onBuyWbtc} {isSubmitting} />
+<LoanWizardDrawer {isOpen} {onClose} />

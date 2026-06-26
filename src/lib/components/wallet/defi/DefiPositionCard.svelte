@@ -1,25 +1,19 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
-	import Drawer from '$lib/components/Drawer.svelte';
-	import PositionDetail from './position/PositionDetail.svelte';
 	import LoanHealthBar from './LoanHealthBar.svelte';
+
+	let {
+		onManage = () => {}
+	}: {
+		onManage?: () => void;
+	} = $props();
 
 	let hasPositions = $derived(defiPositions.aavePositions.size > 0);
 	let positions = $derived(Array.from(defiPositions.aavePositions.entries()));
 
 	let expanded = $state(false);
-	let detailOpen = $state(false);
-	let detailWalletId = $state('');
-	let detailAddress = $state('');
 
-	function openDetail(walletId: string, address: string) {
-		detailWalletId = walletId;
-		detailAddress = address;
-		detailOpen = true;
-	}
-
-	// Current utilization LTV (debt / collateral), not protocol max LTV
 	function calcLtv(debt: number, collateral: number): number {
 		return collateral > 0 ? (debt / collateral) * 100 : 0;
 	}
@@ -45,11 +39,15 @@
 		<div
 			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 			class:collapse-open={expanded}
+			class:collapse-close={!expanded}
 		>
 			<button
 				type="button"
 				class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-				onclick={() => (expanded = !expanded)}
+				onclick={(e) => {
+					expanded = !expanded;
+					setTimeout(() => (e.currentTarget as HTMLElement)?.blur(), 50);
+				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<img
@@ -90,26 +88,12 @@
 					<button
 						type="button"
 						class="btn btn-primary btn-sm min-h-[44px] w-full"
-						onclick={() => openDetail(walletId, pos.address)}
+						onclick={onManage}
 					>
-						Manage Position
+						{$t('wallet.defi.wizard.manage_loans')}
 					</button>
 				</div>
 			</div>
 		</div>
 	{/each}
-
-	<Drawer
-		isOpen={detailOpen}
-		onClose={() => (detailOpen = false)}
-		title="Position Detail"
-		position="right"
-		isScrollable={true}
-	>
-		<PositionDetail
-			walletId={detailWalletId}
-			address={detailAddress}
-			onClose={() => (detailOpen = false)}
-		/>
-	</Drawer>
 {/if}

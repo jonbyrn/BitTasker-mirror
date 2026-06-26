@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { onDestroy } from 'svelte';
 	import { ethers, Interface } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore, sendArbitrumTransaction } from '$lib/stores/wallet.store';
@@ -8,6 +9,7 @@
 	import { USDT0_ARBITRUM, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
+	import LoanHealthBadge from '../LoanHealthBadge.svelte';
 
 	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
 	const POOL_ABI = [
@@ -34,6 +36,10 @@
 		walletId === 'builtin' ? defiPositions.aavePositions.get('builtin') : null
 	);
 	let totalDebtUsd = $derived(position?.totalDebtUsd ?? 0);
+	let totalCollateralUsd = $derived(position?.totalCollateralUsd ?? 0);
+	let currentLtvPct = $derived(
+		totalCollateralUsd > 0 ? (totalDebtUsd / totalCollateralUsd) * 100 : 0
+	);
 	let hasDebt = $derived(totalDebtUsd > 0);
 
 	// USDT0 balance check
@@ -51,10 +57,46 @@
 	let isProcessing = $state(false);
 	let _txPhase: 'idle' | 'closing' | 'done' = $state('idle');
 	let error = $state<string | null>(null);
+	let successTxHash = $state<string | null>(null);
+	let successTimeoutId: ReturnType<typeof setTimeout> | null = $state(null);
+
+	onDestroy(() => {
+		if (successTimeoutId) clearTimeout(successTimeoutId);
+	});
 
 	function openConfirm() {
 		error = null;
+		successTxHash = null;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
 		showConfirmModal = true;
+	}
+
+	function confirmSuccess() {
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		onSuccess();
+		successTxHash = null;
+	}
+
+	function handleRetry() {
+		error = null;
+		void handleRepayAndClose();
+	}
+
+	function closeModal() {
+		if (isProcessing) return;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		successTxHash = null;
 	}
 
 	function sanitizeErrorForLog(err: unknown): Record<string, unknown> {
@@ -73,6 +115,7 @@
 		if (isProcessing) return;
 		isProcessing = true;
 		error = null;
+		successTxHash = null;
 
 		try {
 			_txPhase = 'closing';
@@ -164,18 +207,20 @@
 
 			// Step 3: Send multicall and wait for receipt
 			console.log('[CloseAction] Sending multicall...');
+			let txHash: string;
+
 			if (walletId === 'builtin') {
-				const { data: txHash, error: txErr } = await tryCatch(
+				const { data: hash, error: txErr } = await tryCatch(
 					sendArbitrumTransaction({ to: AAVE_POOL, data: multicallData, value: '0' })
 				);
-				if (txErr || !txHash) {
+				if (txErr || !hash) {
 					console.warn('[CloseAction] Multicall send failed:', txErr);
 					throw new Error(extractContractError(txErr).userMessage);
 				}
-				console.log('[CloseAction] Multicall tx sent:', txHash);
+				console.log('[CloseAction] Multicall tx sent:', hash);
 
 				const { data: receipt, error: receiptErr } = await tryCatch(
-					arbProvider.waitForTransaction(txHash, 60000)
+					arbProvider.waitForTransaction(hash, 60000)
 				);
 				if (receiptErr || !receipt) {
 					console.warn('[CloseAction] Multicall receipt failed:', receiptErr);
@@ -187,6 +232,7 @@
 				if (receipt.status === 0) {
 					throw new Error('Transaction reverted on-chain. No changes were made to your position.');
 				}
+				txHash = hash;
 			} else {
 				const evmSigner = getEvmSigner(walletId);
 				if (!evmSigner) throw new Error('No signer available');
@@ -201,14 +247,21 @@
 				if (txErr || !result) {
 					throw new Error(extractContractError(txErr).userMessage);
 				}
+				txHash = result.txHash;
 			}
 
 			console.log('[CloseAction] Position closed successfully');
 			_txPhase = 'done';
 			isProcessing = false;
 			defiPositions.invalidate(walletId);
-			showConfirmModal = false;
-			onSuccess();
+			successTxHash = txHash;
+			successTimeoutId = setTimeout(() => {
+				if (successTxHash) {
+					showConfirmModal = false;
+					onSuccess();
+					successTxHash = null;
+				}
+			}, 5000);
 		} catch (err) {
 			const contractErr = extractContractError(err);
 			console.warn('[CloseAction] Close failed:', sanitizeErrorForLog(err));
@@ -267,45 +320,74 @@
 		<div class="modal-box max-w-md">
 			<h3 class="text-lg font-bold">{$t('wallet.defi.position.close_position')}</h3>
 
-			<div class="space-y-4 py-4">
-				<LoanHealthBar totalCollateralUsd={0} totalDebtUsd={0} availableBorrowsUsd={0} />
-
-				{#if isProcessing}
-					<div class="flex items-center gap-2 text-sm">
-						<span class="loading loading-spinner loading-sm"></span>
-						<span>{$t('wallet.defi.position.close_closing')}</span>
+			{#if successTxHash}
+				<!-- Success state -->
+				<div class="flex flex-col items-center gap-3 py-6">
+					<div class="bg-success/10 flex h-12 w-12 items-center justify-center rounded-full">
+						<svg class="text-success h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
 					</div>
-				{/if}
+					<p class="text-sm font-medium">{$t('wallet.defi.shared.tx_confirmed')}</p>
+					<p class="text-base-content/60 text-xs">{$t('wallet.defi.shared.closing_shortly')}</p>
+				</div>
+				<div class="modal-action">
+					<button class="btn btn-primary w-full" onclick={confirmSuccess}>
+						{$t('wallet.defi.wizard.done')}
+					</button>
+				</div>
+			{:else}
+				<div class="space-y-4 py-4">
+					<p class="text-sm">
+						{$t('wallet.defi.position.confirm_close_desc')}
+					</p>
 
-				{#if error}
-					<div class="alert alert-error py-2">
-						<span class="text-sm">{error}</span>
-					</div>
-				{/if}
-			</div>
+					<LoanHealthBar {totalCollateralUsd} {totalDebtUsd} availableBorrowsUsd={0} />
 
-			<div class="modal-action">
-				<button
-					class="btn btn-ghost"
-					onclick={() => (showConfirmModal = false)}
-					disabled={isProcessing}
-				>
-					{$t('common.cancel')}
-				</button>
-				<button class="btn btn-primary" onclick={handleRepayAndClose} disabled={isProcessing}>
-					{#if isProcessing}
-						<span class="loading loading-spinner loading-sm"></span>
+					{#if currentLtvPct > 0}
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
+							<LoanHealthBadge ltvPct={currentLtvPct} showLtv />
+						</div>
 					{/if}
-					{$t('wallet.defi.position.close_confirm_button')}
-				</button>
-			</div>
+
+					{#if error}
+						<div class="alert alert-error py-2">
+							<div class="flex flex-col gap-2">
+								<span class="text-sm">{error}</span>
+								<button class="btn btn-error btn-sm btn-soft self-end" onclick={handleRetry}>
+									{$t('wallet.defi.shared.retry')}
+								</button>
+							</div>
+						</div>
+					{/if}
+
+					{#if isProcessing}
+						<div class="flex items-center gap-2 text-sm">
+							<span class="loading loading-spinner loading-sm"></span>
+							<span>{$t('wallet.defi.position.close_closing')}</span>
+						</div>
+					{/if}
+				</div>
+
+				<div class="modal-action">
+					<button class="btn btn-ghost" onclick={closeModal} disabled={isProcessing}>
+						{$t('common.cancel')}
+					</button>
+					<button class="btn btn-primary" onclick={handleRepayAndClose} disabled={isProcessing}>
+						{#if isProcessing}
+							<span class="loading loading-spinner loading-sm"></span>
+						{/if}
+						{$t('wallet.defi.position.close_confirm_button')}
+					</button>
+				</div>
+			{/if}
 		</div>
-		<button
-			class="modal-backdrop"
-			onclick={() => {
-				if (!isProcessing) showConfirmModal = false;
-			}}
-			aria-label="Close"
-		></button>
+		<button class="modal-backdrop" onclick={closeModal} aria-label="Close"></button>
 	</div>
 {/if}

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { ethers } from 'ethers';
+	import { onDestroy } from 'svelte';
+	import { ethers, Interface } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
-	import { walletStore } from '$lib/stores/wallet.store';
-	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { walletStore, sendArbitrumTransaction } from '$lib/stores/wallet.store';
+	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
+	import { USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 	import {
 		calculateProjectedHealthFactor,
 		calculateBtcLiquidationPrice,
@@ -18,28 +19,35 @@
 	import HealthFactorGauge from '../HealthFactorGauge.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
+	import LoanHealthBadge from '../LoanHealthBadge.svelte';
+
+	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
+	const POOL_ABI = [
+		'function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external returns (uint256)'
+	];
 
 	interface Props {
 		walletId: string;
 		address: string;
 		onSuccess: () => void;
 		minimal?: boolean;
-		onProjectedValues?: (vals: { debt?: number; collateral?: number; available?: number }) => void;
+		onProjectedValues?: (vals: {
+			debt?: number;
+			collateral?: number;
+			available?: number;
+			liqPrice?: number;
+		}) => void;
 	}
 
-	let {
-		walletId,
-		address: _address,
-		onSuccess,
-		minimal = false,
-		onProjectedValues
-	}: Props = $props();
+	let { walletId, address, onSuccess, minimal = false, onProjectedValues }: Props = $props();
 
 	let amount = $state('');
 	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
 	let showConfirmModal = $state(false);
 	let confirmError = $state<string | null>(null);
+	let successTxHash = $state<string | null>(null);
+	let successTimeoutId: ReturnType<typeof setTimeout> | null = $state(null);
 	let isOnline = $derived($browserNetworkStatus.online);
 
 	let position = $derived(
@@ -127,6 +135,10 @@
 		}
 	});
 
+	onDestroy(() => {
+		if (successTimeoutId) clearTimeout(successTimeoutId);
+	});
+
 	function setMax() {
 		sliderPercent = 100;
 		amount = maxRepayUsd.toFixed(2);
@@ -134,6 +146,7 @@
 
 	function handleAmountChange(v: string) {
 		amount = v;
+		confirmError = null;
 		const n = parseFloat(v || '0');
 		sliderPercent =
 			isFinite(n) && n > 0 && maxRepayUsd > 0 ? Math.min(100, (n / maxRepayUsd) * 100) : 0;
@@ -150,7 +163,37 @@
 
 	function openConfirm() {
 		confirmError = null;
+		successTxHash = null;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
 		showConfirmModal = true;
+	}
+
+	function confirmSuccess() {
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		onSuccess();
+		successTxHash = null;
+	}
+
+	function handleRetry() {
+		confirmError = null;
+		void handleRepay();
+	}
+
+	function closeModal() {
+		if (isProcessing) return;
+		if (successTimeoutId) {
+			clearTimeout(successTimeoutId);
+			successTimeoutId = null;
+		}
+		showConfirmModal = false;
+		successTxHash = null;
 	}
 
 	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
@@ -188,40 +231,101 @@
 			data: { amountUsd: amountNum.toString() }
 		});
 
-		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
-		const aave = new AaveService(provider);
 		const rawAmount = BigInt(Math.round(amountNum * 1_000_000));
 		const finalAmount = rawAmount >= maxRepayRaw ? maxRepayRaw : rawAmount;
-		const signer = new ethers.Wallet('0x' + '00'.repeat(32), provider);
+		const normalizedAddr = ethers.getAddress(address.toLowerCase());
 
-		const { data: tx, error } = await tryCatch(aave.repay(USDT0_ARBITRUM, finalAmount, signer));
-		if (error || !tx) {
-			const contractErr = extractContractError(error);
-			console.warn('[RepayAction] Repay failed:', sanitizeErrorForLog(error));
+		try {
+			const repayIface = new Interface(POOL_ABI);
+			const repayData = repayIface.encodeFunctionData('repay', [
+				USDT0_ARBITRUM,
+				finalAmount,
+				2,
+				normalizedAddr
+			]);
+
+			if (walletId === 'builtin') {
+				const { data: txHash, error: txErr } = await tryCatch(
+					sendArbitrumTransaction({ to: AAVE_POOL, data: repayData, value: '0' })
+				);
+
+				if (txErr || !txHash) {
+					const contractErr = extractContractError(txErr);
+					console.warn('[RepayAction] Repay tx failed (builtin):', sanitizeErrorForLog(txErr));
+					throw new Error(contractErr.userMessage);
+				}
+
+				const arbProvider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
+				const { data: receipt, error: receiptErr } = await tryCatch(
+					arbProvider.waitForTransaction(txHash, 60_000)
+				);
+				if (receiptErr || !receipt) {
+					console.warn('[RepayAction] Receipt error:', sanitizeErrorForLog(receiptErr));
+					throw new Error(receiptErr instanceof Error ? receiptErr.message : 'Transaction failed');
+				}
+
+				Sentry.addBreadcrumb({
+					category: 'defi.repay',
+					message: 'repay confirmed',
+					data: { txHash }
+				});
+				defiPositions.invalidate(walletId);
+				isProcessing = false;
+				successTxHash = txHash;
+				successTimeoutId = setTimeout(() => {
+					if (successTxHash) {
+						showConfirmModal = false;
+						onSuccess();
+						successTxHash = null;
+					}
+				}, 5000);
+			} else {
+				const evmSigner = getEvmSigner(walletId);
+				if (!evmSigner) {
+					throw new Error('No signer available');
+				}
+
+				const { data: result, error: txErr } = await tryCatch(
+					evmSigner.sendTransaction({
+						to: AAVE_POOL,
+						data: repayData,
+						value: 0n,
+						chainId: 42161
+					})
+				);
+
+				if (txErr || !result) {
+					const contractErr = extractContractError(txErr);
+					console.warn('[RepayAction] Repay tx failed (connected):', sanitizeErrorForLog(txErr));
+					throw new Error(contractErr.userMessage);
+				}
+
+				Sentry.addBreadcrumb({
+					category: 'defi.repay',
+					message: 'repay confirmed',
+					data: { txHash: result.txHash }
+				});
+				defiPositions.invalidate(walletId);
+				isProcessing = false;
+				successTxHash = result.txHash;
+				successTimeoutId = setTimeout(() => {
+					if (successTxHash) {
+						showConfirmModal = false;
+						onSuccess();
+						successTxHash = null;
+					}
+				}, 5000);
+			}
+		} catch (err) {
+			const contractErr = extractContractError(err);
+			console.warn('[RepayAction] Repay flow error:', sanitizeErrorForLog(err));
 			Sentry.addBreadcrumb({
 				category: 'defi.repay',
-				message: 'repay failed',
-				data: { errorCode: contractErr.errorCode ?? 'UNKNOWN' }
+				message: 'repay flow error',
+				data: { walletId, errorCode: contractErr.errorCode ?? 'UNKNOWN' }
 			});
 			confirmError = contractErr.userMessage;
 			isProcessing = false;
-			return;
-		}
-
-		const { data: receipt, error: receiptErr } = await tryCatch(tx.wait());
-		isProcessing = false;
-		if (receipt) {
-			Sentry.addBreadcrumb({
-				category: 'defi.repay',
-				message: 'repay confirmed',
-				data: {}
-			});
-			defiPositions.invalidate(walletId);
-			showConfirmModal = false;
-			onSuccess();
-		} else if (receiptErr) {
-			console.warn('[RepayAction] Receipt error:', sanitizeErrorForLog(receiptErr));
-			confirmError = receiptErr instanceof Error ? receiptErr.message : 'Transaction failed';
 		}
 	}
 </script>
@@ -302,60 +406,78 @@
 		<div class="modal-box max-w-md">
 			<h3 class="text-lg font-bold">{$t('wallet.defi.borrow.button_repay')}</h3>
 
-			<div class="space-y-4 py-4">
-				<p class="text-sm">
-					{$t('wallet.defi.position.confirm_repay_desc', {
-						values: { amount: `$${amountNum.toFixed(2)}` }
-					})}
-				</p>
+			{#if successTxHash}
+				<!-- Success state -->
+				<div class="flex flex-col items-center gap-3 py-6">
+					<div class="bg-success/10 flex h-12 w-12 items-center justify-center rounded-full">
+						<svg class="text-success h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					</div>
+					<p class="text-sm font-medium">{$t('wallet.defi.shared.tx_confirmed')}</p>
+					<p class="text-base-content/60 text-xs">{$t('wallet.defi.shared.closing_shortly')}</p>
+				</div>
+				<div class="modal-action">
+					<button class="btn btn-primary w-full" onclick={confirmSuccess}>
+						{$t('wallet.defi.wizard.done')}
+					</button>
+				</div>
+			{:else}
+				<div class="space-y-4 py-4">
+					<p class="text-sm">
+						{$t('wallet.defi.position.confirm_repay_desc', {
+							values: { amount: `$${amountNum.toFixed(2)}` }
+						})}
+					</p>
 
-				<LoanHealthBar
-					totalCollateralUsd={currentCollateralUsd}
-					totalDebtUsd={projectedDebtUsd}
-					availableBorrowsUsd={projectedAvailable}
-				/>
+					<LoanHealthBar
+						totalCollateralUsd={currentCollateralUsd}
+						totalDebtUsd={projectedDebtUsd}
+						availableBorrowsUsd={projectedAvailable}
+					/>
 
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
-					<span class="font-medium tabular-nums">{projectedLtvPct.toFixed(1)}%</span>
+					<div class="flex items-center justify-between text-xs">
+						<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
+						<LoanHealthBadge ltvPct={projectedLtvPct} showLtv />
+					</div>
+
+					{#if confirmError}
+						<div class="alert alert-error py-2">
+							<div class="flex flex-col gap-2">
+								<span class="text-sm">{confirmError}</span>
+								<button class="btn btn-error btn-sm btn-soft self-end" onclick={handleRetry}>
+									{$t('wallet.defi.shared.retry')}
+								</button>
+							</div>
+						</div>
+					{/if}
+
+					{#if isProcessing}
+						<div class="flex items-center gap-2 text-sm">
+							<span class="loading loading-spinner loading-xs"></span>
+							<span>{$t('wallet.defi.shared.pending_tx')}</span>
+						</div>
+					{/if}
 				</div>
 
-				{#if confirmError}
-					<div class="alert alert-error py-2">
-						<span class="text-sm">{confirmError}</span>
-					</div>
-				{/if}
-
-				{#if isProcessing}
-					<div class="flex items-center gap-2 text-sm">
-						<span class="loading loading-spinner loading-xs"></span>
-						<span>{$t('wallet.defi.shared.pending_tx')}</span>
-					</div>
-				{/if}
-			</div>
-
-			<div class="modal-action">
-				<button
-					class="btn btn-ghost"
-					onclick={() => (showConfirmModal = false)}
-					disabled={isProcessing}
-				>
-					{$t('common.cancel')}
-				</button>
-				<button class="btn btn-primary" onclick={handleRepay} disabled={isProcessing}>
-					{#if isProcessing}
-						<span class="loading loading-spinner loading-xs"></span>
-					{/if}
-					{$t('wallet.defi.borrow.button_repay')}
-				</button>
-			</div>
+				<div class="modal-action">
+					<button class="btn btn-ghost" onclick={closeModal} disabled={isProcessing}>
+						{$t('common.cancel')}
+					</button>
+					<button class="btn btn-primary" onclick={handleRepay} disabled={isProcessing}>
+						{#if isProcessing}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{$t('wallet.defi.borrow.button_repay')}
+					</button>
+				</div>
+			{/if}
 		</div>
-		<button
-			class="modal-backdrop"
-			onclick={() => {
-				if (!isProcessing) showConfirmModal = false;
-			}}
-			aria-label="Close"
-		></button>
+		<button class="modal-backdrop" onclick={closeModal} aria-label="Close"></button>
 	</div>
 {/if}

@@ -38,11 +38,11 @@
 			case 'addCollateral':
 				return $t('wallet.defi.borrow.button_add_collateral');
 			case 'withdraw':
-				return 'Withdraw';
+				return $t('wallet.defi.borrow.button_withdraw');
 			case 'close':
-				return 'Close Position';
+				return $t('wallet.defi.position.close_position');
 			default:
-				return 'Manage';
+				return $t('wallet.defi.select_action');
 		}
 	});
 
@@ -136,7 +136,7 @@
 					class={!hasCollateral ? 'pointer-events-none opacity-50' : ''}
 					onmousedown={(e) => handleManageAction('withdraw', e)}
 				>
-					Withdraw
+					{$t('wallet.defi.borrow.button_withdraw')}
 				</button>
 			</li>
 			<li>
@@ -146,7 +146,7 @@
 					class={[hasDebt ? 'pointer-events-none opacity-50' : '', 'text-error']}
 					onmousedown={(e) => handleManageAction('close', e)}
 				>
-					Close Position
+					{$t('wallet.defi.position.close_position')}
 				</button>
 			</li>
 		</ul>
