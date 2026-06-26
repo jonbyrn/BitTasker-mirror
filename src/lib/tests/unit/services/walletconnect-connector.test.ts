@@ -47,16 +47,20 @@ const {
 } = vi.hoisted(() => {
 	const getBalance = vi.fn();
 	const call = vi.fn();
-	const browserProvider = vi.fn().mockImplementation(() => ({
-		getBalance,
-		call
-	}));
+	const browserProvider = vi.fn().mockImplementation(function () {
+		return {
+			getBalance,
+			call
+		};
+	});
 	const encodeFn = vi.fn().mockReturnValue('0x70a08231');
 	const decodeFn = vi.fn();
-	const iface = vi.fn().mockImplementation(() => ({
-		encodeFunctionData: encodeFn,
-		decodeFunctionResult: decodeFn
-	}));
+	const iface = vi.fn().mockImplementation(function () {
+		return {
+			encodeFunctionData: encodeFn,
+			decodeFunctionResult: decodeFn
+		};
+	});
 
 	return {
 		mockEthersGetBalance: getBalance,
@@ -483,10 +487,12 @@ describe('walletconnect-connector', () => {
 			// Default: decodeFunctionResult returns 1 token unit
 			mockDecodeFunctionResult.mockReturnValue([1_000_000_000_000_000_000n]);
 			// Default: BrowserProvider constructor succeeds
-			mockEthersBrowserProvider.mockImplementation(() => ({
-				getBalance: mockEthersGetBalance,
-				call: mockEthersCall
-			}));
+			mockEthersBrowserProvider.mockImplementation(function () {
+				return {
+					getBalance: mockEthersGetBalance,
+					call: mockEthersCall
+				};
+			});
 		});
 
 		/**

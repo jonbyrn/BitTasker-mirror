@@ -15,9 +15,9 @@ const { mockBoltzGetQuote } = vi.hoisted(() => ({
 
 // Mock external dependencies before importing the provider
 vi.mock('$lib/services/BoltzProvider', () => ({
-	BoltzProvider: vi.fn().mockImplementation(() => ({
-		getQuote: mockBoltzGetQuote
-	}))
+	BoltzProvider: vi.fn().mockImplementation(function () {
+		this.getQuote = mockBoltzGetQuote;
+	})
 }));
 
 vi.mock('$lib/utils/debug', () => ({

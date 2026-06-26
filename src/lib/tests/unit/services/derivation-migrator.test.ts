@@ -62,27 +62,29 @@ vi.mock('ethers', () => {
 			)
 		},
 		JsonRpcProvider: vi.fn(),
-		Contract: vi
-			.fn()
-			.mockImplementation(
-				(_address: string, _abi: unknown, provider: { call?: () => Promise<unknown> }) => ({
-					filters: { EscrowCreated: vi.fn() },
-					queryFilter: vi.fn(async () => {
-						// If the provider has a call method that rejects, propagate the error
-						// so checkEscrowInventory's error path is exercised
-						if (provider?.call) {
-							await provider.call();
-						}
-						return [];
-					}),
-					getEscrow: vi.fn().mockResolvedValue({
-						state: 2n,
-						tasker: '',
-						taskee: '',
-						amount: 0n
-					})
+		Contract: vi.fn().mockImplementation(function (
+			_address: string,
+			_abi: unknown,
+			provider: { call?: () => Promise<unknown> }
+		) {
+			return {
+				filters: { EscrowCreated: vi.fn() },
+				queryFilter: vi.fn(async () => {
+					// If the provider has a call method that rejects, propagate the error
+					// so checkEscrowInventory's error path is exercised
+					if (provider?.call) {
+						await provider.call();
+					}
+					return [];
+				}),
+				getEscrow: vi.fn().mockResolvedValue({
+					state: 2n,
+					tasker: '',
+					taskee: '',
+					amount: 0n
 				})
-			),
+			};
+		}),
 		TransactionReceipt: class {},
 		TransactionResponse: class {}
 	} as never;

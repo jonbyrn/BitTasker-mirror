@@ -93,7 +93,9 @@ const {
 			bitcoin: { bech32: 'bc' },
 			testnet: { bech32: 'tb' }
 		},
-		Psbt: vi.fn(() => psbtInstance),
+		Psbt: vi.fn().mockImplementation(function () {
+			return psbtInstance;
+		}),
 		address: {
 			toOutputScript: vi.fn(() => new Uint8Array([0x00, 0x14]).buffer)
 		}

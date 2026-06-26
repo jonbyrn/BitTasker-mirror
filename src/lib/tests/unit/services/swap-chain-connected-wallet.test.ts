@@ -187,11 +187,11 @@ vi.mock('$lib/services/changelly.service', () => ({
 }));
 
 vi.mock('$lib/services/BoltzProvider', () => ({
-	BoltzProvider: vi.fn().mockImplementation(() => ({
-		createReverseSwap: mockBoltzCreateReverseSwap,
-		createSubmarineSwap: mockBoltzCreateSubSwap,
-		createSwap: mockBoltzCreateSwap
-	}))
+	BoltzProvider: vi.fn().mockImplementation(function () {
+		this.createReverseSwap = mockBoltzCreateReverseSwap;
+		this.createSubmarineSwap = mockBoltzCreateSubSwap;
+		this.createSwap = mockBoltzCreateSwap;
+	})
 }));
 
 vi.mock('ethers', () => ({
@@ -202,9 +202,9 @@ vi.mock('ethers', () => ({
 				address: '0xmockRefundWalletAddress00000000000000000'
 			}))
 		},
-		Interface: vi.fn(() => ({
-			encodeFunctionData: vi.fn(() => '0xlockcalldata')
-		})),
+		Interface: vi.fn().mockImplementation(function () {
+			this.encodeFunctionData = vi.fn(() => '0xlockcalldata');
+		}),
 		Transaction: vi.fn(),
 		toQuantity: vi.fn(),
 		Signature: { from: vi.fn() }
