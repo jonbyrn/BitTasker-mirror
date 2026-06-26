@@ -361,7 +361,7 @@ async function executeBiometricData(
 			const exportedKey = unpackedKeys.exportedKey;
 
 			if (checkNpub) {
-				const storedNpub = localStorage.getItem('npub');
+				const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
 				if (storedNpub !== publicKey) {
 					throw new Error(
 						'Passkey mismatch: Please select the correct one linked to this account.'
