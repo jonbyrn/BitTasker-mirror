@@ -176,11 +176,12 @@ export default defineConfig(({ mode }) => {
 			global: 'globalThis'
 		},
 		build: {
-			// es2022: native top-level await for secp256k1 WASM (vite-plugin-wasm).
-			// Do NOT use vite-plugin-top-level-await here — it wraps whole chunks in __tla
-			// IIFEs and breaks SvelteKit's sync onMount probe (preview blank screen).
-			// Vitest keeps the plugin in vitest.config.ts for the test runner target.
-			target: 'es2022',
+			// esnext: native top-level await for secp256k1 WASM (vite-plugin-wasm).
+			// Setting "esnext" tells vite-plugin-top-level-await to skip its esbuild
+			// re-transform step, which breaks cross-chunk references (e.g. ProviderRpcError
+			// from viem). The plugin still wraps TLA in async IIFEs via SWC for Safari/iOS
+			// compatibility, but avoids the esbuild minify that mangles dependency references.
+			target: 'esnext',
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.

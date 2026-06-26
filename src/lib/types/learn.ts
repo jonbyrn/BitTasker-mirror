@@ -106,4 +106,6 @@ export interface LearnPageData {
 	locale: 'en' | 'es';
 	contentKey: string;
 	lastUpdated: string;
+	/** Spanish content for client-side language switching (null if not available) */
+	esContent?: LearnPageContent | null;
 }

@@ -201,7 +201,7 @@
 		"date-fns": "^4.1.0",
 		"debug": "^4.4.3",
 		"esm-env": "^1.2.2",
-		"ethers": "^6.1pa5.0",
+		"ethers": "^6.15.0",
 		"firebase": "^11.10.0",
 		"html5-qrcode": "^2.3.8",
 		"iconify-icon": "^2.3.0",
