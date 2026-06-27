@@ -158,7 +158,8 @@ describe('buildBoltzTwoHopRoute — Boltz-first mode', () => {
 			undefined
 		);
 		expect(mockSymbiosisGetQuote).toHaveBeenCalled();
-		expect(mockLifiGetQuote).not.toHaveBeenCalled();
+		// Now tries all hop2 providers to find cheapest (not just first success)
+		expect(mockLifiGetQuote).toHaveBeenCalled();
 	});
 
 	it('rbtc→usdt0-arb: boltz hop1 + symbiosis hop2', async () => {
@@ -177,25 +178,28 @@ describe('buildBoltzTwoHopRoute — Boltz-first mode', () => {
 		expect(mockSymbiosisGetQuote).toHaveBeenCalled();
 	});
 
-	it('btc→usdt0-arb: boltz hop1 + lifi hop2 (lifi first in list)', async () => {
+	it('btc→usdt0-arb: boltz hop1 + lifi hop2 (tries all providers for cheapest)', async () => {
 		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.5));
 		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.3));
+		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.2));
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['btc'], TOKENS['usdt0-arb'], 100_000);
 
 		expect(route).not.toBeNull();
 		expect(mockLifiGetQuote).toHaveBeenCalled();
-		expect(mockSymbiosisGetQuote).not.toHaveBeenCalled();
+		expect(mockSymbiosisGetQuote).toHaveBeenCalled();
 	});
 
-	it('btc→wbtc-arb: boltz hop1 + lifi hop2 (lifi first in list)', async () => {
+	it('btc→wbtc-arb: boltz hop1 + lifi hop2 (tries all providers)', async () => {
 		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.5));
 		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.3));
+		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.2));
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['btc'], TOKENS['wbtc-arb'], 100_000);
 
 		expect(route).not.toBeNull();
 		expect(mockLifiGetQuote).toHaveBeenCalled();
+		expect(mockSymbiosisGetQuote).toHaveBeenCalled();
 	});
 });
 

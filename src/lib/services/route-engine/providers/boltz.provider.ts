@@ -49,6 +49,14 @@ const boltz = new BoltzProvider();
 function buildBoltzRoute(from: Token, to: Token, inputSats: number, totalFeeSats: number): Route {
 	const feePercent = inputSats > 0 ? (totalFeeSats / inputSats) * 100 : 0;
 
+	// Boltz swaps on-chain are simple sends (21k gas), not contract calls.
+	// RSK: 21k gas × ~65 gwei default. Arbitrum: 21k gas × ~0.03 gwei.
+	// The Boltz service fee is separate and already in feePercent.
+	const isRSK = from.chain === 'rsk' || to.chain === 'rsk';
+	const gasLimit = 21_000n;
+	const gasPrice = isRSK ? 65_000_000n : 30_000_000n; // wei
+	const gasCostWei = (gasLimit * gasPrice).toString();
+
 	const hop: RouteHop = {
 		service: 'boltz',
 		fromAsset: from.symbol,
@@ -57,7 +65,8 @@ function buildBoltzRoute(from: Token, to: Token, inputSats: number, totalFeeSats
 		toChain: to.chain,
 		feePercent,
 		estimatedTimeMin: ESTIMATED_TIME_MIN,
-		estimatedTimeMax: ESTIMATED_TIME_MAX
+		estimatedTimeMax: ESTIMATED_TIME_MAX,
+		gasCostWei
 	};
 
 	return {
@@ -66,7 +75,8 @@ function buildBoltzRoute(from: Token, to: Token, inputSats: number, totalFeeSats
 		hops: [hop],
 		totalFeePercent: feePercent,
 		estimatedTime: `${ESTIMATED_TIME_MIN}-${ESTIMATED_TIME_MAX} min`,
-		recommended: false
+		recommended: false,
+		gasCostWei
 	};
 }
 

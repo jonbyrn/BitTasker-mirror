@@ -198,9 +198,12 @@ async function buildBoltzFirstRoute(
 		return null;
 	}
 
-	// Hop 2: Try each provider in preference order
+	// Hop 2: Try ALL providers, return the cheapest (highest output)
+	let bestRoute: Route | null = null;
+	let bestOutput = 0;
+
 	for (const providerName of hop2ProviderNames) {
-		if (signal?.aborted) return null;
+		if (signal?.aborted) return bestRoute;
 
 		const provider = PROVIDER_MAP[providerName];
 		if (!provider) continue;
@@ -235,11 +238,25 @@ async function buildBoltzFirstRoute(
 			hop2OutputSats
 		);
 
-		return composeTwoHopRoute(routeId, routeLabel, hop1, hop2, amountSats, hop2OutputSats);
+		const route = composeTwoHopRoute(routeId, routeLabel, hop1, hop2, amountSats, hop2OutputSats);
+
+		if (hop2OutputSats > bestOutput) {
+			bestOutput = hop2OutputSats;
+			bestRoute = route;
+		}
 	}
 
-	debug.log('No hop2 provider succeeded for Boltz-first route');
-	return null;
+	if (bestRoute) {
+		debug.log(
+			'Best 2-hop route: output=%d sats (%d providers tried)',
+			bestOutput,
+			hop2ProviderNames.length
+		);
+	} else {
+		debug.log('No hop2 provider succeeded for Boltz-first route');
+	}
+
+	return bestRoute;
 }
 
 // ---------------------------------------------------------------------------
