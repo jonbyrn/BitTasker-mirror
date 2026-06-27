@@ -122,8 +122,8 @@ export async function resolveRoutes(
 		}
 	}
 
-	// 5. Rank routes
-	const ranked = rankRoutes(routes);
+	// 5. Rank routes by total cost (gas + bridge fee in sats)
+	const ranked = rankRoutes(routes, amountSats);
 
 	// 6. Mark recommended
 	if (ranked.length > 0) {
@@ -150,20 +150,44 @@ export async function resolveRoutes(
 // ---------------------------------------------------------------------------
 
 /**
- * Rank routes by total fee percentage (ascending = best first).
+ * Rank routes by total cost in sats (gas + bridge fee), ascending = best first.
+ *
+ * Total cost = gasCostSats + bridgeFeeSats where:
+ *   - gasCostSats = gasCostWei / 1e10 (on-chain gas to initiate/claim)
+ *   - bridgeFeeSats = amountSats × totalFeePercent / 100 (Boltz/Symbiosis/LI.FI service fee)
+ *
+ * This ensures Boltz 2-hop routes (low gas, moderate bridge fee) are fairly
+ * compared against direct routes (higher gas, lower bridge fee).
  *
  * Tiebreaking rules:
  *   1. Fewer hops preferred (less complexity, lower failure risk)
  *   2. Deterministic by route ID (stable sort across runs)
  *
  * @param routes Unsorted array of viable routes
+ * @param amountSats Input amount in satoshis (for bridge fee calculation)
  * @returns New array sorted best-first (non-mutating)
  */
-export function rankRoutes(routes: Route[]): Route[] {
+export function rankRoutes(routes: Route[], amountSats: number): Route[] {
+	function totalCostSats(route: Route): number {
+		const gasSats = route.gasCostWei
+			? (() => {
+					try {
+						return Number(BigInt(route.gasCostWei) / 10_000_000_000n);
+					} catch {
+						return 0;
+					}
+				})()
+			: 0;
+		const bridgeSats = Math.round((amountSats * route.totalFeePercent) / 100);
+		return gasSats + bridgeSats;
+	}
+
 	return [...routes].sort((a, b) => {
-		// Prefer lower total fee
-		if (a.totalFeePercent !== b.totalFeePercent) {
-			return a.totalFeePercent - b.totalFeePercent;
+		// Prefer lower total cost (gas + bridge fee)
+		const costA = totalCostSats(a);
+		const costB = totalCostSats(b);
+		if (costA !== costB) {
+			return costA - costB;
 		}
 		// Tiebreak: fewer hops preferred
 		if (a.hops.length !== b.hops.length) {

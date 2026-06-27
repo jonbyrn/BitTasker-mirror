@@ -325,15 +325,62 @@ describe('resolveRoutes()', () => {
 // ---------------------------------------------------------------------------
 
 describe('rankRoutes()', () => {
-	it('sorts by totalFeePercent ascending', () => {
+	const AMOUNT = 100_000; // 100k sats for test calculations
+
+	it('sorts by total cost (gas + bridge fee) ascending', () => {
 		const routes = [makeRoute('a', 1.0), makeRoute('b', 0.3), makeRoute('c', 0.7)];
-		const ranked = rankRoutes(routes);
+		const ranked = rankRoutes(routes, AMOUNT);
 		expect(ranked[0].id).toBe('b');
 		expect(ranked[1].id).toBe('c');
 		expect(ranked[2].id).toBe('a');
 	});
 
-	it('tiebreaks by fewer hops', () => {
+	it('prefers lower gas cost when bridge fees are equal', () => {
+		const lowGas: Route = {
+			id: 'low-gas',
+			label: 'Low Gas',
+			hops: [
+				{
+					service: 'boltz',
+					fromAsset: 'A',
+					fromChain: 'x',
+					toAsset: 'B',
+					toChain: 'y',
+					feePercent: 0.5,
+					estimatedTimeMin: 1,
+					estimatedTimeMax: 10
+				}
+			],
+			totalFeePercent: 0.5,
+			estimatedTime: '10 min',
+			recommended: false,
+			gasCostWei: '1365000000000' // ~0.14 sats (21k gas)
+		};
+		const highGas: Route = {
+			id: 'high-gas',
+			label: 'High Gas',
+			hops: [
+				{
+					service: 'symbiosis',
+					fromAsset: 'A',
+					fromChain: 'x',
+					toAsset: 'B',
+					toChain: 'y',
+					feePercent: 0.5,
+					estimatedTimeMin: 1,
+					estimatedTimeMax: 10
+				}
+			],
+			totalFeePercent: 0.5,
+			estimatedTime: '10 min',
+			recommended: false,
+			gasCostWei: '32500000000000' // ~3,250 sats (500k gas)
+		};
+		const ranked = rankRoutes([highGas, lowGas], AMOUNT);
+		expect(ranked[0].id).toBe('low-gas');
+	});
+
+	it('tiebreaks by fewer hops when total cost is equal', () => {
 		const singleHop: Route = {
 			id: 'single',
 			label: 'Single',
@@ -383,12 +430,12 @@ describe('rankRoutes()', () => {
 			recommended: false
 		};
 
-		const ranked = rankRoutes([doubleHop, singleHop]);
+		const ranked = rankRoutes([doubleHop, singleHop], AMOUNT);
 		expect(ranked[0].id).toBe('single'); // fewer hops preferred
 	});
 
-	it('tiebreaks by ID when fee and hops are equal', () => {
-		const ranked = rankRoutes([makeRoute('z', 0.3), makeRoute('a', 0.3)]);
+	it('tiebreaks by ID when cost and hops are equal', () => {
+		const ranked = rankRoutes([makeRoute('z', 0.3), makeRoute('a', 0.3)], AMOUNT);
 		expect(ranked[0].id).toBe('a');
 		expect(ranked[1].id).toBe('z');
 	});
@@ -396,16 +443,16 @@ describe('rankRoutes()', () => {
 	it('does not mutate the original array', () => {
 		const routes = [makeRoute('a', 1.0), makeRoute('b', 0.3)];
 		const original = [...routes];
-		rankRoutes(routes);
+		rankRoutes(routes, AMOUNT);
 		expect(routes[0].id).toBe(original[0].id);
 	});
 
 	it('handles empty array', () => {
-		expect(rankRoutes([])).toEqual([]);
+		expect(rankRoutes([], AMOUNT)).toEqual([]);
 	});
 
 	it('handles single route', () => {
-		const ranked = rankRoutes([makeRoute('only', 0.5)]);
+		const ranked = rankRoutes([makeRoute('only', 0.5)], AMOUNT);
 		expect(ranked).toHaveLength(1);
 	});
 });
