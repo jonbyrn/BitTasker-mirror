@@ -16,6 +16,7 @@ import { lifiProvider } from './providers/lifi.provider';
 import { changellyProvider } from './providers/changelly.provider';
 import { boltzProvider } from './providers/boltz.provider';
 import { directProvider } from './providers/direct.provider';
+import { uniswapV3Provider } from './providers/uniswap-v3.provider';
 import { buildBoltzTwoHopRoute, BOLTZ_TWO_HOP_PAIRS } from './boltz-two-hop';
 import type { SourceWallet, Destination } from '$lib/services/route-resolver';
 import { tryCatch } from '$lib/utils/tryCatch';
@@ -36,7 +37,8 @@ const ALL_PROVIDERS: SwapProvider[] = [
 	boltzProvider,
 	symbiosisProvider,
 	lifiProvider,
-	changellyProvider
+	changellyProvider,
+	uniswapV3Provider
 ];
 
 // ---------------------------------------------------------------------------

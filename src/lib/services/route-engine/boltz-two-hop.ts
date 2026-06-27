@@ -16,6 +16,7 @@ import { TOKENS } from './token-registry';
 import { boltzProvider } from './providers/boltz.provider';
 import { symbiosisProvider } from './providers/symbiosis.provider';
 import { lifiProvider } from './providers/lifi.provider';
+import { uniswapV3Provider } from './providers/uniswap-v3.provider';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 
@@ -28,7 +29,8 @@ const debug = createDebug('route-engine:two-hop');
 const PROVIDER_MAP = {
 	symbiosis: symbiosisProvider,
 	lifi: lifiProvider,
-	boltz: boltzProvider
+	boltz: boltzProvider,
+	'uniswap-v3': uniswapV3Provider
 } as const;
 
 type ProviderName = keyof typeof PROVIDER_MAP;
@@ -54,13 +56,16 @@ export const BOLTZ_TWO_HOP_PAIRS: Record<
 		hop2Providers: ProviderName[];
 	}
 > = {
-	'rbtc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
+	'rbtc->wbtc-arb': {
+		intermediary: 'tbtc-arb',
+		hop2Providers: ['symbiosis', 'lifi', 'uniswap-v3']
+	},
 	'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
 	'usdt0-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
 	'wbtc-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
 	'wbtc-arb->usdt0-arb': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
 	'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] },
-	'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] }
+	'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis', 'uniswap-v3'] }
 };
 
 // ---------------------------------------------------------------------------

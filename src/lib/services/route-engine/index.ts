@@ -35,6 +35,7 @@ export { boltzProvider } from './providers/boltz.provider';
 export { symbiosisProvider } from './providers/symbiosis.provider';
 export { lifiProvider } from './providers/lifi.provider';
 export { changellyProvider, loadCurrencies } from './providers/changelly.provider';
+export { uniswapV3Provider } from './providers/uniswap-v3.provider';
 
 // Engine
 export { resolveRoutes, rankRoutes, shouldCheckBoltzOptimization } from './engine';
