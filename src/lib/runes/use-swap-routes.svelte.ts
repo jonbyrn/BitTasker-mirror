@@ -397,10 +397,40 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return 0;
 	});
 
-	// totalFeeSats (exact from SwapForm:830-835)
+	// totalFeeSats — total cost of the swap in sats.
+	// When the provider gives outputAmount, compute fee as: input USD − output USD.
+	// This avoids the broken tokenAmountToSats conversion for cross-currency pairs.
+	// Falls back to networkFeeSats + bridge fee percent for legacy paths.
 	const totalFeeSats = $derived.by(() => {
 		const route = activeRouteForCalc;
 		if (!route || amountSats <= 0) return networkFeeSats;
+
+		// Provider-computed output: fee = input value − output value
+		if (route.outputAmount && route.outputDecimals !== undefined && btcUsdPrice > 0) {
+			const raw = Number(route.outputAmount);
+			if (isFinite(raw) && raw > 0) {
+				const inputUsd = (amountSats / 100_000_000) * btcUsdPrice;
+
+				let outputUsd: number;
+				if (
+					currentDestType === 'rbtc-rsk' ||
+					currentDestType === 'wbtc-arb' ||
+					currentDestType === 'btc-onchain'
+				) {
+					outputUsd = (raw / 10 ** route.outputDecimals) * btcUsdPrice;
+				} else if (route.outputDecimals === 6) {
+					outputUsd = raw / 1e6; // USDT0/USDC: micro-units → USD
+				} else {
+					outputUsd = (raw / 10 ** route.outputDecimals) * btcUsdPrice;
+				}
+
+				const feeUsd = Math.max(0, inputUsd - outputUsd);
+				const feeSats = Math.round((feeUsd / btcUsdPrice) * 100_000_000);
+				return feeSats;
+			}
+		}
+
+		// Fallback: network gas + bridge fee percent (legacy / same-currency paths)
 		return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
 	});
 
