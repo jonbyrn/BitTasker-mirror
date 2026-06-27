@@ -128,7 +128,10 @@ export const lifiProvider: SwapProvider = {
 			feeCosts,
 			outputSats,
 			outputAmount: route.estimate.toAmount,
-			outputDecimals: to.decimals
+			outputDecimals: to.decimals,
+			outputValueUsd: [6, 8].includes(to.decimals)
+				? Number(route.estimate.toAmount) / 10 ** to.decimals
+				: undefined
 		};
 
 		return result;

@@ -130,6 +130,9 @@ export async function resolveRoutes(
 		ranked[0] = { ...ranked[0], recommended: true };
 	}
 
+	// 7. Log final ranking with cost breakdown
+	logRankedRoutes(ranked, amountSats);
+
 	debug.log(
 		'Resolved %d routes (%d errors), recommended: %s',
 		ranked.length,
@@ -169,6 +172,27 @@ export async function resolveRoutes(
  */
 export function rankRoutes(routes: Route[], amountSats: number): Route[] {
 	function totalCostSats(route: Route): number {
+		// If we have USD values from the provider, use them for accurate cross-currency comparison.
+		// feeUsd = inputValueUsd - outputValueUsd (actual cost including bridge fee + slippage)
+		// Then add gas cost in sats.
+		if (route.inputValueUsd && route.outputValueUsd && route.inputValueUsd > 0) {
+			const feeUsd = Math.max(0, route.inputValueUsd - route.outputValueUsd);
+			// Convert fee USD to sats using the input as reference:
+			// feeSats = (feeUsd / inputValueUsd) * amountSats
+			const feeSats = Math.round((feeUsd / route.inputValueUsd) * amountSats);
+			const gasSats = route.gasCostWei
+				? (() => {
+						try {
+							return Number(BigInt(route.gasCostWei) / 10_000_000_000n);
+						} catch {
+							return 0;
+						}
+					})()
+				: 0;
+			return gasSats + feeSats;
+		}
+
+		// Fallback: compute from fee percent (works for same-currency pairs)
 		const gasSats = route.gasCostWei
 			? (() => {
 					try {
@@ -180,6 +204,38 @@ export function rankRoutes(routes: Route[], amountSats: number): Route[] {
 			: 0;
 		const bridgeSats = Math.round((amountSats * route.totalFeePercent) / 100);
 		return gasSats + bridgeSats;
+	}
+
+	// Log full cost breakdown for every route before sorting
+	debug.log('=== Route cost breakdown (%d sats input, %d routes) ===', amountSats, routes.length);
+	for (const route of routes) {
+		const gasSats = route.gasCostWei
+			? (() => {
+					try {
+						return Number(BigInt(route.gasCostWei) / 10_000_000_000n);
+					} catch {
+						return 0;
+					}
+				})()
+			: 0;
+		const hasUsd = !!(route.inputValueUsd && route.outputValueUsd && route.inputValueUsd > 0);
+		const feeUsd = hasUsd ? Math.max(0, route.inputValueUsd! - route.outputValueUsd!) : 0;
+		const feeSats = hasUsd
+			? Math.round((feeUsd / route.inputValueUsd!) * amountSats)
+			: Math.round((amountSats * route.totalFeePercent) / 100);
+		const total = gasSats + feeSats;
+		debug.log(
+			'  %s | gasCostWei=%s gasSats=%d | %s | TOTAL=%d sats | output=%s | hops=%d',
+			route.id,
+			route.gasCostWei ?? 'none',
+			gasSats,
+			hasUsd
+				? `USD: in=$${route.inputValueUsd!.toFixed(2)} out=$${route.outputValueUsd!.toFixed(2)} fee=$${feeUsd.toFixed(4)} feeSats=${feeSats}`
+				: `feePct=${route.totalFeePercent.toFixed(4)}% bridgeSats=${feeSats}`,
+			total,
+			route.outputAmount ?? String(route.outputSats ?? '?'),
+			route.hops.length
+		);
 	}
 
 	return [...routes].sort((a, b) => {
@@ -196,6 +252,38 @@ export function rankRoutes(routes: Route[], amountSats: number): Route[] {
 		// Tiebreak: deterministic by ID
 		return a.id.localeCompare(b.id);
 	});
+}
+
+// Debug: log final ranking after sort (defined outside rankRoutes to avoid hoisting issues)
+function logRankedRoutes(routes: Route[], amountSats: number): void {
+	debug.log('=== Final ranking (%d routes) ===', routes.length);
+	for (let i = 0; i < routes.length; i++) {
+		const r = routes[i];
+		const gasSats = r.gasCostWei
+			? (() => {
+					try {
+						return Number(BigInt(r.gasCostWei) / 10_000_000_000n);
+					} catch {
+						return 0;
+					}
+				})()
+			: 0;
+		const hasUsd = !!(r.inputValueUsd && r.outputValueUsd && r.inputValueUsd > 0);
+		const feeUsd = hasUsd ? Math.max(0, r.inputValueUsd! - r.outputValueUsd!) : 0;
+		const feeSats = hasUsd
+			? Math.round((feeUsd / r.inputValueUsd!) * amountSats)
+			: Math.round((amountSats * r.totalFeePercent) / 100);
+		debug.log(
+			'  #%d %s | total=%d sats (gas=%d + fee=%d) | %s | %s',
+			i + 1,
+			r.id,
+			gasSats + feeSats,
+			gasSats,
+			feeSats,
+			hasUsd ? `$${feeUsd.toFixed(4)} fee` : `${r.totalFeePercent.toFixed(2)}% fee`,
+			r.recommended ? '★ RECOMMENDED' : ''
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------

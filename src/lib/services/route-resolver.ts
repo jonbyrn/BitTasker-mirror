@@ -55,6 +55,10 @@ export interface Route {
 	outputAmount?: string;
 	/** Decimals of the destination token (for interpreting outputAmount). */
 	outputDecimals?: number;
+	/** Input value in USD (from provider API, for cross-currency cost comparison). */
+	inputValueUsd?: number;
+	/** Output value in USD (from provider API, for cross-currency cost comparison). */
+	outputValueUsd?: number;
 }
 
 // ---------------------------------------------------------------------------

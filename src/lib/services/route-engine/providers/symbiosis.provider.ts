@@ -124,6 +124,28 @@ export const symbiosisProvider: SwapProvider = {
 			}
 		}
 
+		// USD values for cross-currency cost comparison.
+		// amountInUsd from Symbiosis API is in micro-USD (6 decimals).
+		let inputValueUsd = 0;
+		if (quote.amountInUsd?.amount) {
+			const raw = Number(quote.amountInUsd.amount);
+			if (isFinite(raw) && raw > 0) {
+				inputValueUsd = raw / 1e6; // micro-USD → USD
+			}
+		}
+		debug.log(
+			'Symbiosis USD: amountInUsd.raw=%s → inputValueUsd=$%s',
+			quote.amountInUsd?.amount ?? 'missing',
+			inputValueUsd.toFixed(4)
+		);
+
+		// For stablecoin outputs (USDT0, USDC), raw / 10^decimals = USD.
+		// For non-stablecoins, approximate from input value (bridge fee is small).
+		const STABLECOIN_DECIMALS = new Set([6]);
+		const outputValueUsd = STABLECOIN_DECIMALS.has(to.decimals)
+			? Number(quote.tokenAmountOut.amount) / 10 ** to.decimals
+			: inputValueUsd; // approximate — will be refined with price feeds
+
 		const route: Route = {
 			id: `symbiosis-${from.key}-${to.key}`,
 			label: `Symbiosis (${from.symbol} → ${to.symbol})`,
@@ -146,7 +168,9 @@ export const symbiosisProvider: SwapProvider = {
 			gasCostWei,
 			outputSats,
 			outputAmount: quote.tokenAmountOut.amount,
-			outputDecimals: to.decimals
+			outputDecimals: to.decimals,
+			inputValueUsd,
+			outputValueUsd
 		};
 
 		return route;
