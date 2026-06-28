@@ -27,6 +27,7 @@ import {
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+import { restorePersistedE2EBiometricData } from '$lib/utils/helpers/e2eBiometricState';
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -77,6 +78,7 @@ const getBiometrics = async (): Promise<Credentials | null> => {
  * ```
  */
 export const getNpub = async (): Promise<string> => {
+	await restorePersistedE2EBiometricData();
 	const currentState = get(appStore);
 
 	if (currentState.nostrKeys.npub) return currentState.nostrKeys.npub;
@@ -179,13 +181,17 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		// }
 	}
 
-	if (currentState.biometricData) {
-		const encryptedData = currentState.biometricData.encryptedData;
-		const exportedKey = currentState.biometricData.exportedKey;
+	// Restore persisted E2E biometric data before attempting a real passkey prompt
+	await restorePersistedE2EBiometricData();
+	const currentStateAfterRestore = get(appStore);
+
+	if (currentStateAfterRestore.biometricData) {
+		const encryptedData = currentStateAfterRestore.biometricData.encryptedData;
+		const exportedKey = currentStateAfterRestore.biometricData.exportedKey;
 		const sk = await decryptNsecWithBiometrics(encryptedData, exportedKey);
 		const nsec: Uint8Array = decodeNsec(sk);
 
-		const npub = currentState.biometricData.npub;
+		const npub = currentStateAfterRestore.biometricData.npub;
 		appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub } }));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 		await notifyNdkSignerFromUnlockedKeys();
@@ -298,9 +304,13 @@ export const getAllKeys = async (): Promise<{
 		}
 	}
 
-	if (currentState.biometricData) {
-		const encryptedData = currentState.biometricData.encryptedData;
-		const exportedKey = currentState.biometricData.exportedKey;
+	// Restore persisted E2E biometric data before attempting a real passkey prompt
+	await restorePersistedE2EBiometricData();
+	const currentStateAfterRestore = get(appStore);
+
+	if (currentStateAfterRestore.biometricData) {
+		const encryptedData = currentStateAfterRestore.biometricData.encryptedData;
+		const exportedKey = currentStateAfterRestore.biometricData.exportedKey;
 		const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
 			encryptedData,
 			exportedKey
@@ -308,7 +318,7 @@ export const getAllKeys = async (): Promise<{
 
 		const nsec: Uint8Array = decodeNsec(sk);
 
-		const npub = currentState.biometricData.npub;
+		const npub = currentStateAfterRestore.biometricData.npub;
 		appStore.update((state) => ({
 			...state,
 			nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }

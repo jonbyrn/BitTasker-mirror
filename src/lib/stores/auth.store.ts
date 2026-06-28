@@ -10,6 +10,10 @@ import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 import { user } from '$lib/stores/user.store';
+import {
+	clearPersistedE2EBiometricData,
+	persistE2EBiometricData
+} from '$lib/utils/helpers/e2eBiometricState';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -52,6 +56,7 @@ const createAuthStore = () => {
 
 		// Destroy the local session (tokens, stores, caches)
 		await destroySession();
+		await clearPersistedE2EBiometricData();
 
 		// Reset auth state
 		set(initialAuthState);
@@ -93,7 +98,10 @@ const createAuthStore = () => {
 			// Non-critical — layout will also attempt this on mount
 		});
 
-		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
+		if (biometricData) {
+			appStore.update((state) => ({ ...state, biometricData }));
+			await persistE2EBiometricData(biometricData);
+		}
 
 		if (redirect) {
 			// Respect returnTo param and pending deep links before defaulting to /hiring

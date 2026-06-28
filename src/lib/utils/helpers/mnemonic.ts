@@ -6,6 +6,7 @@ import { decryptWalletMnemonicWithBiometrics } from './auth';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
+import { restorePersistedE2EBiometricData } from './e2eBiometricState';
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
@@ -30,8 +31,10 @@ export async function getMnemonic(): Promise<string> {
 	}
 
 	try {
-		// Tier 2: Check if we have biometric data with master key format
-		const biometricData = currentState.biometricData;
+		await restorePersistedE2EBiometricData();
+
+		// Re-read after restore — biometricData may have been hydrated from E2E persistence
+		const biometricData = get(appStore).biometricData;
 		if (biometricData && biometricData.encryptedData) {
 			return await decryptWalletMnemonicWithBiometrics(
 				biometricData.encryptedData,

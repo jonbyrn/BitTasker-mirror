@@ -51,7 +51,10 @@ export const StorageKeys = {
 	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed',
 
 	// Search
-	DISMISSED_SAVE_SEARCH_PROMPTS: 'bittasker_dismissed_save_search_prompts'
+	DISMISSED_SAVE_SEARCH_PROMPTS: 'bittasker_dismissed_save_search_prompts',
+	
+	// E2E testing
+	E2E_BIOMETRIC_DATA: 'e2e_biometric_data'
 } as const;
 
 // Type to get autocomplete for storage keys
