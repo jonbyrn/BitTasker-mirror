@@ -12,6 +12,24 @@ import type {
 	ChainSwapData,
 	SubmarineSwapData
 } from '@bittasker/wallet-core';
+
+/**
+ * Extended ChainSwapData with Boltz RBTC→TBTC specific fields.
+ *
+ * The SDK's ChainSwapData is L-BTC↔RBTC specific. For RBTC→TBTC chain swaps
+ * via Boltz, we need additional fields (claimDetails, lockupClaimAddress) that
+ * aren't in the SDK type. This extension preserves type safety while allowing
+ * the Nostr adapter to serialize these extra fields.
+ */
+export interface ExtendedChainSwapData extends ChainSwapData {
+	claimDetails?: {
+		lockupAddress: string;
+		amount: number;
+		refundAddress: string;
+		timeoutBlockHeight: number;
+	};
+	lockupClaimAddress?: string;
+}
 import { Buffer } from 'buffer';
 import { getPublicKey } from 'nostr-tools';
 import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
@@ -67,10 +85,10 @@ function swapRelaySet(): NDKRelaySet {
 // Swap type tags for filtering
 export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'boltz-swap-submarine';
 
-export type PendingSwapData = BoltzSwapData | ChainSwapData | SubmarineSwapData;
+export type PendingSwapData = BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData;
 
 function buildSwapContent(
-	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+	swapData: BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData,
 	swapType: SwapType
 ): Record<string, unknown> {
 	const content: Record<string, unknown> = {
@@ -105,7 +123,7 @@ function buildSwapContent(
 		content.refundAddress = reverseSwap.refundAddress;
 		content.timeoutBlockHeight = reverseSwap.timeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-chain') {
-		const chainSwap = swapData as ChainSwapData;
+		const chainSwap = swapData as ExtendedChainSwapData;
 		content.type = 'chain';
 		content.refundPrivateKey = chainSwap.refundPrivateKey;
 		content.refundPublicKey = chainSwap.refundPublicKey;
@@ -122,12 +140,11 @@ function buildSwapContent(
 		content.refundAddress = chainSwap.refundAddress;
 
 		// Boltz RBTC→TBTC chain swaps: persist claim details needed to
-		// claim tBTC on Arbitrum. These fields are NOT in the SDK ChainSwapData
-		// type (which is Liquid↔RBTC specific) but are present on our custom data.
-		const ext = swapData as unknown as Record<string, unknown>;
-		if (ext.claimDetails) content.claimDetails = ext.claimDetails;
-		if (ext.lockupClaimAddress) content.lockupClaimAddress = ext.lockupClaimAddress;
-		if (ext.timeoutBlockHeight) content.timeoutBlockHeight = ext.timeoutBlockHeight;
+		// claim tBTC on Arbitrum. These fields are on ExtendedChainSwapData
+		// (not in the SDK ChainSwapData type which is Liquid↔RBTC specific).
+		if (chainSwap.claimDetails) content.claimDetails = chainSwap.claimDetails;
+		if (chainSwap.lockupClaimAddress) content.lockupClaimAddress = chainSwap.lockupClaimAddress;
+		if (chainSwap.timeoutBlockHeight) content.timeoutBlockHeight = chainSwap.timeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-submarine') {
 		const submarineSwap = swapData as SubmarineSwapData;
 		content.type = 'submarine';
@@ -150,7 +167,7 @@ function buildSwapContent(
 }
 
 export async function saveSwapToNostr(
-	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+	swapData: BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData,
 	nsec: Uint8Array,
 	swapType: SwapType
 ): Promise<void> {
