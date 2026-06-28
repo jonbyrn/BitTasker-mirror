@@ -568,10 +568,8 @@ export class FiatSwapOrchestrator {
 	private async executeTbtcToRbtc(): Promise<{ swapId: string; amount: string }> {
 		debug.log('Hop 2: tBTC → rBTC via Boltz');
 
-		const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+		const { boltzProvider } = await import('$lib/services/BoltzProvider');
 		const { ethers } = await import('ethers');
-
-		const boltz = new BoltzProvider();
 
 		// Generate preimage (32 random bytes)
 		const preimageBytes = new Uint8Array(32);
@@ -590,7 +588,7 @@ export class FiatSwapOrchestrator {
 		const rskAddress = '0x0000000000000000000000000000000000000000'; // placeholder
 
 		// Create Boltz chain swap: tBTC (Arbitrum) → rBTC (RSK)
-		const swapResult = await boltz.createSwap({
+		const swapResult = await boltzProvider.createSwap({
 			amountSats: 1000000, // placeholder — actual tBTC amount
 			claimAddress: rskAddress.toLowerCase(),
 			preimageHash: hashHex,

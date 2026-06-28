@@ -11,6 +11,7 @@
 
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
+import * as Sentry from '@sentry/sveltekit';
 
 const debug = createDebug('boltz-provider');
 
@@ -41,12 +42,6 @@ export interface BoltzQuote {
 	limits: { min: number; max: number };
 }
 
-export interface BoltzSwapResult {
-	swapId: string;
-	lockupAddress: string;
-	expectedAmount: number;
-}
-
 interface BoltzLimits {
 	minimal: number;
 	maximal: number;
@@ -71,12 +66,38 @@ interface BoltzPairsResponse {
 	pairs: Record<string, Record<string, BoltzPairInfo>>;
 }
 
+/**
+ * Boltz API returns either `{ pairs: {...} }` (with wrapper) or a flat
+ * `{ RBTC: {...}, TBTC: {...} }` (no wrapper). This union handles both.
+ */
+type BoltzPairsApiResponse = BoltzPairsResponse | Record<string, Record<string, BoltzPairInfo>>;
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Validate an EVM address returned by the Boltz API.
+ * Throws if the address does not match the expected 0x + 40 hex chars format.
+ * Logs a Sentry breadcrumb on failure for production debugging.
+ */
+function validateBoltzAddress(address: string, label: string): void {
+	if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+		Sentry.addBreadcrumb({
+			category: 'boltz-provider',
+			message: `Invalid ${label} from Boltz API: ${address.slice(0, 10)}...`,
+			level: 'warning'
+		});
+		throw new Error(`Boltz returned invalid ${label}: ${address.slice(0, 10)}...`);
+	}
+}
+
 async function fetchBoltz<TResponse>(url: string, options?: RequestInit): Promise<TResponse> {
 	debug.log('%s %s', options?.method || 'GET', url);
+
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		throw new Error('Device is offline — cannot reach Boltz API');
+	}
 
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), BOLTZ_REQUEST_TIMEOUT_MS);
@@ -153,21 +174,28 @@ function computeMinerFeeSats(pair: BoltzPairInfo): number {
 
 export class BoltzProvider {
 	/**
-	 * Fetch a real-time chain swap quote for rBTC → tBTC.
+	 * Fetch a real-time chain swap quote.
 	 *
 	 * @param fromAmountSats - Amount to swap in satoshis
+	 * @param fromSymbol - Source asset symbol (e.g. 'RBTC', 'TBTC', 'BTC'). Defaults to 'RBTC'.
+	 * @param toSymbol - Destination asset symbol (e.g. 'TBTC', 'RBTC'). Defaults to 'TBTC'.
 	 * @returns A BoltzQuote with fees and limits, or null if the pair is unavailable
 	 */
-	async getQuote(fromAmountSats: number): Promise<BoltzQuote | null> {
+	async getQuote(
+		fromAmountSats: number,
+		fromSymbol = 'RBTC',
+		toSymbol = 'TBTC'
+	): Promise<BoltzQuote | null> {
 		if (!fromAmountSats || fromAmountSats <= 0 || !Number.isFinite(fromAmountSats)) {
 			debug.warn('getQuote rejected: invalid amount %d', fromAmountSats);
 			return null;
 		}
 
-		const data = await fetchBoltz<BoltzPairsResponse>(`${BOLTZ_BASE_URL}/swap/chain`);
+		const data = await fetchBoltz<BoltzPairsApiResponse>(`${BOLTZ_BASE_URL}/swap/chain`);
 
-		// Boltz API returns flat { RBTC: {...}, TBTC: {...}, ... } — no "pairs" wrapper
-		const pairs = data.pairs ?? (data as unknown as Record<string, Record<string, BoltzPairInfo>>);
+		// Boltz API returns either { pairs: {...} } or a flat { RBTC: {...} }
+		const pairs: Record<string, Record<string, BoltzPairInfo>> | undefined =
+			'pairs' in data ? data.pairs : data;
 		if (!pairs || typeof pairs !== 'object') {
 			debug.warn('No pairs in Boltz response');
 			return null;
@@ -175,12 +203,12 @@ export class BoltzProvider {
 
 		const pair = resolvePair(
 			pairs as Record<string, Record<string, BoltzPairInfo>>,
-			'RBTC',
-			'TBTC'
+			fromSymbol,
+			toSymbol
 		);
 
 		if (!pair) {
-			debug.warn('RBTC->TBTC pair not found in Boltz response');
+			debug.warn('%s->%s pair not found in Boltz chain swap response', fromSymbol, toSymbol);
 			return null;
 		}
 
@@ -190,8 +218,8 @@ export class BoltzProvider {
 		const totalFeeSats = minerFeeSats + protocolFeeSats;
 
 		return {
-			fromAsset: 'RBTC',
-			toAsset: 'TBTC',
+			fromAsset: fromSymbol,
+			toAsset: toSymbol,
 			rate: pair.rate,
 			protocolFeePercent,
 			minerFeeSats,
@@ -208,13 +236,18 @@ export class BoltzProvider {
 	 * Create a chain swap via Boltz.
 	 *
 	 * POST /v2/swap/chain — submits the swap request with lockup details.
-	 * Returns the lockup address where rBTC must be sent.
+	 * Returns the lockup address where the source asset must be sent.
+	 *
+	 * @param fromSymbol - Source asset (e.g. 'RBTC', 'TBTC'). Defaults to 'RBTC'.
+	 * @param toSymbol - Destination asset (e.g. 'TBTC', 'RBTC'). Defaults to 'TBTC'.
 	 */
 	async createSwap(params: {
 		amountSats: number;
-		claimAddress: string; // Arbitrum address to receive tBTC
-		preimageHash: string; // hex-encoded SHA256 of 32-byte preimage
-		refundPublicKey: string; // hex-encoded public key for refund
+		claimAddress: string;
+		preimageHash: string;
+		refundPublicKey: string;
+		fromSymbol?: string;
+		toSymbol?: string;
 	}): Promise<{
 		swapId: string;
 		lockupAddress: string;
@@ -235,8 +268,8 @@ export class BoltzProvider {
 			throw new Error('Invalid preimage hash');
 
 		const body = {
-			from: 'RBTC',
-			to: 'TBTC',
+			from: params.fromSymbol ?? 'RBTC',
+			to: params.toSymbol ?? 'TBTC',
 			userLockAmount: params.amountSats,
 			preimageHash: params.preimageHash,
 			claimAddress: params.claimAddress,
@@ -267,6 +300,18 @@ export class BoltzProvider {
 		const claimAddr = data.lockupDetails?.claimAddress || params.claimAddress;
 		if (!data.id || !lockupAddr) {
 			throw new Error('Invalid response from Boltz: missing swap details');
+		}
+
+		// Validate addresses from Boltz API response
+		validateBoltzAddress(lockupAddr, 'lockup address');
+		if (data.lockupDetails?.claimAddress) {
+			validateBoltzAddress(data.lockupDetails.claimAddress, 'claim address');
+		}
+		if (data.claimDetails?.lockupAddress) {
+			validateBoltzAddress(data.claimDetails.lockupAddress, 'claimDetails lockup address');
+		}
+		if (data.claimDetails?.refundAddress) {
+			validateBoltzAddress(data.claimDetails.refundAddress, 'claimDetails refund address');
 		}
 
 		debug.log(
@@ -321,6 +366,18 @@ export class BoltzProvider {
 				amount: number;
 			};
 		}>(`${BOLTZ_BASE_URL}/swap/${swapId}`);
+
+		// Validate addresses from Boltz API response
+		if (data.claimDetails?.lockupAddress) {
+			validateBoltzAddress(data.claimDetails.lockupAddress, 'claimDetails lockup address');
+		}
+		if (data.claimDetails?.refundAddress) {
+			validateBoltzAddress(data.claimDetails.refundAddress, 'claimDetails refund address');
+		}
+		if (data.lockupDetails?.claimAddress) {
+			validateBoltzAddress(data.lockupDetails.claimAddress, 'lockupDetails claim address');
+		}
+
 		return {
 			status: data.status || 'unknown',
 			transactionId: data.transaction?.id,
@@ -334,7 +391,7 @@ export class BoltzProvider {
 	 */
 	async claimSwap(swapId: string, preimage: string): Promise<{ transactionHex: string }> {
 		const data = await fetchBoltz<{ transactionHex?: string }>(
-			`${BOLTZ_BASE_URL}/v2/swap/chain/${swapId}/claim`,
+			`${BOLTZ_BASE_URL}/swap/chain/${swapId}/claim`,
 			{
 				method: 'POST',
 				body: JSON.stringify({ preimage })
@@ -356,6 +413,8 @@ export class BoltzProvider {
 		expectedAmount: number;
 	}> {
 		if (!amountSats || amountSats <= 0) throw new Error('Invalid amount');
+		if (!claimAddress || !/^0x[a-fA-F0-9]{40}$/.test(claimAddress))
+			throw new Error('Invalid claim address');
 
 		const body = {
 			from: 'BTC',
@@ -388,6 +447,9 @@ export class BoltzProvider {
 		lockupAddress: string;
 		expectedAmount: number;
 	}> {
+		if (!invoice || typeof invoice !== 'string' || invoice.length < 10)
+			throw new Error('Invalid Lightning invoice');
+
 		const body = {
 			from: 'TBTC',
 			to: 'BTC',
@@ -404,6 +466,9 @@ export class BoltzProvider {
 			body: JSON.stringify(body)
 		});
 
+		// Validate lockup address from Boltz API response
+		validateBoltzAddress(data.address, 'lockup address');
+
 		return {
 			swapId: data.id,
 			lockupAddress: data.address,
@@ -411,3 +476,6 @@ export class BoltzProvider {
 		};
 	}
 }
+
+/** Module-level singleton — BoltzProvider is stateless, so reuse is safe. */
+export const boltzProvider = new BoltzProvider();

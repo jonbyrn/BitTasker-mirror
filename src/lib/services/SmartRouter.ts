@@ -10,7 +10,7 @@ import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 import { lifiService } from '$lib/services/lifi.service';
 import { symbiosisService } from '$lib/services/symbiosis.service';
-import { BoltzProvider, type BoltzQuote } from '$lib/services/BoltzProvider';
+import { boltzProvider, type BoltzQuote } from '$lib/services/BoltzProvider';
 import type { SourceWallet } from '$lib/services/route-resolver';
 
 const debug = createDebug('smart-router');
@@ -73,11 +73,7 @@ type RouteBuilder = () => Promise<SmartRoute | null>;
 // ---------------------------------------------------------------------------
 
 export class SmartRouter {
-	private boltz: BoltzProvider;
-
-	constructor() {
-		this.boltz = new BoltzProvider();
-	}
+	private boltz = boltzProvider;
 
 	async getBestRoute(
 		fromAsset: SourceWallet,
