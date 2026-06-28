@@ -310,8 +310,8 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		if (dt === 'usdt0-arb') {
 			return { type: 'address', chainId: 42161, address: '', asset: 'USDT0' };
 		}
-		const chainId = dt === 'rbtc-rsk' ? 30 : 30;
-		return { type: 'address', chainId, address: '' };
+		// rbtc-rsk — RSK mainnet chain ID
+		return { type: 'address', chainId: 30, address: '' };
 	}
 
 	// ---------------------------------------------------------------------------
@@ -401,9 +401,11 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	// When the provider gives outputAmount, compute fee as: input USD − output USD.
 	// This avoids the broken tokenAmountToSats conversion for cross-currency pairs.
 	// Falls back to networkFeeSats + bridge fee percent for legacy paths.
+	// When the USD-based computation yields 0 (price feed rounding) but the route
+	// has a nonzero totalFeePercent, use the percent-based fallback instead.
 	const totalFeeSats = $derived.by(() => {
 		const route = activeRouteForCalc;
-		if (!route || amountSats <= 0) return networkFeeSats;
+		if (!route || amountSats <= 0) return 0;
 
 		// Provider-computed output: fee = input value − output value
 		if (route.outputAmount && route.outputDecimals !== undefined && btcUsdPrice > 0) {
@@ -426,6 +428,13 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 
 				const feeUsd = Math.max(0, inputUsd - outputUsd);
 				const feeSats = Math.round((feeUsd / btcUsdPrice) * 100_000_000);
+
+				// If USD-based fee rounds to 0 but the route reports a nonzero fee percent,
+				// the price feeds disagree. Fall back to feePercent-based computation so the
+				// user still sees a fee (e.g. Symbiosis flat $0.75 on cross-chain RBTC).
+				if (feeSats === 0 && route.totalFeePercent > 0) {
+					return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
+				}
 				return feeSats;
 			}
 		}

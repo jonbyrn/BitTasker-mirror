@@ -70,10 +70,10 @@
 	const ASSET_MAP: Record<string, AssetInfo> = {
 		RBTC: { icon: '/images/chains/Bitcoin-Rootstock-logo.webp', name: 'Bitcoin (rBTC)' },
 		BTC: { icon: '/images/chains/Bitcoin.svg', name: 'Bitcoin (BTC)' },
-		TBTC: { icon: '/images/chains/arbitrum.png', name: 'Bitcoin (tBTC)' },
+		TBTC: { icon: '/images/tokens/tbtc.png', name: 'Bitcoin (tBTC)' },
 		USDT0: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT0)' },
 		USDT: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT)' },
-		WBTC: { icon: '/images/chains/arbitrum.png', name: 'Wrapped Bitcoin (wBTC)' },
+		WBTC: { icon: '/images/tokens/wbtc.png', name: 'Wrapped Bitcoin (wBTC)' },
 		Lightning: { icon: '/images/chains/Bitcoin.svg', name: 'Lightning' }
 	};
 

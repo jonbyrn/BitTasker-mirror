@@ -246,7 +246,7 @@
 		asset: 'WBTC',
 		label: 'wBTC',
 		short: 'WBTC',
-		icon: '/images/chains/arbitrum.png',
+		icon: '/images/tokens/wbtc.png',
 		network: 'wbtc-arb',
 		chainId: 42161
 	};
@@ -439,9 +439,9 @@
 			: sourceType === 'btc-onchain'
 				? '/images/chains/Bitcoin.svg'
 				: sourceType === 'wbtc-arb'
-					? '/images/chains/Wrapped-Bitcoin-Logo.webp'
+					? '/images/tokens/wbtc.png'
 					: sourceType === 'tbtc-arb'
-						? '/images/chains/tBTC-logo.webp'
+						? '/images/tokens/tbtc.png'
 						: '/images/chains/Tether-USD.svg'
 	);
 
@@ -691,7 +691,7 @@
 		{
 			id: 'wbtc-arb',
 			label: 'Bitcoin (wBTC)',
-			icon: '/images/chains/Wrapped-Bitcoin-Logo.webp',
+			icon: '/images/tokens/wbtc.png',
 			subLabel: 'Wrapped BTC on Arbitrum',
 			balance: formatSats(sourceWbtcSats) + ' Sats',
 			balanceSub: `≈ $${((sourceWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
@@ -1805,8 +1805,12 @@
 				{#if !isDirectTransfer}
 					<SwapEstimateCard
 						variant="success-fee"
-						feePercent={effectiveSmartRoute?.totalFeePercent ?? 0}
-						estimatedTime={effectiveSmartRoute?.estimatedTime ?? '—'}
+						feePercent={swapRoutes.activeRouteForCalc?.totalFeePercent ??
+							effectiveSmartRoute?.totalFeePercent ??
+							0}
+						estimatedTime={swapRoutes.activeRouteForCalc?.estimatedTime ??
+							effectiveSmartRoute?.estimatedTime ??
+							'—'}
 						{isDirectTransfer}
 					/>
 				{/if}

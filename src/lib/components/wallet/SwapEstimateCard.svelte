@@ -94,9 +94,6 @@
 						{isDirectTransfer
 							? $t('wallet.swap.direct_send')
 							: `${$t('wallet.swap.route_via')} ${providerLabel}`}
-						{#if feePercent && feePercent > 0}
-							({feePercent}%)
-						{/if}
 					</div>
 				{/if}
 			</div>
@@ -145,9 +142,6 @@
 							{isDirectTransfer
 								? $t('wallet.swap.direct_send')
 								: `${$t('wallet.swap.route_via')} ${providerLabel}`}
-							{#if feePercent && feePercent > 0}
-								({feePercent}%)
-							{/if}
 						</div>
 					{/if}
 				</div>
@@ -169,12 +163,7 @@
 						? $t('wallet.swap.direct_send')
 						: providerLabel
 							? `${$t('wallet.swap.route_via')} ${providerLabel}`
-							: feePercent != null
-								? `${feePercent}%`
-								: $t('wallet.swap.best_route') || 'Route'}
-					{#if providerLabel && feePercent && feePercent > 0}
-						({feePercent}%)
-					{/if}
+							: $t('wallet.swap.best_route') || 'Route'}
 				</span>
 				<span class="text-base-content/60"
 					>{$t('wallet.swap.estimated_time') || 'Est. time'}: {estimatedTime || '—'}</span
