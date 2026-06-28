@@ -344,9 +344,9 @@
 
 	{#if !minimal && (position || amountNum > 0)}
 		<LoanHealthBar
-			totalCollateralUsd={projectedCollateral}
+			totalCollateralUsd={currentCollateralUsd}
 			totalDebtUsd={currentDebtUsd}
-			availableBorrowsUsd={projectedAvailableBorrow}
+			availableBorrowsUsd={Math.max(0, currentCollateralUsd * (7300 / 10_000) - currentDebtUsd)}
 		/>
 	{/if}
 

@@ -14,6 +14,7 @@
 	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
+	import LoanHealthBadge from '../LoanHealthBadge.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 
 	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
@@ -562,7 +563,7 @@
 
 				<div class="flex items-center justify-between text-xs">
 					<span class="text-base-content/60">{$t('wallet.defi.position.projected_ltv')}</span>
-					<span class="font-medium tabular-nums">{projectedLtvPct.toFixed(1)}%</span>
+					<LoanHealthBadge ltvPct={projectedLtvPct} showLtv />
 				</div>
 
 				<div class="bg-base-200 space-y-1 rounded-lg p-3 text-sm">
