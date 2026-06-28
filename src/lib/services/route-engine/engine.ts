@@ -70,6 +70,21 @@ export async function resolveRoutes(
 ): Promise<RouteEngineResult> {
 	const errors: Array<{ provider: string; error: string }> = [];
 
+	// Fast-fail: offline
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		return {
+			routes: [],
+			recommended: null,
+			errors: [{ provider: 'system', error: 'Device offline' }],
+			isLive: false
+		};
+	}
+
+	// Fast-fail: invalid amount
+	if (!amountSats || !Number.isFinite(amountSats) || amountSats <= 0) {
+		return { routes: [], recommended: null, errors: [], isLive: false };
+	}
+
 	// Fast-fail if already aborted
 	if (signal?.aborted) {
 		debug.log('Signal already aborted, returning empty result');

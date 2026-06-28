@@ -14,11 +14,15 @@ const { mockBoltzGetQuote } = vi.hoisted(() => ({
 }));
 
 // Mock external dependencies before importing the provider
-vi.mock('$lib/services/BoltzProvider', () => ({
-	BoltzProvider: vi.fn().mockImplementation(function () {
+vi.mock('$lib/services/BoltzProvider', () => {
+	const MockBoltzProvider = vi.fn().mockImplementation(function () {
 		this.getQuote = mockBoltzGetQuote;
-	})
-}));
+	});
+	return {
+		BoltzProvider: MockBoltzProvider,
+		boltzProvider: new MockBoltzProvider()
+	};
+});
 
 vi.mock('$lib/utils/debug', () => ({
 	createDebug: () => ({
@@ -100,7 +104,7 @@ describe('boltzProvider.getQuote()', () => {
 		expect(route!.hops).toHaveLength(1);
 		expect(route!.hops[0].service).toBe('boltz');
 		expect(route!.hops[0].fromAsset).toBe('RBTC');
-		expect(route!.hops[0].toAsset).toBe('tBTC');
+		expect(route!.hops[0].toAsset).toBe('TBTC');
 		expect(route!.totalFeePercent).toBeCloseTo(0.55, 1); // 550 / 100_000 * 100
 		expect(route!.id).toContain('boltz');
 	});

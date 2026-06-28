@@ -96,31 +96,38 @@ export const symbiosisProvider: SwapProvider = {
 			return null;
 		}
 
-		const outputSats = tokenAmountToSats(quote.tokenAmountOut.amount, to.decimals);
-		if (outputSats <= 0) return null;
+		const rawOutputSats = tokenAmountToSats(quote.tokenAmountOut.amount, to.decimals);
+		if (rawOutputSats <= 0) return null;
 
-		const feePercent = amountSats > 0 ? ((amountSats - outputSats) / amountSats) * 100 : 0;
-
-		// Convert Symbiosis bridge fee to wei format (18-decimal equivalent).
-		// The rune's networkFeeSats divides gasCostWei by 1e10 to get sats,
-		// so we normalize all fee units to wei regardless of output token decimals.
-		// - 18 dec (RBTC): fee already in wei → use as-is
-		// - 8 dec (WBTC): fee in sats → multiply by 1e10
-		// - 6 dec (USDT0): fee in micro → multiply by 1e12
+		// Parse Symbiosis bridge fee.
+		// quote.fee can be a number/string (raw amount in output decimals) OR an object
+		// like { amount: '750000', decimals: 6, symbol: 'USD₮0' } for cross-chain routes.
+		let bridgeFeeUsd = 0;
 		let gasCostWei: string | undefined;
 		if (quote.fee) {
-			try {
-				const feeRaw = BigInt(quote.fee);
-				const weiScale = BigInt(10) ** BigInt(18 - to.decimals);
-				gasCostWei = (feeRaw * weiScale).toString();
-				debug.log(
-					'Symbiosis fee: raw=%s %s dec → gasCostWei=%s',
-					quote.fee,
-					to.decimals,
-					gasCostWei
-				);
-			} catch (_e) {
-				debug.warn('Failed to parse Symbiosis fee: %s', quote.fee);
+			if (typeof quote.fee === 'object' && quote.fee !== null && 'amount' in quote.fee) {
+				// Object format: fee is in a stablecoin (USDT0). Convert micro-units → USD.
+				const feeAmount = Number((quote.fee as { amount: string }).amount);
+				const feeDecimals = (quote.fee as { decimals: number }).decimals ?? 6;
+				if (isFinite(feeAmount) && feeAmount > 0) {
+					bridgeFeeUsd = feeAmount / 10 ** feeDecimals;
+					debug.log(
+						'Symbiosis fee object: %s %s → $%s',
+						(quote.fee as { amount: string }).amount,
+						(quote.fee as { symbol: string }).symbol ?? '?',
+						bridgeFeeUsd.toFixed(4)
+					);
+				}
+			} else {
+				// Numeric format: raw amount in output token decimals. Convert to wei.
+				try {
+					const feeRaw = BigInt(quote.fee as string | number | bigint);
+					const weiScale = BigInt(10) ** BigInt(18 - to.decimals);
+					gasCostWei = (feeRaw * weiScale).toString();
+					debug.log('Symbiosis fee raw: %s → gasCostWei=%s', quote.fee, gasCostWei);
+				} catch (_e) {
+					debug.warn('Failed to parse Symbiosis fee: %s', quote.fee);
+				}
 			}
 		}
 
@@ -139,12 +146,36 @@ export const symbiosisProvider: SwapProvider = {
 			inputValueUsd.toFixed(4)
 		);
 
+		// Compute feePercent. Use USD values when available (cross-currency accurate).
+		// Cap at 0 — if price feed says output > input, the difference is rounding noise.
+		let feePercent: number;
+		if (bridgeFeeUsd > 0 && inputValueUsd > 0) {
+			feePercent = (bridgeFeeUsd / inputValueUsd) * 100;
+		} else {
+			feePercent =
+				amountSats > 0 ? Math.max(0, ((amountSats - rawOutputSats) / amountSats) * 100) : 0;
+		}
+
+		// Cap outputSats at inputSats — never show "profit" from price feed rounding.
+		const outputSats = Math.min(rawOutputSats, amountSats);
+
+		// Estimate on-chain gas for Symbiosis cross-chain swaps.
+		// Symbiosis submits on RSK (for RBTC dest) or Arbitrum (for ARB dest).
+		// Contract interaction: ~150k gas. RSK: 65 gwei. Arb: 0.03 gwei.
+		if (!gasCostWei && to.chain === 'rsk') {
+			gasCostWei = (150_000n * 65_000_000n).toString(); // 9.75M wei ≈ 0.975 sats
+		} else if (!gasCostWei && to.chain === 'arbitrum') {
+			gasCostWei = (150_000n * 30_000_000n).toString(); // 4.5M wei
+		}
+
 		// For stablecoin outputs (USDT0, USDC), raw / 10^decimals = USD.
-		// For non-stablecoins, approximate from input value (bridge fee is small).
+		// For non-stablecoins, do NOT approximate from input value — that makes
+		// the route appear zero-cost in ranking (feeUsd = input - output ≈ 0).
+		// Leave undefined so rankRoutes() falls back to feePercent-based calculation.
 		const STABLECOIN_DECIMALS = new Set([6]);
 		const outputValueUsd = STABLECOIN_DECIMALS.has(to.decimals)
 			? Number(quote.tokenAmountOut.amount) / 10 ** to.decimals
-			: inputValueUsd; // approximate — will be refined with price feeds
+			: undefined;
 
 		const route: Route = {
 			id: `symbiosis-${from.key}-${to.key}`,

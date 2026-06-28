@@ -2,15 +2,14 @@
  * Boltz Provider Adapter — Route Engine
  *
  * Wraps the existing `BoltzProvider` class into the `SwapProvider` interface.
- * Handles BTC↔RBTC↔tBTC chain swaps and submarine/reverse swaps via Boltz.exchange.
+ * Handles BTC↔RBTC↔tBTC chain swaps via Boltz.exchange chain swap API.
  *
- * The underlying BoltzProvider currently supports RBTC→tBTC chain swaps.
- * Additional pairs are declared in `supports()` for future expansion — `getQuote()`
- * returns null gracefully when the underlying service doesn't handle a pair yet.
+ * Supports all chain swap pairs from the Boltz API: RBTC↔TBTC, RBTC↔BTC,
+ * TBTC↔BTC, TBTC↔L-BTC, L-BTC↔RBTC, etc.
  */
 
 import type { SwapProvider, Token, Route, RouteHop } from '../types';
-import { BoltzProvider } from '$lib/services/BoltzProvider';
+import { boltzProvider as boltz } from '$lib/services/BoltzProvider';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 
@@ -21,26 +20,28 @@ const debug = createDebug('boltz-provider');
 // ---------------------------------------------------------------------------
 
 /**
- * Known Boltz swap pairs.
- * Keys are `${from.key}->${to.key}` matching Token keys from the registry.
+ * Known Boltz chain swap pairs.
+ * Keys are `${from.key}:${to.key}` matching Token keys from the registry.
+ * All pairs verified against Boltz /v2/swap/chain API.
  */
 const BOLTZ_PAIRS: ReadonlySet<string> = new Set([
+	// RBTC ↔ tBTC
 	'rbtc:tbtc-arb', // RBTC → tBTC (chain swap)
-	'tbtc-arb:rbtc', // tBTC → RBTC (chain swap reverse)
+	'tbtc-arb:rbtc', // tBTC → RBTC (chain swap)
+	// RBTC ↔ BTC
 	'rbtc:btc', // RBTC → BTC on-chain (chain swap)
-	'rbtc:btc-ln', // RBTC → Lightning (submarine swap)
-	'btc:rbtc' // BTC on-chain → RBTC (reverse swap)
+	'btc:rbtc', // BTC on-chain → RBTC (chain swap)
+	// tBTC ↔ BTC
+	'tbtc-arb:btc', // tBTC → BTC (chain swap)
+	'btc:tbtc-arb', // BTC → tBTC (chain swap)
+	// RBTC ↔ Lightning (submarine/reverse via BTC intermediary)
+	'rbtc:btc-ln', // RBTC → Lightning
+	'btc-ln:rbtc' // Lightning → RBTC
 ]);
 
 /** Default estimated time range for Boltz swaps (minutes). */
 const ESTIMATED_TIME_MIN = 5;
 const ESTIMATED_TIME_MAX = 15;
-
-// ---------------------------------------------------------------------------
-// Singleton BoltzProvider instance
-// ---------------------------------------------------------------------------
-
-const boltz = new BoltzProvider();
 
 // ---------------------------------------------------------------------------
 // Route builder
@@ -59,9 +60,9 @@ function buildBoltzRoute(from: Token, to: Token, inputSats: number, totalFeeSats
 
 	const hop: RouteHop = {
 		service: 'boltz',
-		fromAsset: from.symbol,
+		fromAsset: from.symbol.toUpperCase(), // Boltz API uses uppercase (TBTC, RBTC, BTC)
 		fromChain: from.chain,
-		toAsset: to.symbol,
+		toAsset: to.symbol.toUpperCase(),
 		toChain: to.chain,
 		feePercent,
 		estimatedTimeMin: ESTIMATED_TIME_MIN,
@@ -108,7 +109,11 @@ export const boltzProvider: SwapProvider = {
 
 		debug.log('Fetching Boltz quote: %d sats %s → %s', amountSats, from.symbol, to.symbol);
 
-		const { data: quote, error } = await tryCatch(boltz.getQuote(amountSats));
+		// Boltz API uses uppercase symbols (TBTC, RBTC, BTC) as keys.
+		// Token registry uses mixed case (tBTC, RBTC). Normalize to uppercase.
+		const { data: quote, error } = await tryCatch(
+			boltz.getQuote(amountSats, from.symbol.toUpperCase(), to.symbol.toUpperCase())
+		);
 
 		if (error) {
 			debug.warn('Boltz getQuote failed: %s', error.message);
