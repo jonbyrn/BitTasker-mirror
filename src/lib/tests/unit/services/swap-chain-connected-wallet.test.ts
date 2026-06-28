@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { startSwapChain } from '$lib/services/swap-chain.service';
+import { startSwapChain, resumeSwapChain } from '$lib/services/swap-chain.service';
 import type { Route, RouteHop, Destination } from '$lib/services/route-resolver';
 import type {
 	EVMSigner,
@@ -54,10 +54,10 @@ const {
 	const signer: EVMSigner = {
 		type: 'evm',
 		label: 'MetaMask',
-		address: '0xmetamaskDEADBEEF1234567890abcdef1234567890',
+		address: '0xAAaA000000000000000000000000000000000001',
 		chainId: 30,
 		sendTransaction: vi.fn<[EVMTransactionRequest], Promise<EVMTransactionResult>>(),
-		getAddress: vi.fn(() => '0xmetamaskDEADBEEF1234567890abcdef1234567890'),
+		getAddress: vi.fn(() => '0xAAaA000000000000000000000000000000000001'),
 		isConnected: vi.fn(() => true)
 	};
 
@@ -65,7 +65,7 @@ const {
 		id: 'metamask-1',
 		walletName: 'MetaMask',
 		walletType: 'metamask' as const,
-		address: '0xmetamaskDEADBEEF1234567890abcdef1234567890',
+		address: '0xAAaA000000000000000000000000000000000001',
 		chainIds: [30, 56, 42161],
 		evmSigner: signer,
 		provider: null,
@@ -76,7 +76,7 @@ const {
 	const wallet = {
 		isConnected: true,
 		rsk: {
-			address: '0xbuiltinRSKaaaaaaaaaaaaaaaaaaaaaaaaaaa1234',
+			address: '0xBbbb000000000000000000000000000000000002',
 			balance: '0',
 			formattedBalance: '0.00',
 			connected: true,
@@ -86,8 +86,8 @@ const {
 			provider: null,
 			wallet: null
 		},
-		bsc: { address: '0xbuiltinBSCbbbbbbbbbbbbbbbbbbbbbbbbb5678' },
-		arb: { address: '0xbuiltinARBcccccccccccccccccccccccccc9abc' }
+		bsc: { address: '0xccCc000000000000000000000000000000000003' },
+		arb: { address: '0xddDD000000000000000000000000000000000004' }
 	};
 
 	return {
@@ -128,6 +128,23 @@ vi.mock('$lib/utils/debug', () => ({
 		extend: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() })
 	}),
 	debug: { enable: vi.fn() }
+}));
+
+vi.mock('@sentry/sveltekit', () => ({
+	addBreadcrumb: vi.fn(),
+	captureException: vi.fn(),
+	setUser: vi.fn(),
+	setTag: vi.fn(),
+	setContext: vi.fn()
+}));
+
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNostrKeyPair: vi.fn(() => null)
+}));
+
+vi.mock('$lib/utils/swapAdapter', () => ({
+	saveSwapToNostr: vi.fn(),
+	recoverSwapsFromNostr: vi.fn(() => [])
 }));
 
 vi.mock('@capacitor/preferences', () => ({
@@ -186,20 +203,24 @@ vi.mock('$lib/services/changelly.service', () => ({
 	}
 }));
 
-vi.mock('$lib/services/BoltzProvider', () => ({
-	BoltzProvider: vi.fn().mockImplementation(function () {
+vi.mock('$lib/services/BoltzProvider', () => {
+	const MockBoltzProvider = vi.fn().mockImplementation(function () {
 		this.createReverseSwap = mockBoltzCreateReverseSwap;
 		this.createSubmarineSwap = mockBoltzCreateSubSwap;
 		this.createSwap = mockBoltzCreateSwap;
-	})
-}));
+	});
+	return {
+		BoltzProvider: MockBoltzProvider,
+		boltzProvider: new MockBoltzProvider()
+	};
+});
 
 vi.mock('ethers', () => ({
 	ethers: {
 		Wallet: {
 			createRandom: vi.fn(() => ({
 				publicKey: '0x04mockpublickey1234567890abcdef1234567890abcdef1234567890abcdef12',
-				address: '0xmockRefundWalletAddress00000000000000000'
+				address: '0x7777000000000000000000000000000000000Aaa'
 			}))
 		},
 		Interface: vi.fn().mockImplementation(function () {
@@ -207,7 +228,8 @@ vi.mock('ethers', () => ({
 		}),
 		Transaction: vi.fn(),
 		toQuantity: vi.fn(),
-		Signature: { from: vi.fn() }
+		Signature: { from: vi.fn() },
+		getAddress: vi.fn((addr: string) => addr)
 	}
 }));
 
@@ -439,7 +461,7 @@ function resetMocks(): void {
 
 	// Default: LI.FI returns a step transaction
 	mockLifiGetStepTransaction.mockResolvedValue({
-		to: '0xlifiContractAddress000000000000001',
+		to: '0x1111000000000000000000000000000000000aAA',
 		data: '0xlificalldata',
 		value: '1000000000000000000'
 	});
@@ -447,7 +469,7 @@ function resetMocks(): void {
 	// Default: Symbiosis returns a quote with tx data
 	mockSymbiosisGetQuote.mockResolvedValue({
 		tx: {
-			to: '0xsymbContractAddress000000000000001',
+			to: '0x2222000000000000000000000000000000000BbB',
 			data: '0xsymbcalldata',
 			value: '1000000000000000000'
 		}
@@ -464,11 +486,11 @@ function resetMocks(): void {
 	});
 	mockBoltzCreateSubSwap.mockResolvedValue({
 		swapId: 'sub-swap-1',
-		lockupAddress: '0xboltzLockupArb1234567890abcdef1234567890'
+		lockupAddress: '0x3333000000000000000000000000000000000CCc'
 	});
 	mockBoltzCreateSwap.mockResolvedValue({
 		swapId: 'chain-swap-1',
-		lockupAddress: '0xchainSwapLockup1234567890abcdef12345678',
+		lockupAddress: '0x4444000000000000000000000000000000000DDd',
 		claimAddress: '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41',
 		timeoutBlockHeight: 8950000
 	});
@@ -484,7 +506,7 @@ function resetMocks(): void {
 		swapId: 'sub-swap-rbtc-ln-1',
 		invoice: 'lnbc1mock',
 		swapData: {
-			lockupAddress: '0xsubmarineLockupRSK1234567890abcdef',
+			lockupAddress: '0x5555000000000000000000000000000000000eee',
 			expectedAmount: '1000000000000000000'
 		}
 	});
@@ -509,7 +531,7 @@ afterEach(() => {
 // ===========================================================================
 
 describe('Swap-Chain Connected Wallet Support', () => {
-	const DEST_ADDR = '0xdestinationDEADBEEF0000000000000000000000';
+	const DEST_ADDR = '0x6666000000000000000000000000000000000FFF';
 	const CONNECTED_WALLET_ID = 'metamask-1';
 	const VALID_AMOUNT = '0.5';
 
@@ -642,7 +664,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Verify LI.FI was called with the connected wallet address
 			expect(mockLifiGetStepTransaction).toHaveBeenCalledTimes(1);
 			const lifiCall = mockLifiGetStepTransaction.mock.calls[0][0] as Record<string, unknown>;
-			expect(lifiCall.fromAddress).toBe('0xmetamaskdeadbeef1234567890abcdef1234567890');
+			expect(lifiCall.fromAddress).toBe('0xAAaA000000000000000000000000000000000001');
 			// Verify evmSigner was used for signing
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
@@ -713,7 +735,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT, 'nonexistent-wallet');
 
 			// Assert
-			assertFailed(result, 'Connected wallet EVM signer not available for Symbiosis');
+			assertFailed(result, 'No wallet address available for Symbiosis swap');
 		});
 
 		it('regression: built-in wallet uses sendRawTransaction for Symbiosis', async () => {
@@ -753,7 +775,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockLockSubmarineSwapFunds).not.toHaveBeenCalled();
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0xsubmarineLockupRSK1234567890abcdef');
+			expect(txArg.to).toBe('0x5555000000000000000000000000000000000eee');
 			expect(txArg.chainId).toBe(30);
 		});
 
@@ -817,7 +839,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			const route = makeRoute([hop]);
 
 			// Act
-			const result = await startSwapChain(route, 'rbtc', dest, '100000', CONNECTED_WALLET_ID);
+			const result = await startSwapChain(route, 'rbtc', dest, '0.001', CONNECTED_WALLET_ID);
 
 			// Assert
 			assertCompleted(result, 'COMPLETE', 'chain-swap-1');
@@ -830,7 +852,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Verify lockup via evmSigner
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0xchainSwapLockup1234567890abcdef12345678');
+			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
 			expect(mockCreateChainSwap).not.toHaveBeenCalled();
@@ -843,7 +865,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			const route = makeRoute([hop]);
 
 			// Act
-			const result = await startSwapChain(route, 'rbtc', dest, '100000', 'nonexistent-wallet');
+			const result = await startSwapChain(route, 'rbtc', dest, '0.001', 'nonexistent-wallet');
 
 			// Assert
 			assertFailed(result, 'Connected wallet EVM signer not available');
@@ -856,7 +878,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			const route = makeRoute([hop]);
 
 			// Act
-			const result = await startSwapChain(route, 'rbtc', dest, '100000', null);
+			const result = await startSwapChain(route, 'rbtc', dest, '0.001', null);
 
 			// Assert
 			assertCompleted(result, 'COMPLETE', 'builtin-chain-swap-1');
@@ -888,7 +910,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Verify lockup via evmSigner on RSK chain (30) — lockup sends rBTC, Boltz handles Arb claim
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0xchainSwapLockup1234567890abcdef12345678');
+			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
@@ -1161,6 +1183,155 @@ describe('Swap-Chain Connected Wallet Support', () => {
 
 			assertCompleted(result, 'COMPLETE', '0xtxhashBUILTINrbtc');
 			expect(mockEvmSigner.sendTransaction).not.toHaveBeenCalled();
+		});
+	});
+
+	// =========================================================================
+	// resumeSwapChain
+	// =========================================================================
+
+	describe('resumeSwapChain', () => {
+		/** Build a SwapChainState JSON string for mocking Preferences.get. */
+		function makePersistedState(
+			phase: SwapChainPhase,
+			overrides: Partial<SwapChainState> = {}
+		): string {
+			return JSON.stringify({
+				phase,
+				route: overrides.route ?? null,
+				sourceWallet: overrides.sourceWallet ?? null,
+				destination: overrides.destination ?? null,
+				sourceConnectedWalletId: overrides.sourceConnectedWalletId ?? null,
+				amount: overrides.amount ?? null,
+				swap1Id: overrides.swap1Id ?? null,
+				swap2Id: overrides.swap2Id ?? null,
+				swap1Details: overrides.swap1Details ?? null,
+				swap2Details: overrides.swap2Details ?? null,
+				error: overrides.error ?? null,
+				updatedAt: overrides.updatedAt ?? Date.now()
+			});
+		}
+
+		it('returns COMPLETE state without re-executing hops', async () => {
+			// Arrange: mock Preferences to return a completed state
+			mockPreferencesGet.mockResolvedValue({
+				value: makePersistedState('COMPLETE', {
+					swap1Id: '0xtxhash1',
+					route: makeRoute([makeDirectHopRBTC()])
+				})
+			});
+
+			// Act
+			const result = await resumeSwapChain();
+
+			// Assert
+			expect(result.error).toBeNull();
+			expect(result.data).not.toBeNull();
+			expect(result.data!.phase).toBe('COMPLETE');
+			// No hop executors should be called
+			expect(mockEvmSigner.sendTransaction).not.toHaveBeenCalled();
+			expect(mockSendRBTC).not.toHaveBeenCalled();
+		});
+
+		it('returns FAILED state without re-executing hops', async () => {
+			// Arrange
+			mockPreferencesGet.mockResolvedValue({
+				value: makePersistedState('FAILED', { error: 'User rejected' })
+			});
+
+			// Act
+			const result = await resumeSwapChain();
+
+			// Assert
+			expect(result.error).toBeNull();
+			expect(result.data).not.toBeNull();
+			expect(result.data!.phase).toBe('FAILED');
+			expect(result.data!.error).toBe('User rejected');
+		});
+
+		it('returns PARTIAL state without re-executing hops', async () => {
+			// Arrange
+			mockPreferencesGet.mockResolvedValue({
+				value: makePersistedState('PARTIAL', {
+					swap1Id: '0xtxhash1',
+					error: 'Hop 2 failed'
+				})
+			});
+
+			// Act
+			const result = await resumeSwapChain();
+
+			// Assert
+			expect(result.error).toBeNull();
+			expect(result.data).not.toBeNull();
+			expect(result.data!.phase).toBe('PARTIAL');
+			expect(result.data!.error).toBe('Hop 2 failed');
+		});
+
+		it('returns IDLE state without doing anything', async () => {
+			// Arrange: no persisted state → defaults to INITIAL (IDLE)
+			mockPreferencesGet.mockResolvedValue({ value: null });
+
+			// Act
+			const result = await resumeSwapChain();
+
+			// Assert
+			expect(result.error).toBeNull();
+			expect(result.data).not.toBeNull();
+			expect(result.data!.phase).toBe('IDLE');
+		});
+
+		it('returns error when device is offline', async () => {
+			// Arrange: simulate offline
+			const originalOnLine = navigator.onLine;
+			Object.defineProperty(navigator, 'onLine', {
+				value: false,
+				writable: true,
+				configurable: true
+			});
+
+			// Act
+			const result = await resumeSwapChain();
+
+			// Assert
+			expect(result.data).toBeNull();
+			expect(result.error).not.toBeNull();
+			expect(result.error!.message).toContain('offline');
+
+			// Cleanup
+			Object.defineProperty(navigator, 'onLine', {
+				value: originalOnLine,
+				writable: true,
+				configurable: true
+			});
+		});
+
+		it('blocks concurrent resume calls', async () => {
+			// Arrange: make Preferences.get hang so the first call holds the lock
+			let resolvePreferencesGet!: (v: { value: string | null }) => void;
+			mockPreferencesGet.mockReturnValue(
+				new Promise<{ value: string | null }>((resolve) => {
+					resolvePreferencesGet = resolve;
+				})
+			);
+
+			// Act: start first resume (will hang on loadSwapChainState)
+			const firstCallPromise = resumeSwapChain();
+
+			// Give the first call time to acquire the lock
+			await new Promise((r) => setTimeout(r, 5));
+
+			// Act: try a second resume while the first is still running
+			const result = await resumeSwapChain();
+
+			// Assert: second call is blocked
+			expect(result.data).toBeNull();
+			expect(result.error).not.toBeNull();
+			expect(result.error!.message).toContain('swap is already in progress');
+
+			// Cleanup: release the first call
+			resolvePreferencesGet({ value: makePersistedState('IDLE') });
+			await firstCallPromise;
 		});
 	});
 });
