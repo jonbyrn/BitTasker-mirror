@@ -211,6 +211,7 @@ export interface EnrichmentRequest {
 	escrowId?: string;
 	bidEventId?: string;
 	taskId?: string;
+	recipientNpub?: string;
 	estimatedStartTime?: number;
 	estimatedCompletionTime?: number;
 	timelockDuration?: number;

@@ -376,6 +376,7 @@ export async function createServiceContract(
 				await notificationCenterService.enrich({
 					action: 'contract_created',
 					escrowId: String(paymentId),
+					recipientNpub: taskeePubkey,
 					estimatedStartTime: params.estimatedStartTime,
 					amount: display.baseAmount?.toString(),
 					taskTitle: input.serviceTitle

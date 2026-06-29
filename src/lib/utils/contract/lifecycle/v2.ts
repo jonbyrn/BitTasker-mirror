@@ -56,9 +56,14 @@ function buildEnrichment(
 	const data = rune.blockchainData;
 	if (!data) return undefined;
 
+	const recipientNpub = rune.isTasker ? rune.contract.taskeePubkey : rune.taskerPubkey;
+	const taskId = rune.contract.taskId || undefined;
+
 	const base: EnrichmentRequest = {
 		action,
 		escrowId,
+		taskId,
+		recipientNpub,
 		taskTitle: rune.taskTitle,
 		amount: data.amount
 	};

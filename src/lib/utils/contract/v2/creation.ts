@@ -423,6 +423,7 @@ export async function createContract(
 					escrowId: String(paymentId),
 					bidEventId: bid.id,
 					taskId,
+					recipientNpub: taskeePubkey,
 					estimatedStartTime: params.estimatedStartTime,
 					amount: display.baseAmount?.toString(),
 					taskTitle: taskContent.title ?? undefined
