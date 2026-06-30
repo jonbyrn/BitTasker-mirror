@@ -59,6 +59,9 @@ export interface SymbiosisQuoteResponse {
 	fee?: string;
 	estimatedTime?: number;
 	routes?: unknown[];
+	/** Contract address to approve ERC-20 tokens for (metaRouterGateway).
+	 *  Per Symbiosis docs: always approve tokens for this address, NOT tx.to. */
+	approveTo?: string;
 	tx?: {
 		chainId: number;
 		data: string;
@@ -72,6 +75,25 @@ export interface SymbiosisChain {
 	chainId: number;
 	name: string;
 	chainType: string;
+}
+
+export interface SymbiosisSwapStatusResponse {
+	status: { code: number; text: string };
+	txIn?: { chainId: number; hash: string; time: string; address: string };
+	tx?: {
+		chainId: number;
+		hash: string;
+		time: string;
+		address: string;
+		tokenAmount?: {
+			symbol: string;
+			address: string;
+			amount: string;
+			chainId: number;
+			decimals: number;
+			priceUsd?: number;
+		};
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -203,5 +225,19 @@ export const symbiosisService = {
 		const url = `${SYMBIOSIS_BASE_URL}/v1/chains`;
 		const response = await fetchSymbiosis<SymbiosisChain[]>(url);
 		return response ?? [];
+	},
+
+	/**
+	 * Get the status of a Symbiosis swap by transaction hash and chain ID.
+	 *
+	 * @param txHash - The source transaction hash
+	 * @param chainId - The source chain ID
+	 * @returns The swap status response
+	 */
+	async getSwapStatus(txHash: string, chainId: number): Promise<SymbiosisSwapStatusResponse> {
+		requireSymbiosisEnabled();
+		return fetchSymbiosis<SymbiosisSwapStatusResponse>(
+			`${SYMBIOSIS_BASE_URL}/v2/tx/${chainId}/${txHash}`
+		);
 	}
 };

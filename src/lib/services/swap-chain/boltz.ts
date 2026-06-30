@@ -20,20 +20,26 @@ import { getHandle } from '$lib/stores/connected-wallets.store';
 import {
 	sendEvmTransaction,
 	resolveUserAddress,
-	sendConnectedWalletArbitrumTx
+	queryERC20Balance,
+	waitForERC20Balance
 } from './tx-helpers';
 import { parseDecimalToSmallestUnit, satsToWei } from '$lib/utils/amount-conversion';
 import { generateSwapPreimage } from '$lib/utils/swap-preimage';
 import {
 	TBTC_ARB,
 	ETHERSWAP_ADDRESS,
-	CHAIN_ID_RSK,
 	GAS_LIMIT_ARB_CLAIM,
 	GAS_LIMIT_RSK_CLAIM,
 	BOLTZ_MAX_WAIT_MS
 } from '$lib/services/swap-chain/utils';
 import { boltzProvider } from '$lib/services/BoltzProvider';
-import { encodeEtherSwapLock, encodeEtherSwapClaim, encodeERC20SwapClaim } from './abi';
+import {
+	encodeEtherSwapLock,
+	encodeEtherSwapClaim,
+	encodeERC20SwapClaim,
+	encodeERC20SwapLockPrepay,
+	encodeERC20Approve
+} from './abi';
 import type { RouteHop } from '$lib/services/route-resolver';
 import type { SwapClaimData } from './persistence';
 import {
@@ -77,6 +83,11 @@ async function storeBoltzSwapData(params: {
 	timeoutBlockHeight: number;
 	claimAddress: string;
 }): Promise<void> {
+	console.warn(
+		'[storeBoltzSwapData] START swapId=%s hasClaimDetails=%s',
+		params.swapId,
+		!!params.claimDetails
+	);
 	// Store claim data (preimage + claim details) when the user needs to claim
 	if (params.claimDetails) {
 		const storedClaim: SwapClaimData = {
@@ -85,9 +96,12 @@ async function storeBoltzSwapData(params: {
 			lockupClaimAddress: params.claimAddress
 		};
 		swapClaimData.set(params.swapId, storedClaim);
+		console.warn('[storeBoltzSwapData] claim data stored in memory');
 
 		// Persist to Preferences (critical — must succeed or log failure)
+		console.warn('[storeBoltzSwapData] persisting to Preferences...');
 		const { error: prefError } = await tryCatch(persistClaimData());
+		console.warn('[storeBoltzSwapData] Preferences done, error=%s', prefError?.message ?? 'none');
 		if (prefError) {
 			d.error('Failed to persist claim data to Preferences: %s', prefError.message);
 			Sentry.captureException(prefError, { tags: { area: 'swap-persistence' } });
@@ -113,12 +127,15 @@ async function storeBoltzSwapData(params: {
 	});
 
 	// Persist refund data to Preferences (critical — must succeed or log failure)
+	console.warn('[storeBoltzSwapData] persisting refund data...');
 	const { error: refError } = await tryCatch(persistRefundData());
+	console.warn('[storeBoltzSwapData] refund data done, error=%s', refError?.message ?? 'none');
 	if (refError) {
 		d.error('Failed to persist refund data: %s', refError.message);
 		Sentry.captureException(refError, { tags: { area: 'swap-persistence' } });
 	}
 
+	console.warn('[storeBoltzSwapData] DONE');
 	Sentry.addBreadcrumb({
 		category: 'swap.persistence',
 		message: `Stored swap data for ${params.swapId}`,
@@ -140,21 +157,97 @@ async function storeBoltzSwapData(params: {
  *
  * Sends tBTC (ERC-20 on Arbitrum) to a Boltz lockup address. Boltz detects
  * the lockup and releases rBTC on RSK to the user's address.
+ *
+ * IMPORTANT: The tBTC must already be in the user's Arbitrum wallet before
+ * calling this function. For 2-hop routes where hop 1 is Symbiosis (e.g.,
+ * wBTC→tBTC), the caller (orchestrator) must ensure hop 1 completed and
+ * tBTC was delivered. This function verifies the balance before creating
+ * the Boltz swap to avoid reverts from insufficient tBTC.
  */
 async function executeTbtcToRbtcSwap(
 	state: SwapChainState,
 	_hop: RouteHop
 ): Promise<BoltzHopResult> {
+	console.warn('[executeTbtcToRbtcSwap] START amount=%s', state.amount);
 	const amount = state.amount;
 	if (!amount) return { data: null, error: new Error('Amount is required') };
-	const amountSats = Number(parseDecimalToSmallestUnit(amount, 8));
-	if (amountSats <= 0) return { data: null, error: new Error('Invalid amount') };
+	const expectedAmountSats = Number(parseDecimalToSmallestUnit(amount, 8));
+	console.warn('[executeTbtcToRbtcSwap] expectedAmountSats=%d', expectedAmountSats);
+	if (expectedAmountSats <= 0) return { data: null, error: new Error('Invalid amount') };
 
 	try {
 		const rskAddr = boltzAddress(get(walletStore).rsk.address ?? '');
+		console.warn('[executeTbtcToRbtcSwap] rskAddr=%s', rskAddr || 'EMPTY');
 		if (!rskAddr) return { data: null, error: new Error('No RSK wallet address') };
 
-		// Create chain swap: TBTC → RBTC
+		// Resolve the user's Arbitrum address for balance check
+		const arbAddr = state.sourceConnectedWalletId
+			? safeAddress(getHandle(state.sourceConnectedWalletId)?.address ?? '')
+			: safeAddress(get(walletStore).arb?.address || get(walletStore).rsk.address || '');
+		if (!arbAddr)
+			return { data: null, error: new Error('No Arbitrum wallet address for balance check') };
+
+		// Wait for tBTC balance to arrive on Arbitrum.
+		// For 2-hop routes (e.g., wBTC→Symbiosis→tBTC→Boltz→rBTC), the tBTC
+		// may arrive asynchronously from the Symbiosis swap. We wait until the
+		// balance is sufficient or timeout.
+		const expectedWei = satsToWei(expectedAmountSats);
+		setSwapProgress('locking-tbtc', 'Waiting for tBTC delivery on Arbitrum...');
+		console.warn(
+			'[executeTbtcToRbtcSwap] Waiting for tBTC balance at %s (need %s wei)...',
+			arbAddr,
+			expectedWei.toString()
+		);
+
+		const tbtcBalance = await waitForERC20Balance(
+			TBTC_ARB,
+			arbAddr,
+			expectedWei,
+			'arbitrum',
+			180_000 // 3 minutes — generous for same-chain DEX swap
+		);
+
+		console.warn(
+			'[executeTbtcToRbtcSwap] tBTC balance: %s wei (expected: %s)',
+			tbtcBalance.toString(),
+			expectedWei.toString()
+		);
+
+		if (tbtcBalance === 0n) {
+			return {
+				data: null,
+				error: new Error('tBTC balance is 0 on Arbitrum — swap delivery may have failed')
+			};
+		}
+
+		// Use the actual balance if it's less than expected (Symbiosis slippage/fees).
+		// Convert wei to sats: sats = wei / 1e10
+		const actualAmountSats = Number(tbtcBalance / 10_000_000_000n);
+		const amountSats = Math.min(expectedAmountSats, actualAmountSats);
+
+		if (amountSats < 100) {
+			return {
+				data: null,
+				error: new Error(`tBTC balance too low: ${actualAmountSats} sats (minimum 100 sats)`)
+			};
+		}
+
+		if (actualAmountSats < expectedAmountSats) {
+			console.warn(
+				'[executeTbtcToRbtcSwap] Using reduced amount: %d sats (expected %d, slippage %d sats)',
+				actualAmountSats,
+				expectedAmountSats,
+				expectedAmountSats - actualAmountSats
+			);
+			d.warn(
+				'TBTC balance lower than expected: got %d sats, wanted %d sats (slippage: %d)',
+				actualAmountSats,
+				expectedAmountSats,
+				expectedAmountSats - actualAmountSats
+			);
+		}
+
+		// Create Boltz swap with the actual available amount
 		const refundWallet = (await import('ethers')).ethers.Wallet.createRandom();
 		const { preimageHex, hashHex } = await generateSwapPreimage();
 
@@ -167,6 +260,12 @@ async function executeTbtcToRbtcSwap(
 			fromSymbol: 'TBTC',
 			toSymbol: 'RBTC'
 		});
+		console.warn(
+			'[executeTbtcToRbtcSwap] boltz.createSwap OK: id=%s lockup=%s expectedAmt=%d',
+			swapResult.swapId,
+			swapResult.lockupAddress,
+			swapResult.expectedAmount
+		);
 		d.log('Chain swap created: id=%s lockup=%s', swapResult.swapId, swapResult.lockupAddress);
 
 		setSwapProgress('locking-tbtc', `Locking tBTC → ${swapResult.swapId}`);
@@ -181,20 +280,82 @@ async function executeTbtcToRbtcSwap(
 			claimAddress: swapResult.claimAddress
 		});
 
-		// Send tBTC to Boltz lockup on Arbitrum (native value transfer)
-		const tbtcWei = satsToWei(amountSats);
-		const { data: lockupTxHash, error: lockupError } = await sendEvmTransaction({
-			to: swapResult.lockupAddress,
-			data: '0x',
-			value: tbtcWei,
+		// Use the Boltz expected amount for the lock (may differ slightly from our amountSats)
+		const lockAmountSats = swapResult.expectedAmount || amountSats;
+		const tbtcAmount = satsToWei(lockAmountSats);
+
+		// Verify balance still sufficient after Boltz swap creation
+		const currentBalance = await queryERC20Balance(TBTC_ARB, arbAddr, 'arbitrum');
+		if (currentBalance === null) {
+			return { data: null, error: new Error('Failed to query tBTC balance (RPC error)') };
+		}
+		if (currentBalance < tbtcAmount) {
+			return {
+				data: null,
+				error: new Error(
+					`Insufficient tBTC for lock: have ${currentBalance.toString()} wei, need ${tbtcAmount.toString()} wei`
+				)
+			};
+		}
+
+		// Step 1: Approve the Boltz lockup contract to spend tBTC
+		const lockupContract = swapResult.lockupAddress;
+		const approveCalldata = encodeERC20Approve(lockupContract, tbtcAmount);
+		console.warn(
+			'[executeTbtcToRbtcSwap] Step 1: approve tBTC for %s (amount=%s)',
+			lockupContract,
+			tbtcAmount.toString()
+		);
+		const { data: approveTxHash, error: approveError } = await sendEvmTransaction({
+			to: TBTC_ARB,
+			data: approveCalldata,
+			value: 0n,
 			chain: 'arbitrum',
 			sourceConnectedWalletId: state.sourceConnectedWalletId
 		});
+		console.warn(
+			'[executeTbtcToRbtcSwap] approve result: tx=%s error=%s',
+			approveTxHash ?? 'null',
+			approveError?.message ?? 'none'
+		);
+		if (approveError)
+			return { data: null, error: new Error(`tBTC approve failed: ${approveError.message}`) };
+
+		// Step 2: Call lockPrepayMinerfee — locks tBTC AND forwards ETH to Boltz's claim address
+		// so Boltz has gas to claim on Arbitrum. Plain lock() reverts without prepay.
+		const lockCalldata = encodeERC20SwapLockPrepay(
+			'0x' + hashHex,
+			tbtcAmount,
+			TBTC_ARB,
+			swapResult.claimAddress,
+			swapResult.timeoutBlockHeight
+		);
+		// Send 0.001 ETH (~$3) to cover Boltz's Arbitrum claim gas
+		const prepayWei = 1_000_000_000_000_000n; // 0.001 ETH
+		console.warn(
+			'[executeTbtcToRbtcSwap] Step 2: calling ERC20Swap.lockPrepayMinerfee() on %s amount=%s prepay=%s wei',
+			lockupContract,
+			tbtcAmount.toString(),
+			prepayWei.toString()
+		);
+		const { data: lockupTxHash, error: lockupError } = await sendEvmTransaction({
+			to: lockupContract,
+			data: lockCalldata,
+			value: prepayWei,
+			chain: 'arbitrum',
+			sourceConnectedWalletId: state.sourceConnectedWalletId
+		});
+		console.warn(
+			'[executeTbtcToRbtcSwap] lock result: tx=%s error=%s',
+			lockupTxHash ?? 'null',
+			lockupError?.message ?? 'none'
+		);
 		if (lockupError) return { data: null, error: lockupError };
 		d.log('TBTC lockup tx: %s', lockupTxHash);
 		setSwapProgress('locking-tbtc', `Lockup tx sent: ${lockupTxHash!.substring(0, 16)}...`);
 		return { data: swapResult.swapId, error: null };
 	} catch (err) {
+		console.warn('[executeTbtcToRbtcSwap] CAUGHT:', (err as Error).message);
 		d.error('TBTC→RBTC chain swap failed: %s', (err as Error).message);
 		return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
 	}
@@ -513,6 +674,118 @@ export async function executeBoltzHop(
 // ---------------------------------------------------------------------------
 
 /**
+ * Wait for Boltz to create a tBTC lockup on Arbitrum's ERC20Swap contract.
+ *
+ * After Boltz confirms the source lockup (RSK), it creates a corresponding
+ * lockup on Arbitrum. This function polls for the Lockup event to get the
+ * exact on-chain parameters (claimAddress, refundAddress, amount, timelock).
+ *
+ * The ERC20Swap Lockup event has:
+ *   topic[0]: event signature
+ *   topic[1]: hashlock
+ *   topic[2]: claimAddress (user's Arbitrum address)
+ *   topic[3]: refundAddress (Boltz's Arbitrum address)
+ *   data: amount (uint256) + token address + timelock
+ *
+ * Using the API's claimDetails.refundAddress is WRONG — it's the source-chain
+ * refund address, not Boltz's Arbitrum address needed for ERC20Swap.claim().
+ */
+async function waitForBoltzLockup(
+	contractAddress: string,
+	hashlock: string,
+	expectedAmount: number,
+	logger: ReturnType<typeof createDebug>,
+	maxWaitMs = 120_000
+): Promise<{
+	claimAddress: string;
+	refundAddress: string;
+	amount: bigint;
+	timelock: number;
+} | null> {
+	const arbRpc = 'https://arb1.arbitrum.io/rpc';
+	const paddedHashlock = hashlock.startsWith('0x') ? hashlock : '0x' + hashlock;
+	const startTime = Date.now();
+	let pollInterval = 5000;
+
+	// ERC20Swap Lockup event topic0
+	const LOCKUP_TOPIC = '0xa98eaa2bd8230d87a1a4c356f5c1d41cb85ff88131122ec8b1931cb9d31ae145';
+
+	while (Date.now() - startTime < maxWaitMs) {
+		try {
+			const resp = await fetch(arbRpc, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_getLogs',
+					params: [
+						{
+							fromBlock: '0x0',
+							toBlock: 'latest',
+							address: contractAddress,
+							topics: [LOCKUP_TOPIC, paddedHashlock]
+						}
+					],
+					id: 1
+				}),
+				signal: AbortSignal.timeout(10_000)
+			});
+			const data = await resp.json();
+			const logs = data.result || [];
+
+			if (logs.length > 0) {
+				const log = logs[logs.length - 1]; // Use latest lockup
+				const topics = log.topics;
+				const dataHex = log.data;
+
+				if (topics.length >= 4 && dataHex.length >= 194) {
+					const claimAddress = '0x' + topics[2].slice(26);
+					const refundAddress = '0x' + topics[3].slice(26);
+					const amount = BigInt('0x' + dataHex.slice(2, 66));
+					// Token address is at data[64..128], timelock at data[128..192]
+					const timelock = Number(BigInt('0x' + dataHex.slice(130, 194)));
+
+					console.warn(
+						'[waitForBoltzLockup] FOUND lockup: claim=%s refund=%s amount=%s timelock=%d block=%s',
+						claimAddress.substring(0, 10),
+						refundAddress.substring(0, 10),
+						amount.toString(),
+						timelock,
+						log.blockNumber
+					);
+					logger.log(
+						'Found Boltz lockup: claim=%s refund=%s amount=%s timelock=%d',
+						claimAddress.substring(0, 10),
+						refundAddress.substring(0, 10),
+						amount.toString(),
+						timelock
+					);
+
+					return { claimAddress, refundAddress, amount, timelock };
+				}
+			}
+
+			const elapsed = Math.round((Date.now() - startTime) / 1000);
+			console.warn(
+				'[waitForBoltzLockup] not found yet, elapsed=%ds, waiting %dms',
+				elapsed,
+				pollInterval
+			);
+			logger.log('Boltz lockup not found yet, waiting %dms...', pollInterval);
+		} catch (e) {
+			console.warn('[waitForBoltzLockup] scan error: %s', (e as Error).message);
+			logger.warn('Lockup scan error: %s', (e as Error).message);
+		}
+
+		await sleep(pollInterval);
+		pollInterval = Math.min(pollInterval * 1.3, 15000);
+	}
+
+	console.warn('[waitForBoltzLockup] TIMEOUT after %dms — lockup not found', maxWaitMs);
+	return null;
+}
+
+/**
  * Poll a Boltz chain swap until it completes (tBTC arrives on Arbitrum).
  *
  * Boltz chain swaps require the APP to claim tBTC on Arbitrum after the
@@ -534,6 +807,8 @@ export async function pollBoltzChainSwapCompletion(
 	const MAX_POLL_INTERVAL = 15000; // Cap at 15s
 	const startTime = Date.now();
 	const dBoltz = createDebug('swap-chain:boltz-poll');
+	let claimAttempts = 0;
+	const MAX_CLAIM_ATTEMPTS = 3;
 
 	while (Date.now() - startTime < maxWaitMs) {
 		// Back off when offline — avoid hammering Boltz API
@@ -551,6 +826,7 @@ export async function pollBoltzChainSwapCompletion(
 		);
 
 		if (statusError !== null) {
+			console.warn('[pollBoltz] status error (transient): %s', statusError.message);
 			dBoltz.warn('Boltz status poll error (transient): %s', statusError.message);
 			await sleep(pollInterval);
 			pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL);
@@ -558,6 +834,7 @@ export async function pollBoltzChainSwapCompletion(
 		}
 
 		if (!statusResult) {
+			console.warn('[pollBoltz] no status result, waiting %dms', pollInterval);
 			await sleep(pollInterval);
 			pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL);
 			continue;
@@ -565,6 +842,7 @@ export async function pollBoltzChainSwapCompletion(
 
 		const status = statusResult.status;
 		const elapsed = Math.round((Date.now() - startTime) / 1000);
+		console.warn('[pollBoltz] swap=%s status=%s elapsed=%ds', swapId, status, elapsed);
 		dBoltz.log('Boltz swap %s status: %s (elapsed %ds)', swapId, status, elapsed);
 
 		// Reset poll interval on successful status check
@@ -600,8 +878,33 @@ export async function pollBoltzChainSwapCompletion(
 			return { data: null, error: new Error(`Boltz swap ${swapId} failed: ${status}`) };
 		}
 
-		// Server confirmed lockup — we need to claim tBTC on Arbitrum
-		if (status === 'transaction.server.confirmed') {
+		// Server confirmed lockup OR claim pending — attempt to claim.
+		// wallet-core CANNOT interfere with our swaps (different Nostr tags:
+		// we use 'boltz-swap-chain', wallet-core uses 'chain'). The claim.pending
+		// status means OUR claim tx is being mined, or Boltz detected a claim
+		// attempt from the wallet-core's older L-BTC→RBTC swaps (irrelevant).
+		if (status === 'transaction.server.confirmed' || status === 'transaction.claim.pending') {
+			// Cap claim attempts to prevent infinite retry loop burning gas
+			claimAttempts++;
+			if (claimAttempts > MAX_CLAIM_ATTEMPTS) {
+				dBoltz.error(
+					'Claim attempts exceeded %d for swap %s — aborting',
+					MAX_CLAIM_ATTEMPTS,
+					swapId
+				);
+				return {
+					data: null,
+					error: new Error(`Claim failed after ${MAX_CLAIM_ATTEMPTS} attempts`)
+				};
+			}
+
+			console.warn(
+				'[pollBoltz] claim attempt %d/%d, status=%s, direction=%s',
+				claimAttempts,
+				MAX_CLAIM_ATTEMPTS,
+				status,
+				direction
+			);
 			let claimData = swapClaimData.get(swapId);
 			if (!claimData) {
 				// Try loading persisted claim data (survives page refresh)
@@ -649,33 +952,76 @@ export async function pollBoltzChainSwapCompletion(
 				swapClaimData.delete(swapId);
 			} else {
 				// RBTC→TBTC: claim tBTC on Arbitrum by calling ERC20Swap.claim()
-				dBoltz.log(
-					'Claiming tBTC on Arbitrum: contract=%s amount=%d token=%s',
-					claimData.claimDetails.lockupAddress,
-					claimData.claimDetails.amount,
-					TBTC_ARB
+				// IMPORTANT: After Boltz confirms the source lockup, Boltz needs time to
+				// create the tBTC lockup on Arbitrum. We must scan for the lockup event
+				// before attempting to claim, and use the on-chain parameters (not the
+				// API's claimDetails which may have the wrong refund address).
+				setSwapProgress('claiming-tbtc', 'Waiting for Boltz tBTC lockup on Arbitrum...');
+
+				// Compute hashlock from preimage (SHA-256)
+				const preimageBytes = Uint8Array.from(
+					claimData.preimageHex.match(/.{2}/g)!.map((b) => parseInt(b, 16))
 				);
-				setSwapProgress('claiming-tbtc', 'Claiming tBTC on Arbitrum...');
+				const hashlockBuf = await crypto.subtle.digest('SHA-256', preimageBytes);
+				const hashlock =
+					'0x' +
+					Array.from(new Uint8Array(hashlockBuf))
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('');
+
+				const lockupParams = await waitForBoltzLockup(
+					claimData.claimDetails.lockupAddress,
+					hashlock,
+					claimData.claimDetails.amount,
+					dBoltz
+				);
+
+				if (!lockupParams) {
+					dBoltz.error('Boltz lockup not found on Arbitrum for swap %s after waiting', swapId);
+					await sleep(pollInterval);
+					continue;
+				}
+
+				dBoltz.log(
+					'Found Boltz lockup on Arbitrum: claimAddr=%s refundAddr=%s amount=%s',
+					lockupParams.claimAddress.substring(0, 10),
+					lockupParams.refundAddress.substring(0, 10),
+					lockupParams.amount.toString()
+				);
 
 				const claimError = await claimTbtcOnArbitrum({
 					contractAddress: claimData.claimDetails.lockupAddress,
 					preimageHex: '0x' + claimData.preimageHex,
-					amount: claimData.claimDetails.amount,
+					amount: Number(lockupParams.amount),
 					tokenAddress: TBTC_ARB,
-					claimAddress: claimData.lockupClaimAddress,
-					refundAddress: claimData.claimDetails.refundAddress,
-					timelock: claimData.claimDetails.timeoutBlockHeight,
+					claimAddress: lockupParams.claimAddress,
+					refundAddress: lockupParams.refundAddress,
+					timelock: lockupParams.timelock,
 					sourceConnectedWalletId
 				});
 
 				if (claimError !== null) {
+					console.warn(
+						'[pollBoltz] tBTC CLAIM FAILED (attempt %d/%d): %s',
+						claimAttempts,
+						MAX_CLAIM_ATTEMPTS,
+						claimError.message
+					);
 					dBoltz.error('tBTC claim failed: %s', claimError.message);
 					await sleep(pollInterval);
 					continue;
 				}
 
-				dBoltz.log('tBTC claim submitted on Arbitrum — waiting for confirmation');
+				console.warn('[pollBoltz] tBTC CLAIM SUCCESS — swap %s complete', swapId);
+				dBoltz.log('tBTC claim confirmed on Arbitrum — swap complete');
 				swapClaimData.delete(swapId);
+
+				// Return immediately — don't continue polling. The claim is
+				// on-chain confirmed (sendEvmTransaction verified receipt).
+				// Boltz will update to transaction.claimed eventually, but
+				// continuing the poll would re-enter the claim block with
+				// the already-consumed lockup, causing reverts.
+				return { data: 'transaction.claimed', error: null };
 			}
 		}
 
@@ -735,44 +1081,33 @@ async function claimTbtcOnArbitrum(params: {
 			params.contractAddress,
 			params.sourceConnectedWalletId ?? 'builtin'
 		);
+		console.warn(
+			'[claimTbtcOnArbitrum] submitting claim: contract=%s amount=%s refundAddr=%s claimAddr=%s',
+			params.contractAddress.substring(0, 10),
+			params.amount,
+			params.refundAddress.substring(0, 10),
+			params.claimAddress.substring(0, 10)
+		);
 
-		let txHash: string | null = null;
+		// Use sendEvmTransaction which verifies on-chain receipt.
+		// A reverted claim tx returns an error instead of being silently treated as success.
+		const { data: txHash, error: claimError } = await sendEvmTransaction({
+			to: safeAddress(params.contractAddress),
+			data: calldata,
+			value: 0n,
+			chain: 'arbitrum',
+			gasLimit: GAS_LIMIT_ARB_CLAIM,
+			sourceConnectedWalletId: params.sourceConnectedWalletId
+		});
 
-		// Priority 1: Connected wallet EVM signer (has ETH or gasless relay)
-		if (params.sourceConnectedWalletId) {
-			const evmSigner = getEvmSigner(params.sourceConnectedWalletId);
-			if (evmSigner) {
-				dClaim.log('Claiming via connected wallet %s on Arbitrum', params.sourceConnectedWalletId);
-				try {
-					const result = await sendConnectedWalletArbitrumTx(
-						evmSigner,
-						safeAddress(params.contractAddress),
-						calldata,
-						'0'
-					);
-					txHash = result;
-					dClaim.log('Connected wallet claim tx: %s', txHash);
-				} catch (connErr) {
-					dClaim.warn(
-						'Connected wallet claim failed (%s), trying gasless relay',
-						(connErr as Error).message
-					);
-				}
-			}
+		if (claimError) {
+			console.warn('[claimTbtcOnArbitrum] CLAIM FAILED: %s', claimError.message);
+			dClaim.error('tBTC claim failed: %s', claimError.message);
+			return claimError;
 		}
 
-		// Priority 2: Built-in wallet via gasless relay
-		if (!txHash) {
-			dClaim.log('Claiming via built-in wallet (gasless relay)');
-			txHash = await sendArbitrumTransaction({
-				to: safeAddress(params.contractAddress),
-				data: calldata,
-				value: '0',
-				gasLimit: GAS_LIMIT_ARB_CLAIM
-			});
-			dClaim.log('Built-in wallet claim tx: %s', txHash);
-		}
-
+		console.warn('[claimTbtcOnArbitrum] CLAIM CONFIRMED: %s', txHash);
+		dClaim.log('tBTC claim confirmed on Arbitrum: %s', txHash);
 		Sentry.addBreadcrumb({
 			category: 'boltz',
 			message: `tBTC claimed on Arbitrum: ${txHash}`,
@@ -830,33 +1165,30 @@ async function claimRbtcOnRsk(params: {
 			ETHERSWAP_ADDRESS,
 			params.sourceConnectedWalletId ?? 'builtin'
 		);
+		console.warn(
+			'[claimRbtcOnRsk] submitting claim: contract=%s amount=%s sats',
+			ETHERSWAP_ADDRESS.substring(0, 10),
+			params.amount
+		);
 
-		let txHash: string;
+		// Use sendEvmTransaction which verifies on-chain receipt.
+		const { data: txHash, error: claimError } = await sendEvmTransaction({
+			to: ETHERSWAP_ADDRESS,
+			data: calldata,
+			value: 0n,
+			chain: 'rsk',
+			gasLimit: GAS_LIMIT_RSK_CLAIM,
+			sourceConnectedWalletId: params.sourceConnectedWalletId
+		});
 
-		if (params.sourceConnectedWalletId) {
-			const evmSigner = getEvmSigner(params.sourceConnectedWalletId);
-			if (!evmSigner) {
-				return new Error('Connected wallet EVM signer not available for RSK claim');
-			}
-			dClaim.log('Claiming via connected wallet %s on RSK', params.sourceConnectedWalletId);
-			const result = await evmSigner.sendTransaction({
-				to: ETHERSWAP_ADDRESS,
-				data: calldata,
-				value: 0n,
-				chainId: CHAIN_ID_RSK
-			});
-			txHash = result.txHash;
-		} else {
-			dClaim.log('Claiming via built-in wallet on RSK');
-			txHash = await sendRawTransaction({
-				to: ETHERSWAP_ADDRESS,
-				data: calldata,
-				value: '0',
-				gasLimit: GAS_LIMIT_RSK_CLAIM
-			});
+		if (claimError) {
+			console.warn('[claimRbtcOnRsk] CLAIM FAILED: %s', claimError.message);
+			dClaim.error('rBTC claim failed: %s', claimError.message);
+			return claimError;
 		}
 
-		dClaim.log('rBTC claim tx: %s', txHash);
+		console.warn('[claimRbtcOnRsk] CLAIM CONFIRMED: %s', txHash);
+		dClaim.log('rBTC claim confirmed on RSK: %s', txHash);
 
 		Sentry.addBreadcrumb({
 			category: 'boltz',

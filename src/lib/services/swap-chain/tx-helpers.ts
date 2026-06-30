@@ -18,6 +18,179 @@ import { CHAIN_ID_ARB, CHAIN_ID_RSK, CHAIN_ID_BSC, GAS_LIMIT_RSK } from './utils
 const d = createDebug('swap-chain:tx');
 
 // ---------------------------------------------------------------------------
+// ERC-20 Balance Query
+// ---------------------------------------------------------------------------
+
+/**
+ * Query an ERC-20 token balance on-chain via eth_call.
+ *
+ * Calls `balanceOf(address)` on the token contract and returns the raw
+ * balance in the token's smallest unit (e.g., wei for 18-decimal tokens,
+ * sats for 8-decimal tokens).
+ *
+ * @param tokenAddress - ERC-20 contract address
+ * @param walletAddress - Wallet address to query
+ * @param chain - Chain to query on
+ * @returns Balance as bigint, or null on RPC error (callers must handle)
+ */
+export async function queryERC20Balance(
+	tokenAddress: string,
+	walletAddress: string,
+	chain: 'rsk' | 'arbitrum' | 'bsc'
+): Promise<bigint | null> {
+	const rpcUrl = RECEIPT_RPC_URLS[chain];
+	if (!rpcUrl) return 0n;
+
+	// balanceOf(address) selector = 0x70a08231
+	const paddedAddr = walletAddress.toLowerCase().replace('0x', '').padStart(64, '0');
+	const calldata = `0x70a08231${paddedAddr}`;
+
+	try {
+		const resp = await fetch(rpcUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_call',
+				params: [{ to: tokenAddress, data: calldata }, 'latest'],
+				id: 1
+			})
+		});
+		const data = await resp.json();
+		if (data.result && data.result !== '0x') {
+			return BigInt(data.result);
+		}
+		return 0n;
+	} catch (e) {
+		d.warn(
+			'queryERC20Balance RPC error: %s token=%s chain=%s',
+			(e as Error).message,
+			tokenAddress.slice(0, 10),
+			chain
+		);
+		return null;
+	}
+}
+
+/**
+ * Poll an ERC-20 balance until it reaches a minimum amount.
+ *
+ * Used between multi-hop swaps to verify that the intermediate token
+ * (e.g., tBTC from Symbiosis) has arrived before the next hop (e.g., Boltz).
+ *
+ * @param tokenAddress - ERC-20 contract address
+ * @param walletAddress - Wallet address to query
+ * @param minBalance - Minimum balance to wait for (in smallest unit)
+ * @param chain - Chain to query on
+ * @param maxWaitMs - Maximum wait time in ms (default 120s)
+ * @returns Final balance as bigint (may be 0n on timeout)
+ */
+export async function waitForERC20Balance(
+	tokenAddress: string,
+	walletAddress: string,
+	minBalance: bigint,
+	chain: 'rsk' | 'arbitrum' | 'bsc',
+	maxWaitMs = 120_000
+): Promise<bigint> {
+	const startTime = Date.now();
+	let pollInterval = 3000;
+	const MAX_POLL_INTERVAL = 10_000;
+
+	while (Date.now() - startTime < maxWaitMs) {
+		const balance = await queryERC20Balance(tokenAddress, walletAddress, chain);
+		// null = RPC error, treat as 0 and retry
+		const effectiveBalance = balance ?? 0n;
+		if (effectiveBalance >= minBalance) {
+			return effectiveBalance;
+		}
+
+		const elapsed = Math.round((Date.now() - startTime) / 1000);
+		console.warn(
+			'[waitForERC20Balance] token=%s balance=%s min=%s elapsed=%ds',
+			tokenAddress.slice(0, 10),
+			effectiveBalance.toString(),
+			minBalance.toString(),
+			elapsed
+		);
+
+		await new Promise((r) => setTimeout(r, pollInterval));
+		pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL);
+	}
+
+	// Final check after timeout
+	const finalBalance = await queryERC20Balance(tokenAddress, walletAddress, chain);
+	return finalBalance ?? 0n;
+}
+
+// ---------------------------------------------------------------------------
+// Receipt Verification
+// ---------------------------------------------------------------------------
+
+/** RPC URLs for receipt polling per chain */
+const RECEIPT_RPC_URLS: Record<string, string> = {
+	arbitrum: 'https://arb1.arbitrum.io/rpc',
+	rsk: 'https://mainnet.sovryn.app/rpc',
+	bsc: 'https://bsc-dataseed.binance.org'
+};
+
+/** Polling interval per chain (ms) — Arbitrum has fast blocks, RSK is slower */
+const RECEIPT_POLL_INTERVAL_MS: Record<string, number> = {
+	arbitrum: 2_000,
+	rsk: 5_000,
+	bsc: 3_000
+};
+
+/** Max polling attempts before giving up (60 × interval ≈ 120s–300s) */
+const RECEIPT_MAX_ATTEMPTS = 60;
+
+/**
+ * Poll for a transaction receipt until it is available or we time out.
+ *
+ * @returns Receipt with status and gasUsed, or `null` on timeout.
+ */
+export async function waitForReceipt(
+	txHash: string,
+	chain: string
+): Promise<{ status: string; gasUsed: number } | null> {
+	const rpcUrl = RECEIPT_RPC_URLS[chain];
+	if (!rpcUrl) {
+		console.warn('[waitForReceipt] No RPC URL configured for chain:', chain);
+		return null;
+	}
+
+	const pollInterval = RECEIPT_POLL_INTERVAL_MS[chain] ?? 3_000;
+
+	for (let i = 0; i < RECEIPT_MAX_ATTEMPTS; i++) {
+		// First attempt is immediate; subsequent attempts wait the poll interval.
+		if (i > 0) {
+			await new Promise((r) => setTimeout(r, pollInterval));
+		}
+		try {
+			const resp = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_getTransactionReceipt',
+					params: [txHash],
+					id: 1
+				})
+			});
+			const data = await resp.json();
+			if (data.result) {
+				return {
+					status: data.result.status,
+					gasUsed: parseInt(data.result.gasUsed, 16)
+				};
+			}
+		} catch {
+			// Transient network error — retry on next iteration
+		}
+	}
+	return null; // Timed out
+}
+
+// ---------------------------------------------------------------------------
 // EVM Transaction Helper
 // ---------------------------------------------------------------------------
 
@@ -45,6 +218,15 @@ export async function sendEvmTransaction(
 ): Promise<{ data: string | null; error: Error | null }> {
 	const { to, data, value, chain, gasLimit = GAS_LIMIT_RSK, sourceConnectedWalletId } = params;
 	const safeTo = safeAddress(to);
+	console.warn(
+		'[sendEvmTransaction] START chain=%s to=%s safeTo=%s value=%s dataLen=%d connected=%s',
+		chain,
+		to?.slice(0, 10),
+		safeTo?.slice(0, 10) || 'EMPTY',
+		String(value).slice(0, 20),
+		data?.length ?? 0,
+		sourceConnectedWalletId ?? 'builtin'
+	);
 	if (!safeTo) {
 		return {
 			data: null,
@@ -56,6 +238,7 @@ export async function sendEvmTransaction(
 		let txHash: string;
 
 		if (sourceConnectedWalletId) {
+			console.warn('[sendEvmTransaction] Using connected wallet:', sourceConnectedWalletId);
 			const evmSigner = getEvmSigner(sourceConnectedWalletId);
 			if (!evmSigner) {
 				return {
@@ -66,10 +249,16 @@ export async function sendEvmTransaction(
 
 			if (chain === 'arbitrum') {
 				// Use gasless relay for Arbitrum connected wallet transactions
+				console.warn('[sendEvmTransaction] Calling sendConnectedWalletArbitrumTx...');
 				txHash = await sendConnectedWalletArbitrumTx(evmSigner, safeTo, data, String(value));
+				console.warn('[sendEvmTransaction] sendConnectedWalletArbitrumTx done:', txHash);
 			} else {
 				const chainId = chain === 'rsk' ? CHAIN_ID_RSK : CHAIN_ID_BSC;
 				const txValue = typeof value === 'string' ? BigInt(value) : value;
+				console.warn(
+					'[sendEvmTransaction] Calling evmSigner.sendTransaction chainId=%d...',
+					chainId
+				);
 				const result = await evmSigner.sendTransaction({
 					to: safeTo,
 					data,
@@ -77,10 +266,12 @@ export async function sendEvmTransaction(
 					chainId
 				});
 				txHash = result.txHash;
+				console.warn('[sendEvmTransaction] evmSigner.sendTransaction done:', txHash);
 			}
 		} else {
 			// Built-in wallet
 			if (chain === 'arbitrum') {
+				console.warn('[sendEvmTransaction] Calling sendArbitrumTransaction (built-in)...');
 				txHash = await sendArbitrumTransaction({
 					to: safeTo,
 					data,
@@ -88,6 +279,7 @@ export async function sendEvmTransaction(
 					gasLimit
 				});
 			} else {
+				console.warn('[sendEvmTransaction] Calling sendRawTransaction (built-in RSK/BSC)...');
 				txHash = await sendRawTransaction({
 					to: safeTo,
 					data,
@@ -95,11 +287,39 @@ export async function sendEvmTransaction(
 					gasLimit
 				});
 			}
+			console.warn('[sendEvmTransaction] Built-in wallet txHash:', txHash);
 		}
+
+		// ── Receipt verification ─────────────────────────────────────────
+		// A reverted tx still has a hash. We must wait for the receipt and
+		// verify on-chain success before declaring the hop complete.
+		console.warn('[sendEvmTransaction] tx submitted: %s, waiting for receipt...', txHash);
+
+		const receipt = await waitForReceipt(txHash, chain);
+		if (!receipt) {
+			return {
+				data: null,
+				error: new Error(`Transaction ${txHash.slice(0, 10)}... failed: no receipt after timeout`)
+			};
+		}
+		if (receipt.status === '0x0' || receipt.status === '0') {
+			return {
+				data: null,
+				error: new Error(
+					`Transaction ${txHash.slice(0, 10)}... reverted on-chain (gasUsed: ${receipt.gasUsed})`
+				)
+			};
+		}
+		console.warn(
+			'[sendEvmTransaction] tx confirmed: status=%s gasUsed=%s',
+			receipt.status,
+			receipt.gasUsed
+		);
 
 		return { data: txHash, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
+		console.warn('[sendEvmTransaction] CAUGHT:', message);
 		d.error('EVM transaction failed (%s): %s', chain, message);
 		Sentry.addBreadcrumb({
 			category: 'swap-chain.tx',

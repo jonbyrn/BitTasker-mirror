@@ -19,7 +19,7 @@ import {
 	type ChainSwapData,
 	type SwapPairs,
 	type SwapUpdateEvent,
-	ERC20_ABI,
+	ERC20_ABI
 	// ARB_TOKEN_ADDRESSES
 } from '@bittasker/wallet-core';
 import type { SwapPairsCache, TokenBalance, GasMode, DelegationState } from '$lib/types/wallet';
@@ -75,9 +75,8 @@ import { addBreadcrumb } from '@sentry/sveltekit';
 // export const WBTC_ARBITRUM_ADDRESS = ARB_TOKEN_ADDRESSES.WBTC;
 export const WBTC_ARBITRUM_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
 
-/** Arbitrum tBTC contract address (canonical — from @bittasker/wallet-core). */
-// export const TBTC_ARBITRUM_ADDRESS = ARB_TOKEN_ADDRESSES.TBTC;
-export const TBTC_ARBITRUM_ADDRESS = '0x8daebade922df735c38c80c7ebd708af50815faa';
+/** Arbitrum tBTC contract address (canonical tBTC v2 on Arbitrum). */
+export const TBTC_ARBITRUM_ADDRESS = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
 
 // Extended wallet state with processed transactions and multi-chain fields
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -99,6 +98,8 @@ type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 		wbtcBalance: string;
 		formattedWbtcBalance: string;
 		wbtcUsdValue: number;
+		tbtcBalance: string;
+		formattedTbtcBalance: string;
 		blockNumber: number | null;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		provider: any | null;
@@ -158,6 +159,8 @@ const initialState: WalletStateExtended = {
 		wbtcBalance: '0',
 		formattedWbtcBalance: '0.00',
 		wbtcUsdValue: 0,
+		tbtcBalance: '0',
+		formattedTbtcBalance: '0.00',
 		blockNumber: null,
 		provider: null,
 		wallet: null,
@@ -655,12 +658,20 @@ async function fetchWithRetry<T>(
  */
 let _loadAssetsLock = false;
 
-async function loadAssets(): Promise<void> {
+async function loadAssets(forceRefresh = false): Promise<void> {
 	if (_loadAssetsLock) return;
 	_loadAssetsLock = true;
 	try {
 		const manager = getWalletManager();
 		const state = get(walletStore);
+
+		// When force-refreshing (e.g., user taps refresh button), clear all
+		// token balance caches so on-chain data is re-fetched immediately.
+		// Without this, Arbitrum token balances (wBTC, tBTC, USDT0) return
+		// stale cached values for up to 1 minute after swap txs consume tokens.
+		if (forceRefresh) {
+			tokenBalanceService.clearCache();
+		}
 		const assets: WalletAsset[] = [];
 
 		// Initialize totals
@@ -712,18 +723,30 @@ async function loadAssets(): Promise<void> {
 				? fetchWithRetry(() =>
 						tokenBalanceService.getArbitrumTokenBalance(
 							walletAddress,
-							'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' // USDT0 on Arbitrum
+							'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // USDT0 on Arbitrum
+							6,
+							forceRefresh
 						)
 					)
 				: Promise.resolve(null),
 			walletAddress
 				? fetchWithRetry(() =>
-						tokenBalanceService.getArbitrumTokenBalance(walletAddress, WBTC_ARBITRUM_ADDRESS)
+						tokenBalanceService.getArbitrumTokenBalance(
+							walletAddress,
+							WBTC_ARBITRUM_ADDRESS,
+							8,
+							forceRefresh
+						)
 					)
 				: Promise.resolve(null),
 			walletAddress
 				? fetchWithRetry(() =>
-						tokenBalanceService.getArbitrumTokenBalance(walletAddress, TBTC_ARBITRUM_ADDRESS, 18)
+						tokenBalanceService.getArbitrumTokenBalance(
+							walletAddress,
+							TBTC_ARBITRUM_ADDRESS,
+							18,
+							forceRefresh
+						)
 					)
 				: Promise.resolve(null),
 			bscAddress ? fetchBuiltinWalletTier2Balances(bscAddress) : Promise.resolve({})
@@ -920,6 +943,16 @@ async function loadAssets(): Promise<void> {
 				totalRbtc += tbtcFormatted;
 				totalUsd += tbtcUsdValue;
 
+				// Store tBTC balance in arb state so SwapForm can read it
+				walletStore.update((s) => ({
+					...s,
+					arb: {
+						...s.arb,
+						tbtcBalance: arbTbtcBalance.balance?.toString() || '0',
+						formattedTbtcBalance: arbTbtcBalance.formattedBalance || '0.00'
+					}
+				}));
+
 				assets.push({
 					assetId: 'tbtc-arb',
 					name: 'Bitcoin (tBTC)',
@@ -1013,6 +1046,8 @@ async function loadAssets(): Promise<void> {
 		}
 
 		// Calculate total sats (RBTC to sats)
+		// NOTE: totalBalances.sats = rBTC ONLY. Used by SwapForm, ReceivePayment, BuySell, etc.
+		// wBTC sats are tracked separately and added in BalanceCard for display.
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
 
 		// Update store with assets and totals
@@ -1125,7 +1160,7 @@ async function loadTransactionsInternal(): Promise<void> {
 		const arbTxs = arbAddress ? await fetchArbitrumTransactions(arbAddress) : [];
 
 		// Process blockchain transactions
-		const [processedRskTxs, processedBscTxs, processedArbTxs] = await Promise.all([
+		const [processedRskTxs, processedBscTxs, _processedArbTxs] = await Promise.all([
 			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
 			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats),
 			arbTxs.length > 0
@@ -1469,12 +1504,18 @@ export async function sendArbitrumTransaction(params: {
 				const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000_000_000_000_000n;
 
 				const callValue = params.value ? BigInt(params.value) : 0n;
-				const txHash = await sendGaslessCalls(
-					[{ to: params.to, data: params.data, value: callValue }],
-					feeToken,
-					feeBuffer,
-					jwt
-				);
+				// Add 30s timeout to gasless relay — if it hangs, fall through to direct tx
+				const txHash = await Promise.race([
+					sendGaslessCalls(
+						[{ to: params.to, data: params.data, value: callValue }],
+						feeToken,
+						feeBuffer,
+						jwt
+					),
+					new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
+					)
+				]);
 
 				await Promise.allSettled([loadAssets(), loadTransactions()]);
 				return txHash;
@@ -1488,7 +1529,8 @@ export async function sendArbitrumTransaction(params: {
 		);
 	}
 
-	// --- Direct path (RSK wallet signs and sends) ---
+	// --- Direct path (RSK wallet signs and sends with ETH for gas) ---
+	console.warn('[sendArbitrumTransaction] Falling back to direct tx with ETH for gas');
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
 	const arbProvider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
@@ -1499,6 +1541,7 @@ export async function sendArbitrumTransaction(params: {
 		value: params.value,
 		...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
 	});
+	console.warn('[sendArbitrumTransaction] Direct tx submitted: %s', tx.hash);
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
 	return tx.hash;
 }

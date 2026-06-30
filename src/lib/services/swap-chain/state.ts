@@ -29,7 +29,10 @@ const d = createDebug('swap-chain');
 export function safeAddress(addr: string | undefined | null): string {
 	if (!addr || typeof addr !== 'string') return '';
 	try {
-		return ethers.getAddress(addr.trim());
+		// ethers v6 rejects addresses with incorrect EIP-55 checksum.
+		// Wallet store addresses may have mixed case that doesn't match.
+		// Lowercase first ensures getAddress() always succeeds for valid hex.
+		return ethers.getAddress(addr.trim().toLowerCase());
 	} catch {
 		return '';
 	}

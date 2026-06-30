@@ -105,11 +105,12 @@ export function resolveChainId(chainName: string): number {
  * and for any unrecognised asset.
  */
 export function resolveTokenAddress(asset: string, chainId: number): string {
-	if (asset === 'RBTC' || asset === 'BTC') return NATIVE_TOKEN;
-	if (asset === 'USDT0') return USDT0_ARB_ADDR;
-	if (asset === 'TBTC') return TBTC_ARB;
-	if (asset === 'WBTC') return WBTC_ARB;
-	if (asset === 'USDT') {
+	const upper = asset.toUpperCase();
+	if (upper === 'RBTC' || upper === 'BTC') return NATIVE_TOKEN;
+	if (upper === 'USDT0') return USDT0_ARB_ADDR;
+	if (upper === 'TBTC') return TBTC_ARB;
+	if (upper === 'WBTC') return WBTC_ARB;
+	if (upper === 'USDT') {
 		return chainId === CHAIN_ID_ARB ? USDT0_ARB_ADDR : USDT_BSC;
 	}
 	return NATIVE_TOKEN;
@@ -119,8 +120,8 @@ export function resolveTokenAddress(asset: string, chainId: number): string {
 // NOTE: LI.FI and Symbiosis use different decimal conventions for the
 // same assets.  LI.FI works with EVM-wrapped representations (BTC=18
 // as an ERC-20, USDT/USDT0=6), while Symbiosis uses the actual token
-// decimals on the source chain (BTC=8 native, USDT/USDT0=18 on
-// BSC/Arbitrum).  Each hop function must pick the correct map.
+// decimals on the source chain (BTC=8 native, USDT=18 on BSC,
+// USDT0=6 on Arbitrum).  Each hop function must pick the correct map.
 
 /** LI.FI decimals — EVM-wrapped token representations */
 export const LIFI_ASSET_DECIMALS: Record<string, number> = {
@@ -134,11 +135,20 @@ export const LIFI_ASSET_DECIMALS: Record<string, number> = {
 };
 
 /** Symbiosis decimals — native / source-chain token representations */
-export const SYMBIOSIS_ASSET_DECIMALS: Record<string, number> = {
+const _SYMBIOSIS_DECIMALS: Record<string, number> = {
 	RBTC: 18,
 	BTC: 8,
 	TBTC: 18,
 	WBTC: 8,
-	USDT0: 18,
+	USDT0: 6,
 	USDT: 18
 };
+
+/**
+ * Case-insensitive lookup for Symbiosis asset decimals.
+ * Route hops from Symbiosis use token registry symbols (e.g. 'tBTC')
+ * while the map keys are uppercase. This helper normalises before lookup.
+ */
+export function getSymbiosisDecimals(asset: string): number {
+	return _SYMBIOSIS_DECIMALS[asset.toUpperCase()] ?? 18;
+}
