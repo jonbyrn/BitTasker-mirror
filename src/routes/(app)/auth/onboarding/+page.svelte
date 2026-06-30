@@ -52,14 +52,15 @@
 			isPublishing = true;
 			publishError = '';
 			try {
-				const sk = generateSecretKey();
-				formData.nsec = bytesToHex(sk);
-				formData.npub = getPublicKey(sk);
+				if (!formData.nsec) {
+					const sk = generateSecretKey();
+					formData.nsec = bytesToHex(sk);
+					formData.npub = getPublicKey(sk);
 
-				// generate username from display name and npub
-				formData.username = await resolveHandle(formData.displayName, formData.npub);
-
-				await applyNdkSignerFromNsec(sk);
+					// generate username from display name and npub
+					formData.username = await resolveHandle(formData.displayName, formData.npub);
+					await applyNdkSignerFromNsec(sk);
+				}
 
 				const displayName = formData.displayName.trim();
 				await publishProfileMetadata({ display_name: displayName }, {}, undefined, {
