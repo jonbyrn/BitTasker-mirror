@@ -382,13 +382,19 @@
 							</div>
 							<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
 						{:else}
+							{@const totalBtcSats =
+								($totalBalances?.sats ?? 0) + Math.floor((wbtcAsset?.balance ?? 0) * 100_000_000)}
+							{@const totalBtcUsd =
+								(bitcoinAsset?.usdValue ?? 0) +
+								(wbtcAsset?.usdValue ?? 0) +
+								(tbtcAsset?.usdValue ?? 0)}
 							<div class="text-sm font-semibold sm:text-base">
-								{formatSats($totalBalances?.sats ?? 0)}
+								{formatSats(totalBtcSats)}
 								{$t('wallet.sats')}
 							</div>
-							{#if bitcoinAsset?.usdValue}
+							{#if totalBtcUsd > 0}
 								<div class="text-xs opacity-70 sm:text-sm">
-									≈ ${bitcoinAsset.usdValue.toFixed(2)}
+									≈ ${totalBtcUsd.toFixed(2)}
 								</div>
 							{/if}
 						{/if}

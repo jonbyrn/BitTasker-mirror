@@ -46,6 +46,13 @@
 	}>();
 
 	// -----------------------------------------------------------------------
+	// Constants
+	// -----------------------------------------------------------------------
+	/** Gas reserve in sats for native token sells (rBTC). Ensures the user
+	 *  can pay for the Symbiosis swap gas. ~0.001 RBTC ≈ $0.06 at $59k. */
+	const SELL_GAS_RESERVE_SATS = 100_000;
+
+	// -----------------------------------------------------------------------
 	// Locale-aware formatter
 	// -----------------------------------------------------------------------
 	const usdFormatter = $derived(
@@ -294,6 +301,14 @@
 	/** Whether the amount field shows sats (BTC assets only, toggleable). Defaults to false (USD). */
 	let showSats = $state(false);
 
+	/** Whether the MAX button and slider should be disabled (zero balance). */
+	let sellMaxDisabled = $derived.by(() => {
+		if (activeTab !== 'sell') return false;
+		if (selectedCrypto === 'rbtc') return parseFloat(rbtcBalance) <= 0;
+		if (selectedCrypto === 'wbtc-arb') return parseFloat(wbtcBalance) <= 0;
+		return parseFloat(usdtBalance) <= 0;
+	});
+
 	// -----------------------------------------------------------------------
 	// Derived: selected source has BTC on-chain
 	// -----------------------------------------------------------------------
@@ -445,7 +460,9 @@
 			const raw = Number(w?.balances?.rbtc?.raw ?? 0);
 			return (isNaN(raw) ? 0 : raw / 100_000_000).toFixed(6);
 		}
-		return $walletStore.rsk?.formattedBalance || '0.00';
+		// Use totalBalances.sats (rBTC + tBTC) to match SwapForm — not rsk.formattedBalance (rBTC only)
+		const sats = $walletStore.totalBalances?.sats ?? 0;
+		return (sats / 100_000_000).toFixed(6);
 	});
 
 	let usdtBalance = $derived.by(() => {
@@ -676,8 +693,8 @@
 		if (isConnectedSource) {
 			const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
 			if (selectedCrypto === 'rbtc') {
-				const raw = Number(w?.balances?.rbtc?.raw ?? 0);
-				if (isNaN(raw) || raw === 0) {
+				const raw = Math.max(0, Number(w?.balances?.rbtc?.raw ?? 0) - SELL_GAS_RESERVE_SATS);
+				if (isNaN(raw) || raw <= 0) {
 					maxVal = '0';
 				} else if (activeTab === 'sell' && showSats) {
 					maxVal = String(Math.floor(raw));
@@ -707,7 +724,7 @@
 		} else {
 			if (activeTab === 'sell') {
 				if (selectedCrypto === 'rbtc') {
-					const sats = $walletStore.totalBalances.sats;
+					const sats = Math.max(0, $walletStore.totalBalances.sats - SELL_GAS_RESERVE_SATS);
 					maxVal = showSats ? String(sats) : ((sats / 100_000_000) * btcPrice.price).toFixed(2);
 				} else if (selectedCrypto === 'wbtc-arb') {
 					const sats = Math.round(parseFloat(wbtcBalance) * 100_000_000);
@@ -762,6 +779,10 @@
 			} else {
 				fullBalance = parseFloat(usdtBalance);
 			}
+		}
+		// For native token sells (rBTC), subtract gas reserve so 100% doesn't drain the wallet
+		if (activeTab === 'sell' && selectedCrypto === 'rbtc' && fullBalance > SELL_GAS_RESERVE_SATS) {
+			fullBalance -= SELL_GAS_RESERVE_SATS;
 		}
 		const val = (fullBalance * pct) / 100;
 		const isBtcAsset =
@@ -1369,6 +1390,8 @@
 							}}
 							onClear={clearAmount}
 							onMaxAmount={onSellMaxAmount}
+							maxDisabled={sellMaxDisabled}
+							sliderDisabled={sellMaxDisabled}
 							showPercentSlider={true}
 							percent={swapPercent}
 							onPercentChange={onSellPercentChange}

@@ -1046,7 +1046,7 @@ async function loadAssets(forceRefresh = false): Promise<void> {
 		}
 
 		// Calculate total sats (RBTC to sats)
-		// NOTE: totalBalances.sats = rBTC ONLY. Used by SwapForm, ReceivePayment, BuySell, etc.
+		// NOTE: totalBalances.sats = rBTC + tBTC. Used by SwapForm, ReceivePayment, BuySell, etc.
 		// wBTC sats are tracked separately and added in BalanceCard for display.
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
 
