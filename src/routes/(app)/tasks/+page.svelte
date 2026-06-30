@@ -515,7 +515,7 @@
 			limit: TASKS_PER_PAGE
 		};
 
-		manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
+		await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
 
 		await loadNostrData();
 	}, SEARCH_DEBOUNCE_DELAY);
@@ -540,7 +540,7 @@
 		// Update UI controls based on applied filters
 		searchQuery = filters.search || '';
 
-		manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
+		await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
 
 		try {
 			await findTasks(searchParams);
@@ -561,7 +561,7 @@
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
-		dismissSaveSearchBanner();
+		await dismissSaveSearchBanner();
 
 		// Clear existing tasks when clearing filters
 		clearTasksStore();

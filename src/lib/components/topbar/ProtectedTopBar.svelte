@@ -129,7 +129,6 @@
 	async function confirmedLogout() {
 		showLogoutModal = false;
 		await authState.logout();
-		await goto('/', { replaceState: true });
 	}
 
 	function cancelLogout() {

@@ -355,7 +355,7 @@ export async function triggerPendingReviewBanner(
 
 		let toastId: number | null = null;
 
-		toastId = appStore.showBanner({
+		toastId = await appStore.showBanner({
 			message: { key: i18nKey, values: { count } },
 			dedupKey,
 			actions: [

@@ -50,6 +50,29 @@ vi.mock('$app/navigation', () => ({
 	disableScrollHandling: vi.fn()
 }));
 
+// Mock auth store — avoids pulling in NDK, session, deep-link, and other heavy dependencies.
+// Tests that need specific auth state can override with their own vi.mock.
+vi.mock('$lib/stores/auth.store', () => {
+	const { writable } = require('svelte/store');
+	const store = writable({ isAuthenticated: true, isLoading: false, error: null });
+	return {
+		authState: {
+			subscribe: store.subscribe,
+			set: store.set,
+			login: vi.fn(async () => {
+				store.update((s: Record<string, unknown>) => ({ ...s, isAuthenticated: true }));
+			}),
+			logout: vi.fn(async () => {
+				store.set({ isAuthenticated: false, isLoading: false, error: null });
+			}),
+			setLoading: vi.fn(),
+			setError: vi.fn(),
+			setupAuthData: vi.fn()
+		},
+		isCaptchaVerified: writable(false)
+	};
+});
+
 // @bittasker/reviews-contracts dist uses extensionless ESM re-exports that fail in Vitest's resolver
 vi.mock('@bittasker/reviews-contracts', () => {
 	const ONCHAIN_STATE_MAP: Record<number, string> = {

@@ -224,9 +224,8 @@
 
 	async function handleLogoutConfirm() {
 		showLogoutConfirm = false;
-		await authState.logout();
 		closeMenu();
-		await goto('/', { replaceState: true });
+		await authState.logout();
 	}
 
 	function handleLogoutCancel() {

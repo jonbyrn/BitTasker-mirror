@@ -287,7 +287,7 @@
 			};
 			searchParams = { ...capturedSearchParams, ...newParams };
 
-			manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
+			await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
 
 			try {
 				await findServicesWithTimeout(searchParams);
@@ -328,7 +328,7 @@
 		isApplyingFilters = false;
 		isFilterDrawerOpen = false;
 
-		manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
+		await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
 
 		servicesStore.update((state) => ({
 			...state,
@@ -342,7 +342,7 @@
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
-		dismissSaveSearchBanner();
+		await dismissSaveSearchBanner();
 
 		servicesStore.update((state) => ({
 			...state,

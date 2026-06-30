@@ -1,22 +1,23 @@
 import { appStore } from '$lib/stores/app.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { Preferences } from '@capacitor/preferences';
 
 let activeBannerId: number | null = null;
 
-function getDismissedHashes(): string[] {
+async function getDismissedHashes(): Promise<string[]> {
 	try {
-		const raw = localStorage.getItem(StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS);
+		const { value: raw } = await Preferences.get({ key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS });
 		return raw ? JSON.parse(raw) : [];
 	} catch {
 		return [];
 	}
 }
 
-function storeDismissedHash(hash: string): void {
-	const hashes = getDismissedHashes();
+async function storeDismissedHash(hash: string): Promise<void> {
+	const hashes = await getDismissedHashes();
 	if (!hashes.includes(hash)) {
 		hashes.push(hash);
-		localStorage.setItem(StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS, JSON.stringify(hashes));
+		await Preferences.set({ key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS, value: JSON.stringify(hashes) });
 	}
 }
 
@@ -98,52 +99,52 @@ function hasActiveFilters(params: Record<string, unknown>): boolean {
 	return false;
 }
 
-export function dismissSaveSearchBanner(): void {
+export async function dismissSaveSearchBanner(): Promise<void> {
 	if (activeBannerId !== null) {
-		appStore.dismissBanner(activeBannerId);
+		await appStore.dismissBanner(activeBannerId);
 		activeBannerId = null;
 	}
 }
 
-export function manageSaveSearchBanner(
+export async function manageSaveSearchBanner(
 	searchParams: Record<string, unknown>,
 	searchType: 'tasks' | 'services',
 	onEnable: () => void
-): void {
+): Promise<void> {
 	const hash = computeFilterHash(searchParams);
 	const active = hasActiveFilters(searchParams);
-	const dismissed = getDismissedHashes().includes(hash);
+	const dismissed = (await getDismissedHashes()).includes(hash);
 	const shouldShow = active && !dismissed && hash !== '';
 
 	if (!shouldShow) {
-		dismissSaveSearchBanner();
+		await dismissSaveSearchBanner();
 		return;
 	}
 
-	dismissSaveSearchBanner();
+	await dismissSaveSearchBanner();
 
 	const messageKey =
 		searchType === 'tasks'
 			? 'notifications.save_search_prompt.description_task'
 			: 'notifications.save_search_prompt.description_service';
 
-	activeBannerId = appStore.showBanner({
+	activeBannerId = await appStore.showBanner({
 		message: { key: messageKey },
 		dedupKey: `save-search-prompt-${searchType}-${hash}`,
 		actions: [
 			{
 				label: 'notifications.save_search_prompt.dismiss_button',
-				onClick: () => {
-					storeDismissedHash(hash);
-					dismissSaveSearchBanner();
+				onClick: async () => {
+					await storeDismissedHash(hash);
+					await dismissSaveSearchBanner();
 				},
 				variant: 'ghost'
 			},
 			{
 				label: 'notifications.save_search_prompt.enable_button',
-				onClick: () => {
-					storeDismissedHash(hash);
-					dismissSaveSearchBanner();
+				onClick: async () => {
+					await storeDismissedHash(hash);
+					await dismissSaveSearchBanner();
 					onEnable();
 				},
 				variant: 'primary'

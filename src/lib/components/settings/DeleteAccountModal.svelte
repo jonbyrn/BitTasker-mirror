@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { broadcastAccountDeletion } from '$lib/nostr/accountDeletion';
@@ -26,12 +25,11 @@
 			// the rest of the flow — relay cooperation is best-effort.
 			await broadcastAccountDeletion();
 
-			// Step 3: Logout
+			// Step 3: Logout (navigates to / internally)
 			await authState.logout();
 
-			// Step 5: Close the modal and redirect to the landing page.
+			// Step 4: Close the modal
 			onClose();
-			await goto('/');
 		} catch (error) {
 			console.error('[DeleteAccountModal] Account deletion failed:', error);
 			appStore.showErrorToast($t('settings.delete_account.error'));

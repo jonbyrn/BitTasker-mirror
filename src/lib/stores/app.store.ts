@@ -1,5 +1,6 @@
 import type { BiometricData } from '$lib/types/auth';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+import { Preferences } from '@capacitor/preferences';
 import { SimplePool } from 'nostr-tools';
 import { get, writable } from 'svelte/store';
 
@@ -133,17 +134,17 @@ const createAppStore = () => {
 		showInfoToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
 			addToast({ type: 'info', message, dedupKey: options?.dedupKey }, timeout);
 		},
-		showBanner: (options: {
+		showBanner: async (options: {
 			message: string | { key: string; values?: Record<string, unknown> };
 			actions?: ToastAction[];
 			dismissible?: boolean;
 			dismissKey?: string;
 			dedupKey?: string;
 			duration?: number;
-		}): number | null => {
+		}): Promise<number | null> => {
 			const { message, actions, dismissible = true, dismissKey, dedupKey, duration = 0 } = options;
 			if (dismissKey) {
-				const dismissedUntil = localStorage.getItem(dismissKey);
+				const { value: dismissedUntil } = await Preferences.get({ key: dismissKey });
 				if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
 					return null;
 				}
@@ -159,10 +160,10 @@ const createAppStore = () => {
 				duration
 			);
 		},
-		dismissBanner: (toastId: number, dismissKey?: string, dismissDurationMs?: number) => {
+		dismissBanner: async (toastId: number, dismissKey?: string, dismissDurationMs?: number) => {
 			if (dismissKey) {
 				const until = Date.now() + (dismissDurationMs ?? 24 * 60 * 60 * 1000);
-				localStorage.setItem(dismissKey, String(until));
+				await Preferences.set({ key: dismissKey, value: String(until) });
 			}
 			update((state) => ({
 				...state,

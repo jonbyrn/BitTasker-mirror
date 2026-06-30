@@ -4,7 +4,6 @@
 	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
-	import { goto } from '$app/navigation';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import DeleteAccountModal from '$lib/components/settings/DeleteAccountModal.svelte';
 
@@ -19,7 +18,6 @@
 	async function confirmedLogout() {
 		showLogoutModal = false;
 		await authState.logout();
-		await goto('/', { replaceState: true });
 	}
 </script>
 

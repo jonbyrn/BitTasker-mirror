@@ -331,12 +331,10 @@
 		Array.from({ length: totalPages }, (_, index) => index + 1)
 	);
 
-	onMount(() => {
+	onMount(async () => {
 		// Load tasks and BTC price
-		(async () => {
-			await loadTasks();
-			await fetchBtcPrice();
-		})();
+		await loadTasks();
+		await fetchBtcPrice();
 	});
 </script>
 

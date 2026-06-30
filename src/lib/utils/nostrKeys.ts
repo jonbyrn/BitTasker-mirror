@@ -92,6 +92,13 @@ export const getNpub = async (): Promise<string> => {
 		return npub;
 	}
 
+	// Guard: don't trigger biometric prompt if the session has been cleared
+	// (e.g. after logout). Without this, component onMount handlers that call
+	// getNpub() during Svelte's reactive cascade after set(initialAuthState)
+	// would fall through to Webauthn.startAuthentication() showing a passkey prompt.
+	const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+	if (!accessToken) return '';
+
 	const credentialData: Credentials | null = await getBiometrics();
 
 	if (!credentialData) throw new Error('No biometric data found');

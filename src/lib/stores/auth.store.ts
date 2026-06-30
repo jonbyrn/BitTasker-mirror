@@ -44,11 +44,22 @@ const createAuthStore = () => {
 		await ndkLogout();
 		ndkIdentity.reset();
 
+		// Dismiss any open banners
+		appStore.update((state) => ({
+			...state,
+			toasts: state.toasts.filter((t) => t.type !== 'banner')
+		}));
+
 		// Destroy the local session (tokens, stores, caches)
 		await destroySession();
 
 		// Reset auth state
 		set(initialAuthState);
+
+		// Navigate to home after clearing auth. Must happen after destroySession()
+		// and set() so the user is no longer authenticated — otherwise the
+		// protected layout guard would redirect to /hiring instead of /.
+		await goto('/', { replaceState: true });
 	};
 
 	const setupAuthData = async (

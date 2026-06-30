@@ -287,7 +287,7 @@ class PushNotificationService {
 	 * Mobile specific - CONSOLIDATED to prevent duplicates (Android only)
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
-		console.log('📨 Foreground notification received:', notification);
+		console.log('📨 Foreground notification received:', notification?.title);
 
 		// Check if this is a device revocation (handle immediately)
 		if (notification.data?.type === 'device_revoked') {
