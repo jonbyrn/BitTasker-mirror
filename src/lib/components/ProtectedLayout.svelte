@@ -33,76 +33,65 @@
 
 <svelte:window bind:innerWidth={width} />
 
-{#if $authState.isLoading}
-	<div class="flex h-dvh w-full flex-col items-center justify-center">
-		<span class="loading loading-spinner loading-xl"></span>
-		<p>{$t('common.loading')}</p>
-	</div>
-{:else if $authState.isAuthenticated}
-	<div
-		class="protected-layout bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col px-2 md:py-4"
-	>
-		<div class="flex min-h-0 flex-1 flex-row gap-8">
-			{#if showSidebar}
-				<div class="w-full shrink-0 md:w-64">
-					<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto">
-						<div class="card bg-base-100 rounded-xl shadow-xl">
-							<div class="card-body p-4">
-								<ul class="menu bg-base-100 rounded-box w-full">
-									{#each sections as section (section.id)}
-										<li class="my-1">
-											<a
-												data-sveltekit-reload="off"
-												href={section.path}
-												class:menu-active={page.url.pathname.startsWith(section.path)}
-												class="flex items-center gap-3"
-											>
-												{#if section.icon === 'mdi:briefcase-outline'}
-													<IconBriefcaseOutline class="text-primary" />
-												{:else if section.icon === 'mdi:trending-up'}
-													<IconTrendingUp class="text-primary" />
-												{:else if section.icon === 'mdi:plus-circle-outline'}
-													<IconPlusCircleOutline class="text-primary" />
-												{:else if section.icon === 'mdi:magnify'}
-													<IconMagnify class="text-primary" />
-												{:else if section.icon === 'mdi:briefcase-search'}
-													<IconBriefcaseSearch class="text-primary" />
-												{:else if section.icon === 'mdi:wallet-outline'}
-													<IconWalletOutline class="text-primary" />
-												{:else if section.icon === 'mdi:account'}
-													<IconAccount class="text-primary" />
-												{:else if section.icon === 'mdi:chat-outline'}
-													<IconChatOutline class="text-primary" />
-												{:else if section.icon === 'mdi:cog'}
-													<IconCog class="text-primary" />
-												{:else if section.icon === 'mdi:star-outline'}
-													<IconStarOutline class="text-primary" />
-												{:else if section.icon === 'mdi:bell-outline'}
-													<IconBellOutline class="text-primary" />
-												{:else}
-													<IconTrendingUp class="text-primary" />
-												{/if}
-												{$t(section.label)}
-											</a>
-										</li>
-									{/each}
-								</ul>
-							</div>
+<div class="protected-layout bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col px-2 md:py-4">
+	<div class="flex min-h-0 flex-1 flex-row gap-8">
+		{#if showSidebar}
+			<div class="w-full shrink-0 md:w-64">
+				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto">
+					<div class="card bg-base-100 rounded-xl shadow-xl">
+						<div class="card-body p-4">
+							<ul class="menu bg-base-100 rounded-box w-full">
+								{#each sections as section (section.id)}
+									<li class="my-1">
+										<a
+											data-sveltekit-reload="off"
+											href={section.path}
+											class:menu-active={page.url.pathname.startsWith(section.path)}
+											class="flex items-center gap-3"
+										>
+											{#if section.icon === 'mdi:briefcase-outline'}
+												<IconBriefcaseOutline class="text-primary" />
+											{:else if section.icon === 'mdi:trending-up'}
+												<IconTrendingUp class="text-primary" />
+											{:else if section.icon === 'mdi:plus-circle-outline'}
+												<IconPlusCircleOutline class="text-primary" />
+											{:else if section.icon === 'mdi:magnify'}
+												<IconMagnify class="text-primary" />
+											{:else if section.icon === 'mdi:briefcase-search'}
+												<IconBriefcaseSearch class="text-primary" />
+											{:else if section.icon === 'mdi:wallet-outline'}
+												<IconWalletOutline class="text-primary" />
+											{:else if section.icon === 'mdi:account'}
+												<IconAccount class="text-primary" />
+											{:else if section.icon === 'mdi:chat-outline'}
+												<IconChatOutline class="text-primary" />
+											{:else if section.icon === 'mdi:cog'}
+												<IconCog class="text-primary" />
+											{:else if section.icon === 'mdi:star-outline'}
+												<IconStarOutline class="text-primary" />
+											{:else if section.icon === 'mdi:bell-outline'}
+												<IconBellOutline class="text-primary" />
+											{:else}
+												<IconTrendingUp class="text-primary" />
+											{/if}
+											{$t(section.label)}
+										</a>
+									</li>
+								{/each}
+							</ul>
 						</div>
 					</div>
 				</div>
-			{/if}
-
-			<div class="min-h-0 w-full flex-1">
-				{@render children()}
-				<NotificationPermissionBanner />
 			</div>
+		{/if}
+
+		<div class="min-h-0 w-full flex-1">
+			{@render children()}
+			<NotificationPermissionBanner />
 		</div>
 	</div>
-	<WarningPopup />
-{:else}
-	{@render children()}
-{/if}
+</div>
+<WarningPopup />
 
 <style>
 	.protected-layout {

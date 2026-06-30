@@ -54,6 +54,13 @@
 	<meta name="description" content={$t('dashboard.hiring.page_description')} />
 </svelte:head>
 
-<ProtectedLayout>
-	{@render children()}
-</ProtectedLayout>
+{#if $authState.isLoading}
+	<div class="flex h-dvh w-full flex-col items-center justify-center">
+		<span class="loading loading-spinner loading-xl"></span>
+		<p>{$t('common.loading')}</p>
+	</div>
+{:else if $authState.isAuthenticated}
+	<ProtectedLayout>
+		{@render children()}
+	</ProtectedLayout>
+{/if}

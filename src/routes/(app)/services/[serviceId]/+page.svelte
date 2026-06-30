@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
+	import { authState } from '$lib/stores/auth.store';
 	import ProtectedLayout from '$lib/components/ProtectedLayout.svelte';
 	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
 	import type { PageData } from './$types';
@@ -78,12 +79,21 @@
 	{/if}
 </svelte:head>
 
-<ProtectedLayout>
+{#snippet View()}
 	<div class="mx-auto h-full py-6 md:px-0 md:py-0">
-		<ServiceDetailsView
-			service={data.service ?? null}
-			serviceId={data.serviceId ?? serviceId}
-			isLoading={page.state.loading}
-		/>
+		<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
 	</div>
-</ProtectedLayout>
+{/snippet}
+
+{#if $authState.isLoading}
+	<div class="flex h-dvh w-full flex-col items-center justify-center">
+		<span class="loading loading-spinner loading-xl"></span>
+		<p>{$t('common.loading')}</p>
+	</div>
+{:else if $authState.isAuthenticated}
+	<ProtectedLayout>
+		{@render View()}
+	</ProtectedLayout>
+{:else}
+	{@render View()}
+{/if}

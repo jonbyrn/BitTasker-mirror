@@ -301,6 +301,7 @@
 			"view_task": "Ver Tarea"
 		},
 		"bids": {
+			"task_deadline_expired": "La fecha límite de esta tarea ya ha pasado. Ya no puedes aceptar ofertas en esta tarea.",
 			"send_message_short": "Mensaje",
 			"errors": {
 				"failed_to_load_content": "Error al cargar el contenido de la oferta"

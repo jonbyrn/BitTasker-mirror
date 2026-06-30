@@ -6,7 +6,6 @@
 		estimateGasCostForCreatePaymentContract
 	} from '$lib/utils/contract/v2/creation';
 	import { goto } from '$app/navigation';
-	import { get } from 'svelte/store';
 	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
@@ -96,8 +95,12 @@
 
 	// v2 display (contract params are derived separately where needed)
 	let contractDetails = $derived.by(() => {
-		const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
-		return display;
+		try {
+			const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
+			return display;
+		} catch {
+			return null;
+		}
 	});
 
 	// Adjusted times — v2 derivation already adjusts past start; expose for UI
@@ -192,13 +195,25 @@
 	}
 
 	onMount(async () => {
+		try {
+			deriveContractCreationParams(bidContent, btcPrice.price);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg.includes('Completion time must be after start time')) {
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_deadline_expired'), 3000);
+			} else {
+				appStore.showErrorToast(msg);
+			}
+			onCancel();
+			return;
+		}
 		await initializeWallet();
 		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
 	});
 
 	async function handleSubmit() {
 		if (isBalanceInsufficient) {
-			appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.insufficient_balance'));
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'), 3000);
 			return;
 		}
 		isSubmitting = true;
@@ -206,7 +221,7 @@
 			const result = await createContract(bid, task, btcPrice.price, additionalNotes.trim());
 
 			if (!result.success) {
-				const msg = result.error ?? get(t)('dashboard.bids.bid_acceptance.create_contract_failed');
+				const msg = result.error ?? $t('dashboard.bids.bid_acceptance.create_contract_failed');
 				appStore.showErrorToast(msg);
 				return;
 			}
@@ -232,7 +247,7 @@
 				} catch (err) {
 					d.warn('handleSubmit: follow-up failed', err);
 					followUpStatus = 'failed';
-					appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 					try {
 						await result.afterFailed(result.transactionHash);
 					} catch (cleanupErr) {
@@ -243,9 +258,7 @@
 		} catch (e) {
 			d.error('handleSubmit', e);
 			appStore.showErrorToast(
-				e instanceof Error
-					? e.message
-					: get(t)('dashboard.bids.bid_acceptance.create_contract_failed')
+				e instanceof Error ? e.message : $t('dashboard.bids.bid_acceptance.create_contract_failed')
 			);
 		} finally {
 			isSubmitting = false;
@@ -275,7 +288,7 @@
 		d.log('handleFundClick: user confirmed Fund, closing modal and submitting');
 		triggerHaptic(ImpactStyle.Light);
 		if (isBalanceInsufficient) {
-			appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.insufficient_balance'));
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'));
 			return;
 		}
 		showFundConfirmationModal = false;

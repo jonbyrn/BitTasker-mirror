@@ -308,6 +308,7 @@
 				"failed_to_load_content": "Failed to load bid content"
 			},
 			"bid_acceptance": {
+				"task_deadline_expired": "This task's deadline has already passed. You can no longer accept bids on this task.",
 				"tether_usd": "Tether USD",
 				"please_select_escrow_method": "Please select a secure payment method",
 				"title": "Bid Acceptance",
