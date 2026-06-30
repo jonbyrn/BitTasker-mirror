@@ -423,13 +423,36 @@ function determineDisplayProperties(
 		}
 
 		// All other contract functions
+		const knownContractKeys = new Set([
+			'createescrow',
+			'completetask',
+			'accepttask',
+			'funds_released',
+			'disputetask',
+			'disputeresolved',
+			'disputeunresolved',
+			'resolveaftertimelock',
+			'acceptproposal',
+			'proposeresolution',
+			'refundescrow',
+			'refundclient',
+			'transferownership',
+			'renounceownership',
+			'pause',
+			'unpause',
+			'disputeescrow',
+			'resolvedispute',
+			'cancelescrow'
+		]);
+		const methodKey = methodName?.toLowerCase() ?? '';
 		return {
 			displayType: 'contract-function',
 			borderColor: 'info',
 			iconConfig: { base: IconFileDocumentOutline, overlay: null },
-			title: methodName
-				? `wallet.transaction.${methodName.toLowerCase()}`
-				: 'wallet.transaction.contract_function'
+			title:
+				methodKey && knownContractKeys.has(methodKey)
+					? `wallet.transaction.${methodKey}`
+					: 'wallet.transaction.contract_function'
 		};
 	}
 
