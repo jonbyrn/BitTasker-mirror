@@ -61,10 +61,8 @@ export interface DisconnectHandlersParams {
 
 /**
  * Creates a handler that adds the Bitcoin app to a connected Ledger wallet.
- *
- * Mirrors the exact logic from ConnectedWallets.svelte (lines ~494–555),
- * including platform checks, dynamic import, read-modify-write via
- * connectorRegistry, 1.5s success delay, and error classification.
+ * Handles platform checks, dynamic import, read-modify-write via connectorRegistry,
+ * success delay, and error classification.
  */
 export function createAddLedgerBitcoinHandler(params: BtcHandlersParams): () => Promise<void> {
 	const {
@@ -103,7 +101,6 @@ export function createAddLedgerBitcoinHandler(params: BtcHandlersParams): () => 
 				(w) => w.walletType === 'ledger'
 			);
 			if (ledgerWallet) {
-				// TODO: migrate to store query facade for read-modify-write pattern
 				const currentHandle = storeGetHandle(ledgerWallet.id);
 				if (currentHandle) {
 					const updatedHandle = {
@@ -148,11 +145,8 @@ export function createAddLedgerBitcoinHandler(params: BtcHandlersParams): () => 
 
 /**
  * Creates a handler that adds the Bitcoin wallet to a connected Trezor device.
- *
- * Mirrors the exact logic from ConnectedWallets.svelte (lines ~557–624),
- * including platform checks, dynamic import, read-modify-write via
- * connectorRegistry, 1.5s success delay, console.log messages, and
- * error classification.
+ * Handles platform checks, dynamic import, read-modify-write via connectorRegistry,
+ * success delay, and error classification.
  */
 export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => Promise<void> {
 	const {
@@ -168,17 +162,14 @@ export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => 
 	} = params;
 
 	return async function handleAddTrezorBitcoin(): Promise<void> {
-		console.log('[ConnectedWallets] handleAddTrezorBitcoin CALLED');
 		const info = getPlatformInfo(window.navigator);
 		if (!isTrezorAvailable(info)) {
-			console.warn('[ConnectedWallets] Trezor not available for BTC step');
 			setTrezorBtcError(t('wallet.connected.error_trezor_platform'));
 			return;
 		}
 
 		setTrezorBtcError('');
 		setTrezorBtcConnecting(true);
-		console.log('[ConnectedWallets] Importing connectTrezorBitcoin...');
 		try {
 			const { connectTrezorBitcoin } = await import(
 				'$lib/services/external-wallet/trezor-connector'
@@ -187,17 +178,14 @@ export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => 
 				registry: connectorRegistry,
 				navigator: window.navigator
 			});
-			console.log('[ConnectedWallets] Trezor BTC connected:', result.btcAddress);
 
 			// Find the existing Trezor handle in the registry and add bitcoinSigner.
 			const trezorWallet = get(connectedWalletsStore).wallets.find(
 				(w) => w.walletType === 'trezor'
 			);
 			if (trezorWallet) {
-				// TODO: migrate to store query facade for read-modify-write pattern
 				const currentHandle = storeGetHandle(trezorWallet.id);
 				if (currentHandle) {
-					console.log('[ConnectedWallets] Updating Trezor handle with bitcoinSigner');
 					const updatedHandle = {
 						...currentHandle,
 						bitcoinSigner: result.bitcoinSigner
@@ -205,7 +193,6 @@ export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => 
 						bitcoinSigner: import('$lib/services/external-wallet/types').BitcoinSigner;
 					};
 					replaceConnectedWallet(updatedHandle);
-					console.log('[ConnectedWallets] Trezor handle updated with bitcoinSigner');
 				}
 			}
 
@@ -213,14 +200,12 @@ export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => 
 			setTrezorBtcConnecting(false);
 			setTrezorBtcStep(false);
 			setTrezorBtcSuccess(true);
-			console.log('[ConnectedWallets] Trezor BTC success, auto-closing in 1.5s');
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 			setTrezorBtcSuccess(false);
 			setShowConnectModal(false);
 		} catch (error) {
 			const msg =
 				error instanceof Error ? error.message : t('wallet.connected.error_trezor_connect');
-			console.error('[ConnectedWallets] Trezor BTC connect FAILED:', msg);
 
 			if (
 				msg.toLowerCase().includes('bitcoin') ||
@@ -241,9 +226,7 @@ export function createAddTrezorBitcoinHandler(params: BtcHandlersParams): () => 
 
 /**
  * Creates a copy-to-clipboard handler.
- *
- * Mirrors the exact logic from ConnectedWallets.svelte (lines ~226–237):
- * copies the address, shows success/error toast, and resets the visual
+ * Copies the address, shows success/error toast, and resets the visual
  * "copied" indicator after 2 seconds.
  */
 export function createCopyAddressHandler(

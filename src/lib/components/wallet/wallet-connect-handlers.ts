@@ -136,13 +136,10 @@ export function createCloseConnectModalHandler(params: CloseConnectModalParams):
  */
 export function createConnectMetaMaskHandler(params: ConnectMetaMaskParams): () => Promise<void> {
 	return async () => {
-		console.log('[ConnectedWallets] handleConnectMetaMask CALLED');
 		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_METAMASK)) {
-			console.log('[ConnectedWallets] MetaMask feature flag is DISABLED');
 			return;
 		}
 		if (!isMetaMaskAvailable()) {
-			console.log('[ConnectedWallets] MetaMask not detected');
 			params.setConnectedWalletError(get(t)('wallet.connected.error_metamask_detection'));
 			return;
 		}
@@ -150,9 +147,7 @@ export function createConnectMetaMaskHandler(params: ConnectMetaMaskParams): () 
 		params.closeConnectModal();
 
 		try {
-			console.log('[ConnectedWallets] Importing metamask-connector...');
 			const mod = await import('$lib/services/external-wallet/metamask-connector');
-			console.log('[ConnectedWallets] Import successful, keys:', Object.keys(mod));
 			const handle = await mod.connectMetaMask({
 				registry: connectorRegistry,
 				onEvent: (event) => {
@@ -163,7 +158,6 @@ export function createConnectMetaMaskHandler(params: ConnectMetaMaskParams): () 
 			});
 			params.registerConnectedWallet(handle);
 		} catch (error) {
-			console.error('[ConnectedWallets] connectMetaMask FAILED:', error);
 			const message =
 				error instanceof Error ? error.message : get(t)('wallet.connected.error_metamask_connect');
 			params.setConnectedWalletError(message);
@@ -237,19 +231,14 @@ export function createWCCancelHandler(params: WCCancelParams): () => void {
  */
 export function createConnectTrezorHandler(params: ConnectTrezorParams): () => Promise<void> {
 	return async () => {
-		console.log('[ConnectedWallets] handleConnectTrezor CALLED');
-
 		if (!FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_TREZOR)) {
-			console.log('[ConnectedWallets] Trezor feature flag is DISABLED');
 			return;
 		}
 		const info = getPlatformInfo(window.navigator);
 		if (!isTrezorAvailable(info)) {
-			console.warn('[ConnectedWallets] Trezor not available on this platform');
 			params.setConnectedWalletError(get(t)('wallet.connected.error_trezor_platform'));
 			return;
 		}
-		console.log('[ConnectedWallets] Trezor platform check passed:', info);
 
 		// Step 1: EVM — keep modal open with connecting spinner
 		params.setShowTrezorBtcStep(false);
@@ -258,30 +247,25 @@ export function createConnectTrezorHandler(params: ConnectTrezorParams): () => P
 
 		let handle: ConnectorHandle;
 		try {
-			console.log('[ConnectedWallets] Importing trezor-connector...');
 			const { connectTrezor } = await import('$lib/services/external-wallet/trezor-connector');
 			handle = await connectTrezor({
 				registry: connectorRegistry,
 				navigator: window.navigator
 			});
-			console.log('[ConnectedWallets] Trezor EVM connected:', handle.address);
 		} catch (error) {
 			const msg =
 				error instanceof Error ? error.message : get(t)('wallet.connected.error_trezor_connect');
-			console.error('[ConnectedWallets] Trezor EVM connect FAILED:', msg);
 			params.setConnectedWalletError(msg);
 			return;
 		}
 
 		// Step 2: Register EVM, then ask if user wants to add Bitcoin
 		params.registerConnectedWallet(handle);
-		console.log('[ConnectedWallets] Trezor EVM wallet registered');
 
 		// Clear connecting spinner, show BTC step prompt
 		params.setConnectingType(null);
 		params.setShowTrezorBtcStep(true);
 		params.setTrezorBtcError('');
-		console.log('[ConnectedWallets] Showing Trezor BTC step prompt');
 	};
 }
 

@@ -4,6 +4,18 @@
  */
 
 /**
+ * Map from balance row keys (used in wallet.balances) to cache keys
+ * (used in lastKnownWalletBalances). The cache stores short names
+ * ('usdt', 'tbtc') while balance keys use chain-suffixed names
+ * ('usdt0-arb', 'tbtc-arb').
+ */
+const BALANCE_TO_CACHE_KEY: Record<string, string> = {
+	'usdt0-arb': 'usdt',
+	usdt: 'usdt',
+	'tbtc-arb': 'tbtc'
+};
+
+/**
  * Format raw satoshi value with equivalent USD value.
  * @param rawSats - Raw satoshi string or number (nullable)
  * @param satsFormatter - Intl.NumberFormat for sats display
@@ -45,7 +57,7 @@ export function stableInnerFormat(
 	key: string,
 	lastKnownWalletBalances: Record<
 		string,
-		{ rbtc: string; btc: string; usdt: string; wbtc: string }
+		{ rbtc: string; btc: string; usdt: string; wbtc: string; tbtc: string }
 	>,
 	satsFormatter: Intl.NumberFormat,
 	usdFormatter: Intl.NumberFormat,
@@ -55,7 +67,7 @@ export function stableInnerFormat(
 	const raw = Number(bal?.raw ?? 0);
 	if (raw > 0) {
 		if (key === 'usdt0-arb' || key === 'usdt') return `$${(raw / 1e6).toFixed(2)}`;
-		if (key === 'wbtc') {
+		if (key === 'tbtc-arb') {
 			const sats = Math.round(raw / 10_000_000_000);
 			return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 		}
@@ -63,10 +75,11 @@ export function stableInnerFormat(
 	}
 	const cached = lastKnownWalletBalances[wallet.id];
 	if (cached) {
-		const cachedRaw = Number((cached as Record<string, string>)[key] ?? 0);
+		const cacheKey = BALANCE_TO_CACHE_KEY[key] ?? key;
+		const cachedRaw = Number((cached as Record<string, string>)[cacheKey] ?? 0);
 		if (cachedRaw > 0) {
 			if (key === 'usdt0-arb' || key === 'usdt') return `$${(cachedRaw / 1e6).toFixed(2)}`;
-			if (key === 'wbtc') {
+			if (key === 'tbtc-arb') {
 				const sats = Math.round(cachedRaw / 10_000_000_000);
 				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
 			}
@@ -74,7 +87,6 @@ export function stableInnerFormat(
 		}
 	}
 	if (key === 'usdt0-arb' || key === 'usdt') return '$0.00';
-	if (key === 'wbtc') return '0 Sats';
 	return '0 Sats';
 }
 
@@ -94,7 +106,7 @@ export function stableWalletAvailableUsd(
 	},
 	lastKnownWalletBalances: Record<
 		string,
-		{ rbtc: string; btc: string; usdt: string; wbtc: string }
+		{ rbtc: string; btc: string; usdt: string; wbtc: string; tbtc: string }
 	>,
 	usdFormatter: Intl.NumberFormat,
 	btcPrice: number
@@ -103,15 +115,18 @@ export function stableWalletAvailableUsd(
 	if (cur) {
 		const btcSats =
 			Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
+		const tbtcSats = Math.round(Number(cur['tbtc-arb']?.raw ?? 0) / 10_000_000_000);
 		const usdtRaw = Number(cur['usdt0-arb']?.raw ?? 0);
-		if (btcSats > 0 || usdtRaw > 0) {
-			return usdFormatter.format((btcSats / 100_000_000) * btcPrice + usdtRaw / 1e6);
+		if (btcSats > 0 || usdtRaw > 0 || tbtcSats > 0) {
+			return usdFormatter.format(((btcSats + tbtcSats) / 100_000_000) * btcPrice + usdtRaw / 1e6);
 		}
 	}
 	const cached = lastKnownWalletBalances[wallet.id];
 	if (cached) {
+		const tbtcSats = Math.round(Number(cached.tbtc ?? 0) / 10_000_000_000);
 		const usd =
-			((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc)) / 100_000_000) * btcPrice +
+			((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc) + tbtcSats) / 100_000_000) *
+				btcPrice +
 			Number(cached.usdt) / 1e6;
 		if (usd > 0) return usdFormatter.format(usd);
 	}
