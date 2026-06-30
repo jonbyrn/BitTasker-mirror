@@ -10,6 +10,7 @@
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import { appStore } from '$lib/stores/app.store';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 
 	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
@@ -24,6 +25,7 @@
 	let { walletId, address: _address, onSuccess }: Props = $props();
 
 	let amount = $state('');
+	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
 	let txError = $state<string | null>(null);
 
@@ -54,6 +56,26 @@
 			data: { supplied: suppliedFormatted }
 		});
 		amount = suppliedFormatted.toString();
+		sliderPercent = 100;
+	}
+
+	function handleAmountChange(v: string) {
+		amount = v;
+		const n = parseFloat(v || '0');
+		sliderPercent =
+			isFinite(n) && n > 0 && suppliedFormatted > 0
+				? Math.min(100, (n / suppliedFormatted) * 100)
+				: 0;
+	}
+
+	function applyPercent(pct: number) {
+		sliderPercent = Math.min(100, pct);
+		if (pct <= 0 || suppliedFormatted <= 0) {
+			amount = '';
+			return;
+		}
+		const usd = (suppliedFormatted * Math.min(100, pct)) / 100;
+		amount = usd.toFixed(2);
 	}
 
 	async function handleWithdraw() {
@@ -110,6 +132,7 @@
 		await Promise.allSettled([defiPositions.refreshAavePosition(walletId)]);
 		isProcessing = false;
 		amount = '';
+		sliderPercent = 0;
 		onSuccess();
 	}
 </script>
@@ -122,14 +145,6 @@
 		</div>
 	{/if}
 
-	<!-- Current supplied display -->
-	<div class="bg-base-200 rounded-box p-3 text-sm">
-		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">{$t('wallet.defi.earn.overview_supplied')}</span>
-			<span class="font-medium tabular-nums">${suppliedFormatted.toFixed(2)}</span>
-		</div>
-	</div>
-
 	<!-- Amount input -->
 	<div>
 		<label class="label" for="earn-withdraw-amount">
@@ -137,36 +152,22 @@
 				>{$t('wallet.defi.earn.withdraw_amount_label')}</span
 			>
 		</label>
-		<div class="join w-full">
-			<span
-				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0 text-lg sm:min-h-[52px]"
-			>
-				$
-			</span>
-			<input
-				id="earn-withdraw-amount"
-				type="text"
-				class="input input-bordered join-item min-h-[48px] flex-1 text-lg sm:min-h-[52px] sm:text-base"
-				placeholder="0.00"
-				bind:value={amount}
-				inputmode="decimal"
-				disabled={!hasPosition}
-				oninput={(e) => {
-					const target = e.currentTarget;
-					if (target.value.includes(',')) {
-						target.value = target.value.replace(/,/g, '.');
-					}
-				}}
-			/>
-			<button
-				type="button"
-				class="btn join-item min-h-[48px] touch-manipulation rounded-r-lg active:scale-95 sm:min-h-[52px]"
-				onclick={setMaxAmount}
-				disabled={!hasPosition || !isOnline}
-			>
-				<span class="text-xs sm:text-sm">{$t('wallet.defi.earn.withdraw_all')}</span>
-			</button>
-		</div>
+		<AmountInputSection
+			variant="direct"
+			tokenPrefix="$"
+			{amount}
+			onAmountChange={handleAmountChange}
+			onUnitChange={() => {}}
+			unit="usd"
+			showPercentSlider={true}
+			sliderDisabled={!hasPosition}
+			percent={sliderPercent}
+			onPercentChange={applyPercent}
+			onMaxAmount={async () => setMaxAmount()}
+			maxLabel={$t('wallet.defi.earn.withdraw_all')}
+			maxDisabled={!hasPosition || !isOnline}
+			disabled={!isOnline || !hasPosition}
+		/>
 	</div>
 
 	<!-- Projected balance -->

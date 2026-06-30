@@ -8,6 +8,7 @@
 	import { defiPositions, type UniswapLPPosition } from '$lib/stores/defi-positions.store.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { UniswapService } from '$lib/services/defi/uniswap.service';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import * as Sentry from '@sentry/sveltekit';
 
@@ -36,7 +37,26 @@
 		hasLiquidity && selectedPercent > 0 && isOnline && !isProcessing && txState === 'idle'
 	);
 
-	const percentOptions = [25, 50, 75, 100];
+	// Calculate approximate receive amounts based on selected percent
+	let currentPrice = $derived(btcPrice.price);
+	let removeWbtc = $derived.by(() => {
+		if (!currentPrice || currentPrice <= 0 || position.liquidity === 0n) return 0;
+		const liqNum = Number(position.liquidity);
+		if (!isFinite(liqNum) || liqNum <= 0) return 0;
+		const sqrtPrice = Math.sqrt(currentPrice * 100);
+		if (sqrtPrice <= 0) return 0;
+		const fullAmount = liqNum / sqrtPrice / 1e8;
+		return isFinite(fullAmount) && fullAmount > 0 ? (fullAmount * selectedPercent) / 100 : 0;
+	});
+	let removeUsdt0 = $derived.by(() => {
+		if (!currentPrice || currentPrice <= 0 || position.liquidity === 0n) return 0;
+		const liqNum = Number(position.liquidity);
+		if (!isFinite(liqNum) || liqNum <= 0) return 0;
+		const sqrtPrice = Math.sqrt(currentPrice * 100);
+		const fullAmount = (liqNum * sqrtPrice) / 1e6;
+		return isFinite(fullAmount) && fullAmount > 0 ? (fullAmount * selectedPercent) / 100 : 0;
+	});
+	let removeTotalUsd = $derived(removeWbtc * currentPrice + removeUsdt0);
 
 	function clearTx() {
 		txState = 'idle';
@@ -128,16 +148,34 @@
 		</div>
 	{/if}
 
-	<!-- Percentage selector -->
+	<!-- Percentage slider -->
 	<div>
 		<span class="label-text mb-2 text-sm font-medium">
 			{$t('wallet.defi.earn.remove_percent_label')}
 		</span>
-		<div class="mt-2 flex gap-2">
-			{#each percentOptions as pct (pct)}
+		<div class="form-control py-2">
+			<div class="flex items-center gap-3" class:opacity-50={isProcessing || !hasLiquidity}>
+				<span class="text-primary min-w-[3ch] text-right text-sm font-semibold"
+					>{selectedPercent}%</span
+				>
+				<input
+					type="range"
+					min="0"
+					max="100"
+					step="1"
+					value={selectedPercent}
+					class="range range-primary range-sm flex-1"
+					oninput={(e) => (selectedPercent = parseInt(e.currentTarget.value))}
+					disabled={isProcessing || !hasLiquidity}
+				/>
+			</div>
+		</div>
+		<!-- Quick percent buttons -->
+		<div class="mt-1 flex gap-2">
+			{#each [25, 50, 75, 100] as pct (pct)}
 				<button
 					type="button"
-					class="btn btn-sm flex-1 touch-manipulation"
+					class="btn btn-xs flex-1 touch-manipulation"
 					class:btn-primary={selectedPercent === pct}
 					class:btn-outline={selectedPercent !== pct}
 					onclick={() => (selectedPercent = pct)}
@@ -149,12 +187,19 @@
 		</div>
 	</div>
 
-	<!-- Estimated receive (derived from position liquidity proportion) -->
+	<!-- Estimated receive -->
 	{#if hasLiquidity && selectedPercent > 0}
-		<div class="bg-base-200 rounded-box p-3 text-xs">
-			{$t('wallet.defi.earn.remove_receive', {
-				values: { wbtc: '— WBTC', usdt0: '— USDT0' }
-			})}
+		<div class="bg-base-200 rounded-lg p-2.5 text-xs">
+			<div class="mb-1 font-medium">{$t('wallet.defi.earn.remove_receive')}</div>
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/70">{removeWbtc.toFixed(6)} WBTC</span>
+				<span class="text-base-content/70">+ ${removeUsdt0.toFixed(2)} USDT0</span>
+			</div>
+			{#if removeTotalUsd > 0}
+				<div class="text-base-content/50 mt-1">
+					~${removeTotalUsd.toFixed(2)} total
+				</div>
+			{/if}
 		</div>
 	{/if}
 

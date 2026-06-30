@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';
+	import { walletStore } from '$lib/stores/wallet.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import WalletIcon from '$lib/components/wallet/WalletIcon.svelte';
+	import EarnDeployBar from './EarnDeployBar.svelte';
 	import EarnSupplyAction from './EarnSupplyAction.svelte';
 	import EarnWithdrawAction from './EarnWithdrawAction.svelte';
 	import EarnCloseAction from './EarnCloseAction.svelte';
@@ -20,10 +23,10 @@
 		isExpanded: boolean;
 		onToggle: () => void;
 		onSuccess: (txHash?: string) => void;
-		supplyAPY?: number;
+		supplyAPY?: number | null;
 	}
 
-	let { walletId, address, isExpanded, onToggle, onSuccess, supplyAPY = 4.22 }: Props = $props();
+	let { walletId, address, isExpanded, onToggle, onSuccess, supplyAPY = null }: Props = $props();
 
 	let activeAction = $state<'supply' | 'withdraw' | 'close'>('supply');
 	let actionDropdownOpen = $state(false);
@@ -45,19 +48,19 @@
 	// Supplied amount
 	let suppliedAmount = $derived(pos ? parseFloat(pos.suppliedUsdt0) : 0);
 
+	// Available USDT0 balance for this wallet
+	let availableBalance = $derived.by(() => {
+		if (walletId === 'builtin')
+			return parseFloat(get(walletStore).arb?.formattedUsdt0Balance ?? '0') || 0;
+		const w = get(connectedWalletsStore).wallets.find((ww) => ww.id === walletId);
+		const u = w?.balances?.['usdt0-arb'] || w?.balances?.['usdt-arb'] || w?.balances?.['usdt0'];
+		return parseFloat(u?.formatted ?? '0') || 0;
+	});
+
 	// Time in position
 	let daysInPosition = $derived.by(() => {
 		if (!pos?.lastUpdated) return 0;
 		return Math.floor((Date.now() - pos.lastUpdated.getTime()) / 86400000);
-	});
-
-	// Supply utilization percentage (assuming max supply context from collateral)
-	let supplyUtilPct = $derived.by(() => {
-		if (!pos || pos.totalCollateralUsd <= 0) return 0;
-		const suppliedUsd = parseFloat(pos.suppliedUsdt0);
-		return isFinite(suppliedUsd) && suppliedUsd > 0
-			? Math.min(100, (suppliedUsd / pos.totalCollateralUsd) * 100)
-			: 0;
 	});
 
 	// Earned amount (accrued interest)
@@ -129,7 +132,7 @@
 					<span class="text-sm font-medium">{walletName}</span>
 					{#if pos}
 						<span class="shrink-0 text-xs tabular-nums">
-							${suppliedAmount.toFixed(2)}
+							${suppliedAmount.toFixed(2)} / ${availableBalance.toFixed(2)}
 						</span>
 					{/if}
 				</div>
@@ -146,19 +149,8 @@
 	{#if pos}
 		<div class="collapse-content">
 			<div class="space-y-3 px-3 sm:px-4">
-				<!-- Supply utilization bar -->
-				<div class="space-y-1">
-					<div class="flex items-center justify-between text-xs">
-						<span class="text-base-content/50">{$t('wallet.defi.earn.overview_supplied')}</span>
-						<span class="font-medium tabular-nums">${suppliedAmount.toFixed(2)}</span>
-					</div>
-					<div class="bg-base-300 h-1.5 w-full overflow-hidden rounded-full">
-						<div
-							class="bg-primary h-full rounded-full transition-all duration-300"
-							style="width: {Math.min(100, supplyUtilPct)}%"
-						></div>
-					</div>
-				</div>
+				<!-- Deploy bar -->
+				<EarnDeployBar deployedUsd={suppliedAmount} availableUsd={availableBalance} />
 
 				<!-- Earned amount -->
 				{#if earnedUsd > 0}
@@ -172,7 +164,7 @@
 				<div class="flex items-center justify-between text-xs">
 					<span class="text-base-content/50">{$t('wallet.defi.lend.apy_label')}</span>
 					<span class="font-medium">
-						{supplyAPY.toFixed(2)}%
+						{supplyAPY !== null ? `${supplyAPY.toFixed(2)}%` : '…'}
 					</span>
 				</div>
 

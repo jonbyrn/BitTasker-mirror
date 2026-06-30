@@ -5,9 +5,18 @@
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
+		mode?: 'borrow' | 'lending' | 'lp';
 	}
 
-	let { isOpen, onClose }: Props = $props();
+	let { isOpen, onClose, mode = 'borrow' }: Props = $props();
+
+	let prefix = $derived(
+		mode === 'lending'
+			? 'wallet.defi.lending_help'
+			: mode === 'lp'
+				? 'wallet.defi.lp_help'
+				: 'wallet.defi.loan_help'
+	);
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') onClose();
@@ -31,7 +40,7 @@
 		>
 			<!-- Header -->
 			<div class="border-base-200 flex items-center justify-between border-b p-4">
-				<h2 class="text-lg font-bold">{$t('wallet.defi.loan_help.title')}</h2>
+				<h2 class="text-lg font-bold">{$t(`${prefix}.title`)}</h2>
 				<button type="button" class="btn btn-ghost btn-sm btn-circle" onclick={onClose}>
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
@@ -47,7 +56,7 @@
 			<!-- Content -->
 			<div class="space-y-5 p-5">
 				<p class="text-base-content/80 text-sm leading-relaxed">
-					{$t('wallet.defi.loan_help.intro')}
+					{$t(`${prefix}.intro`)}
 				</p>
 
 				<!-- Steps -->
@@ -60,9 +69,9 @@
 							1
 						</div>
 						<div>
-							<p class="text-sm font-semibold">{$t('wallet.defi.loan_help.step1_title')}</p>
+							<p class="text-sm font-semibold">{$t(`${prefix}.step1_title`)}</p>
 							<p class="text-base-content/70 text-xs leading-relaxed">
-								{$t('wallet.defi.loan_help.step1_desc')}
+								{$t(`${prefix}.step1_desc`)}
 							</p>
 						</div>
 					</div>
@@ -75,9 +84,9 @@
 							2
 						</div>
 						<div>
-							<p class="text-sm font-semibold">{$t('wallet.defi.loan_help.step2_title')}</p>
+							<p class="text-sm font-semibold">{$t(`${prefix}.step2_title`)}</p>
 							<p class="text-base-content/70 text-xs leading-relaxed">
-								{$t('wallet.defi.loan_help.step2_desc')}
+								{$t(`${prefix}.step2_desc`)}
 							</p>
 						</div>
 					</div>
@@ -90,9 +99,9 @@
 							3
 						</div>
 						<div>
-							<p class="text-sm font-semibold">{$t('wallet.defi.loan_help.step3_title')}</p>
+							<p class="text-sm font-semibold">{$t(`${prefix}.step3_title`)}</p>
 							<p class="text-base-content/70 text-xs leading-relaxed">
-								{$t('wallet.defi.loan_help.step3_desc')}
+								{$t(`${prefix}.step3_desc`)}
 							</p>
 						</div>
 					</div>
@@ -105,9 +114,9 @@
 							4
 						</div>
 						<div>
-							<p class="text-sm font-semibold">{$t('wallet.defi.loan_help.step4_title')}</p>
+							<p class="text-sm font-semibold">{$t(`${prefix}.step4_title`)}</p>
 							<p class="text-base-content/70 text-xs leading-relaxed">
-								{$t('wallet.defi.loan_help.step4_desc')}
+								{$t(`${prefix}.step4_desc`)}
 							</p>
 						</div>
 					</div>
@@ -116,7 +125,7 @@
 				<!-- Bottom note -->
 				<div class="bg-base-200 rounded-lg p-3">
 					<p class="text-base-content/70 text-xs leading-relaxed">
-						{$t('wallet.defi.loan_help.note')}
+						{$t(`${prefix}.note`)}
 					</p>
 				</div>
 			</div>

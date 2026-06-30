@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
-	import { ethers } from 'ethers';
-	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import * as Sentry from '@sentry/sveltekit';
+	import { supplyApy } from '$lib/runes/supplyApy.svelte';
+	import * as _Sentry from '@sentry/sveltekit';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import EarnDeployBar from './EarnDeployBar.svelte';
 	import LoanHelpModal from '../LoanHelpModal.svelte';
@@ -20,8 +17,6 @@
 	let { mode }: Props = $props();
 
 	let helpOpen = $state(false);
-	let supplyAPY = $state(4.22);
-	let apyLoaded = $state(false);
 
 	// --- Lending aggregation ---
 	let aavePositions = $derived(Array.from(defiPositions.aavePositions.values()));
@@ -70,6 +65,22 @@
 		}, 0);
 	});
 
+	// Idle balance (WBTC + USDT0 not in LP)
+	let idleLpBalance = $derived.by(() => {
+		const builtinWbtc = $walletStore.arb?.wbtcUsdValue ?? 0;
+		const builtinUsdt0 = parseFloat($walletStore.arb?.formattedUsdt0Balance ?? '0') || 0;
+		let connectedWbtc = 0;
+		let connectedUsdt0 = 0;
+		for (const w of $connectedWalletsStore.wallets) {
+			if (!w.balances) continue;
+			const wbtc = w.balances['wbtc-arb'];
+			if (wbtc?.formatted) connectedWbtc += (parseFloat(wbtc.formatted) || 0) * btcPrice.price;
+			const usdt0 = w.balances['usdt0-arb'];
+			if (usdt0?.formatted) connectedUsdt0 += parseFloat(usdt0.formatted) || 0;
+		}
+		return builtinWbtc + builtinUsdt0 + connectedWbtc + connectedUsdt0;
+	});
+
 	let totalFeesUsd = $derived.by(() => {
 		if (lpPositions.length === 0) return 0;
 		return lpPositions.reduce((sum, p) => {
@@ -112,30 +123,12 @@
 	);
 	let lpWinning = $derived(lpDiff >= 0);
 
-	// --- Mount: fetch live APY ---
-	onMount(async () => {
-		if (mode !== 'lending') return;
-
-		Sentry.addBreadcrumb({
-			category: 'defi.earn.overview',
-			message: 'fetchSupplyAPY start',
-			data: { mode }
-		});
-
-		const provider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
-		const aave = new AaveService(provider);
-		const { data: apy, error } = await tryCatch(aave.getSupplyAPY(USDT0_ARBITRUM));
-
-		if (!error && apy !== null && isFinite(apy)) {
-			supplyAPY = apy;
-			apyLoaded = true;
-		}
-
-		Sentry.addBreadcrumb({
-			category: 'defi.earn.overview',
-			message: 'fetchSupplyAPY done',
-			data: { apy: supplyAPY, loaded: apyLoaded }
-		});
+	// --- LP APY estimate from actual fees ---
+	let lpApyEstimate = $derived.by(() => {
+		if (totalLpValueUsd <= 0 || totalFeesUsd <= 0 || lpDays < 1) return null;
+		// Annualize: (fees / principal) * (365 / days) * 100
+		const annualized = (totalFeesUsd / totalLpValueUsd) * (365 / lpDays) * 100;
+		return isFinite(annualized) && annualized > 0 ? annualized : null;
 	});
 
 	// --- Format helpers ---
@@ -155,109 +148,118 @@
 			: 'wallet.defi.earn.overview_title_lp'
 	);
 
-	let hasPositions = $derived(
+	let _hasPositions = $derived(
 		mode === 'lending' ? aavePositions.length > 0 : lpPositions.length > 0
 	);
 </script>
 
-{#if hasPositions}
-	<div class="border-primary bg-base-100 rounded-lg border p-4">
-		<!-- Header -->
-		<div class="mb-2 flex items-center justify-between">
-			<div class="flex items-center gap-1.5">
-				<span class="text-sm font-semibold">{$t(titleKey)}</span>
-				<button
-					type="button"
-					class="text-base-content/40 hover:text-base-content/70 transition-colors"
-					onclick={() => (helpOpen = true)}
-					aria-label={$t('wallet.defi.position.overview_title')}
-				>
-					<IconHelpCircle class="h-5 w-5" />
-				</button>
-			</div>
-			{#if mode === 'lending'}
-				<span class="badge badge-success badge-sm px-2 py-1 text-xs font-medium">
-					{supplyAPY.toFixed(2)}%
-				</span>
-			{:else}
-				<span class="badge badge-info badge-sm px-2 py-1 text-xs font-medium">
-					{$t('wallet.defi.lp.fee_tier_005')}
-				</span>
-			{/if}
+<div class="border-primary bg-base-100 rounded-lg border p-4">
+	<!-- Header -->
+	<div class="mb-2 flex items-center justify-between">
+		<div class="flex items-center gap-1.5">
+			<span class="text-sm font-semibold">{$t(titleKey)}</span>
+			<button
+				type="button"
+				class="text-base-content/40 hover:text-base-content/70 transition-colors"
+				onclick={() => (helpOpen = true)}
+				aria-label={$t('wallet.defi.position.overview_title')}
+			>
+				<IconHelpCircle class="h-5 w-5" />
+			</button>
 		</div>
-
-		<!-- Deploy bar -->
-		<div class="mb-3">
-			{#if mode === 'lending'}
-				<EarnDeployBar deployedUsd={totalSupplied} availableUsd={availableUsdt0} />
-			{:else}
-				<EarnDeployBar deployedUsd={totalLpValueUsd} availableUsd={totalFeesUsd} />
-			{/if}
-		</div>
-
-		<!-- Metric chips -->
 		{#if mode === 'lending'}
-			<div class="mb-3 grid grid-cols-3 gap-2">
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
-						>{$t('wallet.defi.earn.overview_supplied')}</span
-					>
-					<span class="text-sm font-bold tabular-nums">{formatUsd(totalSupplied)}</span>
-				</div>
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
-						>{$t('wallet.defi.earn.overview_earned')}</span
-					>
-					<span class="text-sm font-bold tabular-nums">{formatUsd(totalEarnedLending)}</span>
-				</div>
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase">APY</span>
-					<span class="text-sm font-bold tabular-nums">
-						{supplyAPY.toFixed(2)}%
-						{#if !apyLoaded}
-							<span class="text-base-content/40 text-[9px]"
-								>{$t('wallet.defi.earn.metric_est')}</span
-							>
-						{/if}
-					</span>
-				</div>
-			</div>
-
-			<!-- Auto-compounding callout -->
-			<div class="bg-base-200 mb-2 rounded-lg p-2.5">
-				<p class="text-xs font-medium">{$t('wallet.defi.earn.auto_compound')}</p>
-				<p class="text-base-content/60 text-[11px]">
-					{$t('wallet.defi.earn.auto_compound_desc', {
-						values: { amount: formatUsd(totalSupplied) }
-					})}
-				</p>
-			</div>
+			<span class="badge badge-success badge-sm px-2 py-1 text-xs font-medium">
+				{supplyApy.apy !== null ? `${supplyApy.apy.toFixed(2)}%` : '…'}
+			</span>
 		{:else}
-			<div class="mb-3 grid grid-cols-4 gap-2">
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase">LP</span>
-					<span class="text-sm font-bold tabular-nums">{formatUsd(totalLpValueUsd)}</span>
-				</div>
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
-						>{$t('wallet.defi.earn.overview_earned_unclaimed')}</span
-					>
-					<span class="text-sm font-bold tabular-nums">{formatUsd(totalFeesUsd)}</span>
-				</div>
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase">IL</span>
-					<span class="text-sm font-bold tabular-nums">{avgIL.toFixed(2)}%</span>
-				</div>
-				<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-					<span class="text-base-content/50 text-[10px] tracking-wide uppercase">APY</span>
-					<span class="text-sm font-bold tabular-nums"
-						>{$t('wallet.defi.earn.lp_apy_estimate', { values: { apy: '25' } })}</span
-					>
-					<span class="text-base-content/40 text-[9px]">{$t('wallet.defi.earn.metric_est')}</span>
-				</div>
-			</div>
+			<span class="badge badge-info badge-sm px-2 py-1 text-xs font-medium">
+				{$t('wallet.defi.lp.fee_tier_005')}
+			</span>
+		{/if}
+	</div>
 
-			<!-- Held vs Earned summary -->
+	<!-- Deploy bar -->
+	<div class="mb-3">
+		{#if mode === 'lending'}
+			<EarnDeployBar deployedUsd={totalSupplied} availableUsd={availableUsdt0} />
+		{:else}
+			<EarnDeployBar deployedUsd={totalLpValueUsd} availableUsd={idleLpBalance} />
+		{/if}
+	</div>
+
+	<!-- Metric chips -->
+	{#if mode === 'lending'}
+		<div class="mb-3 grid grid-cols-3 gap-2">
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
+					>{$t('wallet.defi.earn.overview_supplied')}</span
+				>
+				<span class="text-sm font-bold tabular-nums">{formatUsd(totalSupplied)}</span>
+			</div>
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
+					>{$t('wallet.defi.earn.overview_earned')}</span
+				>
+				<span class="text-sm font-bold tabular-nums">{formatUsd(totalEarnedLending)}</span>
+			</div>
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase">APY</span>
+				<span class="text-sm font-bold tabular-nums">
+					{#if supplyApy.apy !== null}
+						{supplyApy.apy.toFixed(2)}%
+					{:else}
+						…
+					{/if}
+				</span>
+			</div>
+		</div>
+
+		<!-- Auto-compounding callout -->
+		<div class="bg-base-200 mb-2 rounded-lg p-2.5">
+			<p class="text-xs font-medium">{$t('wallet.defi.earn.auto_compound')}</p>
+			<p class="text-base-content/60 text-[11px]">
+				{$t('wallet.defi.earn.auto_compound_desc', {
+					values: { amount: formatUsd(totalSupplied) }
+				})}
+			</p>
+		</div>
+	{:else}
+		<div class="mb-3 grid grid-cols-4 gap-2">
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase">LP</span>
+				<span class="text-sm font-bold tabular-nums">{formatUsd(totalLpValueUsd)}</span>
+			</div>
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
+					>{$t('wallet.defi.earn.overview_earned')}</span
+				>
+				<span class="text-sm font-bold tabular-nums">{formatUsd(totalFeesUsd)}</span>
+			</div>
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase">IL</span>
+				<span class="text-sm font-bold tabular-nums">{avgIL.toFixed(2)}%</span>
+			</div>
+			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase">APY</span>
+				<span class="text-sm font-bold tabular-nums">
+					{#if lpApyEstimate !== null}
+						~{lpApyEstimate.toFixed(1)}%
+					{:else}
+						—
+					{/if}
+				</span>
+				<span class="text-base-content/40 text-[9px]">
+					{#if lpApyEstimate !== null}
+						{$t('wallet.defi.earn.metric_est')}
+					{:else}
+						{$t('wallet.defi.earn.lp_apy_needs_data')}
+					{/if}
+				</span>
+			</div>
+		</div>
+
+		<!-- Held vs Earned summary -->
+		{#if lpPositions.length > 0}
 			<div class="mb-2">
 				<div
 					class="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs {lpWinning
@@ -281,28 +283,28 @@
 				</div>
 			</div>
 		{/if}
+	{/if}
 
-		<!-- Time indicator -->
-		{#if mode === 'lending' && earliestLendingDate}
-			<p class="text-base-content/50 text-[11px]">
-				{$t('wallet.defi.earn.overview_since_days', {
-					values: {
-						date: formatDate(earliestLendingDate),
-						days: lendingDays
-					}
-				})}
-			</p>
-		{:else if mode === 'lp' && earliestLpDate}
-			<p class="text-base-content/50 text-[11px]">
-				{$t('wallet.defi.earn.overview_since_days', {
-					values: {
-						date: formatDate(earliestLpDate),
-						days: lpDays
-					}
-				})}
-			</p>
-		{/if}
-	</div>
-{/if}
+	<!-- Time indicator -->
+	{#if mode === 'lending' && earliestLendingDate}
+		<p class="text-base-content/50 text-[11px]">
+			{$t('wallet.defi.earn.overview_since_days', {
+				values: {
+					date: formatDate(earliestLendingDate),
+					days: lendingDays
+				}
+			})}
+		</p>
+	{:else if mode === 'lp' && earliestLpDate}
+		<p class="text-base-content/50 text-[11px]">
+			{$t('wallet.defi.earn.overview_since_days', {
+				values: {
+					date: formatDate(earliestLpDate),
+					days: lpDays
+				}
+			})}
+		</p>
+	{/if}
+</div>
 
-<LoanHelpModal isOpen={helpOpen} onClose={() => (helpOpen = false)} />
+<LoanHelpModal isOpen={helpOpen} onClose={() => (helpOpen = false)} {mode} />

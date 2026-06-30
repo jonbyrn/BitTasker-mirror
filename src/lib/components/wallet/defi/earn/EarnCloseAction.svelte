@@ -29,8 +29,8 @@
 
 	let pos = $derived(defiPositions.aavePositions.get(walletId) ?? null);
 	let suppliedRaw = $derived(pos?.suppliedUsdt0Raw ?? 0n);
-	let suppliedFormatted = $derived(pos ? parseFloat(pos.suppliedUsdt0) : 0);
-	let healthFactor = $derived(pos?.healthFactor ?? 0);
+	let _suppliedFormatted = $derived(pos ? parseFloat(pos.suppliedUsdt0) : 0);
+	let accruedUsd = $derived(pos?.accruedUsd ?? 0);
 	let hasPosition = $derived(suppliedRaw > 0n);
 
 	let canClose = $derived(hasPosition && isOnline && !isProcessing);
@@ -106,18 +106,16 @@
 	</p>
 
 	<!-- Position summary -->
-	<div class="bg-base-200 rounded-box space-y-2 p-3 text-sm">
-		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">{$t('wallet.defi.earn.overview_supplied')}</span>
-			<span class="font-medium tabular-nums">${suppliedFormatted.toFixed(2)}</span>
+	{#if accruedUsd > 0}
+		<div class="bg-base-200 rounded-lg p-2.5">
+			<p class="text-xs font-medium">{$t('wallet.defi.earn.overview_earned')}</p>
+			<p class="text-base-content/60 text-[11px]">
+				{$t('wallet.defi.earn.close_earned_since', {
+					values: { amount: `$${accruedUsd.toFixed(4)}` }
+				})}
+			</p>
 		</div>
-		{#if healthFactor > 0}
-			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">{$t('wallet.defi.position.health_factor')}</span>
-				<span class="font-medium tabular-nums">{healthFactor.toFixed(2)}</span>
-			</div>
-		{/if}
-	</div>
+	{/if}
 
 	<!-- Error state -->
 	{#if txError}

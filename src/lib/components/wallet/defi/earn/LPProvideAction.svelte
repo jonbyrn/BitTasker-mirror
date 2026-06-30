@@ -5,7 +5,7 @@
 	import * as Sentry from '@sentry/sveltekit';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
+	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { appStore } from '$lib/stores/app.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
@@ -17,7 +17,7 @@
 		FULL_RANGE,
 		type MintParams
 	} from '$lib/services/defi/uniswap.service';
-	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
 	import type { UniswapLPPosition } from '$lib/stores/defi-positions.store.svelte';
 
@@ -34,9 +34,8 @@
 	let { walletId, address: _address, onSuccess, existingPosition = null }: Props = $props();
 
 	let amount = $state('');
+	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
-	let ilExpanded = $state(false);
-	let sourceExpanded = $state(false);
 	let selectedWalletId = $state<'builtin' | string>(walletId);
 	let txState = $state<
 		'idle' | 'approving-wbtc' | 'approving-usdt0' | 'providing' | 'success' | 'error'
@@ -53,7 +52,14 @@
 		return isFinite(n) && n > 0 ? n : 0;
 	});
 	let wbtcUsdValue = $derived($walletStore.arb.wbtcUsdValue ?? 0);
-	let usdt0Bal = $derived(parseFloat($walletStore.arb.usdt0Balance ?? '0') || 0);
+	let usdt0Bal = $derived(parseFloat($walletStore.arb.formattedUsdt0Balance ?? '0') || 0);
+	let wbtcSats = $derived(
+		Math.round(
+			($walletStore.arb?.formattedWbtcBalance
+				? parseFloat($walletStore.arb.formattedWbtcBalance)
+				: 0) * 1e8
+		)
+	);
 	let hasBoth = $derived(wbtcUsdValue > 0 && usdt0Bal > 0);
 	let isIncrease = $derived(!!existingPosition && existingPosition.liquidity > 0n);
 	let currentPrice = $derived(btcPrice.price);
@@ -64,42 +70,62 @@
 	});
 	let usdt0Amt = $derived(amountNum / 2);
 	let canProvide = $derived(
-		amountNum > 0 && hasBoth && isOnline && !isProcessing && txState === 'idle'
+		amountNum > 0 &&
+			hasBoth &&
+			isOnline &&
+			!isProcessing &&
+			txState === 'idle' &&
+			!wbtcInsufficient &&
+			!usdt0Insufficient
 	);
+	let wbtcInsufficient = $derived(
+		amountNum > 0 && wbtcAmt > 0 && wbtcSats < Math.round(wbtcAmt * 1e8)
+	);
+	let usdt0Insufficient = $derived(amountNum > 0 && usdt0Amt > 0 && usdt0Bal < usdt0Amt);
 
-	function formatSats(n: number): string {
-		return n.toLocaleString('en-US');
+	function satsFromBtc(btc: number): number {
+		return Math.round(btc * 1e8);
 	}
 
-	function walletBalanceFor(id: string): string {
-		if (id === 'builtin') {
-			const w = Math.round(
-				($walletStore.arb?.formattedWbtcBalance
-					? parseFloat($walletStore.arb.formattedWbtcBalance)
-					: 0) * 1e8
-			);
-			const u = parseFloat($walletStore.arb?.usdt0Balance || '0');
-			return `${formatSats(w)} Sats / $${u.toFixed(2)} USDT0`;
-		}
-		const cw = $connectedWalletsStore.wallets.find((c) => c.id === id);
-		if (!cw) return '$0 / 0 Sats';
-		const ws = Math.round(
-			Number(cw.balances?.['wbtc-arb']?.raw ?? cw.balances?.wbtc?.raw ?? 0) / 1e10
+	let maxProvideAmount = $derived.by(() => {
+		if (!hasBoth) return 0;
+		// Each side uses half the total, so max is 2x the smaller balance
+		return Math.min(
+			$walletStore.arb.wbtcUsdValue * 2,
+			parseFloat($walletStore.arb.formattedUsdt0Balance || '0') * 2
 		);
-		const us = Number(cw.balances?.['usdt0-arb']?.raw ?? 0) / 1e6;
-		return `${formatSats(ws)} Sats / $${us.toFixed(2)} USDT0`;
-	}
-
-	let builtinBalDisplay = $derived(
-		`${formatSats(Math.round(($walletStore.arb?.formattedWbtcBalance ? parseFloat($walletStore.arb.formattedWbtcBalance) : 0) * 1e8))} Sats`
-	);
+	});
+	// Rounded-down threshold for exceeds comparison (prevents false positive when toFixed(2) rounds up)
+	let maxProvideDisplay = $derived(Math.floor(maxProvideAmount * 100) / 100);
 
 	function setMaxAmount() {
 		if (!isOnline || !hasBoth) return;
-		amount = Math.min(
-			$walletStore.arb.wbtcUsdValue,
-			parseFloat($walletStore.arb.usdt0Balance || '0')
-		).toFixed(2);
+		// Use maxProvideDisplay (floor-rounded) so toFixed(2) doesn't round past actual balance
+		amount = maxProvideDisplay.toFixed(2);
+		sliderPercent = 100;
+	}
+
+	function handleAmountChange(v: string) {
+		amount = v;
+		const n = parseFloat(v || '0');
+		sliderPercent =
+			isFinite(n) && n > 0 && maxProvideDisplay > 0
+				? Math.min(100, (n / maxProvideDisplay) * 100)
+				: 0;
+	}
+
+	function applyPercent(pct: number) {
+		sliderPercent = Math.min(100, pct);
+		if (pct <= 0 || maxProvideDisplay <= 0) {
+			amount = '';
+			return;
+		}
+		if (pct >= 100) {
+			amount = maxProvideDisplay.toFixed(2);
+			return;
+		}
+		const usd = (maxProvideDisplay * pct) / 100;
+		amount = usd.toFixed(2);
 	}
 
 	function clearTx() {
@@ -307,7 +333,12 @@
 	}
 </script>
 
-<div class="space-y-3">
+<div class="flex flex-col gap-4">
+	<!-- Description -->
+	<p class="text-base-content/70 text-xs">
+		{$t('wallet.defi.lp.provide_desc')}
+	</p>
+
 	{#if !isOnline}
 		<div class="alert alert-soft alert-warning py-2 text-xs" role="alert">
 			{$t('wallet.defi.shared.offline')}
@@ -319,98 +350,133 @@
 		</div>
 	{/if}
 
-	<WalletSelector
-		label={$t('wallet.from') + ':'}
-		selectedId={selectedWalletId}
-		onSelect={(id) => {
-			selectedWalletId = id as 'builtin' | string;
-			txError = null;
-		}}
-		builtinBalance={builtinBalDisplay}
-		connectedWallets={$connectedWalletsStore.wallets}
-		{walletBalanceFor}
-		expanded={sourceExpanded}
-		onToggle={() => (sourceExpanded = !sourceExpanded)}
-	/>
+	<!-- Asset pair display -->
+	<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+		<!-- Bitcoin (wBTC) side -->
+		<div class="bg-base-200 flex items-center gap-2.5 rounded-xl p-3">
+			<img
+				src="/images/tokens/wbtc.png"
+				alt="wBTC"
+				class="h-8 w-8 shrink-0 rounded-full sm:h-9 sm:w-9"
+			/>
+			<div class="min-w-0 flex-1">
+				<div class="text-sm font-medium">Bitcoin (wBTC)</div>
+				<div class="text-base-content/70 text-xs tabular-nums">
+					{amountNum > 0 ? satsFromBtc(wbtcAmt).toLocaleString() : '0'}
+					{$t('wallet.sats')}
+				</div>
+				<div class="text-base-content/40 text-[10px]">
+					{wbtcSats.toLocaleString()}
+					{$t('wallet.sats')}
+					{$t('wallet.defi.position.available')}
+				</div>
+			</div>
+		</div>
 
-	<div class="bg-base-200 rounded-box flex justify-between p-3 text-sm">
-		<span>{$t('wallet.defi.lp.fee_tier_label')}</span>
-		<span class="font-medium">{$t('wallet.defi.lp.fee_tier_005')}</span>
+		<!-- Plus sign -->
+		<div class="text-base-content/30 flex items-center justify-center">
+			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 6v12m-6-6h12"
+				/>
+			</svg>
+		</div>
+
+		<!-- USD (USDT0) side -->
+		<div class="bg-base-200 flex items-center gap-2.5 rounded-xl p-3">
+			<img
+				src="/images/tokens/usdt.png"
+				alt="USDT0"
+				class="h-8 w-8 shrink-0 rounded-full sm:h-9 sm:w-9"
+			/>
+			<div class="min-w-0 flex-1">
+				<div class="text-sm font-medium">USD (USDT0)</div>
+				<div class="text-base-content/70 text-xs tabular-nums">
+					{amountNum > 0 ? `$${usdt0Amt.toFixed(2)}` : '$0.00'}
+				</div>
+				<div class="text-base-content/40 text-[10px]">
+					${usdt0Bal.toFixed(2)}
+					{$t('wallet.defi.position.available')}
+				</div>
+			</div>
+		</div>
 	</div>
 
+	<!-- Amount input -->
 	<div>
 		<label class="label" for="lp-provide-amount">
 			<span class="label-text text-sm font-medium"
 				>{$t('wallet.defi.earn.provide_amount_label')}</span
 			>
 		</label>
-		<div class="join w-full">
-			<span
-				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0 text-lg sm:min-h-[52px]"
-				>$</span
-			>
-			<input
-				id="lp-provide-amount"
-				type="text"
-				class="input input-bordered join-item min-h-[48px] flex-1 text-lg sm:min-h-[52px] sm:text-base"
-				placeholder="0.00"
-				bind:value={amount}
-				inputmode="decimal"
-				oninput={(e) => {
-					const v = e.currentTarget as HTMLInputElement;
-					if (v.value.includes(',')) v.value = v.value.replace(/,/g, '.');
-				}}
-			/>
-			<button
-				type="button"
-				class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-r-lg active:scale-95 sm:min-h-[52px]"
-				onclick={setMaxAmount}
-				disabled={!hasBoth || !isOnline}
-			>
-				<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
-			</button>
-		</div>
-		{#if amountNum > 0}
-			<div class="text-base-content/60 mt-1 text-xs">
-				{$t('wallet.defi.earn.provide_split', {
-					values: { wbtc: `${wbtcAmt.toFixed(6)} WBTC`, usdt0: `$${usdt0Amt.toFixed(2)} USDT0` }
-				})}
-			</div>
-		{/if}
+		<AmountInputSection
+			variant="direct"
+			tokenPrefix="$"
+			{amount}
+			onAmountChange={handleAmountChange}
+			onUnitChange={() => {}}
+			unit="usd"
+			showPercentSlider={true}
+			sliderDisabled={!hasBoth}
+			percent={sliderPercent}
+			onPercentChange={applyPercent}
+			onMaxAmount={async () => setMaxAmount()}
+			maxDisabled={!hasBoth || !isOnline}
+			disabled={!isOnline}
+		/>
 	</div>
 
-	<div
-		class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-		class:collapse-open={ilExpanded}
-	>
-		<button
-			type="button"
-			class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10 pl-3 text-sm font-medium"
-			aria-expanded={ilExpanded}
-			onclick={() => (ilExpanded = !ilExpanded)}
-		>
-			{$t('wallet.defi.lp.il_title')}
-		</button>
-		<div class="collapse-content text-base-content/70 space-y-2 px-2 text-xs">
-			<p>{$t('wallet.defi.lp.il_double')}</p>
-			<p>{$t('wallet.defi.lp.il_halve')}</p>
+	<!-- Insufficient balance warnings -->
+	{#if wbtcInsufficient}
+		<div class="alert alert-soft alert-error py-2 text-xs">
+			{$t('wallet.defi.lp.insufficient_wbtc', {
+				values: {
+					needed: `${satsFromBtc(wbtcAmt).toLocaleString()} Sats`,
+					available: `${wbtcSats.toLocaleString()} Sats`
+				}
+			})}
 		</div>
-	</div>
-
-	{#if txState !== 'idle'}
-		<div
-			class="alert alert-soft {txState === 'error' ? 'alert-error' : 'alert-info'} text-xs"
-			role="status"
-			aria-live="polite"
-		>
-			{txMessage || txState}
-			{#if txError}<div class="text-error mt-1 text-[10px]">{txError}</div>{/if}
-			{#if txState === 'error'}<button type="button" class="btn btn-xs mt-1" onclick={clearTx}
-					>{$t('common.cancel')}</button
-				>{/if}
+	{/if}
+	{#if usdt0Insufficient}
+		<div class="alert alert-soft alert-error py-2 text-xs">
+			{$t('wallet.defi.lp.insufficient_usdt0', {
+				values: { needed: `$${usdt0Amt.toFixed(2)}`, available: `$${usdt0Bal.toFixed(2)}` }
+			})}
 		</div>
 	{/if}
 
+	<!-- Summary card -->
+	{#if amountNum > 0}
+		<div class="bg-base-200 rounded-lg p-2.5 text-xs">
+			<div class="mb-1.5 flex items-center justify-between">
+				<span class="font-medium">{$t('wallet.defi.lp.both_sides_label')}</span>
+				<span class="text-base-content/50">{$t('wallet.defi.lp.fee_tier_005')}</span>
+			</div>
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/70">{wbtcAmt.toFixed(6)} WBTC</span>
+				<span class="text-base-content/30">+</span>
+				<span class="text-base-content/70">${usdt0Amt.toFixed(2)} USDT0</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Error state -->
+	{#if txState !== 'idle' && txState !== 'error'}
+		<div class="alert alert-soft alert-info text-xs" role="status" aria-live="polite">
+			{txMessage || txState}
+		</div>
+	{/if}
+	{#if txState === 'error' && txError}
+		<div class="alert alert-soft alert-error py-2 text-xs" role="alert">
+			<span>{txError}</span>
+			<button type="button" class="btn btn-ghost btn-xs" onclick={clearTx}>✕</button>
+		</div>
+	{/if}
+
+	<!-- CTA -->
 	<button
 		type="button"
 		class="btn btn-primary min-h-[48px] w-full text-base"
@@ -418,9 +484,19 @@
 		onclick={handleProvide}
 		aria-busy={isProcessing || txState.startsWith('approving') || txState === 'providing'}
 	>
-		{#if txState !== 'idle'}{txMessage}{:else}{isProcessing
-				? $t('wallet.defi.shared.pending_tx')
-				: $t('wallet.defi.earn.action_provide_lp')}{/if}
+		{#if txState !== 'idle'}
+			<span class="loading loading-spinner loading-sm"></span>
+			{txMessage}
+		{:else if isProcessing}
+			<span class="loading loading-spinner loading-sm"></span>
+			{$t('wallet.defi.shared.pending_tx')}
+		{:else if amountNum > 0}
+			{$t('wallet.defi.earn.action_provide_amount', {
+				values: { amount: `$${amountNum.toFixed(2)}` }
+			})}
+		{:else}
+			{$t('wallet.defi.earn.action_provide_lp')}
+		{/if}
 	</button>
 </div>
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { onMount } from 'svelte';
 	import { ethers } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
@@ -11,6 +10,8 @@
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import { appStore } from '$lib/stores/app.store';
+	import { supplyApy } from '$lib/runes/supplyApy.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 
@@ -27,6 +28,7 @@
 	let { walletId, address: _address, onSuccess }: Props = $props();
 
 	let amount = $state('');
+	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
 	let isApproving = $state(false);
 	let isSupplying = $state(false);
@@ -35,14 +37,12 @@
 	let showApproveModal = $state(false);
 	let pendingSupplyAfterApprove = $state(false);
 	let selectedId = $state<'builtin' | string>(walletId);
-	let supplyAPY = $state(4.22);
-	let _isLoadingRates = $state(true);
 
 	let isOnline = $derived($browserNetworkStatus.online);
 
 	// Selected wallet USDT0 balance
 	let selectedUsdt0BalanceStr = $derived.by(() => {
-		if (selectedId === 'builtin') return $walletStore.arb?.usdt0Balance ?? '0';
+		if (selectedId === 'builtin') return $walletStore.arb?.formattedUsdt0Balance ?? '0';
 		const w = $connectedWalletsStore.wallets.find((ww) => ww.id === selectedId);
 		const u = w?.balances?.['usdt0-arb'] || w?.balances?.['usdt-arb'] || w?.balances?.['usdt0'];
 		return u?.formatted ?? '0';
@@ -55,27 +55,21 @@
 		return isFinite(n) && n > 0 ? n : 0;
 	});
 
-	let projectedEarnings = $derived(amountNum + amountNum * (supplyAPY / 100));
-
-	let canSupply = $derived(
-		amountNum > 0 && hasSelectedUsdt0 && isOnline && !isProcessing && !isApproving && !isSupplying
+	let projectedEarnings = $derived(
+		supplyApy.apy !== null ? amountNum + amountNum * (supplyApy.apy / 100) : amountNum
 	);
 
-	// Fetch live APY from Aave on mount
-	async function loadLiveAPY() {
-		_isLoadingRates = true;
-		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
-		const aave = new AaveService(provider);
-		const { data: apy, error } = await tryCatch(aave.getSupplyAPY(USDT0_ARBITRUM));
-		if (!error && apy !== undefined && isFinite(apy)) {
-			supplyAPY = apy;
-		}
-		_isLoadingRates = false;
-	}
+	let exceedsBalance = $derived(amountNum > selectedUsdt0BalanceNum && amountNum > 0);
 
-	onMount(() => {
-		void loadLiveAPY();
-	});
+	let canSupply = $derived(
+		amountNum > 0 &&
+			hasSelectedUsdt0 &&
+			isOnline &&
+			!isProcessing &&
+			!isApproving &&
+			!isSupplying &&
+			!exceedsBalance
+	);
 
 	function setMaxAmount() {
 		Sentry.addBreadcrumb({
@@ -85,13 +79,33 @@
 		});
 		if (!isOnline || !hasSelectedUsdt0) return;
 		amount = selectedUsdt0BalanceNum.toString();
+		sliderPercent = 100;
+	}
+
+	function handleAmountChange(v: string) {
+		amount = v;
+		const n = parseFloat(v || '0');
+		sliderPercent =
+			isFinite(n) && n > 0 && selectedUsdt0BalanceNum > 0
+				? Math.min(100, (n / selectedUsdt0BalanceNum) * 100)
+				: 0;
+	}
+
+	function applyPercent(pct: number) {
+		sliderPercent = Math.min(100, pct);
+		if (pct <= 0 || selectedUsdt0BalanceNum <= 0) {
+			amount = '';
+			return;
+		}
+		const usd = (selectedUsdt0BalanceNum * Math.min(100, pct)) / 100;
+		amount = usd.toFixed(2);
 	}
 
 	function handleSupply() {
 		Sentry.addBreadcrumb({
 			category: 'defi.earn.supply',
 			message: 'handleSupply clicked',
-			data: { amountNum, supplyAPY, online: isOnline, selectedId }
+			data: { amountNum, apy: supplyApy.apy, online: isOnline, selectedId }
 		});
 		if (!canSupply) return;
 
@@ -190,6 +204,7 @@
 		await Promise.allSettled([defiPositions.refreshAavePosition(selectedId)]);
 		isSupplying = false;
 		amount = '';
+		sliderPercent = 0;
 		onSuccess();
 	}
 
@@ -224,57 +239,42 @@
 		<label class="label" for="earn-supply-amount">
 			<span class="label-text text-sm font-medium">{$t('wallet.defi.lend.amount_label')}</span>
 		</label>
-		<div class="join w-full">
-			<span
-				class="btn join-item no-animation bg-base-200 text-base-content/70 pointer-events-none min-h-[48px] border-r-0 text-lg sm:min-h-[52px]"
-			>
-				$
-			</span>
-			<input
-				id="earn-supply-amount"
-				type="text"
-				class="input input-bordered join-item min-h-[48px] flex-1 text-lg sm:min-h-[52px] sm:text-base"
-				placeholder="0.00"
-				bind:value={amount}
-				inputmode="decimal"
-				oninput={(e) => {
-					const target = e.currentTarget;
-					if (target.value.includes(',')) {
-						target.value = target.value.replace(/,/g, '.');
-					}
-				}}
-			/>
-			<button
-				type="button"
-				class="btn btn-primary join-item min-h-[48px] touch-manipulation rounded-r-lg active:scale-95 sm:min-h-[52px]"
-				onclick={setMaxAmount}
-				disabled={!hasSelectedUsdt0 || !isOnline}
-			>
-				<span class="text-xs sm:text-sm">{$t('wallet.max')}</span>
-			</button>
-		</div>
+		<AmountInputSection
+			variant="direct"
+			tokenPrefix="$"
+			{amount}
+			onAmountChange={handleAmountChange}
+			onUnitChange={() => {}}
+			unit="usd"
+			showPercentSlider={true}
+			sliderDisabled={!hasSelectedUsdt0}
+			percent={sliderPercent}
+			onPercentChange={applyPercent}
+			onMaxAmount={async () => setMaxAmount()}
+			maxDisabled={!hasSelectedUsdt0 || !isOnline}
+			disabled={!isOnline}
+		/>
 	</div>
 
 	<!-- Preview -->
-	{#if amountNum > 0}
-		<div class="bg-base-300 rounded-box border-primary/20 border p-3 text-sm">
-			<div class="text-base-content/80 mb-1 font-medium">
-				{$t('wallet.defi.earn.action_approve_supply')}
-			</div>
-			<div>
-				${amountNum.toFixed(2)} USDT0 • ~{supplyAPY.toFixed(2)}% {$t('wallet.defi.lend.apy_label')}
-			</div>
-			<div class="text-success">
-				{$t('wallet.defi.lend.projected_label')}: ${projectedEarnings.toFixed(2)}
-			</div>
+	<div class="bg-base-200 rounded-lg p-2.5 text-sm">
+		<div class="text-success">
+			{$t('wallet.defi.lend.projected_label')}: ${projectedEarnings.toFixed(2)}
 		</div>
-	{/if}
+	</div>
 
 	<!-- Error state -->
 	{#if txError}
 		<div class="alert alert-soft alert-error py-1 text-xs" role="alert">
 			<span>{txError}</span>
 			<button type="button" class="btn btn-ghost btn-xs" onclick={() => (txError = null)}>✕</button>
+		</div>
+	{/if}
+
+	<!-- Exceeds balance warning -->
+	{#if exceedsBalance}
+		<div class="alert alert-soft alert-error py-2 text-xs">
+			{$t('wallet.defi.shared.error_insufficient_funds')}
 		</div>
 	{/if}
 
@@ -289,8 +289,12 @@
 		{#if isApproving || isSupplying}
 			<span class="loading loading-spinner loading-sm"></span>
 			{$t('wallet.defi.shared.pending_tx')}
+		{:else if amountNum > 0}
+			{$t('wallet.defi.earn.action_lend_amount', {
+				values: { amount: `$${amountNum.toFixed(2)}` }
+			})}
 		{:else}
-			{$t('wallet.defi.earn.action_approve_supply')}
+			{$t('wallet.defi.earn.action_lend')}
 		{/if}
 	</button>
 

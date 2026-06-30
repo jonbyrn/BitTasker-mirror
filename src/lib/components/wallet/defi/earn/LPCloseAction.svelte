@@ -8,6 +8,7 @@
 	import { defiPositions, type UniswapLPPosition } from '$lib/stores/defi-positions.store.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { UniswapService } from '$lib/services/defi/uniswap.service';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import * as Sentry from '@sentry/sveltekit';
 
@@ -35,6 +36,16 @@
 	// WBTC: 8 decimals, USDT0: 6 decimals
 	let feesWbtc = $derived(Number(position.fees0) / 1e8);
 	let feesUsdt0 = $derived(Number(position.fees1) / 1e6);
+	let feesUsd = $derived(
+		(isFinite(feesWbtc) ? feesWbtc * btcPrice.price : 0) + (isFinite(feesUsdt0) ? feesUsdt0 : 0)
+	);
+
+	// Approximate position value from liquidity
+	let posValueUsd = $derived.by(() => {
+		const liqNum = Number(position.liquidity);
+		if (!isFinite(liqNum) || liqNum <= 0 || btcPrice.price <= 0) return 0;
+		return (liqNum / 1e8) * btcPrice.price * 0.01;
+	});
 
 	let canClose = $derived(
 		(hasLiquidity || hasAnyFees) && isOnline && !isProcessing && txState === 'idle'
@@ -240,20 +251,26 @@
 		{$t('wallet.defi.earn.close_confirm_desc_lp')}
 	</p>
 
+	<!-- Earned callout -->
+	{#if feesUsd > 0}
+		<div class="bg-base-200 rounded-lg p-2.5">
+			<p class="text-xs font-medium">{$t('wallet.defi.earn.overview_earned')}</p>
+			<p class="text-base-content/60 text-[11px]">
+				{$t('wallet.defi.earn.close_earned_since_lp', {
+					values: { amount: `$${feesUsd.toFixed(4)}` }
+				})}
+			</p>
+		</div>
+	{/if}
+
 	<!-- Position summary -->
-	<div class="bg-base-200 rounded-box space-y-2 p-3 text-sm">
-		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">{$t('wallet.defi.earn.lp_position_value')}</span>
-			<span class="font-medium tabular-nums">
-				{position.tokenId.toString()}
-			</span>
-		</div>
-		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">{$t('wallet.defi.earn.card_fee_tier')}</span>
-			<span class="text-base-content/60 text-xs">
-				{position.liquidity > 0n ? $t('wallet.defi.earn.overview_deployed') : '—'}
-			</span>
-		</div>
+	<div class="bg-base-200 space-y-2 rounded-lg p-2.5 text-sm">
+		{#if posValueUsd > 0}
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/60">{$t('wallet.defi.earn.lp_position_value')}</span>
+				<span class="font-medium tabular-nums">${posValueUsd.toFixed(2)}</span>
+			</div>
+		{/if}
 		{#if hasAnyFees}
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/60">{$t('wallet.defi.earn.overview_earned_unclaimed')}</span>
