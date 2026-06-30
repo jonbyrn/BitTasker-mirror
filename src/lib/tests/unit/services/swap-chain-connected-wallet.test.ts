@@ -24,6 +24,23 @@ import type {
 import type { SwapChainState, SwapChainPhase } from '$lib/services/swap-chain.service';
 
 // ---------------------------------------------------------------------------
+// Mock fetch for waitForReceipt — returns a successful receipt by default
+// ---------------------------------------------------------------------------
+
+const mockFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
+
+function setupFetchMock(): void {
+	mockFetch.mockResolvedValue({
+		ok: true,
+		json: () =>
+			Promise.resolve({
+				result: { status: '0x1', gasUsed: '0x5208' } // success, 21000 gas
+			})
+	} as Response);
+	globalThis.fetch = mockFetch;
+}
+
+// ---------------------------------------------------------------------------
 // Hoisted mutable mocks — shared between vi.mock factories and test assertions
 // ---------------------------------------------------------------------------
 
@@ -178,7 +195,8 @@ vi.mock('$lib/stores/wallet.store', () => {
 		sendArbitrumTransaction: mockSendArbitrumTransaction,
 		createSubmarineSwap: mockCreateSubmarineSwap,
 		lockSubmarineSwapFunds: mockLockSubmarineSwapFunds,
-		createChainSwap: mockCreateChainSwap
+		createChainSwap: mockCreateChainSwap,
+		getRSKAddress: vi.fn().mockResolvedValue('0xAAAA000000000000000000000000000000000001')
 	};
 });
 
@@ -193,7 +211,12 @@ vi.mock('$lib/services/lifi.service', () => ({
 }));
 
 vi.mock('$lib/services/symbiosis.service', () => ({
-	symbiosisService: { getQuote: mockSymbiosisGetQuote }
+	symbiosisService: {
+		getQuote: mockSymbiosisGetQuote,
+		getSwapStatus: vi.fn().mockResolvedValue({
+			status: { code: 0, text: 'Relayed' }
+		})
+	}
 }));
 
 vi.mock('$lib/services/changelly.service', () => ({
@@ -215,23 +238,32 @@ vi.mock('$lib/services/BoltzProvider', () => {
 	};
 });
 
-vi.mock('ethers', () => ({
-	ethers: {
-		Wallet: {
-			createRandom: vi.fn(() => ({
-				publicKey: '0x04mockpublickey1234567890abcdef1234567890abcdef1234567890abcdef12',
-				address: '0x7777000000000000000000000000000000000Aaa'
-			}))
-		},
-		Interface: vi.fn().mockImplementation(function () {
-			this.encodeFunctionData = vi.fn(() => '0xlockcalldata');
-		}),
-		Transaction: vi.fn(),
-		toQuantity: vi.fn(),
-		Signature: { from: vi.fn() },
-		getAddress: vi.fn((addr: string) => addr)
-	}
-}));
+vi.mock('ethers', async (importOriginal) => {
+	const real = await importOriginal<typeof import('ethers')>();
+	return {
+		ethers: {
+			Wallet: {
+				createRandom: vi.fn(() => ({
+					publicKey: '0x04mockpublickey1234567890abcdef1234567890abcdef1234567890abcdef12',
+					address: '0x7777000000000000000000000000000000000Aaa'
+				}))
+			},
+			Interface: vi.fn().mockImplementation(function () {
+				this.encodeFunctionData = vi.fn(() => '0xlockcalldata');
+			}),
+			Transaction: vi.fn(),
+			toQuantity: vi.fn(),
+			Signature: { from: vi.fn() },
+			getAddress: vi.fn((addr: string) => {
+				try {
+					return real.ethers.getAddress(addr.toLowerCase());
+				} catch {
+					return addr;
+				}
+			})
+		}
+	};
+});
 
 // ---------------------------------------------------------------------------
 // Test data factories
@@ -433,7 +465,8 @@ function resetMocks(): void {
 		mockGetBSCUSDTContractAddress,
 		mockPreferencesGet,
 		mockPreferencesSet,
-		mockPreferencesRemove
+		mockPreferencesRemove,
+		mockFetch
 	];
 	for (const m of allHoisted) {
 		m.mockClear();
@@ -500,6 +533,9 @@ function resetMocks(): void {
 		'0xa9059cbb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
 	);
 	mockGetBSCUSDTContractAddress.mockReturnValue('0x337610d27c682E347C9cD60BD4b3b107C9d34dDd');
+
+	// Default: fetch mock for waitForReceipt — returns successful receipt
+	setupFetchMock();
 
 	// Default: submarine swap returns data with lockup address (expectedAmount as string, not bigint — the code only accepts number|string)
 	mockCreateSubmarineSwap.mockResolvedValue({
@@ -681,7 +717,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT, 'nonexistent-wallet');
 
 			// Assert
-			assertFailed(result, 'Connected wallet EVM signer not available for LI.FI');
+			assertFailed(result, 'Connected wallet EVM signer not available');
 		});
 
 		it('regression: built-in wallet uses sendRawTransaction for RSK LI.FI', async () => {
@@ -725,8 +761,9 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
 		});
 
-		it('returns FAILED when evmSigner is missing for Symbiosis connected wallet', async () => {
-			// Arrange
+		it('falls back to built-in wallet when connected wallet address is missing for Symbiosis', async () => {
+			// Arrange — 'nonexistent-wallet' has no handle, so getHandle returns undefined.
+			// The code now falls back to the built-in wallet address instead of failing.
 			const dest = makeDestination(DEST_ADDR);
 			const hop = makeSymbiosisHop();
 			const route = makeRoute([hop]);
@@ -734,8 +771,9 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Act
 			const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT, 'nonexistent-wallet');
 
-			// Assert
-			assertFailed(result, 'No wallet address available for Symbiosis swap');
+			// Assert — should succeed (uses built-in wallet address as fallback)
+			expect(result.error).toBeNull();
+			expect(result.data).not.toBeNull();
 		});
 
 		it('regression: built-in wallet uses sendRawTransaction for Symbiosis', async () => {

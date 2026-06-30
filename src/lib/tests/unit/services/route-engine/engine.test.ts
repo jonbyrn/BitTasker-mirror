@@ -299,13 +299,15 @@ describe('resolveRoutes()', () => {
 			expect.anything(),
 			expect.anything(),
 			100_000,
-			controller.signal
+			controller.signal,
+			undefined // sourceAmountRaw (only set for non-BTC sources)
 		);
 		expect(mockLifiProvider.getQuote).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
 			100_000,
-			controller.signal
+			controller.signal,
+			undefined // sourceAmountRaw (only set for non-BTC sources)
 		);
 	});
 

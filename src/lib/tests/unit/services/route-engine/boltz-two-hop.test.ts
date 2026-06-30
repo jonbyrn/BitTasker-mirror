@@ -14,10 +14,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock providers before importing module under test
 // ---------------------------------------------------------------------------
 
-const { mockBoltzGetQuote, mockSymbiosisGetQuote, mockLifiGetQuote } = vi.hoisted(() => ({
+const {
+	mockBoltzGetQuote,
+	mockSymbiosisGetQuote,
+	mockLifiGetQuote,
+	mockSymbiosisSupports,
+	mockLifiSupports
+} = vi.hoisted(() => ({
 	mockBoltzGetQuote: vi.fn(),
 	mockSymbiosisGetQuote: vi.fn(),
-	mockLifiGetQuote: vi.fn()
+	mockLifiGetQuote: vi.fn(),
+	mockSymbiosisSupports: vi.fn().mockReturnValue(true),
+	mockLifiSupports: vi.fn().mockReturnValue(true)
 }));
 
 vi.mock('$lib/services/route-engine/providers/boltz.provider', () => ({
@@ -25,11 +33,15 @@ vi.mock('$lib/services/route-engine/providers/boltz.provider', () => ({
 }));
 
 vi.mock('$lib/services/route-engine/providers/symbiosis.provider', () => ({
-	symbiosisProvider: { name: 'symbiosis', supports: vi.fn(), getQuote: mockSymbiosisGetQuote }
+	symbiosisProvider: {
+		name: 'symbiosis',
+		supports: mockSymbiosisSupports,
+		getQuote: mockSymbiosisGetQuote
+	}
 }));
 
 vi.mock('$lib/services/route-engine/providers/lifi.provider', () => ({
-	lifiProvider: { name: 'lifi', supports: vi.fn(), getQuote: mockLifiGetQuote }
+	lifiProvider: { name: 'lifi', supports: mockLifiSupports, getQuote: mockLifiGetQuote }
 }));
 
 vi.mock('$lib/utils/debug', () => ({
@@ -93,6 +105,9 @@ function makeToken(key: string): Token {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	// Default: all providers support all pairs (individual tests can override)
+	mockSymbiosisSupports.mockReturnValue(true);
+	mockLifiSupports.mockReturnValue(true);
 });
 
 // ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@ import {
 	WBTC_ARB,
 	USDT_BSC,
 	LIFI_ASSET_DECIMALS,
-	SYMBIOSIS_ASSET_DECIMALS
+	getSymbiosisDecimals
 } from '$lib/services/swap-chain/utils';
 
 // ─── resolveChainId ────────────────────────────────────────────────
@@ -206,42 +206,49 @@ describe('LIFI_ASSET_DECIMALS', () => {
 	});
 });
 
-// ─── SYMBIOSIS_ASSET_DECIMALS ──────────────────────────────────────
+// ─── getSymbiosisDecimals ──────────────────────────────────────────
 
-describe('SYMBIOSIS_ASSET_DECIMALS', () => {
+describe('getSymbiosisDecimals', () => {
 	it('RBTC is 18 decimals', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.RBTC).toBe(18);
+		expect(getSymbiosisDecimals('RBTC')).toBe(18);
 	});
 
 	it('BTC is 8 decimals (Symbiosis uses native)', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.BTC).toBe(8);
+		expect(getSymbiosisDecimals('BTC')).toBe(8);
 	});
 
 	it('TBTC is 18 decimals', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.TBTC).toBe(18);
+		expect(getSymbiosisDecimals('TBTC')).toBe(18);
 	});
 
 	it('WBTC is 8 decimals', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.WBTC).toBe(8);
+		expect(getSymbiosisDecimals('WBTC')).toBe(8);
 	});
 
-	it('USDT0 is 18 decimals', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.USDT0).toBe(18);
+	it('USDT0 is 6 decimals', () => {
+		expect(getSymbiosisDecimals('USDT0')).toBe(6);
 	});
 
 	it('USDT is 18 decimals', () => {
-		expect(SYMBIOSIS_ASSET_DECIMALS.USDT).toBe(18);
+		expect(getSymbiosisDecimals('USDT')).toBe(18);
 	});
 
-	it('has exactly 6 entries', () => {
-		expect(Object.keys(SYMBIOSIS_ASSET_DECIMALS).length).toBe(6);
+	it('is case-insensitive (tBTC matches TBTC)', () => {
+		expect(getSymbiosisDecimals('tBTC')).toBe(18);
+		expect(getSymbiosisDecimals('wbtc')).toBe(8);
+		expect(getSymbiosisDecimals('usdt0')).toBe(6);
+	});
+
+	it('returns 18 for unknown assets (fallback)', () => {
+		expect(getSymbiosisDecimals('UNKNOWN')).toBe(18);
+		expect(getSymbiosisDecimals('')).toBe(18);
 	});
 
 	it('BTC decimals differ between LI.FI (18) and Symbiosis (8)', () => {
-		expect(LIFI_ASSET_DECIMALS.BTC).not.toBe(SYMBIOSIS_ASSET_DECIMALS.BTC);
+		expect(LIFI_ASSET_DECIMALS.BTC).not.toBe(getSymbiosisDecimals('BTC'));
 	});
 
 	it('USDT decimals differ between LI.FI (6) and Symbiosis (18)', () => {
-		expect(LIFI_ASSET_DECIMALS.USDT).not.toBe(SYMBIOSIS_ASSET_DECIMALS.USDT);
+		expect(LIFI_ASSET_DECIMALS.USDT).not.toBe(getSymbiosisDecimals('USDT'));
 	});
 });

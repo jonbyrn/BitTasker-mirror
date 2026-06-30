@@ -41,28 +41,19 @@ describe('symbiosisProvider.supports()', () => {
 		vi.mocked(isSymbiosisEnabled).mockReturnValue(true);
 	});
 
-	it('RSK → BSC cross-chain: true', () => {
-		expect(symbiosisProvider.supports(TOKENS['rbtc'], TOKENS['usdt-bsc'])).toBe(true);
-	});
-
-	it('RSK → Arbitrum cross-chain: true', () => {
-		expect(symbiosisProvider.supports(TOKENS['rbtc'], TOKENS['usdt0-arb'])).toBe(true);
-	});
-
-	it('BSC → RSK cross-chain: true', () => {
-		expect(symbiosisProvider.supports(TOKENS['usdt-bsc'], TOKENS['rbtc'])).toBe(true);
-	});
-
-	it('Arbitrum → RSK cross-chain: true', () => {
-		expect(symbiosisProvider.supports(TOKENS['usdt0-arb'], TOKENS['rbtc'])).toBe(true);
-	});
-
-	it('same-chain RSK DEX (usdt0-rsk → rbtc): true', () => {
-		expect(symbiosisProvider.supports(TOKENS['usdt0-rsk'], TOKENS['rbtc'])).toBe(true);
-	});
-
-	it('same-chain Arbitrum DEX (wbtc-arb → usdt0-arb): true', () => {
-		expect(symbiosisProvider.supports(TOKENS['wbtc-arb'], TOKENS['usdt0-arb'])).toBe(true);
+	it('all pairs return false (Symbiosis disabled — MetaRouter reverts on all chains)', () => {
+		const pairs = [
+			['rbtc', 'usdt-bsc'],
+			['rbtc', 'usdt0-arb'],
+			['usdt-bsc', 'rbtc'],
+			['usdt0-arb', 'rbtc'],
+			['usdt0-rsk', 'rbtc'],
+			['wbtc-arb', 'usdt0-arb'],
+			['rbtc', 'rbtc']
+		];
+		for (const [from, to] of pairs) {
+			expect(symbiosisProvider.supports(TOKENS[from], TOKENS[to]), `${from} → ${to}`).toBe(false);
+		}
 	});
 
 	it('same token same chain (rbtc → rbtc): false', () => {
