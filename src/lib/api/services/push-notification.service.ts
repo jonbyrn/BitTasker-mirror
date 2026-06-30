@@ -16,6 +16,7 @@ import { notificationService } from '$lib/api/services/notification.service';
 import { registerServiceWorker, getFirebaseWebConfig, getVapidKey } from '$lib/utils/helpers/fcm';
 import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { appStore } from '$lib/stores/app.store';
+import { foregroundNotificationCoordinator } from '$lib/utils/helpers/foreground-notification-coordinator';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
@@ -216,30 +217,35 @@ class PushNotificationService {
 	 * Web specific
 	 */
 	private async handleForegroundMessage(payload: MessagePayload): Promise<void> {
-		// Handle data payload first (includes device revocation)
-		if (payload.data) {
-			const title = payload.data.title || 'New notification received';
-			appStore.showInfoToast(title, 3000, {
-				dedupKey: `toast-dedup:${title}`
-			});
+		if (!payload.data) return;
 
-			/**
-			 * Avoid directly navigating to the URL in the notification
-			 * TODO: Update toast notification to show action buttons
-			 */
-			if (payload.data.type === 'device_revoked') {
-				await this.handleDeviceRevocation(payload.data);
-				return; // Exit early, don't navigate anywhere
-			}
+		const title = payload.data.title || 'New notification received';
 
-			// Show notification in foreground (optional, since browser handles this)
-			if (Notification.permission === 'granted') {
+		if (payload.data.type === 'device_revoked') {
+			await this.handleDeviceRevocation(payload.data);
+			return;
+		}
+
+		let systemNotificationShown = false;
+
+		if (Notification.permission === 'granted') {
+			try {
 				new Notification(payload.data.title, {
 					body: payload.data.body,
 					icon: payload.data.icon || '/favicon.ico',
 					tag: 'bittasker-notification'
 				});
+				systemNotificationShown = true;
+				foregroundNotificationCoordinator.markSystemNotificationShown();
+			} catch {
+				systemNotificationShown = false;
 			}
+		}
+
+		if (!systemNotificationShown) {
+			appStore.showInfoToast(title, 3000, {
+				dedupKey: `toast-dedup:${title}`
+			});
 		}
 	}
 
@@ -289,17 +295,12 @@ class PushNotificationService {
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
 		console.log('📨 Foreground notification received:', notification?.title);
 
-		// Check if this is a device revocation (handle immediately)
 		if (notification.data?.type === 'device_revoked') {
 			await this.handleDeviceRevocation(notification.data);
 			return;
 		}
 
 		try {
-			// Android: System doesn't show alerts in foreground by default
-			// For other platforms (iOS will be handled later)
-			// const platform = Capacitor.getPlatform();
-
 			try {
 				const permission = await LocalNotifications.checkPermissions();
 				if (permission.display !== 'granted') {
@@ -312,7 +313,6 @@ class PushNotificationService {
 
 				const notificationId = this.generateNotificationId(notification?.id);
 
-				// Schedule ONE local notification using the unified channel
 				await LocalNotifications.schedule({
 					notifications: [
 						{
@@ -322,10 +322,8 @@ class PushNotificationService {
 							sound: 'default',
 							actionTypeId: 'OPEN_ACTION',
 							extra: notification.data || {},
-							// Show immediately
 							schedule: { at: new Date(Date.now() + 100) },
 							autoCancel: true,
-							// Use unified notification channel id
 							channelId: 'bittasker-notification',
 							smallIcon: 'ic_stat_notify'
 						}
@@ -333,6 +331,7 @@ class PushNotificationService {
 				});
 
 				console.log('✅ Local notification scheduled with ID:', notificationId);
+				foregroundNotificationCoordinator.markSystemNotificationShown();
 			} catch (error) {
 				console.error('❌ Error scheduling local notification:', error);
 			}

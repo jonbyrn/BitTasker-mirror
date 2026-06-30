@@ -7,6 +7,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 import { appStore } from '$lib/stores/app.store';
 import { authState } from '$lib/stores/auth.store';
+import { foregroundNotificationCoordinator } from '$lib/utils/helpers/foreground-notification-coordinator';
 import type { NotificationCenterItem } from '$lib/types/notification';
 
 let socket: Socket | null = null;
@@ -38,9 +39,12 @@ export async function connectNotificationSocket(): Promise<void> {
 
 	socket.on('notification:new', (notification: NotificationCenterItem) => {
 		notificationCenterStore.addFromRealtime(notification);
-		appStore.showInfoToast(notification.title, 3000, {
-			dedupKey: `toast-dedup:${notification.title}`
-		});
+
+		if (!foregroundNotificationCoordinator.wasSystemNotificationShown()) {
+			appStore.showInfoToast(notification.title, 3000, {
+				dedupKey: `toast-dedup:${notification.title}`
+			});
+		}
 
 		Sentry.addBreadcrumb({
 			category: 'notification',

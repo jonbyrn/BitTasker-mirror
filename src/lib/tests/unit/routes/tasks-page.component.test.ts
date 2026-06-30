@@ -453,6 +453,15 @@ describe('Tasks Page - Component Tests', () => {
 			// Type something
 			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
 
+			// Wait for the debounced search to fire and findTasks to be called
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalledWith(
+					expect.objectContaining({
+						search: 'Repair'
+					})
+				);
+			});
+
 			// Mock findTasks for the reset call
 			const resetTasks = [createMockTask({ id: 'reset-1' }), createMockTask({ id: 'reset-2' })];
 			(
@@ -464,6 +473,7 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Clear the input
 			await fireEvent.input(searchInput, { target: { value: '' } });
+
 			// Wait for findTasks to be called with empty search
 			await waitFor(() => {
 				expect(findTasks).toHaveBeenCalledWith(
