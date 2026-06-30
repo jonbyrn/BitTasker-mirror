@@ -62,7 +62,10 @@ vi.mock('$app/environment', () => ({
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
-	afterNavigate: vi.fn(),
+	afterNavigate: vi.fn((cb: (nav: { to: { url: { pathname: string } } | null }) => void) => {
+		// Invoke immediately with a mock navigation that won't match task routes
+		cb({ to: null });
+	}),
 	beforeNavigate: vi.fn(),
 	invalidateAll: vi.fn()
 }));
