@@ -216,7 +216,7 @@
 		"socket.io-client": "^4.8.3",
 		"stream-browserify": "^3.0.0",
 		"svelte-i18n": "^4.0.1",
-		"svelte-multiselect": "^11.2.3",
+		"svelte-multiselect": "^11.7.2",
 		"svelty-picker": "^6.1.6",
 		"tailwindcss": "^4.0.0",
 		"tus-js-client": "^4.3.1",
