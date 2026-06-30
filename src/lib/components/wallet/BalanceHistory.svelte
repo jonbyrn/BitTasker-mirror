@@ -33,6 +33,13 @@
 	let showChartModal = $state(false);
 	let expanded = $state(false);
 
+	// Period labels for the 3 comparison rows
+	const periodLabels = [
+		{ key: 'wallet.balance_history.24h', index: 0 },
+		{ key: 'wallet.balance_history.7d', index: 1 },
+		{ key: 'wallet.balance_history.30d', index: 2 }
+	];
+
 	/**
 	 * Compute the wallet's RBTC-denominated USD value — BTC value plus
 	 * RSK-native stablecoins (USDT/DOC). This excludes BSC, Arbitrum,
@@ -121,31 +128,36 @@
 		);
 	});
 
+	const changeFmt = new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	});
+
 	function formatChange(satsChange: number | null, usdChange: number | null) {
 		if (satsChange === null || usdChange === null) return null;
-		const sats = satsChange;
-		const usd = usdChange;
-		const satsNeutral = sats === 0;
-		const usdNeutral = usd === 0 || Math.abs(usd) < 0.01;
+		const satsLabel = $t('wallet.sats');
+		const satsNeutral = satsChange === 0;
+		const usdNeutral = usdChange === 0 || Math.abs(usdChange) < 0.01;
 
-		function formatUsdChange(value: number, neutral: boolean): string {
-			const absUsd = new Intl.NumberFormat('en-US', {
-				minimumFractionDigits: 2,
-				maximumFractionDigits: 2
-			}).format(Math.abs(value));
-			if (neutral) return `($0.00)`;
-			return value > 0 ? `(+$${absUsd})` : `(-$${absUsd})`;
-		}
+		const absUsd = changeFmt.format(Math.abs(usdChange));
 
 		return {
 			sats: satsNeutral
-				? `${formatSats(Math.abs(sats))} Sats`
-				: sats > 0
-					? `+${formatSats(Math.abs(sats))} Sats`
-					: `-${formatSats(Math.abs(sats))} Sats`,
-			usd: formatUsdChange(usd, usdNeutral),
-			satsColor: satsNeutral ? 'text-base-content/70' : sats > 0 ? 'text-success' : 'text-error',
-			usdColor: usdNeutral ? 'text-base-content/70' : usd > 0 ? 'text-success/80' : 'text-error/80'
+				? `${formatSats(Math.abs(satsChange))} ${satsLabel}`
+				: satsChange > 0
+					? `+${formatSats(Math.abs(satsChange))} ${satsLabel}`
+					: `-${formatSats(Math.abs(satsChange))} ${satsLabel}`,
+			usd: usdNeutral ? `($0.00)` : usdChange > 0 ? `(+$${absUsd})` : `(-$${absUsd})`,
+			satsColor: satsNeutral
+				? 'text-base-content/70'
+				: satsChange > 0
+					? 'text-success'
+					: 'text-error',
+			usdColor: usdNeutral
+				? 'text-base-content/70'
+				: usdChange > 0
+					? 'text-success/80'
+					: 'text-error/80'
 		};
 	}
 </script>
@@ -174,7 +186,7 @@
 					{@const f24 = formatChange(changes[0]?.satsChange ?? null, changes[0]?.usdChange ?? null)}
 					{#if f24}
 						{#if balancesHidden}
-							<span class="text-base-content/50">•••• Sats</span>
+							<span class="text-base-content/50">•••• {$t('wallet.sats')}</span>
 							<span class="text-base-content/50">••••</span>
 						{:else}
 							<span class="font-semibold {f24.satsColor}">{f24.sats}</span>
@@ -196,47 +208,31 @@
 			</div>
 		{:then changes}
 			<div class="space-y-2 pt-1">
-				<!-- 7d row -->
-				{#if changes.length > 1}
-					{@const f7 = formatChange(changes[1]?.satsChange ?? null, changes[1]?.usdChange ?? null)}
-					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.7d')}</span>
-						<div class="flex items-center gap-3 text-sm sm:text-base">
-							{#if f7}
-								{#if balancesHidden}
-									<span class="text-base-content/50">•••• Sats</span>
-									<span class="text-base-content/50">••••</span>
+				<!-- 7d + 30d rows -->
+				{#each periodLabels.slice(1) as period (period.key)}
+					{#if changes.length > period.index}
+						{@const f = formatChange(
+							changes[period.index]?.satsChange ?? null,
+							changes[period.index]?.usdChange ?? null
+						)}
+						<div class="flex items-center justify-between gap-3 px-2 py-1.5">
+							<span class="text-base-content/70 text-sm">{$t(period.key)}</span>
+							<div class="flex items-center gap-3 text-sm sm:text-base">
+								{#if f}
+									{#if balancesHidden}
+										<span class="text-base-content/50">•••• {$t('wallet.sats')}</span>
+										<span class="text-base-content/50">••••</span>
+									{:else}
+										<span class="font-semibold {f.satsColor}">{f.sats}</span>
+										<span class={f.usdColor}>{f.usd}</span>
+									{/if}
 								{:else}
-									<span class="font-semibold {f7.satsColor}">{f7.sats}</span>
-									<span class={f7.usdColor}>{f7.usd}</span>
+									<span class="loading loading-spinner loading-xs text-primary"></span>
 								{/if}
-							{:else}
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							{/if}
+							</div>
 						</div>
-					</div>
-				{/if}
-
-				<!-- 30d row -->
-				{#if changes.length > 2}
-					{@const f30 = formatChange(changes[2]?.satsChange ?? null, changes[2]?.usdChange ?? null)}
-					<div class="flex items-center justify-between gap-3 px-2 py-1.5">
-						<span class="text-base-content/70 text-sm">{$t('wallet.balance_history.30d')}</span>
-						<div class="flex items-center gap-3 text-sm sm:text-base">
-							{#if f30}
-								{#if balancesHidden}
-									<span class="text-base-content/50">•••• Sats</span>
-									<span class="text-base-content/50">••••</span>
-								{:else}
-									<span class="font-semibold {f30.satsColor}">{f30.sats}</span>
-									<span class={f30.usdColor}>{f30.usd}</span>
-								{/if}
-							{:else}
-								<span class="loading loading-spinner loading-xs text-primary"></span>
-							{/if}
-						</div>
-					</div>
-				{/if}
+					{/if}
+				{/each}
 
 				<!-- Divider + Chart button + Transactions button -->
 				<div class="border-base-300 border-t pt-2">

@@ -20,14 +20,8 @@
 
 	let { label, amount, unit = 'sats', usdValue, isError = false }: Props = $props();
 
+	import { t } from 'svelte-i18n';
 	import { formatSats, formatUsd } from '$lib/stores/wallet.store';
-
-	function formatSatsLocal(n: number): string {
-		return formatSats(n);
-	}
-	function formatUsdLocal(n: number): string {
-		return formatUsd(n);
-	}
 </script>
 
 <div
@@ -37,7 +31,7 @@
 >
 	<span class="text-xs opacity-70">{label}</span>
 	{#if isError && amount > 0}
-		<span class="text-error text-sm font-semibold">Not enough funds</span>
+		<span class="text-error text-sm font-semibold">{$t('wallet.insufficient_balance')}</span>
 	{:else if amount > 0}
 		<div class="flex items-center gap-1">
 			{#if unit === 'usdt'}
@@ -48,12 +42,12 @@
 					})}</span
 				>
 				{#if amount > 0}
-					<span class="text-xs opacity-60">{formatSatsLocal(amount)} Sats</span>
+					<span class="text-xs opacity-60">{formatSats(amount)} Sats</span>
 				{/if}
 			{:else}
-				<span class="text-primary text-sm font-bold">{formatSatsLocal(amount)} Sats</span>
+				<span class="text-primary text-sm font-bold">{formatSats(amount)} Sats</span>
 				{#if usdValue !== undefined && usdValue > 0}
-					<span class="text-xs opacity-60">≈ {formatUsdLocal(usdValue)}</span>
+					<span class="text-xs opacity-60">≈ {formatUsd(usdValue)}</span>
 				{/if}
 			{/if}
 		</div>
