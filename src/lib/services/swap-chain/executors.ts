@@ -15,7 +15,7 @@ import { lifiService } from '$lib/services/lifi.service';
 import { symbiosisService } from '$lib/services/symbiosis.service';
 import type { SymbiosisSwapStatusResponse } from '$lib/services/symbiosis.service';
 import { walletStore, sendRBTC, sendBSCUSDT } from '$lib/stores/wallet.store';
-import { getHandle } from '$lib/stores/connected-wallets.store';
+import { getEvmSigner, getHandle } from '$lib/stores/connected-wallets.store';
 import type { RouteHop } from '$lib/services/route-resolver';
 import type { ChangellySwapStatus } from '$lib/services/changelly.service';
 import type { EVMSigner, EVMTransactionRequest } from '$lib/services/external-wallet/types';
