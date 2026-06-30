@@ -114,7 +114,7 @@ agentdb.rvf.lock
 ruvector.db
 
 # Dev screenshots (not for repo)
-Screenshots/
+Screenshots
 receive-accordion.png
 route-picker-visible.png
 send-accordion-final.png
