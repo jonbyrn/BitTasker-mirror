@@ -3,8 +3,14 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { formatAddress } from '$lib/stores/wallet.store';
 	import type { ConnectedWalletEntry } from '$lib/stores/connected-wallets.store';
+	import {
+		formatSatsWithUsd as fmtSatsWithUsd,
+		stableInnerFormat as fmtStableInner,
+		stableWalletAvailableUsd as fmtStableUsd
+	} from './wallet-formatters';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconClose from '~icons/mdi/close';
+	import IconCheck from '~icons/mdi/check';
 	import WalletIcon from './WalletIcon.svelte';
 
 	let {
@@ -51,11 +57,12 @@
 		const usdtRaw = cur['usdt0-arb']?.raw ?? '';
 		const wbtcRaw = cur.wbtc?.raw ?? '';
 		const tbtcRaw = cur['tbtc-arb']?.raw ?? '';
-		const sats = Number(rbtcRaw) + Number(btcRaw);
-		const usdt = Number(usdtRaw);
-		const wbtc = Number(wbtcRaw);
-		const tbtc = Number(tbtcRaw);
-		if (sats > 0 || usdt > 0 || wbtc > 0 || tbtc > 0) {
+		const hasBalance =
+			Number(rbtcRaw) + Number(btcRaw) > 0 ||
+			Number(usdtRaw) > 0 ||
+			Number(wbtcRaw) > 0 ||
+			Number(tbtcRaw) > 0;
+		if (hasBalance) {
 			lastKnownWalletBalances[wallet.id] = {
 				rbtc: rbtcRaw,
 				btc: btcRaw,
@@ -67,20 +74,13 @@
 	});
 
 	// ---------------------------------------------------------------------------
-	// Formatting helpers
+	// Formatting wrappers — delegate to shared wallet-formatters.ts utilities
 	// ---------------------------------------------------------------------------
 
 	function formatSatsWithUsd(rawSats: string | number | undefined | null): string {
-		const sats = Number(rawSats ?? 0);
-		if (sats <= 0) return '0 Sats';
-		const satsStr = satsFormatter.format(sats);
-		const btc = sats / 100_000_000;
-		const usd = btc * btcPrice.price;
-		const usdStr = usdFormatter.format(usd);
-		return `${satsStr} Sats (${usdStr})`;
+		return fmtSatsWithUsd(rawSats, satsFormatter, usdFormatter, btcPrice.price);
 	}
 
-	/** Stable inner balance format — falls back to cached per-asset raw when live is zero */
 	function stableInnerFormat(
 		w: {
 			id: string;
@@ -88,63 +88,21 @@
 		},
 		key: string
 	): string {
-		const bal = w.balances?.[key];
-		const raw = Number(bal?.raw ?? 0);
-		if (raw > 0) {
-			if (key === 'usdt0-arb' || key === 'usdt') return `$${(raw / 1e6).toFixed(2)}`;
-			if (key === 'tbtc-arb') {
-				const sats = Math.round(raw / 10_000_000_000);
-				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
-			}
-			return formatSatsWithUsd(raw);
-		}
-		const cached = lastKnownWalletBalances[w.id];
-		if (cached) {
-			const cachedRaw = Number((cached as Record<string, string>)[key] ?? 0);
-			if (cachedRaw > 0) {
-				if (key === 'usdt0-arb' || key === 'usdt') {
-					return `$${(cachedRaw / 1e6).toFixed(2)}`;
-				}
-				if (key === 'tbtc-arb') {
-					const sats = Math.round(cachedRaw / 10_000_000_000);
-					return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
-				}
-				return formatSatsWithUsd(cachedRaw);
-			}
-		}
-		if (key === 'usdt0-arb' || key === 'usdt') return '$0.00';
-		if (key === 'tbtc-arb') return '0 Sats';
-		return '0 Sats';
+		return fmtStableInner(
+			w,
+			key,
+			lastKnownWalletBalances,
+			satsFormatter,
+			usdFormatter,
+			btcPrice.price
+		);
 	}
 
-	/** Stable display value for a wallet's accordion title */
 	function stableWalletAvailableUsd(w: {
 		id: string;
 		balances: Record<string, { raw: string; formatted: string; loading: boolean }> | undefined;
 	}): string {
-		const cur = w.balances;
-		if (cur) {
-			const btcSats =
-				Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
-			const tbtcSats = Math.round(Number(cur['tbtc-arb']?.raw ?? 0) / 10_000_000_000);
-			const usdtRaw = Number(cur['usdt0-arb']?.raw ?? 0);
-			if (btcSats > 0 || usdtRaw > 0 || tbtcSats > 0) {
-				return usdFormatter.format(
-					((btcSats + tbtcSats) / 100_000_000) * btcPrice.price + usdtRaw / 1e6
-				);
-			}
-		}
-		const cached = lastKnownWalletBalances[w.id];
-		if (cached) {
-			const tbtcSats = Math.round(Number(cached.tbtc ?? 0) / 10_000_000_000);
-			const usd =
-				((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc) + tbtcSats) /
-					100_000_000) *
-					btcPrice.price +
-				Number(cached.usdt) / 1e6;
-			if (usd > 0) return usdFormatter.format(usd);
-		}
-		return usdFormatter.format(0);
+		return fmtStableUsd(w, lastKnownWalletBalances, usdFormatter, btcPrice.price);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -249,6 +207,7 @@
 				type="button"
 				class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
 				onclick={() => onCopy(wallet.address)}
+				aria-label={$t('wallet.connected.copy_address_title')}
 				title={$t('wallet.connected.copy_address_title')}
 			>
 				<div class="text-base-content/40 flex items-center gap-1">
@@ -264,85 +223,44 @@
 				/>
 			</button>
 
-			<!-- BTC address (only shown when Bitcoin is connected) -->
-			{#if btcConnected}
-				{#if btcAddress}
-					<button
-						type="button"
-						class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
-						onclick={() => onCopy(btcAddress)}
-						title={$t('wallet.connected.copy_address_title')}
+			<!-- BTC address (only shown when Bitcoin is connected and address available) -->
+			{#if btcConnected && btcAddress}
+				<button
+					type="button"
+					class="hover:bg-base-200 focus-visible:ring-primary flex w-full items-center gap-2 rounded p-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+					onclick={() => onCopy(btcAddress)}
+					aria-label={$t('wallet.connected.copy_address_title')}
+					title={$t('wallet.connected.copy_address_title')}
+				>
+					<div class="text-base-content/40 flex items-center gap-1">
+						<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
+						<span>{$t('wallet.connected.bitcoin_label')}</span>
+					</div>
+					<span class="ml-auto truncate text-right font-mono opacity-60"
+						>{formatAddress(btcAddress)}</span
 					>
-						<div class="text-base-content/40 flex items-center gap-1">
-							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-3.5 w-3.5 shrink-0" />
-							<span>{$t('wallet.connected.bitcoin_label')}</span>
-						</div>
-						<span class="ml-auto truncate text-right font-mono opacity-60"
-							>{formatAddress(btcAddress)}</span
-						>
-						<IconContentCopy
-							class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress === btcAddress
-								? 'text-success'
-								: 'opacity-40'}"
-							aria-hidden="true"
-						/>
-					</button>
-				{/if}
+					<IconContentCopy
+						class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress === btcAddress
+							? 'text-success'
+							: 'opacity-40'}"
+						aria-hidden="true"
+					/>
+				</button>
 			{/if}
 
 			<!-- Connect Bitcoin / Disconnect buttons -->
 			<div class="flex flex-wrap items-center justify-end gap-2">
-				{#if wallet.walletType === 'ledger'}
+				{#if isHardwareWallet}
 					{#if btcConnected}
 						<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
 							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-							<svg
-								class="text-success h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								aria-hidden="true"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 13l4 4L19 7"
-								/></svg
-							>
+							<IconCheck class="text-success h-4 w-4" aria-hidden="true" />
 							{$t('wallet.connected.connected_label')}
 						</button>
 					{:else}
 						<button
 							class="btn btn-outline btn-sm min-h-[44px]"
-							onclick={() => onConnectBitcoin('ledger')}
-						>
-							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-							{$t('wallet.connected.connect_bitcoin')}
-						</button>
-					{/if}
-				{:else if wallet.walletType === 'trezor'}
-					{#if btcConnected}
-						<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
-							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-							<svg
-								class="text-success h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								aria-hidden="true"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 13l4 4L19 7"
-								/></svg
-							>
-							{$t('wallet.connected.connected_label')}
-						</button>
-					{:else}
-						<button
-							class="btn btn-outline btn-sm min-h-[44px]"
-							onclick={() => onConnectBitcoin('trezor')}
+							onclick={() => onConnectBitcoin(wallet.walletType as 'ledger' | 'trezor')}
 						>
 							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
 							{$t('wallet.connected.connect_bitcoin')}

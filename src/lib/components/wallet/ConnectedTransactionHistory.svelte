@@ -10,10 +10,10 @@
 	import type { ConnectedWalletInfo } from '$lib/services/connected-wallet-transactions';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { SvelteDate } from 'svelte/reactivity';
 	import WalletIcon from './WalletIcon.svelte';
 	import { fetchAllConnectedWalletTransactions } from '$lib/services/connected-wallet-transactions';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { computeRunningBalances } from './running-balance';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
@@ -100,6 +100,11 @@
 		...wallets.map((w) => ({ id: w.id, label: w.walletName, walletType: w.walletType }))
 	]);
 
+	// Currently selected network option for the dropdown button display
+	let selectedNetworkOption = $derived(
+		networkFilterOptions.find((opt) => opt.id === networkFilter)
+	);
+
 	const transactionUI = {
 		success: { border: 'border-success', background: 'bg-success/20', text: 'text-success' },
 		warning: { border: 'border-warning', background: 'bg-warning/20', text: 'text-warning' },
@@ -151,84 +156,28 @@
 		error = null;
 		try {
 			const txs = await fetchAllConnectedWalletTransactions(wallets);
-			allTransactions = computeRunningBalances(txs);
+
+			// Build balance map from the connected wallet store
+			const storeWallets = $connectedWalletsStore.wallets;
+			const walletBalanceMap: Record<string, { rbtc?: string; btc?: string; wbtc?: string }> = {};
+			for (const w of storeWallets) {
+				const b = w.balances;
+				if (b) {
+					walletBalanceMap[w.id] = {
+						rbtc: b.rbtc?.raw,
+						btc: b.btc?.raw,
+						wbtc: b.wbtc?.raw
+					};
+				}
+			}
+
+			allTransactions = computeRunningBalances(txs, walletBalanceMap);
 		} catch (err) {
 			console.error('[ConnectedTransactionHistory] Failed to load:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
 		}
-	}
-
-	/**
-	 * Compute running balances working backwards from current wallet totals.
-	 * Bitcoin balance = rBTC + BTC + wBTC across all connected wallets.
-	 * USDT balance = USDT0 (Arbitrum) across all connected wallets.
-	 * Transactions are already sorted newest-first from the fetcher.
-	 */
-	function computeRunningBalances(txs: ConnectedTransaction[]): ConnectedTransaction[] {
-		if (txs.length === 0) return txs;
-
-		// Get current aggregated balances from the connected wallet store
-		const storeWallets = $connectedWalletsStore.wallets;
-		let currentBtcSats = 0;
-		let currentUsdtCents = 0;
-
-		for (const w of storeWallets) {
-			const b = w.balances;
-			if (b) {
-				// BTC: rBTC + BTC + wBTC (all in sats from raw wei/sats values)
-				currentBtcSats += Number(b.rbtc?.raw ?? 0);
-				currentBtcSats += Number(b.btc?.raw ?? 0);
-				currentBtcSats += Number(b.wbtc?.raw ?? 0);
-				// USDT0-Arb: in micro-USDT (raw is in smallest unit, 6 decimals for USDT)
-				currentUsdtCents += Number(b['usdt0-arb']?.raw ?? 0);
-			}
-		}
-
-		// Work backwards: for each tx (newest first), store current balance, then adjust
-		let runningBtc = currentBtcSats;
-		let _runningUsdt = currentUsdtCents;
-
-		for (const tx of txs) {
-			const isFailed = tx.status === 'failed';
-			if (tx.network === 'rsk') {
-				// RSK = Bitcoin (rBTC)
-				tx.balanceAfter = runningBtc;
-				if (tx.type === 'receive') {
-					// Failed receives never arrived
-					if (!isFailed) {
-						runningBtc -= tx.valueSats;
-					}
-				} else {
-					// Failed sends only cost gas fee
-					if (isFailed) {
-						runningBtc += tx.feeSats;
-					} else {
-						runningBtc += tx.valueSats + tx.feeSats;
-					}
-				}
-			} else if (tx.tokenSymbol) {
-				// Arbitrum ERC-20 token transfer — doesn't affect BTC running balance
-				tx.balanceAfter = runningBtc;
-			} else {
-				// Arbitrum native transfer — contributes to BTC running balance
-				tx.balanceAfter = runningBtc;
-				if (tx.type === 'receive') {
-					if (!isFailed) {
-						runningBtc -= tx.valueSats;
-					}
-				} else {
-					if (isFailed) {
-						runningBtc += tx.feeSats;
-					} else {
-						runningBtc += tx.valueSats + tx.feeSats;
-					}
-				}
-			}
-		}
-
-		return txs;
 	}
 
 	function formatFee(feeSats: number | undefined): string {
@@ -243,7 +192,7 @@
 	function formatDate(timestamp: string): string {
 		try {
 			if (!timestamp) return '';
-			const date = new SvelteDate(timestamp);
+			const date = new Date(timestamp);
 			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 		} catch {
 			return '';
@@ -253,7 +202,7 @@
 	function formatTime(timestamp: string): string {
 		try {
 			if (!timestamp) return '';
-			const date = new SvelteDate(timestamp);
+			const date = new Date(timestamp);
 			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 		} catch {
 			return '';
@@ -359,29 +308,31 @@
 		<div class="flex gap-2">
 			<!-- Network Filter Dropdown -->
 			<div class="network-dropdown-container relative flex-1">
-				{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption (selectedOption?.id ?? networkFilter)}
-					<button
-						class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-						onclick={toggleNetworkDropdown}
-					>
-						<div class="flex items-center gap-2">
-							{#if selectedOption?.isImage}
-								<img src={selectedOption.icon} alt={selectedOption.label} class="h-5 w-5" />
-							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
-								{@const IconComponent = selectedOption.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-							<span class="font-medium">
-								{selectedOption?.label}
-							</span>
-						</div>
-						<IconChevronDown
-							class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
-								? 'rotate-180'
-								: ''}"
-						/>
-					</button>
-				{/each}
+				<button
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+					onclick={toggleNetworkDropdown}
+				>
+					<div class="flex items-center gap-2">
+						{#if selectedNetworkOption?.isImage}
+							<img
+								src={selectedNetworkOption.icon}
+								alt={selectedNetworkOption.label}
+								class="h-5 w-5"
+							/>
+						{:else if selectedNetworkOption && typeof selectedNetworkOption.icon !== 'string'}
+							{@const IconComponent = selectedNetworkOption.icon}
+							<IconComponent class="h-5 w-5" />
+						{/if}
+						<span class="font-medium">
+							{selectedNetworkOption?.label}
+						</span>
+					</div>
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
+							? 'rotate-180'
+							: ''}"
+					/>
+				</button>
 
 				{#if isNetworkDropdownOpen}
 					<div
@@ -730,7 +681,6 @@
 			{#if onClose}
 				<button
 					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
-					style="-webkit-tap-highlight-color: transparent;"
 					onclick={onClose}
 					aria-label={$t('common.close')}
 				>

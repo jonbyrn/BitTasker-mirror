@@ -214,27 +214,46 @@
 				{tokenPrefix}
 			</span>
 		{/if}
-		<input
-			type="text"
-			class="input input-bordered join-item min-h-[48px] flex-1 text-lg sm:min-h-[52px] sm:text-base {supportsBtcUsdToggle ||
-			tokenPrefix
-				? ''
-				: 'rounded-r-none'}"
-			class:border-error={belowMinimum}
-			class:focus:border-error={belowMinimum}
-			placeholder={supportsBtcUsdToggle ? (btcUsdMode ? '0.00' : '0') : tokenPrefix ? '0.00' : '0'}
-			value={amount}
-			oninput={handleDirectInput}
-			onkeypress={handleDirectKeyPress}
-			inputmode={supportsBtcUsdToggle
-				? btcUsdMode
-					? 'decimal'
-					: 'numeric'
-				: tokenPrefix
-					? 'decimal'
-					: 'numeric'}
-			{disabled}
-		/>
+		<div class="relative min-w-0 flex-1">
+			<input
+				type="text"
+				class="input input-bordered join-item min-h-[48px] w-full text-lg sm:min-h-[52px] sm:text-base {supportsBtcUsdToggle ||
+				tokenPrefix
+					? 'pr-10'
+					: 'rounded-r-none pr-10'}"
+				class:border-error={belowMinimum}
+				class:focus:border-error={belowMinimum}
+				placeholder={supportsBtcUsdToggle
+					? btcUsdMode
+						? '0.00'
+						: '0'
+					: tokenPrefix
+						? '0.00'
+						: '0'}
+				value={amount}
+				oninput={handleDirectInput}
+				onkeypress={handleDirectKeyPress}
+				inputmode={supportsBtcUsdToggle
+					? btcUsdMode
+						? 'decimal'
+						: 'numeric'
+					: tokenPrefix
+						? 'decimal'
+						: 'numeric'}
+				{disabled}
+			/>
+			{#if onClear && amount}
+				<button
+					type="button"
+					class="text-error hover:bg-error/20 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
+					onclick={handleClear}
+					{disabled}
+					aria-label="Clear amount"
+				>
+					<IconClose class="h-4 w-4" />
+				</button>
+			{/if}
+		</div>
 		{#if onMaxAmount}
 			<button
 				type="button"

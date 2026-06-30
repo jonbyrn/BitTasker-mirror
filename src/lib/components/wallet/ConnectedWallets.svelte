@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -15,7 +14,7 @@
 	} from '$lib/stores/connected-wallets.store';
 	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -62,7 +61,6 @@
 	let showWCModal = $state(false);
 	let wcQRUri = $state<string | null>(null);
 	let expandedWalletId = $state<string | null>(null);
-	let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// BTC state (derived via store query facade)
 	let btcConnectedWallets = $derived.by(() => {
@@ -83,7 +81,7 @@
 		onSend: _onSend,
 		onReceive: _onReceive,
 		balancesHidden = false,
-		showConnectModal = false
+		showConnectModal = $bindable(false)
 	}: {
 		onSend?: () => void;
 		onReceive?: () => void;
@@ -210,10 +208,6 @@
 	onMount(() => {
 		reconnectPersistedWallets();
 	});
-
-	onDestroy(() => {
-		clearTimeout(reconnectTimer);
-	});
 </script>
 
 {#if FeatureFlagService.isEnabled(FEATURE_FLAGS.CONNECTED_WALLETS)}
@@ -276,7 +270,6 @@
 							showLedgerBtcStep = true;
 							ledgerBtcError = '';
 						} else {
-							console.log('[ConnectedWallets] Trezor Connect Bitcoin button clicked');
 							showConnectModal = true;
 							showLedgerBtcStep = false;
 							showTrezorBtcStep = true;
