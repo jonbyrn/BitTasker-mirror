@@ -246,17 +246,47 @@ class TokenBalanceService {
 
 	/**
 	 * Fetch a single ERC-20 token balance on Arbitrum via direct RPC call.
+	 * Supports caching (same TTL as RSK token balances) and forceRefresh.
 	 *
 	 * @param address - Wallet address to query
 	 * @param tokenAddress - ERC-20 contract address on Arbitrum
 	 * @param decimals - Token decimals (fetched from contract if omitted)
+	 * @param forceRefresh - Bypass cache and fetch fresh from chain
 	 * @returns Balance object or null if zero / error
 	 */
 	async getArbitrumTokenBalance(
 		address: string,
 		tokenAddress: string,
-		decimals?: number
+		decimals?: number,
+		forceRefresh = false
 	): Promise<{ balance: string; formattedBalance: string } | null> {
+		const normalizedAddress = address.toLowerCase();
+		const cacheKey = `arb:${normalizedAddress}:${tokenAddress.toLowerCase()}`;
+
+		// Check cache (skip if forceRefresh)
+		if (!forceRefresh) {
+			const cached = this.tokenBalanceCache.get(cacheKey);
+			if (cached) {
+				const age = Date.now() - cached.timestamp;
+				if (age < this.BALANCE_CACHE_TTL) {
+					console.log('[TokenBalanceService] Returning cached Arbitrum balance', {
+						cacheKey,
+						balance: cached.balances[0]?.formattedBalance,
+						cacheAge: `${Math.floor(age / 1000)}s`
+					});
+					return cached.balances[0]
+						? {
+								balance: cached.balances[0].balance,
+								formattedBalance: cached.balances[0].formattedBalance
+							}
+						: null;
+				}
+				this.tokenBalanceCache.delete(cacheKey);
+			}
+		} else {
+			this.tokenBalanceCache.delete(cacheKey);
+		}
+
 		try {
 			const rpcUrl =
 				(import.meta.env.VITE_ARBITRUM_RPC_URL as string) || 'https://arb1.arbitrum.io/rpc';
@@ -309,7 +339,17 @@ class TokenBalanceService {
 			dec ??= 18;
 
 			const formattedBalance = ethers.formatUnits(raw.toString(), dec);
-			return { balance: raw.toString(), formattedBalance };
+			const result = { balance: raw.toString(), formattedBalance };
+
+			// Cache the result
+			this.tokenBalanceCache.set(cacheKey, {
+				balances: [
+					{ address: tokenAddress, name: '', symbol: '', decimals: dec, ...result, isNative: false }
+				],
+				timestamp: Date.now()
+			});
+
+			return result;
 		} catch (e) {
 			console.warn('[TokenBalanceService] getArbitrumTokenBalance failed:', e);
 			return null;
@@ -324,103 +364,6 @@ class TokenBalanceService {
 		this.tokenBalanceCache.delete(normalizedAddress);
 	}
 
-	/**
-	 * Get a token balance on Arbitrum using the RPC (erc20 balanceOf).
-	 *
-	 * Uses ethers provider with the hardcoded Arbitrum RPC URL.
-	 * Follows the same cache TTL pattern as RSK token balances.
-	 *
-	 * @param address - Wallet address on Arbitrum
-	 * @param tokenAddress - ERC-20 token contract address on Arbitrum
-	 * @returns Token balance or null if fetch fails
-	 */
-	async getArbitrumTokenBalance(
-		address: string,
-		tokenAddress: string
-	): Promise<TokenBalance | null> {
-		const normalizedAddress = address.toLowerCase();
-		const cacheKey = `arb:${normalizedAddress}:${tokenAddress.toLowerCase()}`;
-
-		console.log('[TokenBalanceService] getArbitrumTokenBalance called', {
-			address,
-			tokenAddress,
-			normalizedAddress,
-			cacheKey,
-			timestamp: new Date().toISOString()
-		});
-
-		// Check cache
-		const cached = this.tokenBalanceCache.get(cacheKey);
-		if (cached) {
-			const age = Date.now() - cached.timestamp;
-			if (age < this.BALANCE_CACHE_TTL) {
-				console.log('[TokenBalanceService] Returning cached Arbitrum balance', {
-					cacheKey,
-					balance: cached.balances[0]?.formattedBalance,
-					cacheAge: `${Math.floor(age / 1000)}s`
-				});
-				return cached.balances[0] ?? null;
-			}
-			this.tokenBalanceCache.delete(cacheKey);
-		}
-
-		try {
-			const rpcUrl = 'https://arb1.arbitrum.io/rpc';
-
-			// Use raw eth_call to bypass ethers v6 RPC issues (same pattern as balanceHistory.service.ts)
-			const balanceOfSelector =
-				'0x70a08231' + address.toLowerCase().replace('0x', '').padStart(64, '0');
-			const balResp = await fetch(rpcUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					jsonrpc: '2.0',
-					method: 'eth_call',
-					params: [{ to: tokenAddress, data: balanceOfSelector }, 'latest'],
-					id: 1
-				})
-			});
-			const balData = (await balResp.json()) as { result: string };
-			const balance = BigInt(balData.result || '0x0');
-
-			// USDT0 on Arbitrum: 6 decimals, symbol USD₮0
-			const decimals = 6;
-			const formattedBalance = (Number(balance) / 1e6).toFixed(6);
-
-			const result: TokenBalance = {
-				address: tokenAddress,
-				name: 'Tether USD',
-				symbol: 'USD₮0',
-				decimals,
-				balance: balance.toString(),
-				formattedBalance,
-				isNative: false
-			};
-
-			// Cache result
-			this.tokenBalanceCache.set(cacheKey, {
-				balances: [result],
-				timestamp: Date.now()
-			});
-
-			console.log('[TokenBalanceService] Arbitrum token balance fetched', {
-				address,
-				tokenAddress,
-				symbol: result.symbol,
-				balance: result.formattedBalance,
-				decimals: result.decimals
-			});
-
-			return result;
-		} catch (error) {
-			console.error('[TokenBalanceService] Failed to fetch Arbitrum token balance', {
-				address,
-				tokenAddress,
-				error: error instanceof Error ? error.message : String(error)
-			});
-			return null;
-		}
-	}
 	/**
 	 * Get any ERC-20 token balance on any EVM chain with a given RPC URL.
 	 */
