@@ -913,6 +913,26 @@
 		return $walletStore.rsk.connected;
 	});
 
+	/** Whether the destination address matches the source wallet address (self-send) */
+	const isSelfSend = $derived.by(() => {
+		const destAddr = parsedPayment.data?.address || formInput.addressInput.trim();
+		if (!destAddr) return false;
+
+		let sourceAddr = '';
+		if (selectedWalletId !== 'builtin') {
+			sourceAddr = getHandle(selectedWalletId)?.address ?? '';
+		} else {
+			const source = formInput.selectedSource;
+			if (source === 'usdt-bsc') {
+				sourceAddr = $walletStore.bsc.address || '';
+			} else {
+				sourceAddr = $walletStore.rsk.address || '';
+			}
+		}
+		if (!sourceAddr) return false;
+		return sourceAddr.toLowerCase() === destAddr.toLowerCase();
+	});
+
 	const isFormValid = $derived.by(() => {
 		// Address validation: must have valid parsed data
 		if (!parsedPayment.data?.isValid) {
@@ -959,6 +979,11 @@
 		}
 
 		if (isBelowSwapMinimum) {
+			return false;
+		}
+
+		// Self-send check: destination matches source wallet address
+		if (isSelfSend) {
 			return false;
 		}
 
@@ -1846,7 +1871,10 @@
 					sendState.isSending = false; // Set to false immediately to skip loading screen
 
 					// Show pending transaction screen
-					appStore.showSuccessToast($t('wallet.send.transaction_sending'), UI.WALLET_TOAST_DURATION_MS);
+					appStore.showSuccessToast(
+						$t('wallet.send.transaction_sending'),
+						UI.WALLET_TOAST_DURATION_MS
+					);
 
 					// Return early - pending screen will monitor swap status
 					return;
@@ -1865,7 +1893,10 @@
 				sendState.isSending = false; // Set to false immediately to skip loading screen
 
 				// Show pending transaction screen
-				appStore.showSuccessToast($t('wallet.send.transaction_sending'), UI.WALLET_TOAST_DURATION_MS);
+				appStore.showSuccessToast(
+					$t('wallet.send.transaction_sending'),
+					UI.WALLET_TOAST_DURATION_MS
+				);
 
 				// Return early - pending screen will be shown
 				return;
@@ -2486,6 +2517,30 @@
 									/>
 								</svg>
 								<span>{parsedPayment.addressError}</span>
+							</div>
+						{/if}
+
+						<!-- Self-send Error -->
+						{#if isSelfSend && !parsedPayment.addressError && parsedPayment.data?.isValid}
+							<div
+								class="alert alert-outline alert-warning mt-2 text-sm"
+								role="status"
+								aria-live="polite"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+									/>
+								</svg>
+								<span>{$t('wallet.send.error.self_send')}</span>
 							</div>
 						{/if}
 

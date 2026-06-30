@@ -413,9 +413,10 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 	// (destRbtcSats etc. derivable from destBalances in consumer; exact per-wallet logic preserved above)
 
 	function walletLabel(id: WalletId): string {
-		if (id === 'builtin') return 'BitTasker';
+		if (id === 'builtin') return 'BitTasker Wallet';
 		const w = getConnectedWallet(id);
-		return w?.walletName || id;
+		const name = w?.walletName || id;
+		return name.toLowerCase().endsWith('wallet') ? name : `${name} Wallet`;
 	}
 
 	function addrSnippet(addr: string): string {
@@ -499,7 +500,8 @@ export function getAddrSnippet(addr: string): string {
 }
 
 export function getWalletLabelForList(id: WalletId, wallets: ConnectedWalletEntry[]): string {
-	if (id === 'builtin') return 'BitTasker';
+	if (id === 'builtin') return 'BitTasker Wallet';
 	const w = wallets.find((cw) => cw.id === id);
-	return w?.walletName || id;
+	const name = w?.walletName || id;
+	return name.toLowerCase().endsWith('wallet') ? name : `${name} Wallet`;
 }

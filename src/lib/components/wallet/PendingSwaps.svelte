@@ -73,7 +73,7 @@
 		TBTC: { icon: '/images/tokens/tbtc.png', name: 'Bitcoin (tBTC)' },
 		USDT0: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT0)' },
 		USDT: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT)' },
-		WBTC: { icon: '/images/tokens/wbtc.png', name: 'Wrapped Bitcoin (wBTC)' },
+		WBTC: { icon: '/images/tokens/wbtc.png', name: 'Bitcoin (wBTC)' },
 		Lightning: { icon: '/images/chains/Bitcoin.svg', name: 'Lightning' }
 	};
 
@@ -105,6 +105,38 @@
 				pendingSwaps.length,
 				swapChainState?.phase ?? 'idle'
 			);
+
+			// Auto-validate: if the swap chain has a swap1Id and Boltz says it's
+			// claimed, reset the state. This handles stuck swaps from previous
+			// sessions where the state machine transition failed but the swap
+			// completed on-chain.
+			if (
+				swapChainState?.swap1Id &&
+				swapChainState.phase !== 'IDLE' &&
+				swapChainState.phase !== 'COMPLETE'
+			) {
+				try {
+					const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+					const boltz = new BoltzProvider();
+					const boltzStatus = await boltz.getSwapStatus(swapChainState.swap1Id);
+					if (
+						boltzStatus.status === 'transaction.claimed' ||
+						boltzStatus.status === 'transaction.refunded'
+					) {
+						d.log(
+							'Swap %s already %s on-chain — auto-resetting',
+							swapChainState.swap1Id,
+							boltzStatus.status
+						);
+						const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
+						await resetSwapChainState();
+						swapChainState = null;
+					}
+				} catch (validateErr) {
+					d.warn('Auto-validation failed: %s', (validateErr as Error).message);
+				}
+			}
+
 			// Scan for on-chain lockups in background
 			void scanLockups();
 		} catch (err) {
@@ -254,9 +286,15 @@
 			checkStatusMessage = formatBoltzStatus(status.status);
 			d.log('Boltz status check: %s', status.status);
 
-			// If Boltz says it's done or ready, try resume to advance the state
-			if (
-				status.status === 'transaction.claimed' ||
+			if (status.status === 'transaction.claimed') {
+				// Swap completed on-chain — reset state so the card disappears.
+				// Don't try to resume (state machine may be stuck in a non-terminal phase).
+				d.log('Boltz swap claimed — resetting swap chain state');
+				checkStatusMessage = 'Swap complete — cleaning up';
+				const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
+				await resetSwapChainState();
+				await refresh();
+			} else if (
 				status.status === 'transaction.server.confirmed' ||
 				status.status === 'transaction.confirmed'
 			) {
@@ -507,6 +545,13 @@
 							</div>
 						{/if}
 
+						<!-- Check status result (shown in status row, not next to buttons) -->
+						{#if checkStatusMessage}
+							<div class="text-base-content/60 mt-1 text-xs">
+								{checkStatusMessage}
+							</div>
+						{/if}
+
 						<!-- Action buttons -->
 						<div class="border-base-300 mt-2 flex flex-wrap items-center gap-2 border-t pt-2">
 							{#if getSwapChainStatus(swapChainState).isActive}
@@ -549,9 +594,6 @@
 									{/if}
 									{$t('wallet.pending_swaps.resume') || 'Resume'}
 								</button>
-								{#if checkStatusMessage}
-									<span class="text-base-content/50 text-xs">{checkStatusMessage}</span>
-								{/if}
 							{:else if getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial}
 								<!-- Refund / timelock info -->
 								<div class="bg-base-300 mb-2 rounded-md p-2 text-xs">

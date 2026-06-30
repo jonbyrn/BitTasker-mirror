@@ -77,6 +77,10 @@ export interface UseSwapRoutesOptions {
 	getRskGasWei?: () => bigint;
 	getArbGasWei?: () => bigint;
 
+	// Raw source amount in token's smallest unit (for non-BTC tokens like USDT0).
+	// When provided, passed to resolveRoutes so providers can use it directly.
+	getSourceAmountRaw?: () => string | undefined;
+
 	// DI for testability (mock-first / London TDD).
 	resolveRoutesFn?: typeof resolveRoutes;
 }
@@ -248,6 +252,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		const snapshotAmt = amt;
 		const snapshotSrc = src;
 		const snapshotDst = dst;
+		const snapshotRaw = opts.getSourceAmountRaw?.();
 
 		currentController = new AbortController();
 
@@ -258,7 +263,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			const resolveFn = opts.resolveRoutesFn ?? resolveRoutes;
 
 			const { data: result, error } = await tryCatch(
-				resolveFn(snapshotSrc, routeDest, snapshotAmt, currentController?.signal)
+				resolveFn(snapshotSrc, routeDest, snapshotAmt, currentController?.signal, snapshotRaw)
 			);
 
 			if (error) {

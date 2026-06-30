@@ -129,7 +129,9 @@
 			// Clear balance history cache before refreshing to ensure fresh data
 			balanceHistoryService.clearCaches();
 
-			await walletManager.loadAssets();
+			// Pass forceRefresh=true to clear token balance cache (wBTC, tBTC, USDT0)
+			// so on-chain balances are re-fetched, not served from 1-minute cache.
+			await walletManager.loadAssets(true);
 			appStore.showSuccessToast($t('wallet.balance_refreshed'));
 		} catch (error) {
 			console.error('Failed to refresh balances:', error);
@@ -165,8 +167,10 @@
 			if (overrideSats != null) return overrideSats > 0 ? formatSats(overrideSats) : '0';
 			return '0';
 		}
-		const sats = $totalBalances?.sats ?? 0;
-		return sats > 0 ? formatSats(sats) : '0';
+		const rbtcSats = $totalBalances?.sats ?? 0;
+		const wbtcSats = wbtcAsset ? Math.floor((wbtcAsset.balance ?? 0) * 100_000_000) : 0;
+		const total = rbtcSats + wbtcSats;
+		return total > 0 ? formatSats(total) : '0';
 	});
 
 	let usdtDisplay = $derived.by(() => {
@@ -187,8 +191,10 @@
 	// USD value of the sats portion for display format, shown inline in parens after sats on top line of breakdown
 	let satsUsdInline = $derived.by(() => {
 		if (balancesHidden) return '($••••)';
-		const sats = overrideSats != null ? overrideSats : ($totalBalances?.sats ?? 0);
-		const usdValue = (sats / 100_000_000) * btcPrice.price;
+		const rbtcSats = overrideSats != null ? overrideSats : ($totalBalances?.sats ?? 0);
+		const wbtcSats = wbtcAsset ? Math.floor((wbtcAsset.balance ?? 0) * 100_000_000) : 0;
+		const totalSats = rbtcSats + wbtcSats;
+		const usdValue = (totalSats / 100_000_000) * btcPrice.price;
 		const fmt = new Intl.NumberFormat($locale ?? 'en-US', { style: 'currency', currency: 'USD' });
 		return `(${fmt.format(usdValue)})`;
 	});

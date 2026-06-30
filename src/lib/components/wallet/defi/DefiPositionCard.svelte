@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import LoanHealthBar from './LoanHealthBar.svelte';
+	import IconBankOutline from '~icons/mdi/bank-outline';
 
 	let {
 		onManage = () => {}
@@ -9,8 +10,16 @@
 		onManage?: () => void;
 	} = $props();
 
-	let hasPositions = $derived(defiPositions.aavePositions.size > 0);
-	let positions = $derived(Array.from(defiPositions.aavePositions.entries()));
+	let hasPositions = $derived(
+		Array.from(defiPositions.aavePositions.values()).some(
+			(pos) => pos.totalCollateralUsd > 0 || pos.totalDebtUsd > 0
+		)
+	);
+	let positions = $derived(
+		Array.from(defiPositions.aavePositions.entries()).filter(
+			([_id, pos]) => pos.totalCollateralUsd > 0 || pos.totalDebtUsd > 0
+		)
+	);
 
 	let expanded = $state(false);
 
@@ -50,11 +59,7 @@
 				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<img
-						src="/images/chains/arbitrum.png"
-						alt="Arbitrum"
-						class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-					/>
+					<IconBankOutline class="text-base-content h-5 w-5 shrink-0" />
 					<span>Loan</span>
 				</div>
 				<div class="ml-2 flex shrink-0 items-center gap-2">

@@ -3,7 +3,7 @@
 	import { fly, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
-	import { formatSats, walletStore } from '$lib/stores/wallet.store';
+	import { formatSats, walletStore, walletManager } from '$lib/stores/wallet.store';
 	import {
 		type Route,
 		type SourceWallet,
@@ -43,6 +43,17 @@
 	// Destination type enum (defined before Props since Props references it)
 	// -----------------------------------------------------------------------
 	type DestType = 'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain';
+
+	/** Maps source wallet type → equivalent dest type for same-asset detection.
+	 *  Used for self-send guards and direct-transfer detection. */
+	const SOURCE_TO_SAME_DEST: Record<string, DestType> = {
+		rbtc: 'rbtc-rsk',
+		'usdt0-arb': 'usdt0-arb',
+		'wbtc-arb': 'wbtc-arb',
+		'btc-onchain': 'btc-onchain'
+		// NOTE: 'tbtc-arb' deliberately excluded — tBTC→rBTC is a legitimate
+		// cross-chain Boltz swap (Arbitrum→RSK), not a self-send.
+	};
 
 	interface DestOption {
 		id: DestType;
@@ -162,7 +173,17 @@
 		getBtcUsdPrice: () => btcUsdPrice,
 		getEthUsdPrice: () => ethUsdPrice,
 		getRskGasWei: () => rskGasPriceWei,
-		getArbGasWei: () => arbGasPriceWei
+		getArbGasWei: () => arbGasPriceWei,
+		// For non-BTC sources (USDT0, etc.), pass the raw amount in the source
+		// token's smallest unit. The route engine's satsToTokenAmount() does a
+		// pure decimal conversion that is wrong for stablecoins.
+		getSourceAmountRaw: () => {
+			if (isBtcSource) return undefined;
+			const units = swapCalc.amountInTokenUnits;
+			if (units <= 0) return undefined;
+			const decimals = sourceType === 'usdt0-arb' ? 6 : sourceType === 'wbtc-arb' ? 8 : 18;
+			return BigInt(Math.round(units * 10 ** decimals)).toString();
+		}
 	});
 
 	// Pre-swap ETH balance check for boltz+lifi routes that require claiming on Arbitrum
@@ -181,6 +202,12 @@
 				(h) => h.service === 'lifi' || h.service === 'symbiosis'
 			);
 			const targetsArbitrum = rec.hops[rec.hops.length - 1]?.toChain === 'arbitrum';
+			// Boltz tBTC→RBTC lockup happens on Arbitrum (lockPrepayMinerfee needs 0.001 ETH)
+			// even when the final destination is RSK
+			const boltzLocksOnArbitrum = rec.hops.some(
+				(h) => h.service === 'boltz' && h.fromChain === 'arbitrum'
+			);
+			if (boltzLocksOnArbitrum) return true;
 			if (hasBoltz && hasLifiOrSymbiosis && targetsArbitrum) return true;
 		}
 		return false;
@@ -194,7 +221,7 @@
 	let effectiveSmartRoute = $derived(smartRoute);
 
 	// For rBTC (BTC asset) source: allow entering amount in USD via compact toggle left of input.
-	let btcUsdInputMode = $state(false);
+	let btcUsdInputMode = $state(true);
 
 	// Sync display amount shown in input (for usd mode on rbtc, we show usd value, but keep calc in native sats)
 	let displayInputAmount = $state('');
@@ -218,7 +245,7 @@
 	$effect(() => {
 		// reset usd mode when source changes away from BTC-denominated assets
 		if (!isBtcSource && btcUsdInputMode) {
-			btcUsdInputMode = false;
+			btcUsdInputMode = true;
 			syncingFromInput = false;
 		}
 	});
@@ -371,7 +398,7 @@
 				available: true
 			});
 
-			// USDT0 on Arbitrum — always available as a swap target
+			// USDT0 on Arbitrum — unavailable as a swap target when it's a same-wallet same-asset self-send
 			options.push({
 				id: 'usdt0-arb',
 				asset: CHAIN_ARB.asset,
@@ -380,7 +407,19 @@
 				icon: CHAIN_ARB.icon,
 				network: CHAIN_ARB.network,
 				chainId: CHAIN_ARB.chainId,
-				available: true
+				available: SOURCE_TO_SAME_DEST[sourceType] !== 'usdt0-arb' || sourceWallet !== destWallet
+			});
+
+			// wBTC on Arbitrum — same-chain DEX swap via Symbiosis
+			options.push({
+				id: 'wbtc-arb',
+				asset: CHAIN_WBTC.asset,
+				label: CHAIN_WBTC.label,
+				description: $t('wallet.swap.desc_btc_to_wbtc'),
+				icon: CHAIN_WBTC.icon,
+				network: CHAIN_WBTC.network,
+				chainId: CHAIN_WBTC.chainId,
+				available: SOURCE_TO_SAME_DEST[sourceType] !== 'wbtc-arb' || sourceWallet !== destWallet
 			});
 
 			// Self-swap (same asset) — only for cross-wallet transfers
@@ -578,9 +617,17 @@
 	// mutations inside $effect subscription callbacks don't propagate to
 	// $derived values. $walletStore is the proven reactive path.
 	const builtinRbtcSats = $derived($walletStore.totalBalances?.sats ?? 0);
+	// Read from walletStore.arb (Arbitrum-only USDT0 balance).
+	// Previously used totalBalances.usdt which incorrectly summed USDT across all chains
+	// (Arbitrum USDT0 + BSC USDT). The arb.formattedUsdt0Balance bug (hardcoded 6 decimals
+	// for all tokens) has been fixed in token-balance.service.ts.
 	const builtinUsdt0 = $derived(parseFloat($walletStore.arb?.formattedUsdt0Balance || '0'));
 	const builtinWbtcSats = $derived(
 		Math.round(parseFloat($walletStore.arb?.formattedWbtcBalance || '0') * 100_000_000)
+	);
+	// tBTC on Arbitrum — tier 2 asset (only shown when balance > 0)
+	const builtinTbtcSats = $derived(
+		Math.round(parseFloat($walletStore.arb?.formattedTbtcBalance || '0') * 100_000_000)
 	);
 
 	let sourceRbtcSats = $derived(
@@ -601,11 +648,14 @@
 	let sourceWbtcSats = $derived(
 		sourceWallet === 'builtin' ? builtinWbtcSats : swapWallets.sourceBalances.wbtcSats
 	);
+	let sourceTbtcSats = $derived(
+		sourceWallet === 'builtin' ? builtinTbtcSats : (swapWallets.sourceBalances.tbtcSats ?? 0)
+	);
 
-	/** BTC sats for a wallet (builtin = rBTC + BTC + wBTC from walletStore; connected = from balances) */
+	/** BTC sats for a wallet (builtin = rBTC + BTC + wBTC + tBTC from walletStore; connected = from balances) */
 	function walletBtcSatsForFn(walletId: string): number {
 		if (walletId === 'builtin') {
-			return builtinRbtcSats + builtinWbtcSats;
+			return builtinRbtcSats + builtinWbtcSats + builtinTbtcSats;
 		}
 		const w = $connectedWalletsStore.wallets.find((w) => w.id === walletId);
 		if (!w?.balances) return 0;
@@ -711,6 +761,19 @@
 						).toFixed(2)}`
 					}
 				]
+			: []),
+		// tBTC on Arbitrum — tier 2 asset (only shown when balance > 0)
+		...(sourceTbtcSats > 0
+			? [
+					{
+						id: 'tbtc-arb' as const,
+						label: 'Bitcoin (tBTC)',
+						icon: '/images/tokens/tbtc.png',
+						subLabel: 'tBTC on Arbitrum',
+						balance: formatSats(sourceTbtcSats) + ' Sats',
+						balanceSub: `≈ $${((sourceTbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
+					}
+				]
 			: [])
 	]);
 
@@ -742,16 +805,23 @@
 		minSwapSats > 0 && swapCalc.amountSats > 0 && swapCalc.amountSats < minSwapSats
 	);
 
+	// Combined amount error: below minimum OR above balance
+	let isAmountError = $derived(isBelowMinimum || isInsufficientBalance);
+
+	// Self-send detection: same wallet + same underlying asset = no-op transfer.
+	// Uses SOURCE_TO_SAME_DEST (defined at top of script) to map source→dest types.
+	let isSelfSend = $derived(
+		sourceWallet === destWallet && SOURCE_TO_SAME_DEST[sourceType] === destType
+	);
+
 	let canSwap = $derived(
 		swapCalc.isValidAmount &&
 			!isBelowMinimum &&
 			(swapRoutes.engineResult.recommended !== null || swapRoutes.engineResult.routes.length > 0) &&
 			swapPhase === 'form' &&
-			isOnline
+			isOnline &&
+			!isSelfSend
 	);
-
-	// Combined amount error: below minimum OR above balance
-	let isAmountError = $derived(isBelowMinimum || isInsufficientBalance);
 
 	// Minimum slider percentage (derived from minSwapSats / walletBalance)
 	let minSliderPercent = $derived.by(() => {
@@ -876,7 +946,7 @@
 		}
 
 		swapCalc.resetAmount();
-		btcUsdInputMode = false;
+		btcUsdInputMode = true;
 		displayInputAmount = '';
 		syncingFromInput = false;
 		smartRoute = null;
@@ -904,14 +974,16 @@
 	 * Mirrors checks in destAssets + selectedDest conditions for DRY.
 	 */
 	function isBitcoinAsset(asset?: string, id?: string): boolean {
-		const a = (asset || '').toUpperCase().replace('BITCOIN', '').trim();
+		const a = (asset || '').toUpperCase().replace('BITCOIN', '').replace(/[()]/g, '').trim();
 		const i = (id || '').toLowerCase();
 		return (
 			a === 'RBTC' ||
 			a === 'WBTC' ||
+			a === 'TBTC' ||
 			a === 'BTC' ||
 			i === 'rbtc-rsk' ||
 			i === 'wbtc-arb' ||
+			i === 'tbtc-arb' ||
 			i === 'btc-onchain'
 		);
 	}
@@ -987,7 +1059,7 @@
 	function resetForm() {
 		if (swapPhase === 'executing') return;
 		swapCalc.resetAmount();
-		btcUsdInputMode = false;
+		btcUsdInputMode = true;
 		displayInputAmount = '';
 		syncingFromInput = false;
 		smartRoute = null;
@@ -1061,6 +1133,18 @@
 
 		if (!destAddress) {
 			errorMessage = $t('wallet.swap.error.no_dest_address');
+			swapPhase = 'failed';
+			return;
+		}
+
+		const srcAddr = swapWallets.sourceAddr || '';
+		if (
+			srcAddr &&
+			destAddress &&
+			srcAddr.toLowerCase() === destAddress.toLowerCase() &&
+			isDirectTransfer
+		) {
+			errorMessage = $t('wallet.swap.error.self_send') || 'Cannot send to your own address';
 			swapPhase = 'failed';
 			return;
 		}
@@ -1153,8 +1237,12 @@
 				message: 'swap execute failed',
 				data: { error: error?.message }
 			});
-			errorMessage = error?.message || $t('wallet.swap.error.swap_failed');
+			errorMessage = sanitizeSwapError(error?.message) || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
+			// Force-refresh balances — the swap tx may have consumed tokens even on failure
+			// (e.g., Symbiosis approve+swap consumed wBTC before the flow errored).
+			// Clears token balance cache so next wallet load shows actual on-chain state.
+			walletManager.loadAssets(true).catch(() => {});
 			return;
 		}
 
@@ -1171,10 +1259,12 @@
 			swapPhase = 'complete';
 			triggerHaptic(ImpactStyle.Heavy);
 		} else {
-			errorMessage = result.error || $t('wallet.swap.error.swap_failed');
+			errorMessage = sanitizeSwapError(result.error) || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			triggerHaptic(ImpactStyle.Heavy);
 		}
+		// Force-refresh balances after swap — tokens were consumed/ received on-chain.
+		walletManager.loadAssets(true).catch(() => {});
 	}
 
 	/** Retry swap using a fallback route from SwapFallback. */
@@ -1182,6 +1272,44 @@
 		smartRoute = route;
 		swapPhase = 'confirm';
 		errorMessage = '';
+	}
+
+	/**
+	 * Sanitize swap error messages for user display.
+	 * Strips raw transaction hex, RPC error codes, and internal details.
+	 * Returns a user-friendly message or empty string if the error is unrecognised.
+	 */
+	function sanitizeSwapError(raw: string | undefined | null): string {
+		if (!raw) return '';
+		// Strip raw transaction hex: (transaction="0x...")
+		let msg = raw.replace(/\s*\(transaction="[^"]*"\)/g, '');
+		// Strip RPC error codes: (code=XXXX, ...)
+		msg = msg.replace(/\s*\(code=\d+[^)]*\)/g, '');
+		// Common patterns → user-friendly messages
+		if (/insufficient funds/i.test(msg)) {
+			return 'Insufficient funds to cover gas fees. Please top up your wallet.';
+		}
+		if (/nonce too (low|high)/i.test(msg)) {
+			return 'Transaction conflict — please try again.';
+		}
+		if (/replacement transaction underpriced/i.test(msg)) {
+			return 'Network congestion — please try again with a higher fee.';
+		}
+		if (/user rejected|user denied/i.test(msg)) {
+			return 'Transaction was rejected.';
+		}
+		if (/timeout|timed out/i.test(msg)) {
+			return 'Swap timed out. Your funds are safe — check Pending Swaps to recover.';
+		}
+		if (/unsupported swap/i.test(msg)) {
+			return 'This swap pair is not currently supported.';
+		}
+		// Trim and truncate very long messages
+		msg = msg.trim();
+		if (msg.length > 120) {
+			msg = msg.slice(0, 117) + '...';
+		}
+		return msg;
 	}
 
 	function getProviderLabel(): string {
@@ -1209,11 +1337,7 @@
 	// -----------------------------------------------------------------------
 
 	/** True when this is a same-asset wallet-to-wallet send (not a swap). */
-	let isDirectTransfer = $derived(
-		(sourceType === 'rbtc' && destType === 'rbtc-rsk') ||
-			(sourceType === 'usdt0-arb' && destType === 'usdt0-arb') ||
-			(sourceType === 'btc-onchain' && destType === 'btc-onchain')
-	);
+	let isDirectTransfer = $derived(SOURCE_TO_SAME_DEST[sourceType] === destType);
 
 	/** Estimated network fee in sats for direct transfers (RSK gas: 21000 gas × gas price). */
 	let directTransferNetworkFeeSats = $derived.by(() => {
@@ -1310,7 +1434,7 @@
 									destType = 'usdt0-arb';
 								}
 								swapCalc.resetAmount();
-								btcUsdInputMode = false;
+								btcUsdInputMode = true;
 								displayInputAmount = '';
 								smartRoute = null;
 								Sentry.addBreadcrumb({
@@ -1480,7 +1604,7 @@
 									: usdFormatter.format(amountInTokenUnits)
 								: undefined}
 							feeDisplay={totalFeeSats > 0
-								? `−${formatSats(totalFeeSats)} ${$t('wallet.sats')}${btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.01 ? ' ≈ ' + usdFormatter.format((totalFeeSats / 100_000_000) * btcUsdPrice) : ''}`
+								? `−${formatSats(totalFeeSats)} ${$t('wallet.sats')}${btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.001 ? ' ≈ ' + usdFormatter.format((totalFeeSats / 100_000_000) * btcUsdPrice) : ''}`
 								: isDirectTransfer && directTransferNetworkFeeSats > 0
 									? `~${formatSats(directTransferNetworkFeeSats)} ${$t('wallet.sats')}${btcUsdPrice > 0 ? ' ≈ ' + usdFormatter.format((directTransferNetworkFeeSats / 100_000_000) * btcUsdPrice) : ''}`
 									: undefined}
@@ -1508,6 +1632,15 @@
 						<div class="alert alert-outline alert-error py-2 sm:py-3">
 							<span class="text-xs sm:text-sm">
 								{$t('wallet.swap.insufficient_balance')}
+							</span>
+						</div>
+					{/if}
+
+					<!-- Self-send warning -->
+					{#if isSelfSend}
+						<div class="alert alert-outline alert-warning py-2 sm:py-3">
+							<span class="text-xs sm:text-sm">
+								{$t('wallet.swap.error.self_send')}
 							</span>
 						</div>
 					{/if}
@@ -1557,13 +1690,13 @@
 						walletInfo={sourceWalletInfo}
 						asset={sourceAsset}
 						icon={sourceIcon}
-						amountDisplay={isBitcoinAsset(sourceType)
+						amountDisplay={isBitcoinAsset(sourceAsset, sourceType)
 							? `${satsFormatter.format(Math.round(parseFloat(swapCalc.amount || '0')))} ${$t('wallet.sats')}`
 							: usdFormatter.format(parseFloat(swapCalc.amount || '0'))}
-						usdEquivalent={isBitcoinAsset(sourceType)
+						usdEquivalent={isBitcoinAsset(sourceAsset, sourceType)
 							? `≈ ${usdFormatter.format((Math.round(parseFloat(swapCalc.amount || '0')) / 100_000_000) * btcUsdPrice)}`
 							: undefined}
-						showSatsAbove={isBitcoinAsset(sourceType)}
+						showSatsAbove={isBitcoinAsset(sourceAsset, sourceType)}
 						chainBadgeIcon={sourceType === 'usdt0-arb' ? '/images/chains/arbitrum.png' : undefined}
 						variant="confirm"
 						walletType={sourceWalletType}
@@ -1616,7 +1749,7 @@
 						<span class="text-base-content/50 text-xs">
 							{$t('wallet.swap.fee_percent') || 'Fee'}: −{formatSats(totalFeeSats)}
 							{$t('wallet.sats')}
-							{#if btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.01}
+							{#if btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.001}
 								≈ {usdFormatter.format((totalFeeSats / 100_000_000) * btcUsdPrice)}
 							{/if}
 						</span>
