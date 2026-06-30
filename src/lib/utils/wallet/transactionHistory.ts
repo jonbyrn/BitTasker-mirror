@@ -335,8 +335,34 @@ function detectTransactionType(
 }
 
 /**
+ * Known contract method name → i18n translation key (e.g. 'wallet.transaction.createescrow').
+ * These are escrow/task lifecycle methods with translations in the locale files.
+ */
+const CONTRACT_METHOD_I18N_KEYS: Record<string, string> = {
+	createescrow: 'wallet.transaction.createescrow',
+	completetask: 'wallet.transaction.completetask',
+	accepttask: 'wallet.transaction.accepttask',
+	funds_released: 'wallet.transaction.funds_released',
+	disputetask: 'wallet.transaction.disputetask',
+	disputeresolved: 'wallet.transaction.disputeresolved',
+	disputeunresolved: 'wallet.transaction.disputeunresolved',
+	resolveaftertimelock: 'wallet.transaction.resolveaftertimelock',
+	acceptproposal: 'wallet.transaction.acceptproposal',
+	proposeresolution: 'wallet.transaction.proposeresolution',
+	refundescrow: 'wallet.transaction.refundescrow',
+	refundclient: 'wallet.transaction.refundclient',
+	transferownership: 'wallet.transaction.transferownership',
+	renounceownership: 'wallet.transaction.renounceownership',
+	pause: 'wallet.transaction.pause',
+	unpause: 'wallet.transaction.unpause',
+	disputeescrow: 'wallet.transaction.disputeescrow',
+	resolvedispute: 'wallet.transaction.resolvedispute',
+	cancelescrow: 'wallet.transaction.cancelescrow'
+};
+
+/**
  * Known contract method name → short human-readable label.
- * Methods not in this map fall through to formatContractMethodName().
+ * DeFi methods (bridge, swap, approve, transfer) that don't have i18n translations.
  */
 const METHOD_LABELS: Record<string, string> = {
 	swapandstartbridgetokensviastargate: 'Cross-Chain Bridge',
@@ -354,11 +380,12 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 /**
- * Convert a camelCase contract method name into a human-readable label.
- * Checks METHOD_LABELS first; falls back to splitting camelCase.
+ * Convert a contract method name into a display title.
+ * Priority: i18n key (escrow/task) → human-readable label (DeFi) → camelCase split (unknown).
  */
 function formatContractMethodName(methodName: string): string {
 	const key = methodName.toLowerCase();
+	if (CONTRACT_METHOD_I18N_KEYS[key]) return CONTRACT_METHOD_I18N_KEYS[key];
 	if (METHOD_LABELS[key]) return METHOD_LABELS[key];
 	return methodName
 		.replace(/([a-z])([A-Z])/g, '$1 $2')
