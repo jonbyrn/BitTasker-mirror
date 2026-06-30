@@ -20,7 +20,8 @@ const {
 	mockBoltzProvider,
 	mockSymbiosisProvider,
 	mockLifiProvider,
-	mockChangellyProvider
+	mockChangellyProvider,
+	mockUniswapV3Provider
 } = vi.hoisted(() => ({
 	mockDirectProvider: {
 		name: 'direct' as const,
@@ -46,6 +47,11 @@ const {
 		name: 'changelly' as const,
 		supports: vi.fn(),
 		getQuote: vi.fn()
+	},
+	mockUniswapV3Provider: {
+		name: 'uniswap-v3' as const,
+		supports: vi.fn(),
+		getQuote: vi.fn()
 	}
 }));
 
@@ -69,18 +75,33 @@ vi.mock('$lib/services/route-engine/providers/changelly.provider', () => ({
 	changellyProvider: mockChangellyProvider
 }));
 
+vi.mock('$lib/services/route-engine/providers/uniswap-v3.provider', () => ({
+	uniswapV3Provider: mockUniswapV3Provider
+}));
+
 vi.mock('$lib/services/route-engine/boltz-two-hop', () => ({
 	buildBoltzTwoHopRoute: vi.fn().mockResolvedValue(null),
 	BOLTZ_TWO_HOP_PAIRS: {
-		'rbtc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
+		'rbtc->wbtc-arb': {
+			intermediary: 'tbtc-arb',
+			hop2Providers: ['symbiosis', 'lifi', 'uniswap-v3']
+		},
 		'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
 		'usdt0-arb->rbtc': {
 			intermediary: 'tbtc-arb',
-			hop1Provider: 'symbiosis',
-			hop2Providers: ['symbiosis']
+			hop1Provider: 'lifi',
+			hop2Providers: []
+		},
+		'wbtc-arb->rbtc': {
+			intermediary: 'tbtc-arb',
+			hop1Provider: 'uniswap-v3',
+			hop2Providers: []
 		},
 		'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] },
-		'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] }
+		'btc->wbtc-arb': {
+			intermediary: 'tbtc-arb',
+			hop2Providers: ['lifi', 'symbiosis', 'uniswap-v3']
+		}
 	}
 }));
 
@@ -154,11 +175,13 @@ describe('resolveRoutes()', () => {
 		mockSymbiosisProvider.supports.mockReturnValue(false);
 		mockLifiProvider.supports.mockReturnValue(false);
 		mockChangellyProvider.supports.mockReturnValue(false);
+		mockUniswapV3Provider.supports.mockReturnValue(false);
 		mockDirectProvider.getQuote.mockResolvedValue(null);
 		mockBoltzProvider.getQuote.mockResolvedValue(null);
 		mockSymbiosisProvider.getQuote.mockResolvedValue(null);
 		mockLifiProvider.getQuote.mockResolvedValue(null);
 		mockChangellyProvider.getQuote.mockResolvedValue(null);
+		mockUniswapV3Provider.getQuote.mockResolvedValue(null);
 		vi.mocked(buildBoltzTwoHopRoute).mockResolvedValue(null);
 	});
 

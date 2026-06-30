@@ -18,14 +18,18 @@ const {
 	mockBoltzGetQuote,
 	mockSymbiosisGetQuote,
 	mockLifiGetQuote,
+	mockUniswapV3GetQuote,
 	mockSymbiosisSupports,
-	mockLifiSupports
+	mockLifiSupports,
+	mockUniswapV3Supports
 } = vi.hoisted(() => ({
 	mockBoltzGetQuote: vi.fn(),
 	mockSymbiosisGetQuote: vi.fn(),
 	mockLifiGetQuote: vi.fn(),
+	mockUniswapV3GetQuote: vi.fn(),
 	mockSymbiosisSupports: vi.fn().mockReturnValue(true),
-	mockLifiSupports: vi.fn().mockReturnValue(true)
+	mockLifiSupports: vi.fn().mockReturnValue(true),
+	mockUniswapV3Supports: vi.fn().mockReturnValue(true)
 }));
 
 vi.mock('$lib/services/route-engine/providers/boltz.provider', () => ({
@@ -42,6 +46,14 @@ vi.mock('$lib/services/route-engine/providers/symbiosis.provider', () => ({
 
 vi.mock('$lib/services/route-engine/providers/lifi.provider', () => ({
 	lifiProvider: { name: 'lifi', supports: mockLifiSupports, getQuote: mockLifiGetQuote }
+}));
+
+vi.mock('$lib/services/route-engine/providers/uniswap-v3.provider', () => ({
+	uniswapV3Provider: {
+		name: 'uniswap-v3',
+		supports: mockUniswapV3Supports,
+		getQuote: mockUniswapV3GetQuote
+	}
 }));
 
 vi.mock('$lib/utils/debug', () => ({
@@ -108,6 +120,7 @@ beforeEach(() => {
 	// Default: all providers support all pairs (individual tests can override)
 	mockSymbiosisSupports.mockReturnValue(true);
 	mockLifiSupports.mockReturnValue(true);
+	mockUniswapV3Supports.mockReturnValue(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -115,8 +128,8 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('BOLTZ_TWO_HOP_PAIRS', () => {
-	it('has exactly 7 entries', () => {
-		expect(Object.keys(BOLTZ_TWO_HOP_PAIRS)).toHaveLength(7);
+	it('has exactly 6 entries', () => {
+		expect(Object.keys(BOLTZ_TWO_HOP_PAIRS)).toHaveLength(6);
 	});
 
 	it('each entry uses tbtc-arb as intermediary', () => {
@@ -137,13 +150,23 @@ describe('BOLTZ_TWO_HOP_PAIRS', () => {
 		expect(keys).toContain('rbtc->wbtc-arb');
 		expect(keys).toContain('rbtc->usdt0-arb');
 		expect(keys).toContain('usdt0-arb->rbtc');
+		expect(keys).toContain('wbtc-arb->rbtc');
 		expect(keys).toContain('btc->usdt0-arb');
 		expect(keys).toContain('btc->wbtc-arb');
 	});
 
-	it('usdt0-arb→rbtc uses boltz-last mode (hop1Provider = symbiosis)', () => {
+	it('wbtc-arb->usdt0-arb is not a 2-hop pair (direct Uniswap V3 handles it)', () => {
+		expect(BOLTZ_TWO_HOP_PAIRS['wbtc-arb->usdt0-arb']).toBeUndefined();
+	});
+
+	it('usdt0-arb→rbtc uses boltz-last mode (hop1Provider = lifi)', () => {
 		const config = BOLTZ_TWO_HOP_PAIRS['usdt0-arb->rbtc'];
-		expect(config.hop1Provider).toBe('symbiosis');
+		expect(config.hop1Provider).toBe('lifi');
+	});
+
+	it('wbtc-arb→rbtc uses boltz-last mode (hop1Provider = uniswap-v3)', () => {
+		const config = BOLTZ_TWO_HOP_PAIRS['wbtc-arb->rbtc'];
+		expect(config.hop1Provider).toBe('uniswap-v3');
 	});
 
 	it('boltz-first pairs have no hop1Provider', () => {
@@ -223,15 +246,15 @@ describe('buildBoltzTwoHopRoute — Boltz-first mode', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildBoltzTwoHopRoute — Boltz-last mode', () => {
-	it('usdt0-arb→rbtc: symbiosis hop1 + boltz hop2', async () => {
-		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.5));
+	it('usdt0-arb→rbtc: lifi hop1 + boltz hop2', async () => {
+		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.5));
 		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.3));
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['usdt0-arb'], TOKENS['rbtc'], 100_000);
 
 		expect(route).not.toBeNull();
-		// Hop1 is symbiosis (from → intermediary)
-		expect(mockSymbiosisGetQuote).toHaveBeenCalledWith(
+		// Hop1 is lifi (from → intermediary)
+		expect(mockLifiGetQuote).toHaveBeenCalledWith(
 			TOKENS['usdt0-arb'],
 			TOKENS['tbtc-arb'],
 			100_000,
@@ -246,14 +269,47 @@ describe('buildBoltzTwoHopRoute — Boltz-last mode', () => {
 		);
 	});
 
-	it('usdt0-arb→rbtc route label is "Symbiosis → Boltz"', async () => {
-		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.5));
+	it('usdt0-arb→rbtc route label is "LI.FI → Boltz"', async () => {
+		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.5));
 		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.3));
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['usdt0-arb'], TOKENS['rbtc'], 100_000);
 
-		expect(route!.label).toBe('Symbiosis → Boltz');
-		expect(route!.id).toBe('usdt0-arb->rbtc-via-symbiosis-boltz');
+		expect(route!.label).toBe('LI.FI → Boltz');
+		expect(route!.id).toBe('usdt0-arb->rbtc-via-lifi-boltz');
+	});
+
+	it('wbtc-arb→rbtc: uniswap-v3 hop1 + boltz hop2', async () => {
+		mockUniswapV3GetQuote.mockResolvedValueOnce(makeQuoteRoute('uniswap-v3', 0.3));
+		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.25));
+
+		const route = await buildBoltzTwoHopRoute(TOKENS['wbtc-arb'], TOKENS['rbtc'], 100_000);
+
+		expect(route).not.toBeNull();
+		// Hop1 is uniswap-v3 (from → intermediary)
+		expect(mockUniswapV3GetQuote).toHaveBeenCalledWith(
+			TOKENS['wbtc-arb'],
+			TOKENS['tbtc-arb'],
+			100_000,
+			undefined
+		);
+		// Hop2 is boltz (intermediary → to)
+		expect(mockBoltzGetQuote).toHaveBeenCalledWith(
+			TOKENS['tbtc-arb'],
+			TOKENS['rbtc'],
+			expect.any(Number),
+			undefined
+		);
+	});
+
+	it('wbtc-arb→rbtc route label is "Uniswap V3 → Boltz"', async () => {
+		mockUniswapV3GetQuote.mockResolvedValueOnce(makeQuoteRoute('uniswap-v3', 0.3));
+		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.25));
+
+		const route = await buildBoltzTwoHopRoute(TOKENS['wbtc-arb'], TOKENS['rbtc'], 100_000);
+
+		expect(route!.label).toBe('Uniswap V3 → Boltz');
+		expect(route!.id).toBe('wbtc-arb->rbtc-via-uniswap-v3-boltz');
 	});
 });
 
@@ -312,8 +368,8 @@ describe('buildBoltzTwoHopRoute — failures', () => {
 		expect(route!.label).toContain('LI.FI');
 	});
 
-	it('returns null when hop1 fails in boltz-last mode', async () => {
-		mockSymbiosisGetQuote.mockResolvedValueOnce(null);
+	it('returns null when hop1 fails in boltz-last mode (lifi)', async () => {
+		mockLifiGetQuote.mockResolvedValueOnce(null);
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['usdt0-arb'], TOKENS['rbtc'], 100_000);
 
@@ -321,13 +377,22 @@ describe('buildBoltzTwoHopRoute — failures', () => {
 		expect(mockBoltzGetQuote).not.toHaveBeenCalled();
 	});
 
-	it('returns null when boltz hop2 fails in boltz-last mode', async () => {
-		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.5));
+	it('returns null when boltz hop2 fails in boltz-last mode (lifi)', async () => {
+		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.5));
 		mockBoltzGetQuote.mockResolvedValueOnce(null);
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['usdt0-arb'], TOKENS['rbtc'], 100_000);
 
 		expect(route).toBeNull();
+	});
+
+	it('returns null when hop1 fails in boltz-last mode (uniswap-v3)', async () => {
+		mockUniswapV3GetQuote.mockResolvedValueOnce(null);
+
+		const route = await buildBoltzTwoHopRoute(TOKENS['wbtc-arb'], TOKENS['rbtc'], 100_000);
+
+		expect(route).toBeNull();
+		expect(mockBoltzGetQuote).not.toHaveBeenCalled();
 	});
 
 	it('returns null when intermediary token is not in registry', async () => {
@@ -405,13 +470,23 @@ describe('route composition', () => {
 		expect(route!.hops[1].service).toBe('symbiosis');
 	});
 
-	it('first hop uses symbiosis service, second uses boltz (boltz-last)', async () => {
-		mockSymbiosisGetQuote.mockResolvedValueOnce(makeQuoteRoute('symbiosis', 0.5));
+	it('first hop uses lifi service, second uses boltz (boltz-last via lifi)', async () => {
+		mockLifiGetQuote.mockResolvedValueOnce(makeQuoteRoute('lifi', 0.5));
 		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.3));
 
 		const route = await buildBoltzTwoHopRoute(TOKENS['usdt0-arb'], TOKENS['rbtc'], 100_000);
 
-		expect(route!.hops[0].service).toBe('symbiosis');
+		expect(route!.hops[0].service).toBe('lifi');
+		expect(route!.hops[1].service).toBe('boltz');
+	});
+
+	it('first hop uses uniswap-v3 service, second uses boltz (boltz-last via uniswap-v3)', async () => {
+		mockUniswapV3GetQuote.mockResolvedValueOnce(makeQuoteRoute('uniswap-v3', 0.3));
+		mockBoltzGetQuote.mockResolvedValueOnce(makeQuoteRoute('boltz', 0.25));
+
+		const route = await buildBoltzTwoHopRoute(TOKENS['wbtc-arb'], TOKENS['rbtc'], 100_000);
+
+		expect(route!.hops[0].service).toBe('uniswap-v3');
 		expect(route!.hops[1].service).toBe('boltz');
 	});
 

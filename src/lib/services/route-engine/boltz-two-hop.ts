@@ -2,13 +2,17 @@
  * Route Engine — Boltz 2-Hop Optimization
  *
  * Composes 2-hop routes using Boltz for the first hop (BTC↔RBTC↔tBTC chain swaps)
- * and a second provider (Symbiosis, LI.FI) for the second hop (DEX swap on destination chain).
+ * and a second provider (LI.FI, Uniswap V3) for the second hop (DEX swap on destination chain).
  *
  * Key use cases:
- *   - RBTC → WBTC on Arbitrum: Boltz (RBTC→tBTC Arb) + Symbiosis/LI.FI (tBTC→WBTC)
- *   - RBTC → USDT0 on Arbitrum: Boltz (RBTC→tBTC Arb) + Symbiosis/LI.FI (tBTC→USDT0)
- *   - USDT0 Arb → RBTC: Symbiosis (USDT0→tBTC Arb) + Boltz (tBTC→RBTC)
- *   - BTC → USDT0/WBTC on Arbitrum: Boltz (BTC→tBTC Arb) + LI.FI/Symbiosis (tBTC→target)
+ *   - RBTC → WBTC on Arbitrum: Boltz (RBTC→tBTC Arb) + Uniswap V3 (tBTC→WBTC)
+ *   - RBTC → USDT0 on Arbitrum: Boltz (RBTC→tBTC Arb) + LI.FI (tBTC→USDT0)
+ *   - USDT0 Arb → RBTC: LI.FI (USDT0→tBTC Arb) + Boltz (tBTC→RBTC)
+ *   - WBTC Arb → RBTC: Uniswap V3 (WBTC→tBTC Arb) + Boltz (tBTC→RBTC)
+ *   - BTC → USDT0/WBTC on Arbitrum: Boltz (BTC→tBTC Arb) + LI.FI/Uniswap V3 (tBTC→target)
+ *
+ * Symbiosis is disabled — MetaRouter reverts on all chains. All Boltz-last
+ * routes use LI.FI or Uniswap V3 for hop1 instead.
  */
 
 import type { Token, Route, RouteHop } from './types';
@@ -61,9 +65,8 @@ export const BOLTZ_TWO_HOP_PAIRS: Record<
 		hop2Providers: ['symbiosis', 'lifi', 'uniswap-v3']
 	},
 	'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
-	'usdt0-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
-	'wbtc-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
-	'wbtc-arb->usdt0-arb': { intermediary: 'tbtc-arb', hop1Provider: 'symbiosis', hop2Providers: [] },
+	'usdt0-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'lifi', hop2Providers: [] },
+	'wbtc-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'uniswap-v3', hop2Providers: [] },
 	'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] },
 	'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis', 'uniswap-v3'] }
 };
@@ -351,7 +354,12 @@ async function buildBoltzLastRoute(
 	const hop2 = hop2Quote.hops[0];
 	const hop2OutputSats = Math.round(hop1OutputSats * (1 - hop2.feePercent / 100));
 
-	const providerLabel = hop1ProviderName === 'lifi' ? 'LI.FI' : 'Symbiosis';
+	const providerLabel =
+		hop1ProviderName === 'lifi'
+			? 'LI.FI'
+			: hop1ProviderName === 'uniswap-v3'
+				? 'Uniswap V3'
+				: hop1ProviderName;
 	const routeId = `${from.key}->${to.key}-via-${hop1ProviderName}-boltz`;
 	const routeLabel = `${providerLabel} → Boltz`;
 
