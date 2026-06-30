@@ -65,6 +65,17 @@ export interface SwapProvider {
 	 * Fetch a live quote for this pair.
 	 * Returns a Route (with hops populated) or null if unavailable.
 	 * Must respect AbortSignal for cancellation.
+	 *
+	 * @param amountSats - Input amount in BTC satoshis (works for BTC-pegged tokens)
+	 * @param sourceAmountRaw - Input amount in source token's smallest unit (for non-BTC tokens like USDT0).
+	 *   When provided, providers MUST use this instead of converting from amountSats.
+	 *   For BTC-pegged tokens this will be undefined — use amountSats instead.
 	 */
-	getQuote(from: Token, to: Token, amountSats: number, signal?: AbortSignal): Promise<Route | null>;
+	getQuote(
+		from: Token,
+		to: Token,
+		amountSats: number,
+		signal?: AbortSignal,
+		sourceAmountRaw?: string
+	): Promise<Route | null>;
 }

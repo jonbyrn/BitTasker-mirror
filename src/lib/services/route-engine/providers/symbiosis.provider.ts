@@ -10,7 +10,7 @@ import type { SwapProvider, Token } from '../types';
 import type { Route } from '$lib/services/route-resolver';
 import { satsToTokenAmount, tokenAmountToSats } from '../utils/amount-conversion';
 import { symbiosisService } from '$lib/services/symbiosis.service';
-import { isSymbiosisEnabled } from '$lib/services/kill-switch';
+// isSymbiosisEnabled removed — provider disabled entirely (MetaRouter reverts)
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 
@@ -26,24 +26,13 @@ const FALLBACK_ADDR = '0x0000000000000000000000000000000000000001';
 export const symbiosisProvider: SwapProvider = {
 	name: 'symbiosis',
 
-	supports(from: Token, to: Token): boolean {
-		if (!isSymbiosisEnabled()) return false;
-
-		// Exclude Bitcoin/Lightning — Symbiosis is EVM-only
-		if (from.chain === 'bitcoin' || from.chain === 'lightning') return false;
-		if (to.chain === 'bitcoin' || to.chain === 'lightning') return false;
-
-		// Cross-chain EVM swaps from supported source chains
-		if (from.chain === 'rsk' && to.chain !== 'rsk') return true;
-		if (from.chain === 'bsc' && to.chain !== 'bsc') return true;
-		if (from.chain === 'arbitrum' && to.chain !== 'arbitrum') return true;
-
-		// Same-chain RSK DEX swaps (e.g. USDT0↔RBTC, DOC→USDT0)
-		if (from.chain === 'rsk' && to.chain === 'rsk' && from.key !== to.key) return true;
-
-		// Same-chain Arbitrum DEX swaps (e.g. WBTC↔USDT0, tBTC↔WBTC)
-		if (from.chain === 'arbitrum' && to.chain === 'arbitrum' && from.key !== to.key) return true;
-
+	supports(_from: Token, _to: Token): boolean {
+		// DISABLED: Symbiosis API returns MetaRouter cross-chain calldata that
+		// reverts on-chain for all swap types (same-chain Arbitrum, cross-chain
+		// RSK→Arbitrum). The MetaRouter contract rejects the transactions with
+		// gas limit exhaustion. Until the Symbiosis integration is fixed to use
+		// proper on-chain DEX routing for same-chain pairs, all routes must go
+		// through Boltz 2-hop (Boltz + LI.FI/Uniswap V3) or LI.FI direct.
 		return false;
 	},
 
@@ -51,11 +40,15 @@ export const symbiosisProvider: SwapProvider = {
 		from: Token,
 		to: Token,
 		amountSats: number,
-		_signal?: AbortSignal
+		_signal?: AbortSignal,
+		sourceAmountRaw?: string
 	): Promise<Route | null> {
 		const { data: quote, error } = await tryCatch(
 			(async () => {
-				const amountIn = satsToTokenAmount(amountSats, from.decimals);
+				// Use raw source amount when available (non-BTC tokens like USDT0).
+				// satsToTokenAmount does a pure decimal conversion that is wrong
+				// for stablecoins (e.g., 8333 sats → 83 micro-USDT instead of 5M).
+				const amountIn = sourceAmountRaw ?? satsToTokenAmount(amountSats, from.decimals);
 
 				debug.log(
 					'Requesting quote: %s %s → %s %s (%s sats)',

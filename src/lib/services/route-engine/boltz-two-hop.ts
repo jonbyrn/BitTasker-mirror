@@ -213,6 +213,15 @@ async function buildBoltzFirstRoute(
 		const provider = PROVIDER_MAP[providerName];
 		if (!provider) continue;
 
+		// Check if the provider supports this pair before querying.
+		// Without this, providers that have been disabled for specific pairs
+		// (e.g., Symbiosis for same-chain Arbitrum) would still be queried
+		// and return cross-chain calldata that reverts on-chain.
+		if (!provider.supports(intermediary, to)) {
+			debug.log('Skipping hop2 provider %s: supports() returned false', providerName);
+			continue;
+		}
+
 		debug.log(
 			'Trying hop2 provider: %s (%s → %s, %d sats)',
 			providerName,
@@ -234,7 +243,13 @@ async function buildBoltzFirstRoute(
 		const hop2OutputSats = Math.round(hop1OutputSats * (1 - hop2.feePercent / 100));
 
 		const routeId = `${from.key}->${to.key}-via-boltz-${providerName}`;
-		const routeLabel = `Boltz → ${providerName === 'lifi' ? 'LI.FI' : 'Symbiosis'}`;
+		const hop2Label =
+			providerName === 'lifi'
+				? 'LI.FI'
+				: providerName === 'uniswap-v3'
+					? 'Uniswap V3'
+					: 'Symbiosis';
+		const routeLabel = `Boltz → ${hop2Label}`;
 
 		debug.log(
 			'2-hop route composed: %s (hop1 output=%d, hop2 output=%d)',
@@ -279,6 +294,17 @@ async function buildBoltzLastRoute(
 	const hop1Provider = PROVIDER_MAP[hop1ProviderName];
 	if (!hop1Provider) {
 		debug.warn('Hop1 provider %s not found in provider map', hop1ProviderName);
+		return null;
+	}
+
+	// Check if the provider supports this pair before querying
+	if (!hop1Provider.supports(from, intermediary)) {
+		debug.log(
+			'Skipping Boltz-last: hop1 provider %s does not support %s → %s',
+			hop1ProviderName,
+			from.key,
+			intermediary.key
+		);
 		return null;
 	}
 

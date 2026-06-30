@@ -24,7 +24,7 @@ export type Destination =
 	| { type: 'invoice'; network: 'lightning' | 'onchain'; invoice: string };
 
 export interface RouteHop {
-	service: 'direct' | 'changelly' | 'boltz' | 'lifi' | 'symbiosis' | 'openocean';
+	service: 'direct' | 'changelly' | 'boltz' | 'lifi' | 'symbiosis' | 'openocean' | 'uniswap-v3';
 	fromAsset: string;
 	fromChain: string;
 	toAsset: string;

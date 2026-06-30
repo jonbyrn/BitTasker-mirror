@@ -65,21 +65,25 @@ export const uniswapV3Provider: SwapProvider = {
 		if (from.chain !== 'arbitrum' || to.chain !== 'arbitrum') return false;
 		if (from.key === to.key) return false;
 
-		// Only for known pools with sufficient liquidity
+		// Check both orderings (pool key is sorted by address)
 		const poolKey = `${from.address}:${to.address}`;
-		return poolKey in KNOWN_POOLS;
+		const poolKeyReverse = `${to.address}:${from.address}`;
+		return poolKey in KNOWN_POOLS || poolKeyReverse in KNOWN_POOLS;
 	},
 
 	async getQuote(
 		from: Token,
 		to: Token,
 		amountSats: number,
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		sourceAmountRaw?: string
 	): Promise<Route | null> {
 		void signal;
 
+		// Check both orderings
 		const poolKey = `${from.address}:${to.address}`;
-		const poolInfo = KNOWN_POOLS[poolKey];
+		const poolKeyReverse = `${to.address}:${from.address}`;
+		const poolInfo = KNOWN_POOLS[poolKey] ?? KNOWN_POOLS[poolKeyReverse];
 		if (!poolInfo) {
 			debug.log('No known pool for %s → %s', from.key, to.key);
 			return null;
@@ -98,8 +102,11 @@ export const uniswapV3Provider: SwapProvider = {
 				const provider = new ethers.JsonRpcProvider(ARB_RPC);
 				const quoter = new Contract(QUOTER_V2, QUOTER_ABI, provider);
 
-				// Convert sats to token amount in smallest unit
-				const amountIn = BigInt(amountSats) * BigInt(10) ** BigInt(from.decimals - 8);
+				// Use raw source amount when available (non-BTC tokens like USDT0).
+				// satsToTokenAmount-style conversion breaks for 6-decimal tokens.
+				const amountIn = sourceAmountRaw
+					? BigInt(sourceAmountRaw)
+					: BigInt(amountSats) * BigInt(10) ** BigInt(from.decimals - 8);
 
 				const params = {
 					tokenIn: from.address,

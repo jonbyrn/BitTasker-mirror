@@ -54,7 +54,8 @@ export const lifiProvider: SwapProvider = {
 		from: Token,
 		to: Token,
 		amountSats: number,
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		sourceAmountRaw?: string
 	): Promise<Route | null> {
 		// NOTE: lifiService.getQuote does not accept an external AbortSignal.
 		// Signal is accepted for interface compliance but cannot be forwarded.
@@ -63,7 +64,7 @@ export const lifiProvider: SwapProvider = {
 			(async () => {
 				const fromChainId = CHAIN_NAME_TO_ID[from.chain] ?? from.chainId;
 				const toChainId = CHAIN_NAME_TO_ID[to.chain] ?? to.chainId;
-				const fromAmount = satsToTokenAmount(amountSats, from.decimals);
+				const fromAmount = sourceAmountRaw ?? satsToTokenAmount(amountSats, from.decimals);
 
 				debug.log(
 					'Requesting quote: %s (chain %s) → %s (chain %s) (%s sats)',

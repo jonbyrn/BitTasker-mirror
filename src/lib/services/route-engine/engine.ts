@@ -66,7 +66,12 @@ export async function resolveRoutes(
 	source: SourceWallet,
 	destination: Destination,
 	amountSats: number,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	/** Amount in source token's smallest unit (e.g., micro-USDT for USDT0).
+	 *  For non-BTC-pegged tokens, amountSats is a BTC-equivalent that loses
+	 *  precision when converted back. Providers should use sourceAmountRaw
+	 *  when available. */
+	sourceAmountRaw?: string
 ): Promise<RouteEngineResult> {
 	const errors: Array<{ provider: string; error: string }> = [];
 
@@ -109,7 +114,7 @@ export async function resolveRoutes(
 
 	// 3. Query all eligible providers in parallel
 	const results = await Promise.allSettled(
-		eligible.map((p) => p.getQuote(fromToken, toToken, amountSats, signal))
+		eligible.map((p) => p.getQuote(fromToken, toToken, amountSats, signal, sourceAmountRaw))
 	);
 
 	const routes: Route[] = [];
