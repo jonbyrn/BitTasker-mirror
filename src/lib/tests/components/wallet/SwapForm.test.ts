@@ -87,7 +87,12 @@ const mockConnected = vi.hoisted(() => {
 vi.mock('$lib/stores/connected-wallets.store', () => ({
 	connectedWalletsStore: mockConnected,
 	getEvmSigner: vi.fn(),
-	reconnectPersistedWallets: vi.fn()
+	reconnectPersistedWallets: vi.fn(),
+	restoreConnectedWalletState: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('$lib/services/external-wallet/reconnect', () => ({
+	reconnectPersistedWallets: vi.fn().mockResolvedValue(undefined)
 }));
 
 const mockNetwork = vi.hoisted(() => ({ online: true }));

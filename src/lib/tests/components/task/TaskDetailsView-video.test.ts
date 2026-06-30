@@ -60,6 +60,13 @@ vi.mock('$app/environment', () => ({
 	building: false
 }));
 
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	afterNavigate: vi.fn(),
+	beforeNavigate: vi.fn(),
+	invalidateAll: vi.fn()
+}));
+
 vi.mock('$lib/stores/user.store', () => ({
 	user: hoisted.readable({ npub: 'a'.repeat(64) })
 }));

@@ -15,6 +15,19 @@ vi.mock('$lib/utils/profile/services-loader', () => ({
 	loadCurrentProfileServices: (...args: unknown[]) => mockLoadCurrentProfileServices(...args)
 }));
 
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNpub: vi.fn().mockResolvedValue('npub1test')
+}));
+
+vi.mock('$lib/utils/reviews/queries', () => ({
+	getReviewsForUser: vi.fn().mockResolvedValue([]),
+	subscribeToUserAttestations: vi.fn(() => () => {})
+}));
+
+vi.mock('$lib/utils/reviews/aggregation', () => ({
+	calculateReviewStats: vi.fn().mockReturnValue({ totalReviews: 0, averageRating: 0 })
+}));
+
 describe('profile.store', () => {
 	beforeEach(async () => {
 		vi.resetModules();
