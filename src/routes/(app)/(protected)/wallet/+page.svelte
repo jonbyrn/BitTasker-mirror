@@ -41,6 +41,7 @@
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import { openHelpModal } from '$lib/runes/helpModal.svelte';
 	import PendingClaimBanner from '$lib/components/wallet/PendingClaimBanner.svelte';
 	import ConnectedTransactionHistory from '$lib/components/wallet/ConnectedTransactionHistory.svelte';
 	import { isConnectedWalletsEnabled, isLoanFlowEnabled } from '$lib/services/kill-switch';
@@ -74,7 +75,9 @@
 
 		// Load DeFi positions (Aave V3) if feature enabled
 		if (isLoanFlowEnabled()) {
-			defiPositions.refreshAllAave().catch(() => {});
+			defiPositions.refreshAllAave().catch((err) => {
+				console.error('[wallet] Failed to refresh DeFi positions:', err);
+			});
 		}
 
 		// Open receive modal if tab=receive is in URL
@@ -92,13 +95,6 @@
 	let showBuySell = $state(false);
 	let showSwap = $state(false);
 	let showTransactionsModal = $state(false);
-	// Default asset overrides when opened from loan flow
-	let loanFlowSwapDest = $state<'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain' | undefined>(
-		undefined
-	);
-	let loanFlowBuyCrypto = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain' | undefined>(
-		undefined
-	);
 	let showConnectedTransactionsModal = $state(false);
 
 	// Centralized Payment Request Modal state
@@ -186,89 +182,28 @@
 	// Tab state: 'wallet' | 'connected'
 	let activeTab = $state<'wallet' | 'connected'>('wallet');
 
-	// Connected wallet totals
-	let _lastConnectedTotal = 0;
-	let _lastConnectedSats = 0;
-	let _lastConnectedUsdt = 0;
-
-	// Debug logging for connected wallet balance changes
-	$effect(() => {
-		const t = connectedTotalUsd;
-		const s = connectedTotalSats;
-		const u = connectedTotalUsdt;
+	// Connected wallet totals — single-pass aggregation
+	let connectedTotals = $derived.by(() => {
 		const wallets = $connectedWalletsStore.wallets;
-		if (wallets.length === 0) return;
-		const details = wallets.map(
-			(w) =>
-				`${w.walletName}: btc=${w.balances?.btc?.raw ?? '?'} rbtc=${w.balances?.rbtc?.raw ?? '?'} usdt=${w.balances?.usdt?.raw ?? '?'} wbtc=${w.balances?.wbtc?.raw ?? '?'}`
-		);
-		console.log(
-			`[connected-balance] USD=$${t.toFixed(2)} sats=${s} usdt=$${u.toFixed(2)} | wallets=[${details.join(', ')}]`
-		);
-	});
-
-	// Connected wallet total USD
-	let connectedTotalUsd = $derived.by(() => {
-		if ($connectedWalletsStore.wallets.length === 0) {
-			_lastConnectedTotal = 0;
-			return 0;
-		}
-		let total = 0;
-		for (const w of $connectedWalletsStore.wallets) {
+		if (wallets.length === 0) return { usd: 0, sats: 0, usdt: 0, aggSats: 0, aggUsd: 0 };
+		let usd = 0;
+		let sats = 0;
+		let usdt = 0;
+		let aggSats = 0;
+		for (const w of wallets) {
 			const cur = w.balances;
-			if (cur) {
-				// rBTC + wBTC sats → USD
-				const rbtcSats = Number(cur.rbtc?.raw ?? 0);
-				const wbtcSats = Number(cur.wbtc?.raw ?? 0);
-				const satsUsd = ((rbtcSats + wbtcSats) / 100_000_000) * btcPrice.price;
-				// USDT0 on Arbitrum
-				const usdt0Arb = Number(cur['usdt0-arb']?.raw ?? 0) / 1e6;
-				total += satsUsd + usdt0Arb;
-			}
+			if (!cur) continue;
+			const rbtc = Number(cur.rbtc?.raw ?? 0);
+			const wbtc = Number(cur.wbtc?.raw ?? 0);
+			const btc = Number(cur.btc?.raw ?? 0);
+			const usdt0Arb = Number(cur['usdt0-arb']?.raw ?? 0);
+			sats += rbtc + wbtc;
+			aggSats += rbtc + btc;
+			usd += ((rbtc + wbtc) / 1e8) * btcPrice.price + usdt0Arb / 1e6;
+			usdt += usdt0Arb / 1e6;
 		}
-		if (total === 0 && _lastConnectedTotal > 0) return _lastConnectedTotal;
-		if (Math.abs(total - _lastConnectedTotal) < 0.005) return _lastConnectedTotal;
-		_lastConnectedTotal = total;
-		return total;
+		return { usd, sats, usdt, aggSats, aggUsd: (aggSats / 1e8) * btcPrice.price };
 	});
-
-	// Connected wallet total sats (rBTC + wBTC across all wallets)
-	let connectedTotalSats = $derived.by(() => {
-		if ($connectedWalletsStore.wallets.length === 0) return 0;
-		let total = 0;
-		for (const w of $connectedWalletsStore.wallets) {
-			const cur = w.balances;
-			if (cur) total += Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
-		}
-		if (total === 0 && _lastConnectedSats > 0) return _lastConnectedSats;
-		if (total !== _lastConnectedSats) _lastConnectedSats = total;
-		return total;
-	});
-
-	// Connected wallet total USDT0 Arbitrum (for BalanceCard breakdown)
-	let connectedTotalUsdt = $derived.by(() => {
-		if ($connectedWalletsStore.wallets.length === 0) return 0;
-		let total = 0;
-		for (const w of $connectedWalletsStore.wallets) {
-			const cur = w.balances;
-			if (cur) total += Number(cur['usdt0-arb']?.raw ?? 0) / 1e6;
-		}
-		return total;
-	});
-
-	// Aggregate sats across ALL connected wallets (rBTC + BTC) for Activity accordion
-	let connectedAggSats = $derived.by(() => {
-		if ($connectedWalletsStore.wallets.length === 0) return 0;
-		let total = 0;
-		for (const w of $connectedWalletsStore.wallets) {
-			const cur = w.balances;
-			if (cur) {
-				total += Number(cur.rbtc?.raw ?? 0) + Number(cur.btc?.raw ?? 0);
-			}
-		}
-		return total;
-	});
-	let connectedAggUsd = $derived.by(() => (connectedAggSats / 100_000_000) * btcPrice.price);
 
 	// BankingMenu event listeners
 	let bankingMenuOpen = $state(false);
@@ -465,15 +400,15 @@
 
 			<!-- Balance Card -->
 			<div class="flex h-full flex-col gap-2 overflow-y-auto sm:gap-4">
-				{#if activeTab === 'connected'}
+				{#if activeTab === 'connected' && $connectedWalletsStore.wallets.length > 0}
 					<BalanceCard
 						{isLoading}
 						hideDetails
 						{balancesHidden}
 						onToggleBalances={(hidden) => (balancesHidden = hidden)}
-						overrideTotalUsd={connectedTotalUsd}
-						overrideSats={connectedTotalSats}
-						overrideUsdt={connectedTotalUsdt}
+						overrideTotalUsd={connectedTotals.usd}
+						overrideSats={connectedTotals.sats}
+						overrideUsdt={connectedTotals.usdt}
 					/>
 					<!-- Pending Lightning claim banner -->
 					{#if claimableSwaps.length > 0}
@@ -485,7 +420,7 @@
 							}}
 						/>
 					{/if}
-				{:else}
+				{:else if activeTab === 'wallet'}
 					<BalanceCard
 						{isLoading}
 						hideDetails={false}
@@ -515,12 +450,7 @@
 							<!-- Connect a Wallet button (above action buttons) -->
 							<button
 								class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
-								onclick={() => {
-									const connectedSection = document.querySelector(
-										'[data-connect-button]'
-									) as HTMLButtonElement;
-									connectedSection?.click();
-								}}
+								onclick={() => (showConnectModal = true)}
 							>
 								<IconPlus class="mr-1 h-5 w-5" aria-hidden="true" />
 								{$t('wallet.connected.connect_modal_title')}
@@ -542,8 +472,8 @@
 						{#key activeTab}
 							<BalanceHistory
 								{balancesHidden}
-								overrideSats={activeTab === 'connected' ? connectedAggSats : 0}
-								overrideUsd={activeTab === 'connected' ? connectedAggUsd : 0}
+								overrideSats={activeTab === 'connected' ? connectedTotals.aggSats : 0}
+								overrideUsd={activeTab === 'connected' ? connectedTotals.aggUsd : 0}
 								overrideAddress={activeTab === 'connected'
 									? $connectedWalletsStore.wallets[0]?.address || ''
 									: ''}
@@ -631,9 +561,7 @@
 				<div class="flex justify-center pb-4">
 					<button
 						class="btn btn-ghost btn-sm text-base-content/50 gap-1 text-xs"
-						onclick={() => {
-							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
-						}}
+						onclick={openHelpModal}
 					>
 						<IconInformationOutline class="h-4 w-4 shrink-0" aria-hidden="true" />
 						{$t('wallet.learn_more')}
@@ -665,9 +593,7 @@
 	isOpen={showBuySell}
 	onClose={() => {
 		showBuySell = false;
-		loanFlowBuyCrypto = undefined;
 	}}
-	defaultCrypto={loanFlowBuyCrypto}
 />
 
 <!-- Swap Drawer -->
@@ -675,9 +601,7 @@
 	isOpen={showSwap}
 	onClose={() => {
 		showSwap = false;
-		loanFlowSwapDest = undefined;
 	}}
-	defaultDestType={loanFlowSwapDest}
 />
 
 <!-- New UX Modals -->
@@ -711,9 +635,7 @@
 <WalletPaymentModal isOpen={showSendModal} onClose={() => (showSendModal = false)}>
 	<SendPaymentForm
 		onCancel={() => (showSendModal = false)}
-		onSuccess={(txHash, network) => {
-			// Handle send success
-			console.log('Payment sent:', txHash, network);
+		onSuccess={(_txHash, _network) => {
 			showSendModal = false;
 		}}
 	/>
@@ -725,7 +647,7 @@
 		<button
 			class="btn btn-ghost btn-sm btn-circle"
 			onclick={() => (showTransactionsModal = false)}
-			aria-label="Close transactions modal"
+			aria-label={$t('common.close')}
 		>
 			<IconClose class="h-5 w-5" aria-hidden="true" />
 		</button>
