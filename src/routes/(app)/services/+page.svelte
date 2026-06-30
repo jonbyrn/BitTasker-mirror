@@ -26,6 +26,7 @@
 	} from '$lib/utils/service-search-persistence';
 	import { debounceWithAbort } from '$lib/utils/helpers/common';
 	import { hashSearchParams } from '$lib/utils/search.utils';
+	import { manageSaveSearchBanner, dismissSaveSearchBanner } from '$lib/utils/saveSearchBanner';
 
 	// ── Constants ──────────────────────────────────────────────────────────────
 	const DESKTOP_MIN_WIDTH = 1024;
@@ -286,6 +287,8 @@
 			};
 			searchParams = { ...capturedSearchParams, ...newParams };
 
+			manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
+
 			try {
 				await findServicesWithTimeout(searchParams);
 				if (currentVersion !== searchVersion) return;
@@ -324,6 +327,9 @@
 		await findServicesWithTimeout(searchParams);
 		isApplyingFilters = false;
 		isFilterDrawerOpen = false;
+
+		manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
+
 		servicesStore.update((state) => ({
 			...state,
 			searchParamsKey: hashSearchParams(searchParams)
@@ -335,6 +341,8 @@
 		searchQuery = '';
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+
+		dismissSaveSearchBanner();
 
 		servicesStore.update((state) => ({
 			...state,

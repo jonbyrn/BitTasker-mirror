@@ -22,6 +22,9 @@
 	import IconStore from '~icons/mdi/store-outline';
 	import IconWallet from '~icons/mdi/wallet-outline';
 	import IconBellRing from '~icons/mdi/bell-ring-outline';
+	import IconAlertCircle from '~icons/mdi/alert-circle-outline';
+	import IconStar from '~icons/mdi/star';
+	import IconCash from '~icons/mdi/cash';
 
 	// Category → icon mapping, inlined to avoid a separate utility file
 	// that would need its own type declarations for ~icons imports.
@@ -45,7 +48,16 @@
 		list_your_service: IconStore,
 		fund_your_wallet: IconWallet,
 		inactive_with_pending_bids: IconBellRing,
-		inactive_with_active_contract: IconBellRing
+		inactive_with_active_contract: IconBellRing,
+		new_task_broadcast: IconClipboardCheck,
+		new_service_broadcast: IconBriefcase,
+		new_service_match: IconMagnify,
+		proposal_withdrawn: IconBriefcase,
+		proposal_updated: IconBriefcase,
+		service_expiring_soon: IconAlertCircle,
+		service_expired: IconAlertCircle,
+		service_review_received: IconStar,
+		service_price_changed: IconCash
 	};
 
 	const CATEGORY_COLORS: Record<string, string> = {
@@ -68,7 +80,16 @@
 		list_your_service: 'text-info',
 		fund_your_wallet: 'text-warning',
 		inactive_with_pending_bids: 'text-info',
-		inactive_with_active_contract: 'text-info'
+		inactive_with_active_contract: 'text-info',
+		new_task_broadcast: 'text-success',
+		new_service_broadcast: 'text-info',
+		new_service_match: 'text-success',
+		proposal_withdrawn: 'text-warning',
+		proposal_updated: 'text-info',
+		service_expiring_soon: 'text-warning',
+		service_expired: 'text-error',
+		service_review_received: 'text-accent',
+		service_price_changed: 'text-warning'
 	};
 
 	let {

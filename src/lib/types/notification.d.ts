@@ -118,7 +118,16 @@ export type NotificationCategory =
 	| 'service'
 	| 'discovery'
 	| 'reengagement'
-	| 'account';
+	| 'account'
+	| 'new_task_broadcast'
+	| 'new_service_broadcast'
+	| 'new_service_match'
+	| 'proposal_withdrawn'
+	| 'proposal_updated'
+	| 'service_expiring_soon'
+	| 'service_expired'
+	| 'service_review_received'
+	| 'service_price_changed';
 
 export type NotificationPriority = 'NORMAL' | 'HIGH' | 'URGENT';
 
@@ -147,6 +156,8 @@ export interface NotificationData {
 	senderNpub?: string;
 	taskId?: string;
 	taskTitle?: string;
+	serviceId?: string;
+	serviceTitle?: string;
 	contractId?: string;
 	escrowId?: string;
 	amount?: string;
@@ -181,6 +192,20 @@ export interface NotificationFilters {
 	type?: string;
 }
 
+export interface TaskNotificationSettings {
+	enabled: boolean;
+	frequency: string;
+	broadcast: boolean;
+	broadcastFrequency: string;
+}
+
+export interface ServiceNotificationSettings {
+	enabled: boolean;
+	frequency: string;
+	broadcast: boolean;
+	broadcastFrequency: string;
+}
+
 export interface NotificationPreferencesExtended {
 	id: string;
 	npub: string;
@@ -202,6 +227,8 @@ export interface NotificationPreferencesExtended {
 	securityAlerts: boolean;
 	walletNotifications: boolean;
 	serviceNotifications: boolean;
+	taskNotificationSettings: TaskNotificationSettings;
+	serviceNotificationSettings: ServiceNotificationSettings;
 	createdAt: string;
 	updatedAt: string;
 }

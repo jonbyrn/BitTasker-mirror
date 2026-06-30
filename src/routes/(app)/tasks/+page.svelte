@@ -31,6 +31,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskListSkeleton from '$lib/components/task/TaskListSkeleton.svelte';
 	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
+	import { manageSaveSearchBanner, dismissSaveSearchBanner } from '$lib/utils/saveSearchBanner';
 
 	// Icon imports for unplugin-icons
 	import IconAlertCircle from '~icons/mdi/alert-circle';
@@ -54,7 +55,7 @@
 
 	// Data loading constants
 	const BTC_PRICE_FALLBACK = 120000; // Default fallback BTC price in USD
-	const LOADING_TIMEOUT_MS = 10000; // 10 seconds timeout for loading
+	const LOADING_TIMEOUT_MS = 30000; // 30 seconds timeout for loading
 
 	// Map preload timing constants
 	const MAP_PRELOAD_TIMEOUT_MS = 2000; // Load within 2 seconds even if not idle
@@ -514,6 +515,8 @@
 			limit: TASKS_PER_PAGE
 		};
 
+		manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
+
 		await loadNostrData();
 	}, SEARCH_DEBOUNCE_DELAY);
 
@@ -537,6 +540,8 @@
 		// Update UI controls based on applied filters
 		searchQuery = filters.search || '';
 
+		manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
+
 		try {
 			await findTasks(searchParams);
 		} catch (error) {
@@ -555,6 +560,8 @@
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+
+		dismissSaveSearchBanner();
 
 		// Clear existing tasks when clearing filters
 		clearTasksStore();
