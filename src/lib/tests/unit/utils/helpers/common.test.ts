@@ -12,7 +12,7 @@ describe('debounce', () => {
 
 	it('delays function execution', () => {
 		const fn = vi.fn();
-		const debouncedFn = debounce(fn, 100);
+		const debouncedFn = debounce(fn, 100) as (...args: unknown[]) => void;
 
 		debouncedFn();
 		expect(fn).not.toHaveBeenCalled();
@@ -23,7 +23,7 @@ describe('debounce', () => {
 
 	it('cancels previous calls on repeated invocations', () => {
 		const fn = vi.fn();
-		const debouncedFn = debounce(fn, 100);
+		const debouncedFn = debounce(fn, 100) as (...args: unknown[]) => void;
 
 		debouncedFn();
 		vi.advanceTimersByTime(50);
@@ -37,7 +37,7 @@ describe('debounce', () => {
 
 	it('passes parameters correctly', () => {
 		const fn = vi.fn();
-		const debouncedFn = debounce(fn, 100);
+		const debouncedFn = debounce(fn, 100) as (...args: unknown[]) => void;
 
 		debouncedFn('arg1', 2, { key: 'value' });
 		vi.advanceTimersByTime(100);
@@ -50,7 +50,7 @@ describe('debounce', () => {
 			value: 0,
 			add: debounce(function (this: { value: number }, num: number) {
 				this.value += num;
-			}, 100)
+			}, 100) as (this: { value: number }, num: number) => void
 		};
 
 		obj.add(5);
@@ -62,7 +62,7 @@ describe('debounce', () => {
 
 	it('executes only once when called multiple times within delay', () => {
 		const fn = vi.fn();
-		const debouncedFn = debounce(fn, 100);
+		const debouncedFn = debounce(fn, 100) as (...args: unknown[]) => void;
 
 		debouncedFn();
 		debouncedFn();

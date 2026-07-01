@@ -79,16 +79,17 @@ const hoisted = vi.hoisted(() => ({
 }));
 hoisted.servicesStore = hoisted.createStore({
 	items: [] as Service[],
-	loading: false,
+	loading: false as boolean,
 	error: null as string | null,
 	currentPage: 1,
-	hasMore: false,
+	hasMore: false as boolean,
 	searchParamsKey: ''
 } as Parameters<typeof hoisted.createStore>[0]);
-hoisted.servicesStore.destroy = vi.fn();
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
 hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as Parameters<
 	typeof hoisted.createStore
 >[0]);
+(hoisted.userStore as Record<string, unknown>).destroy = vi.fn();
 hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as Parameters<
 	typeof hoisted.createStore
 >[0]);

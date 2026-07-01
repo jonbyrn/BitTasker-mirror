@@ -13,7 +13,7 @@ describe('common', () => {
 	describe('debounce', () => {
 		it('should call the function after delay when invoked once', () => {
 			const fn = vi.fn();
-			const debounced = debounce(fn, 100);
+			const debounced = debounce(fn, 100) as (...args: unknown[]) => void;
 			debounced('a');
 			expect(fn).not.toHaveBeenCalled();
 			vi.advanceTimersByTime(100);
@@ -23,7 +23,7 @@ describe('common', () => {
 
 		it('should reset timer on repeated calls within delay', () => {
 			const fn = vi.fn();
-			const debounced = debounce(fn, 100);
+			const debounced = debounce(fn, 100) as (...args: unknown[]) => void;
 			debounced('a');
 			vi.advanceTimersByTime(50);
 			debounced('b');
@@ -36,7 +36,7 @@ describe('common', () => {
 
 		it('should pass multiple arguments to the debounced function', () => {
 			const fn = vi.fn();
-			const debounced = debounce(fn, 100);
+			const debounced = debounce(fn, 100) as (...args: unknown[]) => void;
 			debounced(1, 2, 3);
 			vi.advanceTimersByTime(100);
 			expect(fn).toHaveBeenCalledWith(1, 2, 3);

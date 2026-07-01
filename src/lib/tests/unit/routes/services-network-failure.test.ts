@@ -13,8 +13,14 @@ const hoisted = vi.hoisted(() => {
 		searchParamsKey: ''
 	};
 
+	interface StoreLike<T> {
+		set(nextValue: T): void;
+		update(updater: (currentValue: T) => T): void;
+		subscribe(subscriber: (nextValue: T) => void): () => boolean;
+	}
+
 	return {
-		createStore<T>(initialValue: T) {
+		createStore<T>(initialValue: T): StoreLike<T> {
 			let value = initialValue;
 			const subscribers = new Set<(nextValue: T) => void>();
 
@@ -35,7 +41,7 @@ const hoisted = vi.hoisted(() => {
 				}
 			};
 		},
-		servicesStore: null as ReturnType<typeof hoisted.createStore<typeof _storeData>>,
+		servicesStore: null as StoreLike<typeof _storeData> & { destroy: () => void },
 		authStateStore: null as unknown as {
 			set: (nextValue: { isAuthenticated: boolean }) => void;
 			subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;

@@ -78,15 +78,17 @@ const hoisted = vi.hoisted(() => ({
 }));
 hoisted.servicesStore = hoisted.createStore({
 	items: [] as Service[],
-	loading: false,
+	loading: false as boolean,
 	error: null as string | null,
 	currentPage: 1,
-	hasMore: false,
+	hasMore: false as boolean,
 	searchParamsKey: ''
 });
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as {
+	isAuthenticated: boolean;
+});
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as { npub: string });
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
