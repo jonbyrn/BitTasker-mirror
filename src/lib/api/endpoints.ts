@@ -70,5 +70,23 @@ export const ENDPOINTS = {
 
 	TRANSLATION: {
 		TRANSLATE: `${API_PATH}/${API_VERSION}/translate`
+	},
+
+	NOTIFICATION_CENTER: {
+		LIST: `${API_PATH}/${API_VERSION}/notification-center`,
+		UNREAD_COUNT: `${API_PATH}/${API_VERSION}/notification-center/unread-count`,
+		MARK_READ: (id: string) => `${API_PATH}/${API_VERSION}/notification-center/${id}/read`,
+		READ_ALL: `${API_PATH}/${API_VERSION}/notification-center/read-all`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/notification-center/${id}`,
+		DELETE_MANY: `${API_PATH}/${API_VERSION}/notification-center`
+	},
+
+	NOTIFICATION_PREFERENCES: {
+		GET: `${API_PATH}/${API_VERSION}/notification-preferences`,
+		UPDATE: `${API_PATH}/${API_VERSION}/notification-preferences`
+	},
+
+	REMINDERS: {
+		ENRICH: `${API_PATH}/${API_VERSION}/reminders/enrich`
 	}
 };

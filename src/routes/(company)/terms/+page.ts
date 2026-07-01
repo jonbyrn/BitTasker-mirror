@@ -1,13 +1,15 @@
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ url }) => {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Terms of Service - BitTasker | User Agreement & Legal Terms',
 		description:
 			"Read BitTasker's terms of service, user agreement, and legal terms. Understand your rights and responsibilities when using our Bitcoin task marketplace platform.",
 		keywords:
 			'BitTasker terms of service, user agreement, legal terms, Bitcoin marketplace terms, platform agreement, user rights, service conditions, legal compliance',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Terms of Service - BitTasker | User Agreement & Legal Terms',
 		ogDescription:
 			"Read BitTasker's terms of service, user agreement, and legal terms. Understand your rights and responsibilities when using our Bitcoin task marketplace platform.",
@@ -20,7 +22,7 @@ export const load: PageLoad = async ({ url }) => {
 			name: 'Terms of Service - BitTasker',
 			description:
 				"Read BitTasker's terms of service, user agreement, and legal terms. Understand your rights and responsibilities when using our Bitcoin task marketplace platform.",
-			url: url.href,
+			url: `${baseUrl}${url.pathname}`,
 			mainEntity: {
 				'@type': 'WebPageElement',
 				name: 'Terms of Service',

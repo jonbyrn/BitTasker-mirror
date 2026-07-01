@@ -52,7 +52,7 @@ describe('browserNetworkStatus', () => {
 	}, 20_000);
 
 	it('fails open outside the browser runtime', async () => {
-		vi.mock('$app/environment', () => ({
+		vi.doMock('$app/environment', () => ({
 			browser: false
 		}));
 

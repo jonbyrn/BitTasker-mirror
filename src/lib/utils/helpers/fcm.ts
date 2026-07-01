@@ -20,9 +20,26 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 		// Wait for service worker to be ready
 		if (registration.installing) {
-			await new Promise<void>((resolve) => {
-				registration.installing!.addEventListener('statechange', () => {
-					if (registration.installing?.state === 'activated') {
+			// BUG FIX: capture a reference to the installing worker.
+			// registration.installing becomes null once the worker transitions past
+			// the 'installing' state, so checking registration.installing?.state later
+			// always yields undefined and the promise never resolves.
+			const installingSw = registration.installing;
+			await new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(
+					() => reject(new Error('Service worker activation timed out')),
+					15000
+				);
+
+				if (installingSw.state === 'activated') {
+					clearTimeout(timeout);
+					resolve();
+					return;
+				}
+
+				installingSw.addEventListener('statechange', () => {
+					if (installingSw.state === 'activated') {
+						clearTimeout(timeout);
 						resolve();
 					}
 				});
@@ -45,6 +62,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 		} else {
 			console.warn('⚠️ No active service worker found to send config to');
 		}
+
+		// Check for a newer version of the service worker on every app load.
+		// Browsers normally throttle these checks, but calling update() ensures
+		// we don't wait up to 24h for the automatic check.
+		registration.update();
 
 		// Set up navigation message handler
 		setupNavigationHandler();

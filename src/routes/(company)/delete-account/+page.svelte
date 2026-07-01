@@ -126,7 +126,7 @@
 					<h3 class="card-title">{$t('delete_account.cta.logged_in_title')}</h3>
 					<p class="text-base-content/70">{$t('delete_account.cta.logged_in_description')}</p>
 					<div class="card-actions mt-4">
-						<a href="/dashboard/settings" class="btn btn-error btn-wide">
+						<a href="/settings" class="btn btn-error btn-wide">
 							<IconLogin class="text-xl" />
 							{$t('delete_account.cta.go_to_settings')}
 						</a>

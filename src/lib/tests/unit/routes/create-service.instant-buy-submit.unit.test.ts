@@ -67,7 +67,7 @@ const hoisted = vi.hoisted(() => {
 
 vi.mock('$app/stores', () => ({
 	page: readable({
-		url: new URL('http://localhost/dashboard/create-service')
+		url: new URL('http://localhost/create-service')
 	})
 }));
 
@@ -189,7 +189,7 @@ describe('create-service instant-buy submit payload', () => {
 
 	it('persists instantBuyDeliveryHours when publishing an instant-buy service', async () => {
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.publish'));
@@ -242,7 +242,7 @@ describe('create-service instant-buy submit payload', () => {
 		});
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.publish'));

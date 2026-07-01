@@ -1,11 +1,13 @@
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
 		description:
 			"Learn about BitTasker's mission to empower global earning through Bitcoin and decentralized technology. Discover our censorship-resistant task marketplace.",
 		keywords:
 			'BitTasker, Bitcoin marketplace, decentralized tasks, cryptocurrency earning, peer-to-peer jobs, Bitcoin Lightning Network, financial freedom, censorship-resistant, task platform, Bitcoin escrow',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		image: 'https://bittasker.com/images/logos/bittasker-logomark.svg',
 		ogTitle: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
 		ogDescription:
@@ -19,7 +21,7 @@ export async function load({ url }) {
 			name: 'About BitTasker',
 			description:
 				"Learn about BitTasker's mission to empower global earning through Bitcoin and decentralized technology.",
-			url: url.href
+			url: `${baseUrl}${url.pathname}`
 		}
 	};
 }

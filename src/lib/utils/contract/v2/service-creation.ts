@@ -32,9 +32,9 @@ import type {
 	ServiceContractPricingSnapshot,
 	ServiceContractAgreementSnapshot
 } from '$lib/types/contract';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import type { TransactionReceipt } from 'ethers';
 import { parsePaymentContractCreatedPaymentId } from './creation';
+import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 
 const d = createDebug('contract:v2:service');
 
@@ -288,7 +288,6 @@ export async function createServiceContract(
 		const transactionHash = tx.hash;
 		d.log('createServiceContract: broadcast ok — pending confirmation', { transactionHash });
 
-		const taskeeNpub = taskeePubkey.startsWith('npub') ? taskeePubkey : undefined;
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const paymentContractAddress = getSecurePaymentContractAddress();
 
@@ -344,21 +343,10 @@ export async function createServiceContract(
 
 		const publishPromise = contractEvent.publish();
 
-		const pushPromise = taskeeNpub
-			? pushNotificationService.sendNotificationToNpubs({
-					npubs: [taskeeNpub],
-					title: 'Service Quote Accepted',
-					body: `Your quote on "${input.serviceTitle}" has been accepted`,
-					type: 'quote_accepted',
-					clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-				})
-			: Promise.resolve();
+		// Push notification removed — backend's Nostr indexer handles proposal_accepted
+		// via the reminder engine when it processes the Kind 30006 contract event.
 
-		const afterBroadcast = runParallelNamed([
-			{ name: 'nostrPublish', run: () => publishPromise },
-			{ name: 'push', run: () => pushPromise }
-		]);
+		const afterBroadcast = runParallelNamed([{ name: 'nostrPublish', run: () => publishPromise }]);
 
 		const afterConfirmed = async (receipt: TransactionReceipt) => {
 			const paymentId = parsePaymentContractCreatedPaymentId(
@@ -382,6 +370,19 @@ export async function createServiceContract(
 					transactionHash,
 					paymentId
 				});
+			}
+
+			try {
+				await notificationCenterService.enrich({
+					action: 'contract_created',
+					escrowId: String(paymentId),
+					recipientNpub: taskeePubkey,
+					estimatedStartTime: params.estimatedStartTime,
+					amount: display.baseAmount?.toString(),
+					taskTitle: input.serviceTitle
+				});
+			} catch (e) {
+				d.warn('createServiceContract: enrichment failed (non-blocking)', e);
 			}
 
 			return { paymentId };

@@ -118,7 +118,8 @@ vi.mock('$lib/nostr/ndk', () => {
 					};
 				}
 				return { pubkey: '', npub: '' };
-			})
+			}),
+			subscribe: vi.fn(() => ({ on: vi.fn(), off: vi.fn(), unsub: vi.fn() }))
 		}
 	};
 });
@@ -170,8 +171,7 @@ describe('UserInfoDisplay', () => {
 			);
 		});
 
-		// TODO: Fix mock timing issue with vitest/Svelte 5 - times out in sequence
-		it.skip('should generate correct profile URL for npub input', async () => {
+		it('should generate correct profile URL for npub input', async () => {
 			mockProfileConfig.name = 'NpubUser';
 
 			render(UserInfoDisplay, {
@@ -181,11 +181,9 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					const link = screen.getByRole('link');
-					expect(link).toHaveAttribute(
-						'href',
-						`/npub/${mockNip19Encode(hexStr(VALID_NPUB.replace('npub1', '')))}`
-					);
+					const links = screen.getAllByRole('link');
+					expect(links.length).toBeGreaterThanOrEqual(1);
+					expect(links[0]).toHaveAttribute('href', `/npub/${VALID_NPUB}`);
 				},
 				{ timeout: 10000 }
 			);
@@ -210,8 +208,7 @@ describe('UserInfoDisplay', () => {
 			);
 		});
 
-		// TODO: Fix mock timing issue with vitest/Svelte 5 - times out in sequence
-		it.skip('should generate correct profile URL for hex pubkey by encoding to npub', async () => {
+		it('should generate correct profile URL for hex pubkey by encoding to npub', async () => {
 			mockProfileConfig.name = 'HexUser';
 
 			render(UserInfoDisplay, {
@@ -221,8 +218,10 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					const link = screen.getByRole('link');
-					expect(link).toHaveAttribute('href', `/npub/${mockNip19Encode(VALID_HEX_PUBKEY)}`);
+					const links = screen.getAllByRole('link');
+					expect(links.length).toBeGreaterThanOrEqual(1);
+					const expectedNpub = `npub1${VALID_HEX_PUBKEY.slice(0, 8)}...${VALID_HEX_PUBKEY.slice(-8)}`;
+					expect(links[0]).toHaveAttribute('href', `/npub/${expectedNpub}`);
 				},
 				{ timeout: 10000 }
 			);
@@ -230,8 +229,7 @@ describe('UserInfoDisplay', () => {
 	});
 
 	describe('Shows avatar with picture', () => {
-		// TODO: Fix mock timing issue with vitest/Svelte 5 - times out in sequence
-		it.skip('should show profile picture when available and safe', async () => {
+		it('should show profile picture when available and safe', async () => {
 			mockProfileConfig.name = 'TestUser';
 			mockProfileConfig.picture = 'https://example.com/avatar.png';
 
@@ -626,7 +624,7 @@ describe('UserInfoDisplay', () => {
 
 	describe('profileLink prop', () => {
 		// TODO: Fix mock timing issue with vitest/Svelte 5 - times out in sequence
-		it.skip('should use profileLink instead of pubkey for URL generation', async () => {
+		it('should use profileLink instead of pubkey for URL generation', async () => {
 			mockProfileConfig.name = 'TestUser';
 
 			render(UserInfoDisplay, {
@@ -637,8 +635,9 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					const link = screen.getByRole('link');
-					expect(link).toHaveAttribute(
+					const links = screen.getAllByRole('link');
+					expect(links.length).toBeGreaterThanOrEqual(1);
+					expect(links[0]).toHaveAttribute(
 						'href',
 						'/npub/npub1custom123456789012345678901234567890123456789012345678901'
 					);

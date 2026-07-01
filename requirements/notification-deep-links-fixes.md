@@ -29,7 +29,6 @@
    import { LocalNotifications } from '@capacitor/local-notifications';
    import { goto } from '$app/navigation';
    import { browser } from '$app/environment';
-   import { triggerNotificationNavigation } from '$lib/stores/navigation.store';
    ```
 
 2. **Improved navigation handling**:

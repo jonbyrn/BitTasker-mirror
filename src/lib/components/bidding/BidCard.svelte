@@ -15,13 +15,17 @@
 		acceptedBidId = null,
 		onAcceptBid,
 		onRejectBid,
-		onOpenMessage
+		onOpenMessage,
+		isRejecting = false,
+		isRejected = false
 	}: {
 		bid: NDKBid;
 		acceptedBidId?: string | null;
 		onAcceptBid: (bid: NDKBid) => void;
 		onRejectBid: (bid: NDKBid) => void;
 		onOpenMessage: (bidderId: string, bidderName: string) => void;
+		isRejecting?: boolean;
+		isRejected?: boolean;
 	} = $props();
 
 	let detailsExpanded = $state(false);
@@ -90,6 +94,11 @@
 					{#if acceptedBidId === bid.id || bidContent.status === 'ACCEPTED'}
 						<div class="badge badge-success badge-sm text-primary-content">
 							{$t('dashboard.bids.bid_acceptance.accepted')}
+						</div>
+					{/if}
+					{#if isRejected || bidContent.status === 'REJECTED'}
+						<div class="badge badge-error badge-sm">
+							{$t('dashboard.bids.bid_acceptance.rejected')}
 						</div>
 					{/if}
 					{#if bidContent.bidderId}
@@ -263,26 +272,30 @@
 				<button
 					class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 					onclick={() => onRejectBid(bid)}
-					disabled={false}
+					disabled={isRejecting || isRejected || bidContent.status === 'REJECTED' || bidContent.status === 'ACCEPTED' || acceptedBidId === bid.id}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{#if bidContent.status === 'REJECTED'}
-						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
-						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+					{#if isRejecting}
+						<span class="loading loading-spinner loading-xs"></span>
 					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					{/if}
+				{#if isRejected || bidContent.status === 'REJECTED'}
+					<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+					<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+				{:else}
 						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.decline')}</span>
 						<span class="sm:hidden"
 							>{$t('dashboard.bids.bid_acceptance.decline_short') || 'Decline'}</span
@@ -337,7 +350,7 @@
 					<button
 						class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 						onclick={() => onAcceptBid(bid)}
-						disabled={false}
+						disabled={isRejected || bidContent.status === 'REJECTED'}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

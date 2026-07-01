@@ -6,10 +6,11 @@ import { loadEnv } from 'vite';
 // Load environment variables
 const env = loadEnv(process.env.NODE_ENV || 'production', process.cwd(), '');
 
-// Only use server URL for live reload (when VITE_CLIENT_URL is explicitly set)
-// For production builds, omit server config to use bundled webDir
-const serverUrl = env.VITE_CLIENT_URL;
-const serverScheme = serverUrl?.startsWith('http://') ? 'http' : 'https';
+// VITE_CLIENT_URL is used by the web build for SEO/meta tags and notification click actions.
+// For native Capacitor builds we IGNORE it — the WebView serves bundled files from webDir
+// and uses server.hostname to set the virtual origin (required for passkeys).
+// If VITE_CLIENT_URL were used here, the WebView would load content from a remote server
+// instead of the bundled assets, making the native app a clone of the website.
 const enableDebugWebView = env.CAPACITOR_DEBUG_WEBVIEW === 'true';
 
 const config: CapacitorConfig = {
@@ -19,24 +20,20 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	// Server config controls how the WebView loads content:
 	//
-	// With VITE_CLIENT_URL (live reload):
-	//   - server.url makes the WebView fetch pages from a REMOTE server over the network.
-	//   - cleartext: true allows plain HTTP (needed for dev server http://ip:port).
-	//   - Passkeys will NOT work in this mode (rpId would be a LAN IP, not a real domain).
-	//
-	// Without VITE_CLIENT_URL (debug & production builds):
+	// Production & debug builds (always):
 	//   - server.hostname sets the VIRTUAL origin of the WebView. It does NOT load content
 	//     from bittasker.com over the internet -- the app still serves local files from webDir.
 	//     It only changes what window.location.hostname reports (from "localhost" to "bittasker.com").
 	//   - This is required for passkeys: Android Credential Manager fetches assetlinks.json from
 	//     the rpId domain (window.location.hostname) to validate the app-to-domain association.
-	//   - cleartext is omitted because no real network requests are made; content is local.
-	server: serverUrl
+	//   - It also makes getClientOrigin() return the correct domain via window.location.origin.
+	//
+	// To enable live-reload during development, set CAPACITOR_LIVE_RELOAD_URL instead.
+	server: env.CAPACITOR_LIVE_RELOAD_URL
 		? {
-				url: serverUrl,
-				cleartext: serverScheme === 'http' ? true : false,
-				// Use the scheme that matches the configured server URL to avoid forcing the wrong one.
-				androidScheme: serverScheme
+				url: env.CAPACITOR_LIVE_RELOAD_URL,
+				cleartext: env.CAPACITOR_LIVE_RELOAD_URL.startsWith('http://'),
+				androidScheme: env.CAPACITOR_LIVE_RELOAD_URL.startsWith('http://') ? 'http' : 'https'
 			}
 		: {
 				hostname: env.VITE_CLIENT_HOSTNAME || 'bittasker.com',
@@ -63,13 +60,12 @@ const config: CapacitorConfig = {
 			hidden: false
 		},
 		Keyboard: {
-			// iOS: 'Body' resizes the <body> element when keyboard appears, which is more
-			// reliable than 'Native' (which has known bugs) or 'None' (requires manual handling).
-			// Android: resize option is ignored; use resizeOnFullScreen instead.
-			resize: KeyboardResize.Body,
+			// 'None' prevents the WebView from resizing when the keyboard appears.
+			// We handle layout changes manually via VisualViewport API in keyboard.ts.
+			// This eliminates the dual-resize problem (KeyboardResize.Body + dvh units)
+			// and gives us full control over animation timing and scroll behavior.
+			resize: KeyboardResize.None,
 			style: KeyboardStyle.Default,
-			// Must be true to prevent keyboard from overlaying the WebView
-			// when the app uses edge-to-edge display.
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {

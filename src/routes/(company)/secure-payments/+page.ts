@@ -1,9 +1,11 @@
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Secure Payment Contracts - Protected Payments | BitTasker',
 		description: 'Learn about BitTasker\'s secure payment contracts powered by Rootstock smart contracts. Protected payments between clients and freelancers with built-in safeguards, automatic fee handling, and transparent blockchain transactions.',
 		keywords: 'secure payment contracts, Rootstock smart contracts, Bitcoin payments, secure task payments, blockchain secure payments, RBTC payments, smart contract payments, protected payments, Bitcoin task payments, cryptocurrency contracts',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Secure Payment Contracts - Protected Payments',
 		ogDescription: 'BitTasker\'s secure payment contracts protect both clients and freelancers using Rootstock smart contracts. Built-in safeguards, automatic payments, and transparent blockchain transactions.',
 		twitterTitle: 'Secure Payment Contracts - Protected Payments on BitTasker',
@@ -13,7 +15,7 @@ export async function load({ url }) {
 			'@type': 'WebPage',
 			name: 'How BitTasker\'s Secure Payment Contracts Work',
 			description: 'Learn how BitTasker\'s secure payment contracts protect both clients and freelancers using Rootstock smart contracts with built-in safeguards.',
-			url: url.href,
+			url: `${baseUrl}${url.pathname}`,
 			mainEntity: {
 				'@type': 'HowTo',
 				name: 'Understanding the BitTasker Secure Payment Contract System',

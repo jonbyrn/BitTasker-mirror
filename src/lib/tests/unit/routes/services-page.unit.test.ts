@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import type { Service } from '$lib/types/service.d';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
-import { load } from '../../../../routes/services/[serviceId]/+page.ts';
+import { load } from '../../../../routes/(app)/services/[serviceId]/+page.ts';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 
 vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId: vi.fn()
+}));
+
+vi.mock('$lib/i18n/i18n', () => ({
+	loadNamespace: vi.fn().mockResolvedValue({})
 }));
 
 function createService(overrides: Partial<Service> = {}): Service {

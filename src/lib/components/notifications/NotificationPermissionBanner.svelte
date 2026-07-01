@@ -19,7 +19,10 @@
 	}
 
 	onMount(async () => {
-		await refreshStatus();
+		const status = await refreshStatus();
+		if (status === 'granted') {
+			await pushNotificationService.init();
+		}
 	});
 
 	async function enableNotifications() {

@@ -69,7 +69,7 @@ const hoisted = vi.hoisted(() => {
 
 vi.mock('$app/stores', () => ({
 	page: readable({
-		url: new URL('http://localhost/dashboard/create-service')
+		url: new URL('http://localhost/create-service')
 	})
 }));
 
@@ -197,7 +197,7 @@ describe('create-service edit conflict handling', () => {
 		);
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.publish'));
@@ -213,7 +213,10 @@ describe('create-service edit conflict handling', () => {
 				}
 			);
 		});
-		expect(hoisted.updateService.mock.calls[0]?.[1]).toHaveProperty('providerWalletAddress', undefined);
+		expect(hoisted.updateService.mock.calls[0]?.[1]).toHaveProperty(
+			'providerWalletAddress',
+			undefined
+		);
 
 		await expect(findByText(new RegExp(SERVICE_EDIT_CONFLICT_CODE))).resolves.toBeTruthy();
 		expect(hoisted.showErrorToast).toHaveBeenCalledWith(

@@ -308,6 +308,7 @@
 				"failed_to_load_content": "Failed to load bid content"
 			},
 			"bid_acceptance": {
+				"task_deadline_expired": "This task's deadline has already passed. You can no longer accept bids on this task.",
 				"tether_usd": "Tether USD",
 				"please_select_escrow_method": "Please select a secure payment method",
 				"title": "Bid Acceptance",
@@ -427,6 +428,12 @@
 				"balance_verified": "Your available balance covers this contract.",
 				"accept_short": "Accept",
 				"decline_short": "Decline",
+				"reject_confirm_title": "Decline Bid?",
+				"reject_confirm_message": "Are you sure you want to decline this bid? The bidder will be notified.",
+				"reject_confirm_submit": "Decline",
+				"reject_confirm_cancel": "Cancel",
+				"bid_rejected": "Bid declined successfully",
+				"failed_to_reject_bid": "Failed to decline bid",
 				"funding_confirm_failed": "We could not confirm this payment on-chain. Check your wallet or block explorer for the transaction."
 			},
 			"bid_card": {

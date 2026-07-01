@@ -16,7 +16,20 @@
 			"remove": "Remove notification"
 		},
 		"filters": {
-			"all": "All Notifications"
+			"all": "All",
+			"unread": "Unread",
+			"read": "Read",
+			"contract": "Contracts",
+			"bid": "Bids",
+			"message": "Messages",
+			"payment": "Payments",
+			"review": "Reviews",
+			"service": "Services",
+			"wallet": "Wallet",
+			"security": "Security",
+			"discovery": "Discovery",
+			"reengagement": "Re-engagement",
+			"account": "Account"
 		},
 		"types": {
 			"bid_response": "Bid Responses",
@@ -26,7 +39,16 @@
 			"message": "Messages",
 			"system": "System",
 			"security": "Security",
-			"other": "Other"
+			"other": "Other",
+			"contract": "Contracts",
+			"bid": "Bids",
+			"task": "Tasks",
+			"review": "Reviews",
+			"service": "Services",
+			"wallet": "Wallet",
+			"discovery": "Discovery",
+			"reengagement": "Re-engagement",
+			"account": "Account"
 		},
 		"stats": {
 			"showing": "Showing",
@@ -80,7 +102,16 @@
 			"new_message": "New Message",
 			"system_maintenance": "System Maintenance",
 			"security_alert": "Security Alert",
-			"new_notification": "New Notification"
+			"new_notification": "New Notification",
+			"new_task_broadcast": "New task available",
+			"new_service_broadcast": "New service listed",
+			"new_service_match": "New service match!",
+			"proposal_withdrawn": "Proposal withdrawn",
+			"proposal_updated": "Proposal updated",
+			"service_expiring_soon": "Service expiring",
+			"service_expired": "Service expired",
+			"service_review_received": "New review",
+			"service_price_changed": "Price changed"
 		},
 		"messages": {
 			"bid_status": {
@@ -167,7 +198,16 @@
 				"new_message_body": "You received a message from {senderName}.",
 				"system_maintenance": "The system will be under scheduled maintenance. Some features may not be available.",
 				"security_alert": "Suspicious activity has been detected on your account. Please verify your security.",
-				"new_notification": "You have a new notification."
+				"new_notification": "You have a new notification.",
+				"new_task_broadcast": "A new task \"{title}\" is now open for bidding.",
+				"new_service_broadcast": "A new service \"{title}\" is now available.",
+				"new_service_match": "A new service \"{title}\" matches your search.",
+				"proposal_withdrawn": "Provider withdrew proposal for \"{title}\".",
+				"proposal_updated": "Proposal for \"{title}\" updated.",
+				"service_expiring_soon": "Your service \"{title}\" expires in 7 days.",
+				"service_expired": "Your service \"{title}\" has expired.",
+				"service_review_received": "Your service \"{title}\" got a new review.",
+				"service_price_changed": "Pricing changed for \"{title}\"."
 			}
 		},
 		"noactions": {
@@ -182,9 +222,9 @@
 			"view_details": "View Details"
 		},
 		"permissions": {
-			"title": "Notification Permissions",
+			"title": "Notification permissions",
 			"message": "To receive important notifications about your tasks and bids, please allow notifications in your browser.",
-			"enable_notifications": "Enable Notifications",
+			"enable_notifications": "Enable notifications",
 			"not_supported": "Notifications are not supported in this browser.",
 			"permission_denied": "Notification permissions denied. You can enable them in your browser settings.",
 			"permission_granted": "Notifications enabled successfully.",
@@ -197,7 +237,8 @@
 			}
 		},
 		"settings": {
-			"title": "Notification Settings",
+			"title": "Notification settings",
+			"subtitle": "Manage how and when you are notified",
 			"in_app": "In-app",
 			"push": "Push notifications",
 			"email": "Email",
@@ -206,23 +247,60 @@
 			"quiet_hours_enabled": "Quiet hours enabled",
 			"quiet_hours_start": "Start",
 			"quiet_hours_end": "End",
+			"quiet_hours_start_label": "Quiet hours start time",
+			"quiet_hours_end_label": "Quiet hours end time",
 			"quiet_hours_timezone": "Timezone",
-			"save_settings": "Save Settings",
+			"save_settings": "Save settings",
 			"settings_saved": "Settings saved successfully",
-			"settings_error": "Error saving settings"
+			"settings_error": "Error saving settings",
+			"task": {
+				"title": "Tasks",
+				"saved_search_matches": "Saved search matches",
+				"match_frequency": "Match frequency",
+				"new_task_alerts": "New task alerts",
+				"alert_frequency": "Task alert frequency"
+			},
+			"service": {
+				"title": "Services",
+				"saved_search_matches": "Saved search matches",
+				"match_frequency": "Match frequency",
+				"new_service_alerts": "New service alerts",
+				"alert_frequency": "Service alert frequency"
+			},
+			"frequency": {
+				"instant": "Instant",
+				"daily": "Daily",
+				"weekly": "Weekly"
+			}
 		},
 		"errors": {
 			"load_failed": "Failed to load notifications",
 			"mark_read_failed": "Failed to mark as read",
 			"delete_failed": "Failed to delete notification",
 			"clear_failed": "Failed to clear notifications",
-			"permission_failed": "Failed to request notification permissions"
+			"permission_failed": "Failed to request notification permissions",
+			"settings_error": "Error saving settings"
 		},
 		"success": {
 			"marked_read": "Notification marked as read",
 			"deleted": "Notification deleted",
 			"cleared": "Notifications cleared",
-			"settings_updated": "Settings updated"
+			"settings_updated": "Settings updated",
+			"updated": "updated",
+			"enabled": "enabled",
+			"disabled": "disabled",
+			"toggle_enabled": "{setting} enabled",
+			"toggle_disabled": "{setting} disabled",
+			"value_updated": "{setting} updated"
+		},
+		"clear_all_confirm_title": "Clear All Notifications",
+		"clear_all_confirm_message": "Are you sure you want to clear all notifications? This action cannot be undone.",
+		"offline_indicator": "You're offline. Notifications will update when you're back online.",
+		"save_search_prompt": {
+			"description_task": "Get notified when new tasks match this search",
+			"description_service": "Get notified when new services match this search",
+			"enable_button": "Enable",
+			"dismiss_button": "Dismiss"
 		},
 		"aria_labels": {
 			"notifications": "Notifications",

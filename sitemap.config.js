@@ -27,7 +27,18 @@ const sitemap = createSitemap('https://bittasker.com', {
 	],
 	ignore: [
 		// Exclude protected routes
-		'/dashboard/**',
+		'/hiring/**',
+		'/earning/**',
+		'/wallet',
+		'/create-task',
+		'/create-service',
+		'/messages/**',
+		'/profile/**',
+		'/settings',
+		'/notifications',
+		'/reviews',
+		'/bids',
+		'/feedback',
 		// Exclude auth onboarding
 		'/auth/onboarding',
 		// Exclude dynamic routes that require parameters
@@ -36,7 +47,7 @@ const sitemap = createSitemap('https://bittasker.com', {
 	sort: 'alpha',
 	createFilter: (route) => {
 		// Only include routes that don't require authentication
-		if (route.startsWith('/dashboard/') || route.startsWith('/(protected)/')) {
+		if (route.startsWith('/(protected)/')) {
 			return false;
 		}
 		return true;

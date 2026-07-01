@@ -62,19 +62,37 @@ describe('TokenBalanceService', () => {
 			// API returns array directly
 			const mockResponse = [
 				{
-					token: { address_hash: '0x1', name: 'Token1', symbol: 'T1', decimals: '18', total_supply: '1000' },
+					token: {
+						address_hash: '0x1',
+						name: 'Token1',
+						symbol: 'T1',
+						decimals: '18',
+						total_supply: '1000'
+					},
 					value: '1000000000000000000', // Non-zero
 					token_id: null,
 					token_instance: null
 				},
 				{
-					token: { address_hash: '0x2', name: 'Token2', symbol: 'T2', decimals: '18', total_supply: '1000' },
+					token: {
+						address_hash: '0x2',
+						name: 'Token2',
+						symbol: 'T2',
+						decimals: '18',
+						total_supply: '1000'
+					},
 					value: '0', // Zero balance - should be filtered
 					token_id: null,
 					token_instance: null
 				},
 				{
-					token: { address_hash: '0x3', name: 'Token3', symbol: 'T3', decimals: '18', total_supply: '1000' },
+					token: {
+						address_hash: '0x3',
+						name: 'Token3',
+						symbol: 'T3',
+						decimals: '18',
+						total_supply: '1000'
+					},
 					value: '500000000000000000', // Non-zero
 					token_id: null,
 					token_instance: null
@@ -86,17 +104,17 @@ describe('TokenBalanceService', () => {
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
 			expect(result).toHaveLength(2);
-			expect(result.find(t => t.symbol === 'T2')).toBeUndefined();
-			expect(result.find(t => t.symbol === 'T1')).toBeDefined();
-			expect(result.find(t => t.symbol === 'T3')).toBeDefined();
+			expect(result.find((t) => t.symbol === 'T2')).toBeUndefined();
+			expect(result.find((t) => t.symbol === 'T1')).toBeDefined();
+			expect(result.find((t) => t.symbol === 'T3')).toBeDefined();
 		});
 
 		it('should handle API errors gracefully', async () => {
 			mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-			await expect(
-				tokenBalanceService.getRSKTokenBalances('0xaddress')
-			).rejects.toThrow('Network error');
+			await expect(tokenBalanceService.getRSKTokenBalances('0xaddress')).rejects.toThrow(
+				'Network error'
+			);
 		});
 
 		it('should handle invalid API responses', async () => {
@@ -160,15 +178,11 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should handle timeout errors', async () => {
-			mockFetch.mockImplementationOnce(() =>
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error('Timeout')), 100)
-				)
+			mockFetch.mockImplementationOnce(
+				() => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
 			);
 
-			await expect(
-				tokenBalanceService.getRSKTokenBalances('0xaddress')
-			).rejects.toThrow();
+			await expect(tokenBalanceService.getRSKTokenBalances('0xaddress')).rejects.toThrow();
 		});
 
 		it('should format token balances correctly with different decimals', async () => {
@@ -199,9 +213,9 @@ describe('TokenBalanceService', () => {
 		it('should handle HTTP error responses', async () => {
 			mockFetch.mockResolvedValueOnce(mockFetchResponse(null, { ok: false, status: 500 }));
 
-			await expect(
-				tokenBalanceService.getRSKTokenBalances('0xaddress')
-			).rejects.toThrow('Blockscout API server error');
+			await expect(tokenBalanceService.getRSKTokenBalances('0xaddress')).rejects.toThrow(
+				'Blockscout API server error'
+			);
 		});
 
 		it('should cache token metadata', async () => {
@@ -293,4 +307,3 @@ describe('TokenBalanceService', () => {
 		});
 	});
 });
-

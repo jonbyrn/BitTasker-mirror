@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { walletManager, formatAddress, walletStore, sendRBTC, sendRSKToken, estimateERC20Gas } from '$lib/stores/wallet.store';
+	import {
+		walletManager,
+		walletStore,
+		sendRBTC,
+		sendRSKToken,
+		estimateERC20Gas
+	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { validateRSKAddress } from '$lib/utils/helpers/validators';
 	import type { TokenBalance } from '$lib/types/wallet';
@@ -35,11 +41,9 @@
 	let hasInsufficientRBTCForGas = $state(false);
 	let showConfirmation = $state(false);
 	let transactionState = $state<'idle' | 'pending' | 'confirmed' | 'error'>('idle');
-	let transactionHash = $state<string | null>(null);
 	let countdownSeconds = $state(60); // Estimated transaction time is ~60 seconds
 	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
-	let autoCloseTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Validate address
 	function validateAddress() {
@@ -69,11 +73,11 @@
 	// Balance validation (including gas) is handled by hasInsufficientBalance
 	let amountError = $derived.by(() => {
 		const currentAmount = amount.trim();
-		
+
 		if (import.meta.env.DEV) {
 			console.log('[DebugWalletSendForm] amountError derived - currentAmount:', currentAmount);
 		}
-		
+
 		// Format validation only
 		if (!currentAmount) {
 			if (import.meta.env.DEV) {
@@ -81,14 +85,14 @@
 			}
 			return null;
 		}
-		
+
 		if (/[eE]/.test(currentAmount)) {
 			if (import.meta.env.DEV) {
 				console.log('[DebugWalletSendForm] amountError - scientific notation detected');
 			}
 			return $t('wallet.debug_wallet.send_form.invalid_amount');
 		}
-		
+
 		const amountNum = parseFloat(currentAmount);
 		if (isNaN(amountNum) || amountNum <= 0 || !isFinite(amountNum)) {
 			if (import.meta.env.DEV) {
@@ -96,21 +100,28 @@
 			}
 			return $t('wallet.debug_wallet.send_form.invalid_amount');
 		}
-		
+
 		const decimalPart = currentAmount.includes('.') ? currentAmount.split('.')[1] : '';
 		if (decimalPart.length > UI.MAX_DECIMAL_PLACES) {
 			if (import.meta.env.DEV) {
 				console.log('[DebugWalletSendForm] amountError - too many decimals:', decimalPart.length);
 			}
-			return $t('wallet.debug_wallet.send_form.too_many_decimals', { values: { max: UI.MAX_DECIMAL_PLACES } });
+			return $t('wallet.debug_wallet.send_form.too_many_decimals', {
+				values: { max: UI.MAX_DECIMAL_PLACES }
+			});
 		}
-		
+
 		// For ERC-20 tokens only: check if amount exceeds token balance
 		// For native RBTC: balance check (including gas) is in hasInsufficientBalance
 		if (!token.isNative) {
 			const balanceNum = parseFloat(token.formattedBalance);
 			if (import.meta.env.DEV) {
-				console.log('[DebugWalletSendForm] amountError - ERC-20 check - amountNum:', amountNum, 'balanceNum:', balanceNum);
+				console.log(
+					'[DebugWalletSendForm] amountError - ERC-20 check - amountNum:',
+					amountNum,
+					'balanceNum:',
+					balanceNum
+				);
 			}
 			if (!isNaN(balanceNum) && balanceNum > 0) {
 				if (amountNum > balanceNum + BALANCE.FLOATING_POINT_TOLERANCE) {
@@ -122,10 +133,12 @@
 			}
 		} else {
 			if (import.meta.env.DEV) {
-				console.log('[DebugWalletSendForm] amountError - native RBTC, skipping balance check (handled by hasInsufficientBalance)');
+				console.log(
+					'[DebugWalletSendForm] amountError - native RBTC, skipping balance check (handled by hasInsufficientBalance)'
+				);
 			}
 		}
-		
+
 		if (import.meta.env.DEV) {
 			console.log('[DebugWalletSendForm] amountError - no errors, returning null');
 		}
@@ -145,7 +158,7 @@
 	// Estimate gas fee for sending
 	async function estimateGasFee(): Promise<void> {
 		if (isEstimatingGas) return;
-		
+
 		if (!recipientAddress.trim() || !amount.trim() || !isAddressValid || !isAmountValid) {
 			estimatedGasFee = null;
 			return;
@@ -156,27 +169,34 @@
 		try {
 			if (!token.isNative) {
 				// For ERC-20 tokens, estimate gas properly using the contract
-				console.log('[DebugWalletSendForm] estimateGasFee() - Starting ERC-20 gas estimation:', {
-					tokenAddress: token.address,
-					tokenAddressType: typeof token.address,
-					recipientAddress: recipientAddress.trim(),
-					recipientAddressType: typeof recipientAddress,
-					amount: amount.trim(),
-					tokenIsNative: token.isNative
-				});
+				if (import.meta.env.DEV) {
+					console.log('[DebugWalletSendForm] estimateGasFee() - Starting ERC-20 gas estimation:', {
+						tokenAddress: token.address,
+						tokenAddressType: typeof token.address,
+						recipientAddress: recipientAddress.trim(),
+						recipientAddressType: typeof recipientAddress,
+						amount: amount.trim(),
+						tokenIsNative: token.isNative
+					});
+				}
 				try {
 					const gasEstimation = await estimateERC20Gas(
 						token.address,
 						recipientAddress.trim(),
 						amount.trim()
 					);
-					console.log('[DebugWalletSendForm] estimateGasFee() - ERC-20 gas estimation succeeded:', {
-						gasEstimation,
-						totalCostFormatted: gasEstimation.totalCostFormatted
-					});
+					if (import.meta.env.DEV) {
+						console.log(
+							'[DebugWalletSendForm] estimateGasFee() - ERC-20 gas estimation succeeded:',
+							{
+								gasEstimation,
+								totalCostFormatted: gasEstimation.totalCostFormatted
+							}
+						);
+					}
 					const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted);
 					estimatedGasFee = gasFeeRBTC;
-					
+
 					// Check if user has enough RBTC for gas
 					const rbtcBalance = parseFloat($walletStore.rsk?.formattedBalance || '0');
 					if (gasFeeRBTC > rbtcBalance) {
@@ -184,11 +204,14 @@
 					}
 				} catch (error) {
 					if (import.meta.env.DEV) {
-						console.warn('[DebugWalletSendForm] ERC-20 gas estimation failed, using default:', error);
+						console.warn(
+							'[DebugWalletSendForm] ERC-20 gas estimation failed, using default:',
+							error
+						);
 					}
 					// Fallback to default estimate
 					estimatedGasFee = GAS_ESTIMATES.ERC20_DEFAULT;
-					
+
 					// Still check if user has enough RBTC for default gas
 					const rbtcBalance = parseFloat($walletStore.rsk?.formattedBalance || '0');
 					if (GAS_ESTIMATES.ERC20_DEFAULT > rbtcBalance) {
@@ -209,7 +232,7 @@
 				recipientAddress.trim(),
 				amountNum.toFixed(8)
 			);
-			
+
 			const totalCost = parseFloat(gasEstimation.totalCostFormatted);
 			// Gas fee = total cost - amount being sent
 			const gasFee = totalCost - amountNum;
@@ -237,11 +260,11 @@
 			if (token.isNative) {
 				// For native RBTC, we need to estimate gas first
 				const balance = parseFloat(token.formattedBalance);
-				
+
 				// If we have a valid address, estimate gas with a test amount (90% of balance)
 				// Otherwise use a conservative default
 				let gasEstimate: number;
-				
+
 				if (recipientAddress.trim() && isAddressValid) {
 					try {
 						// Use percentage from constants for estimation to avoid "insufficient funds" error
@@ -262,13 +285,13 @@
 					// No valid address, use default from constants
 					gasEstimate = GAS_ESTIMATES.RBTC_DEFAULT;
 				}
-				
+
 				// Calculate max amount = balance - gas fee
 				const maxAmount = Math.max(0, balance - gasEstimate);
-				
+
 				// Round to reasonable precision (8 decimals for RBTC) and remove trailing zeros
 				amount = maxAmount.toFixed(8).replace(/\.?0+$/, '');
-				
+
 				// Update the estimated gas fee for display
 				estimatedGasFee = gasEstimate;
 			} else {
@@ -293,17 +316,17 @@
 		const currentAmount = amount;
 		const currentGasFee = estimatedGasFee;
 		const isNative = token.isNative;
-		
+
 		if (!currentAmount.trim()) return 0;
-		
+
 		const amountNum = parseFloat(currentAmount);
 		if (isNaN(amountNum) || amountNum <= 0) return 0;
-		
+
 		// For native tokens, include gas fee if estimated
 		if (isNative && currentGasFee !== null && currentGasFee >= 0) {
 			return amountNum + currentGasFee;
 		}
-		
+
 		// For ERC-20 tokens or when gas not estimated, just return amount
 		return amountNum;
 	});
@@ -316,7 +339,7 @@
 		const currentBalance = token.formattedBalance;
 		const isNative = token.isNative;
 		const currentAmountError = amountError;
-		
+
 		if (import.meta.env.DEV) {
 			console.log('[DebugWalletSendForm] hasInsufficientBalance derived:', {
 				currentAmount,
@@ -326,7 +349,7 @@
 				currentAmountError
 			});
 		}
-		
+
 		// Must have valid amount (no format errors)
 		if (!currentAmount) {
 			if (import.meta.env.DEV) {
@@ -334,30 +357,42 @@
 			}
 			return false;
 		}
-		
+
 		if (currentAmountError) {
 			if (import.meta.env.DEV) {
-				console.log('[DebugWalletSendForm] hasInsufficientBalance - format error exists:', currentAmountError, 'returning false');
+				console.log(
+					'[DebugWalletSendForm] hasInsufficientBalance - format error exists:',
+					currentAmountError,
+					'returning false'
+				);
 			}
 			return false;
 		}
-		
+
 		const amountNum = parseFloat(currentAmount);
 		if (isNaN(amountNum) || amountNum <= 0) {
 			if (import.meta.env.DEV) {
-				console.log('[DebugWalletSendForm] hasInsufficientBalance - invalid amountNum:', amountNum, 'returning false');
+				console.log(
+					'[DebugWalletSendForm] hasInsufficientBalance - invalid amountNum:',
+					amountNum,
+					'returning false'
+				);
 			}
 			return false;
 		}
-		
+
 		const balanceNum = parseFloat(currentBalance);
 		if (isNaN(balanceNum) || balanceNum <= 0) {
 			if (import.meta.env.DEV) {
-				console.log('[DebugWalletSendForm] hasInsufficientBalance - invalid balanceNum:', balanceNum, 'returning false');
+				console.log(
+					'[DebugWalletSendForm] hasInsufficientBalance - invalid balanceNum:',
+					balanceNum,
+					'returning false'
+				);
 			}
 			return false;
 		}
-		
+
 		// For native RBTC: check amount + gas (if gas is estimated)
 		// If gas not estimated yet, check amount only
 		if (isNative) {
@@ -387,7 +422,7 @@
 				return result;
 			}
 		}
-		
+
 		// For ERC-20 tokens: check amount only (gas is paid separately in RBTC)
 		// Token balance check is already in amountError
 		const result = amountNum > balanceNum;
@@ -402,7 +437,13 @@
 	});
 
 	// Check if form is valid (must be after hasInsufficientBalance declaration)
-	let isFormValid = $derived(isAddressValid && isAmountValid && !isSending && !hasInsufficientBalance && !hasInsufficientRBTCForGas);
+	let isFormValid = $derived(
+		isAddressValid &&
+			isAmountValid &&
+			!isSending &&
+			!hasInsufficientBalance &&
+			!hasInsufficientRBTCForGas
+	);
 
 	// Auto-estimate gas when both address and amount are valid
 	// Debounced and key-based to prevent excessive API calls and re-renders
@@ -410,25 +451,34 @@
 	let estimationTimeout: ReturnType<typeof setTimeout> | null = null;
 	let lastEstimationKey = $state<string>('');
 	let isMounted = $state(true);
-	
+
 	$effect(() => {
 		try {
 			// Create a key from the relevant inputs to detect actual changes
 			const currentKey = `${recipientAddress.trim()}-${amount.trim()}-${isAddressValid}-${isAmountValid}`;
-			
+
 			// Clear any pending estimation
 			if (estimationTimeout) {
 				clearTimeout(estimationTimeout);
 				estimationTimeout = null;
 			}
-			
+
 			// Only estimate if key changed, inputs are valid, and component is mounted
-			if (currentKey !== lastEstimationKey && isMounted && isAddressValid && isAmountValid && recipientAddress.trim() && amount.trim() && !isSending && !isEstimatingGas) {
+			if (
+				currentKey !== lastEstimationKey &&
+				isMounted &&
+				isAddressValid &&
+				isAmountValid &&
+				recipientAddress.trim() &&
+				amount.trim() &&
+				!isSending &&
+				!isEstimatingGas
+			) {
 				lastEstimationKey = currentKey;
 				// Debounce gas estimation to avoid excessive API calls
 				estimationTimeout = setTimeout(() => {
 					if (isMounted) {
-						estimateGasFee().catch(err => {
+						estimateGasFee().catch((err) => {
 							if (import.meta.env.DEV) {
 								console.error('[DebugWalletSendForm] Error in gas estimation:', err);
 							}
@@ -439,7 +489,7 @@
 				estimatedGasFee = null;
 				lastEstimationKey = '';
 			}
-			
+
 			// Cleanup function
 			return () => {
 				if (estimationTimeout) {
@@ -455,11 +505,11 @@
 			estimatedGasFee = null;
 		}
 	});
-	
+
 	onMount(() => {
 		isMounted = true;
 	});
-	
+
 	onDestroy(() => {
 		isMounted = false;
 		if (estimationTimeout) {
@@ -473,7 +523,7 @@
 		const state = $walletStore;
 		const senderAddress = state.rsk?.address?.toLowerCase();
 		const recipient = recipientAddress.trim().toLowerCase();
-		
+
 		if (senderAddress && recipient && senderAddress === recipient) {
 			errorMessage = $t('wallet.debug_wallet.send_form.self_send_error');
 			return false;
@@ -487,7 +537,7 @@
 		// Validate inputs first
 		const isAddressValid = validateAddress();
 		const isAmountValid = !amountError;
-		
+
 		// Validate self-send
 		if (!validateSelfSend()) {
 			triggerHaptic(ImpactStyle.Medium);
@@ -539,7 +589,7 @@
 					const receipt = await provider.getTransactionReceipt(txHash);
 					if (receipt) {
 						const isConfirmed = receipt.status === 1;
-						
+
 						if (isConfirmed) {
 							// Transaction confirmed - stop all polling
 							if (monitoringInterval) {
@@ -550,14 +600,14 @@
 								clearInterval(countdownInterval);
 								countdownInterval = null;
 							}
-							
+
 							// Set confirmed state - this will persist
 							transactionState = 'confirmed';
 							triggerHaptic(ImpactStyle.Medium);
 							appStore.showSuccessToast($t('wallet.debug_wallet.send_form.transaction_successful'));
-							
+
 							// Auto-close after 5 seconds
-							autoCloseTimeout = setTimeout(() => {
+							setTimeout(() => {
 								// Reset form
 								recipientAddress = '';
 								amount = '';
@@ -567,8 +617,7 @@
 								addressError = null;
 								amountError = null;
 								transactionState = 'idle';
-								transactionHash = null;
-								
+
 								// Call callbacks
 								if (onSuccess) {
 									onSuccess();
@@ -587,7 +636,7 @@
 								clearInterval(countdownInterval);
 								countdownInterval = null;
 							}
-							
+
 							// Set error state - this will persist
 							transactionState = 'error';
 							errorMessage = $t('wallet.debug_wallet.send_form.transaction_failed');
@@ -611,7 +660,7 @@
 		errorMessage = null;
 		transactionState = 'pending';
 		countdownSeconds = 60; // Estimated transaction time is ~60 seconds
-		
+
 		// Clear any existing interval first
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
@@ -639,7 +688,7 @@
 
 			let txHash: string;
 			let isERC20 = false;
-			
+
 			if (token.isNative) {
 				// Send native RBTC using store function
 				// This returns hash immediately (transaction sent but not confirmed)
@@ -648,20 +697,22 @@
 				// Send ERC-20 token using store function
 				// Type safety: token.address is guaranteed to be a contract address for non-native tokens
 				const tokenAddress = token.address;
-				console.log('[DebugWalletSendForm] handleConfirmedSend() - Preparing ERC-20 transfer:', {
-					tokenAddress,
-					tokenAddressType: typeof tokenAddress,
-					tokenAddressLength: tokenAddress?.length,
-					recipientAddress: recipientAddress.trim(),
-					recipientAddressType: typeof recipientAddress,
-					recipientAddressLength: recipientAddress.trim().length,
-					amount: amount.trim(),
-					token: {
-						address: token.address,
-						symbol: token.symbol,
-						isNative: token.isNative
-					}
-				});
+				if (import.meta.env.DEV) {
+					console.log('[DebugWalletSendForm] handleConfirmedSend() - Preparing ERC-20 transfer:', {
+						tokenAddress,
+						tokenAddressType: typeof tokenAddress,
+						tokenAddressLength: tokenAddress?.length,
+						recipientAddress: recipientAddress.trim(),
+						recipientAddressType: typeof recipientAddress,
+						recipientAddressLength: recipientAddress.trim().length,
+						amount: amount.trim(),
+						token: {
+							address: token.address,
+							symbol: token.symbol,
+							isNative: token.isNative
+						}
+					});
+				}
 				if (!tokenAddress || tokenAddress === 'native') {
 					console.error('[DebugWalletSendForm] handleConfirmedSend() - Invalid token address:', {
 						tokenAddress,
@@ -670,16 +721,18 @@
 					throw new Error('Invalid token address for ERC-20 transfer');
 				}
 				// sendRSKToken waits for confirmation, so transaction is already confirmed
-				console.log('[DebugWalletSendForm] handleConfirmedSend() - Calling sendRSKToken()...');
+				if (import.meta.env.DEV) {
+					console.log('[DebugWalletSendForm] handleConfirmedSend() - Calling sendRSKToken()...');
+				}
 				txHash = await sendRSKToken(tokenAddress, recipientAddress.trim(), amount.trim());
-				console.log('[DebugWalletSendForm] handleConfirmedSend() - sendRSKToken() succeeded:', {
-					txHash
-				});
+				if (import.meta.env.DEV) {
+					console.log('[DebugWalletSendForm] handleConfirmedSend() - sendRSKToken() succeeded:', {
+						txHash
+					});
+				}
 				isERC20 = true;
 			}
 
-			transactionHash = txHash;
-			
 			// For ERC-20 tokens, transaction is already confirmed (sendRSKToken waits for receipt)
 			if (isERC20) {
 				// Stop countdown if it was started
@@ -688,14 +741,14 @@
 					countdownInterval = null;
 				}
 				// Skip pending state, go directly to confirmed
-						transactionState = 'confirmed';
-						triggerHaptic(ImpactStyle.Medium);
-						appStore.showSuccessToast($t('wallet.debug_wallet.send_form.transaction_successful'));
-						// Note: No auto-close - user can close manually with button
+				transactionState = 'confirmed';
+				triggerHaptic(ImpactStyle.Medium);
+				appStore.showSuccessToast($t('wallet.debug_wallet.send_form.transaction_successful'));
+				// Note: No auto-close - user can close manually with button
 			} else {
 				// For native RBTC, start monitoring transaction (countdown already started above)
 				// Start monitoring transaction (don't await - let it run in background)
-				monitorTransaction(txHash).catch(err => {
+				monitorTransaction(txHash).catch((err) => {
 					if (import.meta.env.DEV) {
 						console.error('[DebugWalletSendForm] Error in monitorTransaction:', err);
 					}
@@ -706,10 +759,13 @@
 				console.error('Failed to send token:', error);
 			}
 			transactionState = 'error';
-			errorMessage = error instanceof Error ? error.message : $t('wallet.debug_wallet.send_form.transaction_failed');
+			errorMessage =
+				error instanceof Error
+					? error.message
+					: $t('wallet.debug_wallet.send_form.transaction_failed');
 			appStore.showErrorToast(errorMessage);
 			triggerHaptic(ImpactStyle.Heavy);
-			
+
 			// Stop countdown if running
 			if (countdownInterval) {
 				clearInterval(countdownInterval);
@@ -721,35 +777,47 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-col min-h-0 space-y-3 sm:space-y-4">
+<div class="flex min-h-0 flex-1 flex-col space-y-3 sm:space-y-4">
 	<!-- Transaction Status Screen (Pending/Confirmed/Error) -->
 	{#if transactionState !== 'idle'}
 		<div class="flex flex-1 flex-col items-center justify-center gap-6 py-8">
 			{#if transactionState === 'pending'}
 				<!-- Pending State -->
 				<div class="flex flex-col items-center gap-4" transition:fade={{ duration: 300 }}>
-					<div class="flex h-24 w-24 items-center justify-center rounded-full bg-warning/20 text-warning sm:h-32 sm:w-32">
+					<div
+						class="bg-warning/20 text-warning flex h-24 w-24 items-center justify-center rounded-full sm:h-32 sm:w-32"
+					>
 						<IconClockOutline class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 					</div>
-					<div class="text-center space-y-2">
-						<h3 class="text-xl font-bold sm:text-2xl">{$t('wallet.debug_wallet.send_form.transaction_pending')}</h3>
-						<p class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.debug_wallet.send_form.estimated_time_remaining')}</p>
+					<div class="space-y-2 text-center">
+						<h3 class="text-xl font-bold sm:text-2xl">
+							{$t('wallet.debug_wallet.send_form.transaction_pending')}
+						</h3>
+						<p class="text-base-content/70 text-xs sm:text-sm">
+							{$t('wallet.debug_wallet.send_form.estimated_time_remaining')}
+						</p>
 						<p class="text-base-content/70 text-sm sm:text-base">
-							<span class="font-semibold text-warning text-2xl sm:text-3xl">{countdownSeconds}s</span>
+							<span class="text-warning text-2xl font-semibold sm:text-3xl"
+								>{countdownSeconds}s</span
+							>
 						</p>
 					</div>
 				</div>
 			{:else if transactionState === 'confirmed'}
 				<!-- Success State -->
 				<div class="flex flex-col items-center gap-4" transition:fly={{ y: 20, duration: 500 }}>
-					<div class="flex h-24 w-24 items-center justify-center rounded-full bg-success/20 text-success sm:h-32 sm:w-32">
+					<div
+						class="bg-success/20 text-success flex h-24 w-24 items-center justify-center rounded-full sm:h-32 sm:w-32"
+					>
 						<IconCheck class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 					</div>
-					<div class="text-center space-y-2">
-						<h3 class="text-xl font-bold sm:text-2xl">{$t('wallet.debug_wallet.send_form.transaction_successful')}</h3>
+					<div class="space-y-2 text-center">
+						<h3 class="text-xl font-bold sm:text-2xl">
+							{$t('wallet.debug_wallet.send_form.transaction_successful')}
+						</h3>
 					</div>
 					<button
-						class="btn btn-error min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px] mt-4"
+						class="btn btn-error mt-4 min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
@@ -762,8 +830,7 @@
 							addressError = null;
 							amountError = null;
 							transactionState = 'idle';
-							transactionHash = null;
-							
+
 							// Call callbacks
 							if (onSuccess) {
 								onSuccess();
@@ -780,22 +847,25 @@
 			{:else if transactionState === 'error'}
 				<!-- Error State -->
 				<div class="flex flex-col items-center gap-4" transition:fly={{ y: 20, duration: 500 }}>
-					<div class="flex h-24 w-24 items-center justify-center rounded-full bg-error/20 text-error sm:h-32 sm:w-32">
+					<div
+						class="bg-error/20 text-error flex h-24 w-24 items-center justify-center rounded-full sm:h-32 sm:w-32"
+					>
 						<IconAlertCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 					</div>
-					<div class="text-center space-y-2">
-						<h3 class="text-xl font-bold sm:text-2xl">{$t('wallet.debug_wallet.send_form.transaction_failed')}</h3>
+					<div class="space-y-2 text-center">
+						<h3 class="text-xl font-bold sm:text-2xl">
+							{$t('wallet.debug_wallet.send_form.transaction_failed')}
+						</h3>
 						{#if errorMessage}
 							<p class="text-error text-sm sm:text-base">{errorMessage}</p>
 						{/if}
 					</div>
 					<button
-						class="btn btn-error min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px] mt-4"
+						class="btn btn-error mt-4 min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
 							transactionState = 'idle';
-							transactionHash = null;
 							errorMessage = null;
 						}}
 					>
@@ -809,271 +879,289 @@
 		<!-- Normal Form Content -->
 		<!-- Error message -->
 		{#if errorMessage}
-		<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{errorMessage}</span>
-		</div>
-	{/if}
+			<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{errorMessage}</span>
+			</div>
+		{/if}
 
-	<!-- Available balance card -->
-	<div class="border-base-300 bg-base-200 rounded-lg border p-3 sm:p-4">
-		<div class="flex items-center justify-between">
-			<span class="text-xs opacity-70 sm:text-sm">{$t('wallet.debug_wallet.send_form.available_balance')}</span>
-			<span class="font-semibold text-sm sm:text-base">{token.formattedBalance} {token.symbol}</span>
+		<!-- Available balance card -->
+		<div class="border-base-300 bg-base-200 rounded-lg border p-3 sm:p-4">
+			<div class="flex items-center justify-between">
+				<span class="text-xs opacity-70 sm:text-sm"
+					>{$t('wallet.debug_wallet.send_form.available_balance')}</span
+				>
+				<span class="text-sm font-semibold sm:text-base"
+					>{token.formattedBalance} {token.symbol}</span
+				>
+			</div>
 		</div>
-	</div>
 
-	<!-- Recipient address input (styled like payment details) -->
-	<div class="form-control">
-		<div class="relative">
-			<div
-				class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-				class:border-primary={!isAddressValid && !addressError}
-				class:border-success={isAddressValid && !addressError && recipientAddress.trim()}
-				class:border-error={!!addressError}
-			>
-				<!-- Input field with validation icons -->
-				<div class="bg-base-200 relative flex flex-1 items-center p-2">
-					<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
-						<input
-							id="recipient-address"
-							type="text"
-							class="w-full bg-transparent pl-6 text-base text-sm focus:outline-none placeholder:text-base-content/50"
-							placeholder={$t('wallet.debug_wallet.send_form.recipient_address_placeholder')}
-							bind:value={recipientAddress}
-							oninput={validateAddress}
-							onblur={validateAddress}
-							disabled={isSending}
-						/>
+		<!-- Recipient address input (styled like payment details) -->
+		<div class="form-control">
+			<div class="relative">
+				<div
+					class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
+					class:border-primary={!isAddressValid && !addressError}
+					class:border-success={isAddressValid && !addressError && recipientAddress.trim()}
+					class:border-error={!!addressError}
+				>
+					<!-- Input field with validation icons -->
+					<div class="bg-base-200 relative flex flex-1 items-center p-2">
+						<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
+							<input
+								id="recipient-address"
+								type="text"
+								class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base text-sm focus:outline-none"
+								placeholder={$t('wallet.debug_wallet.send_form.recipient_address_placeholder')}
+								bind:value={recipientAddress}
+								oninput={validateAddress}
+								onblur={validateAddress}
+								disabled={isSending}
+							/>
+							{#if recipientAddress.trim()}
+								<div
+									class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
+								>
+									{#if isAddressValid && !addressError}
+										<IconCheck class="text-success h-5 w-5" />
+									{:else if addressError}
+										<IconClose class="text-error h-5 w-5" />
+									{/if}
+								</div>
+							{/if}
+						</div>
+						<!-- Clear button -->
 						{#if recipientAddress.trim()}
-							<div class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1">
-								{#if isAddressValid && !addressError}
-									<IconCheck class="text-success h-5 w-5" />
-								{:else if addressError}
-									<IconClose class="text-error h-5 w-5" />
-								{/if}
-							</div>
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={() => {
+									recipientAddress = '';
+									addressError = null;
+									estimatedGasFee = null;
+									triggerHaptic(ImpactStyle.Light);
+								}}
+								aria-label="Clear address"
+								disabled={isSending}
+							>
+								<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+							</button>
 						{/if}
 					</div>
+				</div>
+				{#if addressError}
+					<div id="address-error" class="label mt-1" role="alert">
+						<span class="label-text-alt text-error">{addressError}</span>
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Amount input with attached Max button (matching AmountInputSection style) -->
+		<div class="form-control">
+			<div
+				class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
+				class:border-primary={!hasInsufficientBalance && !amountError}
+				class:border-error={hasInsufficientBalance || !!amountError}
+			>
+				<!-- Input area (grey bar) - takes remaining width -->
+				<div
+					class="bg-base-200 relative flex min-h-[3rem] flex-1 items-center p-2 sm:min-h-[3.5rem]"
+				>
+					<input
+						id="amount"
+						type="text"
+						inputmode="decimal"
+						class="placeholder:text-base-content/50 w-full bg-transparent text-center text-2xl font-bold focus:outline-none sm:text-3xl"
+						placeholder="0"
+						bind:value={amount}
+						oninput={validateAmount}
+						onblur={validateAmount}
+						disabled={isSending}
+						aria-label={$t('wallet.debug_wallet.send_form.amount_placeholder')}
+						aria-invalid={!!amountError || hasInsufficientBalance}
+						aria-describedby={amountError
+							? 'amount-error'
+							: hasInsufficientBalance
+								? 'insufficient-balance'
+								: undefined}
+					/>
 					<!-- Clear button -->
-					{#if recipientAddress.trim()}
+					{#if amount.trim()}
 						<button
 							type="button"
-							class="absolute right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+							class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={() => {
-								recipientAddress = '';
-								addressError = null;
+								amount = '';
+								amountError = null;
 								estimatedGasFee = null;
 								triggerHaptic(ImpactStyle.Light);
 							}}
-							aria-label="Clear address"
+							aria-label="Clear amount"
 							disabled={isSending}
 						>
 							<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
 						</button>
 					{/if}
 				</div>
-			</div>
-			{#if addressError}
-				<div id="address-error" class="label mt-1" role="alert">
-					<span class="label-text-alt text-error">{addressError}</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<!-- Amount input with attached Max button (matching AmountInputSection style) -->
-	<div class="form-control">
-		<div
-			class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-			class:border-primary={!hasInsufficientBalance && !amountError}
-			class:border-error={hasInsufficientBalance || !!amountError}
-		>
-		<!-- Input area (grey bar) - takes remaining width -->
-		<div class="bg-base-200 relative flex flex-1 items-center p-2 min-h-[3rem] sm:min-h-[3.5rem]">
-			<input
-				id="amount"
-				type="text"
-				inputmode="decimal"
-				class="w-full bg-transparent text-center text-2xl font-bold focus:outline-none placeholder:text-base-content/50 sm:text-3xl"
-				placeholder="0"
-				bind:value={amount}
-				oninput={validateAmount}
-				onblur={validateAmount}
-				disabled={isSending}
-				aria-label={$t('wallet.debug_wallet.send_form.amount_placeholder')}
-				aria-invalid={!!amountError || hasInsufficientBalance}
-				aria-describedby={amountError ? 'amount-error' : hasInsufficientBalance ? 'insufficient-balance' : undefined}
-			/>
-			<!-- Clear button -->
-			{#if amount.trim()}
+				<!-- Max button (attached, orange) -->
 				<button
 					type="button"
-					class="absolute right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						amount = '';
-						amountError = null;
-						estimatedGasFee = null;
-						triggerHaptic(ImpactStyle.Light);
-					}}
-					aria-label="Clear amount"
-					disabled={isSending}
+					class="bg-primary text-primary-content flex min-w-[56px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-2 py-1.5 text-lg font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-20 sm:min-w-[60px] sm:px-3 sm:py-2 sm:text-xl"
+					style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 64px;"
+					onclick={setMaxAmount}
+					disabled={isSending || isEstimatingMax}
+					aria-label="Set maximum amount"
 				>
-					<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+					{#if isEstimatingMax}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						{$t('wallet.debug_wallet.send_form.max')}
+					{/if}
 				</button>
+			</div>
+			{#if amountError}
+				<div id="amount-error" class="label mt-1" role="alert">
+					<span class="label-text-alt text-error">{amountError}</span>
+				</div>
+			{/if}
+			{#if hasInsufficientRBTCForGas}
+				<div id="insufficient-rbtc-gas" class="label mt-1" role="alert">
+					<span class="label-text-alt text-error"
+						>{$t('wallet.debug_wallet.send_form.insufficient_rbtc_for_gas')}</span
+					>
+				</div>
 			{/if}
 		</div>
-			<!-- Max button (attached, orange) -->
-			<button
-				type="button"
-				class="bg-primary text-primary-content flex min-w-[56px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-2 py-1.5 text-lg font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-20 sm:min-w-[60px] sm:px-3 sm:py-2 sm:text-xl"
-				style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 64px;"
-				onclick={setMaxAmount}
-				disabled={isSending || isEstimatingMax}
-				aria-label="Set maximum amount"
+
+		<!-- Network Fee Accordion (matching SendPaymentForm style) -->
+		{#if errorMessage && errorMessage.includes('gas')}
+			<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
+				<span>{errorMessage}</span>
+			</div>
+		{:else}
+			<div
+				class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
+				class:collapse-open={networkFeeExpanded}
 			>
-				{#if isEstimatingMax}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
-					{$t('wallet.debug_wallet.send_form.max')}
-				{/if}
-			</button>
-		</div>
-		{#if amountError}
-			<div id="amount-error" class="label mt-1" role="alert">
-				<span class="label-text-alt text-error">{amountError}</span>
+				<button
+					type="button"
+					class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						networkFeeExpanded = !networkFeeExpanded;
+					}}
+					disabled={isEstimatingGas}
+				>
+					<div class="flex w-full items-center gap-1.5 sm:gap-2">
+						<span>{$t('wallet.network_fee')}:</span>
+						{#if isEstimatingGas}
+							<span class="inline-flex min-w-[5rem] items-center gap-1.5 font-semibold sm:gap-2">
+								<span class="loading loading-spinner loading-xs"></span>
+							</span>
+						{:else if estimatedGasFee !== null && estimatedGasFee > 0}
+							<span class="font-semibold">
+								{estimatedGasFee.toFixed(8)} RBTC
+							</span>
+						{:else}
+							<span class="font-semibold">0 RBTC</span>
+						{/if}
+					</div>
+				</button>
+				<div class="collapse-content">
+					<div class="space-y-1.5 px-3">
+						{#if estimatedGasFee !== null && estimatedGasFee > 0}
+							<div class="flex items-center justify-between text-xs opacity-70">
+								<span>{$t('wallet.swap.network_transaction_fee')}:</span>
+								<span>{estimatedGasFee.toFixed(8)} RBTC</span>
+							</div>
+						{:else}
+							<div class="text-center text-xs opacity-70">
+								{$t('wallet.send.enter_address_and_amount_to_estimate')}
+							</div>
+						{/if}
+					</div>
+				</div>
 			</div>
 		{/if}
-		{#if hasInsufficientRBTCForGas}
-			<div id="insufficient-rbtc-gas" class="label mt-1" role="alert">
-				<span class="label-text-alt text-error">{$t('wallet.debug_wallet.send_form.insufficient_rbtc_for_gas')}</span>
-			</div>
-		{/if}
-	</div>
 
-
-	<!-- Network Fee Accordion (matching SendPaymentForm style) -->
-	{#if errorMessage && errorMessage.includes('gas')}
-		<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
-			<span>{errorMessage}</span>
-		</div>
-	{:else}
+		<!-- Total to Send Card -->
 		<div
-			class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
-			class:collapse-open={networkFeeExpanded}
-		>
-			<button
-				type="button"
-				class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					networkFeeExpanded = !networkFeeExpanded;
-				}}
-				disabled={isEstimatingGas}
-			>
-				<div class="flex w-full items-center gap-1.5 sm:gap-2">
-					<span>{$t('wallet.network_fee')}:</span>
-					{#if isEstimatingGas}
-						<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem] sm:gap-2">
-							<span class="loading loading-spinner loading-xs"></span>
-						</span>
-					{:else if estimatedGasFee !== null && estimatedGasFee > 0}
-						<span class="font-semibold">
-							{estimatedGasFee.toFixed(8)} RBTC
-						</span>
-					{:else}
-						<span class="font-semibold">0 RBTC</span>
-					{/if}
-				</div>
-			</button>
-			<div class="collapse-content">
-				<div class="space-y-1.5 px-3">
-					{#if estimatedGasFee !== null && estimatedGasFee > 0}
-						<div class="flex items-center justify-between text-xs opacity-70">
-							<span>{$t('wallet.swap.network_transaction_fee')}:</span>
-							<span>{estimatedGasFee.toFixed(8)} RBTC</span>
-						</div>
-					{:else}
-						<div class="text-center text-xs opacity-70">
-							{$t('wallet.send.enter_address_and_amount_to_estimate')}
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Total to Send Card -->
-	<div
-		class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
+			class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
 			class:border-primary={!hasInsufficientBalance}
 			class:border-error={hasInsufficientBalance}
 		>
-		<span class="text-center text-xs opacity-70">{$t('wallet.send.total_to_send')}</span>
-		{#if hasInsufficientBalance}
-			<!-- Show error message instead of amount when insufficient balance -->
-			<div id="insufficient-balance" class="text-error text-center text-sm sm:text-base" role="alert">
-				{$t('wallet.validation.insufficient_balance')}
-			</div>
+			<span class="text-center text-xs opacity-70">{$t('wallet.send.total_to_send')}</span>
+			{#if hasInsufficientBalance}
+				<!-- Show error message instead of amount when insufficient balance -->
+				<div
+					id="insufficient-balance"
+					class="text-error text-center text-sm sm:text-base"
+					role="alert"
+				>
+					{$t('wallet.validation.insufficient_balance')}
+				</div>
 			{:else if amount.trim() && parseFloat(amount) > 0}
-			<div class="flex w-full items-center justify-center gap-1.5 flex-wrap">
-				<span class="text-primary text-xl font-bold sm:text-2xl">
-					{totalToSend.toFixed(8)} {token.isNative ? 'RBTC' : token.symbol}
-				</span>
-			</div>
-		{:else}
-			<div class="text-center text-xs opacity-60">
-				{$t('wallet.send.enter_address_and_amount_to_estimate')}
-			</div>
-		{/if}
-	</div>
-
-	<!-- Actions - Mobile: bottom of screen, Desktop: inline -->
-	<div
-		class="bg-base-100 sticky bottom-0 z-10 mt-auto flex-shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
-	>
-		{#if onClose}
-			<button
-				class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
-				style="-webkit-tap-highlight-color: transparent;"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					onClose();
-				}}
-				disabled={isSending}
-			>
-				<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-				<span class="text-sm sm:text-base">{$t('common.buttons.cancel')}</span>
-			</button>
-		{/if}
-		<button
-			class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
-			style="-webkit-tap-highlight-color: transparent;"
-			onclick={showConfirmationModal}
-			disabled={!isFormValid || isSending}
-		>
-			{#if isSending}
-				<span class="loading loading-spinner loading-sm"></span>
-				<span class="text-sm sm:text-base">{$t('wallet.debug_wallet.send_form.sending')}</span>
+				<div class="flex w-full flex-wrap items-center justify-center gap-1.5">
+					<span class="text-primary text-xl font-bold sm:text-2xl">
+						{totalToSend.toFixed(8)}
+						{token.isNative ? 'RBTC' : token.symbol}
+					</span>
+				</div>
 			{:else}
-				<span class="text-sm sm:text-base">{$t('wallet.debug_wallet.send_form.send')}</span>
+				<div class="text-center text-xs opacity-60">
+					{$t('wallet.send.enter_address_and_amount_to_estimate')}
+				</div>
 			{/if}
-		</button>
-	</div>
+		</div>
+
+		<!-- Actions - Mobile: bottom of screen, Desktop: inline -->
+		<div
+			class="bg-base-100 sticky bottom-0 z-10 mt-auto flex flex-shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
+		>
+			{#if onClose}
+				<button
+					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+					style="-webkit-tap-highlight-color: transparent;"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						onClose();
+					}}
+					disabled={isSending}
+				>
+					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+					<span class="text-sm sm:text-base">{$t('common.buttons.cancel')}</span>
+				</button>
+			{/if}
+			<button
+				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={showConfirmationModal}
+				disabled={!isFormValid || isSending}
+			>
+				{#if isSending}
+					<span class="loading loading-spinner loading-sm"></span>
+					<span class="text-sm sm:text-base">{$t('wallet.debug_wallet.send_form.sending')}</span>
+				{:else}
+					<span class="text-sm sm:text-base">{$t('wallet.debug_wallet.send_form.send')}</span>
+				{/if}
+			</button>
+		</div>
 	{/if}
 </div>
 
@@ -1087,7 +1175,7 @@
 				<!-- Address Accordion -->
 				<AddressAccordion
 					address={recipientAddress.trim()}
-					explorerUrl={explorerUrl}
+					{explorerUrl}
 					label={$t('wallet.debug_wallet.send_form.recipient_address')}
 				/>
 
@@ -1095,7 +1183,8 @@
 				<div class="space-y-1">
 					<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
 					<div class="font-semibold">
-						{amount} {token.symbol}
+						{amount}
+						{token.symbol}
 					</div>
 				</div>
 
@@ -1177,4 +1266,3 @@
 		></button>
 	</div>
 {/if}
-

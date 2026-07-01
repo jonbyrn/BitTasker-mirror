@@ -90,11 +90,14 @@ const hoisted = vi.hoisted(() => {
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
-		t: readable((key: string, options?: { values?: Record<string, number> }) => {
-			if (key === 'dashboard.services.browse.error_loading') return 'Error loading services: {error}';
+		t: readable((key: string) => {
+			if (key === 'dashboard.services.browse.error_loading')
+				return 'Error loading services: {error}';
 			if (key === 'dashboard.services.browse.refresh') return 'Refresh';
-			if (key === 'dashboard.services.browse.loading_timeout_title') return 'Loading taking too long';
-			if (key === 'dashboard.services.browse.loading_timeout_message') return 'The service list is taking longer than expected.';
+			if (key === 'dashboard.services.browse.loading_timeout_title')
+				return 'Loading taking too long';
+			if (key === 'dashboard.services.browse.loading_timeout_message')
+				return 'The service list is taking longer than expected.';
 			return key;
 		}),
 		locale: readable('en')
@@ -167,7 +170,9 @@ describe('MAJOR #8: Error recovery should not reload entire page', () => {
 	it('should NOT use window.location.reload() on error - should use retry instead', async () => {
 		vi.useFakeTimers();
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -182,7 +187,9 @@ describe('MAJOR #8: Error recovery should not reload entire page', () => {
 
 		await vi.runAllTimersAsync();
 
-		expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('window.location.reload'));
+		expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+			expect.stringContaining('window.location.reload')
+		);
 		expect(hoisted.findServices).toHaveBeenCalled();
 
 		vi.useRealTimers();
@@ -207,7 +214,9 @@ describe('MAJOR #9: selectedServiceForMap should not cause all cards to re-rende
 	});
 
 	it('should use store-based selectedServiceForMap instead of local state', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -240,8 +249,8 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			})
 		);
 
-		let findServicesCalledWith: any = null;
-		hoisted.findServices.mockImplementation(async (params: any) => {
+		let findServicesCalledWith = null;
+		hoisted.findServices.mockImplementation(async (params) => {
 			findServicesCalledWith = params;
 			hoisted.servicesStore.set({
 				items: mockServices,
@@ -253,7 +262,9 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			});
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -275,9 +286,7 @@ describe('MAJOR #11: loadMoreServices parallel loads should be prevented', () =>
 	});
 
 	it('should prevent parallel loadMoreServices calls with isLoadingMore flag', async () => {
-		let loadCount = 0;
 		hoisted.findServices.mockImplementation(async () => {
-			loadCount++;
 			await new Promise((r) => setTimeout(r, 50));
 			hoisted.servicesStore.update((state) => ({
 				...state,
@@ -296,14 +305,16 @@ describe('MAJOR #11: loadMoreServices parallel loads should be prevented', () =>
 			searchParamsKey: 'test'
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 		render(ServicesPage);
 
 		await waitFor(() => {
 			expect(hoisted.servicesStore.getState().items.length).toBe(2);
 		});
 
-		const page = (await import('../../../../routes/services/+page.svelte')).default;
+		const page = (await import('../../../../routes/(app)/services/+page.svelte')).default;
 		expect(page).toBeDefined();
 	});
 });

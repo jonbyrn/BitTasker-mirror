@@ -80,7 +80,7 @@ const hoisted = vi.hoisted(() => {
 
 vi.mock('$app/stores', () => ({
 	page: readable({
-		url: new URL('http://localhost/dashboard/create-service?edit=true&serviceId=service-123')
+		url: new URL('http://localhost/create-service?edit=true&serviceId=service-123')
 	})
 }));
 
@@ -206,7 +206,7 @@ describe('create-service wallet fallback and removal', () => {
 
 	it('skips getRSKAddress and reuses the stored wallet address if already present', async () => {
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.update'));
@@ -235,7 +235,7 @@ describe('create-service wallet fallback and removal', () => {
 		}));
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.update'));
@@ -264,7 +264,7 @@ describe('create-service wallet fallback and removal', () => {
 		}));
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.update'));
@@ -285,7 +285,7 @@ describe('create-service wallet fallback and removal', () => {
 		hoisted.rskAddress = '0x9999999999999999999999999999999999999999';
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.update'));

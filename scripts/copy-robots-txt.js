@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 /**
+ * @deprecated - Script is no longer user, robots file is gitignored and branch-specific.
  * Copy the appropriate robots.txt file based on VITE_ROBOTS_TXT environment variable
  * - "prod" -> copies robots.txt.prod to robots.txt (allows crawling, references sitemap)
  * - "dev" or undefined -> copies robots.txt.dev to robots.txt (disallows crawling)

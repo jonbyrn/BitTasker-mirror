@@ -50,6 +50,29 @@ vi.mock('$app/navigation', () => ({
 	disableScrollHandling: vi.fn()
 }));
 
+// Mock auth store — avoids pulling in NDK, session, deep-link, and other heavy dependencies.
+// Tests that need specific auth state can override with their own vi.mock.
+vi.mock('$lib/stores/auth.store', () => {
+	const { writable } = require('svelte/store');
+	const store = writable({ isAuthenticated: true, isLoading: false, error: null });
+	return {
+		authState: {
+			subscribe: store.subscribe,
+			set: store.set,
+			login: vi.fn(async () => {
+				store.update((s: Record<string, unknown>) => ({ ...s, isAuthenticated: true }));
+			}),
+			logout: vi.fn(async () => {
+				store.set({ isAuthenticated: false, isLoading: false, error: null });
+			}),
+			setLoading: vi.fn(),
+			setError: vi.fn(),
+			setupAuthData: vi.fn()
+		},
+		isCaptchaVerified: writable(false)
+	};
+});
+
 // @bittasker/reviews-contracts dist uses extensionless ESM re-exports that fail in Vitest's resolver
 vi.mock('@bittasker/reviews-contracts', () => {
 	const ONCHAIN_STATE_MAP: Record<number, string> = {
@@ -152,7 +175,8 @@ vi.mock('@capacitor/preferences', () => ({
 		get: vi.fn().mockResolvedValue({ value: null }),
 		set: vi.fn().mockResolvedValue(undefined),
 		remove: vi.fn().mockResolvedValue(undefined),
-		clear: vi.fn().mockResolvedValue(undefined)
+		clear: vi.fn().mockResolvedValue(undefined),
+		keys: vi.fn().mockResolvedValue({ keys: [] })
 	}
 }));
 vi.mock('@capacitor/haptics', () => ({
@@ -317,3 +341,92 @@ vi.mock('~icons/mdi/check-circle', () => ({ default: createMockIcon }));
 vi.mock('~icons/mdi/clock-outline', () => ({ default: createMockIcon }));
 vi.mock('~icons/mdi/close-circle', () => ({ default: createMockIcon }));
 vi.mock('~icons/mdi/check-all', () => ({ default: createMockIcon }));
+
+// Suppress console.error and console.warn globally to reduce noise from intentional error-path tests.
+// Tests that need to verify console output can override with vi.spyOn(console, 'error') in their own scope.
+const _originalError = console.error;
+const _originalWarn = console.warn;
+console.error = (...args: unknown[]) => {
+	const msg = String(args[0] ?? '');
+	if (
+		msg.includes('[BalanceHistoryService]') ||
+		msg.includes('[FindServices]') ||
+		msg.includes('[processTransactions]') ||
+		msg.includes('[DebugWalletSendForm]') ||
+		msg.includes('[UserInfoDisplay]') ||
+		msg.includes('[muteList]') ||
+		msg.includes('[WALLET-STORE]') ||
+		msg.includes('Failed to load') ||
+		msg.includes('Failed to fetch') ||
+		msg.includes('Failed to decode') ||
+		msg.includes('Failed to copy') ||
+		msg.includes('Failed to delete') ||
+		msg.includes('Failed to update') ||
+		msg.includes('Failed to generate') ||
+		msg.includes('Failed to decrypt') ||
+		msg.includes('Failed to create') ||
+		msg.includes('Failed to read') ||
+		msg.includes('Failed to send') ||
+		msg.includes('Error clearing') ||
+		msg.includes('Error detecting') ||
+		msg.includes('Error fetching') ||
+		msg.includes('Error finding') ||
+		msg.includes('Error formatting') ||
+		msg.includes('Error generating') ||
+		msg.includes('Error parsing') ||
+		msg.includes('Error reading') ||
+		msg.includes('RSK API returned status') ||
+		msg.includes('Translation service not available') ||
+		msg.includes('findServices timed out') ||
+		msg.includes('Clipboard read not supported') ||
+		msg.includes('service_edit_conflict') ||
+		msg.includes('SyntaxError') ||
+		msg.includes('RangeError') ||
+		msg.includes('Invalid invoice') ||
+		msg.includes('Storage error') ||
+		msg.includes('API/RPC failed') ||
+		msg.includes('companion publish failed') ||
+		msg.includes('No "translationService" export') ||
+		msg.includes('findMyServices')
+	) {
+		return;
+	}
+	_originalError(...args);
+};
+console.warn = (...args: unknown[]) => {
+	const msg = String(args[0] ?? '');
+	if (
+		msg.includes('[FindServices]') ||
+		msg.includes('[processTransactions]') ||
+		msg.includes('[DebugWalletSendForm]') ||
+		msg.includes('Internal transactions API returned non-JSON') ||
+		msg.includes('Skipping transaction with missing') ||
+		msg.includes('Invalid userAddress') ||
+		msg.includes('history.pushState') ||
+		msg.includes('history.replaceState') ||
+		msg.includes('Clipboard read not supported') ||
+		msg.includes('Failed to read from clipboard') ||
+		msg.includes('findMyServices') ||
+		msg.includes('Translation service not available') ||
+		msg.includes('Failed to load') ||
+		msg.includes('Failed to fetch') ||
+		msg.includes('Failed to send') ||
+		msg.includes('[BalanceHistoryService]') ||
+		msg.includes('[WALLET-STORE]') ||
+		msg.includes('RSK API returned status') ||
+		msg.includes('API/RPC failed')
+	) {
+		return;
+	}
+	_originalWarn(...args);
+};
+
+// Suppress console.log for DEV-guarded component debug logs that fire in vitest's development mode
+const _originalLog = console.log;
+console.log = (...args: unknown[]) => {
+	const msg = String(args[0] ?? '');
+	if (msg.includes('[DebugWalletSendForm]')) {
+		return;
+	}
+	_originalLog(...args);
+};

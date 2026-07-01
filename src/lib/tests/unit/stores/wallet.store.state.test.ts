@@ -68,7 +68,7 @@ describe('Wallet Store State Management', () => {
 
 	describe('walletStore', () => {
 		it('should update state correctly', () => {
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -86,8 +86,8 @@ describe('Wallet Store State Management', () => {
 
 		it('should maintain state immutability', () => {
 			const initialState = get(walletStore);
-			
-			walletStore.update(s => ({
+
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true
 			}));
@@ -111,7 +111,7 @@ describe('Wallet Store State Management', () => {
 				AssetFactory.createBSCUSDTAsset()
 			];
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				assets: mockAssets
 			}));
@@ -139,7 +139,7 @@ describe('Wallet Store State Management', () => {
 				bnb: 0.5
 			};
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				totalBalances: mockBalances
 			}));
@@ -154,7 +154,7 @@ describe('Wallet Store State Management', () => {
 	describe('State persistence and recovery', () => {
 		it('should maintain state across updates', () => {
 			// Set initial state
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -165,7 +165,7 @@ describe('Wallet Store State Management', () => {
 			}));
 
 			// Update another field
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				activeTab: 'transactions'
 			}));
@@ -181,8 +181,8 @@ describe('Wallet Store State Management', () => {
 	describe('Error state handling', () => {
 		it('should store error messages', () => {
 			const errorMessage = 'Failed to connect to wallet';
-			
-			walletStore.update(s => ({
+
+			walletStore.update((s) => ({
 				...s,
 				error: errorMessage
 			}));
@@ -193,13 +193,13 @@ describe('Wallet Store State Management', () => {
 
 		it('should clear error on successful operation', () => {
 			// Set error
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				error: 'Previous error'
 			}));
 
 			// Clear error
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				error: null
 			}));
@@ -209,5 +209,3 @@ describe('Wallet Store State Management', () => {
 		});
 	});
 });
-
-

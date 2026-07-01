@@ -461,7 +461,7 @@
 					icon={IconFileDocumentOutline}
 					title={$t('dashboard.contracts.no_contracts')}
 					actionLabel={emptyStateActionLabel ?? $t('dashboard.create_task')}
-					actionHref={emptyStateActionHref ?? '/dashboard/create-task'}
+					actionHref={emptyStateActionHref ?? '/create-task'}
 					actionIcon={IconBriefcaseOutline}
 					testId="dashboard-contracts-ndk-empty-state"
 				/>

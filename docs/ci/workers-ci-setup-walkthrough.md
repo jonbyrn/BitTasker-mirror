@@ -174,13 +174,7 @@ Copy these from `wrangler.toml` `[env.staging.vars]` and `[env.production.vars]`
 - `VITE_BSC_NETWORK`
 - `VITE_STREAM_CUSTOMER_CODE`
 
-For production builds, also set:
-
-- `VITE_ROBOTS_TXT` = `prod` (enables crawling)
-
-For staging:
-
-- `VITE_ROBOTS_TXT` = `dev` (disallows crawling)
+For production builds, the `static/robots.txt` on the master branch allows crawling and references the sitemap. On dev/staging branches it blocks all crawlers. This is managed per-branch (no env var needed).
 
 ### Creating the Cloudflare API Token
 

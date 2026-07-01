@@ -12,9 +12,26 @@ export async function getMnemonic(): Promise<string> {
 	if (process.env.NODE_ENV === 'development') {
 		// return 'draw mobile oven airport ostrich jar fiber motion main move mom firm';
 	}
+
+	// E2E test bypass: read mnemonic directly from localStorage
+	if (typeof window !== 'undefined') {
+		const isPlaywright = '__PLAYWRIGHT_TEST__' in window;
+		const isDevE2E = import.meta.env.DEV && localStorage.getItem('__E2E_MNEMONIC__');
+		if (isPlaywright || isDevE2E) {
+			const mnemonic = localStorage.getItem('__E2E_MNEMONIC__');
+			if (mnemonic) return mnemonic;
+		}
+	}
+
+	// Tier 1: Check if mnemonic is already decrypted in store
+	const currentState = get(appStore);
+	if (currentState.nostrKeys.mnemonic) {
+		return currentState.nostrKeys.mnemonic;
+	}
+
 	try {
-		// Check if we have biometric data with master key format
-		const biometricData = get(appStore)?.biometricData;
+		// Tier 2: Check if we have biometric data with master key format
+		const biometricData = currentState.biometricData;
 		if (biometricData && biometricData.encryptedData) {
 			return await decryptWalletMnemonicWithBiometrics(
 				biometricData.encryptedData,

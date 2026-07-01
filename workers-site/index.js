@@ -1,10 +1,15 @@
 /**
  * BitTasker - Cloudflare Workers Static Assets
  *
- * Serves the SvelteKit SPA build with platform-level SPA fallback
- * (not_found_handling = "single-page-application").
+ * Serves the SvelteKit build with prerendered public pages and
+ * SPA fallback for client-side routed pages.
  *
- * API routes run before the fallback:
+ * Prerendered pages (/, /about, /faq, etc.) have real HTML content
+ * for SEO. Non-prerendered routes (/dashboard, /auth, etc.) fall
+ * through to Cloudflare's SPA fallback (not_found_handling = "single-page-application")
+ * which serves index.html where SvelteKit's client-side router takes over.
+ *
+ * API routes run before the static asset lookup:
  *   /api/cloudflare/stream/* - upload URLs, signed tokens, status
  *   /api/cloudflare/images/* - (future) direct image upload URLs
  *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
@@ -89,8 +94,21 @@ export default {
 			});
 		}
 
-		// Static assets - unmatched routes get index.html via SPA fallback
-		return env.ASSETS.fetch(request);
+		// Static assets — if not found, serve SPA fallback for client-side routing.
+		// With not_found_handling = "single-page-application", Cloudflare serves index.html
+		// automatically. This worker fallback is a safety net for edge cases.
+		const response = await env.ASSETS.fetch(request);
+		if (response.status === 404) {
+			const fallbackUrl = new URL('/index.html', url.origin);
+			const fallbackResponse = await env.ASSETS.fetch(new Request(fallbackUrl, request));
+			if (fallbackResponse.status !== 404) {
+				return new Response(fallbackResponse.body, {
+					status: 200,
+					headers: fallbackResponse.headers
+				});
+			}
+		}
+		return response;
 	},
 
 	async scheduled(event, env, ctx) {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 // Import the component: from unit/routes/ up to src then routes/tasks
-import TasksPage from '../../../../routes/tasks/+page.svelte';
+import TasksPage from '../../../../routes/(app)/tasks/+page.svelte';
 import { tasksStore } from '$lib/stores/task.store';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task } from '$lib/types/task.d';
@@ -302,9 +302,9 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 			await tick(); // Extra tick for store reactivity
 
-			// Check for task list container or scroll container
+			// Check for task list container
 			const taskListContainer =
-				container.querySelector('.task-list-scroll-container') ||
+				container.querySelector('[data-tasks-list-column]') ||
 				container.querySelector('.task-list-items') ||
 				container.querySelector('[data-task-id]');
 			expect(taskListContainer).toBeTruthy();
@@ -453,6 +453,15 @@ describe('Tasks Page - Component Tests', () => {
 			// Type something
 			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
 
+			// Wait for the debounced search to fire and findTasks to be called
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalledWith(
+					expect.objectContaining({
+						search: 'Repair'
+					})
+				);
+			});
+
 			// Mock findTasks for the reset call
 			const resetTasks = [createMockTask({ id: 'reset-1' }), createMockTask({ id: 'reset-2' })];
 			(
@@ -464,6 +473,7 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Clear the input
 			await fireEvent.input(searchInput, { target: { value: '' } });
+
 			// Wait for findTasks to be called with empty search
 			await waitFor(() => {
 				expect(findTasks).toHaveBeenCalledWith(

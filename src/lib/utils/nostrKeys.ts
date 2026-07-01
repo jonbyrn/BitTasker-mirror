@@ -68,9 +68,6 @@ const getBiometrics = async (): Promise<Credentials | null> => {
  * 2. **Local storage (Preferences):** Check if npub was cached from previous session (fast, local I/O)
  * 3. **Biometric authentication:** If not cached, prompt user for authentication (slow, requires interaction)
  *
- * Special handling for Alby extension: Retrieves public key from browser extension if using Alby auth
- *
- * @returns The Nostr public key (npub) as a hex string
  * @throws {Error} If no public key can be retrieved or biometric authentication fails
  *
  * @example
@@ -94,6 +91,13 @@ export const getNpub = async (): Promise<string> => {
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 		return npub;
 	}
+
+	// Guard: don't trigger biometric prompt if the session has been cleared
+	// (e.g. after logout). Without this, component onMount handlers that call
+	// getNpub() during Svelte's reactive cascade after set(initialAuthState)
+	// would fall through to Webauthn.startAuthentication() showing a passkey prompt.
+	const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+	if (!accessToken) return '';
 
 	const credentialData: Credentials | null = await getBiometrics();
 
@@ -142,6 +146,28 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		};
 		await notifyNdkSignerFromUnlockedKeys();
 		return result;
+	}
+
+	// E2E test bypass: read keys from localStorage without passkey.
+	// Triggered by __PLAYWRIGHT_TEST__ (automated tests) or by __E2E_NSEC__
+	// existing in localStorage during development (manual playwright open).
+	if (typeof window !== 'undefined') {
+		const isPlaywright = '__PLAYWRIGHT_TEST__' in window;
+		const isDevE2E = import.meta.env.DEV && localStorage.getItem('__E2E_NSEC__');
+		if (isPlaywright || isDevE2E) {
+			const testNsec = localStorage.getItem('__E2E_NSEC__');
+			const testNpub = localStorage.getItem('__E2E_NPUB__');
+			if (testNsec && testNpub) {
+				const nsec = decodeNsec(testNsec);
+				appStore.update((state) => ({
+					...state,
+					nostrKeys: { ...state.nostrKeys, nsec, npub: testNpub }
+				}));
+				await Preferences.set({ key: StorageKeys.NPUB, value: testNpub });
+				await notifyNdkSignerFromUnlockedKeys();
+				return { nsec, npub: testNpub };
+			}
+		}
 	}
 
 	if (process.env.NODE_ENV === 'development') {
@@ -249,6 +275,27 @@ export const getAllKeys = async (): Promise<{
 		};
 		await notifyNdkSignerFromUnlockedKeys();
 		return result;
+	}
+
+	// E2E test bypass: read keys + mnemonic from localStorage without passkey.
+	if (typeof window !== 'undefined') {
+		const isPlaywright = '__PLAYWRIGHT_TEST__' in window;
+		const isDevE2E = import.meta.env.DEV && localStorage.getItem('__E2E_NSEC__');
+		if (isPlaywright || isDevE2E) {
+			const testNsec = localStorage.getItem('__E2E_NSEC__');
+			const testNpub = localStorage.getItem('__E2E_NPUB__');
+			const testMnemonic = localStorage.getItem('__E2E_MNEMONIC__');
+			if (testNsec && testNpub && testMnemonic) {
+				const nsec = decodeNsec(testNsec);
+				appStore.update((state) => ({
+					...state,
+					nostrKeys: { ...state.nostrKeys, nsec, npub: testNpub, mnemonic: testMnemonic }
+				}));
+				await Preferences.set({ key: StorageKeys.NPUB, value: testNpub });
+				await notifyNdkSignerFromUnlockedKeys();
+				return { nsec, npub: testNpub, mnemonic: testMnemonic };
+			}
+		}
 	}
 
 	if (currentState.biometricData) {

@@ -33,7 +33,9 @@ const config = {
 	kit: {
 		// Configure the adapter with fallback for SPA navigation
 		adapter: adapter({
-			// Single-page app mode with fallback
+			// Single-page app mode — index.html serves as the SPA shell for all
+			// non-prerendered routes. Cloudflare's single-page-application mode
+			// serves this file automatically for any path that has no static asset.
 			fallback: 'index.html',
 			// Path to build output
 			pages: 'build',

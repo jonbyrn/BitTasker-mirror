@@ -81,8 +81,9 @@ export function isValidQuoteRequestId(value: string | null): boolean {
 	return Boolean(value && REQUEST_ID_PATTERN.test(value));
 }
 
-export function parseDashboardQuery(url: URL): DashboardQueryState {
-	const rawTab = url.searchParams.get('tab');
+export function parseDashboardQuery(input: URL | URLSearchParams): DashboardQueryState {
+	const searchParams = input instanceof URL ? input.searchParams : input;
+	const rawTab = searchParams.get('tab');
 	const tab =
 		rawTab === 'quotes'
 			? 'service-requests'
@@ -92,36 +93,36 @@ export function parseDashboardQuery(url: URL): DashboardQueryState {
 	const state: DashboardQueryState = { tab };
 
 	if (tab === 'contracts') {
-		const type = url.searchParams.get('type');
+		const type = searchParams.get('type');
 		state.type = type === 'tasks' || type === 'services' ? type : 'all';
-		const highlight = url.searchParams.get('highlight');
+		const highlight = searchParams.get('highlight');
 		state.highlight = highlight || null;
-		const status = url.searchParams.get('status');
+		const status = searchParams.get('status');
 		state.status = status || 'all';
 		return state;
 	}
 
 	if (tab === 'service-requests') {
 		state.view = 'tasker';
-		const request = url.searchParams.get('request');
+		const request = searchParams.get('request');
 		state.request = request || null;
-		state.status = url.searchParams.get('status') || null;
+		state.status = searchParams.get('status') || null;
 		return state;
 	}
 
 	if (tab === 'my-services') {
-		const view = url.searchParams.get('view');
+		const view = searchParams.get('view');
 		state.view = view === 'service-requests' ? 'service-requests' : 'default';
 		if (state.view === 'service-requests') {
-			state.service = decodeSearchParam(url.searchParams.get('service'));
-			const request = url.searchParams.get('request');
+			state.service = decodeSearchParam(searchParams.get('service'));
+			const request = searchParams.get('request');
 			state.request = request || null;
 		}
-		state.status = url.searchParams.get('status') || null;
+		state.status = searchParams.get('status') || null;
 		return state;
 	}
 
-	state.status = url.searchParams.get('status') || null;
+	state.status = searchParams.get('status') || null;
 	return state;
 }
 
@@ -229,16 +230,19 @@ export function parseEarningQueryV2(url: URL): EarningQueryState {
 	return state;
 }
 
-export function parseServicesWorkspaceQuery(url: URL): ServicesWorkspaceQueryState {
-	const rawTab = url.searchParams.get('tab');
+export function parseServicesWorkspaceQuery(
+	input: URL | URLSearchParams
+): ServicesWorkspaceQueryState {
+	const searchParams = input instanceof URL ? input.searchParams : input;
+	const rawTab = searchParams.get('tab');
 	const tab = VALID_SERVICES_WORKSPACE_TABS.has(rawTab as ServicesWorkspaceTab)
 		? (rawTab as ServicesWorkspaceTab)
 		: 'listings';
 	const state: ServicesWorkspaceQueryState = { tab };
 
 	if (tab === 'service-requests') {
-		state.service = decodeSearchParam(url.searchParams.get('service'));
-		const request = url.searchParams.get('request');
+		state.service = decodeSearchParam(searchParams.get('service'));
+		const request = searchParams.get('request');
 		state.request = request || null;
 	}
 
@@ -324,7 +328,7 @@ export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): st
 }
 
 export function buildEarningQueryUrlV2(baseUrl: URL, state: EarningQueryState): string {
-	// Build path-based URL: /earning/{tab} instead of /earning?tab={tab}
+	// Build path-based URL: /earning/{tab}
 	const url = new URL(`/earning/${state.tab}`, baseUrl.origin);
 
 	if (state.tab === 'contracts' && state.type) {
@@ -368,4 +372,50 @@ export function buildServicesWorkspaceQueryUrl(
 	}
 
 	return url.toString();
+}
+
+export function buildDashboardQuerySearchParams(state: DashboardQueryState): URLSearchParams {
+	const params = new URLSearchParams();
+	params.set('tab', state.tab);
+
+	if (state.tab === 'contracts') {
+		params.set('type', state.type ?? 'all');
+		if (state.highlight) params.set('highlight', state.highlight);
+		if (state.status && state.status !== 'all') params.set('status', state.status);
+		return params;
+	}
+
+	if (state.tab === 'service-requests') {
+		params.set('view', 'tasker');
+		if (state.request) params.set('request', state.request);
+		if (state.status) params.set('status', state.status);
+		return params;
+	}
+
+	if (state.tab === 'my-services') {
+		if (state.view === 'service-requests') {
+			params.set('view', 'service-requests');
+			if (state.service) params.set('service', state.service);
+			if (state.request) params.set('request', state.request);
+		}
+		if (state.status) params.set('status', state.status);
+		return params;
+	}
+
+	if (state.status) params.set('status', state.status);
+	return params;
+}
+
+export function buildServicesWorkspaceQuerySearchParams(
+	state: ServicesWorkspaceQueryState
+): URLSearchParams {
+	const params = new URLSearchParams();
+	params.set('tab', state.tab);
+
+	if (state.tab === 'service-requests') {
+		if (state.service) params.set('service', state.service);
+		if (state.request) params.set('request', state.request);
+	}
+
+	return params;
 }

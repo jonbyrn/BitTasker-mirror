@@ -386,10 +386,7 @@
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">{$t('bids.error_loading_bids')}</h3>
 			<p class="text-base-content/60 mt-2 mb-4">{error}</p>
-			<button
-				onclick={loadMyBids}
-				class="rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-white transition-colors hover:bg-gray-600"
-			>
+			<button onclick={loadMyBids} class="btn btn-outline rounded-lg px-4 py-2">
 				{$t('bids.retry')}
 			</button>
 		</div>

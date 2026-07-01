@@ -47,7 +47,10 @@ export const StorageKeys = {
 	WALLET_CHAIN_SORT_HINTS: 'bittasker_wallet_chain_sort_hints',
 
 	// Reviews
-	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed'
+	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed',
+
+	// Search
+	DISMISSED_SAVE_SEARCH_PROMPTS: 'bittasker_dismissed_save_search_prompts'
 } as const;
 
 // Type to get autocomplete for storage keys

@@ -16,7 +16,7 @@ import { fetchProfileName } from '$lib/nostr/profile/ndk';
 import type { ProfileMetadataVerifyOptions } from '$lib/nostr/profile/types';
 
 const PROFILE_VERIFY_TIMEOUT_MS = 15_000;
-const PROFILE_VERIFY_POLL_MS = 500;
+const PROFILE_VERIFY_POLL_MS = 1_500;
 
 /**
  * Poll relays until profile metadata includes the expected display name (or any name when not specified).

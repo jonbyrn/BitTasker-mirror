@@ -11,7 +11,6 @@
 	import { generateBidTranslations } from '$lib/nostr/bid';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
 	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
@@ -426,15 +425,8 @@
 			// Submit a bid as an encrypted event to the task creator with custom tags
 			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
 
-			// Send notification to task creator
-			pushNotificationService.sendNotificationToNpubs({
-				npubs: [task.npub],
-				title: 'New Bid Received',
-				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
-				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/tasks/${task.id}`,
-				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
-			});
+			// Push notification removed — backend's Nostr indexer handles new_bid_on_task
+			// via the reminder engine when it processes the Kind 30007 bid event.
 
 			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches

@@ -79,7 +79,7 @@ describe('sendBidStatusUpdate', () => {
 	it('should remove processing bid on success', async () => {
 		vi.mocked(publishNostrEvent).mockResolvedValue(undefined);
 
-		await sendBidStatusUpdate(
+		const result = await sendBidStatusUpdate(
 			'bid-123',
 			'task-123',
 			'npub1test',
@@ -87,17 +87,18 @@ describe('sendBidStatusUpdate', () => {
 			'Bid accepted'
 		);
 
+		expect(result).toBe(true);
 		expect(bidStore.removeProcessingBid).toHaveBeenCalledWith('bid-123');
 		expect(vi.mocked(smartCache.invalidateTaskBids)).toHaveBeenCalledWith('task-123');
 		expect(vi.mocked(smartCache.clearUserBids)).toHaveBeenCalled();
 		expect(appStore.showInfoToast).toHaveBeenCalled();
 	});
 
-	it('should remove processing bid even when publishNostrEvent fails', async () => {
+	it('should return false and cleanup when publishNostrEvent fails', async () => {
 		const error = new Error('Failed to publish');
 		vi.mocked(publishNostrEvent).mockRejectedValue(error);
 
-		await sendBidStatusUpdate(
+		const result = await sendBidStatusUpdate(
 			'bid-123',
 			'task-123',
 			'npub1test',
@@ -105,6 +106,7 @@ describe('sendBidStatusUpdate', () => {
 			'Bid accepted'
 		);
 
+		expect(result).toBe(false);
 		// Should still cleanup even on error
 		expect(bidStore.removeProcessingBid).toHaveBeenCalledWith('bid-123');
 		// Should not show success toast on error

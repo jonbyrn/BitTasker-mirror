@@ -1,5 +1,14 @@
-import debug from 'debug';
+import debugPkg from 'debug';
 import { BROWSER as browser } from 'esm-env';
+
+// Rollup's CJS interop (`getDefaultExportFromCjs`) can return the raw
+// `exports` object instead of the `createDebug` function when the module
+// reassigns `module.exports` after populating `exports.*`. Normalise here
+// so every consumer gets a callable function.
+const debug: typeof debugPkg =
+	typeof debugPkg === 'function'
+		? debugPkg
+		: ((debugPkg as unknown as { default: typeof debugPkg }).default ?? debugPkg);
 
 // Root namespace for your app
 const APP_NAMESPACE = 'btasker';

@@ -3,11 +3,13 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Security & Safety - BitTasker | Bitcoin Platform Security',
 		description: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		keywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, smart contract security, cryptocurrency safety, user protection, secure payments',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
 		ogDescription: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		twitterTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
@@ -17,7 +19,7 @@ export const load: PageLoad = async ({ url }) => {
 			'@type': 'WebPage',
 			'name': 'Security & Safety - BitTasker',
 			'description': 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
-			'url': url.href,
+			'url': `${baseUrl}${url.pathname}`,
 
 			'mainEntity': {
 				'@type': 'Article',

@@ -252,7 +252,7 @@
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent | KeyboardEvent) => {
 				e.stopPropagation();
-				goto(`/dashboard/task/${task.id}/bids`);
+				goto(`/task/${task.id}/bids`);
 			},
 			icon: 'view_bids'
 		};
@@ -281,7 +281,7 @@
 						class: 'btn-outline btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							goto(`/dashboard/messages/to/${task.acceptedBidMetadata?.pubkey}`);
+							goto(`/messages/to/${task.acceptedBidMetadata?.pubkey}`);
 						},
 						icon: 'message'
 					});
@@ -331,12 +331,10 @@
 		Array.from({ length: totalPages }, (_, index) => index + 1)
 	);
 
-	onMount(() => {
+	onMount(async () => {
 		// Load tasks and BTC price
-		(async () => {
-			await loadTasks();
-			await fetchBtcPrice();
-		})();
+		await loadTasks();
+		await fetchBtcPrice();
 	});
 </script>
 
@@ -411,7 +409,7 @@
 					actionLabel={$myTasksStore.items.length === 0
 						? $t('dashboard.create_task')
 						: $t('dashboard.contracts.clear_filters')}
-					actionHref={$myTasksStore.items.length === 0 ? '/dashboard/create-task' : null}
+					actionHref={$myTasksStore.items.length === 0 ? '/create-task' : null}
 					actionIcon={$myTasksStore.items.length === 0 ? IconPlus : IconRefresh}
 					onAction={$myTasksStore.items.length === 0 ? undefined : clearTaskFilters}
 					testId="dashboard-tasks-empty-state"

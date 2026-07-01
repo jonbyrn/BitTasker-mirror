@@ -4,13 +4,12 @@
 
 	let { class: className = 'block mx-auto mt-8 mb-8 w-full max-w-xs sm:max-w-sm md:max-w-md' } =
 		$props<{ class?: string }>();
-	let logoUrl = $state('');
 
-	$effect(() => {
+	const logoUrl = $derived.by(() => {
 		const themeKey = $darkMode ? 'dark' : 'light';
 		const lang = $locale;
 		const logoLang = lang === 'es' ? '-es' : '';
-		logoUrl = `/images/logos/bittasker-logo-${themeKey}${logoLang}.svg`;
+		return `/images/logos/bittasker-logo-${themeKey}${logoLang}.svg`;
 	});
 </script>
 

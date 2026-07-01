@@ -139,7 +139,7 @@ self.addEventListener('notificationclick', (event) => {
 	const data = event.notification.data;
 
 	// Determine the URL to open based on notification type
-	let urlToOpen = '/dashboard';
+	let urlToOpen = '/';
 
 	if(data.clickAction) {
 		urlToOpen = data.clickAction;

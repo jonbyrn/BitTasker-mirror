@@ -17,6 +17,16 @@ const initialAuthState: AuthState = {
 	error: null
 };
 
+async function initNotifications() {
+	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
+	await notificationCenterStore.fetchUnreadCount();
+
+	const { connectNotificationSocket } = await import(
+		'$lib/api/services/notificationSocket.service'
+	);
+	await connectNotificationSocket();
+}
+
 const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(initialAuthState);
 
@@ -25,14 +35,31 @@ const createAuthStore = () => {
 		// Revoke refresh token on the backend (best-effort)
 		await authService.logout();
 
+		// Disconnect notification WebSocket before clearing auth state
+		const { disconnectNotificationSocket } = await import(
+			'$lib/api/services/notificationSocket.service'
+		);
+		disconnectNotificationSocket();
+
 		await ndkLogout();
 		ndkIdentity.reset();
+
+		// Dismiss any open banners
+		appStore.update((state) => ({
+			...state,
+			toasts: state.toasts.filter((t) => t.type !== 'banner')
+		}));
 
 		// Destroy the local session (tokens, stores, caches)
 		await destroySession();
 
 		// Reset auth state
 		set(initialAuthState);
+
+		// Navigate to home after clearing auth. Must happen after destroySession()
+		// and set() so the user is no longer authenticated — otherwise the
+		// protected layout guard would redirect to /hiring instead of /.
+		await goto('/', { replaceState: true });
 	};
 
 	const setupAuthData = async (
@@ -59,15 +86,21 @@ const createAuthStore = () => {
 		// Lazy load user store only when needed
 		authState.login();
 
+		// Initialize notification count and WebSocket after login.
+		// The layout's onMount handles first load, but on re-login the layout
+		// doesn't remount, so we must explicitly re-init here.
+		initNotifications().catch(() => {
+			// Non-critical — layout will also attempt this on mount
+		});
+
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) {
-			// Respect returnTo param and pending deep links before defaulting to /dashboard
+			// Respect returnTo param and pending deep links before defaulting to /hiring
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
-			const target =
-				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/dashboard';
+			const target = returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
 			await goto(target);
 			// Close modal and reset migration state
 			resetMigration();

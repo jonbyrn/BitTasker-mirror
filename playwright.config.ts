@@ -55,6 +55,7 @@ export default defineConfig({
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : undefined,
 	reporter: 'list',
+	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
 		baseURL,
 
@@ -68,27 +69,42 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] }
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: process.env.AUTH_STATE_PATH || 'tests/e2e/.auth/chromium-auth.json'
+			}
 		},
 
 		{
 			name: 'firefox',
-			use: { ...devices['Desktop Firefox'] }
+			use: {
+				...devices['Desktop Firefox'],
+				storageState: process.env.AUTH_STATE_PATH || 'tests/e2e/.auth/firefox-auth.json'
+			}
 		},
 
 		{
 			name: 'webkit',
-			use: { ...devices['Desktop Safari'] }
+			use: {
+				...devices['Desktop Safari'],
+				storageState: process.env.AUTH_STATE_PATH || 'tests/e2e/.auth/webkit-auth.json'
+			}
 		},
 
 		/* Test against mobile viewports. */
 		{
 			name: 'Mobile Chrome',
-			use: { ...devices['Pixel 5'] }
+			use: {
+				...devices['Pixel 5'],
+				storageState: process.env.AUTH_STATE_PATH || 'tests/e2e/.auth/chromium-auth.json'
+			}
 		},
 		{
 			name: 'Mobile Safari',
-			use: { ...devices['iPhone 12'] }
+			use: {
+				...devices['iPhone 12'],
+				storageState: process.env.AUTH_STATE_PATH || 'tests/e2e/.auth/webkit-auth.json'
+			}
 		}
 
 		/* Test against branded browsers. */
@@ -106,35 +122,35 @@ export default defineConfig({
 	webServer: overrideBaseURL
 		? undefined
 		: useDevServer
-		? {
-				command: 'npm run dev',
-				url: DEV_URL,
-				reuseExistingServer: true,
-				timeout: 60 * 1000,
-				env: {
-					VITE_E2E_TURNSTILE_BYPASS: 'true',
-					...process.env
-				}
-			}
-		: previewOnly
 			? {
-					command: `npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
-					url: PREVIEW_URL,
-					reuseExistingServer: false,
-					timeout: PREVIEW_START_TIMEOUT_MS,
+					command: 'npm run dev:dev',
+					url: DEV_URL,
+					reuseExistingServer: true,
+					timeout: 60 * 1000,
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
 						...process.env
 					}
 				}
-			: {
-					command: `npm run build && npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
-					url: PREVIEW_URL,
-					reuseExistingServer: !process.env.CI,
-					timeout: 600 * 1000, // 10 min: full SvelteKit preview build is slow in CI/local CI-shaped runs
-					env: {
-						VITE_E2E_TURNSTILE_BYPASS: 'true',
-						...process.env
+			: previewOnly
+				? {
+						command: `npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
+						url: PREVIEW_URL,
+						reuseExistingServer: false,
+						timeout: PREVIEW_START_TIMEOUT_MS,
+						env: {
+							VITE_E2E_TURNSTILE_BYPASS: 'true',
+							...process.env
+						}
 					}
-				}
+				: {
+						command: `npm run build && npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
+						url: PREVIEW_URL,
+						reuseExistingServer: !process.env.CI,
+						timeout: 600 * 1000, // 10 min: full SvelteKit preview build is slow in CI/local CI-shaped runs
+						env: {
+							VITE_E2E_TURNSTILE_BYPASS: 'true',
+							...process.env
+						}
+					}
 });

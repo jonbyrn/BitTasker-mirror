@@ -163,7 +163,8 @@ async function performMigration(context: MigrationContext) {
 		clientDataJSON: credentialData.clientDataJSON,
 		attestationObject: credentialData.attestationObject,
 		appVersion: __APP_VERSION__,
-		platform
+		platform,
+		timezoneOffset: new Date().getTimezoneOffset()
 	});
 
 	// Update state to success

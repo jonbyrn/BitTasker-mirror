@@ -7,15 +7,8 @@ import { test, expect } from '../fixtures/auth';
 
 test.describe('Balance Management', () => {
 	test.beforeEach(async ({ authenticatedPage }) => {
-		// Try /wallet first, it may redirect to /dashboard/wallet
 		await authenticatedPage.goto('/wallet');
 		await authenticatedPage.waitForLoadState('networkidle');
-		// If redirected, wait for redirect
-		const currentUrl = authenticatedPage.url();
-		if (!currentUrl.includes('/wallet')) {
-			await authenticatedPage.goto('/dashboard/wallet');
-			await authenticatedPage.waitForLoadState('networkidle');
-		}
 	});
 
 	test('should display wallet balance', async ({ authenticatedPage }) => {

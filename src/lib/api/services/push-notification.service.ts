@@ -16,6 +16,7 @@ import { notificationService } from '$lib/api/services/notification.service';
 import { registerServiceWorker, getFirebaseWebConfig, getVapidKey } from '$lib/utils/helpers/fcm';
 import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { appStore } from '$lib/stores/app.store';
+import { foregroundNotificationCoordinator } from '$lib/utils/helpers/foreground-notification-coordinator';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
@@ -127,7 +128,7 @@ class PushNotificationService {
 
 			// Handle foreground messages
 			onMessage(this.messaging, async (payload) => {
-				console.log('📨 Message received in foreground: ', payload);
+				console.log('📨 Message received in foreground: ', payload.data?.title);
 				await this.handleForegroundMessage(payload);
 			});
 
@@ -216,27 +217,35 @@ class PushNotificationService {
 	 * Web specific
 	 */
 	private async handleForegroundMessage(payload: MessagePayload): Promise<void> {
-		// Handle data payload first (includes device revocation)
-		if (payload.data) {
-			appStore.showInfoToast(payload.data.title || 'New notification received');
+		if (!payload.data) return;
 
-			/**
-			 * Avoid directly navigating to the URL in the notification
-			 * TODO: Update toast notification to show action buttons
-			 */
-			if (payload.data.type === 'device_revoked') {
-				await this.handleDeviceRevocation(payload.data);
-				return; // Exit early, don't navigate anywhere
-			}
+		const title = payload.data.title || 'New notification received';
 
-			// Show notification in foreground (optional, since browser handles this)
-			if (Notification.permission === 'granted') {
+		if (payload.data.type === 'device_revoked') {
+			await this.handleDeviceRevocation(payload.data);
+			return;
+		}
+
+		let systemNotificationShown = false;
+
+		if (Notification.permission === 'granted') {
+			try {
 				new Notification(payload.data.title, {
 					body: payload.data.body,
 					icon: payload.data.icon || '/favicon.ico',
 					tag: 'bittasker-notification'
 				});
+				systemNotificationShown = true;
+				foregroundNotificationCoordinator.markSystemNotificationShown();
+			} catch {
+				systemNotificationShown = false;
 			}
+		}
+
+		if (!systemNotificationShown) {
+			appStore.showInfoToast(title, 3000, {
+				dedupKey: `toast-dedup:${title}`
+			});
 		}
 	}
 
@@ -250,7 +259,7 @@ class PushNotificationService {
 			return; // Exit early, don't navigate anywhere
 		}
 
-		let targetUrl = '/dashboard';
+		let targetUrl = '/hiring';
 
 		// Check for clickAction first, then fallback to other locations
 		if (data.clickAction) {
@@ -284,19 +293,14 @@ class PushNotificationService {
 	 * Mobile specific - CONSOLIDATED to prevent duplicates (Android only)
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
-		console.log('📨 Foreground notification received:', notification);
+		console.log('📨 Foreground notification received:', notification?.title);
 
-		// Check if this is a device revocation (handle immediately)
 		if (notification.data?.type === 'device_revoked') {
 			await this.handleDeviceRevocation(notification.data);
 			return;
 		}
 
 		try {
-			// Android: System doesn't show alerts in foreground by default
-			// For other platforms (iOS will be handled later)
-			// const platform = Capacitor.getPlatform();
-
 			try {
 				const permission = await LocalNotifications.checkPermissions();
 				if (permission.display !== 'granted') {
@@ -309,7 +313,6 @@ class PushNotificationService {
 
 				const notificationId = this.generateNotificationId(notification?.id);
 
-				// Schedule ONE local notification using the unified channel
 				await LocalNotifications.schedule({
 					notifications: [
 						{
@@ -319,10 +322,8 @@ class PushNotificationService {
 							sound: 'default',
 							actionTypeId: 'OPEN_ACTION',
 							extra: notification.data || {},
-							// Show immediately
 							schedule: { at: new Date(Date.now() + 100) },
 							autoCancel: true,
-							// Use unified notification channel id
 							channelId: 'bittasker-notification',
 							smallIcon: 'ic_stat_notify'
 						}
@@ -330,6 +331,7 @@ class PushNotificationService {
 				});
 
 				console.log('✅ Local notification scheduled with ID:', notificationId);
+				foregroundNotificationCoordinator.markSystemNotificationShown();
 			} catch (error) {
 				console.error('❌ Error scheduling local notification:', error);
 			}
@@ -383,10 +385,20 @@ class PushNotificationService {
 
 				const data = notification.notification?.data || {};
 
-				const targetUrl = data.clickAction || data.click_action || '/dashboard';
+				// Mark as read if notificationId is present
+				if (data.notificationId && typeof data.notificationId === 'string') {
+					import('$lib/stores/notificationCenter.store')
+						.then(({ notificationCenterStore }) => {
+							notificationCenterStore.markRead(data.notificationId as string);
+						})
+						.catch((err) => {
+							console.error('Failed to mark notification as read:', err);
+						});
+				}
 
-				// Navigate to the target URL
-				window.location.href = targetUrl;
+				// Navigate using the existing navigateToUrl method
+				const targetUrl = data.deepLink || data.clickAction || data.click_action || '/hiring';
+				this.navigateToUrl(targetUrl);
 			}
 		);
 
@@ -395,10 +407,21 @@ class PushNotificationService {
 			console.log('🔔 Local notification action performed:', notification);
 			// Handle the local notification tap the same way as push notifications
 			if (notification.notification.extra) {
-				this.handleNotificationData(notification.notification.extra);
+				const extra = notification.notification.extra as Record<string, unknown>;
+				// Mark as read if notificationId is present (mirrors push tap handler)
+				if (extra.notificationId && typeof extra.notificationId === 'string') {
+					import('$lib/stores/notificationCenter.store')
+						.then(({ notificationCenterStore }) => {
+							notificationCenterStore.markRead(extra.notificationId as string);
+						})
+						.catch((err) => {
+							console.error('Failed to mark notification as read:', err);
+						});
+				}
+				this.handleNotificationData(extra);
 			} else {
 				// Fallback to dashboard if no data
-				this.navigateToUrl('/dashboard');
+				this.navigateToUrl('/hiring');
 			}
 		});
 	}

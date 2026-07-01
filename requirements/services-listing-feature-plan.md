@@ -1329,8 +1329,8 @@ The following are explicitly out of scope until Phase `4B` gates are green in `s
 - `Objective:` Expose services on profile (listing, links, count).
 - `Depends on:` none
 - `Files to modify/create:`
-  - `src/routes/(protected)/dashboard/profile/+page.svelte`
-  - `src/routes/(protected)/dashboard/profile/+page.ts`
+  - `src/routes/(protected)/profile/+page.svelte`
+  - `src/routes/(protected)/profile/+page.ts`
   - `src/lib/stores/profile.store.ts`
 - `Implementation steps:`
   1. Add service list module on profile.

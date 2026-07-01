@@ -1,6 +1,7 @@
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import {
 	buildEarningQueryUrl,
+	buildServicesWorkspaceQuerySearchParams,
 	buildServicesWorkspaceQueryUrl,
 	isValidQuoteRequestId,
 	isValidServiceAddress,
@@ -97,10 +98,7 @@ export function parseServicesWorkspaceRouteQuery(
 	context: ServicesWorkspaceRouteContext,
 	now = Date.now()
 ): ServicesWorkspaceRouteParseResult {
-	const url = new URL('https://bittasker.local/services/manage');
-	url.search = searchParams.toString();
-
-	const parsed = parseServicesWorkspaceQuery(url);
+	const parsed = parseServicesWorkspaceQuery(searchParams);
 	const normalized: ServicesWorkspaceRouteState = {
 		tab: parsed.tab,
 		serviceAddress: null,
@@ -151,18 +149,12 @@ export function parseServicesWorkspaceRouteQuery(
 		}
 	}
 
-	const canonicalUrl = buildServicesWorkspaceQueryUrl(
-		new URL('https://bittasker.local/services/manage'),
-		{
-			tab: normalized.tab,
-			service:
-				normalized.tab === 'service-requests'
-					? (normalized.serviceAddress ?? undefined)
-					: undefined,
-			request: normalized.requestId ?? undefined
-		}
-	);
-	const canonicalSearchParams = new URL(canonicalUrl).searchParams;
+	const canonicalSearchParams = buildServicesWorkspaceQuerySearchParams({
+		tab: normalized.tab,
+		service:
+			normalized.tab === 'service-requests' ? (normalized.serviceAddress ?? undefined) : undefined,
+		request: normalized.requestId ?? undefined
+	});
 
 	return {
 		state: normalized,

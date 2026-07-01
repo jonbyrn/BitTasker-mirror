@@ -43,9 +43,7 @@ describe('messageParser', () => {
 		});
 
 		it('should return true for JSON with type property', () => {
-			expect(isJsonSystemMessage(JSON.stringify({ type: 'bid-status', message: 'ok' }))).toBe(
-				true
-			);
+			expect(isJsonSystemMessage(JSON.stringify({ type: 'bid-status', message: 'ok' }))).toBe(true);
 			expect(isJsonSystemMessage(JSON.stringify({ type: 'bid' }))).toBe(true);
 		});
 

@@ -59,7 +59,8 @@
 	<!-- Content Sections -->
 	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<!-- Media Kit -->
-		<div class="card bg-base-100 shadow-lg">
+		<!-- TODO: Add media kit once we have it -->
+		<!-- <div class="card bg-base-100 shadow-lg">
 			<div class="card-body">
 				<h3 class="mt-6 mb-4">{$t('press.media_kit.title')}</h3>
 				<p class="mb-6">{$t('press.media_kit.description')}</p>
@@ -81,7 +82,7 @@
 				</div>
 				<p class="text-base-content/80 mt-4 text-sm">{$t('press.media_kit.coming_soon')}</p>
 			</div>
-		</div>
+		</div> -->
 
 		<!-- About BitTasker -->
 		<div class="prose my-12 max-w-none">

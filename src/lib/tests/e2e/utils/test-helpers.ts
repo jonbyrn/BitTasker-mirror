@@ -160,7 +160,7 @@ export class TestHelpers {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
-      await this.page.goto('/dashboard');
+      await this.page.goto('/hiring');
       await this.page.waitForTimeout(1000);
       
       // Check if we're redirected to login or if we see dashboard content

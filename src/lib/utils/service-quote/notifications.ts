@@ -9,12 +9,16 @@ import type {
 } from '$lib/types/service-quote';
 import type { Service } from '$lib/types/service.d';
 import KINDS from '$lib/utils/constants/kinds';
+import { createDebug } from '$lib/utils/debug';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { nip44 } from 'nostr-tools';
 import { buildDashboardQueryUrl } from '$lib/utils/dashboardQuery';
 import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
+import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
+
+const d = createDebug('service-quote:notifications');
 
 const SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY = 'bittasker.serviceQuote.sideEffects';
 const SERVICE_QUOTE_NOTIFICATION_ICON =
@@ -25,20 +29,12 @@ const pendingSideEffects = new Set<string>();
 
 type SideEffectChannel = 'push' | 'dm';
 
-export interface ServiceContractCreatedNotificationInput {
-	recipientPubkey: string;
-	escrowId?: string;
-	serviceTitle?: string;
-	purchaseMode: 'quote' | 'instant_buy';
-}
-
 function getClientBaseUrl(): URL {
-	const configuredBaseUrl = import.meta.env.VITE_CLIENT_URL || 'https://bittasker.local';
-	return new URL(configuredBaseUrl);
+	return new URL(getClientOrigin());
 }
 
 function getDashboardBaseUrl(): URL {
-	return new URL('/dashboard', getClientBaseUrl());
+	return new URL('/hiring', getClientBaseUrl());
 }
 
 function getEarningBaseUrl(): URL {
@@ -59,14 +55,6 @@ function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: s
 		serviceAddress,
 		requestId: quoteRequestId
 	}).toString();
-}
-
-function buildContractsClickAction(escrowId?: string): string {
-	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
-		tab: 'contracts',
-		type: 'services',
-		highlight: escrowId ?? null
-	});
 }
 
 function buildLedgerKey(channel: SideEffectChannel, action: string, entityId: string): string {
@@ -246,7 +234,7 @@ function createProposalMirrorPayload(event: ServiceProposalEvent): ServiceQuoteM
 
 function runNonBlockingSideEffect(effect: Promise<void>, label: string): void {
 	void effect.catch((error) => {
-		console.warn(label, error);
+		d.warn(label, error);
 	});
 }
 
@@ -309,27 +297,6 @@ export function dispatchProposalPublishedSideEffects(
 			'Failed to send service proposal DM mirror'
 		);
 	}
-}
-
-export function dispatchServiceContractCreatedNotification(
-	input: ServiceContractCreatedNotificationInput
-): void {
-	const actionEntityId = input.escrowId ?? `${input.purchaseMode}:${input.recipientPubkey}`;
-	const contextTitle = input.serviceTitle?.trim() || 'service';
-
-	runNonBlockingSideEffect(
-		sendPushNotificationOnce('contract_created', actionEntityId, {
-			recipientPubkey: input.recipientPubkey,
-			title: `New service contract created for ${contextTitle}`,
-			body:
-				input.purchaseMode === 'instant_buy'
-					? `A buyer placed a Book Now order for ${contextTitle}.`
-					: `Your service proposal for ${contextTitle} has been accepted.`,
-			type: 'contract_created',
-			clickAction: buildContractsClickAction(input.escrowId)
-		}),
-		'Failed to send service contract notification'
-	);
 }
 
 export async function resetServiceQuoteSideEffectLedger(): Promise<void> {

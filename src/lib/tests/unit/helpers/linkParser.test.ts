@@ -19,7 +19,11 @@ describe('linkParser', () => {
 			const result = parseLinks('check https://example.com out');
 			expect(result).toHaveLength(3);
 			expect(result[0]).toEqual({ type: 'text', content: 'check ' });
-			expect(result[1]).toMatchObject({ type: 'link', url: 'https://example.com', content: 'https://example.com' });
+			expect(result[1]).toMatchObject({
+				type: 'link',
+				url: 'https://example.com',
+				content: 'https://example.com'
+			});
 			expect(result[2]).toEqual({ type: 'text', content: ' out' });
 		});
 

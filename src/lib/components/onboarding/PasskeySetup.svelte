@@ -122,7 +122,8 @@
 				challenge: credentialData.challenge,
 				clientDataJSON: credentialData.clientDataJSON,
 				attestationObject: credentialData.attestationObject,
-				appVersion: __APP_VERSION__
+				appVersion: __APP_VERSION__,
+				timezoneOffset: new Date().getTimezoneOffset()
 			});
 
 			if (response && response.access_token) {

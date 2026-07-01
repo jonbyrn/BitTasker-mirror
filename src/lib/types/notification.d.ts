@@ -102,3 +102,148 @@ export interface SendNotificationToNpubsResult {
 export interface TopicInput {
 	topic: string;
 }
+
+// ─── Notification Center Types ─────────────────────────────────
+
+export type NotificationCategory =
+	| 'contract'
+	| 'bid'
+	| 'message'
+	| 'payment'
+	| 'task'
+	| 'review'
+	| 'security'
+	| 'system'
+	| 'wallet'
+	| 'service'
+	| 'discovery'
+	| 'reengagement'
+	| 'account'
+	| 'new_task_broadcast'
+	| 'new_service_broadcast'
+	| 'new_service_match'
+	| 'proposal_withdrawn'
+	| 'proposal_updated'
+	| 'service_expiring_soon'
+	| 'service_expired'
+	| 'service_review_received'
+	| 'service_price_changed';
+
+export type NotificationPriority = 'NORMAL' | 'HIGH' | 'URGENT';
+
+export interface NotificationCenterItem {
+	id: string;
+	recipientNpub: string;
+	type: string;
+	title: string;
+	body: string;
+	isRead: boolean;
+	priority: NotificationPriority;
+	data: NotificationData | null;
+	dedupeKey: string;
+	readAt: string | null;
+	pushSentAt: string | null;
+	dismissedAt: string | null;
+	expiresAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	userId: number | null;
+}
+
+export interface NotificationData {
+	deepLink?: string;
+	senderName?: string;
+	senderNpub?: string;
+	taskId?: string;
+	taskTitle?: string;
+	serviceId?: string;
+	serviceTitle?: string;
+	contractId?: string;
+	escrowId?: string;
+	amount?: string;
+	currency?: string;
+	[key: string]: unknown;
+}
+
+export interface NotificationCenterListResponse {
+	items: NotificationCenterItem[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+export interface NotificationUnreadCountResponse {
+	count: number;
+}
+
+export interface NotificationMarkAllReadResponse {
+	updatedCount: number;
+}
+
+export interface NotificationDeleteManyResponse {
+	deletedCount: number;
+}
+
+export interface NotificationFilters {
+	page: number;
+	limit: number;
+	read?: boolean;
+	type?: string;
+}
+
+export interface TaskNotificationSettings {
+	enabled: boolean;
+	frequency: string;
+	broadcast: boolean;
+	broadcastFrequency: string;
+}
+
+export interface ServiceNotificationSettings {
+	enabled: boolean;
+	frequency: string;
+	broadcast: boolean;
+	broadcastFrequency: string;
+}
+
+export interface NotificationPreferencesExtended {
+	id: string;
+	npub: string;
+	userId: number | null;
+	pushEnabled: boolean;
+	emailEnabled: boolean;
+	quietHoursEnabled: boolean;
+	quietHoursStart: string;
+	quietHoursEnd: string;
+	contractUpdates: boolean;
+	bidUpdates: boolean;
+	taskMatches: boolean;
+	taskMatchFrequency: string;
+	messageNotifications: boolean;
+	messagePreview: boolean;
+	reviewNotifications: boolean;
+	discoveryNotifications: boolean;
+	reengagementNotifications: boolean;
+	securityAlerts: boolean;
+	walletNotifications: boolean;
+	serviceNotifications: boolean;
+	taskNotificationSettings: TaskNotificationSettings;
+	serviceNotificationSettings: ServiceNotificationSettings;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface EnrichmentRequest {
+	action: string;
+	escrowId?: string;
+	bidEventId?: string;
+	taskId?: string;
+	recipientNpub?: string;
+	estimatedStartTime?: number;
+	estimatedCompletionTime?: number;
+	timelockDuration?: number;
+	amount?: string;
+	taskTitle?: string;
+	taskDeadline?: number;
+	responseDeadline?: number;
+}

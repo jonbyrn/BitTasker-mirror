@@ -16,11 +16,11 @@
 	} = $props();
 
 	function goToContracts() {
-		goto('/dashboard?tab=contracts');
+		goto('/hiring/contracts');
 	}
 
 	function goToCreateTask() {
-		goto('/dashboard/create-task');
+		goto('/create-task');
 	}
 </script>
 

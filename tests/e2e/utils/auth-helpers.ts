@@ -121,10 +121,13 @@ export class AuthHelper {
 	}
 
 	async loginWithNostrKey(nsecKey?: string): Promise<void> {
-		const testKey =
-			nsecKey ||
-			process.env.TEST_NOSTR_KEY ||
-			'nsec1testkey123456789012345678901234567890123456789012345678901234567890';
+		const testKey = nsecKey || process.env.TEST_NOSTR_KEY;
+		if (!testKey) {
+			throw new Error(
+				'No nsec key provided. Set TEST_NOSTR_KEY env var or pass nsecKey to loginWithNostrKey(). ' +
+					'See tests/e2e/fixtures/test-nostr-keypair.ts for the default test key.'
+			);
+		}
 		await this.page.goto('/auth/login');
 		const nsecInput = this.page
 			.locator('input[placeholder*="nsec"], input[name*="nsec"], textarea[placeholder*="nsec"]')
@@ -158,7 +161,10 @@ export class AuthHelper {
 				(currentUrl.includes('localhost') && !currentUrl.includes('/auth/'))
 			) {
 				await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-				const bodyText = await this.page.locator('body').textContent().catch(() => '');
+				const bodyText = await this.page
+					.locator('body')
+					.textContent()
+					.catch(() => '');
 				const hasDashboardContent =
 					bodyText &&
 					(bodyText.includes('Dashboard') ||

@@ -216,7 +216,7 @@ async function generateTaskTags(
 		.slice(0, 10); // Limit to 10 skills
 
 	const tags: Array<[string, ...string[]]> = [
-		['c', ...taskData.categories.map((id) => id.toString())],
+		['c', ...taskData.categories.map((cat) => cat.id)],
 		['s', ...normalizedSkills],
 		['p', await getNpub()],
 		['pow', ...pow],

@@ -2,11 +2,13 @@
 
 
 export async function load({ url }) {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',
 		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',
 		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin secure payment contracts, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'BitTasker FAQ - Your Questions Answered',
 		ogDescription: 'Get answers to common questions about BitTasker\'s Bitcoin task marketplace, including how our secure payment contract system works, fees, and payment process.',
 		twitterTitle: 'BitTasker FAQ - Common Questions Answered',

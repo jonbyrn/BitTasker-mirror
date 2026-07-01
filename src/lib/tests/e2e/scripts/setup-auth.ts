@@ -126,7 +126,7 @@ async function setupAuth() {
     console.log('      * Enter your Nostr private key (starts with nsec1...)');
     console.log('      * If you don\'t have a key, register a new account first');
     console.log('        and save the generated Nostr key');
-    console.log('   4. Once authenticated and redirected to dashboard, the session will be saved\n');
+    console.log('   4. Once authenticated and redirected to hiring, the session will be saved\n');
     console.log('💡 Note: Virtual authenticator is configured, but browsers may prioritize real hardware keys.');
     console.log('   If you see hardware key prompts, temporarily disable/unplug your hardware key.\n');
 
@@ -136,11 +136,11 @@ async function setupAuth() {
     console.log('⏳ Waiting for you to authenticate (you have 5 minutes)...\n');
     console.log('📌 IMPORTANT: Use Nostr key login, not biometric (biometric won\'t work in browser)\n');
 
-    // Wait for user to authenticate (check for dashboard or onboarding redirect)
+    // Wait for user to authenticate (check for hiring or onboarding redirect)
     // Also check for any error messages about biometric
     try {
-      // Wait for either dashboard or onboarding (new users go to onboarding)
-      await page.waitForURL(/.*\/(dashboard|auth\/onboarding)/, { timeout: 300000 }); // 5 minute timeout
+      // Wait for either hiring or onboarding (new users go to onboarding)
+      await page.waitForURL(/.*\/(hiring|auth\/onboarding)/, { timeout: 300000 }); // 5 minute timeout
       console.log('✅ Redirected to:', page.url());
     } catch (error) {
       // Check if there's a biometric error message visible
@@ -172,7 +172,7 @@ async function setupAuth() {
     console.log('\n💡 Tips:');
     console.log('   - Make sure the dev server is running (npm run dev)');
     console.log('   - Complete the full authentication flow');
-    console.log('   - Check that you can access /dashboard manually');
+    console.log('   - Check that you can access /hiring manually');
     process.exit(1);
   } finally {
     // Keep browser open for a moment so user can see the result

@@ -24,8 +24,12 @@ describe('dateTier', () => {
 			const result = getDateRangeTags('2025-03-02', '2025-02-28');
 			expect(result.months.length).toBeGreaterThanOrEqual(1);
 			expect(result.days.length).toBeGreaterThanOrEqual(3);
-			expect(result.months.every((m) => /^\d+$/.test(m) && Number(m) >= 0 && Number(m) <= 11)).toBe(true);
-			expect(result.days.every((d) => /^\d+$/.test(d) && Number(d) >= 1 && Number(d) <= 31)).toBe(true);
+			expect(result.months.every((m) => /^\d+$/.test(m) && Number(m) >= 0 && Number(m) <= 11)).toBe(
+				true
+			);
+			expect(result.days.every((d) => /^\d+$/.test(d) && Number(d) >= 1 && Number(d) <= 31)).toBe(
+				true
+			);
 		});
 
 		it('should return empty arrays when end is before start', () => {

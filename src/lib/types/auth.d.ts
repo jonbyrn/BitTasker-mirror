@@ -46,6 +46,7 @@ export interface PasskeyLoginArgs {
 		userHandle?: string;
 	};
 	appVersion: string;
+	timezoneOffset?: number;
 }
 
 export interface NostrLoginArgs {
@@ -61,6 +62,7 @@ export interface NostrLoginArgs {
 	attestationObject: string;
 	platform: string;
 	appVersion: string;
+	timezoneOffset?: number;
 }
 
 export interface EncryptedNostrDataArgs {
@@ -203,6 +205,7 @@ export interface NostrRecoveryCompleteData {
 	clientDataJSON: string;
 	attestationObject: string;
 	revokeAll: boolean;
+	timezoneOffset?: number;
 }
 
 export interface NostrRecoveryData {
@@ -232,4 +235,5 @@ export type RegistrationData = {
 	clientDataJSON: string;
 	attestationObject: string;
 	appVersion: string;
+	timezoneOffset?: number;
 };

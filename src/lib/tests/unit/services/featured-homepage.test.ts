@@ -121,7 +121,11 @@ describe('featuredHomepage helpers', () => {
 
 		expect(hasImageAttachment(attachments)).toBe(true);
 		expect(getFirstImageUrl(attachments)).toBe('https://cdn.example.com/preview.webp');
-		expect(hasImageAttachment([{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' }])).toBe(false);
+		expect(
+			hasImageAttachment([
+				{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' }
+			])
+		).toBe(false);
 		expect(getFirstImageUrl(undefined)).toBe('');
 	});
 });

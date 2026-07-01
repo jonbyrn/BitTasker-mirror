@@ -48,7 +48,7 @@
 	readonly
 	aria-label={$t('common.components.app_notification.title')}
 />
-{#if isVisible}
+{#if isVisible && import.meta.env.MODE !== 'development'}
 	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
 			<!-- Modal Header -->

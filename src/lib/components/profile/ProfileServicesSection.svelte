@@ -43,7 +43,7 @@
 					<p class="text-base-content/70 text-sm">
 						{$t('profile.services_summary.count_loading')}
 					</p>
-					{#each Array.from({ length: 3 }) as _, index}
+					{#each Array.from({ length: 3 }) as _, index (index)}
 						<div
 							class="bg-base-100/70 animate-pulse rounded-xl p-4"
 							data-testid={`profile-services-loading-row-${index}`}
@@ -66,7 +66,7 @@
 					data-testid="profile-services-empty"
 				>
 					<p class="mb-3 text-sm">{$t('profile.services_summary.empty')}</p>
-					<a class="btn btn-primary btn-sm" href="/dashboard/create-service">
+					<a class="btn btn-primary btn-sm" href="/create-service">
 						{$t('profile.services_summary.create_cta')}
 					</a>
 				</div>

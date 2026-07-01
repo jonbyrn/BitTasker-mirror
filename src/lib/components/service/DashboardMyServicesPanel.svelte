@@ -468,7 +468,7 @@
 		if (!serviceToEdit) return;
 		const id = serviceToEdit.uniqueId || serviceToEdit.id;
 		closeServiceDrawer();
-		goto(`/dashboard/create-service?edit=true&serviceId=${encodeURIComponent(id)}`);
+		goto(`/create-service?edit=true&serviceId=${encodeURIComponent(id)}`);
 	}
 
 	async function requestDeleteServiceFromDrawer() {
@@ -730,7 +730,7 @@
 				'List your first service to start receiving requests from buyers.'
 			)}
 			actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
-			actionHref="/dashboard/create-service"
+			actionHref="/create-service"
 			actionIcon={emptyStateActionIcon}
 			testId="dashboard-my-services-empty-state"
 		/>

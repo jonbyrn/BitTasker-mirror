@@ -701,7 +701,7 @@
 					actionLabel={activeFilter !== 'all'
 						? tr('dashboard.contracts.clear_filters', 'Clear Filters')
 						: tr('dashboard.services.my_services.create_service', 'Create Service')}
-					actionHref={activeFilter !== 'all' ? null : '/dashboard/create-service'}
+					actionHref={activeFilter !== 'all' ? null : '/create-service'}
 					actionIcon={activeFilter !== 'all' ? IconRefresh : IconPlus}
 					onAction={activeFilter !== 'all' ? clearFilters : undefined}
 					testId="service-quotes-filtered-empty-state"
@@ -768,7 +768,7 @@
 					'No service requests yet.'
 				)}
 				actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
-				actionHref="/dashboard/create-service"
+				actionHref="/create-service"
 				actionIcon={IconPlus}
 				testId="service-quotes-empty-state"
 			/>

@@ -14,6 +14,7 @@ import { coerceUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 import { createDebug } from '$lib/utils/debug';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
+	MINIMUM_START_BUFFER_SECONDS,
 	type CreatePaymentContractParams,
 	type GasEstimateResult,
 	type ContractCreationResult,
@@ -27,10 +28,12 @@ import abi from './abi.json';
 import type { NDKBid } from '$lib/nostr/events/bid';
 import type { NDKTask } from '$lib/nostr/events/task';
 import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
+import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 
 const d = createDebug('contract:v2');
 
@@ -103,16 +106,15 @@ export function deriveContractCreationParams(
 	const now = Math.floor(Date.now() / 1000);
 	let wasTimeAdjusted = false;
 
-	if (startTime <= now) {
-		const newStartTime = now + 3600;
-		const timeShift = newStartTime - startTime;
-		startTime = newStartTime;
-		completionTime = completionTime + timeShift;
+	if (startTime < now + MINIMUM_START_BUFFER_SECONDS) {
+		startTime = now + MINIMUM_START_BUFFER_SECONDS;
 		wasTimeAdjusted = true;
 	}
 
 	if (completionTime <= startTime) {
-		throw new Error('Completion time must be after start time');
+		throw new Error(
+			'Completion time must be after start time. The task window is too short to create a contract with the required safety buffer.'
+		);
 	}
 
 	if (
@@ -224,15 +226,35 @@ export function parsePaymentContractCreatedPaymentId(
 }
 
 /**
- * Mark task as bid-accepted + IN_PROGRESS and publish replaceable (kind 31000).
+ * Mark kind 31000 task bid-accepted + IN_PROGRESS and publish replaceable (kind 31000).
  * Uses NDKTask setters so tags/body stay aligned with the loaded event.
+ * @param adjustedStartTimeSeconds - If the contract start time was adjusted by the safety buffer,
+ *   the task's `dateRange.start` is updated to match (ISO string, unix → Date → ISO).
  */
-async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promise<void> {
+async function publishTaskAcceptedBid(
+	task: NDKTask,
+	bidEventId: string,
+	adjustedStartTimeSeconds?: number
+): Promise<void> {
 	if (!task.ndk) {
 		throw new Error('NDK is required to publish task update');
 	}
 	task.acceptedBid = bidEventId;
 	task.status = TaskStatusEnum.IN_PROGRESS;
+
+	if (adjustedStartTimeSeconds != null) {
+		const body = task.taskContent;
+		if (body.dateRange) {
+			body.dateRange.start = new Date(adjustedStartTimeSeconds * 1000).toISOString();
+		} else {
+			body.dateRange = {
+				start: new Date(adjustedStartTimeSeconds * 1000).toISOString(),
+				end: ''
+			};
+		}
+		task.content = JSON.stringify(body);
+	}
+
 	await task.publishReplaceable();
 }
 
@@ -298,7 +320,6 @@ export async function createContract(
 		const transactionHash = tx.hash;
 		d.log('createContract: broadcast ok — pending confirmation', { transactionHash });
 
-		const taskeeNpub = bid.author?.npub;
 		const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
@@ -342,27 +363,37 @@ export async function createContract(
 			}
 		);
 
-		const taskUpdatePromise = publishTaskAcceptedBid(task, bid.id);
+		const taskUpdatePromise = publishTaskAcceptedBid(
+			task,
+			bid.id,
+			display.wasTimeAdjusted ? params.estimatedStartTime : undefined
+		);
 
-		const pushPromise = taskeeNpub
-			? pushNotificationService.sendNotificationToNpubs({
-					npubs: [taskeeNpub],
-					title: 'Bid Accepted',
-					body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
-					type: 'bid_accepted',
-					clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-				})
-			: Promise.resolve();
+		// Push notification removed — backend's Nostr indexer handles bid_accepted_notify
+		// via the reminder engine when it processes the Kind 30006 contract event.
+		// Send Kind 30008 bid status event so the bidder gets an instant notification.
+		const bidStatusUpdatePromise = sendBidStatusUpdate(
+			bid.id,
+			taskId,
+			taskeePubkey,
+			BidStatusEnum.ACCEPTED,
+			undefined,
+			undefined,
+			transactionHash
+		);
 
 		const afterBroadcast = runParallelNamed([
 			{ name: 'nostrPublish', run: () => publishPromise },
 			{ name: 'sendLocations', run: () => dmPromise },
 			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise },
-			{ name: 'push', run: () => pushPromise }
+			{ name: 'bidStatusUpdate', run: () => bidStatusUpdatePromise }
 		]);
 
 		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
+			if (receipt.status === 0) {
+				d.warn('createContract: tx reverted on-chain', { transactionHash });
+				throw new Error('Transaction reverted on-chain');
+			}
 			const paymentId = parsePaymentContractCreatedPaymentId(
 				receipt,
 				getSecurePaymentContractAddress()
@@ -384,7 +415,45 @@ export async function createContract(
 					paymentId
 				});
 			}
+
+			// Enrich backend with contract timeline data for scheduled reminders
+			try {
+				await notificationCenterService.enrich({
+					action: 'contract_created',
+					escrowId: String(paymentId),
+					bidEventId: bid.id,
+					taskId,
+					recipientNpub: taskeePubkey,
+					estimatedStartTime: params.estimatedStartTime,
+					amount: display.baseAmount?.toString(),
+					taskTitle: taskContent.title ?? undefined
+				});
+			} catch (e) {
+				d.warn('createContract: enrichment failed (non-blocking)', e);
+			}
+
 			return { paymentId };
+		};
+
+		const afterFailed = async (txHash: string): Promise<void> => {
+			d.log('createContract: afterFailed cleanup', { txHash });
+
+			// Republish Kind 30006 contract event with status: 'failed'
+			const failedContractEvent = await NDKPaymentContract.from(contractEvent);
+			if (failedContractEvent) {
+				failedContractEvent.status = 'failed';
+				await failedContractEvent.publishReplaceable();
+				d.log('createContract: contract event republished with status failed', { txHash });
+			}
+
+			// Revert Kind 31000 task status from IN_PROGRESS back to BID_ACCEPTED
+			try {
+				task.status = TaskStatusEnum.BID_ACCEPTED;
+				await task.publishReplaceable();
+				d.log('createContract: task reverted to BID_ACCEPTED', { txHash });
+			} catch (e) {
+				d.warn('createContract: failed to revert task status', e);
+			}
 		};
 
 		return {
@@ -393,7 +462,8 @@ export async function createContract(
 			estimatedCostFormatted,
 			tx,
 			afterBroadcast,
-			afterConfirmed
+			afterConfirmed,
+			afterFailed
 		};
 	} catch (error) {
 		const err = error instanceof Error ? error : new Error(String(error));

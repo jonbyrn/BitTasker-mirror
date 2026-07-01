@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { load } from '../../../routes/services/[serviceId]/+page';
+import { load } from '../../../routes/(app)/services/[serviceId]/+page';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { getServicesBrowseSeo } from '$lib/utils/seo/servicesBrowseSeo';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';

@@ -4,18 +4,6 @@ import { browser } from '$app/environment';
 
 let splashScreenHidden = false;
 
-export async function initializeSplashScreen(): Promise<void> {
-	if (!browser) return;
-	
-	try {
-		if (Capacitor.isNativePlatform()) {
-			// Splash screen is already showing, will hide when app is ready
-		}
-	} catch (error) {
-		console.error('[SplashScreen] Error initializing:', error);
-	}
-}
-
 export async function hideSplashScreen(options?: {
 	fadeOutDuration?: number;
 	force?: boolean;

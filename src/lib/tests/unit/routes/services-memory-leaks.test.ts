@@ -355,7 +355,9 @@ describe('MEMORY LEAK FIX #1: servicesStore.destroy() anti-pattern', () => {
 	});
 
 	it('FIX VERIFICATION: servicesStore.destroy() should NOT be called on component destroy', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { unmount } = render(ServicesPage);
 
@@ -369,7 +371,9 @@ describe('MEMORY LEAK FIX #1: servicesStore.destroy() anti-pattern', () => {
 	});
 
 	it('FIX VERIFICATION: cleanup() from findServices SHOULD be called on component destroy', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { unmount } = render(ServicesPage);
 
@@ -419,9 +423,10 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 
 	it('FIX VERIFICATION: loadingTimeoutTimer should be started when loading begins and cleared on destroy', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved to test timeout behavior
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved to test timeout behavior
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -433,7 +438,9 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -482,7 +489,7 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 	it('FIX VERIFICATION: loadingTimedOut should be set to true after LOADING_TIMEOUT_MS when loading', async () => {
 		vi.useFakeTimers();
 
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -493,7 +500,9 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -527,7 +536,9 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -580,7 +591,9 @@ describe('MEMORY LEAK FIX #4: initPromise chain has no abort mechanism', () => {
 			});
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { unmount } = render(ServicesPage);
 
@@ -635,7 +648,9 @@ describe('MEMORY LEAK FIX #5: Verify destroy() NOT called on singleton store', (
 	});
 
 	it('servicesStore.destroy() should NOT be called when component unmounts (singleton protection)', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -652,7 +667,9 @@ describe('MEMORY LEAK FIX #5: Verify destroy() NOT called on singleton store', (
 	});
 
 	it('only cleanup() from findServices SHOULD be called on component destroy (not destroy on singleton)', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { unmount } = render(ServicesPage);
 
@@ -705,9 +722,10 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 	it('should clear loadingTimeoutTimer when component unmounts during loading', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -721,7 +739,9 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 		vi.spyOn(global, 'clearTimeout').mockClear();
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -738,7 +758,7 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 	});
 
 	it('should clear loadingTimeoutTimer via clearTimeout when unmounted mid-timeout', async () => {
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -751,7 +771,9 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 		vi.spyOn(global, 'clearTimeout').mockClear();
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -820,7 +842,9 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { rerender, unmount } = render(ServicesPage);
 
@@ -850,7 +874,9 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { rerender, unmount } = render(ServicesPage);
 
@@ -899,7 +925,9 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { rerender, unmount } = render(ServicesPage);
 
@@ -928,7 +956,9 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { unmount } = render(ServicesPage);
 
@@ -985,7 +1015,9 @@ describe('MEMORY LEAK FIX #8: Verify retryLoadServices has cooldown', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { container } = render(ServicesPage);
 
@@ -1028,7 +1060,9 @@ describe('MEMORY LEAK FIX #8: Verify retryLoadServices has cooldown', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { container } = render(ServicesPage);
 
@@ -1071,7 +1105,9 @@ describe('MEMORY LEAK FIX #8: Verify retryLoadServices has cooldown', () => {
 			searchParamsKey: ''
 		});
 
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		const { container } = render(ServicesPage);
 

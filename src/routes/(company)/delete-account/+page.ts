@@ -1,13 +1,15 @@
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ url }) => {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Delete Your Account - BitTasker | Account & Data Deletion',
 		description:
 			'Request deletion of your BitTasker account and associated data. Learn how our non-custodial account deletion process works and what data gets removed.',
 		keywords:
 			'BitTasker delete account, account deletion, data deletion, remove account, Bitcoin marketplace account, Nostr account deletion, GDPR data removal',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Delete Your Account - BitTasker',
 		ogDescription:
 			'Request deletion of your BitTasker account and associated data. Learn how our non-custodial account deletion process works.',
@@ -20,7 +22,7 @@ export const load: PageLoad = async ({ url }) => {
 			name: 'Delete Your Account - BitTasker',
 			description:
 				'Request deletion of your BitTasker account and associated data. Learn how our non-custodial account deletion process works.',
-			url: url.href,
+			url: `${baseUrl}${url.pathname}`,
 			mainEntity: {
 				'@type': 'HowTo',
 				name: 'How to Delete Your BitTasker Account',

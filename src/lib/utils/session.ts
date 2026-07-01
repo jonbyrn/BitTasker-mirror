@@ -28,8 +28,41 @@ import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 // Import wallet manager for cleanup
 import { walletManager } from '$lib/stores/wallet.store';
 import { muteStore } from '$lib/stores/mute.store';
+import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+import { reviewStore } from '$lib/stores/review.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
+
+/**
+ * Keys that belong to the DEVICE, not the user, and should survive logout.
+ * Theme, language, onboarding, device ID, app version, and warning acknowledgement
+ * are device-level preferences that a new user on the same device would expect to keep.
+ */
+const DEVICE_LEVEL_KEYS: Set<string> = new Set([
+	StorageKeys.ONBOARDING_COMPLETED,
+	StorageKeys.LANGUAGE_PREFERENCE_KEY,
+	StorageKeys.THEME,
+	StorageKeys.DEVICE_UNIQUE_ID,
+	StorageKeys.APP_VERSION,
+	StorageKeys.LAST_SYNC,
+	StorageKeys.WARNING_ACKNOWLEDGED
+]);
+
+/**
+ * Clear all user-specific Capacitor Preferences while preserving device-level settings.
+ * Uses Preferences.keys() to discover ALL stored keys — including those defined
+ * outside StorageKeys (e.g. service quote ledgers, balance history caches).
+ */
+async function clearUserPreferences(): Promise<void> {
+	const { keys } = await Preferences.keys();
+	const keysToRemove = keys.filter((key) => !DEVICE_LEVEL_KEYS.has(key));
+
+	await Promise.all(keysToRemove.map((key) => Preferences.remove({ key })));
+
+	if (import.meta.env.DEV) {
+		console.debug(`[Session] Cleared ${keysToRemove.length} user Preferences keys`);
+	}
+}
 
 /**
  * Clear all module-level caches
@@ -84,6 +117,12 @@ function resetAllStores(): void {
 	// Reset mute store
 	muteStore.reset();
 
+	// Reset notification center store (clears badge on native)
+	notificationCenterStore.reset();
+
+	// Reset review store (clears in-flight requests and cached review state)
+	reviewStore.reset();
+
 	if (import.meta.env.DEV) {
 		console.debug('[Session] All stores reset');
 	}
@@ -92,9 +131,10 @@ function resetAllStores(): void {
 /**
  * Full local session destruction.
  *
- * Clears all persisted tokens/keys from Preferences, resets every store,
- * and wipes every in-memory cache. Does NOT call any backend endpoint —
- * callers that need server-side revocation should do so before calling this.
+ * Clears all user-specific Preferences (preserving device-level settings like
+ * theme, language, and onboarding), resets every store, and wipes every
+ * in-memory cache. Does NOT call any backend endpoint — callers that need
+ * server-side revocation should do so before calling this.
  *
  * Used by:
  *  - auth.store `logout()` (after the server-side /logout call)
@@ -102,15 +142,9 @@ function resetAllStores(): void {
  */
 export async function destroySession(): Promise<void> {
 	try {
-		// Clear all auth-related Preferences
-		await Promise.all([
-			Preferences.remove({ key: StorageKeys.ACCESS_TOKEN }),
-			Preferences.remove({ key: StorageKeys.REFRESH_TOKEN }),
-			Preferences.remove({ key: StorageKeys.NPUB }),
-			Preferences.remove({ key: StorageKeys.AUTH_METHOD }),
-			Preferences.remove({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID })
-		]);
-
+		// Clear all user-specific Preferences (auth tokens, drafts, filters, etc.)
+		// while preserving device-level settings (theme, language, onboarding, device ID)
+		await clearUserPreferences();
 		// Reset stores + caches (reuse existing helpers)
 		resetAllStores();
 		clearAllCaches();

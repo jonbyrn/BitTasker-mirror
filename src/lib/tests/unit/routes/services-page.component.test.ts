@@ -272,7 +272,9 @@ describe('services page ownership guards', () => {
 	});
 
 	it('does not expose the quote CTA for the signed-in user’s own service card', async () => {
-		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		const { default: ServicesPage } = await import(
+			'../../../../routes/(app)/services/+page.svelte'
+		);
 
 		render(ServicesPage);
 
@@ -299,7 +301,7 @@ describe('services page ownership guards', () => {
 			})
 		);
 
-		render((await import('../../../../routes/services/+page.svelte')).default);
+		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
 			expect(hoisted.findServices).toHaveBeenCalledWith(
@@ -327,7 +329,7 @@ describe('services page ownership guards', () => {
 			radius: 8
 		});
 
-		render((await import('../../../../routes/services/+page.svelte')).default);
+		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
 			expect(hoisted.findServices).toHaveBeenCalledWith(
@@ -357,7 +359,7 @@ describe('services page ownership guards', () => {
 			})
 		);
 
-		render((await import('../../../../routes/services/+page.svelte')).default);
+		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
 			expect(hoisted.findServices).toHaveBeenCalledWith(

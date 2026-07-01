@@ -3,11 +3,13 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
+	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+
 	return {
 		title: 'Community Guidelines - BitTasker | Platform Rules',
 		description: 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace.',
 		keywords: 'BitTasker community guidelines, platform rules, user safety, Bitcoin marketplace conduct, task platform policies, community standards, user behavior guidelines',
-		canonical: url.href,
+		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Community Guidelines - BitTasker | Platform Rules & User Safety',
 		ogDescription: 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace.',
 		twitterTitle: 'Community Guidelines - BitTasker | Platform Rules & User Safety',
@@ -17,7 +19,7 @@ export const load: PageLoad = async ({ url }) => {
 			'@type': 'WebPage',
 			'name': 'Community Guidelines - BitTasker',
 			'description': 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace for a positive experience.',
-			'url': url.href,
+			'url': `${baseUrl}${url.pathname}`,
 
 			'mainEntity': {
 				'@type': 'Article',

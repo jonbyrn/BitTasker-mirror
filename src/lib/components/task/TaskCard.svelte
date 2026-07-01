@@ -3,7 +3,6 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
-	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import { authState } from '$lib/stores/auth.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -42,7 +41,7 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
-	const isSelected = $derived(selectedTask && getTaskId(selectedTask) === getTaskId(task));
+	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const isDeadlineExpired = $derived(() => {
 		if (!task?.deadline) return false;
@@ -52,7 +51,7 @@
 	});
 	const canBid = $derived(isOpen && !hasBid);
 	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
-	const taskId = $derived(getTaskId(task));
+	const taskId = $derived(task.id);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
 

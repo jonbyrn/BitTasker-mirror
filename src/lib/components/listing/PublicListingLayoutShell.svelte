@@ -45,9 +45,9 @@
 <svelte:window bind:innerWidth={width} />
 
 <div
-	class={`${layoutClassName} bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4`}
+	class={`${layoutClassName} bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col px-2 md:py-4`}
 >
-	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
+	<div class="flex min-h-0 flex-1 flex-row gap-8">
 		{#if $user?.npub && $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && !isDetailsRoute}
 			<div class="w-full shrink-0 md:w-64">
 				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto">
@@ -102,7 +102,7 @@
 			</div>
 		{/if}
 
-		<div class="min-h-0 w-full flex-1 overflow-hidden">
+		<div class="min-h-0 w-full flex-1">
 			{@render children?.()}
 		</div>
 	</div>
@@ -114,7 +114,6 @@
 	:global(.services-layout) {
 		height: 100%;
 		max-height: 100%;
-		overflow: hidden;
 		flex: 1;
 		min-height: 0;
 	}

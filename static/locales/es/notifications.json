@@ -16,7 +16,20 @@
 			"remove": "Eliminar notificación"
 		},
 		"filters": {
-			"all": "Todas las Notificaciones"
+			"all": "Todas",
+			"unread": "No leídas",
+			"read": "Leídas",
+			"contract": "Contratos",
+			"bid": "Ofertas",
+			"message": "Mensajes",
+			"payment": "Pagos",
+			"review": "Reseñas",
+			"service": "Servicios",
+			"wallet": "Billetera",
+			"security": "Seguridad",
+			"discovery": "Descubrimiento",
+			"reengagement": "Re-engagement",
+			"account": "Cuenta"
 		},
 		"types": {
 			"bid_response": "Respuestas de Ofertas",
@@ -26,7 +39,16 @@
 			"message": "Mensajes",
 			"system": "Sistema",
 			"security": "Seguridad",
-			"other": "Otros"
+			"other": "Otros",
+			"contract": "Contratos",
+			"bid": "Ofertas",
+			"task": "Tareas",
+			"review": "Reseñas",
+			"service": "Servicios",
+			"wallet": "Billetera",
+			"discovery": "Descubrimiento",
+			"reengagement": "Re-engagement",
+			"account": "Cuenta"
 		},
 		"stats": {
 			"showing": "Mostrando",
@@ -80,7 +102,16 @@
 			"new_message": "Nuevo Mensaje",
 			"system_maintenance": "Mantenimiento del Sistema",
 			"security_alert": "Alerta de Seguridad",
-			"new_notification": "Nueva Notificación"
+			"new_notification": "Nueva Notificación",
+			"new_task_broadcast": "Nueva tarea disponible",
+			"new_service_broadcast": "Nuevo servicio publicado",
+			"new_service_match": "¡Nuevo servicio coincidente!",
+			"proposal_withdrawn": "Propuesta retirada",
+			"proposal_updated": "Propuesta actualizada",
+			"service_expiring_soon": "Servicio por expirar",
+			"service_expired": "Servicio expirado",
+			"service_review_received": "Nueva reseña",
+			"service_price_changed": "Precio cambiado"
 		},
 		"messages": {
 			"bid_status": {
@@ -167,7 +198,16 @@
 				"new_message_body": "Has recibido un mensaje de {senderName}.",
 				"system_maintenance": "El sistema estará en mantenimiento programado. Algunas funciones pueden no estar disponibles.",
 				"security_alert": "Se ha detectado actividad sospechosa en tu cuenta. Por favor, verifica tu seguridad.",
-				"new_notification": "Tienes una nueva notificación."
+				"new_notification": "Tienes una nueva notificación.",
+				"new_task_broadcast": "Una nueva tarea \"{title}\" está abierta para ofertas.",
+				"new_service_broadcast": "Un nuevo servicio \"{title}\" está disponible.",
+				"new_service_match": "Un nuevo servicio \"{title}\" coincide con tu búsqueda.",
+				"proposal_withdrawn": "El proveedor retiró la propuesta para \"{title}\".",
+				"proposal_updated": "La propuesta para \"{title}\" fue actualizada.",
+				"service_expiring_soon": "Tu servicio \"{title}\" expira en 7 días.",
+				"service_expired": "Tu servicio \"{title}\" ha expirado.",
+				"service_review_received": "Tu servicio \"{title}\" recibió una nueva reseña.",
+				"service_price_changed": "El precio cambió para \"{title}\"."
 			}
 		},
 		"actions": {
@@ -182,9 +222,9 @@
 			"view_details": "Ver Detalles"
 		},
 		"permissions": {
-			"title": "Permisos de Notificaciones",
+			"title": "Permisos de notificaciones",
 			"message": "Para recibir notificaciones importantes sobre tus tareas y ofertas, por favor permite las notificaciones en tu navegador.",
-			"enable_notifications": "Habilitar Notificaciones",
+			"enable_notifications": "Habilitar notificaciones",
 			"not_supported": "Las notificaciones no son compatibles con este navegador.",
 			"permission_denied": "Permisos de notificación denegados. Puedes habilitarlos en la configuración de tu navegador.",
 			"permission_granted": "Notificaciones habilitadas exitosamente.",
@@ -197,7 +237,8 @@
 			}
 		},
 		"settings": {
-			"title": "Configuración de Notificaciones",
+			"title": "Configuración de notificaciones",
+			"subtitle": "Administra cómo y cuándo recibes notificaciones",
 			"in_app": "En la aplicación",
 			"push": "Notificaciones push",
 			"email": "Correo electrónico",
@@ -206,23 +247,60 @@
 			"quiet_hours_enabled": "Horas de silencio habilitadas",
 			"quiet_hours_start": "Inicio",
 			"quiet_hours_end": "Fin",
+			"quiet_hours_start_label": "Hora de inicio de silencio",
+			"quiet_hours_end_label": "Hora de fin de silencio",
 			"quiet_hours_timezone": "Zona horaria",
-			"save_settings": "Guardar Configuración",
+			"save_settings": "Guardar configuración",
 			"settings_saved": "Configuración guardada exitosamente",
-			"settings_error": "Error al guardar la configuración"
+			"settings_error": "Error al guardar la configuración",
+			"task": {
+				"title": "Tareas",
+				"saved_search_matches": "Coincidencias de búsqueda guardada",
+				"match_frequency": "Frecuencia de coincidencias",
+				"new_task_alerts": "Alertas de nuevas tareas",
+				"alert_frequency": "Frecuencia de alertas de tareas"
+			},
+			"service": {
+				"title": "Servicios",
+				"saved_search_matches": "Coincidencias de búsqueda guardada",
+				"match_frequency": "Frecuencia de coincidencias",
+				"new_service_alerts": "Alertas de nuevos servicios",
+				"alert_frequency": "Frecuencia de alertas de servicios"
+			},
+			"frequency": {
+				"instant": "Instantáneo",
+				"daily": "Diario",
+				"weekly": "Semanal"
+			}
 		},
 		"errors": {
 			"load_failed": "Error al cargar las notificaciones",
 			"mark_read_failed": "Error al marcar como leída",
 			"delete_failed": "Error al eliminar notificación",
 			"clear_failed": "Error al limpiar notificaciones",
-			"permission_failed": "Error al solicitar permisos de notificación"
+			"permission_failed": "Error al solicitar permisos de notificación",
+			"settings_error": "Error al guardar la configuración"
 		},
 		"success": {
 			"marked_read": "Notificación marcada como leída",
 			"deleted": "Notificación eliminada",
 			"cleared": "Notificaciones limpiadas",
-			"settings_updated": "Configuración actualizada"
+			"settings_updated": "Configuración actualizada",
+			"updated": "actualizado",
+			"enabled": "habilitado",
+			"disabled": "deshabilitado",
+			"toggle_enabled": "{setting} activado",
+			"toggle_disabled": "{setting} desactivado",
+			"value_updated": "{setting} actualizado"
+		},
+		"clear_all_confirm_title": "Limpiar Todas las Notificaciones",
+		"clear_all_confirm_message": "¿Estás seguro de que quieres limpiar todas las notificaciones? Esta acción no se puede deshacer.",
+		"offline_indicator": "Estás sin conexión. Las notificaciones se actualizarán cuando vuelvas a estar en línea.",
+		"save_search_prompt": {
+			"description_task": "Recibe notificaciones cuando nuevas tareas coincidan con esta búsqueda",
+			"description_service": "Recibe notificaciones cuando nuevos servicios coincidan con esta búsqueda",
+			"enable_button": "Habilitar",
+			"dismiss_button": "Descartar"
 		},
 		"aria_labels": {
 			"notifications": "Notificaciones",

@@ -214,7 +214,12 @@ static/locales/     # i18n translation files (en, es)
 ### Svelte 5 Specific
 
 - This project uses **Svelte 5** with runes (`$state`, `$derived`, `$effect`, `$props`)
-- Use `$state()` for reactive local variables, `$derived()` for computed values, `$effect()` for side effects
+- **Full rune decision tree**: See `.ai-rules/svelte-runes.md` — shared across all AI tools
+- `$state` for mutable reactive state; `$derived` / `$derived.by` for pure computed values
+- `$effect` is an **escape hatch** for unavoidable side effects only (DOM, third-party libs, browser APIs). Per the official Svelte docs: *"you should NOT update state inside effects"* and `$effect` is *"best considered something of an escape hatch — rather than a tool you should use frequently"*
+- NEVER use `$effect` to derive or sync one value from another — use `$derived`
+- Prefer `$state` in `.svelte.ts` files over writable/readable stores for shared state
+- In `.svelte` files use `$storeName` auto-subscribe — never manual `.subscribe()`
 - Do NOT use legacy Svelte 4 patterns (`$:`, `export let`, `on:click`) — use `$state`, `$props`, `onclick` instead
 - Always run `mcp__svelte__svelte-autofixer` after writing any .svelte file to catch version mismatches
 

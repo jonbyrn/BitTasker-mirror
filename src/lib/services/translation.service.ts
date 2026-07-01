@@ -273,9 +273,9 @@ export class TranslationService extends BaseApiService {
 		this.cacheLoaded = true;
 
 		try {
-			const { value } = await Preferences.get({ key: StorageKeys.TRANSLATION_CACHE });
-			if (value) {
-				this.cache = new Map(JSON.parse(value));
+			const result = await Preferences.get({ key: StorageKeys.TRANSLATION_CACHE });
+			if (result?.value) {
+				this.cache = new Map(JSON.parse(result.value));
 			}
 		} catch (error) {
 			console.error('Failed to load translation cache:', error);

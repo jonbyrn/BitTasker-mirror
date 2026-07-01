@@ -1,5 +1,6 @@
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import {
+	buildDashboardQuerySearchParams,
 	buildDashboardQueryUrl,
 	isValidQuoteRequestId,
 	isValidServiceAddress,
@@ -98,10 +99,7 @@ export function parseServiceQuoteDashboardQuery(
 	context: DashboardRouteContext,
 	now = Date.now()
 ): DashboardRouteParseResult {
-	const url = new URL('https://bittasker.local/dashboard');
-	url.search = searchParams.toString();
-
-	const parsed = parseDashboardQuery(url);
+	const parsed = parseDashboardQuery(searchParams);
 	const normalized: DashboardRouteState = {
 		tab: parsed.tab,
 		view:
@@ -187,7 +185,7 @@ export function parseServiceQuoteDashboardQuery(
 		}
 	}
 
-	const canonicalUrl = buildDashboardQueryUrl(new URL('https://bittasker.local/dashboard'), {
+	const canonicalSearchParams = buildDashboardQuerySearchParams({
 		tab: normalized.tab,
 		view:
 			normalized.tab === 'service-requests'
@@ -203,7 +201,6 @@ export function parseServiceQuoteDashboardQuery(
 		request: normalized.requestId ?? undefined,
 		highlight: normalized.tab === 'contracts' ? (normalized.highlight ?? undefined) : undefined
 	});
-	const canonicalSearchParams = new URL(canonicalUrl).searchParams;
 
 	return {
 		state: normalized,

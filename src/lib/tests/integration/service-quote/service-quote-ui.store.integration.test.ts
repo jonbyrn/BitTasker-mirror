@@ -322,7 +322,7 @@ describe('serviceQuoteUiStore route contract', () => {
 
 		// The service address is only encoded once (not double-encoded)
 		expect(
-			createDashboardUrl(new URL('https://bittasker.local/dashboard?tab=tasks'), {
+			createDashboardUrl(new URL('https://bittasker.com/hiring/my-tasks'), {
 				tab: 'my-services',
 				view: 'service-requests',
 				serviceAddress,

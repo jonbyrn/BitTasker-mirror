@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { authState } from '$lib/stores/auth.store';
+
+// Unmock the globally mocked auth store so we test the real implementation
+vi.unmock('$lib/stores/auth.store');
+const { authState } = await import('$lib/stores/auth.store');
 
 const mockDestroySession = vi.fn().mockResolvedValue(undefined);
 const mockAuthServiceLogout = vi.fn().mockResolvedValue(undefined);
@@ -37,6 +40,23 @@ vi.mock('$lib/api/services/auth.service', () => ({
 	}
 }));
 
+let mockAppStoreState = {
+	toasts: [
+		{ id: 1, type: 'banner', message: 'Banner 1' },
+		{ id: 2, type: 'success', message: 'Toast' },
+		{ id: 3, type: 'banner', message: 'Banner 2' }
+	]
+};
+const mockAppStoreUpdate = vi.fn<(updater: (state: typeof mockAppStoreState) => typeof mockAppStoreState) => void>((updater) => {
+	mockAppStoreState = updater(mockAppStoreState);
+});
+vi.mock('$lib/stores/app.store', () => ({
+	appStore: {
+		update: (updater: unknown) => mockAppStoreUpdate(updater),
+		subscribe: vi.fn()
+	}
+}));
+
 vi.mock('$lib/stores/user.store', () => ({
 	user: { reset: vi.fn() }
 }));
@@ -57,6 +77,13 @@ describe('auth.store', () => {
 			isLoading: false,
 			error: null
 		});
+		mockAppStoreState = {
+			toasts: [
+				{ id: 1, type: 'banner', message: 'Banner 1' },
+				{ id: 2, type: 'success', message: 'Toast' },
+				{ id: 3, type: 'banner', message: 'Banner 2' }
+			]
+		};
 	});
 
 	describe('initial and sync updates', () => {
@@ -111,6 +138,14 @@ describe('auth.store', () => {
 		it('should call ndkIdentity.reset after ndkLogout', async () => {
 			await authState.logout();
 			expect(mockResetNdkIdentity).toHaveBeenCalledOnce();
+		});
+
+		it('should dismiss all open banners on logout', async () => {
+			await authState.logout();
+			expect(mockAppStoreUpdate).toHaveBeenCalledOnce();
+			expect(mockAppStoreState.toasts).toEqual([
+				{ id: 2, type: 'success', message: 'Toast' }
+			]);
 		});
 
 		it('should call destroySession after authService.logout and ndkLogout', async () => {

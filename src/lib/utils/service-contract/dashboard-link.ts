@@ -20,5 +20,5 @@ export function buildContractsDashboardLink({
 		params.set('highlight', normalizedEscrowId);
 	}
 
-	return `${baseUrl.replace(/\/$/, '')}/dashboard?${params.toString()}`;
+	return `${baseUrl.replace(/\/$/, '')}/hiring/contracts?${params.toString()}`;
 }

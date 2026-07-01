@@ -185,6 +185,33 @@
 			"unmuted_toast": "Usuario desilenciado correctamente.",
 			"unmute_error": "No se pudo desilenciar al usuario. Inténtalo de nuevo.",
 			"unmute_aria": "Desilenciar a {name}"
-		}
+		},
+		"cards": {
+			"nostr": {
+				"title": "Información de inicio",
+				"description": "Ver y gestionar tus claves Nostr e identidad"
+			},
+			"devices": {
+				"title": "Dispositivos",
+				"description": "Gestionar dispositivos conectados y sesiones"
+			},
+			"recovery": {
+				"title": "Recuperación",
+				"description": "Configurar opciones de recuperación de cuenta"
+			},
+			"muted": {
+				"title": "Silenciados",
+				"description": "Gestionar tu lista de usuarios silenciados"
+			},
+			"actions": {
+				"title": "Acciones",
+				"description": "Cerrar sesión o eliminar tu cuenta"
+			},
+			"notifications": {
+				"title": "Notificaciones",
+				"description": "Gestionar push, email y horario silencioso"
+			}
+		},
+		"back": "Volver a Configuración"
 	}
 }

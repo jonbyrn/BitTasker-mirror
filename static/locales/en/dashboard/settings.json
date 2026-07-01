@@ -185,6 +185,33 @@
 			"unmuted_toast": "User unmuted successfully.",
 			"unmute_error": "Failed to unmute user. Please try again.",
 			"unmute_aria": "Unmute {name}"
-		}
+		},
+		"cards": {
+			"nostr": {
+				"title": "Login Info",
+				"description": "View and manage your Nostr keys and identity"
+			},
+			"devices": {
+				"title": "Devices",
+				"description": "Manage connected devices and sessions"
+			},
+			"recovery": {
+				"title": "Recovery",
+				"description": "Set up account recovery options"
+			},
+			"muted": {
+				"title": "Muted",
+				"description": "Manage your muted users list"
+			},
+			"actions": {
+				"title": "Actions",
+				"description": "Logout or delete your account"
+			},
+			"notifications": {
+				"title": "Notifications",
+				"description": "Manage push, email, and quiet hours settings"
+			}
+		},
+		"back": "Back to Settings"
 	}
 }

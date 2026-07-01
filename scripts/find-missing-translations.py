@@ -48,6 +48,7 @@ IGNORE_PATTERNS = [
     r"^\[",   # Array access
     r"^\(",   # Function call result
     r"^[a-z]+$",  # Single word without dots (likely a variable)
+    r"\.\s*$",  # Ends with a dot — dynamic key prefix from concatenation (e.g. 'navbar.language.' + key)
 ]
 
 
@@ -98,7 +99,7 @@ def find_translation_references(src_dir: Path) -> dict[str, list[tuple[str, int]
                             key = match.group(1)
                             
                             # Skip dynamic/computed keys
-                            if any(re.match(ignore, key) for ignore in IGNORE_PATTERNS):
+                            if any(re.search(ignore, key) for ignore in IGNORE_PATTERNS):
                                 continue
                             
                             # Skip if key contains template literal interpolation
