@@ -70,8 +70,10 @@ describe('Crypto Utilities', () => {
 			// Implementation passes ArrayBuffer (new Uint8Array(keyBytes).buffer), not Uint8Array
 			const importCall = vi.mocked(crypto.subtle.importKey).mock.calls[0];
 			expect(importCall[0]).toBe('raw');
-			expect(importCall[1]).toBeInstanceOf(ArrayBuffer);
-			expect(new Uint8Array(importCall[1] as ArrayBuffer)).toEqual(new Uint8Array([1, 2, 3]));
+			expect(importCall[1]).toBeInstanceOf(Uint8Array);
+			expect(new Uint8Array(importCall[1] as unknown as ArrayBuffer)).toEqual(
+				new Uint8Array([1, 2, 3])
+			);
 			expect(importCall[2]).toEqual({ name: 'AES-GCM', length: 256 });
 			expect(importCall[3]).toBe(true);
 			expect(importCall[4]).toEqual(['encrypt', 'decrypt']);

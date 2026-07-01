@@ -1502,7 +1502,26 @@ function createServiceQuoteUiStore() {
 					}
 				});
 				const localProposalEvent =
-					publishResult.event as ServiceQuoteTimelineEntry['proposals'][number];
+					'content' in publishResult.event
+						? (publishResult.event as ServiceQuoteTimelineEntry['proposals'][number])
+						: ({
+								id: publishResult.event.id,
+								kind: 6421,
+								pubkey: input.service.npub,
+								created_at: proposalContent.timestamp,
+								tags: [
+									['e', timeline.request.id],
+									['p', timeline.request.pubkey]
+								],
+								content: {
+									...proposalContent,
+									expirationTimestamp:
+										proposalContent.estimatedEndTime +
+										proposalContent.expirationDays * 86_400 +
+										proposalContent.expirationHours * 3_600
+								},
+								sig: ''
+							} as unknown as ServiceQuoteTimelineEntry['proposals'][number]);
 
 				update((state) => ({
 					...state,

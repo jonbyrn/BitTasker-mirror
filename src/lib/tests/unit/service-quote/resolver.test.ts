@@ -520,7 +520,8 @@ describe('service-quote resolver', () => {
 		).toEqual({
 			hasBlockingThreads: true,
 			blockingThreadCount: 1,
-			totalThreadCount: 2
+			totalThreadCount: 2,
+			activeContractCount: 0
 		});
 
 		expect(summarizeDeleteGuardForThreads([acceptedThread], 0)).toEqual({
