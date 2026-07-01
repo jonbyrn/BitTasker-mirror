@@ -109,7 +109,7 @@ const LIFI_QUOTE_RESPONSE = {
 	},
 	toToken: {
 		symbol: 'USDT',
-		address: USDT_BSC_ADDR,
+		address: '0x55d398326f99059fF775485246999027B3197955',
 		chainId: 56,
 		decimals: 18,
 		name: 'Tether USD'
@@ -139,7 +139,7 @@ const LIFI_QUOTE_WBTC_RESPONSE = {
 	},
 	toToken: {
 		symbol: 'USDT',
-		address: USDT_BSC_ADDR,
+		address: '0x55d398326f99059fF775485246999027B3197955',
 		chainId: 56,
 		decimals: 18,
 		name: 'Tether USD'

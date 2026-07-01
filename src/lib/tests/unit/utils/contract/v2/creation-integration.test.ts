@@ -355,9 +355,9 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				logs: []
 			};
 
-			await expect(result.afterConfirmed(revertedReceipt)).rejects.toThrow(
-				/Transaction reverted on-chain/
-			);
+			await expect(
+				result.afterConfirmed(revertedReceipt as unknown as ethers.providers.TransactionReceipt)
+			).rejects.toThrow(/Transaction reverted on-chain/);
 		});
 
 		it('afterConfirmed succeeds when receipt.status is 1', async () => {
@@ -391,7 +391,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 						data: encodedData.data
 					}
 				]
-			};
+			} as unknown as ethers.providers.TransactionReceipt;
 
 			const { paymentId } = await result.afterConfirmed(successReceipt);
 			expect(paymentId).toBe(42);

@@ -349,7 +349,7 @@ describe('gasless-store', () => {
 				paymasterAndData: '0x',
 				signature: '0xSig'
 			};
-			MOCK_SMART_ACCOUNT.signUserOperationeration.mockResolvedValue(mockSignedOp);
+			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue(mockSignedOp);
 
 			mockFetch.mockResolvedValue({
 				ok: true,
@@ -366,7 +366,7 @@ describe('gasless-store', () => {
 			);
 
 			expect(result).toBe('0xUserOpHash123');
-			expect(MOCK_SMART_ACCOUNT.signUserOperationeration).toHaveBeenCalled();
+			expect(MOCK_SMART_ACCOUNT.signUserOperation).toHaveBeenCalled();
 			expect(mockFetch).toHaveBeenCalledWith(
 				'http://localhost:8000/api/v1/gasless/relay',
 				expect.objectContaining({
@@ -630,6 +630,3 @@ describe('gasless-store', () => {
 		});
 	});
 });
-
-// Helper function to import get from svelte/store
-import { get } from 'svelte/store';

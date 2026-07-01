@@ -84,10 +84,14 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
+} as Parameters<typeof hoisted.createStore>[0]);
 hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as Parameters<
+	typeof hoisted.createStore
+>[0]);
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as Parameters<
+	typeof hoisted.createStore
+>[0]);
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -401,7 +405,7 @@ describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
 				username: 'designer-pro',
 				avatar: ''
 			}
-		} as Service;
+		} as unknown as Service;
 
 		hoisted.findServices.mockImplementation(async () => {
 			hoisted.servicesStore.set({

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import type { Service } from '$lib/types/service.d';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
-import { load } from '../../../../routes/(app)/services/[serviceId]/+page.ts';
+import { load } from '../../../../routes/(app)/services/[serviceId]/+page';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 
 vi.mock('$lib/nostr/service', () => ({
@@ -85,9 +85,10 @@ function createService(overrides: Partial<Service> = {}): Service {
 
 const canonicalBase = BITTASKER_CANONICAL_BASE.replace(/\/$/, '');
 
-const mockParent = vi.fn().mockResolvedValue({ service: null }) as Parameters<
-	typeof load
->[0]['parent'];
+const mockParent = vi
+	.fn()
+	.mockResolvedValue({ service: null })
+	.mockResolvedValue({ service: null }) as Parameters<typeof load>[0]['parent'];
 
 describe('services/[serviceId] page load', () => {
 	beforeEach(() => {
@@ -176,7 +177,7 @@ describe('services/[serviceId] page load', () => {
 					username: '',
 					avatar: ''
 				}
-			})
+			}) as Service
 		);
 
 		const result = (await load({
@@ -205,7 +206,7 @@ describe('services/[serviceId] page load', () => {
 	it('emits an hourly offer with taskee-location metadata and canonical fallback id', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(
 			createService({
-				uniqueId: '  ',
+				uniqueId: '  ' as string,
 				pricing: {
 					type: ServicePricingTypeEnum.HOURLY,
 					currency: 'USD',
