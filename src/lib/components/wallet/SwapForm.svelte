@@ -98,6 +98,7 @@
 	let errorMessage = $state('');
 	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
+	let _flipTimer: ReturnType<typeof setTimeout> | null = null;
 	// Swap progress tracker — updates during executing phase
 	let swapProgressStep = $state<SwapProgressStep>('locking-rbtc');
 	let swapProgressMessage = $state('');
@@ -107,12 +108,12 @@
 		unsubscribeProgress = null;
 	}
 
-	// Step tracker data for the executing phase UI
+	// Step tracker data for the executing phase UI (labelKeys translated in template via $t())
 	const SWAP_PROGRESS_STEPS = [
-		{ key: 'locking-rbtc', label: 'Locking rBTC on RSK' },
-		{ key: 'waiting-for-boltz', label: 'Waiting for Boltz confirmation' },
-		{ key: 'claiming-tbtc', label: 'Claiming tBTC on Arbitrum' },
-		{ key: 'swapping-tbtc', label: 'Swapping tBTC to USDT0' }
+		{ key: 'locking-rbtc', labelKey: 'wallet.swap.progress.locking_rbtc' },
+		{ key: 'waiting-for-boltz', labelKey: 'wallet.swap.progress.waiting_boltz' },
+		{ key: 'claiming-tbtc', labelKey: 'wallet.swap.progress.claiming_tbtc' },
+		{ key: 'swapping-tbtc', labelKey: 'wallet.swap.progress.swapping_tbtc' }
 	] as const;
 	const SWAP_STEP_ORDER = ['locking-rbtc', 'waiting-for-boltz', 'claiming-tbtc', 'swapping-tbtc'];
 	const currentStepIdx = $derived(SWAP_STEP_ORDER.indexOf(swapProgressStep));
@@ -136,7 +137,8 @@
 		getSourceWalletId: () => sourceWallet,
 		getDestWalletId: () => destWallet,
 		getSourceType: () => sourceType,
-		getDestType: () => destType
+		getDestType: () => destType,
+		getTranslation: (key: string) => get(t)(key)
 	});
 
 	const swapCalc = useSwapCalculator({
@@ -504,6 +506,9 @@
 	const RSK_RPC = 'https://public-node.rsk.co';
 	const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
 
+	let _lastFeeRefreshTime = 0;
+	const FEE_CACHE_MS = 30_000;
+
 	async function fetchGasPrice(rpcUrl: string): Promise<bigint> {
 		const resp = await fetch(rpcUrl, {
 			method: 'POST',
@@ -516,13 +521,24 @@
 			})
 		});
 		if (!resp.ok) throw new Error(`RPC ${rpcUrl} returned ${resp.status}`);
-		const data = (await resp.json()) as { result: string };
+		const data = (await resp.json()) as { result?: string };
+		if (!data.result || !/^0x[0-9a-fA-F]+$/.test(data.result)) {
+			throw new Error(`Invalid gas price response from ${rpcUrl}`);
+		}
 		return BigInt(data.result);
 	}
 
 	async function refreshLiveFees() {
 		if (!isOnline) {
 			d.log('refreshLiveFees: skipped (offline)');
+			return;
+		}
+		// Skip if data is fresh (< 30s old)
+		if (Date.now() - _lastFeeRefreshTime < FEE_CACHE_MS) {
+			d.log(
+				'refreshLiveFees: skipped (cached, age=%ds)',
+				Math.round((Date.now() - _lastFeeRefreshTime) / 1000)
+			);
 			return;
 		}
 		d.log('refreshLiveFees: fetching gas prices + BTC/ETH rates');
@@ -545,6 +561,7 @@
 			btcUsdPrice || '?',
 			ethUsdPrice || '?'
 		);
+		_lastFeeRefreshTime = Date.now();
 	}
 
 	onMount(async () => {
@@ -681,20 +698,20 @@
 			id: o.id,
 			label:
 				o.asset === 'USDT0'
-					? 'USD'
+					? $t('wallet.swap.asset.usd')
 					: o.asset === 'rBTC'
-						? 'Bitcoin (rBTC)'
+						? $t('wallet.swap.asset.bitcoin_rbtc')
 						: o.asset === 'WBTC'
-							? 'Bitcoin (wBTC)'
+							? $t('wallet.swap.asset.bitcoin_wbtc')
 							: o.id === 'btc-onchain'
-								? 'Bitcoin (BTC)'
+								? $t('wallet.swap.asset.bitcoin_btc')
 								: `${o.asset}`,
 			icon: o.icon,
 			subLabel:
 				o.id === 'usdt0-arb'
-					? 'USDT0 on Arbitrum'
+					? $t('wallet.swap.network.usdt0_arbitrum')
 					: o.id === 'wbtc-arb'
-						? 'Wrapped BTC on Arbitrum'
+						? $t('wallet.swap.network.wbtc_arbitrum')
 						: o.id === 'rbtc-rsk'
 							? sourceWallet !== destWallet
 								? `Send to ${$connectedWalletsStore.wallets.find((w) => w.id === destWallet)?.walletName || 'wallet'}`
@@ -725,24 +742,24 @@
 	let sourceAssets = $derived<AssetOption[]>([
 		{
 			id: 'rbtc',
-			label: 'Bitcoin (rBTC)',
+			label: $t('wallet.swap.asset.bitcoin_rbtc'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			subLabel: 'Bitcoin on Rootstock',
+			subLabel: $t('wallet.swap.network.bitcoin_rootstock'),
 			balance: formatSats(sourceRbtcSats) + ' Sats',
 			balanceSub: `≈ $${((sourceRbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 		},
 		{
 			id: 'usdt0-arb',
-			label: 'USD',
+			label: $t('wallet.swap.asset.usd'),
 			icon: '/images/chains/Tether-USD.svg',
-			subLabel: 'USDT0 on Arbitrum',
+			subLabel: $t('wallet.swap.network.usdt0_arbitrum'),
 			balance: `$${sourceUsdt0Usd.toFixed(2)}`
 		},
 		{
 			id: 'wbtc-arb',
-			label: 'Bitcoin (wBTC)',
+			label: $t('wallet.swap.asset.bitcoin_wbtc'),
 			icon: '/images/tokens/wbtc.png',
-			subLabel: 'Wrapped BTC on Arbitrum',
+			subLabel: $t('wallet.swap.network.wbtc_arbitrum'),
 			balance: formatSats(sourceWbtcSats) + ' Sats',
 			balanceSub: `≈ $${((sourceWbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 		},
@@ -751,9 +768,9 @@
 			? [
 					{
 						id: 'btc-onchain' as const,
-						label: 'Bitcoin (BTC)',
+						label: $t('wallet.swap.asset.bitcoin_btc'),
 						icon: '/images/chains/Bitcoin.svg',
-						subLabel: 'Bitcoin on-chain',
+						subLabel: $t('wallet.swap.network.bitcoin_onchain'),
 						balance: formatSats(swapWallets.externalBtcBalanceSats) + ' Sats',
 						balanceSub: `≈ $${(
 							(swapWallets.externalBtcBalanceSats / 100_000_000) *
@@ -767,9 +784,9 @@
 			? [
 					{
 						id: 'tbtc-arb' as const,
-						label: 'Bitcoin (tBTC)',
+						label: $t('wallet.swap.asset.bitcoin_tbtc'),
 						icon: '/images/tokens/tbtc.png',
-						subLabel: 'tBTC on Arbitrum',
+						subLabel: $t('wallet.swap.network.tbtc_arbitrum'),
 						balance: formatSats(sourceTbtcSats) + ' Sats',
 						balanceSub: `≈ $${((sourceTbtcSats / 100_000_000) * btcPrice.price).toFixed(2)}`
 					}
@@ -885,6 +902,14 @@
 		});
 	});
 
+	// Cleanup: stop progress tracking + flip timer on unmount
+	$effect(() => {
+		return () => {
+			_stopProgressTracking();
+			if (_flipTimer) clearTimeout(_flipTimer);
+		};
+	});
+
 	// -----------------------------------------------------------------------
 	// Methods
 	// -----------------------------------------------------------------------
@@ -930,7 +955,8 @@
 
 		isFlipping = true;
 		d.log('swapDirection: %s/%s ↔ %s/%s', prevSourceWallet, prevSource, prevDestWallet, prevDest);
-		setTimeout(() => (isFlipping = false), 300);
+		if (_flipTimer) clearTimeout(_flipTimer);
+		_flipTimer = setTimeout(() => (isFlipping = false), 300);
 
 		// Swap wallets and assets
 		sourceWallet = prevDestWallet;
@@ -1043,10 +1069,25 @@
 				})
 			});
 			const data = await res.json();
-			const wei = BigInt(data.result || '0x0');
+			if (
+				!data.result ||
+				typeof data.result !== 'string' ||
+				!/^0x[0-9a-fA-F]+$/.test(data.result)
+			) {
+				arbEthBalance = '0';
+				arbEthCheckDone = true;
+				return;
+			}
+			const wei = BigInt(data.result);
 			arbEthBalance = (Number(wei) / 1e18).toFixed(6);
-		} catch {
+		} catch (e) {
 			arbEthBalance = 'unknown';
+			Sentry.addBreadcrumb({
+				category: 'wallet.swap',
+				message: 'ARB ETH balance check failed',
+				level: 'warning',
+				data: { error: e instanceof Error ? e.message : String(e) }
+			});
 		}
 		arbEthCheckDone = true;
 	}
@@ -1237,12 +1278,19 @@
 				message: 'swap execute failed',
 				data: { error: error?.message }
 			});
-			errorMessage = sanitizeSwapError(error?.message) || $t('wallet.swap.error.swap_failed');
+			errorMessage = $t(sanitizeSwapError(error?.message)) || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			// Force-refresh balances — the swap tx may have consumed tokens even on failure
 			// (e.g., Symbiosis approve+swap consumed wBTC before the flow errored).
 			// Clears token balance cache so next wallet load shows actual on-chain state.
-			walletManager.loadAssets(true).catch(() => {});
+			walletManager.loadAssets(true).catch((e) => {
+				Sentry.addBreadcrumb({
+					category: 'wallet.swap',
+					message: 'Post-swap balance refresh failed',
+					level: 'warning',
+					data: { error: e instanceof Error ? e.message : String(e) }
+				});
+			});
 			return;
 		}
 
@@ -1259,12 +1307,19 @@
 			swapPhase = 'complete';
 			triggerHaptic(ImpactStyle.Heavy);
 		} else {
-			errorMessage = sanitizeSwapError(result.error) || $t('wallet.swap.error.swap_failed');
+			errorMessage = $t(sanitizeSwapError(result.error)) || $t('wallet.swap.error.swap_failed');
 			swapPhase = 'failed';
 			triggerHaptic(ImpactStyle.Heavy);
 		}
 		// Force-refresh balances after swap — tokens were consumed/ received on-chain.
-		walletManager.loadAssets(true).catch(() => {});
+		walletManager.loadAssets(true).catch((e) => {
+			Sentry.addBreadcrumb({
+				category: 'wallet.swap',
+				message: 'Post-swap balance refresh failed',
+				level: 'warning',
+				data: { error: e instanceof Error ? e.message : String(e) }
+			});
+		});
 	}
 
 	/** Retry swap using a fallback route from SwapFallback. */
@@ -1285,25 +1340,14 @@
 		let msg = raw.replace(/\s*\(transaction="[^"]*"\)/g, '');
 		// Strip RPC error codes: (code=XXXX, ...)
 		msg = msg.replace(/\s*\(code=\d+[^)]*\)/g, '');
-		// Common patterns → user-friendly messages
-		if (/insufficient funds/i.test(msg)) {
-			return 'Insufficient funds to cover gas fees. Please top up your wallet.';
-		}
-		if (/nonce too (low|high)/i.test(msg)) {
-			return 'Transaction conflict — please try again.';
-		}
-		if (/replacement transaction underpriced/i.test(msg)) {
-			return 'Network congestion — please try again with a higher fee.';
-		}
-		if (/user rejected|user denied/i.test(msg)) {
-			return 'Transaction was rejected.';
-		}
-		if (/timeout|timed out/i.test(msg)) {
-			return 'Swap timed out. Your funds are safe — check Pending Swaps to recover.';
-		}
-		if (/unsupported swap/i.test(msg)) {
-			return 'This swap pair is not currently supported.';
-		}
+		// Common patterns → translation keys (callers wrap with $t())
+		if (/insufficient funds/i.test(msg)) return 'wallet.swap.error.insufficient_funds';
+		if (/nonce too (low|high)/i.test(msg)) return 'wallet.swap.error.nonce_conflict';
+		if (/replacement transaction underpriced/i.test(msg))
+			return 'wallet.swap.error.network_congestion';
+		if (/user rejected|user denied/i.test(msg)) return 'wallet.swap.error.user_rejected';
+		if (/timeout|timed out/i.test(msg)) return 'wallet.swap.error.timed_out';
+		if (/unsupported swap/i.test(msg)) return 'wallet.swap.error.unsupported_pair';
 		// Trim and truncate very long messages
 		msg = msg.trim();
 		if (msg.length > 120) {
@@ -1821,7 +1865,7 @@
 							{:else}
 								<span class="h-4 w-4 shrink-0 rounded-full border border-current opacity-40"></span>
 							{/if}
-							<span class={isDone ? 'line-through opacity-60' : ''}>{step.label}</span>
+							<span class={isDone ? 'line-through opacity-60' : ''}>{$t(step.labelKey)}</span>
 						</div>
 					{/each}
 				</div>

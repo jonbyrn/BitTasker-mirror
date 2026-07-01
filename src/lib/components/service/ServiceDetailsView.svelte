@@ -165,10 +165,16 @@
 		);
 	}
 
-	function formatDeliveryTime(dt?: ServiceTier['deliveryTime'] | null): string {
-		if (!dt || dt.value == null || !dt.unit) return '—';
-		const unitKey = `common.time_units.${dt.unit}${dt.value !== 1 ? 's' : ''}`;
-		return `${dt.value} ${$t(unitKey)}`;
+	function formatDeliveryTime(
+		dt?: { value?: number; unit?: string; display?: string } | null
+	): string {
+		if (!dt) return '—';
+		if (dt.value != null && dt.unit) {
+			const unitKey = `common.time_units.${dt.unit}${dt.value !== 1 ? 's' : ''}`;
+			return `${dt.value} ${$t(unitKey)}`;
+		}
+		if (dt.display) return dt.display;
+		return '—';
 	}
 
 	// Ensure wallet translations are loaded for the "Add Funds" receive modal
@@ -448,9 +454,7 @@
 		}
 	});
 
-	const walletBalanceSatsLabel = $derived(
-		formatSats($totalBalances.sats, { showZero: true, compact: false })
-	);
+	const walletBalanceSatsLabel = $derived(formatSats($totalBalances.sats));
 	const walletBalanceUsdLabel = $derived.by(() => {
 		const balance = ($totalBalances.sats / 100_000_000) * btcPrice.price;
 		return `$${formatNumberWithTwoDecimals(balance)}`;

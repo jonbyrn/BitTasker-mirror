@@ -40,7 +40,7 @@ const {
 	};
 	const wL = new Set();
 	const walletStore = {
-		subscribe: (fn: unknown) => {
+		subscribe: (fn: (value: typeof mockWallet.current) => void) => {
 			fn(mockWallet.current);
 			wL.add(fn);
 			return () => wL.delete(fn);
@@ -61,7 +61,7 @@ const {
 	};
 	const cL = new Set();
 	const connectedWalletsStore = {
-		subscribe: (fn: unknown) => {
+		subscribe: (fn: (value: typeof mockConnected.current) => void) => {
 			fn(mockConnected.current);
 			cL.add(fn);
 			return () => cL.delete(fn);
@@ -71,7 +71,7 @@ const {
 	const net = { current: { online: true } };
 	const nL = new Set();
 	const browserNetworkStatus = {
-		subscribe: (fn: unknown) => {
+		subscribe: (fn: (value: typeof net.current) => void) => {
 			fn(net.current);
 			nL.add(fn);
 			return () => nL.delete(fn);
@@ -128,15 +128,18 @@ const {
 
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
-		subscribe(fn: unknown) {
-			fn({ arb: { address: '0xBuiltinArb', usdt0Balance: '100' }, rsk: { wallet: null } });
+		subscribe(fn: (v: Record<string, unknown>) => void) {
+			fn({ arb: { address: '0xBuiltinArb', usdt0Balance: '100' }, rsk: { wallet: null } } as Record<
+				string,
+				unknown
+			>);
 			return () => {};
 		}
 	}
 }));
 vi.mock('$lib/stores/connected-wallets.store', () => ({
 	connectedWalletsStore: {
-		subscribe(fn: unknown) {
+		subscribe(fn: (v: Record<string, unknown>) => void) {
 			fn({
 				wallets: [
 					{
@@ -154,8 +157,8 @@ vi.mock('$lib/stores/connected-wallets.store', () => ({
 }));
 vi.mock('$lib/utils/network-status', () => ({
 	browserNetworkStatus: {
-		subscribe(fn: unknown) {
-			fn(mockNetwork.current);
+		subscribe(fn: (v: Record<string, unknown>) => void) {
+			fn(mockNetwork.current as unknown as Record<string, unknown>);
 			return () => {};
 		}
 	}
@@ -212,11 +215,11 @@ vi.mock('@sentry/sveltekit', () => ({ ...mockSentry, addBreadcrumb: mockSentry.a
 beforeEach(() => {
 	vi.clearAllMocks();
 	// reset store state (access private via any for test; or public invalidate)
-	(defiPositions as unknown).aavePositions = new Map();
-	(defiPositions as unknown).uniswapPositions = new Map();
-	(defiPositions as unknown).loading = {};
-	(defiPositions as unknown).errors = {};
-	(defiPositions as unknown).lastUpdated = {};
+	(defiPositions as unknown as Record<string, unknown>).aavePositions = new Map();
+	(defiPositions as unknown as Record<string, unknown>).uniswapPositions = new Map();
+	(defiPositions as unknown as Record<string, unknown>).loading = {};
+	(defiPositions as unknown as Record<string, unknown>).errors = {};
+	(defiPositions as unknown as Record<string, unknown>).lastUpdated = {};
 	mockNetwork.current.online = true;
 	mockKillSwitch.isEnabled.mockReturnValue(true);
 });

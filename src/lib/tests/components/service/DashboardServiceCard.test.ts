@@ -89,7 +89,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -127,7 +127,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getAllByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -145,6 +145,9 @@ describe('DashboardServiceCard', () => {
 			description: 'Remote accessibility review.',
 			status: 'active',
 			serviceLocationTypes: ['remote', 'tasker_location'],
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			locationDetails: {
 				taskerLocation: {
 					serviceLocation: {
@@ -159,7 +162,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -172,9 +175,13 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-mixed',
 			uniqueId: 'service-mixed',
+			npub: 'a'.repeat(64),
 			title: 'Hybrid repair',
 			description: 'Storefront and mobile support.',
 			status: 'active',
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			serviceLocationTypes: ['tasker_location', 'taskee_location'],
 			locationDetails: {
 				taskerLocation: {
@@ -201,7 +208,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -216,9 +223,13 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-4',
 			uniqueId: 'service-4',
+			npub: 'a'.repeat(64),
 			title: 'Brand sprint',
 			description: 'Fast identity package.',
 			status: 'active',
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			serviceLocationTypes: ['remote'],
 			locationDetails: {},
 			pricing: {

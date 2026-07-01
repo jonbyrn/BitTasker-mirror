@@ -84,6 +84,12 @@
 					ariaLabel: $t('wallet.gas_fee_display.paymaster_status_red'),
 					statusKey: $t('wallet.gas_fee_display.paymaster_unavailable')
 				};
+			default:
+				return {
+					cssClass: 'bg-success',
+					ariaLabel: $t('wallet.gas_fee_display.paymaster_status_green'),
+					statusKey: $t('wallet.gas_fee_display.paymaster_available')
+				};
 		}
 	});
 </script>

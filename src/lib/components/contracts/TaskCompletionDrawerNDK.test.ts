@@ -53,13 +53,15 @@ function simulateAttachmentUpload() {
 
 describe('TaskCompletionDrawerNDK', () => {
 	let mockContractRune: PaymentContractRune;
-	let mockOnClose: ReturnType<typeof vi.fn>;
-	let mockOnComplete: ReturnType<typeof vi.fn>;
+	let mockOnClose: () => void;
+	let mockOnComplete: (...args: unknown[]) => Promise<void>;
 
 	beforeEach(() => {
 		mockContractRune = createMockContractRune();
-		mockOnClose = vi.fn();
-		mockOnComplete = vi.fn().mockResolvedValue(undefined);
+		mockOnClose = vi.fn() as unknown as () => void;
+		mockOnComplete = vi.fn().mockResolvedValue(undefined) as unknown as (
+			...args: unknown[]
+		) => Promise<void>;
 		(globalThis as any).__taskCompletionMediaOnChange = null;
 	});
 
@@ -256,7 +258,9 @@ describe('TaskCompletionDrawerNDK', () => {
 	it('disables submit button during submission', async () => {
 		mockOnComplete = vi
 			.fn()
-			.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
+			.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100))) as unknown as (
+			...args: unknown[]
+		) => Promise<void>;
 
 		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {
@@ -309,7 +313,9 @@ describe('TaskCompletionDrawerNDK', () => {
 	it('shows completing text when completing', async () => {
 		mockOnComplete = vi
 			.fn()
-			.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
+			.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100))) as unknown as (
+			...args: unknown[]
+		) => Promise<void>;
 
 		const { container, getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {

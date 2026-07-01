@@ -36,8 +36,10 @@
 		services = [],
 		selectedServiceAddress = null,
 		serviceUnavailable = false,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- prop passed by consumers but used internally via derived state
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- prop accepted by interface but not used in template
 		serviceFilterLabel = null,
 		allServicesLabel = null,
 		deletedServiceLabel = null,
@@ -355,10 +357,6 @@
 		}
 	}
 
-	const resolvedServiceFilterLabel = $derived(
-		serviceFilterLabel ??
-			tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')
-	);
 	const resolvedAllServicesLabel = $derived(
 		allServicesLabel ?? tr('dashboard.services.my_services.workspace.all_services', 'All Services')
 	);
@@ -670,7 +668,6 @@
 			<ServiceFilterSelect
 				{services}
 				{selectedServiceAddress}
-				filterLabel={resolvedServiceFilterLabel}
 				allServicesLabel={resolvedAllServicesLabel}
 				deletedServiceLabel={resolvedDeletedServiceLabel}
 				testId="service-request-filter"
@@ -717,7 +714,6 @@
 								? service
 								: null)}
 						isSelected={focusedRequestId === timeline.request.content.quoteRequestId}
-						{showServiceTitles}
 						{serviceTitleByAddress}
 						serviceUnavailable={serviceUnavailable && !timeline.linkedEscrowId}
 						{getActionButtons}

@@ -41,7 +41,10 @@ import KINDS from '$lib/utils/constants/kinds';
 import { NOSTR_FINAL_STATES } from '$lib/utils/wallet/swapStatusMap';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { PUBLISH_TIMEOUT_MS } from '$lib/utils/nostr';
+import { createDebug } from '$lib/utils/debug';
+import * as Sentry from '@sentry/sveltekit';
 
+const d = createDebug('swap-adapter');
 const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 function randomBytes(length: number): Uint8Array {
@@ -144,7 +147,8 @@ function buildSwapContent(
 		// (not in the SDK ChainSwapData type which is Liquid↔RBTC specific).
 		if (chainSwap.claimDetails) content.claimDetails = chainSwap.claimDetails;
 		if (chainSwap.lockupClaimAddress) content.lockupClaimAddress = chainSwap.lockupClaimAddress;
-		if (chainSwap.timeoutBlockHeight) content.timeoutBlockHeight = chainSwap.timeoutBlockHeight;
+		if (chainSwap.claimTimeoutBlockHeight)
+			content.timeoutBlockHeight = chainSwap.claimTimeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-submarine') {
 		const submarineSwap = swapData as SubmarineSwapData;
 		content.type = 'submarine';
@@ -212,7 +216,7 @@ export async function saveSwapToNostr(
 		const requiredRelayCount = Math.min(1, RELAYS.length);
 		await ndkEvent.publish(relaySet, PUBLISH_TIMEOUT_MS, requiredRelayCount);
 	} catch (error) {
-		console.error('Failed to save swap to Nostr:', error);
+		d.error('Failed to save swap to Nostr: %s', (error as Error).message);
 	}
 }
 
@@ -267,13 +271,13 @@ export async function recoverSwapsFromNostr(
 				// Silently skip events that can't be decrypted (may be NIP-04 encrypted
 				// from older versions, corrupted, or encrypted with a different key).
 				// These are not critical — the swap will be re-created on next use.
-				console.debug('Skipping undecryptable swap event:', err);
+				d.log('Skipping undecryptable swap event: %s', (err as Error).message);
 			}
 		}
 
 		return swaps;
 	} catch (error) {
-		console.error('Failed to recover swaps from Nostr:', error);
+		d.error('Failed to recover swaps from Nostr: %s', (error as Error).message);
 		return [];
 	}
 }
@@ -324,7 +328,7 @@ async function deleteSwapEvent(
 		await publishDeletionEventNdk(event.id, KINDS.PENDING_SWAPS.toString(), RELAYS);
 		return true;
 	} catch (error) {
-		console.error('Failed to delete swap event:', error);
+		d.error('Failed to delete swap event: %s', (error as Error).message);
 		return false;
 	}
 }
@@ -353,13 +357,13 @@ async function deleteAllSwapEvents(
 				await publishDeletionEventNdk(event.id, KINDS.PENDING_SWAPS.toString(), RELAYS);
 				deleteCount++;
 			} catch (err) {
-				console.error(`Failed to delete event ${event.id}:`, err);
+				d.error('Failed to delete event %s: %s', event.id, (err as Error).message);
 			}
 		}
 
 		return { count: deleteCount };
 	} catch (error) {
-		console.error('Failed to delete swap events:', error);
+		d.error('Failed to delete swap events: %s', (error as Error).message);
 		throw error;
 	}
 }
@@ -386,7 +390,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			await saveSwapToNostr(data, this.nsec, this.swapType);
 		} catch (error) {
-			console.error(`Failed to save swap ${swapId} to Nostr:`, error);
+			d.error('Failed to save swap %s to Nostr: %s', swapId, (error as Error).message);
 		}
 	}
 
@@ -400,7 +404,7 @@ export class NostrSwapStorage implements SwapStorage {
 			const swaps = await this.loadAll();
 			return swaps.find((s) => s.id === swapId) || null;
 		} catch (error) {
-			console.error(`Failed to load swap ${swapId} from Nostr:`, error);
+			d.error('Failed to load swap %s from Nostr: %s', swapId, (error as Error).message);
 			return null;
 		}
 	}
@@ -413,7 +417,12 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await recoverPendingSwaps(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to load swaps from Nostr:', error);
+			d.error('Failed to load swaps from Nostr: %s', (error as Error).message);
+			Sentry.addBreadcrumb({
+				category: 'swap.nostr',
+				message: 'Failed to load swaps from Nostr',
+				level: 'warning'
+			});
 			return [];
 		}
 	}
@@ -423,7 +432,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await recoverAllSwapsFromNostr(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to load all swaps from Nostr:', error);
+			d.error('Failed to load swaps from Nostr: %s', (error as Error).message);
 			return [];
 		}
 	}
@@ -436,7 +445,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			await deleteSwapEvent(this.nsec, swapId, this.swapType);
 		} catch (error) {
-			console.error(`Failed to delete swap ${swapId} from Nostr:`, error);
+			d.error('Failed to delete swap %s from Nostr: %s', swapId, (error as Error).message);
 			// Don't throw - deletion is not critical
 		}
 	}
@@ -449,7 +458,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await deleteAllSwapEvents(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to delete all swaps from Nostr:', error);
+			d.error('Failed to delete all swaps from Nostr: %s', (error as Error).message);
 			throw error;
 		}
 	}

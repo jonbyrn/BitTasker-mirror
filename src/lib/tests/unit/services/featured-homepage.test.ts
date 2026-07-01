@@ -114,16 +114,40 @@ describe('featuredHomepage helpers', () => {
 
 	it('detects and returns the first valid image attachment url', () => {
 		const attachments: Attachment[] = [
-			{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' },
-			{ url: 'https://cdn.example.com/preview.webp', type: 'image/webp', alt: 'Preview' },
-			{ url: 'https://cdn.example.com/backup.png', type: 'image/png', alt: 'Backup' }
+			{
+				url: 'https://cdn.example.com/demo.mp4',
+				type: 'video/mp4',
+				alt: 'Video',
+				key: 'demo.mp4',
+				size: 1000
+			},
+			{
+				url: 'https://cdn.example.com/preview.webp',
+				type: 'image/webp',
+				alt: 'Preview',
+				key: 'preview.webp',
+				size: 2000
+			},
+			{
+				url: 'https://cdn.example.com/backup.png',
+				type: 'image/png',
+				alt: 'Backup',
+				key: 'backup.png',
+				size: 3000
+			}
 		];
 
 		expect(hasImageAttachment(attachments)).toBe(true);
 		expect(getFirstImageUrl(attachments)).toBe('https://cdn.example.com/preview.webp');
 		expect(
 			hasImageAttachment([
-				{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' }
+				{
+					url: 'https://cdn.example.com/demo.mp4',
+					type: 'video/mp4',
+					alt: 'Video',
+					key: 'demo.mp4',
+					size: 1000
+				}
 			])
 		).toBe(false);
 		expect(getFirstImageUrl(undefined)).toBe('');

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ethers } from 'ethers';
 import { MINIMUM_START_BUFFER_SECONDS } from '$lib/utils/contract/v2/types';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import type { NDKBid } from '$lib/nostr/events/bid';
+import type { NDKTask } from '$lib/nostr/events/task';
 
 // ── mocks ──────────────────────────────────────────────────────────
 
@@ -115,7 +117,7 @@ vi.mock('$lib/nostr/events/contract', () => {
 		tags: string[][] = [];
 		id = 'event-id-789';
 
-		constructor(_ndk) {}
+		constructor(_ndk: unknown) {}
 
 		static from = vi.fn(() =>
 			Promise.resolve({
@@ -159,7 +161,8 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 
 const mockSendBidStatusUpdate = vi.fn(() => Promise.resolve(true));
 vi.mock('$lib/utils/nostr-bid', () => ({
-	sendBidStatusUpdate: (...args: unknown[]) => mockSendBidStatusUpdate(...args),
+	sendBidStatusUpdate: (...args: unknown[]) =>
+		(mockSendBidStatusUpdate as (...a: unknown[]) => unknown)(...args),
 	clearBidCache: vi.fn()
 }));
 
@@ -214,7 +217,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				]
 			});
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 
 			if (!result.success) {
 				throw new Error(`createContract failed: ${result.error}`);
@@ -262,7 +269,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				]
 			});
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 			await result.afterBroadcast;
 
@@ -280,7 +291,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			bid.bidContent.startDateTime = now + 600; // beyond buffer
 			bid.bidContent.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// Simulate broadcast completing
@@ -305,7 +320,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			bid.bidContent.startDateTime = now + 600;
 			bid.bidContent.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 			await result.afterBroadcast;
 
@@ -324,7 +343,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			bid.bidContent.startDateTime = now + 600;
 			bid.bidContent.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			const revertedReceipt = {
@@ -344,7 +367,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			bid.bidContent.startDateTime = now + 600;
 			bid.bidContent.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// Build a proper receipt: paymentContractId is indexed (uint32) → goes into topics[1]
@@ -379,7 +406,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			bid.bidContent.startDateTime = now + 600;
 			bid.bidContent.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// After broadcast: task is IN_PROGRESS, contract event is 'pending'
@@ -412,7 +443,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				author: { pubkey: undefined, npub: undefined }
 			};
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.error).toContain('Taskee pubkey');
@@ -451,7 +486,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			mockSendBidStatusUpdate.mockClear();
 			mockSendBidStatusUpdate.mockResolvedValue(true);
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			await result.afterBroadcast;
@@ -476,7 +515,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			mockSendBidStatusUpdate.mockRejectedValue(new Error('Relay unavailable'));
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// afterBroadcast should complete without throwing even if bid status update fails

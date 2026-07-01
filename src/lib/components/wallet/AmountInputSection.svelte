@@ -200,7 +200,7 @@
 				class="btn join-item no-animation bg-base-200 text-base-content/70 active:bg-base-300 min-h-[48px] touch-manipulation border-r-0 text-sm sm:min-h-[52px]"
 				onclick={() => onBtcUsdModeChange?.(!btcUsdMode)}
 				{disabled}
-				aria-label="Toggle between USD and BTC units for input"
+				aria-label={$t('wallet.buy_sell.toggle_btc_usd')}
 			>
 				<span class={btcUsdMode ? 'text-base-content/50' : 'text-primary'}>{btcNativeSymbol}</span
 				><span class="text-base-content/50"> / </span><span
@@ -241,11 +241,12 @@
 						? 'decimal'
 						: 'numeric'}
 				{disabled}
+				aria-label={$t('wallet.buy_sell.amount')}
 			/>
 			{#if onClear && amount}
 				<button
 					type="button"
-					class="text-error hover:bg-error/20 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
+					class="text-error hover:bg-error/20 active:bg-error/30 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
 					onclick={handleClear}
 					{disabled}
 					aria-label="Clear amount"
@@ -325,11 +326,10 @@
 						{#if onClear && (mathExpression || amount)}
 							<button
 								type="button"
-								class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-								style="-webkit-tap-highlight-color: transparent;"
+								class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-11 min-h-[44px] w-11 min-w-[44px] touch-manipulation items-center justify-center p-0 select-none"
 								onclick={handleClear}
 								{disabled}
-								aria-label="Clear calculator"
+								aria-label={$t('wallet.buy_sell.clear')}
 							>
 								<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
 							</button>
@@ -348,11 +348,10 @@
 			{#if onMaxAmount}
 				<button
 					type="button"
-					class="bg-primary text-primary-content flex min-w-[56px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-2 py-1.5 text-lg font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-20 sm:min-w-[60px] sm:px-3 sm:py-2 sm:text-xl"
-					style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 64px;"
+					class="bg-primary text-primary-content -mr-[2px] flex w-16 min-w-[56px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-2 py-1.5 text-lg font-semibold whitespace-nowrap transition-opacity select-none [-webkit-tap-highlight-color:transparent] disabled:opacity-20 sm:min-w-[60px] sm:px-3 sm:py-2 sm:text-xl"
 					onclick={handleMax}
 					disabled={disabled || isMaxDisabled || isLoadingMaxCalculation}
-					aria-label="Set maximum amount"
+					aria-label={$t('wallet.buy_sell.set_max')}
 				>
 					{#if isLoadingMaxCalculation}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -377,7 +376,6 @@
 				class:active:bg-base-300={!disabled}
 				class:cursor-not-allowed={disabled}
 				class:pointer-events-none={disabled}
-				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => !disabled && handleUnitToggle('usd')}
 				{disabled}
 				tabindex={disabled ? -1 : 0}
@@ -396,7 +394,6 @@
 				class:active:bg-base-300={!disabled}
 				class:cursor-not-allowed={disabled}
 				class:pointer-events-none={disabled}
-				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => !disabled && handleUnitToggle('sats')}
 				{disabled}
 				tabindex={disabled ? -1 : 0}

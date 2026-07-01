@@ -487,7 +487,7 @@ export class OffRampOrchestrator {
 	 *
 	 * @returns MoonPay redirect URL for the user to complete KYC/checkout.
 	 */
-	async openMoonPay(): Promise<string> {
+	async openMoonPay(country: string): Promise<string> {
 		requireEnabled();
 		requireOnline();
 
@@ -515,7 +515,7 @@ export class OffRampOrchestrator {
 				cryptoAmount: this.flow.quote.bridgeOutputAmount,
 				fiatCurrency: 'USD',
 				providerCode: 'moonpay',
-				country: 'SV',
+				country,
 				fiatAddress: this.flow.sourceAddress
 			})
 		);
@@ -955,7 +955,7 @@ export class OffRampOrchestrator {
 			try {
 				listener(snapshot);
 			} catch (err) {
-				console.error('OffRampOrchestrator listener error:', err);
+				debug.error('OffRampOrchestrator listener error:', err);
 			}
 		}
 	}

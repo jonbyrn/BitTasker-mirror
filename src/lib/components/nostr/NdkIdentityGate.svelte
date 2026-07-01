@@ -37,7 +37,7 @@
 				<div
 					class="bg-error/15 text-error ring-error/20 flex h-20 w-20 items-center justify-center rounded-2xl ring-2"
 				>
-					<IconLockAlert class="h-11 w-11 shrink-0" aria-hidden="true" />
+					<IconLockAlert class="h-11 w-11 shrink-0" />
 				</div>
 				<div class="space-y-2">
 					<h3 class="text-lg font-semibold">
@@ -77,7 +77,7 @@
 				<div
 					class="from-primary/25 to-primary/5 text-primary ring-primary/25 relative flex h-24 w-24 items-center justify-center rounded-full bg-linear-to-br ring-2"
 				>
-					<IconAccountKey class="h-14 w-14 shrink-0 drop-shadow-sm" aria-hidden="true" />
+					<IconAccountKey class="h-14 w-14 shrink-0 drop-shadow-sm" />
 					<span
 						class="bg-base-100 border-primary/30 absolute -right-1 -bottom-1 flex h-9 w-9 items-center justify-center rounded-full border shadow-sm"
 					>
@@ -102,7 +102,7 @@
 				<div
 					class="from-primary/20 to-primary/5 text-primary ring-primary/20 flex h-24 w-24 items-center justify-center rounded-full bg-linear-to-br ring-2"
 				>
-					<IconAccountKey class="h-14 w-14 shrink-0 drop-shadow-sm" aria-hidden="true" />
+					<IconAccountKey class="h-14 w-14 shrink-0 drop-shadow-sm" />
 				</div>
 				<div class="space-y-2">
 					<h3 class="text-lg font-semibold">

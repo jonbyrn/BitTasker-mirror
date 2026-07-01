@@ -51,7 +51,7 @@ const { cwState, cwStore, hasCW, mockRegistry, flagIsEnabled } = vi.hoisted(() =
 		}
 	};
 	const reg = {
-		get: vi.fn<[string], unknown>().mockReturnValue(undefined),
+		get: vi.fn().mockReturnValue(undefined as unknown),
 		register: vi.fn(),
 		unregister: vi.fn(),
 		clear: vi.fn()

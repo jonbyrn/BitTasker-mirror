@@ -16,18 +16,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { startSwapChain, resumeSwapChain } from '$lib/services/swap-chain.service';
 import type { Route, RouteHop, Destination } from '$lib/services/route-resolver';
-import type {
-	EVMSigner,
-	EVMTransactionRequest,
-	EVMTransactionResult
-} from '$lib/services/external-wallet/types';
+import type { EVMSigner, EVMTransactionRequest } from '$lib/services/external-wallet/types';
 import type { SwapChainState, SwapChainPhase } from '$lib/services/swap-chain.service';
 
 // ---------------------------------------------------------------------------
 // Mock fetch for waitForReceipt — returns a successful receipt by default
 // ---------------------------------------------------------------------------
 
-const mockFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
+const mockFetch = vi.fn<(input: Request | string | URL, init?: RequestInit) => Promise<Response>>();
 
 function setupFetchMock(): void {
 	mockFetch.mockResolvedValue({
@@ -73,7 +69,7 @@ const {
 		label: 'MetaMask',
 		address: '0xAAaA000000000000000000000000000000000001',
 		chainId: 30,
-		sendTransaction: vi.fn<[EVMTransactionRequest], Promise<EVMTransactionResult>>(),
+		sendTransaction: vi.fn(),
 		getAddress: vi.fn(() => '0xAAaA000000000000000000000000000000000001'),
 		isConnected: vi.fn(() => true)
 	};
@@ -227,7 +223,7 @@ vi.mock('$lib/services/changelly.service', () => ({
 }));
 
 vi.mock('$lib/services/BoltzProvider', () => {
-	const MockBoltzProvider = vi.fn().mockImplementation(function () {
+	const MockBoltzProvider = vi.fn().mockImplementation(function (this: Record<string, unknown>) {
 		this.createReverseSwap = mockBoltzCreateReverseSwap;
 		this.createSubmarineSwap = mockBoltzCreateSubSwap;
 		this.createSwap = mockBoltzCreateSwap;
@@ -248,7 +244,7 @@ vi.mock('ethers', async (importOriginal) => {
 					address: '0x7777000000000000000000000000000000000Aaa'
 				}))
 			},
-			Interface: vi.fn().mockImplementation(function () {
+			Interface: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
 				this.encodeFunctionData = vi.fn(() => '0xlockcalldata');
 			}),
 			Transaction: vi.fn(),

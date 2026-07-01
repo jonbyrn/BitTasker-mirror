@@ -925,13 +925,3 @@ export const changellyFiatService = {
 		});
 	}
 };
-
-// ---------------------------------------------------------------------------
-// Legacy compat: re-export as fiatRampService
-// ---------------------------------------------------------------------------
-
-/**
- * @deprecated Use `changellyFiatService` instead.
- * Kept for backward compatibility during migration.
- */
-export const fiatRampService = changellyFiatService;

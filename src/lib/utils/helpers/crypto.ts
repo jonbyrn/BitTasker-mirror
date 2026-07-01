@@ -10,7 +10,10 @@ import { bytesToBase64, base64ToBytes } from './encoding';
  * This is the single source of truth for the WebCrypto typing issues.
  */
 function toBufferSource(u8: Uint8Array): BufferSource {
-	return u8.buffer instanceof ArrayBuffer ? u8 : new Uint8Array(u8);
+	// Always copy into a fresh Uint8Array so TS sees Uint8Array<ArrayBuffer>,
+	// which is assignable to BufferSource.  The original may be backed by
+	// ArrayBufferLike (SharedArrayBuffer / detached) which breaks the overload.
+	return new Uint8Array(u8);
 }
 
 export async function generateRandomKey(): Promise<CryptoKey> {
@@ -27,11 +30,13 @@ export async function exportKey(key: CryptoKey): Promise<string> {
 
 export async function importKey(keyData: string): Promise<CryptoKey> {
 	const keyBytes = base64ToBytes(keyData);
-	const buffer = new Uint8Array(keyBytes).buffer;
-	return await crypto.subtle.importKey('raw', buffer, { name: 'AES-GCM', length: 256 }, true, [
-		'encrypt',
-		'decrypt'
-	]);
+	return await crypto.subtle.importKey(
+		'raw',
+		toBufferSource(keyBytes),
+		{ name: 'AES-GCM', length: 256 },
+		true,
+		['encrypt', 'decrypt']
+	);
 }
 
 export async function encrypt(data: string, key: CryptoKey): Promise<CryptoEncryptedData> {
@@ -72,7 +77,7 @@ export async function decrypt(encryptedData: CryptoEncryptedData, key: CryptoKey
 	combinedBytes.set(authTagBytes, dataBytes.length);
 
 	// Create a proper ArrayBuffer for the iv
-	const ivBuffer = new Uint8Array(ivBytes).buffer;
+	const ivBuffer = toBufferSource(ivBytes);
 
 	const decryptedData = await crypto.subtle.decrypt(
 		{
@@ -103,7 +108,7 @@ export async function deriveKeyFromPassword(
 		);
 
 		// Create a proper ArrayBuffer for the salt
-		const saltBuffer = new Uint8Array(salt).buffer;
+		const saltBuffer = toBufferSource(salt);
 
 		return await crypto.subtle.deriveKey(
 			{

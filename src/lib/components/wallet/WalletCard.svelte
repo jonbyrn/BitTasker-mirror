@@ -219,7 +219,6 @@
 					class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress === wallet.address
 						? 'text-success'
 						: 'opacity-40'}"
-					aria-hidden="true"
 				/>
 			</button>
 
@@ -243,7 +242,6 @@
 						class="h-4 w-4 shrink-0 transition-colors duration-300 {copiedAddress === btcAddress
 							? 'text-success'
 							: 'opacity-40'}"
-						aria-hidden="true"
 					/>
 				</button>
 			{/if}
@@ -254,7 +252,7 @@
 					{#if btcConnected}
 						<button class="btn btn-outline btn-sm min-h-[44px]" disabled>
 							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-4 w-4" />
-							<IconCheck class="text-success h-4 w-4" aria-hidden="true" />
+							<IconCheck class="text-success h-4 w-4" />
 							{$t('wallet.connected.connected_label')}
 						</button>
 					{:else}

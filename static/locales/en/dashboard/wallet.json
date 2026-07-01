@@ -772,6 +772,11 @@
 			"continue": "Continue",
 			"cancel": "Cancel",
 			"close": "Close",
+			"toggle_btc_usd": "Toggle between USD and BTC units",
+			"clear": "Clear",
+			"set_max": "Set maximum amount",
+			"country": "Country",
+			"amount": "Amount",
 			"estimated_receive": "Estimated Receive",
 			"estimated_send": "Estimated Send",
 			"processing_fee": "Processing Fee",
@@ -850,7 +855,11 @@
 			"purchase": "purchase",
 			"sale": "sale",
 			"supported_crypto_error": "Unable to verify supported currencies",
-			"unavailable_in_region": "{asset} is not available for fiat {action} in your region."
+			"unavailable_in_region": "{asset} is not available for fiat {action} in your region.",
+			"payment_not_received": "Payment not received. The provider did not confirm your transaction.",
+			"transaction_status": "Transaction {status}",
+			"crypto_delivery_timeout": "Crypto delivery timeout. Check your wallet balance.",
+			"session_expired": "Session expired. Please start a new purchase."
 		},
 		"swap": {
 			"title": "Swap Digital Assets",
@@ -1079,7 +1088,33 @@
 				"no_routes": "No routes available for this swap pair",
 				"no_dest_address": "Destination wallet address not available",
 				"swap_failed": "Swap failed. Please try again.",
-				"self_send": "Cannot swap to the same wallet with the same asset"
+				"self_send": "Cannot swap to the same wallet with the same asset",
+				"insufficient_funds": "Insufficient funds to cover gas fees. Please top up your wallet.",
+				"nonce_conflict": "Transaction conflict — please try again.",
+				"network_congestion": "Network congestion — please try again with a higher fee.",
+				"user_rejected": "Transaction was rejected.",
+				"timed_out": "Swap timed out. Your funds are safe — check Pending Swaps to recover.",
+				"unsupported_pair": "This swap pair is not currently supported."
+			},
+			"progress": {
+				"locking_rbtc": "Locking rBTC on RSK",
+				"waiting_boltz": "Waiting for Boltz confirmation",
+				"claiming_tbtc": "Claiming tBTC on Arbitrum",
+				"swapping_tbtc": "Swapping tBTC to USDT0"
+			},
+			"asset": {
+				"usd": "USD",
+				"bitcoin_rbtc": "Bitcoin (rBTC)",
+				"bitcoin_wbtc": "Bitcoin (wBTC)",
+				"bitcoin_btc": "Bitcoin (BTC)",
+				"bitcoin_tbtc": "Bitcoin (tBTC)"
+			},
+			"network": {
+				"usdt0_arbitrum": "USDT0 on Arbitrum",
+				"wbtc_arbitrum": "Wrapped BTC on Arbitrum",
+				"bitcoin_rootstock": "Bitcoin on Rootstock",
+				"bitcoin_onchain": "Bitcoin on-chain",
+				"tbtc_arbitrum": "tBTC on Arbitrum"
 			},
 			"lightning": {
 				"title": "Lightning → rBTC Swap",

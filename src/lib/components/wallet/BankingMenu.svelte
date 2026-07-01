@@ -7,6 +7,13 @@
 		isLifiEnabled,
 		isLoanFlowEnabled
 	} from '$lib/services/kill-switch';
+	import IconClose from '~icons/mdi/close';
+	import IconSend from '~icons/mdi/send';
+	import IconDownload from '~icons/mdi/download';
+	import IconPlus from '~icons/mdi/plus';
+	import IconMinus from '~icons/mdi/minus';
+	import IconSwapVertical from '~icons/mdi/swap-vertical';
+	import IconBank from '~icons/mdi/bank';
 
 	// -----------------------------------------------------------------------
 	// Feature flags
@@ -63,15 +70,12 @@
 		<div class="bg-base-200 flex items-center justify-between rounded-t-2xl px-6 py-4">
 			<h2 class="text-lg font-semibold md:text-xl">{$t('wallet.title')}</h2>
 			<form method="dialog">
-				<button class="btn btn-ghost btn-sm btn-circle" onclick={onclose} aria-label="Close">
-					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						></path>
-					</svg>
+				<button
+					class="btn btn-ghost btn-sm btn-circle"
+					onclick={onclose}
+					aria-label={$t('wallet.buy_sell.cancel')}
+				>
+					<IconClose class="h-5 w-5" />
 				</button>
 			</form>
 		</div>
@@ -80,19 +84,12 @@
 		<div class="grid grid-cols-2 gap-4 p-6">
 			<!-- Send -->
 			<button
-				class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+				class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 				onclick={handleSend}
 			>
 				<div class="flex flex-col items-center gap-2">
 					<div class="bg-primary/10 rounded-full p-3">
-						<svg class="text-primary h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-							></path>
-						</svg>
+						<IconSend class="text-primary h-6 w-6" />
 					</div>
 					<span class="text-sm font-medium">{$t('wallet.send_button')}</span>
 					<span class="text-base-content/60 text-xs">
@@ -103,24 +100,12 @@
 
 			<!-- Receive -->
 			<button
-				class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+				class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 				onclick={handleReceive}
 			>
 				<div class="flex flex-col items-center gap-2">
 					<div class="bg-secondary/10 rounded-full p-3">
-						<svg
-							class="text-secondary h-6 w-6"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 5v14m0 0l-4-4m4 4l4-4"
-							></path>
-						</svg>
+						<IconDownload class="text-secondary h-6 w-6" />
 					</div>
 					<span class="text-sm font-medium">{$t('wallet.tab_receive')}</span>
 					<span class="text-base-content/60 text-xs">
@@ -132,24 +117,12 @@
 			{#if fiatEnabled}
 				<!-- Buy (fiat on-ramp) -->
 				<button
-					class="card bg-base-100 border-base-200 hover:border-success focus:ring-success cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+					class="card bg-base-100 border-base-200 hover:border-success focus:ring-success cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 					onclick={handleBuy}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div class="bg-success/10 rounded-full p-3">
-							<svg
-								class="text-success h-6 w-6"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-								></path>
-							</svg>
+							<IconPlus class="text-success h-6 w-6" />
 						</div>
 						<span class="text-sm font-medium">{$t('wallet.buy_sell.buy')}</span>
 						<span class="text-base-content/60 text-xs">
@@ -160,20 +133,12 @@
 
 				<!-- Sell (fiat off-ramp) -->
 				<button
-					class="card bg-base-100 border-base-200 hover:border-warning focus:ring-warning cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+					class="card bg-base-100 border-base-200 hover:border-warning focus:ring-warning cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 					onclick={handleSell}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div class="bg-warning/10 rounded-full p-3">
-							<svg
-								class="text-warning h-6 w-6"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"
-								></path>
-							</svg>
+							<IconMinus class="text-warning h-6 w-6" />
 						</div>
 						<span class="text-sm font-medium">{$t('wallet.buy_sell.sell')}</span>
 						<span class="text-base-content/60 text-xs">
@@ -186,7 +151,7 @@
 			<!-- Swap (only when swaps are enabled) -->
 			{#if swapsEnabled}
 				<button
-					class="card bg-base-100 border-base-200 hover:border-info focus:ring-info cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+					class="card bg-base-100 border-base-200 hover:border-info focus:ring-info cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 					onclick={() => {
 						onclose?.();
 						dispatchCustomEvent('banking:swap');
@@ -194,14 +159,7 @@
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div class="bg-info/10 rounded-full p-3">
-							<svg class="text-info h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-								></path>
-							</svg>
+							<IconSwapVertical class="text-info h-6 w-6" />
 						</div>
 						<span class="text-sm font-medium">{$t('wallet.swap.swap_crypto')}</span>
 						<span class="text-base-content/60 text-xs">
@@ -214,7 +172,7 @@
 			{#if loanFlowEnabled}
 				<!-- DeFi (Earn/Borrow drawer) — gated by single LOAN_FLOW flag for entire Earn surface -->
 				<button
-					class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none"
+					class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
 					onclick={() => {
 						onclose?.();
 						dispatchCustomEvent('banking:defi');
@@ -222,20 +180,7 @@
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div class="bg-primary/10 rounded-full p-3">
-							<svg
-								class="text-primary h-6 w-6"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								aria-hidden="true"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-								/>
-							</svg>
+							<IconBank class="text-primary h-6 w-6" />
 						</div>
 						<span class="text-sm font-medium">{$t('wallet.defi.title')}</span>
 						<span class="text-base-content/60 text-xs">

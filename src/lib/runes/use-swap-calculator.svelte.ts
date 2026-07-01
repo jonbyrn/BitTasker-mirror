@@ -253,14 +253,16 @@ export function useSwapCalculator(opts: UseSwapCalculatorOptions): UseSwapCalcul
 
 	// Optional debug breadcrumb (no Sentry; sync only).
 	$effect(() => {
-		d.log('state', {
-			amount,
-			swapPercent,
-			units: amountInTokenUnits,
-			sats: amountSats,
-			insuff: isInsufficientBalance,
-			source: getSourceType()
-		});
+		if (import.meta.env.DEV) {
+			d.log('state', {
+				amount,
+				swapPercent,
+				units: amountInTokenUnits,
+				sats: amountSats,
+				insuff: isInsufficientBalance,
+				source: getSourceType()
+			});
+		}
 	});
 
 	return {

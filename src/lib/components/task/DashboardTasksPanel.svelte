@@ -25,6 +25,7 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
+	import type { Component } from 'svelte';
 
 	// Props
 	let { openTaskDrawer, status = null } = $props<{
@@ -71,34 +72,34 @@
 		{
 			id: 'all' as const,
 			label: $t('dashboard.contracts.all_statuses'),
-			icon: IconCheckAll
+			icon: IconCheckAll as unknown as Component
 		},
 		{
 			id: 'open',
 			label: $t('task.filters.open'),
-			icon: IconClockOutline
+			icon: IconClockOutline as unknown as Component
 		},
 		{
 			id: 'tasks_in_progress',
 			label: $t('task.filters.in_progress'),
-			icon: IconLightningBolt
+			icon: IconLightningBolt as unknown as Component
 		},
 		{
 			id: 'tasks_completed',
 			label: $t('task.filters.completed'),
-			icon: IconCheckCircle
+			icon: IconCheckCircle as unknown as Component
 		},
 		{
 			id: 'tasks_disputed',
 			label: $t('task.filters.disputed'),
-			icon: IconAlertCircleOutline
+			icon: IconAlertCircleOutline as unknown as Component
 		},
 		{
 			id: 'tasks_cancelled',
 			label: $t('task.filters.cancelled'),
-			icon: IconClipboardTextOutline
+			icon: IconClipboardTextOutline as unknown as Component
 		}
-	] as const);
+	]);
 
 	/**
 	 * Fetch current BTC price

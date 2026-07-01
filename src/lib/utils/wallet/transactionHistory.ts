@@ -708,7 +708,7 @@ export async function processTransactions(
 					// Display helpers (all computed in one pass)
 					displayType,
 					borderColor: isFailedClaim ? 'error' : borderColor,
-					iconConfig, // Pre-computed icon components
+					iconConfig: iconConfig as Record<string, unknown>, // Pre-computed icon components
 					title: isFailedClaim ? 'wallet.swap.failed_receive' : title,
 
 					// Network information (computed once)
@@ -724,7 +724,10 @@ export async function processTransactions(
 
 					// Raw data
 					rawMethod: tx.method || undefined,
-					decodedInput: tx.decoded_input || undefined
+					decodedInput: (tx.decoded_input || undefined) as
+						| string
+						| Record<string, unknown>
+						| undefined
 				};
 
 				if (network === 'arb' && tx.token_transfers && tx.token_transfers.length > 0) {

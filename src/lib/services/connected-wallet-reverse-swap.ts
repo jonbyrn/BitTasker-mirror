@@ -108,7 +108,7 @@ export async function createConnectedReverseSwap(
 
 	d.log('Creating reverse swap: amount=%d claimAddress=%s', amountSats, claimAddress);
 
-	const response = await fetch(`${BOLTZ_BASE_URL}/v2/swap/reverse`, {
+	const response = await fetch(`${BOLTZ_BASE_URL}/swap/reverse`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({

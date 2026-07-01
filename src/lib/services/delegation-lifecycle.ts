@@ -14,7 +14,7 @@
  * @see requirements/usdt-integration-plan.md Section 9.3
  */
 
-import { App, type AppStateChangeListener } from '@capacitor/app';
+import { App, type StateChangeListener } from '@capacitor/app';
 import { browser } from '$app/environment';
 import { getIncompleteDelegations, updateEntry } from '$lib/services/delegation-journal';
 import { EIP7702DelegationManager } from '$lib/services/gas-abstraction/eip7702-delegation-manager';
@@ -107,7 +107,7 @@ export function registerDelegationLifecycle(getCurrentState?: () => string | nul
 		return;
 	}
 
-	const handler: AppStateChangeListener = (state) => {
+	const handler: StateChangeListener = (state) => {
 		if (!state.isActive) {
 			// App is going to background -- persist current state
 			void handlePause(getCurrentState?.() ?? null);

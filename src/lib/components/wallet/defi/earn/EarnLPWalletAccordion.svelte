@@ -36,7 +36,10 @@
 	let actionDropdownOpen = $state(false);
 
 	// Position data — derive from store if props empty, fallback to store
-	let storePositions = $derived(defiPositions.uniswapPositions.get(walletId) ?? []);
+	let storePositions = $derived.by((): UniswapLPPosition[] => {
+		const pos = defiPositions.uniswapPositions.get(walletId);
+		return pos !== undefined ? [pos] : [];
+	});
 	let effectivePositions = $derived(positions.length > 0 ? positions : storePositions);
 
 	// Wallet display

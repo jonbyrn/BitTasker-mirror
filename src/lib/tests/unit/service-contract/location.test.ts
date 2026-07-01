@@ -6,11 +6,11 @@ import {
 	validateServiceLocation
 } from '$lib/utils/service-contract/location';
 
-type _ServiceLocationInput = Pick<Service, 'serviceLocationTypes' | 'locationDetails'>;
+type ServiceLocationInput = Pick<Service, 'serviceLocationTypes' | 'locationDetails'>;
 
 describe('buildServiceContractLocationSnapshot', () => {
 	it('returns undefined when serviceLocationTypes is empty', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [],
 			locationDetails: {}
 		};
@@ -18,14 +18,17 @@ describe('buildServiceContractLocationSnapshot', () => {
 	});
 
 	it('returns snapshot even when coordinates are null (relies on validateServiceLocation for validation)', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: null,
 						longitude: null,
-						displayName: 'Location'
+						displayName: 'Location',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -43,14 +46,17 @@ describe('buildServiceContractLocationSnapshot', () => {
 	});
 
 	it('returns taskee location snapshot when type is TASKEE_LOCATION', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: -74.006,
-						displayName: '123 Main St'
+						displayName: '123 Main St',
+						zipCode: '',
+						locationLoaded: true
 					},
 					locationDisplayName: 'Downtown Office',
 					serviceRadius: 10
@@ -64,14 +70,16 @@ describe('buildServiceContractLocationSnapshot', () => {
 	});
 
 	it('returns tasker location snapshot when type is TASKER_LOCATION', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
 			locationDetails: {
 				taskerLocation: {
 					serviceLocation: {
 						latitude: 34.0522,
 						longitude: -118.2437,
-						displayName: '456 Studio Ave'
+						displayName: '456 Studio Ave',
+						zipCode: '',
+						locationLoaded: true
 					},
 					serviceRadius: 15
 				}
@@ -84,22 +92,27 @@ describe('buildServiceContractLocationSnapshot', () => {
 	});
 
 	it('prioritizes TASKEE_LOCATION over TASKER_LOCATION when both are present', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [
 				ServiceLocationTypeEnum.TASKEE_LOCATION,
 				ServiceLocationTypeEnum.TASKER_LOCATION
 			],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
-						longitude: -74.006
+						longitude: -74.006,
+						zipCode: '',
+						locationLoaded: true
 					}
 				},
 				taskerLocation: {
 					serviceLocation: {
 						latitude: 34.0522,
-						longitude: -118.2437
+						longitude: -118.2437,
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -111,7 +124,7 @@ describe('buildServiceContractLocationSnapshot', () => {
 
 describe('validateServiceLocation', () => {
 	it('returns invalid when serviceLocationTypes is empty', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [],
 			locationDetails: {}
 		};
@@ -121,10 +134,11 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns valid for TASKEE_LOCATION with valid coordinates and radius', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: -74.006
@@ -138,10 +152,11 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns invalid for TASKEE_LOCATION when coordinates are missing', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: null,
 						longitude: null
@@ -155,10 +170,11 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns invalid for TASKEE_LOCATION when only one coordinate is present', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: null
@@ -172,10 +188,11 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns invalid for TASKEE_LOCATION when radius is out of range', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: -74.006
@@ -188,17 +205,23 @@ describe('validateServiceLocation', () => {
 		expect(result.valid).toBe(false);
 		expect(result.errorCode).toBe('INVALID_RADIUS');
 
-		service.locationDetails.taskeeLocation.serviceRadius = 101;
+		service.locationDetails = {
+			taskeeLocation: {
+				...service.locationDetails!.taskeeLocation!,
+				serviceRadius: 101
+			}
+		};
 		result = validateServiceLocation(service);
 		expect(result.valid).toBe(false);
 		expect(result.errorCode).toBe('INVALID_RADIUS');
 	});
 
 	it('allows TASKEE_LOCATION without explicit radius (uses default)', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
+					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: -74.006
@@ -211,7 +234,7 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns valid for TASKER_LOCATION with valid coordinates', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
 			locationDetails: {
 				taskerLocation: {
@@ -227,7 +250,7 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns invalid for TASKER_LOCATION when coordinates are missing', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
 			locationDetails: {
 				taskerLocation: {
@@ -244,7 +267,7 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('returns valid for REMOTE location type without coordinates', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE],
 			locationDetails: {}
 		};
@@ -253,9 +276,9 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('handles undefined locationDetails gracefully', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
-			locationDetails: undefined
+			locationDetails: undefined as ServiceLocationInput['locationDetails']
 		};
 		const result = validateServiceLocation(service);
 		expect(result.valid).toBe(false);
@@ -263,7 +286,7 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('handles undefined taskeeLocation gracefully', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {}
 		};
@@ -273,7 +296,7 @@ describe('validateServiceLocation', () => {
 	});
 
 	it('handles undefined taskerLocation gracefully', () => {
-		const service = {
+		const service: ServiceLocationInput = {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
 			locationDetails: {}
 		};

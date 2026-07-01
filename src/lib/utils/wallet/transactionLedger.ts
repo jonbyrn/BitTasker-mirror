@@ -9,9 +9,8 @@ const REVERSE_CLAIM_PAIR_WINDOW_MS = 15 * 60 * 1000;
 
 function claimPreimage(tx: ProcessedTransaction): string | null {
 	if (tx.displayType !== 'swap-claim') return null;
-	const params = tx.decodedInput?.parameters as
-		| Array<{ name?: string; value?: string }>
-		| undefined;
+	const decoded = tx.decodedInput as Record<string, unknown> | undefined;
+	const params = decoded?.parameters as Array<{ name?: string; value?: string }> | undefined;
 	if (!params) return null;
 	const preimage = params.find((p) => p.name === 'preimage');
 	return preimage?.value ?? null;
@@ -30,10 +29,9 @@ function isSuccessChainTx(tx: ProcessedTransaction): boolean {
 
 function isMinerFeeClaim(tx: ProcessedTransaction): boolean {
 	const method = tx.methodName?.toLowerCase() ?? '';
+	const decoded = tx.decodedInput as Record<string, unknown> | undefined;
 	const methodCall =
-		typeof tx.decodedInput?.method_call === 'string'
-			? tx.decodedInput.method_call.toLowerCase()
-			: '';
+		typeof decoded?.method_call === 'string' ? decoded.method_call.toLowerCase() : '';
 	return method.includes('claimminerfee') || methodCall.includes('claimminerfee');
 }
 

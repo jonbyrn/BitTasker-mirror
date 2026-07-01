@@ -92,6 +92,8 @@ export interface UseSwapWalletsOptions {
 	getDestWalletId: () => WalletId;
 	getSourceType: () => SourceWallet; // 'rbtc' | 'usdt0-arb' (narrowed in practice)
 	getDestType: () => string; // DestType 'usdt0-arb' | 'rbtc-rsk' | 'wbtc-arb' | 'btc-onchain'
+	// Optional translation function (i18n). Falls back to English if not provided.
+	getTranslation?: (key: string) => string;
 }
 
 export interface UseSwapWallets {
@@ -287,7 +289,8 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 				const signer = handle.bitcoinSigner;
 				if (signer?.address) return signer.address;
 			} catch {
-				// Handle doesn't support BTC signing
+				// Connector doesn't support BTC signing — skip
+				d.log('connector %s does not support BTC signing', handle.id);
 			}
 		}
 		const btcWallet = connectedSnap.wallets.find(
@@ -413,7 +416,10 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 	// (destRbtcSats etc. derivable from destBalances in consumer; exact per-wallet logic preserved above)
 
 	function walletLabel(id: WalletId): string {
-		if (id === 'builtin') return 'BitTasker Wallet';
+		if (id === 'builtin') {
+			const t = opts.getTranslation;
+			return t ? t('wallet.builtin_wallet') : 'BitTasker Wallet';
+		}
 		const w = getConnectedWallet(id);
 		const name = w?.walletName || id;
 		return name.toLowerCase().endsWith('wallet') ? name : `${name} Wallet`;

@@ -184,10 +184,13 @@ export async function setBiometricKey({
 			if (!credential) throw new Error('No credential returned from WebAuthn');
 
 			credentialId = credential.id;
-			passkeyPubkey = bufferToBase64url(credential.rawId);
-			clientDataJSON = bufferToBase64url(credential.response.clientDataJSON as ArrayBuffer);
+			const pubCred = credential as PublicKeyCredential;
+			passkeyPubkey = bufferToBase64url(pubCred.rawId);
+			clientDataJSON = bufferToBase64url(
+				(pubCred.response as AuthenticatorAttestationResponse).clientDataJSON as ArrayBuffer
+			);
 			attestationObjectB64 = bufferToBase64url(
-				(credential.response as AuthenticatorAttestationResponse).attestationObject as ArrayBuffer
+				(pubCred.response as AuthenticatorAttestationResponse).attestationObject as ArrayBuffer
 			);
 
 			// Try to extract public key from attestation object
@@ -325,6 +328,7 @@ async function executeBiometricData(
 				rpId: window.location.hostname,
 				allowCredentials: allowCredentials.map((cred) => ({
 					...cred,
+					transports: cred.transports as AuthenticatorTransport[] | undefined,
 					id: (() => {
 						const base64 = cred.id.replace(/-/g, '+').replace(/_/g, '/');
 						const paddedStr = base64 + '='.repeat((4 - (base64.length % 4)) % 4);

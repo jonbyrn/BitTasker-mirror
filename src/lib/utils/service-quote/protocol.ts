@@ -547,9 +547,9 @@ function hasPublishableAcceptedSnapshot(
 		typeof content.transactionHash === 'string' &&
 		TRANSACTION_HASH_RE.test(content.transactionHash) &&
 		EVM_ADDRESS_RE.test(snapshot.clientRskAddress) &&
-		[0, 1, 2].includes(snapshot.clientFeeTier) &&
+		([0, 1, 2] as number[]).includes(snapshot.clientFeeTier) &&
 		EVM_ADDRESS_RE.test(snapshot.freelancerRskAddress) &&
-		[0, 1, 2].includes(snapshot.freelancerFeeTier) &&
+		([0, 1, 2] as number[]).includes(snapshot.freelancerFeeTier) &&
 		Number.isInteger(snapshot.chainId) &&
 		snapshot.chainId > 0 &&
 		EVM_ADDRESS_RE.test(snapshot.contractAddress) &&

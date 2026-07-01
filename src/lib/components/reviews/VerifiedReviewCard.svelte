@@ -147,7 +147,6 @@
 							class="h-3.5 w-3.5 {i < Math.round(review.content.overallRating)
 								? 'text-primary'
 								: 'text-base-content/20'}"
-							aria-hidden="true"
 						/>
 					{/each}
 				</div>
@@ -202,7 +201,6 @@
 									class="h-3 w-3 {star <= Math.round(category.value)
 										? 'text-primary'
 										: 'text-base-content/20'}"
-									aria-hidden="true"
 								/>
 							{/each}
 						</div>
@@ -229,7 +227,6 @@
 									class="h-3 w-3 {star <= Math.round(category.value)
 										? 'text-primary'
 										: 'text-base-content/20'}"
-									aria-hidden="true"
 								/>
 							{/each}
 						</div>
@@ -256,7 +253,6 @@
 									class="h-3 w-3 {star <= Math.round(category.value)
 										? 'text-primary'
 										: 'text-base-content/20'}"
-									aria-hidden="true"
 								/>
 							{/each}
 						</div>

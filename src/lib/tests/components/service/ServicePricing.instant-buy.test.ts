@@ -74,7 +74,7 @@ vi.mock('$lib/stores/service.store', () => ({
 					pricing: {
 						...state.service.pricing,
 						...((updates.pricing as Record<string, unknown> | undefined) ?? {})
-					}
+					} as { type: string; currency: string; amount: number } | undefined
 				}
 			}));
 		}
@@ -105,7 +105,19 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 	});
 
-	function readStoreState() {
+	function readStoreState(): {
+		service: {
+			pricing:
+				| {
+						type: string;
+						currency: string;
+						amount: number;
+				  }
+				| undefined;
+			instantBuyLeadHours?: number;
+			instantBuyDeliveryHours?: number;
+		};
+	} | null {
 		type StoreState = {
 			service: {
 				pricing:
@@ -206,7 +218,8 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		hoisted.storeState.set({
 			service: {
 				pricing: undefined,
-				instantBuyLeadHours: undefined
+				instantBuyLeadHours: undefined,
+				instantBuyDeliveryHours: undefined
 			}
 		});
 

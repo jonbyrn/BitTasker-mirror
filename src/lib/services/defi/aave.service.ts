@@ -246,11 +246,13 @@ export class AaveService {
 		});
 
 		const ethersSigner = signer as ethers.Signer;
-		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
-			const addr = await ethersSigner.getAddress();
-			return pool.supply(asset, amount, addr, 0);
-		});
+		const { data: tx, error } = await tryCatch(
+			(async () => {
+				const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+				const addr = await ethersSigner.getAddress();
+				return pool.supply(asset, amount, addr, 0);
+			})()
+		);
 		if (error || !tx) {
 			const msg = `Aave supply failed for ${asset}: ${error?.message}`;
 			Sentry.addBreadcrumb({
@@ -278,12 +280,14 @@ export class AaveService {
 		});
 
 		const ethersSigner = signer as ethers.Signer;
-		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
-			const addr = await ethersSigner.getAddress();
-			// interestRateMode = 2 → VARIABLE (stable rate is deprecated on Arbitrum V3)
-			return pool.borrow(asset, amount, 2, 0, addr);
-		});
+		const { data: tx, error } = await tryCatch(
+			(async () => {
+				const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+				const addr = await ethersSigner.getAddress();
+				// interestRateMode = 2 → VARIABLE (stable rate is deprecated on Arbitrum V3)
+				return pool.borrow(asset, amount, 2, 0, addr);
+			})()
+		);
 		if (error || !tx) {
 			const msg = `Aave borrow failed for ${asset}: ${error?.message}`;
 			Sentry.addBreadcrumb({
@@ -309,11 +313,13 @@ export class AaveService {
 		});
 
 		const ethersSigner = signer as ethers.Signer;
-		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
-			const addr = await ethersSigner.getAddress();
-			return pool.repay(asset, amount, 2, addr);
-		});
+		const { data: tx, error } = await tryCatch(
+			(async () => {
+				const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+				const addr = await ethersSigner.getAddress();
+				return pool.repay(asset, amount, 2, addr);
+			})()
+		);
 		if (error || !tx) {
 			const msg = `Aave repay failed for ${asset}: ${error?.message}`;
 			Sentry.addBreadcrumb({
@@ -339,11 +345,13 @@ export class AaveService {
 		});
 
 		const ethersSigner = signer as ethers.Signer;
-		const { data: tx, error } = await tryCatch(async () => {
-			const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
-			const addr = await ethersSigner.getAddress();
-			return pool.withdraw(asset, amount, addr);
-		});
+		const { data: tx, error } = await tryCatch(
+			(async () => {
+				const pool = new ethers.Contract(AAVE_POOL, POOL_ABI, ethersSigner);
+				const addr = await ethersSigner.getAddress();
+				return pool.withdraw(asset, amount, addr);
+			})()
+		);
 		if (error || !tx) {
 			const msg = `Aave withdraw failed for ${asset}: ${error?.message}`;
 			Sentry.addBreadcrumb({

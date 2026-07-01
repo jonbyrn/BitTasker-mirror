@@ -283,7 +283,7 @@
 			<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
-						<IconCloseCircle class="text-error mr-2 h-6 w-6 shrink-0" aria-hidden="true" />
+						<IconCloseCircle class="text-error mr-2 h-6 w-6 shrink-0" />
 						<div>
 							<div class="font-bold">{$t('wallet.page.connection_error')}</div>
 							<div class="text-sm">
@@ -343,7 +343,7 @@
 										title={$t('wallet.testnet_warning.copy_address')}
 										aria-label={$t('wallet.testnet_warning.copy_address')}
 									>
-										<IconContentCopy class="h-4 w-4" aria-hidden="true" />
+										<IconContentCopy class="h-4 w-4" />
 									</button>
 								</div>
 							</div>
@@ -382,7 +382,7 @@
 							showConnectModal = false;
 						}}
 					>
-						<IconWallet class="mr-1 h-4 w-4" aria-hidden="true" />
+						<IconWallet class="mr-1 h-4 w-4" />
 						{$t('wallet.tab_wallet')}
 					</button>
 					<button
@@ -392,7 +392,7 @@
 						class:tab-active={activeTab === 'connected'}
 						onclick={() => (activeTab = 'connected')}
 					>
-						<IconCellphoneLink class="mr-1 h-4 w-4" aria-hidden="true" />
+						<IconCellphoneLink class="mr-1 h-4 w-4" />
 						{$t('wallet.tab_connected')}
 					</button>
 				</div>
@@ -452,7 +452,7 @@
 								class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
 								onclick={() => (showConnectModal = true)}
 							>
-								<IconPlus class="mr-1 h-5 w-5" aria-hidden="true" />
+								<IconPlus class="mr-1 h-5 w-5" />
 								{$t('wallet.connected.connect_modal_title')}
 							</button>
 						</div>
@@ -488,7 +488,7 @@
 							class="btn btn-outline btn-primary btn-block min-h-[44px] text-sm sm:text-base"
 							onclick={() => (showConnectModal = true)}
 						>
-							<IconPlus class="mr-1 h-5 w-5" aria-hidden="true" />
+							<IconPlus class="mr-1 h-5 w-5" />
 							{$t('wallet.connected.connect')}
 						</button>
 					{/if}
@@ -504,35 +504,28 @@
 						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showBuySell = true)}
 					>
-						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" aria-hidden="true" /></span
-						>
+						<span class="inline-flex shrink-0"><IconCash class="h-5 w-5" /></span>
 						<span class="leading-tight">{$t('wallet.tab_buy_sell')}</span>
 					</button>
 					<button
 						class="btn btn-outline border-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showSwap = true)}
 					>
-						<span class="inline-flex shrink-0"
-							><IconSwapHorizontal class="h-5 w-5" aria-hidden="true" /></span
-						>
+						<span class="inline-flex shrink-0"><IconSwapHorizontal class="h-5 w-5" /></span>
 						<span class="leading-tight">{$t('wallet.tab_swap')}</span>
 					</button>
 					<button
 						class="btn btn-secondary border-base-content/30 h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showSendModal = true)}
 					>
-						<span class="inline-flex shrink-0"
-							><IconUpload class="h-5 w-5" aria-hidden="true" /></span
-						>
+						<span class="inline-flex shrink-0"><IconUpload class="h-5 w-5" /></span>
 						<span class="leading-tight">{$t('wallet.send_button')}</span>
 					</button>
 					<button
 						class="btn btn-primary h-auto min-h-0 flex-1 !flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-xs active:scale-95"
 						onclick={() => (showReceiveModal = true)}
 					>
-						<span class="inline-flex shrink-0"
-							><IconDownload class="h-5 w-5" aria-hidden="true" /></span
-						>
+						<span class="inline-flex shrink-0"><IconDownload class="h-5 w-5" /></span>
 						<span class="leading-tight">{$t('wallet.tab_receive')}</span>
 					</button>
 				</div>
@@ -544,14 +537,14 @@
 							class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
 							onclick={() => (showBorrow = true)}
 						>
-							<IconHandCoin class="h-5 w-5 shrink-0" aria-hidden="true" />
+							<IconHandCoin class="h-5 w-5 shrink-0" />
 							<span class="leading-tight font-medium">{$t('wallet.defi.tab_borrow')}</span>
 						</button>
 						<button
 							class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
 							onclick={() => (showEarn = true)}
 						>
-							<IconChartLine class="h-5 w-5 shrink-0" aria-hidden="true" />
+							<IconChartLine class="h-5 w-5 shrink-0" />
 							<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
 						</button>
 					</div>
@@ -563,7 +556,7 @@
 						class="btn btn-ghost btn-sm text-base-content/50 gap-1 text-xs"
 						onclick={openHelpModal}
 					>
-						<IconInformationOutline class="h-4 w-4 shrink-0" aria-hidden="true" />
+						<IconInformationOutline class="h-4 w-4 shrink-0" />
 						{$t('wallet.learn_more')}
 					</button>
 				</div>
@@ -649,7 +642,7 @@
 			onclick={() => (showTransactionsModal = false)}
 			aria-label={$t('common.close')}
 		>
-			<IconClose class="h-5 w-5" aria-hidden="true" />
+			<IconClose class="h-5 w-5" />
 		</button>
 	</div>
 	<TransactionHistory

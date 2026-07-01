@@ -32,10 +32,6 @@ const BALANCE_POLL_MAX_ATTEMPTS = 60; // 5 min at 5s intervals
 // Token addresses on Arbitrum
 const WBTC_ARB = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
 const TBTC_ARB = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
-const _ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
-const _RSK_RPC = 'https://mainnet.core.rsk.co';
-const _BOLTZ_BASE_URL = 'https://api.boltz.exchange/v2';
-const _SYMBIOSIS_BASE_URL = 'https://api.symbiosis.finance/crosschain';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,35 +104,6 @@ function changellyTickerForAsset(asset: FiatBuyAsset): string {
 
 function needsAutoSwap(asset: FiatBuyAsset): boolean {
 	return asset === 'rbtc';
-}
-
-function _generateId(): string {
-	return crypto.randomUUID();
-}
-
-/** Fetch ERC20 balance via eth_call */
-async function _fetchErc20Balance(
-	rpcUrl: string,
-	tokenAddress: string,
-	walletAddress: string
-): Promise<string> {
-	const balanceOfData =
-		'0x70a08231' + // balanceOf(address)
-		walletAddress.slice(2).padStart(64, '0');
-
-	const response = await fetch(rpcUrl, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			jsonrpc: '2.0',
-			method: 'eth_call',
-			params: [{ to: tokenAddress, data: balanceOfData }, 'latest'],
-			id: 1
-		})
-	});
-
-	const data = await response.json();
-	return data.result || '0x0';
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +247,9 @@ export class FiatSwapOrchestrator {
 				this.onCheckoutClosed();
 			}
 		};
-		document.addEventListener('visibilitychange', this._visibilityHandler);
+		if (typeof document !== 'undefined') {
+			document.addEventListener('visibilitychange', this._visibilityHandler);
+		}
 	}
 
 	/** Handle checkout return (web) or window close (native). */
@@ -300,7 +269,7 @@ export class FiatSwapOrchestrator {
 	}
 
 	private stopCheckoutListener() {
-		if (this._visibilityHandler) {
+		if (this._visibilityHandler && typeof document !== 'undefined') {
 			document.removeEventListener('visibilitychange', this._visibilityHandler);
 			this._visibilityHandler = null;
 		}
@@ -308,10 +277,11 @@ export class FiatSwapOrchestrator {
 
 	/** Clear persisted flow from localStorage. */
 	private clearPersistedFlow() {
+		if (typeof localStorage === 'undefined') return;
 		try {
 			localStorage.removeItem(STORAGE_KEY);
-		} catch {
-			// localStorage may be unavailable
+		} catch (e) {
+			debug.warn('localStorage operation failed:', e);
 		}
 	}
 
@@ -368,7 +338,7 @@ export class FiatSwapOrchestrator {
 			debug.warn('Changelly polling timeout after %d attempts', this.changellyPollAttempts);
 			this.stopChangellyPolling();
 			this.stopCheckoutListener();
-			this.flow.error = 'Payment not received. The provider did not confirm your transaction.';
+			this.flow.error = 'wallet.buy_sell.payment_not_received';
 			this.flow.changellyStatus = 'expired';
 			this.updateStage('failed');
 			this.persistFlow();
@@ -404,7 +374,7 @@ export class FiatSwapOrchestrator {
 			debug.log('Changelly transaction failed/expired: %s', status.status);
 			this.stopChangellyPolling();
 			this.stopCheckoutListener();
-			this.flow.error = `Transaction ${status.status}`;
+			this.flow.error = 'wallet.buy_sell.transaction_status';
 			this.updateStage('failed');
 		}
 		// 'created', 'pending', 'hold' → keep polling
@@ -429,7 +399,7 @@ export class FiatSwapOrchestrator {
 		if (this.balanceAttempts > BALANCE_POLL_MAX_ATTEMPTS) {
 			debug.warn('Balance poll timeout — crypto not detected');
 			this.stopBalancePolling();
-			this.flow.error = 'Crypto delivery timeout. Check your wallet balance.';
+			this.flow.error = 'wallet.buy_sell.crypto_delivery_timeout';
 			this.updateStage('failed');
 			this.persistFlow();
 			return;
@@ -463,9 +433,17 @@ export class FiatSwapOrchestrator {
 	private async checkCryptoArrived(): Promise<boolean> {
 		if (!this.flow) return false;
 
-		// For now, we trust that Changelly's "complete" status means crypto was sent.
-		// In a real implementation, we'd compare current balance with pre-order balance.
-		// Since we already confirmed Changelly status is "complete", we can proceed.
+		// TODO: Implement on-chain balance verification by comparing pre-order balance snapshot
+		// with current balance. For now, we trust Changelly's "complete" status as a reliable
+		// indicator that crypto was sent — Changelly only reports "complete" after the outgoing
+		// crypto transaction is confirmed on their end. This is acceptable for production but
+		// should be hardened with on-chain verification in a future iteration.
+		Sentry.addBreadcrumb({
+			category: 'fiat-orchestrator',
+			message: 'checkCryptoArrived: trusting Changelly "complete" status (unverified path)',
+			data: { orderId: this.flow.externalOrderId, stage: this.flow.stage },
+			level: 'warning'
+		});
 		return true;
 	}
 
@@ -533,6 +511,15 @@ export class FiatSwapOrchestrator {
 		// Dynamically import to avoid circular deps
 		const { symbiosisService } = await import('$lib/services/symbiosis.service');
 
+		// Resolve user's Arbitrum address from flow state
+		const userAddress = this.flow?.receivedAddress;
+		if (!userAddress || userAddress === '0x0000000000000000000000000000000000000000') {
+			throw new Error(
+				'Cannot execute WBTC→tBTC swap: no valid user address. Flow state: ' +
+					JSON.stringify(this.flow)
+			);
+		}
+
 		// Get quote for WBTC → tBTC on Arbitrum (same-chain)
 		const quote = await symbiosisService.getQuote({
 			tokenAmountIn: {
@@ -548,7 +535,7 @@ export class FiatSwapOrchestrator {
 				symbol: 'TBTC',
 				decimals: 18
 			},
-			from: '0x0000000000000000000000000000000000000000', // placeholder — user's address
+			from: userAddress,
 			slippage: 50
 		});
 
@@ -584,12 +571,26 @@ export class FiatSwapOrchestrator {
 		const refundPublicKey = refundWallet.publicKey.slice(2);
 
 		// User's RSK address (claim address for rBTC)
-		// In production: get from wallet store
-		const rskAddress = '0x0000000000000000000000000000000000000000'; // placeholder
+		// CRITICAL: Must be the actual user address, not placeholder
+		const rskAddress = this.flow?.receivedAddress;
+		if (!rskAddress || rskAddress === '0x0000000000000000000000000000000000000000') {
+			throw new Error(
+				'Cannot execute tBTC→rBTC swap: no valid RSK claim address. Flow state: ' +
+					JSON.stringify(this.flow)
+			);
+		}
+
+		// Use actual received amount if available, otherwise guard against zero
+		const amountSats = this.flow?.receivedAmount ? Number(this.flow.receivedAmount) : 0;
+		if (amountSats <= 0) {
+			throw new Error(
+				'Cannot execute tBTC→rBTC swap: no valid amount. Flow state: ' + JSON.stringify(this.flow)
+			);
+		}
 
 		// Create Boltz chain swap: tBTC (Arbitrum) → rBTC (RSK)
 		const swapResult = await boltzProvider.createSwap({
-			amountSats: 1000000, // placeholder — actual tBTC amount
+			amountSats,
 			claimAddress: rskAddress.toLowerCase(),
 			preimageHash: hashHex,
 			refundPublicKey
@@ -622,7 +623,7 @@ export class FiatSwapOrchestrator {
 			try {
 				listener(snapshot);
 			} catch (err) {
-				console.error('FiatSwapOrchestrator listener error:', err);
+				debug.error('FiatSwapOrchestrator listener error:', err);
 			}
 		}
 	}
@@ -630,19 +631,58 @@ export class FiatSwapOrchestrator {
 	// ── Persistence ─────────────────────────────────────────────────────
 
 	private persistFlow() {
+		if (typeof localStorage === 'undefined') return;
 		if (!this.flow) return;
 		try {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.flow));
-		} catch {
-			// localStorage might be full or unavailable
+		} catch (e) {
+			debug.warn('localStorage operation failed:', e);
 		}
 	}
 
 	private restoreFlow() {
+		if (typeof localStorage === 'undefined') return;
 		try {
 			const stored = localStorage.getItem(STORAGE_KEY);
 			if (!stored) return;
-			const parsed = JSON.parse(stored) as FiatFlowState;
+			const raw = JSON.parse(stored);
+
+			// Runtime validation of persisted flow shape
+			if (
+				!raw ||
+				typeof raw !== 'object' ||
+				typeof raw.orderId !== 'string' ||
+				typeof raw.externalOrderId !== 'string' ||
+				typeof raw.asset !== 'string' ||
+				typeof raw.stage !== 'string' ||
+				typeof raw.updatedAt !== 'number' ||
+				typeof raw.startedAt !== 'number'
+			) {
+				debug.warn('Invalid persisted flow data, clearing');
+				localStorage.removeItem(STORAGE_KEY);
+				return;
+			}
+
+			const validStages: string[] = [
+				'idle',
+				'awaiting_payment',
+				'payment_confirmed',
+				'crypto_delivered',
+				'converting',
+				'swap_hop1',
+				'swap_hop2',
+				'complete',
+				'failed',
+				'swap_failed'
+			];
+			if (!validStages.includes(raw.stage)) {
+				debug.warn('Invalid stage in persisted flow: %s, clearing', raw.stage);
+				localStorage.removeItem(STORAGE_KEY);
+				return;
+			}
+
+			const parsed = raw as FiatFlowState;
+
 			// Only restore if not terminal
 			if (['complete', 'failed', 'swap_failed', 'idle'].includes(parsed.stage)) {
 				localStorage.removeItem(STORAGE_KEY);
@@ -656,7 +696,7 @@ export class FiatSwapOrchestrator {
 					Math.round((Date.now() - parsed.updatedAt) / 60000)
 				);
 				parsed.stage = 'failed';
-				parsed.error = 'Session expired. Please start a new purchase.';
+				parsed.error = 'wallet.buy_sell.session_expired';
 				localStorage.removeItem(STORAGE_KEY);
 				return;
 			}
@@ -674,7 +714,8 @@ export class FiatSwapOrchestrator {
 			) {
 				this.executeAutoSwap();
 			}
-		} catch {
+		} catch (e) {
+			debug.warn('localStorage operation failed:', e);
 			localStorage.removeItem(STORAGE_KEY);
 		}
 	}

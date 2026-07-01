@@ -50,6 +50,10 @@ export interface UserOperation {
 	maxPriorityFeePerGas: bigint;
 	paymasterAndData: string;
 	signature: string;
+	/** EIP-7702 factory sentinel for first-time delegations */
+	factory?: string;
+	/** EIP-7702 initialization data */
+	factoryData?: string;
 }
 
 /**

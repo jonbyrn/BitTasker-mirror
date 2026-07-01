@@ -61,7 +61,7 @@
 	);
 
 	// Live pool data (fetched via UniswapService + public RPC)
-	let livePool = $state<unknown>(null);
+	let livePool = $state<Record<string, unknown> | null>(null);
 	let isLoadingPool = $state(false);
 	let poolError = $state<string | null>(null);
 
@@ -336,7 +336,11 @@
 				const evmS = getEvmSigner(selectedWalletId);
 				if (!evmS) throw new Error('EVM signer unavailable');
 				const res = await uni.addLiquidityWithEvmSigner(mintParams, evmS);
-				_txHash = (res as unknown)?.hash || (res as unknown)?.txid || 'broadcast';
+				const resRecord = res as Record<string, unknown>;
+				_txHash =
+					(typeof resRecord?.hash === 'string' ? resRecord.hash : undefined) ||
+					(typeof resRecord?.txid === 'string' ? resRecord.txid : undefined) ||
+					'broadcast';
 				// connected path: receipt not immediate; rely on later manual refresh or event
 			}
 
@@ -351,7 +355,7 @@
 			txMessage = $t('wallet.defi.lp.remove_success'); // reuse success key for provided (or extend if needed)
 			amount = '';
 		} catch (e: unknown) {
-			txError = e?.message || 'Provide LP failed';
+			txError = (e instanceof Error ? e.message : null) || 'Provide LP failed';
 			txState = 'error';
 			Sentry.captureException(e, { tags: { feature: 'defi.lp', action: 'provide' } });
 		} finally {

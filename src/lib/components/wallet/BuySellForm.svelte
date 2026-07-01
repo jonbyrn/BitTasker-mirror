@@ -16,8 +16,7 @@
 	import type {
 		ChangellyOfferSuccess,
 		ChangellyCountry,
-		ChangellyPaymentMethodOffer,
-		ChangellyTransactionStatus
+		ChangellyPaymentMethodOffer
 	} from '$lib/services/fiat-ramp.service';
 	import { FiatSwapOrchestrator } from '$lib/services/fiat-swap-orchestrator.service';
 	import type {
@@ -35,6 +34,20 @@
 		OffRampAsset
 	} from '$lib/services/off-ramp-orchestrator.service';
 	import IconClose from '~icons/mdi/close';
+	import IconPlus from '~icons/mdi/plus';
+	import IconMinus from '~icons/mdi/minus';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconCloseCircle from '~icons/mdi/close-circle';
+	import {
+		cryptoTicker,
+		friendlyAssetName,
+		formatProviderName,
+		formatSatsAmount,
+		formatUsdFromSats,
+		calculateFee,
+		isLowestFee
+	} from '$lib/utils/fiat-helpers';
 
 	import { createDebug } from '$lib/utils/debug';
 	const debug = createDebug('buy-sell-form');
@@ -56,7 +69,7 @@
 	// Locale-aware formatter
 	// -----------------------------------------------------------------------
 	const usdFormatter = $derived(
-		new Intl.NumberFormat($locale as string, {
+		new Intl.NumberFormat(($locale ?? 'en') as string, {
 			style: 'currency',
 			currency: 'USD'
 		})
@@ -82,6 +95,7 @@
 	let offRampQuote = $state<OffRampQuote | null>(null);
 	let depositAddressInput = $state('');
 	let depositAddressError = $state('');
+	let depositAddrEl = $state<HTMLInputElement | null>(null);
 	let offRampLoading = $state(false);
 
 	// -----------------------------------------------------------------------
@@ -137,62 +151,6 @@
 		);
 	});
 
-	// Provider name formatting (proper case)
-	function formatProviderName(code: string): string {
-		const names: Record<string, string> = {
-			moonpay: 'Moonpay',
-			banxa: 'Banxa',
-			transak: 'Transak',
-			wert: 'Wert'
-		};
-		return names[code] || code.charAt(0).toUpperCase() + code.slice(1);
-	}
-
-	// Convert BTC amount string to sats
-	function btcToSats(btcStr: string): number {
-		return Math.round(parseFloat(btcStr) * 100_000_000);
-	}
-
-	// Format sats with commas
-	function formatSatsAmount(offer: ChangellyOfferSuccess): string {
-		return btcToSats(offer.amountExpectedTo).toLocaleString();
-	}
-
-	// Convert sats to USD using current BTC price
-	function satsToUsd(sats: number): string {
-		const price = btcPrice.price;
-		return ((sats / 100_000_000) * price).toFixed(2);
-	}
-
-	// Format USD equivalent from offer
-	function formatUsdFromSats(offer: ChangellyOfferSuccess): string {
-		return satsToUsd(btcToSats(offer.amountExpectedTo));
-	}
-
-	// Calculate fee as difference between input USD and received value
-	// For BTC assets: input USD - (sats × BTC price)
-	// For stablecoins (USDT0): input USD - received amount (1:1 USD)
-	function calculateFee(offer: ChangellyOfferSuccess): string {
-		const inputUsd = parseFloat(amount) || 0;
-		let receivedUsd: number;
-		if (isBtcAsset) {
-			receivedUsd = parseFloat(formatUsdFromSats(offer));
-		} else {
-			// Stablecoin: amountExpectedTo is already in USD terms
-			receivedUsd = parseFloat(offer.amountExpectedTo) || 0;
-		}
-		const fee = Math.max(0, inputUsd - receivedUsd);
-		return fee.toFixed(2);
-	}
-
-	// Is this the lowest-fee provider?
-	function isLowestFee(offer: ChangellyOfferSuccess): boolean {
-		if (filteredOffers.length <= 1) return true;
-		const fees = filteredOffers.map((o) => parseFloat(calculateFee(o)));
-		const minFee = Math.min(...fees);
-		return parseFloat(calculateFee(offer)) <= minFee;
-	}
-
 	// -----------------------------------------------------------------------
 	// Fiat swap orchestrator (manages Changelly order → monitoring → auto-swap)
 	// -----------------------------------------------------------------------
@@ -219,7 +177,7 @@
 	$effect(() => {
 		if (offRampStage === 'awaiting_deposit_address') {
 			tick().then(() => {
-				document.getElementById('deposit-addr-input')?.focus();
+				depositAddrEl?.focus();
 			});
 		}
 	});
@@ -375,7 +333,12 @@
 				supportedCryptoTickers = new Set(currencies.map((c) => c.ticker.toUpperCase()));
 			})
 			.catch((err) => {
-				console.warn('[BuySellForm] Failed to fetch supported crypto currencies:', err);
+				Sentry.addBreadcrumb({
+					category: 'fiat-ramp',
+					message: 'Failed to fetch supported crypto currencies',
+					data: { error: String(err) },
+					level: 'warning'
+				});
 				supportedCryptoError = 'wallet.buy_sell.supported_crypto_error';
 			});
 	});
@@ -422,21 +385,6 @@
 	// ===================================================================
 	// Balance helpers
 	// ===================================================================
-	function _usdBalanceFor(wallet: { balances?: Record<string, { raw: string }> }): string {
-		const cur = wallet.balances;
-		if (!cur) return '$0.00';
-		const sats = Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0);
-		const usdt = Number(cur.usdt?.raw ?? 0) / 1e18;
-		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-		return usdFormatter.format(usd);
-	}
-
-	function _totalBuiltinUsd(): string {
-		const sats = $walletStore.totalBalances.sats;
-		const usdt = $walletStore.totalBalances.usdt;
-		const usd = (sats / 100_000_000) * btcPrice.price + usdt;
-		return usdFormatter.format(usd);
-	}
 
 	/** BTC sats for a given wallet (for SwapPartySelector) */
 	function walletBtcSatsForFn(id: string): number {
@@ -506,94 +454,6 @@
 	});
 
 	// ===================================================================
-	// Crypto ticker mapping (for Changelly API)
-	// ===================================================================
-	function cryptoTicker(assetId: string): string {
-		switch (assetId) {
-			case 'rbtc':
-				return 'WBTC'; // Multi-hop: buy WBTC, auto-swap WBTC→tBTC→rBTC
-			case 'usdt0-arb':
-				return 'USDTARB';
-			case 'wbtc-arb':
-				return 'WBTC';
-			case 'btc-onchain':
-				return 'BTC';
-			default:
-				return 'BTC';
-		}
-	}
-
-	/** Friendly display name for the selected asset (not Changelly ticker) */
-	function friendlyAssetName(assetId: string): string {
-		switch (assetId) {
-			case 'rbtc':
-				return 'rBTC';
-			case 'usdt0-arb':
-				return 'USDT0 on Arbitrum';
-			case 'wbtc-arb':
-				return 'wBTC on Arbitrum';
-			case 'btc-onchain':
-				return 'BTC on-chain';
-			default:
-				return assetId;
-		}
-	}
-
-	// ===================================================================
-	// Helper: convert to sats
-	// ===================================================================
-	function _convertToSats(value: string, tokenId: string): string {
-		if (!value) return '0';
-		const n = parseFloat(value);
-		if (tokenId === 'rbtc' || tokenId === 'wbtc-arb')
-			return Math.round(n * 100000000).toLocaleString();
-		if (tokenId === 'usdt0-arb') return Math.round(n * 100).toLocaleString();
-		return value;
-	}
-
-	// ===================================================================
-	// Helper: format offer error for user display
-	// ===================================================================
-	function _providerErrorMessage(errorType: string): string {
-		switch (errorType) {
-			case 'timeout':
-				return $t('wallet.buy_sell.provider_error_timeout');
-			case 'unavailable':
-				return $t('wallet.buy_sell.provider_error_unavailable');
-			case 'limits':
-				return $t('wallet.buy_sell.provider_error_limits');
-			case 'country':
-				return $t('wallet.buy_sell.provider_error_country');
-			default:
-				return errorType;
-		}
-	}
-
-	// ===================================================================
-	// Status display label
-	// ===================================================================
-	function _statusLabel(status: ChangellyTransactionStatus): string {
-		switch (status) {
-			case 'created':
-				return $t('wallet.buy_sell.status_created');
-			case 'pending':
-				return $t('wallet.buy_sell.status_pending');
-			case 'hold':
-				return $t('wallet.buy_sell.status_hold');
-			case 'complete':
-				return $t('wallet.buy_sell.status_complete');
-			case 'failed':
-				return $t('wallet.buy_sell.status_failed');
-			case 'expired':
-				return $t('wallet.buy_sell.status_expired');
-			case 'refunded':
-				return $t('wallet.buy_sell.status_refunded');
-			default:
-				return status;
-		}
-	}
-
-	// ===================================================================
 	// Load countries on mount + auto-detect from browser locale
 	// ===================================================================
 	$effect(() => {
@@ -636,48 +496,79 @@
 	let statesForSelected = $derived(countries.find((c) => c.code === selectedCountry)?.states ?? []);
 
 	// ===================================================================
+	// Form state reset helper
+	// ===================================================================
+	/** Reset form state. Pass flags to control which groups are reset. */
+	function resetFormState(
+		opts: {
+			resetTab?: boolean;
+			resetAmount?: boolean;
+			resetOffers?: boolean;
+			resetOffRamp?: boolean;
+			resetSource?: boolean;
+		} = {}
+	) {
+		const {
+			resetTab = false,
+			resetAmount = true,
+			resetOffers = true,
+			resetOffRamp = true,
+			resetSource = false
+		} = opts;
+
+		if (resetTab) {
+			activeTab = 'buy';
+		}
+
+		if (resetAmount) {
+			amount = '';
+			swapPercent = 0;
+			showSats = false;
+		}
+
+		if (resetOffers) {
+			cancelOfferFetch();
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
+			quoteLoading = false;
+			quoteError = false;
+			supportedCryptoError = null;
+		}
+
+		if (resetOffRamp) {
+			offRampOrchestrator.cancel();
+			offRampQuote = null;
+			offRampFlow = null;
+			depositAddressInput = '';
+			depositAddressError = '';
+			offRampLoading = false;
+			sellFlowActive = false;
+		}
+
+		if (resetSource) {
+			source = defaultWalletId();
+			sourceInitialized = false;
+			isLoading = false;
+			flowState = null;
+		}
+	}
+
+	// ===================================================================
 	// Tab switching
 	// ===================================================================
 	function switchTab(tab: 'buy' | 'sell') {
 		if (tab === activeTab) return;
-		cancelOfferFetch();
 		activeTab = tab;
-		amount = '';
-		offers = [];
-		selectedOffer = null;
-		selectedPaymentMethod = null;
-		quoteLoading = false;
-		quoteError = false;
-		supportedCryptoError = null;
-		swapPercent = 0;
-		showSats = false;
-		sellFlowActive = false;
-		offRampOrchestrator.cancel();
-		offRampQuote = null;
-		offRampFlow = null;
-		depositAddressInput = '';
-		depositAddressError = '';
-		offRampLoading = false;
+		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
 	}
 
 	function handleCryptoChange(cryptoId: string) {
-		cancelOfferFetch();
-		selectedCrypto = cryptoId as typeof selectedCrypto;
-		offers = [];
-		selectedOffer = null;
-		selectedPaymentMethod = null;
-		quoteLoading = false;
-		quoteError = false;
-		supportedCryptoError = null;
-		swapPercent = 0;
-		showSats = false;
-		// Reset off-ramp state
-		offRampOrchestrator.cancel();
-		offRampQuote = null;
-		offRampFlow = null;
-		depositAddressInput = '';
-		depositAddressError = '';
-		offRampLoading = false;
+		const validCryptos = ['rbtc', 'usdt0-arb', 'wbtc-arb', 'btc-onchain'] as const;
+		if (validCryptos.includes(cryptoId as typeof selectedCrypto)) {
+			selectedCrypto = cryptoId as typeof selectedCrypto;
+		}
+		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
 		// Refetch offers for the new asset if amount is already entered
 		if (amount && parseFloat(amount) > 0) {
 			fetchOffers(amount);
@@ -822,14 +713,7 @@
 	}
 
 	function clearAmount() {
-		cancelOfferFetch();
-		amount = '';
-		offers = [];
-		selectedOffer = null;
-		selectedPaymentMethod = null;
-		quoteLoading = false;
-		quoteError = false;
-		swapPercent = 0;
+		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: false });
 		offRampQuote = null;
 	}
 
@@ -912,7 +796,9 @@
 				});
 				offRampQuote = quote;
 			} catch (err) {
-				console.error('Off-ramp quote failed:', err);
+				Sentry.captureException(err, {
+					tags: { component: 'BuySellForm', action: 'off-ramp-quote' }
+				});
 				quoteError = true;
 				offRampQuote = null;
 			} finally {
@@ -986,7 +872,7 @@
 			}
 		} catch (err) {
 			if (ctrl.signal.aborted) return;
-			console.error('Failed to fetch offers:', err);
+			Sentry.captureException(err, { tags: { component: 'BuySellForm', action: 'fetch-offers' } });
 			quoteError = true;
 			offers = [];
 		} finally {
@@ -994,18 +880,6 @@
 				quoteLoading = false;
 				quoteAbort = null;
 			}
-		}
-	}
-
-	// ===================================================================
-	// Offer selection (manual)
-	// ===================================================================
-	function _selectOffer(offer: ChangellyOfferSuccess) {
-		selectedOffer = offer;
-		if (offer.paymentMethodOffer.length > 0) {
-			selectedPaymentMethod = offer.paymentMethodOffer[0];
-		} else {
-			selectedPaymentMethod = null;
 		}
 	}
 
@@ -1047,7 +921,7 @@
 					offRampStage === 'idle' ||
 					offRampStage === 'failed'
 				) {
-					const redirectUrl = await offRampOrchestrator.openMoonPay();
+					const redirectUrl = await offRampOrchestrator.openMoonPay(selectedCountry);
 					await openRedirectUrl(redirectUrl);
 					offRampOrchestrator.trackCheckoutReturn();
 					appStore.showSuccessToast($t('wallet.buy_sell.moonpay_redirect_note'));
@@ -1167,27 +1041,15 @@
 	// Cleanup on close
 	// ===================================================================
 	function handleClose() {
-		cancelOfferFetch();
+		resetFormState({
+			resetTab: true,
+			resetAmount: true,
+			resetOffers: true,
+			resetOffRamp: true,
+			resetSource: true
+		});
 		orchestrator.destroy();
 		offRampOrchestrator.destroy();
-		activeTab = 'buy';
-		amount = '';
-		offers = [];
-		selectedOffer = null;
-		selectedPaymentMethod = null;
-		quoteLoading = false;
-		quoteError = false;
-		isLoading = false;
-		source = defaultWalletId();
-		sourceInitialized = false;
-		swapPercent = 0;
-		flowState = null;
-		sellFlowActive = false;
-		offRampQuote = null;
-		offRampFlow = null;
-		depositAddressInput = '';
-		depositAddressError = '';
-		offRampLoading = false;
 		onClose();
 	}
 </script>
@@ -1215,14 +1077,7 @@
 				aria-selected={activeTab === 'buy'}
 				onclick={() => switchTab('buy')}
 			>
-				<svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-					/></svg
-				>
+				<IconPlus class="mr-1 h-4 w-4" />
 				{$t('wallet.buy_sell.buy')}
 			</button>
 			<button
@@ -1234,14 +1089,7 @@
 				aria-selected={activeTab === 'sell'}
 				onclick={() => switchTab('sell')}
 			>
-				<svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M20 12H4"
-					/></svg
-				>
+				<IconMinus class="mr-1 h-4 w-4" />
 				{$t('wallet.buy_sell.sell')}
 			</button>
 		</div>
@@ -1256,6 +1104,7 @@
 						class:opacity-50={countriesLoading}
 						disabled={countriesLoading}
 						bind:value={selectedCountry}
+						aria-label={$t('wallet.buy_sell.country')}
 						onchange={() => {
 							selectedState = '';
 							if (amount && parseFloat(amount) > 0) fetchOffers(amount);
@@ -1282,6 +1131,7 @@
 						id="state-select"
 						class="select border-primary bg-base-100 min-h-[48px] w-full rounded-lg border-2 text-base"
 						bind:value={selectedState}
+						aria-label={$t('wallet.buy_sell.select_state')}
 						onchange={() => {
 							if (amount && parseFloat(amount) > 0) fetchOffers(amount);
 						}}
@@ -1320,18 +1170,7 @@
 					{@const fs = flowState}
 					<div class="bg-info/5 border-info/20 flex items-center gap-3 rounded-lg border p-3">
 						{#if isTerminalStage(fs.stage)}
-							<svg
-								class="text-error h-4 w-4 shrink-0"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-								/></svg
-							>
+							<IconAlertCircle class="text-error h-4 w-4 shrink-0" />
 						{:else}
 							<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
 						{/if}
@@ -1427,7 +1266,7 @@
 												type="button"
 												class="text-error hover:bg-error/20 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
 												onclick={clearAmount}
-												aria-label="Clear amount"
+												aria-label={$t('wallet.buy_sell.clear')}
 											>
 												<IconClose class="h-4 w-4" />
 											</button>
@@ -1572,6 +1411,7 @@
 								class:input-error={!!depositAddressError}
 								placeholder={$t('wallet.buy_sell.deposit_address_placeholder')}
 								bind:value={depositAddressInput}
+								bind:this={depositAddrEl}
 								spellcheck="false"
 								autocomplete="off"
 								aria-invalid={!!depositAddressError}
@@ -1608,19 +1448,7 @@
 				<!-- Bridge-and-send: complete -->
 				{#if needsBridgeAndSend && offRampStage === 'complete'}
 					<div class="bg-success/5 border-success/20 flex items-center gap-3 rounded-lg border p-3">
-						<svg
-							class="text-success h-4 w-4 shrink-0"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
+						<IconCheckCircle class="text-success h-4 w-4 shrink-0" />
 						<span class="min-w-0 flex-1 text-sm font-medium"
 							>{$t('wallet.buy_sell.bridge_complete')}</span
 						>
@@ -1630,19 +1458,7 @@
 				<!-- Bridge-and-send: failed -->
 				{#if needsBridgeAndSend && offRampStage === 'failed'}
 					<div class="bg-error/5 border-error/20 flex items-center gap-3 rounded-lg border p-3">
-						<svg
-							class="text-error h-4 w-4 shrink-0"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<IconCloseCircle class="text-error h-4 w-4 shrink-0" />
 						<div class="min-w-0 flex-1">
 							<span class="text-sm font-medium">{$t('wallet.buy_sell.bridge_failed')}</span>
 							{#if offRampFlow?.error}
@@ -1672,7 +1488,7 @@
 					<div class="flex flex-wrap gap-1.5">
 						<button
 							type="button"
-							class="badge min-h-[28px] cursor-pointer border px-2 text-xs transition-colors"
+							class="badge min-h-[36px] cursor-pointer border px-2 py-1 text-xs transition-colors"
 							class:badge-primary={!activePaymentFilter && filteredOffers.length > 0}
 							class:badge-ghost={activePaymentFilter !== null || filteredOffers.length === 0}
 							class:border-primary={!activePaymentFilter && filteredOffers.length > 0}
@@ -1692,7 +1508,7 @@
 						{#each allPaymentMethods as pm (pm.method)}
 							<button
 								type="button"
-								class="badge min-h-[28px] cursor-pointer border px-2 text-xs transition-colors"
+								class="badge min-h-[36px] cursor-pointer border px-2 py-1 text-xs transition-colors"
 								class:badge-primary={activePaymentFilter === pm.method && filteredOffers.length > 0}
 								class:badge-ghost={activePaymentFilter !== pm.method || filteredOffers.length === 0}
 								class:border-primary={activePaymentFilter === pm.method &&
@@ -1735,7 +1551,12 @@
 										{formatProviderName(selected.providerCode)}
 									</div>
 									<div class="text-base-content/60 text-xs">
-										{$t('wallet.buy_sell.fee')}: ${calculateFee(selected)}
+										{$t('wallet.buy_sell.fee')}: ${calculateFee(
+											selected,
+											amount,
+											isBtcAsset,
+											btcPrice.price
+										)}
 									</div>
 								</div>
 								<div class="shrink-0 text-right">
@@ -1745,7 +1566,7 @@
 											{$t('wallet.buy_sell.sats')}
 										</div>
 										<div class="text-base-content/60 text-xs tabular-nums">
-											≈ ${formatUsdFromSats(selected)}
+											≈ ${formatUsdFromSats(selected, btcPrice.price)}
 										</div>
 									{:else}
 										<div class="text-sm font-semibold tabular-nums">
@@ -1756,26 +1577,21 @@
 										</div>
 									{/if}
 								</div>
-								{#if isLowestFee(selected)}
-									<svg
-										class="text-success h-5 w-5 shrink-0"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-										><path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-										/></svg
-									>
+								{#if isLowestFee(selected, filteredOffers, amount, isBtcAsset, btcPrice.price)}
+									<IconCheckCircle class="text-success h-5 w-5 shrink-0" />
 								{/if}
 							</button>
 							<div class="collapse-content px-2">
 								<div class="space-y-1">
 									{#each filteredOffers as offer (offer.providerCode)}
 										{@const isSelected = selectedOffer?.providerCode === offer.providerCode}
-										{@const isCheapest = isLowestFee(offer)}
+										{@const isCheapest = isLowestFee(
+											offer,
+											filteredOffers,
+											amount,
+											isBtcAsset,
+											btcPrice.price
+										)}
 										<button
 											type="button"
 											class="flex w-full items-center gap-2 rounded-lg border-2 border-transparent p-2 transition-colors {isSelected
@@ -1792,7 +1608,12 @@
 													{formatProviderName(offer.providerCode)}
 												</div>
 												<div class="text-base-content/60 text-xs">
-													{$t('wallet.buy_sell.fee')}: ${calculateFee(offer)}
+													{$t('wallet.buy_sell.fee')}: ${calculateFee(
+														offer,
+														amount,
+														isBtcAsset,
+														btcPrice.price
+													)}
 												</div>
 											</div>
 											<div class="shrink-0 text-right">
@@ -1802,7 +1623,7 @@
 														{$t('wallet.buy_sell.sats')}
 													</div>
 													<div class="text-base-content/60 text-xs tabular-nums">
-														≈ ${formatUsdFromSats(offer)}
+														≈ ${formatUsdFromSats(offer, btcPrice.price)}
 													</div>
 												{:else}
 													<div class="text-sm font-semibold tabular-nums">
@@ -1814,18 +1635,7 @@
 												{/if}
 											</div>
 											{#if isCheapest}
-												<svg
-													class="text-success h-5 w-5 shrink-0"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
-													><path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-													/></svg
-												>
+												<IconCheckCircle class="text-success h-5 w-5 shrink-0" />
 											{/if}
 										</button>
 									{/each}
@@ -1842,34 +1652,12 @@
 							</div>
 						{:else if quoteError}
 							<div class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10">
-								<svg
-									class="text-error h-4 w-4 shrink-0"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-									/></svg
-								>
+								<IconAlertCircle class="text-error h-4 w-4 shrink-0" />
 								<span class="text-base-content/60 text-sm">{$t('wallet.buy_sell.no_offers')}</span>
 							</div>
 						{:else if supportedCryptoError}
 							<div class="collapse-title flex min-h-[44px] items-center gap-2 px-3 py-2.5 pr-10">
-								<svg
-									class="text-warning h-4 w-4 shrink-0"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-									/></svg
-								>
+								<IconAlertCircle class="text-warning h-4 w-4 shrink-0" />
 								<span class="text-base-content/60 text-sm"
 									>{$t(supportedCryptoError ?? '', {
 										values: {

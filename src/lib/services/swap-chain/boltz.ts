@@ -58,6 +58,15 @@ const d = createDebug('swap-chain');
 // boltzProvider singleton imported from BoltzProvider.ts — aliased as 'boltz' for brevity
 const boltz = boltzProvider;
 
+/** Cached ethers module — avoids repeated dynamic import overhead per swap. */
+let _ethersModule: typeof import('ethers') | null = null;
+async function getEthers() {
+	if (!_ethersModule) {
+		_ethersModule = await import('ethers');
+	}
+	return _ethersModule;
+}
+
 /** Common return type for all swap execution functions. */
 type BoltzHopResult = { data: string | null; error: Error | null };
 
@@ -83,7 +92,7 @@ async function storeBoltzSwapData(params: {
 	timeoutBlockHeight: number;
 	claimAddress: string;
 }): Promise<void> {
-	console.warn(
+	d.log(
 		'[storeBoltzSwapData] START swapId=%s hasClaimDetails=%s',
 		params.swapId,
 		!!params.claimDetails
@@ -96,12 +105,12 @@ async function storeBoltzSwapData(params: {
 			lockupClaimAddress: params.claimAddress
 		};
 		swapClaimData.set(params.swapId, storedClaim);
-		console.warn('[storeBoltzSwapData] claim data stored in memory');
+		d.log('[storeBoltzSwapData] claim data stored in memory');
 
 		// Persist to Preferences (critical — must succeed or log failure)
-		console.warn('[storeBoltzSwapData] persisting to Preferences...');
+		d.log('[storeBoltzSwapData] persisting to Preferences...');
 		const { error: prefError } = await tryCatch(persistClaimData());
-		console.warn('[storeBoltzSwapData] Preferences done, error=%s', prefError?.message ?? 'none');
+		d.log('[storeBoltzSwapData] Preferences done, error=%s', prefError?.message ?? 'none');
 		if (prefError) {
 			d.error('Failed to persist claim data to Preferences: %s', prefError.message);
 			Sentry.captureException(prefError, { tags: { area: 'swap-persistence' } });
@@ -127,15 +136,15 @@ async function storeBoltzSwapData(params: {
 	});
 
 	// Persist refund data to Preferences (critical — must succeed or log failure)
-	console.warn('[storeBoltzSwapData] persisting refund data...');
+	d.log('[storeBoltzSwapData] persisting refund data...');
 	const { error: refError } = await tryCatch(persistRefundData());
-	console.warn('[storeBoltzSwapData] refund data done, error=%s', refError?.message ?? 'none');
+	d.log('[storeBoltzSwapData] refund data done, error=%s', refError?.message ?? 'none');
 	if (refError) {
 		d.error('Failed to persist refund data: %s', refError.message);
 		Sentry.captureException(refError, { tags: { area: 'swap-persistence' } });
 	}
 
-	console.warn('[storeBoltzSwapData] DONE');
+	d.log('[storeBoltzSwapData] DONE');
 	Sentry.addBreadcrumb({
 		category: 'swap.persistence',
 		message: `Stored swap data for ${params.swapId}`,
@@ -168,16 +177,16 @@ async function executeTbtcToRbtcSwap(
 	state: SwapChainState,
 	_hop: RouteHop
 ): Promise<BoltzHopResult> {
-	console.warn('[executeTbtcToRbtcSwap] START amount=%s', state.amount);
+	d.log('[executeTbtcToRbtcSwap] START amount=%s', state.amount);
 	const amount = state.amount;
 	if (!amount) return { data: null, error: new Error('Amount is required') };
 	const expectedAmountSats = Number(parseDecimalToSmallestUnit(amount, 8));
-	console.warn('[executeTbtcToRbtcSwap] expectedAmountSats=%d', expectedAmountSats);
+	d.log('[executeTbtcToRbtcSwap] expectedAmountSats=%d', expectedAmountSats);
 	if (expectedAmountSats <= 0) return { data: null, error: new Error('Invalid amount') };
 
 	try {
 		const rskAddr = boltzAddress(get(walletStore).rsk.address ?? '');
-		console.warn('[executeTbtcToRbtcSwap] rskAddr=%s', rskAddr || 'EMPTY');
+		d.log('[executeTbtcToRbtcSwap] rskAddr=%s', rskAddr || 'EMPTY');
 		if (!rskAddr) return { data: null, error: new Error('No RSK wallet address') };
 
 		// Resolve the user's Arbitrum address for balance check
@@ -193,7 +202,7 @@ async function executeTbtcToRbtcSwap(
 		// balance is sufficient or timeout.
 		const expectedWei = satsToWei(expectedAmountSats);
 		setSwapProgress('locking-tbtc', 'Waiting for tBTC delivery on Arbitrum...');
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] Waiting for tBTC balance at %s (need %s wei)...',
 			arbAddr,
 			expectedWei.toString()
@@ -207,7 +216,7 @@ async function executeTbtcToRbtcSwap(
 			180_000 // 3 minutes — generous for same-chain DEX swap
 		);
 
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] tBTC balance: %s wei (expected: %s)',
 			tbtcBalance.toString(),
 			expectedWei.toString()
@@ -233,7 +242,7 @@ async function executeTbtcToRbtcSwap(
 		}
 
 		if (actualAmountSats < expectedAmountSats) {
-			console.warn(
+			d.log(
 				'[executeTbtcToRbtcSwap] Using reduced amount: %d sats (expected %d, slippage %d sats)',
 				actualAmountSats,
 				expectedAmountSats,
@@ -248,7 +257,7 @@ async function executeTbtcToRbtcSwap(
 		}
 
 		// Create Boltz swap with the actual available amount
-		const refundWallet = (await import('ethers')).ethers.Wallet.createRandom();
+		const refundWallet = (await getEthers()).ethers.Wallet.createRandom();
 		const { preimageHex, hashHex } = await generateSwapPreimage();
 
 		d.log('Creating TBTC→RBTC chain swap: %d sats to %s', amountSats, rskAddr);
@@ -260,7 +269,7 @@ async function executeTbtcToRbtcSwap(
 			fromSymbol: 'TBTC',
 			toSymbol: 'RBTC'
 		});
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] boltz.createSwap OK: id=%s lockup=%s expectedAmt=%d',
 			swapResult.swapId,
 			swapResult.lockupAddress,
@@ -301,7 +310,7 @@ async function executeTbtcToRbtcSwap(
 		// Step 1: Approve the Boltz lockup contract to spend tBTC
 		const lockupContract = swapResult.lockupAddress;
 		const approveCalldata = encodeERC20Approve(lockupContract, tbtcAmount);
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] Step 1: approve tBTC for %s (amount=%s)',
 			lockupContract,
 			tbtcAmount.toString()
@@ -313,7 +322,7 @@ async function executeTbtcToRbtcSwap(
 			chain: 'arbitrum',
 			sourceConnectedWalletId: state.sourceConnectedWalletId
 		});
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] approve result: tx=%s error=%s',
 			approveTxHash ?? 'null',
 			approveError?.message ?? 'none'
@@ -332,7 +341,7 @@ async function executeTbtcToRbtcSwap(
 		);
 		// Send 0.001 ETH (~$3) to cover Boltz's Arbitrum claim gas
 		const prepayWei = 1_000_000_000_000_000n; // 0.001 ETH
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] Step 2: calling ERC20Swap.lockPrepayMinerfee() on %s amount=%s prepay=%s wei',
 			lockupContract,
 			tbtcAmount.toString(),
@@ -345,18 +354,22 @@ async function executeTbtcToRbtcSwap(
 			chain: 'arbitrum',
 			sourceConnectedWalletId: state.sourceConnectedWalletId
 		});
-		console.warn(
+		d.log(
 			'[executeTbtcToRbtcSwap] lock result: tx=%s error=%s',
 			lockupTxHash ?? 'null',
 			lockupError?.message ?? 'none'
 		);
 		if (lockupError) return { data: null, error: lockupError };
 		d.log('TBTC lockup tx: %s', lockupTxHash);
-		setSwapProgress('locking-tbtc', `Lockup tx sent: ${lockupTxHash!.substring(0, 16)}...`);
+		setSwapProgress(
+			'locking-tbtc',
+			`Lockup tx sent: ${lockupTxHash?.substring(0, 16) ?? 'unknown'}...`
+		);
 		return { data: swapResult.swapId, error: null };
 	} catch (err) {
-		console.warn('[executeTbtcToRbtcSwap] CAUGHT:', (err as Error).message);
+		d.log('[executeTbtcToRbtcSwap] CAUGHT:', (err as Error).message);
 		d.error('TBTC→RBTC chain swap failed: %s', (err as Error).message);
+		Sentry.captureException(err, { tags: { area: 'swap-chain.tbtc-to-rbtc' } });
 		return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
 	}
 }
@@ -465,7 +478,7 @@ async function executeRbtcToBtcSwap(
 			const { preimageHex, hashHex } = await generateSwapPreimage();
 
 			// Generate refund key using ethers
-			const { ethers } = await import('ethers');
+			const { ethers } = await getEthers();
 			const refundWallet = ethers.Wallet.createRandom();
 			const refundPublicKey = refundWallet.publicKey.slice(2);
 
@@ -566,7 +579,7 @@ async function executeRbtcToArbitrumSwap(
 		const { preimageHex, hashHex } = await generateSwapPreimage();
 
 		// Generate refund key using ethers (browser-safe)
-		const { ethers } = await import('ethers');
+		const { ethers } = await getEthers();
 		const refundWallet = ethers.Wallet.createRandom();
 		const refundPublicKey = refundWallet.publicKey.slice(2); // remove 0x prefix
 
@@ -632,7 +645,10 @@ async function executeRbtcToArbitrumSwap(
 			return { data: null, error: lockupError };
 		}
 		d.log('Boltz chain swap lockup tx: %s', lockupTxHash);
-		setSwapProgress('locking-rbtc', `Lockup tx sent: ${lockupTxHash!.substring(0, 16)}...`);
+		setSwapProgress(
+			'locking-rbtc',
+			`Lockup tx sent: ${lockupTxHash?.substring(0, 16) ?? 'unknown'}...`
+		);
 		return { data: swapResult.swapId, error: null };
 	} catch (err) {
 		d.error('Boltz chain swap failed: %s', err instanceof Error ? err.message : String(err));
@@ -745,7 +761,7 @@ async function waitForBoltzLockup(
 					// Token address is at data[64..128], timelock at data[128..192]
 					const timelock = Number(BigInt('0x' + dataHex.slice(130, 194)));
 
-					console.warn(
+					d.log(
 						'[waitForBoltzLockup] FOUND lockup: claim=%s refund=%s amount=%s timelock=%d block=%s',
 						claimAddress.substring(0, 10),
 						refundAddress.substring(0, 10),
@@ -766,14 +782,10 @@ async function waitForBoltzLockup(
 			}
 
 			const elapsed = Math.round((Date.now() - startTime) / 1000);
-			console.warn(
-				'[waitForBoltzLockup] not found yet, elapsed=%ds, waiting %dms',
-				elapsed,
-				pollInterval
-			);
+			d.log('[waitForBoltzLockup] not found yet, elapsed=%ds, waiting %dms', elapsed, pollInterval);
 			logger.log('Boltz lockup not found yet, waiting %dms...', pollInterval);
 		} catch (e) {
-			console.warn('[waitForBoltzLockup] scan error: %s', (e as Error).message);
+			d.log('[waitForBoltzLockup] scan error: %s', (e as Error).message);
 			logger.warn('Lockup scan error: %s', (e as Error).message);
 		}
 
@@ -781,7 +793,7 @@ async function waitForBoltzLockup(
 		pollInterval = Math.min(pollInterval * 1.3, 15000);
 	}
 
-	console.warn('[waitForBoltzLockup] TIMEOUT after %dms — lockup not found', maxWaitMs);
+	d.log('[waitForBoltzLockup] TIMEOUT after %dms — lockup not found', maxWaitMs);
 	return null;
 }
 
@@ -826,7 +838,7 @@ export async function pollBoltzChainSwapCompletion(
 		);
 
 		if (statusError !== null) {
-			console.warn('[pollBoltz] status error (transient): %s', statusError.message);
+			d.log('[pollBoltz] status error (transient): %s', statusError.message);
 			dBoltz.warn('Boltz status poll error (transient): %s', statusError.message);
 			await sleep(pollInterval);
 			pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL);
@@ -834,7 +846,7 @@ export async function pollBoltzChainSwapCompletion(
 		}
 
 		if (!statusResult) {
-			console.warn('[pollBoltz] no status result, waiting %dms', pollInterval);
+			d.log('[pollBoltz] no status result, waiting %dms', pollInterval);
 			await sleep(pollInterval);
 			pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL);
 			continue;
@@ -842,7 +854,7 @@ export async function pollBoltzChainSwapCompletion(
 
 		const status = statusResult.status;
 		const elapsed = Math.round((Date.now() - startTime) / 1000);
-		console.warn('[pollBoltz] swap=%s status=%s elapsed=%ds', swapId, status, elapsed);
+		d.log('[pollBoltz] swap=%s status=%s elapsed=%ds', swapId, status, elapsed);
 		dBoltz.log('Boltz swap %s status: %s (elapsed %ds)', swapId, status, elapsed);
 
 		// Reset poll interval on successful status check
@@ -898,7 +910,7 @@ export async function pollBoltzChainSwapCompletion(
 				};
 			}
 
-			console.warn(
+			d.log(
 				'[pollBoltz] claim attempt %d/%d, status=%s, direction=%s',
 				claimAttempts,
 				MAX_CLAIM_ATTEMPTS,
@@ -1001,7 +1013,7 @@ export async function pollBoltzChainSwapCompletion(
 				});
 
 				if (claimError !== null) {
-					console.warn(
+					d.log(
 						'[pollBoltz] tBTC CLAIM FAILED (attempt %d/%d): %s',
 						claimAttempts,
 						MAX_CLAIM_ATTEMPTS,
@@ -1012,7 +1024,7 @@ export async function pollBoltzChainSwapCompletion(
 					continue;
 				}
 
-				console.warn('[pollBoltz] tBTC CLAIM SUCCESS — swap %s complete', swapId);
+				d.log('[pollBoltz] tBTC CLAIM SUCCESS — swap %s complete', swapId);
 				dBoltz.log('tBTC claim confirmed on Arbitrum — swap complete');
 				swapClaimData.delete(swapId);
 
@@ -1081,7 +1093,7 @@ async function claimTbtcOnArbitrum(params: {
 			params.contractAddress,
 			params.sourceConnectedWalletId ?? 'builtin'
 		);
-		console.warn(
+		d.log(
 			'[claimTbtcOnArbitrum] submitting claim: contract=%s amount=%s refundAddr=%s claimAddr=%s',
 			params.contractAddress.substring(0, 10),
 			params.amount,
@@ -1101,12 +1113,12 @@ async function claimTbtcOnArbitrum(params: {
 		});
 
 		if (claimError) {
-			console.warn('[claimTbtcOnArbitrum] CLAIM FAILED: %s', claimError.message);
+			d.log('[claimTbtcOnArbitrum] CLAIM FAILED: %s', claimError.message);
 			dClaim.error('tBTC claim failed: %s', claimError.message);
 			return claimError;
 		}
 
-		console.warn('[claimTbtcOnArbitrum] CLAIM CONFIRMED: %s', txHash);
+		d.log('[claimTbtcOnArbitrum] CLAIM CONFIRMED: %s', txHash);
 		dClaim.log('tBTC claim confirmed on Arbitrum: %s', txHash);
 		Sentry.addBreadcrumb({
 			category: 'boltz',
@@ -1165,7 +1177,7 @@ async function claimRbtcOnRsk(params: {
 			ETHERSWAP_ADDRESS,
 			params.sourceConnectedWalletId ?? 'builtin'
 		);
-		console.warn(
+		d.log(
 			'[claimRbtcOnRsk] submitting claim: contract=%s amount=%s sats',
 			ETHERSWAP_ADDRESS.substring(0, 10),
 			params.amount
@@ -1182,12 +1194,12 @@ async function claimRbtcOnRsk(params: {
 		});
 
 		if (claimError) {
-			console.warn('[claimRbtcOnRsk] CLAIM FAILED: %s', claimError.message);
+			d.log('[claimRbtcOnRsk] CLAIM FAILED: %s', claimError.message);
 			dClaim.error('rBTC claim failed: %s', claimError.message);
 			return claimError;
 		}
 
-		console.warn('[claimRbtcOnRsk] CLAIM CONFIRMED: %s', txHash);
+		d.log('[claimRbtcOnRsk] CLAIM CONFIRMED: %s', txHash);
 		dClaim.log('rBTC claim confirmed on RSK: %s', txHash);
 
 		Sentry.addBreadcrumb({

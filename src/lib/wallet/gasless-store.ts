@@ -241,8 +241,8 @@ export function resetWallet(): void {
 async function signEip7702AuthIfNeeded(
 	sender: string,
 	publicClient: {
-		getCode: (args: { address: string }) => Promise<string | undefined>;
-		getTransactionCount: (args: { address: string }) => Promise<number>;
+		getCode: (args: { address: `0x${string}` }) => Promise<string | undefined>;
+		getTransactionCount: (args: { address: `0x${string}` }) => Promise<number>;
 	}
 ): Promise<
 	| {
@@ -275,7 +275,7 @@ async function signEip7702AuthIfNeeded(
 				toHex(BigInt(ARBITRUM_CHAIN_ID)),
 				SIMPLE_7702_ACCOUNT_IMPL.toLowerCase(),
 				toHex(BigInt(eoaNonce))
-			])
+			] as `0x${string}`[])
 		])
 	);
 

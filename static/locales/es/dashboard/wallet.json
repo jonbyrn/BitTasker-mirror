@@ -723,6 +723,11 @@
 			"continue": "Continuar",
 			"cancel": "Cancelar",
 			"close": "Cerrar",
+			"toggle_btc_usd": "Alternar entre unidades USD y BTC",
+			"clear": "Borrar",
+			"set_max": "Establecer cantidad máxima",
+			"country": "País",
+			"amount": "Cantidad",
 			"estimated_receive": "Recibir Estimado",
 			"estimated_send": "Enviar Estimado",
 			"processing_fee": "Comisión de Procesamiento",
@@ -801,7 +806,11 @@
 			"purchase": "compra",
 			"sale": "venta",
 			"supported_crypto_error": "No se pudieron verificar las monedas admitidas",
-			"unavailable_in_region": "{asset} no está disponible para {action} con fiat en tu región."
+			"unavailable_in_region": "{asset} no está disponible para {action} con fiat en tu región.",
+			"payment_not_received": "Pago no recibido. El proveedor no confirmó su transacción.",
+			"transaction_status": "Transacción {status}",
+			"crypto_delivery_timeout": "Tiempo de entrega de cripto agotado. Verifique su saldo.",
+			"session_expired": "Sesión expirada. Inicie una nueva compra."
 		},
 		"calculator": {
 			"clear": "Limpiar",
@@ -1061,7 +1070,33 @@
 				"no_routes": "No hay rutas disponibles para este par de intercambio",
 				"no_dest_address": "Dirección de billetera de destino no disponible",
 				"swap_failed": "Intercambio fallido. Por favor intente nuevamente.",
-				"self_send": "No se puede intercambiar a la misma billetera con el mismo activo"
+				"self_send": "No se puede intercambiar a la misma billetera con el mismo activo",
+				"insufficient_funds": "Fondos insuficientes para cubrir las comisiones de gas. Por favor recarga tu billetera.",
+				"nonce_conflict": "Conflicto de transacción — por favor intenta de nuevo.",
+				"network_congestion": "Congestión de red — por favor intenta de nuevo con una comisión más alta.",
+				"user_rejected": "La transacción fue rechazada.",
+				"timed_out": "El intercambio expiró. Tus fondos están seguros — revisa Intercambios Pendientes para recuperarlos.",
+				"unsupported_pair": "Este par de intercambio no está disponible actualmente."
+			},
+			"progress": {
+				"locking_rbtc": "Bloqueando rBTC en RSK",
+				"waiting_boltz": "Esperando confirmación de Boltz",
+				"claiming_tbtc": "Reclamando tBTC en Arbitrum",
+				"swapping_tbtc": "Intercambiando tBTC a USDT0"
+			},
+			"asset": {
+				"usd": "USD",
+				"bitcoin_rbtc": "Bitcoin (rBTC)",
+				"bitcoin_wbtc": "Bitcoin (wBTC)",
+				"bitcoin_btc": "Bitcoin (BTC)",
+				"bitcoin_tbtc": "Bitcoin (tBTC)"
+			},
+			"network": {
+				"usdt0_arbitrum": "USDT0 en Arbitrum",
+				"wbtc_arbitrum": "WBTC en Arbitrum",
+				"bitcoin_rootstock": "Bitcoin en Rootstock",
+				"bitcoin_onchain": "Bitcoin en cadena",
+				"tbtc_arbitrum": "tBTC en Arbitrum"
 			},
 			"lightning": {
 				"title": "Intercambio Lightning → rBTC",

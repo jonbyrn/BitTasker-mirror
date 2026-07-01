@@ -83,13 +83,13 @@
 			<IconAlertCircle class="h-5 w-5 shrink-0" />
 			<span>{$t('wallet.swap.fallback.fallback_routes_available')}</span>
 		</div>
-		{#each smartRoute.fallbackRoutes || [] as route (route.id || route.provider)}
+		{#each smartRoute.fallbackRoutes || [] as route (route.provider)}
 			<button
 				class="btn btn-outline btn-sm min-h-[44px] touch-manipulation active:scale-95"
 				onclick={() => onRetry(route)}
 			>
 				{$t('wallet.swap.fallback.use_fallback', {
-					values: { provider: route.provider || route.label || 'fallback' }
+					values: { provider: route.provider || 'fallback' }
 				})}
 			</button>
 		{/each}

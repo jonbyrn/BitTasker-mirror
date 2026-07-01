@@ -19,6 +19,16 @@ import { browser } from '$app/environment';
 import { addBreadcrumb } from '@sentry/sveltekit';
 import { CapacitorNativeHttpStack, captureNativeXHR } from './native-http-stack';
 
+/** Local type for the Web Battery API (not in all TS DOM lib targets). */
+interface BatteryManager extends EventTarget {
+	level: number;
+	charging: boolean;
+	chargingTime: number;
+	dischargingTime: number;
+	addEventListener(type: string, listener: EventListenerOrEventListenerObject): void;
+	removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void;
+}
+
 /** TUS chunk size: 50 MB (divisible by 256 KiB = 262,144 bytes) */
 export const TUS_CHUNK_SIZE = 52_428_800;
 

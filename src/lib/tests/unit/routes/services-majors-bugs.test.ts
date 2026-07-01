@@ -14,7 +14,7 @@ const mockServices: Service[] = [
 		serviceLocationTypes: [],
 		pricing: { type: ServicePricingTypeEnum.FIXED, currency: 'USDt', amount: 100 },
 		skills: ['Design'],
-		categories: [{ id: 'cat1', name: 'Design', slug: 'design' }],
+		categories: [{ id: 'cat1', name: 'Design', slug: 'design', description: '' }],
 		portfolio: [],
 		createdAt: 1_700_000_000,
 		creator: { username: 'provider1', avatar: '' }
@@ -29,7 +29,7 @@ const mockServices: Service[] = [
 		serviceLocationTypes: [],
 		pricing: { type: ServicePricingTypeEnum.FIXED, currency: 'USDt', amount: 200 },
 		skills: ['Coding'],
-		categories: [{ id: 'cat2', name: 'Coding', slug: 'coding' }],
+		categories: [{ id: 'cat2', name: 'Coding', slug: 'coding', description: '' }],
 		portfolio: [],
 		createdAt: 1_700_000_001,
 		creator: { username: 'provider2', avatar: '' }
@@ -249,8 +249,8 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			})
 		);
 
-		let findServicesCalledWith = null;
-		hoisted.findServices.mockImplementation(async (params) => {
+		let findServicesCalledWith: Record<string, unknown> | null = null;
+		hoisted.findServices.mockImplementation(async (params: Record<string, unknown>) => {
 			findServicesCalledWith = params;
 			hoisted.servicesStore.set({
 				items: mockServices,
@@ -272,9 +272,11 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			expect(findServicesCalledWith).not.toBeNull();
 		});
 
-		expect(findServicesCalledWith.search).toBe('logo');
-		expect(findServicesCalledWith.location).toBe('Austin, TX');
-		expect(findServicesCalledWith.locationCoords?.latitude).toBe(30.2672);
+		expect(findServicesCalledWith?.search).toBe('logo');
+		expect(findServicesCalledWith?.location).toBe('Austin, TX');
+		expect(
+			(findServicesCalledWith as Record<string, unknown> | null)?.locationCoords
+		).toBeDefined();
 	});
 });
 

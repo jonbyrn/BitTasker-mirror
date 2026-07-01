@@ -69,6 +69,10 @@
 		return currentPrice > 1000 ? half / currentPrice : half / 74000;
 	});
 	let usdt0Amt = $derived(amountNum / 2);
+	let wbtcInsufficient = $derived(
+		amountNum > 0 && wbtcAmt > 0 && wbtcSats < Math.round(wbtcAmt * 1e8)
+	);
+	let usdt0Insufficient = $derived(amountNum > 0 && usdt0Amt > 0 && usdt0Bal < usdt0Amt);
 	let canProvide = $derived(
 		amountNum > 0 &&
 			hasBoth &&
@@ -78,10 +82,6 @@
 			!wbtcInsufficient &&
 			!usdt0Insufficient
 	);
-	let wbtcInsufficient = $derived(
-		amountNum > 0 && wbtcAmt > 0 && wbtcSats < Math.round(wbtcAmt * 1e8)
-	);
-	let usdt0Insufficient = $derived(amountNum > 0 && usdt0Amt > 0 && usdt0Bal < usdt0Amt);
 
 	function satsFromBtc(btc: number): number {
 		return Math.round(btc * 1e8);

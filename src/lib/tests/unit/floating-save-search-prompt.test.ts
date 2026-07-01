@@ -17,17 +17,22 @@ vi.mock('@capacitor/preferences', () => ({
 		clear: vi.fn(async () => {
 			store = {};
 		}),
-		keys: vi.fn(async () => ({ keys: [] }))
+		keys: vi.fn(async () => ({ keys: [] })),
+		configure: vi.fn(async () => {}),
+		migrate: vi.fn(async () => ({ migrated: [], existing: [] })),
+		removeOld: vi.fn(async () => {})
 	}
 }));
 
-const mockShowBanner = vi.fn(async () => 1);
-const mockDismissBanner = vi.fn(async () => {});
+const mockShowBanner = vi.fn(
+	async (_options: Record<string, unknown>): Promise<number | null> => 1
+);
+const mockDismissBanner = vi.fn(async (_id: number): Promise<void> => {});
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
-		showBanner: (...args: unknown[]) => mockShowBanner(...args),
-		dismissBanner: (...args: unknown[]) => mockDismissBanner(...args)
+		showBanner: mockShowBanner,
+		dismissBanner: mockDismissBanner
 	}
 }));
 

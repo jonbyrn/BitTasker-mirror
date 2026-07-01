@@ -4,21 +4,21 @@ import type { Service } from '$lib/types/service.d';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => ({
-	createStore(initialValue) {
+	createStore<T>(initialValue: T) {
 		let value = initialValue;
-		const subscribers = new Set();
+		const subscribers = new Set<(nextValue: T) => void>();
 
 		return {
-			set(nextValue) {
+			set(nextValue: T) {
 				value = nextValue;
 				for (const subscriber of subscribers) {
 					subscriber(value);
 				}
 			},
-			update(updater) {
+			update(updater: (currentValue: T) => T) {
 				this.set(updater(value));
 			},
-			subscribe(subscriber) {
+			subscribe(subscriber: (nextValue: T) => void) {
 				subscriber(value);
 				subscribers.add(subscriber);
 				return () => subscribers.delete(subscriber);
@@ -84,7 +84,7 @@ hoisted.servicesStore = hoisted.createStore({
 	hasMore: false,
 	searchParamsKey: ''
 });
-hoisted.servicesStore.destroy = vi.fn();
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
 hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
 hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
 

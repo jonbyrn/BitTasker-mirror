@@ -357,7 +357,7 @@ function reconcileProviderRequestFocus(
 	const partialSync =
 		isRequestSyncActive(state, requestId, serviceAddress) &&
 		!hasTimelineForRequest(timelines, requestId);
-	const nextState = {
+	const nextState: ServiceQuoteUiState = {
 		...state,
 		providerDataFreshnessByService: {
 			...state.providerDataFreshnessByService,
@@ -974,7 +974,7 @@ function createServiceQuoteUiStore() {
 					proposal,
 					status: 'accepted',
 					escrowId: result.escrowId,
-					transactionHash: result.transactionHash,
+					transactionHash: result.transactionHash ?? '',
 					acceptanceSnapshot: result.acceptanceSnapshot
 				});
 				return;
@@ -985,7 +985,7 @@ function createServiceQuoteUiStore() {
 					timeline: currentTimeline,
 					proposal,
 					status: 'accept_failed',
-					transactionHash: result.transactionHash,
+					transactionHash: result.transactionHash ?? '',
 					message: result.error ?? 'Unable to confirm the funded service contract.'
 				});
 				return;
@@ -996,7 +996,7 @@ function createServiceQuoteUiStore() {
 				proposal,
 				status: 'contract_sync_pending',
 				escrowId: result.escrowId,
-				transactionHash: result.transactionHash,
+				transactionHash: result.transactionHash ?? '',
 				message: getAcceptanceSyncPendingMessage()
 			});
 		} finally {

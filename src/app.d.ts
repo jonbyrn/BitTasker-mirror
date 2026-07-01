@@ -71,14 +71,14 @@ declare global {
 
 // unplugin-icons type declarations
 declare module '~icons/*' {
-	import type { ComponentType } from 'svelte';
-	const component: ComponentType;
+	import type { Component } from 'svelte';
+	const component: Component<{ class?: string }>;
 	export default component;
 }
 
 declare module '~icons/mdi/*' {
-	import type { ComponentType } from 'svelte';
-	const component: ComponentType;
+	import type { Component } from 'svelte';
+	const component: Component<{ class?: string }>;
 	export default component;
 }
 

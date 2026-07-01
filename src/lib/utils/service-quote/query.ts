@@ -432,7 +432,7 @@ async function queryDeletedEventIdsDetailed(
 	eventIds: string[],
 	authors: string[],
 	relays: string[]
-): Promise<QueryCollectionResult<Set<string>>> {
+): Promise<{ items: Set<string>; isPartial: boolean }> {
 	if (eventIds.length === 0) {
 		return { items: new Set<string>(), isPartial: false };
 	}
@@ -462,7 +462,7 @@ async function queryDeletedEventIdsDetailed(
 
 function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {
 	try {
-		return validateServiceQuoteRequestEvent(event);
+		return validateServiceQuoteRequestEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -470,7 +470,7 @@ function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null 
 
 function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 	try {
-		return validateServiceProposalEvent(event);
+		return validateServiceProposalEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -478,7 +478,7 @@ function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 
 function safelyValidateStatus(event: unknown): ServiceProposalStatusEvent | null {
 	try {
-		return validateServiceProposalStatusEvent(event);
+		return validateServiceProposalStatusEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}

@@ -568,7 +568,9 @@ describe('EIP7702DelegationManager (class)', () => {
 		});
 
 		it('throws for unsupported chain', () => {
-			vi.mocked(getStablecoinConfig).mockReturnValueOnce(undefined);
+			vi.mocked(getStablecoinConfig).mockReturnValueOnce(
+				undefined as ReturnType<typeof getStablecoinConfig>
+			);
 			expect(
 				() =>
 					new EIP7702DelegationManager({

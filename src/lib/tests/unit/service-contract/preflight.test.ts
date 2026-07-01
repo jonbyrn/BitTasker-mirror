@@ -131,9 +131,9 @@ describe('service contract preflight', () => {
 		walletStore.set({
 			isConnected: false,
 			rsk: {
-				address: null,
-				wallet: null,
-				provider: null
+				address: null as unknown as string,
+				wallet: null as unknown as { address: string },
+				provider: null as unknown as object
 			}
 		});
 		mockInitialize.mockRejectedValueOnce(new Error('init failed'));
@@ -163,9 +163,9 @@ describe('service contract preflight', () => {
 		walletStore.set({
 			isConnected: false,
 			rsk: {
-				address: null,
-				wallet: null,
-				provider: null
+				address: null as unknown as string,
+				wallet: null as unknown as { address: string },
+				provider: null as unknown as object
 			}
 		});
 		mockInitialize.mockResolvedValueOnce(undefined);

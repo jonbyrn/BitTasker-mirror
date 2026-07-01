@@ -85,7 +85,9 @@ function createService(overrides: Partial<Service> = {}): Service {
 
 const canonicalBase = BITTASKER_CANONICAL_BASE.replace(/\/$/, '');
 
-const mockParent = vi.fn().mockResolvedValue({ service: null });
+const mockParent = vi.fn().mockResolvedValue({ service: null }) as Parameters<
+	typeof load
+>[0]['parent'];
 
 describe('services/[serviceId] page load', () => {
 	beforeEach(() => {
