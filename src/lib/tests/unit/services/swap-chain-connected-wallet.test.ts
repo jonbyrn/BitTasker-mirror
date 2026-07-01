@@ -465,7 +465,7 @@ function resetMocks(): void {
 		mockFetch
 	];
 	for (const m of allHoisted) {
-		m.mockClear();
+		(m as unknown as { mockClear: () => void }).mockClear();
 	}
 
 	// Re-apply default resolved values
@@ -476,7 +476,7 @@ function resetMocks(): void {
 	mockPreferencesRemove.mockResolvedValue(undefined);
 
 	// Default: connected wallet signer returns success
-	mockEvmSigner.sendTransaction.mockResolvedValue({
+	vi.mocked(mockEvmSigner.sendTransaction).mockResolvedValue({
 		txHash: '0xtxhashCONNECTEDWALLETabcdef1234567890',
 		from: mockEvmSigner.address,
 		chainId: 30
@@ -584,7 +584,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Assert
 			assertCompleted(result, 'COMPLETE', '0xtxhashCONNECTEDWALLETabcdef1234567890');
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.to).toBe(DEST_ADDR);
 			expect(txArg.chainId).toBe(30);
 			expect(txArg.data).toBe('0x');
@@ -613,7 +614,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockGetBSCUSDTContractAddress).toHaveBeenCalled();
 			expect(mockEncodeERC20Transfer).toHaveBeenCalled();
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.to).toBe(mockGetBSCUSDTContractAddress());
 			expect(txArg.chainId).toBe(56);
 			expect(txArg.data).toBeDefined();
@@ -808,7 +810,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockCreateSubmarineSwap).toHaveBeenCalledWith(invoice);
 			expect(mockLockSubmarineSwapFunds).not.toHaveBeenCalled();
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.to).toBe('0x5555000000000000000000000000000000000eee');
 			expect(txArg.chainId).toBe(30);
 		});
@@ -885,7 +888,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			);
 			// Verify lockup via evmSigner
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
@@ -943,7 +947,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockBoltzCreateSwap).toHaveBeenCalledTimes(1);
 			// Verify lockup via evmSigner on RSK chain (30) — lockup sends rBTC, Boltz handles Arb claim
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
@@ -1095,7 +1100,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 	describe('Error Propagation', () => {
 		it('returns FAILED state when evmSigner.sendTransaction rejects', async () => {
 			// Arrange
-			mockEvmSigner.sendTransaction.mockRejectedValueOnce(
+			vi.mocked(mockEvmSigner.sendTransaction).mockRejectedValueOnce(
 				new Error('User rejected the transaction')
 			);
 			const dest = makeDestination(DEST_ADDR);
@@ -1182,7 +1187,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			assertCompleted(result, 'COMPLETE', '0xtxhashCONNECTEDWALLETabcdef1234567890');
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			// Amount in wei should be 1
-			const txArg = mockEvmSigner.sendTransaction.mock.calls[0][0] as EVMTransactionRequest;
+			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
+				.calls[0][0] as EVMTransactionRequest;
 			expect(txArg.value).toBe(1n);
 		});
 

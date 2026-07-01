@@ -427,7 +427,7 @@
 			// Self-swap (same asset) — only for cross-wallet transfers
 			if (sourceWallet !== destWallet) {
 				options.push({
-					id: sourceType,
+					id: sourceType as DestType,
 					asset: sourceAsset,
 					label:
 						sourceType === 'wbtc-arb'

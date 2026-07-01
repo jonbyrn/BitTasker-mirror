@@ -484,16 +484,22 @@
 			type: 'services',
 			highlight: escrowId
 		});
-		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
+		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`, {}));
 	}
 
 	function getActionButtons(timeline: ServiceQuoteTimelineEntry) {
 		if (timeline.linkedEscrowId) {
-			const actions = [
+			const actions: {
+				label: string;
+				class: string;
+				icon: string;
+				onclick: () => void;
+				disabled?: boolean;
+			}[] = [
 				{
 					label: tr('dashboard.services.my_services.quote_inbox.view_contract_short', 'Contract'),
 					class: 'btn-primary btn-sm',
-					icon: 'contract' as const,
+					icon: 'contract',
 					onclick: () => viewContract(timeline.linkedEscrowId!)
 				}
 			];
@@ -502,7 +508,7 @@
 				actions.push({
 					label: tr('dashboard.services.my_services.quote_inbox.view_proposal_short', 'View'),
 					class: 'btn-outline btn-sm',
-					icon: 'view' as const,
+					icon: 'view',
 					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
 				});
 			}

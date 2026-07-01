@@ -246,7 +246,7 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				searchParamsKey: hashSearchParams(searchParams)
+				searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 			}));
 			loadingState = 'loaded';
 			syncScrollHasMore();
@@ -315,7 +315,7 @@
 				if (currentVersion !== searchVersion) return;
 				servicesStore.update((state) => ({
 					...state,
-					searchParamsKey: hashSearchParams(searchParams)
+					searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 				}));
 				loadingState = 'loaded';
 				syncScrollHasMore();
@@ -378,7 +378,7 @@
 
 		servicesStore.update((state) => ({
 			...state,
-			searchParamsKey: hashSearchParams(searchParams)
+			searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 		}));
 		loadingState = 'loaded';
 		syncScrollHasMore();
