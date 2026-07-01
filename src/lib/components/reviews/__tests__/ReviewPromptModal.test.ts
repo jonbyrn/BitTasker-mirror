@@ -153,7 +153,7 @@ describe('ReviewPromptModal', () => {
 		});
 
 		const form = await screen.findByTestId('mock-review-form');
-		expect(form).toHaveAttribute('data-reviewee-role', 'taskee');
+		expect(form).toHaveAttribute('data-reviewee-role', 'taskee' as string);
 		expect(form).toHaveAttribute('data-reviewee-pubkey', freelancerHex);
 		expect(mocks.fetchIContractForReviewByEscrowId).toHaveBeenCalledWith('escrow-1');
 		expect(mocks.fetchProfileMetadata).toHaveBeenCalledWith(freelancerNpub);

@@ -122,7 +122,7 @@ export const Open: Story = {
 		bid: sampleBid,
 		isOpen: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const Closed: Story = {
@@ -130,7 +130,7 @@ export const Closed: Story = {
 		bid: sampleBid,
 		isOpen: false,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const TaskOwnerView: Story = {
@@ -138,7 +138,7 @@ export const TaskOwnerView: Story = {
 		bid: sampleBid,
 		isOpen: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const BidderView: Story = {
@@ -146,7 +146,7 @@ export const BidderView: Story = {
 		bid: sampleBid,
 		isOpen: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const AcceptedBid: Story = {
@@ -154,7 +154,7 @@ export const AcceptedBid: Story = {
 		bid: { ...sampleBid, status: BidStatusEnum.ACCEPTED },
 		isOpen: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const HourlyRateBid: Story = {
@@ -168,5 +168,5 @@ export const HourlyRateBid: Story = {
 		},
 		isOpen: true,
 		counterOffers: []
-	}
+	} as unknown as Story['args']
 };

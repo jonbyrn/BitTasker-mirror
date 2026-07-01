@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	getTransactionConfirmationCount,
 	SERVICE_ACCEPTANCE_CONFIRMATION_POLL_INTERVAL_MS,
-	ServiceAcceptanceFinalityError,
 	waitForServiceAcceptanceFinality
 } from '$lib/utils/service-contract/finality';
 
@@ -103,7 +102,7 @@ describe('service contract finality policy', () => {
 			hash: '0xrpc',
 			confirmations: 1
 		} as never);
-		const expectation = expect(promise).rejects.toMatchObject<ServiceAcceptanceFinalityError>({
+		const expectation = expect(promise).rejects.toMatchObject({
 			reasonCode: 'rpc_unavailable'
 		});
 

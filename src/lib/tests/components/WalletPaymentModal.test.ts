@@ -89,9 +89,8 @@ vi.mock('$lib/stores/wallet.store', async () => {
 describe('WalletPaymentModal Component', () => {
 	const defaultProps = {
 		isOpen: true,
-		mode: 'receive' as const,
 		onClose: vi.fn()
-	};
+	} as const;
 
 	beforeEach(() => {
 		vi.clearAllMocks();

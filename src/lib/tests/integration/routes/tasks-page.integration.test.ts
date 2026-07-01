@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tasksStore } from '$lib/stores/task.store';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
 
 /**
