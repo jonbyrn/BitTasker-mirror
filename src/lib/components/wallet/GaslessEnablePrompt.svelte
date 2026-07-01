@@ -20,7 +20,7 @@
 >
 	<div class="card-body space-y-4">
 		<div class="flex items-center gap-2">
-			<Icon class="text-primary h-6 w-6" aria-hidden="true" />
+			<Icon class="text-primary h-6 w-6" />
 			<h3 class="card-title text-lg">{$t('wallet.gasless_enable.title')}</h3>
 		</div>
 

@@ -181,7 +181,6 @@
 					class="{currentSizeClasses.star} {i < roundedRating
 						? 'text-primary'
 						: 'text-base-content/30'}"
-					aria-hidden="true"
 				/>
 			{/each}
 		{/if}

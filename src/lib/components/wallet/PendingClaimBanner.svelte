@@ -55,7 +55,7 @@
 		{#each claims as claim (claim.swapId)}
 			<div class="alert alert-outline border-warning gap-2 py-3" role="status" aria-live="polite">
 				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<IconLightning class="text-warning h-5 w-5 shrink-0" aria-hidden="true" />
+					<IconLightning class="text-warning h-5 w-5 shrink-0" />
 					<div class="min-w-0 flex-1">
 						<div class="text-sm font-semibold">
 							{$t('wallet.receive.lightning_payment_received')}
@@ -83,7 +83,7 @@
 						onclick={() => onDismiss(claim.swapId)}
 						aria-label={$t('wallet.receive.dismiss_claim')}
 					>
-						<IconClose class="h-4 w-4" aria-hidden="true" />
+						<IconClose class="h-4 w-4" />
 					</button>
 				</div>
 			</div>

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { ContractStatus } from '$lib/utils/contract/types';
+import type { NDKUser } from '@nostr-dev-kit/ndk';
+import type { NDKSubscription } from '@nostr-dev-kit/ndk';
 
 // Mock dependencies
 vi.mock('$lib/nostr/ndk', () => ({
@@ -44,7 +46,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 			contractAddress: '0xcontract',
 			transactionHash: undefined,
 			version: 'v2',
-			ndk: { activeUser: { pubkey: 'npub1tasker' } }
+			ndk: { activeUser: { pubkey: 'npub1tasker' } as unknown as NDKUser }
 		};
 	});
 
@@ -58,7 +60,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 				...mockContract,
 				paymentId: undefined,
 				transactionHash: undefined
-			} as NDKPaymentContract;
+			} as unknown as NDKPaymentContract;
 			const rune = new PaymentContractRune(contract);
 
 			await rune.start();
@@ -107,7 +109,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 			const rune = new PaymentContractRune(contract);
 
 			const mockStop = vi.fn();
-			rune.statusSub = { stop: mockStop } as ReturnType<typeof vi.fn>;
+			rune.statusSub = { stop: mockStop } as unknown as NDKSubscription;
 
 			rune.stopSubscription();
 
@@ -118,7 +120,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 			const contract = mockContract as NDKPaymentContract;
 			const rune = new PaymentContractRune(contract);
 
-			rune.statusSub = { stop: vi.fn() } as { stop: ReturnType<typeof vi.fn> };
+			rune.statusSub = { stop: vi.fn() } as unknown as NDKSubscription;
 			rune.stopSubscription();
 
 			expect(rune.statusSub).toBe(null);

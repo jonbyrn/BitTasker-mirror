@@ -69,7 +69,7 @@
 		if (selectedId === 'builtin') return $walletStore.arb.usdt0Balance ?? '0';
 		const w = $connectedWalletsStore.wallets.find((ww) => ww.id === selectedId);
 		const u = w?.balances?.['usdt0-arb'] || w?.balances?.['usdt-arb'] || w?.balances?.['usdt0'];
-		return (u as unknown)?.formatted ?? '0';
+		return (u as Record<string, unknown>)?.formatted ?? '0';
 	});
 	let selectedUsdt0BalanceNum = $derived(parseFloat(selectedUsdt0BalanceStr) || 0);
 	// Override has for selected (connected may have)
@@ -171,7 +171,7 @@
 			return rskW.connect(arbProvider);
 		}
 		const evm = getEvmSigner(selectedId);
-		return evm ?? null;
+		return (evm as unknown as ethers.Signer) ?? null;
 	}
 
 	// onApprove for the single ApproveModal — does ERC20 approve only; parent chains supply after close
@@ -323,7 +323,12 @@
 			if (!w) return '$0';
 			const u = w.balances['usdt0-arb'] || w.balances['usdt-arb'] || w.balances['usdt0'];
 			if (!u) return '0 USDT0';
-			const val = parseFloat((u as unknown).formatted ?? (u as unknown).raw ?? '0') || 0;
+			const val =
+				parseFloat(
+					((u as Record<string, unknown>).formatted as string) ??
+						((u as Record<string, unknown>).raw as string) ??
+						'0'
+				) || 0;
 			return `${val.toFixed(2)} USDT0`;
 		}}
 		expanded={sourceExpanded}
@@ -432,7 +437,11 @@
 		isOpen={showApproveModal}
 		onClose={handleApproveModalClose}
 		amount={approveAmount}
-		token={{ symbol: 'USDT0', address: USDT0_ARBITRUM, decimals: USDT0_DECIMALS }}
+		token={{
+			symbol: 'USDT0',
+			address: USDT0_ARBITRUM,
+			decimals: USDT0_DECIMALS
+		} as unknown as Record<string, unknown>}
 		spender={AAVE_POOL_ADDR}
 		onApprove={handleApproveForModal}
 		isSubmitting={isApproving}

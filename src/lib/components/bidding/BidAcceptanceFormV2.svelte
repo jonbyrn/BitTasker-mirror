@@ -1003,7 +1003,7 @@
 {/if}
 
 <!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
-{#if showFundConfirmationModal}
+{#if showFundConfirmationModal && bidContent}
 	<div
 		class="modal modal-open modal-middle z-120"
 		role="dialog"

@@ -373,7 +373,12 @@ export async function recoverRefundDataFromChain(): Promise<{
 			}
 
 			// Verify the swap still exists in contract storage
-			if (await isLockupResolved(swapContract, ev.preimageHash)) {
+			if (
+				await isLockupResolved(
+					swapContract as unknown as { swaps(preimageHash: string): Promise<unknown[]> },
+					ev.preimageHash
+				)
+			) {
 				dRecover.log('Lockup already resolved (no on-chain data), skipping');
 				continue;
 			}
@@ -404,7 +409,7 @@ export async function recoverRefundDataFromChain(): Promise<{
 		dRecover.error('Recovery failed: %s', (err as Error).message);
 		Sentry.captureException(err, {
 			tags: { component: 'swap-chain', recovery: 'recoverRefundDataFromChain' },
-			data: { swapId: state.swap1Id, source: 'blockscout-api' }
+			extra: { swapId: state.swap1Id, source: 'blockscout-api' }
 		});
 		return { data: null, error: new Error(`Recovery failed: ${(err as Error).message}`) };
 	}
@@ -475,7 +480,10 @@ export async function scanUnclaimedLockups(): Promise<{
 
 		for (const ev of events) {
 			// Check if already resolved on-chain using shared helper
-			const resolved = await isLockupResolved(swapContract, ev.preimageHash);
+			const resolved = await isLockupResolved(
+				swapContract as unknown as { swaps(preimageHash: string): Promise<unknown[]> },
+				ev.preimageHash
+			);
 			if (resolved) {
 				dScan.log('Lockup %s already resolved', ev.preimageHash.slice(0, 10));
 			}

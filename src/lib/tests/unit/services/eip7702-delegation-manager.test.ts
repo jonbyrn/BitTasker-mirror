@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { JsonRpcProvider } from 'ethers';
+import { JsonRpcProvider, Wallet } from 'ethers';
 import {
 	EIP7702DelegationManager,
 	estimateGasCost,
@@ -153,8 +153,7 @@ function mockStablecoinConfig(chainId: number = 56): void {
 			decimals: 18
 		},
 		paymaster: {
-			address: '0xpaymaster12345678901234567890123456789012',
-			oracleAddress: '0xoracle1234567890123456789012345678901234'
+			address: '0xpaymaster12345678901234567890123456789012'
 		},
 		usdt: {
 			address: '0x55d398326f99059ff775485246999027b3197955',
@@ -540,11 +539,15 @@ describe('EIP7702DelegationManager (class)', () => {
 		mockStablecoinConfig();
 		mockProvider = createMockProvider();
 		vi.mocked(delegationJournal.addEntry).mockResolvedValue({
-			data: createMockJournalEntry(),
+			data: createMockJournalEntry() as unknown as Awaited<
+				ReturnType<typeof delegationJournal.addEntry>
+			>['data'],
 			error: null
 		});
 		vi.mocked(delegationJournal.updateEntry).mockResolvedValue({
-			data: createMockJournalEntry(),
+			data: createMockJournalEntry() as unknown as Awaited<
+				ReturnType<typeof delegationJournal.updateEntry>
+			>['data'],
 			error: null
 		});
 	});
@@ -794,7 +797,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -811,7 +814,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -826,7 +829,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -842,7 +845,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -856,7 +859,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -873,7 +876,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -889,7 +892,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {
@@ -903,7 +906,7 @@ describe('EIP7702DelegationManager (class)', () => {
 			const manager = new EIP7702DelegationManager({
 				chainId: 56,
 				provider: mockProvider as unknown as JsonRpcProvider,
-				bnbFallbackWallet: mockWallet
+				bnbFallbackWallet: mockWallet as unknown as Wallet
 			});
 
 			const result = await callAttemptBnbFallback(manager, {

@@ -244,7 +244,7 @@
 						}}
 					>
 						<div class="flex items-center gap-2">
-							<IconChartLine class="text-base-content/50 h-4 w-4 shrink-0" aria-hidden="true" />
+							<IconChartLine class="text-base-content/50 h-4 w-4 shrink-0" />
 							<span>{$t('wallet.balance_history.historical_chart')}</span>
 						</div>
 						<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
@@ -258,10 +258,7 @@
 							}}
 						>
 							<div class="flex items-center gap-2">
-								<IconFormatListBulleted
-									class="text-base-content/50 h-4 w-4 shrink-0"
-									aria-hidden="true"
-								/>
+								<IconFormatListBulleted class="text-base-content/50 h-4 w-4 shrink-0" />
 								<span>{$t('wallet.tab_transactions')}</span>
 							</div>
 							<IconChevronRight class="text-base-content/30 h-5 w-5 shrink-0 sm:h-6 sm:w-6" />

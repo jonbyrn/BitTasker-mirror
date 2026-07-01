@@ -1295,7 +1295,7 @@ function createServiceQuoteUiStore() {
 						};
 
 						return reconcileProviderRequestFocus(
-							nextState,
+							nextState as unknown as ServiceQuoteUiState,
 							serviceAddress,
 							requestId,
 							result.timelines
@@ -1502,26 +1502,7 @@ function createServiceQuoteUiStore() {
 					}
 				});
 				const localProposalEvent =
-					'content' in publishResult.event
-						? publishResult.event
-						: ({
-								id: publishResult.event.id,
-								kind: 6421,
-								pubkey: input.service.npub,
-								created_at: proposalContent.timestamp,
-								tags: [
-									['e', timeline.request.id],
-									['p', timeline.request.pubkey]
-								],
-								content: {
-									...proposalContent,
-									expirationTimestamp:
-										proposalContent.estimatedEndTime +
-										proposalContent.expirationDays * 86_400 +
-										proposalContent.expirationHours * 3_600
-								},
-								sig: ''
-							} as ServiceQuoteTimelineEntry['proposals'][number]);
+					publishResult.event as ServiceQuoteTimelineEntry['proposals'][number];
 
 				update((state) => ({
 					...state,
@@ -1882,8 +1863,7 @@ function createServiceQuoteUiStore() {
 				if (!contractResult.success) {
 					return {
 						success: false,
-						error: contractResult.error || 'Unable to create the service contract.',
-						errorCode: contractResult.errorCode
+						error: contractResult.error || 'Unable to create the service contract.'
 					};
 				}
 

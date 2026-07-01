@@ -6,7 +6,7 @@ import type {
 	ServiceQuoteThread
 } from '$lib/types/service-quote';
 import { queryNostrEvents } from '$lib/utils/nostr';
-import type { Filter } from 'nostr-tools';
+import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {

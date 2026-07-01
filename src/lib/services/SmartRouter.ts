@@ -147,7 +147,7 @@ export class SmartRouter {
 		}
 
 		// wBTC → rBTC: LI.FI + Symbiosis cross-chain (Arbitrum→RSK)
-		if (fromAsset === 'wbtc-arb' && toAsset === 'rbtc-rsk') {
+		if (fromAsset === 'wbtc-arb' && (toAsset as unknown as string) === 'rbtc-rsk') {
 			builders.set('lifi', () => this.buildLifiWbtcToRbtcRoute(amountSats));
 			builders.set('symbiosis', () =>
 				this.buildSymbiosisRoute(
@@ -211,7 +211,7 @@ export class SmartRouter {
 		}
 
 		// BTC on-chain → rBTC: Boltz reverse swap
-		if (fromAsset === 'btc-onchain' && toAsset === 'rbtc-rsk') {
+		if (fromAsset === 'btc-onchain' && (toAsset as unknown as string) === 'rbtc-rsk') {
 			builders.set('boltz', () => this.buildBoltzReverseRoute(amountSats));
 		}
 
@@ -858,7 +858,7 @@ export class SmartRouter {
 		const feeSats = Math.max(0, amountSats - outputSats);
 
 		// Gas cost from tx data (if available)
-		const gasLimit = quote.tx?.gasLimit;
+		const gasLimit = (quote.tx as Record<string, unknown> | undefined)?.gasLimit;
 
 		return {
 			provider: 'symbiosis',

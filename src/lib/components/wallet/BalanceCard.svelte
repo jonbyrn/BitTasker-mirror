@@ -227,12 +227,9 @@
 )}
 	<div class="flex items-center gap-1.5 sm:gap-2">
 		{#if icon === 'document'}
-			<IconFileDocument
-				class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5"
-				aria-hidden="true"
-			/>
+			<IconFileDocument class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 		{:else if icon === 'cash'}
-			<IconCash class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
+			<IconCash class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 		{:else}
 			<img src={logoSrc} alt={logoAlt} class="h-4 w-4 sm:h-5 sm:w-5" />
 		{/if}

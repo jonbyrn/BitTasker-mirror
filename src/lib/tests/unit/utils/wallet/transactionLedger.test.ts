@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ComponentType } from 'svelte';
 import {
 	dedupChainClaims,
 	dedupSwapRows,
@@ -11,6 +12,22 @@ import {
 import type { ProcessedTransaction } from '$lib/types/wallet';
 import { statusUI } from '$lib/utils/constants/transactions.constants';
 
+const statusConfirmed = statusUI.confirmed as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+const _statusPending = statusUI.pending as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+const statusFailed = statusUI.failed as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+
 function makeClaimTx(hash: string, preimage: string, failed: boolean): ProcessedTransaction {
 	return {
 		hash,
@@ -18,7 +35,7 @@ function makeClaimTx(hash: string, preimage: string, failed: boolean): Processed
 		to: '0xcontract',
 		value: '3332',
 		timestamp: '2024-01-15T10:00:00Z',
-		status: failed ? statusUI.failed : statusUI.confirmed,
+		status: failed ? statusFailed : statusConfirmed,
 		network: 'rsk',
 		type: 'swap',
 		subType: 'claim',

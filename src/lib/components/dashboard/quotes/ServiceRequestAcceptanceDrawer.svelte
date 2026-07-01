@@ -125,7 +125,10 @@
 			return null;
 		}
 
-		return service.pricing?.tiers?.find((tier) => tier.id === tierId)?.name ?? null;
+		return (
+			service.pricing?.tiers?.find((tier: { id: string; name: string }) => tier.id === tierId)
+				?.name ?? null
+		);
 	});
 	const addOnLabels = $derived.by(() => {
 		if (!service || !latestProposal) {
@@ -137,8 +140,10 @@
 			timeline?.request.content.selectedAddOns ??
 			[];
 
-		return selectedAddOns.map((addOnId) => {
-			const matchedAddOn = service.pricing?.simpleAddOns?.find((addOn) => addOn.id === addOnId);
+		return selectedAddOns.map((addOnId: string) => {
+			const matchedAddOn = service.pricing?.simpleAddOns?.find(
+				(addOn: { id: string; name: string }) => addOn.id === addOnId
+			);
 			return matchedAddOn?.name ?? addOnId;
 		});
 	});

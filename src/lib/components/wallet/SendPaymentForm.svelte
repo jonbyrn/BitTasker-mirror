@@ -1004,7 +1004,7 @@
 		try {
 			const qrValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
 			const parsed = parsePaymentAddress(
-				qrValue,
+				qrValue ?? '',
 				formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc'
 			);
 
@@ -1034,7 +1034,7 @@
 					// Use specific error message if available, otherwise use generic message
 					qrScanState.error = parsed.errorMessage || $t('wallet.send.error.invalid_qr_code');
 				}
-				qrScanState.scannedValue = qrValue;
+				qrScanState.scannedValue = qrValue ?? null;
 				return;
 			}
 
@@ -1066,9 +1066,9 @@
 			uiState.showConfirmation = false;
 
 			// If this is an LNURL, resolve the full details asynchronously
-			if (isLNURL(qrValue)) {
+			if (isLNURL(qrValue ?? '')) {
 				try {
-					const lnurlParsed = await resolveLNURLPaymentAddress(qrValue);
+					const lnurlParsed = await resolveLNURLPaymentAddress(qrValue ?? '');
 					parsedPayment.data = lnurlParsed;
 					parsedPayment.detectedMemo = lnurlParsed.memo;
 					if (lnurlParsed.lnurlDescription) {
@@ -1086,7 +1086,7 @@
 		} catch (error) {
 			console.error('Failed to parse QR code:', error);
 			qrScanState.error = $t('wallet.send.failed_to_parse_qr');
-			qrScanState.scannedValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
+			qrScanState.scannedValue = (typeof barcode === 'string' ? barcode : barcode.rawValue) ?? null;
 		}
 	}
 
@@ -1797,7 +1797,7 @@
 						);
 
 						// Extract lockup details from swapData
-						const swapData = swapResult.swapData as Record<string, unknown> | undefined;
+						const swapData = swapResult.swapData as unknown as Record<string, unknown> | undefined;
 						const lockupAddress =
 							(typeof swapData?.lockupAddress === 'string' ? swapData.lockupAddress : undefined) ??
 							(typeof swapData?.address === 'string' ? swapData.address : undefined) ??
@@ -2482,7 +2482,6 @@
 								: formInput.unit}
 							usdValue={totalToSendUSD}
 							isError={hasInsufficientBalance}
-							placeholder={$t('wallet.send.enter_address_and_amount_to_estimate')}
 						/>
 						<!-- Description Accordion -->
 						<div class="form-control">

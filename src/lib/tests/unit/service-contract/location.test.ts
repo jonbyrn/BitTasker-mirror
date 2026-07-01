@@ -103,6 +103,26 @@ describe('buildServiceContractLocationSnapshot', () => {
 					serviceLocation: {
 						latitude: 40.7128,
 						longitude: -74.006,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
+					}
+				}
+			}
+		};
+		const result = buildServiceContractLocationSnapshot(service);
+		expect(result?.mode).toBe('taskee_location');
+	});
+
+	it('returns tasker location snapshot when type is TASKER_LOCATION', () => {
+		const service: ServiceLocationInput = {
+			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
+			locationDetails: {
+				taskerLocation: {
+					serviceLocation: {
+						latitude: 34.0522,
+						longitude: -118.2437,
+						displayName: '',
 						zipCode: '',
 						locationLoaded: true
 					}
@@ -141,7 +161,10 @@ describe('validateServiceLocation', () => {
 					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
-						longitude: -74.006
+						longitude: -74.006,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					},
 					serviceRadius: 10
 				}
@@ -159,7 +182,10 @@ describe('validateServiceLocation', () => {
 					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: null,
-						longitude: null
+						longitude: null,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -177,7 +203,10 @@ describe('validateServiceLocation', () => {
 					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
-						longitude: null
+						longitude: null,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -195,7 +224,10 @@ describe('validateServiceLocation', () => {
 					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
-						longitude: -74.006
+						longitude: -74.006,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					},
 					serviceRadius: 0
 				}
@@ -224,7 +256,10 @@ describe('validateServiceLocation', () => {
 					useGlobalLocation: false,
 					serviceLocation: {
 						latitude: 40.7128,
-						longitude: -74.006
+						longitude: -74.006,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -240,7 +275,10 @@ describe('validateServiceLocation', () => {
 				taskerLocation: {
 					serviceLocation: {
 						latitude: 34.0522,
-						longitude: -118.2437
+						longitude: -118.2437,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}
@@ -256,7 +294,10 @@ describe('validateServiceLocation', () => {
 				taskerLocation: {
 					serviceLocation: {
 						latitude: null,
-						longitude: null
+						longitude: null,
+						displayName: '',
+						zipCode: '',
+						locationLoaded: true
 					}
 				}
 			}

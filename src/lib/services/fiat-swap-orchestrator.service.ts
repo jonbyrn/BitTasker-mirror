@@ -512,7 +512,7 @@ export class FiatSwapOrchestrator {
 		const { symbiosisService } = await import('$lib/services/symbiosis.service');
 
 		// Resolve user's Arbitrum address from flow state
-		const userAddress = this.flow?.receivedAddress;
+		const userAddress = this.flow?.receivedAsset;
 		if (!userAddress || userAddress === '0x0000000000000000000000000000000000000000') {
 			throw new Error(
 				'Cannot execute WBTC→tBTC swap: no valid user address. Flow state: ' +
@@ -535,7 +535,7 @@ export class FiatSwapOrchestrator {
 				symbol: 'TBTC',
 				decimals: 18
 			},
-			from: userAddress,
+			from: userAddress as string,
 			slippage: 50
 		});
 
@@ -572,7 +572,7 @@ export class FiatSwapOrchestrator {
 
 		// User's RSK address (claim address for rBTC)
 		// CRITICAL: Must be the actual user address, not placeholder
-		const rskAddress = this.flow?.receivedAddress;
+		const rskAddress = this.flow?.receivedAsset;
 		if (!rskAddress || rskAddress === '0x0000000000000000000000000000000000000000') {
 			throw new Error(
 				'Cannot execute tBTC→rBTC swap: no valid RSK claim address. Flow state: ' +

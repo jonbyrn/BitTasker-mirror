@@ -157,7 +157,7 @@
 			isLoadingPool = false;
 			return;
 		}
-		livePool = pool;
+		livePool = pool as Record<string, unknown>;
 		isLoadingPool = false;
 
 		Sentry.addBreadcrumb({
@@ -205,7 +205,7 @@
 			return rskW.connect(arbProvider);
 		}
 		const evm = getEvmSigner(selectedWalletId);
-		return evm ?? null;
+		return (evm as unknown as ethers.Signer) ?? null;
 	}
 
 	// Real ERC20 approve for WBTC (NPM spender) — onApprove for first modal
@@ -336,7 +336,7 @@
 				const evmS = getEvmSigner(selectedWalletId);
 				if (!evmS) throw new Error('EVM signer unavailable');
 				const res = await uni.addLiquidityWithEvmSigner(mintParams, evmS);
-				const resRecord = res as Record<string, unknown>;
+				const resRecord = res as unknown as Record<string, unknown>;
 				_txHash =
 					(typeof resRecord?.hash === 'string' ? resRecord.hash : undefined) ||
 					(typeof resRecord?.txid === 'string' ? resRecord.txid : undefined) ||
@@ -812,7 +812,11 @@
 		}
 	}}
 	amount={wbtcAmount.toFixed(6)}
-	token={{ symbol: 'WBTC', address: UniswapService.WBTC_ARBITRUM, decimals: 8 }}
+	token={{
+		symbol: 'WBTC',
+		address: UniswapService.WBTC_ARBITRUM,
+		decimals: 8
+	} as unknown as Record<string, unknown>}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveWbtc}
 	gasEstimate={0.12}
@@ -830,7 +834,11 @@
 		}
 	}}
 	amount={usdt0Amount.toFixed(2)}
-	token={{ symbol: 'USDT0', address: UniswapService.USDT0_ARBITRUM, decimals: 6 }}
+	token={{
+		symbol: 'USDT0',
+		address: UniswapService.USDT0_ARBITRUM,
+		decimals: 6
+	} as unknown as Record<string, unknown>}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveUsdt0}
 	gasEstimate={0.09}

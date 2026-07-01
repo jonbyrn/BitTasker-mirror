@@ -30,10 +30,10 @@
 	<div class="card-body space-y-3">
 		<div class="flex items-center gap-2">
 			{#if isDelegated}
-				<Icon class="text-success h-5 w-5" aria-hidden="true" />
+				<Icon class="text-success h-5 w-5" />
 				<h3 class="card-title text-base">{$t('wallet.gasless_revoke.active_title')}</h3>
 			{:else}
-				<IconOff class="text-base-content/50 h-5 w-5" aria-hidden="true" />
+				<IconOff class="text-base-content/50 h-5 w-5" />
 				<h3 class="card-title text-base">{$t('wallet.gasless_revoke.inactive_title')}</h3>
 			{/if}
 		</div>

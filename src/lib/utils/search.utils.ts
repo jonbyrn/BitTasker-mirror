@@ -1,17 +1,4 @@
-export function hashSearchParams(params: {
-	search?: string;
-	page?: number;
-	limit?: number;
-	categories?: string[];
-	skills?: string[];
-	serviceLocationTypes?: string[];
-	pricingType?: string;
-	minPrice?: number;
-	maxPrice?: number;
-	deliveryTime?: string;
-	location?: string;
-	locationCoords?: { latitude: number; longitude: number };
-}): string {
+export function hashSearchParams(params: Record<string, unknown>): string {
 	const parts: string[] = [];
 	if (params.search) parts.push(`s:${params.search}`);
 	if (params.page) parts.push(`p:${params.page}`);

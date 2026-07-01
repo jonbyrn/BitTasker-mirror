@@ -274,22 +274,25 @@
 			case TaskStatusEnum.RESCOPE_ACCEPTED: {
 				// For in-progress, prioritize Contract and Messages
 				const inProgressButtons = [];
+				const meta = (task as unknown as Record<string, unknown>).acceptedBidMetadata as
+					| { pubkey?: string; escrowId?: string }
+					| undefined;
 
 				// 1. Message Taskee (if we have a pubkey)
-				if (task.acceptedBidMetadata?.pubkey) {
+				if (meta?.pubkey) {
 					inProgressButtons.push({
 						label: $t('navbar.messages'),
 						class: 'btn-outline btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							goto(`/messages/to/${task.acceptedBidMetadata?.pubkey}`);
+							goto(`/messages/to/${meta.pubkey}`);
 						},
 						icon: 'message'
 					});
 				}
 
 				// 2. View Contract (if we have an escrow ID)
-				if (task.acceptedBidMetadata?.escrowId) {
+				if (meta?.escrowId) {
 					inProgressButtons.push({
 						label: $t('dashboard.tabs.contracts'),
 						class: 'btn-primary btn-sm',
@@ -297,7 +300,7 @@
 							e.stopPropagation();
 							const nextUrl = createDashboardUrl(new URL(window.location.href), {
 								tab: 'contracts',
-								highlight: task.acceptedBidMetadata?.escrowId
+								highlight: meta.escrowId
 							});
 							void goto(nextUrl.toString());
 						},
@@ -342,7 +345,7 @@
 <div class="space-y-4">
 	<DashboardFilterBar onRefresh={handleRefresh} isRefreshing={isLoading}>
 		<DashboardDropdown
-			options={filterOptions}
+			options={filterOptions as unknown as typeof filterOptions}
 			value={activeFilter}
 			onSelect={handleStatusChange}
 			containerClass="col-span-2 sm:w-64"
@@ -419,7 +422,12 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<DashboardTaskCard {task} {btcPrice} {activeFilter} {getActionButtons} />
+					<DashboardTaskCard
+						{task}
+						{btcPrice}
+						activeFilter={activeFilter as unknown as TaskFilterCategory}
+						{getActionButtons}
+					/>
 				{/each}
 			</div>
 

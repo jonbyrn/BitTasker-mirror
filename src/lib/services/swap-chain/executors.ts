@@ -519,7 +519,7 @@ async function executeLifiHop(
 		d.error('[executeLifiHop] FAILED: %s', message);
 		Sentry.captureException(err, {
 			tags: { component: 'swap-chain', executor: 'lifi' },
-			data: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
+			extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
 		});
 		return { data: null, error: new Error(message) };
 	}
@@ -778,7 +778,7 @@ async function executeSymbiosisHop(
 		d.error('executeSymbiosisHop FAILED: %s', message);
 		Sentry.captureException(err, {
 			tags: { component: 'swap-chain', executor: 'symbiosis' },
-			data: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
+			extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
 		});
 		return { data: null, error: new Error(message) };
 	}
@@ -934,7 +934,7 @@ async function executeUniswapV3Hop(
 		d.error('executeUniswapV3Hop FAILED: %s', message);
 		Sentry.captureException(err, {
 			tags: { component: 'swap-chain', executor: 'uniswap-v3' },
-			data: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
+			extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
 		});
 		return { data: null, error: new Error(message) };
 	}

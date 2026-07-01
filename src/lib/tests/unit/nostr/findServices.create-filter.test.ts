@@ -50,11 +50,14 @@ describe('createServiceFilter', () => {
 
 		it('should add multiple location types when multiple are provided', () => {
 			const filter = createServiceFilter({
-				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, ServiceLocationTypeEnum.ONLINE]
+				serviceLocationTypes: [
+					ServiceLocationTypeEnum.REMOTE,
+					ServiceLocationTypeEnum.TASKEE_LOCATION
+				]
 			});
 			expect(filter['#o']).toEqual([
 				ServiceLocationTypeEnum.REMOTE,
-				ServiceLocationTypeEnum.ONLINE
+				ServiceLocationTypeEnum.TASKEE_LOCATION
 			]);
 		});
 	});
@@ -133,7 +136,10 @@ describe('createServiceFilter', () => {
 				search: 'web development',
 				status: ['active', 'inactive'] as ServiceStatus[],
 				pricingType: ServicePricingTypeEnum.HOURLY,
-				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, ServiceLocationTypeEnum.ONLINE],
+				serviceLocationTypes: [
+					ServiceLocationTypeEnum.REMOTE,
+					ServiceLocationTypeEnum.TASKEE_LOCATION
+				],
 				minPrice: 50,
 				maxPrice: 500,
 				deliveryTime: 48
@@ -143,7 +149,7 @@ describe('createServiceFilter', () => {
 			expect(filter['#y']).toEqual([ServicePricingTypeEnum.HOURLY]);
 			expect(filter['#o']).toEqual([
 				ServiceLocationTypeEnum.REMOTE,
-				ServiceLocationTypeEnum.ONLINE
+				ServiceLocationTypeEnum.TASKEE_LOCATION
 			]);
 			expect(filter['#i']).toEqual(['50']);
 			expect(filter['#x']).toEqual(['500']);

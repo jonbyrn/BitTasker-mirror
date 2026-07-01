@@ -291,7 +291,10 @@ describe('convertEventToService', () => {
 				status: 'active',
 				title: 'Test Service',
 				description: 'Test service description',
-				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, ServiceLocationTypeEnum.ONLINE],
+				serviceLocationTypes: [
+					ServiceLocationTypeEnum.REMOTE,
+					ServiceLocationTypeEnum.TASKEE_LOCATION
+				],
 				locationDetails: { address: '123 Test St' },
 				pricing: {
 					type: ServicePricingTypeEnum.FIXED,

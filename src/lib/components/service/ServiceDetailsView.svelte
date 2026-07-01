@@ -418,7 +418,10 @@
 		return '';
 	});
 	const instantBuyEligibility = $derived(
-		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
+		getInstantBuyEligibility(
+			instantBuyService as unknown as import('$lib/utils/service-instant-buy/eligibility').InstantBuyServiceLike,
+			selectedTierId ?? undefined
+		)
 	);
 	const showInstantBuyCta = $derived(
 		instantBuyEligibility.code !== 'inactive_service' &&
@@ -608,7 +611,7 @@
 			taskerLocation?.serviceLocation?.longitude != null
 		) {
 			const address =
-				taskerLocation.locationDisplayName ||
+				((taskerLocation as Record<string, unknown>)?.locationDisplayName as string) ||
 				taskerLocation.serviceLocation.displayName ||
 				taskerLocation.serviceLocation.formattedAddress ||
 				'';
@@ -833,7 +836,8 @@
 		existingInstantOrderId?: string
 	): Promise<InstantBuyDraft> {
 		const snapshot = createInstantBuySnapshot({
-			service: runtimeService,
+			service:
+				runtimeService as unknown as import('$lib/utils/service-instant-buy/eligibility').InstantBuyServiceLike,
 			selectedTierId: selectedTierId ?? undefined,
 			instantOrderId: existingInstantOrderId,
 			requestRushDelivery
@@ -970,7 +974,7 @@
 				tab: 'contracts',
 				context: 'services',
 				highlight: escrowId
-			});
+			} as unknown as Record<string, string | number | boolean>);
 		}
 
 		return `/hiring/contracts?context=services&highlight=${encodeURIComponent(escrowId)}`;
@@ -1565,11 +1569,11 @@
 			children: 'a',
 			pswpModule: () => import('photoswipe')
 		});
-		lightbox.on('open', () => {
+		lightbox.on('open' as never, () => {
 			isGalleryOpen = true;
 			startCarouselInterval();
 		});
-		lightbox.on('close', () => {
+		lightbox.on('close' as never, () => {
 			isGalleryOpen = false;
 			stopCarouselInterval();
 		});
@@ -1578,7 +1582,7 @@
 		// Handle quote request reentry if needed
 		if (browser && service) {
 			const reentry = parseServiceQuoteReentryState(page.url);
-			if (reentry && reentry.serviceId === service.id) {
+			if (reentry && (reentry as Record<string, unknown>).serviceId === service.id) {
 				clearServiceQuoteReentryState(page.url);
 				handleOpenRequestQuote();
 			}
@@ -2978,7 +2982,14 @@
 				</button>
 			</div>
 			<ReceivePaymentForm
-				initialFormState={receiveInitialState}
+				initialFormState={receiveInitialState as unknown as {
+					amount: string;
+					unit: 'sats' | 'usd';
+					mathExpression: string;
+					memo: string;
+					selectedNetwork: string;
+					chargeFeesToPayer: boolean;
+				}}
 				onCancel={() => (isReceiveModalOpen = false)}
 				onOpenPaymentRequest={(data) => {
 					isReceiveModalOpen = false;

@@ -48,11 +48,11 @@ function validatePublishedEvent<TContent, TEvent extends NostrEvent>(
 	event: NostrEvent,
 	content: TContent,
 	validator: (event: NostrEvent) => TEvent
-): TEvent {
+): NostrEvent {
 	return validator({
 		...event,
 		content: content as unknown as string
-	});
+	}) as unknown as NostrEvent;
 }
 
 export interface CreateServiceQuoteRequestParams {
@@ -172,7 +172,11 @@ export async function publishServiceQuoteRequest(
 		createdAt
 	);
 
-	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
+	const validated = validatePublishedEvent(
+		event,
+		content,
+		validateServiceQuoteRequestEvent
+	) as unknown as ServiceQuoteRequestEvent;
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
@@ -255,7 +259,11 @@ export async function publishServiceProposal(
 		throw new Error('Service proposal publish quorum was not reached');
 	}
 
-	const validated = validatePublishedEvent(event, content, validateServiceProposalEvent);
+	const validated = validatePublishedEvent(
+		event,
+		content,
+		validateServiceProposalEvent
+	) as unknown as ServiceProposalEvent;
 	await persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
 
@@ -333,7 +341,7 @@ export async function publishServiceProposalStatus(
 		event,
 		params.content,
 		validateServiceProposalStatusEvent
-	);
+	) as unknown as ServiceProposalStatusEvent;
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);

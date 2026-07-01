@@ -779,7 +779,7 @@ export class EIP7702DelegationManager {
 			);
 		}
 
-		this.session.journalEntryId = journalEntry.id;
+		this.session.journalEntryId = (journalEntry as Record<string, unknown>).id as string;
 
 		try {
 			return await this.executeWithJournal(tx, maxGasSpend);
@@ -802,6 +802,10 @@ export class EIP7702DelegationManager {
 		tx: TransactionRequest,
 		maxGasSpend: bigint
 	): Promise<GasExecutionResult> {
+		// Derive sender address from tx for EOA state verification
+		const senderAddress =
+			tx.from !== undefined && typeof tx.from === 'string' ? tx.from.toLowerCase() : 'unknown';
+
 		// Step 1: Estimate gas cost for the transaction
 		const { data: estimate, error: estimateError } = await tryCatch(this.estimateGasCost(tx));
 		if (estimateError !== null || estimate === null) {
