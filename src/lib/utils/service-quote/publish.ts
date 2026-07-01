@@ -28,15 +28,13 @@ import {
 	parseServiceAddress,
 	selectProposalPublishRelays,
 	ServiceQuoteProtocolError,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	validateServiceProposalEvent,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	validateServiceProposalStatusEvent,
 	validateServiceQuoteRequestEvent,
 	validateStatusAuthorRole
 } from './protocol';
 import { getServiceQuoteFeatureFlags } from '$lib/utils/features/serviceQuotes';
-import { nip19, nip44, type Event as NostrEvent, type Filter } from 'nostr-tools';
+import { nip19, nip44, type Event as NostrEvent } from 'nostr-tools';
 import {
 	dispatchProposalPublishedSideEffects,
 	dispatchQuoteRequestPublishedSideEffects
@@ -50,11 +48,11 @@ function validatePublishedEvent<TContent, TEvent extends NostrEvent>(
 	event: NostrEvent,
 	content: TContent,
 	validator: (event: NostrEvent) => TEvent
-): NostrEvent {
+): TEvent {
 	return validator({
 		...event,
-		content: content as unknown as string
-	}) as unknown as NostrEvent;
+		content
+	} as NostrEvent);
 }
 
 export interface CreateServiceQuoteRequestParams {
@@ -113,7 +111,7 @@ export async function publishServiceQuoteRequest(
 	const serviceAddress = buildServiceAddress(params.service);
 	const createdAt = unixNow();
 	const content: ServiceQuoteRequestContent = {
-		type: getServiceQuoteMessageType(KINDS.SERVICE_QUOTE_REQUEST) as 'service-quote-request',
+		type: getServiceQuoteMessageType(KINDS.SERVICE_QUOTE_REQUEST),
 		quoteRequestId: params.quoteRequestId,
 		serviceId: serviceAddress,
 		serviceAddress,
@@ -143,12 +141,12 @@ export async function publishServiceQuoteRequest(
 	);
 	if (duplicate) {
 		dispatchQuoteRequestPublishedSideEffects(
-			duplicate as unknown as ServiceQuoteRequestEvent,
+			duplicate as ServiceQuoteRequestEvent,
 			params.service,
 			params.sideEffects
 		);
 		return {
-			event: duplicate as unknown as ServiceQuoteRequestEvent,
+			event: duplicate as ServiceQuoteRequestEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -174,11 +172,7 @@ export async function publishServiceQuoteRequest(
 		createdAt
 	);
 
-	const validated = validatePublishedEvent(
-		event,
-		content,
-		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
-	) as unknown as ServiceQuoteRequestEvent;
+	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
@@ -208,12 +202,9 @@ export async function publishServiceProposal(
 	const dTag = buildProposalD(params.content.quoteRequestId, params.content.proposalId);
 	const duplicate = await findExistingDuplicate(KINDS.SERVICE_PROPOSAL, authorPubkey, dTag);
 	if (duplicate) {
-		dispatchProposalPublishedSideEffects(
-			duplicate as unknown as ServiceProposalEvent,
-			params.sideEffects
-		);
+		dispatchProposalPublishedSideEffects(duplicate as ServiceProposalEvent, params.sideEffects);
 		return {
-			event: duplicate as unknown as ServiceProposalEvent,
+			event: duplicate as ServiceProposalEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -261,11 +252,7 @@ export async function publishServiceProposal(
 		throw new Error('Service proposal publish quorum was not reached');
 	}
 
-	const validated = validatePublishedEvent(
-		event,
-		content,
-		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
-	) as unknown as ServiceProposalEvent;
+	const validated = validatePublishedEvent(event, content, validateServiceProposalEvent);
 	await persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
 
@@ -311,7 +298,7 @@ export async function publishServiceProposalStatus(
 	const duplicate = await findExistingDuplicate(KINDS.SERVICE_PROPOSAL_STATUS, authorPubkey, dTag);
 	if (duplicate) {
 		return {
-			event: duplicate as unknown as ServiceProposalStatusEvent,
+			event: duplicate as ServiceProposalStatusEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -342,8 +329,8 @@ export async function publishServiceProposalStatus(
 	const validated = validatePublishedEvent(
 		event,
 		params.content,
-		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
-	) as unknown as ServiceProposalStatusEvent;
+		validateServiceProposalStatusEvent
+	);
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
@@ -467,24 +454,22 @@ export async function findExistingDuplicate(
 	author: string,
 	dTag: string
 ): Promise<NostrEvent | null> {
-	const primaryFilter: Filter = {
+	const primary = await queryNostrEvents({
 		kinds: [kind],
 		authors: [author],
 		...TAG_FILTERS.byIdentifier(dTag),
 		limit: 10
-	};
-	const primary = await queryNostrEvents(primaryFilter);
+	});
 	if (primary.length > 0) {
 		return primary[0];
 	}
 
-	const fallbackFilter: Filter = {
+	const fallback = await queryNostrEvents({
 		kinds: [kind],
 		authors: [author],
 		since: unixNow() - FALLBACK_DUPLICATE_LOOKBACK_SECONDS,
 		limit: 200
-	};
-	const fallback = await queryNostrEvents(fallbackFilter);
+	});
 
 	return (
 		fallback.find((event) => event.tags.some((tag) => tag[0] === 'd' && tag[1] === dTag)) ?? null
@@ -549,13 +534,12 @@ function unixNow(): number {
 }
 
 async function assertProposalRequestLinkage(params: PublishServiceProposalParams): Promise<void> {
-	const requestFilter: Filter = {
-		kinds: [KINDS.SERVICE_QUOTE_REQUEST],
-		ids: [params.requestEventId],
-		limit: 1
-	};
 	const requestEvents = await queryNostrEvents(
-		requestFilter,
+		{
+			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
+			ids: [params.requestEventId],
+			limit: 1
+		},
 		undefined,
 		undefined,
 		getDefaultRelays(params.relays)
