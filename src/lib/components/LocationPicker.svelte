@@ -7,7 +7,7 @@
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
 
-	declare const google: NonNullable<typeof window.google>;
+	const google = window.google as NonNullable<typeof window.google>;
 
 	function getLocationPickerTranslation(key: string): string {
 		const servicesKey = `dashboard.services.create.location.location_picker.${key}`;

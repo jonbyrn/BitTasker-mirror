@@ -39,13 +39,13 @@ const t = vi.hoisted(() => {
 vi.mock('svelte-i18n', () => ({
 	t: {
 		subscribe: (fn: unknown) => {
-			fn(t);
+			(fn as (...args: unknown[]) => unknown)(t);
 			return () => {};
 		}
 	},
 	locale: {
 		subscribe: (fn: unknown) => {
-			fn('en');
+			(fn as (...args: unknown[]) => unknown)('en');
 			return () => {};
 		}
 	}
@@ -102,7 +102,7 @@ const mockNetwork = vi.hoisted(() => ({ online: true }));
 vi.mock('$lib/utils/network-status', () => ({
 	browserNetworkStatus: {
 		subscribe: (fn: unknown) => {
-			fn(mockNetwork);
+			(fn as (...args: unknown[]) => unknown)(mockNetwork);
 			return () => {};
 		}
 	}
@@ -239,6 +239,7 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 		vi.clearAllMocks();
 		mockNetwork.online = true;
 		mockWalletState.arb.formattedUsdt0Balance = '500.00';
+		(mockWalletState.arb as Record<string, unknown>).formattedUsdt0Balance = '500.00';
 		// Reset rune mocks to defaults (no routes, no amount)
 		mockRuneState.engineResult = {
 			routes: [],
@@ -410,7 +411,7 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 			startSwapChain.mockResolvedValue({
 				data: { phase: 'COMPLETE', swap1Id: '0x123' },
 				error: null
-			});
+			} as unknown as ReturnType<typeof startSwapChain> extends Promise<infer R> ? R : never);
 
 			render(SwapForm, { isOpen: true, onClose: vi.fn() });
 
@@ -589,7 +590,7 @@ describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
 				errors: [],
 				isLive: true
 			});
-			const opts2 = {
+			const opts2: UseSwapRoutesOptions = {
 				...opts,
 				getSourceType: () => 'usdt0-arb' as unknown,
 				getDestType: () => 'rbtc-rsk' as unknown,

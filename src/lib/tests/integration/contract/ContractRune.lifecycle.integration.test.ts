@@ -46,7 +46,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 			contractAddress: '0xcontract',
 			transactionHash: undefined,
 			version: 'v2',
-			ndk: { activeUser: { pubkey: 'npub1tasker' } as unknown as NDKUser }
+			ndk: { activeUser: { pubkey: 'npub1tasker' } as unknown as NDKUser } as unknown as NDK
 		};
 	});
 
@@ -132,12 +132,12 @@ describe('PaymentContractRune lifecycle integration', () => {
 
 			// Manually set a clock ID
 			const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
-			rune.permissionsClockId = 123 as unknown as null;
+			(rune as unknown as Record<string, unknown>).permissionsClockId = 123 as unknown as null;
 
 			rune.stopSubscription();
 
 			expect(clearIntervalSpy).toHaveBeenCalledWith(123);
-			expect(rune.permissionsClockId).toBe(null);
+			expect((rune as unknown as Record<string, unknown>).permissionsClockId).toBe(null);
 		});
 	});
 
@@ -238,7 +238,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 
 			await rune.start();
 
-			expect(rune.permissionsClockId).not.toBeNull();
+			expect((rune as unknown as Record<string, unknown>).permissionsClockId).not.toBeNull();
 		});
 
 		it('does not start the permissions clock in terminal state', async () => {
@@ -258,7 +258,7 @@ describe('PaymentContractRune lifecycle integration', () => {
 			await rune.start();
 
 			// Terminal state should prevent the clock from being started
-			expect(rune.permissionsClockId).toBeNull();
+			expect((rune as unknown as Record<string, unknown>).permissionsClockId).toBeNull();
 		});
 
 		it('updates permissionsTimeSignal when clock ticks', async () => {
@@ -277,13 +277,15 @@ describe('PaymentContractRune lifecycle integration', () => {
 
 			await rune.start();
 
-			const initialSignal = rune.permissionsTimeSignal;
+			const initialSignal = (rune as unknown as Record<string, unknown>).permissionsTimeSignal;
 
 			// Advance timer by PERMISSIONS_CLOCK_MS (15 seconds)
 			vi.advanceTimersByTime(15_000);
 
 			// permissionsTimeSignal should be updated
-			expect(rune.permissionsTimeSignal).not.toBe(initialSignal);
+			expect((rune as unknown as Record<string, unknown>).permissionsTimeSignal).not.toBe(
+				initialSignal
+			);
 		});
 	});
 

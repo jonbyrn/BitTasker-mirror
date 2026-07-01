@@ -102,9 +102,11 @@ describe('NIP-44 Message Utilities', () => {
 		vi.clearAllMocks();
 		mockPool.querySync.mockResolvedValue([]);
 
-		mockNip44 = (await import('$lib/nostr/nip44')).default;
-		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys')).getNostrKeyPair;
-		mockPublishSignedNdkEvent = (await import('$lib/nostr/profile/ndk')).publishSignedNdkEvent;
+		mockNip44 = (await import('$lib/nostr/nip44')).default as unknown as typeof mockNip44;
+		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys'))
+			.getNostrKeyPair as unknown as typeof mockGetNostrKeyPair;
+		mockPublishSignedNdkEvent = (await import('$lib/nostr/profile/ndk'))
+			.publishSignedNdkEvent as unknown as typeof mockPublishSignedNdkEvent;
 
 		mockNip44.getConversationKey.mockResolvedValue(new Uint8Array(32));
 		mockNip44.encrypt.mockResolvedValue('encrypted_content');
