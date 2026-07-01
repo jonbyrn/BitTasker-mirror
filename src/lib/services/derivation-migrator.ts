@@ -826,9 +826,9 @@ export async function checkEscrowInventory(
 		const escrows: ActiveEscrow[] = [];
 
 		for (const event of allEvents) {
-			if (!event.args) continue;
+			if (!(event as unknown as Record<string, unknown>).args) continue;
 
-			const escrowId = event.args.escrowId?.toString();
+			const escrowId = (event as unknown as Record<string, unknown>).args.escrowId?.toString();
 			if (!escrowId || seenIds.has(escrowId)) continue;
 			seenIds.add(escrowId);
 

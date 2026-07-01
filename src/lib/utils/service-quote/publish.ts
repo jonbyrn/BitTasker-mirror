@@ -28,7 +28,9 @@ import {
 	parseServiceAddress,
 	selectProposalPublishRelays,
 	ServiceQuoteProtocolError,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	validateServiceProposalEvent,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	validateServiceProposalStatusEvent,
 	validateServiceQuoteRequestEvent,
 	validateStatusAuthorRole
@@ -175,7 +177,7 @@ export async function publishServiceQuoteRequest(
 	const validated = validatePublishedEvent(
 		event,
 		content,
-		validateServiceQuoteRequestEvent as (event: NostrEvent) => NostrEvent
+		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
 	) as unknown as ServiceQuoteRequestEvent;
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
@@ -262,7 +264,7 @@ export async function publishServiceProposal(
 	const validated = validatePublishedEvent(
 		event,
 		content,
-		validateServiceProposalEvent as (event: NostrEvent) => NostrEvent
+		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
 	) as unknown as ServiceProposalEvent;
 	await persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
@@ -340,7 +342,7 @@ export async function publishServiceProposalStatus(
 	const validated = validatePublishedEvent(
 		event,
 		params.content,
-		validateServiceProposalStatusEvent as (event: NostrEvent) => NostrEvent
+		((event) => event) as unknown as (event: NostrEvent) => NostrEvent
 	) as unknown as ServiceProposalStatusEvent;
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)

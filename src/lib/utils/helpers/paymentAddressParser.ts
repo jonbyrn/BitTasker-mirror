@@ -648,7 +648,17 @@ export function parsePaymentAddress(
 			return {
 				isValid: true,
 				address: normalizedAddress, // Return normalized address
-				network,
+				network: network as
+					| 'bitcoin'
+					| 'usdt-bsc'
+					| 'usdt-eth'
+					| 'usdt-trx'
+					| 'usdt-avax'
+					| 'usdt-op'
+					| 'usdt-arb'
+					| 'bnb'
+					| 'eth'
+					| null,
 				amount,
 				memo: queryParams.get('message') || queryParams.get('label') || null
 			};
@@ -707,7 +717,17 @@ export function parsePaymentAddress(
 	return {
 		isValid: true,
 		address: normalizedAddress,
-		network,
+		network: network as
+			| 'bitcoin'
+			| 'usdt-bsc'
+			| 'usdt-eth'
+			| 'usdt-trx'
+			| 'usdt-avax'
+			| 'usdt-op'
+			| 'usdt-arb'
+			| 'bnb'
+			| 'eth'
+			| null,
 		amount,
 		memo: queryParams.get('message') || queryParams.get('label') || null
 	};
