@@ -163,7 +163,9 @@ const LIFI_QUOTE_WBTC_RESPONSE = {
 	}
 } as unknown as LifiRoute;
 
-const USDT_BSC_ADDR = '0x55d398326f99059fF775485246999027B3197955';
+const { USDT_BSC_ADDR } = vi.hoisted(() => ({
+	USDT_BSC_ADDR: '0x55d398326f99059fF775485246999027B3197955'
+}));
 
 const SYMBIOSIS_QUOTE_RESPONSE = {
 	tokenAmountOut: {

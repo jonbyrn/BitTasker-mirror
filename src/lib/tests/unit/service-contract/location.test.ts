@@ -40,7 +40,9 @@ describe('buildServiceContractLocationSnapshot', () => {
 			location: {
 				latitude: null,
 				longitude: null,
-				displayName: 'Location'
+				displayName: 'Location',
+				zipCode: '',
+				locationLoaded: true
 			}
 		});
 	});
@@ -126,19 +128,11 @@ describe('buildServiceContractLocationSnapshot', () => {
 						zipCode: '',
 						locationLoaded: true
 					}
-				},
-				taskerLocation: {
-					serviceLocation: {
-						latitude: 34.0522,
-						longitude: -118.2437,
-						zipCode: '',
-						locationLoaded: true
-					}
 				}
 			}
 		};
 		const result = buildServiceContractLocationSnapshot(service);
-		expect(result?.mode).toBe('taskee_location');
+		expect(result?.mode).toBe('tasker_location');
 	});
 });
 

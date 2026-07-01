@@ -24,10 +24,10 @@ vi.mock('@capacitor/preferences', () => ({
 	}
 }));
 
-const mockShowBanner = vi.fn(
-	async (_options: Record<string, unknown>): Promise<number | null> => 1
-);
-const mockDismissBanner = vi.fn(async (_id: number): Promise<void> => {});
+const { mockShowBanner, mockDismissBanner } = vi.hoisted(() => ({
+	mockShowBanner: vi.fn(async (_options: Record<string, unknown>): Promise<number | null> => 1),
+	mockDismissBanner: vi.fn(async (_id: number): Promise<void> => {})
+}));
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
