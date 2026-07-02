@@ -435,7 +435,6 @@
 			<UserInfoDisplay
 				avatar={service.creator?.avatar}
 				username={service.creator?.username}
-				rating={service.creator?.rating ?? null}
 				size="sm"
 				pubkey={service.npub}
 				onResolvedName={(name) => (resolvedCreatorName = name)}

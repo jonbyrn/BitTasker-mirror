@@ -31,7 +31,8 @@ export const ENDPOINTS = {
 		MIGRATE_AUTH: `${API_PATH}/${API_VERSION}/${AUTH}/migrate`,
 		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`,
 		REFRESH: `${API_PATH}/${API_VERSION}/${AUTH}/refresh`,
-		LOGOUT: `${API_PATH}/${API_VERSION}/${AUTH}/logout`
+		LOGOUT: `${API_PATH}/${API_VERSION}/${AUTH}/logout`,
+		LANGUAGE: `${API_PATH}/${API_VERSION}/${AUTH}/language`
 	},
 
 	// Upload endpoints

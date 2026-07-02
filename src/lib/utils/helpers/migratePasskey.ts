@@ -3,6 +3,7 @@ import { finalizeEvent } from 'nostr-tools';
 import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 import { writable, get } from 'svelte/store';
+import { locale } from 'svelte-i18n';
 import { decodeNsec } from '$lib/utils/nostr';
 import authService from '$lib/api/services/auth.service';
 
@@ -164,7 +165,8 @@ async function performMigration(context: MigrationContext) {
 		attestationObject: credentialData.attestationObject,
 		appVersion: __APP_VERSION__,
 		platform,
-		timezoneOffset: new Date().getTimezoneOffset()
+		timezoneOffset: new Date().getTimezoneOffset(),
+		lang: get(locale) || 'en'
 	});
 
 	// Update state to success

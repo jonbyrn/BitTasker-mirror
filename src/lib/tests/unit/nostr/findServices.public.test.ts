@@ -183,4 +183,63 @@ describe('findServices public discovery', () => {
 		expect(result.services).toHaveLength(0);
 		expect(get(servicesStore).items).toHaveLength(0);
 	});
+
+	describe('NIP-50 fallback behavior', () => {
+		it('should use fallback when relay search returns 0 and frontend matches some', async () => {
+			// Relay search returns 0 → fallback fires → returns 2 services
+			// Frontend search "Design" matches 1 of them
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			mockFindEvents.mockResolvedValueOnce({
+				data: [
+					createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'design-service'),
+					createServiceEvent('c'.repeat(64), 'd'.repeat(64), 'other-service')
+				]
+			});
+
+			const result = await findServices({ page: 1, limit: 8, search: 'Design' });
+
+			// Should return services (Design matches via frontend filter)
+			expect(result.services.length).toBeGreaterThan(0);
+
+			// Both calls should have been made (search + fallback)
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+
+			// First call had search, second did not
+			expect(mockFindEvents.mock.calls[0][0].search).toBe('Design');
+			expect(mockFindEvents.mock.calls[1][0].search).toBeUndefined();
+		});
+
+		it('should skip cache when fallback fires and frontend filter returns 0', async () => {
+			// Relay search returns 0 → fallback fires → returns 1 service
+			// Frontend search "nonexistent" matches 0 → cache should NOT be stored
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			mockFindEvents.mockResolvedValueOnce({
+				data: [createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'some-service')]
+			});
+
+			const firstResult = await findServices({ page: 1, limit: 8, search: 'nonexistent-term' });
+			expect(firstResult.services).toHaveLength(0);
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+
+			// Reset store for second call
+			servicesStore.update((state) => ({
+				...state,
+				items: [],
+				loading: false,
+				currentPage: 1
+			}));
+
+			// Second call: should NOT hit cache (cache was skipped), should retry relay
+			mockFindEvents.mockClear();
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			mockFindEvents.mockResolvedValueOnce({
+				data: [createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'some-service')]
+			});
+
+			const secondResult = await findServices({ page: 1, limit: 8, search: 'nonexistent-term' });
+			expect(secondResult.services).toHaveLength(0);
+			// Relay was retried because cache was not stored on first call
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+		});
+	});
 });

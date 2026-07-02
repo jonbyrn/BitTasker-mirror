@@ -73,7 +73,17 @@ export class NotificationCenterService extends BaseApiService {
 		const response = await this.get<NotificationPreferencesExtended>(
 			ENDPOINTS.NOTIFICATION_PREFERENCES.GET
 		);
-		return response.data;
+		const data = response.data;
+
+		const parseData: <T>(field: T | string) => T = (field) => {
+			return typeof field === 'string' ? JSON.parse(field) : field || {};
+		};
+
+		return {
+			...data,
+			taskNotificationSettings: parseData(data.taskNotificationSettings),
+			serviceNotificationSettings: parseData(data.serviceNotificationSettings)
+		};
 	}
 
 	async updatePreferences(

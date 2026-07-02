@@ -2,7 +2,8 @@
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { authState } from '$lib/stores/auth.store';
 	import {
 		createUserDeviceShortName,
@@ -105,7 +106,8 @@
 				platform: isNativePlatform ? 'mobile' : 'web',
 				response: credentails.response,
 				appVersion: __APP_VERSION__,
-				timezoneOffset: new Date().getTimezoneOffset()
+				timezoneOffset: new Date().getTimezoneOffset(),
+				lang: get(locale) || 'en'
 			});
 
 			let nsec = '';
@@ -361,7 +363,8 @@
 				attestationObject: credentialData.attestationObject,
 				appVersion: __APP_VERSION__,
 				platform: isNativePlatform ? 'mobile' : 'web',
-				timezoneOffset: new Date().getTimezoneOffset()
+				timezoneOffset: new Date().getTimezoneOffset(),
+				lang: get(locale) || 'en'
 			});
 
 			if (res.isMigrated) {

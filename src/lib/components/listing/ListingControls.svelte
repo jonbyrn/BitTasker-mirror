@@ -13,6 +13,8 @@
 		searchInputClass,
 		searchPlaceholder,
 		onSearchInput,
+		onSearchFocus,
+		onSearchBlur,
 		onFilterClick,
 		onSaveSearch,
 		canSaveSearch,
@@ -32,6 +34,8 @@
 		searchInputClass: string;
 		searchPlaceholder: string;
 		onSearchInput: (e: Event) => void;
+		onSearchFocus?: () => void;
+		onSearchBlur?: () => void;
 		onFilterClick: () => void;
 		onSaveSearch?: () => Promise<void>;
 		children?: import('svelte').Snippet;
@@ -81,6 +85,8 @@
 			placeholder={searchPlaceholder}
 			bind:value={searchQuery}
 			oninput={onSearchInput}
+			onfocus={onSearchFocus}
+			onblur={onSearchBlur}
 			aria-label={searchPlaceholderLabel}
 		/>
 		<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">

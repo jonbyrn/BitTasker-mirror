@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { SearchServicesParams, Service, QuoteRequestPayload } from '$lib/types/service.d';
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { browser } from '$app/environment';
+	import { Capacitor } from '@capacitor/core';
 	import { servicesStore } from '$lib/stores/service.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
@@ -26,7 +28,11 @@
 	} from '$lib/utils/service-search-persistence';
 	import { debounceWithAbort } from '$lib/utils/helpers/common';
 	import { hashSearchParams } from '$lib/utils/search.utils';
-	import { manageSaveSearchBanner, dismissSaveSearchBanner } from '$lib/utils/saveSearchBanner';
+	import {
+		manageSaveSearchBanner,
+		dismissSaveSearchBanner,
+		cancelDeferredBanner
+	} from '$lib/utils/saveSearchBanner';
 
 	// ── Constants ──────────────────────────────────────────────────────────────
 	const DESKTOP_MIN_WIDTH = 1024;
@@ -69,6 +75,10 @@
 	let isSaveSearchOpen = $state(false);
 	let isApplyingFilters = $state(false);
 	let searchVersion = $state(0);
+	let isSearchInputFocused = $state(false);
+	let searchAbortController: AbortController | null = null;
+	let pendingSaveSearchParams: SearchServicesParams | null = null;
+	const isNative = Capacitor.isNativePlatform();
 
 	let activeFilterCount = $derived.by(() => {
 		let count = 0;
@@ -149,14 +159,14 @@
 			if (!$servicesStore.hasMore || $servicesStore.loading) return;
 
 			const lastItem = $servicesStore.items[$servicesStore.items.length - 1];
-			const until = lastItem?.createdAt;
-			if (!until) return;
+			const cursorTimestamp = $servicesStore.lastRelayTimestamp ?? lastItem?.createdAt;
+			if (!cursorTimestamp) return;
 
 			try {
 				await findServicesWithTimeout({
 					...searchParams,
 					page: $servicesStore.currentPage + 1,
-					until
+					until: cursorTimestamp - 1
 				});
 			} catch (error) {
 				console.error('[FindServices] Error loading more services:', error);
@@ -271,6 +281,16 @@
 		async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
 			const currentVersion = ++searchVersion;
 
+			// Abort any in-flight search request
+			if (searchAbortController) {
+				searchAbortController.abort();
+			}
+			searchAbortController = new AbortController();
+
+			// Dismiss any pending deferred banner from a previous search
+			cancelDeferredBanner();
+			await dismissSaveSearchBanner();
+
 			servicesStore.update((state) => ({
 				...state,
 				currentPage: 1,
@@ -287,8 +307,6 @@
 			};
 			searchParams = { ...capturedSearchParams, ...newParams };
 
-			await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
-
 			try {
 				await findServicesWithTimeout(searchParams);
 				if (currentVersion !== searchVersion) return;
@@ -297,6 +315,21 @@
 					searchParamsKey: hashSearchParams(searchParams)
 				}));
 				syncScrollHasMore();
+
+				// Show save search banner AFTER results load
+				// On native mobile: suppress while keyboard is open (input focused), re-trigger on blur
+				// On web: always show (no keyboard interruption)
+				const shouldSuppress = isNative && isSearchInputFocused;
+				if (shouldSuppress) {
+					pendingSaveSearchParams = { ...searchParams };
+					await dismissSaveSearchBanner();
+				} else {
+					pendingSaveSearchParams = null;
+					await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true), {
+						deferred: true,
+						deferMs: 2500
+					});
+				}
 			} catch (err) {
 				console.error('[FindServices] Search fetch error:', err);
 			}
@@ -306,6 +339,13 @@
 
 	async function handleFilterApply(filterParams: SearchServicesParams) {
 		isApplyingFilters = true;
+
+		// Abort any in-flight search
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
+		searchAbortController = new AbortController();
+
 		servicesStore.update((state) => ({
 			...state,
 			currentPage: 1,
@@ -328,13 +368,23 @@
 		isApplyingFilters = false;
 		isFilterDrawerOpen = false;
 
-		await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true));
-
 		servicesStore.update((state) => ({
 			...state,
 			searchParamsKey: hashSearchParams(searchParams)
 		}));
 		syncScrollHasMore();
+
+		// Show banner after results load
+		const shouldSuppressFilter = isNative && isSearchInputFocused;
+		if (shouldSuppressFilter) {
+			pendingSaveSearchParams = { ...searchParams };
+		} else {
+			pendingSaveSearchParams = null;
+			await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true), {
+				deferred: true,
+				deferMs: 2000
+			});
+		}
 	}
 
 	async function clearFilters() {
@@ -342,7 +392,14 @@
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
+		pendingSaveSearchParams = null;
+		cancelDeferredBanner();
 		await dismissSaveSearchBanner();
+
+		// Abort any in-flight search
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
 
 		servicesStore.update((state) => ({
 			...state,
@@ -648,6 +705,10 @@
 		}
 
 		debouncedSearch.abort();
+		cancelDeferredBanner();
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
 		cleanup();
 	});
 </script>
@@ -665,6 +726,24 @@
 				{searchInputClass}
 				searchPlaceholder={getSearchPlaceholder()}
 				onSearchInput={() => debouncedSearch(searchQuery, searchParams)}
+				onSearchFocus={() => {
+					isSearchInputFocused = true;
+					if (isNative) {
+						cancelDeferredBanner();
+						dismissSaveSearchBanner();
+					}
+				}}
+				onSearchBlur={() => {
+					isSearchInputFocused = false;
+					if (isNative && pendingSaveSearchParams) {
+						const params = { ...pendingSaveSearchParams };
+						pendingSaveSearchParams = null;
+						manageSaveSearchBanner(params, 'services', () => (isSaveSearchOpen = true), {
+							deferred: true,
+							deferMs: 1500
+						});
+					}
+				}}
 				onFilterClick={() => (isFilterDrawerOpen = true)}
 				showSaveButton={false}
 				{viewMode}
@@ -770,7 +849,7 @@
 						</div>
 
 						{#if showSkeleton && !dataLoaded}
-							<div class="mb-12 grid grid-cols-1 gap-6">
+							<div class="mb-12 grid grid-cols-1 gap-6" out:fade={{ duration: 150 }}>
 								{#each Array.from({ length: INITIAL_SKELETON_COUNT }, (_, index) => index) as index (index)}
 									<div class="card bg-base-100 flex h-full flex-col overflow-hidden shadow-md">
 										<figure
@@ -864,7 +943,7 @@
 								</button>
 							</div>
 						{:else if $servicesStore.items && $servicesStore.items.length > 0}
-							<div class="mb-12 grid grid-cols-1 gap-6">
+							<div class="mb-12 grid grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
 								{#each $servicesStore.items as service (service.id)}
 									<div data-service-id={service.id}>
 										<ServiceCard

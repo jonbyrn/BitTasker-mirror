@@ -6,7 +6,9 @@ let activeBannerId: number | null = null;
 
 async function getDismissedHashes(): Promise<string[]> {
 	try {
-		const { value: raw } = await Preferences.get({ key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS });
+		const { value: raw } = await Preferences.get({
+			key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS
+		});
 		return raw ? JSON.parse(raw) : [];
 	} catch {
 		return [];
@@ -17,7 +19,10 @@ async function storeDismissedHash(hash: string): Promise<void> {
 	const hashes = await getDismissedHashes();
 	if (!hashes.includes(hash)) {
 		hashes.push(hash);
-		await Preferences.set({ key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS, value: JSON.stringify(hashes) });
+		await Preferences.set({
+			key: StorageKeys.DISMISSED_SAVE_SEARCH_PROMPTS,
+			value: JSON.stringify(hashes)
+		});
 	}
 }
 
@@ -106,21 +111,61 @@ export async function dismissSaveSearchBanner(): Promise<void> {
 	}
 }
 
+let deferredBannerTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingBannerHash: string | null = null;
+
+export function cancelDeferredBanner(): void {
+	if (deferredBannerTimer) {
+		clearTimeout(deferredBannerTimer);
+		deferredBannerTimer = null;
+	}
+	pendingBannerHash = null;
+}
+
 export async function manageSaveSearchBanner(
 	searchParams: Record<string, unknown>,
 	searchType: 'tasks' | 'services',
-	onEnable: () => void
+	onEnable: () => void,
+	options?: { suppress?: boolean; deferred?: boolean; deferMs?: number }
 ): Promise<void> {
+	if (options?.suppress) {
+		cancelDeferredBanner();
+		await dismissSaveSearchBanner();
+		return;
+	}
+
 	const hash = computeFilterHash(searchParams);
 	const active = hasActiveFilters(searchParams);
 	const dismissed = (await getDismissedHashes()).includes(hash);
 	const shouldShow = active && !dismissed && hash !== '';
 
 	if (!shouldShow) {
+		cancelDeferredBanner();
 		await dismissSaveSearchBanner();
 		return;
 	}
 
+	if (options?.deferred) {
+		const delay = options.deferMs ?? 2000;
+		cancelDeferredBanner();
+		pendingBannerHash = hash;
+		deferredBannerTimer = setTimeout(async () => {
+			deferredBannerTimer = null;
+			if (pendingBannerHash === hash) {
+				await showBannerInternal(hash, searchType, onEnable);
+			}
+		}, delay);
+		return;
+	}
+
+	await showBannerInternal(hash, searchType, onEnable);
+}
+
+async function showBannerInternal(
+	hash: string,
+	searchType: 'tasks' | 'services',
+	onEnable: () => void
+): Promise<void> {
 	await dismissSaveSearchBanner();
 
 	const messageKey =

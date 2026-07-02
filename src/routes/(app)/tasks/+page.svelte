@@ -6,7 +6,9 @@
 	import type TaskTabComponent from '$lib/components/task/details/TaskTab.svelte';
 	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { browser, dev } from '$app/environment';
+	import { Capacitor } from '@capacitor/core';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
@@ -22,7 +24,7 @@
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { debounce } from '$lib/utils/helpers/common';
+	import { debounceWithAbort } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
@@ -31,7 +33,11 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskListSkeleton from '$lib/components/task/TaskListSkeleton.svelte';
 	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
-	import { manageSaveSearchBanner, dismissSaveSearchBanner } from '$lib/utils/saveSearchBanner';
+	import {
+		manageSaveSearchBanner,
+		dismissSaveSearchBanner,
+		cancelDeferredBanner
+	} from '$lib/utils/saveSearchBanner';
 
 	// Icon imports for unplugin-icons
 	import IconAlertCircle from '~icons/mdi/alert-circle';
@@ -136,6 +142,11 @@
 
 	// Save search state
 	let isSaveSearchOpen = $state(false);
+	let isSearchInputFocused = $state(false);
+	let pendingSaveSearchParams: SearchTasksParams | null = null;
+	const isNative = Capacitor.isNativePlatform();
+	let searchVersion = $state(0);
+	let searchAbortController: AbortController | null = null;
 
 	// Loading states - consolidated into single state machine
 	type LoadingState = 'initial' | 'loading' | 'loaded' | 'timeout' | 'error';
@@ -502,9 +513,20 @@
 	/**
 	 * Debounced search function with proper error handling
 	 */
-	const debouncedSearch = debounce(async () => {
+	const debouncedSearch = debounceWithAbort(async () => {
+		const currentVersion = ++searchVersion;
 		const trimmedQuery = searchQuery.trim();
 		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
+
+		// Abort any in-flight search request
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
+		searchAbortController = new AbortController();
+
+		// Dismiss any pending deferred banner from a previous search
+		cancelDeferredBanner();
+		await dismissSaveSearchBanner();
 
 		// Update searchParams and explicitly clear until for new search
 		searchParams = {
@@ -515,9 +537,24 @@
 			limit: TASKS_PER_PAGE
 		};
 
-		await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
-
 		await loadNostrData();
+
+		if (currentVersion !== searchVersion) return;
+
+		// Show save search banner AFTER results load
+		// On native mobile: suppress while keyboard is open, re-trigger on blur
+		// On web: always show (no keyboard interruption)
+		const shouldSuppress = isNative && isSearchInputFocused;
+		if (shouldSuppress) {
+			pendingSaveSearchParams = { ...searchParams };
+			await dismissSaveSearchBanner();
+		} else {
+			pendingSaveSearchParams = null;
+			await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true), {
+				deferred: true,
+				deferMs: 2500
+			});
+		}
 	}, SEARCH_DEBOUNCE_DELAY);
 
 	/**
@@ -525,6 +562,12 @@
 	 */
 	async function handleFilterApply(filters: SearchTasksParams) {
 		isFilterDrawerOpen = false;
+
+		// Abort any in-flight search
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
+		searchAbortController = new AbortController();
 
 		// Clear existing tasks when applying new filters
 		clearTasksStore();
@@ -540,8 +583,6 @@
 		// Update UI controls based on applied filters
 		searchQuery = filters.search || '';
 
-		await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true));
-
 		try {
 			await findTasks(searchParams);
 		} catch (error) {
@@ -549,6 +590,18 @@
 				...state,
 				error: error instanceof Error ? error.message : 'Failed to apply filters'
 			}));
+		}
+
+		// Show banner after results load
+		const shouldSuppressFilter = isNative && isSearchInputFocused;
+		if (shouldSuppressFilter) {
+			pendingSaveSearchParams = { ...searchParams };
+		} else {
+			pendingSaveSearchParams = null;
+			await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true), {
+				deferred: true,
+				deferMs: 2000
+			});
 		}
 	}
 
@@ -561,7 +614,14 @@
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
+		pendingSaveSearchParams = null;
+		cancelDeferredBanner();
 		await dismissSaveSearchBanner();
+
+		// Abort any in-flight search
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
 
 		// Clear existing tasks when clearing filters
 		clearTasksStore();
@@ -815,6 +875,11 @@
 			mountCleanup.preloadCleanup();
 		}
 
+		debouncedSearch.abort();
+		cancelDeferredBanner();
+		if (searchAbortController) {
+			searchAbortController.abort();
+		}
 		cleanup();
 	});
 
@@ -969,6 +1034,24 @@
 				searchInputClass={getSearchInputClass()}
 				searchPlaceholder={getSearchPlaceholder()}
 				onSearchInput={debouncedSearch}
+				onSearchFocus={() => {
+					isSearchInputFocused = true;
+					if (isNative) {
+						cancelDeferredBanner();
+						dismissSaveSearchBanner();
+					}
+				}}
+				onSearchBlur={() => {
+					isSearchInputFocused = false;
+					if (isNative && pendingSaveSearchParams) {
+						const params = { ...pendingSaveSearchParams };
+						pendingSaveSearchParams = null;
+						manageSaveSearchBanner(params, 'tasks', () => (isSaveSearchOpen = true), {
+							deferred: true,
+							deferMs: 1500
+						});
+					}
+				}}
 				onFilterClick={() => (isFilterDrawerOpen = true)}
 				onSaveSearch={async () => {
 					if (!drawersLoaded) await loadDrawerComponents();
@@ -1003,7 +1086,9 @@
 					<div class="min-h-0" data-tasks-list-column bind:this={taskListRef}>
 						<!-- Skeleton Loading -->
 						{#if showSkeleton}
-							<TaskListSkeleton count={4} />
+							<div out:fade={{ duration: 150 }}>
+								<TaskListSkeleton count={4} />
+							</div>
 						{:else if loadingState === 'timeout'}
 							<!-- Loading Timeout Warning -->
 							<div class="alert alert-warning alert-outline mb-3 rounded-xl">
@@ -1035,7 +1120,11 @@
 								</button>
 							</div>
 						{:else if $tasksStore.items.length > 0}
-							<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
+							<ul
+								class="task-list-items mb-0 space-y-4 pb-0"
+								role="list"
+								in:fade={{ duration: 200 }}
+							>
 								{#each $tasksStore.items as task (task.id)}
 									<li role="listitem">
 										<TaskCard

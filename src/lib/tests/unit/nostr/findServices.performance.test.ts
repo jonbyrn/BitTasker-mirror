@@ -4,17 +4,12 @@ import { servicesStore } from '$lib/stores/service.store';
 import KINDS from '$lib/utils/constants/kinds';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 
 vi.mock('$lib/api/services/nostr/events', () => ({
 	default: {
 		findEvents: vi.fn(),
 		requestEvents: vi.fn()
 	}
-}));
-
-vi.mock('$lib/nostr/profile', () => ({
-	fetchComprehensiveProfile: vi.fn().mockResolvedValue(null)
 }));
 
 function createServiceEvent(
@@ -55,7 +50,6 @@ describe('findServices performance fixes', () => {
 		cleanup();
 		servicesStore.update((state) => ({ ...state, items: [], loading: false, error: null }));
 		mockRequestEvents.mockResolvedValue({ data: [] });
-		vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null);
 	});
 
 	describe('deletionCache bounded size', () => {
@@ -82,20 +76,9 @@ describe('findServices performance fixes', () => {
 		});
 	});
 
-	describe('profile fetch deduplication', () => {
-		it('should only fetch profile once for same pubkey even with multiple services', async () => {
+	describe('synchronous event conversion', () => {
+		it('should convert all events without profile fetch (handled by UserInfoDisplay)', async () => {
 			const pubkey = 'a'.repeat(64);
-			let resolveProfile: (value: unknown) => void;
-			const profilePromise = new Promise((resolve) => {
-				resolveProfile = resolve;
-			});
-
-			const profileCalls: string[] = [];
-			vi.mocked(fetchComprehensiveProfile).mockImplementation(async (pk: string) => {
-				profileCalls.push(pk);
-				await profilePromise;
-				return { reviews: [], npub: pk };
-			});
 
 			mockFindEvents.mockResolvedValue({
 				data: [
@@ -105,16 +88,12 @@ describe('findServices performance fixes', () => {
 				]
 			});
 
-			const resultPromise = findServices({ page: 1, limit: 8 });
-
-			await new Promise((r) => setTimeout(r, 100));
-
-			resolveProfile!({ reviews: [], npub: pubkey });
-
-			const result = await resultPromise;
+			const result = await findServices({ page: 1, limit: 8 });
 
 			expect(result.services).toHaveLength(3);
-			expect(profileCalls.filter((pk) => pk === pubkey)).toHaveLength(1);
+			expect(result.services[0].uniqueId).toBe('service-1');
+			expect(result.services[1].uniqueId).toBe('service-2');
+			expect(result.services[2].uniqueId).toBe('service-3');
 		});
 	});
 

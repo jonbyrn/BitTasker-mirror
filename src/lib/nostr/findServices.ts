@@ -17,25 +17,15 @@ import { findServiceByUniqueId } from './service';
 import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
-import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
-/** When user has a search term, fetch more events and filter client-side (relays often don't support NIP-50). */
-const SEARCH_FETCH_LIMIT = 150;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
 const MAX_DELETION_CACHE_SIZE = 10; // Maximum deletion cache entries with LRU eviction
-const PROFILE_FETCH_TIMEOUT_MS = 750;
 const REQUEST_TIMEOUT_MS = 15000;
-
-// In-flight profile fetch promises for deduplication
-const profileFetchPromises = new Map<
-	string,
-	Promise<NonNullable<Awaited<ReturnType<typeof fetchComprehensiveProfileSafe>>>>
->();
 
 export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	const timeout = new Promise<T>((_, reject) =>
@@ -81,29 +71,6 @@ export async function getCachedViewerNpub(): Promise<string | null> {
 	}
 }
 
-async function fetchComprehensiveProfileSafe(pubkey: string) {
-	let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-	try {
-		return await Promise.race([
-			fetchComprehensiveProfile(pubkey),
-			new Promise<null>((resolve) => {
-				timeoutId = setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS);
-			})
-		]);
-	} catch (error) {
-		console.error('Error fetching creator profile data:', error);
-		return null;
-	} finally {
-		if (timeoutId !== null) {
-			clearTimeout(timeoutId);
-		}
-	}
-}
-
-/**
- * Performance monitor for service filtering
- */
 interface FilterPerformanceMetrics {
 	totalServices: number;
 	filteredServices: number;
@@ -121,14 +88,9 @@ const performanceMetrics: FilterPerformanceMetrics[] = [];
  * Only requests service kinds (SERVICE_ACTIVE) — deleted services are NIP-09 kind 5; we filter those client-side until relay supports exclusion.
  */
 export function createServiceFilter(params: SearchServicesParams): Filter {
-	// When search is present, request more events and filter client-side (many relays don't support NIP-50).
-	const requestLimit = params.search?.trim()
-		? SEARCH_FETCH_LIMIT
-		: params.limit || SERVICES_PER_PAGE;
-
 	const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
 		kinds: params.kinds || [KINDS.SERVICE_ACTIVE],
-		limit: requestLimit,
+		limit: params.limit || SERVICES_PER_PAGE,
 		until: params.until || undefined,
 		since: params.since || undefined
 	};
@@ -165,41 +127,16 @@ export function createServiceFilter(params: SearchServicesParams): Filter {
  * Convert a Nostr event to a Service
  * Also fetches creator profile data (reviews, rating) if available
  */
-export async function convertEventToService(event: Event): Promise<Service> {
+export function convertEventToService(event: Event): Service {
 	try {
 		const contentData = normalizeServiceTierDeliveryTimes(JSON.parse(event.content));
-		const service: Service = {
+		return {
 			...contentData,
 			id: event.id,
 			npub: event.pubkey,
 			eventKind: event.kind,
 			createdAt: event.created_at
 		} as Service;
-
-		// Fetch creator profile data (reviews, rating) if creator info exists
-		if (service.creator && event.pubkey) {
-			// Deduplicate in-flight profile fetches
-			if (!profileFetchPromises.has(event.pubkey)) {
-				const promise = fetchComprehensiveProfileSafe(event.pubkey);
-				profileFetchPromises.set(event.pubkey, promise);
-			}
-			try {
-				const profile = await profileFetchPromises.get(event.pubkey)!;
-
-				// Update creator with reviews and rating
-				if (profile?.reviews && profile.reviews.length > 0) {
-					const totalRating = profile.reviews.reduce(
-						(sum, review) => sum + (review.rating || 0),
-						0
-					);
-					service.creator.rating = totalRating / profile.reviews.length;
-				}
-			} finally {
-				profileFetchPromises.delete(event.pubkey);
-			}
-		}
-
-		return service;
 	} catch (error) {
 		console.error('Error parsing service event content:', error);
 		throw error;
@@ -366,11 +303,15 @@ export async function findServices(
 		let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
 		let events = response.data || [];
 
+		let usedFallback = false;
 		if (params.search?.trim() && events.length === 0) {
+			usedFallback = true;
 			const fallbackFilter = { ...filter } as Filter & { search?: string };
 			delete fallbackFilter.search;
-			fallbackFilter.limit = SEARCH_FETCH_LIMIT;
-			response = await nostrEventsService.findEvents(fallbackFilter);
+			response = await withTimeout(
+				nostrEventsService.findEvents(fallbackFilter),
+				REQUEST_TIMEOUT_MS
+			);
 			events = response.data || [];
 		}
 
@@ -378,13 +319,8 @@ export async function findServices(
 		// Read from the last element (relay returns sorted by created_at desc).
 		const lastRelayTimestamp = events.length > 0 ? events[events.length - 1].created_at : undefined;
 
-		// Convert events to services (with async profile data fetching)
-		const results = await Promise.allSettled(
-			events.map((event: Event) => convertEventToService(event))
-		);
-		const rawServices = results
-			.filter((r): r is PromiseFulfilledResult<Service> => r.status === 'fulfilled')
-			.map((r) => r.value);
+		// Convert events to services (synchronous — profile fetching handled by UserInfoDisplay)
+		const rawServices = events.map((event: Event) => convertEventToService(event));
 
 		// Keep only the latest version per logical listing before applying visibility rules.
 		const latestServices = dedupeServicesByUniqueId(rawServices);
@@ -441,14 +377,24 @@ export async function findServices(
 		}
 
 		// Update cache with merged indexed data (already deletion-filtered)
-		cache.set(cacheKey, { data: allCachedServices, timestamp: Date.now() });
+		// Cache coherence: if fallback fired but frontend filtered everything out,
+		// the search term doesn't exist in the dataset. Skip cache storage so
+		// the next search retries the relay (in case relay adds NIP-50 support).
+		const shouldCache = !(usedFallback && filteredIndexedServices.length === 0);
+		if (shouldCache) {
+			cache.set(cacheKey, { data: allCachedServices, timestamp: Date.now() });
+		} else {
+			console.debug(
+				`[FindServices] NIP-50 fallback returned 0 visible results for "${params.search}", skipping cache`
+			);
+		}
 
 		// Convert back to regular Service objects
 		const cleanServices = cleanupIndexedServices(filteredIndexedServices);
 
 		const limit = params.limit || SERVICES_PER_PAGE;
 		const limitedServices = cleanServices.slice(0, limit);
-		const hasMore = events.length >= limit || cleanServices.length > limit;
+		const hasMore = events.length >= limit;
 
 		// Update store
 		const page = params.page || 1;
@@ -536,13 +482,8 @@ export async function findMyServices(
 		const response = await nostrEventsService.findEvents(filter);
 		const events = response.data || [];
 
-		// Convert events to services (with async profile data fetching)
-		const results = await Promise.allSettled(
-			events.map((event: Event) => convertEventToService(event))
-		);
-		const rawServices = results
-			.filter((r): r is PromiseFulfilledResult<Service> => r.status === 'fulfilled')
-			.map((r) => r.value);
+		// Convert events to services (synchronous)
+		const rawServices = events.map((event: Event) => convertEventToService(event));
 
 		// NIP-33: keep only the latest version per service (same uniqueId = same logical service)
 		const latestByUniqueId = new Map<string, Service>();
@@ -569,7 +510,7 @@ export async function findMyServices(
 
 		const limit = params.limit || SERVICES_PER_PAGE;
 		const limitedServices = cleanServices.slice(0, limit);
-		const hasMore = events.length >= limit || cleanServices.length > limit;
+		const hasMore = events.length >= limit;
 
 		return {
 			services: limitedServices,
