@@ -22,11 +22,13 @@ describe('portal utility', () => {
 	it('allows multiple hosts to register the same portal key without throwing', async () => {
 		const firstHost = createHost();
 		const secondHost = createHost();
-		const firstRegistration = createPortal(firstHost, 'modals');
+		const firstRegistration = createPortal(firstHost, 'modals') as unknown as {
+			destroy: () => void;
+		};
 		let secondRegistration: { destroy: () => void } | null = null;
 
 		expect(() => {
-			secondRegistration = createPortal(secondHost, 'modals');
+			secondRegistration = createPortal(secondHost, 'modals') as unknown as { destroy: () => void };
 		}).not.toThrow();
 
 		const node = createPortalNode();
@@ -36,9 +38,9 @@ describe('portal utility', () => {
 		expect(secondHost.contains(node)).toBe(true);
 		expect(firstHost.contains(node)).toBe(false);
 
-		secondRegistration?.destroy();
+		(secondRegistration as unknown as { destroy: () => void })?.destroy();
 		firstRegistration.destroy();
-		mounted.destroy();
+		(mounted as unknown as { destroy: () => void }).destroy();
 	});
 
 	it('mounts into the most recently registered host and falls back when that host is destroyed', async () => {

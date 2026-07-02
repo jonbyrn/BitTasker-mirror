@@ -8,10 +8,10 @@ import {
 import type { PlatformInfo } from '$lib/services/external-wallet/platform-checks';
 
 // Helper to build a minimal Navigator stub
-function stubNavigator(overrides: Partial<Navigator> = {}): Navigator {
+function stubNavigator(overrides: Record<string, unknown> = {}): Navigator {
 	return {
 		...overrides
-	} as Navigator;
+	} as unknown as Navigator;
 }
 
 describe('platform-checks', () => {
@@ -20,9 +20,7 @@ describe('platform-checks', () => {
 	// ------------------------------------------------------------------
 	describe('getPlatformInfo', () => {
 		it('returns desktop-web info when Capacitor reports web platform', () => {
-			const info = getPlatformInfo(
-				stubNavigator({ usb: {} as unknown as USB, bluetooth: {} as unknown as Bluetooth })
-			);
+			const info = getPlatformInfo(stubNavigator({ usb: {}, bluetooth: {} }));
 			expect(info.isNative).toBe(false);
 			expect(info.platform).toBe('web');
 			expect(info.hasUsb).toBe(true);

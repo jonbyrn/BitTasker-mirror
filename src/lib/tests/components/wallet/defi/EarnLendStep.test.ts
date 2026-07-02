@@ -33,7 +33,7 @@ const {
 	mockDefiPositions,
 	mockFeatureFlag,
 	MockApproveModal,
-	MockSwapPartySelector: _MockSwapPartySelector,
+	MockWalletSelector: _MockSwapPartySelector,
 	mockGetEvmSigner
 } = vi.hoisted(() => {
 	const wState = { current: { arb: { usdt0Balance: '0' } } };

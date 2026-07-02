@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { ethers } from 'ethers';
@@ -36,7 +37,7 @@
 	let amount = $state('');
 	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
-	let selectedWalletId = $state<'builtin' | string>(walletId);
+	let selectedWalletId = $state<'builtin' | string>(untrack(() => walletId as 'builtin' | string));
 	let txState = $state<
 		'idle' | 'approving-wbtc' | 'approving-usdt0' | 'providing' | 'success' | 'error'
 	>('idle');

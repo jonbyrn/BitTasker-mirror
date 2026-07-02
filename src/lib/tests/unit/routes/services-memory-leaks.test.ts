@@ -183,13 +183,15 @@ function createAppStore() {
 	};
 }
 
-hoisted.servicesStore = createServicesStore();
-hoisted.appStore = createAppStore();
+hoisted.servicesStore = createServicesStore() as unknown as typeof hoisted.servicesStore;
+hoisted.appStore = createAppStore() as unknown as typeof hoisted.appStore;
 
-hoisted.authStateStore = hoisted.createStore<boolean>({ isAuthenticated: true } as {
-	isAuthenticated: boolean;
-});
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+hoisted.authStateStore = hoisted.createStore({
+	isAuthenticated: true
+}) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({
+	npub: 'owner-pubkey'
+}) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');

@@ -536,6 +536,7 @@ export class FiatSwapOrchestrator {
 				decimals: 18
 			},
 			from: userAddress as string,
+			to: userAddress as string,
 			slippage: 50
 		});
 

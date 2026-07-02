@@ -45,20 +45,16 @@
 		showSatsAbove = false
 	}: SwapPartyCardProps = $props();
 
-	const isConfirm = variant === 'confirm';
-	const isSuccess = variant === 'success';
+	const isConfirm = $derived(variant === 'confirm');
+	const isSuccess = $derived(variant === 'success');
 
-	const padding = isConfirm ? 'p-3 sm:p-4' : isSuccess ? 'p-4' : 'p-2';
-	const iconSize = isConfirm
-		? 'h-10 w-10 sm:h-12 sm:w-12'
-		: isSuccess
-			? 'h-7 w-7 sm:h-8 sm:w-8'
-			: 'h-6 w-6';
-	const textSize = isConfirm
-		? 'text-sm sm:text-base'
-		: isSuccess
-			? 'text-xs sm:text-sm'
-			: 'text-xs';
+	const padding = $derived(isConfirm ? 'p-3 sm:p-4' : isSuccess ? 'p-4' : 'p-2');
+	const iconSize = $derived(
+		isConfirm ? 'h-10 w-10 sm:h-12 sm:w-12' : isSuccess ? 'h-7 w-7 sm:h-8 sm:w-8' : 'h-6 w-6'
+	);
+	const textSize = $derived(
+		isConfirm ? 'text-sm sm:text-base' : isSuccess ? 'text-xs sm:text-sm' : 'text-xs'
+	);
 
 	function formatAddr(addr: string): string {
 		if (!addr || addr.length < 10) return '';

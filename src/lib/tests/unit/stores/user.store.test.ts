@@ -91,6 +91,8 @@ describe('user.store', () => {
 				kind: KINDS.PROFILE_METADATA,
 				content: '{}',
 				id: 'e1',
+				pubkey: 'pk1',
+				created_at: 1000,
 				sig: '',
 				tags: [] as string[][]
 			};
@@ -102,6 +104,9 @@ describe('user.store', () => {
 			const event = {
 				kind: KINDS.PROFILE_METADATA,
 				content: '{}',
+				id: 'e2',
+				pubkey: 'pk1',
+				created_at: 1000,
 				sig: '',
 				tags: [] as string[][]
 			};
@@ -113,6 +118,9 @@ describe('user.store', () => {
 			const event = {
 				kind: KINDS.PROFILE_METADATA,
 				content: '{}',
+				id: 'e3',
+				pubkey: 'pk1',
+				created_at: 1000,
 				sig: '',
 				tags: [] as string[][]
 			};
@@ -125,6 +133,9 @@ describe('user.store', () => {
 			const event = {
 				kind: KINDS.PROFILE_METADATA,
 				content: '{}',
+				id: 'e4',
+				pubkey: 'pk1',
+				created_at: 1000,
 				sig: '',
 				tags: [] as string[][]
 			};
@@ -138,7 +149,7 @@ describe('user.store', () => {
 
 	describe('getUserData', () => {
 		it('should throw when getNpub returns null', async () => {
-			vi.mocked(getNpub).mockResolvedValue(null as string);
+			vi.mocked(getNpub).mockResolvedValue(null as unknown as string);
 			await expect(user.getUserData()).rejects.toThrow('No public key found');
 		});
 

@@ -76,7 +76,7 @@ describe('dashboard profile page', () => {
 
 		render(DashboardProfilePage);
 
-		expect(mocks.ProfileReviewsSection.mock.calls[0]?.[1]).toEqual(
+		expect((mocks.ProfileReviewsSection.mock.calls[0] as unknown[])?.[1]).toEqual(
 			expect.objectContaining({
 				userPubkey: 'npub-target-user',
 				isCurrentUser: false

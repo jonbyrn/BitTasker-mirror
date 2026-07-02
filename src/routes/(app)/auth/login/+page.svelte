@@ -318,11 +318,16 @@
 
 			// Check if we're in a test environment (E2E tests) or dev mode (VITE skip passkey)
 			const isTestEnvironment =
-				(import.meta.env.VITE_SKIP_PASSKEY === 'true') ||
+				import.meta.env.VITE_SKIP_PASSKEY === 'true' ||
 				(typeof window !== 'undefined' &&
-				'__PLAYWRIGHT_TEST__' in window &&
-				(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__);
-			dbg.log('authenticate: isTestEnvironment=%s, isBiometricsAvailable=%s, isNative=%s', isTestEnvironment, isBiometricsAvailable, isNativePlatform);
+					'__PLAYWRIGHT_TEST__' in window &&
+					(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__);
+			dbg.log(
+				'authenticate: isTestEnvironment=%s, isBiometricsAvailable=%s, isNative=%s',
+				isTestEnvironment,
+				isBiometricsAvailable,
+				isNativePlatform
+			);
 
 			let credentialData = {
 				credentialId: '',
@@ -375,7 +380,7 @@
 			const res = await authService.nostrLogin({
 				event: newSignedEvent,
 				challenge: credentialData.challenge,
-				authMethod: isTestEnvironment ? 'nsec' : 'passkey',
+				authMethod: (isTestEnvironment ? 'nsec' : 'passkey') as 'passkey',
 				deviceId,
 				encryptedData,
 				deviceName,

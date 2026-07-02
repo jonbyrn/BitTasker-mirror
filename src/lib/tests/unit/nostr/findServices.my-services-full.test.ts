@@ -216,7 +216,17 @@ describe('findMyServices', () => {
 			});
 			mockFindEvents.mockResolvedValue({ data: [olderEvent, newerEvent] });
 			mockRequestEvents.mockResolvedValue({
-				data: [{ id: 'delete-new', tags: [['e', 'event-new']] }]
+				data: [
+					{
+						id: 'delete-new',
+						pubkey: 'pk',
+						created_at: 1,
+						kind: 1,
+						content: '{}',
+						sig: '',
+						tags: [['e', 'event-new']]
+					}
+				]
 			});
 
 			const result = await findMyServices({ limit: 20 });
@@ -303,7 +313,7 @@ describe('findMyServices', () => {
 				eventId: 'event-sold',
 				pubkey: TEST_HEX_PUBKEY,
 				uniqueId: 'service-sold',
-				status: 'sold'
+				status: 'sold' as unknown as 'active'
 			});
 			const inactiveEvent = createServiceEvent({
 				eventId: 'event-inactive',

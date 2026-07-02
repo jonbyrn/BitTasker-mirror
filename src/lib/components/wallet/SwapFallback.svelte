@@ -41,6 +41,7 @@
 		<div
 			class="modal-box max-w-sm"
 			onclick={(e: Event) => e.stopPropagation()}
+			onkeydown={(e: KeyboardEvent) => e.stopPropagation()}
 			role="alertdialog"
 			aria-modal="true"
 			tabindex="-1"

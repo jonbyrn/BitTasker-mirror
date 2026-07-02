@@ -13,6 +13,7 @@
  */
 
 import type { Transaction } from '@bittasker/wallet-core';
+import type { ComponentType } from 'svelte';
 import type {
 	InternalTransaction,
 	ExtendedTransaction,
@@ -696,7 +697,9 @@ export async function processTransactions(
 					to: tx.to?.hash || '',
 					value: valueSats.toString(),
 					timestamp: tx.timestamp,
-					status: statusUI[isFailedClaim ? 'failed' : (txNormalized as keyof typeof statusUI)],
+					status: statusUI[
+						isFailedClaim ? 'failed' : (txNormalized as keyof typeof statusUI)
+					] as unknown as { label: string; icon: ComponentType; color: string },
 					txStatus: isFailedClaim ? 'failed' : txNormalized,
 					network: isLightningSwap ? 'lightning' : network,
 
@@ -708,7 +711,10 @@ export async function processTransactions(
 					// Display helpers (all computed in one pass)
 					displayType,
 					borderColor: isFailedClaim ? 'error' : borderColor,
-					iconConfig: iconConfig as Record<string, unknown>, // Pre-computed icon components
+					iconConfig: iconConfig as unknown as {
+						base: Record<string, unknown>;
+						overlay: ComponentType | null;
+					},
 					title: isFailedClaim ? 'wallet.swap.failed_receive' : title,
 
 					// Network information (computed once)

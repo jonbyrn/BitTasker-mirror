@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { BoltzSwapData, ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
@@ -22,7 +23,7 @@
 	} = $props();
 
 	let isDeleting = $state(false); // Local state for deleting button
-	let isExpanded = $state(expanded);
+	let isExpanded = $state(untrack(() => expanded as boolean));
 
 	/**
 	 * Get status display info
@@ -256,13 +257,13 @@
 				<div class="border-base-300 border-t p-4">
 					<div class="flex flex-col items-center gap-4">
 						<!-- QR Code -->
-						<div class="w-full flex justify-center sm:max-w-[50%]">
+						<div class="flex w-full justify-center sm:max-w-[50%]">
 							{#await generateQrCodeUrl(qrCodeData)}
 								<div class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3">
 									<span class="loading loading-spinner loading-md"></span>
 								</div>
 							{:then qrUrl}
-								<div class="rounded-lg bg-white p-1 w-full max-w-[176px] sm:max-w-full">
+								<div class="w-full max-w-[176px] rounded-lg bg-white p-1 sm:max-w-full">
 									<img src={qrUrl} alt="QR Code" class="h-full w-full" />
 								</div>
 							{/await}

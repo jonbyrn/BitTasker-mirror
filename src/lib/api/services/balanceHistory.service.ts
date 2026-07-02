@@ -250,7 +250,7 @@ async function fetchWithTimeout(
 export function getRpcUrl(provider: ethers.Provider | null): string {
 	if (provider instanceof ethers.JsonRpcProvider) {
 		return (
-			((provider as Record<string, unknown>).connection as { url?: string })?.url ||
+			((provider as unknown as Record<string, unknown>).connection as { url?: string })?.url ||
 			'https://public-node.rsk.co'
 		);
 	}

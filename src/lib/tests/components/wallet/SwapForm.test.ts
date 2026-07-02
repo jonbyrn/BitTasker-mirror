@@ -238,7 +238,6 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockNetwork.online = true;
-		mockWalletState.arb.formattedUsdt0Balance = '500.00';
 		(mockWalletState.arb as Record<string, unknown>).formattedUsdt0Balance = '500.00';
 		// Reset rune mocks to defaults (no routes, no amount)
 		mockRuneState.engineResult = {
@@ -435,7 +434,8 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 // ---------------------------------------------------------------------------
 import type { UseSwapWalletsOptions } from '$lib/runes/use-swap-wallets.svelte';
 import type { UseSwapCalculatorOptions } from '$lib/runes/use-swap-calculator.svelte';
-import type { UseSwapRoutesOptions } from '$lib/runes/use-swap-routes.svelte';
+import type { UseSwapRoutesOptions, DestType } from '$lib/runes/use-swap-routes.svelte';
+import type { SourceWallet } from '$lib/services/route-resolver';
 import { runInEffectRoot } from '$lib/tests/helpers/rune-test-harness.svelte';
 
 describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
@@ -592,8 +592,8 @@ describe('use-swap-* runes (pure + DI, 5-state/edge/failure)', () => {
 			});
 			const opts2: UseSwapRoutesOptions = {
 				...opts,
-				getSourceType: () => 'usdt0-arb' as unknown,
-				getDestType: () => 'rbtc-rsk' as unknown,
+				getSourceType: () => 'usdt0-arb' as unknown as SourceWallet,
+				getDestType: () => 'rbtc-rsk' as unknown as DestType,
 				getIsOnline: () => true,
 				resolveRoutesFn: mockResolveRoutes
 			};

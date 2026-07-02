@@ -97,8 +97,12 @@ export class AuthHelper {
 		// Create virtual authenticator
 		const authenticatorId = await this.page.evaluate(async () => {
 			const authenticatorId = await (
-				window as Record<string, unknown>
-			).playwright?.createVirtualAuthenticator({
+				window as unknown as {
+					playwright: {
+						createVirtualAuthenticator: (options: Record<string, unknown>) => Promise<string>;
+					};
+				}
+			).playwright.createVirtualAuthenticator({
 				protocol: 'ctap2',
 				transport: 'usb',
 				hasResidentKey: true,
@@ -182,7 +186,7 @@ export class AuthHelper {
 		await submitButton.click();
 
 		// Wait for redirect to hiring or success
-		await this.page.waitForURL(/.*\/hiring/, { timeout: 10000 }).catch(() => {
+		await this.page.waitForURL(/.*\/hiring/, { timeout: 10000 }).catch(async () => {
 			// If redirect doesn't happen, check for success message
 			const successMessage = this.page.locator('.alert-success, .success, [data-testid="success"]');
 			if (await successMessage.isVisible()) {

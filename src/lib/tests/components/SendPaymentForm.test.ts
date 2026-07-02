@@ -195,16 +195,19 @@ describe('SendPaymentForm Component', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		walletStore.update(() => ({
-			hasAnyConnection: true,
-			rsk: {
-				connected: true,
-				address: '0x1234567890123456789012345678901234567890',
-				formattedBalance: '0.01'
-			},
-			bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
-			totalBalances: { sats: 1_000_000, usd: 50 }
-		}));
+		walletStore.update(
+			() =>
+				({
+					hasAnyConnection: true,
+					rsk: {
+						connected: true,
+						address: '0x1234567890123456789012345678901234567890',
+						formattedBalance: '0.01'
+					},
+					bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
+					totalBalances: { sats: 1_000_000, usd: 50 }
+				}) as unknown as ReturnType<Parameters<(typeof walletStore)['update']>[0]>
+		);
 	});
 
 	describe('Basic Rendering', () => {

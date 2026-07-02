@@ -1505,7 +1505,7 @@ function createServiceQuoteUiStore() {
 					'content' in publishResult.event
 						? (publishResult.event as ServiceQuoteTimelineEntry['proposals'][number])
 						: ({
-								id: publishResult.event.id,
+								id: (publishResult.event as unknown as { id: string }).id,
 								kind: 6421,
 								pubkey: input.service.npub,
 								created_at: proposalContent.timestamp,

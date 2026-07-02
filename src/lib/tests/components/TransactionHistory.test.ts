@@ -232,7 +232,7 @@ describe('TransactionHistory Component', () => {
 	describe('Empty State', () => {
 		it('should show empty state when no transactions', async () => {
 			const { transactions } = await import('$lib/stores/wallet.store');
-			transactions.set([]);
+			(transactions as unknown as { set: (v: unknown) => void }).set([]);
 
 			render(TransactionHistory);
 			await tick();
@@ -254,7 +254,7 @@ describe('TransactionHistory Component', () => {
 				ProcessedTransactionFactory.create()
 			);
 			const { transactions } = await import('$lib/stores/wallet.store');
-			transactions.set(manyTransactions);
+			(transactions as unknown as { set: (v: unknown) => void }).set(manyTransactions);
 
 			render(TransactionHistory);
 			await tick();

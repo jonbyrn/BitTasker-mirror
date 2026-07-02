@@ -9,11 +9,11 @@ import {
 describe('BlockscoutTransactionStatus', () => {
 	let mockFetch: ReturnType<typeof vi.fn>;
 	const originalFetch = global.fetch;
-	const originalEnv = import.meta.env;
+	const _originalEnv = import.meta.env;
 
 	beforeEach(() => {
-		mockFetch = vi.fn();
-		global.fetch = mockFetch;
+		mockFetch = vi.fn() as unknown as typeof mockFetch;
+		global.fetch = mockFetch as unknown as typeof global.fetch;
 		vi.clearAllMocks();
 	});
 
@@ -192,10 +192,8 @@ describe('BlockscoutTransactionStatus', () => {
 		});
 
 		it('should handle timeout errors', async () => {
-			mockFetch.mockImplementationOnce(() =>
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error('Timeout')), 100)
-				)
+			mockFetch.mockImplementationOnce(
+				() => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
 			);
 
 			vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
@@ -330,11 +328,11 @@ describe('BlockscoutTransactionStatus', () => {
 				// Use a known testnet transaction hash if available
 				// This is a placeholder - replace with actual testnet transaction
 				const realTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000';
-				
+
 				// Restore original fetch for real API call
 				global.fetch = originalFetch;
 				vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
-				
+
 				const result = await fetchTransactionStatus(realTxHash, 'rootstock-bitcoin');
 
 				// If transaction exists, verify structure

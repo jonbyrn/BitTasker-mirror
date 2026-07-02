@@ -88,7 +88,8 @@ const canonicalBase = BITTASKER_CANONICAL_BASE.replace(/\/$/, '');
 const mockParent = vi
 	.fn()
 	.mockResolvedValue({ service: null })
-	.mockResolvedValue({ service: null }) as Parameters<typeof load>[0]['parent'];
+	.mockResolvedValue({ service: null }) as unknown as ReturnType<typeof vi.fn> &
+	Parameters<typeof load>[0]['parent'];
 
 describe('services/[serviceId] page load', () => {
 	beforeEach(() => {
@@ -102,7 +103,7 @@ describe('services/[serviceId] page load', () => {
 		const result = (await load({
 			params: { serviceId: 'service-unique-id' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.serviceId).toBe('service-unique-id');
 		expect(result.seo.title).toBe('Premium Design Service - BitTasker');
@@ -141,7 +142,7 @@ describe('services/[serviceId] page load', () => {
 		const result = (await load({
 			params: { serviceId: 'missing-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.service).toBeNull();
 		expect(result.serviceId).toBe('missing-service');
@@ -159,8 +160,20 @@ describe('services/[serviceId] page load', () => {
 				description: '',
 				categories: [],
 				portfolio: [
-					{ url: '/images/service-preview.png', type: 'image/png', alt: 'Preview' },
-					{ url: 'https://cdn.example.com/preview.mp4', type: 'video/mp4', alt: 'Preview' }
+					{
+						url: '/images/service-preview.png',
+						key: 'img1',
+						type: 'image/png',
+						alt: 'Preview',
+						size: 1024
+					},
+					{
+						url: 'https://cdn.example.com/preview.mp4',
+						key: 'vid1',
+						type: 'video/mp4',
+						alt: 'Preview',
+						size: 2048
+					}
 				],
 				pricing: {
 					type: ServicePricingTypeEnum.FIXED,
@@ -183,7 +196,7 @@ describe('services/[serviceId] page load', () => {
 		const result = (await load({
 			params: { serviceId: 'fixed-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.seo.description).toBe('No description available');
 		expect(result.seo.ogImage).toBe(`${canonicalBase}/images/service-preview.png`);
@@ -225,7 +238,7 @@ describe('services/[serviceId] page load', () => {
 		const result = (await load({
 			params: { serviceId: 'hourly-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.serviceId).toBe('hourly-service');
 		expect(result.seo.canonical).toBe(`${canonicalBase}/services/hourly-service`);
@@ -259,7 +272,7 @@ describe('services/[serviceId] page load', () => {
 		const result = (await load({
 			params: { serviceId: 'quote-only-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.seo.jsonLd).not.toHaveProperty('offers');
 		expect(result.seo.jsonLd).not.toHaveProperty('areaServed');
@@ -270,14 +283,22 @@ describe('services/[serviceId] page load', () => {
 			createService({
 				uniqueId: 'custom service slug',
 				status: 'inactive',
-				portfolio: [{ url: '//cdn.example.com/service.png', type: 'image/png', alt: 'Service' }]
+				portfolio: [
+					{
+						url: '//cdn.example.com/service.png',
+						type: 'image/png',
+						alt: 'Service',
+						key: 'k',
+						size: 0
+					}
+				]
 			})
 		);
 
 		const result = (await load({
 			params: { serviceId: 'custom service slug' },
 			parent: mockParent
-		} as Parameters<typeof load>[0])) as ServicePageResult;
+		} as unknown as Parameters<typeof load>[0])) as ServicePageResult;
 
 		expect(result.serviceId).toBe('custom service slug');
 		expect(result.seo.canonical).toBe(`${canonicalBase}/services/custom%20service%20slug`);

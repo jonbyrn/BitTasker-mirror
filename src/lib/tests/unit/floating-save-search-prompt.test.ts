@@ -249,8 +249,8 @@ describe('save-search-banner — searchType', () => {
 
 	it('uses service i18n key for services', async () => {
 		await manageSaveSearchBanner({ search: 'test' }, 'services', vi.fn());
-		const bannerCall = mockShowBanner.mock.calls[0][0] as Record<string, string>;
-		expect((bannerCall.message as Record<string, string>).key).toBe(
+		const bannerCall = mockShowBanner.mock.calls[0][0] as unknown as Record<string, string>;
+		expect((bannerCall.message as unknown as Record<string, string>).key).toBe(
 			'notifications.save_search_prompt.description_service'
 		);
 	});

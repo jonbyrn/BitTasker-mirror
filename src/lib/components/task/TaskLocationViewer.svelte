@@ -202,7 +202,7 @@
 							</div>
 						`
 					});
-					infoWindow.open(map ?? undefined, pickupMarker);
+					infoWindow.open(map ?? undefined, pickupMarker ?? undefined);
 				});
 			} else {
 				// Fallback to regular marker if AdvancedMarkerElement is not available
@@ -255,7 +255,7 @@
 							</div>
 						`
 					});
-					infoWindow.open(map ?? undefined, dropoffMarker);
+					infoWindow.open(map ?? undefined, dropoffMarker ?? undefined);
 				});
 			} else {
 				// Fallback to regular marker if AdvancedMarkerElement is not available

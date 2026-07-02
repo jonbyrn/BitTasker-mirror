@@ -168,7 +168,7 @@
 
 		const prices = service.pricing.tiers
 			.map((tier: { name?: string; price?: number }) => tier.price)
-			.filter((price): price is number => price != null && price > 0);
+			.filter((price: number | undefined): price is number => price != null && price > 0);
 
 		if (prices.length === 0) {
 			return null;

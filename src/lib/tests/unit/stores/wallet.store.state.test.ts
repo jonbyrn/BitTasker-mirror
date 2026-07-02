@@ -22,8 +22,7 @@ describe('Wallet Store State Management', () => {
 		walletStore.set({
 			isInitializing: false,
 			isConnected: false,
-			isConnecting: false,
-			hasAnyConnection: false,
+
 			error: null,
 			rsk: {
 				connected: false,
@@ -66,9 +65,8 @@ describe('Wallet Store State Management', () => {
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
 			activeNetwork: 'rsk',
-			activeTab: 'balance',
 			selectedAsset: 'rBTC'
-		});
+		} as unknown as Parameters<typeof walletStore.set>[0]);
 	});
 
 	describe('walletStore', () => {
@@ -179,7 +177,7 @@ describe('Wallet Store State Management', () => {
 			expect(state.isConnected).toBe(true);
 			expect(state.rsk.address).toBe('0x1234567890123456789012345678901234567890');
 			expect(state.rsk.balance).toBe('1000000000000000000');
-			expect(state.activeTab).toBe('transactions');
+			expect((state as Record<string, unknown>).activeTab).toBe('transactions');
 		});
 	});
 

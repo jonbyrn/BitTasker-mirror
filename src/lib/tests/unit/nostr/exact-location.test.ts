@@ -74,7 +74,8 @@ describe('exact-location companion events', () => {
 				formattedAddress: '123 Main St, Austin, TX',
 				latitude: 30.2672,
 				longitude: -97.7431,
-				locationLoaded: true
+				locationLoaded: true,
+				zipCode: ''
 			},
 			dropOffLocation: null
 		});
@@ -106,7 +107,8 @@ describe('exact-location companion events', () => {
 					formattedAddress: '123 Main St, Austin, TX',
 					latitude: 30.2672,
 					longitude: -97.7431,
-					locationLoaded: true
+					locationLoaded: true,
+					zipCode: ''
 				},
 				dropOffLocation: null
 			})

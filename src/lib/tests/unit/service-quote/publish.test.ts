@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
+import type { ServiceProposalStatusContent } from '$lib/types/service-quote';
 
 const queryNostrEvents = vi.fn();
 const getSignedEvent = vi.fn();
@@ -375,7 +376,7 @@ describe('service-quote publishing helpers', () => {
 				acceptanceSnapshot: createAcceptanceSnapshot(),
 				timestamp: 1_700_000_200,
 				version: 'v1'
-			},
+			} as unknown as ServiceProposalStatusContent,
 			proposalEventId: 'proposal-event-id',
 			counterpartyPubkey: service.npub,
 			taskerPubkey: 'b'.repeat(64),
@@ -456,7 +457,7 @@ describe('service-quote publishing helpers', () => {
 					}),
 					timestamp: 1_700_000_200,
 					version: 'v1'
-				},
+				} as unknown as ServiceProposalStatusContent,
 				proposalEventId: 'proposal-event-id',
 				counterpartyPubkey: service.npub,
 				taskerPubkey: 'b'.repeat(64),

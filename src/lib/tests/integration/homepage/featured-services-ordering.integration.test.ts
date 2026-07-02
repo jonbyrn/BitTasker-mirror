@@ -50,7 +50,7 @@ vi.mock('svelte-i18n', () => ({
 
 describe('homepage featured services ordering', () => {
 	it('renders featured services before the benefits and featured tasks sections', async () => {
-		const { container } = render(Homepage, {
+		const renderOpts = {
 			props: {
 				data: {
 					title: 'BitTasker',
@@ -63,7 +63,27 @@ describe('homepage featured services ordering', () => {
 					twitterTitle: 'BitTasker',
 					twitterDescription: 'BitTasker home',
 					twitterImage: 'https://bittasker.com/og.png',
-					jsonLd: {},
+					jsonLd: {
+						'@context': 'https://schema.org',
+						'@type': 'Organization',
+						name: 'BitTasker',
+						legalName: 'BitTasker Inc',
+						description: 'BitTasker home',
+						url: 'https://bittasker.com',
+						logo: { '@type': 'ImageObject', url: 'https://bittasker.com/logo.png' },
+						sameAs: [],
+						contactPoint: {
+							'@type': 'ContactPoint',
+							contactType: 'customer service',
+							email: 'support@bittasker.com',
+							url: 'https://bittasker.com/support',
+							availableLanguage: ['en']
+						},
+						foundingDate: '2024-01-01',
+						founders: [],
+						address: { '@type': 'PostalAddress', addressCountry: 'US' },
+						industry: 'Technology'
+					},
 					homepageData: {
 						services: [
 							{
@@ -91,17 +111,16 @@ describe('homepage featured services ordering', () => {
 					}
 				}
 			}
-		});
+		} as unknown as Parameters<typeof render<typeof Homepage>>[1];
+		const { container } = render(Homepage, renderOpts);
 
 		// Wait for async services to load and component to render
-		await waitFor(
-			() => expect(screen.getByTestId('homepage-featured-services')).toBeTruthy(),
-			{ timeout: 5000 }
-		);
-		await waitFor(
-			() => expect(screen.getByTestId('homepage-featured-tasks')).toBeTruthy(),
-			{ timeout: 5000 }
-		);
+		await waitFor(() => expect(screen.getByTestId('homepage-featured-services')).toBeTruthy(), {
+			timeout: 5000
+		});
+		await waitFor(() => expect(screen.getByTestId('homepage-featured-tasks')).toBeTruthy(), {
+			timeout: 5000
+		});
 
 		const servicesSection = screen.getByTestId('homepage-featured-services');
 		const benefitsSection = screen.getByTestId('homepage-benefits');

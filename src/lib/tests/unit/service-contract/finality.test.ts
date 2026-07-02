@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { JsonRpcProvider } from 'ethers';
 import {
 	getTransactionConfirmationCount,
 	SERVICE_ACCEPTANCE_CONFIRMATION_POLL_INTERVAL_MS,
@@ -28,7 +29,7 @@ describe('service contract finality policy', () => {
 	it('returns immediately when the initial receipt already meets the threshold', async () => {
 		const provider = {
 			getTransactionReceipt: vi.fn()
-		} as never;
+		} as unknown as JsonRpcProvider;
 
 		const receipt = await waitForServiceAcceptanceFinality(provider, '0xabc', {
 			hash: '0xabc',
@@ -48,7 +49,7 @@ describe('service contract finality policy', () => {
 				.mockResolvedValueOnce({ confirmations: 1 })
 				.mockResolvedValueOnce({ confirmations: 2 })
 				.mockResolvedValueOnce({ confirmations: 3, hash: '0xconfirmed' })
-		} as never;
+		} as unknown as JsonRpcProvider;
 
 		const promise = waitForServiceAcceptanceFinality(provider, '0xconfirmed', {
 			hash: '0xconfirmed',

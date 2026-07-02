@@ -208,7 +208,7 @@
 				class="input input-bordered w-full"
 				type="text"
 				inputmode="decimal"
-				pattern="^[0-9]+(?:\\.[0-9]{(1, 2)})?$"
+				pattern={'^[0-9]+(?:\\.[0-9]{1,2})?$'}
 				bind:value={amountUsdt}
 				placeholder="125"
 			/>

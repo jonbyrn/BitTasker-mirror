@@ -83,7 +83,10 @@ export async function revalidateLatestInstantBuyService(
 		);
 	}
 
-	const eligibility = getInstantBuyEligibility(latestService, input.selectedTierId);
+	const eligibility = getInstantBuyEligibility(
+		latestService as import('$lib/utils/service-instant-buy/eligibility').InstantBuyServiceLike,
+		input.selectedTierId
+	);
 	if (!eligibility.eligible) {
 		throw new Error('This service is no longer eligible for Book Now.');
 	}

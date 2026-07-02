@@ -41,7 +41,12 @@
 			<!-- Header -->
 			<div class="border-base-200 flex items-center justify-between border-b p-4">
 				<h2 class="text-lg font-bold">{$t(`${prefix}.title`)}</h2>
-				<button type="button" class="btn btn-ghost btn-sm btn-circle" onclick={onClose}>
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm btn-circle"
+					onclick={onClose}
+					aria-label="Close"
+				>
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"

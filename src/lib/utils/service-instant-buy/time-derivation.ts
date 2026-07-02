@@ -52,30 +52,43 @@ export function deriveServiceInstantBuySchedule(
 	}
 
 	if (service.pricing.type === 'FIXED') {
-		const deliveryTime = requestRushDelivery && service.pricing.rushDelivery?.enabled
-			? service.pricing.rushDelivery.deliveryTime
-			: (service.instantBuyDeliveryHours
-				? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
-				: service.pricing.deliveryTime!);
+		const rushDeliveryData = service.pricing.rushDelivery as
+			| import('$lib/types/service').RushDelivery
+			| undefined;
+		const deliveryTime =
+			requestRushDelivery && rushDeliveryData?.enabled
+				? rushDeliveryData.deliveryTime
+				: service.instantBuyDeliveryHours
+					? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
+					: service.pricing.deliveryTime!;
 
 		if (!deliveryTime) {
 			throw new Error('Instant buy not eligible: missing_delivery_time');
 		}
-		return deriveInstantBuySchedule(nowSeconds, service.instantBuyLeadHours, deliveryTime as DeliveryTimeLike);
+		return deriveInstantBuySchedule(
+			nowSeconds,
+			service.instantBuyLeadHours,
+			deliveryTime as DeliveryTimeLike
+		);
 	}
 
 	const tier = resolveInstantBuyTier(service, selectedTierId);
 	if (!tier) {
 		throw new Error('Instant buy not eligible: missing_tier');
 	}
-	
-	const deliveryTime = requestRushDelivery && tier.rushDelivery?.enabled
-		? tier.rushDelivery.deliveryTime
-		: tier.deliveryTime;
+
+	const deliveryTime =
+		requestRushDelivery && tier.rushDelivery?.enabled
+			? tier.rushDelivery.deliveryTime
+			: tier.deliveryTime;
 
 	if (!deliveryTime) {
 		throw new Error('Instant buy not eligible: missing_delivery_time');
 	}
 
-	return deriveInstantBuySchedule(nowSeconds, service.instantBuyLeadHours, deliveryTime as DeliveryTimeLike);
+	return deriveInstantBuySchedule(
+		nowSeconds,
+		service.instantBuyLeadHours,
+		deliveryTime as DeliveryTimeLike
+	);
 }

@@ -137,7 +137,7 @@ describe('Wallet Store Functions', () => {
 		walletStore.set({
 			isInitializing: false,
 			isConnected: false,
-			hasAnyConnection: false,
+
 			error: null,
 			rsk: {
 				connected: false,
@@ -180,9 +180,8 @@ describe('Wallet Store Functions', () => {
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
 			activeNetwork: 'rsk',
-			activeTab: 'balance',
 			selectedAsset: 'rBTC'
-		});
+		} as unknown as Parameters<typeof walletStore.set>[0]);
 	});
 
 	afterEach(() => {

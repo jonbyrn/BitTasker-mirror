@@ -250,7 +250,7 @@
 			case ContractModalAction.AcceptProposal:
 				await runAcceptProposal();
 				break;
-			case ContractModalAction.ResolveAfterTimelock:
+			case ContractModalAction.ResolveTimelock:
 				await runResolveAfterTimelock();
 				break;
 			default:
@@ -490,7 +490,7 @@
 			</ConfirmModal>
 		</div>
 	{/if}
-{:else if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete && activeModal !== ContractModalAction.ProposeResolution && activeModal !== ContractModalAction.AcceptProposal}
+{:else if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete && activeModal !== ContractModalAction.ProposeResolution}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
 	{#if config}
 		<div use:portal={'modals'}>

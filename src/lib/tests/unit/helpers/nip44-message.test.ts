@@ -128,13 +128,13 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		// Spy on crypto.getRandomValues (should be available from global setup)
-		if (global.crypto && global.crypto.getRandomValues) {
-			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation((arr: Uint8Array) => {
+		if (global.crypto && typeof global.crypto.getRandomValues === 'function') {
+			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation(((arr: Uint8Array) => {
 				for (let i = 0; i < arr.length; i++) {
 					arr[i] = Math.floor(Math.random() * 256);
 				}
 				return arr;
-			});
+			}) as unknown as typeof global.crypto.getRandomValues);
 		}
 	});
 

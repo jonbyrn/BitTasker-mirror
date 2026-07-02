@@ -1128,7 +1128,7 @@ describe('ServiceQuotesInbox', () => {
 				sig: ''
 			},
 			resolvedStatus: 'declined' as const
-		};
+		} as unknown as ServiceQuoteTimelineEntry;
 
 		const { getByRole, getAllByText } = render(ServiceQuotesInbox, {
 			service: mockService,

@@ -152,7 +152,9 @@ describe('service publish location privacy', () => {
 
 	it('publishes an approximate public service location while preserving the public schema and attempting an exact companion publish', async () => {
 		const { createService } = await import('$lib/nostr/service');
-		await createService(createServiceBody());
+		await createService(
+			createServiceBody() as unknown as import('$lib/types/service.d').ServiceBody
+		);
 
 		expect(hoisted.mockPublishExactServiceLocation).toHaveBeenCalledTimes(1);
 		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
@@ -199,9 +201,9 @@ describe('service publish location privacy', () => {
 
 		const { createService } = await import('$lib/nostr/service');
 
-		await expect(createService(createServiceBody())).rejects.toThrow(
-			'exact companion publish failed'
-		);
+		await expect(
+			createService(createServiceBody() as unknown as import('$lib/types/service.d').ServiceBody)
+		).rejects.toThrow('exact companion publish failed');
 		expect(hoisted.mockPublishEvent).not.toHaveBeenCalled();
 	});
 

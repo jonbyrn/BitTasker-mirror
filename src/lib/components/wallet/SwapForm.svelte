@@ -666,7 +666,9 @@
 		sourceWallet === 'builtin' ? builtinWbtcSats : swapWallets.sourceBalances.wbtcSats
 	);
 	let sourceTbtcSats = $derived(
-		sourceWallet === 'builtin' ? builtinTbtcSats : (swapWallets.sourceBalances.tbtcSats ?? 0)
+		sourceWallet === 'builtin'
+			? builtinTbtcSats
+			: ((swapWallets.sourceBalances as unknown as Record<string, number>).tbtcSats ?? 0)
 	);
 
 	/** BTC sats for a wallet (builtin = rBTC + BTC + wBTC + tBTC from walletStore; connected = from balances) */
@@ -2113,7 +2115,7 @@
 					<span class="text-sm sm:text-base">{$t('wallet.swap.confirm_swap')}</span>
 				</button>
 			</div>
-			{#if needsArbEth && arbEthCheckDone && arbEthBalance !== 'unknown' && parseFloat(arbEthBalance) < 0.0001}
+			{#if needsArbEth && arbEthCheckDone && arbEthBalance !== 'unknown' && parseFloat(arbEthBalance ?? '0') < 0.0001}
 				<div class="alert alert-warning py-2 text-xs">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

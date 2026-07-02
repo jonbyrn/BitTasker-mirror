@@ -163,7 +163,7 @@
 					freelancerFeeTier: 0,
 					createdAt: ev.created_at ?? 0,
 					lastUpdated: ev.created_at ?? 0
-				} as EscrowData;
+				} as unknown as EscrowData;
 			});
 
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(

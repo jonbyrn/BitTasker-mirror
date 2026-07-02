@@ -73,7 +73,7 @@ const service: Service = {
 	id: 'service-event-1',
 	npub: 'a'.repeat(64),
 	uniqueId: 'service-unique-id',
-	active: true,
+
 	status: 'active',
 	title: 'Brand Design',
 	description: 'Identity system design.',
@@ -495,7 +495,9 @@ describe('serviceQuoteUiStore route contract', () => {
 		);
 		const latestState = snapshots.at(-1)!;
 		unsubscribe();
-		const [updatedTimeline] = getTaskerTimelines(latestState) as Array<ServiceQuoteTimelineEntry>;
+		const [updatedTimeline] = getTaskerTimelines(
+			latestState as never
+		) as Array<ServiceQuoteTimelineEntry>;
 
 		expect(updatedTimeline.resolvedStatus).toBe('declined');
 		expect(updatedTimeline.resolvedTerminalEvent?.content.message).toBe('Budget changed');

@@ -89,7 +89,7 @@ describe('services render budget smoke', () => {
 			render(FeaturedHomepageSection, {
 				props: {
 					title: 'Featured Services',
-					viewAllHref: '/services',
+
 					browseHref: '/services',
 					browseLabel: 'Browse Services',
 					items: [],

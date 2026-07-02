@@ -12,7 +12,7 @@
 		hasBitcoinSigner,
 		getBitcoinAddress
 	} from '$lib/stores/connected-wallets.store';
-	import { connectorRegistry } from '$lib/services/external-wallet/connector-registry';
+	import { connectorRegistry as _connectorRegistry } from '$lib/services/external-wallet/connector-registry';
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
@@ -39,7 +39,8 @@
 		createAddLedgerBitcoinHandler,
 		createAddTrezorBitcoinHandler,
 		createCopyAddressHandler,
-		createDisconnectHandlers
+		createDisconnectHandlers,
+		type BtcHandlersParams
 	} from './wallet-btc-handlers';
 
 	// -----------------------------------------------------------------------
@@ -164,7 +165,8 @@
 
 	const handleAddLedgerBitcoin = createAddLedgerBitcoinHandler({
 		connectedWalletsStore,
-		replaceConnectedWallet,
+		replaceConnectedWallet:
+			replaceConnectedWallet as unknown as BtcHandlersParams['replaceConnectedWallet'],
 		setConnectedWalletError,
 		setLedgerBtcError: (v: string) => (ledgerBtcError = v),
 		setLedgerBtcConnecting: (v: boolean) => (ledgerBtcConnecting = v),
@@ -172,22 +174,21 @@
 		setLedgerBtcSuccess: (v: boolean) => (showLedgerBtcSuccess = v),
 		setLedgerConnect: (v: boolean) => (showLedgerConnect = v),
 		setShowConnectModal: (v: boolean) => (showConnectModal = v),
-		connectorRegistry,
 		t: (key: string) => get(t)(key)
-	});
+	} as unknown as BtcHandlersParams);
 
 	const handleAddTrezorBitcoin = createAddTrezorBitcoinHandler({
 		connectedWalletsStore,
-		replaceConnectedWallet,
+		replaceConnectedWallet:
+			replaceConnectedWallet as unknown as BtcHandlersParams['replaceConnectedWallet'],
 		setConnectedWalletError,
 		setTrezorBtcError: (v: string) => (trezorBtcError = v),
 		setTrezorBtcConnecting: (v: boolean) => (trezorBtcConnecting = v),
 		setTrezorBtcStep: (v: boolean) => (showTrezorBtcStep = v),
 		setTrezorBtcSuccess: (v: boolean) => (showTrezorBtcSuccess = v),
 		setShowConnectModal: (v: boolean) => (showConnectModal = v),
-		connectorRegistry,
 		t: (key: string) => get(t)(key)
-	});
+	} as unknown as BtcHandlersParams);
 
 	const copyAddress = createCopyAddressHandler({
 		copyToClipboard,

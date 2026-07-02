@@ -118,8 +118,10 @@
 				<span class="text-sm">{$t('wallet.transaction_fee')}</span>
 				<span class="text-sm font-semibold">
 					{$t('wallet.gas_fee_display.fee_amount', {
-						amount: estimate.formattedTokenCost,
-						token: token.symbol
+						values: {
+							amount: estimate.formattedTokenCost,
+							token: token.symbol
+						}
 					})}
 				</span>
 			</div>
@@ -140,7 +142,7 @@
 			<!-- Confidence row -->
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-xs">
-					{$t('wallet.gas_fee_display.confidence', { percent: confidencePercent })}
+					{$t('wallet.gas_fee_display.confidence', { values: { percent: confidencePercent } })}
 				</span>
 
 				<!-- Confidence bar -->
@@ -158,7 +160,9 @@
 			<!-- Paymaster status row -->
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-xs">
-					{$t('wallet.gas_fee_display.paymaster_status', { status: statusDot.statusKey })}
+					{$t('wallet.gas_fee_display.paymaster_status', {
+						values: { status: statusDot.statusKey }
+					})}
 				</span>
 				<div
 					class="{statusDot.cssClass} h-2 w-2 rounded-full"

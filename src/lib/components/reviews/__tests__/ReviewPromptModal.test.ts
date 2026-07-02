@@ -86,13 +86,13 @@ function mockReviewContract(clientHex: string, freelancerHex: string): IContract
 			return freelancerHex;
 		},
 		get settlementType() {
-			return 'escrow';
+			return 'escrow' as const;
 		},
 		get chain() {
-			return 'rsk';
+			return 'rsk' as const;
 		},
 		get asset() {
-			return 'rbtc';
+			return 'rbtc' as const;
 		},
 		get contractAddress() {
 			return '0xpayment';

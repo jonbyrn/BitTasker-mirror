@@ -136,7 +136,7 @@ describe('BalanceHistory', () => {
 			bsc: { connected: false, address: null },
 			assets: [],
 			totalBalances: { sats: 100000000, usd: 50000 }
-		} as unknown);
+		} as unknown as Parameters<typeof walletStore.set>[0]);
 	});
 
 	it('should render loading state initially', () => {

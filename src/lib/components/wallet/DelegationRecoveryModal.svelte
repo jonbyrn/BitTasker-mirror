@@ -172,8 +172,10 @@
 							<span class="text-base-content/70">{$t('wallet.send.status.retry')}</span>
 							<span class="text-xs">
 								{$t('wallet.delegation_recovery.retry_attempt', {
-									current: recoveryState.retryCount + 1,
-									max: recoveryState.maxRetries
+									values: {
+										current: recoveryState.retryCount + 1,
+										max: recoveryState.maxRetries
+									}
 								})}
 							</span>
 						</div>

@@ -507,8 +507,7 @@ export async function scanUnclaimedLockups(): Promise<{
 	} catch (err) {
 		dScan.error('Scan failed: %s', (err as Error).message);
 		Sentry.captureException(err, {
-			tags: { component: 'swap-chain', recovery: 'scanUnclaimedLockups' },
-			data: { source: 'blockscout-api' }
+			tags: { component: 'swap-chain', recovery: 'scanUnclaimedLockups' }
 		});
 		return { data: [], error: new Error(`Scan failed: ${(err as Error).message}`) };
 	}

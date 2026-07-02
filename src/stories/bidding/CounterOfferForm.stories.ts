@@ -36,7 +36,7 @@ const sampleBid: NostrBidContent = {
 export const Default: Story = {
 	args: {
 		bid: sampleBid
-	}
+	} as unknown as Story['args']
 };
 
 export const HourlyRateBid: Story = {
@@ -48,5 +48,5 @@ export const HourlyRateBid: Story = {
 			estimatedHours: 20,
 			amount: 500
 		}
-	}
+	} as unknown as Story['args']
 };

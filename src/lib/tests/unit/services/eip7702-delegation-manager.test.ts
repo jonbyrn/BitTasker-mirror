@@ -159,7 +159,7 @@ function mockStablecoinConfig(chainId: number = 56): void {
 			address: '0x55d398326f99059ff775485246999027b3197955',
 			decimals: 18
 		}
-	});
+	} as unknown as ReturnType<typeof getStablecoinConfig>);
 }
 
 // ---------------------------------------------------------------------------

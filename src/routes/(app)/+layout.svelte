@@ -105,9 +105,9 @@
 		};
 	});
 
-	onMount(async () => {
+	onMount(() => {
 		import('$lib/utils/helpers/keyboard').then((m) => {
-			m.initKeyboard().then((cleanup) => {
+			m.initKeyboard().then((cleanup: () => void) => {
 				cleanupKb = cleanup;
 			});
 		});
@@ -115,7 +115,7 @@
 		// Primary app scroll container (middle area in app-shell layout)
 		appScrollContainer.set(scrollEl);
 
-		await fetchNotificationCount();
+		void fetchNotificationCount();
 
 		// Re-fetch notification count when app resumes from background.
 		// This reconciles any missed WebSocket events during the background period.

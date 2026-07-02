@@ -18,7 +18,7 @@ vi.mock('$lib/utils/helpers/modalScrollLock', () => ({
 
 describe('ScheduleDateTimeField', () => {
 	const onChange = vi.fn();
-	const baseDate = new Date(2026, 4, 11, 12, 0, 0);
+	const _baseDate = new Date(2026, 4, 11, 12, 0, 0);
 	const sampleDate = new Date(2026, 4, 15, 14, 30, 0);
 
 	beforeEach(() => {
@@ -137,7 +137,7 @@ describe('ScheduleDateTimeField', () => {
 
 		it('opens time modal when time button is clicked', async () => {
 			render(ScheduleDateTimeField, {
-				props: { value: null, onChange, baseDate }
+				props: { value: null, onChange }
 			});
 
 			const timeButton = screen.getByLabelText(/common\.components\.schedule_picker\.time/);

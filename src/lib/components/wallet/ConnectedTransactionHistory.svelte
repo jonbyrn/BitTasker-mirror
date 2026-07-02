@@ -105,7 +105,7 @@
 		networkFilterOptions.find((opt) => opt.id === networkFilter)
 	);
 
-	const transactionUI = {
+	const transactionUI: Record<string, { border: string; background: string; text: string }> = {
 		success: { border: 'border-success', background: 'bg-success/20', text: 'text-success' },
 		warning: { border: 'border-warning', background: 'bg-warning/20', text: 'text-warning' },
 		neutral: { border: 'border-neutral', background: 'bg-neutral/20', text: 'text-neutral' },
@@ -315,7 +315,7 @@
 					<div class="flex items-center gap-2">
 						{#if selectedNetworkOption?.isImage}
 							<img
-								src={selectedNetworkOption.icon}
+								src={String(selectedNetworkOption.icon)}
 								alt={selectedNetworkOption.label}
 								class="h-5 w-5"
 							/>
@@ -347,7 +347,7 @@
 								onclick={() => selectNetworkFilter(option.id)}
 							>
 								{#if option.isImage}
-									<img src={option.icon} alt={option.label} class="h-5 w-5" />
+									<img src={String(option.icon)} alt={option.label} class="h-5 w-5" />
 								{:else if typeof option.icon !== 'string'}
 									{@const IconComponent = option.icon}
 									<IconComponent

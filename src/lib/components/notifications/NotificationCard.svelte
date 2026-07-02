@@ -105,7 +105,7 @@
 	let CategoryIcon = $derived(CATEGORY_ICONS[notification.type] ?? IconBell);
 	let iconColor = $derived(CATEGORY_COLORS[notification.type] ?? 'text-base-content/60');
 	let isUnread = $derived(!notification.isRead);
-	let displayTime = $state(timeAgo(notification.createdAt));
+	let displayTime = $derived(timeAgo(notification.createdAt));
 
 	let priorityBorder = $derived.by(() => {
 		switch (notification.priority) {

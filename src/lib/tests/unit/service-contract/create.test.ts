@@ -53,7 +53,8 @@ vi.mock('$lib/utils/contract/v2/service-creation', () => ({
 }));
 
 vi.mock('$lib/utils/service-contract/acceptance-snapshot', () => ({
-	createServiceAcceptanceSnapshot: (...args: unknown[]) => createServiceAcceptanceSnapshot(...args),
+	createServiceAcceptanceSnapshot: (...args: unknown[]) =>
+		createServiceAcceptanceSnapshot(...(args as unknown as [Record<string, unknown>])),
 	getConfiguredRskChainId: () => 31,
 	getConfiguredRskContractAddress: () => '0x4444444444444444444444444444444444444444',
 	getConfiguredVerificationRpcLabel: () => 'rsk:testnet'

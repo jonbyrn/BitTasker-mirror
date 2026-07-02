@@ -130,7 +130,7 @@ vi.mock('bitcoinjs-lib', () => ({
 // ---------------------------------------------------------------------------
 
 /** Extended window type — allows safe access to the TrezorConnect global. */
-interface WindowWithTrezor extends Window {
+interface WindowWithTrezor {
 	TrezorConnect?: typeof mockTrezorConnect;
 }
 
@@ -704,7 +704,8 @@ describe('trezor-connector', () => {
 			// Verify finalizeInput was called per input
 			expect(mockPsbt.finalizeInput).toHaveBeenCalledWith(0);
 			// Verify signature was injected
-			const psbtInputs = mockPsbt.data.inputs as Array<{ tapKeySig?: Buffer }>;
+			const psbtInputs = ((mockPsbt as Record<string, unknown>).data as Record<string, unknown>)
+				.inputs as Array<{ tapKeySig?: Buffer }>;
 			expect(psbtInputs[0]).toBeDefined();
 			expect(psbtInputs[0]!.tapKeySig).toBeDefined();
 			expect(psbtInputs[0]!.tapKeySig!.length).toBeGreaterThan(0);

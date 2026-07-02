@@ -233,7 +233,7 @@ describe('WalletPaymentModal Component', () => {
 			// Just verify modal renders with correct mode
 			render(WalletPaymentModal, {
 				...defaultProps,
-				mode: 'receive',
+
 				children: (() => '<div>Request Payment Content</div>') as unknown as Snippet
 			});
 
@@ -247,7 +247,7 @@ describe('WalletPaymentModal Component', () => {
 			// Just verify modal renders with correct mode
 			render(WalletPaymentModal, {
 				...defaultProps,
-				mode: 'send',
+
 				children: (() => '<div>Send Payment Content</div>') as unknown as Snippet
 			});
 
@@ -332,7 +332,9 @@ describe('WalletPaymentModal Component', () => {
 		it('should have accessible title', () => {
 			render(WalletPaymentModal, {
 				...defaultProps,
-				children: () => '<h2 id="wallet-modal-title">Request Payment</h2>'
+				children: (() => '<h2 id="wallet-modal-title">Request Payment</h2>') as unknown as Snippet<
+					[]
+				>
 			});
 
 			// Title is in children, but modal should have aria-labelledby pointing to it

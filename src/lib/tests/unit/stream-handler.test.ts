@@ -227,7 +227,7 @@ describe('handleStreamRoute', () => {
 		});
 
 		it('returns Cloudflare status when VIDEO_STATUS KV is not bound', async () => {
-			env.VIDEO_STATUS = undefined;
+			env.VIDEO_STATUS = undefined as unknown as (typeof env)['VIDEO_STATUS'];
 			vi.stubGlobal(
 				'fetch',
 				vi.fn().mockResolvedValue(

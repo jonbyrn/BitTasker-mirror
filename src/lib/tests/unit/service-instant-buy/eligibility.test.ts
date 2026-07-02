@@ -66,8 +66,7 @@ describe('service instant-buy eligibility', () => {
 			getInstantBuyEligibility({
 				...baseService,
 				pricing: {
-					...baseService.pricing,
-					rushDelivery: { enabled: true, price: 50, deliveryTime: { value: 1, unit: 'day' } }
+					...baseService.pricing
 				}
 			}).code
 		).toBe('eligible');

@@ -44,11 +44,10 @@ const PUBLISHED_RELAY_SET_KEY = 'bittasker.serviceQuote.publishedRelays';
 const FALLBACK_DUPLICATE_LOOKBACK_SECONDS = 60 * 60 * 24 * 30;
 const publishedRelaySetCache = new Map<string, string[]>();
 
-function validatePublishedEvent<TContent, TEvent extends NostrEvent>(
-	event: NostrEvent,
-	content: TContent,
-	validator: (event: NostrEvent) => TEvent
-): TEvent {
+function validatePublishedEvent<
+	TContent,
+	TEvent extends { id: string; pubkey: string; tags: string[][] }
+>(event: NostrEvent, content: TContent, validator: (event: NostrEvent) => TEvent): TEvent {
 	return validator({
 		...event,
 		content
@@ -111,7 +110,7 @@ export async function publishServiceQuoteRequest(
 	const serviceAddress = buildServiceAddress(params.service);
 	const createdAt = unixNow();
 	const content: ServiceQuoteRequestContent = {
-		type: getServiceQuoteMessageType(KINDS.SERVICE_QUOTE_REQUEST),
+		type: getServiceQuoteMessageType(KINDS.SERVICE_QUOTE_REQUEST) as 'service-quote-request',
 		quoteRequestId: params.quoteRequestId,
 		serviceId: serviceAddress,
 		serviceAddress,
@@ -141,12 +140,12 @@ export async function publishServiceQuoteRequest(
 	);
 	if (duplicate) {
 		dispatchQuoteRequestPublishedSideEffects(
-			duplicate as ServiceQuoteRequestEvent,
+			duplicate as unknown as ServiceQuoteRequestEvent,
 			params.service,
 			params.sideEffects
 		);
 		return {
-			event: duplicate as ServiceQuoteRequestEvent,
+			event: duplicate as unknown as ServiceQuoteRequestEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -172,7 +171,11 @@ export async function publishServiceQuoteRequest(
 		createdAt
 	);
 
-	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
+	const validated = validatePublishedEvent<ServiceQuoteRequestContent, ServiceQuoteRequestEvent>(
+		event,
+		content,
+		validateServiceQuoteRequestEvent
+	);
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
@@ -202,9 +205,12 @@ export async function publishServiceProposal(
 	const dTag = buildProposalD(params.content.quoteRequestId, params.content.proposalId);
 	const duplicate = await findExistingDuplicate(KINDS.SERVICE_PROPOSAL, authorPubkey, dTag);
 	if (duplicate) {
-		dispatchProposalPublishedSideEffects(duplicate as ServiceProposalEvent, params.sideEffects);
+		dispatchProposalPublishedSideEffects(
+			duplicate as unknown as ServiceProposalEvent,
+			params.sideEffects
+		);
 		return {
-			event: duplicate as ServiceProposalEvent,
+			event: duplicate as unknown as ServiceProposalEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -252,7 +258,11 @@ export async function publishServiceProposal(
 		throw new Error('Service proposal publish quorum was not reached');
 	}
 
-	const validated = validatePublishedEvent(event, content, validateServiceProposalEvent);
+	const validated = validatePublishedEvent<ServiceProposalContent, ServiceProposalEvent>(
+		event,
+		content,
+		validateServiceProposalEvent
+	);
 	await persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
 
@@ -298,7 +308,7 @@ export async function publishServiceProposalStatus(
 	const duplicate = await findExistingDuplicate(KINDS.SERVICE_PROPOSAL_STATUS, authorPubkey, dTag);
 	if (duplicate) {
 		return {
-			event: duplicate as ServiceProposalStatusEvent,
+			event: duplicate as unknown as ServiceProposalStatusEvent,
 			relayResults: [],
 			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
@@ -326,11 +336,10 @@ export async function publishServiceProposalStatus(
 		params.content.timestamp
 	);
 
-	const validated = validatePublishedEvent(
-		event,
-		params.content,
-		validateServiceProposalStatusEvent
-	);
+	const validated = validatePublishedEvent<
+		ServiceProposalStatusContent,
+		ServiceProposalStatusEvent
+	>(event, params.content, validateServiceProposalStatusEvent);
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);

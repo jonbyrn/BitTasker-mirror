@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ProcessedTransaction, SwapAction } from '$lib/types/wallet';
+	import type { Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager, walletStore } from '$lib/stores/wallet.store';
@@ -498,7 +499,10 @@
 												<div
 													class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
 												>
-													<tx.iconConfig.base class="h-6 w-6" />
+													{#if tx.iconConfig.base}
+														{@const IconBase = tx.iconConfig.base as unknown as Component}
+														<IconBase class="h-6 w-6" />
+													{/if}
 												</div>
 												<!-- Status Badge on top-left -->
 												<div

@@ -60,7 +60,7 @@ describe('transactionHistory', () => {
 			headers: new Headers({ 'content-type': 'application/json' }),
 			json: async () => ({ items: [] })
 		});
-		global.fetch = mockFetch;
+		global.fetch = mockFetch as unknown as typeof global.fetch;
 	});
 
 	afterEach(() => {

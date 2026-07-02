@@ -105,7 +105,7 @@
 </script>
 
 <div class="form-control">
-	<label class="label px-1 py-0.5">
+	<label class="label px-1 py-0.5" for={label}>
 		<span class="label-text text-base-content/60 text-xs font-medium">{label}</span>
 	</label>
 	<div class="border-primary bg-base-100 overflow-hidden rounded-lg border-2">

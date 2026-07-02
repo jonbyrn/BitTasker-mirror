@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Route, SourceWallet, Destination } from '$lib/services/route-resolver';
 
 // We test via the public surface + any exported pure helpers
 import * as swapChain from '$lib/services/swap-chain.service';
@@ -26,10 +27,10 @@ describe('swap-chain.service (orchestrator smoke)', () => {
 	it('startSwapChain rejects gracefully on invalid input (smoke)', async () => {
 		// This is intentionally a shallow boundary check
 		const result = await swapChain.startSwapChain(
-			{} as unknown,
-			'rbtc' as unknown,
-			{} as unknown,
-			'0' as unknown,
+			{} as unknown as Route,
+			'rbtc' as unknown as SourceWallet,
+			{} as unknown as Destination,
+			'0' as unknown as string,
 			null
 		);
 		// We mainly care that it doesn't throw and returns a structured result

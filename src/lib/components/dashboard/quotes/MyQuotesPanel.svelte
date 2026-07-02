@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import type { Component } from 'svelte';
@@ -1025,7 +1024,7 @@
 			type: 'services',
 			highlight: escrowId
 		});
-		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
+		await goto(`${nextUrl.pathname}${nextUrl.search}`);
 	}
 
 	async function deleteRequest(timeline: ServiceQuoteTimelineEntry) {
@@ -1224,8 +1223,13 @@
 		isRefreshing={isSyncing}
 		refreshDisabled={!onRetry || hasPendingMutation}
 	>
+		{@const dropdownOptions = filterOptions as unknown as {
+			id: ServiceRequestFilterCategory;
+			label: string;
+			icon?: Component;
+		}[]}
 		<DashboardDropdown
-			options={filterOptions}
+			options={dropdownOptions}
 			value={activeFilter}
 			onSelect={handleFilterChange}
 			containerClass="col-span-2 sm:w-64"

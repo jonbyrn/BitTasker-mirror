@@ -264,7 +264,7 @@ describe('walletconnect-connector', () => {
 			await vi.advanceTimersByTimeAsync(130_000);
 
 			const error = await caught;
-			expect(error.message).toContain('timed out');
+			expect((error as Error).message).toContain('timed out');
 
 			vi.useRealTimers();
 		});

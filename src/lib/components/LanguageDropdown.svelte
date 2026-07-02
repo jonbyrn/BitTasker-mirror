@@ -131,7 +131,7 @@
 						/>
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
-							<IconCheck class="text-primary ml-auto" width="16" />
+							<IconCheck class="text-primary ml-auto h-4 w-4" />
 						{/if}
 						{#if isLanguageLoading && code !== $locale}
 							<div class="loading loading-spinner loading-xs ml-auto"></div>

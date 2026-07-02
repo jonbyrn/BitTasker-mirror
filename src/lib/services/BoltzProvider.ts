@@ -195,7 +195,9 @@ export class BoltzProvider {
 
 		// Boltz API returns either { pairs: {...} } or a flat { RBTC: {...} }
 		const pairs: Record<string, Record<string, BoltzPairInfo>> | undefined =
-			'pairs' in data ? data.pairs : data;
+			'pairs' in data
+				? (data.pairs as Record<string, Record<string, BoltzPairInfo>>)
+				: (data as unknown as Record<string, Record<string, BoltzPairInfo>>);
 		if (!pairs || typeof pairs !== 'object') {
 			debug.warn('No pairs in Boltz response');
 			return null;

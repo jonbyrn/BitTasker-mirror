@@ -345,9 +345,9 @@
 <div class="space-y-4">
 	<DashboardFilterBar onRefresh={handleRefresh} isRefreshing={isLoading}>
 		<DashboardDropdown
-			options={filterOptions as unknown as typeof filterOptions}
+			options={filterOptions as unknown as { id: string; label: string; icon?: Component }[]}
 			value={activeFilter}
-			onSelect={handleStatusChange}
+			onSelect={(v: string) => handleStatusChange(v as TaskFilterCategory)}
 			containerClass="col-span-2 sm:w-64"
 		/>
 	</DashboardFilterBar>
@@ -425,7 +425,12 @@
 					<DashboardTaskCard
 						{task}
 						{btcPrice}
-						activeFilter={activeFilter as unknown as TaskFilterCategory}
+						activeFilter={activeFilter as
+							| 'open'
+							| 'tasks_in_progress'
+							| 'tasks_completed'
+							| 'tasks_disputed'
+							| 'tasks_cancelled'}
 						{getActionButtons}
 					/>
 				{/each}

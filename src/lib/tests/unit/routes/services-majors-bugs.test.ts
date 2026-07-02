@@ -272,8 +272,10 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			expect(findServicesCalledWith).not.toBeNull();
 		});
 
-		expect(findServicesCalledWith?.search).toBe('logo');
-		expect(findServicesCalledWith?.location).toBe('Austin, TX');
+		expect((findServicesCalledWith as unknown as Record<string, unknown>)?.search).toBe('logo');
+		expect((findServicesCalledWith as unknown as Record<string, unknown>)?.location).toBe(
+			'Austin, TX'
+		);
 		expect(
 			(findServicesCalledWith as Record<string, unknown> | null)?.locationCoords
 		).toBeDefined();

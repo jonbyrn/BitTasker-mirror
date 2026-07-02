@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { ContractStatus } from '$lib/utils/contract/types';
-import type { NDKUser } from '@nostr-dev-kit/ndk';
-import type { NDKSubscription } from '@nostr-dev-kit/ndk';
+import type { NDKUser, NDKSubscription } from '@nostr-dev-kit/ndk';
+import type NDK from '@nostr-dev-kit/ndk';
 
 // Mock dependencies
 vi.mock('$lib/nostr/ndk', () => ({

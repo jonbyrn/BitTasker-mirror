@@ -1,7 +1,7 @@
 // Debounce function with abort signal support
 export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
 	let timeoutId: ReturnType<typeof setTimeout>;
-	return function (this: Record<string, unknown>, ...args: Parameters<T>) {
+	return function (this: void, ...args: Parameters<T>) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn.apply(this, args), delay);
 	};

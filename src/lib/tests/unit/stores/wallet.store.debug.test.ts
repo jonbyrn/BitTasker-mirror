@@ -172,7 +172,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			delegationState: 'IDLE' as DelegationState,
 			pendingTransactions: new Map<number, string>(),
 			chainLock: false
-		});
+		} as unknown as Parameters<typeof walletStore.set>[0]);
 	});
 
 	afterEach(() => {

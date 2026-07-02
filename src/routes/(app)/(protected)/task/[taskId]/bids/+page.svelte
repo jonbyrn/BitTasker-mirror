@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import BidAcceptanceFormV2 from '$lib/components/bidding/BidAcceptanceFormV2.svelte';
@@ -121,8 +122,8 @@
 	// Status map: bid event id → latest status string, derived from kind 30008 tags (plaintext).
 	// Keeps only the most recent status per bid.
 	const statusMap = $derived.by(() => {
-		const map = new Map<string, string>();
-		const timestamps = new Map<string, number>();
+		const map = new SvelteMap<string, string>();
+		const timestamps = new SvelteMap<string, number>();
 		for (const event of bidsAndStatusSub.events) {
 			if (event.kind !== KINDS.BID_STATUS) continue;
 			const statusTag = event.tags.find((t) => t[0] === 's');
@@ -372,7 +373,7 @@
 			</button>
 		</div>
 		<ReceivePaymentForm
-			initialFormState={receiveInitialState}
+			initialFormState={receiveInitialState ?? undefined}
 			onCancel={() => (isReceiveModalOpen = false)}
 			onOpenPaymentRequest={(data) => {
 				isReceiveModalOpen = false;

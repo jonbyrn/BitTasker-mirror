@@ -647,17 +647,20 @@ export function parsePaymentAddress(
 
 			return {
 				isValid: true,
-				address: normalizedAddress, // Return normalized address
-				network: network as
+				address: normalizedAddress,
+				network: network as unknown as
 					| 'bitcoin'
 					| 'usdt-bsc'
-					| 'usdt-eth'
-					| 'usdt-trx'
-					| 'usdt-avax'
-					| 'usdt-op'
-					| 'usdt-arb'
-					| 'bnb'
-					| 'eth'
+					| 'rootstock-bitcoin'
+					| 'usdt-ethereum'
+					| 'usdt-arbitrum'
+					| 'usdt-polygon'
+					| 'lightning-bitcoin'
+					| 'liquid-bitcoin'
+					| 'usdt-tron'
+					| 'usdt-optimism'
+					| 'usdt-base'
+					| 'usdt-avalanche'
 					| null,
 				amount,
 				memo: queryParams.get('message') || queryParams.get('label') || null
@@ -720,13 +723,16 @@ export function parsePaymentAddress(
 		network: network as
 			| 'bitcoin'
 			| 'usdt-bsc'
-			| 'usdt-eth'
-			| 'usdt-trx'
-			| 'usdt-avax'
-			| 'usdt-op'
-			| 'usdt-arb'
-			| 'bnb'
-			| 'eth'
+			| 'rootstock-bitcoin'
+			| 'usdt-ethereum'
+			| 'usdt-arbitrum'
+			| 'usdt-polygon'
+			| 'lightning-bitcoin'
+			| 'liquid-bitcoin'
+			| 'usdt-tron'
+			| 'usdt-optimism'
+			| 'usdt-base'
+			| 'usdt-avalanche'
 			| null,
 		amount,
 		memo: queryParams.get('message') || queryParams.get('label') || null

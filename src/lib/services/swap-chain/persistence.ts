@@ -222,7 +222,7 @@ export async function loadClaimDataFromNostr(swapId: string): Promise<SwapClaimD
 				d.log('Recovered claim data from Nostr for swap %s', swapId);
 				return {
 					preimageHex: s.preimage,
-					claimDetails: s.claimDetails,
+					claimDetails: s.claimDetails as typeof s extends { claimDetails: infer T } ? T : never,
 					lockupClaimAddress: s.lockupClaimAddress ?? ''
 				};
 			}

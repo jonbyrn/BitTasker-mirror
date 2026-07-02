@@ -98,13 +98,13 @@ describe('featuredHomepage helpers', () => {
 		const first = await loadFeaturedHomepageItems({
 			cacheKey: 'homepage:ttl',
 			fetcher,
-			getId: (item) => item.id
+			getId: (item: unknown) => (item as Record<string, unknown>).id as string
 		});
 		vi.setSystemTime(301_000);
 		const second = await loadFeaturedHomepageItems({
 			cacheKey: 'homepage:ttl',
 			fetcher,
-			getId: (item) => item.id
+			getId: (item: unknown) => (item as Record<string, unknown>).id as string
 		});
 
 		expect(first).toEqual([{ id: 'first' }]);

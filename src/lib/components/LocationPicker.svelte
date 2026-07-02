@@ -273,13 +273,13 @@
 			await loadMarkerLibrary();
 
 			// Add map click event to place marker
-			map.addListener('click', (event: google.maps.MapMouseEvent) => {
+			map.addListener('click', ((event: google.maps.MapMouseEvent) => {
 				const clickedLat = event.latLng?.lat();
 				const clickedLng = event.latLng?.lng();
 				if (clickedLat && clickedLng) {
 					reverseGeocodeAndUpdate(clickedLat, clickedLng);
 				}
-			});
+			}) as unknown as (...args: unknown[]) => void);
 
 			// Place initial marker at current (or default) coordinates
 			await placeMarker(safeCoords.lat, safeCoords.lng);

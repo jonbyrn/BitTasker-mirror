@@ -112,7 +112,7 @@ describe('Tasks Page - Unit Tests', () => {
 		});
 
 		it('should return empty string for null input', () => {
-			expect(formatDateTimeReactive(null)).toBe('');
+			expect(formatDateTimeReactive(null as unknown as string)).toBe('');
 		});
 
 		it('should format valid date string', () => {

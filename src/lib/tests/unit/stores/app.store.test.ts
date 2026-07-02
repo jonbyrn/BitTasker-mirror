@@ -41,7 +41,7 @@ describe('appStore', () => {
 					npub: 'npub123',
 					mnemonic: 'abandon abandon'
 				},
-				biometricData: { password: 'x', npub: 'y' },
+
 				error: 'Some error'
 			}));
 

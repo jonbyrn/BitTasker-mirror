@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tasksStore } from '$lib/stores/task.store';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
 
@@ -27,7 +27,7 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as TaskTypeEnum
+		type: 'fixed' as unknown as BudgetTypeEnum
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -62,7 +62,7 @@ function storeState(overrides: Record<string, unknown>) {
 		pool: {} as never,
 		lastRelayTimestamp: undefined as number | undefined,
 		...overrides
-	} as Parameters<typeof tasksStore.set>[0];
+	} as unknown as Parameters<typeof tasksStore.set>[0];
 }
 
 describe('Tasks Page - Integration Tests', () => {

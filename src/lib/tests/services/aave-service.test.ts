@@ -22,6 +22,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ethers } from 'ethers';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { AaveService, USDT0_ARBITRUM, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
 
@@ -69,7 +70,7 @@ describe('AaveService (RED PHASE — failing tests against current live-wired im
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Fresh service per test — constructor stores provider but all calls go through mocked ethers.Contract
-		service = new AaveService(mockProvider);
+		service = new AaveService(mockProvider as unknown as ethers.Provider);
 	});
 
 	afterEach(() => {

@@ -722,7 +722,11 @@
 						isSelected={focusedRequestId === timeline.request.content.quoteRequestId}
 						{serviceTitleByAddress}
 						serviceUnavailable={serviceUnavailable && !timeline.linkedEscrowId}
-						{getActionButtons}
+						getActionButtons={getActionButtons as unknown as ServiceQuoteRequestCard extends {
+							getActionButtons: infer T;
+						}
+							? T
+							: never}
 					/>
 				{/each}
 			</div>

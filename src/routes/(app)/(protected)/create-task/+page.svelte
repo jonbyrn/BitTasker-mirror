@@ -246,7 +246,7 @@
 	const handleNext = async () => {
 		// Save current skill input if we're on the basics step
 		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef) {
-			taskBasicsRef.saveCurrentSkillInput();
+			taskBasicsRef.saveCurrentSkillInput?.();
 		}
 
 		if (!validateCurrentStep()) return;

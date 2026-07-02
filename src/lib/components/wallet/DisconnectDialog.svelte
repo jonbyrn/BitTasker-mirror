@@ -27,8 +27,10 @@
 		<div
 			class="modal-box max-w-sm"
 			onclick={(e: Event) => e.stopPropagation()}
+			onkeydown={(e: KeyboardEvent) => e.stopPropagation()}
 			role="alertdialog"
 			aria-modal="true"
+			tabindex={-1}
 		>
 			<h3 class="mb-2 text-lg font-bold">{$t('wallet.connected.disconnect_title')}</h3>
 			{#if walletName}

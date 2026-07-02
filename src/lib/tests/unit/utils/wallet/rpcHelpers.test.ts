@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeWithRetry, callContractMethod } from '$lib/utils/wallet/rpcHelpers';
+import type { Contract } from 'ethers';
 
 describe('rpcHelpers', () => {
 	beforeEach(() => {
@@ -85,9 +86,14 @@ describe('rpcHelpers', () => {
 			const mockContract = {
 				getBalance: vi.fn().mockResolvedValue(100n)
 			};
-			const result = await callContractMethod(mockContract, 'getBalance', ['0x123'], {
-				timeoutMs: 5000
-			});
+			const result = await callContractMethod(
+				mockContract as unknown as Contract,
+				'getBalance',
+				['0x123'],
+				{
+					timeoutMs: 5000
+				}
+			);
 			expect(result).toBe(100n);
 			expect(mockContract.getBalance).toHaveBeenCalledWith('0x123');
 		});
@@ -97,7 +103,7 @@ describe('rpcHelpers', () => {
 				transfer: vi.fn().mockRejectedValue(new Error('revert'))
 			};
 			await expect(
-				callContractMethod(mockContract, 'transfer', ['0xabc', 100], {
+				callContractMethod(mockContract as unknown as Contract, 'transfer', ['0xabc', 100], {
 					maxRetries: 0,
 					timeoutMs: 5000
 				})

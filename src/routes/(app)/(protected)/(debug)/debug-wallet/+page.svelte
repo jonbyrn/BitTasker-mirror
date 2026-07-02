@@ -118,7 +118,7 @@
 
 	<!-- Send Modal -->
 	{#if selectedToken}
-		<WalletPaymentModal isOpen={isSendModalOpen} mode="send" onClose={handleCloseModal}>
+		<WalletPaymentModal isOpen={isSendModalOpen} onClose={handleCloseModal}>
 			<DebugWalletSendForm
 				token={selectedToken}
 				onClose={handleCloseModal}

@@ -12,6 +12,7 @@
 	import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
+	import type { TokenInfo } from '$lib/types/gasless.types';
 	import {
 		UniswapService,
 		FEE_TIER,
@@ -157,7 +158,7 @@
 			isLoadingPool = false;
 			return;
 		}
-		livePool = pool as Record<string, unknown>;
+		livePool = pool as unknown as Record<string, unknown>;
 		isLoadingPool = false;
 
 		Sentry.addBreadcrumb({
@@ -816,7 +817,7 @@
 		symbol: 'WBTC',
 		address: UniswapService.WBTC_ARBITRUM,
 		decimals: 8
-	} as unknown as Record<string, unknown>}
+	} as unknown as TokenInfo}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveWbtc}
 	gasEstimate={0.12}
@@ -838,7 +839,7 @@
 		symbol: 'USDT0',
 		address: UniswapService.USDT0_ARBITRUM,
 		decimals: 6
-	} as unknown as Record<string, unknown>}
+	} as unknown as TokenInfo}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveUsdt0}
 	gasEstimate={0.09}

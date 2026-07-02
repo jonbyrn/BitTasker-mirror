@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { ethers } from 'ethers';
@@ -36,7 +37,7 @@
 	let approveAmount = $state<string | number>(0);
 	let showApproveModal = $state(false);
 	let pendingSupplyAfterApprove = $state(false);
-	let selectedId = $state<'builtin' | string>(walletId);
+	let selectedId = $state<'builtin' | string>(untrack(() => walletId as 'builtin' | string));
 
 	let isOnline = $derived($browserNetworkStatus.online);
 

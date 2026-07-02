@@ -183,7 +183,7 @@
 						<div class="mt-1">
 							<div class="flex flex-wrap gap-1">
 								{#if search.params.categories?.length}
-									{#each search.params.categories as category, categoryIndex (`${typeof category === 'string' ? category : category.id}-${categoryIndex}`)}
+									{#each search.params.categories as category, categoryIndex (categoryIndex)}
 										{@const id =
 											typeof category === 'string' ? category : (category as { id: string }).id}
 										<div

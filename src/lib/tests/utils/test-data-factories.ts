@@ -3,7 +3,7 @@
  * Centralized factories for generating consistent test data across all wallet tests
  */
 
-import type { WalletAsset, Transaction, AddressEntity } from '@bittasker/wallet-core';
+import type { WalletAsset, Transaction } from '@bittasker/wallet-core';
 
 /**
  * Factory for creating test wallet assets
@@ -63,9 +63,9 @@ export const AssetFactory = {
 };
 
 /**
- * Create a mock AddressEntity for tests
+ * Create a mock address entity for tests
  */
-function createAddressEntity(address: string): AddressEntity {
+function createAddressEntity(address: string): Transaction['from'] {
 	return {
 		hash: address,
 		is_contract: false,

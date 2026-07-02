@@ -112,7 +112,7 @@
 		return () => controller.abort();
 	});
 
-	const hasOverride = overrideAddress !== '';
+	const hasOverride = $derived(overrideAddress !== '');
 
 	let balanceChangesPromise = $derived.by(() => {
 		const sats = currentRpcSats || overrideSats;

@@ -24,12 +24,13 @@ vi.mock('$lib/utils/debug', () => ({
 }));
 
 describe('enrichment calls', () => {
-	let notificationCenterService: { enrich: Mock<[EnrichmentRequest], Promise<void>> };
+	let notificationCenterService: { enrich: Mock };
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		const mod = await import('$lib/api/services/notificationCenter.service');
-		notificationCenterService = mod.notificationCenterService;
+		notificationCenterService =
+			mod.notificationCenterService as unknown as typeof notificationCenterService;
 	});
 
 	it('contract_created enrichment includes all required fields', async () => {

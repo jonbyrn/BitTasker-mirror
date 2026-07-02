@@ -239,7 +239,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByRole } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [
 				{
 					label: 'Contracts',
@@ -277,7 +277,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, unmount } = render(DashboardServiceCard, {
-			service: eligibleService,
+			service: eligibleService as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -293,7 +293,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const withoutWallet = render(DashboardServiceCard, {
-			service: missingWalletService,
+			service: missingWalletService as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});

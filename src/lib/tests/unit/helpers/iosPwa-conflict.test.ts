@@ -235,7 +235,7 @@ describe('CONFLICT: CSS var override vs JS-measured --app-dock-height', () => {
 			applyIOSPwaSafeAreaFix();
 
 			const dock = buildDock();
-			simulateDockMeasured(dock);
+			simulateDockMeasured(dock as unknown as number);
 			const menu = buildMenuPanel();
 
 			const menuPad = getComputedStyle(menu).paddingBottom;
@@ -266,7 +266,7 @@ describe('CONFLICT: CSS var override vs JS-measured --app-dock-height', () => {
 			applyIOSPwaSafeAreaFix();
 
 			const dock = buildDock();
-			simulateDockMeasured(dock);
+			simulateDockMeasured(dock as unknown as number);
 			const menu = buildMenuPanel();
 
 			// Now change --safe-area-inset-bottom (simulates someone manually patching it)

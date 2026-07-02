@@ -28,6 +28,7 @@ function createServiceEvent(overrides: {
 		created_at: overrides.created_at,
 		kind: KINDS.SERVICE_ACTIVE,
 		tags: [],
+		sig: '',
 		content: JSON.stringify({
 			uniqueId: overrides.uniqueId,
 			status: overrides.status ?? 'active',

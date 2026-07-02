@@ -8,6 +8,7 @@
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { appStore } from '$lib/stores/app.store';
+	import type { TokenInfo } from '$lib/types/gasless.types';
 	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
@@ -69,7 +70,7 @@
 		if (selectedId === 'builtin') return $walletStore.arb.usdt0Balance ?? '0';
 		const w = $connectedWalletsStore.wallets.find((ww) => ww.id === selectedId);
 		const u = w?.balances?.['usdt0-arb'] || w?.balances?.['usdt-arb'] || w?.balances?.['usdt0'];
-		return (u as Record<string, unknown>)?.formatted ?? '0';
+		return String((u as Record<string, unknown>)?.formatted ?? '0');
 	});
 	let selectedUsdt0BalanceNum = $derived(parseFloat(selectedUsdt0BalanceStr) || 0);
 	// Override has for selected (connected may have)
@@ -441,7 +442,7 @@
 			symbol: 'USDT0',
 			address: USDT0_ARBITRUM,
 			decimals: USDT0_DECIMALS
-		} as unknown as Record<string, unknown>}
+		} as unknown as TokenInfo}
 		spender={AAVE_POOL_ADDR}
 		onApprove={handleApproveForModal}
 		isSubmitting={isApproving}

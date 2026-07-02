@@ -35,7 +35,7 @@ vi.mock('$lib/utils/contract', () => ({
 }));
 
 vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
-	extractContractError: (...args: unknown[]) => mockExtractContractError(...args)
+	extractContractError: (...args: unknown[]) => mockExtractContractError(...(args as [unknown]))
 }));
 
 vi.mock('$lib/utils/nostrKeys', () => ({

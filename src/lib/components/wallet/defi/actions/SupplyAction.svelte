@@ -486,6 +486,7 @@
 		onAmountChange={handleAmountChange}
 		unit={btcUsdMode ? 'usd' : 'sats'}
 		showPercentSlider={true}
+		onUnitChange={() => {}}
 		sliderDisabled={!hasWbtc}
 		percent={sliderPercent}
 		onPercentChange={applyPercent}

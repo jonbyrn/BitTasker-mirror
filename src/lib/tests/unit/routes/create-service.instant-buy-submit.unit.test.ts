@@ -228,18 +228,17 @@ describe('create-service instant-buy submit payload', () => {
 				pricing: {
 					type: 'HOURLY',
 					currency: 'USDt',
-					hourlyRate: 80
+					amount: 0
 				},
 				skills: ['Branding'],
-				categories: [{ id: 'design', name: 'Design', slug: 'design' }],
-				providerWalletAddress: '0x3333333333333333333333333333333333333333'
+				categories: [{ id: 'design', name: 'Design', slug: 'design' }]
 			},
 			id: null,
 			uniqueId: 'service-123',
 			currentStep: 'review',
 			isEditing: false,
 			isDuplicating: false
-		});
+		} as unknown as Parameters<typeof hoisted.serviceState.set>[0]);
 
 		const { findByText } = render(
 			(await import('../../../../routes/(app)/(protected)/create-service/+page.svelte')).default

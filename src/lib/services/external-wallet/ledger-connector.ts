@@ -310,7 +310,7 @@ function buildEVMSigner(address: string, config: LedgerConnectionConfig): EVMSig
 			const transport = await createLedgerTransport(config.navigator);
 			const eth = new EthApp(transport);
 
-			const provider = config.provider as ethers.Provider | null;
+			const provider = config.provider as import('ethers').Provider | null;
 			const nonce = provider ? await provider.getTransactionCount(address) : 0;
 
 			const unsignedTx = new ethersModule.Transaction();

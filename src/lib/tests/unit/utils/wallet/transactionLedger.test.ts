@@ -286,7 +286,7 @@ describe('transactionLedger', () => {
 		});
 
 		const merged = projectTransactions(
-			[sentLockup, receiveClaim],
+			[sentLockup, receiveClaim] as unknown as ProcessedTransaction[],
 			[
 				awaiting('a', '2024-06-05T23:32:00Z'),
 				awaiting('b', '2024-06-05T23:32:00Z'),

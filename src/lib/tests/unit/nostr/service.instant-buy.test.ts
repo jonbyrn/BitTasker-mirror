@@ -74,7 +74,7 @@ describe('service instant-buy nostr round-trip', () => {
 					display: '2-3 days'
 				}
 			},
-			categories: [{ id: 'design', name: 'Design', slug: 'design' }],
+			categories: [{ id: 'design', name: 'Design', slug: 'design', description: '' }],
 			skills: ['Branding'],
 			portfolio: [],
 			faqs: [],
@@ -85,7 +85,7 @@ describe('service instant-buy nostr round-trip', () => {
 				avatar: ''
 			},
 			instantBuyLeadHours: 48
-		});
+		} as unknown as Parameters<typeof createService>[0]);
 
 		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
 		const publishedEvent = hoisted.mockPublishEvent.mock.calls[0]?.[0] as { content: string };

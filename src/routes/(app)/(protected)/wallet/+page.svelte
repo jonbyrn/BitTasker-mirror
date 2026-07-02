@@ -612,7 +612,7 @@
 			showReceiveModal = false; // Close receive form
 			openPaymentRequestModal(data); // Open payment request modal
 		}}
-		initialFormState={receiveFormState
+		initialFormState={(receiveFormState
 			? {
 					...receiveFormState,
 					// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
@@ -621,7 +621,7 @@
 						? 1
 						: 2) as 1 | 2
 				}
-			: undefined}
+			: undefined) as (typeof receiveFormState & { currentStep: 1 | 2 }) | undefined}
 	/>
 </WalletPaymentModal>
 

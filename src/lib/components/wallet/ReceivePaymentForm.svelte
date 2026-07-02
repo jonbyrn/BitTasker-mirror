@@ -1177,8 +1177,7 @@
 						>
 							{#if formInput.chargeFeesToPayer}
 								<IconCheck
-									class="text-primary h-3.5 w-3.5"
-									style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+									class="text-primary h-3.5 w-3.5 [&>*]:fill-current [&>*]:stroke-current"
 								/>
 							{/if}
 						</div>
@@ -1316,8 +1315,7 @@
 						>
 							{#if formInput.chargeFeesToPayer}
 								<IconCheck
-									class="text-primary h-3.5 w-3.5"
-									style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+									class="text-primary h-3.5 w-3.5 [&>*]:fill-current [&>*]:stroke-current"
 								/>
 							{/if}
 						</div>

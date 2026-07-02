@@ -36,7 +36,7 @@ function makeBidContent(overrides: Record<string, unknown> = {}) {
 		cancellationFee: 0,
 		upfrontDeposit: 0,
 		...overrides
-	} as Parameters<typeof deriveContractCreationParams>[0];
+	} as unknown as Parameters<typeof deriveContractCreationParams>[0];
 }
 
 describe('deriveContractCreationParams — start time buffer', () => {

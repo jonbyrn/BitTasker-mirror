@@ -71,7 +71,7 @@
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { deleteService } from '$lib/nostr/service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
-	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import { buildEarningQueryUrl, type EarningQueryState } from '$lib/utils/dashboardQuery';
 	import { deleteServicePortfolioMedia } from '$lib/utils/service/media-cleanup';
 	import {
 		clearPendingServiceDelete,
@@ -972,9 +972,8 @@
 		if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
 			return buildEarningQueryUrl(new URL('/earning', window.location.origin), {
 				tab: 'contracts',
-				context: 'services',
 				highlight: escrowId
-			} as unknown as Record<string, string | number | boolean>);
+			} as EarningQueryState);
 		}
 
 		return `/hiring/contracts?context=services&highlight=${encodeURIComponent(escrowId)}`;
@@ -1582,7 +1581,7 @@
 		// Handle quote request reentry if needed
 		if (browser && service) {
 			const reentry = parseServiceQuoteReentryState(page.url);
-			if (reentry && (reentry as Record<string, unknown>).serviceId === service.id) {
+			if (reentry) {
 				clearServiceQuoteReentryState(page.url);
 				handleOpenRequestQuote();
 			}

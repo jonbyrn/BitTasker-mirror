@@ -3,7 +3,7 @@
 	import { t as i18nT } from 'svelte-i18n';
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import type { FeaturedService } from '$lib/services/featuredServices.service';
 	import type { FeaturedSectionState } from '$lib/services/featuredHomepage';
 	import {
@@ -44,11 +44,14 @@
 	};
 
 	// Initialize featured sections from load function data (fetched SSR-safe via nostr-tools)
+	// untrack: seo is intentionally captured once at init — these sections manage their own state
 	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(
-		completeFeaturedSectionState(seo.homepageData?.tasks || [], null)
+		untrack(() => completeFeaturedSectionState(seo.homepageData?.tasks || [], null))
 	);
 	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
-		completeFeaturedSectionState(seo.homepageData?.services || [], null, { hideWhenEmpty: true })
+		untrack(() =>
+			completeFeaturedSectionState(seo.homepageData?.services || [], null, { hideWhenEmpty: true })
+		)
 	);
 
 	const jsonLdScript = $derived(

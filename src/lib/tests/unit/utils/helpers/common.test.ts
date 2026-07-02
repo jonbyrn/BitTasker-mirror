@@ -48,9 +48,12 @@ describe('debounce', () => {
 	it('executes with correct this context', () => {
 		const obj = {
 			value: 0,
-			add: debounce(function (this: { value: number }, num: number) {
-				this.value += num;
-			}, 100) as (this: { value: number }, num: number) => void
+			add: debounce(
+				function (this: { value: number }, num: number) {
+					this.value += num;
+				} as unknown as (...args: unknown[]) => void,
+				100
+			) as unknown as (this: { value: number }, num: number) => void
 		};
 
 		obj.add(5);

@@ -199,7 +199,7 @@ export async function estimateGasCostForCreatePaymentContract(
 	bidContent: NostrBidContent,
 	btcPrice: number
 ): Promise<string> {
-	const { params } = deriveContractCreationParams(bidContent, btcPrice);
+	const { params } = deriveContractCreationParams(bidContent!, btcPrice);
 	const result = await estimateGasForCreatePaymentContract(params);
 	if (!result.success) {
 		return '';
