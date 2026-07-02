@@ -175,7 +175,9 @@
 
 		// Route each type to its upload path
 		if (imageFiles.length > 0) {
-			serviceStore.updateStore({ pendingFiles: [...($serviceStore.pendingFiles || []), ...imageFiles] });
+			serviceStore.updateStore({
+				pendingFiles: [...($serviceStore.pendingFiles || []), ...imageFiles]
+			});
 		}
 
 		// Route video files to per-file VideoUploader
@@ -280,7 +282,8 @@
 				progressMap.set(file, { status: 'uploading', progress: 0 });
 			}
 		}
-		fileUploadProgress = progressMap;
+		fileUploadProgress.clear();
+		for (const [k, v] of progressMap) fileUploadProgress.set(k, v);
 
 		try {
 			// Compress images before uploading
@@ -334,7 +337,8 @@
 							progressMap.set(f, { status: 'done', progress: 100 });
 						}
 					}
-					fileUploadProgress = new SvelteMap(progressMap);
+					fileUploadProgress.clear();
+					for (const [k, v] of progressMap) fileUploadProgress.set(k, v);
 				}
 			);
 
@@ -399,7 +403,7 @@
 			return [];
 		} finally {
 			isUploading = false;
-			fileUploadProgress = new SvelteMap();
+			fileUploadProgress.clear();
 		}
 	}
 </script>
@@ -575,8 +579,7 @@
 												// Rebuild portfolio from allGridItems to preserve picker order
 												serviceStore.updateService({
 													portfolio: updated.filter(
-														(item): item is Attachment =>
-															typeof item === 'object' && 'url' in item
+														(item): item is Attachment => typeof item === 'object' && 'url' in item
 													)
 												});
 											}

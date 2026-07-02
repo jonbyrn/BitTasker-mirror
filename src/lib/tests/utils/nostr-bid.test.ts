@@ -76,7 +76,9 @@ describe('sendBidStatusUpdate', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset processing bid IDs
-		(bidStore as unknown).processingBidIds = new Set(['bid-123']);
+		(bidStore as unknown as { processingBidIds: Set<string> }).processingBidIds = new Set([
+			'bid-123'
+		]);
 	});
 
 	it('should remove processing bid on success', async () => {

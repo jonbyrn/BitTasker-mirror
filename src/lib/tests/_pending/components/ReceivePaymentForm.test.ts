@@ -88,7 +88,7 @@ vi.mock('$lib/utils/helpers/common', async () => {
 	const actual = await vi.importActual('$lib/utils/helpers/common');
 	return {
 		...actual,
-		debounce: (fn: unknown) => fn // Execute immediately in tests
+		debounce: (fn: (...args: unknown[]) => void) => fn // Execute immediately in tests
 	};
 });
 
@@ -214,7 +214,7 @@ describe('ReceivePaymentForm Component', () => {
 						connected: true,
 						address: '0x1234567890123456789012345678901234567890'
 					}
-				}) as unknown
+				}) as unknown as Parameters<Parameters<typeof walletStore.update>[0]>[0]
 		);
 	});
 
@@ -418,7 +418,18 @@ describe('ReceivePaymentForm Component', () => {
 				}
 			};
 			vi.mocked(walletManager.getCachedReverseSwapPairs).mockImplementationOnce(
-				() => new Promise((resolve) => setTimeout(() => resolve(swapPairsResult as unknown), 300))
+				() =>
+					new Promise((resolve) =>
+						setTimeout(
+							() =>
+								resolve(
+									swapPairsResult as unknown as Awaited<
+										ReturnType<typeof walletManager.getCachedReverseSwapPairs>
+									>
+								),
+							300
+						)
+					)
 			);
 
 			render(ReceivePaymentForm, defaultProps);

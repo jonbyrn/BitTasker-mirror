@@ -4,7 +4,6 @@
 	import type { Service } from '$lib/types/service.d';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
