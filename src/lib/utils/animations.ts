@@ -53,6 +53,45 @@ export function animatePressRelease(el: HTMLElement) {
 	>[2]);
 }
 
+export function animateProfileCards(container: HTMLElement) {
+	if (prefersReducedMotion()) return;
+	const cards = container.querySelectorAll('.card');
+	if (cards.length === 0) return;
+	animate(cards, { opacity: [0, 1], y: [20, 0] }, {
+		duration: 0.35,
+		delay: stagger(0.08),
+		easing: EASING.decelerate
+	} as Parameters<typeof animate>[2]);
+}
+
+export function animateAvatarEntry(el: HTMLElement) {
+	if (prefersReducedMotion()) return;
+	animate(el, { scale: [0.8, 1], opacity: [0, 1] }, {
+		type: 'spring',
+		stiffness: 300,
+		damping: 20,
+		mass: 0.8
+	} as Parameters<typeof animate>[2]);
+}
+
+export function animateRatingPop(el: HTMLElement) {
+	if (prefersReducedMotion()) return;
+	animate(el, { scale: [0.5, 1.1, 1] }, { duration: 0.25, easing: EASING.decelerate } as Parameters<
+		typeof animate
+	>[2]);
+}
+
+export function animateSkillsStagger(container: HTMLElement) {
+	if (prefersReducedMotion()) return;
+	const badges = container.querySelectorAll('.badge');
+	if (badges.length === 0) return;
+	animate(badges, { opacity: [0, 1], scale: [0.9, 1] }, {
+		duration: 0.2,
+		delay: stagger(0.03),
+		easing: EASING.decelerate
+	} as Parameters<typeof animate>[2]);
+}
+
 const FOOTER_HIDE_DURATION = 0.22;
 const FOOTER_SHOW_DURATION = 0.25;
 

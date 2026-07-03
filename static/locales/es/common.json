@@ -134,6 +134,18 @@
 			"website": "Sitio Web",
 			"joined": "Se unió",
 			"member_since_unknown": "Miembro desde desconocido",
+			"reviews": "Reseñas",
+			"reviews_count": "{count} Reseñas",
+			"no_reviews_yet": "Sin reseñas aún",
+			"no_reviews_description": "Completa tareas para construir tu reputación",
+			"reputation_tier": "Reputación",
+			"rating_breakdown": "Desglose de Calificaciones",
+			"verified_reviews": "Todas las reseñas verificadas en la cadena",
+			"show_more_reviews": "Mostrar Más Reseñas",
+			"show_less_reviews": "Mostrar Menos",
+			"sort_newest": "Más Recientes",
+			"sort_highest": "Mejor Calificadas",
+			"sort_lowest": "Peor Calificadas",
 			"wallet": {
 				"payment_request_form": {
 					"description": "Genera direcciones y facturas usando Breez SDK. Soporte para pagos Lightning, Bitcoin y multi-activo Liquid.",

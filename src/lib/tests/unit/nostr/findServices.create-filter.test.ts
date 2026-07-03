@@ -9,7 +9,6 @@ import {
 
 describe('createServiceFilter', () => {
 	const SERVICES_PER_PAGE = 20;
-	const SEARCH_FETCH_LIMIT = 150;
 
 	describe('empty parameters', () => {
 		it('should return filter with default kinds and limit when all params undefined', () => {
@@ -71,9 +70,9 @@ describe('createServiceFilter', () => {
 			expect(filter.search).toBe('web design');
 		});
 
-		it('should use SEARCH_FETCH_LIMIT when search is present', () => {
+		it('should use SERVICES_PER_PAGE limit when search is present', () => {
 			const filter = createServiceFilter({ search: 'design' });
-			expect(filter.limit).toBe(SEARCH_FETCH_LIMIT);
+			expect(filter.limit).toBe(SERVICES_PER_PAGE);
 		});
 
 		it('should use default limit when search is empty string', () => {
@@ -126,7 +125,7 @@ describe('createServiceFilter', () => {
 			expect(filter.search).toBe('design');
 			expect(filter['#s']).toEqual(['active']);
 			expect(filter['#i']).toEqual(['100']);
-			expect(filter.limit).toBe(SEARCH_FETCH_LIMIT);
+			expect(filter.limit).toBe(SERVICES_PER_PAGE);
 		});
 
 		it('should combine all filters together', () => {

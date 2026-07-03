@@ -483,7 +483,14 @@ export async function findMyServices(
 		const events = response.data || [];
 
 		// Convert events to services (synchronous)
-		const rawServices = events.map((event: Event) => convertEventToService(event));
+		const rawServices: Service[] = [];
+		for (const event of events) {
+			try {
+				rawServices.push(convertEventToService(event));
+			} catch (error) {
+				console.error('Error converting event to service:', error);
+			}
+		}
 
 		// NIP-33: keep only the latest version per service (same uniqueId = same logical service)
 		const latestByUniqueId = new Map<string, Service>();

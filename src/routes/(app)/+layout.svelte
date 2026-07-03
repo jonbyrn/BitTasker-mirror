@@ -257,15 +257,15 @@
 	</div>
 </div>
 
+<!-- Toast notifications (fixed positioned) -->
+<Toast />
+
 <!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
 {#if showTopBar}
 	<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
 		<BottomNavBar />
 	</footer>
 {/if}
-
-<!-- Toast notifications (fixed positioned) -->
-<Toast />
 
 <InfiniteScroll />
 

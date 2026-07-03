@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
-	import Modal from '$lib/components/Modal.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 
 	let {
 		isOpen = false,
@@ -146,7 +146,7 @@
 	}
 </script>
 
-<Modal {isOpen} title={modalTitle} onClose={closeModal} size="md" isScrollable={true}>
+<Drawer {isOpen} title={modalTitle} onClose={closeModal} position="right" isScrollable={true}>
 	{#if error}
 		<div class="alert alert-outline alert-error mb-4">
 			<svg
@@ -304,4 +304,4 @@
 			{/if}
 		</button>
 	{/snippet}
-</Modal>
+</Drawer>

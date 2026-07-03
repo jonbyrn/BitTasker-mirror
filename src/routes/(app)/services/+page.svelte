@@ -117,14 +117,17 @@
 	);
 
 	// ── State: Loading ─────────────────────────────────────────────────────────
-	let dataLoaded = $state(false);
-	let showSkeleton = $state(true);
-	let loadingTimedOut = $state(false);
+	type LoadingState = 'initial' | 'loading' | 'loaded' | 'timeout' | 'error';
+	let loadingState = $state<LoadingState>('initial');
+	let showSkeleton = $derived(loadingState === 'initial' || loadingState === 'loading');
+	let dataLoaded = $derived(
+		loadingState === 'loaded' || loadingState === 'error' || loadingState === 'timeout'
+	);
+	let loadingTimedOut = $derived(loadingState === 'timeout');
 	let unmounted = $state(false);
 	let retryLoading = $state(false);
 	let lastRetryTime = 0;
 	let loadingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
-	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// ── State: UI ──────────────────────────────────────────────────────────────
 	let SaveServiceSearchForm: typeof SaveServiceSearchFormComponent | null = $state(null);
@@ -203,17 +206,18 @@
 	}
 
 	async function loadNostrData(): Promise<void> {
-		if (dataLoaded) return;
+		if (loadingState === 'loaded') return;
 
 		if (loadingTimeoutTimer) {
 			clearTimeout(loadingTimeoutTimer);
 			loadingTimeoutTimer = null;
 		}
-		loadingTimedOut = false;
+
+		loadingState = 'loading';
 
 		loadingTimeoutTimer = setTimeout(() => {
 			if (!unmounted && $servicesStore.loading) {
-				loadingTimedOut = true;
+				loadingState = 'timeout';
 			}
 		}, LOADING_TIMEOUT_MS);
 
@@ -244,18 +248,12 @@
 				...state,
 				searchParamsKey: hashSearchParams(searchParams)
 			}));
-			dataLoaded = true;
-			showSkeleton = false;
+			loadingState = 'loaded';
 			syncScrollHasMore();
-
-			if (fallbackTimer) {
-				clearTimeout(fallbackTimer);
-				fallbackTimer = null;
-			}
 		} catch (error) {
 			if (unmounted) return;
 			console.error('[FindServices] Error loading Nostr data:', error);
-			showSkeleton = false;
+			loadingState = 'error';
 		} finally {
 			if (loadingTimeoutTimer) {
 				clearTimeout(loadingTimeoutTimer);
@@ -269,8 +267,7 @@
 		if (now - lastRetryTime < RETRY_COOLDOWN_MS) return;
 		lastRetryTime = now;
 		retryLoading = true;
-		showSkeleton = true;
-		dataLoaded = false;
+		loadingState = 'loading';
 		servicesStore.update((state) => ({ ...state, error: null }));
 		await loadNostrData();
 		retryLoading = false;
@@ -290,6 +287,12 @@
 			// Dismiss any pending deferred banner from a previous search
 			cancelDeferredBanner();
 			await dismissSaveSearchBanner();
+
+			// CRITICAL: set loading state BEFORE clearing the store.
+			// servicesStore.update() notifies subscribers synchronously, so if we
+			// clear the store first, one render frame sees items=[] + dataLoaded=true
+			// which flashes the empty state. Setting showSkeleton first prevents this.
+			loadingState = 'loading';
 
 			servicesStore.update((state) => ({
 				...state,
@@ -314,6 +317,7 @@
 					...state,
 					searchParamsKey: hashSearchParams(searchParams)
 				}));
+				loadingState = 'loaded';
 				syncScrollHasMore();
 
 				// Show save search banner AFTER results load
@@ -332,6 +336,7 @@
 				}
 			} catch (err) {
 				console.error('[FindServices] Search fetch error:', err);
+				loadingState = 'error';
 			}
 		},
 		1000
@@ -345,6 +350,9 @@
 			searchAbortController.abort();
 		}
 		searchAbortController = new AbortController();
+
+		// CRITICAL: set loading state BEFORE clearing the store (same race as debouncedSearch)
+		loadingState = 'loading';
 
 		servicesStore.update((state) => ({
 			...state,
@@ -372,6 +380,7 @@
 			...state,
 			searchParamsKey: hashSearchParams(searchParams)
 		}));
+		loadingState = 'loaded';
 		syncScrollHasMore();
 
 		// Show banner after results load
@@ -401,6 +410,9 @@
 			searchAbortController.abort();
 		}
 
+		// CRITICAL: set loading state BEFORE clearing the store (same race as debouncedSearch)
+		loadingState = 'loading';
+
 		servicesStore.update((state) => ({
 			...state,
 			currentPage: 1,
@@ -413,6 +425,11 @@
 		await persistServiceSearchFilters(searchParams);
 		isApplyingFilters = true;
 		await findServicesWithTimeout(searchParams);
+		servicesStore.update((state) => ({
+			...state,
+			searchParamsKey: hashSearchParams(searchParams)
+		}));
+		loadingState = 'loaded';
 		isApplyingFilters = false;
 		syncScrollHasMore();
 	}
@@ -660,8 +677,7 @@
 			}
 		})();
 
-		dataLoaded = false;
-		showSkeleton = true;
+		loadingState = 'loading';
 
 		initPromise.then(() => {
 			if (unmounted) return;
@@ -698,10 +714,6 @@
 		if (loadingTimeoutTimer) {
 			clearTimeout(loadingTimeoutTimer);
 			loadingTimeoutTimer = null;
-		}
-		if (fallbackTimer) {
-			clearTimeout(fallbackTimer);
-			fallbackTimer = null;
 		}
 
 		debouncedSearch.abort();
@@ -848,8 +860,8 @@
 							{/if}
 						</div>
 
-						{#if showSkeleton && !dataLoaded}
-							<div class="mb-12 grid grid-cols-1 gap-6" out:fade={{ duration: 150 }}>
+						{#if showSkeleton}
+							<div class="mb-12 grid grid-cols-1 gap-6">
 								{#each Array.from({ length: INITIAL_SKELETON_COUNT }, (_, index) => index) as index (index)}
 									<div class="card bg-base-100 flex h-full flex-col overflow-hidden shadow-md">
 										<figure

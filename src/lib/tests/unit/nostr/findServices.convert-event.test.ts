@@ -138,22 +138,22 @@ describe('convertEventToService', () => {
 	});
 
 	describe('invalid JSON in content', () => {
-		it('should throw error when content is not valid JSON', async () => {
+		it('should throw error when content is not valid JSON', () => {
 			const event = createServiceEvent({ content: 'not valid json' });
 
-			await expect(convertEventToService(event)).rejects.toThrow();
+			expect(() => convertEventToService(event)).toThrow();
 		});
 
-		it('should throw error when content is empty string', async () => {
+		it('should throw error when content is empty string', () => {
 			const event = createServiceEvent({ content: '' });
 
-			await expect(convertEventToService(event)).rejects.toThrow();
+			expect(() => convertEventToService(event)).toThrow();
 		});
 
-		it('should throw error when content is just whitespace', async () => {
+		it('should throw error when content is just whitespace', () => {
 			const event = createServiceEvent({ content: '   ' });
 
-			await expect(convertEventToService(event)).rejects.toThrow();
+			expect(() => convertEventToService(event)).toThrow();
 		});
 	});
 
@@ -271,7 +271,7 @@ describe('convertEventToService', () => {
 			expect(result.creator?.rating).toBeUndefined();
 		});
 
-		it('should add rating from profile reviews when available', async () => {
+		it('should not add rating since convertEventToService is synchronous and does not fetch profiles', async () => {
 			vi.mocked(fetchComprehensiveProfile).mockResolvedValue({
 				reviews: [{ rating: 5 }, { rating: 4 }],
 				npub: 'b'.repeat(64)
@@ -280,7 +280,7 @@ describe('convertEventToService', () => {
 
 			const result = await convertEventToService(event);
 
-			expect(result.creator?.rating).toBe(4.5);
+			expect(result.creator?.rating).toBeUndefined();
 		});
 	});
 
