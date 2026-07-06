@@ -14,7 +14,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { startSwapChain, resumeSwapChain } from '$lib/services/swap-chain.service';
+import {
+	startSwapChain,
+	resumeSwapChain,
+	getSwapChainState
+} from '$lib/services/swap-chain.service';
 import type { Route, RouteHop, Destination } from '$lib/services/route-resolver';
 import type { EVMSigner, EVMTransactionRequest } from '$lib/services/external-wallet/types';
 import type { SwapChainState, SwapChainPhase } from '$lib/services/swap-chain.service';
@@ -1584,5 +1588,484 @@ describe('orchestrator validation', () => {
 		// No hop executors should be called
 		expect(mockEvmSigner.sendTransaction).not.toHaveBeenCalled();
 		expect(mockSendRBTC).not.toHaveBeenCalled();
+	});
+});
+
+// ===========================================================================
+// Orchestrator — Coverage Extension: startSwapChain Happy Paths
+// ===========================================================================
+
+describe('orchestrator — startSwapChain happy paths', () => {
+	const DEST_ADDR = '0x6666000000000000000000000000000000000FFF';
+	const VALID_AMOUNT = '0.5';
+
+	it('single-hop direct hop → transitions to COMPLETE with swap1Id and state fields', async () => {
+		// Arrange
+		const dest = makeDestination(DEST_ADDR);
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert
+		assertCompleted(result, 'COMPLETE', '0xtxhashBUILTINrbtc');
+		expect(result.data!.route!.id).toBe(route.id);
+		expect(result.data!.sourceWallet).toBe('rbtc');
+		expect(result.data!.amount).toBe(VALID_AMOUNT);
+		expect(result.data!.destination).toEqual(dest);
+	});
+
+	it('single-hop Boltz chain swap → polls Boltz for completion, then transitions to COMPLETE', async () => {
+		// Arrange
+		const dest = makeDestination(DEST_ADDR);
+		const hop = makeBoltzChainBtcHop();
+		const route = makeRoute([hop]);
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, '0.001');
+
+		// Assert — Boltz polling returns 'transaction.claimed' by default
+		assertCompleted(result, 'COMPLETE', 'builtin-chain-swap-1');
+		expect(mockBoltzGetSwapStatus).toHaveBeenCalled();
+	});
+
+	it('multi-hop (2 direct hops) → executes hop1 then hop2, returns COMPLETE with both swap IDs', async () => {
+		// Arrange
+		const dest = makeDestination(DEST_ADDR);
+		const hop1 = makeDirectHopRBTC();
+		const hop2 = makeDirectHopRBTC();
+		const route = makeRoute([hop1, hop2], 'multi-hop-route');
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert
+		assertCompleted(result, 'COMPLETE');
+		expect(result.data!.swap1Id).toBe('0xtxhashBUILTINrbtc');
+		expect(result.data!.swap2Id).toBe('0xtxhashBUILTINrbtc');
+		expect(mockSendRBTC).toHaveBeenCalledTimes(2);
+	});
+
+	it('multi-hop (Boltz hop1 + direct hop2) → polls Boltz for hop1, then executes hop2', async () => {
+		// Arrange
+		const dest = makeDestination(DEST_ADDR);
+		const hop1 = makeBoltzChainBtcHop();
+		const hop2 = makeDirectHopRBTC();
+		const route = makeRoute([hop1, hop2], 'boltz-direct-route');
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, '0.001');
+
+		// Assert
+		assertCompleted(result, 'COMPLETE');
+		expect(result.data!.swap1Id).toBe('builtin-chain-swap-1');
+		expect(result.data!.swap2Id).toBe('0xtxhashBUILTINrbtc');
+		expect(mockBoltzGetSwapStatus).toHaveBeenCalled();
+		expect(mockSendRBTC).toHaveBeenCalledTimes(1);
+	});
+
+	it('executeHop error → transitions to FAILED with error message', async () => {
+		// Arrange
+		mockSendRBTC.mockRejectedValueOnce(new Error('Insufficient funds'));
+		const dest = makeDestination(DEST_ADDR);
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert
+		assertFailed(result, 'Insufficient funds');
+	});
+
+	it('persists state at each phase transition (IDLE → SWAP_1_PENDING → SWAP_1_CONFIRMED → COMPLETE)', async () => {
+		// Arrange
+		const dest = makeDestination(DEST_ADDR);
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act
+		await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert — extract all saved phases from Preferences.set calls
+		const savedPhases = mockPreferencesSet.mock.calls.map((call: unknown[]) => {
+			const arg = call[0] as { key: string; value: string };
+			return JSON.parse(arg.value).phase;
+		});
+
+		expect(savedPhases).toContain('IDLE');
+		expect(savedPhases).toContain('SWAP_1_PENDING');
+		expect(savedPhases).toContain('SWAP_1_CONFIRMED');
+		expect(savedPhases).toContain('COMPLETE');
+	});
+
+	it('returns error for invalid destination (null)', async () => {
+		// Arrange
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act
+		const result = await startSwapChain(
+			route,
+			'rbtc',
+			null as unknown as Destination,
+			VALID_AMOUNT
+		);
+
+		// Assert
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('Invalid destination');
+	});
+
+	it('blocks concurrent startSwapChain calls (double-tap lock)', async () => {
+		// Arrange: make Preferences.set hang so the first call holds the lock
+		let resolvePreferencesSet!: (v: void) => void;
+		mockPreferencesSet.mockReturnValue(
+			new Promise<void>((resolve) => {
+				resolvePreferencesSet = resolve;
+			})
+		);
+
+		const dest = makeDestination(DEST_ADDR);
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act: start first swap (will hang on saveSwapChainState → Preferences.set)
+		const firstCallPromise = startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Give the first call time to acquire the lock
+		await new Promise((r) => setTimeout(r, 5));
+
+		// Act: try a second startSwapChain while the first is still running
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert: second call is blocked
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('swap is already in progress');
+
+		// Cleanup: release the first call
+		resolvePreferencesSet();
+		await firstCallPromise;
+	});
+});
+
+// ===========================================================================
+// Orchestrator — Coverage Extension: resumeSwapChain Paths
+// ===========================================================================
+
+describe('orchestrator — resumeSwapChain paths', () => {
+	/** Build a SwapChainState JSON string for mocking Preferences.get. */
+	function makePersistedState(
+		phase: SwapChainPhase,
+		overrides: Partial<SwapChainState> = {}
+	): string {
+		return JSON.stringify({
+			phase,
+			route: overrides.route ?? null,
+			sourceWallet: overrides.sourceWallet ?? null,
+			destination: overrides.destination ?? null,
+			sourceConnectedWalletId: overrides.sourceConnectedWalletId ?? null,
+			amount: overrides.amount ?? null,
+			swap1Id: overrides.swap1Id ?? null,
+			swap2Id: overrides.swap2Id ?? null,
+			swap1Details: overrides.swap1Details ?? null,
+			swap2Details: overrides.swap2Details ?? null,
+			error: overrides.error ?? null,
+			updatedAt: overrides.updatedAt ?? Date.now()
+		});
+	}
+
+	const DEST_ADDR = '0x6666000000000000000000000000000000000FFF';
+	const VALID_AMOUNT = '0.5';
+
+	it('resume from PARTIAL with Boltz hop → polls Boltz, transitions to COMPLETE', async () => {
+		// Arrange: persisted PARTIAL state with a Boltz route
+		const boltzHop = makeBoltzChainBtcHop();
+		const route = makeRoute([boltzHop]);
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('PARTIAL', {
+				route,
+				swap1Id: 'chain-swap-1',
+				sourceConnectedWalletId: null,
+				amount: '0.001'
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — pollBoltzChainSwapCompletion returns 'transaction.claimed' by default
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('COMPLETE');
+		expect(mockBoltzGetSwapStatus).toHaveBeenCalled();
+	});
+
+	it('resume from PARTIAL with non-Boltz hop → returns PARTIAL as-is', async () => {
+		// Arrange: PARTIAL state with a non-Boltz (direct) hop — not resumable
+		const directHop = makeDirectHopRBTC();
+		const route = makeRoute([directHop]);
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('PARTIAL', {
+				route,
+				swap1Id: '0xtxhash1',
+				amount: VALID_AMOUNT,
+				error: 'Hop 2 failed'
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — non-Boltz PARTIAL is returned as-is (no polling possible)
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('PARTIAL');
+		expect(result.data!.error).toBe('Hop 2 failed');
+	});
+
+	it('resume from SWAP_2_CONFIRMED → transitions to COMPLETE immediately', async () => {
+		// Arrange
+		const route = makeRoute([makeDirectHopRBTC(), makeDirectHopRBTC()], 'multi-hop');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_2_CONFIRMED', {
+				route,
+				swap1Id: '0xtxhash1',
+				swap2Id: '0xtxhash2',
+				amount: VALID_AMOUNT
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — SWAP_2_CONFIRMED → COMPLETE is a valid transition
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('COMPLETE');
+		// No executors should be called
+		expect(mockSendRBTC).not.toHaveBeenCalled();
+		expect(mockEvmSigner.sendTransaction).not.toHaveBeenCalled();
+	});
+
+	it('resume from SWAP_1_CONFIRMED single-hop → transitions to COMPLETE', async () => {
+		// Arrange
+		const route = makeRoute([makeDirectHopRBTC()], 'single-hop');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_1_CONFIRMED', {
+				route,
+				swap1Id: '0xtxhash1',
+				amount: VALID_AMOUNT
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — SWAP_1_CONFIRMED single-hop → COMPLETE is valid
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('COMPLETE');
+	});
+
+	it('resume from SWAP_1_CONFIRMED 2-hop → executes hop2, returns error (invalid state transition)', async () => {
+		// Arrange: 2-hop route where hop1 already completed
+		const hop1 = makeDirectHopRBTC();
+		const hop2 = makeDirectHopRBTC();
+		const route = makeRoute([hop1, hop2], 'two-hop');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_1_CONFIRMED', {
+				route,
+				swap1Id: '0xtxhash1',
+				sourceConnectedWalletId: null,
+				destination: makeDestination(DEST_ADDR),
+				amount: VALID_AMOUNT
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — hop2 executes but the final transition from SWAP_2_PENDING
+		// directly to COMPLETE is invalid (should go through SWAP_2_CONFIRMED first).
+		// This is a known discrepancy with startSwapChain which correctly sets
+		// phase to SWAP_2_CONFIRMED before calling transitionTo.
+		expect(mockSendRBTC).toHaveBeenCalledTimes(1);
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('Invalid swap chain transition');
+	});
+
+	it('resume from SWAP_1_CONFIRMED 2-hop with Boltz hop1 → polls Boltz, executes hop2, then transition error', async () => {
+		// Arrange: 2-hop route where hop1 was Boltz (needs polling before hop2)
+		const hop1 = makeBoltzChainBtcHop();
+		const hop2 = makeDirectHopRBTC();
+		const route = makeRoute([hop1, hop2], 'boltz-direct');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_1_CONFIRMED', {
+				route,
+				swap1Id: 'chain-swap-1',
+				sourceConnectedWalletId: null,
+				destination: makeDestination(DEST_ADDR),
+				amount: '0.001'
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — Boltz polling runs, hop2 executes, but final transition fails
+		// (same SWAP_2_PENDING → COMPLETE issue as above)
+		expect(mockBoltzGetSwapStatus).toHaveBeenCalled();
+		expect(mockSendRBTC).toHaveBeenCalledTimes(1);
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('Invalid swap chain transition');
+	});
+
+	it('resume from SWAP_1_CONFIRMED 2-hop with hop2 error → transitions to PARTIAL', async () => {
+		// Arrange: 2-hop route where hop2 will fail
+		const hop1 = makeDirectHopRBTC();
+		const hop2 = makeDirectHopRBTC();
+		const route = makeRoute([hop1, hop2], 'two-hop');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_1_CONFIRMED', {
+				route,
+				swap1Id: '0xtxhash1',
+				sourceConnectedWalletId: null,
+				amount: VALID_AMOUNT
+			})
+		});
+
+		// Make hop2 fail — the destination check in executeHop will reject first
+		// because resume state may not have all required fields for direct hop execution
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — should transition to PARTIAL with error from hop2
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('PARTIAL');
+		expect(result.data!.error).toBeTruthy();
+	});
+
+	it('resume from SWAP_1_PENDING → returns state as-is', async () => {
+		// Arrange
+		const route = makeRoute([makeDirectHopRBTC()], 'single-hop');
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('SWAP_1_PENDING', {
+				route,
+				amount: VALID_AMOUNT
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — pending states are returned as-is for caller to verify
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('SWAP_1_PENDING');
+	});
+
+	it('resume from PARTIAL without swap1Id → returns PARTIAL as-is', async () => {
+		// Arrange: PARTIAL state but no swap1Id — cannot resume
+		mockPreferencesGet.mockResolvedValue({
+			value: makePersistedState('PARTIAL', {
+				swap1Id: null,
+				error: 'No swap ID'
+			})
+		});
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert — no swap1Id means cannot resume, return as-is
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('PARTIAL');
+	});
+});
+
+// ===========================================================================
+// Orchestrator — Coverage Extension: getSwapChainState
+// ===========================================================================
+
+describe('orchestrator — getSwapChainState', () => {
+	it('returns parsed state from Preferences when data exists', async () => {
+		// Arrange
+		const route = makeRoute([makeDirectHopRBTC()]);
+		const dest = { type: 'address' as const, chainId: 30, address: '0x1234' };
+		mockPreferencesGet.mockResolvedValue({
+			value: JSON.stringify({
+				phase: 'SWAP_1_CONFIRMED',
+				route,
+				sourceWallet: 'rbtc',
+				destination: dest,
+				sourceConnectedWalletId: null,
+				amount: '0.5',
+				swap1Id: '0xtxhash1',
+				swap2Id: null,
+				swap1Details: null,
+				swap2Details: null,
+				error: null,
+				updatedAt: Date.now()
+			})
+		});
+
+		// Act
+		const state = await getSwapChainState();
+
+		// Assert
+		expect(state.phase).toBe('SWAP_1_CONFIRMED');
+		expect(state.swap1Id).toBe('0xtxhash1');
+		expect(state.amount).toBe('0.5');
+		expect(state.sourceWallet).toBe('rbtc');
+		expect(state.route).not.toBeNull();
+		expect(state.route!.id).toBe(route.id);
+	});
+
+	it('returns INITIAL state when no persisted data exists', async () => {
+		// Arrange
+		mockPreferencesGet.mockResolvedValue({ value: null });
+
+		// Act
+		const state = await getSwapChainState();
+
+		// Assert
+		expect(state.phase).toBe('IDLE');
+		expect(state.swap1Id).toBeNull();
+		expect(state.swap2Id).toBeNull();
+		expect(state.amount).toBeNull();
+		expect(state.route).toBeNull();
+		expect(state.error).toBeNull();
+	});
+
+	it('returns INITIAL state when persisted JSON is invalid', async () => {
+		// Arrange
+		mockPreferencesGet.mockResolvedValue({ value: 'not-valid-json' });
+
+		// Act
+		const state = await getSwapChainState();
+
+		// Assert — invalid JSON should fall back to INITIAL
+		expect(state.phase).toBe('IDLE');
+	});
+
+	it('returns INITIAL state when persisted phase is invalid', async () => {
+		// Arrange
+		mockPreferencesGet.mockResolvedValue({
+			value: JSON.stringify({ phase: 'INVALID_PHASE', updatedAt: Date.now() })
+		});
+
+		// Act
+		const state = await getSwapChainState();
+
+		// Assert — invalid phase should fall back to INITIAL
+		expect(state.phase).toBe('IDLE');
 	});
 });

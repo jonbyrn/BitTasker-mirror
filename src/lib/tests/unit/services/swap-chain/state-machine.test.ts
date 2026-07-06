@@ -8,12 +8,18 @@
  * - isTerminalPhase
  * - needsResume
  * - getSwapChainStatus
+ * - boltzAddress
+ * - sleep
  *
  * Async / side-effect functions (mocked):
  * - safeAddress
  * - loadSwapChainState
  * - saveSwapChainState
+ * - resetSwapChainState
  * - transitionTo
+ *
+ * Observable (module-level state):
+ * - onSwapProgress / setSwapProgress / getSwapProgressStep
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -76,9 +82,15 @@ import {
 	getSwapChainStatus,
 	INITIAL_SWAP_CHAIN_STATE,
 	safeAddress,
+	boltzAddress,
+	sleep,
 	loadSwapChainState,
 	saveSwapChainState,
-	transitionTo
+	resetSwapChainState,
+	transitionTo,
+	onSwapProgress,
+	setSwapProgress,
+	getSwapProgressStep
 } from '$lib/services/swap-chain/state';
 import type { SwapChainState, SwapChainPhase } from '$lib/services/swap-chain/state';
 
@@ -742,5 +754,181 @@ describe('transitionTo', () => {
 		const result = await transitionTo(current, 'SWAP_1_PENDING');
 
 		expect(result.data!.updatedAt).toBeGreaterThanOrEqual(before);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// resetSwapChainState
+// ---------------------------------------------------------------------------
+
+describe('resetSwapChainState', () => {
+	it('removes persisted state from Preferences and returns no error', async () => {
+		const result = await resetSwapChainState();
+
+		expect(result.error).toBeNull();
+		expect(mockPreferencesRemove).toHaveBeenCalledTimes(1);
+		expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_swap_chain' });
+	});
+
+	it('returns error when Preferences.remove rejects', async () => {
+		mockPreferencesRemove.mockRejectedValueOnce(new Error('Plugin not available'));
+
+		const result = await resetSwapChainState();
+
+		expect(result.error).toBeInstanceOf(Error);
+		expect(result.error?.message).toBe('Plugin not available');
+	});
+
+	it('returns error wrapping non-Error rejection', async () => {
+		mockPreferencesRemove.mockRejectedValueOnce('string error');
+
+		const result = await resetSwapChainState();
+
+		expect(result.error).toBeInstanceOf(Error);
+		expect(result.error?.message).toBe('string error');
+	});
+
+	it('does not throw when Preferences.remove fails', async () => {
+		mockPreferencesRemove.mockRejectedValueOnce(new Error('fail'));
+
+		await expect(resetSwapChainState()).resolves.toBeDefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// boltzAddress
+// ---------------------------------------------------------------------------
+
+describe('boltzAddress', () => {
+	const VALID_CHECKSUMMED = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+
+	it('returns lowercase address for a valid address', () => {
+		const result = boltzAddress(VALID_CHECKSUMMED);
+		expect(result).toBe(VALID_CHECKSUMMED.toLowerCase());
+		expect(result).not.toBe('');
+	});
+
+	it('returns lowercase for mixed-case input', () => {
+		const mixed = '0x5AaEb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+		const result = boltzAddress(mixed);
+		expect(result).toBe(mixed.toLowerCase());
+	});
+
+	it('returns empty string for empty string input', () => {
+		expect(boltzAddress('')).toBe('');
+	});
+
+	it('returns lowercase for already-lowercase input', () => {
+		const lower = VALID_CHECKSUMMED.toLowerCase();
+		const result = boltzAddress(lower);
+		expect(result).toBe(lower);
+	});
+
+	it('returns empty string for invalid address', () => {
+		expect(boltzAddress('not-an-address')).toBe('');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// swap progress observer (onSwapProgress / setSwapProgress / getSwapProgressStep)
+// ---------------------------------------------------------------------------
+
+describe('swap progress observer', () => {
+	it('calls registered callback when setSwapProgress is invoked', () => {
+		const cb = vi.fn();
+		onSwapProgress(cb);
+
+		setSwapProgress('locking-tbtc', 'Locking tBTC...');
+
+		expect(cb).toHaveBeenCalledTimes(1);
+		expect(cb).toHaveBeenCalledWith('locking-tbtc', 'Locking tBTC...');
+	});
+
+	it('supports multiple sequential callbacks (last wins)', () => {
+		const cb1 = vi.fn();
+		const cb2 = vi.fn();
+		onSwapProgress(cb1);
+		onSwapProgress(cb2);
+
+		setSwapProgress('claiming-rbtc', 'Claiming RBTC...');
+
+		// onSwapProgress replaces the previous callback
+		expect(cb1).not.toHaveBeenCalled();
+		expect(cb2).toHaveBeenCalledTimes(1);
+		expect(cb2).toHaveBeenCalledWith('claiming-rbtc', 'Claiming RBTC...');
+	});
+
+	it('unsubscribes callback so it is no longer called', () => {
+		const cb = vi.fn();
+		const unsubscribe = onSwapProgress(cb);
+
+		setSwapProgress('locking-rbtc', 'first');
+		expect(cb).toHaveBeenCalledTimes(1);
+
+		unsubscribe();
+
+		setSwapProgress('locking-tbtc', 'second');
+		expect(cb).toHaveBeenCalledTimes(1); // not called again
+	});
+
+	it('getSwapProgressStep returns current step', () => {
+		setSwapProgress('waiting-for-boltz', 'Waiting...');
+		expect(getSwapProgressStep()).toBe('waiting-for-boltz');
+	});
+
+	it('getSwapProgressStep reflects the last setSwapProgress call', () => {
+		setSwapProgress('locking-rbtc', 'step 1');
+		setSwapProgress('claiming-tbtc', 'step 2');
+		expect(getSwapProgressStep()).toBe('claiming-tbtc');
+	});
+
+	it('does not throw when no callback is registered', () => {
+		// Ensure no callback from prior tests by subscribing and immediately unsubscribing
+		const unsub = onSwapProgress(() => {});
+		unsub();
+		expect(() => setSwapProgress('complete', 'Done')).not.toThrow();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// sleep
+// ---------------------------------------------------------------------------
+
+describe('sleep', () => {
+	it('resolves after the specified duration', async () => {
+		vi.useFakeTimers();
+
+		const promise = sleep(500);
+
+		// Should not resolve immediately
+		let resolved = false;
+		void promise.then(() => {
+			resolved = true;
+		});
+
+		await vi.advanceTimersByTimeAsync(499);
+		expect(resolved).toBe(false);
+
+		await vi.advanceTimersByTimeAsync(1);
+		await promise;
+		expect(resolved).toBe(true);
+
+		vi.useRealTimers();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// loadSwapChainState — additional edge cases
+// ---------------------------------------------------------------------------
+
+describe('loadSwapChainState — edge cases', () => {
+	it('returns INITIAL state when persisted phase is not a valid phase string', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({
+			value: JSON.stringify({ phase: 'INVALID_PHASE' })
+		});
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
 	});
 });
