@@ -59,6 +59,8 @@ export interface FiatFlowState {
 	providerCode: string;
 	fiatAmount: string;
 	redirectUrl: string;
+	/** User's wallet address for receiving crypto (stored for multi-hop auto-swap). */
+	walletAddress?: string;
 	changellyStatus?: ChangellyTransactionStatus;
 	receivedAmount?: string;
 	receivedAsset?: string;
@@ -88,6 +90,13 @@ type StageChangeCallback = (state: FiatFlowState) => void;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Serialize flow state for error messages — redacts wallet addresses for security. */
+function sanitizeFlowForLog(flow: FiatFlowState | null): string {
+	if (!flow) return 'null';
+	const { walletAddress, ...safe } = flow as FiatFlowState & { walletAddress?: string };
+	return JSON.stringify({ ...safe, walletAddress: walletAddress ? '***' : undefined });
+}
 
 function changellyTickerForAsset(asset: FiatBuyAsset): string {
 	switch (asset) {
@@ -179,6 +188,7 @@ export class FiatSwapOrchestrator {
 			providerCode: params.providerCode,
 			fiatAmount: params.fiatAmount,
 			redirectUrl: order.redirectUrl,
+			walletAddress: checksummedAddress,
 			startedAt: Date.now(),
 			updatedAt: Date.now()
 		};
@@ -512,11 +522,11 @@ export class FiatSwapOrchestrator {
 		const { symbiosisService } = await import('$lib/services/symbiosis.service');
 
 		// Resolve user's Arbitrum address from flow state
-		const userAddress = this.flow?.receivedAsset;
+		const userAddress = this.flow?.walletAddress;
 		if (!userAddress || userAddress === '0x0000000000000000000000000000000000000000') {
 			throw new Error(
-				'Cannot execute WBTC→tBTC swap: no valid user address. Flow state: ' +
-					JSON.stringify(this.flow)
+				'Cannot execute WBTC→tBTC swap: no valid user address. Flow: ' +
+					sanitizeFlowForLog(this.flow)
 			);
 		}
 
@@ -573,11 +583,11 @@ export class FiatSwapOrchestrator {
 
 		// User's RSK address (claim address for rBTC)
 		// CRITICAL: Must be the actual user address, not placeholder
-		const rskAddress = this.flow?.receivedAsset;
+		const rskAddress = this.flow?.walletAddress;
 		if (!rskAddress || rskAddress === '0x0000000000000000000000000000000000000000') {
 			throw new Error(
-				'Cannot execute tBTC→rBTC swap: no valid RSK claim address. Flow state: ' +
-					JSON.stringify(this.flow)
+				'Cannot execute tBTC→rBTC swap: no valid RSK claim address. Flow: ' +
+					sanitizeFlowForLog(this.flow)
 			);
 		}
 
@@ -585,7 +595,7 @@ export class FiatSwapOrchestrator {
 		const amountSats = this.flow?.receivedAmount ? Number(this.flow.receivedAmount) : 0;
 		if (amountSats <= 0) {
 			throw new Error(
-				'Cannot execute tBTC→rBTC swap: no valid amount. Flow state: ' + JSON.stringify(this.flow)
+				'Cannot execute tBTC→rBTC swap: no valid amount. Flow: ' + sanitizeFlowForLog(this.flow)
 			);
 		}
 

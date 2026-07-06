@@ -79,6 +79,7 @@ export interface SwapWalletBalances {
 	rbtcSats: number; // always sats (builtin or conn raw adjusted)
 	usdt0: number; // human USD num (builtin formatted parse or conn /1e18)
 	wbtcSats: number; // sats (builtin or conn wei /1e10 adjusted)
+	tbtcSats: number; // sats (builtin or conn wei /1e10 adjusted)
 }
 
 export interface SwapWalletAddresses {
@@ -232,12 +233,15 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 		return connectedSnap.wallets.find((cw) => cw.id === id);
 	}
 
-	function getBuiltinTokenBalance(token: 'rbtc' | 'usdt0' | 'wbtc'): number {
+	function getBuiltinTokenBalance(token: 'rbtc' | 'usdt0' | 'wbtc' | 'tbtc'): number {
 		if (token === 'rbtc') {
 			return builtinRbtcSats;
 		}
 		if (token === 'usdt0') {
 			return parseFloat(walletSnap.arb?.formattedUsdt0Balance || '0');
+		}
+		if (token === 'tbtc') {
+			return Math.round(parseFloat(walletSnap.arb?.formattedTbtcBalance || '0') * 100_000_000);
 		}
 		// wbtc
 		return Math.round(parseFloat(walletSnap.arb?.formattedWbtcBalance || '0') * 100_000_000);
@@ -384,14 +388,17 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 			return {
 				rbtcSats: getBuiltinTokenBalance('rbtc'),
 				usdt0: getBuiltinTokenBalance('usdt0'),
-				wbtcSats: getBuiltinTokenBalance('wbtc')
+				wbtcSats: getBuiltinTokenBalance('wbtc'),
+				tbtcSats: getBuiltinTokenBalance('tbtc')
 			};
 		}
 		const w = getConnectedWallet(wid);
 		const rbtcSats = Number(w?.balances?.rbtc?.raw ?? 0);
 		const usdt0 = Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
 		const wbtcSats = getWbtcSatsFromConnected(w);
-		return { rbtcSats, usdt0, wbtcSats };
+		const tbtcRaw = Number(w?.balances?.tbtc?.raw ?? 0);
+		const tbtcSats = tbtcRaw > 0 ? Math.round(tbtcRaw / 10_000_000_000) : 0;
+		return { rbtcSats, usdt0, wbtcSats, tbtcSats };
 	});
 
 	const destBalances = $derived.by<SwapWalletBalances>(() => {
@@ -401,16 +408,17 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 			return {
 				rbtcSats: getBuiltinTokenBalance('rbtc'),
 				usdt0: getBuiltinTokenBalance('usdt0'),
-				wbtcSats: getBuiltinTokenBalance('wbtc')
+				wbtcSats: getBuiltinTokenBalance('wbtc'),
+				tbtcSats: getBuiltinTokenBalance('tbtc')
 			};
 		}
 		const w = getConnectedWallet(wid);
 		const rbtcSats = Number(w?.balances?.rbtc?.raw ?? 0);
 		const usdt0 = Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18;
-		let wbtcSats = 0;
-		const rawWei = Number(w?.balances?.wbtc?.raw ?? 0);
-		if (rawWei > 0) wbtcSats = Math.round(rawWei / 10_000_000_000);
-		return { rbtcSats, usdt0, wbtcSats };
+		const wbtcSats = getWbtcSatsFromConnected(w);
+		const tbtcRaw = Number(w?.balances?.tbtc?.raw ?? 0);
+		const tbtcSats = tbtcRaw > 0 ? Math.round(tbtcRaw / 10_000_000_000) : 0;
+		return { rbtcSats, usdt0, wbtcSats, tbtcSats };
 	});
 
 	// (destRbtcSats etc. derivable from destBalances in consumer; exact per-wallet logic preserved above)

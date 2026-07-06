@@ -210,253 +210,312 @@ function buildRoute(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Route matrix — rBTC source
+// Data-driven route table
 // ---------------------------------------------------------------------------
 
-function resolveFromRBTC(destination: Destination): Route[] {
-	if (destination.type === 'address') {
-		if (isRSKChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'rbtc-to-rbtc-direct',
-					label: 'Direct',
-					hops: [
-						{
-							service: 'direct',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_DIRECT,
-							estimatedTimeMin: TIME_DIRECT_MIN,
-							estimatedTimeMax: TIME_DIRECT_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
+/** A field that is either a static value or computed from the destination. */
+type Dyn<T> = T | ((dest: Destination) => T);
 
-		if (isBSCChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'rbtc-to-bsc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'rbtc-to-bsc-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
+interface HopDef {
+	service: RouteHop['service'];
+	fromAsset: string;
+	fromChain: string;
+	toAsset: string;
+	toChain: Dyn<string>;
+	feePercent: number;
+	estimatedTimeMin: number;
+	estimatedTimeMax: number;
+}
 
-		// wBTC on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + Symbiosis (tBTC→WBTC)
-		if (isARBChain(destination.chainId) && destination.asset === 'WBTC') {
-			return [
-				buildRoute({
-					id: 'rbtc-to-wbtc-arb-via-boltz-symbiosis',
-					label: 'Boltz → Symbiosis',
-					hops: [
-						{
-							service: 'boltz',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_TBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_BOLTZ_CHAIN_SWAP,
-							estimatedTimeMin: TIME_BOLTZ_MIN,
-							estimatedTimeMax: TIME_BOLTZ_MAX
-						},
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_TBTC,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_WBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_SYMBIOSIS_SWAP,
-							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'rbtc-to-wbtc-arb-via-boltz-lifi',
-					label: 'Boltz → LI.FI',
-					hops: [
-						{
-							service: 'boltz',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_TBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_BOLTZ_CHAIN_SWAP,
-							estimatedTimeMin: TIME_BOLTZ_MIN,
-							estimatedTimeMax: TIME_BOLTZ_MAX
-						},
-						{
-							service: 'lifi',
-							fromAsset: ASSET_TBTC,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_WBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
+interface RouteDef {
+	id: Dyn<string>;
+	label: string;
+	recommended: boolean;
+	hops: HopDef[];
+	timeUnit?: string;
+}
 
-		// USDT0 on Arbitrum: 2-hop route via Boltz (rBTC→tBTC) + Symbiosis (tBTC→USDT0)
-		if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
-			return [
-				buildRoute({
-					id: 'rbtc-to-usdt0-arb-via-boltz-symbiosis',
-					label: 'Boltz → Symbiosis',
-					hops: [
-						{
-							service: 'boltz',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_TBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_BOLTZ_CHAIN_SWAP,
-							estimatedTimeMin: TIME_BOLTZ_MIN,
-							estimatedTimeMax: TIME_BOLTZ_MAX
-						},
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_TBTC,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_USDT0,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_SYMBIOSIS_SWAP,
-							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
+interface RouteRule {
+	source: SourceWallet;
+	match: (dest: Destination) => boolean;
+	routes: RouteDef[];
+}
 
-		// Cross-chain EVM: rBTC → USDT on destination chain via bridge
-		if (isCrossChainEVM(destination.chainId)) {
-			return [
-				buildRoute({
-					id: `rbtc-to-usdt-chain-${destination.chainId}-via-lifi`,
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: `rbtc-to-usdt-chain-${destination.chainId}-via-symbiosis`,
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
+/** Resolve a possibly-dynamic field against a concrete destination. */
+function dyn<T>(value: Dyn<T>, dest: Destination): T {
+	return typeof value === 'function' ? (value as (d: Destination) => T)(dest) : value;
+}
 
-		// TRON: rBTC → USDT on TRON via bridge (non-EVM)
-		if (isTRONChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'rbtc-to-usdt-tron-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_TRON,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'rbtc-to-usdt-tron-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_RBTC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_TRON,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
+/** Convert a HopDef into a concrete RouteHop. */
+function materializeHop(hop: HopDef, dest: Destination): RouteHop {
+	return {
+		service: hop.service,
+		fromAsset: hop.fromAsset,
+		fromChain: hop.fromChain,
+		toAsset: hop.toAsset,
+		toChain: dyn(hop.toChain, dest),
+		feePercent: hop.feePercent,
+		estimatedTimeMin: hop.estimatedTimeMin,
+		estimatedTimeMax: hop.estimatedTimeMax
+	};
+}
 
-		return [];
-	}
+// Shorthand: destination chainId as template literal part (safe because match
+// already guarantees destination.type === 'address' before this is evaluated).
+function chainIdStr(dest: Destination): string {
+	return dest.type === 'address' ? String(dest.chainId) : '';
+}
 
-	if (destination.network === 'lightning') {
-		return [
-			buildRoute({
+// ---------------------------------------------------------------------------
+// Route definitions — rules evaluated top-to-bottom; first match wins.
+// ---------------------------------------------------------------------------
+
+const ROUTE_TABLE: RouteRule[] = [
+	// ── rBTC ─────────────────────────────────────────────────────────────
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'rbtc-to-rbtc-direct',
+				label: 'Direct',
+				recommended: true,
+				hops: [
+					{
+						service: 'direct',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_DIRECT,
+						estimatedTimeMin: TIME_DIRECT_MIN,
+						estimatedTimeMax: TIME_DIRECT_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isBSCChain(d.chainId),
+		routes: [
+			{
+				id: 'rbtc-to-bsc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_BSC,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			},
+			{
+				id: 'rbtc-to-bsc-via-lifi',
+				label: 'LI.FI',
+				recommended: false,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_BSC,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'WBTC',
+		routes: [
+			{
+				id: 'rbtc-to-wbtc-arb-via-boltz-symbiosis',
+				label: 'Boltz \u2192 Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					},
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_WBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			},
+			{
+				id: 'rbtc-to-wbtc-arb-via-boltz-lifi',
+				label: 'Boltz \u2192 LI.FI',
+				recommended: false,
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					},
+					{
+						service: 'lifi',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_WBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'USDT0',
+		routes: [
+			{
+				id: 'rbtc-to-usdt0-arb-via-boltz-symbiosis',
+				label: 'Boltz \u2192 Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					},
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isCrossChainEVM(d.chainId),
+		routes: [
+			{
+				id: (d) => `rbtc-to-usdt-chain-${chainIdStr(d)}-via-lifi`,
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: (d) => `rbtc-to-usdt-chain-${chainIdStr(d)}-via-symbiosis`,
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'address' && isTRONChain(d.chainId),
+		routes: [
+			{
+				id: 'rbtc-to-usdt-tron-via-lifi',
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_TRON,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: 'rbtc-to-usdt-tron-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_RBTC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_TRON,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'invoice' && d.network === 'lightning',
+		routes: [
+			{
 				id: 'rbtc-to-lightning-via-boltz',
 				label: 'Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'boltz',
@@ -468,17 +527,18 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	if (destination.network === 'onchain') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'rbtc',
+		match: (d) => d.type === 'invoice' && d.network === 'onchain',
+		routes: [
+			{
 				id: 'rbtc-to-btc-via-lifi',
 				label: 'LI.FI',
+				recommended: true,
 				hops: [
 					{
 						service: 'lifi',
@@ -490,12 +550,12 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_LIFI_MIN,
 						estimatedTimeMax: TIME_LIFI_MAX
 					}
-				],
-				recommended: true
-			}),
-			buildRoute({
+				]
+			},
+			{
 				id: 'rbtc-to-btc-via-symbiosis',
 				label: 'Symbiosis',
+				recommended: false,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -507,12 +567,12 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 						estimatedTimeMax: TIME_SYMBIOSIS_MAX
 					}
-				],
-				recommended: false
-			}),
-			buildRoute({
+				]
+			},
+			{
 				id: 'rbtc-to-btc-via-boltz',
 				label: 'Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'boltz',
@@ -524,171 +584,163 @@ function resolveFromRBTC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-// ---------------------------------------------------------------------------
-// Route matrix — USDT (BSC) source
-// ---------------------------------------------------------------------------
-
-function resolveFromUSDTBSC(destination: Destination): Route[] {
-	if (destination.type === 'address') {
-		if (isBSCChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt-to-bsc-direct',
-					label: 'Direct',
-					hops: [
-						{
-							service: 'direct',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_DIRECT,
-							estimatedTimeMin: 0,
-							estimatedTimeMax: 1
-						}
-					],
-					recommended: true,
-					timeUnit: 'sec'
-				})
-			];
-		}
-
-		if (isRSKChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt-to-rbtc-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'usdt-to-rbtc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
-
-		// Cross-chain EVM: USDT on BSC → USDT on destination chain via bridge
-		if (isCrossChainEVM(destination.chainId)) {
-			return [
-				buildRoute({
-					id: `usdt-bsc-to-usdt-chain-${destination.chainId}-via-lifi`,
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: `usdt-bsc-to-usdt-chain-${destination.chainId}-via-symbiosis`,
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
-
-		// TRON: USDT on BSC → USDT on TRON via bridge (non-EVM)
-		if (isTRONChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt-bsc-to-usdt-tron-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_TRON,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'usdt-bsc-to-usdt-tron-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT,
-							fromChain: CHAIN_BSC,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_TRON,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
-
-		return [];
-	}
-
-	if (destination.network === 'lightning') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	// ── USDT (BSC) ───────────────────────────────────────────────────────
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'address' && isBSCChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt-to-bsc-direct',
+				label: 'Direct',
+				recommended: true,
+				timeUnit: 'sec',
+				hops: [
+					{
+						service: 'direct',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_BSC,
+						feePercent: FEE_DIRECT,
+						estimatedTimeMin: 0,
+						estimatedTimeMax: 1
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt-to-rbtc-via-lifi',
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: 'usdt-to-rbtc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'address' && isCrossChainEVM(d.chainId),
+		routes: [
+			{
+				id: (d) => `usdt-bsc-to-usdt-chain-${chainIdStr(d)}-via-lifi`,
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: (d) => `usdt-bsc-to-usdt-chain-${chainIdStr(d)}-via-symbiosis`,
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'address' && isTRONChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt-bsc-to-usdt-tron-via-lifi',
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_TRON,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: 'usdt-bsc-to-usdt-tron-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT,
+						fromChain: CHAIN_BSC,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_TRON,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'invoice' && d.network === 'lightning',
+		routes: [
+			{
 				id: 'usdt-to-lightning-via-changelly-boltz',
 				label: 'Changelly + Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'changelly',
@@ -710,17 +762,18 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	if (destination.network === 'onchain') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt-bsc',
+		match: (d) => d.type === 'invoice' && d.network === 'onchain',
+		routes: [
+			{
 				id: 'usdt-to-btc-via-lifi',
 				label: 'LI.FI',
+				recommended: true,
 				hops: [
 					{
 						service: 'lifi',
@@ -732,12 +785,12 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_LIFI_MIN,
 						estimatedTimeMax: TIME_LIFI_MAX
 					}
-				],
-				recommended: true
-			}),
-			buildRoute({
+				]
+			},
+			{
 				id: 'usdt-to-btc-via-symbiosis',
 				label: 'Symbiosis',
+				recommended: false,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -749,12 +802,12 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
 						estimatedTimeMax: TIME_SYMBIOSIS_MAX
 					}
-				],
-				recommended: false
-			}),
-			buildRoute({
+				]
+			},
+			{
 				id: 'usdt-to-btc-via-changelly',
 				label: 'Changelly',
+				recommended: true,
 				hops: [
 					{
 						service: 'changelly',
@@ -766,98 +819,88 @@ function resolveFromUSDTBSC(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_CHANGELLY_MIN,
 						estimatedTimeMax: TIME_CHANGELLY_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-// ---------------------------------------------------------------------------
-// Route matrix — USDT0 on Rootstock source
-// ---------------------------------------------------------------------------
-
-function resolveFromUSDT0RSK(destination: Destination): Route[] {
-	if (destination.type === 'address') {
-		// USDT0 → rBTC on RSK via Symbiosis on-chain swap
-		if (isRSKChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt0-rsk-to-rbtc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_ONCHAIN,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		// USDT0 on RSK → USDT on BSC via Symbiosis cross-chain
-		if (isBSCChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt0-rsk-to-bsc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		// Cross-chain EVM: USDT0 on RSK → USDT on destination chain
-		if (isCrossChainEVM(destination.chainId)) {
-			return [
-				buildRoute({
-					id: `usdt0-rsk-to-usdt-chain-${destination.chainId}-via-symbiosis`,
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		return [];
-	}
-
-	if (destination.network === 'lightning') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	// ── USDT0 (RSK) ──────────────────────────────────────────────────────
+	{
+		source: 'usdt0-rsk',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt0-rsk-to-rbtc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-rsk',
+		match: (d) => d.type === 'address' && isBSCChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt0-rsk-to-bsc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_BSC,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-rsk',
+		match: (d) => d.type === 'address' && isCrossChainEVM(d.chainId),
+		routes: [
+			{
+				id: (d) => `usdt0-rsk-to-usdt-chain-${chainIdStr(d)}-via-symbiosis`,
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-rsk',
+		match: (d) => d.type === 'invoice' && d.network === 'lightning',
+		routes: [
+			{
 				id: 'usdt0-rsk-to-lightning-via-symbiosis-boltz',
 				label: 'Symbiosis + Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -879,17 +922,18 @@ function resolveFromUSDT0RSK(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	if (destination.network === 'onchain') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-rsk',
+		match: (d) => d.type === 'invoice' && d.network === 'onchain',
+		routes: [
+			{
 				id: 'usdt0-rsk-to-btc-via-symbiosis-boltz',
 				label: 'Symbiosis + Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -911,159 +955,149 @@ function resolveFromUSDT0RSK(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-// ---------------------------------------------------------------------------
-// Route matrix — USDT0 on Arbitrum source
-// ---------------------------------------------------------------------------
-
-function resolveFromUSDT0ARB(destination: Destination): Route[] {
-	if (destination.type === 'address') {
-		// Same-chain USDT0 transfer on Arbitrum (wallet-to-wallet)
-		if (ARB_CHAIN_IDS.has(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt0-arb-to-usdt0-arb-direct',
-					label: 'Direct',
-					hops: [
-						{
-							service: 'direct',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_USDT0,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_DIRECT,
-							estimatedTimeMin: TIME_DIRECT_MIN,
-							estimatedTimeMax: TIME_DIRECT_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		// USDT0 on Arbitrum → rBTC on RSK via 2-hop: Symbiosis (USDT0→tBTC) + Boltz (tBTC→rBTC)
-		// Two-hop is cheaper than direct LI.FI/Symbiosis because Boltz tBTC→rBTC is 1:1 with minimal fees.
-		if (isRSKChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'usdt0-arb-to-rbtc-via-symbiosis-boltz',
-					label: 'Symbiosis → Boltz',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_TBTC,
-							toChain: CHAIN_ARBITRUM,
-							feePercent: FEE_SYMBIOSIS_SWAP,
-							estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-						},
-						{
-							service: 'boltz',
-							fromAsset: ASSET_TBTC,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_BOLTZ_CHAIN_SWAP,
-							estimatedTimeMin: TIME_BOLTZ_MIN,
-							estimatedTimeMax: TIME_BOLTZ_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: 'usdt0-arb-to-rbtc-via-lifi',
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: false
-				}),
-				buildRoute({
-					id: 'usdt0-arb-to-rbtc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
-
-		// Cross-chain EVM: USDT0 on Arbitrum → USDT on destination chain
-		if (isCrossChainEVM(destination.chainId)) {
-			return [
-				buildRoute({
-					id: `usdt0-arb-to-usdt-chain-${destination.chainId}-via-lifi`,
-					label: 'LI.FI',
-					hops: [
-						{
-							service: 'lifi',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_LIFI_DEFAULT,
-							estimatedTimeMin: TIME_LIFI_MIN,
-							estimatedTimeMax: TIME_LIFI_MAX
-						}
-					],
-					recommended: true
-				}),
-				buildRoute({
-					id: `usdt0-arb-to-usdt-chain-${destination.chainId}-via-symbiosis`,
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_ARBITRUM,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: false
-				})
-			];
-		}
-	}
-
-	// BTC on-chain via cross-chain bridge
-	if (destination.type === 'invoice' && destination.network === 'onchain') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	// ── USDT0 (Arbitrum) ─────────────────────────────────────────────────
+	{
+		source: 'usdt0-arb',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt0-arb-to-usdt0-arb-direct',
+				label: 'Direct',
+				recommended: true,
+				hops: [
+					{
+						service: 'direct',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_DIRECT,
+						estimatedTimeMin: TIME_DIRECT_MIN,
+						estimatedTimeMax: TIME_DIRECT_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-arb',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'usdt0-arb-to-rbtc-via-symbiosis-boltz',
+				label: 'Symbiosis \u2192 Boltz',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					},
+					{
+						service: 'boltz',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				]
+			},
+			{
+				id: 'usdt0-arb-to-rbtc-via-lifi',
+				label: 'LI.FI',
+				recommended: false,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: 'usdt0-arb-to-rbtc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-arb',
+		match: (d) => d.type === 'address' && isCrossChainEVM(d.chainId),
+		routes: [
+			{
+				id: (d) => `usdt0-arb-to-usdt-chain-${chainIdStr(d)}-via-lifi`,
+				label: 'LI.FI',
+				recommended: true,
+				hops: [
+					{
+						service: 'lifi',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_LIFI_DEFAULT,
+						estimatedTimeMin: TIME_LIFI_MIN,
+						estimatedTimeMax: TIME_LIFI_MAX
+					}
+				]
+			},
+			{
+				id: (d) => `usdt0-arb-to-usdt-chain-${chainIdStr(d)}-via-symbiosis`,
+				label: 'Symbiosis',
+				recommended: false,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'usdt0-arb',
+		match: (d) => d.type === 'invoice' && d.network === 'onchain',
+		routes: [
+			{
 				id: 'usdt0-arb-to-btc-via-symbiosis-boltz',
-				label: 'Symbiosis → Boltz',
+				label: 'Symbiosis \u2192 Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -1085,118 +1119,108 @@ function resolveFromUSDT0ARB(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-// ---------------------------------------------------------------------------
-// Route matrix — DOC on Rootstock source
-// ---------------------------------------------------------------------------
-
-function resolveFromDOCRSK(destination: Destination): Route[] {
-	if (destination.type === 'address') {
-		// DOC → rBTC on RSK via Symbiosis on-chain swap
-		if (isRSKChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'doc-rsk-to-rbtc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_DOC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_RBTC,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_ONCHAIN,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		// DOC on RSK → USDT on BSC via Symbiosis (two-hop: DOC→USDT0 on RSK, then cross-chain)
-		if (isBSCChain(destination.chainId)) {
-			return [
-				buildRoute({
-					id: 'doc-rsk-to-bsc-via-symbiosis',
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_DOC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT0,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_ONCHAIN,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						},
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: CHAIN_BSC,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		// Cross-chain EVM: DOC on RSK → USDT on destination chain
-		if (isCrossChainEVM(destination.chainId)) {
-			return [
-				buildRoute({
-					id: `doc-rsk-to-usdt-chain-${destination.chainId}-via-symbiosis`,
-					label: 'Symbiosis',
-					hops: [
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_DOC,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT0,
-							toChain: CHAIN_RSK,
-							feePercent: FEE_SYMBIOSIS_ONCHAIN,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						},
-						{
-							service: 'symbiosis',
-							fromAsset: ASSET_USDT0,
-							fromChain: CHAIN_RSK,
-							toAsset: ASSET_USDT,
-							toChain: `chain-${destination.chainId}`,
-							feePercent: FEE_SYMBIOSIS_DEFAULT,
-							estimatedTimeMin: TIME_SYMBIOSIS_MIN,
-							estimatedTimeMax: TIME_SYMBIOSIS_MAX
-						}
-					],
-					recommended: true
-				})
-			];
-		}
-
-		return [];
-	}
-
-	if (destination.network === 'lightning') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	// ── DOC (RSK) ────────────────────────────────────────────────────────
+	{
+		source: 'doc-rsk',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'doc-rsk-to-rbtc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_DOC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'doc-rsk',
+		match: (d) => d.type === 'address' && isBSCChain(d.chainId),
+		routes: [
+			{
+				id: 'doc-rsk-to-bsc-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_DOC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: CHAIN_BSC,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'doc-rsk',
+		match: (d) => d.type === 'address' && isCrossChainEVM(d.chainId),
+		routes: [
+			{
+				id: (d) => `doc-rsk-to-usdt-chain-${chainIdStr(d)}-via-symbiosis`,
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_DOC,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_SYMBIOSIS_ONCHAIN,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					},
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_USDT0,
+						fromChain: CHAIN_RSK,
+						toAsset: ASSET_USDT,
+						toChain: (d) => `chain-${chainIdStr(d)}`,
+						feePercent: FEE_SYMBIOSIS_DEFAULT,
+						estimatedTimeMin: TIME_SYMBIOSIS_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'doc-rsk',
+		match: (d) => d.type === 'invoice' && d.network === 'lightning',
+		routes: [
+			{
 				id: 'doc-rsk-to-lightning-via-symbiosis-boltz',
 				label: 'Symbiosis + Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -1218,17 +1242,18 @@ function resolveFromDOCRSK(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	if (destination.network === 'onchain') {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'doc-rsk',
+		match: (d) => d.type === 'invoice' && d.network === 'onchain',
+		routes: [
+			{
 				id: 'doc-rsk-to-btc-via-symbiosis-boltz',
 				label: 'Symbiosis + Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'symbiosis',
@@ -1250,37 +1275,19 @@ function resolveFromDOCRSK(destination: Destination): Route[] {
 						estimatedTimeMin: TIME_BOLTZ_MIN,
 						estimatedTimeMax: TIME_BOLTZ_MAX
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-/**
- * Resolve routes from BTC on-chain (connected hardware wallet with BTC signer).
- *
- * BTC on-chain can be sent directly to a BTC address (no swap needed) or
- * swapped to rBTC/USDT via Boltz submarine swap.
- */
-function resolveFromBTCOnchain(destination: Destination): Route[] {
-	if (destination.type === 'invoice') {
-		// Lightning invoice — could use Boltz submarine swap from BTC
-		// Not yet supported from connected wallet BTC
-		return [];
-	}
-
-	const { chainId } = destination;
-
-	// BTC → BTC on-chain (same wallet transfer — direct send, no swap)
-	if (chainId === 1 || chainId === 0) {
-		// chainId 0 or 1 used for BTC mainnet/testnet in this app
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	// ── BTC on-chain ─────────────────────────────────────────────────────
+	{
+		source: 'btc-onchain',
+		match: (d) => d.type === 'address' && (d.chainId === 1 || d.chainId === 0),
+		routes: [
+			{
 				id: 'btc-onchain-direct',
 				label: 'Direct',
+				recommended: true,
 				hops: [
 					{
 						service: 'direct',
@@ -1292,18 +1299,18 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMin: 10,
 						estimatedTimeMax: 30
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	// BTC → rBTC via Boltz reverse swap
-	if (chainId === 30 || chainId === 31) {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'btc-onchain',
+		match: (d) => d.type === 'address' && (d.chainId === 30 || d.chainId === 31),
+		routes: [
+			{
 				id: 'btc-to-rbtc-via-boltz',
 				label: 'Boltz',
+				recommended: true,
 				hops: [
 					{
 						service: 'boltz',
@@ -1315,18 +1322,18 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMin: 10,
 						estimatedTimeMax: 30
 					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	// BTC → USDT0 on Arbitrum (multi-hop: BTC → rBTC → USDT0 via LI.FI/Symbiosis)
-	if (chainId === 42161) {
-		return [
-			buildRoute({
+				]
+			}
+		]
+	},
+	{
+		source: 'btc-onchain',
+		match: (d) => d.type === 'address' && d.chainId === 42161,
+		routes: [
+			{
 				id: 'btc-to-usdt0-arb-via-boltz',
 				label: 'Boltz + LI.FI',
+				recommended: true,
 				hops: [
 					{
 						service: 'boltz',
@@ -1348,14 +1355,128 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
 						estimatedTimeMin: 5,
 						estimatedTimeMax: 15
 					}
-				],
-				recommended: true
-			})
-		];
+				]
+			}
+		]
+	},
+	// ── WBTC (Arbitrum) ──────────────────────────────────────────────────
+	{
+		source: 'wbtc-arb',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'USDT0',
+		routes: [
+			{
+				id: 'wbtc-to-usdt0-arb-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_WBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'wbtc-arb',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'TBTC',
+		routes: [
+			{
+				id: 'wbtc-to-tbtc-arb-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_WBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_TBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			}
+		]
+	},
+	// ── TBTC (Arbitrum) ──────────────────────────────────────────────────
+	{
+		source: 'tbtc-arb',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'WBTC',
+		routes: [
+			{
+				id: 'tbtc-to-wbtc-arb-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_WBTC,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'tbtc-arb',
+		match: (d) => d.type === 'address' && isARBChain(d.chainId) && d.asset === 'USDT0',
+		routes: [
+			{
+				id: 'tbtc-to-usdt0-arb-via-symbiosis',
+				label: 'Symbiosis',
+				recommended: true,
+				hops: [
+					{
+						service: 'symbiosis',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_USDT0,
+						toChain: CHAIN_ARBITRUM,
+						feePercent: FEE_SYMBIOSIS_SWAP,
+						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
+						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
+					}
+				]
+			}
+		]
+	},
+	{
+		source: 'tbtc-arb',
+		match: (d) => d.type === 'address' && isRSKChain(d.chainId),
+		routes: [
+			{
+				id: 'tbtc-to-rbtc-via-boltz',
+				label: 'Boltz',
+				recommended: true,
+				hops: [
+					{
+						service: 'boltz',
+						fromAsset: ASSET_TBTC,
+						fromChain: CHAIN_ARBITRUM,
+						toAsset: ASSET_RBTC,
+						toChain: CHAIN_RSK,
+						feePercent: FEE_BOLTZ_CHAIN_SWAP,
+						estimatedTimeMin: TIME_BOLTZ_MIN,
+						estimatedTimeMax: TIME_BOLTZ_MAX
+					}
+				]
+			}
+		]
 	}
-
-	return [];
-}
+];
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -1382,159 +1503,19 @@ function resolveFromBTCOnchain(destination: Destination): Route[] {
  * ```
  */
 export function resolveRoute(source: SourceWallet, destination: Destination): Route[] {
-	switch (source) {
-		case 'rbtc':
-			return resolveFromRBTC(destination);
-		case 'usdt-bsc':
-			return resolveFromUSDTBSC(destination);
-		case 'usdt0-rsk':
-			return resolveFromUSDT0RSK(destination);
-		case 'usdt0-arb':
-			return resolveFromUSDT0ARB(destination);
-		case 'doc-rsk':
-			return resolveFromDOCRSK(destination);
-		case 'btc-onchain':
-			return resolveFromBTCOnchain(destination);
-		case 'wbtc-arb':
-			return resolveFromWBTC(destination);
-		case 'tbtc-arb':
-			return resolveFromTBTC(destination);
-		default:
-			return [];
-	}
-}
+	for (const rule of ROUTE_TABLE) {
+		if (rule.source !== source) continue;
+		if (!rule.match(destination)) continue;
 
-// ---------------------------------------------------------------------------
-// Route matrix — WBTC on Arbitrum source
-// ---------------------------------------------------------------------------
-
-function resolveFromWBTC(destination: Destination): Route[] {
-	if (destination.type !== 'address') return [];
-
-	// WBTC → USDT0 on Arbitrum via Symbiosis
-	if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
-		return [
+		return rule.routes.map((r) =>
 			buildRoute({
-				id: 'wbtc-to-usdt0-arb-via-symbiosis',
-				label: 'Symbiosis',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: ASSET_WBTC,
-						fromChain: CHAIN_ARBITRUM,
-						toAsset: ASSET_USDT0,
-						toChain: CHAIN_ARBITRUM,
-						feePercent: FEE_SYMBIOSIS_SWAP,
-						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-					}
-				],
-				recommended: true
+				id: dyn(r.id, destination),
+				label: r.label,
+				hops: r.hops.map((h) => materializeHop(h, destination)),
+				recommended: r.recommended,
+				timeUnit: r.timeUnit
 			})
-		];
+		);
 	}
-
-	// WBTC → tBTC on Arbitrum via Symbiosis
-	if (isARBChain(destination.chainId) && destination.asset === 'TBTC') {
-		return [
-			buildRoute({
-				id: 'wbtc-to-tbtc-arb-via-symbiosis',
-				label: 'Symbiosis',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: ASSET_WBTC,
-						fromChain: CHAIN_ARBITRUM,
-						toAsset: ASSET_TBTC,
-						toChain: CHAIN_ARBITRUM,
-						feePercent: FEE_SYMBIOSIS_SWAP,
-						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	return [];
-}
-
-// ---------------------------------------------------------------------------
-// Route matrix — tBTC on Arbitrum source
-// ---------------------------------------------------------------------------
-
-function resolveFromTBTC(destination: Destination): Route[] {
-	if (destination.type !== 'address') return [];
-
-	// tBTC → WBTC on Arbitrum via Symbiosis
-	if (isARBChain(destination.chainId) && destination.asset === 'WBTC') {
-		return [
-			buildRoute({
-				id: 'tbtc-to-wbtc-arb-via-symbiosis',
-				label: 'Symbiosis',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: ASSET_TBTC,
-						fromChain: CHAIN_ARBITRUM,
-						toAsset: ASSET_WBTC,
-						toChain: CHAIN_ARBITRUM,
-						feePercent: FEE_SYMBIOSIS_SWAP,
-						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	// tBTC → USDT0 on Arbitrum via Symbiosis
-	if (isARBChain(destination.chainId) && destination.asset === 'USDT0') {
-		return [
-			buildRoute({
-				id: 'tbtc-to-usdt0-arb-via-symbiosis',
-				label: 'Symbiosis',
-				hops: [
-					{
-						service: 'symbiosis',
-						fromAsset: ASSET_TBTC,
-						fromChain: CHAIN_ARBITRUM,
-						toAsset: ASSET_USDT0,
-						toChain: CHAIN_ARBITRUM,
-						feePercent: FEE_SYMBIOSIS_SWAP,
-						estimatedTimeMin: TIME_SYMBIOSIS_SWAP_MIN,
-						estimatedTimeMax: TIME_SYMBIOSIS_SWAP_MAX
-					}
-				],
-				recommended: true
-			})
-		];
-	}
-
-	// tBTC → rBTC via Boltz chain swap
-	if (isRSKChain(destination.chainId)) {
-		return [
-			buildRoute({
-				id: 'tbtc-to-rbtc-via-boltz',
-				label: 'Boltz',
-				hops: [
-					{
-						service: 'boltz',
-						fromAsset: ASSET_TBTC,
-						fromChain: CHAIN_ARBITRUM,
-						toAsset: ASSET_RBTC,
-						toChain: CHAIN_RSK,
-						feePercent: FEE_BOLTZ_CHAIN_SWAP,
-						estimatedTimeMin: TIME_BOLTZ_MIN,
-						estimatedTimeMax: TIME_BOLTZ_MAX
-					}
-				],
-				recommended: true
-			})
-		];
-	}
-
 	return [];
 }

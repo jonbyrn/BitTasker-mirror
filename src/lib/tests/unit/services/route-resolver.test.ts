@@ -505,3 +505,216 @@ describe('route matrix completeness', () => {
 		expect(resolveRoute('usdt-bsc', makeAddressDest(999)).length).toBe(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// USDT0 (RSK) source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: usdt0-rsk', () => {
+	it('returns 1 route for RSK chain (same-chain swap)', () => {
+		const routes = resolveRoute('usdt0-rsk', makeAddressDest(30));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-rsk-to-rbtc-via-symbiosis');
+	});
+
+	it('returns 1 route for BSC chain', () => {
+		const routes = resolveRoute('usdt0-rsk', makeAddressDest(56));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-rsk-to-bsc-via-symbiosis');
+	});
+
+	it('returns lightning route via symbiosis+boltz', () => {
+		const routes = resolveRoute('usdt0-rsk', makeInvoiceDest('lightning'));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-rsk-to-lightning-via-symbiosis-boltz');
+		expect(routes[0].hops).toHaveLength(2);
+	});
+
+	it('returns onchain BTC route via symbiosis+boltz', () => {
+		const routes = resolveRoute('usdt0-rsk', makeInvoiceDest('onchain'));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-rsk-to-btc-via-symbiosis-boltz');
+	});
+
+	it('returns empty for unknown chain', () => {
+		expect(resolveRoute('usdt0-rsk', makeAddressDest(999))).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// USDT0 (Arbitrum) source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: usdt0-arb', () => {
+	it('returns 1 direct route for Arbitrum chain (same-chain)', () => {
+		const routes = resolveRoute('usdt0-arb', makeAddressDest(42161));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-arb-to-usdt0-arb-direct');
+		expect(routes[0].hops[0].service).toBe('direct');
+	});
+
+	it('returns 3 routes for RSK chain', () => {
+		const routes = resolveRoute('usdt0-arb', makeAddressDest(30));
+		expect(routes).toHaveLength(3);
+		expect(routes[0].id).toBe('usdt0-arb-to-rbtc-via-symbiosis-boltz');
+	});
+
+	it('returns onchain BTC route via symbiosis+boltz', () => {
+		const routes = resolveRoute('usdt0-arb', makeInvoiceDest('onchain'));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('usdt0-arb-to-btc-via-symbiosis-boltz');
+	});
+
+	it('returns empty for lightning invoice', () => {
+		expect(resolveRoute('usdt0-arb', makeInvoiceDest('lightning'))).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// DOC (RSK) source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: doc-rsk', () => {
+	it('returns 1 route for RSK chain', () => {
+		const routes = resolveRoute('doc-rsk', makeAddressDest(30));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('doc-rsk-to-rbtc-via-symbiosis');
+	});
+
+	it('returns 1 route for BSC chain', () => {
+		const routes = resolveRoute('doc-rsk', makeAddressDest(56));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('doc-rsk-to-bsc-via-symbiosis');
+		expect(routes[0].hops).toHaveLength(2);
+	});
+
+	it('returns lightning route via symbiosis+boltz', () => {
+		const routes = resolveRoute('doc-rsk', makeInvoiceDest('lightning'));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('doc-rsk-to-lightning-via-symbiosis-boltz');
+	});
+
+	it('returns onchain BTC route via symbiosis+boltz', () => {
+		const routes = resolveRoute('doc-rsk', makeInvoiceDest('onchain'));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('doc-rsk-to-btc-via-symbiosis-boltz');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// BTC on-chain source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: btc-onchain', () => {
+	it('returns 1 direct route for BTC chain (chainId 1)', () => {
+		const routes = resolveRoute('btc-onchain', makeAddressDest(1));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('btc-onchain-direct');
+	});
+
+	it('returns 1 Boltz route for RSK chain', () => {
+		const routes = resolveRoute('btc-onchain', makeAddressDest(30));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('btc-to-rbtc-via-boltz');
+	});
+
+	it('returns 1 route for Arbitrum chain (multi-hop)', () => {
+		const routes = resolveRoute('btc-onchain', makeAddressDest(42161));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('btc-to-usdt0-arb-via-boltz');
+		expect(routes[0].hops).toHaveLength(2);
+	});
+
+	it('returns empty for lightning invoice', () => {
+		expect(resolveRoute('btc-onchain', makeInvoiceDest('lightning'))).toHaveLength(0);
+	});
+
+	it('returns empty for unknown chain', () => {
+		expect(resolveRoute('btc-onchain', makeAddressDest(999))).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// WBTC (Arbitrum) source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: wbtc-arb', () => {
+	it('returns 1 route for USDT0 on Arbitrum', () => {
+		const dest: Destination = { type: 'address', chainId: 42161, address: '0x...', asset: 'USDT0' };
+		const routes = resolveRoute('wbtc-arb', dest);
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('wbtc-to-usdt0-arb-via-symbiosis');
+	});
+
+	it('returns 1 route for TBTC on Arbitrum', () => {
+		const dest: Destination = { type: 'address', chainId: 42161, address: '0x...', asset: 'TBTC' };
+		const routes = resolveRoute('wbtc-arb', dest);
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('wbtc-to-tbtc-arb-via-symbiosis');
+	});
+
+	it('returns empty for RSK chain', () => {
+		expect(resolveRoute('wbtc-arb', makeAddressDest(30))).toHaveLength(0);
+	});
+
+	it('returns empty for invoice destinations', () => {
+		expect(resolveRoute('wbtc-arb', makeInvoiceDest('lightning'))).toHaveLength(0);
+		expect(resolveRoute('wbtc-arb', makeInvoiceDest('onchain'))).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// TBTC (Arbitrum) source
+// ---------------------------------------------------------------------------
+describe('resolveRoute — source: tbtc-arb', () => {
+	it('returns 1 route for WBTC on Arbitrum', () => {
+		const dest: Destination = { type: 'address', chainId: 42161, address: '0x...', asset: 'WBTC' };
+		const routes = resolveRoute('tbtc-arb', dest);
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('tbtc-to-wbtc-arb-via-symbiosis');
+	});
+
+	it('returns 1 route for USDT0 on Arbitrum', () => {
+		const dest: Destination = { type: 'address', chainId: 42161, address: '0x...', asset: 'USDT0' };
+		const routes = resolveRoute('tbtc-arb', dest);
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('tbtc-to-usdt0-arb-via-symbiosis');
+	});
+
+	it('returns 1 Boltz route for RSK chain', () => {
+		const routes = resolveRoute('tbtc-arb', makeAddressDest(30));
+		expect(routes).toHaveLength(1);
+		expect(routes[0].id).toBe('tbtc-to-rbtc-via-boltz');
+	});
+
+	it('returns empty for invoice destinations', () => {
+		expect(resolveRoute('tbtc-arb', makeInvoiceDest('lightning'))).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Cross-chain EVM routes
+// ---------------------------------------------------------------------------
+describe('resolveRoute — cross-chain EVM destinations', () => {
+	it('rbtc to Ethereum mainnet (chain 1) returns LI.FI + Symbiosis', () => {
+		const routes = resolveRoute('rbtc', makeAddressDest(1));
+		expect(routes).toHaveLength(2);
+		expect(routes[0].hops[0].service).toBe('lifi');
+		expect(routes[1].hops[0].service).toBe('symbiosis');
+	});
+
+	it('usdt-bsc to Polygon (chain 137) returns LI.FI + Symbiosis', () => {
+		const routes = resolveRoute('usdt-bsc', makeAddressDest(137));
+		expect(routes).toHaveLength(2);
+	});
+
+	it('usdt0-arb to Ethereum (chain 1) returns LI.FI + Symbiosis', () => {
+		const routes = resolveRoute('usdt0-arb', makeAddressDest(1));
+		expect(routes).toHaveLength(2);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// USDT (BSC) Lightning compound fee
+// ---------------------------------------------------------------------------
+describe('resolveRoute — usdt-bsc lightning compound fee', () => {
+	it('has 1.13% compound fee for Changelly+Boltz', () => {
+		const routes = resolveRoute('usdt-bsc', makeInvoiceDest('lightning'));
+		expect(routes[0].totalFeePercent).toBe(1.13);
+	});
+});

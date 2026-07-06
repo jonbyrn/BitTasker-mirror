@@ -229,6 +229,187 @@ function getPairKey(source: SourceWallet, destination: Destination): SourceDestK
 }
 
 // ---------------------------------------------------------------------------
+// Shared source/destination resolution
+// ---------------------------------------------------------------------------
+
+/** Resolved source-side values shared by all providers. */
+interface SourceResolution {
+	fromChainId: number;
+	fromToken: string;
+	fromAsset: string;
+	fromChain: string;
+}
+
+/**
+ * Resolve the source-side token metadata for a given SourceWallet.
+ * Returns null for btc-onchain or unrecognized sources (caller should skip).
+ */
+function resolveSource(source: SourceWallet): SourceResolution | null {
+	switch (source) {
+		case 'rbtc':
+			return {
+				fromChainId: RSK_MAINNET_CHAIN_ID,
+				fromToken: EVM_NATIVE_TOKEN_ADDRESS,
+				fromAsset: 'RBTC',
+				fromChain: 'rsk'
+			};
+		case 'usdt0-rsk':
+			return {
+				fromChainId: RSK_MAINNET_CHAIN_ID,
+				fromToken: USDT0_RSK_ADDRESS,
+				fromAsset: 'USDT0',
+				fromChain: 'rsk'
+			};
+		case 'doc-rsk':
+			return {
+				fromChainId: RSK_MAINNET_CHAIN_ID,
+				fromToken: DOC_RSK_ADDRESS,
+				fromAsset: 'DOC',
+				fromChain: 'rsk'
+			};
+		case 'usdt-bsc':
+			return {
+				fromChainId: BSC_MAINNET_CHAIN_ID,
+				fromToken: USDT_BSC_ADDRESS,
+				fromAsset: 'USDT',
+				fromChain: 'bsc'
+			};
+		case 'usdt0-arb':
+			return {
+				fromChainId: ARB_MAINNET_CHAIN_ID,
+				fromToken: USDT0_ARB_ADDRESS,
+				fromAsset: 'USDT0',
+				fromChain: 'arbitrum'
+			};
+		case 'wbtc-arb':
+			return {
+				fromChainId: ARB_MAINNET_CHAIN_ID,
+				fromToken: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+				fromAsset: 'WBTC',
+				fromChain: 'arbitrum'
+			};
+		default:
+			return null;
+	}
+}
+
+/** Resolved destination-side token metadata. */
+interface DestResolution {
+	toChainId: number;
+	toToken: string;
+	toAsset: string;
+	toChain: string;
+}
+
+/**
+ * Resolve the destination-side token metadata.
+ *
+ * @param source - The source wallet identifier
+ * @param destination - The payment destination
+ * @param useDynamicCrossChainUSDT - LI.FI uses `getCrossChainUSDTAddress(destChainId)` for
+ *   cross-chain EVM from rbtc/usdt-bsc; Symbiosis always uses USDT_BSC_ADDRESS.
+ * @returns Resolution object, or null if the destination is unsupported (caller should skip).
+ */
+function resolveDest(
+	source: SourceWallet,
+	destination: Destination,
+	useDynamicCrossChainUSDT: boolean
+): DestResolution | null {
+	const isBtcOnchain = destination.type === 'invoice' && destination.network === 'onchain';
+	if (!isBtcOnchain && destination.type !== 'address') return null;
+
+	const destChainId = isBtcOnchain ? 0 : (destination as { chainId: number }).chainId;
+	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
+
+	// BTC on-chain
+	if (isBtcOnchain) {
+		return { toChainId: 0, toToken: 'BTC', toAsset: 'BTC', toChain: 'bitcoin' };
+	}
+
+	// usdt0-rsk / doc-rsk → RSK same-chain swap to rBTC
+	if ((source === 'usdt0-rsk' || source === 'doc-rsk') && isRSKChain(destChainId)) {
+		return {
+			toChainId: destChainId,
+			toToken: EVM_NATIVE_TOKEN_ADDRESS,
+			toAsset: 'RBTC',
+			toChain: 'rsk'
+		};
+	}
+
+	// usdt0-arb / wbtc-arb → RSK (cross-chain bridge to rBTC)
+	if ((source === 'usdt0-arb' || source === 'wbtc-arb') && isRSKChain(destChainId)) {
+		return {
+			toChainId: destChainId,
+			toToken: EVM_NATIVE_TOKEN_ADDRESS,
+			toAsset: 'RBTC',
+			toChain: 'rsk'
+		};
+	}
+
+	// Cross-chain EVM (Arbitrum, Ethereum, Polygon, Optimism, Base, Avalanche)
+	if (isCrossChainEVM) {
+		let toToken: string;
+		if (source === 'usdt0-rsk' || source === 'doc-rsk' || source === 'wbtc-arb') {
+			toToken = getCrossChainUSDTAddress(destChainId);
+		} else if (source === 'usdt0-arb') {
+			toToken = USDT_BSC_ADDRESS;
+		} else {
+			// rbtc, usdt-bsc default — provider-specific
+			toToken = useDynamicCrossChainUSDT ? getCrossChainUSDTAddress(destChainId) : USDT_BSC_ADDRESS;
+		}
+		return {
+			toChainId: destChainId,
+			toToken,
+			toAsset: 'USDT',
+			toChain: `chain-${destChainId}`
+		};
+	}
+
+	// Default: same-chain swaps
+	if (source === 'wbtc-arb') {
+		return {
+			toChainId: destChainId,
+			toToken: USDT0_ARB_ADDRESS,
+			toAsset: 'USDT0',
+			toChain: 'arbitrum'
+		};
+	}
+	if (source === 'usdt-bsc') {
+		return {
+			toChainId: destChainId,
+			toToken: EVM_NATIVE_TOKEN_ADDRESS,
+			toAsset: 'RBTC',
+			toChain: 'rsk'
+		};
+	}
+	if (source === 'usdt0-arb') {
+		return {
+			toChainId: destChainId,
+			toToken: USDT_BSC_ADDRESS,
+			toAsset: 'USDT',
+			toChain: 'bsc'
+		};
+	}
+	// rbtc default
+	return {
+		toChainId: destChainId,
+		toToken: USDT_BSC_ADDRESS,
+		toAsset: 'USDT',
+		toChain: 'bsc'
+	};
+}
+
+/**
+ * Derive the decimal precision for a given asset symbol.
+ * Used by Symbiosis which requires explicit decimals in its API call.
+ */
+function getAssetDecimals(asset: string): number {
+	if (asset === 'USDT0') return 6;
+	if (asset === 'BTC') return 8;
+	return 18; // RBTC, USDT, DOC, WBTC
+}
+
+// ---------------------------------------------------------------------------
 // Provider callers
 // ---------------------------------------------------------------------------
 
@@ -243,193 +424,39 @@ async function callLifi(
 	amount: string,
 	userAddress: string
 ): Promise<ProviderRouteResult> {
-	// Determine chain IDs and tokens based on destination type
-	const isBtcOnchain = destination.type === 'invoice' && destination.network === 'onchain';
+	const src = resolveSource(source);
+	if (!src) return { provider: 'lifi', status: 'skipped', routes: [] };
 
-	if (!isBtcOnchain && destination.type !== 'address') {
-		return { provider: 'lifi', status: 'skipped', routes: [] };
-	}
-
-	const destChainId = (destination as { chainId: number }).chainId;
-
-	// Determine from chain ID based on source
-	let fromChainId: number;
-	switch (source) {
-		case 'rbtc':
-		case 'usdt0-rsk':
-		case 'doc-rsk':
-			fromChainId = RSK_MAINNET_CHAIN_ID;
-			break;
-		case 'usdt-bsc':
-			fromChainId = BSC_MAINNET_CHAIN_ID;
-			break;
-		case 'usdt0-arb':
-		case 'wbtc-arb':
-			fromChainId = ARB_MAINNET_CHAIN_ID;
-			break;
-		case 'btc-onchain':
-			// LI.FI doesn't handle Bitcoin on-chain directly — skip
-			return { provider: 'lifi', status: 'skipped', routes: [] };
-		default:
-			return { provider: 'lifi', status: 'skipped', routes: [] };
-	}
-
-	const toChainId = isBtcOnchain
-		? 0 // Bitcoin mainnet (chain ID 0 in LI.FI)
-		: destChainId; // Use actual destination chain ID for cross-chain EVM
-
-	// Determine if this is a cross-chain EVM destination (not BSC, not RSK, not BTC)
-	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
-	// Determine if this is a same-chain swap on RSK
-	const isSameChainRSK =
-		!isBtcOnchain && isRSKChain(destChainId) && (source === 'usdt0-rsk' || source === 'doc-rsk');
-
-	let fromToken: string;
-	let toToken: string;
-	let fromAsset: string;
-	let toAsset: string;
-	let fromChain: string;
-	let toChain: string;
-
-	switch (source) {
-		case 'usdt0-rsk':
-			fromToken = USDT0_RSK_ADDRESS;
-			fromAsset = 'USDT0';
-			fromChain = 'rsk';
-			if (isBtcOnchain) {
-				toToken = 'BTC';
-				toAsset = 'BTC';
-				toChain = 'bitcoin';
-			} else if (isSameChainRSK) {
-				toToken = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toToken = getCrossChainUSDTAddress(destChainId);
-				toAsset = 'USDT';
-				toChain = `chain-${destChainId}`;
-			} else {
-				toToken = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toChain = 'bsc';
-			}
-			break;
-		case 'doc-rsk':
-			fromToken = DOC_RSK_ADDRESS;
-			fromAsset = 'DOC';
-			fromChain = 'rsk';
-			if (isBtcOnchain) {
-				toToken = 'BTC';
-				toAsset = 'BTC';
-				toChain = 'bitcoin';
-			} else if (isSameChainRSK) {
-				toToken = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toToken = getCrossChainUSDTAddress(destChainId);
-				toAsset = 'USDT';
-				toChain = `chain-${destChainId}`;
-			} else {
-				toToken = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toChain = 'bsc';
-			}
-			break;
-		case 'usdt0-arb':
-			fromToken = USDT0_ARB_ADDRESS;
-			fromAsset = 'USDT0';
-			fromChain = 'arbitrum';
-			if (isBtcOnchain) {
-				toToken = 'BTC';
-				toAsset = 'BTC';
-				toChain = 'bitcoin';
-			} else if (isRSKChain(destChainId)) {
-				// USDT0 on Arbitrum → rBTC on RSK (cross-chain bridge)
-				toToken = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toToken = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toChain = `chain-${destChainId}`;
-			} else {
-				toToken = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toChain = 'bsc';
-			}
-			break;
-		case 'wbtc-arb':
-			fromToken = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'; // WBTC on Arbitrum
-			fromAsset = 'WBTC';
-			fromChain = 'arbitrum';
-			if (isBtcOnchain) {
-				toToken = 'BTC';
-				toAsset = 'BTC';
-				toChain = 'bitcoin';
-			} else if (isRSKChain(destChainId)) {
-				toToken = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toToken = getCrossChainUSDTAddress(destChainId);
-				toAsset = 'USDT';
-				toChain = `chain-${destChainId}`;
-			} else {
-				// Same-chain Arbitrum: WBTC → USDT0
-				toToken = USDT0_ARB_ADDRESS;
-				toAsset = 'USDT0';
-				toChain = 'arbitrum';
-			}
-			break;
-		default:
-			fromToken = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
-			fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-			fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-			toToken = isBtcOnchain
-				? 'BTC'
-				: isCrossChainEVM
-					? getCrossChainUSDTAddress(destChainId)
-					: source === 'rbtc'
-						? USDT_BSC_ADDRESS
-						: EVM_NATIVE_TOKEN_ADDRESS;
-			toAsset = isBtcOnchain
-				? 'BTC'
-				: isCrossChainEVM
-					? 'USDT'
-					: source === 'rbtc'
-						? 'USDT'
-						: 'RBTC';
-			toChain = isBtcOnchain
-				? 'bitcoin'
-				: isCrossChainEVM
-					? `chain-${destChainId}`
-					: source === 'rbtc'
-						? 'bsc'
-						: 'rsk';
-	}
+	const dest = resolveDest(source, destination, true);
+	if (!dest) return { provider: 'lifi', status: 'skipped', routes: [] };
 
 	try {
 		// LI.FI requires fromAddress (lowercase) and fromAmount in smallest unit.
 		// RBTC/USDT use 18 decimals (×1e18), WBTC uses 8 decimals (sats = smallest unit).
 		const lifiFromAddr = userAddress.toLowerCase();
 		const lifiFromAmount =
-			fromAsset === 'WBTC'
+			src.fromAsset === 'WBTC'
 				? BigInt(Math.round(parseFloat(amount))).toString() // WBTC 8 dec: sats already smallest unit
 				: BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
 		const lifiRoute: LifiRoute = await withTimeout(
 			lifiService.getQuote({
-				fromChain: fromChainId,
-				toChain: toChainId,
-				fromToken,
-				toToken,
+				fromChain: src.fromChainId,
+				toChain: dest.toChainId,
+				fromToken: src.fromToken,
+				toToken: dest.toToken,
 				fromAmount: lifiFromAmount,
 				fromAddress: lifiFromAddr
 			}),
 			PROVIDER_TIMEOUT_MS
 		);
 
-		const normalized = normalizeLifiQuote(lifiRoute, fromAsset, toAsset, fromChain, toChain);
+		const normalized = normalizeLifiQuote(
+			lifiRoute,
+			src.fromAsset,
+			dest.toAsset,
+			src.fromChain,
+			dest.toChain
+		);
 		if (!normalized) {
 			return {
 				provider: 'lifi',
@@ -458,164 +485,11 @@ async function callSymbiosis(
 	amount: string,
 	userAddress: string
 ): Promise<ProviderRouteResult> {
-	const isBtcOnchain = destination.type === 'invoice' && destination.network === 'onchain';
+	const src = resolveSource(source);
+	if (!src) return { provider: 'symbiosis', status: 'skipped', routes: [] };
 
-	if (!isBtcOnchain && destination.type !== 'address') {
-		return { provider: 'symbiosis', status: 'skipped', routes: [] };
-	}
-
-	const destChainId = (destination as { chainId: number }).chainId;
-	const isCrossChainEVM = !isBtcOnchain && !isRSKChain(destChainId) && !isBSCChain(destChainId);
-	const isSameChainRSK =
-		!isBtcOnchain && isRSKChain(destChainId) && (source === 'usdt0-rsk' || source === 'doc-rsk');
-
-	// Determine from chain ID based on source
-	let fromChainId: number;
-	switch (source) {
-		case 'rbtc':
-		case 'usdt0-rsk':
-		case 'doc-rsk':
-			fromChainId = RSK_MAINNET_CHAIN_ID;
-			break;
-		case 'usdt-bsc':
-			fromChainId = BSC_MAINNET_CHAIN_ID;
-			break;
-		case 'usdt0-arb':
-			fromChainId = ARB_MAINNET_CHAIN_ID;
-			break;
-		case 'wbtc-arb':
-			fromChainId = ARB_MAINNET_CHAIN_ID;
-			break;
-		case 'btc-onchain':
-			// Symbiosis doesn't handle Bitcoin on-chain — skip
-			return { provider: 'symbiosis', status: 'skipped', routes: [] };
-		default:
-			return { provider: 'symbiosis', status: 'skipped', routes: [] };
-	}
-
-	const toChainId = isBtcOnchain ? 0 : destChainId;
-
-	// Determine token addresses and symbols based on source
-	let fromTokenAddr: string;
-	let fromAsset: string;
-	let fromDecimals: number;
-	let toTokenAddr: string;
-	let toAsset: string;
-	let toDecimals: number;
-	let fromChain: string;
-	let toChain: string;
-
-	switch (source) {
-		case 'usdt0-rsk':
-			fromTokenAddr = USDT0_RSK_ADDRESS;
-			fromAsset = 'USDT0';
-			fromDecimals = 6;
-			fromChain = 'rsk';
-			if (isBtcOnchain) {
-				toTokenAddr = 'BTC';
-				toAsset = 'BTC';
-				toDecimals = 8;
-				toChain = 'bitcoin';
-			} else if (isSameChainRSK) {
-				toTokenAddr = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toDecimals = 18;
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toTokenAddr = getCrossChainUSDTAddress(destChainId);
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = `chain-${destChainId}`;
-			} else {
-				toTokenAddr = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = 'bsc';
-			}
-			break;
-		case 'doc-rsk':
-			fromTokenAddr = DOC_RSK_ADDRESS;
-			fromAsset = 'DOC';
-			fromDecimals = 18;
-			fromChain = 'rsk';
-			if (isBtcOnchain) {
-				toTokenAddr = 'BTC';
-				toAsset = 'BTC';
-				toDecimals = 8;
-				toChain = 'bitcoin';
-			} else if (isSameChainRSK) {
-				toTokenAddr = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toDecimals = 18;
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toTokenAddr = getCrossChainUSDTAddress(destChainId);
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = `chain-${destChainId}`;
-			} else {
-				toTokenAddr = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = 'bsc';
-			}
-			break;
-		case 'usdt0-arb':
-			fromTokenAddr = USDT0_ARB_ADDRESS;
-			fromAsset = 'USDT0';
-			fromDecimals = 6;
-			fromChain = 'arbitrum';
-			if (isBtcOnchain) {
-				toTokenAddr = 'BTC';
-				toAsset = 'BTC';
-				toDecimals = 8;
-				toChain = 'bitcoin';
-			} else if (isRSKChain(destChainId)) {
-				// USDT0 on Arbitrum → rBTC on RSK (cross-chain bridge)
-				toTokenAddr = EVM_NATIVE_TOKEN_ADDRESS;
-				toAsset = 'RBTC';
-				toDecimals = 18;
-				toChain = 'rsk';
-			} else if (isCrossChainEVM) {
-				toTokenAddr = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = `chain-${destChainId}`;
-			} else {
-				toTokenAddr = USDT_BSC_ADDRESS;
-				toAsset = 'USDT';
-				toDecimals = 18;
-				toChain = 'bsc';
-			}
-			break;
-		default:
-			fromTokenAddr = source === 'rbtc' ? EVM_NATIVE_TOKEN_ADDRESS : USDT_BSC_ADDRESS;
-			fromAsset = source === 'rbtc' ? 'RBTC' : 'USDT';
-			fromDecimals = 18;
-			fromChain = source === 'rbtc' ? 'rsk' : 'bsc';
-			toTokenAddr = isBtcOnchain
-				? 'BTC'
-				: isCrossChainEVM
-					? USDT_BSC_ADDRESS
-					: source === 'rbtc'
-						? USDT_BSC_ADDRESS
-						: EVM_NATIVE_TOKEN_ADDRESS;
-			toAsset = isBtcOnchain
-				? 'BTC'
-				: isCrossChainEVM
-					? 'USDT'
-					: source === 'rbtc'
-						? 'USDT'
-						: 'RBTC';
-			toDecimals = isBtcOnchain ? 8 : 18;
-			toChain = isBtcOnchain
-				? 'bitcoin'
-				: isCrossChainEVM
-					? `chain-${destChainId}`
-					: source === 'rbtc'
-						? 'bsc'
-						: 'rsk';
-	}
+	const dest = resolveDest(source, destination, false);
+	if (!dest) return { provider: 'symbiosis', status: 'skipped', routes: [] };
 
 	try {
 		// Symbiosis expects amount in token's smallest unit inside tokenAmountIn
@@ -623,17 +497,17 @@ async function callSymbiosis(
 		const quote: SymbiosisQuoteResponse = await withTimeout(
 			symbiosisService.getQuote({
 				tokenAmountIn: {
-					address: fromTokenAddr,
-					chainId: fromChainId,
-					symbol: fromAsset,
-					decimals: fromDecimals,
+					address: src.fromToken,
+					chainId: src.fromChainId,
+					symbol: src.fromAsset,
+					decimals: getAssetDecimals(src.fromAsset),
 					amount: symbiosisAmount
 				},
 				tokenOut: {
-					address: toTokenAddr,
-					chainId: toChainId,
-					symbol: toAsset,
-					decimals: toDecimals
+					address: dest.toToken,
+					chainId: dest.toChainId,
+					symbol: dest.toAsset,
+					decimals: getAssetDecimals(dest.toAsset)
 				},
 				from: userAddress,
 				to: userAddress,
@@ -642,7 +516,13 @@ async function callSymbiosis(
 			PROVIDER_TIMEOUT_MS
 		);
 
-		const normalized = normalizeSymbiosisQuote(quote, fromAsset, toAsset, fromChain, toChain);
+		const normalized = normalizeSymbiosisQuote(
+			quote,
+			src.fromAsset,
+			dest.toAsset,
+			src.fromChain,
+			dest.toChain
+		);
 		if (!normalized) {
 			return {
 				provider: 'symbiosis',
