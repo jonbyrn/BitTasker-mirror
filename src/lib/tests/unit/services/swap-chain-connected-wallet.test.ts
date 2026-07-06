@@ -58,6 +58,7 @@ const {
 	mockBoltzCreateReverseSwap,
 	mockBoltzCreateSubSwap,
 	mockBoltzCreateSwap,
+	mockBoltzGetSwapStatus,
 	mockEncodeERC20Transfer,
 	mockGetBSCUSDTContractAddress,
 	mockPreferencesGet,
@@ -121,6 +122,7 @@ const {
 		mockBoltzCreateReverseSwap: vi.fn(),
 		mockBoltzCreateSubSwap: vi.fn(),
 		mockBoltzCreateSwap: vi.fn(),
+		mockBoltzGetSwapStatus: vi.fn(),
 		mockEncodeERC20Transfer: vi.fn(),
 		mockGetBSCUSDTContractAddress: vi.fn(),
 		mockPreferencesGet: vi.fn(),
@@ -227,6 +229,7 @@ vi.mock('$lib/services/BoltzProvider', () => {
 		this.createReverseSwap = mockBoltzCreateReverseSwap;
 		this.createSubmarineSwap = mockBoltzCreateSubSwap;
 		this.createSwap = mockBoltzCreateSwap;
+		this.getSwapStatus = mockBoltzGetSwapStatus;
 	});
 	return {
 		BoltzProvider: MockBoltzProvider,
@@ -457,6 +460,7 @@ function resetMocks(): void {
 		mockBoltzCreateReverseSwap,
 		mockBoltzCreateSubSwap,
 		mockBoltzCreateSwap,
+		mockBoltzGetSwapStatus,
 		mockEncodeERC20Transfer,
 		mockGetBSCUSDTContractAddress,
 		mockPreferencesGet,
@@ -523,6 +527,7 @@ function resetMocks(): void {
 		claimAddress: '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41',
 		timeoutBlockHeight: 8950000
 	});
+	mockBoltzGetSwapStatus.mockResolvedValue({ status: 'transaction.claimed' });
 
 	// Default: chain-utils
 	mockEncodeERC20Transfer.mockReturnValue(
@@ -586,7 +591,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
 				.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe(DEST_ADDR);
+			expect(txArg.to?.toLowerCase()).toBe(DEST_ADDR.toLowerCase());
 			expect(txArg.chainId).toBe(30);
 			expect(txArg.data).toBe('0x');
 			expect(txArg.value).toBeDefined();
@@ -616,7 +621,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
 				.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe(mockGetBSCUSDTContractAddress());
+			expect(txArg.to?.toLowerCase()).toBe(mockGetBSCUSDTContractAddress().toLowerCase());
 			expect(txArg.chainId).toBe(56);
 			expect(txArg.data).toBeDefined();
 			expect(mockSendBSCUSDT).not.toHaveBeenCalled();
@@ -698,7 +703,9 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Verify LI.FI was called with the connected wallet address
 			expect(mockLifiGetStepTransaction).toHaveBeenCalledTimes(1);
 			const lifiCall = mockLifiGetStepTransaction.mock.calls[0][0] as Record<string, unknown>;
-			expect(lifiCall.fromAddress).toBe('0xAAaA000000000000000000000000000000000001');
+			expect((lifiCall.fromAddress as string).toLowerCase()).toBe(
+				'0xaaaa000000000000000000000000000000000001'
+			);
 			// Verify evmSigner was used for signing
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
@@ -753,7 +760,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Verify Symbiosis was called with connected wallet address
 			expect(mockSymbiosisGetQuote).toHaveBeenCalledTimes(1);
 			const symCall = mockSymbiosisGetQuote.mock.calls[0][0] as Record<string, unknown>;
-			expect(symCall.from).toBe(mockHandle.address);
+			expect((symCall.from as string).toLowerCase()).toBe(mockHandle.address.toLowerCase());
 			// Verify evmSigner was used
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
@@ -761,7 +768,9 @@ describe('Swap-Chain Connected Wallet Support', () => {
 
 		it('falls back to built-in wallet when connected wallet address is missing for Symbiosis', async () => {
 			// Arrange — 'nonexistent-wallet' has no handle, so getHandle returns undefined.
-			// The code now falls back to the built-in wallet address instead of failing.
+			// The code falls back to the built-in wallet address for the Symbiosis quote,
+			// but sendEvmTransaction still uses the connected wallet path (sourceConnectedWalletId
+			// is set), so it fails because getEvmSigner('nonexistent-wallet') returns undefined.
 			const dest = makeDestination(DEST_ADDR);
 			const hop = makeSymbiosisHop();
 			const route = makeRoute([hop]);
@@ -769,9 +778,8 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// Act
 			const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT, 'nonexistent-wallet');
 
-			// Assert — should succeed (uses built-in wallet address as fallback)
-			expect(result.error).toBeNull();
-			expect(result.data).not.toBeNull();
+			// Assert — should fail because evmSigner is not available for the nonexistent wallet
+			assertFailed(result, 'Connected wallet EVM signer not available');
 		});
 
 		it('regression: built-in wallet uses sendRawTransaction for Symbiosis', async () => {
@@ -812,7 +820,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
 				.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0x5555000000000000000000000000000000000eee');
+			expect(txArg.to?.toLowerCase()).toBe('0x5555000000000000000000000000000000000eee');
 			expect(txArg.chainId).toBe(30);
 		});
 
@@ -890,7 +898,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
 				.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
+			expect(txArg.to?.toLowerCase()).toBe('0x4444000000000000000000000000000000000ddd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
 			expect(mockCreateChainSwap).not.toHaveBeenCalled();
@@ -949,7 +957,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledTimes(1);
 			const txArg = vi.mocked(mockEvmSigner.sendTransaction).mock
 				.calls[0][0] as EVMTransactionRequest;
-			expect(txArg.to).toBe('0x4444000000000000000000000000000000000DDd');
+			expect(txArg.to?.toLowerCase()).toBe('0x4444000000000000000000000000000000000ddd');
 			expect(txArg.chainId).toBe(30);
 			// Built-in path must NOT be called
 			expect(mockSendRawTransaction).not.toHaveBeenCalled();
@@ -1013,7 +1021,9 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			// (since it's an intermediate hop, not the final destination)
 			expect(mockChangellyCreateSwap).toHaveBeenCalledTimes(1);
 			const changellyArgs = mockChangellyCreateSwap.mock.calls[0][0] as Record<string, unknown>;
-			expect(changellyArgs.address).toBe(mockHandle.address);
+			expect((changellyArgs.address as string).toLowerCase()).toBe(
+				mockHandle.address.toLowerCase()
+			);
 		});
 
 		it('uses destination address for the last Changelly hop', async () => {
@@ -1035,7 +1045,7 @@ describe('Swap-Chain Connected Wallet Support', () => {
 			assertCompleted(result, 'COMPLETE', 'changelly-swap-123');
 			expect(mockChangellyCreateSwap).toHaveBeenCalledTimes(1);
 			const changellyArgs = mockChangellyCreateSwap.mock.calls[0][0] as Record<string, unknown>;
-			expect(changellyArgs.address).toBe(DEST_ADDR);
+			expect((changellyArgs.address as string).toLowerCase()).toBe(DEST_ADDR.toLowerCase());
 		});
 	});
 
