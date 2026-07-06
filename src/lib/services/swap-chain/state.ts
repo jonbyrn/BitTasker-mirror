@@ -182,9 +182,9 @@ const VALID_TRANSITIONS: Record<SwapChainPhase, SwapChainPhase[]> = {
 	SWAP_1_CONFIRMED: ['SWAP_2_PENDING', 'COMPLETE', 'FAILED', 'PARTIAL'],
 	SWAP_2_PENDING: ['SWAP_2_CONFIRMED', 'FAILED', 'PARTIAL'],
 	SWAP_2_CONFIRMED: ['COMPLETE', 'FAILED', 'PARTIAL'],
-	COMPLETE: [],
+	COMPLETE: ['PARTIAL'], // Allow reverting to PARTIAL when auto-validation detects incomplete swap
 	FAILED: [],
-	PARTIAL: []
+	PARTIAL: ['COMPLETE']
 };
 
 /**
@@ -305,13 +305,15 @@ export async function saveSwapChainState(state: SwapChainState): Promise<{ error
 		}
 	} catch (e) {
 		// Preferences may be unavailable in certain environments (SSR, tests)
-		d.warn('Capacitor Preferences unavailable: %s', e instanceof Error ? e.message : String(e));
+		const err = e instanceof Error ? e : new Error(String(e));
+		d.warn('Capacitor Preferences unavailable: %s', err.message);
 		Sentry.addBreadcrumb({
 			category: 'persistence',
 			message: 'Capacitor Preferences unavailable — swap chain state not persisted',
 			level: 'warning',
-			data: { error: e instanceof Error ? e.message : String(e) }
+			data: { error: err.message }
 		});
+		return { error: err };
 	}
 	return { error: null };
 }

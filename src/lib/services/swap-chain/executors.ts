@@ -73,7 +73,7 @@ export async function executeHop(
 	state: SwapChainState,
 	hopIndex: number
 ): Promise<{ data: string | null; error: Error | null }> {
-	console.warn(
+	d.log(
 		'[executeHop] hop%d: service=%s from=%s/%s to=%s/%s connected=%s amount=%s',
 		hopIndex,
 		hop.service,
@@ -112,15 +112,15 @@ export async function executeHop(
 		case 'changelly':
 			return executeChangellyHop(hop, state, hopIndex);
 		case 'boltz':
-			console.warn('[executeHop] Dispatching to executeBoltzHop...');
+			d.log('[executeHop] Dispatching to executeBoltzHop...');
 			return executeBoltzHop(hop, state);
 		case 'lifi':
 			return executeLifiHop(hop, state);
 		case 'symbiosis':
-			console.warn('[executeHop] Dispatching to executeSymbiosisHop...');
+			d.log('[executeHop] Dispatching to executeSymbiosisHop...');
 			return executeSymbiosisHop(hop, state);
 		case 'uniswap-v3':
-			console.warn('[executeHop] Dispatching to executeUniswapV3Hop...');
+			d.log('[executeHop] Dispatching to executeUniswapV3Hop...');
 			return executeUniswapV3Hop(hop, state);
 		default:
 			return {
@@ -437,7 +437,7 @@ async function executeLifiHop(
 			toTokenAddr.substring(0, 10),
 			fromAmountWei
 		);
-		console.warn(
+		d.log(
 			'[executeLifiHop] requesting LI.FI step tx: from=%s→%s amount=%s',
 			hop.fromAsset,
 			hop.toAsset,
@@ -451,7 +451,7 @@ async function executeLifiHop(
 			fromAmount: fromAmountWei,
 			fromAddress: userAddr
 		});
-		console.warn(
+		d.log(
 			'[executeLifiHop] step tx received: to=%s dataLen=%d value=%s',
 			txReq.to?.substring(0, 10) ?? 'null',
 			txReq.data?.length ?? 0,
@@ -471,7 +471,7 @@ async function executeLifiHop(
 		if (fromTokenAddr !== NATIVE_TOKEN) {
 			const approveAmount = (1n << 256n) - 1n; // max uint256
 			const approveCalldata = encodeERC20Approve(txReq.to, approveAmount);
-			console.warn(
+			d.log(
 				'[executeLifiHop] approving %s for LI.FI router %s',
 				fromTokenAddr.substring(0, 10),
 				txReq.to.substring(0, 10)
@@ -486,17 +486,13 @@ async function executeLifiHop(
 			});
 
 			if (approveError) {
-				console.warn('[executeLifiHop] APPROVE FAILED: %s', approveError.message);
+				d.log('[executeLifiHop] APPROVE FAILED: %s', approveError.message);
 				return { data: null, error: new Error(`LI.FI approve failed: ${approveError.message}`) };
 			}
-			console.warn('[executeLifiHop] approve confirmed: %s', approveTxHash?.substring(0, 16));
+			d.log('[executeLifiHop] approve confirmed: %s', approveTxHash?.substring(0, 16));
 		}
 
-		console.warn(
-			'[executeLifiHop] submitting swap tx: chain=%s to=%s',
-			chain,
-			txReq.to?.substring(0, 10)
-		);
+		d.log('[executeLifiHop] submitting swap tx: chain=%s to=%s', chain, txReq.to?.substring(0, 10));
 
 		const { data: txHash, error: txError } = await sendEvmTransaction({
 			to: txReq.to,
@@ -508,11 +504,11 @@ async function executeLifiHop(
 		});
 
 		if (txError || !txHash) {
-			console.warn('[executeLifiHop] SWAP FAILED: %s', txError?.message ?? 'no tx hash');
+			d.log('[executeLifiHop] SWAP FAILED: %s', txError?.message ?? 'no tx hash');
 			return { data: null, error: txError ?? new Error('LI.FI tx failed: no tx hash') };
 		}
 
-		console.warn('[executeLifiHop] SWAP CONFIRMED: %s', txHash.substring(0, 16));
+		d.log('[executeLifiHop] SWAP CONFIRMED: %s', txHash.substring(0, 16));
 		return { data: txHash, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'LI.FI execution failed';
@@ -570,7 +566,7 @@ async function executeSymbiosisHop(
 	// Resolve user address — connected wallet takes priority, then chain-specific built-in
 	// Always validate: ethers v6 requires EIP-55 checksummed addresses for sendTransaction()
 	const ws = get(walletStore);
-	console.warn(
+	d.log(
 		'[executeSymbiosisHop] ws.rsk.address=%s, ws.arb?.address=%s',
 		ws.rsk.address || 'EMPTY',
 		ws.arb?.address || 'EMPTY'
@@ -586,7 +582,7 @@ async function executeSymbiosisHop(
 	// Fallback: wallet store addresses may not be populated yet (async loadAssets).
 	// getRSKAddress() waits for wallet initialization and returns the derived address.
 	if (!builtinAddr) {
-		console.warn(
+		d.log(
 			'[executeSymbiosisHop] builtinAddr EMPTY — ws.rsk.address=%s, ws.arb?.address=%s — calling getRSKAddress()',
 			ws.rsk.address || 'EMPTY',
 			ws.arb?.address || 'EMPTY'
@@ -594,7 +590,7 @@ async function executeSymbiosisHop(
 		const { getRSKAddress } = await import('$lib/stores/wallet.store');
 		const rskAddr = await getRSKAddress();
 		builtinAddr = safeAddress(rskAddr);
-		console.warn(
+		d.log(
 			'[executeSymbiosisHop] getRSKAddress() returned:',
 			rskAddr || 'EMPTY',
 			'→ builtinAddr:',
@@ -635,7 +631,7 @@ async function executeSymbiosisHop(
 			return { data: null, error: new Error('Failed to query token balance (RPC error)') };
 		}
 		if (actualBalance > 0n && actualBalance < symFromAmountWei) {
-			console.warn(
+			d.log(
 				'[executeSymbiosisHop] Capping amount: actual=%s wei < requested=%s wei (diff=%s)',
 				actualBalance.toString(),
 				symFromAmountWei.toString(),
@@ -684,7 +680,7 @@ async function executeSymbiosisHop(
 		});
 
 		const tx = quote.tx;
-		console.warn(
+		d.log(
 			'[executeSymbiosisHop] quote: amountOut=%s fee=%s time=%s tx.to=%s tx.value=%s tx.dataLen=%d',
 			quote.tokenAmountOut?.amount ?? 'null',
 			quote.fee ?? 'null',
@@ -708,7 +704,7 @@ async function executeSymbiosisHop(
 			const approveTarget = quote.approveTo || tx.to;
 			const approveAmount = (1n << 256n) - 1n;
 			const approveCalldata = encodeERC20Approve(approveTarget, approveAmount);
-			console.warn(
+			d.log(
 				'[executeSymbiosisHop] Approving %s for approveTo=%s (quote.approveTo=%s, tx.to=%s)',
 				fromTokenAddr.slice(0, 10),
 				approveTarget,
@@ -722,7 +718,7 @@ async function executeSymbiosisHop(
 				chain: hop.fromChain === 'arbitrum' ? 'arbitrum' : hop.fromChain === 'rsk' ? 'rsk' : 'bsc',
 				sourceConnectedWalletId: state.sourceConnectedWalletId
 			});
-			console.warn(
+			d.log(
 				'[executeSymbiosisHop] approve result: tx=%s error=%s',
 				approveTxHash ?? 'null',
 				approveError?.message ?? 'none'
@@ -746,10 +742,7 @@ async function executeSymbiosisHop(
 			sourceConnectedWalletId: state.sourceConnectedWalletId
 		});
 		if (swapTxError || !txHash) {
-			console.warn(
-				'[executeSymbiosisHop] swap tx FAILED: %s',
-				swapTxError?.message ?? 'no tx hash'
-			);
+			d.log('[executeSymbiosisHop] swap tx FAILED: %s', swapTxError?.message ?? 'no tx hash');
 			return {
 				data: null,
 				error: new Error(`Symbiosis swap tx failed: ${swapTxError?.message ?? 'no tx hash'}`)
@@ -761,16 +754,16 @@ async function executeSymbiosisHop(
 		// atomic — a DEX aggregator swap in a single tx. No relayer involved.
 		// For cross-chain swaps, poll for the Symbiosis relayer delivery.
 		if (fromChainId === toChainId) {
-			console.warn('[executeSymbiosisHop] same-chain swap — skipping relayer poll');
+			d.log('[executeSymbiosisHop] same-chain swap — skipping relayer poll');
 			d.log('executeSymbiosisHop: same-chain swap (chainId=%d) — no relayer needed', fromChainId);
 		} else {
-			console.warn('[executeSymbiosisHop] cross-chain swap, polling for relayer delivery...');
+			d.log('[executeSymbiosisHop] cross-chain swap, polling for relayer delivery...');
 			const { data: swapStatus, error: pollError } = await pollSymbiosisStatus(txHash, fromChainId);
 			if (pollError) {
 				d.error('executeSymbiosisHop: relayer poll failed: %s', pollError.message);
 				return { data: null, error: pollError };
 			}
-			console.warn('[executeSymbiosisHop] relayer delivery confirmed: %s', swapStatus?.status.text);
+			d.log('[executeSymbiosisHop] relayer delivery confirmed: %s', swapStatus?.status.text);
 		}
 		return { data: txHash, error: null };
 	} catch (err) {
@@ -865,7 +858,7 @@ async function executeUniswapV3Hop(
 				return { data: null, error: new Error('Failed to query token balance (RPC error)') };
 			}
 			if (actualBalance > 0n && actualBalance < amountIn) {
-				console.warn(
+				d.log(
 					'[executeUniswapV3Hop] Capping amount: actual=%s < requested=%s',
 					actualBalance.toString(),
 					amountIn.toString()
@@ -978,7 +971,7 @@ async function pollSymbiosisStatus(
 
 		// Non-terminal — still pending
 		const elapsed = Math.round((Date.now() - startTime) / 1000);
-		console.warn(
+		d.log(
 			'[pollSymbiosis] code=%d text=%s elapsed=%ds',
 			status.status.code,
 			status.status.text,

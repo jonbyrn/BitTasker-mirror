@@ -110,11 +110,10 @@
 			// claimed, reset the state. This handles stuck swaps from previous
 			// sessions where the state machine transition failed but the swap
 			// completed on-chain.
-			if (
-				swapChainState?.swap1Id &&
-				swapChainState.phase !== 'IDLE' &&
-				swapChainState.phase !== 'COMPLETE'
-			) {
+			// Also check COMPLETE swaps that are actually still in-progress on Boltz
+			// (e.g., single-hop Boltz chain swaps that were marked COMPLETE before
+			// the rBTC claim was processed).
+			if (swapChainState?.swap1Id && swapChainState.phase !== 'IDLE') {
 				try {
 					const { BoltzProvider } = await import('$lib/services/BoltzProvider');
 					const boltz = new BoltzProvider();
@@ -131,10 +130,43 @@
 						const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
 						await resetSwapChainState();
 						swapChainState = null;
+					} else if (
+						swapChainState.phase === 'COMPLETE' &&
+						(boltzStatus.status === 'transaction.server.confirmed' ||
+							boltzStatus.status === 'transaction.claim.pending')
+					) {
+						// Swap marked COMPLETE but Boltz hasn't released funds yet —
+						// transition back to PARTIAL so it shows in pending swaps
+						// and the claim can be retried.
+						d.log(
+							'Swap %s marked COMPLETE but Boltz status=%s — reverting to PARTIAL',
+							swapChainState.swap1Id,
+							boltzStatus.status
+						);
+						const { transitionTo } = await import('$lib/services/swap-chain/state');
+						const revertedState = await transitionTo(swapChainState, 'PARTIAL', {
+							error: `Swap not yet complete on Boltz: ${boltzStatus.status}`
+						});
+						if (revertedState.data) {
+							swapChainState = revertedState.data;
+						}
 					}
 				} catch (validateErr) {
 					d.warn('Auto-validation failed: %s', (validateErr as Error).message);
 				}
+			}
+
+			// Auto-reset: if swap failed/partial but never started on-chain (no swap1Id),
+			// clear the stale state so the pending badge disappears.
+			if (
+				swapChainState &&
+				(swapChainState.phase === 'FAILED' || swapChainState.phase === 'PARTIAL') &&
+				!swapChainState.swap1Id
+			) {
+				d.log('Swap %s failed before on-chain execution — auto-resetting', swapChainState.phase);
+				const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
+				await resetSwapChainState();
+				swapChainState = null;
 			}
 
 			// Scan for on-chain lockups in background
@@ -649,16 +681,42 @@
 								{/if}
 
 								<div class="flex items-center justify-end gap-2">
-									{#if refundInfo && chainSwapRecovery.status !== 'success'}
+									<!-- Check status button (always available for partial/failed) -->
+									<button
+										class="btn btn-ghost btn-xs min-h-[36px]"
+										disabled={checkingStatus}
+										onclick={handleCheckBoltzStatus}
+									>
+										{#if checkingStatus}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											🔄
+										{/if}
+										{$t('wallet.pending_swaps.check_status') || 'Check Status'}
+									</button>
+									<!-- Claim button: resume the swap chain to retry the Boltz claim -->
+									{#if getSwapChainStatus(swapChainState).isPartial && swapChainState.swap1Id}
 										<button
 											class="btn btn-primary btn-xs min-h-[36px]"
+											disabled={resuming}
+											onclick={handleResumeChain}
+										>
+											{#if resuming}
+												<span class="loading loading-spinner loading-xs"></span>
+											{/if}
+											{$t('wallet.pending_swaps.claim') || 'Claim'}
+										</button>
+									{/if}
+									{#if refundInfo && chainSwapRecovery.status !== 'success'}
+										<button
+											class="btn btn-outline btn-error btn-xs min-h-[36px]"
 											disabled={chainSwapRecovery.status === 'loading' || !refundInfo.canRefund}
 											onclick={handleRefund}
 										>
 											{#if chainSwapRecovery.status === 'loading'}
 												<span class="loading loading-spinner loading-xs"></span>
 											{/if}
-											{$t('wallet.pending_swaps.refund') || 'Recover funds'}
+											{$t('wallet.pending_swaps.refund') || 'Refund'}
 										</button>
 									{/if}
 								</div>

@@ -84,7 +84,7 @@ export async function startSwapChain(
 		}
 
 		const hopServices = route.hops.map((h) => h.service).join(' → ');
-		console.warn(
+		d.log(
 			'[startSwapChain] ═══ START ═══ route=%s hops=%d services=%s amount=%s source=%s dest=%s wallet=%s',
 			route.id,
 			route.hops.length,
@@ -107,7 +107,7 @@ export async function startSwapChain(
 
 		// Network guard
 		if (typeof navigator !== 'undefined' && !navigator.onLine) {
-			console.warn('[startSwapChain] ABORT: device is offline');
+			d.log('[startSwapChain] ABORT: device is offline');
 			return { data: null, error: new Error('Device is offline — cannot start swap') };
 		}
 
@@ -126,17 +126,17 @@ export async function startSwapChain(
 
 		// Ensure wallet is initialized before executing any hops.
 		// On fresh page load, rsk.address may be empty until initWallet() completes.
-		console.warn('[startSwapChain] Step 0: ensuring wallet initialized...');
+		d.log('[startSwapChain] Step 0: ensuring wallet initialized...');
 		const { getRSKAddress } = await import('$lib/stores/wallet.store');
 		const resolvedAddr = await getRSKAddress();
-		console.warn('[startSwapChain] getRSKAddress returned=%s', resolvedAddr || 'EMPTY');
+		d.log('[startSwapChain] getRSKAddress returned=%s', resolvedAddr || 'EMPTY');
 		if (!resolvedAddr) {
-			console.warn('[startSwapChain] ABORT: wallet not initialized');
+			d.log('[startSwapChain] ABORT: wallet not initialized');
 			return { data: null, error: new Error('Wallet not initialized — cannot start swap') };
 		}
 
 		// 1. Save initial state
-		console.warn('[startSwapChain] Step 1: saving initial swap chain state...');
+		d.log('[startSwapChain] Step 1: saving initial swap chain state...');
 		const initialState: SwapChainState = {
 			...INITIAL_SWAP_CHAIN_STATE,
 			route,
@@ -158,7 +158,7 @@ export async function startSwapChain(
 			return { data: null, error: new Error('Route has no hops') };
 		}
 
-		console.warn(
+		d.log(
 			'[startSwapChain] Step 2: executing hop 0 — service=%s from=%s/%s to=%s/%s',
 			hop1.service,
 			hop1.fromAsset,
@@ -196,7 +196,7 @@ export async function startSwapChain(
 		}
 
 		const { data: hop1Id, error: hop1Error } = await executeHop(hop1, pendingState1, 0);
-		console.warn(
+		d.log(
 			'[startSwapChain] hop1 result: id=%s error=%s',
 			hop1Id ?? 'null',
 			hop1Error?.message ?? 'none'
@@ -204,7 +204,7 @@ export async function startSwapChain(
 		d.log('hop 1 result: id=%s error=%s', hop1Id ?? 'null', hop1Error?.message ?? 'none');
 
 		if (hop1Error !== null) {
-			console.warn('[startSwapChain] ═══ FAILED ═══ hop 0 error: %s', hop1Error.message);
+			d.log('[startSwapChain] ═══ FAILED ═══ hop 0 error: %s', hop1Error.message);
 			Sentry.addBreadcrumb({
 				category: 'swap-chain',
 				message: `Hop 0 failed: ${hop1Error.message}`,
@@ -236,7 +236,52 @@ export async function startSwapChain(
 
 		// 4. If single-hop route, mark complete
 		if (route.hops.length === 1) {
-			console.warn('[startSwapChain] Step 4: single-hop route — marking COMPLETE');
+			d.log('[startSwapChain] Step 4: single-hop route — service=%s', hop1.service);
+
+			// For Boltz chain swaps, the hop only sends the lockup transaction.
+			// Boltz then needs to release funds on the destination chain, and the
+			// user must claim them. We MUST poll for completion before marking
+			// COMPLETE — otherwise the swap is stuck with funds locked on both chains.
+			if (hop1.service === 'boltz' && hop1Id) {
+				d.log(
+					'[startSwapChain] Step 4a: single-hop Boltz (id=%s) — polling for claim completion',
+					hop1Id
+				);
+				const isTbtcToRbtc = hop1.fromAsset === 'TBTC' && hop1.toAsset === 'RBTC';
+				const direction = isTbtcToRbtc ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+				setSwapProgress(
+					'waiting-for-boltz',
+					isTbtcToRbtc
+						? 'Waiting for Boltz to confirm lockup on RSK...'
+						: 'Waiting for Boltz to confirm lockup on Arbitrum...'
+				);
+
+				const pollResult = await pollBoltzChainSwapCompletion(
+					hop1Id,
+					sourceConnectedWalletId,
+					undefined,
+					direction
+				);
+
+				if (pollResult.error !== null) {
+					d.log(
+						'[startSwapChain] ═══ PARTIAL ═══ single-hop Boltz poll failed: %s',
+						pollResult.error.message
+					);
+					const { data: partialState, error: ptError } = await transitionTo(
+						{ ...confirmedState1, swap1Id: hop1Id },
+						'PARTIAL',
+						{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
+					);
+					if (ptError !== null) {
+						return { data: null, error: ptError };
+					}
+					return { data: partialState, error: null };
+				}
+
+				d.log('[startSwapChain] Single-hop Boltz swap completed — marking COMPLETE');
+			}
+
 			Sentry.addBreadcrumb({
 				category: 'swap-chain',
 				message: 'Single-hop route complete',
@@ -265,7 +310,7 @@ export async function startSwapChain(
 		// Without this wait, hop 2 (e.g. LI.FI tBTC→USDT0) would execute against
 		// a zero tBTC balance and fail on-chain.
 		if (hop1.service === 'boltz' && hop1Id) {
-			console.warn(
+			d.log(
 				'[startSwapChain] Step 5a: hop 0 is boltz (id=%s) — polling for completion before hop 1',
 				hop1Id
 			);
@@ -273,7 +318,7 @@ export async function startSwapChain(
 			setSwapProgress('waiting-for-boltz', 'Waiting for Boltz to confirm lockup on RSK...');
 			const pollResult = await pollBoltzChainSwapCompletion(hop1Id, sourceConnectedWalletId);
 			if (pollResult.error !== null) {
-				console.warn(
+				d.log(
 					'[startSwapChain] ═══ PARTIAL ═══ Boltz hop 0 poll failed: %s',
 					pollResult.error.message
 				);
@@ -288,12 +333,12 @@ export async function startSwapChain(
 				}
 				return { data: partialState, error: null };
 			}
-			console.warn('[startSwapChain] Boltz hop 0 completed — proceeding to hop 1');
+			d.log('[startSwapChain] Boltz hop 0 completed — proceeding to hop 1');
 			d.log('Boltz swap completed — proceeding to hop 2');
 			setSwapProgress('swapping-tbtc', 'tBTC claimed — swapping via LI.FI...');
 
 			// Log the expected tBTC balance for debugging hop 2 failures
-			console.warn(
+			d.log(
 				'[startSwapChain] hop 2 will execute: service=%s from=%s→%s, state.amount=%s',
 				hop2.service,
 				hop2.fromAsset,
@@ -302,7 +347,7 @@ export async function startSwapChain(
 			);
 		}
 
-		console.warn(
+		d.log(
 			'[startSwapChain] Step 5b: executing hop 1 — service=%s from=%s/%s to=%s/%s',
 			hop2.service,
 			hop2.fromAsset,
@@ -339,7 +384,7 @@ export async function startSwapChain(
 			return { data: null, error: savePending2Error };
 		}
 
-		console.warn(
+		d.log(
 			'[startSwapChain] hop2 starting: service=%s from=%s/%s to=%s/%s',
 			hop2.service,
 			hop2.fromAsset,
@@ -348,14 +393,14 @@ export async function startSwapChain(
 			hop2.toChain
 		);
 		const { data: hop2Id, error: hop2Error } = await executeHop(hop2, pendingState2, 1);
-		console.warn(
+		d.log(
 			'[startSwapChain] hop2 result: id=%s error=%s',
 			hop2Id ?? 'null',
 			hop2Error?.message ?? 'none'
 		);
 
 		if (hop2Error !== null) {
-			console.warn('[startSwapChain] ═══ PARTIAL ═══ hop 1 error: %s', hop2Error.message);
+			d.log('[startSwapChain] ═══ PARTIAL ═══ hop 1 error: %s', hop2Error.message);
 			Sentry.addBreadcrumb({
 				category: 'swap-chain',
 				message: `Hop 1 failed: ${hop2Error.message}`,
@@ -382,7 +427,7 @@ export async function startSwapChain(
 				updatedAt: Date.now()
 			};
 			await saveSwapChainState(stateWithSwap2);
-			console.warn('[startSwapChain] saved swap2Id=%s to state', hop2Id);
+			d.log('[startSwapChain] saved swap2Id=%s to state', hop2Id);
 		}
 
 		// 6. If hop 2 is Boltz: poll for chain swap completion before marking complete.
@@ -390,7 +435,7 @@ export async function startSwapChain(
 		// destination token, then the user claims. This can take several minutes.
 		if (hop2.service === 'boltz' && hop2Id) {
 			const direction = hop2.fromAsset === 'TBTC' ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
-			console.warn(
+			d.log(
 				'[startSwapChain] Step 6: hop 1 is boltz (id=%s) — polling for completion, direction=%s',
 				hop2Id,
 				direction
@@ -411,7 +456,7 @@ export async function startSwapChain(
 			);
 
 			if (pollResult.error !== null) {
-				console.warn(
+				d.log(
 					'[startSwapChain] ═══ PARTIAL ═══ Boltz hop 1 poll failed: %s',
 					pollResult.error.message
 				);
@@ -427,13 +472,13 @@ export async function startSwapChain(
 				return { data: partialState, error: null };
 			}
 
-			console.warn('[startSwapChain] Boltz hop 1 completed successfully');
+			d.log('[startSwapChain] Boltz hop 1 completed successfully');
 			d.log('Boltz hop 2 completed successfully');
 		}
 
 		// 7. Mark complete — must transition through SWAP_2_CONFIRMED first
 		// (state machine requires: SWAP_2_PENDING → SWAP_2_CONFIRMED → COMPLETE)
-		console.warn(
+		d.log(
 			'[startSwapChain] Step 7: marking swap chain COMPLETE (swap1Id=%s swap2Id=%s)',
 			hop1Id ?? 'null',
 			hop2Id ?? 'null'
@@ -453,21 +498,18 @@ export async function startSwapChain(
 		const { data: finalState, error: finalError } = await transitionTo(confirmedState2, 'COMPLETE');
 
 		if (finalError !== null) {
-			console.warn(
-				'[startSwapChain] ═══ ERROR ═══ final transition failed: %s',
-				finalError.message
-			);
+			d.log('[startSwapChain] ═══ ERROR ═══ final transition failed: %s', finalError.message);
 			// Both hops succeeded on-chain but the state machine transition failed.
 			// Force-reset to COMPLETE so the swap doesn't stay stuck in pending.
 			if (hop1Id && hop2Id) {
-				console.warn('[startSwapChain] Both hops succeeded — force-resetting to COMPLETE');
+				d.log('[startSwapChain] Both hops succeeded — force-resetting to COMPLETE');
 				await resetSwapChainState();
 				return { data: { ...confirmedState2, phase: 'COMPLETE' }, error: null };
 			}
 			return { data: null, error: finalError };
 		}
 
-		console.warn('[startSwapChain] ═══ COMPLETE ═══ finalState=%s', finalState?.phase);
+		d.log('[startSwapChain] ═══ COMPLETE ═══ finalState=%s', finalState?.phase);
 		return { data: finalState, error: null };
 	} finally {
 		swapExecutionLock = false;
@@ -505,7 +547,7 @@ export async function resumeSwapChain(): Promise<{
 
 	try {
 		const state = await loadSwapChainState();
-		console.warn(
+		d.log(
 			'[resumeSwapChain] ═══ RESUME ═══ phase=%s route=%s swap1Id=%s swap2Id=%s',
 			state.phase,
 			state.route?.id ?? 'none',
@@ -524,13 +566,69 @@ export async function resumeSwapChain(): Promise<{
 		});
 
 		if (isTerminalPhase(state.phase)) {
-			console.warn('[resumeSwapChain] Phase is terminal (%s) — returning as-is', state.phase);
+			// PARTIAL swaps can be resumed — they have a valid swap1Id but
+			// the Boltz claim hasn't completed yet. Poll for completion.
+			if (state.phase === 'PARTIAL' && state.swap1Id && state.route) {
+				d.log(
+					'[resumeSwapChain] PARTIAL swap with swap1Id=%s — polling Boltz for completion',
+					state.swap1Id
+				);
+				const hop1 = state.route.hops[0];
+				if (hop1?.service === 'boltz') {
+					const isTbtcToRbtc = hop1.fromAsset === 'TBTC' && hop1.toAsset === 'RBTC';
+					const direction = isTbtcToRbtc ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+					setSwapProgress(
+						'claiming-rbtc',
+						isTbtcToRbtc ? 'Claiming rBTC on RSK...' : 'Claiming tBTC on Arbitrum...'
+					);
+
+					const pollResult = await pollBoltzChainSwapCompletion(
+						state.swap1Id,
+						state.sourceConnectedWalletId,
+						undefined,
+						direction
+					);
+
+					if (pollResult.error !== null) {
+						d.log('[resumeSwapChain] Boltz poll failed: %s', pollResult.error.message);
+						// Already PARTIAL — can't transition PARTIAL→PARTIAL. Save directly.
+						const updatedState: SwapChainState = {
+							...state,
+							error: `Boltz claim still pending: ${pollResult.error.message}`,
+							updatedAt: Date.now()
+						};
+						await saveSwapChainState(updatedState);
+						return { data: updatedState, error: null };
+					}
+
+					d.log('[resumeSwapChain] Boltz swap claimed — marking COMPLETE');
+					// Try transitioning to COMPLETE. If PARTIAL→COMPLETE isn't valid,
+					// save directly.
+					const { data: completed, error: completeError } = await transitionTo(state, 'COMPLETE');
+					if (completeError !== null) {
+						d.log(
+							'[resumeSwapChain] Transition to COMPLETE failed: %s — saving directly',
+							completeError.message
+						);
+						const completedState: SwapChainState = {
+							...state,
+							phase: 'COMPLETE',
+							error: null,
+							updatedAt: Date.now()
+						};
+						await saveSwapChainState(completedState);
+						return { data: completedState, error: null };
+					}
+					return { data: completed ?? state, error: null };
+				}
+			}
+			d.log('[resumeSwapChain] Phase is terminal (%s) — returning as-is', state.phase);
 			return { data: state, error: null };
 		}
 
 		// SWAP_2_CONFIRMED -> COMPLETE
 		if (state.phase === 'SWAP_2_CONFIRMED') {
-			console.warn('[resumeSwapChain] SWAP_2_CONFIRMED — marking COMPLETE');
+			d.log('[resumeSwapChain] SWAP_2_CONFIRMED — marking COMPLETE');
 			const { data: completed, error: completeError } = await transitionTo(state, 'COMPLETE');
 			if (completeError !== null) {
 				return { data: null, error: completeError };
@@ -548,17 +646,14 @@ export async function resumeSwapChain(): Promise<{
 
 			// Poll Boltz completion before hop 2 (same logic as startSwapChain)
 			if (hop1?.service === 'boltz' && state.swap1Id) {
-				console.warn(
-					'[resumeSwapChain] hop 0 is boltz (id=%s) — polling for completion',
-					state.swap1Id
-				);
+				d.log('[resumeSwapChain] hop 0 is boltz (id=%s) — polling for completion', state.swap1Id);
 				d.log('resume: hop 1 is Boltz (id=%s) — polling for completion', state.swap1Id);
 				const pollResult = await pollBoltzChainSwapCompletion(
 					state.swap1Id,
 					state.sourceConnectedWalletId
 				);
 				if (pollResult.error !== null) {
-					console.warn(
+					d.log(
 						'[resumeSwapChain] ═══ PARTIAL ═══ Boltz poll failed: %s',
 						pollResult.error.message
 					);
@@ -575,11 +670,11 @@ export async function resumeSwapChain(): Promise<{
 					}
 					return { data: partialState, error: null };
 				}
-				console.warn('[resumeSwapChain] Boltz hop 0 completed — proceeding to hop 1');
+				d.log('[resumeSwapChain] Boltz hop 0 completed — proceeding to hop 1');
 				d.log('resume: Boltz swap completed — proceeding to hop 2');
 			}
 
-			console.warn(
+			d.log(
 				'[resumeSwapChain] executing hop 1: service=%s from=%s/%s to=%s/%s',
 				hop2.service,
 				hop2.fromAsset,
@@ -609,7 +704,7 @@ export async function resumeSwapChain(): Promise<{
 			}
 
 			const { data: hop2Id, error: hop2Error } = await executeHop(hop2, pendingState2, 1);
-			console.warn(
+			d.log(
 				'[resumeSwapChain] hop 1 result: id=%s error=%s',
 				hop2Id ?? 'null',
 				hop2Error?.message ?? 'none'
@@ -617,7 +712,7 @@ export async function resumeSwapChain(): Promise<{
 			d.log('resume: hop 2 result: id=%s error=%s', hop2Id ?? 'null', hop2Error?.message ?? 'none');
 
 			if (hop2Error !== null) {
-				console.warn('[resumeSwapChain] ═══ PARTIAL ═══ hop 1 error: %s', hop2Error.message);
+				d.log('[resumeSwapChain] ═══ PARTIAL ═══ hop 1 error: %s', hop2Error.message);
 				const { data: partialState, error: ptError } = await transitionTo(
 					{ ...pendingState2 },
 					'PARTIAL',

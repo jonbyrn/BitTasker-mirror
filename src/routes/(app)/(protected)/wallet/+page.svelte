@@ -85,7 +85,63 @@
 		if (tab === 'receive') {
 			showReceiveModal = true;
 		}
+
+		// Auto-validate swap chain: check if any COMPLETE swap is actually
+		// incomplete on Boltz (e.g., single-hop Boltz chain swaps that were
+		// marked COMPLETE before the destination chain claim was processed).
+		validateSwapChainState();
 	});
+
+	/**
+	 * Check the persisted swap chain state against Boltz's actual status.
+	 * If a COMPLETE swap is still at transaction.server.confirmed on Boltz,
+	 * revert it to PARTIAL so the user can retry the claim.
+	 * Also resets COMPLETE swaps that are actually claimed (cleanup).
+	 */
+	async function validateSwapChainState() {
+		try {
+			const { getSwapChainState } = await import('$lib/services/swap-chain.service');
+			const state = await getSwapChainState();
+			if (!state || state.phase === 'IDLE' || !state.swap1Id) return;
+
+			const { BoltzProvider } = await import('$lib/services/BoltzProvider');
+			const boltz = new BoltzProvider();
+			const boltzStatus = await boltz.getSwapStatus(state.swap1Id);
+
+			if (
+				state.phase === 'COMPLETE' &&
+				(boltzStatus.status === 'transaction.server.confirmed' ||
+					boltzStatus.status === 'transaction.claim.pending')
+			) {
+				// Swap marked COMPLETE but Boltz hasn't released funds —
+				// revert to PARTIAL so it shows in pending swaps
+				console.warn(
+					'[wallet] Swap %s marked COMPLETE but Boltz status=%s — reverting to PARTIAL',
+					state.swap1Id,
+					boltzStatus.status
+				);
+				const { transitionTo } = await import('$lib/services/swap-chain/state');
+				await transitionTo(state, 'PARTIAL', {
+					error: `Swap not yet complete on Boltz: ${boltzStatus.status}`
+				});
+			} else if (
+				state.phase === 'COMPLETE' &&
+				(boltzStatus.status === 'transaction.claimed' ||
+					boltzStatus.status === 'transaction.refunded')
+			) {
+				// Swap truly completed — clean up
+				console.log(
+					'[wallet] Swap %s confirmed as %s — cleaning up',
+					state.swap1Id,
+					boltzStatus.status
+				);
+				const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
+				await resetSwapChainState();
+			}
+		} catch (err) {
+			console.warn('[wallet] Swap chain validation failed:', err);
+		}
+	}
 
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
 
