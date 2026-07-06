@@ -334,13 +334,16 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 			return;
 		}
 
-		let cancelled = false;
+		const controller = new AbortController();
 		(async () => {
 			const { data, error } = await tryCatch(
-				fetch(`https://mempool.space/api/address/${addr}`).then((r) => r.json())
+				fetch(`https://mempool.space/api/address/${addr}`, {
+					signal: controller.signal
+				}).then((r) => r.json())
 			);
-			if (cancelled) return;
+			if (controller.signal.aborted) return;
 			if (error) {
+				if (error instanceof DOMException && error.name === 'AbortError') return;
 				d.error('external btc mempool fetch failed', error);
 				Sentry.addBreadcrumb({
 					category: 'swap.wallets',
@@ -351,7 +354,7 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 						error: error instanceof Error ? error.message : String(error)
 					}
 				});
-				if (!cancelled) externalBtcBalanceSats = 0;
+				if (!controller.signal.aborted) externalBtcBalanceSats = 0;
 				return;
 			}
 			const dataJson = data as {
@@ -364,11 +367,11 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 				(dataJson.mempool_stats?.funded_txo_sum ?? 0) -
 				(dataJson.mempool_stats?.spent_txo_sum ?? 0);
 			const total = confirmed + mempool;
-			if (!cancelled) externalBtcBalanceSats = total;
+			if (!controller.signal.aborted) externalBtcBalanceSats = total;
 		})();
 
 		return () => {
-			cancelled = true;
+			controller.abort();
 		};
 	});
 
@@ -514,7 +517,7 @@ export function getAddrSnippet(addr: string): string {
 }
 
 export function getWalletLabelForList(id: WalletId, wallets: ConnectedWalletEntry[]): string {
-	if (id === 'builtin') return 'BitTasker Wallet';
+	if (id === 'builtin') return 'wallet.builtin_wallet';
 	const w = wallets.find((cw) => cw.id === id);
 	const name = w?.walletName || id;
 	return name.toLowerCase().endsWith('wallet') ? name : `${name} Wallet`;

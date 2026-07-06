@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
-	import { browser } from '$app/environment';
 	import { walletManager } from '$lib/stores/wallet.store';
 	import { type SourceWallet } from '$lib/services/route-resolver';
 	import { onSwapProgress, type SwapProgressStep } from '$lib/services/swap-chain.service';
@@ -339,19 +338,6 @@
 			_clearSwapTimeout();
 			if (_flipTimer) clearTimeout(_flipTimer);
 		};
-	});
-
-	// Focus management: move focus to new phase content for accessibility
-	$effect(() => {
-		void swapPhase;
-		if (browser) {
-			tick().then(() => {
-				const el = document.querySelector<HTMLElement>('[data-swap-phase]');
-				if (el) {
-					el.focus({ preventScroll: true });
-				}
-			});
-		}
 	});
 
 	onMount(async () => {
@@ -729,7 +715,7 @@
 	isScrollable={true}
 	isSubmitting={swapPhase === 'executing'}
 >
-	<div class="flex flex-col gap-4" data-swap-phase tabindex="-1">
+	<div class="flex flex-col gap-4">
 		{#if swapPhase === 'form'}
 			<div transition:fly={{ y: 10, duration: 200 }}>
 				<SwapFormPhase

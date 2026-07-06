@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { untrack } from 'svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
 		walletStore,
@@ -47,14 +48,18 @@
 	} = $props();
 
 	// Grouped State: Form Input
-	let formInput = $state({
-		amount: initialFormState?.amount ?? '',
-		unit: (initialFormState?.unit ?? 'usd') as 'sats' | 'usd',
-		mathExpression: initialFormState?.mathExpression ?? '',
-		memo: initialFormState?.memo ?? '',
-		selectedNetwork: initialFormState?.selectedNetwork ?? 'rootstock-bitcoin',
-		chargeFeesToPayer: initialFormState?.chargeFeesToPayer ?? false
-	});
+	// Read initialFormState via untrack() to avoid Svelte 5 "captures initial value" warning.
+	// We intentionally only want the initial prop value for $state() initialization.
+	let formInput = $state(
+		untrack(() => ({
+			amount: initialFormState?.amount ?? '',
+			unit: (initialFormState?.unit ?? 'usd') as 'sats' | 'usd',
+			mathExpression: initialFormState?.mathExpression ?? '',
+			memo: initialFormState?.memo ?? '',
+			selectedNetwork: initialFormState?.selectedNetwork ?? 'rootstock-bitcoin',
+			chargeFeesToPayer: initialFormState?.chargeFeesToPayer ?? false
+		}))
+	);
 
 	let receiveTab = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain' | 'tbtc-arb'>('rbtc');
 	let selectedReceiveWalletId = $state<string | null>(null);
