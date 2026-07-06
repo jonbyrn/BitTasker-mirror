@@ -413,21 +413,27 @@ describe('getAddressExplorerUrl', () => {
 		});
 	});
 
-	describe('unsupported networks', () => {
-		it('returns null for ethereum', () => {
-			expect(getAddressExplorerUrl('0xabc', 'usdt-ethereum', mainnetConfig)).toBeNull();
+	describe('supported EVM networks', () => {
+		it('returns etherscan for ethereum', () => {
+			expect(getAddressExplorerUrl('0xabc', 'usdt-ethereum', mainnetConfig)).toBe(
+				'https://etherscan.io/address/0xabc'
+			);
 		});
 
-		it('returns null for arbitrum', () => {
-			expect(getAddressExplorerUrl('0xabc', 'usdt-arbitrum', mainnetConfig)).toBeNull();
+		it('returns arbiscan for arbitrum', () => {
+			expect(getAddressExplorerUrl('0xabc', 'usdt-arbitrum', mainnetConfig)).toBe(
+				'https://arbiscan.io/address/0xabc'
+			);
 		});
 
 		it('returns null for lightning-bitcoin', () => {
 			expect(getAddressExplorerUrl('lnbc1...', 'lightning-bitcoin', mainnetConfig)).toBeNull();
 		});
 
-		it('returns null for tron', () => {
-			expect(getAddressExplorerUrl('TRXaddr', 'usdt-tron', mainnetConfig)).toBeNull();
+		it('returns tronscan for tron', () => {
+			expect(getAddressExplorerUrl('TRXaddr', 'usdt-tron', mainnetConfig)).toBe(
+				'https://tronscan.org/#/address/TRXaddr'
+			);
 		});
 	});
 });
