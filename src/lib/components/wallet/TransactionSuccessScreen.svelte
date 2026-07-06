@@ -242,7 +242,7 @@
 			{$t('wallet.sats')}
 			{$t('wallet.send.success.sent_to')}
 		</p>
-		<p class="text-base-content/60 font-mono text-sm">{formatAddress(props.recipient)}</p>
+		<p class="text-base-content/60 font-mono text-sm">{formatAddress(props.recipient, 10, 8)}</p>
 	</div>
 
 	<!-- Transaction Details Card -->
@@ -251,7 +251,7 @@
 			<span class="text-base-content/70 text-sm">{$t('wallet.send.success.transaction_hash')}:</span
 			>
 			<div class="flex items-center gap-2">
-				<code class="font-mono text-xs break-all">{formatAddress(props.txHash)}</code>
+				<code class="font-mono text-xs break-all">{formatAddress(props.txHash, 10, 8)}</code>
 				<button
 					class="btn btn-ghost btn-xs btn-circle"
 					onclick={handleCopyTxHash}
