@@ -132,15 +132,13 @@
 
 	function selectDestination(id: string) {
 		expanded = false;
+		// Sync group tab to match the selected destination
+		const dest = DESTINATIONS.find((d) => d.id === id);
+		if (dest) {
+			activeGroup = dest.group;
+		}
 		onChange(id);
 	}
-
-	// Auto-select group based on current selection
-	$effect(() => {
-		if (selectedDest) {
-			activeGroup = selectedDest.group;
-		}
-	});
 </script>
 
 <div class="form-control">

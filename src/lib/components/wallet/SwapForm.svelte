@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { get } from 'svelte/store';
-	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { browser } from '$app/environment';
+	import { walletManager } from '$lib/stores/wallet.store';
 	import { type SourceWallet } from '$lib/services/route-resolver';
 	import { onSwapProgress, type SwapProgressStep } from '$lib/services/swap-chain.service';
 	import type { SmartRoute } from '$lib/services/SmartRouter';
@@ -19,6 +20,8 @@
 	import { useSwapCalculator } from '$lib/runes/use-swap-calculator.svelte';
 	import { useSwapRoutes } from '$lib/runes/use-swap-routes.svelte';
 	import { useSwapOptions, type DestType } from '$lib/runes/use-swap-options.svelte';
+	import { useSwapInput } from '$lib/runes/use-swap-input.svelte';
+	import { useSwapBalanceCheck } from '$lib/runes/use-swap-balance-check.svelte';
 	import SwapConfirmPhase from '$lib/components/wallet/SwapConfirmPhase.svelte';
 	import SwapSuccessPhase from '$lib/components/wallet/SwapSuccessPhase.svelte';
 	import SwapExecutingPhase from '$lib/components/wallet/SwapExecutingPhase.svelte';
@@ -37,7 +40,6 @@
 		DEST_TO_SOURCE,
 		SOURCE_TO_DEST
 	} from '$lib/utils/swap-helpers';
-	import { fetchLiveFees, checkArbEthBalance as fetchArbEthBalance } from '$lib/utils/swap-gas';
 
 	const d = createDebug('swap');
 
@@ -62,7 +64,7 @@
 	);
 
 	// -----------------------------------------------------------------------
-	// State
+	// Phase / execution state
 	// -----------------------------------------------------------------------
 	let sourceType = $state<SourceWallet>('rbtc');
 	let destType = $state<DestType>('usdt0-arb');
@@ -151,6 +153,26 @@
 		getExternalBtcBalanceSats: () => swapWallets.externalBtcBalanceSats
 	});
 
+	// -----------------------------------------------------------------------
+	// Input rune (prices, fee refresh, USD/sats conversion, isBtcSource)
+	// Declared before swapCalc so it can own btcUsdPrice; forward-refs swapCalc
+	// amount via lazy getters (evaluated after script block completes).
+	// -----------------------------------------------------------------------
+	const swapInput = useSwapInput({
+		getSourceType: () => sourceType,
+		getIsOnline: () => isOnline,
+		getAmount: () => swapCalc.amount,
+		getAmountInTokenUnits: () => swapCalc.amountInTokenUnits,
+		getIsOpen: () => isOpen,
+		getDefaultDestType: () => defaultDestType,
+		setAmount: (v: string) => {
+			swapCalc.amount = v;
+		},
+		setDestType: (v: DestType) => {
+			destType = v;
+		}
+	});
+
 	const swapCalc = useSwapCalculator({
 		getWalletBalanceToken: () => {
 			if (sourceType === 'rbtc') {
@@ -182,7 +204,7 @@
 				: swapWallets.sourceBalances.usdt0;
 		},
 		getSourceType: () => sourceType,
-		getBtcUsdPrice: () => btcUsdPrice,
+		getBtcUsdPrice: () => swapInput.btcUsdPrice,
 		getIsOnline: () => isOnline
 	});
 
@@ -192,15 +214,15 @@
 		getAmountSats: () => swapCalc.amountSats,
 		getSourceAddr: () => swapWallets.sourceAddr,
 		getIsOnline: () => isOnline,
-		getBtcUsdPrice: () => btcUsdPrice,
-		getEthUsdPrice: () => ethUsdPrice,
-		getRskGasWei: () => rskGasPriceWei,
-		getArbGasWei: () => arbGasPriceWei,
+		getBtcUsdPrice: () => swapInput.btcUsdPrice,
+		getEthUsdPrice: () => swapInput.ethUsdPrice,
+		getRskGasWei: () => swapInput.rskGasPriceWei,
+		getArbGasWei: () => swapInput.arbGasPriceWei,
 		// For non-BTC sources (USDT0, etc.), pass the raw amount in the source
 		// token's smallest unit. The route engine's satsToTokenAmount() does a
 		// pure decimal conversion that is wrong for stablecoins.
 		getSourceAmountRaw: () => {
-			if (isBtcSource) return undefined;
+			if (swapInput.isBtcSource) return undefined;
 			const units = swapCalc.amountInTokenUnits;
 			if (units <= 0) return undefined;
 			const decimals = sourceType === 'usdt0-arb' ? 6 : sourceType === 'wbtc-arb' ? 8 : 18;
@@ -209,67 +231,32 @@
 		}
 	});
 
-	// Pre-swap ETH balance check for boltz+lifi routes that require claiming on Arbitrum
-	let arbEthBalance = $state<string | null>(null);
-	let arbEthCheckDone = $state(false);
-	const needsArbEth = $derived.by(() => {
-		// Local SmartRoute (SwapFallback retry path)
-		if (smartRoute?.provider === 'boltz+lifi' && smartRoute?.toChain === 'arbitrum') {
-			return true;
-		}
-		// Engine's recommended Route — check hops for boltz+lifi multi-hop to Arbitrum
-		const rec = swapRoutes.engineResult?.recommended;
-		if (rec && rec.hops.length > 1) {
-			const hasBoltz = rec.hops.some((h) => h.service === 'boltz');
-			const hasLifiOrSymbiosis = rec.hops.some(
-				(h) => h.service === 'lifi' || h.service === 'symbiosis'
-			);
-			const targetsArbitrum = rec.hops[rec.hops.length - 1]?.toChain === 'arbitrum';
-			// Boltz tBTC→RBTC lockup happens on Arbitrum (lockPrepayMinerfee needs 0.001 ETH)
-			// even when the final destination is RSK
-			const boltzLocksOnArbitrum = rec.hops.some(
-				(h) => h.service === 'boltz' && h.fromChain === 'arbitrum'
-			);
-			if (boltzLocksOnArbitrum) return true;
-			if (hasBoltz && hasLifiOrSymbiosis && targetsArbitrum) return true;
-		}
-		return false;
+	// -----------------------------------------------------------------------
+	// Balance check rune (validation, Arb ETH check, canSwap gate)
+	// -----------------------------------------------------------------------
+	const balanceCheck = useSwapBalanceCheck({
+		getSourceType: () => sourceType,
+		getDestType: () => destType,
+		getSourceWallet: () => sourceWallet,
+		getDestWallet: () => destWallet,
+		getSourceAddr: () => swapWallets.sourceAddr,
+		getSmartRoute: () => smartRoute,
+		getEngineResult: () => swapRoutes.engineResult,
+		getMinSwapSats: () => swapRoutes.minSwapSats,
+		getAmountSats: () => swapCalc.amountSats,
+		getIsInsufficientBalance: () => swapCalc.isInsufficientBalance,
+		getAmountInTokenUnits: () => swapCalc.amountInTokenUnits,
+		getRouteLoading: () => swapRoutes.routeLoading,
+		getEstimatedOutput: () => swapRoutes.estimatedOutput,
+		getIsValidAmount: () => swapCalc.isValidAmount,
+		getIsOnline: () => isOnline,
+		getIsFormPhase: () => swapPhase === 'form'
 	});
 
 	// Re-export pure from calc for template (satsUsd used in labels).
 	const satsUsd = swapCalc.satsUsd;
 
 	let effectiveSmartRoute = $derived(smartRoute);
-
-	// For rBTC (BTC asset) source: allow entering amount in USD via compact toggle left of input.
-	let btcUsdInputMode = $state(true);
-
-	// Sync display amount shown in input (for usd mode on rbtc, we show usd value, but keep calc in native sats)
-	let displayInputAmount = $state('');
-	let syncingFromInput = false;
-
-	$effect(() => {
-		const nativeStr = swapCalc.amount;
-		if (isBtcSource && btcUsdInputMode) {
-			if (syncingFromInput) {
-				syncingFromInput = false;
-				return;
-			}
-			const frac = swapCalc.amountInTokenUnits;
-			const usd = frac * btcUsdPrice;
-			displayInputAmount = usd > 0 ? usd.toFixed(2) : '';
-		} else {
-			displayInputAmount = nativeStr;
-		}
-	});
-
-	$effect(() => {
-		// reset usd mode when source changes away from BTC-denominated assets
-		if (!isBtcSource && btcUsdInputMode) {
-			btcUsdInputMode = false;
-			syncingFromInput = false;
-		}
-	});
 
 	let sourceAsset = $derived(swapOptions.sourceAsset);
 	let sourceIcon = $derived(swapOptions.sourceIcon);
@@ -282,70 +269,6 @@
 
 	let walletBalanceToken = $derived(swapCalc.walletBalanceToken.toFixed(6));
 
-	let btcUsdPrice = $state(0);
-	let ethUsdPrice = $state(0);
-	let rskGasPriceWei = $state(0n);
-	let arbGasPriceWei = $state(0n);
-
-	let _lastFeeRefreshTime = 0;
-	const FEE_CACHE_MS = 30_000;
-
-	async function refreshLiveFees() {
-		if (!isOnline) {
-			d.log('refreshLiveFees: skipped (offline)');
-			return;
-		}
-		// Skip if data is fresh (< 30s old)
-		if (Date.now() - _lastFeeRefreshTime < FEE_CACHE_MS) {
-			d.log(
-				'refreshLiveFees: skipped (cached, age=%ds)',
-				Math.round((Date.now() - _lastFeeRefreshTime) / 1000)
-			);
-			return;
-		}
-		d.log('refreshLiveFees: fetching gas prices + BTC/ETH rates');
-		const fees = await fetchLiveFees();
-
-		if (fees.rskGasPriceWei !== null) rskGasPriceWei = fees.rskGasPriceWei;
-		if (fees.arbGasPriceWei !== null) arbGasPriceWei = fees.arbGasPriceWei;
-		if (fees.btcUsdPrice !== null) btcUsdPrice = fees.btcUsdPrice;
-		if (fees.ethUsdPrice !== null) ethUsdPrice = fees.ethUsdPrice;
-
-		d.log(
-			'refreshLiveFees done: rskGas=%d gwei arbGas=%d gwei btc=$%s eth=$%s',
-			Number(rskGasPriceWei) / 1e9,
-			Number(arbGasPriceWei) / 1e9,
-			btcUsdPrice || '?',
-			ethUsdPrice || '?'
-		);
-		_lastFeeRefreshTime = Date.now();
-	}
-
-	onMount(async () => {
-		reconnectPersistedWallets();
-		Sentry.addBreadcrumb({
-			category: 'wallet.swap',
-			message: 'SwapForm mounted',
-			data: { sourceType, destType }
-		});
-		// Fire-and-forget: prices/gas are non-blocking for initial render.
-		// The $effect below re-fetches on every drawer open anyway.
-		refreshLiveFees();
-	});
-
-	let _feeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-	$effect(() => {
-		if (!isOpen) return;
-		// Apply default destination type when drawer opens (e.g. wBTC from loan flow)
-		if (defaultDestType) {
-			destType = defaultDestType;
-		}
-		_feeRefreshTimer = setTimeout(() => refreshLiveFees(), 300);
-		return () => {
-			if (_feeRefreshTimer) clearTimeout(_feeRefreshTimer);
-		};
-	});
-
 	let amountSats = $derived(swapCalc.amountSats);
 	let isInsufficientBalance = $derived(swapCalc.isInsufficientBalance);
 	let amountInTokenUnits = $derived(swapCalc.amountInTokenUnits);
@@ -353,33 +276,6 @@
 	let estimatedOutput = $derived(swapRoutes.estimatedOutput);
 	let totalFeeSats = $derived(swapRoutes.totalFeeSats);
 	let minSwapSats = $derived(swapRoutes.minSwapSats);
-
-	let isBelowMinimum = $derived(
-		minSwapSats > 0 && swapCalc.amountSats > 0 && swapCalc.amountSats < minSwapSats
-	);
-
-	let isAmountError = $derived(isBelowMinimum || isInsufficientBalance);
-
-	let isOutputTooLow = $derived(
-		amountInTokenUnits > 0 &&
-			!swapRoutes.routeLoading &&
-			estimatedOutput !== '' &&
-			parseFloat(estimatedOutput) <= 0
-	);
-
-	let isSelfSend = $derived(
-		sourceWallet === destWallet && SOURCE_TO_SAME_DEST[sourceType] === destType
-	);
-
-	let canSwap = $derived(
-		swapCalc.isValidAmount &&
-			!isBelowMinimum &&
-			(swapRoutes.engineResult.recommended !== null || swapRoutes.engineResult.routes.length > 0) &&
-			swapPhase === 'form' &&
-			isOnline &&
-			!isSelfSend &&
-			!(amountInTokenUnits > 0 && estimatedOutput !== '' && parseFloat(estimatedOutput) <= 0)
-	);
 
 	let minSliderPercent = $derived.by(() => {
 		if (minSwapSats <= 0) return 0;
@@ -445,6 +341,31 @@
 		};
 	});
 
+	// Focus management: move focus to new phase content for accessibility
+	$effect(() => {
+		void swapPhase;
+		if (browser) {
+			tick().then(() => {
+				const el = document.querySelector<HTMLElement>('[data-swap-phase]');
+				if (el) {
+					el.focus({ preventScroll: true });
+				}
+			});
+		}
+	});
+
+	onMount(async () => {
+		reconnectPersistedWallets();
+		Sentry.addBreadcrumb({
+			category: 'wallet.swap',
+			message: 'SwapForm mounted',
+			data: { sourceType, destType }
+		});
+		// Fire-and-forget: prices/gas are non-blocking for initial render.
+		// The swapInput's $effect re-fetches on every drawer open anyway.
+		swapInput.refreshLiveFees();
+	});
+
 	// -----------------------------------------------------------------------
 	// Methods
 	// -----------------------------------------------------------------------
@@ -489,9 +410,7 @@
 		}
 
 		swapCalc.resetAmount();
-		btcUsdInputMode = true;
-		displayInputAmount = '';
-		syncingFromInput = false;
+		swapInput.resetInputMode();
 		smartRoute = null;
 		errorMessage = '';
 		swapPhase = 'form';
@@ -511,13 +430,6 @@
 	function applyPercent(pct: number) {
 		swapCalc.applyPercent(pct);
 	}
-
-	let isBtcSource = $derived(
-		sourceType === 'rbtc' ||
-			sourceType === 'wbtc-arb' ||
-			sourceType === 'tbtc-arb' ||
-			sourceType === 'btc-onchain'
-	);
 
 	// -----------------------------------------------------------------------
 	// SwapFormPhase callback handlers
@@ -540,8 +452,7 @@
 				destType = 'usdt0-arb';
 			}
 			swapCalc.resetAmount();
-			btcUsdInputMode = true;
-			displayInputAmount = '';
+			swapInput.resetInputMode();
 			smartRoute = null;
 			Sentry.addBreadcrumb({
 				category: 'wallet.swap',
@@ -559,55 +470,15 @@
 		swapDirection();
 	}
 
-	/** Handles amount input changes with USD/sats conversion and USDT0 formatting. */
-	function handleAmountChange(v: string) {
-		if (isBtcSource && btcUsdInputMode) {
-			// usd entered for btc source -> convert to native sats str for calc
-			const usdNum = parseFloat(v || '0');
-			if (usdNum > 0 && btcUsdPrice > 0) {
-				const frac = usdNum / btcUsdPrice;
-				swapCalc.amount = Math.round(frac * 100_000_000).toString();
-			} else {
-				swapCalc.amount = '';
-			}
-			syncingFromInput = true;
-			displayInputAmount = v;
-		} else if (sourceType === 'usdt0-arb') {
-			// enforce 2 decimals + floor dust for usdt (formatting only, no clamp)
-			const n = parseFloat(v || '0');
-			const clean = n > 0 ? (Math.floor(n * 100) / 100).toFixed(2) : '';
-			swapCalc.amount = clean;
-			displayInputAmount = clean;
-		} else {
-			swapCalc.amount = v;
-			displayInputAmount = v;
-		}
-	}
-
-	/** Handles BTC/USD input mode toggle with value conversion. */
-	function handleBtcUsdModeChange(isUsd: boolean) {
-		const wasUsd = btcUsdInputMode;
-		btcUsdInputMode = isUsd;
-		syncingFromInput = false;
-		if (isUsd && !wasUsd) {
-			// native -> usd display (effect will update displayInputAmount)
-		} else if (!isUsd && wasUsd) {
-			// usd -> native
-			const usdNum = parseFloat(displayInputAmount || '0');
-			if (usdNum > 0 && btcUsdPrice > 0) {
-				const frac = usdNum / btcUsdPrice;
-				swapCalc.amount = Math.round(frac * 100_000_000).toString();
-			} else {
-				swapCalc.amount = '';
-			}
-		}
-	}
-
 	async function goToConfirm() {
-		if (!canSwap) return;
+		if (!balanceCheck.canSwap) return;
 
 		// Pre-check: if route needs Arbitrum ETH gas, verify balance before entering confirm
-		if (needsArbEth && arbEthCheckDone && arbEthBalance === '0') {
+		if (
+			balanceCheck.needsArbEth &&
+			balanceCheck.arbEthCheckDone &&
+			balanceCheck.arbEthBalance === '0'
+		) {
 			errorMessage = $t('wallet.swap.error.insufficient_gas');
 			return;
 		}
@@ -621,37 +492,9 @@
 		swapPhase = 'confirm';
 		errorMessage = '';
 		// Check ETH balance on Arbitrum if boltz+lifi route (needed for claiming tBTC)
-		if (needsArbEth) {
-			arbEthCheckDone = false;
-			checkArbEthBalance();
+		if (balanceCheck.needsArbEth) {
+			balanceCheck.checkArbEthBalance();
 		}
-	}
-
-	async function checkArbEthBalance() {
-		try {
-			// For connected wallets the EVM address is the same across chains.
-			// For the built-in wallet we must use the Arbitrum address, NOT the RSK address,
-			// because the built-in wallet derives separate addresses per chain.
-			let addr = '';
-			if (sourceWallet !== 'builtin') {
-				// Connected wallet — address is the same on all EVM chains
-				addr = swapWallets.sourceAddr || '';
-			} else {
-				// Built-in wallet — use the Arbitrum address from the wallet store
-				const store = get(walletStore);
-				addr = store.arb?.address || store.rsk?.address || '';
-			}
-			arbEthBalance = await fetchArbEthBalance(addr);
-		} catch (e) {
-			arbEthBalance = 'unknown';
-			Sentry.addBreadcrumb({
-				category: 'wallet.swap',
-				message: 'ARB ETH balance check failed',
-				level: 'warning',
-				data: { error: e instanceof Error ? e.message : String(e) }
-			});
-		}
-		arbEthCheckDone = true;
 	}
 
 	function cancelConfirm() {
@@ -662,9 +505,7 @@
 	function resetForm() {
 		if (swapPhase === 'executing') return;
 		swapCalc.resetAmount();
-		btcUsdInputMode = true;
-		displayInputAmount = '';
-		syncingFromInput = false;
+		swapInput.resetInputMode();
 		smartRoute = null;
 		swapPhase = 'form';
 		errorMessage = '';
@@ -782,7 +623,9 @@
 				triggerHaptic(ImpactStyle.Heavy);
 				// Refresh wallet balances after swap completes — cross-chain swaps
 				// update balances on both source and dest chains.
-				walletManager.loadAssets(true).catch(() => {});
+				walletManager.loadAssets(true).catch((err: unknown) => {
+					Sentry.captureException(err);
+				});
 			} else {
 				errorMessage = $t(result.error || 'wallet.swap.error.swap_failed');
 				swapPhase = 'failed';
@@ -794,7 +637,7 @@
 
 			if (err instanceof Error && err.message === 'swap_timeout') {
 				d.error('Swap timed out after %dms', SWAP_TIMEOUT_MS);
-				errorMessage = $t('wallet.swap.error.timed_out') || 'Swap timed out — please try again';
+				errorMessage = $t('wallet.swap.error.timed_out');
 				Sentry.addBreadcrumb({
 					category: 'wallet.swap',
 					message: 'Swap timed out',
@@ -837,13 +680,13 @@
 		if (sourceType === 'rbtc' || sourceType === 'btc-onchain') {
 			// RSK: 21000 gas for simple transfer
 			const gasUsed = 21000n;
-			const feeWei = gasUsed * rskGasPriceWei;
+			const feeWei = gasUsed * swapInput.rskGasPriceWei;
 			return Number(feeWei / 10_000_000_000n);
 		}
 		if (sourceType === 'usdt0-arb') {
 			// Arbitrum: ~65000 gas for ERC-20 transfer
 			const gasUsed = 65000n;
-			const feeWei = gasUsed * arbGasPriceWei;
+			const feeWei = gasUsed * swapInput.arbGasPriceWei;
 			return Number(feeWei / 10_000_000_000n);
 		}
 		return 0;
@@ -886,7 +729,7 @@
 	isScrollable={true}
 	isSubmitting={swapPhase === 'executing'}
 >
-	<div class="flex flex-col gap-4">
+	<div class="flex flex-col gap-4" data-swap-phase tabindex="-1">
 		{#if swapPhase === 'form'}
 			<div transition:fly={{ y: 10, duration: 200 }}>
 				<SwapFormPhase
@@ -907,10 +750,10 @@
 					btcPrice={btcPrice.price}
 					walletBtcSatsFor={walletBtcSatsForFn}
 					walletUsdt0For={walletUsdt0ForFn}
-					{displayInputAmount}
-					{isBtcSource}
-					{btcUsdInputMode}
-					{btcUsdPrice}
+					displayInputAmount={swapInput.displayInputAmount}
+					isBtcSource={swapInput.isBtcSource}
+					btcUsdInputMode={swapInput.btcUsdInputMode}
+					btcUsdPrice={swapInput.btcUsdPrice}
 					{satsFormatter}
 					{usdFormatter}
 					walletBalanceToken={swapCalc.walletBalanceToken}
@@ -922,9 +765,9 @@
 					{minSwapSats}
 					{amountSats}
 					{amountInTokenUnits}
-					{isAmountError}
-					{isOutputTooLow}
-					{isSelfSend}
+					isAmountError={balanceCheck.isAmountError}
+					isOutputTooLow={balanceCheck.smartRouteWarning}
+					isSelfSend={balanceCheck.isSelfSend}
 					{selectedDest}
 					{totalFeeSats}
 					{estimatedOutput}
@@ -936,10 +779,10 @@
 					{directTransferNetworkFeeSats}
 					{getProviderLabel}
 					{isFlipping}
-					onAmountChange={handleAmountChange}
+					onAmountChange={swapInput.handleAmountChange}
 					onPercentChange={applyPercent}
 					onMaxAmount={setMaxAmount}
-					onBtcUsdModeChange={handleBtcUsdModeChange}
+					onBtcUsdModeChange={swapInput.handleBtcUsdModeChange}
 					onSwapDirection={handleSwapDirection}
 					{satsUsd}
 				/>
@@ -960,18 +803,18 @@
 					? `${satsFormatter.format(Math.round(parseFloat(swapCalc.amount || '0')))} ${$t('wallet.sats')}`
 					: usdFormatter.format(parseFloat(swapCalc.amount || '0'))}
 				sourceUsdEquivalent={isBitcoinAsset(sourceAsset, sourceType)
-					? `≈ ${usdFormatter.format((Math.round(parseFloat(swapCalc.amount || '0')) / 100_000_000) * btcUsdPrice)}`
+					? `≈ ${usdFormatter.format((Math.round(parseFloat(swapCalc.amount || '0')) / 100_000_000) * swapInput.btcUsdPrice)}`
 					: undefined}
 				destAmountDisplay={isBitcoinAsset(selectedDest.asset, selectedDest.id)
 					? `${satsFormatter.format(Math.round(parseFloat(estimatedOutput) * 100_000_000))} ${$t('wallet.sats')}`
 					: usdFormatter.format(parseFloat(estimatedOutput))}
 				destUsdEquivalent={isBitcoinAsset(selectedDest.asset, selectedDest.id)
-					? `≈ ${usdFormatter.format(parseFloat(estimatedOutput) * btcUsdPrice)}`
+					? `≈ ${usdFormatter.format(parseFloat(estimatedOutput) * swapInput.btcUsdPrice)}`
 					: undefined}
 				providerLabel={getProviderLabel()}
 				estimatedTime={effectiveSmartRoute?.estimatedTime}
 				{totalFeeSats}
-				{btcUsdPrice}
+				btcUsdPrice={swapInput.btcUsdPrice}
 				feeDisplay={$t('wallet.swap.fee_percent')}
 				{sourceWalletType}
 				{sourceWalletAddress}
@@ -1007,11 +850,11 @@
 				{destWalletInfo}
 				sourceAmount={swapCalc.amount}
 				{estimatedOutput}
-				{btcUsdPrice}
+				btcUsdPrice={swapInput.btcUsdPrice}
 				{satsUsd}
 				{usdFormatter}
 				{isBitcoinAsset}
-				{isBtcSource}
+				isBtcSource={swapInput.isBtcSource}
 				{swapResult}
 				providerLabel={getProviderLabel()}
 				feePercent={swapRoutes.activeRouteForCalc?.totalFeePercent ??
@@ -1067,7 +910,7 @@
 				<button
 					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={goToConfirm}
-					disabled={!canSwap}
+					disabled={!balanceCheck.canSwap}
 				>
 					<span class="text-sm sm:text-base">{$t('wallet.swap.swap_preview')}</span>
 				</button>
@@ -1087,7 +930,7 @@
 					<span class="text-sm sm:text-base">{$t('wallet.swap.confirm_swap')}</span>
 				</button>
 			</div>
-			{#if needsArbEth && arbEthCheckDone && arbEthBalance !== 'unknown' && parseFloat(arbEthBalance ?? '0') < 0.0001}
+			{#if balanceCheck.needsArbEthWarning}
 				<div class="alert alert-warning py-2 text-xs">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -1103,7 +946,11 @@
 							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
 						/>
 					</svg>
-					<span>{$t('wallet.swap.arb_eth_warning', { values: { balance: arbEthBalance } })}</span>
+					<span
+						>{$t('wallet.swap.arb_eth_warning', {
+							values: { balance: balanceCheck.arbEthBalance }
+						})}</span
+					>
 				</div>
 			{/if}
 		{:else if swapPhase === 'complete' || swapPhase === 'failed'}

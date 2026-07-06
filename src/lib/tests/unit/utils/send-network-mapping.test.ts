@@ -129,7 +129,7 @@ describe('toDestination', () => {
 			expect(result).toEqual({ type: 'invoice', network: 'onchain', invoice: 'bc1q...' });
 		});
 
-		it('uses override when chainId is 0 (TRON placeholder)', () => {
+		it('uses override when chainId is 0 (generic EVM placeholder)', () => {
 			const result = toDestination('usdt-bsc', '0x123', 0, mainnetConfig);
 			expect(result).toEqual({ type: 'address', chainId: 0, address: '0x123' });
 		});
@@ -232,9 +232,9 @@ describe('toDestination', () => {
 	});
 
 	describe('usdt-tron', () => {
-		it('maps to chainId 0 (placeholder)', () => {
+		it('maps to chainId -3 (TRON placeholder ID)', () => {
 			const result = toDestination('usdt-tron', 'TRXaddr', undefined, mainnetConfig);
-			expect(result).toEqual({ type: 'address', chainId: 0, address: 'TRXaddr' });
+			expect(result).toEqual({ type: 'address', chainId: -3, address: 'TRXaddr' });
 		});
 	});
 
@@ -366,9 +366,10 @@ describe('getAddressExplorerUrl', () => {
 			expect(url).toBe('https://rootstock-testnet.blockscout.com/address/0xabc');
 		});
 
-		it('handles rsk alias', () => {
+		it('handles rsk alias (falls back to exact network name)', () => {
+			// 'rsk' is not a valid network key — returns null; consumers must use 'rootstock-bitcoin'
 			const url = getAddressExplorerUrl('0xabc', 'rsk', mainnetConfig);
-			expect(url).toBe('https://rootstock.blockscout.com/address/0xabc');
+			expect(url).toBeNull();
 		});
 	});
 
@@ -383,9 +384,10 @@ describe('getAddressExplorerUrl', () => {
 			expect(url).toBe('https://testnet.bscscan.com/address/0xabc');
 		});
 
-		it('handles bsc alias', () => {
+		it('handles bsc alias (falls back to exact network name)', () => {
+			// 'bsc' is not a valid network key — returns null; consumers must use 'usdt-bsc'
 			const url = getAddressExplorerUrl('0xabc', 'bsc', mainnetConfig);
-			expect(url).toBe('https://bscscan.com/address/0xabc');
+			expect(url).toBeNull();
 		});
 	});
 
@@ -426,8 +428,10 @@ describe('getAddressExplorerUrl', () => {
 			);
 		});
 
-		it('returns null for lightning-bitcoin', () => {
-			expect(getAddressExplorerUrl('lnbc1...', 'lightning-bitcoin', mainnetConfig)).toBeNull();
+		it('returns mempool.space URL for lightning-bitcoin', () => {
+			expect(getAddressExplorerUrl('lnbc1...', 'lightning-bitcoin', mainnetConfig)).toBe(
+				'https://mempool.space/lightning/node/lnbc1...'
+			);
 		});
 
 		it('returns tronscan for tron', () => {

@@ -49,7 +49,7 @@ export { executeHop, executeConnectedERC20Transfer } from './executors';
 // Transaction helpers
 export { sendConnectedWalletArbitrumTx, resolveUserAddress } from './tx-helpers';
 
-// Boltz-specific
+// Boltz-specific (re-exported from boltz/ sub-modules)
 export { executeBoltzHop, pollBoltzChainSwapCompletion } from './boltz';
 
 // Recovery & refund

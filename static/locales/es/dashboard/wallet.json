@@ -1941,6 +1941,7 @@
 			"cancel": "Cancelar",
 			"remove": "Eliminar",
 			"resume": "Reanudar",
+			"claim": "Reclamar",
 			"view_on_boltz": "Ver en Boltz",
 			"check_status": "Verificar Estado",
 			"boltz_status_transaction_mempool": "Depósito detectado — esperando confirmación",
@@ -1972,6 +1973,8 @@
 			"status_claimed": "Reclamado",
 			"status_expired": "Expirado",
 			"status_failed": "Fallido",
+			"status_unknown": "Desconocido",
+			"sats_unit": "sats",
 			"chain_status_pending": "Bloqueando rBTC en Rootstock...",
 			"chain_status_boltz": "Boltz está procesando el intercambio",
 			"chain_status_claiming": "Reclamando tBTC en Arbitrum",
@@ -1997,7 +2000,13 @@
 			"remaining": "restante",
 			"scanning": "Escaneando blockchain para fondos recuperables...",
 			"lockup_expired_msg": "Intercambio expirado — fondos bloqueados en contrato. Reembolso disponible ahora.",
-			"lockup_pending_msg": "Intercambio expirado — fondos bloqueados en contrato. Reembolso disponible después del timelock."
+			"lockup_pending_msg": "Intercambio expirado — fondos bloqueados en contrato. Reembolso disponible después del timelock.",
+			"recovered": "✓ Recuperado",
+			"already_resolved": "Ya resuelto",
+			"lockup_claimed_or_refunded": "Este bloqueo ya ha sido reclamado o reembolsado en la cadena.",
+			"swap_complete_cleaning": "Intercambio completado — limpiando",
+			"check_failed": "Verificación fallida: {error}",
+			"dismiss_to_cleanup": "descartar para limpiar"
 		}
 	}
 }

@@ -2,6 +2,13 @@
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { createDebug } from '$lib/utils/debug';
+	import {
+		getReverseSwapStatusInfo,
+		getChainSwapStatusInfo,
+		fmtSats,
+		fmtTime,
+		type ChainSwapStatusInput
+	} from '$lib/utils/swap-status-format';
 	import IconArrowRight from '~icons/mdi/arrow-right';
 	import {
 		type PendingConnectedSwap,
@@ -171,6 +178,17 @@
 
 			// Scan for on-chain lockups in background
 			void scanLockups();
+
+			// Load refund info when swap is in PARTIAL/FAILED state
+			if (
+				swapChainState &&
+				(getSwapChainStatus(swapChainState).isFailed ||
+					getSwapChainStatus(swapChainState).isPartial)
+			) {
+				refundInfo = await getRefundInfo();
+			} else {
+				refundInfo = null;
+			}
 		} catch (err) {
 			d.error('Failed to load pending swaps: %s', (err as Error).message);
 		}
@@ -293,20 +311,6 @@
 		}
 	}
 
-	// Load refund info when swap is in PARTIAL/FAILED state
-	$effect(() => {
-		if (
-			swapChainState &&
-			(getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial)
-		) {
-			getRefundInfo().then((info) => {
-				refundInfo = info;
-			});
-		} else {
-			refundInfo = null;
-		}
-	});
-
 	async function handleCheckBoltzStatus() {
 		if (!swapChainState?.swap1Id) return;
 		checkingStatus = true;
@@ -322,7 +326,7 @@
 				// Swap completed on-chain — reset state so the card disappears.
 				// Don't try to resume (state machine may be stuck in a non-terminal phase).
 				d.log('Boltz swap claimed — resetting swap chain state');
-				checkStatusMessage = 'Swap complete — cleaning up';
+				checkStatusMessage = $t('wallet.pending_swaps.swap_complete_cleaning');
 				const { resetSwapChainState } = await import('$lib/services/swap-chain.service');
 				await resetSwapChainState();
 				await refresh();
@@ -337,31 +341,17 @@
 				status.status === 'transaction.failed' ||
 				status.status === 'swap.failed'
 			) {
-				checkStatusMessage = `${formatBoltzStatus(status.status)} — dismiss to clean up`;
+				checkStatusMessage = `${formatBoltzStatus(status.status)} — ${$t('wallet.pending_swaps.dismiss_to_cleanup')}`;
 			}
 			await refresh();
 		} catch (err) {
-			checkStatusMessage = `Check failed: ${(err as Error).message}`;
+			checkStatusMessage = $t('wallet.pending_swaps.check_failed', {
+				values: { error: (err as Error).message }
+			});
 			d.error('Boltz status check failed: %s', (err as Error).message);
 		} finally {
 			checkingStatus = false;
 		}
-	}
-
-	// ── Formatting ──────────────────────────────────────────────────────────
-	function fmtSats(sats: number): string {
-		return `${sats.toLocaleString()} sats`;
-	}
-
-	function fmtTime(ts: number): string {
-		const diff = Date.now() - ts;
-		const min = Math.floor(diff / 60_000);
-		if (min < 1) return 'Just now';
-		if (min < 60) return `${min}m ago`;
-		const hr = Math.floor(min / 60);
-		if (hr < 24) return `${hr}h ago`;
-		const day = Math.floor(hr / 24);
-		return `${day}d ago`;
 	}
 
 	// ── Boltz status translation ─────────────────────────────────────────────
@@ -373,127 +363,15 @@
 		return status.replace(/\./g, ' ');
 	}
 
-	// ── Reverse swap status messages ────────────────────────────────────────
-	function reverseSwapStatusInfo(swap: PendingConnectedSwap): {
-		label: string;
-		badge: string;
-		dot: string;
-		message: string;
-	} {
-		switch (swap.status) {
-			case 'pending':
-				return {
-					label: 'Waiting for payment',
-					badge: 'badge-warning',
-					dot: 'bg-warning',
-					message: 'Waiting for Lightning payment'
-				};
-			case 'claimable':
-				return {
-					label: 'Ready to claim',
-					badge: 'badge-success',
-					dot: 'bg-success',
-					message: 'Lightning received — ready to claim RBTC'
-				};
-			case 'claiming':
-				return {
-					label: 'Claiming',
-					badge: 'badge-info',
-					dot: 'bg-info',
-					message: 'Claim transaction broadcasting...'
-				};
-			case 'claimed':
-				return {
-					label: 'Claimed',
-					badge: 'badge-success',
-					dot: 'bg-success',
-					message: 'RBTC claimed successfully'
-				};
-			case 'expired':
-				return {
-					label: 'Expired',
-					badge: 'badge-error',
-					dot: 'bg-error',
-					message: 'Swap expired — funds not locked'
-				};
-			case 'failed':
-				return {
-					label: 'Failed',
-					badge: 'badge-error',
-					dot: 'bg-error',
-					message: swap.error ? `Claim failed — ${swap.error}` : 'Claim failed'
-				};
-			default:
-				return {
-					label: 'Unknown',
-					badge: 'badge-ghost',
-					dot: 'bg-base-content/30',
-					message: 'Unknown status'
-				};
-		}
-	}
-
-	// ── Chain swap status messages ──────────────────────────────────────────
-	function chainSwapStatusInfo(state: SwapChainState): {
-		label: string;
-		badge: string;
-		dot: string;
-		message: string;
-	} {
+	// ── Chain swap input helper ──────────────────────────────────────────────
+	function toChainSwapInput(state: SwapChainState): ChainSwapStatusInput {
 		const info = getSwapChainStatus(state);
-		if (info.isFailed) {
-			return {
-				label: 'Failed',
-				badge: 'badge-error',
-				dot: 'bg-error',
-				message: state.error ? `Swap failed — ${state.error}` : 'Swap failed'
-			};
-		}
-		if (info.isPartial) {
-			return {
-				label: 'Partial',
-				badge: 'badge-warning',
-				dot: 'bg-warning',
-				message: 'Swap partially completed — manual action needed'
-			};
-		}
-		switch (state.phase) {
-			case 'SWAP_1_PENDING':
-				return {
-					label: 'Locking',
-					badge: 'badge-warning',
-					dot: 'bg-warning animate-pulse',
-					message: 'Locking rBTC on Rootstock — waiting for network confirmation'
-				};
-			case 'SWAP_1_CONFIRMED':
-				return {
-					label: 'Processing',
-					badge: 'badge-info',
-					dot: 'bg-info animate-pulse',
-					message: 'rBTC locked on Rootstock — Boltz is processing the swap'
-				};
-			case 'SWAP_2_PENDING':
-				return {
-					label: 'Claiming',
-					badge: 'badge-warning',
-					dot: 'bg-warning animate-pulse',
-					message: 'Claiming tBTC on Arbitrum — transaction submitted'
-				};
-			case 'SWAP_2_CONFIRMED':
-				return {
-					label: 'Swapping',
-					badge: 'badge-info',
-					dot: 'bg-info animate-pulse',
-					message: 'tBTC received — swapping to final asset'
-				};
-			default:
-				return {
-					label: 'In progress',
-					badge: 'badge-info',
-					dot: 'bg-info animate-pulse',
-					message: 'Processing swap...'
-				};
-		}
+		return {
+			phase: state.phase,
+			isFailed: info.isFailed,
+			isPartial: info.isPartial,
+			error: state.error
+		};
 	}
 
 	// ── Route display helpers ───────────────────────────────────────────────
@@ -531,7 +409,7 @@
 			<div class="space-y-1.5 px-2 sm:space-y-2 sm:px-3">
 				<!-- Chain swap card -->
 				{#if swapChainState && (swapChainActive || swapChainNeedsAction)}
-					{@const cs = chainSwapStatusInfo(swapChainState)}
+					{@const cs = getChainSwapStatusInfo(toChainSwapInput(swapChainState), $t)}
 					{@const route = getChainSwapRoute(swapChainState)}
 					<div class="bg-base-200 border-base-300 rounded-lg border p-3">
 						<!-- Route: source left, destination right -->
@@ -553,19 +431,19 @@
 						{#if swapChainState.amount}
 							<div class="flex items-center justify-between text-xs">
 								<span class="text-base-content/60">
-									{fmtSats(Math.round(parseFloat(swapChainState.amount) * 100_000_000))}
+									{fmtSats(Math.round(parseFloat(swapChainState.amount) * 100_000_000), $t)}
 								</span>
-								<span class="badge badge-sm {cs.badge}">{cs.label}</span>
+								<span class="badge badge-sm {cs.color}">{cs.label}</span>
 							</div>
 						{/if}
 
 						{#if swapChainState.swap1Id}
 							<div class="mt-0.5 flex items-center justify-between text-xs">
 								<span class="text-base-content/50 font-mono break-all">
-									Swap ID: {swapChainState.swap1Id}
+									{$t('wallet.pending_swaps.swap_id')}: {swapChainState.swap1Id}
 								</span>
 								<span class="text-base-content/40 ml-2 shrink-0">
-									{fmtTime(swapChainState.updatedAt)}
+									{fmtTime(swapChainState.updatedAt, $t)}
 								</span>
 							</div>
 						{/if}
@@ -599,7 +477,7 @@
 										rel="noopener noreferrer"
 										class="link link-primary text-xs"
 									>
-										{$t('wallet.pending_swaps.view_on_boltz') || 'View on Boltz'}
+										{$t('wallet.pending_swaps.view_on_boltz')}
 									</a>
 								{/if}
 								<!-- Check Status button -->
@@ -846,7 +724,7 @@
 
 				<!-- Reverse swap cards -->
 				{#each pendingSwaps as swap (swap.swapId)}
-					{@const si = reverseSwapStatusInfo(swap)}
+					{@const si = getReverseSwapStatusInfo(swap.status, $t)}
 					<div class="bg-base-200 border-base-300 rounded-lg border p-3">
 						<!-- Route: source left, destination right -->
 						<div class="mb-2 flex items-center gap-2">
@@ -870,12 +748,12 @@
 						<!-- Amount + badge -->
 						<div class="flex items-center justify-between text-xs">
 							<span class="text-base-content/60">
-								{fmtSats(swap.expectedAmount)}
+								{fmtSats(swap.expectedAmount, $t)}
 								{#if swap.connectedWalletName}
 									· {swap.connectedWalletName}
 								{/if}
 							</span>
-							<span class="badge badge-sm {si.badge}">{si.label}</span>
+							<span class="badge badge-sm {si.color}">{si.label}</span>
 						</div>
 
 						<!-- Swap ID + timestamp -->
@@ -885,7 +763,7 @@
 									Swap ID: {swap.claimTxHash}
 								</span>
 								<span class="text-base-content/40 ml-2 shrink-0">
-									{fmtTime(swap.createdAt)}
+									{fmtTime(swap.createdAt, $t)}
 								</span>
 							</div>
 						{/if}

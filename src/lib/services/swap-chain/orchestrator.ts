@@ -22,6 +22,7 @@ import {
 import { executeHop } from './executors';
 import { pollBoltzChainSwapCompletion } from './boltz';
 import { BOLTZ_MAX_WAIT_MS } from './utils';
+import { resolveBoltzDirection, pollAndHandleBoltzSwap } from './orchestrator-helpers';
 
 const d = createDebug('swap-chain');
 
@@ -247,38 +248,20 @@ export async function startSwapChain(
 					'[startSwapChain] Step 4a: single-hop Boltz (id=%s) — polling for claim completion',
 					hop1Id
 				);
-				const isTbtcToRbtc = hop1.fromAsset === 'TBTC' && hop1.toAsset === 'RBTC';
-				const direction = isTbtcToRbtc ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
-				setSwapProgress(
-					'waiting-for-boltz',
-					isTbtcToRbtc
-						? 'Waiting for Boltz to confirm lockup on RSK...'
-						: 'Waiting for Boltz to confirm lockup on Arbitrum...'
-				);
-
-				const pollResult = await pollBoltzChainSwapCompletion(
-					hop1Id,
+				const direction = resolveBoltzDirection(hop1.fromAsset);
+				const pollResult = await pollAndHandleBoltzSwap({
+					swapId: hop1Id,
 					sourceConnectedWalletId,
-					undefined,
-					direction
-				);
-
-				if (pollResult.error !== null) {
-					d.log(
-						'[startSwapChain] ═══ PARTIAL ═══ single-hop Boltz poll failed: %s',
-						pollResult.error.message
-					);
-					const { data: partialState, error: ptError } = await transitionTo(
-						{ ...confirmedState1, swap1Id: hop1Id },
-						'PARTIAL',
-						{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
-					);
-					if (ptError !== null) {
-						return { data: null, error: ptError };
-					}
-					return { data: partialState, error: null };
-				}
-
+					direction,
+					stateForPartial: { ...confirmedState1, swap1Id: hop1Id },
+					progressStep: 'waiting-for-boltz',
+					progressMessage:
+						direction === 'tbtc-to-rbtc'
+							? 'Waiting for Boltz to confirm lockup on RSK...'
+							: 'Waiting for Boltz to confirm lockup on Arbitrum...',
+					logContext: 'startSwapChain'
+				});
+				if (pollResult.error !== null || pollResult.data !== null) return pollResult;
 				d.log('[startSwapChain] Single-hop Boltz swap completed — marking COMPLETE');
 			}
 
@@ -315,24 +298,16 @@ export async function startSwapChain(
 				hop1Id
 			);
 			d.log('hop 1 is Boltz (id=%s) — polling for completion before hop 2', hop1Id);
-			setSwapProgress('waiting-for-boltz', 'Waiting for Boltz to confirm lockup on RSK...');
-			const pollResult = await pollBoltzChainSwapCompletion(hop1Id, sourceConnectedWalletId);
-			if (pollResult.error !== null) {
-				d.log(
-					'[startSwapChain] ═══ PARTIAL ═══ Boltz hop 0 poll failed: %s',
-					pollResult.error.message
-				);
-				d.error('Boltz completion poll failed: %s', pollResult.error.message);
-				const { data: partialState, error: ptError } = await transitionTo(
-					{ ...confirmedState1, swap1Id: hop1Id },
-					'PARTIAL',
-					{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
-				);
-				if (ptError !== null) {
-					return { data: null, error: ptError };
-				}
-				return { data: partialState, error: null };
-			}
+			const pollResult = await pollAndHandleBoltzSwap({
+				swapId: hop1Id,
+				sourceConnectedWalletId,
+				direction: 'rbtc-to-tbtc',
+				stateForPartial: { ...confirmedState1, swap1Id: hop1Id },
+				progressStep: 'waiting-for-boltz',
+				progressMessage: 'Waiting for Boltz to confirm lockup on RSK...',
+				logContext: 'startSwapChain'
+			});
+			if (pollResult.error !== null || pollResult.data !== null) return pollResult;
 			d.log('[startSwapChain] Boltz hop 0 completed — proceeding to hop 1');
 			d.log('Boltz swap completed — proceeding to hop 2');
 			setSwapProgress('swapping-tbtc', 'tBTC claimed — swapping via LI.FI...');
@@ -434,7 +409,7 @@ export async function startSwapChain(
 		// Boltz chain swaps are asynchronous — the user locks source token, Boltz locks
 		// destination token, then the user claims. This can take several minutes.
 		if (hop2.service === 'boltz' && hop2Id) {
-			const direction = hop2.fromAsset === 'TBTC' ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+			const direction = resolveBoltzDirection(hop2.fromAsset);
 			d.log(
 				'[startSwapChain] Step 6: hop 1 is boltz (id=%s) — polling for completion, direction=%s',
 				hop2Id,
@@ -446,32 +421,18 @@ export async function startSwapChain(
 				message: `Polling Boltz hop 1: ${hop2Id}`,
 				data: { swapId: hop2Id, direction }
 			});
-			setSwapProgress('waiting-for-boltz', 'Waiting for Boltz to complete chain swap...');
 
-			const pollResult = await pollBoltzChainSwapCompletion(
-				hop2Id,
+			const pollResult = await pollAndHandleBoltzSwap({
+				swapId: hop2Id,
 				sourceConnectedWalletId,
-				BOLTZ_MAX_WAIT_MS,
-				direction
-			);
-
-			if (pollResult.error !== null) {
-				d.log(
-					'[startSwapChain] ═══ PARTIAL ═══ Boltz hop 1 poll failed: %s',
-					pollResult.error.message
-				);
-				d.error('Boltz hop 2 poll failed: %s', pollResult.error.message);
-				const { data: partialState, error: ptError } = await transitionTo(
-					{ ...pendingState2, swap1Id: hop1Id, swap2Id: hop2Id },
-					'PARTIAL',
-					{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
-				);
-				if (ptError !== null) {
-					return { data: null, error: ptError };
-				}
-				return { data: partialState, error: null };
-			}
-
+				maxWaitMs: BOLTZ_MAX_WAIT_MS,
+				direction,
+				stateForPartial: { ...pendingState2, swap1Id: hop1Id, swap2Id: hop2Id },
+				progressStep: 'waiting-for-boltz',
+				progressMessage: 'Waiting for Boltz to complete chain swap...',
+				logContext: 'startSwapChain'
+			});
+			if (pollResult.error !== null || pollResult.data !== null) return pollResult;
 			d.log('[startSwapChain] Boltz hop 1 completed successfully');
 			d.log('Boltz hop 2 completed successfully');
 		}
@@ -575,11 +536,12 @@ export async function resumeSwapChain(): Promise<{
 				);
 				const hop1 = state.route.hops[0];
 				if (hop1?.service === 'boltz') {
-					const isTbtcToRbtc = hop1.fromAsset === 'TBTC' && hop1.toAsset === 'RBTC';
-					const direction = isTbtcToRbtc ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
+					const direction = resolveBoltzDirection(hop1.fromAsset);
 					setSwapProgress(
 						'claiming-rbtc',
-						isTbtcToRbtc ? 'Claiming rBTC on RSK...' : 'Claiming tBTC on Arbitrum...'
+						direction === 'tbtc-to-rbtc'
+							? 'Claiming rBTC on RSK...'
+							: 'Claiming tBTC on Arbitrum...'
 					);
 
 					const pollResult = await pollBoltzChainSwapCompletion(
@@ -602,22 +564,11 @@ export async function resumeSwapChain(): Promise<{
 					}
 
 					d.log('[resumeSwapChain] Boltz swap claimed — marking COMPLETE');
-					// Try transitioning to COMPLETE. If PARTIAL→COMPLETE isn't valid,
-					// save directly.
+					// PARTIAL → COMPLETE is a valid transition in the state machine.
+					// Use transitionTo to persist and validate properly.
 					const { data: completed, error: completeError } = await transitionTo(state, 'COMPLETE');
 					if (completeError !== null) {
-						d.log(
-							'[resumeSwapChain] Transition to COMPLETE failed: %s — saving directly',
-							completeError.message
-						);
-						const completedState: SwapChainState = {
-							...state,
-							phase: 'COMPLETE',
-							error: null,
-							updatedAt: Date.now()
-						};
-						await saveSwapChainState(completedState);
-						return { data: completedState, error: null };
+						return { data: null, error: completeError };
 					}
 					return { data: completed ?? state, error: null };
 				}
@@ -648,28 +599,14 @@ export async function resumeSwapChain(): Promise<{
 			if (hop1?.service === 'boltz' && state.swap1Id) {
 				d.log('[resumeSwapChain] hop 0 is boltz (id=%s) — polling for completion', state.swap1Id);
 				d.log('resume: hop 1 is Boltz (id=%s) — polling for completion', state.swap1Id);
-				const pollResult = await pollBoltzChainSwapCompletion(
-					state.swap1Id,
-					state.sourceConnectedWalletId
-				);
-				if (pollResult.error !== null) {
-					d.log(
-						'[resumeSwapChain] ═══ PARTIAL ═══ Boltz poll failed: %s',
-						pollResult.error.message
-					);
-					d.error('resume: Boltz poll failed: %s', pollResult.error.message);
-					const { data: partialState, error: ptError } = await transitionTo(
-						{ ...state },
-						'PARTIAL',
-						{
-							error: `Boltz swap did not complete: ${pollResult.error.message}`
-						}
-					);
-					if (ptError !== null) {
-						return { data: null, error: ptError };
-					}
-					return { data: partialState, error: null };
-				}
+				const pollResult = await pollAndHandleBoltzSwap({
+					swapId: state.swap1Id,
+					sourceConnectedWalletId: state.sourceConnectedWalletId,
+					direction: 'rbtc-to-tbtc',
+					stateForPartial: { ...state },
+					logContext: 'resumeSwapChain'
+				});
+				if (pollResult.error !== null || pollResult.data !== null) return pollResult;
 				d.log('[resumeSwapChain] Boltz hop 0 completed — proceeding to hop 1');
 				d.log('resume: Boltz swap completed — proceeding to hop 2');
 			}
@@ -727,25 +664,16 @@ export async function resumeSwapChain(): Promise<{
 			// If hop 2 is Boltz: poll for chain swap completion before marking complete
 			if (hop2.service === 'boltz' && hop2Id) {
 				d.log('resume: hop 2 is Boltz (id=%s) — polling for completion', hop2Id);
-				const direction = hop2.fromAsset === 'TBTC' ? 'tbtc-to-rbtc' : 'rbtc-to-tbtc';
-				const pollResult = await pollBoltzChainSwapCompletion(
-					hop2Id,
-					state.sourceConnectedWalletId,
-					BOLTZ_MAX_WAIT_MS,
-					direction
-				);
-				if (pollResult.error !== null) {
-					d.error('resume: Boltz hop 2 poll failed: %s', pollResult.error.message);
-					const { data: partialState, error: ptError } = await transitionTo(
-						{ ...pendingState2, swap2Id: hop2Id },
-						'PARTIAL',
-						{ error: `Boltz swap did not complete: ${pollResult.error.message}` }
-					);
-					if (ptError !== null) {
-						return { data: null, error: ptError };
-					}
-					return { data: partialState, error: null };
-				}
+				const direction = resolveBoltzDirection(hop2.fromAsset);
+				const pollResult = await pollAndHandleBoltzSwap({
+					swapId: hop2Id,
+					sourceConnectedWalletId: state.sourceConnectedWalletId,
+					maxWaitMs: BOLTZ_MAX_WAIT_MS,
+					direction,
+					stateForPartial: { ...pendingState2, swap2Id: hop2Id },
+					logContext: 'resumeSwapChain'
+				});
+				if (pollResult.error !== null || pollResult.data !== null) return pollResult;
 				d.log('resume: Boltz hop 2 completed');
 			}
 

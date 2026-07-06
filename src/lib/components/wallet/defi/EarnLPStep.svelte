@@ -5,6 +5,7 @@
 	import { ethers } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
+	import { formatSats } from '$lib/utils/wallet/format';
 	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { appStore } from '$lib/stores/app.store';
@@ -115,9 +116,6 @@
 	// -----------------------------------------------------------------------
 	// WalletSelector helpers (parity with BorrowStep + wallet page connected totals)
 	// -----------------------------------------------------------------------
-	function formatSats(n: number): string {
-		return n.toLocaleString('en-US');
-	}
 
 	function walletBalanceFor(id: string): string {
 		if (id === 'builtin') {

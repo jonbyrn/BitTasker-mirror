@@ -4,6 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet.store';
 	import { getProvider } from '$lib/stores/wallet.store';
+	import { formatSats, formatAddress } from '$lib/utils/wallet/format';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { scale } from 'svelte/transition';
 	import { REORG_SAFE_CONFIRMATIONS } from '$lib/utils/service-contract/finality';
@@ -57,17 +58,6 @@
 
 		return null;
 	});
-
-	// Format sats
-	function formatSats(sats: number): string {
-		return new Intl.NumberFormat('en-US').format(sats);
-	}
-
-	// Format address (truncate)
-	function formatAddress(address: string): string {
-		if (address.length <= 20) return address;
-		return `${address.slice(0, 10)}...${address.slice(-8)}`;
-	}
 
 	// Monitor transaction confirmation
 	async function monitorTransaction() {

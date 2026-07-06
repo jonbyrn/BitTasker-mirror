@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		unit: 'sats' | 'usd';
@@ -261,6 +262,7 @@
 
 	// Handle keyboard input
 	function handleKeydown(e: KeyboardEvent): void {
+		if (!browser) return;
 		// Don't intercept keyboard events if user is typing in an input or textarea
 		const activeElement = document.activeElement;
 		if (

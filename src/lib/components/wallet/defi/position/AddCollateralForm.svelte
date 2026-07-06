@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { ethers } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
+	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { AaveService, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
@@ -11,6 +13,8 @@
 		calculateBtcLiquidationPrice
 	} from '$lib/services/defi/aave.service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import * as Sentry from '@sentry/sveltekit';
 
 	interface Props {
 		walletId: string;
@@ -25,6 +29,7 @@
 	let amountSats = $state('');
 	let sliderPercent = $state(0);
 	let isProcessing = $state(false);
+	let txError = $state<string | null>(null);
 	let isOnline = $derived($browserNetworkStatus.online);
 
 	let wbtcBalance = $derived($walletStore.arb?.formattedWbtcBalance ?? '0');
@@ -99,20 +104,76 @@
 	async function handleSupply() {
 		if (!canSupply || isProcessing) return;
 		isProcessing = true;
-		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
-		const aave = new AaveService(provider);
-		const rawAmount = BigInt(amountNum);
-		const signer = new ethers.Wallet('0x' + '00'.repeat(32), provider);
+		txError = null;
 
-		const { data: tx, error } = await tryCatch(aave.supply(WBTC_ARBITRUM, rawAmount, signer));
-		if (error || !tx) {
-			isProcessing = false;
-			return;
+		Sentry.addBreadcrumb({
+			category: 'defi.position.addCollateral',
+			message: 'sending supply',
+			data: { amountNum, walletId }
+		});
+
+		const aave = new AaveService(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+		const rawAmount = BigInt(amountNum);
+
+		if (walletId === 'builtin') {
+			const s = get(walletStore);
+			const rskW = s.rsk?.wallet as ethers.Wallet | undefined;
+			if (!rskW) {
+				txError = $t('wallet.defi.approve.error');
+				Sentry.addBreadcrumb({
+					category: 'defi.position.addCollateral',
+					message: 'signer unavailable',
+					data: { walletId }
+				});
+				isProcessing = false;
+				return;
+			}
+			const signer = rskW.connect(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+			const { data: tx, error } = await tryCatch(aave.supply(WBTC_ARBITRUM, rawAmount, signer));
+			if (error || !tx) {
+				const contractErr = extractContractError(error);
+				txError = contractErr.userMessage;
+				Sentry.captureException(error, {
+					tags: { feature: 'defi.position', action: 'addCollateral' }
+				});
+				isProcessing = false;
+				return;
+			}
+			const { data: receipt, error: receiptErr } = await tryCatch(tx.wait());
+			if (receiptErr || !receipt) {
+				const contractErr = extractContractError(receiptErr);
+				txError = contractErr.userMessage;
+				isProcessing = false;
+				return;
+			}
+		} else {
+			const evm = getEvmSigner(walletId);
+			if (!evm) {
+				txError = $t('wallet.defi.approve.error');
+				Sentry.addBreadcrumb({
+					category: 'defi.position.addCollateral',
+					message: 'signer unavailable',
+					data: { walletId }
+				});
+				isProcessing = false;
+				return;
+			}
+			const { data: tx, error } = await tryCatch(
+				aave.supplyWithEvmSigner(WBTC_ARBITRUM, rawAmount, evm)
+			);
+			if (error || !tx) {
+				const contractErr = extractContractError(error);
+				txError = contractErr.userMessage;
+				Sentry.captureException(error, {
+					tags: { feature: 'defi.position', action: 'addCollateral' }
+				});
+				isProcessing = false;
+				return;
+			}
 		}
 
-		const { data: receipt } = await tryCatch(tx.wait());
 		isProcessing = false;
-		if (receipt) onComplete();
+		onComplete();
 	}
 </script>
 
@@ -165,6 +226,13 @@
 			</div>
 		</div>
 	</div>
+
+	{#if txError}
+		<div class="alert alert-soft alert-error py-1 text-xs" role="alert">
+			<span>{txError}</span>
+			<button type="button" class="btn btn-ghost btn-xs" onclick={() => (txError = null)}>✕</button>
+		</div>
+	{/if}
 
 	<button
 		type="button"

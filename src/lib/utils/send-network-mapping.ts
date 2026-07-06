@@ -17,7 +17,12 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Rootstock Bitcoin',
 		asset: 'rBTC',
 		icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-		short: 'RSK'
+		short: 'RSK',
+		group: 'btc' as const,
+		confirmationTime: 30,
+		explorerUrlMainnet: 'https://rootstock.blockscout.com/address/',
+		explorerUrlTestnet: 'https://rootstock-testnet.blockscout.com/address/',
+		recommended: true
 	},
 	{
 		id: 56,
@@ -26,7 +31,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Binance',
 		asset: 'USDT',
 		icon: '/images/chains/Binance-logo.svg',
-		short: 'BSC'
+		short: 'BSC',
+		group: 'usdt' as const,
+		confirmationTime: 1,
+		explorerUrlMainnet: 'https://bscscan.com/address/',
+		explorerUrlTestnet: 'https://testnet.bscscan.com/address/'
 	},
 	{
 		id: 1,
@@ -35,7 +44,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Ethereum',
 		asset: 'USDT',
 		icon: '/images/chains/ethereum.png',
-		short: 'ETH'
+		short: 'ETH',
+		group: 'usdt' as const,
+		confirmationTime: 15,
+		explorerUrlMainnet: 'https://etherscan.io/address/',
+		explorerUrlTestnet: 'https://sepolia.etherscan.io/address/'
 	},
 	{
 		id: 42161,
@@ -44,7 +57,12 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Arbitrum',
 		asset: 'USDT',
 		icon: '/images/chains/arbitrum.png',
-		short: 'Arb'
+		short: 'Arb',
+		group: 'usdt' as const,
+		confirmationTime: 15,
+		explorerUrlMainnet: 'https://arbiscan.io/address/',
+		explorerUrlTestnet: 'https://sepolia.arbiscan.io/address/',
+		recommended: true
 	},
 	{
 		id: 137,
@@ -53,7 +71,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Polygon',
 		asset: 'USDT',
 		icon: '/images/chains/polygon.png',
-		short: 'Poly'
+		short: 'Poly',
+		group: 'usdt' as const,
+		confirmationTime: 10,
+		explorerUrlMainnet: 'https://polygonscan.com/address/',
+		explorerUrlTestnet: 'https://amoy.polygonscan.com/address/'
 	},
 	{
 		id: 10,
@@ -62,7 +84,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Optimism',
 		asset: 'USDT',
 		icon: '/images/chains/optimism.png',
-		short: 'OP'
+		short: 'OP',
+		group: 'usdt' as const,
+		confirmationTime: 10,
+		explorerUrlMainnet: 'https://optimistic.etherscan.io/address/',
+		explorerUrlTestnet: 'https://sepolia-optimism.etherscan.io/address/'
 	},
 	{
 		id: 8453,
@@ -71,7 +97,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Base',
 		asset: 'USDT',
 		icon: '/images/chains/base.png',
-		short: 'Base'
+		short: 'Base',
+		group: 'usdt' as const,
+		confirmationTime: 10,
+		explorerUrlMainnet: 'https://basescan.org/address/',
+		explorerUrlTestnet: 'https://sepolia.basescan.org/address/'
 	},
 	{
 		id: 43114,
@@ -80,7 +110,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Avalanche',
 		asset: 'USDT',
 		icon: '/images/chains/avalanche.png',
-		short: 'Avax'
+		short: 'Avax',
+		group: 'usdt' as const,
+		confirmationTime: 5,
+		explorerUrlMainnet: 'https://snowtrace.io/address/',
+		explorerUrlTestnet: 'https://testnet.snowtrace.io/address/'
 	},
 	{
 		id: -1,
@@ -88,7 +122,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Lightning',
 		asset: 'BTC',
 		icon: '/images/chains/lightning.svg',
-		short: 'LN'
+		short: 'LN',
+		group: 'btc' as const,
+		confirmationTime: 0,
+		explorerUrlMainnet: 'https://mempool.space/lightning/node/',
+		explorerUrlTestnet: 'https://mempool.space/testnet/lightning/node/'
 	},
 	{
 		id: -2,
@@ -96,7 +134,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Bitcoin',
 		asset: 'BTC',
 		icon: '/images/chains/Bitcoin.svg',
-		short: 'BTC'
+		short: 'BTC',
+		group: 'btc' as const,
+		confirmationTime: 600,
+		explorerUrlMainnet: 'https://blockstream.info/address/',
+		explorerUrlTestnet: 'https://blockstream.info/testnet/address/'
 	},
 	{
 		id: -3,
@@ -104,7 +146,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'TRON',
 		asset: 'USDT',
 		icon: '/images/chains/tron.png',
-		short: 'TRX'
+		short: 'TRX',
+		group: 'usdt' as const,
+		confirmationTime: 60,
+		explorerUrlMainnet: 'https://tronscan.org/#/address/',
+		explorerUrlTestnet: 'https://shasta.tronscan.org/#/address/'
 	},
 	{
 		id: -4,
@@ -112,7 +158,11 @@ export const DESTINATION_CHAIN_OPTIONS = [
 		label: 'Liquid',
 		asset: 'BTC',
 		icon: '/images/chains/Liquid-Bitcoin.svg',
-		short: 'L-BTC'
+		short: 'L-BTC',
+		group: 'btc' as const,
+		confirmationTime: 60,
+		explorerUrlMainnet: 'https://blockstream.info/liquid/address/',
+		explorerUrlTestnet: 'https://blockstream.info/liquidtestnet/address/'
 	}
 ] as const;
 
@@ -130,6 +180,112 @@ function resolveConfig(config?: NetworkConfig): { rskNetwork: string; bscNetwork
 		rskNetwork: config?.rskNetwork ?? (import.meta.env.VITE_RSK_NETWORK as string) ?? 'testnet',
 		bscNetwork: config?.bscNetwork ?? (import.meta.env.VITE_BSC_NETWORK as string) ?? 'testnet'
 	};
+}
+
+// ── Lookup helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Get a chain option entry by network string, with display metadata for UI.
+ * Returns icon, name, confirmation time, explorer URL.
+ */
+export function getNetworkDisplay(
+	network: string,
+	config?: NetworkConfig
+): {
+	icon: string;
+	name: string;
+	confirmationTime: number;
+	explorerUrl: string | null;
+} | null {
+	const opt = DESTINATION_CHAIN_OPTIONS.find((c) => c.network === network);
+	if (!opt) return null;
+	const { rskNetwork, bscNetwork } = resolveConfig(config);
+	const isMainnet = network === 'usdt-bsc' ? bscNetwork === 'mainnet' : rskNetwork === 'mainnet';
+	const explorerBase = isMainnet
+		? (((opt as Record<string, unknown>).explorerUrlMainnet as string) ?? null)
+		: (((opt as Record<string, unknown>).explorerUrlTestnet as string) ??
+			((opt as Record<string, unknown>).explorerUrlMainnet as string) ??
+			null);
+	return {
+		icon: opt.icon,
+		name: opt.label,
+		confirmationTime: 'confirmationTime' in opt ? opt.confirmationTime : 0,
+		explorerUrl: explorerBase
+	};
+}
+
+/**
+ * Map network string → mainnet chain ID.
+ */
+export const NETWORK_TO_CHAIN_ID: Record<string, number> = Object.fromEntries(
+	DESTINATION_CHAIN_OPTIONS.map((opt) => [opt.network, opt.id])
+);
+
+/**
+ * Map chain ID → network string (mainnet IDs only).
+ */
+export const CHAIN_ID_TO_NETWORK: Record<number, string> = Object.fromEntries(
+	DESTINATION_CHAIN_OPTIONS.map((opt) => [opt.id, opt.network])
+);
+
+/**
+ * Get the resolved chain ID for a network, respecting mainnet/testnet config.
+ */
+export function getResolvedChainId(network: string, config?: NetworkConfig): number {
+	const opt = DESTINATION_CHAIN_OPTIONS.find((c) => c.network === network);
+	if (!opt) return 0;
+	if (!('testnetId' in opt)) return opt.id;
+	const { rskNetwork, bscNetwork } = resolveConfig(config);
+	const isMainnet = network === 'usdt-bsc' ? bscNetwork === 'mainnet' : rskNetwork === 'mainnet';
+	return isMainnet ? opt.id : opt.testnetId;
+}
+
+/**
+ * Build the destinations array for the SendDestinationSelector component.
+ * Groups chains into 'btc' and 'usdt' tabs.
+ */
+export function toDestinations(): Array<{
+	id: string;
+	asset: string;
+	label: string;
+	icon: string;
+	group: 'btc' | 'usdt';
+	recommended?: boolean;
+}> {
+	return DESTINATION_CHAIN_OPTIONS.map((opt) => ({
+		id: opt.network,
+		asset: opt.asset,
+		label: opt.label,
+		icon: opt.icon,
+		group: opt.group,
+		recommended: 'recommended' in opt ? opt.recommended : undefined
+	}));
+}
+
+/**
+ * Get all network display entries as a Record keyed by network string.
+ * Compatible with PendingTransactionScreen's networkOptions prop.
+ */
+export function getAllNetworkDisplays(config?: NetworkConfig): Record<
+	string,
+	{
+		icon: string;
+		name: string;
+		confirmationTime: number;
+	}
+> {
+	const result: Record<string, { icon: string; name: string; confirmationTime: number }> = {};
+	for (const opt of DESTINATION_CHAIN_OPTIONS) {
+		const display = getNetworkDisplay(opt.network, config);
+		if (display) {
+			result[opt.network] = {
+				icon: display.icon,
+				name: display.name,
+				confirmationTime: display.confirmationTime
+			};
+		}
+	}
+	return result;
 }
 
 // ── toSourceWallet ──────────────────────────────────────────────────────────────
@@ -199,44 +355,35 @@ export function toDestination(
 	config?: NetworkConfig
 ): Destination | null {
 	if (!network || !address) return null;
-	const { rskNetwork, bscNetwork } = resolveConfig(config);
-	const isMainnet = rskNetwork === 'mainnet';
-	const chainId = overrideChainId ?? null;
 
 	// Explicit chain ID overrides network-based mapping
 	// Override chain ID only for EVM-compatible networks (not Lightning/Bitcoin/Liquid)
 	const isNonEVM =
 		network === 'lightning-bitcoin' || network === 'bitcoin' || network === 'liquid-bitcoin';
-	if (!isNonEVM && chainId !== null) {
+	if (!isNonEVM && overrideChainId != null) {
+		return { type: 'address', chainId: overrideChainId, address };
+	}
+
+	// Non-EVM destinations (invoice-based)
+	if (network === 'lightning-bitcoin') {
+		return { type: 'invoice', network: 'lightning', invoice: address };
+	}
+	if (network === 'bitcoin') {
+		return { type: 'invoice', network: 'onchain', invoice: address };
+	}
+
+	// EVM destinations — resolve chain ID from DESTINATION_CHAIN_OPTIONS
+	const chainId = getResolvedChainId(network, config);
+	if (chainId !== 0) {
 		return { type: 'address', chainId, address };
 	}
 
-	switch (network) {
-		case 'rootstock-bitcoin':
-			return { type: 'address', chainId: isMainnet ? 30 : 31, address };
-		case 'usdt-bsc':
-			return { type: 'address', chainId: bscNetwork === 'mainnet' ? 56 : 97, address };
-		case 'usdt-ethereum':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 1 : 11155111, address };
-		case 'usdt-arbitrum':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 42161 : 421614, address };
-		case 'usdt-polygon':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 137 : 80002, address };
-		case 'usdt-optimism':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 10 : 11155420, address };
-		case 'usdt-base':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 8453 : 84532, address };
-		case 'usdt-avalanche':
-			return { type: 'address', chainId: rskNetwork === 'mainnet' ? 43114 : 43113, address };
-		case 'usdt-tron':
-			return { type: 'address', chainId: 0, address }; // TRON: chainId 0 placeholder
-		case 'lightning-bitcoin':
-			return { type: 'invoice', network: 'lightning', invoice: address };
-		case 'bitcoin':
-			return { type: 'invoice', network: 'onchain', invoice: address };
-		default:
-			return null;
+	// TRON placeholder
+	if (network === 'usdt-tron') {
+		return { type: 'address', chainId: 0, address };
 	}
+
+	return null;
 }
 
 // ── getAddressExplorerUrl ───────────────────────────────────────────────────────
@@ -252,39 +399,9 @@ export function getAddressExplorerUrl(
 ): string | null {
 	if (!address || !network) return null;
 
-	const { rskNetwork, bscNetwork } = resolveConfig(config);
-	const isMainnet = rskNetwork === 'mainnet';
-
-	if (network === 'rootstock-bitcoin' || network === 'rsk') {
-		return isMainnet
-			? `https://rootstock.blockscout.com/address/${address}`
-			: `https://rootstock-testnet.blockscout.com/address/${address}`;
-	} else if (network === 'usdt-bsc' || network === 'bsc') {
-		return bscNetwork === 'mainnet'
-			? `https://bscscan.com/address/${address}`
-			: `https://testnet.bscscan.com/address/${address}`;
-	} else if (network === 'bitcoin') {
-		return isMainnet
-			? `https://blockstream.info/address/${address}`
-			: `https://blockstream.info/testnet/address/${address}`;
-	} else if (network === 'liquid-bitcoin') {
-		return isMainnet
-			? `https://blockstream.info/liquid/address/${address}`
-			: `https://blockstream.info/liquidtestnet/address/${address}`;
-	} else if (network === 'usdt-ethereum') {
-		return `https://etherscan.io/address/${address}`;
-	} else if (network === 'usdt-arbitrum') {
-		return `https://arbiscan.io/address/${address}`;
-	} else if (network === 'usdt-polygon') {
-		return `https://polygonscan.com/address/${address}`;
-	} else if (network === 'usdt-optimism') {
-		return `https://optimistic.etherscan.io/address/${address}`;
-	} else if (network === 'usdt-base') {
-		return `https://basescan.org/address/${address}`;
-	} else if (network === 'usdt-avalanche') {
-		return `https://snowtrace.io/address/${address}`;
-	} else if (network === 'usdt-tron') {
-		return `https://tronscan.org/#/address/${address}`;
+	const display = getNetworkDisplay(network, config);
+	if (display?.explorerUrl) {
+		return `${display.explorerUrl}${address}`;
 	}
 
 	return null;

@@ -4,6 +4,7 @@
 	import { ethers } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { walletStore } from '$lib/stores/wallet.store';
+	import { formatSats } from '$lib/utils/wallet/format';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -76,10 +77,6 @@
 	let wbtcBalanceNum = $derived(parseFloat(wbtcBalance) || 0);
 	let wbtcBalanceSats = $derived(Math.round(wbtcBalanceNum * 100_000_000));
 	let wbtcUsdValue = $derived(wbtcBalanceNum * btcPrice.price);
-
-	function formatSats(n: number): string {
-		return n.toLocaleString('en-US');
-	}
 
 	let amountNum = $derived.by(() => {
 		const n = parseFloat(amount);

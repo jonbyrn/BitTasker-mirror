@@ -1,16 +1,15 @@
 <!--
-  ConnectedTransactionHistory — mirrors TransactionHistory.svelte layout exactly,
-  with two additions for connected wallets:
-  1. Wallet logo + last 4 address chars next to each transaction title
-  2. Wallet filter dropdown (alongside existing network dropdown)
-  3. Network dropdown uses Arbitrum instead of BSC
+  ConnectedTransactionHistory — uses TransactionListLayout for shared structure,
+  with wallet logo + last 4 address chars per transaction and wallet filter dropdown.
 -->
 <script lang="ts">
 	import type { ConnectedTransaction } from '$lib/services/connected-wallet-transactions';
 	import type { ConnectedWalletInfo } from '$lib/services/connected-wallet-transactions';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import * as Sentry from '@sentry/sveltekit';
 	import WalletIcon from './WalletIcon.svelte';
+	import TransactionListLayout from '$lib/components/wallet/TransactionListLayout.svelte';
 	import { fetchAllConnectedWalletTransactions } from '$lib/services/connected-wallet-transactions';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { computeRunningBalances } from './running-balance';
@@ -20,7 +19,6 @@
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheckAll from '~icons/mdi/check-all';
-	import IconClose from '~icons/mdi/close';
 
 	let { wallets, onClose }: { wallets: ConnectedWalletInfo[]; onClose?: () => void } = $props();
 
@@ -48,7 +46,6 @@
 		allTransactions.filter((tx) => {
 			if (typeFilter !== 'all') {
 				if (typeFilter === 'contract-function') {
-					// Contract function: has a methodName that isn't a simple send/receive
 					if (!tx.methodName) return false;
 				} else if (tx.type !== typeFilter) {
 					return false;
@@ -60,7 +57,7 @@
 		})
 	);
 
-	// Network filter options — Arbitrum instead of BSC
+	// Network filter options
 	const networkFilterOptions = [
 		{
 			id: 'all' as const,
@@ -82,7 +79,7 @@
 		}
 	];
 
-	// Type filter options — matches built-in wallet (4 buttons)
+	// Type filter options
 	const typeFilterOptions = [
 		{ id: 'all' as const, label: $t('wallet.all'), icon: IconCheckAll },
 		{ id: 'send' as const, label: $t('wallet.sent'), icon: IconArrowUpBold },
@@ -100,7 +97,6 @@
 		...wallets.map((w) => ({ id: w.id, label: w.walletName, walletType: w.walletType }))
 	]);
 
-	// Currently selected network option for the dropdown button display
 	let selectedNetworkOption = $derived(
 		networkFilterOptions.find((opt) => opt.id === networkFilter)
 	);
@@ -173,7 +169,9 @@
 
 			allTransactions = computeRunningBalances(txs, walletBalanceMap);
 		} catch (err) {
-			console.error('[ConnectedTransactionHistory] Failed to load:', err);
+			Sentry.captureException(err, {
+				tags: { feature: 'connected-transaction-history', action: 'load-transactions' }
+			});
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
@@ -181,44 +179,20 @@
 	}
 
 	function formatFee(feeSats: number | undefined): string {
-		try {
-			if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
-			return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
-		} catch {
-			return '0';
-		}
+		if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
+		return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
 	}
 
 	function formatDate(timestamp: string): string {
-		try {
-			if (!timestamp) return '';
-			const date = new Date(timestamp);
-			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-		} catch {
-			return '';
-		}
+		if (!timestamp) return '';
+		const date = new Date(timestamp);
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 
 	function formatTime(timestamp: string): string {
-		try {
-			if (!timestamp) return '';
-			const date = new Date(timestamp);
-			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-		} catch {
-			return '';
-		}
-	}
-
-	function nextPage() {
-		if (currentPage < totalPages - 1) currentPage++;
-	}
-
-	function prevPage() {
-		if (currentPage > 0) currentPage--;
-	}
-
-	function goToPage(page: number) {
-		if (page >= 0 && page < totalPages) currentPage = page;
+		if (!timestamp) return '';
+		const date = new Date(timestamp);
+		return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 	}
 
 	function handleTransactionClick(tx: ConnectedTransaction) {
@@ -238,7 +212,6 @@
 			return `${tx.tokenSymbol} Transfer`;
 		}
 		if (tx.methodName) {
-			// Format camelCase or snake_case method name to readable
 			return tx.methodName
 				.replace(/([a-z])([A-Z])/g, '$1 $2')
 				.replace(/_/g, ' ')
@@ -251,15 +224,26 @@
 		if (!addr || addr.length < 10) return '';
 		return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 	}
+
+	function handlePageChange(page: number) {
+		currentPage = page;
+	}
 </script>
 
 <svelte:window onclick={handleWindowClick} />
 
-<div class="-m-3 flex min-h-0 flex-1 flex-col sm:-m-4 lg:-m-6">
-	<!-- Filters container matching contracts screen design -->
-	<div
-		class="border-base-300/60 bg-base-100/40 mx-3 mt-3 shrink-0 rounded-3xl border p-2 shadow-sm sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6"
-	>
+<TransactionListLayout
+	totalCount={filteredTransactions.length}
+	{isLoading}
+	{error}
+	{currentPage}
+	{totalPages}
+	hasPageItems={paginatedTransactions.length > 0}
+	{onClose}
+	onRefresh={loadTransactions}
+	onPageChange={handlePageChange}
+>
+	{#snippet filters()}
 		<!-- Type Filter Buttons -->
 		<div class="mb-4">
 			<!-- Mobile: 2x2 Grid -->
@@ -366,7 +350,7 @@
 				{/if}
 			</div>
 
-			<!-- Wallet Filter Dropdown (connected-wallet addition) -->
+			<!-- Wallet Filter Dropdown -->
 			<div class="wallet-dropdown-container relative flex-1">
 				<button
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
@@ -425,295 +409,146 @@
 				{/if}
 			</div>
 		</div>
-	</div>
+	{/snippet}
 
-	<!-- Total transactions count (above scrollable area) -->
-	{#if !isLoading && filteredTransactions.length > 0}
-		<div class="mx-3 shrink-0 p-2 text-center text-lg font-bold sm:mx-4 lg:mx-6">
-			{filteredTransactions.length}
-			{$t('wallet.total_transactions')}
-		</div>
-	{/if}
-
-	<!-- Scrollable transactions area -->
-	<div class="mx-3 min-h-0 flex-1 overflow-y-auto sm:mx-4 lg:mx-6">
-		<div class="space-y-3">
-			{#if error}
-				<div class="alert alert-error alert-outline">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
+	{#snippet content()}
+		{#if paginatedTransactions.length === 0}
+			<div class="py-12 text-center">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="text-base-content/30 mx-auto mb-4 h-16 w-16"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1"
+						d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+					/>
+				</svg>
+				<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
+				<p class="text-base-content/70">
+					{typeFilter === 'all' && networkFilter === 'all' && walletFilter === 'all'
+						? $t('wallet.no_connected_transactions')
+						: $t('wallet.no_transactions_filter')}
+				</p>
+			</div>
+		{:else}
+			<div class="space-y-3">
+				{#each paginatedTransactions as tx (tx.hash + '-' + tx.walletId)}
+					{@const borderKey = getBorderColor(tx)}
+					{@const transactionClasses = transactionUI[borderKey]}
+					<div
+						role="button"
+						tabindex="0"
+						onclick={() => handleTransactionClick(tx)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								handleTransactionClick(tx);
+							}
+						}}
+						class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{error}</span>
-				</div>
-			{/if}
-
-			{#if isLoading}
-				<div class="space-y-3">
-					{#each Array.from({ length: 10 }, (_, i) => i) as skeletonIndex (skeletonIndex)}
-						<div class="card bg-base-200 animate-pulse rounded-lg">
-							<div class="card-body p-2">
-								<div class="flex flex-col gap-1">
-									<!-- Top Row: Icon, Text, Amount -->
-									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex min-w-0 flex-1 items-center gap-3">
-											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
-											<div class="flex flex-col gap-1">
-												<div class="bg-base-300 h-5 w-24 rounded"></div>
-												<div class="bg-base-300 h-3 w-16 rounded"></div>
-											</div>
-										</div>
-										<div class="flex flex-col items-end">
-											<div class="bg-base-300 h-5 w-20 rounded"></div>
-											<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
-										</div>
-									</div>
-									<!-- Bottom Row: Network Icon, Date/Time -->
-									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex min-w-0 flex-1 items-center gap-3">
-											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
-											<div class="space-y-1">
-												<div class="bg-base-300 h-4 w-24 rounded"></div>
-												<div class="bg-base-300 h-3 w-20 rounded"></div>
-											</div>
-										</div>
-										<div class="bg-base-300 h-4 w-16 rounded"></div>
-									</div>
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{:else if paginatedTransactions.length === 0}
-				<div class="py-12 text-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto mb-4 h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="1"
-							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-						/>
-					</svg>
-					<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
-					<p class="text-base-content/70">
-						{typeFilter === 'all' && networkFilter === 'all' && walletFilter === 'all'
-							? $t('wallet.no_connected_transactions')
-							: $t('wallet.no_transactions_filter')}
-					</p>
-				</div>
-			{:else}
-				<!-- Transaction List -->
-				<div class="space-y-3">
-					{#each paginatedTransactions as tx (tx.hash + '-' + tx.walletId)}
-						{@const borderKey = getBorderColor(tx)}
-						{@const transactionClasses = transactionUI[borderKey]}
-						<div
-							role="button"
-							tabindex="0"
-							onclick={() => handleTransactionClick(tx)}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									handleTransactionClick(tx);
-								}
-							}}
-							class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
-						>
-							<div class="card-body p-2">
-								<div class="flex flex-col gap-1">
-									<!-- Top Row: Icon, Wallet Icon, Text, Amount, Fee -->
-									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex min-w-0 flex-1 items-center gap-3">
-											<!-- Type Icon with Overlay -->
-											<div class="relative inline-block">
-												<div
-													class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
-												>
-													{#if tx.type === 'send'}
-														<IconArrowUpBold class="h-6 w-6" />
-													{:else}
-														<IconArrowDownBold class="h-6 w-6" />
-													{/if}
-												</div>
-												<!-- Status Badge on top-left -->
-												<div
-													class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
-													title={tx.status === 'success'
-														? $t('wallet.confirmed')
-														: tx.status === 'failed'
-															? $t('wallet.failed')
-															: $t('wallet.pending')}
-												>
-													{#if tx.status === 'success'}
-														<IconCheck class="text-success h-4 w-4" />
-													{:else if tx.status === 'failed'}
-														<IconClose class="text-error h-4 w-4" />
-													{:else}
-														<IconChevronDown class="text-warning h-4 w-4" />
-													{/if}
-												</div>
-											</div>
-											<!-- Connected wallet icon (same height as arrow, not circle) -->
-											<WalletIcon walletType={tx.walletType} className="h-6 w-6 shrink-0" />
-											<div class="min-w-0">
-												<span class="font-semibold">
-													{getTxTitle(tx)}
-												</span>
-												<!-- Last 4 of wallet address -->
-												<div class="text-base-content/40 truncate font-mono text-xs">
-													{formatAddressShort(tx.walletAddress)}
-												</div>
-											</div>
-										</div>
-										<div class="flex flex-shrink-0 flex-col items-end">
-											<div class="{transactionClasses.text} font-semibold">
-												{#if tx.type === 'receive'}+{:else}-{/if}
-												{#if tx.tokenSymbol && tx.tokenAmount}
-													{tx.tokenAmount}
-													{tx.tokenSymbol}
-												{:else}
-													{Math.abs(tx.valueSats).toLocaleString()}
-													{$t('wallet.sats')}
-												{/if}
-											</div>
-											<div class="text-xs opacity-70">
-												{#if tx.tokenSymbol}
-													{$t('wallet.tx_fee')}: 0 {$t('wallet.sats')}
-												{:else}
-													{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
-												{/if}
-											</div>
-										</div>
-									</div>
-
-									<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
-									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex min-w-0 flex-1 items-center gap-3">
-											<!-- Network Icon -->
+						<div class="card-body p-2">
+							<div class="flex flex-col gap-1">
+								<!-- Top Row: Icon, Wallet Icon, Text, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex min-w-0 flex-1 items-center gap-3">
+										<div class="relative inline-block">
 											<div
-												class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+												class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
 											>
-												<img
-													src={tx.network === 'rsk'
-														? '/images/chains/Bitcoin-Rootstock-logo.webp'
-														: '/images/chains/arbitrum.png'}
-													alt={tx.network === 'rsk' ? 'Rootstock' : 'Arbitrum'}
-													class="h-10 w-10"
-												/>
+												{#if tx.type === 'send'}
+													<IconArrowUpBold class="h-6 w-6" />
+												{:else}
+													<IconArrowDownBold class="h-6 w-6" />
+												{/if}
 											</div>
-											<div class="text-sm opacity-70">
-												<div>{formatDate(tx.timestamp)}</div>
-												<div>{formatTime(tx.timestamp)}</div>
+											<div
+												class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
+												title={tx.status === 'success'
+													? $t('wallet.confirmed')
+													: tx.status === 'failed'
+														? $t('wallet.failed')
+														: $t('wallet.pending')}
+											>
+												{#if tx.status === 'success'}
+													<IconCheck class="text-success h-4 w-4" />
+												{:else if tx.status === 'failed'}
+													<IconCheck class="text-error h-4 w-4" />
+												{:else}
+													<IconChevronDown class="text-warning h-4 w-4" />
+												{/if}
 											</div>
 										</div>
-										<!-- Running balance (matching built-in wallet) -->
-										<div class="text-right">
-											<div class="text-xs opacity-70">
-												{$t('wallet.balance_after')}:
+										<WalletIcon walletType={tx.walletType} className="h-6 w-6 shrink-0" />
+										<div class="min-w-0">
+											<span class="font-semibold">
+												{getTxTitle(tx)}
+											</span>
+											<div class="text-base-content/40 truncate font-mono text-xs">
+												{formatAddressShort(tx.walletAddress)}
 											</div>
-											<div class="text-sm font-semibold md:text-base">
-												{Math.floor(tx.balanceAfter ?? 0)?.toLocaleString() || '0'}
+										</div>
+									</div>
+									<div class="flex flex-shrink-0 flex-col items-end">
+										<div class="{transactionClasses.text} font-semibold">
+											{#if tx.type === 'receive'}+{:else}-{/if}
+											{#if tx.tokenSymbol && tx.tokenAmount}
+												{tx.tokenAmount}
+												{tx.tokenSymbol}
+											{:else}
+												{Math.abs(tx.valueSats).toLocaleString()}
 												{$t('wallet.sats')}
-											</div>
+											{/if}
+										</div>
+										<div class="text-xs opacity-70">
+											{#if tx.tokenSymbol}
+												{$t('wallet.tx_fee')}: 0 {$t('wallet.sats')}
+											{:else}
+												{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
+											{/if}
+										</div>
+									</div>
+								</div>
+
+								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex min-w-0 flex-1 items-center gap-3">
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											<img
+												src={tx.network === 'rsk'
+													? '/images/chains/Bitcoin-Rootstock-logo.webp'
+													: '/images/chains/arbitrum.png'}
+												alt={tx.network === 'rsk' ? 'Rootstock' : 'Arbitrum'}
+												class="h-10 w-10"
+											/>
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right">
+										<div class="text-xs opacity-70">
+											{$t('wallet.balance_after')}:
+										</div>
+										<div class="text-sm font-semibold md:text-base">
+											{Math.floor(tx.balanceAfter ?? 0)?.toLocaleString() || '0'}
+											{$t('wallet.sats')}
 										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<!-- Bottom section with pagination and buttons -->
-	<div
-		class="border-base-300 mx-3 mt-auto mb-3 shrink-0 space-y-4 border-t pt-4 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6 lg:pt-6"
-	>
-		<!-- Pagination controls -->
-		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
-			<div class="flex justify-center">
-				<div class="join">
-					<button class="join-item btn btn-sm" onclick={prevPage} disabled={currentPage === 0}>
-						«
-					</button>
-
-					{#each Array.from({ length: Math.min(5, totalPages) }, (_, i) => i) as i (i)}
-						{@const pageNum = Math.max(0, Math.min(totalPages - 5, currentPage - 2)) + i}
-						{#if pageNum < totalPages}
-							<button
-								class="join-item btn btn-sm {currentPage === pageNum ? 'btn-active' : ''}"
-								onclick={() => goToPage(pageNum)}
-							>
-								{pageNum + 1}
-							</button>
-						{/if}
-					{/each}
-
-					<button
-						class="join-item btn btn-sm"
-						onclick={nextPage}
-						disabled={currentPage === totalPages - 1}
-					>
-						»
-					</button>
-				</div>
+					</div>
+				{/each}
 			</div>
 		{/if}
-
-		<!-- Close and Refresh buttons -->
-		<div class="flex gap-2">
-			{#if onClose}
-				<button
-					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
-					onclick={onClose}
-					aria-label={$t('common.close')}
-				>
-					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-					<span class="text-sm sm:text-base">{$t('common.close')}</span>
-				</button>
-			{/if}
-			<button
-				class="btn btn-primary flex min-h-[44px] flex-1 items-center justify-center gap-2"
-				onclick={loadTransactions}
-				disabled={isLoading}
-				aria-label={$t('wallet.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-				{/if}
-				<span>{$t('wallet.refresh')}</span>
-			</button>
-		</div>
-	</div>
-</div>
+	{/snippet}
+</TransactionListLayout>

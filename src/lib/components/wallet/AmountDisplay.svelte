@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { formatSats, formatUsd } from '$lib/utils/wallet/format';
 
 	interface Props {
 		amount: string; // Store as string to preserve input
@@ -10,12 +11,7 @@
 		btcPrice?: number; // Optional BTC price, will fetch if not provided
 	}
 
-	let {
-		amount,
-		unit,
-		onUnitToggle,
-		btcPrice = 0
-	}: Props = $props();
+	let { amount, unit, onUnitToggle, btcPrice = 0 }: Props = $props();
 
 	let isLoadingPrice = $state(false);
 
@@ -41,23 +37,6 @@
 			return (sats / 100_000_000) * btcPrice;
 		}
 	});
-
-	// Format sats with thousand separators
-	function formatSats(sats: number): string {
-		if (isNaN(sats) || !isFinite(sats)) return '0';
-		return new Intl.NumberFormat('en-US').format(sats);
-	}
-
-	// Format USD with currency symbol
-	function formatUSD(usd: number): string {
-		if (isNaN(usd) || !isFinite(usd)) return '$0.00';
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(usd);
-	}
 
 	// Fetch BTC price if not provided
 	onMount(async () => {
@@ -98,7 +77,7 @@
 				class="text-base-content text-4xl font-bold tabular-nums md:text-5xl lg:text-6xl"
 				data-testid="primary-amount-usd"
 			>
-				{formatUSD(amountInUSD)}
+				{formatUsd(amountInUSD)}
 			</span>
 			<button
 				type="button"
@@ -119,7 +98,7 @@
 					<span class="loading loading-spinner loading-sm"></span>
 					<span>{$t('common.loading')}</span>
 				{:else if btcPrice > 0}
-					<span data-testid="conversion-usd">≈ {formatUSD(amountInUSD)}</span>
+					<span data-testid="conversion-usd">≈ {formatUsd(amountInUSD)}</span>
 				{:else}
 					<span class="text-base-content/50">{$t('wallet.exchange_rate_unavailable')}</span>
 				{/if}

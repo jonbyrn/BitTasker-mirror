@@ -38,7 +38,11 @@
 		toDestination,
 		getChainOption,
 		getAddressExplorerUrl,
-		DESTINATION_CHAIN_OPTIONS
+		getNetworkDisplay,
+		getAllNetworkDisplays,
+		DESTINATION_CHAIN_OPTIONS,
+		NETWORK_TO_CHAIN_ID,
+		CHAIN_ID_TO_NETWORK
 	} from '$lib/utils/send-network-mapping';
 	import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
 	import { tryCatch } from '$lib/utils/tryCatch';
@@ -63,68 +67,10 @@
 	// Platform detection
 	const isWeb = Capacitor.getPlatform() === 'web';
 
-	const networkOption = {
-		'rootstock-bitcoin': {
-			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			name: $t('wallet.transaction.network.rootstock_bitcoin'),
-			confirmationTime: 30
-		},
-		'lightning-bitcoin': {
-			icon: '/images/chains/lightning.svg',
-			name: $t('wallet.networks.lightning'),
-			confirmationTime: 0
-		},
-		'liquid-bitcoin': {
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			name: $t('wallet.networks.liquid'),
-			confirmationTime: 60
-		},
-		bitcoin: {
-			icon: '/images/chains/Bitcoin.svg',
-			name: $t('wallet.networks.bitcoin'),
-			confirmationTime: 600
-		},
-		'usdt-bsc': {
-			icon: '/images/chains/Binance-logo.svg',
-			name: $t('wallet.transaction.network.binance_smart_chain'),
-			confirmationTime: 1
-		},
-		'usdt-ethereum': {
-			icon: '/images/chains/ethereum.png',
-			name: $t('wallet.send.network.ethereum'),
-			confirmationTime: 15
-		},
-		'usdt-arbitrum': {
-			icon: '/images/chains/arbitrum.png',
-			name: $t('wallet.send.network.arbitrum'),
-			confirmationTime: 15
-		},
-		'usdt-polygon': {
-			icon: '/images/chains/polygon.png',
-			name: $t('wallet.send.network.polygon'),
-			confirmationTime: 10
-		},
-		'usdt-optimism': {
-			icon: '/images/chains/optimism.png',
-			name: $t('wallet.send.network.optimism'),
-			confirmationTime: 10
-		},
-		'usdt-base': {
-			icon: '/images/chains/base.png',
-			name: $t('wallet.send.network.base'),
-			confirmationTime: 10
-		},
-		'usdt-avalanche': {
-			icon: '/images/chains/avalanche.png',
-			name: $t('wallet.send.network.avalanche'),
-			confirmationTime: 5
-		},
-		'usdt-tron': {
-			icon: '/images/chains/tron.png',
-			name: $t('wallet.send.network.tron'),
-			confirmationTime: 60
-		}
-	};
+	/** Get display info for a network (icon, name, confirmationTime) — delegates to send-network-mapping */
+	function getNetworkOption(network: string) {
+		return getNetworkDisplay(network);
+	}
 
 	// Grouped State: Form Input & Address Data
 	let formInput = $state({
@@ -355,26 +301,9 @@
 		];
 	});
 
-	/** Map network string → chain ID for the destination selector */
-	const NETWORK_TO_CHAIN_ID: Record<string, number> = {
-		'rootstock-bitcoin': 30,
-		'usdt-bsc': 56,
-		'usdt-ethereum': 1,
-		'usdt-arbitrum': 42161,
-		'usdt-polygon': 137,
-		'usdt-optimism': 10,
-		'usdt-base': 8453,
-		'usdt-avalanche': 43114,
-		'lightning-bitcoin': -1,
-		bitcoin: -2,
-		'liquid-bitcoin': -4,
-		'usdt-tron': -3
-	};
+	/** Map network string → chain ID for the destination selector — imported from send-network-mapping */
 
-	/** Map chain ID → network string for the destination selector */
-	const CHAIN_ID_TO_NETWORK: Record<number, string> = Object.fromEntries(
-		Object.entries(NETWORK_TO_CHAIN_ID).map(([net, id]) => [id, net])
-	);
+	/** Map chain ID → network string for the destination selector — imported from send-network-mapping */
 
 	// Effective destination chain — user selection overrides auto-detection
 	// Resolve which chain is selected — explicit override, or default from source/address
@@ -412,15 +341,8 @@
 		getChainOption(effectiveDestinationChainId, parsedPayment.detectedNetwork)
 	);
 
-	// Clear user's destination override when address changes
-	let _prevNetwork = $state<string | null>(null);
-	$effect(() => {
-		const currentNet = parsedPayment.detectedNetwork;
-		if (currentNet !== _prevNetwork) {
-			formInput.destinationChainId = null;
-			_prevNetwork = currentNet;
-		}
-	});
+	// Note: destinationChainId is reset in applyParsedAddress when detectedNetwork changes
+	// (previously an $effect writing state — moved to event handler per Svelte 5 best practices)
 
 	// Filter destination options to only networks matching the address type
 	let _filteredChainOptions = $derived.by(() => {
@@ -469,6 +391,7 @@
 			if (reparsed.isValid) {
 				parsedPayment.data = reparsed;
 				parsedPayment.detectedNetwork = reparsed.network;
+				formInput.destinationChainId = null;
 				parsedPayment.detectedAmount = reparsed.amount;
 				parsedPayment.detectedMemo = reparsed.memo;
 				parsedPayment.amountRequired = reparsed.amount === null;
@@ -717,6 +640,8 @@
 				formInput.addressInput = result.data?.address ?? rawAddress ?? '';
 			}
 			parsedPayment.detectedNetwork = result.network;
+			// Clear user's destination chain override when address/network changes
+			formInput.destinationChainId = null;
 			parsedPayment.detectedAmount = result.amount;
 			parsedPayment.detectedMemo = result.memo;
 			parsedPayment.amountRequired = result.amountRequired;
@@ -1101,7 +1026,7 @@
 				amountUSD={sendValidation.amountInUSD}
 				address={sendState.pendingAddress}
 				network={sendState.pendingNetwork}
-				networkOptions={networkOption}
+				networkOptions={getAllNetworkDisplays()}
 				txHash={sendState.pendingTxHash ?? ''}
 				swapId={sendState.pendingSwapId}
 				swapType={sendState.pendingNetwork === 'lightning-bitcoin' ? 'submarine' : undefined}
@@ -1187,8 +1112,7 @@
 					{:else}
 						<!-- Confirmation Screen -->
 						{#if parsedPayment.detectedNetwork}
-							{@const netOption =
-								networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
+							{@const netOption = getNetworkOption(parsedPayment.detectedNetwork ?? '')}
 							{@const recipientAddress =
 								parsedPayment.data?.address || formInput.addressInput.trim()}
 							{@const explorerUrl = getAddressExplorerUrl(
@@ -1325,8 +1249,7 @@
 			{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
 			{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 			{@const estimatedTime =
-				networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]
-					?.confirmationTime}
+				getNetworkOption(parsedPayment.detectedNetwork ?? '')?.confirmationTime ?? 0}
 			<div class="modal modal-open z-120">
 				<div class="modal-box max-w-md">
 					<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>

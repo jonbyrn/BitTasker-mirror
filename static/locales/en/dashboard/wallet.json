@@ -2031,6 +2031,8 @@
 			"status_claimed": "Claimed",
 			"status_expired": "Expired",
 			"status_failed": "Failed",
+			"status_unknown": "Unknown",
+			"sats_unit": "sats",
 			"chain_status_pending": "Locking rBTC on Rootstock...",
 			"chain_status_boltz": "Boltz is processing the swap",
 			"chain_status_claiming": "Claiming tBTC on Arbitrum",
@@ -2056,7 +2058,13 @@
 			"remaining": "remaining",
 			"scanning": "Scanning blockchain for recoverable funds...",
 			"lockup_expired_msg": "Swap timed out — funds locked in contract. Refund now available.",
-			"lockup_pending_msg": "Swap timed out — funds locked in contract. Refund available after timelock."
+			"lockup_pending_msg": "Swap timed out — funds locked in contract. Refund available after timelock.",
+			"recovered": "✓ Recovered",
+			"already_resolved": "Already resolved",
+			"lockup_claimed_or_refunded": "This lockup has already been claimed or refunded on-chain.",
+			"swap_complete_cleaning": "Swap complete — cleaning up",
+			"check_failed": "Check failed: {error}",
+			"dismiss_to_cleanup": "dismiss to clean up"
 		}
 	},
 	"pending_swaps": {

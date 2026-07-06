@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { ethers } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
+	import { walletStore } from '$lib/stores/wallet.store';
+	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { AaveService, WBTC_ARBITRUM, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
@@ -11,6 +14,9 @@
 		calculateLtv,
 		deriveHealthStatus
 	} from '$lib/services/defi/aave.service';
+	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import type { EVMTransactionResult } from '$lib/services/external-wallet/types';
+	import * as Sentry from '@sentry/sveltekit';
 	import HealthFactorGauge from '../HealthFactorGauge.svelte';
 
 	interface Props {
@@ -81,52 +87,154 @@
 		onConfirm();
 		errorMsg = undefined;
 
-		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
-		const aave = new AaveService(provider);
-		const signer = new ethers.Wallet('0x' + '00'.repeat(32), provider);
+		Sentry.addBreadcrumb({
+			category: 'defi.wizard.confirm',
+			message: 'sending supply+borrow',
+			data: { supplyNum, borrowNum, walletId }
+		});
+
+		const aave = new AaveService(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+
+		// Resolve the signer — builtin uses RSK wallet connected to Arbitrum, connected uses EvmSigner
+		let builtinSigner: ethers.Wallet | null = null;
+		let evmSigner: ReturnType<typeof getEvmSigner> = undefined;
+
+		if (walletId === 'builtin') {
+			const s = get(walletStore);
+			const rskW = s.rsk?.wallet as ethers.Wallet | undefined;
+			if (!rskW) {
+				errorMsg = $t('wallet.defi.approve.error');
+				Sentry.addBreadcrumb({
+					category: 'defi.wizard.confirm',
+					message: 'signer unavailable',
+					data: { walletId }
+				});
+				isProcessing = false;
+				txStatus = 'idle';
+				return;
+			}
+			builtinSigner = rskW.connect(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+		} else {
+			evmSigner = getEvmSigner(walletId);
+			if (!evmSigner) {
+				errorMsg = $t('wallet.defi.approve.error');
+				Sentry.addBreadcrumb({
+					category: 'defi.wizard.confirm',
+					message: 'signer unavailable',
+					data: { walletId }
+				});
+				isProcessing = false;
+				txStatus = 'idle';
+				return;
+			}
+		}
 
 		if (supplyNum > 0) {
 			txStatus = 'supplying';
 			const rawSupply = BigInt(Math.floor(supplyNum * 100_000_000));
-			const { data: supplyTx, error: supplyErr } = await tryCatch(
-				aave.supply(WBTC_ARBITRUM, rawSupply, signer)
-			);
-			if (supplyErr || !supplyTx) {
-				errorMsg = 'Supply transaction failed';
-				isProcessing = false;
-				txStatus = 'idle';
-				return;
+
+			let supplyTx: ethers.TransactionResponse | EVMTransactionResult | null = null;
+			if (walletId === 'builtin' && builtinSigner) {
+				const { data: tx, error: supplyErr } = await tryCatch(
+					aave.supply(WBTC_ARBITRUM, rawSupply, builtinSigner)
+				);
+				if (supplyErr || !tx) {
+					const contractErr = extractContractError(supplyErr);
+					errorMsg = contractErr.userMessage;
+					Sentry.captureException(supplyErr, {
+						tags: { feature: 'defi.wizard', action: 'supply' }
+					});
+					isProcessing = false;
+					txStatus = 'idle';
+					return;
+				}
+				supplyTx = tx;
+			} else if (evmSigner) {
+				const { data: tx, error: supplyErr } = await tryCatch(
+					aave.supplyWithEvmSigner(WBTC_ARBITRUM, rawSupply, evmSigner)
+				);
+				if (supplyErr || !tx) {
+					const contractErr = extractContractError(supplyErr);
+					errorMsg = contractErr.userMessage;
+					Sentry.captureException(supplyErr, {
+						tags: { feature: 'defi.wizard', action: 'supply' }
+					});
+					isProcessing = false;
+					txStatus = 'idle';
+					return;
+				}
+				supplyTx = tx;
 			}
-			const { data: supplyReceipt, error: receiptErr } = await tryCatch(supplyTx.wait());
-			if (receiptErr || !supplyReceipt) {
-				errorMsg = 'Supply transaction confirmation failed';
-				isProcessing = false;
-				txStatus = 'idle';
-				return;
+
+			if (supplyTx) {
+				// builtin path: TransactionResponse has .wait(); connected path: EVMTransactionResult has txHash directly
+				if ('wait' in supplyTx && typeof supplyTx.wait === 'function') {
+					const { data: supplyReceipt, error: receiptErr } = await tryCatch(supplyTx.wait());
+					if (receiptErr || !supplyReceipt) {
+						errorMsg = 'Supply transaction confirmation failed';
+						isProcessing = false;
+						txStatus = 'idle';
+						return;
+					}
+					onSupplyComplete(supplyReceipt.hash);
+				} else {
+					// EVMTransactionResult — tx already submitted by connected wallet
+					onSupplyComplete((supplyTx as EVMTransactionResult).txHash);
+				}
 			}
-			onSupplyComplete(supplyReceipt.hash);
 		}
 
 		if (borrowNum > 0) {
 			txStatus = 'borrowing';
 			const rawBorrow = BigInt(Math.floor(borrowNum * 1_000_000));
-			const { data: borrowTx, error: borrowErr } = await tryCatch(
-				aave.borrow(USDT0_ARBITRUM, rawBorrow, signer)
-			);
-			if (borrowErr || !borrowTx) {
-				errorMsg = 'Borrow transaction failed. Your collateral was supplied successfully.';
-				isProcessing = false;
-				txStatus = 'idle';
-				return;
+
+			let borrowTx: ethers.TransactionResponse | EVMTransactionResult | null = null;
+			if (walletId === 'builtin' && builtinSigner) {
+				const { data: tx, error: borrowErr } = await tryCatch(
+					aave.borrow(USDT0_ARBITRUM, rawBorrow, builtinSigner)
+				);
+				if (borrowErr || !tx) {
+					const contractErr = extractContractError(borrowErr);
+					errorMsg = contractErr.userMessage;
+					Sentry.captureException(borrowErr, {
+						tags: { feature: 'defi.wizard', action: 'borrow' }
+					});
+					isProcessing = false;
+					txStatus = 'idle';
+					return;
+				}
+				borrowTx = tx;
+			} else if (evmSigner) {
+				const { data: tx, error: borrowErr } = await tryCatch(
+					aave.borrowWithEvmSigner(USDT0_ARBITRUM, rawBorrow, evmSigner)
+				);
+				if (borrowErr || !tx) {
+					const contractErr = extractContractError(borrowErr);
+					errorMsg = contractErr.userMessage;
+					Sentry.captureException(borrowErr, {
+						tags: { feature: 'defi.wizard', action: 'borrow' }
+					});
+					isProcessing = false;
+					txStatus = 'idle';
+					return;
+				}
+				borrowTx = tx;
 			}
-			const { data: borrowReceipt, error: receiptErr } = await tryCatch(borrowTx.wait());
-			if (receiptErr || !borrowReceipt) {
-				errorMsg = 'Borrow confirmation failed';
-				isProcessing = false;
-				txStatus = 'idle';
-				return;
+
+			if (borrowTx) {
+				if ('wait' in borrowTx && typeof borrowTx.wait === 'function') {
+					const { data: borrowReceipt, error: receiptErr } = await tryCatch(borrowTx.wait());
+					if (receiptErr || !borrowReceipt) {
+						errorMsg = 'Borrow confirmation failed';
+						isProcessing = false;
+						txStatus = 'idle';
+						return;
+					}
+					onBorrowComplete(borrowReceipt.hash);
+				} else {
+					onBorrowComplete((borrowTx as EVMTransactionResult).txHash);
+				}
 			}
-			onBorrowComplete(borrowReceipt.hash);
 		}
 
 		txStatus = 'done';
