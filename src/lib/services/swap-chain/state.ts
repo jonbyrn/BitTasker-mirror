@@ -264,6 +264,21 @@ export async function loadSwapChainState(): Promise<SwapChainState> {
 			return { ...INITIAL_SWAP_CHAIN_STATE };
 		}
 
+		const VALID_PHASES: SwapChainPhase[] = [
+			'IDLE',
+			'SWAP_1_PENDING',
+			'SWAP_1_CONFIRMED',
+			'SWAP_2_PENDING',
+			'SWAP_2_CONFIRMED',
+			'COMPLETE',
+			'FAILED',
+			'PARTIAL'
+		];
+		if (!VALID_PHASES.includes(raw.phase as SwapChainPhase)) {
+			d.warn('Invalid swap chain phase "%s" in persisted state — resetting', raw.phase);
+			return { ...INITIAL_SWAP_CHAIN_STATE };
+		}
+
 		return {
 			phase: raw.phase as SwapChainPhase,
 			route: raw.route as Route | null,
@@ -453,6 +468,14 @@ export function getSwapChainStatus(state: SwapChainState): {
 				isFailed: false,
 				isPartial: true,
 				message: state.error ?? 'wallet.swap_chain.partial'
+			};
+		default:
+			return {
+				isActive: false,
+				isComplete: false,
+				isFailed: false,
+				isPartial: false,
+				message: ''
 			};
 	}
 }

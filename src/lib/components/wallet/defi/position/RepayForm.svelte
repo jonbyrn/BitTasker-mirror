@@ -170,7 +170,7 @@
 <div class="flex flex-col gap-4">
 	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Current Debt</span>
+			<span class="text-base-content/60">{$t('wallet.defi.position.repay_current_debt')}</span>
 			<span class="font-medium tabular-nums">${currentDebtUsd.toFixed(2)}</span>
 		</div>
 	</div>
@@ -231,6 +231,8 @@
 		onclick={handleRepay}
 		aria-busy={isProcessing}
 	>
-		{isProcessing ? $t('wallet.defi.shared.pending_tx') : `Repay $${amountNum.toFixed(2)}`}
+		{isProcessing
+			? $t('wallet.defi.shared.pending_tx')
+			: $t('wallet.defi.position.repay_btn', { values: { amount: amountNum.toFixed(2) } })}
 	</button>
 </div>

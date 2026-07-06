@@ -174,7 +174,8 @@
 				Sentry.captureException(err, {
 					tags: { feature: 'receive', network, action: 'fetch-btc-price' }
 				});
-				btcPrice = 60000; // Fallback price
+				console.warn('[SwapReceive] BTC price unavailable, hiding USD estimates');
+				btcPrice = 0;
 			}
 
 			// Recover pending swaps

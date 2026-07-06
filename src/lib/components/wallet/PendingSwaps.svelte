@@ -74,18 +74,30 @@
 		name: string;
 	}
 
-	const ASSET_MAP: Record<string, AssetInfo> = {
-		RBTC: { icon: '/images/chains/Bitcoin-Rootstock-logo.webp', name: 'Bitcoin (rBTC)' },
-		BTC: { icon: '/images/chains/Bitcoin.svg', name: 'Bitcoin (BTC)' },
-		TBTC: { icon: '/images/tokens/tbtc.png', name: 'Bitcoin (tBTC)' },
-		USDT0: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT0)' },
-		USDT: { icon: '/images/chains/Tether-USD.svg', name: 'Tether USD (USDT)' },
-		WBTC: { icon: '/images/tokens/wbtc.png', name: 'Bitcoin (wBTC)' },
-		Lightning: { icon: '/images/chains/Bitcoin.svg', name: 'Lightning' }
+	const ASSET_ICONS: Record<string, string> = {
+		RBTC: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		BTC: '/images/chains/Bitcoin.svg',
+		TBTC: '/images/tokens/tbtc.png',
+		USDT0: '/images/chains/Tether-USD.svg',
+		USDT: '/images/chains/Tether-USD.svg',
+		WBTC: '/images/tokens/wbtc.png',
+		Lightning: '/images/chains/Bitcoin.svg'
+	};
+
+	const ASSET_I18N: Record<string, string> = {
+		RBTC: 'wallet.pending_swaps.bitcoin_rbtc',
+		BTC: 'wallet.pending_swaps.bitcoin_btc',
+		TBTC: 'wallet.pending_swaps.bitcoin_tbtc',
+		USDT0: 'wallet.pending_swaps.tether_usdt0',
+		USDT: 'wallet.pending_swaps.tether_usdt',
+		WBTC: 'wallet.pending_swaps.bitcoin_wbtc',
+		Lightning: 'wallet.pending_swaps.lightning'
 	};
 
 	function getAssetInfo(asset: string): AssetInfo {
-		return ASSET_MAP[asset] ?? { icon: '/images/chains/Bitcoin.svg', name: asset };
+		const icon = ASSET_ICONS[asset] ?? '/images/chains/Bitcoin.svg';
+		const i18nKey = ASSET_I18N[asset];
+		return { icon, name: i18nKey ? $t(i18nKey) : asset };
 	}
 
 	// ── Lifecycle ───────────────────────────────────────────────────────────
@@ -491,7 +503,7 @@
 									{:else}
 										🔄
 									{/if}
-									{$t('wallet.pending_swaps.check_status') || 'Check Status'}
+									{$t('wallet.pending_swaps.check_status')}
 								</button>
 								<!-- Resume button -->
 								<button
@@ -502,7 +514,7 @@
 									{#if resuming}
 										<span class="loading loading-spinner loading-xs"></span>
 									{/if}
-									{$t('wallet.pending_swaps.resume') || 'Resume'}
+									{$t('wallet.pending_swaps.resume')}
 								</button>
 							{:else if getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial}
 								<!-- Refund / timelock info -->
@@ -510,8 +522,8 @@
 									{#if refundInfo}
 										{#if refundInfo.canRefund}
 											<span class="text-success font-medium">
-												{$t('wallet.pending_swaps.timelock_expired') || 'Timelock expired'} —
-												{$t('wallet.pending_swaps.refund_available') || 'refund available'}
+												{$t('wallet.pending_swaps.timelock_expired')} —
+												{$t('wallet.pending_swaps.refund_available')}
 											</span>
 										{:else}
 											<span class="text-base-content/60">{refundInfo.message}</span>
@@ -519,8 +531,7 @@
 									{:else}
 										<div class="flex items-center justify-between gap-2">
 											<span class="text-base-content/60">
-												{$t('wallet.pending_swaps.recover_description') ||
-													'Scan the RSK blockchain to recover refund data for this swap.'}
+												{$t('wallet.pending_swaps.recover_description')}
 											</span>
 											<button
 												class="btn btn-outline btn-xs shrink-0"
@@ -530,7 +541,7 @@
 												{#if recovering}
 													<span class="loading loading-spinner loading-xs"></span>
 												{/if}
-												{$t('wallet.pending_swaps.recover') || 'Recover from chain'}
+												{$t('wallet.pending_swaps.recover')}
 											</button>
 										</div>
 									{/if}
@@ -539,7 +550,9 @@
 								<!-- Recovery state -->
 								{#if chainSwapRecovery.status === 'success'}
 									<div class="border-success/30 bg-success/5 mt-2 rounded-md border p-2 text-xs">
-										<p class="text-success font-medium">✓ Refund successful</p>
+										<p class="text-success font-medium">
+											{$t('wallet.pending_swaps.refund_success')}
+										</p>
 										{#if chainSwapRecovery.txHash}
 											<a
 												href="https://rootstock.blockscout.com/tx/{chainSwapRecovery.txHash}"
@@ -553,7 +566,7 @@
 									</div>
 								{:else if chainSwapRecovery.status === 'error'}
 									<div class="border-error/30 bg-error/5 mt-2 rounded-md border p-2 text-xs">
-										<p class="text-error font-medium">Refund failed</p>
+										<p class="text-error font-medium">{$t('wallet.pending_swaps.refund_failed')}</p>
 										<p class="text-error/70 mt-0.5">{chainSwapRecovery.error}</p>
 									</div>
 								{/if}
@@ -570,7 +583,7 @@
 										{:else}
 											🔄
 										{/if}
-										{$t('wallet.pending_swaps.check_status') || 'Check Status'}
+										{$t('wallet.pending_swaps.check_status')}
 									</button>
 									<!-- Claim button: resume the swap chain to retry the Boltz claim -->
 									{#if getSwapChainStatus(swapChainState).isPartial && swapChainState.swap1Id}
@@ -582,7 +595,7 @@
 											{#if resuming}
 												<span class="loading loading-spinner loading-xs"></span>
 											{/if}
-											{$t('wallet.pending_swaps.claim') || 'Claim'}
+											{$t('wallet.pending_swaps.claim')}
 										</button>
 									{/if}
 									{#if refundInfo && chainSwapRecovery.status !== 'success'}
@@ -594,7 +607,7 @@
 											{#if chainSwapRecovery.status === 'loading'}
 												<span class="loading loading-spinner loading-xs"></span>
 											{/if}
-											{$t('wallet.pending_swaps.refund') || 'Refund'}
+											{$t('wallet.pending_swaps.refund')}
 										</button>
 									{/if}
 								</div>
@@ -619,10 +632,10 @@
 							<div class="flex items-center gap-1.5">
 								<img
 									src="/images/chains/Bitcoin-Rootstock-logo.webp"
-									alt="Bitcoin (rBTC)"
+									alt={$t('wallet.pending_swaps.bitcoin_rbtc')}
 									class="h-5 w-5 shrink-0"
 								/>
-								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+								<span class="text-sm font-medium">{$t('wallet.pending_swaps.bitcoin_rbtc')}</span>
 							</div>
 							<span class="text-primary flex flex-1 items-center justify-center"
 								><IconArrowRight class="h-6 w-6" /></span
@@ -630,27 +643,32 @@
 							<div class="flex items-center gap-1.5">
 								<img
 									src="/images/chains/Bitcoin-Rootstock-logo.webp"
-									alt="Bitcoin (rBTC)"
+									alt={$t('wallet.pending_swaps.bitcoin_rbtc')}
 									class="h-5 w-5 shrink-0"
 								/>
-								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+								<span class="text-sm font-medium">{$t('wallet.pending_swaps.bitcoin_rbtc')}</span>
 							</div>
 						</div>
 
 						<!-- Amount + badge -->
 						<div class="flex items-center justify-between text-xs">
 							<span class="text-base-content/60">
-								{lockup.amountSats.toLocaleString()} sats
+								{lockup.amountSats.toLocaleString()}
+								{$t('wallet.pending_swaps.sats_unit')}
 							</span>
 							{#if recovery?.status === 'success'}
-								<span class="badge badge-success badge-xs">✓ Recovered</span>
+								<span class="badge badge-success badge-xs"
+									>{$t('wallet.pending_swaps.recovered')}</span
+								>
 							{:else if lockup.resolved}
-								<span class="badge badge-ghost badge-xs">Already resolved</span>
+								<span class="badge badge-ghost badge-xs"
+									>{$t('wallet.pending_swaps.already_resolved')}</span
+								>
 							{:else}
 								<span class="badge {expired ? 'badge-success' : 'badge-warning'} badge-xs">
 									{expired
-										? $t('wallet.pending_swaps.refund_available') || 'Refund available'
-										: $t('wallet.pending_swaps.timelock_remaining') || 'Timelock remaining'}
+										? $t('wallet.pending_swaps.refund_available')
+										: $t('wallet.pending_swaps.timelock_remaining')}
 								</span>
 							{/if}
 						</div>
@@ -658,7 +676,7 @@
 						<!-- Status message (idle) or recovery result -->
 						{#if recovery?.status === 'success'}
 							<div class="mt-1 text-xs">
-								<p class="text-success font-medium">✓ Refund successful</p>
+								<p class="text-success font-medium">{$t('wallet.pending_swaps.refund_success')}</p>
 								{#if recovery.txHash}
 									<a
 										href="https://rootstock.blockscout.com/tx/{recovery.txHash}"
@@ -672,20 +690,18 @@
 							</div>
 						{:else if recovery?.status === 'error'}
 							<div class="mt-1 text-xs">
-								<p class="text-error font-medium">Refund failed</p>
+								<p class="text-error font-medium">{$t('wallet.pending_swaps.refund_failed')}</p>
 								<p class="text-error/70 mt-0.5">{recovery.error}</p>
 							</div>
 						{:else if lockup.resolved}
 							<p class="text-base-content/40 mt-1 text-xs">
-								This lockup has already been claimed or refunded on-chain.
+								{$t('wallet.pending_swaps.lockup_claimed_or_refunded')}
 							</p>
 						{:else}
 							<p class="text-base-content/50 mt-1 text-xs">
 								{expired
-									? $t('wallet.pending_swaps.lockup_expired_msg') ||
-										'Swap timed out — funds locked in contract. Refund now available.'
-									: $t('wallet.pending_swaps.lockup_pending_msg') ||
-										'Swap timed out — funds locked in contract. Refund available after timelock.'}
+									? $t('wallet.pending_swaps.lockup_expired_msg')
+									: $t('wallet.pending_swaps.lockup_pending_msg')}
 							</p>
 						{/if}
 
@@ -696,7 +712,7 @@
 									class="btn btn-ghost btn-xs min-h-[36px]"
 									onclick={() => dismissLockup(lockup.txHash)}
 								>
-									Dismiss
+									{$t('wallet.pending_swaps.dismiss')}
 								</button>
 							{:else}
 								<button
@@ -707,7 +723,7 @@
 									{#if recovery?.status === 'loading'}
 										<span class="loading loading-spinner loading-xs"></span>
 									{/if}
-									{$t('wallet.pending_swaps.refund') || 'Recover funds'}
+									{$t('wallet.pending_swaps.refund')}
 								</button>
 							{/if}
 						</div>
@@ -718,7 +734,7 @@
 				{#if scanningLockups && unclaimedLockups.length === 0}
 					<div class="text-base-content/40 flex items-center justify-center gap-2 py-2 text-xs">
 						<span class="loading loading-spinner loading-xs"></span>
-						{$t('wallet.pending_swaps.scanning') || 'Scanning blockchain for recoverable funds...'}
+						{$t('wallet.pending_swaps.scanning')}
 					</div>
 				{/if}
 
@@ -729,8 +745,12 @@
 						<!-- Route: source left, destination right -->
 						<div class="mb-2 flex items-center gap-2">
 							<div class="flex items-center gap-1.5">
-								<img src="/images/chains/Bitcoin.svg" alt="Lightning" class="h-5 w-5 shrink-0" />
-								<span class="text-sm font-medium">Lightning</span>
+								<img
+									src="/images/chains/Bitcoin.svg"
+									alt={$t('wallet.pending_swaps.lightning')}
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="text-sm font-medium">{$t('wallet.pending_swaps.lightning')}</span>
 							</div>
 							<span class="text-primary flex flex-1 items-center justify-center"
 								><IconArrowRight class="h-6 w-6" /></span
@@ -738,10 +758,10 @@
 							<div class="flex items-center gap-1.5">
 								<img
 									src="/images/chains/Bitcoin-Rootstock-logo.webp"
-									alt="Bitcoin (rBTC)"
+									alt={$t('wallet.pending_swaps.bitcoin_rbtc')}
 									class="h-5 w-5 shrink-0"
 								/>
-								<span class="text-sm font-medium">Bitcoin (rBTC)</span>
+								<span class="text-sm font-medium">{$t('wallet.pending_swaps.bitcoin_rbtc')}</span>
 							</div>
 						</div>
 
@@ -760,7 +780,7 @@
 						{#if swap.claimTxHash}
 							<div class="mt-0.5 flex items-center justify-between text-xs">
 								<span class="text-base-content/50 font-mono break-all">
-									Swap ID: {swap.claimTxHash}
+									{$t('wallet.pending_swaps.swap_id')}: {swap.claimTxHash}
 								</span>
 								<span class="text-base-content/40 ml-2 shrink-0">
 									{fmtTime(swap.createdAt, $t)}

@@ -205,7 +205,7 @@
 
 	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Max Safe Withdraw</span>
+			<span class="text-base-content/60">{$t('wallet.defi.position.withdraw_max_safe')}</span>
 			<span class="font-medium tabular-nums">
 				{maxSafeSats > 0 ? formatSats(maxSafeSats) : '0'} Sats
 				<span class="text-base-content/50">(${maxSafe.maxSafeCollateralUsd.toFixed(2)})</span>
@@ -276,6 +276,8 @@
 		onclick={handleWithdraw}
 		aria-busy={isProcessing}
 	>
-		{isProcessing ? $t('wallet.defi.shared.pending_tx') : `Withdraw ${formatSats(amountNum)} Sats`}
+		{isProcessing
+			? $t('wallet.defi.shared.pending_tx')
+			: $t('wallet.defi.position.withdraw_btn', { values: { amount: formatSats(amountNum) } })}
 	</button>
 </div>

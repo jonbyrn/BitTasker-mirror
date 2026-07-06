@@ -1385,3 +1385,204 @@ describe('Swap-Chain Connected Wallet Support', () => {
 		});
 	});
 });
+
+// ===========================================================================
+// Orchestrator Validation Guards
+// ===========================================================================
+
+describe('orchestrator validation', () => {
+	const DEST_ADDR = '0x6666000000000000000000000000000000000FFF';
+	const VALID_AMOUNT = '0.5';
+
+	// -------------------------------------------------------------------------
+	// Missing / empty hops
+	// -------------------------------------------------------------------------
+
+	it('returns error when route has empty hops array', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const route: Route = {
+			id: 'empty-route',
+			label: 'Empty',
+			hops: [],
+			totalFeePercent: 0,
+			estimatedTime: '0 min',
+			recommended: false
+		};
+
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Empty hops array passes the initial validation (!route.hops is false, Array.isArray is true)
+		// but fails at the hop1 check after saving initial state
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('no hops');
+	});
+
+	it('returns error when route hops is missing (undefined)', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const route = {
+			id: 'bad-route',
+			label: 'Bad',
+			hops: undefined as unknown as RouteHop[],
+			totalFeePercent: 0,
+			estimatedTime: '0 min',
+			recommended: false
+		};
+
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('missing hops');
+	});
+
+	// -------------------------------------------------------------------------
+	// NaN amount
+	// -------------------------------------------------------------------------
+
+	it('returns error for NaN amount', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		const result = await startSwapChain(route, 'rbtc', dest, 'not-a-number');
+
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('must be a finite number');
+	});
+
+	it('returns error for Infinity amount', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		const result = await startSwapChain(route, 'rbtc', dest, 'Infinity');
+
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('must be a finite number');
+	});
+
+	// -------------------------------------------------------------------------
+	// Negative amount
+	// -------------------------------------------------------------------------
+
+	it('returns error for negative amount', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		const result = await startSwapChain(route, 'rbtc', dest, '-5.0');
+
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('must be greater than zero');
+	});
+
+	// -------------------------------------------------------------------------
+	// Exceeds maximum (1B+)
+	// -------------------------------------------------------------------------
+
+	it('returns error for amount exceeding maximum (1,000,000,001)', async () => {
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		const result = await startSwapChain(route, 'rbtc', dest, '1000000001');
+
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('exceeds maximum allowed');
+	});
+
+	// -------------------------------------------------------------------------
+	// Double-tap lock — concurrent startSwapChain calls
+	// -------------------------------------------------------------------------
+
+	it('blocks concurrent startSwapChain calls (double-tap lock)', async () => {
+		// Arrange: make Preferences.set hang so the first call holds the lock
+		let resolvePreferencesSet!: (v: void) => void;
+		mockPreferencesSet.mockReturnValue(
+			new Promise<void>((resolve) => {
+				resolvePreferencesSet = resolve;
+			})
+		);
+
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act: start first swap (will hang on saveSwapChainState → Preferences.set)
+		const firstCallPromise = startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Give the first call time to acquire the lock
+		await new Promise((r) => setTimeout(r, 5));
+
+		// Act: try a second startSwapChain while the first is still running
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert: second call is blocked
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('swap is already in progress');
+
+		// Cleanup: release the first call
+		resolvePreferencesSet();
+		await firstCallPromise;
+	});
+
+	// -------------------------------------------------------------------------
+	// Offline guard — startSwapChain
+	// -------------------------------------------------------------------------
+
+	it('returns error when device is offline (startSwapChain)', async () => {
+		// Arrange: simulate offline
+		const originalOnLine = navigator.onLine;
+		Object.defineProperty(navigator, 'onLine', {
+			value: false,
+			writable: true,
+			configurable: true
+		});
+
+		const dest = { type: 'address' as const, chainId: 30, address: DEST_ADDR };
+		const hop = makeDirectHopRBTC();
+		const route = makeRoute([hop]);
+
+		// Act
+		const result = await startSwapChain(route, 'rbtc', dest, VALID_AMOUNT);
+
+		// Assert
+		expect(result.data).toBeNull();
+		expect(result.error).not.toBeNull();
+		expect(result.error!.message).toContain('offline');
+
+		// Cleanup
+		Object.defineProperty(navigator, 'onLine', {
+			value: originalOnLine,
+			writable: true,
+			configurable: true
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// resumeSwapChain with IDLE — nothing to resume
+	// -------------------------------------------------------------------------
+
+	it('resumeSwapChain with IDLE state returns state without error (nothing to resume)', async () => {
+		// Arrange: no persisted state → defaults to INITIAL (IDLE)
+		mockPreferencesGet.mockResolvedValue({ value: null });
+
+		// Act
+		const result = await resumeSwapChain();
+
+		// Assert: IDLE is not a terminal phase and not a resumable phase,
+		// so the orchestrator returns the state as-is without performing any operations
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('IDLE');
+		// No hop executors should be called
+		expect(mockEvmSigner.sendTransaction).not.toHaveBeenCalled();
+		expect(mockSendRBTC).not.toHaveBeenCalled();
+	});
+});

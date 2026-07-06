@@ -190,13 +190,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				usdValue: rbtcUsdValue
 			});
 		} else if (storeState.rsk.connected) {
-			walletStore.update((s) => ({
-				...s,
-				rsk: {
-					...s.rsk,
-					error: 'Failed to fetch balance. Please refresh.'
-				}
-			}));
+			console.warn('[wallet] Failed to fetch RSK balance, using existing balance');
 		}
 
 		// Process RSK token balances (DOC, USDT0, and other ERC-20 tokens)

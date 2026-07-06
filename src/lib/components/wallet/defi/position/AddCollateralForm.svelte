@@ -180,7 +180,7 @@
 <div class="flex flex-col gap-4">
 	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Your wBTC Balance</span>
+			<span class="text-base-content/60">{$t('wallet.defi.position.add_balance')}</span>
 			<span class="font-medium tabular-nums">{formatSats(wbtcBalanceSats)} Sats</span>
 		</div>
 	</div>
@@ -241,6 +241,8 @@
 		onclick={handleSupply}
 		aria-busy={isProcessing}
 	>
-		{isProcessing ? $t('wallet.defi.shared.pending_tx') : `Add ${formatSats(amountNum)} Sats`}
+		{isProcessing
+			? $t('wallet.defi.shared.pending_tx')
+			: $t('wallet.defi.position.add_btn', { values: { amount: formatSats(amountNum) } })}
 	</button>
 </div>

@@ -279,9 +279,9 @@
 				? [
 						{
 							id: 'usdt-bsc',
-							label: 'USD (BSC)',
+							label: $t('wallet.send.asset.usd_bsc'),
 							icon: '/images/chains/Binance-logo.svg',
-							subLabel: 'USDT on Binance Chain',
+							subLabel: $t('wallet.send.asset.usdt_bsc_sub'),
 							balance: `$${usdtBscUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 						}
 					]
@@ -1014,7 +1014,7 @@
 	);
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<div class="send-payment-form flex min-h-0 flex-1 flex-col">
 	<!-- Gasless Send Flow (Arbitrum only) -->
 	{#if isArbitrumNetwork}
 		<GaslessSendFlow {onCancel} />
@@ -1202,7 +1202,7 @@
 						{sourceAssets}
 						destinationNetwork={CHAIN_ID_TO_NETWORK[effectiveDestinationChainId] ?? ''}
 						{isDestinationLocked}
-						destinationLockedLabel={!hasAddress ? '(Enter Address)' : ''}
+						destinationLockedLabel={!hasAddress ? $t('wallet.send.enter_address') : ''}
 						memo={formInput.memo}
 						descriptionExpanded={uiState.descriptionExpanded}
 						detectedMemo={parsedPayment.detectedMemo}
@@ -1250,7 +1250,7 @@
 			{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 			{@const estimatedTime =
 				getNetworkOption(parsedPayment.detectedNetwork ?? '')?.confirmationTime ?? 0}
-			<div class="modal modal-open z-120">
+			<dialog class="modal z-120" open>
 				<div class="modal-box max-w-md">
 					<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>
 					<div class="space-y-4 py-4">
@@ -1360,18 +1360,20 @@
 						</button>
 					</div>
 				</div>
-				<button
-					class="modal-backdrop"
-					onclick={() => (uiState.showSendConfirmation = false)}
-					aria-label={$t('common.close')}
-				></button>
-			</div>
+				<form method="dialog" class="modal-backdrop">
+					<button
+						onclick={() => {
+							uiState.showSendConfirmation = false;
+						}}>close</button
+					>
+				</form>
+			</dialog>
 		{/if}
 	{/if}
 </div>
 
 <style>
-	button {
+	.send-payment-form :global(button) {
 		-webkit-tap-highlight-color: transparent;
 	}
 </style>

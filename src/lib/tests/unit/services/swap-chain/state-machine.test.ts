@@ -1,24 +1,99 @@
 /**
  * Swap Chain State Machine — Unit Tests
  *
- * Tests the pure state-machine functions from `src/lib/services/swap-chain/state.ts`:
+ * Tests functions from `src/lib/services/swap-chain/state.ts`:
+ *
+ * Pure functions (no mocks):
  * - isValidSwapChainTransition
  * - isTerminalPhase
  * - needsResume
  * - getSwapChainStatus
  *
- * These are all pure functions with no side effects — no mocks needed.
+ * Async / side-effect functions (mocked):
+ * - safeAddress
+ * - loadSwapChainState
+ * - saveSwapChainState
+ * - transitionTo
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Hoisted mutable mocks — shared between vi.mock factories and test assertions
+// ---------------------------------------------------------------------------
+
+const { mockPreferencesGet, mockPreferencesSet, mockPreferencesRemove } = vi.hoisted(() => ({
+	mockPreferencesGet: vi.fn(),
+	mockPreferencesSet: vi.fn(),
+	mockPreferencesRemove: vi.fn()
+}));
+
+const { mockCaptureException, mockAddBreadcrumb } = vi.hoisted(() => ({
+	mockCaptureException: vi.fn(),
+	mockAddBreadcrumb: vi.fn()
+}));
+
+const { mockLog, mockWarn, mockError } = vi.hoisted(() => ({
+	mockLog: vi.fn(),
+	mockWarn: vi.fn(),
+	mockError: vi.fn()
+}));
+
+// ---------------------------------------------------------------------------
+// Module mocks
+// ---------------------------------------------------------------------------
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: mockPreferencesGet,
+		set: mockPreferencesSet,
+		remove: mockPreferencesRemove
+	}
+}));
+
+vi.mock('@sentry/sveltekit', () => ({
+	addBreadcrumb: mockAddBreadcrumb,
+	captureException: mockCaptureException
+}));
+
+vi.mock('$lib/utils/debug', () => ({
+	createDebug: () => ({
+		log: mockLog,
+		warn: mockWarn,
+		error: mockError,
+		extend: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() })
+	})
+}));
+
+// ---------------------------------------------------------------------------
+// Imports (after mocks are set up)
+// ---------------------------------------------------------------------------
+
 import {
 	isValidSwapChainTransition,
 	isTerminalPhase,
 	needsResume,
 	getSwapChainStatus,
-	INITIAL_SWAP_CHAIN_STATE
+	INITIAL_SWAP_CHAIN_STATE,
+	safeAddress,
+	loadSwapChainState,
+	saveSwapChainState,
+	transitionTo
 } from '$lib/services/swap-chain/state';
 import type { SwapChainState, SwapChainPhase } from '$lib/services/swap-chain/state';
+
+// ---------------------------------------------------------------------------
+// BeforeEach — reset mocks
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+	vi.clearAllMocks();
+
+	// Default: Preferences.get returns null (no persisted data)
+	mockPreferencesGet.mockResolvedValue({ value: null });
+	mockPreferencesSet.mockResolvedValue(undefined);
+	mockPreferencesRemove.mockResolvedValue(undefined);
+});
 
 // ---------------------------------------------------------------------------
 // isValidSwapChainTransition
@@ -285,5 +360,387 @@ describe('INITIAL_SWAP_CHAIN_STATE', () => {
 
 	it('has zero updatedAt', () => {
 		expect(INITIAL_SWAP_CHAIN_STATE.updatedAt).toBe(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// safeAddress
+// ---------------------------------------------------------------------------
+
+describe('safeAddress', () => {
+	// Known valid Ethereum addresses (checksummed)
+	const VALID_CHECKSUMMED = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+	const VALID_LOWERCASE = '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed';
+	const VALID_MIXED_CASE = '0x5AaEb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+
+	it('returns checksummed address for a valid lowercase address', () => {
+		const result = safeAddress(VALID_LOWERCASE);
+		// ethers.getAddress returns EIP-55 checksummed
+		expect(result).toBe(VALID_CHECKSUMMED);
+		expect(result).not.toBe('');
+	});
+
+	it('returns checksummed address for a valid mixed-case address', () => {
+		const result = safeAddress(VALID_MIXED_CASE);
+		expect(result).toBe(VALID_CHECKSUMMED);
+	});
+
+	it('returns checksummed address for an already-checksummed address', () => {
+		const result = safeAddress(VALID_CHECKSUMMED);
+		expect(result).toBe(VALID_CHECKSUMMED);
+	});
+
+	it('returns empty string for empty string input', () => {
+		expect(safeAddress('')).toBe('');
+	});
+
+	it('returns empty string for null input', () => {
+		expect(safeAddress(null)).toBe('');
+	});
+
+	it('returns empty string for undefined input', () => {
+		expect(safeAddress(undefined)).toBe('');
+	});
+
+	it('returns empty string for an invalid address', () => {
+		expect(safeAddress('not-an-address')).toBe('');
+	});
+
+	it('returns empty string for a too-short hex string', () => {
+		expect(safeAddress('0x1234')).toBe('');
+	});
+
+	it('trims whitespace before validation', () => {
+		const result = safeAddress(`  ${VALID_LOWERCASE}  `);
+		expect(result).toBe(VALID_CHECKSUMMED);
+	});
+
+	it('returns empty string for non-string input (number)', () => {
+		expect(safeAddress(12345 as unknown as string)).toBe('');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// loadSwapChainState
+// ---------------------------------------------------------------------------
+
+describe('loadSwapChainState', () => {
+	it('returns parsed state when Preferences has valid JSON', async () => {
+		const stored: SwapChainState = {
+			...INITIAL_SWAP_CHAIN_STATE,
+			phase: 'SWAP_1_PENDING',
+			amount: '50000',
+			swap1Id: 'swap-abc',
+			updatedAt: 1700000000000
+		};
+		mockPreferencesGet.mockResolvedValueOnce({ value: JSON.stringify(stored) });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('SWAP_1_PENDING');
+		expect(result.amount).toBe('50000');
+		expect(result.swap1Id).toBe('swap-abc');
+		expect(result.updatedAt).toBe(1700000000000);
+	});
+
+	it('returns INITIAL state when Preferences returns null value', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: null });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+		expect(result.swap1Id).toBeNull();
+	});
+
+	it('returns INITIAL state when Preferences returns undefined value', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: undefined });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+	});
+
+	it('returns INITIAL state for corrupt JSON', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: '{not valid json!!' });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+		expect(result).toEqual(expect.objectContaining({ phase: 'IDLE', swap1Id: null }));
+	});
+
+	it('returns INITIAL state for non-object JSON (array)', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: '["a", "b"]' });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+	});
+
+	it('returns INITIAL state for JSON null literal', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: 'null' });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+	});
+
+	it('returns INITIAL state when parsed object has no phase field', async () => {
+		mockPreferencesGet.mockResolvedValueOnce({ value: JSON.stringify({ amount: '100' }) });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+	});
+
+	it('returns INITIAL state when Preferences.get throws', async () => {
+		mockPreferencesGet.mockRejectedValueOnce(new Error('Plugin not available'));
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('IDLE');
+	});
+
+	it('normalizes non-string fields to safe defaults', async () => {
+		const raw = {
+			phase: 'SWAP_1_PENDING',
+			amount: 123, // number, not string
+			swap1Id: null,
+			swap2Id: 42, // number, not string
+			sourceConnectedWalletId: true, // boolean, not string
+			error: 99, // number, not string
+			updatedAt: 'bad' // string, not number
+		};
+		mockPreferencesGet.mockResolvedValueOnce({ value: JSON.stringify(raw) });
+
+		const result = await loadSwapChainState();
+
+		expect(result.phase).toBe('SWAP_1_PENDING');
+		expect(result.amount).toBeNull(); // number → null
+		expect(result.swap2Id).toBeNull(); // number → null
+		expect(result.sourceConnectedWalletId).toBeNull(); // boolean → null
+		expect(result.error).toBeNull(); // number → null
+		expect(result.updatedAt).toBe(0); // string → 0
+	});
+
+	it('preserves valid string fields from parsed data', async () => {
+		const raw = {
+			phase: 'SWAP_2_CONFIRMED',
+			sourceConnectedWalletId: 'wallet-xyz',
+			amount: '99999',
+			swap1Id: 'id-1',
+			swap2Id: 'id-2',
+			error: 'some error',
+			updatedAt: 12345
+		};
+		mockPreferencesGet.mockResolvedValueOnce({ value: JSON.stringify(raw) });
+
+		const result = await loadSwapChainState();
+
+		expect(result.sourceConnectedWalletId).toBe('wallet-xyz');
+		expect(result.amount).toBe('99999');
+		expect(result.swap1Id).toBe('id-1');
+		expect(result.swap2Id).toBe('id-2');
+		expect(result.error).toBe('some error');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// saveSwapChainState
+// ---------------------------------------------------------------------------
+
+describe('saveSwapChainState', () => {
+	it('serializes state and saves to Preferences with correct key', async () => {
+		const state: SwapChainState = {
+			...INITIAL_SWAP_CHAIN_STATE,
+			phase: 'SWAP_1_PENDING',
+			amount: '50000'
+		};
+
+		const result = await saveSwapChainState(state);
+
+		expect(result.error).toBeNull();
+		expect(mockPreferencesSet).toHaveBeenCalledTimes(1);
+		const call = mockPreferencesSet.mock.calls[0][0] as { key: string; value: string };
+		expect(call.key).toBe('bittasker_swap_chain');
+		const parsed = JSON.parse(call.value);
+		expect(parsed.phase).toBe('SWAP_1_PENDING');
+		expect(parsed.amount).toBe('50000');
+		expect(typeof parsed.updatedAt).toBe('number');
+		expect(parsed.updatedAt).toBeGreaterThan(0);
+	});
+
+	it('stamps updatedAt with a recent timestamp', async () => {
+		const before = Date.now();
+		const state: SwapChainState = { ...INITIAL_SWAP_CHAIN_STATE };
+
+		await saveSwapChainState(state);
+
+		const call = mockPreferencesSet.mock.calls[0][0] as { key: string; value: string };
+		const parsed = JSON.parse(call.value);
+		expect(parsed.updatedAt).toBeGreaterThanOrEqual(before);
+		expect(parsed.updatedAt).toBeLessThanOrEqual(Date.now());
+	});
+
+	it('returns error when Preferences.set rejects', async () => {
+		mockPreferencesSet.mockRejectedValueOnce(new Error('Storage full'));
+
+		const result = await saveSwapChainState({ ...INITIAL_SWAP_CHAIN_STATE });
+
+		expect(result.error).toBeInstanceOf(Error);
+		expect(result.error?.message).toBe('Storage full');
+	});
+
+	it('returns error when Preferences.set throws synchronously in tryCatch', async () => {
+		mockPreferencesSet.mockRejectedValueOnce('string error');
+
+		const result = await saveSwapChainState({ ...INITIAL_SWAP_CHAIN_STATE });
+
+		expect(result.error).not.toBeNull();
+	});
+
+	it('does not throw when Preferences is unavailable', async () => {
+		mockPreferencesSet.mockRejectedValueOnce(new Error('Plugin not loaded'));
+
+		// Must not throw
+		await expect(saveSwapChainState({ ...INITIAL_SWAP_CHAIN_STATE })).resolves.toBeDefined();
+	});
+
+	it('returns error when Preferences throws', async () => {
+		mockPreferencesSet.mockRejectedValueOnce(new Error('Unavailable'));
+
+		const result = await saveSwapChainState({ ...INITIAL_SWAP_CHAIN_STATE });
+
+		expect(result.error).toBeDefined();
+		expect(result.error?.message).toContain('Unavailable');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// transitionTo
+// ---------------------------------------------------------------------------
+
+describe('transitionTo', () => {
+	function makeState(
+		phase: SwapChainPhase,
+		overrides: Partial<SwapChainState> = {}
+	): SwapChainState {
+		return { ...INITIAL_SWAP_CHAIN_STATE, phase, ...overrides };
+	}
+
+	it('returns new state with updated phase for valid transition', async () => {
+		const current = makeState('IDLE');
+		const result = await transitionTo(current, 'SWAP_1_PENDING');
+
+		expect(result.error).toBeNull();
+		expect(result.data).not.toBeNull();
+		expect(result.data!.phase).toBe('SWAP_1_PENDING');
+	});
+
+	it('preserves existing state fields through transition', async () => {
+		const current = makeState('SWAP_1_PENDING', { amount: '50000', swap1Id: 'swap-1' });
+		const result = await transitionTo(current, 'SWAP_1_CONFIRMED');
+
+		expect(result.data!.amount).toBe('50000');
+		expect(result.data!.swap1Id).toBe('swap-1');
+		expect(result.data!.phase).toBe('SWAP_1_CONFIRMED');
+	});
+
+	it('allows merging additional updates during transition', async () => {
+		const current = makeState('SWAP_1_PENDING');
+		const result = await transitionTo(current, 'SWAP_1_CONFIRMED', { swap1Id: 'tx-abc' });
+
+		expect(result.data!.swap1Id).toBe('tx-abc');
+		expect(result.data!.phase).toBe('SWAP_1_CONFIRMED');
+	});
+
+	it('returns error for invalid transition', async () => {
+		const current = makeState('IDLE');
+		const result = await transitionTo(current, 'COMPLETE');
+
+		expect(result.data).toBeNull();
+		expect(result.error).toBeInstanceOf(Error);
+		expect(result.error?.message).toContain('Invalid swap chain transition');
+	});
+
+	it('returns error for terminal state transitions', async () => {
+		const current = makeState('FAILED');
+		const result = await transitionTo(current, 'SWAP_1_PENDING');
+
+		expect(result.data).toBeNull();
+		expect(result.error).toBeInstanceOf(Error);
+	});
+
+	it('sets error message when transitioning to FAILED', async () => {
+		const current = makeState('SWAP_1_PENDING');
+		const result = await transitionTo(current, 'FAILED', { error: 'Boltz timeout' });
+
+		expect(result.data!.error).toBe('Boltz timeout');
+		expect(result.data!.phase).toBe('FAILED');
+	});
+
+	it('sets default error message when transitioning to FAILED without explicit error', async () => {
+		const current = makeState('SWAP_1_PENDING');
+		const result = await transitionTo(current, 'FAILED');
+
+		expect(result.data!.error).toBe('Swap chain failed');
+	});
+
+	it('sets default error message when transitioning to PARTIAL without explicit error', async () => {
+		const current = makeState('SWAP_2_PENDING');
+		const result = await transitionTo(current, 'PARTIAL');
+
+		expect(result.data!.error).toBe('Partial completion — hop 2 failed');
+	});
+
+	it('clears error when transitioning to a non-failed phase', async () => {
+		const current = makeState('SWAP_1_PENDING', { error: 'old error' });
+		const result = await transitionTo(current, 'SWAP_1_CONFIRMED');
+
+		expect(result.data!.error).toBeNull();
+	});
+
+	it('captures Sentry exception when transitioning to FAILED', async () => {
+		const current = makeState('SWAP_1_PENDING');
+		await transitionTo(current, 'FAILED', { error: 'timeout' });
+
+		expect(mockCaptureException).toHaveBeenCalledTimes(1);
+		const err = mockCaptureException.mock.calls[0][0] as Error;
+		expect(err.message).toContain('FAILED');
+		expect(err.message).toContain('timeout');
+	});
+
+	it('captures Sentry exception when transitioning to PARTIAL', async () => {
+		const current = makeState('SWAP_2_PENDING');
+		await transitionTo(current, 'PARTIAL', { error: 'hop 2 failed' });
+
+		expect(mockCaptureException).toHaveBeenCalledTimes(1);
+		const err = mockCaptureException.mock.calls[0][0] as Error;
+		expect(err.message).toContain('PARTIAL');
+	});
+
+	it('does NOT capture Sentry exception for non-failure transitions', async () => {
+		const current = makeState('SWAP_1_PENDING');
+		await transitionTo(current, 'SWAP_1_CONFIRMED');
+
+		expect(mockCaptureException).not.toHaveBeenCalled();
+	});
+
+	it('returns error when save fails after transition', async () => {
+		mockPreferencesSet.mockRejectedValueOnce(new Error('Save failed'));
+
+		const current = makeState('IDLE');
+		const result = await transitionTo(current, 'SWAP_1_PENDING');
+
+		expect(result.data).toBeNull();
+		expect(result.error).toBeInstanceOf(Error);
+	});
+
+	it('stamps updatedAt on the new state', async () => {
+		const before = Date.now();
+		const current = makeState('IDLE');
+		const result = await transitionTo(current, 'SWAP_1_PENDING');
+
+		expect(result.data!.updatedAt).toBeGreaterThanOrEqual(before);
 	});
 });

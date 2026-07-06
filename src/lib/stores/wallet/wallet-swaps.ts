@@ -26,8 +26,11 @@ export async function createReverseSwap(
 	description?: string
 ): Promise<{ swapId: string; invoice: string; swapData: BoltzSwapData }> {
 	const manager = getWalletManager();
-	const rskAddress = manager.rskWallet!.getAddress();
-	const walletSigner = manager.rskWallet!.getWallet();
+	if (!manager.rskWallet) {
+		throw new Error('RSK wallet not initialized — cannot create reverse swap');
+	}
+	const rskAddress = manager.rskWallet.getAddress();
+	const walletSigner = manager.rskWallet.getWallet();
 
 	const result = await manager.reverseSwapService.createReverseSwap({
 		amountSats,
@@ -47,8 +50,11 @@ export async function createChainSwap(
 	description?: string
 ): Promise<{ swapId: string; liquidUri: string; swapData: ChainSwapData }> {
 	const manager = getWalletManager();
-	const rskAddress = manager.rskWallet!.getAddress();
-	const walletSigner = manager.rskWallet!.getWallet();
+	if (!manager.rskWallet) {
+		throw new Error('RSK wallet not initialized — cannot create chain swap');
+	}
+	const rskAddress = manager.rskWallet.getAddress();
+	const walletSigner = manager.rskWallet.getWallet();
 
 	const result = await manager.chainSwapService!.createChainSwap({
 		amountSats,

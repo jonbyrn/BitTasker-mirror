@@ -221,13 +221,22 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		}
 	});
 
-	/** True when live gas price data is available for the current source type. */
-	const gasDataAvailable = $derived(
-		(currentSourceType === 'rbtc' && rskGasPriceWei > 0n) ||
-			((currentSourceType === 'wbtc-arb' || currentSourceType === 'tbtc-arb') &&
-				arbGasPriceWei > 0n) ||
+	/** True when live gas price data is available for the current source type.
+	 *  For Arbitrum sources, also requires live ETH and BTC prices (needed for
+	 *  wei → sats conversion). Without prices, the fee estimate would be wrong. */
+	const gasDataAvailable = $derived.by(() => {
+		if (currentSourceType === 'rbtc') {
+			return rskGasPriceWei > 0n;
+		}
+		if (
+			currentSourceType === 'wbtc-arb' ||
+			currentSourceType === 'tbtc-arb' ||
 			currentSourceType === 'usdt0-arb'
-	);
+		) {
+			return arbGasPriceWei > 0n && ethUsdPrice > 0 && btcUsdPrice > 0;
+		}
+		return false;
+	});
 
 	// ---------------------------------------------------------------------------
 	// Route resolution effect (400ms debounce + single resolveRoutes call)
@@ -370,10 +379,10 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 					return sats;
 				}
 				// ETH gas (Arbitrum): convert wei → ETH → USD → BTC → sats
-				const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
-				const btcP = btcUsdPrice > 0 ? btcUsdPrice : 74000;
+				// Can't compute without live prices — return 0 (gasDataAvailable will be false)
+				if (ethUsdPrice <= 0 || btcUsdPrice <= 0) return 0;
 				const gasCostEth = Number(gasWei) / 1e18;
-				const sats = Math.round(((gasCostEth * ethPrice) / btcP) * 100_000_000);
+				const sats = Math.round(((gasCostEth * ethUsdPrice) / btcUsdPrice) * 100_000_000);
 				d.log('networkFeeSats: ETH gasCostWei → %d sats (eth=%.6f)', sats, gasCostEth);
 				return Math.max(sats, 1);
 			} catch (e) {
@@ -389,10 +398,10 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 				if (currentSourceType === 'rbtc' || currentSourceType === 'btc-onchain') {
 					return Number(gasWei / 10_000_000_000n);
 				}
-				const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
-				const btcP = btcUsdPrice > 0 ? btcUsdPrice : 74000;
+				// Can't compute ETH gas without live prices
+				if (ethUsdPrice <= 0 || btcUsdPrice <= 0) return 0;
 				const gasCostEth = Number(gasWei) / 1e18;
-				return Math.round(Math.max(((gasCostEth * ethPrice) / btcP) * 100_000_000, 1));
+				return Math.round(Math.max(((gasCostEth * ethUsdPrice) / btcUsdPrice) * 100_000_000, 1));
 			} catch (e) {
 				d.warn('Failed to parse fallback gasCostWei', e);
 			}
@@ -415,13 +424,13 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			currentSourceType === 'wbtc-arb' ||
 			currentSourceType === 'tbtc-arb'
 		) {
+			// Can't compute ETH gas without live prices — gasDataAvailable will be false
+			if (ethUsdPrice <= 0 || btcUsdPrice <= 0) return 0;
 			const gasLimit = isSimpleTransfer ? 65_000n : 300_000n;
 			const gasPrice = arbGasPriceWei > 0n ? arbGasPriceWei : 30_000_000n;
 			const gasCostWei = gasLimit * gasPrice;
-			const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
-			const btcP = btcUsdPrice > 0 ? btcUsdPrice : 74000;
 			const gasCostEth = Number(gasCostWei) / 1e18;
-			const gasCostSats = ((gasCostEth * ethPrice) / btcP) * 100_000_000;
+			const gasCostSats = ((gasCostEth * ethUsdPrice) / btcUsdPrice) * 100_000_000;
 			return Math.round(Math.max(gasCostSats, 1));
 		}
 

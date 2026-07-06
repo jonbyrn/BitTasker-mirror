@@ -28,7 +28,11 @@ const {
 	mockGetBSCUSDTContractAddress,
 	mockGetUSDTContractAddressForNetwork,
 	mockEvmSigner,
-	mockBitcoinSigner
+	mockBitcoinSigner,
+	mockGetHandle,
+	mockGetBitcoinSigner,
+	mockStartSwapChain,
+	mockGetSwapChainStatus
 } = vi.hoisted(() => {
 	const evmSigner = {
 		type: 'evm' as const,
@@ -66,7 +70,11 @@ const {
 		mockGetBSCUSDTContractAddress: vi.fn(),
 		mockGetUSDTContractAddressForNetwork: vi.fn(),
 		mockEvmSigner: evmSigner,
-		mockBitcoinSigner: bitcoinSigner
+		mockBitcoinSigner: bitcoinSigner,
+		mockGetHandle: vi.fn(),
+		mockGetBitcoinSigner: vi.fn(),
+		mockStartSwapChain: vi.fn(),
+		mockGetSwapChainStatus: vi.fn()
 	};
 });
 
@@ -95,6 +103,21 @@ vi.mock('$lib/services/external-wallet/chain-utils', () => ({
 	getUSDTContractAddressForNetwork: mockGetUSDTContractAddressForNetwork
 }));
 
+vi.mock('$lib/stores/connected-wallets.store', () => ({
+	getHandle: mockGetHandle,
+	getBitcoinSigner: mockGetBitcoinSigner
+}));
+
+vi.mock('$lib/services/swap-chain.service', () => ({
+	startSwapChain: mockStartSwapChain,
+	getSwapChainStatus: mockGetSwapChainStatus
+}));
+
+vi.mock('@sentry/sveltekit', () => ({
+	addBreadcrumb: vi.fn(),
+	captureException: vi.fn()
+}));
+
 // ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------
@@ -112,8 +135,10 @@ import {
 	CONNECTED_HANDLERS,
 	convertUsdToERC20Units,
 	convertSatsToBigInt,
+	executeSend,
 	type SendParams,
-	type ConnectedSendParams
+	type ConnectedSendParams,
+	type ExecuteSendParams
 } from '$lib/services/send-execution.service';
 
 // ---------------------------------------------------------------------------
@@ -698,6 +723,463 @@ describe('send-execution.service', () => {
 					value: 21_000_000_00_000_000n * 10n ** 10n
 				})
 			);
+		});
+	});
+
+	// -------------------------------------------------------------------
+	// executeSend orchestrator
+	// -------------------------------------------------------------------
+
+	describe('executeSend orchestrator', () => {
+		function makeExecuteSendParams(overrides?: Partial<ExecuteSendParams>): ExecuteSendParams {
+			return {
+				network: 'rootstock-bitcoin',
+				recipient: '0xRecipient111111111111111111111111111111111111',
+				amountInSats: 100_000,
+				amountInUSD: 50.0,
+				memo: 'test payment',
+				selectedWalletId: 'builtin',
+				parsedPayment: { data: null },
+				walletManager: {
+					sendRBTC: mockSendRBTC,
+					sendBSCUSDT: mockSendBSCUSDT,
+					createSubmarineSwap: mockCreateSubmarineSwap,
+					lockSubmarineSwapFunds: mockLockSubmarineSwapFunds
+				} as unknown as ExecuteSendParams['walletManager'],
+				route: null,
+				sourceWalletId: 'rbtc',
+				dest: null,
+				...overrides
+			};
+		}
+
+		beforeEach(() => {
+			mockGetHandle.mockReturnValue({
+				id: 'wallet-1',
+				walletName: 'MetaMask',
+				address: '0xConnectedAddr',
+				evmSigner: mockEvmSigner,
+				bitcoinSigner: mockBitcoinSigner
+			});
+			mockGetBitcoinSigner.mockReturnValue(mockBitcoinSigner);
+			mockGetSwapChainStatus.mockReturnValue({
+				isActive: true,
+				isComplete: false,
+				isFailed: false,
+				isPartial: false,
+				message: ''
+			});
+		});
+
+		it('dispatches to correct BUILTIN_HANDLERS entry for built-in wallet', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'rootstock-bitcoin',
+					selectedWalletId: 'builtin'
+				})
+			);
+
+			expect(mockSendRBTC).toHaveBeenCalled();
+			expect(result.txHash).toBe('0xrbtctx789');
+		});
+
+		it('dispatches to lightning builtin handler', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'lightning-bitcoin',
+					selectedWalletId: 'builtin',
+					recipient: 'lnbc500n1test'
+				})
+			);
+
+			expect(mockCreateSubmarineSwap).toHaveBeenCalled();
+			expect(result.pendingSwapId).toBe('swap-abc-123');
+			expect(result.earlyReturn).toBe(true);
+		});
+
+		it('dispatches to correct CONNECTED_HANDLERS entry for connected wallet', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'rootstock-bitcoin',
+					selectedWalletId: 'wallet-1'
+				})
+			);
+
+			expect(mockGetHandle).toHaveBeenCalledWith('wallet-1');
+			expect(mockEvmSigner.sendTransaction).toHaveBeenCalled();
+			expect(result.txHash).toBe('0xtxhash123');
+		});
+
+		it('dispatches connected bitcoin handler', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'bitcoin',
+					selectedWalletId: 'wallet-1'
+				})
+			);
+
+			expect(mockGetBitcoinSigner).toHaveBeenCalledWith('wallet-1');
+			expect(mockBitcoinSigner.sendBitcoin).toHaveBeenCalled();
+			expect(result.txHash).toBe('0xbtctxhash456');
+		});
+
+		it('throws for unknown network with built-in wallet', async () => {
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						network: 'unknown-network',
+						selectedWalletId: 'builtin'
+					})
+				)
+			).rejects.toThrow('No built-in handler registered for network: unknown-network');
+		});
+
+		it('throws for unknown network with connected wallet', async () => {
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						network: 'unknown-network',
+						selectedWalletId: 'wallet-1'
+					})
+				)
+			).rejects.toThrow('No connected handler registered for network: unknown-network');
+		});
+
+		it('propagates handler errors', async () => {
+			mockSendRBTC.mockRejectedValueOnce(new Error('insufficient funds'));
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						network: 'rootstock-bitcoin',
+						selectedWalletId: 'builtin'
+					})
+				)
+			).rejects.toThrow('insufficient funds');
+		});
+
+		it('calls startSwapChain when route has hops > 1', async () => {
+			const mockSwapState = {
+				phase: 'SWAP_1_PENDING',
+				route: { id: 'route-1', hops: [{}, {}] },
+				sourceWallet: 'rbtc',
+				destination: { type: 'invoice', network: 'lightning', invoice: 'lnbc...' },
+				sourceConnectedWalletId: null,
+				amount: '100000',
+				swap1Id: null,
+				swap2Id: null,
+				swap1Details: null,
+				swap2Details: null,
+				error: null,
+				updatedAt: Date.now()
+			};
+			mockStartSwapChain.mockResolvedValue({ data: mockSwapState, error: null });
+
+			const route = {
+				id: 'route-1',
+				label: 'RBTC → Lightning',
+				hops: [
+					{
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'direct' as const,
+						fromAsset: 'BTC',
+						fromChain: 'lightning',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '10-30 min',
+				recommended: true
+			};
+
+			const dest = {
+				type: 'invoice' as const,
+				network: 'lightning' as const,
+				invoice: 'lnbc...'
+			};
+
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'lightning-bitcoin',
+					selectedWalletId: 'builtin',
+					route,
+					sourceWalletId: 'rbtc',
+					dest
+				})
+			);
+
+			expect(mockStartSwapChain).toHaveBeenCalledWith(
+				route,
+				'rbtc',
+				dest,
+				'100000',
+				null // builtin → no connected wallet ID
+			);
+			expect(result.txHash).toBeNull();
+			expect(result.pendingSwapChain).toEqual(mockSwapState);
+		});
+
+		it('passes connected wallet ID to startSwapChain for connected source', async () => {
+			const mockSwapState = {
+				phase: 'SWAP_1_PENDING',
+				route: null,
+				sourceWallet: null,
+				destination: null,
+				sourceConnectedWalletId: 'wallet-1',
+				amount: '50000',
+				swap1Id: null,
+				swap2Id: null,
+				swap1Details: null,
+				swap2Details: null,
+				error: null,
+				updatedAt: Date.now()
+			};
+			mockStartSwapChain.mockResolvedValue({ data: mockSwapState, error: null });
+
+			const route = {
+				id: 'route-2',
+				label: 'Test route',
+				hops: [
+					{
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'direct' as const,
+						fromAsset: 'BTC',
+						fromChain: 'lightning',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '10-30 min',
+				recommended: true
+			};
+
+			const dest = {
+				type: 'invoice' as const,
+				network: 'lightning' as const,
+				invoice: 'lnbc...'
+			};
+
+			await executeSend(
+				makeExecuteSendParams({
+					network: 'lightning-bitcoin',
+					selectedWalletId: 'wallet-1',
+					route,
+					sourceWalletId: 'rbtc',
+					dest
+				})
+			);
+
+			expect(mockStartSwapChain).toHaveBeenCalledWith(
+				route,
+				'rbtc',
+				dest,
+				'100000',
+				'wallet-1' // connected wallet ID
+			);
+		});
+
+		it('throws when swap chain returns error', async () => {
+			mockStartSwapChain.mockResolvedValue({
+				data: null,
+				error: new Error('Swap chain failed: timeout')
+			});
+
+			const route = {
+				id: 'route-err',
+				label: 'Test',
+				hops: [
+					{
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'direct' as const,
+						fromAsset: 'BTC',
+						fromChain: 'lightning',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '10-30 min',
+				recommended: true
+			};
+
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						selectedWalletId: 'builtin',
+						route,
+						sourceWalletId: 'rbtc',
+						dest: { type: 'invoice' as const, network: 'lightning' as const, invoice: 'lnbc...' }
+					})
+				)
+			).rejects.toThrow('Swap chain failed: timeout');
+		});
+
+		it('throws when swap chain status is failed', async () => {
+			const failedState = {
+				phase: 'FAILED',
+				route: null,
+				sourceWallet: null,
+				destination: null,
+				sourceConnectedWalletId: null,
+				amount: '100000',
+				swap1Id: null,
+				swap2Id: null,
+				swap1Details: null,
+				swap2Details: null,
+				error: 'Hop execution failed',
+				updatedAt: Date.now()
+			};
+			mockStartSwapChain.mockResolvedValue({ data: failedState, error: null });
+			mockGetSwapChainStatus.mockReturnValue({
+				isActive: false,
+				isComplete: false,
+				isFailed: true,
+				isPartial: false,
+				message: 'Hop execution failed'
+			});
+
+			const route = {
+				id: 'route-fail',
+				label: 'Test',
+				hops: [
+					{
+						service: 'boltz' as const,
+						fromAsset: 'RBTC',
+						fromChain: 'rsk',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0.5,
+						estimatedTimeMin: 10,
+						estimatedTimeMax: 30
+					},
+					{
+						service: 'direct' as const,
+						fromAsset: 'BTC',
+						fromChain: 'lightning',
+						toAsset: 'BTC',
+						toChain: 'lightning',
+						feePercent: 0,
+						estimatedTimeMin: 1,
+						estimatedTimeMax: 2
+					}
+				],
+				totalFeePercent: 0.5,
+				estimatedTime: '10-30 min',
+				recommended: true
+			};
+
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						selectedWalletId: 'builtin',
+						route,
+						sourceWalletId: 'rbtc',
+						dest: { type: 'invoice' as const, network: 'lightning' as const, invoice: 'lnbc...' }
+					})
+				)
+			).rejects.toThrow('Hop execution failed');
+		});
+
+		it('throws EVMSignerNotAvailableError when evmSigner is missing', async () => {
+			mockGetHandle.mockReturnValue({
+				id: 'wallet-1',
+				walletName: 'Trezor',
+				address: '0xAddr',
+				evmSigner: undefined,
+				bitcoinSigner: mockBitcoinSigner
+			});
+
+			await expect(
+				executeSend(
+					makeExecuteSendParams({
+						network: 'rootstock-bitcoin',
+						selectedWalletId: 'wallet-1'
+					})
+				)
+			).rejects.toThrow('EVM signer not available');
+		});
+
+		it('does not enter swap-chain path when route has only 1 hop', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'rootstock-bitcoin',
+					selectedWalletId: 'builtin',
+					route: {
+						id: 'single-hop',
+						label: 'Direct',
+						hops: [
+							{
+								service: 'direct',
+								fromAsset: 'RBTC',
+								fromChain: 'rsk',
+								toAsset: 'RBTC',
+								toChain: 'rsk',
+								feePercent: 0,
+								estimatedTimeMin: 1,
+								estimatedTimeMax: 2
+							}
+						],
+						totalFeePercent: 0,
+						estimatedTime: '1-2 min',
+						recommended: true
+					}
+				})
+			);
+
+			// Should fall through to the built-in handler, not swap chain
+			expect(mockStartSwapChain).not.toHaveBeenCalled();
+			expect(mockSendRBTC).toHaveBeenCalled();
+			expect(result.txHash).toBe('0xrbtctx789');
+		});
+
+		it('does not enter swap-chain path when route is null', async () => {
+			const result = await executeSend(
+				makeExecuteSendParams({
+					network: 'rootstock-bitcoin',
+					selectedWalletId: 'builtin',
+					route: null
+				})
+			);
+
+			expect(mockStartSwapChain).not.toHaveBeenCalled();
+			expect(result.txHash).toBe('0xrbtctx789');
 		});
 	});
 });

@@ -45,6 +45,11 @@ const { mockSendConnectedWalletArbitrumTx } = vi.hoisted(() => ({
 	mockSendConnectedWalletArbitrumTx: vi.fn().mockResolvedValue('0xclaimedtx')
 }));
 
+const { mockClaimRbtcOnRsk, mockClaimTbtcOnArbitrum } = vi.hoisted(() => ({
+	mockClaimRbtcOnRsk: vi.fn().mockResolvedValue(null),
+	mockClaimTbtcOnArbitrum: vi.fn().mockResolvedValue(null)
+}));
+
 const { mockLog, mockWarn, mockError } = vi.hoisted(() => ({
 	mockLog: vi.fn(),
 	mockWarn: vi.fn(),
@@ -149,11 +154,20 @@ vi.mock('$lib/utils/tryCatch', () => ({
 	}
 }));
 
+vi.mock('$lib/services/swap-chain/boltz/claims', () => ({
+	claimTbtcOnArbitrum: mockClaimTbtcOnArbitrum,
+	claimRbtcOnRsk: mockClaimRbtcOnRsk
+}));
+
 vi.mock('$lib/services/swap-chain/abi', () => ({
 	encodeEtherSwapLock: vi.fn().mockReturnValue('0xlockcalldata'),
 	encodeEtherSwapClaim: vi.fn().mockReturnValue('0xclaimcalldata'),
 	encodeERC20SwapClaim: vi.fn().mockReturnValue('0xerc20claimcalldata'),
 	encodeEtherSwapRefund: vi.fn().mockReturnValue('0xrefundcalldata')
+}));
+
+vi.mock('ethers', () => ({
+	getAddress: (addr: string) => addr.toLowerCase()
 }));
 
 vi.mock('@sentry/sveltekit', () => ({
@@ -225,6 +239,10 @@ beforeEach(() => {
 
 	// Default: loadClaimDataFromNostr returns null
 	mockLoadClaimDataFromNostr.mockResolvedValue(null);
+
+	// Default: claim mocks succeed (return null = no error)
+	mockClaimRbtcOnRsk.mockResolvedValue(null);
+	mockClaimTbtcOnArbitrum.mockResolvedValue(null);
 
 	// Default: sendRawTransaction succeeds
 	mockSendRawTransaction.mockResolvedValue('0xclaimedtx');

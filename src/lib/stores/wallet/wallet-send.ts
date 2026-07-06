@@ -106,7 +106,8 @@ export async function sendArbitrumTransaction(params: {
 	console.warn('[sendArbitrumTransaction] Falling back to direct tx with ETH for gas');
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
-	const arbProvider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+	const ARB_RPC = import.meta.env.VITE_ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc';
+	const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
 	const arbWallet = wallet.connect(arbProvider);
 	const tx = await arbWallet.sendTransaction({
 		to: params.to,
@@ -186,7 +187,10 @@ export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
  */
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
-	const txHash = await manager.bscWallet!.sendBNB(to, amount);
+	if (!manager.bscWallet) {
+		throw new Error('BSC wallet not initialized — cannot send BNB');
+	}
+	const txHash = await manager.bscWallet.sendBNB(to, amount);
 
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);

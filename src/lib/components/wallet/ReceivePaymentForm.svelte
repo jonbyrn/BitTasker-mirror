@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { walletStore, walletManager, formatSats, allAssets } from '$lib/stores/wallet.store';
+	import {
+		walletStore,
+		walletManager,
+		formatSats,
+		formatUsd,
+		allAssets
+	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
@@ -122,24 +128,24 @@
 		return [
 			{
 				id: 'rbtc',
-				label: 'Bitcoin (rBTC)',
+				label: $t('wallet.receive.bitcoin_rbtc'),
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-				subLabel: 'Bitcoin on Rootstock',
+				subLabel: $t('wallet.receive.bitcoin_on_rootstock'),
 				balance: formatSats(rbtcSats) + ' Sats',
 				balanceSub: rbtcUsd > 0 ? `≈ $${rbtcUsd.toFixed(2)}` : undefined
 			},
 			{
 				id: 'usdt0-arb',
-				label: 'USD',
+				label: $t('wallet.receive.usd'),
 				icon: '/images/chains/Tether-USD.svg',
-				subLabel: 'USDT0 on Arbitrum',
-				balance: usdt0Usd > 0 ? `$${usdt0Usd.toFixed(2)}` : '$0.00'
+				subLabel: $t('wallet.receive.usdt0_arbitrum'),
+				balance: usdt0Usd > 0 ? formatUsd(usdt0Usd) : formatUsd(0)
 			},
 			{
 				id: 'wbtc-arb',
-				label: 'Bitcoin (wBTC)',
+				label: $t('wallet.receive.bitcoin_wbtc'),
 				icon: '/images/chains/arbitrum.png',
-				subLabel: 'Wrapped BTC on Arbitrum',
+				subLabel: $t('wallet.receive.wbtc_arbitrum'),
 				balance: formatSats(wbtcSats) + ' Sats',
 				balanceSub: wbtcUsd > 0 ? `≈ $${wbtcUsd.toFixed(2)}` : undefined
 			},
@@ -147,9 +153,9 @@
 				? [
 						{
 							id: 'tbtc-arb' as const,
-							label: 'Bitcoin (tBTC)',
+							label: $t('wallet.receive.bitcoin_tbtc'),
 							icon: '/images/tokens/tbtc.png',
-							subLabel: 'Bridged BTC on Arbitrum',
+							subLabel: $t('wallet.receive.bridged_btc_arbitrum'),
 							balance: formatSats(tbtcSats) + ' Sats',
 							balanceSub: tbtcUsd > 0 ? `≈ $${tbtcUsd.toFixed(2)}` : undefined
 						}

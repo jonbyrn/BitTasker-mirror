@@ -605,6 +605,7 @@
 				"tron": "TRON"
 			},
 			"address_label": "Recipient address",
+			"enter_address": "(Enter Address)",
 			"asset": {
 				"rbtc": "Bitcoin (rBTC)",
 				"rbtc_sub": "Bitcoin on Rootstock",
@@ -613,7 +614,9 @@
 				"wbtc": "Bitcoin (wBTC)",
 				"wbtc_sub": "Wrapped BTC on Arbitrum",
 				"tbtc": "Bitcoin (tBTC)",
-				"tbtc_sub": "Bridged BTC on Arbitrum"
+				"tbtc_sub": "Bridged BTC on Arbitrum",
+				"usd_bsc": "USD (BSC)",
+				"usdt_bsc_sub": "USDT on Binance Chain"
 			}
 		},
 		"swap_chain": {
@@ -733,7 +736,15 @@
 			"claim_rbtc": "Claim RBTC",
 			"claiming": "Claiming...",
 			"dismiss_claim": "Dismiss",
-			"claim_wallet_not_connected": "Wallet not connected. Please reconnect to claim."
+			"claim_wallet_not_connected": "Wallet not connected. Please reconnect to claim.",
+			"bitcoin_rbtc": "Bitcoin (rBTC)",
+			"bitcoin_on_rootstock": "Bitcoin on Rootstock",
+			"usd": "USD",
+			"usdt0_arbitrum": "USDT0 on Arbitrum",
+			"bitcoin_wbtc": "Bitcoin (wBTC)",
+			"wbtc_arbitrum": "Wrapped BTC on Arbitrum",
+			"bitcoin_tbtc": "Bitcoin (tBTC)",
+			"bridged_btc_arbitrum": "Bridged BTC on Arbitrum"
 		},
 		"initializing": "Initializing wallet...",
 		"buy_sell": {
@@ -1821,6 +1832,7 @@
 				"repay_exceeds_balance": "Exceeds your USDT0 balance of {amount}.",
 				"repay_btn": "Repay ${amount}",
 				"supply_exceeds_balance": "Exceeds your wallet balance of {amount} Sats.",
+				"add_btn": "Add {amount} Sats",
 				"withdraw_exceeds_max": "Exceeds your total collateral of {amount}.",
 				"withdraw_btn": "Withdraw {amount} Sats",
 				"close_approval_unconfirmed": "USDT0 approval transaction could not be confirmed.",

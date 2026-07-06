@@ -316,7 +316,7 @@ export function cleanupExpiredSwaps(
 			`Deleting ${swapsToDelete.length} expired swap(s) from Nostr:`,
 			swapsToDelete.map((s) => s.id)
 		);
-		Promise.all(
+		Promise.allSettled(
 			swapsToDelete.map(({ id, type }) => {
 				const service =
 					type === 'submarine'
@@ -326,8 +326,14 @@ export function cleanupExpiredSwaps(
 							: manager.chainSwapService;
 				return service.deleteSwap(id);
 			})
-		).catch((error) => {
-			console.error('Failed to delete expired swaps:', error);
+		).then((results) => {
+			const failures = results.filter((r) => r.status === 'rejected');
+			if (failures.length > 0) {
+				console.error(
+					`Failed to delete ${failures.length}/${swapsToDelete.length} expired swap(s):`,
+					failures.map((r) => (r as PromiseRejectedResult).reason)
+				);
+			}
 		});
 	}
 }

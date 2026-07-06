@@ -475,6 +475,7 @@
 		"view_all_transactions_tab": "Cambia a la pestaña de transacciones para ver actividad",
 		"send": {
 			"title": "Enviar Pago",
+			"enter_address": "(Introducir Dirección)",
 			"transaction_sent": "Transacción enviada exitosamente",
 			"transaction_sending": "La transacción se está enviando...",
 			"sending_transaction": "Enviando Transacción",
@@ -583,7 +584,9 @@
 				"wbtc": "Bitcoin (wBTC)",
 				"wbtc_sub": "WBTC en Arbitrum",
 				"tbtc": "Bitcoin (tBTC)",
-				"tbtc_sub": "tBTC en Arbitrum"
+				"tbtc_sub": "tBTC en Arbitrum",
+				"usd_bsc": "USD (BSC)",
+				"usdt_bsc_sub": "USDT en Binance Chain"
 			}
 		},
 		"swap_chain": {
@@ -875,7 +878,15 @@
 			"claim_rbtc": "Reclamar RBTC",
 			"claiming": "Reclamando...",
 			"dismiss_claim": "Descartar",
-			"claim_wallet_not_connected": "Billetera no conectada. Reconecta para reclamar."
+			"claim_wallet_not_connected": "Billetera no conectada. Reconecta para reclamar.",
+			"bitcoin_rbtc": "Bitcoin (rBTC)",
+			"bitcoin_on_rootstock": "Bitcoin en Rootstock",
+			"usd": "USD",
+			"usdt0_arbitrum": "USDT0 en Arbitrum",
+			"bitcoin_wbtc": "Bitcoin (wBTC)",
+			"wbtc_arbitrum": "BTC envuelto en Arbitrum",
+			"bitcoin_tbtc": "Bitcoin (tBTC)",
+			"bridged_btc_arbitrum": "BTC puenteado en Arbitrum"
 		},
 		"swap": {
 			"title": "Intercambiar Activos Digitales",
@@ -1759,6 +1770,7 @@
 				"repay_btn": "Pagar ${amount}",
 				"borrow_exceeds_available": "Excede el monto disponible de préstamo de {amount}.",
 				"supply_exceeds_balance": "Excede el saldo de tu billetera de {amount} Sats.",
+				"add_btn": "Agregar {amount} Sats",
 				"gas_warning": "Necesitas ETH en Arbitrum para las comisiones de gas. Tu saldo actual es demasiado bajo.",
 				"cancel": "Cancelar",
 				"confirm_borrow_desc": "Estás pidiendo prestado {amount} contra tu garantía Bitcoin.",

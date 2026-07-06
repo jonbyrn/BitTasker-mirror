@@ -90,11 +90,14 @@ export async function getRSKAddress(): Promise<string> {
 		return storeState.rsk.address;
 	}
 
-	const address = await initialize().then(() => {
-		return get(walletStore).rsk.address;
-	});
+	try {
+		await initialize();
+	} catch (err) {
+		console.error('[wallet-init] Initialization failed in getRSKAddress:', err);
+		return '';
+	}
 
-	return address || '';
+	return get(walletStore).rsk.address || '';
 }
 
 /**
@@ -149,8 +152,8 @@ export async function initialize(): Promise<void> {
 		if (state.sdkWalletManager) {
 			try {
 				state.sdkWalletManager.dispose();
-			} catch {
-				// Ignore disposal errors
+			} catch (err) {
+				console.warn('[wallet-init] Disposal error:', err);
 			}
 		}
 
@@ -265,8 +268,8 @@ export function softCleanup(): void {
 	if (state.sdkWalletManager) {
 		try {
 			state.sdkWalletManager.dispose();
-		} catch {
-			// Ignore disposal errors
+		} catch (err) {
+			console.warn('[wallet-init] softCleanup disposal error:', err);
 		}
 		state.sdkWalletManager = null;
 	}
