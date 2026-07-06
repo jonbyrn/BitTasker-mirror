@@ -93,10 +93,10 @@ function composeTwoHopRoute(
 	const minTime = Math.min(hop1.estimatedTimeMin, hop2.estimatedTimeMin);
 	const maxTime = Math.max(hop1.estimatedTimeMax, hop2.estimatedTimeMax);
 
-	// Merge gas costs if present
-	const gas1 = hop1.gasCostWei;
-	const gas2 = hop2.gasCostWei;
-	const gasCostWei = gas1 && gas2 ? (BigInt(gas1) + BigInt(gas2)).toString() : (gas1 ?? gas2);
+	// Gas cost: only use hop1 (source chain) gas. Hop2 gas is on a different
+	// chain (different currency) and must NOT be added — adding RBTC wei + ETH
+	// wei is meaningless and inflates the fee when converted to sats.
+	const gasCostWei = hop1.gasCostWei;
 
 	// Merge fee costs if present
 	const feeCosts = [...(hop1.feeCosts ?? []), ...(hop2.feeCosts ?? [])];

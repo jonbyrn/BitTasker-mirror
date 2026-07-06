@@ -1465,9 +1465,15 @@ export async function sendRawTransaction(params: {
 	data: string;
 	value: string;
 	gasLimit?: number;
+	chain?: 'rsk' | 'bsc';
 }): Promise<string> {
 	const manager = getWalletManager();
-	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
+	const chain = params.chain ?? 'rsk';
+	const wallet =
+		chain === 'bsc'
+			? (manager.bscWallet.getWallet() as import('ethers').Wallet)
+			: (manager.rskWallet.getWallet() as import('ethers').Wallet);
+
 	const tx = await wallet.sendTransaction({
 		to: params.to,
 		data: params.data,

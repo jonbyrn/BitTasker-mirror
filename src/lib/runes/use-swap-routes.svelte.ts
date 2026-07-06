@@ -108,6 +108,9 @@ export interface UseSwapRoutes {
 	networkFeeSats: number;
 	activeRouteForCalc: Route | null;
 
+	/** True when live gas price data is available for the current source type. */
+	gasDataAvailable: boolean;
+
 	/** Minimum swap amount in sats (default for Boltz-eligible pairs). 0 = no minimum. */
 	minSwapSats: number;
 
@@ -217,6 +220,14 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			return 0n;
 		}
 	});
+
+	/** True when live gas price data is available for the current source type. */
+	const gasDataAvailable = $derived(
+		(currentSourceType === 'rbtc' && rskGasPriceWei > 0n) ||
+			((currentSourceType === 'wbtc-arb' || currentSourceType === 'tbtc-arb') &&
+				arbGasPriceWei > 0n) ||
+			currentSourceType === 'usdt0-arb'
+	);
 
 	// ---------------------------------------------------------------------------
 	// Route resolution effect (400ms debounce + single resolveRoutes call)
@@ -347,25 +358,41 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	const networkFeeSats = $derived.by(() => {
 		if (amountSats <= 0) return 0;
 
-		// 1. Try recommended route's gasCostWei
+		// 1. Try recommended route's gasCostWei — convert to sats based on chain
 		const rec = engineResult.recommended;
 		if (rec?.gasCostWei) {
 			try {
 				const gasWei = BigInt(rec.gasCostWei);
-				const sats = Number(gasWei / 10_000_000_000n);
-				d.log('networkFeeSats: using recommended gasCostWei → %d sats', sats);
-				return sats;
+				// RBTC gas (RSK): 1 RBTC = 10^18 wei = 10^8 sats → 1 sat = 10^10 wei
+				if (currentSourceType === 'rbtc' || currentSourceType === 'btc-onchain') {
+					const sats = Number(gasWei / 10_000_000_000n);
+					d.log('networkFeeSats: RBTC gasCostWei → %d sats', sats);
+					return sats;
+				}
+				// ETH gas (Arbitrum): convert wei → ETH → USD → BTC → sats
+				const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
+				const btcP = btcUsdPrice > 0 ? btcUsdPrice : 74000;
+				const gasCostEth = Number(gasWei) / 1e18;
+				const sats = Math.round(((gasCostEth * ethPrice) / btcP) * 100_000_000);
+				d.log('networkFeeSats: ETH gasCostWei → %d sats (eth=%.6f)', sats, gasCostEth);
+				return Math.max(sats, 1);
 			} catch (e) {
 				d.warn('Failed to parse recommended gasCostWei', e);
 			}
 		}
 
-		// 2. Try any route with gasCostWei
+		// 2. Try any route with gasCostWei — same chain-aware conversion
 		const fallbackRoute = activeRouteForCalc;
 		if (fallbackRoute?.gasCostWei) {
 			try {
 				const gasWei = BigInt(fallbackRoute.gasCostWei);
-				return Number(gasWei / 10_000_000_000n);
+				if (currentSourceType === 'rbtc' || currentSourceType === 'btc-onchain') {
+					return Number(gasWei / 10_000_000_000n);
+				}
+				const ethPrice = ethUsdPrice > 0 ? ethUsdPrice : 2500;
+				const btcP = btcUsdPrice > 0 ? btcUsdPrice : 74000;
+				const gasCostEth = Number(gasWei) / 1e18;
+				return Math.round(Math.max(((gasCostEth * ethPrice) / btcP) * 100_000_000, 1));
 			} catch (e) {
 				d.warn('Failed to parse fallback gasCostWei', e);
 			}
@@ -375,8 +402,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		const isSimpleTransfer =
 			(currentSourceType === 'rbtc' && currentDestType === 'rbtc-rsk') ||
 			(currentSourceType === 'usdt0-arb' && currentDestType === 'usdt0-arb') ||
-			(currentSourceType === 'wbtc-arb' && currentDestType === 'wbtc-arb') ||
-			(currentSourceType === 'tbtc-arb' && currentDestType === 'wbtc-arb');
+			(currentSourceType === 'wbtc-arb' && currentDestType === 'wbtc-arb');
 
 		if (currentSourceType === 'rbtc') {
 			const gasPrice = rskGasPriceWei > 0n ? rskGasPriceWei : 65_000_000n;
@@ -402,9 +428,18 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		return 0;
 	});
 
-	// totalFeeSats — total cost of the swap in sats.
-	// When the provider gives outputAmount, compute fee as: input USD − output USD.
-	// This avoids the broken tokenAmountToSats conversion for cross-currency pairs.
+	// isCrossChain — true when source and destination are on different chains.
+	// Used to decide whether to add networkFeeSats on top of provider output.
+	const isCrossChain = $derived.by(() => {
+		const route = activeRouteForCalc;
+		if (!route) return false;
+		// If any hop crosses a chain boundary, it's cross-chain
+		return route.hops.some((h) => h.fromChain !== h.toChain);
+	});
+
+	// totalFeeSats — total cost of the swap in sats (protocol fee + gas fee).
+	// When the provider gives outputAmount, compute protocol fee as: input USD − output USD,
+	// then add networkFeeSats (gas) to get the total cost.
 	// Falls back to networkFeeSats + bridge fee percent for legacy paths.
 	// When the USD-based computation yields 0 (price feed rounding) but the route
 	// has a nonzero totalFeePercent, use the percent-based fallback instead.
@@ -412,7 +447,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		const route = activeRouteForCalc;
 		if (!route || amountSats <= 0) return 0;
 
-		// Provider-computed output: fee = input value − output value
+		// Provider-computed output: protocol fee = input value − output value
 		if (route.outputAmount && route.outputDecimals !== undefined && btcUsdPrice > 0) {
 			const raw = Number(route.outputAmount);
 			if (isFinite(raw) && raw > 0) {
@@ -431,33 +466,48 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 					outputUsd = (raw / 10 ** route.outputDecimals) * btcUsdPrice;
 				}
 
-				const feeUsd = Math.max(0, inputUsd - outputUsd);
-				const feeSats = Math.round((feeUsd / btcUsdPrice) * 100_000_000);
+				const protocolFeeUsd = Math.max(0, inputUsd - outputUsd);
+				const protocolFeeSats = Math.round((protocolFeeUsd / btcUsdPrice) * 100_000_000);
+
+				// Add gas fee ONLY for cross-chain swaps. For same-chain swaps, the
+				// provider's output already includes gas (LI.FI, Uniswap V3) — adding
+				// networkFeeSats would double-count.
+				const total = isCrossChain ? protocolFeeSats + networkFeeSats : protocolFeeSats;
 
 				// If USD-based fee rounds to 0 but the route reports a nonzero fee percent,
 				// the price feeds disagree. Fall back to feePercent-based computation so the
 				// user still sees a fee (e.g. Symbiosis flat $0.75 on cross-chain RBTC).
-				if (feeSats === 0 && route.totalFeePercent > 0) {
+				if (total === 0 && route.totalFeePercent > 0) {
 					return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
 				}
-				return feeSats;
+				return total;
 			}
 		}
 
 		// Fallback: network gas + bridge fee percent (legacy / same-currency paths)
-		return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
+		// Only add networkFeeSats for cross-chain; same-chain gas is in the provider output
+		return isCrossChain
+			? networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100)
+			: Math.round((amountSats * route.totalFeePercent) / 100);
 	});
 
 	// minSwapSats — minimum swap amount for Boltz-eligible pairs.
 	// 0 means no minimum applies (direct transfers, LI.FI-only routes).
 	const BOLTZ_DEFAULT_MIN_SATS = 2500;
 	const minSwapSats = $derived.by(() => {
-		// Default for Boltz-eligible pairs (rBTC → non-rbtc-rsk destinations)
+		// Hard minimums for Boltz-eligible source types
 		if (currentSourceType === 'rbtc' && currentDestType !== 'rbtc-rsk') {
 			return BOLTZ_DEFAULT_MIN_SATS;
 		}
 		// BTC on-chain also goes through Boltz (reverse swap) — same minimum
 		if (currentSourceType === 'btc-onchain' && currentDestType !== 'btc-onchain') {
+			return BOLTZ_DEFAULT_MIN_SATS;
+		}
+		// Dynamic: if any resolved route uses Boltz, enforce minimum
+		const hasBoltzRoute = engineResult.routes.some((r) =>
+			r.hops.some((h) => h.service === 'boltz')
+		);
+		if (hasBoltzRoute) {
 			return BOLTZ_DEFAULT_MIN_SATS;
 		}
 		return 0;
@@ -589,6 +639,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		},
 		get activeRouteForCalc() {
 			return activeRouteForCalc;
+		},
+		get gasDataAvailable() {
+			return gasDataAvailable;
 		},
 		get minSwapSats() {
 			return minSwapSats;
