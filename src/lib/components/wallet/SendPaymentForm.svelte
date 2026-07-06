@@ -16,60 +16,39 @@
 	import {
 		parsePaymentAddress,
 		resolveLNURLPaymentAddress,
-		isLNURL,
 		type ParsedPaymentAddress
 	} from '$lib/utils/helpers/paymentAddressParser';
-	import { fetchLNURLPayInvoice } from '$lib/services/lnurl-pay.service';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { detectLightningType, parseLightningInvoice } from '$lib/utils/helpers/lightningInvoice';
-	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
-	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
-	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
-	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
-	import DescriptionAccordion from '$lib/components/wallet/DescriptionAccordion.svelte';
+	import SendQrScanner from '$lib/components/wallet/send/SendQrScanner.svelte';
+	import SendPaymentDetailsTab from '$lib/components/wallet/send/SendPaymentDetailsTab.svelte';
+	import SendConfirmScreen from '$lib/components/wallet/send/SendConfirmScreen.svelte';
+	import { useSendFeeEstimate } from '$lib/runes/use-send-fee-estimate.svelte';
+	import { useSendFormValidation } from '$lib/runes/use-send-form-validation.svelte';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { parseSendAddress } from '$lib/utils/parseSendAddress';
 	import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
 	import PendingTransactionScreen from '$lib/components/wallet/PendingTransactionScreen.svelte';
 	import IconClose from '~icons/mdi/close';
-	import IconSend from '~icons/mdi/send';
-	import IconCheck from '~icons/mdi/check';
-	import IconContentCopy from '~icons/mdi/content-copy';
-	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
-	import RoutePicker from '$lib/components/wallet/RoutePicker.svelte';
-	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
-	import SendDestinationSelector from '$lib/components/wallet/SendDestinationSelector.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
-	import TotalAmountCard from './TotalAmountCard.svelte';
 	import GaslessSendFlow from './GaslessSendFlow.svelte';
-	import { resolveRoute, type SourceWallet, type Destination } from '$lib/services/route-resolver';
+	import { resolveRoute } from '$lib/services/route-resolver';
+	import {
+		toSourceWallet,
+		toDestination,
+		getChainOption,
+		getAddressExplorerUrl,
+		DESTINATION_CHAIN_OPTIONS
+	} from '$lib/utils/send-network-mapping';
 	import { resolveRoutes, type RouteEngineResult } from '$lib/services/route-engine';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import { createDebug } from '$lib/utils/debug';
 	import * as Sentry from '@sentry/sveltekit';
 
-	import {
-		startSwapChain,
-		type SwapChainState,
-		getSwapChainStatus,
-		INITIAL_SWAP_CHAIN_STATE
-	} from '$lib/services/swap-chain.service';
+	import { type SwapChainState } from '$lib/services/swap-chain.service';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
-	import {
-		getHandle,
-		getBitcoinSigner,
-		hasBitcoinSigner
-	} from '$lib/stores/connected-wallets.store';
-	import {
-		EVMSignerNotAvailableError,
-		BitcoinSignerNotAvailableError
-	} from '$lib/services/external-wallet/types';
-	import {
-		encodeERC20Transfer,
-		getChainIdForNetwork,
-		getBSCUSDTContractAddress,
-		getUSDTContractAddressForNetwork
-	} from '$lib/services/external-wallet/chain-utils';
+	import { getHandle, hasBitcoinSigner } from '$lib/stores/connected-wallets.store';
+	import { executeSend } from '$lib/services/send-execution.service';
 
 	const d = createDebug('send-payment');
 
@@ -81,138 +60,8 @@
 	// Constants
 	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
 
-	// ── Destination chain options (always visible) ───────────────────────────
-	const DESTINATION_CHAIN_OPTIONS = [
-		{
-			id: 30,
-			testnetId: 31,
-			network: 'rootstock-bitcoin',
-			label: 'Rootstock Bitcoin',
-			asset: 'rBTC',
-			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			short: 'RSK'
-		},
-		{
-			id: 56,
-			testnetId: 97,
-			network: 'usdt-bsc',
-			label: 'Binance',
-			asset: 'USDT',
-			icon: '/images/chains/Binance-logo.svg',
-			short: 'BSC'
-		},
-		{
-			id: 1,
-			testnetId: 11155111,
-			network: 'usdt-ethereum',
-			label: 'Ethereum',
-			asset: 'USDT',
-			icon: '/images/chains/ethereum.png',
-			short: 'ETH'
-		},
-		{
-			id: 42161,
-			testnetId: 421614,
-			network: 'usdt-arbitrum',
-			label: 'Arbitrum',
-			asset: 'USDT',
-			icon: '/images/chains/arbitrum.png',
-			short: 'Arb'
-		},
-		{
-			id: 137,
-			testnetId: 80002,
-			network: 'usdt-polygon',
-			label: 'Polygon',
-			asset: 'USDT',
-			icon: '/images/chains/polygon.png',
-			short: 'Poly'
-		},
-		{
-			id: 10,
-			testnetId: 11155420,
-			network: 'usdt-optimism',
-			label: 'Optimism',
-			asset: 'USDT',
-			icon: '/images/chains/optimism.png',
-			short: 'OP'
-		},
-		{
-			id: 8453,
-			testnetId: 84532,
-			network: 'usdt-base',
-			label: 'Base',
-			asset: 'USDT',
-			icon: '/images/chains/base.png',
-			short: 'Base'
-		},
-		{
-			id: 43114,
-			testnetId: 43113,
-			network: 'usdt-avalanche',
-			label: 'Avalanche',
-			asset: 'USDT',
-			icon: '/images/chains/avalanche.png',
-			short: 'Avax'
-		},
-		{
-			id: -1,
-			network: 'lightning-bitcoin',
-			label: 'Lightning',
-			asset: 'BTC',
-			icon: '/images/chains/lightning.svg',
-			short: 'LN'
-		},
-		{
-			id: -2,
-			network: 'bitcoin',
-			label: 'Bitcoin',
-			asset: 'BTC',
-			icon: '/images/chains/Bitcoin.svg',
-			short: 'BTC'
-		},
-		{
-			id: -3,
-			network: 'usdt-tron',
-			label: 'TRON',
-			asset: 'USDT',
-			icon: '/images/chains/tron.png',
-			short: 'TRX'
-		},
-		{
-			id: -4,
-			network: 'liquid-bitcoin',
-			label: 'Liquid',
-			asset: 'BTC',
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			short: 'L-BTC'
-		}
-	] as const;
-
-	function getChainOption(chainId: number | null) {
-		if (chainId === null) return null;
-		// Match by id/testnetId
-		const byId = DESTINATION_CHAIN_OPTIONS.find(
-			(c) => c.id === chainId || ('testnetId' in c && c.testnetId === chainId)
-		);
-		if (byId) return byId;
-		// Match by detected network
-		const net = parsedPayment.detectedNetwork;
-		if (net) {
-			return DESTINATION_CHAIN_OPTIONS.find((c) => 'network' in c && c.network === net) ?? null;
-		}
-		return null;
-	}
-
 	// Platform detection
 	const isWeb = Capacitor.getPlatform() === 'web';
-
-	const SUPPORTED_SEND_NETWORKS = new Set([
-		'rootstock-bitcoin',
-		'lightning-bitcoin',
-		'bitcoin',
-		'usdt-bsc'
-	]);
 
 	const networkOption = {
 		'rootstock-bitcoin': {
@@ -242,37 +91,37 @@
 		},
 		'usdt-ethereum': {
 			icon: '/images/chains/ethereum.png',
-			name: 'Ethereum',
+			name: $t('wallet.send.network.ethereum'),
 			confirmationTime: 15
 		},
 		'usdt-arbitrum': {
 			icon: '/images/chains/arbitrum.png',
-			name: 'Arbitrum',
+			name: $t('wallet.send.network.arbitrum'),
 			confirmationTime: 15
 		},
 		'usdt-polygon': {
 			icon: '/images/chains/polygon.png',
-			name: 'Polygon',
+			name: $t('wallet.send.network.polygon'),
 			confirmationTime: 10
 		},
 		'usdt-optimism': {
 			icon: '/images/chains/optimism.png',
-			name: 'Optimism',
+			name: $t('wallet.send.network.optimism'),
 			confirmationTime: 10
 		},
 		'usdt-base': {
 			icon: '/images/chains/base.png',
-			name: 'Base',
+			name: $t('wallet.send.network.base'),
 			confirmationTime: 10
 		},
 		'usdt-avalanche': {
 			icon: '/images/chains/avalanche.png',
-			name: 'Avalanche',
+			name: $t('wallet.send.network.avalanche'),
 			confirmationTime: 5
 		},
 		'usdt-tron': {
 			icon: '/images/chains/tron.png',
-			name: 'TRON',
+			name: $t('wallet.send.network.tron'),
 			confirmationTime: 60
 		}
 	};
@@ -332,38 +181,7 @@
 		scannedValue: null
 	});
 
-	// Grouped State: Fee Estimation & Max Calculation
-	let feeState = $state<{
-		estimated: {
-			serviceFee: number;
-			networkFee: number;
-			totalFees: number;
-		} | null;
-		isLoading: boolean;
-		error: string | null;
-		parameters: {
-			percentage?: number;
-			fixedFee?: number;
-		} | null;
-		swapLimits: {
-			minimal: number;
-			maximal: number;
-		} | null;
-		maxCalculation: {
-			isLoading: boolean;
-			amount: number | null;
-		};
-	}>({
-		estimated: null,
-		isLoading: false,
-		error: null,
-		parameters: null,
-		swapLimits: null,
-		maxCalculation: {
-			isLoading: false,
-			amount: null
-		}
-	});
+	// Grouped State: Fee Estimation (useSendFeeEstimate rune handles computation + max calc)
 
 	// Grouped State: Send Operation
 	let sendState = $state<{
@@ -398,22 +216,6 @@
 
 	// Route-picking state
 	let selectedRouteId = $state<string>('');
-
-	function toSourceWallet(source: string, detectedNetwork?: string | null): SourceWallet {
-		if (source === 'rootstock-bitcoin') return 'rbtc';
-		if (source === 'usdt-bsc') return 'usdt-bsc';
-		if (source === 'usdt0-arbitrum' || source === 'usdt0-arb') return 'usdt0-arb';
-		if (source === 'wbtc-arbitrum' || source === 'wbtc-arb') return 'wbtc-arb';
-		if (source === 'tbtc-arbitrum' || source === 'tbtc-arb') return 'tbtc-arb';
-		// Connected wallet — infer chain from detected network for route resolution
-		if (detectedNetwork === 'rootstock-bitcoin') return 'rbtc';
-		if (detectedNetwork === 'usdt-bsc') return 'usdt-bsc';
-		if (detectedNetwork === 'usdt0-arbitrum' || detectedNetwork === 'usdt0-arb') return 'usdt0-arb';
-		if (detectedNetwork === 'wbtc-arbitrum' || detectedNetwork === 'wbtc-arb') return 'wbtc-arb';
-		if (detectedNetwork === 'tbtc-arbitrum' || detectedNetwork === 'tbtc-arb') return 'tbtc-arb';
-		console.warn('Unknown source wallet:', source);
-		return 'usdt-bsc';
-	}
 
 	/** Check if the selected source is a connected (external) wallet */
 	function _isConnectedWalletSource(source: string): boolean {
@@ -506,24 +308,24 @@
 		return [
 			{
 				id: 'rootstock-bitcoin',
-				label: 'Bitcoin (rBTC)',
+				label: $t('wallet.send.asset.rbtc'),
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-				subLabel: 'Bitcoin on Rootstock',
+				subLabel: $t('wallet.send.asset.rbtc_sub'),
 				balance: formatSats(rbtcSats) + ' Sats',
 				balanceSub: `≈ $${rbtcUsd.toFixed(2)}`
 			},
 			{
 				id: 'usdt0-arb',
-				label: 'USD',
+				label: $t('wallet.send.asset.usdt'),
 				icon: '/images/chains/Tether-USD.svg',
-				subLabel: 'USDT0 on Arbitrum',
+				subLabel: $t('wallet.send.asset.usdt_sub'),
 				balance: usdt0Usd > 0 ? `$${usdt0Usd.toFixed(2)}` : '$0.00'
 			},
 			{
 				id: 'wbtc-arb',
-				label: 'Bitcoin (wBTC)',
+				label: $t('wallet.send.asset.wbtc'),
 				icon: '/images/chains/arbitrum.png',
-				subLabel: 'Wrapped BTC on Arbitrum',
+				subLabel: $t('wallet.send.asset.wbtc_sub'),
 				balance: formatSats(wbtcSats) + ' Sats',
 				balanceSub: wbtcUsd > 0 ? `≈ $${wbtcUsd.toFixed(2)}` : undefined
 			},
@@ -542,9 +344,9 @@
 				? [
 						{
 							id: 'tbtc-arb',
-							label: 'Bitcoin (tBTC)',
+							label: $t('wallet.send.asset.tbtc'),
 							icon: '/images/tokens/tbtc.png',
-							subLabel: 'Bridged BTC on Arbitrum',
+							subLabel: $t('wallet.send.asset.tbtc_sub'),
 							balance: formatSats(tbtcSats) + ' Sats',
 							balanceSub: tbtcUsd > 0 ? `≈ $${tbtcUsd.toFixed(2)}` : undefined
 						}
@@ -606,7 +408,9 @@
 			isExplicitEVM || net === 'lightning-bitcoin' || net === 'bitcoin' || net === 'liquid-bitcoin'
 		);
 	});
-	let _selectedChain = $derived(getChainOption(effectiveDestinationChainId));
+	let _selectedChain = $derived(
+		getChainOption(effectiveDestinationChainId, parsedPayment.detectedNetwork)
+	);
 
 	// Clear user's destination override when address changes
 	let _prevNetwork = $state<string | null>(null);
@@ -641,53 +445,6 @@
 		// EVM-compatible address (0x...) → only EVM chains
 		return DESTINATION_CHAIN_OPTIONS.filter((c) => 'id' in c && c.id > 0);
 	});
-
-	function toDestination(
-		network: string | null,
-		address: string,
-		overrideChainId?: number | null
-	): Destination | null {
-		if (!network || !address) return null;
-		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-		const isMainnet = rskNetwork === 'mainnet';
-		const chainId = overrideChainId ?? null;
-
-		// Explicit chain ID overrides network-based mapping
-		// Override chain ID only for EVM-compatible networks (not Lightning/Bitcoin/Liquid)
-		const isNonEVM =
-			network === 'lightning-bitcoin' || network === 'bitcoin' || network === 'liquid-bitcoin';
-		if (!isNonEVM && chainId !== null) {
-			return { type: 'address', chainId, address };
-		}
-
-		switch (network) {
-			case 'rootstock-bitcoin':
-				return { type: 'address', chainId: isMainnet ? 30 : 31, address };
-			case 'usdt-bsc':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 56 : 97, address };
-			case 'usdt-ethereum':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 1 : 11155111, address };
-			case 'usdt-arbitrum':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 42161 : 421614, address };
-			case 'usdt-polygon':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 137 : 80002, address };
-			case 'usdt-optimism':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 10 : 11155420, address };
-			case 'usdt-base':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 8453 : 84532, address };
-			case 'usdt-avalanche':
-				return { type: 'address', chainId: bscNetwork === 'mainnet' ? 43114 : 43113, address };
-			case 'usdt-tron':
-				return { type: 'address', chainId: 0, address }; // TRON: chainId 0 placeholder
-			case 'lightning-bitcoin':
-				return { type: 'invoice', network: 'lightning', invoice: address };
-			case 'bitcoin':
-				return { type: 'invoice', network: 'onchain', invoice: address };
-			default:
-				return null;
-		}
-	}
 
 	const EMPTY_ROUTE_RESULT: RouteEngineResult = {
 		routes: [],
@@ -726,7 +483,7 @@
 		const destAddress = parsedPayment.data?.address || formInput.addressInput.trim();
 		const sourceWallet = toSourceWallet(source, destNetwork);
 		const dest = toDestination(destNetwork, destAddress, effectiveDestinationChainId);
-		const sats = amountInSats;
+		const sats = sendValidation.amountInSats;
 		const userAddress =
 			selectedWalletId !== 'builtin'
 				? (getHandle(selectedWalletId)?.address ?? '')
@@ -815,79 +572,8 @@
 		}
 	});
 
-	// Update fee estimate when source wallet changes
-	$effect(() => {
-		const _source = formInput.selectedSource;
-		void updateFeeEstimate();
-	});
-
-	// Derived values
-	const amountInSats = $derived.by(() => {
-		if (parsedPayment.detectedAmount !== null) return parsedPayment.detectedAmount;
-		if (formInput.unit === 'sats') {
-			const parsed = parseFloat(formInput.amount);
-			return isNaN(parsed) ? 0 : Math.floor(parsed);
-		} else {
-			const usdAmount = parseFloat(formInput.amount);
-			if (isNaN(usdAmount) || btcPrice === 0) return 0;
-			return Math.floor((usdAmount / btcPrice) * 100_000_000);
-		}
-	});
-
-	const amountInUSD = $derived.by(() => {
-		if (btcPrice === 0) return 0;
-		return (amountInSats / 100_000_000) * btcPrice;
-	});
-
-	const showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
-
-	const totalToSend = $derived(amountInSats + (feeState.estimated?.totalFees || 0));
-
-	// Total to send in USD
-	const totalToSendUSD = $derived.by(() => {
-		if (totalToSend === 0 || btcPrice === 0) return 0;
-		return (totalToSend / 100_000_000) * btcPrice;
-	});
-
-	const isBelowSwapMinimum = $derived.by(() => {
-		if (parsedPayment.detectedNetwork !== 'lightning-bitcoin') return false;
-		if (!feeState.swapLimits || amountInSats <= 0) return false;
-		return amountInSats < feeState.swapLimits.minimal;
-	});
-
-	// Calculate available balance based on the selected source wallet
-	const availableBalance = $derived.by(() => {
-		const source = formInput.selectedSource;
-		// Connected wallet sources — use stored balance if available, otherwise large default
-		if (selectedWalletId !== 'builtin') {
-			const walletEntry = $connectedWalletsStore.wallets.find((w) => w.id === selectedWalletId);
-			if (walletEntry) {
-				// Return a large default to avoid blocking the send — MetaMask handles actual balance
-				return 10_000_000_000; // ~100 BTC equivalent in sats as safety buffer
-			}
-			return 10_000_000_000;
-		}
-		if (source === 'usdt-bsc') {
-			const balance = parseFloat($walletStore.bsc.formattedUsdtBalance);
-			if (!isNaN(balance) && balance > 0) {
-				return Math.floor(balance * 100_000_000);
-			}
-			return 0;
-		}
-		if (!$walletStore.rsk.connected) return 0;
-		const rbtc = parseFloat($walletStore.rsk.formattedBalance);
-		return isNaN(rbtc) ? 0 : Math.floor(rbtc * 100_000_000);
-	});
-
-	// Check if balance is insufficient — triggers for any positive amount that
-	// exceeds the available balance, even when balance is zero.
-	const hasInsufficientBalance = $derived(
-		totalToSend > availableBalance && totalToSend > 0 && feeState.estimated !== null
-	);
-
-	const isNetworkSupported = $derived(
-		!parsedPayment.detectedNetwork || SUPPORTED_SEND_NETWORKS.has(parsedPayment.detectedNetwork)
-	);
+	// Derived values — isSourceWalletConnected and isSelfSend must be defined
+	// before the sendValidation rune since they're passed as getters.
 
 	/** C3: CRITICAL - ensure the selected source wallet is connected with the required signer */
 	const isSourceWalletConnected = $derived.by(() => {
@@ -933,61 +619,38 @@
 		return sourceAddr.toLowerCase() === destAddr.toLowerCase();
 	});
 
-	const isFormValid = $derived.by(() => {
-		// Address validation: must have valid parsed data
-		if (!parsedPayment.data?.isValid) {
-			return false;
-		}
+	let isOnline = $derived($browserNetworkStatus.online);
 
-		if (!isNetworkSupported) {
-			return false;
-		}
+	// Form validation rune (extracts sendValidation.amountInSats, sendValidation.amountInUSD, sendValidation.availableBalance,
+	// sendValidation.totalToSend, sendValidation.totalToSendUSD, sendValidation.hasInsufficientBalance, sendValidation.isBelowSwapMinimum,
+	// sendValidation.isFormValid, sendValidation.isNetworkSupported)
+	const sendValidation = useSendFormValidation({
+		getFormInput: () => formInput,
+		getParsedPayment: () => parsedPayment,
+		getBtcPrice: () => btcPrice,
+		getSendFeeEstimate: () => sendFee.feeEstimate,
+		getSwapLimits: () => sendFee.swapLimits,
+		getSelectedWalletId: () => selectedWalletId,
+		getConnectedWallets: () => $connectedWalletsStore.wallets,
+		getWalletStore: () => $walletStore,
+		getIsOnline: () => isOnline,
+		getIsSelfSend: () => isSelfSend,
+		getIsSourceWalletConnected: () => isSourceWalletConnected
+	});
 
-		if (!isSourceWalletConnected) {
-			return false;
-		}
+	const showLargeAmountWarning = $derived(sendValidation.amountInUSD > LARGE_AMOUNT_THRESHOLD);
 
-		// Amount validation: if amount is required, must have amount > 0
-		// When amount is detected from address, amountRequired is false, so this check is skipped
-		if (parsedPayment.amountRequired && amountInSats <= 0) {
-			return false;
-		}
-
-		// Must have a valid amount (either from input or detected)
-		if (amountInSats <= 0) {
-			return false;
-		}
-
-		// LNURL amount bounds validation (amount in sats vs limits in msats)
-		const lnurlMinSats =
-			parsedPayment.data?.lnurlMinSendable !== undefined
-				? Math.ceil(parsedPayment.data.lnurlMinSendable / 1000)
-				: 0;
-		const lnurlMaxSats =
-			parsedPayment.data?.lnurlMaxSendable !== undefined
-				? Math.floor(parsedPayment.data.lnurlMaxSendable / 1000)
-				: 0;
-		if (parsedPayment.data?.lnurlCallback) {
-			if (amountInSats < lnurlMinSats || amountInSats > lnurlMaxSats) {
-				return false;
-			}
-		}
-
-		// Insufficient funds
-		if (hasInsufficientBalance) {
-			return false;
-		}
-
-		if (isBelowSwapMinimum) {
-			return false;
-		}
-
-		// Self-send check: destination matches source wallet address
-		if (isSelfSend) {
-			return false;
-		}
-
-		return true;
+	// Fee estimation rune (replaces inline updateFeeEstimate/fetchFeeParameters/calculateMaxAmount)
+	const sendFee = useSendFeeEstimate({
+		getSourceType: () => formInput.selectedSource,
+		getDestNetwork: () => parsedPayment.detectedNetwork,
+		getAmountSats: () => sendValidation.amountInSats,
+		getAvailableBalance: () => sendValidation.availableBalance,
+		getBtcPrice: () => btcPrice,
+		getWalletManager: () => walletManager,
+		getIsRskConnected: () => $walletStore.rsk.connected,
+		getRskAddress: () => $walletStore.rsk.address,
+		getRecipientAddress: () => parsedPayment.data?.address || null
 	});
 
 	// Initialize
@@ -995,80 +658,93 @@
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
+			d.warn('Failed to fetch BTC price: %s', error);
+			Sentry.addBreadcrumb({
+				category: 'wallet.send',
+				level: 'error',
+				message: 'Failed to fetch BTC price',
+				data: { error: String(error) }
+			});
 		}
 	});
 
 	// Handle QR scan (accepts both Barcode from Capacitor and string from html5-qrcode)
-	async function handleQRScan(barcode: Barcode | string) {
+	function clearParsedPayment() {
+		parsedPayment.data = null;
+		parsedPayment.detectedNetwork = null;
+		parsedPayment.detectedAmount = null;
+		parsedPayment.detectedMemo = null;
+		parsedPayment.amountRequired = true;
+		formInput.unit = 'usd';
+	}
+
+	async function applyParsedAddress(
+		rawAddress: string,
+		context: { source: 'qr' | 'input' }
+	): Promise<{ success: boolean; switchToEnter?: boolean }> {
 		try {
-			const qrValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
-			const parsed = parsePaymentAddress(
-				qrValue ?? '',
+			const result = parseSendAddress(
+				rawAddress,
 				formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc'
 			);
 
-			// Clear previous error state
-			qrScanState.error = null;
-			qrScanState.scannedValue = null;
+			if (!result.isValid) {
+				clearParsedPayment();
 
-			if (!parsed.isValid) {
-				// Clear any previous valid payment data to prevent form submission
-				parsedPayment.data = null;
-				parsedPayment.detectedNetwork = null;
-				parsedPayment.detectedAmount = null;
-				parsedPayment.detectedMemo = null;
-				parsedPayment.amountRequired = true;
-				parsedPayment.addressError = null;
-				feeState.estimated = null;
-				feeState.error = null;
-				formInput.addressInput = ''; // Clear address input to prevent stale data
-				formInput.amount = '';
-				formInput.memo = '';
-				formInput.unit = 'usd';
-
-				// Handle amountless Lightning invoice with specific translated error message
-				if (parsed.errorMessage === 'amountless_invoice') {
-					qrScanState.error = $t('wallet.send.error.amountless_invoice');
+				if (context.source === 'qr') {
+					parsedPayment.addressError = null;
+					formInput.addressInput = '';
+					formInput.amount = '';
+					formInput.memo = '';
+					qrScanState.error =
+						result.addressError === 'amountless_invoice'
+							? $t('wallet.send.error.amountless_invoice')
+							: result.addressError || $t('wallet.send.invalid_qr_code');
+					qrScanState.scannedValue = rawAddress ?? null;
 				} else {
-					// Use specific error message if available, otherwise use generic message
-					qrScanState.error = parsed.errorMessage || $t('wallet.send.error.invalid_qr_code');
+					parsedPayment.addressError =
+						result.addressError === 'amountless_invoice'
+							? $t('wallet.send.error.amountless_invoice')
+							: result.addressError || $t('wallet.send.invalid_address');
 				}
-				qrScanState.scannedValue = qrValue ?? null;
-				return;
+
+				return { success: false };
 			}
 
-			// Valid address - populate form and switch to Enter Payment Details tab
-			parsedPayment.data = parsed;
-			formInput.addressInput = parsed.address;
-			parsedPayment.detectedNetwork = parsed.network;
-			parsedPayment.detectedAmount = parsed.amount;
-			parsedPayment.detectedMemo = parsed.memo || null;
-			parsedPayment.amountRequired = parsed.amount === null;
+			// Valid address — populate parsed payment fields
+			parsedPayment.data = result.data;
+			if (context.source === 'qr') {
+				formInput.addressInput = result.data?.address ?? rawAddress ?? '';
+			}
+			parsedPayment.detectedNetwork = result.network;
+			parsedPayment.detectedAmount = result.amount;
+			parsedPayment.detectedMemo = result.memo;
+			parsedPayment.amountRequired = result.amountRequired;
 
-			if (parsed.amount !== null) {
-				formInput.amount = parsed.amount.toString();
-				// When amount is detected from QR code, default to sats since that's what's in the invoice
+			if (result.amount !== null) {
+				formInput.amount = result.amount.toString();
 				formInput.unit = 'sats';
 			} else {
-				// When no amount detected, default to USD
 				formInput.unit = 'usd';
 			}
-			if (parsed.network === 'lightning-bitcoin') {
-				formInput.memo = parsed.memo || $t('wallet.send.lightning_default_memo');
-			} else if (parsed.memo) {
-				formInput.memo = parsed.memo;
+
+			if (result.network === 'lightning-bitcoin') {
+				formInput.memo = result.memo || $t('wallet.send.lightning_default_memo');
+			} else if (result.memo) {
+				formInput.memo = result.memo;
 				uiState.descriptionExpanded = true;
 			}
 
-			// Switch to Enter Payment Details tab - the form will reactively update
-			uiState.activeTab = 'enter';
-			uiState.showConfirmation = false;
+			// Input: wait for reactive updates before checking sendValidation.amountInSats
+			if (context.source === 'input') {
+				const { tick } = await import('svelte');
+				await tick();
+			}
 
-			// If this is an LNURL, resolve the full details asynchronously
-			if (isLNURL(qrValue ?? '')) {
+			// LNURL async resolution
+			if (result.isLnurl) {
 				try {
-					const lnurlParsed = await resolveLNURLPaymentAddress(qrValue ?? '');
+					const lnurlParsed = await resolveLNURLPaymentAddress(rawAddress);
 					parsedPayment.data = lnurlParsed;
 					parsedPayment.detectedMemo = lnurlParsed.memo;
 					if (lnurlParsed.lnurlDescription) {
@@ -1076,473 +752,77 @@
 						uiState.descriptionExpanded = true;
 					}
 				} catch (err) {
-					console.error('Failed to resolve LNURL:', err);
-					qrScanState.error = $t('wallet.send.failed_to_parse_qr');
-					return;
+					d.warn('Failed to resolve LNURL: %s', err);
+					Sentry.addBreadcrumb({
+						category: 'wallet.send.lnurl',
+						level: 'error',
+						message: 'Failed to resolve LNURL',
+						data: { error: String(err) }
+					});
+					if (context.source === 'qr') {
+						qrScanState.error = $t('wallet.send.failed_to_parse_qr');
+					} else {
+						parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
+						clearParsedPayment();
+					}
+					return { success: false };
 				}
 			}
 
-			await updateFeeEstimate();
+			// Fee estimation
+			if (context.source === 'qr') {
+				await sendFee.refresh();
+			} else {
+				if (result.amount !== null && result.amount > 0) {
+					await sendFee.refresh();
+				} else if (sendValidation.amountInSats > 0) {
+					await sendFee.refresh();
+				}
+			}
+
+			return { success: true, switchToEnter: context.source === 'qr' };
 		} catch (error) {
-			console.error('Failed to parse QR code:', error);
-			qrScanState.error = $t('wallet.send.failed_to_parse_qr');
-			qrScanState.scannedValue = (typeof barcode === 'string' ? barcode : barcode.rawValue) ?? null;
+			d.warn('Failed to parse %s: %s', context.source === 'qr' ? 'QR code' : 'address', error);
+			Sentry.addBreadcrumb({
+				category: 'wallet.send.parse',
+				level: 'error',
+				message: `Failed to parse ${context.source === 'qr' ? 'QR code' : 'address'}`,
+				data: { source: context.source, error: String(error) }
+			});
+			if (context.source === 'qr') {
+				qrScanState.error = $t('wallet.send.failed_to_parse_qr');
+				qrScanState.scannedValue = rawAddress ?? null;
+			} else {
+				parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
+			}
+			return { success: false };
 		}
 	}
 
-	// Copy scanned QR code to clipboard
-	async function copyScannedQrCode() {
-		if (!qrScanState.scannedValue) return;
-
-		const success = await copyToClipboard(qrScanState.scannedValue);
-		if (success) {
-			appStore.showSuccessToast($t('wallet.send.text_copied'));
-			triggerHaptic(ImpactStyle.Light);
-		} else {
-			appStore.showErrorToast($t('wallet.send.copy_failed'));
+	async function handleQRScan(barcode: Barcode | string) {
+		const value = typeof barcode === 'string' ? barcode : barcode.rawValue;
+		qrScanState.error = null;
+		qrScanState.scannedValue = null;
+		const result = await applyParsedAddress(value ?? '', { source: 'qr' });
+		if (result.success && result.switchToEnter) {
+			uiState.activeTab = 'enter';
+			uiState.showConfirmation = false;
 		}
 	}
 
-	// Handle address input
 	async function handleAddressInput() {
 		parsedPayment.addressError = null;
 		if (!formInput.addressInput.trim()) {
-			parsedPayment.data = null;
-			parsedPayment.detectedNetwork = null;
-			parsedPayment.detectedAmount = null;
-			parsedPayment.detectedMemo = null;
-			parsedPayment.amountRequired = true;
-			feeState.estimated = null;
-			feeState.error = null;
-			// Reset to USD when address is cleared
-			formInput.unit = 'usd';
+			clearParsedPayment();
 			return;
 		}
-
-		try {
-			const parsed = parsePaymentAddress(
-				formInput.addressInput,
-				formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc'
-			);
-			if (parsed.isValid) {
-				parsedPayment.data = parsed;
-				parsedPayment.detectedNetwork = parsed.network;
-				parsedPayment.detectedAmount = parsed.amount;
-				parsedPayment.detectedMemo = parsed.memo;
-				parsedPayment.amountRequired = parsed.amount === null;
-
-				if (parsed.amount !== null) {
-					formInput.amount = parsed.amount.toString();
-					// When amount is detected from address, default to sats since that's what's in the invoice
-					formInput.unit = 'sats';
-				} else {
-					// When no amount detected, default to USD
-					formInput.unit = 'usd';
-				}
-				if (parsed.network === 'lightning-bitcoin') {
-					formInput.memo = parsed.memo || $t('wallet.send.lightning_default_memo');
-				} else if (parsed.memo) {
-					formInput.memo = parsed.memo;
-					uiState.descriptionExpanded = true;
-				}
-
-				// Use tick() to ensure reactive updates complete before checking amountInSats
-				const { tick } = await import('svelte');
-				await tick();
-
-				// If this is an LNURL, resolve the full details asynchronously
-				if (isLNURL(formInput.addressInput)) {
-					try {
-						const lnurlParsed = await resolveLNURLPaymentAddress(formInput.addressInput);
-						parsedPayment.data = lnurlParsed;
-						parsedPayment.detectedMemo = lnurlParsed.memo;
-						if (lnurlParsed.lnurlDescription) {
-							formInput.memo = lnurlParsed.lnurlDescription;
-							uiState.descriptionExpanded = true;
-						}
-					} catch (err) {
-						console.error('Failed to resolve LNURL:', err);
-						parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
-						parsedPayment.data = null;
-						parsedPayment.detectedNetwork = null;
-						parsedPayment.detectedAmount = null;
-						parsedPayment.detectedMemo = null;
-						parsedPayment.amountRequired = true;
-						feeState.estimated = null;
-						feeState.error = null;
-						formInput.unit = 'usd';
-						return;
-					}
-				}
-
-				// Trigger fee estimation if we have:
-				// 1. Amount detected from address, OR
-				// 2. Amount already entered by user (regardless of order)
-				if (parsed.amount !== null && parsed.amount > 0) {
-					await updateFeeEstimate();
-				} else if (amountInSats > 0) {
-					// User entered amount before address - trigger fee estimation now that we have network
-					await updateFeeEstimate();
-				}
-			} else {
-				// Handle amountless Lightning invoice with specific error message
-				if (parsed.errorMessage === 'amountless_invoice') {
-					parsedPayment.addressError = $t('wallet.send.error.amountless_invoice');
-				} else {
-					// Use specific error message if available, otherwise use generic message
-					parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
-				}
-				parsedPayment.data = null;
-				parsedPayment.detectedNetwork = null;
-				parsedPayment.detectedAmount = null;
-				parsedPayment.detectedMemo = null;
-				parsedPayment.amountRequired = true;
-				feeState.estimated = null;
-				feeState.error = null;
-				// Reset to USD when address is invalid
-				formInput.unit = 'usd';
-			}
-		} catch (error) {
-			console.error('Failed to parse address:', error);
-			parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
-			feeState.estimated = null;
-			feeState.error = null;
-		}
-	}
-
-	// Update fee estimate
-	async function updateFeeEstimate() {
-		// Check if we have a network and an amount (either from input or detected from address)
-		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
-		const amountToUse =
-			amountInSats > 0
-				? amountInSats
-				: parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0
-					? parsedPayment.detectedAmount
-					: 0;
-
-		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
-			if (!parsedPayment.detectedNetwork) {
-				feeState.estimated = null;
-			}
-			feeState.error = null;
-			feeState.swapLimits = null;
-			return;
-		}
-
-		feeState.isLoading = true;
-		feeState.error = null;
-		try {
-			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin': {
-					// Set synchronous estimate first so UI never shows "Free"
-					const syncServiceFee = Math.ceil((amountToUse * 0.1) / 100);
-					const syncMinerFee = 32;
-					feeState.estimated = {
-						serviceFee: syncServiceFee,
-						networkFee: syncMinerFee + 4000,
-						totalFees: syncServiceFee + syncMinerFee + 4000
-					};
-					// Then refine with real API data asynchronously
-					try {
-						// Use submarine swap fee estimation (cached)
-						// For lightning invoices, amountToUse is the invoice amount (what receiver gets)
-						const pairsData = await walletManager.getCachedSubmarineSwapPairs();
-						const pair = pairsData?.['RBTC']?.['BTC'];
-						if (pair?.fees) {
-							const serviceFee = Math.ceil((amountToUse * pair.fees.percentage) / 100);
-							// Miner fee (network fee for the on-chain transaction) - this is a fixed fee
-							const minerFee = pair.fees.minerFees || 32; // Fixed miner fee in sats
-							// Estimate Rootstock gas fee for the swap transaction
-							// Gas is calculated based on total amount to send (invoice + service fee + miner fee)
-							let rootstockGasFee = 4000;
-							try {
-								if ($walletStore.rsk.connected && $walletStore.rsk.address) {
-									const totalAmountToSend = amountToUse + serviceFee + minerFee;
-									const amountRBTC = (totalAmountToSend / 100_000_000).toFixed(8);
-									const gasEstimation = await walletManager.estimateRBTCGas(
-										$walletStore.rsk.address,
-										amountRBTC
-									);
-									rootstockGasFee = Math.max(
-										0,
-										Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000)
-									);
-								}
-							} catch {
-								/* keep fallback */
-							}
-
-							// Total fees = service fee + miner fee + Rootstock gas fee
-							// The user pays: invoice amount + service fee + miner fee + gas
-							// The receiver gets: invoice amount (exactly as specified)
-							feeState.estimated = {
-								serviceFee,
-								networkFee: minerFee + rootstockGasFee,
-								totalFees: serviceFee + minerFee + rootstockGasFee
-							};
-							if (pair.limits) {
-								feeState.swapLimits = {
-									minimal: pair.limits.minimal,
-									maximal: pair.limits.maximal
-								};
-							}
-						} else {
-							// Fallback if Boltz API fails
-							const serviceFee = Math.ceil((amountToUse * 0.1) / 100);
-							const minerFee = 32; // Conservative miner fee estimate
-							const networkFee = minerFee + 4000; // Miner fee + conservative gas estimate
-							feeState.estimated = {
-								serviceFee,
-								networkFee,
-								totalFees: serviceFee + networkFee
-							};
-							try {
-								feeState.swapLimits = await walletManager.getSubmarineSwapLimits();
-							} catch {
-								feeState.swapLimits = null;
-							}
-						}
-					} catch {
-						/* keep synchronous estimate */
-					}
-					break;
-				}
-				case 'rootstock-bitcoin': {
-					feeState.swapLimits = null;
-					// USDT-BSC source: swap handles delivery, no RSK gas needed
-					if (formInput.selectedSource === 'usdt-bsc') {
-						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-						break;
-					}
-
-					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
-						const networkFee = 3000; // Fallback
-						feeState.estimated = {
-							serviceFee: 0,
-							networkFee,
-							totalFees: networkFee
-						};
-						return; // H2: prevent fallthrough to gas estimation
-					}
-					const amountRBTC = (amountToUse / 100_000_000).toFixed(8);
-					// Use parsed address from parsedPayment, or extract address from addressInput
-					let recipientAddress = parsedPayment.data?.address;
-					if (!recipientAddress && formInput.addressInput) {
-						// Extract address part (before ? or #)
-						const addressMatch = formInput.addressInput.match(/^([^?#]+)/);
-						recipientAddress = addressMatch ? addressMatch[1] : formInput.addressInput;
-					}
-					// Fallback to wallet address if no recipient address found
-					const finalAddress = recipientAddress || $walletStore.rsk.address;
-
-					if (!finalAddress) {
-						// H4: null guard - skip gas estimation if no address available
-						const networkFee = 3000; // Fallback
-						feeState.estimated = {
-							serviceFee: 0,
-							networkFee,
-							totalFees: networkFee
-						};
-						break;
-					}
-
-					const gasEstimation = await walletManager.estimateRBTCGas(finalAddress, amountRBTC);
-					const networkFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
-					feeState.estimated = {
-						serviceFee: 0,
-						networkFee,
-						totalFees: networkFee
-					};
-					break;
-				}
-				case 'usdt-bsc': {
-					// Network fee depends on source wallet
-					if (formInput.selectedSource === 'rootstock-bitcoin') {
-						// rBTC source: only RSK gas to send the source asset (~100 sats)
-						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
-					} else {
-						// USDT-BSC source: BSC gas handled by paymaster
-						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-					}
-					break;
-				}
-				case 'usdt-ethereum':
-				case 'usdt-arbitrum':
-				case 'usdt-polygon':
-				case 'usdt-optimism':
-				case 'usdt-base':
-				case 'usdt-avalanche':
-				case 'usdt-tron': {
-					// Cross-chain EVM: swap provider handles destination chain gas
-					if (formInput.selectedSource === 'rootstock-bitcoin') {
-						feeState.estimated = { serviceFee: 0, networkFee: 100, totalFees: 100 };
-					} else {
-						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-					}
-					break;
-				}
-				case 'bitcoin': {
-					// Providers cover destination chain costs. Source chain gas only.
-					if (formInput.selectedSource === 'usdt-bsc') {
-						feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
-						break;
-					}
-					// rBTC source: estimate RSK gas (same as rootstock-bitcoin case)
-					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
-						feeState.estimated = { serviceFee: 0, networkFee: 3000, totalFees: 3000 };
-						break;
-					}
-					const btcAmountRBTC = (amountToUse / 100_000_000).toFixed(8);
-					const btcGasEstimation = await walletManager.estimateRBTCGas(
-						$walletStore.rsk.address,
-						btcAmountRBTC
-					);
-					const btcNetworkFee = Math.floor(
-						parseFloat(btcGasEstimation.totalCostFormatted) * 100_000_000
-					);
-					feeState.estimated = {
-						serviceFee: 0,
-						networkFee: btcNetworkFee,
-						totalFees: btcNetworkFee
-					};
-					break;
-				}
-				default:
-					feeState.estimated = null;
-			}
-		} catch (error) {
-			console.error('Failed to estimate fees:', error);
-			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
-			feeState.estimated = null;
-		} finally {
-			feeState.isLoading = false;
-		}
-	}
-
-	// Fetch fee parameters when network is detected (for max calculation)
-	async function fetchFeeParameters() {
-		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) {
-			feeState.parameters = null;
-			return;
-		}
-
-		try {
-			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin': {
-					// Fetch submarine swap pairs to get fee percentage (use cached)
-					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
-					const pair = pairsData?.['RBTC']?.['BTC'];
-					if (pair && pair.fees) {
-						const minerFee = pair.fees.minerFees || 32;
-
-						// Estimate Rootstock gas fee for the submarine swap transaction
-						// This is needed because we're sending RBTC on-chain to Boltz
-						let estimatedGasFee = 0;
-						if ($walletStore.rsk.connected && $walletStore.rsk.address) {
-							try {
-								// Use 80% of balance to get a realistic gas fee estimate
-								// This is conservative and accounts for gas price variations
-								const estimateAmountRBTC = ((availableBalance * 0.8) / 100_000_000).toFixed(8);
-								const gasEstimation = await walletManager.estimateRBTCGas(
-									$walletStore.rsk.address,
-									estimateAmountRBTC
-								);
-								estimatedGasFee = Math.floor(
-									parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
-								);
-							} catch {
-								estimatedGasFee = 3000; // Conservative fallback (100 sats)
-							}
-						} else {
-							estimatedGasFee = 3000; // Conservative fallback when not connected
-						}
-
-						feeState.parameters = {
-							percentage: pair.fees.percentage,
-							fixedFee: minerFee + estimatedGasFee // Combine miner fee and gas fee
-						};
-					} else {
-						// Fallback to conservative estimate
-						feeState.parameters = {
-							percentage: 0.1, // 0.1%
-							fixedFee: 3000
-						};
-					}
-					break;
-				}
-				case 'rootstock-bitcoin':
-					// For Rootstock, fees are mostly fixed (gas), but we need to estimate
-					// We'll estimate with a high amount to get approximate gas fee
-					if ($walletStore.rsk.connected && $walletStore.rsk.address) {
-						try {
-							// Estimate with 80% of balance (not 90%) to get MORE conservative gas fee estimate
-							// This accounts for the fact that gas estimation may vary with amount
-							const estimateAmountRBTC = ((availableBalance * 0.8) / 100_000_000).toFixed(8);
-							const gasEstimation = await walletManager.estimateRBTCGas(
-								formInput.addressInput || $walletStore.rsk.address,
-								estimateAmountRBTC
-							);
-							const estimatedGasFee = Math.floor(
-								parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
-							);
-							feeState.parameters = {
-								fixedFee: estimatedGasFee
-							};
-						} catch {
-							feeState.parameters = {
-								fixedFee: 3000 // Conservative fallback
-							};
-						}
-					} else {
-						feeState.parameters = {
-							fixedFee: 3000
-						};
-					}
-					break;
-				default:
-					feeState.parameters = null;
-			}
-		} catch (error) {
-			console.error('Failed to fetch fee parameters:', error);
-			feeState.parameters = null;
-		}
-	}
-
-	// Calculate max amount using mathematical formula for percentage fees
-	function calculateMaxAmount(): number {
-		if (!availableBalance || availableBalance <= 0) return 0;
-		if (!feeState.parameters) return 0;
-
-		// Use a percentage-based safety margin (10%) plus absolute minimum
-		// This accounts for gas price fluctuations and estimation variance
-		const marginPercentage = 0.2; // 20% buffer
-		const absoluteMinimum = 20; // 20 sats absolute minimum
-
-		// For percentage-based fees: maxAmount = (balance - fixedFee) / (1 + percentage/100)
-		if (feeState.parameters.percentage !== undefined) {
-			const fixedFee = feeState.parameters.fixedFee || 0;
-			const percentage = feeState.parameters.percentage;
-			const feeWithBuffer = Math.ceil(fixedFee * (1 + marginPercentage));
-			const maxBeforeMargin = (availableBalance - feeWithBuffer) / (1 + percentage / 100);
-			return Math.max(0, Math.floor(maxBeforeMargin) - absoluteMinimum);
-		}
-
-		// For fixed fees only: maxAmount = balance - fixedFee - buffer
-		if (feeState.parameters.fixedFee !== undefined) {
-			const feeWithBuffer = Math.ceil(feeState.parameters.fixedFee * (1 + marginPercentage));
-			const maxAmount = availableBalance - feeWithBuffer - absoluteMinimum;
-			return Math.max(0, maxAmount);
-		}
-
-		return 0;
+		await applyParsedAddress(formInput.addressInput, { source: 'input' });
 	}
 
 	// Handle updates when amount changes (called explicitly)
 	async function handleAmountChange() {
-		// Update fee estimate if we have network and amount
-		if (parsedPayment.detectedNetwork && amountInSats > 0) {
-			await updateFeeEstimate();
+		if (parsedPayment.detectedNetwork && sendValidation.amountInSats > 0) {
+			await sendFee.refresh();
 		}
 	}
 
@@ -1560,43 +840,24 @@
 		handleAmountChange();
 	}
 
-	// Handle max amount click (simplified - single-pass calculation)
+	// Handle max amount click (uses sendFee.maxAmount from rune)
 	let _maxCalcInFlight = false;
 	async function handleMaxAmount() {
 		if (_maxCalcInFlight) return;
-		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
-
 		_maxCalcInFlight = true;
-		feeState.maxCalculation.isLoading = true;
-
 		try {
 			formInput.mathExpression = '';
-
-			// Fetch fee parameters if not available
-			if (!feeState.parameters) {
-				await fetchFeeParameters();
-			}
-
-			// Calculate max amount
-			const max = calculateMaxAmount();
+			const max = sendFee.maxAmount;
 			if (max > 0) {
-				feeState.maxCalculation.amount = max;
-
-				// Set amount in appropriate unit
 				if (formInput.unit === 'sats') {
 					formInput.amount = max.toString();
 				} else if (btcPrice > 0) {
 					const usdAmount = (max / 100_000_000) * btcPrice;
 					formInput.amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
 				}
-
-				// Trigger fee estimation to get final accurate fees
-				await updateFeeEstimate();
+				await sendFee.refresh();
 			}
-		} catch (error) {
-			console.error('Failed to calculate max amount:', error);
 		} finally {
-			feeState.maxCalculation.isLoading = false;
 			_maxCalcInFlight = false;
 		}
 	}
@@ -1630,6 +891,38 @@
 		handleUnitChange(formInput.unit === 'sats' ? 'usd' : 'sats');
 	}
 
+	// ── Handlers for SendPaymentDetailsTab callbacks ─────────────────────
+
+	function handleClearAddress() {
+		formInput.addressInput = '';
+		formInput.destinationChainId = null;
+		parsedPayment.data = null;
+		parsedPayment.detectedNetwork = null;
+		parsedPayment.detectedAmount = null;
+		parsedPayment.detectedMemo = null;
+		parsedPayment.addressError = null;
+		parsedPayment.amountRequired = true;
+		uiState.showRecentAddresses = false;
+	}
+
+	function handleRecentAddressSelect(address: string) {
+		formInput.addressInput = address;
+		uiState.showRecentAddresses = false;
+		handleAddressInput();
+	}
+
+	function handleAddressChange(value: string) {
+		formInput.addressInput = value;
+		handleAddressInput();
+	}
+
+	function handleDestinationChange(networkId: string) {
+		const chainId = NETWORK_TO_CHAIN_ID[networkId];
+		if (chainId !== undefined) {
+			formInput.destinationChainId = chainId;
+		}
+	}
+
 	function clearPendingSendState() {
 		sendState.pendingTxHash = null;
 		sendState.pendingNetwork = null;
@@ -1638,16 +931,35 @@
 		sendState.pendingSwapId = null;
 	}
 
+	/** Sanitize raw error messages into user-friendly i18n strings. */
+	function sanitizeErrorMessage(err: Error): string {
+		const msg = err.message.toLowerCase();
+		if (msg.includes('user rejected') || msg.includes('user denied'))
+			return $t('wallet.send.error.user_rejected');
+		if (msg.includes('insufficient funds') || msg.includes('insufficient balance'))
+			return $t('wallet.send.error.insufficient_funds');
+		if (msg.includes('network') || msg.includes('timeout'))
+			return $t('wallet.send.error.network_error');
+		if (msg.includes('invalid') || msg.includes('amount'))
+			return $t('wallet.send.error.invalid_amount');
+		return $t('wallet.send.transaction_failed');
+	}
+
 	// Handle send
 	async function handleSend() {
-		if (!isFormValid) return;
+		if (!sendValidation.isFormValid) return;
 
 		const recipient = parsedPayment.data?.address || formInput.addressInput.trim();
-		const finalAmount = totalToSend; // Amount including fees
+		const finalAmount = sendValidation.totalToSend; // Amount including fees
 		const network = parsedPayment.detectedNetwork || 'rootstock-bitcoin';
 
 		if (!recipient || finalAmount <= 0) {
-			throw new Error($t('wallet.send.error.invalid_payment_details'));
+			appStore.showErrorToast(
+				$t('wallet.send.error.invalid_payment_details'),
+				UI.WALLET_TOAST_DURATION_MS
+			);
+			sendState.isSending = false;
+			return;
 		}
 
 		// Safety check: Block amountless Lightning invoices at submission time
@@ -1664,10 +976,10 @@
 					return;
 				}
 			}
-			if (isBelowSwapMinimum && feeState.swapLimits) {
+			if (sendValidation.isBelowSwapMinimum && sendFee.swapLimits) {
 				appStore.showErrorToast(
 					$t('wallet.receive.below_swap_minimum', {
-						values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+						values: { minAmount: formatSats(sendFee.swapLimits.minimal) }
 					}),
 					UI.WALLET_TOAST_DURATION_MS
 				);
@@ -1678,314 +990,86 @@
 		// Show sending state immediately (optimistically)
 		sendState.pendingTxHash = null;
 		sendState.pendingNetwork = network;
-		sendState.pendingAmount = amountInSats;
+		sendState.pendingAmount = sendValidation.amountInSats;
 		sendState.pendingAddress = recipient;
 		sendState.isSending = true; // Show loading until we have actual txHash
 		sendState.error = null;
 		sendState.pendingSwapId = null;
 
-		const dest = toDestination(
-			parsedPayment.detectedNetwork,
-			parsedPayment.data?.address || formInput.addressInput.trim()
-		);
+		// For connected wallets, show the external-confirm UI instead of the spinner
+		const isConnectedSource = selectedWalletId !== 'builtin';
+		if (isConnectedSource) {
+			const handle = getHandle(selectedWalletId);
+			if (handle) {
+				sendState.externalConfirmSource = handle.walletName;
+			}
+			sendState.isSending = false;
+		}
+
 		const selectedRoute = routeResult.routes.find((r) => r.id === selectedRouteId);
 
 		try {
-			// Cross-chain swaps from connected wallets are now supported via swap-chain service
-			// The swap-chain service handles signer resolution internally
-			const isConnectedSource = selectedWalletId !== 'builtin';
+			const result = await executeSend({
+				network,
+				recipient,
+				amountInSats: sendValidation.amountInSats,
+				amountInUSD: sendValidation.amountInUSD,
+				memo: formInput.memo,
+				selectedWalletId,
+				parsedPayment: {
+					data: parsedPayment.data as
+						| import('$lib/services/send-execution.service').ParsedPaymentData
+						| null,
+					lnurlCallback: parsedPayment.data?.lnurlCallback
+				},
+				walletManager:
+					walletManager as unknown as import('$lib/services/send-execution.service').SendWalletManager,
+				route: selectedRoute ?? null,
+				sourceWalletId: toSourceWallet(formInput.selectedSource, network),
+				dest: toDestination(parsedPayment.detectedNetwork, recipient)
+			});
 
-			if (selectedRoute && selectedRoute.hops.length > 1 && dest) {
-				sendState.pendingSwapChain = { ...INITIAL_SWAP_CHAIN_STATE };
-				const { data: swapData, error: swapError } = await startSwapChain(
-					selectedRoute,
-					toSourceWallet(formInput.selectedSource, network),
-					dest,
-					String(amountInSats),
-					isConnectedSource ? selectedWalletId : null
-				);
-				if (swapError || !swapData) {
-					throw new Error(swapError?.message || 'Swap chain failed');
-				}
-				const status = getSwapChainStatus(swapData);
-				if (status.isComplete || status.isActive) return;
-				throw new Error(status.message || 'Swap chain failed');
-			}
-
-			let txHash: string | null = null;
-
-			// ── Connected Wallet (MetaMask) EVM Signer Path ──────────────────
-			if (isConnectedSource) {
-				const handle = getHandle(selectedWalletId);
-				if (!handle?.evmSigner) {
-					throw new EVMSignerNotAvailableError(selectedWalletId);
-				}
-
-				sendState.externalConfirmSource = handle.walletName;
-				sendState.isSending = false; // Let externalConfirm UI show instead of spinner
-
-				try {
-					if (network === 'rootstock-bitcoin') {
-						// RBTC direct send via EVM signer
-						const chainId = getChainIdForNetwork('rootstock-bitcoin');
-						const valueWei = BigInt(amountInSats) * 10n ** 10n; // sats → wei (RBTC 18 decimals)
-						const txResult = await handle.evmSigner.sendTransaction({
-							to: recipient,
-							value: valueWei,
-							chainId
-						});
-						txHash = txResult.txHash;
-					} else if (network === 'usdt-bsc') {
-						// USDT (BEP-20) transfer via EVM signer
-						const chainId = getChainIdForNetwork('usdt-bsc');
-						const usdtAmount = amountInUSD.toFixed(2);
-						const [whole, frac = '00'] = usdtAmount.split('.');
-						const usdtUnits = BigInt(whole) * 10n ** 18n + BigInt(frac.padEnd(18, '0'));
-						const contractAddress = getBSCUSDTContractAddress();
-						const data = encodeERC20Transfer(recipient, usdtUnits);
-						const txResult = await handle.evmSigner.sendTransaction({
-							to: contractAddress,
-							data,
-							chainId
-						});
-						txHash = txResult.txHash;
-					} else if (network?.startsWith('usdt-')) {
-						// Other EVM USDT chains (Ethereum, Arbitrum, Polygon, etc.)
-						const chainId = getChainIdForNetwork(network);
-						const usdtContractAddress = getUSDTContractAddressForNetwork(network);
-						const usdtAmount = amountInUSD.toFixed(2);
-						const [whole, frac = '00'] = usdtAmount.split('.');
-						const usdtUnits = BigInt(whole) * 10n ** 18n + BigInt(frac.padEnd(18, '0'));
-						const data = encodeERC20Transfer(recipient, usdtUnits);
-						const txResult = await handle.evmSigner.sendTransaction({
-							to: usdtContractAddress,
-							data,
-							chainId
-						});
-						txHash = txResult.txHash;
-					} else if (network === 'bitcoin') {
-						// BTC on-chain send via hardware wallet's BitcoinSigner
-						const bitcoinSigner = getBitcoinSigner(selectedWalletId);
-
-						if (!bitcoinSigner) {
-							throw new BitcoinSignerNotAvailableError(selectedWalletId);
-						}
-						const amountSatsBigInt = BigInt(amountInSats);
-						// Standard priority fee rate; can be enhanced with dynamic fee estimation
-						const feeRateSatsPerVbyte = 10;
-						const txResult = await bitcoinSigner.sendBitcoin({
-							recipient,
-							amount: amountSatsBigInt,
-							feeRateSatsPerVbyte
-						});
-						txHash = txResult.txHash;
-					} else if (network === 'lightning-bitcoin') {
-						// Lightning send via Boltz submarine swap — connected wallet locks RBTC on RSK
-						let invoiceToPay = recipient;
-						if (isLNURL(recipient) && parsedPayment.data?.lnurlCallback) {
-							const amountMsats = amountInSats * 1000;
-							invoiceToPay = await fetchLNURLPayInvoice(
-								parsedPayment.data.lnurlCallback,
-								amountMsats
-							);
-						}
-
-						// Create the submarine swap via Boltz API (no wallet signer needed)
-						const swapResult = await walletManager.createSubmarineSwap(
-							invoiceToPay,
-							formInput.memo
-						);
-
-						// Extract lockup details from swapData
-						const swapData = swapResult.swapData as unknown as Record<string, unknown> | undefined;
-						const lockupAddress =
-							(typeof swapData?.lockupAddress === 'string' ? swapData.lockupAddress : undefined) ??
-							(typeof swapData?.address === 'string' ? swapData.address : undefined) ??
-							(typeof swapData?.lockupDetails === 'object' && swapData.lockupDetails !== null
-								? (swapData.lockupDetails as Record<string, unknown>).lockupAddress
-								: undefined);
-						const lockupAmountRaw =
-							swapData?.expectedAmount ?? swapData?.amount ?? swapData?.userLockAmount;
-
-						if (typeof lockupAddress !== 'string') {
-							throw new Error('Could not extract lockup address from Boltz swap data');
-						}
-						if (typeof lockupAmountRaw !== 'number' && typeof lockupAmountRaw !== 'string') {
-							throw new Error('Could not extract lockup amount from Boltz swap data');
-						}
-
-						const lockupAmountWei =
-							typeof lockupAmountRaw === 'number'
-								? BigInt(lockupAmountRaw)
-								: BigInt(lockupAmountRaw);
-
-						// Send RBTC to Boltz lockup address via connected wallet's EVM signer
-						const chainId = getChainIdForNetwork('rootstock-bitcoin');
-						const lockupTx = await handle.evmSigner.sendTransaction({
-							to: lockupAddress,
-							value: lockupAmountWei,
-							data: '0x',
-							chainId
-						});
-						txHash = lockupTx.txHash;
-
-						// Show pending screen (swap completes asynchronously via Boltz)
-						if (txHash) {
-							sendState.pendingTxHash = txHash;
-							sendState.pendingNetwork = network;
-							sendState.pendingAmount = amountInSats;
-							sendState.pendingAddress = recipient;
-							sendState.pendingSwapId = swapResult.swapId;
-							sendState.isSending = false;
-							appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-							return;
-						}
-					} else {
-						throw new Error($t('wallet.send.network_not_available'));
-					}
-				} finally {
-					sendState.externalConfirmSource = null;
-				}
-			} else if (network === 'lightning-bitcoin') {
-				// Resolve invoice for LNURL payments
-				let invoiceToPay = recipient;
-				if (isLNURL(recipient) && parsedPayment.data?.lnurlCallback) {
-					const amountMsats = amountInSats * 1000;
-					invoiceToPay = await fetchLNURLPayInvoice(parsedPayment.data.lnurlCallback, amountMsats);
-				}
-
-				// Lightning send via submarine swap
-				const swapResult = await walletManager.createSubmarineSwap(invoiceToPay, formInput.memo);
-				sendState.pendingSwapId = swapResult.swapId;
-				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
-				txHash = lockResult.txHash;
-
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
-				if (txHash) {
-					sendState.pendingTxHash = txHash;
-					sendState.pendingNetwork = network;
-					sendState.pendingAmount = amountInSats;
-					sendState.pendingAddress = recipient;
-					sendState.pendingSwapId = swapResult.swapId; // Store swap ID for monitoring
-					sendState.isSending = false; // Set to false immediately to skip loading screen
-
-					// Show pending transaction screen
-					appStore.showSuccessToast(
-						$t('wallet.send.transaction_sending'),
-						UI.WALLET_TOAST_DURATION_MS
-					);
-
-					// Return early - pending screen will monitor swap status
-					return;
-				}
-			} else if (network === 'rootstock-bitcoin') {
-				// RSK direct send
-				const amountRBTC = amountInSats / 100_000_000;
-				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8));
-
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
-				sendState.pendingTxHash = txHash;
+			// Update send state based on result
+			if (result.txHash) {
+				sendState.pendingTxHash = result.txHash;
 				sendState.pendingNetwork = network;
-				sendState.pendingAmount = amountInSats;
+				sendState.pendingAmount = sendValidation.amountInSats;
 				sendState.pendingAddress = recipient;
-				sendState.isSending = false; // Set to false immediately to skip loading screen
+				sendState.isSending = false;
 
-				// Show pending transaction screen
+				appStore.showSuccessToast($t('wallet.send.transaction_sent'), UI.WALLET_TOAST_DURATION_MS);
+
+				if (onSuccess) {
+					onSuccess(result.txHash, network);
+				}
+			}
+			if (result.pendingSwapId) {
+				sendState.pendingSwapId = result.pendingSwapId;
+			}
+			if (result.pendingSwapChain) {
+				sendState.pendingSwapChain = result.pendingSwapChain;
+				sendState.isSending = false;
 				appStore.showSuccessToast(
 					$t('wallet.send.transaction_sending'),
 					UI.WALLET_TOAST_DURATION_MS
 				);
-
-				// Return early - pending screen will be shown
-				return;
-			} else if (network === 'liquid-bitcoin') {
-				// Liquid chain swap send
-				// This would use LBTCChainSwapSend component logic
-				// C4: Clear pending transaction state set above to avoid phantom pending screen
-				sendState.pendingTxHash = null;
-				sendState.pendingNetwork = null;
-				appStore.showErrorToast($t('wallet.send.network_not_available'));
-				sendState.isSending = false;
-				return;
-			} else if (network === 'usdt-bsc') {
-				// BSC USDT send
-				// Convert amount from sats to USDT (assuming 1:1 with USD for simplicity)
-				const usdtAmount = amountInUSD.toFixed(2);
-				txHash = await walletManager.sendBSCUSDT(recipient, usdtAmount);
-
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
-				if (txHash) {
-					sendState.pendingTxHash = txHash;
-					sendState.pendingNetwork = network;
-					sendState.pendingAmount = amountInSats;
-					sendState.pendingAddress = recipient;
-					sendState.isSending = false; // Set to false immediately to skip loading screen
-				}
-			} else {
-				throw new Error($t('wallet.send.network_not_available'));
-			}
-
-			if (txHash) {
-				// Store pending transaction details immediately and set isSending to false
-				// This will show pending screen instead of loading screen
-				sendState.pendingTxHash = txHash;
-				sendState.pendingNetwork = network;
-				sendState.pendingAmount = amountInSats;
-				sendState.pendingAddress = recipient;
-				sendState.isSending = false; // Set to false immediately to skip loading screen
-
-				// Show pending transaction screen
-				appStore.showSuccessToast($t('wallet.send.transaction_sent'), UI.WALLET_TOAST_DURATION_MS);
-
-				// Call onSuccess callback
-				if (onSuccess) {
-					onSuccess(txHash, network);
-				}
-			} else {
-				throw new Error($t('wallet.send.transaction_failed'));
 			}
 		} catch (err) {
-			console.error('Send failed:', err);
+			d.warn('Send failed: %s', err);
+			Sentry.addBreadcrumb({
+				category: 'wallet.send',
+				level: 'error',
+				message: 'Send failed',
+				data: { error: String(err), network }
+			});
 			clearPendingSendState();
-			sendState.error = err instanceof Error ? err.message : $t('wallet.send.transaction_failed');
+			sendState.error =
+				err instanceof Error ? sanitizeErrorMessage(err) : $t('wallet.send.transaction_failed');
 			appStore.showErrorToast(sendState.error, UI.WALLET_TOAST_DURATION_MS);
 		} finally {
 			sendState.isSending = false;
+			sendState.externalConfirmSource = null;
 		}
-	}
-
-	// Get explorer URL for address based on network
-	function getAddressExplorerUrl(address: string, network: string | null): string | null {
-		if (!address || !network) return null;
-
-		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-		// Use RSK network setting as the general indicator for mainnet/testnet mode
-		// This is consistent with how the app determines network mode
-		const isMainnet = rskNetwork === 'mainnet';
-
-		if (network === 'rootstock-bitcoin' || network === 'rsk') {
-			return isMainnet
-				? `https://rootstock.blockscout.com/address/${address}`
-				: `https://rootstock-testnet.blockscout.com/address/${address}`;
-		} else if (network === 'usdt-bsc' || network === 'bsc') {
-			return bscNetwork === 'mainnet'
-				? `https://bscscan.com/address/${address}`
-				: `https://testnet.bscscan.com/address/${address}`;
-		} else if (network === 'bitcoin') {
-			return isMainnet
-				? `https://blockstream.info/address/${address}`
-				: `https://blockstream.info/testnet/address/${address}`;
-		} else if (network === 'liquid-bitcoin') {
-			return isMainnet
-				? `https://blockstream.info/liquid/address/${address}`
-				: `https://blockstream.info/liquidtestnet/address/${address}`;
-		}
-
-		return null;
 	}
 
 	// Handle showing send confirmation
@@ -2014,7 +1098,7 @@
 		{#if sendState.pendingTxHash && sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
 			<PendingTransactionScreen
 				amountSats={sendState.pendingAmount}
-				amountUSD={amountInUSD}
+				amountUSD={sendValidation.amountInUSD}
 				address={sendState.pendingAddress}
 				network={sendState.pendingNetwork}
 				networkOptions={networkOption}
@@ -2039,7 +1123,7 @@
 				<TransactionSuccessScreen
 					txHash={sendState.successTxHash}
 					network={sendState.successNetwork}
-					amount={amountInSats}
+					amount={sendValidation.amountInSats}
 					recipient={parsedPayment.data?.address || formInput.addressInput}
 					onClose={() => {
 						uiState.showSuccessScreen = false;
@@ -2086,550 +1170,141 @@
 				{#if uiState.activeTab === 'scan'}
 					{#if !uiState.showConfirmation}
 						<!-- QR Code Scanner -->
-						<div
-							class="flex min-h-full flex-col items-center justify-center gap-3 px-3 sm:gap-4 sm:px-4"
-						>
-							<p class="text-base-content/70 text-xs sm:text-sm">
-								{$t('wallet.send.scan_qr_code_description')}
-							</p>
-
-							{#if qrScanState.error}
-								<!-- Error state with decoded QR code -->
-								<div class="w-full space-y-3 sm:space-y-4">
-									<!-- Scanned address input (shown first) -->
-									<div class="form-control">
-										<label for="scanned-qr-code" class="label">
-											<span class="label-text">{$t('wallet.send.scanned_qr_code')}</span>
-										</label>
-										<div class="relative">
-											<textarea
-												id="scanned-qr-code"
-												class="textarea textarea-bordered textarea-error w-full pr-12 {qrScanState.scannedValue
-													? 'cursor-pointer'
-													: ''}"
-												readonly
-												rows="4"
-												onclick={copyScannedQrCode}>{qrScanState.scannedValue || ''}</textarea
-											>
-											<button
-												class="btn btn-ghost btn-sm btn-square absolute top-1/2 right-2 -translate-y-1/2"
-												onclick={(e) => {
-													e.stopPropagation();
-													copyScannedQrCode();
-												}}
-												aria-label={$t('wallet.copy_address')}
-											>
-												<IconContentCopy class="h-5 w-5" />
-											</button>
-										</div>
-									</div>
-
-									<!-- Error message (below address input) -->
-									<div
-										class="alert alert-outline alert-error py-2 sm:py-4"
-										role="status"
-										aria-live="polite"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-6 w-6 shrink-0 stroke-current"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-											/>
-										</svg>
-										<span class="text-sm">{qrScanState.error}</span>
-									</div>
-
-									<button
-										class="btn btn-primary w-full"
-										onclick={() => {
-											qrScanState.error = null;
-											qrScanState.scannedValue = null;
-										}}
-									>
-										{$t('common.buttons.retry')}
-									</button>
-								</div>
-							{:else if isWeb}
-								<WebQrCodeScanner
-									mode="inline"
-									onScan={(result) => handleQRScan(result)}
-									onClose={() => {
-										// Don't switch tabs if there's a QR scan error (stay on scan tab to show error)
-										if (!qrScanState.error) {
-											uiState.activeTab = 'enter';
-										}
-									}}
-								/>
-							{:else}
-								<QrCodeScanner
-									onScan={handleQRScan}
-									onClose={() => {
-										// Don't switch tabs if there's a QR scan error (stay on scan tab to show error)
-										if (!qrScanState.error) {
-											uiState.activeTab = 'enter';
-										}
-									}}
-								/>
-							{/if}
-						</div>
-					{:else}
-						<!-- Confirmation Screen -->
-						<div class="space-y-6">
-							<div class="flex items-center justify-end">
-								<button
-									class="btn btn-ghost btn-sm"
-									onclick={() => (uiState.showConfirmation = false)}
-								>
-									{$t('common.back')}
-								</button>
-							</div>
-
-							<!-- Amount Display -->
-							<div class="flex flex-col items-center gap-2">
-								<AmountDisplay
-									amount={formInput.amount}
-									unit={formInput.unit}
-									onUnitToggle={handleUnitToggle}
-									{btcPrice}
-								/>
-								{#if showLargeAmountWarning}
-									<p class="text-error text-center text-sm">
-										{$t('wallet.send.large_amount_warning.message', {
-											values: { amount: formatUsd(amountInUSD) }
-										})}
-									</p>
-								{/if}
-							</div>
-
-							<!-- Network Display -->
-							{#if parsedPayment.detectedNetwork}
-								{@const network =
-									networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
-								{@const recipientAddress =
-									parsedPayment.data?.address || formInput.addressInput.trim()}
-								{@const explorerUrl = getAddressExplorerUrl(
-									recipientAddress,
-									parsedPayment.detectedNetwork
-								)}
-								<div class="border-base-300 bg-primary/10 rounded-lg border p-4">
-									<div class="flex items-center justify-between gap-2">
-										<div class="flex items-center gap-2">
-											{#if network?.icon}
-												<img src={network?.icon} alt={network?.name} class="h-5 w-5" />
-											{/if}
-											<span class="font-medium">{network?.name}</span>
-										</div>
-										{#if explorerUrl}
-											<a
-												href={explorerUrl}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-												aria-label={$t('wallet.view_explorer')}
-											>
-												<IconOpenInNew class="h-5 w-5" />
-											</a>
-										{/if}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Address Display -->
-							<div class="form-control">
-								<div class="input input-bordered w-full break-all">{formInput.addressInput}</div>
-							</div>
-
-							<!-- Conditional Amount Field -->
-							{#if parsedPayment.amountRequired}
-								<div class="form-control">
-									<AmountInputSection
-										amount={formInput.amount}
-										unit={formInput.unit}
-										mathExpression={formInput.mathExpression}
-										calculatorKey={uiState.calculatorKey}
-										network={parsedPayment.detectedNetwork}
-										isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-										hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
-										onAmountChange={handleAmountInputChange}
-										onUnitChange={handleUnitChange}
-										onCalculationChange={handleCalculationChange}
-										onClear={handleClearCalculator}
-										onMaxAmount={handleMaxAmount}
-									/>
-								</div>
-							{/if}
-
-							<!-- Action Buttons -->
-							<div class="flex gap-3">
-								<button
-									class="btn btn-error flex-1"
-									onclick={() => (uiState.showConfirmation = false)}
-								>
-									{$t('common.cancel')}
-								</button>
-								<button
-									class="btn btn-primary flex-1"
-									onclick={handleSend}
-									disabled={!isFormValid ||
-										feeState.isLoading ||
-										sendState.externalConfirmSource !== null}
-								>
-									{$t('wallet.send.send')}
-								</button>
-							</div>
-						</div>
-					{/if}
-				{/if}
-
-				{#if uiState.activeTab === 'enter'}
-					<!-- Enter Payment Details Tab -->
-					<!-- Single scrollable send flow -->
-					<div class="space-y-2 sm:space-y-4">
-						<!-- Address Input -->
-						<div class="form-control">
-							<div class="relative">
-								<div
-									class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-									class:border-primary={!parsedPayment.data?.isValid && !parsedPayment.addressError}
-									class:border-success={parsedPayment.data?.isValid &&
-										!parsedPayment.addressError &&
-										formInput.addressInput.trim()}
-									class:border-error={!!parsedPayment.addressError}
-								>
-									<!-- Input field with validation icons -->
-									<div class="bg-base-200 relative flex flex-1 items-center p-2">
-										<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
-											<input
-												id="address-input"
-												type="text"
-												class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
-												placeholder={$t('wallet.send.address_placeholder')}
-												bind:value={formInput.addressInput}
-												oninput={handleAddressInput}
-												onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
-												onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
-											/>
-											{#if formInput.addressInput.trim()}
-												<div
-													class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
-												>
-													{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-														<IconCheck class="text-success h-5 w-5" />
-													{:else if parsedPayment.addressError}
-														<IconClose class="text-error h-5 w-5" />
-													{/if}
-												</div>
-											{/if}
-										</div>
-										<!-- Clear button -->
-										{#if formInput.addressInput.trim()}
-											<button
-												type="button"
-												class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-												onclick={() => {
-													formInput.addressInput = '';
-													formInput.destinationChainId = null;
-													parsedPayment.data = null;
-													parsedPayment.detectedNetwork = null;
-													parsedPayment.detectedAmount = null;
-													parsedPayment.detectedMemo = null;
-													parsedPayment.addressError = null;
-													parsedPayment.amountRequired = true;
-													feeState.estimated = null;
-													feeState.error = null;
-													uiState.showRecentAddresses = false;
-												}}
-												aria-label={$t('wallet.send.clear_address')}
-											>
-												<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
-											</button>
-										{/if}
-									</div>
-								</div>
-								{#if uiState.showRecentAddresses && recentAddresses.length > 0}
-									<div
-										class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
-									>
-										{#each recentAddresses as recentAddress (recentAddress.address)}
-											<button
-												class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
-												onclick={() => {
-													formInput.addressInput = recentAddress.address;
-													uiState.showRecentAddresses = false;
-													handleAddressInput();
-												}}
-											>
-												<div class="min-w-0 flex-1">
-													<div class="truncate font-semibold">
-														{recentAddress.label || recentAddress.address.slice(0, 20)}...
-													</div>
-													<div class="text-base-content/70 text-xs">{recentAddress.network}</div>
-												</div>
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						</div>
-
-						<!-- Source Wallet + Asset Selector (combined accordion from swap screen) -->
-						<SwapPartySelector
-							label={$t('wallet.from')}
-							{selectedWalletId}
-							onWalletSelect={(id) => {
-								selectedWalletId = id;
-							}}
-							connectedWallets={$connectedWalletsStore.wallets}
-							walletBtcSatsFor={walletBtcSatsForFn}
-							walletUsdt0For={walletUsdt0ForFn}
-							{btcPrice}
-							selectedAssetId={formInput.selectedSource}
-							onAssetSelect={(id) => {
-								formInput.selectedSource = id;
-							}}
-							assets={sourceAssets}
-						/>
-
-						<!-- Destination Selector -->
-						<SendDestinationSelector
-							selectedId={CHAIN_ID_TO_NETWORK[effectiveDestinationChainId] ?? ''}
-							onChange={(networkId) => {
-								const chainId = NETWORK_TO_CHAIN_ID[networkId];
-								if (chainId !== undefined) {
-									formInput.destinationChainId = chainId;
+						<SendQrScanner
+							onScan={handleQRScan}
+							onClose={() => {
+								if (!qrScanState.error) {
+									uiState.activeTab = 'enter';
 								}
 							}}
-							locked={isDestinationLocked}
-							lockedLabel={!hasAddress ? '(Enter Address)' : ''}
+							error={qrScanState.error}
+							scannedValue={qrScanState.scannedValue}
+							onRetry={() => {
+								qrScanState.error = null;
+								qrScanState.scannedValue = null;
+							}}
 						/>
-						<!-- Amount Field (Mobile Step 1) -->
-						<div class="form-control min-h-0">
-							<AmountInputSection
+					{:else}
+						<!-- Confirmation Screen -->
+						{#if parsedPayment.detectedNetwork}
+							{@const netOption =
+								networkOption[parsedPayment.detectedNetwork as keyof typeof networkOption]}
+							{@const recipientAddress =
+								parsedPayment.data?.address || formInput.addressInput.trim()}
+							{@const explorerUrl = getAddressExplorerUrl(
+								recipientAddress,
+								parsedPayment.detectedNetwork
+							)}
+							<SendConfirmScreen
 								amount={formInput.amount}
 								unit={formInput.unit}
+								{btcPrice}
+								network={parsedPayment.detectedNetwork}
+								networkIcon={netOption?.icon ?? null}
+								networkName={netOption?.name ?? null}
+								{explorerUrl}
+								address={formInput.addressInput}
+								hasInsufficientBalance={sendValidation.hasInsufficientBalance &&
+									sendFee.feeEstimate !== null}
+								isSending={sendState.isSending}
+								isBelowSwapMinimum={sendValidation.isBelowSwapMinimum}
+								showAmountInput={parsedPayment.amountRequired}
+								{showLargeAmountWarning}
+								largeAmountWarningText={showLargeAmountWarning
+									? $t('wallet.send.large_amount_warning.message', {
+											values: { amount: formatUsd(sendValidation.amountInUSD) }
+										})
+									: ''}
+								amountInputAmount={formInput.amount}
+								amountInputUnit={formInput.unit}
 								mathExpression={formInput.mathExpression}
 								calculatorKey={uiState.calculatorKey}
-								network={parsedPayment.detectedNetwork}
-								isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-								disabled={parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0}
-								hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
+								isLoadingMaxCalculation={sendFee.isLoading}
+								onBack={() => (uiState.showConfirmation = false)}
+								onSend={handleSend}
+								onUnitToggle={handleUnitToggle}
 								onAmountChange={handleAmountInputChange}
 								onUnitChange={handleUnitChange}
 								onCalculationChange={handleCalculationChange}
 								onClear={handleClearCalculator}
 								onMaxAmount={handleMaxAmount}
 							/>
-							{#if showLargeAmountWarning}
-								<p class="text-error text-center text-sm">
-									{$t('wallet.send.large_amount_warning.message', {
-										values: { amount: formatUsd(amountInUSD) }
-									})}
-								</p>
-							{/if}
-						</div>
-
-						{#if feeState.error}
-							<div
-								class="alert alert-outline alert-error py-2 text-sm"
-								role="status"
-								aria-live="polite"
-							>
-								<span>{feeState.error}</span>
-							</div>
-						{:else if routeResult.routes.length > 0 && parsedPayment.detectedNetwork}
-							<RoutePicker
-								routes={routeResult.routes}
-								{selectedRouteId}
-								onSelect={(id) => (selectedRouteId = id)}
-								networkFeeSats={feeState.estimated?.networkFee ?? 0}
-								isLoadingFee={feeState.isLoading || routeLoading}
-								{btcPrice}
-								network={parsedPayment.detectedNetwork}
-								amountSats={amountInSats}
-								hasAddress={parsedPayment.data?.isValid === true &&
-									parsedPayment.detectedNetwork !== null}
-								hasAmount={amountInSats > 0}
-							/>
-						{:else}
-							<RoutePicker
-								routes={[]}
-								selectedRouteId=""
-								onSelect={() => {}}
-								networkFeeSats={0}
-								isLoadingFee={feeState.isLoading || routeLoading}
-								{btcPrice}
-								network={parsedPayment.detectedNetwork}
-								amountSats={amountInSats}
-								hasAddress={parsedPayment.data?.isValid === true &&
-									parsedPayment.detectedNetwork !== null}
-								hasAmount={amountInSats > 0}
-							/>
 						{/if}
+					{/if}
+				{/if}
 
-						<TotalAmountCard
-							label={$t('wallet.send.total_to_send')}
-							amount={totalToSend}
-							unit={parsedPayment.detectedNetwork === 'usdt-bsc' ||
-							formInput.selectedSource === 'usdt-bsc'
-								? 'usdt'
-								: formInput.unit}
-							usdValue={totalToSendUSD}
-							isError={hasInsufficientBalance}
-						/>
-						<!-- Description Accordion -->
-						<div class="form-control">
-							<DescriptionAccordion
-								memo={formInput.memo}
-								expanded={uiState.descriptionExpanded}
-								disabled={false}
-								labelText={parsedPayment.detectedMemo ? 'wallet.send.from_invoice' : undefined}
-								onMemoChange={(value) => (formInput.memo = value)}
-								onToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
-							/>
-						</div>
-
-						<!-- Address Error (e.g., amountless invoice) -->
-						{#if parsedPayment.addressError}
-							<div
-								class="alert alert-outline alert-error mt-2 text-sm"
-								role="status"
-								aria-live="polite"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<span>{parsedPayment.addressError}</span>
-							</div>
-						{/if}
-
-						<!-- Self-send Error -->
-						{#if isSelfSend && !parsedPayment.addressError && parsedPayment.data?.isValid}
-							<div
-								class="alert alert-outline alert-warning mt-2 text-sm"
-								role="status"
-								aria-live="polite"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-									/>
-								</svg>
-								<span>{$t('wallet.send.error.self_send')}</span>
-							</div>
-						{/if}
-
-						<!-- Transaction Error Display -->
-						{#if sendState.error}
-							<div class="alert alert-outline alert-error" role="status" aria-live="polite">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<div class="flex flex-col gap-1">
-									<span class="font-semibold">{$t('wallet.send.transaction_failed')}</span>
-									<span class="text-sm opacity-90">{sendState.error}</span>
-								</div>
-							</div>
-						{/if}
-
-						<!-- External Confirmation Pending -->
-						{#if sendState.externalConfirmSource}
-							<div class="alert alert-outline alert-info">
-								<span class="loading loading-spinner loading-xs"></span>
-								<div class="flex flex-col gap-1">
-									<span class="text-sm font-semibold"
-										>{$t('wallet.send.confirm_in_wallet', {
-											values: { wallet: sendState.externalConfirmSource }
-										})}</span
-									>
-									<span class="text-xs opacity-70"
-										>{$t('wallet.send.complete_in_wallet_extension')}</span
-									>
-								</div>
-							</div>
-						{/if}
-					</div>
+				{#if uiState.activeTab === 'enter'}
+					<SendPaymentDetailsTab
+						addressInput={formInput.addressInput}
+						addressError={parsedPayment.addressError}
+						isValidAddress={parsedPayment.data?.isValid === true}
+						{recentAddresses}
+						showRecentAddresses={uiState.showRecentAddresses}
+						amount={formInput.amount}
+						unit={formInput.unit}
+						{btcPrice}
+						mathExpression={formInput.mathExpression}
+						calculatorKey={uiState.calculatorKey}
+						amountInUSD={sendValidation.amountInUSD}
+						isAmountDisabled={parsedPayment.detectedAmount !== null &&
+							parsedPayment.detectedAmount > 0}
+						routes={routeResult.routes}
+						{selectedRouteId}
+						networkFeeSats={sendFee.feeEstimate?.networkFee ?? 0}
+						isLoadingFee={sendFee.isLoading || routeLoading}
+						network={parsedPayment.detectedNetwork}
+						amountSats={sendValidation.amountInSats}
+						hasAddress={parsedPayment.data?.isValid === true &&
+							parsedPayment.detectedNetwork !== null}
+						hasAmount={sendValidation.amountInSats > 0}
+						feeError={sendFee.error}
+						isLoadingMaxCalculation={sendFee.isLoading}
+						totalToSend={sendValidation.totalToSend}
+						totalToSendUSD={sendValidation.totalToSendUSD}
+						totalUnit={parsedPayment.detectedNetwork === 'usdt-bsc' ||
+						formInput.selectedSource === 'usdt-bsc'
+							? 'usdt'
+							: formInput.unit}
+						hasInsufficientBalance={sendValidation.hasInsufficientBalance &&
+							sendFee.feeEstimate !== null}
+						isFormValid={sendValidation.isFormValid}
+						{isSelfSend}
+						{showLargeAmountWarning}
+						{selectedWalletId}
+						connectedWallets={$connectedWalletsStore.wallets}
+						walletBtcSatsFor={walletBtcSatsForFn}
+						walletUsdt0For={walletUsdt0ForFn}
+						selectedAssetId={formInput.selectedSource}
+						{sourceAssets}
+						destinationNetwork={CHAIN_ID_TO_NETWORK[effectiveDestinationChainId] ?? ''}
+						{isDestinationLocked}
+						destinationLockedLabel={!hasAddress ? '(Enter Address)' : ''}
+						memo={formInput.memo}
+						descriptionExpanded={uiState.descriptionExpanded}
+						detectedMemo={parsedPayment.detectedMemo}
+						transactionError={sendState.error}
+						externalConfirmSource={sendState.externalConfirmSource}
+						onAddressChange={handleAddressChange}
+						onClearAddress={handleClearAddress}
+						onAddressFocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
+						onAddressBlur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
+						onRecentAddressSelect={handleRecentAddressSelect}
+						onAmountChange={handleAmountInputChange}
+						onUnitChange={handleUnitChange}
+						onCalculationChange={handleCalculationChange}
+						onClear={handleClearCalculator}
+						onMaxAmount={handleMaxAmount}
+						onRouteSelect={(id) => (selectedRouteId = id)}
+						onWalletSelect={(id) => (selectedWalletId = id)}
+						onAssetSelect={(id) => (formInput.selectedSource = id)}
+						onDestinationChange={handleDestinationChange}
+						onMemoChange={(value) => (formInput.memo = value)}
+						onDescriptionToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
+						onSend={showSendConfirmationModal}
+						{onCancel}
+					/>
 				{/if}
 			</div>
-
-			<!-- Action Buttons -->
-			{#if uiState.activeTab === 'enter'}
-				<div
-					class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
-				>
-					<!-- Mobile: Cancel and Send -->
-					<button
-						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
-						onclick={onCancel}
-					>
-						<IconClose class="h-4 w-4" />
-						<span class="text-sm">{$t('common.cancel')}</span>
-					</button>
-					<button
-						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
-						onclick={showSendConfirmationModal}
-						disabled={!isFormValid ||
-							feeState.isLoading ||
-							sendState.externalConfirmSource !== null}
-					>
-						<IconSend class="h-4 w-4" />
-						<span class="text-sm">{$t('wallet.send.send')}</span>
-					</button>
-
-					<!-- Desktop: Always show Cancel and Send -->
-					<button
-						class="btn btn-error hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
-						onclick={onCancel}
-					>
-						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-						<span class="text-sm sm:text-base">{$t('common.cancel')}</span>
-					</button>
-					<button
-						class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
-						onclick={showSendConfirmationModal}
-						disabled={!isFormValid ||
-							feeState.isLoading ||
-							sendState.externalConfirmSource !== null}
-					>
-						<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
-						<span class="text-sm sm:text-base">{$t('wallet.send.send')}</span>
-					</button>
-				</div>
-			{/if}
 
 			<!-- Cancel Button (Bottom, only on Scan QR Code tab) -->
 			{#if uiState.activeTab === 'scan' && !uiState.showConfirmation}
@@ -2668,18 +1343,18 @@
 							<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
 							<div class="font-semibold">
 								{#if formInput.unit === 'sats'}
-									{formatSats(amountInSats)}
+									{formatSats(sendValidation.amountInSats)}
 									{$t('wallet.sats')}
 									{#if btcPrice > 0}
 										<span class="ml-2 text-sm opacity-70">
-											≈ {formatUsd(amountInUSD)}
+											≈ {formatUsd(sendValidation.amountInUSD)}
 										</span>
 									{/if}
 								{:else}
-									{formatUsd(amountInUSD)}
+									{formatUsd(sendValidation.amountInUSD)}
 									{#if btcPrice > 0}
 										<span class="ml-2 text-sm opacity-70">
-											≈ {formatSats(amountInSats)}
+											≈ {formatSats(sendValidation.amountInSats)}
 											{$t('wallet.sats')}
 										</span>
 									{/if}
@@ -2688,17 +1363,17 @@
 						</div>
 
 						<!-- Estimated Transaction Fees -->
-						{#if feeState.estimated && feeState.estimated.totalFees > 0}
+						{#if sendFee.feeEstimate && sendFee.feeEstimate.totalFees > 0}
 							<div class="space-y-1">
 								<div class="text-sm font-medium opacity-70">
 									{$t('wallet.send.transaction_fee')}
 								</div>
 								<div class="font-semibold">
-									{formatSats(feeState.estimated.totalFees)}
+									{formatSats(sendFee.feeEstimate.totalFees)}
 									{$t('wallet.sats')}
 									{#if btcPrice > 0}
 										<span class="ml-2 text-sm opacity-70">
-											≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
+											≈ {formatUsd((sendFee.feeEstimate.totalFees / 100_000_000) * btcPrice)}
 										</span>
 									{/if}
 								</div>
@@ -2722,7 +1397,7 @@
 						</div>
 
 						<!-- Insufficient Balance Error -->
-						{#if hasInsufficientBalance && feeState.estimated}
+						{#if sendValidation.hasInsufficientBalance && sendFee.feeEstimate}
 							<div class="space-y-1 pt-1">
 								<p class="text-error text-md">
 									{$t('wallet.validation.insufficient_balance')}
@@ -2755,7 +1430,7 @@
 						<button
 							class="btn btn-primary"
 							onclick={handleConfirmedSend}
-							disabled={(hasInsufficientBalance && feeState.estimated !== null) ||
+							disabled={(sendValidation.hasInsufficientBalance && sendFee.feeEstimate !== null) ||
 								sendState.externalConfirmSource !== null}
 						>
 							{$t('wallet.send.send')}
