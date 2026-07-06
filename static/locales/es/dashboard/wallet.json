@@ -564,6 +564,26 @@
 				"invalid_form": "Por favor verifica los campos del formulario",
 				"amountless_invoice": "Próximamente admitiremos facturas sin monto. Para proceder, solicita una nueva con el monto incluido.",
 				"self_send": "No se puede enviar a tu propia dirección"
+			},
+			"network": {
+				"ethereum": "Ethereum",
+				"arbitrum": "Arbitrum",
+				"polygon": "Polygon",
+				"optimism": "Optimism",
+				"base": "Base",
+				"avalanche": "Avalanche",
+				"tron": "TRON"
+			},
+			"address_label": "Dirección de destino",
+			"asset": {
+				"rbtc": "Bitcoin (rBTC)",
+				"rbtc_sub": "Bitcoin en Rootstock",
+				"usdt": "USD",
+				"usdt_sub": "USDT0 en Arbitrum",
+				"wbtc": "Bitcoin (wBTC)",
+				"wbtc_sub": "WBTC en Arbitrum",
+				"tbtc": "Bitcoin (tBTC)",
+				"tbtc_sub": "tBTC en Arbitrum"
 			}
 		},
 		"swap_chain": {
@@ -1014,6 +1034,7 @@
 			"fee_percent": "Tarifa",
 			"estimated_time": "Tiempo est.",
 			"swap_executing": "Intercambiando...",
+			"starting_swap": "Iniciando intercambio...",
 			"swap_complete": "Intercambio Completado",
 			"swap_complete_desc": "Tus activos han sido intercambiados exitosamente",
 			"swap_another": "Nuevo Intercambio",
@@ -1071,12 +1092,20 @@
 				"no_dest_address": "Dirección de billetera de destino no disponible",
 				"swap_failed": "Intercambio fallido. Por favor intente nuevamente.",
 				"self_send": "No se puede intercambiar a la misma billetera con el mismo activo",
+				"output_too_low": "La comisión excede el monto de entrada. Intenta con un monto mayor.",
 				"insufficient_funds": "Fondos insuficientes para cubrir las comisiones de gas. Por favor recarga tu billetera.",
 				"nonce_conflict": "Conflicto de transacción — por favor intenta de nuevo.",
 				"network_congestion": "Congestión de red — por favor intenta de nuevo con una comisión más alta.",
 				"user_rejected": "La transacción fue rechazada.",
 				"timed_out": "El intercambio expiró. Tus fondos están seguros — revisa Intercambios Pendientes para recuperarlos.",
-				"unsupported_pair": "Este par de intercambio no está disponible actualmente."
+				"unsupported_pair": "Este par de intercambio no está disponible actualmente.",
+				"insufficient_gas": "No hay suficiente ETH en Arbitrum para comisiones de gas. Por favor agrega ETH a tu billetera de Arbitrum.",
+				"invalid_amount": "Por favor ingresa un monto válido.",
+				"out_of_gas": "La transacción se quedó sin gas. Por favor intenta con un límite de gas más alto.",
+				"insufficient_allowance": "Límite de gasto de token excedido. Por favor aprueba el token primero.",
+				"deadline_exceeded": "El plazo del intercambio expiró. Por favor intenta de nuevo.",
+				"slippage_exceeded": "El precio cambió mucho. Por favor intenta de nuevo o aumenta la tolerancia de deslizamiento.",
+				"insufficient_liquidity": "No hay suficiente liquidez para este intercambio. Intenta con un monto menor."
 			},
 			"progress": {
 				"locking_rbtc": "Bloqueando rBTC en RSK",

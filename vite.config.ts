@@ -265,6 +265,15 @@ export default defineConfig(({ mode }) => {
 					target: 'https://dev.bittasker.com',
 					changeOrigin: true,
 					secure: true
+				},
+				// RSK RPC proxy — public-node.rsk.co blocks browser CORS;
+				// in production (Capacitor) native HTTP bypasses this, but in dev mode
+				// the proxy is needed for balance fetches to succeed.
+				'/rpc/rsk': {
+					target: 'https://public-node.rsk.co',
+					changeOrigin: true,
+					secure: true,
+					rewrite: (path) => path.replace(/^\/rpc\/rsk/, '')
 				}
 			},
 			watch: {
@@ -306,17 +315,17 @@ export default defineConfig(({ mode }) => {
 					'**/data/memory/**',
 					// Claude project-local config (hooks, skills, settings)
 					'**/.claude/**',
-          // E2E test artifacts (generated while dev server runs)
-              '**/playwright-report/**',
-              // Kilo Code / OpenCode tooling — prevent hot reloads from agent writes
-              '**/.kilo/**',
-              '**/.kilocode/**',
-              '**/.opencode/**',
-              // Kilo config file (frequently written by agent)
-              '**/kilo.json',
-              // Other tooling configs at project root
-              '**/claude-flow.config.json',
-              '**/.mcp.json'
+					// E2E test artifacts (generated while dev server runs)
+					'**/playwright-report/**',
+					// Kilo Code / OpenCode tooling — prevent hot reloads from agent writes
+					'**/.kilo/**',
+					'**/.kilocode/**',
+					'**/.opencode/**',
+					// Kilo config file (frequently written by agent)
+					'**/kilo.json',
+					// Other tooling configs at project root
+					'**/claude-flow.config.json',
+					'**/.mcp.json'
 				]
 			}
 		}
