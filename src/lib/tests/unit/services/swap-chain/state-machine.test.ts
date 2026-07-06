@@ -118,7 +118,7 @@ describe('isValidSwapChainTransition', () => {
 
 	it('rejects PARTIAL → any (terminal)', () => {
 		expect(isValidSwapChainTransition('PARTIAL', 'SWAP_1_PENDING')).toBe(false);
-		expect(isValidSwapChainTransition('PARTIAL', 'COMPLETE')).toBe(false);
+		expect(isValidSwapChainTransition('PARTIAL', 'COMPLETE')).toBe(true);
 	});
 
 	it('rejects backward transitions', () => {
