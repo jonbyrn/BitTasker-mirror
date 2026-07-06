@@ -246,7 +246,7 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
+				searchParamsKey: hashSearchParams(searchParams)
 			}));
 			loadingState = 'loaded';
 			syncScrollHasMore();
@@ -274,10 +274,9 @@
 	}
 
 	// ── Search & Filters ───────────────────────────────────────────────────────
-	const debouncedSearch = debounceWithAbort(async (...args: unknown[]) => {
-		const capturedSearchQuery = args[0] as string;
-		const capturedSearchParams = args[1] as SearchServicesParams;
-		const currentVersion = ++searchVersion;
+	const debouncedSearch = debounceWithAbort(
+		async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
+			const currentVersion = ++searchVersion;
 
 			// Abort any in-flight search request
 			if (searchAbortController) {
@@ -297,7 +296,11 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
+				currentPage: 1,
+				hasMore: true,
+				lastRelayTimestamp: undefined,
+				error: null,
+				searchParamsKey: ''
 			}));
 
 			const newParams: SearchServicesParams = {
@@ -375,7 +378,7 @@
 
 		servicesStore.update((state) => ({
 			...state,
-			searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
+			searchParamsKey: hashSearchParams(searchParams)
 		}));
 		loadingState = 'loaded';
 		syncScrollHasMore();

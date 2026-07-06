@@ -59,12 +59,7 @@
 		isLoading = true;
 		try {
 			await walletManager.loadAssets();
-			if (bidContent) {
-				estimatedGasCost = await estimateGasCostForCreatePaymentContract(
-					bidContent,
-					btcPrice.price
-				);
-			}
+			estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
 		} finally {
 			isLoading = false;
 		}
@@ -100,9 +95,12 @@
 
 	// v2 display (contract params are derived separately where needed)
 	let contractDetails = $derived.by(() => {
-		if (!bidContent) return null;
-		const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
-		return display;
+		try {
+			const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
+			return display;
+		} catch {
+			return null;
+		}
 	});
 
 	// Adjusted times — v2 derivation already adjusts past start; expose for UI
@@ -178,7 +176,7 @@
 
 	// Open message modal for the taskee
 	function openMessageModal() {
-		if (bidContent?.bidderId) {
+		if (bidContent.bidderId) {
 			showMessageModal = true;
 		}
 	}
@@ -210,9 +208,7 @@
 			return;
 		}
 		await initializeWallet();
-		if (bidContent) {
-			estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
-		}
+		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
 	});
 
 	async function handleSubmit() {
@@ -991,7 +987,7 @@
 {/if}
 
 <!-- Message Modal -->
-{#if bidContent?.bidderId}
+{#if bidContent.bidderId}
 	<MessageModal
 		isOpen={showMessageModal}
 		recipientName={bidContent.bidderName}
@@ -1003,7 +999,7 @@
 {/if}
 
 <!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
-{#if showFundConfirmationModal && bidContent}
+{#if showFundConfirmationModal}
 	<div
 		class="modal modal-open modal-middle z-120"
 		role="dialog"

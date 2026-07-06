@@ -332,13 +332,6 @@
 		}
 	}
 
-	// Track if map preload has been attempted to avoid repeated checks
-	let mapPreloadAttempted = $state(false);
-
-	// Track window width for responsive map preloading
-	// Initialize safely for SSR
-	let windowWidth = $state(DESKTOP_MIN_WIDTH);
-
 	/**
 	 * Attempt to preload map component with proper cleanup tracking
 	 * Returns cleanup function to cancel the preload if component unmounts
@@ -686,6 +679,13 @@
 			isLoadingMore = false;
 		}
 	}
+
+	// Track if map preload has been attempted to avoid repeated checks
+	let mapPreloadAttempted = $state(false);
+
+	// Track window width for responsive map preloading
+	// Initialize safely for SSR
+	let windowWidth = $state(DESKTOP_MIN_WIDTH);
 
 	// Combined effect: Setup scroll listener and loading timeout management
 	$effect(() => {

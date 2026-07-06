@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
-import type { Service } from '$lib/types/service';
+import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => {
@@ -13,14 +13,8 @@ const hoisted = vi.hoisted(() => {
 		searchParamsKey: ''
 	};
 
-	interface StoreLike<T> {
-		set(nextValue: T): void;
-		update(updater: (currentValue: T) => T): void;
-		subscribe(subscriber: (nextValue: T) => void): () => boolean;
-	}
-
 	return {
-		createStore<T>(initialValue: T): StoreLike<T> {
+		createStore<T>(initialValue: T) {
 			let value = initialValue;
 			const subscribers = new Set<(nextValue: T) => void>();
 
@@ -41,7 +35,7 @@ const hoisted = vi.hoisted(() => {
 				}
 			};
 		},
-		servicesStore: null as unknown as StoreLike<typeof _storeData> & { destroy: () => void },
+		servicesStore: null as ReturnType<typeof hoisted.createStore<typeof _storeData>>,
 		authStateStore: null as unknown as {
 			set: (nextValue: { isAuthenticated: boolean }) => void;
 			subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
@@ -68,14 +62,10 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-}) as unknown as typeof hoisted.servicesStore;
-(hoisted.servicesStore as unknown as Record<string, unknown>).destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({
-	isAuthenticated: true
-}) as unknown as typeof hoisted.authStateStore;
-hoisted.userStore = hoisted.createStore({
-	npub: 'owner-pubkey'
-}) as unknown as typeof hoisted.userStore;
+});
+hoisted.servicesStore.destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
