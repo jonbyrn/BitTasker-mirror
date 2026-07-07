@@ -38,7 +38,8 @@ export enum ContractStatus {
 /** Values must not overlap {@link ContractStatus} (0–11). */
 export enum DisplayOnlyStatus {
 	InProgress = 13, // Nostr-only: work started — not chain state 11 (InDisputeWorkInProgress)
-	DisputeResolutionProposed = 12 // Proposal exists (Nostr-only, blockchain stays InDispute)
+	DisputeResolutionProposed = 12, // Proposal exists (Nostr-only, blockchain stays InDispute)
+	Failed = 14 // On-chain transaction reverted — escrow was never created
 }
 
 export type ContractDisplayStatus = ContractStatus | DisplayOnlyStatus;

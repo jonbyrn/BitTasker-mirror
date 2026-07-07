@@ -38,7 +38,7 @@ import type {
 	ContractDisplayStatus,
 	SecurePaymentLegacy
 } from '$lib/utils/contract/types';
-import { ContractStatus } from '$lib/utils/contract/types';
+import { ContractStatus, DisplayOnlyStatus } from '$lib/utils/contract/types';
 import type { Attachment } from '$lib/types/task';
 import { runV1Preflight } from './v1Preflight';
 import { broadcastThenParallelEffects, getRuneWriteIds, type RuneWriteIds } from './writeHelpers';
@@ -70,9 +70,12 @@ export async function loadPaymentContractDetailsV1(
 }
 
 export function computeDisplayStatusV1(rune: PaymentContractRuneLike): ContractDisplayStatus {
+	if (rune.isFailed) return DisplayOnlyStatus.Failed;
 	const d = rune.blockchainData;
 	if (!d) {
-		return applyFundedStartedInProgressDisplay(ContractStatus.Funded, rune);
+		// Without blockchain data the chain state is unknown — show Funded without
+		// applying the InProgress display override (that requires confirmed chain data).
+		return ContractStatus.Funded;
 	}
 	const base = deriveV1EffectiveContractStatus(d.state, rune.statusEventsByNewest);
 	return applyFundedStartedInProgressDisplay(base as ContractDisplayStatus, rune);

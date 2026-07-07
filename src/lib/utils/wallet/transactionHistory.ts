@@ -491,14 +491,12 @@ function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
  * @param rawTransactions - Raw transactions from blockchain API
  * @param userAddress - User's wallet address
  * @param network - Network type ('rsk' or 'bsc')
- * @param currentBalanceSats - Current balance in satoshis (for running balance calculation)
- * @returns Processed transactions with all display properties and running balances
+ * @returns Processed transactions with all display properties
  */
 export async function processTransactions(
 	rawTransactions: Transaction[],
 	userAddress: string,
-	network: 'rsk' | 'bsc',
-	currentBalanceSats: number
+	network: 'rsk' | 'bsc'
 ): Promise<ProcessedTransaction[]> {
 	try {
 		// Validate userAddress
@@ -572,15 +570,26 @@ export async function processTransactions(
 
 				// Extract transaction value
 				// For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
-				let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+				let valueSats: number;
+				try {
+					valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+				} catch {
+					valueSats = 0;
+				}
 
 				// Special handling for swap claims and refunds - extract amount from decoded input
 				if (type === 'swap' && (subType === 'claim' || subType === 'refund')) {
-					if (tx.decoded_input?.parameters) {
-						const amountParam = tx.decoded_input.parameters.find((p) => p.name === 'amount');
-						if (amountParam?.value) {
-							valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+					try {
+						if (tx.decoded_input?.parameters) {
+							const amountParam = tx.decoded_input.parameters.find(
+								(p) => p.name === 'amount'
+							);
+							if (amountParam?.value) {
+								valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+							}
 						}
+					} catch {
+						// Keep original valueSats from tx.value
 					}
 				}
 
@@ -660,46 +669,13 @@ export async function processTransactions(
 				return processedTx;
 			});
 
-		// Sort by timestamp (newest first) - required for balance calculation
-		processed.sort((a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime());
-
-		// Calculate running balances in single pass (working backwards from current balance)
-		let runningBalance = currentBalanceSats;
-
-		for (const tx of processed) {
-			const txValueSats = Number(tx.value);
-			const txFeeSats = tx.feeSats || 0;
-
-			// Store balance after this transaction
-			tx.balanceAfter = runningBalance;
-
-			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
-			if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
-				// For receives and swap claims, user received RBTC, so subtract when going backwards
-				runningBalance -= txValueSats;
-			} else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
-				// For sends and contract functions, user spent RBTC, so add it back when going backwards
-				runningBalance += txValueSats + txFeeSats;
-			}
-		}
-
 		return processed;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 		console.error('[processTransactions] Error processing transactions:', errorMessage, error);
 
-		// Log additional context for debugging
-		if (import.meta.env.DEV) {
-			console.error('[processTransactions] Error context:', {
-				userAddress,
-				network,
-				rawTransactionCount: rawTransactions?.length || 0,
-				errorStack: error instanceof Error ? error.stack : 'No stack'
-			});
-		}
-
-		// Return empty array on error to prevent UI crash
-		return [];
+		// Re-throw so the caller can surface the error to the user
+		throw error;
 	}
 }
 

@@ -11,6 +11,7 @@ function minimalRune(overrides: Partial<PaymentContractRuneLike> = {}): PaymentC
 		paymentId: '1',
 		version: 'v2',
 		isPending: false,
+		isFailed: false,
 		blockchainData: null,
 		isTasker: true,
 		contractAddress: '0x',
@@ -20,6 +21,9 @@ function minimalRune(overrides: Partial<PaymentContractRuneLike> = {}): PaymentC
 		task: null,
 		statusEventsByNewest: [],
 		completionAttachments: [],
+		completionText: '',
+		effectiveEstimatedStartTime: undefined,
+		effectiveEstimatedCompletionTime: undefined,
 		...overrides
 	};
 }
@@ -32,7 +36,8 @@ describe('applyFundedStartedInProgressDisplay', () => {
 			blockchainData: {
 				state: ContractStatus.Funded,
 				estimatedStartTime: nowSec - 60
-			} as PaymentContractRuneLike['blockchainData']
+			} as PaymentContractRuneLike['blockchainData'],
+			effectiveEstimatedStartTime: nowSec - 60
 		});
 		expect(applyFundedStartedInProgressDisplay(ContractStatus.Funded, r)).toBe(
 			DisplayOnlyStatus.InProgress
@@ -42,7 +47,8 @@ describe('applyFundedStartedInProgressDisplay', () => {
 	it('returns Funded when start is still in the future', () => {
 		const nowSec = permissionsNowSeconds();
 		const r = minimalRune({
-			contract: { estimatedStartTime: nowSec + 3600 } as NDKPaymentContract
+			contract: { estimatedStartTime: nowSec + 3600 } as NDKPaymentContract,
+			effectiveEstimatedStartTime: nowSec + 3600
 		});
 		expect(applyFundedStartedInProgressDisplay(ContractStatus.Funded, r)).toBe(
 			ContractStatus.Funded
@@ -51,7 +57,8 @@ describe('applyFundedStartedInProgressDisplay', () => {
 
 	it('does not override non-Funded statuses', () => {
 		const r = minimalRune({
-			contract: { estimatedStartTime: 0 } as NDKPaymentContract
+			contract: { estimatedStartTime: 0 } as NDKPaymentContract,
+			effectiveEstimatedStartTime: 0
 		});
 		expect(applyFundedStartedInProgressDisplay(ContractStatus.Completed, r)).toBe(
 			ContractStatus.Completed
@@ -65,7 +72,8 @@ describe('applyFundedStartedInProgressDisplay', () => {
 			blockchainData: {
 				state: ContractStatus.Funded,
 				estimatedStartTime: nowSec - 10
-			} as PaymentContractRuneLike['blockchainData']
+			} as PaymentContractRuneLike['blockchainData'],
+			effectiveEstimatedStartTime: nowSec - 10
 		});
 		expect(applyFundedStartedInProgressDisplay(ContractStatus.Funded, r)).toBe(
 			DisplayOnlyStatus.InProgress

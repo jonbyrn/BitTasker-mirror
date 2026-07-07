@@ -54,9 +54,14 @@ import {
 } from '$lib/utils/wallet/chainSortHints';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
-import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { Preferences } from '@capacitor/preferences';
+import {
+	registerSwapResumeHandler,
+	unregisterSwapResumeHandler
+} from '$lib/utils/wallet/swapMonitor';
 
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -134,7 +139,6 @@ let cachedSwapStorages: {
 let loadTransactionsPromise: Promise<void> | null = null;
 let chainRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let balanceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-let postCleanupTimer: ReturnType<typeof setTimeout> | null = null;
 let unsubscribeSwapUpdates: (() => void) | null = null;
 let unsubscribeBlockWatch: (() => void) | null = null;
 let expectingInboundUntil = 0;
@@ -234,10 +238,6 @@ function clearRefreshTimers(): void {
 	if (balanceRefreshTimer) {
 		clearTimeout(balanceRefreshTimer);
 		balanceRefreshTimer = null;
-	}
-	if (postCleanupTimer) {
-		clearTimeout(postCleanupTimer);
-		postCleanupTimer = null;
 	}
 }
 
@@ -362,6 +362,60 @@ async function initialize(): Promise<void> {
 		wireSwapUpdates();
 		ensureInboundBlockWatch();
 
+		// Resume handler: balance-based incoming fund detection + swap recovery
+		// Fires on background→foreground transitions (visibilitychange / appStateChange)
+		const onResume = async () => {
+			// Read persisted balance (survives app kills, unlike in-memory store)
+			let persistedBalance: number | null = null;
+			try {
+				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
+				if (stored !== null) {
+					const parsed = parseInt(stored, 10);
+					if (!isNaN(parsed)) persistedBalance = parsed;
+				}
+			} catch {
+				// Preferences unavailable
+			}
+
+			// loadAssets() fetches RSK + BSC balances (4 parallel RPC calls, fast)
+			// Also persists balance to Preferences for cross-kill detection
+			await loadAssets();
+
+			const newBalanceSats = get(walletStore).totalBalances.sats;
+
+			// Show toast if balance increased from persisted value
+			// persistedBalance === null means first open ever — skip toast (save baseline)
+			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
+				const delta = newBalanceSats - persistedBalance;
+				void import('$lib/stores/app.store').then(({ appStore }) => {
+					appStore.showInfoToast(
+						`Received ${formatSats(delta)} sats`,
+						5000,
+						{ dedupKey: `received-balance-${newBalanceSats}` }
+					);
+				});
+			}
+
+			// Recover pending swaps independently (Nostr queries only, no blockchain RPC)
+			if (sdkWalletManager) {
+				try {
+					await Promise.all([
+						sdkWalletManager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+						sdkWalletManager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+						sdkWalletManager.chainSwapService.recoverPendingSwaps().catch(() => [])
+					]);
+				} catch {
+					// Swap recovery failure is non-critical
+				}
+			}
+		};
+
+		registerSwapResumeHandler(onResume);
+
+		// Run once on cold start to establish persisted baseline
+		// Fire-and-forget: does not block initialize() or first paint
+		onResume().catch(() => {});
+
 		// Update store with wallet info
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
@@ -449,6 +503,7 @@ function disconnectWallet(): void {
 	unsubscribeSwapUpdates = null;
 	unsubscribeBlockWatch?.();
 	unsubscribeBlockWatch = null;
+	unregisterSwapResumeHandler();
 	expectingInboundUntil = 0;
 	void clearPersistedChainSortHints();
 	recoverSwapsOnNextLoad = true;
@@ -662,6 +717,13 @@ async function loadAssets(): Promise<void> {
 			// Store price error state for UI to potentially display
 			rbtcRateError: priceError || s.rbtcRateError
 		}));
+
+		// Persist balance for incoming fund detection across app kills
+		try {
+			await Preferences.set({ key: StorageKeys.WALLET_LAST_BALANCE_SATS, value: totalSats.toString() });
+		} catch {
+			// Preferences unavailable
+		}
 	} catch (error) {
 		console.error('[WALLET-STORE] Failed to load assets:', error);
 		// Don't reset balances on error - keep showing last known values
@@ -702,10 +764,10 @@ async function loadTransactionsInternal(): Promise<void> {
 				// Poll until initialized or timeout after 10 seconds
 				const maxWaitTime = 10000; // 10 seconds
 				const startTime = Date.now();
-				while (state.isInitializing && Date.now() - startTime < maxWaitTime) {
+				while (Date.now() - startTime < maxWaitTime) {
 					await new Promise((resolve) => setTimeout(resolve, 100));
 					const currentState = get(walletStore);
-					if (currentState.isConnected && sdkWalletManager) {
+					if (!currentState.isInitializing || (currentState.isConnected && sdkWalletManager)) {
 						break;
 					}
 				}
@@ -725,12 +787,6 @@ async function loadTransactionsInternal(): Promise<void> {
 			await refreshChainSortHintsFromNostr();
 		}
 
-		const previousReceiveHashes = new Set(
-			finalState.transactions
-				.filter((tx) => tx.displayType === 'receive' || tx.displayType === 'swap-claim')
-				.map((tx) => tx.hash.toLowerCase())
-		);
-
 		// Validate wallets exist
 		if (!manager.rskWallet || !manager.bscWallet) {
 			throw new Error(
@@ -749,8 +805,8 @@ async function loadTransactionsInternal(): Promise<void> {
 
 		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
-			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
-			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats)
+			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk'),
+			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc')
 		]);
 
 		// Recover pending swaps only on init / explicit refresh — not every WS-driven reload
@@ -779,35 +835,16 @@ async function loadTransactionsInternal(): Promise<void> {
 				.filter((swap): swap is BoltzSwapData => swap != null);
 		}
 
-		// One-shot post-recovery cleanup (not a perpetual reload loop)
+		// One-shot post-recovery cleanup (inline — no second loadTransactions)
 		if (shouldRecoverSwaps) {
-			if (postCleanupTimer) clearTimeout(postCleanupTimer);
-			const cleanupSwaps = { submarineSwaps, reverseSwaps, chainSwaps };
-			postCleanupTimer = setTimeout(() => {
-				postCleanupTimer = null;
-				cleanupExpiredSwaps(
-					manager,
-					cleanupSwaps.submarineSwaps,
-					cleanupSwaps.reverseSwaps,
-					cleanupSwaps.chainSwaps
-				);
-				loadTransactions().catch((err) => {
-					console.error('[loadTransactions] Post-cleanup refresh failed:', err);
-				});
-			}, 2000);
+			cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
 		}
 
-		// Map swaps to transaction format (updated filter signature)
+		// Map swaps to transaction format
 		const swapTransactions = [
-			...submarineSwaps
-				.filter((s) => shouldShowSwap(s.status, 'submarine', s))
-				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
-			...reverseSwaps
-				.filter((s) => shouldShowSwap(s.status, 'reverse', s))
-				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
-			...chainSwaps
-				.filter((s) => shouldShowSwap(s.status, 'chain', s))
-				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+			...submarineSwaps.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+			...reverseSwaps.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+			...chainSwaps.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
 		];
 
 		const mappedSwapIds = new Set(
@@ -824,15 +861,6 @@ async function loadTransactionsInternal(): Promise<void> {
 		);
 
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
-
-		const hasNewReceive = allTransactions.some(
-			(tx) =>
-				(tx.displayType === 'receive' || tx.displayType === 'swap-claim') &&
-				!previousReceiveHashes.has(tx.hash.toLowerCase())
-		);
-		if (hasNewReceive) {
-			scheduleBalanceRefresh();
-		}
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 		console.error('[loadTransactions] Failed to load transactions:', errorMessage, error);
@@ -948,8 +976,6 @@ export function updateSwapTransaction(
 				scheduleBalanceRefresh();
 			}
 			scheduleChainRefresh();
-			// Enrich backend for wallet notification
-			notificationCenterService.enrich({ action: 'swap_completed' }).catch(() => {});
 			return;
 		}
 
@@ -965,8 +991,6 @@ export function updateSwapTransaction(
 					transactions: mergeSwapUpdate(s.transactions, swapId, updatedTx, s.totalBalances.sats)
 				}));
 			}
-			// Enrich backend for wallet notification
-			notificationCenterService.enrich({ action: 'swap_failed' }).catch(() => {});
 			return;
 		}
 	}

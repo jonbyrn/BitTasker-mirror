@@ -246,6 +246,62 @@ describe('computePermittedActions', () => {
 			expect(now + CANCELLATION_WINDOW < estimatedStartTime).toBe(true);
 			expect(run(p, true, now).canCancelPaymentContract).toBe(true);
 		});
+
+		it('tasker: can cancel when now >= estimatedCompletionTime + CANCELLATION_WINDOW (Funded)', () => {
+			const createdAt = 1_700_000_000;
+			const estimatedStartTime = createdAt + 3600;
+			const estimatedCompletionTime = createdAt + 86400;
+			const p = basePayment({
+				state: ContractStatus.Funded,
+				createdAt,
+				estimatedStartTime,
+				estimatedCompletionTime
+			});
+			const now = estimatedCompletionTime + CANCELLATION_WINDOW;
+			expect(run(p, true, now).canCancelPaymentContract).toBe(true);
+		});
+
+		it('tasker: cannot cancel one second before estimatedCompletionTime + CANCELLATION_WINDOW', () => {
+			const createdAt = 1_700_000_000;
+			const estimatedStartTime = createdAt + 3600;
+			const estimatedCompletionTime = createdAt + 86400;
+			const p = basePayment({
+				state: ContractStatus.Funded,
+				createdAt,
+				estimatedStartTime,
+				estimatedCompletionTime
+			});
+			const now = estimatedCompletionTime + CANCELLATION_WINDOW - 1;
+			expect(run(p, true, now).canCancelPaymentContract).toBe(false);
+		});
+
+		it('tasker: cannot cancel past completion + 24h in Completed state', () => {
+			const createdAt = 1_700_000_000;
+			const estimatedStartTime = createdAt + 3600;
+			const estimatedCompletionTime = createdAt + 86400;
+			const p = basePayment({
+				state: ContractStatus.Completed,
+				createdAt,
+				estimatedStartTime,
+				estimatedCompletionTime
+			});
+			const now = estimatedCompletionTime + CANCELLATION_WINDOW + 1;
+			expect(run(p, true, now).canCancelPaymentContract).toBe(false);
+		});
+
+		it('tasker: can cancel past completion + 24h in WorkInProgress state', () => {
+			const createdAt = 1_700_000_000;
+			const estimatedStartTime = createdAt + 3600;
+			const estimatedCompletionTime = createdAt + 86400;
+			const p = basePayment({
+				state: ContractStatus.WorkInProgress,
+				createdAt,
+				estimatedStartTime,
+				estimatedCompletionTime
+			});
+			const now = estimatedCompletionTime + CANCELLATION_WINDOW + 1;
+			expect(run(p, true, now).canCancelPaymentContract).toBe(true);
+		});
 	});
 
 	describe('refundTasker (taskee)', () => {

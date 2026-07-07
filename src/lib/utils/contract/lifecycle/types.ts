@@ -22,6 +22,7 @@ export type PaymentContractRuneLike = {
 	paymentId: string | undefined;
 	version: string;
 	isPending: boolean;
+	isFailed: boolean;
 	blockchainData: SecurePaymentLegacy | null;
 	readonly isTasker: boolean;
 	contractAddress: string;
@@ -39,6 +40,14 @@ export type PaymentContractRuneLike = {
 	 * Completion evidence text copied from Kind 31006 events that include a `completionText` tag.
 	 */
 	readonly completionText: string;
+	/**
+	 * Effective estimated start time — blockchain data is source of truth, Nostr tags are fallback.
+	 */
+	readonly effectiveEstimatedStartTime: number | undefined;
+	/**
+	 * Effective estimated completion time — blockchain data is source of truth, Nostr tags are fallback.
+	 */
+	readonly effectiveEstimatedCompletionTime: number | undefined;
 };
 
 export type PaymentContractLifecycle = {

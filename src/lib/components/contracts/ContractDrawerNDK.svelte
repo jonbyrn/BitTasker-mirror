@@ -7,6 +7,7 @@
 	import ContractTimelineNDK from './ContractTimelineNDK.svelte';
 	import ContractActionsDrawerNDK from './ContractActionsDrawerNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
+	import ServiceAgreementSummary from './ServiceAgreementSummary.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import {
 		getStatusColorClass,
@@ -33,10 +34,10 @@
 	}>();
 
 	let isTechnicalDetailsOpen = $state(false);
-	let isOriginalBidOpen = $state(false);
 	let isDescriptionExpanded = $state(false);
 	let descriptionEl = $state<HTMLElement | null>(null);
 	let isTruncated = $state(false);
+	let isDetailsOpen = $state(false);
 
 	function checkTruncation() {
 		if (descriptionEl) {
@@ -305,10 +306,10 @@
 
 					<!-- Row 3: Date row -->
 					<div class="w-full flex-1">
-						{#if contract.estimatedStartTime != null && contract.estimatedCompletionTime != null}
+						{#if contractRune.effectiveEstimatedStartTime != null && contractRune.effectiveEstimatedCompletionTime != null}
 							<BookingDatesDisplay
-								startTime={contract.estimatedStartTime}
-								endTime={contract.estimatedCompletionTime}
+								startTime={contractRune.effectiveEstimatedStartTime}
+								endTime={contractRune.effectiveEstimatedCompletionTime}
 								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
@@ -370,41 +371,85 @@
 						</div>
 					{/if}
 
-					<!-- Row 5: Bid details (full width, for non-service contracts) -->
-					{#if !isServiceContract}
-						<div class="mb-3 w-full sm:order-3 sm:basis-full">
-							<div class="join join-vertical w-full">
-								<div
-									class="collapse-arrow join-item border-base-300 collapse border-b"
-									class:collapse-open={isOriginalBidOpen}
-								>
-									<button
-										type="button"
-										class="collapse-title text-left text-lg leading-tight font-bold"
-										onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
-										aria-expanded={isOriginalBidOpen}
-										aria-controls="original-bid-content-ndk"
+					<!-- Blockchain sync error banner -->
+					{#if contractRune.isFailed}
+						<div class="alert alert-error mb-3 text-sm">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<div class="flex flex-col gap-1">
+								<span class="font-semibold">{$t('dashboard.contracts.tx_reverted')}</span>
+								<span>
+									{#if contractRune.error?.startsWith('tx_reverted:')}
+										{@const reason = contractRune.error.split(':')[1]}
+										{#if reason}
+											{$t('dashboard.contracts.tx_reverted_reason_' + reason)}
+										{:else}
+											{$t('dashboard.contracts.tx_reverted_description')}
+										{/if}
+									{:else}
+										{$t('dashboard.contracts.tx_reverted_description')}
+									{/if}
+								</span>
+								{#if contract.transactionHash}
+									<a
+										class="link link-primary text-xs"
+										href="https://rootstock.blockscout.com/tx/{contract.transactionHash}"
+										target="_blank"
+										rel="noopener noreferrer"
 									>
-										{$t('dashboard.contracts.bid_details')}
-									</button>
-									<div id="original-bid-content-ndk" class="collapse-content">
-										<div class="pt-2">
-											<div>
-												<span class="text-xs font-medium"
-													>{$t('dashboard.contracts.approach')}:</span
-												>
-												<p class="text-base-content/80 mt-1 text-sm">
-													{$t('dashboard.contracts.bid_info_not_available')}
-												</p>
-											</div>
-										</div>
-									</div>
-								</div>
+										{$t('dashboard.contracts.view_on_explorer')}
+									</a>
+								{/if}
 							</div>
+						</div>
+					{:else if contractRune.error && !contractRune.blockchainData}
+						<div class="alert alert-warning mb-3 text-sm">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{$t('dashboard.contracts.blockchain_sync_error')}</span>
+							<button
+								type="button"
+								class="btn btn-xs btn-outline"
+								onclick={() => contractRune.retryLoadBlockchainData()}
+							>
+								{$t('dashboard.contracts.retry')}
+							</button>
 						</div>
 					{/if}
 
-					<!-- Row 6: Action buttons (right-aligned) -->
+					<!-- Blockchain loading indicator -->
+					{#if !contractRune.blockchainData && !contractRune.error}
+						<div class="text-base-content/60 mb-3 flex items-center gap-2 text-sm">
+							<span class="loading loading-spinner loading-xs"></span>
+							<span>{$t('dashboard.contracts.blockchain_syncing')}</span>
+						</div>
+					{/if}
+
+					<!-- Action buttons (right-aligned) -->
 					{#if contractRune}
 						<div class="flex justify-end gap-2">
 							<ContractActionsDrawerNDK
@@ -451,12 +496,9 @@
 								</div>
 							{/if}
 
-						{#if completionGalleryItems.length > 0}
-							<Gallery
-								galleryID="contract-completion-gallery"
-								items={completionGalleryItems}
-							/>
-						{/if}
+							{#if completionGalleryItems.length > 0}
+								<Gallery galleryID="contract-completion-gallery" items={completionGalleryItems} />
+							{/if}
 						</div>
 					</div>
 				{/if}
@@ -505,6 +547,86 @@
 					</div>
 				</div>
 			{/if}
+
+			<!-- Agreement / Bid Details -->
+			<div class="card bg-base-200 overflow-hidden">
+				<div class="card-body bg-base-200 p-0">
+					<div
+						class="collapse-arrow border-base-300 collapse border-b"
+						class:collapse-open={isDetailsOpen}
+					>
+						<button
+							type="button"
+							class="collapse-title px-4 py-3 text-left text-sm font-medium"
+							onclick={() => (isDetailsOpen = !isDetailsOpen)}
+							aria-expanded={isDetailsOpen}
+							aria-controls="agreement-content-ndk"
+						>
+							{isServiceContract
+								? $t('dashboard.contracts.service_agreement_details')
+								: $t('dashboard.contracts.bid_details')}
+						</button>
+						<div id="agreement-content-ndk" class="collapse-content">
+							<div class="px-4 pb-4">
+								{#if isServiceContract}
+									<ServiceAgreementSummary
+										selectedTierLabel={contract.agreementSnapshot?.selectedTierLabel}
+										agreementSnapshot={contract.agreementSnapshot}
+										instantOrderId={contract.tagValue('purchaseMode') === 'instant_buy'
+											? contract.taskId
+											: null}
+										estimatedStartTime={contractRune.effectiveEstimatedStartTime ?? null}
+										estimatedCompletionTime={contractRune.effectiveEstimatedCompletionTime ?? null}
+									/>
+								{:else}
+									{@const bidContent = contractRune.originalBid?.bidContent}
+									{#if bidContent}
+										<div class="space-y-3">
+											{#if bidContent.proposedApproach || bidContent.description}
+												<div>
+													<span class="text-base-content/50 text-xs font-medium"
+														>{$t('dashboard.contracts.approach')}</span
+													>
+													<p
+														class="text-base-content/80 mt-1 text-sm leading-relaxed whitespace-pre-line"
+													>
+														{bidContent.proposedApproach || bidContent.description}
+													</p>
+												</div>
+											{/if}
+											{#if bidContent.estimatedDuration}
+												<div>
+													<span class="text-base-content/50 text-xs font-medium"
+														>{$t('dashboard.contracts.estimated_duration')}</span
+													>
+													<p class="text-base-content/80 mt-1 text-sm">
+														{bidContent.estimatedDuration}
+													</p>
+												</div>
+											{/if}
+											{#if bidContent.amount}
+												<div>
+													<span class="text-base-content/50 text-xs font-medium"
+														>{$t('dashboard.contracts.original_amount')}</span
+													>
+													<p class="text-base-content/80 mt-1 text-sm font-medium">
+														${bidContent.amount.toLocaleString()}
+														{bidContent.currency || 'USD'}
+													</p>
+												</div>
+											{/if}
+										</div>
+									{:else}
+										<p class="text-base-content/50 text-sm">
+											{$t('dashboard.contracts.bid_info_not_available')}
+										</p>
+									{/if}
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			<!-- Technical Details -->
 			<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">

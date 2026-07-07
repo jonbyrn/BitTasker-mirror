@@ -21,8 +21,10 @@
 	const currentLocale = $derived($locale || 'en');
 
 	function toDate(timestamp: number | null): Date | null {
-		if (!timestamp) return null;
-		return timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
+		if (timestamp == null || timestamp <= 0) return null;
+		const ms = timestamp > 1000000000000 ? timestamp : timestamp * 1000;
+		const date = new Date(ms);
+		return Number.isFinite(date.getTime()) ? date : null;
 	}
 
 	function formatDateNoYear(date: Date, loc: string): string {

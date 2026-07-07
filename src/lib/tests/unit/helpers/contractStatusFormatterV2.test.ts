@@ -28,6 +28,12 @@ describe('contractStatusFormatterV2', () => {
 				'dashboard.contracts.status.in_progress'
 			);
 		});
+
+		it('maps Failed display status to failed key', () => {
+			expect(getStatusTranslationKey(DisplayOnlyStatus.Failed)).toBe(
+				'dashboard.contracts.status.failed'
+			);
+		});
 	});
 
 	describe('getStatusColorClass', () => {
@@ -38,6 +44,10 @@ describe('contractStatusFormatterV2', () => {
 
 		it('uses primary for WorkInProgress', () => {
 			expect(getStatusColorClass(ContractStatus.WorkInProgress)).toBe('badge-primary');
+		});
+
+		it('uses error for Failed', () => {
+			expect(getStatusColorClass(DisplayOnlyStatus.Failed)).toBe('badge-error');
 		});
 	});
 });

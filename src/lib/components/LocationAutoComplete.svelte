@@ -34,7 +34,11 @@
 
 	async function getPredictions() {
 		try {
-			if (!searchInput.value) return;
+			if (!searchInput.value) {
+				showOptions = false;
+				predictions = [];
+				return;
+			}
 			isLoading = true;
 			const { AutocompleteSessionToken, AutocompleteSuggestion } = (await google.maps.importLibrary(
 				'places'
@@ -69,6 +73,8 @@
 			timeoutId = setTimeout(() => fn.apply(null, args), delay);
 		};
 	}
+
+	const debouncedGetPredictions = debounce(() => getPredictions(), 300);
 
 	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
 		let place = prediction.toPlace();
@@ -126,7 +132,7 @@
 			{placeholder}
 			class="input input-bordered w-full {hasError ? 'input-error' : ''}"
 			value={location.displayName}
-			oninput={debounce(() => getPredictions(), 300)}
+			oninput={debouncedGetPredictions}
 		/>
 		{#if isLoading}
 			<div class="absolute top-1/2 right-3 -translate-y-1/2">
