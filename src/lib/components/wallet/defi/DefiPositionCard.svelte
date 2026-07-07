@@ -31,10 +31,10 @@
 		return ltvPct >= 65 ? 'critical' : ltvPct >= 50 ? 'warning' : 'safe';
 	}
 
-	const RISK_BADGE: Record<string, { cls: string; label: string }> = {
-		safe: { cls: 'badge-success', label: 'Safe' },
-		warning: { cls: 'badge-warning', label: 'Caution' },
-		critical: { cls: 'badge-error', label: 'At Risk' }
+	const RISK_BADGE: Record<string, { cls: string; labelKey: string }> = {
+		safe: { cls: 'badge-success', labelKey: 'wallet.defi.risk_safe' },
+		warning: { cls: 'badge-warning', labelKey: 'wallet.defi.risk_caution' },
+		critical: { cls: 'badge-error', labelKey: 'wallet.defi.risk_at_risk' }
 	};
 </script>
 
@@ -60,7 +60,7 @@
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<IconBankOutline class="text-base-content h-5 w-5 shrink-0" />
-					<span>Loan</span>
+					<span>{$t('wallet.common.loan_label')}</span>
 				</div>
 				<div class="ml-2 flex shrink-0 items-center gap-2">
 					<div class="text-right">
@@ -71,7 +71,7 @@
 						</div>
 					</div>
 					<span class="badge {badge.cls} badge-xs shrink-0 px-1.5 py-0.5 text-[10px] font-medium"
-						>{badge.label}</span
+						>{$t(badge.labelKey)}</span
 					>
 				</div>
 			</button>

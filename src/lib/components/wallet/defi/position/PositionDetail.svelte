@@ -40,23 +40,23 @@
 		return ltvPct >= 65 ? 'critical' : ltvPct >= 50 ? 'warning' : 'safe';
 	}
 
-	const RISK_BADGE: Record<string, { cls: string; label: string }> = {
-		safe: { cls: 'badge-success', label: 'Safe' },
-		warning: { cls: 'badge-warning', label: 'Caution' },
-		critical: { cls: 'badge-error', label: 'At Risk' }
+	const RISK_BADGE: Record<string, { cls: string; labelKey: string }> = {
+		safe: { cls: 'badge-success', labelKey: 'wallet.defi.risk_safe' },
+		warning: { cls: 'badge-warning', labelKey: 'wallet.defi.risk_caution' },
+		critical: { cls: 'badge-error', labelKey: 'wallet.defi.risk_at_risk' }
 	};
 </script>
 
 <div class="flex flex-col gap-4">
 	<div class="text-base-content/60 text-xs">
-		{walletId === 'builtin' ? 'Builtin' : walletId}
+		{walletId === 'builtin' ? $t('wallet.common.builtin') : walletId}
 		{address?.slice(0, 6)}...{address?.slice(-4)}
-		<span class="badge badge-xs badge-outline ml-1">Arbitrum</span>
+		<span class="badge badge-xs badge-outline ml-1">{$t('wallet.common.arbitrum')}</span>
 	</div>
 
 	{#if !position}
 		<div class="bg-base-200 rounded-box p-8 text-center">
-			<p class="text-base-content/60 text-sm">Loading position...</p>
+			<p class="text-base-content/60 text-sm">{$t('wallet.common.loading_position')}</p>
 		</div>
 	{:else}
 		{@const ltvPct = calcLtv(position.totalDebtUsd, displayCollateral)}
@@ -74,7 +74,7 @@
 				${position.totalDebtUsd.toFixed(2)} / ${displayCollateral.toFixed(2)} ({ltvPct.toFixed(1)}%)
 			</span>
 			<span class="badge {badge.cls} badge-xs px-1.5 py-0.5 text-[10px] font-medium"
-				>{badge.label}</span
+				>{$t(badge.labelKey)}</span
 			>
 		</div>
 
@@ -87,7 +87,7 @@
 					>
 				</div>
 				<div class="flex items-center justify-between">
-					<span class="text-base-content/60">Current BTC</span>
+					<span class="text-base-content/60">{$t('wallet.defi.position.current_btc')}</span>
 					<span class="font-medium tabular-nums"
 						>${Math.round(btcPrice.price).toLocaleString()}</span
 					>

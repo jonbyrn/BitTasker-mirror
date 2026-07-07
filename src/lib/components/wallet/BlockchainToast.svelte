@@ -44,8 +44,10 @@
 		);
 		if (blocksRemaining <= 0) return '';
 		const seconds = blocksRemaining * 30;
-		if (seconds < 60) return `~${seconds}s`;
-		return `~${Math.ceil(seconds / 60)} min`;
+		if (seconds < 60) return $t('wallet.toast.time_approx_seconds', { values: { seconds } });
+		return $t('wallet.toast.time_approx_minutes', {
+			values: { minutes: Math.ceil(seconds / 60) }
+		});
 	}
 
 	function formatCollapsedDescription(item: BlockchainToastItem): string {

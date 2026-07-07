@@ -1,5 +1,8 @@
 {
 	"common": {
+		"accessibility": {
+			"help": "Help"
+		},
 		"status": {
 			"open": "Open",
 			"bid_accepted": "Bid Accepted",
@@ -48,6 +51,7 @@
 		"selected": "Selected",
 		"required": "Required",
 		"optional": "Optional",
+		"confirm": "Confirm",
 		"buttons": {
 			"cancel": "Cancel",
 			"retry": "Retry",

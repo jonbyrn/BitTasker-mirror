@@ -218,7 +218,8 @@
 			</div>
 			{#if removeTotalUsd > 0}
 				<div class="text-base-content/50 mt-1">
-					~${removeTotalUsd.toFixed(2)} total
+					~${removeTotalUsd.toFixed(2)}
+					{$t('wallet.defi.total_label')}
 				</div>
 			{/if}
 			<p class="text-base-content/40 mt-1">

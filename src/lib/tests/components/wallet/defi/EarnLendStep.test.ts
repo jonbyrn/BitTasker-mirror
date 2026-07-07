@@ -147,7 +147,21 @@ vi.mock('svelte-i18n', () => ({
 					'wallet.defi.shared.offline': "You're offline — DeFi requires network connection",
 					'wallet.defi.needs_usdt0': 'Requires USDT0 to supply',
 					'wallet.defi.shared.pending_tx': 'Transaction processing...',
-					'wallet.defi.borrow.rates_error': 'Unable to load current rates'
+					'wallet.defi.borrow.rates_error': 'Unable to load current rates',
+					'wallet.defi.lending.preview_approve_supply': 'Preview — Approve & Supply',
+					'wallet.defi.lending.to_aave': 'to Aave (Arbitrum)',
+					'wallet.defi.lending.your_supply': 'Your Aave Supply (USDT0)',
+					'wallet.defi.lending.health_factor': 'HF',
+					'wallet.defi.lending.collateral': 'Collateral',
+					'wallet.defi.lending.withdraw_all': 'Withdraw All (full lifecycle)',
+					'wallet.defi.lending.projected_after_1y': 'Projected after 1y:',
+					'wallet.defi.error.no_signer': 'No signer available',
+					'wallet.defi.error.approve_failed': 'Approve failed',
+					'wallet.defi.error.signer_unavailable': 'Signer unavailable',
+					'wallet.defi.error.supply_failed': 'Supply failed',
+					'wallet.defi.lending.supply_submitted': 'Supply submitted — refreshing position',
+					'wallet.defi.error.withdraw_failed': 'Withdraw failed',
+					'wallet.defi.lending.withdraw_submitted': 'Withdraw submitted — position refreshing'
 				};
 				return map[key] || key;
 			});

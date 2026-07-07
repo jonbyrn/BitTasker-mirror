@@ -160,7 +160,7 @@
 			},
 			{
 				id: 'usdt0-arb',
-				label: 'USD',
+				label: $t('wallet.send_form.asset.usd'),
 				icon: '/images/chains/Tether-USD.svg',
 				subLabel: $t('wallet.buy_sell.sub_usdt0'),
 				balance: balances.usdtBalanceDisplay

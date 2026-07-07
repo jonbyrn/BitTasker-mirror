@@ -51,10 +51,10 @@
 	let riskLevel = $derived<RiskLevel>(
 		totalLtvPct >= 65 ? 'critical' : totalLtvPct >= 50 ? 'warning' : 'safe'
 	);
-	const RISK: Record<RiskLevel, { bar: string; badge: string; label: string }> = {
-		safe: { bar: 'bg-success', badge: 'badge-success', label: 'Safe' },
-		warning: { bar: 'bg-warning', badge: 'badge-warning', label: 'Caution' },
-		critical: { bar: 'bg-error', badge: 'badge-error', label: 'At Risk' }
+	const RISK: Record<RiskLevel, { bar: string; badge: string; labelKey: string }> = {
+		safe: { bar: 'bg-success', badge: 'badge-success', labelKey: 'wallet.defi.risk_safe' },
+		warning: { bar: 'bg-warning', badge: 'badge-warning', labelKey: 'wallet.defi.risk_caution' },
+		critical: { bar: 'bg-error', badge: 'badge-error', labelKey: 'wallet.defi.risk_at_risk' }
 	};
 	let risk = $derived(RISK[riskLevel]);
 	let hasAnyCollateral = $derived(allPositions.length > 0 || totalCollateralUsd > 0);
@@ -70,13 +70,13 @@
 					type="button"
 					class="text-base-content/40 hover:text-base-content/70 transition-colors"
 					onclick={() => (helpOpen = true)}
-					aria-label="Help"
+					aria-label={$t('common.accessibility.help')}
 				>
 					<IconHelpCircle class="h-5 w-5" />
 				</button>
 			</div>
 			<span class="badge {risk.badge} badge-sm px-2 py-1 text-xs font-medium">
-				{risk.label}
+				{$t(risk.labelKey)}
 			</span>
 		</div>
 
@@ -137,7 +137,9 @@
 				<span class="text-sm font-bold tabular-nums">${lockedCollateralUsd.toFixed(2)}</span>
 			</div>
 			<div class="bg-base-200 flex flex-col items-center rounded-lg px-2 py-1.5">
-				<span class="text-base-content/50 text-[10px] tracking-wide uppercase">LTV</span>
+				<span class="text-base-content/50 text-[10px] tracking-wide uppercase"
+					>{$t('wallet.defi.lending.ltv')}</span
+				>
 				<span class="text-sm font-bold tabular-nums">{totalLtvPct.toFixed(1)}%</span>
 			</div>
 		</div>

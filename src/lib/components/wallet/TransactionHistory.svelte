@@ -177,7 +177,7 @@
 				}
 
 				if (!$walletStore.isConnected) {
-					throw new Error('Wallet initialization failed. Please try again.');
+					throw new Error($t('wallet.defi.tx_confirmed_hash', { values: { hash: '' } }));
 				}
 			}
 

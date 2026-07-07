@@ -206,12 +206,12 @@
 		},
 		{
 			value: 'usdt-bsc',
-			label: 'BSC USDT', // TODO: Add translation
+			label: $t('wallet.receive_form.networks.bsc_usdt.label'),
 			icon: null
 		},
 		{
 			value: 'bsc',
-			label: 'BSC', // TODO: Add translation
+			label: $t('wallet.transaction.network.bsc'),
 			icon: null
 		}
 	]);

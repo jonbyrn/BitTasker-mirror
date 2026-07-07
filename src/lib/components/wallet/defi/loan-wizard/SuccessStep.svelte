@@ -38,10 +38,12 @@
 
 	{#if supplyTxHash || borrowTxHash}
 		<div class="bg-base-200 rounded-box w-full space-y-2 p-3 text-sm">
-			<p class="text-base-content/60 text-left text-xs font-medium">Transaction Receipts</p>
+			<p class="text-base-content/60 text-left text-xs font-medium">
+				{$t('wallet.defi.loan_wizard.transaction_receipts')}
+			</p>
 			{#if supplyTxHash}
 				<div class="flex items-center justify-between">
-					<span class="text-base-content/60">Supply</span>
+					<span class="text-base-content/60">{$t('wallet.defi.wizard.supply')}</span>
 					<a
 						href="{ARBISCAN_TX}{supplyTxHash}"
 						target="_blank"
@@ -54,7 +56,7 @@
 			{/if}
 			{#if borrowTxHash}
 				<div class="flex items-center justify-between">
-					<span class="text-base-content/60">Borrow</span>
+					<span class="text-base-content/60">{$t('wallet.defi.wizard.borrow')}</span>
 					<a
 						href="{ARBISCAN_TX}{borrowTxHash}"
 						target="_blank"
@@ -74,25 +76,34 @@
 				{$t('wallet.defi.wizard.your_new_position')}
 			</p>
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">Wallet</span>
+				<span class="text-base-content/60">{$t('wallet.defi.wallet_label')}</span>
 				<span class="font-mono text-xs"
-					>{walletId === 'builtin' ? 'Builtin' : walletId}
+					>{walletId === 'builtin' ? $t('wallet.defi.builtin_label') : walletId}
 					{address?.slice(0, 6)}...{address?.slice(-4)}</span
 				>
 			</div>
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">Collateral</span>
+				<span class="text-base-content/60">{$t('wallet.defi.collateral_label')}</span>
 				<span class="font-medium tabular-nums">${position.totalCollateralUsd.toLocaleString()}</span
 				>
 			</div>
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">Debt</span>
+				<span class="text-base-content/60">{$t('wallet.defi.debt_label')}</span>
+				<span class="font-medium tabular-nums">${position.totalDebtUsd.toLocaleString()}</span>
+			</div>
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/60">{$t('wallet.defi.lending.collateral')}</span>
+				<span class="font-medium tabular-nums">${position.totalCollateralUsd.toLocaleString()}</span
+				>
+			</div>
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/60">{$t('wallet.defi.lending.debt')}</span>
 				<span class="font-medium tabular-nums">${position.totalDebtUsd.toLocaleString()}</span>
 			</div>
 			<HealthFactorGauge healthFactor={position.healthFactor} status={healthStatus} />
 			{#if position.liquidationPriceBtc}
 				<div class="flex items-center justify-between">
-					<span class="text-base-content/60">Liq Price</span>
+					<span class="text-base-content/60">{$t('wallet.defi.lending.liq_price')}</span>
 					<span class="font-medium tabular-nums"
 						>${position.liquidationPriceBtc.toLocaleString()}</span
 					>

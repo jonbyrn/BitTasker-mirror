@@ -203,6 +203,6 @@
 
 	<!-- Backdrop click closes modal (daisyUI default) -->
 	<form method="dialog" class="modal-backdrop">
-		<button onclick={onclose}>close</button>
+		<button onclick={onclose}>{$t('wallet.connected.close')}</button>
 	</form>
 </dialog>

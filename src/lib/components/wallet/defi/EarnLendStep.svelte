@@ -181,7 +181,7 @@
 		txError = null;
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'No signer available for selected wallet';
+			txError = $t('wallet.defi.lp_error_no_signer');
 			isApproving = false;
 			return;
 		}
@@ -194,7 +194,7 @@
 		const { error } = await tryCatch(token.approve(AAVE_POOL_ADDR, amt));
 		isApproving = false;
 		if (error) {
-			txError = error.message || 'Approve failed';
+			txError = error.message || $t('wallet.defi.error.approve_failed');
 			Sentry.captureException(error, { tags: { feature: 'defi.lend', action: 'approve' } });
 			throw error; // modal will catch + toast
 		}
@@ -206,7 +206,7 @@
 		txError = null;
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'Signer unavailable';
+			txError = $t('wallet.defi.lp_error_signer_unavailable');
 			isSupplying = false;
 			return;
 		}
@@ -214,12 +214,12 @@
 		const amt = ethers.parseUnits(String(amountNum), USDT0_DECIMALS);
 		const { error, data: tx } = await tryCatch(aave.supply(USDT0_ARBITRUM, amt, signer));
 		if (error || !tx) {
-			txError = error?.message || 'Supply failed';
+			txError = error?.message || $t('wallet.defi.error.supply_failed');
 			Sentry.captureException(error, { tags: { feature: 'defi.lend', action: 'supply' } });
 			isSupplying = false;
 			return;
 		}
-		appStore.showSuccessToast('Supply submitted — refreshing position');
+		appStore.showSuccessToast($t('wallet.defi.lending.supply_submitted'));
 		await Promise.allSettled([refreshPositionForSelected() /* loadAssets if exposed */]);
 		isSupplying = false;
 		amount = '';
@@ -236,7 +236,7 @@
 		txError = null;
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'Signer unavailable';
+			txError = $t('wallet.defi.lp_error_signer_unavailable');
 			isWithdrawing = false;
 			return;
 		}
@@ -245,12 +245,12 @@
 		const raw = currentPosition.suppliedUsdt0Raw ?? 0n;
 		const { error } = await tryCatch(aave.withdraw(USDT0_ARBITRUM, raw, signer));
 		if (error) {
-			txError = error.message || 'Withdraw failed';
+			txError = error.message || $t('wallet.defi.error.withdraw_failed');
 			Sentry.captureException(error, { tags: { feature: 'defi.lend', action: 'withdraw' } });
 			isWithdrawing = false;
 			return;
 		}
-		appStore.showSuccessToast('Withdraw submitted — position refreshing');
+		appStore.showSuccessToast($t('wallet.defi.lending.withdraw_submitted'));
 		await refreshPositionForSelected();
 		isWithdrawing = false;
 	}
@@ -286,13 +286,14 @@
 	{#if currentPosition && parseFloat(currentPosition.suppliedUsdt0 || '0') > 0}
 		<div class="bg-base-200 rounded-box border-success/30 border p-3 text-sm">
 			<div class="flex items-center justify-between">
-				<span class="font-medium">Your Aave Supply (USDT0)</span>
+				<span class="font-medium">{$t('wallet.defi.lending.your_supply')}</span>
 				<span class="text-success font-bold"
 					>${parseFloat(currentPosition.suppliedUsdt0).toFixed(2)}</span
 				>
 			</div>
 			<div class="text-base-content/60 text-xs">
-				HF: {currentPosition.healthFactor?.toFixed(2) ?? '—'} • Collateral: ${currentPosition.totalCollateralUsd?.toFixed(
+				{$t('wallet.defi.lending.health_factor')}: {currentPosition.healthFactor?.toFixed(2) ?? '—'}
+				• {$t('wallet.defi.lending.collateral')}: ${currentPosition.totalCollateralUsd?.toFixed(
 					0
 				) ?? 0}
 			</div>
@@ -303,7 +304,9 @@
 				onclick={handleWithdraw}
 				aria-busy={isWithdrawing}
 			>
-				{isWithdrawing ? $t('wallet.defi.shared.pending_tx') : 'Withdraw All (full lifecycle)'}
+				{isWithdrawing
+					? $t('wallet.defi.shared.pending_tx')
+					: $t('wallet.defi.lending.withdraw_all')}
 			</button>
 		</div>
 	{/if}
@@ -339,9 +342,16 @@
 	<!-- Preview UI for approve lifecycle (polish for connected + preview; reuses existing projected/apy; no new i18n keys) -->
 	{#if amountNum > 0}
 		<div class="bg-base-300 rounded-box border-primary/20 border p-3 text-sm">
-			<div class="text-base-content/80 mb-1 font-medium">Preview — Approve & Supply</div>
-			<div>${amountNum.toFixed(2)} USDT0 to Aave (Arbitrum) • ~{supplyAPY.toFixed(2)}% APY</div>
-			<div class="text-success">Projected after 1y: ${projectedEarnings.toFixed(2)}</div>
+			<div class="text-base-content/80 mb-1 font-medium">
+				{$t('wallet.defi.lending.preview_approve_supply')}
+			</div>
+			<div>
+				${amountNum.toFixed(2)} USDT0 {$t('wallet.defi.lending.to_aave')} • ~{supplyAPY.toFixed(2)}%
+				APY
+			</div>
+			<div class="text-success">
+				{$t('wallet.defi.lending.projected_after_1y')} ${projectedEarnings.toFixed(2)}
+			</div>
 		</div>
 	{/if}
 

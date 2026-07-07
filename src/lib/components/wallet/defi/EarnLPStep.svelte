@@ -213,7 +213,7 @@
 		txError = null;
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'No signer available for selected wallet';
+			txError = $t('wallet.defi.error.no_signer');
 			throw new Error(txError);
 		}
 		const token = new ethers.Contract(
@@ -224,7 +224,7 @@
 		const amt = ethers.parseUnits(wbtcAmount.toFixed(8), 8);
 		const { error } = await tryCatch(token.approve(UNISWAP_NPM_ADDR, amt));
 		if (error) {
-			txError = error.message || 'WBTC approve failed';
+			txError = error.message || $t('wallet.defi.error.wbtc_approve_failed');
 			Sentry.captureException(error, { tags: { feature: 'defi.lp', action: 'approve-wbtc' } });
 			throw error;
 		}
@@ -237,7 +237,7 @@
 		txError = null;
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'No signer available for selected wallet';
+			txError = $t('wallet.defi.error.no_signer');
 			throw new Error(txError);
 		}
 		const token = new ethers.Contract(
@@ -248,7 +248,7 @@
 		const amt = ethers.parseUnits(usdt0Amount.toFixed(6), 6);
 		const { error } = await tryCatch(token.approve(UNISWAP_NPM_ADDR, amt));
 		if (error) {
-			txError = error.message || 'USDT0 approve failed';
+			txError = error.message || $t('wallet.defi.error.usdt0_approve_failed');
 			Sentry.captureException(error, { tags: { feature: 'defi.lp', action: 'approve-usdt0' } });
 			throw error;
 		}
@@ -263,14 +263,14 @@
 
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'Signer unavailable';
+			txError = $t('wallet.defi.error.signer_unavailable');
 			txState = 'error';
 			isProcessing = false;
 			return;
 		}
 		const recipient = defiPositions.resolveAddress(selectedWalletId);
 		if (!recipient) {
-			txError = 'No recipient address for wallet';
+			txError = $t('wallet.defi.error.no_recipient');
 			txState = 'error';
 			isProcessing = false;
 			return;
@@ -333,7 +333,7 @@
 				}
 			} else {
 				const evmS = getEvmSigner(selectedWalletId);
-				if (!evmS) throw new Error('EVM signer unavailable');
+				if (!evmS) throw new Error($t('wallet.defi.error.evm_signer_unavailable'));
 				const res = await uni.addLiquidityWithEvmSigner(mintParams, evmS);
 				const resRecord = res as unknown as Record<string, unknown>;
 				_txHash =
@@ -354,7 +354,8 @@
 			txMessage = $t('wallet.defi.lp.remove_success'); // reuse success key for provided (or extend if needed)
 			amount = '';
 		} catch (e: unknown) {
-			txError = (e instanceof Error ? e.message : null) || 'Provide LP failed';
+			txError =
+				(e instanceof Error ? e.message : null) || $t('wallet.defi.error.provide_lp_failed');
 			txState = 'error';
 			Sentry.captureException(e, { tags: { feature: 'defi.lp', action: 'provide' } });
 		} finally {
@@ -415,7 +416,7 @@
 		// REAL path (LOAN_FLOW enabled) — production defensive
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'No signer available for selected wallet';
+			txError = $t('wallet.defi.error.no_signer');
 			txState = 'error';
 			isProcessing = false;
 			Sentry.captureException(new Error('Signer unavailable for LP remove'), {
@@ -440,7 +441,7 @@
 			uni.removeLiquidity(tokenId, liquidity, 0n, 0n, deadline, signer)
 		);
 		if (error) {
-			txError = error.message || 'Remove liquidity failed';
+			txError = error.message || $t('wallet.defi.error.remove_liquidity_failed');
 			txState = 'error';
 			Sentry.captureException(error, { tags: { feature: 'defi.lp', action: 'removeLiquidity' } });
 			isProcessing = false;
@@ -491,7 +492,7 @@
 		// REAL path
 		const signer = await getSignerForSelected();
 		if (!signer) {
-			txError = 'No signer available for selected wallet';
+			txError = $t('wallet.defi.error.no_signer');
 			txState = 'error';
 			isProcessing = false;
 			Sentry.captureException(new Error('Signer unavailable for LP collect'), {
@@ -502,7 +503,7 @@
 
 		const recipient = defiPositions.resolveAddress(selectedWalletId);
 		if (!recipient) {
-			txError = 'No recipient address for wallet';
+			txError = $t('wallet.defi.error.no_recipient');
 			txState = 'error';
 			isProcessing = false;
 			return;
@@ -520,7 +521,7 @@
 
 		const { error } = await tryCatch(uni.collectFees(tokenId, recipient, signer));
 		if (error) {
-			txError = error.message || 'Collect fees failed';
+			txError = error.message || $t('wallet.defi.error.collect_fees_failed');
 			txState = 'error';
 			Sentry.captureException(error, { tags: { feature: 'defi.lp', action: 'collectFees' } });
 			isProcessing = false;
@@ -550,7 +551,9 @@
 	<!-- Preview gate label (only when LOAN_FLOW off; real flows when flag on per LendStep/provide pattern) -->
 	{#if !FeatureFlagService.isEnabled(FEATURE_FLAGS.LOAN_FLOW)}
 		<div class="alert alert-soft alert-info mb-2 text-xs" role="note">
-			<span class="font-medium">PREVIEW</span> — {$t('wallet.defi.lp.sim_preview')}
+			<span class="font-medium">{$t('wallet.common.preview')}</span> — {$t(
+				'wallet.defi.lp.sim_preview'
+			)}
 		</div>
 	{/if}
 
@@ -595,7 +598,7 @@
 					>0.05% • Liq: {(Number(livePool.liquidity || 0) / 1e18).toFixed(0)}</span
 				>
 			{:else}
-				<span class="text-base-content/50">preview (live unavailable)</span>
+				<span class="text-base-content/50">{$t('wallet.common.preview_fallback')}</span>
 			{/if}
 		</div>
 		{#if poolError && !isLoadingPool}
@@ -612,13 +615,9 @@
 	<div class="bg-base-200 rounded-box flex justify-between p-3 text-sm">
 		<span>{$t('wallet.defi.lp.apy_label')}</span>
 		{#if currentWbtcPrice}
-			<span class="text-success font-bold"
-				>Variable <span class="text-base-content/50 text-[10px]">(fee-based)</span></span
-			>
+			<span class="text-success font-bold">{$t('wallet.common.variable_fee_based')}</span>
 		{:else}
-			<span class="text-success font-bold"
-				>~25% <span class="text-base-content/50 text-[10px]">(est.)</span></span
-			>
+			<span class="text-success font-bold">{$t('wallet.common.estimated')}</span>
 		{/if}
 	</div>
 
@@ -706,7 +705,9 @@
 				<div class="text-error mt-1 text-[10px]">{txError}</div>
 			{/if}
 			{#if txState === 'error'}
-				<button type="button" class="btn btn-xs mt-1" onclick={handleRetry}>Retry</button>
+				<button type="button" class="btn btn-xs mt-1" onclick={handleRetry}
+					>{$t('wallet.defi.shared.retry')}</button
+				>
 			{/if}
 		</div>
 	{/if}
@@ -756,9 +757,9 @@
 							<span class="text-success text-xs">0.05% WBTC/USDT0</span>
 						</div>
 						<div class="text-base-content/70 mt-1 text-xs">
-							Liq: {(Number(pos.liquidity) / 1e12).toFixed(2)} • Owed: ${(
-								Number(pos.fees0) / 1e6
-							).toFixed(2)} + ${(Number(pos.fees1) / 1e6).toFixed(2)}
+							{$t('wallet.defi.lp.liq_label')}: {(Number(pos.liquidity) / 1e12).toFixed(2)} • {$t(
+								'wallet.defi.lp.owed_label'
+							)}: ${(Number(pos.fees0) / 1e6).toFixed(2)} + ${(Number(pos.fees1) / 1e6).toFixed(2)}
 						</div>
 					</button>
 				{/each}
@@ -786,9 +787,6 @@
 						{$t('wallet.defi.lp.button_collect_fees')}
 					</button>
 				</div>
-				<p class="text-base-content/50 mt-1 text-[10px]">
-					Real on-chain via UniswapService + store refresh after tx.
-				</p>
 			{/if}
 		</div>
 	{:else}

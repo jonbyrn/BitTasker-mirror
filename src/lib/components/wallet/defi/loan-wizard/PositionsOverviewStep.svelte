@@ -22,10 +22,10 @@
 		return ltvPct >= 65 ? 'critical' : ltvPct >= 50 ? 'warning' : 'safe';
 	}
 
-	const RISK_BADGE: Record<string, { cls: string; label: string }> = {
-		safe: { cls: 'badge-success', label: 'Safe' },
-		warning: { cls: 'badge-warning', label: 'Caution' },
-		critical: { cls: 'badge-error', label: 'At Risk' }
+	const RISK_BADGE: Record<string, { cls: string; labelKey: string }> = {
+		safe: { cls: 'badge-success', labelKey: 'wallet.defi.risk_safe' },
+		warning: { cls: 'badge-warning', labelKey: 'wallet.defi.risk_caution' },
+		critical: { cls: 'badge-error', labelKey: 'wallet.defi.risk_at_risk' }
 	};
 
 	function getWalletName(walletId: string): string {
@@ -42,7 +42,7 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<h3 class="text-base font-semibold">Your Loans</h3>
+	<h3 class="text-base font-semibold">{$t('wallet.defi.loan_wizard.your_loans')}</h3>
 
 	{#if hasPositions}
 		{#each positions as [walletId, pos] (walletId)}
@@ -55,7 +55,7 @@
 					{#if walletId === 'builtin'}
 						<img
 							src="/images/logos/bittasker-logomark.svg"
-							alt="BitTasker Wallet"
+							alt={$t('wallet.common.alt_bitasker_wallet')}
 							class="h-5 w-5 shrink-0 self-center"
 						/>
 					{:else}
@@ -79,10 +79,10 @@
 							</span>
 							<div class="flex shrink-0 items-center gap-1.5">
 								<span class="text-base-content/60 text-xs tabular-nums">
-									LTV: {ltvPct.toFixed(1)}%
+									{$t('wallet.defi.lending.ltv')}: {ltvPct.toFixed(1)}%
 								</span>
 								<span class="badge {badge.cls} badge-xs px-1.5 py-0.5 text-[10px] font-medium"
-									>{badge.label}</span
+									>{$t(badge.labelKey)}</span
 								>
 							</div>
 						</div>
@@ -98,7 +98,9 @@
 				{#if pos.liquidationPriceBtc}
 					<div class="flex items-center justify-end text-xs">
 						<span class="text-base-content/50">
-							Liq: ${Math.round(pos.liquidationPriceBtc).toLocaleString()}
+							{$t('wallet.defi.liq_price_display', {
+								values: { price: `$${Math.round(pos.liquidationPriceBtc).toLocaleString()}` }
+							})}
 						</span>
 					</div>
 				{/if}
@@ -107,6 +109,6 @@
 	{/if}
 
 	<button type="button" class="btn btn-primary min-h-[48px] w-full text-base" onclick={onNewLoan}>
-		New Loan
+		{$t('wallet.defi.loan_wizard.new_loan')}
 	</button>
 </div>

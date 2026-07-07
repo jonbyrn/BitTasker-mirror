@@ -175,7 +175,8 @@
 			);
 			const { error } = await tryCatch(token.approve(NPM_ADDR, amt));
 			if (error) {
-				txError = error.message || `${label} approve failed`;
+				txError =
+					error.message || $t('wallet.defi.lp.approve_failed_with_label', { values: { label } });
 				Sentry.captureException(error, {
 					tags: { feature: 'defi.lp', action: `approve-${label.toLowerCase()}` }
 				});
@@ -191,7 +192,8 @@
 				evm.sendTransaction({ to: tokenAddr, data, chainId: 42161 })
 			);
 			if (error) {
-				txError = error.message || `${label} approve failed`;
+				txError =
+					error.message || $t('wallet.defi.lp.approve_failed_with_label', { values: { label } });
 				Sentry.captureException(error, {
 					tags: { feature: 'defi.lp', action: `approve-${label.toLowerCase()}` }
 				});

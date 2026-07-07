@@ -129,7 +129,7 @@
 				<img src={selectedDest.icon} alt={selectedDest.label} class="h-5 w-5" />
 				<span>{selectedDest.asset} ({selectedDest.label})</span>
 			{:else}
-				<span class="text-base-content/40 text-xs">(Select Destination)</span>
+				<span class="text-base-content/40 text-xs">{$t('wallet.send.select_destination')}</span>
 			{/if}
 			{#if !locked}
 				<svg

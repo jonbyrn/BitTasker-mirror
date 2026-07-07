@@ -158,7 +158,9 @@
 				const bal = v as { raw?: string };
 				const raw = Number(bal.raw ?? '0');
 				const sats = Math.round(raw / 10_000_000_000);
-				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
+				return sats > 0
+					? `${satsFormatter.format(sats)} ${$t('wallet.sats')}`
+					: `0 ${$t('wallet.sats')}`;
 			}
 		}
 	]);

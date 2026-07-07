@@ -517,11 +517,11 @@
 						)}
 
 						{#if docBalance > 0}
-							{@render usdBalanceRow('', '', 'DOC (RSK)', docBalance, 'document')}
+							{@render usdBalanceRow('', '', $t('wallet.doc_rsk'), docBalance, 'document')}
 						{/if}
 
 						{#if usdt0RskBalance > 0}
-							{@render usdBalanceRow('', '', 'USDT0 (RSK)', usdt0RskBalance, 'cash')}
+							{@render usdBalanceRow('', '', $t('wallet.usdt0_rsk'), usdt0RskBalance, 'cash')}
 						{/if}
 
 						{#each tier2UsdAssets as asset (asset.assetId)}

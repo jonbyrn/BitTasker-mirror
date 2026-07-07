@@ -266,7 +266,7 @@
 				label: $t('wallet.send.asset.rbtc'),
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 				subLabel: $t('wallet.send.asset.rbtc_sub'),
-				balance: formatSats(rbtcSats) + ' Sats',
+				balance: formatSats(rbtcSats) + ' ' + $t('wallet.sats'),
 				balanceSub: `≈ $${rbtcUsd.toFixed(2)}`
 			},
 			{
@@ -281,7 +281,7 @@
 				label: $t('wallet.send.asset.wbtc'),
 				icon: '/images/chains/arbitrum.png',
 				subLabel: $t('wallet.send.asset.wbtc_sub'),
-				balance: formatSats(wbtcSats) + ' Sats',
+				balance: formatSats(wbtcSats) + ' ' + $t('wallet.sats'),
 				balanceSub: wbtcUsd > 0 ? `≈ $${wbtcUsd.toFixed(2)}` : undefined
 			},
 			...(isBuiltin && usdtBscUsd > 0
@@ -302,7 +302,7 @@
 							label: $t('wallet.send.asset.tbtc'),
 							icon: '/images/tokens/tbtc.png',
 							subLabel: $t('wallet.send.asset.tbtc_sub'),
-							balance: formatSats(tbtcSats) + ' Sats',
+							balance: formatSats(tbtcSats) + ' ' + $t('wallet.sats'),
 							balanceSub: tbtcUsd > 0 ? `≈ $${tbtcUsd.toFixed(2)}` : undefined
 						}
 					]

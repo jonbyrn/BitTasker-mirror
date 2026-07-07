@@ -291,6 +291,8 @@
 		onclick={handleApproveBorrow}
 		aria-busy={isProcessing}
 	>
-		{isProcessing ? 'Processing...' : $t('wallet.defi.borrow.button_approve_borrow')}
+		{isProcessing
+			? $t('wallet.defi.shared.pending_tx')
+			: $t('wallet.defi.borrow.button_approve_borrow')}
 	</button>
 </div>

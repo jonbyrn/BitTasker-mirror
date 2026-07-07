@@ -264,7 +264,7 @@
 		<div class="flex items-center justify-between">
 			<span class="text-base-content/60">{$t('wallet.from')}</span>
 			<span class="font-medium"
-				>{walletId === 'builtin' ? 'Builtin' : walletId}
+				>{walletId === 'builtin' ? $t('wallet.common.builtin') : walletId}
 				{address?.slice(0, 6)}...{address?.slice(-4)}</span
 			>
 		</div>
@@ -318,18 +318,22 @@
 	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
 		<div class="flex items-center justify-between">
 			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_gas_est')}</span>
-			<span class="tabular-nums">~$0.35 (Arbitrum)</span>
+			<span class="tabular-nums"
+				>{$t('wallet.common.gas_estimate_approx', {
+					values: { amount: '0.35', network: 'Arbitrum' }
+				})}</span
+			>
 		</div>
 		<div class="flex items-center justify-between">
 			<span class="text-base-content/60">{$t('wallet.defi.wizard.network')}</span>
-			<span>Arbitrum One</span>
+			<span>{$t('wallet.common.arbitrum_one')}</span>
 		</div>
 	</div>
 
 	<div class="alert alert-soft alert-info py-2 text-xs">
 		🔐 {$t('wallet.defi.wizard.signer_context', {
 			values: {
-				wallet: walletId === 'builtin' ? 'Builtin' : walletId,
+				wallet: walletId === 'builtin' ? $t('wallet.common.builtin') : walletId,
 				address: address?.slice(0, 10) + '...'
 			}
 		})} — {$t('wallet.defi.wizard.private_keys_note')}

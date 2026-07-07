@@ -42,16 +42,16 @@
 					})}</span
 				>
 				{#if amount > 0}
-					<span class="text-xs opacity-60">{formatSats(amount)} Sats</span>
+					<span class="text-xs opacity-60">{formatSats(amount)} {$t('wallet.sats')}</span>
 				{/if}
 			{:else}
-				<span class="text-primary text-sm font-bold">{formatSats(amount)} Sats</span>
+				<span class="text-primary text-sm font-bold">{formatSats(amount)} {$t('wallet.sats')}</span>
 				{#if usdValue !== undefined && usdValue > 0}
 					<span class="text-xs opacity-60">≈ {formatUsd(usdValue)}</span>
 				{/if}
 			{/if}
 		</div>
 	{:else}
-		<span class="text-xs opacity-60">{unit === 'usdt' ? '$0.00' : '0 Sats'}</span>
+		<span class="text-xs opacity-60">{unit === 'usdt' ? '$0.00' : `0 ${$t('wallet.sats')}`}</span>
 	{/if}
 </div>

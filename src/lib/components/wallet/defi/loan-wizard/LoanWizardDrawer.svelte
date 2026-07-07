@@ -50,7 +50,9 @@
 		if (wid) defiPositions.refreshAavePosition(wid, true);
 
 		if (txHashOrVoid) {
-			toastMessage = `Transaction confirmed: ${txHashOrVoid.slice(0, 10)}...`;
+			toastMessage = $t('wallet.defi.loan_wizard.transaction_confirmed', {
+				values: { hash: txHashOrVoid.slice(0, 10) }
+			});
 			toastVisible = true;
 			setTimeout(() => {
 				toastVisible = false;
