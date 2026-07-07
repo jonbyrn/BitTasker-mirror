@@ -37,7 +37,12 @@
 
 	let hasLiquidity = $derived(position.liquidity > 0n);
 	let canRemove = $derived(
-		hasLiquidity && selectedPercent > 0 && isOnline && !isProcessing && txState === 'idle'
+		hasLiquidity &&
+			selectedPercent > 0 &&
+			isOnline &&
+			!isProcessing &&
+			txState === 'idle' &&
+			currentPrice > 0
 	);
 
 	// Calculate approximate receive amounts based on selected percent

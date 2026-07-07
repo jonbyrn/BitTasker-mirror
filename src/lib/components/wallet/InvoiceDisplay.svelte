@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
+	import { darkMode } from '$lib/stores/theme.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -55,6 +56,22 @@
 		}
 		return address;
 	}
+
+	// Dark mode state for QR container
+	let isDark = $state(false);
+
+	// Fetch BTC price on mount + subscribe to dark mode changes
+	onMount(async () => {
+		const unsub = darkMode.subscribe((val) => {
+			isDark = val;
+		});
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Failed to fetch BTC price:', error);
+		}
+		return unsub;
+	});
 
 	// Generate QR code for a given address
 	async function generateQrCode(address: string): Promise<void> {
@@ -183,7 +200,13 @@
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else if qrCodeDataUrl}
-			<div class="rounded-lg bg-white p-2 shadow-lg">
+			<div
+				class="rounded-lg p-2 shadow-lg"
+				class:bg-white={!isDark}
+				class:bg-base-100={isDark}
+				class:border={isDark}
+				class:border-base-300={isDark}
+			>
 				<div class="w-[300px] md:w-[400px]">
 					<img src={qrCodeDataUrl} alt={$t('wallet.invoice.qr_alt')} class="h-full w-full" />
 				</div>

@@ -16,7 +16,11 @@ import { EthereumProvider, type EthereumProviderOptions } from '@walletconnect/e
 type WCProvider = InstanceType<typeof EthereumProvider>;
 import { Preferences } from '@capacitor/preferences';
 import { ethers } from 'ethers';
+import { get } from 'svelte/store';
+import { t } from 'svelte-i18n';
 import { tryCatch } from '$lib/utils/tryCatch';
+import { appStore } from '$lib/stores/app.store';
+import { unregisterConnectedWallet } from '$lib/stores/connected-wallets.store';
 import type {
 	ConnectorHandle,
 	ConnectorEventCallback,
@@ -84,6 +88,7 @@ let displayUriHandler: ((uri: string) => void) | null = null;
 let accountsChangedHandler: ((accounts: string[]) => void) | null = null;
 let chainChangedHandler: ((chainId: string) => void) | null = null;
 let sessionDeleteHandler: (() => void) | null = null;
+let sessionExpireHandler: (() => void) | null = null;
 
 // ---------------------------------------------------------------------------
 // Encryption (Web Crypto API, AES-CBC)
@@ -446,7 +451,7 @@ function buildConnectorHandle(
 function wireWCEvents(
 	provider: WCProvider,
 	handle: ConnectorHandle,
-	onDisconnect: () => void
+	onDisconnect: (isExpired?: boolean) => void
 ): void {
 	const acctsHandler = (accts: string[]) => {
 		if (accts.length === 0) {
@@ -473,6 +478,13 @@ function wireWCEvents(
 	};
 	provider.on('session_delete', dcHandler);
 	sessionDeleteHandler = dcHandler;
+
+	const seHandler = () => {
+		handle.onEvent({ type: 'disconnect', reason: 'session_expire' });
+		onDisconnect(true);
+	};
+	provider.on('session_expire', seHandler);
+	sessionExpireHandler = seHandler;
 }
 
 function removeWCEventListeners(provider: WCProvider): void {
@@ -491,6 +503,10 @@ function removeWCEventListeners(provider: WCProvider): void {
 	if (sessionDeleteHandler) {
 		provider.removeListener('session_delete', sessionDeleteHandler);
 		sessionDeleteHandler = null;
+	}
+	if (sessionExpireHandler) {
+		provider.removeListener('session_expire', sessionExpireHandler);
+		sessionExpireHandler = null;
 	}
 }
 
@@ -606,8 +622,16 @@ export async function connectWC(
 		const onEvent = config.onEvent ?? (() => {});
 		const handle = buildConnectorHandle(provider, address, chainId, chains, onEvent);
 
-		wireWCEvents(provider, handle, () => {
-			disconnectWC().catch(() => {});
+		wireWCEvents(provider, handle, async (isExpired = false) => {
+			await disconnectWC().catch(() => {});
+			unregisterConnectedWallet(handle.id);
+			if (isExpired) {
+				appStore.showWarningToast(
+					get(t)('wallet.connected.session_expired', {
+						values: { name: handle.walletName }
+					})
+				);
+			}
 		});
 
 		await persistWCSession(address, chainId, provider);
@@ -663,8 +687,16 @@ export async function restoreWCSession(
 					onEvent ?? (() => {})
 				);
 
-				wireWCEvents(provider, handle, () => {
-					disconnectWC().catch(() => {});
+				wireWCEvents(provider, handle, async (isExpired = false) => {
+					await disconnectWC().catch(() => {});
+					unregisterConnectedWallet(handle.id);
+					if (isExpired) {
+						appStore.showWarningToast(
+							get(t)('wallet.connected.session_expired', {
+								values: { name: handle.walletName }
+							})
+						);
+					}
 				});
 
 				// Refresh persisted data with updated session info
@@ -689,8 +721,16 @@ export async function restoreWCSession(
 							onEvent ?? (() => {})
 						);
 
-						wireWCEvents(provider, handle, () => {
-							disconnectWC().catch(() => {});
+						wireWCEvents(provider, handle, async (isExpired = false) => {
+							await disconnectWC().catch(() => {});
+							unregisterConnectedWallet(handle.id);
+							if (isExpired) {
+								appStore.showWarningToast(
+									get(t)('wallet.connected.session_expired', {
+										values: { name: handle.walletName }
+									})
+								);
+							}
 						});
 
 						await persistWCSession(address, chainId, provider);

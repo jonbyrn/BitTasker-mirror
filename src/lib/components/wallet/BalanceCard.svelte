@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
-	import { onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import * as Sentry from '@sentry/sveltekit';
 	import {
 		allAssets,
 		totalBalances,
@@ -56,6 +57,8 @@
 
 	// Refresh state
 	let isRefreshing = $state(false);
+	let _tick = $state(0);
+	let _stalenessTimer: ReturnType<typeof setInterval> | null = null;
 
 	// Balance visibility state — uses external prop if provided, else internal state
 	let _internalHidden = $state(process.env.NODE_ENV !== 'development');
@@ -134,16 +137,23 @@
 			await walletManager.loadAssets(true);
 			appStore.showSuccessToast($t('wallet.balance_refreshed'));
 		} catch (error) {
-			console.error('Failed to refresh balances:', error);
+			Sentry.captureException(error, { tags: { feature: 'wallet', action: 'refresh-balance' } });
 			appStore.showErrorToast($t('wallet.refresh_failed'));
 		} finally {
 			isRefreshing = false;
 		}
 	}
 
+	onMount(() => {
+		_stalenessTimer = setInterval(() => _tick++, 60_000);
+	});
+
 	onDestroy(() => {
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
+		}
+		if (_stalenessTimer) {
+			clearInterval(_stalenessTimer);
 		}
 	});
 
@@ -195,10 +205,11 @@
 	// Balance staleness indicator
 	const lastRefresh = $derived($walletStore.lastBalanceRefresh ?? 0);
 	const staleness = $derived.by(() => {
+		void _tick; // force subscription to tick
 		const age = Date.now() - lastRefresh;
-		if (age < 60_000) return null; // < 1 min: fresh
-		if (age < 300_000) return 'recent'; // < 5 min: slightly stale
-		return 'stale'; // > 5 min: stale
+		if (age < 60_000) return null;
+		if (age < 300_000) return 'recent';
+		return 'stale';
 	});
 
 	function formatAge(ms: number): string {

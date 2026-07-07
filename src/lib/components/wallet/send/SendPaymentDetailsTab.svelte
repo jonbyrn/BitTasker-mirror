@@ -99,6 +99,7 @@
 		onDescriptionToggle: (expanded: boolean) => void;
 		onSend: () => void;
 		onCancel: () => void;
+		onPasteAddress?: () => void;
 	}
 
 	let {
@@ -162,7 +163,8 @@
 		onMemoChange,
 		onDescriptionToggle,
 		onSend,
-		onCancel
+		onCancel,
+		onPasteAddress
 	}: Props = $props();
 
 	let addressBorderClass = $derived.by(() => {
@@ -206,7 +208,7 @@
 							</div>
 						{/if}
 					</div>
-					<!-- Clear button -->
+					<!-- Clear or Paste button -->
 					{#if addressInput.trim()}
 						<button
 							type="button"
@@ -215,6 +217,28 @@
 							aria-label={$t('wallet.send.clear_address')}
 						>
 							<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+						</button>
+					{:else if onPasteAddress}
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-primary absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+							onclick={onPasteAddress}
+							aria-label={$t('wallet.send.paste_address')}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 sm:h-6 sm:w-6"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+								/>
+							</svg>
 						</button>
 					{/if}
 				</div>

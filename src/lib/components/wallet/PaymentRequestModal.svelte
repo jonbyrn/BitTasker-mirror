@@ -8,6 +8,7 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import * as Sentry from '@sentry/sveltekit';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
@@ -182,7 +183,7 @@
 	});
 
 	// Access locale to make this reactive to translation changes
-	const networkOptions = [
+	const networkOptions = $derived.by(() => [
 		{
 			value: 'lightning-bitcoin',
 			label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
@@ -213,7 +214,7 @@
 			label: 'BSC', // TODO: Add translation
 			icon: null
 		}
-	];
+	]);
 
 	// Get network info matching receive form structure - make reactive to locale changes
 	const networkInfo = $derived.by(() => {
@@ -257,7 +258,7 @@
 			isLoadingQR = true;
 			qrCodeDataUrl = await generateQrCodeUrl(address);
 		} catch (error) {
-			console.error('Failed to generate QR code:', error);
+			Sentry.captureException(error, { tags: { feature: 'receive', action: 'qr-generation' } });
 			appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
 			qrCodeDataUrl = ''; // Clear QR code on error
 		} finally {
@@ -361,8 +362,15 @@
 				}}
 		role="dialog"
 		aria-modal="true"
+		aria-labelledby="payment-request-title"
 	>
 		<div class="container mx-auto flex min-h-0 flex-1 flex-col px-3 py-1">
+			<!-- Visually hidden title for aria-labelledby -->
+			<h3 id="payment-request-title" class="sr-only">
+				{isTransactionConfirmed
+					? $t('wallet.payment_request.payment_received')
+					: $t('wallet.payment_request.title')}
+			</h3>
 			<!-- Scrollable Content Area -->
 			<div class="min-h-0 flex-1 overflow-y-auto">
 				<!-- Success State -->
@@ -518,7 +526,11 @@
 							{:else if qrCodeDataUrl}
 								<div class="rounded-lg bg-white p-2 shadow-lg">
 									<div class="w-[calc(100vw-4rem)] max-w-[500px]">
-										<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
+										<img
+											src={qrCodeDataUrl}
+											alt={$t('wallet.invoice.qr_alt')}
+											class="h-full w-full"
+										/>
 									</div>
 								</div>
 							{:else}

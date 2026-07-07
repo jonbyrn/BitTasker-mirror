@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { ProcessedTransaction, SwapAction } from '$lib/types/wallet';
 	import type { Component } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import * as Sentry from '@sentry/sveltekit';
@@ -12,6 +13,7 @@
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheckAll from '~icons/mdi/check-all';
+	import IconClose from '~icons/mdi/close';
 
 	let { onOpenPaymentRequest, onClose } = $props<{
 		onOpenPaymentRequest: (swapId: string) => void;
@@ -26,15 +28,24 @@
 	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
+	let searchQuery = $state('');
 
 	// Filtered transactions
-	let filteredTransactions = $derived(
-		$transactions.filter((tx) => {
+	let filteredTransactions = $derived.by(() => {
+		const query = searchQuery.toLowerCase().trim();
+		return $transactions.filter((tx) => {
 			if (typeFilter !== 'all' && tx.displayType !== typeFilter) return false;
 			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
+			if (query) {
+				const matchesHash = tx.hash?.toLowerCase().includes(query);
+				const matchesFrom = tx.from?.toLowerCase().includes(query);
+				const matchesTo = tx.to?.toLowerCase().includes(query);
+				const matchesValue = tx.value?.toString().includes(query);
+				if (!matchesHash && !matchesFrom && !matchesTo && !matchesValue) return false;
+			}
 			return true;
-		})
-	);
+		});
+	});
 
 	// Network filter options
 	const networkFilterOptions = [
@@ -197,13 +208,21 @@
 	function formatDate(timestamp: string): string {
 		if (!timestamp) return '';
 		const date = new Date(timestamp);
-		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		return date.toLocaleDateString(get(locale) ?? 'en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
 	}
 
 	function formatTime(timestamp: string): string {
 		if (!timestamp) return '';
 		const date = new Date(timestamp);
-		return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		return date.toLocaleTimeString(get(locale) ?? 'en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
 	}
 
 	/**
@@ -348,6 +367,47 @@
 						</button>
 					{/each}
 				</div>
+			{/if}
+		</div>
+
+		<!-- Search Input -->
+		<div class="relative mt-2">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="text-base-content/40 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+				/>
+			</svg>
+			<input
+				id="tx-search"
+				type="text"
+				class="input input-bordered input-sm w-full pr-8 pl-9"
+				placeholder={$t('wallet.history.search')}
+				aria-label={$t('wallet.history.search')}
+				bind:value={searchQuery}
+				oninput={() => {
+					currentPage = 0;
+				}}
+			/>
+			{#if searchQuery}
+				<button
+					type="button"
+					class="btn btn-ghost btn-xs absolute top-1/2 right-2 -translate-y-1/2 p-0"
+					onclick={() => {
+						searchQuery = '';
+						currentPage = 0;
+					}}
+				>
+					<IconClose class="h-3.5 w-3.5" />
+				</button>
 			{/if}
 		</div>
 	{/snippet}

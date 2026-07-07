@@ -1,6 +1,11 @@
 import QRCode from 'qrcode';
 
-export default async function generateQrCodeUrl(data: string): Promise<string> {
+export interface QrColors {
+	dark?: string;
+	light?: string;
+}
+
+export default async function generateQrCodeUrl(data: string, colors?: QrColors): Promise<string> {
 	try {
 		let qrCodeDataUrl = '';
 
@@ -19,8 +24,8 @@ export default async function generateQrCodeUrl(data: string): Promise<string> {
 			margin: 4, // Quiet zone (4 modules) for better scanning reliability
 			width: 256,
 			color: {
-				dark: '#000000',
-				light: '#FFFFFF'
+				dark: colors?.dark ?? '#000000',
+				light: colors?.light ?? '#FFFFFF'
 			}
 		});
 

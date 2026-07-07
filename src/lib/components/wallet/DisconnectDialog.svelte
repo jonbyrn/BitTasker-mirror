@@ -33,9 +33,12 @@
 			onkeydown={(e: KeyboardEvent) => e.stopPropagation()}
 			role="alertdialog"
 			aria-modal="true"
+			aria-labelledby="disconnect-dialog-title"
 			tabindex={-1}
 		>
-			<h3 class="mb-2 text-lg font-bold">{$t('wallet.connected.disconnect_title')}</h3>
+			<h3 id="disconnect-dialog-title" class="mb-2 text-lg font-bold">
+				{$t('wallet.connected.disconnect_title')}
+			</h3>
 			{#if walletName}
 				<p class="mb-2 text-sm opacity-70">
 					{walletName} · {walletAddress.slice(0, 10)}...

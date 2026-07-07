@@ -73,7 +73,7 @@
 	let _swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
 	let _flipTimer: ReturnType<typeof setTimeout> | null = null;
-	let swapProgressStep = $state<SwapProgressStep>('locking-rbtc');
+	let _swapProgressStep = $state<SwapProgressStep>('locking-rbtc');
 	let swapProgressMessage = $state('');
 	let unsubscribeProgress: (() => void) | null = null;
 	let _swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -95,15 +95,6 @@
 		_swapAbortController?.abort();
 		_swapAbortController = null;
 	}
-
-	const _SWAP_PROGRESS_STEPS = [
-		{ key: 'locking-rbtc', labelKey: 'wallet.swap.progress.locking_rbtc' },
-		{ key: 'waiting-for-boltz', labelKey: 'wallet.swap.progress.waiting_boltz' },
-		{ key: 'claiming-tbtc', labelKey: 'wallet.swap.progress.claiming_tbtc' },
-		{ key: 'swapping-tbtc', labelKey: 'wallet.swap.progress.swapping_tbtc' }
-	] as const;
-	const SWAP_STEP_ORDER = ['locking-rbtc', 'waiting-for-boltz', 'claiming-tbtc', 'swapping-tbtc'];
-	const _currentStepIdx = $derived(SWAP_STEP_ORDER.indexOf(swapProgressStep));
 
 	// Local smartRoute for SwapFallback retry injection; main route state in swapRoutes rune.
 	let smartRoute = $state<SmartRoute | null>(null);
@@ -570,7 +561,7 @@
 
 		swapPhase = 'executing';
 		errorMessage = '';
-		swapProgressStep = 'locking-rbtc';
+		_swapProgressStep = 'locking-rbtc';
 		swapProgressMessage = $t('wallet.swap.starting_swap');
 
 		// Register blockchain toast for this swap
@@ -597,7 +588,7 @@
 		});
 
 		unsubscribeProgress = onSwapProgress((step, message) => {
-			swapProgressStep = step;
+			_swapProgressStep = step;
 			swapProgressMessage = message;
 			blockchainToastStore.patch(swapToastId, {
 				status: step === 'complete' ? 'success' : 'confirming'

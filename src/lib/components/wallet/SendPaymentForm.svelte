@@ -161,7 +161,16 @@
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
 
 	// Route-picking state
-	let selectedRouteId = $state<string>('');
+	/** User's explicit route selection (set via onRouteSelect) */
+	let userSelectedRouteId = $state<string>('');
+	/** Effective route ID — falls back to first route when user selection is invalid */
+	let selectedRouteId = $derived.by(() => {
+		const routes = routeResult.routes;
+		if (routes.length > 0 && !routes.find((r) => r.id === userSelectedRouteId)) {
+			return routes[0].id;
+		}
+		return userSelectedRouteId;
+	});
 
 	/** Check if the selected source is a connected (external) wallet */
 	function _isConnectedWalletSource(source: string): boolean {
@@ -379,7 +388,6 @@
 
 	let _routeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let _routeAbortController: AbortController | null = null;
-	// LNURL resolution flag (removed — was assigned but never read)
 
 	// Re-parse address when source wallet changes (EVM addresses need source context)
 	$effect(() => {
@@ -485,15 +493,6 @@
 				_routeDebounceTimer = null;
 			}
 		};
-	});
-
-	$effect(() => {
-		const routes = routeResult.routes;
-		if (routes.length > 0) {
-			if (!routes.find((r) => r.id === selectedRouteId)) selectedRouteId = routes[0].id;
-		} else {
-			selectedRouteId = '';
-		}
 	});
 
 	// Derived values — isSourceWalletConnected and isSelfSend must be defined
@@ -842,6 +841,25 @@
 		parsedPayment.addressError = null;
 		parsedPayment.amountRequired = true;
 		uiState.showRecentAddresses = false;
+	}
+
+	async function handlePasteAddress() {
+		try {
+			let text = '';
+			if (Capacitor.isNativePlatform()) {
+				const { Clipboard } = await import('@capacitor/clipboard');
+				const result = await Clipboard.read();
+				text = result.value ?? '';
+			} else if (navigator.clipboard?.readText) {
+				text = await navigator.clipboard.readText();
+			}
+			if (text) {
+				formInput.addressInput = text.trim();
+				await handleAddressInput();
+			}
+		} catch {
+			d.warn('Failed to read clipboard');
+		}
 	}
 
 	function handleRecentAddressSelect(address: string) {
@@ -1219,7 +1237,7 @@
 					onCalculationChange={handleCalculationChange}
 					onClear={handleClearCalculator}
 					onMaxAmount={handleMaxAmount}
-					onRouteSelect={(id) => (selectedRouteId = id)}
+					onRouteSelect={(id) => (userSelectedRouteId = id)}
 					onWalletSelect={(id) => (selectedWalletId = id)}
 					onAssetSelect={(id) => (formInput.selectedSource = id)}
 					onDestinationChange={handleDestinationChange}
@@ -1227,6 +1245,7 @@
 					onDescriptionToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
 					onSend={showSendConfirmationModal}
 					{onCancel}
+					onPasteAddress={handlePasteAddress}
 				/>
 			{/if}
 		</div>
@@ -1299,6 +1318,40 @@
 									<span class="ml-2 text-sm opacity-70">
 										≈ {formatUsd((sendFee.feeEstimate.totalFees / 100_000_000) * btcPrice)}
 									</span>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Total Cost Summary (L15) -->
+					{#if sendFee.feeEstimate && sendFee.feeEstimate.totalFees > 0 && sendValidation.amountInSats > 0}
+						<div class="border-base-300 space-y-1 border-t pt-3">
+							<div class="text-sm font-medium opacity-70">
+								{$t('wallet.send.total_cost')}
+							</div>
+							<div class="text-base font-bold">
+								{#if formInput.unit === 'sats'}
+									{formatSats(sendValidation.amountInSats + sendFee.feeEstimate.totalFees)}
+									{$t('wallet.sats')}
+									{#if btcPrice > 0}
+										<span class="text-sm font-normal opacity-70">
+											≈ {formatUsd(
+												sendValidation.amountInUSD +
+													(sendFee.feeEstimate.totalFees / 100_000_000) * btcPrice
+											)}
+										</span>
+									{/if}
+								{:else}
+									{formatUsd(
+										sendValidation.amountInUSD +
+											(sendFee.feeEstimate.totalFees / 100_000_000) * btcPrice
+									)}
+									{#if btcPrice > 0}
+										<span class="text-sm font-normal opacity-70">
+											≈ {formatSats(sendValidation.amountInSats + sendFee.feeEstimate.totalFees)}
+											{$t('wallet.sats')}
+										</span>
+									{/if}
 								{/if}
 							</div>
 						</div>

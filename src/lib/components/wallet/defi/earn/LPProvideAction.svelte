@@ -293,8 +293,11 @@
 								}
 							}
 						}
-					} catch {
-						/* non-fatal */
+					} catch (e) {
+						Sentry.captureException(e, {
+							tags: { feature: 'defi.lp', action: 'provide-log-parse' },
+							level: 'warning'
+						});
 					}
 				} else {
 					const es = getEvmSigner(selectedWalletId);

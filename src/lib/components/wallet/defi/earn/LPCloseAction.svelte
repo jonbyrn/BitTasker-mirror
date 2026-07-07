@@ -14,6 +14,9 @@
 
 	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 
+	/** 0.5% slippage protection — industry standard default */
+	const SLIPPAGE_BPS = 50;
+
 	interface Props {
 		walletId: string;
 		address: string;
@@ -40,6 +43,29 @@
 	let feesUsd = $derived(
 		(isFinite(feesWbtc) ? feesWbtc * btcPrice.price : 0) + (isFinite(feesUsdt0) ? feesUsdt0 : 0)
 	);
+
+	// Slippage-protected minimum amounts for removeLiquidity (full position close)
+	let expectedAmount0 = $derived.by(() => {
+		if (!btcPrice.price || btcPrice.price <= 0 || position.liquidity === 0n) return 0n;
+		const liqNum = Number(position.liquidity);
+		if (!isFinite(liqNum) || liqNum <= 0) return 0n;
+		const sqrtPrice = Math.sqrt(btcPrice.price * 100);
+		if (sqrtPrice <= 0) return 0n;
+		const wbtcAmount = liqNum / sqrtPrice / 1e8;
+		if (!isFinite(wbtcAmount) || wbtcAmount <= 0) return 0n;
+		return BigInt(Math.round(wbtcAmount * 1e8));
+	});
+	let expectedAmount1 = $derived.by(() => {
+		if (!btcPrice.price || btcPrice.price <= 0 || position.liquidity === 0n) return 0n;
+		const liqNum = Number(position.liquidity);
+		if (!isFinite(liqNum) || liqNum <= 0) return 0n;
+		const sqrtPrice = Math.sqrt(btcPrice.price * 100);
+		const usdt0Amount = (liqNum * sqrtPrice) / 1e6;
+		if (!isFinite(usdt0Amount) || usdt0Amount <= 0) return 0n;
+		return BigInt(Math.round(usdt0Amount * 1e6));
+	});
+	let amount0Min = $derived((expectedAmount0 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n);
+	let amount1Min = $derived((expectedAmount1 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n);
 
 	// Approximate position value from liquidity
 	let posValueUsd = $derived.by(() => {
@@ -115,7 +141,14 @@
 
 			if (walletId === 'builtin' && builtinSigner) {
 				const { error: removeErr } = await tryCatch(
-					uni.removeLiquidity(position.tokenId, position.liquidity, 0n, 0n, deadline, builtinSigner)
+					uni.removeLiquidity(
+						position.tokenId,
+						position.liquidity,
+						amount0Min,
+						amount1Min,
+						deadline,
+						builtinSigner
+					)
 				);
 				if (removeErr) {
 					txError =
@@ -139,8 +172,8 @@
 					uni.removeLiquidityWithEvmSigner(
 						position.tokenId,
 						position.liquidity,
-						0n,
-						0n,
+						amount0Min,
+						amount1Min,
 						deadline,
 						evm
 					)

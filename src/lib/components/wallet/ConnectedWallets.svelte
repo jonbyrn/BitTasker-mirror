@@ -248,7 +248,7 @@
 				<button
 					class="btn btn-ghost btn-xs"
 					onclick={() => connectedWalletsStore.update((s) => ({ ...s, error: null }))}
-					aria-label="Dismiss error"
+					aria-label={$t('wallet.connected.dismiss_error')}
 				>
 					<svg
 						class="h-4 w-4"

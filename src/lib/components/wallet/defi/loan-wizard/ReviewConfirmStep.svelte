@@ -239,7 +239,7 @@
 				if ('wait' in borrowTx && typeof borrowTx.wait === 'function') {
 					const { data: borrowReceipt, error: receiptErr } = await tryCatch(borrowTx.wait());
 					if (receiptErr || !borrowReceipt) {
-						errorMsg = 'Borrow confirmation failed';
+						errorMsg = $t('wallet.defi.wizard.borrow_confirmation_failed');
 						isProcessing = false;
 						txStatus = 'idle';
 						return;
@@ -270,7 +270,7 @@
 		</div>
 		{#if supplyNum > 0}
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">Supply</span>
+				<span class="text-base-content/60">{$t('wallet.defi.wizard.review_supply')}</span>
 				<span class="font-medium tabular-nums"
 					>{supplyNum.toFixed(4)} wBTC (~${supplyUsd.toLocaleString()})</span
 				>
@@ -278,33 +278,35 @@
 		{/if}
 		{#if borrowNum > 0}
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">Borrow</span>
+				<span class="text-base-content/60">{$t('wallet.defi.wizard.review_borrow')}</span>
 				<span class="font-medium tabular-nums">${borrowNum.toLocaleString()} USDT0</span>
 			</div>
 		{/if}
 	</div>
 
 	<div class="bg-base-200 rounded-box space-y-1.5 p-3 text-sm">
-		<p class="text-base-content/60 text-xs font-medium">Resulting Position</p>
+		<p class="text-base-content/60 text-xs font-medium">
+			{$t('wallet.defi.wizard.review_resulting_position')}
+		</p>
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Total Collateral</span>
+			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_total_collateral')}</span>
 			<span class="font-medium tabular-nums">${postSupplyCollateral.toLocaleString()}</span>
 		</div>
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Total Debt</span>
+			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_total_debt')}</span>
 			<span class="font-medium tabular-nums">${projectedDebt.toLocaleString()}</span>
 		</div>
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Health Factor</span>
+			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_health_factor')}</span>
 			<span class="font-medium tabular-nums">{projectedHf.toFixed(2)}x</span>
 		</div>
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">LTV</span>
+			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_ltv')}</span>
 			<span class="font-medium tabular-nums">{(projectedLtv / 100).toFixed(1)}%</span>
 		</div>
 		{#if liqPriceResult}
 			<div class="flex items-center justify-between">
-				<span class="text-base-content/60">BTC Liq Price</span>
+				<span class="text-base-content/60">{$t('wallet.defi.wizard.review_btc_liq_price')}</span>
 				<span class="font-medium tabular-nums"
 					>${liqPriceResult.liquidationBtcPrice.toLocaleString()}</span
 				>
@@ -315,7 +317,7 @@
 
 	<div class="bg-base-200 rounded-box space-y-1 p-3 text-sm">
 		<div class="flex items-center justify-between">
-			<span class="text-base-content/60">Gas (est.)</span>
+			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_gas_est')}</span>
 			<span class="tabular-nums">~$0.35 (Arbitrum)</span>
 		</div>
 		<div class="flex items-center justify-between">
@@ -343,12 +345,12 @@
 			{#if txStatus === 'supplying'}
 				<div class="flex items-center gap-2">
 					<span class="loading loading-spinner loading-xs"></span>
-					<span>Supplying collateral...</span>
+					<span>{$t('wallet.defi.wizard.supplying_collateral_status')}</span>
 				</div>
 			{:else if txStatus === 'borrowing'}
 				<div class="flex items-center gap-2">
 					<span class="loading loading-spinner loading-xs"></span>
-					<span>Borrowing USDT0...</span>
+					<span>{$t('wallet.defi.wizard.borrowing_usdt0_status')}</span>
 				</div>
 			{/if}
 			<p class="text-base-content/50 text-xs">{$t('wallet.defi.wizard.no_close_window')}</p>

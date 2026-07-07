@@ -129,7 +129,7 @@ function createBlockchainToastStore() {
 		 * Named `patch` (not `update`) to avoid collision with svelte store's update().
 		 * Cancels _dismissTimer if status changes away from 'success'.
 		 */
-		patch(id: string, changes: Partial<BlockchainToastItem>): void {
+		patch(id: string, changes: Partial<Omit<BlockchainToastItem, '_dismissTimer'>>): void {
 			state.update((s) => {
 				const toasts = s.toasts.map((t) => {
 					if (t.id !== id) return t;

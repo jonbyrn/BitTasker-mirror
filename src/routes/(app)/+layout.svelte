@@ -8,6 +8,7 @@
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import BlockchainToast from '$lib/components/wallet/BlockchainToast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	const { children } = $props();
@@ -264,6 +265,9 @@
 
 <!-- Toast notifications (fixed positioned) -->
 <Toast />
+
+<!-- Blockchain activity toast (persistent, below Toast at z-40) -->
+<BlockchainToast />
 
 <!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
 {#if showTopBar}
