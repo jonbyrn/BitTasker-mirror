@@ -1487,7 +1487,7 @@
 		},
 		"defi": {
 			"title": "DeFi",
-			"tab_borrow": "Pedir préstamo",
+			"tab_borrow": "Préstamo",
 			"tab_earn": "Ganar",
 			"earn_lending": "Guardar USD",
 			"earn_lp": "Ganar Comisiones",
