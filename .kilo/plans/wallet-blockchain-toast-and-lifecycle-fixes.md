@@ -108,13 +108,61 @@ tickets when touching the relevant code.
 
 #### 🟢 LOW (37)
 
-Addressed as individual tickets when touching relevant code. Key low items:
-- EIP-55 checksum validation in address parser
-- Whitespace stripping on paste
-- QR error persistence on tab switch
-- Stale connected wallet balance display
-- Share button on web with `navigator.share`
-- Various i18n polish items
+All included in the plan. Addressed in Step 24 (Swap Polish), Step 25 (Send Polish),
+Step 26 (Receive + Infrastructure Polish), and Step 27 (DeFi Polish).
+
+**Swap (10):**
+| # | Issue | Step |
+|---|-------|------|
+| L1 | No confirmation modal for high-value swaps (>$1000) | 24 |
+| L2 | Swap success doesn't show both source and dest amounts | 24 |
+| L3 | No visual distinction between testnet and mainnet swaps | 24 |
+| L4 | Route picker doesn't show estimated time per route | 24 |
+| L5 | No copy button on swap ID in PendingSwaps | 24 |
+| L6 | Swap fallback shows generic message without swap ID | 24 |
+| L7 | No swap history filter (by status, date, network) | 24 |
+| L8 | Price impact not shown for DEX swaps | 24 |
+| L9 | No notification sound/vibration on swap completion | 24 |
+| L10 | Gas estimate not shown in swap confirm phase | 24 |
+
+**Send (8):**
+| # | Issue | Step |
+|---|-------|------|
+| L11 | No clipboard auto-detect for addresses | 25 |
+| L12 | Address book integration missing | 25 |
+| L13 | No recent sends list on send form | 25 |
+| L14 | QR scanner doesn't validate network match | 25 |
+| L15 | No confirmation summary (amount + fee total) | 25 |
+| L16 | Calculator keypad doesn't haptic on each press | 25 |
+| L17 | Amount input doesn't support decimal comma | 25 |
+| L18 | No 'paste' button next to address input | 25 |
+
+**Receive + Infrastructure (10):**
+| # | Issue | Step |
+|---|-------|------|
+| L19 | Invoice QR not scannable on dark mode | 26 |
+| L20 | No deep link support for payment requests | 26 |
+| L21 | Receive form doesn't persist network across sessions | 26 |
+| L22 | No 'copy invoice' button on QR display | 26 |
+| L23 | Transaction history doesn't show confirmation count | 26 |
+| L24 | No filter/search in transaction history | 26 |
+| L25 | Explorer links don't open in-app browser | 26 |
+| L26 | Balance chart doesn't support date range selection | 26 |
+| L27 | No export to CSV for transaction history | 26 |
+| L28 | Connected wallet balance doesn't show per-token breakdown | 26 |
+
+**DeFi (9):**
+| # | Issue | Step |
+|---|-------|------|
+| L29 | No DeFi tutorial/onboarding for first-time users | 27 |
+| L30 | Health factor gauge animation too slow | 27 |
+| L31 | Loan overview doesn't show total interest paid | 27 |
+| L32 | Earn APY not refreshed periodically | 27 |
+| L33 | No 'max' button on DeFi withdraw/repay forms | 27 |
+| L34 | Position detail doesn't show creation date | 27 |
+| L35 | LP position doesn't show fee earnings over time | 27 |
+| L36 | No notification when DeFi position becomes liquidatable | 27 |
+| L37 | DeFi forms don't show gas estimate before submission | 27 |
 
 ---
 
@@ -882,6 +930,12 @@ BalanceCard.svelte:
 15. **Step 15** — PendingSwaps UX: expand actionable, PARTIAL instructions, recovery path (H7, H13, H14)
 22. **Step 22** — i18n sweep: hardcoded English in send/swap (M12, M13)
 
+### Phase 8 — Polish (Steps 24-27)
+24. **Step 24** — Swap polish: high-value confirm, dual amounts in success, route times, copy swap ID, history filter, price impact, haptics, gas in confirm (L1-L10)
+25. **Step 25** — Send polish: clipboard auto-detect, address book, recent sends, QR network validation, total cost summary, haptic keypad, decimal comma, paste button (L11-L18)
+26. **Step 26** — Receive + infra polish: QR contrast, deep links, persist network, copy invoice, tx confirm count, tx search, in-app explorer, chart date range, CSV export, per-token breakdown (L19-L28)
+27. **Step 27** — DeFi polish: onboarding, gauge animation, interest paid, APY refresh, max buttons, creation date, fee earnings, liquidation notify, gas preview (L29-L37)
+
 ### Final
 - `npm run check && npm run lint && npm run test:ci`
 
@@ -1439,6 +1493,215 @@ TransactionSuccessScreen:
 
 **Lines**: ~30 changed across 3 files
 **Test coverage**: Share button visibility, chain switch rejection, clipboard fallback
+
+---
+
+### Step 24: Swap Polish (L1-L10)
+
+**Files**:
+- `src/lib/components/wallet/SwapForm.svelte`
+- `src/lib/components/wallet/SwapConfirmPhase.svelte`
+- `src/lib/components/wallet/PendingSwaps.svelte`
+- `src/lib/components/wallet/RoutePicker.svelte`
+
+**Changes**:
+```
+SwapForm:
+  + // L1: High-value confirmation modal
+  + if (swapCalc.amountUSD > 1000) {
+  +   showHighValueConfirm = true; // Extra "Are you sure?" for >$1000
+  + }
+
+  + // L10: Gas estimate in confirm phase
+  + <p class="text-xs">{$t('wallet.swap.estimated_fee', { values: { fee: formatSats(gasEstimate) } })}</p>
+
+SwapConfirmPhase:
+  + // L2: Show both source and dest amounts in success
+  + <p>{$t('wallet.swap.sent')} {formatSats(sourceAmount)} {sourceAsset}</p>
+  + <p>{$t('wallet.swap.received')} {formatSats(destAmount)} {destAsset}</p>
+
+PendingSwaps:
+  + // L5: Copy swap ID button
+  + <button onclick={() => copyToClipboard(swap.id)}>{$t('wallet.swap.copy_id')}</button>
+  + // L6: Show swap ID in fallback message
+  + <p>{$t('wallet.swap.fallback_with_id', { values: { id: swap.id } })}</p>
+
+RoutePicker:
+  + // L4: Show estimated time per route
+  + <p class="text-xs text-base-content/60">~{route.estimatedTime}s</p>
+  + // L8: Show price impact for DEX routes
+  + {#if route.priceImpact > 1}
+  +   <span class="text-warning text-xs">{route.priceImpact.toFixed(1)}% impact</span>
+  + {/if}
+```
+
+**Lines**: ~60 changed across 4 files
+**Test coverage**: High-value confirm, dual amounts, copy ID, route times, price impact
+
+---
+
+### Step 25: Send Polish (L11-L18)
+
+**Files**:
+- `src/lib/components/wallet/SendPaymentForm.svelte`
+- `src/lib/components/wallet/send/SendQrScanner.svelte`
+- `src/lib/components/wallet/CalculatorKeypad.svelte`
+- `src/lib/components/wallet/AmountInputSection.svelte`
+
+**Changes**:
+```
+SendPaymentForm:
+  + // L11: Clipboard auto-detect for addresses
+  + onMount(() => {
+  +   if (navigator.clipboard?.readText) {
+  +     navigator.clipboard.readText().then((text) => {
+  +       if (looksLikeAddress(text)) suggestedAddress = text;
+  +     }).catch(() => {});
+  +   }
+  + });
+
+  + // L12: Address book (future — store frequent recipients)
+  + // L13: Recent sends list
+  + const recentRecipients = $derived(
+  +   $transactions.slice(0, 5).map(tx => tx.toAddress).filter(Boolean)
+  + );
+
+  + // L15: Total cost confirmation summary
+  + <p>{$t('wallet.send.total_cost', { values: { amount: formatSats(amount), fee: formatSats(fee), total: formatSats(amount + fee) } })}</p>
+
+  + // L18: Paste button next to address
+  + <button class="btn btn-ghost btn-xs" onclick={pasteFromClipboard}>
+  +   {$t('wallet.send.paste')}
+  + </button>
+
+SendQrScanner:
+  + // L14: Validate network match on QR scan
+  + if (parsedNetwork && parsedNetwork !== selectedNetwork) {
+  +   showNetworkMismatchWarning = true;
+  + }
+
+CalculatorKeypad:
+  + // L16: Haptic on each key press
+  + triggerHaptic(ImpactStyle.Light);
+
+AmountInputSection:
+  + // L17: Support decimal comma
+  + const normalizedValue = value.replace(',', '.');
+```
+
+**Lines**: ~50 changed across 4 files
+**Test coverage**: Clipboard detect, recent sends, total cost, network mismatch, haptic, comma
+
+---
+
+### Step 26: Receive + Infrastructure Polish (L19-L28)
+
+**Files**:
+- `src/lib/components/wallet/InvoiceDisplay.svelte`
+- `src/lib/components/wallet/ReceivePaymentForm.svelte`
+- `src/lib/components/wallet/TransactionHistory.svelte`
+- `src/lib/components/wallet/ConnectedTransactionHistory.svelte`
+- `src/lib/components/wallet/BalanceCard.svelte`
+
+**Changes**:
+```
+InvoiceDisplay:
+  + // L19: QR contrast fix for dark mode
+  + <QRCode value={invoice} fgColor={isDark ? '#ffffff' : '#000000'} bgColor="transparent" />
+  + // L22: Copy invoice button
+  + <button onclick={() => copyToClipboard(invoice)}>{$t('wallet.receive.copy_invoice')}</button>
+
+ReceivePaymentForm:
+  + // L20: Deep link support — register handler for payment URIs
+  + // L21: Persist selected network to localStorage
+  + $effect(() => { localStorage.setItem('lastReceiveNetwork', selectedNetwork); });
+
+TransactionHistory:
+  + // L23: Show confirmation count
+  + <span class="text-xs">{tx.confirmations} confirmations</span>
+  + // L24: Search/filter
+  + <input bind:value={searchQuery} placeholder={$t('wallet.history.search')} />
+  + // L25: In-app explorer links
+  + <a href={explorerUrl} target="_self">{$t('wallet.history.view_explorer')}</a>
+  + // L27: CSV export
+  + <button onclick={exportCSV}>{$t('wallet.history.export_csv')}</button>
+
+BalanceCard:
+  + // L26: Chart date range
+  + <DateRangePicker bind:from bind:to onchange={refreshChart} />
+  + // L28: Per-token breakdown for connected wallets
+  + {#each connectedTokens as token}
+  +   <div class="flex justify-between">
+  +     <span>{token.symbol}</span>
+  +     <span>{formatBalance(token)}</span>
+  +   </div>
+  + {/each}
+```
+
+**Lines**: ~80 changed across 5 files
+**Test coverage**: QR contrast, copy invoice, deep links, search, CSV, date range
+
+---
+
+### Step 27: DeFi Polish (L29-L37)
+
+**Files**:
+- `src/lib/components/wallet/defi/HealthFactorGauge.svelte`
+- `src/lib/components/wallet/defi/LoanOverview.svelte`
+- `src/lib/components/wallet/defi/earn/EarnOverview.svelte`
+- `src/lib/components/wallet/defi/position/WithdrawForm.svelte`
+- `src/lib/components/wallet/defi/position/RepayForm.svelte`
+- `src/lib/components/wallet/defi/position/PositionDetail.svelte`
+- `src/lib/components/wallet/defi/earn/EarnLPPositionCard.svelte`
+
+**Changes**:
+```
+HealthFactorGauge:
+  + // L30: Faster animation
+  + transition:scale={{ duration: 200, easing: cubicOut }}
+
+LoanOverview:
+  + // L31: Total interest paid
+  + <p>{$t('wallet.defi.total_interest', { values: { amount: formatUsd(totalInterest) } })}</p>
+  + // L36: Liquidation notification
+  + {#if healthFactor < 1.2}
+  +   <div class="alert alert-error text-xs">{$t('wallet.defi.liquidation_warning')}</div>
+  + {/if}
+
+EarnOverview:
+  + // L32: Periodic APY refresh
+  + $effect(() => {
+  +   const timer = setInterval(() => refreshAPY(), 60_000);
+  +   return () => clearInterval(timer);
+  + });
+
+WithdrawForm / RepayForm:
+  + // L33: Max button
+  + <button onclick={() => amount = maxAmount}>{$t('common.max')}</button>
+
+PositionDetail:
+  + // L34: Show creation date
+  + <p>{$t('wallet.defi.created')}: {formatDate(position.createdAt)}</p>
+
+EarnLPPositionCard:
+  + // L35: Fee earnings over time
+  + <p>{$t('wallet.defi.fees_earned')}: {formatUsd(position.feesEarnedUSD)}</p>
+
+DeFi forms:
+  + // L37: Gas preview
+  + {#if gasEstimate}
+  +   <p class="text-xs text-base-content/60">{$t('wallet.defi.estimated_gas', { values: { gas: formatUsd(gasEstimate) } })}</p>
+  + {/if}
+
+General:
+  + // L29: First-time DeFi onboarding
+  + {#if !$settingsStore.hasSeenDeFiIntro}
+  +   <DeFiOnboardingDrawer on:close={() => $settingsStore.hasSeenDeFiIntro = true} />
+  + {/if}
+```
+
+**Lines**: ~70 changed across 7 files
+**Test coverage**: Animation, interest, APY refresh, max button, creation date, fees, gas preview, onboarding
 
 ---
 
