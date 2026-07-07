@@ -168,46 +168,72 @@ Step 26 (Receive + Infrastructure Polish), and Step 27 (DeFi Polish).
 
 ## Architecture
 
-### New: `BlockchainToast` — Persistent floating toast for blockchain operations
+### New: `BlockchainToast` — Single persistent floating toast for all blockchain operations
 
-A single component that replaces 5 full-screen components and handles all blockchain
-operation status (sends, swaps, DeFi transactions) with block-based confirmation.
+A single shared toast component that replaces 5 full-screen components and tracks ALL
+pending blockchain operations (sends, swaps, DeFi transactions) in one unified bar.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  (existing page content — send form, wallet, etc.)      │
-│                                                          │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ 🔵 Sending 0.5 RBTC                            │    │  ← collapsed
-│  │ Confirming... (~1 min left)                     │    │
-│  │                              [Details ▼] [✕]    │    │
-│  └─────────────────────────────────────────────────┘    │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ 🟢 Sent 0.5 RBTC ✓                             │    │  ← success
-│  │ Confirmed in 2 blocks • Tap to view explorer    │    │
-│  └─────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  (existing page content — send form, wallet, etc.)       │
+│                                                           │
+│                                                           │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ 🔵 Sending 0.5 RBTC • 1 other pending           │    │  ← collapsed
+│  │ Confirming... (~1 min left)        [Details ▼]   │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                           │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ Blockchain Activity                     [Collapse]│    │  ← expanded
+│  │ ─────────────────────────────────────────────── │    │
+│  │ 🔵 Sending 0.5 RBTC to 0x1234...abcd           │    │
+│  │ Confirming... ████████░░░ ~1 min left           │    │
+│  │                                         [View]   │    │
+│  │ ─────────────────────────────────────────────── │    │
+│  │ 🟢 Sent 0.3 RBTC ✓                             │    │
+│  │ Confirmed • 30s ago                    [Explorer]│    │
+│  │ ─────────────────────────────────────────────── │    │
+│  │ 🔴 Swap failed — insufficient gas               │    │
+│  │ 0.1 BTC → RBTC                         [Retry]  │    │
+│  └──────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────┘
 ```
+
+**Design: one toast, not many.** All pending operations are items in a single toast's internal
+list. The toast shows/hides itself based on whether the list is non-empty.
+
+**Collapsed view** (default):
+- Shows the most recent or most urgent operation's status + amount
+- If others are pending: "• N other(s) pending" suffix
+- Single progress bar for the most recent confirming operation
+- Tap text area to expand; action buttons (`event.stopPropagation()`) don't trigger expand
+
+**Expanded view** (tap to toggle):
+- Scrollable list of all operations (max 40vh)
+- Each item: status icon, description, progress bar (if confirming), action buttons
+- Success items: show ✓ with time since confirmation, auto-removed after 8s
+- Error items: show ✗ with error summary + Retry button, persist until dismissed
+- Confirming items: show progress bar + time estimate
+- Tap "Collapse" or tap-away to collapse
+
+**Lifecycle:**
+- Toast appears when first operation is registered
+- Individual items are removed when terminal (success after 8s, error after dismiss)
+- Toast disappears when last item is removed
+- Success items auto-removed after 8s (paused when expanded)
+- Error items persist until user dismisses or retries
+- Stale items (>10 min confirming) transition to "Check status"
 
 **Key behaviors:**
 - Fixed bottom, above the nav bar (`z-40`, below modals at `z-50`)
-- Max 2 full toasts visible on mobile; rest collapse into "N more" pill
-- Tap text area to expand → shows explorer link, amount, address, copy buttons
-- Action buttons (`event.stopPropagation()`) don't trigger expand
+- Single toast container — no stacking, no "N more" pill needed
 - Auto-collapse on `beforeNavigate`
-- Success: green checkmark, auto-dismiss after 8s (paused when expanded)
-- Error: red, persists until dismissed, shows short error summary in collapsed view
-- "Retry" navigates to pre-filled send form (never re-broadcasts blindly)
-- Swaps: shows direction ("Swapping 0.5 BTC → RBTC") with phase progress
 - Network-aware: shows "Waiting for connection..." when offline
-- Stale timeout: if confirming > 10 min without block update → "Check status" state
-- On app resume: immediately poll receipts for all pending toasts
+- On app resume: immediately poll receipts for all pending items
 - Persists across page navigations (global store, not component-local)
 - All strings use `$t()` — no hardcoded English
 - ARIA: `role="status"`, `aria-live="polite"`, keyboard dismiss via Escape
-- Swipe-to-dismiss for success/error toasts (not confirming)
+- Swipe-to-dismiss individual success/error items (not confirming)
 - Sentry breadcrumbs on add/success/error
 
 ### Chain-Specific Confirmation Counts
@@ -476,18 +502,21 @@ export const blockchainToastStore = createBlockchainToastStore();
 ### Step 4: Blockchain Toast Component
 
 **Files**:
-- `src/lib/components/wallet/BlockchainToast.svelte` — new file (~300 lines)
+- `src/lib/components/wallet/BlockchainToast.svelte` — new file (~280 lines)
 
 **Key design decisions** (from UX audit):
+- **Single toast container** — one persistent bar, not multiple stacked toasts
 - **z-40** (below modals at z-50, above content)
-- **Max 2 full toasts on mobile**, rest in "N more" pill
+- **Collapsed**: shows most recent/urgent operation + "N other(s) pending" suffix
+- **Expanded**: scrollable list of all operations (max 40vh)
 - **Human-readable time** in collapsed view ("~1 min left"), block detail in expanded only
-- **Type badge** ("Send" / "Swap") + distinct icons
-- **Error summary** in collapsed view ("Send failed — insufficient funds")
+- **Type badge** ("Send" / "Swap") + distinct icons per item
+- **Error summary** per item ("Send failed — insufficient funds")
 - **Tap text area to expand**, action buttons use `event.stopPropagation()`
-- **Swipe-to-dismiss** for success/error (not confirming)
+- **Swipe-to-dismiss** individual success/error items (not confirming)
 - **Auto-collapse on `beforeNavigate`**
-- **8s auto-dismiss** for success (paused when expanded)
+- **8s auto-dismiss** for success items (paused when expanded)
+- **Toast hides** when last item is removed
 - **Keyboard dismiss** via Escape (`<svelte:window onkeydown>`)
 - **ARIA**: `role="status"`, `aria-live="polite"`, `aria-label` on progress/buttons
 - **Network-aware**: "Waiting for connection..." overlay when offline
@@ -497,8 +526,6 @@ export const blockchainToastStore = createBlockchainToastStore();
 - **Match existing banner style**: `border-primary/50 shadow-primary/40 ring-1 ring-black/5`
 - **btn-sm minimum** for all interactive elements (44px touch target)
 - **Delay toast entry by 350ms** after send (keyboard dismiss animation)
-- **Cap expanded height at 40vh** with internal scroll
-- **Compact 2-column grid** for expanded details
 
 **Retry semantics** (from UX audit — CRITICAL):
 ```
@@ -508,10 +535,10 @@ export const blockchainToastStore = createBlockchainToastStore();
 // For DeFi: navigate to the DeFi form pre-filled.
 ```
 
-**Sub-components** — inline within `BlockchainToast.svelte` (not separate files):
-- Status icon (spinner / check / error / stale) — ~20 lines inline
-- Expanded details (2-column grid with copy buttons) — ~40 lines inline
-- "N more" pill — ~15 lines inline
+**Internal structure** — inline within `BlockchainToast.svelte` (not separate files):
+- Collapsed summary line (~20 lines)
+- Item row component (status icon + description + progress + actions) — ~30 lines inline
+- Expanded list with divider between items — ~20 lines inline
 
 **Lines**: ~300 new
 **Test coverage**: All states + expand/collapse + auto-dismiss + keyboard + swipe
