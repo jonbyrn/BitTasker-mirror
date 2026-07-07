@@ -34,13 +34,6 @@
 			group: 'btc'
 		},
 		{
-			id: 'liquid-bitcoin',
-			asset: 'L-BTC',
-			label: 'Liquid Bitcoin',
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			group: 'btc'
-		},
-		{
 			id: 'bitcoin',
 			asset: 'BTC',
 			label: 'Bitcoin',
@@ -57,20 +50,6 @@
 			recommended: true
 		},
 		{
-			id: 'usdt-avalanche',
-			asset: 'USDT',
-			label: 'Avalanche',
-			icon: '/images/chains/avalanche.png',
-			group: 'usdt'
-		},
-		{
-			id: 'usdt-base',
-			asset: 'USDT',
-			label: 'Base',
-			icon: '/images/chains/base.png',
-			group: 'usdt'
-		},
-		{
 			id: 'usdt-bsc',
 			asset: 'USDT',
 			label: 'Binance',
@@ -85,24 +64,10 @@
 			group: 'usdt'
 		},
 		{
-			id: 'usdt-optimism',
-			asset: 'USDT',
-			label: 'Optimism',
-			icon: '/images/chains/optimism.png',
-			group: 'usdt'
-		},
-		{
 			id: 'usdt-polygon',
 			asset: 'USDT',
 			label: 'Polygon',
 			icon: '/images/chains/polygon.png',
-			group: 'usdt'
-		},
-		{
-			id: 'usdt-tron',
-			asset: 'USDT',
-			label: 'TRON',
-			icon: '/images/chains/tron.png',
 			group: 'usdt'
 		}
 	];

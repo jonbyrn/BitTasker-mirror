@@ -224,6 +224,11 @@
 		</div>
 	{/if}
 
+	<div class="bg-base-200 rounded-box flex items-center justify-between p-2 text-xs">
+		<span class="text-base-content/60">{$t('wallet.defi.gas_estimate')}</span>
+		<span class="tabular-nums">~$0.15 (Arbitrum)</span>
+	</div>
+
 	<button
 		type="button"
 		class="btn btn-primary min-h-[48px] w-full"

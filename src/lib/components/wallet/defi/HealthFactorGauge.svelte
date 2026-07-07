@@ -30,4 +30,14 @@
 		></progress>
 		<span class="badge badge-{color} font-medium">{statusLabel} {healthFactor.toFixed(1)}x</span>
 	</div>
+
+	{#if healthFactor < 1.5 && healthFactor >= 1.1}
+		<div class="alert alert-warning mt-2 py-1 text-xs" role="alert">
+			{$t('wallet.defi.health_factor_warning', { values: { factor: healthFactor.toFixed(2) } })}
+		</div>
+	{:else if healthFactor < 1.1}
+		<div class="alert alert-error mt-2 py-1 text-xs" role="alert">
+			{$t('wallet.defi.health_factor_critical', { values: { factor: healthFactor.toFixed(2) } })}
+		</div>
+	{/if}
 </div>

@@ -60,6 +60,7 @@ function createValidContext(
 		hasInsufficientBalance: false,
 		isBelowSwapMinimum: false,
 		isSelfSend: false,
+		network: 'rootstock-bitcoin',
 		...overrides
 	};
 }
@@ -274,12 +275,12 @@ describe('isSupportedNetwork', () => {
 // ---------------------------------------------------------------------------
 describe('validateSendForm', () => {
 	it('returns true for a fully valid form', () => {
-		expect(validateSendForm(createValidContext())).toBe(true);
+		expect(validateSendForm(createValidContext()).valid).toBe(true);
 	});
 
 	// --- Address validation ---
 	it('returns false when parsedData is null', () => {
-		expect(validateSendForm(createValidContext({ parsedData: null }))).toBe(false);
+		expect(validateSendForm(createValidContext({ parsedData: null })).valid).toBe(false);
 	});
 
 	it('returns false when parsedData.isValid is false', () => {
@@ -288,35 +289,37 @@ describe('validateSendForm', () => {
 				createValidContext({
 					parsedData: createValidParsedData({ isValid: false })
 				})
-			)
+			).valid
 		).toBe(false);
 	});
 
 	// --- Network validation ---
 	it('returns false for unsupported network', () => {
-		expect(validateSendForm(createValidContext({ isNetworkSupported: false }))).toBe(false);
+		expect(validateSendForm(createValidContext({ isNetworkSupported: false })).valid).toBe(false);
 	});
 
 	// --- Source wallet connection ---
 	it('returns false when source wallet not connected', () => {
-		expect(validateSendForm(createValidContext({ isSourceWalletConnected: false }))).toBe(false);
+		expect(validateSendForm(createValidContext({ isSourceWalletConnected: false })).valid).toBe(
+			false
+		);
 	});
 
 	// --- Amount validation ---
 	it('returns false when amountRequired and amountInSats is 0', () => {
-		expect(validateSendForm(createValidContext({ amountRequired: true, amountInSats: 0 }))).toBe(
-			false
-		);
+		expect(
+			validateSendForm(createValidContext({ amountRequired: true, amountInSats: 0 })).valid
+		).toBe(false);
 	});
 
 	it('returns false when amountInSats is 0 regardless of amountRequired', () => {
-		expect(validateSendForm(createValidContext({ amountRequired: false, amountInSats: 0 }))).toBe(
-			false
-		);
+		expect(
+			validateSendForm(createValidContext({ amountRequired: false, amountInSats: 0 })).valid
+		).toBe(false);
 	});
 
 	it('returns false when amountInSats is negative', () => {
-		expect(validateSendForm(createValidContext({ amountInSats: -100 }))).toBe(false);
+		expect(validateSendForm(createValidContext({ amountInSats: -100 })).valid).toBe(false);
 	});
 
 	// --- LNURL bounds ---
@@ -326,9 +329,9 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_000, // 10_000 sats in msats
 			lnurlMaxSendable: 100_000_000
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 5_000 }))).toBe(
-			false
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 5_000 })).valid
+		).toBe(false);
 	});
 
 	it('returns false when amount above LNURL maximum', () => {
@@ -337,9 +340,9 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_000,
 			lnurlMaxSendable: 100_000_000 // 100_000 sats in msats
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 200_000 }))).toBe(
-			false
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 200_000 })).valid
+		).toBe(false);
 	});
 
 	it('returns true when amount within LNURL bounds', () => {
@@ -348,9 +351,9 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_000,
 			lnurlMaxSendable: 100_000_000
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 50_000 }))).toBe(
-			true
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 50_000 })).valid
+		).toBe(true);
 	});
 
 	it('skips LNURL bounds check when no lnurlCallback', () => {
@@ -359,9 +362,9 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_000,
 			lnurlMaxSendable: 100_000_000
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 5_000 }))).toBe(
-			true
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 5_000 })).valid
+		).toBe(true);
 	});
 
 	it('handles LNURL minSendable as ceil (msats→sats)', () => {
@@ -371,12 +374,12 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_500,
 			lnurlMaxSendable: 100_000_000
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 10_000 }))).toBe(
-			false
-		);
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 10_001 }))).toBe(
-			true
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 10_000 })).valid
+		).toBe(false);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 10_001 })).valid
+		).toBe(true);
 	});
 
 	it('handles LNURL maxSendable as floor (msats→sats)', () => {
@@ -386,27 +389,29 @@ describe('validateSendForm', () => {
 			lnurlMinSendable: 10_000_000,
 			lnurlMaxSendable: 100_000_500
 		});
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 100_001 }))).toBe(
-			false
-		);
-		expect(validateSendForm(createValidContext({ parsedData: data, amountInSats: 100_000 }))).toBe(
-			true
-		);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 100_001 })).valid
+		).toBe(false);
+		expect(
+			validateSendForm(createValidContext({ parsedData: data, amountInSats: 100_000 })).valid
+		).toBe(true);
 	});
 
 	// --- Insufficient balance ---
 	it('returns false when hasInsufficientBalance', () => {
-		expect(validateSendForm(createValidContext({ hasInsufficientBalance: true }))).toBe(false);
+		expect(validateSendForm(createValidContext({ hasInsufficientBalance: true })).valid).toBe(
+			false
+		);
 	});
 
 	// --- Swap minimum ---
 	it('returns false when isBelowSwapMinimum', () => {
-		expect(validateSendForm(createValidContext({ isBelowSwapMinimum: true }))).toBe(false);
+		expect(validateSendForm(createValidContext({ isBelowSwapMinimum: true })).valid).toBe(false);
 	});
 
 	// --- Self send ---
 	it('returns false when isSelfSend', () => {
-		expect(validateSendForm(createValidContext({ isSelfSend: true }))).toBe(false);
+		expect(validateSendForm(createValidContext({ isSelfSend: true })).valid).toBe(false);
 	});
 
 	// --- Edge: multiple failures ---
@@ -420,14 +425,14 @@ describe('validateSendForm', () => {
 					isSelfSend: true,
 					amountInSats: 0
 				})
-			)
+			).valid
 		).toBe(false);
 	});
 
 	// --- Edge: amountRequired false but amount > 0 should still pass ---
 	it('returns true when amountRequired is false but amount is positive', () => {
 		expect(
-			validateSendForm(createValidContext({ amountRequired: false, amountInSats: 50_000 }))
+			validateSendForm(createValidContext({ amountRequired: false, amountInSats: 50_000 })).valid
 		).toBe(true);
 	});
 });

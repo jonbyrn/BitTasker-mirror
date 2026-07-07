@@ -486,6 +486,17 @@ export interface ExecuteSendResult {
 	earlyReturn?: boolean;
 }
 
+/** Networks that have registered send handlers (built-in or connected). */
+const SUPPORTED_NETWORKS = new Set([
+	'rootstock-bitcoin',
+	'usdt-bsc',
+	'lightning-bitcoin',
+	'usdt-arbitrum',
+	'usdt-ethereum',
+	'usdt-polygon',
+	'bitcoin'
+]);
+
 /**
  * Top-level send dispatcher.
  *
@@ -508,6 +519,10 @@ export async function executeSend(params: ExecuteSendParams): Promise<ExecuteSen
 		sourceWalletId,
 		dest
 	} = params;
+
+	if (!SUPPORTED_NETWORKS.has(network)) {
+		throw new Error(`Sending on ${network} is not yet supported`);
+	}
 
 	const isConnectedSource = selectedWalletId !== 'builtin';
 

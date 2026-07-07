@@ -29,6 +29,8 @@ export type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	delegationState: DelegationState;
 	pendingTransactions: Map<number, string>;
 	chainLock: boolean;
+	/** Timestamp (ms) of last successful balance refresh — used for staleness indicator. */
+	lastBalanceRefresh: number;
 	arb: {
 		connected: boolean;
 		connecting: boolean;
@@ -132,5 +134,8 @@ export const initialState: WalletStateExtended = {
 	gasMode: 'USDT_GAS' as GasMode,
 	delegationState: 'IDLE' as DelegationState,
 	pendingTransactions: new Map<number, string>(),
-	chainLock: false
+	chainLock: false,
+
+	// Balance staleness tracking
+	lastBalanceRefresh: Date.now()
 };

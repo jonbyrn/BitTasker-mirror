@@ -441,7 +441,8 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				usdt: totalUsdt,
 				bnb: totalBnb
 			},
-			rbtcRateError: priceError || s.rbtcRateError
+			rbtcRateError: priceError || s.rbtcRateError,
+			lastBalanceRefresh: Date.now()
 		}));
 	} catch (error) {
 		console.error('[WALLET-STORE] Failed to load assets:', error);

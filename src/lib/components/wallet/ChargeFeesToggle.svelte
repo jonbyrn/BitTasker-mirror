@@ -13,9 +13,6 @@
 	} = $props();
 </script>
 
-/** * ChargeFeesToggle.svelte * * Toggle button for "Charge fees to payer" option. * Extracted from
-ReceivePaymentForm.svelte to eliminate mobile/desktop duplication. */
-
 {#if !disabled}
 	<button
 		type="button"

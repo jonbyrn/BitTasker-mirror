@@ -18,6 +18,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { blockchainToastStore } from '$lib/stores/wallet/blockchain-toast.store';
 
 	// Sub-components
 	import WalletCard from './WalletCard.svelte';
@@ -203,6 +204,23 @@
 			unregisterConnectedWallet
 		});
 
+	// Pending swaps for the wallet being disconnected — shows warning in DisconnectDialog
+	const pendingSwapsForWallet = $derived.by(() => {
+		const disconnectId = $showDisconnectId;
+		if (!disconnectId) return [];
+		const walletAddress = $connectedWalletsStore.wallets.find(
+			(w) => w.id === disconnectId
+		)?.address;
+		if (!walletAddress) return [];
+		return $blockchainToastStore.toasts.filter(
+			(t) =>
+				t.type === 'swap' &&
+				t.status !== 'success' &&
+				t.status !== 'error' &&
+				t.sourceAddress?.toLowerCase() === walletAddress.toLowerCase()
+		);
+	});
+
 	// -----------------------------------------------------------------------
 	// Lifecycle
 	// -----------------------------------------------------------------------
@@ -326,6 +344,7 @@
 		walletAddress={$connectedWalletsStore.wallets
 			.find((w) => w.id === $showDisconnectId)
 			?.address?.slice(0, 10) ?? ''}
+		pendingSwaps={pendingSwapsForWallet}
 		onCancel={cancelDisconnect}
 		onConfirm={handleDisconnect}
 	/>

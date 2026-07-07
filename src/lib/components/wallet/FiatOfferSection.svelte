@@ -49,12 +49,6 @@
 	} = $props();
 </script>
 
-/** * FiatOfferSection.svelte * * Payment method filter badges + provider accordion for Buy/Sell
-offers. * Extracted from BuySellForm.svelte to reduce component size. * * Props: * - filteredOffers,
-allPaymentMethods, activePaymentFilter * - selectedOffer, selectedPaymentMethod * - quoteLoading,
-quoteError, supportedCryptoError * - providerExpanded * - amount, isBtcAsset, selectedCrypto,
-btcPrice * * Events: * - onFilterChange, onOfferSelect, onExpandToggle */
-
 <!-- Payment method filter badges -->
 <div class="flex flex-wrap gap-1.5">
 	<button

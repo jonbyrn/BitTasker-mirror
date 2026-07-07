@@ -39,6 +39,28 @@ export interface InvoiceResult {
 	formState: InvoiceFormState;
 }
 
+/**
+ * Extracts expiry information from a swap data object.
+ * Returns the expiresAt timestamp in ms and whether the swap has expired.
+ * Returns null if no expiry data is present.
+ */
+export function getSwapExpiryInfo(swapData: unknown): {
+	expiresAt: number;
+	isExpired: boolean;
+	remainingMs: number;
+} | null {
+	if (typeof swapData !== 'object' || swapData === null) return null;
+	const val = (swapData as Record<string, unknown>)['expiresAt'];
+	if (typeof val !== 'number' || val <= 0) return null;
+	const now = Date.now();
+	const remainingMs = Math.max(0, val - now);
+	return {
+		expiresAt: val,
+		isExpired: remainingMs <= 0,
+		remainingMs
+	};
+}
+
 export interface GenerateInvoiceParams {
 	invoiceAmount: number;
 	selectedNetwork: string;

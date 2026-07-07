@@ -114,6 +114,9 @@ export interface UseSwapRoutes {
 	/** Minimum swap amount in sats (default for Boltz-eligible pairs). 0 = no minimum. */
 	minSwapSats: number;
 
+	/** Error translation key when route resolution fails or no routes found. Empty = no error. */
+	swapError: string;
+
 	// For execute (startSwapChain expects Route)
 	getExecutableRoute(): Route | null;
 
@@ -129,6 +132,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	// Reactive state (Svelte 5 runes)
 	let engineResult = $state<RouteEngineResult>(EMPTY_RESULT);
 	let routeLoading = $state(false);
+	let swapError = $state('');
 
 	// Timers + abort for debounce + cleanup
 	let _routeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -263,6 +267,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		if (amt <= 0 || !online) {
 			engineResult = EMPTY_RESULT;
 			routeLoading = false;
+			swapError = '';
 			return;
 		}
 
@@ -295,8 +300,15 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 					data: { source: snapshotSrc, dest: snapshotDst, error: String(error) }
 				});
 				engineResult = EMPTY_RESULT;
+				swapError = 'wallet.swap.error.swap_failed';
 			} else if (!currentController?.signal.aborted && result) {
 				engineResult = result;
+				// Surface error when route resolution succeeded but returned no routes
+				if (result.routes.length === 0 && result.errors.length > 0) {
+					swapError = 'wallet.swap.error.no_routes';
+				} else {
+					swapError = '';
+				}
 				d.log(
 					'Resolved %d routes (%d errors), recommended: %s',
 					result.routes.length,
@@ -599,6 +611,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		}
 		engineResult = EMPTY_RESULT;
 		routeLoading = false;
+		swapError = '';
 		d.log('clearRoutes');
 	}
 
@@ -654,6 +667,9 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		},
 		get minSwapSats() {
 			return minSwapSats;
+		},
+		get swapError() {
+			return swapError;
 		},
 
 		getExecutableRoute,

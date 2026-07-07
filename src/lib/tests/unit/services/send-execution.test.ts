@@ -831,7 +831,7 @@ describe('send-execution.service', () => {
 						selectedWalletId: 'builtin'
 					})
 				)
-			).rejects.toThrow('No built-in handler registered for network: unknown-network');
+			).rejects.toThrow('not yet supported');
 		});
 
 		it('throws for unknown network with connected wallet', async () => {
@@ -842,7 +842,7 @@ describe('send-execution.service', () => {
 						selectedWalletId: 'wallet-1'
 					})
 				)
-			).rejects.toThrow('No connected handler registered for network: unknown-network');
+			).rejects.toThrow('not yet supported');
 		});
 
 		it('propagates handler errors', async () => {

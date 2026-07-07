@@ -40,10 +40,6 @@
 	});
 </script>
 
-/** * OffRampStatusCard.svelte * * All off-ramp bridge-and-send status cards for the sell tab. *
-Extracted from BuySellForm.svelte to reduce component size. * * Covers stages: quote_ready,
-opening_moonpay, awaiting_deposit_address, * bridging, complete, failed. */
-
 <!-- Quote card -->
 {#if offRampQuote && (offRampStage === 'quote_ready' || offRampStage === 'idle')}
 	<div class="bg-base-100 border-base-300 space-y-2 rounded-lg border p-3">

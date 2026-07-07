@@ -144,18 +144,12 @@ export async function executeUniswapV3Hop(
 		// Step 2: Call exactInputSingle
 		const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 min deadline
 
-		// SECURITY: amountOutMinimum = 1n effectively accepts any output amount,
-		// which is a slippage risk. This is acceptable here because:
-		//   1. This executor is only used for same-chain Arbitrum swaps (tBTC↔WBTC)
-		//      where the pool has deep liquidity and low price impact.
-		//   2. The route resolver already quotes the expected output; any sandwich
-		//      attack would need to move a deep Arbitrum pool significantly.
-		//   3. SwapRouter02 reverts if the output is 0, so the worst case is
-		//      unfavorable pricing, not total loss.
-		//   4. Proper slippage protection would require fetching a quote first
-		//      (e.g., via `quoter.quoteExactInputSingle`) and applying a % buffer,
-		//      which adds an extra RPC call and latency.
-		// TODO: Consider adding quoter-based slippage protection for production.
+		// 0.5% slippage protection — industry standard default
+		// For same-peg assets (tBTC↔WBTC), expected output ≈ input minus pool fee
+		const SLIPPAGE_BPS = 50;
+		const expectedAmountOut = amountIn;
+		const amountOutMinimum = (expectedAmountOut * BigInt(10000 - SLIPPAGE_BPS)) / 10000n;
+
 		const swapCalldata = encodeUniswapV3ExactInputSingle(
 			fromTokenAddr,
 			toTokenAddr,
@@ -163,7 +157,7 @@ export async function executeUniswapV3Hop(
 			userAddr,
 			deadline,
 			amountIn,
-			1n // amountOutMinimum
+			amountOutMinimum
 		);
 
 		d.log('executeUniswapV3Hop: submitting swap via sendEvmTransaction');

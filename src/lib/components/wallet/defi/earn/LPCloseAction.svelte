@@ -27,6 +27,7 @@
 	let txState = $state<'idle' | 'removing' | 'collecting' | 'success' | 'error'>('idle');
 	let txError = $state<string | null>(null);
 	let partialSuccess = $state(false);
+	let showConfirm = $state(false);
 
 	let isOnline = $derived($browserNetworkStatus.online);
 
@@ -302,18 +303,40 @@
 	{/if}
 
 	<!-- CTA -->
-	<button
-		type="button"
-		class="btn btn-error min-h-[48px] w-full"
-		disabled={!canClose}
-		onclick={handleClose}
-		aria-busy={isProcessing}
-	>
-		{#if isProcessing}
-			<span class="loading loading-spinner loading-sm"></span>
-			{$t('wallet.defi.shared.pending_tx')}
-		{:else}
+	{#if !showConfirm}
+		<button
+			type="button"
+			class="btn btn-error min-h-[48px] w-full"
+			disabled={!canClose}
+			onclick={() => (showConfirm = true)}
+		>
 			{$t('wallet.defi.earn.action_close_lp_confirm')}
-		{/if}
-	</button>
+		</button>
+	{:else}
+		<div class="alert alert-warning">
+			<p>{$t('wallet.defi.close_position_confirm')}</p>
+			<div class="mt-2 flex gap-2">
+				<button
+					type="button"
+					class="btn btn-error btn-sm"
+					disabled={!canClose}
+					onclick={handleClose}
+					aria-busy={isProcessing}
+				>
+					{#if isProcessing}
+						<span class="loading loading-spinner loading-xs"></span>
+					{/if}
+					{$t('common.confirm')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm"
+					onclick={() => (showConfirm = false)}
+					disabled={isProcessing}
+				>
+					{$t('common.cancel')}
+				</button>
+			</div>
+		</div>
+	{/if}
 </div>

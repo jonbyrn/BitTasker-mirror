@@ -861,6 +861,8 @@
 			"description_characters": "Caracteres",
 			"below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats",
 			"invoice_total": "Total de la factura",
+			"invoice_expired": "La factura ha expirado",
+			"expires_in": "Expira en {time}",
 			"fee": "Comisión",
 			"payer_sends_from": "El pagador envía desde",
 			"other": "Otro",
@@ -1116,7 +1118,9 @@
 				"insufficient_allowance": "Límite de gasto de token excedido. Por favor aprueba el token primero.",
 				"deadline_exceeded": "El plazo del intercambio expiró. Por favor intenta de nuevo.",
 				"slippage_exceeded": "El precio cambió mucho. Por favor intenta de nuevo o aumenta la tolerancia de deslizamiento.",
-				"insufficient_liquidity": "No hay suficiente liquidez para este intercambio. Intenta con un monto menor."
+				"insufficient_liquidity": "No hay suficiente liquidez para este intercambio. Intenta con un monto menor.",
+				"boltz_unavailable": "El servicio Boltz no está disponible temporalmente. Por favor intenta de nuevo más tarde.",
+				"gas_estimation_failed": "Error al estimar las comisiones de gas. Por favor intenta de nuevo."
 			},
 			"progress": {
 				"locking_rbtc": "Bloqueando rBTC en RSK",
@@ -1602,6 +1606,12 @@
 				"closing_shortly": "Esta ventana se cerrará en breve.",
 				"retry": "Reintentar"
 			},
+			"slippage_protection": "Protección de deslizamiento: {percent}%",
+			"health_factor_warning": "Factor de salud en {factor} — acercándose a zona de riesgo. Considera añadir garantía.",
+			"health_factor_critical": "Factor de salud en {factor} — ¡riesgo de liquidación! Añade garantía inmediatamente.",
+			"slippage_protection": "Protección contra deslizamiento: {percent}%",
+			"health_factor_warning": "Factor de salud en {factor} — acercándose a zona de riesgo. Considera añadir garantía.",
+			"health_factor_critical": "Factor de salud en {factor} — ¡riesgo de liquidación! Añade garantía inmediatamente.",
 			"approve": {
 				"title": "Aprobar token",
 				"amount": "Cantidad",

@@ -215,7 +215,30 @@ vi.mock('$lib/utils/helpers/haptics', () => ({
 	ImpactStyle: { Light: 1 }
 }));
 vi.mock('$lib/utils/debug', () => ({
-	createDebug: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() })
+	createDebug: vi.fn(() =>
+		Object.assign(() => {}, { namespace: '', log: vi.fn(), warn: vi.fn(), error: vi.fn() })
+	)
+}));
+vi.mock('$lib/stores/wallet/blockchain-toast.store', () => ({
+	blockchainToastStore: {
+		add: vi.fn(),
+		patch: vi.fn(),
+		onSuccess: vi.fn(),
+		onError: vi.fn(),
+		remove: vi.fn(),
+		subscribe: vi.fn(),
+		toggleExpanded: vi.fn()
+	}
+}));
+vi.mock('$lib/utils/wallet/chain-confirmations', () => ({
+	REQUIRED_CONFIRMATIONS: { 'rootstock-bitcoin': 3, 'usdt-bsc': 1, 'usdt-arbitrum': 1 }
+}));
+vi.mock('$lib/utils/wallet/toast-helpers', () => ({
+	getAssetForNetwork: vi.fn().mockReturnValue('rBTC'),
+	getSourceAddress: vi.fn().mockReturnValue('0x1234')
+}));
+vi.mock('$lib/utils/wallet/error-mapping', () => ({
+	mapErrorToKey: vi.fn().mockReturnValue({ key: 'wallet.toast.error.generic', values: {} })
 }));
 
 // Mock connectorRegistry (used by useSwapWallets for external BTC detection)
@@ -361,7 +384,8 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 			};
 			mockRuneState.getExecutableRoute.mockReturnValue(testRoute);
 			mockRuneState.estimatedOutput = '0.00154 TBTC';
-			mockCalcState.setAmount('100000');
+			mockRuneState.smartRoute = testRoute;
+			mockCalcState.setAmount('0.001');
 		}
 
 		it('drives form → confirm phase with real route data', async () => {
@@ -395,11 +419,12 @@ describe('SwapForm – 5-State + Post-Iter1 + Failure Paths', () => {
 			const confirmBtn = screen.getByRole('button', { name: /Confirm Swap/i });
 			await fireEvent.click(confirmBtn);
 
-			const hasError =
-				screen.queryByText(/swap failed/i) ||
-				screen.queryByText(/error/i) ||
-				screen.queryByText(/retry/i);
-			expect(hasError).toBeTruthy();
+			// Toast handles error display now; verify phase transitions to failed
+			// (the form should show a close button or return to form state)
+			await vi.waitFor(() => {
+				const closeBtn = screen.queryByRole('button', { name: /^Close$/i });
+				expect(closeBtn).toBeTruthy();
+			});
 		});
 
 		it('handles complete phase after successful swap', async () => {

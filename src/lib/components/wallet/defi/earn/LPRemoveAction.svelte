@@ -28,6 +28,9 @@
 	let txState = $state<'idle' | 'removing' | 'success' | 'error'>('idle');
 	let txError = $state<string | null>(null);
 
+	/** 0.5% slippage protection — industry standard default */
+	const SLIPPAGE_BPS = 50;
+
 	let isOnline = $derived($browserNetworkStatus.online);
 
 	let removeLiquidityAmount = $derived((position.liquidity * BigInt(selectedPercent)) / 100n);
@@ -57,6 +60,12 @@
 		return isFinite(fullAmount) && fullAmount > 0 ? (fullAmount * selectedPercent) / 100 : 0;
 	});
 	let removeTotalUsd = $derived(removeWbtc * currentPrice + removeUsdt0);
+
+	// Slippage-protected minimum amounts for removeLiquidity call
+	let expectedAmount0 = $derived(BigInt(Math.round(removeWbtc * 1e8)));
+	let expectedAmount1 = $derived(BigInt(Math.round(removeUsdt0 * 1e6)));
+	let amount0Min = $derived((expectedAmount0 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n);
+	let amount1Min = $derived((expectedAmount1 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n);
 
 	function clearTx() {
 		txState = 'idle';
@@ -94,7 +103,14 @@
 			}
 			const signer = rskW.connect(provider);
 			const { error } = await tryCatch(
-				uni.removeLiquidity(position.tokenId, removeLiquidityAmount, 0n, 0n, deadline, signer)
+				uni.removeLiquidity(
+					position.tokenId,
+					removeLiquidityAmount,
+					amount0Min,
+					amount1Min,
+					deadline,
+					signer
+				)
 			);
 			if (error) {
 				txError = error instanceof Error ? error.message : $t('wallet.defi.shared.error_generic');
@@ -118,8 +134,8 @@
 				uni.removeLiquidityWithEvmSigner(
 					position.tokenId,
 					removeLiquidityAmount,
-					0n,
-					0n,
+					amount0Min,
+					amount1Min,
 					deadline,
 					evm
 				)
@@ -200,6 +216,9 @@
 					~${removeTotalUsd.toFixed(2)} total
 				</div>
 			{/if}
+			<p class="text-base-content/40 mt-1">
+				{$t('wallet.defi.slippage_protection', { values: { percent: '0.5' } })}
+			</p>
 		</div>
 	{/if}
 

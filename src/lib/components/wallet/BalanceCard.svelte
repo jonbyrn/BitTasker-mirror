@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
-	import { allAssets, totalBalances, walletManager, formatSats } from '$lib/stores/wallet.store';
+	import {
+		allAssets,
+		totalBalances,
+		walletManager,
+		formatSats,
+		walletStore
+	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import IconRefresh from '~icons/mdi/refresh';
@@ -185,6 +191,23 @@
 		const usdValue = (totalSats / 100_000_000) * btcPrice.price;
 		return `(${currencyFmt.format(usdValue)})`;
 	});
+
+	// Balance staleness indicator
+	const lastRefresh = $derived($walletStore.lastBalanceRefresh ?? 0);
+	const staleness = $derived.by(() => {
+		const age = Date.now() - lastRefresh;
+		if (age < 60_000) return null; // < 1 min: fresh
+		if (age < 300_000) return 'recent'; // < 5 min: slightly stale
+		return 'stale'; // > 5 min: stale
+	});
+
+	function formatAge(ms: number): string {
+		const mins = Math.floor(ms / 60_000);
+		if (mins < 1) return $t('wallet.toast.just_now');
+		if (mins < 60) return $t('wallet.toast.minutes_ago', { values: { n: mins } });
+		const hours = Math.floor(mins / 60);
+		return $t('wallet.toast.hours_ago', { values: { n: hours } });
+	}
 </script>
 
 {#snippet satsBalanceRow(
@@ -247,7 +270,7 @@
 {#snippet helpButton()}
 	<button
 		type="button"
-		class="text-primary-content hover:text-primary-content shrink-0 cursor-pointer p-0.5 opacity-80 hover:bg-transparent hover:opacity-100 sm:ml-1 sm:p-1"
+		class="shrink-0 cursor-pointer p-0.5 text-white opacity-80 hover:bg-transparent hover:text-white hover:opacity-100 sm:ml-1 sm:p-1"
 		onclick={handleHelpClick}
 		aria-label={$t('wallet.learn_more')}
 	>
@@ -288,14 +311,14 @@
 
 <div class="flex flex-col space-y-3 sm:space-y-4" data-hide-details={hideDetails || undefined}>
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-primary text-primary-content relative rounded-lg bg-linear-to-br shadow-xl">
+	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">
 			<div class="flex flex-col gap-1 sm:gap-0.5">
 				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || combinedTotal === null}
 						<p
-							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							<span class="inline-flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
@@ -305,7 +328,7 @@
 						</p>
 					{:else}
 						<p
-							class="text-primary-content inline-flex flex-1 items-center gap-2 text-2xl font-bold sm:text-3xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							≈ ${combinedTotal}
 							{@render helpButton()}
@@ -316,17 +339,28 @@
 				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
 					{#if isLoading}
-						<p class="text-primary-content flex-1 text-base font-bold opacity-70 sm:text-lg">
+						<p class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
 							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<div class="text-primary-content flex-1 text-base font-bold opacity-70 sm:text-lg">
+						<div class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
 							<div>{satsDisplay} {$t('wallet.sats')} {satsUsdInline}</div>
 							<div>
 								{usdtDisplay}
 								{$t('wallet.usd')}
 							</div>
 						</div>
+					{/if}
+					{#if staleness === 'stale'}
+						<button
+							type="button"
+							class="cursor-pointer text-xs text-white/40 hover:text-white/70"
+							onclick={handleRefresh}
+						>
+							{$t('wallet.balance.updated_ago', {
+								values: { time: formatAge(Date.now() - lastRefresh) }
+							})}
+						</button>
 					{/if}
 					{@render refreshButton()}
 				</div>

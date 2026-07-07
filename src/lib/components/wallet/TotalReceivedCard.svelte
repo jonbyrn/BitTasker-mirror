@@ -21,9 +21,6 @@
 	} = $props();
 </script>
 
-/** * TotalReceivedCard.svelte * * Card showing total amount received after fees. * Extracted from
-ReceivePaymentForm.svelte to eliminate mobile/desktop duplication. */
-
 <div
 	class="bg-base-200 flex flex-row items-center justify-between gap-1.5 rounded-lg border-2 p-1.5"
 	class:border-primary={!isBelowSwapMinimum}

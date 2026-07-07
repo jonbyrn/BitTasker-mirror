@@ -1,16 +1,19 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import type { BlockchainToastItem } from '$lib/stores/wallet/blockchain-toast.store';
 
 	let {
 		show = false,
 		walletName = '',
 		walletAddress = '',
+		pendingSwaps = [],
 		onCancel = () => {},
 		onConfirm = () => {}
 	}: {
 		show?: boolean;
 		walletName?: string;
 		walletAddress?: string;
+		pendingSwaps?: BlockchainToastItem[];
 		onCancel?: () => void;
 		onConfirm?: () => void;
 	} = $props();
@@ -39,6 +42,15 @@
 				</p>
 			{/if}
 			<p class="mb-4 text-sm">{$t('wallet.connected.disconnect_msg')}</p>
+			{#if pendingSwaps.length > 0}
+				<div class="alert alert-warning mb-3">
+					<p>
+						{$t('wallet.connected.pending_swap_warning', {
+							values: { count: pendingSwaps.length }
+						})}
+					</p>
+				</div>
+			{/if}
 			<div class="flex justify-end gap-2">
 				<button class="btn btn-ghost btn-sm min-h-[44px]" onclick={onCancel}
 					>{$t('common.cancel')}</button

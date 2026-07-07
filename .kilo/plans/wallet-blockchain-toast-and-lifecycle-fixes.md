@@ -250,6 +250,76 @@ list. The toast shows/hides itself based on whether the list is non-empty.
 **Note**: `confirmationTime` in `send-network-mapping.ts` represents time per block, NOT
 required confirmations. The toast uses a separate `requiredConfirmations` lookup.
 
+### Shared Constants and Helpers
+
+These are referenced by multiple steps. Define once, use everywhere.
+
+**`REQUIRED_CONFIRMATIONS` lookup** (new constant in `src/lib/utils/wallet/chain-confirmations.ts`):
+```typescript
+/** Required block confirmations per network for transaction finality. */
+export const REQUIRED_CONFIRMATIONS: Record<string, number> = {
+  'rootstock-bitcoin': 3,
+  'usdt-bsc': 1,
+  'usdt-ethereum': 3,
+  'usdt-arbitrum': 1,
+  'usdt-polygon': 1,
+  'bitcoin': 1,
+  'lightning-bitcoin': 3, // RSK lockup confirmations
+};
+```
+
+**`getSourceAddress(network)`** (inline in toast registration, no separate util):
+```typescript
+function getSourceAddress(network: string): string | null {
+  const state = get(walletStore);
+  if (network === 'rootstock-bitcoin' || network === 'lightning-bitcoin') return state.rsk.address;
+  if (network === 'usdt-bsc') return state.bsc.address;
+  return null; // connected wallets — address comes from connector
+}
+```
+
+**`getAssetForNetwork(network)`** (inline in toast registration):
+```typescript
+const NETWORK_ASSET: Record<string, string> = {
+  'rootstock-bitcoin': 'rBTC',
+  'usdt-bsc': 'USDT',
+  'usdt-ethereum': 'USDT',
+  'usdt-arbitrum': 'USDT',
+  'usdt-polygon': 'USDT',
+  'bitcoin': 'BTC',
+  'lightning-bitcoin': 'BTC',
+};
+function getAssetForNetwork(network: string): string {
+  return NETWORK_ASSET[network] ?? 'Unknown';
+}
+```
+
+**`mapErrorToKey(error)`** (in `src/lib/utils/wallet/error-mapping.ts`):
+```typescript
+const ERROR_KEY_MAP: Record<string, string> = {
+  'insufficient funds': 'wallet.toast.error.insufficient_funds',
+  'insufficient_funds': 'wallet.toast.error.insufficient_funds',
+  'insufficient gas': 'wallet.toast.error.insufficient_gas',
+  'insufficient balance': 'wallet.toast.error.insufficient_funds',
+  'nonce': 'wallet.toast.error.nonce_too_low',
+  'reverted': 'wallet.toast.error.execution_reverted',
+  'timeout': 'wallet.toast.error.timeout',
+  'timed out': 'wallet.toast.error.timeout',
+  'network': 'wallet.toast.error.network_error',
+  'offline': 'wallet.toast.error.network_error',
+  'boltz': 'wallet.toast.error.boltz_unavailable',
+  'rejected': 'wallet.toast.error.user_rejected',
+};
+
+export function mapErrorToKey(error: string): { key: string; values: Record<string, unknown> } {
+  const lower = error.toLowerCase();
+  for (const [pattern, key] of Object.entries(ERROR_KEY_MAP)) {
+    if (lower.includes(pattern)) return { key, values: {} };
+  }
+  return { key: 'wallet.toast.error.generic', values: { detail: error } };
+}
+```
+
 ### Exclusions
 
 - **Arbitrum direct sends**: Fast-path only. Tx confirms in <1s → brief success toast via
@@ -286,9 +356,10 @@ wallet-init.ts:
   +   resumeRefreshTimer = setTimeout(() => {
   +     resumeRefreshTimer = null;
   +     try {
+  +       ensureBlockWatch(); // Re-establish if softCleanup disposed it
   +       scheduleBalanceRefresh();
   +       loadTransactions();
-  +       blockchainToastStore.checkPendingReceipts();
+  +       checkPendingBlockchainReceipts(); // Poll receipts for confirming toasts
   +     } catch (err) {
   +       console.error('[wallet-init] Resume refresh error:', err);
   +     }
@@ -417,7 +488,6 @@ interface BlockchainToastItem {
   error: string | null;          // i18n key, not raw message
   errorValues: Record<string, unknown> | null; // interpolation values
   createdAt: number;
-  expanded: boolean;
   _dismissTimer: ReturnType<typeof setTimeout> | null;
   actions: BlockchainToastAction[];
 }
@@ -432,12 +502,12 @@ interface BlockchainToastAction {
 **Store API**:
 ```typescript
 function createBlockchainToastStore() {
-  const state = writable<{ toasts: BlockchainToastItem[] }>({ toasts: [] });
+  const state = writable<{ toasts: BlockchainToastItem[]; expanded: boolean }>({ toasts: [], expanded: false });
 
   return {
     subscribe: state.subscribe,
 
-    add(item: Omit<BlockchainToastItem, 'createdAt' | 'expanded' | '_dismissTimer'>): void
+    add(item: Omit<BlockchainToastItem, 'createdAt' | '_dismissTimer'>): void
     // - Checks for duplicate ID → updates existing instead
     // - Enforces MAX_TOASTS (10) → removes oldest completed/errored
     // - Sentry.addBreadcrumb({ category: 'blockchain-toast', message: 'registered' })
@@ -448,6 +518,7 @@ function createBlockchainToastStore() {
 
     remove(id: string): void
     // - Clears _dismissTimer before removing
+    // - When last item removed, toast auto-hides (component checks toasts.length === 0)
 
     onBlock(network: string, blockNumber: number): void
     // - Updates currentBlock on matching 'confirming' toasts
@@ -465,9 +536,24 @@ function createBlockchainToastStore() {
     // - Sentry.captureException
 
     checkPendingReceipts(): void
-    // - Called on app resume
-    // - Polls getTransactionReceipt for all 'confirming' toasts
+    // - Called by wallet-init.ts on app resume (NOT by the store itself — store has no provider access)
+    // - Iterates all 'confirming' toasts, calls getTransactionReceipt via getProvider()
     // - Updates to 'success' or 'error' based on receipt
+    // - Implementation lives in wallet-init.ts, NOT in the store:
+    //
+    // export function checkPendingBlockchainReceipts(): void {
+    //   const toasts = get(blockchainToastStore).toasts;
+    //   for (const toast of toasts) {
+    //     if (toast.status !== 'confirming' || !toast.txHash) continue;
+    //     const provider = getProvider(networkToProviderKey(toast.network));
+    //     if (!provider) continue;
+    //     provider.getTransactionReceipt(toast.txHash).then(receipt => {
+    //       if (receipt) {
+    //         blockchainToastStore[receipt.status === 1 ? 'onSuccess' : 'onError'](toast.id, ...);
+    //       }
+    //     }).catch(() => {});
+    //   }
+    // }
 
     dismissActive(): void
     // - Called on Escape key press
@@ -555,6 +641,9 @@ export const blockchainToastStore = createBlockchainToastStore();
 ```
 handleSend():
   + import { blockchainToastStore } from '$lib/stores/wallet/blockchain-toast.store'
+  + import { REQUIRED_CONFIRMATIONS } from '$lib/utils/wallet/chain-confirmations'
+  + import { getAssetForNetwork, getSourceAddress } from '$lib/utils/wallet/toast-helpers'
+  + import { mapErrorToKey } from '$lib/utils/wallet/error-mapping'
   +
   + // Arbitrum fast-path
   + if (sendState.pendingNetwork === 'usdt-arbitrum') {
@@ -583,13 +672,26 @@ handleSend():
   +   requiredConfirmations,
   +   error: null,
   +   errorValues: null,
-  +   actions: [{
-  +     labelKey: 'wallet.toast.view_details',
-  +     variant: 'ghost',
-  +     onClick: () => { /* expand toast */ }
-  +   }]
+  +   actions: []
   + });
   + clearPendingSendState();
+  + return; // Don't navigate to PendingTransactionScreen — toast handles it
+```
+
+**Also remove from SendPaymentForm.svelte template**:
+```
+  - {#if sendState.pendingTxHash && sendState.pendingNetwork && ...}
+  -   <PendingTransactionScreen ... />
+  - {/if}
+  - {#if sendState.showSuccess}
+  -   <TransactionSuccessScreen ... />
+  - {/if}
+```
+
+**Also remove imports**:
+```
+  - import PendingTransactionScreen from '$lib/components/wallet/PendingTransactionScreen.svelte';
+  - import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
 ```
 
 **Retry action** (set when error occurs):
@@ -984,18 +1086,27 @@ User can submit a send that will fail on-chain.
 **Files**:
 - `src/lib/runes/use-send-form-validation.svelte.ts`
 
-**Changes**:
+**Changes** — find the `isBalanceSufficient` derived computation:
 ```
-validateSendForm():
-  - if (totalToSend > availableBalance && totalToSend > 0 && feeEstimate !== null) {
-  + if (totalToSend > availableBalance && totalToSend > 0) {
-  +   // Check against raw balance even when fee estimate is unavailable
-  +   // (fee estimate failure doesn't mean the user has enough)
-      return false;
-  +   // The fee-inclusive check still runs when feeEstimate is available:
-  +   // totalToSend + feeEstimate.totalFees > availableBalance
-    }
+// Current code (approximately):
+const isBalanceSufficient = $derived.by(() => {
+  if (!feeEstimate || !amount) return true;  // ← THIS IS THE BUG
+  const total = amount + feeEstimate.totalFees;
+  return total <= availableBalance;
+});
+
+// Fixed:
+const isBalanceSufficient = $derived.by(() => {
+  if (!amount) return true;
+  // Even without fee estimate, check raw amount against balance
+  if (!feeEstimate) return amount <= availableBalance;
+  const total = amount + feeEstimate.totalFees;
+  return total <= availableBalance;
+});
 ```
+
+The key change: when `feeEstimate` is null, still check `amount <= availableBalance` instead
+of returning `true`. The fee-inclusive check still runs when fee estimate is available.
 
 **Lines**: ~5 changed
 **Test coverage**: Validate with null fee estimate + amount > balance
@@ -1654,8 +1765,10 @@ TransactionHistory:
   + <button onclick={exportCSV}>{$t('wallet.history.export_csv')}</button>
 
 BalanceCard:
-  + // L26: Chart date range
-  + <DateRangePicker bind:from bind:to onchange={refreshChart} />
+  + // L26: Chart date range — reuse existing DateInput from $lib/components/date/DateInput.svelte
+  + import DateInput from '$lib/components/date/DateInput.svelte';
+  + <DateInput bind:value={dateFrom} labelKey="wallet.balance.from_date" placeholderKey="wallet.balance.select_date" />
+  + <DateInput bind:value={dateTo} labelKey="wallet.balance.to_date" placeholderKey="wallet.balance.select_date" />
   + // L28: Per-token breakdown for connected wallets
   + {#each connectedTokens as token}
   +   <div class="flex justify-between">
@@ -1721,9 +1834,19 @@ DeFi forms:
   + {/if}
 
 General:
-  + // L29: First-time DeFi onboarding
+  + // L29: First-time DeFi onboarding — use existing Drawer component ($lib/components/Drawer.svelte)
+  + // Same pattern as LoanWizardDrawer and EarnFlowDrawer
+  + import Drawer from '$lib/components/Drawer.svelte';
   + {#if !$settingsStore.hasSeenDeFiIntro}
-  +   <DeFiOnboardingDrawer on:close={() => $settingsStore.hasSeenDeFiIntro = true} />
+  +   <Drawer open={showDeFiIntro} on:close={() => { $settingsStore.hasSeenDeFiIntro = true; showDeFiIntro = false; }}>
+  +     <div class="p-6 space-y-4">
+  +       <h3 class="text-lg font-bold">{$t('wallet.defi.onboarding.title')}</h3>
+  +       <p>{$t('wallet.defi.onboarding.description')}</p>
+  +       <button class="btn btn-primary" onclick={() => { $settingsStore.hasSeenDeFiIntro = true; showDeFiIntro = false; }}>
+  +         {$t('wallet.defi.onboarding.got_it')}
+  +       </button>
+  +     </div>
+  +   </Drawer>
   + {/if}
 ```
 

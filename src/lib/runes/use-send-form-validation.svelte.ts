@@ -94,6 +94,10 @@ export interface UseSendFormValidationResult {
 	isBelowSwapMinimum: boolean;
 	isFormValid: boolean;
 	isNetworkSupported: boolean;
+	/** i18n key describing why the form is invalid, or null if valid. */
+	formValidationError: string | null;
+	/** Interpolation values for the error i18n key. */
+	formErrorValues: Record<string, unknown>;
 }
 
 export interface SendFormValidationContext {
@@ -105,6 +109,7 @@ export interface SendFormValidationContext {
 	hasInsufficientBalance: boolean;
 	isBelowSwapMinimum: boolean;
 	isSelfSend: boolean;
+	network: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +212,20 @@ export function isSupportedNetwork(detectedNetwork: string | null): boolean {
 }
 
 /**
+ * Dust limit per network in satoshis.
+ * Below this amount, UTXO transactions fail on-chain.
+ */
+export const DUST_LIMITS: Record<string, number> = {
+	bitcoin: 546,
+	'rootstock-bitcoin': 546,
+	'lightning-bitcoin': 546,
+	'usdt-bsc': 1,
+	'usdt-arbitrum': 1,
+	'usdt-ethereum': 546,
+	'usdt-polygon': 1
+};
+
+/**
  * Comprehensive form validation.
  * Matches SendPaymentForm L731-786 exactly.
  *
@@ -215,19 +234,35 @@ export function isSupportedNetwork(detectedNetwork: string | null): boolean {
  * 2. Supported network
  * 3. Source wallet connected
  * 4. Amount > 0 (or amountRequired satisfied)
- * 5. LNURL amount bounds (min/max in msats → sats)
- * 6. Sufficient balance
- * 7. Above swap minimum
- * 8. Not self-send
+ * 5. Not below dust limit
+ * 6. LNURL amount bounds (min/max in msats → sats)
+ * 7. Sufficient balance
+ * 8. Above swap minimum
+ * 9. Not self-send
  */
-export function validateSendForm(ctx: SendFormValidationContext): boolean {
-	if (!ctx.parsedData?.isValid) return false;
-	if (!ctx.isNetworkSupported) return false;
-	if (!ctx.isSourceWalletConnected) return false;
+export function validateSendForm(ctx: SendFormValidationContext): {
+	valid: boolean;
+	error: string | null;
+	errorValues: Record<string, unknown>;
+} {
+	if (!ctx.parsedData?.isValid) return { valid: false, error: null, errorValues: {} };
+	if (!ctx.isNetworkSupported) return { valid: false, error: null, errorValues: {} };
+	if (!ctx.isSourceWalletConnected) return { valid: false, error: null, errorValues: {} };
 
 	// Amount validation
-	if (ctx.amountRequired && ctx.amountInSats <= 0) return false;
-	if (ctx.amountInSats <= 0) return false;
+	if (ctx.amountRequired && ctx.amountInSats <= 0)
+		return { valid: false, error: null, errorValues: {} };
+	if (ctx.amountInSats <= 0) return { valid: false, error: null, errorValues: {} };
+
+	// Dust limit validation
+	const dustLimit = ctx.network ? (DUST_LIMITS[ctx.network] ?? 546) : 546;
+	if (ctx.amountInSats > 0 && ctx.amountInSats < dustLimit) {
+		return {
+			valid: false,
+			error: 'wallet.send.error.below_dust',
+			errorValues: { min: dustLimit }
+		};
+	}
 
 	// LNURL amount bounds (amount in sats vs limits in msats)
 	const lnurlMinSats =
@@ -239,16 +274,29 @@ export function validateSendForm(ctx: SendFormValidationContext): boolean {
 			? Math.floor(ctx.parsedData.lnurlMaxSendable / 1000)
 			: 0;
 	if (ctx.parsedData.lnurlCallback) {
-		if (ctx.amountInSats < lnurlMinSats || ctx.amountInSats > lnurlMaxSats) {
-			return false;
+		if (lnurlMinSats > 0 && ctx.amountInSats < lnurlMinSats) {
+			return {
+				valid: false,
+				error: 'wallet.send.error.below_lnurl_min',
+				errorValues: { min: lnurlMinSats }
+			};
+		}
+		if (lnurlMaxSats > 0 && ctx.amountInSats > lnurlMaxSats) {
+			return {
+				valid: false,
+				error: 'wallet.send.error.above_lnurl_max',
+				errorValues: { max: lnurlMaxSats }
+			};
 		}
 	}
 
-	if (ctx.hasInsufficientBalance) return false;
-	if (ctx.isBelowSwapMinimum) return false;
-	if (ctx.isSelfSend) return false;
+	if (ctx.hasInsufficientBalance)
+		return { valid: false, error: 'wallet.validation.insufficient_balance', errorValues: {} };
+	if (ctx.isBelowSwapMinimum) return { valid: false, error: null, errorValues: {} };
+	if (ctx.isSelfSend)
+		return { valid: false, error: 'wallet.send.error.self_send', errorValues: {} };
 
-	return true;
+	return { valid: true, error: null, errorValues: {} };
 }
 
 // ---------------------------------------------------------------------------
@@ -303,12 +351,10 @@ export function useSendFormValidation(
 
 	const networkSupported = $derived(isSupportedNetwork(parsedPayment.detectedNetwork));
 
-	const hasInsufficientBalance = $derived(
-		totalToSend > availableBalance && totalToSend > 0 && feeEstimate !== null
-	);
+	const hasInsufficientBalance = $derived(totalToSend > availableBalance && totalToSend > 0);
 
-	const isFormValid = $derived.by(() =>
-		validateSendForm({
+	const isFormValid = $derived.by(() => {
+		const result = validateSendForm({
 			parsedData: parsedPayment.data,
 			isNetworkSupported: networkSupported,
 			isSourceWalletConnected,
@@ -316,9 +362,31 @@ export function useSendFormValidation(
 			amountInSats,
 			hasInsufficientBalance,
 			isBelowSwapMinimum,
-			isSelfSend
-		})
-	);
+			isSelfSend,
+			network: parsedPayment.detectedNetwork
+		});
+		return result.valid;
+	});
+
+	let _formValidationError = $state<string | null>(null);
+	let _formErrorValues = $state<Record<string, unknown>>({});
+
+	// Sync error details outside $derived (Svelte 5 doesn't allow state writes in $derived)
+	$effect(() => {
+		const result = validateSendForm({
+			parsedData: parsedPayment.data,
+			isNetworkSupported: networkSupported,
+			isSourceWalletConnected,
+			amountRequired: parsedPayment.amountRequired,
+			amountInSats,
+			hasInsufficientBalance,
+			isBelowSwapMinimum,
+			isSelfSend,
+			network: parsedPayment.detectedNetwork
+		});
+		_formValidationError = result.error;
+		_formErrorValues = result.errorValues;
+	});
 
 	// --- Public API (getters for reactivity across rune boundary) ---
 
@@ -349,6 +417,12 @@ export function useSendFormValidation(
 		},
 		get isNetworkSupported() {
 			return networkSupported;
+		},
+		get formValidationError() {
+			return _formValidationError;
+		},
+		get formErrorValues() {
+			return _formErrorValues;
 		}
 	};
 }

@@ -22,9 +22,6 @@
 	import { useSwapInput } from '$lib/runes/use-swap-input.svelte';
 	import { useSwapBalanceCheck } from '$lib/runes/use-swap-balance-check.svelte';
 	import SwapConfirmPhase from '$lib/components/wallet/SwapConfirmPhase.svelte';
-	import SwapSuccessPhase from '$lib/components/wallet/SwapSuccessPhase.svelte';
-	import SwapExecutingPhase from '$lib/components/wallet/SwapExecutingPhase.svelte';
-	import SwapFailedPhase from '$lib/components/wallet/SwapFailedPhase.svelte';
 	import SwapFormPhase from '$lib/components/wallet/SwapFormPhase.svelte';
 	import { sanitizeSwapError } from '$lib/utils/swap-error';
 	import {
@@ -39,6 +36,10 @@
 		DEST_TO_SOURCE,
 		SOURCE_TO_DEST
 	} from '$lib/utils/swap-helpers';
+	import { blockchainToastStore } from '$lib/stores/wallet/blockchain-toast.store';
+	import { REQUIRED_CONFIRMATIONS } from '$lib/utils/wallet/chain-confirmations';
+	import { getAssetForNetwork, getSourceAddress } from '$lib/utils/wallet/toast-helpers';
+	import { mapErrorToKey } from '$lib/utils/wallet/error-mapping';
 
 	const d = createDebug('swap');
 
@@ -69,7 +70,7 @@
 	let destType = $state<DestType>('usdt0-arb');
 	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'complete' | 'failed'>('form');
 	let errorMessage = $state('');
-	let swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
+	let _swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
 	let _flipTimer: ReturnType<typeof setTimeout> | null = null;
 	let swapProgressStep = $state<SwapProgressStep>('locking-rbtc');
@@ -77,6 +78,7 @@
 	let unsubscribeProgress: (() => void) | null = null;
 	let _swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let _swapAbortController: AbortController | null = null;
+	let highValueConfirmed = $state(false);
 
 	const SWAP_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -94,14 +96,14 @@
 		_swapAbortController = null;
 	}
 
-	const SWAP_PROGRESS_STEPS = [
+	const _SWAP_PROGRESS_STEPS = [
 		{ key: 'locking-rbtc', labelKey: 'wallet.swap.progress.locking_rbtc' },
 		{ key: 'waiting-for-boltz', labelKey: 'wallet.swap.progress.waiting_boltz' },
 		{ key: 'claiming-tbtc', labelKey: 'wallet.swap.progress.claiming_tbtc' },
 		{ key: 'swapping-tbtc', labelKey: 'wallet.swap.progress.swapping_tbtc' }
 	] as const;
 	const SWAP_STEP_ORDER = ['locking-rbtc', 'waiting-for-boltz', 'claiming-tbtc', 'swapping-tbtc'];
-	const currentStepIdx = $derived(SWAP_STEP_ORDER.indexOf(swapProgressStep));
+	const _currentStepIdx = $derived(SWAP_STEP_ORDER.indexOf(swapProgressStep));
 
 	// Local smartRoute for SwapFallback retry injection; main route state in swapRoutes rune.
 	let smartRoute = $state<SmartRoute | null>(null);
@@ -138,6 +140,24 @@
 	}
 	let sourceWalletHasBtcSigner = $derived(_walletHasBtcSigner(sourceWallet));
 	let destWalletHasBtcSigner = $derived(_walletHasBtcSigner(destWallet));
+
+	/** Map SourceWallet type to network key for toast registration. */
+	function _mapSourceToNetwork(type: SourceWallet): string {
+		switch (type) {
+			case 'rbtc':
+				return 'rootstock-bitcoin';
+			case 'usdt0-arb':
+				return 'usdt-arbitrum';
+			case 'wbtc-arb':
+				return 'rootstock-bitcoin';
+			case 'tbtc-arb':
+				return 'rootstock-bitcoin';
+			case 'btc-onchain':
+				return 'bitcoin';
+			default:
+				return 'rootstock-bitcoin';
+		}
+	}
 
 	const swapOptions = useSwapOptions({
 		getSourceType: () => sourceType,
@@ -276,6 +296,13 @@
 	let totalFeeSats = $derived(swapRoutes.totalFeeSats);
 	let minSwapSats = $derived(swapRoutes.minSwapSats);
 
+	let swapAmountUSD = $derived(
+		swapCalc.amountSats > 0 && btcPrice.price > 0
+			? (swapCalc.amountSats / 100_000_000) * btcPrice.price
+			: 0
+	);
+	let showHighValueWarning = $derived(swapAmountUSD > 1000 && !highValueConfirmed);
+
 	let minSliderPercent = $derived.by(() => {
 		if (minSwapSats <= 0) return 0;
 		const bal = swapCalc.walletBalanceToken;
@@ -325,6 +352,7 @@
 		if (!isOpen) return;
 		smartRoute = null;
 		errorMessage = '';
+		highValueConfirmed = false;
 		Sentry.addBreadcrumb({
 			category: 'wallet.swap',
 			message: 'Swap drawer opened',
@@ -459,6 +487,9 @@
 	async function goToConfirm() {
 		if (!balanceCheck.canSwap) return;
 
+		// High-value confirmation gate (L1)
+		if (swapAmountUSD > 1000 && !highValueConfirmed) return;
+
 		// Pre-check: if route needs Arbitrum ETH gas, verify balance before entering confirm
 		if (
 			balanceCheck.needsArbEth &&
@@ -495,7 +526,7 @@
 		smartRoute = null;
 		swapPhase = 'form';
 		errorMessage = '';
-		swapResult = null;
+		_swapResult = null;
 		swapRoutes.clearRoutes();
 	}
 
@@ -511,12 +542,12 @@
 	 * will continue in the background if it cannot be aborted, but the
 	 * user is free to start a new swap.
 	 */
-	function cancelSwap() {
+	function _cancelSwap() {
 		_clearSwapTimeout();
 		_stopProgressTracking();
 		swapPhase = 'form';
 		errorMessage = '';
-		swapResult = null;
+		_swapResult = null;
 		d.log('Swap cancelled by user');
 		Sentry.addBreadcrumb({
 			category: 'wallet.swap',
@@ -541,9 +572,36 @@
 		errorMessage = '';
 		swapProgressStep = 'locking-rbtc';
 		swapProgressMessage = $t('wallet.swap.starting_swap');
+
+		// Register blockchain toast for this swap
+		const swapToastId = crypto.randomUUID();
+		const swapNetwork = _mapSourceToNetwork(sourceType);
+		blockchainToastStore.add({
+			id: swapToastId,
+			type: 'swap',
+			status: 'confirming',
+			network: swapNetwork,
+			amount: swapCalc.amountSats,
+			amountUSD: (swapCalc.amountSats / 100_000_000) * (swapInput.btcUsdPrice || 0),
+			asset: getAssetForNetwork(swapNetwork),
+			recipient: swapWallets.destAddr,
+			sourceAddress: getSourceAddress(swapNetwork),
+			txHash: null,
+			swapId: null,
+			swapType: null,
+			currentBlock: null,
+			requiredConfirmations: REQUIRED_CONFIRMATIONS[swapNetwork] ?? 3,
+			error: null,
+			errorValues: null,
+			actions: []
+		});
+
 		unsubscribeProgress = onSwapProgress((step, message) => {
 			swapProgressStep = step;
 			swapProgressMessage = message;
+			blockchainToastStore.patch(swapToastId, {
+				status: step === 'complete' ? 'success' : 'confirming'
+			});
 		});
 		triggerHaptic(ImpactStyle.Heavy);
 
@@ -604,9 +662,10 @@
 			_clearSwapTimeout();
 
 			if (result.phase === 'COMPLETE') {
-				swapResult = { swapId: result.swapId, txHash: result.txHash };
+				_swapResult = { swapId: result.swapId, txHash: result.txHash };
 				swapPhase = 'complete';
 				triggerHaptic(ImpactStyle.Heavy);
+				blockchainToastStore.onSuccess(swapToastId);
 				// Refresh wallet balances after swap completes — cross-chain swaps
 				// update balances on both source and dest chains.
 				walletManager.loadAssets(true).catch((err: unknown) => {
@@ -616,6 +675,8 @@
 				errorMessage = $t(result.error || 'wallet.swap.error.swap_failed');
 				swapPhase = 'failed';
 				triggerHaptic(ImpactStyle.Heavy);
+				const mapped = mapErrorToKey(result.error || 'swap_failed');
+				blockchainToastStore.onError(swapToastId, mapped.key, mapped.values);
 			}
 		} catch (err) {
 			_clearSwapTimeout();
@@ -630,9 +691,18 @@
 					level: 'error',
 					data: { sourceType, destType }
 				});
+				const mapped = mapErrorToKey('swap_timeout');
+				blockchainToastStore.onError(swapToastId, mapped.key, mapped.values);
 			} else {
-				errorMessage = sanitizeSwapError(err instanceof Error ? err.message : String(err ?? ''));
+				const errMsg = err instanceof Error ? err.message : String(err ?? '');
+				if (/boltz/i.test(errMsg)) {
+					errorMessage = $t('wallet.swap.error.boltz_unavailable');
+				} else {
+					errorMessage = sanitizeSwapError(errMsg) || $t('wallet.swap.error.swap_failed');
+				}
 				d.error('Swap execution failed: %s', (err as Error).message);
+				const mapped = mapErrorToKey(errMsg);
+				blockchainToastStore.onError(swapToastId, mapped.key, mapped.values);
 			}
 			swapPhase = 'failed';
 			triggerHaptic(ImpactStyle.Heavy);
@@ -640,7 +710,7 @@
 	}
 
 	/** Retry swap using a fallback route from SwapFallback. */
-	function retryWithFallback(route: SmartRoute) {
+	function _retryWithFallback(route: SmartRoute) {
 		smartRoute = route;
 		swapPhase = 'confirm';
 		errorMessage = '';
@@ -772,6 +842,23 @@
 					onSwapDirection={handleSwapDirection}
 					{satsUsd}
 				/>
+				{#if swapRoutes.swapError}
+					<div class="alert alert-warning text-sm">
+						{$t(swapRoutes.swapError)}
+					</div>
+				{/if}
+				{#if showHighValueWarning}
+					<div class="alert alert-warning">
+						<p>
+							{$t('wallet.swap.high_value_warning', {
+								values: { amount: usdFormatter.format(swapAmountUSD) }
+							})}
+						</p>
+						<button class="btn btn-primary btn-sm" onclick={() => (highValueConfirmed = true)}>
+							{$t('common.confirm')}
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -813,64 +900,15 @@
 			/>
 		{/if}
 
-		<!-- Executing Phase -->
+		<!-- Executing Phase — toast handles progress display -->
 		{#if swapPhase === 'executing'}
-			<SwapExecutingPhase
-				progressMessage={swapProgressMessage}
-				progressSteps={SWAP_PROGRESS_STEPS}
-				{currentStepIdx}
-				onCancel={cancelSwap}
-			/>
+			<div class="flex flex-col items-center gap-4 py-8">
+				<span class="loading loading-lg loading-spinner text-primary"></span>
+				<p class="text-base-content/70 text-sm">{swapProgressMessage}</p>
+			</div>
 		{/if}
 
-		<!-- Success Phase -->
-		{#if swapPhase === 'complete'}
-			<SwapSuccessPhase
-				{isDirectTransfer}
-				{sourceAsset}
-				{sourceIcon}
-				{sourceType}
-				{destType}
-				selectedDest={selectedDest!}
-				{sourceWalletInfo}
-				{destWalletInfo}
-				sourceAmount={swapCalc.amount}
-				{estimatedOutput}
-				btcUsdPrice={swapInput.btcUsdPrice}
-				{satsUsd}
-				{usdFormatter}
-				{isBitcoinAsset}
-				isBtcSource={swapInput.isBtcSource}
-				{swapResult}
-				providerLabel={getProviderLabel()}
-				feePercent={swapRoutes.activeRouteForCalc?.totalFeePercent ??
-					effectiveSmartRoute?.totalFeePercent ??
-					0}
-				estimatedTime={swapRoutes.activeRouteForCalc?.estimatedTime ??
-					effectiveSmartRoute?.estimatedTime ??
-					'—'}
-				{sourceWallet}
-				{destWallet}
-				{sourceWalletType}
-				{sourceWalletAddress}
-				{destWalletType}
-				{destWalletAddress}
-				{sourceAssetName}
-				{destAssetName}
-				onReset={resetForm}
-				walletLabel={swapWallets.walletLabel}
-			/>
-		{/if}
-
-		<!-- Error / Failed Phase (with SwapFallback support) -->
-		{#if swapPhase === 'failed'}
-			<SwapFailedPhase
-				{errorMessage}
-				{smartRoute}
-				onRetry={(route: SmartRoute) => retryWithFallback(route)}
-				onReset={resetForm}
-			/>
-		{/if}
+		<!-- Success/Failed phases — toast handles display, drawer stays open for close button -->
 
 		<!-- General error message -->
 		{#if errorMessage && swapPhase !== 'failed'}

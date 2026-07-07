@@ -45,6 +45,7 @@
 	let isProcessing = $state(false);
 	let txStatus = $state<'idle' | 'supplying' | 'borrowing' | 'done'>('idle');
 	let errorMsg = $state<string | undefined>(undefined);
+	let supplySucceeded = $state(false);
 
 	let position = $derived(
 		walletId === 'builtin' ? defiPositions.aavePositions.get('builtin') : null
@@ -86,6 +87,13 @@
 		isProcessing = true;
 		onConfirm();
 		errorMsg = undefined;
+
+		// Oracle failure detection — guard against zero/stale BTC price before transacting
+		if (!btcPrice.price || btcPrice.price === 0) {
+			errorMsg = $t('wallet.defi.oracle_unavailable');
+			isProcessing = false;
+			return;
+		}
 
 		Sentry.addBreadcrumb({
 			category: 'defi.wizard.confirm',
@@ -171,14 +179,16 @@
 				if ('wait' in supplyTx && typeof supplyTx.wait === 'function') {
 					const { data: supplyReceipt, error: receiptErr } = await tryCatch(supplyTx.wait());
 					if (receiptErr || !supplyReceipt) {
-						errorMsg = 'Supply transaction confirmation failed';
+						errorMsg = $t('wallet.defi.supply_confirmation_failed');
 						isProcessing = false;
 						txStatus = 'idle';
 						return;
 					}
+					supplySucceeded = true;
 					onSupplyComplete(supplyReceipt.hash);
 				} else {
 					// EVMTransactionResult — tx already submitted by connected wallet
+					supplySucceeded = true;
 					onSupplyComplete((supplyTx as EVMTransactionResult).txHash);
 				}
 			}
@@ -195,7 +205,9 @@
 				);
 				if (borrowErr || !tx) {
 					const contractErr = extractContractError(borrowErr);
-					errorMsg = contractErr.userMessage;
+					errorMsg = supplySucceeded
+						? $t('wallet.defi.borrow_failed_after_collateral')
+						: contractErr.userMessage;
 					Sentry.captureException(borrowErr, {
 						tags: { feature: 'defi.wizard', action: 'borrow' }
 					});
@@ -210,7 +222,9 @@
 				);
 				if (borrowErr || !tx) {
 					const contractErr = extractContractError(borrowErr);
-					errorMsg = contractErr.userMessage;
+					errorMsg = supplySucceeded
+						? $t('wallet.defi.borrow_failed_after_collateral')
+						: contractErr.userMessage;
 					Sentry.captureException(borrowErr, {
 						tags: { feature: 'defi.wizard', action: 'borrow' }
 					});

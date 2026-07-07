@@ -37,6 +37,7 @@
 	let expanded = $state(false);
 	let pendingSwaps = $state<PendingConnectedSwap[]>([]);
 	let swapChainState = $state<SwapChainState | null>(null);
+
 	let claimingId = $state<string | null>(null);
 	let dismissConfirmId = $state<string | null>(null);
 	let resuming = $state(false);
@@ -67,6 +68,15 @@
 	const totalCount = $derived(
 		pendingSwaps.length + (swapChainActive || swapChainNeedsAction ? 1 : 0)
 	);
+
+	/** Whether any swap needs user action (claimable, refundable, partial, failed) */
+	const needsUserAction = $derived.by(() => {
+		// Reverse swaps needing claim
+		if (pendingSwaps.some((s) => s.status === 'claimable')) return true;
+		// Chain swap in PARTIAL or FAILED state (user can resume/refund)
+		if (swapChainNeedsAction) return true;
+		return false;
+	});
 
 	// ── Asset metadata ──────────────────────────────────────────────────────
 	interface AssetInfo {
@@ -190,6 +200,11 @@
 
 			// Scan for on-chain lockups in background
 			void scanLockups();
+
+			// Auto-expand when swaps need user action (H7)
+			if (needsUserAction) {
+				expanded = true;
+			}
 
 			// Load refund info when swap is in PARTIAL/FAILED state
 			if (
@@ -516,7 +531,13 @@
 									{/if}
 									{$t('wallet.pending_swaps.resume')}
 								</button>
-							{:else if getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial}
+							{:else if getSwapChainStatus(swapChainState).isPartial}
+								<!-- PARTIAL state instructions (H13) -->
+								<div class="bg-info/10 border-info/30 mb-2 w-full rounded-md border p-2 text-xs">
+									<p class="text-info font-medium">
+										{$t('wallet.pending_swaps.partial_instructions')}
+									</p>
+								</div>
 								<!-- Refund / timelock info -->
 								<div class="bg-base-300 mb-2 rounded-md p-2 text-xs">
 									{#if refundInfo}
@@ -586,7 +607,7 @@
 										{$t('wallet.pending_swaps.check_status')}
 									</button>
 									<!-- Claim button: resume the swap chain to retry the Boltz claim -->
-									{#if getSwapChainStatus(swapChainState).isPartial && swapChainState.swap1Id}
+									{#if swapChainState.swap1Id}
 										<button
 											class="btn btn-primary btn-xs min-h-[36px]"
 											disabled={resuming}
@@ -595,9 +616,90 @@
 											{#if resuming}
 												<span class="loading loading-spinner loading-xs"></span>
 											{/if}
-											{$t('wallet.pending_swaps.claim')}
+											{$t('wallet.pending_swaps.resume')}
 										</button>
 									{/if}
+									{#if refundInfo && chainSwapRecovery.status !== 'success'}
+										<button
+											class="btn btn-outline btn-error btn-xs min-h-[36px]"
+											disabled={chainSwapRecovery.status === 'loading' || !refundInfo.canRefund}
+											onclick={handleRefund}
+										>
+											{#if chainSwapRecovery.status === 'loading'}
+												<span class="loading loading-spinner loading-xs"></span>
+											{/if}
+											{$t('wallet.pending_swaps.refund')}
+										</button>
+									{/if}
+								</div>
+							{:else if getSwapChainStatus(swapChainState).isFailed}
+								<!-- Refund / timelock info -->
+								<div class="bg-base-300 mb-2 rounded-md p-2 text-xs">
+									{#if refundInfo}
+										{#if refundInfo.canRefund}
+											<span class="text-success font-medium">
+												{$t('wallet.pending_swaps.timelock_expired')} —
+												{$t('wallet.pending_swaps.refund_available')}
+											</span>
+										{:else}
+											<span class="text-base-content/60">{refundInfo.message}</span>
+										{/if}
+									{:else}
+										<div class="flex items-center justify-between gap-2">
+											<span class="text-base-content/60">
+												{$t('wallet.pending_swaps.recover_description')}
+											</span>
+											<button
+												class="btn btn-outline btn-xs shrink-0"
+												disabled={recovering}
+												onclick={handleRecover}
+											>
+												{#if recovering}
+													<span class="loading loading-spinner loading-xs"></span>
+												{/if}
+												{$t('wallet.pending_swaps.recover')}
+											</button>
+										</div>
+									{/if}
+								</div>
+
+								<!-- Recovery state -->
+								{#if chainSwapRecovery.status === 'success'}
+									<div class="border-success/30 bg-success/5 mt-2 rounded-md border p-2 text-xs">
+										<p class="text-success font-medium">
+											{$t('wallet.pending_swaps.refund_success')}
+										</p>
+										{#if chainSwapRecovery.txHash}
+											<a
+												href="https://rootstock.blockscout.com/tx/{chainSwapRecovery.txHash}"
+												target="_blank"
+												rel="noopener noreferrer"
+												class="text-success/70 mt-0.5 block truncate font-mono text-[11px] underline"
+											>
+												{chainSwapRecovery.txHash}
+											</a>
+										{/if}
+									</div>
+								{:else if chainSwapRecovery.status === 'error'}
+									<div class="border-error/30 bg-error/5 mt-2 rounded-md border p-2 text-xs">
+										<p class="text-error font-medium">{$t('wallet.pending_swaps.refund_failed')}</p>
+										<p class="text-error/70 mt-0.5">{chainSwapRecovery.error}</p>
+									</div>
+								{/if}
+
+								<div class="flex items-center justify-end gap-2">
+									<button
+										class="btn btn-ghost btn-xs min-h-[36px]"
+										disabled={checkingStatus}
+										onclick={handleCheckBoltzStatus}
+									>
+										{#if checkingStatus}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											🔄
+										{/if}
+										{$t('wallet.pending_swaps.check_status')}
+									</button>
 									{#if refundInfo && chainSwapRecovery.status !== 'success'}
 										<button
 											class="btn btn-outline btn-error btn-xs min-h-[36px]"
@@ -820,9 +922,16 @@
 								<span class="text-base-content/50 text-xs">
 									{$t('wallet.pending_swaps.broadcasting')}
 								</span>
+							{:else if !(swap as { status?: string }).status}
+								<!-- Corrupted state recovery (H14) — no status set -->
+								<div class="bg-warning/10 border-warning/30 w-full rounded-md border p-2 text-xs">
+									<p class="text-warning font-medium">
+										{$t('wallet.pending_swaps.state_unknown')}
+									</p>
+								</div>
 							{/if}
 
-							{#if swap.status === 'expired' || swap.status === 'failed'}
+							{#if swap.status === 'expired' || swap.status === 'failed' || !(swap as { status?: string }).status}
 								{#if dismissConfirmId === swap.swapId}
 									<button
 										class="btn btn-error btn-xs min-h-[36px]"

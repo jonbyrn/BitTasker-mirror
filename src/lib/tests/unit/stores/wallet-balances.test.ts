@@ -78,6 +78,7 @@ function makeInitialState(overrides: Partial<WalletStateExtended> = {}): WalletS
 		delegationState: 'IDLE',
 		pendingTransactions: new Map(),
 		chainLock: false,
+		lastBalanceRefresh: Date.now(),
 		...overrides
 	};
 }

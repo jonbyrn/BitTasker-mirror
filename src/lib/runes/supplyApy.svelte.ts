@@ -6,7 +6,7 @@ import { createDebug } from '$lib/utils/debug';
 const d = createDebug('supplyApy');
 
 const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-const REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
 
 class SupplyApy {
 	/** Current supply APY (null until first fetch completes) */

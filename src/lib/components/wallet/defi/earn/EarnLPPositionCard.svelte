@@ -297,6 +297,15 @@
 				</div>
 			</div>
 
+			<!-- IL warning when loss exceeds 5% -->
+			{#if ilPercent < -5}
+				<div class="alert alert-warning text-xs">
+					{$t('wallet.defi.impermanent_loss_warning', {
+						values: { percent: Math.abs(ilPercent).toFixed(1) }
+					})}
+				</div>
+			{/if}
+
 			<!-- Held vs Earned (inline) -->
 			{#if totalValueUsd > 0}
 				<div class="bg-base-200 rounded-box p-3">

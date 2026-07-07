@@ -719,6 +719,8 @@
 			"description_characters": "Characters",
 			"below_swap_minimum": "Amount below swap minimum: {minAmount} Sats",
 			"invoice_total": "Invoice total",
+			"invoice_expired": "Invoice has expired",
+			"expires_in": "Expires in {time}",
 			"fee": "Fee",
 			"payer_sends_from": "Payer sends from",
 			"other": "Other",
@@ -1137,7 +1139,9 @@
 				"insufficient_allowance": "Token spending limit exceeded. Please approve the token first.",
 				"deadline_exceeded": "Swap deadline expired. Please try again.",
 				"slippage_exceeded": "Price moved too much. Please try again or increase slippage tolerance.",
-				"insufficient_liquidity": "Not enough liquidity for this swap. Try a smaller amount."
+				"insufficient_liquidity": "Not enough liquidity for this swap. Try a smaller amount.",
+				"boltz_unavailable": "Boltz service is temporarily unavailable. Please try again later.",
+				"gas_estimation_failed": "Failed to estimate gas fees. Please try again."
 			},
 			"progress": {
 				"locking_rbtc": "Locking rBTC on RSK",
@@ -1660,6 +1664,9 @@
 				"closing_shortly": "This window will close shortly.",
 				"retry": "Retry"
 			},
+			"slippage_protection": "Slippage protection: {percent}%",
+			"health_factor_warning": "Health factor at {factor} — approaching risk zone. Consider adding collateral.",
+			"health_factor_critical": "Health factor at {factor} — liquidation risk! Add collateral immediately.",
 			"approve": {
 				"title": "Approve Token",
 				"amount": "Amount",

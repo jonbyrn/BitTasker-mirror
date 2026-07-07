@@ -24,6 +24,8 @@
 
 	const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
 	const NPM_ADDR = '0xC36442b4a4522E871399CD717aBDD847Ab11FE88';
+	/** 0.5% slippage protection — industry standard default */
+	const SLIPPAGE_BPS = 50;
 
 	interface Props {
 		walletId: string;
@@ -221,6 +223,9 @@
 		const uni = new UniswapService(new ethers.JsonRpcProvider(ARB_RPC));
 		const a0 = ethers.parseUnits(wbtcAmt.toFixed(8), 8);
 		const a1 = ethers.parseUnits(usdt0Amt.toFixed(6), 6);
+		// 0.5% slippage protection for minimum amounts
+		const a0Min = (a0 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n;
+		const a1Min = (a1 * BigInt(10000 - SLIPPAGE_BPS)) / 10000n;
 		Sentry.addBreadcrumb({
 			category: 'defi.uniswap',
 			message: isIncrease ? 'increaseLiquidity' : 'addLiquidity',
@@ -236,8 +241,8 @@
 						existingPosition.tokenId,
 						a0,
 						a1,
-						0n,
-						0n,
+						a0Min,
+						a1Min,
 						dl,
 						signer
 					);
@@ -249,8 +254,8 @@
 						existingPosition.tokenId,
 						a0,
 						a1,
-						0n,
-						0n,
+						a0Min,
+						a1Min,
 						dl,
 						es
 					);
@@ -266,8 +271,8 @@
 					tickUpper: FULL_RANGE.TICK_UPPER,
 					amount0Desired: a0,
 					amount1Desired: a1,
-					amount0Min: 0n,
-					amount1Min: 0n,
+					amount0Min: a0Min,
+					amount1Min: a1Min,
 					recipient,
 					deadline: UniswapService.defaultDeadline()
 				};
@@ -461,6 +466,9 @@
 				<span class="text-base-content/30">+</span>
 				<span class="text-base-content/70">${usdt0Amt.toFixed(2)} USDT0</span>
 			</div>
+			<p class="text-base-content/40 mt-1">
+				{$t('wallet.defi.slippage_protection', { values: { percent: '0.5' } })}
+			</p>
 		</div>
 	{/if}
 

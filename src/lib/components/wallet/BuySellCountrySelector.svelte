@@ -23,14 +23,6 @@
 	} = $props();
 </script>
 
-/** * BuySellCountrySelector.svelte * * Country and US state selector for the Buy/Sell form. *
-Extracted from BuySellForm.svelte to reduce component size. * * Props: * - countries: list of
-available countries from Changelly * - selectedCountry: ISO country code * - selectedState: ISO
-state code (US only) * - countriesLoading: show spinner while loading * - statesForSelected: states
-available for the selected country * * Events: * - onCountryChange: country code changed (also
-resets state) * - onStateChange: state code changed * - onRefreshOffers: amount is valid, refetch
-offers */
-
 <div class="space-y-2">
 	<div class="form-control">
 		<div class="relative">

@@ -2,6 +2,7 @@
  * Wallet Initialization, Cleanup & Health Checks
  */
 
+import { browser } from '$app/environment';
 import {
 	WalletManager,
 	type WalletManagerConfig,
@@ -9,6 +10,7 @@ import {
 	type SwapUpdateEvent
 } from '@bittasker/wallet-core';
 import { get } from 'svelte/store';
+import { Capacitor } from '@capacitor/core';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
@@ -17,42 +19,25 @@ import { clearPersistedChainSortHints } from '$lib/utils/wallet/chainSortHints';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 import { walletStore, state, clearRefreshTimers, isProviderHealthy } from './wallet-state';
 import { initialState } from './wallet-types';
-import { updateSwapTransaction } from './wallet-transactions';
+import { updateSwapTransaction, loadTransactions } from './wallet-transactions';
 import { scheduleBalanceRefresh } from './wallet-balances';
-import { isSwapCompleted, getSwapType } from '$lib/utils/wallet/swapTransaction';
-import { isSwapFailed } from '$lib/utils/wallet/swapStatusMap';
+import { getSwapType } from '$lib/utils/wallet/swapTransaction';
+import { browserNetworkStatus } from '$lib/utils/network-status';
+import { blockchainToastStore } from './blockchain-toast.store';
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function hasActiveInboundSwaps(): boolean {
-	if (!state.sdkWalletManager) return false;
-
-	const chain = state.sdkWalletManager.chainSwapService.getActiveSwaps();
-	const chainPending = chain.some((swap) => !isSwapCompleted(swap.status));
-
-	const storeState = get(walletStore);
-	const reversePending = storeState.transactions.some(
-		(tx) =>
-			tx.swap?.type === 'reverse' &&
-			tx.swap.rawStatus &&
-			!isSwapCompleted(tx.swap.rawStatus) &&
-			!isSwapFailed(tx.swap.rawStatus)
-	);
-
-	return chainPending || reversePending;
-}
-
-function isExpectingInbound(): boolean {
-	return Date.now() < state.expectingInboundUntil || hasActiveInboundSwaps();
-}
-
-function ensureInboundBlockWatch(): void {
+function ensureBlockWatch(): void {
 	if (!state.sdkWalletManager?.rskWallet || state.unsubscribeBlockWatch) return;
 	if (typeof state.sdkWalletManager.rskWallet.onBlock !== 'function') return;
 
-	state.unsubscribeBlockWatch = state.sdkWalletManager.rskWallet.onBlock(() => {
-		if (!isExpectingInbound()) return;
-		scheduleBalanceRefresh();
+	state.unsubscribeBlockWatch = state.sdkWalletManager.rskWallet.onBlock((_blockNumber) => {
+		try {
+			scheduleBalanceRefresh();
+			blockchainToastStore.onBlock('rsk', _blockNumber);
+		} catch (err) {
+			console.error('[wallet-init] Block callback error:', err);
+		}
 	});
 }
 
@@ -68,6 +53,45 @@ function wireSwapUpdates(): void {
 	});
 }
 
+// ─── App Resume + Network Reconnect ────────────────────────────────────────────
+
+let resumeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleResumeRefresh(): void {
+	if (resumeRefreshTimer) clearTimeout(resumeRefreshTimer);
+	resumeRefreshTimer = setTimeout(() => {
+		resumeRefreshTimer = null;
+		try {
+			ensureBlockWatch(); // Re-establish if softCleanup disposed it
+			scheduleBalanceRefresh();
+			void loadTransactions();
+			blockchainToastStore.checkPendingReceipts();
+		} catch (err) {
+			console.error('[wallet-init] Resume refresh error:', err);
+		}
+	}, 1000); // 1s debounce to coalesce resume + reconnect
+}
+
+function setupAppLifecycleHandlers(): void {
+	if (!browser) return;
+
+	// Capacitor app resume — dynamic import, platform guard (matches activityTracker.ts)
+	if (Capacitor.isNativePlatform()) {
+		import('@capacitor/app').then(({ App }) => {
+			App.addListener('appStateChange', ({ isActive }) => {
+				if (isActive) scheduleResumeRefresh();
+			});
+		});
+	}
+
+	// Network reconnect — use existing browserNetworkStatus store
+	browserNetworkStatus.subscribe((status) => {
+		if (status.lastTransition === 'online' && state.sdkWalletManager) {
+			scheduleResumeRefresh();
+		}
+	});
+}
+
 // ─── Exported functions ──────────────────────────────────────────────────────
 
 /**
@@ -75,7 +99,7 @@ function wireSwapUpdates(): void {
  */
 export function markExpectingInbound(ttlMs = 30 * 60 * 1000): void {
 	state.expectingInboundUntil = Date.now() + ttlMs;
-	ensureInboundBlockWatch();
+	ensureBlockWatch();
 }
 
 /**
@@ -168,7 +192,8 @@ export async function initialize(): Promise<void> {
 		await state.sdkWalletManager.initialize();
 
 		wireSwapUpdates();
-		ensureInboundBlockWatch();
+		ensureBlockWatch();
+		setupAppLifecycleHandlers();
 
 		// Update store with wallet info — set each chain independently so a
 		// failure in one doesn't prevent the others from getting addresses.
@@ -265,6 +290,9 @@ export function disconnectWallet(): void {
  * Use this for temporary disconnects (e.g., backgrounding the app).
  */
 export function softCleanup(): void {
+	state.unsubscribeBlockWatch?.();
+	state.unsubscribeBlockWatch = null;
+
 	if (state.sdkWalletManager) {
 		try {
 			state.sdkWalletManager.dispose();

@@ -46,6 +46,9 @@ export interface UseSwapInput {
 	rskGasPriceWei: bigint;
 	arbGasPriceWei: bigint;
 
+	/** True when the last gas/price refresh failed. Cleared on next success. */
+	gasError: boolean;
+
 	// Input mode (writable — caller resets on source/dest change)
 	btcUsdInputMode: boolean;
 	displayInputAmount: string;
@@ -78,6 +81,7 @@ export function useSwapInput(opts: UseSwapInputOptions): UseSwapInput {
 	let ethUsdPrice = $state(0);
 	let rskGasPriceWei = $state(0n);
 	let arbGasPriceWei = $state(0n);
+	let gasError = $state(false);
 
 	// ------- Fee cache -------
 	let _lastFeeRefreshTime = 0;
@@ -96,20 +100,26 @@ export function useSwapInput(opts: UseSwapInputOptions): UseSwapInput {
 			return;
 		}
 		d.log('refreshLiveFees: fetching gas prices + BTC/ETH rates');
-		const fees = await fetchLiveFees();
+		try {
+			const fees = await fetchLiveFees();
 
-		if (fees.rskGasPriceWei !== null) rskGasPriceWei = fees.rskGasPriceWei;
-		if (fees.arbGasPriceWei !== null) arbGasPriceWei = fees.arbGasPriceWei;
-		if (fees.btcUsdPrice !== null) btcUsdPrice = fees.btcUsdPrice;
-		if (fees.ethUsdPrice !== null) ethUsdPrice = fees.ethUsdPrice;
+			if (fees.rskGasPriceWei !== null) rskGasPriceWei = fees.rskGasPriceWei;
+			if (fees.arbGasPriceWei !== null) arbGasPriceWei = fees.arbGasPriceWei;
+			if (fees.btcUsdPrice !== null) btcUsdPrice = fees.btcUsdPrice;
+			if (fees.ethUsdPrice !== null) ethUsdPrice = fees.ethUsdPrice;
+			gasError = false;
 
-		d.log(
-			'refreshLiveFees done: rskGas=%d gwei arbGas=%d gwei btc=$%s eth=$%s',
-			Number(rskGasPriceWei) / 1e9,
-			Number(arbGasPriceWei) / 1e9,
-			btcUsdPrice || '?',
-			ethUsdPrice || '?'
-		);
+			d.log(
+				'refreshLiveFees done: rskGas=%d gwei arbGas=%d gwei btc=$%s eth=$%s',
+				Number(rskGasPriceWei) / 1e9,
+				Number(arbGasPriceWei) / 1e9,
+				btcUsdPrice || '?',
+				ethUsdPrice || '?'
+			);
+		} catch (e) {
+			d.warn('refreshLiveFees failed: %s', e instanceof Error ? e.message : String(e));
+			gasError = true;
+		}
 		_lastFeeRefreshTime = Date.now();
 	}
 
@@ -244,6 +254,9 @@ export function useSwapInput(opts: UseSwapInputOptions): UseSwapInput {
 		},
 		get isBtcSource() {
 			return isBtcSource;
+		},
+		get gasError() {
+			return gasError;
 		},
 		handleAmountChange,
 		handleBtcUsdModeChange,
