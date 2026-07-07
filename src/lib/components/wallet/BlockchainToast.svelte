@@ -1,55 +1,10 @@
-<script module lang="ts">
-	import { getNetworkDisplay } from '$lib/utils/send-network-mapping';
-	import { formatSats } from '$lib/utils/wallet/format';
-	import type { BlockchainToastItem } from '$lib/stores/wallet/blockchain-toast.store';
-
-	/** Estimated time remaining for a confirming item. */
-	function formatTime(item: BlockchainToastItem): string {
-		const blocksRemaining = Math.max(
-			0,
-			(item.requiredConfirmations ?? 3) - (item.currentBlock ?? 0)
-		);
-		if (blocksRemaining <= 0) return '';
-		// Rough estimate: ~30s per block (RSK default)
-		const seconds = blocksRemaining * 30;
-		if (seconds < 60) return `~${seconds}s`;
-		return `~${Math.ceil(seconds / 60)} min`;
-	}
-
-	/** Collapsed description: short summary of the operation. */
-	function formatCollapsedDescription(item: BlockchainToastItem): string {
-		const formatted = formatSats(item.amount);
-		if (item.type === 'swap') return `Swapping ${formatted} ${item.asset}`;
-		if (item.type === 'defi') return `DeFi ${formatted} ${item.asset}`;
-		return `Sending ${formatted} ${item.asset}`;
-	}
-
-	/** Collapsed status line. */
-	function formatCollapsedStatus(item: BlockchainToastItem): string {
-		if (item.status === 'confirming') return 'Confirming...';
-		if (item.status === 'success') return 'Confirmed ✓';
-		if (item.status === 'error') return 'Failed';
-		if (item.status === 'stale') return 'Check status';
-		return 'Pending...';
-	}
-
-	/** Build a block-explorer URL for a transaction hash. */
-	function getBlockExplorerUrl(item: BlockchainToastItem): string | null {
-		if (!item.txHash || !item.network) return null;
-		const display = getNetworkDisplay(item.network);
-		if (!display?.explorerUrl) return null;
-		// Explorer base URLs end with /address/ — replace with /tx/ for transaction hashes
-		const baseUrl = display.explorerUrl.replace(/\/address\/?$/, '');
-		return `${baseUrl}/tx/${item.txHash}`;
-	}
-</script>
-
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { beforeNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import { getNetworkDisplay } from '$lib/utils/send-network-mapping';
 	import {
 		blockchainToastStore,
 		type BlockchainToastItem
@@ -79,6 +34,43 @@
 		if (e.key === 'Escape' && expanded) {
 			blockchainToastStore.dismissActive();
 		}
+	}
+
+	/** Estimated time remaining for a confirming item. */
+	function formatTime(item: BlockchainToastItem): string {
+		const blocksRemaining = Math.max(
+			0,
+			(item.requiredConfirmations ?? 3) - (item.currentBlock ?? 0)
+		);
+		if (blocksRemaining <= 0) return '';
+		const seconds = blocksRemaining * 30;
+		if (seconds < 60) return `~${seconds}s`;
+		return `~${Math.ceil(seconds / 60)} min`;
+	}
+
+	function formatCollapsedDescription(item: BlockchainToastItem): string {
+		const formatted = formatSats(item.amount);
+		if (item.type === 'swap')
+			return $t('wallet.toast.swapping', { values: { amount: formatted, asset: item.asset } });
+		if (item.type === 'defi')
+			return $t('wallet.toast.swapping', { values: { amount: formatted, asset: item.asset } });
+		return $t('wallet.toast.sending', { values: { amount: formatted, asset: item.asset } });
+	}
+
+	function formatCollapsedStatus(item: BlockchainToastItem): string {
+		if (item.status === 'confirming') return $t('wallet.toast.confirming');
+		if (item.status === 'success') return $t('wallet.toast.confirmed');
+		if (item.status === 'error') return $t('wallet.toast.error');
+		if (item.status === 'stale') return $t('wallet.toast.stale_warning');
+		return $t('wallet.toast.confirming');
+	}
+
+	function getBlockExplorerUrl(item: BlockchainToastItem): string | null {
+		if (!item.txHash || !item.network) return null;
+		const display = getNetworkDisplay(item.network);
+		if (!display?.explorerUrl) return null;
+		const baseUrl = display.explorerUrl.replace(/\/address\/?$/, '');
+		return `${baseUrl}/tx/${item.txHash}`;
 	}
 
 	function toggleExpand() {
