@@ -1,61 +1,120 @@
-# Wallet: Blockchain Toast + Lifecycle Fixes
+# Wallet: Production Readiness — Blockchain Toast + Lifecycle + UX Fixes
 
 **Date**: 2026-07-06
 **Status**: Planning — no changes yet
-**Scope**: Phase 2 of wallet UX lifecycle remediation
+**Scope**: Full wallet production readiness — all critical, high, and medium severity issues
 
 ---
 
 ## Context
 
-The wallet UX lifecycle audit (109 gaps across swap, send, receive, DeFi) identified the
-following issues. This plan addresses the cross-cutting infrastructure issues. Issues that are
-specific to individual flows (e.g., LNURL validation, slippage protection) are tracked separately.
+The wallet UX lifecycle audit (109 gaps across swap, send, receive, DeFi) identified issues
+across all subsystems. This plan addresses ALL critical, high, and medium severity issues to
+bring the wallet to production readiness. Low-severity issues are addressed as individual
+tickets when touching the relevant code.
 
-### Full Audit Findings
+### Full Audit Findings — All In Scope
 
 #### 🔴 CRITICAL (10)
 
-| # | Area | Issue | Status in This Plan |
-|---|------|-------|-------------------|
+| # | Area | Issue | Step |
+|---|------|-------|------|
 | C1 | Swap | Cancel button doesn't abort swap chain service | N/A — confirmed correct (no cancel once initiated) |
-| C2 | Send | `isOnline` wired but unused in validation — offline sends not blocked | Addressed by Step 1 (network reconnect handler) |
-| C3 | Send | `successTxHash` never populated — `TransactionSuccessScreen` is unreachable dead code | Addressed by Step 4 (toast replaces success screen) |
-| C4 | Send | Insufficient balance check bypassed when `feeEstimate === null` | **Not in scope** — separate fix in `use-send-form-validation` |
-| C5 | Send | No navigation guard during pending send | Addressed by Step 4 (toast persists across navigation) |
-| C6 | Receive | Lightning invoice expiry not handled | **Not in scope** — separate fix in `PaymentRequestModal` |
-| C7 | Receive | No app resume handler — stale data after backgrounding | Addressed by Step 1 |
-| C8 | DeFi | Zero slippage protection on LP operations | **Not in scope** — separate fix in LP components |
-| C9 | DeFi | No real-time health factor monitoring | **Not in scope** — separate fix in DeFi |
-| C10 | Send | `liquid-bitcoin` selectable but has no send handler | **Not in scope** — separate fix in destination picker |
+| C2 | Send | `isOnline` wired but unused — offline sends not blocked | 1 |
+| C3 | Send | `successTxHash` unreachable — dead code | 4 |
+| C4 | Send | Balance check bypassed when `feeEstimate === null` | 9 |
+| C5 | Send | No navigation guard during pending send | 4 |
+| C6 | Receive | Lightning invoice expiry not handled | 10 |
+| C7 | Receive | No app resume handler | 1 |
+| C8 | DeFi | Zero slippage protection on LP operations | 11 |
+| C9 | DeFi | No real-time health factor monitoring | 12 |
+| C10 | Send | `liquid-bitcoin` selectable but no handler | 13 |
 
 #### 🟡 HIGH (31)
 
-**Swap (14):** H1-H3 (silent failures) — not in scope. H4 (offline feedback) — Step 1. H5 (no timeout) — Step 5. H6 (lifecycle) — Step 1. H7 (collapsed swaps) — not in scope. H8 (gas feedback) — not in scope. H9 (balance refresh) — Step 1. H10 (retry) — Step 5. H11 (per-hop progress) — Step 6. H12-H14 — not in scope.
+**Swap (14):**
+| # | Issue | Step |
+|---|-------|------|
+| H1 | Silent failure — no routes found (no feedback) | 14 |
+| H2 | Silent failure — price feeds fail (stale/zero prices) | 14 |
+| H3 | Silent failure — balance insufficient but route exists | 14 |
+| H4 | No offline feedback during swap confirmation | 1 |
+| H5 | No timeout on confirmation screen | 5 |
+| H6 | Missing app lifecycle handling | 1 |
+| H7 | PendingSwaps collapsed when actionable | 15 |
+| H8 | No feedback when gas estimation fails | 14 |
+| H9 | Swap doesn't refresh balance after completion | 1 |
+| H10 | No retry mechanism for failed swaps | 5 |
+| H11 | Multi-hop swap has no per-hop progress indicator | 6 |
+| H12 | Boltz API down → no specific error message | 14 |
+| H13 | PARTIAL state has no clear user instructions | 15 |
+| H14 | Swap state corruption has no recovery path | 15 |
 
-**Send (7):** H15-H16 (LNURL) — not in scope. H17 (retry) — Step 5. H18 (timeout) — Step 5. H19-H21 — not in scope.
+**Send (7):**
+| # | Issue | Step |
+|---|-------|------|
+| H15 | No loading indicator during LNURL resolution | 16 |
+| H16 | LNURL amount bounds not surfaced to user | 16 |
+| H17 | No retry button on send failure | 5 |
+| H18 | No timeout for on-chain sends | 5 |
+| H19 | `usdt-tron` selectable but no handler | 13 |
+| H20 | Send button disabled with no explanation | 17 |
+| H21 | No dust amount validation | 17 |
 
-**Receive + Infrastructure (5):** H22 — not in scope. H23 (payment detection) — Step 2. H24 (WC expiry) — not in scope. H25 (disconnect safety) — Step 7. H26 (reconnect) — Step 1.
+**Receive + Infrastructure (5):**
+| # | Issue | Step |
+|---|-------|------|
+| H22 | Swap service down allows form submission with no limits | 18 |
+| H23 | No incoming payment detection for direct receives | 2 |
+| H24 | WalletConnect session expiry not detected | 19 |
+| H25 | Disconnect allowed during pending swaps | 7 |
+| H26 | No network reconnect handler | 1 |
 
-**DeFi (5):** H27-H31 — not in scope.
+**DeFi (5):**
+| # | Issue | Step |
+|---|-------|------|
+| H27 | No oracle price feed failure handling | 20 |
+| H28 | Borrow tx fails after collateral deposited (no rollback) | 20 |
+| H29 | No impermanent loss warning for LP positions | 21 |
+| H30 | Health factor gauge doesn't update real-time | 12 |
+| H31 | Close position has no confirmation dialog | 21 |
 
 #### 🟢 MEDIUM (31)
 
-M9 (balance refresh on send) — Step 1. M10 (onSuccess timing) — Step 5. M16 (stuck tx) — Step 5. M18 (price failure) — Step 8. M19 (staleness) — Step 8. M20 (connected wallet) — Step 1. All others — not in scope.
+| # | Area | Issue | Step |
+|---|------|-------|------|
+| M1 | Swap | Stale route data | 14 |
+| M2 | Swap | i18n gaps in fallback messages | 14 |
+| M3 | Swap | Misleading swap labels | 14 |
+| M4 | Swap | Missing guards for edge cases | 14 |
+| M5 | Send | No fee spike warning | 17 |
+| M6 | Send | No high fee warning | 17 |
+| M7 | Send | Unit switch doesn't convert amount | 17 |
+| M8 | Send | MAX button race condition | 17 |
+| M9 | Send | Balance not refreshed after send | 1 |
+| M10 | Send | `onSuccess` fires before confirmation | 5 |
+| M11 | Send | External wallet cancellation not detected | 17 |
+| M12 | Send | `close` hardcoded English | 22 |
+| M13 | Send | Lightning timeout not i18n'd | 22 |
+| M14 | Send | No aggregated validation summary | 17 |
+| M15 | Send | BTC price=0 not surfaced | 8 |
+| M16 | Send | Stuck tx no max polling | 5 |
+| M17 | Receive | Share button logic inverted on web | 23 |
+| M18 | Receive | Price failure shows $0.00 | 8 |
+| M19 | Receive | No balance staleness indicator | 8 |
+| M20 | Receive | Stale connected wallet balances | 1 |
+| M21 | Receive | Chain switch error handling | 23 |
+| M22 | Receive | Clipboard without Capacitor guard | 23 |
 
 #### 🟢 LOW (37)
 
-Not tracked in this plan — addressed as individual tickets when touching relevant code.
-
-### Cross-Cutting User Journey Gaps
-
-1. **No app-level resume handler** → Step 1
-2. **No network reconnect handler** → Step 1
-3. **No periodic background refresh** → Step 2 (block watcher)
-4. **No disconnect safety** → Step 7
-5. **Silent failures throughout** → Steps 4-6 (toast surfaces errors persistently)
-6. **No operation timeout discipline** → Step 5 (block-based detection)
-7. **Dead code paths** → Steps 4-6 (deleted components)
+Addressed as individual tickets when touching relevant code. Key low items:
+- EIP-55 checksum validation in address parser
+- Whitespace stripping on paste
+- QR error persistence on tab switch
+- Stale connected wallet balance display
+- Share button on web with `navigator.share`
+- Various i18n polish items
 
 ---
 
@@ -781,6 +840,605 @@ BalanceCard.svelte:
   }
 }
 ```
+
+---
+
+## Execution Order
+
+### Phase 1 — Infrastructure (Steps 1-4)
+1. **Step 1** — App resume + network reconnect
+2. **Step 2** — Always-on block watcher + softCleanup fix
+3. **Step 3** — Toast store
+4. **Step 4** — Toast component
+
+### Phase 2 — Send/Swap Flow (Steps 5-6)
+5. **Step 5** — Arbitrum fast-path + block-based polling + retry semantics
+6. **Step 6** — Swap flow integration + delete old components
+
+### Phase 3 — Safety + Polish (Steps 7-8)
+7. **Step 7** — Disconnect safety
+8. **Step 8** — Balance staleness + price failure display
+
+### Phase 4 — Send Flow Fixes (Steps 9, 16-17)
+9. **Step 9** — Balance check when fee estimate null (C4)
+16. **Step 16** — LNURL loading indicator + amount bounds (H15, H16)
+17. **Step 17** — Send UX polish: disabled button tooltip, dust validation, unit conversion, fee warnings, wallet cancellation, validation summary (H20, H21, M5-M8, M11, M14)
+
+### Phase 5 — Receive Flow Fixes (Steps 10, 18-19, 23)
+10. **Step 10** — Lightning invoice expiry (C6)
+18. **Step 18** — Swap service down — disable form (H22)
+19. **Step 19** — WalletConnect session expiry detection (H24)
+23. **Step 23** — Receive UX polish: share button, chain switch errors, Capacitor clipboard guard (M17, M21, M22)
+
+### Phase 6 — DeFi Fixes (Steps 11-12, 20-21)
+11. **Step 11** — LP slippage protection — 0.5% default (C8)
+12. **Step 12** — Real-time health factor monitoring (C9, H30)
+20. **Step 20** — DeFi error handling: oracle failures, borrow rollback (H27, H28)
+21. **Step 21** — DeFi UX: IL warning, close confirmation (H29, H31)
+
+### Phase 7 — Remaining Issues (Steps 13-15, 22)
+13. **Step 13** — Remove unsupported networks from pickers (C10, H19)
+14. **Step 14** — Swap silent failures: route/price/gas feedback (H1-H3, H8, H12, M1-M4)
+15. **Step 15** — PendingSwaps UX: expand actionable, PARTIAL instructions, recovery path (H7, H13, H14)
+22. **Step 22** — i18n sweep: hardcoded English in send/swap (M12, M13)
+
+### Final
+- `npm run check && npm run lint && npm run test:ci`
+
+### Dependencies
+- Phase 1 is prerequisite for Phase 2 (toast needs block watcher)
+- Phase 2 is prerequisite for Phase 3 (disconnect safety needs toast store)
+- Phases 4-7 are independent of each other (can be parallelized)
+- Within each phase, steps can be parallelized if they touch different files
+
+---
+
+## New Steps (9-23)
+
+### Step 9: Balance Check When Fee Estimate Null (C4)
+
+**Why**: `hasInsufficientBalance` is skipped when `feeEstimate === null` (fee fetch failed).
+User can submit a send that will fail on-chain.
+
+**Files**:
+- `src/lib/runes/use-send-form-validation.svelte.ts`
+
+**Changes**:
+```
+validateSendForm():
+  - if (totalToSend > availableBalance && totalToSend > 0 && feeEstimate !== null) {
+  + if (totalToSend > availableBalance && totalToSend > 0) {
+  +   // Check against raw balance even when fee estimate is unavailable
+  +   // (fee estimate failure doesn't mean the user has enough)
+      return false;
+  +   // The fee-inclusive check still runs when feeEstimate is available:
+  +   // totalToSend + feeEstimate.totalFees > availableBalance
+    }
+```
+
+**Lines**: ~5 changed
+**Test coverage**: Validate with null fee estimate + amount > balance
+
+---
+
+### Step 10: Lightning Invoice Expiry (C6)
+
+**Why**: Lightning invoices expire (typically 1 hour). No countdown, no expiry detection, no
+regeneration. Payer tries to pay expired invoice → fails silently.
+
+**Files**:
+- `src/lib/components/wallet/PaymentRequestModal.svelte`
+- `src/lib/utils/generate-receive-invoice.ts`
+
+**Changes**:
+```
+PaymentRequestModal:
+  + const expiresAt = $derived(swapData?.timeoutBlockHeight
+  +   ? estimateExpiryFromBlockHeight(swapData.timeoutBlockHeight)
+  +   : null);
+  + const isExpired = $derived(expiresAt ? Date.now() > expiresAt : false);
+  + const timeRemaining = $derived(expiresAt ? Math.max(0, expiresAt - Date.now()) : null);
+
+  + {#if isExpired}
+  +   <div class="alert alert-warning">
+  +     <p>{$t('wallet.receive.invoice_expired')}</p>
+  +     <button class="btn btn-primary btn-sm" onclick={onEdit}>
+  +       {$t('wallet.receive.generate_new')}
+  +     </button>
+  +   </div>
+  + {:else}
+  +   <!-- existing QR/invoice display -->
+  +   {#if timeRemaining !== null}
+  +     <p class="text-xs text-base-content/60">
+  +       {$t('wallet.receive.expires_in', { values: { time: formatDuration(timeRemaining) } })}
+  +     </p>
+  +   {/if}
+  + {/if}
+```
+
+**Lines**: ~40 new
+**Test coverage**: Expired invoice, active invoice with countdown, generate new
+
+---
+
+### Step 11: LP Slippage Protection (C8)
+
+**Why**: `LPRemoveAction` passes `0n, 0n` for `amount0Min, amount1Min` — zero slippage
+protection. MEV/sandwich attack vulnerability.
+
+**Files**:
+- `src/lib/components/wallet/defi/earn/LPRemoveAction.svelte`
+- `src/lib/components/wallet/defi/earn/LPProvideAction.svelte`
+- `src/lib/services/swap-chain/executors/uniswap-v3.ts`
+
+**Changes**:
+```
+Constants:
+  + const SLIPPAGE_BPS = 50; // 0.5% — industry standard default
+
+LPRemoveAction:
+  - uni.removeLiquidity(position.tokenId, removeLiquidityAmount, 0n, 0n, deadline, signer)
+  + const amount0Min = expectedAmount0 * BigInt(10000 - SLIPPAGE_BPS) / 10000n;
+  + const amount1Min = expectedAmount1 * BigInt(10000 - SLIPPAGE_BPS) / 10000n;
+  + uni.removeLiquidity(position.tokenId, removeLiquidityAmount, amount0Min, amount1Min, deadline, signer)
+
+LPProvideAction:
+  + // Apply slippage to mint amount
+  + const minLiquidity = expectedLiquidity * BigInt(10000 - SLIPPAGE_BPS) / 10000n;
+
+uniswap-v3.ts:
+  - amountOutMinimum: 1n
+  + const SLIPPAGE_BPS = 50;
+  + amountOutMinimum: expectedAmountOut * BigInt(10000 - SLIPPAGE_BPS) / 10000n
+
+UI:
+  + <p class="text-xs text-base-content/60">{$t('wallet.defi.slippage_protection', { values: { percent: '0.5' } })}</p>
+```
+
+**Lines**: ~30 changed across 3 files
+**Test coverage**: Slippage calculation, min amount > 0, UI badge
+
+---
+
+### Step 12: Real-Time Health Factor Monitoring (C9, H30)
+
+**Why**: No real-time health factor updates. User has no warning before liquidation.
+
+**Files**:
+- `src/lib/components/wallet/defi/HealthFactorGauge.svelte`
+- `src/lib/stores/wallet/wallet-init.ts` (reuse block watcher)
+
+**Changes**:
+```
+HealthFactorGauge:
+  + import { blockchainToastStore } from '$lib/stores/wallet/blockchain-toast.store'
+  + // On each block, refresh health factor for active loans
+  + $effect(() => {
+  +   // Subscribe to block events via toast store's onBlock
+  +   // Refresh health factor data when block arrives
+  + });
+
+  + {#if healthFactor < 1.5}
+  +   <div class="alert alert-warning text-xs">
+  +     {$t('wallet.defi.health_factor_warning', { values: { factor: healthFactor.toFixed(2) } })}
+  +   </div>
+  + {/if}
+  + {#if healthFactor < 1.1}
+  +   <div class="alert alert-error text-xs">
+  +     {$t('wallet.defi.health_factor_critical', { values: { factor: healthFactor.toFixed(2) } })}
+  +   </div>
+  + {/if}
+```
+
+**Lines**: ~50 new
+**Test coverage**: Health factor thresholds, block-based refresh
+
+---
+
+### Step 13: Remove Unsupported Networks (C10, H19)
+
+**Why**: `liquid-bitcoin` and `usdt-tron` appear in destination pickers but have no send
+handlers. User gets cryptic runtime error.
+
+**Files**:
+- `src/lib/components/wallet/SendDestinationSelector.svelte`
+- `src/lib/services/send-execution.service.ts`
+
+**Changes**:
+```
+SendDestinationSelector:
+  + const SUPPORTED_SEND_NETWORKS = new Set([
+  +   'rootstock-bitcoin', 'usdt-bsc', 'lightning-bitcoin',
+  +   'usdt-arbitrum', 'usdt-ethereum', 'usdt-polygon', 'bitcoin'
+  + ]);
+  + // Filter destinations to only supported networks
+  + const availableDestinations = $derived(
+  +   DESTINATIONS.filter(d => SUPPORTED_SEND_NETWORKS.has(d.network))
+  + );
+
+send-execution.service.ts:
+  + // Add explicit error for unsupported networks with user-friendly message
+  + if (!BUILTIN_HANDLERS[network] && !CONNECTED_HANDLERS[network]) {
+  +   throw new Error(`Sending on ${network} is not yet supported. Coming soon!`);
+  + }
+```
+
+**Lines**: ~15 changed
+**Test coverage**: Unsupported network filtered from picker, error message
+
+---
+
+### Step 14: Swap Silent Failures (H1-H3, H8, H12, M1-M4)
+
+**Why**: Multiple swap scenarios fail silently — no routes, price feeds down, gas estimation
+fails, Boltz API down.
+
+**Files**:
+- `src/lib/runes/use-swap-routes.svelte.ts`
+- `src/lib/runes/use-swap-input.svelte.ts`
+- `src/lib/components/wallet/SwapForm.svelte`
+
+**Changes**:
+```
+use-swap-routes:
+  + // When no routes found, set explicit error state
+  + if (routes.length === 0) {
+  +   return { routes: [], error: 'wallet.swap.error.no_routes', errorValues: { source, dest } };
+  + }
+
+  + // When price feeds fail, show warning instead of stale fallback
+  + if (liveBtcPrice === null || liveEthPrice === null) {
+  +   gasDataAvailable = false;
+  +   // Don't use hardcoded fallback prices for fee display
+  + }
+
+  + // When gas estimation fails, surface error
+  + if (gasError) {
+  +   return { ..., error: 'wallet.swap.error.gas_estimation_failed', errorValues: {} };
+  + }
+
+SwapForm:
+  + // Show specific error for Boltz API failures
+  + if (error?.message?.includes('boltz') || error?.message?.includes('Boltz')) {
+  +   errorMessage = $t('wallet.swap.error.boltz_unavailable');
+  + }
+```
+
+**Lines**: ~60 changed across 3 files
+**Test coverage**: No routes, price failure, gas failure, Boltz down
+
+---
+
+### Step 15: PendingSwaps UX (H7, H13, H14)
+
+**Why**: PendingSwaps collapses actionable swaps, PARTIAL state has no instructions, no
+recovery path for corrupted state.
+
+**Files**:
+- `src/lib/components/wallet/PendingSwaps.svelte`
+
+**Changes**:
+```
+  + // Auto-expand swaps that need user action (claim, refund)
+  + const needsAction = $derived(swap.status === 'claimable' || swap.status === 'refundable');
+  + let expanded = $state(needsAction); // starts expanded if needs action
+
+  + // PARTIAL state instructions
+  + {#if swap.status === 'partial'}
+  +   <div class="alert alert-info text-xs">
+  +     <p>{$t('wallet.pending_swaps.partial_instructions')}</p>
+  +     <button class="btn btn-primary btn-xs" onclick={() => resumeSwap(swap)}>
+  +       {$t('wallet.pending_swaps.resume')}
+  +     </button>
+  +   </div>
+  + {/if}
+
+  + // Recovery path for corrupted state
+  + {#if swap.status === 'unknown' || swap.status === 'corrupted'}
+  +   <div class="alert alert-warning text-xs">
+  +     <p>{$t('wallet.pending_swaps.state_unknown')}</p>
+  +     <button class="btn btn-error btn-xs" onclick={() => dismissSwap(swap)}>
+  +       {$t('wallet.pending_swaps.dismiss')}
+  +     </button>
+  +   </div>
+  + {/if}
+```
+
+**Lines**: ~40 changed
+**Test coverage**: Auto-expand, PARTIAL instructions, corrupted state recovery
+
+---
+
+### Step 16: LNURL Loading + Amount Bounds (H15, H16)
+
+**Why**: No loading indicator during LNURL resolution (2-5s). LNURL amount bounds not
+surfaced to user.
+
+**Files**:
+- `src/lib/components/wallet/SendPaymentForm.svelte`
+- `src/lib/runes/use-send-form-validation.svelte.ts`
+
+**Changes**:
+```
+SendPaymentForm:
+  + let isResolvingLNURL = $state(false);
+  + // In applyParsedAddress:
+  + isResolvingLNURL = true;
+  + try { /* resolve LNURL */ }
+  + finally { isResolvingLNURL = false; }
+
+  + {#if isResolvingLNURL}
+  +   <div class="flex items-center gap-2 text-sm text-base-content/60">
+  +     <span class="loading loading-spinner loading-xs"></span>
+  +     {$t('wallet.send.resolving_lnurl')}
+  +   </div>
+  + {/if}
+
+use-send-form-validation:
+  + // Surface LNURL amount bounds
+  + if (lnurlMinSats && amountInSats < lnurlMinSats) {
+  +   return { valid: false, error: 'wallet.send.error.below_lnurl_min', errorValues: { min: lnurlMinSats } };
+  + }
+  + if (lnurlMaxSats && amountInSats > lnurlMaxSats) {
+  +   return { valid: false, error: 'wallet.send.error.above_lnurl_max', errorValues: { max: lnurlMaxSats } };
+  + }
+```
+
+**Lines**: ~30 changed across 2 files
+**Test coverage**: LNURL loading state, min/max bounds
+
+---
+
+### Step 17: Send UX Polish (H20, H21, M5-M8, M11, M14)
+
+**Why**: Multiple send UX gaps: disabled button no tooltip, no dust validation, unit switch
+doesn't convert, no fee warnings, wallet cancellation not detected, no validation summary.
+
+**Files**:
+- `src/lib/components/wallet/SendPaymentForm.svelte`
+- `src/lib/components/wallet/send/SendPaymentDetailsTab.svelte`
+- `src/lib/runes/use-send-form-validation.svelte.ts`
+
+**Changes**:
+```
+SendPaymentDetailsTab:
+  + // Disabled button tooltip
+  + <button disabled={!isFormValid} class="tooltip" data-tip={!isFormValid ? disabledReason : ''}>
+  +   {$t('wallet.send.send_button')}
+  + </button>
+
+  + // Fee spike warning
+  + {#if feeEstimate && feeEstimate.totalFees > amountInSats * 0.2}
+  +   <div class="alert alert-warning text-xs">
+  +     {$t('wallet.send.high_fee_warning', { values: { percent: Math.round(feeEstimate.totalFees / amountInSats * 100) } })}
+  +   </div>
+  + {/if}
+
+SendPaymentForm:
+  + // Unit conversion
+  + function handleUnitChange(newUnit: 'sats' | 'usd') {
+  +   const converted = newUnit === 'usd'
+  +     ? satsToUsd(amountInSats, btcPrice)
+  +     : usdToSats(parseFloat(amountInput), btcPrice);
+  +   amountInput = converted.toString();
+  +   formInput.unit = newUnit;
+  + }
+
+  + // Wallet cancellation detection
+  + if (externalConfirmSource && error?.message?.includes('rejected')) {
+  +   externalConfirmSource = null;
+  +   appStore.showInfoToast($t('wallet.send.wallet_cancelled'));
+  + }
+
+use-send-form-validation:
+  + // Dust amount validation
+  + const DUST_LIMITS: Record<string, number> = {
+  +   'rootstock-bitcoin': 1, // RSK has no dust limit
+  +   'usdt-bsc': 1,
+  +   'bitcoin': 546, // Bitcoin dust limit
+  + };
+  + if (amountInSats < (DUST_LIMITS[network] ?? 0)) {
+  +   return { valid: false, error: 'wallet.send.error.below_dust', errorValues: { min: DUST_LIMITS[network] } };
+  + }
+```
+
+**Lines**: ~80 changed across 3 files
+**Test coverage**: Disabled tooltip, fee warning, unit conversion, dust limit, wallet cancel
+
+---
+
+### Step 18: Swap Service Down (H22)
+
+**Why**: When Boltz is down, user can still enter amounts and hit "Create Swap" — it fails
+with a confusing error. Should disable the form with explicit message.
+
+**Files**:
+- `src/lib/components/wallet/SwapReceive.svelte`
+
+**Changes**:
+```
+  + const swapServiceAvailable = $derived(swapLimits !== null && !error);
+  + {#if !swapServiceAvailable}
+  +   <div class="alert alert-warning">
+  +     <p>{$t('wallet.receive.swap_service_unavailable')}</p>
+  +   </div>
+  + {/if}
+  + <button disabled={!swapServiceAvailable || isCreatingSwap}>
+  +   {$t('wallet.receive.create_swap')}
+  + </button>
+```
+
+**Lines**: ~15 changed
+**Test coverage**: Service down disables form, error message shown
+
+---
+
+### Step 19: WalletConnect Session Expiry (H24)
+
+**Why**: WalletConnect sessions can expire or be revoked by the wallet app. No detection,
+no notification, operations fail silently.
+
+**Files**:
+- `src/lib/stores/connected-wallets.store.ts`
+
+**Changes**:
+```
+  + // Listen for WC session events
+  + connector.on('session_delete', (event) => {
+  +   const walletId = findWalletBySession(event.topic);
+  +   if (walletId) {
+  +     updateWalletStatus(walletId, 'disconnected');
+  +     appStore.showWarningToast($t('wallet.connected.session_expired', { values: { name: walletName } }));
+  +   }
+  + });
+  + connector.on('session_expire', (event) => {
+  +   // same handling
+  + });
+```
+
+**Lines**: ~25 new
+**Test coverage**: Session expiry detection, toast notification, wallet status update
+
+---
+
+### Step 20: DeFi Error Handling (H27, H28)
+
+**Why**: Oracle price feed failures silently use stale prices. Borrow transaction fails after
+collateral is deposited — no rollback.
+
+**Files**:
+- `src/lib/components/wallet/defi/loan-wizard/ReviewConfirmStep.svelte`
+- `src/lib/components/wallet/defi/position/AddCollateralForm.svelte`
+
+**Changes**:
+```
+ReviewConfirmStep:
+  + // Oracle failure detection
+  + if (!btcPrice || btcPrice === 0) {
+  +   errorMsg = $t('wallet.defi.oracle_unavailable');
+  +   isProcessing = false;
+  +   return;
+  + }
+
+  + // Borrow failure after collateral — show specific error
+  + if (supplyTx && !borrowTx) {
+  +   errorMsg = $t('wallet.defi.borrow_failed_after_collateral');
+  +   // Show "Your collateral is deposited. Try borrowing again."
+  + }
+
+AddCollateralForm:
+  + // Show current oracle price with staleness indicator
+  + {#if !btcPrice || btcPrice === 0}
+  +   <div class="alert alert-warning text-xs">
+  +     {$t('wallet.defi.oracle_unavailable')}
+  +   </div>
+  + {/if}
+```
+
+**Lines**: ~30 changed across 2 files
+**Test coverage**: Oracle failure, borrow failure after collateral
+
+---
+
+### Step 21: DeFi UX — IL Warning + Close Confirmation (H29, H31)
+
+**Why**: No impermanent loss warning for LP positions. Close position has no confirmation
+dialog — user can accidentally close a profitable position.
+
+**Files**:
+- `src/lib/components/wallet/defi/earn/EarnLPPositionCard.svelte`
+- `src/lib/components/wallet/defi/earn/LPCloseAction.svelte`
+
+**Changes**:
+```
+EarnLPPositionCard:
+  + // IL warning when position has significant divergence
+  + {#if impermanentLossPercent > 5}
+  +   <div class="alert alert-warning text-xs">
+  +     {$t('wallet.defi.impermanent_loss_warning', { values: { percent: impermanentLossPercent.toFixed(1) } })}
+  +   </div>
+  + {/if}
+
+LPCloseAction:
+  + // Confirmation before closing
+  + let showConfirm = $state(false);
+  + {#if !showConfirm}
+  +   <button class="btn btn-error btn-sm" onclick={() => showConfirm = true}>
+  +     {$t('wallet.defi.close_position')}
+  +   </button>
+  + {:else}
+  +   <div class="alert alert-warning">
+  +     <p>{$t('wallet.defi.close_position_confirm')}</p>
+  +     <button class="btn btn-error btn-sm" onclick={handleClose}>{$t('common.confirm')}</button>
+  +     <button class="btn btn-ghost btn-sm" onclick={() => showConfirm = false}>{$t('common.cancel')}</button>
+  +   </div>
+  + {/if}
+```
+
+**Lines**: ~40 changed across 2 files
+**Test coverage**: IL warning threshold, close confirmation dialog
+
+---
+
+### Step 22: i18n Sweep (M12, M13)
+
+**Why**: Hardcoded English in send/swap flows. All user-facing strings must use `$t()`.
+
+**Files**:
+- `src/lib/components/wallet/SendPaymentForm.svelte` — 3 strings
+- `src/lib/components/wallet/PendingSwaps.svelte` — remaining ~10 strings
+- `src/lib/components/wallet/SwapForm.svelte` — fallback strings
+- `static/locales/en/dashboard/wallet.json` — new keys
+- `static/locales/es/dashboard/wallet.json` — Spanish translations
+
+**Changes**: Find-and-replace hardcoded strings with `$t()` calls. Add missing i18n keys.
+Run `python3 scripts/find-missing-translations.py --fix-suggestions` after.
+
+**Lines**: ~40 changed across 5 files
+**Test coverage**: Translation verification script
+
+---
+
+### Step 23: Receive UX Polish (M17, M21, M22)
+
+**Why**: Share button inverted on web, chain switch errors not handled, clipboard without
+Capacitor guard.
+
+**Files**:
+- `src/lib/components/wallet/InvoiceDisplay.svelte`
+- `src/lib/components/wallet/ChainSelector.svelte`
+- `src/lib/components/wallet/TransactionSuccessScreen.svelte`
+
+**Changes**:
+```
+InvoiceDisplay:
+  - {#if Capacitor.getPlatform() !== 'web' || !navigator.share}
+  + {#if navigator.share || Capacitor.getPlatform() !== 'web'}
+  +   <!-- Show share button whenever any sharing mechanism is available -->
+
+ChainSelector:
+  + // Handle chain switch rejection
+  + try { await switchChain(chainId); }
+  + catch (err) {
+  +   if (err?.code === 4001) { // user rejected
+  +     appStore.showInfoToast($t('wallet.connected.chain_switch_cancelled'));
+  +   } else {
+  +     appStore.showErrorToast($t('wallet.connected.chain_switch_failed'));
+  +   }
+  + }
+
+TransactionSuccessScreen:
+  - await navigator.clipboard.writeText(hash);
+  + if (Capacitor.isNativePlatform()) {
+  +   const { Clipboard } = await import('@capacitor/clipboard');
+  +   await Clipboard.write({ string: hash });
+  + } else {
+  +   await navigator.clipboard.writeText(hash);
+  + }
+```
+
+**Lines**: ~30 changed across 3 files
+**Test coverage**: Share button visibility, chain switch rejection, clipboard fallback
 
 ---
 
