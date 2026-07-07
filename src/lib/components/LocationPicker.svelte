@@ -633,6 +633,8 @@
 		};
 	}
 
+	const debouncedFetchPredictions = debounce(() => fetchPlacePredictions(), 300);
+
 	async function fetchPlacePredictions() {
 		if (!googleMapsReady || !window.google?.maps) {
 			hasError = true;
@@ -911,8 +913,7 @@
 						bind:this={searchInput}
 						type="text"
 						{placeholder}
-						oninput={debounce(() => fetchPlacePredictions(), 300)}
-						onfocus={() => (showOptions = true)}
+						oninput={debouncedFetchPredictions}
 						class="input input-bordered mb-2 flex-1"
 						value={currentLocation.displayName}
 					/>

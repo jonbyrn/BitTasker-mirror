@@ -85,6 +85,7 @@ function makeRune(overrides: Partial<PaymentContractRuneLike> = {}): PaymentCont
 		paymentId: '42',
 		version: 'v2',
 		isPending: false,
+		isFailed: false,
 		blockchainData: {
 			state: ContractStatus.Funded,
 			amount: '0.01',
@@ -105,6 +106,8 @@ function makeRune(overrides: Partial<PaymentContractRuneLike> = {}): PaymentCont
 		statusEventsByNewest: [] as NDKContractStatus[],
 		completionAttachments: [],
 		completionText: '',
+		effectiveEstimatedStartTime: now + 1800,
+		effectiveEstimatedCompletionTime: now + 86400,
 		...overrides
 	};
 }

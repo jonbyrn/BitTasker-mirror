@@ -34,6 +34,7 @@ import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
+import { getProvider } from '$lib/utils/contract';
 
 const d = createDebug('contract:v2');
 
@@ -61,7 +62,9 @@ function assertValidDerivationInputs(bidContent: NostrBidContent, btcPrice: numb
  */
 export function deriveContractCreationParams(
 	bidContent: NostrBidContent,
-	btcPrice: number
+	btcPrice: number,
+	/** Current time in seconds. Pass RSK block timestamp for on-chain accuracy; falls back to Date.now(). */
+	nowSeconds?: number
 ): { params: CreatePaymentContractParams; display: ContractCreationDisplay } {
 	assertValidDerivationInputs(bidContent, btcPrice);
 
@@ -103,7 +106,7 @@ export function deriveContractCreationParams(
 		completionTime = startTime + 3600;
 	}
 
-	const now = Math.floor(Date.now() / 1000);
+	const now = nowSeconds ?? Math.floor(Date.now() / 1000);
 	let wasTimeAdjusted = false;
 
 	if (startTime < now + MINIMUM_START_BUFFER_SECONDS) {
@@ -140,7 +143,7 @@ export function deriveContractCreationParams(
 		taskeeFeeWei
 	};
 
-	assertValidCreatePaymentContractParams(params);
+	assertValidCreatePaymentContractParams(params, nowSeconds);
 
 	const display: ContractCreationDisplay = {
 		chain: 'rsk',
@@ -291,7 +294,20 @@ export async function createContract(
 
 	try {
 		d.log('createContract: deriveContractCreationParams');
-		const { params, display } = deriveContractCreationParams(bidContent, btcPrice);
+		// Use RSK block timestamp for the safety buffer to avoid client/miner clock skew
+		let blockTimestampSeconds: number | undefined;
+		try {
+			const provider = await getProvider('rsk');
+			const latestBlock = await provider.getBlock('latest');
+			if (latestBlock) blockTimestampSeconds = latestBlock.timestamp;
+		} catch (e) {
+			d.warn('createContract: failed to fetch block timestamp, falling back to Date.now()', e);
+		}
+		const { params, display } = deriveContractCreationParams(
+			bidContent,
+			btcPrice,
+			blockTimestampSeconds
+		);
 		d.log('createContract: params derived', {
 			taskee: params.taskee.slice(0, 10) + '…',
 			totalWei: params.totalValueWei.toString().slice(0, 16) + '…',

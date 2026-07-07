@@ -183,7 +183,12 @@
 			showRejectModal = false;
 
 			bidStore.addProcessingBid(bid.id);
-			const success = await sendBidStatusUpdate(bid.id, taskId, bidderPubkey, BidStatusEnum.REJECTED);
+			const success = await sendBidStatusUpdate(
+				bid.id,
+				taskId,
+				bidderPubkey,
+				BidStatusEnum.REJECTED
+			);
 
 			if (success) {
 				rejectedBidIds = new Set([...rejectedBidIds, bid.id]);

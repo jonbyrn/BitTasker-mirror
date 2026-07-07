@@ -21,7 +21,7 @@ export function applyFundedStartedInProgressDisplay(
 	rune: PaymentContractRuneLike
 ): ContractDisplayStatus {
 	if (base !== ContractStatus.Funded) return base;
-	const raw = rune.contract.estimatedStartTime ?? rune.blockchainData?.estimatedStartTime;
+	const raw = rune.effectiveEstimatedStartTime;
 	if (raw === undefined) return base;
 	const startSec = normalizeEstimatedStartToSeconds(Number(raw));
 	if (!Number.isFinite(startSec)) return base;

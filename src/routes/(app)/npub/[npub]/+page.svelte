@@ -8,7 +8,8 @@
 		TimeSlot
 	} from '$lib/types/profile.d';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 	import { truncateNpub } from '$lib/utils/nostr';
 	import { goto } from '$app/navigation';
@@ -18,10 +19,22 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import { getReviewsForUser, getReviewsByReviewer } from '$lib/utils/reviews/queries';
-	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
-	import type { ReviewStats } from '$lib/types/review';
+	import {
+		calculateReviewStats,
+		sortReviews as sortReviewList,
+		getRatingPercentage
+	} from '$lib/utils/reviews/aggregation';
+	import { calculateUserRanking } from '$lib/utils/reviews/ranking';
+	import type { ReviewStats, AttestedReview } from '$lib/types/review';
 	import { SvelteSet } from 'svelte/reactivity';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
+	import {
+		animateProfileCards,
+		animateAvatarEntry,
+		animateRatingPop,
+		animateSkillsStagger
+	} from '$lib/utils/animations';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -214,11 +227,22 @@
 	let reviewStats = $state<ReviewStats | null>(null);
 	let tasksCompleted = $state(0); // Unique contracts where user participated
 	let isLoadingReviews = $state(false);
+	let allReviews = $state<AttestedReview[]>([]);
+	let reviewSort = $state<'newest' | 'highest_rating' | 'lowest_rating'>('newest');
+	let showAllReviews = $state(false);
+	const INITIAL_REVIEWS_SHOWN = 3;
 
 	// Estado para el botón "ver más/ver menos" en la sección "Acerca de"
 	let aboutElement: HTMLParagraphElement | null = $state(null);
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
+
+	// Container refs for animations
+	let profileContentEl: HTMLDivElement | null = $state(null);
+	let sidebarContentEl: HTMLDivElement | null = $state(null);
+	let avatarEl: HTMLDivElement | null = $state(null);
+	let ratingBadgeEl: HTMLDivElement | null = $state(null);
+	let skillsContainerEl: HTMLDivElement | null = $state(null);
 
 	// Get user picture with priority: pictures array > picture field
 	let userPicture = $derived(() => {
@@ -349,8 +373,10 @@
 			// This represents their reputation based on how others rated them
 			if (reviewsReceived.length > 0) {
 				reviewStats = calculateReviewStats(reviewsReceived);
+				allReviews = reviewsReceived;
 			} else {
 				reviewStats = null;
+				allReviews = [];
 			}
 		} catch (error) {
 			console.error('Failed to load user reviews:', error);
@@ -390,6 +416,18 @@
 			userProfile = null;
 		} finally {
 			loadingProfile = false;
+
+			// Trigger entrance animations after profile loads (replaces $effect)
+			if (!profileError && userProfile) {
+				await tick();
+				requestAnimationFrame(() => {
+					if (profileContentEl) animateProfileCards(profileContentEl);
+					if (sidebarContentEl) animateProfileCards(sidebarContentEl);
+					if (avatarEl) animateAvatarEntry(avatarEl);
+					if (ratingBadgeEl) animateRatingPop(ratingBadgeEl);
+					if (skillsContainerEl) animateSkillsStagger(skillsContainerEl);
+				});
+			}
 		}
 	}
 
@@ -454,6 +492,18 @@
 		reviewStats && reviewStats.totalReviews > 0 ? reviewStats.averageRating.toFixed(1) : null
 	);
 
+	// User ranking based on review stats
+	const userRanking = $derived(
+		reviewStats ? calculateUserRanking({ reviewStats, contractsCompleted: tasksCompleted }) : null
+	);
+
+	// Sorted and displayed reviews
+	const sortedReviews = $derived(sortReviewList(allReviews, reviewSort));
+	const displayedReviews = $derived(
+		showAllReviews ? sortedReviews : sortedReviews.slice(0, INITIAL_REVIEWS_SHOWN)
+	);
+	const hasMoreReviews = $derived(sortedReviews.length > INITIAL_REVIEWS_SHOWN);
+
 	// Generar nombre de usuario para email (user.name@bittasker.com)
 	const userNameForEmail = $derived(
 		userProfile?.name
@@ -485,24 +535,14 @@
 			});
 		}
 	});
-
-	// React to description and locale changes
-	$effect(() => {
-		const currentAbout = getTranslatedProfileContent('about');
-
-		if (aboutElement && currentAbout) {
-			showFullAbout = false;
-			isAboutTruncated = false;
-
-			requestAnimationFrame(() => {
-				checkIfAboutTruncated();
-			});
-		}
-	});
 </script>
 
 <!-- Skeleton Loading -->
-<div class="bg-base-200 mx-auto max-w-6xl px-2 pt-6 md:px-0">
+<div
+	class="bg-base-200 mx-auto w-full max-w-6xl px-2 pt-6 md:px-0 {$authState.isAuthenticated
+		? 'pb-24'
+		: 'pb-8'}"
+>
 	{#if validationError}
 		<div class="mx-auto py-8">
 			<div class="alert alert-error alert-outline">
@@ -641,11 +681,7 @@
 			</div>
 		</div>
 	{:else}
-		<div
-			class="bg-base-200 mx-auto max-w-6xl px-2 md:px-0 {$authState.isAuthenticated
-				? 'pb-24'
-				: 'pb-8'}"
-		>
+		<div in:fade={{ duration: 150 }}>
 			<!-- Botón de regresar -->
 			<div class="mb-4">
 				<button
@@ -668,7 +704,7 @@
 				</button>
 			</div>
 			<!-- Grid único de 4 columnas -->
-			<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
+			<div bind:this={profileContentEl} class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
 				<!-- Columna 1-3: Contenido principal -->
 				<div class="space-y-6 lg:col-span-3">
 					<!-- Información del perfil -->
@@ -676,7 +712,7 @@
 						<div class="card-body p-4">
 							<div class="relative flex flex-col items-center gap-6 lg:flex-row lg:items-center">
 								<!-- Avatar -->
-								<div class="shrink-0">
+								<div bind:this={avatarEl} class="shrink-0">
 									<!-- Mobile: tamaño xl (w-24 h-24) -->
 									<div class="block md:hidden">
 										<Avatar name={userProfile?.name} picture={userPicture()} size="xl" />
@@ -711,7 +747,7 @@
 														(page.params.npub ? truncateNpub(page.params.npub) : '')}
 												</h3>
 												{#if averageRating}
-													<div class="flex items-center gap-1">
+													<div bind:this={ratingBadgeEl} class="flex items-center gap-1">
 														<span class="text-lg font-bold">{averageRating}</span>
 														<svg
 															class="h-4 w-4 text-yellow-500"
@@ -724,6 +760,11 @@
 																clip-rule="evenodd"
 															/>
 														</svg>
+													</div>
+												{/if}
+												{#if userRanking && userRanking.tier !== 'newcomer'}
+													<div class="badge {userRanking.tierConfig.badgeClass} badge-sm">
+														{userRanking.tierConfig.label}
 													</div>
 												{/if}
 											</div>
@@ -862,10 +903,10 @@
 							{/if}
 
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.skills_expertise')}</p>
-							<div class="flex flex-wrap gap-2">
+							<div bind:this={skillsContainerEl} class="flex flex-wrap gap-2">
 								{#if userProfile?.skills && userProfile.skills.length > 0}
 									{#each userProfile.skills as skill (typeof skill === 'string' ? skill : skill.name)}
-										<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
+										<div class="badge badge-outline badge-primary px-3 py-1 text-sm">
 											{getTranslatedSkillName(skill)}
 										</div>
 									{/each}
@@ -1044,10 +1085,79 @@
 							</div>
 						</div>
 					{/if}
+
+					<!-- Reviews Section -->
+					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+						<div class="card-body p-4">
+							<div class="mb-4 flex items-center justify-between">
+								<p class="text-xl font-bold">
+									{$t('common.profile.reviews')}
+									{#if sortedReviews.length > 0}
+										<span class="text-base-content/60 text-sm font-normal">
+											({sortedReviews.length})
+										</span>
+									{/if}
+								</p>
+								{#if sortedReviews.length > 1}
+									<select class="select select-bordered select-sm" bind:value={reviewSort}>
+										<option value="newest">{$t('common.profile.sort_newest')}</option>
+										<option value="highest_rating">{$t('common.profile.sort_highest')}</option>
+										<option value="lowest_rating">{$t('common.profile.sort_lowest')}</option>
+									</select>
+								{/if}
+							</div>
+
+							{#if isLoadingReviews}
+								<div class="flex items-center justify-center py-8">
+									<span class="loading loading-spinner loading-lg text-primary"></span>
+								</div>
+							{:else if displayedReviews.length > 0}
+								<div class="space-y-4">
+									{#each displayedReviews as review (review.attestationEventId)}
+										<VerifiedReviewCard {review} />
+									{/each}
+								</div>
+								{#if hasMoreReviews}
+									<div class="mt-4 text-center">
+										<button
+											class="btn btn-outline btn-sm"
+											onclick={() => (showAllReviews = !showAllReviews)}
+										>
+											{showAllReviews
+												? $t('common.profile.show_less_reviews')
+												: $t('common.profile.show_more_reviews')}
+										</button>
+									</div>
+								{/if}
+							{:else}
+								<div class="flex flex-col items-center justify-center py-8 text-center">
+									<svg
+										class="text-base-content/30 mb-3 h-12 w-12"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="1.5"
+											d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+										/>
+									</svg>
+									<p class="text-base-content/60 text-sm font-medium">
+										{$t('common.profile.no_reviews_yet')}
+									</p>
+									<p class="text-base-content/40 mt-1 text-xs">
+										{$t('common.profile.no_reviews_description')}
+									</p>
+								</div>
+							{/if}
+						</div>
+					</div>
 				</div>
 
 				<!-- Columna 4: Sidebar -->
-				<div class="space-y-6 lg:col-span-1">
+				<div bind:this={sidebarContentEl} class="space-y-6 lg:col-span-1">
 					<!-- Performance Stats -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-3">
@@ -1101,6 +1211,83 @@
 									</span>
 								</div>
 							</div>
+
+							<!-- Reputation Tier -->
+							{#if userRanking}
+								<div class="border-base-300 mt-3 border-t pt-3">
+									<div class="mb-2 flex items-center justify-between">
+										<span class="text-base-content/70 text-xs font-medium tracking-wide uppercase">
+											{$t('common.profile.reputation_tier')}
+										</span>
+										<span class="badge {userRanking.tierConfig.badgeClass} badge-sm">
+											{userRanking.tierConfig.label}
+										</span>
+									</div>
+									<div class="bg-base-300 h-1.5 w-full overflow-hidden rounded-full">
+										<div
+											class="bg-primary h-full rounded-full transition-all duration-700"
+											style="width: {userRanking.score}%"
+										></div>
+									</div>
+									{#if userRanking.nextTier}
+										<p class="text-base-content/50 mt-1 text-xs">
+											{userRanking.progressToNextTier}% to {userRanking.nextTier.label}
+										</p>
+									{/if}
+								</div>
+							{/if}
+
+							<!-- Rating Distribution -->
+							{#if reviewStats && reviewStats.totalReviews > 0}
+								<div class="border-base-300 mt-3 border-t pt-3">
+									<p class="text-base-content/70 mb-2 text-xs font-medium tracking-wide uppercase">
+										{$t('common.profile.rating_breakdown')}
+									</p>
+									<div class="space-y-1">
+										{#each [5, 4, 3, 2, 1] as star (star)}
+											<div class="flex items-center gap-2">
+												<span class="w-3 text-xs">{star}★</span>
+												<div class="bg-base-300 h-1.5 flex-1 overflow-hidden rounded-full">
+													<div
+														class="bg-primary h-full rounded-full transition-all duration-500"
+														style="width: {getRatingPercentage(
+															reviewStats,
+															star as 1 | 2 | 3 | 4 | 5
+														)}%"
+													></div>
+												</div>
+												<span class="text-base-content/50 w-4 text-right text-xs">
+													{reviewStats.ratingDistribution[
+														star as keyof typeof reviewStats.ratingDistribution
+													]}
+												</span>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+							<!-- Verified Badge -->
+							{#if reviewStats && reviewStats.totalReviews > 0}
+								<div class="mt-3 flex items-center gap-2">
+									<svg
+										class="text-success h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+										/>
+									</svg>
+									<span class="text-base-content/60 text-xs">
+										{$t('common.profile.verified_reviews')}
+									</span>
+								</div>
+							{/if}
 						</div>
 					</div>
 

@@ -45,6 +45,7 @@ export const StorageKeys = {
 
 	// Wallet
 	WALLET_CHAIN_SORT_HINTS: 'bittasker_wallet_chain_sort_hints',
+	WALLET_LAST_BALANCE_SATS: 'bittasker_wallet_last_balance_sats',
 
 	// Reviews
 	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed',

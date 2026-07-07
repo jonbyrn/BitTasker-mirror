@@ -6,6 +6,8 @@
 		searchInputClass,
 		searchPlaceholder,
 		onSearchInput,
+		onSearchFocus,
+		onSearchBlur,
 		onFilterClick,
 		onSaveSearch,
 		canSaveSearch,
@@ -21,6 +23,8 @@
 		searchInputClass: string;
 		searchPlaceholder: string;
 		onSearchInput: (e: Event) => void;
+		onSearchFocus?: () => void;
+		onSearchBlur?: () => void;
 		onFilterClick: () => void;
 		onSaveSearch: () => Promise<void>;
 		canSaveSearch: boolean;
@@ -39,6 +43,8 @@
 	{searchInputClass}
 	{searchPlaceholder}
 	{onSearchInput}
+	{onSearchFocus}
+	{onSearchBlur}
 	{onFilterClick}
 	{onSaveSearch}
 	{canSaveSearch}

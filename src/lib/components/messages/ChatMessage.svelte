@@ -204,7 +204,7 @@
 					>
 						<div class="bg-info w-1 shrink-0 rounded-full"></div>
 						<div class="min-w-0 flex-1">
-							<div class="text-base-content/70 line-clamp-2 text-sm break-all">
+							<div class="text-base-content/70 line-clamp-2 text-sm break-words">
 								{truncatedQuotedText}
 							</div>
 						</div>
@@ -213,7 +213,9 @@
 					<div class="border-base-content/10 border-t pt-2">
 						{#if locationData && (locationData.location || locationData.locations)}
 							<div class="space-y-3">
-								<p class="mb-3 text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
+								<p
+									class="mb-3 text-sm leading-relaxed break-words whitespace-pre-wrap md:text-base"
+								>
 									{replyDisplayText}
 								</p>
 								{#if locationData.locations && locationData.locations.length > 0}
@@ -237,14 +239,14 @@
 								{/if}
 							</div>
 						{:else}
-							<p class="text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
+							<p class="text-sm leading-relaxed break-words whitespace-pre-wrap md:text-base">
 								{#each textSegments as segment, segIdx (segIdx)}
 									{#if segment.type === 'link' && segment.url}
 										<a
 											href={segment.url}
 											target="_blank"
 											rel="noopener noreferrer"
-											class="text-info hover:text-info/80 break-all underline"
+											class="text-info hover:text-info/80 break-words underline"
 										>
 											{segment.content}
 										</a>
@@ -258,7 +260,7 @@
 				</div>
 			{:else if locationData && (locationData.location || locationData.locations)}
 				<div class="space-y-3">
-					<p class="mb-3 text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
+					<p class="mb-3 text-sm leading-relaxed break-words whitespace-pre-wrap md:text-base">
 						{displayText}
 					</p>
 					{#if locationData.locations && locationData.locations.length > 0}
@@ -282,14 +284,14 @@
 					{/if}
 				</div>
 			{:else}
-				<p class="text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
+				<p class="text-sm leading-relaxed break-words whitespace-pre-wrap md:text-base">
 					{#each textSegments as segment, segIdx (segIdx)}
 						{#if segment.type === 'link' && segment.url}
 							<a
 								href={segment.url}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-info hover:text-info/80 break-all underline"
+								class="text-info hover:text-info/80 break-words underline"
 							>
 								{segment.content}
 							</a>

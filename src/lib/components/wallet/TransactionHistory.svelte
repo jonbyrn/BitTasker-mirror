@@ -2,7 +2,7 @@
 	import type { ProcessedTransaction, SwapAction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { transactions, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
@@ -150,32 +150,22 @@
 		error = null;
 
 		try {
-			// Ensure wallet is initialized before loading transactions
-			const { get } = await import('svelte/store');
-			const { walletStore } = await import('$lib/stores/wallet.store');
-			const state = get(walletStore);
 
-			if (!state.isConnected || state.isInitializing) {
-				// Wait for initialization if in progress, or initialize if not started
-				if (state.isInitializing) {
-					// Wait for initialization to complete (max 10 seconds)
+			if (!$walletStore.isConnected || $walletStore.isInitializing) {
+				if ($walletStore.isInitializing) {
 					const maxWaitTime = 10000;
 					const startTime = Date.now();
-					while (state.isInitializing && Date.now() - startTime < maxWaitTime) {
+					while (Date.now() - startTime < maxWaitTime) {
 						await new Promise((resolve) => setTimeout(resolve, 100));
-						const currentState = get(walletStore);
-						if (currentState.isConnected && !currentState.isInitializing) {
+						if ($walletStore.isConnected && !$walletStore.isInitializing) {
 							break;
 						}
 					}
 				} else {
-					// Initialize wallet if not already initializing
 					await walletManager.initialize();
 				}
 
-				// Re-check state after initialization
-				const updatedState = get(walletStore);
-				if (!updatedState.isConnected) {
+				if (!$walletStore.isConnected) {
 					throw new Error('Wallet initialization failed. Please try again.');
 				}
 			}

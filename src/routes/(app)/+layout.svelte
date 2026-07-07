@@ -130,6 +130,11 @@
 					import('$lib/stores/notificationCenter.store')
 						.then(({ notificationCenterStore }) => notificationCenterStore.fetchUnreadCount())
 						.catch(() => {});
+
+					// Reconnect NDK relays — the OS may have killed WebSocket connections
+					// while the app was backgrounded. Without this, subscriptions on pages
+					// like /task/[taskId]/bids would query stale relays and get zero events.
+					import('$lib/nostr/ndk').then(({ ndk }) => ndk.connect().catch(() => {})).catch(() => {});
 				}
 			}
 		};
@@ -257,15 +262,15 @@
 	</div>
 </div>
 
+<!-- Toast notifications (fixed positioned) -->
+<Toast />
+
 <!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
 {#if showTopBar}
 	<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
 		<BottomNavBar />
 	</footer>
 {/if}
-
-<!-- Toast notifications (fixed positioned) -->
-<Toast />
 
 <InfiniteScroll />
 

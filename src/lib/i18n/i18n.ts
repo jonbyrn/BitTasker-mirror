@@ -365,6 +365,18 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 		if (typeof window !== 'undefined') {
 			await loadRouteTranslations(window.location.pathname, newLocale);
 		}
+
+		// Persist language to backend for localized notifications (best-effort)
+		try {
+			const { authState } = await import('$lib/stores/auth.store');
+			const currentState = get(authState);
+			if (currentState.isAuthenticated) {
+				const { default: authService } = await import('$lib/api/services/auth.service');
+				await authService.updateLanguage(newLocale);
+			}
+		} catch {
+			// Non-critical — language is already persisted locally
+		}
 	} catch (error) {
 		console.error(`Failed to switch to locale ${newLocale}:`, error);
 	} finally {

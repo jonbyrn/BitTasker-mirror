@@ -95,11 +95,13 @@ export function shouldShowSwap(status: string, swapType: SwapType, swap: SwapDat
 		if (status === 'transaction.claim.failed') {
 			return true;
 		}
+		// Show submarine swaps where funds were locked — user needs to see these for refund
 		if (swapType === 'submarine') {
 			const submarineSwap = swap as SubmarineSwapData;
-			if (!submarineSwap.lockupTxHash) {
-				return false;
+			if (submarineSwap.lockupTxHash) {
+				return true;
 			}
+			return false;
 		}
 		return false;
 	}
@@ -198,11 +200,12 @@ export function mapSwapToTransaction(
 		value = (swap as ChainSwapData).toAmount?.toString() || '0';
 	}
 
-	// Build transaction hash (use lockupTxHash or claimTxHash if available)
-	const txHash =
+	// Build transaction hash — always use swap ID as stable key to prevent DOM flash
+	const displayHash =
 		(swap as SubmarineSwapData).lockupTxHash ||
 		(swap as ChainSwapData).claimTxHash ||
-		`swap-${swap.id}`;
+		null;
+	const txHash = `swap-${swap.id}`;
 
 	// Get available actions
 	const actions = getSwapActions(swap);
@@ -215,6 +218,25 @@ export function mapSwapToTransaction(
 			? '/images/chains/lightning.svg'
 			: '/images/chains/Bitcoin-Rootstock-logo.webp';
 	const networkDisplayName = network === 'lightning' ? 'Lightning Bitcoin' : 'Rootstock (Bitcoin)';
+
+	// Calculate swap fee from the swap data
+	let feeSats = 0;
+	if (swapType === 'reverse') {
+		const rs = swap as BoltzSwapData;
+		if (rs.amount && rs.onchainAmount) {
+			feeSats = Math.max(0, Number(rs.amount) - Number(rs.onchainAmount));
+		}
+	} else if (swapType === 'submarine') {
+		const ss = swap as SubmarineSwapData;
+		if (ss.expectedAmount && ss.invoiceAmount) {
+			feeSats = Math.max(0, Number(ss.expectedAmount) - Number(ss.invoiceAmount));
+		}
+	} else if (swapType === 'chain') {
+		const cs = swap as ChainSwapData;
+		if (cs.fromAmount && cs.toAmount) {
+			feeSats = Math.max(0, Number(cs.fromAmount) - Number(cs.toAmount));
+		}
+	}
 
 	return {
 		hash: txHash,
@@ -234,8 +256,8 @@ export function mapSwapToTransaction(
 		title,
 		networkIcon,
 		networkDisplayName,
-		explorerUrl: txHash.startsWith('swap-') ? null : `${explorerBaseUrl}/tx/${txHash}`,
-		feeSats: 0, // Swap fees are included in the amount
+		explorerUrl: displayHash ? `${explorerBaseUrl}/tx/${displayHash}` : null,
+		feeSats,
 		balanceAfter: currentBalanceSats,
 		swap: {
 			id: swap.id,

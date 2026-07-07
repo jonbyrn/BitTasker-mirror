@@ -35,6 +35,8 @@ export function getStatusTranslationKey(status: ContractDisplayStatus): string {
 			return 'dashboard.contracts.status.in_progress';
 		case DisplayOnlyStatus.DisputeResolutionProposed:
 			return 'dashboard.contracts.status.dispute_resolution_proposed';
+		case DisplayOnlyStatus.Failed:
+			return 'dashboard.contracts.status.failed';
 
 		default:
 			return 'dashboard.contracts.status.funded';
@@ -67,6 +69,7 @@ export function getStatusColorClass(status: ContractDisplayStatus): string {
 			return 'badge-warning';
 
 		case ContractStatus.Cancelled:
+		case DisplayOnlyStatus.Failed:
 			return 'badge-error';
 
 		default:

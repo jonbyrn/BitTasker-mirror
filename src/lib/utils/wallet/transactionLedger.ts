@@ -157,9 +157,9 @@ export function applyRunningBalance(
 	const sorted = sortByActivity(txs);
 
 	let runningBalance = currentBalanceSats;
-	for (const tx of sorted) {
-		tx.balanceAfter = runningBalance;
-		const txValueSats = Number(tx.value);
+	return sorted.map((tx) => {
+		const result = { ...tx, balanceAfter: runningBalance };
+		const txValueSats = Number(tx.value) || 0;
 		const txFeeSats = tx.feeSats || 0;
 
 		if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
@@ -167,9 +167,9 @@ export function applyRunningBalance(
 		} else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
 			runningBalance += txValueSats + txFeeSats;
 		}
-	}
 
-	return sorted;
+		return result;
+	});
 }
 
 export function projectTransactions(

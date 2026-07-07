@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { Buffer } from 'buffer';
 	import { authState } from '$lib/stores/auth.store';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
@@ -123,7 +124,8 @@
 				clientDataJSON: credentialData.clientDataJSON,
 				attestationObject: credentialData.attestationObject,
 				appVersion: __APP_VERSION__,
-				timezoneOffset: new Date().getTimezoneOffset()
+				timezoneOffset: new Date().getTimezoneOffset(),
+				lang: get(locale) || 'en'
 			});
 
 			if (response && response.access_token) {

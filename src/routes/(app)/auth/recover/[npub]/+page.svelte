@@ -3,7 +3,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { authState } from '$lib/stores/auth.store';
 	import { validatePassword } from '$lib/utils/helpers/validators';
 	import {
@@ -20,7 +21,6 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { debounce } from '$lib/utils/helpers/common';
-	import { locale } from 'svelte-i18n';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import authService from '$lib/api/services/auth.service';
 
@@ -215,7 +215,8 @@
 				deviceName,
 				platform: checkNativePlatform() ? 'mobile' : 'web',
 				revokeAll,
-				timezoneOffset: new Date().getTimezoneOffset()
+				timezoneOffset: new Date().getTimezoneOffset(),
+				lang: get(locale) || 'en'
 			});
 
 			if (access_token && user) {

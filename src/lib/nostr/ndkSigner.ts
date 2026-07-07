@@ -43,6 +43,14 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		ndk.cacheAdapter = new NDKCacheDexie({ dbName: cacheDbName });
 		d.log('applyNdkSignerFromNsec: cache adapter configured, dbName=%s', cacheDbName);
 
+		// Initialize the cache adapter asynchronously — ndk.connect() was called at
+		// module load before the adapter existed, so initializeAsync was never invoked.
+		if (ndk.cacheAdapter.initializeAsync) {
+			ndk.cacheAdapter.initializeAsync(ndk).catch((err: unknown) => {
+				d.error('applyNdkSignerFromNsec: cache adapter init failed (non-fatal): %o', err);
+			});
+		}
+
 		const currentSigner = ndk.signer;
 		if (currentSigner && currentSigner instanceof NDKPrivateKeySigner) {
 			const currentPubkey = currentSigner.pubkey;
@@ -58,6 +66,23 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		ndk.signer = newSigner;
 		activeSignerPubkey = newPubkey;
 		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
+
+		// Eagerly resolve the active user so ndk.$currentPubkey becomes available
+		// immediately, without waiting for the signer setter's async user() chain.
+		// This closes the timing gap where subscriptions gate on $currentPubkey
+		// but the setter's internal Promise hasn't resolved yet.
+		try {
+			const user = await newSigner.user();
+			if (!ndk.activeUser) {
+				user.ndk = ndk;
+				ndk.activeUser = user;
+				d.log('applyNdkSignerFromNsec: activeUser set eagerly, pubkey=%s', user.pubkey);
+			}
+		} catch (err) {
+			d.error('applyNdkSignerFromNsec: signer.user() failed (non-fatal): %o', err);
+			// Non-fatal: the setter's async chain may still resolve.
+		}
+
 		try {
 			const taskRelayUrls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
 			for (const url of taskRelayUrls) {

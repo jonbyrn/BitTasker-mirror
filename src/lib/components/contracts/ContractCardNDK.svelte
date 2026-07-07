@@ -237,7 +237,7 @@
 
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
-				<TaskDeadlineDisplay deadline={contract.estimatedCompletionTime} />
+				<TaskDeadlineDisplay deadline={contractRune?.effectiveEstimatedCompletionTime} />
 				<TaskLocationDisplay
 					locationText={serviceLocation?.label ?? ''}
 					directionsLink={serviceLocationMapLink}
@@ -263,6 +263,65 @@
 					variant="compact"
 					proposerIsTasker={contractRune.pendingResolutionProposal.proposerIsTasker}
 				/>
+			</div>
+		{/if}
+
+		{#if contractRune?.isFailed}
+			<div class="alert alert-error mb-3 py-2 text-xs">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4 shrink-0"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div class="flex flex-col gap-1">
+					<span class="font-semibold">{$t('dashboard.contracts.tx_reverted')}</span>
+					<span>
+						{#if contractRune.error?.startsWith('tx_reverted:')}
+							{@const reason = contractRune.error.split(':')[1]}
+							{#if reason}
+								{$t('dashboard.contracts.tx_reverted_reason_' + reason)}
+							{:else}
+								{$t('dashboard.contracts.tx_reverted_description')}
+							{/if}
+						{:else}
+							{$t('dashboard.contracts.tx_reverted_description')}
+						{/if}
+					</span>
+				</div>
+			</div>
+		{:else if contractRune?.error && !contractRune.blockchainData}
+			<div class="alert alert-warning mb-3 py-2 text-xs">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4 shrink-0"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{$t('dashboard.contracts.blockchain_sync_error')}</span>
+				<button
+					type="button"
+					class="btn btn-xs btn-outline"
+					onclick={() => contractRune?.retryLoadBlockchainData()}
+				>
+					{$t('dashboard.contracts.retry')}
+				</button>
 			</div>
 		{/if}
 

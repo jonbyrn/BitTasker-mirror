@@ -154,11 +154,11 @@
 				</div>
 
 				<!-- Row 3: Delivery Date/Time -->
-				{#if contractRune.contract.estimatedCompletionTime}
+				{#if contractRune.effectiveEstimatedCompletionTime}
 					<TaskDeadlineDisplay
-						deadline={contractRune.contract.estimatedCompletionTime}
-						dateRangeStart={contractRune.contract.estimatedStartTime}
-						dateRangeEnd={contractRune.contract.estimatedCompletionTime}
+						deadline={contractRune.effectiveEstimatedCompletionTime}
+						dateRangeStart={contractRune.effectiveEstimatedStartTime}
+						dateRangeEnd={contractRune.effectiveEstimatedCompletionTime}
 						showTime={true}
 						showDuration={true}
 					/>

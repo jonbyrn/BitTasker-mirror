@@ -57,7 +57,7 @@
 <div class="space-y-3 text-sm" data-testid="service-agreement-summary">
 	{#if providerName}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.provider', 'Provider')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-provider">
@@ -68,7 +68,7 @@
 
 	{#if quoteRequestId}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.quote_request', 'Quote request')}
 			</span>
 			<p class="text-base-content/80 mt-1">{quoteRequestId}</p>
@@ -77,7 +77,7 @@
 
 	{#if proposalId}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.proposal', 'Proposal')}
 			</span>
 			<p class="text-base-content/80 mt-1">{proposalId}</p>
@@ -86,7 +86,7 @@
 
 	{#if instantOrderId}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.instant_order', 'Instant order')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-order">
@@ -97,7 +97,7 @@
 
 	{#if selectedTierLabel}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.selected_tier', 'Selected tier')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-tier">
@@ -108,7 +108,7 @@
 
 	{#if agreementSnapshot?.deliverables}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.included_scope', 'Included scope')}
 			</span>
 			<p
@@ -122,7 +122,7 @@
 
 	{#if agreementSnapshot?.selectedAddOns?.length}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.add_ons', 'Add-ons')}
 			</span>
 			<p class="text-base-content/80 mt-1">{agreementSnapshot.selectedAddOns.join(', ')}</p>
@@ -131,7 +131,7 @@
 
 	{#if agreementSnapshot?.rushDelivery}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.rush_delivery', 'Rush delivery')}
 			</span>
 			<p class="text-base-content/80 mt-1">
@@ -142,7 +142,7 @@
 
 	{#if agreementSnapshot?.inquiryAnswers}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.inquiry_answers', 'Inquiry answers')}
 			</span>
 			<div class="text-base-content/80 mt-1 space-y-1">
@@ -155,7 +155,7 @@
 
 	{#if agreementSnapshot?.priceSnapshotLabel || pricingSnapshot?.serviceVersionRef}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.price_snapshot', 'Price snapshot')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-price">
@@ -166,7 +166,7 @@
 
 	{#if estimatedStartLabel}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.estimated_start', 'Estimated start')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-start">
@@ -177,7 +177,7 @@
 
 	{#if estimatedEndLabel}
 		<div>
-			<span class="text-xs font-medium uppercase">
+			<span class="text-base-content/50 text-xs font-medium">
 				{tr('dashboard.contracts.service_agreement.estimated_end', 'Estimated end')}
 			</span>
 			<p class="text-base-content/80 mt-1" data-testid="service-agreement-end">

@@ -4,6 +4,9 @@
  */
 
 import { getBlockscoutApiUrl as resolveBlockscoutApiUrl } from './explorerProxy';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('wallet:blockscout-tx-status');
 
 export interface BlockscoutTransaction {
 	hash: string;
@@ -39,53 +42,25 @@ export async function fetchTransactionStatus(
 ): Promise<BlockscoutTransaction | null> {
 	const apiUrl = getBlockscoutApiUrl(network);
 
-	console.log('[BlockscoutTransactionStatus] fetchTransactionStatus called', {
-		txHash,
-		network,
-		apiUrl,
-		timestamp: new Date().toISOString()
-	});
-
 	if (!apiUrl) {
-		console.warn('[BlockscoutTransactionStatus] No API URL available for network:', network);
+		d.warn('No API URL available for network:', network);
 		return null;
 	}
 
 	try {
 		const url = `${apiUrl}/transactions/${txHash}`;
-		console.log('[BlockscoutTransactionStatus] Fetching from URL:', url);
+		d.log('Fetching tx status:', txHash);
 
-		const fetchStartTime = Date.now();
 		const response = await fetch(url, {
 			signal: AbortSignal.timeout(5000)
 		});
-		const fetchDuration = Date.now() - fetchStartTime;
-
-		console.log('[BlockscoutTransactionStatus] API response received', {
-			status: response.status,
-			statusText: response.statusText,
-			ok: response.ok,
-			duration: `${fetchDuration}ms`,
-			timestamp: new Date().toISOString()
-		});
 
 		if (!response.ok) {
-			console.warn(
-				`[BlockscoutTransactionStatus] API error: ${response.status} ${response.statusText}`
-			);
+			d.warn('API error: %s %s', response.status, response.statusText);
 			return null;
 		}
 
 		const data = await response.json();
-		console.log('[BlockscoutTransactionStatus] API response data:', {
-			hasItems: !!data.items,
-			itemsLength: data.items?.length,
-			hasHash: !!data.hash,
-			hasBlockNumber: !!(data.block_number ?? data.blockNumber),
-			hasConfirmations: data.confirmations !== undefined,
-			hasStatus: data.status !== undefined,
-			rawData: data
-		});
 
 		// Handle different response formats
 		// Blockscout API v2 might return the transaction directly or wrapped
@@ -99,25 +74,10 @@ export async function fetchTransactionStatus(
 			timeStamp: transaction.timestamp ?? transaction.timeStamp ?? new Date().toISOString()
 		};
 
-		console.log('[BlockscoutTransactionStatus] Parsed transaction data:', {
-			hash: result.hash,
-			blockNumber: result.blockNumber,
-			confirmations: result.confirmations,
-			status: result.status,
-			timeStamp: result.timeStamp
-		});
-
+		d.log('Tx status: %s (confirmations: %d)', result.status, result.confirmations);
 		return result;
 	} catch (error) {
-		console.error('[BlockscoutTransactionStatus] Error fetching transaction status:', {
-			error,
-			errorMessage: error instanceof Error ? error.message : String(error),
-			errorName: error instanceof Error ? error.name : 'Unknown',
-			txHash,
-			network,
-			apiUrl,
-			timestamp: new Date().toISOString()
-		});
+		d.error('Error fetching tx status:', error instanceof Error ? error.message : error);
 		return null;
 	}
 }

@@ -31,6 +31,7 @@ import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
 import type { Attachment } from '$lib/types/task';
 import {
 	ContractStatus,
+	DisplayOnlyStatus,
 	type ContractChain,
 	type ContractDisplayStatus,
 	type SecurePaymentLegacy
@@ -907,8 +908,14 @@ export async function resolveAfterTimelockV2(
 }
 
 export function computeDisplayStatusV2(rune: PaymentContractRuneLike): ContractDisplayStatus {
+	if (rune.isFailed) return DisplayOnlyStatus.Failed;
 	const d = rune.blockchainData;
-	const base = (d?.state ?? ContractStatus.Funded) as ContractDisplayStatus;
+	if (!d) {
+		// Without blockchain data the chain state is unknown — show Funded without
+		// applying the InProgress display override (that requires confirmed chain data).
+		return ContractStatus.Funded;
+	}
+	const base = d.state as ContractDisplayStatus;
 	return applyFundedStartedInProgressDisplay(base, rune);
 }
 

@@ -174,7 +174,7 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 			taskeeFeeWei: ethers.parseEther('0.001')
 		};
 
-		expect(() => assertValidCreatePaymentContractParams(params)).toThrow(/at least 180 seconds/);
+		expect(() => assertValidCreatePaymentContractParams(params)).toThrow(/at least 300 seconds/);
 	});
 
 	it('accepts start time beyond the safety buffer', () => {
@@ -221,7 +221,50 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 });
 
 describe('MINIMUM_START_BUFFER_SECONDS', () => {
-	it('is 180 seconds (3 minutes)', () => {
-		expect(MINIMUM_START_BUFFER_SECONDS).toBe(180);
+	it('is 300 seconds (5 minutes)', () => {
+		expect(MINIMUM_START_BUFFER_SECONDS).toBe(300);
+	});
+});
+
+describe('deriveContractCreationParams — nowSeconds parameter', () => {
+	it('uses nowSeconds when provided instead of Date.now()', () => {
+		const blockTimestamp = 1700000000;
+		const bid = makeBidContent({
+			startDateTime: String(blockTimestamp + 60), // 60s after block — within buffer
+			endDateTime: String(blockTimestamp + 7200)
+		});
+
+		const { params, display } = deriveContractCreationParams(bid, 100000, blockTimestamp);
+
+		// startTime should be adjusted to blockTimestamp + 300 (buffer)
+		expect(params.estimatedStartTime).toBe(blockTimestamp + MINIMUM_START_BUFFER_SECONDS);
+		expect(display.wasTimeAdjusted).toBe(true);
+	});
+
+	it('does NOT adjust startTime when it is beyond the buffer from nowSeconds', () => {
+		const blockTimestamp = 1700000000;
+		const bid = makeBidContent({
+			startDateTime: String(blockTimestamp + 600), // 10 min — beyond buffer
+			endDateTime: String(blockTimestamp + 7200)
+		});
+
+		const { params, display } = deriveContractCreationParams(bid, 100000, blockTimestamp);
+
+		expect(params.estimatedStartTime).toBe(blockTimestamp + 600);
+		expect(display.wasTimeAdjusted).toBe(false);
+	});
+
+	it('falls back to Date.now() when nowSeconds is not provided', () => {
+		const now = Math.floor(Date.now() / 1000);
+		vi.setSystemTime(now * 1000);
+
+		const bid = makeBidContent({
+			startDateTime: String(now + 30),
+			endDateTime: String(now + 3600)
+		});
+
+		const { params } = deriveContractCreationParams(bid, 100000);
+
+		expect(params.estimatedStartTime).toBe(now + MINIMUM_START_BUFFER_SECONDS);
 	});
 });

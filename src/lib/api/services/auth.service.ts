@@ -318,6 +318,15 @@ export class AuthService extends BaseApiService {
 	}
 
 	/**
+	 * Update the user's preferred language on the backend.
+	 * Used for localized notification delivery.
+	 * @param lang Language code ('en' or 'es')
+	 */
+	async updateLanguage(lang: string): Promise<void> {
+		await this.patch(ENDPOINTS.AUTH.LANGUAGE, { lang });
+	}
+
+	/**
 	 * Revoke the current session's refresh token on the server.
 	 * Best-effort — callers should not block on failure.
 	 */

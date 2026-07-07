@@ -20,6 +20,8 @@ import {
 	type SecurePaymentLegacy
 } from '$lib/utils/contract/types';
 import { ndk } from '$lib/nostr/ndk';
+import { NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKBid, type NDKBid as NDKBidType } from '$lib/nostr/events/bid';
 import type { NDKSubscription, NDKSubscriptionOptions, NDKFilter } from '@nostr-dev-kit/ndk';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NDKTask } from '$lib/nostr/events/task';
@@ -91,6 +93,29 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	 * Completion text from status subscription only (newest `completeTask` + Completed 31006).
 	 */
 	completionText = $state<string>('');
+
+	/** Original bid event (Kind 30007) loaded via task.acceptedBid tag. Null until loaded or if unavailable. */
+	originalBid = $state<NDKBidType | null>(null);
+
+	/**
+	 * Effective estimated start time — blockchain data is source of truth, Nostr tags are fallback.
+	 * Consumers (drawer, card, completion) should use this instead of reading from contract tags directly.
+	 */
+	effectiveEstimatedStartTime = $derived.by(() => {
+		return this.blockchainData?.estimatedStartTime ?? this.contract.estimatedStartTime ?? undefined;
+	});
+
+	/**
+	 * Effective estimated completion time — blockchain data is source of truth, Nostr tags are fallback.
+	 * Consumers (drawer, card, completion) should use this instead of reading from contract tags directly.
+	 */
+	effectiveEstimatedCompletionTime = $derived.by(() => {
+		return (
+			this.blockchainData?.estimatedCompletionTime ??
+			this.contract.estimatedCompletionTime ??
+			undefined
+		);
+	});
 
 	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
 	parentEventId = $derived(this.contract.id ?? '');
@@ -209,8 +234,19 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();
+		await this.getOriginalBidEvent();
 		if (!this.paymentId && this.contract.transactionHash) {
 			await this.resolvePaymentIdFromTxHash();
+			// If the resolution failed with a transient error (not a revert), retry once.
+			// This handles provider timeouts or RPC hiccups on first load.
+			if (!this.paymentId && !this.isFailed && this.error) {
+				d.warn('start: resolvePaymentIdFromTxHash failed, retrying in 3s', {
+					error: this.error
+				});
+				this.error = null;
+				await new Promise((r) => setTimeout(r, 3000));
+				await this.resolvePaymentIdFromTxHash();
+			}
 		}
 
 		if (!this.paymentId) {
@@ -234,9 +270,21 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 				blockchainData: $state.snapshot(this.blockchainData)
 			});
 		} catch (err) {
-			const error = err instanceof Error ? err.message : String(err);
-			this.error = error;
-			d.error('start: escrow sync failed', { error });
+			d.warn('start: first blockchain load failed, retrying in 3s', {
+				paymentId: this.paymentId,
+				error: err instanceof Error ? err.message : String(err)
+			});
+			await new Promise((r) => setTimeout(r, 3000));
+			try {
+				await this.reloadBlockchainData();
+				d.log('start: payment contract data loaded on retry', {
+					paymentId: this.paymentId
+				});
+			} catch (retryErr) {
+				const error = retryErr instanceof Error ? retryErr.message : String(retryErr);
+				this.error = error;
+				d.error('start: escrow sync failed after retry', { error });
+			}
 		}
 
 		this.syncPermissionsClock();
@@ -250,6 +298,36 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		this.blockchainData = data;
 		await this.maybeReconcileTaskWithChain();
 		this.syncPermissionsClock();
+	}
+
+	/** Public retry: clears error, resolves paymentId if missing, reloads blockchain data, restarts subscription. */
+	async retryLoadBlockchainData(): Promise<void> {
+		this.error = null;
+
+		// If paymentId is missing, try to resolve it from the transaction hash first.
+		if (!this.paymentId && this.contract.transactionHash) {
+			await this.resolvePaymentIdFromTxHash();
+			// If the resolution failed with a transient error (not a revert), retry once.
+			if (!this.paymentId && !this.isFailed && this.error) {
+				d.warn('retryLoadBlockchainData: resolvePaymentIdFromTxHash failed, retrying', {
+					error: this.error
+				});
+				this.error = null;
+				await new Promise((r) => setTimeout(r, 3000));
+				await this.resolvePaymentIdFromTxHash();
+			}
+		}
+
+		try {
+			await this.reloadBlockchainData();
+		} catch (err) {
+			const error = err instanceof Error ? err.message : String(err);
+			this.error = error;
+			d.error('retryLoadBlockchainData: failed', { error });
+		}
+		this.syncPermissionsClock();
+		this.setupSubscription();
+		this.statusSub?.start();
 	}
 
 	/** Start/stop wall-clock polling for permitted-actions windows (cancel windows, start time, timelocks, …). */
@@ -301,6 +379,40 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		}
 	}
 
+	/**
+	 * Try to decode the revert reason from a reverted transaction.
+	 * Replays the tx via provider.call() which throws with the revert data.
+	 * Returns a human-readable error key like 'InvalidEstimatedTimes', or null if unable to decode.
+	 */
+	private async decodeRevertReason(
+		provider: import('ethers').JsonRpcProvider,
+		txHash: string
+	): Promise<string | null> {
+		try {
+			const tx = await provider.getTransaction(txHash);
+			if (!tx?.to || !tx.data) return null;
+			// Replay the call — ethers will throw with the decoded revert reason
+			await provider.call({
+				to: tx.to,
+				from: tx.from,
+				data: tx.data,
+				value: tx.value
+			});
+			return null; // should not reach here for reverted txs
+		} catch (e: unknown) {
+			// ethers v6 puts the decoded error name in the message
+			const msg = e instanceof Error ? e.message : String(e);
+			// Try to extract the error name (e.g., 'InvalidEstimatedTimes')
+			const match = msg.match(/reverted with custom error '(\w+)\(/);
+			if (match?.[1]) return match[1];
+			// Try another pattern: 'execution reverted: ErrorName'
+			const match2 = msg.match(/execution reverted: (\w+)/);
+			if (match2?.[1]) return match2[1];
+			d.warn('decodeRevertReason: could not parse', { msg: msg.slice(0, 200) });
+			return null;
+		}
+	}
+
 	private async resolvePaymentIdFromTxHash(): Promise<void> {
 		const txHash = this.contract.transactionHash;
 		if (!txHash) return;
@@ -338,9 +450,8 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 			if (receipt.status === 0) {
 				this.isFailed = true;
-				throw new Error(
-					'Transaction reverted on-chain. The contract was not created. Check your wallet or block explorer for details.'
-				);
+				const revertReason = await this.decodeRevertReason(provider, txHash);
+				throw new Error(revertReason ? 'tx_reverted:' + revertReason : 'tx_reverted');
 			}
 
 			const paymentId = parsePaymentContractCreatedPaymentId(
@@ -519,5 +630,79 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		}
 		d.log('getOriginalTaskEvent: loaded', { paymentId: this.paymentId, taskId });
 		this.task = first;
+	}
+
+	/**
+	 * Load the original bid event (Kind 30007) that was accepted for this contract.
+	 * Requires `this.task` to be loaded first (reads `task.acceptedBid` tag).
+	 *
+	 * Uses manual decryption with the correct counterparty pubkey.
+	 * NDKBid.from() decrypts with `bid.author` which fails when the current user IS
+	 * the bid author (freelancer). The bid is encrypted between tasker and taskee,
+	 * so we always decrypt using the OTHER party's pubkey.
+	 */
+	async getOriginalBidEvent(): Promise<void> {
+		const bidId = this.task?.acceptedBid;
+		if (!bidId) {
+			d.log('getOriginalBidEvent: no acceptedBid tag on task', {
+				paymentId: this.paymentId
+			});
+			return;
+		}
+
+		try {
+			const filter: NDKFilter = { kinds: [KINDS.BIDS], ids: [bidId], limit: 1 };
+			// Fetch raw events — we decrypt manually with the correct counterparty
+			const events = await ndk.fetchEvents(filter);
+			const raw = Array.from(events)[0];
+			if (!raw) {
+				d.warn('getOriginalBidEvent: bid not found on relays', {
+					paymentId: this.paymentId,
+					bidId
+				});
+				return;
+			}
+
+			const bid = new NDKBid(raw.ndk ?? ndk, raw);
+			if (!bid.ndk) bid.ndk = ndk;
+			// The bid author is always the taskee (freelancer).
+			// Decrypt with the OTHER party's pubkey:
+			// - If current user is tasker: other = bid.author (taskee)
+			// - If current user is taskee: other = taskerPubkey
+			const taskerPk = this.contract.taskerPubkey;
+			const counterpartyPk = this.isTasker ? bid.author.pubkey : taskerPk;
+			const counterparty = counterpartyPk ? new NDKUser({ pubkey: counterpartyPk }) : undefined;
+			if (counterparty) {
+				try {
+					await bid.decrypt(counterparty);
+				} catch (e) {
+					d.warn('getOriginalBidEvent: decrypt with counterparty failed, trying bid.author', {
+						paymentId: this.paymentId,
+						error: e
+					});
+					// Fallback: try with bid.author (covers edge cases)
+					try {
+						await bid.decrypt(bid.author);
+					} catch {
+						d.warn('getOriginalBidEvent: all decrypt attempts failed', {
+							paymentId: this.paymentId
+						});
+					}
+				}
+			}
+
+			this.originalBid = bid;
+			d.log('getOriginalBidEvent: loaded', {
+				paymentId: this.paymentId,
+				bidId,
+				hasContent: !!bid.bidContent
+			});
+		} catch (e) {
+			d.warn('getOriginalBidEvent: failed to fetch bid', {
+				paymentId: this.paymentId,
+				bidId,
+				error: e
+			});
+		}
 	}
 }

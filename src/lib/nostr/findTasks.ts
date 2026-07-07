@@ -26,6 +26,14 @@ const d = createDebug('findTasks');
 const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of tasks to keep in cache
+const REQUEST_TIMEOUT_MS = 15000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+	const timeout = new Promise<T>((_, reject) =>
+		setTimeout(() => reject(new Error('Request timeout')), ms)
+	);
+	return Promise.race([promise, timeout]);
+}
 
 // Memory cache with indexed tasks and pagination metadata
 type TaskCacheEntry = {
@@ -191,16 +199,34 @@ function convertEventToTask(event: Event): Task {
 /**
  * Fetch one page of tasks from the relay and process them.
  * Returns the visible (post-mute, post-filter) tasks, the oldest relay timestamp
- * from this batch (for the next page cursor), and whether the relay has more.
+ * from this batch (for the next page cursor), whether the relay has more,
+ * and whether the NIP-50 fallback was used (relay search returned 0).
  */
 async function fetchOnePage(
 	params: SearchTasksParams,
 	npub: string | null,
 	currentMutes: MuteState
-): Promise<{ visibleTasks: Task[]; lastRelayTimestamp: number | undefined; hasMore: boolean }> {
+): Promise<{
+	visibleTasks: Task[];
+	lastRelayTimestamp: number | undefined;
+	hasMore: boolean;
+	usedFallback: boolean;
+}> {
 	const filter = createTaskFilter(params);
-	const response = await nostrEventsService.findEvents(filter);
-	const events = response.data || [];
+	const limit = params.limit || BATCH_SIZE;
+
+	let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+	let events = response.data || [];
+
+	// NIP-50 fallback: if relay doesn't support search and returned 0, retry without search
+	let usedFallback = false;
+	if (params.search?.trim() && events.length === 0) {
+		usedFallback = true;
+		const fallbackFilter = { ...filter } as Filter & { search?: string };
+		delete fallbackFilter.search;
+		response = await withTimeout(nostrEventsService.findEvents(fallbackFilter), REQUEST_TIMEOUT_MS);
+		events = response.data || [];
+	}
 
 	const validEvents = filterZombieEvents(events);
 	const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
@@ -218,7 +244,7 @@ async function fetchOnePage(
 		uniqueTasks.length > 0 ? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0)) : undefined;
 
 	// Relay has more if it returned a full page
-	const hasMore = events.length >= (params.limit || BATCH_SIZE);
+	const hasMore = events.length >= limit;
 
 	// Exclude own tasks
 	const tasksExcludingOwn = npub ? uniqueTasks.filter((t) => t.npub !== npub) : uniqueTasks;
@@ -229,18 +255,22 @@ async function fetchOnePage(
 			? tasksExcludingOwn.filter((t) => !currentMutes.mutedPubkeys.has(t.npub))
 			: tasksExcludingOwn;
 
+	// Single index pass: index the pre-mute superset once, then derive cache and display subsets.
+	// Mute filtering only removes items (npub check) — it doesn't affect indexed properties,
+	// so indexing the superset and filtering the IndexedTask[] is equivalent to indexing each subset.
+	const allIndexed = indexTaskData(tasksExcludingOwn);
+
 	// Store pre-mute data in cache so muting/unmuting is instant without relay refetch
 	const cacheKey = (() => {
 		const { until: _u, ...f } = filter as typeof filter & { until?: unknown };
 		return JSON.stringify(f);
 	})();
-	const indexedForCache = indexTaskData(tasksExcludingOwn);
 	const existingCached = cache.get(cacheKey);
 	let allCachedTasks: IndexedTask[];
 	if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
 		const mergedById = new Map<string, IndexedTask>();
 		for (const t of existingCached.data) mergedById.set(t.id, t);
-		for (const t of indexedForCache) {
+		for (const t of allIndexed) {
 			const existing = mergedById.get(t.id);
 			if (!existing || ((t as Task).createdAt ?? 0) > ((existing as Task)?.createdAt ?? 0)) {
 				mergedById.set(t.id, t);
@@ -248,18 +278,26 @@ async function fetchOnePage(
 		}
 		allCachedTasks = Array.from(mergedById.values());
 	} else {
-		allCachedTasks = indexedForCache;
+		allCachedTasks = [...allIndexed];
 	}
 	allCachedTasks = deduplicateTasksById(allCachedTasks);
 	if (allCachedTasks.length > MAX_CACHE_SIZE)
 		allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
-	cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now(), hasMore });
 
 	// Apply frontend filters (categories, skills, location, etc.)
-	const indexedVisible = indexTaskData(tasksMuteFiltered);
+	const indexedVisible =
+		currentMutes.mutedPubkeys.size > 0
+			? allIndexed.filter((t) => !currentMutes.mutedPubkeys.has(t.npub))
+			: allIndexed;
 	const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedVisible, params);
 	performanceMonitor.addMetric(metrics);
 	const visibleTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
+
+	// Cache coherence: if fallback fired but frontend filtered everything out,
+	// the search term doesn't exist in the dataset. Store with hasMore: false
+	// to prevent cache-hit → relay recursion on repeated searches.
+	const cacheHasMore = usedFallback && visibleTasks.length === 0 ? false : hasMore;
+	cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now(), hasMore: cacheHasMore });
 
 	d.log('fetchOnePage', {
 		raw: rawTasks.length,
@@ -267,10 +305,11 @@ async function fetchOnePage(
 		muted: tasksExcludingOwn.length - tasksMuteFiltered.length,
 		visible: visibleTasks.length,
 		hasMore,
+		usedFallback,
 		lastRelayTimestamp
 	});
 
-	return { visibleTasks, lastRelayTimestamp, hasMore };
+	return { visibleTasks, lastRelayTimestamp, hasMore, usedFallback };
 }
 
 /**
@@ -376,6 +415,8 @@ export async function findTasks(
 		let hasMore = true;
 		let lastRelayTimestamp: number | undefined;
 		let rounds = 0;
+		let consecutiveEmptyRounds = 0;
+		const MAX_CONSECUTIVE_EMPTY = 2;
 
 		while (accumulatedTasks.length < limit && hasMore && rounds < MAX_FILL_ROUNDS) {
 			rounds++;
@@ -383,9 +424,36 @@ export async function findTasks(
 			const result = await fetchOnePage(roundParams, npub, currentMutes);
 
 			// Merge new tasks, dedup in case relay sends duplicates across pages
+			const prevCount = accumulatedTasks.length;
 			const combined = deduplicateTasksById([...accumulatedTasks, ...result.visibleTasks]);
 			accumulatedTasks.length = 0;
 			accumulatedTasks.push(...combined);
+			const newTasksAdded = accumulatedTasks.length - prevCount;
+
+			// Early exit: if this round added 0 visible tasks, track it.
+			if (newTasksAdded === 0) {
+				consecutiveEmptyRounds++;
+				// If NIP-50 fallback fired and STILL produced 0 visible tasks,
+				// the search term definitively doesn't exist in the dataset.
+				// No amount of pagination will find it — break immediately.
+				if (result.usedFallback) {
+					d.log('fill loop: fallback returned 0 visible, search term not in dataset', {
+						round: rounds,
+						search: params.search
+					});
+					hasMore = false;
+					break;
+				}
+				// If consecutive rounds with 0 visible (non-fallback scenario,
+				// e.g. all tasks muted or filtered), stop early.
+				if (consecutiveEmptyRounds >= MAX_CONSECUTIVE_EMPTY) {
+					d.log('fill loop: consecutive empty rounds, stopping', { round: rounds });
+					hasMore = false;
+					break;
+				}
+			} else {
+				consecutiveEmptyRounds = 0;
+			}
 
 			hasMore = result.hasMore;
 			if (result.lastRelayTimestamp !== undefined) {
@@ -397,6 +465,12 @@ export async function findTasks(
 			}
 
 			d.log('fill loop', { round: rounds, accumulated: accumulatedTasks.length, limit, hasMore });
+		}
+
+		// If the fill-loop exhausted MAX_FILL_ROUNDS without filling the limit,
+		// set hasMore=false to prevent InfiniteScroll from re-triggering.
+		if (rounds >= MAX_FILL_ROUNDS && accumulatedTasks.length < limit) {
+			hasMore = false;
 		}
 
 		const finalTasks = accumulatedTasks.slice(0, limit);

@@ -254,6 +254,169 @@ describe('findTasks', () => {
 		});
 	});
 
+	describe('NIP-50 fallback early exit', () => {
+		it('should break after 1 round when fallback fires and frontend filter removes all results', async () => {
+			// Scenario: user searches for "nonexistent-term"
+			// Relay NIP-50 search returns 0 → fallback fires → returns 10 tasks
+			// Frontend search filter removes all 10 (term not in any task)
+			// Expected: only 1 round (2 relay calls: search + fallback), not 10 rounds (20 calls)
+			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
+				createTaskEvent(
+					`event-${index}`.padEnd(64, `${index % 10}`),
+					`task-${index}-dtag`,
+					OTHER_NPUB,
+					{ title: `Task ${index} about plumbing` },
+					{ created_at: 1700000100 - index }
+				)
+			);
+
+			// First call: relay search returns 0 (triggers fallback)
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			// Fallback call: returns 10 events (unfiltered)
+			mockFindEvents.mockResolvedValueOnce({ data: events });
+
+			const result = await findTasks({
+				page: 1,
+				limit: 10,
+				search: 'nonexistent-term'
+			});
+
+			// Should return 0 visible tasks
+			expect(result.tasks).toHaveLength(0);
+			expect(result.hasMore).toBe(false);
+
+			// Critical: only 2 relay calls made (search + fallback), not 20 (10 rounds × 2)
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+
+			// First call was the search request
+			const firstFilter = mockFindEvents.mock.calls[0][0];
+			expect(firstFilter.search).toBe('nonexistent-term');
+
+			// Second call was the fallback (no search)
+			const secondFilter = mockFindEvents.mock.calls[1][0];
+			expect(secondFilter.search).toBeUndefined();
+		});
+
+		it('should accumulate visible tasks when fallback returns matches', async () => {
+			// Scenario: relay search returns 0, fallback returns 10 tasks,
+			// frontend filter matches 3 of them
+			const matchingEvents: Event[] = Array.from({ length: 3 }, (_, index) =>
+				createTaskEvent(
+					`match-${index}`.padEnd(64, `${index % 10}`),
+					`match-task-${index}`,
+					OTHER_NPUB,
+					{ title: `Urgent plumbing repair ${index}` },
+					{ created_at: 1700000100 - index }
+				)
+			);
+			const nonMatchingEvents: Event[] = Array.from({ length: 7 }, (_, index) =>
+				createTaskEvent(
+					`other-${index}`.padEnd(64, `${(index + 3) % 10}`),
+					`other-task-${index}`,
+					OTHER_NPUB,
+					{ title: `Electrical work ${index}` },
+					{ created_at: 1700000000 - index }
+				)
+			);
+			const allEvents = [...matchingEvents, ...nonMatchingEvents];
+
+			// Relay search returns 0 (triggers fallback)
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			// Fallback returns all 10 events
+			mockFindEvents.mockResolvedValueOnce({ data: allEvents });
+			// If fill loop continues, return empty to terminate
+			mockFindEvents.mockResolvedValue({ data: [] });
+
+			const result = await findTasks({
+				page: 1,
+				limit: 10,
+				search: 'plumbing'
+			});
+
+			// Should return 3 matching tasks
+			expect(result.tasks).toHaveLength(3);
+			expect(result.tasks.every((t) => t.title.includes('plumbing'))).toBe(true);
+
+			// 4 calls: round 1 (search + fallback) + round 2 (search + fallback, both empty → early exit)
+			// Round 2 fires because 3 visible < limit(10) and hasMore=true
+			expect(mockFindEvents).toHaveBeenCalledTimes(4);
+		});
+
+		it('should break after MAX_CONSECUTIVE_EMPTY rounds when tasks are all filtered (no fallback)', async () => {
+			// Scenario: relay returns events, but frontend filter removes all
+			// (e.g., category filter doesn't match). No NIP-50 fallback involved.
+			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
+				createTaskEvent(
+					`event-${index}`.padEnd(64, `${index % 10}`),
+					`task-${index}-dtag`,
+					OTHER_NPUB,
+					{ title: `Task ${index}`, categories: ['other'] },
+					{ created_at: 1700000100 - index }
+				)
+			);
+
+			// Round 1: 10 events, 0 match category "plumbing"
+			mockFindEvents.mockResolvedValueOnce({ data: events });
+			// Round 2: 10 events, 0 match
+			mockFindEvents.mockResolvedValueOnce({ data: events });
+			// Should not reach round 3
+
+			const result = await findTasks({
+				page: 1,
+				limit: 10,
+				categories: ['plumbing']
+			});
+
+			expect(result.tasks).toHaveLength(0);
+			// Should break after 2 consecutive empty rounds (MAX_CONSECUTIVE_EMPTY = 2)
+			// not continue to 10 rounds
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	describe('cache coherence with fallback', () => {
+		it('should cache with hasMore: false when fallback fires and 0 visible results', async () => {
+			// Scenario: fallback fires, frontend filter removes all → cache stores hasMore: false
+			// Second call with same params → cache hit → hasMore: false → no relay recursion
+			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
+				createTaskEvent(
+					`event-${index}`.padEnd(64, `${index % 10}`),
+					`task-${index}-dtag`,
+					OTHER_NPUB,
+					{ title: `Task ${index}` },
+					{ created_at: 1700000100 - index }
+				)
+			);
+
+			const params = { page: 1, limit: 10, search: 'xyz-nonexistent' };
+
+			// First call: search returns 0, fallback returns 10, frontend filters to 0
+			mockFindEvents.mockResolvedValueOnce({ data: [] });
+			mockFindEvents.mockResolvedValueOnce({ data: events });
+
+			const firstResult = await findTasks(params);
+			expect(firstResult.tasks).toHaveLength(0);
+			expect(firstResult.hasMore).toBe(false);
+			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+
+			// Reset store for second call
+			tasksStore.update((state) => ({
+				...state,
+				items: [],
+				loading: false,
+				currentPage: 1
+			}));
+
+			// Second call: should hit cache and NOT make any relay calls
+			mockFindEvents.mockClear();
+			const secondResult = await findTasks(params);
+			expect(secondResult.tasks).toHaveLength(0);
+			expect(secondResult.hasMore).toBe(false);
+			// No relay calls — cache served the result with hasMore: false
+			expect(mockFindEvents).toHaveBeenCalledTimes(0);
+		});
+	});
+
 	describe('cache pagination behavior', () => {
 		it('should preserve hasMore on cache hit when frontend filters reduce visible tasks below page size', async () => {
 			// Build one relay page of 10 events where only 2 match the category filter.

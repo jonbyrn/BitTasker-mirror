@@ -182,13 +182,15 @@ test.describe('Services Infinite Scroll', () => {
 		const noMore = page.getByText(/no more services/i);
 		await expect(noMore).not.toBeVisible();
 
-		// Scroll to load page 2
+		// Scroll to load page 2 — wait for InfiniteScroll cooldown (300ms) to expire
 		const scrollContainer = page.locator('.app-shell__content');
+		await page.waitForTimeout(350);
 		await scrollContainer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
 		await expect(cards).toHaveCount(40, { timeout: 10000 });
 		await expect(noMore).not.toBeVisible();
 
-		// Scroll to load page 3
+		// Scroll to load page 3 — wait for cooldown again
+		await page.waitForTimeout(350);
 		await scrollContainer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
 		await expect(cards).toHaveCount(45, { timeout: 10000 });
 
@@ -287,9 +289,7 @@ test.describe('Services Infinite Scroll', () => {
 			const rawKinds = requestUrl.searchParams
 				.getAll('kinds')
 				.concat(requestUrl.searchParams.getAll('kinds[]'));
-			const isServiceRequest = rawKinds.some((kind) =>
-				kind.includes(String(SERVICE_KIND))
-			);
+			const isServiceRequest = rawKinds.some((kind) => kind.includes(String(SERVICE_KIND)));
 
 			if (!isServiceRequest) {
 				await route.continue();
@@ -299,7 +299,9 @@ test.describe('Services Infinite Scroll', () => {
 			requestCount++;
 			const hasUntil = requestUrl.searchParams.has('until');
 			const data = hasUntil ? page2Events : page1Events;
-			console.log(`[MOCK] Request #${requestCount} hasUntil=${hasUntil} returning ${data.length} events`);
+			console.log(
+				`[MOCK] Request #${requestCount} hasUntil=${hasUntil} returning ${data.length} events`
+			);
 
 			await route.fulfill({
 				status: 200,

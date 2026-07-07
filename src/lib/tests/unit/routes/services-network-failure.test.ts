@@ -335,23 +335,16 @@ describe('Network failure scenarios', () => {
 				searchParamsKey: ''
 			});
 
-			let timeoutFired = false;
-			const originalSetTimeout = window.setTimeout;
-			vi.spyOn(window, 'setTimeout').mockImplementation(
-				(handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-					if (typeof handler === 'function' && handler.toString().includes('loadingTimedOut')) {
-						handler();
-						timeoutFired = true;
-						return 0;
-					}
-					return originalSetTimeout.call(window, handler, delay, ...args);
-				}
-			);
+			let currentStoreValue: { loading: boolean } | undefined;
+			const unsub = hoisted.servicesStore.subscribe((v: { loading: boolean }) => {
+				currentStoreValue = v;
+			});
 
 			await vi.advanceTimersByTimeAsync(30_000);
 
-			expect(timeoutFired || hoisted.servicesStore.loading).toBeTruthy();
+			expect(currentStoreValue?.loading).toBe(true);
 
+			unsub();
 			vi.useRealTimers();
 		});
 	});

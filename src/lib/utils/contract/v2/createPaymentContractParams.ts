@@ -13,7 +13,11 @@ export class ContractCreationParamsError extends Error {
 	}
 }
 
-export function assertValidCreatePaymentContractParams(params: CreatePaymentContractParams): void {
+export function assertValidCreatePaymentContractParams(
+	params: CreatePaymentContractParams,
+	/** Current time in seconds. Pass RSK block timestamp for on-chain accuracy; falls back to Date.now(). */
+	nowSeconds?: number
+): void {
 	const errors: string[] = [];
 
 	try {
@@ -30,7 +34,7 @@ export function assertValidCreatePaymentContractParams(params: CreatePaymentCont
 		errors.push('Total value must be positive');
 	}
 
-	const now = Math.floor(Date.now() / 1000);
+	const now = nowSeconds ?? Math.floor(Date.now() / 1000);
 	if (params.estimatedStartTime < now + MINIMUM_START_BUFFER_SECONDS) {
 		errors.push(
 			`Estimated start time must be at least ${MINIMUM_START_BUFFER_SECONDS} seconds in the future`
