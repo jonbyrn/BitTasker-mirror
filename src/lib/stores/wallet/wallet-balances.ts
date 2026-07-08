@@ -13,6 +13,8 @@ import {
 } from '$lib/services/defi/builtin-wallet-tier2';
 import { CHAIN_LABELS } from '$lib/data/verified-tokens';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { walletStore, state, getWalletManager, fetchWithRetry } from './wallet-state';
 import { WBTC_ARBITRUM_ADDRESS, TBTC_ARBITRUM_ADDRESS } from './wallet-types';
 
@@ -190,7 +192,14 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				usdValue: rbtcUsdValue
 			});
 		} else if (storeState.rsk.connected) {
-			console.warn('[wallet] Failed to fetch RSK balance, using existing balance');
+			// Balance fetch failed but we're connected — report error but keep existing balance
+			walletStore.update((s) => ({
+				...s,
+				rsk: {
+					...s.rsk,
+					error: 'Failed to fetch balance. Please refresh.'
+				}
+			}));
 		}
 
 		// Process RSK token balances (DOC, USDT0, and other ERC-20 tokens)
@@ -444,6 +453,16 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 			rbtcRateError: priceError || s.rbtcRateError,
 			lastBalanceRefresh: Date.now()
 		}));
+
+		// Persist balance for incoming fund detection across app kills
+		try {
+			await Preferences.set({
+				key: StorageKeys.WALLET_LAST_BALANCE_SATS,
+				value: totalSats.toString()
+			});
+		} catch {
+			// Preferences unavailable (e.g. SSR or missing plugin)
+		}
 	} catch (error) {
 		console.error('[WALLET-STORE] Failed to load assets:', error);
 		walletStore.update((s) => ({

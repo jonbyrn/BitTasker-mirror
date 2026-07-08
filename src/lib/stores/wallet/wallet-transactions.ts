@@ -33,7 +33,6 @@ import {
 	persistChainSortHintsMap,
 	toSortIso
 } from '$lib/utils/wallet/chainSortHints';
-import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 import { walletStore, state, getWalletManager } from './wallet-state';
 import { initialize } from './wallet-init';
 import { scheduleBalanceRefresh } from './wallet-balances';
@@ -107,10 +106,13 @@ async function loadTransactionsInternal(): Promise<void> {
 				// Wait for initialization to complete
 				const maxWaitTime = 10000;
 				const startTime = Date.now();
-				while (storeState.isInitializing && Date.now() - startTime < maxWaitTime) {
+				while (Date.now() - startTime < maxWaitTime) {
 					await new Promise((resolve) => setTimeout(resolve, 100));
 					const currentState = get(walletStore);
-					if (currentState.isConnected && state.sdkWalletManager) {
+					if (
+						!currentState.isInitializing ||
+						(currentState.isConnected && state.sdkWalletManager)
+					) {
 						break;
 					}
 				}
@@ -396,7 +398,6 @@ export function updateSwapTransaction(
 				scheduleBalanceRefresh();
 			}
 			scheduleChainRefresh();
-			notificationCenterService.enrich({ action: 'swap_completed' }).catch(() => {});
 			return;
 		}
 
@@ -412,7 +413,6 @@ export function updateSwapTransaction(
 					transactions: mergeSwapUpdate(s.transactions, swapId, updatedTx, s.totalBalances.sats)
 				}));
 			}
-			notificationCenterService.enrich({ action: 'swap_failed' }).catch(() => {});
 			return;
 		}
 	}

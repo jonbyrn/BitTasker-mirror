@@ -11,16 +11,19 @@ import {
 } from '@bittasker/wallet-core';
 import { get } from 'svelte/store';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import { clearPersistedChainSortHints } from '$lib/utils/wallet/chainSortHints';
+import { formatSats } from '$lib/utils/wallet/format';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { walletStore, state, clearRefreshTimers, isProviderHealthy } from './wallet-state';
 import { initialState } from './wallet-types';
-import { updateSwapTransaction, loadTransactions } from './wallet-transactions';
-import { scheduleBalanceRefresh } from './wallet-balances';
+import { updateSwapTransaction } from './wallet-transactions';
+import { scheduleBalanceRefresh, loadAssets } from './wallet-balances';
 import { getSwapType } from '$lib/utils/wallet/swapTransaction';
 import { browserNetworkStatus } from '$lib/utils/network-status';
 import { blockchainToastStore } from './blockchain-toast.store';
@@ -59,12 +62,54 @@ let resumeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleResumeRefresh(): void {
 	if (resumeRefreshTimer) clearTimeout(resumeRefreshTimer);
-	resumeRefreshTimer = setTimeout(() => {
+	resumeRefreshTimer = setTimeout(async () => {
 		resumeRefreshTimer = null;
 		try {
 			ensureBlockWatch(); // Re-establish if softCleanup disposed it
-			scheduleBalanceRefresh();
-			void loadTransactions();
+
+			// Read persisted balance (survives app kills, unlike in-memory store)
+			let persistedBalance: number | null = null;
+			try {
+				const { value: stored } = await Preferences.get({
+					key: StorageKeys.WALLET_LAST_BALANCE_SATS
+				});
+				if (stored !== null) {
+					const parsed = parseInt(stored, 10);
+					if (!isNaN(parsed)) persistedBalance = parsed;
+				}
+			} catch {
+				// Preferences unavailable
+			}
+
+			await loadAssets();
+
+			// Show toast if balance increased from persisted value
+			// persistedBalance === null means first open ever — skip toast (save baseline)
+			const newBalanceSats = get(walletStore).totalBalances.sats;
+			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
+				const delta = newBalanceSats - persistedBalance;
+				void import('$lib/stores/app.store').then(({ appStore }) => {
+					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
+						dedupKey: `received-balance-${newBalanceSats}`
+					});
+				});
+			}
+
+			// Lightweight swap recovery (Nostr queries only, no blockchain RPC)
+			// loadTransactions() is intentionally NOT called on resume — it's too
+			// heavy and is only needed when the TransactionHistory UI opens.
+			if (state.sdkWalletManager) {
+				try {
+					await Promise.all([
+						state.sdkWalletManager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+						state.sdkWalletManager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+						state.sdkWalletManager.chainSwapService.recoverPendingSwaps().catch(() => [])
+					]);
+				} catch {
+					// Swap recovery failure is non-critical
+				}
+			}
+
 			blockchainToastStore.checkPendingReceipts();
 		} catch (err) {
 			console.error('[wallet-init] Resume refresh error:', err);
