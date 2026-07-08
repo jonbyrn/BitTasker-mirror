@@ -1108,9 +1108,9 @@
 			"asset": {
 				"usd": "USD",
 				"bitcoin_rbtc": "Bitcoin",
-				"bitcoin_wbtc": "wBTC",
+				"bitcoin_wbtc": "Bitcoin",
 				"bitcoin_btc": "Bitcoin",
-				"bitcoin_tbtc": "tBTC"
+				"bitcoin_tbtc": "Bitcoin"
 			},
 			"network": {
 				"usdt0_arbitrum": "USDT0 en Arbitrum",
