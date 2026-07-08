@@ -158,7 +158,16 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/bids'
 		);
 		// Include wallet namespace for bid-related components
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Include categories and recommendations for task discovery
 		namespaces.push('dashboard/recomendations', 'categories');
 		// Include moderation namespace for report/mute menus on task cards
@@ -170,7 +179,16 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Service workspaces are surfaced from both protected workspace routes.
 		namespaces.push(
 			'dashboard/services/my-services',
@@ -201,7 +219,16 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Service workspaces are surfaced from both protected workspace routes.
 		namespaces.push(
 			'dashboard/services/my-services',
