@@ -165,7 +165,12 @@
 						alt={selectedAsset.label}
 						class="h-5 w-5 shrink-0 rounded-full"
 					/>
-					<span class="truncate font-medium">{selectedAsset.label}</span>
+					<div class="min-w-0 flex-1 text-left">
+						<span class="truncate font-medium">{selectedAsset.label}</span>
+						{#if selectedAsset.symbol}
+							<div class="text-base-content/50 text-xs">{selectedAsset.symbol}</div>
+						{/if}
+					</div>
 					{#if selectedAsset.balance !== undefined}
 						<div class="ml-auto text-right">
 							<div class="text-xs font-semibold tabular-nums">{selectedAsset.balance}</div>

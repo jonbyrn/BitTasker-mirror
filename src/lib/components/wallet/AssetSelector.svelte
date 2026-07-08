@@ -3,6 +3,7 @@
 		id: string;
 		label: string;
 		icon: string;
+		symbol?: string;
 		balance?: string;
 		balanceSub?: string;
 		subLabel?: string;

@@ -909,13 +909,13 @@
 			"claiming": "Reclamando...",
 			"dismiss_claim": "Descartar",
 			"claim_wallet_not_connected": "Billetera no conectada. Reconecta para reclamar.",
-			"bitcoin_rbtc": "Bitcoin (rBTC)",
+			"bitcoin_rbtc": "Bitcoin",
 			"bitcoin_on_rootstock": "Bitcoin en Rootstock",
 			"usd": "USD",
 			"usdt0_arbitrum": "USDT0 en Arbitrum",
-			"bitcoin_wbtc": "Bitcoin (wBTC)",
+			"bitcoin_wbtc": "wBTC",
 			"wbtc_arbitrum": "BTC envuelto en Arbitrum",
-			"bitcoin_tbtc": "Bitcoin (tBTC)",
+			"bitcoin_tbtc": "tBTC",
 			"bridged_btc_arbitrum": "BTC puenteado en Arbitrum"
 		},
 		"swap": {

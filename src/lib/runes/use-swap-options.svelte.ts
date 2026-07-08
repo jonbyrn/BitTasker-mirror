@@ -473,6 +473,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 							: o.id === 'btc-onchain'
 								? translate('wallet.swap.asset.bitcoin_btc')
 								: `${o.asset}`,
+			symbol: o.asset,
 			icon: o.icon,
 			subLabel:
 				o.id === 'usdt0-arb'
@@ -516,6 +517,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 				id: 'rbtc',
 				label: translate('wallet.swap.asset.bitcoin_rbtc'),
 				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+				symbol: 'rBTC',
 				subLabel: translate('wallet.swap.network.bitcoin_rootstock'),
 				balance: formatSats(sourceRbtcSats) + ' ' + translate('wallet.sats'),
 				balanceSub: `≈ $${((sourceRbtcSats / 100_000_000) * btcPriceVal).toFixed(2)}`
@@ -524,6 +526,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 				id: 'usdt0-arb',
 				label: translate('wallet.swap.asset.usd'),
 				icon: '/images/chains/Tether-USD.svg',
+				symbol: 'USDT',
 				subLabel: translate('wallet.swap.network.usdt0_arbitrum'),
 				balance: `$${sourceUsdt0Usd.toFixed(2)}`
 			},
@@ -531,6 +534,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 				id: 'wbtc-arb',
 				label: translate('wallet.swap.asset.bitcoin_wbtc'),
 				icon: '/images/tokens/wbtc.png',
+				symbol: 'wBTC',
 				subLabel: translate('wallet.swap.network.wbtc_arbitrum'),
 				balance: formatSats(sourceWbtcSats) + ' ' + translate('wallet.sats'),
 				balanceSub: `≈ $${((sourceWbtcSats / 100_000_000) * btcPriceVal).toFixed(2)}`
@@ -542,6 +546,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 							id: 'btc-onchain' as const,
 							label: translate('wallet.swap.asset.bitcoin_btc'),
 							icon: '/images/chains/Bitcoin.svg',
+							symbol: 'BTC',
 							subLabel: translate('wallet.swap.network.bitcoin_onchain'),
 							balance: formatSats(extBtcSats) + ' ' + translate('wallet.sats'),
 							balanceSub: `≈ $${((extBtcSats / 100_000_000) * btcPriceVal).toFixed(2)}`
@@ -555,6 +560,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 							id: 'tbtc-arb' as const,
 							label: translate('wallet.swap.asset.bitcoin_tbtc'),
 							icon: '/images/tokens/tbtc.png',
+							symbol: 'tBTC',
 							subLabel: translate('wallet.swap.network.tbtc_arbitrum'),
 							balance: formatSats(sourceTbtcSats) + ' ' + translate('wallet.sats'),
 							balanceSub: `≈ $${((sourceTbtcSats / 100_000_000) * btcPriceVal).toFixed(2)}`
