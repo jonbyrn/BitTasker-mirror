@@ -1998,7 +1998,17 @@
 			"others_pending": "{count} otra(s) pendiente(s)",
 			"sending": "Enviando {amount} {asset}",
 			"swapping": "Intercambiando {amount} {asset}",
-			"error": "Falló",
+			"error": {
+				"generic": "Falló",
+				"insufficient_funds": "Saldo insuficiente",
+				"insufficient_gas": "No hay suficiente {asset} para las tarifas de red",
+				"nonce_too_low": "Conflicto de transacción — por favor intente de nuevo",
+				"execution_reverted": "Transacción rechazada por la red",
+				"timeout": "La transacción expiró",
+				"network_error": "Error de red — verifique su conexión",
+				"user_rejected": "La transacción fue rechazada por la billetera",
+				"boltz_unavailable": "El servicio de swap de Boltz no está disponible temporalmente"
+			},
 			"network_offline": "Esperando conexión...",
 			"sent_successfully": "Enviado exitosamente",
 			"updated_ago": "Actualizado hace {time}",

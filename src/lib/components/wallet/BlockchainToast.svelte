@@ -62,7 +62,7 @@
 	function formatCollapsedStatus(item: BlockchainToastItem): string {
 		if (item.status === 'confirming') return $t('wallet.toast.confirming');
 		if (item.status === 'success') return $t('wallet.toast.confirmed');
-		if (item.status === 'error') return $t('wallet.toast.error');
+		if (item.status === 'error') return $t('wallet.toast.error.generic');
 		if (item.status === 'stale') return $t('wallet.toast.stale_warning');
 		return $t('wallet.toast.confirming');
 	}
