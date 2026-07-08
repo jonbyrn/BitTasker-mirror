@@ -1166,10 +1166,10 @@
 			},
 			"asset": {
 				"usd": "USD",
-				"bitcoin_rbtc": "Bitcoin (rBTC)",
-				"bitcoin_wbtc": "Bitcoin (wBTC)",
-				"bitcoin_btc": "Bitcoin (BTC)",
-				"bitcoin_tbtc": "Bitcoin (tBTC)"
+				"bitcoin_rbtc": "Bitcoin",
+				"bitcoin_wbtc": "wBTC",
+				"bitcoin_btc": "Bitcoin",
+				"bitcoin_tbtc": "tBTC"
 			},
 			"network": {
 				"usdt0_arbitrum": "USDT0 on Arbitrum",
