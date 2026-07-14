@@ -74,7 +74,7 @@ export async function sendArbitrumTransaction(params: {
 			if (jwt) {
 				const { USDT0_ADDRESS, FEE_BUFFER_MIN } = await import('$lib/wallet/gasless.config');
 				const feeToken = USDT0_ADDRESS;
-				const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000_000_000_000_000n;
+				const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000n;
 
 				const callValue = params.value ? BigInt(params.value) : 0n;
 				// Add 30s timeout to gasless relay — if it hangs, fall through to direct tx
@@ -191,6 +191,23 @@ export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 		throw new Error('BSC wallet not initialized — cannot send BNB');
 	}
 	const txHash = await manager.bscWallet.sendBNB(to, amount);
+
+	// Refresh data
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+
+	return txHash;
+}
+
+/**
+ * Send USDT0 on RSK (ERC-20 transfer via RSKWallet.sendToken).
+ */
+export async function sendRSKUSDT0(to: string, amount: string): Promise<string> {
+	const manager = getWalletManager();
+	if (!manager.rskWallet) {
+		throw new Error('RSK wallet not initialized — cannot send USDT0');
+	}
+	const USDT0_RSK_ADDRESS = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
+	const txHash = await manager.rskWallet.sendToken(USDT0_RSK_ADDRESS, to, amount, 6);
 
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);

@@ -40,6 +40,7 @@ const d = createDebug('send-execution');
 export interface SendWalletManager {
 	sendRBTC(to: string, amount: string): Promise<string>;
 	sendBSCUSDT(to: string, amount: string): Promise<string>;
+	sendRSKUSDT0(to: string, amount: string): Promise<string>;
 	createSubmarineSwap(
 		invoice: string,
 		description?: string
@@ -195,6 +196,18 @@ export async function sendUsdtBsc(params: SendParams): Promise<SendResult> {
 }
 
 /**
+ * Send USDT0 on RSK via the built-in wallet manager.
+ */
+export async function sendUsdt0Rsk(params: SendParams): Promise<SendResult> {
+	const usdtAmount = params.amountInUSD.toFixed(2);
+	const txHash = await params.walletManager.sendRSKUSDT0(params.recipient, usdtAmount);
+
+	d.log('sendUsdt0Rsk: txHash=%s amount=%s', txHash, usdtAmount);
+
+	return { txHash };
+}
+
+/**
  * Send Lightning payment via built-in wallet (submarine swap).
  * Creates a Boltz submarine swap and locks funds using the built-in RSK wallet.
  * Returns early with pendingSwapId — caller should show pending screen.
@@ -297,6 +310,26 @@ export async function sendConnectedUsdtBsc(params: ConnectedSendParams): Promise
 	});
 
 	d.log('sendConnectedUsdtBsc: txHash=%s', txResult.txHash);
+
+	return { txHash: txResult.txHash };
+}
+
+/**
+ * Send USDT0 on RSK via connected wallet's EVM signer.
+ * Encodes ERC-20 transfer() calldata and sends to the RSK USDT0 contract.
+ */
+export async function sendConnectedUsdt0Rsk(params: ConnectedSendParams): Promise<SendResult> {
+	const chainId = getChainIdForNetwork('rootstock-bitcoin');
+	const usdtUnits = convertUsdToERC20Units(params.amountInUSD, 6);
+	const data = encodeERC20Transfer(params.recipient, usdtUnits);
+
+	const txResult = await params.evmSigner.sendTransaction({
+		to: '0x779Ded0c9e1022225f8E0630b35a9b54bE713736',
+		data,
+		chainId
+	});
+
+	d.log('sendConnectedUsdt0Rsk: txHash=%s', txResult.txHash);
 
 	return { txHash: txResult.txHash };
 }
@@ -438,6 +471,7 @@ export async function sendConnectedLightning(params: ConnectedSendParams): Promi
 export const BUILTIN_HANDLERS: Record<string, SendHandler> = {
 	'rootstock-bitcoin': sendRbtcDirect,
 	'usdt-bsc': sendUsdtBsc,
+	'usdt0-rsk': sendUsdt0Rsk,
 	'lightning-bitcoin': sendLightningBuiltin
 };
 
@@ -447,6 +481,7 @@ export const CONNECTED_HANDLERS: Record<string, ConnectedSendHandler> = {
 	'usdt-ethereum': sendConnectedUsdtEvm,
 	'usdt-arbitrum': sendConnectedUsdtEvm,
 	'usdt-polygon': sendConnectedUsdtEvm,
+	'usdt0-rsk': sendConnectedUsdt0Rsk,
 	bitcoin: sendConnectedBitcoin,
 	'lightning-bitcoin': sendConnectedLightning
 };
@@ -490,6 +525,7 @@ export interface ExecuteSendResult {
 const SUPPORTED_NETWORKS = new Set([
 	'rootstock-bitcoin',
 	'usdt-bsc',
+	'usdt0-rsk',
 	'lightning-bitcoin',
 	'usdt-arbitrum',
 	'usdt-ethereum',

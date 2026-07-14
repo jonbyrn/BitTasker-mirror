@@ -38,13 +38,13 @@ export const FEE_TIERS: readonly FeeTierDef[] = [
 export const FEE_BUFFER_MIN: Record<string, bigint> = {
 	[USDT0_ADDRESS.toLowerCase()]: 10_000n, // USDT0 (6 decimals): $0.01
 	[WBTC_ADDRESS.toLowerCase()]: 16n, // WBTC (8 decimals): ~16 sats
-	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000n // tBTC (18 decimals): $0.01
+	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n // tBTC (18 decimals): $0.01
 };
 
 export const FEE_BUFFER_MAX: Record<string, bigint> = {
 	[USDT0_ADDRESS.toLowerCase()]: 150_000n, // USDT0 (6 decimals): $0.15
 	[WBTC_ADDRESS.toLowerCase()]: 230n, // WBTC (8 decimals): ~230 sats
-	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000n // tBTC (18 decimals): $0.15
+	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n // tBTC (18 decimals): $0.15
 };
 
 export const GAS_TREASURY = import.meta.env.VITE_GAS_TREASURY ?? '';

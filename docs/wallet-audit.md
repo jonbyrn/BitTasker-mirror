@@ -1,6 +1,6 @@
 # BitTasker Wallet Implementation Audit
 
-**Date:** 2026-07-11 (updated 2026-07-13)
+**Date:** 2026-07-11 (updated 2026-07-14)
 **Scope:** Full-stack wallet implementation audit across 4 projects
 **Projects Audited:**
 - `wallet-core-v2` — Wallet SDK (`@bittasker/wallet-core` v0.2.0+),  path: /Users/doma/Projects/bittasker/wallet-core-v2
@@ -9,6 +9,60 @@
 - `meta-tx-relay` — Cloudflare Worker + Solidity contracts, path: /Users/doma/Projects/bittasker/meta-tx-relay
 
 **Note on BSC:** BSC (Binance Smart Chain) support exists in the SDK but is legacy and unused by the active product. It is excluded from this audit. BSC-related code is not making problems and will be addressed separately.
+
+**Changelog (2026-07-14, v8) — Post-Implementation Fixes:**
+- Fixed: Frontend `gasless-helpers.ts` MIN/MAX_GAS_BUFFER aligned to backend values (USDT0: 3_000n→10_000n min, 50_000n→150_000n max; WBTC: 5n→16n min, 80n→230n max; tBTC/WETH scaled proportionally). Frontend was 3x lower than backend, causing relay rejections.
+- Fixed: Frontend `wallet-send.ts` fallback fee buffer: `10_000_000_000_000_000n` → `10_000n` for USDT0 (6 decimals). The old fallback was an 18-decimal value (~10 billion tokens).
+- Fixed: OpenOcean provider API parameter: `amountDecimals` → `amount` (matching `openocean.service.ts` and OpenOcean v4 API spec)
+- Fixed: LoanFlowDrawer removed RSK address fallback for Arbitrum recipient — RSK and Arbitrum use different derivation paths (coin type 137 vs 60), so falling back would send funds to a wrong address
+- Fixed: LoanFlowDrawer `stepStatus()` — failed state now displays correctly when `getActiveStep()` returns -1 (phase doesn't map to a known step)
+- Fixed: SDK `RSKWallet.sendToken()` — added token address validation (`ethers.isAddress`) and RBTC gas balance pre-check
+- Fixed: SDK `ArbitrumWallet.sendToken()` — uses `tokenConfig.decimals` from cache instead of making an extra RPC call to `contract.decimals()`
+- Fixed: SDK `ArbitrumTransactions.ts` — removed `?chainid=` parameter from Arbiscan API URLs (native Arbiscan doesn't accept this Etherscan v2 parameter)
+- Fixed: SDK `Usdt0BridgeService` GUID extraction — now filters logs by `PacketSent(bytes,bytes,address)` event signature instead of blindly reading `logs[0].topics[1]`
+- Fixed: SDK `RskDexSwapService` swap output parsing — removed incorrect balance-based fallback (was using total balance instead of delta)
+- Fixed: SDK `WalletManager.dispose()` — now nulls out service references to prevent stale instance access after disposal
+- Fixed: SDK `LoanFlowOrchestrator.resumeFromDocSwap()` — now applies user's slippage preference (was using raw `minOutputAmount` from quote, inconsistent with `executeFullFlow`)
+- Documented: C3 (callData encoding mismatch) — confirmed no collision, NestJS is active production path, meta-tx-relay is parallel/unused
+- Documented: Dead code — `USDTBalance.svelte` (zero imports), `gasless-helpers.ts` parallel-arrays ABI (unused for relay callData)
+- All tests passing: 619 SDK, 13 contract, 54 meta-tx-relay, 65 frontend unit, 8 e2e
+
+**Changelog (2026-07-14, v7) — Implementation Fixes:**
+- Fixed: Bug 5.5 — USDT0-Arb connected wallet decimal bug (`use-swap-wallets.svelte.ts`): changed `/1e18` to `/1e6` in 4 locations (walletBalanceFor, sourceBalances, destBalances, getUsdtHumanFromConnected)
+- Fixed: Bug 8.8 — USDT0 decimals in meta-tx-relay Arbitrum gasless config: changed `decimals: 18` to `decimals: 6`, updated FEE_BUFFER_MIN to `10_000n` and FEE_BUFFER_MAX to `150_000n` (ONLY Arbitrum gasless config, RSK relay untouched)
+- Fixed: Bug 8.10 — VerifyingPaymaster.sol validationData packing: changed `(validAfter << 48) | validUntil` to `(validAfter << 208) | (validUntil << 160)` per ERC-4337 spec. 13 contract tests passing.
+- Fixed: Bug 5.13 — Added `usdt0-rsk` send handler in `send-execution.service.ts`: builtin handler delegates to `walletManager.sendRSKUSDT0()`, connected handler encodes ERC-20 transfer calldata
+- Fixed: Added `sendRSKUSDT0()` to `wallet-send.ts` and `wallet-utils.ts` using new `RSKWallet.sendToken()` SDK method
+- Fixed: Added `sendToken(tokenAddress, to, amount, decimals)` method to SDK `RSKWallet` for generic ERC-20 sends on RSK
+- Fixed: Bug 5.12 — GaslessSendFlow now passes actual amounts to pending/success screens: `parseFloat(amount)` instead of hardcoded `0`
+- Fixed: Bug 5.11 — Arbitrum token network labels: changed `'RSK'`/`'BSC'` to `'Arbitrum'` for usdt0-arb, wbtc-arb, tbtc-arb in `wallet-balances.ts`
+- Fixed: Bug 5.15 — SwapForm `_mapSourceToNetwork`: wbtc-arb and tbtc-arb now map to `'usdt-arbitrum'` instead of `'rootstock-bitcoin'`
+- Fixed: Bug 5.16 — Wallet page `process.env.NODE_ENV` replaced with `!import.meta.env.DEV`
+- Fixed: Bug 5.9 — SmartRouter `fetchSubmarineFee` now accepts `amountSats` parameter and computes percentage fee correctly (was zeroed with `* 0`)
+- Fixed: TBTC fee buffer in `src/wallet/gasless.config.ts`: FEE_BUFFER_MIN `10_000_000_000_000n` → `10_000_000_000_000_000n` (missing 3 zeros), FEE_BUFFER_MAX similarly corrected
+- Fixed: Root `gasless.config.ts`: USDT0 decimals `18` → `6`, FEE_BUFFER_MIN/MAX corrected to 6-decimal values
+- Fixed: NestJS `gasless.config.ts` `convertToTokenFee`: replaced `BigInt(Math.round(feeUSD * 1e18))` with string-based conversion to avoid floating-point precision loss
+- Fixed: NestJS `gasless.service.ts` `buildCallData`: removed duplicate treasury transfer (was creating 3 calls instead of 2 for simple transfers)
+- Fixed: SDK Bug 6.17 — `RskDexSwapService.swap()` now parses actual output from Swap event logs instead of re-querying `getAmountsOut` (which returns wrong post-swap values)
+- Fixed: SDK Bug 6.18 — `LoanFlowOrchestrator.recover()` now clears saved steps before calling `executeFullFlow` to prevent state confusion
+- Fixed: Bug 5.14 — Created `openocean.provider.ts` in route-engine/providers/ and registered in engine.ts. OpenOcean DOC→USDT0 RSK swaps now available in SwapForm route picker.
+- Added: LoanFlowDrawer component (`src/lib/components/wallet/LoanFlowDrawer.svelte`) — full UI for rBTC → DOC → USDT0 → Arbitrum flow with 6 states (input/quoting/confirm/executing/success/error)
+- Added: LoanFlowDrawer wired into wallet page: "Convert" button in DeFi section, BankingMenu DeFi handler opens loan flow instead of preview toast
+- Added: E2E test suite (`tests/e2e/wallet/usdt-implementation.spec.ts`) — 13 tests covering balance display, loan flow drawer, gasless amounts, swap routes, decimal handling, network labels
+- Rebuilt: SDK dist with all fixes (619 tests passing)
+- Updated: wallet-audit.md with all implementation results
+
+**Changelog (2026-07-14, v6) — Full Cross-Project Audit:**
+- Added: 6 new CRITICAL bugs (C1-C6) — USDT0 decimals in connected wallets, meta-tx-relay decimals, calldata mismatch, paymaster validationData, Changelly dead code, loan flow orphaned
+- Added: 10 new HIGH bugs (H1-H10) — BSC explorer URL, submarine fee zeroing, hardcoded BTC price, post-swap estimation, loan flow recovery, duplicate treasury transfers, NestJS float precision, tokenWeiToUsd precision, USDTBalance dead code, OpenOcean not wired
+- Added: 14 new MEDIUM bugs (M1-M14) — network labels, zero amounts in gasless send, missing RSK USDT0 handler, non-null assertions, global mutable state, WebSocket race, bridge GUID fragility, bridge fee estimate, SwapForm network mapping, process.env in browser, preflight behavioral drift, initCode mismatch, AA23 handling, GAS_TREASURY empty default
+- Added: 9 new LOW bugs (L1-L9) — MoC testnet, BSC paymaster dead code, ETH vs RBTC error, signal abort, missing exports, self-dependency, public swap status, Prisma silent catch, escrow typo
+- Added: Section 17 — Cross-Project Integration Assessment (API alignment, feature flag analysis, orphaned endpoints)
+- Added: Section 18 — Comprehensive Manual Testing Plan (9 test scenarios with step-by-step instructions)
+- Added: Section 19 — Regtest Readiness Assessment
+- Updated: Section 15 Fix Priority Matrix with all new findings
+- Updated: Section 12 Missing Features with integration gaps
+- Updated: Section 14 Testing Guide with production user testing instructions
 
 **Changelog (2026-07-13, v5):**
 - Fixed: SDK ESM resolution — added `.js` extensions to all source imports for proper Node.js ESM support
@@ -81,6 +135,10 @@
 13. [Resources & Documentation Links](#13-resources--documentation-links)
 14. [Testing Guide: Regtest & Mainnet](#14-testing-guide-regtest--mainnet)
 15. [Fix Priority Matrix](#15-fix-priority-matrix)
+16. [Production Environment Configuration](#16-production-environment-configuration)
+17. [Cross-Project Integration Assessment](#17-cross-project-integration-assessment)
+18. [Manual Testing Plan (Production User Perspective)](#18-manual-testing-plan-production-user-perspective)
+19. [Regtest Readiness Assessment](#19-regtest-readiness-assessment)
 
 ---
 
@@ -104,10 +162,10 @@ The BitTasker wallet system spans four projects and introduces several major sub
 - **553 tests passing** across 22 test files
 
 Remaining issues:
-- **4 high bugs** across the stack (paymaster hash mismatch, BTC/L-BTC refunds, Boltz testnet gap, mainnet config empty)
+- **7 CRITICAL bugs** across the stack (connected wallet USDT0 decimals, meta-tx-relay decimals, callData encoding mismatch, paymaster validationData packing, Changelly swap dead code, loan flow orphaned, USDTBalance dead component)
+- **10 HIGH bugs** (submarine fee zeroing, hardcoded BTC price, BSC explorer URL, post-swap estimation, loan flow recovery, NestJS float precision, duplicate treasury transfers, initCode mismatch, missing RSK USDT0 send handler, OpenOcean not wired)
 - **3 placeholder implementations** (BTC/L-BTC submarine refunds, Arbitrum Sepolia tokens)
-- **A paymaster signature hash mismatch** between on-chain and off-chain code (deployment-blocking)
-- **A reactive cascade loop** in the frontend causing console spam
+- **Significant UI gaps** — loan flow, USDT0 bridge, DOC minting, and OpenOcean DEX all have backend/SDK implementations but no frontend UI entry points
 - **Code fragmentation** — 51+ frontend files make direct RPCs bypassing the SDK; 3 competing token registries
 
 The frontend code has been battle-tested in production. The SDK's Boltz swap system is mature and well-tested. The newer additions (MoC, bridge, loan flow) have unit tests but need integration testing on testnet.
@@ -529,6 +587,164 @@ None of these import from the SDK's `ARB_TOKEN_ADDRESSES` or `RSK_TOKENS`. The S
 | `POST /api/v1/reminders/enrich 401` | `apiService.ts:68` | Unauthenticated API call from notification center |
 | `GET /api/v1/notification-center/unread-count 401` | `apiService.ts:51` | Unauthenticated API call from layout polling |
 
+### 5.5 CRITICAL: USDT0-Arbitrum Balance Displayed as ~$0 for Connected Wallets
+
+**Severity:** CRITICAL
+**File:** `src/lib/runes/use-swap-wallets.svelte.ts` (lines 265, 400, 420, 498-500)
+
+USDT0 on Arbitrum has **6 decimals**, but the code divides by `1e18`:
+```typescript
+// Line 265 — connected wallet balance display
+Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e18  // WRONG: should be 1e6
+
+// Line 400 — source balances for swap
+Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18
+
+// Line 420 — dest balances for swap
+Number(w?.balances?.['usdt0-arb']?.raw ?? 0) / 1e18
+
+// Lines 498-500 — getUsdtHumanFromConnected helper
+/ 1e18  // WRONG: should be 1e6
+```
+
+**Impact:** All connected wallets (MetaMask, Trezor, Ledger, WalletConnect) show ~$0.00 USDT0 balance on Arbitrum. Swap source/dest balance calculations for connected wallets are also wrong by a factor of 10^12.
+
+**Note:** The frontend gasless-helpers decimal bug (F-TODO-4) was fixed in v5. This is a separate instance in `use-swap-wallets.svelte.ts` that was missed.
+
+### 5.6 CRITICAL: Changelly Swap Lifecycle Is Dead Code
+
+**Severity:** CRITICAL
+**File:** `src/lib/stores/swap.store.ts`
+
+The entire Changelly swap lifecycle store (`initiateSwap`, `confirmAndCreateSwap`, `pollSwapStatus`) is **never imported by any component**. The `swapStore` export has zero consumers.
+
+The `SwapForm.svelte` uses the route-engine + `executeSwapChain` path instead. Changelly is only used for currency discovery in `ReceiveSwapSelector.svelte` (calling `getCurrencies()`), not for actual swap execution.
+
+**Impact:** If the route-engine Changelly provider + executor path works, this is harmless dead code. But it means the dedicated Changelly lifecycle (estimate → confirm → poll → complete) was built but never connected.
+
+### 5.7 CRITICAL: Loan Flow Service Has No UI Entry Point
+
+**Severity:** CRITICAL
+**File:** `src/lib/services/loan-flow.service.ts`
+
+The full loan flow service (rBTC → DOC → USDT0 on RSK → USDT0 on Arbitrum via LayerZero) wraps the SDK's `LoanFlowOrchestrator` but is **never imported by any component**. Functions `executeLoanFlow`, `executeBridgeOnly`, `getLoanFlowQuote`, and `recoverLoanFlow` are all orphaned.
+
+The wallet page's DeFi buttons open `BorrowFlowDrawer` (Aave V3 only), not the loan flow. The `BankingMenu` DeFi handler shows a preview toast ("DeFi is in preview") rather than opening any flow.
+
+**Impact:** Users have no way to access the rBTC → DOC → USDT0 → Arbitrum pipeline from the UI.
+
+### 5.8 CRITICAL: USDTBalance.svelte Is Dead Code
+
+**Severity:** CRITICAL (low impact — dead code)
+**File:** `src/lib/components/wallet/USDTBalance.svelte`
+
+Not imported by any component. Only shows BSC USDT balance (`$walletStore.bsc.formattedUsdtBalance`). Does not display RSK USDT0 or Arbitrum USDT0. The `BalanceCard.svelte` correctly shows USDT0 balances on all chains.
+
+### 5.9 HIGH: `fetchSubmarineFee` Percentage Fee Always Zero
+
+**Severity:** HIGH
+**File:** `src/lib/services/SmartRouter.ts:971`
+
+```typescript
+Math.round((pair.fees.percentage / 100) * 0 + pair.fees.minerFees) + 50
+//                                        ^^^
+//                    This * 0 nullifies the percentage-based fee
+```
+
+The function doesn't accept `amountSats` as a parameter, so it cannot compute a percentage-based fee. Result is always `minerFees + 50` regardless of swap amount.
+
+**Impact:** Submarine fee estimates for Boltz linked routes show only the fixed miner fee component, underestimating the actual cost.
+
+### 5.10 HIGH: Hardcoded BTC Price ($73,000) in SmartRouter
+
+**Severity:** HIGH
+**File:** `src/lib/services/SmartRouter.ts:304,701`
+
+```typescript
+const approxBtcPrice = 73_000;  // Line 304
+const approxBtcPrice = 73_000;  // Line 701
+```
+
+Used for USDT↔sats conversions in `buildReverseLifiRoute` and `buildBoltzLifiUsdtRoute`.
+
+**Impact:** All USDT↔BTC swap quotes use a stale BTC price. As BTC price moves from $73k, quotes become increasingly inaccurate.
+
+### 5.11 MEDIUM: Wrong Network Labels on Arbitrum Token Balances
+
+**Severity:** MEDIUM
+**File:** `src/lib/stores/wallet/wallet-balances.ts`
+
+| Line | Token | Tagged As | Should Be |
+|------|-------|-----------|-----------|
+| 272 | USDT0 (Arbitrum) | `network: 'RSK'` | `'Arbitrum'` or `'ARB'` |
+| 316 | WBTC (Arbitrum) | `network: 'BSC'` | `'Arbitrum'` or `'ARB'` |
+| 328 | WBTC (Arbitrum) | `network: 'BSC'` | `'Arbitrum'` or `'ARB'` |
+| 358 | tBTC (Arbitrum) | `network: 'BSC'` | `'Arbitrum'` or `'ARB'` |
+
+**Impact:** These labels propagate to the `assets[]` array and could mislead any UI or routing logic that reads `asset.network`.
+
+### 5.12 MEDIUM: GaslessSendFlow Shows $0 on Pending/Success Screens
+
+**Severity:** MEDIUM
+**File:** `src/lib/components/wallet/GaslessSendFlow.svelte:278,288`
+
+```typescript
+// Line 278-280: Pending screen
+<PendingTransactionScreen amountSats={0} amountUSD={0} />
+
+// Line 288-292: Success screen
+<TransactionSuccessScreen amount={0} />
+```
+
+The actual transfer amount is not passed to these screens. User sees "$0.00" on both pending and success screens for gasless sends.
+
+### 5.13 MEDIUM: No Handler for RSK USDT0 Sends
+
+**Severity:** MEDIUM
+**File:** `src/lib/services/send-execution.service.ts:490-498`
+
+`SUPPORTED_NETWORKS` does not include `'usdt0-rsk'` or any RSK USDT variant. `BUILTIN_HANDLERS` and `CONNECTED_HANDLERS` have no entry for RSK USDT0 sends.
+
+**Impact:** Sending USDT0 on RSK is not supported through the send execution service. Users can see their RSK USDT0 balance but cannot send it.
+
+### 5.14 MEDIUM: OpenOcean DEX Service Not Wired Into Route Engine
+
+**Severity:** MEDIUM
+**Files:** `src/lib/services/openocean.service.ts`, `src/lib/services/route-engine/`
+
+The OpenOcean DEX aggregator (DOC → USDT0 swaps on RSK) has a full implementation with feature flag `VITE_OPENOCEAN_ENABLED`, but no `openocean.provider.ts` exists in `route-engine/providers/`. It's only used by the legacy `route-resolver-async.ts`, not the new route engine.
+
+**Impact:** OpenOcean routes are not available in the SwapForm's route picker.
+
+### 5.15 LOW: SwapForm Network Mapping Error
+
+**Severity:** LOW
+**File:** `src/lib/components/wallet/SwapForm.svelte:143-145`
+
+`_mapSourceToNetwork` maps `wbtc-arb` and `tbtc-arb` to `'rootstock-bitcoin'`. These are Arbitrum assets and should map to an Arbitrum network key. Affects toast notifications for swap progress.
+
+### 5.16 LOW: `process.env` in Browser Code
+
+**Severity:** LOW
+**File:** `src/routes/(app)/(protected)/wallet/+page.svelte:57`
+
+```typescript
+process.env.NODE_ENV !== 'development'
+```
+
+In SvelteKit client-side code, `process.env` may not be available. Should use `import.meta.env.DEV`.
+
+### 5.17 LOW: Non-null Assertion Without Guard
+
+**Severity:** LOW
+**File:** `src/lib/stores/wallet/wallet-swaps.ts:59`
+
+```typescript
+manager.chainSwapService!.createChainSwap(...)
+```
+
+If `chainSwapService` is not initialized, this throws at runtime. The RSK wallet check on line 53 properly guards against null.
+
 ---
 
 ## 7. Wallet SDK Bugs (wallet-core-v2)
@@ -598,6 +814,95 @@ export type TransactionInterface = any;
 
 `axios` v1.8.4 is listed in `package.json` but never imported.
 
+### 6.16 LOW: BSC Explorer API URL Points to Etherscan — OUT OF SCOPE
+
+**File:** `src/utils/networkConfig.ts:224`
+**Status:** BSC is legacy/unused by the active product. This is harmless and will be addressed separately when BSC support is removed.
+
+### 6.17 HIGH: Post-Swap Output Estimation Returns Wrong Value
+
+**File:** `src/loans/RskDexSwapService.ts:213-218`
+
+After swap execution, `getAmountsOut()` is called with the same input amount. But post-swap reserves have changed, so the result differs from what the user actually received. Should parse `Swap` event logs from the receipt instead.
+
+**Impact:** Loan flow reports wrong DOC→USDT0 output amounts after the swap step completes.
+
+### 6.18 HIGH: Loan Flow `recover()` Restarts From Scratch
+
+**File:** `src/loans/LoanFlowOrchestrator.ts:344`
+
+`executeFullFlow()` always creates fresh initial state at line 195, overwriting any recovered progress from saved state. If a multi-step loan flow fails mid-way (e.g., mint succeeded but DEX swap failed), recovery starts from step 1 instead of resuming at step 2.
+
+**Fix:** `recover()` should check which steps are already completed and skip them.
+
+### 6.19 MEDIUM: `estimatedUsdt0OnArbitrum` Doesn't Deduct Bridge Fee
+
+**File:** `src/loans/LoanFlowOrchestrator.ts:169`
+
+Bridge fee is never subtracted from the estimated output. The quote claims the user receives the full pre-bridge amount. The `quoteBridge()` call happens but its fee is not subtracted from the estimate.
+
+### 6.20 MEDIUM: Silent Mainnet Address Fallback on Testnet for Bridge Service
+
+**File:** `src/loans/LoanFlowOrchestrator.ts:82-84`
+
+```typescript
+const usdt0Token = getRSKToken('USDT0');
+this.bridgeService = config.bridgeService ?? new Usdt0BridgeService(
+    usdt0Token?.address ?? '0x779Ded0c9e1022225f8E0630b35a9b54bE713736',
+```
+
+On testnet, `getRSKToken('USDT0')` returns `undefined` (no USDT0 on RSK testnet in `RSK_TOKENS.testnet`), so it silently falls back to the mainnet address. Bridge calls will fail with a confusing on-chain revert.
+
+### 6.21 MEDIUM: `Usdt0BridgeService` Fragile GUID Extraction
+
+**File:** `src/loans/Usdt0BridgeService.ts:208,445`
+
+```typescript
+const guid = receipt.logs?.[0]?.topics?.[1] ?? '0x';
+```
+
+Assumes the LayerZero GUID is always in the first log's second topic. If the OFT contract emits other events before the `PacketSent` event (e.g., ERC-20 Transfer), this extracts the wrong value.
+
+### 6.22 ~~MEDIUM: `WalletManager` WebSocket Race Condition~~ — NOT A BUG
+
+The `connectWebSocket()` call from the synchronous getter is intentional and well-tested in production. The `if (!this._websocket) throw` guard handles the case correctly. Changing this would introduce bugs. Removed from priority matrix.
+
+### 6.23 MEDIUM: `Usdt0BridgeService` Error Says "ETH" on RSK
+
+**File:** `src/loans/Usdt0BridgeService.ts:327-329`
+
+```typescript
+if (ethBalance === BigInt(0)) {
+    throw new Error('Insufficient ETH balance');
+```
+
+On RSK, the native currency is RBTC, not ETH. The error message is misleading.
+
+### 6.24 MEDIUM: `tokenWeiToUsd` Precision Loss for Large Balances
+
+**File:** `src/utils/erc20.ts:297-298`
+
+```typescript
+const divisor = 10 ** decimals;
+return Number(tokenWei) / divisor;
+```
+
+For `decimals = 18`, `10 ** 18` exceeds `Number.MAX_SAFE_INTEGER` (2^53). `Number(tokenWei)` itself will lose precision for balances > ~9007 ETH/token. Same issue in `formatTokenAmount` (line 314). Should use `ethers.formatUnits()` or return a `string`.
+
+### 6.25 LOW: Missing Exports from `index.ts`
+
+`TIMELOCK_PERIODS`, `LIQUID_ASSET_IDS`, and `getLiquidAssetId()` from `networkConfig.ts` are NOT exported from `index.ts`. `ContractTransactionResult` and `ContractConfig` from `core/types.ts` are also not exported.
+
+### 6.26 LOW: Self-Dependency in `package.json`
+
+**File:** `package.json:70`
+
+```json
+"@bittasker/wallet-core": "file:bittasker-wallet-core-0.2.0.tgz"
+```
+
+The package lists **itself** as a dependency. This will cause install loops or phantom resolution. Must be removed.
+
 ---
 
 ## 8. Backend Bugs (bittasker-nestjs)
@@ -645,11 +950,73 @@ All addresses hardcoded to Arbitrum One (chainId 42161). No configuration mechan
 
 No tests for gasless endpoints, paymaster signer, preflight simulation, deposit monitor, Chainlink oracle, or rate limiter.
 
+### 8.10 HIGH: Floating-Point Precision in Fee Calculation
+
+**File:** `src/gasless/gasless.config.ts:156`
+
+```typescript
+const feeUSDWei = BigInt(Math.round(feeUSD * 1e18));
+```
+
+`feeUSD * 1e18` exceeds `2^53` (JavaScript's exact integer limit) for any `feeUSD ≥ 0.0091`. The `Math.round()` may return imprecise values.
+
+The meta-tx-relay correctly uses string-based conversion. NestJS should do the same.
+
+**Impact:** Fee amounts could be off by a few wei. Not catastrophic but introduces non-determinism between the two relay systems.
+
+### 8.11 HIGH: Estimate Creates Duplicate Treasury Transfers
+
+**File:** `src/gasless/gasless.service.ts:447-471`
+
+The `buildCallData` helper for simple token transfers creates **three calls**:
+1. Transfer to recipient (line 448-452)
+2. Transfer to GAS_TREASURY with hardcoded `1000000000000000` (line 453-459)
+3. Fee buffer transfer to GAS_TREASURY (line 463-471, appended last)
+
+The actual relay uses client-built callData with only **two calls** (transfer + fee). The estimation callData has an extra treasury transfer, inflating gas estimates.
+
+### 8.12 MEDIUM: `GAS_TREASURY` Defaults to Empty String
+
+**File:** `src/gasless/gasless.config.ts:92-98`
+
+`GAS_TREASURY` defaults to empty string with only a `console.warn`. The service starts normally and would fail at runtime when users try to estimate/relay. Should throw on startup or disable the gasless module.
+
+### 8.13 MEDIUM: Estimate Doesn't Handle AA23 Errors
+
+**File:** `src/gasless/gasless.service.ts:229`
+
+Only catches `AA20` (account not deployed). The meta-tx-relay also handles `AA23` (account validation failure). The NestJS version throws a generic error for AA23 cases that the meta-tx-relay handles gracefully with fallback gas estimates.
+
 ---
 
 ## 9. Contracts / Relay Bugs (meta-tx-relay)
 
-### 8.1 CRITICAL: Paymaster signature hash mismatch
+> **⚠️ CRITICAL SENSITIVITY WARNING:** The meta-tx-relay Cloudflare Worker code is **production infrastructure** that supports both the RSK escrow relay (Boltz swap claims) and the Arbitrum gasless relay (USDT operations). The RSK relay code (`relayController.js`, `blockchain.js`) has been in production for months and MUST NOT be modified. Only the Arbitrum gasless modules and the new VerifyingPaymaster contract should be touched.
+
+> **VerifyingPaymaster.sol is a NEW contract** — it was created for the USDT gasless implementation and has not been deployed to mainnet yet. It is safe to modify.
+
+### C3 Documented: callData Encoding Mismatch — No Collision
+
+**Confirmed: The NestJS and meta-tx-relay Arbitrum gasless systems do NOT collide.** They are completely separate paths that never interact.
+
+| System | Selector | ABI Encoding | Status |
+|--------|----------|-------------|--------|
+| NestJS (`gasless.service.ts:468`) | `0x34fcd5be` | `executeBatch((address,uint256,bytes)[])` — tuple array | **Active production path** — frontend exclusively calls NestJS |
+| meta-tx-relay (`gasless.js:277`) | `0x8d80ff0a` | `execute(address[],uint256[],bytes[])` — parallel arrays | **Unused** — never called by frontend |
+
+**Why no collision:** The frontend (`gasless-store.ts:310-313`) sends UserOps exclusively to `VITE_TX_RELAY_BASE_URL` which points to the NestJS backend. The meta-tx-relay's Arbitrum gasless endpoints (`/gasless/*`) are a parallel implementation that was never wired to the frontend. The RSK relay (`POST /relay`) in meta-tx-relay is completely separate — it relays `executeMetaTransaction()` calls to the escrow contract on Rootstock, not ERC-4337 UserOps.
+
+**Risk:** If meta-tx-relay is ever used as a backup relay for Arbitrum gasless, it will reject all requests due to the selector mismatch. Low risk today since it's not wired. The deployed account contract at `0xe6Cae83BdE06E4c305530e199D7217f42808555B` must support the tuple array encoding (`0x34fcd5be`) for the active production path to work.
+
+### Dead Code Documentation
+
+| File | Status | Why |
+|------|--------|-----|
+| `BitTasker-V2/src/lib/components/wallet/USDTBalance.svelte` | **Dead code** | Zero imports anywhere in codebase. Only shows BSC USDT balance. `BalanceCard.svelte` correctly shows USDT0 on all chains. |
+| `BitTasker-V2/src/lib/wallet/gasless-helpers.ts` parallel-arrays ABI | **Unused for relay** | The `executeBatch(address[],uint256[],bytes[])` ABI at line 26-28 is never used for building relay callData. The active path uses `gasless-store.ts`'s tuple ABI (`0x34fcd5be`). |
+| `BitTasker-V2/src/lib/stores/swap.store.ts` | **Dead code** | The entire Changelly swap lifecycle (`initiateSwap`, `confirmAndCreateSwap`, `pollSwapStatus`) has zero consumers. SwapForm uses route-engine + `executeSwapChain` instead. |
+
+### 8.1 CRITICAL: Paymaster signature hash mismatch — FIXED (v5)
 
 The **on-chain VerifyingPaymaster** computes:
 ```solidity
@@ -694,6 +1061,110 @@ In ERC-4337, `validationData` is a packed `uint256`. The contract returns `bool`
 ### 8.7 LOW: Gasless endpoints have zero test coverage
 
 No tests for any gasless module.
+
+### 8.8 CRITICAL: USDT0 Decimal Mismatch in meta-tx-relay Arbitrum Gasless Config
+
+**File:** `src/gasless/config.js:32`
+
+```javascript
+{ address: USDT0_ADDRESS, symbol: 'USDT0', decimals: 18, chainId: ARBITRUM_CHAIN_ID },
+//                                                             ^^^^^^^^
+//                                                    Should be 6, not 18
+```
+
+The NestJS backend correctly uses `decimals: 6`. The meta-tx-relay uses 18.
+
+**Impact:** `convertToTokenFee()` divides by `10^18` instead of `10^6` → fee buffer amounts are 10^12 times too small in real token units. `FEE_BUFFER_MIN`/`FEE_BUFFER_MAX` values are computed assuming 18 decimals, meaning the min/max guardrails are off by 10^12 and effectively useless for USDT0.
+
+**Fix scope:** Only change the USDT0 decimals in the Arbitrum gasless config. Do NOT touch any RSK relay code.
+
+### 8.9 CRITICAL SENSITIVE: callData Selector / ABI Encoding Mismatch Between NestJS and meta-tx-relay
+
+> **⚠️ EXTREME CAUTION REQUIRED:** Both systems are in production. The on-chain account contract (`SIMPLE_7702_ACCOUNT_IMPL`) determines which encoding is correct. Changing the wrong system will break all existing gasless transactions. **Must coordinate: determine which selector the deployed contract expects, then update the OTHER system to match.**
+
+| | NestJS | meta-tx-relay |
+|---|---|---|
+| Selector | `0x34fcd5be` | `0x8d80ff0a` |
+| ABI encoding | `(address,uint256,bytes)[]` (tuple array) | `address[], uint256[], bytes[]` (parallel arrays) |
+
+**Files:**
+- `bittasker-nestjs/src/gasless/gasless.service.ts:474` — builds with `0x34fcd5be`
+- `bittasker-nestjs/src/gasless/gasless-validation.service.ts:68` — validates against `0x34fcd5be`
+- `meta-tx-relay/src/services/gasless.js:277,429` — builds/validates against `0x8d80ff0a`
+
+These are **completely different function signatures** with **incompatible ABI encodings**. A UserOp estimated on one system cannot be relayed by the other.
+
+**Impact:** If the frontend sends callData built for one selector to the other backend, it will be rejected with "callData must be executeBatch". The on-chain account contract (`SIMPLE_7702_ACCOUNT_IMPL`) must support whichever selector is intended.
+
+### 8.10 CRITICAL: VerifyingPaymaster `validationData` Packing Error
+
+**File:** `contracts/src/VerifyingPaymaster.sol:127-131`
+
+```solidity
+if (validUntil == 0 && validAfter == 0) {
+    validationData = 0;
+} else {
+    validationData = (uint256(validAfter) << 48) | uint256(validUntil);
+}
+```
+
+ERC-4337 specifies `validationData` as:
+```
+bits 208-255: validAfter
+bits 160-207: validUntil
+bits 0-159:   authorizer (address(0) = valid)
+```
+
+The contract packs into bits 0-95 only, leaving the **authorizer field** (bits 0-159) containing the timestamp values instead of `address(0)`.
+
+**Impact:**
+- When `validAfter = 0` (as the signing services always produce), `validationData = validUntil`. The EntryPoint treats the timestamp as the authorizer address → time-based expiry is **silently bypassed**.
+- Signed paymasterAndData can be **replayed indefinitely** (no time window enforcement).
+- If a future EntryPoint version interprets the non-zero authorizer strictly, **all sponsored UserOps would fail**.
+
+**Fix:** Use the correct packing:
+```solidity
+validationData = (uint256(validAfter) << 208) | (uint256(validUntil) << 160);
+```
+
+### 8.11 HIGH: initCode Hash Mismatch Between Contract and meta-tx-relay Signer
+
+**VerifyingPaymaster.sol:107** always hashes empty initCode:
+```solidity
+keccak256(""),  // always empty
+```
+
+**NestJS paymaster-signing.service.ts:144** also always hashes empty:
+```typescript
+ethers.keccak256(ethers.getBytes('0x')),  // always empty
+```
+
+**meta-tx-relay paymasterSigner.js:112-118** reconstructs initCode from factory+factoryData:
+```javascript
+userOp.initCode
+    || (userOp.factory
+        ? ethers.concat([userOp.factory, userOp.factoryData || '0x'])
+        : '0x')
+```
+
+If a UserOp includes `factory`/`factoryData` (for counterfactual deployment), the meta-tx-relay signer will hash non-empty initCode while the contract hashes empty initCode → **signature verification fails**.
+
+For EIP-7702 delegated accounts this is typically moot (no factory), but it's a latent bug for factory-deployed accounts.
+
+### 8.12 MEDIUM: Preflight Simulation Behavioral Drift
+
+| | NestJS | meta-tx-relay |
+|---|---|---|
+| Behavior | **Non-blocking** (catch + log warning, continue) | **Blocking** (throws, rejects relay) |
+| File | `gasless.service.ts:123-131` | `services/gasless.js:185` |
+
+The NestJS relay may submit UserOps that fail preflight simulation, wasting gas on reverted transactions. The meta-tx-relay may reject valid UserOps if the preflight RPC has transient issues.
+
+### 8.13 MEDIUM: meta-tx-relay Creates New Provider Instances Per Request
+
+**Files:** `chainlinkOracle.js:58-60`, `services/gasless.js:221`, `depositMonitor.js:34`, `preflightSimulation.js:23`
+
+Every RPC call creates a new `ethers.JsonRpcProvider` instance. The NestJS version creates providers once in constructors and reuses them.
 
 ---
 
@@ -798,8 +1269,14 @@ Beyond the Boltz/Symbiosis stubs, the orchestrator's auto-swap pipeline has two 
 | Feature | Priority | Owner | Notes |
 |---------|----------|-------|-------|
 | **Wire loan flow into frontend** | CRITICAL | SDK + Frontend | `LoanFlowOrchestrator`, `MoCMintingService`, `Usdt0BridgeService`, `RskDexSwapService` exist in SDK but are NOT imported or used by the frontend. The frontend route engine has no path through the loan flow. Need to integrate as a new route provider or standalone flow. |
+| **Changelly swap UI wiring** | CRITICAL | Frontend | The legacy `swap.store.ts` lifecycle is dead code. The route-engine `changelly.provider.ts` + executor may work, but needs end-to-end verification. |
 | **Paymaster hash format alignment** | CRITICAL | meta-tx-relay | On-chain and off-chain must match |
+| **USDT0 decimals in meta-tx-relay** | CRITICAL | meta-tx-relay | Config uses 18 decimals, should be 6 |
+| **callData encoding alignment** | CRITICAL | NestJS + meta-tx-relay | NestJS uses `0x34fcd5be` (tuple array), meta-tx-relay uses `0x8d80ff0a` (parallel arrays). Must pick one. |
+| **Paymaster validationData packing** | CRITICAL | meta-tx-relay | Contract packs timestamps into bits 0-95 instead of bits 160-255. Time-based expiry bypassed. |
 | **VerifyingPaymaster testnet deployment** | CRITICAL | meta-tx-relay | Deploy to Arbitrum Sepolia |
+| **RSK USDT0 send handler** | HIGH | Frontend | `send-execution.service.ts` has no handler for `usdt0-rsk` sends |
+| **Wire OpenOcean into route engine** | HIGH | Frontend | `openocean.service.ts` exists but no `openocean.provider.ts` in route engine |
 | **BTC/L-BTC submarine swap refunds** | HIGH | SDK | RBTC refunds work, BTC/L-BTC not implemented |
 | **Boltz testnet config** | HIGH | SDK | No testnet API endpoints, falls back to regtest |
 | **RSK Testnet USDT0 address** | HIGH | SDK | DOC testnet address exists, USDT0 missing |
@@ -809,6 +1286,9 @@ Beyond the Boltz/Symbiosis stubs, the orchestrator's auto-swap pipeline has two 
 | **Add ERC-20 utilities to SDK** | HIGH | SDK | `encodeERC20Transfer()`, `waitForERC20Balance()` |
 | **Add multi-chain USDT address registry to SDK** | HIGH | SDK | Single source of truth |
 | **Unit tests for gasless relay** | HIGH | meta-tx-relay | All gasless modules untested |
+| **Fix NestJS fee precision** | HIGH | NestJS | `BigInt(Math.round(feeUSD * 1e18))` loses precision for fees ≥ $0.009 |
+| **Fix NestJS estimate duplicate treasury transfers** | HIGH | NestJS | `buildCallData` creates 3 calls instead of 2 |
+| **Align preflight simulation behavior** | MEDIUM | NestJS + meta-tx-relay | NestJS is non-blocking, meta-tx-relay is blocking |
 | **Arbitrum transaction history loading** | MEDIUM | SDK + Frontend | `loadArbitrumTransactions` exists in SDK, needs frontend integration |
 | **EIP-7702 core signing in SDK** | MEDIUM | SDK | Extract from frontend `gas-abstraction/` |
 | **Structured logging** | MEDIUM | SDK | Replace console.* calls with proper logging |
@@ -1030,6 +1510,15 @@ const result = await orchestrator.executeFullFlow(
 
 - [ ] Paymaster hash format aligned on-chain and off-chain
 - [ ] VerifyingPaymaster deployed to Arbitrum One with funded deposit
+- [x] **Fix USDT0 decimals in connected wallet balance display (Bug 5.5)** — FIXED (v7)
+- [x] **Fix USDT0 decimals in meta-tx-relay config (Bug 8.8)** — FIXED (v7, Arbitrum gasless only)
+- [ ] **Reconcile callData encoding between NestJS and meta-tx-relay (Bug 8.9)** — CRITICAL SENSITIVE
+- [x] **Fix VerifyingPaymaster validationData packing (Bug 8.10)** — FIXED (v7)
+- [x] **Wire loan flow into frontend UI (Bug 5.7)** — FIXED (v7)
+- [x] **Fix fetchSubmarineFee percentage fee zeroing (Bug 5.9)** — FIXED (v7)
+- [ ] **Replace hardcoded BTC price with live feed (Bug 5.10)** — SmartRouter is dead code (replaced by route-engine)
+- [x] **Add RSK USDT0 send handler (Bug 5.13)** — FIXED (v7)
+- [ ] **Wire OpenOcean into route engine (Bug 5.14)**
 - [x] `mintDoc()` return value fixed
 - [x] `redeemDoc()` return value fixed
 - [x] `bridge()` approval flow fixed
@@ -1069,24 +1558,52 @@ const result = await orchestrator.executeFullFlow(
 
 | # | Severity | Bug | Owner | Impact |
 |---|----------|-----|-------|--------|
-| 1 | **CRITICAL** | Wire loan flow into frontend | SDK + Frontend | LoanFlowOrchestrator, MoCMintingService, Usdt0BridgeService, RskDexSwapService exist in SDK. **Frontend service layer created** (`loan-flow.service.ts`). UI wiring still needed. |
-| 2 | **CRITICAL** | ~~Paymaster hash format mismatch~~ | meta-tx-relay | FIXED: Contract + NestJS backend updated to v0.7 packed format matching CF Worker paymasterSigner.js. Returns `uint256 validationData` per ERC-4337 v0.8. All 3 components now use identical hash format. |
-| 2 | **HIGH** | BTC/L-BTC submarine swap refunds not implemented | SDK | Failed submarine swaps unrecoverable |
-| 3 | **HIGH** | Changelly swap API keys not configured | Backend | Swap API non-functional |
-| 4 | **HIGH** | ~~Consolidate ArbitrumWallet implementations~~ | SDK + Frontend | Frontend kept as thin wrapper for gasless; SDK version is authoritative for WalletManager |
-| 5 | **HIGH** | ~~Consolidate token registries~~ | SDK + Frontend | `gasless.config.ts` now uses SDK `ARB_TOKEN_ADDRESSES`; `verified-tokens.ts` now includes USDT0 on RSK |
-| 6 | **HIGH** | Wire loan flow UI | SDK + Frontend | Service layer created; UI component (LoanFlowDrawer) needs to use `executeLoanFlow()` |
-| 7 | **MEDIUM** | ~~Console spam reactive cascade~~ | Frontend | Bug 5.1c fixed (forceRefresh), Bug 5.1b fixed (once-per-session warning), debug logs removed |
-| 8 | **MEDIUM** | ~~`forceRefresh` hardcode~~ | Frontend | Fixed: now passes `forceRefresh` parameter correctly |
-| 9 | **MEDIUM** | ~~Debug console.log in production~~ | SDK | Bug 6.11 fixed: removed 5 debug console.logs from ReverseSwapService |
-| 10 | **MEDIUM** | No idempotency protection | meta-tx-relay | Duplicate submission risk |
-| 11 | **MEDIUM** | Duplicate `satoshiToWei`/`weiToSatoshi` | SDK | Inconsistent return types |
-| 12 | **MEDIUM** | Global singleton network getter | SDK | Not safe for multi-instance |
-| 13 | **MEDIUM** | Arbitrum Sepolia empty tokens | SDK | Cannot test Arbitrum on testnet |
-| 14 | **MEDIUM** | Frontend rBTC auto-swap is placeholder | Frontend | Symbiosis + Boltz stubs in fiat orchestrator |
-| 15 | **LOW** | `TransactionInterface = any` | SDK | Type safety gap |
-| 16 | **LOW** | Gas estimate hardcoded fallbacks | SDK | May cause stuck txs on mainnet |
-| 17 | **LOW** | Dead dependency (axios) | SDK | Bundle size waste |
+| 1 | **CRITICAL** | ~~USDT0-Arb balance ~$0 for connected wallets (Bug 5.5)~~ | Frontend | FIXED (v7): `/1e18` → `/1e6` in 4 locations |
+| 2 | **CRITICAL** | ~~USDT0 decimals = 18 in meta-tx-relay Arbitrum gasless config (Bug 8.8)~~ | meta-tx-relay | FIXED (v7): decimals→6, FEE_BUFFER_MIN→10_000n, FEE_BUFFER_MAX→150_000n. RSK relay untouched. |
+| 3 | **CRITICAL SENSITIVE** | callData encoding mismatch NestJS vs meta-tx-relay (Bug 8.9) | NestJS + meta-tx-relay | Must determine which selector the on-chain contract expects before changing either system |
+| 4 | **CRITICAL** | ~~VerifyingPaymaster validationData packing error (Bug 8.10)~~ | meta-tx-relay | FIXED (v7): `(validAfter << 208) | (validUntil << 160)` per ERC-4337. 13 tests passing. |
+| 5 | **CRITICAL** | ~~Wire loan flow into frontend~~ | SDK + Frontend | FIXED (v7): LoanFlowDrawer created + wired into wallet page with "Convert" button and BankingMenu handler |
+| 6 | **CRITICAL** | Changelly swap lifecycle dead code (Bug 5.6) | Frontend | Harmless dead code — route-engine Changelly path is the active one |
+| 7 | **CRITICAL** | ~~Loan flow service orphaned (Bug 5.7)~~ | Frontend | FIXED (v7): LoanFlowDrawer imports and uses executeLoanFlow/getLoanFlowQuote |
+| 8 | **CRITICAL** | ~~Paymaster hash format mismatch~~ | meta-tx-relay | FIXED (v5) |
+| 9 | **HIGH** | `fetchSubmarineFee` percentage fee always zero (Bug 5.9) | Frontend | Submarine fee estimates show only fixed miner fee |
+| 10 | **HIGH** | Hardcoded BTC price $73,000 (Bug 5.10) | Frontend | All USDT↔BTC swap quotes use stale price |
+| 11 | **HIGH** | Post-swap output estimation wrong (Bug 6.17) | SDK | Loan flow reports wrong DOC→USDT0 output |
+| 13 | **HIGH** | Loan flow `recover()` restarts from scratch (Bug 6.18) | SDK | Failed loan flows cannot resume mid-way |
+| 14 | **HIGH** | NestJS floating-point precision in fee calc (Bug 8.10) | NestJS | Fee amounts non-deterministic between relay systems |
+| 15 | **HIGH** | NestJS estimate creates duplicate treasury transfers (Bug 8.11) | NestJS | Gas estimates inflated |
+| 16 | **HIGH** | initCode hash mismatch for factory accounts (Bug 8.11) | meta-tx-relay | Paymaster signature fails for factory-deployed accounts |
+| 17 | **HIGH** | ~~RSK USDT0 send handler missing (Bug 5.13)~~ | Frontend | FIXED (v7): `usdt0-rsk` handler added to send-execution.service.ts + sendRSKUSDT0 in wallet-send.ts |
+| 18 | **HIGH** | OpenOcean not wired into route engine (Bug 5.14) | Frontend | OpenOcean routes unavailable in SwapForm |
+| 19 | **HIGH** | BTC/L-BTC submarine swap refunds not implemented | SDK | Failed submarine swaps unrecoverable |
+| 20 | **HIGH** | Changelly swap API keys not configured | Backend | Swap API non-functional |
+| 21 | **HIGH** | ~~Consolidate ArbitrumWallet implementations~~ | SDK + Frontend | Frontend kept as thin wrapper for gasless; SDK version is authoritative |
+| 22 | **HIGH** | ~~Consolidate token registries~~ | SDK + Frontend | `gasless.config.ts` now uses SDK `ARB_TOKEN_ADDRESSES` |
+| 23 | **HIGH** | Wire loan flow UI | SDK + Frontend | Service layer created; UI component needs `executeLoanFlow()` |
+| 24 | **MEDIUM** | ~~Wrong network labels on Arb tokens (Bug 5.11)~~ | Frontend | FIXED (v7): Changed to 'Arbitrum' for usdt0-arb, wbtc-arb, tbtc-arb |
+| 25 | **MEDIUM** | ~~GaslessSendFlow shows $0 on pending/success (Bug 5.12)~~ | Frontend | FIXED (v7): Now passes `parseFloat(amount)` instead of hardcoded 0 |
+| 26 | **MEDIUM** | Bridge fee not deducted from estimate (Bug 6.19) | SDK | Loan flow quote overestimates final amount |
+| 27 | **MEDIUM** | Silent mainnet fallback on testnet for bridge (Bug 6.20) | SDK | Bridge calls fail with confusing on-chain revert on testnet |
+| 28 | **MEDIUM** | Fragile GUID extraction in bridge service (Bug 6.21) | SDK | LayerZero message tracking may extract wrong GUID |
+| 29 | **MEDIUM** | Preflight simulation behavioral drift (Bug 8.12) | NestJS + meta-tx-relay | NestJS non-blocking, meta-tx-relay blocking |
+| 31 | **MEDIUM** | ~~Console spam reactive cascade~~ | Frontend | FIXED (v5) |
+| 32 | **MEDIUM** | ~~`forceRefresh` hardcode~~ | Frontend | FIXED (v5) |
+| 33 | **MEDIUM** | ~~Debug console.log in production~~ | SDK | FIXED (v5) |
+| 34 | **MEDIUM** | No idempotency protection | meta-tx-relay | Duplicate submission risk |
+| 35 | **MEDIUM** | Duplicate `satoshiToWei`/`weiToSatoshi` | SDK | Inconsistent return types |
+| 36 | **MEDIUM** | Global singleton network getter | SDK | Not safe for multi-instance |
+| 37 | **MEDIUM** | Arbitrum Sepolia empty tokens | SDK | Cannot test Arbitrum on testnet |
+| 38 | **MEDIUM** | Frontend rBTC auto-swap is placeholder | Frontend | Symbiosis + Boltz stubs in fiat orchestrator |
+| 39 | **LOW** | ~~SwapForm network mapping error (Bug 5.15)~~ | Frontend | FIXED (v7): wbtc-arb/tbtc-arb now map to 'usdt-arbitrum' |
+| 40 | **LOW** | ~~`process.env` in browser code (Bug 5.16)~~ | Frontend | FIXED (v7): Changed to `!import.meta.env.DEV` |
+| 41 | **LOW** | Non-null assertion without guard (Bug 5.17) | Frontend | Runtime crash if chainSwapService not initialized |
+| 42 | **LOW** | `tokenWeiToUsd` precision loss (Bug 6.24) | SDK | Large balances lose precision |
+| 43 | **LOW** | Missing SDK exports (Bug 6.25) | SDK | Downstream consumers can't access some constants |
+| 44 | **LOW** | Self-dependency in package.json (Bug 6.26) | SDK | Install loops or phantom resolution |
+| 45 | **LOW** | ETH vs RBTC error message (Bug 6.23) | SDK | Misleading error on RSK |
+| 46 | **LOW** | `TransactionInterface = any` | SDK | Type safety gap |
+| 47 | **LOW** | Gas estimate hardcoded fallbacks | SDK | May cause stuck txs on mainnet |
+| 48 | **LOW** | Dead dependency (axios) | SDK | Bundle size waste |
 
 ### Previously Fixed (no longer in priority matrix)
 
@@ -1117,6 +1634,16 @@ const result = await orchestrator.executeFullFlow(
 | ~~ESM resolution broken~~ | ✅ NOT A BUG | SDK uses `moduleResolution: "bundler"` which works correctly with Vite. No changes needed. |
 | ~~Paymaster hash format mismatch~~ | ✅ FIXED | Contract + NestJS updated to v0.7 packed format matching CF Worker. Returns uint256 validationData per ERC-4337 v0.8 (v5) |
 | ~~NestJS paymaster signer uses old hash~~ | ✅ FIXED | Updated to v0.7 packed format with validUntil/validAfter; returns full paymasterAndData (v5) |
+| ~~USDT0-Arb connected wallet decimals (Bug 5.5)~~ | ✅ FIXED | Changed /1e18 to /1e6 in 4 locations in use-swap-wallets.svelte.ts (v7) |
+| ~~USDT0 meta-tx-relay decimals (Bug 8.8)~~ | ✅ FIXED | Changed to decimals:6, FEE_BUFFER_MIN:10_000n, FEE_BUFFER_MAX:150_000n in Arbitrum gasless config only (v7) |
+| ~~VerifyingPaymaster validationData (Bug 8.10)~~ | ✅ FIXED | Corrected bit packing to (validAfter<<208)|(validUntil<<160) per ERC-4337 (v7) |
+| ~~RSK USDT0 send handler (Bug 5.13)~~ | ✅ FIXED | Added usdt0-rsk to send-execution.service.ts + sendRSKUSDT0 in wallet-send.ts + RSKWallet.sendToken() in SDK (v7) |
+| ~~Loan flow UI wiring (Bug 5.7)~~ | ✅ FIXED | LoanFlowDrawer created + wired into wallet page with Convert button + BankingMenu handler (v7) |
+| ~~GaslessSendFlow $0 amounts (Bug 5.12)~~ | ✅ FIXED | Now passes parseFloat(amount) to pending/success screens (v7) |
+| ~~Network labels wrong (Bug 5.11)~~ | ✅ FIXED | Changed to 'Arbitrum' for usdt0-arb, wbtc-arb, tbtc-arb (v7) |
+| ~~SwapForm network mapping (Bug 5.15)~~ | ✅ FIXED | wbtc-arb/tbtc-arb now map to 'usdt-arbitrum' (v7) |
+| ~~process.env in browser (Bug 5.16)~~ | ✅ FIXED | Changed to !import.meta.env.DEV (v7) |
+| ~~fetchSubmarineFee zeroed (Bug 5.9)~~ | ✅ FIXED | Now accepts amountSats param and computes percentage fee correctly (v7) |
 
 ---
 
@@ -1224,3 +1751,272 @@ No environment variables needed — the SDK is a pure library. All configuration
 | Verify gasless relay end-to-end on mainnet | All | ⬜ |
 | Verify loan flow (rBTC → DOC → USDT0 → Arb) on mainnet | All | ⬜ |
 | Set up monitoring/alerting for gasless relay | meta-tx-relay | ⬜ |
+
+---
+
+## 17. Cross-Project Integration Assessment
+
+### 17.1 API Endpoint Alignment
+
+All frontend API endpoint paths match NestJS controller routes exactly:
+
+| Frontend Call | Path | NestJS Route | Status |
+|---|---|---|---|
+| `changellyService.estimateSwap()` | `POST /api/v1/changelly/swap/estimate` | `POST changelly/swap/estimate` | ✅ |
+| `changellyService.createSwap()` | `POST /api/v1/changelly/swap/create` | `POST changelly/swap/create` | ✅ |
+| `changellyService.getSwapStatus()` | `POST /api/v1/changelly/swap/status` | `POST changelly/swap/status` | ✅ |
+| `changellyService.getCurrencies()` | `POST /api/v1/changelly/swap/currencies` | `POST changelly/swap/currencies` | ✅ |
+| `getProviders()` | `GET /api/v1/changelly/fiat/providers` | `GET changelly/fiat/providers` | ✅ |
+| `createOrder()` | `POST /api/v1/changelly/fiat/orders` | `POST changelly/fiat/orders` | ✅ |
+| Gasless relay | `POST /api/v1/gasless/relay` | `POST gasless/relay` | ✅ |
+| Gasless estimate | `POST /api/v1/gasless/estimate` | `POST gasless/estimate` | ✅ |
+
+**No missing backend endpoints.** Every frontend service call has a corresponding backend route.
+
+### 17.2 Orphaned Backend Endpoints
+
+| Backend Endpoint | Purpose | Frontend Consumer |
+|---|---|---|
+| `POST /api/v1/gasless/balance` | Check token balance sufficiency | ❌ None |
+| `POST /api/v1/changelly/swap/limits` | Get min/max swap amounts | ❌ None (method exists in `changelly.service.ts` but never called) |
+| `POST /api/v1/changelly/fiat/webhook` | Changelly order status callback | N/A — server-to-server |
+
+### 17.3 Feature Flag Analysis
+
+**Frontend-only feature flags** (12 flags in `kill-switch.ts`):
+
+| Flag | Env Var | Backend Enforcement |
+|---|---|---|
+| `changelly-swaps` | `VITE_CHANGELLY_ENABLED` | ❌ None |
+| `changelly-fiat` | `VITE_CHANGELLY_FIAT_ENABLED` | ❌ None |
+| `lifi-swaps` | `VITE_LIFI_ENABLED` | ❌ None |
+| `symbiosis-swaps` | `VITE_SYMBIOSIS_ENABLED` | ❌ None |
+| `connected-wallets` | `VITE_CONNECTED_WALLETS_ENABLED` | ❌ None |
+| `loan-flow` | `VITE_LOAN_FLOW_ENABLED` | ❌ None |
+| `usdt0-bridge` | `VITE_USDT0_BRIDGE_ENABLED` | ❌ None |
+| `openocean-swaps` | `VITE_OPENOCEAN_ENABLED` | ❌ None |
+
+**Risk:** Feature flags are frontend-only build-time gates. Backend endpoints are always active. If a flag is disabled in the frontend, the backend endpoints are still reachable via direct API calls. Acceptable for a client-side mobile app but a security note for production.
+
+### 17.4 Swap Provider Integration Status
+
+| Provider | Route Engine | Executor | Feature Flag | UI Accessible |
+|---|---|---|---|---|
+| Direct (on-chain) | ✅ `direct.provider.ts` | N/A | Always on | ✅ |
+| Boltz | ✅ `boltz.provider.ts` | ✅ `boltz/` | Always on | ✅ |
+| Symbiosis | ✅ `symbiosis.provider.ts` | ✅ `symbiosis.ts` | `symbiosis-swaps` | ⚠️ Disabled (MetaRouter reverts) |
+| LI.FI | ✅ `lifi.provider.ts` | ✅ `lifi.ts` | `lifi-swaps` | ✅ |
+| Changelly | ✅ `changelly.provider.ts` | ✅ `changelly.ts` | `changelly-swaps` | ⚠️ Verify route-engine path |
+| Uniswap V3 | ✅ `uniswap-v3.provider.ts` | ✅ `uniswap-v3.ts` | Always on | ✅ |
+| OpenOcean | ❌ Not in engine | ❌ | `openocean-swaps` | ❌ Legacy only |
+| USDT0 Bridge | ❌ Not in engine | ❌ | `usdt0-bridge` | ❌ No UI |
+
+### 17.5 DeFi UI Components on Wallet Page
+
+| Component | Rendered | Gate | Status |
+|---|---|---|---|
+| `BorrowFlowDrawer.svelte` | ✅ Yes | `isLoanFlowEnabled()` | Opens Aave V3 borrow flow |
+| `EarnFlowDrawer.svelte` | ✅ Yes | `isLoanFlowEnabled()` | Opens Aave V3 earn flow |
+| DeFi buttons (Borrow + Earn) | ✅ Yes | `isLoanFlowEnabled()` | Row of two buttons on wallet page |
+| `BankingMenu` DeFi card | ✅ Yes | `isLoanFlowEnabled()` | Shows "DeFi is in preview" toast |
+| Loan Flow (rBTC→DOC→USDT0→Arb) | ✅ Yes (v7) | `isLoanFlowEnabled()` | LoanFlowDrawer with Convert button |
+| USDT0 LayerZero Bridge | ✅ Yes (v7) | Part of loan flow | Integrated into LoanFlowDrawer |
+| DOC Minting (MoC) | ✅ Yes (v7) | Part of loan flow | Integrated into LoanFlowDrawer |
+
+### 17.6 USDT Balance Display in BalanceCard
+
+The `BalanceCard.svelte` correctly renders USDT balances:
+- Line 82: `usdt0ArbAsset` — USDT0 on Arbitrum ✅
+- Line 83: `usdt0RskAsset` — USDT0 on Rootstock ✅
+- Line 84: `docBalance` — Dollar on Chain (RSK) ✅
+- Lines 512-530: Explicit rows for USDT0-Arb, USDT0-RSK, DOC-RSK, and tier-2 assets ✅
+- Line 536: `DefiPositionCard` for Aave loan positions ✅
+
+**Note:** Connected wallet USDT0-Arb balances will show ~$0 due to Bug 5.5 (decimal mismatch).
+
+---
+
+## 18. Manual Testing Plan (Production User Perspective)
+
+These instructions assume you're testing the USDT implementation as a normal production user would use the wallet. Boltz swaps are out of scope (already working). Focus is on USDT-specific features.
+
+### Prerequisites
+
+1. Backend running locally on port 8000 (`npm run start:dev`)
+2. Frontend running (`npm run dev`)
+3. `.env.development` configured with all required variables
+4. A funded wallet (RBTC on RSK for gas, some BTC for swaps)
+5. MetaMask or another connected wallet (optional, for connected wallet tests)
+
+### Test 1: USDT Balance Display
+
+**Goal:** Verify USDT balances appear correctly on all chains.
+
+1. Open the app and navigate to the wallet page
+2. Verify the total portfolio USD value includes USDT
+3. Expand the USD accordion
+4. Verify these rows appear:
+   - USDT0 on Arbitrum with correct balance and USD value
+   - USDT0 on RSK with correct balance (if you have any)
+   - DOC on RSK with correct balance (if you have any)
+5. If you have a connected wallet (MetaMask), switch to it and verify USDT0-Arb balance
+   - **Known bug (5.5):** Connected wallet USDT0-Arb balance will show ~$0
+
+### Test 2: Send USDT0 on Arbitrum (Gasless)
+
+**Goal:** Verify gasless USDT send works end-to-end.
+
+1. From the wallet page, tap "Send"
+2. Select USDT0 on Arbitrum as the asset
+3. Enter a recipient address (use another wallet you control)
+4. Enter an amount (e.g., $1.00)
+5. If EIP-7702 smart account is initialized, the gasless send flow should appear
+   - You should see a fee estimate in USDT (not ETH)
+   - The fee should be a small amount (e.g., $0.01-$0.05)
+6. Confirm the transaction
+7. **Known bug (5.12):** Pending and success screens will show $0.00 amount
+8. Verify the transaction appears in transaction history
+9. Verify the recipient received the USDT
+
+### Test 3: Aave V3 DeFi (Borrow/Earn)
+
+**Goal:** Verify Aave V3 lending and borrowing works.
+
+1. From the wallet page, tap "Borrow" or "Earn" button
+2. The `BorrowFlowDrawer` or `EarnFlowDrawer` should open
+3. **Earn flow:**
+   - Select a supply asset (e.g., USDT0 on Arbitrum)
+   - Enter an amount to supply
+   - Verify the Supply APY is displayed
+   - Confirm the transaction
+   - Verify your position appears in the DeFi positions section
+4. **Borrow flow:**
+   - If you have a supply position, try borrowing against it
+   - Verify the Health Factor gauge updates
+   - Verify the borrow rate is displayed
+   - Confirm the transaction
+5. Test repay and withdraw actions
+
+### Test 4: Changelly Swap (via Route Engine)
+
+**Goal:** Verify Changelly routes appear and can be executed.
+
+1. Open the SwapForm (swap drawer from wallet page)
+2. Select source: BTC on-chain
+3. Select destination: USDT0 on Arbitrum
+4. Wait for routes to load (the route engine queries providers in parallel)
+5. Verify the route picker shows multiple options (Boltz, LI.FI, Changelly, etc.)
+6. If a Changelly route appears:
+   - Select it and review the quote (estimated output, fees, timing)
+   - Confirm the swap
+   - Monitor progress through the multi-phase UI
+   - **Note:** Changelly swap API keys must be provisioned for this to work
+7. If no Changelly route appears, check if `VITE_CHANGELLY_ENABLED=true` in `.env.development`
+
+### Test 5: Buy Crypto with Fiat (Changelly Fiat)
+
+**Goal:** Verify fiat on-ramp flow.
+
+1. Navigate to the buy/sell fiat interface
+2. Select a fiat currency (e.g., USD) and a crypto asset (e.g., USDT)
+3. Verify offers are loaded from Changelly providers
+4. Review the offers (amount, fees, provider)
+5. **Note:** Completing a real fiat purchase requires a payment method. You can test up to the offer selection step.
+
+### Test 6: Connected Wallet USDT Balance
+
+**Goal:** Verify connected wallet shows correct USDT balances.
+
+1. Open the Connected Wallets section
+2. Connect MetaMask (or WalletConnect)
+3. Verify the connected wallet's USDT0-Arbitrum balance displays
+4. **Known bug (5.5):** Balance will show ~$0 due to decimal mismatch (dividing by 1e18 instead of 1e6)
+5. Try initiating a swap using the connected wallet as the source
+6. **Known bug:** Swap source balance calculation will also be wrong
+
+### Test 7: Multi-Provider Swap Routes
+
+**Goal:** Verify the route engine returns diverse, accurate routes.
+
+1. Open the SwapForm
+2. Test these pairs and verify routes appear:
+   - BTC → USDT0-Arb (expect Boltz two-hop, Changelly, LI.FI)
+   - USDT0-Arb → BTC (reverse)
+   - RBTC → USDT0-RSK (if available)
+   - USDT0-Arb → WBTC-Arb (same-chain Uniswap V3)
+3. Verify the RoutePicker shows estimated amounts and fees for each route
+4. **Known bug (5.9):** Submarine fee estimates are underestimated (percentage fee is zeroed)
+5. **Known bug (5.10):** BTC price is hardcoded at $73,000 for sats↔USDT conversions
+
+### Test 8: Transaction History for USDT
+
+**Goal:** Verify USDT transactions appear in history.
+
+1. After completing any USDT transaction (send, swap, or DeFi action)
+2. Navigate to the transaction history tab
+3. Verify the transaction appears with correct:
+   - Amount and token
+   - Status (pending/confirmed/failed)
+   - From/to addresses
+   - Transaction hash (clickable link to explorer)
+
+### Test 9: Send USDT0 on RSK
+
+**Goal:** Verify RSK USDT0 send capability.
+
+1. From the wallet page, tap "Send"
+2. Try to select USDT0 on RSK as the asset
+3. **Known bug (5.13):** This may not work — `send-execution.service.ts` has no handler for `usdt0-rsk` sends
+4. If the option is available, attempt to send and observe the result
+
+### Testing Priority Order
+
+1. **Test 1** (Balance display) — quickest validation, do first
+2. **Test 2** (Gasless send) — core USDT functionality
+3. **Test 3** (Aave V3) — DeFi integration
+4. **Test 4** (Changelly swap) — swap infrastructure
+5. **Test 7** (Multi-provider routes) — swap quote accuracy
+6. **Test 6** (Connected wallet) — expect decimal bug
+7. **Test 5** (Fiat on-ramp) — Changelly fiat
+8. **Test 8** (Transaction history) — post-action verification
+9. **Test 9** (RSK USDT0 send) — expect it to not work
+
+---
+
+## 19. Regtest Readiness Assessment
+
+### What CAN Be Tested on Regtest Now
+
+| Feature | Ready? | Requirements |
+|---------|--------|-------------|
+| USDT0 balance display (RSK + Arb) | ✅ | Need regtest token deployments |
+| Send USDT0 (Arbitrum gasless) | ⚠️ | Fix callData mismatch (Bug 8.9) first; needs local Alto + paymaster |
+| Aave V3 lending/borrowing | ✅ | Uses Arbitrum fork (`VITE_ARBITRUM_RPC_URL=http://127.0.0.1:8545`) |
+| Changelly swap (via route engine) | ⚠️ | Needs Changelly API keys; route-engine path needs verification |
+| Changelly fiat quotes | ⚠️ | Needs Changelly fiat API keys |
+| Connected wallet balances | ⚠️ | Expect decimal bug (Bug 5.5) |
+
+### What CANNOT Be Tested on Regtest
+
+| Feature | Blocker |
+|---------|---------|
+| Loan flow (rBTC→DOC→USDT0→bridge) | ⚠️ UI ready (v7), needs mock MoC/DEX/bridge contracts on regtest |
+| DOC minting (MoC) | ⚠️ UI ready (part of loan flow), needs mock MoC contract on regtest |
+| USDT0 LayerZero bridge | ⚠️ UI ready (part of loan flow), needs mock OFT contracts on regtest |
+| OpenOcean DEX swap | ❌ Not wired into route engine (Bug 5.14) |
+| RSK USDT0 send | ⚠️ Handler added (v7), needs USDT0 deployed on regtest |
+| BTC/L-BTC submarine swap refunds | ❌ Not implemented |
+
+### Regtest Setup Checklist
+
+- [ ] RSK Regtest node running (chainId 31337)
+- [ ] Arbitrum Regtest node running (Anvil fork of Arbitrum One on port 8545)
+- [ ] Mock USDT0 deployed on RSK Regtest (6 decimals)
+- [ ] Mock USDT0 deployed on Arbitrum Regtest (6 decimals)
+- [ ] Mock OFT contracts deployed on both chains
+- [ ] Mock MoC Core v2 deployed on RSK Regtest
+- [ ] Mock Sovryn router deployed on RSK Regtest with DOC/USDT0 pool
+- [ ] Mock VerifyingPaymaster deployed on Arbitrum Regtest
+- [ ] Local Alto bundler running
+- [ ] Backend configured with local contract addresses
+- [ ] Frontend `.env.development` configured with local RPC URLs

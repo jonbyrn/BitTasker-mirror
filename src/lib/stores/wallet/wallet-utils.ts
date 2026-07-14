@@ -29,6 +29,7 @@ import {
 	sendRSKToken,
 	sendBSCUSDT,
 	sendBSCBNB,
+	sendRSKUSDT0,
 	estimateRBTCGas,
 	estimateERC20Gas
 } from './wallet-send';
@@ -169,6 +170,9 @@ export const walletManager = {
 	},
 	get sendBSCBNB() {
 		return sendBSCBNB;
+	},
+	get sendRSKUSDT0() {
+		return sendRSKUSDT0;
 	},
 	get createReverseSwap() {
 		return createReverseSwap;

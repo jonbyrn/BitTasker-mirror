@@ -17,6 +17,7 @@ import { changellyProvider } from './providers/changelly.provider';
 import { boltzProvider } from './providers/boltz.provider';
 import { directProvider } from './providers/direct.provider';
 import { uniswapV3Provider } from './providers/uniswap-v3.provider';
+import { openoceanProvider } from './providers/openocean.provider';
 import { buildBoltzTwoHopRoute, BOLTZ_TWO_HOP_PAIRS } from './boltz-two-hop';
 import type { SourceWallet, Destination } from '$lib/services/route-resolver';
 import { tryCatch } from '$lib/utils/tryCatch';
@@ -38,7 +39,8 @@ const ALL_PROVIDERS: SwapProvider[] = [
 	symbiosisProvider,
 	lifiProvider,
 	changellyProvider,
-	uniswapV3Provider
+	uniswapV3Provider,
+	openoceanProvider
 ];
 
 // ---------------------------------------------------------------------------

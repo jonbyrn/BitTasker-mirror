@@ -63,7 +63,7 @@ export const tokens: readonly TokenInfo[] = [
 	{
 		address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // USDT0
 		symbol: 'USDT0',
-		decimals: 18, // 18 decimals
+		decimals: 6, // 6 decimals
 		chainId: 42161 // Arbitrum One
 	},
 	{
@@ -87,8 +87,8 @@ export const tokens: readonly TokenInfo[] = [
 export const feeBufferBounds: Record<string, FeeBufferBounds> = {
 	'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9': {
 		// USDT0
-		min: 10_000_000_000_000_000n, // 0.01 tokens ($0.01 — Low tier minimum)
-		max: 150_000_000_000_000_000n // 0.15 tokens ($0.15 — maximum to prevent drain)
+		min: 10_000n, // 0.01 tokens ($0.01 — Low tier minimum, 6 decimals)
+		max: 150_000n // 0.15 tokens ($0.15 — maximum to prevent drain, 6 decimals)
 	},
 	'0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': {
 		// wBTC

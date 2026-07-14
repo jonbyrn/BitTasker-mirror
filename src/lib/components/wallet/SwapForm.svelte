@@ -140,9 +140,9 @@
 			case 'usdt0-arb':
 				return 'usdt-arbitrum';
 			case 'wbtc-arb':
-				return 'rootstock-bitcoin';
+				return 'usdt-arbitrum';
 			case 'tbtc-arb':
-				return 'rootstock-bitcoin';
+				return 'usdt-arbitrum';
 			case 'btc-onchain':
 				return 'bitcoin';
 			default:

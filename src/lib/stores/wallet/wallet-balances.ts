@@ -269,7 +269,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				icon: '💵',
 				balance: arbUsdt0Formatted,
 				formattedBalance: arbUsdt0Balance.formattedBalance || '0.00',
-				network: 'RSK',
+				network: 'Arbitrum',
 				usdValue: usdt0UsdValue
 			});
 		} else if (walletAddress) {
@@ -281,7 +281,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				icon: '💵',
 				balance: 0,
 				formattedBalance: '0.00',
-				network: 'RSK',
+				network: 'Arbitrum',
 				usdValue: 0
 			});
 		}
@@ -313,7 +313,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				icon: '₿',
 				balance: wbtcFormatted,
 				formattedBalance: arbWbtcBalance.formattedBalance || '0.00',
-				network: 'BSC' as WalletAsset['network'],
+				network: 'Arbitrum',
 				usdValue: wbtcUsdValue
 			});
 		} else if (walletAddress) {
@@ -325,7 +325,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				icon: '₿',
 				balance: 0,
 				formattedBalance: '0.00',
-				network: 'BSC' as WalletAsset['network'],
+				network: 'Arbitrum',
 				usdValue: 0
 			});
 		}
@@ -355,7 +355,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 					icon: '₿',
 					balance: tbtcFormatted,
 					formattedBalance: arbTbtcBalance.formattedBalance || '0',
-					network: 'BSC' as WalletAsset['network'],
+					network: 'Arbitrum',
 					usdValue: tbtcUsdValue
 				});
 			}

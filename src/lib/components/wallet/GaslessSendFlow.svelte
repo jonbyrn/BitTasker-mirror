@@ -276,7 +276,7 @@
 	{#if step === 'pending'}
 		<PendingTransactionScreen
 			amountSats={0}
-			amountUSD={0}
+			amountUSD={parseFloat(amount) || 0}
 			address={recipient}
 			network="usdt-arbitrum"
 			networkOptions={{}}
@@ -287,7 +287,7 @@
 		<TransactionSuccessScreen
 			txHash={successTxHash}
 			network="usdt-arbitrum"
-			amount={0}
+			amount={parseFloat(amount) || 0}
 			{recipient}
 			onClose={onCancel}
 		/>

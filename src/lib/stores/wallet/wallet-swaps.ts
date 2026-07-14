@@ -56,12 +56,17 @@ export async function createChainSwap(
 	const rskAddress = manager.rskWallet.getAddress();
 	const walletSigner = manager.rskWallet.getWallet();
 
-	const result = await manager.chainSwapService!.createChainSwap({
-		amountSats,
-		rbtcAddress: rskAddress,
-		walletSigner,
-		description
-	});
+	const result = manager.chainSwapService
+		? await manager.chainSwapService.createChainSwap({
+				amountSats,
+				rbtcAddress: rskAddress,
+				walletSigner,
+				description
+			})
+		: null;
+	if (!result) {
+		throw new Error('Chain swap service not initialized — cannot create chain swap');
+	}
 	markExpectingInbound();
 	return result;
 }

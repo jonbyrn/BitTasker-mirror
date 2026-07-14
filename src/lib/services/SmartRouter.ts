@@ -327,7 +327,7 @@ export class SmartRouter {
 	private async buildBoltzLinkedRoute(amountSats: number): Promise<SmartRoute | null> {
 		// Fetch submarine (TBTC→LN) and reverse (LN→RBTC) fees from actual API
 		const [subResult, revResult] = await Promise.allSettled([
-			fetchSubmarineFee(), // TBTC → Lightning: 0.5% + 1 sat
+			fetchSubmarineFee(amountSats), // TBTC → Lightning: 0.5% + miner
 			fetchReverseFee() // Lightning → RBTC: 0.25% + 185 sats
 		]);
 
@@ -958,7 +958,7 @@ function lifiQuoteToSmartRoute(
 }
 
 /** Fetch submarine swap fee (TBTC → Lightning) from Boltz API. Returns sats. */
-async function fetchSubmarineFee(): Promise<number> {
+async function fetchSubmarineFee(amountSats: number): Promise<number> {
 	const resp = await fetch('https://api.boltz.exchange/v2/swap/submarine');
 	if (!resp.ok) return 50; // fallback
 	const data = (await resp.json()) as Record<
@@ -967,8 +967,8 @@ async function fetchSubmarineFee(): Promise<number> {
 	>;
 	const pair = data['TBTC']?.['BTC'];
 	if (!pair) return 50;
-	// Submarine fee = 0.5% + 1 sat miner
-	return Math.round((pair.fees.percentage / 100) * 0 + pair.fees.minerFees) + 50; // fallback: ~51 sats
+	const percentageFeeSats = Math.round((pair.fees.percentage / 100) * amountSats);
+	return percentageFeeSats + pair.fees.minerFees + 50;
 }
 
 /** Fetch reverse swap fee (Lightning → RBTC) from Boltz API. Returns sats. */
