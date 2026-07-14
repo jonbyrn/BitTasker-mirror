@@ -120,7 +120,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				? fetchWithRetry(() => manager.bscWallet.getBalances())
 				: Promise.resolve(null),
 			storeState.rsk.connected && walletAddress
-				? fetchWithRetry(() => tokenBalanceService.getRSKTokenBalances(walletAddress, true))
+				? fetchWithRetry(() => tokenBalanceService.getRSKTokenBalances(walletAddress, forceRefresh))
 				: Promise.resolve(null),
 			walletAddress
 				? fetchWithRetry(() =>

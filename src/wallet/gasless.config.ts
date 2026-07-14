@@ -1,18 +1,15 @@
 // Gasless Configuration — Arbitrum ERC-4337 + EIP-7702
 import type { TokenInfo, GasBounds, FeeTierDef, GaslessConfig } from '$lib/types/gasless.types';
-// import { ARB_TOKEN_ADDRESSES } from '@bittasker/wallet-core';
+import { ARB_TOKEN_ADDRESSES } from '@bittasker/wallet-core';
 
 export const ARBITRUM_CHAIN_ID = 42161;
 export const ENTRY_POINT_ADDRESS = '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' as const;
 export const SIMPLE_7702_ACCOUNT_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B' as const;
 
-/** Canonical Arbitrum token addresses from @bittasker/wallet-core */
-// export const USDT0_ADDRESS = ARB_TOKEN_ADDRESSES.USDT0;
-// export const WBTC_ADDRESS = ARB_TOKEN_ADDRESSES.WBTC;
-// export const TBTC_ADDRESS = ARB_TOKEN_ADDRESSES.TBTC;
-export const USDT0_ADDRESS = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
-export const WBTC_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
-export const TBTC_ADDRESS = '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40';
+/** Canonical Arbitrum token addresses — single source of truth from SDK */
+export const USDT0_ADDRESS = ARB_TOKEN_ADDRESSES.USDT0;
+export const WBTC_ADDRESS = ARB_TOKEN_ADDRESSES.WBTC;
+export const TBTC_ADDRESS = ARB_TOKEN_ADDRESSES.TBTC;
 
 export const TOKENS: readonly TokenInfo[] = [
 	{ address: USDT0_ADDRESS, symbol: 'USDT0', decimals: 6, chainId: ARBITRUM_CHAIN_ID },
@@ -39,15 +36,15 @@ export const FEE_TIERS: readonly FeeTierDef[] = [
 ];
 
 export const FEE_BUFFER_MIN: Record<string, bigint> = {
-	[USDT0_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n,
-	[WBTC_ADDRESS.toLowerCase()]: 16n,
-	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n
+	[USDT0_ADDRESS.toLowerCase()]: 10_000n, // USDT0 (6 decimals): $0.01
+	[WBTC_ADDRESS.toLowerCase()]: 16n, // WBTC (8 decimals): ~16 sats
+	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000n // tBTC (18 decimals): $0.01
 };
 
 export const FEE_BUFFER_MAX: Record<string, bigint> = {
-	[USDT0_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n,
-	[WBTC_ADDRESS.toLowerCase()]: 230n,
-	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n
+	[USDT0_ADDRESS.toLowerCase()]: 150_000n, // USDT0 (6 decimals): $0.15
+	[WBTC_ADDRESS.toLowerCase()]: 230n, // WBTC (8 decimals): ~230 sats
+	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000n // tBTC (18 decimals): $0.15
 };
 
 export const GAS_TREASURY = import.meta.env.VITE_GAS_TREASURY ?? '';

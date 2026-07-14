@@ -75,15 +75,7 @@ class TokenBalanceService {
 				}
 
 				this.tokenBalanceCache.delete(normalizedAddress);
-			} else {
-				console.log('[TokenBalanceService] Cache miss - no cached data found', {
-					address: normalizedAddress
-				});
 			}
-		} else {
-			console.log('[TokenBalanceService] Force refresh requested - bypassing cache', {
-				address: normalizedAddress
-			});
 		}
 
 		try {

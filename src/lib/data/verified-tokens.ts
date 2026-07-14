@@ -54,12 +54,18 @@ export const VERIFIED_TOKENS: Record<number, VerifiedToken[]> = {
 		}
 	],
 	30: [
-		// Rootstock (no canonical USDT/USDC on RSK — DOC/RDOC instead)
+		// Rootstock — DOC stablecoin + USDT0 (via LayerZero OFT)
 		{
 			address: '0xe700691da7b9851f2f35f8b8182c69c53ccad9db',
 			symbol: 'DOC',
 			name: 'Dollar on Chain',
 			decimals: 18
+		},
+		{
+			address: '0x779Ded0c9e1022225f8E0630b35a9b54bE713736',
+			symbol: 'USDT0',
+			name: 'USDT0 on Rootstock',
+			decimals: 6
 		}
 	],
 	56: [

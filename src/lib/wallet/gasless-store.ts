@@ -149,14 +149,13 @@ function createGaslessStore() {
 		async init(privateKey: `0x${string}`): Promise<string> {
 			update((s) => ({ ...s, loading: true, error: null }));
 			try {
-				const permissionlessPath = 'permissionless/accounts';
 				const [
 					{ to7702SimpleSmartAccount },
 					{ privateKeyToAccount },
 					{ createPublicClient, http },
 					{ arbitrum }
 				] = await Promise.all([
-					import(permissionlessPath),
+					import('permissionless/accounts'),
 					import('viem/accounts'),
 					import('viem'),
 					import('viem/chains')

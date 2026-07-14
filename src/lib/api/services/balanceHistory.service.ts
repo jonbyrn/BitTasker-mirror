@@ -24,6 +24,9 @@ const ARBITRUM_BLOCK_TIME_MS = 250; // ~250ms per block
 // ERC20 balanceOf ABI
 const erc20Interface = new ethers.Interface(['function balanceOf(address) view returns (uint256)']);
 
+// Track if we've already logged the non-archive RPC warning (avoid console spam)
+let _stablecoinFetchWarningLogged = false;
+
 /**
  * Fetch USDT (6 decimals) and DOC (18 decimals) balances at a historical block.
  * Returns their combined USD-equivalent value (both are ~$1 stablecoins).
@@ -85,7 +88,12 @@ async function fetchStablecoinUsdAtBlock(
 
 		return usdtBalance + docBalance;
 	} catch {
-		console.warn('[BalanceHistoryService] Failed to fetch stablecoin balances (non-archive RPC)');
+		if (!_stablecoinFetchWarningLogged) {
+			console.warn(
+				'[BalanceHistoryService] Failed to fetch stablecoin balances (non-archive RPC). Subsequent failures silenced.'
+			);
+			_stablecoinFetchWarningLogged = true;
+		}
 		return 0; // If historical call fails (non-archive node), stablecoins are assumed 0
 	}
 }

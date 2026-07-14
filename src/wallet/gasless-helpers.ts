@@ -118,8 +118,8 @@ export function convertToTokenFee(
  * Get USDT0 fee buffer for a given fee tier (stablecoin, constant $1.00 price).
  */
 export function getUSDT0FeeBuffer(feeUSD: number): bigint {
-	// USDT0 is 18 decimals, price = 1e18
-	return convertToTokenFee(feeUSD, 1_000_000_000_000_000_000n, 18);
+	// USDT0 is 6 decimals, price = 1e18 ($1.00)
+	return convertToTokenFee(feeUSD, 1_000_000_000_000_000_000n, 6);
 }
 
 /**

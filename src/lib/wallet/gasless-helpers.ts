@@ -33,11 +33,11 @@ const EXECUTE_BATCH_ABI = [
  * Values are in each token's smallest unit.
  */
 export const MIN_GAS_BUFFER: Record<string, bigint> = {
-	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 3_000_000_000_000_000n, // USDT: 0.003
-	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 3_000_000n, // USDC: 0.003
+	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 3_000n, // USDT0: 0.003 (6 decimals)
+	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 3_000n, // USDC: 0.003 (6 decimals)
 	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 5n, // WBTC: 5 sats
-	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 3_000_000_000_000_000n, // tBTC: 0.003
-	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 3_000_000_000_000_000n // WETH: 0.003
+	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 3_000_000_000_000_000n, // tBTC: 0.003 (18 decimals)
+	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 3_000_000_000_000_000n // WETH: 0.003 (18 decimals)
 };
 
 /**
@@ -45,11 +45,11 @@ export const MIN_GAS_BUFFER: Record<string, bigint> = {
  * Prevents overcharging the user beyond reasonable gas costs.
  */
 export const MAX_GAS_BUFFER: Record<string, bigint> = {
-	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 50_000_000_000_000_000n, // USDT: 0.05
-	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 50_000_000n, // USDC: 0.05
+	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 50_000n, // USDT0: 0.05 (6 decimals)
+	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 50_000n, // USDC: 0.05 (6 decimals)
 	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 80n, // WBTC: 80 sats
-	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 50_000_000_000_000_000n, // tBTC: 0.05
-	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 50_000_000_000_000_000n // WETH: 0.05
+	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 50_000_000_000_000_000n, // tBTC: 0.05 (18 decimals)
+	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 50_000_000_000_000_000n // WETH: 0.05 (18 decimals)
 };
 
 // =============================================================================
