@@ -37,7 +37,6 @@
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 	import BorrowFlowDrawer from '$lib/components/wallet/BorrowFlowDrawer.svelte';
 	import EarnFlowDrawer from '$lib/components/wallet/EarnFlowDrawer.svelte';
-	import LoanFlowDrawer from '$lib/components/wallet/LoanFlowDrawer.svelte';
 	import ConnectedWallets from '$lib/components/wallet/ConnectedWallets.svelte';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
@@ -266,7 +265,6 @@
 	let bankingMenuOpen = $state(false);
 	let showBorrow = $state(false);
 	let showEarn = $state(false);
-	let showLoanFlow = $state(false);
 
 	function closeBankingMenu() {
 		bankingMenuOpen = false;
@@ -300,17 +298,12 @@
 			closeBankingMenu();
 			showSwap = true;
 		}
-		function handleDefi() {
-			closeBankingMenu();
-			requestAnimationFrame(() => (showLoanFlow = true));
-		}
 
 		el.addEventListener('banking:send', handleSend);
 		el.addEventListener('banking:receive', handleReceive);
 		el.addEventListener('banking:buy', handleBuy);
 		el.addEventListener('banking:sell', handleSell);
 		el.addEventListener('banking:swap', handleSwap);
-		el.addEventListener('banking:defi', handleDefi);
 
 		return () => {
 			el.removeEventListener('banking:send', handleSend);
@@ -318,7 +311,6 @@
 			el.removeEventListener('banking:buy', handleBuy);
 			el.removeEventListener('banking:sell', handleSell);
 			el.removeEventListener('banking:swap', handleSwap);
-			el.removeEventListener('banking:defi', handleDefi);
 		};
 	});
 </script>
@@ -587,7 +579,7 @@
 					</button>
 				</div>
 
-				<!-- DeFi Buttons (Loans + Earn + Convert, one row) — gated by single LOAN_FLOW flag -->
+				<!-- DeFi Buttons (Loans + Earn, one row) — gated by single LOAN_FLOW flag -->
 				{#if isLoanFlowEnabled()}
 					<div class="flex flex-row gap-1">
 						<button
@@ -603,13 +595,6 @@
 						>
 							<IconChartLine class="h-5 w-5 shrink-0" />
 							<span class="leading-tight font-medium">{$t('wallet.defi.tab_earn')}</span>
-						</button>
-						<button
-							class="btn btn-outline border-primary h-auto min-h-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-1.5 py-2.5 text-xs active:scale-95"
-							onclick={() => (showLoanFlow = true)}
-						>
-							<IconCash class="h-5 w-5 shrink-0" />
-							<span class="leading-tight font-medium">{$t('wallet.defi.tab_convert', { default: 'Convert' })}</span>
 						</button>
 					</div>
 				{/if}
@@ -642,9 +627,6 @@
 	{/if}
 	{#if showEarn}
 		<EarnFlowDrawer isOpen={showEarn} onClose={() => (showEarn = false)} isSubmitting={false} />
-	{/if}
-	{#if showLoanFlow}
-		<LoanFlowDrawer isOpen={showLoanFlow} onClose={() => (showLoanFlow = false)} />
 	{/if}
 {/if}
 

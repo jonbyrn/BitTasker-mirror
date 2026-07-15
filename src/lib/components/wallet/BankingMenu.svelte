@@ -4,8 +4,7 @@
 		isChangeallySwapsEnabled,
 		isChangeallyFiatEnabled,
 		isSymbiosisEnabled,
-		isLifiEnabled,
-		isLoanFlowEnabled
+		isLifiEnabled
 	} from '$lib/services/kill-switch';
 	import IconClose from '~icons/mdi/close';
 	import IconSend from '~icons/mdi/send';
@@ -13,14 +12,12 @@
 	import IconPlus from '~icons/mdi/plus';
 	import IconMinus from '~icons/mdi/minus';
 	import IconSwapVertical from '~icons/mdi/swap-vertical';
-	import IconBank from '~icons/mdi/bank';
 
 	// -----------------------------------------------------------------------
 	// Feature flags
 	// -----------------------------------------------------------------------
 	let swapsEnabled = $state(isChangeallySwapsEnabled() || isSymbiosisEnabled() || isLifiEnabled());
 	let fiatEnabled = $state(isChangeallyFiatEnabled());
-	let loanFlowEnabled = $state(isLoanFlowEnabled());
 
 	// -----------------------------------------------------------------------
 	// Props
@@ -164,27 +161,6 @@
 						<span class="text-sm font-medium">{$t('wallet.swap.swap_crypto')}</span>
 						<span class="text-base-content/60 text-xs">
 							{$t('wallet.swap.title')}
-						</span>
-					</div>
-				</button>
-			{/if}
-
-			{#if loanFlowEnabled}
-				<!-- DeFi (Earn/Borrow drawer) — gated by single LOAN_FLOW flag for entire Earn surface -->
-				<button
-					class="card bg-base-100 border-base-200 hover:border-primary focus:ring-primary cursor-pointer border p-4 text-center shadow-md transition-shadow hover:shadow-lg focus:ring-2 focus:outline-none active:scale-[0.97]"
-					onclick={() => {
-						onclose?.();
-						dispatchCustomEvent('banking:defi');
-					}}
-				>
-					<div class="flex flex-col items-center gap-2">
-						<div class="bg-primary/10 rounded-full p-3">
-							<IconBank class="text-primary h-6 w-6" />
-						</div>
-						<span class="text-sm font-medium">{$t('wallet.defi.title')}</span>
-						<span class="text-base-content/60 text-xs">
-							{$t('wallet.defi.title')}
 						</span>
 					</div>
 				</button>

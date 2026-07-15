@@ -17,11 +17,14 @@ async function loginViaMock(page: Page) {
 		localStorage.setItem('auth_method', 'nsec');
 		localStorage.setItem('nostr_login_done', 'true');
 		localStorage.setItem('auth_token', 'mock-jwt-token-for-testing');
-		localStorage.setItem('auth', JSON.stringify({
-			authenticated: true,
-			userId: 'test-user-id',
-			timestamp: Date.now()
-		}));
+		localStorage.setItem(
+			'auth',
+			JSON.stringify({
+				authenticated: true,
+				userId: 'test-user-id',
+				timestamp: Date.now()
+			})
+		);
 	});
 }
 
@@ -87,82 +90,6 @@ test.describe('USDT Balance Display', () => {
 		// May or may not be visible depending on balance — just check it exists in DOM
 		const count = await page.getByText(/USDT0/i).count();
 		expect(count).toBeGreaterThanOrEqual(0); // At minimum, no crash
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Test Suite: Loan Flow Drawer
-// ---------------------------------------------------------------------------
-
-test.describe('Loan Flow Drawer', () => {
-	test.describe.configure({ timeout: 30_000 });
-
-	test('Convert button is visible when loan flow is enabled', async ({ page }) => {
-		await loginViaMock(page);
-		await page.goto('/dashboard/wallet', { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
-
-		// Look for the Convert button (gated by isLoanFlowEnabled)
-		const convertButton = page.getByRole('button', { name: /convert/i });
-		const count = await convertButton.count();
-		// If feature flag is enabled, button should exist
-		if (count > 0) {
-			await expect(convertButton.first()).toBeVisible();
-		}
-	});
-
-	test('Convert button opens LoanFlowDrawer', async ({ page }) => {
-		await loginViaMock(page);
-		await page.goto('/dashboard/wallet', { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
-
-		const convertButton = page.getByRole('button', { name: /convert/i });
-		const count = await convertButton.count();
-		if (count === 0) {
-			test.skip(true, 'Convert button not visible — loan flow feature flag disabled');
-			return;
-		}
-
-		await convertButton.first().click();
-
-		// Drawer should open with loan flow title
-		const drawerTitle = page.getByText(/convert.*rbtc.*usdt/i);
-		await expect(drawerTitle).toBeVisible({ timeout: 5_000 });
-	});
-
-	test('LoanFlowDrawer shows rBTC amount input', async ({ page }) => {
-		await loginViaMock(page);
-		await page.goto('/dashboard/wallet', { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
-
-		const convertButton = page.getByRole('button', { name: /convert/i });
-		if ((await convertButton.count()) === 0) {
-			test.skip(true, 'Convert button not visible');
-			return;
-		}
-
-		await convertButton.first().click();
-
-		// Should show an input for rBTC amount
-		const amountInput = page.getByLabel(/rbtc amount/i).or(page.locator('input[type="number"]'));
-		await expect(amountInput.first()).toBeVisible({ timeout: 5_000 });
-	});
-
-	test('LoanFlowDrawer shows Get Quote button', async ({ page }) => {
-		await loginViaMock(page);
-		await page.goto('/dashboard/wallet', { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
-
-		const convertButton = page.getByRole('button', { name: /convert/i });
-		if ((await convertButton.count()) === 0) {
-			test.skip(true, 'Convert button not visible');
-			return;
-		}
-
-		await convertButton.first().click();
-
-		const quoteButton = page.getByRole('button', { name: /get quote/i });
-		await expect(quoteButton).toBeVisible({ timeout: 5_000 });
 	});
 });
 
