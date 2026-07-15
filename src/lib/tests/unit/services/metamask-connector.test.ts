@@ -227,8 +227,8 @@ describe('metamask-connector', () => {
 			// the await in connectMetaMask.
 			promise.catch(() => {});
 
-			// Advance past the 10-second timeout
-			await vi.advanceTimersByTimeAsync(10_001);
+			// Advance past the 30-second timeout (config.longTimeout ? 120s : 30s)
+			await vi.advanceTimersByTimeAsync(30_001);
 
 			// One more microtask for the rejection to propagate through
 			// the await chain from sessionPromise to the returned promise.

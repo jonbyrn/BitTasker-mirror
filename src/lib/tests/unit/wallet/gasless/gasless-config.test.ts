@@ -134,11 +134,11 @@ describe('gasless.config', () => {
 		});
 		it('tBTC min is $0.01 (18 decimals)', () => {
 			const key = TBTC_ADDRESS.toLowerCase();
-			expect(FEE_BUFFER_MIN[key]).toBe(10_000_000_000_000n);
+			expect(FEE_BUFFER_MIN[key]).toBe(10_000_000_000_000_000n);
 		});
 		it('tBTC max is $0.15 (18 decimals)', () => {
 			const key = TBTC_ADDRESS.toLowerCase();
-			expect(FEE_BUFFER_MAX[key]).toBe(150_000_000_000_000n);
+			expect(FEE_BUFFER_MAX[key]).toBe(150_000_000_000_000_000n);
 		});
 		it('min < max for all tokens', () => {
 			for (const key of ALLOWED_FEE_TOKENS) {
