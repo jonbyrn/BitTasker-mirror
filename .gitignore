@@ -107,6 +107,7 @@ test-nsec.txt
 
 # Build caches
 .ts-morph-cache/
+.cache-synpress/
 
 # Runtime databases
 agentdb.rvf

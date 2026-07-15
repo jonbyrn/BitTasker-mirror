@@ -8,14 +8,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const API_BASE = 'http://localhost:8000/api/v1';
-const USDT0_ARB_ADDRESS = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
-const USDT0_RSK_ADDRESS = '0x779Ded0c9e1022225f8E0630b35a9b54bE713736';
-
-// ---------------------------------------------------------------------------
 // Auth helper — bypass login via localStorage
 // ---------------------------------------------------------------------------
 
@@ -92,7 +84,6 @@ test.describe('USDT Balance Display', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Look for USDT0 in the balance display
-		const usdtText = page.getByText(/USDT0/i).first();
 		// May or may not be visible depending on balance — just check it exists in DOM
 		const count = await page.getByText(/USDT0/i).count();
 		expect(count).toBeGreaterThanOrEqual(0); // At minimum, no crash

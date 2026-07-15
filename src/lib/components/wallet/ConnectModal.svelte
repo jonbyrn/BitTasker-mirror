@@ -65,8 +65,19 @@
 
 <dialog bind:this={dialogEl} class="modal" onclose={() => onClose()}>
 	<div class="modal-box max-w-sm" role="dialog" aria-modal="true">
-		{#if connectingType === 'trezor'}
-			<!-- Trezor Connecting State -->
+	{#if connectingType === 'metamask'}
+		<!-- MetaMask Connecting State -->
+		<div class="flex flex-col items-center gap-4 py-8 text-center">
+			<div class="bg-warning/10 rounded-full p-6">
+				<span class="loading loading-spinner loading-lg text-warning"></span>
+			</div>
+			<h3 class="text-lg font-bold">{$t('wallet.connected.metamask_connecting_title', { default: 'Connecting to MetaMask' })}</h3>
+			<p class="text-base-content/70 text-sm leading-relaxed">
+				{$t('wallet.connected.metamask_connecting_desc', { default: 'Check your browser for the MetaMask popup. If you don\'t see it, click the MetaMask extension icon in your browser toolbar.' })}
+			</p>
+		</div>
+	{:else if connectingType === 'trezor'}
+		<!-- Trezor Connecting State -->
 			<div class="flex flex-col items-center gap-4 py-8 text-center">
 				<div class="bg-info/10 rounded-full p-6">
 					<span class="loading loading-spinner loading-lg text-info"></span>

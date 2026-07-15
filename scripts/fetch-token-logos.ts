@@ -202,6 +202,7 @@ async function main() {
 	}
 
 	let downloaded = 0;
+	let skipped = 0;
 	for (const [sym, t] of symbolsToDownload) {
 		if (!t.icon || t.icon.length < 10) {
 			warn(`  ${sym}: no icon URL`);
@@ -209,6 +210,16 @@ async function main() {
 		}
 		const ext = t.icon.split('.').pop()?.split('?')[0] ?? 'png';
 		const destPath = path.join(TOKENS_DIR, `${sym.toLowerCase()}.${ext}`);
+
+		// Skip if the file already exists with a valid size (>150 bytes).
+		// The CDN can serve slightly different bytes each time (compression,
+		// metadata), which causes git to see the file as modified on every
+		// build. Re-download only when the file is missing or suspiciously small.
+		if (fs.existsSync(destPath) && fs.statSync(destPath).size > 150) {
+			skipped++;
+			continue;
+		}
+
 		const ok = await downloadFile(t.icon, destPath);
 		if (ok) {
 			const size = fs.statSync(destPath).size;
@@ -237,7 +248,7 @@ async function main() {
 	// Phase 6: write manifest
 	fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, '\t') + '\n');
 	log(`Manifest: ${MANIFEST_PATH} (${manifest.length} entries)`);
-	log(`Done — ${downloaded} new, ${manifest.length} total`);
+	log(`Done — ${downloaded} new, ${skipped} skipped (cached), ${manifest.length} total`);
 }
 
 main().catch((err) => {

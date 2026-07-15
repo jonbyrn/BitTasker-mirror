@@ -144,7 +144,9 @@ export function createConnectMetaMaskHandler(params: ConnectMetaMaskParams): () 
 			return;
 		}
 		params.setConnectingType('metamask');
-		params.closeConnectModal();
+		// Do NOT close the modal here — keep it open with a connecting state
+		// so the user sees feedback while the SDK loads and MetaMask popup appears.
+		// The modal will be closed on success (registerConnectedWallet) or error.
 
 		try {
 			const mod = await import('$lib/services/external-wallet/metamask-connector');
@@ -156,10 +158,12 @@ export function createConnectMetaMaskHandler(params: ConnectMetaMaskParams): () 
 					}
 				}
 			});
+			params.closeConnectModal();
 			params.registerConnectedWallet(handle);
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : get(t)('wallet.connected.error_metamask_connect');
+			params.closeConnectModal();
 			params.setConnectedWalletError(message);
 		}
 	};

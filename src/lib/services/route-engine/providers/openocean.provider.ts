@@ -19,7 +19,6 @@ const debug = createDebug('route-engine:openocean');
 // ---------------------------------------------------------------------------
 
 const OPENOCEAN_BASE_URL = 'https://open-api.openocean.finance/v4/rootstock';
-const REQUEST_TIMEOUT_MS = 10_000;
 
 /** Supported pairs on RSK */
 const SUPPORTED_PAIRS: Record<string, { inAddr: string; outAddr: string; inDec: number; outDec: number }> = {

@@ -106,7 +106,14 @@ function extractSession(session: unknown): SessionData {
 }
 
 export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<ConnectorHandle> {
-	const sdkClient = await getClient();
+	let sdkClient: MultiChainClient;
+	try {
+		sdkClient = await getClient();
+	} catch (e) {
+		// Reset the poisoned singleton so the next attempt starts fresh
+		clientPromise = null;
+		throw e;
+	}
 
 	// Build CAIP-10 account IDs from known address/chainIds so the SDK
 	// can merge with any existing session.
@@ -170,7 +177,7 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 	});
 	const timeout = setTimeout(
 		() => rejectSession(new Error('Session data timeout — try again')),
-		config.longTimeout ? 120_000 : 10_000
+		config.longTimeout ? 120_000 : 30_000
 	);
 
 	let sessionSettled = false;
@@ -209,27 +216,35 @@ export async function connectMetaMask(config: ConnectMetaMaskConfig): Promise<Co
 		await doConnect();
 	} catch (e) {
 		const msg = (e as Error).message ?? '';
-		if (msg.includes('already pending')) {
+		if (msg.includes('already pending') || msg.includes('connection is pending') || msg.includes('Existing connection')) {
 			console.log('[MetaMask] Existing MetaMask prompt detected — waiting for response...');
 		} else {
 			cleanupSession();
+			// Reset the poisoned singleton so the next attempt starts fresh
+			clientPromise = null;
 			throw e;
 		}
 	}
 
-	const sessionData = await sessionPromise;
-	console.log(
-		'[MetaMask] Session ready. Accounts:',
-		sessionData.accounts,
-		'Chains:',
-		sessionData.chainIds
-	);
+	try {
+		const sessionData = await sessionPromise;
+		console.log(
+			'[MetaMask] Session ready. Accounts:',
+			sessionData.accounts,
+			'Chains:',
+			sessionData.chainIds
+		);
 
-	if (sessionData.accounts.length === 0) {
-		throw new Error('No accounts authorized. Please approve the connection in MetaMask.');
+		if (sessionData.accounts.length === 0) {
+			throw new Error('No accounts authorized. Please approve the connection in MetaMask.');
+		}
+
+		return buildHandle(sdkClient, sessionData.accounts[0], sessionData.chainIds, config.onEvent);
+	} catch (e) {
+		// Reset the poisoned singleton so the next attempt starts fresh
+		clientPromise = null;
+		throw e;
 	}
-
-	return buildHandle(sdkClient, sessionData.accounts[0], sessionData.chainIds, config.onEvent);
 }
 
 // ---------------------------------------------------------------------------
