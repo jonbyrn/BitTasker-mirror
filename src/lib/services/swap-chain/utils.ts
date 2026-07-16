@@ -8,7 +8,8 @@
 
 // ─── Chain ID constants ───────────────────────────────────────────
 
-export const CHAIN_ID_RSK = 30;
+// RSK chain ID: 33 for regtest (local Boltz), 30 for mainnet
+export const CHAIN_ID_RSK = import.meta.env.VITE_RSK_NETWORK === 'regtest' ? 33 : 30;
 export const CHAIN_ID_BSC = 56;
 export const CHAIN_ID_ARB = 42161;
 

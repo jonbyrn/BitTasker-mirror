@@ -19,7 +19,7 @@ const debug = createDebug('smart-router');
 // Constants
 // ---------------------------------------------------------------------------
 
-const CHAIN_ID_RSK = 30;
+const CHAIN_ID_RSK = import.meta.env.VITE_RSK_NETWORK === 'regtest' ? 33 : 30;
 const CHAIN_ID_ARB = 42161;
 
 const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000';
@@ -959,7 +959,9 @@ function lifiQuoteToSmartRoute(
 
 /** Fetch submarine swap fee (TBTC → Lightning) from Boltz API. Returns sats. */
 async function fetchSubmarineFee(amountSats: number): Promise<number> {
-	const resp = await fetch('https://api.boltz.exchange/v2/swap/submarine');
+	const resp = await fetch(
+		(import.meta.env.VITE_BOLTZ_API_URL || 'https://api.boltz.exchange/v2') + '/swap/submarine'
+	);
 	if (!resp.ok) return 50; // fallback
 	const data = (await resp.json()) as Record<
 		string,
@@ -973,7 +975,9 @@ async function fetchSubmarineFee(amountSats: number): Promise<number> {
 
 /** Fetch reverse swap fee (Lightning → RBTC) from Boltz API. Returns sats. */
 async function fetchReverseFee(): Promise<number> {
-	const resp = await fetch('https://api.boltz.exchange/v2/swap/reverse');
+	const resp = await fetch(
+		(import.meta.env.VITE_BOLTZ_API_URL || 'https://api.boltz.exchange/v2') + '/swap/reverse'
+	);
 	if (!resp.ok) return 200; // fallback
 	const data = (await resp.json()) as Record<
 		string,

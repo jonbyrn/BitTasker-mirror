@@ -19,7 +19,7 @@ const debug = createDebug('boltz-provider');
 // Constants
 // ---------------------------------------------------------------------------
 
-const BOLTZ_BASE_URL = 'https://api.boltz.exchange/v2';
+const BOLTZ_BASE_URL = import.meta.env.VITE_BOLTZ_API_URL || 'https://api.boltz.exchange/v2';
 
 /** Timeout for Boltz API requests (ms). */
 const BOLTZ_REQUEST_TIMEOUT_MS = 10000;

@@ -28,7 +28,7 @@ import * as Sentry from '@sentry/sveltekit';
 
 const d = createDebug('connected-reverse-swap');
 
-const BOLTZ_BASE_URL = 'https://api.boltz.exchange/v2';
+const BOLTZ_BASE_URL = import.meta.env.VITE_BOLTZ_API_URL || 'https://api.boltz.exchange/v2';
 
 /** Capacitor Preferences key for pending connected wallet reverse swaps. */
 const STORAGE_KEY = 'bittasker_connected_reverse_swaps_v1';

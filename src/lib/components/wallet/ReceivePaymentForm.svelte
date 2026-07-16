@@ -283,14 +283,6 @@
 
 	const isFormValid = $derived(amountInSats > 0);
 
-	// Auto-estimate fee when inputs change
-	$effect(() => {
-		if (amountInSats > 0) {
-			feeEst.refresh();
-		}
-	});
-
-	// Handlers
 	function handleCalculationChange(expression: string, result: number) {
 		formInput.mathExpression = expression;
 		if (result > 0 || expression === '') {
@@ -299,19 +291,23 @@
 					? Math.floor(result).toString()
 					: result.toFixed(2).replace(/\.?0+$/, '');
 		}
-		feeEst.refresh();
+		// Called by calculator key press — single call site for amount-driven fee refresh
+		if (amountInSats > 0) feeEst.refresh();
 	}
 
 	function handleClearCalculator() {
 		formInput.amount = '';
 		formInput.mathExpression = '';
 		uiState.calculatorKey++;
+		// Clear stale fee estimate when amount resets to 0
+		feeEst.refresh();
 	}
 
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		formInput.unit = newUnit;
 		formInput.mathExpression = '';
-		feeEst.refresh();
+		// Unit change affects amountInSats → fee estimate must update
+		if (amountInSats > 0) feeEst.refresh();
 	}
 
 	async function handleGenerateInvoice() {
@@ -386,6 +382,8 @@
 			selectedAssetId={receiveTab}
 			onAssetSelect={(id) => {
 				receiveTab = id as typeof receiveTab;
+				// Asset change → destination network changes → fee estimate must update
+				if (amountInSats > 0) feeEst.refresh();
 			}}
 			assets={receiveAssets}
 		/>
