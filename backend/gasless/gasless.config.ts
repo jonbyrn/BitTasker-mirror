@@ -30,10 +30,10 @@ export const ALLOWED_FEE_TOKENS: readonly string[] = TOKENS.map((t) => t.address
 export const GAS_BOUNDS = {
 	MAX_CALL_GAS: 5_000_000n,
 	MAX_VERIFICATION_GAS: 1_000_000n,
-	MAX_PRE_VERIFICATION_GAS: 100_000n,
+	MAX_PRE_VERIFICATION_GAS: 400_000n, // EIP-7702: bundler base ~300K + 25K delegation overhead
 	MAX_FEE_PER_GAS: 1_000_000_000n, // 1 gwei
 	MAX_PRIORITY_FEE_PER_GAS: 100_000_000n, // 0.1 gwei
-	MAX_TOTAL_GAS: 5_000_000n
+	MAX_TOTAL_GAS: 6_400_000n // Must accommodate 5M + 1M + 400K individual maxes
 };
 
 // Fee Tiers (from plan Section 5.2)
@@ -48,7 +48,7 @@ export const FEE_TIERS: readonly FeeTierDef[] = [
 	{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
 	{ label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
 	{ label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
-	{ label: 'Very High', minGas: 1_000_001n, maxGas: 5_000_000n, feeUSD: 0.1 }
+	{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_400_000n, feeUSD: 0.1 }
 ];
 
 // Fee Buffer Bounds (per token)

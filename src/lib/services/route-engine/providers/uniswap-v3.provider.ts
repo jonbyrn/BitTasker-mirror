@@ -37,12 +37,30 @@ const KNOWN_POOLS: Record<string, { fee: number; poolAddress: string }> = {
 	}
 };
 
+/**
+ * Multi-hop routes for pairs without a direct pool.
+ * Each route is an ordered list of (tokenAddress, feeTier) hops.
+ * The provider's supports() and getQuote() use these when no direct pool exists.
+ */
+const MULTI_HOP_ROUTES: Record<string, { path: string[]; fees: number[] }> = {
+	// tBTC → USDT0 via WBTC (tBTC→WBTC 0.05% → WBTC→USDT0 0.05%)
+	'0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40:0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9': {
+		path: [
+			'0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40', // tBTC
+			'0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', // WBTC
+			'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'  // USDT0
+		],
+		fees: [500, 500]
+	}
+};
+
 // ---------------------------------------------------------------------------
 // QuoterV2 ABI (read-only)
 // ---------------------------------------------------------------------------
 
 const QUOTER_ABI = [
-	'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)'
+	'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
+	'function quoteExactInput(bytes path, uint256 amountIn) external returns (uint256 amountOut, uint160[] sqrtPriceX96AfterList, uint32[] initializedTicksCrossedList, uint256 gasEstimate)'
 ];
 
 // ---------------------------------------------------------------------------
@@ -65,10 +83,15 @@ export const uniswapV3Provider: SwapProvider = {
 		if (from.chain !== 'arbitrum' || to.chain !== 'arbitrum') return false;
 		if (from.key === to.key) return false;
 
-		// Check both orderings (pool key is sorted by address)
+		// Check direct pool (both orderings)
 		const poolKey = `${from.address}:${to.address}`;
 		const poolKeyReverse = `${to.address}:${from.address}`;
-		return poolKey in KNOWN_POOLS || poolKeyReverse in KNOWN_POOLS;
+		if (poolKey in KNOWN_POOLS || poolKeyReverse in KNOWN_POOLS) return true;
+
+		// Check multi-hop routes (e.g., tBTC→WBTC→USDT0)
+		if (poolKey in MULTI_HOP_ROUTES || poolKeyReverse in MULTI_HOP_ROUTES) return true;
+
+		return false;
 	},
 
 	async getQuote(
@@ -84,17 +107,19 @@ export const uniswapV3Provider: SwapProvider = {
 		const poolKey = `${from.address}:${to.address}`;
 		const poolKeyReverse = `${to.address}:${from.address}`;
 		const poolInfo = KNOWN_POOLS[poolKey] ?? KNOWN_POOLS[poolKeyReverse];
-		if (!poolInfo) {
-			debug.log('No known pool for %s → %s', from.key, to.key);
+		const multiHopRoute = MULTI_HOP_ROUTES[poolKey] ?? MULTI_HOP_ROUTES[poolKeyReverse];
+
+		if (!poolInfo && !multiHopRoute) {
+			debug.log('No known pool or multi-hop route for %s → %s', from.key, to.key);
 			return null;
 		}
 
 		debug.log(
-			'Quoting %s → %s (%d sats, fee tier %d)',
+			'Quoting %s → %s (%d sats, %s)',
 			from.symbol,
 			to.symbol,
 			amountSats,
-			poolInfo.fee
+			poolInfo ? `direct pool fee ${poolInfo.fee}` : `multi-hop via ${multiHopRoute!.path.length - 1} pools`
 		);
 
 		const { data: result, error } = await tryCatch(
@@ -103,22 +128,26 @@ export const uniswapV3Provider: SwapProvider = {
 				const quoter = new Contract(QUOTER_V2, QUOTER_ABI, provider);
 
 				// Use raw source amount when available (non-BTC tokens like USDT0).
-				// satsToTokenAmount-style conversion breaks for 6-decimal tokens.
 				const amountIn = sourceAmountRaw
 					? BigInt(sourceAmountRaw)
 					: BigInt(amountSats) * BigInt(10) ** BigInt(from.decimals - 8);
 
-				const params = {
-					tokenIn: from.address,
-					tokenOut: to.address,
-					amountIn,
-					fee: poolInfo.fee,
-					sqrtPriceLimitX96: 0n
-				};
-
-				// Use staticCall (read-only, no gas)
-				const quoteResult = await quoter.quoteExactInputSingle.staticCall(params);
-				return quoteResult;
+				if (poolInfo) {
+					// Direct single-pool quote
+					const params = {
+						tokenIn: from.address,
+						tokenOut: to.address,
+						amountIn,
+						fee: poolInfo.fee,
+						sqrtPriceLimitX96: 0n
+					};
+					return await quoter.quoteExactInputSingle.staticCall(params);
+				} else if (multiHopRoute) {
+					// Multi-hop quote via quoteExactInput
+					const path = encodeMultiHopPath(multiHopRoute.path, multiHopRoute.fees);
+					return await quoter.quoteExactInput.staticCall(path, amountIn);
+				}
+				return null;
 			})()
 		);
 
@@ -143,8 +172,9 @@ export const uniswapV3Provider: SwapProvider = {
 
 		const feePercent = amountSats > 0 ? ((amountSats - outputSats) / amountSats) * 100 : 0;
 
-		// Gas cost for the swap on Arbitrum
-		const gasCostWei = (SWAP_GAS_LIMIT * ARB_GAS_PRICE).toString();
+		// Gas cost: multi-hop costs roughly 2x single swap
+		const gasEstimate = multiHopRoute ? SWAP_GAS_LIMIT * 2n : SWAP_GAS_LIMIT;
+		const gasCostWei = (gasEstimate * ARB_GAS_PRICE).toString();
 
 		const hop: RouteHop = {
 			service: 'uniswap-v3',
@@ -191,3 +221,24 @@ export const uniswapV3Provider: SwapProvider = {
 		return route;
 	}
 };
+
+// ---------------------------------------------------------------------------
+// Multi-hop path encoding
+// ---------------------------------------------------------------------------
+
+/**
+ * Encode a Uniswap V3 multi-hop path for quoteExactInput / exactInput.
+ * Format: tokenA (20 bytes) + fee (3 bytes) + tokenB (20 bytes) + fee (3 bytes) + tokenC (20 bytes)
+ */
+function encodeMultiHopPath(tokenAddresses: string[], fees: number[]): string {
+	if (tokenAddresses.length !== fees.length + 1) {
+		throw new Error(`Path length mismatch: ${tokenAddresses.length} tokens but ${fees.length} fees`);
+	}
+	let path = '0x';
+	for (let i = 0; i < fees.length; i++) {
+		path += tokenAddresses[i].slice(2).toLowerCase(); // 20 bytes
+		path += fees[i].toString(16).padStart(6, '0');     // 3 bytes (fee in hex)
+	}
+	path += tokenAddresses[tokenAddresses.length - 1].slice(2).toLowerCase(); // final token
+	return path;
+}

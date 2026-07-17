@@ -195,7 +195,7 @@ export async function saveClaimDataToNostr(
 			refundPrivateKey: '',
 			refundAddress: ''
 		};
-		await saveSwapToNostr(swapRecord, nsec, 'boltz-swap-chain');
+		await saveSwapToNostr(swapRecord, nsec, 'bittasker-swap-chain');
 		d.log('Saved claim data to Nostr for swap %s', swapId);
 	} catch (err) {
 		d.warn('Failed to save claim data to Nostr for swap %s: %s', swapId, (err as Error).message);
@@ -212,7 +212,7 @@ export async function saveClaimDataToNostr(
 export async function loadClaimDataFromNostr(swapId: string): Promise<SwapClaimData | null> {
 	try {
 		const { nsec } = await getNostrKeyPair();
-		const swaps = await recoverSwapsFromNostr(nsec, 'boltz-swap-chain', true);
+		const swaps = await recoverSwapsFromNostr(nsec, 'bittasker-swap-chain', true);
 
 		for (const swap of swaps) {
 			// recoverSwapsFromNostr returns deserialized objects from NIP-44 encrypted content.

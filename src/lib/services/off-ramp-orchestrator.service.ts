@@ -14,10 +14,12 @@
  *
  * Target: USDT-BSC on BNB Smart Chain (chain 56).
  *
- * Persists state to localStorage for resilience across page refreshes
+ * Persists state to Capacitor Preferences for resilience across page refreshes
  * and Capacitor app background/foreground cycles.
  */
 
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 import * as Sentry from '@sentry/sveltekit';
@@ -41,7 +43,6 @@ const debug = createDebug('off-ramp-orchestrator');
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'bittasker_off_ramp_flow';
 const LIFI_POLL_INTERVAL_MS = 10_000;
 const LIFI_POLL_MAX_ATTEMPTS = 60;
 const USDT_BSC_ADDR = '0x55d398326f99059fF775485246999027B3197955';
@@ -246,8 +247,12 @@ export class OffRampOrchestrator {
 	private _visibilityHandler: (() => void) | null = null;
 	private listeners: StageChangeCallback[] = [];
 
-	constructor() {
-		this.restoreFlow();
+	/**
+	 * Initialize the orchestrator — restores persisted flow from Capacitor Preferences.
+	 * Must be called once after construction.
+	 */
+	async init(): Promise<void> {
+		await this.restoreFlow();
 	}
 
 	// -- Public API ---------------------------------------------------------
@@ -359,7 +364,7 @@ export class OffRampOrchestrator {
 				});
 				this.flow.stage = 'failed';
 				this.flow.error = 'wallet.buy_sell.no_bridge_route';
-				this.persistFlow();
+				await this.persistFlow();
 				this.notifyListeners();
 				throw err;
 			}
@@ -414,7 +419,7 @@ export class OffRampOrchestrator {
 				});
 				this.flow.stage = 'failed';
 				this.flow.error = 'wallet.buy_sell.no_bridge_route';
-				this.persistFlow();
+				await this.persistFlow();
 				this.notifyListeners();
 				throw err;
 			}
@@ -465,7 +470,7 @@ export class OffRampOrchestrator {
 
 		this.flow.stage = 'quote_ready';
 		this.flow.quote = quote;
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		debug.log(
@@ -506,7 +511,7 @@ export class OffRampOrchestrator {
 		});
 
 		this.flow.stage = 'opening_moonpay';
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		const { data: order, error: orderError } = await tryCatch(
@@ -527,7 +532,7 @@ export class OffRampOrchestrator {
 			});
 			this.flow.stage = 'failed';
 			this.flow.error = 'wallet.buy_sell.transaction_failed';
-			this.persistFlow();
+			await this.persistFlow();
 			this.notifyListeners();
 			throw err;
 		}
@@ -536,7 +541,7 @@ export class OffRampOrchestrator {
 		this.flow.orderId = order.orderId;
 		this.flow.redirectUrl = order.redirectUrl;
 		this.flow.updatedAt = Date.now();
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		debug.log('MoonPay order created: orderId=%s', order.orderId);
@@ -571,7 +576,7 @@ export class OffRampOrchestrator {
 
 		this.flow.depositAddress = checksummed;
 		this.flow.updatedAt = Date.now();
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		debug.log('Deposit address set: %s', checksummed);
@@ -605,7 +610,7 @@ export class OffRampOrchestrator {
 		});
 
 		this.flow.stage = 'bridging';
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		let txTo: string;
@@ -618,7 +623,7 @@ export class OffRampOrchestrator {
 			const symTx = this.flow.symbiosisTx;
 			if (!symTx) {
 				const err = new Error('No Symbiosis transaction data. Call createQuote first.');
-				this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
+				await this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
 				throw err;
 			}
 
@@ -628,7 +633,7 @@ export class OffRampOrchestrator {
 				txValue = BigInt(symTx.value);
 			} catch {
 				const err = new Error('Invalid Symbiosis transaction value');
-				this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
+				await this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
 				throw err;
 			}
 			txChain = 'rsk';
@@ -650,7 +655,7 @@ export class OffRampOrchestrator {
 
 			if (txError || !txReq) {
 				const err = txError || new Error('LI.FI returned no transaction request');
-				this.failFlow(err, 'wallet.buy_sell.no_bridge_route');
+				await this.failFlow(err, 'wallet.buy_sell.no_bridge_route');
 				throw err;
 			}
 
@@ -677,16 +682,16 @@ export class OffRampOrchestrator {
 				);
 
 				if (approveException) {
-					this.failFlow(approveException, 'wallet.buy_sell.bridge_approval_failed');
+					await this.failFlow(approveException, 'wallet.buy_sell.bridge_approval_failed');
 					throw approveException;
 				}
 				if (approveResult?.error) {
-					this.failFlow(approveResult.error, 'wallet.buy_sell.bridge_approval_failed');
+					await this.failFlow(approveResult.error, 'wallet.buy_sell.bridge_approval_failed');
 					throw approveResult.error;
 				}
 				if (!approveResult?.data) {
 					const err = new Error('ERC-20 approval returned no transaction hash');
-					this.failFlow(err, 'wallet.buy_sell.bridge_approval_failed');
+					await this.failFlow(err, 'wallet.buy_sell.bridge_approval_failed');
 					throw err;
 				}
 				debug.log('ERC-20 approval tx: %s', approveResult.data);
@@ -698,7 +703,7 @@ export class OffRampOrchestrator {
 				txValue = BigInt(txReq.value);
 			} catch {
 				const err = new Error('Invalid bridge transaction value from LI.FI');
-				this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
+				await this.failFlow(err, 'wallet.buy_sell.bridge_tx_invalid');
 				throw err;
 			}
 			txChain = 'arbitrum';
@@ -717,21 +722,21 @@ export class OffRampOrchestrator {
 		);
 
 		if (swapException) {
-			this.failFlow(swapException, 'wallet.buy_sell.bridge_tx_failed');
+			await this.failFlow(swapException, 'wallet.buy_sell.bridge_tx_failed');
 			throw swapException;
 		}
 		if (swapResult?.error) {
-			this.failFlow(swapResult.error, 'wallet.buy_sell.bridge_tx_failed');
+			await this.failFlow(swapResult.error, 'wallet.buy_sell.bridge_tx_failed');
 			throw swapResult.error;
 		}
 		if (!swapResult?.data) {
 			const err = new Error('Bridge transaction returned no hash');
-			this.failFlow(err, 'wallet.buy_sell.bridge_tx_failed');
+			await this.failFlow(err, 'wallet.buy_sell.bridge_tx_failed');
 			throw err;
 		}
 
 		this.flow.bridgeTxHash = swapResult.data;
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		debug.log('Bridge tx submitted: %s', swapResult.data);
@@ -758,8 +763,9 @@ export class OffRampOrchestrator {
 				if (this.flow && this.flow.stage === 'opening_moonpay') {
 					this.flow.stage = 'awaiting_deposit_address';
 					this.flow.updatedAt = Date.now();
-					this.persistFlow();
-					this.notifyListeners();
+					this.persistFlow()
+						.then(() => this.notifyListeners())
+						.catch((e) => debug.warn('persistFlow failed after checkout return:', e));
 				}
 			}
 		};
@@ -772,7 +778,7 @@ export class OffRampOrchestrator {
 	 * Preserves the quote and source wallet info; clears MoonPay-specific
 	 * fields (order IDs, deposit address, bridge tx hash, errors).
 	 */
-	startOver(): void {
+	async startOver(): Promise<void> {
 		if (!this.flow) return;
 
 		debug.log('Starting over - resetting to quote_ready');
@@ -788,7 +794,7 @@ export class OffRampOrchestrator {
 		this.flow.error = undefined;
 		this.flow.updatedAt = Date.now();
 
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 	}
 
@@ -806,10 +812,10 @@ export class OffRampOrchestrator {
 	}
 
 	/** Cancel the current flow and clear persisted state. */
-	cancel(): void {
+	async cancel(): Promise<void> {
 		this.stopAllPolling();
 		this.flow = null;
-		this.clearPersistedFlow();
+		await this.clearPersistedFlow();
 		this.notifyListeners();
 	}
 
@@ -824,9 +830,14 @@ export class OffRampOrchestrator {
 	private startBridgeMonitoring(): void {
 		this.stopBridgeMonitoring();
 		this.lifiPollAttempts = 0;
-		this.lifiPollTimer = setInterval(() => this.pollLifiStatus(), LIFI_POLL_INTERVAL_MS);
+		this.lifiPollTimer = setInterval(
+			() => {
+				this.pollLifiStatus().catch((e) => debug.warn('LI.FI poll failed:', e));
+			},
+			LIFI_POLL_INTERVAL_MS
+		);
 		// First poll immediately
-		this.pollLifiStatus();
+		this.pollLifiStatus().catch((e) => debug.warn('LI.FI initial poll failed:', e));
 	}
 
 	private stopBridgeMonitoring(): void {
@@ -860,7 +871,7 @@ export class OffRampOrchestrator {
 			this.flow.error = 'wallet.buy_sell.bridge_timeout_error';
 			this.flow.lifiStatus = 'FAILED';
 			this.updateStage('failed');
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
@@ -920,13 +931,13 @@ export class OffRampOrchestrator {
 		}
 		// 'PENDING' / 'NOT_FOUND' -> keep polling
 
-		this.persistFlow();
+		await this.persistFlow();
 	}
 
 	// -- Internal: Error Handling -------------------------------------------
 
 	/** Transition to 'failed', persist, notify, and report to Sentry. */
-	private failFlow(err: Error, i18nKey?: string): void {
+	private async failFlow(err: Error, i18nKey?: string): Promise<void> {
 		Sentry.captureException(err, {
 			tags: { component: 'off-ramp-orchestrator', action: 'executeBridge' }
 		});
@@ -934,7 +945,7 @@ export class OffRampOrchestrator {
 			this.flow.stage = 'failed';
 			this.flow.error = i18nKey ?? 'wallet.buy_sell.transaction_failed';
 			this.flow.updatedAt = Date.now();
-			this.persistFlow();
+			await this.persistFlow();
 			this.notifyListeners();
 		}
 	}
@@ -962,18 +973,21 @@ export class OffRampOrchestrator {
 
 	// -- Internal: Persistence ----------------------------------------------
 
-	private persistFlow(): void {
+	private async persistFlow(): Promise<void> {
 		if (!this.flow) return;
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.flow));
+			await Preferences.set({
+				key: StorageKeys.OFF_RAMP_FLOW,
+				value: JSON.stringify(this.flow)
+			});
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
+			debug.warn('Preferences set failed:', e);
 		}
 	}
 
-	private restoreFlow(): void {
+	private async restoreFlow(): Promise<void> {
 		try {
-			const stored = localStorage.getItem(STORAGE_KEY);
+			const { value: stored } = await Preferences.get({ key: StorageKeys.OFF_RAMP_FLOW });
 			if (!stored) return;
 			const raw = JSON.parse(stored);
 			if (
@@ -987,14 +1001,14 @@ export class OffRampOrchestrator {
 				typeof raw.quote !== 'object'
 			) {
 				debug.warn('Invalid persisted flow data, clearing');
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.OFF_RAMP_FLOW });
 				return;
 			}
 			const parsed = raw as OffRampFlowState;
 
 			// Don't restore terminal states
 			if (['complete', 'failed', 'idle'].includes(parsed.stage)) {
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.OFF_RAMP_FLOW });
 				return;
 			}
 
@@ -1004,7 +1018,7 @@ export class OffRampOrchestrator {
 					'Flow stale (age=%d min), expiring',
 					Math.round((Date.now() - parsed.updatedAt) / 60000)
 				);
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.OFF_RAMP_FLOW });
 				return;
 			}
 
@@ -1016,16 +1030,20 @@ export class OffRampOrchestrator {
 				this.startBridgeMonitoring();
 			}
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
-			localStorage.removeItem(STORAGE_KEY);
+			debug.warn('Preferences get failed:', e);
+			try {
+				await Preferences.remove({ key: StorageKeys.OFF_RAMP_FLOW });
+			} catch (removeErr) {
+				debug.warn('Preferences remove also failed:', removeErr);
+			}
 		}
 	}
 
-	private clearPersistedFlow(): void {
+	private async clearPersistedFlow(): Promise<void> {
 		try {
-			localStorage.removeItem(STORAGE_KEY);
+			await Preferences.remove({ key: StorageKeys.OFF_RAMP_FLOW });
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
+			debug.warn('Preferences remove failed:', e);
 		}
 	}
 

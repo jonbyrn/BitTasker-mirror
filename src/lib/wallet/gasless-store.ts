@@ -4,11 +4,11 @@
 // Merged from src/wallet/gasless-store.ts (store + programmatic API) and
 // src/lib/wallet/gasless-store.ts (UI-facing API + EIP-7702 helpers).
 //
-// Calls the NestJS main backend at VITE_TX_RELAY_BASE_URL.
-// Backend endpoints:
+// Calls the NestJS main backend via gaslessService (axios-based).
+// Auth is handled automatically by the axios interceptor — no JWT parameter
+// needed. Backend endpoints:
 //   POST /gasless/estimate  → { token, amount, recipient }
 //   POST /gasless/relay     → { sender, userOp: SerializableUserOperation }
-// Auth: Bearer JWT via global JwtAuthGuard.
 
 import { writable, derived, get } from 'svelte/store';
 import { encodeFunctionData, isAddress, type Address } from 'viem';
@@ -22,17 +22,17 @@ import type {
 import {
 	GAS_TREASURY,
 	GAS_BOUNDS,
-	API_BASE_URL,
 	ENTRY_POINT_ADDRESS,
 	ARBITRUM_RPC_URL,
 	ARBITRUM_CHAIN_ID,
 	SIMPLE_7702_ACCOUNT_IMPL
 } from '../../wallet/gasless.config';
+import { gaslessService } from '$lib/api/services/gasless.service';
 import {
 	validateFeeParameters,
 	validateFeeBufferBounds,
 	validateFeeRecipient
-} from '../../wallet/gasless-helpers';
+} from './gasless-helpers';
 
 // =============================================================================
 // SmartAccount — typed interface for the EIP-7702 account from permissionless
@@ -113,6 +113,11 @@ const ENTRY_POINT_ABI = [
 // =============================================================================
 // EIP-7702 constants
 // =============================================================================
+
+/** Convert a bigint to a `0x`-prefixed hex string for JSON transport. */
+function toHex(value: bigint): string {
+	return '0x' + value.toString(16);
+}
 
 /** EIP-7702 factory sentinel — tells EntryPoint the sender is a 7702-delegated EOA */
 const EIP7702_FACTORY = '0x7702000000000000000000000000000000000000' as const;
@@ -260,30 +265,26 @@ async function signEip7702AuthIfNeeded(
 		throw new Error('Owner private key not available — cannot sign EIP-7702 authorization');
 	}
 
-	const { keccak256, toRlp, toHex, concat } = await import('viem');
-	const { privateKeyToAccount } = await import('viem/accounts');
+	const { ethers } = await import('ethers');
 
 	const eoaNonce = await publicClient.getTransactionCount({ address: sender as Address });
 
 	// EIP-7702 authorization hash: keccak256(0x05 || rlp([chain_id, address, nonce]))
-	const MAGIC = new Uint8Array([0x05]);
-	const authHash = keccak256(
-		concat([
-			MAGIC,
-			toRlp([
-				toHex(BigInt(ARBITRUM_CHAIN_ID)),
-				SIMPLE_7702_ACCOUNT_IMPL.toLowerCase(),
-				toHex(BigInt(eoaNonce))
-			] as `0x${string}`[])
-		])
-	);
+	// Uses ethers.js encoding — matches backend recoverEIP7702Signer exactly.
+	// CRITICAL: nonce=0 must encode as empty bytes (0x → RLP 0x80), NOT 0x00.
+	const chainIdHex = ethers.toBeHex(BigInt(ARBITRUM_CHAIN_ID));
+	const nonceHex = eoaNonce === 0 ? '0x' : ethers.toBeHex(eoaNonce);
 
-	const ownerAccount = privateKeyToAccount(ownerKey);
-	const signature = await ownerAccount.signMessage({ message: { raw: authHash } });
+	const rlpEncoded = ethers.encodeRlp([chainIdHex, SIMPLE_7702_ACCOUNT_IMPL, nonceHex]);
+	const authHash = ethers.keccak256(ethers.concat(['0x05', rlpEncoded]));
 
-	const r = ('0x' + signature.slice(2, 66)) as `0x${string}`;
-	const s = ('0x' + signature.slice(66, 130)) as `0x${string}`;
-	const v = '0x' + parseInt(signature.slice(130, 132), 16).toString(16);
+	// Sign the authorization hash using SigningKey (raw hash signing, no EIP-191 prefix)
+	const signingKey = new ethers.SigningKey(ownerKey);
+	const sig = signingKey.sign(authHash);
+
+	const r = sig.r as `0x${string}`;
+	const s = sig.s as `0x${string}`;
+	const v = '0x' + sig.v.toString(16);
 
 	return {
 		eip7702Auth: {
@@ -300,18 +301,8 @@ async function signEip7702AuthIfNeeded(
 }
 
 // =============================================================================
-// API helpers
+// API helpers — now delegated to gaslessService (axios-based)
 // =============================================================================
-
-/**
- * Get the relay API base URL from Vite env.
- * Reads VITE_TX_RELAY_BASE_URL (e.g. "http://localhost:8000/api/v1").
- */
-function getRelayBaseUrl(): string {
-	const url = import.meta.env.VITE_TX_RELAY_BASE_URL;
-	if (!url) throw new Error('VITE_TX_RELAY_BASE_URL not configured');
-	return url.replace(/\/$/, '');
-}
 
 // =============================================================================
 // Build executeBatch callData (programmatic — arbitrary batch calls)
@@ -368,7 +359,6 @@ export async function sendGasless(
 	feeBufferToken: string,
 	feeBufferAmount: bigint,
 	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
-	jwt: string,
 	smartAccount: Pick<SmartAccount, 'signUserOperation'>
 ): Promise<string> {
 	const state = get(gaslessWallet);
@@ -411,28 +401,19 @@ export async function sendGasless(
 
 	const serializableOp: SerializableUserOperation = {
 		sender: signedUserOp.sender,
-		nonce: signedUserOp.nonce.toString(),
+		nonce: toHex(signedUserOp.nonce),
 		callData: signedUserOp.callData,
-		callGasLimit: signedUserOp.callGasLimit.toString(),
-		verificationGasLimit: signedUserOp.verificationGasLimit.toString(),
-		preVerificationGas: signedUserOp.preVerificationGas.toString(),
-		maxFeePerGas: signedUserOp.maxFeePerGas.toString(),
-		maxPriorityFeePerGas: signedUserOp.maxPriorityFeePerGas.toString(),
+		callGasLimit: toHex(signedUserOp.callGasLimit),
+		verificationGasLimit: toHex(signedUserOp.verificationGasLimit),
+		preVerificationGas: toHex(signedUserOp.preVerificationGas),
+		maxFeePerGas: toHex(signedUserOp.maxFeePerGas),
+		maxPriorityFeePerGas: toHex(signedUserOp.maxPriorityFeePerGas),
 		paymasterAndData: signedUserOp.paymasterAndData,
-		signature: signedUserOp.signature
+		signature: signedUserOp.signature || '0x'
 	};
 
-	const response = await fetch(`${API_BASE_URL}/gasless/relay`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-		body: JSON.stringify({ sender: state.address, userOp: serializableOp })
-	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ message: 'Relay failed' }));
-		throw new Error(error.message || `Relay failed with status ${response.status}`);
-	}
-	return (await response.json()).userOpHash;
+	const result = await gaslessService.relay({ sender: state.address, userOp: serializableOp });
+	return result.userOpHash;
 }
 
 // =============================================================================
@@ -449,7 +430,6 @@ export async function sendTokenProgrammatic(
 	amount: bigint,
 	feeBufferAmount: bigint,
 	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
-	jwt: string,
 	smartAccount: Pick<SmartAccount, 'signUserOperation'>
 ): Promise<string> {
 	// Input validation
@@ -469,7 +449,6 @@ export async function sendTokenProgrammatic(
 		token,
 		feeBufferAmount,
 		estimatedGas,
-		jwt,
 		smartAccount
 	);
 }
@@ -484,41 +463,22 @@ export async function sendTokenProgrammatic(
  * @param token - Token contract address
  * @param amount - Transfer amount in token's smallest unit (bigint)
  * @param recipient - Recipient address
- * @param jwt - Auth token for the relay API
  * @returns Fee estimate with buffer and cost details
  */
 export async function estimateFee(
 	token: string,
 	amount: bigint,
-	recipient: string,
-	jwt: string
+	recipient: string
 ): Promise<FeeEstimate> {
 	if (!isAddress(token)) throw new Error('Invalid token address');
 	if (!isAddress(recipient)) throw new Error('Invalid recipient address');
 	if (amount <= 0n) throw new Error('Amount must be positive');
 
-	const relayUrl = getRelayBaseUrl();
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json'
-	};
-	if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
-
-	const response = await fetch(`${relayUrl}/gasless/estimate`, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify({
-			token,
-			amount: amount.toString(),
-			recipient
-		})
+	return gaslessService.estimate({
+		token,
+		amount: amount.toString(),
+		recipient
 	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ message: response.statusText }));
-		throw new Error(error.message ?? `Fee estimation failed: ${response.statusText}`);
-	}
-
-	return response.json();
 }
 
 // =============================================================================
@@ -580,7 +540,6 @@ function buildTransferCallData(
  * @param recipient - Recipient address
  * @param amount    - Transfer amount in token's smallest unit (bigint)
  * @param feeBuffer - Fee buffer amount in token's smallest unit (bigint)
- * @param jwt       - Auth token for the relay API
  * @param estimatedGas - Optional gas estimate from fee estimation (decimal strings).
  *                       If omitted, falls back to GAS_BOUNDS max values.
  * @returns UserOp hash from the bundler (hex string)
@@ -590,7 +549,6 @@ export async function sendToken(
 	recipient: string,
 	amount: bigint,
 	feeBuffer: bigint,
-	jwt: string,
 	estimatedGas?: {
 		callGasLimit: string;
 		verificationGasLimit: string;
@@ -667,38 +625,26 @@ export async function sendToken(
 	const account = get(gaslessAccount);
 	if (account && typeof account.signUserOperation === 'function') {
 		const signed = await account.signUserOperation(userOp);
-		userOp.signature = signed.signature;
+		userOp.signature = signed.signature || '0x';
 	}
 
 	// 3e. Serialize for JSON transport
 	const serializableOp: SerializableUserOperation = {
 		sender: userOp.sender,
-		nonce: userOp.nonce.toString(),
+		nonce: toHex(userOp.nonce),
 		callData: userOp.callData,
-		callGasLimit: userOp.callGasLimit.toString(),
-		verificationGasLimit: userOp.verificationGasLimit.toString(),
-		preVerificationGas: userOp.preVerificationGas.toString(),
-		maxFeePerGas: userOp.maxFeePerGas.toString(),
-		maxPriorityFeePerGas: userOp.maxPriorityFeePerGas.toString(),
+		callGasLimit: toHex(userOp.callGasLimit),
+		verificationGasLimit: toHex(userOp.verificationGasLimit),
+		preVerificationGas: toHex(userOp.preVerificationGas),
+		maxFeePerGas: toHex(userOp.maxFeePerGas),
+		maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
 		paymasterAndData: userOp.paymasterAndData,
-		signature: userOp.signature,
+		signature: userOp.signature || '0x',
 		// Include factory sentinel for 7702 first-time delegations
 		...(userOp.factory ? { factory: userOp.factory } : {})
 	};
 
-	// 4. Relay to NestJS backend
-	const relayUrl = getRelayBaseUrl();
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json'
-	};
-	if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
-
-	// Include eip7702Auth for first-time delegations
-	const body: Record<string, unknown> = { sender, userOp: serializableOp };
-	if (eip7702Auth) {
-		body.eip7702Auth = eip7702Auth;
-	}
-
+	// 4. Relay to NestJS backend via gaslessService (auth handled by axios interceptor)
 	addBreadcrumb({
 		category: 'gasless',
 		message: `Relaying UserOp for ${token.slice(0, 10)}...`,
@@ -706,31 +652,30 @@ export async function sendToken(
 		data: { sender, token, recipient, hasEip7702Auth: !!eip7702Auth }
 	});
 
-	const response = await fetch(`${relayUrl}/gasless/relay`, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(body)
-	});
+	try {
+		const result = await gaslessService.relay({
+			sender,
+			userOp: serializableOp,
+			...(eip7702Auth ? { eip7702Auth } : {})
+		});
 
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ message: response.statusText }));
 		addBreadcrumb({
 			category: 'gasless',
-			message: `Relay failed: ${error.message ?? response.statusText}`,
-			level: 'error',
-			data: { status: response.status, sender }
+			message: 'UserOp relayed successfully',
+			level: 'info',
+			data: { userOpHash: result.userOpHash, sender }
 		});
-		throw new Error(error.message ?? `Gasless relay failed: ${response.statusText}`);
+		return result.userOpHash;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		addBreadcrumb({
+			category: 'gasless',
+			message: `Relay failed: ${msg}`,
+			level: 'error',
+			data: { sender }
+		});
+		throw error;
 	}
-
-	const result = await response.json();
-	addBreadcrumb({
-		category: 'gasless',
-		message: 'UserOp relayed successfully',
-		level: 'info',
-		data: { userOpHash: result.userOpHash, sender }
-	});
-	return result.userOpHash as string;
 }
 
 // =============================================================================
@@ -882,7 +827,6 @@ export async function sendTokenDirect(
  * @param calls - Array of contract calls: `{ to, data, value? }`
  * @param feeToken - Token address used for the fee buffer (must be in ALLOWED_FEE_TOKENS)
  * @param feeBuffer - Fee buffer amount in token's smallest unit (bigint)
- * @param jwt - Auth token for the relay API
  * @param estimatedGas - Optional gas estimate from fee estimation
  * @returns UserOp hash from the bundler
  */
@@ -890,7 +834,6 @@ export async function sendGaslessCalls(
 	calls: Array<{ to: string; data: string; value?: bigint }>,
 	feeToken: string,
 	feeBuffer: bigint,
-	jwt: string,
 	estimatedGas?: {
 		callGasLimit: string;
 		verificationGasLimit: string;
@@ -986,32 +929,25 @@ export async function sendGaslessCalls(
 	const account = get(gaslessAccount);
 	if (account && typeof account.signUserOperation === 'function') {
 		const signed = await account.signUserOperation(userOp);
-		userOp.signature = signed.signature;
+		userOp.signature = signed.signature || '0x';
 	}
 
 	// Serialize
 	const serializableOp: SerializableUserOperation = {
 		sender: userOp.sender,
-		nonce: userOp.nonce.toString(),
+		nonce: toHex(userOp.nonce),
 		callData: userOp.callData,
-		callGasLimit: userOp.callGasLimit.toString(),
-		verificationGasLimit: userOp.verificationGasLimit.toString(),
-		preVerificationGas: userOp.preVerificationGas.toString(),
-		maxFeePerGas: userOp.maxFeePerGas.toString(),
-		maxPriorityFeePerGas: userOp.maxPriorityFeePerGas.toString(),
+		callGasLimit: toHex(userOp.callGasLimit),
+		verificationGasLimit: toHex(userOp.verificationGasLimit),
+		preVerificationGas: toHex(userOp.preVerificationGas),
+		maxFeePerGas: toHex(userOp.maxFeePerGas),
+		maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
 		paymasterAndData: userOp.paymasterAndData,
-		signature: userOp.signature,
+		signature: userOp.signature || '0x',
 		...(userOp.factory ? { factory: userOp.factory } : {})
 	};
 
-	// Relay
-	const relayUrl = getRelayBaseUrl();
-	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-	if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
-
-	const body: Record<string, unknown> = { sender, userOp: serializableOp };
-	if (eip7702Auth) body.eip7702Auth = eip7702Auth;
-
+	// Relay via gaslessService (auth handled by axios interceptor)
 	addBreadcrumb({
 		category: 'gasless',
 		message: `Relaying batch calls (${calls.length} calls)`,
@@ -1019,29 +955,28 @@ export async function sendGaslessCalls(
 		data: { sender, callCount: calls.length, feeToken, hasEip7702Auth: !!eip7702Auth }
 	});
 
-	const response = await fetch(`${relayUrl}/gasless/relay`, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(body)
-	});
+	try {
+		const result = await gaslessService.relay({
+			sender,
+			userOp: serializableOp,
+			...(eip7702Auth ? { eip7702Auth } : {})
+		});
 
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ message: response.statusText }));
 		addBreadcrumb({
 			category: 'gasless',
-			message: `Batch relay failed: ${error.message ?? response.statusText}`,
-			level: 'error',
-			data: { status: response.status, sender }
+			message: 'Batch UserOp relayed successfully',
+			level: 'info',
+			data: { userOpHash: result.userOpHash, sender, callCount: calls.length }
 		});
-		throw new Error(error.message ?? `Gasless relay failed: ${response.statusText}`);
+		return result.userOpHash;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		addBreadcrumb({
+			category: 'gasless',
+			message: `Batch relay failed: ${msg}`,
+			level: 'error',
+			data: { sender }
+		});
+		throw error;
 	}
-
-	const result = await response.json();
-	addBreadcrumb({
-		category: 'gasless',
-		message: 'Batch UserOp relayed successfully',
-		level: 'info',
-		data: { userOpHash: result.userOpHash, sender, callCount: calls.length }
-	});
-	return result.userOpHash as string;
 }

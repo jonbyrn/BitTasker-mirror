@@ -1,59 +1,31 @@
 /**
- * Gasless Helpers — Paymaster hash computation, fee estimation, and validation
+ * Gasless Helpers — Pure functions for paymaster hashing, fee estimation, validation
  *
  * All functions are pure and testable (no side effects, no external calls).
- * Uses BigInt-only arithmetic for fee calculations.
- * Hash computation matches Coinbase VerifyingPaymaster contract exactly.
+ * Uses ethers.js v6 exclusively for encoding and hashing (matches backend).
+ * All financial math uses BigInt exclusively (no floating-point for money).
+ *
+ * This is the SINGLE SOURCE for gasless helper functions on the frontend.
+ * The old src/wallet/gasless-helpers.ts (viem-based) is deleted — this file
+ * replaces it with ethers-based implementations.
  *
  * @module gasless-helpers
  */
 
-import { keccak256, AbiCoder, Interface, getAddress } from 'ethers';
+import { keccak256, AbiCoder } from 'ethers';
+import type { FeeTierDef } from '$lib/types/gasless.types';
 import {
-	FEE_TIERS as feeTiers,
-	ALLOWED_FEE_TOKENS as _allowedTokens,
-	GAS_BOUNDS as _gasBounds
-} from '../../wallet/gasless.config';
-import type { FeeTierDef } from '../../types/gasless.types';
+	GAS_BOUNDS,
+	FEE_TIERS,
+	FEE_BUFFER_MIN,
+	FEE_BUFFER_MAX,
+	ALLOWED_FEE_TOKENS,
+	GAS_TREASURY,
+	TOKENS
+} from '$lib/../wallet/gasless.config';
 
 // =============================================================================
-// Constants
-// =============================================================================
-
-const coder = AbiCoder.defaultAbiCoder();
-
-/** ABI for executeBatch — matches EIP-7702 smart account interface */
-const EXECUTE_BATCH_ABI = [
-	'function executeBatch(address[] calldata targets, uint256[] calldata values, bytes[] calldata calldatas)'
-];
-
-/**
- * Minimum gas buffer per token address (lowercase) for validation.
- * Ensures the paymaster is reimbursed enough to cover actual L2 gas costs.
- * Values are in each token's smallest unit.
- */
-export const MIN_GAS_BUFFER: Record<string, bigint> = {
-	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 10_000n, // USDT0: 0.01 (6 decimals)
-	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 10_000n, // USDC: 0.01 (6 decimals)
-	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 16n, // WBTC: 16 sats
-	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 10_000_000_000_000_000n, // tBTC: 0.01 (18 decimals)
-	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 10_000_000_000_000_000n // WETH: 0.01 (18 decimals)
-};
-
-/**
- * Maximum gas buffer per token address (lowercase) for validation.
- * Prevents overcharging the user beyond reasonable gas costs.
- */
-export const MAX_GAS_BUFFER: Record<string, bigint> = {
-	'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 150_000n, // USDT0: 0.15 (6 decimals)
-	'0xaf88d065e77c8cc2239327c5edb3a432268e5831': 150_000n, // USDC: 0.15 (6 decimals)
-	'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 230n, // WBTC: 230 sats
-	'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 150_000_000_000_000_000n, // tBTC: 0.15 (18 decimals)
-	'0x5979d7b546e38e9ab80777482e772500ec1606d5': 150_000_000_000_000_000n // WETH: 0.15 (18 decimals)
-};
-
-// =============================================================================
-// Hash Computation
+// Paymaster Signature Hash
 // =============================================================================
 
 /**
@@ -63,11 +35,9 @@ export const MAX_GAS_BUFFER: Record<string, bigint> = {
  *   keccak256(abi.encode(sender, nonce, keccak256(callData), entryPoint, chainId))
  *
  * This function replicates that exact computation for off-chain signing.
- * CRITICAL: The backend signer must use `signingKey.signDigest(hash)` instead
- * of `signer.signMessage(hash)` — ethers.js signMessage prepends the Ethereum
- * signed message prefix, which causes on-chain ECDSA recovery to fail.
+ * Uses ethers.js v6 ABI encoding — matches the backend implementation exactly.
  *
- * @param sender - UserOp.sender address (checksummed or raw hex)
+ * @param sender - UserOp.sender address
  * @param nonce - UserOp.nonce as bigint
  * @param callData - UserOp.callData as hex string (0x-prefixed)
  * @param entryPointAddress - EntryPoint contract address
@@ -81,33 +51,34 @@ export function getPaymasterSignatureHash(
 	entryPointAddress: string,
 	chainId: bigint
 ): string {
+	const coder = AbiCoder.defaultAbiCoder();
 	const callDataHash = keccak256(callData);
 	const encoded = coder.encode(
 		['address', 'uint256', 'bytes32', 'address', 'uint256'],
-		[getAddress(sender), nonce, callDataHash, getAddress(entryPointAddress), chainId]
+		[sender, nonce, callDataHash, entryPointAddress, chainId]
 	);
 	return keccak256(encoded);
 }
 
 // =============================================================================
-// Fee Estimation
+// Fee Tier Lookup
 // =============================================================================
 
 /**
- * Get the network fee tier configuration by estimated total gas.
+ * Determine the fee tier based on estimated total gas.
  *
- * Fee tiers define gas pricing strategy:
- * - Low:       ≤ 200,000 gas    ($0.01)
- * - Medium:    ≤ 500,000 gas    ($0.03)
- * - High:      ≤ 1,000,000 gas  ($0.05)
- * - Very High: ≤ 5,000,000 gas  ($0.10)
+ * | Estimated Gas            | Fee Tier  | Fee (USD) |
+ * |--------------------------|-----------|-----------|
+ * | ≤ 200,000                | Low       | $0.01     |
+ * | 200,001 – 500,000        | Medium    | $0.03     |
+ * | 500,001 – 1,000,000      | High      | $0.05     |
+ * | 1,000,001 – 6,300,000    | Very High | $0.10     |
+ * | > 6,300,000              | REJECTED  | —         |
  *
- * @param estimatedGas - Total estimated gas for the operation
- * @returns FeeTierDef configuration
- * @throws Error if estimatedGas exceeds 5,000,000
+ * @throws Error if estimatedGas exceeds maxTotalGas (6,300,000).
  */
 export function getNetworkFeeTier(estimatedGas: bigint): FeeTierDef {
-	for (const tier of feeTiers) {
+	for (const tier of FEE_TIERS) {
 		if (estimatedGas >= tier.minGas && estimatedGas <= tier.maxGas) {
 			return tier;
 		}
@@ -115,222 +86,198 @@ export function getNetworkFeeTier(estimatedGas: bigint): FeeTierDef {
 	throw new Error('Network fee too high — operation too complex');
 }
 
-/**
- * Convert an ETH-denominated fee to a token-denominated fee.
- *
- * Uses BigInt-only arithmetic with CEIL division to prevent undercharging.
- * The protocol must never lose money due to rounding — always round UP.
- *
- * Formula: tokenFee = ceil(ethFee × ethPriceInToken / 10^18)
- *
- * Example:
- *   ethFeeWei = 0.001 ETH = 1_000_000_000_000_000n
- *   ethPriceInToken = 2000 USDC = 2_000_000_000n (2000 × 10^6)
- *   result = ceil(1e15 × 2e9 / 1e18) = 2_000_000 = 2 USDC
- *
- * @param ethFeeWei - Fee amount in ETH wei (18 decimals)
- * @param ethPriceInToken - Price of 1 ETH denominated in token's smallest unit
- *                          (e.g., 2_000_000_000n for 2000 USDC at 6 decimals)
- * @returns Token fee in token's smallest unit, rounded UP
- * @throws Error if inputs are negative
- */
-export function convertToTokenFee(ethFeeWei: bigint, ethPriceInToken: bigint): bigint {
-	if (ethFeeWei < 0n || ethPriceInToken < 0n) {
-		throw new Error('convertToTokenFee: inputs must be non-negative');
-	}
-
-	const ETH_SCALE = 10n ** 18n;
-
-	// Multiply first to preserve precision, then ceiling division
-	const product = ethFeeWei * ethPriceInToken;
-	return (product + ETH_SCALE - 1n) / ETH_SCALE;
-}
-
 // =============================================================================
-// CallData Helpers
+// BigInt Fee Conversion
 // =============================================================================
 
 /**
- * Build callData for a batched executeBatch operation.
+ * Convert a USD fee amount to token amount using BigInt-only arithmetic.
  *
- * Encodes the standard EIP-7702 smart account executeBatch function
- * with the provided calls. All value fields are set to 0 (token transfers
- * only — no ETH value transfer in the batch).
+ * Uses ethers.js ABI encoding for precise conversion.
+ * Always rounds UP (favor treasury over underpayment).
  *
- * @param calls - Array of {target, data} representing individual contract calls
- * @returns ABI-encoded callData string for executeBatch
- * @throws Error if calls array is empty
+ * For USDT0 (stablecoin pegged to $1), tokenPrice is 1e18 ($1.00).
+ * For wBTC/tBTC, tokenPrice comes from Chainlink BTC/USD oracle.
+ *
+ * @param feeUSD - The fee in USD (used as a number for tier display only)
+ * @param tokenPriceUSD - Token price in USD with 18 decimals (BigInt)
+ * @param tokenDecimals - Number of token decimals (e.g., 6 for USDT0, 8 for wBTC)
+ * @returns The token amount in smallest unit (BigInt), rounded up.
  */
-export function buildCallData(calls: Array<{ target: string; data: string }>): string {
-	if (calls.length === 0) {
-		throw new Error('buildCallData: at least one call is required');
-	}
+export function convertToTokenFee(
+	feeUSD: number,
+	tokenPriceUSD: bigint,
+	tokenDecimals: number
+): bigint {
+	// Convert feeUSD to wei representation: feeUSD * 1e18
+	const feeUSDWei = BigInt(Math.round(feeUSD * 1e18));
 
-	const iface = new Interface(EXECUTE_BATCH_ABI);
+	// tokenAmount = feeUSDWei * 10^decimals / tokenPrice
+	// Add (tokenPrice - 1n) before division to simulate ceiling division
+	const divisor = tokenPriceUSD;
+	if (divisor === 0n) throw new Error('Token price is zero — cannot compute fee');
 
-	return iface.encodeFunctionData('executeBatch', [
-		calls.map((c) => getAddress(c.target)),
-		calls.map(() => 0n),
-		calls.map((c) => c.data)
-	]);
+	const numerator = feeUSDWei * 10n ** BigInt(tokenDecimals);
+	const tokenAmount = (numerator + divisor - 1n) / divisor;
+
+	return tokenAmount;
 }
 
 /**
- * Build calldata for a single ERC20 transfer.
- *
- * @param recipient - Transfer recipient address
- * @param amount - Transfer amount in token's smallest unit
- * @returns ABI-encoded calldata for ERC20 transfer(address,uint256)
+ * Get USDT0 fee buffer for a given fee tier (stablecoin, constant $1.00 price).
  */
-export function buildTransferCalldata(recipient: string, amount: bigint): string {
-	const transferABI = ['function transfer(address to, uint256 amount) returns (bool)'];
-	const iface = new Interface(transferABI);
-	return iface.encodeFunctionData('transfer', [getAddress(recipient), amount]);
+export function getUSDT0FeeBuffer(feeUSD: number): bigint {
+	// USDT0 is 6 decimals, price = 1e18 ($1.00)
+	return convertToTokenFee(feeUSD, 1_000_000_000_000_000_000n, 6);
+}
+
+/**
+ * Get wBTC fee buffer for a given fee tier and BTC/USD price.
+ */
+export function getWBTCDerivedFeeBuffer(feeUSD: number, btcPriceUSD: bigint): bigint {
+	return convertToTokenFee(feeUSD, btcPriceUSD, 8);
+}
+
+/**
+ * Get tBTC fee buffer for a given fee tier and BTC/USD price.
+ */
+export function getTBTCFeeBuffer(feeUSD: number, btcPriceUSD: bigint): bigint {
+	return convertToTokenFee(feeUSD, btcPriceUSD, 18);
 }
 
 // =============================================================================
-// Validation
+// Fee Parameter Validation (defense-in-depth)
 // =============================================================================
 
 /**
- * Validate that fee parameters are within acceptable bounds.
+ * Validate UserOp gas parameters against bounds.
+ * Prevents paymaster drain via inflated gas values.
  *
- * Checks:
- * 1. Both values are positive
- * 2. Priority fee does not exceed base fee
- * 3. Values do not exceed the fee tier limits (with 10x safety margin)
- *
- * @param maxFeePerGas - Maximum fee per gas unit
- * @param maxPriorityFeePerGas - Maximum priority (tip) fee per gas unit
- * @param feeTier - Optional fee tier to validate against
- * @returns {isValid, error?} validation result
+ * @throws Error with descriptive message if any bound is exceeded.
  */
-export function validateFeeParameters(
-	maxFeePerGas: bigint,
-	maxPriorityFeePerGas: bigint,
-	feeTier?: FeeTierDef
-): { isValid: boolean; error?: string } {
-	if (maxFeePerGas <= 0n) {
-		return { isValid: false, error: 'maxFeePerGas must be positive' };
+export function validateFeeParameters(userOp: {
+	callGasLimit: bigint;
+	verificationGasLimit: bigint;
+	preVerificationGas: bigint;
+	maxFeePerGas: bigint;
+	maxPriorityFeePerGas: bigint;
+}): void {
+	// Lower bounds — reject zero/negative gas (defense-in-depth)
+	if (userOp.callGasLimit <= 0n) {
+		throw new Error('callGasLimit must be positive');
+	}
+	if (userOp.verificationGasLimit <= 0n) {
+		throw new Error('verificationGasLimit must be positive');
+	}
+	if (userOp.preVerificationGas <= 0n) {
+		throw new Error('preVerificationGas must be positive');
+	}
+	if (userOp.maxFeePerGas <= 0n) {
+		throw new Error('maxFeePerGas must be positive');
+	}
+	if (userOp.maxPriorityFeePerGas <= 0n) {
+		throw new Error('maxPriorityFeePerGas must be positive');
+	}
+	// Upper bounds
+	if (userOp.callGasLimit > GAS_BOUNDS.maxCallGas) {
+		throw new Error('callGasLimit exceeds maximum');
+	}
+	if (userOp.verificationGasLimit > GAS_BOUNDS.maxVerificationGas) {
+		throw new Error('verificationGasLimit exceeds maximum');
+	}
+	if (userOp.preVerificationGas > GAS_BOUNDS.maxPreVerificationGas) {
+		throw new Error('preVerificationGas exceeds maximum');
+	}
+	if (userOp.maxFeePerGas > GAS_BOUNDS.maxFeePerGas) {
+		throw new Error('maxFeePerGas exceeds ceiling');
+	}
+	if (userOp.maxPriorityFeePerGas > GAS_BOUNDS.maxPriorityFeePerGas) {
+		throw new Error('maxPriorityFeePerGas exceeds ceiling');
 	}
 
-	if (maxPriorityFeePerGas <= 0n) {
-		return { isValid: false, error: 'maxPriorityFeePerGas must be positive' };
-	}
-
-	if (maxPriorityFeePerGas > maxFeePerGas) {
-		return { isValid: false, error: 'maxPriorityFeePerGas cannot exceed maxFeePerGas' };
-	}
-
-	if (feeTier) {
-		// FeeTierDef defines gas bounds (minGas/maxGas), not gas price limits.
-		// Gas price validation is handled by GAS_BOUNDS in validateFeeParameters (gasless-helpers.ts).
-		// The feeTier parameter is reserved for future tier-based gas price limits.
-		void feeTier;
-	}
-
-	return { isValid: true };
-}
-
-/**
- * Validate UserOp callData structure.
- *
- * Ensures callData is a valid executeBatch with:
- * - Exactly 2 calls (token transfer to recipient + gas buffer to treasury)
- * - All call values are zero (no ETH value transfer)
- * - Both calls target the same token contract
- *
- * @param callData - ABI-encoded callData from the UserOp
- * @returns Validation result with decoded details on success
- */
-export function validateCallData(callData: string): {
-	isValid: boolean;
-	error?: string;
-	details?: {
-		targets: string[];
-		values: bigint[];
-	};
-} {
-	try {
-		const iface = new Interface(EXECUTE_BATCH_ABI);
-		const decoded = iface.decodeFunctionData('executeBatch', callData);
-
-		const targets: string[] = decoded[0];
-		const values: bigint[] = decoded[1];
-
-		if (targets.length !== 2) {
-			return {
-				isValid: false,
-				error: `Expected exactly 2 calls in batch, got ${targets.length}`
-			};
-		}
-
-		if (values.some((v) => v !== 0n)) {
-			return {
-				isValid: false,
-				error: 'All call values must be zero for token transfers'
-			};
-		}
-
-		if (targets[0].toLowerCase() !== targets[1].toLowerCase()) {
-			return {
-				isValid: false,
-				error: 'Both batch calls must target the same token contract'
-			};
-		}
-
-		return {
-			isValid: true,
-			details: { targets, values }
-		};
-	} catch (err) {
-		return {
-			isValid: false,
-			error: `Failed to decode callData: ${err instanceof Error ? err.message : 'unknown error'}`
-		};
+	const totalGas = userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas;
+	if (totalGas > GAS_BOUNDS.maxTotalGas) {
+		throw new Error('Network fee too high — operation exceeds gas limit');
 	}
 }
 
+// =============================================================================
+// Fee Buffer Bounds Validation
+// =============================================================================
+
 /**
- * Validate gas buffer amount against per-token bounds.
+ * Validate fee buffer amount against token-specific min/max bounds.
  *
- * Ensures the gas reimbursement amount for a given token falls within
- * the predefined minimum and maximum bounds. Prevents both under-reimbursement
- * (paymaster loses money) and over-charging (user overpays).
- *
- * @param tokenAddress - Token contract address (case-insensitive)
- * @param gasBuffer - Gas buffer amount in token's smallest unit
- * @returns {isValid, error?} validation result
+ * @throws Error if fee buffer is below minimum or above maximum.
  */
-export function validateGasBuffer(
-	tokenAddress: string,
-	gasBuffer: bigint
-): { isValid: boolean; error?: string } {
+export function validateFeeBufferBounds(tokenAddress: string, feeAmount: bigint): void {
 	const key = tokenAddress.toLowerCase();
 
-	const minBuffer = MIN_GAS_BUFFER[key];
-	const maxBuffer = MAX_GAS_BUFFER[key];
-
-	if (minBuffer === undefined || maxBuffer === undefined) {
-		return {
-			isValid: false,
-			error: `No gas buffer bounds defined for token ${tokenAddress}`
-		};
+	if (!ALLOWED_FEE_TOKENS.includes(key)) {
+		throw new Error('Fee token not in allowed list');
 	}
 
-	if (gasBuffer < minBuffer) {
-		return {
-			isValid: false,
-			error: `Gas buffer ${gasBuffer} is below minimum ${minBuffer} for token ${tokenAddress}`
-		};
+	const min = FEE_BUFFER_MIN[key];
+	const max = FEE_BUFFER_MAX[key];
+
+	if (min === undefined || max === undefined) {
+		throw new Error(`No fee buffer bounds configured for token ${tokenAddress}`);
 	}
 
-	if (gasBuffer > maxBuffer) {
-		return {
-			isValid: false,
-			error: `Gas buffer ${gasBuffer} exceeds maximum ${maxBuffer} for token ${tokenAddress}`
-		};
+	if (feeAmount < min) {
+		throw new Error('Fee buffer below minimum for this token');
 	}
+	if (feeAmount > max) {
+		throw new Error('Fee buffer above maximum — possible drain attempt');
+	}
+}
 
-	return { isValid: true };
+// =============================================================================
+// Fee Recipient Validation
+// =============================================================================
+
+/**
+ * Validate that the fee buffer recipient matches the treasury address.
+ *
+ * @throws Error if recipient does not match GAS_TREASURY.
+ */
+export function validateFeeRecipient(recipient: string): void {
+	if (!GAS_TREASURY) {
+		throw new Error('GAS_TREASURY not configured');
+	}
+	if (recipient.toLowerCase() !== GAS_TREASURY.toLowerCase()) {
+		throw new Error('Fee buffer must go to GAS_TREASURY');
+	}
+}
+
+// =============================================================================
+// Token Info Lookup
+// =============================================================================
+
+/**
+ * Get token info by address (case-insensitive).
+ * Throws if token is not in the supported list.
+ */
+export function requireTokenInfo(address: string): (typeof TOKENS)[number] {
+	const key = address.toLowerCase();
+	const token = TOKENS.find((t) => t.address.toLowerCase() === key);
+	if (!token) {
+		throw new Error(`Unsupported token: ${address}`);
+	}
+	return token;
+}
+
+// =============================================================================
+// Total Gas Computation
+// =============================================================================
+
+/**
+ * Compute total gas from a UserOperation.
+ */
+export function computeTotalGas(userOp: {
+	callGasLimit: bigint;
+	verificationGasLimit: bigint;
+	preVerificationGas: bigint;
+}): bigint {
+	return userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas;
 }

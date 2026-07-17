@@ -357,22 +357,22 @@ export async function sendConnectedWalletArbitrumTx(
 	// Try gasless relay first
 	try {
 		const { sendGaslessCalls } = await import('$lib/wallet/gasless-store');
-		const jwt = (typeof localStorage !== 'undefined' && localStorage.getItem('auth_token')) || '';
-		if (jwt) {
-			const { USDT0_ADDRESS, FEE_BUFFER_MIN } = await import('$lib/wallet/gasless.config');
-			const feeToken = USDT0_ADDRESS;
-			const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000_000_000_000_000n;
-			const callValue = value ? BigInt(value) : 0n;
+		const { estimateFee } = await import('$lib/wallet/gasless-store');
+		const { USDT0_ADDRESS } = await import('$lib/wallet/gasless.config');
+		const feeToken = USDT0_ADDRESS;
 
-			const txHash = await sendGaslessCalls(
-				[{ to, data, value: callValue }],
-				feeToken,
-				feeBuffer,
-				jwt
-			);
-			d.log('Connected wallet Arbitrum tx via gasless: %s', txHash.substring(0, 16));
-			return txHash;
-		}
+		// Estimate fee via backend /gasless/estimate (returns accurate tier-based buffer)
+		const estimate = await estimateFee(feeToken, 1n, to);
+		const feeBuffer = BigInt(estimate.feeBuffer);
+		const callValue = value ? BigInt(value) : 0n;
+
+		const txHash = await sendGaslessCalls(
+			[{ to, data, value: callValue }],
+			feeToken,
+			feeBuffer
+		);
+		d.log('Connected wallet Arbitrum tx via gasless: %s', txHash.substring(0, 16));
+		return txHash;
 	} catch (gaslessErr) {
 		d.warn('Gasless relay failed for connected wallet, falling back to direct: %s', gaslessErr);
 	}

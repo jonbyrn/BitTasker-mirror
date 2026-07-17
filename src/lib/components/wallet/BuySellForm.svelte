@@ -82,8 +82,13 @@
 
 	// Off-ramp orchestrator
 	const offRampOrchestrator = new OffRampOrchestrator();
-	let offRampFlow = $state<OffRampFlowState | null>(offRampOrchestrator.getActiveFlow());
+	let offRampFlow = $state<OffRampFlowState | null>(null);
 	let offRampQuote = $state<OffRampQuote | null>(null);
+
+	// Restore persisted flow from Capacitor Preferences
+	offRampOrchestrator.init().then(() => {
+		offRampFlow = offRampOrchestrator.getActiveFlow();
+	});
 	let depositAddressInput = $state('');
 	let depositAddressError = $state('');
 	let offRampLoading = $state(false);
@@ -189,13 +194,22 @@
 	// Fiat swap orchestrator
 	// -----------------------------------------------------------------------
 	const orchestrator = new FiatSwapOrchestrator();
-	let flowState = $state<FiatFlowState | null>(orchestrator.getActiveFlow());
+	let flowState = $state<FiatFlowState | null>(null);
 
+	// Restore persisted flow from Capacitor Preferences, then subscribe to changes
 	$effect(() => {
-		const unsub = orchestrator.onStageChange((state) => {
-			flowState = { ...state };
+		let unsub: (() => void) | undefined;
+
+		orchestrator.init().then(() => {
+			flowState = orchestrator.getActiveFlow();
+			unsub = orchestrator.onStageChange((state) => {
+				flowState = { ...state };
+			});
 		});
-		return unsub;
+
+		return () => {
+			unsub?.();
+		};
 	});
 
 	$effect(() => {
@@ -329,7 +343,7 @@
 	// -----------------------------------------------------------------------
 	// Form state reset
 	// -----------------------------------------------------------------------
-	function resetFormState(
+	async function resetFormState(
 		opts: {
 			resetTab?: boolean;
 			resetAmount?: boolean;
@@ -361,7 +375,7 @@
 			supportedCryptoError = null;
 		}
 		if (resetOffRamp) {
-			offRampOrchestrator.cancel();
+			await offRampOrchestrator.cancel();
 			offRampQuote = null;
 			offRampFlow = null;
 			depositAddressInput = '';
@@ -377,18 +391,18 @@
 		}
 	}
 
-	function switchTab(tab: 'buy' | 'sell') {
+	async function switchTab(tab: 'buy' | 'sell') {
 		if (tab === activeTab) return;
 		activeTab = tab;
-		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
 	}
 
-	function handleCryptoChange(cryptoId: string) {
+	async function handleCryptoChange(cryptoId: string) {
 		const validCryptos = ['rbtc', 'usdt0-arb', 'wbtc-arb', 'btc-onchain'] as const;
 		if (validCryptos.includes(cryptoId as typeof selectedCrypto)) {
 			selectedCrypto = cryptoId as typeof selectedCrypto;
 		}
-		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
 		if (amount && parseFloat(amount) > 0) fetchOffers(amount);
 	}
 
@@ -432,8 +446,8 @@
 		}
 	}
 
-	function clearAmount() {
-		resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: false });
+	async function clearAmount() {
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: false });
 		offRampQuote = null;
 	}
 
@@ -719,8 +733,8 @@
 	// -----------------------------------------------------------------------
 	// Close
 	// -----------------------------------------------------------------------
-	function handleClose() {
-		resetFormState({
+	async function handleClose() {
+		await resetFormState({
 			resetTab: true,
 			resetAmount: true,
 			resetOffers: true,
@@ -826,8 +840,8 @@
 						<button
 							type="button"
 							class="btn btn-ghost btn-xs shrink-0"
-							onclick={() => {
-								orchestrator.cancel();
+							onclick={async () => {
+								await orchestrator.cancel();
 								flowState = null;
 							}}
 						>
@@ -979,7 +993,7 @@
 							depositAddressInput = val;
 							if (val.trim()) depositAddressError = '';
 						}}
-						onStartOver={() => offRampOrchestrator.startOver()}
+						onStartOver={async () => await offRampOrchestrator.startOver()}
 						onSubmit={() => handleSubmit(new Event('submit'))}
 					/>
 				{/if}

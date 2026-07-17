@@ -5,7 +5,7 @@
  *   idle → awaiting_payment → payment_confirmed → crypto_delivered → complete
  *   idle → awaiting_payment → failed (expired/swap_failed)
  *
- * Covers: state machine transitions, localStorage persistence, polling,
+ * Covers: state machine transitions, Capacitor Preferences persistence, polling,
  * stale flow expiry, listener callbacks, cancel, helper functions,
  * createOrder, and trackCheckoutReturn.
  */
@@ -58,6 +58,26 @@ vi.mock('$lib/services/BoltzProvider', () => ({
 	}
 }));
 
+const { mockPreferencesGet, mockPreferencesSet, mockPreferencesRemove } = vi.hoisted(() => ({
+	mockPreferencesGet: vi.fn(),
+	mockPreferencesSet: vi.fn(),
+	mockPreferencesRemove: vi.fn()
+}));
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: mockPreferencesGet,
+		set: mockPreferencesSet,
+		remove: mockPreferencesRemove
+	}
+}));
+
+vi.mock('$lib/utils/constants/storage', () => ({
+	StorageKeys: {
+		FIAT_SWAP_FLOW: 'bittasker_fiat_flow'
+	}
+}));
+
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -105,22 +125,14 @@ function makeStoredFlow(overrides?: Record<string, unknown>): string {
 
 describe('FiatSwapOrchestrator', () => {
 	let orchestrator: FiatSwapOrchestrator;
-	let storage: Record<string, string>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 
-		storage = {};
-		vi.stubGlobal('localStorage', {
-			getItem: vi.fn((key: string) => storage[key] ?? null),
-			setItem: vi.fn((key: string, value: string) => {
-				storage[key] = value;
-			}),
-			removeItem: vi.fn((key: string) => {
-				delete storage[key];
-			})
-		});
+		mockPreferencesGet.mockResolvedValue({ value: null });
+		mockPreferencesSet.mockResolvedValue(undefined);
+		mockPreferencesRemove.mockResolvedValue(undefined);
 
 		vi.stubGlobal('document', {
 			addEventListener: vi.fn(),
@@ -138,8 +150,9 @@ describe('FiatSwapOrchestrator', () => {
 		vi.restoreAllMocks();
 	});
 
-	function createOrchestrator(): FiatSwapOrchestrator {
+	async function createOrchestrator(): Promise<FiatSwapOrchestrator> {
 		orchestrator = new FiatSwapOrchestrator();
+		await orchestrator.init();
 		return orchestrator;
 	}
 
@@ -148,7 +161,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('changellyTickerForAsset (via createOrder)', () => {
 		it('maps rbtc → WBTC', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'rbtc',
@@ -165,7 +178,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('maps usdt0-arb → USDTARB', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -182,7 +195,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('maps wbtc-arb → WBTC', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'wbtc-arb',
@@ -199,7 +212,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('maps btc-onchain → BTC', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'btc-onchain',
@@ -234,7 +247,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'rbtc',
 				fiatAmount: '100',
@@ -243,7 +256,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			// First poll resolves to 'complete' → payment_confirmed → balance polling starts
 			await vi.advanceTimersByTimeAsync(0);
 
@@ -273,7 +286,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -282,7 +295,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			// Balance polling (5s) triggers crypto_delivered → complete (no auto-swap for usdt0-arb)
@@ -297,7 +310,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('createOrder', () => {
 		it('creates Changelly order and transitions to awaiting_payment', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			const result = await o.createOrder({
 				asset: 'usdt0-arb',
@@ -315,7 +328,7 @@ describe('FiatSwapOrchestrator', () => {
 		it('checksums wallet address via ethers.getAddress', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
 			vi.mocked(ethers.getAddress).mockReturnValue('0xAbC');
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -331,9 +344,9 @@ describe('FiatSwapOrchestrator', () => {
 			);
 		});
 
-		it('persists flow to localStorage', async () => {
+		it('persists flow via Capacitor Preferences', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -343,12 +356,15 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			expect(localStorage.setItem).toHaveBeenCalledWith('bittasker_fiat_flow', expect.any(String));
+			expect(mockPreferencesSet).toHaveBeenCalledWith({
+				key: 'bittasker_fiat_flow',
+				value: expect.any(String)
+			});
 		});
 
 		it('throws if active flow exists and is not stale', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -371,7 +387,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('clears stale flow (>30 min) and creates new order', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -406,7 +422,7 @@ describe('FiatSwapOrchestrator', () => {
 				.mockResolvedValueOnce(VALID_ORDER)
 				.mockResolvedValueOnce({ ...VALID_ORDER, orderId: 'order-2' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -417,7 +433,7 @@ describe('FiatSwapOrchestrator', () => {
 			});
 
 			// Simulate complete by setting stage directly
-			o.cancel(); // clears to null
+			await o.cancel(); // clears to null
 			const result = await o.createOrder({
 				asset: 'wbtc-arb',
 				fiatAmount: '50',
@@ -431,7 +447,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('logs Sentry breadcrumb', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -468,7 +484,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -477,7 +493,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			// First poll happens immediately (sync promise resolution)
 			await vi.advanceTimersByTimeAsync(0);
 
@@ -504,7 +520,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -513,7 +529,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			expect(o.getActiveFlow()?.stage).toBe('failed');
@@ -535,7 +551,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -544,7 +560,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			expect(o.getActiveFlow()?.stage).toBe('failed');
@@ -578,7 +594,7 @@ describe('FiatSwapOrchestrator', () => {
 					updatedAt: '2025-01-01T00:01:00Z'
 				});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -587,7 +603,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			// Still awaiting payment — pending
@@ -617,7 +633,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -626,7 +642,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 
 			// 120 polls × 15s = 30 min (first poll is immediate, then 119 intervals)
 			// We advance past the max: 121 intervals × 15s
@@ -653,7 +669,7 @@ describe('FiatSwapOrchestrator', () => {
 					updatedAt: '2025-01-01T00:01:00Z'
 				});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -662,7 +678,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			// Rate-limited but still polling
@@ -678,9 +694,9 @@ describe('FiatSwapOrchestrator', () => {
 		});
 
 		it('no-ops when no flow exists', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			// Should not throw
-			o.startMonitoring();
+			await o.startMonitoring();
 		});
 	});
 
@@ -689,7 +705,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('onStageChange', () => {
 		it('receives state snapshots on stage change', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			const snapshots: string[] = [];
 			o.onStageChange((state) => {
@@ -709,7 +725,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('unsubscribe stops receiving callbacks', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			const snapshots: string[] = [];
 			const unsub = o.onStageChange((state) => {
@@ -728,7 +744,7 @@ describe('FiatSwapOrchestrator', () => {
 			unsub();
 
 			// Trigger another notification
-			o.cancel();
+			await o.cancel();
 
 			// Should not have received the cancel snapshot
 			expect(snapshots.length).toBe(countBefore);
@@ -736,7 +752,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('listener error does not break other listeners', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			const goodSnapshots: string[] = [];
 			o.onStageChange(() => {
@@ -763,7 +779,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('cancel', () => {
 		it('clears flow and notifies listeners', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -778,10 +794,10 @@ describe('FiatSwapOrchestrator', () => {
 				if (state) snapshots.push(state.stage);
 			});
 
-			o.cancel();
+			await o.cancel();
 
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
 		});
 
 		it('stops polling timers', async () => {
@@ -799,7 +815,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -808,11 +824,11 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			await vi.advanceTimersByTimeAsync(0);
 
 			const callsBefore = vi.mocked(changellyFiatService.getTransactionStatus).mock.calls.length;
-			o.cancel();
+			await o.cancel();
 
 			// Advance time — no more polls should fire
 			await vi.advanceTimersByTimeAsync(60_000);
@@ -822,80 +838,86 @@ describe('FiatSwapOrchestrator', () => {
 		});
 	});
 
-	// ── localStorage persistence ───────────────────────────────────────
+	// ── Capacitor Preferences persistence ──────────────────────────────
 
-	describe('localStorage persistence', () => {
-		it('restores flow from localStorage on construction', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow();
+	describe('Capacitor Preferences persistence', () => {
+		it('restores flow from Preferences on init', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow() });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).not.toBeNull();
 			expect(o.getActiveFlow()?.orderId).toBe('order-stored');
 			expect(o.getActiveFlow()?.stage).toBe('awaiting_payment');
 		});
 
-		it('auto-expires stale flows (>30 min) on restore', () => {
+		it('auto-expires stale flows (>30 min) on restore', async () => {
 			const staleTime = Date.now() - 31 * 60 * 1000;
-			storage['bittasker_fiat_flow'] = makeStoredFlow({
-				updatedAt: staleTime,
-				startedAt: staleTime
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({
+					updatedAt: staleTime,
+					startedAt: staleTime
+				})
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
 		});
 
-		it('does not restore terminal states (complete)', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow({ stage: 'complete' });
+		it('does not restore terminal states (complete)', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow({ stage: 'complete' }) });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
 		});
 
-		it('does not restore terminal states (failed)', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow({ stage: 'failed' });
+		it('does not restore terminal states (failed)', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow({ stage: 'failed' }) });
 
-			const o = createOrchestrator();
-			expect(o.getActiveFlow()).toBeNull();
-		});
-
-		it('does not restore terminal states (swap_failed)', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow({ stage: 'swap_failed' });
-
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
 		});
 
-		it('clears corrupted data on restore', () => {
-			storage['bittasker_fiat_flow'] = 'not-valid-json!!!';
+		it('does not restore terminal states (swap_failed)', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow({ stage: 'swap_failed' }) });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
 		});
 
-		it('clears data with missing required fields', () => {
-			storage['bittasker_fiat_flow'] = JSON.stringify({ orderId: 123 });
+		it('clears corrupted data on restore', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: 'not-valid-json!!!' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
 		});
 
-		it('clears data with invalid stage value', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow({ stage: 'bogus_stage' });
+		it('clears data with missing required fields', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: JSON.stringify({ orderId: 123 }) });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_fiat_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
 		});
 
-		it('resumes Changelly polling on restore if awaiting_payment', () => {
-			storage['bittasker_fiat_flow'] = makeStoredFlow({ stage: 'awaiting_payment' });
+		it('clears data with invalid stage value', async () => {
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({ stage: 'bogus_stage' })
+			});
 
-			const _o = createOrchestrator();
+			const o = await createOrchestrator();
+			expect(o.getActiveFlow()).toBeNull();
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_fiat_flow' });
+		});
+
+		it('resumes Changelly polling on restore if awaiting_payment', async () => {
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({ stage: 'awaiting_payment' })
+			});
+
+			const _o = await createOrchestrator();
 			vi.mocked(changellyFiatService.getTransactionStatus).mockResolvedValue({
 				orderId: 'order-stored',
 				externalOrderId: 'ext-stored',
@@ -920,7 +942,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('trackCheckoutReturn', () => {
 		it('registers visibilitychange listener', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -953,7 +975,7 @@ describe('FiatSwapOrchestrator', () => {
 				updatedAt: '2025-01-01T00:01:00Z'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createOrder({
 				asset: 'usdt0-arb',
 				fiatAmount: '100',
@@ -962,7 +984,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			o.trackCheckoutReturn();
 
 			// Capture the registered handler
@@ -985,7 +1007,7 @@ describe('FiatSwapOrchestrator', () => {
 		});
 
 		it('cleans up listener on destroy', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			o.trackCheckoutReturn();
 			o.destroy();
 
@@ -1001,7 +1023,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('stale flow expiry', () => {
 		it('clears stale flow when createOrder is called with active flow >30 min', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -1032,7 +1054,7 @@ describe('FiatSwapOrchestrator', () => {
 
 		it('does not clear fresh flow when createOrder is called <30 min', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -1062,7 +1084,7 @@ describe('FiatSwapOrchestrator', () => {
 	describe('destroy', () => {
 		it('stops all polling and clears listeners', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			const snapshots: string[] = [];
 			o.onStageChange((state) => snapshots.push(state.stage));
@@ -1075,7 +1097,7 @@ describe('FiatSwapOrchestrator', () => {
 				country: 'US'
 			});
 
-			o.startMonitoring();
+			await o.startMonitoring();
 			o.destroy();
 
 			const countBefore = snapshots.length;
@@ -1089,14 +1111,14 @@ describe('FiatSwapOrchestrator', () => {
 	// ── getActiveFlow ──────────────────────────────────────────────────
 
 	describe('getActiveFlow', () => {
-		it('returns null when no flow', () => {
-			const o = createOrchestrator();
+		it('returns null when no flow', async () => {
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
 		});
 
 		it('returns flow state after order creation', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',
@@ -1119,13 +1141,13 @@ describe('FiatSwapOrchestrator', () => {
 
 	describe('retrySwap', () => {
 		it('throws when no flow exists', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(o.retrySwap()).rejects.toThrow('No failed swap to retry');
 		});
 
 		it('throws when flow is not swap_failed', async () => {
 			vi.mocked(changellyFiatService.createOnRampOrder).mockResolvedValue(VALID_ORDER);
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 
 			await o.createOrder({
 				asset: 'usdt0-arb',

@@ -279,6 +279,25 @@ export async function initialize(): Promise<void> {
 				bsc: { ...s.bsc, ...bscUpdate },
 				arb: { ...s.arb, ...arbUpdate }
 			}));
+
+			// Initialize the EIP-7702 gasless wallet (non-blocking).
+			// This creates the smart account on Arbitrum needed for gasless transactions.
+			// If it fails, the direct fallback path will be used instead.
+			if (rskWallet) {
+				try {
+					const { initWallet } = await import('$lib/wallet/gasless-store');
+					const ethersWallet = rskWallet.getWallet() as ethers.Wallet;
+					// ethers v6 Wallet has privateKey as a hex string
+					const ownerKey = ethersWallet.privateKey as `0x${string}`;
+					await initWallet(ownerKey);
+					if (import.meta.env.DEV) {
+						console.log('[wallet-init] Gasless wallet initialized');
+					}
+				} catch (gaslessErr) {
+					// Non-critical — gasless is optional, direct fallback is available
+					console.warn('[wallet-init] Gasless wallet init failed (non-critical):', gaslessErr);
+				}
+			}
 		}
 	} catch (error) {
 		console.error('[WALLET-STORE] initializeWallet() - Failed to initialize wallet:', error);

@@ -257,6 +257,155 @@ This warning appears even for swaps that should be fully gasless (USDT0 on Arbit
 
 ---
 
+### BUG-W010: Chain Swap Claim Fails with "Invalid refund address" — Funds Locked in HTLC
+
+**Severity:** CRITICAL
+**Status:** OPEN
+**Found by:** Manual testing + console log analysis (2026-07-16)
+**Related:** wallet-core SDK `ChainSwapService.claimRBTC()`, `EvmContractService.claimFunds()`
+
+**Description:**
+When executing an rBTC → USDT on Arbitrum swap (2-hop: Boltz rBTC→tBTC, then Symbiosis tBTC→USDT0), the Boltz chain swap claim fails with `Error: Invalid refund address`. The user's rBTC is locked in Boltz's EtherSwap HTLC contract on RSK but the claim (which would release tBTC on the destination side) fails.
+
+**Error chain from console:**
+```
+❌ Transaction receipt not found after 10 attempts          (getLockupEventParameters)
+⚠️ Lockup event not found, using API values (may fail)      (claimRBTC fallback)
+❌ Failed to claim funds: Error: Invalid refund address      (EvmContractService.claimFunds)
+❌ Failed to claim RBTC: Error: Failed to claim funds from EtherSwap: Invalid refund address
+```
+
+**Root cause analysis:**
+
+1. `getLockupEventParameters()` tries to fetch Boltz's lockup TX receipt from RSK RPC. It retries 10 times with 2-second delays (20 seconds total). RSK blocks are ~30 seconds, and RPC nodes can be slow. After 10 failures, it returns `null`.
+
+2. `claimRBTC()` falls back to Boltz API values: `swapData.refundAddress` and `swapData.claimTimeoutBlockHeight`.
+
+3. `claimFunds()` validates the refund address with `ethers.isAddress()`. The validation fails, meaning `swapData.refundAddress` is either:
+   - `undefined` or `null` (field not persisted during swap creation or recovery)
+   - Empty string `""`
+   - An invalid address format (e.g., wrong chain's address, corrupted during Nostr storage round-trip)
+
+4. The `refundAddress` in the EtherSwap contract is `msg.sender` from when Boltz called `lock()` — it's Boltz's RSK wallet address. The `claim()` function requires this exact address. If the SDK can't provide it, the claim fails.
+
+**Why the field might be missing:**
+- `swapData.refundAddress` is set from `swapResponse.claimDetails.refundAddress` during `createChainSwap()`
+- If the swap was recovered from Nostr storage (`recoverPendingSwaps()`), the field could be lost during serialization/deserialization
+- The Boltz API response might not include `refundAddress` in all cases (needs verification)
+- The `BoltzClient.createChainSwap()` does validate the response, but recovery paths may bypass this
+
+**Impact:**
+- User's rBTC is locked in the EtherSwap HTLC contract
+- The tBTC that Boltz locked is also locked
+- Neither side can claim — the swap is stuck
+- **The rBTC is NOT lost** — it's recoverable via refund after the RSK timelock expires
+
+**Fund recovery paths:**
+1. **Fix the code and retry** — if `refundAddress` can be retrieved from the Boltz API or on-chain, the claim can be retried
+2. **Refund after timelock** — call `EtherSwap.refund(preimageHash)` after the RSK timelock expires to recover rBTC. The SDK has `ChainSwapRefundService` and `recoverRefundDataFromChain()` for this
+3. **On-chain recovery** — `scanUnclaimedLockups()` can find unclaimed lockups for the user's address and attempt refund
+
+**Fixes needed (wallet-core SDK):**
+1. Validate `refundAddress` before passing to `claimFunds()` with a clear error message including the actual value
+2. Increase `getLockupEventParameters` retry count (30 retries × 3 seconds = 90 seconds, matching RSK block time)
+3. Add a migration/validation step in `recoverPendingSwaps()` that checks for missing `refundAddress`
+4. Log the actual `refundAddress` value in error messages for debugging
+5. Ensure `refundAddress` is always persisted in Nostr storage during swap creation
+
+---
+
+### BUG-W011: getLockupEventParameters Timeout Too Short for RSK Block Time
+
+**Severity:** HIGH
+**Status:** OPEN
+**Found by:** Console log analysis (2026-07-16)
+**Related:** wallet-core SDK `EvmContractService.getLockupEventParameters()`
+
+**Description:**
+`getLockupEventParameters()` retries 10 times with 2-second delays (20 seconds total) to find a transaction receipt. RSK blocks are ~30 seconds, and RPC nodes can take longer to index transactions. The timeout is too short.
+
+**Console evidence:**
+```
+❌ Transaction receipt not found after 10 attempts
+```
+
+**Root cause:**
+```typescript
+const maxRetries = 10;      // Only 10 retries
+const retryDelay = 2000;    // Only 2 seconds per retry
+// Total: 20 seconds — less than 1 RSK block time
+```
+
+**Impact:**
+- When the receipt isn't found, the code falls back to Boltz API values
+- If the API values are incomplete (see BUG-W010), the claim fails
+- The swap becomes stuck even though the lockup transaction is valid
+
+**Fix:**
+```typescript
+const maxRetries = 30;      // 30 retries
+const retryDelay = 3000;    // 3 seconds per retry
+// Total: 90 seconds — covers 3 RSK blocks with margin
+```
+
+---
+
+### BUG-W012: Gasless Relay Falls Back to Direct TX for All Arbitrum Swap Transactions
+
+**Severity:** MEDIUM
+**Status:** OPEN
+**Found by:** Console log analysis (2026-07-16)
+**Related:** `src/lib/stores/wallet/wallet-send.ts:106`
+
+**Description:**
+During a 2-hop swap (Boltz rBTC→tBTC + Symbiosis tBTC→USDT0), the gasless relay fails for all 3 Arbitrum transactions (ERC-20 approve + swap tx + possible intermediate step), falling back to direct ETH gas each time.
+
+**Console evidence (×3):**
+```
+[sendArbitrumTransaction] Falling back to direct tx with ETH for gas
+```
+
+**Root cause:**
+The `sendArbitrumTransaction()` function in `wallet-send.ts` has a two-tier architecture:
+1. Gasless path: tries EIP-4337 relay via `sendGaslessCalls()` if `walletReady` is `true` and JWT exists
+2. Direct fallback: catches any error and falls through to direct EVM transaction
+
+The most likely cause is `walletReady` is `false` — the EIP-7702 smart account was never initialized. When `walletReady` is false, the gasless block is **silently skipped** (no error logged) and the direct path is always used.
+
+**Impact:**
+- User pays ETH for gas on Arbitrum instead of using the gasless relay
+- Not a functional failure — the direct path works fine
+- But it defeats the purpose of the gasless system
+
+**Fix:** Log why the gasless path was skipped (e.g., `walletReady: false`, no JWT, relay error) so it can be debugged. Currently the only log is the unconditional "Falling back" message.
+
+---
+
+### BUG-W013: Google Maps AdvancedMarker Uses Deprecated 'click' Event
+
+**Severity:** LOW
+**Status:** OPEN
+**Found by:** Console log analysis (2026-07-16)
+**Related:** `src/lib/components/maps/TaskLocationMap.svelte:1445,1600`
+
+**Description:**
+The Google Maps JS API now requires `'gmp-click'` instead of `'click'` for `AdvancedMarkerElement` click events. The `TaskLocationMap.svelte` component uses `marker.addListener('click', ...)` in two places.
+
+**Console evidence:**
+```
+<gmp-advanced-marker>: Please use addEventListener('gmp-click', ...) instead of addEventListener('click', ...).
+```
+
+**Locations:**
+- Line 1445: `createServiceMarker()` — `marker.addListener('click', ...)`
+- Line 1600: `createTaskMarker()` — `marker.addListener('click', ...)`
+
+**Note:** Line 1068 (`map.addListener('click', ...)`) is correct — it's on the map object, not on an `AdvancedMarkerElement`.
+
+**Fix:** Change `'click'` to `'gmp-click'` on lines 1445 and 1600.
+
+---
+
 ## BY DESIGN / NOT BUGS
 
 ### BYDESIGN-001: MetaMask Extension Internal Warnings
@@ -268,7 +417,7 @@ ObjectMultiplex - orphaned data for stream "app-init-liveness"
 ObjectMultiplex - orphaned data for stream "background-liveness"
 ```
 
-**Status:** BYDESIGN — These are MetaMask extension internals, not from the BitTasker app. The MultiChain SDK adds listeners that hit MetaMask's default 10-listener limit. The app cannot suppress these.
+**Status:** BYDESIGN — These are MetaMask extension internals, not from the BitTasker app. The MultiChain SDK adds listeners that hit MetaMask's default 10-listener limit. The app cannot suppress these. **Reconfirmed 2026-07-16** — same warnings observed during mainnet testing.
 
 ---
 

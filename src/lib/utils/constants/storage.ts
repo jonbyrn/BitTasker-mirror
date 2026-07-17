@@ -47,6 +47,10 @@ export const StorageKeys = {
 	WALLET_CHAIN_SORT_HINTS: 'bittasker_wallet_chain_sort_hints',
 	WALLET_LAST_BALANCE_SATS: 'bittasker_wallet_last_balance_sats',
 
+	// Fiat swap / off-ramp orchestrators
+	FIAT_SWAP_FLOW: 'bittasker_fiat_flow',
+	OFF_RAMP_FLOW: 'bittasker_off_ramp_flow',
+
 	// Reviews
 	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed',
 

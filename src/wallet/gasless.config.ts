@@ -22,17 +22,17 @@ export const ALLOWED_FEE_TOKENS: readonly string[] = TOKENS.map((t) => t.address
 export const GAS_BOUNDS: GasBounds = {
 	maxCallGas: 5_000_000n,
 	maxVerificationGas: 1_000_000n,
-	maxPreVerificationGas: 100_000n,
+	maxPreVerificationGas: 400_000n, // EIP-7702: bundler base ~300K + 25K delegation overhead
 	maxFeePerGas: 1_000_000_000n, // 1 gwei
 	maxPriorityFeePerGas: 100_000_000n, // 0.1 gwei
-	maxTotalGas: 5_000_000n
+	maxTotalGas: 6_400_000n // Must accommodate 5M + 1M + 400K individual maxes
 };
 
 export const FEE_TIERS: readonly FeeTierDef[] = [
 	{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
 	{ label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
 	{ label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
-	{ label: 'Very High', minGas: 1_000_001n, maxGas: 5_000_000n, feeUSD: 0.1 }
+	{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_400_000n, feeUSD: 0.1 }
 ];
 
 export const FEE_BUFFER_MIN: Record<string, bigint> = {
@@ -65,8 +65,6 @@ if (!ARBITRUM_RPC_URL) {
 		'[gasless] VITE_ARBITRUM_RPC_URL environment variable is not set. RPC calls will fail.'
 	);
 }
-export const API_BASE_URL =
-	import.meta.env.VITE_TX_RELAY_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export const ETH_USD_FEED = '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612' as const;
 export const BTC_USD_FEED = '0x6ce185860a4963106506C203335A2910413708e9' as const;

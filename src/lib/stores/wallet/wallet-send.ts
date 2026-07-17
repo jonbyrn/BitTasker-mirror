@@ -66,33 +66,32 @@ export async function sendArbitrumTransaction(params: {
 }): Promise<string> {
 	// --- Gasless path (smart account via ERC-4337 relay) ---
 	try {
-		const { sendGaslessCalls, walletReady } = await import('$lib/wallet/gasless-store');
+		const { sendGaslessCalls, walletReady, estimateFee } = await import('$lib/wallet/gasless-store');
 		const { get } = await import('svelte/store');
 
 		if (get(walletReady)) {
-			const jwt = (typeof localStorage !== 'undefined' && localStorage.getItem('auth_token')) || '';
-			if (jwt) {
-				const { USDT0_ADDRESS, FEE_BUFFER_MIN } = await import('$lib/wallet/gasless.config');
-				const feeToken = USDT0_ADDRESS;
-				const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000n;
+			const { USDT0_ADDRESS } = await import('$lib/wallet/gasless.config');
+			const feeToken = USDT0_ADDRESS;
 
-				const callValue = params.value ? BigInt(params.value) : 0n;
-				// Add 30s timeout to gasless relay — if it hangs, fall through to direct tx
-				const txHash = await Promise.race([
-					sendGaslessCalls(
-						[{ to: params.to, data: params.data, value: callValue }],
-						feeToken,
-						feeBuffer,
-						jwt
-					),
-					new Promise<never>((_, reject) =>
-						setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
-					)
-				]);
+			// Estimate fee via backend /gasless/estimate (returns accurate tier-based buffer)
+			const estimate = await estimateFee(feeToken, 1n, params.to);
+			const feeBuffer = BigInt(estimate.feeBuffer);
 
-				await Promise.allSettled([loadAssets(), loadTransactions()]);
-				return txHash;
-			}
+			const callValue = params.value ? BigInt(params.value) : 0n;
+			// Add 30s timeout to gasless relay — if it hangs, fall through to direct tx
+			const txHash = await Promise.race([
+				sendGaslessCalls(
+					[{ to: params.to, data: params.data, value: callValue }],
+					feeToken,
+					feeBuffer
+				),
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
+				)
+			]);
+
+			await Promise.allSettled([loadAssets(), loadTransactions()]);
+			return txHash;
 		}
 	} catch (gaslessErr) {
 		// Gasless relay unavailable or failed — fall through to direct transaction
@@ -109,15 +108,35 @@ export async function sendArbitrumTransaction(params: {
 	const ARB_RPC = import.meta.env.VITE_ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc';
 	const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
 	const arbWallet = wallet.connect(arbProvider);
-	const tx = await arbWallet.sendTransaction({
-		to: params.to,
-		data: params.data,
-		value: params.value,
-		...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
-	});
-	console.warn('[sendArbitrumTransaction] Direct tx submitted: %s', tx.hash);
+
+	// Check ETH balance before attempting — if zero, fail fast with a clear message
+	const arbEthBalance = await arbProvider.getBalance(arbWallet.address);
+	if (arbEthBalance === 0n) {
+		throw new Error(
+			'No ETH on Arbitrum for gas. The gasless relay was not available. ' +
+			'Please fund your Arbitrum wallet with ETH to execute this transaction, ' +
+			'or ensure the gasless relay is configured.'
+		);
+	}
+
+	// Add 60s timeout to prevent indefinite hangs when RPC is slow/unreachable
+	const txHash = await Promise.race([
+		(async () => {
+			const tx = await arbWallet.sendTransaction({
+				to: params.to,
+				data: params.data,
+				value: params.value,
+				...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
+			});
+			return tx.hash;
+		})(),
+		new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error('Arbitrum transaction timeout (60s) — RPC may be unreachable')), 60_000)
+		)
+	]);
+	console.warn('[sendArbitrumTransaction] Direct tx submitted: %s', txHash);
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	return tx.hash;
+	return txHash;
 }
 
 /**

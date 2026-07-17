@@ -247,7 +247,7 @@ export async function pollBoltzChainSwapCompletion(
 
 		// Server confirmed lockup OR claim pending — attempt to claim.
 		// wallet-core CANNOT interfere with our swaps (different Nostr tags:
-		// we use 'boltz-swap-chain', wallet-core uses 'chain'). The claim.pending
+		// we use 'bittasker-swap-chain', wallet-core uses 'boltz-swap-chain'). The claim.pending
 		// status means OUR claim tx is being mined, or Boltz detected a claim
 		// attempt from the wallet-core's older L-BTC→RBTC swaps (irrelevant).
 		if (status === 'transaction.server.confirmed' || status === 'transaction.claim.pending') {

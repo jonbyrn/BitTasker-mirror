@@ -901,8 +901,8 @@
 
 		<!-- Success/Failed phases — toast handles display, drawer stays open for close button -->
 
-		<!-- General error message -->
-		{#if errorMessage && swapPhase !== 'failed'}
+		<!-- General error message — visible in all phases including 'failed' -->
+		{#if errorMessage}
 			<div class="alert alert-outline alert-error py-2 sm:py-3" role="alert" aria-live="assertive">
 				<span class="text-xs sm:text-sm">{errorMessage}</span>
 			</div>

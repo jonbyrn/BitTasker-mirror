@@ -131,15 +131,21 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 
 vi.mock('ethers', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('ethers')>();
+	// Mock JsonRpcProvider as a class-like constructor
+	class MockJsonRpcProvider {
+		getBalance = vi.fn().mockResolvedValue(1_000_000_000_000_000_000n); // 1 ETH
+	}
 	return {
 		...actual,
 		Contract: mockContractFactory,
 		// Passthrough getAddress so tests can use non-checksummed addresses
 		getAddress: vi.fn((addr: string) => addr),
+		JsonRpcProvider: MockJsonRpcProvider,
 		ethers: {
 			...actual.ethers,
 			Contract: mockContractFactory,
-			getAddress: vi.fn((addr: string) => addr)
+			getAddress: vi.fn((addr: string) => addr),
+			JsonRpcProvider: MockJsonRpcProvider
 		}
 	};
 });
@@ -160,6 +166,7 @@ beforeEach(() => {
 		wait: vi.fn().mockResolvedValue({ hash: '0xtxhash-raw-456' })
 	});
 	const mockWallet = {
+		address: '0xabc123',
 		sendTransaction: mockSendTransaction,
 		connect: vi.fn().mockReturnThis()
 	};

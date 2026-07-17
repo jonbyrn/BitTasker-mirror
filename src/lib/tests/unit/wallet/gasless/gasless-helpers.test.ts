@@ -1,38 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// vi.hoisted runs BEFORE vi.mock factories — set env and import ethers here
-const { ethers } = vi.hoisted(() => {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const ethers = require('ethers');
+// vi.hoisted runs BEFORE vi.mock factories — set env
+vi.hoisted(() => {
 	process.env['GAS_TREASURY'] = '0x1234567890123456789012345678901234567890';
-	return { ethers };
 });
 
-// Mock viem to use real ethers for keccak256 and ABI encoding
-vi.mock('viem', () => ({
-	keccak256: (data: Uint8Array | string) => {
-		if (typeof data === 'string') {
-			return ethers.keccak256(ethers.getBytes(data));
-		}
-		return ethers.keccak256(new Uint8Array(data));
-	},
-	encodeAbiParameters: (types: Array<{ type: string }>, values: unknown[]) => {
-		const coder = ethers.AbiCoder.defaultAbiCoder();
-		return coder.encode(
-			types.map((t) => t.type),
-			values
-		);
-	},
-	toBytes: (hex: string) => ethers.getBytes(hex)
-}));
-
 // Mock gasless.config — use getter for GAS_TREASURY so tests can modify it via process.env
-vi.mock('../../../../../wallet/gasless.config', () => {
+vi.mock('$lib/../wallet/gasless.config', () => {
 	const TOKENS = [
 		{
 			address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 			symbol: 'USDT0',
-			decimals: 18,
+			decimals: 6,
 			chainId: 42161
 		},
 		{
@@ -52,10 +31,10 @@ vi.mock('../../../../../wallet/gasless.config', () => {
 	const GAS_BOUNDS = {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
-		maxPreVerificationGas: 100_000n,
-		maxFeePerGas: 1_000_000_000n, // 1 gwei
-		maxPriorityFeePerGas: 100_000_000n, // 0.1 gwei
-		maxTotalGas: 5_000_000n
+		maxPreVerificationGas: 400_000n,
+		maxFeePerGas: 1_000_000_000n,
+		maxPriorityFeePerGas: 100_000_000n,
+		maxTotalGas: 6_400_000n
 	};
 	const FEE_TIERS = [
 		{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
@@ -64,19 +43,19 @@ vi.mock('../../../../../wallet/gasless.config', () => {
 		{
 			label: 'Very High',
 			minGas: 1_000_001n,
-			maxGas: 5_000_000n,
+			maxGas: 6_400_000n,
 			feeUSD: 0.1
 		}
 	];
 	const FEE_BUFFER_MIN = {
 		'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 10_000n, // USDT0 (6 decimals): $0.01
 		'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 16n,
-		'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 10_000_000_000_000n // tBTC (18 decimals): $0.01
+		'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 10_000_000_000_000_000n // tBTC (18 decimals): $0.01
 	};
 	const FEE_BUFFER_MAX = {
 		'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': 150_000n, // USDT0 (6 decimals): $0.15
 		'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': 230n,
-		'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 150_000_000_000_000n // tBTC (18 decimals): $0.15
+		'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 150_000_000_000_000_000n // tBTC (18 decimals): $0.15
 	};
 	return {
 		ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
@@ -105,16 +84,16 @@ vi.mock('../../../../../wallet/gasless.config', () => {
 			feeTiers: [...FEE_TIERS],
 			feeBufferBounds: {
 				'0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': {
-					min: 10_000n, // USDT0 (6 decimals): $0.01
-					max: 150_000n // USDT0 (6 decimals): $0.15
+					min: 10_000n,
+					max: 150_000n
 				},
 				'0x2f2a2543b76a4166549f7aa2e75bef0aefc5b0f': {
 					min: 16n,
 					max: 230n
 				},
 				'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': {
-					min: 10_000_000_000_000n, // tBTC (18 decimals): $0.01
-					max: 150_000_000_000_000n // tBTC (18 decimals): $0.15
+					min: 10_000_000_000_000_000n,
+					max: 150_000_000_000_000_000n
 				}
 			},
 			treasury: process.env['GAS_TREASURY'] ?? '',
@@ -140,7 +119,7 @@ vi.mock('../../../../../wallet/gasless.config', () => {
 	};
 });
 
-// Now import the modules (mocked viem and config will be used)
+// Now import the modules (mocked config will be used)
 import {
 	getPaymasterSignatureHash,
 	getNetworkFeeTier,
@@ -151,13 +130,13 @@ import {
 	validateFeeRecipient,
 	requireTokenInfo,
 	computeTotalGas
-} from '../../../../../wallet/gasless-helpers';
+} from '$lib/wallet/gasless-helpers';
 import {
 	ENTRY_POINT_ADDRESS,
 	USDT0_ADDRESS,
 	WBTC_ADDRESS,
 	TBTC_ADDRESS
-} from '../../../../../wallet/gasless.config';
+} from '$lib/../wallet/gasless.config';
 
 describe('getPaymasterSignatureHash', () => {
 	it('returns a 32-byte hex hash', () => {
@@ -264,7 +243,7 @@ describe('getNetworkFeeTier', () => {
 		expect(getNetworkFeeTier(200_000n).label).toBe('Low');
 	});
 
-	it('Medium tier for 300K gas', () => {
+	it('Medium tier for 400K gas', () => {
 		expect(getNetworkFeeTier(300_000n).label).toBe('Medium');
 	});
 
@@ -288,26 +267,30 @@ describe('getNetworkFeeTier', () => {
 		expect(getNetworkFeeTier(5_000_000n).label).toBe('Very High');
 	});
 
-	it('throws for 6M gas (too high)', () => {
-		expect(() => getNetworkFeeTier(6_000_000n)).toThrow('Network fee too high');
+	it('Very High tier at boundary 6.4M', () => {
+		expect(getNetworkFeeTier(6_300_000n).label).toBe('Very High');
 	});
 
-	it('throws for 5000001 gas', () => {
-		expect(() => getNetworkFeeTier(5_000_001n)).toThrow('Network fee too high');
+	it('Very High tier at boundary 6.4M', () => {
+		expect(getNetworkFeeTier(6_400_000n).label).toBe('Very High');
+	});
+
+	it('throws for 6.4M+1 gas (too high)', () => {
+		expect(() => getNetworkFeeTier(6_400_001n)).toThrow('Network fee too high');
 	});
 });
 
 describe('convertToTokenFee', () => {
-	it('converts 0.01 USD to USDT0 units (1e16)', () => {
-		expect(convertToTokenFee(0.01, 1_000_000_000_000_000_000n, 18)).toBe(10_000_000_000_000_000n);
+	it('converts 0.01 USD to USDT0 units (1e4 at 6 decimals)', () => {
+		expect(convertToTokenFee(0.01, 1_000_000_000_000_000_000n, 6)).toBe(10_000n);
 	});
 
-	it('converts 0.03 USD to USDT0 units (3e16)', () => {
-		expect(convertToTokenFee(0.03, 1_000_000_000_000_000_000n, 18)).toBe(30_000_000_000_000_000n);
+	it('converts 0.03 USD to USDT0 units (3e4 at 6 decimals)', () => {
+		expect(convertToTokenFee(0.03, 1_000_000_000_000_000_000n, 6)).toBe(30_000n);
 	});
 
-	it('converts 0.10 USD to USDT0 units (1e17)', () => {
-		expect(convertToTokenFee(0.1, 1_000_000_000_000_000_000n, 18)).toBe(100_000_000_000_000_000n);
+	it('converts 0.10 USD to USDT0 units (1e5 at 6 decimals)', () => {
+		expect(convertToTokenFee(0.1, 1_000_000_000_000_000_000n, 6)).toBe(100_000n);
 	});
 
 	it('converts 0.01 USD to wBTC units (~16 sats at 66K)', () => {
@@ -377,13 +360,22 @@ describe('validateFeeParameters', () => {
 		).toThrow('verificationGasLimit exceeds maximum');
 	});
 
-	it('throws for preVerificationGas 200K', () => {
+	it('throws for preVerificationGas above 400K limit', () => {
 		expect(() =>
 			validateFeeParameters({
 				...validParams,
-				preVerificationGas: 200_000n
+				preVerificationGas: 400_001n
 			})
 		).toThrow('preVerificationGas exceeds maximum');
+	});
+
+	it('accepts preVerificationGas at 400K (new EIP-7702 limit)', () => {
+		expect(() =>
+			validateFeeParameters({
+				...validParams,
+				preVerificationGas: 300_000n
+			})
+		).not.toThrow();
 	});
 
 	it('throws for maxFeePerGas 10 gwei', () => {
@@ -395,24 +387,24 @@ describe('validateFeeParameters', () => {
 		).toThrow('maxFeePerGas exceeds ceiling');
 	});
 
-	it('throws for total gas > 5M', () => {
+	it('throws for total gas > 6.4M (via callGasLimit)', () => {
 		expect(() =>
 			validateFeeParameters({
-				callGasLimit: 4_900_001n,
-				verificationGasLimit: 100_000n,
-				preVerificationGas: 1n,
+				callGasLimit: 5_000_001n, // exceeds maxCallGas of 5M
+				verificationGasLimit: 1_000_000n,
+				preVerificationGas: 300_000n,
 				maxFeePerGas: 100_000_000n,
 				maxPriorityFeePerGas: 10_000_000n
 			})
-		).toThrow('Network fee too high');
+		).toThrow('callGasLimit exceeds maximum');
 	});
 
-	it('accepts total gas = 5M', () => {
+	it('accepts total gas = 6.4M', () => {
 		expect(() =>
 			validateFeeParameters({
-				callGasLimit: 4_800_000n,
-				verificationGasLimit: 100_000n,
-				preVerificationGas: 100_000n,
+				callGasLimit: 5_000_000n,
+				verificationGasLimit: 1_000_000n,
+				preVerificationGas: 300_000n,
 				maxFeePerGas: 100_000_000n,
 				maxPriorityFeePerGas: 10_000_000n
 			})
@@ -433,7 +425,7 @@ describe('validateFeeBufferBounds', () => {
 
 	it('accepts valid tBTC buffer', () => {
 		expect(
-			() => validateFeeBufferBounds(TBTC_ADDRESS, 10_000_000_000_000n) // $0.01 at 18 decimals
+			() => validateFeeBufferBounds(TBTC_ADDRESS, 10_000_000_000_000_000n) // $0.01 at 18 decimals
 		).not.toThrow();
 	});
 
@@ -541,9 +533,9 @@ describe('computeTotalGas', () => {
 		expect(
 			computeTotalGas({
 				callGasLimit: 4_000_000n,
-				verificationGasLimit: 900_000n,
-				preVerificationGas: 99_999n
+				verificationGasLimit: 1_000_000n,
+				preVerificationGas: 300_000n
 			})
-		).toBe(4_999_999n);
+		).toBe(5_300_000n);
 	});
 });

@@ -292,7 +292,7 @@ describe('saveClaimDataToNostr', () => {
 		expect(swapRecord.lockupClaimAddress).toBe(SAMPLE_CLAIM_DATA.lockupClaimAddress);
 		// Second arg is nsec, third is tag
 		expect(mockSaveSwapToNostr.mock.calls[0][1]).toBe(fakeNsec);
-		expect(mockSaveSwapToNostr.mock.calls[0][2]).toBe('boltz-swap-chain');
+		expect(mockSaveSwapToNostr.mock.calls[0][2]).toBe('bittasker-swap-chain');
 	});
 
 	it('handles missing Nostr keys gracefully', async () => {

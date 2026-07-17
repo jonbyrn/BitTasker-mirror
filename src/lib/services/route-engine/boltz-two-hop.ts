@@ -64,10 +64,10 @@ export const BOLTZ_TWO_HOP_PAIRS: Record<
 		intermediary: 'tbtc-arb',
 		hop2Providers: ['symbiosis', 'lifi', 'uniswap-v3']
 	},
-	'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi'] },
+	'rbtc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['symbiosis', 'lifi', 'uniswap-v3'] },
 	'usdt0-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'lifi', hop2Providers: [] },
 	'wbtc-arb->rbtc': { intermediary: 'tbtc-arb', hop1Provider: 'uniswap-v3', hop2Providers: [] },
-	'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis'] },
+	'btc->usdt0-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis', 'uniswap-v3'] },
 	'btc->wbtc-arb': { intermediary: 'tbtc-arb', hop2Providers: ['lifi', 'symbiosis', 'uniswap-v3'] }
 };
 

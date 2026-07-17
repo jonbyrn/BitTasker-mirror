@@ -86,7 +86,7 @@ function swapRelaySet(): NDKRelaySet {
 }
 
 // Swap type tags for filtering
-export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'boltz-swap-submarine';
+export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'bittasker-swap-chain' | 'boltz-swap-submarine';
 
 export type PendingSwapData = BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData;
 

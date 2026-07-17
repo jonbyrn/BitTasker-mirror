@@ -53,6 +53,11 @@ const UNISWAP_V3_EXACT_INPUT_SINGLE_ABI = [
 	'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)'
 ];
 
+/** Uniswap V3 SwapRouter.exactInput — multi-hop swap (path encoded as tokenA+fee+tokenB+fee+tokenC) */
+const UNISWAP_V3_EXACT_INPUT_ABI = [
+	'function exactInput((bytes path, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum)) external payable returns (uint256 amountOut)'
+];
+
 // ─── Singleton Interface instances ────────────────────────────────
 
 const lockInterface = new ethers.Interface(ETHERSWAP_LOCK_ABI);
@@ -64,6 +69,7 @@ const refundInterface = new ethers.Interface(ETHERSWAP_REFUND_ABI);
 const erc20TransferInterface = new ethers.Interface(ERC20_TRANSFER_ABI);
 const erc20ApproveInterface = new ethers.Interface(ERC20_APPROVE_ABI);
 const uniswapV3ExactInputSingleInterface = new ethers.Interface(UNISWAP_V3_EXACT_INPUT_SINGLE_ABI);
+const uniswapV3ExactInputInterface = new ethers.Interface(UNISWAP_V3_EXACT_INPUT_ABI);
 
 // ─── Encoding functions ───────────────────────────────────────────
 
@@ -258,6 +264,33 @@ export function encodeUniswapV3ExactInputSingle(
 			amountIn,
 			amountOutMinimum,
 			sqrtPriceLimitX96: 0n
+		}
+	]);
+}
+
+/**
+ * ABI-encode a Uniswap V3 SwapRouter.exactInput() call (multi-hop swap).
+ *
+ * @param path - Encoded multi-hop path (tokenA + fee + tokenB + fee + tokenC)
+ * @param recipient - Address to receive output tokens
+ * @param deadline - Unix timestamp deadline
+ * @param amountIn - Input amount in smallest unit
+ * @param amountOutMinimum - Minimum output (0 = accept any, use with caution)
+ */
+export function encodeUniswapV3ExactInput(
+	path: string,
+	recipient: string,
+	deadline: bigint,
+	amountIn: bigint,
+	amountOutMinimum: bigint
+): string {
+	return uniswapV3ExactInputInterface.encodeFunctionData('exactInput', [
+		{
+			path,
+			recipient,
+			deadline,
+			amountIn,
+			amountOutMinimum
 		}
 	]);
 }

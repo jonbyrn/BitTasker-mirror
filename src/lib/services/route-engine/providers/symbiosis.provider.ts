@@ -10,7 +10,7 @@ import type { SwapProvider, Token } from '../types';
 import type { Route } from '$lib/services/route-resolver';
 import { satsToTokenAmount, tokenAmountToSats } from '../utils/amount-conversion';
 import { symbiosisService } from '$lib/services/symbiosis.service';
-// isSymbiosisEnabled removed — provider disabled entirely (MetaRouter reverts)
+import { isSymbiosisEnabled } from '$lib/services/kill-switch';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 
@@ -26,14 +26,14 @@ const FALLBACK_ADDR = '0x0000000000000000000000000000000000000001';
 export const symbiosisProvider: SwapProvider = {
 	name: 'symbiosis',
 
-	supports(_from: Token, _to: Token): boolean {
-		// DISABLED: Symbiosis API returns MetaRouter cross-chain calldata that
-		// reverts on-chain for all swap types (same-chain Arbitrum, cross-chain
-		// RSK→Arbitrum). The MetaRouter contract rejects the transactions with
-		// gas limit exhaustion. Until the Symbiosis integration is fixed to use
-		// proper on-chain DEX routing for same-chain pairs, all routes must go
-		// through Boltz 2-hop (Boltz + LI.FI/Uniswap V3) or LI.FI direct.
-		return false;
+	supports(from: Token, to: Token): boolean {
+		// Check kill-switch first
+		if (!isSymbiosisEnabled()) return false;
+		// Symbiosis doesn't handle Bitcoin or Lightning chains
+		if (from.chain === 'bitcoin' || to.chain === 'bitcoin') return false;
+		if (from.chain === 'lightning' || to.chain === 'lightning') return false;
+		if (from.key === to.key) return false;
+		return true;
 	},
 
 	async getQuote(

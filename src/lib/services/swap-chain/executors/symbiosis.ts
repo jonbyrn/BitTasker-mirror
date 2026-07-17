@@ -24,7 +24,6 @@ import {
 	CHAIN_ID_ARB,
 	CHAIN_ID_BSC,
 	NATIVE_TOKEN,
-	GAS_LIMIT_ARB_SWAP,
 	resolveChainId,
 	resolveTokenAddress,
 	getSymbiosisDecimals
@@ -250,12 +249,16 @@ export async function executeSymbiosisHop(
 		// Submit the Symbiosis transaction via sendEvmTransaction for receipt verification.
 		// sendEvmTransaction handles connected-wallet vs built-in wallet branching AND
 		// verifies the on-chain receipt, catching reverts that raw tx submission misses.
+		//
+		// IMPORTANT: Do NOT hardcode gasLimit for Arbitrum. Arbitrum's eth_estimateGas
+		// includes L1 calldata cost, which inflates the estimate to ~50M for
+		// MetaRouterGateway swaps (3KB calldata). Using GAS_LIMIT_ARB_SWAP (500k)
+		// causes gas exhaustion. Let ethers.js estimate dynamically.
 		const { data: txHash, error: swapTxError } = await sendEvmTransaction({
 			to: tx.to,
 			data: tx.data,
 			value: tx.value || '0',
 			chain: symChain,
-			gasLimit: fromChainId === CHAIN_ID_ARB ? GAS_LIMIT_ARB_SWAP : undefined,
 			sourceConnectedWalletId: state.sourceConnectedWalletId
 		});
 		if (swapTxError || !txHash) {

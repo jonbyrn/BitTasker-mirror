@@ -7,15 +7,12 @@
  *  - gaslessReady derived store
  *  - buildExecuteBatchCallData (empty calls, single call, multiple calls)
  *  - sendGasless (wallet not initialized, success, relay failure)
- *  - sendToken (convenience wrapper)
+ *  - sendTokenProgrammatic (convenience wrapper)
  *  - estimateFee (success, network fee error, generic error)
  *  - checkSufficientBalance (sufficient, insufficient)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-
-// Stub VITE_TX_RELAY_BASE_URL for getRelayBaseUrl()
-vi.stubEnv('VITE_TX_RELAY_BASE_URL', 'http://localhost:8000/api/v1');
 
 // ---------------------------------------------------------------------------
 // Hoisted mock variables (must be hoisted to match vi.mock hoisting)
@@ -28,7 +25,9 @@ const {
 	mockTo7702SimpleSmartAccount,
 	mockValidateFeeParameters,
 	mockValidateFeeBufferBounds,
-	mockValidateFeeRecipient
+	mockValidateFeeRecipient,
+	mockGaslessRelay,
+	mockGaslessEstimate
 } = vi.hoisted(() => ({
 	mockReadContract: vi.fn(),
 	mockGetCode: vi.fn().mockResolvedValue('0x'), // No code = not yet delegated (EIP-7702)
@@ -37,7 +36,9 @@ const {
 	mockTo7702SimpleSmartAccount: vi.fn(),
 	mockValidateFeeParameters: vi.fn(),
 	mockValidateFeeBufferBounds: vi.fn(),
-	mockValidateFeeRecipient: vi.fn()
+	mockValidateFeeRecipient: vi.fn(),
+	mockGaslessRelay: vi.fn(),
+	mockGaslessEstimate: vi.fn()
 }));
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ vi.mock('@sentry/sveltekit', () => ({
 }));
 
 // Mock gasless-helpers
-vi.mock('$lib/../wallet/gasless-helpers', () => ({
+vi.mock('$lib/wallet/gasless-helpers', () => ({
 	validateFeeParameters: mockValidateFeeParameters,
 	validateFeeBufferBounds: mockValidateFeeBufferBounds,
 	validateFeeRecipient: mockValidateFeeRecipient
@@ -81,22 +82,26 @@ vi.mock('$lib/../wallet/gasless.config', () => ({
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
-		maxPreVerificationGas: 100_000n,
+		maxPreVerificationGas: 400_000n,
 		maxFeePerGas: 1_000_000_000n,
 		maxPriorityFeePerGas: 100_000_000n,
-		maxTotalGas: 5_000_000n
+		maxTotalGas: 6_400_000n
 	},
-	API_BASE_URL: 'http://localhost:8000/api/v1',
 	ARBITRUM_RPC_URL: 'https://arb-mainnet.g.alchemy.com/v2/test',
 	ARBITRUM_CHAIN_ID: 42161,
-	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108'
+	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
 }));
 
-// ---------------------------------------------------------------------------
-// Global fetch mock
-// ---------------------------------------------------------------------------
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
+// Mock gasless service (axios-based — auth handled by interceptor)
+vi.mock('$lib/api/services/gasless.service', () => ({
+	gaslessService: {
+		relay: mockGaslessRelay,
+		estimate: mockGaslessEstimate,
+		checkBalance: vi.fn(),
+		health: vi.fn()
+	}
+}));
 
 // ---------------------------------------------------------------------------
 // Import the store under test AFTER mocks
@@ -116,7 +121,7 @@ import {
 	validateFeeParameters,
 	validateFeeBufferBounds,
 	validateFeeRecipient
-} from '$lib/../wallet/gasless-helpers';
+} from '$lib/wallet/gasless-helpers';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -137,8 +142,9 @@ describe('gasless-store', () => {
 		vi.clearAllMocks();
 		gaslessWallet.reset();
 
-		// Re-stub fetch after any previous unstubAllGlobals
-		vi.stubGlobal('fetch', mockFetch);
+		// Reset gasless service mocks
+		mockGaslessRelay.mockReset();
+		mockGaslessEstimate.mockReset();
 
 		// Default mocks
 		mockTo7702SimpleSmartAccount.mockResolvedValue(MOCK_SMART_ACCOUNT);
@@ -319,7 +325,6 @@ describe('gasless-store', () => {
 			verificationGasLimit: 50_000n,
 			preVerificationGas: 10_000n
 		};
-		const mockJwt = 'test-jwt-token';
 
 		it('throws if wallet is not initialized', async () => {
 			await expect(
@@ -328,7 +333,6 @@ describe('gasless-store', () => {
 					'0xTokenAddress',
 					1000n,
 					mockEstimatedGas,
-					mockJwt,
 					MOCK_SMART_ACCOUNT
 				)
 			).rejects.toThrow('Wallet not initialized');
@@ -351,28 +355,23 @@ describe('gasless-store', () => {
 			};
 			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue(mockSignedOp);
 
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: () => Promise.resolve({ userOpHash: '0xUserOpHash123' })
-			});
+			mockGaslessRelay.mockResolvedValue({ userOpHash: '0xUserOpHash123' });
 
 			const result = await sendGasless(
 				mockCalls,
 				'0xTokenAddress',
 				1000n,
 				mockEstimatedGas,
-				mockJwt,
 				MOCK_SMART_ACCOUNT
 			);
 
 			expect(result).toBe('0xUserOpHash123');
 			expect(MOCK_SMART_ACCOUNT.signUserOperation).toHaveBeenCalled();
-			expect(mockFetch).toHaveBeenCalledWith(
-				'http://localhost:8000/api/v1/gasless/relay',
+			expect(mockGaslessRelay).toHaveBeenCalledWith(
 				expect.objectContaining({
-					method: 'POST',
-					headers: expect.objectContaining({
-						Authorization: `Bearer ${mockJwt}`
+					sender: MOCK_ACCOUNT_ADDRESS,
+					userOp: expect.objectContaining({
+						sender: MOCK_ACCOUNT_ADDRESS
 					})
 				})
 			);
@@ -381,7 +380,51 @@ describe('gasless-store', () => {
 			expect(validateFeeParameters).toHaveBeenCalled();
 		});
 
-		it('throws error when relay returns non-ok response', async () => {
+		it('serializes UserOp bigint fields as 0x-prefixed hex strings', async () => {
+			await gaslessWallet.init(MOCK_PRIVATE_KEY);
+
+			const mockSignedOp = {
+				sender: MOCK_ACCOUNT_ADDRESS,
+				nonce: 42n,
+				callData: '0xabcdef',
+				callGasLimit: 5_000_000n,
+				verificationGasLimit: 1_000_000n,
+				preVerificationGas: 50_000n,
+				maxFeePerGas: 1_000_000_000n,
+				maxPriorityFeePerGas: 100_000_000n,
+				paymasterAndData: '0x',
+				signature: '0xdeadbeef'
+			};
+			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue(mockSignedOp);
+			mockGaslessRelay.mockResolvedValue({ userOpHash: '0xHash' });
+
+			await sendGasless(
+				mockCalls,
+				'0xTokenAddress',
+				1000n,
+				mockEstimatedGas,
+				MOCK_SMART_ACCOUNT
+			);
+
+			const relayCall = mockGaslessRelay.mock.calls[0][0];
+			const userOp = relayCall.userOp;
+
+			// All bigint fields must be 0x-prefixed hex (backend DTO requirement)
+			expect(userOp.nonce).toBe('0x2a');
+			expect(userOp.callGasLimit).toBe('0x4c4b40');
+			expect(userOp.verificationGasLimit).toBe('0xf4240');
+			expect(userOp.preVerificationGas).toBe('0xc350');
+			expect(userOp.maxFeePerGas).toBe('0x3b9aca00');
+			expect(userOp.maxPriorityFeePerGas).toBe('0x5f5e100');
+
+			// Non-bigint fields pass through unchanged
+			expect(userOp.callData).toBe('0xabcdef');
+			expect(userOp.paymasterAndData).toBe('0x');
+			expect(userOp.signature).toBe('0xdeadbeef');
+			expect(userOp.sender).toBe(MOCK_ACCOUNT_ADDRESS);
+		});
+
+		it('throws error when relay rejects', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
 			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue({
@@ -397,11 +440,7 @@ describe('gasless-store', () => {
 				signature: '0x'
 			});
 
-			mockFetch.mockResolvedValue({
-				ok: false,
-				status: 500,
-				json: () => Promise.resolve({ message: 'Relay server error' })
-			});
+			mockGaslessRelay.mockRejectedValue(new Error('Relay server error'));
 
 			await expect(
 				sendGasless(
@@ -409,13 +448,12 @@ describe('gasless-store', () => {
 					'0xTokenAddress',
 					1000n,
 					mockEstimatedGas,
-					mockJwt,
 					MOCK_SMART_ACCOUNT
 				)
 			).rejects.toThrow('Relay server error');
 		});
 
-		it('throws generic message when relay response has no JSON body', async () => {
+		it('throws error when relay fails with network error', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
 			MOCK_SMART_ACCOUNT.signUserOperation.mockResolvedValue({
@@ -431,11 +469,7 @@ describe('gasless-store', () => {
 				signature: '0x'
 			});
 
-			mockFetch.mockResolvedValue({
-				ok: false,
-				status: 502,
-				json: () => Promise.reject(new Error('No JSON'))
-			});
+			mockGaslessRelay.mockRejectedValue(new Error('Relay failed'));
 
 			await expect(
 				sendGasless(
@@ -443,7 +477,6 @@ describe('gasless-store', () => {
 					'0xTokenAddress',
 					1000n,
 					mockEstimatedGas,
-					mockJwt,
 					MOCK_SMART_ACCOUNT
 				)
 			).rejects.toThrow('Relay failed');
@@ -461,7 +494,6 @@ describe('gasless-store', () => {
 					100n,
 					10n,
 					{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
-					'jwt',
 					MOCK_SMART_ACCOUNT
 				)
 			).rejects.toThrow('Wallet not initialized');
@@ -483,10 +515,7 @@ describe('gasless-store', () => {
 				signature: '0x'
 			});
 
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: () => Promise.resolve({ userOpHash: '0xTokenHash' })
-			});
+			mockGaslessRelay.mockResolvedValue({ userOpHash: '0xTokenHash' });
 
 			const result = await sendTokenProgrammatic(
 				'0xTokenAddress',
@@ -494,7 +523,6 @@ describe('gasless-store', () => {
 				100n,
 				10n,
 				{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
-				'jwt',
 				MOCK_SMART_ACCOUNT
 			);
 
@@ -512,51 +540,39 @@ describe('gasless-store', () => {
 				feeTier: 'Low',
 				totalWithBuffer: '1001000000'
 			};
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: () => Promise.resolve(mockEstimate)
-			});
+			mockGaslessEstimate.mockResolvedValue(mockEstimate);
 
-			const result = await estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token');
+			const result = await estimateFee('0xToken', 100n, '0xRecipient');
 
 			expect(result).toEqual(mockEstimate);
-			expect(mockFetch).toHaveBeenCalledWith(
-				'http://localhost:8000/api/v1/gasless/estimate',
-				expect.objectContaining({ method: 'POST' })
+			expect(mockGaslessEstimate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					token: '0xToken',
+					amount: '100',
+					recipient: '0xRecipient'
+				})
 			);
 		});
 
 		it('throws the raw message for network fee too high error', async () => {
-			mockFetch.mockResolvedValue({
-				ok: false,
-				json: () => Promise.resolve({ message: 'Network fee too high for this operation' })
-			});
+			mockGaslessEstimate.mockRejectedValue(new Error('Network fee too high for this operation'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token')).rejects.toThrow(
+			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow(
 				'Network fee too high for this operation'
 			);
 		});
 
 		it('throws generic error for other failures', async () => {
-			mockFetch.mockResolvedValue({
-				ok: false,
-				json: () => Promise.resolve({ message: 'Token not found' })
-			});
+			mockGaslessEstimate.mockRejectedValue(new Error('Token not found'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token')).rejects.toThrow(
-				'Token not found'
-			);
+			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow('Token not found');
 		});
 
-		it('throws default message when response has no JSON', async () => {
-			mockFetch.mockResolvedValue({
-				ok: false,
-				statusText: 'Internal Server Error',
-				json: () => Promise.reject(new Error('No JSON'))
-			});
+		it('throws default message on unexpected service error', async () => {
+			mockGaslessEstimate.mockRejectedValue(new Error('Fee estimation failed'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient', 'jwt-token')).rejects.toThrow(
-				'Fee estimation failed: Internal Server Error'
+			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow(
+				'Fee estimation failed'
 			);
 		});
 	});

@@ -58,7 +58,8 @@ export interface UserOperation {
 
 /**
  * Serializable UserOperation for JSON transport over HTTP.
- * All bigint fields are represented as decimal strings.
+ * All bigint fields are represented as `0x`-prefixed hex strings
+ * (matching ERC-4337 convention and the backend DTO validation).
  */
 export interface SerializableUserOperation {
 	sender: string;

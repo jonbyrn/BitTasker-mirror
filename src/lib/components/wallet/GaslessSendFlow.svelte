@@ -85,8 +85,6 @@
 		feeEstimate = null;
 
 		try {
-			const jwt = localStorage.getItem('auth_token') || '';
-
 			const initialBalance = await checkSufficientBalance(
 				selectedToken,
 				$walletAddress,
@@ -100,7 +98,7 @@
 				return;
 			}
 
-			const estimate = await estimateFee(selectedToken, amountBigInt, recipient, jwt);
+			const estimate = await estimateFee(selectedToken, amountBigInt, recipient);
 			feeEstimate = estimate;
 
 			balanceCheck = await checkSufficientBalance(
@@ -130,14 +128,11 @@
 		sendError = null;
 
 		try {
-			const jwt = localStorage.getItem('auth_token') || '';
-
 			const txHash = await sendToken(
 				selectedToken,
 				recipient,
 				amountBigInt,
 				BigInt(feeEstimate.feeBuffer),
-				jwt,
 				feeEstimate.estimatedGas
 			);
 

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 
+// Hoisted mocks — available inside vi.mock factories
+const { mockEstimate, mockRelay } = vi.hoisted(() => ({
+	mockEstimate: vi.fn(),
+	mockRelay: vi.fn()
+}));
+
 // Mock viem with isAddress and encodeFunctionData
 vi.mock('viem', () => ({
 	encodeFunctionData: vi.fn().mockReturnValue('0x' + 'ab'.repeat(20)),
@@ -24,31 +30,39 @@ vi.mock('../../../../../wallet/arbitrum-wallet', () => ({
 	}))
 }));
 
-// Mock the config with all required exports
+// Mock the config with all required exports (no API_BASE_URL)
 vi.mock('../../../../../wallet/gasless.config', () => ({
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
-		maxPreVerificationGas: 100_000n,
+		maxPreVerificationGas: 400_000n,
 		maxFeePerGas: 1_000_000_000n,
 		maxPriorityFeePerGas: 100_000_000n,
-		maxTotalGas: 5_000_000n
+		maxTotalGas: 6_400_000n
 	},
-	API_BASE_URL: 'http://localhost:3000/api',
 	GAS_TREASURY: '0x1234567890123456789012345678901234567890',
 	ARBITRUM_RPC_URL: 'https://arb1.arbitrum.io/rpc',
-	ARBITRUM_CHAIN_ID: 42161
+	ARBITRUM_CHAIN_ID: 42161,
+	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
 }));
 
 // Mock the helpers
-vi.mock('../../../../../wallet/gasless-helpers', () => ({
+vi.mock('$lib/wallet/gasless-helpers', () => ({
 	validateFeeParameters: vi.fn(),
 	validateFeeBufferBounds: vi.fn(),
 	validateFeeRecipient: vi.fn()
 }));
 
-// Mock global fetch
-vi.stubGlobal('fetch', vi.fn());
+// Mock gaslessService (axios-based) — no fetch mock needed
+vi.mock('$lib/api/services/gasless.service', () => ({
+	gaslessService: {
+		relay: mockRelay,
+		estimate: mockEstimate,
+		checkBalance: vi.fn(),
+		health: vi.fn()
+	}
+}));
 
 import {
 	gaslessWallet,
@@ -99,21 +113,15 @@ describe('estimateFee', () => {
 	});
 
 	it('returns a fee estimate object', async () => {
-		const mockResponse = {
-			ok: true,
-			json: vi.fn().mockResolvedValue({
-				feeToken: '0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a',
-				feeAmount: '10000000000000000'
-			})
-		};
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(fetch as any).mockResolvedValue(mockResponse);
+		mockEstimate.mockResolvedValue({
+			feeToken: '0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a',
+			feeAmount: '10000000000000000'
+		});
 
 		const result = await estimateFee(
 			'0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a',
 			1000000000000000000n,
-			'0x' + 'ab'.repeat(20),
-			'test-jwt-token'
+			'0x' + 'ab'.repeat(20)
 		);
 
 		expect(result).toBeDefined();
@@ -123,7 +131,7 @@ describe('estimateFee', () => {
 
 	it('throws for invalid token address', async () => {
 		await expect(
-			estimateFee('invalid', 1000000000000000000n, '0x' + 'ab'.repeat(20), 'jwt')
+			estimateFee('invalid', 1000000000000000000n, '0x' + 'ab'.repeat(20))
 		).rejects.toThrow('Invalid token address');
 	});
 
@@ -132,21 +140,20 @@ describe('estimateFee', () => {
 			estimateFee(
 				'0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a',
 				1000000000000000000n,
-				'invalid',
-				'jwt'
+				'invalid'
 			)
 		).rejects.toThrow('Invalid recipient address');
 	});
 
 	it('throws for zero amount', async () => {
 		await expect(
-			estimateFee('0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a', 0n, '0x' + 'ab'.repeat(20), 'jwt')
+			estimateFee('0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a', 0n, '0x' + 'ab'.repeat(20))
 		).rejects.toThrow('Amount must be positive');
 	});
 
 	it('throws for negative amount', async () => {
 		await expect(
-			estimateFee('0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a', -1n, '0x' + 'ab'.repeat(20), 'jwt')
+			estimateFee('0xFd086bC8CD6ce520EBC41709935D152F37Fc8d6a', -1n, '0x' + 'ab'.repeat(20))
 		).rejects.toThrow('Amount must be positive');
 	});
 });
@@ -161,14 +168,14 @@ describe('sendGaslessCalls', () => {
 	});
 
 	it('throws for empty calls array', async () => {
-		await expect(sendGaslessCalls([], '0xToken', 1000n, 'jwt')).rejects.toThrow(
+		await expect(sendGaslessCalls([], '0xToken', 1000n)).rejects.toThrow(
 			'At least one call is required'
 		);
 	});
 
 	it('throws for invalid fee token address', async () => {
 		await expect(
-			sendGaslessCalls([{ to: '0x' + 'ab'.repeat(20), data: '0x' }], 'invalid', 1000n, 'jwt')
+			sendGaslessCalls([{ to: '0x' + 'ab'.repeat(20), data: '0x' }], 'invalid', 1000n)
 		).rejects.toThrow('Invalid fee token address');
 	});
 
@@ -177,8 +184,7 @@ describe('sendGaslessCalls', () => {
 			sendGaslessCalls(
 				[{ to: '0x' + 'ab'.repeat(20), data: '0x' }],
 				'0x' + 'ab'.repeat(20),
-				0n,
-				'jwt'
+				0n
 			)
 		).rejects.toThrow('Fee buffer must be positive');
 	});
@@ -188,8 +194,7 @@ describe('sendGaslessCalls', () => {
 			sendGaslessCalls(
 				[{ to: '0x' + 'ab'.repeat(20), data: '0x1234' }],
 				'0x' + 'ab'.repeat(20),
-				1000n,
-				'jwt'
+				1000n
 			)
 		).rejects.toThrow('Wallet not initialized');
 	});

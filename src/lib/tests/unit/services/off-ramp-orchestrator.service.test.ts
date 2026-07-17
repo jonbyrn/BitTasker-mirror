@@ -6,13 +6,20 @@
  *
  * Covers: createQuote (LI.FI & Symbiosis paths), toAmountWei, computeBridgeFee,
  * openMoonPay, setDepositAddress, executeBridge, bridge monitoring,
- * stale flow expiry, localStorage persistence, startOver, cancel, destroy.
+ * stale flow expiry, Capacitor Preferences persistence, startOver, cancel, destroy.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the module under test
 // ---------------------------------------------------------------------------
+
+// Mock functions for @capacitor/preferences (hoisted so vi.mock factories can reference them)
+const { mockPreferencesGet, mockPreferencesSet, mockPreferencesRemove } = vi.hoisted(() => ({
+	mockPreferencesGet: vi.fn(),
+	mockPreferencesSet: vi.fn(),
+	mockPreferencesRemove: vi.fn()
+}));
 
 vi.mock('$lib/utils/debug', () => ({
 	createDebug: () => ({
@@ -76,6 +83,20 @@ vi.mock('ethers', () => ({
 vi.mock('@sentry/sveltekit', () => ({
 	addBreadcrumb: vi.fn(),
 	captureException: vi.fn()
+}));
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: mockPreferencesGet,
+		set: mockPreferencesSet,
+		remove: mockPreferencesRemove
+	}
+}));
+
+vi.mock('$lib/utils/constants/storage', () => ({
+	StorageKeys: {
+		OFF_RAMP_FLOW: 'bittasker_off_ramp_flow'
+	}
 }));
 
 // ---------------------------------------------------------------------------
@@ -236,22 +257,15 @@ function makeStoredFlow(overrides?: Record<string, unknown>): string {
 
 describe('OffRampOrchestrator', () => {
 	let orchestrator: OffRampOrchestrator;
-	let storage: Record<string, string>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 
-		storage = {};
-		vi.stubGlobal('localStorage', {
-			getItem: vi.fn((key: string) => storage[key] ?? null),
-			setItem: vi.fn((key: string, value: string) => {
-				storage[key] = value;
-			}),
-			removeItem: vi.fn((key: string) => {
-				delete storage[key];
-			})
-		});
+		// Default Capacitor Preferences mock returns (no stored flow)
+		mockPreferencesGet.mockResolvedValue({ value: null });
+		mockPreferencesSet.mockResolvedValue(undefined);
+		mockPreferencesRemove.mockResolvedValue(undefined);
 
 		vi.stubGlobal('navigator', { onLine: true });
 		vi.stubGlobal('document', {
@@ -270,8 +284,9 @@ describe('OffRampOrchestrator', () => {
 		vi.restoreAllMocks();
 	});
 
-	function createOrchestrator(): OffRampOrchestrator {
+	async function createOrchestrator(): Promise<OffRampOrchestrator> {
 		orchestrator = new OffRampOrchestrator();
+		await orchestrator.init();
 		return orchestrator;
 	}
 
@@ -281,7 +296,7 @@ describe('OffRampOrchestrator', () => {
 		it('converts integer amount for usdt0-arb (6 decimals)', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -303,7 +318,7 @@ describe('OffRampOrchestrator', () => {
 				}
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100.5',
@@ -318,7 +333,7 @@ describe('OffRampOrchestrator', () => {
 		it('converts fractional amount for wbtc-arb (8 decimals)', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_WBTC_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'wbtc-arb',
 				amount: '0.001',
@@ -340,7 +355,7 @@ describe('OffRampOrchestrator', () => {
 				}
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '0',
@@ -361,7 +376,7 @@ describe('OffRampOrchestrator', () => {
 				}
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '0.000001',
@@ -379,7 +394,7 @@ describe('OffRampOrchestrator', () => {
 		it('computes stablecoin fee (6 decimals) from input/output diff', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -395,7 +410,7 @@ describe('OffRampOrchestrator', () => {
 		it('computes wBTC fee using feeCosts (8 decimals)', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_WBTC_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'wbtc-arb',
 				amount: '1',
@@ -416,7 +431,7 @@ describe('OffRampOrchestrator', () => {
 				}
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'wbtc-arb',
 				amount: '1',
@@ -435,7 +450,7 @@ describe('OffRampOrchestrator', () => {
 		it('fetches LI.FI quote for usdt0-arb and returns OffRampQuote', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -454,7 +469,7 @@ describe('OffRampOrchestrator', () => {
 		it('fetches Symbiosis quote for rbtc', async () => {
 			vi.mocked(symbiosisService.getQuote).mockResolvedValue(SYMBIOSIS_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -472,7 +487,7 @@ describe('OffRampOrchestrator', () => {
 		it('stores Symbiosis tx data for executeBridge', async () => {
 			vi.mocked(symbiosisService.getQuote).mockResolvedValue(SYMBIOSIS_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -493,7 +508,7 @@ describe('OffRampOrchestrator', () => {
 		it('computes MoonPay fee (1.65%) and estimated fiat received', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -513,7 +528,7 @@ describe('OffRampOrchestrator', () => {
 			const stages: string[] = [];
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			o.onStageChange((state) => stages.push(state.stage));
 
 			await o.createQuote({
@@ -530,7 +545,7 @@ describe('OffRampOrchestrator', () => {
 		it('throws when feature flag is disabled', async () => {
 			vi.mocked(isChangeallyFiatEnabled).mockReturnValue(false);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(
 				o.createQuote({
 					asset: 'usdt0-arb',
@@ -544,7 +559,7 @@ describe('OffRampOrchestrator', () => {
 		it('throws when offline', async () => {
 			vi.stubGlobal('navigator', { onLine: false });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(
 				o.createQuote({
 					asset: 'usdt0-arb',
@@ -558,7 +573,7 @@ describe('OffRampOrchestrator', () => {
 		it('handles LI.FI API error gracefully', async () => {
 			vi.mocked(lifiService.getQuote).mockRejectedValue(new Error('No route found'));
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(
 				o.createQuote({
 					asset: 'usdt0-arb',
@@ -574,7 +589,7 @@ describe('OffRampOrchestrator', () => {
 		it('handles Symbiosis API error gracefully', async () => {
 			vi.mocked(symbiosisService.getQuote).mockRejectedValue(new Error('No route'));
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(
 				o.createQuote({
 					asset: 'rbtc',
@@ -591,7 +606,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockResolvedValue(CHANGELLY_OFFRAMP_ORDER);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -624,7 +639,7 @@ describe('OffRampOrchestrator', () => {
 					}
 				});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -646,7 +661,7 @@ describe('OffRampOrchestrator', () => {
 		it('logs Sentry breadcrumb', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -670,7 +685,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockResolvedValue(CHANGELLY_OFFRAMP_ORDER);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -689,7 +704,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockResolvedValue(CHANGELLY_OFFRAMP_ORDER);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -705,7 +720,7 @@ describe('OffRampOrchestrator', () => {
 		});
 
 		it('throws when no quote exists', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(o.openMoonPay('US')).rejects.toThrow('No quote available');
 		});
 
@@ -713,7 +728,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockRejectedValue(new Error('API down'));
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -733,7 +748,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(ethers.getAddress).mockReturnValue('0xChecksummed');
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -752,7 +767,7 @@ describe('OffRampOrchestrator', () => {
 				throw new Error('invalid address');
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -764,14 +779,14 @@ describe('OffRampOrchestrator', () => {
 		});
 
 		it('throws when no flow exists', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(o.setDepositAddress('0xabc')).rejects.toThrow('No active flow');
 		});
 
-		it('persists to localStorage', async () => {
+		it('persists to Preferences', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -781,9 +796,11 @@ describe('OffRampOrchestrator', () => {
 
 			await o.setDepositAddress('0xabc');
 
-			expect(localStorage.setItem).toHaveBeenCalledWith(
-				'bittasker_off_ramp_flow',
-				expect.stringContaining('depositAddress')
+			expect(mockPreferencesSet).toHaveBeenCalledWith(
+				expect.objectContaining({
+					key: 'bittasker_off_ramp_flow',
+					value: expect.stringContaining('depositAddress')
+				})
 			);
 		});
 	});
@@ -805,7 +822,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xapprove-tx-hash', error: null })
 				.mockResolvedValueOnce({ data: '0xswap-tx-hash', error: null });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -832,7 +849,7 @@ describe('OffRampOrchestrator', () => {
 				error: null
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -860,7 +877,7 @@ describe('OffRampOrchestrator', () => {
 				error: new Error('User rejected')
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -886,7 +903,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xapprove-tx', error: null })
 				.mockResolvedValueOnce({ data: null, error: new Error('Insufficient funds') });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -903,7 +920,7 @@ describe('OffRampOrchestrator', () => {
 		it('throws when no deposit address is set', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -915,7 +932,7 @@ describe('OffRampOrchestrator', () => {
 		});
 
 		it('throws when no active flow', async () => {
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(o.executeBridge()).rejects.toThrow('No active flow');
 		});
 
@@ -932,7 +949,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xswap-tx', error: null });
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'PENDING' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -963,7 +980,7 @@ describe('OffRampOrchestrator', () => {
 				status: { code: 1, text: 'Pending' }
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -984,7 +1001,7 @@ describe('OffRampOrchestrator', () => {
 				tx: undefined
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -1014,7 +1031,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xtxhash', error: null });
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'DONE' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1046,7 +1063,7 @@ describe('OffRampOrchestrator', () => {
 				substatus: 'UNKNOWN_ERROR'
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1077,7 +1094,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ status: 'PENDING' })
 				.mockResolvedValueOnce({ status: 'DONE' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1107,7 +1124,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xtxhash', error: null });
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'PENDING' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1137,7 +1154,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xtxhash', error: null });
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'PENDING' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1166,7 +1183,7 @@ describe('OffRampOrchestrator', () => {
 				status: { code: 0, text: 'Success' }
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -1191,7 +1208,7 @@ describe('OffRampOrchestrator', () => {
 				status: { code: -1, text: 'Failed' }
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -1217,7 +1234,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ status: { code: 1, text: 'Pending' } })
 				.mockResolvedValueOnce({ status: { code: 0, text: 'Success' } });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'rbtc',
 				amount: '1',
@@ -1238,8 +1255,8 @@ describe('OffRampOrchestrator', () => {
 	// ── trackCheckoutReturn ────────────────────────────────────────────
 
 	describe('trackCheckoutReturn', () => {
-		it('registers visibilitychange listener', () => {
-			const o = createOrchestrator();
+		it('registers visibilitychange listener', async () => {
+			const o = await createOrchestrator();
 			o.trackCheckoutReturn();
 
 			expect(document.addEventListener).toHaveBeenCalledWith(
@@ -1252,7 +1269,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockResolvedValue(CHANGELLY_OFFRAMP_ORDER);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1284,7 +1301,7 @@ describe('OffRampOrchestrator', () => {
 		it('only transitions when stage is opening_moonpay', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1317,15 +1334,17 @@ describe('OffRampOrchestrator', () => {
 	describe('stale flow expiry', () => {
 		it('clears stale flow on createQuote', async () => {
 			const staleTime = Date.now() - 31 * 60 * 1000;
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({
-				stage: 'awaiting_deposit_address',
-				updatedAt: staleTime,
-				startedAt: staleTime
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({
+					stage: 'awaiting_deposit_address',
+					updatedAt: staleTime,
+					startedAt: staleTime
+				})
 			});
 
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const quote = await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '50',
@@ -1337,14 +1356,16 @@ describe('OffRampOrchestrator', () => {
 		});
 
 		it('does not clear fresh flow on createQuote', async () => {
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({
-				stage: 'opening_moonpay',
-				updatedAt: Date.now() - 5 * 60 * 1000
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({
+					stage: 'opening_moonpay',
+					updatedAt: Date.now() - 5 * 60 * 1000
+				})
 			});
 
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await expect(
 				o.createQuote({
 					asset: 'usdt0-arb',
@@ -1356,72 +1377,78 @@ describe('OffRampOrchestrator', () => {
 		});
 	});
 
-	// ── localStorage persistence ───────────────────────────────────────
+	// ── Capacitor Preferences persistence ──────────────────────────────
 
-	describe('localStorage persistence', () => {
-		it('restores flow from localStorage on construction', () => {
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow();
+	describe('Capacitor Preferences persistence', () => {
+		it('restores flow from Preferences on init', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow() });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).not.toBeNull();
 			expect(o.getActiveFlow()?.stage).toBe('quote_ready');
 		});
 
-		it('auto-expires stale flows (>30 min) on restore', () => {
+		it('auto-expires stale flows (>30 min) on restore', async () => {
 			const staleTime = Date.now() - 31 * 60 * 1000;
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({
-				updatedAt: staleTime,
-				startedAt: staleTime
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({
+					updatedAt: staleTime,
+					startedAt: staleTime
+				})
 			});
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_off_ramp_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_off_ramp_flow' });
 		});
 
-		it('does not restore terminal states (complete)', () => {
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({ stage: 'complete' });
+		it('does not restore terminal states (complete)', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow({ stage: 'complete' }) });
 
-			const o = createOrchestrator();
-			expect(o.getActiveFlow()).toBeNull();
-		});
-
-		it('does not restore terminal states (failed)', () => {
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({ stage: 'failed' });
-
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
 		});
 
-		it('clears corrupted data on restore', () => {
-			storage['bittasker_off_ramp_flow'] = 'not-json!!!';
+		it('does not restore terminal states (failed)', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: makeStoredFlow({ stage: 'failed' }) });
 
-			const o = createOrchestrator();
-			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_off_ramp_flow');
-		});
-
-		it('clears data with missing required fields', () => {
-			storage['bittasker_off_ramp_flow'] = JSON.stringify({ stage: 'quote_ready' });
-
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
 		});
 
-		it('resumes bridge monitoring on restore if bridging with tx hash', () => {
-			storage['bittasker_off_ramp_flow'] = makeStoredFlow({
-				stage: 'bridging',
-				bridgeTxHash: '0xrestore-tx',
-				updatedAt: Date.now() - 5_000
+		it('clears corrupted data on restore', async () => {
+			mockPreferencesGet.mockResolvedValue({ value: 'not-json!!!' });
+
+			const o = await createOrchestrator();
+			expect(o.getActiveFlow()).toBeNull();
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_off_ramp_flow' });
+		});
+
+		it('clears data with missing required fields', async () => {
+			mockPreferencesGet.mockResolvedValue({
+				value: JSON.stringify({ stage: 'quote_ready' })
+			});
+
+			const o = await createOrchestrator();
+			expect(o.getActiveFlow()).toBeNull();
+		});
+
+		it('resumes bridge monitoring on restore if bridging with tx hash', async () => {
+			mockPreferencesGet.mockResolvedValue({
+				value: makeStoredFlow({
+					stage: 'bridging',
+					bridgeTxHash: '0xrestore-tx',
+					updatedAt: Date.now() - 5_000
+				})
 			});
 
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'PENDING' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()?.stage).toBe('bridging');
 
 			// Should have started polling
-			vi.advanceTimersByTime(0);
+			await vi.advanceTimersByTimeAsync(0);
 			expect(lifiService.getStatus).toHaveBeenCalledWith('0xrestore-tx');
 		});
 	});
@@ -1433,7 +1460,7 @@ describe('OffRampOrchestrator', () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 			vi.mocked(changellyFiatService.createOffRampOrder).mockResolvedValue(CHANGELLY_OFFRAMP_ORDER);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1443,7 +1470,7 @@ describe('OffRampOrchestrator', () => {
 			await o.openMoonPay('US');
 			await o.setDepositAddress('0xdeposit');
 
-			o.startOver();
+			await o.startOver();
 
 			const flow = o.getActiveFlow();
 			expect(flow?.stage).toBe('quote_ready');
@@ -1454,16 +1481,16 @@ describe('OffRampOrchestrator', () => {
 			expect(flow?.error).toBeUndefined();
 		});
 
-		it('does nothing when no flow', () => {
-			const o = createOrchestrator();
+		it('does nothing when no flow', async () => {
+			const o = await createOrchestrator();
 			// Should not throw
-			o.startOver();
+			await o.startOver();
 		});
 
 		it('persists the reset state', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1471,11 +1498,13 @@ describe('OffRampOrchestrator', () => {
 				sourceWalletId: ''
 			});
 
-			o.startOver();
+			await o.startOver();
 
-			expect(localStorage.setItem).toHaveBeenCalledWith(
-				'bittasker_off_ramp_flow',
-				expect.stringContaining('"quote_ready"')
+			expect(mockPreferencesSet).toHaveBeenCalledWith(
+				expect.objectContaining({
+					key: 'bittasker_off_ramp_flow',
+					value: expect.stringContaining('"quote_ready"')
+				})
 			);
 		});
 	});
@@ -1486,7 +1515,7 @@ describe('OffRampOrchestrator', () => {
 		it('clears flow and persists removal', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1494,16 +1523,16 @@ describe('OffRampOrchestrator', () => {
 				sourceWalletId: ''
 			});
 
-			o.cancel();
+			await o.cancel();
 
 			expect(o.getActiveFlow()).toBeNull();
-			expect(localStorage.removeItem).toHaveBeenCalledWith('bittasker_off_ramp_flow');
+			expect(mockPreferencesRemove).toHaveBeenCalledWith({ key: 'bittasker_off_ramp_flow' });
 		});
 
 		it('notifies listeners with null flow', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1516,7 +1545,7 @@ describe('OffRampOrchestrator', () => {
 				_lastStage = state?.stage ?? null;
 			});
 
-			o.cancel();
+			await o.cancel();
 			// cancel() clears flow to null, then notifyListeners() checks if (!flow) return
 			// So the listener is NOT called with null — the flow is simply gone
 			expect(o.getActiveFlow()).toBeNull();
@@ -1537,7 +1566,7 @@ describe('OffRampOrchestrator', () => {
 				.mockResolvedValueOnce({ data: '0xtxhash', error: null });
 			vi.mocked(lifiService.getStatus).mockResolvedValue({ status: 'PENDING' });
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',
@@ -1556,8 +1585,8 @@ describe('OffRampOrchestrator', () => {
 			expect(vi.mocked(lifiService.getStatus).mock.calls.length).toBe(callsBefore);
 		});
 
-		it('cleans up visibilitychange listener', () => {
-			const o = createOrchestrator();
+		it('cleans up visibilitychange listener', async () => {
+			const o = await createOrchestrator();
 			o.trackCheckoutReturn();
 			o.destroy();
 
@@ -1574,7 +1603,7 @@ describe('OffRampOrchestrator', () => {
 		it('unsubscribe stops receiving callbacks', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const stages: string[] = [];
 			const unsub = o.onStageChange((state) => stages.push(state.stage));
 
@@ -1588,14 +1617,14 @@ describe('OffRampOrchestrator', () => {
 			const countBefore = stages.length;
 			unsub();
 
-			o.cancel();
+			await o.cancel();
 			expect(stages.length).toBe(countBefore);
 		});
 
 		it('listener error does not break other listeners', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			const goodStages: string[] = [];
 			o.onStageChange(() => {
 				throw new Error('boom');
@@ -1616,15 +1645,15 @@ describe('OffRampOrchestrator', () => {
 	// ── getActiveFlow ──────────────────────────────────────────────────
 
 	describe('getActiveFlow', () => {
-		it('returns null when no flow', () => {
-			const o = createOrchestrator();
+		it('returns null when no flow', async () => {
+			const o = await createOrchestrator();
 			expect(o.getActiveFlow()).toBeNull();
 		});
 
 		it('returns flow state after quote creation', async () => {
 			vi.mocked(lifiService.getQuote).mockResolvedValue(LIFI_QUOTE_RESPONSE);
 
-			const o = createOrchestrator();
+			const o = await createOrchestrator();
 			await o.createQuote({
 				asset: 'usdt0-arb',
 				amount: '100',

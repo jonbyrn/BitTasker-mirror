@@ -7,10 +7,12 @@
  *   3. Monitor for incoming crypto
  *   4. For rBTC: auto-swap WBTC → tBTC → rBTC
  *
- * Persists state to localStorage for resilience across page refreshes
+ * Persists state to Capacitor Preferences for resilience across page refreshes
  * and Capacitor app background/foreground cycles.
  */
 
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
 import { changellyFiatService } from '$lib/services/fiat-ramp.service';
@@ -23,7 +25,6 @@ const debug = createDebug('fiat-swap-orchestrator');
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'bittasker_fiat_flow';
 const CHANGELLY_POLL_INTERVAL_MS = 15_000;
 const CHANGELLY_POLL_MAX_ATTEMPTS = 120; // 30 min at 15s intervals
 const BALANCE_POLL_INTERVAL_MS = 5_000;
@@ -127,9 +128,12 @@ export class FiatSwapOrchestrator {
 	private _visibilityHandler: (() => void) | null = null;
 	private listeners: StageChangeCallback[] = [];
 
-	constructor() {
-		// Restore persisted flow on init
-		this.restoreFlow();
+	/**
+	 * Initialize the orchestrator — restores persisted flow from Capacitor Preferences.
+	 * Must be called once after construction.
+	 */
+	async init(): Promise<void> {
+		await this.restoreFlow();
 	}
 
 	// ── Public API ──────────────────────────────────────────────────────
@@ -193,19 +197,19 @@ export class FiatSwapOrchestrator {
 			updatedAt: Date.now()
 		};
 
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 
 		return { redirectUrl: order.redirectUrl, orderId: order.orderId };
 	}
 
 	/** Start monitoring for payment and crypto delivery. */
-	startMonitoring(): void {
+	async startMonitoring(): Promise<void> {
 		if (!this.flow) return;
 		if (this.flow.stage === 'complete' || this.flow.stage === 'failed') return;
 
 		debug.log('Starting monitoring for order %s', this.flow.externalOrderId);
-		this.startChangellyPolling();
+		await this.startChangellyPolling();
 	}
 
 	/** Subscribe to stage changes. */
@@ -228,16 +232,16 @@ export class FiatSwapOrchestrator {
 		}
 		this.flow.stage = 'converting';
 		this.flow.error = undefined;
-		this.persistFlow();
+		await this.persistFlow();
 		this.notifyListeners();
 		await this.executeAutoSwap();
 	}
 
 	/** Cancel the current flow. */
-	cancel(): void {
+	async cancel(): Promise<void> {
 		this.stopAllPolling();
 		this.flow = null;
-		this.clearPersistedFlow();
+		await this.clearPersistedFlow();
 		this.notifyListeners();
 	}
 
@@ -285,27 +289,28 @@ export class FiatSwapOrchestrator {
 		}
 	}
 
-	/** Clear persisted flow from localStorage. */
-	private clearPersistedFlow() {
-		if (typeof localStorage === 'undefined') return;
+	/** Clear persisted flow from Capacitor Preferences. */
+	private async clearPersistedFlow(): Promise<void> {
 		try {
-			localStorage.removeItem(STORAGE_KEY);
+			await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
+			debug.warn('Preferences remove failed:', e);
 		}
 	}
 
 	// ── Internal: Changelly Polling ─────────────────────────────────────
 
-	private startChangellyPolling() {
+	private async startChangellyPolling(): Promise<void> {
 		this.stopChangellyPolling();
 		this.changellyPollAttempts = 0;
 		this.changellyPollTimer = setInterval(
-			() => this.pollChangellyStatus(),
+			() => {
+				this.pollChangellyStatus().catch((e) => debug.warn('Changelly poll failed:', e));
+			},
 			CHANGELLY_POLL_INTERVAL_MS
 		);
 		// First poll immediately
-		this.pollChangellyStatus();
+		await this.pollChangellyStatus();
 	}
 
 	private stopChangellyPolling() {
@@ -351,7 +356,7 @@ export class FiatSwapOrchestrator {
 			this.flow.error = 'wallet.buy_sell.payment_not_received';
 			this.flow.changellyStatus = 'expired';
 			this.updateStage('failed');
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
@@ -365,7 +370,7 @@ export class FiatSwapOrchestrator {
 			if (error?.message?.includes('429') || error?.message?.includes('rate')) {
 				this.changellyPollAttempts--;
 			}
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
@@ -389,7 +394,7 @@ export class FiatSwapOrchestrator {
 		}
 		// 'created', 'pending', 'hold' → keep polling
 
-		this.persistFlow();
+		await this.persistFlow();
 	}
 
 	// ── Balance Polling ─────────────────────────────────────────────────
@@ -399,7 +404,12 @@ export class FiatSwapOrchestrator {
 	private startBalancePolling() {
 		this.stopBalancePolling();
 		this.balanceAttempts = 0;
-		this.balancePollTimer = setInterval(() => this.pollBalance(), BALANCE_POLL_INTERVAL_MS);
+		this.balancePollTimer = setInterval(
+			() => {
+				this.pollBalance().catch((e) => debug.warn('Balance poll failed:', e));
+			},
+			BALANCE_POLL_INTERVAL_MS
+		);
 	}
 
 	private async pollBalance() {
@@ -411,7 +421,7 @@ export class FiatSwapOrchestrator {
 			this.stopBalancePolling();
 			this.flow.error = 'wallet.buy_sell.crypto_delivery_timeout';
 			this.updateStage('failed');
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
@@ -426,16 +436,16 @@ export class FiatSwapOrchestrator {
 			debug.log('Crypto detected in wallet');
 			this.stopBalancePolling();
 			this.updateStage('crypto_delivered');
-			this.persistFlow();
+			await this.persistFlow();
 
 			// Auto-swap if needed
 			if (needsAutoSwap(this.flow.asset)) {
 				this.updateStage('converting');
-				this.persistFlow();
+				await this.persistFlow();
 				this.executeAutoSwap();
 			} else {
 				this.updateStage('complete');
-				this.persistFlow();
+				await this.persistFlow();
 			}
 		}
 	}
@@ -471,7 +481,7 @@ export class FiatSwapOrchestrator {
 
 		// Hop 1: WBTC → tBTC via Symbiosis (same-chain Arbitrum swap)
 		this.updateStage('swap_hop1');
-		this.persistFlow();
+		await this.persistFlow();
 
 		const { data: hop1Result, error: hop1Error } = await tryCatch(this.executeWbtcToTbtc());
 
@@ -479,17 +489,17 @@ export class FiatSwapOrchestrator {
 			debug.error('Hop 1 (WBTC→tBTC) failed: %s', hop1Error?.message);
 			this.flow.error = `Swap step 1 failed: ${hop1Error?.message || 'Unknown error'}`;
 			this.updateStage('swap_failed');
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
 		this.flow.swapHop1Id = hop1Result.swapId;
 		this.flow.swapHop1Status = 'complete';
-		this.persistFlow();
+		await this.persistFlow();
 
 		// Hop 2: tBTC → rBTC via Boltz chain swap
 		this.updateStage('swap_hop2');
-		this.persistFlow();
+		await this.persistFlow();
 
 		const { data: hop2Result, error: hop2Error } = await tryCatch(this.executeTbtcToRbtc());
 
@@ -497,7 +507,7 @@ export class FiatSwapOrchestrator {
 			debug.error('Hop 2 (tBTC→rBTC) failed: %s', hop2Error?.message);
 			this.flow.error = `Swap step 2 failed: ${hop2Error?.message || 'Unknown error'}. tBTC is in your wallet.`;
 			this.updateStage('swap_failed');
-			this.persistFlow();
+			await this.persistFlow();
 			return;
 		}
 
@@ -505,7 +515,7 @@ export class FiatSwapOrchestrator {
 		this.flow.swapHop2Status = 'complete';
 		this.flow.finalAmount = hop2Result.amount;
 		this.updateStage('complete');
-		this.persistFlow();
+		await this.persistFlow();
 
 		Sentry.addBreadcrumb({
 			category: 'fiat-orchestrator',
@@ -641,20 +651,18 @@ export class FiatSwapOrchestrator {
 
 	// ── Persistence ─────────────────────────────────────────────────────
 
-	private persistFlow() {
-		if (typeof localStorage === 'undefined') return;
+	private async persistFlow(): Promise<void> {
 		if (!this.flow) return;
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.flow));
+			await Preferences.set({ key: StorageKeys.FIAT_SWAP_FLOW, value: JSON.stringify(this.flow) });
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
+			debug.warn('Preferences set failed:', e);
 		}
 	}
 
-	private restoreFlow() {
-		if (typeof localStorage === 'undefined') return;
+	private async restoreFlow(): Promise<void> {
 		try {
-			const stored = localStorage.getItem(STORAGE_KEY);
+			const { value: stored } = await Preferences.get({ key: StorageKeys.FIAT_SWAP_FLOW });
 			if (!stored) return;
 			const raw = JSON.parse(stored);
 
@@ -670,7 +678,7 @@ export class FiatSwapOrchestrator {
 				typeof raw.startedAt !== 'number'
 			) {
 				debug.warn('Invalid persisted flow data, clearing');
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
 				return;
 			}
 
@@ -688,7 +696,7 @@ export class FiatSwapOrchestrator {
 			];
 			if (!validStages.includes(raw.stage)) {
 				debug.warn('Invalid stage in persisted flow: %s, clearing', raw.stage);
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
 				return;
 			}
 
@@ -696,7 +704,7 @@ export class FiatSwapOrchestrator {
 
 			// Only restore if not terminal
 			if (['complete', 'failed', 'swap_failed', 'idle'].includes(parsed.stage)) {
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
 				return;
 			}
 			// Auto-expire stale flows (>30 minutes old)
@@ -708,7 +716,7 @@ export class FiatSwapOrchestrator {
 				);
 				parsed.stage = 'failed';
 				parsed.error = 'wallet.buy_sell.session_expired';
-				localStorage.removeItem(STORAGE_KEY);
+				await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
 				return;
 			}
 			this.flow = parsed;
@@ -726,8 +734,12 @@ export class FiatSwapOrchestrator {
 				this.executeAutoSwap();
 			}
 		} catch (e) {
-			debug.warn('localStorage operation failed:', e);
-			localStorage.removeItem(STORAGE_KEY);
+			debug.warn('Preferences get failed:', e);
+			try {
+				await Preferences.remove({ key: StorageKeys.FIAT_SWAP_FLOW });
+			} catch (removeErr) {
+				debug.warn('Preferences remove also failed:', removeErr);
+			}
 		}
 	}
 

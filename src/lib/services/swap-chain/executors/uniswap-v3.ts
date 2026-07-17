@@ -26,7 +26,7 @@ import {
 	resolveTokenAddress,
 	LIFI_ASSET_DECIMALS
 } from '../utils';
-import { encodeUniswapV3ExactInputSingle } from '../abi';
+import { encodeUniswapV3ExactInputSingle, encodeUniswapV3ExactInput } from '../abi';
 import { safeAddress, type SwapChainState } from '../state';
 import { sendEvmTransaction } from '../tx-helpers';
 import { approveErc20Token, capBalanceToWalletMax } from './helpers';
@@ -45,6 +45,36 @@ const UNISWAP_V3_FEE_TIERS: Record<string, number> = {
 	'0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40:0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f': 500,
 	'0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f:0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9': 500
 };
+
+/**
+ * Multi-hop routes for pairs without a direct pool.
+ * Must match uniswap-v3.provider.ts MULTI_HOP_ROUTES.
+ */
+const MULTI_HOP_ROUTES: Record<string, { path: string[]; fees: number[] }> = {
+	// tBTC → USDT0 via WBTC
+	'0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40:0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9': {
+		path: [
+			'0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40', // tBTC
+			'0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', // WBTC
+			'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'  // USDT0
+		],
+		fees: [500, 500]
+	}
+};
+
+/**
+ * Encode a Uniswap V3 multi-hop path.
+ * Format: tokenA (20 bytes) + fee (3 bytes) + tokenB (20 bytes) + fee (3 bytes) + tokenC (20 bytes)
+ */
+function encodeMultiHopPath(tokenAddresses: string[], fees: number[]): string {
+	let path = '0x';
+	for (let i = 0; i < fees.length; i++) {
+		path += tokenAddresses[i].slice(2).toLowerCase();
+		path += fees[i].toString(16).padStart(6, '0');
+	}
+	path += tokenAddresses[tokenAddresses.length - 1].slice(2).toLowerCase();
+	return path;
+}
 
 // ---------------------------------------------------------------------------
 // Uniswap V3 hop
@@ -77,12 +107,16 @@ export async function executeUniswapV3Hop(
 	const poolKey = `${fromTokenAddr}:${toTokenAddr}`;
 	const poolKeyReverse = `${toTokenAddr}:${fromTokenAddr}`;
 	const feeTier = UNISWAP_V3_FEE_TIERS[poolKey] ?? UNISWAP_V3_FEE_TIERS[poolKeyReverse];
-	if (!feeTier) {
+	const multiHopRoute = MULTI_HOP_ROUTES[poolKey] ?? MULTI_HOP_ROUTES[poolKeyReverse];
+
+	if (!feeTier && !multiHopRoute) {
 		return {
 			data: null,
 			error: new Error(`No known Uniswap V3 pool for ${hop.fromAsset}→${hop.toAsset}`)
 		};
 	}
+
+	const isMultiHop = !feeTier && !!multiHopRoute;
 
 	d.log(
 		'executeUniswapV3Hop: %s → %s (%s, fee tier %d)',
@@ -141,7 +175,7 @@ export async function executeUniswapV3Hop(
 			}
 		}
 
-		// Step 2: Call exactInputSingle
+		// Step 2: Call exactInputSingle (direct pool) or exactInput (multi-hop)
 		const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 min deadline
 
 		// 0.5% slippage protection — industry standard default
@@ -150,15 +184,30 @@ export async function executeUniswapV3Hop(
 		const expectedAmountOut = amountIn;
 		const amountOutMinimum = (expectedAmountOut * BigInt(10000 - SLIPPAGE_BPS)) / 10000n;
 
-		const swapCalldata = encodeUniswapV3ExactInputSingle(
-			fromTokenAddr,
-			toTokenAddr,
-			feeTier,
-			userAddr,
-			deadline,
-			amountIn,
-			amountOutMinimum
-		);
+		let swapCalldata: string;
+		if (isMultiHop && multiHopRoute) {
+			// Multi-hop: exactInput with encoded path
+			const path = encodeMultiHopPath(multiHopRoute.path, multiHopRoute.fees);
+			swapCalldata = encodeUniswapV3ExactInput(
+				path,
+				userAddr,
+				deadline,
+				amountIn,
+				amountOutMinimum
+			);
+			d.log('executeUniswapV3Hop: multi-hop path=%s', path.substring(0, 30) + '...');
+		} else {
+			// Single-hop: exactInputSingle
+			swapCalldata = encodeUniswapV3ExactInputSingle(
+				fromTokenAddr,
+				toTokenAddr,
+				feeTier!,
+				userAddr,
+				deadline,
+				amountIn,
+				amountOutMinimum
+			);
+		}
 
 		d.log('executeUniswapV3Hop: submitting swap via sendEvmTransaction');
 		const { data: txHash, error: swapError } = await sendEvmTransaction({
