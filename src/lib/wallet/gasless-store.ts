@@ -26,7 +26,7 @@ import {
 	ARBITRUM_RPC_URL,
 	ARBITRUM_CHAIN_ID,
 	SIMPLE_7702_ACCOUNT_IMPL
-} from '../../wallet/gasless.config';
+} from './gasless.config';
 import { gaslessService } from '$lib/api/services/gasless.service';
 import {
 	validateFeeParameters,

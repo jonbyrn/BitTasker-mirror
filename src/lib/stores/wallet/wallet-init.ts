@@ -285,6 +285,12 @@ export async function initialize(): Promise<void> {
 			// If it fails, the direct fallback path will be used instead.
 			if (rskWallet) {
 				try {
+					// Fetch gasless config from backend BEFORE initializing the wallet.
+					// This ensures gas bounds, fee tiers, and buffer bounds are in sync
+					// with the backend — prevents "preVerificationGas exceeds maximum" errors.
+					const { fetchGaslessConfig } = await import('$lib/wallet/gasless.config');
+					await fetchGaslessConfig();
+
 					const { initWallet } = await import('$lib/wallet/gasless-store');
 					const ethersWallet = rskWallet.getWallet() as ethers.Wallet;
 					// ethers v6 Wallet has privateKey as a hex string

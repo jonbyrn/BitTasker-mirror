@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { Buffer } from 'buffer';
+	import { getPublicKey } from 'nostr-tools';
+	import { NDKRelaySet } from '@nostr-dev-kit/ndk';
 	import { createDebug } from '$lib/utils/debug';
 	import { boltzProvider } from '$lib/services/BoltzProvider';
 	import {
@@ -9,91 +13,63 @@
 		type UnclaimedLockup
 	} from '$lib/services/swap-chain.service';
 	import { claimTbtcOnArbitrum, claimRbtcOnRsk } from '$lib/services/swap-chain/boltz/claims';
-	import { TBTC_ARB } from '$lib/services/swap-chain/utils';
-	import { recoverSwapsFromNostr, type PendingSwapData, type SwapType } from '$lib/utils/swapAdapter';
+	import { TBTC_ARB, ETHERSWAP_ADDRESS } from '$lib/services/swap-chain/utils';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { getRSKAddress, walletManager } from '$lib/stores/wallet.store';
+	import { ndk } from '$lib/nostr/ndk';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
+	import nip44 from '$lib/nostr/nip44';
+	import KINDS from '$lib/utils/constants/kinds';
+	import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+	import { NOSTR_FINAL_STATES } from '$lib/utils/wallet/swapStatusMap';
 
 	const d = createDebug('debug-swaps');
+	const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+	const SWAP_TYPES = ['boltz-swap-chain', 'bittasker-swap-chain', 'boltz-swap-reverse', 'boltz-swap-submarine'] as const;
 
-	// ── Tab state ─────────────────────────────────────────────────────
-	let activeTab = $state<'scan' | 'check' | 'nostr' | 'manual'>('scan');
+	// ── Swap row ──────────────────────────────────────────────────────
+	interface SwapRow {
+		swapId: string;
+		swapType: string;
+		nostrStatus: string;
+		preimage: string;
+		createdAt: number; // milliseconds (from Nostr event created_at * 1000)
+		fromAsset: string;
+		toAsset: string;
+		fromAmount: number;
+		toAmount: number;
+		lockupTxHash: string;
+		claimTxHash: string;
+		claimDetails: { lockupAddress: string; amount: number; refundAddress: string; timeoutBlockHeight: number } | null;
+		lockupClaimAddress: string;
+		refundAddress: string;
+		boltzStatus: string;
+		boltzChecked: boolean;
+		boltzClaimDetails: { lockupAddress: string; amount: number; refundAddress: string; timeoutBlockHeight: number } | null;
+		boltzTransactionId: string;
+		recovering: boolean;
+		recoverResult: { ok: boolean; msg: string; txHash?: string } | null;
+	}
 
-	// ── Wallet state ──────────────────────────────────────────────────
+	// ── State ─────────────────────────────────────────────────────────
 	let rskAddress = $state('');
 	let walletReady = $state(false);
 	let initError = $state('');
-
-	// ── Scanner state ─────────────────────────────────────────────────
+	let swaps = $state<SwapRow[]>([]);
+	let loading = $state(false);
+	let loadError = $state('');
+	let showAdvanced = $state(false);
 	let lockups = $state<UnclaimedLockup[]>([]);
 	let scanning = $state(false);
-	let scanError = $state('');
 	let refundingTxHash = $state<string | null>(null);
 	let refundResults = $state<Record<string, { ok: boolean; msg: string }>>({});
 
-	// ── Checker state ─────────────────────────────────────────────────
-	let checkSwapId = $state('');
-	let checking = $state(false);
-	let swapStatus = $state<{
-		status: string;
-		transactionId?: string;
-		claimDetails?: {
-			lockupAddress: string;
-			amount: number;
-			refundAddress: string;
-			timeoutBlockHeight: number;
-		};
-		lockupDetails?: {
-			claimAddress: string;
-			amount: number;
-		};
-	} | null>(null);
-	let checkError = $state('');
-	let claimDataFromNostr = $state<{
-		preimageHex: string;
-		claimDetails: {
-			lockupAddress: string;
-			amount: number;
-			refundAddress: string;
-			timeoutBlockHeight: number;
-		};
-		lockupClaimAddress: string;
-	} | null>(null);
-
-	// ── Claim state ───────────────────────────────────────────────────
-	let claiming = $state(false);
-	let claimResult = $state<{ ok: boolean; msg: string } | null>(null);
-
-	// ── Nostr recovery state ──────────────────────────────────────────
-	let nostrSwaps = $state<PendingSwapData[]>([]);
-	let recoveringNostr = $state(false);
-	let nostrError = $state('');
-
-	// ── Manual recovery state ─────────────────────────────────────────
-	let manualSwapId = $state('');
-	let manualPreimage = $state('');
-	let manualContractAddress = $state('');
-	let manualAmount = $state('');
-	let manualClaimAddress = $state('');
-	let manualRefundAddress = $state('');
-	let manualTimelock = $state('');
-	let manualChain = $state<'arbitrum' | 'rsk'>('arbitrum');
-	let manualClaiming = $state(false);
-	let manualClaimResult = $state<{ ok: boolean; msg: string } | null>(null);
-
-	// ── Activity log ──────────────────────────────────────────────────
-	interface LogEntry {
-		time: string;
-		level: 'info' | 'success' | 'error' | 'warn';
-		msg: string;
-	}
+	interface LogEntry { time: string; level: 'info' | 'success' | 'error' | 'warn'; msg: string }
 	let logs = $state<LogEntry[]>([]);
 
 	function log(level: LogEntry['level'], msg: string) {
-		const time = new Date().toLocaleTimeString();
-		logs = [{ time, level, msg }, ...logs].slice(0, 200);
-		if (level === 'error') d.error(msg);
-		else d.log('[%s] %s', level, msg);
+		logs = [{ time: new Date().toLocaleTimeString(), level, msg }, ...logs].slice(0, 200);
+		if (level === 'error') d.error(msg); else d.log('[%s] %s', level, msg);
 	}
 
 	// ── Init ──────────────────────────────────────────────────────────
@@ -103,875 +79,476 @@
 			rskAddress = await getRSKAddress();
 			walletReady = true;
 			log('success', `Wallet ready — RSK: ${rskAddress}`);
+			await loadSwaps();
 		} catch (err) {
 			initError = (err as Error).message;
 			log('error', `Wallet init failed: ${initError}`);
 		}
 	});
 
-	// ── Scan RSK for unclaimed lockups ────────────────────────────────
-	async function handleScan() {
-		scanning = true;
-		scanError = '';
-		lockups = [];
-		refundResults = {};
-		log('info', 'Scanning RSK blockchain for Boltz lockups...');
-
-		try {
-			const { data, error } = await scanUnclaimedLockups();
-			if (error) {
-				scanError = error.message;
-				log('error', `Scan failed: ${error.message}`);
-				return;
-			}
-			lockups = data;
-			log('success', `Found ${data.length} lockup(s) for ${rskAddress}`);
-
-			for (const l of data) {
-				const status = l.resolved
-					? 'RESOLVED'
-					: l.expired
-						? 'EXPIRED (refundable)'
-						: `active (timelock block ${l.timeoutBlockHeight})`;
-				log(
-					'info',
-					`  → ${l.amountSats} sats | ${status} | tx: ${l.txHash.slice(0, 16)}...`
-				);
-			}
-		} catch (err) {
-			scanError = (err as Error).message;
-			log('error', `Scan error: ${scanError}`);
-		} finally {
-			scanning = false;
-		}
-	}
-
-	// ── Refund a specific lockup ──────────────────────────────────────
-	async function handleRefund(lockup: UnclaimedLockup) {
-		refundingTxHash = lockup.txHash;
-		refundResults[lockup.txHash] = { ok: false, msg: 'Refunding...' };
-		log('info', `Refunding lockup ${lockup.txHash.slice(0, 16)}... (${lockup.amountSats} sats)`);
-
-		try {
-			const { txHash, error } = await refundLockupDirect(lockup);
-			if (error) {
-				refundResults[lockup.txHash] = { ok: false, msg: error.message };
-				log('error', `Refund failed: ${error.message}`);
-			} else {
-				refundResults[lockup.txHash] = { ok: true, msg: `TX: ${txHash}` };
-				log('success', `Refund sent! TX: ${txHash}`);
-				log('info', `View: https://rootstock.blockscout.com/tx/${txHash}`);
-			}
-		} catch (err) {
-			refundResults[lockup.txHash] = { ok: false, msg: (err as Error).message };
-			log('error', `Refund error: ${(err as Error).message}`);
-		} finally {
-			refundingTxHash = null;
-		}
-	}
-
-	// ── Check swap status on Boltz ────────────────────────────────────
-	async function handleCheckSwap() {
-		if (!checkSwapId.trim()) return;
-		checking = true;
-		checkError = '';
-		swapStatus = null;
-		claimDataFromNostr = null;
-		claimResult = null;
-
-		const id = checkSwapId.trim();
-		log('info', `Checking Boltz swap: ${id}`);
-
-		try {
-			const status = await boltzProvider.getSwapStatus(id);
-			swapStatus = status;
-			log('success', `Status: ${status.status}`);
-			if (status.transactionId) log('info', `  TX: ${status.transactionId}`);
-			if (status.claimDetails) {
-				log('info', `  Claim lockup: ${status.claimDetails.lockupAddress}`);
-				log('info', `  Amount: ${status.claimDetails.amount}`);
-				log('info', `  Timeout block: ${status.claimDetails.timeoutBlockHeight}`);
-				log('info', `  Refund addr: ${status.claimDetails.refundAddress}`);
-			}
-			if (status.lockupDetails) {
-				log('info', `  Lockup claim addr: ${status.lockupDetails.claimAddress}`);
-				log('info', `  Lockup amount: ${status.lockupDetails.amount}`);
-			}
-
-			// Try to recover claim data from Nostr
-			log('info', 'Searching Nostr for claim data...');
-			const cd = await loadClaimDataFromNostr(id);
-			if (cd) {
-				claimDataFromNostr = cd;
-				log('success', `Preimage recovered from Nostr: ${cd.preimageHex.slice(0, 16)}...`);
-			} else {
-				log('warn', 'No claim data found in Nostr — preimage may be lost');
-			}
-		} catch (err) {
-			checkError = (err as Error).message;
-			log('error', `Check failed: ${checkError}`);
-		} finally {
-			checking = false;
-		}
-	}
-
-	// ── Claim tBTC on Arbitrum (for RBTC→TBTC direction) ─────────────
-	async function handleClaimTbtc() {
-		if (!swapStatus?.claimDetails || !claimDataFromNostr) return;
-		claiming = true;
-		claimResult = null;
-
-		const cd = claimDataFromNostr;
-		const details = swapStatus.claimDetails;
-
-		log('info', 'Claiming tBTC on Arbitrum...');
-		log('info', `  Contract: ${details.lockupAddress}`);
-		log('info', `  Amount: ${details.amount}`);
-		log('info', `  Preimage: ${cd.preimageHex.slice(0, 16)}...`);
-
-		try {
-			const err = await claimTbtcOnArbitrum({
-				contractAddress: details.lockupAddress,
-				preimageHex: cd.preimageHex,
-				amount: details.amount,
-				tokenAddress: TBTC_ARB,
-				claimAddress: cd.lockupClaimAddress || rskAddress,
-				refundAddress: details.refundAddress,
-				timelock: details.timeoutBlockHeight,
-				sourceConnectedWalletId: null
-			});
-
-			if (err) {
-				claimResult = { ok: false, msg: err.message };
-				log('error', `Claim failed: ${err.message}`);
-			} else {
-				claimResult = { ok: true, msg: 'tBTC claimed successfully on Arbitrum!' };
-				log('success', 'tBTC claimed on Arbitrum — check your Arbitrum balance');
-			}
-		} catch (err) {
-			claimResult = { ok: false, msg: (err as Error).message };
-			log('error', `Claim error: ${(err as Error).message}`);
-		} finally {
-			claiming = false;
-		}
-	}
-
-	// ── Claim rBTC on RSK (for TBTC→RBTC direction) ──────────────────
-	async function handleClaimRbtc() {
-		if (!swapStatus?.claimDetails || !claimDataFromNostr) return;
-		claiming = true;
-		claimResult = null;
-
-		const cd = claimDataFromNostr;
-		const details = swapStatus.claimDetails;
-
-		log('info', 'Claiming rBTC on RSK...');
-
-		try {
-			const err = await claimRbtcOnRsk({
-				preimageHex: cd.preimageHex,
-				amount: details.amount,
-				claimAddress: cd.lockupClaimAddress || rskAddress,
-				refundAddress: details.refundAddress,
-				timelock: details.timeoutBlockHeight,
-				sourceConnectedWalletId: null
-			});
-
-			if (err) {
-				claimResult = { ok: false, msg: err.message };
-				log('error', `Claim failed: ${err.message}`);
-			} else {
-				claimResult = { ok: true, msg: 'rBTC claimed successfully on RSK!' };
-				log('success', 'rBTC claimed on RSK — check your RSK balance');
-			}
-		} catch (err) {
-			claimResult = { ok: false, msg: (err as Error).message };
-			log('error', `Claim error: ${(err as Error).message}`);
-		} finally {
-			claiming = false;
-		}
-	}
-
-	// ── Recover all swaps from Nostr ──────────────────────────────────
-	async function handleNostrRecovery() {
-		recoveringNostr = true;
-		nostrError = '';
-		nostrSwaps = [];
-		log('info', 'Recovering swap data from Nostr (all types, including final)...');
+	// ── Fetch swaps directly from NDK ─────────────────────────────────
+	async function loadSwaps() {
+		loading = true;
+		loadError = '';
+		log('info', 'Fetching swaps from Nostr via NDK...');
 
 		try {
 			const { nsec } = await getNostrKeyPair();
-			const swapTypes: SwapType[] = [
-				'boltz-swap-chain',
-				'bittasker-swap-chain',
-				'boltz-swap-reverse',
-				'boltz-swap-submarine'
-			];
+			await applyNdkSignerFromNsec(nsec);
+			const npub = getPublicKey(nsec);
+			const nsecHex = Buffer.from(nsec).toString('hex');
+			const conversationKey = await nip44.getConversationKey(nsecHex, npub);
+			const relaySet = NDKRelaySet.fromRelayUrls(RELAYS, ndk);
 
-			let allSwaps: PendingSwapData[] = [];
-			for (const swapType of swapTypes) {
+			// Fetch all swap events from all types
+			let allEvents: Array<{ swapId: string; swapType: string; content: Record<string, unknown>; createdAtSec: number }> = [];
+
+			for (const swapType of SWAP_TYPES) {
 				log('info', `  Fetching ${swapType}...`);
-				const swaps = await recoverSwapsFromNostr(nsec, swapType, true);
-				allSwaps = [...allSwaps, ...swaps];
-				log('info', `    → ${swaps.length} found`);
+				try {
+					const events = await ndk.fetchEvents(
+						{ authors: [npub], kinds: [KINDS.PENDING_SWAPS], '#t': [swapType] },
+						{ closeOnEose: true },
+						relaySet
+					);
+
+					// Deduplicate by swapId, keep latest by created_at
+					const latestById = new SvelteMap<string, { swapId: string; swapType: string; content: Record<string, unknown>; createdAtSec: number }>();
+					for (const event of events) {
+						const swapId = event.tagValue('d');
+						if (!swapId) continue;
+						const existing = latestById.get(swapId);
+						const eventTs = event.created_at ?? 0;
+						if (!existing || eventTs > existing.createdAtSec) {
+							try {
+								if (!event.content || typeof event.content !== 'string') continue;
+								const decrypted = await nip44.decrypt(event.content, conversationKey);
+								const data = JSON.parse(decrypted) as Record<string, unknown>;
+								if (!NOSTR_FINAL_STATES.includes((data.status as string) ?? '')) {
+									latestById.set(swapId, { swapId, swapType, content: data, createdAtSec: eventTs });
+								}
+							} catch {
+								// skip undecryptable
+							}
+						}
+					}
+					allEvents = [...allEvents, ...latestById.values()];
+					log('info', `    → ${latestById.size} swap(s)`);
+				} catch (err) {
+					log('warn', `    Failed: ${(err as Error).message}`);
+				}
 			}
 
-			nostrSwaps = allSwaps;
-			log('success', `Recovered ${allSwaps.length} total swap(s) from Nostr`);
+			log('info', `Found ${allEvents.length} pending swap(s)`);
 
-			for (const swap of allSwaps) {
-				const s = swap as unknown as Record<string, unknown>;
-				const id = (s.id as string) ?? 'unknown';
-				const status = (s.status as string) ?? '?';
-				const hasPreimage = !!(s.preimage as string);
-				log(
-					'info',
-					`  → ${id.slice(0, 16)}... | status: ${status} | preimage: ${hasPreimage ? 'YES' : 'NO'}`
-				);
+			// Sort by Nostr created_at (seconds) descending — newest first
+			allEvents.sort((a, b) => b.createdAtSec - a.createdAtSec);
+
+			// Build rows
+			const rows: SwapRow[] = allEvents.map((ev) => {
+				const s = ev.content;
+				return {
+					swapId: ev.swapId,
+					swapType: (s.type as string) ?? ev.swapType,
+					nostrStatus: (s.status as string) ?? '?',
+					preimage: (s.preimage as string) ?? '',
+					createdAt: ev.createdAtSec * 1000, // convert to ms for display
+					fromAsset: (s.fromAsset as string) ?? '',
+					toAsset: (s.toAsset as string) ?? '',
+					fromAmount: (s.fromAmount as number) ?? (s.amount as number) ?? 0,
+					toAmount: (s.toAmount as number) ?? (s.onchainAmount as number) ?? 0,
+					lockupTxHash: (s.lockupTxHash as string) ?? '',
+					claimTxHash: (s.claimTxHash as string) ?? '',
+					claimDetails: (s.claimDetails as SwapRow['claimDetails']) ?? null,
+					lockupClaimAddress: (s.lockupClaimAddress as string) ?? '',
+					refundAddress: (s.refundAddress as string) ?? '',
+					boltzStatus: '',
+					boltzChecked: false,
+					boltzClaimDetails: null,
+					boltzTransactionId: '',
+					recovering: false,
+					recoverResult: null
+				};
+			});
+
+			swaps = rows;
+			loading = false;
+			log('success', `Loaded ${rows.length} swap(s), newest first`);
+
+			// Check Boltz status SEQUENTIALLY — one at a time.
+			// This avoids the race condition where parallel swaps = swaps.map(...)
+			// overwrites each other's changes.
+			for (let i = 0; i < swaps.length; i++) {
+				const swapId = swaps[i].swapId;
+				try {
+					const timeoutPromise = new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error('timeout')), 8000)
+					);
+					const boltz = await Promise.race([boltzProvider.getSwapStatus(swapId), timeoutPromise]);
+					// Direct index assignment — Svelte detects this on $state arrays
+					swaps[i] = { ...swaps[i], boltzStatus: boltz.status, boltzChecked: true, boltzClaimDetails: boltz.claimDetails ?? null, boltzTransactionId: boltz.transactionId ?? '' };
+				} catch (err) {
+					d.warn('Boltz check failed for %s: %s', swapId, (err as Error).message);
+					swaps[i] = { ...swaps[i], boltzStatus: 'unknown', boltzChecked: true };
+				}
 			}
+			log('info', 'All Boltz checks complete');
 		} catch (err) {
-			nostrError = (err as Error).message;
-			log('error', `Nostr recovery failed: ${nostrError}`);
-		} finally {
-			recoveringNostr = false;
+			loadError = (err as Error).message;
+			log('error', `Failed to load swaps: ${loadError}`);
+			loading = false;
 		}
 	}
 
-	// ── Use a Nostr swap in the checker ───────────────────────────────
-	function useSwapInChecker(swap: PendingSwapData) {
-		const s = swap as unknown as Record<string, unknown>;
-		checkSwapId = (s.id as string) ?? '';
-		if (s.preimage) {
-			log('info', `Loaded preimage for swap ${(s.id as string).slice(0, 16)}...`);
+	// ── Fetch claim details from Arbitrum lockup tx ────────────────────
+	async function fetchClaimDetailsFromChain(lockupTxHash: string): Promise<{
+		lockupAddress: string; amount: number; claimAddress: string; refundAddress: string; timeoutBlockHeight: number;
+	} | null> {
+		try {
+			const { ethers } = await import('ethers');
+			const provider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+			const receipt = await provider.getTransactionReceipt(lockupTxHash);
+			if (!receipt?.to) { log('warn', '  No receipt or contract address'); return null; }
+
+			// Find the Lockup event log from the contract
+			// Event signature: Lockup(bytes32 indexed preimageHash, uint256 amount, address token, address indexed claimAddress, address indexed refundAddress, uint256 timelock)
+			// topic0 = event sig, topic1 = preimageHash, topic2 = claimAddress, topic3 = refundAddress
+			// data = amount (uint256) + token (address) + timelock (uint256)
+			const lockupLogs = receipt.logs.filter((l) => l.address.toLowerCase() === receipt.to!.toLowerCase() && l.topics.length === 4);
+			if (lockupLogs.length === 0) { log('warn', '  No Lockup event found in tx logs'); return null; }
+
+			const lockupLog = lockupLogs[0];
+			const claimAddress = ethers.getAddress('0x' + lockupLog.topics[2].slice(26));
+			const refundAddress = ethers.getAddress('0x' + lockupLog.topics[3].slice(26));
+
+			// Parse data: 3 x 32-byte words
+			const data = lockupLog.data;
+			const amount = Number(BigInt(data.slice(0, 66)));
+			const timeoutBlockHeight = Number(BigInt('0x' + data.slice(130, 194)));
+
+			const details = { lockupAddress: receipt.to, amount, claimAddress, refundAddress, timeoutBlockHeight };
+			log('success', `  Got claim details from chain: ${details.amount} wei, timelock ${details.timeoutBlockHeight}, claim ${details.claimAddress.slice(0, 10)}...`);
+			return details;
+		} catch (err) {
+			d.warn('fetchClaimDetailsFromChain failed: %s', (err as Error).message);
+			log('warn', `  Chain fetch failed: ${(err as Error).message}`);
+			return null;
 		}
-		activeTab = 'check';
-		handleCheckSwap();
 	}
 
-	// ── Manual claim ──────────────────────────────────────────────────
-	async function handleManualClaim() {
-		if (!manualPreimage || !manualContractAddress || !manualAmount || !manualTimelock) {
-			manualClaimResult = { ok: false, msg: 'All fields are required' };
-			return;
-		}
-
-		manualClaiming = true;
-		manualClaimResult = null;
-
-		// Normalize preimage — ensure 0x prefix
-		const preimage = manualPreimage.startsWith('0x')
-			? manualPreimage
-			: '0x' + manualPreimage;
-
-		log('info', `Manual claim on ${manualChain}...`);
-		log('info', `  Contract: ${manualContractAddress}`);
-		log('info', `  Amount: ${manualAmount}`);
-		log('info', `  Preimage: ${preimage.slice(0, 18)}...`);
+	// ── Recover a single swap ─────────────────────────────────────────
+	async function recoverSwap(row: SwapRow) {
+		const idx = swaps.findIndex((s) => s.swapId === row.swapId);
+		if (idx < 0) return;
+		swaps[idx] = { ...swaps[idx], recovering: true, recoverResult: null };
+		log('info', `Recovering swap ${row.swapId.slice(0, 12)}...`);
 
 		try {
-			let err: Error | null = null;
-
-			if (manualChain === 'arbitrum') {
-				err = await claimTbtcOnArbitrum({
-					contractAddress: manualContractAddress,
-					preimageHex: preimage.startsWith('0x') ? preimage.slice(2) : preimage,
-					amount: parseInt(manualAmount, 10),
-					tokenAddress: TBTC_ARB,
-					claimAddress: manualClaimAddress || rskAddress,
-					refundAddress: manualRefundAddress || rskAddress,
-					timelock: parseInt(manualTimelock, 10),
-					sourceConnectedWalletId: null
-				});
-			} else {
-				err = await claimRbtcOnRsk({
-					preimageHex: preimage.startsWith('0x') ? preimage.slice(2) : preimage,
-					amount: parseInt(manualAmount, 10),
-					claimAddress: manualClaimAddress || rskAddress,
-					refundAddress: manualRefundAddress || rskAddress,
-					timelock: parseInt(manualTimelock, 10),
-					sourceConnectedWalletId: null
-				});
+			// Step 1: Get Boltz status if not checked
+			let boltzStatus = swaps[idx].boltzStatus;
+			let boltzClaimDetails = swaps[idx].boltzClaimDetails;
+			if (!swaps[idx].boltzChecked) {
+				const boltz = await boltzProvider.getSwapStatus(row.swapId);
+				boltzStatus = boltz.status;
+				boltzClaimDetails = boltz.claimDetails ?? null;
+				swaps[idx] = { ...swaps[idx], boltzStatus, boltzChecked: true, boltzClaimDetails, boltzTransactionId: boltz.transactionId ?? '' };
 			}
 
-			if (err) {
-				manualClaimResult = { ok: false, msg: err.message };
-				log('error', `Manual claim failed: ${err.message}`);
+			// Already done?
+			if (['transaction.claimed', 'invoice.settled', 'invoice.paid'].includes(boltzStatus)) {
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'Already claimed — funds are in your wallet.' } };
+				return;
+			}
+			if (boltzStatus === 'transaction.refunded') {
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'Already refunded.' } };
+				return;
+			}
+
+			// Step 2: Get preimage
+			let preimage = swaps[idx].preimage;
+			if (!preimage) {
+				log('info', '  No preimage in Nostr data, trying Preferences...');
+				const cd = await loadClaimDataFromNostr(row.swapId);
+				if (cd) { preimage = cd.preimageHex; log('success', '  Preimage recovered'); }
+			}
+			if (!preimage) {
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: 'No preimage found — cannot claim.' } };
+				return;
+			}
+
+			// Step 3: Get claim details — try Boltz API, then Nostr, then on-chain
+			let claimDetails = boltzClaimDetails ?? swaps[idx].claimDetails;
+			if (!claimDetails) {
+				const lockupTx = swaps[idx].boltzTransactionId;
+				if (lockupTx) {
+					log('info', '  No claim details in Boltz/Nostr, fetching from Arbitrum chain...');
+					claimDetails = await fetchClaimDetailsFromChain(lockupTx);
+					if (claimDetails) {
+						swaps[idx] = { ...swaps[idx], claimDetails };
+					}
+				}
+			}
+			if (!claimDetails) {
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: 'No claim details found — swap may already be resolved.' } };
+				return;
+			}
+
+			// Step 4: Execute claim
+			const claimable = ['transaction.server.confirmed', 'transaction.claim.pending', 'transaction.server.mempool', 'transaction.confirmed'];
+			if (claimable.includes(boltzStatus)) {
+				log('info', `  Boltz locked funds (${boltzStatus}). Claiming...`);
+				const isArbitrum = claimDetails.lockupAddress.toLowerCase() !== ETHERSWAP_ADDRESS.toLowerCase();
+
+				if (isArbitrum) {
+					// claimTbtcOnArbitrum → encodeERC20SwapClaim expects 0x-prefixed preimage
+					const preimageHex0x = preimage.startsWith('0x') ? preimage : '0x' + preimage;
+					log('info', '  Claiming tBTC on Arbitrum...');
+					const err = await claimTbtcOnArbitrum({ contractAddress: claimDetails.lockupAddress, preimageHex: preimageHex0x, amount: claimDetails.amount, tokenAddress: TBTC_ARB, claimAddress: swaps[idx].lockupClaimAddress || rskAddress, refundAddress: claimDetails.refundAddress, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
+					if (err) throw err;
+					swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'tBTC claimed on Arbitrum!' } };
+					log('success', '  tBTC claimed!');
+				} else {
+					// claimRbtcOnRsk → encodeEtherSwapClaim adds 0x prefix internally
+					const preimageHex = preimage.startsWith('0x') ? preimage.slice(2) : preimage;
+					log('info', '  Claiming rBTC on RSK...');
+					const err = await claimRbtcOnRsk({ preimageHex, amount: claimDetails.amount, claimAddress: swaps[idx].lockupClaimAddress || rskAddress, refundAddress: claimDetails.refundAddress, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
+					if (err) throw err;
+					swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'rBTC claimed on RSK!' } };
+					log('success', '  rBTC claimed!');
+				}
+			} else if (['swap.expired', 'transaction.failed'].includes(boltzStatus)) {
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: `Swap ${boltzStatus}. Use RSK Scanner below to refund.` } };
 			} else {
-				manualClaimResult = { ok: true, msg: `Claimed on ${manualChain}!` };
-				log('success', `Manual claim succeeded on ${manualChain}`);
+				swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: `Cannot recover: status is "${boltzStatus}".` } };
 			}
 		} catch (err) {
-			manualClaimResult = { ok: false, msg: (err as Error).message };
-			log('error', `Manual claim error: ${(err as Error).message}`);
-		} finally {
-			manualClaiming = false;
+			swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: (err as Error).message } };
+			log('error', `  Recovery failed: ${(err as Error).message}`);
 		}
 	}
 
-	// ── Auto-fill from Nostr swap ─────────────────────────────────────
-	function fillManualFromNostr(swap: PendingSwapData) {
-		const s = swap as unknown as Record<string, unknown>;
-		manualSwapId = (s.id as string) ?? '';
-		manualPreimage = (s.preimage as string) ?? '';
+	// ── RSK Scanner ───────────────────────────────────────────────────
+	async function handleScan() {
+		scanning = true; lockups = []; refundResults = {};
+		log('info', 'Scanning RSK for lockups...');
+		try {
+			const { data, error } = await scanUnclaimedLockups();
+			if (error) throw error;
+			lockups = data;
+			log('success', `Found ${data.length} lockup(s)`);
+		} catch (err) { log('error', `Scan failed: ${(err as Error).message}`); } finally { scanning = false; }
+	}
 
-		if (s.claimDetails) {
-			const cd = s.claimDetails as Record<string, unknown>;
-			manualContractAddress = (cd.lockupAddress as string) ?? '';
-			manualAmount = String(cd.amount ?? '');
-			manualTimelock = String(cd.timeoutBlockHeight ?? '');
-			manualRefundAddress = (cd.refundAddress as string) ?? '';
-		}
-		if (s.lockupClaimAddress) {
-			manualClaimAddress = s.lockupClaimAddress as string;
-		}
-
-		log('info', `Filled manual form from Nostr swap ${(s.id as string)?.slice(0, 16)}...`);
-		activeTab = 'manual';
+	async function handleRefund(lockup: UnclaimedLockup) {
+		refundingTxHash = lockup.txHash; refundResults[lockup.txHash] = { ok: false, msg: 'Refunding...' };
+		log('info', `Refunding ${lockup.amountSats} sats...`);
+		try {
+			const { txHash, error } = await refundLockupDirect(lockup);
+			if (error) throw error;
+			refundResults[lockup.txHash] = { ok: true, msg: `TX: ${txHash}` };
+			log('success', `Refund TX: ${txHash}`);
+		} catch (err) { refundResults[lockup.txHash] = { ok: false, msg: (err as Error).message }; log('error', `Refund failed: ${(err as Error).message}`); } finally { refundingTxHash = null; }
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────
-	function fmtTime(ts: number | undefined): string {
-		if (!ts) return '—';
-		return new Date(ts * 1000).toLocaleString();
+	function fmtTime(ms: number): string { return ms ? new Date(ms).toLocaleString() : '—'; }
+
+	function statusColor(s: string): string {
+		if (['transaction.claimed', 'invoice.settled', 'invoice.paid'].includes(s)) return 'badge-success';
+		if (['swap.expired', 'transaction.failed', 'transaction.refunded'].includes(s)) return 'badge-error';
+		if (['transaction.server.confirmed', 'transaction.confirmed', 'transaction.claim.pending'].includes(s)) return 'badge-info';
+		if (s === 'unknown') return 'badge-ghost';
+		return 'badge-warning';
 	}
 
-	function clearLog() {
-		logs = [];
+	const STATUS_LABELS: Record<string, string> = { 'transaction.claimed': 'Claimed', 'invoice.settled': 'Settled', 'invoice.paid': 'Paid', 'transaction.refunded': 'Refunded', 'swap.expired': 'Expired', 'transaction.failed': 'Failed', 'transaction.server.confirmed': 'Claimable', 'transaction.confirmed': 'Confirmed', 'transaction.claim.pending': 'Claim Pending', 'transaction.server.mempool': 'Locking...', 'transaction.mempool': 'In Mempool', 'invoice.pending': 'Invoice Pending', 'swap.created': 'Created', 'unknown': 'Unknown' };
+	function statusLabel(s: string): string { return STATUS_LABELS[s] ?? s; }
+
+	function canRecover(row: SwapRow): boolean {
+		return ['transaction.server.confirmed', 'transaction.claim.pending', 'transaction.server.mempool', 'transaction.confirmed'].includes(row.boltzStatus);
 	}
+
+	function copyText(text: string) { navigator.clipboard.writeText(text).catch(() => {}); }
+	function clearLog() { logs = []; }
 </script>
 
 <svelte:head>
 	<title>Swap Recovery — BitTasker Debug</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
-	<!-- Header -->
-	<div class="mb-4">
-		<h1 class="text-2xl font-bold">Swap Recovery Tool</h1>
-		<p class="text-sm opacity-60">
-			Recover locked funds from failed Boltz swaps. Scan RSK for unclaimed lockups, check swap
-			status, recover preimages from Nostr, and execute claims/refunds.
-		</p>
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<div class="mb-6">
+		<h1 class="text-3xl font-bold">Swap Recovery</h1>
+		<p class="text-sm opacity-60">Recover locked funds from failed Boltz swaps.</p>
 	</div>
 
-	<!-- Wallet status -->
 	{#if initError}
-		<div class="alert alert-error mb-4">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-			</svg>
-			<span>Wallet init failed: {initError}</span>
-		</div>
+		<div class="alert alert-error mb-4"><span>Wallet init failed: {initError}</span></div>
 	{:else if !walletReady}
-		<div class="alert alert-info mb-4">
-			<span class="loading loading-spinner loading-sm"></span>
-			<span>Initializing wallet...</span>
-		</div>
+		<div class="alert alert-info mb-4"><span class="loading loading-spinner loading-sm"></span><span>Initializing wallet...</span></div>
 	{:else}
-		<div class="alert alert-outline alert-success mb-4 py-2">
-			<span class="text-xs font-mono">RSK: {rskAddress}</span>
-		</div>
+		<div class="mb-4 text-xs font-mono opacity-50">RSK: {rskAddress}</div>
 	{/if}
 
-	<!-- Tabs -->
-	<div role="tablist" class="tabs tabs-border mb-4">
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'scan'}
-			onclick={() => (activeTab = 'scan')}
-		>
-			RSK Scanner
-		</button>
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'check'}
-			onclick={() => (activeTab = 'check')}
-		>
-			Boltz Checker
-		</button>
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'nostr'}
-			onclick={() => (activeTab = 'nostr')}
-		>
-			Nostr Recovery
-		</button>
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'manual'}
-			onclick={() => (activeTab = 'manual')}
-		>
-			Manual Claim
-		</button>
+	<!-- My Swaps -->
+	<div class="card bg-base-200 mb-6">
+		<div class="card-body p-5">
+			<div class="flex items-center justify-between">
+				<h2 class="card-title text-xl">My Swaps</h2>
+				<button class="btn btn-ghost btn-sm" disabled={loading || !walletReady} onclick={loadSwaps}>
+					{#if loading}<span class="loading loading-spinner loading-xs"></span>{:else}Refresh{/if}
+				</button>
+			</div>
+
+			{#if loading && swaps.length === 0}
+				<div class="flex items-center gap-2 py-8"><span class="loading loading-spinner loading-md"></span><span>Loading swaps from Nostr...</span></div>
+			{:else if loadError}
+				<div class="alert alert-error mt-2 text-sm">{loadError}</div>
+			{:else if swaps.length === 0}
+				<p class="py-4 text-sm opacity-50">No swaps found on Nostr.</p>
+			{:else}
+				<div class="mt-2 space-y-4">
+					{#each swaps as row (row.swapId)}
+						<div class="card bg-base-100 border-2" class:border-success={row.recoverResult?.ok} class:border-error={row.recoverResult && !row.recoverResult.ok} class:border-base-300={!row.recoverResult}>
+							<div class="card-body p-4">
+								<!-- Swap ID + status -->
+								<div class="flex items-center gap-3">
+									<span class="cursor-pointer font-mono text-sm hover:opacity-80" role="button" tabindex="0" onclick={() => copyText(row.swapId)} onkeydown={(e) => e.key === 'Enter' && copyText(row.swapId)} title="Click to copy">{row.swapId}</span>
+									{#if row.boltzChecked}
+										<span class="badge badge-sm {statusColor(row.boltzStatus)}">{statusLabel(row.boltzStatus)}</span>
+									{:else}
+										<span class="loading loading-spinner loading-xs"></span>
+									{/if}
+									{#if row.preimage}
+										<span class="badge badge-success badge-xs">preimage ✓</span>
+									{:else}
+										<span class="badge badge-warning badge-xs">no preimage</span>
+									{/if}
+								</div>
+
+								<!-- Route -->
+								<div class="flex items-center gap-3 text-base">
+									{#if row.fromAsset}
+										<span class="font-bold">{row.fromAsset}</span>
+										{#if row.fromAmount}<span class="opacity-60">{row.fromAmount.toLocaleString()} sats</span>{/if}
+										<span class="text-primary">→</span>
+										<span class="font-bold">{row.toAsset}</span>
+										{#if row.toAmount}<span class="opacity-60">{row.toAmount.toLocaleString()}</span>{/if}
+									{:else}
+										<span class="opacity-50">chain swap ({row.swapType})</span>
+									{/if}
+								</div>
+
+								<!-- Metadata -->
+								<div class="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+									<span><span class="opacity-50">Created:</span> {fmtTime(row.createdAt)}</span>
+									<span><span class="opacity-50">Type:</span> {row.swapType}</span>
+									<span><span class="opacity-50">Nostr:</span> <span class="badge badge-ghost badge-xs">{row.nostrStatus}</span></span>
+									{#if row.boltzTransactionId}<span><span class="opacity-50">Boltz TX:</span> <span class="font-mono">{row.boltzTransactionId.slice(0, 16)}...</span></span>{/if}
+									{#if row.lockupTxHash}<span><span class="opacity-50">Lockup TX:</span> <span class="font-mono">{row.lockupTxHash.slice(0, 16)}...</span></span>{/if}
+									{#if row.claimTxHash}<span><span class="opacity-50">Claim TX:</span> <span class="font-mono">{row.claimTxHash.slice(0, 16)}...</span></span>{/if}
+									{#if row.refundAddress}<span><span class="opacity-50">Refund:</span> <span class="font-mono">{row.refundAddress.slice(0, 12)}...</span></span>{/if}
+								</div>
+
+								<!-- Claim details -->
+								{#if row.boltzClaimDetails ?? row.claimDetails}
+									<div class="bg-base-200 mt-2 rounded-lg p-3 text-xs">
+										<div class="mb-1 font-bold">{row.boltzClaimDetails ? 'Boltz Claim Details (live)' : 'Claim Details (from Nostr)'}</div>
+										<div class="grid grid-cols-2 gap-x-6 gap-y-1 lg:grid-cols-4">
+											<div><span class="opacity-50">Contract:</span> <span class="font-mono">{(row.boltzClaimDetails ?? row.claimDetails)!.lockupAddress}</span></div>
+											<div><span class="opacity-50">Amount:</span> {(row.boltzClaimDetails ?? row.claimDetails)!.amount.toLocaleString()}</div>
+											<div><span class="opacity-50">Timeout:</span> {(row.boltzClaimDetails ?? row.claimDetails)!.timeoutBlockHeight.toLocaleString()}</div>
+											<div><span class="opacity-50">Refund:</span> <span class="font-mono">{(row.boltzClaimDetails ?? row.claimDetails)!.refundAddress.slice(0, 12)}...</span></div>
+										</div>
+										{#if row.lockupClaimAddress}<div class="mt-1"><span class="opacity-50">Claim to:</span> <span class="font-mono">{row.lockupClaimAddress}</span></div>{/if}
+									</div>
+								{/if}
+
+								<!-- Preimage -->
+								{#if row.preimage}<div class="mt-1 text-xs"><span class="opacity-50">Preimage:</span> <span class="break-all font-mono">{row.preimage}</span></div>{/if}
+
+								<!-- Actions -->
+								<div class="mt-3 flex items-center gap-3">
+									{#if canRecover(row) && row.preimage}
+										<button class="btn btn-success btn-sm" disabled={row.recovering} onclick={() => recoverSwap(row)}>
+											{#if row.recovering}<span class="loading loading-spinner loading-xs"></span> Recovering...{:else}Recover Funds{/if}
+										</button>
+									{:else if canRecover(row) && !row.preimage}
+										<span class="text-sm text-warning">Boltz has locked funds but no preimage — cannot claim</span>
+									{:else if row.boltzStatus === 'swap.expired' || row.boltzStatus === 'transaction.failed'}
+										<span class="badge badge-error badge-sm">{statusLabel(row.boltzStatus)}</span>
+										<span class="text-sm opacity-60">Use RSK Scanner below to refund</span>
+									{:else if row.boltzStatus === 'transaction.claimed' || row.boltzStatus === 'invoice.settled' || row.boltzStatus === 'invoice.paid'}
+										<span class="badge badge-success badge-sm">Recovered</span>
+									{:else if row.boltzStatus === 'transaction.refunded'}
+										<span class="badge badge-ghost badge-sm">Refunded</span>
+									{/if}
+									{#if row.boltzTransactionId}
+										<a href="https://arbiscan.io/tx/{row.boltzTransactionId}" target="_blank" rel="noopener noreferrer" class="link link-primary text-xs ml-auto">View Lockup TX ↗</a>
+									{:else}
+										<a href="https://rootstock.blockscout.com/address/{rskAddress}" target="_blank" rel="noopener noreferrer" class="link link-primary text-xs ml-auto">View on Blockscout ↗</a>
+									{/if}
+								</div>
+
+								<!-- Recover result -->
+								{#if row.recoverResult}
+									<div class="mt-2 rounded-lg p-3 text-sm {row.recoverResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}">
+										{row.recoverResult.msg}
+										{#if row.recoverResult.txHash}<a href="https://arbiscan.io/tx/{row.recoverResult.txHash}" target="_blank" rel="noopener noreferrer" class="link ml-2 text-xs">View TX ↗</a>{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</div>
 
-	<!-- Tab: RSK Scanner -->
-	{#if activeTab === 'scan'}
-		<div class="card bg-base-200 mb-4">
-			<div class="card-body p-4">
-				<h2 class="card-title text-lg">Scan RSK for Boltz Lockups</h2>
-				<p class="text-sm opacity-70">
-					Queries the Rootstock blockchain for all EtherSwap Lockup events belonging to your
-					address. Shows unclaimed lockups that can be refunded if the timelock has expired.
-				</p>
-
-				<button
-					class="btn btn-primary btn-sm mt-2"
-					disabled={scanning || !walletReady}
-					onclick={handleScan}
-				>
-					{#if scanning}
-						<span class="loading loading-spinner loading-xs"></span>
-						Scanning...
-					{:else}
-						Scan RSK Blockchain
-					{/if}
-				</button>
-
-				{#if scanError}
-					<div class="alert alert-error mt-3 py-2 text-sm">{scanError}</div>
-				{/if}
-
-				{#if lockups.length > 0}
-					<div class="divider">Found {lockups.length} Lockup(s)</div>
-					<div class="space-y-3">
-						{#each lockups as lockup (lockup.txHash)}
-							<div
-								class="card bg-base-100 border-base-300 border"
-								class:border-success={refundResults[lockup.txHash]?.ok}
-								class:border-error={refundResults[lockup.txHash] && !refundResults[lockup.txHash].ok}
-							>
-								<div class="card-body p-3">
-									<div class="flex items-center justify-between">
-										<div>
-											<span class="text-lg font-bold">{lockup.amountSats.toLocaleString()} sats</span>
-											{#if lockup.resolved}
-												<span class="badge badge-ghost badge-sm ml-2">Resolved</span>
-											{:else if lockup.expired}
-												<span class="badge badge-success badge-sm ml-2">Expired — Refundable</span>
-											{:else}
-												<span class="badge badge-warning badge-sm ml-2">Timelock Active</span>
-											{/if}
-										</div>
-										{#if !lockup.resolved && lockup.expired}
-											<button
-												class="btn btn-success btn-sm"
-												disabled={refundingTxHash === lockup.txHash}
-												onclick={() => handleRefund(lockup)}
-											>
-												{#if refundingTxHash === lockup.txHash}
-													<span class="loading loading-spinner loading-xs"></span>
-												{/if}
-												Refund
-											</button>
-										{/if}
-									</div>
-
-									<div class="mt-1 space-y-0.5 text-xs opacity-70">
-										<div class="font-mono">TX: {lockup.txHash}</div>
-										<div>Block: {lockup.blockNumber} | Timelock: {lockup.timeoutBlockHeight} | Current: {lockup.currentBlock}</div>
-										<div>PreimageHash: {lockup.preimageHash.slice(0, 20)}...</div>
-										<div>Claim addr: {lockup.claimAddress}</div>
-									</div>
-
-									{#if refundResults[lockup.txHash]}
-										<div
-											class="mt-2 rounded p-2 text-xs {refundResults[lockup.txHash].ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}"
-										>
-											{refundResults[lockup.txHash].msg}
-										</div>
-									{/if}
+	<!-- Advanced -->
+	<div class="collapse-arrow bg-base-200 collapse mb-6">
+		<input type="checkbox" bind:checked={showAdvanced} />
+		<div class="collapse-title text-lg font-medium">Advanced Tools</div>
+		<div class="collapse-content">
+			<h3 class="mt-2 mb-2 font-bold">RSK Lockup Scanner</h3>
+			<p class="mb-2 text-sm opacity-60">Scan RSK for all Boltz lockups. Use this to refund rBTC if a swap expired.</p>
+			<button class="btn btn-primary btn-sm" disabled={scanning || !walletReady} onclick={handleScan}>
+				{#if scanning}<span class="loading loading-spinner loading-xs"></span>{/if} Scan RSK
+			</button>
+			{#if lockups.length > 0}
+				<div class="mt-3 space-y-2">
+					{#each lockups as lockup (lockup.txHash)}
+						<div class="bg-base-100 border-base-300 rounded-lg border p-3">
+							<div class="flex items-center justify-between">
+								<div>
+									<span class="font-bold">{lockup.amountSats.toLocaleString()} sats</span>
+									{#if lockup.resolved}<span class="badge badge-ghost badge-xs ml-2">Resolved</span>{:else if lockup.expired}<span class="badge badge-success badge-xs ml-2">Refundable</span>{:else}<span class="badge badge-warning badge-xs ml-2">Timelock Active</span>{/if}
 								</div>
+								{#if !lockup.resolved && lockup.expired}
+									<button class="btn btn-success btn-xs" disabled={refundingTxHash === lockup.txHash} onclick={() => handleRefund(lockup)}>
+										{#if refundingTxHash === lockup.txHash}<span class="loading loading-spinner loading-xs"></span>{/if} Refund
+									</button>
+								{/if}
 							</div>
-						{/each}
-					</div>
-				{:else if !scanning && !scanError && lockups.length === 0 && walletReady}
-					<p class="mt-3 text-sm opacity-50">No lockups scanned yet. Click "Scan RSK Blockchain" to begin.</p>
-				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Tab: Boltz Checker -->
-	{#if activeTab === 'check'}
-		<div class="card bg-base-200 mb-4">
-			<div class="card-body p-4">
-				<h2 class="card-title text-lg">Check Boltz Swap Status</h2>
-				<p class="text-sm opacity-70">
-					Enter a Boltz swap ID to check its current status. Automatically recovers claim data
-					(preimage) from Nostr if available.
-				</p>
-
-				<div class="join mt-2 w-full">
-					<input
-						type="text"
-						class="input input-bordered join-item flex-1 font-mono text-sm"
-						placeholder="Boltz swap ID"
-						bind:value={checkSwapId}
-						onkeydown={(e) => e.key === 'Enter' && handleCheckSwap()}
-					/>
-					<button
-						class="btn btn-primary join-item"
-						disabled={checking || !checkSwapId.trim()}
-						onclick={handleCheckSwap}
-					>
-						{#if checking}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else}
-							Check
-						{/if}
-					</button>
-				</div>
-
-				{#if checkError}
-					<div class="alert alert-error mt-3 py-2 text-sm">{checkError}</div>
-				{/if}
-
-				{#if swapStatus}
-					<div class="divider">Swap Status</div>
-					<div class="bg-base-100 rounded-lg p-3">
-						<div class="mb-2 flex items-center gap-2">
-							<span
-								class="badge badge-sm"
-								class:badge-success={swapStatus.status === 'transaction.claimed' || swapStatus.status === 'invoice.settled'}
-								class:badge-error={swapStatus.status === 'swap.expired' || swapStatus.status === 'transaction.failed'}
-								class:badge-warning={swapStatus.status.includes('pending') || swapStatus.status.includes('mempool')}
-								class:badge-info={swapStatus.status === 'transaction.server.confirmed' || swapStatus.status === 'transaction.confirmed'}
-							>
-								{swapStatus.status}
-							</span>
-							{#if swapStatus.transactionId}
-								<span class="font-mono text-xs opacity-60">TX: {swapStatus.transactionId}</span>
-							{/if}
+							<div class="mt-1 text-xs font-mono opacity-50">TX: {lockup.txHash} | Block: {lockup.blockNumber} | Timelock: {lockup.timeoutBlockHeight} | Current: {lockup.currentBlock}</div>
+							{#if refundResults[lockup.txHash]}<div class="mt-1 text-xs {refundResults[lockup.txHash].ok ? 'text-success' : 'text-error'}">{refundResults[lockup.txHash].msg}</div>{/if}
 						</div>
-
-						{#if swapStatus.claimDetails}
-							<div class="mt-2 text-xs">
-								<h4 class="font-bold">Claim Details (Boltz locked on destination chain)</h4>
-								<div class="mt-1 space-y-0.5 font-mono opacity-70">
-									<div>Lockup address: {swapStatus.claimDetails.lockupAddress}</div>
-									<div>Amount: {swapStatus.claimDetails.amount}</div>
-									<div>Timeout block: {swapStatus.claimDetails.timeoutBlockHeight}</div>
-									<div>Refund address: {swapStatus.claimDetails.refundAddress}</div>
-								</div>
-							</div>
-						{/if}
-
-						{#if swapStatus.lockupDetails}
-							<div class="mt-2 text-xs">
-								<h4 class="font-bold">Lockup Details (user locked on source chain)</h4>
-								<div class="mt-1 space-y-0.5 font-mono opacity-70">
-									<div>Claim address: {swapStatus.lockupDetails.claimAddress}</div>
-									<div>Amount: {swapStatus.lockupDetails.amount}</div>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if claimDataFromNostr}
-					<div class="divider">Preimage (from Nostr)</div>
-					<div class="bg-success/10 border-success/30 rounded-lg border p-3">
-						<div class="text-sm font-bold text-success">Preimage recovered!</div>
-						<div class="mt-1 font-mono text-xs break-all opacity-70">
-							{claimDataFromNostr.preimageHex}
-						</div>
-						{#if claimDataFromNostr.lockupClaimAddress}
-							<div class="mt-1 text-xs">
-								Claim destination: {claimDataFromNostr.lockupClaimAddress}
-							</div>
-						{/if}
-
-						{#if swapStatus?.claimDetails}
-							<div class="mt-3 flex flex-wrap gap-2">
-								<button
-									class="btn btn-success btn-sm"
-									disabled={claiming}
-									onclick={handleClaimTbtc}
-								>
-									{#if claiming}
-										<span class="loading loading-spinner loading-xs"></span>
-									{/if}
-									Claim tBTC on Arbitrum
-								</button>
-								<button
-									class="btn btn-info btn-sm"
-									disabled={claiming}
-									onclick={handleClaimRbtc}
-								>
-									{#if claiming}
-										<span class="loading loading-spinner loading-xs"></span>
-									{/if}
-									Claim rBTC on RSK
-								</button>
-							</div>
-						{/if}
-					</div>
-				{:else if swapStatus && !claimDataFromNostr && !checking}
-					<div class="alert alert-warning mt-3 py-2 text-sm">
-						No preimage found in Nostr. Check "Nostr Recovery" tab or use "Manual Claim" with a
-						known preimage.
-					</div>
-				{/if}
-
-				{#if claimResult}
-					<div
-						class="mt-3 rounded-lg p-3 text-sm {claimResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}"
-					>
-						{claimResult.msg}
-					</div>
-				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Tab: Nostr Recovery -->
-	{#if activeTab === 'nostr'}
-		<div class="card bg-base-200 mb-4">
-			<div class="card-body p-4">
-				<h2 class="card-title text-lg">Recover Swaps from Nostr</h2>
-				<p class="text-sm opacity-70">
-					Fetches all swap events (kind 30078) from Nostr relays, including completed and expired
-					swaps. Decrypts NIP-44 content to recover preimages, claim details, and swap metadata.
-				</p>
-
-				<button
-					class="btn btn-primary btn-sm mt-2"
-					disabled={recoveringNostr || !walletReady}
-					onclick={handleNostrRecovery}
-				>
-					{#if recoveringNostr}
-						<span class="loading loading-spinner loading-xs"></span>
-						Recovering...
-					{:else}
-						Recover All Swaps from Nostr
-					{/if}
-				</button>
-
-				{#if nostrError}
-					<div class="alert alert-error mt-3 py-2 text-sm">{nostrError}</div>
-				{/if}
-
-				{#if nostrSwaps.length > 0}
-					<div class="divider">Found {nostrSwaps.length} Swap(s)</div>
-					<div class="space-y-2">
-						{#each nostrSwaps as swap ((swap as unknown as Record<string, unknown>).id ?? Math.random())}
-							{@const s = swap as unknown as Record<string, unknown>}
-							<div class="bg-base-100 border-base-300 rounded-lg border p-3">
-								<div class="flex items-center justify-between">
-									<div>
-										<span class="font-mono text-sm">{String(s.id ?? 'unknown').slice(0, 20)}...</span>
-										<span
-											class="badge badge-sm ml-2"
-											class:badge-success={s.status === 'transaction.claimed'}
-											class:badge-error={s.status === 'swap.expired'}
-											class:badge-info={s.status === 'transaction.server.confirmed'}
-											class:badge-warning={true}
-										>
-											{String(s.status ?? '?')}
-										</span>
-										{#if s.preimage}
-											<span class="badge badge-success badge-xs ml-1">has preimage</span>
-										{/if}
-									</div>
-									<div class="flex gap-1">
-										{#if s.preimage}
-											<button
-												class="btn btn-outline btn-xs"
-												onclick={() => fillManualFromNostr(swap)}
-											>
-												Use in Manual Claim
-											</button>
-										{/if}
-										<button
-											class="btn btn-outline btn-xs"
-											onclick={() => useSwapInChecker(swap)}
-										>
-											Check Status
-										</button>
-									</div>
-								</div>
-
-								<div class="mt-1 space-y-0.5 text-xs opacity-60">
-									{#if s.type}
-										<div>Type: {String(s.type)}</div>
-									{/if}
-									{#if s.createdAt}
-										<div>Created: {fmtTime(s.createdAt as number)}</div>
-									{/if}
-									{#if s.preimage}
-										<div class="font-mono">Preimage: {String(s.preimage).slice(0, 32)}...</div>
-									{/if}
-									{#if s.claimDetails}
-										{@const cd = s.claimDetails as Record<string, unknown>}
-										<div>Claim contract: {String(cd.lockupAddress ?? '').slice(0, 20)}...</div>
-										<div>Amount: {String(cd.amount ?? '?')} | Timeout: {String(cd.timeoutBlockHeight ?? '?')}</div>
-									{/if}
-									{#if s.lockupClaimAddress}
-										<div>Claim to: {String(s.lockupClaimAddress).slice(0, 20)}...</div>
-									{/if}
-									{#if s.fromAmount}
-										<div>From: {String(s.fromAmount)} {String(s.fromAsset ?? '')} → {String(s.toAsset ?? '')}</div>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{:else if !recoveringNostr && !nostrError && nostrSwaps.length === 0 && walletReady}
-					<p class="mt-3 text-sm opacity-50">
-						Click "Recover All Swaps from Nostr" to fetch swap data from relays.
-					</p>
-				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Tab: Manual Claim -->
-	{#if activeTab === 'manual'}
-		<div class="card bg-base-200 mb-4">
-			<div class="card-body p-4">
-				<h2 class="card-title text-lg">Manual Claim</h2>
-				<p class="text-sm opacity-70">
-					Execute a claim directly with known swap parameters. Use this when you have the preimage
-					from Nostr recovery or from the swap creation flow. Fill from a Nostr swap using the
-					Nostr Recovery tab.
-				</p>
-
-				<div class="mt-3 grid gap-3 sm:grid-cols-2">
-					<label class="form-control">
-						<span class="label-text text-xs">Swap ID (optional)</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="Boltz swap ID"
-							bind:value={manualSwapId}
-						/>
-					</label>
-
-					<label class="form-control">
-						<span class="label-text text-xs">Claim Chain</span>
-						<select class="select select-bordered select-sm" bind:value={manualChain}>
-							<option value="arbitrum">Arbitrum (claim tBTC)</option>
-							<option value="rsk">RSK (claim rBTC)</option>
-						</select>
-					</label>
-
-					<label class="form-control sm:col-span-2">
-						<span class="label-text text-xs">Preimage (hex, with or without 0x)</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="0x..."
-							bind:value={manualPreimage}
-						/>
-					</label>
-
-					<label class="form-control sm:col-span-2">
-						<span class="label-text text-xs">Contract Address (Boltz lockup contract on destination chain)</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="0x..."
-							bind:value={manualContractAddress}
-						/>
-					</label>
-
-					<label class="form-control">
-						<span class="label-text text-xs">Amount</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="Amount in smallest unit"
-							bind:value={manualAmount}
-						/>
-					</label>
-
-					<label class="form-control">
-						<span class="label-text text-xs">Timelock (block height)</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="Block height"
-							bind:value={manualTimelock}
-						/>
-					</label>
-
-					<label class="form-control">
-						<span class="label-text text-xs">Claim Address (where to receive funds)</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="0x... (defaults to your RSK address)"
-							bind:value={manualClaimAddress}
-						/>
-					</label>
-
-					<label class="form-control">
-						<span class="label-text text-xs">Refund Address</span>
-						<input
-							type="text"
-							class="input input-bordered input-sm font-mono"
-							placeholder="0x... (defaults to your RSK address)"
-							bind:value={manualRefundAddress}
-						/>
-					</label>
+					{/each}
 				</div>
-
-				<button
-					class="btn btn-primary btn-sm mt-4"
-					disabled={manualClaiming || !manualPreimage || !manualContractAddress || !manualAmount || !manualTimelock}
-					onclick={handleManualClaim}
-				>
-					{#if manualClaiming}
-						<span class="loading loading-spinner loading-xs"></span>
-						Claiming...
-					{:else}
-						Execute Claim on {manualChain === 'arbitrum' ? 'Arbitrum' : 'RSK'}
-					{/if}
-				</button>
-
-				{#if manualClaimResult}
-					<div
-						class="mt-3 rounded-lg p-3 text-sm {manualClaimResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}"
-					>
-						{manualClaimResult.msg}
-					</div>
-				{/if}
-			</div>
+			{/if}
 		</div>
-	{/if}
+	</div>
 
-	<!-- Activity Log -->
+	<!-- Log -->
 	<div class="card bg-base-200">
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
-				<h2 class="card-title text-sm">Activity Log ({logs.length})</h2>
+				<h2 class="card-title text-sm">Log ({logs.length})</h2>
 				<button class="btn btn-ghost btn-xs" onclick={clearLog}>Clear</button>
 			</div>
-			<div
-				class="bg-base-300 max-h-80 overflow-y-auto rounded-lg p-2 font-mono text-xs"
-			>
-				{#if logs.length === 0}
-					<p class="p-2 opacity-40">No activity yet.</p>
-				{:else}
-					{#each logs as entry (entry.time + entry.msg)}
-						<div
-							class="border-base-content/5 border-b px-1 py-0.5"
-							class:text-success={entry.level === 'success'}
-							class:text-error={entry.level === 'error'}
-							class:text-warning={entry.level === 'warn'}
-							class:opacity-60={entry.level === 'info'}
-						>
-							<span class="opacity-40">{entry.time}</span>
-							<span class="ml-1">[{entry.level}]</span>
-							<span class="ml-1">{entry.msg}</span>
-						</div>
-					{/each}
-				{/if}
+			<div class="bg-base-300 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs">
+				{#if logs.length === 0}<p class="p-2 opacity-40">No activity yet.</p>
+				{:else}{#each logs as entry (entry.time + entry.msg)}<div class="border-base-content/5 border-b px-1 py-0.5" class:text-success={entry.level === 'success'} class:text-error={entry.level === 'error'} class:text-warning={entry.level === 'warn'} class:opacity-60={entry.level === 'info'}><span class="opacity-40">{entry.time}</span> <span class="ml-1">{entry.msg}</span></div>{/each}{/if}
 			</div>
 		</div>
 	</div>

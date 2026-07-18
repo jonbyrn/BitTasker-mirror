@@ -322,7 +322,7 @@ export const ENTRY_POINT_ABI = [
 // ---------------------------------------------------------------------------
 // Constants — re-exported from gasless.config.ts (single source of truth)
 // ---------------------------------------------------------------------------
-// All constants are defined in src/wallet/gasless.config.ts.
+// All constants are defined in src/lib/wallet/gasless.config.ts.
 // Import them from there to avoid duplication and value drift.
 export {
 	ALLOWED_FEE_TOKENS,
@@ -331,4 +331,4 @@ export {
 	FEE_BUFFER_MAX,
 	GAS_BOUNDS,
 	FEE_TIERS
-} from '../wallet/gasless.config';
+} from '$lib/wallet/gasless.config';

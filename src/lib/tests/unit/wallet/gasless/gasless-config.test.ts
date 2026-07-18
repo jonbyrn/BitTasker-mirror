@@ -19,7 +19,7 @@ import {
 	getTokenBySymbol,
 	isAllowedFeeToken,
 	gaslessConfig
-} from '../../../../../wallet/gasless.config';
+} from '$lib/wallet/gasless.config';
 
 describe('gasless.config', () => {
 	describe('chain constants', () => {

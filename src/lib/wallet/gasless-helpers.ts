@@ -22,7 +22,7 @@ import {
 	ALLOWED_FEE_TOKENS,
 	GAS_TREASURY,
 	TOKENS
-} from '$lib/../wallet/gasless.config';
+} from '$lib/wallet/gasless.config';
 
 // =============================================================================
 // Paymaster Signature Hash

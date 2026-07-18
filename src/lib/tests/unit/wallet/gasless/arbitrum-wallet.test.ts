@@ -36,7 +36,7 @@ vi.mock('ethers', () => {
 	};
 });
 
-import { ArbitrumWallet } from '../../../../../wallet/arbitrum-wallet';
+import { ArbitrumWallet } from '$lib/wallet/arbitrum-wallet';
 
 describe('ArbitrumWallet', () => {
 	const MOCK_PRIVATE_KEY = '0x' + '01'.repeat(32);

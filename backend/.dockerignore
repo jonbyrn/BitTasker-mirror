@@ -1,9 +1,0 @@
-node_modules
-bittasker-nestjs
-dist
-.git
-*.md
-*.log
-.env
-.env.*
-vitest.config.ts

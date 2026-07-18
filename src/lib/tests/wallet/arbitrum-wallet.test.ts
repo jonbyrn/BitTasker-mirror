@@ -34,7 +34,7 @@ vi.mock('ethers', () => {
 });
 
 // ── Mock config ──────────────────────────────────────────────
-vi.mock('$lib/../wallet/gasless.config', () => ({
+vi.mock('$lib/wallet/gasless.config', () => ({
 	ARBITRUM_CHAIN_ID: 42161,
 	ARBITRUM_RPC_URL: 'https://arb-mainnet.example.com',
 	TOKENS: [
@@ -44,8 +44,8 @@ vi.mock('$lib/../wallet/gasless.config', () => ({
 }));
 
 // ── Import after mocks ───────────────────────────────────────
-import { ArbitrumWallet } from '$lib/../wallet/arbitrum-wallet';
-import { TOKENS } from '$lib/../wallet/gasless.config';
+import { ArbitrumWallet } from '$lib/wallet/arbitrum-wallet';
+import { TOKENS } from '$lib/wallet/gasless.config';
 
 const PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const MOCK_ADDRESS = '0xMOCK_ADDRESS_1234567890abcdef1234567890abcdef';

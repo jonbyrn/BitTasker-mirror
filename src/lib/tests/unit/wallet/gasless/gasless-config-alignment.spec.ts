@@ -20,10 +20,10 @@ import { ethers } from 'ethers';
 
 describe('Gas bounds alignment (frontend vs backend)', () => {
 	// Import frontend config
-	let frontendConfig: typeof import('$lib/../wallet/gasless.config');
+	let frontendConfig: typeof import('$lib/wallet/gasless.config');
 
 	beforeAll(async () => {
-		frontendConfig = await import('$lib/../wallet/gasless.config');
+		frontendConfig = await import('$lib/wallet/gasless.config');
 	});
 
 	it('frontend maxPreVerificationGas matches backend (400K)', () => {
@@ -166,10 +166,10 @@ describe('EIP-7702 auth encoding consistency', () => {
 // =============================================================================
 
 describe('Fee tier boundaries', () => {
-	let FEE_TIERS: typeof import('$lib/../wallet/gasless.config').FEE_TIERS;
+	let FEE_TIERS: typeof import('$lib/wallet/gasless.config').FEE_TIERS;
 
 	beforeAll(async () => {
-		const config = await import('$lib/../wallet/gasless.config');
+		const config = await import('$lib/wallet/gasless.config');
 		FEE_TIERS = config.FEE_TIERS;
 	});
 
@@ -238,7 +238,7 @@ describe('Fee buffer bounds validation', () => {
 	beforeAll(async () => {
 		const helpers = await import('$lib/wallet/gasless-helpers');
 		validateFeeBufferBounds = helpers.validateFeeBufferBounds;
-		const config = await import('$lib/../wallet/gasless.config');
+		const config = await import('$lib/wallet/gasless.config');
 		USDT0_ADDRESS = config.USDT0_ADDRESS;
 	});
 

@@ -6,7 +6,7 @@ vi.hoisted(() => {
 });
 
 // Mock gasless.config — use getter for GAS_TREASURY so tests can modify it via process.env
-vi.mock('$lib/../wallet/gasless.config', () => {
+vi.mock('$lib/wallet/gasless.config', () => {
 	const TOKENS = [
 		{
 			address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
@@ -136,7 +136,7 @@ import {
 	USDT0_ADDRESS,
 	WBTC_ADDRESS,
 	TBTC_ADDRESS
-} from '$lib/../wallet/gasless.config';
+} from '$lib/wallet/gasless.config';
 
 describe('getPaymasterSignatureHash', () => {
 	it('returns a 32-byte hex hash', () => {

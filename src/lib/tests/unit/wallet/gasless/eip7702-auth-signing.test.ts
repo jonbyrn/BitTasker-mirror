@@ -49,7 +49,7 @@ vi.mock('@sentry/sveltekit', () => ({
 }));
 
 // Mock the config
-vi.mock('../../../../../wallet/gasless.config', () => ({
+vi.mock('$lib/wallet/gasless.config', () => ({
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
@@ -97,7 +97,7 @@ import {
 	sendToken,
 	sendGaslessCalls,
 	initWallet
-} from '../../../../wallet/gasless-store';
+} from '$lib/wallet/gasless-store';
 
 describe('EIP-7702 auth signing path', () => {
 	const mockToken = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';

@@ -21,7 +21,7 @@ vi.mock('@sentry/sveltekit', () => ({
 }));
 
 // Mock the wallet module
-vi.mock('../../../../../wallet/arbitrum-wallet', () => ({
+vi.mock('$lib/wallet/arbitrum-wallet', () => ({
 	ArbitrumWallet: vi.fn().mockImplementation(() => ({
 		getAddress: vi.fn().mockResolvedValue('0x' + 'ab'.repeat(20)),
 		getProvider: vi.fn().mockReturnValue({}),
@@ -31,7 +31,7 @@ vi.mock('../../../../../wallet/arbitrum-wallet', () => ({
 }));
 
 // Mock the config with all required exports (no API_BASE_URL)
-vi.mock('../../../../../wallet/gasless.config', () => ({
+vi.mock('$lib/wallet/gasless.config', () => ({
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
@@ -69,7 +69,7 @@ import {
 	gaslessAddress,
 	gaslessReady,
 	estimateFee
-} from '../../../../wallet/gasless-store';
+} from '$lib/wallet/gasless-store';
 
 describe('gasless-store readable stores', () => {
 	beforeEach(() => {

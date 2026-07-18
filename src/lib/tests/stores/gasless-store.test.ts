@@ -77,7 +77,7 @@ vi.mock('$lib/wallet/gasless-helpers', () => ({
 }));
 
 // Mock gasless.config
-vi.mock('$lib/../wallet/gasless.config', () => ({
+vi.mock('$lib/wallet/gasless.config', () => ({
 	GAS_TREASURY: '0xTreasuryAddress1234567890abcdef12',
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
