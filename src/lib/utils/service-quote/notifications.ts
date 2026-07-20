@@ -1,6 +1,5 @@
 import { browser } from '$app/environment';
 import { Preferences } from '@capacitor/preferences';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import type {
 	ServiceProposalEvent,
 	ServiceQuoteMirrorPayload,
@@ -21,8 +20,6 @@ import { getClientOrigin } from '$lib/utils/helpers/clientOrigin';
 const d = createDebug('service-quote:notifications');
 
 const SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY = 'bittasker.serviceQuote.sideEffects';
-const SERVICE_QUOTE_NOTIFICATION_ICON =
-	'https://bittasker.com/images/Logos/BitTasker-square-logo.svg';
 
 const dispatchedSideEffects = new Set<string>();
 const pendingSideEffects = new Set<string>();
@@ -112,42 +109,6 @@ async function markSideEffectDispatched(key: string): Promise<void> {
 	const persisted = await getLedgerState();
 	persisted[key] = true;
 	await persistLedgerState(persisted);
-}
-
-async function sendPushNotificationOnce(
-	action: string,
-	entityId: string,
-	input: {
-		recipientPubkey: string;
-		title: string;
-		body: string;
-		type: string;
-		clickAction: string;
-	}
-): Promise<void> {
-	if (!input.recipientPubkey) {
-		return;
-	}
-
-	const ledgerKey = buildLedgerKey('push', action, entityId);
-	if (await hasDispatchedSideEffect(ledgerKey)) {
-		return;
-	}
-
-	pendingSideEffects.add(ledgerKey);
-	try {
-		await pushNotificationService.sendNotificationToNpubs({
-			npubs: [input.recipientPubkey],
-			title: input.title,
-			body: input.body,
-			type: input.type,
-			clickAction: input.clickAction,
-			icon: SERVICE_QUOTE_NOTIFICATION_ICON
-		});
-		await markSideEffectDispatched(ledgerKey);
-	} finally {
-		pendingSideEffects.delete(ledgerKey);
-	}
 }
 
 function buildMirrorTags(payload: ServiceQuoteMirrorPayload, recipientPubkey: string): string[][] {
@@ -244,21 +205,6 @@ export function dispatchQuoteRequestPublishedSideEffects(
 	options?: ServiceQuotePublishSideEffectOptions
 ): void {
 	const title = service.title?.trim() || 'your service';
-	const clickAction = buildProviderQuoteClickAction(
-		event.content.serviceAddress,
-		event.content.quoteRequestId
-	);
-
-	runNonBlockingSideEffect(
-		sendPushNotificationOnce('inquiry_received', event.id, {
-			recipientPubkey: event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '',
-			title: 'New service inquiry received',
-			body: `A new inquiry was sent for ${title}.`,
-			type: 'service_quote_request_received',
-			clickAction
-		}),
-		'Failed to send service quote request notification'
-	);
 
 	if (options?.dmMirror) {
 		runNonBlockingSideEffect(
@@ -275,19 +221,6 @@ export function dispatchProposalPublishedSideEffects(
 	event: ServiceProposalEvent,
 	options?: ServiceQuotePublishSideEffectOptions
 ): void {
-	const clickAction = buildTaskerQuoteClickAction(event.content.quoteRequestId);
-
-	runNonBlockingSideEffect(
-		sendPushNotificationOnce('proposal_received', event.id, {
-			recipientPubkey: event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '',
-			title: 'New service proposal received',
-			body: 'A provider responded to your service inquiry.',
-			type: 'service_quote_proposal_received',
-			clickAction
-		}),
-		'Failed to send service proposal notification'
-	);
-
 	if (options?.dmMirror) {
 		runNonBlockingSideEffect(
 			sendDirectMessageMirrorOnce(

@@ -59,7 +59,7 @@ describe('service quote notification helpers', () => {
 		resetServiceQuoteSideEffectLedger();
 	});
 
-	it('sends provider inquiry notifications to the exact request focus and dedupes retries', async () => {
+	it('does not send client-side push notifications (handled by backend)', async () => {
 		const { dispatchQuoteRequestPublishedSideEffects } = await import(
 			'$lib/utils/service-quote/notifications'
 		);
@@ -74,26 +74,12 @@ describe('service quote notification helpers', () => {
 		} as ServiceQuoteRequestEvent;
 
 		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
-		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		});
 
-		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
-		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		});
-
-		const call = sendNotificationToNpubs.mock.calls[0][0];
-		expect(call.title).toBe('New service inquiry received');
-		expect(call.body).toContain('Premium logo package');
-		const url = new URL(call.clickAction);
-		expect(url.pathname).toBe('/earning');
-		expect(url.searchParams.get('tab')).toBe('requests');
-		expect(url.searchParams.get('service')).toBe(requestEvent.content.serviceAddress);
-		expect(url.searchParams.get('request')).toBe('qr_valid123');
+		await new Promise((r) => setTimeout(r, 50));
+		expect(sendNotificationToNpubs).toHaveBeenCalledTimes(0);
 	});
 
-	it('sends optional proposal DM mirrors with canonical tags and keeps push non-blocking on failure', async () => {
+	it('sends optional proposal DM mirrors with canonical tags and logs on failure', async () => {
 		publishToMultipleRelays.mockResolvedValueOnce([
 			{ relay: 'wss://relay.example', success: false }
 		]);
@@ -115,9 +101,10 @@ describe('service quote notification helpers', () => {
 		dispatchProposalPublishedSideEffects(proposalEvent, { dmMirror: true });
 
 		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
 			expect(getSignedEvent).toHaveBeenCalledTimes(1);
 		});
+
+		expect(sendNotificationToNpubs).toHaveBeenCalledTimes(0);
 
 		expect(getSignedEvent).toHaveBeenCalledWith(
 			expect.objectContaining({

@@ -368,7 +368,9 @@ async function initialize(): Promise<void> {
 			// Read persisted balance (survives app kills, unlike in-memory store)
 			let persistedBalance: number | null = null;
 			try {
-				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
+				const { value: stored } = await Preferences.get({
+					key: StorageKeys.WALLET_LAST_BALANCE_SATS
+				});
 				if (stored !== null) {
 					const parsed = parseInt(stored, 10);
 					if (!isNaN(parsed)) persistedBalance = parsed;
@@ -388,12 +390,17 @@ async function initialize(): Promise<void> {
 			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
 				const delta = newBalanceSats - persistedBalance;
 				void import('$lib/stores/app.store').then(({ appStore }) => {
-					appStore.showInfoToast(
-						`Received ${formatSats(delta)} sats`,
-						5000,
-						{ dedupKey: `received-balance-${newBalanceSats}` }
-					);
+					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
+						dedupKey: `received-balance-${newBalanceSats}`
+					});
 				});
+				void import('$lib/api/services/notificationCenter.service').then(
+					({ notificationCenterService }) => {
+						void notificationCenterService.enrich({
+							action: 'payment_received'
+						});
+					}
+				);
 			}
 
 			// Recover pending swaps independently (Nostr queries only, no blockchain RPC)
@@ -720,7 +727,10 @@ async function loadAssets(): Promise<void> {
 
 		// Persist balance for incoming fund detection across app kills
 		try {
-			await Preferences.set({ key: StorageKeys.WALLET_LAST_BALANCE_SATS, value: totalSats.toString() });
+			await Preferences.set({
+				key: StorageKeys.WALLET_LAST_BALANCE_SATS,
+				value: totalSats.toString()
+			});
 		} catch {
 			// Preferences unavailable
 		}
