@@ -106,6 +106,7 @@
 				"title": "Solicitud de servicio",
 				"heading": "Información general",
 				"loading": "Cargando detalles del servicio...",
+				"inquiry_heading": "Detalles de tu solicitud",
 				"inquiry_title": "Tu consulta",
 				"proposal_title": "Propuesta recibida",
 				"proposal_start": "Inicio estimado",
@@ -113,7 +114,8 @@
 				"scope_of_work": "Alcance del trabajo",
 				"cover_letter": "Carta de presentación",
 				"custom_answers": "Respuestas enviadas",
-				"attachments": "Archivos adjuntos"
+				"attachments": "Archivos adjuntos",
+				"service_to_hire": "Servicio a contratar"
 			},
 			"accept_drawer": {
 				"title": "Aceptar propuesta",

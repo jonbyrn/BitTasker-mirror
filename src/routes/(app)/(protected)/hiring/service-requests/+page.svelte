@@ -106,11 +106,6 @@
 					'dashboard.hiring.messages.contracts_highlight_not_found',
 					'The requested contract highlight could not be found.'
 				)}
-			{:else}
-				{translateOrFallback(
-					'dashboard.hiring.messages.service_quote_protocol_pending',
-					'Service quote protocol wiring is pending; local UI state is being shown for now.'
-				)}
 			{/if}
 		</span>
 	</div>
@@ -124,7 +119,9 @@
 		isSyncing={taskerQuotesSyncing}
 		hasLoaded={taskerQuotesLoaded}
 		loadError={taskerQuotesError}
-		onRetry={() => { void serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {}); }}
+		onRetry={() => {
+			void serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {});
+		}}
 		onRequestFocusChange={handleTaskerRequestFocus}
 		onRequestClear={handleTaskerRequestClear}
 		onInvalidFocusedRequest={handleInvalidFocusedRequest}

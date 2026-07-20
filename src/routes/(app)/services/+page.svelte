@@ -616,7 +616,6 @@
 		await goto(
 			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
 		);
-		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceForQuote = null;
 		return { success: true };
 	}
