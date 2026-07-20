@@ -164,7 +164,7 @@ describe('service quote messaging mirror integration', () => {
 		);
 		await vi.waitFor(() => {
 			expect(getSignedEvent).toHaveBeenCalledTimes(2);
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
+			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(0);
 			expect(debugWarn).toHaveBeenCalled();
 		});
 		expect(getSignedEvent).toHaveBeenCalledWith(

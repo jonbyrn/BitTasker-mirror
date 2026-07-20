@@ -12,11 +12,11 @@ export const GAS_REIMBURSEMENT_PER_OP = 2_523_514_500_000n;
 
 /**
  * Minimum buffer (seconds) between current time and `estimatedStartTime`.
- * RSK average block time is ~25s with observed peaks of 97s. 5 minutes = 300s gives ~12 blocks
+ * RSK average block time is ~25s with observed peaks of 97s. 15 minutes = 900s gives ~36 blocks
  * of margin, preventing `InvalidEstimatedTimes()` reverts when the tx is mined after the start time.
  * The buffer is calculated against the RSK block timestamp (miner clock), not the client clock.
  */
-export const MINIMUM_START_BUFFER_SECONDS = 300;
+export const MINIMUM_START_BUFFER_SECONDS = 900;
 
 /**
  * Parameters for createPaymentContract (v2)

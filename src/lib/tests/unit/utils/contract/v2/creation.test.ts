@@ -69,8 +69,8 @@ describe('deriveContractCreationParams — start time buffer', () => {
 		const now = Math.floor(Date.now() / 1000);
 		vi.setSystemTime(now * 1000);
 
-		// Set startDateTime to 10 minutes from now — beyond the 180s buffer
-		const farFuture = (now + 600).toString();
+		// Set startDateTime to 20 minutes from now — beyond the 900s buffer
+		const farFuture = (now + 1200).toString();
 		const bid = makeBidContent({
 			startDateTime: farFuture,
 			endDateTime: String(now + 7200)
@@ -78,7 +78,7 @@ describe('deriveContractCreationParams — start time buffer', () => {
 
 		const { params, display } = deriveContractCreationParams(bid, 100000);
 
-		expect(params.estimatedStartTime).toBe(now + 600);
+		expect(params.estimatedStartTime).toBe(now + 1200);
 		expect(display.wasTimeAdjusted).toBe(false);
 	});
 
@@ -98,7 +98,7 @@ describe('deriveContractCreationParams — start time buffer', () => {
 		expect(display.wasTimeAdjusted).toBe(false);
 	});
 
-	it('does NOT adjust completionTime when startTime is adjusted', () => {
+	it('preserves duration when startTime is adjusted', () => {
 		const now = Math.floor(Date.now() / 1000);
 		vi.setSystemTime(now * 1000);
 
@@ -110,25 +110,84 @@ describe('deriveContractCreationParams — start time buffer', () => {
 
 		const { params } = deriveContractCreationParams(bid, 100000);
 
-		// completionTime should be unchanged
-		expect(params.estimatedCompletionTime).toBe(originalCompletion);
-		// startTime should be adjusted to now + buffer
+		// completionTime should be adjusted to preserve the original duration
+		const originalDuration = originalCompletion - (now + 30);
 		expect(params.estimatedStartTime).toBe(now + MINIMUM_START_BUFFER_SECONDS);
+		expect(params.estimatedCompletionTime).toBe(
+			now + MINIMUM_START_BUFFER_SECONDS + originalDuration
+		);
 	});
 
-	it('throws when adjusted startTime >= completionTime', () => {
+	it('preserves duration for short-window bids instead of throwing', () => {
 		const now = Math.floor(Date.now() / 1000);
 		vi.setSystemTime(now * 1000);
 
-		// completionTime is only 60 seconds from now, buffer pushes start past it
+		// completionTime is only 60 seconds from now — short window, but duration preserved
+		const originalStart = now + 30;
+		const originalEnd = now + 60;
+		const originalDuration = originalEnd - originalStart; // 30s
+
 		const bid = makeBidContent({
-			startDateTime: String(now + 30),
-			endDateTime: String(now + 60)
+			startDateTime: String(originalStart),
+			endDateTime: String(originalEnd)
 		});
 
-		expect(() => deriveContractCreationParams(bid, 100000)).toThrow(
-			/Completion time must be after start time/
+		const { params, display } = deriveContractCreationParams(bid, 100000);
+
+		// Duration is preserved — no throw
+		expect(params.estimatedStartTime).toBe(now + MINIMUM_START_BUFFER_SECONDS);
+		expect(params.estimatedCompletionTime).toBe(
+			now + MINIMUM_START_BUFFER_SECONDS + originalDuration
 		);
+		expect(display.wasTimeAdjusted).toBe(true);
+	});
+
+	it('preserves original duration when adjusting start time for past-start bid', () => {
+		const now = Math.floor(Date.now() / 1000);
+		vi.setSystemTime(now * 1000);
+
+		// Bid started 1 hour ago, duration is 2 hours (7200s)
+		const originalStart = now - 3600;
+		const originalEnd = now + 3600;
+		const originalDuration = originalEnd - originalStart; // 7200
+
+		const bid = makeBidContent({
+			startDateTime: String(originalStart),
+			endDateTime: String(originalEnd)
+		});
+
+		const { params, display } = deriveContractCreationParams(bid, 100000);
+
+		expect(params.estimatedStartTime).toBe(now + MINIMUM_START_BUFFER_SECONDS);
+		expect(params.estimatedCompletionTime).toBe(
+			now + MINIMUM_START_BUFFER_SECONDS + originalDuration
+		);
+		expect(display.wasTimeAdjusted).toBe(true);
+	});
+
+	it('preserves original duration when completion time is within buffer of adjusted start', () => {
+		const now = Math.floor(Date.now() / 1000);
+		vi.setSystemTime(now * 1000);
+
+		// Start is in the past, end is only 2 minutes from now (short window)
+		// Without duration preservation, this would throw
+		const originalStart = now - 60;
+		const originalEnd = now + 120;
+		const originalDuration = originalEnd - originalStart; // 180s
+
+		const bid = makeBidContent({
+			startDateTime: String(originalStart),
+			endDateTime: String(originalEnd)
+		});
+
+		const { params, display } = deriveContractCreationParams(bid, 100000);
+
+		// Should NOT throw — duration is preserved
+		expect(params.estimatedStartTime).toBe(now + MINIMUM_START_BUFFER_SECONDS);
+		expect(params.estimatedCompletionTime).toBe(
+			now + MINIMUM_START_BUFFER_SECONDS + originalDuration
+		);
+		expect(display.wasTimeAdjusted).toBe(true);
 	});
 
 	it('adjusts startTime when it is in the past', () => {
@@ -162,7 +221,7 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 
 		const params = {
 			taskee: '0x64bF4b77D21e1849C42165F8558d681857933994',
-			estimatedStartTime: now + 30, // within buffer
+			estimatedStartTime: now + 60, // within 900s buffer
 			estimatedCompletionTime: now + 7200,
 			taskerFeeTier: 1,
 			taskeeFeeTier: 1,
@@ -174,7 +233,7 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 			taskeeFeeWei: ethers.parseEther('0.001')
 		};
 
-		expect(() => assertValidCreatePaymentContractParams(params)).toThrow(/at least 300 seconds/);
+		expect(() => assertValidCreatePaymentContractParams(params)).toThrow(/at least 900 seconds/);
 	});
 
 	it('accepts start time beyond the safety buffer', () => {
@@ -183,7 +242,7 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 
 		const params = {
 			taskee: '0x64bF4b77D21e1849C42165F8558d681857933994',
-			estimatedStartTime: now + 600, // 10 min — beyond buffer
+			estimatedStartTime: now + 1200, // 20 min — beyond 900s buffer
 			estimatedCompletionTime: now + 7200,
 			taskerFeeTier: 1,
 			taskeeFeeTier: 1,
@@ -221,8 +280,8 @@ describe('assertValidCreatePaymentContractParams — start time buffer', () => {
 });
 
 describe('MINIMUM_START_BUFFER_SECONDS', () => {
-	it('is 300 seconds (5 minutes)', () => {
-		expect(MINIMUM_START_BUFFER_SECONDS).toBe(300);
+	it('is 900 seconds (15 minutes)', () => {
+		expect(MINIMUM_START_BUFFER_SECONDS).toBe(900);
 	});
 });
 
@@ -244,13 +303,13 @@ describe('deriveContractCreationParams — nowSeconds parameter', () => {
 	it('does NOT adjust startTime when it is beyond the buffer from nowSeconds', () => {
 		const blockTimestamp = 1700000000;
 		const bid = makeBidContent({
-			startDateTime: String(blockTimestamp + 600), // 10 min — beyond buffer
+			startDateTime: String(blockTimestamp + 1200), // 20 min — beyond 900s buffer
 			endDateTime: String(blockTimestamp + 7200)
 		});
 
 		const { params, display } = deriveContractCreationParams(bid, 100000, blockTimestamp);
 
-		expect(params.estimatedStartTime).toBe(blockTimestamp + 600);
+		expect(params.estimatedStartTime).toBe(blockTimestamp + 1200);
 		expect(display.wasTimeAdjusted).toBe(false);
 	});
 

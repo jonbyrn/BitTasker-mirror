@@ -100,7 +100,7 @@ describe('service quote publish integration notifications', () => {
 		resetServiceQuoteSideEffectLedger();
 	});
 
-	it('emits provider inquiry push from the canonical request publish path and skips duplicate resend', async () => {
+	it('publishes request successfully without client-side push (backend handles it)', async () => {
 		const { publishServiceQuoteRequest } = await import('$lib/utils/service-quote/publish');
 
 		const service = {
@@ -117,22 +117,10 @@ describe('service quote publish integration notifications', () => {
 			createdAt: 1
 		} as const;
 
-		const requestEvent = {
-			id: 'request-event-id',
-			kind: KINDS.SERVICE_QUOTE_REQUEST,
-			pubkey: 'b'.repeat(64),
-			created_at: 1_700_000_000,
-			tags: [['p', service.npub]],
-			content: {
-				serviceAddress: `30402:${service.npub}:${service.uniqueId}`,
-				quoteRequestId: 'qr_valid123'
-			},
-			sig: 'sig'
-		};
-
 		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 		getSignedEvent.mockResolvedValueOnce({
-			...requestEvent,
+			id: 'request-event-id',
+			kind: KINDS.SERVICE_QUOTE_REQUEST,
 			content: 'encrypted-content'
 		});
 		publishToMultipleRelays.mockResolvedValueOnce([
@@ -148,34 +136,10 @@ describe('service quote publish integration notifications', () => {
 			quoteRequestId: 'qr_valid123'
 		});
 
-		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		});
-
-		queryNostrEvents.mockResolvedValueOnce([requestEvent]);
-		await publishServiceQuoteRequest({
-			service: service as never,
-			payload: {
-				title: 'Need help',
-				description: 'Please quote'
-			},
-			quoteRequestId: 'qr_valid123'
-		});
-
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		const requestNotification = sendNotificationToNpubs.mock.calls[0][0];
-		expect(requestNotification.type).toBe('service_quote_request_received');
-		const requestUrl = new URL(requestNotification.clickAction);
-		expect(requestUrl.pathname).toBe('/earning');
-		expect(requestUrl.searchParams.get('tab')).toBe('requests');
-		expect(requestUrl.searchParams.get('service')).toBe(
-			`30402:${service.npub}:${service.uniqueId}`
-		);
-		expect(requestUrl.searchParams.get('request')).toBe('qr_valid123');
+		expect(sendNotificationToNpubs).toHaveBeenCalledTimes(0);
 	});
 
-	it('emits tasker proposal push from the canonical proposal publish path', async () => {
+	it('publishes proposal successfully without client-side push (backend handles it)', async () => {
 		const { publishServiceProposal } = await import('$lib/utils/service-quote/publish');
 
 		const requestEvent = {
@@ -251,15 +215,6 @@ describe('service quote publish integration notifications', () => {
 			relays: ['wss://relay.example']
 		});
 
-		await vi.waitFor(() => {
-			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
-		});
-
-		const proposalNotification = sendNotificationToNpubs.mock.calls[0][0];
-		expect(proposalNotification.type).toBe('service_quote_proposal_received');
-		const proposalUrl = new URL(proposalNotification.clickAction);
-		expect(proposalUrl.searchParams.get('tab')).toBe('service-requests');
-		expect(proposalUrl.searchParams.get('view')).toBe('tasker');
-		expect(proposalUrl.searchParams.get('request')).toBe('qr_valid123');
+		expect(sendNotificationToNpubs).toHaveBeenCalledTimes(0);
 	});
 });

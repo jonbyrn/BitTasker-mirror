@@ -17,8 +17,7 @@ export type { DashboardContractsType, DashboardTab, DashboardView };
 export type DashboardMessageCode =
 	| 'service_requests_request_not_found'
 	| 'service_quotes_request_not_found'
-	| 'contracts_highlight_not_found'
-	| 'service_quote_protocol_pending';
+	| 'contracts_highlight_not_found';
 
 export interface DashboardRouteState {
 	tab: DashboardTab;

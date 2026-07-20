@@ -1668,7 +1668,7 @@
 		const dimMap = new Map(
 			galleryImages.map((g) => [g.url, { width: g.width, height: g.height, alt: g.alt }])
 		);
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 
 		// Walk service.portfolio once in its stored order so the carousel
 		// always respects the original upload sequence (video, photo, video, photo → same order).
@@ -1767,6 +1767,14 @@
 			>
 		</div>
 	{:else}
+		<!-- Back to Services -->
+		<a
+			href="/services"
+			class="absolute top-3 left-3 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+			aria-label={$t('dashboard.services.detail.back_to_services', { default: 'Back to Services' })}
+		>
+			<IconChevronLeft class="h-5 w-5" />
+		</a>
 		<!-- Hero Section / Media -->
 		<div class="group relative w-full overflow-hidden bg-black">
 			<div class="flex aspect-video max-h-[60vh] w-full items-center justify-center">
@@ -2249,8 +2257,7 @@
 									{detailText('dashboard.services.detail.delete_service', 'Delete')}
 								</button>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{detailText('dashboard.services.detail.edit_service', 'Edit')}
@@ -2545,8 +2552,7 @@
 									)}</button
 								>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{$t('dashboard.services.detail.edit_service')}
