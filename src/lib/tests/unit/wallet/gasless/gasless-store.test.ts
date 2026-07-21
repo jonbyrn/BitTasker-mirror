@@ -15,6 +15,20 @@ vi.mock('viem', () => ({
 	})
 }));
 
+// Mock ethers — isAddress needs to work in jsdom environment
+vi.mock('ethers', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('ethers')>();
+	return {
+		...actual,
+		ethers: {
+			...actual.ethers,
+			isAddress: vi.fn().mockImplementation((addr: string) => {
+				return /^0x[0-9a-fA-F]{40}$/.test(addr);
+			})
+		}
+	};
+});
+
 // Mock @sentry/sveltekit
 vi.mock('@sentry/sveltekit', () => ({
 	addBreadcrumb: vi.fn()
@@ -43,7 +57,7 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 	GAS_TREASURY: '0x1234567890123456789012345678901234567890',
 	ARBITRUM_RPC_URL: 'https://arb1.arbitrum.io/rpc',
 	ARBITRUM_CHAIN_ID: 42161,
-	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+	ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
 	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
 }));
 

@@ -162,8 +162,16 @@ export const uniswapV3Provider: SwapProvider = {
 			return null;
 		}
 
-		// Convert output to sats
-		const outputSats = Number(amountOut / BigInt(10) ** BigInt(to.decimals - 8));
+		// Convert output to sats (8 decimals).
+		// Handle tokens with fewer than 8 decimals (e.g., USDT0 at 6 decimals)
+		// by multiplying up, and tokens with more decimals (e.g., tBTC at 18)
+		// by dividing down.
+		let outputSats: number;
+		if (to.decimals >= 8) {
+			outputSats = Number(amountOut / BigInt(10) ** BigInt(to.decimals - 8));
+		} else {
+			outputSats = Number(amountOut * BigInt(10) ** BigInt(8 - to.decimals));
+		}
 
 		if (outputSats <= 0) {
 			debug.log('Output too small: %d sats', outputSats);

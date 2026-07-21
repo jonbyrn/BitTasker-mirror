@@ -51,7 +51,7 @@ fi
 # 4. Check EntryPoint v0.8 exists (needed for revocation)
 _info "Checking EntryPoint v0.8 availability ..."
 EP_RESULT=$(curl -s -X POST -H 'Content-Type: application/json' \
-  --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108","latest"],"id":3}' \
+  --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x433709009B8330FDa32311DF1C2AFA402eD8D009","latest"],"id":3}' \
   --connect-timeout 10 --max-time 15 "$ARBITRUM_RPC_URL" 2>/dev/null)
 EP_CODE=$(echo "$EP_RESULT" | grep -oP '"result":"(0x[0-9a-fA-F]+)"' | grep -oP '0x[0-9a-fA-F]+' || echo "0x")
 if [ "$EP_CODE" != "0x" ] && [ ${#EP_CODE} -gt 10 ]; then

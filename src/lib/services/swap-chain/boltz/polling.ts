@@ -36,7 +36,22 @@ const boltz = boltzProvider;
 const claimAttemptCounts = new Map<string, number>();
 
 /** Max claim attempts before aborting to prevent infinite gas-burning retries. */
-const MAX_CLAIM_ATTEMPTS = 3;
+const MAX_CLAIM_ATTEMPTS = 5;
+
+/** Classify a claim error as transient (retryable) or permanent (abort). */
+export function isTransientClaimError(err: Error): boolean {
+	const msg = err.message.toLowerCase();
+	// Transient: network issues, timeouts, rate limits, RPC failures
+	if (msg.includes('timeout') || msg.includes('econnrefused') || msg.includes('etimedout')) return true;
+	if (msg.includes('rate limit') || msg.includes('429') || msg.includes('503')) return true;
+	if (msg.includes('network') || msg.includes('fetch failed')) return true;
+	if (msg.includes('nonce too low') || msg.includes('already known')) return true;
+	// Transient: gasless relay specific (retryable)
+	if (msg.includes('gasless relay timeout')) return true;
+	if (msg.includes('pre-flight simulation failed: insufficient')) return true;
+	// Everything else is permanent — don't retry
+	return false;
+}
 
 // ---------------------------------------------------------------------------
 // Lockup event scanning
@@ -66,6 +81,27 @@ async function waitForBoltzLockup(
 	// ERC20Swap Lockup event topic0
 	const LOCKUP_TOPIC = '0xa98eaa2bd8230d87a1a4c356f5c1d41cb85ff88131122ec8b1931cb9d31ae145';
 
+	// Start scanning from a recent block (not genesis) to avoid slow queries.
+	// Use 'latest' minus ~1000 blocks (~3 minutes on Arbitrum).
+	let startBlock: string | number = 'latest';
+	try {
+		for (const rpc of ARB_RPCS) {
+			try {
+				const resp = await fetch(rpc, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+					signal: AbortSignal.timeout(5000)
+				});
+				const data = await resp.json() as { result?: string };
+				if (data.result) {
+					startBlock = Math.max(0, parseInt(data.result, 16) - 1000);
+					break;
+				}
+			} catch { /* try next RPC */ }
+		}
+	} catch { startBlock = 'latest'; }
+
 	while (Date.now() - startTime < maxWaitMs) {
 		try {
 			let data: { result?: unknown[] } | null = null;
@@ -79,7 +115,7 @@ async function waitForBoltzLockup(
 							method: 'eth_getLogs',
 							params: [
 								{
-									fromBlock: '0x0',
+									fromBlock: typeof startBlock === 'number' ? '0x' + startBlock.toString(16) : startBlock,
 									toBlock: 'latest',
 									address: contractAddress,
 									topics: [LOCKUP_TOPIC, paddedHashlock]
@@ -326,7 +362,15 @@ export async function pollBoltzChainSwapCompletion(
 
 				if (claimError !== null) {
 					dBoltz.error('rBTC claim failed: %s', claimError.message);
-					await sleep(pollInterval);
+					if (!isTransientClaimError(claimError)) {
+						dBoltz.error('rBTC claim error is permanent — aborting retries for swap %s', swapId);
+						claimAttemptCounts.delete(swapId);
+						return { data: null, error: claimError };
+					}
+					// Exponential backoff: 5s, 15s, 45s
+					const backoff = Math.min(5000 * Math.pow(3, currentAttempts - 1), 60000);
+					dBoltz.log('Transient claim error — retrying in %dms (attempt %d/%d)', backoff, currentAttempts, MAX_CLAIM_ATTEMPTS);
+					await sleep(backoff);
 					continue;
 				}
 
@@ -404,7 +448,15 @@ export async function pollBoltzChainSwapCompletion(
 						claimError.message
 					);
 					dBoltz.error('tBTC claim failed: %s', claimError.message);
-					await sleep(pollInterval);
+					if (!isTransientClaimError(claimError)) {
+						dBoltz.error('tBTC claim error is permanent — aborting retries for swap %s', swapId);
+						claimAttemptCounts.delete(swapId);
+						return { data: null, error: claimError };
+					}
+					// Exponential backoff: 5s, 15s, 45s
+					const backoff = Math.min(5000 * Math.pow(3, attempts - 1), 60000);
+					dBoltz.log('Transient claim error — retrying in %dms (attempt %d/%d)', backoff, attempts, MAX_CLAIM_ATTEMPTS);
+					await sleep(backoff);
 					continue;
 				}
 

@@ -31,7 +31,7 @@ const { values } = parseArgs({
     'rpc-url': { type: 'string' },
     timeout:   { type: 'string', default: '120' },
     interval:  { type: 'string', default: '5' },
-    entrypoint: { type: 'string', default: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' },
+    entrypoint: { type: 'string', default: '0x433709009B8330FDa32311DF1C2AFA402eD8D009' },
   },
   strict: false,
 });

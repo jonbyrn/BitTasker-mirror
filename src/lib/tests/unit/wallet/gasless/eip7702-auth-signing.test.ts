@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 
 // Hoisted mocks — available inside vi.mock factories
-const { mockGaslessRelay } = vi.hoisted(() => ({
-	mockGaslessRelay: vi.fn()
+const { mockGaslessRelay, mockGetCode, mockGetTransactionCount } = vi.hoisted(() => ({
+	mockGaslessRelay: vi.fn(),
+	mockGetCode: vi.fn().mockResolvedValue('0x'),
+	mockGetTransactionCount: vi.fn().mockResolvedValue(5)
 }));
 
 // Mock viem
@@ -19,17 +21,22 @@ vi.mock('viem', () => ({
 }));
 
 // Mock ethers for EIP-7702 auth signing
-vi.mock('ethers', async () => {
-	const actual = await vi.importActual<typeof import('ethers')>('ethers');
+vi.mock('ethers', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('ethers')>();
+	class MockJsonRpcProvider {
+		getCode = mockGetCode;
+		getTransactionCount = mockGetTransactionCount;
+	}
+	class MockContract {
+		getNonce = vi.fn().mockResolvedValue(0n);
+	}
 	return {
 		...actual,
-		SigningKey: vi.fn().mockImplementation(() => ({
-			sign: vi.fn().mockReturnValue({
-				r: '0x' + 'aa'.repeat(32),
-				s: '0x' + 'bb'.repeat(32),
-				v: 27
-			})
-		}))
+		ethers: {
+			...actual.ethers,
+			JsonRpcProvider: MockJsonRpcProvider,
+			Contract: MockContract
+		}
 	};
 });
 
@@ -61,8 +68,8 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 	GAS_TREASURY: '0x1234567890123456789012345678901234567890',
 	ARBITRUM_RPC_URL: 'https://arb1.arbitrum.io/rpc',
 	ARBITRUM_CHAIN_ID: 42161,
-	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
-	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
+	ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
+	SIMPLE_7702_ACCOUNT_IMPL: '0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e'
 }));
 
 // Mock the helpers
@@ -76,9 +83,11 @@ vi.mock('$lib/wallet/gasless-helpers', () => ({
 vi.mock('$lib/api/services/gasless.service', () => ({
 	gaslessService: {
 		relay: mockGaslessRelay,
+		prepare: vi.fn().mockResolvedValue({ paymasterAndData: '0x' + 'aa'.repeat(65) }),
 		estimate: vi.fn(),
 		checkBalance: vi.fn(),
-		health: vi.fn()
+		health: vi.fn(),
+		simulate: vi.fn().mockResolvedValue({ success: true })
 	}
 }));
 
@@ -121,6 +130,10 @@ describe('EIP-7702 auth signing path', () => {
 		vi.clearAllMocks();
 		mockGaslessRelay.mockResolvedValue({ userOpHash: '0x' + 'ff'.repeat(32) });
 
+		// Reset ethers provider mocks — not delegated by default
+		mockGetCode.mockResolvedValue('0x');
+		mockGetTransactionCount.mockResolvedValue(5);
+
 		// Re-initialize createPublicClient mock for each test (non-delegated by default)
 		const { createPublicClient } = await import('viem');
 		(createPublicClient as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -149,7 +162,7 @@ describe('EIP-7702 auth signing path', () => {
 		const body = getRelayBody();
 		expect(body.eip7702Auth).toBeDefined();
 		expect(body.eip7702Auth!.chainId).toBe('0x' + BigInt(42161).toString(16));
-		expect(body.eip7702Auth!.address).toBe('0xe6Cae83BdE06E4c305530e199D7217f42808555B');
+		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
 		expect(body.eip7702Auth!.nonce).toBeDefined();
 		expect(body.eip7702Auth!.r).toBeDefined();
 		expect(body.eip7702Auth!.s).toBeDefined();
@@ -170,12 +183,8 @@ describe('EIP-7702 auth signing path', () => {
 	});
 
 	it('sendToken does NOT include eip7702Auth when account is already delegated', async () => {
-		const { createPublicClient } = await import('viem');
-		(createPublicClient as ReturnType<typeof vi.fn>).mockReturnValue({
-			readContract: vi.fn().mockResolvedValue(0n),
-			getCode: vi.fn().mockResolvedValue('0xef0100' + 'ab'.repeat(20)),
-			getTransactionCount: vi.fn().mockResolvedValue(5)
-		});
+		// Delegation code: 0xef0100 + impl address (matches SIMPLE_7702_ACCOUNT_IMPL)
+		mockGetCode.mockResolvedValue('0xef0100' + 'DaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e'.toLowerCase());
 		await sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer);
 		const body = getRelayBody();
 		expect(body.eip7702Auth).toBeUndefined();
@@ -197,5 +206,51 @@ describe('EIP-7702 auth signing path', () => {
 		await expect(
 			sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer)
 		).rejects.toThrow('Wallet not initialized');
+	});
+
+	it('sendToken does NOT include eip7702Auth when delegated to correct impl', async () => {
+		// Delegation target matches SIMPLE_7702_ACCOUNT_IMPL (0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e)
+		mockGetCode.mockResolvedValue('0xef0100' + 'DaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e'.toLowerCase());
+		await sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer);
+		const body = getRelayBody();
+		expect(body.eip7702Auth).toBeUndefined();
+		expect(body.userOp.factory).toBeUndefined();
+	});
+
+	it('sendToken re-delegates when delegated to old implementation', async () => {
+		// Delegation target is a DIFFERENT address (old v0.8 impl)
+		const OLD_IMPL = '0x' + '11'.repeat(20);
+		mockGetCode.mockResolvedValue('0xef0100' + OLD_IMPL.slice(2).toLowerCase());
+		await sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer);
+		const body = getRelayBody();
+		// Should include eip7702Auth to re-delegate to correct impl
+		expect(body.eip7702Auth).toBeDefined();
+		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.userOp.factory).toBe('0x7702000000000000000000000000000000000000');
+	});
+
+	it('sendGaslessCalls re-delegates when delegated to old implementation', async () => {
+		const OLD_IMPL = '0x' + '11'.repeat(20);
+		mockGetCode.mockResolvedValue('0xef0100' + OLD_IMPL.slice(2).toLowerCase());
+		const calls = [{ to: mockToken, data: '0xa9059cbb' + '00'.repeat(64) }];
+		await sendGaslessCalls(calls, mockToken, mockFeeBuffer);
+		const body = getRelayBody();
+		expect(body.eip7702Auth).toBeDefined();
+		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.userOp.factory).toBe('0x7702000000000000000000000000000000000000');
+	});
+
+	it('re-delegation auth uses correct SIMPLE_7702_ACCOUNT_IMPL address', async () => {
+		const OLD_IMPL = '0x' + 'aa'.repeat(20);
+		mockGetCode.mockResolvedValue('0xef0100' + OLD_IMPL.slice(2).toLowerCase());
+		mockGetTransactionCount.mockResolvedValue(7);
+		await sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer);
+		const body = getRelayBody();
+		expect(body.eip7702Auth).toBeDefined();
+		// Must target the NEW impl, not the old one
+		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.eip7702Auth!.address).not.toBe(OLD_IMPL);
+		// Nonce should be the EOA's current nonce (7)
+		expect(body.eip7702Auth!.nonce).toBe('0x' + BigInt(7).toString(16));
 	});
 });

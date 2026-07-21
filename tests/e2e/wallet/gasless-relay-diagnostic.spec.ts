@@ -12,8 +12,16 @@
  */
 
 import { test, expect, type Page, type ConsoleMessage, type Request } from '@playwright/test';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const WALLET_URL = 'http://localhost:3000/wallet';
+const SEED_PATH = join(__dirname, '..', '.auth', 'test-seed.json');
+const SEED = JSON.parse(readFileSync(SEED_PATH, 'utf-8'));
 
 // Collect all console messages and network requests
 let consoleLogs: Array<{ type: string; text: string; timestamp: number }> = [];
@@ -310,22 +318,66 @@ test.describe('Gasless Relay Diagnostic', () => {
 	// Test 3: Direct gasless relay call from browser context
 	// -------------------------------------------------------------------------
 	test('direct gasless relay call from browser', async ({ page }) => {
-		await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded' });
-		await page.evaluate(() => {
-			localStorage.setItem('auth_token', 'e2e-test-token-bypass');
-			localStorage.setItem('access_token', 'e2e-test-token-bypass');
-			localStorage.setItem('__E2E_NSEC__', 'nsec1ljqmrqvkjjgd46yzd66nzpzgznghyfpcvs4nxk6j5jg2mxvs7r8qjyefh3');
-			localStorage.setItem('__E2E_MNEMONIC__', 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
-			localStorage.setItem('onboardingCompleted', 'true');
-			localStorage.setItem('CapacitorStorage.onboardingCompleted', 'true');
-			localStorage.setItem('CapacitorStorage.__E2E_NSEC__', 'nsec1ljqmrqvkjjgd46yzd66nzpzgznghyfpcvs4nxk6j5jg2mxvs7r8qjyefh3');
-			localStorage.setItem('CapacitorStorage.__E2E_MNEMONIC__', 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
+		// Capture the relay payload to verify signature
+		let relayPayload = null;
+		await page.route('**/gasless/relay', (route) => {
+			const body = route.request().postData();
+			if (body) {
+				try { relayPayload = JSON.parse(body); } catch { /* ignore */ }
+			}
+			// Return a mock success so the test doesn't hang
+			route.fulfill({ status: 200, body: JSON.stringify({ userOpHash: '0xMockHash' }), contentType: 'application/json' });
+		});
+		// Mock simulate to always succeed (we want to test signing, not balance)
+		await page.route('**/gasless/simulate', (route) => {
+			route.fulfill({ status: 200, body: JSON.stringify({ success: true }), contentType: 'application/json' });
+		});
+		// Mock Arbitrum RPC for provider calls (getCode, getTransactionCount)
+		await page.route('https://arb1.arbitrum.io/**', (route) => {
+			const body = route.request().postDataJSON();
+			const method = body?.method;
+			if (method === 'eth_getCode') {
+				route.fulfill({ status: 200, body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x' }), contentType: 'application/json' });
+			} else if (method === 'eth_getTransactionCount') {
+				route.fulfill({ status: 200, body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x0' }), contentType: 'application/json' });
+			} else if (method === 'eth_chainId') {
+				route.fulfill({ status: 200, body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0xa4b1' }), contentType: 'application/json' });
+			} else {
+				route.fulfill({ status: 200, body: JSON.stringify({ jsonrpc: '2.0', id: body?.id || 1, result: '0x' }), contentType: 'application/json' });
+			}
 		});
 
-		await page.goto(WALLET_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-		await page.waitForTimeout(8000);
+		// Mock notification-center to prevent auth cascade
+		await page.route('**/notification-center/**', (route) => {
+			route.fulfill({ status: 200, body: JSON.stringify({ unreadCount: 0 }), contentType: 'application/json' });
+		});
+		// Mock auth refresh
+		await page.route('**/auth/refresh', (route) => {
+			route.fulfill({ status: 200, body: JSON.stringify({ access_token: SEED.access_token, refresh_token: SEED.refresh_token }), contentType: 'application/json' });
+		});
 
-		// Directly test the gasless relay from the browser context
+		await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded' });
+		await page.evaluate((s) => {
+			localStorage.setItem('auth_token', s.access_token);
+			localStorage.setItem('access_token', s.access_token);
+			localStorage.setItem('refresh_token', s.refresh_token);
+			localStorage.setItem('CapacitorStorage.access_token', s.access_token);
+			localStorage.setItem('CapacitorStorage.refresh_token', s.refresh_token);
+			localStorage.setItem('__E2E_NSEC__', s.nsec);
+			localStorage.setItem('__E2E_MNEMONIC__', s.mnemonic);
+			localStorage.setItem('onboardingCompleted', 'true');
+			localStorage.setItem('CapacitorStorage.onboardingCompleted', 'true');
+			localStorage.setItem('CapacitorStorage.__E2E_NSEC__', s.nsec);
+			localStorage.setItem('CapacitorStorage.__E2E_MNEMONIC__', s.mnemonic);
+		}, SEED);
+
+		// First navigation triggers HMR for changed files
+		await page.goto(WALLET_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+		await page.waitForTimeout(3000);
+		// Reload to pick up HMR-updated code and get a clean store initialization
+		await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
+		await page.waitForTimeout(12000);
+
 		const result = await page.evaluate(async () => {
 			const logs: string[] = [];
 
@@ -335,7 +387,7 @@ test.describe('Gasless Relay Diagnostic', () => {
 				logs.push(`JWT: ${jwt ? 'present (' + jwt.length + ' chars)' : 'MISSING'}`);
 
 				// Step 2: Try to import gasless-store
-				let gaslessStore: any;
+				let gaslessStore;
 				try {
 					gaslessStore = await import('/src/lib/wallet/gasless-store.ts');
 					logs.push('gasless-store imported OK');
@@ -344,13 +396,21 @@ test.describe('Gasless Relay Diagnostic', () => {
 					return { logs, error: 'gasless-store import failed' };
 				}
 
-				// Step 3: Check walletReady
-				const { get } = await import('svelte/store');
-				const isReady = get(gaslessStore.walletReady);
-				logs.push(`walletReady: ${isReady}`);
+				// Step 3: Check wallet state by reading the store directly
+				// (can't import svelte/store in page.evaluate, use the store's getSnapshot)
+				let walletState;
+				try {
+					// gaslessWallet is a Svelte writable store — subscribe once to read
+					let snapshot = null;
+					const unsub = gaslessStore.gaslessWallet.subscribe((v) => { snapshot = v; });
+					unsub();
+					walletState = snapshot;
+				} catch (e) {
+					logs.push(`wallet state read FAILED: ${(e as Error).message}`);
+				}
 
-				// Step 4: Check gasless wallet state
-				const walletState = get(gaslessStore.gaslessWallet ?? gaslessStore.walletState);
+				const isReady = walletState?.ready ?? false;
+				logs.push(`walletReady: ${isReady}`);
 				logs.push(`wallet state: ${JSON.stringify({
 					ready: walletState?.ready,
 					address: walletState?.address ? walletState.address.substring(0, 10) + '...' : 'null',
@@ -360,20 +420,55 @@ test.describe('Gasless Relay Diagnostic', () => {
 					hasOwnerKey: !!walletState?.ownerKey
 				})}`);
 
-				// Step 5: Try to call sendGaslessCalls with a dummy call
+				// Step 4: Try to call sendGaslessCalls with a dummy call
 				if (isReady && jwt) {
 					try {
-						const { USDT0_ADDRESS, FEE_BUFFER_MIN } = await import('/src/lib/wallet/gasless.config.ts');
-						const feeToken = USDT0_ADDRESS;
-						const feeBuffer = FEE_BUFFER_MIN[feeToken.toLowerCase()] ?? 10_000n;
+						const gaslessConfig = await import('/src/lib/wallet/gasless.config.ts');
+						const feeToken = gaslessConfig.USDT0_ADDRESS;
+						const feeBuffer = gaslessConfig.FEE_BUFFER_MIN?.[feeToken.toLowerCase()] ?? 10_000n;
 						logs.push(`feeToken: ${feeToken}, feeBuffer: ${feeBuffer.toString()}`);
 
-						// This will actually call the relay
+						// Pre-encoded ERC-20 transfer(recipient, 1000000) — 1 USDT0 (6 decimals)
+						// Selector: 0xa9059cbb, recipient: walletState.address, amount: 1000000 (0x0f4240)
+						const paddedAddr = walletState.address.toLowerCase().replace('0x', '').padStart(64, '0');
+						const transferData = '0xa9059cbb' + paddedAddr + '00000000000000000000000000000000000000000000000000000000000f4240';
+						logs.push(`transferData: ${transferData.length - 2} hex chars, even: ${(transferData.length - 2) % 2 === 0}`);
+
+						// This will actually call the relay — the gasless-store internally
+						// uses ethers for ABI encoding and permissionless for signing
+						// Add diagnostic logging around the signing step
+						const origSign = walletState.account?.signUserOperation;
+						logs.push(`account.signUserOperation type: ${typeof origSign}`);
+						logs.push(`account keys: ${Object.keys(walletState.account || {}).join(', ')}`);
+						if (walletState.account?.signUserOperation) {
+							try {
+								// Test sign directly with a minimal UserOp
+								const testOp = {
+									sender: walletState.address,
+									nonce: 0n,
+									callData: '0x',
+									callGasLimit: 100000n,
+									verificationGasLimit: 50000n,
+									preVerificationGas: 10000n,
+									maxFeePerGas: 1000000000n,
+									maxPriorityFeePerGas: 100000000n,
+									paymasterAndData: '0x',
+									signature: '0x'
+								};
+								const testSigned = await walletState.account.signUserOperation(testOp);
+								logs.push(`TEST sign result signature: ${testSigned?.signature?.substring(0, 30) || 'null/undefined'}...`);
+								logs.push(`TEST sign result signature length: ${testSigned?.signature ? (testSigned.signature.length - 2) / 2 : 0} bytes`);
+								logs.push(`TEST sign result keys: ${Object.keys(testSigned || {}).join(', ')}`);
+							} catch (signErr) {
+								logs.push(`TEST sign FAILED: ${(signErr as Error).message}`);
+								logs.push(`TEST sign stack: ${(signErr as Error).stack?.substring(0, 300)}`);
+							}
+						}
+
 						const txHash = await gaslessStore.sendGaslessCalls(
-							[{ to: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', data: '0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f2bd18000000000000000000000000000000000000000000000000000000000000f4240', value: 0n }],
+							[{ to: feeToken, data: transferData, value: 0n }],
 							feeToken,
-							feeBuffer,
-							jwt
+							feeBuffer
 						);
 						logs.push(`sendGaslessCalls SUCCESS: ${txHash}`);
 					} catch (e) {
@@ -399,18 +494,47 @@ test.describe('Gasless Relay Diagnostic', () => {
 			console.log('ERROR:', result.error);
 		}
 
-		// Also print all captured console logs during this test
+		// Verify the relay was called and payload has a valid signature
+		console.log('\n=== RELAY PAYLOAD VERIFICATION ===');
+		if (relayPayload) {
+			const sig = relayPayload.userOp?.signature;
+			const callDataLen = relayPayload.userOp?.callData?.length;
+			const callDataHexLen = callDataLen ? callDataLen - 2 : 0;
+
+			console.log('Relay was called: YES');
+			console.log('Sender:', relayPayload.sender);
+			console.log('Signature:', sig ? sig.substring(0, 30) + '...' : 'MISSING');
+			console.log('Signature length:', sig ? (sig.length - 2) / 2 : 0, 'bytes');
+			console.log('Signature is NOT empty 0x:', sig && sig !== '0x' ? 'YES' : 'NO');
+			console.log('callData hex chars:', callDataHexLen);
+			console.log('callData even-length:', callDataHexLen % 2 === 0 ? 'YES' : 'NO');
+			console.log('Has eip7702Auth:', !!relayPayload.eip7702Auth);
+			console.log('Has factory:', !!relayPayload.userOp?.factory);
+			console.log('nonce:', relayPayload.userOp?.nonce);
+			console.log('callGasLimit:', relayPayload.userOp?.callGasLimit);
+			console.log('preVerificationGas:', relayPayload.userOp?.preVerificationGas);
+
+			// Assertions
+			expect(sig).toBeTruthy();
+			expect(sig).not.toBe('0x');
+			expect(sig!.length).toBeGreaterThan(10); // at least some hex chars
+			expect((sig!.length - 2) % 2).toBe(0); // even-length hex
+			expect(callDataHexLen).toBeGreaterThan(0);
+			expect(callDataHexLen % 2).toBe(0); // even-length hex
+			expect(relayPayload.eip7702Auth).toBeTruthy();
+			expect(relayPayload.userOp?.factory).toBe('0x7702000000000000000000000000000000000000');
+		} else {
+			console.log('Relay was called: NO');
+			console.log('ERROR: sendGaslessCalls did not reach the relay endpoint');
+		}
+
+		// Also print all captured console logs
 		console.log('\n=== ALL CONSOLE LOGS DURING TEST ===');
 		for (const log of consoleLogs) {
 			console.log(`[${log.type}] ${log.text.substring(0, 300)}`);
 		}
 
-		console.log('\n=== ALL NETWORK REQUESTS ===');
-		for (const req of networkRequests) {
-			console.log(`${req.method} ${req.url} → ${req.status}`);
-			if (req.responseBody) {
-				console.log(`  Response: ${req.responseBody.substring(0, 300)}`);
-			}
-		}
+		// The relay MUST have been called
+		expect(relayPayload).toBeTruthy();
 	});
 });

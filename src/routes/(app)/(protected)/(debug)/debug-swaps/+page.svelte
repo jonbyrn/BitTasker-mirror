@@ -13,9 +13,10 @@
 		type UnclaimedLockup
 	} from '$lib/services/swap-chain.service';
 	import { claimTbtcOnArbitrum, claimRbtcOnRsk } from '$lib/services/swap-chain/boltz/claims';
-	import { TBTC_ARB, ETHERSWAP_ADDRESS } from '$lib/services/swap-chain/utils';
+	import { TBTC_ARB, ETHERSWAP_ADDRESS, BLOCKSCOUT_API_BASE, LOCKUP_TOPIC, CLAIM_TOPIC } from '$lib/services/swap-chain/utils';
+	import { encodeEtherSwapRefund } from '$lib/services/swap-chain/abi';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-	import { getRSKAddress, walletManager } from '$lib/stores/wallet.store';
+	import { getRSKAddress, walletManager, sendRawTransaction } from '$lib/stores/wallet.store';
 	import { ndk } from '$lib/nostr/ndk';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import nip44 from '$lib/nostr/nip44';
@@ -200,6 +201,15 @@
 		}
 	}
 
+	// ── Checksum address helper (ethers v6 requires EIP-55) ────────────
+	// IMPORTANT: must lowercase first — ethers.getAddress() throws on
+	// mixed-case input that doesn't match EIP-55 (e.g. "0x9AEA6DDA...")
+	let _ethersMod: typeof import('ethers') | null = null;
+	async function cs(addr: string): Promise<string> {
+		if (!_ethersMod) _ethersMod = await import('ethers');
+		return _ethersMod.ethers.getAddress(addr.toLowerCase());
+	}
+
 	// ── Fetch claim details from Arbitrum lockup tx ────────────────────
 	async function fetchClaimDetailsFromChain(lockupTxHash: string): Promise<{
 		lockupAddress: string; amount: number; claimAddress: string; refundAddress: string; timeoutBlockHeight: number;
@@ -299,11 +309,18 @@
 				log('info', `  Boltz locked funds (${boltzStatus}). Claiming...`);
 				const isArbitrum = claimDetails.lockupAddress.toLowerCase() !== ETHERSWAP_ADDRESS.toLowerCase();
 
+				// CRITICAL: checksum all addresses — ethers v6 rejects non-EIP-55 addresses
+				const claimAddr = await cs(swaps[idx].lockupClaimAddress || rskAddress);
+				const refundAddr = await cs(claimDetails.refundAddress);
+				const contractAddr = await cs(claimDetails.lockupAddress);
+
 				if (isArbitrum) {
-					// claimTbtcOnArbitrum → encodeERC20SwapClaim expects 0x-prefixed preimage
+					// claimTbtcOnArbitrum already passes feeToken=TBTC_ARB to the gasless relay.
+					// The gasless relay uses tBTC (produced atomically by the claim) for gas —
+					// no pre-existing ETH on Arbitrum needed.
 					const preimageHex0x = preimage.startsWith('0x') ? preimage : '0x' + preimage;
-					log('info', '  Claiming tBTC on Arbitrum...');
-					const err = await claimTbtcOnArbitrum({ contractAddress: claimDetails.lockupAddress, preimageHex: preimageHex0x, amount: claimDetails.amount, tokenAddress: TBTC_ARB, claimAddress: swaps[idx].lockupClaimAddress || rskAddress, refundAddress: claimDetails.refundAddress, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
+					log('info', '  Claiming tBTC on Arbitrum (gasless relay uses tBTC for gas)...');
+					const err = await claimTbtcOnArbitrum({ contractAddress: contractAddr, preimageHex: preimageHex0x, amount: claimDetails.amount, tokenAddress: TBTC_ARB, claimAddress: claimAddr, refundAddress: refundAddr, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
 					if (err) throw err;
 					swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'tBTC claimed on Arbitrum!' } };
 					log('success', '  tBTC claimed!');
@@ -311,7 +328,7 @@
 					// claimRbtcOnRsk → encodeEtherSwapClaim adds 0x prefix internally
 					const preimageHex = preimage.startsWith('0x') ? preimage.slice(2) : preimage;
 					log('info', '  Claiming rBTC on RSK...');
-					const err = await claimRbtcOnRsk({ preimageHex, amount: claimDetails.amount, claimAddress: swaps[idx].lockupClaimAddress || rskAddress, refundAddress: claimDetails.refundAddress, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
+					const err = await claimRbtcOnRsk({ preimageHex, amount: claimDetails.amount, claimAddress: claimAddr, refundAddress: refundAddr, timelock: claimDetails.timeoutBlockHeight, sourceConnectedWalletId: null });
 					if (err) throw err;
 					swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: 'rBTC claimed on RSK!' } };
 					log('success', '  rBTC claimed!');
@@ -339,7 +356,7 @@
 		} catch (err) { log('error', `Scan failed: ${(err as Error).message}`); } finally { scanning = false; }
 	}
 
-	async function handleRefund(lockup: UnclaimedLockup) {
+ 	async function handleRefund(lockup: UnclaimedLockup) {
 		refundingTxHash = lockup.txHash; refundResults[lockup.txHash] = { ok: false, msg: 'Refunding...' };
 		log('info', `Refunding ${lockup.amountSats} sats...`);
 		try {
@@ -348,6 +365,82 @@
 			refundResults[lockup.txHash] = { ok: true, msg: `TX: ${txHash}` };
 			log('success', `Refund TX: ${txHash}`);
 		} catch (err) { refundResults[lockup.txHash] = { ok: false, msg: (err as Error).message }; log('error', `Refund failed: ${(err as Error).message}`); } finally { refundingTxHash = null; }
+	}
+
+	// ── Refund RBTC from Boltz EtherSwap on RSK ──────────────────────
+	// Queries Blockscout by preimageHash (topic1) to find the Lockup event,
+	// then calls EtherSwap.refund(preimageHash, claimAddress, timelock).
+	async function handleRefundRSK(row: SwapRow) {
+		const idx = swaps.findIndex((s) => s.swapId === row.swapId);
+		if (idx < 0) return;
+		swaps[idx] = { ...swaps[idx], recovering: true, recoverResult: null };
+		log('info', `Refunding RBTC for swap ${row.swapId}...`);
+
+		try {
+			const preimage = swaps[idx].preimage;
+			if (!preimage) throw new Error('No preimage available — cannot refund without it');
+
+			const { ethers } = await import('ethers');
+			const preimageHash = ethers.sha256('0x' + preimage);
+			log('info', `  PreimageHash: ${preimageHash.slice(0, 18)}...`);
+
+			// Query Blockscout for Lockup event by preimageHash (topic1)
+			const lockupUrl = `${BLOCKSCOUT_API_BASE}?module=logs&action=getLogs&address=${ETHERSWAP_ADDRESS}&topic0=${LOCKUP_TOPIC}&topic1=${preimageHash}&topic0_1_opr=and&fromBlock=0&toBlock=latest`;
+			log('info', '  Querying Blockscout for Lockup event...');
+			const lockupResp = await fetch(lockupUrl);
+			const lockupData = (await lockupResp.json()) as { result?: Array<{ topics: string[]; data: string; blockNumber: string; transactionHash: string }> };
+
+			if (!lockupData.result || lockupData.result.length === 0) {
+				throw new Error('No Lockup event found on RSK for this preimageHash. The lockup may never have been created.');
+			}
+
+			const event = lockupData.result[0];
+			const dataHex = event.data;
+
+			// Parse event data: amount (uint256) + claimAddress (address, padded) + timelock (uint256)
+			const amount = BigInt('0x' + dataHex.slice(2, 66));
+			const claimAddress = '0x' + dataHex.slice(90, 130);
+			const timelock = Number(BigInt('0x' + dataHex.slice(130, 194)));
+			const lockupBlock = parseInt(event.blockNumber, 16);
+
+			log('info', `  Lockup found: ${ethers.formatEther(amount)} RBTC | claim: ${claimAddress.slice(0, 14)}... | timelock: ${timelock} | block: ${lockupBlock}`);
+
+			// Check if already claimed
+			const claimUrl = `${BLOCKSCOUT_API_BASE}?module=logs&action=getLogs&address=${ETHERSWAP_ADDRESS}&topic0=${CLAIM_TOPIC}&topic1=${preimageHash}&topic0_1_opr=and&fromBlock=0&toBlock=latest`;
+			const claimResp = await fetch(claimUrl);
+			const claimData = (await claimResp.json()) as { result?: Array<unknown> };
+			if (Array.isArray(claimData.result) && claimData.result.length > 0) {
+				throw new Error('Already claimed — Boltz took the RBTC using the preimage');
+			}
+
+			// Check timelock
+			const rskProvider = new ethers.JsonRpcProvider('https://public-node.rsk.co');
+			const currentBlock = await rskProvider.getBlockNumber();
+			log('info', `  Current RSK block: ${currentBlock} | Timelock: ${timelock}`);
+
+			if (currentBlock < timelock) {
+				const blocksLeft = timelock - currentBlock;
+				const minutesLeft = Math.ceil((blocksLeft * 30) / 60);
+				throw new Error(`Timelock not expired — ~${minutesLeft}m remaining (${blocksLeft} blocks). Wait until block ${timelock}.`);
+			}
+
+			// Encode and send refund TX
+			const calldata = encodeEtherSwapRefund(preimageHash, claimAddress, timelock);
+			log('info', `  Sending refund to ${ETHERSWAP_ADDRESS.slice(0, 14)}...`);
+			const txHash = await sendRawTransaction({
+				to: ETHERSWAP_ADDRESS,
+				data: calldata,
+				value: '0',
+				chain: 'rsk'
+			});
+
+			swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: true, msg: `Refund TX: ${txHash}` } };
+			log('success', `Refund sent! TX: ${txHash}`);
+			log('info', `View: https://rootstock.blockscout.com/tx/${txHash}`);
+		} catch (err) {
+			swaps[idx] = { ...swaps[idx], recovering: false, recoverResult: { ok: false, msg: (err as Error).message } };
+			log('error', `Refund failed: ${(err as Error).message}`);
+		}
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────
@@ -481,7 +574,14 @@
 									{:else if row.boltzStatus === 'transaction.claimed' || row.boltzStatus === 'invoice.settled' || row.boltzStatus === 'invoice.paid'}
 										<span class="badge badge-success badge-sm">Recovered</span>
 									{:else if row.boltzStatus === 'transaction.refunded'}
-										<span class="badge badge-ghost badge-sm">Refunded</span>
+										<span class="badge badge-ghost badge-sm mr-2">Boltz Refunded</span>
+										<button class="btn btn-warning btn-sm" disabled={row.recovering} onclick={() => handleRefundRSK(row)}>
+											{#if row.recovering}
+												<span class="loading loading-spinner loading-xs"></span> Refunding...
+											{:else}
+												Refund RBTC
+											{/if}
+										</button>
 									{/if}
 									{#if row.boltzTransactionId}
 										<a href="https://arbiscan.io/tx/{row.boltzTransactionId}" target="_blank" rel="noopener noreferrer" class="link link-primary text-xs ml-auto">View Lockup TX ↗</a>
@@ -494,7 +594,9 @@
 								{#if row.recoverResult}
 									<div class="mt-2 rounded-lg p-3 text-sm {row.recoverResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}">
 										{row.recoverResult.msg}
-										{#if row.recoverResult.txHash}<a href="https://arbiscan.io/tx/{row.recoverResult.txHash}" target="_blank" rel="noopener noreferrer" class="link ml-2 text-xs">View TX ↗</a>{/if}
+										{#if row.recoverResult.txHash}
+											<a href={row.recoverResult.msg.includes('Refund') ? `https://rootstock.blockscout.com/tx/${row.recoverResult.txHash}` : `https://arbiscan.io/tx/${row.recoverResult.txHash}`} target="_blank" rel="noopener noreferrer" class="link ml-2 text-xs">View TX ↗</a>
+										{/if}
 									</div>
 								{/if}
 							</div>

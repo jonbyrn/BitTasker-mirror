@@ -213,8 +213,19 @@ async function executeTbtcToRbtcSwap(
 			swapResult.claimAddress,
 			swapResult.timeoutBlockHeight
 		);
-		// Send 0.001 ETH (~$3) to cover Boltz's Arbitrum claim gas
-		const prepayWei = 1_000_000_000_000_000n; // 0.001 ETH
+		// Send ETH to cover Boltz's Arbitrum claim gas.
+		// Dynamic: use current gas price × 21000 (simple transfer) × 2 (safety margin)
+		// Minimum 0.001 ETH, maximum 0.01 ETH
+		const { ethers: ethersModule } = await getEthers();
+		const arbProvider = new ethersModule.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+		const feeData = await arbProvider.getFeeData();
+		const gasPrice = feeData.gasPrice ?? 100_000_000n; // 0.1 gwei fallback
+		const dynamicPrepay = gasPrice * 21000n * 2n; // simple transfer gas × 2 safety
+		const prepayWei = dynamicPrepay < 1_000_000_000_000_000n
+			? 1_000_000_000_000_000n // min 0.001 ETH
+			: dynamicPrepay > 10_000_000_000_000_000n
+				? 10_000_000_000_000_000n // max 0.01 ETH
+				: dynamicPrepay;
 		d.log(
 			'[executeTbtcToRbtcSwap] Step 2: calling ERC20Swap.lockPrepayMinerfee() on %s amount=%s prepay=%s wei',
 			lockupContract,

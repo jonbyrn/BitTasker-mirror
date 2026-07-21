@@ -206,9 +206,9 @@ async function buildBoltzFirstRoute(
 		return null;
 	}
 
-	// Hop 2: Try ALL providers, return the cheapest (highest output)
+	// Hop 2: Try ALL providers, return the cheapest (lowest total cost = gas + fee)
 	let bestRoute: Route | null = null;
-	let bestOutput = 0;
+	let bestTotalCost = Infinity;
 
 	for (const providerName of hop2ProviderNames) {
 		if (signal?.aborted) return bestRoute;
@@ -263,8 +263,23 @@ async function buildBoltzFirstRoute(
 
 		const route = composeTwoHopRoute(routeId, routeLabel, hop1, hop2, amountSats, hop2OutputSats);
 
-		if (hop2OutputSats > bestOutput) {
-			bestOutput = hop2OutputSats;
+		// Calculate total cost: gas (in sats) + bridge fee (in sats)
+		// This ensures expensive aggregators (Symbiosis ~0.0064 ETH gas) don't
+		// beat cheaper DEX swaps (Uniswap V3 ~0.000006 ETH gas) just because
+		// they have slightly higher output.
+		const gasSats = route.gasCostWei
+			? (() => { try { return Number(BigInt(route.gasCostWei) / 10_000_000_000n); } catch { return 0; } })()
+			: 0;
+		const bridgeFeeSats = Math.round((amountSats * route.totalFeePercent) / 100);
+		const totalCost = gasSats + bridgeFeeSats;
+
+		debug.log(
+			'Hop2 %s: output=%d sats, gas=%d sats, bridgeFee=%d sats, totalCost=%d sats',
+			providerName, hop2OutputSats, gasSats, bridgeFeeSats, totalCost
+		);
+
+		if (totalCost < bestTotalCost) {
+			bestTotalCost = totalCost;
 			bestRoute = route;
 		}
 	}

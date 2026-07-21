@@ -27,10 +27,10 @@ describe('gasless.config', () => {
 			expect(ARBITRUM_CHAIN_ID).toBe(42161);
 		});
 		it('has correct EntryPoint v0.8 address', () => {
-			expect(ENTRY_POINT_ADDRESS).toBe('0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108');
+			expect(ENTRY_POINT_ADDRESS).toBe('0x433709009B8330FDa32311DF1C2AFA402eD8D009');
 		});
 		it('has correct Simple7702Account implementation address', () => {
-			expect(SIMPLE_7702_ACCOUNT_IMPL).toBe('0xe6Cae83BdE06E4c305530e199D7217f42808555B');
+			expect(SIMPLE_7702_ACCOUNT_IMPL).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
 		});
 	});
 
@@ -132,13 +132,13 @@ describe('gasless.config', () => {
 			const key = WBTC_ADDRESS.toLowerCase();
 			expect(FEE_BUFFER_MAX[key]).toBe(230n);
 		});
-		it('tBTC min is $0.01 (18 decimals)', () => {
+		it('tBTC min is ≈$0.01 (18 decimals)', () => {
 			const key = TBTC_ADDRESS.toLowerCase();
-			expect(FEE_BUFFER_MIN[key]).toBe(10_000_000_000_000_000n);
+			expect(FEE_BUFFER_MIN[key]).toBe(150_000_000_000n);
 		});
-		it('tBTC max is $0.15 (18 decimals)', () => {
+		it('tBTC max is ≈$0.16 (18 decimals)', () => {
 			const key = TBTC_ADDRESS.toLowerCase();
-			expect(FEE_BUFFER_MAX[key]).toBe(150_000_000_000_000_000n);
+			expect(FEE_BUFFER_MAX[key]).toBe(2_500_000_000_000n);
 		});
 		it('min < max for all tokens', () => {
 			for (const key of ALLOWED_FEE_TOKENS) {

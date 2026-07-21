@@ -63,6 +63,7 @@ export async function sendArbitrumTransaction(params: {
 	data: string;
 	value: string;
 	gasLimit?: number;
+	feeToken?: string;
 }): Promise<string> {
 	// --- Gasless path (smart account via ERC-4337 relay) ---
 	try {
@@ -70,26 +71,104 @@ export async function sendArbitrumTransaction(params: {
 		const { get } = await import('svelte/store');
 
 		if (get(walletReady)) {
-			const { USDT0_ADDRESS } = await import('$lib/wallet/gasless.config');
-			const feeToken = USDT0_ADDRESS;
-
-			// Estimate fee via backend /gasless/estimate (returns accurate tier-based buffer)
-			const estimate = await estimateFee(feeToken, 1n, params.to);
-			const feeBuffer = BigInt(estimate.feeBuffer);
+			const { TOKENS } = await import('$lib/wallet/gasless.config');
 
 			const callValue = params.value ? BigInt(params.value) : 0n;
-			// Add 30s timeout to gasless relay — if it hangs, fall through to direct tx
+
+			// If a preferred fee token is provided (e.g., tBTC when claiming),
+			// use it directly — the claim produces the tokens atomically in the
+			// same executeBatch, so no pre-existing balance is needed.
+			if (params.feeToken) {
+				const estimate = await estimateFee(params.feeToken, 1n, params.to);
+				const feeBuffer = BigInt(estimate.feeBuffer);
+				const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === params.feeToken!.toLowerCase());
+				console.log(`[sendArbitrumTransaction] Using preferred fee token ${tokenInfo?.symbol ?? params.feeToken}, feeBuffer=${feeBuffer}`);
+
+				const txHash = await Promise.race([
+					sendGaslessCalls(
+						[{ to: params.to, data: params.data, value: callValue }],
+						params.feeToken,
+						feeBuffer,
+						estimate.estimatedGas
+					),
+					new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
+					)
+				]);
+
+				console.log(`[sendArbitrumTransaction] Gasless relay succeeded with preferred ${tokenInfo?.symbol ?? params.feeToken} fee`);
+				await Promise.allSettled([loadAssets(), loadTransactions()]);
+				return txHash;
+			}
+
+			// No preferred token — scan all allowed fee token balances
+			const { queryERC20Balance } = await import('$lib/services/swap-chain/tx-helpers');
+			const { gaslessWallet } = await import('$lib/wallet/gasless-store');
+			const walletState = get(gaslessWallet);
+			const sender = walletState.address;
+			if (!sender) throw new Error('Gasless wallet address not available');
+
+			// Check all allowed fee token balances in parallel
+			const balanceChecks = await Promise.all(
+				TOKENS.map(async (token) => {
+					const balance = await queryERC20Balance(token.address, sender, 'arbitrum');
+					return { token: token.address, symbol: token.symbol, balance: balance ?? 0n };
+				})
+			);
+
+			// Sort by balance descending — prefer the token the user has the most of
+			const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
+
+			// Try with fee buffer first (user has tokens)
+			if (sorted.length > 0) {
+				let lastErr: Error | null = null;
+				for (const { token: feeToken, symbol } of sorted) {
+					try {
+						const estimate = await estimateFee(feeToken, 1n, params.to);
+						const feeBuffer = BigInt(estimate.feeBuffer);
+
+						const tokenBalance = sorted.find((b) => b.token === feeToken)?.balance ?? 0n;
+						if (tokenBalance < feeBuffer) {
+							console.log(`[sendArbitrumTransaction] Insufficient ${symbol} for fee buffer: have ${tokenBalance}, need ${feeBuffer}`);
+							continue;
+						}
+
+						const txHash = await Promise.race([
+							sendGaslessCalls(
+								[{ to: params.to, data: params.data, value: callValue }],
+								feeToken,
+								feeBuffer,
+								estimate.estimatedGas
+							),
+							new Promise<never>((_, reject) =>
+								setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
+							)
+						]);
+
+						console.log(`[sendArbitrumTransaction] Gasless relay succeeded with ${symbol} fee`);
+						await Promise.allSettled([loadAssets(), loadTransactions()]);
+						return txHash;
+					} catch (err) {
+						lastErr = err instanceof Error ? err : new Error(String(err));
+						console.warn(`[sendArbitrumTransaction] Gasless relay with ${symbol} failed:`, lastErr.message);
+						continue;
+					}
+				}
+			}
+
+			// No fee tokens or all fee attempts failed — send without fee buffer.
+			// The paymaster still sponsors ETH gas; the treasury absorbs the token cost.
+			console.log('[sendArbitrumTransaction] No fee token balance — sending gasless without fee buffer');
 			const txHash = await Promise.race([
 				sendGaslessCalls(
-					[{ to: params.to, data: params.data, value: callValue }],
-					feeToken,
-					feeBuffer
+					[{ to: params.to, data: params.data, value: callValue }]
 				),
 				new Promise<never>((_, reject) =>
 					setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
 				)
 			]);
 
+			console.log('[sendArbitrumTransaction] Gasless relay succeeded (no fee buffer)');
 			await Promise.allSettled([loadAssets(), loadTransactions()]);
 			return txHash;
 		}

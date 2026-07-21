@@ -335,7 +335,8 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 			const tbtcFormatted = parseFloat(arbTbtcBalance.formattedBalance || '0');
 			if (tbtcFormatted > 0) {
 				const tbtcUsdValue = tbtcFormatted * (btcPriceResult ?? 0);
-				totalRbtc += tbtcFormatted;
+				// Note: tBTC is NOT added to totalRbtc — it's a separate Arbitrum asset.
+				// totalRbtc only tracks Rootstock rBTC for accurate chain-specific balance.
 				totalUsd += tbtcUsdValue;
 
 				walletStore.update((s) => ({

@@ -59,8 +59,8 @@ export const BLOCKSCOUT_API_BASE = 'https://rootstock.blockscout.com/api';
 
 // ─── Polling timeouts ──────────────────────────────────────────────
 
-/** Max wait time for Boltz chain swap completion (15 minutes) */
-export const BOLTZ_MAX_WAIT_MS = 900_000;
+/** Max wait time for Boltz chain swap completion (30 minutes) */
+export const BOLTZ_MAX_WAIT_MS = 1_800_000;
 
 /** Max wait time for Changelly swap completion (10 minutes) */
 export const CHANGELLY_MAX_WAIT_MS = 600_000;

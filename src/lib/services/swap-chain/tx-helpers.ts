@@ -209,6 +209,11 @@ export interface EvmTxParams {
 	chain: 'rsk' | 'arbitrum' | 'bsc';
 	gasLimit?: number;
 	sourceConnectedWalletId?: string | null;
+	/** Preferred fee token for gasless relay (e.g., tBTC when claiming tBTC).
+	 *  When set, the relay uses this token for the fee buffer instead of
+	 *  scanning the user's balance. This enables atomic claim+fee where
+	 *  the claim produces the tokens that pay the fee in the same tx. */
+	feeToken?: string;
 }
 
 /**
@@ -224,7 +229,7 @@ export interface EvmTxParams {
 export async function sendEvmTransaction(
 	params: EvmTxParams
 ): Promise<{ data: string | null; error: Error | null }> {
-	const { to, data, value, chain, gasLimit = GAS_LIMIT_RSK, sourceConnectedWalletId } = params;
+	const { to, data, value, chain, gasLimit = GAS_LIMIT_RSK, sourceConnectedWalletId, feeToken } = params;
 	const safeTo = safeAddress(to);
 	d.log(
 		'[sendEvmTransaction] START chain=%s to=%s safeTo=%s value=%s dataLen=%d connected=%s',
@@ -258,7 +263,7 @@ export async function sendEvmTransaction(
 			if (chain === 'arbitrum') {
 				// Use gasless relay for Arbitrum connected wallet transactions
 				d.log('[sendEvmTransaction] Calling sendConnectedWalletArbitrumTx...');
-				txHash = await sendConnectedWalletArbitrumTx(evmSigner, safeTo, data, String(value));
+				txHash = await sendConnectedWalletArbitrumTx(evmSigner, safeTo, data, String(value), feeToken);
 				d.log('[sendEvmTransaction] sendConnectedWalletArbitrumTx done:', txHash);
 			} else {
 				const chainId = chain === 'rsk' ? CHAIN_ID_RSK : CHAIN_ID_BSC;
@@ -281,7 +286,8 @@ export async function sendEvmTransaction(
 					to: safeTo,
 					data,
 					value: String(value),
-					gasLimit
+					gasLimit,
+					feeToken
 				});
 			} else {
 				d.log('[sendEvmTransaction] Calling sendRawTransaction (built-in RSK/BSC)...');
@@ -345,34 +351,102 @@ export async function sendEvmTransaction(
  * Send an Arbitrum transaction from a connected wallet, trying gasless first.
  *
  * If the gasless relay is available and the user has a JWT, wraps the call
- * in `sendGaslessCalls()` (executeBatch with fee buffer). Falls back to
- * direct `evmSigner.sendTransaction()` if gasless fails or is unavailable.
+ * in `sendGaslessCalls()` (executeBatch with fee buffer). The fee token is
+ * dynamically selected based on whichever token the user already holds —
+ * this prevents the executeBatch from reverting when the user has no balance
+ * in a hardcoded fee token (e.g., USDT0).
+ *
+ * Falls back to direct `evmSigner.sendTransaction()` if gasless fails or is unavailable.
  */
 export async function sendConnectedWalletArbitrumTx(
 	evmSigner: EVMSigner,
 	to: string,
 	data: string,
-	value?: string | bigint
+	value?: string | bigint,
+	preferredFeeToken?: string
 ): Promise<string> {
 	// Try gasless relay first
 	try {
-		const { sendGaslessCalls } = await import('$lib/wallet/gasless-store');
+		const { sendGaslessCalls, gaslessWallet } = await import('$lib/wallet/gasless-store');
 		const { estimateFee } = await import('$lib/wallet/gasless-store');
-		const { USDT0_ADDRESS } = await import('$lib/wallet/gasless.config');
-		const feeToken = USDT0_ADDRESS;
+		const { TOKENS } = await import('$lib/wallet/gasless.config');
 
-		// Estimate fee via backend /gasless/estimate (returns accurate tier-based buffer)
-		const estimate = await estimateFee(feeToken, 1n, to);
-		const feeBuffer = BigInt(estimate.feeBuffer);
+		// Get the smart account address for balance checks
+		const state = get(gaslessWallet);
+		if (!state.ready || !state.address) {
+			throw new Error('Gasless wallet not initialized');
+		}
+		const sender = state.address;
 		const callValue = value ? BigInt(value) : 0n;
 
-		const txHash = await sendGaslessCalls(
-			[{ to, data, value: callValue }],
-			feeToken,
-			feeBuffer
+		// If a preferred fee token is provided (e.g., tBTC when claiming),
+		// use it directly — the claim produces the tokens atomically in the
+		// same executeBatch, so no pre-existing balance is needed.
+		if (preferredFeeToken) {
+			const estimate = await estimateFee(preferredFeeToken, 1n, to);
+			const feeBuffer = BigInt(estimate.feeBuffer);
+			const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === preferredFeeToken.toLowerCase());
+			d.log('Using preferred fee token %s (%s), feeBuffer=%s', tokenInfo?.symbol ?? preferredFeeToken, preferredFeeToken, feeBuffer.toString());
+
+			const txHash = await sendGaslessCalls(
+				[{ to, data, value: callValue }],
+				preferredFeeToken,
+				feeBuffer,
+				estimate.estimatedGas
+			);
+			d.log('Connected wallet Arbitrum tx via gasless (preferred fee in %s): %s', tokenInfo?.symbol ?? preferredFeeToken, txHash.substring(0, 16));
+			return txHash;
+		}
+
+		// No preferred token — scan all allowed fee token balances
+		const balanceChecks = await Promise.all(
+			TOKENS.map(async (token) => {
+				const balance = await queryERC20Balance(token.address, sender, 'arbitrum');
+				return { token: token.address, symbol: token.symbol, balance: balance ?? 0n };
+			})
 		);
-		d.log('Connected wallet Arbitrum tx via gasless: %s', txHash.substring(0, 16));
-		return txHash;
+
+		// Sort by balance descending — prefer the token the user has the most of
+		const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
+
+		if (sorted.length === 0) {
+			d.log('No fee token balance found for %s, falling back to direct tx', sender);
+			throw new Error('No token balance for gasless fee');
+		}
+
+		// Try each token the user holds, starting with the largest balance
+		let lastErr: Error | null = null;
+		for (const { token: feeToken, symbol } of sorted) {
+			try {
+				const estimate = await estimateFee(feeToken, 1n, to);
+				const feeBuffer = BigInt(estimate.feeBuffer);
+
+				// Check if balance covers the fee
+				const tokenBalance = sorted.find((b) => b.token === feeToken)?.balance ?? 0n;
+				if (tokenBalance < feeBuffer) {
+					d.log('Insufficient %s for fee buffer: have %s, need %s', symbol, tokenBalance.toString(), feeBuffer.toString());
+					continue;
+				}
+
+				const callValue = value ? BigInt(value) : 0n;
+				const txHash = await sendGaslessCalls(
+					[{ to, data, value: callValue }],
+					feeToken,
+					feeBuffer,
+					estimate.estimatedGas
+				);
+				d.log('Connected wallet Arbitrum tx via gasless (fee in %s): %s', symbol, txHash.substring(0, 16));
+				return txHash;
+			} catch (err) {
+				lastErr = err instanceof Error ? err : new Error(String(err));
+				d.warn('Gasless relay with %s failed: %s', symbol, lastErr.message);
+				continue;
+			}
+		}
+
+		// All fee tokens exhausted
+		if (lastErr) throw lastErr;
+		throw new Error('No suitable fee token found');
 	} catch (gaslessErr) {
 		d.warn('Gasless relay failed for connected wallet, falling back to direct: %s', gaslessErr);
 	}

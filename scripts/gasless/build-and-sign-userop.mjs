@@ -42,7 +42,7 @@ const { values } = parseArgs({
     'private-key': { type: 'string' },
     'rpc-url':   { type: 'string' },
     paymaster:   { type: 'string' },
-    entrypoint:  { type: 'string', default: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' },
+    entrypoint:  { type: 'string', default: '0x433709009B8330FDa32311DF1C2AFA402eD8D009' },
     reset:       { type: 'boolean', default: false },
     chain:       { type: 'string', default: 'sepolia' },
   },

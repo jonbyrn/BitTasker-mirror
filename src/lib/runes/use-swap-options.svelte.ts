@@ -120,9 +120,12 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 	// proxy to ensure Svelte 5's reactivity propagates reliably.
 	let connectedWalletsList = $state<ConnectedWalletEntry[]>(get(connectedWalletsStore).wallets);
 
-	// Dedicated $state for totalBalances.sats. Svelte 5's $derived doesn't
-	// re-track nested access when the parent proxy is replaced.
-	let builtinRbtcSatsState = $state(walletSnap.totalBalances?.sats ?? 0);
+	// Dedicated $state for RSK rBTC balance (in sats).
+	// Uses rsk.formattedBalance (chain-specific) instead of totalBalances.sats
+	// which previously included tBTC on Arbitrum, inflating the RSK balance.
+	let builtinRbtcSatsState = $state(
+		Math.round(parseFloat(walletSnap.rsk?.formattedBalance || '0') * 100_000_000)
+	);
 
 	// Dedicated $state for token balances — subscription callbacks run outside
 	// the reactive graph, so mutations to walletSnap.arb don't trigger $derived.
@@ -153,7 +156,7 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 				walletSnap.transactions = v.transactions;
 				walletSnap.error = v.error;
 				walletSnap.rbtcRateError = v.rbtcRateError;
-				const sats = v.totalBalances?.sats ?? 0;
+				const sats = Math.round(parseFloat(v.rsk?.formattedBalance || '0') * 100_000_000);
 				if (sats !== builtinRbtcSatsState) builtinRbtcSatsState = sats;
 				// Update dedicated $state vars for token balances (subscription runs
 				// outside reactive graph; direct walletSnap.arb mutations don't trigger $derived)

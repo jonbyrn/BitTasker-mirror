@@ -44,7 +44,8 @@ export async function claimTbtcOnArbitrum(params: {
 		calldata,
 		gasLimit: GAS_LIMIT_ARB_CLAIM,
 		sourceConnectedWalletId: params.sourceConnectedWalletId,
-		logLabel: 'tBTC-on-Arbitrum'
+		logLabel: 'tBTC-on-Arbitrum',
+		feeToken: params.tokenAddress
 	});
 }
 

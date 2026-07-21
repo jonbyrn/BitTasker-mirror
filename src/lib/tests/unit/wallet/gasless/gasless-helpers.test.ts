@@ -58,7 +58,7 @@ vi.mock('$lib/wallet/gasless.config', () => {
 		'0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40': 150_000_000_000_000_000n // tBTC (18 decimals): $0.15
 	};
 	return {
-		ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+		ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
 		USDT0_ADDRESS: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 		WBTC_ADDRESS: '0x2f2a2543B76A4166549F7aa2e75Bef0aefC5B0f',
 		TBTC_ADDRESS: '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40',
@@ -97,7 +97,7 @@ vi.mock('$lib/wallet/gasless.config', () => {
 				}
 			},
 			treasury: process.env['GAS_TREASURY'] ?? '',
-			entryPointAddress: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+			entryPointAddress: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
 			chainId: BigInt(42161),
 			altoUrls: ['http://alto-1:3000', 'http://alto-2:3000'],
 			chainlinkFeeds: {

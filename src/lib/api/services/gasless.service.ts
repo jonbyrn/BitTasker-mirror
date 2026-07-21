@@ -38,6 +38,22 @@ export interface RelayResponse {
 	userOpHash: string;
 }
 
+/** POST /gasless/prepare response */
+export interface PrepareResponse {
+	paymasterAndData: string;
+}
+
+/** POST /gasless/simulate response */
+export interface SimulateResponse {
+	success: boolean;
+	error?: string;
+	gasEstimate?: {
+		callGasLimit: string;
+		verificationGasLimit: string;
+		preVerificationGas: string;
+	};
+}
+
 /** POST /gasless/estimate request body */
 export interface EstimateRequest {
 	token: string;
@@ -114,6 +130,25 @@ export class GaslessService extends BaseApiService {
 	 */
 	async relay(dto: RelayRequest): Promise<RelayResponse> {
 		const response = await this.post<RelayResponse>(ENDPOINTS.GASLESS.RELAY, dto);
+		return response.data;
+	}
+
+	/**
+	 * Prepare paymaster data for a UserOp BEFORE signing.
+	 * Returns paymasterAndData that the frontend must include in the UserOp
+	 * hash computation so the signature matches what the EntryPoint validates.
+	 */
+	async prepare(dto: RelayRequest): Promise<PrepareResponse> {
+		const response = await this.post<PrepareResponse>(ENDPOINTS.GASLESS.PREPARE, dto);
+		return response.data;
+	}
+
+	/**
+	 * Simulate a UserOperation against the bundler WITHOUT submitting it.
+	 * Used for pre-flight checks before locking funds in Boltz swaps.
+	 */
+	async simulate(dto: RelayRequest): Promise<SimulateResponse> {
+		const response = await this.post<SimulateResponse>(ENDPOINTS.GASLESS.SIMULATE, dto);
 		return response.data;
 	}
 

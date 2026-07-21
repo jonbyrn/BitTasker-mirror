@@ -95,8 +95,13 @@ export const symbiosisProvider: SwapProvider = {
 		// Parse Symbiosis bridge fee.
 		// quote.fee can be a number/string (raw amount in output decimals) OR an object
 		// like { amount: '750000', decimals: 6, symbol: 'USD₮0' } for cross-chain routes.
+		// IMPORTANT: quote.fee is the bridge/LP service fee, NOT the on-chain gas cost.
+		// It must be stored as bridgeFeeUsd, never as gasCostWei.
 		let bridgeFeeUsd = 0;
 		let gasCostWei: string | undefined;
+		// USD values for cross-currency cost comparison.
+		// amountInUsd from Symbiosis API is in micro-USD (6 decimals).
+		let inputValueUsd = 0
 		if (quote.fee) {
 			if (typeof quote.fee === 'object' && quote.fee !== null && 'amount' in quote.fee) {
 				// Object format: fee is in a stablecoin (USDT0). Convert micro-units → USD.
@@ -112,21 +117,34 @@ export const symbiosisProvider: SwapProvider = {
 					);
 				}
 			} else {
-				// Numeric format: raw amount in output token decimals. Convert to wei.
+				// Numeric format: raw amount in output token decimals.
+				// This is the bridge/LP fee, NOT gas. Convert to USD for cost comparison.
 				try {
-					const feeRaw = BigInt(quote.fee as string | number | bigint);
-					const weiScale = BigInt(10) ** BigInt(18 - to.decimals);
-					gasCostWei = (feeRaw * weiScale).toString();
-					debug.log('Symbiosis fee raw: %s → gasCostWei=%s', quote.fee, gasCostWei);
+					const feeRaw = Number(quote.fee);
+					if (isFinite(feeRaw) && feeRaw > 0) {
+						// Convert from output token's smallest unit to USD
+						// For stablecoins (6 decimals): raw / 1e6 = USD
+						// For BTC-tokens (8/18 decimals): raw / 10^decimals * btcPrice
+						if (to.decimals === 6) {
+							bridgeFeeUsd = feeRaw / 10 ** to.decimals;
+						} else {
+							// BTC-denominated: convert via input value ratio
+							bridgeFeeUsd = inputValueUsd > 0
+								? (feeRaw / (Number(quote.tokenAmountOut.amount) || 1)) * inputValueUsd
+								: 0;
+						}
+						debug.log(
+							'Symbiosis fee raw: %s → bridgeFeeUsd=$%s',
+							quote.fee,
+							bridgeFeeUsd.toFixed(6)
+						);
+					}
 				} catch (_e) {
 					debug.warn('Failed to parse Symbiosis fee: %s', quote.fee);
 				}
 			}
 		}
-
-		// USD values for cross-currency cost comparison.
-		// amountInUsd from Symbiosis API is in micro-USD (6 decimals).
-		let inputValueUsd = 0;
+;
 		if (quote.amountInUsd?.amount) {
 			const raw = Number(quote.amountInUsd.amount);
 			if (isFinite(raw) && raw > 0) {
@@ -152,13 +170,16 @@ export const symbiosisProvider: SwapProvider = {
 		// Cap outputSats at inputSats — never show "profit" from price feed rounding.
 		const outputSats = Math.min(rawOutputSats, amountSats);
 
-		// Estimate on-chain gas for Symbiosis cross-chain swaps.
-		// Symbiosis submits on RSK (for RBTC dest) or Arbitrum (for ARB dest).
-		// Contract interaction: ~150k gas. RSK: 65 gwei. Arb: 0.03 gwei.
+		// Estimate on-chain gas for Symbiosis swaps.
+		// Symbiosis router is a complex aggregator: ~6.4M gas on Arbitrum.
+		// This is much higher than simple DEX swaps (~150-200K gas).
+		// Use realistic estimates so route ranking can compare fairly.
 		if (!gasCostWei && to.chain === 'rsk') {
-			gasCostWei = (150_000n * 65_000_000n).toString(); // 9.75M wei ≈ 0.975 sats
+			gasCostWei = (6_400_000n * 65_000_000n).toString(); // ~416M wei ≈ 41.6 sats
 		} else if (!gasCostWei && to.chain === 'arbitrum') {
-			gasCostWei = (150_000n * 30_000_000n).toString(); // 4.5M wei
+			gasCostWei = (6_400_000n * 1_000_000_000n).toString(); // 6.4B wei ≈ 0.0064 ETH
+		} else if (!gasCostWei) {
+			gasCostWei = (6_400_000n * 1_000_000_000n).toString(); // conservative fallback
 		}
 
 		// For stablecoin outputs (USDT0, USDC), raw / 10^decimals = USD.

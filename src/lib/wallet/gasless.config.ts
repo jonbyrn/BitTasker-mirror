@@ -18,8 +18,8 @@ import { ARB_TOKEN_ADDRESSES } from '@bittasker/wallet-core';
 // =============================================================================
 
 export const ARBITRUM_CHAIN_ID = 42161;
-export const ENTRY_POINT_ADDRESS = '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108' as const;
-export const SIMPLE_7702_ACCOUNT_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B' as const;
+export const ENTRY_POINT_ADDRESS = '0x433709009B8330FDa32311DF1C2AFA402eD8D009' as const;
+export const SIMPLE_7702_ACCOUNT_IMPL = '0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e' as const;
 
 /** Canonical Arbitrum token addresses — single source of truth from SDK */
 export const USDT0_ADDRESS = ARB_TOKEN_ADDRESSES.USDT0;
@@ -81,13 +81,13 @@ export const FEE_TIERS: FeeTierDef[] = [
 export const FEE_BUFFER_MIN: Record<string, bigint> = {
 	[USDT0_ADDRESS.toLowerCase()]: 10_000n,
 	[WBTC_ADDRESS.toLowerCase()]: 16n,
-	[TBTC_ADDRESS.toLowerCase()]: 10_000_000_000_000_000n
+	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000n // ≈ $0.01 at $65K BTC
 };
 
 export const FEE_BUFFER_MAX: Record<string, bigint> = {
 	[USDT0_ADDRESS.toLowerCase()]: 150_000n,
 	[WBTC_ADDRESS.toLowerCase()]: 230n,
-	[TBTC_ADDRESS.toLowerCase()]: 150_000_000_000_000_000n
+	[TBTC_ADDRESS.toLowerCase()]: 2_500_000_000_000n // ≈ $0.16 at $65K BTC
 };
 
 // =============================================================================
@@ -96,15 +96,18 @@ export const FEE_BUFFER_MAX: Record<string, bigint> = {
 
 let _configFetched = false;
 let _configFetchPromise: Promise<boolean> | null = null;
+let _configFetchTime = 0;
+const CONFIG_REFRESH_MS = 300_000; // Re-fetch every 5 minutes
 
 /**
  * Fetch gasless config from the backend and update the mutable objects in place.
- * Safe to call multiple times — only fetches once.
+ * Safe to call multiple times — only fetches once, then refreshes every 5 minutes.
  *
  * @returns true if config was fetched successfully, false if using defaults
  */
 export async function fetchGaslessConfig(): Promise<boolean> {
-	if (_configFetched) return true;
+	const now = Date.now();
+	if (_configFetched && now - _configFetchTime < CONFIG_REFRESH_MS) return true;
 	if (_configFetchPromise) return _configFetchPromise;
 
 	_configFetchPromise = _doFetch();
@@ -163,6 +166,8 @@ async function _doFetch(): Promise<boolean> {
 		}
 
 		_configFetched = true;
+		_configFetchTime = Date.now();
+		_configFetchPromise = null; // Allow future refreshes
 		console.log('[gasless] Config fetched from backend:', {
 			maxPreVerificationGas: GAS_BOUNDS.maxPreVerificationGas.toString(),
 			maxTotalGas: GAS_BOUNDS.maxTotalGas.toString(),

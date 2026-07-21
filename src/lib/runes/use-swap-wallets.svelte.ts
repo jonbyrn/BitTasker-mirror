@@ -144,9 +144,12 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 	// is updated after initial mount (e.g. from reconnectPersistedWallets).
 	let connectedWalletsList = $state<ConnectedWalletEntry[]>(get(connectedWalletsStore).wallets);
 
-	// Dedicated $state for totalBalances.sats. Svelte 5's $derived doesn't
-	// re-track nested access when the parent proxy is replaced.
-	let builtinRbtcSats = $state(walletSnap.totalBalances?.sats ?? 0);
+	// Dedicated $state for RSK rBTC balance (in sats).
+	// Uses rsk.formattedBalance (chain-specific) instead of totalBalances.sats
+	// which previously included tBTC on Arbitrum, inflating the RSK balance.
+	let builtinRbtcSats = $state(
+		Math.round(parseFloat(walletSnap.rsk?.formattedBalance || '0') * 100_000_000)
+	);
 
 	$effect(() => {
 		const unsubs: Array<() => void> = [];
@@ -162,7 +165,7 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 				walletSnap.transactions = v.transactions;
 				walletSnap.error = v.error;
 				walletSnap.rbtcRateError = v.rbtcRateError;
-				const sats = v.totalBalances?.sats ?? 0;
+				const sats = Math.round(parseFloat(v.rsk?.formattedBalance || '0') * 100_000_000);
 				if (sats !== builtinRbtcSats) builtinRbtcSats = sats;
 			})
 		);

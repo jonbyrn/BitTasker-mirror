@@ -168,6 +168,7 @@ export async function claimSwapFunds(params: {
 	gasLimit?: number;
 	sourceConnectedWalletId: string | null;
 	logLabel: string;
+	feeToken?: string;
 }): Promise<Error | null> {
 	const dClaim = createDebug(`swap-chain:${params.logLabel}`);
 	try {
@@ -184,13 +185,19 @@ export async function claimSwapFunds(params: {
 			params.sourceConnectedWalletId ?? 'builtin'
 		);
 
+		const normalizedContract = safeAddress(params.contractAddress);
+		if (!normalizedContract) {
+			return new Error(`Invalid contract address for ${params.logLabel} claim: ${params.contractAddress}`);
+		}
+
 		const { data: txHash, error: claimError } = await sendEvmTransaction({
-			to: safeAddress(params.contractAddress),
+			to: normalizedContract,
 			data: params.calldata,
 			value: 0n,
 			chain: params.chain,
 			gasLimit: params.gasLimit,
-			sourceConnectedWalletId: params.sourceConnectedWalletId
+			sourceConnectedWalletId: params.sourceConnectedWalletId,
+			feeToken: params.feeToken
 		});
 
 		if (claimError) {

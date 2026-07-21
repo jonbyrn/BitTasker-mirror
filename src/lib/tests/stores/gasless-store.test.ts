@@ -27,7 +27,12 @@ const {
 	mockValidateFeeBufferBounds,
 	mockValidateFeeRecipient,
 	mockGaslessRelay,
-	mockGaslessEstimate
+	mockGaslessEstimate,
+	mockEthersGetBalance,
+	mockEthersContractBalanceOf,
+	mockEthersGetCode,
+	mockEthersGetTransactionCount,
+	mockEthersContractGetNonce
 } = vi.hoisted(() => ({
 	mockReadContract: vi.fn(),
 	mockGetCode: vi.fn().mockResolvedValue('0x'), // No code = not yet delegated (EIP-7702)
@@ -38,7 +43,12 @@ const {
 	mockValidateFeeBufferBounds: vi.fn(),
 	mockValidateFeeRecipient: vi.fn(),
 	mockGaslessRelay: vi.fn(),
-	mockGaslessEstimate: vi.fn()
+	mockGaslessEstimate: vi.fn(),
+	mockEthersGetBalance: vi.fn().mockResolvedValue(1000000n),
+	mockEthersContractBalanceOf: vi.fn().mockResolvedValue(1000000n),
+	mockEthersGetCode: vi.fn().mockResolvedValue('0x'),
+	mockEthersGetTransactionCount: vi.fn().mockResolvedValue(0),
+	mockEthersContractGetNonce: vi.fn().mockResolvedValue(0n)
 }));
 
 // ---------------------------------------------------------------------------
@@ -60,6 +70,30 @@ vi.mock('viem/chains', () => ({
 	arbitrum: { id: 42161, name: 'Arbitrum' }
 }));
 
+// Mock ethers — override only the functions that make RPC calls.
+// ABI encoding (Interface, AbiCoder) uses real ethers.
+vi.mock('ethers', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('ethers')>();
+	class MockJsonRpcProvider {
+		getBalance = mockEthersGetBalance;
+		getCode = mockEthersGetCode;
+		getTransactionCount = mockEthersGetTransactionCount;
+	}
+	class MockContract {
+		balanceOf = mockEthersContractBalanceOf;
+		getNonce = mockEthersContractGetNonce;
+	}
+	return {
+		...actual,
+		ethers: {
+			...actual.ethers,
+			isAddress: vi.fn().mockReturnValue(true),
+			JsonRpcProvider: MockJsonRpcProvider,
+			Contract: MockContract
+		}
+	};
+});
+
 vi.mock('permissionless/accounts', () => ({
 	to7702SimpleSmartAccount: mockTo7702SimpleSmartAccount
 }));
@@ -78,7 +112,7 @@ vi.mock('$lib/wallet/gasless-helpers', () => ({
 
 // Mock gasless.config
 vi.mock('$lib/wallet/gasless.config', () => ({
-	GAS_TREASURY: '0xTreasuryAddress1234567890abcdef12',
+	GAS_TREASURY: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
 	GAS_BOUNDS: {
 		maxCallGas: 5_000_000n,
 		maxVerificationGas: 1_000_000n,
@@ -89,7 +123,7 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 	},
 	ARBITRUM_RPC_URL: 'https://arb-mainnet.g.alchemy.com/v2/test',
 	ARBITRUM_CHAIN_ID: 42161,
-	ENTRY_POINT_ADDRESS: '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+	ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
 	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
 }));
 
@@ -289,37 +323,39 @@ describe('gasless-store', () => {
 
 	describe('buildExecuteBatchCallData', () => {
 		it('throws error for empty calls array', () => {
-			expect(() => buildExecuteBatchCallData([], '0xTokenAddress', 100n)).toThrow(
+			expect(() => buildExecuteBatchCallData([], '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 100n)).toThrow(
 				'At least one user call is required'
 			);
 		});
 
 		it('returns encoded data for single call', () => {
 			const result = buildExecuteBatchCallData(
-				[{ to: '0xRecipient', data: '0xCalldata' }],
-				'0xTokenAddress',
+				[{ to: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', data: '0xa9059cbb0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000000000000000007530' }],
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				1000n
 			);
-			expect(result).toBe('0xencodeddata');
+			expect(result.startsWith('0x34fcd5be')).toBe(true); // executeBatch selector
+			expect((result.length - 2) % 2).toBe(0); // even-length hex
 		});
 
 		it('returns encoded data for multiple calls', () => {
 			const result = buildExecuteBatchCallData(
 				[
-					{ to: '0xRecipient1', data: '0xCalldata1', value: 100n },
-					{ to: '0xRecipient2', data: '0xCalldata2', value: 200n }
+					{ to: '0x6398B76DF91C5eBe9f488e3656658E79284dDc0F', data: '0xa9059cbb0000000000000000000000006398b76df91c5ebe9f488e3656658e79284ddc0f0000000000000000000000000000000000000000000000000000000000000064', value: 100n },
+					{ to: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', data: '0xa9059cbb000000000000000000000000fd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9000000000000000000000000000000000000000000000000000000000000c800', value: 200n }
 				],
-				'0xTokenAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				500n
 			);
-			expect(result).toBe('0xencodeddata');
+			expect(result.startsWith('0x34fcd5be')).toBe(true); // executeBatch selector
+			expect((result.length - 2) % 2).toBe(0); // even-length hex
 		});
 	});
 
 	// ── sendGasless ───────────────────────────────────────────────────────
 
 	describe('sendGasless', () => {
-		const mockCalls = [{ to: '0xRecipient', data: '0xCalldata' }];
+		const mockCalls = [{ to: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', data: '0xa9059cbb0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000000000000000007530' }];
 		const mockEstimatedGas = {
 			callGasLimit: 100_000n,
 			verificationGasLimit: 50_000n,
@@ -330,7 +366,7 @@ describe('gasless-store', () => {
 			await expect(
 				sendGasless(
 					mockCalls,
-					'0xTokenAddress',
+					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
 					mockEstimatedGas,
 					MOCK_SMART_ACCOUNT
@@ -359,7 +395,7 @@ describe('gasless-store', () => {
 
 			const result = await sendGasless(
 				mockCalls,
-				'0xTokenAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				1000n,
 				mockEstimatedGas,
 				MOCK_SMART_ACCOUNT
@@ -400,7 +436,7 @@ describe('gasless-store', () => {
 
 			await sendGasless(
 				mockCalls,
-				'0xTokenAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				1000n,
 				mockEstimatedGas,
 				MOCK_SMART_ACCOUNT
@@ -410,12 +446,13 @@ describe('gasless-store', () => {
 			const userOp = relayCall.userOp;
 
 			// All bigint fields must be 0x-prefixed hex (backend DTO requirement)
-			expect(userOp.nonce).toBe('0x2a');
-			expect(userOp.callGasLimit).toBe('0x4c4b40');
-			expect(userOp.verificationGasLimit).toBe('0xf4240');
-			expect(userOp.preVerificationGas).toBe('0xc350');
-			expect(userOp.maxFeePerGas).toBe('0x3b9aca00');
-			expect(userOp.maxPriorityFeePerGas).toBe('0x5f5e100');
+			// toHex() pads odd-length hex with leading zero for ethers v6 compatibility
+			expect(userOp.nonce).toBe('0x2a');         // 42 = 0x2a → padded to 0x2a (even: '2a' = 2 chars)
+			expect(userOp.callGasLimit).toBe('0x4c4b40'); // 5000000 = even
+			expect(userOp.verificationGasLimit).toBe('0x0f4240'); // 1000000 = 0xf4240 → padded
+			expect(userOp.preVerificationGas).toBe('0xc350'); // 50000 = even
+			expect(userOp.maxFeePerGas).toBe('0x3b9aca00'); // 1000000000 = even
+			expect(userOp.maxPriorityFeePerGas).toBe('0x05f5e100'); // 100000000 = 0x5f5e100 → padded
 
 			// Non-bigint fields pass through unchanged
 			expect(userOp.callData).toBe('0xabcdef');
@@ -445,7 +482,7 @@ describe('gasless-store', () => {
 			await expect(
 				sendGasless(
 					mockCalls,
-					'0xTokenAddress',
+					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
 					mockEstimatedGas,
 					MOCK_SMART_ACCOUNT
@@ -474,7 +511,7 @@ describe('gasless-store', () => {
 			await expect(
 				sendGasless(
 					mockCalls,
-					'0xTokenAddress',
+					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
 					mockEstimatedGas,
 					MOCK_SMART_ACCOUNT
@@ -489,8 +526,8 @@ describe('gasless-store', () => {
 		it('throws if wallet is not initialized', async () => {
 			await expect(
 				sendTokenProgrammatic(
-					'0xTokenAddress',
-					'0xRecipient',
+					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+					'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
 					100n,
 					10n,
 					{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
@@ -518,8 +555,8 @@ describe('gasless-store', () => {
 			mockGaslessRelay.mockResolvedValue({ userOpHash: '0xTokenHash' });
 
 			const result = await sendTokenProgrammatic(
-				'0xTokenAddress',
-				'0xRecipient',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+				'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
 				100n,
 				10n,
 				{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
@@ -542,14 +579,14 @@ describe('gasless-store', () => {
 			};
 			mockGaslessEstimate.mockResolvedValue(mockEstimate);
 
-			const result = await estimateFee('0xToken', 100n, '0xRecipient');
+			const result = await estimateFee('0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 100n, '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
 
 			expect(result).toEqual(mockEstimate);
 			expect(mockGaslessEstimate).toHaveBeenCalledWith(
 				expect.objectContaining({
-					token: '0xToken',
+					token: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					amount: '100',
-					recipient: '0xRecipient'
+					recipient: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
 				})
 			);
 		});
@@ -557,7 +594,7 @@ describe('gasless-store', () => {
 		it('throws the raw message for network fee too high error', async () => {
 			mockGaslessEstimate.mockRejectedValue(new Error('Network fee too high for this operation'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow(
+			await expect(estimateFee('0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 100n, '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC')).rejects.toThrow(
 				'Network fee too high for this operation'
 			);
 		});
@@ -565,13 +602,13 @@ describe('gasless-store', () => {
 		it('throws generic error for other failures', async () => {
 			mockGaslessEstimate.mockRejectedValue(new Error('Token not found'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow('Token not found');
+			await expect(estimateFee('0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 100n, '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC')).rejects.toThrow('Token not found');
 		});
 
 		it('throws default message on unexpected service error', async () => {
 			mockGaslessEstimate.mockRejectedValue(new Error('Fee estimation failed'));
 
-			await expect(estimateFee('0xToken', 100n, '0xRecipient')).rejects.toThrow(
+			await expect(estimateFee('0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 100n, '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC')).rejects.toThrow(
 				'Fee estimation failed'
 			);
 		});
@@ -581,11 +618,11 @@ describe('gasless-store', () => {
 
 	describe('checkSufficientBalance', () => {
 		it('returns sufficient=true when balance >= required', async () => {
-			mockReadContract.mockResolvedValue(1_000_000_000_000_000_000n); // 1 token
+			mockEthersContractBalanceOf.mockResolvedValue(1_000_000_000_000_000_000n); // 1 token
 
 			const result = await checkSufficientBalance(
-				'0xTokenAddress',
-				'0xUserAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+				'0x9AEA6dDa21cC99dDA8C7345e1A9A834356eF8E1D',
 				500_000_000_000_000_000n,
 				100_000_000_000_000_000n,
 				'https://arb-mainnet.g.alchemy.com/v2/test'
@@ -594,15 +631,15 @@ describe('gasless-store', () => {
 			expect(result.sufficient).toBe(true);
 			expect(result.balance).toBe(1_000_000_000_000_000_000n);
 			expect(result.required).toBe(600_000_000_000_000_000n);
-			expect(mockReadContract).toHaveBeenCalled();
+			expect(mockEthersContractBalanceOf).toHaveBeenCalled();
 		});
 
 		it('returns sufficient=false when balance < required', async () => {
-			mockReadContract.mockResolvedValue(100_000_000_000_000_000n); // 0.1 token
+			mockEthersContractBalanceOf.mockResolvedValue(100_000_000_000_000_000n); // 0.1 token
 
 			const result = await checkSufficientBalance(
-				'0xTokenAddress',
-				'0xUserAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+				'0x9AEA6dDa21cC99dDA8C7345e1A9A834356eF8E1D',
 				500_000_000_000_000_000n,
 				100_000_000_000_000_000n,
 				'https://arb-mainnet.g.alchemy.com/v2/test'
@@ -614,11 +651,11 @@ describe('gasless-store', () => {
 		});
 
 		it('returns sufficient=true when balance exactly equals required', async () => {
-			mockReadContract.mockResolvedValue(600_000_000_000_000_000n);
+			mockEthersContractBalanceOf.mockResolvedValue(600_000_000_000_000_000n);
 
 			const result = await checkSufficientBalance(
-				'0xTokenAddress',
-				'0xUserAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+				'0x9AEA6dDa21cC99dDA8C7345e1A9A834356eF8E1D',
 				500_000_000_000_000_000n,
 				100_000_000_000_000_000n
 			);
@@ -626,23 +663,19 @@ describe('gasless-store', () => {
 			expect(result.sufficient).toBe(true);
 		});
 
-		it('creates public client with provided rpcUrl', async () => {
-			mockReadContract.mockResolvedValue(0n);
+		it('uses ethers JsonRpcProvider for balance checks', async () => {
+			mockEthersContractBalanceOf.mockResolvedValue(0n);
 
 			await checkSufficientBalance(
-				'0xTokenAddress',
-				'0xUserAddress',
+				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+				'0x9AEA6dDa21cC99dDA8C7345e1A9A834356eF8E1D',
 				100n,
 				10n,
 				'https://custom-rpc.example.com'
 			);
 
-			expect(mockCreatePublicClient).toHaveBeenCalledWith(
-				expect.objectContaining({
-					chain: expect.any(Object),
-					transport: expect.any(String)
-				})
-			);
+			// verify balance check was performed
+			expect(mockEthersContractBalanceOf).toHaveBeenCalled();
 		});
 	});
 });
