@@ -20,8 +20,7 @@ const d = createDebug('gasless-wallet');
 // ---------------------------------------------------------------------------
 
 const DELEGATION_PREFIX = '0xef0100';
-const SIMPLE_7702_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B';
-const _ARB_CHAIN_ID = 42161;
+const SIMPLE_7702_IMPL = '0xB2779581b8B1F816b747fBa66c64D22196c7D001';
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
 
 // ---------------------------------------------------------------------------

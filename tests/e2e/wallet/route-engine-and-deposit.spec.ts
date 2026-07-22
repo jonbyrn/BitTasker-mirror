@@ -324,7 +324,7 @@ test.describe('Paymaster: deposit check', () => {
 
 		const result = await page.evaluate(async () => {
 			const ENTRY_POINT = '0x433709009B8330FDa32311DF1C2AFA402eD8D009';
-			const PAYMASTER = '0x3F21a4Eb5aD78CF739fca6dAA2360555AAffD0c9';
+			const PAYMASTER = '0xBAb8d966648d870760E29F00441227346B4fe135';
 			const RPC = 'https://arb1.arbitrum.io/rpc';
 
 			const padded = PAYMASTER.toLowerCase().replace('0x', '').padStart(64, '0');
@@ -404,7 +404,7 @@ test.describe('Paymaster: deposit check', () => {
 		// Get the paymaster deposit and estimated gas
 		const analysis = await page.evaluate(async () => {
 			const ENTRY_POINT = '0x433709009B8330FDa32311DF1C2AFA402eD8D009';
-			const PAYMASTER = '0x3F21a4Eb5aD78CF739fca6dAA2360555AAffD0c9';
+			const PAYMASTER = '0xBAb8d966648d870760E29F00441227346B4fe135';
 			const RPC = 'https://arb1.arbitrum.io/rpc';
 
 			// Get paymaster deposit
@@ -462,7 +462,7 @@ test.describe('Paymaster: deposit check', () => {
 		await seedAuth(page);
 
 		const result = await page.evaluate(async () => {
-			const PAYMASTER = '0x3F21a4Eb5aD78CF739fca6dAA2360555AAffD0c9';
+			const PAYMASTER = '0xBAb8d966648d870760E29F00441227346B4fe135';
 			const RPC = 'https://arb1.arbitrum.io/rpc';
 
 			// Get contract bytecode

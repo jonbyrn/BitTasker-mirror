@@ -30,7 +30,7 @@ import type {
 export interface RelayRequest {
 	sender: string;
 	userOp: SerializableUserOperation;
-	eip7702Auth?: EIP7702Auth;
+	eip7702Auth: EIP7702Auth;
 }
 
 /** POST /gasless/relay response */
@@ -38,9 +38,13 @@ export interface RelayResponse {
 	userOpHash: string;
 }
 
-/** POST /gasless/prepare response */
+/** POST /gasless/prepare response — returns paymasterData (signed bytes only).
+ *  The frontend constructs the full paymasterAndData using split fields. */
 export interface PrepareResponse {
-	paymasterAndData: string;
+	paymasterData: string;
+	paymasterAddress: string;
+	verificationGasLimit: string;
+	postOpGasLimit: string;
 }
 
 /** POST /gasless/simulate response */

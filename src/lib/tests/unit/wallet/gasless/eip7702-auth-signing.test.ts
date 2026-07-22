@@ -69,7 +69,7 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 	ARBITRUM_RPC_URL: 'https://arb1.arbitrum.io/rpc',
 	ARBITRUM_CHAIN_ID: 42161,
 	ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
-	SIMPLE_7702_ACCOUNT_IMPL: '0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e'
+	SIMPLE_7702_ACCOUNT_IMPL: '0xB2779581b8B1F816b747fBa66c64D22196c7D001'
 }));
 
 // Mock the helpers
@@ -162,7 +162,7 @@ describe('EIP-7702 auth signing path', () => {
 		const body = getRelayBody();
 		expect(body.eip7702Auth).toBeDefined();
 		expect(body.eip7702Auth!.chainId).toBe('0x' + BigInt(42161).toString(16));
-		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.eip7702Auth!.address).toBe('0xB2779581b8B1F816b747fBa66c64D22196c7D001');
 		expect(body.eip7702Auth!.nonce).toBeDefined();
 		expect(body.eip7702Auth!.r).toBeDefined();
 		expect(body.eip7702Auth!.s).toBeDefined();
@@ -209,7 +209,7 @@ describe('EIP-7702 auth signing path', () => {
 	});
 
 	it('sendToken does NOT include eip7702Auth when delegated to correct impl', async () => {
-		// Delegation target matches SIMPLE_7702_ACCOUNT_IMPL (0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e)
+		// Delegation target matches SIMPLE_7702_ACCOUNT_IMPL (0xB2779581b8B1F816b747fBa66c64D22196c7D001)
 		mockGetCode.mockResolvedValue('0xef0100' + 'DaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e'.toLowerCase());
 		await sendToken(mockToken, mockRecipient, mockAmount, mockFeeBuffer);
 		const body = getRelayBody();
@@ -225,7 +225,7 @@ describe('EIP-7702 auth signing path', () => {
 		const body = getRelayBody();
 		// Should include eip7702Auth to re-delegate to correct impl
 		expect(body.eip7702Auth).toBeDefined();
-		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.eip7702Auth!.address).toBe('0xB2779581b8B1F816b747fBa66c64D22196c7D001');
 		expect(body.userOp.factory).toBe('0x7702000000000000000000000000000000000000');
 	});
 
@@ -236,7 +236,7 @@ describe('EIP-7702 auth signing path', () => {
 		await sendGaslessCalls(calls, mockToken, mockFeeBuffer);
 		const body = getRelayBody();
 		expect(body.eip7702Auth).toBeDefined();
-		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.eip7702Auth!.address).toBe('0xB2779581b8B1F816b747fBa66c64D22196c7D001');
 		expect(body.userOp.factory).toBe('0x7702000000000000000000000000000000000000');
 	});
 
@@ -248,7 +248,7 @@ describe('EIP-7702 auth signing path', () => {
 		const body = getRelayBody();
 		expect(body.eip7702Auth).toBeDefined();
 		// Must target the NEW impl, not the old one
-		expect(body.eip7702Auth!.address).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+		expect(body.eip7702Auth!.address).toBe('0xB2779581b8B1F816b747fBa66c64D22196c7D001');
 		expect(body.eip7702Auth!.address).not.toBe(OLD_IMPL);
 		// Nonce should be the EOA's current nonce (7)
 		expect(body.eip7702Auth!.nonce).toBe('0x' + BigInt(7).toString(16));

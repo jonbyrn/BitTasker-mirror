@@ -54,6 +54,11 @@ export interface UserOperation {
 	factory?: string;
 	/** EIP-7702 initialization data */
 	factoryData?: string;
+	/** Split paymaster fields (Alto v0.7 format for EIP-7702) */
+	paymaster?: string;
+	paymasterData?: string;
+	paymasterVerificationGasLimit?: string;
+	paymasterPostOpGasLimit?: string;
 }
 
 /**
@@ -70,12 +75,18 @@ export interface SerializableUserOperation {
 	preVerificationGas: string;
 	maxFeePerGas: string;
 	maxPriorityFeePerGas: string;
-	paymasterAndData: string;
 	signature: string;
 	/** EIP-7702 factory sentinel for first-time delegations */
 	factory?: string;
 	/** EIP-7702 initialization data (delegate contract address) */
 	factoryData?: string;
+	/** Packed paymasterAndData (legacy format — not used for EIP-7702) */
+	paymasterAndData?: string;
+	/** Split paymaster fields (Alto v0.7 format for EIP-7702) */
+	paymaster?: string;
+	paymasterData?: string;
+	paymasterVerificationGasLimit?: string;
+	paymasterPostOpGasLimit?: string;
 }
 
 // ---------------------------------------------------------------------------

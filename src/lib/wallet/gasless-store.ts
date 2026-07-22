@@ -149,7 +149,14 @@ function createGaslessStore() {
 					transport: http(ARBITRUM_RPC_URL || undefined)
 				});
 				const signer = privateKeyToAccount(privateKey);
-				const account = await to7702SimpleSmartAccount({ client: publicClient, owner: signer });
+				const account = await to7702SimpleSmartAccount({
+					client: publicClient,
+					owner: signer,
+					entryPoint: {
+						address: ENTRY_POINT_ADDRESS,
+						version: '0.8'
+					}
+				});
 				update((s) => ({
 					...s,
 					address: account.address,
@@ -211,38 +218,24 @@ export function resetWallet(): void {
 // =============================================================================
 
 /**
- * Check if the sender needs EIP-7702 delegation and sign the authorization if so.
+ * Sign an EIP-7702 authorization for the sender.
  *
- * Returns `undefined` if the account is already delegated (has code on-chain).
- * Returns `{ eip7702Auth, factory, extraPreVerificationGas }` if this is the
- * first transaction and delegation is needed.
+ * Always returns auth data — even for already-delegated accounts — because
+ * the backend requires eip7702Auth on every relay call. The auth tells the
+ * bundler which contract the EOA delegates to.
  *
- * @param sender - The EOA address to check
+ * @param sender - The EOA address
  * @param provider - ethers JsonRpcProvider for getCode / getTransactionCount
- * @returns Delegation data or undefined
+ * @returns Always returns `{ eip7702Auth, factory, extraPreVerificationGas }`
  */
 async function signEip7702AuthIfNeeded(
 	sender: string,
 	provider: ethersLib.JsonRpcProvider
-): Promise<
-	| {
-			eip7702Auth: EIP7702Auth;
-			factory: string;
-			extraPreVerificationGas: bigint;
-	  }
-	| undefined
-> {
-	const existingCode = await provider.getCode(sender);
-	const isDelegated = existingCode && existingCode !== '0x' && existingCode.length > 2;
-	if (isDelegated) {
-		// EIP-7702 delegation code format: 0xef0100 + 20-byte delegate address
-		const delegationTarget = '0x' + existingCode.slice(8).toLowerCase();
-		if (delegationTarget === SIMPLE_7702_ACCOUNT_IMPL.toLowerCase()) {
-			return undefined;
-		}
-		// Delegation target mismatch (old implementation) — re-delegate
-	}
-
+): Promise<{
+	eip7702Auth: EIP7702Auth;
+	factory: string;
+	extraPreVerificationGas: bigint;
+}> {
 	const ownerKey = get(gaslessOwnerKey);
 	if (!ownerKey) {
 		throw new Error('Owner private key not available — cannot sign EIP-7702 authorization');
@@ -250,18 +243,16 @@ async function signEip7702AuthIfNeeded(
 
 	const { ethers } = await import('ethers');
 
+	// Always use the current EOA nonce for the authorization
 	const eoaNonce = await provider.getTransactionCount(sender);
 
 	// EIP-7702 authorization hash: keccak256(0x05 || rlp([chain_id, address, nonce]))
-	// Uses ethers.js encoding — matches backend recoverEIP7702Signer exactly.
-	// CRITICAL: nonce=0 must encode as empty bytes (0x → RLP 0x80), NOT 0x00.
 	const chainIdHex = ethers.toBeHex(BigInt(ARBITRUM_CHAIN_ID));
 	const nonceHex = eoaNonce === 0 ? '0x' : ethers.toBeHex(eoaNonce);
 
 	const rlpEncoded = ethers.encodeRlp([chainIdHex, SIMPLE_7702_ACCOUNT_IMPL, nonceHex]);
 	const authHash = ethers.keccak256(ethers.concat(['0x05', rlpEncoded]));
 
-	// Sign the authorization hash using SigningKey (raw hash signing, no EIP-191 prefix)
 	const signingKey = new ethers.SigningKey(ownerKey);
 	const sig = signingKey.sign(authHash);
 
@@ -351,7 +342,7 @@ export async function sendGasless(
 	const entryPoint = new ethersLib.Contract(ENTRY_POINT_ADDRESS, ['function getNonce(address,uint192) view returns (uint256)'], provider);
 	const nonce: bigint = await entryPoint.getNonce(state.address, 0);
 
-	const userOp = {
+	const userOp: UserOperation = {
 		sender: state.address,
 		nonce,
 		callData,
@@ -365,9 +356,48 @@ export async function sendGasless(
 	};
 	validateFeeParameters(userOp);
 
+	// EIP-7702 delegation check — always returns auth
+	const delegation = await signEip7702AuthIfNeeded(state.address, provider);
+	const eip7702Auth = delegation.eip7702Auth;
+	userOp.factory = delegation.factory;
+	userOp.preVerificationGas = userOp.preVerificationGas + delegation.extraPreVerificationGas;
+
+	// Prepare paymaster data — set split fields before signing
+	try {
+		const serializableForPrepare: SerializableUserOperation = {
+			sender: userOp.sender,
+			nonce: toHex(userOp.nonce),
+			callData: userOp.callData,
+			callGasLimit: toHex(userOp.callGasLimit),
+			verificationGasLimit: toHex(userOp.verificationGasLimit),
+			preVerificationGas: toHex(userOp.preVerificationGas),
+			maxFeePerGas: toHex(userOp.maxFeePerGas),
+			maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
+			paymasterAndData: '0x',
+			signature: '0x',
+			factory: userOp.factory
+		};
+		const prepared = await gaslessService.prepare({
+			sender: state.address,
+			userOp: serializableForPrepare,
+			eip7702Auth
+		});
+		userOp.paymaster = prepared.paymasterAddress as `0x${string}`;
+		userOp.paymasterData = prepared.paymasterData as `0x${string}`;
+		userOp.paymasterVerificationGasLimit = BigInt(prepared.verificationGasLimit);
+		userOp.paymasterPostOpGasLimit = BigInt(prepared.postOpGasLimit);
+	} catch (prepareErr) {
+		addBreadcrumb({
+			category: 'gasless',
+			message: `Paymaster prepare failed: ${prepareErr instanceof Error ? prepareErr.message : String(prepareErr)}`,
+			level: 'warning',
+			data: { sender: state.address }
+		});
+		// Continue without paymaster — sender pays gas from own ETH
+	}
+
 	const signedResult = await smartAccount.signUserOperation(userOp);
 
-	// permissionless may return the signature string directly or a full signed UserOperation
 	const signedUserOp = typeof signedResult === 'string'
 		? { ...userOp, signature: signedResult }
 		: signedResult;
@@ -381,11 +411,19 @@ export async function sendGasless(
 		preVerificationGas: toHex(signedUserOp.preVerificationGas),
 		maxFeePerGas: toHex(signedUserOp.maxFeePerGas),
 		maxPriorityFeePerGas: toHex(signedUserOp.maxPriorityFeePerGas),
-		paymasterAndData: signedUserOp.paymasterAndData,
-		signature: (typeof signedResult === 'string' ? signedResult : signedUserOp.signature) || '0x'
+		signature: (typeof signedResult === 'string' ? signedResult : signedUserOp.signature) || '0x',
+		...(userOp.paymaster ? { paymaster: userOp.paymaster } : {}),
+		...(userOp.paymasterData ? { paymasterData: userOp.paymasterData } : {}),
+		...(userOp.paymasterVerificationGasLimit !== undefined
+			? { paymasterVerificationGasLimit: toHex(userOp.paymasterVerificationGasLimit) }
+			: {}),
+		...(userOp.paymasterPostOpGasLimit !== undefined
+			? { paymasterPostOpGasLimit: toHex(userOp.paymasterPostOpGasLimit) }
+			: {}),
+		...(userOp.factory ? { factory: userOp.factory } : {})
 	};
 
-	const result = await gaslessService.relay({ sender: state.address, userOp: serializableOp });
+	const result = await gaslessService.relay({ sender: state.address, userOp: serializableOp, eip7702Auth });
 	return result.userOpHash;
 }
 
@@ -571,7 +609,9 @@ export async function sendToken(
 
 	// 3d. Prepare paymaster data — must happen BEFORE signing so the
 	// UserOp hash includes the actual paymasterAndData (not '0x').
-	// The paymaster signature depends on UserOp fields but NOT on the UserOp signature.
+	// The backend returns paymasterData (signed bytes). We set split
+	// paymaster fields on the UserOp. The permissionless library's
+	// signUserOperation packs them into paymasterAndData for EIP-712 signing.
 	try {
 		const serializableForPrepare: SerializableUserOperation = {
 			sender: userOp.sender,
@@ -589,9 +629,14 @@ export async function sendToken(
 		const prepared = await gaslessService.prepare({
 			sender,
 			userOp: serializableForPrepare,
-			...(eip7702Auth ? { eip7702Auth } : {})
+			eip7702Auth: eip7702Auth!
 		});
-		userOp.paymasterAndData = prepared.paymasterAndData;
+		// Set split paymaster fields — the library packs them into
+		// paymasterAndData during signing via getPaymasterAndData()
+		userOp.paymaster = prepared.paymasterAddress as `0x${string}`;
+		userOp.paymasterData = prepared.paymasterData as `0x${string}`;
+		userOp.paymasterVerificationGasLimit = BigInt(prepared.verificationGasLimit);
+		userOp.paymasterPostOpGasLimit = BigInt(prepared.postOpGasLimit);
 	} catch (prepareErr) {
 		addBreadcrumb({
 			category: 'gasless',
@@ -599,7 +644,7 @@ export async function sendToken(
 			level: 'warning',
 			data: { sender }
 		});
-		// Continue without paymaster data — relay will handle it
+		// Continue without paymaster data — sender pays gas from own ETH
 	}
 
 	// 3e. Sign the UserOp client-side if account is available
@@ -610,7 +655,7 @@ export async function sendToken(
 		userOp.signature = (typeof signed === 'string' ? signed : signed.signature) || '0x';
 	}
 
-	// 3e. Serialize for JSON transport
+	// 3f. Serialize for JSON transport — include split paymaster fields
 	const serializableOp: SerializableUserOperation = {
 		sender: userOp.sender,
 		nonce: toHex(userOp.nonce),
@@ -620,8 +665,16 @@ export async function sendToken(
 		preVerificationGas: toHex(userOp.preVerificationGas),
 		maxFeePerGas: toHex(userOp.maxFeePerGas),
 		maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
-		paymasterAndData: userOp.paymasterAndData,
 		signature: userOp.signature || '0x',
+		// Split paymaster fields (Alto v0.7 format)
+		...(userOp.paymaster ? { paymaster: userOp.paymaster } : {}),
+		...(userOp.paymasterData ? { paymasterData: userOp.paymasterData } : {}),
+		...(userOp.paymasterVerificationGasLimit !== undefined
+			? { paymasterVerificationGasLimit: toHex(userOp.paymasterVerificationGasLimit) }
+			: {}),
+		...(userOp.paymasterPostOpGasLimit !== undefined
+			? { paymasterPostOpGasLimit: toHex(userOp.paymasterPostOpGasLimit) }
+			: {}),
 		// Include factory sentinel for 7702 first-time delegations
 		...(userOp.factory ? { factory: userOp.factory } : {})
 	};
@@ -638,7 +691,7 @@ export async function sendToken(
 		const result = await gaslessService.relay({
 			sender,
 			userOp: serializableOp,
-			...(eip7702Auth ? { eip7702Auth } : {})
+			eip7702Auth: eip7702Auth!
 		});
 
 		addBreadcrumb({
@@ -862,14 +915,11 @@ export async function sendGaslessCalls(
 		signature: '0x'
 	};
 
-	// EIP-7702 delegation check — shared helper handles signing if needed
+	// EIP-7702 delegation check — always returns auth
 	const delegation = await signEip7702AuthIfNeeded(sender, provider);
-	let eip7702Auth: EIP7702Auth | undefined;
-	if (delegation) {
-		eip7702Auth = delegation.eip7702Auth;
-		userOp.factory = delegation.factory;
-		userOp.preVerificationGas = userOp.preVerificationGas + delegation.extraPreVerificationGas;
-	}
+	const eip7702Auth = delegation.eip7702Auth;
+	userOp.factory = delegation.factory;
+	userOp.preVerificationGas = userOp.preVerificationGas + delegation.extraPreVerificationGas;
 
 	// Prepare paymaster data — must happen BEFORE signing so the
 	// UserOp hash includes the actual paymasterAndData (not '0x').
@@ -885,14 +935,17 @@ export async function sendGaslessCalls(
 			maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
 			paymasterAndData: '0x',
 			signature: '0x',
-			...(userOp.factory ? { factory: userOp.factory } : {})
+			factory: userOp.factory
 		};
 		const prepared = await gaslessService.prepare({
 			sender,
 			userOp: serializableForPrepare,
-			...(eip7702Auth ? { eip7702Auth } : {})
+			eip7702Auth
 		});
-		userOp.paymasterAndData = prepared.paymasterAndData;
+		userOp.paymaster = prepared.paymasterAddress as `0x${string}`;
+		userOp.paymasterData = prepared.paymasterData as `0x${string}`;
+		userOp.paymasterVerificationGasLimit = BigInt(prepared.verificationGasLimit);
+		userOp.paymasterPostOpGasLimit = BigInt(prepared.postOpGasLimit);
 	} catch (prepareErr) {
 		addBreadcrumb({
 			category: 'gasless',
@@ -902,10 +955,7 @@ export async function sendGaslessCalls(
 		});
 	}
 
-	// Pre-flight simulation: verify the UserOp will succeed on-chain BEFORE
-	// signing and submitting. This prevents losing funds in Boltz swaps where
-	// the gasless relay fails after funds are already locked.
-	// The simulate endpoint calls eth_estimateUserOperationGas on the bundler.
+	// Pre-flight simulation
 	try {
 		const simRequest: RelayRequest = {
 			sender,
@@ -917,11 +967,18 @@ export async function sendGaslessCalls(
 				preVerificationGas: toHex(userOp.preVerificationGas),
 				maxFeePerGas: toHex(userOp.maxFeePerGas),
 				maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
-				paymasterAndData: userOp.paymasterAndData,
 				signature: '0x',
-				...(userOp.factory ? { factory: userOp.factory } : {})
+				factory: userOp.factory,
+				...(userOp.paymaster ? { paymaster: userOp.paymaster } : {}),
+				...(userOp.paymasterData ? { paymasterData: userOp.paymasterData } : {}),
+				...(userOp.paymasterVerificationGasLimit !== undefined
+					? { paymasterVerificationGasLimit: toHex(userOp.paymasterVerificationGasLimit) }
+					: {}),
+				...(userOp.paymasterPostOpGasLimit !== undefined
+					? { paymasterPostOpGasLimit: toHex(userOp.paymasterPostOpGasLimit) }
+					: {}),
 			},
-			...(eip7702Auth ? { eip7702Auth } : {})
+			eip7702Auth
 		};
 		const simResult = await gaslessService.simulate(simRequest);
 		if (!simResult.success) {
@@ -950,11 +1007,10 @@ export async function sendGaslessCalls(
 	const account = get(gaslessAccount);
 	if (account && typeof account.signUserOperation === 'function') {
 		const signed = await account.signUserOperation(userOp);
-		// permissionless may return the signature string directly or as { signature }
 		userOp.signature = (typeof signed === 'string' ? signed : signed.signature) || '0x';
 	}
 
-	// Serialize
+	// Serialize with split paymaster fields
 	const serializableOp: SerializableUserOperation = {
 		sender: userOp.sender,
 		nonce: toHex(userOp.nonce),
@@ -964,25 +1020,31 @@ export async function sendGaslessCalls(
 		preVerificationGas: toHex(userOp.preVerificationGas),
 		maxFeePerGas: toHex(userOp.maxFeePerGas),
 		maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
-		paymasterAndData: userOp.paymasterAndData,
 		signature: userOp.signature || '0x',
-		// Include factory sentinel for 7702 first-time delegations
-		...(userOp.factory ? { factory: userOp.factory } : {})
+		factory: userOp.factory,
+		...(userOp.paymaster ? { paymaster: userOp.paymaster } : {}),
+		...(userOp.paymasterData ? { paymasterData: userOp.paymasterData } : {}),
+		...(userOp.paymasterVerificationGasLimit !== undefined
+			? { paymasterVerificationGasLimit: toHex(userOp.paymasterVerificationGasLimit) }
+			: {}),
+		...(userOp.paymasterPostOpGasLimit !== undefined
+			? { paymasterPostOpGasLimit: toHex(userOp.paymasterPostOpGasLimit) }
+			: {}),
 	};
 
-	// Relay via gaslessService (auth handled by axios interceptor)
+	// Relay via gaslessService
 	addBreadcrumb({
 		category: 'gasless',
 		message: `Relaying batch calls (${calls.length} calls)`,
 		level: 'info',
-		data: { sender, callCount: calls.length, feeToken, hasEip7702Auth: !!eip7702Auth }
+		data: { sender, callCount: calls.length, feeToken }
 	});
 
 	try {
 		const result = await gaslessService.relay({
 			sender,
 			userOp: serializableOp,
-			...(eip7702Auth ? { eip7702Auth } : {})
+			eip7702Auth
 		});
 
 		addBreadcrumb({

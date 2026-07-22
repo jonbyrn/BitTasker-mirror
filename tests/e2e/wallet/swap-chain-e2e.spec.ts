@@ -653,7 +653,7 @@ test.describe('Swap: Relay payload validation', () => {
 					30000n
 				);
 			} catch {}
-		});
+		}); 
 
 		await page.waitForTimeout(5000);
 

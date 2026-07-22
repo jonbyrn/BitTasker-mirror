@@ -19,7 +19,7 @@ import { ARB_TOKEN_ADDRESSES } from '@bittasker/wallet-core';
 
 export const ARBITRUM_CHAIN_ID = 42161;
 export const ENTRY_POINT_ADDRESS = '0x433709009B8330FDa32311DF1C2AFA402eD8D009' as const;
-export const SIMPLE_7702_ACCOUNT_IMPL = '0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e' as const;
+export const SIMPLE_7702_ACCOUNT_IMPL = '0xB2779581b8B1F816b747fBa66c64D22196c7D001' as const;
 
 /** Canonical Arbitrum token addresses — single source of truth from SDK */
 export const USDT0_ADDRESS = ARB_TOKEN_ADDRESSES.USDT0;

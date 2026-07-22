@@ -30,7 +30,7 @@ describe('gasless.config', () => {
 			expect(ENTRY_POINT_ADDRESS).toBe('0x433709009B8330FDa32311DF1C2AFA402eD8D009');
 		});
 		it('has correct Simple7702Account implementation address', () => {
-			expect(SIMPLE_7702_ACCOUNT_IMPL).toBe('0xDaAd09D3a0D302660A8DA57fcF1c8d3db2CC8C8e');
+			expect(SIMPLE_7702_ACCOUNT_IMPL).toBe('0xB2779581b8B1F816b747fBa66c64D22196c7D001');
 		});
 	});
 

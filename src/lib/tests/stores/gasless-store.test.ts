@@ -124,7 +124,7 @@ vi.mock('$lib/wallet/gasless.config', () => ({
 	ARBITRUM_RPC_URL: 'https://arb-mainnet.g.alchemy.com/v2/test',
 	ARBITRUM_CHAIN_ID: 42161,
 	ENTRY_POINT_ADDRESS: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
-	SIMPLE_7702_ACCOUNT_IMPL: '0xe6Cae83BdE06E4c305530e199D7217f42808555B'
+	SIMPLE_7702_ACCOUNT_IMPL: '0xB2779581b8B1F816b747fBa66c64D22196c7D001'
 }));
 
 // Mock gasless service (axios-based — auth handled by interceptor)
@@ -230,12 +230,16 @@ describe('gasless-store', () => {
 			expect(state.error).toBeNull();
 		});
 
-		it('init calls to7702SimpleSmartAccount', async () => {
+		it('init calls to7702SimpleSmartAccount with entryPoint', async () => {
 			await gaslessWallet.init(MOCK_PRIVATE_KEY);
 
 			expect(mockTo7702SimpleSmartAccount).toHaveBeenCalledWith({
 				client: expect.anything(),
-				owner: expect.anything()
+				owner: expect.anything(),
+				entryPoint: {
+					address: expect.any(String),
+					version: '0.8'
+				}
 			});
 		});
 
@@ -456,7 +460,8 @@ describe('gasless-store', () => {
 
 			// Non-bigint fields pass through unchanged
 			expect(userOp.callData).toBe('0xabcdef');
-			expect(userOp.paymasterAndData).toBe('0x');
+			// paymasterAndData is NOT sent — split fields are used instead
+			expect(userOp.paymasterAndData).toBeUndefined();
 			expect(userOp.signature).toBe('0xdeadbeef');
 			expect(userOp.sender).toBe(MOCK_ACCOUNT_ADDRESS);
 		});
