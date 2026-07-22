@@ -179,7 +179,7 @@ export default defineConfig(({ mode }) => {
 			// esnext: native top-level await for secp256k1 WASM (vite-plugin-wasm).
 			// Setting "esnext" tells vite-plugin-top-level-await to skip its esbuild
 			// re-transform step, which breaks cross-chunk references (e.g. ProviderRpcError
-			// from viem). The plugin still wraps TLA in async IIFEs via SWC for Safari/iOS
+			// from dependencies). The plugin still wraps TLA in async IIFEs via SWC for Safari/iOS
 			// compatibility, but avoids the esbuild minify that mangles dependency references.
 			target: 'esnext',
 

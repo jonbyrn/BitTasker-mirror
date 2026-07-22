@@ -27,7 +27,6 @@ const {
 	mockGaslessConfig,
 	mockValidateFeeBufferBounds,
 	mockValidateFeeRecipient,
-	mockSignUserOperation,
 	mockGetSwapStatus,
 	mockBoltzCreateSwap
 } = vi.hoisted(() => ({
@@ -37,37 +36,8 @@ const {
 	mockGaslessConfig: vi.fn(),
 	mockValidateFeeBufferBounds: vi.fn(),
 	mockValidateFeeRecipient: vi.fn(),
-	mockSignUserOperation: vi.fn().mockResolvedValue('0x' + 'ab'.repeat(65)),
 	mockGetSwapStatus: vi.fn(),
 	mockBoltzCreateSwap: vi.fn()
-}));
-
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-vi.mock('viem', () => ({
-	createPublicClient: vi.fn().mockReturnValue({
-		readContract: vi.fn().mockResolvedValue(0n),
-		getCode: vi.fn().mockResolvedValue('0x'),
-		getTransactionCount: vi.fn().mockResolvedValue(0)
-	}),
-	http: vi.fn().mockReturnValue('mock-transport'),
-	isAddress: vi.fn().mockReturnValue(true)
-}));
-
-vi.mock('viem/accounts', () => ({
-	privateKeyToAccount: vi.fn().mockReturnValue({ address: '0xMockSigner' })
-}));
-
-vi.mock('viem/chains', () => ({
-	arbitrum: { id: 42161, name: 'Arbitrum' }
-}));
-
-vi.mock('permissionless/accounts', () => ({
-	to7702SimpleSmartAccount: vi.fn().mockResolvedValue({
-		address: '0xMockAccount',
-		signUserOperation: mockSignUserOperation
-	})
 }));
 
 vi.mock('@sentry/sveltekit', () => ({

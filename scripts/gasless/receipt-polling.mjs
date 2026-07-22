@@ -12,15 +12,7 @@
  * Output: JSON to stdout (receipt details)
  */
 import { parseArgs } from 'node:util';
-import {
-  createPublicClient,
-  http,
-  hexToBytes,
-  keccak256,
-  toHex,
-  type Hex,
-} from 'viem';
-import { arbitrumSepolia, arbitrum } from 'viem/chains';
+import { ethers } from 'ethers';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -51,18 +43,19 @@ for (const [key, val] of Object.entries({ hash: userOpHash, 'rpc-url': rpcUrl })
 }
 
 // ---------------------------------------------------------------------------
-// Chain selection
+// Provider
 // ---------------------------------------------------------------------------
-const chain = rpcUrl.includes('sepolia') ? arbitrumSepolia : arbitrum;
-const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+const provider = new ethers.JsonRpcProvider(rpcUrl);
 
 // ---------------------------------------------------------------------------
-// EntryPoint ABI (minimal for getUserOpHash and receipt)
+// EntryPoint event ABI
 // ---------------------------------------------------------------------------
-const entryPointAbi = [
-  'function getUserOpHash(tuple(address sender, uint256 nonce, bytes callData, uint256 callGasLimit, uint256 verificationGasLimit, uint256 preVerificationGas, uint256 maxFeePerGas, uint256 maxPriorityFeePerGas, bytes paymasterAndData, bytes signature) userOp) view returns (bytes32)',
+const entryPointInterface = new ethers.Interface([
   'event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, bool success, uint256 actualGasCost, uint256 actualGasUsed)',
-];
+]);
+
+const eventFragment = entryPointInterface.getEvent('UserOperationEvent');
+const eventTopic = eventFragment.topicHash;
 
 // ---------------------------------------------------------------------------
 // Main polling loop
@@ -77,46 +70,35 @@ async function pollForReceipt() {
 
   while (Date.now() - startTime < timeoutMs) {
     try {
-      // Method 1: Check for UserOperationEvent logs
-      const logs = await publicClient.getLogs({
-        address: entryPointAddress as Hex,
-        event: {
-          type: 'event',
-          name: 'UserOperationEvent',
-          inputs: [
-            { name: 'userOpHash', type: 'bytes32', indexed: true },
-            { name: 'sender', type: 'address', indexed: true },
-            { name: 'paymaster', type: 'address', indexed: true },
-            { name: 'success', type: 'bool', indexed: false },
-            { name: 'actualGasCost', type: 'uint256', indexed: false },
-            { name: 'actualGasUsed', type: 'uint256', indexed: false },
-          ],
-        },
-        args: { userOpHash: userOpHash as Hex },
-        fromBlock: 'latest',
-        toBlock: 'latest',
-      });
+      // Check for UserOperationEvent logs
+      const filter = {
+        address: entryPointAddress,
+        topics: [eventTopic, userOpHash],
+      };
+      const logs = await provider.getLogs(filter);
 
       if (logs.length > 0) {
         const log = logs[0];
+        const parsed = entryPointInterface.parseLog({
+          topics: log.topics,
+          data: log.data,
+        });
+
         const receipt = {
-          userOpHash: log.args.userOpHash,
-          sender: log.args.sender,
-          paymaster: log.args.paymaster,
-          success: log.args.success,
-          actualGasCost: log.args.actualGasCost?.toString(),
-          actualGasUsed: log.args.actualGasUsed?.toString(),
+          userOpHash: parsed.args.userOpHash,
+          sender: parsed.args.sender,
+          paymaster: parsed.args.paymaster,
+          success: parsed.args.success,
+          actualGasCost: parsed.args.actualGasCost?.toString(),
+          actualGasUsed: parsed.args.actualGasUsed?.toString(),
           blockNumber: log.blockNumber?.toString(),
           transactionHash: log.transactionHash,
-          status: log.args.success ? 'success' : 'failed',
+          status: parsed.args.success ? 'success' : 'failed',
         };
 
         console.log(JSON.stringify(receipt, null, 2));
         process.exit(0);
       }
-
-      // Method 2: If we have a transaction hash from a previous call, check its receipt
-      // (This would require storing state between calls, which we don't do here)
 
       // Wait for next interval
       console.error(`No receipt found. Waiting ${intervalSec}s...`);

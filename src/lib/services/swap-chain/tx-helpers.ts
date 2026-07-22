@@ -17,6 +17,51 @@ import { CHAIN_ID_ARB, CHAIN_ID_RSK, CHAIN_ID_BSC, GAS_LIMIT_RSK } from './utils
 
 const d = createDebug('swap-chain:tx');
 
+/**
+ * Extract the revert reason from a UserOperationRevertReason event.
+ *
+ * The event data format is: (uint256 nonce, bytes revertReason)
+ * The revertReason bytes often contain an ExecuteError(uint256 index, bytes error)
+ * from the BaseAccount contract, which wraps the inner revert.
+ */
+function extractUserOpRevertReason(
+	logs: Array<{ topics?: string[]; data?: string }>,
+	revertReasonSig: string
+): string | null {
+	for (const log of logs) {
+		if (log.topics?.[0] === revertReasonSig && log.data && log.data.length > 130) {
+			try {
+				// Skip nonce (32 bytes) + offset pointer (32 bytes) to get to the bytes length
+				const dataHex = log.data.slice(2); // remove 0x
+				// bytes offset is at position 64 (32 bytes = 64 hex chars from start of data)
+				const bytesOffset = parseInt(dataHex.slice(64, 128), 16) * 2; // in hex chars
+				const bytesLength = parseInt(dataHex.slice(128, 128 + 64), 16) * 2;
+				const revertBytes = dataHex.slice(128 + 64, 128 + 64 + bytesLength);
+
+				if (revertBytes.length === 0) return 'empty revert data';
+
+				// Check for ExecuteError(uint256,bytes) selector: 0x5a154675
+				if (revertBytes.startsWith('5a154675')) {
+					const callIndex = parseInt(revertBytes.slice(8, 72), 16);
+					// Inner error offset and length
+					const innerOffset = parseInt(revertBytes.slice(72, 136), 16) * 2;
+					const innerLength = parseInt(revertBytes.slice(136, 136 + 64), 16) * 2;
+					const innerError = revertBytes.slice(136 + 64, 136 + 64 + innerLength);
+					if (innerError.length === 0) {
+						return `ExecuteError at call index ${callIndex} (empty inner error — likely out of gas or bare revert)`;
+					}
+					return `ExecuteError at call index ${callIndex}, inner revert: 0x${innerError.slice(0, 64)}`;
+				}
+
+				return `revert data: 0x${revertBytes.slice(0, 64)}`;
+			} catch {
+				return 'could not parse revert reason';
+			}
+		}
+	}
+	return null;
+}
+
 // ---------------------------------------------------------------------------
 // ERC-20 Balance Query
 // ---------------------------------------------------------------------------
@@ -155,7 +200,7 @@ const RECEIPT_MAX_ATTEMPTS = 60;
 export async function waitForReceipt(
 	txHash: string,
 	chain: string
-): Promise<{ status: string; gasUsed: number } | null> {
+): Promise<{ status: string; gasUsed: number; logs?: Array<{ topics: string[]; data: string }> } | null> {
 	const rpcUrls = RECEIPT_RPC_URLS[chain];
 	if (!rpcUrls) {
 		d.log('[waitForReceipt] No RPC URL configured for chain:', chain);
@@ -185,7 +230,8 @@ export async function waitForReceipt(
 				if (data.result) {
 					return {
 						status: data.result.status,
-						gasUsed: parseInt(data.result.gasUsed, 16)
+						gasUsed: parseInt(data.result.gasUsed, 16),
+						logs: data.result.logs || []
 					};
 				}
 				break; // Got a valid response (no receipt yet), no need to try other RPCs
@@ -214,6 +260,9 @@ export interface EvmTxParams {
 	 *  scanning the user's balance. This enables atomic claim+fee where
 	 *  the claim produces the tokens that pay the fee in the same tx. */
 	feeToken?: string;
+	/** Additional calls to batch with the primary call in a single executeBatch.
+	 *  When set, all calls (primary + extra) are wrapped in one UserOp. */
+	extraCalls?: Array<{ to: string; data: string; value: bigint }>;
 }
 
 /**
@@ -229,7 +278,7 @@ export interface EvmTxParams {
 export async function sendEvmTransaction(
 	params: EvmTxParams
 ): Promise<{ data: string | null; error: Error | null }> {
-	const { to, data, value, chain, gasLimit = GAS_LIMIT_RSK, sourceConnectedWalletId, feeToken } = params;
+	const { to, data, value, chain, gasLimit = GAS_LIMIT_RSK, sourceConnectedWalletId, feeToken, extraCalls } = params;
 	const safeTo = safeAddress(to);
 	d.log(
 		'[sendEvmTransaction] START chain=%s to=%s safeTo=%s value=%s dataLen=%d connected=%s',
@@ -287,7 +336,8 @@ export async function sendEvmTransaction(
 					data,
 					value: String(value),
 					gasLimit,
-					feeToken
+					feeToken,
+					extraCalls
 				});
 			} else {
 				d.log('[sendEvmTransaction] Calling sendRawTransaction (built-in RSK/BSC)...');
@@ -322,6 +372,44 @@ export async function sendEvmTransaction(
 				)
 			};
 		}
+
+		// For gasless (ERC-4337) transactions, verify the UserOp actually
+		// succeeded. A bundle transaction can succeed (status=0x1) while
+		// the individual UserOp reverts inside it. Check UserOperationEvent
+		// logs for success=false.
+		if (chain === 'arbitrum' && receipt.logs) {
+			const userOpEventSig = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
+			const userOpRevertReasonSig = '0x1c4fada7374c0a9ee8841fc38afe82932dc0f8e69012e927f061a8bae611a201';
+			for (const log of receipt.logs) {
+				if (log.topics?.[0] === userOpEventSig) {
+					// UserOperationEvent(bytes32 indexed userOpHash, address indexed sender,
+					//   address indexed paymaster, uint256 nonce, bool success,
+					//   uint256 actualGasCost, uint256 actualGasUsed)
+					const successData = log.data;
+					if (successData && successData.length >= 130) {
+						// success is the 5th field (index 4) — after nonce
+						// offset: 32 bytes nonce + success starts at byte 32
+						const successHex = '0x' + successData.slice(66, 130);
+						const success = BigInt(successHex) !== 0n;
+						if (!success) {
+							// Try to extract revert reason from UserOperationRevertReason event
+							const revertReason = extractUserOpRevertReason(receipt.logs, userOpRevertReasonSig);
+							const detail = revertReason
+								? ` — ${revertReason}`
+								: '';
+							d.log('[sendEvmTransaction] UserOp reverted inside bundle%s', detail);
+							return {
+								data: null,
+								error: new Error(
+									`UserOp execution reverted on-chain (bundle tx: ${txHash.slice(0, 10)}...)${detail}`
+								)
+							};
+						}
+					}
+				}
+			}
+		}
+
 		d.log(
 			'[sendEvmTransaction] tx confirmed: status=%s gasUsed=%s',
 			receipt.status,
@@ -348,15 +436,11 @@ export async function sendEvmTransaction(
 // ---------------------------------------------------------------------------
 
 /**
- * Send an Arbitrum transaction from a connected wallet, trying gasless first.
+ * Send an Arbitrum transaction via a connected wallet (e.g. MetaMask).
  *
- * If the gasless relay is available and the user has a JWT, wraps the call
- * in `sendGaslessCalls()` (executeBatch with fee buffer). The fee token is
- * dynamically selected based on whichever token the user already holds —
- * this prevents the executeBatch from reverting when the user has no balance
- * in a hardcoded fee token (e.g., USDT0).
- *
- * Falls back to direct `evmSigner.sendTransaction()` if gasless fails or is unavailable.
+ * Uses the gasless relay when available. When `preferredFeeToken` is set
+ * (atomic claim+fee pattern), the gasless relay is the ONLY path — no
+ * direct-tx fallback because the executeBatch bundles claim + fee transfer.
  */
 export async function sendConnectedWalletArbitrumTx(
 	evmSigner: EVMSigner,
@@ -382,6 +466,7 @@ export async function sendConnectedWalletArbitrumTx(
 		// If a preferred fee token is provided (e.g., tBTC when claiming),
 		// use it directly — the claim produces the tokens atomically in the
 		// same executeBatch, so no pre-existing balance is needed.
+		// Gasless-only: no direct-tx fallback for atomic claim+fee.
 		if (preferredFeeToken) {
 			const estimate = await estimateFee(preferredFeeToken, 1n, to);
 			const feeBuffer = BigInt(estimate.feeBuffer);
@@ -448,10 +533,20 @@ export async function sendConnectedWalletArbitrumTx(
 		if (lastErr) throw lastErr;
 		throw new Error('No suitable fee token found');
 	} catch (gaslessErr) {
+		// When preferredFeeToken is set, this is an atomic claim+fee — no fallback.
+		// The direct tx path can't execute the claim+fee bundle, so throw with
+		// isRelayFailure flag so the UI can show a clear message.
+		if (preferredFeeToken) {
+			const relayErr = gaslessErr instanceof Error ? gaslessErr : new Error('Gasless relay unavailable');
+			(relayErr as Error & { isRelayFailure?: boolean }).isRelayFailure = true;
+			d.warn('Gasless relay failed for atomic claim+fee (no fallback): %s', relayErr.message);
+			throw relayErr;
+		}
+
 		d.warn('Gasless relay failed for connected wallet, falling back to direct: %s', gaslessErr);
 	}
 
-	// Direct transaction fallback
+	// Direct transaction fallback (only when no preferredFeeToken)
 	const txValue = value ? BigInt(value) : undefined;
 	const result = await evmSigner.sendTransaction({
 		to,

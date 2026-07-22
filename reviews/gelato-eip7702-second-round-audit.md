@@ -77,15 +77,15 @@ The self-cleanup mechanism is architecturally sound and breaks the Gelato depend
 
 ---
 
-#### [H-2] ethers→viem Bridge
+#### [H-2] ethers Bridge
 
 **v3.0 Response (§14.2):**
-- Adapter in app layer using `privateKeyToAccount` from viem
+- Adapter in app layer using `ethers.Wallet` from ethers
 - Documented in Phase 2.1 implementation notes
 
-**Assessment:** Correct pattern. Private key extraction from ethers wallet to viem account is the standard bridge. The adapter lives in the app layer (not SDK) which is the right boundary.
+**Assessment:** Correct pattern. Private key extraction from ethers wallet to account is the standard bridge. The adapter lives in the app layer (not SDK) which is the right boundary.
 
-**Note:** The `privateKeyToAccount` call exposes the raw private key in the app layer's memory. This is inherent to the ethers→viem bridge and acceptable given the existing threat model (the app already has access to the key). Ensure the key is not logged to Sentry.
+**Note:** The `privateKeyToAccount` call exposes the raw private key in the app layer's memory. This is inherent to the ethers bridge and acceptable given the existing threat model (the app already has access to the key). Ensure the key is not logged to Sentry.
 
 **Verdict: PASS (90/100)**
 
@@ -261,7 +261,7 @@ Feed addresses are confirmed real and correct. The indirect USDT0/USD calculatio
 | M-7 | No slippage protection | Max reimbursement cap (1.5x) enforced on-chain | PASS (90) |
 | M-8 | getAddresses() doesn't exist | Removed from plan | PASS (100) |
 | M-9 | ArbitrumToken duplicates ERC20Token | Reuse existing ERC20Token interface | PASS (95) |
-| M-10 | SDK returns raw ethers.Wallet | Return Signer interface; extract private key only for viem adapter | PASS (90) |
+| M-10 | SDK returns raw ethers.Wallet | Return Signer interface; extract private key only for ethers adapter | PASS (90) |
 
 ---
 

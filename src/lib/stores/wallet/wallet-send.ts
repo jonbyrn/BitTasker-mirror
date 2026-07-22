@@ -56,7 +56,11 @@ export async function sendRawTransaction(params: {
  *
  * Tries the gasless relay first (via EIP-7702 smart account) when the gasless
  * wallet is initialized. Falls back to a direct transaction signed by the
- * built-in RSK wallet if the relay is unavailable or fails.
+ * built-in RSK wallet only when the gasless wallet is not initialized.
+ *
+ * When `feeToken` is provided (atomic claim+fee pattern), the gasless relay
+ * is the ONLY path — there is no direct-tx fallback because the user has no
+ * ETH on Arbitrum (that's the whole reason for gasless).
  */
 export async function sendArbitrumTransaction(params: {
 	to: string;
@@ -64,30 +68,97 @@ export async function sendArbitrumTransaction(params: {
 	value: string;
 	gasLimit?: number;
 	feeToken?: string;
+	extraCalls?: Array<{ to: string; data: string; value: bigint }>;
 }): Promise<string> {
-	// --- Gasless path (smart account via ERC-4337 relay) ---
-	try {
-		const { sendGaslessCalls, walletReady, estimateFee } = await import('$lib/wallet/gasless-store');
-		const { get } = await import('svelte/store');
+	const { sendGaslessCalls, walletReady, estimateFee } = await import('$lib/wallet/gasless-store');
+	const { get } = await import('svelte/store');
 
-		if (get(walletReady)) {
-			const { TOKENS } = await import('$lib/wallet/gasless.config');
+	// Gasless wallet not initialized — direct tx is the only option
+	if (!get(walletReady)) {
+		return sendDirectArbitrumTx(params);
+	}
 
-			const callValue = params.value ? BigInt(params.value) : 0n;
+	const { TOKENS } = await import('$lib/wallet/gasless.config');
+	const callValue = params.value ? BigInt(params.value) : 0n;
 
-			// If a preferred fee token is provided (e.g., tBTC when claiming),
-			// use it directly — the claim produces the tokens atomically in the
-			// same executeBatch, so no pre-existing balance is needed.
-			if (params.feeToken) {
-				const estimate = await estimateFee(params.feeToken, 1n, params.to);
+	// If a preferred fee token is provided (e.g., tBTC when claiming),
+	// use it directly — the claim produces the tokens atomically in the
+	// same executeBatch, so no pre-existing balance is needed.
+	// This is gasless-only: no direct-tx fallback because the user has
+	// no ETH on Arbitrum (that's the whole point of the gasless relay).
+	if (params.feeToken) {
+		const actualCalls = [
+			{ to: params.to, data: params.data, value: callValue },
+			...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value }))
+		];
+		const estimate = await estimateFee(params.feeToken, 1n, params.to, actualCalls);
+		const feeBuffer = BigInt(estimate.feeBuffer);
+		const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === params.feeToken!.toLowerCase());
+		console.log(`[sendArbitrumTransaction] Using preferred fee token ${tokenInfo?.symbol ?? params.feeToken}, feeBuffer=${feeBuffer}`);
+
+		const txHash = await Promise.race([
+			sendGaslessCalls(
+				[
+					{ to: params.to, data: params.data, value: callValue },
+					...(params.extraCalls ?? [])
+				],
+				params.feeToken,
+				feeBuffer,
+				estimate.estimatedGas
+			),
+			new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
+			)
+		]);
+
+		console.log(`[sendArbitrumTransaction] Gasless relay succeeded with preferred ${tokenInfo?.symbol ?? params.feeToken} fee`);
+		void Promise.allSettled([loadAssets(), loadTransactions()]);
+		return txHash;
+	}
+
+	// No preferred token — scan all allowed fee token balances
+	const { queryERC20Balance } = await import('$lib/services/swap-chain/tx-helpers');
+	const { gaslessWallet } = await import('$lib/wallet/gasless-store');
+	const walletState = get(gaslessWallet);
+	const sender = walletState.address;
+	if (!sender) throw new Error('Gasless wallet address not available');
+
+	// Check all allowed fee token balances in parallel
+	const balanceChecks = await Promise.all(
+		TOKENS.map(async (token) => {
+			const balance = await queryERC20Balance(token.address, sender, 'arbitrum');
+			return { token: token.address, symbol: token.symbol, balance: balance ?? 0n };
+		})
+	);
+
+	// Sort by balance descending — prefer the token the user has the most of
+	const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
+
+	// Try with fee buffer first (user has tokens)
+	if (sorted.length > 0) {
+		let lastErr: Error | null = null;
+		for (const { token: feeToken, symbol } of sorted) {
+			try {
+				const actualCalls = [
+					{ to: params.to, data: params.data, value: callValue },
+					...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value }))
+				];
+				const estimate = await estimateFee(feeToken, 1n, params.to, actualCalls);
 				const feeBuffer = BigInt(estimate.feeBuffer);
-				const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === params.feeToken!.toLowerCase());
-				console.log(`[sendArbitrumTransaction] Using preferred fee token ${tokenInfo?.symbol ?? params.feeToken}, feeBuffer=${feeBuffer}`);
+
+				const tokenBalance = sorted.find((b) => b.token === feeToken)?.balance ?? 0n;
+				if (tokenBalance < feeBuffer) {
+					console.log(`[sendArbitrumTransaction] Insufficient ${symbol} for fee buffer: have ${tokenBalance}, need ${feeBuffer}`);
+					continue;
+				}
 
 				const txHash = await Promise.race([
 					sendGaslessCalls(
-						[{ to: params.to, data: params.data, value: callValue }],
-						params.feeToken,
+						[
+							{ to: params.to, data: params.data, value: callValue },
+							...(params.extraCalls ?? [])
+						],
+						feeToken,
 						feeBuffer,
 						estimate.estimatedGas
 					),
@@ -96,125 +167,34 @@ export async function sendArbitrumTransaction(params: {
 					)
 				]);
 
-				console.log(`[sendArbitrumTransaction] Gasless relay succeeded with preferred ${tokenInfo?.symbol ?? params.feeToken} fee`);
-				await Promise.allSettled([loadAssets(), loadTransactions()]);
+				console.log(`[sendArbitrumTransaction] Gasless relay succeeded with ${symbol} fee`);
+				void Promise.allSettled([loadAssets(), loadTransactions()]);
 				return txHash;
+			} catch (err) {
+				lastErr = err instanceof Error ? err : new Error(String(err));
+				console.warn(`[sendArbitrumTransaction] Gasless relay with ${symbol} failed:`, lastErr.message);
+				continue;
 			}
-
-			// No preferred token — scan all allowed fee token balances
-			const { queryERC20Balance } = await import('$lib/services/swap-chain/tx-helpers');
-			const { gaslessWallet } = await import('$lib/wallet/gasless-store');
-			const walletState = get(gaslessWallet);
-			const sender = walletState.address;
-			if (!sender) throw new Error('Gasless wallet address not available');
-
-			// Check all allowed fee token balances in parallel
-			const balanceChecks = await Promise.all(
-				TOKENS.map(async (token) => {
-					const balance = await queryERC20Balance(token.address, sender, 'arbitrum');
-					return { token: token.address, symbol: token.symbol, balance: balance ?? 0n };
-				})
-			);
-
-			// Sort by balance descending — prefer the token the user has the most of
-			const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
-
-			// Try with fee buffer first (user has tokens)
-			if (sorted.length > 0) {
-				let lastErr: Error | null = null;
-				for (const { token: feeToken, symbol } of sorted) {
-					try {
-						const estimate = await estimateFee(feeToken, 1n, params.to);
-						const feeBuffer = BigInt(estimate.feeBuffer);
-
-						const tokenBalance = sorted.find((b) => b.token === feeToken)?.balance ?? 0n;
-						if (tokenBalance < feeBuffer) {
-							console.log(`[sendArbitrumTransaction] Insufficient ${symbol} for fee buffer: have ${tokenBalance}, need ${feeBuffer}`);
-							continue;
-						}
-
-						const txHash = await Promise.race([
-							sendGaslessCalls(
-								[{ to: params.to, data: params.data, value: callValue }],
-								feeToken,
-								feeBuffer,
-								estimate.estimatedGas
-							),
-							new Promise<never>((_, reject) =>
-								setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
-							)
-						]);
-
-						console.log(`[sendArbitrumTransaction] Gasless relay succeeded with ${symbol} fee`);
-						await Promise.allSettled([loadAssets(), loadTransactions()]);
-						return txHash;
-					} catch (err) {
-						lastErr = err instanceof Error ? err : new Error(String(err));
-						console.warn(`[sendArbitrumTransaction] Gasless relay with ${symbol} failed:`, lastErr.message);
-						continue;
-					}
-				}
-			}
-
-			// No fee tokens or all fee attempts failed — send without fee buffer.
-			// The paymaster still sponsors ETH gas; the treasury absorbs the token cost.
-			console.log('[sendArbitrumTransaction] No fee token balance — sending gasless without fee buffer');
-			const txHash = await Promise.race([
-				sendGaslessCalls(
-					[{ to: params.to, data: params.data, value: callValue }]
-				),
-				new Promise<never>((_, reject) =>
-					setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
-				)
-			]);
-
-			console.log('[sendArbitrumTransaction] Gasless relay succeeded (no fee buffer)');
-			await Promise.allSettled([loadAssets(), loadTransactions()]);
-			return txHash;
 		}
-	} catch (gaslessErr) {
-		// Gasless relay unavailable or failed — fall through to direct transaction
-		console.warn(
-			'[sendArbitrumTransaction] Gasless relay failed, falling back to direct tx:',
-			gaslessErr
-		);
 	}
 
-	// --- Direct path (RSK wallet signs and sends with ETH for gas) ---
-	console.warn('[sendArbitrumTransaction] Falling back to direct tx with ETH for gas');
-	const manager = getWalletManager();
-	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
-	const ARB_RPC = import.meta.env.VITE_ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc';
-	const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
-	const arbWallet = wallet.connect(arbProvider);
-
-	// Check ETH balance before attempting — if zero, fail fast with a clear message
-	const arbEthBalance = await arbProvider.getBalance(arbWallet.address);
-	if (arbEthBalance === 0n) {
-		throw new Error(
-			'No ETH on Arbitrum for gas. The gasless relay was not available. ' +
-			'Please fund your Arbitrum wallet with ETH to execute this transaction, ' +
-			'or ensure the gasless relay is configured.'
-		);
-	}
-
-	// Add 60s timeout to prevent indefinite hangs when RPC is slow/unreachable
+	// No fee tokens or all fee attempts failed — send without fee buffer.
+	// The paymaster still sponsors ETH gas; the treasury absorbs the token cost.
+	console.log('[sendArbitrumTransaction] No fee token balance — sending gasless without fee buffer');
 	const txHash = await Promise.race([
-		(async () => {
-			const tx = await arbWallet.sendTransaction({
-				to: params.to,
-				data: params.data,
-				value: params.value,
-				...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
-			});
-			return tx.hash;
-		})(),
+		sendGaslessCalls(
+			[
+				{ to: params.to, data: params.data, value: callValue },
+				...(params.extraCalls ?? [])
+			]
+		),
 		new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error('Arbitrum transaction timeout (60s) — RPC may be unreachable')), 60_000)
+			setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
 		)
 	]);
-	console.warn('[sendArbitrumTransaction] Direct tx submitted: %s', txHash);
-	await Promise.allSettled([loadAssets(), loadTransactions()]);
+
+	console.log('[sendArbitrumTransaction] Gasless relay succeeded (no fee buffer)');
+	void Promise.allSettled([loadAssets(), loadTransactions()]);
 	return txHash;
 }
 
@@ -268,7 +248,53 @@ export async function sendRSKToken(
 }
 
 /**
- * Send BSC USDT transaction.
+ * Direct Arbitrum transaction path — signs with the built-in RSK wallet
+ * using native ETH for gas. Only used when the gasless wallet is not
+ * initialized (e.g. on a fresh device before the smart account is set up).
+ */
+async function sendDirectArbitrumTx(params: {
+	to: string;
+	data: string;
+	value: string;
+	gasLimit?: number;
+}): Promise<string> {
+	console.warn('[sendArbitrumTransaction] Using direct tx path (gasless wallet not initialized)');
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
+	const ARB_RPC = import.meta.env.VITE_ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc';
+	const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
+	const arbWallet = wallet.connect(arbProvider);
+
+	const arbEthBalance = await arbProvider.getBalance(arbWallet.address);
+	if (arbEthBalance === 0n) {
+		throw new Error(
+			'No ETH on Arbitrum for gas. The gasless relay is not initialized. ' +
+			'Please fund your Arbitrum wallet with ETH to execute this transaction, ' +
+			'or ensure the gasless relay is configured.'
+		);
+	}
+
+	const txHash = await Promise.race([
+		(async () => {
+			const tx = await arbWallet.sendTransaction({
+				to: params.to,
+				data: params.data,
+				value: params.value,
+				...(params.gasLimit !== undefined && { gasLimit: params.gasLimit })
+			});
+			return tx.hash;
+		})(),
+		new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error('Arbitrum transaction timeout (60s) — RPC may be unreachable')), 60_000)
+		)
+	]);
+	console.warn('[sendArbitrumTransaction] Direct tx submitted: %s', txHash);
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	return txHash;
+}
+
+/**
+ * Send ERC-20 token transaction.
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();

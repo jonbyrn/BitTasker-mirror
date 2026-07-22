@@ -6,8 +6,7 @@
  * All financial math uses BigInt exclusively (no floating-point for money).
  *
  * This is the SINGLE SOURCE for gasless helper functions on the frontend.
- * The old src/wallet/gasless-helpers.ts (viem-based) is deleted — this file
- * replaces it with ethers-based implementations.
+ * This file is the ethers-based implementation of gasless helpers.
  *
  * @module gasless-helpers
  */

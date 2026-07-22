@@ -104,15 +104,21 @@ export const symbiosisProvider: SwapProvider = {
 		let inputValueUsd = 0
 		if (quote.fee) {
 			if (typeof quote.fee === 'object' && quote.fee !== null && 'amount' in quote.fee) {
-				// Object format: fee is in a stablecoin (USDT0). Convert micro-units → USD.
+				// Object format: fee may be in a stablecoin (USDT0) or native token (ETH).
+				// Use priceUsd when available to convert to actual USD value.
 				const feeAmount = Number((quote.fee as { amount: string }).amount);
 				const feeDecimals = (quote.fee as { decimals: number }).decimals ?? 6;
+				const feePriceUsd = parseFloat((quote.fee as { priceUsd?: string }).priceUsd ?? '0');
 				if (isFinite(feeAmount) && feeAmount > 0) {
-					bridgeFeeUsd = feeAmount / 10 ** feeDecimals;
+					const feeInTokenUnits = feeAmount / 10 ** feeDecimals;
+					// If priceUsd is available, multiply to get actual USD value.
+					// Otherwise treat as stablecoin (1:1 USD).
+					bridgeFeeUsd = feePriceUsd > 0 ? feeInTokenUnits * feePriceUsd : feeInTokenUnits;
 					debug.log(
-						'Symbiosis fee object: %s %s → $%s',
+						'Symbiosis fee object: %s %s (priceUsd=%s) → $%s',
 						(quote.fee as { amount: string }).amount,
 						(quote.fee as { symbol: string }).symbol ?? '?',
+						feePriceUsd > 0 ? feePriceUsd.toFixed(2) : 'N/A',
 						bridgeFeeUsd.toFixed(4)
 					);
 				}

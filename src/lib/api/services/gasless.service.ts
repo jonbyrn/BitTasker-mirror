@@ -36,6 +36,7 @@ export interface RelayRequest {
 /** POST /gasless/relay response */
 export interface RelayResponse {
 	userOpHash: string;
+	txHash: string;
 }
 
 /** POST /gasless/prepare response — returns paymasterData (signed bytes only).

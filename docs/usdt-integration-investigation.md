@@ -76,7 +76,7 @@ Pimlico is a three-layer ERC-4337 infrastructure stack:
 
 | Layer                  | Component                              | License | What It Does                                        |
 | ---------------------- | -------------------------------------- | ------- | --------------------------------------------------- |
-| Smart accounts         | permissionless.js                      | MIT     | TypeScript library for Safe, Kernel, Biconomy, etc. |
+| Smart accounts         | ethers.js                              | MIT     | TypeScript library for Safe, Kernel, Biconomy, etc. |
 | Transaction submission | Alto Bundler                           | GPL-3.0 | Submits UserOperations on-chain                     |
 | Gas abstraction        | ERC-20 Paymaster / Singleton Paymaster | MIT     | Pays gas in native token, charges user in ERC-20    |
 
@@ -190,7 +190,7 @@ full stack for gas abstraction and smart accounts.
 
 **User flow**:
 
-1. User creates smart account via permissionless.js
+1. User creates smart account via ethers.js
 2. User has USDT (symbol "USDT", clean name)
 3. `createPaymentContract` built as UserOperation
 4. Bundler submits through ERC-20 paymaster
@@ -256,7 +256,7 @@ Token whitelist for initial deployment:
 ## Open Questions
 
 1. Pimlico pricing at scale — if chain migration becomes desirable, what are costs at 10K/100K/1M UserOps/month?
-2. Smart account UX with Nostr identity — if migrating to permissionless.js, does npub-based identity still work?
+2. Smart account UX with Nostr identity — if migrating to the new account abstraction stack, does npub-based identity still work?
 3. Boltz replacement — if moving off RSK, what replaces the BTC/LN swap rails?
 4. Audit scope for new ERC-20 escrow — OpenZeppelin-style audit timeline and cost?
 5. Multi-chain future — could BitTasker support both RSK and a Pimlico chain simultaneously?
@@ -270,7 +270,7 @@ Token whitelist for initial deployment:
 - Pimlico GitHub (erc20-paymaster, MIT): https://github.com/pimlicolabs/erc20-paymaster
 - Pimlico GitHub (singleton-paymaster): https://github.com/pimlicolabs/singleton-paymaster
 - Pimlico GitHub (alto bundler, GPL-3.0): https://github.com/pimlicolabs/alto
-- Pimlico permissionless.js (MIT): https://github.com/pimlicolabs/permissionless.js
+- ethers.js (MIT): https://github.com/ethers-io/ethers.js
 - RIF Relay Server: https://github.com/rsksmart/rif-relay-server
 - RIF Relay Contracts: https://github.com/rsksmart/rif-relay-contracts
 - Tether Supported Chains: https://tether.to/en/supported-chains/

@@ -59,7 +59,7 @@
 | Paymaster hash helper | 40 | getPaymasterSignatureHash + signMessage/signDigest docs |
 | NestJS gasless module | 400 | Controller + service + tiered fees + contract interaction support + validation + signing + error handling + deposit monitoring + pre-flight simulation |
 | Fee estimation (server-side) | 100 | Tiered model + BigInt arithmetic + Chainlink oracle + contract interaction estimation |
-| Svelte wallet store | 80 | permissionless.js + sendGasless via NestJS relay |
+| Svelte wallet store | 80 | ethers.js + sendGasless via NestJS relay |
 | ArbitrumWallet (wallet-core) | 60 | Provider + balance reads |
 | Svelte send flow UI | 200 | Confirmation + fee display + error states |
 | CLI verification scripts | 400 | 10 scripts + master script + helper scripts |
@@ -78,7 +78,7 @@ This plan adds **gasless token transfers and contract interactions** on **Arbitr
 - **Contract interactions supported** — swaps, DeFi, governance, any contract call (up to 5M gas limit)
 - **Operations exceeding 5M gas are rejected** — "Network fee too high" error prevents excessive costs
 - **Fully self-hosted** — no external API keys, no cloud dependencies
-- **permissionless.js SDK** handles all EIP-7702 complexity
+- **ethers.js SDK** handles all EIP-7702 complexity
 - **Alto bundler** (Docker, 2 replicas) handles UserOp validation and submission
 - **Coinbase VerifyingPaymaster** (audited, MIT) handles fee sponsorship with backend signer verification
 - **Pre-transaction fee estimation** — user sees exact cost before signing
@@ -101,7 +101,7 @@ This plan adds **gasless token transfers and contract interactions** on **Arbitr
 │   Wallet Dashboard │ Send │ Receive │ Transaction History        │
 │   (existing wallet UI design — no changes to asset display)      │
 ├─────────────────────────────────────────────────────────────────┤
-│              permissionless.js + Svelte Store (~80 lines)         │
+│              ethers.js + Svelte Store (~80 lines)                    │
 │   to7702SimpleSmartAccount → signUserOp → POST to NestJS        │
 │   Fee estimation via /gasless/estimate (server-side)             │
 ├─────────────────────────────────────────────────────────────────┤
@@ -135,12 +135,12 @@ This plan adds **gasless token transfers and contract interactions** on **Arbitr
 | Concern | Layer | Rationale |
 |---------|-------|-----------|
 | Provider, balances, basic ERC-20 reads | `wallet-core` SDK | Reusable, testable, same pattern as BSC/RSK |
-| EIP-7702 smart account setup | App layer (Svelte store) | Depends on permissionless.js (viem), app state |
-| UserOp construction + signing | App layer (permissionless.js) | SDK handles this natively |
+| EIP-7702 smart account setup | App layer (Svelte store) | Depends on ethers.js, app state |
+| UserOp construction + signing | App layer (ethers.js) | SDK handles this natively |
 | Paymaster sponsorship signing | NestJS backend | Server-side, never expose signer to client |
 | Fee estimation + tiered buffer calculation | NestJS backend | Precision-sensitive, server-side Chainlink oracle |
-| Token transfer encoding | App layer (permissionless.js) | SDK's `sendUserOperation({ calls })` handles this |
-| Contract interaction encoding | App layer (permissionless.js) | SDK encodes arbitrary calls in executeBatch |
+| Token transfer encoding | App layer (ethers.js) | SDK's `sendUserOperation({ calls })` handles this |
+| Contract interaction encoding | App layer (ethers.js) | SDK encodes arbitrary calls in executeBatch |
 
 ### 2.2 How It Works
 
@@ -462,18 +462,14 @@ export const MAX_TOTAL_GAS = 5_000_000n;  // Reject operations exceeding this
 
 ### 4.4 Svelte Wallet Store
 
-**permissionless.js + thin Svelte store** (~80 lines). No wagmi needed.
+**ethers.js + thin Svelte store** (~80 lines). No wagmi needed.
 
 **Critical design**: `sendGasless()` builds + signs the UserOp locally, then sends to NestJS backend relay.
 
 ```typescript
 // src/lib/wallet/gasless.ts
 import { writable, derived, get } from 'svelte/store';
-import { to7702SimpleSmartAccount } from 'permissionless/accounts';
-import { createPublicClient, http, encodeFunctionData } from 'viem';
-import { arbitrum } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
-import type { SmartAccount } from 'viem/account-abstraction';
+import { ethers } from 'ethers';
 
 export const smartAccount = writable<SmartAccount | null>(null);
 export const isReady = derived(smartAccount, $a => !!$a);
@@ -691,7 +687,7 @@ export function getPaymasterSignatureHash(
 
 **Problem**: If BitTasker goes down, users' EIP-7702 delegation persists.
 
-**Solution**: permissionless.js's `to7702SimpleSmartAccount` delegates to the **public Simple7702Account implementation** (`0xe6Cae83BdE06E4c305530e199D7217f42808555B`). This implementation is:
+**Solution**: The smart account setup delegates to the **public Simple7702Account implementation** (`0xe6Cae83BdE06E4c305530e199D7217f42808555B`). This implementation is:
 - Deployed by the Ethereum Foundation / Pimlico team
 - Open source and audited
 - Immutable — cannot be changed by BitTasker
@@ -1148,7 +1144,7 @@ export class ArbitrumWallet {
 | Fee estimation client | 1 hour | Calls /gasless/estimate backend endpoint |
 | Contract interaction helpers | 2 hours | sendGasless() with arbitrary calls + fee buffer |
 | Pre-flight balance check | 1 hour | Balance >= amount + feeBuffer |
-| Unit tests | 3 hours | Mock permissionless.js, precision tests |
+| Unit tests | 3 hours | Mock ethers.js, precision tests |
 
 ### Phase 3: ArbitrumWallet in wallet-core (Day 5)
 
@@ -1260,8 +1256,7 @@ export TEST_EOA=0x123...
 ```json
 {
   "dependencies": {
-    "permissionless": "^0.2.x",
-    "viem": "^2.x"
+    "ethers": "^6.x"
   }
 }
 ```
@@ -1386,7 +1381,7 @@ Arbitrum: Alchemy free tier (300M CU/month)
 | 2 | Low deposit warning | deposit = 0.008 ETH | Warning logged, relay still accepts |
 | 3 | Critical low deposit | deposit = 0.004 ETH | isPaused = true, relay returns 503 |
 | 4 | Recovery after top-up | deposit was 0.004, now 0.02 ETH | isPaused = false, relay accepts |
-| permissionless.js | account creation success, bundler client creation success, sendUserOp success/failure |
+| ethers.js | account creation success, bundler client creation success, sendUserOp success/failure |
 
 ### 11.6 Security-Critical Tests
 
@@ -1510,7 +1505,7 @@ jobs:
 | 6 | USDT0 depeg | HIGH | Circuit breaker at 5% deviation; block sends, allow receives |
 | 7 | Network fee spike between estimate and execution | MEDIUM | Tiered fee model has built-in margin; 20% buffer within each tier |
 | 8 | Paymaster signature mismatch | CRITICAL | Anvil fork test verifies against real contract |
-| 9 | permissionless.js breaking changes | MEDIUM | Pin exact version; test before upgrade |
+| 9 | ethers.js breaking changes | MEDIUM | Pin exact version; test before upgrade |
 | 10 | Alto Docker crash | MEDIUM | Docker restart policy; health check; 2 replicas |
 | 11 | Cross-chain replay | LOW | EIP-7702 authorization signed for chain 42161 only |
 | 12 | wallet-core breaking change for existing users | LOW | Arbitrum is additive; existing RSK/BSC code unchanged |
@@ -1537,14 +1532,14 @@ jobs:
 | D-001 | Self-hosted (not Gelato) | Zero external dependencies, no API keys, full control |
 | D-002 | Arbitrum One | Sub-cent network fees, post-Pectra EIP-7702, largest L2 TVL |
 | D-003 | Tiered fee model | Simple transfers $0.01, contract interactions $0.03-$0.10, reject >5M gas |
-| D-004 | permissionless.js SDK | Only SDK: EIP-7702 native + self-hosted bundler + Apache 2.0 |
+| D-004 | ethers.js SDK | Core library: EIP-7702 support + self-hosted bundler |
 | D-005 | Alto bundler | Open source (Apache 2.0), EIP-7702 support, production-proven |
 | D-006 | Coinbase VerifyingPaymaster | Audited (Nov 2024), MIT, minimal adaptation for v0.8 |
 | D-007 | EIP-7702 (not counterfactual) | Preserves user's EOA address; compatible with existing systems |
-| D-008 | No wagmi | Single chain, single signer — permissionless.js + thin Svelte store is simpler |
+| D-008 | No wagmi | Single chain, single signer — ethers.js + thin Svelte store is simpler |
 | D-009 | Existing wallet UI unchanged | No modifications to asset display or navigation; Arbitrum tokens added to existing list |
 | D-010 | wallet-core gets ArbitrumWallet | Follows existing BSC/RSK pattern; SDK handles provider + balances only |
-| D-011 | AA logic in app layer | SDK stays chain-focused; permissionless.js handles AA in Svelte store |
+| D-011 | AA logic in app layer | SDK stays chain-focused; ethers.js handles AA in Svelte store |
 | D-012 | Existing key management unchanged | Critical system, currently stable; same key for EOA and smart account |
 | D-013 | Three tokens from day one | USDT0 + wBTC + tBTC; registry pattern makes this trivial |
 | D-014 | Escrow excluded | Escrow not deployed on Arbitrum; wallet send/receive/interact only |

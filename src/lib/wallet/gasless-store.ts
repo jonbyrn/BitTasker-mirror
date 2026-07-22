@@ -35,34 +35,89 @@ import {
 } from './gasless-helpers';
 
 // =============================================================================
-// SmartAccount — typed interface for the EIP-7702 account from permissionless
+// UserOp signing — pure ethers.js implementation
 // =============================================================================
 
-/** The EIP-7702 smart account object created by permissionless/accounts. */
-export interface SmartAccount {
-	address: string;
-	signUserOperation: (userOp: {
-		sender: string;
-		nonce: bigint;
-		callData: string;
-		callGasLimit: bigint;
-		verificationGasLimit: bigint;
-		preVerificationGas: bigint;
-		maxFeePerGas: bigint;
-		maxPriorityFeePerGas: bigint;
-		paymasterAndData: string;
-		signature: string;
-		/** EIP-7702 factory sentinel for first-time delegations */
-		factory?: string;
-		/** EIP-7702 initialization data */
-		factoryData?: string;
-	}) => Promise<UserOperation | string>;
-	getNonce: () => Promise<bigint>;
+/**
+ * EIP-712 types for PackedUserOperation (matches Simple7702Account.sol).
+ * Used by signUserOperation() to produce a signature the on-chain contract accepts.
+ */
+const PACKED_USER_OP_TYPES: Record<string, Array<{ name: string; type: string }>> = {
+	PackedUserOperation: [
+		{ name: 'sender', type: 'address' },
+		{ name: 'nonce', type: 'uint256' },
+		{ name: 'initCode', type: 'bytes' },
+		{ name: 'callData', type: 'bytes' },
+		{ name: 'accountGasLimits', type: 'bytes32' },
+		{ name: 'preVerificationGas', type: 'uint256' },
+		{ name: 'gasFees', type: 'bytes32' },
+		{ name: 'paymasterAndData', type: 'bytes' }
+	]
+};
+
+/**
+ * Pack two uint128 values into a single bytes32 (high << 128 | low).
+ * Matches the EntryPoint's accountGasLimits and gasFees encoding.
+ */
+function packUints(high: bigint, low: bigint): string {
+	return ethersLib.zeroPadValue(ethersLib.toBeHex((high << 128n) | low), 32);
+}
+
+/**
+ * Sign a UserOperation using ethers.js EIP-712 typed data.
+ *
+ * This replaces the previous library's `signUserOperation` and fixes
+ * the `initCode` bug where the library returned the factory sentinel address
+ * instead of empty bytes for EIP-7702 accounts.
+ *
+ * The signature matches what Simple7702Account.sol._validateSignature() expects:
+ * - EIP-712 domain: {name: "ERC4337", version: "1", chainId, verifyingContract: entryPoint}
+ * - initCode: '0x' (empty — EIP-7702 delegation is handled by eip7702Auth, not initCode)
+ * - paymasterAndData: packed from split paymaster fields if present
+ */
+export async function signUserOpWithEthers(
+	wallet: ethersLib.Wallet,
+	userOp: UserOperation
+): Promise<string> {
+	// Pack gas fields into bytes32 (matching EntryPoint encoding)
+	const accountGasLimits = packUints(userOp.verificationGasLimit, userOp.callGasLimit);
+	const gasFees = packUints(userOp.maxPriorityFeePerGas, userOp.maxFeePerGas);
+
+	// Pack paymasterAndData from split fields (matching toPackedUserOperation)
+	const paymasterAndData = userOp.paymaster
+		? ethersLib.concat([
+				userOp.paymaster,
+				ethersLib.zeroPadValue(ethersLib.toBeHex(userOp.paymasterVerificationGasLimit || 0n), 16),
+				ethersLib.zeroPadValue(ethersLib.toBeHex(userOp.paymasterPostOpGasLimit || 0n), 16),
+				userOp.paymasterData || '0x'
+			])
+		: '0x';
+
+	// EIP-712 domain (matches Simple7702Account.sol._domainSeparator)
+	const domain = {
+		name: 'ERC4337',
+		version: '1',
+		chainId: ARBITRUM_CHAIN_ID,
+		verifyingContract: ENTRY_POINT_ADDRESS
+	};
+
+	// Message — CRITICAL: initCode MUST be '0x' for EIP-7702 accounts
+	const msg = {
+		sender: userOp.sender,
+		nonce: userOp.nonce,
+		initCode: '0x' as const,
+		callData: userOp.callData,
+		accountGasLimits,
+		preVerificationGas: userOp.preVerificationGas,
+		gasFees,
+		paymasterAndData
+	};
+
+	return wallet.signTypedData(domain, PACKED_USER_OP_TYPES, msg);
 }
 
 // =============================================================================
-// Ethers.js Interface singletons — used for ABI encoding (replaces viem encodeFunctionData)
-// ethers produces properly even-length hex, unlike viem which can strip leading zeros
+// Ethers.js Interface singletons — used for ABI encoding
 // =============================================================================
 
 const ethersTransferIface = new ethersLib.Interface([
@@ -113,8 +168,8 @@ interface GaslessWalletState {
 	ready: boolean;
 	loading: boolean;
 	error: string | null;
-	/** The EIP-7702 smart account object (null until init). Exposes signUserOperation() and getNonce(). */
-	account: SmartAccount | null;
+	/** The ethers.js Wallet for signing (null until init). */
+	wallet: ethersLib.Wallet | null;
 	/** Raw owner private key — needed for EIP-7702 authorization signing */
 	ownerKey: `0x${string}` | null;
 }
@@ -125,7 +180,7 @@ function createGaslessStore() {
 		ready: false,
 		loading: false,
 		error: null,
-		account: null,
+		wallet: null,
 		ownerKey: null
 	});
 	return {
@@ -133,39 +188,18 @@ function createGaslessStore() {
 		async init(privateKey: `0x${string}`): Promise<string> {
 			update((s) => ({ ...s, loading: true, error: null }));
 			try {
-				const [
-					{ to7702SimpleSmartAccount },
-					{ privateKeyToAccount },
-					{ createPublicClient, http },
-					{ arbitrum }
-				] = await Promise.all([
-					import('permissionless/accounts'),
-					import('viem/accounts'),
-					import('viem'),
-					import('viem/chains')
-				]);
-				const publicClient = createPublicClient({
-					chain: arbitrum,
-					transport: http(ARBITRUM_RPC_URL || undefined)
-				});
-				const signer = privateKeyToAccount(privateKey);
-				const account = await to7702SimpleSmartAccount({
-					client: publicClient,
-					owner: signer,
-					entryPoint: {
-						address: ENTRY_POINT_ADDRESS,
-						version: '0.8'
-					}
-				});
+				// For EIP-7702 accounts, the smart account address IS the EOA address.
+				const wallet = new ethersLib.Wallet(privateKey);
+				const address = wallet.address;
 				update((s) => ({
 					...s,
-					address: account.address,
+					address,
 					ready: true,
 					loading: false,
-					account: account as unknown as SmartAccount,
+					wallet,
 					ownerKey: privateKey
 				}));
-				return account.address;
+				return address;
 			} catch (e) {
 				const msg = e instanceof Error ? e.message : 'Failed to initialize wallet';
 				update((s) => ({ ...s, loading: false, error: msg }));
@@ -178,7 +212,7 @@ function createGaslessStore() {
 				ready: false,
 				loading: false,
 				error: null,
-				account: null,
+				wallet: null,
 				ownerKey: null
 			});
 		}
@@ -188,7 +222,7 @@ function createGaslessStore() {
 export const gaslessWallet = createGaslessStore();
 export const gaslessAddress = derived(gaslessWallet, ($w) => $w.address);
 export const gaslessReady = derived(gaslessWallet, ($w) => $w.ready);
-export const gaslessAccount = derived(gaslessWallet, ($w) => $w.account);
+export const gaslessWalletInstance = derived(gaslessWallet, ($w) => $w.wallet);
 export const gaslessLoading = derived(gaslessWallet, ($w) => $w.loading);
 export const gaslessError = derived(gaslessWallet, ($w) => $w.error);
 export const gaslessOwnerKey = derived(gaslessWallet, ($w) => $w.ownerKey);
@@ -317,8 +351,8 @@ export function buildExecuteBatchCallData(
 // =============================================================================
 // Send gasless transaction (PROGRAMMATIC API)
 //
-// Lower-level API that accepts arbitrary batch calls and an explicit
-// smartAccount parameter. For UI components doing single token transfers,
+// Lower-level API that accepts arbitrary batch calls.
+// For UI components doing single token transfers,
 // prefer `sendToken()` which reads wallet state internally.
 // =============================================================================
 
@@ -326,11 +360,10 @@ export async function sendGasless(
 	calls: Array<{ to: string; data: string; value?: bigint }>,
 	feeBufferToken: string,
 	feeBufferAmount: bigint,
-	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
-	smartAccount: Pick<SmartAccount, 'signUserOperation'>
+	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint }
 ): Promise<string> {
 	const state = get(gaslessWallet);
-	if (!state.ready || !state.address) throw new Error('Wallet not initialized');
+	if (!state.ready || !state.address || !state.wallet) throw new Error('Wallet not initialized');
 
 	// Validate inputs BEFORE constructing callData (defense-in-depth)
 	validateFeeBufferBounds(feeBufferToken, feeBufferAmount);
@@ -396,22 +429,24 @@ export async function sendGasless(
 		// Continue without paymaster — sender pays gas from own ETH
 	}
 
-	const signedResult = await smartAccount.signUserOperation(userOp);
+	// 3e. Sign the UserOp client-side using ethers.js
+	const signingWallet = get(gaslessWalletInstance);
+	if (signingWallet) {
+		userOp.signature = await signUserOpWithEthers(signingWallet, userOp);
+	}
 
-	const signedUserOp = typeof signedResult === 'string'
-		? { ...userOp, signature: signedResult }
-		: signedResult;
+	const signature = await signUserOpWithEthers(state.wallet, userOp);
 
 	const serializableOp: SerializableUserOperation = {
-		sender: signedUserOp.sender,
-		nonce: toHex(signedUserOp.nonce),
-		callData: signedUserOp.callData,
-		callGasLimit: toHex(signedUserOp.callGasLimit),
-		verificationGasLimit: toHex(signedUserOp.verificationGasLimit),
-		preVerificationGas: toHex(signedUserOp.preVerificationGas),
-		maxFeePerGas: toHex(signedUserOp.maxFeePerGas),
-		maxPriorityFeePerGas: toHex(signedUserOp.maxPriorityFeePerGas),
-		signature: (typeof signedResult === 'string' ? signedResult : signedUserOp.signature) || '0x',
+		sender: userOp.sender,
+		nonce: toHex(userOp.nonce),
+		callData: userOp.callData,
+		callGasLimit: toHex(userOp.callGasLimit),
+		verificationGasLimit: toHex(userOp.verificationGasLimit),
+		preVerificationGas: toHex(userOp.preVerificationGas),
+		maxFeePerGas: toHex(userOp.maxFeePerGas),
+		maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
+		signature,
 		...(userOp.paymaster ? { paymaster: userOp.paymaster } : {}),
 		...(userOp.paymasterData ? { paymasterData: userOp.paymasterData } : {}),
 		...(userOp.paymasterVerificationGasLimit !== undefined
@@ -424,15 +459,15 @@ export async function sendGasless(
 	};
 
 	const result = await gaslessService.relay({ sender: state.address, userOp: serializableOp, eip7702Auth });
-	return result.userOpHash;
+	return result.txHash;
 }
 
 // =============================================================================
 // Convenience: simple token transfer (PROGRAMMATIC API)
 //
 // Wraps sendGasless() with a single ERC-20 transfer call for convenience.
-// Requires explicit smartAccount parameter — UI components should use the
-// sendToken() function instead which reads wallet state internally.
+// UI components should use the sendToken() function instead which reads
+// wallet state internally.
 // =============================================================================
 
 export async function sendTokenProgrammatic(
@@ -440,8 +475,7 @@ export async function sendTokenProgrammatic(
 	recipient: string,
 	amount: bigint,
 	feeBufferAmount: bigint,
-	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint },
-	smartAccount: Pick<SmartAccount, 'signUserOperation'>
+	estimatedGas: { callGasLimit: bigint; verificationGasLimit: bigint; preVerificationGas: bigint }
 ): Promise<string> {
 	// Input validation
 	if (!token || !recipient) throw new Error('token and recipient are required');
@@ -455,8 +489,7 @@ export async function sendTokenProgrammatic(
 		[{ to: token, data: transferData }],
 		token,
 		feeBufferAmount,
-		estimatedGas,
-		smartAccount
+		estimatedGas
 	);
 }
 
@@ -468,24 +501,46 @@ export async function sendTokenProgrammatic(
  * Estimate the fee for a gasless token transfer via the relay API.
  *
  * @param token - Token contract address
- * @param amount - Transfer amount in token's smallest unit (bigint)
+ * @param amount - Transfer amount in token's smallest unit
  * @param recipient - Recipient address
+ * @param calls - Optional actual calls for accurate gas estimation (e.g., bridge calls).
+ *                When provided, the backend estimates gas against the real callData
+ *                instead of a dummy ERC-20 transfer.
  * @returns Fee estimate with buffer and cost details
  */
 export async function estimateFee(
 	token: string,
 	amount: bigint,
-	recipient: string
+	recipient: string,
+	calls?: Array<{ to: string; data: string; value?: bigint }>
 ): Promise<FeeEstimate> {
 	if (!ethersLib.isAddress(token)) throw new Error('Invalid token address');
 	if (!ethersLib.isAddress(recipient)) throw new Error('Invalid recipient address');
 	if (amount <= 0n) throw new Error('Amount must be positive');
 
-	return gaslessService.estimate({
+	const dto: {
+		token: string;
+		amount: string;
+		recipient: string;
+		calls?: Array<{ to: string; data: string; value?: string }>;
+	} = {
 		token,
 		amount: amount.toString(),
 		recipient
-	});
+	};
+
+	// Pass actual calls for accurate gas estimation when available.
+	// Without this, the backend estimates against a dummy ERC-20 transfer (~65K gas),
+	// which is wildly inaccurate for complex bridge calls (300K+ gas).
+	if (calls && calls.length > 0) {
+		dto.calls = calls.map((c) => ({
+			to: c.to,
+			data: c.data,
+			...(c.value !== undefined ? { value: c.value.toString() } : {})
+		}));
+	}
+
+	return gaslessService.estimate(dto);
 }
 
 // =============================================================================
@@ -527,7 +582,7 @@ function buildTransferCallData(
  * 1. Reads wallet state and smart account from the Svelte store (no need to
  *    pass them as parameters).
  * 2. Encodes executeBatch callData (user transfer + fee buffer to treasury).
- * 3. Fetches nonce from the EntryPoint contract via viem.
+ * 3. Fetches nonce from the EntryPoint contract.
  * 4. Constructs and signs the UserOp client-side.
  * 5. Relays to the NestJS backend which submits to the Alto bundler.
  *
@@ -610,8 +665,8 @@ export async function sendToken(
 	// 3d. Prepare paymaster data — must happen BEFORE signing so the
 	// UserOp hash includes the actual paymasterAndData (not '0x').
 	// The backend returns paymasterData (signed bytes). We set split
-	// paymaster fields on the UserOp. The permissionless library's
-	// signUserOperation packs them into paymasterAndData for EIP-712 signing.
+	// paymaster fields on the UserOp. signUserOperation packs them
+	// into paymasterAndData for EIP-712 signing.
 	try {
 		const serializableForPrepare: SerializableUserOperation = {
 			sender: userOp.sender,
@@ -647,12 +702,10 @@ export async function sendToken(
 		// Continue without paymaster data — sender pays gas from own ETH
 	}
 
-	// 3e. Sign the UserOp client-side if account is available
-	const account = get(gaslessAccount);
-	if (account && typeof account.signUserOperation === 'function') {
-		const signed = await account.signUserOperation(userOp);
-		// permissionless may return the signature string directly or as { signature }
-		userOp.signature = (typeof signed === 'string' ? signed : signed.signature) || '0x';
+	// 3e. Sign the UserOp client-side using ethers.js
+	const signingWallet = get(gaslessWalletInstance);
+	if (signingWallet) {
+		userOp.signature = await signUserOpWithEthers(signingWallet, userOp);
 	}
 
 	// 3f. Serialize for JSON transport — include split paymaster fields
@@ -698,9 +751,9 @@ export async function sendToken(
 			category: 'gasless',
 			message: 'UserOp relayed successfully',
 			level: 'info',
-			data: { userOpHash: result.userOpHash, sender }
+			data: { txHash: result.txHash, sender }
 		});
-		return result.userOpHash;
+		return result.txHash;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : String(error);
 		addBreadcrumb({
@@ -720,7 +773,7 @@ export async function sendToken(
 /**
  * Check if the user's on-chain token balance covers transfer + fee buffer.
  *
- * Performs a client-side viem readContract call — no backend endpoint needed.
+ * Performs a client-side ethers.js readContract call — no backend endpoint needed.
  *
  * @param tokenAddress - ERC-20 token contract address
  * @param userAddress - User's smart account address
@@ -776,7 +829,7 @@ export async function checkETHBalance(userAddress: string, rpcUrl?: string): Pro
  *
  * This is the emergency fallback when the gasless relay is unavailable.
  * Uses the owner's private key (from the wallet store) to sign and send
- * a standard ERC-20 transfer() transaction via viem.
+ * a standard ERC-20 transfer() transaction via ethers.js.
  *
  * @param token - ERC-20 token contract address
  * @param recipient - Recipient address
@@ -960,8 +1013,9 @@ export async function sendGaslessCalls(
 		const simRequest: RelayRequest = {
 			sender,
 			userOp: {
-				...userOp,
+				sender: userOp.sender,
 				nonce: toHex(userOp.nonce),
+				callData: userOp.callData,
 				callGasLimit: toHex(userOp.callGasLimit),
 				verificationGasLimit: toHex(userOp.verificationGasLimit),
 				preVerificationGas: toHex(userOp.preVerificationGas),
@@ -976,7 +1030,7 @@ export async function sendGaslessCalls(
 					: {}),
 				...(userOp.paymasterPostOpGasLimit !== undefined
 					? { paymasterPostOpGasLimit: toHex(userOp.paymasterPostOpGasLimit) }
-					: {}),
+					: {})
 			},
 			eip7702Auth
 		};
@@ -1003,11 +1057,10 @@ export async function sendGaslessCalls(
 		throw simErr;
 	}
 
-	// Sign the UserOp
-	const account = get(gaslessAccount);
-	if (account && typeof account.signUserOperation === 'function') {
-		const signed = await account.signUserOperation(userOp);
-		userOp.signature = (typeof signed === 'string' ? signed : signed.signature) || '0x';
+	// Sign the UserOp using ethers.js
+	const signingWallet = get(gaslessWalletInstance);
+	if (signingWallet) {
+		userOp.signature = await signUserOpWithEthers(signingWallet, userOp);
 	}
 
 	// Serialize with split paymaster fields
@@ -1051,9 +1104,10 @@ export async function sendGaslessCalls(
 			category: 'gasless',
 			message: 'Batch UserOp relayed successfully',
 			level: 'info',
-			data: { userOpHash: result.userOpHash, sender, callCount: calls.length }
+			data: { txHash: result.txHash, sender, callCount: calls.length }
 		});
-		return result.userOpHash;
+
+		return result.txHash;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : String(error);
 		addBreadcrumb({

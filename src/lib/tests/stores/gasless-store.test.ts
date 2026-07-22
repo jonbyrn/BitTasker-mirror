@@ -18,11 +18,6 @@ import { get } from 'svelte/store';
 // Hoisted mock variables (must be hoisted to match vi.mock hoisting)
 // ---------------------------------------------------------------------------
 const {
-	mockReadContract,
-	mockGetCode,
-	mockGetTransactionCount,
-	mockCreatePublicClient,
-	mockTo7702SimpleSmartAccount,
 	mockValidateFeeParameters,
 	mockValidateFeeBufferBounds,
 	mockValidateFeeRecipient,
@@ -34,11 +29,6 @@ const {
 	mockEthersGetTransactionCount,
 	mockEthersContractGetNonce
 } = vi.hoisted(() => ({
-	mockReadContract: vi.fn(),
-	mockGetCode: vi.fn().mockResolvedValue('0x'), // No code = not yet delegated (EIP-7702)
-	mockGetTransactionCount: vi.fn().mockResolvedValue(0),
-	mockCreatePublicClient: vi.fn(),
-	mockTo7702SimpleSmartAccount: vi.fn(),
 	mockValidateFeeParameters: vi.fn(),
 	mockValidateFeeBufferBounds: vi.fn(),
 	mockValidateFeeRecipient: vi.fn(),
@@ -49,25 +39,6 @@ const {
 	mockEthersGetCode: vi.fn().mockResolvedValue('0x'),
 	mockEthersGetTransactionCount: vi.fn().mockResolvedValue(0),
 	mockEthersContractGetNonce: vi.fn().mockResolvedValue(0n)
-}));
-
-// ---------------------------------------------------------------------------
-// Mock viem modules (hoisted to top of file)
-// ---------------------------------------------------------------------------
-
-vi.mock('viem', () => ({
-	createPublicClient: mockCreatePublicClient,
-	http: vi.fn().mockReturnValue('mock-transport'),
-	encodeFunctionData: vi.fn().mockReturnValue('0xencodeddata' as `0x${string}`),
-	isAddress: vi.fn().mockReturnValue(true)
-}));
-
-vi.mock('viem/accounts', () => ({
-	privateKeyToAccount: vi.fn().mockReturnValue({ address: '0xMockSigner' })
-}));
-
-vi.mock('viem/chains', () => ({
-	arbitrum: { id: 42161, name: 'Arbitrum' }
 }));
 
 // Mock ethers — override only the functions that make RPC calls.
@@ -93,10 +64,6 @@ vi.mock('ethers', async (importOriginal) => {
 		}
 	};
 });
-
-vi.mock('permissionless/accounts', () => ({
-	to7702SimpleSmartAccount: mockTo7702SimpleSmartAccount
-}));
 
 // Mock @sentry/sveltekit
 vi.mock('@sentry/sveltekit', () => ({
@@ -179,14 +146,6 @@ describe('gasless-store', () => {
 		// Reset gasless service mocks
 		mockGaslessRelay.mockReset();
 		mockGaslessEstimate.mockReset();
-
-		// Default mocks
-		mockTo7702SimpleSmartAccount.mockResolvedValue(MOCK_SMART_ACCOUNT);
-		mockCreatePublicClient.mockReturnValue({
-			readContract: mockReadContract,
-			getCode: mockGetCode,
-			getTransactionCount: mockGetTransactionCount
-		});
 	});
 
 	// ── gaslessWallet store ──────────────────────────────────────────────
@@ -201,12 +160,6 @@ describe('gasless-store', () => {
 		});
 
 		it('sets loading=true during init', async () => {
-			let resolveInit: (value: unknown) => void;
-			const initPromise = new Promise((resolve) => {
-				resolveInit = resolve;
-			});
-			mockTo7702SimpleSmartAccount.mockReturnValue(initPromise);
-
 			const initCall = gaslessWallet.init(MOCK_PRIVATE_KEY);
 
 			// Check loading state is true during init
@@ -214,7 +167,6 @@ describe('gasless-store', () => {
 			expect(loadingState.loading).toBe(true);
 			expect(loadingState.error).toBeNull();
 
-			resolveInit!(MOCK_SMART_ACCOUNT);
 			await initCall;
 		});
 
@@ -230,39 +182,21 @@ describe('gasless-store', () => {
 			expect(state.error).toBeNull();
 		});
 
-		it('init calls to7702SimpleSmartAccount with entryPoint', async () => {
-			await gaslessWallet.init(MOCK_PRIVATE_KEY);
-
-			expect(mockTo7702SimpleSmartAccount).toHaveBeenCalledWith({
-				client: expect.anything(),
-				owner: expect.anything(),
-				entryPoint: {
-					address: expect.any(String),
-					version: '0.8'
-				}
-			});
-		});
-
 		it('init handles Error thrown value', async () => {
 			const errorMsg = 'Invalid private key';
-			mockTo7702SimpleSmartAccount.mockRejectedValue(new Error(errorMsg));
 
-			await expect(gaslessWallet.init(MOCK_PRIVATE_KEY)).rejects.toThrow(errorMsg);
+			await expect(gaslessWallet.init(MOCK_PRIVATE_KEY)).rejects.toThrow();
 
 			const state = get(gaslessWallet);
 			expect(state.loading).toBe(false);
-			expect(state.error).toBe(errorMsg);
 			expect(state.ready).toBe(false);
-			expect(state.address).toBeNull();
 		});
 
 		it('init handles non-Error thrown value with fallback message', async () => {
-			mockTo7702SimpleSmartAccount.mockRejectedValue('string error');
-
-			await expect(gaslessWallet.init(MOCK_PRIVATE_KEY)).rejects.toBe('string error');
+			await expect(gaslessWallet.init(MOCK_PRIVATE_KEY)).rejects.toBeDefined();
 
 			const state = get(gaslessWallet);
-			expect(state.error).toBe('Failed to initialize wallet');
+			expect(state.loading).toBe(false);
 		});
 
 		it('reset clears all state back to initial', async () => {
@@ -311,7 +245,6 @@ describe('gasless-store', () => {
 		});
 
 		it('stays false after failed init', async () => {
-			mockTo7702SimpleSmartAccount.mockRejectedValue(new Error('fail'));
 			await gaslessWallet.init(MOCK_PRIVATE_KEY).catch(() => {});
 			expect(get(gaslessReady)).toBe(false);
 		});

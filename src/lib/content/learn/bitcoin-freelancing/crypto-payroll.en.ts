@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Is crypto payroll the future of remote work?',
-			body: 'Crypto payroll is gaining traction as remote work becomes the norm and businesses hire across borders. The combination of instant settlement, near-zero transaction fees, and permissionless access makes Bitcoin payments a natural fit for the global gig economy. In Latin America, where remittance fees average 5–7% and banking access varies widely, crypto payroll offers a direct improvement over traditional payment rails. As Lightning Network adoption grows and wallet UX improves, crypto payroll will become increasingly mainstream for businesses of all sizes.'
+			body: 'Crypto payroll is gaining traction as remote work becomes the norm and businesses hire across borders. The combination of instant settlement, near-zero transaction fees, and open access makes Bitcoin payments a natural fit for the global gig economy. In Latin America, where remittance fees average 5–7% and banking access varies widely, crypto payroll offers a direct improvement over traditional payment rails. As Lightning Network adoption grows and wallet UX improves, crypto payroll will become increasingly mainstream for businesses of all sizes.'
 		}
 	],
 	faq: [

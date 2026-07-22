@@ -305,7 +305,7 @@ Token addresses, gas bounds, and fee tiers are duplicated between frontend and b
 
 The EIP-7702 authorization signing uses `keccak256(0x05 || rlp([chainId, implAddress, eoaNonce]))` and requires the owner private key.
 
-**What breaks:** If `ownerKey` isn't set during wallet initialization, or if the `permissionless` library changes its API, auth signing fails silently.
+**What breaks:** If `ownerKey` isn't set during wallet initialization, or if the account abstraction library changes its API, auth signing fails silently.
 
 **Mitigation:** `ownerKey` must be set during `gaslessWallet.init(privateKey)`. Test the first-transaction path separately.
 
@@ -577,7 +577,7 @@ The gasless relay and broader USDT abstraction layer are gated behind feature fl
 - **Simple7702Account Impl:** `0xe6Cae83BdE06E4c305530e199D7217f42808555B`
 - **Alto Bundler:** [Pimlico Alto](https://github.com/pimlicolabs/alto) — ERC-4337 v0.8 bundler
 - **Public Alto Endpoint:** `https://public.pimlico.io/v2/{chain_id}/rpc` (20 req/min/IP)
-- **Permissionless.js:** [permissionless](https://github.com/pimlicolabs/permissionless) — Account abstraction SDK
+- **ethers.js:** [ethers](https://github.com/ethers-io/ethers.js) — Ethereum library
 - **Coinbase VerifyingPaymaster:** [github.com/coinbase/verifying-paymaster](https://github.com/coinbase/verifying-paymaster)
 - **ERC-4337 Spec:** [eips.ethereum.org/EIPS/eip-4337](https://eips.ethereum.org/EIPS/eip-4337)
 - **EIP-7702 Spec:** [eips.ethereum.org/EIPS/eip-7702](https://eips.ethereum.org/EIPS/eip-7702)

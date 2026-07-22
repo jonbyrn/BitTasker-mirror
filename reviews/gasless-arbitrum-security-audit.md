@@ -343,7 +343,7 @@ The plan as written would **NOT** produce a production-ready, secure implementat
 #### [MEDIUM-7] USDT0 non-standard `transfer()` return value not addressed
 
 - **Location**: Plan line 126 (Token inventory)
-- **Description**: USDT (and likely USDT0) does not return a boolean from `transfer()` and `approve()`, violating the ERC-20 standard. While viem handles this correctly via low-level calldata, the plan does not explicitly address this. If any component (Alto, EntryPoint, Simple7702Account) expects a boolean return value and reverts on its absence, USDT0 transfers will fail.
+- **Description**: USDT (and likely USDT0) does not return a boolean from `transfer()` and `approve()`, violating the ERC-20 standard. While ethers handles this correctly via low-level calldata, the plan does not explicitly address this. If any component (Alto, EntryPoint, Simple7702Account) expects a boolean return value and reverts on its absence, USDT0 transfers will fail.
 - **Impact**: USDT0 (the primary stablecoin) transfers may fail silently or revert depending on how the Simple7702Account's `execute` function handles non-standard return values.
 - **Recommendation**: Verify that `Simple7702Account.execute()` and `executeBatch()` use low-level calls (not `abi.decode` with `bool` return). Write explicit integration tests for USDT0 on Arbitrum testnet/fork.
 
@@ -417,7 +417,7 @@ The architecture correctly ensures the user's private key never leaves the devic
 | Component | Trusts | Attack Surface |
 |-----------|--------|----------------|
 | **User's device** | Private key storage, app code integrity | XSS, device compromise, malware |
-| **Svelte frontend** | permissionless.js, RPC endpoint | Supply chain (npm), MITM on RPC |
+| **Svelte frontend** | ethers.js, RPC endpoint | Supply chain (npm), MITM on RPC |
 | **NestJS backend** | JWT auth, Alto endpoint, paymaster signer key | Auth bypass, SSRF, key exfiltration |
 | **Alto bundler** | EntryPoint contract, RPC node | Malicious UserOps, RPC manipulation |
 | **VerifyingPaymaster** | Backend signer, EntryPoint | Signature forgery, EntryPoint bugs |
@@ -455,4 +455,4 @@ The architecture correctly ensures the user's private key never leaves the devic
 7. Verify USDT0 non-standard ABI handling
 8. Use Chainlink on-chain oracle for ETH price
 
-**Overall Assessment:** The architecture is well-conceived and the technology choices (permissionless.js, Alto, Coinbase VerifyingPaymaster, EIP-7702) are sound. However, the implementation plan contains fundamental errors in signature handling that would prevent any transactions from succeeding, lacks critical input validation boundaries that expose the paymaster to drain attacks, and omits key management specifications essential for a non-custodial wallet. With the Critical and High findings addressed, this would be a strong 75-85% confidence implementation.
+**Overall Assessment:** The architecture is well-conceived and the technology choices (ethers.js, Alto, Coinbase VerifyingPaymaster, EIP-7702) are sound. However, the implementation plan contains fundamental errors in signature handling that would prevent any transactions from succeeding, lacks critical input validation boundaries that expose the paymaster to drain attacks, and omits key management specifications essential for a non-custodial wallet. With the Critical and High findings addressed, this would be a strong 75-85% confidence implementation.

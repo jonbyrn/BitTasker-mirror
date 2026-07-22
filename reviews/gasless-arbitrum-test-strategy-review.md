@@ -201,7 +201,7 @@ The 9 E2E tests cover the primary user flows well. The self-hosted architecture 
 | Alto Bundler | success, timeout (30s), rate-limited (429), invalid UserOp (400), network error | ✅ Good |
 | Arbitrum RPC | success, primary-down (failover), block-not-found | ⚠️ Partial |
 | ETH price API | fresh data, stale (5min+), zero price, API down | ✅ Good |
-| permissionless.js | account creation success, bundler client creation success, sendUserOp success/failure | ⚠️ Partial |
+| ethers.js | account creation success, bundler client creation success, sendUserOp success/failure | ⚠️ Partial |
 
 ### 5.2 Missing Mock Scenarios
 
@@ -246,7 +246,7 @@ The plan mocks Alto and RPC but **does not specify mocks for the NestJS backend 
 | **Insufficient deposit** → paymaster can't pay | Deposit exhaustion |
 | **Gas limit exceeded** → paymaster refuses | On-chain gas cap |
 
-#### permissionless.js (additions needed)
+#### ethers.js (additions needed)
 
 | Mock Scenario | Why |
 |--------------|-----|
@@ -279,7 +279,7 @@ The second approach would have caught both CRITICAL-1 and CRITICAL-2. Module-lev
 | 6 | USDT0 depeg | HIGH | ❌ | No test for depeg detection or send-blocking |
 | 7 | Gas price spike (20% buffer) | MEDIUM | ❌ | No boundary test (19% spike OK, 21% spike fails) |
 | 8 | VerifyingPaymaster contract bug | LOW | ❌ | No contract-level integration test |
-| 9 | permissionless.js breaking changes | MEDIUM | N/A | Operational concern (pin version) |
+| 9 | ethers.js breaking changes | MEDIUM | N/A | Operational concern (pin version) |
 | 10 | Alto Docker crash | MEDIUM | ✅ E2E #6 | Health check endpoint not tested |
 | 11 | Cross-chain replay | LOW | ❌ | No chainId validation test |
 | 12 | wallet-core breaking change | LOW | ✅ ArbitrumWallet tests | Additive change, low risk |
@@ -438,8 +438,8 @@ The plan specifies adding tokens via `StablecoinRegistry` with no UI code change
 
 | # | Test | Why |
 |---|------|-----|
-| 1 | **permissionless.js version upgrade** | Pin exact version; test before upgrade; run full suite |
-| 2 | **viem version upgrade** | permissionless.js depends on viem; breaking changes propagate |
+| 1 | **ethers.js version upgrade** | Pin exact version; test before upgrade; run full suite |
+| 2 | **ethers.js version upgrade** | ethers.js breaking changes may affect dependent code |
 | 3 | **Alto Docker image update** | Pin digest; test on staging before production |
 | 4 | **EntryPoint version** | v0.8 is current; verify no migration needed for v0.9 |
 

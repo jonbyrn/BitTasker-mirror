@@ -192,6 +192,20 @@
 					d.warn('Boltz check failed for %s: %s', swapId, (err as Error).message);
 					swaps[i] = { ...swaps[i], boltzStatus: 'unknown', boltzChecked: true };
 				}
+
+				// If Nostr didn't persist claimDetails (bittasker-swap-chain events
+				// drop them via buildSwapContent) and Boltz API didn't return them,
+				// fetch from the on-chain lockup transaction as a self-healing step.
+				const row = swaps[i];
+				if (!row.claimDetails && !row.boltzClaimDetails && row.boltzTransactionId) {
+					log('info', `  Fetching claim details from chain for ${swapId.slice(0, 12)}...`);
+					const chainDetails = await fetchClaimDetailsFromRsk(row.boltzTransactionId)
+						?? await fetchClaimDetailsFromArbitrum(row.boltzTransactionId);
+					if (chainDetails) {
+						swaps[i] = { ...swaps[i], claimDetails: chainDetails };
+						log('success', `  Recovered claim details from chain for ${swapId.slice(0, 12)}`);
+					}
+				}
 			}
 			log('info', 'All Boltz checks complete');
 		} catch (err) {
@@ -211,37 +225,82 @@
 	}
 
 	// ── Fetch claim details from Arbitrum lockup tx ────────────────────
-	async function fetchClaimDetailsFromChain(lockupTxHash: string): Promise<{
+	// For RBTC→TBTC swaps: Boltz locks tBTC on Arbitrum (ERC20Swap).
+	// Event: Lockup(bytes32 indexed preimageHash, uint256 amount, address token,
+	//         address indexed claimAddress, address indexed refundAddress, uint256 timelock)
+	// topic0=sig, topic1=preimageHash, topic2=claimAddress, topic3=refundAddress
+	// data = amount + token + timelock
+	async function fetchClaimDetailsFromArbitrum(lockupTxHash: string): Promise<{
 		lockupAddress: string; amount: number; claimAddress: string; refundAddress: string; timeoutBlockHeight: number;
 	} | null> {
 		try {
 			const { ethers } = await import('ethers');
 			const provider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
 			const receipt = await provider.getTransactionReceipt(lockupTxHash);
-			if (!receipt?.to) { log('warn', '  No receipt or contract address'); return null; }
+			if (!receipt?.to) { log('warn', '  Arbitrum: No receipt or contract address'); return null; }
 
-			// Find the Lockup event log from the contract
-			// Event signature: Lockup(bytes32 indexed preimageHash, uint256 amount, address token, address indexed claimAddress, address indexed refundAddress, uint256 timelock)
-			// topic0 = event sig, topic1 = preimageHash, topic2 = claimAddress, topic3 = refundAddress
-			// data = amount (uint256) + token (address) + timelock (uint256)
 			const lockupLogs = receipt.logs.filter((l) => l.address.toLowerCase() === receipt.to!.toLowerCase() && l.topics.length === 4);
-			if (lockupLogs.length === 0) { log('warn', '  No Lockup event found in tx logs'); return null; }
+			if (lockupLogs.length === 0) { log('warn', '  Arbitrum: No Lockup event found in tx logs'); return null; }
 
 			const lockupLog = lockupLogs[0];
 			const claimAddress = ethers.getAddress('0x' + lockupLog.topics[2].slice(26));
 			const refundAddress = ethers.getAddress('0x' + lockupLog.topics[3].slice(26));
 
-			// Parse data: 3 x 32-byte words
+			// Parse data: 3 x 32-byte words (amount, token, timelock)
 			const data = lockupLog.data;
 			const amount = Number(BigInt(data.slice(0, 66)));
 			const timeoutBlockHeight = Number(BigInt('0x' + data.slice(130, 194)));
 
 			const details = { lockupAddress: receipt.to, amount, claimAddress, refundAddress, timeoutBlockHeight };
-			log('success', `  Got claim details from chain: ${details.amount} wei, timelock ${details.timeoutBlockHeight}, claim ${details.claimAddress.slice(0, 10)}...`);
+			log('success', `  Arbitrum claim details: ${details.amount} wei, timelock ${details.timeoutBlockHeight}, claim ${details.claimAddress.slice(0, 10)}...`);
 			return details;
 		} catch (err) {
-			d.warn('fetchClaimDetailsFromChain failed: %s', (err as Error).message);
-			log('warn', `  Chain fetch failed: ${(err as Error).message}`);
+			d.warn('fetchClaimDetailsFromArbitrum failed: %s', (err as Error).message);
+			log('warn', `  Arbitrum fetch failed: ${(err as Error).message}`);
+			return null;
+		}
+	}
+
+	// ── Fetch claim details from RSK lockup tx ────────────────────────
+	// For TBTC→RBTC swaps: Boltz locks RBTC on RSK (EtherSwap).
+	// Event: Lockup(bytes32 indexed preimageHash, uint256 amount,
+	//         address indexed refundAddress, address claimAddress, uint256 timelock)
+	// topic0=sig, topic1=preimageHash, topic2=refundAddress (msg.sender/Boltz)
+	// data = amount (wei) + claimAddress (user, padded) + timelock
+	async function fetchClaimDetailsFromRsk(lockupTxHash: string): Promise<{
+		lockupAddress: string; amount: number; claimAddress: string; refundAddress: string; timeoutBlockHeight: number;
+	} | null> {
+		try {
+			const { ethers } = await import('ethers');
+			const provider = new ethers.JsonRpcProvider('https://public-node.rsk.co');
+			const receipt = await provider.getTransactionReceipt(lockupTxHash);
+			if (!receipt) { log('warn', '  RSK: No receipt found'); return null; }
+
+			// Find the Lockup event from the EtherSwap contract
+			const lockupLogs = receipt.logs.filter((l) =>
+				l.topics[0]?.toLowerCase() === LOCKUP_TOPIC.toLowerCase() &&
+				l.address.toLowerCase() === ETHERSWAP_ADDRESS.toLowerCase()
+			);
+			if (lockupLogs.length === 0) { log('warn', '  RSK: No Lockup event found'); return null; }
+
+			const lockupLog = lockupLogs[0];
+			// topic2 = refundAddress (Boltz/msg.sender, can refund after timelock)
+			const refundAddress = ethers.getAddress('0x' + lockupLog.topics[2].slice(26));
+
+			// Parse data: 3 x 32-byte words (amount_wei, claimAddress, timelock)
+			const data = lockupLog.data;
+			const amountWei = Number(BigInt(data.slice(0, 66)));
+			const amount = Math.round(amountWei / 1e10); // wei → sats (claimRbtcOnRsk expects sats)
+			// data[32:64] = claimAddress (user, can claim with preimage)
+			const claimAddress = ethers.getAddress('0x' + data.slice(90, 130));
+			const timeoutBlockHeight = Number(BigInt('0x' + data.slice(130, 194)));
+
+			const details = { lockupAddress: ETHERSWAP_ADDRESS, amount, claimAddress, refundAddress, timeoutBlockHeight };
+			log('success', `  RSK claim details: ${details.amount} sats, timelock ${details.timeoutBlockHeight}, claim ${details.claimAddress.slice(0, 10)}...`);
+			return details;
+		} catch (err) {
+			d.warn('fetchClaimDetailsFromRsk failed: %s', (err as Error).message);
+			log('warn', `  RSK fetch failed: ${(err as Error).message}`);
 			return null;
 		}
 	}
@@ -291,8 +350,14 @@
 			if (!claimDetails) {
 				const lockupTx = swaps[idx].boltzTransactionId;
 				if (lockupTx) {
-					log('info', '  No claim details in Boltz/Nostr, fetching from Arbitrum chain...');
-					claimDetails = await fetchClaimDetailsFromChain(lockupTx);
+					log('info', '  No claim details in Boltz/Nostr, fetching from on-chain...');
+					// Try RSK first (Boltz locks RBTC on RSK for TBTC→RBTC swaps)
+					claimDetails = await fetchClaimDetailsFromRsk(lockupTx);
+					if (!claimDetails) {
+						// Try Arbitrum (Boltz locks tBTC on Arbitrum for RBTC→TBTC swaps)
+						log('info', '  Not found on RSK, trying Arbitrum...');
+						claimDetails = await fetchClaimDetailsFromArbitrum(lockupTx);
+					}
 					if (claimDetails) {
 						swaps[idx] = { ...swaps[idx], claimDetails };
 					}
@@ -501,7 +566,7 @@
 				<p class="py-4 text-sm opacity-50">No swaps found on Nostr.</p>
 			{:else}
 				<div class="mt-2 space-y-4">
-					{#each swaps as row (row.swapId)}
+					{#each swaps as row, index (row.swapId)}
 						<div class="card bg-base-100 border-2" class:border-success={row.recoverResult?.ok} class:border-error={row.recoverResult && !row.recoverResult.ok} class:border-base-300={!row.recoverResult}>
 							<div class="card-body p-4">
 								<!-- Swap ID + status -->
@@ -619,7 +684,7 @@
 			</button>
 			{#if lockups.length > 0}
 				<div class="mt-3 space-y-2">
-					{#each lockups as lockup (lockup.txHash)}
+					{#each lockups as lockup, index (lockup.txHash)}
 						<div class="bg-base-100 border-base-300 rounded-lg border p-3">
 							<div class="flex items-center justify-between">
 								<div>
@@ -650,7 +715,7 @@
 			</div>
 			<div class="bg-base-300 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs">
 				{#if logs.length === 0}<p class="p-2 opacity-40">No activity yet.</p>
-				{:else}{#each logs as entry (entry.time + entry.msg)}<div class="border-base-content/5 border-b px-1 py-0.5" class:text-success={entry.level === 'success'} class:text-error={entry.level === 'error'} class:text-warning={entry.level === 'warn'} class:opacity-60={entry.level === 'info'}><span class="opacity-40">{entry.time}</span> <span class="ml-1">{entry.msg}</span></div>{/each}{/if}
+				{:else}{#each logs as entry, index (entry.time + entry.msg)}<div class="border-base-content/5 border-b px-1 py-0.5" class:text-success={entry.level === 'success'} class:text-error={entry.level === 'error'} class:text-warning={entry.level === 'warn'} class:opacity-60={entry.level === 'info'}><span class="opacity-40">{entry.time}</span> <span class="ml-1">{entry.msg}</span></div>{/each}{/if}
 			</div>
 		</div>
 	</div>

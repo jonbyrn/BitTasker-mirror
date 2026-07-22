@@ -3,7 +3,7 @@
 **Reviewer**: Senior Code Reviewer (Agent Zero)
 **Date**: 2026-06-05
 **Scope**: `requirements/gasless-arbitrum-plan.md` (835 lines) — all code snippets and implementation guidance
-**Methodology**: Five-axis review (Correctness, Readability, Architecture, Security, Performance) against plan's own specifications, permissionless.js/viem APIs, NestJS conventions, and existing codebase patterns.
+**Methodology**: Five-axis review (Correctness, Readability, Architecture, Security, Performance) against plan's own specifications, ethers.js APIs, NestJS conventions, and existing codebase patterns.
 
 ---
 
@@ -49,7 +49,7 @@
 - **Axis**: Correctness
 - **Description**: The code signs `keccak256(abi.encode('GASLESS_SPONSOR', sender, nonce, keccak256(callData), chainId))`. The Coinbase VerifyingPaymaster computes its own hash internally in `validatePaymasterUserOp` using specific UserOp fields packed in a contract-defined format. These hashes will never match.
 - **Additional issues**:
-  - `abi.encode` is not a valid viem function — viem uses `encodeAbiParameters`
+  - `abi.encode` is not a valid ethers function — ethers uses `encodeAbiParameters`
   - `this.signer.signMessage(hash)` — ethers.js `signMessage` expects a message string, not a raw hash; needs `signMessage(\nhashBytes)` or direct `signingKey.signDigest(hash)`
   - Return type `string` should be `Hex` (`0x${string}`)
 - **Impact**: Paymaster contract returns `SIG_VALIDATION_FAILED` for every UserOp. Same 100% failure as C-1.
@@ -158,14 +158,14 @@
   ```typescript
   const estimate = await client.estimateUserOperationGas({ calls: dummyCalls });
   ```
-  In permissionless.js, `estimateUserOperationGas` does not accept a `calls` parameter. It requires a `userOp` object. The correct flow is:
+  In ethers.js, `estimateUserOperationGas` does not accept a `calls` parameter. It requires a `userOp` object. The correct flow is:
   ```typescript
   // Build the UserOp first
   const dummyUserOp = await account.encodeUserOp(dummyCalls);
   // Then estimate
   const estimate = await client.estimateUserOperationGas({ userOp: dummyUserOp });
   ```
-  Additionally, `getUserOperationGasPrice()` should be verified against the permissionless.js API — the bundler RPC method is `pimlico_getUserOperationGasPrice` and the client wrapper method name may differ.
+  Additionally, `getUserOperationGasPrice()` should be verified against the ethers.js API — the bundler RPC method is `pimlico_getUserOperationGasPrice` and the client wrapper method name may differ.
 - **Impact**: Gas estimation fails at runtime with a type error or API error.
 
 ---
@@ -273,9 +273,9 @@
 
 - **Location**: Plan lines 327-329 (sendGasless), lines 351-353 (estimation)
 - **Axis**: Correctness
-- **Description**: `encodeTransfer(recipient, amount)` is used but never defined. Should use viem's `encodeFunctionData`:
+- **Description**: `encodeTransfer(recipient, amount)` is used but never defined. Should use ethers' `encodeFunctionData`:
   ```typescript
-  import { encodeFunctionData } from 'viem';
+  import { ethers } from 'ethers';
 
   function encodeTransfer(to: string, value: bigint): Hex {
     return encodeFunctionData({
@@ -330,13 +330,13 @@
 
 ---
 
-#### [I-10] `abi.encode` in paymaster signing is not a valid viem function
+#### [I-10] `abi.encode` in paymaster signing is not a valid ethers function
 
 - **Location**: Plan line 396
 - **Axis**: Correctness
-- **Description**: `abi.encode(...)` is Solidity syntax, not viem. viem uses:
+- **Description**: `abi.encode(...)` is Solidity syntax, not ethers. ethers uses:
   ```typescript
-  import { encodeAbiParameters, keccak256 } from 'viem';
+  import { ethers } from 'ethers';
   const encoded = encodeAbiParameters(
     [{ type: 'string' }, { type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'uint256' }],
     ['GASLESS_SPONSOR', userOp.sender, userOp.nonce, keccak256(userOp.callData), 42161n]
@@ -431,7 +431,7 @@
 
 ### What's Done Well
 
-- **Architecture layer separation** (Section 2.1): Clean separation between wallet-core SDK (provider, balances) and app layer (AA logic, permissionless.js). This is well-thought-out and prevents the SDK from becoming bloated.
+- **Architecture layer separation** (Section 2.1): Clean separation between wallet-core SDK (provider, balances) and app layer (AA logic, ethers.js). This is well-thought-out and prevents the SDK from becoming bloated.
 - **Token registry pattern**: Adding new tokens requires zero UI code changes — auto-adapts from registry. Good extensibility.
 - **Fixed buffer model**: Using fixed per-token buffers instead of real-time oracle pricing eliminates an entire class of oracle bugs for Arbitrum's sub-cent gas.
 - **User signs locally**: The architecture correctly ensures the user's private key never leaves the device. UserOp signing happens client-side.

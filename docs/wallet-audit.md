@@ -73,7 +73,7 @@
   - `FEE_BUFFER_MIN` for USDT0: `10_000_000_000_000_000n` → `10_000n` ($0.01 at 6 decimals)
   - `FEE_BUFFER_MAX` for USDT0: `150_000_000_000_000_000n` → `150_000n` ($0.15 at 6 decimals)
   - ethers `gasless-helpers.ts` MIN_GAS_BUFFER/MAX_GAS_BUFFER corrected for USDT0
-  - viem `gasless-helpers.ts` `getUSDT0FeeBuffer()` corrected from 18 to 6 decimals
+  - `gasless-helpers.ts` `getUSDT0FeeBuffer()` corrected from 18 to 6 decimals
 - Fixed: F-TODO-4 tBTC — `FEE_BUFFER_MIN` for tBTC: `10_000_000_000_000_000n` → `10_000_000_000_000n` ($0.01 at 18 decimals)
 - **Fixed: CRITICAL Paymaster hash format mismatch** — On-chain `VerifyingPaymaster.sol` updated to v0.7 packed format matching CF Worker paymasterSigner.js (the existing implementation). NestJS `paymaster-signing.service.ts` also updated to match. Returns `uint256 validationData` per ERC-4337 v0.8. Enabled `viaIR` for stack depth. 13 contract tests passing.
 - **Fixed: NestJS paymaster-signing.service.ts** — Updated `computePaymasterHash()` to v0.7 packed format (matching CF Worker). `signPaymasterData()` now returns full `paymasterAndData` (paymaster address ++ abi.encode(validUntil, validAfter, signature)). Updated `gasless.service.ts` to use return value directly.
@@ -188,7 +188,7 @@ The frontend code has been battle-tested in production. The SDK's Boltz swap sys
 │         │                                         │                 │
 │         ▼                                         ▼                 │
 │  ┌─────────────────────┐               ┌──────────────────────┐    │
-│  │ @bittasker/wallet-core│              │  Direct RPCs (viem/  │    │
+│  │ @bittasker/wallet-core│              │  Direct RPCs (ethers/  │    │
 │  │ (Public SDK)         │              │  ethers) — 51+ files │    │
 │  │                      │              │  bypassing SDK        │    │
 │  │ - RSKWallet          │              └──────────┬───────────┘    │
@@ -1196,7 +1196,7 @@ Two functions are stubs:
 
 **Files:** `src/lib/wallet/gasless-helpers.ts` vs `src/wallet/gasless-helpers.ts` (frontend)
 
-Two helper files use different libraries (ethers vs viem) and have different implementations. The ethers version has `MIN_GAS_BUFFER` for USDT0 as `3_000_000_000_000_000n` (18 decimals) while the config says USDT0 has 6 decimals.
+Two helper files use different libraries (ethers — legacy duplicates) and have different implementations. The ethers version has `MIN_GAS_BUFFER` for USDT0 as `3_000_000_000_000_000n` (18 decimals) while the config says USDT0 has 6 decimals.
 
 **Impact:** Potential 10^12 magnitude error in fee calculations if the wrong helper is used.
 
@@ -1230,9 +1230,9 @@ Changelly swap status is polled every 5s by the frontend. No webhook handler exi
 
 When swapping from non-BTC sources (e.g., USDT-BSC), the amount sent to Changelly is the BTC-equivalent, not the exact token amount. This could result in receiving more or less than expected.
 
-### F-TODO-9: Dual gasless-helpers files (viem vs ethers)
+### F-TODO-9: Dual gasless-helpers files (legacy duplicates)
 
-**Files:** `src/lib/wallet/gasless-helpers.ts` (ethers) vs `src/wallet/gasless-helpers.ts` (viem)
+**Files:** `src/lib/wallet/gasless-helpers.ts` vs `src/wallet/gasless-helpers.ts` (legacy duplicate)
 
 Two parallel implementations of gasless helpers with different libraries. Risk of drift between them.
 

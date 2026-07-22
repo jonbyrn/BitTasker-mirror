@@ -288,7 +288,7 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 			const resolveFn = opts.resolveRoutesFn ?? resolveRoutes;
 
 			const { data: result, error } = await tryCatch(
-				resolveFn(snapshotSrc, routeDest, snapshotAmt, currentController?.signal, snapshotRaw)
+				resolveFn(snapshotSrc, routeDest, snapshotAmt, currentController?.signal, snapshotRaw, ethUsdPrice)
 			);
 
 			if (error) {
@@ -459,11 +459,12 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 	});
 
 	// totalFeeSats — total cost of the swap in sats (protocol fee + gas fee).
-	// When the provider gives outputAmount, compute protocol fee as: input USD − output USD,
-	// then add networkFeeSats (gas) to get the total cost.
-	// Falls back to networkFeeSats + bridge fee percent for legacy paths.
-	// When the USD-based computation yields 0 (price feed rounding) but the route
-	// has a nonzero totalFeePercent, use the percent-based fallback instead.
+	// When the provider gives outputAmount, compute protocol fee as: input USD − output USD.
+	// For multi-hop cross-chain routes (e.g. Boltz→UniV3), the source-chain gas (RSK)
+	// is NOT reflected in the provider's output, so we add networkFeeSats.
+	// For single-hop cross-chain routes (e.g. LI.FI Direct), the provider's output
+	// already has ALL costs deducted (bridge fee + gas), so adding networkFeeSats
+	// would double-count the source-chain gas.
 	const totalFeeSats = $derived.by(() => {
 		const route = activeRouteForCalc;
 		if (!route || amountSats <= 0) return 0;
@@ -490,26 +491,34 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 				const protocolFeeUsd = Math.max(0, inputUsd - outputUsd);
 				const protocolFeeSats = Math.round((protocolFeeUsd / btcUsdPrice) * 100_000_000);
 
-				// Add gas fee ONLY for cross-chain swaps. For same-chain swaps, the
-				// provider's output already includes gas (LI.FI, Uniswap V3) — adding
-				// networkFeeSats would double-count.
-				const total = isCrossChain ? protocolFeeSats + networkFeeSats : protocolFeeSats;
+				// For multi-hop cross-chain routes, hop1's source-chain gas is NOT in
+				// the output (e.g. Boltz→UniV3: RSK gas not reflected in USDT0 output).
+				// For single-hop cross-chain routes, the output already includes ALL
+				// costs (e.g. LI.FI Direct: RSK gas deducted from output).
+				const isMultiHop = route.hops.length > 1;
+				const total =
+					isCrossChain && isMultiHop ? protocolFeeSats + networkFeeSats : protocolFeeSats;
 
 				// If USD-based fee rounds to 0 but the route reports a nonzero fee percent,
 				// the price feeds disagree. Fall back to feePercent-based computation so the
 				// user still sees a fee (e.g. Symbiosis flat $0.75 on cross-chain RBTC).
 				if (total === 0 && route.totalFeePercent > 0) {
-					return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
+					const isMultiHop = route.hops.length > 1;
+					const bridgeFee = Math.round((amountSats * route.totalFeePercent) / 100);
+					return isCrossChain && isMultiHop ? networkFeeSats + bridgeFee : bridgeFee;
 				}
 				return total;
 			}
 		}
 
 		// Fallback: network gas + bridge fee percent (legacy / same-currency paths)
-		// Only add networkFeeSats for cross-chain; same-chain gas is in the provider output
-		return isCrossChain
-			? networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100)
-			: Math.round((amountSats * route.totalFeePercent) / 100);
+		// For multi-hop cross-chain: add networkFeeSats (source-chain gas not in output).
+		// For single-hop cross-chain: output already includes gas, don't double-count.
+		const isMultiHop = route.hops.length > 1;
+		if (isCrossChain && isMultiHop) {
+			return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
+		}
+		return Math.round((amountSats * route.totalFeePercent) / 100);
 	});
 
 	// minSwapSats — minimum swap amount for Boltz-eligible pairs.

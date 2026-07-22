@@ -257,7 +257,7 @@ The ~110 claim is **verified as reasonable** (~113 by my count).
 | 6 | USDT0 depeg | ❌ No test (operational — circuit breaker) |
 | 7 | Gas price spike | ❌ No boundary test (20% buffer assumption) |
 | 8 | VerifyingPaymaster contract bug | 10.7 #1 (Anvil fork verification) |
-| 9 | permissionless.js breaking changes | ❌ (operational — pin version) |
+| 9 | ethers.js breaking changes | ❌ (operational — pin version) |
 | 10 | Alto Docker crash | 10.9 Chaos (container killed) |
 | 11 | Cross-chain replay | ❌ No explicit chainId test |
 | 12 | wallet-core breaking change | 10.6 ArbitrumWallet parity (10 groups) |

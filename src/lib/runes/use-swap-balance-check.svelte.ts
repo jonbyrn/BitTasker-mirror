@@ -101,12 +101,6 @@ export function useSwapBalanceCheck(opts: UseSwapBalanceCheckOptions): UseSwapBa
 				(h) => h.service === 'lifi' || h.service === 'symbiosis'
 			);
 			const targetsArbitrum = rec.hops[rec.hops.length - 1]?.toChain === 'arbitrum';
-			// Boltz tBTC→RBTC lockup happens on Arbitrum (lockPrepayMinerfee needs 0.001 ETH)
-			// even when the final destination is RSK
-			const boltzLocksOnArbitrum = rec.hops.some(
-				(h) => h.service === 'boltz' && h.fromChain === 'arbitrum'
-			);
-			if (boltzLocksOnArbitrum) return true;
 			if (hasBoltz && hasLifiOrSymbiosis && targetsArbitrum) return true;
 		}
 		return false;

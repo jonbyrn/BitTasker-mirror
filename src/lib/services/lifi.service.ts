@@ -53,6 +53,7 @@ export interface LifiToken {
 	decimals: number;
 	name: string;
 	logoURI?: string;
+	priceUSD?: string;
 }
 
 export interface LifiChain {
@@ -116,6 +117,13 @@ export interface LifiSingleQuoteResponse {
 	type?: string;
 	id?: string;
 	tool?: string;
+	action?: {
+		fromToken?: LifiToken;
+		toToken?: LifiToken;
+		fromAmount?: string;
+		fromChainId?: number;
+		toChainId?: number;
+	};
 }
 
 export interface LifiStatusResponse {
@@ -246,18 +254,22 @@ export const lifiService = {
 		}
 
 		// Convert to LifiRoute shape for downstream consumers
+		// Use actual token data from the API response when available (includes priceUSD).
+		const apiFromToken = singleQuote.action?.fromToken;
+		const apiToToken = singleQuote.action?.toToken;
+
 		return {
 			id: singleQuote.id || 'lifi-quote',
 			fromChainId: fromChain,
 			toChainId: toChain,
-			fromToken: {
+			fromToken: apiFromToken ?? {
 				symbol: 'RBTC',
 				address: fromToken,
 				chainId: fromChain,
 				decimals: 18,
 				name: 'RSK Bitcoin'
 			},
-			toToken: {
+			toToken: apiToToken ?? {
 				symbol: 'USDT0',
 				address: toToken,
 				chainId: toChain,
@@ -281,7 +293,14 @@ export const lifiService = {
 		toToken: string;
 		fromAmount: string;
 		fromAddress: string;
-	}): Promise<{ to: string; data: string; value: string; chainId: number; gasLimit?: string }> {
+	}): Promise<{
+		to: string;
+		data: string;
+		value: string;
+		chainId: number;
+		gasLimit?: string;
+		executionDuration?: number;
+	}> {
 		requireLifiEnabled();
 		const normalizedParams = { ...params, fromAddress: params.fromAddress.toLowerCase() };
 
@@ -305,7 +324,8 @@ export const lifiService = {
 			data: rawQuote.transactionRequest.data,
 			value: rawQuote.transactionRequest.value,
 			chainId: normalizedParams.fromChain,
-			gasLimit: rawQuote.transactionRequest.gasLimit
+			gasLimit: rawQuote.transactionRequest.gasLimit,
+			executionDuration: rawQuote.estimate?.executionDuration
 		};
 	},
 

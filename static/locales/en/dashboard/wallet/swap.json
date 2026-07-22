@@ -252,11 +252,31 @@
 				"boltz_unavailable": "Boltz service is temporarily unavailable. Please try again later.",
 				"gas_estimation_failed": "Failed to estimate gas fees. Please try again."
 			},
+			"step": {
+				"lock_rbtc": "Locking rBTC on Rootstock",
+				"lock_rbtc_sub": "Sending your rBTC to the swap contract",
+				"lock_tbtc": "Locking tBTC on Arbitrum",
+				"lock_tbtc_sub": "Sending tBTC to the swap contract",
+				"boltz_confirm": "Boltz processing swap",
+				"boltz_confirm_sub": "Boltz is confirming your swap",
+				"claim_rbtc": "Claiming rBTC",
+				"claim_rbtc_sub": "Releasing rBTC on Rootstock",
+				"claim_tbtc": "Claiming tBTC",
+				"claim_tbtc_sub": "Releasing tBTC on Arbitrum",
+				"dex_swap": "Converting tokens",
+				"dex_swap_sub": "Swapping via DEX on Arbitrum",
+				"execute": "Executing swap",
+				"execute_sub": "Submitting your swap",
+				"confirm": "Confirming",
+				"confirm_sub": "Waiting for confirmation"
+			},
 			"progress": {
 				"locking_rbtc": "Locking rBTC on RSK",
 				"waiting_boltz": "Waiting for Boltz confirmation",
 				"claiming_tbtc": "Claiming tBTC on Arbitrum",
-				"swapping_tbtc": "Swapping tBTC to USDT0"
+				"swapping_tbtc": "Swapping tBTC to USDT0",
+				"elapsed": "elapsed",
+				"do_not_close": "Please do not close this window"
 			},
 			"asset": {
 				"usd": "USD",

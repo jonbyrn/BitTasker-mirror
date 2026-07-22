@@ -73,7 +73,9 @@ export async function resolveRoutes(
 	 *  For non-BTC-pegged tokens, amountSats is a BTC-equivalent that loses
 	 *  precision when converted back. Providers should use sourceAmountRaw
 	 *  when available. */
-	sourceAmountRaw?: string
+	sourceAmountRaw?: string,
+	/** ETH/USD price for converting Arbitrum gas to comparable cost in 2-hop routes. */
+	ethUsdPrice?: number
 ): Promise<RouteEngineResult> {
 	const errors: Array<{ provider: string; error: string }> = [];
 
@@ -135,7 +137,7 @@ export async function resolveRoutes(
 	// 4. Boltz 2-hop optimization (only for known pairs)
 	if (shouldCheckBoltzOptimization(fromToken, toToken)) {
 		const { data: twoHopRoute, error: twoHopError } = await tryCatch(
-			buildBoltzTwoHopRoute(fromToken, toToken, amountSats, signal)
+			buildBoltzTwoHopRoute(fromToken, toToken, amountSats, signal, ethUsdPrice)
 		);
 
 		if (twoHopError) {

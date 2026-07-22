@@ -57,8 +57,8 @@ export interface UserOperation {
 	/** Split paymaster fields (Alto v0.7 format for EIP-7702) */
 	paymaster?: string;
 	paymasterData?: string;
-	paymasterVerificationGasLimit?: string;
-	paymasterPostOpGasLimit?: string;
+	paymasterVerificationGasLimit?: bigint;
+	paymasterPostOpGasLimit?: bigint;
 }
 
 /**

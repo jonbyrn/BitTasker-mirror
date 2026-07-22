@@ -106,7 +106,7 @@ Evidence (lines 360-383): Server-side estimation uses `this.altoClient.estimateU
 
 **This is a significant v4 improvement.** Lines 728-754 implement `PreflightSimulationService` that calls EntryPoint's `simulateValidation` via `eth_call` before submission. The service catches revert reasons and throws `BadRequestException` with decoded error messages. This closes the last open Important finding from v3.
 
-### I-10: `abi.encode` in paymaster signing is not a valid viem function
+### I-10: `abi.encode` in paymaster signing is not a valid ethers function
 **v3**: ✅ RESOLVED
 **v4**: ✅ **STILL RESOLVED** (line 670 uses `encodeAbiParameters`)
 
@@ -126,11 +126,11 @@ Evidence (lines 360-383): Server-side estimation uses `this.altoClient.estimateU
 **v3**: ✅ RESOLVED
 **v4**: ✅ **STILL RESOLVED** — client is thin wrapper (lines 619-637)
 
-### NEW-4: `signUserOp` API name may be incorrect for permissionless.js
+### NEW-4: `signUserOp` API name may be incorrect for ethers.js
 **v3**: ⚠️ OPEN (Suggestion)
 **v4**: ⚠️ **STILL OPEN** (Suggestion)
 
-Line 514 still uses `account.signUserOp(...)`. permissionless.js v0.2.x may use `signUserOperation`. Caught at compile time — non-blocking.
+Line 514 still uses `account.signUserOp(...)`. The SDK API may use `signUserOperation`. Caught at compile time — non-blocking.
 
 ### NEW-5: Docker image reference inconsistency
 **v3**: ⚠️ OPEN (Suggestion)
@@ -351,7 +351,7 @@ The v4 tiered model uses fixed fee values (0.01, 0.03, 0.05, 0.10) which are saf
 | I-7 | Missing constants | ⚠️ MOSTLY | ⚠️ MOSTLY | Lines 437-459 (backend ✅, client partial) |
 | I-8 | No Alto error handling | ✅ RESOLVED | ✅ RESOLVED | Lines 319-358 |
 | I-9 | No pre-flight simulation | ❌ OPEN | ✅ **NOW RESOLVED** | Lines 728-754 (PreflightSimulationService) |
-| I-10 | abi.encode not valid viem | ✅ RESOLVED | ✅ RESOLVED | Line 670 |
+| I-10 | abi.encode not valid ethers | ✅ RESOLVED | ✅ RESOLVED | Line 670 |
 | NEW-1 | paymasterAndData encoding | ✅ RESOLVED | ✅ RESOLVED | Lines 339-344 |
 | NEW-2 | signMessage prefix | ✅ RESOLVED | ✅ RESOLVED | Lines 678-681 |
 | NEW-3 | Client estimation remnants | ✅ RESOLVED | ✅ RESOLVED | Lines 619-637 |
@@ -421,7 +421,7 @@ Down slightly from v3 (95%) because the v4 additions introduce two new Important
 
 ### Should Verify (during implementation)
 
-3. **Verify `signUserOp` API name** against permissionless.js v0.2.x docs (carried from v3 NEW-4)
+3. **Verify `signUserOp` API name** against ethers.js docs (carried from v3 NEW-4)
 4. **Fix Docker image reference** in section 10.3 to use pinned digest (carried from v3 NEW-5)
 5. **Define client-side constants** — `RPC_URL`, `API_BASE`, `getJWT()`, ABIs (carried from I-7)
 

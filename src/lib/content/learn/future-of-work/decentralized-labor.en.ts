@@ -27,7 +27,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What are the benefits of decentralized labor?',
-			body: 'The core benefits are: global permissionless access (anyone with an internet connection can participate), censorship resistance (no platform can deplatform you), instant settlement (Lightning payments in seconds vs. 14-day Net terms), lower fees (5–10% on BitTasker vs. 20% on Upwork), and portable reputation (your Nostr identity travels with you across platforms). For freelancers in emerging markets — Latin America, Africa, Southeast Asia — decentralized labor removes banking friction and high remittance costs that eat into earnings.'
+			body: 'The core benefits are: global open access (anyone with an internet connection can participate), censorship resistance (no platform can deplatform you), instant settlement (Lightning payments in seconds vs. 14-day Net terms), lower fees (5–10% on BitTasker vs. 20% on Upwork), and portable reputation (your Nostr identity travels with you across platforms). For freelancers in emerging markets — Latin America, Africa, Southeast Asia — decentralized labor removes banking friction and high remittance costs that eat into earnings.'
 		},
 		{
 			heading: 'What are the challenges of decentralized work?',

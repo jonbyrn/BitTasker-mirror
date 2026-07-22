@@ -16,9 +16,14 @@ const ETHERSWAP_LOCK_ABI = [
 	'function lock(bytes32 preimageHash, address claimAddress, uint256 timelock) payable'
 ];
 
-/** EtherSwap.claim(bytes32, uint256, address, uint256) — RSK rBTC claim */
+/**
+ * EtherSwap.claim(bytes32, uint256, address, uint256) — RSK rBTC claim
+ *
+ * The 3rd parameter is `refundAddress` (the address that locked = Boltz).
+ * The `claimAddress` (who receives the funds) is implicitly `msg.sender`.
+ */
 const ETHERSWAP_CLAIM_ABI = [
-	'function claim(bytes32 preimage, uint256 amount, address claimAddress, uint256 timelock)'
+	'function claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timelock)'
 ];
 
 /** ERC20Swap.lock(bytes32, uint256, address, address, uint256) — Arbitrum tBTC lockup for chain swap.
@@ -58,6 +63,11 @@ const UNISWAP_V3_EXACT_INPUT_ABI = [
 	'function exactInput((bytes path, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum)) external payable returns (uint256 amountOut)'
 ];
 
+/** Simple7702Account.executeBatch — batch multiple calls in one UserOp */
+const EXECUTE_BATCH_ABI = [
+	'function executeBatch((address target, uint256 value, bytes data)[] calls)'
+];
+
 // ─── Singleton Interface instances ────────────────────────────────
 
 const lockInterface = new ethers.Interface(ETHERSWAP_LOCK_ABI);
@@ -70,6 +80,7 @@ const erc20TransferInterface = new ethers.Interface(ERC20_TRANSFER_ABI);
 const erc20ApproveInterface = new ethers.Interface(ERC20_APPROVE_ABI);
 const uniswapV3ExactInputSingleInterface = new ethers.Interface(UNISWAP_V3_EXACT_INPUT_SINGLE_ABI);
 const uniswapV3ExactInputInterface = new ethers.Interface(UNISWAP_V3_EXACT_INPUT_ABI);
+const executeBatchInterface = new ethers.Interface(EXECUTE_BATCH_ABI);
 
 // ─── Encoding functions ───────────────────────────────────────────
 
@@ -292,5 +303,20 @@ export function encodeUniswapV3ExactInput(
 			amountIn,
 			amountOutMinimum
 		}
+	]);
+}
+
+/**
+ * ABI-encode an executeBatch() call that groups multiple contract calls
+ * into a single UserOp. Used to batch approve + lock in one gasless transaction.
+ *
+ * @param calls - Array of { to, value, data } tuples
+ * @returns ABI-encoded executeBatch calldata
+ */
+export function buildExecuteBatchCallData(
+	calls: Array<{ to: string; value: bigint; data: string }>
+): string {
+	return executeBatchInterface.encodeFunctionData('executeBatch', [
+		calls.map((c) => [c.to, c.value, c.data])
 	]);
 }

@@ -407,7 +407,7 @@ Section 11.5 defines 4 mock dependencies:
 | Alto Bundler | success, timeout, rate-limited, invalid UserOp, network error | Good -- covers primary failure modes |
 | Arbitrum RPC | success, primary-down, block-not-found | Good |
 | Chainlink oracle | fresh data, stale, zero price, API down | Missing: negative price, timeout with cache, all-down |
-| permissionless.js | account creation, bundler client, sendUserOp | Good |
+| ethers.js | account creation, bundler client, sendUserOp | Good |
 
 **Missing mock scenarios**:
 1. Chainlink oracle: negative price, timeout with conditional cache, all-down

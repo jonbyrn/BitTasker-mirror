@@ -66,7 +66,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can clients from any country use decentralized freelancing platforms?',
 			answer:
-				'Yes. Decentralized platforms are permissionless by design. There are no geographic restrictions — anyone with an internet connection and a Bitcoin wallet can participate. This is especially valuable for freelancers in countries with limited access to traditional banking or freelancing platforms.'
+				'Yes. Decentralized platforms are open by design. There are no geographic restrictions — anyone with an internet connection and a Bitcoin wallet can participate. This is especially valuable for freelancers in countries with limited access to traditional banking or freelancing platforms.'
 		},
 		{
 			question: 'What skills are in demand on decentralized freelancing platforms?',

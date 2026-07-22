@@ -23,6 +23,7 @@
 	import { useSwapBalanceCheck } from '$lib/runes/use-swap-balance-check.svelte';
 	import SwapConfirmPhase from '$lib/components/wallet/SwapConfirmPhase.svelte';
 	import SwapFormPhase from '$lib/components/wallet/SwapFormPhase.svelte';
+	import SwapProgressView from '$lib/components/wallet/swapProgress/SwapProgressView.svelte';
 	import { sanitizeSwapError } from '$lib/utils/swap-error';
 	import {
 		executeSwapChain,
@@ -891,12 +892,13 @@
 			/>
 		{/if}
 
-		<!-- Executing Phase — toast handles progress display -->
+		<!-- Executing Phase — rich step-by-step progress timeline -->
 		{#if swapPhase === 'executing'}
-			<div class="flex flex-col items-center gap-4 py-8">
-				<span class="loading loading-lg loading-spinner text-primary"></span>
-				<p class="text-base-content/70 text-sm">{swapProgressMessage}</p>
-			</div>
+			<SwapProgressView
+				route={swapRoutes.getExecutableRoute()}
+				progressStep={_swapProgressStep}
+				progressMessage={swapProgressMessage}
+			/>
 		{/if}
 
 		<!-- Success/Failed phases — toast handles display, drawer stays open for close button -->

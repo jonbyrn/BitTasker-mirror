@@ -130,6 +130,10 @@ export const lifiProvider: SwapProvider = {
 			outputSats,
 			outputAmount: route.estimate.toAmount,
 			outputDecimals: to.decimals,
+			inputValueUsd: [6, 8, 18].includes(from.decimals)
+				? (Number(route.estimate.fromAmount) / 10 ** from.decimals) *
+					(route.fromToken?.priceUSD ? parseFloat(route.fromToken.priceUSD) : 0)
+				: undefined,
 			outputValueUsd: [6, 8].includes(to.decimals)
 				? Number(route.estimate.toAmount) / 10 ** to.decimals
 				: undefined

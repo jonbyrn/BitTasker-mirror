@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How do Bitcoin jobs compare to traditional freelance platforms?',
-			body: 'Bitcoin-paying job platforms offer several advantages over traditional freelance sites. Lower fees (BitTasker: 5–10% vs Upwork: 20%). Faster payments (instant Lightning vs Net-14). Censorship-resistant identity (Nostr vs centralized accounts). Permissionless access (no geographic restrictions). However, the client pool is smaller, the learning curve for wallet setup is real, and Bitcoin price volatility requires active management. For freelancers willing to adapt, the Bitcoin freelance market offers better economics and more freedom than traditional platforms.'
+			body: 'Bitcoin-paying job platforms offer several advantages over traditional freelance sites. Lower fees (BitTasker: 5–10% vs Upwork: 20%). Faster payments (instant Lightning vs Net-14). Censorship-resistant identity (Nostr vs centralized accounts). Open access (no geographic restrictions). However, the client pool is smaller, the learning curve for wallet setup is real, and Bitcoin price volatility requires active management. For freelancers willing to adapt, the Bitcoin freelance market offers better economics and more freedom than traditional platforms.'
 		}
 	],
 	faq: [
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I work Bitcoin-paying jobs from any country?',
 			answer:
-				'Yes. Bitcoin-paying freelance platforms are permissionless — anyone with an internet connection and a Bitcoin wallet can participate. This is especially valuable in countries with limited access to traditional freelancing platforms or banking services. El Salvador, where Bitcoin is legal tender, has a particularly vibrant Bitcoin job market.'
+				'Yes. Bitcoin-paying freelance platforms are open-access — anyone with an internet connection and a Bitcoin wallet can participate. This is especially valuable in countries with limited access to traditional freelancing platforms or banking services. El Salvador, where Bitcoin is legal tender, has a particularly vibrant Bitcoin job market.'
 		},
 		{
 			question: 'What is the best platform for Bitcoin freelance jobs?',

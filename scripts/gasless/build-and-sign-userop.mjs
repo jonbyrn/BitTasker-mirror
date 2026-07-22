@@ -16,19 +16,7 @@
  * Output: JSON to stdout (SerializedUserOperation)
  */
 import { parseArgs } from 'node:util';
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  encodeFunctionData,
-  parseAbi,
-  hexToBytes,
-  keccak256,
-  toHex,
-  type Hex,
-} from 'viem';
-import { arbitrumSepolia, arbitrum } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
+import { ethers } from 'ethers';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -72,88 +60,78 @@ for (const [key, val] of Object.entries({
 }
 
 // ---------------------------------------------------------------------------
-// Chain selection
+// Provider & wallet
 // ---------------------------------------------------------------------------
-const chain = rpcUrl.includes('sepolia') ? arbitrumSepolia : arbitrum;
-const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-const account = privateKeyToAccount(privateKey as Hex);
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+const wallet = new ethers.Wallet(privateKey, provider);
 
 // ---------------------------------------------------------------------------
 // Simple7702Account ABI (minimal)
 // ---------------------------------------------------------------------------
-const simple7702Abi = parseAbi([
+const simple7702Abi = [
   'function executeBatch(address[] calldata targets, uint256[] calldata values, bytes[] calldata calldatas)',
-  'function execute(address target, uint256 value, bytes calldata calldata)',
+  'function execute(address target, uint256 value, bytes calldata data)',
   'function nonce() view returns (uint256)',
-]);
+];
 
-const SIMPLE7702_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B' as Hex;
+const SIMPLE7702_IMPL = '0xe6Cae83BdE06E4c305530e199D7217f42808555B';
 
 // ---------------------------------------------------------------------------
 // ERC-20 transfer helper
 // ---------------------------------------------------------------------------
-const erc20Abi = parseAbi([
+const erc20Abi = [
   'function transfer(address to, uint256 amount) returns (bool)',
   'function decimals() view returns (uint8)',
-]);
+];
 
-function encodeTransfer(to: Hex, amt: bigint): Hex {
-  return encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [to, amt] });
+const erc20Interface = new ethers.Interface(erc20Abi);
+const simple7702Interface = new ethers.Interface(simple7702Abi);
+
+function encodeTransfer(to, amt) {
+  return erc20Interface.encodeFunctionData('transfer', [to, amt]);
 }
 
 // ---------------------------------------------------------------------------
 // Build callData
 // ---------------------------------------------------------------------------
-function buildCallData(): Hex {
+function buildCallData() {
   if (isReset) {
     // Escape hatch: empty executeBatch (clears delegation)
-    return encodeFunctionData({
-      abi: simple7702Abi,
-      functionName: 'executeBatch',
-      args: [
-        [account.address],
-        [0n],
-        ['0x'],
-      ],
-    });
+    return simple7702Interface.encodeFunctionData('executeBatch', [
+      [wallet.address],
+      [0n],
+      ['0x'],
+    ]);
   }
 
   // Normal send: batch [transfer(amount), transfer(feeBuffer)]
-  const targets = [tokenAddress as Hex, tokenAddress as Hex];
+  const targets = [tokenAddress, tokenAddress];
   const values = [0n, 0n];
   const calldatas = [
-    encodeTransfer(recipientAddress as Hex, amount),
+    encodeTransfer(recipientAddress, amount),
     encodeTransfer('0x0000000000000000000000000000000000000001', feeBuffer), // GAS_TREASURY placeholder
   ];
 
-  return encodeFunctionData({
-    abi: simple7702Abi,
-    functionName: 'executeBatch',
-    args: [targets, values, calldatas],
-  });
+  return simple7702Interface.encodeFunctionData('executeBatch', [targets, values, calldatas]);
 }
 
 // ---------------------------------------------------------------------------
 // Get nonce + gas parameters
 // ---------------------------------------------------------------------------
 async function getUserOpParams() {
-  const sender = account.address;
+  const sender = wallet.address;
 
   // Try to get nonce from Simple7702Account, fallback to 0n
   let nonce = 0n;
   try {
-    nonce = await publicClient.readContract({
-      address: SIMPLE7702_IMPL,
-      abi: simple7702Abi,
-      functionName: 'nonce',
-      args: [],
-    });
+    const contract = new ethers.Contract(SIMPLE7702_IMPL, simple7702Abi, provider);
+    nonce = await contract.nonce();
   } catch {
     // Account may not be initialized yet — nonce stays 0
   }
 
   // Gas estimation
-  const feeData = await publicClient.estimateFeesPerGas();
+  const feeData = await provider.getFeeData();
 
   return {
     sender,
@@ -171,13 +149,20 @@ async function getUserOpParams() {
 // ---------------------------------------------------------------------------
 // Hash + Sign UserOp (ERC-4337 hash scheme)
 // ---------------------------------------------------------------------------
-function hashUserOp(userOp: Record<string, unknown>): Hex {
+function hashUserOp(userOp) {
   // keccak256(encode(userOp)) — simplified for CLI usage
-  // In production, permissionless.js handles the full ERC-4337 hash
-  const packed = [userOp.sender, userOp.nonce, userOp.callData, userOp.callGasLimit,
+  const fields = [
+    userOp.sender, userOp.nonce, userOp.callData, userOp.callGasLimit,
     userOp.verificationGasLimit, userOp.preVerificationGas, userOp.maxFeePerGas,
-    userOp.maxPriorityFeePerGas].map(v => toHex(v as bigint, { size: 32 })).join('');
-  return keccak256(packed as Hex);
+    userOp.maxPriorityFeePerGas,
+  ];
+
+  const packed = fields.map((v) => {
+    if (typeof v === 'bigint') return ethers.toBeHex(v, 32);
+    return ethers.zeroPadValue(String(v), 32);
+  });
+
+  return ethers.keccak256(ethers.concat(packed));
 }
 
 // ---------------------------------------------------------------------------
@@ -189,8 +174,8 @@ async function main() {
   // Build UserOp hash for signing
   const userOpHash = hashUserOp(params);
 
-  // Sign with the account's private key
-  const signature = await account.signMessage({ message: { raw: userOpHash } });
+  // Sign with the wallet's private key (raw ECDSA, no EIP-191 prefix)
+  const signature = wallet.signingKey.sign(userOpHash).serialized;
 
   // Output SerializedUserOperation
   const serialized = {

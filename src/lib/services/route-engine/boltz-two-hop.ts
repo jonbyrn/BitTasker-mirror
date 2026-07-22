@@ -143,7 +143,9 @@ export async function buildBoltzTwoHopRoute(
 	from: Token,
 	to: Token,
 	amountSats: number,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	/** ETH/USD price for converting Arbitrum gas to comparable cost. */
+	ethUsdPrice?: number
 ): Promise<Route | null> {
 	const pairKey = `${from.key}->${to.key}`;
 	const config = BOLTZ_TWO_HOP_PAIRS[pairKey];
@@ -173,7 +175,7 @@ export async function buildBoltzTwoHopRoute(
 
 	// --- Mode 1: Boltz-first ---
 	// hop1 from Boltz (from → intermediary), hop2 from hop2Providers
-	return buildBoltzFirstRoute(from, to, intermediary, amountSats, config.hop2Providers, signal);
+	return buildBoltzFirstRoute(from, to, intermediary, amountSats, config.hop2Providers, signal, ethUsdPrice);
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +188,8 @@ async function buildBoltzFirstRoute(
 	intermediary: Token,
 	amountSats: number,
 	hop2ProviderNames: ProviderName[],
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	ethUsdPrice?: number
 ): Promise<Route | null> {
 	// Hop 1: Boltz quote (from → intermediary)
 	const { data: hop1Quote, error: hop1Error } = await tryCatch(
@@ -263,20 +266,50 @@ async function buildBoltzFirstRoute(
 
 		const route = composeTwoHopRoute(routeId, routeLabel, hop1, hop2, amountSats, hop2OutputSats);
 
-		// Calculate total cost: gas (in sats) + bridge fee (in sats)
-		// This ensures expensive aggregators (Symbiosis ~0.0064 ETH gas) don't
-		// beat cheaper DEX swaps (Uniswap V3 ~0.000006 ETH gas) just because
-		// they have slightly higher output.
-		const gasSats = route.gasCostWei
-			? (() => { try { return Number(BigInt(route.gasCostWei) / 10_000_000_000n); } catch { return 0; } })()
-			: 0;
-		const bridgeFeeSats = Math.round((amountSats * route.totalFeePercent) / 100);
-		const totalCost = gasSats + bridgeFeeSats;
+		// Compare hop2 providers by ACTUAL total cost.
+		// Use outputValueUsd from the hop2 quote when available for accurate
+		// cross-currency comparison (tBTC 18dec → USDT0 6dec makes sats-based
+		// feePercent meaningless).
+		// Include hop2 Arbitrum gas converted to USD via ethUsdPrice.
+		let totalCost: number;
 
-		debug.log(
-			'Hop2 %s: output=%d sats, gas=%d sats, bridgeFee=%d sats, totalCost=%d sats',
-			providerName, hop2OutputSats, gasSats, bridgeFeeSats, totalCost
-		);
+		if (hop2Quote.outputValueUsd && hop2Quote.outputValueUsd > 0) {
+			// USD-based comparison: lower cost = better
+			// cost = (input_value - output_value) + hop2_gas_usd
+			// Since input_value is the same for all providers, compare by:
+			// output_value - hop2_gas_usd (higher = better → lower cost)
+			const hop2GasWei = hop2.gasCostWei ? Number(BigInt(hop2.gasCostWei)) : 0;
+			const hop2GasUsd =
+				ethUsdPrice && ethUsdPrice > 0 ? (hop2GasWei / 1e18) * ethUsdPrice : 0;
+			// Negate so lower totalCost = better (consistent with the ranking convention)
+			totalCost = -(hop2Quote.outputValueUsd - hop2GasUsd);
+
+			debug.log(
+				'Hop2 %s: outputUsd=$%s, hop2GasUsd=$%s, totalCost=%d',
+				providerName,
+				hop2Quote.outputValueUsd.toFixed(4),
+				hop2GasUsd.toFixed(4),
+				totalCost
+			);
+		} else {
+			// Fallback: sats-based comparison (legacy path for providers without USD values)
+			const gasSats = route.gasCostWei
+				? (() => {
+						try {
+							return Number(BigInt(route.gasCostWei) / 10_000_000_000n);
+						} catch {
+							return 0;
+						}
+					})()
+				: 0;
+			const bridgeFeeSats = Math.round((amountSats * route.totalFeePercent) / 100);
+			totalCost = gasSats + bridgeFeeSats;
+
+			debug.log(
+				'Hop2 %s: output=%d sats, gas=%d sats, bridgeFee=%d sats, totalCost=%d sats (fallback)',
+				providerName, hop2OutputSats, gasSats, bridgeFeeSats, totalCost
+			);
+		}
 
 		if (totalCost < bestTotalCost) {
 			bestTotalCost = totalCost;
@@ -286,8 +319,9 @@ async function buildBoltzFirstRoute(
 
 	if (bestRoute) {
 		debug.log(
-			'Best 2-hop route: output=%d sats (%d providers tried)',
-			bestOutput,
+			'Best 2-hop route: %s (totalCost=%d sats, %d providers tried)',
+			bestRoute.id,
+			bestTotalCost,
 			hop2ProviderNames.length
 		);
 	} else {

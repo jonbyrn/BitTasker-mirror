@@ -115,6 +115,17 @@ vi.mock('$lib/api/services/token-balance.service', () => ({
 
 vi.mock('$lib/wallet/gasless-store', () => ({
 	sendGaslessCalls: vi.fn(),
+	estimateFee: vi.fn().mockResolvedValue({
+		feeBuffer: '1000000000000000',
+		feeCostUSD: 0.03,
+		feeTier: 'Medium',
+		totalWithBuffer: '1000000000000001',
+		estimatedGas: {
+			callGasLimit: '200000',
+			verificationGasLimit: '100000',
+			preVerificationGas: '50000'
+		}
+	}),
 	walletReady: writable(false)
 }));
 

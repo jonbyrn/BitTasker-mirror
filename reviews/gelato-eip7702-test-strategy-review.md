@@ -61,7 +61,7 @@ The plan's testing strategy has correct breadth — unit, integration, and E2E l
 
 | Component | Concern | Recommendation |
 |-----------|---------|----------------|
-| `GelatoEIP7702Provider` | Depends on `@gelatonetwork/smart-wallet-sdk` + viem — mocking SDK internals is fragile | Create a thin `GelatoClient` wrapper (already planned as `gelato-client.ts`) — mock at that boundary |
+| `GelatoEIP7702Provider` | Depends on `@gelatonetwork/smart-wallet-sdk` + ethers — mocking SDK internals is fragile | Create a thin `GelatoClient` wrapper (already planned as `gelato-client.ts`) — mock at that boundary |
 | `DelegationManager` | State machine depends on on-chain `getCode()` + Gelato bundler + Capacitor Preferences | Inject all three as interfaces — test state machine with dependency injection |
 | Capacitor Preferences | `delegation-journal.ts` uses `Capacitor.Preferences` | Create a `PreferencesAdapter` interface — inject memory-backed impl in tests |
 | Token/ETH oracle | Plan mentions oracle but doesn't name the source | Define `PriceOracle` interface — test staleness/fallback without real oracle |
@@ -115,7 +115,7 @@ const mockPaymaster = {
 }
 ```
 
-#### RPC Provider (viem PublicClient)
+#### RPC Provider (ethers Provider)
 
 ```typescript
 const mockPublicClient = {

@@ -7,14 +7,6 @@ const { mockEstimate, mockRelay } = vi.hoisted(() => ({
 	mockRelay: vi.fn()
 }));
 
-// Mock viem with isAddress and encodeFunctionData
-vi.mock('viem', () => ({
-	encodeFunctionData: vi.fn().mockReturnValue('0x' + 'ab'.repeat(20)),
-	isAddress: vi.fn().mockImplementation((addr: string) => {
-		return /^0x[0-9a-fA-F]{40}$/.test(addr);
-	})
-}));
-
 // Mock ethers — isAddress needs to work in jsdom environment
 vi.mock('ethers', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('ethers')>();

@@ -49,11 +49,11 @@ The paymaster signature is now correctly placed in `paymasterAndData`. The user'
 **Evidence (lines 593-653)**:
 The plan now:
 1. Documents the Coinbase VerifyingPaymaster's exact validation logic (lines 597-600)
-2. Provides `getPaymasterSignatureHash()` using correct viem `encodeAbiParameters` (lines 608-634)
+2. Provides `getPaymasterSignatureHash()` using correct ethers `encodeAbiParameters` (lines 608-634)
 3. Hashes the correct fields: `(sender, nonce, keccak256(callData), entryPoint, chainId)`
 4. Includes Anvil fork verification test (lines 648-652, 1110-1111)
 
-The core fix is correct — the hash fields and encoding match the contract's expected computation. The `abi.encode` viem API issue (I-10) is also fixed.
+The core fix is correct — the hash fields and encoding match the contract's expected computation. The `abi.encode` ethers API issue (I-10) is also fixed.
 
 **Caveat**: `signMessage` vs `signDigest` ambiguity (see NEW-2 below). Mitigated by the Anvil fork test.
 
@@ -209,7 +209,7 @@ export const isReady = derived(smartAccount, $a => !!$a);
 export const address = derived(smartAccount, $a => $a?.address ?? null);
 ```
 
-Stores are properly typed with `SmartAccount` from `viem/account-abstraction`.
+Stores are properly typed with `SmartAccount` from the account abstraction library.
 
 ---
 
@@ -275,12 +275,12 @@ No simulation step added. The `validateGasParameters` and `validateCallData` tog
 
 ---
 
-### I-10: `abi.encode` in paymaster signing is not a valid viem function
+### I-10: `abi.encode` in paymaster signing is not a valid ethers function
 **v2 Verdict**: ✅ **RESOLVED**
 
 **Evidence (lines 606, 616-633)**:
 ```typescript
-import { encodeAbiParameters, keccak256, concat, pad } from 'viem';
+import { ethers } from 'ethers';
 // Uses encodeAbiParameters correctly with proper type descriptors
 ```
 
@@ -361,12 +361,12 @@ import { encodeAbiParameters, keccak256, concat, pad } from 'viem';
 
 ---
 
-### [NEW-4] `signUserOp` API name may be incorrect for permissionless.js
+### [NEW-4] `signUserOp` API name may be incorrect for ethers.js
 
 - **Location**: Line 502
 - **Axis**: Correctness
 - **Severity**: Suggestion
-- **Description**: `account.signUserOp(...)` — the permissionless.js API may use `signUserOperation` instead of `signUserOp`. This depends on the exact SDK version. Verify against the permissionless.js v0.2.x API docs.
+- **Description**: `account.signUserOp(...)` — the ethers.js API may use `signUserOperation` instead of `signUserOp`. This depends on the exact library version. Verify against the ethers.js API docs.
 
 ---
 
@@ -459,6 +459,6 @@ Up from 28% in v1. The architecture is sound and the critical fixes are mostly c
 ### Nice to Have
 
 7. **[I-9] Add pre-flight simulation** — `eth_call` simulation before Alto submission for defense-in-depth.
-8. **[NEW-4] Verify `signUserOp` API name** against permissionless.js v0.2.x docs.
+8. **[NEW-4] Verify `signUserOp` API name** against ethers.js docs.
 9. **[NEW-5] Fix Docker image reference** in section 9.3 to match docker-compose.
 10. **[I-4 minor] Type `req.user`** as `JwtPayload` or `RequestWithUser`.

@@ -106,7 +106,7 @@ These are static values, not dynamic. If Arbitrum gas spikes (rare but possible)
 `src/wallet/gasless-helpers.ts:79` — `BigInt(Math.round(feeUSD * 1e18))` introduces floating-point risk for non-standard fee amounts. Current fee tiers (0.01, 0.03, 0.05, 0.10) are safe, but arbitrary values could lose precision. Consider accepting feeUSD as a string or bigint from the start.
 
 **[S2] Empty RPC URL silently falls through**  
-`src/wallet/gasless-store.ts:36` — `http(ARBITRUM_RPC_URL || undefined)` uses viem's default RPC when the URL is empty. This could connect to an unintended endpoint. Add a startup assertion.
+`src/wallet/gasless-store.ts:36` — `http(ARBITRUM_RPC_URL || undefined)` uses ethers' default RPC when the URL is empty. This could connect to an unintended endpoint. Add a startup assertion.
 
 ---
 
@@ -185,7 +185,7 @@ The Docker compose references `secrets: bundler_private_key, utility_private_key
 ### Suggestions
 
 **[S9] Dynamic imports in checkSufficientBalance create new client each call**  
-`src/wallet/gasless-store.ts:119-121` — Each call to `checkSufficientBalance` dynamically imports viem and creates a new `PublicClient`. For repeated calls, this is wasteful.  
+`src/wallet/gasless-store.ts:119-121` — Each call to `checkSufficientBalance` dynamically imports ethers and creates a new `Provider`. For repeated calls, this is wasteful.  
 **Fix:** Cache the public client instance or pass it as a parameter.
 
 **[S10] Array.includes for token lookup**  

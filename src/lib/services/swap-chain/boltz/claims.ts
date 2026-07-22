@@ -55,8 +55,17 @@ export async function claimTbtcOnArbitrum(params: {
  * After Boltz detects the tBTC lockup on Arbitrum, it locks rBTC on RSK.
  * The user calls EtherSwap.claim() with the preimage to release rBTC.
  *
- * The claim call is: claim(bytes32 preimage, uint256 amount, address claimAddress, uint256 timelock)
- * where claimAddress = Boltz's claim address, amount = sats locked, timelock = block height.
+ * The contract's 4-param claim function is:
+ *   claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timelock)
+ * where:
+ *   - refundAddress = the address that locked the Ether (Boltz)
+ *   - claimAddress is implicitly msg.sender (the user calling claim)
+ *   - amount = wei locked
+ *   - timelock = block height
+ *
+ * The contract hashes (preimageHash, amount, msg.sender, refundAddress, timelock)
+ * and looks up the swap by that hash. Passing the wrong refundAddress produces
+ * a different hash → SwapNotFound revert.
  *
  * @returns Error if claim failed, null on success
  */
@@ -71,7 +80,7 @@ export async function claimRbtcOnRsk(params: {
 	const calldata = encodeEtherSwapClaim(
 		'0x' + params.preimageHex,
 		BigInt(params.amount) * BigInt(1e10), // sats → wei
-		params.claimAddress,
+		params.refundAddress, // contract's 3rd param is refundAddress (Boltz), NOT claimAddress (user)
 		BigInt(params.timelock)
 	);
 

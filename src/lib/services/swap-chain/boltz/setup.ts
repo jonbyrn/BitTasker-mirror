@@ -67,7 +67,7 @@ export interface SwapSetupResult {
  *
  * Does NOT send the lockup transaction — the caller must do that with the
  * returned setup data, because lockup mechanics differ per swap direction
- * (EtherSwap.lock vs ERC20Swap.lockPrepayMinerfee).
+ * (EtherSwap.lock on RSK vs ERC20Swap.lock on Arbitrum).
  */
 export async function prepareChainSwap(
 	state: SwapChainState,

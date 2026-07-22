@@ -28,6 +28,10 @@
 		loading?: boolean;
 		/** When true, applies error border color to the card (e.g. amount below minimum). */
 		belowMinimum?: boolean;
+		/** Total fee in sats — used for high-fee warning. */
+		totalFeeSats?: number;
+		/** Swap amount in sats — used for high-fee warning. */
+		amountSats?: number;
 	}
 
 	let {
@@ -40,11 +44,18 @@
 		isDirectTransfer = false,
 		variant = 'form',
 		loading = false,
-		belowMinimum = false
+		belowMinimum = false,
+		totalFeeSats = 0,
+		amountSats = 0
 	}: SwapEstimateCardProps = $props();
 
 	/** True when the user hasn't entered an amount yet (form variant only). */
 	const isEmpty = $derived(variant === 'form' && !loading && !youReceive && !totalSent);
+
+	/** True when the fee exceeds 50% of the swap amount. */
+	const isHighFee = $derived(
+		amountSats > 0 && totalFeeSats > 0 && totalFeeSats > amountSats * 0.5
+	);
 
 	const sk = 'bg-base-300 animate-pulse rounded inline-block';
 </script>
@@ -115,6 +126,16 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- High fee warning -->
+		{#if !isEmpty && !loading && isHighFee}
+			<div class="text-warning flex items-center gap-1.5 text-xs">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+				</svg>
+				<span>{$t('wallet.swap.high_fee_warning') || 'Fee exceeds 50% of swap amount'}</span>
+			</div>
+		{/if}
 	{:else}
 		<!-- Non-form variants: always show real data (no skeleton/empty states) -->
 		{#if totalSent}

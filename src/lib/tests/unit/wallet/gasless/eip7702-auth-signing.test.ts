@@ -8,18 +8,6 @@ const { mockGaslessRelay, mockGetCode, mockGetTransactionCount } = vi.hoisted(()
 	mockGetTransactionCount: vi.fn().mockResolvedValue(5)
 }));
 
-// Mock viem
-vi.mock('viem', () => ({
-	encodeFunctionData: vi.fn().mockReturnValue('0x34fcd5be' + 'ab'.repeat(64)),
-	isAddress: vi.fn().mockImplementation((addr: string) => /^0x[0-9a-fA-F]{40}$/.test(addr)),
-	createPublicClient: vi.fn().mockReturnValue({
-		readContract: vi.fn().mockResolvedValue(0n),
-		getCode: vi.fn().mockResolvedValue('0x'), // No code = not delegated
-		getTransactionCount: vi.fn().mockResolvedValue(5)
-	}),
-	http: vi.fn()
-}));
-
 // Mock ethers for EIP-7702 auth signing
 vi.mock('ethers', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('ethers')>();
@@ -39,16 +27,6 @@ vi.mock('ethers', async (importOriginal) => {
 		}
 	};
 });
-
-vi.mock('viem/chains', () => ({
-	arbitrum: { id: 42161 }
-}));
-
-vi.mock('viem/accounts', () => ({
-	privateKeyToAccount: vi.fn().mockReturnValue({
-		address: '0x' + 'ab'.repeat(20)
-	})
-}));
 
 // Mock @sentry/sveltekit
 vi.mock('@sentry/sveltekit', () => ({
@@ -91,16 +69,6 @@ vi.mock('$lib/api/services/gasless.service', () => ({
 	}
 }));
 
-// Mock permissionless
-const mockSignUserOp = vi.fn().mockResolvedValue({ signature: '0x' + 'cc'.repeat(65) });
-vi.mock('permissionless/accounts', () => ({
-	to7702SimpleSmartAccount: vi.fn().mockResolvedValue({
-		address: '0x' + 'ab'.repeat(20),
-		signUserOperation: mockSignUserOp,
-		getNonce: vi.fn().mockResolvedValue(0n)
-	})
-}));
-
 import {
 	walletState,
 	sendToken,
@@ -133,14 +101,6 @@ describe('EIP-7702 auth signing path', () => {
 		// Reset ethers provider mocks — not delegated by default
 		mockGetCode.mockResolvedValue('0x');
 		mockGetTransactionCount.mockResolvedValue(5);
-
-		// Re-initialize createPublicClient mock for each test (non-delegated by default)
-		const { createPublicClient } = await import('viem');
-		(createPublicClient as ReturnType<typeof vi.fn>).mockReturnValue({
-			readContract: vi.fn().mockResolvedValue(0n),
-			getCode: vi.fn().mockResolvedValue('0x'),
-			getTransactionCount: vi.fn().mockResolvedValue(5)
-		});
 
 		// Initialize the wallet (which stores ownerKey)
 		await initWallet(mockPrivateKey);

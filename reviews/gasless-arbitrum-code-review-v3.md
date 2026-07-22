@@ -195,9 +195,9 @@ No `eth_call` simulation added. However, the combination of:
 
 ---
 
-### I-10: `abi.encode` in paymaster signing is not a valid viem function
+### I-10: `abi.encode` in paymaster signing is not a valid ethers function
 **v2**: ✅ RESOLVED
-**v3**: ✅ **STILL RESOLVED** (line 670: `import { encodeAbiParameters } from 'viem'`)
+**v3**: ✅ **STILL RESOLVED** (line 670: `import { ethers } from 'ethers'`)
 
 ---
 
@@ -233,11 +233,11 @@ The entire client-side estimation section (4.5) has been rewritten. The client i
 
 ---
 
-### NEW-4: `signUserOp` API name may be incorrect for permissionless.js
+### NEW-4: `signUserOp` API name may be incorrect for ethers.js
 **v2**: Suggestion
 **v3**: ⚠️ **STILL OPEN** — Suggestion, non-blocking
 
-Line 554 still uses `account.signUserOp(...)`. The permissionless.js API may use `signUserOperation`. Verify against SDK docs before implementation. **Low risk** — caught immediately at compile time.
+Line 554 still uses `account.signUserOp(...)`. The ethers.js API may use `signUserOperation`. Verify against SDK docs before implementation. **Low risk** — caught immediately at compile time.
 
 ---
 
@@ -352,7 +352,7 @@ Evidence (lines 608, 625-627): Server-side estimation now calls `this.getEthPric
 | I-7 | Missing constants | ⚠️ PARTIAL | ⚠️ MOSTLY | Lines 447-469 (backend ✅, client partial) |
 | I-8 | No Alto error handling | ⚠️ PARTIAL | ✅ RESOLVED | Lines 473-492 (try/catch) |
 | I-9 | No pre-flight simulation | ❌ OPEN | ❌ OPEN | Mitigated by validation + tests |
-| I-10 | abi.encode not valid viem | ✅ RESOLVED | ✅ RESOLVED | Line 670 |
+| I-10 | abi.encode not valid ethers | ✅ RESOLVED | ✅ RESOLVED | Line 670 |
 | NEW-1 | paymasterAndData encoding format | Important | ✅ RESOLVED | Line 495 (documented) |
 | NEW-2 | signMessage prefix ambiguity | Important | ✅ RESOLVED | Lines 496-497 (documented) |
 | NEW-3 | Client estimation v1 remnants | Important | ✅ RESOLVED | Lines 590-605 (rewritten) |
@@ -399,7 +399,7 @@ Up from 28% (v1) → 78% (v2) → **95% (v3)**. The remaining 5% uncertainty is 
    - Whether `validatePaymasterUserOp` uses `toEthSignedMessageHash` or raw `recover` (NEW-2)
    - The Anvil fork test catches both — fix is a one-line change either way
 
-2. **Verify `signUserOp` API name** against permissionless.js v0.2.x docs (NEW-4)
+2. **Verify `signUserOp` API name** against ethers.js docs (NEW-4)
 
 ### Should Fix (before production)
 

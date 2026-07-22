@@ -151,8 +151,7 @@ test.describe('Gasless Relay Diagnostic', () => {
 			l.text.includes('gasless') ||
 			l.text.includes('wallet-init') ||
 			l.text.includes('walletReady') ||
-			l.text.includes('permissionless') ||
-			l.text.includes('ox') ||
+				l.text.includes('ox') ||
 			l.text.includes('Gasless') ||
 			l.text.includes('initWallet') ||
 			l.text.includes('7702') ||
@@ -435,7 +434,7 @@ test.describe('Gasless Relay Diagnostic', () => {
 						logs.push(`transferData: ${transferData.length - 2} hex chars, even: ${(transferData.length - 2) % 2 === 0}`);
 
 						// This will actually call the relay — the gasless-store internally
-						// uses ethers for ABI encoding and permissionless for signing
+						// uses ethers for ABI encoding and signing
 						// Add diagnostic logging around the signing step
 						const origSign = walletState.account?.signUserOperation;
 						logs.push(`account.signUserOperation type: ${typeof origSign}`);

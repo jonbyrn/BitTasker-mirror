@@ -267,6 +267,8 @@
 			{isDirectTransfer}
 			loading={routeLoading}
 			belowMinimum={isAmountError}
+			{totalFeeSats}
+			{amountSats}
 		/>
 	{/if}
 

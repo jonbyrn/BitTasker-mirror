@@ -270,7 +270,7 @@ The expanded risk analysis (lines 1127-1151) covers 22 items across all severity
 |----------|-------|----------|
 | CRITICAL risks | 6 | Paymaster signature, gas drain, arbitrary calls, key compromise, UserOp signature |
 | HIGH risks | 6 | Alto downtime, deposit exhaustion, tBTC decimals, USDT0 depeg, Docker supply chain, Alto bypass |
-| MEDIUM risks | 5 | Insufficient balance, wBTC precision, gas price spike, permissionless.js changes, Docker crash |
+| MEDIUM risks | 5 | Insufficient balance, wBTC precision, gas price spike, ethers.js changes, Docker crash |
 | LOW risks | 2 | Cross-chain replay, wallet-core breaking change |
 | INFO risks | 1 | Escrow not on Arbitrum |
 
@@ -296,7 +296,7 @@ The expanded test strategy (lines 980-1121) covers:
 | Security-critical | 10 | ✅ NEW — directly tests audit findings |
 | Chaos/resilience | 8 | ✅ NEW — operational failure scenarios |
 | Performance baselines | 5 | ✅ NEW — latency and throughput targets |
-| Mock specifications | 4 dep | ✅ NEW — Alto, RPC, price API, permissionless.js |
+| Mock specifications | 4 dep | ✅ NEW — Alto, RPC, price API, ethers.js |
 
 **Security-critical tests (10.7)** are particularly strong:
 1. Paymaster signature on Anvil fork — proves hash compatibility

@@ -27,7 +27,7 @@ import { parseDecimalToSmallestUnit, satsToWei } from '$lib/utils/amount-convers
 import { generateSwapPreimage } from '$lib/utils/swap-preimage';
 import { TBTC_ARB } from '../utils';
 import { boltzProvider } from '$lib/services/BoltzProvider';
-import { encodeERC20Approve, encodeERC20SwapLockPrepay } from '../abi';
+import { encodeERC20Approve, encodeERC20SwapLock, buildExecuteBatchCallData } from '../abi';
 import type { RouteHop } from '$lib/services/route-resolver';
 import { safeAddress, boltzAddress, type SwapChainState, setSwapProgress } from '../state';
 import { getEthers, prepareChainSwap, lockRskFunds, storeBoltzSwapData } from './setup';
@@ -45,7 +45,7 @@ const boltz = boltzProvider;
 /**
  * tBTC → RBTC via Boltz direct chain swap.
  * Sends tBTC (ERC-20 on Arbitrum) to a Boltz lockup address; Boltz releases rBTC on RSK.
- * Verifies tBTC balance before creating the swap; handles ERC-20 approve + lockPrepayMinerfee.
+ * Verifies tBTC balance before creating the swap; handles ERC-20 approve + lock.
  */
 async function executeTbtcToRbtcSwap(
 	state: SwapChainState,
@@ -181,63 +181,33 @@ async function executeTbtcToRbtcSwap(
 			};
 		}
 
-		// Step 1: Approve the Boltz lockup contract to spend tBTC
+		// Batch approve + lock into a single gasless UserOp via executeBatch.
+		// This eliminates the second round-trip and prevents timing issues where
+		// the Boltz swap expires between the two separate transactions.
 		const lockupContract = swapResult.lockupAddress;
 		const approveCalldata = encodeERC20Approve(lockupContract, tbtcAmount);
-		d.log(
-			'[executeTbtcToRbtcSwap] Step 1: approve tBTC for %s (amount=%s)',
-			lockupContract,
-			tbtcAmount.toString()
-		);
-		const { data: approveTxHash, error: approveError } = await sendEvmTransaction({
-			to: TBTC_ARB,
-			data: approveCalldata,
-			value: 0n,
-			chain: 'arbitrum',
-			sourceConnectedWalletId: state.sourceConnectedWalletId
-		});
-		d.log(
-			'[executeTbtcToRbtcSwap] approve result: tx=%s error=%s',
-			approveTxHash ?? 'null',
-			approveError?.message ?? 'none'
-		);
-		if (approveError)
-			return { data: null, error: new Error(`tBTC approve failed: ${approveError.message}`) };
-
-		// Step 2: Call lockPrepayMinerfee — locks tBTC AND forwards ETH to Boltz's claim address
-		// so Boltz has gas to claim on Arbitrum. Plain lock() reverts without prepay.
-		const lockCalldata = encodeERC20SwapLockPrepay(
+		const lockCalldata = encodeERC20SwapLock(
 			'0x' + hashHex,
 			tbtcAmount,
 			TBTC_ARB,
 			swapResult.claimAddress,
 			swapResult.timeoutBlockHeight
 		);
-		// Send ETH to cover Boltz's Arbitrum claim gas.
-		// Dynamic: use current gas price × 21000 (simple transfer) × 2 (safety margin)
-		// Minimum 0.001 ETH, maximum 0.01 ETH
-		const { ethers: ethersModule } = await getEthers();
-		const arbProvider = new ethersModule.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
-		const feeData = await arbProvider.getFeeData();
-		const gasPrice = feeData.gasPrice ?? 100_000_000n; // 0.1 gwei fallback
-		const dynamicPrepay = gasPrice * 21000n * 2n; // simple transfer gas × 2 safety
-		const prepayWei = dynamicPrepay < 1_000_000_000_000_000n
-			? 1_000_000_000_000_000n // min 0.001 ETH
-			: dynamicPrepay > 10_000_000_000_000_000n
-				? 10_000_000_000_000_000n // max 0.01 ETH
-				: dynamicPrepay;
+
 		d.log(
-			'[executeTbtcToRbtcSwap] Step 2: calling ERC20Swap.lockPrepayMinerfee() on %s amount=%s prepay=%s wei',
+			'[executeTbtcToRbtcSwap] Batching approve + lock: approve tBTC for %s, then ERC20Swap.lock() amount=%s',
 			lockupContract,
-			tbtcAmount.toString(),
-			prepayWei.toString()
+			tbtcAmount.toString()
 		);
+		setSwapProgress('locking-tbtc', `Locking tBTC → ${swapResult.swapId}`);
+
 		const { data: lockupTxHash, error: lockupError } = await sendEvmTransaction({
-			to: lockupContract,
-			data: lockCalldata,
-			value: prepayWei,
+			to: TBTC_ARB,
+			data: approveCalldata,
+			value: 0n,
 			chain: 'arbitrum',
-			sourceConnectedWalletId: state.sourceConnectedWalletId
+			sourceConnectedWalletId: state.sourceConnectedWalletId,
+			extraCalls: [{ to: lockupContract, data: lockCalldata, value: 0n }]
 		});
 		d.log(
 			'[executeTbtcToRbtcSwap] lock result: tx=%s error=%s',

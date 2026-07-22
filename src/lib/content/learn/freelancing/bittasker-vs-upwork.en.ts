@@ -27,7 +27,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What does the BitTasker vs Upwork comparison table show?',
-			body: '| Feature | BitTasker | Upwork |\n| --- | --- | --- |\n| Service fee | 5–10% (tiered) | 10% flat |\n| Payout speed | Instant (Lightning) | Net-14 + bank transfer |\n| Identity | Nostr (decentralized) | Centralized account |\n| Escrow | Rootstock smart contracts | Internal systems |\n| Account portability | Full — you own your data | Locked to platform |\n| Crypto payments | Native BTC + Lightning | Not supported |\n| Geographic restrictions | Global, permissionless | Restricted in some countries |'
+			body: '| Feature | BitTasker | Upwork |\n| --- | --- | --- |\n| Service fee | 5–10% (tiered) | 10% flat |\n| Payout speed | Instant (Lightning) | Net-14 + bank transfer |\n| Identity | Nostr (decentralized) | Centralized account |\n| Escrow | Rootstock smart contracts | Internal systems |\n| Account portability | Full — you own your data | Locked to platform |\n| Crypto payments | Native BTC + Lightning | Not supported |\n| Geographic restrictions | Global, open access | Restricted in some countries |'
 		},
 		{
 			heading: 'When is Upwork the better choice?',

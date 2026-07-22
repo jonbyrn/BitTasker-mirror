@@ -4,6 +4,12 @@
  * Executes a LI.FI cross-chain swap hop. LI.FI handles bridging + swapping
  * atomically — the user sends funds to the LI.FI contract with encoded
  * calldata, and LI.FI completes the swap on the destination chain.
+ *
+ * Key design decisions:
+ * - Approval + swap are batched into a single executeBatch UserOp to minimize
+ *   latency between quote fetch and on-chain execution (quote freshness).
+ * - The quote's executionDuration drives freshness checks and retry logic.
+ * - No hardcoded gas limits — gas is estimated from actual callData.
  */
 
 import { get } from 'svelte/store';
@@ -18,16 +24,47 @@ import {
 	CHAIN_ID_RSK,
 	CHAIN_ID_ARB,
 	NATIVE_TOKEN,
-	GAS_LIMIT_ARB_SWAP,
 	resolveChainId,
 	resolveTokenAddress,
 	LIFI_ASSET_DECIMALS
 } from '../utils';
+import { encodeERC20Approve } from '../abi';
 import { safeAddress, type SwapChainState } from '../state';
 import { sendEvmTransaction } from '../tx-helpers';
-import { approveErc20Token } from './helpers';
 
 const d = createDebug('swap-chain');
+
+/** Max uint256 — infinite approval. */
+const MAX_UINT256 = (1n << 256n) - 1n;
+
+/** Maximum number of retry attempts for the swap execution. */
+const MAX_SWAP_RETRIES = 2;
+
+/**
+ * Safety margin subtracted from the quote's executionDuration (in ms).
+ * Accounts for bundler batching delay (~1-2s), Arbitrum block time (~250ms),
+ * and network latency (~500ms).
+ */
+const QUOTE_SAFETY_MARGIN_MS = 2_500;
+
+/**
+ * Check whether an error from sendEvmTransaction is retryable.
+ *
+ * Retryable: stale quote / price movement, network timeouts, bundler busy.
+ * Non-retryable: insufficient balance, invalid parameters, no liquidity.
+ */
+function isRetryableSwapError(error: Error): boolean {
+	const msg = error.message.toLowerCase();
+	// UserOp revert usually means stale quote or price movement
+	if (msg.includes('userop') && msg.includes('revert')) return true;
+	if (msg.includes('reverted on-chain')) return true;
+	// Network / infra transient failures
+	if (msg.includes('timeout')) return true;
+	if (msg.includes('network')) return true;
+	if (msg.includes('fetch')) return true;
+	// Non-retryable: balance, parameter, liquidity issues
+	return false;
+}
 
 // ---------------------------------------------------------------------------
 // LI.FI hop
@@ -38,9 +75,11 @@ const d = createDebug('swap-chain');
  *
  * Flow:
  *   1. Resolve chain IDs, token addresses, and user address
- *   2. Request step transaction from LI.FI API
- *   3. Approve ERC-20 source token (if not native)
- *   4. Submit swap transaction via `sendEvmTransaction`
+ *   2. Request step transaction from LI.FI API (quote + calldata)
+ *   3. Build approval + swap as a single batched UserOp
+ *   4. Check quote freshness before submission
+ *   5. Submit via sendEvmTransaction with extraCalls
+ *   6. On failure, retry with fresh quote (up to MAX_SWAP_RETRIES)
  */
 export async function executeLifiHop(
 	hop: RouteHop,
@@ -82,77 +121,134 @@ export async function executeLifiHop(
 	const decimals = LIFI_ASSET_DECIMALS[hop.fromAsset.toUpperCase()] ?? 18;
 	const fromAmountWei = parseDecimalToSmallestUnit(state.amount!, decimals).toString();
 
-	try {
-		d.log(
-			'[executeLifiHop] requesting LI.FI step tx: from=%s→%s amount=%s',
-			hop.fromAsset,
-			hop.toAsset,
-			fromAmountWei
-		);
-		const txReq = await lifiService.getStepTransaction({
-			fromChain: fromChainId,
-			toChain: toChainId,
-			fromToken: fromTokenAddr,
-			toToken: toTokenAddr,
-			fromAmount: fromAmountWei,
-			fromAddress: userAddr
-		});
-		d.log(
-			'[executeLifiHop] step tx received: to=%s dataLen=%d value=%s',
-			txReq.to?.substring(0, 10) ?? 'null',
-			txReq.data?.length ?? 0,
-			txReq.value ?? '0'
-		);
+	const chain: 'arbitrum' | 'rsk' | 'bsc' =
+		fromChainId === CHAIN_ID_ARB ? 'arbitrum' : fromChainId === CHAIN_ID_RSK ? 'rsk' : 'bsc';
 
-		// All paths route through sendEvmTransaction which verifies on-chain receipt.
-		// Previously, raw tx submission (sendArbitrumTransaction, evmSigner.sendTransaction)
-		// returned the tx hash without checking if the tx actually succeeded on-chain.
-		// This caused reverts to be silently treated as success — loss of funds.
-		const txValue = txReq.value ? BigInt(txReq.value) : 0n;
-		const chain: 'arbitrum' | 'rsk' | 'bsc' =
-			fromChainId === CHAIN_ID_ARB ? 'arbitrum' : fromChainId === CHAIN_ID_RSK ? 'rsk' : 'bsc';
+	// Quote fetch parameters (reused on retry)
+	const quoteParams = {
+		fromChain: fromChainId,
+		toChain: toChainId,
+		fromToken: fromTokenAddr,
+		toToken: toTokenAddr,
+		fromAmount: fromAmountWei,
+		fromAddress: userAddr
+	};
 
-		// For ERC-20 source tokens, approve the LI.FI router to spend before the swap.
-		// Native tokens (RBTC, ETH) don't need approval.
-		if (fromTokenAddr !== NATIVE_TOKEN) {
-			const { error: approveError } = await approveErc20Token({
-				tokenAddress: fromTokenAddr,
-				spenderAddress: txReq.to,
+	let lastError: Error | null = null;
+
+	for (let attempt = 0; attempt <= MAX_SWAP_RETRIES; attempt++) {
+		try {
+			if (attempt > 0) {
+				d.log('[executeLifiHop] Retry %d/%d — re-fetching fresh quote', attempt, MAX_SWAP_RETRIES);
+			}
+
+			// ── Step 1: Fetch fresh quote from LI.FI ─────────────────────
+			d.log(
+				'[executeLifiHop] requesting LI.FI step tx: from=%s→%s amount=%s',
+				hop.fromAsset,
+				hop.toAsset,
+				fromAmountWei
+			);
+			const quoteReceivedAt = Date.now();
+			const txReq = await lifiService.getStepTransaction(quoteParams);
+			const executionDurationMs = (txReq.executionDuration ?? 5) * 1000;
+			const quoteMaxAgeMs = Math.max(executionDurationMs - QUOTE_SAFETY_MARGIN_MS, 1000);
+
+			d.log(
+				'[executeLifiHop] step tx received: to=%s dataLen=%d value=%s executionDuration=%sms maxAge=%sms',
+				txReq.to?.substring(0, 10) ?? 'null',
+				txReq.data?.length ?? 0,
+				txReq.value ?? '0',
+				executionDurationMs,
+				quoteMaxAgeMs
+			);
+
+			// ── Step 2: Build batched calls (approval + swap) ────────────
+			const extraCalls: Array<{ to: string; data: string; value: bigint }> = [];
+
+			// For ERC-20 source tokens, batch the approval into the same UserOp.
+			// This eliminates the ~5s latency of a separate approval UserOp,
+			// keeping the quote fresh at execution time.
+			if (fromTokenAddr !== NATIVE_TOKEN) {
+				const approveCalldata = encodeERC20Approve(txReq.to, MAX_UINT256);
+				d.log(
+					'[executeLifiHop] batching approval: token=%s spender=%s',
+					fromTokenAddr.substring(0, 10),
+					txReq.to.substring(0, 10)
+				);
+				extraCalls.push({ to: fromTokenAddr, data: approveCalldata, value: 0n });
+			}
+
+			// ── Step 3: Freshness check ──────────────────────────────────
+			const quoteAgeMs = Date.now() - quoteReceivedAt;
+			if (quoteAgeMs > quoteMaxAgeMs) {
+				d.log(
+					'[executeLifiHop] quote stale before submission: age=%sms maxAge=%sms',
+					quoteAgeMs,
+					quoteMaxAgeMs
+				);
+				lastError = new Error(
+					`LI.FI quote expired before execution (${Math.round(quoteAgeMs / 1000)}s old, max ${Math.round(quoteMaxAgeMs / 1000)}s). Retrying...`
+				);
+				continue; // retry with fresh quote
+			}
+
+			// ── Step 4: Submit batched UserOp ────────────────────────────
+			const txValue = txReq.value ? BigInt(txReq.value) : 0n;
+			d.log(
+				'[executeLifiHop] submitting batched swap tx: chain=%s to=%s calls=%d quoteAge=%sms',
 				chain,
+				txReq.to?.substring(0, 10),
+				1 + extraCalls.length,
+				quoteAgeMs
+			);
+
+			const { data: txHash, error: txError } = await sendEvmTransaction({
+				to: txReq.to,
+				data: txReq.data,
+				value: txValue,
+				chain,
+				gasLimit: txReq.gasLimit ? Number(txReq.gasLimit) : undefined,
 				sourceConnectedWalletId: state.sourceConnectedWalletId,
-				label: 'LI.FI'
+				extraCalls: extraCalls.length > 0 ? extraCalls : undefined
 			});
 
-			if (approveError) {
-				return { data: null, error: approveError };
+			if (txError || !txHash) {
+				const err = txError ?? new Error('LI.FI tx failed: no tx hash');
+				d.log('[executeLifiHop] SWAP FAILED (attempt %d): %s', attempt, err.message);
+
+				if (attempt < MAX_SWAP_RETRIES && isRetryableSwapError(err)) {
+					lastError = err;
+					continue; // retry with fresh quote
+				}
+				return { data: null, error: err };
 			}
+
+			d.log('[executeLifiHop] SWAP CONFIRMED: %s', txHash.substring(0, 16));
+			return { data: txHash, error: null };
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'LI.FI execution failed';
+			d.error('[executeLifiHop] FAILED (attempt %d): %s', attempt, message);
+
+			const wrappedErr = new Error(message);
+			if (attempt < MAX_SWAP_RETRIES && isRetryableSwapError(wrappedErr)) {
+				lastError = wrappedErr;
+				continue; // retry with fresh quote
+			}
+
+			Sentry.captureException(err, {
+				tags: { component: 'swap-chain', executor: 'lifi' },
+				extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount, attempt }
+			});
+			return { data: null, error: wrappedErr };
 		}
-
-		d.log('[executeLifiHop] submitting swap tx: chain=%s to=%s', chain, txReq.to?.substring(0, 10));
-
-		const { data: txHash, error: txError } = await sendEvmTransaction({
-			to: txReq.to,
-			data: txReq.data,
-			value: txValue,
-			chain,
-			gasLimit: fromChainId === CHAIN_ID_ARB ? GAS_LIMIT_ARB_SWAP : undefined,
-			sourceConnectedWalletId: state.sourceConnectedWalletId
-		});
-
-		if (txError || !txHash) {
-			d.log('[executeLifiHop] SWAP FAILED: %s', txError?.message ?? 'no tx hash');
-			return { data: null, error: txError ?? new Error('LI.FI tx failed: no tx hash') };
-		}
-
-		d.log('[executeLifiHop] SWAP CONFIRMED: %s', txHash.substring(0, 16));
-		return { data: txHash, error: null };
-	} catch (err) {
-		const message = err instanceof Error ? err.message : 'LI.FI execution failed';
-		d.error('[executeLifiHop] FAILED: %s', message);
-		Sentry.captureException(err, {
-			tags: { component: 'swap-chain', executor: 'lifi' },
-			extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
-		});
-		return { data: null, error: new Error(message) };
 	}
+
+	// All retries exhausted
+	const finalError = lastError ?? new Error('LI.FI swap failed after all retry attempts');
+	Sentry.captureException(finalError, {
+		tags: { component: 'swap-chain', executor: 'lifi', reason: 'exhausted-retries' },
+		extra: { hopFrom: hop.fromAsset, hopTo: hop.toAsset, amount: state.amount }
+	});
+	return { data: null, error: finalError };
 }

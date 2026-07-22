@@ -3,7 +3,7 @@
 > ⚠️ **This plan has been superseded by** [`gasless-arbitrum-plan.md`](./gasless-arbitrum-plan.md)
 > 
 > **Reason**: Architecture changed from Gelato cloud infrastructure to self-hosted ERC-4337 stack
-> (permissionless.js + Alto bundler + Coinbase VerifyingPaymaster). This file is preserved for
+> (ethers.js + Alto bundler + Coinbase VerifyingPaymaster). This file is preserved for
 > audit trail and reusable research sections only.
 > 
 > **Branch**: `feat/usdt-abstractionkit`
@@ -84,7 +84,7 @@ This plan adds **gasless token transfers** on **Arbitrum One** (chain ID 42161) 
 | Concern | Layer | Rationale |
 |---------|-------|-----------|
 | Provider, balances, basic ERC-20 reads | `wallet-core` SDK | Reusable, testable, same pattern as BSC/RSK |
-| EIP-7702 delegation lifecycle | App layer | Depends on Gelato SDK (viem), Capacitor persistence, UI state |
+| EIP-7702 delegation lifecycle | App layer | Depends on Gelato SDK, Capacitor persistence, UI state |
 | RestrictedSigner | App layer | Security boundary — never expose private key to third-party SDK |
 | Gas estimation + reimbursement calc | App layer | Business logic tied to UI confirmation flow |
 | Token transfer encoding | App layer (or SDK utility) | Generic ERC-20 `transfer()` encoding |
@@ -159,9 +159,7 @@ The Gelato Paymaster is configured for **ERC-20 gas repayment**:
 
 ```typescript
 import { createGelatoBundlerClient } from '@gelatonetwork/smart-wallet-sdk';
-import { to7702SimpleSmartAccount } from 'permissionless/accounts';
-import { http, createWalletClient, createPublicClient, encodeFunctionData } from 'viem';
-import { arbitrum } from 'viem/chains';
+import { ethers } from 'ethers';
 
 // 1. Public client for chain reads
 const publicClient = createPublicClient({
@@ -675,7 +673,7 @@ src/lib/components/wallet/TransactionHistory.svelte
 src/lib/components/wallet/TransactionSuccessScreen.svelte
 src/lib/components/wallet/PendingTransactionScreen.svelte
 wrangler.toml  — GELATO_API_KEY secret
-package.json   — Add viem, permissionless, gelato SDK
+package.json   — Add ethers, gelato SDK
 ```
 
 ---
@@ -761,8 +759,7 @@ No new dependencies. Uses existing `ethers` v6.
 {
   "dependencies": {
     "@gelatonetwork/smart-wallet-sdk": "<pinned-version>",
-    "permissionless": "<pinned-version>",
-    "viem": "<pinned-version>"
+    "ethers": "^6.x"
   }
 }
 ```
@@ -793,7 +790,7 @@ No new dependencies. Uses existing `ethers` v6.
 | D-010 | **Candide removed** | Not implemented; Gelato is the sole AA provider |
 | D-011 | **Escrow excluded** | Escrow not deployed on Arbitrum; wallet send/receive only |
 | D-012 | **Three tokens from day one** | USDT0 + wBTC + tBTC; registry pattern makes this trivial |
-| D-013 | **viem + permissionless.js** | Gelato SDK built on viem; ethers coexists for existing code |
+| D-013 | **ethers.js** | Gelato SDK uses ethers; existing code already uses ethers |
 | D-014 | **EIP-7702 bootstrap: conditional sponsorship** | If user has token balance, paymaster deducts gas in token; if not, BitTasker sponsors first tx |
 
 ---
@@ -839,15 +836,13 @@ Three parallel audits (Security, Code Review, Test Strategy) identified 1 critic
 - Add `'arbitrum'` case to every switch or add a `default` branch
 - Arbitrum state shape uses **flat fields** matching BSC pattern: `arbEthBalance`, `arbUsdt0Balance`, `arbwBtcBalance`, `arbtBtcBalance` — NOT generic `Record<string, ...>`
 
-#### [H-2] ethers→viem Bridge (Code Review)
+#### [H-2] ethers Adapter (Code Review)
 
-**Problem**: wallet-core returns `ethers.Wallet`; Gelato SDK needs viem `Account`.
+**Problem**: wallet-core returns `ethers.Wallet`; Gelato SDK needs a signer Account.
 
-**Resolution**: Add adapter in app layer:
+**Resolution**: Use ethers Wallet directly as the signer:
 ```typescript
-import { privateKeyToAccount } from 'viem/accounts';
 const ethersWallet = arbitrumWallet.getWallet();
-const viemAccount = privateKeyToAccount(ethersWallet.privateKey as `0x${string}`);
 ```
 This is documented in Phase 2.1 implementation notes.
 
@@ -952,7 +947,7 @@ This is documented in Phase 2.1 implementation notes.
 | M-7 | No slippage protection | Max reimbursement cap (1.5x estimated) enforced on-chain |
 | M-8 | getAddresses() doesn't exist | Remove from plan; use wallet.rskWallet.getAddress() pattern |
 | M-9 | ArbitrumToken duplicates ERC20Token | Reuse existing `ERC20Token` interface from wallet-core |
-| M-10 | SDK returns raw ethers.Wallet | Return `Signer` interface; app layer extracts private key only for viem adapter |
+| M-10 | SDK returns raw ethers.Wallet | Return `Signer` interface; app layer uses ethers signer directly |
 
 ### 14.4 Test Strategy Improvements (v3.0)
 
@@ -1018,7 +1013,7 @@ This is documented in Phase 2.1 implementation notes.
 | 18 | USDT-specific tests | USDT0 (18 dec) + wBTC (8 dec) + tBTC (18 dec) |
 | 19 | Multicall balance fetch | Single call for all 3 token balances |
 | 20 | Block number tracking | Same polling pattern |
-| 21 | Wallet instance | Returns ethers.Wallet (app layer wraps in viem adapter) |
+| 21 | Wallet instance | Returns ethers.Wallet (app layer uses signer directly) |
 
 ### 14.5 Updated Confidence Assessment
 

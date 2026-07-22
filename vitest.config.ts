@@ -91,11 +91,7 @@ export default defineConfig({
 			{ find: '$lib', replacement: resolve(__dirname, './src/lib') },
 			{ find: 'bolt11', replacement: resolve(__dirname, './src/lib/shims/bolt11.ts') },
 			{ find: 'crypto', replacement: resolve(__dirname, './src/lib/shims/crypto.ts') },
-			// External dependency mocks (regex for subpath imports)
-			{ find: /^viem\/(.*)$/, replacement: resolve(__dirname, './src/lib/mocks/viem-$1.ts') },
-			{ find: 'viem', replacement: resolve(__dirname, './src/lib/mocks/viem.ts') },
-			{ find: /^permissionless\/(.*)$/, replacement: resolve(__dirname, './src/lib/mocks/permissionless-$1.ts') },
-			{ find: 'permissionless', replacement: resolve(__dirname, './src/lib/mocks/permissionless.ts') },
+
 		]
 	},
 	ssr: {
