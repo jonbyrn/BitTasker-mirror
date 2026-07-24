@@ -108,7 +108,7 @@ export async function prepareChainSwap(
 		claimDetails: swapResult.claimDetails ?? null,
 		lockupAddress: swapResult.lockupAddress,
 		timeoutBlockHeight: swapResult.timeoutBlockHeight,
-		claimAddress: swapResult.claimAddress
+		claimAddress: swapResult.lockupClaimAddress
 	});
 
 	return { data: { amountSats, preimageHex, hashHex, swapResult }, error: null };
@@ -128,16 +128,26 @@ export async function lockRskFunds(
 	setup: SwapSetupResult,
 	sourceConnectedWalletId: string | null
 ): Promise<{ data: string | null; error: Error | null }> {
+	// CRITICAL: Use Boltz's lockup claim address (not the user's destination address).
+	// Boltz's RSK address is the one authorized to call claim() on the user's lockup.
+	// Using the user's Arbitrum address here causes Boltz to reject the lockup
+	// with transaction.lockupFailed because msg.sender doesn't match.
+	const boltzClaimAddr = setup.swapResult.lockupClaimAddress;
+	if (!boltzClaimAddr) {
+		return { data: null, error: new Error('Boltz lockup claim address missing — cannot lock funds') };
+	}
 	const lockCalldata = encodeEtherSwapLock(
 		'0x' + setup.hashHex,
-		safeAddress(setup.swapResult.claimAddress),
+		safeAddress(boltzClaimAddr),
 		setup.swapResult.timeoutBlockHeight
 	);
 	const rbtcWei = satsToWei(setup.amountSats);
 	d.log(
-		'[lockRskFunds] to=%s value=%s wei wallet=%s',
+		'[lockRskFunds] to=%s value=%s wei boltzClaimAddr=%s userClaimAddr=%s wallet=%s',
 		setup.swapResult.lockupAddress,
 		rbtcWei.toString(),
+		boltzClaimAddr,
+		setup.swapResult.claimAddress,
 		sourceConnectedWalletId ?? 'builtin'
 	);
 	return sendEvmTransaction({

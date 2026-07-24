@@ -87,9 +87,12 @@ export async function sendArbitrumTransaction(params: {
 	// This is gasless-only: no direct-tx fallback because the user has
 	// no ETH on Arbitrum (that's the whole point of the gasless relay).
 	if (params.feeToken) {
+		// Prepend extraCalls (e.g., ERC-20 approve) BEFORE the primary call
+		// so that approvals are granted before the swap/router pulls tokens.
+		// The fee transfer is appended last by sendGaslessCalls.
 		const actualCalls = [
-			{ to: params.to, data: params.data, value: callValue },
-			...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value }))
+			...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value })),
+			{ to: params.to, data: params.data, value: callValue }
 		];
 		const estimate = await estimateFee(params.feeToken, 1n, params.to, actualCalls);
 		const feeBuffer = BigInt(estimate.feeBuffer);
@@ -98,10 +101,7 @@ export async function sendArbitrumTransaction(params: {
 
 		const txHash = await Promise.race([
 			sendGaslessCalls(
-				[
-					{ to: params.to, data: params.data, value: callValue },
-					...(params.extraCalls ?? [])
-				],
+				actualCalls,
 				params.feeToken,
 				feeBuffer,
 				estimate.estimatedGas
@@ -134,14 +134,15 @@ export async function sendArbitrumTransaction(params: {
 	// Sort by balance descending — prefer the token the user has the most of
 	const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
 
+	let lastErr: Error | null = null;
+
 	// Try with fee buffer first (user has tokens)
 	if (sorted.length > 0) {
-		let lastErr: Error | null = null;
 		for (const { token: feeToken, symbol } of sorted) {
 			try {
 				const actualCalls = [
-					{ to: params.to, data: params.data, value: callValue },
-					...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value }))
+					...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value })),
+					{ to: params.to, data: params.data, value: callValue }
 				];
 				const estimate = await estimateFee(feeToken, 1n, params.to, actualCalls);
 				const feeBuffer = BigInt(estimate.feeBuffer);
@@ -154,10 +155,7 @@ export async function sendArbitrumTransaction(params: {
 
 				const txHash = await Promise.race([
 					sendGaslessCalls(
-						[
-							{ to: params.to, data: params.data, value: callValue },
-							...(params.extraCalls ?? [])
-						],
+						actualCalls,
 						feeToken,
 						feeBuffer,
 						estimate.estimatedGas
@@ -178,24 +176,15 @@ export async function sendArbitrumTransaction(params: {
 		}
 	}
 
-	// No fee tokens or all fee attempts failed — send without fee buffer.
-	// The paymaster still sponsors ETH gas; the treasury absorbs the token cost.
-	console.log('[sendArbitrumTransaction] No fee token balance — sending gasless without fee buffer');
-	const txHash = await Promise.race([
-		sendGaslessCalls(
-			[
-				{ to: params.to, data: params.data, value: callValue },
-				...(params.extraCalls ?? [])
-			]
-		),
-		new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error('Gasless relay timeout (30s)')), 30_000)
-		)
-	]);
-
-	console.log('[sendArbitrumTransaction] Gasless relay succeeded (no fee buffer)');
-	void Promise.allSettled([loadAssets(), loadTransactions()]);
-	return txHash;
+	// No fee tokens available or all fee token attempts failed.
+	// sendGaslessCalls requires a fee token — there is no "free" gasless path.
+	// Throw the last error from the fee token loop, or a clear message.
+	console.error('[sendArbitrumTransaction] All fee token attempts exhausted');
+	throw lastErr
+		?? new Error(
+			'No fee token available for gasless transaction. ' +
+			'Ensure you hold at least one of: USDT0, WBTC, or tBTC on Arbitrum to cover the relay fee.'
+		);
 }
 
 /**

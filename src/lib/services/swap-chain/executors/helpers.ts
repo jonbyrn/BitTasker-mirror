@@ -78,11 +78,18 @@ export async function approveErc20Token(params: {
 // ---------------------------------------------------------------------------
 
 /**
- * Cap a requested ERC-20 amount to the actual on-chain balance.
+ * Cap a requested ERC-20 amount to the actual on-chain balance minus any
+ * reserved amount (e.g., relay fee buffer that will be deducted in the same
+ * executeBatch).
  *
  * In multi-hop routes (e.g., Boltz → Symbiosis), the intermediate token
  * balance may be less than `requestedAmount` due to fees or partial fills.
  * Using the raw amount would cause `transferFrom` to revert.
+ *
+ * When the swap input token is also used for gasless fee payment, the
+ * executeBatch includes both the swap (pulling `amountIn`) and a fee
+ * transfer (pulling `feeBuffer`). The swap amount must be capped to
+ * `balance - feeBuffer` to ensure both calls succeed.
  *
  * Callers must check `tokenAddress !== NATIVE_TOKEN` before calling —
  * native token balances are not queried via ERC-20 `balanceOf`.
@@ -95,23 +102,40 @@ export async function capBalanceToWalletMax(params: {
 	chain: 'arbitrum' | 'rsk' | 'bsc';
 	requestedAmount: bigint;
 	label: string;
+	/** Amount to reserve from the balance (e.g., relay fee buffer). */
+	reserveAmount?: bigint;
 }): Promise<{ data: bigint; error: Error | null }> {
-	const { tokenAddress, userAddress, chain, requestedAmount, label } = params;
+	const { tokenAddress, userAddress, chain, requestedAmount, label, reserveAmount } = params;
 
 	const actualBalance = await queryERC20Balance(tokenAddress, userAddress, chain);
 	if (actualBalance === null) {
 		return { data: requestedAmount, error: new Error('Failed to query token balance (RPC error)') };
 	}
 
-	if (actualBalance > 0n && actualBalance < requestedAmount) {
+	const reserve = reserveAmount ?? 0n;
+	const available = actualBalance > reserve ? actualBalance - reserve : 0n;
+
+	if (available <= 0n) {
 		d.log(
-			'[%s] Capping amount: actual=%s wei < requested=%s wei (diff=%s)',
+			'[%s] Balance too low after reserve: balance=%s reserve=%s available=%s',
 			label,
 			actualBalance.toString(),
-			requestedAmount.toString(),
-			(requestedAmount - actualBalance).toString()
+			reserve.toString(),
+			available.toString()
 		);
-		return { data: actualBalance, error: null };
+		return { data: 0n, error: new Error(`Insufficient balance: have ${actualBalance}, reserve ${reserve}`) };
+	}
+
+	if (available < requestedAmount) {
+		d.log(
+			'[%s] Capping amount: available=%s wei < requested=%s wei (balance=%s reserve=%s)',
+			label,
+			available.toString(),
+			requestedAmount.toString(),
+			actualBalance.toString(),
+			reserve.toString()
+		);
+		return { data: available, error: null };
 	}
 
 	return { data: requestedAmount, error: null };

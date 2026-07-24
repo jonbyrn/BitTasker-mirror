@@ -143,6 +143,42 @@ export async function refundSwapChain(): Promise<{
 		data: { swapId: state.swap1Id, lockupAddress: rd.lockupAddress }
 	});
 
+	// Self-healing: verify stored claimAddress against on-chain Lockup event.
+	// Swaps created before the claimAddress fix stored the user's destination
+	// address instead of Boltz's source chain address. The on-chain Lockup
+	// event always has the correct address that was used in EtherSwap.lock().
+	try {
+		const { getRSKAddress } = await import('$lib/stores/wallet.store');
+		const rskAddress = await getRSKAddress();
+		if (rskAddress) {
+			const events = await fetchLockupEvents(rskAddress);
+			const matching = events.find(
+				(ev) => ev.preimageHash.toLowerCase() === ('0x' + rd!.preimageHash).toLowerCase()
+			);
+			if (matching && matching.claimAddress.toLowerCase() !== rd!.claimAddress.toLowerCase()) {
+				dRefund.warn(
+					'claimAddress mismatch: stored=%s on-chain=%s — self-healing from chain',
+					rd!.claimAddress,
+					matching.claimAddress
+				);
+				rd!.claimAddress = matching.claimAddress;
+				if (matching.timelock && matching.timelock !== rd!.timeoutBlockHeight) {
+					dRefund.warn(
+						'timelock mismatch: stored=%s on-chain=%s — healing',
+						rd!.timeoutBlockHeight,
+						matching.timelock
+					);
+					rd!.timeoutBlockHeight = matching.timelock;
+				}
+				swapRefundData.set(state.swap1Id, rd!);
+				await persistRefundData();
+				dRefund.log('Refund data healed from on-chain event');
+			}
+		}
+	} catch (healErr) {
+		dRefund.warn('Self-healing check failed (non-blocking): %s', (healErr as Error).message);
+	}
+
 	try {
 		// ABI-encode the EtherSwap.refund() call
 		const refundCalldata = encodeEtherSwapRefund(

@@ -518,15 +518,23 @@ export async function estimateFee(
 	if (!ethersLib.isAddress(recipient)) throw new Error('Invalid recipient address');
 	if (amount <= 0n) throw new Error('Amount must be positive');
 
+	// Include the smart account address so the backend can estimate gas accurately.
+	// Without this, the backend uses `recipient` (the swap target) as the UserOp sender,
+	// which always fails and falls back to a hardcoded gas estimate.
+	const state = get(gaslessWallet);
+	const sender = state.ready && state.address ? state.address : undefined;
+
 	const dto: {
 		token: string;
 		amount: string;
 		recipient: string;
+		sender?: string;
 		calls?: Array<{ to: string; data: string; value?: string }>;
 	} = {
 		token,
 		amount: amount.toString(),
-		recipient
+		recipient,
+		...(sender ? { sender } : {})
 	};
 
 	// Pass actual calls for accurate gas estimation when available.

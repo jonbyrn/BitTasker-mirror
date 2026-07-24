@@ -43,6 +43,18 @@ const ERC20SWAP_CLAIM_ABI = [
 	'function claim(bytes32 preimage, uint256 amount, address tokenAddress, address claimAddress, address refundAddress, uint256 timelock)'
 ];
 
+/**
+ * ERC20Swap.claim() with EIP-712 signature — the relay/msg.sender claims the
+ * tokens on behalf of the claim address named in the signature, then the
+ * contract sends tokens to msg.sender. Lets a smart wallet (EIP-7702
+ * account or ERC-4337 paymaster) claim without being the locked claimAddress.
+ *
+ * Selector: 0xb2b78df8
+ */
+const ERC20SWAP_CLAIM_SIG_ABI = [
+	'function claim(bytes32 preimage, uint256 amount, address tokenAddress, address refundAddress, uint256 timelock, uint8 v, bytes32 r, bytes32 s) external returns (address)'
+];
+
 const ETHERSWAP_REFUND_ABI = [
 	'function refund(bytes32 preimageHash, address claimAddress, uint256 timelock)'
 ];
@@ -75,6 +87,7 @@ const erc20LockInterface = new ethers.Interface(ERC20SWAP_LOCK_ABI);
 const erc20LockPrepayInterface = new ethers.Interface(ERC20SWAP_LOCK_PREPAY_ABI);
 const etherClaimInterface = new ethers.Interface(ETHERSWAP_CLAIM_ABI);
 const erc20ClaimInterface = new ethers.Interface(ERC20SWAP_CLAIM_ABI);
+const erc20ClaimSigInterface = new ethers.Interface(ERC20SWAP_CLAIM_SIG_ABI);
 const refundInterface = new ethers.Interface(ETHERSWAP_REFUND_ABI);
 const erc20TransferInterface = new ethers.Interface(ERC20_TRANSFER_ABI);
 const erc20ApproveInterface = new ethers.Interface(ERC20_APPROVE_ABI);
@@ -147,6 +160,46 @@ export function encodeERC20SwapClaim(
 		claimAddress,
 		refundAddress,
 		BigInt(timelock)
+	]);
+}
+
+/**
+ * ABI-encode an ERC20Swap.claim() call using the EIP-712 signature variant.
+ *
+ * In this variant the claim address is recovered from the signature, so the
+ * caller (msg.sender) can be a smart wallet / relay rather than the claim
+ * address itself. The contract sends the tokens to msg.sender.
+ *
+ * Selector: 0xb2b78df8
+ *
+ * @param preimage - Preimage secret (bytes32, with `0x` prefix)
+ * @param amount - Token amount (in smallest unit)
+ * @param tokenAddress - ERC-20 token contract address
+ * @param refundAddress - Address that can refund if timelock expires
+ * @param timelock - Original timelock value from the lock
+ * @param v - EIP-712 signature recovery id
+ * @param r - EIP-712 signature r component (bytes32)
+ * @param s - EIP-712 signature s component (bytes32)
+ */
+export function encodeERC20SwapClaimWithSig(
+	preimage: string,
+	amount: bigint,
+	tokenAddress: string,
+	refundAddress: string,
+	timelock: number | bigint,
+	v: number,
+	r: string,
+	s: string
+): string {
+	return erc20ClaimSigInterface.encodeFunctionData('claim', [
+		preimage,
+		amount,
+		tokenAddress,
+		refundAddress,
+		BigInt(timelock),
+		v,
+		r,
+		s
 	]);
 }
 

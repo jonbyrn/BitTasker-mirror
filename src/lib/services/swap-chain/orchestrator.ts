@@ -185,9 +185,48 @@ export async function startSwapChain(
 			hop1.toChain
 		);
 
+		// Reserve relay fee buffer for single-hop Arbitrum routes.
+		// The gasless relay batches the swap and a fee transfer in the same
+		// executeBatch — the swap amount must leave enough tokens for the fee
+		// transfer. Without this, the swap consumes the full balance and the
+		// fee transfer reverts (ExecuteError at last call index).
+		//
+		// We use FEE_BUFFER_MAX as a guaranteed-safe reserve. The exact fee
+		// depends on the gas usage of the actual swap calls, which isn't known
+		// until the quote is fetched. FEE_BUFFER_MAX is the upper bound for
+		// the token, so it's always sufficient. The executor will get the real
+		// fee estimate from the backend after fetching the quote, and the
+		// actual feeBuffer used in the executeBatch will be the real estimate.
+		// For multi-hop routes, this is set before hop 2 (see Step 5b).
+		let relayFeeBufferWei: string | null = null;
+		if (
+			route.hops.length === 1 &&
+			hop1.fromChain === 'Arbitrum' &&
+			hop1.fromAsset !== 'RBTC'
+		) {
+			try {
+				const { FEE_BUFFER_MAX, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
+				const tokenInfo = getTokenBySymbol(hop1.fromAsset);
+				if (tokenInfo) {
+					const maxBuffer = FEE_BUFFER_MAX[tokenInfo.address.toLowerCase()];
+					if (maxBuffer) {
+						relayFeeBufferWei = maxBuffer.toString();
+						d.log(
+							'[startSwapChain] relay fee reserved (FEE_BUFFER_MAX): %s wei (%s)',
+							relayFeeBufferWei,
+							hop1.fromAsset
+						);
+					}
+				}
+			} catch (feeErr) {
+				d.warn('[startSwapChain] relay fee reservation failed (non-blocking): %s', (feeErr as Error).message);
+			}
+		}
+
 		const pendingState1: SwapChainState = {
 			...initialState,
 			phase: 'SWAP_1_PENDING',
+			relayFeeBuffer: relayFeeBufferWei,
 			updatedAt: Date.now()
 		};
 
@@ -330,6 +369,30 @@ export async function startSwapChain(
 			hop2.toAsset,
 			hop2.toChain
 		);
+
+		// Reserve relay fee for hop 2 so executors can cap swap amount to
+		// `balance - relayFeeBuffer`, preventing "transfer amount exceeds balance"
+		// when the swap input token is also used for gasless fee payment.
+		// Uses FEE_BUFFER_MAX as a guaranteed-safe reserve (same as single-hop).
+		relayFeeBufferWei = null;
+		try {
+			const { FEE_BUFFER_MAX, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
+			const tokenInfo = getTokenBySymbol(hop2.fromAsset);
+			if (tokenInfo) {
+				const maxBuffer = FEE_BUFFER_MAX[tokenInfo.address.toLowerCase()];
+				if (maxBuffer) {
+					relayFeeBufferWei = maxBuffer.toString();
+					d.log(
+						'[startSwapChain] relay fee reserved (FEE_BUFFER_MAX): %s wei (%s)',
+						relayFeeBufferWei,
+						hop2.fromAsset
+					);
+				}
+			}
+		} catch (feeErr) {
+			d.warn('[startSwapChain] relay fee reservation failed (non-blocking): %s', (feeErr as Error).message);
+		}
+
 		Sentry.addBreadcrumb({
 			category: 'swap-chain',
 			message: `Executing hop 1: ${hop2.service} (${hop2.fromAsset}→${hop2.toAsset})`,
@@ -351,6 +414,7 @@ export async function startSwapChain(
 		const pendingState2: SwapChainState = {
 			...confirmedState1,
 			phase: 'SWAP_2_PENDING',
+			relayFeeBuffer: relayFeeBufferWei,
 			updatedAt: Date.now()
 		};
 

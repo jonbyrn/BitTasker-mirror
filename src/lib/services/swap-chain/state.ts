@@ -98,6 +98,15 @@ export interface SwapChainState {
 	/** Amount being swapped/sent (decimal string). */
 	amount: string | null;
 
+	/**
+	 * Relay fee buffer (in wei) that will be deducted from the hop 2 input
+	 * token balance by the gasless relay. Set by the orchestrator before
+	 * executing hop 2 so that executors can cap the swap amount to
+	 * `balance - relayFeeBuffer`, preventing "transfer amount exceeds balance"
+	 * errors when the swap input token is also used for gasless fee payment.
+	 */
+	relayFeeBuffer: string | null;
+
 	/** Transaction hash or service swap ID for hop 1. */
 	swap1Id: string | null;
 
@@ -164,6 +173,7 @@ export const INITIAL_SWAP_CHAIN_STATE: SwapChainState = {
 	destination: null,
 	sourceConnectedWalletId: null,
 	amount: null,
+	relayFeeBuffer: null,
 	swap1Id: null,
 	swap2Id: null,
 	swap1Details: null,
@@ -287,6 +297,7 @@ export async function loadSwapChainState(): Promise<SwapChainState> {
 			sourceConnectedWalletId:
 				typeof raw.sourceConnectedWalletId === 'string' ? raw.sourceConnectedWalletId : null,
 			amount: typeof raw.amount === 'string' ? raw.amount : null,
+			relayFeeBuffer: typeof raw.relayFeeBuffer === 'string' ? raw.relayFeeBuffer : null,
 			swap1Id: typeof raw.swap1Id === 'string' ? raw.swap1Id : null,
 			swap2Id: typeof raw.swap2Id === 'string' ? raw.swap2Id : null,
 			swap1Details: raw.swap1Details as Record<string, unknown> | null,

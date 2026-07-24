@@ -29,6 +29,7 @@ import {
 	LIFI_ASSET_DECIMALS
 } from '../utils';
 import { encodeERC20Approve } from '../abi';
+import { capBalanceToWalletMax } from './helpers';
 import { safeAddress, type SwapChainState } from '../state';
 import { sendEvmTransaction } from '../tx-helpers';
 
@@ -51,10 +52,21 @@ const QUOTE_SAFETY_MARGIN_MS = 2_500;
  * Check whether an error from sendEvmTransaction is retryable.
  *
  * Retryable: stale quote / price movement, network timeouts, bundler busy.
- * Non-retryable: insufficient balance, invalid parameters, no liquidity.
+ * Non-retryable: insufficient balance, invalid parameters, no liquidity,
+ * gas limit exceeded (will always fail with same parameters).
  */
 function isRetryableSwapError(error: Error): boolean {
 	const msg = error.message.toLowerCase();
+	// Gas limit / paymaster errors are NOT retryable — the same UserOp will
+	// fail again. The caller needs to change the parameters, not retry.
+	if (msg.includes('gaslimitexceeded')) return false;
+	if (msg.includes('gas limit')) return false;
+	if (msg.includes('fee per gas exceeded')) return false;
+	if (msg.includes('paymaster rejected')) return false;
+	if (msg.includes('will fail on-chain')) return false;
+	if (msg.includes('bundler rejected')) return false;
+	if (msg.includes('insufficient')) return false;
+	if (msg.includes('no liquidity')) return false;
 	// UserOp revert usually means stale quote or price movement
 	if (msg.includes('userop') && msg.includes('revert')) return true;
 	if (msg.includes('reverted on-chain')) return true;
@@ -62,7 +74,7 @@ function isRetryableSwapError(error: Error): boolean {
 	if (msg.includes('timeout')) return true;
 	if (msg.includes('network')) return true;
 	if (msg.includes('fetch')) return true;
-	// Non-retryable: balance, parameter, liquidity issues
+	// Non-retryable by default for unknown errors
 	return false;
 }
 
@@ -119,10 +131,39 @@ export async function executeLifiHop(
 
 	// Convert amount to token's smallest unit based on token decimals
 	const decimals = LIFI_ASSET_DECIMALS[hop.fromAsset.toUpperCase()] ?? 18;
-	const fromAmountWei = parseDecimalToSmallestUnit(state.amount!, decimals).toString();
+	let fromAmountWei = parseDecimalToSmallestUnit(state.amount!, decimals);
 
 	const chain: 'arbitrum' | 'rsk' | 'bsc' =
 		fromChainId === CHAIN_ID_ARB ? 'arbitrum' : fromChainId === CHAIN_ID_RSK ? 'rsk' : 'bsc';
+
+	// For ERC-20 source tokens on the gasless relay chain: cap at actual
+	// on-chain balance minus the relay fee buffer. The executeBatch batches
+	// the swap and a fee transfer — the swap amount must leave enough tokens
+	// for the fee transfer to succeed, otherwise the entire UserOp reverts.
+	if (fromTokenAddr !== NATIVE_TOKEN) {
+		const reserveAmount = state.relayFeeBuffer ? BigInt(state.relayFeeBuffer) : undefined;
+		const { data: cappedAmount, error: capError } = await capBalanceToWalletMax({
+			tokenAddress: fromTokenAddr,
+			userAddress: userAddr,
+			chain,
+			requestedAmount: fromAmountWei,
+			label: 'LI.FI',
+			reserveAmount
+		});
+		if (capError) {
+			return { data: null, error: capError };
+		}
+		fromAmountWei = cappedAmount;
+	}
+
+	if (fromAmountWei <= 0n) {
+		return {
+			data: null,
+			error: new Error(`Insufficient ${hop.fromAsset} balance for LI.FI swap`)
+		};
+	}
+
+	const fromAmountWeiStr = fromAmountWei.toString();
 
 	// Quote fetch parameters (reused on retry)
 	const quoteParams = {
@@ -130,7 +171,7 @@ export async function executeLifiHop(
 		toChain: toChainId,
 		fromToken: fromTokenAddr,
 		toToken: toTokenAddr,
-		fromAmount: fromAmountWei,
+		fromAmount: fromAmountWeiStr,
 		fromAddress: userAddr
 	};
 
@@ -163,7 +204,29 @@ export async function executeLifiHop(
 				quoteMaxAgeMs
 			);
 
-			// ── Step 2: Build batched calls (approval + swap) ────────────
+			// ── Step 2a: ETH value check ────────────────────────────────
+			// Cross-chain bridges (Stargate V2, etc.) require native ETH for
+			// LayerZero/message fees. Gasless smart accounts have 0 ETH by
+			// design — the executeBatch cannot forward ETH it doesn't have.
+			// Detect this early and return a clear error instead of letting
+			// the bridge call revert with an opaque ExecuteError.
+			const bridgeValue = txReq.value ? BigInt(txReq.value) : 0n;
+			if (bridgeValue > 0n && chain === 'arbitrum') {
+				d.log(
+					'[executeLifiHop] bridge requires ETH (%s wei) — not available in gasless account',
+					bridgeValue.toString()
+				);
+				return {
+					data: null,
+					error: new Error(
+						`Cross-chain bridge requires native ETH for messaging fees ` +
+						`(${bridgeValue} wei ≈ $${(Number(bridgeValue) / 1e18 * 3000).toFixed(2)}). ` +
+						`Your gasless wallet cannot provide ETH. Try a smaller amount or a different bridge.`
+					)
+				};
+			}
+
+			// ── Step 2b: Build batched calls (approval + swap) ──────────
 			const extraCalls: Array<{ to: string; data: string; value: bigint }> = [];
 
 			// For ERC-20 source tokens, batch the approval into the same UserOp.
@@ -194,7 +257,6 @@ export async function executeLifiHop(
 			}
 
 			// ── Step 4: Submit batched UserOp ────────────────────────────
-			const txValue = txReq.value ? BigInt(txReq.value) : 0n;
 			d.log(
 				'[executeLifiHop] submitting batched swap tx: chain=%s to=%s calls=%d quoteAge=%sms',
 				chain,
@@ -206,7 +268,7 @@ export async function executeLifiHop(
 			const { data: txHash, error: txError } = await sendEvmTransaction({
 				to: txReq.to,
 				data: txReq.data,
-				value: txValue,
+				value: bridgeValue,
 				chain,
 				gasLimit: txReq.gasLimit ? Number(txReq.gasLimit) : undefined,
 				sourceConnectedWalletId: state.sourceConnectedWalletId,

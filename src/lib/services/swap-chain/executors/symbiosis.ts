@@ -30,9 +30,13 @@ import {
 } from '../utils';
 import { safeAddress, type SwapChainState, sleep } from '../state';
 import { sendEvmTransaction } from '../tx-helpers';
-import { approveErc20Token, capBalanceToWalletMax } from './helpers';
+import { encodeERC20Approve } from '../abi';
+import { capBalanceToWalletMax } from './helpers';
 
 const d = createDebug('swap-chain');
+
+/** Max uint256 — infinite approval. */
+const MAX_UINT256 = (1n << 256n) - 1n;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -151,13 +155,17 @@ export async function executeSymbiosisHop(
 	// In 2-hop Boltz-first routes (e.g., rBTC→tBTC→WBTC), the intermediate
 	// token balance may be less than state.amount due to Boltz fees.
 	// Using the raw amount would cause the Symbiosis transferFrom to revert.
+	// Also subtract relayFeeBuffer to prevent "transfer amount exceeds balance"
+	// when the same token is used for both swap input and gasless fee payment.
 	if (fromTokenAddr !== NATIVE_TOKEN) {
+		const reserveAmount = state.relayFeeBuffer ? BigInt(state.relayFeeBuffer) : undefined;
 		const { data: cappedAmount, error: capError } = await capBalanceToWalletMax({
 			tokenAddress: fromTokenAddr,
 			userAddress: symUserAddr,
 			chain: symChain,
 			requestedAmount: symFromAmountWei,
-			label: 'Symbiosis'
+			label: 'Symbiosis',
+			reserveAmount
 		});
 		if (capError) {
 			return { data: null, error: capError };
@@ -217,8 +225,10 @@ export async function executeSymbiosisHop(
 			return { data: null, error: new Error('Symbiosis returned no calldata for execution') };
 		}
 
+		// Build approval as extraCalls (batched with swap in single UserOp).
 		// For ERC-20 source tokens, approve the Symbiosis metaRouterGateway to spend.
 		// Native tokens (RBTC, BTC) don't need approval.
+		const extraCalls: Array<{ to: string; data: string; value: bigint }> = [];
 		if (fromTokenAddr !== NATIVE_TOKEN) {
 			// Per Symbiosis docs: "Always approve users' ERC20 tokens for only one
 			// contract — the metaRouterGateway." The API returns `approveTo` which
@@ -227,26 +237,18 @@ export async function executeSymbiosisHop(
 			// Gateway (which calls transferFrom) isn't the approved spender.
 			const approveTarget = quote.approveTo || tx.to;
 			d.log(
-				'[executeSymbiosisHop] Using approveTo=%s (quote.approveTo=%s, tx.to=%s)',
+				'[executeSymbiosisHop] Batching approval: token=%s approveTo=%s (quote.approveTo=%s, tx.to=%s)',
+				fromTokenAddr.substring(0, 10),
 				approveTarget,
 				quote.approveTo ?? 'null',
 				tx.to
 			);
 
-			const { error: approveError } = await approveErc20Token({
-				tokenAddress: fromTokenAddr,
-				spenderAddress: approveTarget,
-				chain: symChain,
-				sourceConnectedWalletId: state.sourceConnectedWalletId,
-				label: 'Symbiosis'
-			});
-
-			if (approveError) {
-				return { data: null, error: approveError };
-			}
+			const approveCalldata = encodeERC20Approve(approveTarget, MAX_UINT256);
+			extraCalls.push({ to: fromTokenAddr, data: approveCalldata, value: 0n });
 		}
 
-		// Submit the Symbiosis transaction via sendEvmTransaction for receipt verification.
+		// Submit approve + swap as a single batched UserOp via extraCalls.
 		// sendEvmTransaction handles connected-wallet vs built-in wallet branching AND
 		// verifies the on-chain receipt, catching reverts that raw tx submission misses.
 		//
@@ -259,7 +261,8 @@ export async function executeSymbiosisHop(
 			data: tx.data,
 			value: tx.value || '0',
 			chain: symChain,
-			sourceConnectedWalletId: state.sourceConnectedWalletId
+			sourceConnectedWalletId: state.sourceConnectedWalletId,
+			extraCalls: extraCalls.length > 0 ? extraCalls : undefined
 		});
 		if (swapTxError || !txHash) {
 			d.log('[executeSymbiosisHop] swap tx FAILED: %s', swapTxError?.message ?? 'no tx hash');

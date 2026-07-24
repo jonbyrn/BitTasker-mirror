@@ -7,6 +7,7 @@
 	"utility-private-key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
 	"min-balance": "0",
 	"safe-mode": false,
+	"simulation-call-gas-limit": "5000000",
 	"polling-interval": 500,
 	"max-bundle-wait": 2000,
 	"log-level": "info"

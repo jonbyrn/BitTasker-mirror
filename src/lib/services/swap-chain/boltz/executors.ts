@@ -160,7 +160,7 @@ async function executeTbtcToRbtcSwap(
 			claimDetails: swapResult.claimDetails,
 			lockupAddress: swapResult.lockupAddress,
 			timeoutBlockHeight: swapResult.timeoutBlockHeight,
-			claimAddress: swapResult.claimAddress
+			claimAddress: swapResult.lockupClaimAddress
 		});
 
 		// Use the Boltz expected amount for the lock (may differ slightly from our amountSats)
@@ -190,7 +190,7 @@ async function executeTbtcToRbtcSwap(
 			'0x' + hashHex,
 			tbtcAmount,
 			TBTC_ARB,
-			swapResult.claimAddress,
+			swapResult.lockupClaimAddress,
 			swapResult.timeoutBlockHeight
 		);
 

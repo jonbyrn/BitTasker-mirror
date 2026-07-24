@@ -312,7 +312,7 @@ export async function sendEvmTransaction(
 			if (chain === 'arbitrum') {
 				// Use gasless relay for Arbitrum connected wallet transactions
 				d.log('[sendEvmTransaction] Calling sendConnectedWalletArbitrumTx...');
-				txHash = await sendConnectedWalletArbitrumTx(evmSigner, safeTo, data, String(value), feeToken);
+				txHash = await sendConnectedWalletArbitrumTx(evmSigner, safeTo, data, String(value), feeToken, extraCalls);
 				d.log('[sendEvmTransaction] sendConnectedWalletArbitrumTx done:', txHash);
 			} else {
 				const chainId = chain === 'rsk' ? CHAIN_ID_RSK : CHAIN_ID_BSC;
@@ -447,7 +447,8 @@ export async function sendConnectedWalletArbitrumTx(
 	to: string,
 	data: string,
 	value?: string | bigint,
-	preferredFeeToken?: string
+	preferredFeeToken?: string,
+	extraCalls?: Array<{ to: string; data: string; value: bigint }>
 ): Promise<string> {
 	// Try gasless relay first
 	try {
@@ -463,18 +464,24 @@ export async function sendConnectedWalletArbitrumTx(
 		const sender = state.address;
 		const callValue = value ? BigInt(value) : 0n;
 
+		// Build call list: prepend extraCalls (e.g., approvals) before primary call
+		const callList = [
+			...(extraCalls ?? []),
+			{ to, data, value: callValue }
+		];
+
 		// If a preferred fee token is provided (e.g., tBTC when claiming),
 		// use it directly — the claim produces the tokens atomically in the
 		// same executeBatch, so no pre-existing balance is needed.
 		// Gasless-only: no direct-tx fallback for atomic claim+fee.
 		if (preferredFeeToken) {
-			const estimate = await estimateFee(preferredFeeToken, 1n, to);
+			const estimate = await estimateFee(preferredFeeToken, 1n, to, callList);
 			const feeBuffer = BigInt(estimate.feeBuffer);
 			const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === preferredFeeToken.toLowerCase());
 			d.log('Using preferred fee token %s (%s), feeBuffer=%s', tokenInfo?.symbol ?? preferredFeeToken, preferredFeeToken, feeBuffer.toString());
 
 			const txHash = await sendGaslessCalls(
-				[{ to, data, value: callValue }],
+				callList,
 				preferredFeeToken,
 				feeBuffer,
 				estimate.estimatedGas
@@ -503,7 +510,7 @@ export async function sendConnectedWalletArbitrumTx(
 		let lastErr: Error | null = null;
 		for (const { token: feeToken, symbol } of sorted) {
 			try {
-				const estimate = await estimateFee(feeToken, 1n, to);
+				const estimate = await estimateFee(feeToken, 1n, to, callList);
 				const feeBuffer = BigInt(estimate.feeBuffer);
 
 				// Check if balance covers the fee
@@ -513,9 +520,8 @@ export async function sendConnectedWalletArbitrumTx(
 					continue;
 				}
 
-				const callValue = value ? BigInt(value) : 0n;
 				const txHash = await sendGaslessCalls(
-					[{ to, data, value: callValue }],
+					callList,
 					feeToken,
 					feeBuffer,
 					estimate.estimatedGas

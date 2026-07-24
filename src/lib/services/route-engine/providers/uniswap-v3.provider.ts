@@ -196,12 +196,17 @@ export const uniswapV3Provider: SwapProvider = {
 			gasCostWei
 		};
 
-		// USD values: input is BTC-denominated, output may be BTC or stablecoin
-		const inputValueUsd = 0; // caller computes from btcPrice
+		// USD values: compute from amountSats (always available in scope).
+		// For BTC-denominated tokens (tBTC, WBTC), amountSats is the canonical unit.
+		// For stablecoins (USDT0), the caller provides sourceAmountRaw and amountSats
+		// may be a conversion. We use amountSats→BTC→USD as a universal approximation.
+		const inputValueUsd = amountSats > 0 ? (amountSats / 1e8) * 65000 : 0;
 		const outputValueUsd =
 			to.decimals === 6
-				? Number(amountOut) / 1e6 // stablecoin
-				: 0; // BTC-denominated — caller computes
+				? Number(amountOut) / 1e6 // stablecoin: 1 unit ≈ $1
+				: outputSats > 0
+					? (outputSats / 1e8) * 65000 // BTC-denominated output
+					: 0;
 
 		const route: Route = {
 			id: `uniswap-v3-${from.key}-${to.key}`,

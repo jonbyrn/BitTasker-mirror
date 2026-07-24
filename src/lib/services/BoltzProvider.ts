@@ -256,6 +256,11 @@ export class BoltzProvider {
 		expectedAmount: number;
 		timeoutBlockHeight: number;
 		claimAddress: string;
+		/** Boltz's address on the SOURCE chain — the address Boltz uses to
+		 *  call claim() on the user's lockup. MUST be used as the claimAddress
+		 *  in EtherSwap.lock() on RSK. Using the user's address here causes
+		 *  Boltz to reject the lockup with transaction.lockupFailed. */
+		lockupClaimAddress: string;
 		claimDetails?: {
 			lockupAddress: string;
 			amount: number;
@@ -299,9 +304,20 @@ export class BoltzProvider {
 
 		const lockupAddr = data.lockupDetails?.lockupAddress;
 		const expectedAmt = data.lockupDetails?.amount || params.amountSats;
-		const claimAddr = data.lockupDetails?.claimAddress || params.claimAddress;
+		// params.claimAddress is the user's DESTINATION chain address (where they
+		// receive tokens after claiming). This is used on the DESTINATION chain
+		// (e.g., ERC20Swap.claim on Arbitrum).
+		const claimAddr = params.claimAddress;
+		// data.lockupDetails.claimAddress is Boltz's address on the SOURCE chain
+		// (the address Boltz uses to call claim() on the user's lockup). This MUST
+		// be used as the claimAddress in EtherSwap.lock() on RSK. Using the user's
+		// address here causes Boltz to reject the lockup with lockupFailed.
+		const lockupClaimAddr = data.lockupDetails?.claimAddress;
 		if (!data.id || !lockupAddr) {
 			throw new Error('Invalid response from Boltz: missing swap details');
+		}
+		if (!lockupClaimAddr) {
+			throw new Error('Invalid response from Boltz: missing lockup claim address');
 		}
 
 		// Validate addresses from Boltz API response
@@ -331,6 +347,7 @@ export class BoltzProvider {
 			expectedAmount: expectedAmt,
 			timeoutBlockHeight: data.lockupDetails?.timeoutBlockHeight || 0,
 			claimAddress: claimAddr,
+			lockupClaimAddress: lockupClaimAddr,
 			claimDetails: data.claimDetails
 		};
 	}

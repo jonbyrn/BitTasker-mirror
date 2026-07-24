@@ -270,7 +270,8 @@ describe('BoltzProvider', () => {
 					id: 'swap-abc-123',
 					lockupDetails: {
 						lockupAddress: 'invalid-lockup',
-						amount: 10_000
+						amount: 10_000,
+						claimAddress: '0x' + 'a'.repeat(40)
 					}
 				})
 			);
