@@ -26,7 +26,10 @@ export function scheduleBalanceRefresh(): void {
 		state.balanceRefreshTimer = null;
 		const address = get(walletStore).rsk.address;
 		if (address) {
-			tokenBalanceService.clearBalanceCache(address);
+			// Clear ALL chain caches (RSK + Arbitrum + BSC) to prevent stale
+			// balance display after swaps/bridges. The old code only cleared
+			// RSK cache, causing Arbitrum balances to show stale data for up to 60s.
+			tokenBalanceService.clearAllBalanceCaches(address);
 		}
 		loadAssets().catch((err) => {
 			console.error('[wallet] Balance refresh failed:', err);
@@ -113,9 +116,19 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				console.warn('[WALLET-STORE] Failed to fetch BTC price:', err);
 				return null;
 			}),
-			storeState.rsk.connected && manager.rskWallet
-				? fetchWithRetry(() => manager.rskWallet.getBalance())
-				: Promise.resolve(null),
+			// Use tokenBalanceService for native RBTC (fixes double-counting during
+		// cross-chain bridges — SDK's internal cache is invisible to clearAllBalanceCaches)
+		storeState.rsk.connected && walletAddress
+			? fetchWithRetry(async () => {
+					const result = await tokenBalanceService.getRSKNativeBalance(
+						walletAddress,
+						'https://public-node.rsk.co',
+						forceRefresh
+					);
+					if (!result) return null;
+					return { balance: result.balance, formatted: result.formatted };
+				})
+			: Promise.resolve(null),
 			storeState.bsc.connected && manager.bscWallet
 				? fetchWithRetry(() => manager.bscWallet.getBalances())
 				: Promise.resolve(null),
@@ -498,7 +511,10 @@ export async function loadRSKTokenBalances(forceRefresh = false): Promise<TokenB
 		const tokenBalances = await tokenBalanceService.getRSKTokenBalances(address, forceRefresh);
 
 		// Always include RBTC (even if zero) for consistency
-		const rbtcBalance = await manager.rskWallet.getBalance();
+		const rbtcResult = await tokenBalanceService.getRSKNativeBalance(address, 'https://public-node.rsk.co', forceRefresh);
+		const rbtcBalance = rbtcResult
+			? { balance: rbtcResult.balance, formatted: rbtcResult.formatted }
+			: { balance: 0n, formatted: '0.00000000' };
 		const rbtcToken: TokenBalance = {
 			address: 'native',
 			name: 'Smart Bitcoin',
@@ -535,14 +551,17 @@ export async function getTokenBalance(tokenAddress: string): Promise<TokenBalanc
 		const manager = getWalletManager();
 
 		if (tokenAddress === 'native') {
-			const rbtcBalance = await manager.rskWallet.getBalance();
+			const address = get(walletStore).rsk.address;
+			if (!address) return null;
+			const rbtcResult = await tokenBalanceService.getRSKNativeBalance(address, 'https://public-node.rsk.co');
+			if (!rbtcResult) return null;
 			return {
 				address: 'native',
 				name: 'Rootstock Bitcoin',
 				symbol: 'RBTC',
 				decimals: 18,
-				balance: rbtcBalance.balance.toString(),
-				formattedBalance: rbtcBalance.formatted,
+				balance: rbtcResult.balance.toString(),
+				formattedBalance: rbtcResult.formatted,
 				isNative: true,
 				icon: '₿'
 			};

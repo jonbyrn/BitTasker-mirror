@@ -7,7 +7,7 @@
  * 1. Gas bounds alignment (frontend vs backend)
  * 2. EIP-7702 auth encoding consistency (frontend ethers vs backend ethers)
  * 3. Fee estimation uses estimateFee() not FEE_BUFFER_MIN
- * 4. Fee tier boundaries accept operations up to 6.4M gas
+ * 4. Fee tier boundaries accept operations up to 6M gas
  * 5. Backend config endpoint returns correct values
  */
 
@@ -26,18 +26,18 @@ describe('Gas bounds alignment (frontend vs backend)', () => {
 		frontendConfig = await import('$lib/wallet/gasless.config');
 	});
 
-	it('frontend maxPreVerificationGas matches backend (400K)', () => {
-		expect(frontendConfig.GAS_BOUNDS.maxPreVerificationGas).toBe(400_000n);
+	it('frontend maxPreVerificationGas matches backend (100K)', () => {
+		expect(frontendConfig.GAS_BOUNDS.maxPreVerificationGas).toBe(100_000n);
 	});
 
-	it('frontend maxTotalGas matches backend (6.4M)', () => {
-		expect(frontendConfig.GAS_BOUNDS.maxTotalGas).toBe(6_400_000n);
+	it('frontend maxTotalGas matches backend (6M)', () => {
+		expect(frontendConfig.GAS_BOUNDS.maxTotalGas).toBe(6_000_000n);
 	});
 
-	it('frontend Very High tier maxGas matches backend (6.4M)', () => {
+	it('frontend Very High tier maxGas matches backend (6M)', () => {
 		const veryHigh = frontendConfig.FEE_TIERS.find((t) => t.label === 'Very High');
 		expect(veryHigh).toBeDefined();
-		expect(veryHigh!.maxGas).toBe(6_400_000n);
+		expect(veryHigh!.maxGas).toBe(6_000_000n);
 	});
 
 	it('frontend and backend fee tiers have same structure', () => {
@@ -46,7 +46,7 @@ describe('Gas bounds alignment (frontend vs backend)', () => {
 			{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
 			{ label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
 			{ label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
-			{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_400_000n, feeUSD: 0.1 }
+			{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_000_000n, feeUSD: 0.1 }
 		];
 
 		expect(frontendConfig.FEE_TIERS).toHaveLength(backendTiers.length);
@@ -58,12 +58,34 @@ describe('Gas bounds alignment (frontend vs backend)', () => {
 		}
 	});
 
-	it('maxTotalGas equals sum of individual maxes (5M + 1M + 400K)', () => {
+	it('maxTotalGas is at least sum of individual maxes (5M + 500K + 100K)', () => {
 		const sum =
 			frontendConfig.GAS_BOUNDS.maxCallGas +
 			frontendConfig.GAS_BOUNDS.maxVerificationGas +
 			frontendConfig.GAS_BOUNDS.maxPreVerificationGas;
-		expect(sum).toBe(frontendConfig.GAS_BOUNDS.maxTotalGas);
+		expect(sum).toBeLessThanOrEqual(frontendConfig.GAS_BOUNDS.maxTotalGas);
+	});
+
+	it('BRIDGE_GAS_RESERVE is defined for all FEE_BUFFER_MAX tokens', () => {
+		for (const tokenAddr of Object.keys(frontendConfig.FEE_BUFFER_MAX)) {
+			expect(frontendConfig.BRIDGE_GAS_RESERVE[tokenAddr]).toBeDefined();
+			expect(frontendConfig.BRIDGE_GAS_RESERVE[tokenAddr]).toBeGreaterThan(0n);
+		}
+	});
+
+	it('BRIDGE_GAS_RESERVE USDT0 = 150,000 (0.15 USDT0 ≈ $0.15)', () => {
+		const usdt0Addr = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+		expect(frontendConfig.BRIDGE_GAS_RESERVE[usdt0Addr]).toBe(150_000n);
+	});
+
+	it('BRIDGE_GAS_RESERVE values are in same order of magnitude as FEE_BUFFER_MAX', () => {
+		for (const tokenAddr of Object.keys(frontendConfig.FEE_BUFFER_MAX)) {
+			const feeBuffer = frontendConfig.FEE_BUFFER_MAX[tokenAddr];
+			const bridgeReserve = frontendConfig.BRIDGE_GAS_RESERVE[tokenAddr];
+			// Bridge reserve should be between 0.5× and 5× of fee buffer
+			expect(bridgeReserve).toBeGreaterThanOrEqual(feeBuffer / 2n);
+			expect(bridgeReserve).toBeLessThanOrEqual(feeBuffer * 5n);
+		}
 	});
 });
 
@@ -197,14 +219,14 @@ describe('Fee tier boundaries', () => {
 		expect(getNetworkFeeTier(1_000_000n).label).toBe('High');
 	});
 
-	it('Very High tier covers 1,000,001 to 6,400,000 gas', () => {
+	it('Very High tier covers 1,000,001 to 6,000,000 gas', () => {
 		expect(getNetworkFeeTier(1_000_001n).label).toBe('Very High');
 		expect(getNetworkFeeTier(5_000_000n).label).toBe('Very High');
-		expect(getNetworkFeeTier(6_300_000n).label).toBe('Very High');
+		expect(getNetworkFeeTier(6_000_000n).label).toBe('Very High');
 	});
 
-	it('rejects operations above 6.4M gas', () => {
-		expect(() => getNetworkFeeTier(6_400_001n)).toThrow('Network fee too high');
+	it('rejects operations above 6M gas', () => {
+		expect(() => getNetworkFeeTier(6_000_001n)).toThrow('Network fee too high');
 	});
 
 	it('$2 swap with EIP-7702 delegation falls in Medium tier', () => {
@@ -295,24 +317,24 @@ describe('Gas parameter validation with new bounds', () => {
 		).not.toThrow();
 	});
 
-	it('accepts preVerificationGas at 400K (new limit)', () => {
+	it('accepts preVerificationGas at 100K (new limit)', () => {
 		expect(() =>
-			validateFeeParameters({ ...baseParams, preVerificationGas: 300_000n })
+			validateFeeParameters({ ...baseParams, preVerificationGas: 100_000n })
 		).not.toThrow();
 	});
 
-	it('rejects preVerificationGas above 400K', () => {
+	it('rejects preVerificationGas above 100K', () => {
 		expect(() =>
-			validateFeeParameters({ ...baseParams, preVerificationGas: 400_001n })
+			validateFeeParameters({ ...baseParams, preVerificationGas: 100_001n })
 		).toThrow('preVerificationGas exceeds maximum');
 	});
 
-	it('accepts total gas at 6.4M (new limit)', () => {
+	it('accepts total gas at 6M (new limit)', () => {
 		expect(() =>
 			validateFeeParameters({
 				callGasLimit: 5_000_000n,
-				verificationGasLimit: 1_000_000n,
-				preVerificationGas: 300_000n,
+				verificationGasLimit: 500_000n,
+				preVerificationGas: 100_000n,
 				maxFeePerGas: 100_000_000n,
 				maxPriorityFeePerGas: 10_000_000n
 			})

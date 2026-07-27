@@ -44,7 +44,8 @@
 			"bitcoin_wbtc": "wBTC",
 			"wbtc_arbitrum": "BTC envuelto en Arbitrum",
 			"bitcoin_tbtc": "tBTC",
-			"bridged_btc_arbitrum": "BTC puenteado en Arbitrum"
+			"bridged_btc_arbitrum": "BTC puenteado en Arbitrum",
+			"swap_service_unavailable": "El servicio de intercambio no está disponible temporalmente. Inténtalo más tarde."
 		}
 	}
 }

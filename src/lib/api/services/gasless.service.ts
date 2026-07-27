@@ -64,6 +64,7 @@ export interface EstimateRequest {
 	token: string;
 	amount: string;
 	recipient: string;
+	sender?: string;
 	calls?: Array<{ to: string; data: string; value?: string }>;
 }
 
@@ -122,6 +123,7 @@ export interface GaslessConfigResponse {
 	entryPointAddress: string;
 	simple7702AccountImpl: string;
 	chainId: number;
+	relayAvailable?: boolean;
 }
 
 // ---------------------------------------------------------------------------

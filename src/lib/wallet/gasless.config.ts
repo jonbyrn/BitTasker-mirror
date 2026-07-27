@@ -64,18 +64,18 @@ export const PAYMASTER_SIGNER_KEY_FILE = '';
 
 export const GAS_BOUNDS: GasBounds = {
 	maxCallGas: 5_000_000n,
-	maxVerificationGas: 1_000_000n,
-	maxPreVerificationGas: 400_000n,
+	maxVerificationGas: 500_000n,       // ERC-4337 bundler limit
+	maxPreVerificationGas: 100_000n,    // Sufficient for EIP-7702
 	maxFeePerGas: 1_000_000_000n,
 	maxPriorityFeePerGas: 100_000_000n,
-	maxTotalGas: 6_400_000n
+	maxTotalGas: 6_000_000n             // Matches VerifyingPaymaster.sol on-chain constant
 };
 
 export const FEE_TIERS: FeeTierDef[] = [
 	{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
 	{ label: 'Medium', minGas: 200_001n, maxGas: 500_000n, feeUSD: 0.03 },
 	{ label: 'High', minGas: 500_001n, maxGas: 1_000_000n, feeUSD: 0.05 },
-	{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_400_000n, feeUSD: 0.1 }
+	{ label: 'Very High', minGas: 1_000_001n, maxGas: 6_000_000n, feeUSD: 0.1 }
 ];
 
 export const FEE_BUFFER_MIN: Record<string, bigint> = {
@@ -90,6 +90,27 @@ export const FEE_BUFFER_MAX: Record<string, bigint> = {
 	[TBTC_ADDRESS.toLowerCase()]: 2_500_000_000_000n // ≈ $0.16 at $65K BTC
 };
 
+/**
+ * Additional reserve for cross-chain bridge internal gas fees.
+ *
+ * Cross-chain bridges (GasZip, Stargate V2, etc.) charge internal gas fees
+ * for LayerZero/gas messaging that are pulled via transferFrom on top of
+ * the quoted fromAmount. Without this reserve, the bridge's transferFrom
+ * fails with "ERC-20 transfer returned false" when the user's balance is
+ * too close to the swap amount.
+ *
+ * This reserve is ADDED to FEE_BUFFER_MAX for cross-chain bridge routes,
+ * so the total reserve = FEE_BUFFER_MAX + BRIDGE_GAS_RESERVE.
+ *
+ * Set to $0.15 equivalent per token (same magnitude as FEE_BUFFER_MAX).
+ * Observed GasZip bridge gas: ~$0.11 on Arbitrum → $0.15 provides margin.
+ */
+export const BRIDGE_GAS_RESERVE: Record<string, bigint> = {
+	[USDT0_ADDRESS.toLowerCase()]: 150_000n, // 0.15 USDT0 (6 decimals) ≈ $0.15
+	[WBTC_ADDRESS.toLowerCase()]: 130n, // 130 satoshis (8 decimals) ≈ $0.15
+	[TBTC_ADDRESS.toLowerCase()]: 2_300_000_000_000n // 0.0000023 tBTC (18 decimals) ≈ $0.15
+};
+
 // =============================================================================
 // Dynamic config fetch
 // =============================================================================
@@ -98,6 +119,13 @@ let _configFetched = false;
 let _configFetchPromise: Promise<boolean> | null = null;
 let _configFetchTime = 0;
 const CONFIG_REFRESH_MS = 300_000; // Re-fetch every 5 minutes
+
+/**
+ * Whether the gasless relay is currently available (paymaster deposit sufficient).
+ * Updated from the backend GET /gasless/config response.
+ * The frontend should check this before allowing swap attempts.
+ */
+export let relayAvailable = true;
 
 /**
  * Fetch gasless config from the backend and update the mutable objects in place.
@@ -165,13 +193,19 @@ async function _doFetch(): Promise<boolean> {
 			}
 		}
 
+		// Update relay availability from backend
+		if (typeof data.relayAvailable === 'boolean') {
+			relayAvailable = data.relayAvailable;
+		}
+
 		_configFetched = true;
 		_configFetchTime = Date.now();
 		_configFetchPromise = null; // Allow future refreshes
 		console.log('[gasless] Config fetched from backend:', {
 			maxPreVerificationGas: GAS_BOUNDS.maxPreVerificationGas.toString(),
 			maxTotalGas: GAS_BOUNDS.maxTotalGas.toString(),
-			feeTiers: FEE_TIERS.length
+			feeTiers: FEE_TIERS.length,
+			relayAvailable
 		});
 		return true;
 	} catch (err) {

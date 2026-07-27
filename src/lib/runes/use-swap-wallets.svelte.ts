@@ -264,7 +264,7 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 		}
 		const w = getConnectedWallet(walletId);
 		if (!w?.balances) return '$0.00';
-		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0);
+		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0) + getWbtcSatsFromConnected(w);
 		const usdt = Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e6;
 		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
 		return usdFormatter.format(usd);
@@ -495,7 +495,7 @@ export function isFiniteNum(n: unknown): n is number {
 }
 
 export function getBtcSatsForUsdCalcFromConnected(w: ConnectedWalletEntry | undefined): number {
-	return Number(w?.balances?.btc?.raw ?? 0) + Number(w?.balances?.rbtc?.raw ?? 0);
+	return Number(w?.balances?.btc?.raw ?? 0) + Number(w?.balances?.rbtc?.raw ?? 0) + getWbtcSatsFromConnected(w);
 }
 
 export function getUsdtHumanFromConnected(w: ConnectedWalletEntry | undefined): number {

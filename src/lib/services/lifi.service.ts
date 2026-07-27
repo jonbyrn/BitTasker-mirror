@@ -300,6 +300,8 @@ export const lifiService = {
 		chainId: number;
 		gasLimit?: string;
 		executionDuration?: number;
+		gasCosts?: LifiFeeCost[];
+		feeCosts?: LifiFeeCost[];
 	}> {
 		requireLifiEnabled();
 		const normalizedParams = { ...params, fromAddress: params.fromAddress.toLowerCase() };
@@ -325,7 +327,9 @@ export const lifiService = {
 			value: rawQuote.transactionRequest.value,
 			chainId: normalizedParams.fromChain,
 			gasLimit: rawQuote.transactionRequest.gasLimit,
-			executionDuration: rawQuote.estimate?.executionDuration
+			executionDuration: rawQuote.estimate?.executionDuration,
+			gasCosts: rawQuote.estimate?.gasCosts,
+			feeCosts: rawQuote.estimate?.feeCosts
 		};
 	},
 

@@ -375,7 +375,9 @@ export function useSwapOptions(params: UseSwapOptionsParams) {
 				id: 'wbtc-arb',
 				asset: CHAIN_WBTC.asset,
 				label: CHAIN_WBTC.label,
-				description: translate('wallet.swap.desc_btc_to_wbtc'),
+				description: sourceType === 'usdt0-arb'
+					? translate('wallet.swap.desc_usdt_to_wbtc')
+					: translate('wallet.swap.desc_btc_to_wbtc'),
 				icon: CHAIN_WBTC.icon,
 				network: CHAIN_WBTC.network,
 				chainId: CHAIN_WBTC.chainId,

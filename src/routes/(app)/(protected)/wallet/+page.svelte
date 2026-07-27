@@ -86,11 +86,41 @@
 			showReceiveModal = true;
 		}
 
+		// Restore active bridge state from Capacitor Preferences (survives page refresh)
+		restoreActiveBridge();
+
 		// Auto-validate swap chain: check if any COMPLETE swap is actually
 		// incomplete on Boltz (e.g., single-hop Boltz chain swaps that were
 		// marked COMPLETE before the destination chain claim was processed).
 		validateSwapChainState();
 	});
+
+	/**
+	 * Restore active bridge state from Capacitor Preferences.
+	 * If a cross-chain bridge was in progress when the page was refreshed,
+	 * set the activeBridge on the wallet store so SwapForm can resume tracking
+	 * and the persistent banner shows.
+	 */
+	async function restoreActiveBridge() {
+		try {
+			const { Preferences } = await import('@capacitor/preferences');
+			const { value } = await Preferences.get({ key: 'active_bridge' });
+			if (value) {
+				const bridge = JSON.parse(value);
+				const elapsed = Date.now() - bridge.startedAt;
+				// Only restore if bridge started within the last 30 minutes
+				if (elapsed < 30 * 60 * 1000) {
+					walletStore.update((s) => ({ ...s, activeBridge: bridge }));
+					console.log('[wallet] Restored active bridge state:', bridge.sourceAsset, '→', bridge.destAsset);
+				} else {
+					// Stale — clean up
+					await Preferences.remove({ key: 'active_bridge' });
+				}
+			}
+		} catch {
+			// Non-blocking
+		}
+	}
 
 	/**
 	 * Check the persisted swap chain state against Boltz's actual status.
@@ -468,6 +498,34 @@
 								claimableSwaps = claimableSwaps.filter((s) => s.swapId !== swapId);
 							}}
 						/>
+					{/if}
+					<!-- Active bridge banner — shows when a cross-chain bridge is in progress -->
+					{#if $walletStore.activeBridge}
+						{@const bridge = $walletStore.activeBridge}
+						{@const elapsed = Math.floor((Date.now() - bridge.startedAt) / 1000)}
+						<div class="alert alert-info py-2 sm:py-3">
+							<div class="flex w-full items-center gap-3">
+								<span class="loading loading-spinner loading-sm shrink-0"></span>
+								<div class="flex-1">
+									<span class="text-xs sm:text-sm font-medium">
+										{$t('wallet.swap.bridge_banner_active') || `Bridging ${bridge.sourceAmount} ${bridge.sourceAsset} → ${bridge.destAsset}`}
+									</span>
+									<span class="text-base-content/50 block text-xs">
+										{$t('wallet.swap.bridge_banner_eta') || `Estimated ~${bridge.estimatedMinutes} min`} · {$t('wallet.swap.bridge_banner_elapsed') || `${Math.floor(elapsed / 60)}m ${elapsed % 60}s elapsed`}
+									</span>
+								</div>
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs shrink-0"
+									onclick={() => {
+										walletStore.update((s) => ({ ...s, activeBridge: null }));
+									}}
+									aria-label="Dismiss"
+								>
+									<IconClose class="h-4 w-4" />
+								</button>
+							</div>
+						</div>
 					{/if}
 				{:else if activeTab === 'wallet'}
 					<BalanceCard

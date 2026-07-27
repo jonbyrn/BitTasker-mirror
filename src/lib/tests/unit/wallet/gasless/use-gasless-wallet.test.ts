@@ -242,7 +242,7 @@ describe('use-gasless-wallet store', () => {
 
 		it('getImplAddress returns the implementation address', () => {
 			expect(gaslessWalletState.getImplAddress()).toBe(
-				'0xe6Cae83BdE06E4c305530e199D7217f42808555B'
+				'0xB2779581b8B1F816b747fBa66c64D22196c7D001'
 			);
 		});
 	});

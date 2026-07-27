@@ -73,6 +73,8 @@
 			"lockup_block": "Bloque",
 			"remaining": "restante",
 			"scanning": "Escaneando blockchain para fondos recuperables...",
+			"phase_executing": "Ejecutando intercambio en la cadena de origen...",
+			"phase_bridging": "Puentando fondos a la cadena de destino...",
 			"lockup_expired_msg": "Intercambio expirado — fondos bloqueados en contrato. Reembolso disponible ahora.",
 			"lockup_pending_msg": "Intercambio expirado — fondos bloqueados en contrato. Reembolso disponible después del timelock.",
 			"recovered": "✓ Recuperado",
@@ -80,7 +82,14 @@
 			"lockup_claimed_or_refunded": "Este bloqueo ya ha sido reclamado o reembolsado en la cadena.",
 			"swap_complete_cleaning": "Intercambio completado — limpiando",
 			"check_failed": "Verificación fallida: {error}",
-			"dismiss_to_cleanup": "descartar para limpiar"
+			"dismiss_to_cleanup": "descartar para limpiar",
+			"bridge_in_progress": "Puente en progreso",
+			"bridge_delivered": "¡Entrega por puente confirmada!",
+			"bridge_failed": "La transferencia por puente falló. Tus fondos están seguros en la cadena de origen.",
+			"bridge_still_pending": "El puente aún está en progreso. Por favor, verifica de nuevo más tarde.",
+			"bridge_check_failed": "No se pudo verificar el estado del puente. Por favor, inténtalo de nuevo.",
+			"estimated": "Est.",
+			"view_tx": "Ver transacción"
 		}
 	}
 }

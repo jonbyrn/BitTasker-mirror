@@ -54,6 +54,10 @@ export interface UseSwapBalanceCheckOptions {
 	getIsOnline: () => boolean;
 	/** Whether swap is in the form phase (not confirm/executing/etc). */
 	getIsFormPhase: () => boolean;
+	/** Whether the gasless relay is available (paymaster deposit sufficient). */
+	getRelayAvailable: () => boolean;
+	/** Whether gas data is available for fee estimation. */
+	getGasDataAvailable: () => boolean;
 }
 
 export interface UseSwapBalanceCheck {
@@ -140,6 +144,8 @@ export function useSwapBalanceCheck(opts: UseSwapBalanceCheckOptions): UseSwapBa
 			(opts.getEngineResult().recommended !== null || opts.getEngineResult().routes.length > 0) &&
 			opts.getIsFormPhase() &&
 			opts.getIsOnline() &&
+			opts.getRelayAvailable() &&
+			opts.getGasDataAvailable() &&
 			!isSelfSend &&
 			!(
 				opts.getAmountInTokenUnits() > 0 &&

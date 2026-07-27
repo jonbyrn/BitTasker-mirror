@@ -101,7 +101,11 @@
 				"self_send": "No se puede enviar a tu propia dirección",
 				"below_dust": "El monto está por debajo del mínimo ({min} sats)",
 				"below_lnurl_min": "El monto está por debajo del mínimo ({min} sats)",
-				"above_lnurl_max": "El monto excede el máximo ({max} sats)"
+				"above_lnurl_max": "El monto excede el máximo ({max} sats)",
+				"user_rejected": "La transacción fue rechazada por la billetera",
+				"insufficient_funds": "Fondos insuficientes para completar esta transacción",
+				"network_error": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
+				"invalid_amount": "Por favor ingresa un monto válido"
 			},
 			"network": {
 				"ethereum": "Ethereum",
@@ -113,6 +117,7 @@
 				"tron": "TRON"
 			},
 			"address_label": "Dirección de destino",
+			"sent_successfully": "Enviado exitosamente",
 			"asset": {
 				"rbtc": "Bitcoin (rBTC)",
 				"rbtc_sub": "Bitcoin en Rootstock",

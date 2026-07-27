@@ -438,7 +438,7 @@
 			</div>
 		{:else}
 			<div class="space-y-3">
-				{#each paginatedTransactions as tx (tx.hash)}
+				{#each paginatedTransactions as tx, i (tx.hash)}
 					{@const valueSats = Number(tx.value)}
 					{@const transactionClasses = transactionUI[tx.borderColor]}
 					<div
@@ -527,6 +527,13 @@
 										<div class="text-xs opacity-70">
 											{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
 										</div>
+										<!-- Bridge badge — show on most recent swap when bridge is active -->
+										{#if $walletStore.activeBridge && tx.displayType === 'send' && i === 0}
+											<span class="badge badge-info badge-xs mt-1">
+												<span class="loading loading-xs loading-spinner mr-1"></span>
+												{$t('wallet.transaction.bridging') || 'Bridging'}
+											</span>
+										{/if}
 									</div>
 								</div>
 

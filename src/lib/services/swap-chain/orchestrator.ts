@@ -197,6 +197,11 @@ export async function startSwapChain(
 		// the token, so it's always sufficient. The executor will get the real
 		// fee estimate from the backend after fetching the quote, and the
 		// actual feeBuffer used in the executeBatch will be the real estimate.
+		//
+		// For cross-chain bridges (e.g., GasZip, Stargate V2), we also add
+		// BRIDGE_GAS_RESERVE to cover the bridge's internal gas/protocol fees
+		// that are pulled via transferFrom on top of the quoted fromAmount.
+		//
 		// For multi-hop routes, this is set before hop 2 (see Step 5b).
 		let relayFeeBufferWei: string | null = null;
 		if (
@@ -205,16 +210,35 @@ export async function startSwapChain(
 			hop1.fromAsset !== 'RBTC'
 		) {
 			try {
-				const { FEE_BUFFER_MAX, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
+				const { FEE_BUFFER_MAX, BRIDGE_GAS_RESERVE, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
 				const tokenInfo = getTokenBySymbol(hop1.fromAsset);
 				if (tokenInfo) {
-					const maxBuffer = FEE_BUFFER_MAX[tokenInfo.address.toLowerCase()];
+					const addrLower = tokenInfo.address.toLowerCase();
+					const maxBuffer = FEE_BUFFER_MAX[addrLower];
 					if (maxBuffer) {
-						relayFeeBufferWei = maxBuffer.toString();
+						let totalReserve = maxBuffer;
+
+						// For cross-chain swaps, add bridge gas reserve
+						const isCrossChain = hop1.fromChain !== hop1.toChain;
+						if (isCrossChain) {
+							const bridgeReserve = BRIDGE_GAS_RESERVE[addrLower];
+							if (bridgeReserve) {
+								totalReserve = maxBuffer + bridgeReserve;
+								d.log(
+									'[startSwapChain] bridge gas reserve added: %s wei (cross-chain %s→%s)',
+									bridgeReserve.toString(),
+									hop1.fromChain,
+									hop1.toChain
+								);
+							}
+						}
+
+						relayFeeBufferWei = totalReserve.toString();
 						d.log(
-							'[startSwapChain] relay fee reserved (FEE_BUFFER_MAX): %s wei (%s)',
+							'[startSwapChain] relay fee reserved: %s wei (%s) %s',
 							relayFeeBufferWei,
-							hop1.fromAsset
+							hop1.fromAsset,
+							isCrossChain ? '(cross-chain with bridge gas)' : '(same-chain)'
 						);
 					}
 				}
@@ -374,18 +398,31 @@ export async function startSwapChain(
 		// `balance - relayFeeBuffer`, preventing "transfer amount exceeds balance"
 		// when the swap input token is also used for gasless fee payment.
 		// Uses FEE_BUFFER_MAX as a guaranteed-safe reserve (same as single-hop).
+		// For cross-chain hops, also adds BRIDGE_GAS_RESERVE.
 		relayFeeBufferWei = null;
 		try {
-			const { FEE_BUFFER_MAX, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
+			const { FEE_BUFFER_MAX, BRIDGE_GAS_RESERVE, getTokenBySymbol } = await import('$lib/wallet/gasless.config');
 			const tokenInfo = getTokenBySymbol(hop2.fromAsset);
 			if (tokenInfo) {
-				const maxBuffer = FEE_BUFFER_MAX[tokenInfo.address.toLowerCase()];
+				const addrLower = tokenInfo.address.toLowerCase();
+				const maxBuffer = FEE_BUFFER_MAX[addrLower];
 				if (maxBuffer) {
-					relayFeeBufferWei = maxBuffer.toString();
+					let totalReserve = maxBuffer;
+
+					const isCrossChain = hop2.fromChain !== hop2.toChain;
+					if (isCrossChain) {
+						const bridgeReserve = BRIDGE_GAS_RESERVE[addrLower];
+						if (bridgeReserve) {
+							totalReserve = maxBuffer + bridgeReserve;
+						}
+					}
+
+					relayFeeBufferWei = totalReserve.toString();
 					d.log(
-						'[startSwapChain] relay fee reserved (FEE_BUFFER_MAX): %s wei (%s)',
+						'[startSwapChain] relay fee reserved for hop 2: %s wei (%s) %s',
 						relayFeeBufferWei,
-						hop2.fromAsset
+						hop2.fromAsset,
+						isCrossChain ? '(cross-chain with bridge gas)' : '(same-chain)'
 					);
 				}
 			}

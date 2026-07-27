@@ -61,7 +61,8 @@
 			"loan_wizard": {
 				"transaction_receipts": "Recibos de Transacción",
 				"your_loans": "Tus Préstamos",
-				"new_loan": "Nuevo Préstamo"
+				"new_loan": "Nuevo Préstamo",
+				"transaction_confirmed": "Transacción Confirmada"
 			},
 			"lending": {
 				"supply_submitted": "Depósito enviado — actualizando posición",
@@ -72,7 +73,10 @@
 				"withdraw_all": "Retirar Todo (ciclo completo)",
 				"preview_approve_supply": "Vista previa — Aprobar y Depositar",
 				"to_aave": "a Aave (Arbitrum)",
-				"projected_after_1y": "Proyectado después de 1y:"
+				"projected_after_1y": "Proyectado después de 1y:",
+				"debt": "Deuda",
+				"liq_price": "Precio de Liquidación",
+				"ltv": "LTV"
 			},
 			"borrow": {
 				"amount_label": "¿Cuánto USD quieres pedir?",
@@ -126,7 +130,9 @@
 				"rebalance": "Reequilibrar",
 				"clear_select": "Borrar selección",
 				"no_fees_to_collect": "No hay comisiones para cobrar",
-				"simulated_note": "tx simulada + posiciones locales (sustituto de defi-positions.store)"
+				"simulated_note": "tx simulada + posiciones locales (sustituto de defi-positions.store)",
+				"liq_label": "Liquidez",
+				"approve_failed_with_label": "Error al aprobar {label}"
 			},
 			"shared": {
 				"no_positions": "Sin posiciones DeFi activas",
@@ -285,7 +291,9 @@
 				"review_gas_est": "Gas (est.)",
 				"borrow_confirmation_failed": "Error al confirmar el préstamo",
 				"supplying_collateral_status": "Depositando garantía...",
-				"borrowing_usdt0_status": "Pidiendo USDT0..."
+				"borrowing_usdt0_status": "Pidiendo USDT0...",
+				"supply": "Depósito",
+				"borrow": "Préstamo"
 			},
 			"position": {
 				"title": "Detalle de Posición",

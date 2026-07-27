@@ -49,6 +49,16 @@
 		return `${wholePart.toString()}.${fractionalPart.toString().padStart(token.decimals, '0').replace(/\.?0+$/, '')}`;
 	});
 	
+	// Format fee buffer for display (converts raw token units to human-readable)
+	const formattedFeeBuffer = $derived.by(() => {
+		if (!feeEstimate || !token) return '0';
+		const feeBuffer = BigInt(feeEstimate.feeBuffer);
+		const divisor = BigInt(10 ** token.decimals);
+		const wholePart = feeBuffer / divisor;
+		const fractionalPart = feeBuffer % divisor;
+		return `${wholePart.toString()}.${fractionalPart.toString().padStart(token.decimals, '0').replace(/\.?0+$/, '')}`;
+	});
+	
 	// Fee tier color
 	const feeTierColor = $derived.by(() => {
 		if (!feeEstimate) return 'text-base-content/50';
@@ -94,7 +104,7 @@
 							<div class="text-sm font-medium opacity-70">{$t('wallet.gasless_confirm.network_fee')}</div>
 							<div class="flex items-center gap-2">
 								<span class="font-semibold">
-									{feeEstimate.feeBuffer} {token?.symbol || ''}
+									{formattedFeeBuffer} {token?.symbol || ''}
 								</span>
 								<span class="badge badge-sm {feeTierColor}">
 									{feeEstimate.feeTier}

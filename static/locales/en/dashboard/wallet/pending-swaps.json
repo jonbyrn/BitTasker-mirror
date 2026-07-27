@@ -73,6 +73,8 @@
 			"lockup_block": "Block",
 			"remaining": "remaining",
 			"scanning": "Scanning blockchain for recoverable funds...",
+			"phase_executing": "Executing swap on source chain...",
+			"phase_bridging": "Bridging funds to destination chain...",
 			"lockup_expired_msg": "Swap timed out — funds locked in contract. Refund now available.",
 			"lockup_pending_msg": "Swap timed out — funds locked in contract. Refund available after timelock.",
 			"recovered": "✓ Recovered",
@@ -80,7 +82,14 @@
 			"lockup_claimed_or_refunded": "This lockup has already been claimed or refunded on-chain.",
 			"swap_complete_cleaning": "Swap complete — cleaning up",
 			"check_failed": "Check failed: {error}",
-			"dismiss_to_cleanup": "dismiss to clean up"
+			"dismiss_to_cleanup": "dismiss to clean up",
+			"bridge_in_progress": "Bridge in progress",
+			"bridge_delivered": "Bridge delivery confirmed!",
+			"bridge_failed": "Bridge transfer failed. Your funds are safe on the source chain.",
+			"bridge_still_pending": "Bridge is still in progress. Please check again later.",
+			"bridge_check_failed": "Could not check bridge status. Please try again.",
+			"estimated": "Est.",
+			"view_tx": "View transaction"
 		}
 	}
 }

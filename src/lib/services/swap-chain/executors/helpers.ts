@@ -104,15 +104,17 @@ export async function capBalanceToWalletMax(params: {
 	label: string;
 	/** Amount to reserve from the balance (e.g., relay fee buffer). */
 	reserveAmount?: bigint;
+	/** Additional margin for cross-chain bridge internal gas fees (e.g., GasZip LayerZero messaging). */
+	bridgeGasMargin?: bigint;
 }): Promise<{ data: bigint; error: Error | null }> {
-	const { tokenAddress, userAddress, chain, requestedAmount, label, reserveAmount } = params;
+	const { tokenAddress, userAddress, chain, requestedAmount, label, reserveAmount, bridgeGasMargin } = params;
 
 	const actualBalance = await queryERC20Balance(tokenAddress, userAddress, chain);
 	if (actualBalance === null) {
 		return { data: requestedAmount, error: new Error('Failed to query token balance (RPC error)') };
 	}
 
-	const reserve = reserveAmount ?? 0n;
+	const reserve = (reserveAmount ?? 0n) + (bridgeGasMargin ?? 0n);
 	const available = actualBalance > reserve ? actualBalance - reserve : 0n;
 
 	if (available <= 0n) {

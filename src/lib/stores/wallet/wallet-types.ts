@@ -31,6 +31,24 @@ export type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	chainLock: boolean;
 	/** Timestamp (ms) of last successful balance refresh — used for staleness indicator. */
 	lastBalanceRefresh: number;
+	/** Active cross-chain bridge tracking (for persistent banner). */
+	activeBridge: {
+		sourceAsset: string;
+		destAsset: string;
+		sourceAmount: string;
+		destAmount: string;
+		startedAt: number;
+		estimatedMinutes: number;
+		swapId?: string;
+		txHash?: string;
+	} | null;
+	/**
+	 * Extended Arbitrum chain state — extends the SDK's `arbitrum` field with
+	 * additional token balances and contract references.
+	 * Note: The SDK type uses `arbitrum` but this codebase uses `arb` as the
+	 * canonical key. The `Omit<WalletState, 'transactions'>` intersection
+	 * still carries `arbitrum` from the SDK — we re-export it as `arb` here.
+	 */
 	arb: {
 		connected: boolean;
 		connecting: boolean;
@@ -57,6 +75,9 @@ export type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 
 // ─── Initial state ───────────────────────────────────────────────────────────
 
+// Type assertion needed because WalletState from SDK has `arbitrum` but we use `arb`.
+// The runtime shape is correct — the type mismatch is a naming convention difference.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
@@ -137,5 +158,8 @@ export const initialState: WalletStateExtended = {
 	chainLock: false,
 
 	// Balance staleness tracking
-	lastBalanceRefresh: Date.now()
-};
+	lastBalanceRefresh: Date.now(),
+
+	// Active bridge tracking (for persistent banner)
+	activeBridge: null
+} as unknown as WalletStateExtended;

@@ -157,15 +157,31 @@ export async function executeSymbiosisHop(
 	// Using the raw amount would cause the Symbiosis transferFrom to revert.
 	// Also subtract relayFeeBuffer to prevent "transfer amount exceeds balance"
 	// when the same token is used for both swap input and gasless fee payment.
+	// For cross-chain swaps, also reserve BRIDGE_GAS_RESERVE for bridge internal gas.
 	if (fromTokenAddr !== NATIVE_TOKEN) {
 		const reserveAmount = state.relayFeeBuffer ? BigInt(state.relayFeeBuffer) : undefined;
+
+		let bridgeGasMargin: bigint | undefined;
+		if (fromChainId !== toChainId) {
+			try {
+				const { BRIDGE_GAS_RESERVE } = await import('$lib/wallet/gasless.config');
+				const margin = BRIDGE_GAS_RESERVE[fromTokenAddr.toLowerCase()];
+				if (margin) {
+					bridgeGasMargin = margin;
+				}
+			} catch {
+				// Non-blocking
+			}
+		}
+
 		const { data: cappedAmount, error: capError } = await capBalanceToWalletMax({
 			tokenAddress: fromTokenAddr,
 			userAddress: symUserAddr,
 			chain: symChain,
 			requestedAmount: symFromAmountWei,
 			label: 'Symbiosis',
-			reserveAmount
+			reserveAmount,
+			bridgeGasMargin
 		});
 		if (capError) {
 			return { data: null, error: capError };

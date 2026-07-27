@@ -153,6 +153,35 @@ function getArbitrumProvider(): ethersLib.JsonRpcProvider {
 	return new ethersLib.JsonRpcProvider(ARBITRUM_RPC_URL || undefined);
 }
 
+/**
+ * Compute the actual maxFeePerGas for a UserOp based on the current Arbitrum L2 base fee.
+ *
+ * The EntryPoint charges the paymaster: actualGas × min(maxFeePerGas, maxPriorityFeePerGas + blockBaseFee).
+ * Using the 1 gwei cap as maxFeePerGas causes the EntryPoint to hold a large prefund that's mostly refunded.
+ * By querying the actual base fee and setting maxFeePerGas closer to reality, we reduce the prefund hold
+ * and allow more swaps from the same paymaster deposit.
+ *
+ * Formula: maxFeePerGas = min(GAS_BOUNDS.maxFeePerGas, maxPriorityFeePerGas + baseFee + margin)
+ * - Never exceeds the paymaster's MAX_FEE_PER_GAS cap (1 gwei)
+ * - Uses actual on-chain base fee with a 2× safety margin for base fee spikes
+ */
+async function computeActualMaxFeePerGas(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+	const maxPriorityFeePerGas = GAS_BOUNDS.maxPriorityFeePerGas; // 0.1 gwei
+	try {
+		const provider = getArbitrumProvider();
+		const feeData = await provider.getFeeData();
+		const baseFee = feeData.gasPrice ?? 30_000_000n; // fallback 0.03 gwei
+		// 2× base fee margin for spikes, plus priority fee
+		const computed = maxPriorityFeePerGas + (baseFee * 2n);
+		// Cap at the paymaster's MAX_FEE_PER_GAS
+		const maxFeePerGas = computed < GAS_BOUNDS.maxFeePerGas ? computed : GAS_BOUNDS.maxFeePerGas;
+		return { maxFeePerGas, maxPriorityFeePerGas };
+	} catch {
+		// Fallback: use 0.12 gwei (observed actual on Arbitrum)
+		return { maxFeePerGas: 120_000_000n, maxPriorityFeePerGas };
+	}
+}
+
 /** EIP-7702 factory sentinel — tells EntryPoint the sender is a 7702-delegated EOA */
 const EIP7702_FACTORY = '0x7702000000000000000000000000000000000000' as const;
 
@@ -382,8 +411,7 @@ export async function sendGasless(
 		callGasLimit: estimatedGas.callGasLimit,
 		verificationGasLimit: estimatedGas.verificationGasLimit,
 		preVerificationGas: estimatedGas.preVerificationGas,
-		maxFeePerGas: GAS_BOUNDS.maxFeePerGas,
-		maxPriorityFeePerGas: GAS_BOUNDS.maxPriorityFeePerGas,
+		...(await computeActualMaxFeePerGas()),
 		paymasterAndData: '0x',
 		signature: '0x'
 	};
@@ -648,6 +676,7 @@ export async function sendToken(
 			};
 
 	// 3b. Construct UserOp for signing (bigint fields)
+	const gasFees = await computeActualMaxFeePerGas();
 	const userOp: UserOperation = {
 		sender,
 		nonce,
@@ -655,8 +684,8 @@ export async function sendToken(
 		callGasLimit: gasLimits.callGasLimit,
 		verificationGasLimit: gasLimits.verificationGasLimit,
 		preVerificationGas: gasLimits.preVerificationGas,
-		maxFeePerGas: GAS_BOUNDS.maxFeePerGas,
-		maxPriorityFeePerGas: GAS_BOUNDS.maxPriorityFeePerGas,
+		maxFeePerGas: gasFees.maxFeePerGas,
+		maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas,
 		paymasterAndData: '0x',
 		signature: '0x'
 	};
@@ -963,6 +992,7 @@ export async function sendGaslessCalls(
 			};
 
 	// Construct UserOp
+	const gasFees3 = await computeActualMaxFeePerGas();
 	const userOp: UserOperation = {
 		sender,
 		nonce,
@@ -970,8 +1000,8 @@ export async function sendGaslessCalls(
 		callGasLimit: gasLimits.callGasLimit,
 		verificationGasLimit: gasLimits.verificationGasLimit,
 		preVerificationGas: gasLimits.preVerificationGas,
-		maxFeePerGas: GAS_BOUNDS.maxFeePerGas,
-		maxPriorityFeePerGas: GAS_BOUNDS.maxPriorityFeePerGas,
+		maxFeePerGas: gasFees3.maxFeePerGas,
+		maxPriorityFeePerGas: gasFees3.maxPriorityFeePerGas,
 		paymasterAndData: '0x',
 		signature: '0x'
 	};

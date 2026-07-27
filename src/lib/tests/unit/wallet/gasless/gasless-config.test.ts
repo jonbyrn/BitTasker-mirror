@@ -71,17 +71,17 @@ describe('gasless.config', () => {
 		it('maxCallGas is 5M', () => {
 			expect(GAS_BOUNDS.maxCallGas).toBe(5_000_000n);
 		});
-		it('maxVerificationGas is 1M', () => {
-			expect(GAS_BOUNDS.maxVerificationGas).toBe(1_000_000n);
+		it('maxVerificationGas is 500K (ERC-4337 bundler limit)', () => {
+			expect(GAS_BOUNDS.maxVerificationGas).toBe(500_000n);
 		});
-		it('maxPreVerificationGas is 400K (EIP-7702)', () => {
-			expect(GAS_BOUNDS.maxPreVerificationGas).toBe(400_000n);
+		it('maxPreVerificationGas is 100K (EIP-7702)', () => {
+			expect(GAS_BOUNDS.maxPreVerificationGas).toBe(100_000n);
 		});
 		it('maxFeePerGas is 1 gwei', () => {
 			expect(GAS_BOUNDS.maxFeePerGas).toBe(1_000_000_000n);
 		});
-		it('maxTotalGas is 6.4M', () => {
-			expect(GAS_BOUNDS.maxTotalGas).toBe(6_400_000n);
+		it('maxTotalGas is 6M (matches VerifyingPaymaster)', () => {
+			expect(GAS_BOUNDS.maxTotalGas).toBe(6_000_000n);
 		});
 	});
 
@@ -107,12 +107,12 @@ describe('gasless.config', () => {
 			expect(FEE_TIERS[2].maxGas).toBe(1_000_000n);
 			expect(FEE_TIERS[2].feeUSD).toBe(0.05);
 		});
-		it('Very High tier: 1M-6.4M gas, $0.10', () => {
-			expect(FEE_TIERS[3].label).toBe('Very High');
-			expect(FEE_TIERS[3].minGas).toBe(1_000_001n);
-			expect(FEE_TIERS[3].maxGas).toBe(6_400_000n);
-			expect(FEE_TIERS[3].feeUSD).toBe(0.1);
-		});
+	it('Very High tier: 1M-6M gas, $0.10', () => {
+		expect(FEE_TIERS[3].label).toBe('Very High');
+		expect(FEE_TIERS[3].minGas).toBe(1_000_001n);
+		expect(FEE_TIERS[3].maxGas).toBe(6_000_000n);
+		expect(FEE_TIERS[3].feeUSD).toBe(0.1);
+	});
 	});
 
 	describe('fee buffer bounds', () => {
@@ -188,7 +188,7 @@ describe('gasless.config', () => {
 	describe('gaslessConfig object', () => {
 		it('has correct structure', () => {
 			expect(gaslessConfig.tokens).toHaveLength(3);
-			expect(gaslessConfig.gasBounds.maxTotalGas).toBe(6_400_000n);
+			expect(gaslessConfig.gasBounds.maxTotalGas).toBe(6_000_000n);
 			expect(gaslessConfig.feeTiers).toHaveLength(4);
 			expect(gaslessConfig.entryPointAddress).toBe(ENTRY_POINT_ADDRESS);
 			expect(gaslessConfig.chainId).toBe(42161n);

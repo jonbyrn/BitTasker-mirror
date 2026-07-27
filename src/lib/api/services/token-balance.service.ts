@@ -45,6 +45,9 @@ class TokenBalanceService {
 	private tokenBalanceCache: Map<string, CachedTokenBalances> = new Map();
 	private readonly BALANCE_CACHE_TTL = API.TOKEN_BALANCE_CACHE_TTL; // 1 minute
 
+	/** Cache key prefix for native RBTC balance */
+	private static readonly RSK_NATIVE_PREFIX = 'rsk-native:';
+
 	/**
 	 * Get explorer API URL for RSK network
 	 */
@@ -349,11 +352,101 @@ class TokenBalanceService {
 	}
 
 	/**
-	 * Clear balance cache for a specific address
+	 * Fetch native RBTC balance via direct RPC call (eth_getBalance).
+	 * This method uses tokenBalanceService's cache system, ensuring that
+	 * clearAllBalanceCaches() can force a fresh native balance fetch.
+	 *
+	 * This fixes the balance double-counting bug during cross-chain bridges:
+	 * manager.rskWallet.getBalance() uses the SDK's internal cache which
+	 * clearAllBalanceCaches() cannot clear. When a bridge delivers WBTC on
+	 * Arbitrum while the SDK returns a stale RBTC balance, the total shows
+	 * both the old RBTC AND new WBTC = 2× the correct value.
+	 *
+	 * @param address - RSK wallet address
+	 * @param rpcUrl - RSK RPC URL (e.g., 'https://public-node.rsk.co')
+	 * @param forceRefresh - Force refresh even if cache is valid
+	 * @returns Native RBTC balance info, or null on error
+	 */
+	async getRSKNativeBalance(
+		address: string,
+		rpcUrl: string,
+		forceRefresh = false
+	): Promise<{ balance: bigint; formatted: string } | null> {
+		const cacheKey = `${TokenBalanceService.RSK_NATIVE_PREFIX}${address.toLowerCase()}`;
+
+		// Check cache
+		if (!forceRefresh) {
+			const cached = this.tokenBalanceCache.get(cacheKey);
+			if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+				const b = cached.balances[0];
+				if (b) return { balance: BigInt(b.balance), formatted: b.formattedBalance };
+			}
+		}
+
+		try {
+			const response = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_getBalance',
+					params: [address, 'latest'],
+					id: 1
+				}),
+				signal: AbortSignal.timeout(10_000)
+			});
+			const data = (await response.json()) as { result?: string; error?: { message: string } };
+			if (data.error || !data.result) return null;
+
+			const balance = BigInt(data.result);
+			const formatted = (Number(balance) / 1e18).toFixed(8);
+
+			// Cache the result so clearAllBalanceCaches can clear it
+			this.tokenBalanceCache.set(cacheKey, {
+				balances: [{
+					address: '0x0000000000000000000000000000000000000000',
+					name: 'Rootstock Bitcoin',
+					symbol: 'RBTC',
+					decimals: 18,
+					balance: balance.toString(),
+					formattedBalance: formatted,
+					isNative: true
+				}],
+				timestamp: Date.now()
+			});
+
+			return { balance, formatted };
+		} catch (e) {
+			console.warn('[TokenBalanceService] getRSKNativeBalance failed:', e);
+			return null;
+		}
+	}
+
+	/**
+	 * Clear balance cache for a specific address (RSK only).
 	 */
 	clearBalanceCache(address: string): void {
 		const normalizedAddress = address.toLowerCase();
 		this.tokenBalanceCache.delete(normalizedAddress);
+	}
+
+	/**
+	 * Clear ALL balance caches for an address across all chains.
+	 * Must be called after any token transfer (swap, bridge, send) to ensure
+	 * the UI doesn't show stale balances.
+	 */
+	clearAllBalanceCaches(address: string): void {
+		const normalizedAddress = address.toLowerCase();
+		// Clear RSK ERC-20 cache
+		this.tokenBalanceCache.delete(normalizedAddress);
+		// Clear native RBTC cache (fixes double-counting during cross-chain bridges)
+		this.tokenBalanceCache.delete(`${TokenBalanceService.RSK_NATIVE_PREFIX}${normalizedAddress}`);
+		// Clear all Arbitrum caches (keys are arb:{addr}:{token})
+		for (const key of this.tokenBalanceCache.keys()) {
+			if (key.startsWith(`arb:${normalizedAddress}:`)) {
+				this.tokenBalanceCache.delete(key);
+			}
+		}
 	}
 
 	/**

@@ -83,7 +83,11 @@
 			"ledger_name": "Ledger",
 			"session_expired": "La sesión de WalletConnect para {name} ha expirado. Por favor reconecta.",
 			"chain_switch_cancelled": "El cambio de red fue cancelado.",
-			"chain_switch_failed": "Error al cambiar de red."
+			"chain_switch_failed": "Error al cambiar de red.",
+			"dismiss_error": "Descartar",
+			"metamask_connecting_title": "Conectando a MetaMask",
+			"metamask_connecting_desc": "Por favor confirma la conexión en la ventana emergente de MetaMask.",
+			"pending_swap_warning": "Tienes intercambios en progreso. Desconectarte no los cancelará — revisa Intercambios Pendientes para ver el estado."
 		},
 		"tab_balance": "Saldo",
 		"tab_receive": "Recibir",
@@ -573,6 +577,10 @@
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Próximamente",
 		"retry": "Reintentar",
+		"insufficient_balance": "Saldo insuficiente",
+		"confirmed": "Confirmado",
+		"failed": "Fallido",
+		"pending": "Pendiente",
 		"refresh_balance": "Actualizar Saldo",
 		"balance_refreshed": "Saldo actualizado correctamente",
 		"refresh_failed": "Error al actualizar el saldo",
@@ -855,6 +863,9 @@
 		"history": {
 			"search": "Buscar transacciones..."
 		},
+		"balance": {
+			"updated_ago": "Actualizado hace {time}"
+		},
 		"toast": {
 			"blockchain_activity": "Actividad Blockchain",
 			"collapse": "Colapsar",
@@ -932,6 +943,47 @@
 			"insufficient_balance": "Saldo insuficiente",
 			"estimate_fee": "Estimar comisión",
 			"error": "Error de transacción"
+		},
+		"loan_flow": {
+			"title": "Convertir rBTC → USDT0",
+			"amount_label": "Monto en rBTC",
+			"balance": "Saldo",
+			"get_quote": "Obtener Cotización",
+			"fetching": "Buscando la mejor ruta...",
+			"you_send": "Envías",
+			"you_receive": "Recibes (est.)",
+			"bridge_fee": "Comisión de puente (est.)",
+			"flow_steps": "Pasos del Flujo",
+			"success_title": "Conversión Completada",
+			"success_received": "{amount} USDT0 recibidos en Arbitrum",
+			"error_title": "Conversión Fallida"
+		},
+		"gasless_history": {
+			"title": "Historial de Transacciones Sin Gas",
+			"no_transactions": "Aún no hay transacciones sin gas",
+			"to": "Para",
+			"fee": "Comisión"
+		},
+		"gasless_error": {
+			"insufficient_balance": "Saldo Insuficiente",
+			"insufficient_balance_desc": "Tu saldo de tokens es demasiado bajo para cubrir esta transferencia.",
+			"network_fee_high": "Comisión de Red Muy Alta",
+			"network_fee_high_desc": "La comisión estimada de red excede los límites esperados. Inténtalo más tarde.",
+			"fee_tier_mismatch": "Discrepancia en Nivel de Comisión",
+			"fee_tier_mismatch_desc": "El nivel de comisión seleccionado no coincide con la configuración actual del pool.",
+			"bundler_unavailable": "Bundler No Disponible",
+			"bundler_unavailable_desc": "El relé sin gas no está disponible temporalmente. Puedes enviar la transacción directamente usando ETH para el gas.",
+			"invalid_address": "Dirección Inválida",
+			"invalid_address_desc": "La dirección del destinatario no es una dirección EVM válida. Verifícala e inténtalo de nuevo.",
+			"generic": "Error de Transacción"
+		},
+		"gasless_confirm": {
+			"title": "Confirmar Envío Sin Gas",
+			"recipient": "Destinatario",
+			"amount": "Monto",
+			"network_fee": "Comisión de Red",
+			"total": "Total",
+			"confirm_send": "Confirmar y Enviar"
 		}
 	}
 }

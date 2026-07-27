@@ -108,8 +108,12 @@ export function convertToTokenFee(
 	tokenPriceUSD: bigint,
 	tokenDecimals: number
 ): bigint {
-	// Convert feeUSD to wei representation: feeUSD * 1e18
-	const feeUSDWei = BigInt(Math.round(feeUSD * 1e18));
+	// Convert feeUSD to 18-decimal BigInt without floating-point loss.
+	// Uses string-based conversion to match backend exactly.
+	const feeUSDStr = feeUSD.toFixed(18);
+	const [whole, frac = ''] = feeUSDStr.split('.');
+	const paddedFrac = frac.padEnd(18, '0').slice(0, 18);
+	const feeUSDWei = BigInt(whole) * 10n ** 18n + BigInt(paddedFrac);
 
 	// tokenAmount = feeUSDWei * 10^decimals / tokenPrice
 	// Add (tokenPrice - 1n) before division to simulate ceiling division
@@ -203,6 +207,20 @@ export function validateFeeParameters(userOp: {
 // =============================================================================
 // Fee Buffer Bounds Validation
 // =============================================================================
+
+/**
+ * Clamp a fee buffer to the token-specific min/max bounds.
+ * Prevents relay rejection when oracle prices produce out-of-bounds fees
+ * (e.g., at very high BTC prices, the Low tier fee falls below FEE_BUFFER_MIN).
+ */
+export function clampFeeBuffer(feeBuffer: bigint, tokenAddress: string): bigint {
+	const key = tokenAddress.toLowerCase();
+	const min = FEE_BUFFER_MIN[key];
+	const max = FEE_BUFFER_MAX[key];
+	if (min !== undefined && feeBuffer < min) return min;
+	if (max !== undefined && feeBuffer > max) return max;
+	return feeBuffer;
+}
 
 /**
  * Validate fee buffer amount against token-specific min/max bounds.

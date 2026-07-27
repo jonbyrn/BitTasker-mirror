@@ -79,6 +79,7 @@ function makeInitialState(overrides: Partial<WalletStateExtended> = {}): WalletS
 		pendingTransactions: new Map(),
 		chainLock: false,
 		lastBalanceRefresh: Date.now(),
+		activeBridge: null,
 		...overrides
 	};
 }

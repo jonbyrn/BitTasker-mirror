@@ -33,6 +33,8 @@ import { capBalanceToWalletMax } from './helpers';
 import { safeAddress, type SwapChainState } from '../state';
 import { sendEvmTransaction } from '../tx-helpers';
 
+let BRIDGE_GAS_RESERVE: Record<string, bigint> | null = null;
+
 const d = createDebug('swap-chain');
 
 /** Max uint256 — infinite approval. */
@@ -137,23 +139,69 @@ export async function executeLifiHop(
 		fromChainId === CHAIN_ID_ARB ? 'arbitrum' : fromChainId === CHAIN_ID_RSK ? 'rsk' : 'bsc';
 
 	// For ERC-20 source tokens on the gasless relay chain: cap at actual
-	// on-chain balance minus the relay fee buffer. The executeBatch batches
-	// the swap and a fee transfer — the swap amount must leave enough tokens
-	// for the fee transfer to succeed, otherwise the entire UserOp reverts.
+	// on-chain balance minus the relay fee buffer AND bridge gas margin.
+	// The executeBatch batches the swap and a fee transfer — the swap amount
+	// must leave enough tokens for BOTH the bridge's internal gas fees AND
+	// the fee transfer to succeed, otherwise the entire UserOp reverts.
 	if (fromTokenAddr !== NATIVE_TOKEN) {
 		const reserveAmount = state.relayFeeBuffer ? BigInt(state.relayFeeBuffer) : undefined;
+
+		// For cross-chain bridges, add BRIDGE_GAS_RESERVE to cover the bridge's
+		// internal gas/protocol fees (e.g., GasZip LayerZero messaging gas).
+		// Same-chain swaps (e.g., Uniswap V3 on Arbitrum) don't need this.
+		let bridgeGasMargin: bigint | undefined;
+		if (fromChainId !== toChainId) {
+			try {
+				if (!BRIDGE_GAS_RESERVE) {
+					const config = await import('$lib/wallet/gasless.config');
+					BRIDGE_GAS_RESERVE = config.BRIDGE_GAS_RESERVE;
+				}
+				const margin = BRIDGE_GAS_RESERVE?.[fromTokenAddr.toLowerCase()];
+				if (margin) {
+					bridgeGasMargin = margin;
+					d.log(
+						'[executeLifiHop] bridge gas reserve: %s wei (%s) for cross-chain %s→%s',
+						margin.toString(),
+						hop.fromAsset,
+						fromChainId,
+						toChainId
+					);
+				}
+			} catch {
+				// Non-blocking: if config import fails, proceed without bridge gas reserve
+				d.warn('[executeLifiHop] BRIDGE_GAS_RESERVE config unavailable');
+			}
+		}
+
 		const { data: cappedAmount, error: capError } = await capBalanceToWalletMax({
 			tokenAddress: fromTokenAddr,
 			userAddress: userAddr,
 			chain,
 			requestedAmount: fromAmountWei,
 			label: 'LI.FI',
-			reserveAmount
+			reserveAmount,
+			bridgeGasMargin
 		});
 		if (capError) {
 			return { data: null, error: capError };
 		}
-		fromAmountWei = cappedAmount;
+
+		// Track if the amount was capped so the UI can display the actual swap amount
+		if (cappedAmount !== fromAmountWei) {
+			const originalAmount = fromAmountWei;
+			fromAmountWei = cappedAmount;
+			const decimals_for_display = decimals;
+			const adjustedDecimal = Number(cappedAmount) / Math.pow(10, decimals_for_display);
+			state.adjustedAmount = adjustedDecimal.toFixed(decimals_for_display);
+			d.log(
+				'[executeLifiHop] amount capped: original=%s wei → adjusted=%s wei (%s)',
+				originalAmount.toString(),
+				cappedAmount.toString(),
+				state.adjustedAmount
+			);
+		} else {
+			fromAmountWei = cappedAmount;
+		}
 	}
 
 	if (fromAmountWei <= 0n) {

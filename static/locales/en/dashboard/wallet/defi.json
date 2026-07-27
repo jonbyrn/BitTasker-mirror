@@ -75,7 +75,9 @@
 				"rebalance": "Rebalance",
 				"clear_select": "Clear select",
 				"no_fees_to_collect": "No fees to collect",
-				"simulated_note": "simulated tx + local positions (defi-positions.store stand-in)"
+				"simulated_note": "simulated tx + local positions (defi-positions.store stand-in)",
+				"liq_label": "Liquidity",
+				"approve_failed_with_label": "{label} approval failed"
 			},
 			"shared": {
 				"no_positions": "No active DeFi positions",
@@ -99,6 +101,16 @@
 				"retry": "Retry"
 			},
 			"oracle_unavailable": "Price oracle is unavailable. Please try again.",
+			"tx_confirmed_hash": "Transaction confirmed: {hash}",
+			"lp_error_no_signer": "No signer available. Please connect a wallet.",
+			"lp_error_signer_unavailable": "Signer unavailable. Please reconnect your wallet.",
+			"supply_confirmation_failed": "Supply transaction confirmation failed",
+			"gas_estimate": "Gas Estimate",
+			"wallet_label": "Wallet",
+			"builtin_label": "Built-in",
+			"collateral_label": "Collateral",
+			"debt_label": "Debt",
+			"total_label": "Total",
 			"borrow_failed_after_collateral": "Supply succeeded but borrow failed. Your collateral is deposited — try borrowing again.",
 			"impermanent_loss_warning": "Impermanent loss at {percent}%. Consider removing liquidity.",
 			"close_position": "Close Position",
@@ -122,7 +134,22 @@
 				"button": "Approve",
 				"success": "Approved {token}",
 				"error": "Approval failed",
-				"failed": "Approval failed"
+				"failed": "Approval failed",
+				"approve_failed": "Token approval failed"
+			},
+			"error": {
+				"approve_failed": "Token approval failed",
+				"supply_failed": "Supply transaction failed",
+				"withdraw_failed": "Withdrawal failed",
+				"no_signer": "No signer available. Please connect a wallet.",
+				"wbtc_approve_failed": "wBTC approval failed",
+				"usdt0_approve_failed": "USDT0 approval failed",
+				"signer_unavailable": "Signer unavailable. Please reconnect your wallet.",
+				"no_recipient": "No recipient address available",
+				"evm_signer_unavailable": "EVM signer unavailable. Please connect an Ethereum wallet.",
+				"provide_lp_failed": "Failed to provide liquidity",
+				"remove_liquidity_failed": "Failed to remove liquidity",
+				"collect_fees_failed": "Failed to collect fees"
 			},
 			"wizard": {
 				"step_indicator": "Step {current} of {total}",
@@ -218,7 +245,9 @@
 				"review_gas_est": "Gas (est.)",
 				"borrow_confirmation_failed": "Borrow confirmation failed",
 				"supplying_collateral_status": "Supplying collateral...",
-				"borrowing_usdt0_status": "Borrowing USDT0..."
+				"borrowing_usdt0_status": "Borrowing USDT0...",
+				"supply": "Supply",
+				"borrow": "Borrow"
 			},
 			"position": {
 				"title": "Position Detail",
@@ -317,6 +346,26 @@
 				"step4_title": "Get your Bitcoin back",
 				"step4_desc": "When you repay your loan, your Bitcoin is returned to your wallet immediately. You keep any gains.",
 				"note": "If the value of your Bitcoin drops too low relative to your loan, it may be sold to repay the debt. Keep an eye on your LTV to stay safe."
+			},
+			"lending": {
+				"supply_submitted": "Supply submitted successfully",
+				"withdraw_submitted": "Withdrawal submitted successfully",
+				"your_supply": "Your Supply",
+				"health_factor": "Health Factor",
+				"collateral": "Collateral",
+				"withdraw_all": "Withdraw All",
+				"preview_approve_supply": "Preview: Approve & Supply",
+				"to_aave": "to Aave",
+				"projected_after_1y": "Projected after 1 year",
+				"ltv": "LTV",
+				"debt": "Debt",
+				"liq_price": "Liquidation Price"
+			},
+			"loan_wizard": {
+				"transaction_confirmed": "Transaction Confirmed",
+				"your_loans": "Your Loans",
+				"new_loan": "New Loan",
+				"transaction_receipts": "Transaction Receipts"
 			},
 			"lending_help": {
 				"title": "How Lending Works",

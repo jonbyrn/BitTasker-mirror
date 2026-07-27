@@ -99,6 +99,15 @@ export interface SwapChainState {
 	amount: string | null;
 
 	/**
+	 * Actual amount being swapped after balance capping (decimal string).
+	 * When the swap amount is capped by `capBalanceToWalletMax` (to reserve
+	 * relay fee buffer and bridge gas), this field stores the capped amount.
+	 * The UI should display this value instead of `amount` to show the user
+	 * what will actually be swapped. Null if no capping was applied.
+	 */
+	adjustedAmount: string | null;
+
+	/**
 	 * Relay fee buffer (in wei) that will be deducted from the hop 2 input
 	 * token balance by the gasless relay. Set by the orchestrator before
 	 * executing hop 2 so that executors can cap the swap amount to
@@ -173,6 +182,7 @@ export const INITIAL_SWAP_CHAIN_STATE: SwapChainState = {
 	destination: null,
 	sourceConnectedWalletId: null,
 	amount: null,
+	adjustedAmount: null,
 	relayFeeBuffer: null,
 	swap1Id: null,
 	swap2Id: null,
@@ -297,6 +307,7 @@ export async function loadSwapChainState(): Promise<SwapChainState> {
 			sourceConnectedWalletId:
 				typeof raw.sourceConnectedWalletId === 'string' ? raw.sourceConnectedWalletId : null,
 			amount: typeof raw.amount === 'string' ? raw.amount : null,
+			adjustedAmount: typeof raw.adjustedAmount === 'string' ? raw.adjustedAmount : null,
 			relayFeeBuffer: typeof raw.relayFeeBuffer === 'string' ? raw.relayFeeBuffer : null,
 			swap1Id: typeof raw.swap1Id === 'string' ? raw.swap1Id : null,
 			swap2Id: typeof raw.swap2Id === 'string' ? raw.swap2Id : null,

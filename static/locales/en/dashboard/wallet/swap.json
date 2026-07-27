@@ -250,7 +250,8 @@
 				"slippage_exceeded": "Price moved too much. Please try again or increase slippage tolerance.",
 				"insufficient_liquidity": "Not enough liquidity for this swap. Try a smaller amount.",
 				"boltz_unavailable": "Boltz service is temporarily unavailable. Please try again later.",
-				"gas_estimation_failed": "Failed to estimate gas fees. Please try again."
+				"gas_estimation_failed": "Failed to estimate gas fees. Please try again.",
+				"timed_out_pending": "Swap timed out but may still be in progress. Check Pending Swaps for status."
 			},
 			"step": {
 				"lock_rbtc": "Locking rBTC on Rootstock",
@@ -391,7 +392,37 @@
 				"use_this_route": "Use this route",
 				"fallback_routes_available": "Fallback routes available",
 				"use_fallback": "Use {provider}"
-			}
+			},
+			"gasless_fee_reserved": "{fee} of your balance is reserved for network and relay fees. The actual swap amount is {amount}.",
+			"cross_chain_delivery_note": "Cross-chain delivery",
+			"cross_chain_delivery_desc": "Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.",
+			"cancel_warning": "Your swap is still in progress. Check Pending Swaps for status.",
+			"relay_unavailable": "The gasless relay is temporarily unavailable. Please try again in a few minutes.",
+			"high_fee_warning": "Fee exceeds 50% of swap amount",
+			"bridge_in_progress": "Bridging your funds to the destination chain...",
+			"bridge_taking_longer": "This is taking longer than usual. Your funds are safe.",
+			"bridging_title": "Bridging in Progress",
+			"source_sent": "Sent",
+			"dest_expected": "Receiving",
+			"elapsed": "Elapsed",
+			"bridge_safe_to_close": "You can safely close this screen. Your funds are in transit on the blockchain.",
+			"bridge_received": "I received my funds",
+			"bridge_banner_active": "Bridging {sourceAmount} {sourceAsset} → {destAsset}",
+			"bridge_banner_eta": "Estimated ~{minutes} min",
+			"bridge_banner_elapsed": "{time} elapsed",
+			"bridge_in_progress": "Bridging your funds to the destination chain...",
+			"bridge_taking_longer": "This is taking longer than usual. Your funds are safe.",
+			"bridge_timeout": "The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.",
+			"bridge_failed": "The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.",
+			"bridge_delayed": "Bridge Taking Longer",
+			"bridge_offline": "You appear to be offline. Your funds are safe on the blockchain. Reconnecting...",
+			"source_tx": "Source TX",
+			"route_steps": "Route steps",
+			"cross_chain_delivery_note": "Cross-chain delivery",
+			"cross_chain_delivery_desc": "Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.",
+			"relay_unavailable": "The gasless relay is temporarily unavailable. Please try again in a few minutes.",
+			"partial_delivery": "Partial delivery",
+			"partial_delivery_desc": "Received {actual} (expected {expected}). The difference is due to bridge fees and slippage."
 		}
 	}
 }

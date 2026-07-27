@@ -99,6 +99,19 @@ export async function sendArbitrumTransaction(params: {
 		const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === params.feeToken!.toLowerCase());
 		console.log(`[sendArbitrumTransaction] Using preferred fee token ${tokenInfo?.symbol ?? params.feeToken}, feeBuffer=${feeBuffer}`);
 
+		// Safety check: verify the fee token balance covers the fee buffer.
+		// For atomic claim+fee patterns (e.g., Boltz tBTC claim), the balance
+		// may be 0 before execution — skip the check in that case.
+		const { queryERC20Balance } = await import('$lib/services/swap-chain/tx-helpers');
+		const { gaslessWallet } = await import('$lib/wallet/gasless-store');
+		const prefSender = get(gaslessWallet).address;
+		if (prefSender) {
+			const feeBalance = await queryERC20Balance(params.feeToken, prefSender, 'arbitrum');
+			if (feeBalance !== null && feeBalance > 0n && feeBalance < feeBuffer) {
+				console.warn(`[sendArbitrumTransaction] Insufficient ${tokenInfo?.symbol} for fee: have ${feeBalance}, need ${feeBuffer}`);
+			}
+		}
+
 		const txHash = await Promise.race([
 			sendGaslessCalls(
 				actualCalls,
@@ -151,6 +164,18 @@ export async function sendArbitrumTransaction(params: {
 				if (tokenBalance < feeBuffer) {
 					console.log(`[sendArbitrumTransaction] Insufficient ${symbol} for fee buffer: have ${tokenBalance}, need ${feeBuffer}`);
 					continue;
+				}
+
+				// Safety warning: if the balance barely covers the fee buffer,
+				// the swap may fail if the bridge pulls additional tokens.
+				// The executor's capBalanceToWalletMax should prevent this,
+				// but warn here as a defense-in-depth signal.
+				const margin = tokenBalance - feeBuffer;
+				if (margin < feeBuffer) {
+					console.warn(
+						`[sendArbitrumTransaction] Thin margin for ${symbol}: balance=${tokenBalance}, feeBuffer=${feeBuffer}, remaining=${margin}. ` +
+						`If this token is also used for the swap, the bridge may fail.`
+					);
 				}
 
 				const txHash = await Promise.race([

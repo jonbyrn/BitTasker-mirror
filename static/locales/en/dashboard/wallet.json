@@ -89,7 +89,11 @@
 			"ledger_name": "Ledger",
 			"session_expired": "WalletConnect session for {name} has expired. Please reconnect.",
 			"chain_switch_cancelled": "Chain switch was cancelled.",
-			"chain_switch_failed": "Failed to switch chain."
+			"chain_switch_failed": "Failed to switch chain.",
+			"dismiss_error": "Dismiss",
+			"metamask_connecting_title": "Connecting to MetaMask",
+			"metamask_connecting_desc": "Please confirm the connection in the MetaMask popup.",
+			"pending_swap_warning": "You have swaps in progress. Disconnecting now will not cancel them — check Pending Swaps for status."
 		},
 		"tab_transactions": "Transactions",
 		"total_balance": "Total Balance",
@@ -577,6 +581,12 @@
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Coming Soon",
 		"retry": "Retry",
+		"insufficient_balance": "Insufficient balance",
+		"confirmed": "Confirmed",
+		"failed": "Failed",
+		"pending": "Pending",
+		"doc_rsk": "DOC (RSK)",
+		"usdt0_rsk": "USDT0 (RSK)",
 		"refresh_balance": "Refresh Balance",
 		"balance_refreshed": "Balance refreshed successfully",
 		"refresh_failed": "Failed to refresh balance",
@@ -896,6 +906,9 @@
 		"history": {
 			"search": "Search transactions..."
 		},
+		"balance": {
+			"updated_ago": "Updated {time} ago"
+		},
 		"toast": {
 			"blockchain_activity": "Blockchain Activity",
 			"collapse": "Collapse",
@@ -928,7 +941,9 @@
 			"updated_ago": "Updated {time} ago",
 			"just_now": "Just now",
 			"minutes_ago": "{n}m ago",
-			"hours_ago": "{n}h ago"
+			"hours_ago": "{n}h ago",
+			"time_approx_seconds": "~{seconds}s",
+			"time_approx_minutes": "~{minutes}m"
 		},
 		"tier2_tokens_title": "additional token balances detected",
 		"usdt0_arbitrum": "USDT0 (Arbitrum)",
@@ -969,6 +984,47 @@
 			"insufficient_balance": "Insufficient balance",
 			"estimate_fee": "Estimate Fee",
 			"error": "Transaction Error"
+		},
+		"loan_flow": {
+			"title": "Convert rBTC → USDT0",
+			"amount_label": "rBTC Amount",
+			"balance": "Balance",
+			"get_quote": "Get Quote",
+			"fetching": "Fetching best route...",
+			"you_send": "You send",
+			"you_receive": "You receive (est.)",
+			"bridge_fee": "Bridge fee (est.)",
+			"flow_steps": "Flow Steps",
+			"success_title": "Conversion Complete",
+			"success_received": "{amount} USDT0 received on Arbitrum",
+			"error_title": "Conversion Failed"
+		},
+		"gasless_history": {
+			"title": "Gasless Transaction History",
+			"no_transactions": "No gasless transactions yet",
+			"to": "To",
+			"fee": "Fee"
+		},
+		"gasless_error": {
+			"insufficient_balance": "Insufficient Balance",
+			"insufficient_balance_desc": "Your token balance is too low to cover this transfer.",
+			"network_fee_high": "Network Fee Too High",
+			"network_fee_high_desc": "The estimated network fee exceeds expected limits. Please try again later.",
+			"fee_tier_mismatch": "Fee Tier Mismatch",
+			"fee_tier_mismatch_desc": "The selected fee tier doesn't match the current pool configuration.",
+			"bundler_unavailable": "Bundler Unavailable",
+			"bundler_unavailable_desc": "The gasless relay is temporarily unavailable. You can send the transaction directly using ETH for gas.",
+			"invalid_address": "Invalid Address",
+			"invalid_address_desc": "The recipient address is not a valid EVM address. Please check and try again.",
+			"generic": "Transaction Error"
+		},
+		"gasless_confirm": {
+			"title": "Confirm Gasless Send",
+			"recipient": "Recipient",
+			"amount": "Amount",
+			"network_fee": "Network Fee",
+			"total": "Total",
+			"confirm_send": "Confirm & Send"
 		}
 	}
 }

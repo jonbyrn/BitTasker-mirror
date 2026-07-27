@@ -30,6 +30,7 @@
 		destAssetName: string;
 		showSatsSource: boolean;
 		showSatsDest: boolean;
+		route?: { hops: Array<{ service: string; fromAsset?: string; toAsset?: string; fromChain?: string; toChain?: string }> } | null;
 	}
 
 	let {
@@ -56,7 +57,8 @@
 		sourceAssetName,
 		destAssetName,
 		showSatsSource,
-		showSatsDest
+		showSatsDest,
+		route = null
 	}: Props = $props();
 
 	const usdFormatter = $derived(
@@ -180,6 +182,26 @@
 			assetName={destAssetName}
 		/>
 	</div>
+
+	<!-- Multi-hop route steps disclosure -->
+	{#if route && route.hops.length > 1 && !isDirectTransfer}
+		<div class="bg-base-200 rounded-lg p-3 text-xs">
+			<p class="text-base-content/50 mb-2 font-medium">{$t('wallet.swap.route_steps') || 'Route steps'}</p>
+			<div class="space-y-1.5">
+				{#each route.hops as hop, i}
+					<div class="flex items-center gap-2">
+						<span class="text-base-content/40 font-mono">{i + 1}.</span>
+						<span class="font-medium">{hop.fromAsset || '...'}</span>
+						<svg class="text-base-content/30 h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
+						<span class="font-medium">{hop.toAsset || '...'}</span>
+						<span class="text-base-content/40 ml-auto">via {hop.service}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Cross-chain warning removed per user request -->
 </div>

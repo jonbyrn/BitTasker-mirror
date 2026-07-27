@@ -98,7 +98,11 @@
 				"self_send": "Cannot send to your own address",
 				"below_dust": "Amount is below minimum ({min} sats)",
 				"below_lnurl_min": "Amount is below the minimum ({min} sats)",
-				"above_lnurl_max": "Amount exceeds the maximum ({max} sats)"
+				"above_lnurl_max": "Amount exceeds the maximum ({max} sats)",
+				"user_rejected": "Transaction was rejected by wallet",
+				"insufficient_funds": "Insufficient funds to complete this transaction",
+				"network_error": "Network error. Please check your connection and try again.",
+				"invalid_amount": "Please enter a valid amount"
 			},
 			"network": {
 				"ethereum": "Ethereum",
@@ -111,6 +115,9 @@
 			},
 			"address_label": "Recipient address",
 			"enter_address": "(Enter Address)",
+			"select_destination": "Select destination",
+			"paste_address": "Paste address",
+			"sent_successfully": "Sent successfully",
 			"asset": {
 				"rbtc": "Bitcoin (rBTC)",
 				"rbtc_sub": "Bitcoin on Rootstock",

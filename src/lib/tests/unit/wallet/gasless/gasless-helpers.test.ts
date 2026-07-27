@@ -30,11 +30,11 @@ vi.mock('$lib/wallet/gasless.config', () => {
 	const ALLOWED_FEE_TOKENS = TOKENS.map((t) => t.address.toLowerCase());
 	const GAS_BOUNDS = {
 		maxCallGas: 5_000_000n,
-		maxVerificationGas: 1_000_000n,
-		maxPreVerificationGas: 400_000n,
+		maxVerificationGas: 500_000n,
+		maxPreVerificationGas: 100_000n,
 		maxFeePerGas: 1_000_000_000n,
 		maxPriorityFeePerGas: 100_000_000n,
-		maxTotalGas: 6_400_000n
+		maxTotalGas: 6_000_000n
 	};
 	const FEE_TIERS = [
 		{ label: 'Low', minGas: 0n, maxGas: 200_000n, feeUSD: 0.01 },
@@ -43,7 +43,7 @@ vi.mock('$lib/wallet/gasless.config', () => {
 		{
 			label: 'Very High',
 			minGas: 1_000_001n,
-			maxGas: 6_400_000n,
+			maxGas: 6_000_000n,
 			feeUSD: 0.1
 		}
 	];
@@ -267,16 +267,16 @@ describe('getNetworkFeeTier', () => {
 		expect(getNetworkFeeTier(5_000_000n).label).toBe('Very High');
 	});
 
-	it('Very High tier at boundary 6.4M', () => {
-		expect(getNetworkFeeTier(6_300_000n).label).toBe('Very High');
+	it('Very High tier at boundary 5.9M', () => {
+		expect(getNetworkFeeTier(5_900_000n).label).toBe('Very High');
 	});
 
-	it('Very High tier at boundary 6.4M', () => {
-		expect(getNetworkFeeTier(6_400_000n).label).toBe('Very High');
+	it('Very High tier at boundary 6M', () => {
+		expect(getNetworkFeeTier(6_000_000n).label).toBe('Very High');
 	});
 
-	it('throws for 6.4M+1 gas (too high)', () => {
-		expect(() => getNetworkFeeTier(6_400_001n)).toThrow('Network fee too high');
+	it('throws for 6M+1 gas (too high)', () => {
+		expect(() => getNetworkFeeTier(6_000_001n)).toThrow('Network fee too high');
 	});
 });
 
@@ -289,8 +289,8 @@ describe('convertToTokenFee', () => {
 		expect(convertToTokenFee(0.03, 1_000_000_000_000_000_000n, 6)).toBe(30_000n);
 	});
 
-	it('converts 0.10 USD to USDT0 units (1e5 at 6 decimals)', () => {
-		expect(convertToTokenFee(0.1, 1_000_000_000_000_000_000n, 6)).toBe(100_000n);
+	it('converts 0.10 USD to USDT0 units (1e5+1 at 6 decimals)', () => {
+		expect(convertToTokenFee(0.1, 1_000_000_000_000_000_000n, 6)).toBe(100_001n);
 	});
 
 	it('converts 0.01 USD to wBTC units (~16 sats at 66K)', () => {
@@ -323,12 +323,12 @@ describe('getUSDT0FeeBuffer', () => {
 		expect(getUSDT0FeeBuffer(0.03)).toBe(30_000n);
 	});
 
-	it('returns 5e4 for 0.05 USD (6 decimals)', () => {
-		expect(getUSDT0FeeBuffer(0.05)).toBe(50_000n);
+	it('returns 5e4+1 for 0.05 USD (6 decimals, string-based rounding)', () => {
+		expect(getUSDT0FeeBuffer(0.05)).toBe(50_001n);
 	});
 
-	it('returns 1e5 for 0.10 USD (6 decimals)', () => {
-		expect(getUSDT0FeeBuffer(0.1)).toBe(100_000n);
+	it('returns 1e5+1 for 0.10 USD (6 decimals)', () => {
+		expect(getUSDT0FeeBuffer(0.1)).toBe(100_001n);
 	});
 });
 
@@ -360,20 +360,20 @@ describe('validateFeeParameters', () => {
 		).toThrow('verificationGasLimit exceeds maximum');
 	});
 
-	it('throws for preVerificationGas above 400K limit', () => {
+	it('throws for preVerificationGas above 100K limit', () => {
 		expect(() =>
 			validateFeeParameters({
 				...validParams,
-				preVerificationGas: 400_001n
+				preVerificationGas: 100_001n
 			})
 		).toThrow('preVerificationGas exceeds maximum');
 	});
 
-	it('accepts preVerificationGas at 400K (new EIP-7702 limit)', () => {
+	it('accepts preVerificationGas at 100K (EIP-7702 limit)', () => {
 		expect(() =>
 			validateFeeParameters({
 				...validParams,
-				preVerificationGas: 300_000n
+				preVerificationGas: 100_000n
 			})
 		).not.toThrow();
 	});
@@ -387,24 +387,24 @@ describe('validateFeeParameters', () => {
 		).toThrow('maxFeePerGas exceeds ceiling');
 	});
 
-	it('throws for total gas > 6.4M (via callGasLimit)', () => {
+	it('throws for total gas > 6M (via callGasLimit)', () => {
 		expect(() =>
 			validateFeeParameters({
 				callGasLimit: 5_000_001n, // exceeds maxCallGas of 5M
-				verificationGasLimit: 1_000_000n,
-				preVerificationGas: 300_000n,
+				verificationGasLimit: 500_000n,
+				preVerificationGas: 100_000n,
 				maxFeePerGas: 100_000_000n,
 				maxPriorityFeePerGas: 10_000_000n
 			})
 		).toThrow('callGasLimit exceeds maximum');
 	});
 
-	it('accepts total gas = 6.4M', () => {
+	it('accepts total gas at individual maximums (5.6M)', () => {
 		expect(() =>
 			validateFeeParameters({
 				callGasLimit: 5_000_000n,
-				verificationGasLimit: 1_000_000n,
-				preVerificationGas: 300_000n,
+				verificationGasLimit: 500_000n,
+				preVerificationGas: 100_000n,
 				maxFeePerGas: 100_000_000n,
 				maxPriorityFeePerGas: 10_000_000n
 			})

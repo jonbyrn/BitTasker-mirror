@@ -37,6 +37,8 @@
 		"back_to_tasks": "Cancel",
 		"redirecting_to_login": "Redirecting to login...",
 		"or": "or",
+		"not_now": "Not now",
+		"retry": "Retry",
 		"processing": "Processing",
 		"loading": "Loading...",
 		"close": "Close",

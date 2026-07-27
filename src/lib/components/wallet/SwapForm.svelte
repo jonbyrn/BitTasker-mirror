@@ -3,8 +3,9 @@
 	import { fly } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
-	import { walletManager } from '$lib/stores/wallet.store';
+	import { walletManager, walletStore } from '$lib/stores/wallet.store';
 	import { type SourceWallet } from '$lib/services/route-resolver';
+	import tokenBalanceService from '$lib/api/services/token-balance.service';
 	import { onSwapProgress, type SwapProgressStep } from '$lib/services/swap-chain.service';
 	import type { SmartRoute } from '$lib/services/SmartRouter';
 	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
@@ -23,6 +24,8 @@
 	import { useSwapBalanceCheck } from '$lib/runes/use-swap-balance-check.svelte';
 	import SwapConfirmPhase from '$lib/components/wallet/SwapConfirmPhase.svelte';
 	import SwapFormPhase from '$lib/components/wallet/SwapFormPhase.svelte';
+	import SwapSuccessPhase from '$lib/components/wallet/SwapSuccessPhase.svelte';
+	import SwapFailedPhase from '$lib/components/wallet/SwapFailedPhase.svelte';
 	import SwapProgressView from '$lib/components/wallet/swapProgress/SwapProgressView.svelte';
 	import { sanitizeSwapError } from '$lib/utils/swap-error';
 	import {
@@ -41,6 +44,14 @@
 	import { REQUIRED_CONFIRMATIONS } from '$lib/utils/wallet/chain-confirmations';
 	import { getAssetForNetwork, getSourceAddress } from '$lib/utils/wallet/toast-helpers';
 	import { mapErrorToKey } from '$lib/utils/wallet/error-mapping';
+	import {
+		FEE_BUFFER_MAX,
+		BRIDGE_GAS_RESERVE,
+		USDT0_ADDRESS,
+		WBTC_ADDRESS,
+		TBTC_ADDRESS,
+		relayAvailable
+	} from '$lib/wallet/gasless.config';
 
 	const d = createDebug('swap');
 
@@ -69,7 +80,7 @@
 	// -----------------------------------------------------------------------
 	let sourceType = $state<SourceWallet>('rbtc');
 	let destType = $state<DestType>('usdt0-arb');
-	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'complete' | 'failed'>('form');
+	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'bridging' | 'complete' | 'failed'>('form');
 	let errorMessage = $state('');
 	let _swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
@@ -80,6 +91,19 @@
 	let _swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let _swapAbortController: AbortController | null = null;
 	let highValueConfirmed = $state(false);
+
+	// Bridge delivery tracking (for cross-chain swaps)
+	let _bridgeDeliveryTimer: ReturnType<typeof setTimeout> | null = null;
+	let _bridgeElapsedSeconds = $state(0);
+	let _bridgeEstimatedSeconds = $state(0);
+	let _bridgeStatusMessage = $state('');
+	let _bridgeTakingLonger = $state(false);
+	let _bridgeFailed = $state(false);
+	let _bridgeDestBalanceSnapshot = 0;
+	let _bridgePollIntervalMs = 5_000;
+	let _bridgeStartedAt = 0;
+	let _bridgeDestType = '';
+	let _bridgeSourceAmount = '';
 
 	const SWAP_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -93,9 +117,228 @@
 			clearTimeout(_swapTimeoutId);
 			_swapTimeoutId = null;
 		}
-		_swapAbortController?.abort();
-		_swapAbortController = null;
 	}
+
+	/**
+	 * Start tracking bridge delivery for cross-chain swaps.
+	 * 
+	 * Features:
+	 * - Snapshots destination balance before bridge starts
+	 * - Polls with exponential backoff (5s → 10s → 20s → 30s max)
+	 * - Auto-transitions to 'complete' when destination balance increases
+	 * - Shows "taking longer" after 1.5× estimated time
+	 * - Shows "bridge failed" after 3× estimated time (timeout)
+	 * - Persists bridge state for recovery on page refresh
+	 */
+	function _startBridgeDeliveryTracking(estimatedMinutes: number) {
+		_bridgeElapsedSeconds = 0;
+		_bridgeEstimatedSeconds = Math.max(30, estimatedMinutes * 60);
+		_bridgeStatusMessage = $t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
+		_bridgeTakingLonger = false;
+		_bridgeFailed = false;
+		_bridgePollIntervalMs = 5_000;
+		_bridgeStartedAt = Date.now();
+		_bridgeDestType = destType;
+		_bridgeSourceAmount = swapCalc.amount ?? '';
+
+		// Snapshot the destination balance before bridge starts
+		const store = get(walletStore);
+		if (destType === 'rbtc-rsk') {
+			_bridgeDestBalanceSnapshot = parseFloat(store.rsk.balance) || 0;
+		} else if (destType === 'usdt0-arb') {
+			_bridgeDestBalanceSnapshot = parseFloat(store.arb.usdt0Balance) || 0;
+		} else if (destType === 'wbtc-arb') {
+			_bridgeDestBalanceSnapshot = parseFloat(store.arb.wbtcBalance) || 0;
+		}
+
+		// Persist bridge state for recovery on page refresh
+		_persistBridgeState();
+
+		// Start polling with exponential backoff
+		_scheduleBridgePoll();
+	}
+
+	/**
+	 * Schedule the next bridge delivery poll with exponential backoff.
+	 * Starts at 5s, doubles each time, caps at 30s.
+	 */
+	function _scheduleBridgePoll() {
+		if (swapPhase !== 'bridging') return;
+
+		_bridgeDeliveryTimer = setTimeout(() => {
+			if (swapPhase !== 'bridging') return;
+
+			_bridgeElapsedSeconds = Math.floor((Date.now() - _bridgeStartedAt) / 1000);
+
+			// Check for "taking longer" state (1.5× estimated)
+			if (_bridgeElapsedSeconds > _bridgeEstimatedSeconds * 1.5 && !_bridgeTakingLonger) {
+				_bridgeTakingLonger = true;
+				_bridgeStatusMessage = $t('wallet.swap.bridge_taking_longer') || 'This is taking longer than usual. Your funds are safe.';
+			}
+
+			// Check for bridge failure timeout (3× estimated)
+			if (_bridgeElapsedSeconds > _bridgeEstimatedSeconds * 3 && !_bridgeFailed) {
+				_bridgeFailed = true;
+				_bridgeStatusMessage = $t('wallet.swap.bridge_timeout') || 'The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.';
+				_stopBridgeDeliveryTracking();
+				return;
+			}
+
+			// Handle network disconnection during bridge
+			if (!isOnline) {
+				_bridgeStatusMessage = $t('wallet.swap.bridge_offline') || 'You appear to be offline. Your funds are safe on the blockchain. Reconnecting...';
+				// Don't poll while offline — schedule next poll at current interval
+				_scheduleBridgePoll();
+				return;
+			}
+
+			// Refresh balances and check for delivery
+			walletManager.loadAssets(true).then(() => {
+				void _checkBridgeDelivery();
+			}).catch(() => {});
+
+			// Exponential backoff: 5s → 10s → 20s → 30s (max)
+			_bridgePollIntervalMs = Math.min(_bridgePollIntervalMs * 2, 30_000);
+			_scheduleBridgePoll();
+		}, _bridgePollIntervalMs);
+	}
+
+	/**
+	 * Check if the bridge has delivered by comparing destination balance
+	 * to the snapshot taken before the bridge started, and optionally
+	 * checking the LI.FI status API for more accurate tracking.
+	 */
+	async function _checkBridgeDelivery() {
+		if (swapPhase !== 'bridging') return;
+
+		// Check LI.FI status API if we have a tx hash
+		if (_swapResult?.txHash) {
+			try {
+				const { lifiService } = await import('$lib/services/lifi.service');
+				const status = await lifiService.getStatus(_swapResult.txHash);
+				if (status.status === 'DONE' && status.receiving?.txHash) {
+					d.log('[SwapForm] LI.FI status DONE: receiving tx=%s', status.receiving.txHash);
+					_confirmBridgeDelivery();
+					return;
+				}
+				if (status.status === 'FAILED') {
+					d.error('[SwapForm] LI.FI status FAILED for tx=%s', _swapResult.txHash);
+					_bridgeFailed = true;
+					_bridgeStatusMessage = $t('wallet.swap.bridge_failed') || 'The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.';
+					_stopBridgeDeliveryTracking();
+					return;
+				}
+			} catch {
+				// Non-blocking: fall back to balance check
+			}
+		}
+
+		// Fallback: check destination balance increase
+		const store = get(walletStore);
+		let currentBalance = 0;
+
+		if (_bridgeDestType === 'rbtc-rsk') {
+			currentBalance = parseFloat(store.rsk.balance) || 0;
+		} else if (_bridgeDestType === 'usdt0-arb') {
+			currentBalance = parseFloat(store.arb.usdt0Balance) || 0;
+		} else if (_bridgeDestType === 'wbtc-arb') {
+			currentBalance = parseFloat(store.arb.wbtcBalance) || 0;
+		}
+
+		// If destination balance increased, bridge has delivered
+		if (currentBalance > _bridgeDestBalanceSnapshot + 0.000001) {
+			d.log('[SwapForm] Bridge delivery detected via balance: %s balance %s → %s', _bridgeDestType, _bridgeDestBalanceSnapshot, currentBalance);
+			_confirmBridgeDelivery();
+		}
+	}
+
+	function _stopBridgeDeliveryTracking() {
+		if (_bridgeDeliveryTimer) {
+			clearTimeout(_bridgeDeliveryTimer);
+			_bridgeDeliveryTimer = null;
+		}
+	}
+
+	/** Persist bridge state to Capacitor Preferences for recovery on page refresh. */
+	async function _persistBridgeState() {
+		try {
+			const { Preferences } = await import('@capacitor/preferences');
+			const bridge = get(walletStore).activeBridge;
+			if (bridge) {
+				await Preferences.set({
+					key: 'active_bridge',
+					value: JSON.stringify(bridge)
+				});
+			}
+		} catch {
+			// Non-blocking
+		}
+	}
+
+	/** Clear persisted bridge state from Capacitor Preferences. */
+	async function _clearPersistedBridgeState() {
+		try {
+			const { Preferences } = await import('@capacitor/preferences');
+			await Preferences.remove({ key: 'active_bridge' });
+		} catch {
+			// Non-blocking
+		}
+	}
+
+	/**
+	 * Manually confirm bridge delivery (called from the bridging UI).
+	 * Transitions to 'complete' phase.
+	 */
+	function _confirmBridgeDelivery() {
+		_stopBridgeDeliveryTracking();
+		_bridgeFailed = false;
+		// Clear active bridge from wallet store and persisted state
+		walletStore.update((s) => ({ ...s, activeBridge: null }));
+		void _clearPersistedBridgeState();
+		swapPhase = 'complete';
+		triggerHaptic(ImpactStyle.Heavy);
+		blockchainToastStore.onSuccess('bridge-delivered');
+	}
+
+	/**
+	 * Detect restored bridge state on mount.
+	 * When the wallet page restores activeBridge from Preferences (page refresh
+	 * during a bridge), this effect enters 'bridging' phase and restarts delivery
+	 * tracking so the user sees the progress without manually starting a new swap.
+	 */
+	let _bridgeRestoreHandled = false;
+	$effect(() => {
+		const bridge = $walletStore.activeBridge;
+		if (bridge && swapPhase === 'form' && !_bridgeRestoreHandled) {
+			_bridgeRestoreHandled = true;
+			d.log('[SwapForm] Restoring bridge tracking: %s → %s', bridge.sourceAsset, bridge.destAsset);
+			swapPhase = 'bridging';
+			_swapResult = { swapId: bridge.swapId, txHash: bridge.txHash };
+			_bridgeSourceAmount = bridge.sourceAmount;
+			_bridgeDestType = bridge.destAsset === 'rBTC' ? 'rbtc-rsk' : 'usdt0-arb';
+
+			const elapsed = Math.floor((Date.now() - bridge.startedAt) / 1000);
+			_bridgeElapsedSeconds = elapsed;
+			_bridgeEstimatedSeconds = Math.max(30, bridge.estimatedMinutes * 60);
+			_bridgeStatusMessage = $t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
+			_bridgeTakingLonger = elapsed > _bridgeEstimatedSeconds * 1.5;
+			_bridgeFailed = elapsed > _bridgeEstimatedSeconds * 3;
+			_bridgePollIntervalMs = 10_000; // Start with longer interval on restore
+			_bridgeStartedAt = bridge.startedAt;
+
+			// Snapshot destination balance
+			const store = get(walletStore);
+			if (_bridgeDestType === 'rbtc-rsk') {
+				_bridgeDestBalanceSnapshot = parseFloat(store.rsk.balance) || 0;
+			} else if (_bridgeDestType === 'usdt0-arb') {
+				_bridgeDestBalanceSnapshot = parseFloat(store.arb.usdt0Balance) || 0;
+			}
+
+			if (!_bridgeFailed) {
+				_scheduleBridgePoll();
+			}
+		}
+	});
 
 	// Local smartRoute for SwapFallback retry injection; main route state in swapRoutes rune.
 	let smartRoute = $state<SmartRoute | null>(null);
@@ -186,33 +429,38 @@
 
 	const swapCalc = useSwapCalculator({
 		getWalletBalanceToken: () => {
+			let rawBalance: number;
 			if (sourceType === 'rbtc') {
-				return (
+				rawBalance =
 					(sourceWallet === 'builtin'
 						? swapOptions.builtinRbtcSats
-						: swapWallets.sourceBalances.rbtcSats) / 100_000_000
-				);
-			}
-			if (sourceType === 'wbtc-arb') {
-				return (
+						: swapWallets.sourceBalances.rbtcSats) / 100_000_000;
+			} else if (sourceType === 'wbtc-arb') {
+				rawBalance =
 					(sourceWallet === 'builtin'
 						? swapOptions.builtinWbtcSats
-						: swapWallets.sourceBalances.wbtcSats) / 100_000_000
-				);
-			}
-			if (sourceType === 'tbtc-arb') {
-				return (
+						: swapWallets.sourceBalances.wbtcSats) / 100_000_000;
+			} else if (sourceType === 'tbtc-arb') {
+				rawBalance =
 					(sourceWallet === 'builtin'
 						? swapOptions.builtinTbtcSats
-						: swapWallets.sourceBalances.tbtcSats) / 100_000_000
-				);
+						: swapWallets.sourceBalances.tbtcSats) / 100_000_000;
+			} else if (sourceType === 'btc-onchain') {
+				rawBalance = (sourceWallet === 'builtin' ? 0 : swapWallets.externalBtcBalanceSats) / 100_000_000;
+			} else {
+				rawBalance = sourceWallet === 'builtin'
+					? swapOptions.builtinUsdt0
+					: swapWallets.sourceBalances.usdt0;
 			}
-			if (sourceType === 'btc-onchain') {
-				return (sourceWallet === 'builtin' ? 0 : swapWallets.externalBtcBalanceSats) / 100_000_000;
+			// For Arbitrum ERC-20 tokens: subtract the gasless relay fee reserve.
+			// The executeBatch batches the swap and a fee transfer from the same
+			// token balance. Without this reservation, setting max amount would
+			// leave zero tokens for the fee transfer, causing the UserOp to revert.
+			const reserve = gaslessFeeReserve;
+			if (reserve > 0 && rawBalance > reserve) {
+				return rawBalance - reserve;
 			}
-			return sourceWallet === 'builtin'
-				? swapOptions.builtinUsdt0
-				: swapWallets.sourceBalances.usdt0;
+			return rawBalance;
 		},
 		getSourceType: () => sourceType,
 		getBtcUsdPrice: () => swapInput.btcUsdPrice,
@@ -261,7 +509,9 @@
 		getEstimatedOutput: () => swapRoutes.estimatedOutput,
 		getIsValidAmount: () => swapCalc.isValidAmount,
 		getIsOnline: () => isOnline,
-		getIsFormPhase: () => swapPhase === 'form'
+		getIsFormPhase: () => swapPhase === 'form',
+		getRelayAvailable: () => relayAvailable,
+		getGasDataAvailable: () => swapRoutes.gasDataAvailable
 	});
 
 	// Re-export pure from calc for template (satsUsd used in labels).
@@ -277,6 +527,37 @@
 	let sourceAssets = $derived(swapOptions.sourceAssets);
 	const walletBtcSatsForFn = swapOptions.walletBtcSatsFor;
 	const walletUsdt0ForFn = swapOptions.walletUsdt0For;
+
+	// Gasless relay fee reserve: for Arbitrum ERC-20 swaps, the executeBatch
+	// includes both the swap and a fee transfer from the same token balance.
+	// We must reserve FEE_BUFFER_MAX from the displayed balance so the user
+	// cannot enter an amount that would leave insufficient tokens for the fee.
+	const gaslessFeeReserve = $derived.by(() => {
+		const arbTokens: Record<string, { addr: string; decimals: number }> = {
+			'usdt0': { addr: USDT0_ADDRESS, decimals: 6 },
+			'wbtc-arb': { addr: WBTC_ADDRESS, decimals: 8 },
+			'tbtc-arb': { addr: TBTC_ADDRESS, decimals: 18 }
+		};
+		const info = arbTokens[sourceType];
+		if (!info) return 0;
+		const addrLower = info.addr.toLowerCase();
+		const maxBuffer = FEE_BUFFER_MAX[addrLower];
+		if (!maxBuffer) return 0;
+		let reserve = Number(maxBuffer) / Math.pow(10, info.decimals);
+		// For cross-chain swaps, add bridge gas reserve
+		const isCrossChain = sourceType !== destType &&
+			((sourceType === 'usdt0-arb' && destType === 'rbtc-rsk') ||
+			 (sourceType === 'rbtc' && destType === 'usdt0-arb') ||
+			 (sourceType === 'usdt0-arb' && destType === 'wbtc-arb') ||
+			 (sourceType === 'wbtc-arb' && destType === 'usdt0-arb'));
+		if (isCrossChain) {
+			const bridgeReserve = BRIDGE_GAS_RESERVE[addrLower];
+			if (bridgeReserve) {
+				reserve += Number(bridgeReserve) / Math.pow(10, info.decimals);
+			}
+		}
+		return reserve;
+	});
 
 	let walletBalanceToken = $derived(swapCalc.walletBalanceToken.toFixed(6));
 
@@ -513,6 +794,14 @@
 
 	function resetForm() {
 		if (swapPhase === 'executing') return;
+		_stopBridgeDeliveryTracking();
+		_bridgeElapsedSeconds = 0;
+		_bridgeTakingLonger = false;
+		_bridgeFailed = false;
+		_bridgeStatusMessage = '';
+		// Clear active bridge from wallet store and persisted state
+		walletStore.update((s) => ({ ...s, activeBridge: null }));
+		void _clearPersistedBridgeState();
 		swapCalc.resetAmount();
 		swapInput.resetInputMode();
 		smartRoute = null;
@@ -524,21 +813,21 @@
 
 	function handleClose() {
 		if (swapPhase === 'executing') return;
+		_stopBridgeDeliveryTracking();
 		resetForm();
 		onClose();
 	}
 
 	/**
 	 * Cancel an in-progress swap. Resets UI state and clears the timeout.
-	 * Safe to call during the executing phase — the swap chain service
-	 * will continue in the background if it cannot be aborted, but the
-	 * user is free to start a new swap.
+	 * The swap chain service will continue in the background if it cannot
+	 * be aborted — the user is warned to check Pending Swaps.
 	 */
 	function _cancelSwap() {
 		_clearSwapTimeout();
 		_stopProgressTracking();
 		swapPhase = 'form';
-		errorMessage = '';
+		errorMessage = $t('wallet.swap.cancel_warning') || 'Your swap is still in progress. Check Pending Swaps for status.';
 		_swapResult = null;
 		d.log('Swap cancelled by user');
 		Sentry.addBreadcrumb({
@@ -655,14 +944,58 @@
 
 			if (result.phase === 'COMPLETE') {
 				_swapResult = { swapId: result.swapId, txHash: result.txHash };
-				swapPhase = 'complete';
-				triggerHaptic(ImpactStyle.Heavy);
-				blockchainToastStore.onSuccess(swapToastId);
-				// Refresh wallet balances after swap completes — cross-chain swaps
-				// update balances on both source and dest chains.
-				walletManager.loadAssets(true).catch((err: unknown) => {
-					Sentry.captureException(err);
-				});
+				const isCrossChain = sourceType !== destType;
+
+				if (isCrossChain) {
+					// Cross-chain swap: show 'bridging' phase until bridge delivers
+					// The source chain tx succeeded but the destination hasn't received yet
+					swapPhase = 'bridging';
+					triggerHaptic(ImpactStyle.Medium);
+					blockchainToastStore.onSuccess(swapToastId);
+
+					// Get estimated bridge time from route
+					const bridgeMinutes = smartRoute?.estimatedTimeMinutes
+						|| swapRoutes.activeRouteForCalc?.estimatedTime
+						|| 2; // default 2 minutes
+					const estimatedMins = typeof bridgeMinutes === 'string'
+						? parseInt(bridgeMinutes) || 2
+						: bridgeMinutes;
+
+					// Set active bridge in wallet store for persistent banner
+					walletStore.update((s) => ({
+						...s,
+						activeBridge: {
+							sourceAsset: sourceAsset,
+							destAsset: selectedDest.asset,
+							sourceAmount: swapCalc.amount ?? '',
+							destAmount: estimatedOutput ?? '',
+							startedAt: Date.now(),
+							estimatedMinutes: estimatedMins,
+							swapId: result.swapId,
+							txHash: result.txHash
+						}
+					}));
+
+					// Clear all caches immediately so balance reflects the USDT0 spend
+					const address = get(walletStore).rsk.address;
+					if (address) {
+						tokenBalanceService.clearAllBalanceCaches(address);
+					}
+					walletManager.loadAssets(true).catch((err: unknown) => {
+						Sentry.captureException(err);
+					});
+
+					// Start polling for bridge delivery
+					_startBridgeDeliveryTracking(estimatedMins);
+				} else {
+					// Same-chain swap: show 'complete' immediately
+					swapPhase = 'complete';
+					triggerHaptic(ImpactStyle.Heavy);
+					blockchainToastStore.onSuccess(swapToastId);
+					walletManager.loadAssets(true).catch((err: unknown) => {
+						Sentry.captureException(err);
+					});
+				}
 			} else {
 				errorMessage = $t(result.error || 'wallet.swap.error.swap_failed');
 				swapPhase = 'failed';
@@ -676,7 +1009,7 @@
 
 			if (err instanceof Error && err.message === 'swap_timeout') {
 				d.error('Swap timed out after %dms', SWAP_TIMEOUT_MS);
-				errorMessage = $t('wallet.swap.error.timed_out');
+				errorMessage = $t('wallet.swap.error.timed_out_pending') || 'Swap timed out but may still be in progress. Check Pending Swaps for status.';
 				Sentry.addBreadcrumb({
 					category: 'wallet.swap',
 					message: 'Swap timed out',
@@ -756,6 +1089,13 @@
 	let destWalletType = $derived(_destWalletInfo?.type);
 	let destWalletAddress = $derived(_destWalletInfo?.address);
 
+	/** Get a human-readable wallet label for a wallet ID. */
+	function walletLabel(walletId: string): string {
+		if (walletId === 'builtin') return $t('wallet.builtin_wallet') || 'BitTasker Wallet';
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === walletId);
+		return w?.walletName || w?.walletType || walletId;
+	}
+
 	// Asset display name for confirm card
 	let sourceAssetName = $derived.by(() => {
 		const opt = sourceAssets.find((a) => a.id === sourceType);
@@ -831,9 +1171,10 @@
 					onPercentChange={applyPercent}
 					onMaxAmount={setMaxAmount}
 					onBtcUsdModeChange={swapInput.handleBtcUsdModeChange}
-					onSwapDirection={handleSwapDirection}
-					{satsUsd}
-				/>
+				onSwapDirection={handleSwapDirection}
+				{satsUsd}
+				{gaslessFeeReserve}
+			/>
 				{#if swapRoutes.swapError}
 					<div class="alert alert-warning text-sm">
 						{$t(swapRoutes.swapError)}
@@ -889,6 +1230,136 @@
 				{destAssetName}
 				showSatsSource={isBitcoinAsset(sourceAsset, sourceType)}
 				showSatsDest={isBitcoinAsset(selectedDest.asset, selectedDest.id)}
+				route={swapRoutes.getExecutableRoute()}
+			/>
+		{/if}
+
+		<!-- Success Phase — shows what was received with tx link -->
+		{#if swapPhase === 'complete'}
+			<SwapSuccessPhase
+				{isDirectTransfer}
+				sourceAsset={sourceAsset}
+				sourceIcon={sourceIcon}
+				{sourceType}
+				{destType}
+				{selectedDest}
+				sourceWalletInfo={walletLabel(sourceWallet)}
+				destWalletInfo={walletLabel(destWallet)}
+				sourceAmount={swapCalc.amount ?? ''}
+				estimatedOutput={estimatedOutput ?? ''}
+				btcUsdPrice={swapInput.btcUsdPrice}
+				{satsUsd}
+				{usdFormatter}
+				{isBitcoinAsset}
+				isBtcSource={swapInput.isBtcSource}
+				swapResult={_swapResult}
+				providerLabel={getProviderLabel()}
+				feePercent={smartRoute?.totalFeePercent ?? swapRoutes.activeRouteForCalc?.totalFeePercent}
+				estimatedTime={smartRoute?.estimatedTimeMinutes
+					? `${smartRoute.estimatedTimeMinutes} min`
+					: swapRoutes.activeRouteForCalc?.estimatedTime}
+				{sourceWallet}
+				{destWallet}
+				{sourceWalletType}
+				{sourceWalletAddress}
+				{destWalletType}
+				{destWalletAddress}
+				{sourceAssetName}
+				{destAssetName}
+				onReset={resetForm}
+				{walletLabel}
+			/>
+		{/if}
+
+		<!-- Bridging Phase — cross-chain bridge in progress -->
+		{#if swapPhase === 'bridging'}
+			<div class="flex flex-col items-center gap-4 py-6" transition:fly={{ y: 10, duration: 200 }}>
+				{#if _bridgeFailed}
+					<!-- Bridge timeout/failure state -->
+					<div class="bg-warning/10 rounded-full p-4">
+						<svg xmlns="http://www.w3.org/2000/svg" class="text-warning h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+						</svg>
+					</div>
+					<div class="text-center">
+						<h4 class="text-lg font-bold sm:text-xl">
+							{$t('wallet.swap.bridge_delayed') || 'Bridge Taking Longer'}
+						</h4>
+						<p class="text-base-content/60 mt-1 text-sm">
+							{_bridgeStatusMessage}
+						</p>
+					</div>
+				{:else}
+					<!-- Normal bridging state -->
+					<div class="bg-primary/10 rounded-full p-4">
+						<span class="loading loading-spinner loading-lg text-primary"></span>
+					</div>
+					<div class="text-center">
+						<h4 class="text-lg font-bold sm:text-xl">
+							{$t('wallet.swap.bridging_title') || 'Bridging in Progress'}
+						</h4>
+						<p class="text-base-content/60 mt-1 text-sm">
+							{_bridgeStatusMessage}
+						</p>
+					</div>
+				{/if}
+
+				<!-- Progress info -->
+				<div class="bg-base-200 w-full max-w-sm space-y-3 rounded-xl p-4">
+					<!-- Source sent -->
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-base-content/60">{$t('wallet.swap.source_sent') || 'Sent'}</span>
+						<span class="font-medium">{sourceAsset} {_bridgeSourceAmount || swapCalc.amount || ''}</span>
+					</div>
+					<!-- Destination expected -->
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-base-content/60">{$t('wallet.swap.dest_expected') || 'Receiving'}</span>
+						<span class="font-medium">{selectedDest?.asset || ''} {estimatedOutput ?? ''}</span>
+					</div>
+					<!-- Elapsed time -->
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-base-content/60">{$t('wallet.swap.elapsed') || 'Elapsed'}</span>
+						<span class="font-mono">{Math.floor(_bridgeElapsedSeconds / 60)}m {_bridgeElapsedSeconds % 60}s</span>
+					</div>
+					{#if _bridgeTakingLonger && !_bridgeFailed}
+						<div class="alert alert-warning py-2 text-xs">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							</svg>
+							<span>{_bridgeStatusMessage}</span>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Source TX link -->
+				{#if _swapResult?.txHash}
+					<a
+						href={`https://arbiscan.io/tx/${_swapResult.txHash}`}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="bg-base-200 hover:bg-base-300 flex items-center gap-2 rounded-xl p-3 text-xs transition-colors sm:text-sm"
+					>
+						<span class="text-base-content/60">{$t('wallet.swap.source_tx') || 'Source TX'}:</span>
+						<span class="font-mono">{_swapResult.txHash.slice(0, 6)}...{_swapResult.txHash.slice(-4)}</span>
+						<svg class="text-base-content/40 ml-auto h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+						</svg>
+					</a>
+				{/if}
+
+				<p class="text-base-content/40 px-4 text-center text-xs">
+					{$t('wallet.swap.bridge_safe_to_close') || 'You can safely close this screen. Your funds are in transit on the blockchain.'}
+				</p>
+			</div>
+		{/if}
+
+		<!-- Failed Phase — shows error with retry/fallback options -->
+		{#if swapPhase === 'failed'}
+			<SwapFailedPhase
+				{errorMessage}
+				{smartRoute}
+				onRetry={_retryWithFallback}
+				onReset={resetForm}
 			/>
 		{/if}
 
@@ -901,8 +1372,6 @@
 			/>
 		{/if}
 
-		<!-- Success/Failed phases — toast handles display, drawer stays open for close button -->
-
 		<!-- General error message — visible in all phases including 'failed' -->
 		{#if errorMessage}
 			<div class="alert alert-outline alert-error py-2 sm:py-3" role="alert" aria-live="assertive">
@@ -912,7 +1381,11 @@
 	</div>
 	{#snippet footer()}
 		{#if swapPhase === 'form'}
-			{#if !swapRoutes.gasDataAvailable && amountSats > 0}
+			{#if !relayAvailable}
+				<div class="alert alert-error mb-3 min-h-[44px]">
+					<span class="text-sm">{$t('wallet.swap.relay_unavailable') || 'The gasless relay is temporarily unavailable. Please try again in a few minutes.'}</span>
+				</div>
+			{:else if !swapRoutes.gasDataAvailable && amountSats > 0}
 				<div class="alert alert-warning mb-3 min-h-[44px]">
 					<span class="text-sm">{$t('wallet.swap.gas_data_unavailable')}</span>
 				</div>
@@ -970,6 +1443,21 @@
 					>
 				</div>
 			{/if}
+		{:else if swapPhase === 'bridging'}
+			<div class="flex gap-3">
+				<button
+					class="btn btn-outline min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={handleClose}
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.buy_sell.close')}</span>
+				</button>
+				<button
+					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
+					onclick={_confirmBridgeDelivery}
+				>
+					<span class="text-sm sm:text-base">{$t('wallet.swap.bridge_received') || 'I received my funds'}</span>
+				</button>
+			</div>
 		{:else if swapPhase === 'complete' || swapPhase === 'failed'}
 			<div class="flex gap-3">
 				<button

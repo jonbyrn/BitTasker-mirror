@@ -16,6 +16,7 @@
 		destWalletInfo: string;
 		sourceAmount: string;
 		estimatedOutput: string;
+		actualOutput?: string;
 		btcUsdPrice: number;
 		satsUsd: (sats: number, price: number) => string;
 		usdFormatter: Intl.NumberFormat;
@@ -48,6 +49,7 @@
 		destWalletInfo,
 		sourceAmount,
 		estimatedOutput,
+		actualOutput,
 		btcUsdPrice,
 		satsUsd,
 		usdFormatter,
@@ -70,6 +72,10 @@
 	}: Props = $props();
 
 	let explorerUrl = $derived.by(() => {
+		// For gasless relay swaps, use the Arbitrum tx hash
+		if (swapResult?.txHash && swapResult.txHash.startsWith('0x')) {
+			return `https://arbiscan.io/tx/${swapResult.txHash}`;
+		}
 		if (!swapResult?.swapId) return '';
 		const hash = swapResult.swapId;
 
@@ -90,11 +96,21 @@
 		) {
 			return `https://arbiscan.io/tx/${hash}`;
 		}
+		// Cross-chain from Arbitrum: show Arbiscan for the source tx
 		if (sourceType === 'usdt0-arb' && destType === 'rbtc-rsk') {
-			return `https://explorer.rootstock.io/tx/${hash}`;
+			return `https://arbiscan.io/tx/${hash}`;
 		}
 		// Unknown chain combination — don't show a misleading explorer link
 		return '';
+	});
+
+	// Detect partial delivery (slippage)
+	let hasSlippage = $derived.by(() => {
+		if (!actualOutput || !estimatedOutput) return false;
+		const est = parseFloat(estimatedOutput);
+		const act = parseFloat(actualOutput);
+		if (est <= 0 || act <= 0) return false;
+		return Math.abs(act - est) / est > 0.01; // More than 1% difference
 	});
 </script>
 
@@ -203,9 +219,28 @@
 		<SwapEstimateCard variant="success-fee" {feePercent} {estimatedTime} {isDirectTransfer} />
 	{/if}
 
+	<!-- Partial delivery / slippage notice -->
+	{#if hasSlippage}
+		<div class="bg-warning/10 border-warning/20 rounded-lg border p-3 text-xs">
+			<p class="text-warning font-medium">{$t('wallet.swap.partial_delivery') || 'Partial delivery'}</p>
+			<p class="text-base-content/60 mt-1">
+				{$t('wallet.swap.partial_delivery_desc', {
+					values: {
+						actual: isBitcoinAsset(selectedDest.asset, selectedDest.id)
+							? satsUsd(Math.round(parseFloat(actualOutput!) * 100_000_000), btcUsdPrice)
+							: `${usdFormatter.format(parseFloat(actualOutput!))} ${selectedDest.asset}`,
+						expected: isBitcoinAsset(selectedDest.asset, selectedDest.id)
+							? satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000), btcUsdPrice)
+							: `${usdFormatter.format(parseFloat(estimatedOutput))} ${selectedDest.asset}`
+					}
+				}) || `Received ${actualOutput} (expected ${estimatedOutput}). The difference is due to bridge fees and slippage.`}
+			</p>
+		</div>
+	{/if}
+
 	<!-- TX link — only shown when we have a valid explorer URL -->
 	{#if swapResult?.swapId && explorerUrl}
-		{@const hash = swapResult.swapId}
+		{@const hash = swapResult.txHash || swapResult.swapId}
 		{@const truncated = `${hash.slice(0, 6)}...${hash.slice(-4)}`}
 		<a
 			href={explorerUrl}
@@ -228,6 +263,16 @@
 				/></svg
 			>
 		</a>
+	{/if}
+
+	<!-- Cross-chain delivery note -->
+	{#if sourceType !== destType && !isDirectTransfer}
+		<div class="bg-info/10 border-info/20 rounded-lg border p-3 text-xs">
+			<p class="text-info font-medium">{$t('wallet.swap.cross_chain_delivery_note') || 'Cross-chain delivery'}</p>
+			<p class="text-base-content/60 mt-1">
+				{$t('wallet.swap.cross_chain_delivery_desc') || 'Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.'}
+			</p>
+		</div>
 	{/if}
 
 	<!-- Navigate away note -->

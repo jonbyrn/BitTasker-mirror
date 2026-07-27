@@ -305,8 +305,7 @@ describe('gasless-store', () => {
 					mockCalls,
 					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
-					mockEstimatedGas,
-					MOCK_SMART_ACCOUNT
+					mockEstimatedGas
 				)
 			).rejects.toThrow('Wallet not initialized');
 		});
@@ -334,8 +333,7 @@ describe('gasless-store', () => {
 				mockCalls,
 				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				1000n,
-				mockEstimatedGas,
-				MOCK_SMART_ACCOUNT
+				mockEstimatedGas
 			);
 
 			expect(result).toBe('0xUserOpHash123');
@@ -375,8 +373,7 @@ describe('gasless-store', () => {
 				mockCalls,
 				'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 				1000n,
-				mockEstimatedGas,
-				MOCK_SMART_ACCOUNT
+				mockEstimatedGas
 			);
 
 			const relayCall = mockGaslessRelay.mock.calls[0][0];
@@ -422,8 +419,7 @@ describe('gasless-store', () => {
 					mockCalls,
 					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
-					mockEstimatedGas,
-					MOCK_SMART_ACCOUNT
+					mockEstimatedGas
 				)
 			).rejects.toThrow('Relay server error');
 		});
@@ -451,8 +447,7 @@ describe('gasless-store', () => {
 					mockCalls,
 					'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
 					1000n,
-					mockEstimatedGas,
-					MOCK_SMART_ACCOUNT
+					mockEstimatedGas
 				)
 			).rejects.toThrow('Relay failed');
 		});
@@ -468,8 +463,7 @@ describe('gasless-store', () => {
 					'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
 					100n,
 					10n,
-					{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
-					MOCK_SMART_ACCOUNT
+					{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n }
 				)
 			).rejects.toThrow('Wallet not initialized');
 		});
@@ -497,8 +491,7 @@ describe('gasless-store', () => {
 				'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
 				100n,
 				10n,
-				{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n },
-				MOCK_SMART_ACCOUNT
+				{ callGasLimit: 100_000n, verificationGasLimit: 50_000n, preVerificationGas: 10_000n }
 			);
 
 			expect(result).toBe('0xTokenHash');
