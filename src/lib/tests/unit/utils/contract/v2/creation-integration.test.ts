@@ -172,7 +172,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 import { createContract } from '$lib/utils/contract/v2/creation';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
-import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { sendBidStatusUpdate as _sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 describe('Contract conflict fix — out-of-box verification', () => {
@@ -423,21 +423,20 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			expect(mockPublishReplaceable).not.toHaveBeenCalled();
 		});
 
-		it('returns error when time adjustment pushes start past completion — no side effects', async () => {
+		it('preserves duration for short-window bids instead of throwing', async () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			// Start is within buffer, completion is only 60s away — buffer pushes start past completion
+			// Start is within buffer, completion is only 60s away — duration is preserved
 			bid.bidContent.startDateTime = now + 30;
 			bid.bidContent.endDateTime = now + 60;
 
 			const result = await createContract(bid, task, 100000);
-			expect(result.success).toBe(false);
-			if (!result.success) {
-				expect(result.error).toContain('Completion time must be after start time');
-			}
+			expect(result.success).toBe(true);
 
-			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
+			// Task should have moved to IN_PROGRESS after broadcast
+			await result.afterBroadcast;
+			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 		});
 	});
 

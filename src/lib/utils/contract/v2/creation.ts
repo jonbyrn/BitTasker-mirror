@@ -110,7 +110,9 @@ export function deriveContractCreationParams(
 	let wasTimeAdjusted = false;
 
 	if (startTime < now + MINIMUM_START_BUFFER_SECONDS) {
+		const originalDuration = completionTime - startTime;
 		startTime = now + MINIMUM_START_BUFFER_SECONDS;
+		completionTime = startTime + originalDuration;
 		wasTimeAdjusted = true;
 	}
 

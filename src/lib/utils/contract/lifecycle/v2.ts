@@ -70,9 +70,9 @@ function buildEnrichment(
 	};
 
 	if (action === 'task_completed' || action === 'dispute_raised') {
-		if (!data.timelockEnd) return undefined;
+		if (!data.timelockEnd) return base;
 		const remainingSeconds = data.timelockEnd - Math.floor(Date.now() / 1000);
-		if (remainingSeconds <= 0) return undefined;
+		if (remainingSeconds <= 0) return base;
 		return { ...base, timelockDuration: remainingSeconds };
 	}
 

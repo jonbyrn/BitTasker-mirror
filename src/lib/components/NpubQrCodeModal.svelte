@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
+	import { Capacitor } from '@capacitor/core';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { shareEntity, type EntitySharePayload } from '$lib/components/shared/entity-share';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { appStore } from '$lib/stores/app.store';
@@ -42,7 +44,7 @@
 					utm_campaign: 'profile_qrcode'
 				});
 				const newProfileUrl = `${baseUrl}?${utmParams.toString()}`;
-				
+
 				if (newProfileUrl !== lastProfileUrl || !qrCodeDataUrl) {
 					profileUrl = newProfileUrl;
 					lastProfileUrl = newProfileUrl;
@@ -68,11 +70,11 @@
 
 	async function loadNpub() {
 		if (isLoadingNpub) return;
-		
+
 		isLoadingNpub = true;
 		try {
 			const rawNpub = await getNpub();
-			
+
 			// Format npub like the settings page does
 			if (rawNpub.startsWith('npub')) {
 				npub = rawNpub;
@@ -91,12 +93,12 @@
 
 	async function generateQrCode() {
 		if (!profileUrl) return;
-		
+
 		// Only regenerate if profile URL changed or QR code doesn't exist
 		if (qrCodeDataUrl && profileUrl === lastProfileUrl) {
 			return;
 		}
-		
+
 		isGeneratingQr = true;
 		try {
 			qrCodeDataUrl = await generateQrCodeUrl(profileUrl);
@@ -107,51 +109,36 @@
 		}
 	}
 
-	// Handle share functionality (similar to task details page)
+	// Handle share using the shared entity-share cascade (native → web → clipboard)
 	const handleShare = async () => {
 		if (!profileUrl) return;
 
-		if (navigator.share) {
-			try {
-				const shareData: ShareData = {
-					title: 'My BitTasker Profile',
-					text: 'Check out my profile on BitTasker',
-					url: profileUrl
-				};
+		const payload: EntitySharePayload = {
+			title: $t('profile.page.share_title'),
+			text: $t('profile.page.share_message_no_desc'),
+			url: profileUrl
+		};
 
-				await navigator.share(shareData);
-				shareSuccess = true;
-				appStore.showSuccessToast($t('common.toast.share_success'));
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} catch (error) {
-				// User cancelled sharing or error occurred
-				if ((error as Error).name !== 'AbortError') {
-					console.log('Share cancelled or failed:', error);
-					// Fallback to copy link if share fails
-					const success = await copyToClipboard(profileUrl);
-					if (success) {
-						shareSuccess = true;
-						appStore.showSuccessToast($t('common.toast.link_copied'));
-						setTimeout(() => {
-							shareSuccess = false;
-						}, 2000);
-					}
-				}
-			}
-		} else {
-			// Fallback: copy to clipboard
-			const success = await copyToClipboard(profileUrl);
-			if (success) {
-				shareSuccess = true;
-				appStore.showSuccessToast($t('common.toast.link_copied'));
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} else {
-				appStore.showErrorToast($t('common.toast.link_copy_failed'));
-			}
+		const result = await shareEntity(payload, {
+			isNativePlatform: Capacitor.isNativePlatform(),
+			nativeShare: async (p) => {
+				const { Share } = await import('@capacitor/share');
+				await Share.share({ title: p.title, text: p.text, url: p.url, dialogTitle: p.dialogTitle });
+			},
+			webShare: navigator.share ? (p) => navigator.share(p) : null,
+			copyToClipboard
+		});
+
+		if (result === 'shared' || result === 'copied') {
+			shareSuccess = true;
+			appStore.showSuccessToast(
+				result === 'shared' ? $t('common.toast.share_success') : $t('common.toast.link_copied')
+			);
+			setTimeout(() => {
+				shareSuccess = false;
+			}, 2000);
+		} else if (result === 'copy_failed') {
+			appStore.showErrorToast($t('common.toast.link_copy_failed'));
 		}
 	};
 </script>
@@ -159,15 +146,16 @@
 <!-- NPub QR Code Modal -->
 {#if isOpen}
 	<div class="modal modal-open">
-		<div
-			class="modal-box max-w-md max-h-[85vh] p-0 bg-base-100 flex flex-col"
-		>
-			<div class="flex flex-col flex-1 min-h-0">
+		<div class="modal-box bg-base-100 flex max-h-[85vh] max-w-md flex-col p-0">
+			<div class="flex min-h-0 flex-1 flex-col">
 				<!-- Header -->
-				<div class="flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3 shrink-0">
+				<div
+					class="bg-base-300 flex shrink-0 items-center justify-between rounded-t-lg px-3 py-2 sm:px-4 sm:py-3"
+				>
 					<div class="flex items-center gap-2 sm:gap-3">
-						
-						<h4 class="text-base font-bold text-base-content sm:text-lg">{$t('common.components.topbar.npub_qr.share_profile_title')}</h4>
+						<h4 class="text-base-content text-base font-bold sm:text-lg">
+							{$t('common.components.topbar.npub_qr.share_profile_title')}
+						</h4>
 					</div>
 					<button
 						class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
@@ -179,7 +167,7 @@
 				</div>
 
 				<!-- QR Code Content -->
-				<div class="flex-1 flex flex-col items-center justify-center p-6 min-h-0 overflow-auto">
+				<div class="flex min-h-0 flex-1 flex-col items-center justify-center overflow-auto p-6">
 					{#if isLoadingNpub}
 						<div class="flex flex-col items-center gap-4">
 							<span class="loading loading-spinner loading-lg"></span>
@@ -188,19 +176,17 @@
 					{:else if isGeneratingQr || !qrCodeDataUrl}
 						<div class="flex flex-col items-center gap-4">
 							<span class="loading loading-spinner loading-lg"></span>
-							<p class="text-base-content/70">{$t('common.components.topbar.npub_qr.generating')}</p>
+							<p class="text-base-content/70">
+								{$t('common.components.topbar.npub_qr.generating')}
+							</p>
 						</div>
 					{:else if npub && profileUrl}
 						<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
-							<img
-								src={qrCodeDataUrl}
-								alt="Profile QR Code"
-								class="w-full aspect-square"
-							/>
+							<img src={qrCodeDataUrl} alt="Profile QR Code" class="aspect-square w-full" />
 						</div>
 
 						<!-- Action Buttons -->
-						<div class="flex flex-col gap-2 w-full max-w-md mt-8 sm:flex-row-reverse">
+						<div class="mt-8 flex w-full max-w-md flex-col gap-2 sm:flex-row-reverse">
 							<!-- Share Button -->
 							<button
 								class="btn btn-primary btn-sm min-h-[40px] flex-1 transition-all duration-200 {shareSuccess
