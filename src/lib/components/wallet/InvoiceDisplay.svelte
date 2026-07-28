@@ -61,16 +61,16 @@
 	let isDark = $state(false);
 
 	// Fetch BTC price on mount + subscribe to dark mode changes
-	onMount(async () => {
-		const unsub = darkMode.subscribe((val) => {
-			isDark = val;
-		});
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-		return unsub;
+	onMount(() => {
+		isDark = $darkMode;
+		cryptoPriceService
+			.getCurrentPrice('BTC')
+			.then((price) => {
+				btcPrice = price;
+			})
+			.catch((error) => {
+				console.error('Failed to fetch BTC price:', error);
+			});
 	});
 
 	// Generate QR code for a given address

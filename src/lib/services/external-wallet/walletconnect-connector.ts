@@ -483,7 +483,7 @@ function wireWCEvents(
 		handle.onEvent({ type: 'disconnect', reason: 'session_expire' });
 		onDisconnect(true);
 	};
-	provider.on('session_expire', seHandler);
+	provider.on('session_expire' as Parameters<typeof provider.on>[0], seHandler);
 	sessionExpireHandler = seHandler;
 }
 
@@ -505,7 +505,10 @@ function removeWCEventListeners(provider: WCProvider): void {
 		sessionDeleteHandler = null;
 	}
 	if (sessionExpireHandler) {
-		provider.removeListener('session_expire', sessionExpireHandler);
+		provider.removeListener(
+			'session_expire' as Parameters<typeof provider.removeListener>[0],
+			sessionExpireHandler
+		);
 		sessionExpireHandler = null;
 	}
 }
@@ -626,7 +629,7 @@ export async function connectWC(
 			await disconnectWC().catch(() => {});
 			unregisterConnectedWallet(handle.id);
 			if (isExpired) {
-				appStore.showWarningToast(
+				appStore.showErrorToast(
 					get(t)('wallet.connected.session_expired', {
 						values: { name: handle.walletName }
 					})
@@ -691,7 +694,7 @@ export async function restoreWCSession(
 					await disconnectWC().catch(() => {});
 					unregisterConnectedWallet(handle.id);
 					if (isExpired) {
-						appStore.showWarningToast(
+						appStore.showErrorToast(
 							get(t)('wallet.connected.session_expired', {
 								values: { name: handle.walletName }
 							})
@@ -725,7 +728,7 @@ export async function restoreWCSession(
 							await disconnectWC().catch(() => {});
 							unregisterConnectedWallet(handle.id);
 							if (isExpired) {
-								appStore.showWarningToast(
+								appStore.showErrorToast(
 									get(t)('wallet.connected.session_expired', {
 										values: { name: handle.walletName }
 									})

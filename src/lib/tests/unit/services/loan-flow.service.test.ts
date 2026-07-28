@@ -37,7 +37,7 @@ const mockOrchestrator = {
 
 // Mock the SDK — use a class-like function so `new` works
 vi.mock('@bittasker/wallet-core', () => ({
-	LoanFlowOrchestrator: vi.fn().mockImplementation(function (this) {
+	LoanFlowOrchestrator: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
 		Object.assign(this, { ...mockOrchestrator });
 	}),
 	ARB_TOKEN_ADDRESSES: {
@@ -54,13 +54,14 @@ import {
 	executeBridgeOnly,
 	getArbitrumUsdt0Address
 } from '$lib/services/loan-flow.service';
+import type { LoanFlowServiceConfig } from '$lib/services/loan-flow.service';
 
 describe('Loan Flow Service', () => {
 	const mockConfig = {
 		rskSigner: { address: '0x1234' },
 		rskProvider: {},
 		arbRecipientAddress: '0xABC'
-	};
+	} as unknown as LoanFlowServiceConfig;
 
 	beforeEach(() => {
 		vi.clearAllMocks();

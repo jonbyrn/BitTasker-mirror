@@ -528,6 +528,7 @@ function resetMocks(): void {
 	mockBoltzCreateSwap.mockResolvedValue({
 		swapId: 'chain-swap-1',
 		lockupAddress: '0x4444000000000000000000000000000000000DDd',
+		lockupClaimAddress: '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41',
 		claimAddress: '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41',
 		timeoutBlockHeight: 8950000
 	});

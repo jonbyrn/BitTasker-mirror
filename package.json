@@ -147,7 +147,7 @@
 	},
 	"dependencies": {
 		"@bittasker/reviews-contracts": "^0.0.2",
-		"@bittasker/wallet-core": "file:../wallet-core-v2/bittasker-wallet-core-0.2.0.tgz",
+		"@bittasker/wallet-core": "^0.2.0",
 		"@capacitor-mlkit/barcode-scanning": "^8.0.1",
 		"@capacitor/android": "^8.0.0",
 		"@capacitor/app": "^8.0.0",
@@ -218,7 +218,7 @@
 		"motion": "^12.40.0",
 		"nostr-tools": "^2.13.0",
 		"ox": "^0.11.3",
-"photoswipe": "^5.4.4",
+		"photoswipe": "^5.4.4",
 		"picomatch": "^4.0.3",
 		"process": "^0.11.10",
 		"qrcode": "^1.5.4",

@@ -56,6 +56,7 @@
 	let isSubmitting = $state(false);
 
 	async function handleRefresh() {
+		if (!bidContent) return;
 		isLoading = true;
 		try {
 			await walletManager.loadAssets();
@@ -95,6 +96,7 @@
 
 	// v2 display (contract params are derived separately where needed)
 	let contractDetails = $derived.by(() => {
+		if (!bidContent) return null;
 		try {
 			const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
 			return display;
@@ -176,7 +178,7 @@
 
 	// Open message modal for the taskee
 	function openMessageModal() {
-		if (bidContent.bidderId) {
+		if (bidContent?.bidderId) {
 			showMessageModal = true;
 		}
 	}
@@ -195,6 +197,11 @@
 	}
 
 	onMount(async () => {
+		if (!bidContent) {
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.create_contract_failed'));
+			onCancel();
+			return;
+		}
 		try {
 			deriveContractCreationParams(bidContent, btcPrice.price);
 		} catch (e) {
@@ -987,10 +994,10 @@
 {/if}
 
 <!-- Message Modal -->
-{#if bidContent.bidderId}
+{#if bidContent?.bidderId}
 	<MessageModal
 		isOpen={showMessageModal}
-		recipientName={bidContent.bidderName}
+		recipientName={bidContent.bidderName ?? ''}
 		recipientPubkey={bidContent.bidderId}
 		onClose={() => {
 			showMessageModal = false;
@@ -1014,13 +1021,15 @@
 				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
 				<div class="flex min-w-0 items-center justify-between gap-3">
 					<div class="min-w-0 flex-1">
-						<UserInfoDisplay
-							avatar={bidContent.bidderAvatar}
-							username={bidContent.bidderName}
-							rating={bidContent.bidderRating ?? null}
-							size="sm"
-							pubkey={bidContent.bidderId ?? null}
-						/>
+						{#if bidContent}
+							<UserInfoDisplay
+								avatar={bidContent.bidderAvatar}
+								username={bidContent.bidderName}
+								rating={bidContent.bidderRating ?? null}
+								size="sm"
+								pubkey={bidContent.bidderId ?? null}
+							/>
+						{/if}
 					</div>
 					{#if true}
 						<div class="shrink-0 text-right">

@@ -206,8 +206,8 @@ describe('findServices public discovery', () => {
 			expect(mockFindEvents).toHaveBeenCalledTimes(2);
 
 			// First call had search, second did not
-			expect(mockFindEvents.mock.calls[0][0].search).toBe('Design');
-			expect(mockFindEvents.mock.calls[1][0].search).toBeUndefined();
+			expect(mockFindEvents.mock.calls[0]![0]!.search).toBe('Design');
+			expect(mockFindEvents.mock.calls[1]![0]!.search).toBeUndefined();
 		});
 
 		it('should skip cache when fallback fires and frontend filter returns 0', async () => {

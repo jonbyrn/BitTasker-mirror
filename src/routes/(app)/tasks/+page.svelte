@@ -550,10 +550,15 @@
 			await dismissSaveSearchBanner();
 		} else {
 			pendingSaveSearchParams = null;
-			await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true), {
-				deferred: true,
-				deferMs: 2500
-			});
+			await manageSaveSearchBanner(
+				searchParams as unknown as Record<string, unknown>,
+				'tasks',
+				() => (isSaveSearchOpen = true),
+				{
+					deferred: true,
+					deferMs: 2500
+				}
+			);
 		}
 	}, SEARCH_DEBOUNCE_DELAY);
 
@@ -598,10 +603,15 @@
 			pendingSaveSearchParams = { ...searchParams };
 		} else {
 			pendingSaveSearchParams = null;
-			await manageSaveSearchBanner(searchParams, 'tasks', () => (isSaveSearchOpen = true), {
-				deferred: true,
-				deferMs: 2000
-			});
+			await manageSaveSearchBanner(
+				searchParams as unknown as Record<string, unknown>,
+				'tasks',
+				() => (isSaveSearchOpen = true),
+				{
+					deferred: true,
+					deferMs: 2000
+				}
+			);
 		}
 	}
 

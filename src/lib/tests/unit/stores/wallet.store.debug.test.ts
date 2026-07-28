@@ -42,8 +42,13 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 vi.mock('$lib/api/services/token-balance.service', () => ({
 	default: {
 		getRSKTokenBalances: vi.fn(),
+		getRSKNativeBalance: vi.fn().mockResolvedValue({
+			balance: BigInt('1000000000000000000'),
+			formatted: '1.00'
+		}),
 		getTokenMetadata: vi.fn(),
-		clearCache: vi.fn()
+		clearCache: vi.fn(),
+		clearAllBalanceCaches: vi.fn()
 	}
 }));
 

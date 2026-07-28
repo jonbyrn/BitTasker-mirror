@@ -36,6 +36,10 @@
 	let removeLiquidityAmount = $derived((position.liquidity * BigInt(selectedPercent)) / 100n);
 
 	let hasLiquidity = $derived(position.liquidity > 0n);
+
+	// Calculate approximate receive amounts based on selected percent
+	let currentPrice = $derived(btcPrice.price);
+
 	let canRemove = $derived(
 		hasLiquidity &&
 			selectedPercent > 0 &&
@@ -44,9 +48,6 @@
 			txState === 'idle' &&
 			currentPrice > 0
 	);
-
-	// Calculate approximate receive amounts based on selected percent
-	let currentPrice = $derived(btcPrice.price);
 	let removeWbtc = $derived.by(() => {
 		if (!currentPrice || currentPrice <= 0 || position.liquidity === 0n) return 0;
 		const liqNum = Number(position.liquidity);

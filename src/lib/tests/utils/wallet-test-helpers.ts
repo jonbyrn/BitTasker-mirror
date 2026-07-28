@@ -44,6 +44,19 @@ export function createMockWalletStore(overrides: Partial<WalletState> = {}): Wri
 			paymasterAddress: null,
 			canPayFeesInUsdt: false
 		},
+		arbitrum: {
+			connected: false,
+			connecting: false,
+			error: null,
+			address: null,
+			ethBalance: '0',
+			formattedEthBalance: '0.00',
+			usdt0Balance: '0',
+			formattedUsdt0Balance: '0.00',
+			blockNumber: null,
+			provider: null,
+			wallet: null
+		},
 		assets: [],
 		transactions: [],
 		totalBalances: {

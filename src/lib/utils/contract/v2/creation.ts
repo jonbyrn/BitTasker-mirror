@@ -298,6 +298,10 @@ export async function createContract(
 
 	d.log('createContract start', { taskId, bidId: bid.id });
 
+	if (!bidContent) {
+		return { success: false, error: 'Bid content is missing' };
+	}
+
 	try {
 		d.log('createContract: deriveContractCreationParams');
 		// Use RSK block timestamp for the safety buffer to avoid client/miner clock skew

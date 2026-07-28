@@ -87,8 +87,6 @@
 	let bridgeCheckMessage = $state('');
 	let bridgeCheckTxHash = $state<string | null>(null);
 
-	const hasActiveBridge = $derived(!!$walletStore.activeBridge && !swapChainActive);
-
 	async function checkBridgeStatus() {
 		const bridge = $walletStore.activeBridge;
 		if (!bridge?.txHash) return;
@@ -99,21 +97,28 @@
 			const status = await lifiService.getStatus(bridge.txHash);
 			if (status.status === 'DONE') {
 				bridgeCheckStatus = 'done';
-				bridgeCheckMessage = $t('wallet.pending_swaps.bridge_delivered') || 'Bridge delivery confirmed!';
+				bridgeCheckMessage =
+					$t('wallet.pending_swaps.bridge_delivered') || 'Bridge delivery confirmed!';
 				bridgeCheckTxHash = status.receiving?.txHash || null;
 				// Clear active bridge
 				walletStore.update((s) => ({ ...s, activeBridge: null }));
 				void clearPersistedBridge();
 			} else if (status.status === 'FAILED') {
 				bridgeCheckStatus = 'failed';
-				bridgeCheckMessage = $t('wallet.pending_swaps.bridge_failed') || 'Bridge transfer failed. Your funds are safe on the source chain.';
+				bridgeCheckMessage =
+					$t('wallet.pending_swaps.bridge_failed') ||
+					'Bridge transfer failed. Your funds are safe on the source chain.';
 			} else {
 				bridgeCheckStatus = 'idle';
-				bridgeCheckMessage = $t('wallet.pending_swaps.bridge_still_pending') || 'Bridge is still in progress. Please check again later.';
+				bridgeCheckMessage =
+					$t('wallet.pending_swaps.bridge_still_pending') ||
+					'Bridge is still in progress. Please check again later.';
 			}
 		} catch {
 			bridgeCheckStatus = 'idle';
-			bridgeCheckMessage = $t('wallet.pending_swaps.bridge_check_failed') || 'Could not check bridge status. Please try again.';
+			bridgeCheckMessage =
+				$t('wallet.pending_swaps.bridge_check_failed') ||
+				'Could not check bridge status. Please try again.';
 		}
 	}
 
@@ -128,19 +133,24 @@
 		try {
 			const { Preferences } = await import('@capacitor/preferences');
 			await Preferences.remove({ key: 'active_bridge' });
-		} catch { /* non-blocking */ }
+		} catch {
+			/* non-blocking */
+		}
 	}
 
 	// ── Derived ─────────────────────────────────────────────────────────────
 	const swapChainActive = $derived(
 		swapChainState !== null && getSwapChainStatus(swapChainState).isActive
 	);
+	const hasActiveBridge = $derived(!!$walletStore.activeBridge && !swapChainActive);
 	const swapChainNeedsAction = $derived(
 		swapChainState !== null &&
 			(getSwapChainStatus(swapChainState).isFailed || getSwapChainStatus(swapChainState).isPartial)
 	);
 	const totalCount = $derived(
-		pendingSwaps.length + (swapChainActive || swapChainNeedsAction ? 1 : 0) + (hasActiveBridge ? 1 : 0)
+		pendingSwaps.length +
+			(swapChainActive || swapChainNeedsAction ? 1 : 0) +
+			(hasActiveBridge ? 1 : 0)
 	);
 
 	/** Whether any swap needs user action (claimable, refundable, partial, failed) */
@@ -532,7 +542,13 @@
 						{#if swapChainState.amount}
 							<div class="flex items-center justify-between text-xs">
 								<span class="text-base-content/60">
-									{fmtSats(Math.round(parseFloat(swapChainState.adjustedAmount ?? swapChainState.amount) * 100_000_000), $t)}
+									{fmtSats(
+										Math.round(
+											parseFloat(swapChainState.adjustedAmount ?? swapChainState.amount) *
+												100_000_000
+										),
+										$t
+									)}
 								</span>
 								<span class="badge badge-sm {cs.color}">{cs.label}</span>
 							</div>
@@ -542,9 +558,11 @@
 						{#if swapChainState.phase === 'SWAP_1_PENDING' || swapChainState.phase === 'SWAP_1_CONFIRMED'}
 							<div class="text-base-content/40 mt-0.5 text-xs">
 								{#if swapChainState.phase === 'SWAP_1_PENDING'}
-									{$t('wallet.pending_swaps.phase_executing') || 'Executing swap on source chain...'}
+									{$t('wallet.pending_swaps.phase_executing') ||
+										'Executing swap on source chain...'}
 								{:else if swapChainState.phase === 'SWAP_1_CONFIRMED'}
-									{$t('wallet.pending_swaps.phase_bridging') || 'Bridging funds to destination chain...'}
+									{$t('wallet.pending_swaps.phase_bridging') ||
+										'Bridging funds to destination chain...'}
 								{/if}
 							</div>
 						{/if}
@@ -557,7 +575,7 @@
 								<button
 									type="button"
 									class="btn btn-ghost btn-xs text-base-content/40 hover:text-base-content/70 min-h-[28px] min-w-[28px] p-0"
-									onclick={() => copySwapId(swapChainState.swap1Id!)}
+									onclick={() => copySwapId(swapChainState!.swap1Id!)}
 									aria-label={$t('wallet.pending_swaps.copy_swap_id')}
 								>
 									{#if copiedId === swapChainState.swap1Id}
@@ -974,10 +992,17 @@
 						<div class="text-base-content/60 mb-2 text-xs">
 							{bridge.sourceAmount}
 							{bridge.sourceAsset} → {bridge.destAsset}
-							<span class="text-base-content/40"> · {$t('wallet.pending_swaps.estimated') || 'Est.'} ~{bridge.estimatedMinutes} min</span>
+							<span class="text-base-content/40">
+								· {$t('wallet.pending_swaps.estimated') || 'Est.'} ~{bridge.estimatedMinutes} min</span
+							>
 						</div>
 						{#if bridgeCheckMessage}
-							<div class="mb-2 text-xs" class:text-success={bridgeCheckStatus === 'done'} class:text-error={bridgeCheckStatus === 'failed'} class:text-base-content={bridgeCheckStatus === 'idle'}>
+							<div
+								class="mb-2 text-xs"
+								class:text-success={bridgeCheckStatus === 'done'}
+								class:text-error={bridgeCheckStatus === 'failed'}
+								class:text-base-content={bridgeCheckStatus === 'idle'}
+							>
 								{bridgeCheckMessage}
 							</div>
 						{/if}
@@ -1002,10 +1027,7 @@
 								{/if}
 								{$t('wallet.pending_swaps.check_status')}
 							</button>
-							<button
-								class="btn btn-xs btn-ghost text-base-content/50"
-								onclick={dismissBridge}
-							>
+							<button class="btn btn-xs btn-ghost text-base-content/50" onclick={dismissBridge}>
 								{$t('wallet.pending_swaps.dismiss')}
 							</button>
 						</div>

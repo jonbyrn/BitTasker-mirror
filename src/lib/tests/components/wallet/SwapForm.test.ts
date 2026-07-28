@@ -141,6 +141,7 @@ const mockRuneState = vi.hoisted(() => {
 			providerResults: [],
 			isLoading: false
 		},
+		gasDataAvailable: true,
 		getExecutableRoute: vi.fn().mockReturnValue(null),
 		clearRoutes: vi.fn(),
 		refreshRoutes: vi.fn(),

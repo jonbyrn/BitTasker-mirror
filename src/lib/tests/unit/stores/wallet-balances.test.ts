@@ -66,6 +66,19 @@ function makeInitialState(overrides: Partial<WalletStateExtended> = {}): WalletS
 			wallet: null,
 			usdt0Contract: null
 		},
+		arbitrum: {
+			connected: false,
+			connecting: false,
+			error: null,
+			address: null,
+			ethBalance: '0',
+			formattedEthBalance: '0.00',
+			usdt0Balance: '0',
+			formattedUsdt0Balance: '0.00',
+			blockNumber: null,
+			provider: null,
+			wallet: null
+		},
 		assets: [],
 		transactions: [],
 		totalBalances: { usd: 0, sats: 0, rbtc: 0, usdt: 0, bnb: 0 },
@@ -189,9 +202,11 @@ const {
 		mockWalletManager: { rskWallet, bscWallet },
 		mockTokenBalanceService: {
 			getRSKTokenBalances: vi.fn(),
+			getRSKNativeBalance: vi.fn(),
 			getArbitrumTokenBalance: vi.fn(),
 			clearCache: vi.fn(),
-			clearBalanceCache: vi.fn()
+			clearBalanceCache: vi.fn(),
+			clearAllBalanceCaches: vi.fn()
 		},
 		mockCryptoPriceService: {
 			getCurrentPrice: vi.fn(),
@@ -313,6 +328,7 @@ describe('wallet-balances', () => {
 
 		// Default token balance service
 		mockTokenBalanceService.getRSKTokenBalances.mockResolvedValue(mockRskTokenBalances);
+		mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue(mockRskBalanceData);
 		mockRskWallet.getBalance.mockResolvedValue(mockRskBalanceData);
 		mockBscWallet.getBalances.mockResolvedValue(mockBscBalances);
 	});
@@ -353,8 +369,9 @@ describe('wallet-balances', () => {
 			expect(state.assets.length).toBeGreaterThan(0);
 
 			// Total balances calculated
-			expect(state.totalBalances.rbtc).toBe(3); // 2 RBTC + 1 tBTC
-			expect(state.totalBalances.sats).toBe(Math.floor(3 * 100_000_000));
+			// Note: tBTC is NOT added to totalRbtc — it's a separate Arbitrum asset
+			expect(state.totalBalances.rbtc).toBe(2); // 2 RBTC only (tBTC is separate)
+			expect(state.totalBalances.sats).toBe(Math.floor(2 * 100_000_000)); // RBTC sats only
 			expect(state.totalBalances.usdt).toBe(13000); // 1000 DOC + 5000 USDT0 + 2000 arb USDT0 + 5000 BSC USDT
 			expect(state.totalBalances.bnb).toBe(3);
 			expect(state.totalBalances.usd).toBeGreaterThan(0);
@@ -381,8 +398,8 @@ describe('wallet-balances', () => {
 		});
 
 		it('RSK balance fetch failure: falls back to existing store balance', async () => {
-			// Make rskWallet.getBalance reject
-			mockRskWallet.getBalance.mockRejectedValue(new Error('RSK RPC down'));
+			// Make getRSKNativeBalance reject
+			mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue(null);
 
 			// Set up existing RSK balance in store
 			storeWritable.update((s) => ({
@@ -451,12 +468,15 @@ describe('wallet-balances', () => {
 		});
 
 		it('total sats calculation: rBTC + tBTC sats summed correctly', async () => {
+			// Ensure getRSKNativeBalance returns the expected 2 RBTC balance
+			mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue(mockRskBalanceData);
 			await loadAssets();
 
 			const state = get(storeWritable);
 
-			// 2 RBTC + 1 tBTC = 3 BTC = 300,000,000 sats
-			const expectedSats = Math.floor(3 * 100_000_000);
+			// Note: tBTC is NOT added to totalRbtc — it's a separate Arbitrum asset
+			// 2 RBTC only = 200,000,000 sats
+			const expectedSats = Math.floor(2 * 100_000_000);
 			expect(state.totalBalances.sats).toBe(expectedSats);
 		});
 
@@ -707,7 +727,7 @@ describe('wallet-balances', () => {
 			// Wait for debounce to fire
 			await new Promise((resolve) => setTimeout(resolve, 600));
 
-			expect(mockTokenBalanceService.clearBalanceCache).toHaveBeenCalledWith(MOCK_RSK_ADDRESS);
+			expect(mockTokenBalanceService.clearAllBalanceCaches).toHaveBeenCalledWith(MOCK_RSK_ADDRESS);
 		});
 
 		it('does not call clearBalanceCache if no RSK address', async () => {
@@ -722,7 +742,7 @@ describe('wallet-balances', () => {
 
 			await new Promise((resolve) => setTimeout(resolve, 600));
 
-			expect(mockTokenBalanceService.clearBalanceCache).not.toHaveBeenCalled();
+			expect(mockTokenBalanceService.clearAllBalanceCaches).not.toHaveBeenCalled();
 		});
 	});
 
@@ -764,7 +784,7 @@ describe('wallet-balances', () => {
 		});
 
 		it('always includes native RBTC even if zero', async () => {
-			mockRskWallet.getBalance.mockResolvedValue({
+			mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue({
 				balance: BigInt('0'),
 				formatted: '0.00'
 			});
@@ -838,7 +858,7 @@ describe('wallet-balances', () => {
 		});
 
 		it('error in native balance fetch: returns null', async () => {
-			mockRskWallet.getBalance.mockRejectedValue(new Error('RPC down'));
+			mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue(null);
 
 			const result = await getTokenBalance('native');
 

@@ -80,7 +80,9 @@
 	// -----------------------------------------------------------------------
 	let sourceType = $state<SourceWallet>('rbtc');
 	let destType = $state<DestType>('usdt0-arb');
-	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'bridging' | 'complete' | 'failed'>('form');
+	let swapPhase = $state<'form' | 'confirm' | 'executing' | 'bridging' | 'complete' | 'failed'>(
+		'form'
+	);
 	let errorMessage = $state('');
 	let _swapResult = $state<{ txHash?: string; swapId?: string } | null>(null);
 	let isFlipping = $state(false);
@@ -99,11 +101,11 @@
 	let _bridgeStatusMessage = $state('');
 	let _bridgeTakingLonger = $state(false);
 	let _bridgeFailed = $state(false);
-	let _bridgeDestBalanceSnapshot = 0;
-	let _bridgePollIntervalMs = 5_000;
-	let _bridgeStartedAt = 0;
-	let _bridgeDestType = '';
-	let _bridgeSourceAmount = '';
+	let _bridgeDestBalanceSnapshot = $state(0);
+	let _bridgePollIntervalMs = $state(5_000);
+	let _bridgeStartedAt = $state(0);
+	let _bridgeDestType = $state('');
+	let _bridgeSourceAmount = $state('');
 
 	const SWAP_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -121,7 +123,7 @@
 
 	/**
 	 * Start tracking bridge delivery for cross-chain swaps.
-	 * 
+	 *
 	 * Features:
 	 * - Snapshots destination balance before bridge starts
 	 * - Polls with exponential backoff (5s → 10s → 20s → 30s max)
@@ -133,7 +135,8 @@
 	function _startBridgeDeliveryTracking(estimatedMinutes: number) {
 		_bridgeElapsedSeconds = 0;
 		_bridgeEstimatedSeconds = Math.max(30, estimatedMinutes * 60);
-		_bridgeStatusMessage = $t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
+		_bridgeStatusMessage =
+			$t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
 		_bridgeTakingLonger = false;
 		_bridgeFailed = false;
 		_bridgePollIntervalMs = 5_000;
@@ -173,29 +176,38 @@
 			// Check for "taking longer" state (1.5× estimated)
 			if (_bridgeElapsedSeconds > _bridgeEstimatedSeconds * 1.5 && !_bridgeTakingLonger) {
 				_bridgeTakingLonger = true;
-				_bridgeStatusMessage = $t('wallet.swap.bridge_taking_longer') || 'This is taking longer than usual. Your funds are safe.';
+				_bridgeStatusMessage =
+					$t('wallet.swap.bridge_taking_longer') ||
+					'This is taking longer than usual. Your funds are safe.';
 			}
 
 			// Check for bridge failure timeout (3× estimated)
 			if (_bridgeElapsedSeconds > _bridgeEstimatedSeconds * 3 && !_bridgeFailed) {
 				_bridgeFailed = true;
-				_bridgeStatusMessage = $t('wallet.swap.bridge_timeout') || 'The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.';
+				_bridgeStatusMessage =
+					$t('wallet.swap.bridge_timeout') ||
+					'The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.';
 				_stopBridgeDeliveryTracking();
 				return;
 			}
 
 			// Handle network disconnection during bridge
 			if (!isOnline) {
-				_bridgeStatusMessage = $t('wallet.swap.bridge_offline') || 'You appear to be offline. Your funds are safe on the blockchain. Reconnecting...';
+				_bridgeStatusMessage =
+					$t('wallet.swap.bridge_offline') ||
+					'You appear to be offline. Your funds are safe on the blockchain. Reconnecting...';
 				// Don't poll while offline — schedule next poll at current interval
 				_scheduleBridgePoll();
 				return;
 			}
 
 			// Refresh balances and check for delivery
-			walletManager.loadAssets(true).then(() => {
-				void _checkBridgeDelivery();
-			}).catch(() => {});
+			walletManager
+				.loadAssets(true)
+				.then(() => {
+					void _checkBridgeDelivery();
+				})
+				.catch(() => {});
 
 			// Exponential backoff: 5s → 10s → 20s → 30s (max)
 			_bridgePollIntervalMs = Math.min(_bridgePollIntervalMs * 2, 30_000);
@@ -224,7 +236,9 @@
 				if (status.status === 'FAILED') {
 					d.error('[SwapForm] LI.FI status FAILED for tx=%s', _swapResult.txHash);
 					_bridgeFailed = true;
-					_bridgeStatusMessage = $t('wallet.swap.bridge_failed') || 'The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.';
+					_bridgeStatusMessage =
+						$t('wallet.swap.bridge_failed') ||
+						'The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.';
 					_stopBridgeDeliveryTracking();
 					return;
 				}
@@ -247,7 +261,12 @@
 
 		// If destination balance increased, bridge has delivered
 		if (currentBalance > _bridgeDestBalanceSnapshot + 0.000001) {
-			d.log('[SwapForm] Bridge delivery detected via balance: %s balance %s → %s', _bridgeDestType, _bridgeDestBalanceSnapshot, currentBalance);
+			d.log(
+				'[SwapForm] Bridge delivery detected via balance: %s balance %s → %s',
+				_bridgeDestType,
+				_bridgeDestBalanceSnapshot,
+				currentBalance
+			);
 			_confirmBridgeDelivery();
 		}
 	}
@@ -320,7 +339,8 @@
 			const elapsed = Math.floor((Date.now() - bridge.startedAt) / 1000);
 			_bridgeElapsedSeconds = elapsed;
 			_bridgeEstimatedSeconds = Math.max(30, bridge.estimatedMinutes * 60);
-			_bridgeStatusMessage = $t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
+			_bridgeStatusMessage =
+				$t('wallet.swap.bridge_in_progress') || 'Bridging your funds to the destination chain...';
 			_bridgeTakingLonger = elapsed > _bridgeEstimatedSeconds * 1.5;
 			_bridgeFailed = elapsed > _bridgeEstimatedSeconds * 3;
 			_bridgePollIntervalMs = 10_000; // Start with longer interval on restore
@@ -446,11 +466,11 @@
 						? swapOptions.builtinTbtcSats
 						: swapWallets.sourceBalances.tbtcSats) / 100_000_000;
 			} else if (sourceType === 'btc-onchain') {
-				rawBalance = (sourceWallet === 'builtin' ? 0 : swapWallets.externalBtcBalanceSats) / 100_000_000;
+				rawBalance =
+					(sourceWallet === 'builtin' ? 0 : swapWallets.externalBtcBalanceSats) / 100_000_000;
 			} else {
-				rawBalance = sourceWallet === 'builtin'
-					? swapOptions.builtinUsdt0
-					: swapWallets.sourceBalances.usdt0;
+				rawBalance =
+					sourceWallet === 'builtin' ? swapOptions.builtinUsdt0 : swapWallets.sourceBalances.usdt0;
 			}
 			// For Arbitrum ERC-20 tokens: subtract the gasless relay fee reserve.
 			// The executeBatch batches the swap and a fee transfer from the same
@@ -534,7 +554,7 @@
 	// cannot enter an amount that would leave insufficient tokens for the fee.
 	const gaslessFeeReserve = $derived.by(() => {
 		const arbTokens: Record<string, { addr: string; decimals: number }> = {
-			'usdt0': { addr: USDT0_ADDRESS, decimals: 6 },
+			usdt0: { addr: USDT0_ADDRESS, decimals: 6 },
 			'wbtc-arb': { addr: WBTC_ADDRESS, decimals: 8 },
 			'tbtc-arb': { addr: TBTC_ADDRESS, decimals: 18 }
 		};
@@ -545,11 +565,12 @@
 		if (!maxBuffer) return 0;
 		let reserve = Number(maxBuffer) / Math.pow(10, info.decimals);
 		// For cross-chain swaps, add bridge gas reserve
-		const isCrossChain = sourceType !== destType &&
+		const isCrossChain =
+			sourceType !== destType &&
 			((sourceType === 'usdt0-arb' && destType === 'rbtc-rsk') ||
-			 (sourceType === 'rbtc' && destType === 'usdt0-arb') ||
-			 (sourceType === 'usdt0-arb' && destType === 'wbtc-arb') ||
-			 (sourceType === 'wbtc-arb' && destType === 'usdt0-arb'));
+				(sourceType === 'rbtc' && destType === 'usdt0-arb') ||
+				(sourceType === 'usdt0-arb' && destType === 'wbtc-arb') ||
+				(sourceType === 'wbtc-arb' && destType === 'usdt0-arb'));
 		if (isCrossChain) {
 			const bridgeReserve = BRIDGE_GAS_RESERVE[addrLower];
 			if (bridgeReserve) {
@@ -827,7 +848,9 @@
 		_clearSwapTimeout();
 		_stopProgressTracking();
 		swapPhase = 'form';
-		errorMessage = $t('wallet.swap.cancel_warning') || 'Your swap is still in progress. Check Pending Swaps for status.';
+		errorMessage =
+			$t('wallet.swap.cancel_warning') ||
+			'Your swap is still in progress. Check Pending Swaps for status.';
 		_swapResult = null;
 		d.log('Swap cancelled by user');
 		Sentry.addBreadcrumb({
@@ -954,12 +977,10 @@
 					blockchainToastStore.onSuccess(swapToastId);
 
 					// Get estimated bridge time from route
-					const bridgeMinutes = smartRoute?.estimatedTimeMinutes
-						|| swapRoutes.activeRouteForCalc?.estimatedTime
-						|| 2; // default 2 minutes
-					const estimatedMins = typeof bridgeMinutes === 'string'
-						? parseInt(bridgeMinutes) || 2
-						: bridgeMinutes;
+					const bridgeMinutes =
+						smartRoute?.estimatedTimeMinutes || swapRoutes.activeRouteForCalc?.estimatedTime || 2; // default 2 minutes
+					const estimatedMins =
+						typeof bridgeMinutes === 'string' ? parseInt(bridgeMinutes) || 2 : bridgeMinutes;
 
 					// Set active bridge in wallet store for persistent banner
 					walletStore.update((s) => ({
@@ -1009,7 +1030,9 @@
 
 			if (err instanceof Error && err.message === 'swap_timeout') {
 				d.error('Swap timed out after %dms', SWAP_TIMEOUT_MS);
-				errorMessage = $t('wallet.swap.error.timed_out_pending') || 'Swap timed out but may still be in progress. Check Pending Swaps for status.';
+				errorMessage =
+					$t('wallet.swap.error.timed_out_pending') ||
+					'Swap timed out but may still be in progress. Check Pending Swaps for status.';
 				Sentry.addBreadcrumb({
 					category: 'wallet.swap',
 					message: 'Swap timed out',
@@ -1171,10 +1194,10 @@
 					onPercentChange={applyPercent}
 					onMaxAmount={setMaxAmount}
 					onBtcUsdModeChange={swapInput.handleBtcUsdModeChange}
-				onSwapDirection={handleSwapDirection}
-				{satsUsd}
-				{gaslessFeeReserve}
-			/>
+					onSwapDirection={handleSwapDirection}
+					{satsUsd}
+					{gaslessFeeReserve}
+				/>
 				{#if swapRoutes.swapError}
 					<div class="alert alert-warning text-sm">
 						{$t(swapRoutes.swapError)}
@@ -1238,8 +1261,8 @@
 		{#if swapPhase === 'complete'}
 			<SwapSuccessPhase
 				{isDirectTransfer}
-				sourceAsset={sourceAsset}
-				sourceIcon={sourceIcon}
+				{sourceAsset}
+				{sourceIcon}
 				{sourceType}
 				{destType}
 				{selectedDest}
@@ -1277,8 +1300,19 @@
 				{#if _bridgeFailed}
 					<!-- Bridge timeout/failure state -->
 					<div class="bg-warning/10 rounded-full p-4">
-						<svg xmlns="http://www.w3.org/2000/svg" class="text-warning h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-warning h-10 w-10"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
 						</svg>
 					</div>
 					<div class="text-center">
@@ -1309,22 +1343,39 @@
 					<!-- Source sent -->
 					<div class="flex items-center justify-between text-sm">
 						<span class="text-base-content/60">{$t('wallet.swap.source_sent') || 'Sent'}</span>
-						<span class="font-medium">{sourceAsset} {_bridgeSourceAmount || swapCalc.amount || ''}</span>
+						<span class="font-medium"
+							>{sourceAsset} {_bridgeSourceAmount || swapCalc.amount || ''}</span
+						>
 					</div>
 					<!-- Destination expected -->
 					<div class="flex items-center justify-between text-sm">
-						<span class="text-base-content/60">{$t('wallet.swap.dest_expected') || 'Receiving'}</span>
+						<span class="text-base-content/60"
+							>{$t('wallet.swap.dest_expected') || 'Receiving'}</span
+						>
 						<span class="font-medium">{selectedDest?.asset || ''} {estimatedOutput ?? ''}</span>
 					</div>
 					<!-- Elapsed time -->
 					<div class="flex items-center justify-between text-sm">
 						<span class="text-base-content/60">{$t('wallet.swap.elapsed') || 'Elapsed'}</span>
-						<span class="font-mono">{Math.floor(_bridgeElapsedSeconds / 60)}m {_bridgeElapsedSeconds % 60}s</span>
+						<span class="font-mono"
+							>{Math.floor(_bridgeElapsedSeconds / 60)}m {_bridgeElapsedSeconds % 60}s</span
+						>
 					</div>
 					{#if _bridgeTakingLonger && !_bridgeFailed}
 						<div class="alert alert-warning py-2 text-xs">
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+								/>
 							</svg>
 							<span>{_bridgeStatusMessage}</span>
 						</div>
@@ -1340,15 +1391,28 @@
 						class="bg-base-200 hover:bg-base-300 flex items-center gap-2 rounded-xl p-3 text-xs transition-colors sm:text-sm"
 					>
 						<span class="text-base-content/60">{$t('wallet.swap.source_tx') || 'Source TX'}:</span>
-						<span class="font-mono">{_swapResult.txHash.slice(0, 6)}...{_swapResult.txHash.slice(-4)}</span>
-						<svg class="text-base-content/40 ml-auto h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+						<span class="font-mono"
+							>{_swapResult.txHash.slice(0, 6)}...{_swapResult.txHash.slice(-4)}</span
+						>
+						<svg
+							class="text-base-content/40 ml-auto h-4 w-4 shrink-0"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+							/>
 						</svg>
 					</a>
 				{/if}
 
 				<p class="text-base-content/40 px-4 text-center text-xs">
-					{$t('wallet.swap.bridge_safe_to_close') || 'You can safely close this screen. Your funds are in transit on the blockchain.'}
+					{$t('wallet.swap.bridge_safe_to_close') ||
+						'You can safely close this screen. Your funds are in transit on the blockchain.'}
 				</p>
 			</div>
 		{/if}
@@ -1383,7 +1447,10 @@
 		{#if swapPhase === 'form'}
 			{#if !relayAvailable}
 				<div class="alert alert-error mb-3 min-h-[44px]">
-					<span class="text-sm">{$t('wallet.swap.relay_unavailable') || 'The gasless relay is temporarily unavailable. Please try again in a few minutes.'}</span>
+					<span class="text-sm"
+						>{$t('wallet.swap.relay_unavailable') ||
+							'The gasless relay is temporarily unavailable. Please try again in a few minutes.'}</span
+					>
 				</div>
 			{:else if !swapRoutes.gasDataAvailable && amountSats > 0}
 				<div class="alert alert-warning mb-3 min-h-[44px]">
@@ -1455,7 +1522,9 @@
 					class="btn btn-primary min-h-[44px] flex-1 touch-manipulation active:scale-95 sm:min-h-[48px] sm:flex-none"
 					onclick={_confirmBridgeDelivery}
 				>
-					<span class="text-sm sm:text-base">{$t('wallet.swap.bridge_received') || 'I received my funds'}</span>
+					<span class="text-sm sm:text-base"
+						>{$t('wallet.swap.bridge_received') || 'I received my funds'}</span
+					>
 				</button>
 			</div>
 		{:else if swapPhase === 'complete' || swapPhase === 'failed'}
