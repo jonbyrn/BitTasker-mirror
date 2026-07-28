@@ -94,3 +94,5 @@ agentdb.rvf
 
 # fastlane Play Store credentials (NEVER commit)
 fastlane/play-store-credentials.json
+
+.cache-synpress/
