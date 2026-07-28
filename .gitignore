@@ -165,3 +165,5 @@ scripts/credentials.json
 
 # Private keys — NEVER commit
 docker/secrets/
+
+.cache-synpress/
