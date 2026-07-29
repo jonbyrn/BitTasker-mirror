@@ -103,6 +103,7 @@ build-development:
     policy: pull-push
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - npm install -g npm@latest
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run build:dev
@@ -137,6 +138,7 @@ build-production:
     policy: pull-push
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - npm install -g npm@latest
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run build:production
@@ -169,6 +171,8 @@ coverage:
       - node_modules/
       - .npm/
     policy: pull
+  before_script:
+    - npm install -g npm@latest
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci -- --coverage
@@ -239,6 +243,7 @@ deploy-development:
     SENTRY_URL: https://gt.bittasker.com
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - npm install -g npm@latest
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
@@ -279,6 +284,7 @@ deploy-production:
       expand: false
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - npm install -g npm@latest
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env production
