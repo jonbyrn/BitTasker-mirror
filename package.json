@@ -245,7 +245,10 @@
 			"esbuild": "^0.25.12"
 		},
 		"uuid": "^11.1.0",
-		"vite-plugin-wasm": "^3.4.1"
+		"vite-plugin-wasm": "^3.4.1",
+		"@synthetixio/synpress-phantom": {
+			"@playwright/test": "$@playwright/test"
+		}
 	},
 	"optionalDependencies": {
 		"@ledgerhq/hw-app-btc": "^10.22.1",
