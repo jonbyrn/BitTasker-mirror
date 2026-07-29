@@ -15,11 +15,11 @@ describe('service-quote acceptance reconciliation', () => {
 	it('prioritizes verified escrow over publish failures and otherwise preserves ledger state', () => {
 		const ledgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepting',
+			state: 'accepting' as const,
 			attemptCount: 1,
 			lastUpdatedAt: 1,
 			attempts: []
-		} as const;
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({
@@ -52,11 +52,11 @@ describe('service-quote acceptance reconciliation', () => {
 	it('maps explicit ambiguity reasons to accept_unknown', () => {
 		const ledgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepting',
+			state: 'accepting' as const,
 			attemptCount: 1,
 			lastUpdatedAt: 1,
 			attempts: []
-		} as const;
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({
@@ -80,11 +80,11 @@ describe('service-quote acceptance reconciliation', () => {
 	it('allows a previously accepted ledger entry to downgrade and later reconfirm', () => {
 		const acceptedLedgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepted',
+			state: 'accepted' as const,
 			attemptCount: 2,
 			lastUpdatedAt: 2,
 			attempts: []
-		} as const;
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({

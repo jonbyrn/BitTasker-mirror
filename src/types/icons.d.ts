@@ -1,6 +1,6 @@
 // Type declarations for unplugin-icons
 declare module '~icons/*' {
-	import type { ComponentType } from 'svelte';
-	const component: ComponentType;
+	import type { Component } from 'svelte';
+	const component: Component<{ class?: string }>;
 	export default component;
 }

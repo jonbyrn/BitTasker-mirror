@@ -2,6 +2,20 @@ import type { CryptoEncryptedData } from '$lib/types/auth';
 import { entropyToMnemonic } from 'bip39';
 import { bytesToBase64, base64ToBytes } from './encoding';
 
+/**
+ * Safely converts a Uint8Array (potentially backed by ArrayBufferLike/SharedArrayBuffer
+ * depending on runtime + TS lib.dom) into a BufferSource that satisfies the strict
+ * overloads on crypto.subtle.* methods.
+ *
+ * This is the single source of truth for the WebCrypto typing issues.
+ */
+function toBufferSource(u8: Uint8Array): BufferSource {
+	// Always copy into a fresh Uint8Array so TS sees Uint8Array<ArrayBuffer>,
+	// which is assignable to BufferSource.  The original may be backed by
+	// ArrayBufferLike (SharedArrayBuffer / detached) which breaks the overload.
+	return new Uint8Array(u8);
+}
+
 export async function generateRandomKey(): Promise<CryptoKey> {
 	return await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
 		'encrypt',
@@ -16,11 +30,13 @@ export async function exportKey(key: CryptoKey): Promise<string> {
 
 export async function importKey(keyData: string): Promise<CryptoKey> {
 	const keyBytes = base64ToBytes(keyData);
-	const buffer = new Uint8Array(keyBytes).buffer;
-	return await crypto.subtle.importKey('raw', buffer, { name: 'AES-GCM', length: 256 }, true, [
-		'encrypt',
-		'decrypt'
-	]);
+	return await crypto.subtle.importKey(
+		'raw',
+		toBufferSource(keyBytes),
+		{ name: 'AES-GCM', length: 256 },
+		true,
+		['encrypt', 'decrypt']
+	);
 }
 
 export async function encrypt(data: string, key: CryptoKey): Promise<CryptoEncryptedData> {
@@ -35,7 +51,7 @@ export async function encrypt(data: string, key: CryptoKey): Promise<CryptoEncry
 			tagLength: 128
 		},
 		key,
-		dataBytes
+		toBufferSource(dataBytes)
 	);
 
 	// Split the encrypted data into ciphertext and auth tag
@@ -61,7 +77,7 @@ export async function decrypt(encryptedData: CryptoEncryptedData, key: CryptoKey
 	combinedBytes.set(authTagBytes, dataBytes.length);
 
 	// Create a proper ArrayBuffer for the iv
-	const ivBuffer = new Uint8Array(ivBytes).buffer;
+	const ivBuffer = toBufferSource(ivBytes);
 
 	const decryptedData = await crypto.subtle.decrypt(
 		{
@@ -70,7 +86,7 @@ export async function decrypt(encryptedData: CryptoEncryptedData, key: CryptoKey
 			tagLength: 128
 		},
 		key,
-		combinedBytes
+		toBufferSource(combinedBytes)
 	);
 
 	return decoder.decode(decryptedData);
@@ -85,14 +101,14 @@ export async function deriveKeyFromPassword(
 		const encoder = new TextEncoder();
 		const keyMaterial = await crypto.subtle.importKey(
 			'raw',
-			encoder.encode(password),
+			toBufferSource(encoder.encode(password)),
 			'PBKDF2',
 			false,
 			['deriveKey']
 		);
 
 		// Create a proper ArrayBuffer for the salt
-		const saltBuffer = new Uint8Array(salt).buffer;
+		const saltBuffer = toBufferSource(salt);
 
 		return await crypto.subtle.deriveKey(
 			{
@@ -186,7 +202,10 @@ export function formatNumberForInput(value: number | undefined): string {
 
 export async function deriveWalletFromNostr(nsec: string): Promise<string> {
 	// Use the nsec as entropy to deterministically generate mnemonic
-	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nsec));
+	const hash = await crypto.subtle.digest(
+		'SHA-256',
+		toBufferSource(new TextEncoder().encode(nsec))
+	);
 	const entropy = new Uint8Array(hash).slice(0, 16); // 128 bits = 12 word mnemonic
 
 	// Convert entropy to hex string for BIP39

@@ -9,15 +9,18 @@ const meta = {
 		size: {
 			control: { type: 'select' },
 			options: ['xs', 'sm', 'md', 'lg', 'xl'],
-			description: 'Size of the avatar',
-			defaultValue: 'md'
+			description: 'Size of the avatar'
 		},
-		user: {
-			control: 'object',
-			description: 'User object containing name and optional profile image'
+		picture: {
+			control: 'text',
+			description: 'URL of the profile image'
+		},
+		name: {
+			control: 'text',
+			description: 'User name for initials fallback'
 		}
 	}
-} satisfies Meta<Avatar>;
+} satisfies Meta<typeof Avatar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -25,30 +28,24 @@ type Story = StoryObj<typeof meta>;
 // Basic stories with different sizes
 export const Default: Story = {
 	args: {
-		user: {
-			name: 'John Doe',
-			profileImage: null
-		},
+		name: 'John Doe',
+		picture: undefined,
 		size: 'md'
 	}
 };
 
 export const Small: Story = {
 	args: {
-		user: {
-			name: 'John Doe',
-			profileImage: null
-		},
+		name: 'John Doe',
+		picture: undefined,
 		size: 'sm'
 	}
 };
 
 export const Large: Story = {
 	args: {
-		user: {
-			name: 'John Doe',
-			profileImage: null
-		},
+		name: 'John Doe',
+		picture: undefined,
 		size: 'lg'
 	}
 };
@@ -56,10 +53,8 @@ export const Large: Story = {
 // With profile image
 export const WithImage: Story = {
 	args: {
-		user: {
-			name: 'John Doe',
-			profileImage: 'https://i.pravatar.cc/300'
-		},
+		name: 'John Doe',
+		picture: 'https://i.pravatar.cc/300',
 		size: 'md'
 	}
 };
@@ -68,41 +63,14 @@ export const WithImage: Story = {
 export const DifferentUsers: Story = {
 	render: () => ({
 		Component: Avatar,
-		props: {}
-	}),
-	decorators: [
-		() => ({
-			template: `
-				<div class="flex items-center gap-4">
-					<Avatar user={{ name: 'John Doe', profileImage: null }} />
-					<Avatar user={{ name: 'Alice Smith', profileImage: null }} />
-					<Avatar user={{ name: 'Robert Brown', profileImage: null }} />
-					<Avatar user={{ name: 'Maria Garcia', profileImage: null }} />
-					<Avatar user={{ name: 'David Lee', profileImage: null }} />
-					<Avatar user={{ name: 'Sarah Johnson', profileImage: null }} />
-				</div>
-			`
-		})
-	]
+		props: { name: 'John Doe', picture: undefined, size: 'md' as const }
+	})
 };
 
 // Show all sizes
 export const AllSizes: Story = {
 	render: () => ({
 		Component: Avatar,
-		props: {}
-	}),
-	decorators: [
-		() => ({
-			template: `
-				<div class="flex items-end gap-4">
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="xs" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="sm" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="md" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="lg" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="xl" />
-				</div>
-			`
-		})
-	]
-}; 
+		props: { name: 'John Doe', picture: undefined, size: 'xl' as const }
+	})
+};

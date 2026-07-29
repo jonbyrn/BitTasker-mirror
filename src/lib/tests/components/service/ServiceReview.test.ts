@@ -160,7 +160,7 @@ describe('ServiceReview', () => {
 	});
 
 	it('uses a primary border for popular tiers in the review step', () => {
-		hoisted.storeState.set({
+		const tieredServiceData = {
 			service: {
 				title: 'Launch audit',
 				description: 'Review deployment setup and go-live checklist.',
@@ -168,6 +168,9 @@ describe('ServiceReview', () => {
 				skills: [],
 				serviceLocationTypes: [],
 				locationDetails: {},
+				taskeeLocation: {
+					serviceLocation: { displayName: '', latitude: 0, longitude: 0, locationLoaded: false }
+				},
 				pricing: {
 					type: 'TIERED',
 					currency: 'USD',
@@ -192,7 +195,10 @@ describe('ServiceReview', () => {
 				portfolio: [],
 				faqs: []
 			}
-		});
+		};
+		hoisted.storeState.set(
+			tieredServiceData as unknown as Parameters<typeof hoisted.storeState.set>[0]
+		);
 
 		const { getAllByText } = render(ServiceReview, {
 			errors: {},
@@ -203,7 +209,8 @@ describe('ServiceReview', () => {
 		expect(popularBadges.length).toBeGreaterThan(0);
 		// The first Popular badge should be in the tier card
 		const popularBadge = popularBadges[0];
-		const popularCard = popularBadge.closest('.collapse') || popularBadge.closest('[class*="border"]');
+		const popularCard =
+			popularBadge.closest('.collapse') || popularBadge.closest('[class*="border"]');
 		expect(popularCard).toBeTruthy();
 	});
 });

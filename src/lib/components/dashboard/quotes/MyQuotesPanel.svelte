@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
+	import type { Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
 	import ServiceRequestDrawer from './ServiceRequestDrawer.svelte';
@@ -45,8 +45,8 @@
 	import IconTimerSand from '~icons/mdi/timer-sand';
 	import IconUndoVariant from '~icons/mdi/undo-variant';
 
-	const briefcaseEmptyStateIcon = IconBriefcaseOutline;
-	const refreshEmptyStateIcon = IconRefresh;
+	const briefcaseEmptyStateIcon = IconBriefcaseOutline as Component;
+	const refreshEmptyStateIcon = IconRefresh as Component;
 
 	let {
 		timelines = [],
@@ -944,7 +944,7 @@
 					amountUsdt: latestProposal.content.amountUsdt,
 					estimatedStartTime: schedule.estimatedStartTime,
 					estimatedCompletionTime: schedule.estimatedCompletionTime,
-					freelancerFeeTier: latestProposal.content.freelancerFeeTier
+					freelancerFeeTier: (latestProposal.content.freelancerFeeTier || 1) as 1 | 2 | 3
 				},
 				btcPrice
 			);
@@ -1021,10 +1021,10 @@
 	async function viewContract(escrowId: string) {
 		const nextUrl = createDashboardUrl(new URL('/hiring', window.location.origin), {
 			tab: 'contracts',
-			context: 'services',
+			type: 'services',
 			highlight: escrowId
 		});
-		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
+		await goto(`${nextUrl.pathname}${nextUrl.search}`);
 	}
 
 	async function deleteRequest(timeline: ServiceQuoteTimelineEntry) {
@@ -1223,8 +1223,13 @@
 		isRefreshing={isSyncing}
 		refreshDisabled={!onRetry || hasPendingMutation}
 	>
+		{@const dropdownOptions = filterOptions as unknown as {
+			id: ServiceRequestFilterCategory;
+			label: string;
+			icon?: Component;
+		}[]}
 		<DashboardDropdown
-			options={filterOptions}
+			options={dropdownOptions}
 			value={activeFilter}
 			onSelect={handleFilterChange}
 			containerClass="col-span-2 sm:w-64"

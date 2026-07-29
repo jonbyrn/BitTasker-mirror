@@ -1,7 +1,7 @@
 // Debounce function with abort signal support
 export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
 	let timeoutId: ReturnType<typeof setTimeout>;
-	return function (...args: Parameters<T>) {
+	return function (this: void, ...args: Parameters<T>) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn.apply(this, args), delay);
 	};
@@ -15,7 +15,7 @@ export function debounceWithAbort<T extends (...args: unknown[]) => void>(
 	let timeoutId: ReturnType<typeof setTimeout>;
 	const abortController = new AbortController();
 
-	const debouncedFn = function (...args: Parameters<T>) {
+	const debouncedFn = function (this: Record<string, unknown>, ...args: Parameters<T>) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
 			if (!abortController.signal.aborted) {

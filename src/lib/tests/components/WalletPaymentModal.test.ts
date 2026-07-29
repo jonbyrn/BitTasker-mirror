@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { walletStore } from '$lib/stores/wallet.store';
 import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+import type { Snippet } from 'svelte';
 
 // Mock svelte-i18n - t needs to be a readable store
 vi.mock('svelte-i18n', async () => {
@@ -88,9 +89,8 @@ vi.mock('$lib/stores/wallet.store', async () => {
 describe('WalletPaymentModal Component', () => {
 	const defaultProps = {
 		isOpen: true,
-		mode: 'receive' as const,
 		onClose: vi.fn()
-	};
+	} as const;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -99,7 +99,7 @@ describe('WalletPaymentModal Component', () => {
 			isInitializing: false,
 			isConnected: false,
 			error: null
-		});
+		} as never);
 	});
 
 	afterEach(() => {
@@ -161,13 +161,13 @@ describe('WalletPaymentModal Component', () => {
 		it('should trap focus within modal', async () => {
 			render(WalletPaymentModal, {
 				...defaultProps,
-				children: () => {
+				children: (() => {
 					return `
 						<button>First</button>
 						<button>Second</button>
 						<button>Third</button>
 					`;
-				}
+				}) as unknown as Snippet
 			});
 
 			const modal = screen.getByRole('dialog');
@@ -233,8 +233,8 @@ describe('WalletPaymentModal Component', () => {
 			// Just verify modal renders with correct mode
 			render(WalletPaymentModal, {
 				...defaultProps,
-				mode: 'receive',
-				children: () => '<div>Request Payment Content</div>'
+
+				children: (() => '<div>Request Payment Content</div>') as unknown as Snippet
 			});
 
 			const modal = screen.getByRole('dialog');
@@ -247,8 +247,8 @@ describe('WalletPaymentModal Component', () => {
 			// Just verify modal renders with correct mode
 			render(WalletPaymentModal, {
 				...defaultProps,
-				mode: 'send',
-				children: () => '<div>Send Payment Content</div>'
+
+				children: (() => '<div>Send Payment Content</div>') as unknown as Snippet
 			});
 
 			const modal = screen.getByRole('dialog');
@@ -263,11 +263,11 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: true,
 				hasAnyConnection: false,
 				error: null
-			});
+			} as never);
 
 			render(WalletPaymentModal, {
 				...defaultProps,
-				children: () => '<div>Loading...</div>'
+				children: (() => '<div>Loading...</div>') as unknown as Snippet
 			});
 
 			// Modal doesn't show initialization state - it's handled in child components
@@ -281,7 +281,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: false,
 				error: 'Initialization failed'
-			});
+			} as never);
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -294,7 +294,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: false,
 				error: null
-			});
+			} as never);
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -307,7 +307,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: true,
 				error: null
-			});
+			} as never);
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -332,7 +332,9 @@ describe('WalletPaymentModal Component', () => {
 		it('should have accessible title', () => {
 			render(WalletPaymentModal, {
 				...defaultProps,
-				children: () => '<h2 id="wallet-modal-title">Request Payment</h2>'
+				children: (() => '<h2 id="wallet-modal-title">Request Payment</h2>') as unknown as Snippet<
+					[]
+				>
 			});
 
 			// Title is in children, but modal should have aria-labelledby pointing to it

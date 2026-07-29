@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ServicePricing } from '$lib/types/service';
 import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 
 describe('resolveServiceTierLabel', () => {
@@ -11,7 +12,7 @@ describe('resolveServiceTierLabel', () => {
 							{ id: 'standard', name: 'Standard Plan' },
 							{ id: 'premium', name: 'Premium Plan' }
 						]
-					}
+					} as unknown as ServicePricing
 				},
 				'premium'
 			)

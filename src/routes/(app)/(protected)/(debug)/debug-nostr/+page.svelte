@@ -784,7 +784,7 @@
 					</div>
 					<div class="kv">
 						<span class="kv-key">Status</span><span class="kv-val"
-							>{statusLabel(taskInspectorParsedContent.status)}</span
+							>{statusLabel(taskInspectorParsedContent.status as string | null)}</span
 						>
 					</div>
 					<div class="kv">
@@ -794,25 +794,27 @@
 					</div>
 					<div class="kv">
 						<span class="kv-key">Budget</span><span class="kv-val"
-							>{taskInspectorParsedContent.budget?.amount}
-							{taskInspectorParsedContent.budget?.currency}</span
+							>{(taskInspectorParsedContent.budget as Record<string, unknown>)?.amount}
+							{(taskInspectorParsedContent.budget as Record<string, unknown>)?.currency}</span
 						>
 					</div>
 					{#if taskInspectorParsedContent.creator}
 						<div class="kv">
 							<span class="kv-key">Creator username</span><span class="kv-val"
-								>{taskInspectorParsedContent.creator.username || '(none)'}</span
+								>{(taskInspectorParsedContent.creator as Record<string, unknown>).username ||
+									'(none)'}</span
 							>
 						</div>
 						<div class="kv">
 							<span class="kv-key">Creator avatar</span><span class="kv-val"
-								>{taskInspectorParsedContent.creator.avatar || '(none)'}</span
+								>{(taskInspectorParsedContent.creator as Record<string, unknown>).avatar ||
+									'(none)'}</span
 							>
 						</div>
 					{/if}
 					<div class="kv">
 						<span class="kv-key">Description</span><span class="kv-val"
-							>{taskInspectorParsedContent.description?.slice(0, 200) || '(none)'}</span
+							>{(taskInspectorParsedContent.description as string)?.slice(0, 200) || '(none)'}</span
 						>
 					</div>
 				</div>

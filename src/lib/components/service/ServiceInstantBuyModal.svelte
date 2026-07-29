@@ -36,6 +36,8 @@
 		walletConnected = false,
 		walletBalanceSats = '',
 		walletBalanceUsd = '',
+		usdtBalance = '',
+		usdtBalanceUsd = '',
 		requiredBalanceSats = '',
 		requiredBalanceUsd = '',
 		walletVerificationStatus = 'idle',
@@ -81,6 +83,8 @@
 		walletConnected?: boolean;
 		walletBalanceSats?: string;
 		walletBalanceUsd?: string;
+		usdtBalance?: string;
+		usdtBalanceUsd?: string;
 		requiredBalanceSats?: string;
 		requiredBalanceUsd?: string;
 		walletVerificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
@@ -111,8 +115,16 @@
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
-	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
-	const PLATFORM_FEE_PERCENT_LABEL = `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%`;
+	const USDT_PLATFORM_FEE_RATE = 0.1; // 10% for USDT payments
+	const RBTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
+
+	let selectedSource = $state<'rbtc' | 'usdt'>('rbtc');
+	let sourceExpanded = $state(false);
+
+	let platformFeeRate = $derived(
+		selectedSource === 'usdt' ? USDT_PLATFORM_FEE_RATE : RBTC_PLATFORM_FEE_RATE
+	);
+	const PLATFORM_FEE_PERCENT_LABEL = $derived(`${(platformFeeRate * 100).toFixed(1)}%`);
 
 	function formatUsdLabel(value: number | null): string {
 		if (value == null || !Number.isFinite(value)) {
@@ -128,7 +140,7 @@
 		amountUsd != null && Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : null
 	);
 	const platformFeeValue = $derived(
-		baseAmountValue != null ? baseAmountValue * PLATFORM_FEE_RATE : null
+		baseAmountValue != null ? baseAmountValue * platformFeeRate : null
 	);
 	const totalPaymentValue = $derived(
 		baseAmountValue != null && platformFeeValue != null
@@ -136,15 +148,43 @@
 			: null
 	);
 	const baseAmountLabel = $derived(formatUsdLabel(baseAmountValue));
+	const usdtPlatformFeeValue = $derived(
+		baseAmountValue != null ? baseAmountValue * USDT_PLATFORM_FEE_RATE : null
+	);
+	const usdtPlatformFeeLabel = $derived(formatUsdLabel(usdtPlatformFeeValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
+	const savingsValue = $derived.by(() => {
+		if (usdtPlatformFeeValue != null && platformFeeValue != null && selectedSource === 'rbtc') {
+			return usdtPlatformFeeValue - platformFeeValue;
+		}
+		return null;
+	});
+	const savingsLabel = $derived(formatUsdLabel(savingsValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const resolvedErrorMessage = $derived(errorMessage);
 
+	// Wallet card props — switch based on selected source
+	let walletCardBalancePrimary = $derived(
+		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceSats
+	);
+	let walletCardBalanceSecondary = $derived(selectedSource === 'usdt' ? '' : walletBalanceUsd);
+	let walletCardIconAlt = $derived(selectedSource === 'usdt' ? 'USDT' : 'Bitcoin');
+
+	// Effective balance/required that switch based on selected source
+	let effectiveBalance = $derived(
+		selectedSource === 'usdt' ? usdtBalanceUsd || usdtBalance || '$0.00' : walletBalanceUsd
+	);
+	let effectiveRequired = $derived(requiredBalanceUsd);
+
+	function parseUsdString(value: string): number {
+		return parseFloat(value.replace(/[$,]/g, ''));
+	}
+
 	const remainingBalanceUsd = $derived.by(() => {
-		if (!walletBalanceUsd || !requiredBalanceUsd) return '—';
-		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
-		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (!effectiveBalance || !effectiveRequired) return '—';
+		const walletNum = parseUsdString(effectiveBalance);
+		const requiredNum = parseUsdString(effectiveRequired);
 		if (isNaN(walletNum) || isNaN(requiredNum)) return '—';
 		const remaining = walletNum - requiredNum;
 		if (remaining < 0) {
@@ -154,9 +194,9 @@
 	});
 
 	const remainingIsNegative = $derived.by(() => {
-		if (!walletBalanceUsd || !requiredBalanceUsd) return false;
-		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
-		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (!effectiveBalance || !effectiveRequired) return false;
+		const walletNum = parseUsdString(effectiveBalance);
+		const requiredNum = parseUsdString(effectiveRequired);
 		if (isNaN(walletNum) || isNaN(requiredNum)) return false;
 		return walletNum < requiredNum;
 	});
@@ -517,6 +557,114 @@
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
 
+							<!-- Source Wallet Selector -->
+							<div class="form-control">
+								<div
+									class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+									class:collapse-open={sourceExpanded}
+								>
+									<button
+										type="button"
+										class="collapse-title flex min-h-0 items-center gap-2 px-3 py-2 pr-10 text-sm font-medium sm:pr-12"
+										onclick={() => (sourceExpanded = !sourceExpanded)}
+									>
+										<span class="text-base-content/60">{$t('wallet.from')}:</span>
+										{#if selectedSource === 'rbtc'}
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt="Bitcoin"
+												class="h-5 w-5"
+											/>
+											<span>{$t('wallet.bitcoin')}</span>
+											<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
+										{:else}
+											<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
+											<span>USD</span>
+											<span class="ml-auto text-xs opacity-70"
+												>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
+											>
+										{/if}
+									</button>
+									<div class="collapse-content px-2">
+										<div class="space-y-1">
+											<button
+												type="button"
+												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedSource ===
+												'rbtc'
+													? 'bg-primary/10'
+													: ''}"
+												onclick={() => {
+													selectedSource = 'rbtc';
+													sourceExpanded = false;
+												}}
+											>
+												<img
+													src="/images/chains/Bitcoin-Rootstock-logo.webp"
+													alt="Bitcoin"
+													class="h-5 w-5"
+												/>
+												<span>{$t('wallet.bitcoin')}</span>
+												<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
+											</button>
+											<button
+												type="button"
+												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedSource ===
+												'usdt'
+													? 'bg-primary/10'
+													: ''}"
+												onclick={() => {
+													selectedSource = 'usdt';
+													sourceExpanded = false;
+												}}
+											>
+												<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5" />
+												<span>USD</span>
+												<span class="ml-auto text-xs opacity-70"
+													>{usdtBalanceUsd || usdtBalance || '$0.00'}</span
+												>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Wallet Balance Accordion -->
+							<ContractFundingWalletCard
+								title={$t('dashboard.services.detail.book_now_drawer.wallet_balance')}
+								iconAlt={walletCardIconAlt}
+								balanceSats={walletCardBalancePrimary}
+								balanceUsd={walletCardBalanceSecondary}
+								satsLabel={selectedSource === 'usdt'
+									? ''
+									: $t('dashboard.services.detail.book_now_drawer.sats')}
+								notConnectedLabel={$t(
+									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
+								)}
+								availableLabel={$t('dashboard.services.detail.book_now_drawer.available_balance')}
+								requiredLabel={$t('dashboard.services.detail.book_now_drawer.required_balance')}
+								requiredUsd={requiredBalanceUsd}
+								requiredSats={requiredBalanceSats}
+								remainingUsd={remainingBalanceUsd}
+								{remainingIsNegative}
+								loading={walletLoading}
+								connected={walletConnected}
+								verificationStatus={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
+									? 'idle'
+									: walletVerificationStatus}
+								verificationMessage={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
+									? ''
+									: walletVerificationMessage}
+								forceOpen={false}
+								availableBalance={selectedSource === 'usdt'
+									? usdtBalanceUsd || usdtBalance || '$0.00'
+									: undefined}
+								iconSrc={selectedSource === 'usdt'
+									? '/images/chains/Tether-USD.svg'
+									: '/images/chains/Bitcoin.svg'}
+							/>
+
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">
 								<div class="min-w-0 flex-1">
@@ -528,16 +676,41 @@
 												</span>
 												<span data-testid="service-agreement-base-amount">{baseAmountLabel}</span>
 											</div>
+											<!-- USDT platform fee (strikethrough when paying Bitcoin) -->
 											<div class="flex items-center justify-between gap-3 text-xs">
-												<span class="text-base-content/70">
+												<span
+													class="text-base-content/70"
+													class:line-through={selectedSource === 'rbtc'}
+												>
 													{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
-														values: { fee: PLATFORM_FEE_PERCENT_LABEL }
-													}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
+														values: { fee: '10.0%' }
+													}) || 'Platform Fee (10.0%)'}
 												</span>
-												<span data-testid="service-agreement-platform-fee">
-													{platformFeeLabel}
+												<span
+													class:line-through={selectedSource === 'rbtc'}
+													data-testid="service-agreement-usdt-platform-fee"
+												>
+													{usdtPlatformFeeLabel}
 												</span>
 											</div>
+											<!-- Bitcoin platform fee (hidden when paying USDT) -->
+											{#if selectedSource === 'rbtc'}
+												<div class="flex items-center justify-between gap-3 text-xs">
+													<span class="text-base-content/70">
+														{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
+															values: { fee: PLATFORM_FEE_PERCENT_LABEL }
+														}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
+													</span>
+													<span>
+														{#if savingsValue != null && savingsValue > 0}
+															<span class="text-success">(-{savingsLabel})</span>
+														{/if}
+														<span data-testid="service-agreement-platform-fee">
+															{platformFeeLabel}
+														</span>
+													</span>
+												</div>
+											{/if}
 											<div class="flex items-center justify-between gap-3 text-xs italic">
 												<span class="text-base-content/70">
 													{$t('dashboard.services.detail.book_now_drawer.estimated_network_fee')}
@@ -559,6 +732,12 @@
 													</span>
 												</div>
 											</div>
+											<!-- Savings line -->
+											{#if savingsValue != null && savingsValue > 0}
+												<div class="text-base-content text-center text-xs font-bold">
+													You save <span class="text-primary">{savingsLabel}</span> paying with Bitcoin
+												</div>
+											{/if}
 										</div>
 
 										{#if selectedTierLabel}
@@ -617,34 +796,6 @@
 									{/if}
 								</div>
 							{/if}
-
-							<ContractFundingWalletCard
-								title={$t('dashboard.services.detail.book_now_drawer.wallet_balance')}
-								iconAlt={$t('dashboard.services.detail.book_now_drawer.wallet_icon_alt')}
-								balanceSats={walletBalanceSats}
-								balanceUsd={walletBalanceUsd}
-								satsLabel={$t('dashboard.services.detail.book_now_drawer.sats')}
-								notConnectedLabel={$t(
-									'dashboard.services.detail.book_now_drawer.wallet_not_connected'
-								)}
-								availableLabel={$t('dashboard.services.detail.book_now_drawer.available_balance')}
-								requiredLabel={$t('dashboard.services.detail.book_now_drawer.required_balance')}
-								requiredUsd={requiredBalanceUsd}
-								requiredSats={requiredBalanceSats}
-								remainingUsd={remainingBalanceUsd}
-								{remainingIsNegative}
-								loading={walletLoading}
-								connected={walletConnected}
-								verificationStatus={walletVerificationStatus === 'error' ||
-								walletVerificationStatus === 'ready'
-									? 'idle'
-									: walletVerificationStatus}
-								verificationMessage={walletVerificationStatus === 'error' ||
-								walletVerificationStatus === 'ready'
-									? ''
-									: walletVerificationMessage}
-								forceOpen={false}
-							/>
 
 							{#if walletVerificationErrorCode === 'insufficient_funds'}
 								<div class="alert alert-error alert-outline mt-2 shadow-sm">

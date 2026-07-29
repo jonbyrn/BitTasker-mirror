@@ -391,7 +391,7 @@
 											{getInquiryFieldLabel(fieldId)}
 										</p>
 										<p class="mt-1 text-sm whitespace-pre-line">
-											{stringifyInquiryValue(value)}
+											{stringifyInquiryValue(value as string)}
 										</p>
 									</div>
 								{/each}

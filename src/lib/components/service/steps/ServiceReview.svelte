@@ -13,6 +13,7 @@
 	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
+	import type { Service } from '$lib/types/service';
 
 	let { errors, direction } = $props();
 
@@ -200,13 +201,13 @@
 	<!-- Preview -->
 	<div class="border-base-300 overflow-hidden rounded-xl border">
 		<ServiceDetailsView
-			service={$store.service}
+			service={$store.service as unknown as Service}
 			serviceId=""
 			isPreview={true}
 			isDraft={true}
 			previewCreator={{
 				username: $user?.username || 'You',
-				avatar: $user?.avatar,
+				avatar: $user?.picture,
 				rating: 0,
 				ratingCount: 0
 			}}

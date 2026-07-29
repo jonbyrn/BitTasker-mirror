@@ -49,6 +49,7 @@ IGNORE_PATTERNS = [
     r"^\(",   # Function call result
     r"^[a-z]+$",  # Single word without dots (likely a variable)
     r"\.\s*$",  # Ends with a dot — dynamic key prefix from concatenation (e.g. 'navbar.language.' + key)
+    r"_\s*$", # Underscore at the end — likely a variable (e.g. 'navbar.language.' + key_
 ]
 
 

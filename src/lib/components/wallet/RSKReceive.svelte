@@ -19,12 +19,14 @@
 				return;
 			}
 
-			// Use EIP-1191 checksummed address only (no URI encoding)
-			// Amount and message are not encoded in the address
-			qrCodeData = await generateQrCodeUrl(address);
+			// Build EIP-681 URI with chain ID
+			const isMainnet = import.meta.env.VITE_RSK_NETWORK === 'mainnet';
+			const chainId = isMainnet ? 30 : 31;
+			const qrUri = `rsk:${address}@${chainId}`;
+			qrCodeData = await generateQrCodeUrl(qrUri);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
-			appStore.showErrorToast('Failed to generate QR code');
+			appStore.showErrorToast($t('wallet.connected.qr.error'));
 		}
 	}
 
@@ -46,8 +48,8 @@
 
 <div class="flex flex-col items-center justify-center gap-6">
 	<!-- QR Code Display or Testnet Alert -->
-	<div class="flex flex-col items-center text-center w-full max-w-md">
-		<h4 class="mb-4 font-semibold w-full text-left sm:text-center">{$t('wallet.receive_rbtc')}</h4>
+	<div class="flex w-full max-w-md flex-col items-center text-center">
+		<h4 class="mb-4 w-full text-left font-semibold sm:text-center">{$t('wallet.receive_rbtc')}</h4>
 
 		{#if $appStore.network === 'testnet'}
 			<!-- Abbreviated testnet warning shown instead of QR on testnet -->
@@ -105,14 +107,14 @@
 				>
 			</div>
 		{:else}
-			<div class="rounded-lg bg-white p-2 shadow-lg flex justify-center">
+			<div class="flex justify-center rounded-lg bg-white p-2 shadow-lg">
 				<div class="w-full max-w-[200px] sm:max-w-[256px]">
 					<img src={qrCodeData} alt="Payment QR Code" class="h-full w-full" />
 				</div>
 			</div>
 			{#if $rskConnection.address}
 				<div class="mt-4 w-full sm:col-span-2">
-					<div class="mb-1 text-xs opacity-70 text-start">{$t('wallet.address')}</div>
+					<div class="mb-1 text-start text-xs opacity-70">{$t('wallet.address')}</div>
 					<div class="border-base-300 relative rounded border">
 						<button
 							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"

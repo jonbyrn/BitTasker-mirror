@@ -130,7 +130,7 @@ contract.on('EscrowCreated', (escrowId, client, freelancer, amount) => {
 - Community: 25k+ GitHub stars, active Discord
 - Security: Regular audits, bug bounty program
 
-**Alternative Considered**: viem
+**Alternative Considered**: other Ethereum libraries (removed)
 - Status: Actively maintained but less mature for complex contracts
 - Decision: ethers.js better suited for SimplifiedEscrowContract complexity
 

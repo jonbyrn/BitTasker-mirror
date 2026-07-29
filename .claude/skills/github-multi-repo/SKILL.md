@@ -4,7 +4,7 @@ version: 1.0.0
 description: Multi-repository coordination, synchronization, and architecture management with AI swarm orchestration
 category: github-integration
 tags: [multi-repo, synchronization, architecture, coordination, github]
-author: Claude Flow Team
+author: Open Source
 requires:
   - ruv-swarm@^1.0.11
   - gh-cli@^2.0.0
@@ -41,12 +41,12 @@ Cross-package integration testing and deployment coordination.
 ### Initialize Multi-Repo Coordination
 ```bash
 # Basic swarm initialization
-npx claude-flow skill run github-multi-repo init \
+npx ruv-swarm actions multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology hierarchical
 
 # Advanced initialization with synchronization
-npx claude-flow skill run github-multi-repo init \
+npx ruv-swarm actions multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology mesh \
   --shared-memory \
@@ -56,7 +56,7 @@ npx claude-flow skill run github-multi-repo init \
 ### Synchronize Packages
 ```bash
 # Synchronize package versions and dependencies
-npx claude-flow skill run github-multi-repo sync \
+npx ruv-swarm actions multi-repo sync \
   --packages "claude-code-flow,ruv-swarm" \
   --align-versions \
   --update-docs
@@ -65,7 +65,7 @@ npx claude-flow skill run github-multi-repo sync \
 ### Optimize Architecture
 ```bash
 # Analyze and optimize repository structure
-npx claude-flow skill run github-multi-repo optimize \
+npx ruv-swarm actions multi-repo optimize \
   --analyze-structure \
   --suggest-improvements \
   --create-templates
@@ -90,11 +90,6 @@ const DEPS = Bash(`gh repo list my-organization --json name | \
   done | jq -s '.'`)
 
 // Initialize swarm with discovered repositories
-mcp__claude-flow__swarm_init({
-  topology: "hierarchical",
-  maxAgents: 8,
-  metadata: { repos: REPOS, dependencies: DEPS }
-})
 ```
 
 #### Synchronized Operations
@@ -144,8 +139,7 @@ mcp__claude-flow__swarm_init({
 ```javascript
 // Synchronize package dependencies and versions
 [Complete Package Sync]:
-  // Initialize sync swarm
-  mcp__claude-flow__swarm_init({ topology: "mesh", maxAgents: 5 })
+  // Initialize sync swarm with mesh topology
 
   // Spawn sync agents
   Task("Sync Coordinator", "Coordinate version alignment", "coordinator")
@@ -168,16 +162,7 @@ mcp__claude-flow__swarm_init({
     -f branch="sync/package-alignment" \
     -f content="$(cat aligned-package.json | base64)"`)
 
-  // Store sync state
-  mcp__claude-flow__memory_usage({
-    action: "store",
-    key: "sync/packages/status",
-    value: {
-      timestamp: Date.now(),
-      packages_synced: ["claude-code-flow", "ruv-swarm"],
-      status: "synchronized"
-    }
-  })
+  // Store sync state for version alignment
 ```
 
 #### Documentation Synchronization
@@ -195,12 +180,7 @@ mcp__claude-flow__swarm_init({
     -f branch="sync/documentation" \
     -f content="$(cat /tmp/claude-source.md | base64)"`)
 
-  // Track sync status
-  mcp__claude-flow__memory_usage({
-    action: "store",
-    key: "sync/documentation/status",
-    value: { status: "synchronized", files: ["CLAUDE.md"] }
-  })
+  // Track sync status for documentation
 ```
 
 #### Cross-Package Integration
@@ -245,8 +225,7 @@ mcp__claude-flow__swarm_init({
 ```javascript
 // Analyze and optimize repository structure
 [Architecture Analysis]:
-  // Initialize architecture swarm
-  mcp__claude-flow__swarm_init({ topology: "hierarchical", maxAgents: 6 })
+  // Initialize architecture swarm with hierarchical topology
 
   // Spawn architecture agents
   Task("Senior Architect", "Analyze repository structure", "architect")
@@ -265,16 +244,7 @@ mcp__claude-flow__swarm_init({
     --sort stars \
     --order desc`)
 
-  // Store analysis results
-  mcp__claude-flow__memory_usage({
-    action: "store",
-    key: "architecture/analysis/results",
-    value: {
-      repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
-      optimization_areas: ["structure", "workflows", "templates"],
-      recommendations: ["standardize_structure", "improve_workflows"]
-    }
-  })
+  // Store analysis results for architecture optimization
 ```
 
 #### Template Creation
@@ -405,8 +375,7 @@ Part of #$TRACKING_ISSUE"
 ```javascript
 // Coordinate large-scale refactoring
 [Cross-Repo Refactoring]:
-  // Initialize refactoring swarm
-  mcp__claude-flow__swarm_init({ topology: "mesh", maxAgents: 8 })
+  // Initialize refactoring swarm with mesh topology
 
   // Spawn specialized agents
   Task("Refactoring Coordinator", "Coordinate refactoring across repos", "coordinator")
@@ -415,12 +384,7 @@ Part of #$TRACKING_ISSUE"
   Task("Migration Guide Creator", "Create migration documentation", "documenter")
   Task("Integration Tester", "Validate refactored code", "tester")
 
-  // Execute refactoring
-  mcp__claude-flow__task_orchestrate({
-    task: "Rename OldAPI to NewAPI across all repositories",
-    strategy: "sequential",
-    priority: "high"
-  })
+  // Execute refactoring: Rename OldAPI to NewAPI across all repositories
 ```
 
 #### Security Updates
@@ -589,7 +553,7 @@ kafka:
 
 ### 1. Microservices Coordination
 ```bash
-npx claude-flow skill run github-multi-repo microservices \
+npx ruv-swarm actions multi-repo microservices \
   --services "auth,users,orders,payments" \
   --ensure-compatibility \
   --sync-contracts \
@@ -598,7 +562,7 @@ npx claude-flow skill run github-multi-repo microservices \
 
 ### 2. Library Updates
 ```bash
-npx claude-flow skill run github-multi-repo lib-update \
+npx ruv-swarm actions multi-repo lib-update \
   --library "org/shared-lib" \
   --version "2.0.0" \
   --find-consumers \
@@ -608,7 +572,7 @@ npx claude-flow skill run github-multi-repo lib-update \
 
 ### 3. Organization-Wide Changes
 ```bash
-npx claude-flow skill run github-multi-repo org-policy \
+npx ruv-swarm actions multi-repo org-policy \
   --policy "add-security-headers" \
   --repos "org/*" \
   --validate-compliance \
@@ -674,7 +638,7 @@ ruv-FANN/
 
 ### Multi-Repo Dashboard
 ```bash
-npx claude-flow skill run github-multi-repo dashboard \
+npx ruv-swarm actions multi-repo dashboard \
   --port 3000 \
   --metrics "agent-activity,task-progress,memory-usage" \
   --real-time
@@ -682,7 +646,7 @@ npx claude-flow skill run github-multi-repo dashboard \
 
 ### Dependency Graph
 ```bash
-npx claude-flow skill run github-multi-repo dep-graph \
+npx ruv-swarm actions multi-repo dep-graph \
   --format mermaid \
   --include-agents \
   --show-data-flow
@@ -690,7 +654,7 @@ npx claude-flow skill run github-multi-repo dep-graph \
 
 ### Health Monitoring
 ```bash
-npx claude-flow skill run github-multi-repo health-check \
+npx ruv-swarm actions multi-repo health-check \
   --repos "org/*" \
   --check "connectivity,memory,agents" \
   --alert-on-issues
@@ -730,7 +694,7 @@ npx claude-flow skill run github-multi-repo health-check \
 
 ### Caching Strategy
 ```bash
-npx claude-flow skill run github-multi-repo cache-strategy \
+npx ruv-swarm actions multi-repo cache-strategy \
   --analyze-patterns \
   --suggest-cache-layers \
   --implement-invalidation
@@ -738,7 +702,7 @@ npx claude-flow skill run github-multi-repo cache-strategy \
 
 ### Parallel Execution
 ```bash
-npx claude-flow skill run github-multi-repo parallel-optimize \
+npx ruv-swarm actions multi-repo parallel-optimize \
   --analyze-dependencies \
   --identify-parallelizable \
   --execute-optimal
@@ -746,7 +710,7 @@ npx claude-flow skill run github-multi-repo parallel-optimize \
 
 ### Resource Pooling
 ```bash
-npx claude-flow skill run github-multi-repo resource-pool \
+npx ruv-swarm actions multi-repo resource-pool \
   --share-agents \
   --distribute-load \
   --monitor-usage
@@ -756,7 +720,7 @@ npx claude-flow skill run github-multi-repo resource-pool \
 
 ### Connectivity Issues
 ```bash
-npx claude-flow skill run github-multi-repo diagnose-connectivity \
+npx ruv-swarm actions multi-repo diagnose-connectivity \
   --test-all-repos \
   --check-permissions \
   --verify-webhooks
@@ -764,7 +728,7 @@ npx claude-flow skill run github-multi-repo diagnose-connectivity \
 
 ### Memory Synchronization
 ```bash
-npx claude-flow skill run github-multi-repo debug-memory \
+npx ruv-swarm actions multi-repo debug-memory \
   --check-consistency \
   --identify-conflicts \
   --repair-state
@@ -772,7 +736,7 @@ npx claude-flow skill run github-multi-repo debug-memory \
 
 ### Performance Bottlenecks
 ```bash
-npx claude-flow skill run github-multi-repo perf-analysis \
+npx ruv-swarm actions multi-repo perf-analysis \
   --profile-operations \
   --identify-bottlenecks \
   --suggest-optimizations
@@ -782,7 +746,7 @@ npx claude-flow skill run github-multi-repo perf-analysis \
 
 ### 1. Distributed Task Queue
 ```bash
-npx claude-flow skill run github-multi-repo queue \
+npx ruv-swarm actions multi-repo queue \
   --backend redis \
   --workers 10 \
   --priority-routing \
@@ -791,7 +755,7 @@ npx claude-flow skill run github-multi-repo queue \
 
 ### 2. Cross-Repo Testing
 ```bash
-npx claude-flow skill run github-multi-repo test \
+npx ruv-swarm actions multi-repo test \
   --setup-test-env \
   --link-services \
   --run-e2e \
@@ -800,7 +764,7 @@ npx claude-flow skill run github-multi-repo test \
 
 ### 3. Monorepo Migration
 ```bash
-npx claude-flow skill run github-multi-repo to-monorepo \
+npx ruv-swarm actions multi-repo to-monorepo \
   --analyze-repos \
   --suggest-structure \
   --preserve-history \
@@ -811,7 +775,7 @@ npx claude-flow skill run github-multi-repo to-monorepo \
 
 ### Full-Stack Application Update
 ```bash
-npx claude-flow skill run github-multi-repo fullstack-update \
+npx ruv-swarm actions multi-repo fullstack-update \
   --frontend "org/web-app" \
   --backend "org/api-server" \
   --database "org/db-migrations" \
@@ -820,7 +784,7 @@ npx claude-flow skill run github-multi-repo fullstack-update \
 
 ### Cross-Team Collaboration
 ```bash
-npx claude-flow skill run github-multi-repo cross-team \
+npx ruv-swarm actions multi-repo cross-team \
   --teams "frontend,backend,devops" \
   --task "implement-feature-x" \
   --assign-by-expertise \
@@ -863,12 +827,12 @@ npx claude-flow skill run github-multi-repo cross-team \
 
 ## Support and Resources
 
-- Documentation: https://github.com/ruvnet/claude-flow
-- Issues: https://github.com/ruvnet/claude-flow/issues
+- Documentation: https://github.com/ruvnet/ruv-swarm
+- Issues: https://github.com/ruvnet/ruv-swarm/issues
 - Examples: `.claude/examples/github-multi-repo/`
 
 ---
 
 **Version:** 1.0.0
 **Last Updated:** 2025-10-19
-**Maintainer:** Claude Flow Team
+**Maintainer:** Open Source

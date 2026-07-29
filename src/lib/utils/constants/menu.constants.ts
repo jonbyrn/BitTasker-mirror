@@ -36,6 +36,7 @@ import IconHome from '~icons/mdi/home';
 import IconLogin from '~icons/mdi/login';
 import IconAccountPlus from '~icons/mdi/account-plus';
 import IconBellOutline from '~icons/mdi/bell-outline';
+import IconSchool from '~icons/mdi/school';
 
 export type IconComponent = typeof IconAccountCircle;
 
@@ -225,6 +226,16 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.privacy_policy',
 				icon: IconShieldAccount,
 				href: '/privacy'
+			},
+			{
+				label: 'learn.view_all',
+				icon: IconSchool,
+				href: '/learn/'
+			},
+			{
+				label: 'learn.category_wallets',
+				icon: IconWalletOutline,
+				href: '/learn/wallet/best-bitcoin-wallet/'
 			}
 		]
 	},
@@ -272,10 +283,41 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
  */
 export const LOGGED_OUT_MENU_SECTIONS = [
 	{
-		id: 'how-it-works',
-		label: 'footer.how_it_works',
-		icon: IconHelpCircleOutline,
-		items: []
+		id: 'learn',
+		label: 'navbar.learn',
+		icon: IconSchool,
+		items: [
+			{
+				label: 'navbar.how_it_works',
+				icon: IconHelpCircleOutline,
+				href: '/how-it-works'
+			},
+			{
+				label: 'learn.category_wallets',
+				icon: IconWalletOutline,
+				href: '/learn/wallet/best-bitcoin-wallet/'
+			},
+			{
+				label: 'learn.category_freelancing',
+				icon: IconBriefcaseOutline,
+				href: '/learn/freelancing/upwork-alternatives/'
+			},
+			{
+				label: 'learn.category_bitcoin',
+				icon: IconCurrencyUsd,
+				href: '/learn/bitcoin/lightning-network/'
+			},
+			{
+				label: 'learn.category_security',
+				icon: IconShieldCheck,
+				href: '/learn/security/is-bittasker-safe/'
+			},
+			{
+				label: 'learn.view_all',
+				icon: IconSchool,
+				href: '/learn/'
+			}
+		]
 	},
 	{
 		id: 'for-taskers',
@@ -459,6 +501,11 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 		label: 'navbar.terms_and_conditions',
 		icon: IconFileSign,
 		href: '/terms'
+	},
+	{
+		label: 'learn.view_all',
+		icon: IconSchool,
+		href: '/learn/'
 	},
 	{
 		label: 'navbar.logout',

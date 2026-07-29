@@ -8,6 +8,7 @@ import {
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
+import { authState } from '$lib/stores/auth.store';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -114,7 +115,7 @@ export async function loadNamespace(
 			{ ...currentMessages },
 			data as unknown as Record<string, unknown>
 		);
-		addMessages(locale, mergedMessages);
+		addMessages(locale, mergedMessages as Parameters<typeof addMessages>[1]);
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
@@ -158,7 +159,16 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/bids'
 		);
 		// Include wallet namespace for bid-related components
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Include categories and recommendations for task discovery
 		namespaces.push('dashboard/recomendations', 'categories');
 		// Include moderation namespace for report/mute menus on task cards
@@ -170,7 +180,16 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Service workspaces are surfaced from both protected workspace routes.
 		namespaces.push(
 			'dashboard/services/my-services',
@@ -201,7 +220,16 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
-		namespaces.push('dashboard/wallet');
+		namespaces.push(
+			'dashboard/wallet',
+			'dashboard/wallet/defi',
+			'dashboard/wallet/swap',
+			'dashboard/wallet/send',
+			'dashboard/wallet/receive',
+			'dashboard/wallet/buysell',
+			'dashboard/wallet/pending-swaps',
+			'dashboard/wallet/common'
+		);
 		// Service workspaces are surfaced from both protected workspace routes.
 		namespaces.push(
 			'dashboard/services/my-services',
@@ -291,6 +319,13 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
+	if (route.includes('/dashboard/debug-smart-contract')) namespaces.push('debug');
+
+	// Learn section (English and Spanish)
+	if (route.startsWith('/learn') || route.startsWith('/aprende')) {
+		namespaces.push('learn');
+	}
+
 	return namespaces;
 }
 
@@ -368,7 +403,6 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 
 		// Persist language to backend for localized notifications (best-effort)
 		try {
-			const { authState } = await import('$lib/stores/auth.store');
 			const currentState = get(authState);
 			if (currentState.isAuthenticated) {
 				const { default: authService } = await import('$lib/api/services/auth.service');

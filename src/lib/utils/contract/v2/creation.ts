@@ -82,8 +82,12 @@ export function deriveContractCreationParams(
 	const taskerFeeWei = (baseAmountWei * BigInt(taskerFeePercentage)) / 10000n;
 	const taskeeFeeWei = (baseAmountWei * BigInt(taskeeFeePercentage)) / 10000n;
 
-	const cancellationFee = BigInt(bidContent.cancellationFee ?? 0);
-	const upfrontDeposit = BigInt(bidContent.upfrontDeposit ?? 0);
+	const cancellationFee = BigInt(
+		((bidContent as unknown as Record<string, unknown>).cancellationFee as number) ?? 0
+	);
+	const upfrontDeposit = BigInt(
+		((bidContent as unknown as Record<string, unknown>).upfrontDeposit as number) ?? 0
+	);
 
 	const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
 	const totalValueWei = baseAmountWei + taskerFeeWei + gasReimbursementWei;
@@ -195,7 +199,7 @@ export async function estimateGasCostForCreatePaymentContract(
 	bidContent: NostrBidContent,
 	btcPrice: number
 ): Promise<string> {
-	const { params } = deriveContractCreationParams(bidContent, btcPrice);
+	const { params } = deriveContractCreationParams(bidContent!, btcPrice);
 	const result = await estimateGasForCreatePaymentContract(params);
 	if (!result.success) {
 		return '';
@@ -293,6 +297,10 @@ export async function createContract(
 	const taskId = task.tagValue('d') ?? task.id ?? '';
 
 	d.log('createContract start', { taskId, bidId: bid.id });
+
+	if (!bidContent) {
+		return { success: false, error: 'Bid content is missing' };
+	}
 
 	try {
 		d.log('createContract: deriveContractCreationParams');

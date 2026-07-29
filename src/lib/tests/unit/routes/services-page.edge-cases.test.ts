@@ -4,21 +4,21 @@ import type { Service } from '$lib/types/service.d';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => ({
-	createStore(initialValue) {
+	createStore<T>(initialValue: T) {
 		let value = initialValue;
-		const subscribers = new Set();
+		const subscribers = new Set<(nextValue: T) => void>();
 
 		return {
-			set(nextValue) {
+			set(nextValue: T) {
 				value = nextValue;
 				for (const subscriber of subscribers) {
 					subscriber(value);
 				}
 			},
-			update(updater) {
+			update(updater: (currentValue: T) => T) {
 				this.set(updater(value));
 			},
-			subscribe(subscriber) {
+			subscribe(subscriber: (nextValue: T) => void) {
 				subscriber(value);
 				subscribers.add(subscriber);
 				return () => subscribers.delete(subscriber);
@@ -83,10 +83,14 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+} as Parameters<typeof hoisted.createStore>[0]) as typeof hoisted.servicesStore;
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as Parameters<
+	typeof hoisted.createStore
+>[0]) as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as Parameters<
+	typeof hoisted.createStore
+>[0]) as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -146,7 +150,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) => hoisted.findServices(...args),
 	cleanup: vi.fn()
 }));
 
@@ -189,7 +193,7 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args) => hoisted.persistServiceSearchFilters(...args),
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
 	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 
@@ -204,10 +208,11 @@ vi.mock('$lib/components/service/ServiceCard.svelte', async () => {
 
 let serviceIdCounter = 0;
 function createService(overrides = {}) {
-	const uniqueId = overrides.uniqueId || `service-${++serviceIdCounter}`;
+	const uniqueId =
+		(overrides as Record<string, unknown>).uniqueId || `service-${++serviceIdCounter}`;
 	return {
 		id: `service-event-${uniqueId}`,
-		uniqueId: uniqueId,
+		uniqueId: uniqueId as string,
 		npub: 'b'.repeat(64),
 		title: 'Test Service',
 		description: 'Test description',
@@ -228,7 +233,7 @@ function createService(overrides = {}) {
 			avatar: ''
 		},
 		...overrides
-	} as Service;
+	} as unknown as Service;
 }
 
 function setupWindowMocks() {
@@ -844,7 +849,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 	it('handles sessionStorage with circular reference JSON', async () => {
 		try {
-			const circularObj = { key: 'value' };
+			const circularObj: Record<string, unknown> = { key: 'value' };
 			circularObj.self = circularObj;
 			sessionStorage.setItem('savedServiceSearchParams', JSON.stringify(circularObj));
 		} catch {

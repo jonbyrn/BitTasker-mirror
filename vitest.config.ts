@@ -19,24 +19,20 @@ export default defineConfig({
 		topLevelAwait(),
 		Icons({
 			compiler: 'svelte',
-			autoInstall: false,
-			scale: 1.5,
-			defaultClass: ''
-		})
+		autoInstall: false,
+		scale: 1.5,
+		defaultClass: ''
+	})
 	],
 	test: {
-		// Use jsdom for component tests that need DOM APIs
 		environment: 'jsdom',
 		environmentOptions: {
 			jsdom: {
 				url: 'http://localhost/'
 			}
 		},
-		// Setup file for test environment configuration
 		setupFiles: ['./vitest-setup-client.ts'],
-		// Include test files
 		include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}', 'src/**/__tests__/**/*.{js,ts,jsx,tsx}'],
-		// Exclude files
 		exclude: [
 			'node_modules',
 			'dist',
@@ -47,7 +43,6 @@ export default defineConfig({
 			'src/lib/tests/e2e',
 			'src/lib/tests/_pending'
 		],
-		// Globals available in tests
 		globals: true,
 		env: {
 			BROWSER: 'true'
@@ -57,7 +52,6 @@ export default defineConfig({
 				inline: ['@testing-library/svelte', '@sentry/sveltekit']
 			}
 		},
-		// Coverage configuration
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'json', 'html'],
@@ -79,25 +73,26 @@ export default defineConfig({
 				}
 			}
 		},
-		// Test timeout
 		testTimeout: 10000,
-		// Hook timeout
 		hookTimeout: 10000
 	},
 	resolve: {
 		conditions: ['browser', 'development'],
-		alias: {
-			bolt11: resolve(__dirname, './src/lib/shims/bolt11.ts'),
-			crypto: resolve(__dirname, './src/lib/shims/crypto.ts'),
-			$lib: resolve(__dirname, './src/lib'),
-			'$app/environment': resolve(__dirname, './src/lib/mocks/app-environment.ts'),
-			'$app/stores': resolve(__dirname, './src/lib/mocks/app-stores.ts'),
-			'$app/navigation': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
-			'$app/state': resolve(__dirname, './src/lib/mocks/app-state.ts'),
-			'$app/forms': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
-			'$app/paths': resolve(__dirname, './src/lib/mocks/app-navigation.ts'),
-			'$app/server': resolve(__dirname, './src/lib/mocks/app-navigation.ts')
-		}
+		alias: [
+			// SvelteKit app mocks
+			{ find: '$app/environment', replacement: resolve(__dirname, './src/lib/mocks/app-environment.ts') },
+			{ find: '$app/stores', replacement: resolve(__dirname, './src/lib/mocks/app-stores.ts') },
+			{ find: '$app/navigation', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
+			{ find: '$app/state', replacement: resolve(__dirname, './src/lib/mocks/app-state.ts') },
+			{ find: '$app/forms', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
+			{ find: '$app/paths', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
+			{ find: '$app/server', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
+			// Project aliases
+			{ find: '$lib', replacement: resolve(__dirname, './src/lib') },
+			{ find: 'bolt11', replacement: resolve(__dirname, './src/lib/shims/bolt11.ts') },
+			{ find: 'crypto', replacement: resolve(__dirname, './src/lib/shims/crypto.ts') },
+
+		]
 	},
 	ssr: {
 		noExternal: ['@testing-library/svelte', '@testing-library/svelte-core']

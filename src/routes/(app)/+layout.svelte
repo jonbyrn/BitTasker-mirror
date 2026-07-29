@@ -8,6 +8,7 @@
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import BlockchainToast from '$lib/components/wallet/BlockchainToast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	const { children } = $props();
@@ -105,9 +106,9 @@
 		};
 	});
 
-	onMount(async () => {
+	onMount(() => {
 		import('$lib/utils/helpers/keyboard').then((m) => {
-			m.initKeyboard().then((cleanup) => {
+			m.initKeyboard().then((cleanup: () => void) => {
 				cleanupKb = cleanup;
 			});
 		});
@@ -115,7 +116,7 @@
 		// Primary app scroll container (middle area in app-shell layout)
 		appScrollContainer.set(scrollEl);
 
-		await fetchNotificationCount();
+		void fetchNotificationCount();
 
 		// Re-fetch notification count when app resumes from background.
 		// This reconciles any missed WebSocket events during the background period.
@@ -264,6 +265,9 @@
 
 <!-- Toast notifications (fixed positioned) -->
 <Toast />
+
+<!-- Blockchain activity toast (persistent, below Toast at z-40) -->
+<BlockchainToast />
 
 <!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
 {#if showTopBar}

@@ -4,10 +4,9 @@ version: 2.0.0
 description: Comprehensive GitHub release orchestration with AI swarm coordination for automated versioning, testing, deployment, and rollback management
 category: github
 tags: [release, deployment, versioning, automation, ci-cd, swarm, orchestration]
-author: Claude Flow Team
+author: Open Source
 requires:
   - gh (GitHub CLI)
-  - claude-flow
   - ruv-swarm (optional for enhanced coordination)
   - mcp-github (optional for MCP integration)
 dependencies:
@@ -36,7 +35,7 @@ gh release create v2.0.0 \
   --title "Release v2.0.0"
 
 # Orchestrate with swarm
-npx claude-flow github release-create \
+npx ruv-swarm actions release-create \
   --version "2.0.0" \
   --build-artifacts \
   --deploy-targets "npm,docker,github"
@@ -45,10 +44,10 @@ npx claude-flow github release-create \
 ### Full Automated Release
 ```bash
 # Initialize release swarm
-npx claude-flow swarm init --topology hierarchical
+npx ruv-swarm init --topology hierarchical
 
 # Execute complete release pipeline
-npx claude-flow sparc pipeline "Release v2.0.0 with full validation"
+npx ruv-swarm sparc pipeline "Release v2.0.0 with full validation"
 ```
 
 ---
@@ -149,20 +148,8 @@ gh release create $(npm pkg get version) \
 #### Initialize Release Swarm
 ```javascript
 // Set up coordinated release team
-[Single Message - Swarm Initialization]:
-  mcp__claude-flow__swarm_init {
-    topology: "hierarchical",
-    maxAgents: 6,
-    strategy: "balanced"
-  }
-
-  // Spawn specialized agents
-  mcp__claude-flow__agent_spawn { type: "coordinator", name: "Release Director" }
-  mcp__claude-flow__agent_spawn { type: "coder", name: "Version Manager" }
-  mcp__claude-flow__agent_spawn { type: "tester", name: "QA Engineer" }
-  mcp__claude-flow__agent_spawn { type: "reviewer", name: "Release Reviewer" }
-  mcp__claude-flow__agent_spawn { type: "analyst", name: "Deployment Analyst" }
-  mcp__claude-flow__agent_spawn { type: "researcher", name: "Compatibility Checker" }
+// Spawn specialized agents: Release Director, Version Manager, QA Engineer,
+// Release Reviewer, Deployment Analyst, Compatibility Checker
 ```
 
 #### Coordinated Release Workflow
@@ -172,12 +159,7 @@ gh release create $(npm pkg get version) \
   Bash("gh api repos/:owner/:repo/git/refs --method POST -f ref='refs/heads/release/v2.0.0' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
   // Orchestrate release preparation
-  mcp__claude-flow__task_orchestrate {
-    task: "Prepare release v2.0.0 with comprehensive testing and validation",
-    strategy: "sequential",
-    priority: "critical",
-    maxAgents: 6
-  }
+  // Coordinated task: Prepare release v2.0.0 with comprehensive testing and validation
 
   // Update all release files
   Write("package.json", "[updated version]")
@@ -204,16 +186,7 @@ gh release create $(npm pkg get version) \
   ]}
 
   // Store release state
-  mcp__claude-flow__memory_usage {
-    action: "store",
-    key: "release/v2.0.0/status",
-    value: JSON.stringify({
-      version: "2.0.0",
-      stage: "validation_complete",
-      timestamp: Date.now(),
-      ready_for_review: true
-    })
-  }
+  // key: "release/v2.0.0/status" with version, stage, timestamp, ready_for_review
 ```
 
 ### Release Agent Specializations
@@ -229,7 +202,7 @@ COMMITS=$(gh api repos/:owner/:repo/compare/v1.0.0...HEAD \
   --jq '.commits[].commit.message')
 
 # Generate categorized changelog
-npx claude-flow github changelog \
+npx ruv-swarm actions changelog \
   --prs "$PRS" \
   --commits "$COMMITS" \
   --from v1.0.0 \
@@ -248,7 +221,7 @@ npx claude-flow github changelog \
 #### Version Agent
 ```bash
 # Intelligent version suggestion
-npx claude-flow github version-suggest \
+npx ruv-swarm actions version-suggest \
   --current v1.2.3 \
   --analyze-commits \
   --check-compatibility \
@@ -265,7 +238,7 @@ npx claude-flow github version-suggest \
 #### Build Agent
 ```bash
 # Multi-platform build coordination
-npx claude-flow github release-build \
+npx ruv-swarm actions release-build \
   --platforms "linux,macos,windows" \
   --architectures "x64,arm64" \
   --parallel \
@@ -282,7 +255,7 @@ npx claude-flow github release-build \
 #### Test Agent
 ```bash
 # Comprehensive pre-release testing
-npx claude-flow github release-test \
+npx ruv-swarm actions release-test \
   --suites "unit,integration,e2e,performance" \
   --environments "node:16,node:18,node:20" \
   --fail-fast false \
@@ -292,7 +265,7 @@ npx claude-flow github release-test \
 #### Deploy Agent
 ```bash
 # Multi-target deployment orchestration
-npx claude-flow github release-deploy \
+npx ruv-swarm actions release-deploy \
   --targets "npm,docker,github,s3" \
   --staged-rollout \
   --monitor-metrics \
@@ -309,27 +282,26 @@ npx claude-flow github release-deploy \
 ```javascript
 [Single Message - Multi-Package Release]:
   // Initialize mesh topology for cross-package coordination
-  mcp__claude-flow__swarm_init { topology: "mesh", maxAgents: 8 }
 
   // Spawn package-specific agents
-  Task("Package A Manager", "Coordinate claude-flow package release v1.0.72", "coder")
-  Task("Package B Manager", "Coordinate ruv-swarm package release v1.0.12", "coder")
+  Task("Package A Manager", "Coordinate package-a release v1.0.72", "coder")
+  Task("Package B Manager", "Coordinate package-b release v1.0.12", "coder")
   Task("Integration Tester", "Validate cross-package compatibility", "tester")
   Task("Version Coordinator", "Align dependencies and versions", "coordinator")
 
   // Update all packages simultaneously
-  Write("packages/claude-flow/package.json", "[v1.0.72 content]")
-  Write("packages/ruv-swarm/package.json", "[v1.0.12 content]")
+  Write("packages/package-a/package.json", "[v1.0.72 content]")
+  Write("packages/package-b/package.json", "[v1.0.12 content]")
   Write("CHANGELOG.md", "[consolidated changelog]")
 
   // Run cross-package validation
-  Bash("cd packages/claude-flow && npm install && npm test")
-  Bash("cd packages/ruv-swarm && npm install && npm test")
+  Bash("cd packages/package-a && npm install && npm test")
+  Bash("cd packages/package-b && npm install && npm test")
   Bash("npm run test:integration")
 
   // Create unified release PR
   Bash(`gh pr create \
-    --title "Release: claude-flow v1.0.72, ruv-swarm v1.0.12" \
+    --title "Release: package-a v1.0.72, package-b v1.0.12" \
     --body "Multi-package coordinated release with cross-compatibility validation"`)
 ```
 
@@ -369,7 +341,7 @@ deployment:
 #### Execute Staged Deployment
 ```bash
 # Deploy with progressive rollout
-npx claude-flow github release-deploy \
+npx ruv-swarm actions release-deploy \
   --version v2.0.0 \
   --strategy progressive \
   --config .github/release-deployment.yml \
@@ -382,7 +354,7 @@ npx claude-flow github release-deploy \
 #### Coordinated Multi-Repo Release
 ```bash
 # Synchronize releases across repositories
-npx claude-flow github multi-release \
+npx ruv-swarm actions multi-release \
   --repos "frontend:v2.0.0,backend:v2.1.0,cli:v1.5.0" \
   --ensure-compatibility \
   --atomic-release \
@@ -394,7 +366,6 @@ npx claude-flow github multi-release \
 ```javascript
 [Single Message - Cross-Repo Release]:
   // Initialize star topology for centralized coordination
-  mcp__claude-flow__swarm_init { topology: "star", maxAgents: 6 }
 
   // Spawn repo-specific coordinators
   Task("Frontend Release", "Release frontend v2.0.0 with API compatibility", "coordinator")
@@ -407,8 +378,7 @@ npx claude-flow github multi-release \
   Bash("gh api repos/org/backend/dispatches --method POST -f event_type='release' -F client_payload[version]=v2.1.0")
   Bash("gh api repos/org/cli/dispatches --method POST -f event_type='release' -F client_payload[version]=v1.5.0")
 
-  // Monitor all releases
-  mcp__claude-flow__swarm_monitor { interval: 5, duration: 300 }
+  // Monitor all releases with health checks
 ```
 
 ### Hotfix Emergency Procedures
@@ -416,7 +386,7 @@ npx claude-flow github multi-release \
 #### Emergency Hotfix Workflow
 ```bash
 # Fast-track critical bug fix
-npx claude-flow github emergency-release \
+npx ruv-swarm actions emergency-release \
   --issue 789 \
   --severity critical \
   --target-version v1.2.4 \
@@ -578,7 +548,7 @@ release:
 #### Comprehensive Validation Suite
 ```bash
 # Pre-release validation with all checks
-npx claude-flow github release-validate \
+npx ruv-swarm actions release-validate \
   --checks "
     version-conflicts,
     dependency-compatibility,
@@ -597,7 +567,7 @@ npx claude-flow github release-validate \
 #### Backward Compatibility Testing
 ```bash
 # Test against previous versions
-npx claude-flow github compat-test \
+npx ruv-swarm actions compat-test \
   --previous-versions "v1.0,v1.1,v1.2" \
   --api-contracts \
   --data-migrations \
@@ -608,7 +578,7 @@ npx claude-flow github compat-test \
 #### Performance Regression Detection
 ```bash
 # Benchmark against baseline
-npx claude-flow github performance-test \
+npx ruv-swarm actions performance-test \
   --baseline v1.9.0 \
   --candidate v2.0.0 \
   --metrics "throughput,latency,memory,cpu" \
@@ -621,7 +591,7 @@ npx claude-flow github performance-test \
 #### Real-Time Release Monitoring
 ```bash
 # Monitor release health post-deployment
-npx claude-flow github release-monitor \
+npx ruv-swarm actions release-monitor \
   --version v2.0.0 \
   --metrics "error-rate,latency,throughput,adoption" \
   --alert-thresholds \
@@ -632,7 +602,7 @@ npx claude-flow github release-monitor \
 #### Release Analytics & Insights
 ```bash
 # Analyze release performance and adoption
-npx claude-flow github release-analytics \
+npx ruv-swarm actions release-analytics \
   --version v2.0.0 \
   --compare-with v1.9.0 \
   --metrics "adoption,performance,stability,feedback" \
@@ -643,7 +613,7 @@ npx claude-flow github release-analytics \
 #### Automated Rollback Configuration
 ```bash
 # Configure intelligent auto-rollback
-npx claude-flow github rollback-config \
+npx ruv-swarm actions rollback-config \
   --triggers '{
     "error-rate": ">5%",
     "latency-p99": ">1000ms",
@@ -660,7 +630,7 @@ npx claude-flow github rollback-config \
 #### Security Scanning
 ```bash
 # Comprehensive security validation
-npx claude-flow github release-security \
+npx ruv-swarm actions release-security \
   --scan-dependencies \
   --check-secrets \
   --audit-permissions \
@@ -672,7 +642,7 @@ npx claude-flow github release-security \
 #### Compliance Validation
 ```bash
 # Ensure regulatory compliance
-npx claude-flow github release-compliance \
+npx ruv-swarm actions release-compliance \
   --standards "SOC2,GDPR,HIPAA" \
   --license-audit \
   --data-governance \
@@ -730,7 +700,7 @@ jobs:
             --jq '.commits[].commit.message')
 
           # Initialize swarm coordination
-          npx claude-flow@alpha swarm init --topology hierarchical
+          npx ruv-swarm@alpha swarm init --topology hierarchical
 
           # Store release context
           echo "$PRS" > /tmp/release-prs.json
@@ -739,7 +709,7 @@ jobs:
       - name: Generate Release Changelog
         run: |
           # Generate intelligent changelog
-          CHANGELOG=$(npx claude-flow@alpha github changelog \
+          CHANGELOG=$(npx ruv-swarm actions changelog \
             --prs "$(cat /tmp/release-prs.json)" \
             --commits "$(cat /tmp/release-commits.txt)" \
             --from $PREV_TAG \
@@ -762,7 +732,7 @@ jobs:
           npm run build
 
           # Build platform-specific binaries
-          npx claude-flow@alpha github release-build \
+          npx ruv-swarm actions release-build \
             --platforms "linux,macos,windows" \
             --architectures "x64,arm64" \
             --parallel
@@ -772,7 +742,7 @@ jobs:
           # Run security validation
           npm audit --audit-level=moderate
 
-          npx claude-flow@alpha github release-security \
+          npx ruv-swarm actions release-security \
             --scan-dependencies \
             --check-secrets \
             --sign-artifacts
@@ -805,7 +775,7 @@ jobs:
           npm run test:smoke
 
           # Validate deployment
-          npx claude-flow@alpha github release-validate \
+          npx ruv-swarm actions release-validate \
             --version ${{ github.ref_name }} \
             --smoke-tests \
             --health-checks
@@ -828,7 +798,7 @@ jobs:
       - name: Monitor Release
         run: |
           # Start release monitoring
-          npx claude-flow@alpha github release-monitor \
+          npx ruv-swarm actions release-monitor \
             --version ${{ github.ref_name }} \
             --duration 1h \
             --alert-on-errors &
@@ -863,7 +833,7 @@ jobs:
 
       - name: Emergency Release
         run: |
-          npx claude-flow@alpha github emergency-release \
+          npx ruv-swarm actions emergency-release \
             --issue ${{ github.event.issue.number }} \
             --severity critical \
             --fast-track \
@@ -941,7 +911,7 @@ jobs:
 ### Issue: Failed Release Build
 ```bash
 # Debug build failures
-npx claude-flow@alpha diagnostic-run \
+npx ruv-swarm diagnostic-run \
   --component build \
   --verbose
 
@@ -959,7 +929,7 @@ npm run test -- --verbose --coverage
 npm run test:ci
 
 # Compare local vs CI environment
-npx claude-flow@alpha github compat-test \
+npx ruv-swarm actions compat-test \
   --environments "local,ci" \
   --compare
 ```
@@ -967,14 +937,14 @@ npx claude-flow@alpha github compat-test \
 ### Issue: Deployment Rollback Needed
 ```bash
 # Immediate rollback to previous version
-npx claude-flow@alpha github rollback \
+npx ruv-swarm actions rollback \
   --to-version v1.9.9 \
   --reason "Critical bug in v2.0.0" \
   --preserve-data \
   --notify-users
 
 # Investigate rollback cause
-npx claude-flow@alpha github release-analytics \
+npx ruv-swarm actions release-analytics \
   --version v2.0.0 \
   --identify-issues
 ```
@@ -982,12 +952,12 @@ npx claude-flow@alpha github release-analytics \
 ### Issue: Version Conflicts
 ```bash
 # Check and resolve version conflicts
-npx claude-flow@alpha github release-validate \
+npx ruv-swarm actions release-validate \
   --checks version-conflicts \
   --auto-resolve
 
 # Align multi-package versions
-npx claude-flow@alpha github version-sync \
+npx ruv-swarm actions version-sync \
   --packages "package-a,package-b" \
   --strategy semantic
 ```
@@ -1022,7 +992,7 @@ npx claude-flow@alpha github version-sync \
 ### Documentation
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 - [Semantic Versioning Spec](https://semver.org/)
-- [Claude Flow SPARC Guide](../../docs/sparc-methodology.md)
+- [SPARC Methodology Guide](../../docs/sparc-methodology.md)
 - [Swarm Coordination Patterns](../../docs/swarm-patterns.md)
 
 ### Related Skills
@@ -1032,9 +1002,8 @@ npx claude-flow@alpha github version-sync \
 - **deployment-orchestration**: Advanced deployment strategies
 
 ### Support & Community
-- Issues: https://github.com/ruvnet/claude-flow/issues
-- Discussions: https://github.com/ruvnet/claude-flow/discussions
-- Documentation: https://claude-flow.dev/docs
+- Issues: https://github.com/ruvnet/ruv-swarm/issues
+- Discussions: https://github.com/ruvnet/ruv-swarm/discussions
 
 ---
 
@@ -1078,4 +1047,4 @@ npx claude-flow@alpha github version-sync \
 
 **Version**: 2.0.0
 **Last Updated**: 2025-10-19
-**Maintained By**: Claude Flow Team
+**Maintained By**: Open Source

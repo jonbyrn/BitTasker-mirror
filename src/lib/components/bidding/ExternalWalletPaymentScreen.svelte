@@ -4,13 +4,21 @@
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import { getHandle } from '$lib/stores/connected-wallets.store';
+	import { EVMSignerNotAvailableError } from '$lib/services/external-wallet/types';
+	import {
+		encodeERC20Transfer,
+		getBSCUSDTContractAddress,
+		getChainIdForNetwork
+	} from '$lib/services/external-wallet/chain-utils';
 
 	// Props
 	const props = $props<{
 		bid: TaskBid;
 		taskTitle: string;
 		escrowDetails: {
-			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-liquid';
+			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-bsc';
 			address: string;
 			qrCode: string;
 		};
@@ -21,6 +29,9 @@
 
 	// State
 	let copied = $state(false);
+	let selectedPayerWallet = $state<string | null>(null);
+	let isPaying = $state(false);
+	let payError = $state<string | null>(null);
 
 	// Calculate totals
 	let totalFiatPrice = $derived((props.bid.amount / 100000000) * props.btcPrice);
@@ -42,12 +53,12 @@
 					color: 'from-cyan-400 to-cyan-600',
 					network: $t('common.components.bidding.external_wallet.networks.liquid')
 				};
-			case 'usdt-liquid':
+			case 'usdt-bsc':
 				return {
 					name: $t('common.components.bidding.external_wallet.payment_methods.usdt'),
 					icon: '/currency-symbols/USDt.svg',
-					color: 'from-cyan-400 to-cyan-600',
-					network: $t('common.components.bidding.external_wallet.networks.liquid')
+					color: 'from-green-400 to-green-600',
+					network: $t('common.components.bidding.external_wallet.networks.bsc')
 				};
 			default:
 				return {
@@ -76,6 +87,61 @@
 	// Confirm payment
 	function confirmPayment() {
 		props.onPaymentConfirmed();
+	}
+
+	// Pay from connected wallet
+	async function handlePayFromWallet(walletId: string) {
+		selectedPayerWallet = walletId;
+		isPaying = true;
+		payError = null;
+
+		try {
+			const handle = getHandle(walletId);
+			if (!handle?.evmSigner) throw new EVMSignerNotAvailableError(walletId);
+
+			if (props.escrowDetails.paymentMethod === 'lbtc-liquid') {
+				const chainId = 30; // RSK mainnet
+				const amountWei = BigInt(props.bid.amount);
+				await handle.evmSigner.sendTransaction({
+					to: props.escrowDetails.address,
+					value: amountWei * 10n ** 10n, // sats → wei (RBTC 18 decimals)
+					chainId
+				});
+
+				appStore.showSuccessToast($t('common.components.bidding.external_wallet.payment_sent'));
+				isPaying = false;
+				props.onPaymentConfirmed();
+			} else if (props.escrowDetails.paymentMethod === 'usdt-bsc') {
+				const chainId = getChainIdForNetwork('usdt-bsc');
+				const usdtContract = getBSCUSDTContractAddress();
+				// Convert bid sats to USDT wei: sats * btcPrice / 1e8 * 1e18 = sats * btcPrice * 1e10
+				const usdtAmountWei = BigInt(
+					Math.round((props.bid.amount / 100_000_000) * props.btcPrice * 1e18)
+				);
+				const data = encodeERC20Transfer(props.escrowDetails.address, usdtAmountWei);
+				await handle.evmSigner.sendTransaction({
+					to: usdtContract,
+					value: 0n,
+					data,
+					chainId
+				});
+
+				appStore.showSuccessToast($t('common.components.bidding.external_wallet.payment_sent'));
+				isPaying = false;
+				props.onPaymentConfirmed();
+			} else {
+				// Lightning payments from connected wallets are not supported
+				appStore.showErrorToast(
+					$t('common.components.bidding.external_wallet.lightning_not_supported')
+				);
+				selectedPayerWallet = null;
+				isPaying = false;
+				return;
+			}
+		} catch (err) {
+			payError = err instanceof Error ? err.message : 'Payment failed';
+			isPaying = false;
+		}
 	}
 </script>
 
@@ -151,9 +217,17 @@
 							/>
 						</svg>
 						<div class="text-info text-xs">
-							<ul class="space-y-1 ">
-								<li>{$t('common.components.bidding.external_wallet.instructions.send_exactly', { values: { amount: totalFiatPrice.toFixed(2) } })}</li>
-								<li>{$t('common.components.bidding.external_wallet.instructions.use_network', { values: { network: paymentInfo().network } })}</li>
+							<ul class="space-y-1">
+								<li>
+									{$t('common.components.bidding.external_wallet.instructions.send_exactly', {
+										values: { amount: totalFiatPrice.toFixed(2) }
+									})}
+								</li>
+								<li>
+									{$t('common.components.bidding.external_wallet.instructions.use_network', {
+										values: { network: paymentInfo().network }
+									})}
+								</li>
 								<li>{$t('common.components.bidding.external_wallet.instructions.no_exchange')}</li>
 							</ul>
 						</div>
@@ -163,20 +237,27 @@
 
 			<!-- Right Column: QR Code Only -->
 			<div class="flex flex-col items-center">
-
 				<div class="rounded-lg bg-white p-4 shadow-lg">
-					<img src={props.escrowDetails.qrCode} alt={$t('common.components.bidding.external_wallet.qr_alt')} class="h-40 w-40" />
+					<img
+						src={props.escrowDetails.qrCode}
+						alt={$t('common.components.bidding.external_wallet.qr_alt')}
+						class="h-40 w-40"
+					/>
 				</div>
 				<!-- Payment Status -->
 				<div class="mt-4 text-center">
-					<div class="text-base-content/70 text-xs">{$t('common.components.bidding.external_wallet.scan_qr')}</div>
+					<div class="text-base-content/70 text-xs">
+						{$t('common.components.bidding.external_wallet.scan_qr')}
+					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Address Section -->
 		<div class="">
-			<label for="payment-address" class="mb-2 block text-sm font-medium">{$t('common.components.bidding.external_wallet.payment_address')}</label>
+			<label for="payment-address" class="mb-2 block text-sm font-medium"
+				>{$t('common.components.bidding.external_wallet.payment_address')}</label
+			>
 			<div class="bg-base-200 flex items-center gap-2 rounded-lg p-3">
 				<span id="payment-address" class="flex-1 font-mono text-xs break-all"
 					>{props.escrowDetails.address}</span
@@ -210,13 +291,46 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- Connected Wallet Payment Section -->
+		{#if $connectedWalletsStore.wallets.length > 0}
+			<div class="divider text-xs">Or pay directly from</div>
+			<div class="space-y-2">
+				{#each $connectedWalletsStore.wallets as wallet (wallet.id)}
+					<button
+						class="btn btn-outline min-h-[44px] w-full justify-start gap-3"
+						onclick={() => handlePayFromWallet(wallet.id)}
+						disabled={isPaying}
+					>
+						<div class="text-left">
+							<div class="text-sm font-medium">{wallet.walletName}</div>
+							<div class="text-xs opacity-50">
+								{wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
+							</div>
+						</div>
+						{#if selectedPayerWallet === wallet.id && isPaying}
+							<span class="loading loading-spinner loading-sm ml-auto"></span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Payment Error -->
+		{#if payError}
+			<div class="alert alert-error mt-3">
+				<span class="text-sm">{payError}</span>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Action Buttons -->
 	<div
 		class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 border-t p-4 sm:flex-row md:py-2"
 	>
-		<button type="button" class="btn btn-error" onclick={props.onCancel}> {$t('common.components.bidding.external_wallet.cancel')} </button>
+		<button type="button" class="btn btn-error" onclick={props.onCancel}>
+			{$t('common.components.bidding.external_wallet.cancel')}
+		</button>
 		<button type="button" class="btn btn-primary" onclick={confirmPayment}>
 			{$t('common.components.bidding.external_wallet.payment_sent')}
 		</button>

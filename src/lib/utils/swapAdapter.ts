@@ -2,6 +2,8 @@
  * Nostr-based Swap Storage Adapter (NDK)
  *
  * Implements SwapStorage for Boltz swaps via NDK + NIP-44 encryption.
+ * All swap data is encrypted to the user's own pubkey via NIP-44,
+ * ensuring zero-knowledge persistence — relays cannot read swap contents.
  */
 
 import type {
@@ -10,6 +12,24 @@ import type {
 	ChainSwapData,
 	SubmarineSwapData
 } from '@bittasker/wallet-core';
+
+/**
+ * Extended ChainSwapData with Boltz RBTC→TBTC specific fields.
+ *
+ * The SDK's ChainSwapData is L-BTC↔RBTC specific. For RBTC→TBTC chain swaps
+ * via Boltz, we need additional fields (claimDetails, lockupClaimAddress) that
+ * aren't in the SDK type. This extension preserves type safety while allowing
+ * the Nostr adapter to serialize these extra fields.
+ */
+export interface ExtendedChainSwapData extends ChainSwapData {
+	claimDetails?: {
+		lockupAddress: string;
+		amount: number;
+		refundAddress: string;
+		timeoutBlockHeight: number;
+	};
+	lockupClaimAddress?: string;
+}
 import { Buffer } from 'buffer';
 import { getPublicKey } from 'nostr-tools';
 import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
@@ -21,7 +41,10 @@ import KINDS from '$lib/utils/constants/kinds';
 import { NOSTR_FINAL_STATES } from '$lib/utils/wallet/swapStatusMap';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { PUBLISH_TIMEOUT_MS } from '$lib/utils/nostr';
+import { createDebug } from '$lib/utils/debug';
+import * as Sentry from '@sentry/sveltekit';
 
+const d = createDebug('swap-adapter');
 const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 function randomBytes(length: number): Uint8Array {
@@ -63,12 +86,12 @@ function swapRelaySet(): NDKRelaySet {
 }
 
 // Swap type tags for filtering
-export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'boltz-swap-submarine';
+export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'bittasker-swap-chain' | 'boltz-swap-submarine';
 
-export type PendingSwapData = BoltzSwapData | ChainSwapData | SubmarineSwapData;
+export type PendingSwapData = BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData;
 
 function buildSwapContent(
-	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+	swapData: BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData,
 	swapType: SwapType
 ): Record<string, unknown> {
 	const content: Record<string, unknown> = {
@@ -103,7 +126,7 @@ function buildSwapContent(
 		content.refundAddress = reverseSwap.refundAddress;
 		content.timeoutBlockHeight = reverseSwap.timeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-chain') {
-		const chainSwap = swapData as ChainSwapData;
+		const chainSwap = swapData as ExtendedChainSwapData;
 		content.type = 'chain';
 		content.refundPrivateKey = chainSwap.refundPrivateKey;
 		content.refundPublicKey = chainSwap.refundPublicKey;
@@ -118,6 +141,14 @@ function buildSwapContent(
 		content.claimTimeoutBlockHeight = chainSwap.claimTimeoutBlockHeight;
 		content.serverLockupTxHash = chainSwap.serverLockupTxHash;
 		content.refundAddress = chainSwap.refundAddress;
+
+		// Boltz RBTC→TBTC chain swaps: persist claim details needed to
+		// claim tBTC on Arbitrum. These fields are on ExtendedChainSwapData
+		// (not in the SDK ChainSwapData type which is Liquid↔RBTC specific).
+		if (chainSwap.claimDetails) content.claimDetails = chainSwap.claimDetails;
+		if (chainSwap.lockupClaimAddress) content.lockupClaimAddress = chainSwap.lockupClaimAddress;
+		if (chainSwap.claimTimeoutBlockHeight)
+			content.timeoutBlockHeight = chainSwap.claimTimeoutBlockHeight;
 	} else if (swapType === 'boltz-swap-submarine') {
 		const submarineSwap = swapData as SubmarineSwapData;
 		content.type = 'submarine';
@@ -139,8 +170,8 @@ function buildSwapContent(
 	return content;
 }
 
-async function saveSwapToNostr(
-	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+export async function saveSwapToNostr(
+	swapData: BoltzSwapData | ExtendedChainSwapData | SubmarineSwapData,
 	nsec: Uint8Array,
 	swapType: SwapType
 ): Promise<void> {
@@ -185,11 +216,11 @@ async function saveSwapToNostr(
 		const requiredRelayCount = Math.min(1, RELAYS.length);
 		await ndkEvent.publish(relaySet, PUBLISH_TIMEOUT_MS, requiredRelayCount);
 	} catch (error) {
-		console.error('Failed to save swap to Nostr:', error);
+		d.error('Failed to save swap to Nostr: %s', (error as Error).message);
 	}
 }
 
-async function recoverSwapsFromNostr(
+export async function recoverSwapsFromNostr(
 	nsec: Uint8Array,
 	swapType: SwapType,
 	includeFinal: boolean
@@ -224,6 +255,10 @@ async function recoverSwapsFromNostr(
 
 		for (const event of latestBySwapId.values()) {
 			try {
+				// Guard: skip events with empty or obviously invalid content
+				if (!event.content || typeof event.content !== 'string') {
+					continue;
+				}
 				const decryptedContent = await nip44.decrypt(event.content, conversationKey);
 				const data = JSON.parse(decryptedContent) as PendingSwapData;
 
@@ -233,13 +268,16 @@ async function recoverSwapsFromNostr(
 
 				swaps.push(data);
 			} catch (err) {
-				console.error('Failed to process swap event:', err);
+				// Silently skip events that can't be decrypted (may be NIP-04 encrypted
+				// from older versions, corrupted, or encrypted with a different key).
+				// These are not critical — the swap will be re-created on next use.
+				d.log('Skipping undecryptable swap event: %s', (err as Error).message);
 			}
 		}
 
 		return swaps;
 	} catch (error) {
-		console.error('Failed to recover swaps from Nostr:', error);
+		d.error('Failed to recover swaps from Nostr: %s', (error as Error).message);
 		return [];
 	}
 }
@@ -290,7 +328,7 @@ async function deleteSwapEvent(
 		await publishDeletionEventNdk(event.id, KINDS.PENDING_SWAPS.toString(), RELAYS);
 		return true;
 	} catch (error) {
-		console.error('Failed to delete swap event:', error);
+		d.error('Failed to delete swap event: %s', (error as Error).message);
 		return false;
 	}
 }
@@ -319,13 +357,13 @@ async function deleteAllSwapEvents(
 				await publishDeletionEventNdk(event.id, KINDS.PENDING_SWAPS.toString(), RELAYS);
 				deleteCount++;
 			} catch (err) {
-				console.error(`Failed to delete event ${event.id}:`, err);
+				d.error('Failed to delete event %s: %s', event.id, (err as Error).message);
 			}
 		}
 
 		return { count: deleteCount };
 	} catch (error) {
-		console.error('Failed to delete swap events:', error);
+		d.error('Failed to delete swap events: %s', (error as Error).message);
 		throw error;
 	}
 }
@@ -352,7 +390,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			await saveSwapToNostr(data, this.nsec, this.swapType);
 		} catch (error) {
-			console.error(`Failed to save swap ${swapId} to Nostr:`, error);
+			d.error('Failed to save swap %s to Nostr: %s', swapId, (error as Error).message);
 		}
 	}
 
@@ -366,7 +404,7 @@ export class NostrSwapStorage implements SwapStorage {
 			const swaps = await this.loadAll();
 			return swaps.find((s) => s.id === swapId) || null;
 		} catch (error) {
-			console.error(`Failed to load swap ${swapId} from Nostr:`, error);
+			d.error('Failed to load swap %s from Nostr: %s', swapId, (error as Error).message);
 			return null;
 		}
 	}
@@ -379,7 +417,12 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await recoverPendingSwaps(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to load swaps from Nostr:', error);
+			d.error('Failed to load swaps from Nostr: %s', (error as Error).message);
+			Sentry.addBreadcrumb({
+				category: 'swap.nostr',
+				message: 'Failed to load swaps from Nostr',
+				level: 'warning'
+			});
 			return [];
 		}
 	}
@@ -389,7 +432,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await recoverAllSwapsFromNostr(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to load all swaps from Nostr:', error);
+			d.error('Failed to load swaps from Nostr: %s', (error as Error).message);
 			return [];
 		}
 	}
@@ -402,7 +445,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			await deleteSwapEvent(this.nsec, swapId, this.swapType);
 		} catch (error) {
-			console.error(`Failed to delete swap ${swapId} from Nostr:`, error);
+			d.error('Failed to delete swap %s from Nostr: %s', swapId, (error as Error).message);
 			// Don't throw - deletion is not critical
 		}
 	}
@@ -415,7 +458,7 @@ export class NostrSwapStorage implements SwapStorage {
 		try {
 			return await deleteAllSwapEvents(this.nsec, this.swapType);
 		} catch (error) {
-			console.error('Failed to delete all swaps from Nostr:', error);
+			d.error('Failed to delete all swaps from Nostr: %s', (error as Error).message);
 			throw error;
 		}
 	}

@@ -22,7 +22,9 @@
 		connectionError = '',
 		verificationStatus = 'idle',
 		verificationMessage = '',
-		forceOpen = false
+		forceOpen = false,
+		availableBalance = undefined,
+		iconSrc = '/images/chains/Bitcoin.svg'
 	} = $props<{
 		title?: string;
 		iconAlt?: string;
@@ -44,6 +46,8 @@
 		verificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
 		verificationMessage?: string;
 		forceOpen?: boolean;
+		availableBalance?: string;
+		iconSrc?: string;
 	}>();
 
 	let expanded = $state(false);
@@ -106,11 +110,7 @@
 		onkeydown={(e) => e.key === 'Enter' && (expanded = !expanded)}
 	>
 		<div class="flex min-w-0 flex-1 items-center gap-2">
-			<img
-				src="/images/chains/Bitcoin.svg"
-				alt={resolvedIconAlt}
-				class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-			/>
+			<img src={iconSrc} alt={resolvedIconAlt} class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 			<div class="flex items-center gap-2 overflow-hidden">
 				<span class="truncate">{resolvedTitle}</span>
 				{#if onRefresh}
@@ -148,7 +148,7 @@
 		<div class="space-y-2 px-3 pb-1.5 sm:px-4 sm:pb-2">
 			<div class="flex items-center justify-between gap-2 text-sm">
 				<span class="text-base-content/70">{resolvedAvailableLabel}</span>
-				<span>{balanceUsd}</span>
+				<span>{availableBalance ?? balanceUsd}</span>
 			</div>
 			<div class="flex items-center justify-between gap-2 text-sm">
 				<span class="text-base-content/70">{resolvedRequiredLabel}</span>

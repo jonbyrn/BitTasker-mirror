@@ -207,7 +207,6 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Implementation**: Integrated non-custodial Bitcoin wallet
 - **Features**:
   - Support for Bitcoin, Lightning, and Liquid network
-  - USDT on Liquid support
   - Transaction history
   - Multiple address management
   - Hardware wallet connectivity

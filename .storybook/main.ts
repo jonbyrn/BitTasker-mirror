@@ -20,12 +20,12 @@ const config: StorybookConfig = {
 				// Only transform Storybook's Svelte components
 				if (id.includes('node_modules/@storybook/svelte/dist/components') && id.endsWith('.svelte')) {
 					// Convert export let declarations to $props
-					let modified = code.replace(
+					const modified = code.replace(
 						/<script([^>]*)>(([\s\S](?!<\/script>))*)export\s+let\s+([a-zA-Z0-9_$]+)(\s*=\s*([^;]+))?;/g,
 						(match, scriptAttrs, beforeExport, _, propName, defaultValuePart, defaultValue) => {
 							// Add $state import if not already present
 							const hasStateImport = beforeExport.includes('import { $props }');
-							let importStatement = hasStateImport ? '' : 'import { $props } from "svelte";\n';
+							const importStatement = hasStateImport ? '' : 'import { $props } from "svelte";\n';
 							
 							// Convert the export let to $props declaration
 							let propsDeclaration;

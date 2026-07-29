@@ -31,39 +31,38 @@
 	let drawerElement: HTMLElement | null = null;
 
 	// Focus management: move focus into drawer when it opens
-	$effect(async () => {
+	$effect(() => {
 		if (isOpen) {
-			await tick();
-			if (drawerElement) {
-				// Try to focus the first interactive element in the drawer
-				const firstFocusable = drawerElement.querySelector<HTMLElement>(
-					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-				);
-				if (firstFocusable) {
-					firstFocusable.focus();
-				} else {
-					drawerElement.focus();
+			tick().then(() => {
+				if (drawerElement) {
+					// Try to focus the first interactive element in the drawer
+					const firstFocusable = drawerElement?.querySelector<HTMLElement>(
+						'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+					);
+					if (firstFocusable) {
+						firstFocusable.focus();
+					} else {
+						drawerElement?.focus();
+					}
 				}
-			}
+			});
 		}
 	});
 </script>
 
-<Drawer isOpen={isOpen} {title} {onClose} position="right" isScrollable={true}>
-	{#snippet children()}
-		<div class={contentClass} bind:this={drawerElement}>
-			{@render children?.()}
+<Drawer {isOpen} {title} {onClose} position="right" isScrollable={true}>
+	<div class={contentClass} bind:this={drawerElement}>
+		{@render children?.()}
 
-			<div class="divider"></div>
-			<div class={actionsClass}>
-				<button class="btn btn-ghost btn-outline" onclick={onClear}>{clearLabel}</button>
-				<button class="btn btn-primary" onclick={onApply}>
-					{applyLabel}
-					{#if activeFilterCount > 0}
-						<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-					{/if}
-				</button>
-			</div>
+		<div class="divider"></div>
+		<div class={actionsClass}>
+			<button class="btn btn-ghost btn-outline" onclick={onClear}>{clearLabel}</button>
+			<button class="btn btn-primary" onclick={onApply}>
+				{applyLabel}
+				{#if activeFilterCount > 0}
+					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
+				{/if}
+			</button>
 		</div>
-	{/snippet}
+	</div>
 </Drawer>

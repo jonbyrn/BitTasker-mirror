@@ -17,17 +17,22 @@ vi.mock('@capacitor/preferences', () => ({
 		clear: vi.fn(async () => {
 			store = {};
 		}),
-		keys: vi.fn(async () => ({ keys: [] }))
+		keys: vi.fn(async () => ({ keys: [] })),
+		configure: vi.fn(async () => {}),
+		migrate: vi.fn(async () => ({ migrated: [], existing: [] })),
+		removeOld: vi.fn(async () => {})
 	}
 }));
 
-const mockShowBanner = vi.fn(async () => 1);
-const mockDismissBanner = vi.fn(async () => {});
+const { mockShowBanner, mockDismissBanner } = vi.hoisted(() => ({
+	mockShowBanner: vi.fn(async (_options: Record<string, unknown>): Promise<number | null> => 1),
+	mockDismissBanner: vi.fn(async (_id: number): Promise<void> => {})
+}));
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
-		showBanner: (...args: unknown[]) => mockShowBanner(...args),
-		dismissBanner: (...args: unknown[]) => mockDismissBanner(...args)
+		showBanner: mockShowBanner,
+		dismissBanner: mockDismissBanner
 	}
 }));
 
@@ -244,8 +249,8 @@ describe('save-search-banner — searchType', () => {
 
 	it('uses service i18n key for services', async () => {
 		await manageSaveSearchBanner({ search: 'test' }, 'services', vi.fn());
-		const bannerCall = mockShowBanner.mock.calls[0][0] as Record<string, string>;
-		expect((bannerCall.message as Record<string, string>).key).toBe(
+		const bannerCall = mockShowBanner.mock.calls[0][0] as unknown as Record<string, string>;
+		expect((bannerCall.message as unknown as Record<string, string>).key).toBe(
 			'notifications.save_search_prompt.description_service'
 		);
 	});

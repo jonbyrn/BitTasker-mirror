@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
-import { get } from 'svelte/store';
+import { get as _get } from 'svelte/store';
 
 // Mock dependencies
 vi.mock('$lib/utils/nostr', () => ({
@@ -12,7 +12,10 @@ vi.mock('$lib/utils/nostr', () => ({
 
 vi.mock('$lib/utils/constants/tags', () => ({
 	TAG_PATTERNS: {
-		bidStatus: vi.fn(() => [['t', 'bid-status'], ['bid', 'bid-123']])
+		bidStatus: vi.fn(() => [
+			['t', 'bid-status'],
+			['bid', 'bid-123']
+		])
 	},
 	TAG_FILTERS: {}
 }));
@@ -73,11 +76,15 @@ describe('sendBidStatusUpdate', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset processing bid IDs
-		(bidStore as any).processingBidIds = new Set(['bid-123']);
+		(bidStore as unknown as { processingBidIds: Set<string> }).processingBidIds = new Set([
+			'bid-123'
+		]);
 	});
 
 	it('should remove processing bid on success', async () => {
-		vi.mocked(publishNostrEvent).mockResolvedValue(undefined);
+		vi.mocked(publishNostrEvent).mockResolvedValue(
+			undefined as unknown as Awaited<ReturnType<typeof publishNostrEvent>>
+		);
 
 		const result = await sendBidStatusUpdate(
 			'bid-123',

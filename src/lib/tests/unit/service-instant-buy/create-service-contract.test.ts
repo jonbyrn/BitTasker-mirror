@@ -25,7 +25,9 @@ describe('service instant-buy contract snapshot mapping', () => {
 				deliveryTime: { min: 2, max: 3, unit: 'day' as const }
 			}
 		};
-		const serviceAddress = buildServiceAddress(service);
+		const serviceAddress = buildServiceAddress(
+			service as unknown as Parameters<typeof buildServiceAddress>[0]
+		);
 		const snapshot = createInstantBuySnapshot({
 			service,
 			nowSeconds: 1_700_000_000

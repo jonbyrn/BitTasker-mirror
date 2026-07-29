@@ -63,7 +63,13 @@ describe('NDKContractStatus completionText', () => {
 		it('should store completionText alongside completionAttachments', () => {
 			status.completionText = 'Task completed via file upload';
 			const attachments: Attachment[] = [
-				{ name: 'screenshot.png', url: 'https://example.com/screenshot.png', type: 'image/png' }
+				{
+					key: 'screenshot',
+					url: 'https://example.com/screenshot.png',
+					type: 'image/png',
+					alt: 'screenshot',
+					size: 1024
+				}
 			];
 			status.completionAttachments = attachments;
 
@@ -79,7 +85,13 @@ describe('NDKContractStatus completionText', () => {
 
 		it('should handle only attachments (no text)', () => {
 			const attachments: Attachment[] = [
-				{ name: 'proof.pdf', url: 'https://example.com/proof.pdf', type: 'application/pdf' }
+				{
+					key: 'proof',
+					url: 'https://example.com/proof.pdf',
+					type: 'application/pdf',
+					alt: 'proof',
+					size: 2048
+				}
 			];
 			status.completionAttachments = attachments;
 			expect(status.completionAttachments).toEqual(attachments);

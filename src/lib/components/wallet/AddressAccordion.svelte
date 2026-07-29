@@ -91,7 +91,9 @@
 				class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-200 select-none active:scale-95"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => (addressExpanded = !addressExpanded)}
-				aria-label={addressExpanded ? 'Collapse address' : 'Expand address'}
+				aria-label={addressExpanded
+					? $t('wallet.address_accordion.collapse')
+					: $t('wallet.address_accordion.expand')}
 			>
 				<div class="transition-transform duration-200" class:rotate-180={addressExpanded}>
 					<IconChevronDown class="h-5 w-5" />

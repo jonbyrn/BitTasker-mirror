@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import type { EnrichmentRequest } from '$lib/types/notification';
 
 vi.mock('$lib/api/services/notificationCenter.service', () => ({
 	notificationCenterService: {
-		enrich: vi.fn().mockResolvedValue(undefined),
+		enrich: vi.fn<(data: EnrichmentRequest) => Promise<void>>().mockResolvedValue(undefined),
 		list: vi.fn(),
 		getUnreadCount: vi.fn(),
 		markRead: vi.fn(),
@@ -23,12 +24,13 @@ vi.mock('$lib/utils/debug', () => ({
 }));
 
 describe('enrichment calls', () => {
-	let notificationCenterService: { enrich: ReturnType<typeof vi.fn> };
+	let notificationCenterService: { enrich: Mock };
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		const mod = await import('$lib/api/services/notificationCenter.service');
-		notificationCenterService = mod.notificationCenterService;
+		notificationCenterService =
+			mod.notificationCenterService as unknown as typeof notificationCenterService;
 	});
 
 	it('contract_created enrichment includes all required fields', async () => {

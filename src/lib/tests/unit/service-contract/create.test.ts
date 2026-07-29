@@ -35,12 +35,26 @@ vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
 	})
 }));
 
+vi.mock('$lib/stores/wallet.store', () => ({
+	walletStore: {
+		subscribe: (fn: unknown) => {
+			(fn as (v: unknown) => void)({ rsk: { address: '0x123' } });
+			return () => {};
+		}
+	}
+}));
+
+vi.mock('$lib/utils/debug', () => ({
+	createDebug: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() })
+}));
+
 vi.mock('$lib/utils/contract/v2/service-creation', () => ({
 	createServiceContract: (...args: unknown[]) => createServiceContractV2(...args)
 }));
 
 vi.mock('$lib/utils/service-contract/acceptance-snapshot', () => ({
-	createServiceAcceptanceSnapshot: (...args: unknown[]) => createServiceAcceptanceSnapshot(...args),
+	createServiceAcceptanceSnapshot: (...args: unknown[]) =>
+		createServiceAcceptanceSnapshot(...(args as unknown as [Record<string, unknown>])),
 	getConfiguredRskChainId: () => 31,
 	getConfiguredRskContractAddress: () => '0x4444444444444444444444444444444444444444',
 	getConfiguredVerificationRpcLabel: () => 'rsk:testnet'

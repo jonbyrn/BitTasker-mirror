@@ -52,7 +52,10 @@ const mockAppStoreUpdate = vi.fn<(updater: (state: typeof mockAppStoreState) => 
 });
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
-		update: (updater: unknown) => mockAppStoreUpdate(updater),
+		update: (updater: unknown) =>
+			mockAppStoreUpdate(
+				updater as unknown as (state: typeof mockAppStoreState) => typeof mockAppStoreState
+			),
 		subscribe: vi.fn()
 	}
 }));

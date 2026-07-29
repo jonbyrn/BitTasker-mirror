@@ -3,6 +3,7 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Service } from '$lib/types/service.d';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
@@ -145,8 +146,8 @@
 	);
 
 	const visibleServices = $derived.by(() => {
-		const pendingKeys = new Set($pendingServiceDeleteStore.map((entry) => entry.key));
-		const pendingIds = new Set($pendingServiceDeleteStore.map((entry) => entry.serviceId));
+		const pendingKeys = new SvelteSet($pendingServiceDeleteStore.map((entry) => entry.key));
+		const pendingIds = new SvelteSet($pendingServiceDeleteStore.map((entry) => entry.serviceId));
 
 		return sortedServices.filter((service) => {
 			const key = getPendingServiceDeleteKey(service);
@@ -226,8 +227,6 @@
 		}
 	});
 
-
-
 	function isActiveServiceContract(contract: ContractWithEvents): boolean {
 		if ((contract.contractEvent.content.contextType ?? 'task') !== 'service') return false;
 		return !isTerminalPaymentState(contract.status);
@@ -237,9 +236,15 @@
 		contracts: ContractWithEvents[],
 		service: Service
 	): ContractWithEvents[] {
-		const keys = new Set<string>();
-		try { const addr = buildServiceAddress(service); if (addr) keys.add(addr); } catch { /* */ }
-		if ((service as Record<string, unknown>).uniqueId) keys.add((service as Record<string, unknown>).uniqueId as string);
+		const keys = new SvelteSet<string>();
+		try {
+			const addr = buildServiceAddress(service);
+			if (addr) keys.add(addr);
+		} catch {
+			/* */
+		}
+		if ((service as unknown as Record<string, unknown>).uniqueId)
+			keys.add((service as unknown as Record<string, unknown>).uniqueId as string);
 		if (service.id) keys.add(service.id);
 
 		return contracts.filter((contract) => {
@@ -250,7 +255,6 @@
 			);
 		});
 	}
-
 
 	/** Convert an NDKPaymentContract to a minimal ContractWithEvents snapshot (no blockchain data). */
 	async function ndkContractToSnapshot(
@@ -368,8 +372,7 @@
 					if (!contract) continue;
 					const wrapped = await ndkContractToSnapshot(contract, currentPubkey);
 					if (wrapped) {
-						const escrowId =
-							wrapped.escrowData.id || wrapped.contractEvent.content.escrowId;
+						const escrowId = wrapped.escrowData.id || wrapped.contractEvent.content.escrowId;
 						contractsByEscrowId[escrowId] = wrapped;
 					}
 				} catch {
@@ -381,9 +384,7 @@
 				break;
 			}
 
-			const sorted = [...events].sort(
-				(a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)
-			);
+			const sorted = [...events].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 			const oldestTimestamp = sorted[sorted.length - 1]?.created_at ?? null;
 			if (oldestTimestamp === null || oldestTimestamp < 0) {
 				break;
@@ -478,7 +479,6 @@
 		await handleDeleteClick(serviceToDelete);
 	}
 
-
 	function closeDeleteModal() {
 		if (deleteSubmitServiceId) {
 			return;
@@ -549,13 +549,13 @@
 
 	async function inspectDeleteGuards(service: Service) {
 		const contracts = await refreshContractsSnapshot({ force: true });
+		const activeContracts = getActiveServiceContractsForService(contracts, service);
 		const quoteThreads = await queryProviderQuoteThreads({
 			serviceAddress: buildServiceAddress(service),
 			taskeePubkey: service.npub,
 			limit: 100
 		});
-		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads);
-		const activeContracts = getActiveServiceContractsForService(contracts, service);
+		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads, activeContracts.length);
 
 		return {
 			hasOpenQuotes: quoteGuard.hasBlockingThreads,

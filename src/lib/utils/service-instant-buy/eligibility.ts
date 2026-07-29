@@ -14,7 +14,7 @@ export interface InstantBuyTierLike {
 	id: string;
 	price: number;
 	deliveryTime?: DeliveryTimeLike;
-	rushDelivery?: { enabled: boolean };
+	rushDelivery?: { enabled: boolean; deliveryTime?: DeliveryTimeLike };
 }
 
 export interface InstantBuyServiceLike {
@@ -62,7 +62,7 @@ export interface InstantBuyEligibilityResult {
 }
 
 function isValidLeadHours(value: number | undefined): value is number {
-	return Number.isInteger(value) && value >= 0 && value <= 720;
+	return value !== undefined && Number.isInteger(value) && value >= 0 && value <= 720;
 }
 
 export function resolveInstantBuyTier(

@@ -210,7 +210,7 @@ export interface ServiceQuoteStoreState extends ServiceQuoteQueryResult {
 	lastUpdatedAt: number | null;
 }
 
-export interface ServiceQuotePublishResult<TEvent extends NostrEvent> {
+export interface ServiceQuotePublishResult<TEvent extends object> {
 	event: TEvent;
 	relayResults: { relay: string; success: boolean; error?: string }[];
 	publishedRelaySet: string[];

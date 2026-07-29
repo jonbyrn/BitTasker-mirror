@@ -5,26 +5,32 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
 export default ts.config(
 	// Ignore known parser bugs
-	{ ignores: ['src/routes/+page.svelte'] },
+	{ ignores: ['src/routes/+page.svelte', '.kilo/**', '.deepseek/**'] },
 	includeIgnoreFile(gitignorePath),
 	{
 		ignores: [
 			'eslint.config.js',
 			'svelte.config.js',
 			'src/**/__tests__/mocks/**/*.svelte',
-			'src/lib/tests/mocks/**/*.svelte'
+			'src/lib/tests/mocks/**/*.svelte',
+			'contracts/**',
+			'backend/**',
+			'reviews/**',
+			'docker/**',
+			'scripts/**',
+			'requirements/**',
+			'plugins/**'
 		]
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,
-	...svelte.configs.recommended,
 	prettier,
-	...svelte.configs.prettier,
+	// Svelte rules (without recommended spread to avoid warningFilter serialization bug)
+	...svelte.configs['flat/recommended'],
 	{
 		languageOptions: {
 			globals: {
@@ -39,11 +45,14 @@ export default ts.config(
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node
+			},
 			parserOptions: {
-				projectService: true,
+				project: './tsconfig.json',
 				extraFileExtensions: ['.svelte'],
-				parser: ts.parser,
-				svelteConfig
+				parser: ts.parser
 			}
 		},
 		rules: {

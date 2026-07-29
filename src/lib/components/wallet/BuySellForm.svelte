@@ -1,346 +1,1050 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	
-	// State management
-	let action = $state<'buy' | 'sell'>('buy');
-	let selectedCrypto = $state<'rbtc' | 'usdt-bsc'>('rbtc');
-	let selectedFiat = $state<string>('USD'); // Hardcoded to USD
+	import { t, locale } from 'svelte-i18n';
+	import { SvelteMap } from 'svelte/reactivity';
+	import Drawer from '$lib/components/Drawer.svelte';
+	import { walletStore } from '$lib/stores/wallet.store';
+	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
+	import type { AssetOption } from './AssetSelector.svelte';
+	import SwapPartySelector from './SwapPartySelector.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
+	import BuySellCountrySelector from '$lib/components/wallet/BuySellCountrySelector.svelte';
+	import FiatOfferSection from '$lib/components/wallet/FiatOfferSection.svelte';
+	import OffRampStatusCard from '$lib/components/wallet/OffRampStatusCard.svelte';
+	import { useBuySellBalances } from '$lib/runes/use-buy-sell-balances.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { appStore } from '$lib/stores/app.store';
+	import { reconnectPersistedWallets } from '$lib/services/external-wallet/reconnect';
+	import { changellyFiatService, sortOffersByBestRate } from '$lib/services/fiat-ramp.service';
+	import type {
+		ChangellyOfferSuccess,
+		ChangellyCountry,
+		ChangellyPaymentMethodOffer
+	} from '$lib/services/fiat-ramp.service';
+	import { FiatSwapOrchestrator } from '$lib/services/fiat-swap-orchestrator.service';
+	import type {
+		FiatFlowState,
+		FiatFlowStage,
+		FiatBuyAsset
+	} from '$lib/services/fiat-swap-orchestrator.service';
+	import { Browser } from '@capacitor/browser';
+	import { Capacitor } from '@capacitor/core';
+	import * as Sentry from '@sentry/sveltekit';
+	import { OffRampOrchestrator } from '$lib/services/off-ramp-orchestrator.service';
+	import type {
+		OffRampQuote,
+		OffRampFlowState,
+		OffRampAsset
+	} from '$lib/services/off-ramp-orchestrator.service';
+	import IconClose from '~icons/mdi/close';
+	import IconPlus from '~icons/mdi/plus';
+	import IconMinus from '~icons/mdi/minus';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import { cryptoTicker, friendlyAssetName } from '$lib/utils/fiat-helpers';
+	import { createDebug } from '$lib/utils/debug';
+	const debug = createDebug('buy-sell-form');
+
+	let {
+		isOpen,
+		onClose,
+		defaultCrypto
+	}: {
+		isOpen: boolean;
+		onClose: () => void;
+		defaultCrypto?: 'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain';
+	} = $props();
+
+	// -----------------------------------------------------------------------
+	// Locale-aware formatter
+	// -----------------------------------------------------------------------
+	const usdFormatter = $derived(
+		new Intl.NumberFormat(($locale ?? 'en') as string, {
+			style: 'currency',
+			currency: 'USD'
+		})
+	);
+
+	// -----------------------------------------------------------------------
+	// Wallet reconnect
+	// -----------------------------------------------------------------------
+	reconnectPersistedWallets();
+
+	// -----------------------------------------------------------------------
+	// Tab & crypto selection
+	// -----------------------------------------------------------------------
+	let activeTab = $state<'buy' | 'sell'>('buy');
+	let selectedCrypto = $state<'rbtc' | 'usdt0-arb' | 'wbtc-arb' | 'btc-onchain'>('rbtc');
 	let amount = $state<string>('');
-	let bankDetails = $state<string>('');
-	let cardDetails = $state<string>('');
-	let showKycWarning = $state<boolean>(false);
-	let isLoading = $state<boolean>(false);
-	let quoteData = $state<any>(null);
-	
-	// Hardcoded to USD only
-	const selectedFiatCurrency = { code: 'USD', name: 'US Dollar', symbol: '$' };
-	
-	const digitalAssetOptions = [
-		{ id: 'rbtc', name: 'rBTC (Rootstock Bitcoin)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
-		{ id: 'usdt-bsc', name: 'USDT (Binance Smart Chain)', icon: '/currency-symbols/USDt.svg' }
-	];
-	
-	
-	// Convert to sats for display
-	function convertToSats(amount: string, tokenId: string): string {
-		if (!amount) return '0';
-		const numAmount = parseFloat(amount);
-		if (tokenId === 'rbtc') {
-			// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-			return Math.round(numAmount * 100000000).toLocaleString();
-		} else if (tokenId === 'usdt-bsc') {
-			// USDT is already in smallest unit (cents), so convert to sats equivalent
-			return Math.round(numAmount * 100).toLocaleString();
-		}
-		return amount;
-	}
-	
-	let estimatedReceive = $derived(() => {
-		if (!amount || !selectedCrypto || !quoteData) return '0.00';
-		// Use real quote data from Changelly API
-		return quoteData.estimatedAmount || '0.00';
+	let isLoading = $state(false);
+	let sellFlowActive = $state(false);
+	let showSats = $state(false);
+	let swapPercent = $state(0);
+
+	// Off-ramp orchestrator
+	const offRampOrchestrator = new OffRampOrchestrator();
+	let offRampFlow = $state<OffRampFlowState | null>(null);
+	let offRampQuote = $state<OffRampQuote | null>(null);
+
+	// Restore persisted flow from Capacitor Preferences
+	offRampOrchestrator.init().then(() => {
+		offRampFlow = offRampOrchestrator.getActiveFlow();
 	});
-	
-	let estimatedSend = $derived(() => {
-		if (!amount || !selectedCrypto || !quoteData) return '0.00';
-		// Use real quote data from Changelly API
-		return quoteData.estimatedAmount || '0.00';
-	});
-	
-	// Methods
-	function handleActionChange(newAction: 'buy' | 'sell') {
-		action = newAction;
-		amount = '';
-		bankDetails = '';
-		cardDetails = '';
-		showKycWarning = false;
-		quoteData = null;
-	}
-	
-	function handleCryptoChange(cryptoId: string) {
-		if (cryptoId === 'rbtc' || cryptoId === 'usdt-bsc') {
-			selectedCrypto = cryptoId;
-			amount = '';
-			quoteData = null;
-		}
-	}
-	
-	async function handleAmountChange() {
-		// Trigger KYC warning for amounts over $1000
-		if (parseFloat(amount) > 1000) {
-			showKycWarning = true;
-		} else {
-			showKycWarning = false;
-		}
-		
-		// Fetch quote from Changelly API when amount changes
-		if (amount && parseFloat(amount) > 0) {
-			await fetchQuote();
-		} else {
-			quoteData = null;
-		}
-	}
-	
-	function handleKeyPress(event: KeyboardEvent) {
-		// Only allow numbers, decimal point, and control keys
-		const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', 'Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'];
-		const isControlKey = event.ctrlKey || event.metaKey || event.altKey;
-		
-		if (!allowedKeys.includes(event.key) && !isControlKey) {
-			event.preventDefault();
-		}
-		
-		// Prevent multiple decimal points
-		if (event.key === '.' && amount.includes('.')) {
-			event.preventDefault();
-		}
-	}
-	
-	async function fetchQuote() {
-		try {
-			// Get real BTC price from API
-			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			
-			// Mock API call - replace with real Changelly integration
-			await new Promise(resolve => setTimeout(resolve, 500));
-			
-			// Calculate real conversion rates based on current BTC price
-			let estimatedAmount: string;
-			let rate: number;
-			
-			if (selectedCrypto === 'rbtc') {
-				if (action === 'buy') {
-					// Buying rBTC with USD: USD amount / BTC price = rBTC amount
-					rate = 1 / btcPrice;
-					estimatedAmount = (parseFloat(amount) * rate).toFixed(6);
-				} else {
-					// Selling rBTC for USD: rBTC amount * BTC price = USD amount
-					rate = btcPrice;
-					estimatedAmount = (parseFloat(amount) * rate).toFixed(2);
+	let depositAddressInput = $state('');
+	let depositAddressError = $state('');
+	let offRampLoading = $state(false);
+
+	// Wallet source
+	let source = $state('builtin');
+	let sourceInitialized = $state(false);
+
+	// Country & state
+	let selectedCountry = $state('SV');
+	let selectedState = $state('');
+	let countries = $state<ChangellyCountry[]>([]);
+	let countriesLoading = $state(false);
+
+	// Offer state
+	let offers = $state<ChangellyOfferSuccess[]>([]);
+	let selectedOffer = $state<ChangellyOfferSuccess | null>(null);
+	let selectedPaymentMethod = $state<ChangellyPaymentMethodOffer | null>(null);
+	let quoteLoading = $state(false);
+	let quoteError = $state(false);
+	let quoteAbort: AbortController | null = null;
+	let supportedCryptoTickers = $state<Set<string> | null>(null);
+	let supportedCryptoError = $state<string | null>(null);
+
+	// Payment method filter
+	let activePaymentFilter = $state<string | null>(null);
+	let providerExpanded = $state(false);
+
+	// All unique payment methods across all offers
+	let allPaymentMethods = $derived.by(() => {
+		const seen = new SvelteMap<string, { method: string; methodName: string }>();
+		for (const offer of offers) {
+			for (const pm of offer.paymentMethodOffer) {
+				if (!seen.has(pm.method)) {
+					seen.set(pm.method, { method: pm.method, methodName: pm.methodName });
 				}
-			} else {
-				// USDT-BSC: 1:1 with USD
-				rate = 1.0;
-				estimatedAmount = amount;
 			}
-			
-			quoteData = {
-				estimatedAmount,
-				rate,
-				fee: '0.5',
-				totalCost: amount,
-				btcPrice
-			};
-		} catch (error) {
-			console.error('Failed to fetch quote:', error);
-			quoteData = null;
+		}
+		return [...seen.values()];
+	});
+
+	let filteredOffers = $derived.by(() => {
+		if (!activePaymentFilter) return offers;
+		return offers.filter((o) =>
+			o.paymentMethodOffer.some((pm) => pm.method === activePaymentFilter)
+		);
+	});
+
+	// -----------------------------------------------------------------------
+	// Balance rune
+	// -----------------------------------------------------------------------
+	const balances = useBuySellBalances({
+		getSource: () => source,
+		getSelectedCrypto: () => selectedCrypto,
+		getActiveTab: () => activeTab,
+		getShowSats: () => showSats,
+		getTotalBalances: () => $walletStore.totalBalances,
+		getArbData: () =>
+			$walletStore.arb as unknown as import('$lib/runes/use-buy-sell-balances.svelte.ts').ArbData,
+		getConnectedWallets: () => $connectedWalletsStore.wallets,
+		getBtcPrice: () => btcPrice.price,
+		getUsdFormatter: () => usdFormatter
+	});
+
+	// Asset options with i18n labels
+	let assetOptions = $derived.by<AssetOption[]>(() => {
+		const opts: AssetOption[] = [
+			{
+				id: 'rbtc',
+				label: $t('wallet.buy_sell.bitcoin_rbtc'),
+				icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+				subLabel: $t('wallet.buy_sell.sub_rbtc'),
+				balance: balances.rbtcBalanceDisplay
+			},
+			{
+				id: 'usdt0-arb',
+				label: $t('wallet.send_form.asset.usd'),
+				icon: '/images/chains/Tether-USD.svg',
+				subLabel: $t('wallet.buy_sell.sub_usdt0'),
+				balance: balances.usdtBalanceDisplay
+			},
+			{
+				id: 'wbtc-arb',
+				label: $t('wallet.wbtc_arbitrum'),
+				icon: '/images/chains/arbitrum.png',
+				subLabel: $t('wallet.buy_sell.sub_wbtc'),
+				balance: balances.wbtcBalanceDisplay
+			}
+		];
+		if (balances.selectedSourceHasBtc) {
+			opts.push({
+				id: 'btc-onchain',
+				label: $t('wallet.buy_sell.bitcoin_btc'),
+				icon: '/images/chains/Bitcoin.svg',
+				subLabel: $t('wallet.buy_sell.sub_btc_onchain'),
+				balance: balances.rbtcBalanceDisplay
+			});
+		}
+		return opts;
+	});
+
+	// -----------------------------------------------------------------------
+	// Fiat swap orchestrator
+	// -----------------------------------------------------------------------
+	const orchestrator = new FiatSwapOrchestrator();
+	let flowState = $state<FiatFlowState | null>(null);
+
+	// Restore persisted flow from Capacitor Preferences, then subscribe to changes
+	$effect(() => {
+		let unsub: (() => void) | undefined;
+
+		orchestrator.init().then(() => {
+			flowState = orchestrator.getActiveFlow();
+			unsub = orchestrator.onStageChange((state) => {
+				flowState = { ...state };
+			});
+		});
+
+		return () => {
+			unsub?.();
+		};
+	});
+
+	$effect(() => {
+		const unsub = offRampOrchestrator.onStageChange((state) => {
+			offRampFlow = { ...state };
+		});
+		return unsub;
+	});
+
+	// -----------------------------------------------------------------------
+	// Derived helpers
+	// -----------------------------------------------------------------------
+	let isMultiHop = $derived(selectedCrypto === 'rbtc');
+	let needsBridgeAndSend = $derived(activeTab === 'sell');
+	let offRampStage = $derived(offRampFlow?.stage ?? 'idle');
+
+	let sellButtonDisabled = $derived.by(() => {
+		if (needsBridgeAndSend) {
+			switch (offRampStage) {
+				case 'quote_ready':
+				case 'idle':
+					return !offRampQuote || offRampLoading;
+				case 'awaiting_deposit_address':
+					return !depositAddressInput.trim() || offRampLoading;
+				default:
+					return true;
+			}
+		}
+		return isLoading || !amount || !selectedOffer || !walletAddress;
+	});
+
+	let isFlowActive = $derived(
+		activeTab === 'buy' &&
+			flowState !== null &&
+			flowState.stage !== 'idle' &&
+			flowState.stage !== 'complete'
+	);
+
+	let walletAddress = $derived.by(() => {
+		if (source === 'builtin') {
+			if (selectedCrypto === 'btc-onchain') return '';
+			if (
+				selectedCrypto === 'usdt0-arb' ||
+				selectedCrypto === 'wbtc-arb' ||
+				selectedCrypto === 'rbtc'
+			) {
+				return $walletStore.arb?.address ?? '';
+			}
+			return $walletStore.rsk?.address ?? '';
+		}
+		const w = $connectedWalletsStore.wallets.find((w) => w.id === source);
+		if (!w) return '';
+		if (selectedCrypto === 'btc-onchain') return w.btcAddress ?? '';
+		return w.address ?? '';
+	});
+
+	let statesForSelected = $derived(countries.find((c) => c.code === selectedCountry)?.states ?? []);
+
+	// -----------------------------------------------------------------------
+	// Effects
+	// -----------------------------------------------------------------------
+	$effect(() => {
+		if (!sourceInitialized) {
+			source = 'builtin';
+			sourceInitialized = true;
+		} else if (
+			source !== 'builtin' &&
+			!$connectedWalletsStore.wallets.some((w) => w.id === source)
+		) {
+			source = 'builtin';
+		}
+	});
+
+	$effect(() => {
+		if (selectedCrypto === 'btc-onchain' && !balances.selectedSourceHasBtc) {
+			selectedCrypto = 'rbtc';
+		}
+	});
+
+	$effect(() => {
+		if (isOpen && defaultCrypto) {
+			selectedCrypto = defaultCrypto;
+		}
+	});
+
+	$effect(() => {
+		if (!isOpen || supportedCryptoTickers) return;
+		changellyFiatService
+			.getCurrencies({ type: 'crypto' })
+			.then((currencies) => {
+				supportedCryptoTickers = new Set(currencies.map((c) => c.ticker.toUpperCase()));
+			})
+			.catch((err) => {
+				Sentry.addBreadcrumb({
+					category: 'fiat-ramp',
+					message: 'Failed to fetch supported crypto currencies',
+					data: { error: String(err) },
+					level: 'warning'
+				});
+				supportedCryptoError = 'wallet.buy_sell.supported_crypto_error';
+			});
+	});
+
+	// Load countries on mount + auto-detect from browser locale
+	$effect(() => {
+		if (!isOpen) return;
+		const ctrl = new AbortController();
+		countriesLoading = true;
+		changellyFiatService
+			.getAvailableCountries()
+			.then((result) => {
+				if (ctrl.signal.aborted) return;
+				countries = result;
+				try {
+					const lang = navigator.language || '';
+					const region = lang.split('-')[1]?.toUpperCase() ?? '';
+					if (region && region !== 'US' && result.some((c) => c.code === region)) {
+						selectedCountry = region;
+					}
+				} catch {
+					// navigator.language unavailable
+				}
+			})
+			.catch(() => {})
+			.finally(() => {
+				if (!ctrl.signal.aborted) countriesLoading = false;
+			});
+		return () => ctrl.abort();
+	});
+
+	// -----------------------------------------------------------------------
+	// Form state reset
+	// -----------------------------------------------------------------------
+	async function resetFormState(
+		opts: {
+			resetTab?: boolean;
+			resetAmount?: boolean;
+			resetOffers?: boolean;
+			resetOffRamp?: boolean;
+			resetSource?: boolean;
+		} = {}
+	) {
+		const {
+			resetTab = false,
+			resetAmount = true,
+			resetOffers = true,
+			resetOffRamp = true,
+			resetSource = false
+		} = opts;
+		if (resetTab) activeTab = 'buy';
+		if (resetAmount) {
+			amount = '';
+			swapPercent = 0;
+			showSats = false;
+		}
+		if (resetOffers) {
+			cancelOfferFetch();
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
+			quoteLoading = false;
+			quoteError = false;
+			supportedCryptoError = null;
+		}
+		if (resetOffRamp) {
+			await offRampOrchestrator.cancel();
+			offRampQuote = null;
+			offRampFlow = null;
+			depositAddressInput = '';
+			depositAddressError = '';
+			offRampLoading = false;
+			sellFlowActive = false;
+		}
+		if (resetSource) {
+			source = 'builtin';
+			sourceInitialized = false;
+			isLoading = false;
+			flowState = null;
 		}
 	}
-	
-	async function handleSubmit(event: Event) {
-		event.preventDefault();
-		
-		if (!amount || (action === 'sell' && !bankDetails && !cardDetails)) {
+
+	async function switchTab(tab: 'buy' | 'sell') {
+		if (tab === activeTab) return;
+		activeTab = tab;
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
+	}
+
+	async function handleCryptoChange(cryptoId: string) {
+		const validCryptos = ['rbtc', 'usdt0-arb', 'wbtc-arb', 'btc-onchain'] as const;
+		if (validCryptos.includes(cryptoId as typeof selectedCrypto)) {
+			selectedCrypto = cryptoId as typeof selectedCrypto;
+		}
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: true });
+		if (amount && parseFloat(amount) > 0) fetchOffers(amount);
+	}
+
+	// -----------------------------------------------------------------------
+	// Max amount & percent slider
+	// -----------------------------------------------------------------------
+	function setMaxAmount() {
+		triggerHaptic(ImpactStyle.Light);
+		const maxVal = balances.computeMaxAmount();
+		amount = maxVal;
+		swapPercent = 100;
+		fetchOffers(maxVal);
+	}
+
+	function applyPercent(pct: number) {
+		swapPercent = pct;
+		const displayVal = balances.computePercentAmount(pct);
+		const val = parseFloat(displayVal);
+		amount = displayVal;
+		if (val > 0 && pct > 0) fetchOffers(amount);
+		else {
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
+			quoteLoading = false;
+		}
+	}
+
+	function handleAmountInput(e: Event) {
+		const input = e.target;
+		if (!(input instanceof HTMLInputElement)) return;
+		const raw = input.value;
+		amount = raw;
+		if (raw && parseFloat(raw) > 0) fetchOffers(raw);
+		else {
+			cancelOfferFetch();
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
+			quoteLoading = false;
+		}
+	}
+
+	async function clearAmount() {
+		await resetFormState({ resetAmount: true, resetOffers: true, resetOffRamp: false });
+		offRampQuote = null;
+	}
+
+	function onSellAmountChange(val: string) {
+		amount = val;
+		if (val && parseFloat(val) > 0) fetchOffers(val);
+		else {
+			cancelOfferFetch();
+			offers = [];
+			selectedOffer = null;
+			selectedPaymentMethod = null;
+			quoteLoading = false;
+			offRampQuote = null;
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Offer fetching
+	// -----------------------------------------------------------------------
+	function cancelOfferFetch() {
+		quoteAbort?.abort();
+		quoteAbort = null;
+	}
+
+	async function fetchOffers(rawAmount: string) {
+		cancelOfferFetch();
+		const ctrl = new AbortController();
+		quoteAbort = ctrl;
+		quoteLoading = true;
+		quoteError = false;
+		offers = [];
+		selectedOffer = null;
+		selectedPaymentMethod = null;
+
+		if (needsBridgeAndSend) {
+			const sourceAddress = walletAddress;
+			if (!sourceAddress) {
+				quoteLoading = false;
+				return;
+			}
+			let assetAmount = rawAmount;
+			if (balances.isBtcDenominated && showSats) {
+				const sats = parseInt(rawAmount);
+				if (!isNaN(sats) && sats > 0) assetAmount = (sats / 100_000_000).toFixed(8);
+			} else if (balances.isBtcDenominated && !showSats && btcPrice.price > 0) {
+				const usdValue = parseFloat(rawAmount);
+				if (!isNaN(usdValue) && usdValue > 0) assetAmount = (usdValue / btcPrice.price).toFixed(8);
+			}
+			offRampLoading = true;
+			try {
+				const quote = await offRampOrchestrator.createQuote({
+					asset: selectedCrypto as OffRampAsset,
+					amount: assetAmount,
+					sourceAddress,
+					sourceWalletId: source
+				});
+				offRampQuote = quote;
+			} catch (err) {
+				Sentry.captureException(err, {
+					tags: { component: 'BuySellForm', action: 'off-ramp-quote' }
+				});
+				quoteError = true;
+				offRampQuote = null;
+			} finally {
+				offRampLoading = false;
+				quoteLoading = false;
+			}
 			return;
 		}
-		
-		isLoading = true;
-		
+
+		Sentry.addBreadcrumb({
+			category: 'wallet',
+			message: 'Fetching fiat offers',
+			data: { tab: activeTab, crypto: selectedCrypto, amount: rawAmount, country: selectedCountry },
+			level: 'info'
+		});
+
 		try {
-			// Mock API call - replace with real Changelly integration
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			
-			// Show success message or redirect to Changelly
-			console.log('Transaction initiated:', {
-				action,
-				selectedCrypto,
-				selectedFiat: selectedFiatCurrency.code,
-				amount,
-				bankDetails,
-				cardDetails,
-				quoteData
-			});
+			const currencyFrom = activeTab === 'buy' ? 'USD' : cryptoTicker(selectedCrypto);
+			const currencyTo = activeTab === 'buy' ? cryptoTicker(selectedCrypto) : 'USD';
+			const cryptoSide = activeTab === 'buy' ? currencyTo : currencyFrom;
+			if (supportedCryptoTickers && !supportedCryptoTickers.has(cryptoSide.toUpperCase())) {
+				quoteLoading = false;
+				quoteAbort = null;
+				supportedCryptoError = 'wallet.buy_sell.unavailable_in_region';
+				return;
+			}
+			if (selectedCountry === 'US' && !selectedState) {
+				quoteLoading = false;
+				quoteAbort = null;
+				return;
+			}
+			const result = await (activeTab === 'sell'
+				? changellyFiatService.getSellOffers(
+						{
+							currencyFrom,
+							currencyTo,
+							amountFrom: rawAmount,
+							country: selectedCountry,
+							state: selectedState || undefined
+						},
+						ctrl.signal
+					)
+				: changellyFiatService.getOffers(
+						{
+							currencyFrom,
+							currencyTo,
+							amountFrom: rawAmount,
+							country: selectedCountry,
+							state: selectedState || undefined
+						},
+						ctrl.signal
+					));
+			if (ctrl.signal.aborted) return;
+			offers = sortOffersByBestRate(result);
+			activePaymentFilter = null;
+			if (offers.length > 0) {
+				selectedOffer = offers[0];
+				if (offers[0].paymentMethodOffer.length > 0) {
+					selectedPaymentMethod = offers[0].paymentMethodOffer[0];
+				}
+			} else if (result.length > 0) {
+				quoteError = true;
+			}
+		} catch (err) {
+			if (ctrl.signal.aborted) return;
+			Sentry.captureException(err, { tags: { component: 'BuySellForm', action: 'fetch-offers' } });
+			quoteError = true;
+			offers = [];
+		} finally {
+			if (!ctrl.signal.aborted) {
+				quoteLoading = false;
+				quoteAbort = null;
+			}
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Provider redirect
+	// -----------------------------------------------------------------------
+	async function openRedirectUrl(url: string): Promise<Window | null> {
+		const isNative = Capacitor.isNativePlatform();
+		if (isNative && Capacitor.isPluginAvailable('Browser')) {
+			debug.log('Opening redirect in Capacitor Browser: %s', url.substring(0, 80));
+			await Browser.open({ url });
+			return null;
+		}
+		debug.log('Opening redirect via window.open: %s', url.substring(0, 80));
+		const popup = window.open(url, '_blank', 'noopener,noreferrer');
+		debug.log('window.open returned: %s', popup ? 'Window' : 'null');
+		return popup;
+	}
+
+	// -----------------------------------------------------------------------
+	// Submit
+	// -----------------------------------------------------------------------
+	async function handleSubmit(event: Event) {
+		event.preventDefault();
+		if (!amount || !selectedCountry) return;
+		if (!selectedOffer && !needsBridgeAndSend) return;
+
+		if (needsBridgeAndSend && activeTab === 'sell') {
+			offRampLoading = true;
+			try {
+				if (!walletAddress) {
+					appStore.showErrorToast($t('wallet.error.no_connection'));
+					return;
+				}
+				if (
+					offRampStage === 'quote_ready' ||
+					offRampStage === 'idle' ||
+					offRampStage === 'failed'
+				) {
+					const redirectUrl = await offRampOrchestrator.openMoonPay(selectedCountry);
+					await openRedirectUrl(redirectUrl);
+					offRampOrchestrator.trackCheckoutReturn();
+					appStore.showSuccessToast($t('wallet.buy_sell.moonpay_redirect_note'));
+				} else if (offRampStage === 'awaiting_deposit_address') {
+					if (!depositAddressInput.trim()) {
+						depositAddressError = $t('wallet.buy_sell.deposit_address_invalid');
+						return;
+					}
+					try {
+						await offRampOrchestrator.setDepositAddress(depositAddressInput.trim());
+						depositAddressError = '';
+					} catch {
+						depositAddressError = $t('wallet.buy_sell.deposit_address_invalid');
+						return;
+					}
+					await offRampOrchestrator.executeBridge();
+					appStore.showSuccessToast(
+						$t('wallet.buy_sell.bridge_in_progress', {
+							values: { asset: friendlyAssetName(selectedCrypto) }
+						})
+					);
+				}
+			} catch (err) {
+				Sentry.captureException(err);
+				appStore.showErrorToast($t('wallet.buy_sell.transaction_failed'));
+			} finally {
+				offRampLoading = false;
+			}
+			return;
+		}
+
+		if (!selectedOffer) return;
+		isLoading = true;
+		Sentry.addBreadcrumb({
+			category: 'wallet',
+			message: 'Creating fiat order',
+			data: { tab: activeTab, provider: selectedOffer.providerCode, crypto: selectedCrypto },
+			level: 'info'
+		});
+
+		try {
+			if (!walletAddress) {
+				appStore.showErrorToast($t('wallet.error.no_connection'));
+				return;
+			}
+			if (activeTab === 'buy') {
+				const { redirectUrl } = await orchestrator.createOrder({
+					asset: selectedCrypto as FiatBuyAsset,
+					fiatAmount: amount,
+					walletAddress,
+					providerCode: selectedOffer.providerCode,
+					country: selectedCountry,
+					state: selectedState || undefined,
+					paymentMethod: selectedPaymentMethod?.method
+				});
+				await openRedirectUrl(redirectUrl);
+				debug.log('Checkout opened, tracking return');
+				orchestrator.trackCheckoutReturn();
+				orchestrator.startMonitoring();
+				appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
+			} else {
+				const order = await changellyFiatService.createOffRampOrder({
+					cryptoCurrency: cryptoTicker(selectedCrypto),
+					cryptoAmount: amount,
+					fiatCurrency: 'USD',
+					fiatAddress: walletAddress,
+					providerCode: selectedOffer.providerCode,
+					country: selectedCountry,
+					state: selectedState || undefined,
+					paymentMethod: selectedPaymentMethod?.method
+				});
+				const checkoutPopup = await openRedirectUrl(order.redirectUrl);
+				debug.log('Checkout opened, tracking return (popup=%s)', checkoutPopup ? 'Window' : 'null');
+				orchestrator.trackCheckoutReturn();
+				sellFlowActive = true;
+				appStore.showSuccessToast($t('wallet.buy_sell.order_submitted'));
+			}
 		} catch (error) {
-			console.error('Transaction failed:', error);
+			Sentry.captureException(error);
+			appStore.showErrorToast($t('wallet.buy_sell.transaction_failed'));
 		} finally {
 			isLoading = false;
 		}
 	}
+
+	// -----------------------------------------------------------------------
+	// Stage helpers
+	// -----------------------------------------------------------------------
+	function stageLabel(stage: FiatFlowStage): string {
+		const key: Record<FiatFlowStage, string> = {
+			idle: '',
+			awaiting_payment: 'wallet.buy_sell.stage_awaiting_payment',
+			payment_confirmed: 'wallet.buy_sell.stage_payment_confirmed',
+			crypto_delivered: 'wallet.buy_sell.stage_crypto_delivered',
+			converting: 'wallet.buy_sell.stage_converting',
+			swap_hop1: 'wallet.buy_sell.stage_swap_hop1',
+			swap_hop2: 'wallet.buy_sell.stage_swap_hop2',
+			complete: 'wallet.buy_sell.stage_complete',
+			failed: 'wallet.buy_sell.stage_failed',
+			swap_failed: 'wallet.buy_sell.stage_swap_failed'
+		};
+		return $t(key[stage] || '');
+	}
+
+	function isTerminalStage(stage: FiatFlowStage): boolean {
+		return stage === 'complete' || stage === 'failed' || stage === 'swap_failed';
+	}
+
+	// -----------------------------------------------------------------------
+	// Close
+	// -----------------------------------------------------------------------
+	async function handleClose() {
+		await resetFormState({
+			resetTab: true,
+			resetAmount: true,
+			resetOffers: true,
+			resetOffRamp: true,
+			resetSource: true
+		});
+		orchestrator.destroy();
+		offRampOrchestrator.destroy();
+		onClose();
+	}
 </script>
 
-<div class="space-y-4 md:space-y-6">
-	<!-- Action Selection -->
-	<div class="card bg-base-100 shadow-xl">
-		<div class="card-body p-4 md:p-6">
-			<h3 class="card-title text-lg md:text-xl">{$t('wallet.buy_sell.select_action')}</h3>
-			
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-				<button
-					class="btn btn-outline min-h-[48px] {action === 'buy' ? 'btn-primary' : ''}"
-					onclick={() => handleActionChange('buy')}
-				>
-					<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-					</svg>
-					<span class="text-sm md:text-base">{$t('wallet.buy_sell.buy')}</span>
-				</button>
-				
-				<button
-					class="btn btn-outline min-h-[48px] {action === 'sell' ? 'btn-primary' : ''}"
-					onclick={() => handleActionChange('sell')}
-				>
-					<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-					</svg>
-					<span class="text-sm md:text-base">{$t('wallet.buy_sell.sell')}</span>
-				</button>
-			</div>
+<Drawer
+	{isOpen}
+	onClose={handleClose}
+	title={$t('wallet.buy_sell.title')}
+	position="right"
+	isScrollable={true}
+	isSubmitting={isLoading}
+>
+	<div class="flex flex-col gap-4">
+		<!-- Tab Bar -->
+		<div
+			class="tabs tabs-boxed border-base-300 mb-1 shrink-0 overflow-hidden rounded-lg border sm:mb-2"
+			role="tablist"
+		>
+			<button
+				class="tab min-h-[44px] flex-1"
+				class:bg-primary={activeTab === 'buy'}
+				class:text-primary-content={activeTab === 'buy'}
+				class:tab-active={activeTab === 'buy'}
+				role="tab"
+				aria-selected={activeTab === 'buy'}
+				onclick={() => switchTab('buy')}
+			>
+				<IconPlus class="mr-1 h-4 w-4" />
+				{$t('wallet.buy_sell.buy')}
+			</button>
+			<button
+				class="tab min-h-[44px] flex-1"
+				class:bg-primary={activeTab === 'sell'}
+				class:text-primary-content={activeTab === 'sell'}
+				class:tab-active={activeTab === 'sell'}
+				role="tab"
+				aria-selected={activeTab === 'sell'}
+				onclick={() => switchTab('sell')}
+			>
+				<IconMinus class="mr-1 h-4 w-4" />
+				{$t('wallet.buy_sell.sell')}
+			</button>
 		</div>
-	</div>
 
-	<!-- Digital Asset Selection -->
-	<div class="card bg-base-100 shadow-xl">
-		<div class="card-body p-4 md:p-6">
-			<h3 class="card-title text-lg md:text-xl">{$t('wallet.buy_sell.select_digital_asset')}</h3>
-			
-			<div class="grid grid-cols-1 gap-3">
-				{#each digitalAssetOptions as asset}
-					<button
-						class="btn btn-outline justify-start min-h-[48px] {selectedCrypto === asset.id ? 'btn-primary' : ''}"
-						onclick={() => handleCryptoChange(asset.id)}
-					>
-						<img src={asset.icon} alt={asset.name} class="w-6 h-6 mr-3 shrink-0" />
-						<span class="text-sm md:text-base truncate">{asset.name}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+		<!-- Country / State Selectors -->
+		<BuySellCountrySelector
+			{countries}
+			{selectedCountry}
+			{selectedState}
+			{countriesLoading}
+			{statesForSelected}
+			onCountryChange={(code) => {
+				selectedCountry = code;
+				selectedState = '';
+			}}
+			onStateChange={(code) => {
+				selectedState = code;
+			}}
+			onRefreshOffers={() => {
+				if (amount && parseFloat(amount) > 0) fetchOffers(amount);
+			}}
+		/>
 
-	<!-- Transaction Form -->
-	<div class="card bg-base-100 shadow-xl">
-		<div class="card-body p-4 md:p-6">
-			<h3 class="card-title text-lg md:text-xl">
-				{action === 'buy' ? $t('wallet.buy_sell.buy_with_fiat') : $t('wallet.buy_sell.sell_to_fiat')}
-			</h3>
-			
+		<!-- Wallet + Asset Selector -->
+		<SwapPartySelector
+			label={activeTab === 'buy' ? $t('wallet.to') + ':' : $t('wallet.from') + ':'}
+			selectedWalletId={source}
+			onWalletSelect={(id) => (source = id)}
+			connectedWallets={$connectedWalletsStore.wallets}
+			walletBtcSatsFor={balances.walletBtcSatsFor}
+			walletUsdt0For={balances.walletUsdt0For}
+			btcPrice={btcPrice.price}
+			selectedAssetId={selectedCrypto}
+			onAssetSelect={(id) => handleCryptoChange(id)}
+			assets={assetOptions}
+		/>
+
+		<!-- Transaction Form -->
+		<div class="bg-base-200 rounded-xl p-4 sm:p-5">
 			<form onsubmit={handleSubmit} class="space-y-4">
-				<!-- Amount Input -->
-				<div class="form-control">
-					<label for="amount-input" class="label">
-						<span class="label-text text-sm md:text-base">
-							{action === 'buy' ? $t('wallet.buy_sell.amount_to_buy') : $t('wallet.buy_sell.amount_to_sell')}
-						</span>
-					</label>
-					<div class="relative">
-						<input
-							id="amount-input"
-							type="number"
-							class="input input-bordered w-full pr-16 min-h-[48px] text-base"
-							placeholder={$t('wallet.buy_sell.enter_amount')}
-							bind:value={amount}
-							oninput={handleAmountChange}
-							onkeypress={handleKeyPress}
-							min="0"
-							step="0.01"
-							pattern="[0-9]*"
-							inputmode="numeric"
-						/>
-						<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-							<span class="text-sm text-base-content/70">{selectedFiatCurrency.symbol}</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Estimated Amount Display -->
-				{#if amount}
-					<div class="alert alert-outline alert-info">
-						<div class="flex items-start">
-							<svg class="w-5 h-5 mr-2 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-							</svg>
-							<div class="text-sm md:text-base">
-								<div>
-									{action === 'buy' ? $t('wallet.buy_sell.estimated_receive') : $t('wallet.buy_sell.estimated_send')}: 
-									<strong>
-										{action === 'buy' ? estimatedReceive() : estimatedSend()} 
-										{action === 'buy' ? selectedCrypto.toUpperCase() : selectedFiatCurrency.symbol}
-									</strong>
-								</div>
-								{#if action === 'buy'}
-									<div class="text-xs text-base-content/70 mt-1">
-										{convertToSats(estimatedReceive(), selectedCrypto)} {$t('wallet.sats')}
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Wallet Address Display (for buying) - REMOVED -->
-				<!-- Purchases go directly to user's wallet address automatically -->
-
-				<!-- Bank/Card Details (for selling) -->
-				{#if action === 'sell'}
-					<div class="form-control">
-						<label for="bank-details" class="label">
-							<span class="label-text text-sm md:text-base">{$t('wallet.buy_sell.bank_details')}</span>
-						</label>
-						<input
-							id="bank-details"
-							type="text"
-							class="input input-bordered min-h-[48px] text-base"
-							placeholder={$t('wallet.buy_sell.bank_details_placeholder')}
-							bind:value={bankDetails}
-						/>
-					</div>
-				{/if}
-
-				<!-- KYC Warning -->
-				{#if showKycWarning}
-					<div class="alert alert-outline alert-warning">
-						<div class="flex items-start">
-							<svg class="w-5 h-5 mr-2 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-							</svg>
-							<div>
-								<div class="font-semibold text-sm md:text-base">{$t('wallet.buy_sell.kyc_required')}</div>
-								<div class="text-xs md:text-sm">{$t('wallet.buy_sell.kyc_description')}</div>
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Submit Button -->
-				<div class="card-actions justify-stretch sm:justify-end">
-					<button
-						type="submit"
-						class="btn btn-primary w-full sm:w-auto min-h-[48px]"
-						disabled={isLoading || !amount || (action === 'sell' && !bankDetails)}
-					>
-						{#if isLoading}
-							<span class="loading loading-spinner loading-sm mr-2"></span>
+				{#if isFlowActive && flowState}
+					{@const fs = flowState}
+					<div class="bg-info/5 border-info/20 flex items-center gap-3 rounded-lg border p-3">
+						{#if isTerminalStage(fs.stage)}
+							<IconAlertCircle class="text-error h-4 w-4 shrink-0" />
+						{:else}
+							<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
 						{/if}
-						<span class="text-sm md:text-base">
-							{action === 'buy' ? $t('wallet.buy_sell.buy') : $t('wallet.buy_sell.sell')}
-						</span>
-					</button>
-				</div>
+						<div class="min-w-0 flex-1">
+							<span class="text-sm font-medium">{stageLabel(fs.stage)}</span>
+							{#if fs.error}
+								<p class="text-error mt-0.5 text-xs">{fs.error}</p>
+							{/if}
+						</div>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs shrink-0"
+							onclick={async () => {
+								await orchestrator.cancel();
+								flowState = null;
+							}}
+						>
+							{$t('wallet.buy_sell.start_over')}
+						</button>
+					</div>
+				{:else if sellFlowActive}
+					<div class="bg-info/5 border-info/20 flex items-center gap-3 rounded-lg border p-3">
+						<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
+						<span class="min-w-0 flex-1 text-sm font-medium"
+							>{$t('wallet.buy_sell.stage_awaiting_payment')}</span
+						>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs shrink-0"
+							onclick={() => {
+								sellFlowActive = false;
+							}}
+						>
+							{$t('wallet.buy_sell.start_over')}
+						</button>
+					</div>
+				{:else}
+					{#if activeTab === 'sell'}
+						<AmountInputSection
+							variant="direct"
+							{amount}
+							unit={showSats ? 'sats' : 'usd'}
+							tokenPrefix={balances.isBtcDenominated ? undefined : '$'}
+							supportsBtcUsdToggle={balances.isBtcDenominated}
+							btcUsdMode={!showSats}
+							onBtcUsdModeChange={(isUsd) => {
+								showSats = !isUsd;
+								clearAmount();
+							}}
+							onAmountChange={onSellAmountChange}
+							onUnitChange={(u) => {
+								showSats = u === 'sats';
+								clearAmount();
+							}}
+							onClear={clearAmount}
+							onMaxAmount={async () => setMaxAmount()}
+							maxDisabled={balances.sellMaxDisabled}
+							sliderDisabled={balances.sellMaxDisabled}
+							showPercentSlider={true}
+							percent={swapPercent}
+							onPercentChange={applyPercent}
+							disabled={false}
+						/>
+					{:else}
+						<div class="form-control">
+							<div class="flex items-start gap-2">
+								<div class="join min-w-0 flex-1">
+									<span
+										class="btn join-item no-animation bg-base-200 text-base-content/70 min-h-[48px] border-r-0 text-sm sm:min-h-[52px]"
+										>$</span
+									>
+									<div class="relative min-w-0 flex-1">
+										<label for="amount-input" class="sr-only">
+											{$t('wallet.buy_sell.amount_to_buy')}
+										</label>
+										<input
+											id="amount-input"
+											type="number"
+											class="input input-bordered join-item min-h-[48px] w-full pr-10 text-base sm:min-h-[52px]"
+											placeholder="0.00"
+											bind:value={amount}
+											oninput={handleAmountInput}
+											min="0"
+											step="0.01"
+											pattern="[0-9]*"
+											inputmode="numeric"
+										/>
+										{#if amount && parseFloat(amount) > 0}
+											<button
+												type="button"
+												class="text-error hover:bg-error/20 absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors"
+												onclick={clearAmount}
+												aria-label={$t('wallet.buy_sell.clear')}
+											>
+												<IconClose class="h-4 w-4" />
+											</button>
+										{/if}
+									</div>
+								</div>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Quick amount buttons + Buy button (buy only) -->
+					{#if activeTab === 'buy'}
+						<div class="flex items-center justify-between gap-2">
+							<div class="flex min-w-0 flex-1 flex-wrap gap-2">
+								{#each ['10', '20', '50', '100'] as quickAmount (quickAmount)}
+									<button
+										type="button"
+										class="btn btn-ghost border-base-300 min-h-[44px] border text-sm active:scale-95"
+										onclick={() => {
+											amount = quickAmount;
+											fetchOffers(quickAmount);
+										}}
+									>
+										{$t(`wallet.buy_sell.quick_amount_${quickAmount}`)}
+									</button>
+								{/each}
+							</div>
+							<button
+								type="submit"
+								class="btn btn-primary min-h-[48px] shrink-0 sm:min-h-[52px]"
+								disabled={isLoading || !amount || !selectedOffer || !walletAddress}
+							>
+								{#if isLoading}<span class="loading loading-spinner loading-sm mr-1"></span>{/if}
+								{$t('wallet.buy_sell.buy')}
+							</button>
+						</div>
+					{/if}
+				{/if}
+
+				<!-- Sell button -->
+				{#if activeTab === 'sell' && !sellFlowActive}
+					<div class="flex items-center gap-3">
+						<button
+							type="submit"
+							class="btn btn-primary ml-auto min-h-[48px] shrink-0 sm:min-h-[52px]"
+							disabled={sellButtonDisabled}
+						>
+							{#if needsBridgeAndSend ? offRampLoading : isLoading}<span
+									class="loading loading-spinner loading-sm mr-1"
+								></span>{/if}
+							{#if needsBridgeAndSend && offRampStage === 'awaiting_deposit_address'}
+								{$t('wallet.buy_sell.continue_bridge')}
+							{:else}
+								{$t('wallet.buy_sell.sell')}
+							{/if}
+						</button>
+					</div>
+				{/if}
+
+				<!-- Off-ramp status cards -->
+				{#if needsBridgeAndSend}
+					<OffRampStatusCard
+						{offRampStage}
+						{offRampQuote}
+						{offRampFlow}
+						{depositAddressInput}
+						{depositAddressError}
+						{selectedCrypto}
+						onDepositAddressChange={(val) => {
+							depositAddressInput = val;
+							if (val.trim()) depositAddressError = '';
+						}}
+						onStartOver={async () => await offRampOrchestrator.startOver()}
+						onSubmit={() => handleSubmit(new Event('submit'))}
+					/>
+				{/if}
+
+				<!-- Multi-hop flow info for rBTC -->
+				{#if isMultiHop && activeTab === 'buy'}
+					<p class="text-base-content/50 text-xs">
+						{$t('wallet.buy_sell.multi_hop_label')}
+						{$t('wallet.buy_sell.multi_hop_rbtc_desc')}
+					</p>
+				{/if}
+
+				{#if !needsBridgeAndSend}
+					<FiatOfferSection
+						{filteredOffers}
+						{allPaymentMethods}
+						{activePaymentFilter}
+						{selectedOffer}
+						{quoteLoading}
+						{quoteError}
+						{supportedCryptoError}
+						{providerExpanded}
+						{amount}
+						isBtcAsset={balances.isBtcAsset}
+						{selectedCrypto}
+						{activeTab}
+						btcPrice={btcPrice.price}
+						onFilterChange={(method) => {
+							activePaymentFilter = method;
+						}}
+						onOfferSelect={(offer) => {
+							selectedOffer = offer;
+							selectedPaymentMethod = offer.paymentMethodOffer[0] ?? null;
+							providerExpanded = false;
+						}}
+						onExpandToggle={() => (providerExpanded = !providerExpanded)}
+					/>
+				{/if}
 			</form>
 		</div>
-	</div>
 
-	<!-- Information Card -->
-	<div class="card bg-base-100 shadow-xl">
-		<div class="card-body p-4 md:p-6">
-			<h3 class="card-title text-lg md:text-xl">{$t('wallet.information.buy_sell_info_title')}</h3>
-			<div class="text-xs md:text-sm text-base-content/70 space-y-2">
-				<p>• {action === 'buy' ? $t('wallet.information.buy_sell_info_1') : $t('wallet.information.buy_sell_info_2')}</p>
-				<p>• {$t('wallet.information.buy_sell_info_3')}</p>
-				<p>• {$t('wallet.information.buy_sell_info_4')}</p>
-				<p>• {$t('wallet.information.buy_sell_info_5')}</p>
+		<!-- Sell flow note -->
+		{#if activeTab === 'sell' && !sellFlowActive}
+			<div class="bg-info/5 border-info/20 rounded-lg border p-3 text-xs leading-relaxed">
+				{$t('wallet.buy_sell.sell_redirect_note')}
 			</div>
+		{/if}
+
+		<!-- Changelly KYC note -->
+		<div class="text-base-content/50 text-xs leading-relaxed">
+			{$t('wallet.buy_sell.kyc_disclaimer')}
 		</div>
 	</div>
-</div>
+</Drawer>

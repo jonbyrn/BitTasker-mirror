@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/svelte';
 import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
-import type { Bid } from '$lib/types/bid';
+import type { NostrBidContent } from '$lib/types/bid';
 
 const meta = {
 	title: 'Bidding/CounterOfferForm',
@@ -10,33 +10,33 @@ const meta = {
 		onSubmit: { action: 'submit' },
 		onCancel: { action: 'cancel' }
 	}
-} satisfies Meta<CounterOfferForm>;
+} satisfies Meta<typeof CounterOfferForm>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const sampleBid: Bid = {
-	id: '1',
+const sampleBid: NostrBidContent = {
+	type: 'bid',
 	taskId: 'task-123',
-	bidderId: 'bidder-456',
-	bidderName: 'John Developer',
-	amount: 0.01,
-	currency: 'BTC',
+	taskTitle: 'Website Development',
+	taskDescription: 'Build a modern e-commerce website',
+	amount: 50,
+	currency: 'USD',
 	paymentType: 'FIXED',
 	description: 'I can complete this task efficiently and with high quality results.',
 	estimatedDuration: '3 days',
 	proposedApproach: 'I will use modern techniques to solve this problem.',
 	coverLetter: 'I have experience with similar tasks and would love to help.',
-	visibility: 'PUBLIC',
-	responseTime: 24,
-	createdAt: new Date().toISOString(),
-	status: 'pending'
+	timestamp: Math.floor(Date.now() / 1000),
+	bidId: 'bid-1',
+	startDateTime: Math.floor(Date.now() / 1000) + 86400,
+	endDateTime: Math.floor(Date.now() / 1000) + 86400 + 7200
 };
 
 export const Default: Story = {
 	args: {
 		bid: sampleBid
-	}
+	} as unknown as Story['args']
 };
 
 export const HourlyRateBid: Story = {
@@ -44,9 +44,9 @@ export const HourlyRateBid: Story = {
 		bid: {
 			...sampleBid,
 			paymentType: 'HOURLY',
-			hourlyRate: 0.0005,
+			hourlyRate: 25,
 			estimatedHours: 20,
-			amount: 0.01
+			amount: 500
 		}
-	}
+	} as unknown as Story['args']
 };

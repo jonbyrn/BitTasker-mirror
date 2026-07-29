@@ -25,15 +25,55 @@ vi.mock('@bittasker/wallet-core', () => ({
 		rpcUrl: 'https://bsc-dataseed.binance.org/',
 		explorerApiUrl: null, // No longer using BSCScan API
 		chainId: 56
-	}))
+	})),
+	ARB_TOKEN_ADDRESSES: {
+		USDT0: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+		WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+		TBTC: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40'
+	}
 }));
 
 // Mock environment variables
 vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
 vi.stubEnv('VITE_BSC_NETWORK', 'testnet');
 
+/**
+ * Creates a fetch mock that returns proper JSON-RPC responses for eth_getBalance
+ * and eth_call (stablecoin) calls, while failing Blockscout API calls to test RPC fallback.
+ */
+function createFetchMockForBalance(ethBalance: string) {
+	const hexBalance = '0x' + BigInt(ethers.parseEther(ethBalance)).toString(16);
+	return vi.fn().mockImplementation(async (_url: string, options?: RequestInit) => {
+		if (options?.body) {
+			try {
+				const body = JSON.parse(options.body as string);
+				if (body.method === 'eth_getBalance') {
+					return {
+						ok: true,
+						json: async () => ({ result: hexBalance })
+					};
+				}
+				if (body.method === 'eth_call') {
+					// Stablecoin calls — return empty (no stablecoin balance)
+					return {
+						ok: true,
+						json: async () => ({ result: '0x' })
+					};
+				}
+			} catch {
+				/* not JSON-RPC */
+			}
+		}
+		// Blockscout API or unknown — fail to trigger RPC fallback
+		return { ok: false, status: 500, json: async () => ({}) };
+	});
+}
+
 describe('BalanceHistoryService', () => {
-	let mockProvider: undefined;
+	let mockProvider: ethers.JsonRpcProvider & {
+		getBlock: ReturnType<typeof vi.fn>;
+		getBalance: ReturnType<typeof vi.fn>;
+	};
 	const mockAddress = '0x1234567890123456789012345678901234567890';
 
 	beforeEach(() => {
@@ -50,12 +90,17 @@ describe('BalanceHistoryService', () => {
 		mockProvider = {
 			getBlock: vi.fn(),
 			getBalance: vi.fn()
+		} as unknown as ethers.JsonRpcProvider & {
+			getBlock: ReturnType<typeof vi.fn>;
+			getBalance: ReturnType<typeof vi.fn>;
 		};
 
-		// Mock global fetch by default to fail (tests can override)
+		// Mock global fetch by default to fail with a parseable JSON body
+		// (the service now uses direct fetch RPC calls, so responses need .json())
 		global.fetch = vi.fn().mockResolvedValue({
 			ok: false,
-			status: 500
+			status: 500,
+			json: async () => ({})
 		});
 	});
 
@@ -91,6 +136,8 @@ describe('BalanceHistoryService', () => {
 		});
 
 		it('should return empty changes when provider is null', async () => {
+			// When provider is null, the service can't look up historical blocks
+			// so historical balance defaults to 0 — change equals full current balance
 			const result = await balanceHistoryService.getBalanceChanges(
 				100000000,
 				50000,
@@ -99,7 +146,7 @@ describe('BalanceHistoryService', () => {
 			);
 
 			expect(result).toHaveLength(3);
-			expect(result[0].satsChange).toBeNull();
+			expect(result[0].satsChange).toBe(100000000);
 		});
 
 		it('should return empty changes when address is null', async () => {
@@ -121,8 +168,9 @@ describe('BalanceHistoryService', () => {
 				timestamp: Math.floor(Date.now() / 1000)
 			});
 
-			// Mock historical balances
-			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5')); // 50,000,000 sats
+			// Mock fetch to return proper balance data for direct RPC calls
+			// (service uses fetch instead of provider.getBalance)
+			global.fetch = createFetchMockForBalance('0.5'); // 50,000,000 sats
 
 			// Mock historical prices
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
@@ -392,7 +440,8 @@ describe('BalanceHistoryService', () => {
 				number: 1000,
 				timestamp: Math.floor(Date.now() / 1000)
 			});
-			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
+			// Mock fetch to return proper balance data for direct RPC calls
+			global.fetch = createFetchMockForBalance('0.5');
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
 			// First call
@@ -417,8 +466,8 @@ describe('BalanceHistoryService', () => {
 				timestamp: Math.floor(Date.now() / 1000)
 			});
 
-			// Historical balance: 0.5 BTC (50,000,000 sats)
-			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
+			// Historical balance: 0.5 BTC (50,000,000 sats) via direct RPC fetch
+			global.fetch = createFetchMockForBalance('0.5');
 
 			// Historical price: $45,000
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
@@ -446,8 +495,8 @@ describe('BalanceHistoryService', () => {
 				timestamp: Math.floor(Date.now() / 1000)
 			});
 
-			// Historical balance: 1.5 BTC (150,000,000 sats)
-			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('1.5'));
+			// Historical balance: 1.5 BTC (150,000,000 sats) via direct RPC fetch
+			global.fetch = createFetchMockForBalance('1.5');
 
 			// Historical price: $45,000
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);

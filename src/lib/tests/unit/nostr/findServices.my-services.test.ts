@@ -65,6 +65,11 @@ describe('findMyServices deletion filtering', () => {
 			data: [
 				{
 					id: 'delete-1',
+					pubkey: 'pk',
+					created_at: 1,
+					kind: 1,
+					content: '{}',
+					sig: '',
 					tags: [['e', 'service-event-1']]
 				}
 			]

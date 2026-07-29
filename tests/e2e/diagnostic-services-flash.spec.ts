@@ -1,5 +1,18 @@
 import { test, expect } from '@playwright/test';
 
+interface ServiceTimelineEntry {
+	time: number;
+	state: string;
+	skeletonCount?: number;
+	cardCount: number;
+	bodyTextLength?: number;
+}
+
+interface DiagnosticWindow extends Window {
+	__serviceTimeline: ServiceTimelineEntry[];
+	__serviceTimeline2: ServiceTimelineEntry[];
+}
+
 /**
  * Diagnostic test: monitors DOM state during services search transitions
  * to identify exactly when the empty state appears and for how long.
@@ -29,7 +42,7 @@ test.describe('Services empty state flash — diagnostic', () => {
 			const target = document.querySelector('[data-services-content-area]');
 			if (!target) return;
 
-			(window as any).__serviceTimeline = [];
+			(window as unknown as DiagnosticWindow).__serviceTimeline = [];
 
 			const observer = new MutationObserver(() => {
 				const hasSkeleton = document.querySelectorAll('.animate-pulse').length > 0;
@@ -41,9 +54,9 @@ test.describe('Services empty state flash — diagnostic', () => {
 
 				// Only record when something changes
 				const state = `skeleton=${hasSkeleton} cards=${hasCards} empty=${hasEmptyState} loading=${hasLoadingSpinner}`;
-				const prev = (window as any).__serviceTimeline;
+				const prev = (window as unknown as DiagnosticWindow).__serviceTimeline;
 				if (prev.length === 0 || prev[prev.length - 1].state !== state) {
-					(window as any).__serviceTimeline.push({
+					(window as unknown as DiagnosticWindow).__serviceTimeline.push({
 						time: Date.now(),
 						state,
 						skeletonCount: document.querySelectorAll('.animate-pulse').length,
@@ -66,7 +79,7 @@ test.describe('Services empty state flash — diagnostic', () => {
 
 		// Collect the timeline from the page
 		const domTimeline = await page.evaluate(() => {
-			return (window as any).__serviceTimeline || [];
+			return (window as unknown as DiagnosticWindow).__serviceTimeline || [];
 		});
 
 		console.log('\n=== SERVICES SEARCH TIMELINE ===');
@@ -127,7 +140,7 @@ test.describe('Services empty state flash — diagnostic', () => {
 			const target = document.querySelector('[data-services-content-area]');
 			if (!target) return;
 
-			(window as any).__serviceTimeline2 = [];
+			(window as unknown as DiagnosticWindow).__serviceTimeline2 = [];
 
 			const observer = new MutationObserver(() => {
 				const hasSkeleton = document.querySelectorAll('.animate-pulse').length > 0;
@@ -135,9 +148,9 @@ test.describe('Services empty state flash — diagnostic', () => {
 				const hasEmptyState = document.body.innerText.includes('No services found');
 
 				const state = `skeleton=${hasSkeleton} cards=${hasCards} empty=${hasEmptyState}`;
-				const prev = (window as any).__serviceTimeline2;
+				const prev = (window as unknown as DiagnosticWindow).__serviceTimeline2;
 				if (prev.length === 0 || prev[prev.length - 1].state !== state) {
-					(window as any).__serviceTimeline2.push({
+					(window as unknown as DiagnosticWindow).__serviceTimeline2.push({
 						time: Date.now(),
 						state,
 						cardCount: document.querySelectorAll('[data-service-id]').length
@@ -156,7 +169,7 @@ test.describe('Services empty state flash — diagnostic', () => {
 		await page.waitForTimeout(10000);
 
 		const domTimeline = await page.evaluate(() => {
-			return (window as any).__serviceTimeline2 || [];
+			return (window as unknown as DiagnosticWindow).__serviceTimeline2 || [];
 		});
 
 		console.log('\n=== SERVICES SEARCH WITH RESULTS TIMELINE ===');

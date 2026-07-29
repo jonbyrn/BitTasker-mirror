@@ -47,11 +47,18 @@ export const StorageKeys = {
 	WALLET_CHAIN_SORT_HINTS: 'bittasker_wallet_chain_sort_hints',
 	WALLET_LAST_BALANCE_SATS: 'bittasker_wallet_last_balance_sats',
 
+	// Fiat swap / off-ramp orchestrators
+	FIAT_SWAP_FLOW: 'bittasker_fiat_flow',
+	OFF_RAMP_FLOW: 'bittasker_off_ramp_flow',
+
 	// Reviews
 	PENDING_REVIEW_BANNER_DISMISSED: 'pending_review_banner_dismissed',
 
 	// Search
-	DISMISSED_SAVE_SEARCH_PROMPTS: 'bittasker_dismissed_save_search_prompts'
+	DISMISSED_SAVE_SEARCH_PROMPTS: 'bittasker_dismissed_save_search_prompts',
+	
+	// E2E testing
+	E2E_BIOMETRIC_DATA: 'e2e_biometric_data'
 } as const;
 
 // Type to get autocomplete for storage keys

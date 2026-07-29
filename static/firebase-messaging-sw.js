@@ -67,7 +67,7 @@ function setupBackgroundMessageHandler() {
 	try {
 		messaging.onBackgroundMessage((payload) => {
 			const { notification, data } = payload;
-			console.log('🔕 SW: Background message received:', payload);
+			console.log('🔕 SW: Background message received');
 
 
 			// ⚠️ CRITICAL: If notification object exists, FCM already displayed it

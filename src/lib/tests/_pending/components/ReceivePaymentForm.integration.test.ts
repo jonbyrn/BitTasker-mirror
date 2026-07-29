@@ -177,21 +177,22 @@ vi.mock('@capacitor/core', () => ({
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
-		...actual,
+		...(actual as Record<string, unknown>),
 		ethers: {
-			...actual.ethers,
+			...((actual as Record<string, unknown>).ethers as Record<string, unknown>),
 			JsonRpcProvider: vi.fn().mockImplementation(() => ({
 				getBlockNumber: vi.fn().mockResolvedValue(12345678),
 				getFeeData: vi.fn().mockResolvedValue({
 					gasPrice: BigInt('1000000000'), // 1 gwei
 					maxFeePerGas: BigInt('1000000000'),
-					maxPriorityFeePerGas: BigInt('100000000')
+					maxPriorityFeePerGas: BigInt('1000000000')
 				}),
 				getBlock: vi.fn().mockResolvedValue({
 					baseFeePerGas: BigInt('1000000000'),
 					number: 12345678
 				}),
-				formatEther: actual.ethers.formatEther
+				formatEther: ((actual as Record<string, unknown>).ethers as Record<string, unknown>)
+					.formatEther
 			}))
 		}
 	};
@@ -252,9 +253,12 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			await tick();
 
 			// Wait for fees to calculate
-			await waitFor(() => {
-				expect(document.querySelector('.loading.loading-spinner')).toBeNull();
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					expect(document.querySelector('.loading.loading-spinner')).toBeNull();
+				},
+				{ timeout: 3000 }
+			);
 
 			// On mobile: click Next to go to step 2, then Get Paid
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
@@ -269,9 +273,12 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			}
 			await tick();
 
-			await waitFor(() => {
-				expect(walletManager.createReverseSwap).toHaveBeenCalled();
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					expect(walletManager.createReverseSwap).toHaveBeenCalled();
+				},
+				{ timeout: 3000 }
+			);
 		});
 
 		it('should call onOpenPaymentRequest when invoice is generated', async () => {
@@ -289,10 +296,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			await tick();
 
-			await waitFor(() => {
-				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-				return getPaidButtons.some((b) => !b.hasAttribute('disabled'));
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+					return getPaidButtons.some((b) => !b.hasAttribute('disabled'));
+				},
+				{ timeout: 3000 }
+			);
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
 			if (nextButton && !nextButton.hasAttribute('disabled')) {
 				fireEvent.click(nextButton);
@@ -305,9 +315,12 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			}
 			await tick();
 
-			await waitFor(() => {
-				expect(onOpenPaymentRequest).toHaveBeenCalled();
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					expect(onOpenPaymentRequest).toHaveBeenCalled();
+				},
+				{ timeout: 3000 }
+			);
 		});
 	});
 
@@ -324,22 +337,28 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			await tick();
 
 			// Click Rootstock Bitcoin option
-			await waitFor(() => {
-				const rootstockOptions = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(rootstockOptions.length).toBeGreaterThan(0);
-				fireEvent.click(rootstockOptions[0]);
-			}, { timeout: 2000 });
+			await waitFor(
+				() => {
+					const rootstockOptions = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(rootstockOptions.length).toBeGreaterThan(0);
+					fireEvent.click(rootstockOptions[0]);
+				},
+				{ timeout: 2000 }
+			);
 			await tick();
 
 			// Verify network was selected
-			await waitFor(() => {
-				const updatedTitles = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(updatedTitles.length).toBeGreaterThan(0);
-			}, { timeout: 1000 });
+			await waitFor(
+				() => {
+					const updatedTitles = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(updatedTitles.length).toBeGreaterThan(0);
+				},
+				{ timeout: 1000 }
+			);
 		});
 	});
 
@@ -361,9 +380,12 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0')); // 100000
 			await tick();
 
-			await waitFor(() => {
-				expect(screen.getByText(/Network Fee:/)).toBeDefined();
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					expect(screen.getByText(/Network Fee:/)).toBeDefined();
+				},
+				{ timeout: 3000 }
+			);
 		});
 	});
 
@@ -371,7 +393,7 @@ describe('ReceivePaymentForm Integration Tests', () => {
 		it('should toggle between sats and USD', async () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
-			
+
 			// Find unit toggle buttons - there might be multiple, get the specific ones from AmountInputSection
 			await waitFor(() => {
 				const satsButtons = screen.getAllByRole('button', { name: /^Sats$/i });
@@ -379,20 +401,18 @@ describe('ReceivePaymentForm Integration Tests', () => {
 				expect(satsButtons.length).toBeGreaterThan(0);
 				expect(usdButtons.length).toBeGreaterThan(0);
 			});
-			
+
 			// Get the first unit toggle (from AmountInputSection)
 			const satsButton = screen.getAllByRole('button', { name: 'Sats' })[0];
 			const usdButton = screen.getAllByRole('button', { name: 'USD' })[0];
-			
+
 			// Default should be USD, click sats
 			fireEvent.click(satsButton);
 			await tick();
-			
+
 			// Click USD to toggle back
 			fireEvent.click(usdButton);
 			await tick();
 		});
 	});
 });
-
-

@@ -22,6 +22,7 @@ import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
+import { authState } from '$lib/stores/auth.store';
 
 interface NotificationData {
 	type?: string;
@@ -282,7 +283,6 @@ class PushNotificationService {
 		const message = typeof data['message'] === 'string' ? data['message'] : undefined;
 		appStore.showInfoToast(message || 'Your device access has been revoked');
 
-		const { authState } = await import('$lib/stores/auth.store');
 		await authState.logout();
 
 		goto('/auth/login');

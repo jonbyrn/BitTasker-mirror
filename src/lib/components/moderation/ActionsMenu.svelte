@@ -203,7 +203,7 @@
 		<ReportModal
 			isOpen={isReportModalOpen}
 			onClose={() => (isReportModalOpen = false)}
-			{contentType}
+			contentType={contentType as 'task' | 'bid' | 'message' | 'user'}
 			{reportedPubkey}
 			{reportedEventId}
 			{username}

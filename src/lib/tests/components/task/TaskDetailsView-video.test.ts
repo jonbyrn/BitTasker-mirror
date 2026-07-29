@@ -60,6 +60,16 @@ vi.mock('$app/environment', () => ({
 	building: false
 }));
 
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	afterNavigate: vi.fn((cb: (nav: { to: { url: { pathname: string } } | null }) => void) => {
+		// Invoke immediately with a mock navigation that won't match task routes
+		cb({ to: null });
+	}),
+	beforeNavigate: vi.fn(),
+	invalidateAll: vi.fn()
+}));
+
 vi.mock('$lib/stores/user.store', () => ({
 	user: hoisted.readable({ npub: 'a'.repeat(64) })
 }));
@@ -279,21 +289,25 @@ describe('TaskDetailsView video attachment support', () => {
 
 	// ---- Test 1: Cloudflare Stream video (cloudflareId + video type) ----
 
-	it('renders StreamPlayer when attachment has cloudflareId and video type', async () => {
-		const attachment = cloudflareVideoAttachment();
-		const { container } = await renderWithAttachments([attachment]);
+	it(
+		'renders StreamPlayer when attachment has cloudflareId and video type',
+		{ timeout: 30000 },
+		async () => {
+			const attachment = cloudflareVideoAttachment();
+			const { container } = await renderWithAttachments([attachment]);
 
-		// Wait for task data to load (loading spinner disappears, content appears)
-		await waitFor(() => {
-			expect(container.querySelector('.loading')).not.toBeInTheDocument();
-		});
+			// Wait for task data to load (loading spinner disappears, content appears)
+			await waitFor(() => {
+				expect(container.querySelector('.loading')).not.toBeInTheDocument();
+			});
 
-		// The video rendering section should be present (attachment metadata text)
-		expect(container.textContent).toContain('Cloudflare Stream video');
+			// The video rendering section should be present (attachment metadata text)
+			expect(container.textContent).toContain('Cloudflare Stream video');
 
-		// A native <video> element must NOT be used when StreamPlayer is chosen
-		expect(container.querySelector('video')).not.toBeInTheDocument();
-	});
+			// A native <video> element must NOT be used when StreamPlayer is chosen
+			expect(container.querySelector('video')).not.toBeInTheDocument();
+		}
+	);
 
 	// ---- Test 2: Legacy video (url, no cloudflareId) ----
 

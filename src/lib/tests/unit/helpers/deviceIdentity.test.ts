@@ -5,8 +5,7 @@ import {
 	getDeviceIdentifier,
 	getDeviceName,
 	formatPasskeyName,
-	getNpubShortId,
-	createUserDeviceShortName
+	getNpubShortId
 } from '$lib/utils/helpers/deviceIdentity';
 import type { DeviceInfo } from '@capacitor/device';
 import * as deviceIdentity from '$lib/utils/helpers/deviceIdentity';
@@ -31,8 +30,8 @@ describe('Device Identity Utilities', () => {
 		vi.clearAllMocks();
 
 		// Set up default mock implementations
-		(Device.getId as any).mockResolvedValue({ identifier: 'test-device-id' });
-		(Device.getInfo as any).mockResolvedValue({
+		vi.mocked(Device.getId).mockResolvedValue({ identifier: 'test-device-id' });
+		vi.mocked(Device.getInfo).mockResolvedValue({
 			platform: 'ios',
 			model: 'iPhone',
 			manufacturer: 'Apple',
@@ -43,8 +42,8 @@ describe('Device Identity Utilities', () => {
 			name: 'iPhone 13'
 		} as DeviceInfo);
 
-		(Preferences.get as any).mockResolvedValue({ value: null });
-		(Preferences.set as any).mockResolvedValue(undefined);
+		vi.mocked(Preferences.get).mockResolvedValue({ value: null });
+		vi.mocked(Preferences.set).mockResolvedValue(undefined);
 	});
 
 	describe('getDeviceIdentifier', () => {
@@ -266,7 +265,7 @@ describe('Device Identity Utilities', () => {
 			// Mock createUserDeviceShortName for fallback scenarios
 			if (!vi.isMockFunction(deviceIdentity.createUserDeviceShortName)) {
 				vi.spyOn(deviceIdentity, 'createUserDeviceShortName').mockImplementation(
-					async (publicKey: string) => {
+					async (_publicKey: string) => {
 						const deviceName = await getDeviceName();
 						return `${deviceName}-test`;
 					}

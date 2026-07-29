@@ -97,6 +97,16 @@ const hoisted = vi.hoisted(() => {
 	};
 });
 
+type ServicesStoreState = {
+	items: Service[];
+	loading: boolean;
+	error: string | null;
+	currentPage: number;
+	hasMore: boolean;
+	searchParamsKey: string;
+	pool: null;
+};
+
 function createServicesStore() {
 	let items: Service[] = [];
 	let loading = false;
@@ -105,22 +115,30 @@ function createServicesStore() {
 	let hasMore = true;
 	let searchParamsKey = '';
 
-	const subscribers = new Set<(value: typeof storeValue) => void>();
+	const subscribers = new Set<(value: ServicesStoreState) => void>();
 
 	const notify = () => {
-		const state = { items, loading, error, currentPage, hasMore, searchParamsKey, pool: null };
+		const state: ServicesStoreState = {
+			items,
+			loading,
+			error,
+			currentPage,
+			hasMore,
+			searchParamsKey,
+			pool: null
+		};
 		for (const sub of subscribers) {
 			sub(state);
 		}
 	};
 
 	return {
-		subscribe: (sub: (value: typeof storeValue) => void) => {
+		subscribe: (sub: (value: ServicesStoreState) => void) => {
 			sub({ items, loading, error, currentPage, hasMore, searchParamsKey, pool: null });
 			subscribers.add(sub);
 			return () => subscribers.delete(sub);
 		},
-		set: (state: Partial<typeof storeValue>) => {
+		set: (state: Partial<ServicesStoreState>) => {
 			if (state.items !== undefined) items = state.items;
 			if (state.loading !== undefined) loading = state.loading;
 			if (state.error !== undefined) error = state.error;
@@ -129,8 +147,16 @@ function createServicesStore() {
 			if (state.searchParamsKey !== undefined) searchParamsKey = state.searchParamsKey;
 			notify();
 		},
-		update: (updater: (state: typeof storeValue) => Partial<typeof storeValue>) => {
-			const current = { items, loading, error, currentPage, hasMore, searchParamsKey, pool: null };
+		update: (updater: (state: ServicesStoreState) => Partial<ServicesStoreState>) => {
+			const current: ServicesStoreState = {
+				items,
+				loading,
+				error,
+				currentPage,
+				hasMore,
+				searchParamsKey,
+				pool: null
+			};
 			const changes = updater(current);
 			if (changes.items !== undefined) items = changes.items;
 			if (changes.loading !== undefined) loading = changes.loading;
@@ -157,11 +183,15 @@ function createAppStore() {
 	};
 }
 
-hoisted.servicesStore = createServicesStore();
-hoisted.appStore = createAppStore();
+hoisted.servicesStore = createServicesStore() as unknown as typeof hoisted.servicesStore;
+hoisted.appStore = createAppStore() as unknown as typeof hoisted.appStore;
 
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+hoisted.authStateStore = hoisted.createStore({
+	isAuthenticated: true
+}) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({
+	npub: 'owner-pubkey'
+}) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -851,7 +881,7 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 		await tick();
 		await vi.advanceTimersByTimeAsync(20);
 
-		rerender(ServicesPage);
+		rerender({});
 		unmount();
 
 		await vi.advanceTimersByTimeAsync(100);
@@ -883,7 +913,7 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 		await tick();
 		await vi.advanceTimersByTimeAsync(10);
 
-		rerender(ServicesPage);
+		rerender({});
 		unmount();
 
 		await vi.advanceTimersByTimeAsync(50);
@@ -934,7 +964,7 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 		await tick();
 		await vi.advanceTimersByTimeAsync(20);
 
-		rerender(ServicesPage);
+		rerender({});
 		unmount();
 
 		await vi.advanceTimersByTimeAsync(80);

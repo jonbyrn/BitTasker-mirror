@@ -73,7 +73,7 @@ const service: Service = {
 	id: 'service-event-1',
 	npub: 'a'.repeat(64),
 	uniqueId: 'service-unique-id',
-	active: true,
+
 	status: 'active',
 	title: 'Brand Design',
 	description: 'Identity system design.',
@@ -315,9 +315,11 @@ describe('serviceQuoteUiStore route contract', () => {
 				description: 'Refresh our app icon set.'
 			}
 		});
-		const stateSnapshots: Array<unknown> = [];
-		const unsubscribe = serviceQuoteUiStore.subscribe((value) => stateSnapshots.push(value));
-		const latestState = stateSnapshots.at(-1);
+		const stateSnapshots: Array<Record<string, unknown>> = [];
+		const unsubscribe = serviceQuoteUiStore.subscribe((value: Record<string, unknown>) =>
+			stateSnapshots.push(value)
+		);
+		const latestState = stateSnapshots.at(-1)!;
 		unsubscribe();
 
 		// The service address is only encoded once (not double-encoded)
@@ -333,14 +335,18 @@ describe('serviceQuoteUiStore route contract', () => {
 				serviceAddress
 			)}&request=qr_valid123`
 		);
-		expect(getTaskerTimelines(latestState)).toEqual([]);
-		expect(getProviderTimelines(latestState, serviceAddress)).toEqual([]);
-		expect(isRequestSyncActive(latestState, syncTarget.quoteRequestId, serviceAddress)).toBe(true);
-		expect(isTaskerTimelineSyncing(latestState, syncTarget.quoteRequestId)).toBe(true);
-		expect(isProviderTimelineSyncing(latestState, serviceAddress, syncTarget.quoteRequestId)).toBe(
-			true
+		expect(getTaskerTimelines(latestState as never)).toEqual([]);
+		expect(getProviderTimelines(latestState as never, serviceAddress)).toEqual([]);
+		expect(
+			isRequestSyncActive(latestState as never, syncTarget.quoteRequestId, serviceAddress)
+		).toBe(true);
+		expect(isTaskerTimelineSyncing(latestState as never, syncTarget.quoteRequestId)).toBe(true);
+		expect(
+			isProviderTimelineSyncing(latestState as never, serviceAddress, syncTarget.quoteRequestId)
+		).toBe(true);
+		expect(isProviderTimelineSyncing(latestState as never, null, syncTarget.quoteRequestId)).toBe(
+			false
 		);
-		expect(isProviderTimelineSyncing(latestState, null, syncTarget.quoteRequestId)).toBe(false);
 	});
 
 	it('updates message state and clears focus sync state deterministically', async () => {
@@ -353,15 +359,17 @@ describe('serviceQuoteUiStore route contract', () => {
 				description: 'Three retail-ready directions.'
 			}
 		});
-		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
+		serviceQuoteUiStore.setNonBlockingMessage('service_requests_request_not_found');
 		serviceQuoteUiStore.clearRecentSubmit();
 
-		const snapshots: Array<unknown> = [];
-		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
-		const latestState = snapshots.at(-1);
+		const snapshots: Array<Record<string, unknown>> = [];
+		const unsubscribe = serviceQuoteUiStore.subscribe((value: Record<string, unknown>) =>
+			snapshots.push(value)
+		);
+		const latestState = snapshots.at(-1)!;
 		unsubscribe();
 
-		expect(latestState.nonBlockingMessageCode).toBe('service_quote_protocol_pending');
+		expect(latestState.nonBlockingMessageCode).toBe('service_requests_request_not_found');
 		expect(latestState.focusSync).toEqual({
 			requestId: null,
 			serviceAddress: null,
@@ -382,18 +390,26 @@ describe('serviceQuoteUiStore route contract', () => {
 			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_valid123')
 		).rejects.toThrow('provider load failed');
 
-		const snapshots: Array<unknown> = [];
-		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
-		const latestState = snapshots.at(-1);
+		const snapshots: Array<Record<string, unknown>> = [];
+		const unsubscribe = serviceQuoteUiStore.subscribe((value: Record<string, unknown>) =>
+			snapshots.push(value)
+		);
+		const latestState = snapshots.at(-1)!;
 		unsubscribe();
 
 		expect(latestState.loadingTasker).toBe(false);
 		expect(latestState.taskerLoaded).toBe(true);
 		expect(latestState.taskerLoadError).toBe('tasker load failed');
-		expect(latestState.loadingProviderByService[serviceAddress]).toBe(false);
+		expect((latestState.loadingProviderByService as Record<string, boolean>)[serviceAddress]).toBe(
+			false
+		);
 		// Note: providerLoadedByService is only set to true if there was cached data
-		expect(latestState.providerLoadedByService[serviceAddress]).toBe(false);
-		expect(latestState.providerLoadErrorByService[serviceAddress]).toBe('provider load failed');
+		expect((latestState.providerLoadedByService as Record<string, boolean>)[serviceAddress]).toBe(
+			false
+		);
+		expect(
+			(latestState.providerLoadErrorByService as Record<string, string | null>)[serviceAddress]
+		).toBe('provider load failed');
 	});
 
 	it('publishes provider proposals after loading the matching request timeline', async () => {
@@ -473,11 +489,15 @@ describe('serviceQuoteUiStore route contract', () => {
 			})
 		).resolves.toEqual({ success: true });
 
-		const snapshots: Array<unknown> = [];
-		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
-		const latestState = snapshots.at(-1);
+		const snapshots: Array<Record<string, unknown>> = [];
+		const unsubscribe = serviceQuoteUiStore.subscribe((value: Record<string, unknown>) =>
+			snapshots.push(value)
+		);
+		const latestState = snapshots.at(-1)!;
 		unsubscribe();
-		const [updatedTimeline] = getTaskerTimelines(latestState);
+		const [updatedTimeline] = getTaskerTimelines(
+			latestState as never
+		) as Array<ServiceQuoteTimelineEntry>;
 
 		expect(updatedTimeline.resolvedStatus).toBe('declined');
 		expect(updatedTimeline.resolvedTerminalEvent?.content.message).toBe('Budget changed');

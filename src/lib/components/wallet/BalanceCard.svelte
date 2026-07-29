@@ -1,28 +1,68 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
-	import { onDestroy } from 'svelte';
+	import { t, locale } from 'svelte-i18n';
+	import { onMount, onDestroy } from 'svelte';
+	import * as Sentry from '@sentry/sveltekit';
 	import {
 		allAssets,
 		totalBalances,
 		walletManager,
-		walletStore,
-		formatSats
+		formatSats,
+		walletStore
 	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
-	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import IconFileDocument from '~icons/mdi/file-document';
+	import IconCash from '~icons/mdi/cash';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { openHelpModal } from '$lib/runes/helpModal.svelte';
+	import DefiPositionCard from './defi/DefiPositionCard.svelte';
 
-	const { isLoading = false } = $props();
+	// Chain ID → logo path for tier 2 tokens
+	const CHAIN_LOGOS: Record<number, string> = {
+		56: '/images/chains/Binance-logo.svg',
+		10: '/images/chains/optimism.png',
+		250: '/images/chains/fantom.png',
+		100: '/images/chains/ethereum.png', // Gnosis
+		42220: '/images/chains/celo.png',
+		42161: '/images/chains/arbitrum.png',
+		43114: '/images/chains/avalanche.png',
+		137: '/images/chains/polygon.png',
+		8453: '/images/chains/base.png',
+		1: '/images/chains/ethereum.png'
+	};
+
+	let {
+		isLoading = false,
+		hideDetails = false,
+		overrideTotalUsd,
+		overrideSats,
+		overrideUsdt,
+		balancesHidden: propBalancesHidden,
+		onToggleBalances,
+		onManageLoans
+	} = $props<{
+		isLoading?: boolean;
+		hideDetails?: boolean;
+		overrideTotalUsd?: number | null;
+		overrideSats?: number | null;
+		overrideUsdt?: number | null;
+		balancesHidden?: boolean;
+		onToggleBalances?: (hidden: boolean) => void;
+		onManageLoans?: () => void;
+	}>();
 
 	// Refresh state
 	let isRefreshing = $state(false);
+	let _tick = $state(0);
+	let _stalenessTimer: ReturnType<typeof setInterval> | null = null;
 
-	// Balance visibility state - default to hidden
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	// Balance visibility state — uses external prop if provided, else internal state
+	let _internalHidden = $state(process.env.NODE_ENV !== 'development');
+	let balancesHidden = $derived(propBalancesHidden ?? _internalHidden);
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -30,23 +70,38 @@
 	let bitcoinExpanded = $state(false);
 	let usdExpanded = $state(false);
 
-	// Get Bitcoin asset (RBTC) - returns single asset or undefined
+	// Cached currency formatter — avoids re-creating Intl.NumberFormat on every derive
+	let currencyFmt = $derived(
+		new Intl.NumberFormat($locale ?? 'en-US', { style: 'currency', currency: 'USD' })
+	);
+
+	// Get Bitcoin asset (RBTC)
 	let bitcoinAsset = $derived($allAssets.find((a) => a.assetId === 'rbtc'));
 
-	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
-	let usdAssets = $derived($allAssets.filter((a) => a.assetId === 'usdt' || a.assetId === 'bnb'));
-	let usdtAsset = $derived(usdAssets.find((a) => a.assetId === 'usdt'));
+	// USD-based assets
+	let usdt0ArbAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-arb'));
+	let usdt0RskAsset = $derived($allAssets.find((a) => a.assetId === 'usdt0-rsk'));
+	let docBalance = $derived($allAssets.find((a) => a.assetId === 'doc-rsk')?.balance ?? 0);
+	let usdt0RskBalance = $derived(usdt0RskAsset?.balance ?? 0);
+
+	// All tier 2 assets (USDT/USDC on BSC, Polygon, Arbitrum USDC, etc.)
+	let tier2UsdAssets = $derived($allAssets.filter((a) => /^\d+-[A-Z]+$/.test(a.assetId)));
+
+	// wBTC (Arbitrum wrapped BTC) — always shown under Bitcoin accordion
+	let wbtcAsset = $derived($allAssets.find((a) => a.assetId === 'wbtc-arb'));
+
+	// tBTC (Arbitrum bridged BTC) — shown under Bitcoin accordion if balance > 0
+	let tbtcAsset = $derived($allAssets.find((a) => a.assetId === 'tbtc-arb'));
 
 	function showBalances() {
-		balancesHidden = false;
+		_internalHidden = false;
+		onToggleBalances?.(false);
 		countdownSeconds = 45;
 
-		// Clear existing interval if any
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
 		}
 
-		// Start countdown
 		countdownInterval = setInterval(() => {
 			countdownSeconds--;
 			if (countdownSeconds <= 0) {
@@ -56,7 +111,8 @@
 	}
 
 	function hideBalances() {
-		balancesHidden = true;
+		_internalHidden = true;
+		onToggleBalances?.(true);
 		countdownSeconds = 0;
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
@@ -77,63 +133,156 @@
 
 		isRefreshing = true;
 		try {
-			// Clear balance history cache before refreshing to ensure fresh data
 			balanceHistoryService.clearCaches();
-
-			await walletManager.loadAssets();
+			await walletManager.loadAssets(true);
 			appStore.showSuccessToast($t('wallet.balance_refreshed'));
 		} catch (error) {
-			console.error('Failed to refresh balances:', error);
+			Sentry.captureException(error, { tags: { feature: 'wallet', action: 'refresh-balance' } });
 			appStore.showErrorToast($t('wallet.refresh_failed'));
 		} finally {
 			isRefreshing = false;
 		}
 	}
 
+	onMount(() => {
+		_stalenessTimer = setInterval(() => _tick++, 60_000);
+	});
+
 	onDestroy(() => {
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
 		}
+		if (_stalenessTimer) {
+			clearInterval(_stalenessTimer);
+		}
 	});
 
-	function openHelpModal(e: MouseEvent) {
+	function handleHelpClick(e: MouseEvent | KeyboardEvent) {
 		e.stopPropagation();
-		(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
+		openHelpModal();
 	}
 
 	// Compute balance display values
-	let satsDisplay = $derived.by(() => {
-		if (isLoading || isRefreshing) {
-			return null; // Special handling for loading
-		}
-		if (balancesHidden) {
-			return '••••';
-		}
-		if ($totalBalances.sats > 0) {
-			return formatSats($totalBalances.sats);
-		}
-		return '0';
+	let combinedTotal = $derived.by(() => {
+		if (isLoading) return null;
+		if (balancesHidden) return '••••';
+		if (overrideTotalUsd !== undefined) return overrideTotalUsd.toFixed(2);
+		return ($totalBalances?.usd ?? 0).toFixed(2);
 	});
 
-	let usdDisplay = $derived.by(() => {
-		if (isLoading || isRefreshing) {
-			return null; // Special handling for loading
+	let satsDisplay = $derived.by(() => {
+		if (balancesHidden) return '••••';
+		if (hideDetails) {
+			if (overrideSats != null) return overrideSats > 0 ? formatSats(overrideSats) : '0';
+			return '0';
 		}
-		if (balancesHidden) {
-			return '••••';
-		}
-		if ($totalBalances.usd > 0) {
-			return $totalBalances.usd.toFixed(2);
-		}
-		return '0.00';
+		const rbtcSats = $totalBalances?.sats ?? 0;
+		const wbtcSats = wbtcAsset ? Math.floor((wbtcAsset.balance ?? 0) * 100_000_000) : 0;
+		const total = rbtcSats + wbtcSats;
+		return total > 0 ? formatSats(total) : '0';
 	});
+
+	let usdtDisplay = $derived.by(() => {
+		if (balancesHidden) return '$••••';
+		let usdVal: number;
+		if (hideDetails) {
+			usdVal = overrideUsdt ?? 0;
+		} else {
+			usdVal = usdt0ArbAsset?.usdValue ?? usdt0ArbAsset?.balance ?? 0;
+		}
+		return currencyFmt.format(usdVal);
+	});
+
+	let satsUsdInline = $derived.by(() => {
+		if (balancesHidden) return '($••••)';
+		const rbtcSats = overrideSats ?? $totalBalances?.sats ?? 0;
+		const wbtcSats = wbtcAsset ? Math.floor((wbtcAsset.balance ?? 0) * 100_000_000) : 0;
+		const totalSats = rbtcSats + wbtcSats;
+		const usdValue = (totalSats / 100_000_000) * btcPrice.price;
+		return `(${currencyFmt.format(usdValue)})`;
+	});
+
+	// Balance staleness indicator
+	const lastRefresh = $derived($walletStore.lastBalanceRefresh ?? 0);
+	const staleness = $derived.by(() => {
+		void _tick; // force subscription to tick
+		const age = Date.now() - lastRefresh;
+		if (age < 60_000) return null;
+		if (age < 300_000) return 'recent';
+		return 'stale';
+	});
+
+	function formatAge(ms: number): string {
+		const mins = Math.floor(ms / 60_000);
+		if (mins < 1) return $t('wallet.toast.just_now');
+		if (mins < 60) return $t('wallet.toast.minutes_ago', { values: { n: mins } });
+		const hours = Math.floor(mins / 60);
+		return $t('wallet.toast.hours_ago', { values: { n: hours } });
+	}
 </script>
+
+{#snippet satsBalanceRow(
+	logoSrc: string,
+	logoAlt: string,
+	name: string,
+	satsValue: number,
+	usdValue: number
+)}
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-1.5 sm:gap-2">
+			<img src={logoSrc} alt={logoAlt} class="h-4 w-4 sm:h-5 sm:w-5" />
+			<span class="text-sm font-medium sm:text-base">{name}</span>
+		</div>
+		<div class="text-right">
+			{#if balancesHidden}
+				<div class="text-sm font-semibold sm:text-base">
+					•••• {$t('wallet.sats')}
+				</div>
+				<div class="text-xs opacity-70">$••••</div>
+			{:else}
+				<div class="text-sm font-semibold sm:text-base">
+					{formatSats(satsValue)}
+					{$t('wallet.sats')}
+				</div>
+				{#if usdValue > 0}
+					<div class="text-xs opacity-70">${usdValue.toFixed(2)}</div>
+				{/if}
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet usdBalanceRow(
+	logoSrc: string,
+	logoAlt: string,
+	name: string,
+	usdValue: number,
+	icon?: 'document' | 'cash'
+)}
+	<div class="flex items-center gap-1.5 sm:gap-2">
+		{#if icon === 'document'}
+			<IconFileDocument class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+		{:else if icon === 'cash'}
+			<IconCash class="text-base-content/60 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+		{:else}
+			<img src={logoSrc} alt={logoAlt} class="h-4 w-4 sm:h-5 sm:w-5" />
+		{/if}
+		<span class="text-sm font-medium sm:text-base">{name}</span>
+		<div class="ml-auto text-sm font-semibold sm:text-base">
+			{#if balancesHidden}
+				••••
+			{:else}
+				${usdValue.toFixed(2)}
+			{/if}
+		</div>
+	</div>
+{/snippet}
 
 {#snippet helpButton()}
 	<button
 		type="button"
 		class="shrink-0 cursor-pointer p-0.5 text-white opacity-80 hover:bg-transparent hover:text-white hover:opacity-100 sm:ml-1 sm:p-1"
-		onclick={openHelpModal}
+		onclick={handleHelpClick}
 		aria-label={$t('wallet.learn_more')}
 	>
 		<IconHelpCircle class="h-6 w-6" />
@@ -171,20 +320,20 @@
 	</button>
 {/snippet}
 
-<div class="flex flex-col space-y-3 sm:space-y-4">
+<div class="flex flex-col space-y-3 sm:space-y-4" data-hide-details={hideDetails || undefined}>
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">
 			<div class="flex flex-col gap-1 sm:gap-0.5">
-				<!-- Balance row with balance and help -->
+				<!-- Grand total + toggle -->
 				<div class="flex items-center gap-2">
-					{#if isLoading || isRefreshing}
+					{#if isLoading || combinedTotal === null}
 						<p
 							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							<span class="inline-flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
-								{$t('wallet.sats')}
+								{$t('wallet.usd')}
 							</span>
 							{@render helpButton()}
 						</p>
@@ -192,242 +341,207 @@
 						<p
 							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
-							{satsDisplay}
-							{$t('wallet.sats')}
+							≈ ${combinedTotal}
 							{@render helpButton()}
 						</p>
 					{/if}
+					{@render toggleButton()}
 				</div>
-				<!-- USD row with toggle and refresh buttons -->
+				<!-- Breakdown + refresh -->
 				<div class="flex items-center gap-2">
-					{#if isLoading || isRefreshing}
-						<p class="mt-0.5 flex-1 text-sm text-white opacity-80 sm:mt-1 sm:text-base">
-							<span class="inline-flex items-center gap-2">
-								≈ $<span class="loading loading-spinner loading-xs sm:loading-sm"></span>
-								{$t('wallet.usd')}
-							</span>
+					{#if isLoading}
+						<p class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
+							<span class="loading loading-spinner loading-xs"></span>
 						</p>
 					{:else}
-						<p class="mt-0.5 flex-1 text-sm text-white opacity-80 sm:mt-1 sm:text-base">
-							≈ ${usdDisplay}
-							{$t('wallet.usd')}
-						</p>
+						<div class="flex-1 text-base font-bold text-white opacity-70 sm:text-lg">
+							<div>{satsDisplay} {$t('wallet.sats')} {satsUsdInline}</div>
+							<div>
+								{usdtDisplay}
+								{$t('wallet.usd')}
+							</div>
+						</div>
 					{/if}
-					{@render toggleButton()}
+					{#if staleness === 'stale'}
+						<button
+							type="button"
+							class="cursor-pointer text-xs text-white/40 hover:text-white/70"
+							onclick={handleRefresh}
+						>
+							{$t('wallet.balance.updated_ago', {
+								values: { time: formatAge(Date.now() - lastRefresh) }
+							})}
+						</button>
+					{/if}
 					{@render refreshButton()}
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<!-- Historical Balance Indicators -->
-	<BalanceHistory {balancesHidden} />
-
-	<!-- Network Breakdown -->
-	<div class="space-y-2 sm:space-y-4">
-		<!-- Bitcoin Accordion -->
-		<div
-			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-			class:collapse-open={bitcoinExpanded}
-		>
-			<button
-				type="button"
-				class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-				onclick={() => {
-					bitcoinExpanded = !bitcoinExpanded;
-				}}
+	{#if !hideDetails}
+		<!-- Network Breakdown -->
+		<div class="space-y-2 sm:space-y-4">
+			<!-- Bitcoin Accordion -->
+			<div
+				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+				class:collapse-open={bitcoinExpanded}
 			>
-				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<img
-						src="/images/chains/Bitcoin.svg"
-						alt="Bitcoin"
-						class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-					/>
-					<span>{$t('wallet.bitcoin')}</span>
-					<div
-						class="btn btn-ghost btn-xs shrink-0 cursor-pointer p-0.5 sm:p-1"
-						role="button"
-						tabindex="0"
-						onclick={(e) => {
-							e.stopPropagation();
-							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								e.stopPropagation();
-								(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
-							}
-						}}
-					>
-						<IconHelpCircle class="text-base-content/70 hover:text-base-content h-5 w-5" />
+				<button
+					type="button"
+					class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+					onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
+				>
+					<div class="flex min-w-0 flex-1 items-center gap-2">
+						<img
+							src="/images/chains/Bitcoin.svg"
+							alt="Bitcoin"
+							class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+						/>
+						<span>{$t('wallet.bitcoin')}</span>
+						<div
+							class="btn btn-ghost btn-xs shrink-0 cursor-pointer p-0.5 sm:p-1"
+							aria-hidden="true"
+							onclick={handleHelpClick}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									handleHelpClick(e);
+								}
+							}}
+						>
+							<IconHelpCircle class="text-base-content/70 hover:text-base-content h-5 w-5" />
+						</div>
 					</div>
-				</div>
-				<div class="ml-2 shrink-0 text-right">
-					{#if isLoading || isRefreshing}
-						<!-- Loading state - single spinner matching two-line height to prevent layout shift -->
-						<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
-							<span class="loading loading-spinner loading-md"></span>
-						</div>
-					{:else if balancesHidden}
-						<div class="text-sm font-semibold sm:text-base">
-							•••• {$t('wallet.sats')}
-						</div>
-						<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
-					{:else}
-						<div class="text-sm font-semibold sm:text-base">
-							{formatSats($totalBalances.sats)}
-							{$t('wallet.sats')}
-						</div>
-						{#if bitcoinAsset?.usdValue}
-							<div class="text-xs opacity-70 sm:text-sm">
-								≈ ${bitcoinAsset.usdValue.toFixed(2)}
+					<div class="ml-2 shrink-0 text-right">
+						{#if isLoading}
+							<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
+								<span class="loading loading-spinner loading-md"></span>
 							</div>
-						{/if}
-					{/if}
-				</div>
-			</button>
-			<div class="collapse-content">
-				<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-					<!-- L2 BTC Entry with Lightning Bolt Icon -->
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-1.5 sm:gap-2">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 10V3L4 14h7v7l9-11h-7z"
-								/>
-							</svg>
-							<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
-						</div>
-						<div class="text-right">
-							{#if balancesHidden}
-								<div class="text-sm font-semibold sm:text-base">
-									•••• {$t('wallet.sats')}
+						{:else if balancesHidden}
+							<div class="text-sm font-semibold sm:text-base">
+								•••• {$t('wallet.sats')}
+							</div>
+							<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
+						{:else}
+							{@const totalBtcSats =
+								($totalBalances?.sats ?? 0) + Math.floor((wbtcAsset?.balance ?? 0) * 100_000_000)}
+							{@const totalBtcUsd =
+								(bitcoinAsset?.usdValue ?? 0) +
+								(wbtcAsset?.usdValue ?? 0) +
+								(tbtcAsset?.usdValue ?? 0)}
+							<div class="text-sm font-semibold sm:text-base">
+								{formatSats(totalBtcSats)}
+								{$t('wallet.sats')}
+							</div>
+							{#if totalBtcUsd > 0}
+								<div class="text-xs opacity-70 sm:text-sm">
+									≈ ${totalBtcUsd.toFixed(2)}
 								</div>
-								<div class="text-xs opacity-70">$••••</div>
-							{:else if bitcoinAsset}
-								{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
-								<div class="text-sm font-semibold sm:text-base">
-									{formatSats(balanceInSats)}
-									{$t('wallet.sats')}
-								</div>
-								{#if bitcoinAsset.usdValue > 0}
-									<div class="text-xs opacity-70">
-										${bitcoinAsset.usdValue.toFixed(2)}
-									</div>
-								{/if}
-							{:else}
-								<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
 							{/if}
-						</div>
+						{/if}
 					</div>
+				</button>
+				<div class="collapse-content">
+					<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
+						{@render satsBalanceRow(
+							'/images/chains/Bitcoin-Rootstock-logo.webp',
+							'Rootstock',
+							$t('wallet.l2_btc'),
+							Math.floor((bitcoinAsset?.balance ?? 0) * 100_000_000),
+							bitcoinAsset?.usdValue ?? 0
+						)}
 
-					<!-- BTC Entry (Coming Soon) -->
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-1.5 sm:gap-2">
-							<img
-								src="/images/chains/Bitcoin.svg"
-								alt="BTC"
-								class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-							/>
-							<span class="text-base-content/50 text-sm font-medium sm:text-base"
-								>{$t('wallet.btc')}</span
-							>
-						</div>
-						<div class="text-right">
-							<span class="text-base-content/50 text-sm font-semibold sm:text-base"
-								>{$t('wallet.coming_soon')}</span
-							>
-						</div>
+						{@render satsBalanceRow(
+							'/images/chains/arbitrum.png',
+							'Arbitrum',
+							$t('wallet.wbtc_arbitrum'),
+							Math.floor((wbtcAsset?.balance ?? 0) * 100_000_000),
+							wbtcAsset?.usdValue ?? 0
+						)}
+
+						{#if tbtcAsset && tbtcAsset.balance > 0}
+							{@render satsBalanceRow(
+								'/images/tokens/tbtc.png',
+								'tBTC',
+								$t('wallet.tbtc_arbitrum'),
+								Math.floor(tbtcAsset.balance * 100_000_000),
+								tbtcAsset.usdValue ?? 0
+							)}
+						{/if}
 					</div>
 				</div>
 			</div>
-		</div>
 
-		<!-- USD Accordion -->
-		<div
-			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2 opacity-50"
-			class:collapse-open={usdExpanded}
-		>
-			<button
-				type="button"
-				class="collapse-title flex min-h-0 items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-				onclick={() => {
-					usdExpanded = !usdExpanded;
-				}}
+			<!-- USD Accordion -->
+			<div
+				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+				class:collapse-open={usdExpanded}
 			>
-				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<img
-						src="/images/chains/Tether-USD.svg"
-						alt="USD"
-						class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-					/>
-					<span class="text-base-content/70">{$t('wallet.usd')}</span>
-				</div>
-				<div class="ml-2 shrink-0 text-right">
-					<div class="text-base-content/70 text-sm font-semibold sm:text-base">
-						{$t('wallet.coming_soon')}
-					</div>
-				</div>
-			</button>
-			<div class="collapse-content">
-				<div class="space-y-1.5 px-2 pb-1.5 sm:space-y-2 sm:pb-2">
-					<!-- USDT (Binance Chain) - show actual balance if available -->
-					<div class="flex items-center gap-1.5 sm:gap-2">
-						<img
-							src="/images/chains/Binance-logo.svg"
-							alt="USDT (Binance Chain)"
-							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base"
-							>{$t('wallet.usdt_binance_chain')}</span
-						>
-						<div class="text-base-content/50 ml-auto text-xs">
-							{#if balancesHidden}
-								$••••
-							{:else if usdtAsset}
-								${usdtAsset.usdValue.toFixed(2)}
-							{:else}
-								${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
-							{/if}
-						</div>
-					</div>
-
-					<!-- USDT (Liquid) - Coming Soon -->
-					<div class="flex items-center gap-1.5 sm:gap-2">
+				<button
+					type="button"
+					class="collapse-title flex min-h-0 items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+					onclick={() => (usdExpanded = !usdExpanded)}
+				>
+					<div class="flex min-w-0 flex-1 items-center gap-2">
 						<img
 							src="/images/chains/Tether-USD.svg"
-							alt="USDT"
-							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
+							alt="USD"
+							class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
 						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base"
-							>{$t('wallet.usdt_liquid')}</span
-						>
-						<div class="text-base-content/50 ml-auto text-xs">
-							{#if balancesHidden}
-								$••••
-							{:else}
-								$0.00
-							{/if}
-						</div>
+						<span>{$t('wallet.usd')}</span>
 					</div>
+					<div class="ml-2 shrink-0 text-right">
+						{#if isLoading}
+							<div class="text-sm font-semibold sm:text-base">
+								<span class="loading loading-spinner loading-sm"></span>
+							</div>
+						{:else if balancesHidden}
+							<div class="text-sm font-semibold sm:text-base">$••••</div>
+						{:else if usdt0ArbAsset}
+							<div class="text-sm font-semibold sm:text-base">
+								${usdt0ArbAsset.usdValue.toFixed(2)}
+							</div>
+						{:else}
+							<div class="text-sm font-semibold sm:text-base">$0.00</div>
+						{/if}
+					</div>
+				</button>
+				<div class="collapse-content">
+					<div class="space-y-1.5 px-2 sm:space-y-2">
+						{@render usdBalanceRow(
+							'/images/chains/arbitrum.png',
+							$t('wallet.usdt0_arbitrum'),
+							$t('wallet.usdt0_arbitrum'),
+							usdt0ArbAsset?.usdValue ?? 0
+						)}
 
-					<div class="mt-2 text-center sm:mt-4">
-						<p class="text-base-content/50 text-sm font-bold sm:text-base">
-							{$t('wallet.coming_soon')}
-						</p>
+						{#if docBalance > 0}
+							{@render usdBalanceRow('', '', $t('wallet.doc_rsk'), docBalance, 'document')}
+						{/if}
+
+						{#if usdt0RskBalance > 0}
+							{@render usdBalanceRow('', '', $t('wallet.usdt0_rsk'), usdt0RskBalance, 'cash')}
+						{/if}
+
+						{#each tier2UsdAssets as asset (asset.assetId)}
+							{@const chainId = parseInt(asset.assetId.split('-')[0])}
+							{@render usdBalanceRow(CHAIN_LOGOS[chainId] ?? '', '', asset.name, asset.usdValue)}
+						{/each}
 					</div>
 				</div>
 			</div>
+
+			<!-- Loan Accordion -->
+			<DefiPositionCard onManage={onManageLoans} />
 		</div>
-	</div>
+	{/if}
 </div>
+
+<style>
+	div[data-hide-details] > :nth-child(2),
+	div[data-hide-details] > :global(.balancehistory-wrapper),
+	div[data-hide-details] > :nth-child(3) {
+		display: none;
+	}
+</style>

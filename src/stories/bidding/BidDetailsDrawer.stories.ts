@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/svelte';
 import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
 import type { Bid, CounterOffer } from '$lib/types/bid';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 const meta = {
 	title: 'Bidding/BidDetailsDrawer',
@@ -8,7 +9,6 @@ const meta = {
 	tags: ['autodocs'],
 	argTypes: {
 		isOpen: { control: 'boolean' },
-		isTaskOwner: { control: 'boolean' },
 		onClose: { action: 'close' },
 		onAcceptBid: { action: 'acceptBid' },
 		onRejectBid: { action: 'rejectBid' },
@@ -17,7 +17,7 @@ const meta = {
 	parameters: {
 		layout: 'fullscreen'
 	}
-} satisfies Meta<BidDetailsDrawer>;
+} satisfies Meta<typeof BidDetailsDrawer>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -25,6 +25,7 @@ type Story = StoryObj<typeof meta>;
 const sampleBid: Bid = {
 	id: '1',
 	taskId: 'task-123',
+	freelancerId: 1,
 	amount: 0.01,
 	currency: 'BTC',
 	paymentType: 'FIXED',
@@ -38,7 +39,52 @@ const sampleBid: Bid = {
 	visibility: 'PUBLIC',
 	responseTime: 24,
 	createdAt: new Date().toISOString(),
-	status: 'PENDING'
+	status: BidStatusEnum.PENDING,
+	clientViewed: false,
+	clientViewedAt: null,
+	featured: false,
+	clientResponse: null,
+	competitiveScore: null,
+	rank: null,
+	impressions: 0,
+	clicks: 0,
+	isWithdrawn: false,
+	withdrawnReason: null,
+	expiresAt: null,
+	task: {
+		id: 1,
+		title: 'Sample Task',
+		description: 'A sample task description',
+		status: 'OPEN'
+	},
+	freelancer: {
+		id: 1,
+		userId: 1,
+		professionalTitle: 'Full Stack Developer',
+		bio: 'Experienced developer',
+		promotionalVideo: null,
+		yearsExperience: 5,
+		specialties: ['TypeScript', 'Svelte'],
+		standardRates: null,
+		tasksCompleted: 10,
+		bidsSent: 5,
+		successRate: 0.9,
+		averageRating: 4.5,
+		level: 3,
+		experiencePoints: 500,
+		reputationScore: 80,
+		feeDiscount: 0,
+		monthlyActivityPoints: 100,
+		verificationLevel: 'VERIFIED',
+		identityVerified: true,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		user: {
+			id: 1,
+			name: 'John Developer',
+			profilePicture: null
+		}
+	}
 };
 
 const sampleCounterOffers: CounterOffer[] = [
@@ -75,45 +121,40 @@ export const Open: Story = {
 	args: {
 		bid: sampleBid,
 		isOpen: true,
-		isTaskOwner: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const Closed: Story = {
 	args: {
 		bid: sampleBid,
 		isOpen: false,
-		isTaskOwner: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const TaskOwnerView: Story = {
 	args: {
 		bid: sampleBid,
 		isOpen: true,
-		isTaskOwner: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const BidderView: Story = {
 	args: {
 		bid: sampleBid,
 		isOpen: true,
-		isTaskOwner: false,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const AcceptedBid: Story = {
 	args: {
-		bid: { ...sampleBid, status: 'accepted' },
+		bid: { ...sampleBid, status: BidStatusEnum.ACCEPTED },
 		isOpen: true,
-		isTaskOwner: true,
 		counterOffers: sampleCounterOffers
-	}
+	} as unknown as Story['args']
 };
 
 export const HourlyRateBid: Story = {
@@ -126,7 +167,6 @@ export const HourlyRateBid: Story = {
 			amount: 0.01
 		},
 		isOpen: true,
-		isTaskOwner: true,
 		counterOffers: []
-	}
+	} as unknown as Story['args']
 };

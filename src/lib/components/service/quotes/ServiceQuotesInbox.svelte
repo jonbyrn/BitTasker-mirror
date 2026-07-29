@@ -36,8 +36,10 @@
 		services = [],
 		selectedServiceAddress = null,
 		serviceUnavailable = false,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- prop passed by consumers but used internally via derived state
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- prop accepted by interface but not used in template
 		serviceFilterLabel = null,
 		allServicesLabel = null,
 		deletedServiceLabel = null,
@@ -355,10 +357,6 @@
 		}
 	}
 
-	const resolvedServiceFilterLabel = $derived(
-		serviceFilterLabel ??
-			tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')
-	);
 	const resolvedAllServicesLabel = $derived(
 		allServicesLabel ?? tr('dashboard.services.my_services.workspace.all_services', 'All Services')
 	);
@@ -486,16 +484,22 @@
 			type: 'services',
 			highlight: escrowId
 		});
-		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
+		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`, {}));
 	}
 
 	function getActionButtons(timeline: ServiceQuoteTimelineEntry) {
 		if (timeline.linkedEscrowId) {
-			const actions = [
+			const actions: {
+				label: string;
+				class: string;
+				icon: string;
+				onclick: () => void;
+				disabled?: boolean;
+			}[] = [
 				{
 					label: tr('dashboard.services.my_services.quote_inbox.view_contract_short', 'Contract'),
 					class: 'btn-primary btn-sm',
-					icon: 'contract' as const,
+					icon: 'contract',
 					onclick: () => viewContract(timeline.linkedEscrowId!)
 				}
 			];
@@ -504,7 +508,7 @@
 				actions.push({
 					label: tr('dashboard.services.my_services.quote_inbox.view_proposal_short', 'View'),
 					class: 'btn-outline btn-sm',
-					icon: 'view' as const,
+					icon: 'view',
 					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
 				});
 			}
@@ -670,7 +674,6 @@
 			<ServiceFilterSelect
 				{services}
 				{selectedServiceAddress}
-				filterLabel={resolvedServiceFilterLabel}
 				allServicesLabel={resolvedAllServicesLabel}
 				deletedServiceLabel={resolvedDeletedServiceLabel}
 				testId="service-request-filter"
@@ -717,10 +720,13 @@
 								? service
 								: null)}
 						isSelected={focusedRequestId === timeline.request.content.quoteRequestId}
-						{showServiceTitles}
 						{serviceTitleByAddress}
 						serviceUnavailable={serviceUnavailable && !timeline.linkedEscrowId}
-						{getActionButtons}
+						getActionButtons={getActionButtons as unknown as ServiceQuoteRequestCard extends {
+							getActionButtons: infer T;
+						}
+							? T
+							: never}
 					/>
 				{/each}
 			</div>

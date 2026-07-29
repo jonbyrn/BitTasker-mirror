@@ -45,6 +45,9 @@ class TokenBalanceService {
 	private tokenBalanceCache: Map<string, CachedTokenBalances> = new Map();
 	private readonly BALANCE_CACHE_TTL = API.TOKEN_BALANCE_CACHE_TTL; // 1 minute
 
+	/** Cache key prefix for native RBTC balance */
+	private static readonly RSK_NATIVE_PREFIX = 'rsk-native:';
+
 	/**
 	 * Get explorer API URL for RSK network
 	 */
@@ -75,15 +78,7 @@ class TokenBalanceService {
 				}
 
 				this.tokenBalanceCache.delete(normalizedAddress);
-			} else {
-				console.log('[TokenBalanceService] Cache miss - no cached data found', {
-					address: normalizedAddress
-				});
 			}
-		} else {
-			console.log('[TokenBalanceService] Force refresh requested - bypassing cache', {
-				address: normalizedAddress
-			});
 		}
 
 		try {
@@ -245,15 +240,276 @@ class TokenBalanceService {
 	}
 
 	/**
-	 * Clear balance cache for a specific address
+	 * Fetch a single ERC-20 token balance on Arbitrum via direct RPC call.
+	 * Supports caching (same TTL as RSK token balances) and forceRefresh.
+	 *
+	 * @param address - Wallet address to query
+	 * @param tokenAddress - ERC-20 contract address on Arbitrum
+	 * @param decimals - Token decimals (fetched from contract if omitted)
+	 * @param forceRefresh - Bypass cache and fetch fresh from chain
+	 * @returns Balance object or null if zero / error
+	 */
+	async getArbitrumTokenBalance(
+		address: string,
+		tokenAddress: string,
+		decimals?: number,
+		forceRefresh = false
+	): Promise<{ balance: string; formattedBalance: string } | null> {
+		const normalizedAddress = address.toLowerCase();
+		const cacheKey = `arb:${normalizedAddress}:${tokenAddress.toLowerCase()}`;
+
+		// Check cache (skip if forceRefresh)
+		if (!forceRefresh) {
+			const cached = this.tokenBalanceCache.get(cacheKey);
+			if (cached) {
+				const age = Date.now() - cached.timestamp;
+				if (age < this.BALANCE_CACHE_TTL) {
+					console.log('[TokenBalanceService] Returning cached Arbitrum balance', {
+						cacheKey,
+						balance: cached.balances[0]?.formattedBalance,
+						cacheAge: `${Math.floor(age / 1000)}s`
+					});
+					return cached.balances[0]
+						? {
+								balance: cached.balances[0].balance,
+								formattedBalance: cached.balances[0].formattedBalance
+							}
+						: null;
+				}
+				this.tokenBalanceCache.delete(cacheKey);
+			}
+		} else {
+			this.tokenBalanceCache.delete(cacheKey);
+		}
+
+		try {
+			const rpcUrl =
+				(import.meta.env.VITE_ARBITRUM_RPC_URL as string) || 'https://arb1.arbitrum.io/rpc';
+			const balanceOfData =
+				'0x70a08231' + '000000000000000000000000' + address.toLowerCase().slice(2);
+
+			let dec = decimals;
+			const calls: Promise<Response>[] = [
+				fetch(rpcUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_call',
+						params: [{ to: tokenAddress, data: balanceOfData }, 'latest'],
+						id: 1
+					}),
+					signal: AbortSignal.timeout(10_000)
+				})
+			];
+
+			if (dec === undefined) {
+				calls.push(
+					fetch(rpcUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							jsonrpc: '2.0',
+							method: 'eth_call',
+							params: [{ to: tokenAddress, data: '0x313ce567' }, 'latest'],
+							id: 2
+						}),
+						signal: AbortSignal.timeout(10_000)
+					})
+				);
+			}
+
+			const responses = await Promise.all(calls);
+			const balanceJson = await responses[0].json();
+			const hexBalance = balanceJson.result;
+			if (!hexBalance || hexBalance === '0x') return null;
+
+			const raw = BigInt(hexBalance);
+			if (raw === 0n) return null;
+
+			if (dec === undefined && responses[1]) {
+				const decimalsJson = await responses[1].json();
+				dec = decimalsJson.result ? parseInt(decimalsJson.result, 16) : 18;
+			}
+			dec ??= 18;
+
+			const formattedBalance = ethers.formatUnits(raw.toString(), dec);
+			const result = { balance: raw.toString(), formattedBalance };
+
+			// Cache the result
+			this.tokenBalanceCache.set(cacheKey, {
+				balances: [
+					{ address: tokenAddress, name: '', symbol: '', decimals: dec, ...result, isNative: false }
+				],
+				timestamp: Date.now()
+			});
+
+			return result;
+		} catch (e) {
+			console.warn('[TokenBalanceService] getArbitrumTokenBalance failed:', e);
+			return null;
+		}
+	}
+
+	/**
+	 * Fetch native RBTC balance via direct RPC call (eth_getBalance).
+	 * This method uses tokenBalanceService's cache system, ensuring that
+	 * clearAllBalanceCaches() can force a fresh native balance fetch.
+	 *
+	 * This fixes the balance double-counting bug during cross-chain bridges:
+	 * manager.rskWallet.getBalance() uses the SDK's internal cache which
+	 * clearAllBalanceCaches() cannot clear. When a bridge delivers WBTC on
+	 * Arbitrum while the SDK returns a stale RBTC balance, the total shows
+	 * both the old RBTC AND new WBTC = 2× the correct value.
+	 *
+	 * @param address - RSK wallet address
+	 * @param rpcUrl - RSK RPC URL (e.g., 'https://public-node.rsk.co')
+	 * @param forceRefresh - Force refresh even if cache is valid
+	 * @returns Native RBTC balance info, or null on error
+	 */
+	async getRSKNativeBalance(
+		address: string,
+		rpcUrl: string,
+		forceRefresh = false
+	): Promise<{ balance: bigint; formatted: string } | null> {
+		const cacheKey = `${TokenBalanceService.RSK_NATIVE_PREFIX}${address.toLowerCase()}`;
+
+		// Check cache
+		if (!forceRefresh) {
+			const cached = this.tokenBalanceCache.get(cacheKey);
+			if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+				const b = cached.balances[0];
+				if (b) return { balance: BigInt(b.balance), formatted: b.formattedBalance };
+			}
+		}
+
+		try {
+			const response = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_getBalance',
+					params: [address, 'latest'],
+					id: 1
+				}),
+				signal: AbortSignal.timeout(10_000)
+			});
+			const data = (await response.json()) as { result?: string; error?: { message: string } };
+			if (data.error || !data.result) return null;
+
+			const balance = BigInt(data.result);
+			const formatted = (Number(balance) / 1e18).toFixed(8);
+
+			// Cache the result so clearAllBalanceCaches can clear it
+			this.tokenBalanceCache.set(cacheKey, {
+				balances: [{
+					address: '0x0000000000000000000000000000000000000000',
+					name: 'Rootstock Bitcoin',
+					symbol: 'RBTC',
+					decimals: 18,
+					balance: balance.toString(),
+					formattedBalance: formatted,
+					isNative: true
+				}],
+				timestamp: Date.now()
+			});
+
+			return { balance, formatted };
+		} catch (e) {
+			console.warn('[TokenBalanceService] getRSKNativeBalance failed:', e);
+			return null;
+		}
+	}
+
+	/**
+	 * Clear balance cache for a specific address (RSK only).
 	 */
 	clearBalanceCache(address: string): void {
 		const normalizedAddress = address.toLowerCase();
-
 		this.tokenBalanceCache.delete(normalizedAddress);
+	}
+
+	/**
+	 * Clear ALL balance caches for an address across all chains.
+	 * Must be called after any token transfer (swap, bridge, send) to ensure
+	 * the UI doesn't show stale balances.
+	 */
+	clearAllBalanceCaches(address: string): void {
+		const normalizedAddress = address.toLowerCase();
+		// Clear RSK ERC-20 cache
+		this.tokenBalanceCache.delete(normalizedAddress);
+		// Clear native RBTC cache (fixes double-counting during cross-chain bridges)
+		this.tokenBalanceCache.delete(`${TokenBalanceService.RSK_NATIVE_PREFIX}${normalizedAddress}`);
+		// Clear all Arbitrum caches (keys are arb:{addr}:{token})
+		for (const key of this.tokenBalanceCache.keys()) {
+			if (key.startsWith(`arb:${normalizedAddress}:`)) {
+				this.tokenBalanceCache.delete(key);
+			}
+		}
+	}
+
+	/**
+	 * Get any ERC-20 token balance on any EVM chain with a given RPC URL.
+	 */
+	async getEVMTokenBalance(
+		address: string,
+		tokenAddress: string,
+		decimals: number,
+		rpcUrl: string,
+		symbol: string,
+		name: string
+	): Promise<TokenBalance | null> {
+		console.log('[TokenService] getEVMTokenBalance:', {
+			symbol,
+			address: address.slice(0, 10) + '...',
+			chain: new URL(rpcUrl).hostname
+		});
+		const cacheKey = `evm:${rpcUrl}:${address.toLowerCase()}:${tokenAddress.toLowerCase()}`;
+		const cached = this.tokenBalanceCache.get(cacheKey);
+		if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+			return cached.balances[0] ?? null;
+		}
+		try {
+			const balanceOfSelector =
+				'0x70a08231' + address.toLowerCase().replace('0x', '').padStart(64, '0');
+			const resp = await fetch(rpcUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_call',
+					params: [{ to: tokenAddress, data: balanceOfSelector }, 'latest'],
+					id: 1
+				})
+			});
+			const data = (await resp.json()) as { result: string };
+			const balance = BigInt(data.result || '0x0');
+			console.log('[TokenService] getEVMTokenBalance result:', {
+				symbol,
+				balance: balance.toString()
+			});
+			if (balance === 0n) return null;
+			const formattedBalance = (Number(balance) / Math.pow(10, decimals)).toFixed(
+				decimals > 6 ? 6 : decimals
+			);
+			const result: TokenBalance = {
+				address: tokenAddress,
+				name,
+				symbol,
+				decimals,
+				balance: balance.toString(),
+				formattedBalance,
+				isNative: false
+			};
+			this.tokenBalanceCache.set(cacheKey, { balances: [result], timestamp: Date.now() });
+			return result;
+		} catch (e) {
+			console.warn('[TokenBalanceService] EVM token balance fetch failed:', e);
+			return null;
+		}
 	}
 }
 
-// Export singleton instance
 const tokenBalanceService = new TokenBalanceService();
 export default tokenBalanceService;

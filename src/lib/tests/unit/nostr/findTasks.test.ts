@@ -289,12 +289,12 @@ describe('findTasks', () => {
 			expect(mockFindEvents).toHaveBeenCalledTimes(2);
 
 			// First call was the search request
-			const firstFilter = mockFindEvents.mock.calls[0][0];
-			expect(firstFilter.search).toBe('nonexistent-term');
+			const firstFilter = mockFindEvents.mock.calls[0]![0];
+			expect(firstFilter!.search).toBe('nonexistent-term');
 
 			// Second call was the fallback (no search)
-			const secondFilter = mockFindEvents.mock.calls[1][0];
-			expect(secondFilter.search).toBeUndefined();
+			const secondFilter = mockFindEvents.mock.calls[1]![0];
+			expect(secondFilter!.search).toBeUndefined();
 		});
 
 		it('should accumulate visible tasks when fallback returns matches', async () => {

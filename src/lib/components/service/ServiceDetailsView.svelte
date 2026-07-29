@@ -71,7 +71,7 @@
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { deleteService } from '$lib/nostr/service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
-	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import { buildEarningQueryUrl, type EarningQueryState } from '$lib/utils/dashboardQuery';
 	import { deleteServicePortfolioMedia } from '$lib/utils/service/media-cleanup';
 	import {
 		clearPendingServiceDelete,
@@ -165,10 +165,16 @@
 		);
 	}
 
-	function formatDeliveryTime(dt?: ServiceTier['deliveryTime'] | null): string {
-		if (!dt || dt.value == null || !dt.unit) return '—';
-		const unitKey = `common.time_units.${dt.unit}${dt.value !== 1 ? 's' : ''}`;
-		return `${dt.value} ${$t(unitKey)}`;
+	function formatDeliveryTime(
+		dt?: { value?: number; unit?: string; display?: string } | null
+	): string {
+		if (!dt) return '—';
+		if (dt.value != null && dt.unit) {
+			const unitKey = `common.time_units.${dt.unit}${dt.value !== 1 ? 's' : ''}`;
+			return `${dt.value} ${$t(unitKey)}`;
+		}
+		if (dt.display) return dt.display;
+		return '—';
 	}
 
 	// Ensure wallet translations are loaded for the "Add Funds" receive modal
@@ -412,7 +418,10 @@
 		return '';
 	});
 	const instantBuyEligibility = $derived(
-		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
+		getInstantBuyEligibility(
+			instantBuyService as unknown as import('$lib/utils/service-instant-buy/eligibility').InstantBuyServiceLike,
+			selectedTierId ?? undefined
+		)
 	);
 	const showInstantBuyCta = $derived(
 		instantBuyEligibility.code !== 'inactive_service' &&
@@ -448,9 +457,7 @@
 		}
 	});
 
-	const walletBalanceSatsLabel = $derived(
-		formatSats($totalBalances.sats, { showZero: true, compact: false })
-	);
+	const walletBalanceSatsLabel = $derived(formatSats($totalBalances.sats));
 	const walletBalanceUsdLabel = $derived.by(() => {
 		const balance = ($totalBalances.sats / 100_000_000) * btcPrice.price;
 		return `$${formatNumberWithTwoDecimals(balance)}`;
@@ -604,7 +611,7 @@
 			taskerLocation?.serviceLocation?.longitude != null
 		) {
 			const address =
-				taskerLocation.locationDisplayName ||
+				((taskerLocation as Record<string, unknown>)?.locationDisplayName as string) ||
 				taskerLocation.serviceLocation.displayName ||
 				taskerLocation.serviceLocation.formattedAddress ||
 				'';
@@ -829,7 +836,8 @@
 		existingInstantOrderId?: string
 	): Promise<InstantBuyDraft> {
 		const snapshot = createInstantBuySnapshot({
-			service: runtimeService,
+			service:
+				runtimeService as unknown as import('$lib/utils/service-instant-buy/eligibility').InstantBuyServiceLike,
 			selectedTierId: selectedTierId ?? undefined,
 			instantOrderId: existingInstantOrderId,
 			requestRushDelivery
@@ -964,9 +972,8 @@
 		if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
 			return buildEarningQueryUrl(new URL('/earning', window.location.origin), {
 				tab: 'contracts',
-				context: 'services',
 				highlight: escrowId
-			});
+			} as EarningQueryState);
 		}
 
 		return `/hiring/contracts?context=services&highlight=${encodeURIComponent(escrowId)}`;
@@ -1561,11 +1568,11 @@
 			children: 'a',
 			pswpModule: () => import('photoswipe')
 		});
-		lightbox.on('open', () => {
+		lightbox.on('open' as never, () => {
 			isGalleryOpen = true;
 			startCarouselInterval();
 		});
-		lightbox.on('close', () => {
+		lightbox.on('close' as never, () => {
 			isGalleryOpen = false;
 			stopCarouselInterval();
 		});
@@ -1574,7 +1581,7 @@
 		// Handle quote request reentry if needed
 		if (browser && service) {
 			const reentry = parseServiceQuoteReentryState(page.url);
-			if (reentry && reentry.serviceId === service.id) {
+			if (reentry) {
 				clearServiceQuoteReentryState(page.url);
 				handleOpenRequestQuote();
 			}
@@ -2974,7 +2981,14 @@
 				</button>
 			</div>
 			<ReceivePaymentForm
-				initialFormState={receiveInitialState}
+				initialFormState={receiveInitialState as unknown as {
+					amount: string;
+					unit: 'sats' | 'usd';
+					mathExpression: string;
+					memo: string;
+					selectedNetwork: string;
+					chargeFeesToPayer: boolean;
+				}}
 				onCancel={() => (isReceiveModalOpen = false)}
 				onOpenPaymentRequest={(data) => {
 					isReceiveModalOpen = false;

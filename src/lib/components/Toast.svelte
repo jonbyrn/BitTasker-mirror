@@ -44,7 +44,12 @@
 						<p class="text-base-content flex-1 text-sm leading-relaxed">
 							{typeof toast.message === 'string'
 								? toast.message
-								: $t(toast.message.key, { values: toast.message.values })}
+								: $t(toast.message.key, {
+										values: toast.message.values as Record<
+											string,
+											string | number | boolean | null | undefined
+										>
+									})}
 						</p>
 						{#if toast.actions && toast.actions.length > 0}
 							<div class="flex shrink-0 flex-wrap justify-end gap-2">

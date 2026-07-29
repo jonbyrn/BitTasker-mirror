@@ -18,6 +18,8 @@ import { appStore } from '$lib/stores/app.store';
 import { authState } from '$lib/stores/auth.store';
 import { goto } from '$app/navigation';
 import { Capacitor } from '@capacitor/core';
+import { createDebug } from '$lib/utils/debug';
+const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
 
 export const checkNativePlatform = (): boolean => {
@@ -26,8 +28,32 @@ export const checkNativePlatform = (): boolean => {
 };
 
 export const checkBiometricAvailability = async (): Promise<boolean> => {
-	const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
-	return webAuthnAvailable;
+	dbg.log('checkBiometricAvailability: isNative=%s', Capacitor.isNativePlatform());
+	// On native mobile, use Capacitor plugin
+	if (Capacitor.isNativePlatform()) {
+		try {
+			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
+			dbg.log('checkBiometricAvailability: Capacitor WebAuthn available=%s', webAuthnAvailable);
+			return webAuthnAvailable;
+		} catch (err) {
+			dbg.error('checkBiometricAvailability: Capacitor check failed', err);
+			return false;
+		}
+	}
+
+	// On web (browser), use native WebAuthn API directly
+	// CDP virtual authenticators and platform authenticators both work
+	if (
+		typeof window !== 'undefined' &&
+		typeof window.PublicKeyCredential !== 'undefined' &&
+		navigator.credentials?.create !== undefined
+	) {
+		dbg.log('checkBiometricAvailability: native WebAuthn API available, returning true');
+		return true;
+	}
+
+	dbg.log('checkBiometricAvailability: no WebAuthn support found');
+	return false;
 };
 
 /**
@@ -61,8 +87,31 @@ export async function setBiometricKey({
 		// Use the same packKeys function as web implementation
 		const packedKeysBase64 = packKeysMobile(npub, exportedKey);
 
-		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
-		if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
+		// Determine WebAuthn path: native mobile or web browser
+		let useNativeWebAuthn = false;
+		if (Capacitor.isNativePlatform()) {
+			// Native mobile: use Capacitor WebAuthn plugin
+			try {
+				const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
+				if (!webAuthnAvailable) throw new Error('Capacitor WebAuthn not available');
+			} catch {
+				throw new Error('WebAuthn is not available on this device');
+			}
+		} else {
+			// Web browser: use native navigator.credentials API directly
+			// Works with CDP virtual authenticators and platform authenticators
+			if (
+				typeof window !== 'undefined' &&
+				typeof window.PublicKeyCredential !== 'undefined' &&
+				navigator.credentials?.create !== undefined
+			) {
+				useNativeWebAuthn = true;
+				dbg.log('setBiometricKey: using native WebAuthn path (non-Capacitor)');
+			} else {
+				dbg.log('setBiometricKey: no WebAuthn support');
+				throw new Error('WebAuthn is not available');
+			}
+		}
 
 		let name = '';
 		let displayName = '';
@@ -78,78 +127,145 @@ export async function setBiometricKey({
 		// Decode challenge from base64url
 		const _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
 
-		const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
-			challenge: _challenge,
-			rp: {
-				name: 'BitTasker',
-				// On mobile, window.location.hostname comes from Capacitor's server.hostname config.
-				// This must match the domain where assetlinks.json is hosted for passkey validation.
-				id: window.location.hostname
-			},
-			user: {
-				id: packedKeysBase64,
-				name: displayName, // The actual name displayed on the passkey
-				displayName: name // Device name + 8 characters of the npub
-			},
-			pubKeyCredParams: [
-				{ type: 'public-key', alg: -7 }, // ES256
-				{ type: 'public-key', alg: -257 } // RS256
-			],
-			timeout: 60000,
-			attestation: 'none',
-			authenticatorSelection: {
-				// authenticatorAttachment: 'platform',
-				userVerification: 'required',
-				requireResidentKey: true,
-				residentKey: 'required'
-			}
+		// Helper to convert base64url string to ArrayBuffer
+		const base64urlToBuffer = (base64url: string): ArrayBuffer => {
+			const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+			const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+			const binary = atob(padded);
+			const buffer = new ArrayBuffer(binary.length);
+			const view = new Uint8Array(buffer);
+			for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+			return buffer;
 		};
 
-		const result = await Webauthn.startRegistration(registrationOptions);
+		// Helper to convert ArrayBuffer to base64url string
+		const bufferToBase64url = (buffer: ArrayBuffer): string => {
+			const bytes = new Uint8Array(buffer);
+			let binary = '';
+			for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+			return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+		};
 
-		credentialId = result.id;
-
-		if (!credentialId) {
-			throw new Error('No credential ID found');
-		}
-
-		// Extract public key from response
-		// Capacitor WebAuthn plugin returns the public key in the response
-		const response = result.response;
-
-		// Convert public key to hex if available
 		let passkeyPubkey = '';
-		if (response.publicKey) {
-			// If publicKey is already a string, use it directly
-			if (typeof response.publicKey === 'string') {
-				passkeyPubkey = response.publicKey;
-			} else {
-				// Otherwise convert ArrayBuffer/Uint8Array to hex
-				const publicKeyBytes = new Uint8Array(response.publicKey);
-				passkeyPubkey = Array.from(publicKeyBytes)
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('');
-			}
-		} else {
-			// get public key from attestationObject
-			const publicKeyBytes = extractPublicKeyFromAttestationObject(
-				result.response.attestationObject
-			);
-			if (publicKeyBytes) {
-				passkeyPubkey = Array.from(publicKeyBytes)
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('');
-			}
-		}
+		let clientDataJSON = '';
+		let attestationObjectB64 = '';
 
-		// Return credential data like WebAuthn does
-		return {
-			credentialId,
-			passkeyPubkey,
-			clientDataJSON: response.clientDataJSON,
-			attestationObject: response.attestationObject,
-			challenge: _challenge
-		};
+		if (useNativeWebAuthn) {
+			// Use native browser WebAuthn API (works with CDP virtual authenticators)
+			dbg.log(
+				'setBiometricKey: about to call navigator.credentials.create with rpId=%s',
+				window.location.hostname
+			);
+			const nativeOptions: PublicKeyCredentialCreationOptions = {
+				challenge: base64urlToBuffer(_challenge),
+				rp: {
+					name: 'BitTasker',
+					id: window.location.hostname
+				},
+				user: {
+					id: base64urlToBuffer(packedKeysBase64),
+					name: displayName,
+					displayName: name
+				},
+				pubKeyCredParams: [
+					{ type: 'public-key', alg: -7 },
+					{ type: 'public-key', alg: -257 }
+				],
+				timeout: 60000,
+				attestation: 'none',
+				authenticatorSelection: {
+					userVerification: 'required',
+					requireResidentKey: true,
+					residentKey: 'required'
+				}
+			};
+
+			const credential = await navigator.credentials.create({ publicKey: nativeOptions });
+			if (!credential) throw new Error('No credential returned from WebAuthn');
+
+			credentialId = credential.id;
+			const pubCred = credential as PublicKeyCredential;
+			passkeyPubkey = bufferToBase64url(pubCred.rawId);
+			clientDataJSON = bufferToBase64url(
+				(pubCred.response as AuthenticatorAttestationResponse).clientDataJSON as ArrayBuffer
+			);
+			attestationObjectB64 = bufferToBase64url(
+				(pubCred.response as AuthenticatorAttestationResponse).attestationObject as ArrayBuffer
+			);
+
+			// Try to extract public key from attestation object
+			const pubKeyBytes = extractPublicKeyFromAttestationObject(attestationObjectB64);
+			if (pubKeyBytes) {
+				passkeyPubkey = Array.from(pubKeyBytes)
+					.map((b: number) => b.toString(16).padStart(2, '0'))
+					.join('');
+			}
+
+			return {
+				credentialId,
+				passkeyPubkey,
+				clientDataJSON,
+				attestationObject: attestationObjectB64,
+				challenge: _challenge
+			};
+		} else {
+			// Use Capacitor WebAuthn plugin (native mobile)
+			const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
+				challenge: _challenge,
+				rp: {
+					name: 'BitTasker',
+					id: window.location.hostname
+				},
+				user: {
+					id: packedKeysBase64,
+					name: displayName,
+					displayName: name
+				},
+				pubKeyCredParams: [
+					{ type: 'public-key', alg: -7 },
+					{ type: 'public-key', alg: -257 }
+				],
+				timeout: 60000,
+				attestation: 'none',
+				authenticatorSelection: {
+					userVerification: 'required',
+					requireResidentKey: true,
+					residentKey: 'required'
+				}
+			};
+
+			const result = await Webauthn.startRegistration(registrationOptions);
+
+			credentialId = result.id;
+			if (!credentialId) throw new Error('No credential ID found');
+
+			const response = result.response;
+			if (response.publicKey) {
+				if (typeof response.publicKey === 'string') {
+					passkeyPubkey = response.publicKey;
+				} else {
+					const publicKeyBytes = new Uint8Array(response.publicKey);
+					passkeyPubkey = Array.from(publicKeyBytes)
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('');
+				}
+			} else {
+				const publicKeyBytes = extractPublicKeyFromAttestationObject(response.attestationObject);
+				if (publicKeyBytes) {
+					passkeyPubkey = Array.from(publicKeyBytes)
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('');
+				}
+			}
+
+			return {
+				credentialId,
+				passkeyPubkey,
+				clientDataJSON: response.clientDataJSON,
+				attestationObject: response.attestationObject,
+				challenge: _challenge
+			};
+		}
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
 		throw new Error(await handleBiometricError(err, 'mobile-webauthn'));
@@ -189,9 +305,103 @@ async function executeBiometricData(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[]
 ): Promise<Credentials | null> {
 	try {
-		// Force WebAuthn if authMethod is 'passkey'
+		// Platform-aware: skip Capacitor plugin in browser/CDP environments
+		const isNative = Capacitor.isNativePlatform();
+		const isTestEnv =
+			typeof window !== 'undefined' &&
+			'__PLAYWRIGHT_TEST__' in window &&
+			window.__PLAYWRIGHT_TEST__;
+
+		if (!isNative || isTestEnv) {
+			// Browser/CDP environment: use native WebAuthn API with virtual authenticator
+			const { challenge } = await authService.getChallenge();
+
+			// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
+			const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
+			const padded = challengeBase64 + '='.repeat((4 - (challengeBase64.length % 4)) % 4);
+			const challengeArrayBuffer = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)).buffer;
+
+			const options: PublicKeyCredentialRequestOptions = {
+				challenge: challengeArrayBuffer,
+				timeout: 60000,
+				userVerification: 'required',
+				rpId: window.location.hostname,
+				allowCredentials: allowCredentials.map((cred) => ({
+					...cred,
+					transports: cred.transports as AuthenticatorTransport[] | undefined,
+					id: (() => {
+						const base64 = cred.id.replace(/-/g, '+').replace(/_/g, '/');
+						const paddedStr = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+						const binary = atob(paddedStr);
+						const buffer = new ArrayBuffer(binary.length);
+						const view = new Uint8Array(buffer);
+						for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+						return buffer;
+					})()
+				}))
+			};
+
+			const credential = await navigator.credentials.get({ publicKey: options });
+			if (!credential) throw new Error('No credentials found');
+
+			const pubKeyCred = credential as PublicKeyCredential;
+			const response = pubKeyCred.response as AuthenticatorAssertionResponse;
+			if (!response.userHandle) {
+				console.error('No user handle in credential response');
+				throw new Error('No user handle in credential response');
+			}
+
+			// Convert ArrayBuffer to base64url string (same format as packKeysMobile outputs)
+			const userHandleBytes = new Uint8Array(response.userHandle);
+			let binary = '';
+			for (let i = 0; i < userHandleBytes.length; i++)
+				binary += String.fromCharCode(userHandleBytes[i]);
+			const packedKeysBase64 = btoa(binary)
+				.replace(/\+/g, '-')
+				.replace(/\//g, '_')
+				.replace(/=/g, '');
+			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
+			const publicKey = unpackedKeys.publicKey;
+			const exportedKey = unpackedKeys.exportedKey;
+
+			if (checkNpub) {
+				const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
+				if (storedNpub !== publicKey) {
+					throw new Error(
+						'Passkey mismatch: Please select the correct one linked to this account.'
+					);
+				}
+			}
+
+			// Helper to convert ArrayBuffer to base64url string
+			const toBase64url = (buf: ArrayBuffer): string => {
+				const bytes = new Uint8Array(buf);
+				let binary = '';
+				for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+				return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+			};
+
+			// Convert all ArrayBuffer fields to base64url strings for backend validation
+			return {
+				npub: publicKey,
+				exportedKey,
+				credentialId: pubKeyCred.id,
+				response: {
+					authenticatorData: toBase64url(response.authenticatorData),
+					clientDataJSON: toBase64url(response.clientDataJSON),
+					signature: toBase64url(response.signature),
+					userHandle: packedKeysBase64
+				},
+				challenge: challenge
+			};
+		}
+
+		// Native Capacitor environment: use Capacitor WebAuthn plugin
 		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
-		if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
+		if (!webAuthnAvailable) {
+			dbg.log('setBiometricKey: no WebAuthn support');
+			throw new Error('WebAuthn is not available');
+		}
 
 		const { challenge } = await authService.getChallenge();
 		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');

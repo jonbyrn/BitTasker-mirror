@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock the SDK before importing wallet.store
 vi.mock('@bittasker/wallet-core', () => ({
-	WalletManager: vi.fn()
+	WalletManager: vi.fn(),
+	ARB_TOKEN_ADDRESSES: {
+		USDT0: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+		WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+		TBTC: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40'
+	}
 }));
 
 import { formatSats, formatUsd, formatAddress } from '$lib/stores/wallet.store';

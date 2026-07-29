@@ -195,7 +195,7 @@
 
 		if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
 			return (service.pricing.tiers ?? []).some(
-				(tier) => getInstantBuyEligibility(service, tier.id).eligible
+				(tier: { id: string }) => getInstantBuyEligibility(service, tier.id).eligible
 			);
 		}
 

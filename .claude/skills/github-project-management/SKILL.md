@@ -16,11 +16,10 @@ tags:
 difficulty: intermediate
 prerequisites:
   - GitHub CLI (gh) installed and authenticated
-  - ruv-swarm or claude-flow MCP server configured
+  - ruv-swarm MCP server configured
   - Repository access permissions
 tools_required:
   - mcp__github__*
-  - mcp__claude-flow__*
   - Bash
   - Read
   - Write
@@ -49,8 +48,7 @@ gh issue create \
   --body "Implement OAuth2 with social login..." \
   --label "enhancement,swarm-ready"
 
-# Initialize swarm for issue
-npx claude-flow@alpha hooks pre-task --description "Feature implementation"
+# Initialize swarm for issue with context
 ```
 
 ### Project Board Quick Setup
@@ -79,10 +77,7 @@ npx ruv-swarm github board-init \
 
 ```javascript
 // Initialize issue management swarm
-mcp__claude-flow__swarm_init { topology: "star", maxAgents: 3 }
-mcp__claude-flow__agent_spawn { type: "coordinator", name: "Issue Coordinator" }
-mcp__claude-flow__agent_spawn { type: "researcher", name: "Requirements Analyst" }
-mcp__claude-flow__agent_spawn { type: "coder", name: "Implementation Planner" }
+// Spawn specialized agents: coordinator, researcher, implementation planner
 
 // Create comprehensive issue
 mcp__github__create_issue {
@@ -106,12 +101,7 @@ mcp__github__create_issue {
   assignees: ["username"]
 }
 
-// Set up automated tracking
-mcp__claude-flow__task_orchestrate {
-  task: "Monitor and coordinate issue progress with automated updates",
-  strategy: "adaptive",
-  priority: "medium"
-}
+// Set up automated tracking with adaptive coordination
 ```
 
 #### Batch Issue Creation
@@ -1268,7 +1258,7 @@ npx ruv-swarm github board-kpis
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 - [GitHub Projects Documentation](https://docs.github.com/en/issues/planning-and-tracking-with-projects)
 - [Swarm Coordination Guide](https://github.com/ruvnet/ruv-swarm)
-- [Claude Flow Documentation](https://github.com/ruvnet/claude-flow)
+- [GitHub Projects Documentation](https://docs.github.com/en/issues/planning-and-tracking-with-projects)
 
 ---
 

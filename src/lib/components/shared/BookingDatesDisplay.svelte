@@ -66,7 +66,12 @@
 		const start = toDate(startTime);
 		const end = toDate(endTime);
 		if (start && end) {
-			return formatDurationBetweenDates(start, end, (k) => $t(k));
+			return formatDurationBetweenDates(
+				start,
+				end,
+				(k) => $t(k),
+				'dashboard.services.detail.book_now_drawer'
+			);
 		}
 		return '';
 	});
