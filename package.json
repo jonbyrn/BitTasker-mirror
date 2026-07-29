@@ -44,6 +44,7 @@
 		"lint": "prettier --check . --ignore-path .prettierignore && eslint .",
 		"test:unit": "vitest run",
 		"test": "npm run test:unit",
+		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",
 		"test:workflow": "node --test tests/codex-plan-workflow.test.mjs",
 		"gi": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",
 		"test:e2e:validate-service-bootstrap": "node scripts/validate-service-e2e-bootstrap.mjs",
