@@ -110,8 +110,8 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:-http://anvil:8545}
-      - ALTO_URL_1=http://alto-1:3000
-      - ALTO_URL_2=http://alto-2:3001
+      - ALTO_URL_1=https://alto.dev.bittasker.com
+      - ALTO_URL_2=https://alto.dev.bittasker.com
       - GAS_TREASURY=${GAS_TREASURY}
       - PAYMASTER_ADDRESS=${PAYMASTER_ADDRESS}
       - CHAIN_ID=${CHAIN_ID:-42161}

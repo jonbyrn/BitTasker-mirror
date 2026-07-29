@@ -40,8 +40,8 @@ if (!GAS_TREASURY) {
 }
 
 export const ALTO_URLS: readonly string[] = [
-	import.meta.env.VITE_ALTO_URL_1 ?? 'http://alto-1:3000',
-	import.meta.env.VITE_ALTO_URL_2 ?? 'http://alto-2:3000'
+	import.meta.env.VITE_ALTO_URL_1 ?? 'https://alto.dev.bittasker.com',
+	import.meta.env.VITE_ALTO_URL_2 ?? 'https://alto.dev.bittasker.com'
 ];
 
 export const ARBITRUM_RPC_URL = import.meta.env.VITE_ARBITRUM_RPC_URL ?? '';
@@ -64,11 +64,11 @@ export const PAYMASTER_SIGNER_KEY_FILE = '';
 
 export const GAS_BOUNDS: GasBounds = {
 	maxCallGas: 5_000_000n,
-	maxVerificationGas: 500_000n,       // ERC-4337 bundler limit
-	maxPreVerificationGas: 100_000n,    // Sufficient for EIP-7702
+	maxVerificationGas: 500_000n, // ERC-4337 bundler limit
+	maxPreVerificationGas: 100_000n, // Sufficient for EIP-7702
 	maxFeePerGas: 1_000_000_000n,
 	maxPriorityFeePerGas: 100_000_000n,
-	maxTotalGas: 6_000_000n             // Matches VerifyingPaymaster.sol on-chain constant
+	maxTotalGas: 6_000_000n // Matches VerifyingPaymaster.sol on-chain constant
 };
 
 export const FEE_TIERS: FeeTierDef[] = [
@@ -160,8 +160,7 @@ async function _doFetch(): Promise<boolean> {
 				GAS_BOUNDS.maxFeePerGas = BigInt(data.gasBounds.maxFeePerGas);
 			if (data.gasBounds.maxPriorityFeePerGas)
 				GAS_BOUNDS.maxPriorityFeePerGas = BigInt(data.gasBounds.maxPriorityFeePerGas);
-			if (data.gasBounds.maxTotalGas)
-				GAS_BOUNDS.maxTotalGas = BigInt(data.gasBounds.maxTotalGas);
+			if (data.gasBounds.maxTotalGas) GAS_BOUNDS.maxTotalGas = BigInt(data.gasBounds.maxTotalGas);
 		}
 
 		// Replace FEE_TIERS contents in place

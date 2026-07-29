@@ -71,7 +71,7 @@ vi.mock('$lib/wallet/gasless.config', () => {
 		get GAS_TREASURY() {
 			return process.env['GAS_TREASURY'] ?? '';
 		},
-		ALTO_URLS: ['http://alto-1:3000', 'http://alto-2:3000'],
+		ALTO_URLS: ['https://alto.dev.bittasker.com'],
 		ARBITRUM_RPC_URL: '',
 		API_BASE_URL: 'http://localhost:4000',
 		ETH_USD_FEED: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
@@ -99,7 +99,7 @@ vi.mock('$lib/wallet/gasless.config', () => {
 			treasury: process.env['GAS_TREASURY'] ?? '',
 			entryPointAddress: '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
 			chainId: BigInt(42161),
-			altoUrls: ['http://alto-1:3000', 'http://alto-2:3000'],
+			altoUrls: ['https://alto.dev.bittasker.com'],
 			chainlinkFeeds: {
 				ethUsd: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
 				btcUsd: '0x6ce185860a4963106506C203335A2910413708e9'
