@@ -44,7 +44,7 @@
 		"test:unit": "vitest run",
 		"test": "npm run test:unit",
 		"test:workflow": "node --test tests/codex-plan-workflow.test.mjs",
-		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",
+		"gi": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",
 		"test:e2e:validate-service-bootstrap": "node scripts/validate-service-e2e-bootstrap.mjs",
 		"test:reviews:components": "vitest run --config vitest.config.ts src/lib/components/profile/__tests__/ src/lib/components/reviews/__tests__/",
 		"test:triage": "node scripts/test-triage.js",
@@ -147,7 +147,7 @@
 	},
 	"dependencies": {
 		"@bittasker/reviews-contracts": "^0.0.2",
-		"@bittasker/wallet-core": "file:../wallet-core-v2/bittasker-wallet-core-0.2.1.tgz",
+		"@bittasker/wallet-core": "^0.2.2",
 		"@capacitor-mlkit/barcode-scanning": "^8.0.1",
 		"@capacitor/android": "^8.0.0",
 		"@capacitor/app": "^8.0.0",
