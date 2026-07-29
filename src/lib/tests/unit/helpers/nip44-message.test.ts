@@ -102,9 +102,11 @@ describe('NIP-44 Message Utilities', () => {
 		vi.clearAllMocks();
 		mockPool.querySync.mockResolvedValue([]);
 
-		mockNip44 = (await import('$lib/nostr/nip44')).default;
-		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys')).getNostrKeyPair;
-		mockPublishSignedNdkEvent = (await import('$lib/nostr/profile/ndk')).publishSignedNdkEvent;
+		mockNip44 = (await import('$lib/nostr/nip44')).default as unknown as typeof mockNip44;
+		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys'))
+			.getNostrKeyPair as unknown as typeof mockGetNostrKeyPair;
+		mockPublishSignedNdkEvent = (await import('$lib/nostr/profile/ndk'))
+			.publishSignedNdkEvent as unknown as typeof mockPublishSignedNdkEvent;
 
 		mockNip44.getConversationKey.mockResolvedValue(new Uint8Array(32));
 		mockNip44.encrypt.mockResolvedValue('encrypted_content');
@@ -126,13 +128,13 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		// Spy on crypto.getRandomValues (should be available from global setup)
-		if (global.crypto && global.crypto.getRandomValues) {
-			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation((arr: Uint8Array) => {
+		if (global.crypto && typeof global.crypto.getRandomValues === 'function') {
+			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation(((arr: Uint8Array) => {
 				for (let i = 0; i < arr.length; i++) {
 					arr[i] = Math.floor(Math.random() * 256);
 				}
 				return arr;
-			});
+			}) as unknown as typeof global.crypto.getRandomValues);
 		}
 	});
 

@@ -87,26 +87,58 @@ describe('user.store', () => {
 		});
 
 		it('should return cached event after cacheEvent', () => {
-			const event = { kind: KINDS.PROFILE_METADATA, content: '{}', id: 'e1' };
+			const event = {
+				kind: KINDS.PROFILE_METADATA,
+				content: '{}',
+				id: 'e1',
+				pubkey: 'pk1',
+				created_at: 1000,
+				sig: '',
+				tags: [] as string[][]
+			};
 			cacheEvent(KINDS.PROFILE_METADATA, 'npub1', event);
 			expect(getCachedEvent(KINDS.PROFILE_METADATA, 'npub1')).toBe(event);
 		});
 
 		it('should return null for different kind', () => {
-			const event = { kind: KINDS.PROFILE_METADATA, content: '{}' };
+			const event = {
+				kind: KINDS.PROFILE_METADATA,
+				content: '{}',
+				id: 'e2',
+				pubkey: 'pk1',
+				created_at: 1000,
+				sig: '',
+				tags: [] as string[][]
+			};
 			cacheEvent(KINDS.PROFILE_METADATA, 'npub1', event);
 			expect(getCachedEvent(KINDS.PROFILE_IMAGES, 'npub1')).toBe(null);
 		});
 
 		it('should return null for different npub', () => {
-			const event = { kind: KINDS.PROFILE_METADATA, content: '{}' };
+			const event = {
+				kind: KINDS.PROFILE_METADATA,
+				content: '{}',
+				id: 'e3',
+				pubkey: 'pk1',
+				created_at: 1000,
+				sig: '',
+				tags: [] as string[][]
+			};
 			cacheEvent(KINDS.PROFILE_METADATA, 'npub1', event);
 			expect(getCachedEvent(KINDS.PROFILE_METADATA, 'npub2')).toBe(null);
 		});
 
 		it('should return null when cache entry is expired', () => {
 			vi.useFakeTimers();
-			const event = { kind: KINDS.PROFILE_METADATA, content: '{}' };
+			const event = {
+				kind: KINDS.PROFILE_METADATA,
+				content: '{}',
+				id: 'e4',
+				pubkey: 'pk1',
+				created_at: 1000,
+				sig: '',
+				tags: [] as string[][]
+			};
 			cacheEvent(KINDS.PROFILE_METADATA, 'npub1', event);
 			expect(getCachedEvent(KINDS.PROFILE_METADATA, 'npub1')).toBe(event);
 			// CACHE_TTL is 5 minutes
@@ -117,7 +149,7 @@ describe('user.store', () => {
 
 	describe('getUserData', () => {
 		it('should throw when getNpub returns null', async () => {
-			vi.mocked(getNpub).mockResolvedValue(null);
+			vi.mocked(getNpub).mockResolvedValue(null as unknown as string);
 			await expect(user.getUserData()).rejects.toThrow('No public key found');
 		});
 

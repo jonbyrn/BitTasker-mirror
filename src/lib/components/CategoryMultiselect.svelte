@@ -23,7 +23,7 @@
 	};
 
 	let {
-		selectedCategories = $bindable([]),
+		selectedCategories = [] as Array<{ value: string; label: string } | string>,
 		maxSelections = 3,
 		placeholder = 'Add tags...',
 		className = '',
@@ -32,20 +32,23 @@
 		externalCategoryIds = $bindable([])
 	} = $props();
 
+	// Local reactive state for Multiselect binding — avoids $bindable→bind:selected crash
+	let msSelected = $state<Array<{ value: string; label: string } | string>>([]);
+
 	// Clear any "1" entries on component mount only (Cleaning & Maintenance)
 	let hasCleaned = false;
 	$effect(() => {
 		try {
 			if (
 				!hasCleaned &&
-				selectedCategories.some(
+				msSelected.some(
 					(cat) =>
 						(typeof cat === 'string' && cat === '1') ||
 						(cat && typeof cat === 'object' && cat.value === '1')
 				)
 			) {
 				log.warn('Cleaning default category "1" from selection');
-				selectedCategories = selectedCategories.filter((cat) => {
+				msSelected = msSelected.filter((cat) => {
 					if (typeof cat === 'string') {
 						return cat !== '1';
 					} else if (cat && typeof cat === 'object' && cat.value) {
@@ -74,23 +77,32 @@
 		}).sort((a, b) => a.label.localeCompare(b.label))
 	);
 
-	// Sync selectedCategories with external category IDs
-	let lastExternalIds = $state<string[]>([]);
-	let isInternalUpdate = $state(false);
-
+	// Sync selectedCategories prop → msSelected on mount and when prop changes
+	let lastPropSync = $state<string>('');
 	$effect(() => {
 		try {
-			// Guard: only sync if categoryOptions is populated
-			if (categoryOptions.length === 0) {
-				log.warn('Sync effect skipped: categoryOptions is empty');
-				return;
+			const propStr = JSON.stringify(selectedCategories);
+			if (propStr !== lastPropSync) {
+				lastPropSync = propStr;
+				if (JSON.stringify(selectedCategories) !== JSON.stringify(msSelected)) {
+					log.info('Prop → msSelected sync:', selectedCategories);
+					msSelected = [...selectedCategories];
+				}
 			}
+		} catch (error) {
+			log.error('Error syncing prop to msSelected:', error);
+		}
+	});
 
-			// Convert external IDs to full objects for display
+	// Sync externalCategoryIds → msSelected (convert IDs to full objects for display)
+	let lastExternalIds = $state<string[]>([]);
+	$effect(() => {
+		try {
+			if (categoryOptions.length === 0) return;
+
 			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
 				log.info('External IDs changed:', { external: externalCategoryIds, last: lastExternalIds });
 				lastExternalIds = [...externalCategoryIds];
-				isInternalUpdate = true;
 
 				const fullObjects = externalCategoryIds.map((id: string) => {
 					const option = categoryOptions.find((opt) => opt.value === id);
@@ -100,32 +112,24 @@
 					return option || { value: id, label: id };
 				});
 
-				log.info('Setting selectedCategories:', fullObjects);
-				selectedCategories = fullObjects;
-				isInternalUpdate = false;
+				log.info('Setting msSelected from external:', fullObjects);
+				msSelected = fullObjects;
 			}
 		} catch (error) {
 			log.error('Error syncing external category IDs:', error);
 		}
 	});
 
-	// Call onChange when selectedCategories changes - with guard to prevent infinite loops
-	let lastSelectedCategories = $state<Array<{ value: string; label: string } | string>>([]);
+	// Call onChange when msSelected changes — with guard to prevent infinite loops
+	let lastOnChangeTrigger = $state<string>('');
 	$effect(() => {
 		try {
-			// Only call onChange if the selection actually changed and it's not an internal update
-			if (
-				!isInternalUpdate &&
-				JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)
-			) {
-				log.info('Selection changed, calling onChange:', {
-					selected: selectedCategories,
-					last: lastSelectedCategories
-				});
-				lastSelectedCategories = [...selectedCategories];
+			const msStr = JSON.stringify(msSelected);
+			if (msStr !== lastOnChangeTrigger) {
+				lastOnChangeTrigger = msStr;
 
 				// Extract only the values (IDs) from the selected items
-				const categoryIds = selectedCategories.map((item) => {
+				const categoryIds = msSelected.map((item) => {
 					if (typeof item === 'string') {
 						return item;
 					} else if (item && typeof item === 'object' && item.value) {
@@ -148,7 +152,7 @@
 		<Multiselect
 			id={controlId}
 			options={categoryOptions}
-			bind:selected={selectedCategories}
+			bind:selected={msSelected}
 			{placeholder}
 			maxSelect={maxSelections}
 			outerDivClass="multiselect-wrapper relative flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors z-50 isolate"

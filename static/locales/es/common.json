@@ -1,5 +1,8 @@
 {
 	"common": {
+		"accessibility": {
+			"help": "Ayuda"
+		},
 		"status": {
 			"open": "Abierta",
 			"bid_accepted": "Oferta Aceptada",
@@ -34,6 +37,8 @@
 		"back_to_tasks": "Cancelar",
 		"redirecting_to_login": "Redirigiendo al inicio de sesión...",
 		"or": "o",
+		"not_now": "Ahora no",
+		"retry": "Reintentar",
 		"processing": "Procesando",
 		"loading": "Cargando...",
 		"close": "Cerrar",
@@ -48,6 +53,7 @@
 		"selected": "Seleccionado",
 		"required": "Requerido",
 		"optional": "Opcional",
+		"confirm": "Confirmar",
 		"buttons": {
 			"cancel": "Cancelar",
 			"retry": "Reintentar",
@@ -558,6 +564,7 @@
 					"networks": {
 						"lightning": "Red Lightning",
 						"liquid": "Red Liquid",
+						"bsc": "BNB Smart Chain (BSC)",
 						"unknown": "Red Desconocida"
 					},
 					"instructions": {
@@ -571,7 +578,8 @@
 					"copied": "¡Copiado!",
 					"copy": "Copiar",
 					"cancel": "Cancelar",
-					"payment_sent": "He Enviado el Pago"
+					"payment_sent": "He Enviado el Pago",
+					"lightning_not_supported": "Lightning no está disponible para este pago actualmente."
 				}
 			},
 			"media_uploader": {

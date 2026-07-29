@@ -1,0 +1,149 @@
+# Docker Compose — Gasless Transactions Stack
+# Alto Bundler (2 replicas) + NestJS Backend + Anvil (local dev)
+# Source of truth: requirements/gasless-arbitrum-plan.md §4.2, §4.13
+# Usage: docker compose -f docker-compose.gasless.yml up -d
+
+services:
+  # --- Local Development Chain (Anvil) ---
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:v1.0.0
+    restart: unless-stopped
+    container_name: anvil
+    ports:
+      - "8545:8545"
+    entrypoint: ["anvil"]
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8545"
+      - "--fork-url"
+      - "${ARBITRUM_RPC_URL:-https://arb1.arbitrum.io/rpc}"
+      - "--block-time"
+      - "0.25"
+      - "--accounts"
+      - "10"
+      - "--balance"
+      - "10000"
+      - "--dump-state"
+      - "/dev/null"
+    networks:
+      - gasless-internal
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "cast", "rpc", "eth_chainId", "--rpc-url", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Alto Bundler (2 replicas) ---
+  alto-1:
+    image: ghcr.io/pimlicolabs/alto:latest
+    restart: unless-stopped
+    container_name: alto-1
+    entrypoint: ["node", "src/esm/cli/alto.js", "run", "--config", "/app/alto-config.json"]
+    expose:
+      - "3000"
+    networks:
+      - gasless-internal
+    volumes:
+      - ./alto-config-1.json:/app/alto-config.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      anvil:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  alto-2:
+    image: ghcr.io/pimlicolabs/alto:latest
+    restart: unless-stopped
+    container_name: alto-2
+    entrypoint: ["node", "src/esm/cli/alto.js", "run", "--config", "/app/alto-config.json"]
+    expose:
+      - "3001"
+    networks:
+      - gasless-internal
+    volumes:
+      - ./alto-config-2.json:/app/alto-config.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      anvil:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --- NestJS Backend ---
+  nestjs-gasless:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.gasless
+    restart: unless-stopped
+    container_name: nestjs-gasless
+    expose:
+      - "4000"
+    ports:
+      - "4000:4000"
+    networks:
+      - gasless-internal
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:-http://anvil:8545}
+      - ALTO_URL_1=https://alto.dev.bittasker.com
+      - ALTO_URL_2=https://alto.dev.bittasker.com
+      - GAS_TREASURY=${GAS_TREASURY}
+      - PAYMASTER_ADDRESS=${PAYMASTER_ADDRESS}
+      - CHAIN_ID=${CHAIN_ID:-42161}
+      - JWT_SECRET=${JWT_SECRET}
+      - PAYMASTER_SIGNER_KEY_FILE=/run/secrets/paymaster_signer_key
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@localhost:5432/bittasker}
+    secrets:
+      - paymaster_signer_key
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      alto-1:
+        condition: service_healthy
+      alto-2:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  bundler_private_key:
+    file: ./secrets/bundler_private_key.txt
+  utility_private_key:
+    file: ./secrets/utility_private_key.txt
+  paymaster_signer_key:
+    file: ./secrets/paymaster_signer_key.txt
+
+networks:
+  gasless-internal:
+    driver: bridge

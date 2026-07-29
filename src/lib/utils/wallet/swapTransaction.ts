@@ -6,6 +6,7 @@
  */
 
 import type { BoltzSwapData, ChainSwapData, SubmarineSwapData } from '@bittasker/wallet-core';
+import type { Component, ComponentType } from 'svelte';
 import type { ProcessedTransaction } from './transactionHistory';
 import { statusUI } from '$lib/utils/constants/transactions.constants';
 import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
@@ -136,7 +137,7 @@ export function mapSwapToTransaction(
 	// Determine transaction type and display properties
 	let displayType: ProcessedTransaction['displayType'];
 	let borderColor: ProcessedTransaction['borderColor'];
-	let iconBase: Record<string, unknown>;
+	let iconBase: Component;
 	let title: string;
 	let value: string;
 
@@ -165,7 +166,7 @@ export function mapSwapToTransaction(
 	if (swapType === 'submarine') {
 		// Submarine: RBTC → Lightning (Send)
 		displayType = 'send';
-		iconBase = IconArrowUpBold;
+		iconBase = IconArrowUpBold as unknown as Component;
 		if (isPending) {
 			title = granularTitle;
 		} else if (isFailed) {
@@ -177,7 +178,7 @@ export function mapSwapToTransaction(
 	} else if (swapType === 'reverse') {
 		// Reverse: Lightning → RBTC (Receive)
 		displayType = 'receive';
-		iconBase = IconArrowDownBold;
+		iconBase = IconArrowDownBold as unknown as Component;
 		if (isPending) {
 			title = granularTitle;
 		} else if (isFailed) {
@@ -189,7 +190,7 @@ export function mapSwapToTransaction(
 	} else {
 		// Chain: L-BTC → RBTC (Receive)
 		displayType = 'receive';
-		iconBase = IconArrowDownBold;
+		iconBase = IconArrowDownBold as unknown as Component;
 		if (isPending) {
 			title = granularTitle;
 		} else if (isFailed) {
@@ -250,8 +251,8 @@ export function mapSwapToTransaction(
 		displayType,
 		borderColor,
 		iconConfig: {
-			base: iconBase,
-			overlay: IconSwapHorizontal
+			base: iconBase as unknown as Record<string, unknown>,
+			overlay: IconSwapHorizontal as unknown as ComponentType
 		},
 		title,
 		networkIcon,
@@ -274,15 +275,15 @@ export function mapSwapToTransaction(
  */
 function getSwapStatusDisplay(status: string): ProcessedTransaction['status'] {
 	if (PENDING_STATUSES.includes(status)) {
-		return statusUI.pending;
+		return statusUI.pending as unknown as ProcessedTransaction['status'];
 	} else if (FAILED_STATUSES.includes(status)) {
-		return statusUI.failed;
+		return statusUI.failed as unknown as ProcessedTransaction['status'];
 	} else if (COMPLETED_STATUSES.includes(status)) {
-		return statusUI.confirmed;
+		return statusUI.confirmed as unknown as ProcessedTransaction['status'];
 	} else {
 		// Unknown status, default to pending
 		console.warn('Unknown swap status:', status);
-		return statusUI.pending;
+		return statusUI.pending as unknown as ProcessedTransaction['status'];
 	}
 }
 

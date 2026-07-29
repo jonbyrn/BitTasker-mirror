@@ -1,0 +1,18 @@
+{
+	"wallet": {
+		"common": {
+			"wallet": "Wallet",
+			"builtin": "Builtin",
+			"alt_bitasker_wallet": "BitTasker Wallet",
+			"loading_position": "Loading position...",
+			"arbitrum_one": "Arbitrum One",
+			"arbitrum": "Arbitrum",
+			"gas_estimate_approx": "~${amount} ({network})",
+			"loan_label": "Loan",
+			"preview": "PREVIEW",
+			"preview_fallback": "preview (live unavailable)",
+			"variable_fee_based": "Variable (fee-based)",
+			"estimated": "~25% (est.)"
+		}
+	}
+}

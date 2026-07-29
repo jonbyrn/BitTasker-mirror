@@ -8,6 +8,7 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import * as Sentry from '@sentry/sveltekit';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
@@ -182,7 +183,7 @@
 	});
 
 	// Access locale to make this reactive to translation changes
-	const networkOptions = [
+	const networkOptions = $derived.by(() => [
 		{
 			value: 'lightning-bitcoin',
 			label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
@@ -205,15 +206,15 @@
 		},
 		{
 			value: 'usdt-bsc',
-			label: 'BSC USDT', // TODO: Add translation
+			label: $t('wallet.receive_form.networks.bsc_usdt.label'),
 			icon: null
 		},
 		{
 			value: 'bsc',
-			label: 'BSC', // TODO: Add translation
+			label: $t('wallet.transaction.network.bsc'),
 			icon: null
 		}
-	];
+	]);
 
 	// Get network info matching receive form structure - make reactive to locale changes
 	const networkInfo = $derived.by(() => {
@@ -257,7 +258,7 @@
 			isLoadingQR = true;
 			qrCodeDataUrl = await generateQrCodeUrl(address);
 		} catch (error) {
-			console.error('Failed to generate QR code:', error);
+			Sentry.captureException(error, { tags: { feature: 'receive', action: 'qr-generation' } });
 			appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
 			qrCodeDataUrl = ''; // Clear QR code on error
 		} finally {
@@ -275,6 +276,63 @@
 			generateQRCode()
 		]);
 	});
+
+	// -----------------------------------------------------------------------
+	// Lightning invoice expiry detection
+	// -----------------------------------------------------------------------
+	// Extract expiresAt (milliseconds) from the current swap data
+	const expiresAt = $derived.by(() => {
+		if (!currentSwap) return 0;
+		const val = getSwapNumberValue(currentSwap.data, 'expiresAt');
+		return val > 0 ? val : 0;
+	});
+
+	// Only track expiry for swap-based payments with an expiresAt
+	const hasExpiry = $derived(expiresAt > 0);
+
+	// Time remaining in ms — updated by 1s interval (not $derived, time-based)
+	let timeRemaining = $state(0);
+
+	// Whether the invoice has expired
+	const isExpired = $derived(hasExpiry && timeRemaining <= 0);
+
+	// Countdown interval — updates timeRemaining every second
+	$effect(() => {
+		if (!hasExpiry || !props.isOpen) {
+			timeRemaining = 0;
+			return;
+		}
+
+		// Initial update
+		timeRemaining = Math.max(0, expiresAt - Date.now());
+
+		const intervalId = setInterval(() => {
+			const remaining = Math.max(0, expiresAt - Date.now());
+			timeRemaining = remaining;
+			if (remaining <= 0) {
+				clearInterval(intervalId);
+			}
+		}, 1000);
+
+		return () => clearInterval(intervalId);
+	});
+
+	// Format milliseconds as "59m 30s" or "45s"
+	function formatDuration(ms: number): string {
+		if (ms <= 0) return '0s';
+		const totalSeconds = Math.floor(ms / 1000);
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+
+		if (hours > 0) {
+			return `${hours}h ${minutes}m`;
+		}
+		if (minutes > 0) {
+			return `${minutes}m ${seconds}s`;
+		}
+		return `${seconds}s`;
+	}
 
 	// Check for reduced motion preference
 	const prefersReducedMotion = $derived(
@@ -304,8 +362,15 @@
 				}}
 		role="dialog"
 		aria-modal="true"
+		aria-labelledby="payment-request-title"
 	>
 		<div class="container mx-auto flex min-h-0 flex-1 flex-col px-3 py-1">
+			<!-- Visually hidden title for aria-labelledby -->
+			<h3 id="payment-request-title" class="sr-only">
+				{isTransactionConfirmed
+					? $t('wallet.payment_request.payment_received')
+					: $t('wallet.payment_request.title')}
+			</h3>
 			<!-- Scrollable Content Area -->
 			<div class="min-h-0 flex-1 overflow-y-auto">
 				<!-- Success State -->
@@ -461,7 +526,11 @@
 							{:else if qrCodeDataUrl}
 								<div class="rounded-lg bg-white p-2 shadow-lg">
 									<div class="w-[calc(100vw-4rem)] max-w-[500px]">
-										<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
+										<img
+											src={qrCodeDataUrl}
+											alt={$t('wallet.invoice.qr_alt')}
+											class="h-full w-full"
+										/>
 									</div>
 								</div>
 							{:else}
@@ -477,6 +546,42 @@
 
 						<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
 						<AddressAccordion {address} />
+
+						<!-- Invoice expiry alert / countdown (Lightning only) -->
+						{#if hasExpiry && !isTransactionConfirmed}
+							{#if isExpired}
+								<div class="alert alert-error py-2 text-sm">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+										/>
+									</svg>
+									<span>{$t('wallet.receive.invoice_expired')}</span>
+									{#if props.onEdit}
+										<button class="btn btn-sm btn-error-content" onclick={() => props.onEdit?.()}>
+											{$t('wallet.receive.generate_new')}
+										</button>
+									{/if}
+								</div>
+							{:else}
+								<div class="flex items-center justify-center gap-1.5 text-xs opacity-60">
+									<span
+										>{$t('wallet.receive.expires_in', {
+											values: { time: formatDuration(timeRemaining) }
+										})}</span
+									>
+								</div>
+							{/if}
+						{/if}
 
 						<!-- Transaction Description (if provided) -->
 						{#if props.memo}

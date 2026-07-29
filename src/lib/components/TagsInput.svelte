@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 
 	let {
 		id = '',
@@ -29,7 +29,7 @@
 	let isOpen = $state(false);
 	let inputValue = $state('');
 	let isInputFocused = $state(false);
-	let filteredOptions = $state<string[]>(options);
+	let filteredOptions = $derived(filterOptions(inputValue));
 
 	function filterOptions(searchTerm: string): string[] {
 		if (!options.length || autoComplete === 'off') return options;
@@ -45,10 +45,6 @@
 
 		return [...filteredOptions, ...remainingOptions];
 	}
-
-	$effect(() => {
-		filteredOptions = filterOptions(inputValue);
-	});
 
 	function addTag(value: string) {
 		if (tags.length >= maxTags) return;
@@ -145,18 +141,18 @@
 				? 'input-error'
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
 		>
-			{#each tags as tag}
-				<div class="badge badge-primary py-3 max-w-full" role="listitem" aria-label="tag">
+			{#each tags as tag (tag)}
+				<div class="badge badge-primary max-w-full py-3" role="listitem" aria-label="tag">
 					<span
-						class="mb-[4px] text-base font-normal break-words leading-tight
-						       sm:truncate sm:line-clamp-1 sm:text-ellipsis sm:whitespace-nowrap
-						       line-clamp-2"
+						class="mb-[4px] line-clamp-2 text-base leading-tight font-normal
+						       break-words sm:line-clamp-1 sm:truncate sm:text-ellipsis
+						       sm:whitespace-nowrap"
 					>
 						{tag}
 					</span>
 					<button
 						type="button"
-						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none flex-shrink-0 ml-1"
+						class="btn btn-ghost btn-xs ml-1 flex-shrink-0 bg-none p-0 focus:bg-none"
 						onclick={() => removeTag(tag)}
 						aria-label={$t('task.tags.remove_tag')}
 					>
@@ -194,7 +190,8 @@
 
 		{#if inputValue}
 			<div class="text-base-content/60 mt-1 text-xs">
-				{inputValue.length}/{maxCharLength} {$t('task.tags.characters')}
+				{inputValue.length}/{maxCharLength}
+				{$t('task.tags.characters')}
 			</div>
 		{/if}
 
@@ -202,12 +199,12 @@
 			<ul
 				id="tags-dropdown-{id}"
 				tabindex="-1"
-				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-48 w-full p-2 shadow overflow-y-scroll overflow-x-hidden tags-dropdown-scrollable"
+				class="dropdown-content menu menu-vertical bg-base-300 tags-dropdown-scrollable z-[9999] mt-1 max-h-48 w-full overflow-x-hidden overflow-y-scroll rounded-2xl p-2 shadow"
 				role="listbox"
 				aria-label={$t('task.tags.options')}
 			>
-				{#each filteredOptions as option, index}
-					<li class="w-full block">
+				{#each filteredOptions as option, index (option)}
+					<li class="block w-full">
 						<button
 							type="button"
 							tabindex="0"
@@ -215,9 +212,9 @@
 							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
 							role="option"
 							aria-selected={filteredOptions[index] === inputValue}
-							class="hover:bg-base-200 w-full rounded p-3 text-left min-h-[44px] block"
+							class="hover:bg-base-200 block min-h-[44px] w-full rounded p-3 text-left"
 						>
-							<span class="font-medium text-sm">{option}</span>
+							<span class="text-sm font-medium">{option}</span>
 						</button>
 					</li>
 				{/each}
@@ -239,21 +236,21 @@
 		height: 12rem; /* 192px - same as max-h-48 */
 		max-height: 12rem;
 	}
-	
+
 	:global(.tags-dropdown-scrollable::-webkit-scrollbar) {
 		width: 6px;
 	}
-	
+
 	:global(.tags-dropdown-scrollable::-webkit-scrollbar-track) {
 		background: #374151;
 		border-radius: 3px;
 	}
-	
+
 	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb) {
 		background: #6b7280;
 		border-radius: 3px;
 	}
-	
+
 	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb:hover) {
 		background: #9ca3af;
 	}

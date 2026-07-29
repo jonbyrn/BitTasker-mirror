@@ -430,7 +430,8 @@ export function toUnixSeconds(date: Date | null | undefined): number | null {
 export function formatDurationBetweenDates(
 	start: Date,
 	end: Date,
-	t: (key: string) => string
+	t: (key: string) => string,
+	keyPrefix: string = 'dashboard.bids.bid_creation'
 ): string {
 	const diffMs = end.getTime() - start.getTime();
 	if (diffMs <= 0) return '';
@@ -439,24 +440,25 @@ export function formatDurationBetweenDates(
 	const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 	const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
+	const tKey = (suffix: string) => {
+		const key = `${keyPrefix}.${suffix}`;
+		const translated = t(key);
+		// Fallback to simple English if translation missing
+		return translated === key ? suffix : translated;
+	};
+
 	const parts: string[] = [];
 	if (diffDays > 0) {
-		parts.push(
-			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
-		);
+		parts.push(`${diffDays} ${diffDays === 1 ? tKey('day') : tKey('days')}`);
 	}
 	if (diffHours > 0) {
-		parts.push(
-			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
-		);
+		parts.push(`${diffHours} ${diffHours === 1 ? tKey('hour') : tKey('hours')}`);
 	}
 	if (diffMinutes > 0) {
-		parts.push(
-			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
-		);
+		parts.push(`${diffMinutes} ${diffMinutes === 1 ? tKey('minute') : tKey('minutes')}`);
 	}
 	if (parts.length === 0) {
-		return t('dashboard.bids.bid_creation.one_hour');
+		return tKey('one_hour');
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;

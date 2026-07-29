@@ -1,37 +1,28 @@
-export function hashSearchParams(params: {
-	search?: string;
-	page?: number;
-	limit?: number;
-	categories?: string[];
-	skills?: string[];
-	serviceLocationTypes?: string[];
-	pricingType?: string;
-	minPrice?: number;
-	maxPrice?: number;
-	deliveryTime?: string;
-	location?: string;
-	locationCoords?: { latitude: number; longitude: number };
-}): string {
+export function hashSearchParams(params: Record<string, unknown>): string {
 	const parts: string[] = [];
 	if (params.search) parts.push(`s:${params.search}`);
 	if (params.page) parts.push(`p:${params.page}`);
 	if (params.limit) parts.push(`l:${params.limit}`);
-	if (params.categories?.length) {
-		parts.push(`c:${[...params.categories].sort().join(',')}`);
+	const cats = params.categories as string[] | undefined;
+	if (cats?.length) {
+		parts.push(`c:${[...cats].sort().join(',')}`);
 	}
-	if (params.skills?.length) {
-		parts.push(`sk:${[...params.skills].sort().join(',')}`);
+	const skillz = params.skills as string[] | undefined;
+	if (skillz?.length) {
+		parts.push(`sk:${[...skillz].sort().join(',')}`);
 	}
-	if (params.serviceLocationTypes?.length) {
-		parts.push(`loc:${[...params.serviceLocationTypes].sort().join(',')}`);
+	const locTypes = params.serviceLocationTypes as string[] | undefined;
+	if (locTypes?.length) {
+		parts.push(`loc:${[...locTypes].sort().join(',')}`);
 	}
 	if (params.pricingType) parts.push(`pt:${params.pricingType}`);
 	if (params.minPrice !== undefined) parts.push(`min:${params.minPrice}`);
 	if (params.maxPrice !== undefined) parts.push(`max:${params.maxPrice}`);
 	if (params.deliveryTime !== undefined) parts.push(`dt:${params.deliveryTime}`);
 	if (params.location) parts.push(`locn:${params.location}`);
-	if (params.locationCoords) {
-		parts.push(`locc:${params.locationCoords.latitude},${params.locationCoords.longitude}`);
+	const coords = params.locationCoords as { latitude: number; longitude: number } | undefined;
+	if (coords) {
+		parts.push(`locc:${coords.latitude},${coords.longitude}`);
 	}
 	return parts.join('|');
 }

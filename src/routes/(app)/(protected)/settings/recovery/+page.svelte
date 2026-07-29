@@ -48,8 +48,8 @@
 		return 'weak';
 	}
 
-	const updatePasswordStrength = debounce((event: Event) => {
-		const target = event.target as HTMLInputElement;
+	const updatePasswordStrength = debounce((event: unknown) => {
+		const target = (event as Event).target as HTMLInputElement;
 		if (target) {
 			passwordStrength = getPasswordStrength(target.value);
 		}

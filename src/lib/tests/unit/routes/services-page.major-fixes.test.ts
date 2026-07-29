@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
-import type { Service } from '$lib/types/service.d';
+import type { Service } from '$lib/types/service';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { tick } from 'svelte';
 
@@ -79,15 +79,20 @@ const hoisted = vi.hoisted(() => ({
 }));
 hoisted.servicesStore = hoisted.createStore({
 	items: [] as Service[],
-	loading: false,
+	loading: false as boolean,
 	error: null as string | null,
 	currentPage: 1,
-	hasMore: false,
+	hasMore: false as boolean,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+} as Parameters<typeof hoisted.createStore>[0]) as unknown as typeof hoisted.servicesStore;
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as Parameters<
+	typeof hoisted.createStore
+>[0]) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as Parameters<
+	typeof hoisted.createStore
+>[0]) as unknown as typeof hoisted.userStore;
+(hoisted.userStore as Record<string, unknown>).destroy = vi.fn();
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -149,7 +154,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) => hoisted.findServices(...args),
 	cleanup: vi.fn()
 }));
 
@@ -192,7 +197,7 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args) => hoisted.persistServiceSearchFilters(...args),
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
 	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 
@@ -401,7 +406,7 @@ describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
 				username: 'designer-pro',
 				avatar: ''
 			}
-		} as Service;
+		} as unknown as Service;
 
 		hoisted.findServices.mockImplementation(async () => {
 			hoisted.servicesStore.set({

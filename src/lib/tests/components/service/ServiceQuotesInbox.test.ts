@@ -91,8 +91,20 @@ const mockService: Service = {
 		type: ServicePricingTypeEnum.INQUIRY_REQUIRED,
 		currency: 'USD',
 		tiers: [
-			{ id: 'premium', name: 'Premium Plan', price: 250 },
-			{ id: 'standard', name: 'Standard Plan', price: 150 }
+			{
+				id: 'premium',
+				name: 'Premium Plan',
+				description: 'Full premium',
+				price: 250,
+				features: []
+			},
+			{
+				id: 'standard',
+				name: 'Standard Plan',
+				description: 'Basic standard',
+				price: 150,
+				features: []
+			}
 		]
 	},
 	skills: [],
@@ -286,8 +298,7 @@ describe('ServiceQuotesInbox', () => {
 				focusedRequestId: null,
 				isSyncing: false,
 				walletReady: false,
-				feeTierReady: true,
-				totalPendingRequestCount: 1
+				feeTierReady: true
 			}
 		);
 
@@ -312,8 +323,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: false,
-			totalPendingRequestCount: 1
+			feeTierReady: false
 		});
 
 		expect(getByTestId('service-quotes-prerequisite-alert')).toBeTruthy();
@@ -369,8 +379,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			onDeleteProposal,
-			totalPendingRequestCount: 0
+			onDeleteProposal
 		});
 
 		expect(queryByRole('button', { name: 'Send' })).toBeNull();
@@ -389,7 +398,7 @@ describe('ServiceQuotesInbox', () => {
 			...baseTimeline,
 			latestProposal: {
 				...baseTimeline.request,
-				kind: 6421,
+				kind: 6421 as const,
 				content: {
 					type: 'service-proposal' as const,
 					proposalId: 'pr_deleted123',
@@ -426,8 +435,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			onDeleteProposal: vi.fn(),
-			totalPendingRequestCount: 0
+			onDeleteProposal: vi.fn()
 		});
 
 		await fireEvent.click(getByRole('button', { name: 'View' }));
@@ -489,8 +497,7 @@ describe('ServiceQuotesInbox', () => {
 					isSyncing: true,
 					walletReady: true,
 					feeTierReady: true,
-					onRequestFocusChange,
-					totalPendingRequestCount: 0
+					onRequestFocusChange
 				});
 			}
 		});
@@ -502,8 +509,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			onRequestFocusChange,
-			totalPendingRequestCount: 0
+			onRequestFocusChange
 		});
 		rerenderInboxRef.current = rerender;
 
@@ -563,8 +569,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
@@ -590,8 +595,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			onSendProposal,
-			totalPendingRequestCount: 1
+			onSendProposal
 		});
 
 		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
@@ -676,8 +680,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(queryByRole('button', { name: 'Send' })).toBeNull();
@@ -707,8 +710,7 @@ describe('ServiceQuotesInbox', () => {
 				focusedRequestId: 'qr_valid123',
 				isSyncing: false,
 				walletReady: true,
-				feeTierReady: true,
-				totalPendingRequestCount: 0
+				feeTierReady: true
 			}
 		);
 
@@ -727,8 +729,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(queryAllByRole('button', { name: 'Send' })).toHaveLength(0);
@@ -748,8 +749,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(queryAllByRole('button', { name: 'Send' })).toHaveLength(0);
@@ -774,8 +774,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(
@@ -794,8 +793,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(
@@ -816,8 +814,7 @@ describe('ServiceQuotesInbox', () => {
 			loadError: 'provider query failed',
 			walletReady: true,
 			feeTierReady: true,
-			onRetry,
-			totalPendingRequestCount: 1
+			onRetry
 		});
 
 		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
@@ -865,8 +862,7 @@ describe('ServiceQuotesInbox', () => {
 				focusedRequestId: null,
 				isSyncing: false,
 				walletReady: true,
-				feeTierReady: true,
-				totalPendingRequestCount: 1
+				feeTierReady: true
 			}
 		);
 
@@ -897,8 +893,7 @@ describe('ServiceQuotesInbox', () => {
 				focusedRequestId: null,
 				isSyncing: false,
 				walletReady: true,
-				feeTierReady: true,
-				totalPendingRequestCount: 1
+				feeTierReady: true
 			}
 		);
 
@@ -927,8 +922,7 @@ describe('ServiceQuotesInbox', () => {
 				focusedRequestId: null,
 				isSyncing: false,
 				walletReady: true,
-				feeTierReady: true,
-				totalPendingRequestCount: 1
+				feeTierReady: true
 			}
 		);
 
@@ -957,8 +951,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		setNavigatorOnline(false);
@@ -978,8 +971,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		const filterTrigger = getAllByRole('button', { name: 'All Statuses' })[0];
@@ -999,8 +991,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		const filterTrigger = getAllByRole('button', { name: 'All Statuses' })[0];
@@ -1027,8 +1018,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		expect(getAllByText('Pending').length).toBeGreaterThan(0);
@@ -1042,7 +1032,7 @@ describe('ServiceQuotesInbox', () => {
 					...baseTimeline,
 					latestProposal: {
 						...baseTimeline.request,
-						kind: 6421,
+						kind: 6421 as const,
 						content: {
 							type: 'service-proposal',
 							proposalId: 'pr_valid123',
@@ -1074,8 +1064,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		expect(getAllByText('Proposal sent').length).toBeGreaterThan(0);
@@ -1094,8 +1083,7 @@ describe('ServiceQuotesInbox', () => {
 			walletReady: true,
 			feeTierReady: true,
 			onRequestFocusChange,
-			onRequestClear,
-			totalPendingRequestCount: 1
+			onRequestClear
 		});
 
 		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
@@ -1113,7 +1101,7 @@ describe('ServiceQuotesInbox', () => {
 			...baseTimeline,
 			latestProposal: {
 				...baseTimeline.request,
-				kind: 6421,
+				kind: 6421 as const,
 				content: {
 					type: 'service-proposal' as const,
 					proposalId: 'pr_declined123',
@@ -1140,7 +1128,7 @@ describe('ServiceQuotesInbox', () => {
 				sig: ''
 			},
 			resolvedStatus: 'declined' as const
-		};
+		} as unknown as ServiceQuoteTimelineEntry;
 
 		const { getByRole, getAllByText } = render(ServiceQuotesInbox, {
 			service: mockService,
@@ -1148,8 +1136,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 0
+			feeTierReady: true
 		});
 
 		await fireEvent.click(getByRole('button', { name: 'View' }));
@@ -1164,8 +1151,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 3
+			feeTierReady: true
 		});
 
 		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
@@ -1213,8 +1199,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		expect(getByText('Need a site audit')).toBeTruthy();
@@ -1263,8 +1248,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		const statusDropdownTrigger = getAllByRole('button', { name: 'All Statuses' })[0];
@@ -1284,8 +1268,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid_2',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		expect(queryByText('Need a site audit')).toBeTruthy();
@@ -1301,8 +1284,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
+			feeTierReady: true
 		});
 
 		const statusDropdownTrigger = getAllByRole('button', { name: 'All Statuses' })[0];
@@ -1331,8 +1313,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 11
+			feeTierReady: true
 		});
 
 		expect(container.querySelectorAll('[data-testid^="service-request-card-"]')).toHaveLength(10);
@@ -1357,8 +1338,7 @@ describe('ServiceQuotesInbox', () => {
 			focusedRequestId: 'qr_valid_1',
 			isSyncing: false,
 			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 11
+			feeTierReady: true
 		});
 
 		await waitFor(() => {

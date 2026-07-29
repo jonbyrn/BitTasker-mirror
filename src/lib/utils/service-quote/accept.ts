@@ -94,8 +94,12 @@ export function completeServiceProposalAcceptance(
 		return current;
 	}
 
-	return upsertAcceptanceLedgerEntrySync(proposalId, nextState, {
-		reasonCode: nextState === 'accept_unknown' ? unknownReasonCode : undefined,
-		transactionHash
-	});
+	return upsertAcceptanceLedgerEntrySync(
+		proposalId,
+		nextState as import('$lib/utils/service-quote/acceptance-ledger').ServiceAcceptanceLedgerState,
+		{
+			reasonCode: nextState === 'accept_unknown' ? unknownReasonCode : undefined,
+			transactionHash
+		}
+	);
 }

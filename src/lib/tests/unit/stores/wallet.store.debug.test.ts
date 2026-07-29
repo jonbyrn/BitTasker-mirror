@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { walletStore, walletManager } from '$lib/stores/wallet.store';
+import type { GasMode, DelegationState } from '$lib/types/wallet';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -41,8 +42,13 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 vi.mock('$lib/api/services/token-balance.service', () => ({
 	default: {
 		getRSKTokenBalances: vi.fn(),
+		getRSKNativeBalance: vi.fn().mockResolvedValue({
+			balance: BigInt('1000000000000000000'),
+			formatted: '1.00'
+		}),
 		getTokenMetadata: vi.fn(),
-		clearCache: vi.fn()
+		clearCache: vi.fn(),
+		clearAllBalanceCaches: vi.fn()
 	}
 }));
 
@@ -107,7 +113,12 @@ vi.mock('@bittasker/wallet-core', async () => {
 	return {
 		WalletManager: vi.fn(function () {
 			return mockWalletManager;
-		})
+		}),
+		ARB_TOKEN_ADDRESSES: {
+			USDT0: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+			WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+			TBTC: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40'
+		}
 	};
 });
 
@@ -160,8 +171,13 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
 			activeNetwork: 'rsk',
-			selectedAsset: 'rBTC'
-		});
+			selectedAsset: 'rBTC',
+			activeChain: 'rsk',
+			gasMode: 'USDT_GAS' as GasMode,
+			delegationState: 'IDLE' as DelegationState,
+			pendingTransactions: new Map<number, string>(),
+			chainLock: false
+		} as unknown as Parameters<typeof walletStore.set>[0]);
 	});
 
 	afterEach(() => {

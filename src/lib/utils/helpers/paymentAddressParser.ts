@@ -1,6 +1,18 @@
 import { detectLightningType, parseLightningInvoice } from './lightningInvoice';
 import { validateBitcoinAddress } from './validators';
 import { address as liquidAddress } from 'liquidjs-lib';
+import {
+	isLNURL,
+	isLNURLWithdraw,
+	extractLNURLUrl,
+	fetchLNURLPayDetails,
+	fetchLNURLPayInvoice,
+	parseLNURLMetadata
+} from '$lib/services/lnurl-pay.service';
+import {
+	isLightningAddress as isLnAddr,
+	resolveLightningAddress
+} from '$lib/services/lightning-address.service';
 
 export interface ParsedPaymentAddress {
 	isValid: boolean;
@@ -11,10 +23,24 @@ export interface ParsedPaymentAddress {
 		| 'liquid-bitcoin'
 		| 'bitcoin'
 		| 'usdt-bsc'
+		| 'usdt-ethereum'
+		| 'usdt-tron'
+		| 'usdt-arbitrum'
+		| 'usdt-polygon'
+		| 'usdt-optimism'
+		| 'usdt-base'
+		| 'usdt-avalanche'
 		| null;
 	amount: number | null; // Amount in sats, null if not specified
 	memo: string | null;
 	errorMessage?: string; // Optional error message with context
+	paymentType?: 'send' | 'withdraw'; // Whether this is a send or withdraw payment
+	// LNURL-specific fields (populated after async resolution)
+	lnurlCallback?: string;
+	lnurlMinSendable?: number; // minimum amount in millisatoshis
+	lnurlMaxSendable?: number; // maximum amount in millisatoshis
+	lnurlDescription?: string;
+	lnurlImage?: string;
 }
 
 // Constants
@@ -24,20 +50,67 @@ const MIN_CHAIN_ID = 1;
 const MAX_CHAIN_ID = 999999; // Reasonable upper bound for chain IDs
 
 /**
- * Map chain IDs to networks
+ * Map chain IDs to networks.
+ * Covers the ~90% of USDT transaction volume across 9 chains.
  */
-const CHAIN_ID_TO_NETWORK: Record<number, 'rootstock-bitcoin' | 'usdt-bsc'> = {
-	30: 'rootstock-bitcoin', // RSK Mainnet
-	31: 'rootstock-bitcoin', // RSK Testnet
-	33: 'rootstock-bitcoin', // RSK Regtest
-	56: 'usdt-bsc', // BSC Mainnet
-	97: 'usdt-bsc' // BSC Testnet
+const CHAIN_ID_TO_NETWORK: Record<number, string> = {
+	// RSK
+	30: 'rootstock-bitcoin',
+	31: 'rootstock-bitcoin',
+	33: 'rootstock-bitcoin',
+	// BSC
+	56: 'usdt-bsc',
+	97: 'usdt-bsc',
+	// Ethereum
+	1: 'usdt-ethereum',
+	11155111: 'usdt-ethereum',
+	// Arbitrum
+	42161: 'usdt-arbitrum',
+	421614: 'usdt-arbitrum',
+	// Polygon
+	137: 'usdt-polygon',
+	80002: 'usdt-polygon',
+	// Optimism
+	10: 'usdt-optimism',
+	11155420: 'usdt-optimism',
+	// Base
+	8453: 'usdt-base',
+	84532: 'usdt-base',
+	// Avalanche
+	43114: 'usdt-avalanche',
+	43113: 'usdt-avalanche'
 };
 
 // Compiled regexes (cached for performance)
-const ETHEREUM_SCHEME_REGEX = /^(ethereum|bsc|rsk):/i;
+const ETHEREUM_SCHEME_REGEX = /^(ethereum|bsc|rsk|arbitrum|polygon|optimism|base|avalanche|tron):/i;
 const CHAIN_ID_REGEX = /@(\d+)(?:\?|$)/;
 const ETHEREUM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
+const TRON_ADDRESS_REGEX = /^T[A-HJ-NP-Za-km-z1-9]{33}$/;
+
+/**
+ * Map scheme prefixes (e.g. "bsc:", "arbitrum:") to network strings.
+ */
+const SCHEME_TO_NETWORK: Record<string, string> = {
+	ethereum: 'usdt-ethereum',
+	bsc: 'usdt-bsc',
+	rsk: 'rootstock-bitcoin',
+	arbitrum: 'usdt-arbitrum',
+	polygon: 'usdt-polygon',
+	optimism: 'usdt-optimism',
+	base: 'usdt-base',
+	avalanche: 'usdt-avalanche',
+	tron: 'usdt-tron'
+};
+
+/**
+ * Detect the network from a scheme prefix (e.g. "bsc:0x..." → "usdt-bsc").
+ * Returns null if no recognised scheme prefix is present.
+ */
+function detectSchemeNetwork(lowerTrimmed: string): string | null {
+	const match = lowerTrimmed.match(ETHEREUM_SCHEME_REGEX);
+	if (!match) return null;
+	return SCHEME_TO_NETWORK[match[1].toLowerCase()] ?? null;
+}
 // Liquid address prefix check (for quick filtering before full validation)
 // lq1: Liquid mainnet (Bech32), tex1: Liquid testnet, ert1: Elements regtest, VJL: Legacy P2SH, ex1: Elements
 const LIQUID_ADDRESS_PREFIX_REGEX = /^(lq1|tex1|ert1|VJL|ex1)/i;
@@ -197,8 +270,16 @@ function validateLiquidAddress(address: string): boolean {
  * Parse payment address/invoice and extract network, amount, and memo
  * Supports Lightning invoices, Lightning addresses, RSK addresses, Bitcoin addresses, BSC addresses, Liquid addresses
  * Supports EIP-681 format with chain IDs (e.g., ethereum:0x...@56)
+ *
+ * @param input - The payment address/invoice string
+ * @param sourceHint - Optional source wallet hint ('rootstock-bitcoin' | 'usdt-bsc') to
+ *   disambiguate EVM addresses. When a plain 0x... address matches both RSK and BSC,
+ *   sourceHint determines the default network. If omitted, defaults to 'rootstock-bitcoin'.
  */
-export function parsePaymentAddress(input: string): ParsedPaymentAddress {
+export function parsePaymentAddress(
+	input: string,
+	sourceHint?: 'rootstock-bitcoin' | 'usdt-bsc' | null
+): ParsedPaymentAddress {
 	const trimmed = input.trim();
 
 	if (!trimmed) {
@@ -211,8 +292,48 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		};
 	}
 
-	// 1. Check for Lightning invoice/address
+	// 0. Check for LNURL-withdraw (must come before general LNURL check)
+	// lnurlw:// is a protocol prefix specifically for withdraw; lnurl1... bech32
+	// strings will be distinguished later by fetching the endpoint.
+	if (isLNURLWithdraw(trimmed)) {
+		return {
+			isValid: true,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null,
+			memo: null,
+			paymentType: 'withdraw'
+		};
+	}
+
+	// 1. Check for LNURL-pay (must come before lightning checks)
+	// LNURL detection is synchronous; the async resolution happens in the component.
+	if (isLNURL(trimmed)) {
+		return {
+			isValid: true,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null, // Amount required — user must pick within LNURL min/max
+			memo: null, // Will be populated after async resolution
+			paymentType: 'send'
+		};
+	}
+
+	// 2. Check for Lightning invoice/address
 	const lightningType = detectLightningType(trimmed);
+
+	// BOLT12 offers/invoices are not yet supported
+	if (lightningType === 'bolt12') {
+		return {
+			isValid: false,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null,
+			memo: null,
+			errorMessage: 'bolt12_unsupported'
+		};
+	}
+
 	if (lightningType === 'bolt11') {
 		const parsed = parseLightningInvoice(trimmed);
 
@@ -244,7 +365,8 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			address: trimmed,
 			network: 'lightning-bitcoin',
 			amount: null, // Lightning addresses require amount to be specified
-			memo: null
+			memo: null,
+			paymentType: 'send' // Lightning address resolves to LNURL-pay (send)
 		};
 	}
 
@@ -431,18 +553,22 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		}
 	}
 
-	// 4. Check for Ethereum-compatible addresses (RSK, BSC) with chain ID detection
+	// 4. Check for Ethereum-compatible addresses (RSK, BSC, + 6 more EVM chains)
 	// Only extract components if input looks like Ethereum address (optimization)
 	const lowerTrimmed = trimmed.toLowerCase();
-	const looksLikeEthereum =
-		lowerTrimmed.startsWith('0x') ||
-		lowerTrimmed.startsWith('ethereum:') ||
-		lowerTrimmed.startsWith('bsc:') ||
-		lowerTrimmed.startsWith('rsk:') ||
-		ETHEREUM_ADDRESS_REGEX.test(trimmed);
 
-	if (!looksLikeEthereum) {
-		// Not an Ethereum-compatible address, return invalid
+	// 5. Check for TRON address (after lowerTrimmed is available; TRON uses T-prefix base58)
+	if (lowerTrimmed.startsWith('tron:') || TRON_ADDRESS_REGEX.test(trimmed)) {
+		const tronAddr = lowerTrimmed.startsWith('tron:') ? trimmed.slice(5).trim() : trimmed;
+		if (TRON_ADDRESS_REGEX.test(tronAddr)) {
+			return {
+				isValid: true,
+				address: tronAddr,
+				network: 'usdt-tron',
+				amount: null,
+				memo: null
+			};
+		}
 		return {
 			isValid: false,
 			address: trimmed,
@@ -451,6 +577,28 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			memo: null
 		};
 	}
+	const looksLikeEthereum =
+		lowerTrimmed.startsWith('0x') ||
+		/************************************************************************/
+		/* Scheme-prefixed addresses: ethereum: bsc: rsk: arbitrum: polygon:    */
+		/* optimism: base: avalanche: — all extract to 0x EVM address           */
+		/************************************************************************/
+		ETHEREUM_SCHEME_REGEX.test(lowerTrimmed) ||
+		ETHEREUM_ADDRESS_REGEX.test(trimmed);
+
+	if (!looksLikeEthereum) {
+		// Not an Ethereum-compatible or TRON address, return invalid
+		return {
+			isValid: false,
+			address: trimmed,
+			network: null,
+			amount: null,
+			memo: null
+		};
+	}
+
+	// Detect scheme prefix for default network assignment
+	const schemeNetwork = detectSchemeNetwork(lowerTrimmed);
 
 	const ethereumComponents = extractEthereumComponents(trimmed);
 	const { address: addressPart, chainId, queryParams } = ethereumComponents;
@@ -499,8 +647,21 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 
 			return {
 				isValid: true,
-				address: normalizedAddress, // Return normalized address
-				network,
+				address: normalizedAddress,
+				network: network as unknown as
+					| 'bitcoin'
+					| 'usdt-bsc'
+					| 'rootstock-bitcoin'
+					| 'usdt-ethereum'
+					| 'usdt-arbitrum'
+					| 'usdt-polygon'
+					| 'lightning-bitcoin'
+					| 'liquid-bitcoin'
+					| 'usdt-tron'
+					| 'usdt-optimism'
+					| 'usdt-base'
+					| 'usdt-avalanche'
+					| null,
 				amount,
 				memo: queryParams.get('message') || queryParams.get('label') || null
 			};
@@ -516,38 +677,13 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		};
 	}
 
-	// 5. Check for BSC USDT address (BSC uses Ethereum address format: 0x...)
-	// Only treat as BSC if explicitly using bsc: scheme (not ethereum: without chain ID)
-	const isBscUri = lowerTrimmed.startsWith('bsc:');
-
-	// If it's a BSC URI scheme and valid Ethereum address, treat as BSC
-	if (isBscUri && isEthereumAddress) {
-		let amount: number | null = null;
-		const valueParam = queryParams.get('value');
-		if (valueParam) {
-			try {
-				const wei = BigInt(valueParam);
-				amount = weiToSats(wei);
-			} catch {
-				// Invalid value parameter, ignore
-			}
-		}
-
-		return {
-			isValid: true,
-			address: normalizedAddress,
-			network: 'usdt-bsc',
-			amount,
-			memo: queryParams.get('message') || queryParams.get('label') || null
-		};
-	}
-
-	// 6. Check for RSK address (with optional query params)
-	// Check for RSK URI scheme or plain Ethereum address format (default fallback)
+	// 5. Determine network from scheme prefix, source hint, or default
+	//    Priority: chainId > scheme prefix > source hint > default (RSK)
 	const isRskUri = lowerTrimmed.startsWith('rsk:');
+	const isEthereumUri = lowerTrimmed.startsWith('ethereum:');
 
-	// Reject ethereum: scheme without chain ID (ambiguous - could be Ethereum mainnet)
-	if (lowerTrimmed.startsWith('ethereum:') && !chainId) {
+	// Reject bare `ethereum:` scheme without chain ID (ambiguous — Ethereum mainnet)
+	if (isEthereumUri && !chainId) {
 		return {
 			isValid: false,
 			address: normalizedAddress || trimmed,
@@ -555,31 +691,52 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			amount: null,
 			memo: null,
 			errorMessage:
-				'Ethereum mainnet (chain ID 1) is not supported. Use bsc: for BSC or rsk: for RSK, or specify chain ID with @'
+				'Ethereum mainnet (chain ID 1) is not supported without explicit chain ID. Use "ethereum:0x...@1" or select chain from the destination picker.'
 		};
 	}
 
-	if (isRskUri || (isEthereumAddress && !isBscUri)) {
-		let amount: number | null = null;
-		const valueParam = queryParams.get('value');
-		if (valueParam) {
-			try {
-				const wei = BigInt(valueParam);
-				amount = weiToSats(wei);
-			} catch {
-				// Invalid value parameter, ignore
-			}
+	// If an explicit scheme prefix is present, use its network (unless chainId overrides)
+	let network: string;
+	if (schemeNetwork) {
+		network = schemeNetwork;
+	} else if (!isRskUri && sourceHint === 'usdt-bsc') {
+		// No scheme prefix + source is USDT → default to BSC
+		network = 'usdt-bsc';
+	} else {
+		network = 'rootstock-bitcoin';
+	}
+
+	let amount: number | null = null;
+	const valueParam = queryParams.get('value');
+	if (valueParam) {
+		try {
+			const wei = BigInt(valueParam);
+			amount = weiToSats(wei);
+		} catch {
+			// Invalid value parameter, ignore
 		}
-
-		// Always use normalizedAddress (it's already normalized from addressPart)
-		return {
-			isValid: true,
-			address: normalizedAddress,
-			network: 'rootstock-bitcoin',
-			amount,
-			memo: queryParams.get('message') || null
-		};
 	}
+
+	return {
+		isValid: true,
+		address: normalizedAddress,
+		network: network as
+			| 'bitcoin'
+			| 'usdt-bsc'
+			| 'rootstock-bitcoin'
+			| 'usdt-ethereum'
+			| 'usdt-arbitrum'
+			| 'usdt-polygon'
+			| 'lightning-bitcoin'
+			| 'liquid-bitcoin'
+			| 'usdt-tron'
+			| 'usdt-optimism'
+			| 'usdt-base'
+			| 'usdt-avalanche'
+			| null,
+		amount,
+		memo: queryParams.get('message') || queryParams.get('label') || null
+	};
 
 	// Invalid address format
 	// If we got here but addressPart looks like Ethereum address, normalize it anyway
@@ -600,4 +757,79 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		amount: null,
 		memo: null
 	};
+}
+
+/**
+ * Resolve an LNURL string or Lightning Address to a full ParsedPaymentAddress
+ * by fetching its pay request endpoint. This is an async operation that should
+ * be called from the component after initial address detection.
+ *
+ * Handles:
+ *   - LNURL bech32 strings (`lnurl1...`)
+ *   - LNURL protocol prefixes (`lnurlp://...`)
+ *   - Lightning URIs (`lightning:lnurl1...`)
+ *   - Direct URLs (`https://...`)
+ *   - Lightning Addresses (`user@domain.com`) — resolves via LUD-16
+ *
+ * @param input - The LNURL string or Lightning Address
+ * @returns A fully-resolved ParsedPaymentAddress with LNURL metadata
+ */
+// Re-export functions needed by components
+export { isLNURL, isLNURLWithdraw } from '$lib/services/lnurl-pay.service';
+export { isLightningAddress } from '$lib/services/lightning-address.service';
+
+export async function resolveLNURLPaymentAddress(input: string): Promise<ParsedPaymentAddress> {
+	// Check if this is a Lightning Address (user@domain)
+	if (isLnAddr(input)) {
+		const details = await resolveLightningAddress(input);
+		const metadata = parseLNURLMetadata(details.metadata);
+
+		return {
+			isValid: true,
+			address: input,
+			network: 'lightning-bitcoin',
+			amount: null, // Amount must be chosen by user within min/max
+			memo: metadata.description || null,
+			paymentType: 'send',
+			lnurlCallback: details.callback,
+			lnurlMinSendable: details.minSendable,
+			lnurlMaxSendable: details.maxSendable,
+			lnurlDescription: metadata.description || undefined,
+			lnurlImage: metadata.image
+		};
+	}
+
+	// Standard LNURL resolution (bech32, protocol prefixes, direct URLs)
+	const url = extractLNURLUrl(input);
+	const details = await fetchLNURLPayDetails(url);
+	const metadata = parseLNURLMetadata(details.metadata);
+
+	return {
+		isValid: true,
+		address: input,
+		network: 'lightning-bitcoin',
+		amount: null, // Amount must be chosen by user within min/max
+		memo: metadata.description || null,
+		paymentType: 'send',
+		lnurlCallback: details.callback,
+		lnurlMinSendable: details.minSendable,
+		lnurlMaxSendable: details.maxSendable,
+		lnurlDescription: metadata.description || undefined,
+		lnurlImage: metadata.image
+	};
+}
+
+/**
+ * Resolve a BOLT11 invoice from an LNURL callback URL.
+ * Thin wrapper around fetchLNURLPayInvoice for convenience.
+ *
+ * @param callbackUrl - The LNURL callback URL
+ * @param amountMillisats - The amount in millisatoshis
+ * @returns The BOLT11 invoice string
+ */
+export async function resolveLNURLInvoice(
+	callbackUrl: string,
+	amountMillisats: number
+): Promise<string> {
+	return fetchLNURLPayInvoice(callbackUrl, amountMillisats);
 }

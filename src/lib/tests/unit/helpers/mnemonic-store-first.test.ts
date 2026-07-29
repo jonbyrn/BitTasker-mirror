@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Prevent VITE_TEST_MNEMONIC early-return in getMnemonic()
+vi.stubEnv('VITE_TEST_MNEMONIC', '');
+
 vi.mock('$lib/api/services/upload.service', () => ({
 	default: {
 		uploadSingleFile: vi.fn(),

@@ -25,8 +25,12 @@
 	let isEditDataLoaded = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
 	let attachmentsToRemove = $state<Attachment[]>([]);
-	let taskBudgetRef = $state(null); // Reference to TaskBudget component
-	let taskBasicsRef = $state(null);
+	let taskBudgetRef: {
+		uploadPendingFiles?: () => Promise<unknown[]>;
+	} | null = $state(null);
+	let taskBasicsRef: {
+		saveCurrentSkillInput?: () => void;
+	} | null = $state(null);
 
 	// Background function to trigger saved search checks
 	const triggerSavedSearchChecks = async (taskData: TaskBody, eventId: string) => {
@@ -242,7 +246,7 @@
 	const handleNext = async () => {
 		// Save current skill input if we're on the basics step
 		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef) {
-			taskBasicsRef.saveCurrentSkillInput();
+			taskBasicsRef.saveCurrentSkillInput?.();
 		}
 
 		if (!validateCurrentStep()) return;

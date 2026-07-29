@@ -52,6 +52,7 @@
 	const canBid = $derived(isOpen && !hasBid);
 	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
 	const taskId = $derived(task.id);
+	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
 
@@ -105,8 +106,8 @@
 					<ActionsMenu
 						contentType="task"
 						reportedPubkey={task.npub}
-						reportedEventId={taskId}
-						username={resolvedCreatorName}
+						reportedEventId={safeReportedEventId}
+						username={resolvedCreatorName ?? undefined}
 						{onMuted}
 					/>
 				{/if}

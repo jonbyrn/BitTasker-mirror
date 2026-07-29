@@ -226,7 +226,9 @@
 					<IconTagOutline class="text-primary h-8 w-8 shrink-0" />
 					<span class="line-clamp-1 text-sm">
 						{searchParams.categories
-							.map((c) => getCategoryName(typeof c === 'string' ? c : (c as { id: string }).id))
+							.map((c: string | { id: string }) =>
+								getCategoryName(typeof c === 'string' ? c : c.id)
+							)
 							.join(', ')}
 					</span>
 				</div>

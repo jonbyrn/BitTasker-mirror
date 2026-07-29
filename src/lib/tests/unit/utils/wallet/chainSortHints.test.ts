@@ -141,46 +141,48 @@ describe('chainSortHints', () => {
 			hash: string,
 			ts: string,
 			displayType: 'send' | 'swap-claim'
-		): ProcessedTransaction => ({
-			hash,
-			from: 'a',
-			to: 'b',
-			value: hash === claimHash ? '2500' : '2535',
-			timestamp: ts,
-			status: statusUI.confirmed,
-			network: hash === claimHash ? 'rsk' : 'lightning',
-			type: hash === claimHash ? 'receive' : 'send',
-			displayType,
-			borderColor: hash === claimHash ? 'success' : 'warning',
-			iconConfig: { base: null as never, overlay: null },
-			title: hash === claimHash ? 'wallet.received' : 'wallet.sent',
-			networkIcon: '',
-			networkDisplayName: '',
-			explorerUrl: null,
-			feeSats: hash === claimHash ? 0 : 119,
-			balanceAfter: 0
-		});
+		): ProcessedTransaction =>
+			({
+				hash,
+				from: 'a',
+				to: 'b',
+				value: hash === claimHash ? '2500' : '2535',
+				timestamp: ts,
+				status: statusUI.confirmed as unknown as ProcessedTransaction['status'],
+				network: hash === claimHash ? 'rsk' : 'lightning',
+				type: hash === claimHash ? 'receive' : 'send',
+				displayType,
+				borderColor: hash === claimHash ? 'success' : 'warning',
+				iconConfig: { base: null as never, overlay: null },
+				title: hash === claimHash ? 'wallet.received' : 'wallet.sent',
+				networkIcon: '',
+				networkDisplayName: '',
+				explorerUrl: null,
+				feeSats: hash === claimHash ? 0 : 119,
+				balanceAfter: 0
+			}) as unknown as ProcessedTransaction;
 
-		const awaiting = (id: string, ts: string): ProcessedTransaction => ({
-			hash: `swap-${id}`,
-			from: 'boltz',
-			to: 'user',
-			value: '4700',
-			timestamp: ts,
-			status: statusUI.pending,
-			network: 'lightning',
-			type: 'receive',
-			displayType: 'receive',
-			borderColor: 'neutral',
-			iconConfig: { base: null as never, overlay: null },
-			title: 'wallet.swap.awaiting_payment',
-			networkIcon: '',
-			networkDisplayName: 'LN',
-			explorerUrl: null,
-			feeSats: 0,
-			balanceAfter: 0,
-			swap: { id, type: 'reverse', actions: [], rawStatus: 'swap.created' }
-		});
+		const awaiting = (id: string, ts: string): ProcessedTransaction =>
+			({
+				hash: `swap-${id}`,
+				from: 'boltz',
+				to: 'user',
+				value: '4700',
+				timestamp: ts,
+				status: statusUI.pending as unknown as ProcessedTransaction['status'],
+				network: 'lightning',
+				type: 'receive',
+				displayType: 'receive',
+				borderColor: 'neutral',
+				iconConfig: { base: null as never, overlay: null },
+				title: 'wallet.swap.awaiting_payment',
+				networkIcon: '',
+				networkDisplayName: 'LN',
+				explorerUrl: null,
+				feeSats: 0,
+				balanceAfter: 0,
+				swap: { id, type: 'reverse', actions: [], rawStatus: 'swap.created' }
+			}) as unknown as ProcessedTransaction;
 
 		const merged = projectTransactions(
 			applyChainSortHints(

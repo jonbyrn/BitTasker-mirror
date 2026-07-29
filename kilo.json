@@ -1,0 +1,94 @@
+{
+	"$schema": "https://app.kilo.ai/config.json",
+	"model": "xiaomi/mimo-v2.5-pro-ultraspeed",
+	"snapshot": true,
+	"small_model": "xiaomi/mimo-v2.5-pro-ultraspeed",
+	"default_agent": "orchestrator",
+	"instructions": ["AGENTS.md", "CLAUDE.md"],
+	"permission": {
+		"bash": "allow",
+		"read": {
+			"./.env": "deny",
+			"./.env.*": "deny",
+			"*": "allow"
+		},
+		"edit": "allow",
+		"task": "allow",
+		"webfetch": "allow"
+	},
+	"mcp": {
+		"gitnexus": {
+			"type": "local",
+			"command": ["/home/foxx/.npm/_npx/5e786f48223a616c/node_modules/.bin/gitnexus", "mcp"],
+			"enabled": true
+		},
+		"nostrbook": {
+			"type": "local",
+			"command": ["npx", "-y", "@nostrbook/mcp@latest"],
+			"enabled": true
+		},
+		"code-index": {
+			"type": "local",
+			"command": ["uvx", "code-index-mcp"],
+			"enabled": true
+		},
+		"pickapicon-mcp": {
+			"type": "local",
+			"command": ["npx", "-y", "pickapicon-mcp@latest"],
+			"enabled": true
+		},
+		"ts-introspect": {
+			"type": "local",
+			"command": ["npx", "-y", "@t3ta/ts-introspect-mcp-server"],
+			"enabled": true
+		},
+		"svelte": {
+			"type": "remote",
+			"url": "https://mcp.svelte.dev/mcp",
+			"enabled": true
+		},
+		"playwright": {
+			"type": "local",
+			"command": ["npx", "@playwright/mcp@latest", "--extension"],
+			"enabled": true
+		},
+		"skeleton-ui-docs": {
+			"type": "local",
+			"command": ["uvx", "skeleton-ui-mcp-server@latest"],
+			"enabled": true
+		},
+		"daisyui": {
+			"type": "local",
+			"command": ["/home/foxx/daisyui-mcp/venv/bin/python", "/home/foxx/daisyui-mcp/mcp_server.py"],
+			"enabled": true
+		},
+		"jina": {
+			"type": "remote",
+			"url": "https://mcp.jina.ai/v1?include_tools=search_web,read_url,expand_query,primer,capture_screenshot_url",
+			"headers": {
+				"Authorization": "Bearer jina_9fd1cdaa9b6346b6b0f2cf43df5dbe12Z_9SugnikdkzAzvSuZKmLRQmn7a5"
+			},
+			"enabled": true
+		},
+		"mcp-memory": {
+			"type": "remote",
+			"url": "https://mcp-mem.bittasker.com/mcp",
+			"headers": {
+				"X-API-Key": "782ac31e0081c83efc7eca79501d2de7f315092d7768fefd713a300e4b2e0ce9c26e3f0264b22797eac6c91a7f7d94d9a7534509dc274109f7c49bd8e48644"
+			},
+			"enabled": true
+		}
+	},
+	"skills": {
+		"paths": [
+			"./.claude/skills",
+			"./.claude/skills/gitnexus",
+			"./.claude/skills/bittasker",
+			"./.claude/skills/svelte",
+			"./.claude/skills/testing",
+			"./.claude/skills/design",
+			"./.claude/skills/meta",
+			"~/.claude/skills"
+		]
+	}
+}

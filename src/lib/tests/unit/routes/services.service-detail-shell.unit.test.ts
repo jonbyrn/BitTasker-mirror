@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 
+type ServiceSeoPayload = Record<string, unknown>;
+
 const hoisted = vi.hoisted(() => ({
 	pageState: {
 		url: new URL('https://bittasker.com/services/service-123'),
@@ -79,9 +81,9 @@ describe('services/[serviceId] route shell', () => {
 				data: {
 					service: null,
 					serviceId: 'service-123',
-					seo: null
+					seo: null as unknown as ServiceSeoPayload
 				}
-			})
+			} as unknown as Parameters<typeof render>[1])
 		).not.toThrow();
 
 		await waitFor(() => expect(screen.getByRole('link', { name: 'Find Tasks' })).toBeTruthy());

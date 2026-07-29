@@ -292,7 +292,9 @@ describe('TransactionSuccessScreen Component', () => {
 			getBlockNumber: vi.fn().mockResolvedValue(100)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider);
+		vi.mocked(getProvider).mockReturnValue(
+			mockProvider as unknown as ReturnType<typeof getProvider>
+		);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
@@ -316,7 +318,9 @@ describe('TransactionSuccessScreen Component', () => {
 			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider);
+		vi.mocked(getProvider).mockReturnValue(
+			mockProvider as unknown as ReturnType<typeof getProvider>
+		);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
@@ -346,7 +350,9 @@ describe('TransactionSuccessScreen Component', () => {
 			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider);
+		vi.mocked(getProvider).mockReturnValue(
+			mockProvider as unknown as ReturnType<typeof getProvider>
+		);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
@@ -370,7 +376,9 @@ describe('TransactionSuccessScreen Component', () => {
 			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider);
+		vi.mocked(getProvider).mockReturnValue(
+			mockProvider as unknown as ReturnType<typeof getProvider>
+		);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();

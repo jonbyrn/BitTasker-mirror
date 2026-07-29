@@ -89,5 +89,16 @@ export const ENDPOINTS = {
 
 	REMINDERS: {
 		ENRICH: `${API_PATH}/${API_VERSION}/reminders/enrich`
+	},
+
+	// Gasless relay (ERC-4337 / EIP-7702)
+	GASLESS: {
+		RELAY: `${API_PATH}/${API_VERSION}/gasless/relay`,
+		PREPARE: `${API_PATH}/${API_VERSION}/gasless/prepare`,
+		SIMULATE: `${API_PATH}/${API_VERSION}/gasless/simulate`,
+		ESTIMATE: `${API_PATH}/${API_VERSION}/gasless/estimate`,
+		BALANCE: `${API_PATH}/${API_VERSION}/gasless/balance`,
+		HEALTH: `${API_PATH}/${API_VERSION}/gasless/health`,
+		CONFIG: `${API_PATH}/${API_VERSION}/gasless/config`
 	}
 };

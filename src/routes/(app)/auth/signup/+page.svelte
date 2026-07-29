@@ -35,28 +35,19 @@
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
 			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
-			theme: 'auto', // Automatically use light/dark based on user preference
-			size: 'flexible', // Can be 'normal', 'compact', or 'flexible'
-			retry: 'never', // Prevent automatic retry on failure
-			'retry-interval': 10000, // If retry is enabled, wait 10 seconds between attempts
+			theme: 'auto',
+			size: 'normal' as const,
+			retry: 'never' as const,
+			'retry-interval': 10000,
 			callback: function (token: string) {
-				// This function is called when the user successfully completes the challenge
 				verifyCaptcha(token);
 			},
 			'expired-callback': function () {
-				// This function is called when the token expires after 300 seconds
 				isCaptchaVerified.set(false);
 				captchaFailed = true;
 				error = $t('signup.error.captcha_expired');
 			},
-			'error-callback': function (errorCode: string) {
-				// This function is called when there's an error with the widget
-				// Ignore PAT-related 401 errors as they're expected
-				if (errorCode === '401') {
-					console.log('Ignoring PAT 401 error - this is normal and can be ignored');
-					return true; // Return true to indicate we've handled this error
-				}
-
+			'error-callback': function () {
 				captchaFailed = true;
 				error = $t('signup.error.verification_error');
 			}

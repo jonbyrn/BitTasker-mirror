@@ -246,7 +246,7 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				searchParamsKey: hashSearchParams(searchParams)
+				searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 			}));
 			loadingState = 'loaded';
 			syncScrollHasMore();
@@ -274,8 +274,8 @@
 	}
 
 	// ── Search & Filters ───────────────────────────────────────────────────────
-	const debouncedSearch = debounceWithAbort(
-		async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
+	const debouncedSearch = debounceWithAbort((...args: unknown[]) => {
+		void (async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
 			const currentVersion = ++searchVersion;
 
 			// Abort any in-flight search request
@@ -315,7 +315,7 @@
 				if (currentVersion !== searchVersion) return;
 				servicesStore.update((state) => ({
 					...state,
-					searchParamsKey: hashSearchParams(searchParams)
+					searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 				}));
 				loadingState = 'loaded';
 				syncScrollHasMore();
@@ -329,18 +329,22 @@
 					await dismissSaveSearchBanner();
 				} else {
 					pendingSaveSearchParams = null;
-					await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true), {
-						deferred: true,
-						deferMs: 2500
-					});
+					await manageSaveSearchBanner(
+						searchParams as unknown as Record<string, unknown>,
+						'services',
+						() => (isSaveSearchOpen = true),
+						{
+							deferred: true,
+							deferMs: 2500
+						}
+					);
 				}
 			} catch (err) {
 				console.error('[FindServices] Search fetch error:', err);
 				loadingState = 'error';
 			}
-		},
-		1000
-	);
+		})(args[0] as string, args[1] as SearchServicesParams);
+	}, 1000);
 
 	async function handleFilterApply(filterParams: SearchServicesParams) {
 		isApplyingFilters = true;
@@ -378,7 +382,7 @@
 
 		servicesStore.update((state) => ({
 			...state,
-			searchParamsKey: hashSearchParams(searchParams)
+			searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 		}));
 		loadingState = 'loaded';
 		syncScrollHasMore();
@@ -389,10 +393,15 @@
 			pendingSaveSearchParams = { ...searchParams };
 		} else {
 			pendingSaveSearchParams = null;
-			await manageSaveSearchBanner(searchParams, 'services', () => (isSaveSearchOpen = true), {
-				deferred: true,
-				deferMs: 2000
-			});
+			await manageSaveSearchBanner(
+				searchParams as unknown as Record<string, unknown>,
+				'services',
+				() => (isSaveSearchOpen = true),
+				{
+					deferred: true,
+					deferMs: 2000
+				}
+			);
 		}
 	}
 
@@ -427,7 +436,7 @@
 		await findServicesWithTimeout(searchParams);
 		servicesStore.update((state) => ({
 			...state,
-			searchParamsKey: hashSearchParams(searchParams)
+			searchParamsKey: hashSearchParams(searchParams as unknown as Record<string, unknown>)
 		}));
 		loadingState = 'loaded';
 		isApplyingFilters = false;

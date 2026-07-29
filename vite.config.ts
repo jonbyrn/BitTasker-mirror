@@ -104,6 +104,13 @@ export default defineConfig(({ mode }) => {
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
 			}
 		},
+		ssr: {
+			// Bundle wallet-core through Vite's SSR pipeline so Vite handles its
+			// JSON imports (boltz-core/out/EtherSwap.sol/EtherSwap.json) natively.
+			// Without this, Node.js v26 loads the package directly and requires
+			// `import ... with { type: 'json' }` assertions that aren't present.
+			noExternal: ['@bittasker/wallet-core']
+		},
 		plugins: [
 			// 1. Framework core — must come first to establish the SvelteKit transform pipeline
 			sveltekit(),
@@ -131,6 +138,7 @@ export default defineConfig(({ mode }) => {
 				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
 				include: ['stream', 'buffer', 'util', 'process', 'events'],
 				// Explicitly exclude modules that should not be polyfilled
+				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
 				exclude: ['fs', 'path']
 			}),
 
@@ -176,11 +184,12 @@ export default defineConfig(({ mode }) => {
 			global: 'globalThis'
 		},
 		build: {
-			// es2022: native top-level await for secp256k1 WASM (vite-plugin-wasm).
-			// Do NOT use vite-plugin-top-level-await here — it wraps whole chunks in __tla
-			// IIFEs and breaks SvelteKit's sync onMount probe (preview blank screen).
-			// Vitest keeps the plugin in vitest.config.ts for the test runner target.
-			target: 'es2022',
+			// esnext: native top-level await for secp256k1 WASM (vite-plugin-wasm).
+			// Setting "esnext" tells vite-plugin-top-level-await to skip its esbuild
+			// re-transform step, which breaks cross-chunk references (e.g. ProviderRpcError
+			// from dependencies). The plugin still wraps TLA in async IIFEs via SWC for Safari/iOS
+			// compatibility, but avoids the esbuild minify that mangles dependency references.
+			target: 'esnext',
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
@@ -264,6 +273,15 @@ export default defineConfig(({ mode }) => {
 					target: 'https://dev.bittasker.com',
 					changeOrigin: true,
 					secure: true
+				},
+				// RSK RPC proxy — public-node.rsk.co blocks browser CORS;
+				// in production (Capacitor) native HTTP bypasses this, but in dev mode
+				// the proxy is needed for balance fetches to succeed.
+				'/rpc/rsk': {
+					target: 'https://public-node.rsk.co',
+					changeOrigin: true,
+					secure: true,
+					rewrite: (path) => path.replace(/^\/rpc\/rsk/, '')
 				}
 			},
 			watch: {
@@ -306,7 +324,16 @@ export default defineConfig(({ mode }) => {
 					// Claude project-local config (hooks, skills, settings)
 					'**/.claude/**',
 					// E2E test artifacts (generated while dev server runs)
-					'**/playwright-report/**'
+					'**/playwright-report/**',
+					// Kilo Code / OpenCode tooling — prevent hot reloads from agent writes
+					'**/.kilo/**',
+					'**/.kilocode/**',
+					'**/.opencode/**',
+					// Kilo config file (frequently written by agent)
+					'**/kilo.json',
+					// Other tooling configs at project root
+					'**/claude-flow.config.json',
+					'**/.mcp.json'
 				]
 			}
 		}

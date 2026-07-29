@@ -126,11 +126,13 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 			...translationTexts,
 			...locationSearchTerms(
 				service.locationDetails?.taskerLocation?.serviceLocation,
-				service.locationDetails?.taskerLocation?.locationDisplayName
+				(service.locationDetails?.taskerLocation as Record<string, unknown>)
+					?.locationDisplayName as string | undefined
 			),
 			...locationSearchTerms(
 				service.locationDetails?.taskeeLocation?.serviceLocation,
-				service.locationDetails?.taskeeLocation?.locationDisplayName
+				(service.locationDetails?.taskeeLocation as Record<string, unknown>)
+					?.locationDisplayName as string | undefined
 			),
 			...Array.from(skillsSet),
 			...Array.from(categoriesSet)

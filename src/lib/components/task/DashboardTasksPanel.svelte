@@ -25,6 +25,7 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
+	import type { Component } from 'svelte';
 
 	// Props
 	let { openTaskDrawer, status = null } = $props<{
@@ -71,34 +72,34 @@
 		{
 			id: 'all' as const,
 			label: $t('dashboard.contracts.all_statuses'),
-			icon: IconCheckAll
+			icon: IconCheckAll as unknown as Component
 		},
 		{
 			id: 'open',
 			label: $t('task.filters.open'),
-			icon: IconClockOutline
+			icon: IconClockOutline as unknown as Component
 		},
 		{
 			id: 'tasks_in_progress',
 			label: $t('task.filters.in_progress'),
-			icon: IconLightningBolt
+			icon: IconLightningBolt as unknown as Component
 		},
 		{
 			id: 'tasks_completed',
 			label: $t('task.filters.completed'),
-			icon: IconCheckCircle
+			icon: IconCheckCircle as unknown as Component
 		},
 		{
 			id: 'tasks_disputed',
 			label: $t('task.filters.disputed'),
-			icon: IconAlertCircleOutline
+			icon: IconAlertCircleOutline as unknown as Component
 		},
 		{
 			id: 'tasks_cancelled',
 			label: $t('task.filters.cancelled'),
-			icon: IconClipboardTextOutline
+			icon: IconClipboardTextOutline as unknown as Component
 		}
-	] as const);
+	]);
 
 	/**
 	 * Fetch current BTC price
@@ -273,22 +274,25 @@
 			case TaskStatusEnum.RESCOPE_ACCEPTED: {
 				// For in-progress, prioritize Contract and Messages
 				const inProgressButtons = [];
+				const meta = (task as unknown as Record<string, unknown>).acceptedBidMetadata as
+					| { pubkey?: string; escrowId?: string }
+					| undefined;
 
 				// 1. Message Taskee (if we have a pubkey)
-				if (task.acceptedBidMetadata?.pubkey) {
+				if (meta?.pubkey) {
 					inProgressButtons.push({
 						label: $t('navbar.messages'),
 						class: 'btn-outline btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							goto(`/messages/to/${task.acceptedBidMetadata?.pubkey}`);
+							goto(`/messages/to/${meta.pubkey}`);
 						},
 						icon: 'message'
 					});
 				}
 
 				// 2. View Contract (if we have an escrow ID)
-				if (task.acceptedBidMetadata?.escrowId) {
+				if (meta?.escrowId) {
 					inProgressButtons.push({
 						label: $t('dashboard.tabs.contracts'),
 						class: 'btn-primary btn-sm',
@@ -296,7 +300,7 @@
 							e.stopPropagation();
 							const nextUrl = createDashboardUrl(new URL(window.location.href), {
 								tab: 'contracts',
-								highlight: task.acceptedBidMetadata?.escrowId
+								highlight: meta.escrowId
 							});
 							void goto(nextUrl.toString());
 						},
@@ -341,9 +345,9 @@
 <div class="space-y-4">
 	<DashboardFilterBar onRefresh={handleRefresh} isRefreshing={isLoading}>
 		<DashboardDropdown
-			options={filterOptions}
+			options={filterOptions as unknown as { id: string; label: string; icon?: Component }[]}
 			value={activeFilter}
-			onSelect={handleStatusChange}
+			onSelect={(v: string) => handleStatusChange(v as TaskFilterCategory)}
 			containerClass="col-span-2 sm:w-64"
 		/>
 	</DashboardFilterBar>
@@ -418,7 +422,17 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<DashboardTaskCard {task} {btcPrice} {activeFilter} {getActionButtons} />
+					<DashboardTaskCard
+						{task}
+						{btcPrice}
+						activeFilter={activeFilter as
+							| 'open'
+							| 'tasks_in_progress'
+							| 'tasks_completed'
+							| 'tasks_disputed'
+							| 'tasks_cancelled'}
+						{getActionButtons}
+					/>
 				{/each}
 			</div>
 

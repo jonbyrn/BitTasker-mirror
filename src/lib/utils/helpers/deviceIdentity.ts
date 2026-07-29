@@ -93,8 +93,8 @@ interface BrowserInfo {
  */
 async function generateBrowserFingerprint(): Promise<string> {
 	const userAgent = navigator.userAgent;
-	// @ts-expect-error - userAgentData is not always available
-	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
+	const navWithUAData = navigator as Navigator & { userAgentData?: { platform?: string } };
+	const platform = navWithUAData.userAgentData?.platform || navigator.platform || 'unknown';
 	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;
@@ -140,7 +140,11 @@ function getBrowserInfo(): BrowserInfo {
 async function sha256(text: string): Promise<string> {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(text);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	// toBufferSource equivalent: WebCrypto subtle methods are strict about BufferSource vs ArrayBufferLike in some TS environments
+	const hashBuffer = await crypto.subtle.digest(
+		'SHA-256',
+		data.buffer instanceof ArrayBuffer ? data : new Uint8Array(data)
+	);
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
 	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }

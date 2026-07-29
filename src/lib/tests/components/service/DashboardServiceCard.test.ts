@@ -38,6 +38,7 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-1',
 			uniqueId: 'service-1',
+			npub: 'a'.repeat(64),
 			title: 'Logo package',
 			description: 'Professional logo design packages.',
 			status: 'active',
@@ -52,6 +53,9 @@ describe('DashboardServiceCard', () => {
 				}
 			},
 			instantBuyLeadHours: 48,
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			pricing: {
 				type: 'TIERED',
 				currency: 'USD',
@@ -85,7 +89,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -103,6 +107,7 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-2',
 			uniqueId: 'service-2',
+			npub: 'a'.repeat(64),
 			title: 'On-site troubleshooting',
 			description: 'Send details and I will quote the visit.',
 			status: 'active',
@@ -112,6 +117,9 @@ describe('DashboardServiceCard', () => {
 					useGlobalLocation: false
 				}
 			},
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			pricing: {
 				type: 'INQUIRY_REQUIRED',
 				currency: 'USD'
@@ -119,7 +127,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getAllByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -132,10 +140,14 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-3',
 			uniqueId: 'service-3',
+			npub: 'a'.repeat(64),
 			title: 'Remote audit',
 			description: 'Remote accessibility review.',
 			status: 'active',
 			serviceLocationTypes: ['remote', 'tasker_location'],
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			locationDetails: {
 				taskerLocation: {
 					serviceLocation: {
@@ -150,7 +162,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -163,9 +175,13 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-mixed',
 			uniqueId: 'service-mixed',
+			npub: 'a'.repeat(64),
 			title: 'Hybrid repair',
 			description: 'Storefront and mobile support.',
 			status: 'active',
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			serviceLocationTypes: ['tasker_location', 'taskee_location'],
 			locationDetails: {
 				taskerLocation: {
@@ -192,7 +208,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, queryByText } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -207,9 +223,13 @@ describe('DashboardServiceCard', () => {
 		const service = {
 			id: 'service-4',
 			uniqueId: 'service-4',
+			npub: 'a'.repeat(64),
 			title: 'Brand sprint',
 			description: 'Fast identity package.',
 			status: 'active',
+			skills: [],
+			categories: [],
+			createdAt: 1,
 			serviceLocationTypes: ['remote'],
 			locationDetails: {},
 			pricing: {
@@ -219,7 +239,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByRole } = render(DashboardServiceCard, {
-			service,
+			service: service as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [
 				{
 					label: 'Contracts',
@@ -257,7 +277,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const { getByText, unmount } = render(DashboardServiceCard, {
-			service: eligibleService,
+			service: eligibleService as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});
@@ -273,7 +293,7 @@ describe('DashboardServiceCard', () => {
 		};
 
 		const withoutWallet = render(DashboardServiceCard, {
-			service: missingWalletService,
+			service: missingWalletService as unknown as import('$lib/types/service').Service,
 			getActionButtons: () => [],
 			btcPrice: 100000
 		});

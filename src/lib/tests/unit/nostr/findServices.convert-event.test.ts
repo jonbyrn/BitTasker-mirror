@@ -262,7 +262,9 @@ describe('convertEventToService', () => {
 		});
 
 		it('should handle profile fetch returning null gracefully', async () => {
-			vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null);
+			vi.mocked(fetchComprehensiveProfile).mockResolvedValue(
+				null as unknown as Awaited<ReturnType<typeof fetchComprehensiveProfile>>
+			);
 			const event = createServiceEvent();
 
 			const result = await convertEventToService(event);
@@ -273,9 +275,9 @@ describe('convertEventToService', () => {
 
 		it('should not add rating since convertEventToService is synchronous and does not fetch profiles', async () => {
 			vi.mocked(fetchComprehensiveProfile).mockResolvedValue({
-				reviews: [{ rating: 5 }, { rating: 4 }],
+				reviews: [{ rating: 5 } as never, { rating: 4 } as never],
 				npub: 'b'.repeat(64)
-			});
+			} as unknown as Awaited<ReturnType<typeof fetchComprehensiveProfile>>);
 			const event = createServiceEvent();
 
 			const result = await convertEventToService(event);
@@ -291,7 +293,10 @@ describe('convertEventToService', () => {
 				status: 'active',
 				title: 'Test Service',
 				description: 'Test service description',
-				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, ServiceLocationTypeEnum.ONLINE],
+				serviceLocationTypes: [
+					ServiceLocationTypeEnum.REMOTE,
+					ServiceLocationTypeEnum.TASKEE_LOCATION
+				],
 				locationDetails: { address: '123 Test St' },
 				pricing: {
 					type: ServicePricingTypeEnum.FIXED,

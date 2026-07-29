@@ -46,7 +46,7 @@
 				id: 'all',
 				label: resolvedAllServicesLabel
 			},
-			...services.map((s) => ({
+			...services.map((s: Service) => ({
 				id: buildServiceAddress(s),
 				label: getServiceDisplayTitle(s, $locale || 'en')
 			}))
@@ -55,7 +55,7 @@
 		if (
 			selectedServiceAddress &&
 			selectedServiceAddress !== 'all' &&
-			!services.some((s) => buildServiceAddress(s) === selectedServiceAddress)
+			!services.some((s: Service) => buildServiceAddress(s) === selectedServiceAddress)
 		) {
 			options.push({
 				id: selectedServiceAddress,

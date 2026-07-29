@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ethers } from 'ethers';
 import { MINIMUM_START_BUFFER_SECONDS } from '$lib/utils/contract/v2/types';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import type { NDKBid } from '$lib/nostr/events/bid';
+import type { NDKTask } from '$lib/nostr/events/task';
 
 // ── mocks ──────────────────────────────────────────────────────────
 
@@ -49,7 +51,7 @@ function makeMockBid() {
 			cancellationFee: 0,
 			upfrontDeposit: 0
 		}
-	};
+	} as unknown as NDKBid;
 }
 
 const mockTx = {
@@ -115,7 +117,7 @@ vi.mock('$lib/nostr/events/contract', () => {
 		tags: string[][] = [];
 		id = 'event-id-789';
 
-		constructor(_ndk) {}
+		constructor(_ndk: unknown) {}
 
 		static from = vi.fn(() =>
 			Promise.resolve({
@@ -159,7 +161,8 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 
 const mockSendBidStatusUpdate = vi.fn(() => Promise.resolve(true));
 vi.mock('$lib/utils/nostr-bid', () => ({
-	sendBidStatusUpdate: (...args: unknown[]) => mockSendBidStatusUpdate(...args),
+	sendBidStatusUpdate: (...args: unknown[]) =>
+		(mockSendBidStatusUpdate as (...a: unknown[]) => unknown)(...args),
 	clearBidCache: vi.fn()
 }));
 
@@ -200,8 +203,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const bid = makeMockBid();
 
 			// startDateTime is 30s from now → within buffer → will be adjusted to now + 180
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
@@ -214,7 +217,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				]
 			});
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 
 			if (!result.success) {
 				throw new Error(`createContract failed: ${result.error}`);
@@ -248,8 +255,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				}
 			});
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
@@ -262,7 +269,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				]
 			});
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 			await result.afterBroadcast;
 
@@ -277,10 +288,14 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600; // beyond buffer
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600; // beyond buffer
+			bid.bidContent!.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// Simulate broadcast completing
@@ -302,10 +317,14 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 			await result.afterBroadcast;
 
@@ -321,10 +340,14 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			const revertedReceipt = {
@@ -332,19 +355,23 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				logs: []
 			};
 
-			await expect(result.afterConfirmed(revertedReceipt)).rejects.toThrow(
-				/Transaction reverted on-chain/
-			);
+			await expect(
+				result.afterConfirmed(revertedReceipt as unknown as ethers.TransactionReceipt)
+			).rejects.toThrow(/Transaction reverted on-chain/);
 		});
 
 		it('afterConfirmed succeeds when receipt.status is 1', async () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// Build a proper receipt: paymentContractId is indexed (uint32) → goes into topics[1]
@@ -364,7 +391,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 						data: encodedData.data
 					}
 				]
-			};
+			} as unknown as ethers.TransactionReceipt;
 
 			const { paymentId } = await result.afterConfirmed(successReceipt);
 			expect(paymentId).toBe(42);
@@ -376,10 +403,14 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// After broadcast: task is IN_PROGRESS, contract event is 'pending'
@@ -387,7 +418,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 
 			// Simulate tx.wait() returning a reverted receipt
-			const revertedReceipt = { status: 0, logs: [] };
+			const revertedReceipt = { status: 0, logs: [] } as unknown as ethers.TransactionReceipt;
 
 			// afterConfirmed should throw
 			try {
@@ -412,7 +443,11 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				author: { pubkey: undefined, npub: undefined }
 			};
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.error).toContain('Taskee pubkey');
@@ -428,14 +463,16 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const task = makeMockTask();
 			const bid = makeMockBid();
 			// Start is within buffer, completion is only 60s away — duration is preserved
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 60;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 60;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(bid, task as unknown as NDKTask, 100000);
 			expect(result.success).toBe(true);
 
 			// Task should have moved to IN_PROGRESS after broadcast
-			await result.afterBroadcast;
+			if (result.success) {
+				await result.afterBroadcast;
+			}
 			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 		});
 	});
@@ -445,13 +482,17 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockSendBidStatusUpdate.mockClear();
 			mockSendBidStatusUpdate.mockResolvedValue(true);
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			await result.afterBroadcast;
@@ -471,19 +512,25 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockSendBidStatusUpdate.mockRejectedValue(new Error('Relay unavailable'));
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(
+				bid as unknown as NDKBid,
+				task as unknown as NDKTask,
+				100000
+			);
 			if (!result.success) throw new Error(result.error);
 
 			// afterBroadcast should complete without throwing even if bid status update fails
 			const report = await result.afterBroadcast;
 			// The failure should be captured in the report
 			expect(report.failures.length).toBeGreaterThanOrEqual(1);
-			expect(report.failures.some((f) => f.name === 'bidStatusUpdate')).toBe(true);
+			expect(report.failures.some((f: { name: string }) => f.name === 'bidStatusUpdate')).toBe(
+				true
+			);
 		});
 	});
 });

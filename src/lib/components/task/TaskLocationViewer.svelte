@@ -22,7 +22,9 @@
 	let mapElement: HTMLElement | null = $state(null);
 	let pickupMarker: google.maps.marker.AdvancedMarkerElement | null = $state(null);
 	let dropoffMarker: google.maps.marker.AdvancedMarkerElement | null = $state(null);
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let pickupCircle: google.maps.Circle | null = $state(null);
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let dropoffCircle: google.maps.Circle | null = $state(null);
 	let directionsService: google.maps.DirectionsService | null = $state(null);
 	let directionsRenderer: google.maps.DirectionsRenderer | null = $state(null);
@@ -200,7 +202,7 @@
 							</div>
 						`
 					});
-					infoWindow.open(map, pickupMarker);
+					infoWindow.open(map ?? undefined, pickupMarker ?? undefined);
 				});
 			} else {
 				// Fallback to regular marker if AdvancedMarkerElement is not available
@@ -208,7 +210,7 @@
 					position: pickupPosition,
 					map,
 					title: isRemovals ? 'Pickup Location' : 'Task Location'
-				}) as any;
+				}) as unknown as google.maps.marker.AdvancedMarkerElement;
 			}
 
 			// Create orange circle for pickup location
@@ -253,7 +255,7 @@
 							</div>
 						`
 					});
-					infoWindow.open(map, dropoffMarker);
+					infoWindow.open(map ?? undefined, dropoffMarker ?? undefined);
 				});
 			} else {
 				// Fallback to regular marker if AdvancedMarkerElement is not available
@@ -261,7 +263,7 @@
 					position: dropoffPosition,
 					map,
 					title: 'Drop-off Location'
-				}) as any;
+				}) as unknown as google.maps.marker.AdvancedMarkerElement;
 			}
 
 			// Create green circle for dropoff location
@@ -349,13 +351,14 @@
 	}
 
 	// TODO: Unused - To be removed when refactoring
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	async function createDirectionsWithLegacyAPI(
 		origin: google.maps.LatLngLiteral,
 		destination: google.maps.LatLngLiteral
 	) {
 		directionsService = new google.maps.DirectionsService();
 		directionsRenderer = new google.maps.DirectionsRenderer({
-			map,
+			map: map ?? undefined,
 			suppressMarkers: true, // We're using custom markers
 			polylineOptions: {
 				strokeColor: '#3B82F6',

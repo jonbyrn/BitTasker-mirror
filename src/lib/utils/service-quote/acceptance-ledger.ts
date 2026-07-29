@@ -466,7 +466,9 @@ async function readLedgerState(): Promise<Record<string, ServiceAcceptanceLedger
 	}
 }
 
-async function persistLedgerState(state: Record<string, ServiceAcceptanceLedgerEntry>): Promise<void> {
+async function persistLedgerState(
+	state: Record<string, ServiceAcceptanceLedgerEntry>
+): Promise<void> {
 	if (!browser) {
 		return;
 	}
@@ -583,7 +585,8 @@ export async function upsertAcceptanceLedgerEntry(
 
 	// Capture current mutex chain BEFORE any await to prevent race condition
 	// This ensures we chain onto the correct promise even if another call completes first
-	const prevChain = ledgerMutex.get(proposalId) ?? Promise.resolve<ServiceAcceptanceLedgerEntry>();
+	const prevChain = (ledgerMutex.get(proposalId) ??
+		Promise.resolve()) as Promise<ServiceAcceptanceLedgerEntry>;
 
 	// Chain new operation after previous mutex chain
 	// We store the result promise so next caller chains off THIS operation's completion

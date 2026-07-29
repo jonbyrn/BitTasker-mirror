@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t, locale } from 'svelte-i18n';
+	import { locale } from 'svelte-i18n';
 	import { switchLanguage, isI18nLoading, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { page } from '$app/state';
@@ -58,13 +58,12 @@
 		}
 	};
 
-	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
+	const LOCALE_TO_LANGUAGE_KEY: Record<string, string> = { en: 'English', es: 'Español' };
 
 	// Svelte 5 derived state for current language name (uses $derived.by for reactive re-evaluation)
 	const currentLanguageName = $derived.by(() => {
 		const currentLocale = $locale as SupportedLanguage;
-		const key = LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale;
-		return $t('navbar.language.' + key) || '';
+		return LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale || '';
 	});
 
 	// Show loading state for language switching
@@ -132,7 +131,7 @@
 						/>
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
-							<IconCheck class="text-primary ml-auto" width="16" />
+							<IconCheck class="text-primary ml-auto h-4 w-4" />
 						{/if}
 						{#if isLanguageLoading && code !== $locale}
 							<div class="loading loading-spinner loading-xs ml-auto"></div>

@@ -3,7 +3,35 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
-const hoisted = vi.hoisted(() => {
+interface StoreApi<T> {
+	set(nextValue: T): void;
+	update(updater: (currentValue: T) => T): void;
+	subscribe(subscriber: (nextValue: T) => void): () => void;
+}
+
+interface HoistedData {
+	createStore: <T>(initialValue: T) => StoreApi<T>;
+	servicesStore: StoreApi<{
+		items: Service[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
+		searchParamsKey: string;
+	}> & { destroy: ReturnType<typeof vi.fn> };
+	authStateStore: StoreApi<{ isAuthenticated: boolean }>;
+	userStore: StoreApi<{ npub: string }>;
+	showErrorToast: ReturnType<typeof vi.fn>;
+	showSuccessToast: ReturnType<typeof vi.fn>;
+	findServices: ReturnType<typeof vi.fn>;
+	persistServiceSearchFilters: ReturnType<typeof vi.fn>;
+	loadPersistedServiceSearchFilters: ReturnType<typeof vi.fn>;
+	cryptoPriceService: {
+		getCurrentPrice: ReturnType<typeof vi.fn>;
+	};
+}
+
+const hoisted = vi.hoisted((): HoistedData => {
 	const _storeData = {
 		items: [] as Service[],
 		loading: false,
@@ -13,37 +41,33 @@ const hoisted = vi.hoisted(() => {
 		searchParamsKey: ''
 	};
 
-	return {
-		createStore<T>(initialValue: T) {
-			let value = initialValue;
-			const subscribers = new Set<(nextValue: T) => void>();
+	function createStore<T>(initialValue: T): StoreApi<T> {
+		let value = initialValue;
+		const subscribers = new Set<(nextValue: T) => void>();
 
-			return {
-				set(nextValue: T) {
-					value = nextValue;
-					for (const subscriber of subscribers) {
-						subscriber(value);
-					}
-				},
-				update(updater: (currentValue: T) => T) {
-					this.set(updater(value));
-				},
-				subscribe(subscriber: (nextValue: T) => void) {
+		return {
+			set(nextValue: T) {
+				value = nextValue;
+				for (const subscriber of subscribers) {
 					subscriber(value);
-					subscribers.add(subscriber);
-					return () => subscribers.delete(subscriber);
 				}
-			};
-		},
-		servicesStore: null as ReturnType<typeof hoisted.createStore<typeof _storeData>>,
-		authStateStore: null as unknown as {
-			set: (nextValue: { isAuthenticated: boolean }) => void;
-			subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
-		},
-		userStore: null as unknown as {
-			set: (nextValue: { npub: string }) => void;
-			subscribe: (subscriber: (nextValue: { npub: string }) => void) => () => void;
-		},
+			},
+			update(updater: (currentValue: T) => T) {
+				this.set(updater(value));
+			},
+			subscribe(subscriber: (nextValue: T) => void) {
+				subscriber(value);
+				subscribers.add(subscriber);
+				return () => subscribers.delete(subscriber);
+			}
+		};
+	}
+
+	return {
+		createStore,
+		servicesStore: null as unknown as HoistedData['servicesStore'],
+		authStateStore: null as unknown as HoistedData['authStateStore'],
+		userStore: null as unknown as HoistedData['userStore'],
 		showErrorToast: vi.fn(),
 		showSuccessToast: vi.fn(),
 		findServices: vi.fn(),
@@ -55,7 +79,7 @@ const hoisted = vi.hoisted(() => {
 	};
 });
 
-hoisted.servicesStore = hoisted.createStore({
+const _createdServicesStore = hoisted.createStore({
 	items: [] as Service[],
 	loading: false,
 	error: null as string | null,
@@ -63,7 +87,7 @@ hoisted.servicesStore = hoisted.createStore({
 	hasMore: false,
 	searchParamsKey: ''
 });
-hoisted.servicesStore.destroy = vi.fn();
+hoisted.servicesStore = Object.assign(_createdServicesStore, { destroy: vi.fn() });
 hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
 hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
 
@@ -122,7 +146,8 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args: Parameters<typeof hoisted.findServices>) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) =>
+		(hoisted.findServices as unknown as (...a: unknown[]) => unknown)(...args),
 	cleanup: vi.fn()
 }));
 
@@ -163,8 +188,10 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
-	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
+	persistServiceSearchFilters: (...args: unknown[]) =>
+		(hoisted.persistServiceSearchFilters as unknown as (...a: unknown[]) => unknown)(...args),
+	loadPersistedServiceSearchFilters: () =>
+		(hoisted.loadPersistedServiceSearchFilters as unknown as () => unknown)()
 }));
 
 vi.mock('$lib/components/service/ServiceCard.svelte', async () => {
@@ -373,7 +400,7 @@ describe('Network failure scenarios', () => {
 			});
 
 			hoisted.showErrorToast.mockClear();
-			hoisted.showErrorToast('Test error message');
+			(hoisted.showErrorToast as unknown as (msg: string) => void)('Test error message');
 
 			expect(hoisted.showErrorToast).toHaveBeenCalledWith('Test error message');
 		});

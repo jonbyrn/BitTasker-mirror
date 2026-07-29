@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
-import type { Service } from '$lib/types/service.d';
+import type { Service } from '$lib/types/service';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => ({
@@ -78,15 +78,17 @@ const hoisted = vi.hoisted(() => ({
 }));
 hoisted.servicesStore = hoisted.createStore({
 	items: [] as Service[],
-	loading: false,
+	loading: false as boolean,
 	error: null as string | null,
 	currentPage: 1,
-	hasMore: false,
+	hasMore: false as boolean,
 	searchParamsKey: ''
 });
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+(hoisted.servicesStore as Record<string, unknown>).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true } as {
+	isAuthenticated: boolean;
+});
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' } as { npub: string });
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');

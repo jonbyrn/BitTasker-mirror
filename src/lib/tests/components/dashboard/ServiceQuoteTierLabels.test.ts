@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import DashboardQuoteCard from '$lib/components/dashboard/quotes/DashboardQuoteCard.svelte';
 import ServiceRequestDrawer from '$lib/components/dashboard/quotes/ServiceRequestDrawer.svelte';
-import type { Service } from '$lib/types/service';
+import type { Service, ServicePricing } from '$lib/types/service';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
@@ -43,7 +43,7 @@ const service: Service = {
 			{ id: 'premium', name: 'Premium Plan', price: 250 },
 			{ id: 'standard', name: 'Standard Plan', price: 150 }
 		]
-	},
+	} as unknown as ServicePricing,
 	skills: [],
 	categories: [],
 	createdAt: 1

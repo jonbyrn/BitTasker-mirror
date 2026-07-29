@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock wallet-core and liquidjs-lib so paymentAddressParser (via validators) can load
 vi.mock('@bittasker/wallet-core', () => ({
-	normalizeRskAddress: vi.fn((addr: string) => addr)
+	normalizeRskAddress: vi.fn((addr: string) => addr),
+	ARB_TOKEN_ADDRESSES: {
+		USDT0: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+		WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+		TBTC: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40'
+	}
 }));
 vi.mock('liquidjs-lib', () => ({
 	address: { toOutputScript: vi.fn() }
@@ -268,11 +273,11 @@ describe('parsePaymentAddress', () => {
 	});
 
 	describe('EIP-681 format with chain IDs', () => {
-		it('should reject unsupported chain ID', () => {
+		it('should accept Ethereum mainnet chain ID', () => {
 			const address = 'ethereum:0x1234567890123456789012345678901234567890@1';
 			const result = parsePaymentAddress(address);
-			expect(result.isValid).toBe(false);
-			expect(result.errorMessage).toContain('Chain ID 1 is not supported');
+			expect(result.isValid).toBe(true);
+			expect(result.network).toBe('usdt-ethereum');
 		});
 
 		it('should reject ethereum: scheme without chain ID', () => {

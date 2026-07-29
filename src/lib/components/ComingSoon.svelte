@@ -19,12 +19,12 @@
 	}>();
 
 	// Default values using translations
-	const title = props.title ?? $t('common.coming_soon.title');
-	const subtitle = props.subtitle ?? $t('common.coming_soon.subtitle');
-	const description = props.description ?? $t('common.coming_soon.description');
-	const showIcon = props.showIcon ?? true;
-	const showGlow = props.showGlow ?? true;
-	const size: 'sm' | 'md' | 'lg' = props.size ?? 'md';
+	const title = $derived(props.title ?? $t('common.coming_soon.title'));
+	const subtitle = $derived(props.subtitle ?? $t('common.coming_soon.subtitle'));
+	const description = $derived(props.description ?? $t('common.coming_soon.description'));
+	const showIcon = $derived(props.showIcon ?? true);
+	const showGlow = $derived(props.showGlow ?? true);
+	const size = $derived((props.size ?? 'md') as 'sm' | 'md' | 'lg');
 
 	// Size classes
 	const sizeClasses = {

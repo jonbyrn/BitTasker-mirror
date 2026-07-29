@@ -5,6 +5,9 @@ import { Preferences } from '@capacitor/preferences';
 import { decryptNsecWithBiometrics } from '$lib/utils/helpers/auth';
 import type { BiometricData, Credentials, EncryptedData } from '$lib/types/auth';
 
+// Prevent VITE_TEST_MNEMONIC early-return in nostrKeys.ts
+vi.stubEnv('VITE_TEST_MNEMONIC', '');
+
 const mockEncryptedData: EncryptedData = {
 	nostr: {
 		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
@@ -25,7 +28,7 @@ function createBiometricData(npub: string, overrides?: Partial<BiometricData>): 
 		encryptedData: mockEncryptedData,
 		exportedKey: 'exportedKey',
 		...overrides
-	};
+	} as unknown as BiometricData;
 }
 
 function createCredentials(npub: string, overrides?: Partial<Credentials>): Credentials {

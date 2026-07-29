@@ -6,6 +6,7 @@ import type {
 	ServiceQuoteThread
 } from '$lib/types/service-quote';
 import { queryNostrEvents } from '$lib/utils/nostr';
+import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
@@ -109,16 +110,12 @@ async function queryServiceQuoteRequestsByAuthorDetailed(
 	taskerPubkey: string,
 	limit: number = DEFAULT_LIMIT
 ): Promise<QueryCollectionResult<ServiceQuoteRequestEvent>> {
-	const events = await queryNostrEvents(
-		{
-			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
-			authors: [taskerPubkey],
-			limit
-		},
-		undefined,
-		undefined,
-		await getReadRelays()
-	);
+	const filter: Filter = {
+		kinds: [KINDS.SERVICE_QUOTE_REQUEST],
+		authors: [taskerPubkey],
+		limit
+	};
+	const events = await queryNostrEvents(filter, undefined, undefined, await getReadRelays());
 
 	const requests = dedupeById(events)
 		.map(safelyValidateRequest)
@@ -159,18 +156,14 @@ async function queryServiceQuoteRequestsForServiceDetailed(
 	quoteRequestId?: string
 ): Promise<QueryCollectionResult<ServiceQuoteRequestEvent>> {
 	const dTag = quoteRequestId ? buildQuoteRequestD(serviceAddress, quoteRequestId) : null;
-	const events = await queryNostrEvents(
-		{
-			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
-			...TAG_FILTERS.byAddress(serviceAddress),
-			...TAG_FILTERS.byNpub(taskeePubkey),
-			...(dTag ? { '#d': [dTag] } : {}),
-			limit
-		},
-		undefined,
-		undefined,
-		await getReadRelays()
-	);
+	const filter: Filter = {
+		kinds: [KINDS.SERVICE_QUOTE_REQUEST],
+		...TAG_FILTERS.byAddress(serviceAddress),
+		...TAG_FILTERS.byNpub(taskeePubkey),
+		...(dTag ? { '#d': [dTag] } : {}),
+		limit
+	};
+	const events = await queryNostrEvents(filter, undefined, undefined, await getReadRelays());
 
 	const requests = dedupeById(events)
 		.map(safelyValidateRequest)
@@ -286,11 +279,11 @@ async function queryStatusesForProposalsDetailed(
 	}
 
 	const proposalIds = proposals.map((proposal) => proposal.id);
-	const filter = {
+	const filter: Filter = {
 		kinds: [KINDS.SERVICE_PROPOSAL_STATUS],
 		'#e': proposalIds,
 		limit: STATUS_QUERY_LIMIT
-	} as Record<string, unknown>;
+	};
 	if (authors && authors.length > 0) {
 		filter.authors = [...new Set(authors)];
 	}
@@ -439,7 +432,7 @@ async function queryDeletedEventIdsDetailed(
 	eventIds: string[],
 	authors: string[],
 	relays: string[]
-): Promise<QueryCollectionResult<Set<string>>> {
+): Promise<{ items: Set<string>; isPartial: boolean }> {
 	if (eventIds.length === 0) {
 		return { items: new Set<string>(), isPartial: false };
 	}
@@ -469,7 +462,7 @@ async function queryDeletedEventIdsDetailed(
 
 function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {
 	try {
-		return validateServiceQuoteRequestEvent(event);
+		return validateServiceQuoteRequestEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -477,7 +470,7 @@ function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null 
 
 function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 	try {
-		return validateServiceProposalEvent(event);
+		return validateServiceProposalEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -485,7 +478,7 @@ function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 
 function safelyValidateStatus(event: unknown): ServiceProposalStatusEvent | null {
 	try {
-		return validateServiceProposalStatusEvent(event);
+		return validateServiceProposalStatusEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}

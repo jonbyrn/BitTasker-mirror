@@ -9,12 +9,13 @@ const meta = {
 		layout: 'padded',
 		docs: {
 			description: {
-				component: 'A read-only map component for displaying task locations in the review screen. Supports both single locations and pickup/dropoff with directions.'
+				component:
+					'A read-only map component for displaying task locations in the review screen. Supports both single locations and pickup/dropoff with directions.'
 			}
 		}
 	},
 	tags: ['autodocs']
-} satisfies Meta<TaskLocationViewer>;
+} satisfies Meta<typeof TaskLocationViewer>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -38,7 +39,7 @@ const sampleDropoffLocation: Location = {
 
 const downtownLocation: Location = {
 	displayName: 'Union Square, San Francisco, CA, USA',
-	latitude: 37.7880,
+	latitude: 37.788,
 	longitude: -122.4075,
 	zipCode: '94108',
 	locationLoaded: true
@@ -71,7 +72,8 @@ export const RemovalTask: Story = {
 	parameters: {
 		docs: {
 			description: {
-				story: 'Display pickup and dropoff locations with driving directions for removal/delivery tasks.'
+				story:
+					'Display pickup and dropoff locations with driving directions for removal/delivery tasks.'
 			}
 		}
 	}
@@ -88,7 +90,8 @@ export const RemovalTaskWithoutDirections: Story = {
 	parameters: {
 		docs: {
 			description: {
-				story: 'Display pickup and dropoff locations without directions - useful when directions API is not available or when you just want to show the locations.'
+				story:
+					'Display pickup and dropoff locations without directions - useful when directions API is not available or when you just want to show the locations.'
 			}
 		}
 	}
@@ -125,4 +128,4 @@ export const LargeMap: Story = {
 			}
 		}
 	}
-}; 
+};

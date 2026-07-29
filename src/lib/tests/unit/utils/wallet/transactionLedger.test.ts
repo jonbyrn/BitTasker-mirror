@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ComponentType } from 'svelte';
 import {
 	dedupChainClaims,
 	dedupSwapRows,
@@ -11,6 +12,22 @@ import {
 import type { ProcessedTransaction } from '$lib/types/wallet';
 import { statusUI } from '$lib/utils/constants/transactions.constants';
 
+const statusConfirmed = statusUI.confirmed as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+const _statusPending = statusUI.pending as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+const statusFailed = statusUI.failed as unknown as {
+	label: string;
+	icon: ComponentType;
+	color: string;
+};
+
 function makeClaimTx(hash: string, preimage: string, failed: boolean): ProcessedTransaction {
 	return {
 		hash,
@@ -18,7 +35,7 @@ function makeClaimTx(hash: string, preimage: string, failed: boolean): Processed
 		to: '0xcontract',
 		value: '3332',
 		timestamp: '2024-01-15T10:00:00Z',
-		status: failed ? statusUI.failed : statusUI.confirmed,
+		status: failed ? statusFailed : statusConfirmed,
 		network: 'rsk',
 		type: 'swap',
 		subType: 'claim',
@@ -53,7 +70,7 @@ describe('transactionLedger', () => {
 			to: 'boltz',
 			value: '1000',
 			timestamp: '2024-01-15T10:00:00Z',
-			status: statusUI.pending,
+			status: _statusPending,
 			network: 'lightning',
 			type: 'send',
 			displayType: 'send',
@@ -79,7 +96,7 @@ describe('transactionLedger', () => {
 			to: '0xother',
 			value: '1000',
 			timestamp: '2024-01-16T10:00:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'rsk',
 			type: 'send',
 			displayType: 'send',
@@ -158,7 +175,7 @@ describe('transactionLedger', () => {
 			to: 'b',
 			value: '100',
 			timestamp: '2024-01-20T10:00:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'rsk',
 			type: 'receive',
 			displayType: 'receive',
@@ -189,7 +206,7 @@ describe('transactionLedger', () => {
 			to: 'b',
 			value: '2500',
 			timestamp: '2024-06-05T23:12:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'lightning',
 			type: 'swap',
 			displayType: 'swap-claim',
@@ -207,14 +224,14 @@ describe('transactionLedger', () => {
 	});
 
 	it('should order receive hint above awaiting swaps above sent lockup hint', () => {
-		const sentLockup = {
+		const sentLockup: ProcessedTransaction = {
 			hash: '0xsend',
 			from: 'user',
 			to: 'boltz',
 			value: '2535',
 			timestamp: '2024-06-05T23:25:00Z',
 			sortTimestamp: '2024-06-05T22:00:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'lightning',
 			type: 'send',
 			displayType: 'send' as const,
@@ -234,7 +251,7 @@ describe('transactionLedger', () => {
 			value: '2500',
 			timestamp: '2024-06-05T23:20:00Z',
 			sortTimestamp: '2024-06-05T23:35:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'rsk',
 			type: 'receive',
 			displayType: 'swap-claim' as const,
@@ -253,7 +270,7 @@ describe('transactionLedger', () => {
 			to: 'user',
 			value: '4700',
 			timestamp: ts,
-			status: statusUI.pending,
+			status: _statusPending,
 			network: 'lightning',
 			type: 'receive',
 			displayType: 'receive',
@@ -269,7 +286,7 @@ describe('transactionLedger', () => {
 		});
 
 		const merged = projectTransactions(
-			[sentLockup, receiveClaim],
+			[sentLockup, receiveClaim] as unknown as ProcessedTransaction[],
 			[
 				awaiting('a', '2024-06-05T23:32:00Z'),
 				awaiting('b', '2024-06-05T23:32:00Z'),
@@ -292,7 +309,7 @@ describe('transactionLedger', () => {
 			to: 'boltz',
 			value: '3301',
 			timestamp: '2024-06-06T02:33:00Z',
-			status: statusUI.confirmed,
+			status: statusConfirmed,
 			network: 'lightning',
 			type: 'send',
 			displayType: 'send',
@@ -311,7 +328,7 @@ describe('transactionLedger', () => {
 			to: 'boltz',
 			value: '3265',
 			timestamp: '2024-06-06T02:33:00Z',
-			status: statusUI.pending,
+			status: _statusPending,
 			network: 'lightning',
 			type: 'send',
 			displayType: 'send',

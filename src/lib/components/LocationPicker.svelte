@@ -7,7 +7,7 @@
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
 
-	declare const google: NonNullable<typeof window.google>;
+	const google = window.google as NonNullable<typeof window.google>;
 
 	function getLocationPickerTranslation(key: string): string {
 		const servicesKey = `dashboard.services.create.location.location_picker.${key}`;
@@ -273,13 +273,13 @@
 			await loadMarkerLibrary();
 
 			// Add map click event to place marker
-			map.addListener('click', (event: google.maps.MapMouseEvent) => {
+			map.addListener('click', ((event: google.maps.MapMouseEvent) => {
 				const clickedLat = event.latLng?.lat();
 				const clickedLng = event.latLng?.lng();
 				if (clickedLat && clickedLng) {
 					reverseGeocodeAndUpdate(clickedLat, clickedLng);
 				}
-			});
+			}) as unknown as (...args: unknown[]) => void);
 
 			// Place initial marker at current (or default) coordinates
 			await placeMarker(safeCoords.lat, safeCoords.lng);

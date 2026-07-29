@@ -13,6 +13,7 @@
  */
 
 import type { Transaction } from '@bittasker/wallet-core';
+import type { ComponentType } from 'svelte';
 import type {
 	InternalTransaction,
 	ExtendedTransaction,
@@ -133,9 +134,10 @@ const rskExplorerBaseUrl =
 		? 'https://rootstock.blockscout.com/tx/'
 		: 'https://rootstock-testnet.blockscout.com/tx/';
 
-const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-const bscExplorerBaseUrl =
-	bscNetwork === 'mainnet' ? 'https://bscscan.com/tx/' : 'https://testnet.bscscan.com/tx/';
+const arbExplorerBaseUrl =
+	rskNetwork === 'mainnet'
+		? 'https://arbitrum.blockscout.com/tx/'
+		: 'https://arbitrum-sepolia.blockscout.com/tx/';
 
 const networks = {
 	rsk: {
@@ -146,7 +148,12 @@ const networks = {
 	bsc: {
 		icon: '/images/chains/Binance-logo.svg',
 		displayName: 'Binance Smart Chain',
-		explorerBaseUrl: bscExplorerBaseUrl
+		explorerBaseUrl: 'https://bscscan.com/tx/'
+	},
+	arb: {
+		icon: '/images/chains/arbitrum.png',
+		displayName: 'Arbitrum',
+		explorerBaseUrl: arbExplorerBaseUrl
 	},
 	lightning: {
 		icon: '/images/chains/lightning.svg',
@@ -329,6 +336,65 @@ function detectTransactionType(
 }
 
 /**
+ * Known contract method name → i18n translation key (e.g. 'wallet.transaction.createescrow').
+ * These are escrow/task lifecycle methods with translations in the locale files.
+ */
+const CONTRACT_METHOD_I18N_KEYS: Record<string, string> = {
+	createescrow: 'wallet.transaction.createescrow',
+	completetask: 'wallet.transaction.completetask',
+	accepttask: 'wallet.transaction.accepttask',
+	funds_released: 'wallet.transaction.funds_released',
+	disputetask: 'wallet.transaction.disputetask',
+	disputeresolved: 'wallet.transaction.disputeresolved',
+	disputeunresolved: 'wallet.transaction.disputeunresolved',
+	resolveaftertimelock: 'wallet.transaction.resolveaftertimelock',
+	acceptproposal: 'wallet.transaction.acceptproposal',
+	proposeresolution: 'wallet.transaction.proposeresolution',
+	refundescrow: 'wallet.transaction.refundescrow',
+	refundclient: 'wallet.transaction.refundclient',
+	transferownership: 'wallet.transaction.transferownership',
+	renounceownership: 'wallet.transaction.renounceownership',
+	pause: 'wallet.transaction.pause',
+	unpause: 'wallet.transaction.unpause',
+	disputeescrow: 'wallet.transaction.disputeescrow',
+	resolvedispute: 'wallet.transaction.resolvedispute',
+	cancelescrow: 'wallet.transaction.cancelescrow'
+};
+
+/**
+ * Known contract method name → short human-readable label.
+ * DeFi methods (bridge, swap, approve, transfer) that don't have i18n translations.
+ */
+const METHOD_LABELS: Record<string, string> = {
+	swapandstartbridgetokensviastargate: 'Cross-Chain Bridge',
+	swapandstartbridgealltokensviastargate: 'Cross-Chain Bridge',
+	swapandstartbridgngtokensviastargate: 'Cross-Chain Bridge',
+	startbridgeportaltokens: 'Cross-Chain Bridge',
+	bridgetokens: 'Bridge',
+	swap: 'Swap',
+	swapexacttokensfortokens: 'Swap',
+	swaptokensforexacttokens: 'Swap',
+	multicall: 'Batch Transaction',
+	approve: 'Approve',
+	transfer: 'Transfer',
+	transferfrom: 'Transfer'
+};
+
+/**
+ * Convert a contract method name into a display title.
+ * Priority: i18n key (escrow/task) → human-readable label (DeFi) → camelCase split (unknown).
+ */
+function formatContractMethodName(methodName: string): string {
+	const key = methodName.toLowerCase();
+	if (CONTRACT_METHOD_I18N_KEYS[key]) return CONTRACT_METHOD_I18N_KEYS[key];
+	if (METHOD_LABELS[key]) return METHOD_LABELS[key];
+	return methodName
+		.replace(/([a-z])([A-Z])/g, '$1 $2')
+		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+		.replace(/^./, (c) => c.toUpperCase());
+}
+
+/**
  * Determine all display properties for UI
  * Returns icon components directly and translation keys for titles
  */
@@ -449,10 +515,9 @@ function determineDisplayProperties(
 			displayType: 'contract-function',
 			borderColor: 'info',
 			iconConfig: { base: IconFileDocumentOutline, overlay: null },
-			title:
-				methodKey && knownContractKeys.has(methodKey)
-					? `wallet.transaction.${methodKey}`
-					: 'wallet.transaction.contract_function'
+			title: methodName
+				? formatContractMethodName(methodName)
+				: 'wallet.transaction.contract_function'
 		};
 	}
 
@@ -490,13 +555,15 @@ function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
  *
  * @param rawTransactions - Raw transactions from blockchain API
  * @param userAddress - User's wallet address
- * @param network - Network type ('rsk' or 'bsc')
- * @returns Processed transactions with all display properties
+ * @param network - Network type ('rsk' or 'arb')
+ * @param currentBalanceSats - Current balance in satoshis (for running balance calculation)
+ * @returns Processed transactions with all display properties and running balances
  */
 export async function processTransactions(
 	rawTransactions: Transaction[],
 	userAddress: string,
-	network: 'rsk' | 'bsc'
+	network: 'rsk' | 'bsc' | 'arb',
+	currentBalanceSats: number
 ): Promise<ProcessedTransaction[]> {
 	try {
 		// Validate userAddress
@@ -630,7 +697,10 @@ export async function processTransactions(
 					to: tx.to?.hash || '',
 					value: valueSats.toString(),
 					timestamp: tx.timestamp,
-					status: statusUI[isFailedClaim ? 'failed' : (txNormalized as keyof typeof statusUI)],
+					status: statusUI[
+						isFailedClaim ? 'failed' : (txNormalized as keyof typeof statusUI)
+					] as unknown as { label: string; icon: ComponentType; color: string },
+					txStatus: isFailedClaim ? 'failed' : txNormalized,
 					network: isLightningSwap ? 'lightning' : network,
 
 					// Computed fields
@@ -641,7 +711,10 @@ export async function processTransactions(
 					// Display helpers (all computed in one pass)
 					displayType,
 					borderColor: isFailedClaim ? 'error' : borderColor,
-					iconConfig, // Pre-computed icon components
+					iconConfig: iconConfig as unknown as {
+						base: Record<string, unknown>;
+						overlay: ComponentType | null;
+					},
 					title: isFailedClaim ? 'wallet.swap.failed_receive' : title,
 
 					// Network information (computed once)
@@ -657,13 +730,22 @@ export async function processTransactions(
 
 					// Raw data
 					rawMethod: tx.method || undefined,
-					decodedInput: tx.decoded_input || undefined
+					decodedInput: (tx.decoded_input || undefined) as
+						| string
+						| Record<string, unknown>
+						| undefined
 				};
 
-				// Add token symbol for BSC transactions if available
-				if (network === 'bsc' && tx.token_transfers && tx.token_transfers.length > 0) {
-					// For token transfers, use the token symbol
-					processedTx.tokenSymbol = 'USDT'; // Default for now, can be enhanced
+				if (network === 'arb' && tx.token_transfers && tx.token_transfers.length > 0) {
+					const transfer = tx.token_transfers[0];
+					const tokenAddr = transfer.token?.address?.toLowerCase();
+					if (tokenAddr === '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9') {
+						processedTx.tokenSymbol = 'USDT0';
+					} else if (tokenAddr === '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f') {
+						processedTx.tokenSymbol = 'wBTC';
+					} else if (tokenAddr === '0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40') {
+						processedTx.tokenSymbol = 'tBTC';
+					}
 				}
 
 				return processedTx;
@@ -681,11 +763,15 @@ export async function processTransactions(
 
 /**
  * Get explorer API URL based on network
- * Note: BSC internal transactions are not supported (BSCScan API not used)
  */
-function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
+function getExplorerApiUrl(network: 'rsk' | 'bsc' | 'arb'): string {
 	if (network === 'rsk') {
 		return resolveBlockscoutApiUrl();
+	}
+	if (network === 'arb') {
+		return rskNetwork === 'mainnet'
+			? 'https://arbitrum.blockscout.com/api/v2'
+			: 'https://arbitrum-sepolia.blockscout.com/api/v2';
 	}
 	return '';
 }
@@ -698,11 +784,11 @@ function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
  */
 async function fetchInternalTransactions(
 	userAddress: string,
-	network: 'rsk' | 'bsc'
+	network: 'rsk' | 'bsc' | 'arb'
 ): Promise<InternalTransaction[]> {
-	// BSCScan API doesn't support Blockscout-style internal transactions endpoint
+	// Arbitrum and BSC internal transactions not yet supported
 	// Only fetch for RSK network which uses Blockscout
-	if (network === 'bsc') {
+	if (network === 'arb' || network === 'bsc') {
 		return [];
 	}
 
@@ -845,4 +931,168 @@ function convertInternalToTransaction(
 	};
 
 	return extendedTx;
+}
+
+/**
+ * Minimal shape of a Blockscout v2 transaction item for Arbitrum fetching.
+ */
+interface BlockscoutTransactionItem {
+	hash: string;
+	from: { hash: string; is_contract?: boolean; name?: string | null };
+	to: { hash: string; is_contract?: boolean; name?: string | null } | null;
+	value: string;
+	gas_used: string;
+	gas_price: string;
+	gas_limit?: string;
+	block_number: number;
+	timestamp: string;
+	status: string;
+	method?: string | null;
+	decoded_input?: {
+		method_call?: string;
+		method_id?: string;
+		parameters?: { name: string; type: string; value: string }[];
+	} | null;
+	nonce?: number;
+	position?: number;
+	confirmations?: number;
+	raw_input?: string;
+	transaction_types?: string[];
+	max_fee_per_gas?: string | null;
+	max_priority_fee_per_gas?: string | null;
+	base_fee_per_gas?: string | null;
+	priority_fee?: string | null;
+	transaction_burnt_fee?: string | null;
+	result?: string;
+	revert_reason?: string | null;
+	created_contract?: string | null;
+	type?: number;
+	fee?: { type: string; value: string };
+}
+
+function makeEmptyAddressEntity(hash: string): Transaction['from'] {
+	return {
+		ens_domain_name: null,
+		hash,
+		implementations: [],
+		is_contract: false,
+		is_scam: false,
+		is_verified: false,
+		metadata: null,
+		name: null,
+		private_tags: [],
+		proxy_type: null,
+		public_tags: [],
+		reputation: '',
+		watchlist_names: []
+	};
+}
+
+function mapBlockscoutToTransaction(item: BlockscoutTransactionItem): Transaction {
+	const fromAddr = item.from?.hash ?? '';
+	const toAddr = item.to?.hash ?? '';
+
+	return {
+		hash: item.hash,
+		from: item.from
+			? {
+					...makeEmptyAddressEntity(fromAddr),
+					...item.from,
+					hash: fromAddr
+				}
+			: makeEmptyAddressEntity(fromAddr),
+		to: item.to
+			? {
+					...makeEmptyAddressEntity(toAddr),
+					...item.to,
+					hash: toAddr
+				}
+			: makeEmptyAddressEntity(toAddr),
+		value: item.value ?? '0',
+		gas_used: item.gas_used ?? '0',
+		gas_price: item.gas_price ?? '0',
+		gas_limit: item.gas_limit ?? '0',
+		block_number: item.block_number ?? 0,
+		timestamp: item.timestamp,
+		status: item.status ?? 'ok',
+		nonce: item.nonce ?? 0,
+		position: item.position ?? 0,
+		confirmations: item.confirmations ?? 0,
+		raw_input: item.raw_input ?? '0x',
+		method: item.method ?? null,
+		decoded_input: item.decoded_input
+			? {
+					method_call: item.decoded_input.method_call ?? '',
+					method_id: item.decoded_input.method_id ?? '',
+					parameters: item.decoded_input.parameters ?? []
+				}
+			: null,
+		transaction_types: item.transaction_types ?? ['contract_call'],
+		token_transfers: null,
+		max_fee_per_gas: item.max_fee_per_gas ?? null,
+		max_priority_fee_per_gas: item.max_priority_fee_per_gas ?? null,
+		base_fee_per_gas: item.base_fee_per_gas ?? null,
+		priority_fee: item.priority_fee ?? null,
+		transaction_burnt_fee: item.transaction_burnt_fee ?? null,
+		result: item.result ?? 'success',
+		revert_reason: item.revert_reason ?? null,
+		created_contract: item.created_contract ?? null,
+		is_pending_update: false,
+		type: item.type ?? 2,
+		has_error_in_internal_transactions: false,
+		fee: item.fee ?? { type: 'actual', value: '0' },
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: null,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: []
+	};
+}
+
+/**
+ * Fetch Arbitrum transactions from Blockscout API for the built-in wallet.
+ * The built-in wallet doesn't have an Arbitrum wallet instance in the manager,
+ * so we fetch directly from the Blockscout API.
+ *
+ * @param address - Arbitrum wallet address
+ * @returns Array of Transaction objects compatible with processTransactions
+ */
+export async function fetchArbitrumTransactions(address: string): Promise<Transaction[]> {
+	if (!address) return [];
+
+	try {
+		const baseUrl = getExplorerApiUrl('arb');
+		if (!baseUrl) return [];
+
+		const url = `${baseUrl}/addresses/${address.toLowerCase()}/transactions?sort=block_number&order=desc`;
+
+		const response = await fetch(url, {
+			signal: AbortSignal.timeout(10_000),
+			headers: { Accept: 'application/json' }
+		});
+
+		if (!response.ok) {
+			if (import.meta.env.DEV) {
+				console.warn(`[fetchArbitrumTransactions] Blockscout returned ${response.status}`);
+			}
+			return [];
+		}
+
+		const contentType = response.headers.get('content-type') ?? '';
+		if (!contentType.includes('application/json')) {
+			return [];
+		}
+
+		const data = await response.json();
+		const items: BlockscoutTransactionItem[] = data.items ?? [];
+
+		return items.map(mapBlockscoutToTransaction);
+	} catch (error) {
+		if (import.meta.env.DEV) {
+			console.error('[fetchArbitrumTransactions] Error:', error);
+		}
+		return [];
+	}
 }

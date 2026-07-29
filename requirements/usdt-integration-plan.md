@@ -39,6 +39,7 @@ This plan also includes migrating existing RSK users to the industry-standard EV
     - 10.4 [Paymaster Rate Limiting](#104-paymaster-rate-limiting)
     - 10.5 [Defensive & Deterministic Programming](#105-defensive--deterministic-programming)
 11. [Dependencies & Tooling](#11-dependencies--tooling)
+    - 11.2 [Testing wallet-core Changes Locally](#112-testing-wallet-core-changes-locally)
 12. [Audit Trail & Confidence Tracking](#12-audit-trail)
 13. [Feature Flag Dependency Map](#13-feature-flag-dependency-map)
 
@@ -1328,6 +1329,10 @@ All features with external dependencies are gated by VITE_ environment variables
 # Build-time feature flags — set to 'true' when external dependency is provisioned
 VITE_CHANGELLY_ENABLED=true
 VITE_CHANGELLY_FIAT_ENABLED=false
+
+# Override @bittasker/wallet-core path for local testing (vitest only).
+# Leave empty to use the npm package.
+LOCAL_WALLET_CORE=
 ````
 
 **Implementation pattern (`FeatureFlagService`):**
@@ -1456,7 +1461,33 @@ Auth: HMAC-SHA256. Each request includes headers `api-key`, `sign`, and `nonce`.
 
 **PCI/card data:** Card numbers, CVV, and billing details are entered through Changelly's PCI-compliant hosted widget. Card data never reaches BitTasker's servers, Workers, or client code. The app embeds Changelly's widget via redirect or iframe; all payment processing is handled by Changelly's payment processor partners.
 
-### 11.2 Existing Dependencies
+### 11.2 Testing wallet-core Changes Locally
+
+Phase 3.2 requires a configurable derivation path in `@bittasker/wallet-core`'s `RSKWallet`. To test this without publishing to npm:
+
+**`.env` (`LOCAL_WALLET_CORE`):**
+
+```bash
+# Set to the absolute path of a local wallet-core checkout to override the
+# npm package during vitest runs. Leave empty to use the published package.
+LOCAL_WALLET_CORE=/home/foxx/Documents/dev-Bittasker/dev/wallet-core/src
+```
+
+**`vitest.config.ts`:**
+
+```ts
+import { defineConfig } from 'vitest/config';
+
+const LOCAL_WALLET_CORE = process.env.LOCAL_WALLET_CORE;
+
+export default defineConfig({
+	resolve: LOCAL_WALLET_CORE ? { alias: { '@bittasker/wallet-core': LOCAL_WALLET_CORE } } : {}
+});
+```
+
+When `LOCAL_WALLET_CORE` is empty or unset, vitest resolves `@bittasker/wallet-core` from `node_modules` as normal. When set, it aliases to the local checkout. No code changes, no package.json modifications, no risk of accidental commits. `npm run dev` and `npm run build` are unaffected — this only applies to vitest.
+
+### 11.3 Existing Dependencies
 
 - `ethers` v6 — signer, provider, contract interaction
 - `@bittasker/wallet-core` — WalletManager, BSCWallet, BSCPaymaster, Boltz swaps
@@ -1465,7 +1496,7 @@ Auth: HMAC-SHA256. Each request includes headers `api-key`, `sign`, and `nonce`.
 - Tailwind CSS 4 + daisyUI — styling (no new CSS files)
 - Firebase Cloud Messaging — push notifications (extended to cover USDT wallet events; see Phase 2.5.7)
 
-### 11.3 AbstractionKit API
+### 11.4 AbstractionKit API
 
 The `abstractionkit@0.3.8` library provides EIP-7702 delegation via `Calibur7702Account` and gas sponsorship via `CandidePaymaster`. The contracts are audited by OpenZeppelin and Cantina.
 
@@ -1531,7 +1562,7 @@ const isEOA = code === '0x';
 
 **Bundle for cleanup (Tx2):** The cleanup UserOperation is constructed with a single transaction that calls the delegation contract's code-reset function (sets code to `address(0)`). Both Tx1 and Tx2 UserOperations are sponsored through the same paymaster flow, paid in USDT.
 
-### 11.4 Secrets Management Policy
+### 11.5 Secrets Management Policy
 
 All external API credentials (Changelly, Candide) follow these rules:
 

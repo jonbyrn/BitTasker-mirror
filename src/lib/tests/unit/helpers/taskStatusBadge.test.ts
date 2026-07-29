@@ -54,7 +54,7 @@ describe('taskStatusBadge', () => {
 		});
 
 		it('should return badge-neutral and status for unknown status', () => {
-			const result = getStatusBadge(999 as TaskStatusEnum);
+			const result = getStatusBadge(999 as unknown as TaskStatusEnum);
 			expect(result.color).toBe('badge-neutral');
 			expect(result.text).toBe(999); // default returns status as-is (number)
 		});

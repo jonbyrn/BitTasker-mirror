@@ -501,18 +501,16 @@
 				mode = 'preview';
 				if (variant === 'compact') startUpload();
 			});
-			instance.on(
-				'upload-progress',
-				(_file: unknown, progress: { bytesTotal: number | null; bytesUploaded: number | null }) => {
-					if (progress.bytesTotal && progress.bytesUploaded != null) {
-						uploadedBytes = progress.bytesUploaded;
-						totalBytes = progress.bytesTotal;
-						uploadProgress = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
-						const elapsed = (Date.now() - uploadStartTime) / 1000;
-						uploadSpeed = elapsed > 0 ? progress.bytesUploaded / elapsed : 0;
-					}
+			instance.on('upload-progress', (_file: unknown, progress: unknown) => {
+				const p = progress as { bytesTotal: number | null; bytesUploaded: number | null };
+				if (p.bytesTotal && p.bytesUploaded != null) {
+					uploadedBytes = p.bytesUploaded;
+					totalBytes = p.bytesTotal;
+					uploadProgress = Math.round((p.bytesUploaded / p.bytesTotal) * 100);
+					const elapsed = (Date.now() - uploadStartTime) / 1000;
+					uploadSpeed = elapsed > 0 ? p.bytesUploaded / elapsed : 0;
 				}
-			);
+			});
 			instance.on('upload-success', (_file: unknown, _response: unknown) => {
 				const uid = videoUid;
 				if (!uid) {
@@ -533,13 +531,15 @@
 				onUploadComplete?.(result);
 				mode = 'finalizing';
 			});
-			instance.on('upload-error', (_file: unknown, err: Error) => {
-				uploadError = (err as Error).message || 'Upload failed';
+			instance.on('upload-error', (_file: unknown, err: unknown) => {
+				const error = err instanceof Error ? err : new Error(String(err));
+				uploadError = error.message || 'Upload failed';
 				mode = 'error';
 				onError?.(uploadError);
 			});
-			instance.on('restriction-failed', (_file: unknown, err: { message: string }) => {
-				uploadError = err.message;
+			instance.on('restriction-failed', (_file: unknown, err: unknown) => {
+				const e = err as { message?: string };
+				uploadError = e?.message ?? 'Upload failed';
 			});
 
 			uppyInstance = instance;

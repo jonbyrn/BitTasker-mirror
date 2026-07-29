@@ -4,6 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet.store';
 	import { getProvider } from '$lib/stores/wallet.store';
+	import { formatSats, formatAddress } from '$lib/utils/wallet/format';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { scale } from 'svelte/transition';
 	import { REORG_SAFE_CONFIRMATIONS } from '$lib/utils/service-contract/finality';
@@ -57,17 +58,6 @@
 
 		return null;
 	});
-
-	// Format sats
-	function formatSats(sats: number): string {
-		return new Intl.NumberFormat('en-US').format(sats);
-	}
-
-	// Format address (truncate)
-	function formatAddress(address: string): string {
-		if (address.length <= 20) return address;
-		return `${address.slice(0, 10)}...${address.slice(-8)}`;
-	}
 
 	// Monitor transaction confirmation
 	async function monitorTransaction() {
@@ -252,7 +242,7 @@
 			{$t('wallet.sats')}
 			{$t('wallet.send.success.sent_to')}
 		</p>
-		<p class="text-base-content/60 font-mono text-sm">{formatAddress(props.recipient)}</p>
+		<p class="text-base-content/60 font-mono text-sm">{formatAddress(props.recipient, 10, 8)}</p>
 	</div>
 
 	<!-- Transaction Details Card -->
@@ -261,7 +251,7 @@
 			<span class="text-base-content/70 text-sm">{$t('wallet.send.success.transaction_hash')}:</span
 			>
 			<div class="flex items-center gap-2">
-				<code class="font-mono text-xs break-all">{formatAddress(props.txHash)}</code>
+				<code class="font-mono text-xs break-all">{formatAddress(props.txHash, 10, 8)}</code>
 				<button
 					class="btn btn-ghost btn-xs btn-circle"
 					onclick={handleCopyTxHash}

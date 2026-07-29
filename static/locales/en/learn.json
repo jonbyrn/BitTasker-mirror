@@ -1,0 +1,26 @@
+{
+	"learn": {
+		"category_wallets": "Wallets",
+		"category_freelancing": "Freelancing",
+		"category_bitcoin": "Bitcoin & Payments",
+		"category_security": "Security & Trust",
+		"category_bitcoin_freelancing": "Bitcoin Freelancing",
+		"category_rootstock": "Rootstock",
+		"category_layer2": "Bitcoin Layer 2s",
+		"category_future": "Future of Work",
+		"view_all": "All Topics",
+		"related_topics": "Related Topics",
+		"frequently_asked": "Frequently Asked Questions",
+		"last_updated": "Last updated",
+		"browse_all": "Browse All Topics",
+		"read_more": "Read More",
+		"desc_wallets": "Compare bitcoin wallets — hardware, software, and Lightning",
+		"desc_freelancing": "Upwork, Fiverr, Thumbtack alternatives with lower fees",
+		"desc_bitcoin": "Lightning Network, escrow, smart contracts, and payments",
+		"desc_security": "Protect your crypto, avoid scams, self-custody best practices",
+		"desc_bitcoin_freelancing": "Get paid in Bitcoin, crypto payroll, contractor guides",
+		"desc_rootstock": "Bitcoin smart contracts, DeFi, RBTC, and Rootstock ecosystem",
+		"desc_layer2": "Lightning, Rootstock, Stacks, Liquid — Bitcoin scaling compared",
+		"desc_future": "Decentralized labor, Nostr marketplaces, peer-to-peer economy"
+	}
+}

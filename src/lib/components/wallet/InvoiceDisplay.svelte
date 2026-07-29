@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
+	import { darkMode } from '$lib/stores/theme.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -42,13 +43,48 @@
 		return usdFormatter.format(usd);
 	}
 
+	// Build QR data string with EIP-681 URI prefix for RSK/BSC
+	function buildQrData(address: string, network?: string, amountSats?: number): string {
+		if (network === 'usdt-bsc') {
+			return amountSats ? `bsc:${address}?value=${amountSats}` : `bsc:${address}`;
+		}
+		if (network === 'rootstock-bitcoin') {
+			const isMainnet = import.meta.env.VITE_RSK_NETWORK === 'mainnet';
+			const chainId = isMainnet ? 30 : 31;
+			const base = `rsk:${address}@${chainId}`;
+			return amountSats ? `${base}?value=${amountSats}` : base;
+		}
+		return address;
+	}
+
+	// Dark mode state for QR container
+	let isDark = $state(false);
+
+	// Fetch BTC price on mount + subscribe to dark mode changes
+	onMount(() => {
+		isDark = $darkMode;
+		cryptoPriceService
+			.getCurrentPrice('BTC')
+			.then((price) => {
+				btcPrice = price;
+			})
+			.catch((error) => {
+				console.error('Failed to fetch BTC price:', error);
+			});
+	});
+
 	// Generate QR code for a given address
 	async function generateQrCode(address: string): Promise<void> {
 		if (!address) return;
-		
+
 		isLoadingQR = true;
 		try {
-			qrCodeDataUrl = await generateQrCodeUrl(address);
+			const qrData = buildQrData(
+				address,
+				props.network,
+				props.amount > 0 ? props.amount : undefined
+			);
+			qrCodeDataUrl = await generateQrCodeUrl(qrData);
 			previousAddress = address;
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
@@ -78,7 +114,7 @@
 	$effect(() => {
 		// Track the address reactively
 		const currentAddress = props.address;
-		
+
 		// Only regenerate if address actually changed
 		if (currentAddress && currentAddress !== previousAddress) {
 			generateQrCode(currentAddress);
@@ -132,7 +168,11 @@
 	{#if props.onClose}
 		<div class="flex items-center justify-between">
 			<h3 class="text-xl font-bold">{$t('wallet.invoice.payment_request')}</h3>
-			<button class="btn btn-ghost btn-sm btn-circle" onclick={props.onClose} aria-label={$t('common.close')}>
+			<button
+				class="btn btn-ghost btn-sm btn-circle"
+				onclick={props.onClose}
+				aria-label={$t('common.close')}
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -140,7 +180,12 @@
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
 				</svg>
 			</button>
 		</div>
@@ -150,24 +195,30 @@
 	<div class="qr-code-container flex justify-center">
 		{#if isLoadingQR}
 			<div
-				class="flex h-[300px] w-[300px] md:h-[400px] md:w-[400px] items-center justify-center rounded-lg bg-base-200"
+				class="bg-base-200 flex h-[300px] w-[300px] items-center justify-center rounded-lg md:h-[400px] md:w-[400px]"
 			>
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else if qrCodeDataUrl}
-			<div class="rounded-lg bg-white p-2 shadow-lg">
+			<div
+				class="rounded-lg p-2 shadow-lg"
+				class:bg-white={!isDark}
+				class:bg-base-100={isDark}
+				class:border={isDark}
+				class:border-base-300={isDark}
+			>
 				<div class="w-[300px] md:w-[400px]">
-					<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
+					<img src={qrCodeDataUrl} alt={$t('wallet.invoice.qr_alt')} class="h-full w-full" />
 				</div>
 			</div>
 		{:else}
 			<div
-				class="flex h-[300px] w-[300px] md:h-[400px] md:w-[400px] items-center justify-center rounded-lg bg-base-200"
+				class="bg-base-200 flex h-[300px] w-[300px] items-center justify-center rounded-lg md:h-[400px] md:w-[400px]"
 			>
 				<div class="text-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mx-auto h-12 w-12 text-warning"
+						class="text-warning mx-auto h-12 w-12"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -179,7 +230,9 @@
 							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
 						/>
 					</svg>
-					<p class="mt-2 text-sm text-base-content/70">{$t('wallet.invoice.qr_generation_failed')}</p>
+					<p class="text-base-content/70 mt-2 text-sm">
+						{$t('wallet.invoice.qr_generation_failed')}
+					</p>
 				</div>
 			</div>
 		{/if}
@@ -192,7 +245,7 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<button
-				class="btn btn-outline flex-1 justify-start h-auto min-h-12 p-3 text-left break-all"
+				class="btn btn-outline h-auto min-h-12 flex-1 justify-start p-3 text-left break-all"
 				onclick={copyAddress}
 				aria-label={$t('wallet.copy_address')}
 			>
@@ -230,7 +283,10 @@
 		<div class="label">
 			<span class="label-text font-semibold">{$t('wallet.amount')}</span>
 		</div>
-		<div class="text-2xl md:text-3xl font-bold tabular-nums">{formatSats(props.amount)} {$t('wallet.sats')}</div>
+		<div class="text-2xl font-bold tabular-nums md:text-3xl">
+			{formatSats(props.amount)}
+			{$t('wallet.sats')}
+		</div>
 		{#if btcPrice > 0 && amountInUSD > 0}
 			<div class="text-base-content/70 text-lg md:text-xl">
 				≈ {formatUSD(amountInUSD)}
@@ -244,7 +300,7 @@
 			<div class="label">
 				<span class="label-text font-semibold">{$t('wallet.description')}</span>
 			</div>
-			<div class="text-base rounded-lg bg-base-200 p-3">{props.memo}</div>
+			<div class="bg-base-200 rounded-lg p-3 text-base">{props.memo}</div>
 		</div>
 	{/if}
 
@@ -279,4 +335,3 @@
 		</button>
 	{/if}
 </div>
-

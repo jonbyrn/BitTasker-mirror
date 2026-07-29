@@ -99,7 +99,7 @@ describe('getCachedViewerNpub', () => {
 		});
 
 		it('should return null when in-memory npub is undefined and Preferences returns undefined', async () => {
-			mockPreferencesGet.mockResolvedValue({ value: undefined });
+			mockPreferencesGet.mockResolvedValue({ value: undefined as unknown as string | null });
 
 			const result = await getCachedViewerNpub();
 

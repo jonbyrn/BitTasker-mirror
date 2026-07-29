@@ -1,3 +1,4 @@
+import type { Event as NostrEvent } from 'nostr-tools';
 import type {
 	ResolvedServiceProposal,
 	ServiceProposalEvent,
@@ -151,7 +152,7 @@ export function isStatusLinkedToProposal(
 	}
 
 	try {
-		validateServiceProposalStatusEvent(status, now);
+		validateServiceProposalStatusEvent(status as unknown as NostrEvent, now);
 		validateStatusAuthorRole(status.content.status, status.pubkey, request.pubkey, proposal.pubkey);
 	} catch {
 		return false;
@@ -190,7 +191,8 @@ export function summarizeDeleteGuardForTimelines(
 	return {
 		hasBlockingThreads: blockingThreadCount > 0 || hasActiveContracts,
 		blockingThreadCount,
-		totalThreadCount: timelines.length
+		totalThreadCount: timelines.length,
+		activeContractCount: 0
 	};
 }
 

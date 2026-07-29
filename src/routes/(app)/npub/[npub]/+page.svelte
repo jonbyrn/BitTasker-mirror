@@ -410,7 +410,7 @@
 				profileError = $t('common.profile.no_profile_data');
 			}
 
-			userProfile = profile;
+			userProfile = profile as unknown as typeof userProfile;
 		} catch (error) {
 			profileError = error instanceof Error ? error.message : $t('common.profile.failed_to_load');
 			userProfile = null;

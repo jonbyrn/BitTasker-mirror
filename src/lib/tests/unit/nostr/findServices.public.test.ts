@@ -10,6 +10,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { fetchComprehensiveProfile } from '$lib/nostr/profile';
 import { cleanup, findServices } from '$lib/nostr/findServices';
+import type { ComprehensiveProfile } from '$lib/nostr/profile/comprehensive-profile';
 
 vi.mock('$lib/api/services/nostr/events', () => ({
 	default: {
@@ -79,7 +80,7 @@ describe('findServices public discovery', () => {
 		}));
 		mockRequestEvents.mockResolvedValue({ data: [] });
 		vi.mocked(Preferences.get).mockResolvedValue({ value: null });
-		mockFetchComprehensiveProfile.mockResolvedValue(null);
+		mockFetchComprehensiveProfile.mockResolvedValue(null as unknown as ComprehensiveProfile);
 	});
 
 	it('returns public services without requiring biometric npub resolution', async () => {
@@ -205,8 +206,8 @@ describe('findServices public discovery', () => {
 			expect(mockFindEvents).toHaveBeenCalledTimes(2);
 
 			// First call had search, second did not
-			expect(mockFindEvents.mock.calls[0][0].search).toBe('Design');
-			expect(mockFindEvents.mock.calls[1][0].search).toBeUndefined();
+			expect(mockFindEvents.mock.calls[0]![0]!.search).toBe('Design');
+			expect(mockFindEvents.mock.calls[1]![0]!.search).toBeUndefined();
 		});
 
 		it('should skip cache when fallback fires and frontend filter returns 0', async () => {

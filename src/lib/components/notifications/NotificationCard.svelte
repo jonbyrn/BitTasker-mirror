@@ -105,7 +105,7 @@
 	let CategoryIcon = $derived(CATEGORY_ICONS[notification.type] ?? IconBell);
 	let iconColor = $derived(CATEGORY_COLORS[notification.type] ?? 'text-base-content/60');
 	let isUnread = $derived(!notification.isRead);
-	let displayTime = $state(timeAgo(notification.createdAt));
+	let displayTime = $derived(timeAgo(notification.createdAt));
 
 	let priorityBorder = $derived.by(() => {
 		switch (notification.priority) {
@@ -143,6 +143,8 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="group hover:bg-base-200/50 flex w-full cursor-pointer items-start gap-3 px-4 text-left
 		transition-colors {isUnread ? 'bg-base-200/30' : ''}

@@ -269,7 +269,7 @@ input[type='number'] {
 
 input,
 textarea {
-	@apply focus:outline-none;
+	@apply focus-visible:outline-primary/75 focus-visible:outline-2 focus-visible:outline-offset-2;
 }
 
 /* Match alert border radius to accordion/collapse components */
@@ -297,7 +297,8 @@ textarea {
 	border-radius: 0.5rem !important;
 }
 
-/* Fix focus styling to prevent double borders and use orange color with 75% opacity */
+/* Fix focus styling: orange border for all focus, remove outline only on non-keyboard focus.
+   Keyboard focus-visible uses the global outline for accessibility. */
 .input:focus,
 .input:focus-within,
 .textarea:focus,
@@ -312,7 +313,21 @@ select:focus,
 .dropdown-content:focus,
 ul[role='listbox']:focus {
 	border-color: rgba(247, 147, 26, 0.75) !important;
+}
 
+.input:focus:not(:focus-visible),
+.input:focus-within:not(:focus-visible),
+.textarea:focus:not(:focus-visible),
+.textarea:focus-within:not(:focus-visible),
+select:focus:not(:focus-visible),
+.select:focus:not(:focus-visible),
+.select:focus-within:not(:focus-visible),
+.dropdown:focus:not(:focus-visible),
+.dropdown:focus-within:not(:focus-visible),
+[role='listbox']:focus:not(:focus-visible),
+[role='combobox']:focus:not(:focus-visible),
+.dropdown-content:focus:not(:focus-visible),
+ul[role='listbox']:focus:not(:focus-visible) {
 	outline: none !important;
 }
 

@@ -215,7 +215,7 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery data
 	 */
 	async getNostrRecoveryData(data: { npub: string; otp: string }): Promise<NostrRecoveryData> {
-		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_VERIFY, data);
+		const response = await this.post<NostrRecoveryData>(ENDPOINTS.AUTH.NOSTR_RECOVERY_VERIFY, data);
 		return response.data;
 	}
 
@@ -233,7 +233,12 @@ export class AuthService extends BaseApiService {
 		refresh_token_expires_at?: string;
 		user: UserData;
 	}> {
-		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
+		const response = await this.post<{
+			access_token: string;
+			refresh_token?: string;
+			refresh_token_expires_at?: string;
+			user: UserData;
+		}>(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
 		return response.data;
 	}
 
@@ -246,7 +251,10 @@ export class AuthService extends BaseApiService {
 		user: UserData;
 		publicKey: string;
 	}> {
-		const response = await this.post(ENDPOINTS.AUTH.ACCOUNT_RECOVERY_KEY, data);
+		const response = await this.post<{
+			user: UserData;
+			publicKey: string;
+		}>(ENDPOINTS.AUTH.ACCOUNT_RECOVERY_KEY, data);
 		return response.data;
 	}
 

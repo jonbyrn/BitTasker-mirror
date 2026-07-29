@@ -54,17 +54,20 @@ vi.mock('$lib/stores/service.store', () => ({
 	serviceStore: {
 		subscribe: hoisted.storeState.subscribe,
 		updateService: (updates: Record<string, unknown>) => {
-			hoisted.storeState.update((state) => ({
-				...state,
-				service: {
-					...state.service,
-					...updates,
-					locationDetails: {
-						...state.service.locationDetails,
-						...((updates.locationDetails as Record<string, unknown> | undefined) ?? {})
+			hoisted.storeState.update(((state: Record<string, unknown>) => {
+				const svc = state.service as Record<string, unknown> | undefined;
+				return {
+					...state,
+					service: {
+						...(svc ?? {}),
+						...updates,
+						locationDetails: {
+							...((svc?.locationDetails as Record<string, unknown> | undefined) ?? {}),
+							...((updates.locationDetails as Record<string, unknown> | undefined) ?? {})
+						}
 					}
-				}
-			}));
+				};
+			}) as unknown as Parameters<typeof hoisted.storeState.update>[0]);
 		}
 	}
 }));
@@ -122,7 +125,16 @@ describe('ServiceLocation', () => {
 		});
 
 		await waitFor(() =>
-			expect(readStoreState()?.service.locationDetails?.taskeeLocation?.serviceRadius).toBe(42)
+			expect(
+				(
+					(
+						(readStoreState() as unknown as Record<string, unknown>)?.service as unknown as Record<
+							string,
+							unknown
+						>
+					)?.taskeeLocation as unknown as Record<string, unknown>
+				)?.serviceRadius
+			).toBe(42)
 		);
 		await waitFor(() =>
 			expect(getAllByTestId('mock-enhanced-location-picker-radius')[0]).toHaveTextContent('42')

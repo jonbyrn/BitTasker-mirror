@@ -19,7 +19,12 @@ const mockWeiToSatoshi = vi.fn((wei: bigint) => Number(wei) / 1e10);
 
 vi.mock('@bittasker/wallet-core', () => ({
 	getSwapAddress: () => mockGetSwapAddress(),
-	weiToSatoshi: (wei: bigint) => mockWeiToSatoshi(wei)
+	weiToSatoshi: (wei: bigint) => mockWeiToSatoshi(wei),
+	ARB_TOKEN_ADDRESSES: {
+		USDT0: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+		WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+		TBTC: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40'
+	}
 }));
 
 const userAddress = '0xuser000000000000000000000000000000000001';
@@ -55,7 +60,7 @@ describe('transactionHistory', () => {
 			headers: new Headers({ 'content-type': 'application/json' }),
 			json: async () => ({ items: [] })
 		});
-		global.fetch = mockFetch;
+		global.fetch = mockFetch as unknown as typeof global.fetch;
 	});
 
 	afterEach(() => {
@@ -66,12 +71,12 @@ describe('transactionHistory', () => {
 
 	describe('processTransactions', () => {
 		it('should return empty array when userAddress is empty', async () => {
-			const result = await processTransactions([tx()], '', 'rsk');
+			const result = await processTransactions([tx()], '', 'rsk', 0);
 			expect(result).toEqual([]);
 		});
 
 		it('should return empty array when userAddress is null', async () => {
-			const result = await processTransactions([tx()], null as unknown as string, 'rsk');
+			const result = await processTransactions([tx()], null as unknown as string, 'rsk', 0);
 			expect(result).toEqual([]);
 		});
 
@@ -79,7 +84,7 @@ describe('transactionHistory', () => {
 			const raw = [
 				tx({ from: { hash: userAddress }, to: { hash: otherAddress, is_contract: false } })
 			];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result).toHaveLength(1);
 			expect(result[0].type).toBe('send');
 			expect(result[0].displayType).toBe('send');
@@ -91,7 +96,7 @@ describe('transactionHistory', () => {
 			const raw = [
 				tx({ from: { hash: otherAddress }, to: { hash: userAddress, is_contract: false } })
 			];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result).toHaveLength(1);
 			expect(result[0].type).toBe('receive');
 			expect(result[0].displayType).toBe('receive');
@@ -114,7 +119,7 @@ describe('transactionHistory', () => {
 				value: '20000000000000000000',
 				timestamp: '2024-01-15T10:00:00Z'
 			});
-			const result = await processTransactions([older, newer], userAddress, 'rsk');
+			const result = await processTransactions([older, newer], userAddress, 'rsk', 0);
 			expect(result).toHaveLength(2);
 			// processTransactions no longer sorts or calculates running balance
 			// that is handled by transactionLedger.applyRunningBalance()
@@ -127,31 +132,31 @@ describe('transactionHistory', () => {
 			const valid = tx({ hash: '0xvalid' });
 			const noTo = tx({ hash: '0xnoto', to: null });
 			const noFrom = tx({ hash: '0xnofrom', from: null });
-			const result = await processTransactions([valid, noTo, noFrom], userAddress, 'rsk');
+			const result = await processTransactions([valid, noTo, noFrom], userAddress, 'rsk', 0);
 			expect(result).toHaveLength(1);
 			expect(result[0].hash).toBe('0xvalid');
 		});
 
 		it('should return empty array when rawTransactions is empty and no internal txs', async () => {
-			const result = await processTransactions([], userAddress, 'rsk');
+			const result = await processTransactions([], userAddress, 'rsk', 0);
 			expect(result).toEqual([]);
 		});
 
 		it('should include explorer URL for rsk network', async () => {
 			const raw = [tx()];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result).toHaveLength(1);
 			expect(result[0].explorerUrl).toMatch(/blockscout\.com\/tx\//);
 			expect(result[0].explorerUrl).toContain(result[0].hash);
 		});
 
 		it('should not fetch internal transactions for bsc network', async () => {
-			await processTransactions([tx()], userAddress, 'bsc');
+			await processTransactions([tx()], userAddress, 'bsc', 0);
 			expect(mockFetch).not.toHaveBeenCalled();
 		});
 
 		it('should fetch internal transactions for rsk network', async () => {
-			await processTransactions([tx()], userAddress, 'rsk');
+			await processTransactions([tx()], userAddress, 'rsk', 0);
 			expect(mockFetch).toHaveBeenCalled();
 			expect(mockFetch.mock.calls[0][0]).toContain('/internal-transactions');
 			expect(mockFetch.mock.calls[0][0]).toContain(userAddress);
@@ -159,13 +164,13 @@ describe('transactionHistory', () => {
 
 		it('should normalize status to confirmed for ok', async () => {
 			const raw = [tx({ status: 'ok' })];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result[0].status.label).toBe('wallet.transaction.status.confirmed');
 		});
 
 		it('should normalize status to pending for pending', async () => {
 			const raw = [tx({ status: 'pending' })];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result[0].status.label).toBe('wallet.transaction.status.pending');
 		});
 
@@ -180,7 +185,7 @@ describe('transactionHistory', () => {
 					value: '5000000000000000000'
 				})
 			];
-			const result = await processTransactions(raw, userAddress, 'rsk');
+			const result = await processTransactions(raw, userAddress, 'rsk', 0);
 			expect(result).toHaveLength(1);
 			expect(result[0].type).toBe('contract');
 			expect(result[0].displayType).toBe('send');
@@ -191,11 +196,11 @@ describe('transactionHistory', () => {
 
 	describe('clearContractAddressesCache', () => {
 		it('should clear cache so next processTransactions refetches addresses', async () => {
-			await processTransactions([tx()], userAddress, 'rsk');
+			await processTransactions([tx()], userAddress, 'rsk', 0);
 			const callsAfterFirst = mockGetSwapAddress.mock.calls.length;
 			expect(callsAfterFirst).toBeGreaterThanOrEqual(1);
 			clearContractAddressesCache();
-			await processTransactions([tx()], userAddress, 'rsk');
+			await processTransactions([tx()], userAddress, 'rsk', 0);
 			expect(mockGetSwapAddress.mock.calls.length).toBeGreaterThan(callsAfterFirst);
 		});
 	});

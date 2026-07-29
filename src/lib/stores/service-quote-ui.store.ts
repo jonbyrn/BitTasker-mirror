@@ -357,7 +357,7 @@ function reconcileProviderRequestFocus(
 	const partialSync =
 		isRequestSyncActive(state, requestId, serviceAddress) &&
 		!hasTimelineForRequest(timelines, requestId);
-	const nextState = {
+	const nextState: ServiceQuoteUiState = {
 		...state,
 		providerDataFreshnessByService: {
 			...state.providerDataFreshnessByService,
@@ -826,9 +826,11 @@ function createServiceQuoteUiStore() {
 	 * so most "sync pending" scenarios don't occur.
 	 */
 	async function reconcileAcceptanceState(timeline: ServiceQuoteTimelineEntry): Promise<{
-		status: 'no_change' | 'accepted' | 'contract_sync_pending';
+		status: 'no_change' | 'accepted' | 'contract_sync_pending' | 'accept_failed';
 		escrowId?: string;
 		transactionHash?: string;
+		acceptanceSnapshot?: ServiceAcceptanceSnapshot;
+		error?: string;
 	}> {
 		logAcceptanceReconciliationDebug('reconcile-state-start', {
 			quoteRequestId: timeline.request.content.quoteRequestId,
@@ -872,7 +874,9 @@ function createServiceQuoteUiStore() {
 							};
 						}
 					}
-				} catch { /* NDK query failed */ }
+				} catch {
+					/* NDK query failed */
+				}
 			}
 		}
 
@@ -970,7 +974,7 @@ function createServiceQuoteUiStore() {
 					proposal,
 					status: 'accepted',
 					escrowId: result.escrowId,
-					transactionHash: result.transactionHash,
+					transactionHash: result.transactionHash ?? '',
 					acceptanceSnapshot: result.acceptanceSnapshot
 				});
 				return;
@@ -981,7 +985,7 @@ function createServiceQuoteUiStore() {
 					timeline: currentTimeline,
 					proposal,
 					status: 'accept_failed',
-					transactionHash: result.transactionHash,
+					transactionHash: result.transactionHash ?? '',
 					message: result.error ?? 'Unable to confirm the funded service contract.'
 				});
 				return;
@@ -992,7 +996,7 @@ function createServiceQuoteUiStore() {
 				proposal,
 				status: 'contract_sync_pending',
 				escrowId: result.escrowId,
-				transactionHash: result.transactionHash,
+				transactionHash: result.transactionHash ?? '',
 				message: getAcceptanceSyncPendingMessage()
 			});
 		} finally {
@@ -1291,7 +1295,7 @@ function createServiceQuoteUiStore() {
 						};
 
 						return reconcileProviderRequestFocus(
-							nextState,
+							nextState as unknown as ServiceQuoteUiState,
 							serviceAddress,
 							requestId,
 							result.timelines
@@ -1499,9 +1503,9 @@ function createServiceQuoteUiStore() {
 				});
 				const localProposalEvent =
 					'content' in publishResult.event
-						? publishResult.event
+						? (publishResult.event as ServiceQuoteTimelineEntry['proposals'][number])
 						: ({
-								id: publishResult.event.id,
+								id: (publishResult.event as unknown as { id: string }).id,
 								kind: 6421,
 								pubkey: input.service.npub,
 								created_at: proposalContent.timestamp,
@@ -1517,7 +1521,7 @@ function createServiceQuoteUiStore() {
 										proposalContent.expirationHours * 3_600
 								},
 								sig: ''
-							} as ServiceQuoteTimelineEntry['proposals'][number]);
+							} as unknown as ServiceQuoteTimelineEntry['proposals'][number]);
 
 				update((state) => ({
 					...state,
@@ -1878,8 +1882,7 @@ function createServiceQuoteUiStore() {
 				if (!contractResult.success) {
 					return {
 						success: false,
-						error: contractResult.error || 'Unable to create the service contract.',
-						errorCode: contractResult.errorCode
+						error: contractResult.error || 'Unable to create the service contract.'
 					};
 				}
 

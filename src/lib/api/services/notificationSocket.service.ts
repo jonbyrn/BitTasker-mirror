@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 import { Preferences } from '@capacitor/preferences';
 import { get } from 'svelte/store';
 import * as Sentry from '@sentry/sveltekit';

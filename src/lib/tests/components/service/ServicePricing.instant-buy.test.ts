@@ -3,21 +3,35 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServicePricing from '$lib/components/service/steps/ServicePricing.svelte';
 
 const hoisted = vi.hoisted(() => {
-	function createStore<T>(initialValue: T) {
+	type StoreState = {
+		service: {
+			pricing:
+				| {
+						type: string;
+						currency: string;
+						amount: number;
+				  }
+				| undefined;
+			instantBuyLeadHours: number | undefined;
+			instantBuyDeliveryHours: number | undefined;
+		};
+	};
+
+	function createStore(initialValue: StoreState) {
 		let value = initialValue;
-		const subscribers = new Set<(nextValue: T) => void>();
+		const subscribers = new Set<(nextValue: StoreState) => void>();
 
 		return {
-			set(nextValue: T) {
+			set(nextValue: StoreState) {
 				value = nextValue;
 				for (const subscriber of subscribers) {
 					subscriber(value);
 				}
 			},
-			update(updater: (currentValue: T) => T) {
+			update(updater: (currentValue: StoreState) => StoreState) {
 				this.set(updater(value));
 			},
-			subscribe(subscriber: (nextValue: T) => void) {
+			subscribe(subscriber: (nextValue: StoreState) => void) {
 				subscriber(value);
 				subscribers.add(subscriber);
 				return () => subscribers.delete(subscriber);
@@ -60,7 +74,7 @@ vi.mock('$lib/stores/service.store', () => ({
 					pricing: {
 						...state.service.pricing,
 						...((updates.pricing as Record<string, unknown> | undefined) ?? {})
-					}
+					} as { type: string; currency: string; amount: number } | undefined
 				}
 			}));
 		}
@@ -91,18 +105,33 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 	});
 
-	function readStoreState() {
-		let currentValue: {
+	function readStoreState(): {
+		service: {
+			pricing:
+				| {
+						type: string;
+						currency: string;
+						amount: number;
+				  }
+				| undefined;
+			instantBuyLeadHours?: number;
+			instantBuyDeliveryHours?: number;
+		};
+	} | null {
+		type StoreState = {
 			service: {
-				pricing: {
-					type: string;
-					currency: string;
-					amount?: number;
-				};
+				pricing:
+					| {
+							type: string;
+							currency: string;
+							amount: number;
+					  }
+					| undefined;
 				instantBuyLeadHours?: number;
 				instantBuyDeliveryHours?: number;
 			};
-		} | null = null;
+		};
+		let currentValue: StoreState | null = null;
 		const unsubscribe = hoisted.storeState.subscribe((value) => {
 			currentValue = value;
 		});
@@ -149,7 +178,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 
 		await waitFor(() => expect(queryByTestId('service-pricing-instant-buy-toggle')).toBeNull());
 		expect(readStoreState()?.service.instantBuyLeadHours).toBeUndefined();
-		expect(readStoreState()?.service.pricing.type).toBe('INQUIRY_REQUIRED');
+		expect(readStoreState()?.service.pricing?.type).toBe('INQUIRY_REQUIRED');
 	});
 
 	it('updates fixed pricing from USD and sats inputs', async () => {
@@ -161,13 +190,13 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await fireEvent.input(document.getElementById('budget-usd') as HTMLInputElement, {
 			target: { value: '250' }
 		});
-		expect(readStoreState()?.service.pricing.amount).toBe(250);
+		expect(readStoreState()?.service.pricing?.amount).toBe(250);
 
 		await fireEvent.input(document.getElementById('budget-sats') as HTMLInputElement, {
 			target: { value: '500000' }
 		});
-		await waitFor(() => expect(readStoreState()?.service.pricing.amount).toBe(500));
-		expect(readStoreState()?.service.pricing.currency).toBe('USD');
+		await waitFor(() => expect(readStoreState()?.service.pricing?.amount).toBe(500));
+		expect(readStoreState()?.service.pricing?.currency).toBe('USD');
 	});
 
 	it('keeps zeroed sats input deterministic', async () => {
@@ -182,14 +211,15 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await fireEvent.input(document.getElementById('budget-sats') as HTMLInputElement, {
 			target: { value: '0' }
 		});
-		await waitFor(() => expect(readStoreState()?.service.pricing.amount).toBe(0));
+		await waitFor(() => expect(readStoreState()?.service.pricing?.amount).toBe(0));
 	});
 
 	it('fails closed for invalid USD input and for pricing initialization without existing pricing', async () => {
 		hoisted.storeState.set({
 			service: {
 				pricing: undefined,
-				instantBuyLeadHours: undefined
+				instantBuyLeadHours: undefined,
+				instantBuyDeliveryHours: undefined
 			}
 		});
 
@@ -199,13 +229,13 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 
 		await fireEvent.click(getByText('dashboard.services.create.pricing.tiered_title'));
-		expect(readStoreState()?.service.pricing.type).toBe('TIERED');
+		expect(readStoreState()?.service.pricing?.type).toBe('TIERED');
 
 		await fireEvent.click(getByText('dashboard.services.create.pricing.fixed_title'));
 		await fireEvent.input(document.getElementById('budget-usd') as HTMLInputElement, {
 			target: { value: 'abc' }
 		});
-		expect(readStoreState()?.service.pricing.amount).toBe(0);
+		expect(readStoreState()?.service.pricing?.amount).toBe(0);
 	});
 
 	it('keeps rendering when the BTC price lookup fails', async () => {
@@ -225,7 +255,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			direction: 'forward'
 		});
 
-		await waitFor(() => expect(readStoreState()?.service.pricing.currency).toBe('USD'));
+		await waitFor(() => expect(readStoreState()?.service.pricing?.currency).toBe('USD'));
 	});
 
 	it('converts the displayed Book Now duration when the author changes units', async () => {

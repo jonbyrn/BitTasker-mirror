@@ -303,24 +303,22 @@ describe('task publish location privacy', () => {
 					...createTaskBody(),
 					pickupLocation: exactPickup,
 					id: D_TAG,
-					uniqueId: D_TAG,
-					eventId: createTaskEvent().id,
+
 					npub: TASK_AUTHOR_PUBKEY
 				}
 			]
-		});
+		} as unknown as Parameters<typeof tasksStore.set>[0]);
 		myTasksStore.set({
 			items: [
 				{
 					...createTaskBody(),
 					pickupLocation: exactPickup,
 					id: D_TAG,
-					uniqueId: D_TAG,
-					eventId: createTaskEvent().id,
+
 					npub: TASK_AUTHOR_PUBKEY
 				}
 			]
-		});
+		} as unknown as Parameters<typeof myTasksStore.set>[0]);
 
 		const { updateTask } = await import('$lib/nostr/task');
 		await updateTask(D_TAG, {
