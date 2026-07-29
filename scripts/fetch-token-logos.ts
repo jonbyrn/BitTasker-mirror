@@ -25,6 +25,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const TOKENS_DIR = path.join(PROJECT_ROOT, 'static', 'images', 'tokens');
 const MANIFEST_PATH = path.join(TOKENS_DIR, 'manifest.json');
 const VERIFIED_PATH = path.join(TOKENS_DIR, 'verified-chains.json');
+const FAILURE_CACHE_PATH = path.join(TOKENS_DIR, '.download-failures.json');
 
 const SYMBIOSIS_BASE = 'https://api.symbiosis.finance/crosschain';
 const LIFI_BASE = 'https://li.quest/v1';
@@ -57,7 +58,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 async function downloadFile(url: string, destPath: string): Promise<boolean> {
 	try {
 		const controller = new AbortController();
-		const t = setTimeout(() => controller.abort(), 20_000);
+		const t = setTimeout(() => controller.abort(), 5_000);
 		const res = await fetch(url, { signal: controller.signal });
 		clearTimeout(t);
 		if (!res.ok) return false;
@@ -201,33 +202,93 @@ async function main() {
 		}
 	}
 
+	// Pre-filter: split into already-cached and needs-download
 	let downloaded = 0;
 	let skipped = 0;
+	let failed = 0;
+	const toDownload: Array<{ sym: string; t: SymbiosisToken }> = [];
+
+	// Load failure cache — skip tokens that failed recently (retry after 7 days)
+	let failureCache: Record<string, number> = {};
+	try {
+		if (fs.existsSync(FAILURE_CACHE_PATH)) {
+			failureCache = JSON.parse(fs.readFileSync(FAILURE_CACHE_PATH, 'utf-8'));
+		}
+	} catch {
+		/* ignore corrupt cache */
+	}
+	const FAILURE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+	const now = Date.now();
+	let failureCacheSkipped = 0;
+
 	for (const [sym, t] of symbolsToDownload) {
 		if (!t.icon || t.icon.length < 10) {
-			warn(`  ${sym}: no icon URL`);
+			skipped++;
 			continue;
 		}
 		const ext = t.icon.split('.').pop()?.split('?')[0] ?? 'png';
 		const destPath = path.join(TOKENS_DIR, `${sym.toLowerCase()}.${ext}`);
 
 		// Skip if the file already exists with a valid size (>150 bytes).
-		// The CDN can serve slightly different bytes each time (compression,
-		// metadata), which causes git to see the file as modified on every
-		// build. Re-download only when the file is missing or suspiciously small.
 		if (fs.existsSync(destPath) && fs.statSync(destPath).size > 150) {
 			skipped++;
 			continue;
 		}
-
-		const ok = await downloadFile(t.icon, destPath);
-		if (ok) {
-			const size = fs.statSync(destPath).size;
-			log(`  ${sym}: saved (${size} bytes) from CMC CDN`);
-			downloaded++;
-		} else {
-			warn(`  ${sym}: download failed`);
+		// Skip if recently failed (within TTL)
+		const lastFail = failureCache[sym];
+		if (lastFail && now - lastFail < FAILURE_TTL_MS) {
+			failureCacheSkipped++;
+			continue;
 		}
+		toDownload.push({ sym, t });
+	}
+
+	const totalSkipped = skipped + failureCacheSkipped;
+	if (toDownload.length > 0) {
+		log(`  ${totalSkipped} cached/skipped, ${toDownload.length} to download`);
+	} else {
+		log(`  All ${totalSkipped} logos cached/skipped — nothing to download`);
+	}
+
+	// Download in parallel batches of 20
+	const BATCH_SIZE = 20;
+	const newlyFailed: string[] = [];
+	for (let i = 0; i < toDownload.length; i += BATCH_SIZE) {
+		const batch = toDownload.slice(i, i + BATCH_SIZE);
+		const results = await Promise.all(
+			batch.map(async ({ sym, t }) => {
+				const ext = t.icon.split('.').pop()?.split('?')[0] ?? 'png';
+				const destPath = path.join(TOKENS_DIR, `${sym.toLowerCase()}.${ext}`);
+				const ok = await downloadFile(t.icon, destPath);
+				return { sym, ok, destPath };
+			})
+		);
+		for (const r of results) {
+			if (r.ok) {
+				const size = fs.statSync(r.destPath).size;
+				downloaded++;
+				// Remove from failure cache on success
+				delete failureCache[r.sym];
+			} else {
+				failed++;
+				newlyFailed.push(r.sym);
+			}
+		}
+		if (i + BATCH_SIZE < toDownload.length) {
+			log(`  Progress: ${i + BATCH_SIZE}/${toDownload.length}...`);
+		}
+	}
+
+	// Update failure cache with newly failed symbols
+	if (newlyFailed.length > 0) {
+		for (const sym of newlyFailed) {
+			failureCache[sym] = now;
+		}
+		// Prune entries older than TTL
+		for (const [sym, ts] of Object.entries(failureCache)) {
+			if (now - ts > FAILURE_TTL_MS) delete failureCache[sym];
+		}
+		fs.writeFileSync(FAILURE_CACHE_PATH, JSON.stringify(failureCache, null, '\t') + '\n');
 	}
 
 	// Build manifest: one entry per (symbol, chain) pair
@@ -248,10 +309,15 @@ async function main() {
 	// Phase 6: write manifest
 	fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, '\t') + '\n');
 	log(`Manifest: ${MANIFEST_PATH} (${manifest.length} entries)`);
-	log(`Done — ${downloaded} new, ${skipped} skipped (cached), ${manifest.length} total`);
+	log(
+		`Done — ${downloaded} new, ${skipped} skipped (cached), ${failed} failed, ${manifest.length} total`
+	);
 }
 
-main().catch((err) => {
-	console.error('[token-logos] Unexpected error:', err);
-	process.exit(0);
-});
+main()
+	.catch((err) => {
+		console.error('[token-logos] Unexpected error:', err);
+	})
+	.finally(() => {
+		process.exit(0);
+	});

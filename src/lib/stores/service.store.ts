@@ -1,4 +1,5 @@
 import type { Service, ServiceBody } from '$lib/types/service.d';
+import { browser } from '$app/environment';
 import { page } from '$app/state';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
@@ -64,13 +65,18 @@ const getInitialState = () => ({
 const initialState = getInitialState();
 
 function createServiceStore() {
-	// Detect mode from URL query parameters
-	const editParam = page.url.searchParams.get('edit');
-	const duplicateParam = page.url.searchParams.get('duplicate');
-	const serviceIdParam = page.url.searchParams.get('serviceId');
+	let isEditMode = false;
+	let isDuplicateMode = false;
+	let serviceIdParam: string | null = null;
 
-	const isEditMode: boolean = editParam === 'true' && Boolean(serviceIdParam);
-	const isDuplicateMode: boolean = duplicateParam === 'true' && Boolean(serviceIdParam);
+	// Detect mode from URL query parameters
+	if (browser) {
+		const editParam = page.url.searchParams.get('edit');
+		const duplicateParam = page.url.searchParams.get('duplicate');
+		serviceIdParam = page.url.searchParams.get('serviceId');
+		isEditMode = editParam === 'true' && Boolean(serviceIdParam);
+		isDuplicateMode = duplicateParam === 'true' && Boolean(serviceIdParam);
+	}
 
 	type StoreState = typeof initialState & {
 		isEditing: boolean;

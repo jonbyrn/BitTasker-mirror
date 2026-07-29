@@ -1,5 +1,6 @@
 import type { Task, TaskBody } from '$lib/types/task.d';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
+import { browser } from '$app/environment';
 import { page } from '$app/state';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
@@ -93,8 +94,10 @@ interface TaskDraftPayload {
 }
 
 function createTaskStore() {
-	const recurring = page.url.searchParams.get('recurring');
-	recurringTask.isRecurring = recurring == 'true';
+	if (browser) {
+		const recurring = page.url.searchParams.get('recurring');
+		recurringTask.isRecurring = recurring == 'true';
+	}
 
 	const store = createDraftWizardStore<StoreState, TaskStepEnum, TaskDraftPayload>({
 		initialState: { ...initialState, recurringTask },

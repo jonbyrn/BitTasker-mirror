@@ -9,7 +9,7 @@
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
-	import { publishProfileMetadata } from '$lib/nostr/profile';
+	import { publishProfileMetadata } from '$lib/nostr/profile/metadata-publish';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';

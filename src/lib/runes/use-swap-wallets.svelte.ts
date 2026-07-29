@@ -264,7 +264,10 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 		}
 		const w = getConnectedWallet(walletId);
 		if (!w?.balances) return '$0.00';
-		const btcSats = Number(w.balances.btc?.raw ?? 0) + Number(w.balances.rbtc?.raw ?? 0) + getWbtcSatsFromConnected(w);
+		const btcSats =
+			Number(w.balances.btc?.raw ?? 0) +
+			Number(w.balances.rbtc?.raw ?? 0) +
+			getWbtcSatsFromConnected(w);
 		const usdt = Number(w.balances['usdt0-arb']?.raw ?? 0) / 1e6;
 		const usd = (btcSats / 100_000_000) * btcPrice.price + usdt;
 		return usdFormatter.format(usd);
@@ -466,23 +469,47 @@ export function useSwapWallets(opts: UseSwapWalletsOptions): UseSwapWallets {
 	const connectedWallets = $derived(connectedWalletsList);
 
 	return {
-		isConnectedSource,
-		isConnectedDest,
-		sourceAddr,
-		destAddr,
-		sourceBalances,
-		destBalances,
-		hasExternalBtcWallet,
-		externalBtcBalanceSats,
+		get isConnectedSource() {
+			return isConnectedSource;
+		},
+		get isConnectedDest() {
+			return isConnectedDest;
+		},
+		get sourceAddr() {
+			return sourceAddr;
+		},
+		get destAddr() {
+			return destAddr;
+		},
+		get sourceBalances() {
+			return sourceBalances;
+		},
+		get destBalances() {
+			return destBalances;
+		},
+		get hasExternalBtcWallet() {
+			return hasExternalBtcWallet;
+		},
+		get externalBtcBalanceSats() {
+			return externalBtcBalanceSats;
+		},
 		walletBalanceFor,
-		builtinBalance,
+		get builtinBalance() {
+			return builtinBalance;
+		},
 		walletLabel,
 		addrSnippet,
-		sourceWalletInfo,
-		destWalletInfo,
+		get sourceWalletInfo() {
+			return sourceWalletInfo;
+		},
+		get destWalletInfo() {
+			return destWalletInfo;
+		},
 		getConnectedWallet,
 		getBuiltinTokenBalance,
-		connectedWallets
+		get connectedWallets() {
+			return connectedWallets;
+		}
 	};
 }
 
@@ -495,7 +522,11 @@ export function isFiniteNum(n: unknown): n is number {
 }
 
 export function getBtcSatsForUsdCalcFromConnected(w: ConnectedWalletEntry | undefined): number {
-	return Number(w?.balances?.btc?.raw ?? 0) + Number(w?.balances?.rbtc?.raw ?? 0) + getWbtcSatsFromConnected(w);
+	return (
+		Number(w?.balances?.btc?.raw ?? 0) +
+		Number(w?.balances?.rbtc?.raw ?? 0) +
+		getWbtcSatsFromConnected(w)
+	);
 }
 
 export function getUsdtHumanFromConnected(w: ConnectedWalletEntry | undefined): number {

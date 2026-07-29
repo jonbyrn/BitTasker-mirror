@@ -51,7 +51,7 @@ function makeMockBid() {
 			cancellationFee: 0,
 			upfrontDeposit: 0
 		}
-	};
+	} as unknown as NDKBid;
 }
 
 const mockTx = {
@@ -203,8 +203,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const bid = makeMockBid();
 
 			// startDateTime is 30s from now → within buffer → will be adjusted to now + 180
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
@@ -255,8 +255,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				}
 			});
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockTx.wait.mockResolvedValue({
 				status: 1,
@@ -288,8 +288,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600; // beyond buffer
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600; // beyond buffer
+			bid.bidContent!.endDateTime = now + 7200;
 
 			const result = await createContract(
 				bid as unknown as NDKBid,
@@ -317,8 +317,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			const result = await createContract(
 				bid as unknown as NDKBid,
@@ -340,8 +340,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			const result = await createContract(
 				bid as unknown as NDKBid,
@@ -364,8 +364,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			const result = await createContract(
 				bid as unknown as NDKBid,
@@ -403,8 +403,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			const result = await createContract(
 				bid as unknown as NDKBid,
@@ -463,14 +463,16 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const task = makeMockTask();
 			const bid = makeMockBid();
 			// Start is within buffer, completion is only 60s away — duration is preserved
-			bid.bidContent.startDateTime = now + 30;
-			bid.bidContent.endDateTime = now + 60;
+			bid.bidContent!.startDateTime = now + 30;
+			bid.bidContent!.endDateTime = now + 60;
 
-			const result = await createContract(bid, task, 100000);
+			const result = await createContract(bid, task as unknown as NDKTask, 100000);
 			expect(result.success).toBe(true);
 
 			// Task should have moved to IN_PROGRESS after broadcast
-			await result.afterBroadcast;
+			if (result.success) {
+				await result.afterBroadcast;
+			}
 			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 		});
 	});
@@ -480,8 +482,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockSendBidStatusUpdate.mockClear();
 			mockSendBidStatusUpdate.mockResolvedValue(true);
@@ -510,8 +512,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
-			bid.bidContent.startDateTime = now + 600;
-			bid.bidContent.endDateTime = now + 7200;
+			bid.bidContent!.startDateTime = now + 600;
+			bid.bidContent!.endDateTime = now + 7200;
 
 			mockSendBidStatusUpdate.mockRejectedValue(new Error('Relay unavailable'));
 
@@ -526,7 +528,9 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const report = await result.afterBroadcast;
 			// The failure should be captured in the report
 			expect(report.failures.length).toBeGreaterThanOrEqual(1);
-			expect(report.failures.some((f) => f.name === 'bidStatusUpdate')).toBe(true);
+			expect(report.failures.some((f: { name: string }) => f.name === 'bidStatusUpdate')).toBe(
+				true
+			);
 		});
 	});
 });

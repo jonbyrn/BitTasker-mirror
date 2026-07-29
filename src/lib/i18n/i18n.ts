@@ -8,6 +8,7 @@ import {
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
+import { authState } from '$lib/stores/auth.store';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -402,7 +403,6 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 
 		// Persist language to backend for localized notifications (best-effort)
 		try {
-			const { authState } = await import('$lib/stores/auth.store');
 			const currentState = get(authState);
 			if (currentState.isAuthenticated) {
 				const { default: authService } = await import('$lib/api/services/auth.service');

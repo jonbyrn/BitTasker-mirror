@@ -359,7 +359,7 @@ describe('serviceQuoteUiStore route contract', () => {
 				description: 'Three retail-ready directions.'
 			}
 		});
-		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
+		serviceQuoteUiStore.setNonBlockingMessage('service_requests_request_not_found');
 		serviceQuoteUiStore.clearRecentSubmit();
 
 		const snapshots: Array<Record<string, unknown>> = [];
@@ -369,7 +369,7 @@ describe('serviceQuoteUiStore route contract', () => {
 		const latestState = snapshots.at(-1)!;
 		unsubscribe();
 
-		expect(latestState.nonBlockingMessageCode).toBe('service_quote_protocol_pending');
+		expect(latestState.nonBlockingMessageCode).toBe('service_requests_request_not_found');
 		expect(latestState.focusSync).toEqual({
 			requestId: null,
 			serviceAddress: null,
