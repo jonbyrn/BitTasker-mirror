@@ -104,6 +104,13 @@ export default defineConfig(({ mode }) => {
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
 			}
 		},
+		ssr: {
+			// Bundle wallet-core through Vite's SSR pipeline so Vite handles its
+			// JSON imports (boltz-core/out/EtherSwap.sol/EtherSwap.json) natively.
+			// Without this, Node.js v26 loads the package directly and requires
+			// `import ... with { type: 'json' }` assertions that aren't present.
+			noExternal: ['@bittasker/wallet-core']
+		},
 		plugins: [
 			// 1. Framework core — must come first to establish the SvelteKit transform pipeline
 			sveltekit(),
@@ -131,6 +138,7 @@ export default defineConfig(({ mode }) => {
 				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
 				include: ['stream', 'buffer', 'util', 'process', 'events'],
 				// Explicitly exclude modules that should not be polyfilled
+				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
 				exclude: ['fs', 'path']
 			}),
 
