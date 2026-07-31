@@ -11,9 +11,26 @@
 import { walletManager } from '$lib/stores/wallet.store';
 import { getHandle } from '$lib/stores/connected-wallets.store';
 import { createConnectedReverseSwap } from '$lib/services/connected-wallet-reverse-swap';
+import { changellyService } from '$lib/services/changelly.service';
+import { resolveFromTicker, resolveToTicker } from '$lib/services/changelly-ticker-map';
+import { isChangeallySwapsEnabled } from '$lib/services/kill-switch';
 import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('generate-receive-invoice');
+
+/**
+ * Non-direct USDT networks that route through Changelly to convert
+ * to USDT0 on Arbitrum. When the payer sends USDT on any of these chains,
+ * a Changelly deposit address is generated instead of showing the user's EOA.
+ */
+export const CHANGELLY_REROUTE_NETWORKS: ReadonlySet<string> = new Set([
+	'usdt-ethereum',
+	'usdt-avalanche',
+	'usdt-base',
+	'usdt-optimism',
+	'usdt-polygon',
+	'usdt-tron'
+]);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +54,7 @@ export interface InvoiceResult {
 	chargeFeesToPayer?: boolean;
 	totalFees?: number;
 	formState: InvoiceFormState;
+	changellySwapId?: string;
 }
 
 /**
@@ -64,6 +82,8 @@ export function getSwapExpiryInfo(swapData: unknown): {
 export interface GenerateInvoiceParams {
 	invoiceAmount: number;
 	selectedNetwork: string;
+	/** Payer source network (e.g. 'usdt-ethereum'). Determines Changelly routing. */
+	payerNetwork?: string;
 	selectedReceiveWalletId: string | null;
 	isReceiveWalletValid: boolean;
 	formState: InvoiceFormState;
@@ -120,7 +140,18 @@ export async function generateReceiveInvoice(
 	const useConnected = !!selectedReceiveWalletId && isReceiveWalletValid;
 
 	try {
-		if (selectedNetwork === 'lightning-bitcoin') {
+		// Changelly reroute check FIRST — payer source determines if we need Changelly
+		if (params.payerNetwork && CHANGELLY_REROUTE_NETWORKS.has(params.payerNetwork)) {
+			await handleChangellyReceive(
+				invoiceAmount,
+				useConnected,
+				selectedReceiveWalletId,
+				formState,
+				rskAddress,
+				params.payerNetwork,
+				callbacks
+			);
+		} else if (selectedNetwork === 'lightning-bitcoin') {
 			await handleLightningReceive(
 				invoiceAmount,
 				useConnected,
@@ -172,7 +203,7 @@ export async function generateReceiveInvoice(
 				'usdt-bsc',
 				callbacks
 			);
-		} else if (['usdt0-arbitrum', 'wbtc-arbitrum', 'tbtc-arbitrum'].includes(selectedNetwork)) {
+		} else if (['usdt0-arb', 'wbtc-arbitrum', 'tbtc-arbitrum'].includes(selectedNetwork)) {
 			handleDirectReceive(
 				invoiceAmount,
 				useConnected,
@@ -337,4 +368,83 @@ async function handleLiquidReceive(
 		amount: Math.floor(invoiceAmount),
 		formState
 	});
+}
+
+async function handleChangellyReceive(
+	invoiceAmount: number,
+	useConnected: boolean,
+	selectedReceiveWalletId: string | null,
+	formState: InvoiceFormState,
+	rskAddress: string | undefined,
+	payerNetwork: string,
+	callbacks: GenerateInvoiceCallbacks
+): Promise<void> {
+	if (!isChangeallySwapsEnabled()) {
+		let fallbackAddress: string | undefined;
+		if (useConnected) {
+			const handle = getHandle(selectedReceiveWalletId!);
+			fallbackAddress = handle?.address;
+		} else {
+			fallbackAddress = rskAddress;
+		}
+		if (!fallbackAddress) {
+			callbacks.onError('wallet.rsk_not_connected');
+			return;
+		}
+		callbacks.onSuccess({
+			address: fallbackAddress,
+			network: payerNetwork,
+			amount: Math.floor(invoiceAmount),
+			memo: formState.memo || undefined,
+			formState
+		});
+		return;
+	}
+
+	let userArbitrumAddress: string;
+	if (useConnected) {
+		const handle = getHandle(selectedReceiveWalletId!);
+		if (!handle?.address) {
+			callbacks.onError('wallet.receive.connected_wallet_not_found');
+			return;
+		}
+		userArbitrumAddress = handle.address;
+	} else {
+		if (!rskAddress) {
+			callbacks.onError('wallet.rsk_not_connected');
+			return;
+		}
+		userArbitrumAddress = rskAddress;
+	}
+
+	const probeAmount = String(invoiceAmount || 100);
+
+	try {
+		const fromTicker = resolveFromTicker(payerNetwork);
+		const toTicker = resolveToTicker();
+
+		const swap = await changellyService.createSwap({
+			from: fromTicker,
+			to: toTicker,
+			amount: probeAmount,
+			address: userArbitrumAddress
+		});
+
+		if (!swap.payinAddress) {
+			callbacks.onError('wallet.receive_form.changelly_error');
+			return;
+		}
+
+		callbacks.onSuccess({
+			address: swap.payinAddress,
+			network: payerNetwork,
+			amount: Math.floor(invoiceAmount),
+			memo: formState.memo || undefined,
+			changellySwapId: swap.id,
+			formState
+		});
+	} catch (err) {
+		d.error('Changelly swap creation failed:', err);
+		callbacks.onError('wallet.receive.changelly_bridge_unavailable');
+	}
 }

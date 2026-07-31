@@ -65,7 +65,7 @@ const INVALID_RESULT: SendAddressResult = Object.freeze({
  */
 export function parseSendAddress(
 	address: string | null | undefined,
-	source: 'rootstock-bitcoin' | 'usdt-bsc'
+	source: 'usdt0-arb' | 'rootstock-bitcoin' | 'usdt-bsc'
 ): SendAddressResult {
 	// Defensive: handle non-string inputs
 	if (address === null || address === undefined) {

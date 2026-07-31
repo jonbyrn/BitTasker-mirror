@@ -10,7 +10,7 @@ export const REQUIRED_CONFIRMATIONS: Record<string, number> = {
 	'rootstock-bitcoin': 3,
 	'usdt-bsc': 1,
 	'usdt-ethereum': 3,
-	'usdt-arbitrum': 1,
+	'usdt0-arb': 1,
 	'usdt-polygon': 1,
 	bitcoin: 1,
 	'lightning-bitcoin': 3 // RSK lockup confirmations

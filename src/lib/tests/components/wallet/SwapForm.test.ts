@@ -232,7 +232,7 @@ vi.mock('$lib/stores/wallet/blockchain-toast.store', () => ({
 	}
 }));
 vi.mock('$lib/utils/wallet/chain-confirmations', () => ({
-	REQUIRED_CONFIRMATIONS: { 'rootstock-bitcoin': 3, 'usdt-bsc': 1, 'usdt-arbitrum': 1 }
+	REQUIRED_CONFIRMATIONS: { 'rootstock-bitcoin': 3, 'usdt-bsc': 1, 'usdt0-arb': 1 }
 }));
 vi.mock('$lib/utils/wallet/toast-helpers', () => ({
 	getAssetForNetwork: vi.fn().mockReturnValue('rBTC'),

@@ -172,6 +172,7 @@
 				"timed_out": "El intercambio expiró. Tus fondos están seguros — revisa Intercambios Pendientes para recuperarlos.",
 				"unsupported_pair": "Este par de intercambio no está disponible actualmente.",
 				"insufficient_gas": "No hay suficiente ETH en Arbitrum para comisiones de gas. Por favor agrega ETH a tu billetera de Arbitrum.",
+				"insufficient_rsk_gas": "No hay suficiente rBTC en Rootstock para comisiones de gas. Por favor agrega rBTC a tu billetera de Rootstock.",
 				"invalid_amount": "Por favor ingresa un monto válido.",
 				"out_of_gas": "La transacción se quedó sin gas. Por favor intenta con un límite de gas más alto.",
 				"insufficient_allowance": "Límite de gasto de token excedido. Por favor aprueba el token primero.",
@@ -303,6 +304,7 @@
 				"use_fallback": "Usar {provider}"
 			},
 			"gasless_fee_reserved": "{fee} de tu saldo está reservado para comisiones de red y relé. El monto real del swap es {amount}.",
+			"amount_too_small_for_gasless": "Monto demasiado pequeño para transferencia sin gas",
 			"cross_chain_delivery_note": "Entrega entre cadenas",
 			"cross_chain_delivery_desc": "Tus fondos están siendo puenteados a la cadena de destino. Esto puede tardar unos minutos. Tu saldo se actualizará automáticamente.",
 			"cancel_warning": "Tu intercambio aún está en progreso. Revisa Intercambios Pendientes para ver el estado.",
@@ -325,11 +327,14 @@
 			"bridge_offline": "Parece que estás sin conexión. Tus fondos están seguros en la blockchain. Reconectando...",
 			"source_tx": "TX Origen",
 			"route_steps": "Pasos de la ruta",
-			"cross_chain_delivery_note": "Entrega cross-chain",
-			"cross_chain_delivery_desc": "Tus fondos están siendo puentados a la cadena de destino. Esto puede tardar unos minutos. Tu saldo se actualizará automáticamente.",
-			"relay_unavailable": "El relé sin gas no está disponible temporalmente. Por favor, inténtalo de nuevo en unos minutos.",
 			"partial_delivery": "Entrega parcial",
 			"partial_delivery_desc": "Recibido {actual} (esperado {expected}). La diferencia se debe a comisiones del puente y deslizamiento."
+		},
+		"gasless_send": {
+			"insufficient_balance_with_fee": "Saldo insuficiente para cubrir la transferencia + comisión de red.",
+			"fee_estimation_failed": "Error al estimar la comisión",
+			"direct_transaction_failed": "Error en la transacción directa",
+			"relay_unavailable_no_eth": "El relé sin gas no está disponible y no tienes ETH para gas. Deposita una pequeña cantidad de ETH en Arbitrum para enviar directamente, o inténtalo más tarde."
 		}
 	}
 }

@@ -56,6 +56,7 @@ export const state = {
 	// ── Subscription handles ──
 	unsubscribeSwapUpdates: null as (() => void) | null,
 	unsubscribeBlockWatch: null as (() => void) | null,
+	unsubscribeArbBlockWatch: null as (() => void) | null,
 
 	// ── Balance watch state ──
 	expectingInboundUntil: 0,

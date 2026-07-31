@@ -54,13 +54,12 @@ export async function sendRawTransaction(params: {
 /**
  * Send a transaction on Arbitrum.
  *
- * Tries the gasless relay first (via EIP-7702 smart account) when the gasless
- * wallet is initialized. Falls back to a direct transaction signed by the
- * built-in RSK wallet only when the gasless wallet is not initialized.
+ * Checks ETH balance upfront:
+ * - If user has ETH → direct transaction (native gas).
+ * - If user has no ETH and gasless wallet is ready → gasless relay.
+ * - If neither → throw.
  *
- * When `feeToken` is provided (atomic claim+fee pattern), the gasless relay
- * is the ONLY path — there is no direct-tx fallback because the user has no
- * ETH on Arbitrum (that's the whole reason for gasless).
+ * No fallback between the two paths.
  */
 export async function sendArbitrumTransaction(params: {
 	to: string;
@@ -70,12 +69,28 @@ export async function sendArbitrumTransaction(params: {
 	feeToken?: string;
 	extraCalls?: Array<{ to: string; data: string; value: bigint }>;
 }): Promise<string> {
-	const { sendGaslessCalls, walletReady, estimateFee } = await import('$lib/wallet/gasless-store');
+	const { walletReady, estimateFee, sendGaslessCalls } = await import('$lib/wallet/gasless-store');
 	const { get } = await import('svelte/store');
 
-	// Gasless wallet not initialized — direct tx is the only option
-	if (!get(walletReady)) {
+	// Check ETH balance upfront to decide the path
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet() as import('ethers').Wallet;
+	const ARB_RPC = import.meta.env.VITE_ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc';
+	const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
+	const arbWallet = wallet.connect(arbProvider);
+	const arbEthBalance = await arbProvider.getBalance(arbWallet.address);
+
+	if (arbEthBalance > 0n) {
+		// Has ETH — send directly, no gasless relay needed
 		return sendDirectArbitrumTx(params);
+	}
+
+	// No ETH — gasless relay is the only option
+	if (!get(walletReady)) {
+		throw new Error(
+			'No ETH on Arbitrum for gas and gasless relay is not initialized. ' +
+			'Please fund your Arbitrum wallet with ETH or ensure the gasless relay is configured.'
+		);
 	}
 
 	const { TOKENS } = await import('$lib/wallet/gasless.config');
@@ -84,12 +99,7 @@ export async function sendArbitrumTransaction(params: {
 	// If a preferred fee token is provided (e.g., tBTC when claiming),
 	// use it directly — the claim produces the tokens atomically in the
 	// same executeBatch, so no pre-existing balance is needed.
-	// This is gasless-only: no direct-tx fallback because the user has
-	// no ETH on Arbitrum (that's the whole point of the gasless relay).
 	if (params.feeToken) {
-		// Prepend extraCalls (e.g., ERC-20 approve) BEFORE the primary call
-		// so that approvals are granted before the swap/router pulls tokens.
-		// The fee transfer is appended last by sendGaslessCalls.
 		const actualCalls = [
 			...(params.extraCalls ?? []).map((c) => ({ to: c.to, data: c.data, value: c.value })),
 			{ to: params.to, data: params.data, value: callValue }
@@ -99,9 +109,6 @@ export async function sendArbitrumTransaction(params: {
 		const tokenInfo = TOKENS.find((t) => t.address.toLowerCase() === params.feeToken!.toLowerCase());
 		console.log(`[sendArbitrumTransaction] Using preferred fee token ${tokenInfo?.symbol ?? params.feeToken}, feeBuffer=${feeBuffer}`);
 
-		// Safety check: verify the fee token balance covers the fee buffer.
-		// For atomic claim+fee patterns (e.g., Boltz tBTC claim), the balance
-		// may be 0 before execution — skip the check in that case.
 		const { queryERC20Balance } = await import('$lib/services/swap-chain/tx-helpers');
 		const { gaslessWallet } = await import('$lib/wallet/gasless-store');
 		const prefSender = get(gaslessWallet).address;
@@ -136,7 +143,6 @@ export async function sendArbitrumTransaction(params: {
 	const sender = walletState.address;
 	if (!sender) throw new Error('Gasless wallet address not available');
 
-	// Check all allowed fee token balances in parallel
 	const balanceChecks = await Promise.all(
 		TOKENS.map(async (token) => {
 			const balance = await queryERC20Balance(token.address, sender, 'arbitrum');
@@ -144,12 +150,18 @@ export async function sendArbitrumTransaction(params: {
 		})
 	);
 
-	// Sort by balance descending — prefer the token the user has the most of
-	const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => (a.balance > b.balance ? -1 : 1));
+	const sorted = balanceChecks.filter((b) => b.balance > 0n).sort((a, b) => {
+		const aInfo = TOKENS.find((t) => t.address === a.token);
+		const bInfo = TOKENS.find((t) => t.address === b.token);
+		const aDecimals = aInfo?.decimals ?? 18;
+		const bDecimals = bInfo?.decimals ?? 18;
+		const aNormalized = Number(a.balance) / (10 ** aDecimals);
+		const bNormalized = Number(b.balance) / (10 ** bDecimals);
+		return bNormalized - aNormalized;
+	});
 
 	let lastErr: Error | null = null;
 
-	// Try with fee buffer first (user has tokens)
 	if (sorted.length > 0) {
 		for (const { token: feeToken, symbol } of sorted) {
 			try {
@@ -166,10 +178,6 @@ export async function sendArbitrumTransaction(params: {
 					continue;
 				}
 
-				// Safety warning: if the balance barely covers the fee buffer,
-				// the swap may fail if the bridge pulls additional tokens.
-				// The executor's capBalanceToWalletMax should prevent this,
-				// but warn here as a defense-in-depth signal.
 				const margin = tokenBalance - feeBuffer;
 				if (margin < feeBuffer) {
 					console.warn(
@@ -201,9 +209,6 @@ export async function sendArbitrumTransaction(params: {
 		}
 	}
 
-	// No fee tokens available or all fee token attempts failed.
-	// sendGaslessCalls requires a fee token — there is no "free" gasless path.
-	// Throw the last error from the fee token loop, or a clear message.
 	console.error('[sendArbitrumTransaction] All fee token attempts exhausted');
 	throw lastErr
 		?? new Error(

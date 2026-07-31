@@ -41,12 +41,10 @@ describe('symbiosisProvider.supports()', () => {
 		vi.mocked(isSymbiosisEnabled).mockReturnValue(true);
 	});
 
-	it('returns true for valid EVM pairs when enabled', () => {
+	it('returns true for valid cross-chain EVM pairs when enabled', () => {
 		const validPairs = [
 			['rbtc', 'usdt0-arb'],
-			['usdt0-arb', 'rbtc'],
-			['usdt0-rsk', 'rbtc'],
-			['wbtc-arb', 'usdt0-arb']
+			['usdt0-arb', 'rbtc']
 		];
 		for (const [from, to] of validPairs) {
 			expect(symbiosisProvider.supports(TOKENS[from], TOKENS[to]), `${from} → ${to}`).toBe(true);
@@ -55,6 +53,16 @@ describe('symbiosisProvider.supports()', () => {
 
 	it('returns false for same-token pairs', () => {
 		expect(symbiosisProvider.supports(TOKENS['rbtc'], TOKENS['rbtc'])).toBe(false);
+	});
+
+	it('returns false for same-chain pairs (FIXED: prevents unnecessary API calls)', () => {
+		const sameChainPairs = [
+			['wbtc-arb', 'usdt0-arb'],
+			['usdt0-arb', 'wbtc-arb']
+		];
+		for (const [from, to] of sameChainPairs) {
+			expect(symbiosisProvider.supports(TOKENS[from], TOKENS[to]), `${from} → ${to}`).toBe(false);
+		}
 	});
 
 	it('returns false for Bitcoin/Lightning chains', () => {

@@ -13,7 +13,7 @@ const NETWORK_ASSET: Record<string, string> = {
 	'rootstock-bitcoin': 'rBTC',
 	'usdt-bsc': 'USDT',
 	'usdt-ethereum': 'USDT',
-	'usdt-arbitrum': 'USDT',
+	'usdt0-arb': 'USDT',
 	'usdt-polygon': 'USDT',
 	bitcoin: 'BTC',
 	'lightning-bitcoin': 'BTC'

@@ -45,7 +45,10 @@
 			"wbtc_arbitrum": "Wrapped BTC on Arbitrum",
 			"bitcoin_tbtc": "tBTC",
 			"bridged_btc_arbitrum": "Bridged BTC on Arbitrum",
-			"swap_service_unavailable": "Swap service is temporarily unavailable. Please try again later."
+			"swap_service_unavailable": "Swap service is temporarily unavailable. Please try again later.",
+			"changelly_swap_complete": "Funds received! Changelly swap completed.",
+			"changelly_swap_failed": "Changelly swap failed. Please check your transaction.",
+			"changelly_bridge_unavailable": "Changelly bridge is temporarily unavailable. Please try again later or use a directly-supported network."
 		}
 	}
 }

@@ -203,7 +203,7 @@
 			const provider = getProvider(
 				network === 'rootstock-bitcoin' || network === 'rsk'
 					? 'rsk'
-					: network === 'usdt-arbitrum' || network === 'arbitrum'
+					: network === 'usdt0-arb' || network === 'arbitrum'
 						? 'rsk'
 						: 'bsc'
 			);

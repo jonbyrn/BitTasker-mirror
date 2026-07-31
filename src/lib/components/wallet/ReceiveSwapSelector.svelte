@@ -67,7 +67,7 @@
 			asset: 'USDT0',
 			label: 'Arbitrum',
 			icon: '/images/chains/arbitrum.png',
-			network: 'usdt0-arbitrum',
+			network: 'usdt0-arb',
 			group: 'usdt',
 			recommended: true
 		},

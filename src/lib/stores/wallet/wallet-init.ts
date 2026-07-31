@@ -42,6 +42,33 @@ function ensureBlockWatch(): void {
 			console.error('[wallet-init] Block callback error:', err);
 		}
 	});
+
+	ensureArbitrumBlockWatch();
+}
+
+let _arbBalanceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensureArbitrumBlockWatch(): void {
+	if (state.unsubscribeArbBlockWatch) return;
+
+	const arbWallet = state.sdkWalletManager?.arbWallet;
+	if (!arbWallet || typeof arbWallet.onBlock !== 'function') return;
+
+	const arbProvider = arbWallet.getProvider();
+	if (!arbProvider) return;
+
+	state.unsubscribeArbBlockWatch = arbWallet.onBlock((_blockNumber) => {
+		try {
+			if (_arbBalanceTimer) clearTimeout(_arbBalanceTimer);
+			_arbBalanceTimer = setTimeout(() => {
+				_arbBalanceTimer = null;
+				scheduleBalanceRefresh();
+			}, 7000);
+			blockchainToastStore.onBlock('arb', _blockNumber);
+		} catch (err) {
+			console.error('[wallet-init] Arbitrum block watch error:', err);
+		}
+	});
 }
 
 function wireSwapUpdates(): void {
@@ -70,9 +97,7 @@ function scheduleResumeRefresh(): void {
 			// Read persisted balance (survives app kills, unlike in-memory store)
 			let persistedBalance: number | null = null;
 			try {
-				const { value: stored } = await Preferences.get({
-					key: StorageKeys.WALLET_LAST_BALANCE_SATS
-				});
+				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
 				if (stored !== null) {
 					const parsed = parseInt(stored, 10);
 					if (!isNaN(parsed)) persistedBalance = parsed;
@@ -86,13 +111,15 @@ function scheduleResumeRefresh(): void {
 			// Show toast if balance increased from persisted value
 			// persistedBalance === null means first open ever — skip toast (save baseline)
 			const newBalanceSats = get(walletStore).totalBalances.sats;
-			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
-				const delta = newBalanceSats - persistedBalance;
-				void import('$lib/stores/app.store').then(({ appStore }) => {
+
+			if (persistedBalance !== null) {
+				const appStore = await import('$lib/stores/app.store').then(({ appStore }) => appStore);
+				if (newBalanceSats > persistedBalance) {
+					const delta = newBalanceSats - persistedBalance;
 					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
 						dedupKey: `received-balance-${newBalanceSats}`
 					});
-				});
+				}
 			}
 
 			// Lightweight swap recovery (Nostr queries only, no blockchain RPC)
@@ -340,6 +367,8 @@ export function disconnectWallet(): void {
 	state.unsubscribeSwapUpdates = null;
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
+	state.unsubscribeArbBlockWatch?.();
+	state.unsubscribeArbBlockWatch = null;
 	state.expectingInboundUntil = 0;
 	void clearPersistedChainSortHints();
 	state.recoverSwapsOnNextLoad = true;
@@ -362,6 +391,8 @@ export function disconnectWallet(): void {
 export function softCleanup(): void {
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
+	state.unsubscribeArbBlockWatch?.();
+	state.unsubscribeArbBlockWatch = null;
 
 	if (state.sdkWalletManager) {
 		try {

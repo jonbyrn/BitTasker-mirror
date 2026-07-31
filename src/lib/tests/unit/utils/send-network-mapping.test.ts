@@ -25,8 +25,8 @@ describe('toSourceWallet', () => {
 			expect(toSourceWallet('usdt-bsc')).toBe('usdt-bsc');
 		});
 
-		it('maps usdt0-arbitrum to usdt0-arb', () => {
-			expect(toSourceWallet('usdt0-arbitrum')).toBe('usdt0-arb');
+		it('maps usdt0-arb to usdt0-arb', () => {
+			expect(toSourceWallet('usdt0-arb')).toBe('usdt0-arb');
 		});
 
 		it('maps usdt0-arb alias to usdt0-arb', () => {
@@ -59,8 +59,8 @@ describe('toSourceWallet', () => {
 			expect(toSourceWallet('connected-wallet-2', 'usdt-bsc')).toBe('usdt-bsc');
 		});
 
-		it('infers usdt0-arb from detectedNetwork usdt0-arbitrum', () => {
-			expect(toSourceWallet('connected-wallet', 'usdt0-arbitrum')).toBe('usdt0-arb');
+		it('infers usdt0-arb from detectedNetwork usdt0-arb', () => {
+			expect(toSourceWallet('connected-wallet', 'usdt0-arb')).toBe('usdt0-arb');
 		});
 
 		it('infers usdt0-arb from detectedNetwork usdt0-arb', () => {
@@ -177,14 +177,14 @@ describe('toDestination', () => {
 		});
 	});
 
-	describe('usdt-arbitrum', () => {
+	describe('usdt0-arb', () => {
 		it('maps to chainId 42161 on mainnet', () => {
-			const result = toDestination('usdt-arbitrum', '0xabc', undefined, mainnetConfig);
+			const result = toDestination('usdt0-arb', '0xabc', undefined, mainnetConfig);
 			expect(result).toEqual({ type: 'address', chainId: 42161, address: '0xabc' });
 		});
 
 		it('maps to chainId 421614 on testnet', () => {
-			const result = toDestination('usdt-arbitrum', '0xabc', undefined, testnetConfig);
+			const result = toDestination('usdt0-arb', '0xabc', undefined, testnetConfig);
 			expect(result).toEqual({ type: 'address', chainId: 421614, address: '0xabc' });
 		});
 	});
@@ -429,7 +429,7 @@ describe('getAddressExplorerUrl', () => {
 		});
 
 		it('returns arbiscan for arbitrum', () => {
-			expect(getAddressExplorerUrl('0xabc', 'usdt-arbitrum', mainnetConfig)).toBe(
+			expect(getAddressExplorerUrl('0xabc', 'usdt0-arb', mainnetConfig)).toBe(
 				'https://arbiscan.io/address/0xabc'
 			);
 		});
@@ -572,12 +572,12 @@ describe('getResolvedChainId', () => {
 		expect(getResolvedChainId('usdt-ethereum', testnetConfig)).toBe(11155111);
 	});
 
-	it('returns mainnet ID for usdt-arbitrum on mainnet', () => {
-		expect(getResolvedChainId('usdt-arbitrum', mainnetConfig)).toBe(42161);
+	it('returns mainnet ID for usdt0-arb on mainnet', () => {
+		expect(getResolvedChainId('usdt0-arb', mainnetConfig)).toBe(42161);
 	});
 
-	it('returns testnet ID for usdt-arbitrum on testnet', () => {
-		expect(getResolvedChainId('usdt-arbitrum', testnetConfig)).toBe(421614);
+	it('returns testnet ID for usdt0-arb on testnet', () => {
+		expect(getResolvedChainId('usdt0-arb', testnetConfig)).toBe(421614);
 	});
 
 	it('returns mainnet ID for usdt-polygon on mainnet', () => {
@@ -679,7 +679,7 @@ describe('toDestinations', () => {
 		const usdtIds = usdtNetworks.map((d) => d.id);
 		expect(usdtIds).toContain('usdt-bsc');
 		expect(usdtIds).toContain('usdt-ethereum');
-		expect(usdtIds).toContain('usdt-arbitrum');
+		expect(usdtIds).toContain('usdt0-arb');
 		expect(usdtIds).toContain('usdt-polygon');
 		expect(usdtIds).toContain('usdt-optimism');
 		expect(usdtIds).toContain('usdt-base');
@@ -691,9 +691,9 @@ describe('toDestinations', () => {
 		const result = toDestinations();
 		const recommended = result.filter((d) => d.recommended === true);
 		const recommendedIds = recommended.map((d) => d.id);
-		// rootstock-bitcoin and usdt-arbitrum are marked recommended in DESTINATION_CHAIN_OPTIONS
+		// rootstock-bitcoin and usdt0-arb are marked recommended in DESTINATION_CHAIN_OPTIONS
 		expect(recommendedIds).toContain('rootstock-bitcoin');
-		expect(recommendedIds).toContain('usdt-arbitrum');
+		expect(recommendedIds).toContain('usdt0-arb');
 		expect(recommended.length).toBe(2);
 	});
 
@@ -791,8 +791,8 @@ describe('lookup maps', () => {
 			expect(NETWORK_TO_CHAIN_ID['usdt-ethereum']).toBe(1);
 		});
 
-		it('maps usdt-arbitrum to 42161', () => {
-			expect(NETWORK_TO_CHAIN_ID['usdt-arbitrum']).toBe(42161);
+		it('maps usdt0-arb to 42161', () => {
+			expect(NETWORK_TO_CHAIN_ID['usdt0-arb']).toBe(42161);
 		});
 
 		it('maps lightning-bitcoin to -1', () => {
@@ -825,8 +825,8 @@ describe('lookup maps', () => {
 			expect(CHAIN_ID_TO_NETWORK[1]).toBe('usdt-ethereum');
 		});
 
-		it('maps 42161 to usdt-arbitrum', () => {
-			expect(CHAIN_ID_TO_NETWORK[42161]).toBe('usdt-arbitrum');
+		it('maps 42161 to usdt0-arb', () => {
+			expect(CHAIN_ID_TO_NETWORK[42161]).toBe('usdt0-arb');
 		});
 
 		it('maps -1 to lightning-bitcoin', () => {

@@ -21,9 +21,11 @@ import {
 	BOLTZ_BITCOIN_ID,
 	EVM_NATIVE
 } from '$lib/utils/receive-network-mapping';
+import { CHANGELLY_REROUTE_NETWORKS } from '$lib/utils/generate-receive-invoice';
 import { lifiService } from '$lib/services/lifi.service';
 import { symbiosisService } from '$lib/services/symbiosis.service';
 import { changellyService } from '$lib/services/changelly.service';
+import { resolveFromTicker, resolveToTicker } from '$lib/services/changelly-ticker-map';
 import { isLifiEnabled, isSymbiosisEnabled } from '$lib/services/kill-switch';
 
 const d = createDebug('receive-fees');
@@ -124,6 +126,11 @@ export function useReceiveFees(opts: UseReceiveFeesOptions): UseReceiveFees {
 		// ── Changelly "other" tab path ──
 		if (payerNetwork.startsWith('changelly-')) {
 			return computeChangellyFee();
+		}
+
+		// ── Changelly cross-chain USDT path (Ethereum, Avalanche, Base, etc.) ──
+		if (CHANGELLY_REROUTE_NETWORKS.has(payerNetwork)) {
+			return computeChangellyCrossChainFee();
 		}
 
 		const from = deriveChainInfo(payerNetwork);
@@ -357,6 +364,49 @@ export function useReceiveFees(opts: UseReceiveFeesOptions): UseReceiveFees {
 		} catch (err) {
 			d.warn('Changelly estimate failed:', err);
 			return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+		}
+	}
+
+	async function computeChangellyCrossChainFee(): Promise<FeeEstimate | null> {
+		const amountInSats = getAmountInSats();
+
+		const fromTicker = resolveFromTicker(getPayerNetwork());
+		const toTicker = resolveToTicker();
+
+		try {
+			const limits = await changellyService.getLimits(fromTicker, toTicker);
+			if (!limits || !limits.min) {
+				return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			}
+
+			const estimate = await changellyService.estimateSwap({
+				from: fromTicker,
+				to: toTicker,
+				amount: limits.min
+			});
+
+			if (!estimate || !estimate.estimatedAmount || parseFloat(estimate.estimatedAmount) <= 0) {
+				return { serviceFee: 0, networkFee: 0, totalFees: 0 };
+			}
+
+			const inputVal = parseFloat(limits.min);
+			const outputVal = parseFloat(estimate.estimatedAmount);
+			const feePercent = inputVal > 0 ? ((inputVal - outputVal) / inputVal) * 100 : 0.5;
+
+			const serviceFee = Math.ceil((amountInSats * Math.max(feePercent, 0.1)) / 100);
+			const minerFee = estimate.minerFee
+				? Math.ceil(parseFloat(estimate.minerFee) * 100_000_000)
+				: 0;
+
+			return {
+				serviceFee,
+				networkFee: minerFee,
+				totalFees: serviceFee + minerFee
+			};
+		} catch (err) {
+			d.warn('Changelly cross-chain estimate failed:', err);
+			error = 'wallet.receive.changelly_bridge_unavailable';
+			return null;
 		}
 	}
 

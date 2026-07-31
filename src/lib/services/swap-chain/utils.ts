@@ -47,6 +47,55 @@ export const GAS_LIMIT_ARB_SWAP = 500_000;
 /** Gas limit for RSK EtherSwap.claim() */
 export const GAS_LIMIT_RSK_CLAIM = 150_000;
 
+// ─── Dynamic gas estimation ──────────────────────────────────────
+
+/** Default gas limit fallback when estimation fails */
+export const GAS_LIMIT_RSK_DEFAULT = 150_000;
+
+/** Minimum gas limit clamp */
+export const GAS_LIMIT_RSK_MIN = 100_000;
+
+/** Maximum gas limit clamp */
+export const GAS_LIMIT_RSK_MAX = 500_000;
+
+/**
+ * Estimate gas for an RSK transaction with buffer and clamping.
+ * Falls back to GAS_LIMIT_RSK_DEFAULT if estimation fails.
+ *
+ * @param params - Transaction parameters for eth_estimateGas
+ * @param rpcUrl - RSK RPC endpoint (defaults to RSK_RPC_URL)
+ * @returns Gas limit as a number, clamped to [GAS_LIMIT_RSK_MIN, GAS_LIMIT_RSK_MAX]
+ */
+export async function estimateRskGas(params: {
+	to: string;
+	data: string;
+	value: string;
+}, rpcUrl: string = RSK_RPC_URL): Promise<number> {
+	try {
+		const resp = await fetch(rpcUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_estimateGas',
+				params: [{ to: params.to, data: params.data, value: params.value }],
+				id: 1
+			})
+		});
+		const data = await resp.json();
+		if (data.result) {
+			const estimated = parseInt(data.result, 16);
+			// Add 20% buffer
+			const withBuffer = Math.ceil(estimated * 1.2);
+			// Clamp to bounds
+			return Math.max(GAS_LIMIT_RSK_MIN, Math.min(withBuffer, GAS_LIMIT_RSK_MAX));
+		}
+	} catch {
+		// Estimation failed — fall through to default
+	}
+	return GAS_LIMIT_RSK_DEFAULT;
+}
+
 // ─── RPC URLs ──────────────────────────────────────────────────────
 
 /** RSK mainnet RPC endpoint */

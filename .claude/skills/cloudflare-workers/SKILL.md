@@ -13,7 +13,7 @@ The Workers backend lives in `workers-site/`. It uses the **vanilla Service Work
 - **API routes** — selected paths (`/api/*`, `/__data.json`) run through the worker before the static asset fallback (configured via `run_worker_first` in wrangler.toml)
 - **Cron cleanup** — weekly abandoned Stream video cleanup (Sunday 3am UTC)
 
-Worker entry: `workers-site/index.js`. Handlers: `workers-site/handlers/stream.js`, `workers-site/handlers/changelly.js`, `workers-site/handlers/changelly-fiat.js`.
+Worker entry: `workers-site/index.js`. Handlers: `workers-site/handlers/stream.js`, `workers-site/handlers/changelly-fiat.js`, `workers-site/handlers/explorer.js`.
 
 ## Runtime Constraints
 
@@ -69,10 +69,10 @@ Accessed in code via `env.VITE_CLIENT_HOSTNAME` — NOT `process.env.VITE_CLIENT
 ### Secrets
 
 ```bash
-wrangler secret put CHANGELLY_API_KEY --env dev
+wrangler secret put CHANGELLY_FIAT_PRIVATE_KEY --env dev
 ```
 
-Secrets are encrypted at rest and accessed the same way as vars: `env.CHANGELLY_API_KEY`. Never hardcode secrets in wrangler.toml (dev-only placeholders are acceptable with clear documentation).
+Secrets are encrypted at rest and accessed the same way as vars: `env.CHANGELLY_FIAT_PRIVATE_KEY`. Never hardcode secrets in wrangler.toml (dev-only placeholders are acceptable with clear documentation).
 
 ### KV Namespaces
 

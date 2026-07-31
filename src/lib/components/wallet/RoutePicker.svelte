@@ -37,7 +37,7 @@
 	let selectedRoute = $derived(routes.find((r) => r.id === selectedRouteId));
 	let isUSDT = $derived(
 		typeof network === 'string' &&
-			(network === 'usdt-bsc' || network === 'usdt-arbitrum' || network.startsWith('usdt'))
+			(network === 'usdt-bsc' || network === 'usdt0-arb' || network.startsWith('usdt'))
 	);
 
 	/** Swap fee: uses live API override when > 0, otherwise falls back to route %. */

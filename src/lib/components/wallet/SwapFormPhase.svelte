@@ -240,19 +240,12 @@
 
 	<!-- Fee/estimate card — always renders (no layout shift); skeleton while loading, dashes when empty -->
 	{#if selectedDest}
-		{@const effectiveSwapAmount = !isBtcSource && gaslessFeeReserve > 0
-			? Math.max(0, amountInTokenUnits - gaslessFeeReserve)
-			: amountInTokenUnits}
-		{@const amountRatio = amountInTokenUnits > 0 ? effectiveSwapAmount / amountInTokenUnits : 1}
-		{@const adjustedEstimatedOutput = estimatedOutput
-			? (parseFloat(estimatedOutput) * amountRatio).toString()
-			: estimatedOutput}
 		<SwapEstimateCard
 			variant="form"
-			totalSent={effectiveSwapAmount > 0
+			totalSent={amountInTokenUnits > 0
 				? isBtcSource
 					? satsUsd(amountSats, btcUsdPrice)
-					: usdFormatter.format(effectiveSwapAmount)
+					: usdFormatter.format(amountInTokenUnits)
 				: undefined}
 			feeDisplay={totalFeeSats > 0
 				? `−${formatSats(totalFeeSats)} ${$t('wallet.sats')}${btcUsdPrice > 0 && (totalFeeSats / 100_000_000) * btcUsdPrice >= 0.001 ? ' ≈ ' + usdFormatter.format((totalFeeSats / 100_000_000) * btcUsdPrice) : ''}`
@@ -261,10 +254,10 @@
 					: amountInTokenUnits > 0
 						? $t('wallet.free')
 						: undefined}
-			youReceive={effectiveSwapAmount > 0 && adjustedEstimatedOutput
+			youReceive={amountInTokenUnits > 0 && estimatedOutput
 				? isBitcoinAsset(selectedDest.asset, selectedDest.id)
-					? satsUsd(Math.round(parseFloat(adjustedEstimatedOutput) * 100_000_000), btcUsdPrice)
-					: usdFormatter.format(parseFloat(adjustedEstimatedOutput))
+					? satsUsd(Math.round(parseFloat(estimatedOutput) * 100_000_000), btcUsdPrice)
+					: usdFormatter.format(parseFloat(estimatedOutput))
 				: undefined}
 			providerLabel={smartRoute || effectiveSmartRoute
 				? getProviderLabel()
@@ -292,14 +285,20 @@
 
 	<!-- Gasless fee reserve notice -->
 	{#if gaslessFeeReserve && gaslessFeeReserve > 0 && !isInsufficientBalance}
-		<div class="text-base-content/50 px-1 text-center text-xs">
-			{$t('wallet.swap.gasless_fee_reserved', {
-				values: {
-					fee: isBtcSource ? `~${formatSats(Math.round(gaslessFeeReserve * 100_000_000))} sats` : `$${gaslessFeeReserve.toFixed(2)}`,
-					amount: `$${Math.max(0, amountInTokenUnits - gaslessFeeReserve).toFixed(2)}`
-				}
-			})}
-		</div>
+		{#if amountInTokenUnits > 0 && amountInTokenUnits <= gaslessFeeReserve}
+			<div class="text-warning px-1 text-center text-xs">
+				{$t('wallet.swap.amount_too_small_for_gasless')}
+			</div>
+		{:else}
+			<div class="text-base-content/50 px-1 text-center text-xs">
+				{$t('wallet.swap.gasless_fee_reserved', {
+					values: {
+						fee: isBtcSource ? `~${formatSats(Math.round(gaslessFeeReserve * 100_000_000))} sats` : `$${gaslessFeeReserve.toFixed(2)}`,
+						amount: `$${amountInTokenUnits.toFixed(2)}`
+					}
+				})}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Output too low (fee exceeds input) -->

@@ -53,7 +53,7 @@ export const DESTINATION_CHAIN_OPTIONS = [
 	{
 		id: 42161,
 		testnetId: 421614,
-		network: 'usdt-arbitrum',
+		network: 'usdt0-arb',
 		label: 'Arbitrum',
 		asset: 'USDT',
 		icon: '/images/chains/arbitrum.png',
@@ -301,15 +301,25 @@ export function getAllNetworkDisplays(config?: NetworkConfig): Record<
 export function toSourceWallet(source: string, detectedNetwork?: string | null): SourceWallet {
 	if (source === 'rootstock-bitcoin') return 'rbtc';
 	if (source === 'usdt-bsc') return 'usdt-bsc';
-	if (source === 'usdt0-arbitrum' || source === 'usdt0-arb') return 'usdt0-arb';
+	if (source === 'usdt0-arb') return 'usdt0-arb';
 	if (source === 'wbtc-arbitrum' || source === 'wbtc-arb') return 'wbtc-arb';
 	if (source === 'tbtc-arbitrum' || source === 'tbtc-arb') return 'tbtc-arb';
+	if (source === 'usdt-ethereum') return 'usdt-ethereum';
+	if (source === 'usdt-avalanche') return 'usdt-avalanche';
+	if (source === 'usdt-base') return 'usdt-base';
+	if (source === 'usdt-optimism') return 'usdt-optimism';
+	if (source === 'usdt-polygon') return 'usdt-polygon';
 	// Connected wallet — infer chain from detected network for route resolution
 	if (detectedNetwork === 'rootstock-bitcoin') return 'rbtc';
 	if (detectedNetwork === 'usdt-bsc') return 'usdt-bsc';
-	if (detectedNetwork === 'usdt0-arbitrum' || detectedNetwork === 'usdt0-arb') return 'usdt0-arb';
+	if (detectedNetwork === 'usdt0-arb') return 'usdt0-arb';
 	if (detectedNetwork === 'wbtc-arbitrum' || detectedNetwork === 'wbtc-arb') return 'wbtc-arb';
 	if (detectedNetwork === 'tbtc-arbitrum' || detectedNetwork === 'tbtc-arb') return 'tbtc-arb';
+	if (detectedNetwork === 'usdt-ethereum') return 'usdt-ethereum';
+	if (detectedNetwork === 'usdt-avalanche') return 'usdt-avalanche';
+	if (detectedNetwork === 'usdt-base') return 'usdt-base';
+	if (detectedNetwork === 'usdt-optimism') return 'usdt-optimism';
+	if (detectedNetwork === 'usdt-polygon') return 'usdt-polygon';
 	console.warn('Unknown source wallet:', source);
 	return 'usdt-bsc';
 }

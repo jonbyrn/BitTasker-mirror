@@ -47,6 +47,9 @@ export const lifiProvider: SwapProvider = {
 		// LI.FI can target any chain except Lightning
 		if (to.chain === 'lightning') return false;
 
+		// Skip same-chain same-token transfers (direct send, not a swap)
+		if (from.chain === to.chain && from.key === to.key) return false;
+
 		return true;
 	},
 

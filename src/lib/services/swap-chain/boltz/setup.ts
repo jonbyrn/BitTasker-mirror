@@ -128,10 +128,6 @@ export async function lockRskFunds(
 	setup: SwapSetupResult,
 	sourceConnectedWalletId: string | null
 ): Promise<{ data: string | null; error: Error | null }> {
-	// CRITICAL: Use Boltz's lockup claim address (not the user's destination address).
-	// Boltz's RSK address is the one authorized to call claim() on the user's lockup.
-	// Using the user's Arbitrum address here causes Boltz to reject the lockup
-	// with transaction.lockupFailed because msg.sender doesn't match.
 	const boltzClaimAddr = setup.swapResult.lockupClaimAddress;
 	if (!boltzClaimAddr) {
 		return { data: null, error: new Error('Boltz lockup claim address missing — cannot lock funds') };
@@ -142,6 +138,77 @@ export async function lockRskFunds(
 		setup.swapResult.timeoutBlockHeight
 	);
 	const rbtcWei = satsToWei(setup.amountSats);
+
+	// Pre-flight balance check: verify wallet has enough RBTC for swap amount + gas
+	try {
+		const { estimateRskGas, RSK_RPC_URL, GAS_LIMIT_RSK } = await import('../utils');
+		const { fetchGasPrice } = await import('$lib/utils/swap-gas');
+
+		const { get } = await import('svelte/store');
+		const { walletStore } = await import('$lib/stores/wallet.store');
+		const { getHandle } = await import('$lib/stores/connected-wallets.store');
+
+		let walletAddress: string | null = null;
+		if (sourceConnectedWalletId) {
+			const handle = getHandle(sourceConnectedWalletId);
+			walletAddress = handle?.address ?? null;
+		} else {
+			const $wallet = get(walletStore);
+			walletAddress = $wallet?.rsk?.address ?? null;
+		}
+
+		if (walletAddress) {
+			const [balanceWei, gasPrice] = await Promise.all([
+				fetch(RSK_RPC_URL, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getBalance',
+						params: [walletAddress, 'latest'],
+						id: 1
+					})
+				}).then((r) => r.json()).then((d) => d.result ? BigInt(d.result) : 0n),
+				fetchGasPrice(RSK_RPC_URL).catch(() => null)
+			]);
+
+			const gasLimit = await estimateRskGas({
+				to: setup.swapResult.lockupAddress,
+				data: lockCalldata,
+				value: '0x' + rbtcWei.toString(16)
+			});
+
+			const effectiveGasPrice = gasPrice ?? 26_000_000n;
+			const gasCostWei = BigInt(gasLimit) * effectiveGasPrice;
+			const totalNeeded = rbtcWei + gasCostWei;
+
+			d.log(
+				'[lockRskFunds] pre-flight: balance=%s needed=%s (swap=%s + gas=%s) gasLimit=%d gasPrice=%s',
+				balanceWei.toString(),
+				totalNeeded.toString(),
+				rbtcWei.toString(),
+				gasCostWei.toString(),
+				gasLimit,
+				effectiveGasPrice.toString()
+			);
+
+			if (balanceWei < totalNeeded) {
+				const shortfallWei = totalNeeded - balanceWei;
+				const shortfallSats = Number(shortfallWei / 10_000_000_000n);
+				const balanceSats = Number(balanceWei / 10_000_000_000n);
+				const neededSats = Number(totalNeeded / 10_000_000_000n);
+				return {
+					data: null,
+					error: new Error(
+						`Insufficient RBTC for gas: need ${neededSats} sats (swap ${setup.amountSats} + gas ${neededSats - setup.amountSats}), have ${balanceSats} sats. Shortfall: ${shortfallSats} sats.`
+					)
+				};
+			}
+		}
+	} catch (checkErr) {
+		d.warn('[lockRskFunds] pre-flight balance check failed (non-blocking): %s', (checkErr as Error).message);
+	}
+
 	d.log(
 		'[lockRskFunds] to=%s value=%s wei boltzClaimAddr=%s userClaimAddr=%s wallet=%s',
 		setup.swapResult.lockupAddress,

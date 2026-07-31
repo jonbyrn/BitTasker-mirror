@@ -57,6 +57,7 @@
 		totalUnit: 'sats' | 'usdt' | 'usd';
 		// ── Validation ─────────────────────────────────────────────────
 		hasInsufficientBalance: boolean;
+		hasPreliminaryInsufficientBalance: boolean;
 
 		isFormValid: boolean;
 
@@ -80,6 +81,8 @@
 		// ── Transaction error ──────────────────────────────────────────
 		transactionError: string | null;
 		externalConfirmSource: string | null;
+		// ── Sending state ──────────────────────────────────────────────
+		isSending: boolean;
 		// ── Events ─────────────────────────────────────────────────────
 		onAddressChange: (value: string) => void;
 		onClearAddress: () => void;
@@ -129,6 +132,7 @@
 		totalToSendUSD,
 		totalUnit,
 		hasInsufficientBalance,
+		hasPreliminaryInsufficientBalance,
 		isFormValid,
 		isSelfSend,
 		showLargeAmountWarning,
@@ -146,6 +150,7 @@
 		detectedMemo,
 		transactionError,
 		externalConfirmSource,
+		isSending,
 		onAddressChange,
 		onClearAddress,
 		onAddressFocus,
@@ -311,6 +316,11 @@
 				})}
 			</p>
 		{/if}
+		{#if hasPreliminaryInsufficientBalance && !hasInsufficientBalance}
+			<div class="alert alert-outline alert-warning py-2 text-sm" role="status" aria-live="polite">
+				<span>{$t('wallet.validation.amount_exceeds_balance')}</span>
+			</div>
+		{/if}
 	</div>
 
 	{#if feeError}
@@ -459,9 +469,13 @@
 	<button
 		class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 		onclick={onSend}
-		disabled={!isFormValid || isLoadingFee || externalConfirmSource !== null}
+		disabled={!isFormValid || isLoadingFee || externalConfirmSource !== null || isSending}
 	>
-		<IconSend class="h-4 w-4" />
+		{#if isSending}
+			<span class="loading loading-spinner loading-sm" role="status" aria-label={$t('common.loading')}></span>
+		{:else}
+			<IconSend class="h-4 w-4" />
+		{/if}
 		<span class="text-sm">{$t('wallet.send.send')}</span>
 	</button>
 
@@ -476,9 +490,13 @@
 	<button
 		class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 		onclick={onSend}
-		disabled={!isFormValid || isLoadingFee || externalConfirmSource !== null}
+		disabled={!isFormValid || isLoadingFee || externalConfirmSource !== null || isSending}
 	>
-		<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
+		{#if isSending}
+			<span class="loading loading-spinner loading-sm" role="status" aria-label={$t('common.loading')}></span>
+		{:else}
+			<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
+		{/if}
 		<span class="text-sm sm:text-base">{$t('wallet.send.send')}</span>
 	</button>
 </div>

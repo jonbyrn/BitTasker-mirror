@@ -98,6 +98,10 @@ function composeTwoHopRoute(
 	// wei is meaningless and inflates the fee when converted to sats.
 	const gasCostWei = hop1.gasCostWei;
 
+	// Hop2 gas cost (destination chain) — stored separately for fee display.
+	// Cannot be added to gasCostWei because currencies differ (RBTC vs ETH).
+	const hop2GasCostWei = hop2.gasCostWei ?? undefined;
+
 	// Merge fee costs if present
 	const feeCosts = [...(hop1.feeCosts ?? []), ...(hop2.feeCosts ?? [])];
 
@@ -109,6 +113,7 @@ function composeTwoHopRoute(
 		estimatedTime: `${minTime}-${maxTime} min`,
 		recommended: false,
 		...(gasCostWei ? { gasCostWei } : {}),
+		...(hop2GasCostWei ? { hop2GasCostWei } : {}),
 		...(feeCosts.length > 0 ? { feeCosts } : {}),
 		outputSats,
 		outputAmount: String(outputSats),

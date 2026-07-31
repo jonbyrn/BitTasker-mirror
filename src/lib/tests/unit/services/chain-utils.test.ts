@@ -41,8 +41,8 @@ describe('chain-utils', () => {
 				expect(getChainIdForNetwork('usdt-ethereum')).toBe(11155111);
 			});
 
-			it('returns 421614 for usdt-arbitrum', () => {
-				expect(getChainIdForNetwork('usdt-arbitrum')).toBe(421614);
+			it('returns 421614 for usdt0-arb', () => {
+				expect(getChainIdForNetwork('usdt0-arb')).toBe(421614);
 			});
 
 			it('returns 80002 for usdt-polygon', () => {
@@ -76,8 +76,8 @@ describe('chain-utils', () => {
 				expect(getChainIdForNetwork('usdt-ethereum')).toBe(1);
 			});
 
-			it('returns 42161 for usdt-arbitrum', () => {
-				expect(getChainIdForNetwork('usdt-arbitrum')).toBe(42161);
+			it('returns 42161 for usdt0-arb', () => {
+				expect(getChainIdForNetwork('usdt0-arb')).toBe(42161);
 			});
 
 			it('returns 137 for usdt-polygon', () => {

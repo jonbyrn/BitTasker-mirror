@@ -45,7 +45,10 @@
 			"wbtc_arbitrum": "BTC envuelto en Arbitrum",
 			"bitcoin_tbtc": "tBTC",
 			"bridged_btc_arbitrum": "BTC puenteado en Arbitrum",
-			"swap_service_unavailable": "El servicio de intercambio no está disponible temporalmente. Inténtalo más tarde."
+			"swap_service_unavailable": "El servicio de intercambio no está disponible temporalmente. Inténtalo más tarde.",
+			"changelly_swap_complete": "¡Fondos recibidos! Intercambio Changelly completado.",
+			"changelly_swap_failed": "El intercambio Changelly falló. Por favor verifica tu transacción.",
+			"changelly_bridge_unavailable": "El puente Changelly no está disponible temporalmente. Inténtalo más tarde o usa una red directamente compatible."
 		}
 	}
 }

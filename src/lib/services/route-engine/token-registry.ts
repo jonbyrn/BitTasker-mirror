@@ -96,6 +96,51 @@ export const TOKENS: Record<string, Token> = {
 		chainId: -2,
 		decimals: 8,
 		native: true
+	},
+	'usdt-ethereum': {
+		key: 'usdt-ethereum',
+		symbol: 'USDT',
+		address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+		chain: 'ethereum',
+		chainId: 1,
+		decimals: 6,
+		native: false
+	},
+	'usdt-avalanche': {
+		key: 'usdt-avalanche',
+		symbol: 'USDT',
+		address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+		chain: 'avalanche',
+		chainId: 43114,
+		decimals: 6,
+		native: false
+	},
+	'usdt-base': {
+		key: 'usdt-base',
+		symbol: 'USDT',
+		address: '0x4200000000000000000000000000000000000023',
+		chain: 'base',
+		chainId: 8453,
+		decimals: 6,
+		native: false
+	},
+	'usdt-optimism': {
+		key: 'usdt-optimism',
+		symbol: 'USDT',
+		address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58',
+		chain: 'optimism',
+		chainId: 10,
+		decimals: 6,
+		native: false
+	},
+	'usdt-polygon': {
+		key: 'usdt-polygon',
+		symbol: 'USDT',
+		address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+		chain: 'polygon',
+		chainId: 137,
+		decimals: 6,
+		native: false
 	}
 };
 
@@ -142,7 +187,13 @@ export const SOURCE_WALLET_TOKENS: Record<SourceWallet, string[]> = {
 	'doc-rsk': ['doc-rsk'],
 	'btc-onchain': ['btc'],
 	'wbtc-arb': ['wbtc-arb'],
-	'tbtc-arb': ['tbtc-arb']
+	'tbtc-arb': ['tbtc-arb'],
+	'usdt-ethereum': ['usdt-ethereum'],
+	'usdt-avalanche': ['usdt-avalanche'],
+	'usdt-base': ['usdt-base'],
+	'usdt-optimism': ['usdt-optimism'],
+	'usdt-polygon': ['usdt-polygon'],
+	'usdt-tron': ['usdt-tron']
 };
 
 // ---------------------------------------------------------------------------

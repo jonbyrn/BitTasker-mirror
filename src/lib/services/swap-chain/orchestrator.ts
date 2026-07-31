@@ -136,8 +136,19 @@ export async function startSwapChain(
 			return { data: null, error: new Error('Wallet not initialized — cannot start swap') };
 		}
 
-		// 1. Save initial state
-		d.log('[startSwapChain] Step 1: saving initial swap chain state...');
+		// 1. Fetch and cache gas price at quote time for stability check
+		let quoteTimeGasPrice: bigint | null = null;
+		try {
+			const { fetchGasPrice } = await import('$lib/utils/swap-gas');
+			const { RSK_RPC_URL } = await import('./utils');
+			quoteTimeGasPrice = await fetchGasPrice(RSK_RPC_URL);
+			d.log('[startSwapChain] cached quote-time RSK gas price: %s wei', quoteTimeGasPrice.toString());
+		} catch {
+			d.log('[startSwapChain] failed to cache quote-time gas price (non-blocking)');
+		}
+
+		// 2. Save initial state
+		d.log('[startSwapChain] Step 2: saving initial swap chain state...');
 		const initialState: SwapChainState = {
 			...INITIAL_SWAP_CHAIN_STATE,
 			route,
@@ -153,14 +164,44 @@ export async function startSwapChain(
 			return { data: null, error: saveError };
 		}
 
-		// 2. Execute hop 1
+		// 3. Gas price stability check — re-fetch and compare with quote-time price
 		const hop1 = route.hops[0];
+		if (quoteTimeGasPrice && hop1?.fromChain === 'Rootstock') {
+			try {
+				const { fetchGasPrice } = await import('$lib/utils/swap-gas');
+				const { RSK_RPC_URL } = await import('./utils');
+				const currentGasPrice = await fetchGasPrice(RSK_RPC_URL);
+				const increase = Number(currentGasPrice - quoteTimeGasPrice);
+				const increasePercent = (increase / Number(quoteTimeGasPrice)) * 100;
+
+				d.log(
+					'[startSwapChain] gas price check: quote=%s current=%s increase=%.1f%%',
+					quoteTimeGasPrice.toString(),
+					currentGasPrice.toString(),
+					increasePercent
+				);
+
+				if (increasePercent > 20) {
+					d.warn('[startSwapChain] RSK gas price spiked by %.1f%% since quote — may cause insufficient funds for relay fee', increasePercent);
+					Sentry.addBreadcrumb({
+						category: 'swap-chain',
+						message: `RSK gas price spike: +${increasePercent.toFixed(1)}%`,
+						level: 'warning',
+						data: { quoteTime: quoteTimeGasPrice.toString(), current: currentGasPrice.toString() }
+					});
+				}
+			} catch {
+				d.log('[startSwapChain] gas price re-check failed (non-blocking)');
+			}
+		}
+
+		// 4. Execute hop 1
 		if (!hop1) {
 			return { data: null, error: new Error('Route has no hops') };
 		}
 
 		d.log(
-			'[startSwapChain] Step 2: executing hop 0 — service=%s from=%s/%s to=%s/%s',
+			'[startSwapChain] Step 4: executing hop 0 — service=%s from=%s/%s to=%s/%s',
 			hop1.service,
 			hop1.fromAsset,
 			hop1.fromChain,
@@ -202,7 +243,7 @@ export async function startSwapChain(
 		// BRIDGE_GAS_RESERVE to cover the bridge's internal gas/protocol fees
 		// that are pulled via transferFrom on top of the quoted fromAmount.
 		//
-		// For multi-hop routes, this is set before hop 2 (see Step 5b).
+		// For multi-hop routes, this is set before hop 2 (see Step 7b).
 		let relayFeeBufferWei: string | null = null;
 		if (
 			route.hops.length === 1 &&
@@ -285,7 +326,7 @@ export async function startSwapChain(
 			return { data: failedState, error: null };
 		}
 
-		// 3. Confirm hop 1
+		// 5. Confirm hop 1
 		const confirmedState1: SwapChainState = {
 			...pendingState1,
 			phase: 'SWAP_1_CONFIRMED',
@@ -298,9 +339,9 @@ export async function startSwapChain(
 			return { data: null, error: saveConfirmedError };
 		}
 
-		// 4. If single-hop route, mark complete
+		// 6. If single-hop route, mark complete
 		if (route.hops.length === 1) {
-			d.log('[startSwapChain] Step 4: single-hop route — service=%s', hop1.service);
+			d.log('[startSwapChain] Step 6: single-hop route — service=%s', hop1.service);
 
 			// For Boltz chain swaps, the hop only sends the lockup transaction.
 			// Boltz then needs to release funds on the destination chain, and the
@@ -308,7 +349,7 @@ export async function startSwapChain(
 			// COMPLETE — otherwise the swap is stuck with funds locked on both chains.
 			if (hop1.service === 'boltz' && hop1Id) {
 				d.log(
-					'[startSwapChain] Step 4a: single-hop Boltz (id=%s) — polling for claim completion',
+					'[startSwapChain] Step 6a: single-hop Boltz (id=%s) — polling for claim completion',
 					hop1Id
 				);
 				const direction = resolveBoltzDirection(hop1.fromAsset);
@@ -343,7 +384,7 @@ export async function startSwapChain(
 			return { data: completeState, error: null };
 		}
 
-		// 5. Execute hop 2 (multi-hop route)
+		// 7. Execute hop 2 (multi-hop route)
 		const hop2 = route.hops[1];
 		if (!hop2) {
 			return { data: null, error: new Error('Route has 2 hops defined but hop 2 is missing') };
@@ -357,7 +398,7 @@ export async function startSwapChain(
 		// a zero tBTC balance and fail on-chain.
 		if (hop1.service === 'boltz' && hop1Id) {
 			d.log(
-				'[startSwapChain] Step 5a: hop 0 is boltz (id=%s) — polling for completion before hop 1',
+				'[startSwapChain] Step 7a: hop 0 is boltz (id=%s) — polling for completion before hop 1',
 				hop1Id
 			);
 			d.log('hop 1 is Boltz (id=%s) — polling for completion before hop 2', hop1Id);
@@ -386,7 +427,7 @@ export async function startSwapChain(
 		}
 
 		d.log(
-			'[startSwapChain] Step 5b: executing hop 1 — service=%s from=%s/%s to=%s/%s',
+			'[startSwapChain] Step 7b: executing hop 1 — service=%s from=%s/%s to=%s/%s',
 			hop2.service,
 			hop2.fromAsset,
 			hop2.fromChain,
@@ -506,13 +547,13 @@ export async function startSwapChain(
 			d.log('[startSwapChain] saved swap2Id=%s to state', hop2Id);
 		}
 
-		// 6. If hop 2 is Boltz: poll for chain swap completion before marking complete.
+		// 8. If hop 2 is Boltz: poll for chain swap completion before marking complete.
 		// Boltz chain swaps are asynchronous — the user locks source token, Boltz locks
 		// destination token, then the user claims. This can take several minutes.
 		if (hop2.service === 'boltz' && hop2Id) {
 			const direction = resolveBoltzDirection(hop2.fromAsset);
 			d.log(
-				'[startSwapChain] Step 6: hop 1 is boltz (id=%s) — polling for completion, direction=%s',
+				'[startSwapChain] Step 8: hop 1 is boltz (id=%s) — polling for completion, direction=%s',
 				hop2Id,
 				direction
 			);
@@ -538,10 +579,10 @@ export async function startSwapChain(
 			d.log('Boltz hop 2 completed successfully');
 		}
 
-		// 7. Mark complete — must transition through SWAP_2_CONFIRMED first
+		// 9. Mark complete — must transition through SWAP_2_CONFIRMED first
 		// (state machine requires: SWAP_2_PENDING → SWAP_2_CONFIRMED → COMPLETE)
 		d.log(
-			'[startSwapChain] Step 7: marking swap chain COMPLETE (swap1Id=%s swap2Id=%s)',
+			'[startSwapChain] Step 9: marking swap chain COMPLETE (swap1Id=%s swap2Id=%s)',
 			hop1Id ?? 'null',
 			hop2Id ?? 'null'
 		);

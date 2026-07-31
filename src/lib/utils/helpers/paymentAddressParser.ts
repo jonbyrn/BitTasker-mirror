@@ -25,7 +25,7 @@ export interface ParsedPaymentAddress {
 		| 'usdt-bsc'
 		| 'usdt-ethereum'
 		| 'usdt-tron'
-		| 'usdt-arbitrum'
+		| 'usdt0-arb'
 		| 'usdt-polygon'
 		| 'usdt-optimism'
 		| 'usdt-base'
@@ -65,8 +65,8 @@ const CHAIN_ID_TO_NETWORK: Record<number, string> = {
 	1: 'usdt-ethereum',
 	11155111: 'usdt-ethereum',
 	// Arbitrum
-	42161: 'usdt-arbitrum',
-	421614: 'usdt-arbitrum',
+	42161: 'usdt0-arb',
+	421614: 'usdt0-arb',
 	// Polygon
 	137: 'usdt-polygon',
 	80002: 'usdt-polygon',
@@ -94,7 +94,7 @@ const SCHEME_TO_NETWORK: Record<string, string> = {
 	ethereum: 'usdt-ethereum',
 	bsc: 'usdt-bsc',
 	rsk: 'rootstock-bitcoin',
-	arbitrum: 'usdt-arbitrum',
+	arbitrum: 'usdt0-arb',
 	polygon: 'usdt-polygon',
 	optimism: 'usdt-optimism',
 	base: 'usdt-base',
@@ -272,13 +272,13 @@ function validateLiquidAddress(address: string): boolean {
  * Supports EIP-681 format with chain IDs (e.g., ethereum:0x...@56)
  *
  * @param input - The payment address/invoice string
- * @param sourceHint - Optional source wallet hint ('rootstock-bitcoin' | 'usdt-bsc') to
- *   disambiguate EVM addresses. When a plain 0x... address matches both RSK and BSC,
+ * @param sourceHint - Optional source wallet hint ('rootstock-bitcoin' | 'usdt-bsc' | 'usdt0-arb') to
+ *   disambiguate EVM addresses. When a plain 0x... address matches both RSK, BSC, and Arbitrum,
  *   sourceHint determines the default network. If omitted, defaults to 'rootstock-bitcoin'.
  */
 export function parsePaymentAddress(
 	input: string,
-	sourceHint?: 'rootstock-bitcoin' | 'usdt-bsc' | null
+	sourceHint?: 'rootstock-bitcoin' | 'usdt-bsc' | 'usdt0-arb' | null
 ): ParsedPaymentAddress {
 	const trimmed = input.trim();
 
@@ -653,7 +653,7 @@ export function parsePaymentAddress(
 					| 'usdt-bsc'
 					| 'rootstock-bitcoin'
 					| 'usdt-ethereum'
-					| 'usdt-arbitrum'
+					| 'usdt0-arb'
 					| 'usdt-polygon'
 					| 'lightning-bitcoin'
 					| 'liquid-bitcoin'
@@ -700,8 +700,9 @@ export function parsePaymentAddress(
 	if (schemeNetwork) {
 		network = schemeNetwork;
 	} else if (!isRskUri && sourceHint === 'usdt-bsc') {
-		// No scheme prefix + source is USDT → default to BSC
 		network = 'usdt-bsc';
+	} else if (!isRskUri && sourceHint === 'usdt0-arb') {
+		network = 'usdt0-arb';
 	} else {
 		network = 'rootstock-bitcoin';
 	}
@@ -725,7 +726,7 @@ export function parsePaymentAddress(
 			| 'usdt-bsc'
 			| 'rootstock-bitcoin'
 			| 'usdt-ethereum'
-			| 'usdt-arbitrum'
+			| 'usdt0-arb'
 			| 'usdt-polygon'
 			| 'lightning-bitcoin'
 			| 'liquid-bitcoin'

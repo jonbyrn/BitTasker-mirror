@@ -26,13 +26,12 @@ export const BOLTZ_BITCOIN_ID = -3;
 /** Map payerNetwork strings to { chainId, tokenAddress } for fee computation. */
 export const SOURCE_CHAIN_MAP: Record<string, { chainId: number; address: string } | undefined> = {
 	'usdt-bsc': { chainId: 56, address: USDT_BSC },
-	'usdt-arbitrum': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
+	'usdt0-arb': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
 	'usdt-avalanche': { chainId: 43114, address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' },
 	'usdt-base': { chainId: 8453, address: '0x4200000000000000000000000000000000000023' },
 	'usdt-ethereum': { chainId: 1, address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
 	'usdt-optimism': { chainId: 10, address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58' },
 	'usdt-polygon': { chainId: 137, address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' },
-	'usdt0-arbitrum': { chainId: 42161, address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
 	'usdt0-rootstock': { chainId: 30, address: USDT0_RSK },
 	'usdt-tron': { chainId: 0, address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
 	'wbtc-arbitrum': { chainId: 42161, address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' },
@@ -50,11 +49,18 @@ export function getSourceFromNetwork(network: string): SourceWallet {
 	if (network === 'doc-rootstock') return 'doc-rsk';
 	if (network === 'bitcoin') return 'btc-onchain';
 	// Arbitrum tokens
-	if (network === 'usdt0-arbitrum' || network === 'usdt-arbitrum' || network === 'usdt0-arb')
+	if (network === 'usdt0-arb')
 		return 'usdt0-arb';
 	if (network === 'wbtc-arbitrum' || network === 'wbtc-arb') return 'wbtc-arb';
 	if (network === 'tbtc-arbitrum' || network === 'tbtc-arb') return 'tbtc-arb';
-	// Any other usdt-* network → treat as USDT stablecoin source
+	// Specific non-Arbitrum USDT networks
+	if (network === 'usdt-ethereum') return 'usdt-ethereum';
+	if (network === 'usdt-avalanche') return 'usdt-avalanche';
+	if (network === 'usdt-base') return 'usdt-base';
+	if (network === 'usdt-optimism') return 'usdt-optimism';
+	if (network === 'usdt-polygon') return 'usdt-polygon';
+	if (network === 'usdt-tron') return 'usdt-tron';
+	// Any other usdt-* network → treat as USDT stablecoin source (fallback for changelly-* and unknown)
 	if (network.startsWith('usdt-') || network.startsWith('usdt0-')) return 'usdt-bsc';
 	// dyn- tokens that look like stablecoins → treat as USDT source
 	if (network.startsWith('dyn-')) {

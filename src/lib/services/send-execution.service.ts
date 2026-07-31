@@ -95,6 +95,7 @@ export interface ConnectedSendParams extends SendParams {
 export interface SendResult {
 	txHash: string | null;
 	pendingSwapId?: string;
+	changellySwapId?: string;
 	/** true when caller should show pending screen instead of success screen */
 	earlyReturn?: boolean;
 }
@@ -468,18 +469,71 @@ export async function sendConnectedLightning(params: ConnectedSendParams): Promi
 // Strategy maps
 // ---------------------------------------------------------------------------
 
+async function sendUsdtArbitrumBuiltin(params: SendParams): Promise<SendResult> {
+	const { sendArbitrumTransaction } = await import('$lib/stores/wallet/wallet-send');
+
+	const tokenAddress = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+	const decimals = 6;
+	const amountWei = BigInt(Math.round(params.amountInUSD * 10 ** decimals));
+
+	const transferData = encodeERC20Transfer(params.recipient, amountWei);
+	const txHash = await sendArbitrumTransaction({
+		to: tokenAddress,
+		data: transferData,
+		value: '0'
+	});
+
+	return { txHash };
+}
+
+async function sendViaChangelly(params: SendParams): Promise<SendResult> {
+	const { changellyService } = await import('$lib/services/changelly.service');
+	const { resolveFromTicker, resolveToTicker } = await import('$lib/services/changelly-ticker-map');
+	const { sendArbitrumTransaction } = await import('$lib/stores/wallet/wallet-send');
+
+	const fromTicker = resolveFromTicker(params.network);
+	const toTicker = resolveToTicker();
+
+	const swap = await changellyService.createSwap({
+		from: fromTicker,
+		to: toTicker,
+		amount: String(params.amountInUSD),
+		address: params.recipient
+	});
+
+	if (!swap.payinAddress) {
+		throw new Error('Changelly swap did not return a payin address');
+	}
+
+	const amountWei = BigInt(Math.round(params.amountInUSD * 1_000_000));
+	const transferData = encodeERC20Transfer(swap.payinAddress, amountWei);
+	const txHash = await sendArbitrumTransaction({
+		to: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+		data: transferData,
+		value: '0'
+	});
+
+	return { txHash, changellySwapId: swap.id };
+}
+
 export const BUILTIN_HANDLERS: Record<string, SendHandler> = {
 	'rootstock-bitcoin': sendRbtcDirect,
 	'usdt-bsc': sendUsdtBsc,
 	'usdt0-rsk': sendUsdt0Rsk,
-	'lightning-bitcoin': sendLightningBuiltin
+	'usdt0-arb': sendUsdtArbitrumBuiltin,
+	'lightning-bitcoin': sendLightningBuiltin,
+	'usdt-ethereum': sendViaChangelly,
+	'usdt-avalanche': sendViaChangelly,
+	'usdt-base': sendViaChangelly,
+	'usdt-optimism': sendViaChangelly,
+	'usdt-polygon': sendViaChangelly
 };
 
 export const CONNECTED_HANDLERS: Record<string, ConnectedSendHandler> = {
 	'rootstock-bitcoin': sendConnectedRbtc,
 	'usdt-bsc': sendConnectedUsdtBsc,
 	'usdt-ethereum': sendConnectedUsdtEvm,
-	'usdt-arbitrum': sendConnectedUsdtEvm,
+	'usdt0-arb': sendConnectedUsdtEvm,
 	'usdt-polygon': sendConnectedUsdtEvm,
 	'usdt0-rsk': sendConnectedUsdt0Rsk,
 	bitcoin: sendConnectedBitcoin,
@@ -515,6 +569,7 @@ export interface ExecuteSendParams {
 export interface ExecuteSendResult {
 	txHash: string | null;
 	pendingSwapId?: string;
+	changellySwapId?: string;
 	/** When set, caller should initialise the pending-swap-chain UI. */
 	pendingSwapChain?: SwapChainState;
 	/** True when the caller should show a pending screen immediately (swap completes async). */
@@ -526,9 +581,12 @@ const SUPPORTED_NETWORKS = new Set([
 	'rootstock-bitcoin',
 	'usdt-bsc',
 	'usdt0-rsk',
+	'usdt0-arb',
 	'lightning-bitcoin',
-	'usdt-arbitrum',
 	'usdt-ethereum',
+	'usdt-avalanche',
+	'usdt-base',
+	'usdt-optimism',
 	'usdt-polygon',
 	'bitcoin'
 ]);

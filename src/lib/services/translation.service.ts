@@ -4,6 +4,7 @@
  * Only supports English and Spanish translation.
  */
 
+import { browser } from '$app/environment';
 import { BaseApiService } from '$lib/api/apiService';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { Preferences } from '@capacitor/preferences';
@@ -42,7 +43,9 @@ export class TranslationService extends BaseApiService {
 
 	constructor() {
 		super();
-		this.loadCacheFromStorage();
+		if (browser) {
+			this.loadCacheFromStorage();
+		}
 	}
 
 	/**
@@ -239,10 +242,11 @@ export class TranslationService extends BaseApiService {
 		}
 	}
 
-	clearCache(): void {
+	async clearCache(): Promise<void> {
 		this.cache.clear();
 		this.pendingTranslations.clear();
-		Preferences.remove({ key: StorageKeys.TRANSLATION_CACHE });
+		if (!browser) return;
+		await Preferences.remove({ key: StorageKeys.TRANSLATION_CACHE });
 	}
 
 	// -- Private helpers --
@@ -269,7 +273,7 @@ export class TranslationService extends BaseApiService {
 	}
 
 	private async loadCacheFromStorage(): Promise<void> {
-		if (this.cacheLoaded) return;
+		if (this.cacheLoaded || !browser) return;
 		this.cacheLoaded = true;
 
 		try {
@@ -283,6 +287,7 @@ export class TranslationService extends BaseApiService {
 	}
 
 	private async saveCacheToStorage(): Promise<void> {
+		if (!browser) return;
 		try {
 			const serialized = JSON.stringify(Array.from(this.cache.entries()));
 			await Preferences.set({ key: StorageKeys.TRANSLATION_CACHE, value: serialized });

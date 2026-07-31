@@ -38,9 +38,13 @@
 
 import { createDebug } from '$lib/utils/debug';
 import { tryCatch } from '$lib/utils/tryCatch';
+import { FEE_BUFFER_MAX, USDT0_ADDRESS } from '$lib/wallet/gasless.config';
 import * as Sentry from '@sentry/sveltekit';
 
 const d = createDebug('send-fee-estimate');
+
+let _abortController: AbortController | null = null;
+let _lastRequestKey = '';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -123,7 +127,7 @@ export interface UseSendFeeEstimateResult {
 function isCrossChainEvmDest(dest: string): boolean {
 	return (
 		dest === 'usdt-ethereum' ||
-		dest === 'usdt-arbitrum' ||
+		dest === 'usdt0-arb' ||
 		dest === 'usdt-polygon' ||
 		dest === 'usdt-optimism' ||
 		dest === 'usdt-base' ||
@@ -156,15 +160,18 @@ export function computeLightningFees(
  *
  * @returns SendFeeEstimate | null (null = unknown network, caller sets null estimate)
  */
-export function computeDirectFees(
+export async function computeDirectFees(
 	destNetwork: string,
 	opts: {
 		selectedSource: string;
 		isRskConnected: boolean;
 		gasEstimation: { totalCostFormatted: string } | null;
+		btcPrice?: number;
+		amountSats?: number;
+		recipient?: string | null;
 	}
-): SendFeeEstimate | null {
-	const { selectedSource, isRskConnected, gasEstimation } = opts;
+): Promise<SendFeeEstimate | null> {
+	const { selectedSource, isRskConnected, gasEstimation, btcPrice } = opts;
 
 	// rootstock-bitcoin destination
 	if (destNetwork === 'rootstock-bitcoin') {
@@ -196,6 +203,32 @@ export function computeDirectFees(
 	if (isCrossChainEvmDest(destNetwork)) {
 		if (selectedSource === 'rootstock-bitcoin') {
 			return { serviceFee: 0, networkFee: 100, totalFees: 100 };
+		}
+		if (destNetwork === 'usdt0-arb') {
+			try {
+				const { estimateFee } = await import('$lib/wallet/gasless-store');
+				const amountUsd = ((opts.amountSats ?? 0) * (btcPrice ?? 0)) / 100_000_000;
+				const estimate = await estimateFee(
+					USDT0_ADDRESS,
+					BigInt(Math.round(amountUsd * 1_000_000)),
+					opts.recipient ?? ''
+				);
+				const feeBufferMicroUsdt = Number(BigInt(estimate.feeBuffer));
+				const feeBufferUsd = feeBufferMicroUsdt / 1_000_000;
+				const feeBufferSats =
+					(btcPrice ?? 0) > 0
+						? Math.ceil((feeBufferUsd / (btcPrice ?? 1)) * 100_000_000)
+						: 15_000_000;
+				return { serviceFee: 0, networkFee: feeBufferSats, totalFees: feeBufferSats };
+			} catch {
+				const feeBufferMicroUsdt = Number(FEE_BUFFER_MAX[USDT0_ADDRESS.toLowerCase()] ?? 150_000n);
+				const feeBufferUsd = feeBufferMicroUsdt / 1_000_000;
+				const feeBufferSats =
+					(btcPrice ?? 0) > 0
+						? Math.ceil((feeBufferUsd / (btcPrice ?? 1)) * 100_000_000)
+						: 15_000_000;
+				return { serviceFee: 0, networkFee: feeBufferSats, totalFees: feeBufferSats };
+			}
 		}
 		return { serviceFee: 0, networkFee: 0, totalFees: 0 };
 	}
@@ -299,6 +332,16 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 		}
 	});
 
+	const btcPrice = $derived.by((): number => {
+		try {
+			const p = opts.getBtcPrice();
+			return Number.isFinite(p) && p > 0 ? p : 0;
+		} catch (e) {
+			d.warn('getter fallback:', (e as Error).message);
+			return 0;
+		}
+	});
+
 	const walletManager = $derived.by(() => {
 		try {
 			return opts.getWalletManager();
@@ -352,6 +395,14 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 	// Fee estimation (matches updateFeeEstimate from SendPaymentForm L1214-1421)
 	// ---------------------------------------------------------------------------
 	async function refresh(): Promise<void> {
+		_abortController?.abort();
+		_abortController = new AbortController();
+		const signal = _abortController.signal;
+
+		const requestKey = `${destNetwork}:${amountSats}:${sourceType}`;
+		if (requestKey === _lastRequestKey && isLoading) return;
+		_lastRequestKey = requestKey;
+
 		if (amountSats <= 0 || !destNetwork) {
 			if (!destNetwork) {
 				feeEstimate = null;
@@ -368,6 +419,7 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 			// Lightning submarine swap
 			if (destNetwork === 'lightning-bitcoin') {
 				await estimateLightningFees();
+				if (signal.aborted) return;
 				return;
 			}
 
@@ -389,18 +441,22 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 					const { data: gasResult, error: gasError } = await tryCatch(
 						walletManager.estimateRBTCGas(addr, amountRBTC)
 					);
-					if (!gasError && gasResult) {
+					if (!gasError && gasResult && !signal.aborted) {
 						gasEstimation = gasResult;
 					}
 				}
 			}
 
-			const estimate = computeDirectFees(destNetwork, {
+			const estimate = await computeDirectFees(destNetwork, {
 				selectedSource: sourceType,
 				isRskConnected,
-				gasEstimation
+				gasEstimation,
+				btcPrice,
+				amountSats,
+				recipient: recipientAddress
 			});
 
+			if (signal.aborted) return;
 			feeEstimate = estimate;
 			Sentry.addBreadcrumb({
 				category: 'wallet.send.fee',
@@ -514,6 +570,27 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 				await fetchLightningFeeParameters();
 			} else if (destNetwork === 'rootstock-bitcoin') {
 				await fetchRootstockFeeParameters();
+			} else if (destNetwork === 'usdt0-arb') {
+				try {
+					const { estimateFee } = await import('$lib/wallet/gasless-store');
+					const amountUsd = (availableBalance * btcPrice) / 100_000_000;
+					const estimate = await estimateFee(
+						USDT0_ADDRESS,
+						BigInt(Math.round(amountUsd * 1_000_000)),
+						recipientAddress ?? ''
+					);
+					const feeBufferMicroUsdt = Number(BigInt(estimate.feeBuffer));
+					const feeBufferUsd = feeBufferMicroUsdt / 1_000_000;
+					const feeBufferSats =
+						btcPrice > 0 ? Math.ceil((feeBufferUsd / btcPrice) * 100_000_000) : 15_000_000;
+					parameters = { fixedFee: feeBufferSats };
+				} catch {
+					const feeBufferMicroUsdt = Number(FEE_BUFFER_MAX[USDT0_ADDRESS.toLowerCase()] ?? 150_000n);
+					const feeBufferUsd = feeBufferMicroUsdt / 1_000_000;
+					const feeBufferSats =
+						btcPrice > 0 ? Math.ceil((feeBufferUsd / btcPrice) * 100_000_000) : 15_000_000;
+					parameters = { fixedFee: feeBufferSats };
+				}
 			} else {
 				parameters = null;
 			}
@@ -618,42 +695,15 @@ export function useSendFeeEstimate(opts: UseSendFeeEstimateOptions): UseSendFeeE
 		}
 
 		// Debounce 300ms (faster than routes 400ms since these are lighter calls)
-		_refreshTimer = setTimeout(() => {
-			refresh();
+		_refreshTimer = setTimeout(async () => {
+			await refresh();
+			await fetchFeeParameters();
 		}, 300);
 
 		return () => {
 			if (_refreshTimer) {
 				clearTimeout(_refreshTimer);
 				_refreshTimer = null;
-			}
-		};
-	});
-
-	// Fetch fee parameters when dest network changes (for max amount calc)
-	let _feeParamTimer: ReturnType<typeof setTimeout> | null = null;
-
-	$effect(() => {
-		const _dst = destNetwork;
-		const _bal = availableBalance;
-
-		// Cleanup prior timer
-		if (_feeParamTimer) {
-			clearTimeout(_feeParamTimer);
-			_feeParamTimer = null;
-		}
-
-		if (_dst && _bal > 0) {
-			// Debounce 300ms to match fee refresh effect
-			_feeParamTimer = setTimeout(() => {
-				fetchFeeParameters();
-			}, 300);
-		}
-
-		return () => {
-			if (_feeParamTimer) {
-				clearTimeout(_feeParamTimer);
-				_feeParamTimer = null;
 			}
 		};
 	});

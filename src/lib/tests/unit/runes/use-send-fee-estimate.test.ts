@@ -69,8 +69,8 @@ describe('computeLightningFees', () => {
 });
 
 describe('computeDirectFees', () => {
-	it('computes RSK gas fee when gas estimation available', () => {
-		const result = computeDirectFees('rootstock-bitcoin', {
+	it('computes RSK gas fee when gas estimation available', async () => {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: { totalCostFormatted: '0.001' }
@@ -82,8 +82,8 @@ describe('computeDirectFees', () => {
 		expect(result!.totalFees).toBe(100_000);
 	});
 
-	it('returns zero fees for usdt-bsc source on rootstock-bitcoin destination', () => {
-		const result = computeDirectFees('rootstock-bitcoin', {
+	it('returns zero fees for usdt-bsc source on rootstock-bitcoin destination', async () => {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'usdt-bsc',
 			isRskConnected: true,
 			gasEstimation: null
@@ -92,8 +92,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 0, totalFees: 0 });
 	});
 
-	it('returns 100 sats for rootstock-bitcoin source on usdt-bsc destination', () => {
-		const result = computeDirectFees('usdt-bsc', {
+	it('returns 100 sats for rootstock-bitcoin source on usdt-bsc destination', async () => {
+		const result = await computeDirectFees('usdt-bsc', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: null
@@ -102,8 +102,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 100, totalFees: 100 });
 	});
 
-	it('returns zero fees for usdt-bsc source on usdt-bsc destination (paymaster)', () => {
-		const result = computeDirectFees('usdt-bsc', {
+	it('returns zero fees for usdt-bsc source on usdt-bsc destination (paymaster)', async () => {
+		const result = await computeDirectFees('usdt-bsc', {
 			selectedSource: 'usdt-bsc',
 			isRskConnected: true,
 			gasEstimation: null
@@ -112,17 +112,17 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 0, totalFees: 0 });
 	});
 
-	it('returns 100 sats for rootstock-bitcoin source on cross-chain EVM destinations', () => {
+	it('returns 100 sats for rootstock-bitcoin source on cross-chain EVM destinations', async () => {
 		for (const dest of [
 			'usdt-ethereum',
-			'usdt-arbitrum',
+			'usdt0-arb',
 			'usdt-polygon',
 			'usdt-optimism',
 			'usdt-base',
 			'usdt-avalanche',
 			'usdt-tron'
 		]) {
-			const result = computeDirectFees(dest, {
+			const result = await computeDirectFees(dest, {
 				selectedSource: 'rootstock-bitcoin',
 				isRskConnected: true,
 				gasEstimation: null
@@ -131,8 +131,8 @@ describe('computeDirectFees', () => {
 		}
 	});
 
-	it('returns zero fees for non-rootstock source on cross-chain EVM destinations', () => {
-		const result = computeDirectFees('usdt-ethereum', {
+	it('returns zero fees for non-rootstock source on cross-chain EVM destinations', async () => {
+		const result = await computeDirectFees('usdt-ethereum', {
 			selectedSource: 'usdt-bsc',
 			isRskConnected: true,
 			gasEstimation: null
@@ -141,8 +141,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 0, totalFees: 0 });
 	});
 
-	it('returns fallback fees when RSK not connected for rootstock-bitcoin destination', () => {
-		const result = computeDirectFees('rootstock-bitcoin', {
+	it('returns fallback fees when RSK not connected for rootstock-bitcoin destination', async () => {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: false,
 			gasEstimation: null
@@ -151,8 +151,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 3000, totalFees: 3000 });
 	});
 
-	it('handles bitcoin destination with usdt-bsc source (zero fees)', () => {
-		const result = computeDirectFees('bitcoin', {
+	it('handles bitcoin destination with usdt-bsc source (zero fees)', async () => {
+		const result = await computeDirectFees('bitcoin', {
 			selectedSource: 'usdt-bsc',
 			isRskConnected: true,
 			gasEstimation: null
@@ -161,8 +161,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 0, totalFees: 0 });
 	});
 
-	it('handles bitcoin destination with rootstock source and gas estimation', () => {
-		const result = computeDirectFees('bitcoin', {
+	it('handles bitcoin destination with rootstock source and gas estimation', async () => {
+		const result = await computeDirectFees('bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: { totalCostFormatted: '0.0005' }
@@ -174,8 +174,8 @@ describe('computeDirectFees', () => {
 		expect(result!.totalFees).toBe(50_000);
 	});
 
-	it('handles bitcoin destination with rootstock source but RSK not connected', () => {
-		const result = computeDirectFees('bitcoin', {
+	it('handles bitcoin destination with rootstock source but RSK not connected', async () => {
+		const result = await computeDirectFees('bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: false,
 			gasEstimation: null
@@ -184,8 +184,8 @@ describe('computeDirectFees', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 3000, totalFees: 3000 });
 	});
 
-	it('returns null for unknown destination network', () => {
-		const result = computeDirectFees('unknown-network', {
+	it('returns null for unknown destination network', async () => {
+		const result = await computeDirectFees('unknown-network', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: null
@@ -275,12 +275,12 @@ describe('useSendFeeEstimate rune factory', () => {
 		expect(result.totalFees).toBe(result.serviceFee + result.networkFee);
 	});
 
-	it('computeDirectFees rootstock-bitcoin with usdt-bsc source yields zero', () => {
+	it('computeDirectFees rootstock-bitcoin with usdt-bsc source yields zero', async () => {
 		// From SendPaymentForm L1314-1317:
 		// if (formInput.selectedSource === 'usdt-bsc') {
 		//   feeState.estimated = { serviceFee: 0, networkFee: 0, totalFees: 0 };
 		// }
-		const result = computeDirectFees('rootstock-bitcoin', {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'usdt-bsc',
 			isRskConnected: true,
 			gasEstimation: null
@@ -289,14 +289,14 @@ describe('useSendFeeEstimate rune factory', () => {
 		expect(result).toEqual({ serviceFee: 0, networkFee: 0, totalFees: 0 });
 	});
 
-	it('computeDirectFees matches gas estimation formula from SendPaymentForm', () => {
+	it('computeDirectFees matches gas estimation formula from SendPaymentForm', async () => {
 		// From SendPaymentForm L1350-1351:
 		// const gasEstimation = await walletManager.estimateRBTCGas(finalAddress, amountRBTC);
 		// const networkFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
 		const totalCostFormatted = '0.001365';
 		const expected = Math.floor(parseFloat(totalCostFormatted) * 100_000_000);
 
-		const result = computeDirectFees('rootstock-bitcoin', {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: { totalCostFormatted }
@@ -350,8 +350,8 @@ describe('useSendFeeEstimate rune factory', () => {
 		expect(result.totalFees).toBe(result.serviceFee + 32);
 	});
 
-	it('computeDirectFees handles very small gas values', () => {
-		const result = computeDirectFees('rootstock-bitcoin', {
+	it('computeDirectFees handles very small gas values', async () => {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: { totalCostFormatted: '0.0000001' }
@@ -361,8 +361,8 @@ describe('useSendFeeEstimate rune factory', () => {
 		expect(result?.totalFees).toBe(10);
 	});
 
-	it('computeDirectFees handles large gas values', () => {
-		const result = computeDirectFees('rootstock-bitcoin', {
+	it('computeDirectFees handles large gas values', async () => {
+		const result = await computeDirectFees('rootstock-bitcoin', {
 			selectedSource: 'rootstock-bitcoin',
 			isRskConnected: true,
 			gasEstimation: { totalCostFormatted: '1.5' }

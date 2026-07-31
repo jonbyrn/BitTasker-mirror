@@ -13,7 +13,7 @@ const d = createDebug('swap-gas');
 // RPC endpoints
 // ---------------------------------------------------------------------------
 
-export const RSK_RPC = 'https://public-node.rsk.co';
+export const RSK_RPC = 'https://mainnet.sovryn.app/rpc';
 export const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
  * Client-side wrapper for the Changelly v2 swap API.
  * Does NOT call Changelly directly from the client. Instead, it posts to the
  * NestJS backend proxy at `/api/v1/changelly/swap/*`, which handles
- * HMAC-SHA256 signing, origin validation, rate limiting, and error filtering.
+ * RSA-SHA256 signing, rate limiting, and error filtering.
  *
  * All estimation methods are pure — they fetch data but produce no side effects
  * on the server. Mutation methods (createSwap) are idempotent at the backend level.
@@ -24,8 +24,10 @@ const debug = createDebug('changelly-service');
 // ---------------------------------------------------------------------------
 
 /**
- * Base path for the Changelly swap API on the NestJS backend.
- * Uses VITE_API_URL (e.g. http://localhost:8000) + /api/v1/changelly/swap
+ * Base path for the Changelly swap API.
+ *
+ * All requests go to the NestJS backend at `/api/v1/changelly/swap/*`,
+ * which handles RSA-SHA256 signing, rate limiting, and error filtering.
  */
 const API_URL = import.meta.env.VITE_API_URL || '';
 const SWAP_PROXY_BASE = `${API_URL}/api/v1/changelly/swap`;
@@ -122,6 +124,8 @@ export interface ChangellySwap {
 	amountExpectedTo: string;
 	/** Address to send funds to (only available after creation) */
 	payinAddress?: string;
+	/** Extra ID for payin address (required for XRP, XLM, etc.) */
+	payinExtraId?: string | null;
 	/** Destination address that will receive the swapped funds */
 	payoutAddress: string;
 	/** ISO 8601 timestamp of when the swap was created */

@@ -497,12 +497,12 @@ describe('send-execution.service', () => {
 	describe('sendConnectedUsdtEvm', () => {
 		it('sends USDT on generic EVM chain via EVM signer', async () => {
 			const params = makeConnectedParams({
-				network: 'usdt-arbitrum',
+				network: 'usdt0-arb',
 				amountInUSD: 75.25
 			});
 			const result = await sendConnectedUsdtEvm(params);
-			expect(mockGetUSDTContractAddressForNetwork).toHaveBeenCalledWith('usdt-arbitrum');
-			expect(mockGetChainIdForNetwork).toHaveBeenCalledWith('usdt-arbitrum');
+			expect(mockGetUSDTContractAddressForNetwork).toHaveBeenCalledWith('usdt0-arb');
+			expect(mockGetChainIdForNetwork).toHaveBeenCalledWith('usdt0-arb');
 			expect(mockEncodeERC20Transfer).toHaveBeenCalled();
 			expect(mockEvmSigner.sendTransaction).toHaveBeenCalledWith({
 				to: '0xUSDToken',

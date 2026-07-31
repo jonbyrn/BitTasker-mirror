@@ -24,6 +24,8 @@
 	import { useReceiveFees } from '$lib/runes/use-receive-fees.svelte';
 	import { generateReceiveInvoice } from '$lib/utils/generate-receive-invoice';
 	import type { InvoiceFormState } from '$lib/utils/generate-receive-invoice';
+	import { monitorChangellySwap } from '$lib/services/changelly-monitor';
+	import { CHANGELLY_REROUTE_NETWORKS } from '$lib/utils/generate-receive-invoice';
 	import { getSourceFromNetwork } from '$lib/utils/receive-network-mapping';
 	import IconCheck from '~icons/mdi/check';
 	import IconClose from '~icons/mdi/close';
@@ -43,6 +45,7 @@
 			chargeFeesToPayer?: boolean;
 			totalFees?: number;
 			formState?: InvoiceFormState;
+			changellySwapId?: string;
 		}) => void;
 		initialFormState?: InvoiceFormState;
 	} = $props();
@@ -175,7 +178,7 @@
 	$effect(() => {
 		if (selectedReceiveWalletId && isReceiveWalletValid) return;
 		const tab = receiveTab;
-		if (tab === 'usdt0-arb') formInput.selectedNetwork = 'usdt0-arbitrum';
+		if (tab === 'usdt0-arb') formInput.selectedNetwork = 'usdt0-arb';
 		else if (tab === 'wbtc-arb') formInput.selectedNetwork = 'wbtc-arbitrum';
 		else if (tab === 'tbtc-arb') formInput.selectedNetwork = 'tbtc-arbitrum';
 		else if (tab === 'btc-onchain') formInput.selectedNetwork = 'bitcoin';
@@ -202,7 +205,7 @@
 			[
 				'usdt-bsc',
 				'rootstock-bitcoin',
-				'usdt0-arbitrum',
+				'usdt0-arb',
 				'wbtc-arbitrum',
 				'tbtc-arbitrum'
 			].includes(destNetwork)
@@ -210,7 +213,7 @@
 			const chainId =
 				destNetwork === 'usdt-bsc'
 					? 56
-					: ['usdt0-arbitrum', 'wbtc-arbitrum', 'tbtc-arbitrum'].includes(destNetwork)
+					: ['usdt0-arb', 'wbtc-arbitrum', 'tbtc-arbitrum'].includes(destNetwork)
 						? 42161
 						: 30;
 			const dest = { type: 'address' as const, chainId, address: $walletStore.rsk.address ?? '' };
@@ -283,6 +286,8 @@
 
 	const isFormValid = $derived(amountInSats > 0);
 
+	const isChangellyRerouted = $derived(CHANGELLY_REROUTE_NETWORKS.has(payerNetwork));
+
 	function handleCalculationChange(expression: string, result: number) {
 		formInput.mathExpression = expression;
 		if (result > 0 || expression === '') {
@@ -329,6 +334,7 @@
 			{
 				invoiceAmount,
 				selectedNetwork: formInput.selectedNetwork,
+				payerNetwork,
 				selectedReceiveWalletId,
 				isReceiveWalletValid,
 				formState,
@@ -341,6 +347,15 @@
 			},
 			{
 				onSuccess: (result) => {
+					if (result.changellySwapId) {
+						monitorChangellySwap(result.changellySwapId, (status) => {
+							if (status === 'finished') {
+								appStore.showSuccessToast($t('wallet.receive.changelly_swap_complete'));
+							} else if (status === 'failed' || status === 'refunded') {
+								appStore.showErrorToast($t('wallet.receive.changelly_swap_failed'));
+							}
+						}).catch(() => {});
+					}
 					appStore.showSuccessToast($t('wallet.receive.lightning_invoice_created'));
 					onOpenPaymentRequest(result);
 				},
@@ -429,6 +444,15 @@
 
 		{#if feeEst.error}
 			<div class="text-error text-xs">{$t('wallet.swap.error.fee_fetch_failed')}</div>
+		{/if}
+
+		{#if isChangellyRerouted}
+			<div class="alert alert-info text-xs">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				<span>{$t('wallet.receive.changelly_reroute_notice', { default: 'Funds will be automatically converted to USDT0 on Arbitrum via Changelly. Estimated arrival: 5-30 min.' })}</span>
+			</div>
 		{/if}
 
 		<!-- Charge Fees to Payer Toggle -->

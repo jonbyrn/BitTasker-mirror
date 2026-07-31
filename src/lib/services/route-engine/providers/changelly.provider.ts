@@ -22,7 +22,15 @@ const debug = createDebug('changelly-provider');
 // ---------------------------------------------------------------------------
 
 /** Static pairs that Changelly always supports (regardless of getCurrencies cache). */
-const STATIC_PAIRS: ReadonlySet<string> = new Set(['usdt-bsc:btc', 'usdt-bsc:wbtc-arb']);
+const STATIC_PAIRS: ReadonlySet<string> = new Set([
+	'usdt-bsc:btc',
+	'usdt-bsc:wbtc-arb',
+	'usdt-ethereum:usdt0-arb',
+	'usdt-avalanche:usdt0-arb',
+	'usdt-base:usdt0-arb',
+	'usdt-optimism:usdt0-arb',
+	'usdt-polygon:usdt0-arb'
+]);
 
 /** Estimated swap time in minutes. */
 const ESTIMATED_TIME_MIN = 5;
@@ -90,25 +98,22 @@ function isInCurrencyCache(ticker: string): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Convert BTC satoshis to a human-readable BTC amount.
+ * Convert token base units to a human-readable amount.
  *
- * `amountSats` is always in BTC satoshis (8 decimal places). Changelly expects
- * amounts in the source token's human-readable units. For BTC-pegged sources
- * this is correct (sats → BTC). For non-BTC sources (e.g. USDT-BSC), this
- * returns the BTC-equivalent amount which Changelly uses for its internal
- * conversion. This is a known limitation — a price oracle would be needed for
- * exact stablecoin amounts.
+ * `amountSats` is the amount in the source token's smallest unit (e.g. BTC
+ * satoshis for 8 decimals, USDT units for 6 decimals).
+ * `decimals` is the number of decimal places for the token.
  */
-function satsToHumanAmount(amountSats: number): string {
-	return (amountSats / 1e8).toFixed(8);
+function satsToHumanAmount(amountSats: number, decimals: number): string {
+	return (amountSats / Math.pow(10, decimals)).toFixed(decimals);
 }
 
 /**
- * Convert a human-readable Changelly amount back to BTC satoshis (integer).
- * Mirrors `satsToHumanAmount` — always uses 1e8 (BTC precision).
+ * Convert a human-readable Changelly amount back to base units (integer).
+ * Mirrors `satsToHumanAmount` — uses the token's decimals.
  */
-function humanAmountToSats(amount: string): number {
-	return Math.round(parseFloat(amount) * 1e8);
+function humanAmountToSats(amount: string, decimals: number): number {
+	return Math.round(parseFloat(amount) * Math.pow(10, decimals));
 }
 
 // ---------------------------------------------------------------------------
@@ -182,10 +187,10 @@ export const changellyProvider: SwapProvider = {
 		// Ensure currencies are loaded before quoting
 		await loadCurrencies();
 
-		// Convert sats → human-readable BTC amount for Changelly API
+		// Convert base units → human-readable amount for Changelly API
 		// NOTE: ChangellyService.estimateSwap does not accept an external AbortSignal.
 		// Signal is accepted for interface compliance but cannot be forwarded.
-		const humanAmount = satsToHumanAmount(amountSats);
+		const humanAmount = satsToHumanAmount(amountSats, from.decimals);
 
 		debug.log('Estimating Changelly swap: %s %s → %s', humanAmount, from.symbol, to.symbol);
 
@@ -202,8 +207,8 @@ export const changellyProvider: SwapProvider = {
 			return null;
 		}
 
-		// Parse estimated output amount → BTC sats
-		const outputSats = humanAmountToSats(estimate.estimatedAmount);
+		// Parse estimated output amount → base units
+		const outputSats = humanAmountToSats(estimate.estimatedAmount, to.decimals);
 		if (outputSats <= 0) {
 			debug.warn('Changelly returned zero/negative output: %s', estimate.estimatedAmount);
 			return null;

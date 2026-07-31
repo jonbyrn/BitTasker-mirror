@@ -158,7 +158,7 @@ async function loadTransactionsInternal(): Promise<void> {
 		const arbTxs = arbAddress ? await fetchArbitrumTransactions(arbAddress) : [];
 
 		// Process blockchain transactions
-		const [processedRskTxs, processedBscTxs, _processedArbTxs] = await Promise.all([
+		const [processedRskTxs, processedBscTxs, processedArbTxs] = await Promise.all([
 			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
 			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats),
 			arbTxs.length > 0
@@ -231,7 +231,7 @@ async function loadTransactionsInternal(): Promise<void> {
 		);
 
 		const allTransactions = projectTransactions(
-			applyChainSortHints([...processedRskTxs, ...processedBscTxs], state.chainSortHints),
+			applyChainSortHints([...processedRskTxs, ...processedBscTxs, ...processedArbTxs], state.chainSortHints),
 			[...swapTransactions, ...preservedSwapRows],
 			currentBalanceSats
 		);

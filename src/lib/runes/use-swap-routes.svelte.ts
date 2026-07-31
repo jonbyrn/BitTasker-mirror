@@ -496,8 +496,17 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 				// For single-hop cross-chain routes, the output already includes ALL
 				// costs (e.g. LI.FI Direct: RSK gas deducted from output).
 				const isMultiHop = route.hops.length > 1;
+				// Include hop2 destination-chain gas (e.g., Arbitrum ETH gas for Uniswap V3 swap)
+				let hop2GasSats = 0;
+				if (isMultiHop && route.hop2GasCostWei && ethUsdPrice > 0 && btcUsdPrice > 0) {
+					try {
+						const hop2GasWei = BigInt(route.hop2GasCostWei);
+						const hop2GasEth = Number(hop2GasWei) / 1e18;
+						hop2GasSats = Math.round(((hop2GasEth * ethUsdPrice) / btcUsdPrice) * 100_000_000);
+					} catch { /* ignore parse errors */ }
+				}
 				const total =
-					isCrossChain && isMultiHop ? protocolFeeSats + networkFeeSats : protocolFeeSats;
+					isCrossChain && isMultiHop ? protocolFeeSats + networkFeeSats + hop2GasSats : protocolFeeSats;
 
 				// If USD-based fee rounds to 0 but the route reports a nonzero fee percent,
 				// the price feeds disagree. Fall back to feePercent-based computation so the
@@ -516,7 +525,15 @@ export function useSwapRoutes(opts: UseSwapRoutesOptions): UseSwapRoutes {
 		// For single-hop cross-chain: output already includes gas, don't double-count.
 		const isMultiHop = route.hops.length > 1;
 		if (isCrossChain && isMultiHop) {
-			return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100);
+			let hop2GasSats = 0;
+			if (route.hop2GasCostWei && ethUsdPrice > 0 && btcUsdPrice > 0) {
+				try {
+					const hop2GasWei = BigInt(route.hop2GasCostWei);
+					const hop2GasEth = Number(hop2GasWei) / 1e18;
+					hop2GasSats = Math.round(((hop2GasEth * ethUsdPrice) / btcUsdPrice) * 100_000_000);
+				} catch { /* ignore parse errors */ }
+			}
+			return networkFeeSats + Math.round((amountSats * route.totalFeePercent) / 100) + hop2GasSats;
 		}
 		return Math.round((amountSats * route.totalFeePercent) / 100);
 	});

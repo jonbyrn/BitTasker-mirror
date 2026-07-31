@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import {
 		estimateFee,
 		sendToken,
@@ -11,7 +12,8 @@
 		walletLoading,
 		walletError
 	} from '$lib/wallet/gasless-store';
-	import { TOKENS, USDT0_ADDRESS, ALTO_URLS } from '$lib/wallet/gasless.config';
+	import { TOKENS, USDT0_ADDRESS, FEE_BUFFER_MAX } from '$lib/wallet/gasless.config';
+	import { ethers } from 'ethers';
 	import type { FeeEstimate } from '$lib/types/gasless.types';
 	import GaslessConfirmDialog from './GaslessConfirmDialog.svelte';
 	import GaslessErrorDisplay from './GaslessErrorDisplay.svelte';
@@ -41,6 +43,8 @@
 	let successTxHash = $state('');
 	let _isDirectFallback = $state(false);
 	let ethBalance = $state<bigint | null>(null);
+	let tokenBalance = $state<bigint | null>(null);
+	let isLoadingBalance = $state(false);
 
 	let balanceCheck = $state<{
 		sufficient: boolean;
@@ -66,8 +70,13 @@
 		}
 	});
 
+	const showRecipientError = $derived(recipient.length > 0 && !ethers.isAddress(recipient));
+
 	const isValidForm = $derived(
-		recipient.length > 0 && amountBigInt > 0n && selectedTokenInfo !== undefined
+		recipient.length > 0 &&
+			ethers.isAddress(recipient) &&
+			amountBigInt > 0n &&
+			selectedTokenInfo !== undefined
 	);
 
 	const hasInsufficientBalance = $derived(balanceCheck !== null && !balanceCheck.sufficient);
@@ -76,7 +85,7 @@
 		if (!isValidForm || isEstimating) return;
 
 		if (!$walletReady || !$walletAddress) {
-			estimationError = 'Wallet not connected. Please connect your wallet first.';
+			estimationError = get(t)('wallet.gasless_send.wallet_not_connected');
 			return;
 		}
 
@@ -94,7 +103,7 @@
 			balanceCheck = initialBalance;
 
 			if (!initialBalance.sufficient) {
-				estimationError = 'Insufficient balance for transfer amount.';
+				estimationError = get(t)('wallet.gasless_send.insufficient_balance');
 				return;
 			}
 
@@ -109,13 +118,13 @@
 			);
 
 			if (!balanceCheck.sufficient) {
-				estimationError = 'Insufficient balance to cover transfer + network fee.';
+				estimationError = get(t)('wallet.gasless_send.insufficient_balance_with_fee');
 				return;
 			}
 
 			step = 'confirm';
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : 'Fee estimation failed';
+			const msg = err instanceof Error ? err.message : get(t)('wallet.gasless_send.fee_estimation_failed');
 			estimationError = msg;
 		} finally {
 			isEstimating = false;
@@ -161,8 +170,15 @@
 						isSending = false;
 						return;
 					}
+					sendError = get(t)('wallet.gasless_send.relay_unavailable_no_eth');
+					step = 'error';
+					isSending = false;
+					return;
 				} catch {
-					// ETH balance check failed — fall through to error state
+					sendError = get(t)('wallet.gasless_send.relay_unavailable_no_eth');
+					step = 'error';
+					isSending = false;
+					return;
 				}
 			}
 
@@ -186,7 +202,7 @@
 			successTxHash = txHash;
 			step = 'success';
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : 'Direct transaction failed';
+			const msg = err instanceof Error ? err.message : get(t)('wallet.gasless_send.direct_transaction_failed');
 			sendError = msg;
 			step = 'error';
 		} finally {
@@ -204,6 +220,54 @@
 		feeEstimate = null;
 		estimationError = null;
 		sendError = null;
+	}
+
+	const formattedTokenBalance = $derived.by(() => {
+		if (tokenBalance === null || !selectedTokenInfo) return null;
+		const divisor = 10n ** BigInt(selectedTokenInfo.decimals);
+		const whole = tokenBalance / divisor;
+		const frac = tokenBalance % divisor;
+		const fracStr = frac.toString().padStart(selectedTokenInfo.decimals, '0');
+		return `${whole}.${fracStr}`;
+	});
+
+	$effect(() => {
+		void selectedToken;
+		void $walletAddress;
+		if (!$walletAddress) {
+			tokenBalance = null;
+			return;
+		}
+		let cancelled = false;
+		isLoadingBalance = true;
+		checkSufficientBalance(selectedToken, $walletAddress, 0n, 0n)
+			.then((result) => {
+				if (!cancelled) tokenBalance = result.balance;
+			})
+			.catch(() => {
+				if (!cancelled) tokenBalance = null;
+			})
+			.finally(() => {
+				if (!cancelled) isLoadingBalance = false;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	function handleSetMaxAmount() {
+		if (tokenBalance === null || !selectedTokenInfo) return;
+		const feeBuffer = FEE_BUFFER_MAX[selectedToken.toLowerCase()] ?? 0n;
+		if (tokenBalance <= feeBuffer) {
+			amount = '0';
+			return;
+		}
+		const maxBalance = tokenBalance - feeBuffer;
+		const divisor = 10n ** BigInt(selectedTokenInfo.decimals);
+		const whole = maxBalance / divisor;
+		const frac = maxBalance % divisor;
+		const fracStr = frac.toString().padStart(selectedTokenInfo.decimals, '0').replace(/0+$/, '');
+		amount = fracStr ? `${whole}.${fracStr}` : whole.toString();
 	}
 
 	/**
@@ -224,27 +288,21 @@
 				if (cancelled) return;
 				await new Promise((r) => setTimeout(r, intervalMs));
 				if (cancelled) return;
-
-				const altoUrl = ALTO_URLS[0];
-				if (!altoUrl) continue;
-
 				try {
-					const response = await fetch(altoUrl, {
+					const response = await fetch(import.meta.env.VITE_ARBITRUM_RPC_URL, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
 							jsonrpc: '2.0',
-							method: 'eth_getUserOperationReceipt',
+							method: 'eth_getTransactionReceipt',
 							params: [pendingTxHash],
 							id: 1
 						})
 					});
-
 					if (!response.ok) continue;
 					const data = await response.json();
-
 					if (data.result) {
-						if (data.result.success) {
+						if (data.result.status === '0x1') {
 							successTxHash = pendingTxHash;
 							step = 'success';
 						} else {
@@ -254,7 +312,7 @@
 						return;
 					}
 				} catch {
-					// Network error — retry on next interval
+					// Network error — retry
 				}
 			}
 		}
@@ -273,7 +331,7 @@
 			amountSats={0}
 			amountUSD={parseFloat(amount) || 0}
 			address={recipient}
-			network="usdt-arbitrum"
+			network="usdt0-arb"
 			networkOptions={{}}
 			txHash={pendingTxHash}
 			onClose={onCancel}
@@ -281,7 +339,7 @@
 	{:else if step === 'success'}
 		<TransactionSuccessScreen
 			txHash={successTxHash}
-			network="usdt-arbitrum"
+			network="usdt0-arb"
 			amount={parseFloat(amount) || 0}
 			{recipient}
 			onClose={onCancel}
@@ -381,10 +439,15 @@
 				<input
 					id="gasless-recipient"
 					type="text"
-					class="input input-bordered w-full"
+					class="input input-bordered w-full {showRecipientError ? 'input-error' : ''}"
 					placeholder={$t('wallet.gasless_send.recipient_placeholder')}
 					bind:value={recipient}
 				/>
+				{#if showRecipientError}
+					<label class="label" for="gasless-recipient">
+						<span class="label-text-alt text-error text-xs">{$t('wallet.gasless_error.invalid_address')}</span>
+					</label>
+				{/if}
 			</div>
 
 			<div class="form-control">
@@ -394,15 +457,40 @@
 						{selectedTokenInfo?.symbol || ''}
 					</span>
 				</label>
-				<input
-					id="gasless-amount"
-					type="number"
-					class="input input-bordered w-full"
-					placeholder="0.00"
-					min="0"
-					step="0.01"
-					bind:value={amount}
-				/>
+				<div class="flex items-center gap-2">
+					<input
+						id="gasless-amount"
+						type="number"
+						class="input input-bordered flex-1"
+						placeholder="0.00"
+						min="0"
+						step="0.01"
+						bind:value={amount}
+					/>
+					<button
+						class="btn btn-outline btn-sm"
+						type="button"
+						onclick={handleSetMaxAmount}
+						disabled={tokenBalance === null}
+					>
+						{$t('wallet.gasless_send.max')}
+					</button>
+				</div>
+				{#if formattedTokenBalance !== null}
+					<label class="label" for="gasless-amount">
+						<span class="label-text-alt text-xs opacity-60">
+							{$t('wallet.gasless_send.balance', {
+								values: { balance: formattedTokenBalance, symbol: selectedTokenInfo?.symbol || '' }
+							})}
+						</span>
+					</label>
+				{:else if isLoadingBalance}
+					<label class="label" for="gasless-amount">
+						<span class="label-text-alt text-xs opacity-60">
+							<span class="loading loading-spinner loading-xs"></span>
+						</span>
+					</label>
+				{/if}
 			</div>
 
 			{#if hasInsufficientBalance}

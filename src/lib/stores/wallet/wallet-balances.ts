@@ -171,7 +171,7 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 		// Use fallback price of 0 if price fetch failed, but track the error
 		const rbtcPrice = rbtcPriceResult ?? 0;
 		const bnbPrice = bnbPriceResult ?? 0;
-		const _btcPrice = btcPriceResult ?? 0;
+		const btcPrice = btcPriceResult ?? 0;
 		if (rbtcPriceResult === null || bnbPriceResult === null || btcPriceResult === null) {
 			priceError = true;
 		}
@@ -449,8 +449,10 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 			}
 		}
 
-		// Calculate total sats (RBTC to sats)
-		const totalSats = Math.floor(totalRbtc * 100_000_000);
+		// Calculate total sats — convert ALL assets to BTC-equivalent via USD price
+		const totalSats = btcPrice > 0
+			? Math.floor((totalUsd / btcPrice) * 100_000_000)
+			: Math.floor(totalRbtc * 100_000_000);
 
 		// Update store with assets and totals
 		console.log('[WALLET-STORE] committing assets:', assets.map((a) => a.assetId).join(', '));

@@ -1134,7 +1134,7 @@ Existing loading states are reused:
 
 **Proxy implementation requirements:**
 
-- Route: `POST /api/changelly/swap/*` handled by `workers-site/handlers/changelly.js`
+- Route: `POST /api/v1/changelly/swap/*` handled by NestJS backend (`bittasker-nestjs/src/changelly-swap/`)
 - Environment: `CHANGELLY_API_KEY` and `CHANGELLY_API_SECRET` stored via `wrangler secret put`
 - Origin validation: check `Origin` header against allowlist (app domain)
 - Rate limiting: max 30 requests per minute per wallet address
@@ -1653,11 +1653,10 @@ src/lib/stores/gas-mode.store.ts                     — Gas preference + health
 src/lib/components/wallet/ChainSelector.svelte       — Reusable token+chain picker
 src/lib/components/wallet/GasFeeDisplay.svelte       — Gas cost with confidence %
 src/lib/components/wallet/DelegationRecoveryModal.svelte — Recovery UI for stuck delegations
-src/lib/services/changelly.service.ts              — Changelly swap API wrapper
+src/lib/services/changelly.service.ts              — Changelly swap API client (calls NestJS backend)
 src/lib/components/wallet/BankingMenu.svelte       — Banking entry point modal
 src/lib/components/wallet/BuyUSDTForm.svelte       — Buy USDT flow
 src/lib/components/wallet/SellUSDTForm.svelte      — Sell USDT flow
-workers-site/handlers/changelly.js                 — CF Worker proxy for swap API
 workers-site/handlers/changelly-fiat.js            — CF Worker proxy for fiat API
 src/lib/services/feature-flags.ts                  — Two-tier feature flag service
 ```

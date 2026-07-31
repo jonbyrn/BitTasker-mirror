@@ -341,11 +341,25 @@ export async function sendEvmTransaction(
 				});
 			} else {
 				d.log('[sendEvmTransaction] Calling sendRawTransaction (built-in RSK/BSC)...');
+				let effectiveGasLimit = gasLimit;
+				if (chain === 'rsk' && gasLimit === GAS_LIMIT_RSK) {
+					try {
+						const { estimateRskGas } = await import('./utils');
+						effectiveGasLimit = await estimateRskGas({
+							to: safeTo,
+							data,
+							value: String(value)
+						});
+						d.log('[sendEvmTransaction] RSK dynamic gas estimate: %d', effectiveGasLimit);
+					} catch {
+						d.log('[sendEvmTransaction] RSK gas estimation failed, using default: %d', gasLimit);
+					}
+				}
 				txHash = await sendRawTransaction({
 					to: safeTo,
 					data,
 					value: String(value),
-					gasLimit,
+					gasLimit: effectiveGasLimit,
 					chain: chain as 'rsk' | 'bsc'
 				});
 			}

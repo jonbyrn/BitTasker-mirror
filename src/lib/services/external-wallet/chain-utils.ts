@@ -16,10 +16,14 @@ export function getChainIdForNetwork(network: string): number {
 			return bscNetwork === 'mainnet' ? 56 : 97;
 		case 'usdt-ethereum':
 			return rskNetwork === 'mainnet' ? 1 : 11155111;
-		case 'usdt-arbitrum':
+		case 'usdt0-arb':
 			return rskNetwork === 'mainnet' ? 42161 : 421614;
 		case 'usdt-polygon':
 			return rskNetwork === 'mainnet' ? 137 : 80002;
+		case 'usdt-avalanche':
+			return rskNetwork === 'mainnet' ? 43114 : 43113;
+		case 'usdt-base':
+			return rskNetwork === 'mainnet' ? 8453 : 84532;
 		default:
 			return rskNetwork === 'mainnet' ? 30 : 31;
 	}
@@ -57,13 +61,17 @@ export function getUSDTContractAddressForNetwork(network: string): string {
 			// Mainnet: 0xdAC17F958D2ee523a2206206994597C13D831ec7 (USDT)
 			// Testnet (Sepolia): no official USDT — use mainnet address as placeholder
 			return '0xdAC17F958D2ee523a2206206994597C13D831ec7';
-		case 'usdt-arbitrum':
+		case 'usdt0-arb':
 			// USDT0 on Arbitrum (bridged USDT)
 			return isMainnet
 				? '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'
 				: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
 		case 'usdt-polygon':
 			return '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
+		case 'usdt-avalanche':
+			return '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7';
+		case 'usdt-base':
+			return '0x4200000000000000000000000000000000000023';
 		default:
 			return getBSCUSDTContractAddress();
 	}

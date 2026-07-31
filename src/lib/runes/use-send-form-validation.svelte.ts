@@ -82,6 +82,7 @@ export interface UseSendFormValidationOptions {
 	getIsOnline: () => boolean;
 	getIsSelfSend: () => boolean;
 	getIsSourceWalletConnected: () => boolean;
+	getAllAssets?: () => Array<{ assetId: string; balance: number }>;
 }
 
 export interface UseSendFormValidationResult {
@@ -121,7 +122,8 @@ export const SUPPORTED_SEND_NETWORKS = new SvelteSet([
 	'rootstock-bitcoin',
 	'lightning-bitcoin',
 	'bitcoin',
-	'usdt-bsc'
+	'usdt-bsc',
+	'usdt0-arb'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -174,7 +176,9 @@ export function computeAvailableBalance(
 		id: string;
 		balances?: Record<string, { raw: string; formatted: string; loading: boolean }>;
 	}>,
-	walletStore: WalletStoreSnapshot
+	walletStore: WalletStoreSnapshot,
+	allAssets?: Array<{ assetId: string; balance: number }>,
+	btcPrice: number = 0
 ): number {
 	if (selectedWalletId !== 'builtin') {
 		const walletEntry = connectedWallets.find((w) => w.id === selectedWalletId);
@@ -195,6 +199,30 @@ export function computeAvailableBalance(
 		const balance = parseFloat(walletStore.bsc.formattedUsdtBalance);
 		if (!isNaN(balance) && balance > 0) {
 			return Math.floor(balance * 100_000_000);
+		}
+		return 0;
+	}
+	if (source === 'usdt0-arb') {
+		if (!selectedWalletId || selectedWalletId === 'builtin') {
+			const asset = allAssets?.find((a) => a.assetId === 'usdt0-arb');
+			if (asset && asset.balance > 0) {
+				if (btcPrice > 0) {
+					return Math.floor((asset.balance / btcPrice) * 100_000_000);
+				}
+				return Math.floor(asset.balance * 100_000_000);
+			}
+		}
+		for (const w of connectedWallets) {
+			const entry = w.balances?.['usdt0-arb'];
+			if (entry && !entry.loading) {
+				const parsed = parseFloat(entry.formatted);
+				if (!isNaN(parsed) && parsed > 0) {
+					if (btcPrice > 0) {
+						return Math.floor((parsed / btcPrice) * 100_000_000);
+					}
+					return Math.floor(parsed * 100_000_000);
+				}
+			}
 		}
 		return 0;
 	}
@@ -220,7 +248,7 @@ export const DUST_LIMITS: Record<string, number> = {
 	'rootstock-bitcoin': 546,
 	'lightning-bitcoin': 546,
 	'usdt-bsc': 1,
-	'usdt-arbitrum': 1,
+	'usdt0-arb': 1,
 	'usdt-ethereum': 546,
 	'usdt-polygon': 1
 };
@@ -321,6 +349,7 @@ export function useSendFormValidation(
 	const walletStore = $derived.by(() => opts.getWalletStore());
 	const isSelfSend = $derived.by(() => opts.getIsSelfSend());
 	const isSourceWalletConnected = $derived.by(() => opts.getIsSourceWalletConnected());
+	const allAssets = $derived.by(() => opts.getAllAssets?.() ?? []);
 
 	// --- Derived values ---
 
@@ -335,7 +364,9 @@ export function useSendFormValidation(
 			formInput.selectedSource,
 			selectedWalletId,
 			connectedWallets,
-			walletStore
+			walletStore,
+			allAssets,
+			btcPrice
 		)
 	);
 
@@ -354,7 +385,7 @@ export function useSendFormValidation(
 	const hasInsufficientBalance = $derived(totalToSend > availableBalance && totalToSend > 0);
 
 	const isFormValid = $derived.by(() => {
-		const result = validateSendForm({
+		return validateSendForm({
 			parsedData: parsedPayment.data,
 			isNetworkSupported: networkSupported,
 			isSourceWalletConnected,
@@ -365,27 +396,6 @@ export function useSendFormValidation(
 			isSelfSend,
 			network: parsedPayment.detectedNetwork
 		});
-		return result.valid;
-	});
-
-	let _formValidationError = $state<string | null>(null);
-	let _formErrorValues = $state<Record<string, unknown>>({});
-
-	// Sync error details outside $derived (Svelte 5 doesn't allow state writes in $derived)
-	$effect(() => {
-		const result = validateSendForm({
-			parsedData: parsedPayment.data,
-			isNetworkSupported: networkSupported,
-			isSourceWalletConnected,
-			amountRequired: parsedPayment.amountRequired,
-			amountInSats,
-			hasInsufficientBalance,
-			isBelowSwapMinimum,
-			isSelfSend,
-			network: parsedPayment.detectedNetwork
-		});
-		_formValidationError = result.error;
-		_formErrorValues = result.errorValues;
 	});
 
 	// --- Public API (getters for reactivity across rune boundary) ---
@@ -413,16 +423,16 @@ export function useSendFormValidation(
 			return isBelowSwapMinimum;
 		},
 		get isFormValid() {
-			return isFormValid;
+			return isFormValid.valid;
 		},
 		get isNetworkSupported() {
 			return networkSupported;
 		},
 		get formValidationError() {
-			return _formValidationError;
+			return isFormValid.error;
 		},
 		get formErrorValues() {
-			return _formErrorValues;
+			return isFormValid.errorValues;
 		}
 	};
 }

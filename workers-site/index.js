@@ -14,12 +14,12 @@
  *   /api/cloudflare/images/* - (future) direct image upload URLs
  *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
  *   /api/explorer/rsk-testnet/v2/* - Blockscout proxy (RSK testnet)
+ *   /api/changelly/fiat/*  - Changelly fiat on/off-ramp proxy
  *   /__data.json wildcards   - SvelteKit client-side navigation preload
  */
 
 import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
-import { handleChangellyRoute } from './handlers/changelly.js';
 import { handleChangellyFiatRoute } from './handlers/changelly-fiat.js';
 
 /**
@@ -76,11 +76,6 @@ export default {
 
 		if (pathname.startsWith('/api/explorer/')) {
 			return handleExplorerRoute(request);
-		}
-		
-		// Changelly swap API proxy
-		if (pathname.startsWith('/api/changelly/swap/')) {
-			return handleChangellyRoute(request, env);
 		}
 
 		// Changelly fiat API proxy

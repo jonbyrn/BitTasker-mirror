@@ -243,6 +243,7 @@
 				"timed_out": "Swap timed out. Your funds are safe — check Pending Swaps to recover.",
 				"unsupported_pair": "This swap pair is not currently supported.",
 				"insufficient_gas": "Not enough ETH on Arbitrum for gas fees. Please add ETH to your Arbitrum wallet.",
+				"insufficient_rsk_gas": "Insufficient RBTC for network fees. The swap amount plus gas exceeds your balance. Please reduce the amount or top up your Rootstock wallet.",
 				"invalid_amount": "Please enter a valid amount.",
 				"out_of_gas": "Transaction ran out of gas. Please try with a higher gas limit.",
 				"insufficient_allowance": "Token spending limit exceeded. Please approve the token first.",
@@ -394,6 +395,7 @@
 				"use_fallback": "Use {provider}"
 			},
 			"gasless_fee_reserved": "{fee} of your balance is reserved for network and relay fees. The actual swap amount is {amount}.",
+			"amount_too_small_for_gasless": "Amount too small for gasless transfer",
 			"cross_chain_delivery_note": "Cross-chain delivery",
 			"cross_chain_delivery_desc": "Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.",
 			"cancel_warning": "Your swap is still in progress. Check Pending Swaps for status.",
@@ -410,19 +412,20 @@
 			"bridge_banner_active": "Bridging {sourceAmount} {sourceAsset} → {destAsset}",
 			"bridge_banner_eta": "Estimated ~{minutes} min",
 			"bridge_banner_elapsed": "{time} elapsed",
-			"bridge_in_progress": "Bridging your funds to the destination chain...",
-			"bridge_taking_longer": "This is taking longer than usual. Your funds are safe.",
 			"bridge_timeout": "The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.",
 			"bridge_failed": "The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.",
 			"bridge_delayed": "Bridge Taking Longer",
 			"bridge_offline": "You appear to be offline. Your funds are safe on the blockchain. Reconnecting...",
 			"source_tx": "Source TX",
 			"route_steps": "Route steps",
-			"cross_chain_delivery_note": "Cross-chain delivery",
-			"cross_chain_delivery_desc": "Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.",
-			"relay_unavailable": "The gasless relay is temporarily unavailable. Please try again in a few minutes.",
 			"partial_delivery": "Partial delivery",
 			"partial_delivery_desc": "Received {actual} (expected {expected}). The difference is due to bridge fees and slippage."
+		},
+		"gasless_send": {
+			"insufficient_balance_with_fee": "Insufficient balance to cover transfer + network fee.",
+			"fee_estimation_failed": "Fee estimation failed",
+			"direct_transaction_failed": "Direct transaction failed",
+			"relay_unavailable_no_eth": "The gasless relay is unavailable and you have no ETH for gas. Please deposit a small amount of ETH on Arbitrum to send directly, or try again later."
 		}
 	}
 }

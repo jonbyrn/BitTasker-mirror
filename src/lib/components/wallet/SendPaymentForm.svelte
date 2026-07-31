@@ -32,7 +32,7 @@
 	import { getAssetForNetwork, getSourceAddress } from '$lib/utils/wallet/toast-helpers';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
-	import GaslessSendFlow from './GaslessSendFlow.svelte';
+	import TransactionSuccessScreen from './TransactionSuccessScreen.svelte';
 	import { resolveRoute } from '$lib/services/route-resolver';
 	import {
 		toSourceWallet,
@@ -340,6 +340,7 @@
 			lower.startsWith('rsk:') ||
 			lower.startsWith('bsc:') ||
 			lower.startsWith('ethereum:') ||
+			lower.startsWith('arbitrum:') ||
 			/@\d+/.test(raw); // EIP-681 chain ID
 		const net = parsedPayment.detectedNetwork;
 		return (
@@ -389,14 +390,10 @@
 	let _routeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let _routeAbortController: AbortController | null = null;
 
-	// Re-parse address when source wallet changes (EVM addresses need source context)
-	$effect(() => {
-		const _source = formInput.selectedSource;
-		const _addr = formInput.addressInput.trim();
-		// Only re-parse if address is present and looks like an EVM address
-		// (LNURL/Lightning/Bitcoin addresses don't depend on source)
-		if (_addr && /^0x[a-fA-F0-9]{40}$/.test(_addr) && parsedPayment.detectedNetwork) {
-			const reparsed = parsePaymentAddress(_addr, _source as 'rootstock-bitcoin' | 'usdt-bsc');
+	function reparseAddressForNewSource() {
+		const addr = formInput.addressInput.trim();
+		if (addr && /^0x[a-fA-F0-9]{40}$/.test(addr) && parsedPayment.detectedNetwork) {
+			const reparsed = parsePaymentAddress(addr, formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc' | 'usdt0-arb');
 			if (reparsed.isValid) {
 				parsedPayment.data = reparsed;
 				parsedPayment.detectedNetwork = reparsed.network;
@@ -406,7 +403,7 @@
 				parsedPayment.amountRequired = reparsed.amount === null;
 			}
 		}
-	});
+	}
 
 	$effect(() => {
 		// Read all reactive dependencies first
@@ -558,7 +555,8 @@
 		getWalletStore: () => $walletStore,
 		getIsOnline: () => isOnline,
 		getIsSelfSend: () => isSelfSend,
-		getIsSourceWalletConnected: () => isSourceWalletConnected
+		getIsSourceWalletConnected: () => isSourceWalletConnected,
+		getAllAssets: () => $allAssets
 	});
 
 	const showLargeAmountWarning = $derived(sendValidation.amountInUSD > LARGE_AMOUNT_THRESHOLD);
@@ -575,6 +573,12 @@
 		getRskAddress: () => $walletStore.rsk.address,
 		getRecipientAddress: () => parsedPayment.data?.address || null
 	});
+
+	const hasPreliminaryInsufficientBalance = $derived(
+		sendValidation.amountInSats > 0 &&
+			sendValidation.amountInSats > sendValidation.availableBalance &&
+			sendFee.feeEstimate === null
+	);
 
 	// Initialize
 	onMount(async () => {
@@ -608,7 +612,7 @@
 		try {
 			const result = parseSendAddress(
 				rawAddress,
-				formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc'
+				formInput.selectedSource as 'rootstock-bitcoin' | 'usdt-bsc' | 'usdt0-arb'
 			);
 
 			if (!result.isValid) {
@@ -696,17 +700,6 @@
 				}
 			}
 
-			// Fee estimation
-			if (context.source === 'qr') {
-				await sendFee.refresh();
-			} else {
-				if (result.amount !== null && result.amount > 0) {
-					await sendFee.refresh();
-				} else if (sendValidation.amountInSats > 0) {
-					await sendFee.refresh();
-				}
-			}
-
 			return { success: true, switchToEnter: context.source === 'qr' };
 		} catch (error) {
 			d.warn('Failed to parse %s: %s', context.source === 'qr' ? 'QR code' : 'address', error);
@@ -746,13 +739,6 @@
 		await applyParsedAddress(formInput.addressInput, { source: 'input' });
 	}
 
-	// Handle updates when amount changes (called explicitly)
-	async function handleAmountChange() {
-		if (parsedPayment.detectedNetwork && sendValidation.amountInSats > 0) {
-			await sendFee.refresh();
-		}
-	}
-
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
 		formInput.mathExpression = expression;
@@ -763,8 +749,6 @@
 				formInput.amount = result.toFixed(2).replace(/\.?0+$/, '');
 			}
 		}
-		// Explicitly trigger amount change handler
-		handleAmountChange();
 	}
 
 	// Handle max amount click (uses sendFee.maxAmount from rune)
@@ -782,7 +766,6 @@
 					const usdAmount = (max / 100_000_000) * btcPrice;
 					formInput.amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
 				}
-				await sendFee.refresh();
 			}
 		} finally {
 			_maxCalcInFlight = false;
@@ -792,8 +775,6 @@
 	// Handle amount input change (wrapper to trigger updates)
 	function handleAmountInputChange(value: string) {
 		formInput.amount = value;
-		// Explicitly trigger amount change handler
-		handleAmountChange();
 	}
 
 	// Handle unit change with conversion
@@ -814,7 +795,6 @@
 		}
 		formInput.unit = newUnit;
 		formInput.mathExpression = '';
-		handleAmountChange();
 	}
 
 	// Clear calculator
@@ -886,6 +866,14 @@
 		sendState.pendingAmount = null;
 		sendState.pendingAddress = null;
 		sendState.pendingSwapId = null;
+	}
+
+	function handleSuccessDone() {
+		uiState.showSuccessScreen = false;
+		if (onSuccess && sendState.pendingTxHash && sendState.pendingNetwork) {
+			onSuccess(sendState.pendingTxHash, sendState.pendingNetwork);
+		}
+		clearPendingSendState();
 	}
 
 	/** Sanitize raw error messages into user-friendly i18n strings. */
@@ -995,10 +983,13 @@
 				sendState.isSending = false;
 
 				// Arbitrum fast-path — confirms in <1s, no persistent toast needed
-				if (network === 'usdt-arbitrum') {
+				if (network === 'usdt0-arb') {
 					appStore.showSuccessToast($t('wallet.send.sent_successfully'), 2000);
 					walletManager.loadAssets();
 					clearPendingSendState();
+					if (onSuccess) {
+						onSuccess(result.txHash, network);
+					}
 				} else {
 					// All other chains: register blockchain toast
 					const requiredConfirmations = REQUIRED_CONFIRMATIONS[network] ?? 3;
@@ -1021,11 +1012,7 @@
 						errorValues: null,
 						actions: []
 					});
-					clearPendingSendState();
-				}
-
-				if (onSuccess) {
-					onSuccess(result.txHash, network);
+					uiState.showSuccessScreen = true;
 				}
 			}
 			if (result.pendingSwapId) {
@@ -1038,6 +1025,9 @@
 					$t('wallet.send.transaction_sending'),
 					UI.WALLET_TOAST_DURATION_MS
 				);
+				if (onSuccess) {
+					onSuccess('', network);
+				}
 			}
 		} catch (err) {
 			d.warn('Send failed: %s', err);
@@ -1068,16 +1058,19 @@
 		await handleSend();
 	}
 
-	// Determine if current destination is Arbitrum for gasless flow
-	let isArbitrumNetwork = $derived(
-		parsedPayment.detectedNetwork === 'usdt-arbitrum' || formInput.destinationChainId === 42161
-	);
 </script>
 
 <div class="send-payment-form flex min-h-0 flex-1 flex-col">
-	<!-- Gasless Send Flow (Arbitrum only) -->
-	{#if isArbitrumNetwork}
-		<GaslessSendFlow {onCancel} />
+	<!-- Transaction Success Screen -->
+	{#if uiState.showSuccessScreen}
+		<TransactionSuccessScreen
+			txHash={sendState.pendingTxHash ?? ''}
+			network={sendState.pendingNetwork ?? ''}
+			amount={sendState.pendingAmount ?? 0}
+			recipient={sendState.pendingAddress ?? ''}
+			onClose={handleSuccessDone}
+		/>
+		<!-- Gasless Send Flow (Arbitrum only) -->
 	{:else}
 		<!-- Normal Form Content -->
 		<div
@@ -1210,6 +1203,7 @@
 						: formInput.unit}
 					hasInsufficientBalance={sendValidation.hasInsufficientBalance &&
 						sendFee.feeEstimate !== null}
+					{hasPreliminaryInsufficientBalance}
 					isFormValid={sendValidation.isFormValid}
 					{isSelfSend}
 					{showLargeAmountWarning}
@@ -1227,6 +1221,7 @@
 					detectedMemo={parsedPayment.detectedMemo}
 					transactionError={sendState.error}
 					externalConfirmSource={sendState.externalConfirmSource}
+					isSending={sendState.isSending}
 					onAddressChange={handleAddressChange}
 					onClearAddress={handleClearAddress}
 					onAddressFocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
@@ -1238,8 +1233,8 @@
 					onClear={handleClearCalculator}
 					onMaxAmount={handleMaxAmount}
 					onRouteSelect={(id) => (userSelectedRouteId = id)}
-					onWalletSelect={(id) => (selectedWalletId = id)}
-					onAssetSelect={(id) => (formInput.selectedSource = id)}
+				onWalletSelect={(id) => { selectedWalletId = id; reparseAddressForNewSource(); }}
+				onAssetSelect={(id) => { formInput.selectedSource = id; reparseAddressForNewSource(); }}
 					onDestinationChange={handleDestinationChange}
 					onMemoChange={(value) => (formInput.memo = value)}
 					onDescriptionToggle={(expanded) => (uiState.descriptionExpanded = expanded)}

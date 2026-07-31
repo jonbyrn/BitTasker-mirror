@@ -7,6 +7,7 @@ export function sanitizeSwapError(raw: string | undefined | null): string {
 	if (!raw) return '';
 	let msg = raw.replace(/\s*\(transaction="[^"]*"\)/g, '');
 	msg = msg.replace(/\s*\(code=\d+[^)]*\)/g, '');
+	if (/insufficient rbtc for gas/i.test(msg)) return 'wallet.swap.error.insufficient_rsk_gas';
 	if (/insufficient funds/i.test(msg)) return 'wallet.swap.error.insufficient_funds';
 	if (/nonce too (low|high)/i.test(msg)) return 'wallet.swap.error.nonce_conflict';
 	if (/replacement transaction underpriced/i.test(msg))

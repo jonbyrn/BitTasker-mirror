@@ -402,11 +402,11 @@
 			case 'rbtc':
 				return 'rootstock-bitcoin';
 			case 'usdt0-arb':
-				return 'usdt-arbitrum';
+				return 'usdt0-arb';
 			case 'wbtc-arb':
-				return 'usdt-arbitrum';
+				return 'usdt0-arb';
 			case 'tbtc-arb':
-				return 'usdt-arbitrum';
+				return 'usdt0-arb';
 			case 'btc-onchain':
 				return 'bitcoin';
 			default:
@@ -472,13 +472,14 @@
 				rawBalance =
 					sourceWallet === 'builtin' ? swapOptions.builtinUsdt0 : swapWallets.sourceBalances.usdt0;
 			}
-			// For Arbitrum ERC-20 tokens: subtract the gasless relay fee reserve.
-			// The executeBatch batches the swap and a fee transfer from the same
-			// token balance. Without this reservation, setting max amount would
-			// leave zero tokens for the fee transfer, causing the UserOp to revert.
-			const reserve = gaslessFeeReserve;
-			if (reserve > 0 && rawBalance > reserve) {
-				return rawBalance - reserve;
+			// Subtract gas reserves from the displayed balance.
+			// For Arbitrum ERC-20: the gasless relay batches swap + fee transfer.
+			// For RBTC: the lockup transaction needs RBTC for gas on RSK.
+			const arbReserve = gaslessFeeReserve;
+			const rskReserve = rskGasReserve;
+			const totalReserve = arbReserve + rskReserve;
+			if (totalReserve > 0 && rawBalance > totalReserve) {
+				return rawBalance - totalReserve;
 			}
 			return rawBalance;
 		},
@@ -578,6 +579,15 @@
 			}
 		}
 		return reserve;
+	});
+
+	const rskGasReserve = $derived.by(() => {
+		if (sourceType !== 'rbtc') return 0;
+		const gasPrice = swapInput.rskGasPriceWei;
+		if (!gasPrice || gasPrice <= 0n) return 0;
+		const gasLimit = 150_000n;
+		const gasCostWei = gasLimit * gasPrice;
+		return Number(gasCostWei) / 1e18;
 	});
 
 	let walletBalanceToken = $derived(swapCalc.walletBalanceToken.toFixed(6));
@@ -792,6 +802,19 @@
 		) {
 			errorMessage = $t('wallet.swap.error.insufficient_gas');
 			return;
+		}
+
+		// Pre-check: if source is RBTC, verify wallet has enough for swap + gas
+		if (sourceType === 'rbtc' && rskGasReserve > 0) {
+			const rawBalance =
+				sourceWallet === 'builtin'
+					? swapOptions.builtinRbtcSats / 100_000_000
+					: swapWallets.sourceBalances.rbtcSats / 100_000_000;
+			const totalNeeded = swapCalc.amountInTokenUnits + rskGasReserve;
+			if (rawBalance < totalNeeded) {
+				errorMessage = $t('wallet.swap.error.insufficient_rsk_gas');
+				return;
+			}
 		}
 
 		triggerHaptic(ImpactStyle.Medium);

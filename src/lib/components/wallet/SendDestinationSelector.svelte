@@ -42,7 +42,7 @@
 		},
 		// USDT group (Arbitrum first, rest alphabetical)
 		{
-			id: 'usdt-arbitrum',
+			id: 'usdt0-arb',
 			asset: 'USDT',
 			label: 'Arbitrum',
 			icon: '/images/chains/arbitrum.png',

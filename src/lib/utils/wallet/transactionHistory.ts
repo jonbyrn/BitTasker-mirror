@@ -902,7 +902,7 @@ function convertInternalToTransaction(
 		method: null,
 		decoded_input: null,
 		transaction_types: ['call'],
-		token_transfers: null,
+		token_transfers: [],
 		max_fee_per_gas: null,
 		max_priority_fee_per_gas: null,
 		base_fee_per_gas: null,
@@ -958,6 +958,12 @@ interface BlockscoutTransactionItem {
 	confirmations?: number;
 	raw_input?: string;
 	transaction_types?: string[];
+	token_transfers?: Array<{
+		token?: { address?: string; symbol?: string; name?: string; decimals?: string; type?: string };
+		from?: { hash?: string };
+		to?: { hash?: string };
+		total?: { value?: string; decimals?: number };
+	}> | null;
 	max_fee_per_gas?: string | null;
 	max_priority_fee_per_gas?: string | null;
 	base_fee_per_gas?: string | null;
@@ -1028,7 +1034,7 @@ function mapBlockscoutToTransaction(item: BlockscoutTransactionItem): Transactio
 				}
 			: null,
 		transaction_types: item.transaction_types ?? ['contract_call'],
-		token_transfers: null,
+		token_transfers: item.token_transfers ?? [],
 		max_fee_per_gas: item.max_fee_per_gas ?? null,
 		max_priority_fee_per_gas: item.max_priority_fee_per_gas ?? null,
 		base_fee_per_gas: item.base_fee_per_gas ?? null,
@@ -1088,7 +1094,41 @@ export async function fetchArbitrumTransactions(address: string): Promise<Transa
 		const data = await response.json();
 		const items: BlockscoutTransactionItem[] = data.items ?? [];
 
-		return items.map(mapBlockscoutToTransaction);
+		const nativeTxs = items.map(mapBlockscoutToTransaction);
+
+		const tokenTransfersUrl = `${baseUrl}/addresses/${address.toLowerCase()}/token-transfers?sort=block_number`;
+		const tokenTransfersResp = await fetch(tokenTransfersUrl, {
+			signal: AbortSignal.timeout(10_000),
+			headers: { Accept: 'application/json' }
+		});
+
+		if (tokenTransfersResp.ok) {
+			const tokenTransfersData = await tokenTransfersResp.json();
+			const transfers: Array<{
+				tx_hash: string;
+				token?: { address?: string; symbol?: string };
+				from?: { hash?: string };
+				to?: { hash?: string };
+				total?: { value?: string; decimals?: number };
+			}> = tokenTransfersData.items ?? [];
+
+			const transfersByHash = new Map<string, typeof transfers>();
+			for (const transfer of transfers) {
+				const hash = transfer.tx_hash?.toLowerCase();
+				if (!hash) continue;
+				if (!transfersByHash.has(hash)) transfersByHash.set(hash, []);
+				transfersByHash.get(hash)!.push(transfer);
+			}
+
+			for (const tx of nativeTxs) {
+				const matching = transfersByHash.get(tx.hash.toLowerCase());
+				if (matching && matching.length > 0) {
+					tx.token_transfers = matching;
+				}
+			}
+		}
+
+		return nativeTxs;
 	} catch (error) {
 		if (import.meta.env.DEV) {
 			console.error('[fetchArbitrumTransactions] Error:', error);

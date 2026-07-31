@@ -265,8 +265,8 @@ describe('isSupportedNetwork', () => {
 		expect(isSupportedNetwork('solana')).toBe(false);
 	});
 
-	it('SUPPORTED_SEND_NETWORKS contains exactly 4 networks', () => {
-		expect(SUPPORTED_SEND_NETWORKS.size).toBe(4);
+	it('SUPPORTED_SEND_NETWORKS contains exactly 5 networks', () => {
+		expect(SUPPORTED_SEND_NETWORKS.size).toBe(5);
 	});
 });
 

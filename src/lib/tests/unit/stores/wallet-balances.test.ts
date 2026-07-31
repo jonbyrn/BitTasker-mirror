@@ -371,7 +371,10 @@ describe('wallet-balances', () => {
 			// Total balances calculated
 			// Note: tBTC is NOT added to totalRbtc — it's a separate Arbitrum asset
 			expect(state.totalBalances.rbtc).toBe(2); // 2 RBTC only (tBTC is separate)
-			expect(state.totalBalances.sats).toBe(Math.floor(2 * 100_000_000)); // RBTC sats only
+			// totalSats now includes ALL assets converted to BTC-equivalent via totalUsd / btcPrice
+			// totalUsd = 120000(RBTC) + 1000(DOC) + 5000(USDT0 RSK) + 2000(USDT0 Arb) + 3000000(WBTC) + 60000(tBTC) + 1800(BNB) + 5000(BSC USDT) = 3194800
+			// sats = floor(3194800 / 60000 * 100_000_000) = 5324666666
+			expect(state.totalBalances.sats).toBe(Math.floor((3194800 / 60000) * 100_000_000));
 			expect(state.totalBalances.usdt).toBe(13000); // 1000 DOC + 5000 USDT0 + 2000 arb USDT0 + 5000 BSC USDT
 			expect(state.totalBalances.bnb).toBe(3);
 			expect(state.totalBalances.usd).toBeGreaterThan(0);
@@ -467,16 +470,16 @@ describe('wallet-balances', () => {
 			expect(mockCryptoPriceService.getCurrentPrice).not.toHaveBeenCalled();
 		});
 
-		it('total sats calculation: rBTC + tBTC sats summed correctly', async () => {
+		it('total sats calculation: all assets converted to BTC-equivalent via totalUsd', async () => {
 			// Ensure getRSKNativeBalance returns the expected 2 RBTC balance
 			mockTokenBalanceService.getRSKNativeBalance.mockResolvedValue(mockRskBalanceData);
 			await loadAssets();
 
 			const state = get(storeWritable);
 
-			// Note: tBTC is NOT added to totalRbtc — it's a separate Arbitrum asset
-			// 2 RBTC only = 200,000,000 sats
-			const expectedSats = Math.floor(2 * 100_000_000);
+			// totalSats = floor(totalUsd / btcPrice * 100_000_000)
+			// totalUsd = 120000(RBTC) + 1000(DOC) + 5000(USDT0 RSK) + 2000(USDT0 Arb) + 3000000(WBTC) + 60000(tBTC) + 1800(BNB) + 5000(BSC USDT) = 3194800
+			const expectedSats = Math.floor((3194800 / 60000) * 100_000_000);
 			expect(state.totalBalances.sats).toBe(expectedSats);
 		});
 

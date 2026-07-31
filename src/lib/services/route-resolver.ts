@@ -17,7 +17,13 @@ export type SourceWallet =
 	| 'doc-rsk'
 	| 'btc-onchain'
 	| 'wbtc-arb'
-	| 'tbtc-arb';
+	| 'tbtc-arb'
+	| 'usdt-ethereum'
+	| 'usdt-avalanche'
+	| 'usdt-base'
+	| 'usdt-optimism'
+	| 'usdt-polygon'
+	| 'usdt-tron';
 
 export type Destination =
 	| { type: 'address'; chainId: number; address: string; asset?: string }
@@ -47,6 +53,8 @@ export interface Route {
 	recommended: boolean;
 	/** Aggregate gas cost in wei from all hops with live quotes. */
 	gasCostWei?: string;
+	/** Hop2 destination-chain gas cost in wei (e.g., Arbitrum ETH gas for Uniswap V3 swap). */
+	hop2GasCostWei?: string;
 	/** Aggregate itemized fees from all hops with live quotes. */
 	feeCosts?: Array<{ name: string; amount: string }>;
 	/** Output amount in BTC satoshis, computed by the provider from the live quote. */

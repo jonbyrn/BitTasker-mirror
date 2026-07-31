@@ -32,6 +32,7 @@ export const symbiosisProvider: SwapProvider = {
 		// Symbiosis doesn't handle Bitcoin or Lightning chains
 		if (from.chain === 'bitcoin' || to.chain === 'bitcoin') return false;
 		if (from.chain === 'lightning' || to.chain === 'lightning') return false;
+		if (from.chain === to.chain) return false;
 		if (from.key === to.key) return false;
 		return true;
 	},

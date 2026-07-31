@@ -19,11 +19,7 @@
 				return;
 			}
 
-			// Build EIP-681 URI with chain ID
-			const isMainnet = import.meta.env.VITE_RSK_NETWORK === 'mainnet';
-			const chainId = isMainnet ? 30 : 31;
-			const qrUri = `rsk:${address}@${chainId}`;
-			qrCodeData = await generateQrCodeUrl(qrUri);
+			qrCodeData = await generateQrCodeUrl(address);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			appStore.showErrorToast($t('wallet.connected.qr.error'));
