@@ -7,9 +7,11 @@
 	import { formatSats, sendArbitrumTransaction } from '$lib/stores/wallet.store';
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { WBTC_ARBITRUM, calculateBtcLiquidationPrice } from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, POOL_ABI, WBTC_ARBITRUM, ARB_PUBLIC_RPC } from '$lib/config/defi.constants';
+	import { calculateBtcLiquidationPrice } from '$lib/services/defi/aave.service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import { sanitizeErrorForLog } from '$lib/utils/defi-errors';
 	import * as Sentry from '@sentry/sveltekit';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
@@ -180,24 +182,6 @@
 		}
 		showConfirmModal = false;
 		successTxHash = null;
-	}
-
-	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-	const POOL_ABI = [
-		'function withdraw(address asset, uint256 amount, address to) external returns (uint256)'
-	];
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-
-	function sanitizeErrorForLog(error: unknown): Record<string, unknown> {
-		if (!(error instanceof Error)) return { type: typeof error, message: 'Unknown error' };
-		const safeMessage = error.message
-			.replace(/0x[0-9a-fA-F]{64,}/g, '[hex-redacted]')
-			.replace(/transaction="[^"]*"/g, 'transaction="[redacted]"')
-			.replace(/info=\{[^}]*\}/g, 'info=[redacted]');
-		return {
-			name: error.name,
-			message: safeMessage.length > 300 ? safeMessage.slice(0, 300) + '...' : safeMessage
-		};
 	}
 
 	async function handleWithdraw() {

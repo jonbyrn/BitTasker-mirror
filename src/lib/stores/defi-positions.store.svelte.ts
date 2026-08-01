@@ -43,6 +43,7 @@ import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 import { browserNetworkStatus } from '$lib/utils/network-status';
 import { FeatureFlagService, FEATURE_FLAGS } from '$lib/services/kill-switch';
 import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+import { ARB_PUBLIC_RPC, AAVE_POOL } from '$lib/config/defi.constants';
 import {
 	UniswapService
 	// FEE_TIER unused
@@ -51,7 +52,6 @@ import {
 import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('defiPositions');
-const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 const STALE_MS = 30_000; // 30s cache before refetch on explicit refresh
 
 // ---------------------------------------------------------------------------
@@ -272,7 +272,7 @@ class DefiPositionsStore {
 				// Direct minimal call for aTokenAddress (service getReserveData does not expose it publicly)
 				tryCatch(
 					new ethers.Contract(
-						'0x794a61358D6845594F94dc1DB02A252b5b4814aD', // AAVE_POOL
+						AAVE_POOL,
 						[
 							'function getReserveData(address asset) external view returns (tuple(uint256 data) configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt)'
 						],

@@ -8,11 +8,10 @@
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, USDT0_ARBITRUM } from '$lib/config/defi.constants';
 	import { appStore } from '$lib/stores/app.store';
 	import * as Sentry from '@sentry/sveltekit';
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 
 	interface Props {
 		walletId: string;

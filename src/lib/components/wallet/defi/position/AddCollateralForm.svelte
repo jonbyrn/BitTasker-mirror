@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { ethers } from 'ethers';
+	import { ethers, Interface } from 'ethers';
 	import { tryCatch } from '$lib/utils/tryCatch';
-	import { walletStore, formatSats } from '$lib/stores/wallet.store';
+	import { walletStore, formatSats, sendArbitrumTransaction } from '$lib/stores/wallet.store';
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -12,6 +12,7 @@
 		calculateProjectedHealthFactor,
 		calculateBtcLiquidationPrice
 	} from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, ARB_PUBLIC_RPC, ERC20_APPROVE_ABI } from '$lib/config/defi.constants';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import * as Sentry from '@sentry/sveltekit';
@@ -28,6 +29,8 @@
 
 	let amountSats = $state('');
 	let sliderPercent = $state(0);
+	type TxPhase = 'idle' | 'checking' | 'approving' | 'supplying' | 'done';
+	let txPhase: TxPhase = $state('idle');
 	let isProcessing = $state(false);
 	let txError = $state<string | null>(null);
 	let isOnline = $derived($browserNetworkStatus.online);
@@ -99,81 +102,126 @@
 		amountSats = Math.round((wbtcBalanceSats * pct) / 100).toString();
 	}
 
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
+	async function checkAllowance(owner: string): Promise<bigint> {
+		const normalizedOwner = ethers.getAddress(owner.toLowerCase());
+		const arbProvider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
+		const tokenContract = new ethers.Contract(WBTC_ARBITRUM, ERC20_APPROVE_ABI, arbProvider);
+		const { data: allowance, error } = await tryCatch(
+			tokenContract.allowance(normalizedOwner, AAVE_POOL)
+		);
+		if (error || allowance == null) {
+			return 0n;
+		}
+		return BigInt(allowance.toString());
+	}
+
+	async function sendApprove(amount: bigint): Promise<string> {
+		const erc20Iface = new Interface(ERC20_APPROVE_ABI);
+		const approveData = erc20Iface.encodeFunctionData('approve', [AAVE_POOL, amount]);
+
+		if (walletId === 'builtin') {
+			const { data: txHash, error: txErr } = await tryCatch(
+				sendArbitrumTransaction({ to: WBTC_ARBITRUM, data: approveData, value: '0' })
+			);
+			if (txErr || !txHash) {
+				const contractErr = extractContractError(txErr);
+				throw new Error(contractErr.userMessage);
+			}
+			return txHash;
+		}
+
+		const evmSigner = getEvmSigner(walletId);
+		if (!evmSigner) {
+			throw new Error($t('wallet.defi.approve.error'));
+		}
+		const { data: result, error: txErr } = await tryCatch(
+			evmSigner.sendTransaction({
+				to: WBTC_ARBITRUM,
+				data: approveData,
+				value: 0n,
+				chainId: 42161
+			})
+		);
+		if (txErr || !result) {
+			const contractErr = extractContractError(txErr);
+			throw new Error(contractErr.userMessage);
+		}
+		return result.txHash;
+	}
 
 	async function handleSupply() {
 		if (!canSupply || isProcessing) return;
 		isProcessing = true;
 		txError = null;
 
-		Sentry.addBreadcrumb({
-			category: 'defi.position.addCollateral',
-			message: 'sending supply',
-			data: { amountNum, walletId }
-		});
+		const rawAmount = BigInt(amountSats);
 
-		const aave = new AaveService(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
-		const rawAmount = BigInt(amountNum);
-
-		if (walletId === 'builtin') {
+		try {
+			txPhase = 'checking';
 			const s = get(walletStore);
-			const rskW = s.rsk?.wallet as ethers.Wallet | undefined;
-			if (!rskW) {
-				txError = $t('wallet.defi.approve.error');
-				Sentry.addBreadcrumb({
-					category: 'defi.position.addCollateral',
-					message: 'signer unavailable',
-					data: { walletId }
-				});
-				isProcessing = false;
-				return;
-			}
-			const signer = rskW.connect(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
-			const { data: tx, error } = await tryCatch(aave.supply(WBTC_ARBITRUM, rawAmount, signer));
-			if (error || !tx) {
-				const contractErr = extractContractError(error);
-				txError = contractErr.userMessage;
-				Sentry.captureException(error, {
-					tags: { feature: 'defi.position', action: 'addCollateral' }
-				});
-				isProcessing = false;
-				return;
-			}
-			const { data: receipt, error: receiptErr } = await tryCatch(tx.wait());
-			if (receiptErr || !receipt) {
-				const contractErr = extractContractError(receiptErr);
-				txError = contractErr.userMessage;
-				isProcessing = false;
-				return;
-			}
-		} else {
-			const evm = getEvmSigner(walletId);
-			if (!evm) {
-				txError = $t('wallet.defi.approve.error');
-				Sentry.addBreadcrumb({
-					category: 'defi.position.addCollateral',
-					message: 'signer unavailable',
-					data: { walletId }
-				});
-				isProcessing = false;
-				return;
-			}
-			const { data: tx, error } = await tryCatch(
-				aave.supplyWithEvmSigner(WBTC_ARBITRUM, rawAmount, evm)
-			);
-			if (error || !tx) {
-				const contractErr = extractContractError(error);
-				txError = contractErr.userMessage;
-				Sentry.captureException(error, {
-					tags: { feature: 'defi.position', action: 'addCollateral' }
-				});
-				isProcessing = false;
-				return;
-			}
-		}
+			const ownerAddress =
+				walletId === 'builtin' ? (s.arb?.address || s.rsk?.address) : _address;
+			if (!ownerAddress) throw new Error($t('wallet.defi.approve.error'));
 
-		isProcessing = false;
-		onComplete();
+			const currentAllowance = await checkAllowance(ownerAddress);
+
+			if (currentAllowance < rawAmount) {
+				txPhase = 'approving';
+				Sentry.addBreadcrumb({
+					category: 'defi.position.addCollateral',
+					message: 'sending approve',
+					data: {
+						amount: rawAmount.toString(),
+						currentAllowance: currentAllowance.toString()
+					}
+				});
+				await sendApprove(rawAmount);
+			}
+
+			txPhase = 'supplying';
+			const aave = new AaveService(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+
+			if (walletId === 'builtin') {
+				const rskW = s.rsk?.wallet as ethers.Wallet | undefined;
+				if (!rskW) throw new Error($t('wallet.defi.approve.error'));
+				const signer = rskW.connect(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
+				const { data: tx, error } = await tryCatch(
+					aave.supply(WBTC_ARBITRUM, rawAmount, signer)
+				);
+				if (error || !tx) {
+					const contractErr = extractContractError(error);
+					throw new Error(contractErr.userMessage);
+				}
+				const { data: receipt, error: receiptErr } = await tryCatch(tx.wait());
+				if (receiptErr || !receipt) {
+					const contractErr = extractContractError(receiptErr);
+					throw new Error(contractErr.userMessage);
+				}
+			} else {
+				const evm = getEvmSigner(walletId);
+				if (!evm) throw new Error($t('wallet.defi.approve.error'));
+				const { data: tx, error } = await tryCatch(
+					aave.supplyWithEvmSigner(WBTC_ARBITRUM, rawAmount, evm)
+				);
+				if (error || !tx) {
+					const contractErr = extractContractError(error);
+					throw new Error(contractErr.userMessage);
+				}
+			}
+
+			txPhase = 'done';
+			isProcessing = false;
+			defiPositions.invalidate(walletId);
+			onComplete();
+		} catch (err) {
+			const contractErr = extractContractError(err);
+			txError = contractErr.userMessage;
+			Sentry.captureException(err, {
+				tags: { feature: 'defi.position', action: 'addCollateral', phase: txPhase }
+			});
+			txPhase = 'idle';
+			isProcessing = false;
+		}
 	}
 </script>
 
@@ -231,6 +279,48 @@
 		<div class="alert alert-soft alert-error py-1 text-xs" role="alert">
 			<span>{txError}</span>
 			<button type="button" class="btn btn-ghost btn-xs" onclick={() => (txError = null)}>✕</button>
+		</div>
+	{/if}
+
+	{#if isProcessing && txPhase !== 'idle'}
+		<div class="space-y-2">
+			<div class="flex items-center gap-2 text-sm">
+				{#if txPhase === 'checking'}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span>{$t('wallet.defi.wizard.checking_allowance')}</span>
+				{:else if txPhase === 'approving'}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span>{$t('wallet.defi.wizard.approving_wbtc')}</span>
+				{:else if txPhase === 'supplying'}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span>{$t('wallet.defi.shared.pending_tx')}</span>
+				{:else if txPhase === 'done'}
+					<svg class="text-success h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M5 13l4 4L19 7"
+						/>
+					</svg>
+					<span>Confirmed</span>
+				{/if}
+			</div>
+			<ul class="steps steps-horizontal w-full text-xs">
+				<li class="step step-primary">Check</li>
+				<li
+					class="step {txPhase === 'approving' || txPhase === 'supplying' || txPhase === 'done'
+						? 'step-primary'
+						: ''}"
+				>
+					Approve
+				</li>
+				<li
+					class="step {txPhase === 'supplying' || txPhase === 'done' ? 'step-primary' : ''}"
+				>
+					Supply
+				</li>
+			</ul>
 		</div>
 	{/if}
 

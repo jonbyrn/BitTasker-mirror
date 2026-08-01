@@ -7,7 +7,9 @@
 	import { walletStore, formatSats } from '$lib/stores/wallet.store';
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { AaveService, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, WBTC_ARBITRUM } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import {
 		calculateMaxSafeWithdraw,
 		calculateProjectedHealthFactor,
@@ -95,6 +97,16 @@
 
 	let exceedsSafe = $derived(amountNum > maxSafeSats);
 	let canWithdraw = $derived(amountNum > 0 && isOnline && projectedHf >= 1.05 && !exceedsSafe);
+	let gasEstimate = $state(0.15);
+
+	$effect(() => {
+		fetchLiveFees().then((fees) => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	function setMaxSafe() {
 		if (maxSafeSats > 0) {
@@ -119,8 +131,6 @@
 		}
 		amountSats = Math.round((maxSafeSats * pct) / 100).toString();
 	}
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 
 	async function handleWithdraw() {
 		if (!canWithdraw || isProcessing) return;
@@ -271,7 +281,7 @@
 
 	<div class="bg-base-200 rounded-box flex items-center justify-between p-2 text-xs">
 		<span class="text-base-content/60">{$t('wallet.defi.gas_estimate')}</span>
-		<span class="tabular-nums">~$0.15 (Arbitrum)</span>
+		<span class="tabular-nums">~${gasEstimate.toFixed(2)} (Arbitrum)</span>
 	</div>
 
 	<button

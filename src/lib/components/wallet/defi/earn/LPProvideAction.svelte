@@ -18,14 +18,25 @@
 		FULL_RANGE,
 		type MintParams
 	} from '$lib/services/defi/uniswap.service';
+	import { ARB_PUBLIC_RPC as ARB_RPC } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
 	import type { UniswapLPPosition } from '$lib/stores/defi-positions.store.svelte';
 
-	const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
 	const NPM_ADDR = '0xC36442b4a4522E871399CD717aBDD847Ab11FE88';
 	/** 0.5% slippage protection — industry standard default */
 	const SLIPPAGE_BPS = 50;
+
+	let gasEstimate = $state(0.12);
+	$effect(() => {
+		fetchLiveFees().then(fees => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	interface Props {
 		walletId: string;
@@ -530,7 +541,7 @@
 	token={{ symbol: 'WBTC' }}
 	spender={NPM_ADDR}
 	onApprove={() => handleApprove(UniswapService.WBTC_ARBITRUM, wbtcAmt.toFixed(8), 8, 'WBTC')}
-	gasEstimate={0.12}
+	gasEstimate={gasEstimate}
 	isSubmitting={txState === 'approving-wbtc'}
 />
 <ApproveModal
@@ -548,6 +559,6 @@
 	token={{ symbol: 'USDT0' }}
 	spender={NPM_ADDR}
 	onApprove={() => handleApprove(UniswapService.USDT0_ARBITRUM, usdt0Amt.toFixed(6), 6, 'USDT0')}
-	gasEstimate={0.09}
+	gasEstimate={gasEstimate}
 	isSubmitting={txState === 'approving-usdt0'}
 />

@@ -9,7 +9,8 @@
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { appStore } from '$lib/stores/app.store';
 	import type { TokenInfo } from '$lib/types/gasless.types';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, AAVE_POOL, USDT0_ARBITRUM } from '$lib/config/defi.constants';
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
 	import { defiPositions, type AaveLendingPosition } from '$lib/stores/defi-positions.store.svelte';
@@ -76,8 +77,6 @@
 	// Override has for selected (connected may have)
 	let hasSelectedUsdt0 = $derived(selectedUsdt0BalanceNum > 0);
 
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-	const AAVE_POOL_ADDR = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
 	const USDT0_DECIMALS = 6;
 
 	async function loadLiveSupplyAPY() {
@@ -191,7 +190,7 @@
 			signer
 		);
 		const amt = ethers.parseUnits(String(approveAmount), USDT0_DECIMALS);
-		const { error } = await tryCatch(token.approve(AAVE_POOL_ADDR, amt));
+		const { error } = await tryCatch(token.approve(AAVE_POOL, amt));
 		isApproving = false;
 		if (error) {
 			txError = error.message || $t('wallet.defi.error.approve_failed');
@@ -453,7 +452,7 @@
 			address: USDT0_ARBITRUM,
 			decimals: USDT0_DECIMALS
 		} as unknown as TokenInfo}
-		spender={AAVE_POOL_ADDR}
+		spender={AAVE_POOL}
 		onApprove={handleApproveForModal}
 		isSubmitting={isApproving}
 	/>

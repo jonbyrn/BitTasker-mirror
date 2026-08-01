@@ -167,38 +167,77 @@ vi.mock('$lib/services/kill-switch', () => ({
 	FeatureFlagService: mockKillSwitch,
 	FEATURE_FLAGS: { LOAN_FLOW: 'LOAN_FLOW', CONNECTED_WALLETS: 'CONNECTED_WALLETS' }
 }));
-vi.mock('ethers', () => ({
-	ethers: {
-		JsonRpcProvider: vi.fn(() => ({})),
-		Contract: vi.fn(() => ({
-			getReserveData: vi.fn().mockResolvedValue({
-				aTokenAddress: '0x0000000000000000000000000000000000000001',
-				8: '0x0000000000000000000000000000000000000001'
-			}),
-			balanceOf: vi.fn().mockResolvedValue(0n),
-			decimals: vi.fn().mockResolvedValue(6)
-		})),
-		ZeroAddress: '0x0000000000000000000000000000000000000000',
-		formatUnits: vi.fn(() => '0')
-	},
-	JsonRpcProvider: vi.fn(() => ({})),
-	Contract: vi.fn(() => ({
+vi.mock('$lib/config/defi.constants', () => ({
+	ARB_PUBLIC_RPC: 'https://arb1.arbitrum.io/rpc',
+	AAVE_POOL: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+	AAVE_POOL_DATA_PROVIDER: '0x243Aa95cAC2a25651eda86e80bEe66114413c43b',
+	WBTC_ARBITRUM: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+	USDT0_ARBITRUM: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+	POOL_ABI: [],
+	DATA_PROVIDER_ABI: [],
+	ERC20_APPROVE_ABI: [],
+	ARBITRUM_CHAIN_ID: 42161,
+	DEFAULT_WBTC_LTV_BPS: 7300,
+	DEFAULT_LIQUIDATION_THRESHOLD_BPS: 7800,
+	DEFAULT_GAS_SUPPLY: 250_000n,
+	DEFAULT_GAS_BORROW: 300_000n,
+	DEFAULT_GAS_REPAY: 250_000n,
+	DEFAULT_GAS_WITHDRAW: 200_000n,
+	DEFAULT_GAS_GENERIC: 300_000n,
+	GAS_BUFFER_PERCENT: 120n,
+	GAS_BUFFER_DIVISOR: 100n,
+	UNISWAP_WBTC_USDT0_POOL: '0x5969efdde3cf5c0d9a88ae51e47d721096a97203'
+}));
+
+vi.mock('ethers', () => {
+	const mockContractInstance = {
 		getReserveData: vi.fn().mockResolvedValue({
 			aTokenAddress: '0x0000000000000000000000000000000000000001',
 			8: '0x0000000000000000000000000000000000000001'
 		}),
 		balanceOf: vi.fn().mockResolvedValue(0n),
 		decimals: vi.fn().mockResolvedValue(6)
-	})),
-	ZeroAddress: '0x0000000000000000000000000000000000000000',
-	formatUnits: vi.fn(() => '0')
-}));
+	};
+
+	class MockJsonRpcProvider {
+		constructor() {}
+	}
+
+	class MockContract {
+		constructor() {
+			return mockContractInstance;
+		}
+	}
+
+	return {
+		ethers: {
+			JsonRpcProvider: MockJsonRpcProvider,
+			Contract: MockContract,
+			ZeroAddress: '0x0000000000000000000000000000000000000000',
+			formatUnits: vi.fn(() => '0'),
+			getAddress: vi.fn((addr: string) => addr.toLowerCase())
+		},
+		JsonRpcProvider: MockJsonRpcProvider,
+		Contract: MockContract,
+		ZeroAddress: '0x0000000000000000000000000000000000000000',
+		formatUnits: vi.fn(() => '0'),
+		getAddress: vi.fn((addr: string) => addr.toLowerCase())
+	};
+});
 vi.mock('$lib/services/defi/aave.service', () => ({
-	AaveService: vi.fn(() => mockAaveService),
+	AaveService: class {
+		constructor() {
+			return mockAaveService;
+		}
+	},
 	USDT0_ARBITRUM: '0xUSDT'
 }));
 vi.mock('$lib/services/defi/uniswap.service', () => ({
-	UniswapService: vi.fn(() => _mockUniswapService),
+	UniswapService: class {
+		constructor() {
+			return _mockUniswapService;
+		}
+	},
 	FEE_TIER: { LOW: 500 }
 }));
 vi.mock('$lib/utils/tryCatch', () => ({

@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
+	import { onMount } from 'svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
+	import { liquidationMonitor } from '$lib/stores/liquidation-monitor.store.svelte';
 	import LoanOverview from '../LoanOverview.svelte';
 	import PositionCard from '../PositionCard.svelte';
+
+	onMount(() => {
+		liquidationMonitor.start();
+		return () => liquidationMonitor.stop();
+	});
 
 	interface Props {
 		isOpen: boolean;

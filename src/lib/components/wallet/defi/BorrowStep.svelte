@@ -9,7 +9,9 @@
 	import WalletSelector from '$lib/components/wallet/WalletSelector.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import HealthFactorGauge from './HealthFactorGauge.svelte';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, USDT0_ARBITRUM } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 
 	// -----------------------------------------------------------------------
@@ -33,6 +35,14 @@
 	let ltv = $state(0.7);
 	let borrowAPR = $state(3.3);
 	let gasEstimate = $state(0.15);
+	$effect(() => {
+		fetchLiveFees().then(fees => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	let isLoadingRates = $state(true);
 	let ratesError = $state<string | null>(null);
@@ -43,8 +53,6 @@
 	let feeExpanded = $state(false);
 
 	let sourceExpanded = $state(false);
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 
 	async function loadLiveAaveData() {
 		isLoadingRates = true;

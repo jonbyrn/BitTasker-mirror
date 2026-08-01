@@ -8,11 +8,10 @@
 	import { defiPositions, type UniswapLPPosition } from '$lib/stores/defi-positions.store.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { UniswapService } from '$lib/services/defi/uniswap.service';
+	import { ARB_PUBLIC_RPC } from '$lib/config/defi.constants';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import * as Sentry from '@sentry/sveltekit';
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 
 	/** 0.5% slippage protection — industry standard default */
 	const SLIPPAGE_BPS = 50;

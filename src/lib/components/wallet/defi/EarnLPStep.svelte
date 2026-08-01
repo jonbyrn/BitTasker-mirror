@@ -20,6 +20,8 @@
 		FULL_RANGE,
 		type MintParams
 	} from '$lib/services/defi/uniswap.service';
+	import { ARB_PUBLIC_RPC } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import * as Sentry from '@sentry/sveltekit';
 
 	// Props reserved for future parent-driven callbacks from EarnFlowDrawer
@@ -67,8 +69,17 @@
 	let isLoadingPool = $state(false);
 	let poolError = $state<string | null>(null);
 
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
 	const UNISWAP_NPM_ADDR = '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'; // from uniswap.service
+
+	let gasEstimate = $state(0.12);
+	$effect(() => {
+		fetchLiveFees().then(fees => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	// ApproveModal open states (used for full approve flow in provide)
 	let approveWbtcOpen = $state(false);
@@ -816,7 +827,7 @@
 	} as unknown as TokenInfo}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveWbtc}
-	gasEstimate={0.12}
+	gasEstimate={gasEstimate}
 	isSubmitting={txState === 'approving-wbtc'}
 />
 <ApproveModal
@@ -838,6 +849,6 @@
 	} as unknown as TokenInfo}
 	spender={UNISWAP_NPM_ADDR}
 	onApprove={handleApproveUsdt0}
-	gasEstimate={0.09}
+	gasEstimate={gasEstimate}
 	isSubmitting={txState === 'approving-usdt0'}
 />

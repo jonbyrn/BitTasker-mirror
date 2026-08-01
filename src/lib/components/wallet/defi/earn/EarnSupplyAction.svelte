@@ -7,7 +7,8 @@
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
-	import { AaveService, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, AAVE_POOL, USDT0_ARBITRUM } from '$lib/config/defi.constants';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import { appStore } from '$lib/stores/app.store';
@@ -16,8 +17,6 @@
 	import ApproveModal from '$lib/components/wallet/ApproveModal.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-	const AAVE_POOL_ADDR = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
 	const USDT0_DECIMALS = 6;
 
 	interface Props {
@@ -123,7 +122,7 @@
 		const approveIface = new ethers.Interface([
 			'function approve(address spender, uint256 amount) returns (bool)'
 		]);
-		const approveData = approveIface.encodeFunctionData('approve', [AAVE_POOL_ADDR, amt]);
+		const approveData = approveIface.encodeFunctionData('approve', [AAVE_POOL, amt]);
 
 		if (selectedId === 'builtin') {
 			const s = get(walletStore);
@@ -135,7 +134,7 @@
 			}
 			const signer = rskW.connect(new ethers.JsonRpcProvider(ARB_PUBLIC_RPC));
 			const token = new ethers.Contract(USDT0_ARBITRUM, approveIface, signer);
-			const { error } = await tryCatch(token.approve(AAVE_POOL_ADDR, amt));
+			const { error } = await tryCatch(token.approve(AAVE_POOL, amt));
 			isApproving = false;
 			if (error) {
 				txError = error.message || $t('wallet.defi.approve.error');
@@ -305,7 +304,7 @@
 		onClose={handleApproveModalClose}
 		amount={approveAmount}
 		token={{ symbol: 'USDT0' }}
-		spender={AAVE_POOL_ADDR}
+		spender={AAVE_POOL}
 		onApprove={handleApproveForModal}
 		isSubmitting={isApproving}
 	/>

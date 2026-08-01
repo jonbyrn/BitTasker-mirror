@@ -6,85 +6,20 @@
 	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, ARB_PUBLIC_RPC, WBTC_ARBITRUM, POOL_ABI, ERC20_APPROVE_ABI } from '$lib/config/defi.constants';
+	import { sanitizeErrorForLog, mapDeFiErrorMessage } from '$lib/utils/defi-errors';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
-	import { extractContractError, type ContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import * as Sentry from '@sentry/sveltekit';
 	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 
-	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-	const POOL_ABI = [
-		'function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external'
-	];
-
-	// Minimal ERC-20 ABI for allowance check + approve
-	const ERC20_APPROVE_ABI = [
-		'function allowance(address owner, address spender) view returns (uint256)',
-		'function approve(address spender, uint256 amount) returns (bool)'
-	];
-
 	/** Transaction phase: idle → checking allowance → approving → supplying → done */
 	type _TxPhase = 'idle' | 'checking' | 'approving' | 'supplying' | 'done';
-
-	/**
-	 * Sanitize an error for safe console logging.
-	 * Strips raw transaction hex, private-key-like hex strings, and long encoded data
-	 * that would leak no useful debug info but could contain sensitive material.
-	 * Preserves: error type, error code, short context strings.
-	 */
-	function sanitizeErrorForLog(error: unknown): Record<string, unknown> {
-		if (!(error instanceof Error)) {
-			return { type: typeof error, message: 'Unknown error' };
-		}
-
-		// Strip hex blobs ≥64 chars (tx hex, calldata, keys) from the message
-		const safeMessage = error.message
-			.replace(/0x[0-9a-fA-F]{64,}/g, '[hex-redacted]')
-			.replace(/transaction="[^"]*"/g, 'transaction="[redacted]"')
-			.replace(/info=\{[^}]*\}/g, 'info=[redacted]');
-
-		const result: Record<string, unknown> = {
-			name: error.name,
-			message: safeMessage.length > 300 ? safeMessage.slice(0, 300) + '…' : safeMessage
-		};
-
-		// Include code if present (ethers errors have .code)
-		if ('code' in error && typeof (error as Record<string, unknown>).code === 'string') {
-			result.code = (error as Record<string, unknown>).code;
-		}
-
-		return result;
-	}
-
-	/**
-	 * Map a ContractError to a DeFi-specific user-friendly message.
-	 * Overrides generic RBTC-centric messages with Arbitrum-aware wording.
-	 * Falls back to the contract error's userMessage for unmapped codes.
-	 */
-	function mapDeFiErrorMessage(contractErr: ContractError): string {
-		const _ = $t;
-		const code = contractErr.errorCode;
-		if (!code) return contractErr.userMessage;
-
-		const DEFI_ERROR_MAP: Record<string, string> = {
-			INSUFFICIENT_GAS: _('wallet.defi.shared.error_insufficient_gas'),
-			INSUFFICIENT_FUNDS: _('wallet.defi.shared.error_insufficient_funds'),
-			INSUFFICIENT_FUNDS_GAS_FLUCTUATION: _('wallet.defi.shared.error_insufficient_gas'),
-			NETWORK_ERROR: _('wallet.defi.shared.error_network'),
-			USER_REJECTED: _('wallet.defi.shared.error_user_rejected'),
-			GAS_ERROR: _('wallet.defi.shared.error_gas_limit'),
-			NONCE_ERROR: _('wallet.defi.shared.error_nonce'),
-			CONTRACT_REVERT: _('wallet.defi.shared.error_contract_revert'),
-			PROVIDER_DESTROYED: _('wallet.defi.shared.error_network'),
-			WALLET_ERROR: _('wallet.defi.shared.error_network'),
-			GENERIC_ERROR: _('wallet.defi.shared.error_generic')
-		};
-
-		return DEFI_ERROR_MAP[code] ?? contractErr.userMessage;
-	}
 
 	interface Props {
 		walletId: string;
@@ -141,9 +76,10 @@
 	let amountUsd = $derived(amountBtc * btcPrice.price);
 
 	let projectedCollateralUsd = $derived(currentCollateralUsd + amountUsd);
+	let reserveLtvBps = $state(7300);
 	let projectedAvailableBorrow = $derived.by(() => {
 		if (projectedCollateralUsd <= 0) return 0;
-		const maxBorrow = projectedCollateralUsd * (7300 / 10_000);
+		const maxBorrow = projectedCollateralUsd * (reserveLtvBps / 10_000);
 		return Math.max(0, maxBorrow - currentDebtUsd);
 	});
 
@@ -156,7 +92,31 @@
 		return total;
 	});
 	let hasWbtc = $derived(wbtcBalanceSats > 0 || connectedWbtcSats > 0);
-	let gasEstimate = $derived(0.12);
+	let gasEstimate = $state(0.12);
+	let gasLoading = $state(false);
+
+	$effect(() => {
+		const provider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
+		const aave = new AaveService(provider);
+		aave.getReserveConfig(WBTC_ARBITRUM).then((config) => {
+			reserveLtvBps = config.ltv;
+		}).catch(() => {});
+	});
+
+	$effect(() => {
+		gasLoading = true;
+		fetchLiveFees()
+			.then((fees) => {
+				if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+					const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+					gasEstimate = gasCostEth * fees.ethUsdPrice;
+				}
+			})
+			.catch(() => {})
+			.finally(() => {
+				gasLoading = false;
+			});
+	});
 
 	let canSupply = $derived(amountSats > 0 && hasWbtc && isOnline && amountSats <= wbtcBalanceSats);
 
@@ -286,7 +246,7 @@
 	 */
 	async function checkAllowance(owner: string): Promise<bigint> {
 		const normalizedOwner = ethers.getAddress(owner.toLowerCase());
-		const arbProvider = new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+		const arbProvider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
 		const tokenContract = new ethers.Contract(WBTC_ARBITRUM, ERC20_APPROVE_ABI, arbProvider);
 		const { data: allowance, error } = await tryCatch(
 			tokenContract.allowance(normalizedOwner, AAVE_POOL)
@@ -464,7 +424,7 @@
 			});
 
 			// Show human-friendly message to the user (Arbitrum-aware, not RBTC-centric)
-			confirmError = mapDeFiErrorMessage(contractErr);
+			confirmError = mapDeFiErrorMessage(contractErr, $t);
 			txPhase = 'idle';
 			isProcessing = false;
 		}

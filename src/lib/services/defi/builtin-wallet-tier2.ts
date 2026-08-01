@@ -10,6 +10,7 @@
  */
 import { ethers } from 'ethers';
 import { VERIFIED_TOKENS, CHAIN_LABELS } from '$lib/data/verified-tokens';
+import { ARB_PUBLIC_RPC } from '$lib/config/defi.constants';
 
 const balanceOfSelector = '0x70a08231';
 
@@ -19,7 +20,7 @@ const balanceOfSelector = '0x70a08231';
  */
 const FREE_RPC_ENDPOINTS: Record<number, string> = {
 	56: 'https://bsc-dataseed.binance.org',
-	42161: 'https://arb1.arbitrum.io/rpc'
+	42161: ARB_PUBLIC_RPC
 };
 
 /**

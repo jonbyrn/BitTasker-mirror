@@ -7,7 +7,9 @@
 	import { getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { AaveService, WBTC_ARBITRUM, USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AaveService } from '$lib/services/defi/aave.service';
+	import { ARB_PUBLIC_RPC, WBTC_ARBITRUM, USDT0_ARBITRUM } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import {
 		calculateProjectedHealthFactor,
 		calculateBtcLiquidationPrice,
@@ -80,7 +82,16 @@
 
 	let healthStatus = $derived(deriveHealthStatus(projectedHf));
 
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
+	let gasEstimate = $state(0.35);
+
+	$effect(() => {
+		fetchLiveFees().then((fees) => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	async function handleConfirm() {
 		if (!riskAcknowledged || isProcessing) return;
@@ -320,7 +331,7 @@
 			<span class="text-base-content/60">{$t('wallet.defi.wizard.review_gas_est')}</span>
 			<span class="tabular-nums"
 				>{$t('wallet.common.gas_estimate_approx', {
-					values: { amount: '0.35', network: 'Arbitrum' }
+					values: { amount: gasEstimate.toFixed(2), network: 'Arbitrum' }
 				})}</span
 			>
 		</div>

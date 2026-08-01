@@ -51,14 +51,46 @@ const { mockEthersContract, mockJsonRpcProvider } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('ethers', () => ({
-	ethers: {
-		Contract: vi.fn(() => mockEthersContract),
-		JsonRpcProvider: mockJsonRpcProvider
-	},
-	Contract: vi.fn(() => mockEthersContract),
-	JsonRpcProvider: mockJsonRpcProvider
+vi.mock('$lib/config/defi.constants', () => ({
+	ARB_PUBLIC_RPC: 'https://arb1.arbitrum.io/rpc',
+	AAVE_POOL: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+	AAVE_POOL_DATA_PROVIDER: '0x243Aa95cAC2a25651eda86e80bEe66114413c43b',
+	WBTC_ARBITRUM: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+	USDT0_ARBITRUM: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+	POOL_ABI: [],
+	DATA_PROVIDER_ABI: [],
+	ERC20_APPROVE_ABI: [],
+	ARBITRUM_CHAIN_ID: 42161,
+	DEFAULT_WBTC_LTV_BPS: 7300,
+	DEFAULT_LIQUIDATION_THRESHOLD_BPS: 7800,
+	DEFAULT_GAS_SUPPLY: 250_000n,
+	DEFAULT_GAS_BORROW: 300_000n,
+	DEFAULT_GAS_REPAY: 250_000n,
+	DEFAULT_GAS_WITHDRAW: 200_000n,
+	DEFAULT_GAS_GENERIC: 300_000n,
+	GAS_BUFFER_PERCENT: 120n,
+	GAS_BUFFER_DIVISOR: 100n,
+	UNISWAP_WBTC_USDT0_POOL: '0x5969efdde3cf5c0d9a88ae51e47d721096a97203'
 }));
+
+vi.mock('ethers', () => {
+	class MockContract {
+		constructor() {
+			return mockEthersContract;
+		}
+	}
+	class MockJsonRpcProvider {
+		constructor() {}
+	}
+	return {
+		ethers: {
+			Contract: MockContract,
+			JsonRpcProvider: MockJsonRpcProvider
+		},
+		Contract: MockContract,
+		JsonRpcProvider: MockJsonRpcProvider
+	};
+});
 
 // ---------------------------------------------------------------------------
 // Test setup

@@ -9,79 +9,22 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
 		AaveService,
-		USDT0_ARBITRUM,
 		calculateBtcLiquidationPrice,
 		calculateLtv
 	} from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, ARB_PUBLIC_RPC, POOL_ABI, USDT0_ARBITRUM } from '$lib/config/defi.constants';
+	import { fetchLiveFees } from '$lib/utils/swap-gas';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError, type ContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import { sanitizeErrorForLog, mapDeFiErrorMessage } from '$lib/utils/defi-errors';
 	import * as Sentry from '@sentry/sveltekit';
 	import SwapPartySelector from '$lib/components/wallet/SwapPartySelector.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
 	import type { AssetOption } from '$lib/components/wallet/AssetSelector.svelte';
 
-	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-	const POOL_ABI = [
-		'function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external'
-	];
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-
 	/** Transaction phase for borrow: idle → borrowing → done */
 	type TxPhase = 'idle' | 'borrowing' | 'done';
-
-	/**
-	 * Sanitize an error for safe console logging.
-	 * Strips raw transaction hex, private-key-like hex strings, and long encoded data.
-	 */
-	function sanitizeErrorForLog(error: unknown): Record<string, unknown> {
-		if (!(error instanceof Error)) {
-			return { type: typeof error, message: 'Unknown error' };
-		}
-
-		const safeMessage = error.message
-			.replace(/0x[0-9a-fA-F]{64,}/g, '[hex-redacted]')
-			.replace(/transaction="[^"]*"/g, 'transaction="[redacted]"')
-			.replace(/info=\{[^}]*\}/g, 'info=[redacted]');
-
-		const result: Record<string, unknown> = {
-			name: error.name,
-			message: safeMessage.length > 300 ? safeMessage.slice(0, 300) + '…' : safeMessage
-		};
-
-		if ('code' in error && typeof (error as Record<string, unknown>).code === 'string') {
-			result.code = (error as Record<string, unknown>).code;
-		}
-
-		return result;
-	}
-
-	/**
-	 * Map a ContractError to a DeFi-specific user-friendly message.
-	 * Overrides generic RBTC-centric messages with Arbitrum-aware wording.
-	 */
-	function mapDeFiErrorMessage(contractErr: ContractError): string {
-		const _ = $t;
-		const code = contractErr.errorCode;
-		if (!code) return contractErr.userMessage;
-
-		const DEFI_ERROR_MAP: Record<string, string> = {
-			INSUFFICIENT_GAS: _('wallet.defi.shared.error_insufficient_gas'),
-			INSUFFICIENT_FUNDS: _('wallet.defi.shared.error_insufficient_funds'),
-			INSUFFICIENT_FUNDS_GAS_FLUCTUATION: _('wallet.defi.shared.error_insufficient_gas'),
-			NETWORK_ERROR: _('wallet.defi.shared.error_network'),
-			USER_REJECTED: _('wallet.defi.shared.error_user_rejected'),
-			GAS_ERROR: _('wallet.defi.shared.error_gas_limit'),
-			NONCE_ERROR: _('wallet.defi.shared.error_nonce'),
-			CONTRACT_REVERT: _('wallet.defi.shared.error_contract_revert'),
-			PROVIDER_DESTROYED: _('wallet.defi.shared.error_network'),
-			WALLET_ERROR: _('wallet.defi.shared.error_network'),
-			GENERIC_ERROR: _('wallet.defi.shared.error_generic')
-		};
-
-		return DEFI_ERROR_MAP[code] ?? contractErr.userMessage;
-	}
 
 	interface Props {
 		walletId: string;
@@ -104,6 +47,16 @@
 	let sliderPercent = $state(0);
 	let riskAcknowledged = $state(false);
 	let isOnline = $derived($browserNetworkStatus.online);
+	let gasEstimate = $state(0.15);
+
+	$effect(() => {
+		fetchLiveFees().then((fees) => {
+			if (fees.arbGasPriceWei && fees.ethUsdPrice) {
+				const gasCostEth = Number(fees.arbGasPriceWei * 250_000n) / 1e18;
+				gasEstimate = gasCostEth * fees.ethUsdPrice;
+			}
+		}).catch(() => {});
+	});
 
 	// USDT0 balance for the "To:" selector
 	let usdt0Balance = $derived($walletStore.arb?.formattedUsdt0Balance ?? '0');
@@ -327,7 +280,7 @@
 				}
 			});
 
-			confirmError = mapDeFiErrorMessage(contractErr);
+			confirmError = mapDeFiErrorMessage(contractErr, $t);
 			txPhase = 'idle';
 			isProcessing = false;
 		}
@@ -411,7 +364,7 @@
 				{/if}
 				<div class="flex justify-between">
 					<span>{$t('wallet.defi.borrow.gas_fee')}</span>
-					<span class="tabular-nums">~$0.18</span>
+					<span class="tabular-nums">~${gasEstimate.toFixed(2)}</span>
 				</div>
 				<div class="flex justify-between">
 					<span>{$t('wallet.defi.borrow.interest_rate')}</span>

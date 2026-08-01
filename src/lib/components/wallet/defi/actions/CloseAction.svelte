@@ -6,22 +6,11 @@
 	import { walletStore, sendArbitrumTransaction } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
-	import { USDT0_ARBITRUM, WBTC_ARBITRUM } from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, POOL_ABI, ERC20_APPROVE_ABI, ARB_PUBLIC_RPC, WBTC_ARBITRUM, USDT0_ARBITRUM } from '$lib/config/defi.constants';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+	import { sanitizeErrorForLog } from '$lib/utils/defi-errors';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
 	import LoanHealthBadge from '../LoanHealthBadge.svelte';
-
-	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-	const POOL_ABI = [
-		'function multicall(bytes[] calldata data) external returns (bytes[] memory)',
-		'function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external returns (uint256)',
-		'function withdraw(address asset, uint256 amount, address to) external returns (uint256)'
-	];
-	const ERC20_ABI = [
-		'function allowance(address owner, address spender) view returns (uint256)',
-		'function approve(address spender, uint256 amount) returns (bool)'
-	];
-	const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
 
 	interface Props {
 		walletId: string;
@@ -99,18 +88,6 @@
 		successTxHash = null;
 	}
 
-	function sanitizeErrorForLog(err: unknown): Record<string, unknown> {
-		if (!(err instanceof Error)) return { type: typeof err, message: 'Unknown error' };
-		const safeMessage = err.message
-			.replace(/0x[0-9a-fA-F]{64,}/g, '[hex-redacted]')
-			.replace(/transaction="[^"]*"/g, 'transaction="[redacted]"')
-			.replace(/info=\{[^}]*\}/g, 'info=[redacted]');
-		return {
-			name: err.name,
-			message: safeMessage.length > 300 ? safeMessage.slice(0, 300) + '...' : safeMessage
-		};
-	}
-
 	async function handleRepayAndClose() {
 		if (isProcessing) return;
 		isProcessing = true;
@@ -119,13 +96,13 @@
 
 		try {
 			_txPhase = 'closing';
-			const arbProvider = new ethers.JsonRpcProvider(ARB_RPC);
+			const arbProvider = new ethers.JsonRpcProvider(ARB_PUBLIC_RPC);
 			const normalizedAddr = ethers.getAddress(address.toLowerCase());
 
 			// Step 1: Check USDT0 allowance — Aave pool needs approval to spend USDT0 for repay
 			if (totalDebtUsd > 0) {
 				console.log('[CloseAction] Checking USDT0 allowance...');
-				const usdt0Contract = new ethers.Contract(USDT0_ARBITRUM, ERC20_ABI, arbProvider);
+				const usdt0Contract = new ethers.Contract(USDT0_ARBITRUM, ERC20_APPROVE_ABI, arbProvider);
 				const { data: currentAllowance, error: allowanceErr } = await tryCatch(
 					usdt0Contract.allowance(normalizedAddr, AAVE_POOL)
 				);
@@ -144,7 +121,7 @@
 
 				if ((currentAllowance ?? 0n) < needed) {
 					console.log('[CloseAction] Approving USDT0...');
-					const erc20Iface = new Interface(ERC20_ABI);
+					const erc20Iface = new Interface(ERC20_APPROVE_ABI);
 					const approveData = erc20Iface.encodeFunctionData('approve', [
 						AAVE_POOL,
 						ethers.MaxUint256
@@ -189,7 +166,10 @@
 			}
 
 			// Step 2: Encode repay + withdraw multicall
-			const poolIface = new Interface(POOL_ABI);
+			const poolIface = new Interface([
+				...POOL_ABI,
+				'function multicall(bytes[] calldata data) external returns (bytes[] memory)'
+			]);
 			const repayCallData = poolIface.encodeFunctionData('repay', [
 				USDT0_ARBITRUM,
 				ethers.MaxUint256,

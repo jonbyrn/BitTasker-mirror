@@ -2,34 +2,19 @@ import { ethers, Interface } from 'ethers';
 import { tryCatch } from '$lib/utils/tryCatch';
 import * as Sentry from '@sentry/sveltekit';
 import type { EVMSigner, EVMTransactionResult } from '$lib/services/external-wallet/types';
+import {
+	AAVE_POOL,
+	AAVE_POOL_DATA_PROVIDER,
+	WBTC_ARBITRUM,
+	USDT0_ARBITRUM,
+	POOL_ABI,
+	DATA_PROVIDER_ABI,
+	GAS_BUFFER_PERCENT,
+	GAS_BUFFER_DIVISOR
+} from '$lib/config/defi.constants';
 
-// ---------------------------------------------------------------------------
-// Contract Addresses (Arbitrum One)
-// ---------------------------------------------------------------------------
-
-const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-const AAVE_POOL_DATA_PROVIDER = '0x243Aa95cAC2a25651eda86e80bEe66114413c43b';
-
-// Token addresses on Arbitrum
-export const WBTC_ARBITRUM = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f';
-export const USDT0_ARBITRUM = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
-
-// ---------------------------------------------------------------------------
-// ABIs (minimal — only the functions we need)
-// ---------------------------------------------------------------------------
-
-const POOL_ABI = [
-	'function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external',
-	'function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external',
-	'function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external returns (uint256)',
-	'function withdraw(address asset, uint256 amount, address to) external returns (uint256)',
-	'function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
-	'function getReserveData(address asset) external view returns (tuple(uint256 data) configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt)'
-];
-
-const DATA_PROVIDER_ABI = [
-	'function getReserveConfigurationData(address asset) external view returns (uint256 decimals, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen)'
-];
+// Re-export for backward compatibility (consumers import from aave.service)
+export { WBTC_ARBITRUM, USDT0_ARBITRUM };
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -225,8 +210,7 @@ export class AaveService {
 			});
 			return defaultGas;
 		}
-		// 20% buffer for safety on Arbitrum DeFi ops
-		return (gas * 120n) / 100n;
+		return (gas * GAS_BUFFER_PERCENT) / GAS_BUFFER_DIVISOR;
 	}
 
 	// -- Write Operations (require a Signer) -------------------------------

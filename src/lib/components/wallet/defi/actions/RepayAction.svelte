@@ -6,12 +6,13 @@
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
 	import { walletStore, sendArbitrumTransaction } from '$lib/stores/wallet.store';
 	import { connectedWalletsStore, getEvmSigner } from '$lib/stores/connected-wallets.store';
-	import { USDT0_ARBITRUM } from '$lib/services/defi/aave.service';
 	import {
 		calculateProjectedHealthFactor,
 		calculateBtcLiquidationPrice,
 		deriveHealthStatus
 	} from '$lib/services/defi/aave.service';
+	import { AAVE_POOL, POOL_ABI, USDT0_ARBITRUM, ARB_PUBLIC_RPC } from '$lib/config/defi.constants';
+	import { sanitizeErrorForLog } from '$lib/utils/defi-errors';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
@@ -20,11 +21,6 @@
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import LoanHealthBar from '../LoanHealthBar.svelte';
 	import LoanHealthBadge from '../LoanHealthBadge.svelte';
-
-	const AAVE_POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-	const POOL_ABI = [
-		'function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external returns (uint256)'
-	];
 
 	interface Props {
 		walletId: string;
@@ -194,30 +190,6 @@
 		}
 		showConfirmModal = false;
 		successTxHash = null;
-	}
-
-	const ARB_PUBLIC_RPC = 'https://arb1.arbitrum.io/rpc';
-
-	function sanitizeErrorForLog(error: unknown): Record<string, unknown> {
-		if (!(error instanceof Error)) {
-			return { type: typeof error, message: 'Unknown error' };
-		}
-
-		const safeMessage = error.message
-			.replace(/0x[0-9a-fA-F]{64,}/g, '[hex-redacted]')
-			.replace(/transaction="[^"]*"/g, 'transaction="[redacted]"')
-			.replace(/info=\{[^}]*\}/g, 'info=[redacted]');
-
-		const result: Record<string, unknown> = {
-			name: error.name,
-			message: safeMessage.length > 300 ? safeMessage.slice(0, 300) + '...' : safeMessage
-		};
-
-		if ('code' in error && typeof (error as Record<string, unknown>).code === 'string') {
-			result.code = (error as Record<string, unknown>).code;
-		}
-
-		return result;
 	}
 
 	async function handleRepay() {

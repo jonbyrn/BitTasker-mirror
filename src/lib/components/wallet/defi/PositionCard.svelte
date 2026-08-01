@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
 	import { defiPositions } from '$lib/stores/defi-positions.store.svelte';
+	import { liquidationMonitor } from '$lib/stores/liquidation-monitor.store.svelte';
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import LoanHealthBar from './LoanHealthBar.svelte';
 	import WalletIcon from '$lib/components/wallet/WalletIcon.svelte';
@@ -75,6 +76,9 @@
 
 	// Short address for display
 	let shortAddress = $derived(`${address.slice(0, 6)}...${address.slice(-4)}`);
+
+	// Liquidation alert for this wallet
+	let alert = $derived(liquidationMonitor.alerts.get(walletId));
 
 	// Projected values from action forms
 	let projectedDebt = $state<number | null>(null);
@@ -215,6 +219,30 @@
 	</button>
 	{#if pos}
 		<div class="collapse-content">
+			{#if alert && !alert.acknowledged}
+				<div
+					class="alert {alert.severity === 'danger'
+						? 'alert-error'
+						: alert.severity === 'warning'
+							? 'alert-warning'
+							: 'alert-info'} mx-3 mb-2 py-2 text-xs sm:mx-4"
+				>
+					<svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{alert.message}</span>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs"
+						onclick={() => liquidationMonitor.acknowledge(walletId)}>Dismiss</button
+					>
+				</div>
+			{/if}
 			<div class="space-y-3 px-3 sm:px-4">
 				<!-- Loan health bar (current or projected) -->
 				<LoanHealthBar
