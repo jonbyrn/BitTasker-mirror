@@ -79,11 +79,13 @@ describe('connected-wallet-transactions', () => {
 	let mockFetch: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
+		vi.stubEnv('VITE_RSK_NETWORK', 'mainnet');
 		mockFetch = vi.fn();
 		vi.stubGlobal('fetch', mockFetch);
 	});
 
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
 		vi.clearAllMocks();
 	});
