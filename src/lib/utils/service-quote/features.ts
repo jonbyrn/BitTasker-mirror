@@ -6,14 +6,24 @@ function getBooleanEnv(value: string | boolean | undefined): boolean {
 	return value === true || value === 'true';
 }
 
-function abiSupportsPurchaseKey(abi: Array<Record<string, unknown>>): boolean {
+function abiSupportsPurchaseKey(abi: unknown): boolean {
+	if (!Array.isArray(abi)) {
+		return false;
+	}
+
 	return abi.some((entry) => {
+		if (!entry || typeof entry !== 'object') {
+			return false;
+		}
+
 		if (entry.type !== 'function' || entry.name !== 'createEscrow') {
 			return false;
 		}
 
-		const inputs = Array.isArray(entry.inputs) ? entry.inputs : [];
-		return inputs.some((input) => input?.name === 'purchaseKey');
+		const inputs = 'inputs' in entry && Array.isArray(entry.inputs) ? entry.inputs : [];
+		return inputs.some((input) => {
+			return !!input && typeof input === 'object' && 'name' in input && input.name === 'purchaseKey';
+		});
 	});
 }
 
@@ -23,8 +33,8 @@ export function supportsServicePurchaseKeyCapability(): boolean {
 	}
 
 	return (
-		abiSupportsPurchaseKey(escrowV1Abi as Array<Record<string, unknown>>) ||
-		abiSupportsPurchaseKey(escrowV2Abi as Array<Record<string, unknown>>)
+		abiSupportsPurchaseKey(escrowV1Abi) ||
+		abiSupportsPurchaseKey(escrowV2Abi)
 	);
 }
 

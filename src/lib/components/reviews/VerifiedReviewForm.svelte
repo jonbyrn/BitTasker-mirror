@@ -5,7 +5,7 @@
 	import { buildSignedReviewEvent, submitAttestedReview } from '$lib/utils/reviews/attestation';
 	import { resolveContractOutcomeFromStatus } from '$lib/utils/reviews/contractOutcome';
 	import { computeReviewDraftHash, reviewEventPayloadSchema } from '@bittasker/reviews-contracts';
-	import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
+	// import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { appStore } from '$lib/stores/app.store';

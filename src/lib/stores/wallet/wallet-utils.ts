@@ -235,3 +235,4 @@ export const walletManager = {
 		return getWalletManager().chainSwapService;
 	}
 };
+

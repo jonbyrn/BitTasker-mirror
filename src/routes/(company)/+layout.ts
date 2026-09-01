@@ -1,12 +1,25 @@
 import { mergeTranslations } from '$lib/i18n/ssr';
-import homeTranslations from '../../../static/locales/en/home.json';
-import commonTranslations from '../../../static/locales/en/common.json';
-
 export const prerender = true;
 export const ssr = true;
 
-const translations = mergeTranslations(homeTranslations, commonTranslations);
+export async function load({ fetch }) {
+	const [homeResponse, commonResponse] = await Promise.all([
+		fetch('/locales/en/home.json'),
+		fetch('/locales/en/common.json')
+	]);
 
-export function load() {
+	if (!homeResponse.ok || !commonResponse.ok) {
+		console.warn('[company/+layout] Failed to load translations');
+		return { translations: {} };
+	}
+
+	const [homeTranslations, commonTranslations] = await Promise.all([
+		homeResponse.json(),
+		commonResponse.json()
+	]);
+
+	const translations = mergeTranslations(homeTranslations, commonTranslations);
+
 	return { translations };
 }
+

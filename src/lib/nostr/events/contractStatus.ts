@@ -1,14 +1,8 @@
-import type { Attachment } from '$lib/types/task';
+﻿import type { Attachment } from '$lib/types/attachment';
+import { RgbContractState } from '$lib/types/rgb';
 import { createDebug } from '$lib/utils/debug';
 import KINDS from '$lib/utils/constants/kinds';
-import NDK, { NDKEvent, NDKUser, type NDKTag, type NostrEvent } from '@nostr-dev-kit/ndk';
-import type { ContractStatus } from '$lib/utils/contract/types';
-import {
-	isLegacyContractStatusWireVersion,
-	isValidContractStatusEnumValue,
-	normalizeLegacyEscrowStatusTagToContractStatus
-} from '$lib/utils/contract/v1/legacyEscrowStatusToContractStatus';
-
+import NDK, { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 const d = createDebug('ndk:events:contract-status');
 
 /**
@@ -46,7 +40,7 @@ function isLegacyNostrContractStatusContent(data: unknown): data is Record<strin
 }
 
 /**
- * Legacy JSON body (NostrContractStatus) → tag rows. Wire tags win over content.
+ * Legacy JSON body (NostrContractStatus) â†’ tag rows. Wire tags win over content.
  * Does not duplicate payment id / parent event id inside encrypted tags when `r` / `e` exist on wire.
  */
 function legacyStatusContentToAdditionalTags(
@@ -117,13 +111,13 @@ function isValidContractStatusMessageType(ev: NDKContractStatus): boolean {
 }
 
 /**
- * Kind 31006 — contract / payment status updates.
+ * Kind 31006 â€” contract / payment status updates.
  *
  * - **Wire:** public tags `e`, `r`, `p`, `s`, `v`, `m`; encrypted `content` = JSON.stringify(tag rows) for all other tags (new format).
- * - **Legacy:** encrypted `content` was a single `NostrContractStatus` JSON object → merged in `from()`.
+ * - **Legacy:** encrypted `content` was a single `NostrContractStatus` JSON object â†’ merged in `from()`.
  * - After `from()`, normalized data lives in `this.tags`; getters/setters use tags.
  * - **Publish:** `toNostrEvent()` splits public vs private tags and encrypts to the **`p` recipient** (either party may author).
- * - Dispute amounts use tags **`proposedTaskerAmount` / `proposedTaskeeAmount`**. Legacy JSON bodies used `proposedClientAmount` / `proposedFreelancerAmount` as **object keys** only—those are mapped when building tags in `legacyStatusContentToAdditionalTags` (legacy never published client/freelancer as tag names in a tag array).
+ * - Dispute amounts use tags **`proposedTaskerAmount` / `proposedTaskeeAmount`**. Legacy JSON bodies used `proposedClientAmount` / `proposedFreelancerAmount` as **object keys** onlyâ€”those are mapped when building tags in `legacyStatusContentToAdditionalTags` (legacy never published client/freelancer as tag names in a tag array).
  */
 export class NDKContractStatus extends NDKEvent {
 	static kind = KINDS.CONTRACT_STATUS;
@@ -250,9 +244,8 @@ export class NDKContractStatus extends NDKEvent {
 	}
 
 	/**
-	 * Canonical {@link ContractStatus} for this event’s `s` tag.
-	 * - **`v` = `v2`** (or missing `v` without legacy JSON): `s` is already `ContractStatus` (0–11).
-	 * - **Legacy** (`v` = `v1` / `0.0.1`, or missing `v` when parsed from legacy JSON body): `s` was **`EscrowStatus`** — normalized here (see `legacyEscrowStatusToContractStatus.ts`).
+	 * Canonical {@link ContractStatus} for this eventâ€™s `s` tag.
+	 * - **`v` = `v2`** (or missing `v` without legacy JSON): `s` is already `ContractStatus` (0â€“11).
 	 */
 	get status(): ContractStatus | undefined {
 		const raw = this.tagValue('s');
@@ -265,7 +258,7 @@ export class NDKContractStatus extends NDKEvent {
 			(this.version === undefined && this._legacyContent !== undefined);
 
 		if (useLegacyWire) {
-			return normalizeLegacyEscrowStatusTagToContractStatus(n, undefined);
+			return null;
 		}
 
 		if (isValidContractStatusEnumValue(n)) {
@@ -279,7 +272,7 @@ export class NDKContractStatus extends NDKEvent {
 		this.tags.push(['s', String(value)]);
 	}
 
-	/** Flow version (`v1`, `v2`, …), not app build.
+	/** Flow version (`v1`, `v2`, â€¦), not app build.
 	 * If the version tag is "0.0.1", treat it as "v1" for legacy support.
 	 */
 	get version(): string | undefined {
