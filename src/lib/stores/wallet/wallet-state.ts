@@ -7,8 +7,10 @@
  */
 
 import { WalletManager } from '@bittasker/wallet-core';
+import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
 import type { SwapPairsCache } from '$lib/types/wallet';
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import type { JsonRpcProvider } from 'ethers';
 import { initialState, type WalletStateExtended } from './wallet-types';
@@ -16,6 +18,13 @@ import { initialState, type WalletStateExtended } from './wallet-types';
 // ─── The Writable Store (single instance) ────────────────────────────────────
 
 export const walletStore = writable<WalletStateExtended>(initialState);
+
+// Dev-only console inspection: `$walletStore.wdk.btcOnchain.address` via `window.walletStore.get()`.
+if (browser && import.meta.env.DEV) {
+	(window as unknown as { walletStore: { get: () => WalletStateExtended } }).walletStore = {
+		get: () => get(walletStore)
+	};
+}
 
 // ─── Mutable Singletons ─────────────────────────────────────────────────────
 
@@ -35,6 +44,13 @@ export const state = {
 		chain: NostrSwapStorage;
 		submarine: NostrSwapStorage;
 	} | null,
+
+	/**
+	 * Browser/WASM RGB + Lightning wallet (@utexo/rgb-sdk-web) — single source of truth
+	 * for btc_onchain/btc_lightning/usdt_rgb. Supersedes the plain @tetherto/wdk-wallet-btc
+	 * path (different derivation — Taproot BIP-86 vs BIP-84 — the two must not coexist).
+	 */
+	utexoWallet: null as UTEXOWallet | null,
 
 	/** Cached swap pairs per type (1-hour TTL). */
 	cachedSwapPairs: {
@@ -84,6 +100,14 @@ export function getWalletManager(): WalletManager {
 		throw new Error('Wallet is not initialized.');
 	}
 	return state.sdkWalletManager;
+}
+
+/**
+ * Read-only check for `creation.ts` to branch on later — true once the UTEXO RGB
+ * wallet is initialized and online. Never throws; does not itself change escrow behavior.
+ */
+export function isRgbWalletReady(): boolean {
+	return state.utexoWallet !== null && state.utexoWallet.isOnline();
 }
 
 /**

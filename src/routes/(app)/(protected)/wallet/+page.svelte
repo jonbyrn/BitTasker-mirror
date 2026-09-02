@@ -11,6 +11,7 @@
 	import { connectedWalletsStore } from '$lib/stores/connected-wallets.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
+	import RgbWalletDebugCard from '$lib/components/wallet/RgbWalletDebugCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import UnknownTokensCard from '$lib/components/wallet/UnknownTokensCard.svelte';
@@ -535,6 +536,7 @@
 						onToggleBalances={(hidden) => (balancesHidden = hidden)}
 						onManageLoans={() => (showBorrow = true)}
 					/>
+					<RgbWalletDebugCard />
 				{/if}
 
 				<!-- Activity Accordion (Wallet tab only — built-in wallet data) -->

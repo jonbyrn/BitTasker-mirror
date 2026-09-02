@@ -16,7 +16,7 @@ import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { walletStore, state, getWalletManager, fetchWithRetry } from './wallet-state';
-import { WBTC_ARBITRUM_ADDRESS, TBTC_ARBITRUM_ADDRESS } from './wallet-types';
+import { WBTC_ARBITRUM_ADDRESS, TBTC_ARBITRUM_ADDRESS, WDK_ASSET_IDS } from './wallet-types';
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
@@ -454,6 +454,65 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 			? Math.floor((totalUsd / btcPrice) * 100_000_000)
 			: Math.floor(totalRbtc * 100_000_000);
 
+		// UTEXO RGB wallet — BTC on-chain (+ optional RGB "USDT" asset) balances (real, skipped if not initialized)
+		let btcOnchainSats = 0;
+		if (state.utexoWallet) {
+			try {
+				const btcBalance = await state.utexoWallet.getBtcBalance();
+				btcOnchainSats = btcBalance.vanilla.spendable + btcBalance.colored.spendable;
+				const formattedBtc = (btcOnchainSats / 1e8).toFixed(8);
+				const btcOnchainUsdValue = (btcOnchainSats / 1e8) * (btcPriceResult ?? 0);
+				totalUsd += btcOnchainUsdValue;
+
+				walletStore.update((s) => ({
+					...s,
+					wdk: {
+						...s.wdk,
+						btcOnchain: { ...s.wdk.btcOnchain, balanceSats: btcOnchainSats, formattedBalance: formattedBtc }
+					}
+				}));
+
+				assets.push({
+					assetId: WDK_ASSET_IDS.BTC_ONCHAIN,
+					name: 'Bitcoin (On-Chain)',
+					ticker: 'BTC',
+					precision: 8,
+					icon: '₿',
+					balance: btcOnchainSats / 1e8,
+					formattedBalance: formattedBtc,
+					network: 'BTC' as WalletAsset['network'],
+					usdValue: btcOnchainUsdValue
+				});
+
+				// RGB "USDT" asset — only if the app knows which issued NIA asset it is; never guessed.
+				const usdtRgbAssetId = import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined;
+				if (usdtRgbAssetId) {
+					const rgbAssetBalance = await state.utexoWallet.getAssetBalance(usdtRgbAssetId);
+					const usdtRgbAmount = rgbAssetBalance.spendable ?? 0;
+					totalUsd += usdtRgbAmount;
+
+					walletStore.update((s) => ({
+						...s,
+						totalBalances: { ...s.totalBalances, usdtRgb: usdtRgbAmount }
+					}));
+
+					assets.push({
+						assetId: WDK_ASSET_IDS.USDT_RGB,
+						name: 'USDT (RGB)',
+						ticker: 'USDT',
+						precision: 0,
+						icon: '💵',
+						balance: usdtRgbAmount,
+						formattedBalance: usdtRgbAmount.toString(),
+						network: 'BTC' as WalletAsset['network'],
+						usdValue: usdtRgbAmount
+					});
+				}
+			} catch (err) {
+				console.warn('[WALLET-STORE] Failed to fetch UTEXO RGB wallet balances:', err);
+			}
+		}
+
 		// Update store with assets and totals
 		console.log('[WALLET-STORE] committing assets:', assets.map((a) => a.assetId).join(', '));
 		walletStore.update((s) => ({
@@ -464,7 +523,10 @@ export async function loadAssets(forceRefresh = false): Promise<void> {
 				sats: totalSats,
 				rbtc: totalRbtc,
 				usdt: totalUsdt,
-				bnb: totalBnb
+				bnb: totalBnb,
+				btcOnchainSats,
+				btcLightningSats: s.totalBalances.btcLightningSats,
+				usdtRgb: s.totalBalances.usdtRgb
 			},
 			rbtcRateError: priceError || s.rbtcRateError,
 			lastBalanceRefresh: Date.now()
@@ -577,5 +639,19 @@ export async function getTokenBalance(tokenAddress: string): Promise<TokenBalanc
 	} catch (error) {
 		console.error('Failed to get token balance:', error);
 		return null;
+	}
+}
+
+/**
+ * List UTXOs for the UTEXO RGB wallet (Phase 2: RGB single-use seals need a confirmed
+ * UTXO to bind to). Real call to `UTEXOWallet.listUnspents()`; empty when not initialized.
+ */
+export async function listWdkUtxos() {
+	if (!state.utexoWallet) return [];
+	try {
+		return await state.utexoWallet.listUnspents();
+	} catch (err) {
+		console.warn('[WALLET-STORE] Failed to list UTEXO RGB wallet UTXOs:', err);
+		return [];
 	}
 }

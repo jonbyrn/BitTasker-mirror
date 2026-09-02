@@ -109,7 +109,8 @@ export async function syncNdkSignerFromAppStore(): Promise<void> {
 	const s = get(appStore);
 	const nsec = s.nostrKeys.nsec;
 	const npub = s.nostrKeys.npub;
-	if (!nsec || !npub) return;
+	if (!nsec || !npub) { console.warn("No Nostr keys found in appStore for NDK signer"); return; }
 
 	await applyNdkSignerFromNsec(nsec);
 }
+

@@ -12,6 +12,7 @@
 		fetchKind0Profile,
 		loadAuthProfileSnapshot,
 		resolveDisplayNameFromProfileMetadataContent,
+		NdkSignerNotConfiguredError,
 		type ProfileSetupMode
 	} from '$lib/nostr/profile';
 	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
@@ -272,7 +273,15 @@
 
 			const skills = buildSkillsFromSelection();
 			if (skills.length > 0) {
-				await publishSkillsUpdate(skills);
+				try {
+					await publishSkillsUpdate(skills);
+				} catch (skillsErr: unknown) {
+					// Skills are non-critical during onboarding — don't block progression on a missing signer
+					if (!(skillsErr instanceof NdkSignerNotConfiguredError)) {
+						throw skillsErr;
+					}
+					console.warn('Skipping skills publish: NDK signer not configured yet', skillsErr);
+				}
 			}
 
 			nextStep();
@@ -469,3 +478,5 @@
 		</div>
 	</div>
 {/if}
+
+

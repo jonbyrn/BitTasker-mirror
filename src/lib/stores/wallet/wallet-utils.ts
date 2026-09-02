@@ -21,7 +21,8 @@ import {
 	loadAssets,
 	loadRbtcExchangeRate,
 	loadRSKTokenBalances,
-	getTokenBalance
+	getTokenBalance,
+	listWdkUtxos
 } from './wallet-balances';
 import { loadTransactions, refreshTransactions } from './wallet-transactions';
 import {
@@ -31,7 +32,8 @@ import {
 	sendBSCBNB,
 	sendRSKUSDT0,
 	estimateRBTCGas,
-	estimateERC20Gas
+	estimateERC20Gas,
+	sendWdkTestSats
 } from './wallet-send';
 import {
 	createReverseSwap,
@@ -221,6 +223,12 @@ export const walletManager = {
 	},
 	get estimateERC20Gas() {
 		return estimateERC20Gas;
+	},
+	get listWdkUtxos() {
+		return listWdkUtxos;
+	},
+	get sendWdkTestSats() {
+		return sendWdkTestSats;
 	},
 	onSwapUpdate(callback: (event: SwapUpdateEvent) => void): () => void {
 		return getWalletManager().onSwapUpdate(callback);

@@ -6,11 +6,28 @@ import { type GasEstimation, ERC20_ABI } from '@bittasker/wallet-core';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
-import { walletStore, getWalletManager } from './wallet-state';
+import { walletStore, getWalletManager, state } from './wallet-state';
 import { loadAssets } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
 
 // ─── Exported functions ──────────────────────────────────────────────────────
+
+/**
+ * Dev-only test send from the UTEXO RGB on-chain wallet (real `sendBtc`, atomic
+ * begin \u2192 sign with the stored mnemonic \u2192 end). Returns the broadcast txid.
+ */
+export async function sendWdkTestSats(
+	address: string,
+	amountSats: number,
+	feeRate = 2
+): Promise<string> {
+	if (!state.utexoWallet) {
+		throw new Error('RGB wallet not initialized');
+	}
+	const txid = await state.utexoWallet.sendBtc({ address, amount: amountSats, feeRate });
+	void loadAssets();
+	return txid;
+}
 
 /**
  * Send RBTC transaction.

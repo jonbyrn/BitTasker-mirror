@@ -26,7 +26,9 @@ export async function connectNotificationSocket(): Promise<void> {
 	const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 	if (!token) return;
 
-	const API_URL = import.meta.env.VITE_API_URL;
+	// Falls back to the current origin so the socket never connects to a literal "undefined" host
+	// when VITE_API_URL is unset (e.g. relying on the dev server proxy instead of an absolute URL).
+	const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 	socket = io(`${API_URL}/notifications`, {
 		auth: { token: `Bearer ${token}` },

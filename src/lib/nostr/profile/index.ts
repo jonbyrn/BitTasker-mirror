@@ -72,5 +72,6 @@ export {
 	deleteNostrEvent,
 	getEventById,
 	fetchKind0Event,
-	fetchProfileName
+	fetchProfileName,
+	NdkSignerNotConfiguredError
 } from '$lib/nostr/profile/ndk';

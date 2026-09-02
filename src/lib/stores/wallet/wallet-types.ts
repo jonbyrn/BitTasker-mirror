@@ -9,6 +9,15 @@ import type { WalletState } from '@bittasker/wallet-core';
 import type { GasMode, DelegationState } from '$lib/types/wallet';
 import type { ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
 
+// ─── WDK asset identifiers (Tether WDK migration) ────────────────────────────
+
+/** `WalletAsset.assetId` values produced by the WDK-backed balance loader. */
+export const WDK_ASSET_IDS = {
+	BTC_ONCHAIN: 'btc_onchain',
+	BTC_LIGHTNING: 'btc_lightning',
+	USDT_RGB: 'usdt_rgb'
+} as const;
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Arbitrum WBTC contract address (canonical — from @bittasker/wallet-core). */
@@ -70,6 +79,29 @@ export type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 		wallet: any | null;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		usdt0Contract: any | null;
+	};
+
+	/**
+	 * Tether WDK balances (BTC on-chain, BTC Lightning, USDT over RGB/Lightning).
+	 * Additive alongside `rsk`/`bsc`/`arb` during the WDK migration — those EVM
+	 * slices are removed once `wallet-init.ts`/`wallet-balances.ts` are ported.
+	 */
+	wdk: {
+		initialized: boolean;
+		error: string | null;
+		btcOnchain: {
+			address: string | null;
+			balanceSats: number;
+			formattedBalance: string;
+		};
+		btcLightning: {
+			balanceSats: number;
+			formattedBalance: string;
+		};
+		usdtRgb: {
+			allocationAmount: string;
+			formattedBalance: string;
+		};
 	};
 };
 
@@ -141,7 +173,10 @@ export const initialState: WalletStateExtended = {
 		sats: 0,
 		rbtc: 0,
 		usdt: 0,
-		bnb: 0
+		bnb: 0,
+		btcOnchainSats: 0,
+		btcLightningSats: 0,
+		usdtRgb: 0
 	},
 
 	rbtcToBtcRate: 1.0,
@@ -161,5 +196,14 @@ export const initialState: WalletStateExtended = {
 	lastBalanceRefresh: Date.now(),
 
 	// Active bridge tracking (for persistent banner)
-	activeBridge: null
+	activeBridge: null,
+
+	// Tether WDK — BTC on-chain / Lightning / USDT-RGB (populated once wallet-init.ts is ported)
+	wdk: {
+		initialized: false,
+		error: null,
+		btcOnchain: { address: null, balanceSats: 0, formattedBalance: '0.00000000' },
+		btcLightning: { balanceSats: 0, formattedBalance: '0.00000000' },
+		usdtRgb: { allocationAmount: '0', formattedBalance: '0.00' }
+	}
 } as unknown as WalletStateExtended;

@@ -35,6 +35,9 @@
 			if (status) {
 				return { status, message: message ?? 'An unexpected error occurred' };
 			}
+
+			// No numeric status survived (e.g. a client mounting exception) — don't guess it's a 404.
+			return { status: 500, message: message ?? 'An error occurred' };
 		}
 
 		if (pathname && pathname !== '/') {

@@ -6,6 +6,14 @@ import KINDS from '$lib/utils/constants/kinds';
 import { normalizeProfileLookupKey, profileRelays } from '$lib/nostr/profile/profile-keys';
 import { resolveDisplayNameFromProfileMetadataContent } from '$lib/nostr/profile/metadata-wire';
 
+/** Thrown by {@link publishSignedNdkEvent} when `ndk.signer` isn't set; callers may catch it to skip non-critical publishes without blocking. */
+export class NdkSignerNotConfiguredError extends Error {
+	constructor() {
+		super('NDK signer not configured');
+		this.name = 'NdkSignerNotConfiguredError';
+	}
+}
+
 export async function fetchKind0Event(
 	pubkeyHex: string,
 	relays = profileRelays()
@@ -48,7 +56,7 @@ export async function publishSignedNdkEvent(
 	relays = profileRelays()
 ): Promise<NostrEvent> {
 	if (!ndk.signer) {
-		throw new Error('NDK signer not configured');
+		throw new NdkSignerNotConfiguredError();
 	}
 	if (relays.length === 0) {
 		throw new Error('No profile relays configured');

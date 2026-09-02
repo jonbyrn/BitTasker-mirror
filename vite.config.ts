@@ -1,5 +1,7 @@
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { realpathSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -11,6 +13,21 @@ import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
 import topLevelAwait from 'vite-plugin-top-level-await';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
+const cryptoShim = resolve(projectRoot, 'src/lib/shims/crypto.ts');
+
+// bitcoinjs-lib is a transitive dependency (via @utexo/rgb-sdk-web and the ledger/trezor
+// connectors' dynamic imports) that's never hoisted to the project root under pnpm's strict
+// node_modules layout. Resolve its real path via @utexo/rgb-sdk-web's isolated pnpm node_modules
+// (found by following that package's symlink, so this stays correct across version bumps) so
+// `resolve.alias` can point the bare specifier there directly.
+const require = createRequire(import.meta.url);
+const rgbSdkWebIsolatedModules = dirname(
+	dirname(realpathSync(resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web')))
+);
+const bitcoinjsLibPath = require.resolve('bitcoinjs-lib', { paths: [rgbSdkWebIsolatedModules] });
 
 // Vite plugin to ensure browser condition is prioritized during tests
 // This fixes the "mount(...) is not available on the server" error
@@ -31,10 +48,6 @@ const addBrowserCondition: Plugin = {
 		}
 	}
 };
-
-const projectRoot = fileURLToPath(new URL('.', import.meta.url));
-const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
-const cryptoShim = resolve(projectRoot, 'src/lib/shims/crypto.ts');
 
 export default defineConfig(({ mode }) => {
 	// Load .env file variables into process.env so build-time plugins (e.g. Sentry)
@@ -101,6 +114,9 @@ export default defineConfig(({ mode }) => {
 				buffer: 'buffer',
 				stream: 'stream-browserify',
 				process: 'process/browser',
+				// Not a direct dependency, so pnpm never hoists it to the root — alias to its
+				// real resolved path (see bitcoinjsLibPath above) instead of a bare specifier.
+				'bitcoinjs-lib': bitcoinjsLibPath,
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
 			}
 		},
@@ -201,6 +217,12 @@ export default defineConfig(({ mode }) => {
 			// secp256k1 WASM (~1.2 MB) and split vendor chunks (firebase, nostr-ndk) exceed 1 MB by design.
 			// Aggressive manualChunks splitting breaks SvelteKit chunk ordering ("kit.start is not a function").
 			chunkSizeWarningLimit: 2500,
+			// bitcoinjs-lib is pure CJS and only reached transitively (via @utexo/rgb-sdk-web,
+			// ledger/trezor connectors); without this Rollup's commonjs plugin skips it and
+			// named exports like `Psbt` fail to resolve in the production build.
+			commonjsOptions: {
+				include: [/bitcoinjs-lib/, /node_modules/]
+			},
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
@@ -245,8 +267,25 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		optimizeDeps: {
+			// bitcoinjs-lib is only ever reached transitively (via @utexo/rgb-sdk-web, which
+			// is excluded below, and the dynamic imports in ledger/trezor connectors). It's aliased
+			// to its resolved path above rather than included here — `optimizeDeps.include` requires
+			// the name to resolve as a direct dependency from the project root, which fails under
+			// pnpm's strict node_modules layout since it's not in package.json.
 			include: ['date-fns', 'axios', 'buffer', 'bip39'],
-			exclude: ['firebase', '@capacitor/device', '@capacitor/preferences', '@capacitor/haptics']
+			// bitcoinjs-lib re-exports `Psbt`/`Block`/etc. via `Object.defineProperty(exports, ..., { get })`
+			// instead of a plain `exports.Psbt = ...` assignment — cjs-module-lexer's static scan can miss
+			// these getter-based exports, so force Vite to derive them at runtime instead.
+			needsInterop: ['bitcoinjs-lib'],
+			// @utexo/rgb-sdk-web's WASM module initializes asynchronously — must be excluded
+			// from dependency pre-bundling per its own Vite setup instructions.
+			exclude: [
+				'firebase',
+				'@capacitor/device',
+				'@capacitor/preferences',
+				'@capacitor/haptics',
+				'@utexo/rgb-sdk-web'
+			]
 		},
 		server: {
 			// For mobile live-reload (Capacitor on device) we typically load the dev server via:
@@ -259,6 +298,15 @@ export default defineConfig(({ mode }) => {
 			// run on the Worker. Without the proxy, local uploads fall back to the
 			// NestJS backend and video keys are not valid Stream UIDs.
 			proxy: {
+				// Forward versioned REST API calls to the local NestJS backend.
+				// Without this, requests fall back to relative URLs resolved against
+				// the Vite dev server's own origin (localhost:3000/5173), producing 404s.
+				'/api/v1': {
+					target: process.env.VITE_API_URL?.startsWith('http://localhost')
+						? process.env.VITE_API_URL
+						: 'http://localhost:8000',
+					changeOrigin: true
+				},
 				'/api/cloudflare/stream': {
 					target: 'https://dev.bittasker.com',
 					changeOrigin: true,

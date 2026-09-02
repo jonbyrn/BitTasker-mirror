@@ -353,6 +353,17 @@
 				"additional_notes_label": "Notas Adicionales",
 				"additional_notes_placeholder": "Agrega cualquier información adicional o instrucciones para el ejecutor de la tarea...",
 				"additional_notes_helper": "Estas notas se enviarán al ejecutor de la tarea junto con el mensaje de aceptación.",
+				"payment_split": {
+					"title": "División del Pago",
+					"preview_badge": "Vista previa",
+					"primary_label": "USDT (Protocolo RGB)",
+					"secondary_label": "BTC (On-Chain/LN)",
+					"secondary_sats": "\u2248 {sats} sats",
+					"cold_storage_toggle": "Enviar la parte secundaria en BTC a almacenamiento en frío externo",
+					"cold_storage_placeholder": "Ingresa una dirección Bitcoin Native SegWit (bc1q...)",
+					"default_payout_note": "El pago secundario llegará a tu billetera de la app BitTasker:",
+					"wallet_not_connected": "Billetera no conectada"
+				},
 				"btc_price": "Precio BTC:",
 				"sats": "Sats",
 				"base_amount_tooltip": "El monto que el taskee está cobrando por completar esta tarea.",

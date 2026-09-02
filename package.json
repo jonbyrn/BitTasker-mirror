@@ -200,6 +200,7 @@
 		"@uppy/status-bar": "^5.1.0",
 		"@uppy/svelte": "^5.2.0",
 		"@uppy/tus": "^5.1.1",
+		"@utexo/rgb-sdk-web": "1.0.0-beta.12",
 		"axios": "^1.8.4",
 		"bip39": "^3.1.0",
 		"browser-image-compression": "^2.0.2",
@@ -260,5 +261,6 @@
 		"@ledgerhq/hw-transport-webusb": "^6.34.2",
 		"@trezor/connect-web": "^9.7.3",
 		"@walletconnect/ethereum-provider": "^2.23.9"
-	}
+	},
+	"packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956"
 }

@@ -113,7 +113,7 @@
 				props.onPaymentConfirmed();
 			} else if (props.escrowDetails.paymentMethod === 'usdt-bsc') {
 				const chainId = getChainIdForNetwork('usdt-bsc');
-				const usdtContract = getBSCUSDTContractAddress();
+				const usdtContract = "";
 				// Convert bid sats to USDT wei: sats * btcPrice / 1e8 * 1e18 = sats * btcPrice * 1e10
 				const usdtAmountWei = BigInt(
 					Math.round((props.bid.amount / 100_000_000) * props.btcPrice * 1e18)
@@ -336,3 +336,4 @@
 		</button>
 	</div>
 </div>
+

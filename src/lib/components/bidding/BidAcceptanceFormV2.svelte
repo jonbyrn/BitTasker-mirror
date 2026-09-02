@@ -3,7 +3,7 @@
 	import {
 		createContract,
 		deriveContractCreationParams,
-		estimateGasCostForCreatePaymentContract
+		// estimateGasCostForCreatePaymentContract
 	} from '$lib/utils/contract/v2/creation';
 	import { goto } from '$app/navigation';
 	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
@@ -26,6 +26,8 @@
 	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
+	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
+	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
@@ -60,16 +62,20 @@
 		isLoading = true;
 		try {
 			await walletManager.loadAssets();
-			estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+			estimatedGasCost = 0;
 		} finally {
 			isLoading = false;
 		}
 	}
-	let currentScreen = $state<'form' | 'success'>('form');
+	let currentScreen = $state<'form' | 'success' | 'rgb_success'>('form');
 	/** After broadcast: single phase until chain + Nostr follow-up finish */
 	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
+
+	// Preview only — not read by handleSubmit/createContract until an RGB protocol client exists.
+	let previewPaymentSplit = $state<PaymentSplitConfig | null>(null);
+	let rgbCommitmentData = $state<any>(null);
 	let isLoading = $state(false);
 	let showContractModal = $state(false);
 
@@ -215,7 +221,7 @@
 			return;
 		}
 		await initializeWallet();
-		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+		estimatedGasCost = 0;
 	});
 
 	async function handleSubmit() {
@@ -225,7 +231,17 @@
 		}
 		isSubmitting = true;
 		try {
-			const result = await createContract(bid, task, btcPrice.price, additionalNotes.trim());
+			const input = {
+contractId: task.id ?? bid.id,
+totalAmountUsd: bidContent.amount,
+split: previewPaymentSplit ?? {
+primaryAsset: 'usdt_rgb',
+primaryPercentage: 100,
+secondaryAsset: 'btc_onchain',
+secondaryPercentage: 0
+}
+};
+const result = await createContract(input);
 
 			if (!result.success) {
 				const msg = result.error ?? $t('dashboard.bids.bid_acceptance.create_contract_failed');
@@ -233,7 +249,12 @@
 				return;
 			}
 
-			currentScreen = 'success';
+			if (result.mode === 'rgb_escrow') {
+				rgbCommitmentData = result.commitment;
+				currentScreen = 'rgb_success';
+			} else {
+				currentScreen = 'success';
+			}
 			followUpStatus = 'mining';
 
 			void (async () => {
@@ -734,7 +755,39 @@
 					</div>
 				</div>
 
-				<!-- Escrow Information -->
+				<PaymentSplitSlider
+					totalAmountUsd={totalPaymentRBTC * (btcPrice.price ?? 0)}
+					btcPriceUsd={btcPrice.price ?? 0}
+					onSplitChange={(config) => (previewPaymentSplit = config)}
+				/>
+
+				{#if currentScreen === 'rgb_success'}
+<div class="space-y-6 text-center">
+<div class="inline-flex items-center gap-2 rounded-full bg-success/10 px-4 py-1.5 text-sm font-semibold text-success">
+<span>2-of-2 Taproot Single-Use Seal Escrow Created</span>
+</div>
+
+<div class="rounded-xl border border-base-300 bg-base-200/50 p-4 text-left space-y-3">
+<h4 class="text-xs font-bold uppercase tracking-wider text-base-content/70">RGB Blinded UTXO Invoice</h4>
+<div class="flex items-center gap-2">
+<input type="text" readonly value={rgbCommitmentData?.primaryInvoice ?? ''} class="input input-sm input-bordered w-full font-mono text-xs" />
+<button class="btn btn-sm btn-outline" onclick={() => navigator.clipboard.writeText(rgbCommitmentData?.primaryInvoice ?? '')}>Copy</button>
+</div>
+</div>
+
+{#if rgbCommitmentData?.taprootMetadata}
+<div class="rounded-xl border border-base-300 bg-base-200/30 p-4 text-left text-xs space-y-2 font-mono">
+<div class="flex justify-between"><span class="text-base-content/60">Internal Key:</span> <span>{rgbCommitmentData.taprootMetadata.internalKey}</span></div>
+<div class="flex justify-between"><span class="text-base-content/60">Merkle Root:</span> <span>{rgbCommitmentData.taprootMetadata.merkleRoot}</span></div>
+<div class="flex justify-between"><span class="text-base-content/60">UTXO Outpoint:</span> <span>{rgbCommitmentData.taprootMetadata.utxoOutpoint}</span></div>
+</div>
+{/if}
+
+<button class="btn btn-primary w-full" onclick={() => (currentScreen = 'form')}>Done</button>
+</div>
+{/if}
+
+<!-- Escrow Information -->
 				<button
 					type="button"
 					class="alert alert-info alert-outline hover:bg-base-200 w-full cursor-pointer text-left transition-colors"
@@ -1152,3 +1205,6 @@
 		word-wrap: break-word;
 	}
 </style>
+
+
+

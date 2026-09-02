@@ -10,6 +10,7 @@
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { publishProfileMetadata } from '$lib/nostr/profile/metadata-publish';
+	import { appStore } from '$lib/stores/app.store';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
@@ -60,6 +61,11 @@
 					// generate username from display name and npub
 					formData.username = await resolveHandle(formData.displayName, formData.npub);
 					await applyNdkSignerFromNsec(sk);
+					// Ensures ProfileSetup can recover the signer via syncNdkSignerFromAppStore if reached without the nsec prop
+					appStore.update((s) => ({
+						...s,
+						nostrKeys: { ...s.nostrKeys, nsec: sk, npub: formData.npub }
+					}));
 				}
 
 				const displayName = formData.displayName.trim();

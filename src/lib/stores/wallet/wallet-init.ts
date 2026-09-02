@@ -83,6 +83,98 @@ function wireSwapUpdates(): void {
 	});
 }
 
+/**
+ * Deterministic local-storage password for the RLN/rgb-lib WASM wallet — derived from
+ * the same mnemonic already held by this session so no new user-facing secret is needed.
+ * This only encrypts the browser-local wallet state, not any on-chain key material.
+ */
+async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
+	const { sha256 } = await import('@noble/hashes/sha2');
+	const { bytesToHex } = await import('@noble/hashes/utils');
+	return bytesToHex(sha256(`bittasker-utexo-rgb-wallet:${mnemonic}`));
+}
+
+/**
+ * Initialize the browser/WASM UTEXO RGB + Lightning wallet (@utexo/rgb-sdk-web).
+ * Additive — independent of rsk/bsc/arb, never throws (failures are non-critical and
+ * reported on `state.wdk`). Single source of truth for btc_onchain/btc_lightning/usdt_rgb.
+ *
+ * Requires `VITE_BITCOIN_ELECTRUM_URL` explicitly: we do not silently query a public
+ * third-party indexer with the user's addresses — if unset, the network fetch is
+ * skipped entirely and the store falls back to its existing (zeroed) local state.
+ * Lightning stays disabled unless `VITE_RGB_LN_PROXY_URL` is configured; the RGB
+ * "USDT" asset balance stays a stub unless `VITE_RGB_USDT_ASSET_ID` is configured —
+ * neither can be safely guessed.
+ */
+async function initializeWdkBtcWallet(mnemonic: string): Promise<void> {
+	const indexerUrl = import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined;
+	if (!indexerUrl) {
+		walletStore.update((s) => ({
+			...s,
+			wdk: { ...s.wdk, initialized: false, error: null }
+		}));
+		return;
+	}
+
+	try {
+		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
+		const network = (import.meta.env.VITE_BITCOIN_NETWORK || 'testnet') as
+			| 'bitcoin'
+			| 'testnet'
+			| 'regtest';
+		const transportEndpoint = import.meta.env.VITE_RGB_TRANSPORT_ENDPOINT as string | undefined;
+		const proxyUrl = import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined;
+		const password = await deriveUtexoWalletPassword(mnemonic);
+
+		const wallet = await UTEXOWallet.create({
+			mnemonic,
+			password,
+			network,
+			indexerUrl,
+			...(transportEndpoint && { transportEndpoint }),
+			...(proxyUrl && { proxyUrl })
+		});
+		state.utexoWallet = wallet;
+
+		// Non-critical: the RGB command queue backs seal commit/witness/spend flows,
+		// but its absence must not block btc_onchain balance loading below.
+		try {
+			const { getBrowserRgbCommandQueue } = await import('$lib/services/rgb/command-queue');
+			await getBrowserRgbCommandQueue(wallet);
+		} catch (err) {
+			console.warn('[wallet-init] RGB command queue init failed (non-critical):', err);
+		}
+
+		const address = await wallet.getAddress();
+		const btcBalance = await wallet.getBtcBalance();
+		const balanceSats = btcBalance.vanilla.spendable + btcBalance.colored.spendable;
+
+		walletStore.update((s) => ({
+			...s,
+			wdk: {
+				...s.wdk,
+				initialized: true,
+				error: null,
+				btcOnchain: {
+					address,
+					balanceSats,
+					formattedBalance: (balanceSats / 1e8).toFixed(8)
+				}
+			}
+		}));
+	} catch (err) {
+		console.warn('[wallet-init] UTEXO RGB wallet init failed (non-critical):', err);
+		walletStore.update((s) => ({
+			...s,
+			wdk: {
+				...s.wdk,
+				initialized: false,
+				error: err instanceof Error ? err.message : 'UTEXO RGB wallet init failed'
+			}
+		}));
+	}
+}
+
 // ─── App Resume + Network Reconnect ────────────────────────────────────────────
 
 let resumeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -332,6 +424,9 @@ export async function initialize(): Promise<void> {
 				}
 			}
 		}
+
+		// Tether WDK — BTC on-chain wallet (additive, independent of rsk/bsc/arb; never throws)
+		await initializeWdkBtcWallet(mnemonic);
 	} catch (error) {
 		console.error('[WALLET-STORE] initializeWallet() - Failed to initialize wallet:', error);
 		const errorMessage = error instanceof Error ? error.message : 'Failed to initialize wallet';

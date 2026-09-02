@@ -355,6 +355,17 @@
 				"additional_notes_label": "Additional Notes",
 				"additional_notes_placeholder": "Add any additional information or instructions for the taskee...",
 				"additional_notes_helper": "These notes will be sent to the taskee along with the acceptance message.",
+				"payment_split": {
+					"title": "Payment Settlement Split",
+					"preview_badge": "Preview",
+					"primary_label": "USDT (RGB Protocol)",
+					"secondary_label": "BTC (On-Chain/LN)",
+					"secondary_sats": "\u2248 {sats} sats",
+					"cold_storage_toggle": "Payout secondary BTC share to external cold storage",
+					"cold_storage_placeholder": "Enter Bitcoin Native SegWit address (bc1q...)",
+					"default_payout_note": "Secondary payment will land in your BitTasker app wallet:",
+					"wallet_not_connected": "Wallet not connected"
+				},
 				"btc_price": "BTC Price:",
 				"sats": "Sats",
 				"base_amount_tooltip": "The amount the taskee is charging for completing this task.",

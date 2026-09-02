@@ -250,7 +250,7 @@
 
 	let walletAddress = $derived.by(() => {
 		if (source === 'builtin') {
-			if (selectedCrypto === 'btc-onchain') return '';
+			if (selectedCrypto === 'btc-onchain') return $walletStore.wdk?.btcOnchain?.address ?? '';
 			if (
 				selectedCrypto === 'usdt0-arb' ||
 				selectedCrypto === 'wbtc-arb' ||

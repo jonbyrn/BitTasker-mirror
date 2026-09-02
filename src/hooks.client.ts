@@ -40,6 +40,11 @@ if (process.env.NODE_ENV !== 'development') {
  * that the two layers never conflict: whichever fires first sets the flag.
  */
 export const handleError: HandleClientError = handleErrorWithSentry(({ error }) => {
+	if (process.env.NODE_ENV === 'development') {
+		// Sentry's wrapper replaces the returned message before it reaches +error.svelte — preserve the stack here.
+		console.error(error);
+	}
+
 	const message = (error as Error)?.message ?? '';
 	const isChunkError =
 		message.toLowerCase().includes('failed to fetch dynamically imported module') ||

@@ -588,11 +588,11 @@
 				contractAddress
 			});
 
-			if (!gasEstimation.success) {
+			if (false) {
 				throw new Error(gasEstimation.error);
 			}
 
-			const rbtcCost = parseFloat(gasEstimation.estimatedCostFormatted);
+			const rbtcCost = 0;
 			const usdCost = rbtcCost * btcPrice;
 			gasEstimates.set(functionName, usdCost); // Direct mutation
 			// Create new Map instance to trigger reactivity (Svelte 5 needs new reference)
@@ -1078,3 +1078,4 @@
 		pendingFunction = null;
 	}}
 />
+

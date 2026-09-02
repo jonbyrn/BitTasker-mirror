@@ -229,7 +229,7 @@
 
 	function isActiveServiceContract(contract: ContractWithEvents): boolean {
 		if ((contract.contractEvent.content.contextType ?? 'task') !== 'service') return false;
-		return !isTerminalPaymentState(contract.status);
+		return !isTerminalPaymentState();
 	}
 
 	function getActiveServiceContractsForService(
@@ -998,3 +998,4 @@
 		></button>
 	</div>
 {/if}
+
