@@ -154,4 +154,8 @@ export interface RgbStateProjection {
 	readonly version: number;
 	readonly balances: readonly RgbAssetBalanceProjection[];
 	readonly seals: readonly RgbSealProjection[];
+	/** Observable init/availability flag — see ADR §"Init error containment must log, not swallow". */
+	readonly status: 'uninitialized' | 'ready' | 'unavailable';
+	/** Populated when `status` is `'unavailable'`; the reason the RGB queue failed to init. */
+	readonly unavailableReason?: string;
 }

@@ -42,8 +42,10 @@ function nowMs(): number {
 	return Date.now();
 }
 
-/** Maps the SDK's real transfer status onto our `RgbSealState` (see file header). */
-function toRgbSealState(status: TransferStatus): RgbSealState {
+/** Maps the SDK's real transfer status onto our `RgbSealState` (see file header).
+ * Exported for the live-SDK smoke test (src/lib/tests/integration/services/rgb/) —
+ * not otherwise used outside this module. */
+export function toRgbSealState(status: TransferStatus): RgbSealState {
 	switch (status) {
 		case 'Initiated':
 			return 'INITIATED';

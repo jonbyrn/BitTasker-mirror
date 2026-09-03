@@ -137,12 +137,20 @@ async function initializeWdkBtcWallet(mnemonic: string): Promise<void> {
 		state.utexoWallet = wallet;
 
 		// Non-critical: the RGB command queue backs seal commit/witness/spend flows,
-		// but its absence must not block btc_onchain balance loading below.
+		// but its absence must not block btc_onchain balance loading below. Failures
+		// are logged (not swallowed) and surfaced on the projection via
+		// markRgbUnavailable so the UI has an observable signal, not silence.
 		try {
 			const { getBrowserRgbCommandQueue } = await import('$lib/services/rgb/command-queue');
 			await getBrowserRgbCommandQueue(wallet);
 		} catch (err) {
-			console.warn('[wallet-init] RGB command queue init failed (non-critical):', err);
+			const reason = err instanceof Error ? err.message : String(err);
+			console.error('[wallet-init] RGB command queue init failed (non-critical):', {
+				reason,
+				error: err
+			});
+			const { markRgbUnavailable } = await import('$lib/services/rgb/rgb-state.svelte');
+			markRgbUnavailable(reason);
 		}
 
 		const address = await wallet.getAddress();
