@@ -129,3 +129,31 @@ SvelteKit components never mutate RGB state directly:
 - `docs/wallet-bugs.md` (BUG-W002) — prior incident of two disagreeing config
   sources in `@bittasker/wallet-core`, the failure mode this ADR's
   single-writer rule is designed to prevent from recurring in RGB state.
+
+## Open Questions & Verification Gaps
+
+> **Status:** Design + static verification complete. Runtime integration against the live SDK has **not** been performed. This subsystem is type-clean, unit-clean (against mocks), and structurally bound to the SDK's type surface — it is **not** "verified working." Do not read the architecture diagram above as a completion record; the items below are open.
+
+### Verification gaps (must close before treating seal operations as functional)
+
+1. **Real-SDK integration smoke test — TOP GATE.** `WasmRgbSealBackend` now instantiates on every wallet init (`wallet-init.ts`), but it has never executed a single `commit`/`witness`/`spend` against a live `@utexo/rgb-sdk-web`. Every passing test runs against the mocked backend. As it stands, the first real seal transition will happen in front of a real user, on real value. **Action:** construct `WasmRgbSealBackend` with a real `utexoWallet`, run one seal transition against a regtest/testnet asset, and assert the live `TransferStatus` strings match `toRgbSealState()`. This is the gate between "designed" and "works."
+2. **`TransferStatus → RgbSealState` mapper validated against model, not reality.** The mapper is aligned with an *inspection* of the SDK's compiled surface — the same kind of inspection that earlier in this project first concluded the SDK had no seal API at all, before that was reversed. Until item 1 runs, the state vocabulary is a hypothesis. **Action:** capture the actual status strings emitted during item 1 and reconcile.
+3. **Repo-wide typecheck status recorded post-restore.** "37 contract files restored to resolve pre-existing regressions" asserts the regressions are gone; the evidence for that is a green repo-wide `npm run check`. Confirmed count as of this restoration: **77 errors and 2 warnings across 21 non-RGB files** (UI components, external wallet connectors, `wallet-balances.ts`) — down from the pre-restoration baseline of 238 errors across 43 files. There are **zero errors** within `src/lib/services/rgb/`. "Zero errors in `rgb/`" is not the same claim as "repo is clean" — the remaining 21 files are a separate, tracked cleanup item.
+
+### Open design decisions (unresolved, currently canonized by omission)
+
+4. **`WaitingSafeHeight` folded into `WAITING_CONFIRMATIONS`.** The state diagram erases the distinction between "confirmations seen" and "reorg-depth safe." For a Bitcoin-native value transfer, "is this settled deeply enough to act on" may be a decision the app needs to make. **Action:** confirm what the SDK means by `WaitingSafeHeight`; if it is reorg-safety, it needs its own state or a flag on the seal, not silent folding.
+5. **`@utexo/rgb-sdk-core` newly present in the dependency graph.** This package appears in the architecture doc but not in any prior implementation report. A second SDK package is a new surface. **Action:** confirm it is the intended dependency and that its emitted status vocabulary matches the mapper.
+
+### Enforcement / hardening (design says one thing, code allows another)
+
+6. **Single-writer is enforced by convention, not mechanically.** The diagram draws one write arrow, but `setRgbProjection` is exported from the public barrel — anything that imports it can write the projection. **Action:** move the mutable `$state` and its setter into an internal module imported *only* by the command queue, and back it with an ESLint import-boundary rule (nothing outside `rgb/` may import the setter module, and nothing inside `rgb/` may import legacy mock/wallet-mock paths). Convention plus a comment will not survive the next contributor.
+7. **Init error containment must log, not swallow.** The non-critical try/catch around RGB queue init in `wallet-init.ts` correctly prevents RGB failure from blocking `btc_onchain` balances — but if it swallows silently, a failed init leaves the app fail-closed (`UnimplementedRgbSealBackend`) with no breadcrumb explaining why. Fail-closed, yes; fail-silent, no. **Action:** log on catch and set an observable "RGB unavailable" flag on the projection.
+8. **Durability ordering for the terminal state.** The seal must be recorded as `SETTLED` in durable storage **before** `setRgbProjection()` reflects it and before anything mirrors it to Nostr. Order: durable write → projection → external observer, never the reverse. A crash between an optimistic projection and the durable write lets the same seal appear actionable twice. Not currently expressed anywhere in the design.
+
+### Branch hygiene (blocks merge)
+
+9. **Three change-sets tangled on one phase-0 branch:** (a) the RGB subsystem, (b) 37 restored contract files, (c) ~50 unrelated modified files carried since the start. **Action:** split into separate reviewable PRs — RGB subsystem on its own, contract restoration on its own — before merge. Reviewing all three as one diff is how restored-from-history and incidental edits land unread.
+
+---
+**Suggested closing order:** 3 (cheap, and it restores the global type-safety signal) → 9 (unblocks reviewable merges) → 1+2 (the real gate) → 4+5 (design confirmations, ideally before 1 so the smoke test targets the right vocabulary) → 6+7+8 (hardening, before the subsystem carries real value).

@@ -17,9 +17,9 @@
 import { appStore } from '$lib/stores/app.store';
 import { walletManager, walletStore } from '$lib/stores/wallet.store';
 import { initContract } from '$lib/utils/contract';
-
+import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
-
+import { ethers } from 'ethers';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -355,7 +355,7 @@ export async function preflightServiceContractCreation(
 	}
 
 	try {
-		const contractAddress = "";
+		const contractAddress = getSecurePaymentContractAddress();
 		const { contract, wallet, provider } = await initContract(
 			contractAddress,
 			'rsk',
@@ -421,6 +421,3 @@ export async function preflightServiceContractCreation(
 		return fail('preflight_failed', extractContractError(error).userMessage);
 	}
 }
-
-
-

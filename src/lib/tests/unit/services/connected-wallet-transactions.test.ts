@@ -112,7 +112,9 @@ describe('connected-wallet-transactions', () => {
 			expect(mockFetch).toHaveBeenCalledTimes(3);
 			const urls = mockFetch.mock.calls.map((c: unknown[]) => c[0] as string);
 			expect(urls.some((u: string) => u.includes('test-rsk.blockscout'))).toBe(true);
-			expect(urls.some((u: string) => u.includes('arbitrum.blockscout'))).toBe(true);
+			// Default VITE_RSK_NETWORK is 'testnet', so Arbitrum resolves to the Sepolia
+			// testnet Blockscout host, not the 'arbitrum.blockscout' mainnet one.
+			expect(urls.some((u: string) => u.includes('arbitrum-sepolia.blockscout'))).toBe(true);
 			expect(urls.some((u: string) => u.includes('token-transfers'))).toBe(true);
 		});
 
