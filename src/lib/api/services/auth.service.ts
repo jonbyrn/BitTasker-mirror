@@ -67,19 +67,21 @@ export class AuthService extends BaseApiService {
 
 	/**
 	 * Get login challenge for a user
+	 * Appends a unique cache-busting parameter (_cb) to force Cloudflare edge cache misses during development
 	 * @returns Promise with login challenge data
 	 */
 	async getChallenge(): Promise<{ challenge: string; message: string }> {
-		const response = await this.get<{ challenge: string; message: string }>(
-			ENDPOINTS.AUTH.NOSTR_CHALLENGE
-		);
-		if (!response?.data || typeof response.data.challenge !== 'string') {
+		const url = `${ENDPOINTS.AUTH.NOSTR_CHALLENGE}?_cb=${Date.now()}`;
+		const response = await this.get<{ challenge: string; message: string }>(url);
+
+		if (!response?.data || typeof response.data.challenge !== 'string' || !response.data.challenge) {
 			console.error('[AuthService.getChallenge] Malformed challenge response', {
 				hasData: Boolean(response?.data),
 				challengeType: typeof response?.data?.challenge,
 				challengeValue: response?.data?.challenge,
 				messageType: typeof response?.data?.message
 			});
+			throw new Error('Challenge missing from server');
 		}
 		return response.data;
 	}

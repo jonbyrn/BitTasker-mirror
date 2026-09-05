@@ -2,9 +2,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
-	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 	import { parseEarningQuery } from '$lib/utils/dashboardQuery';
-	import type { DashboardContractStatusFilter } from '$lib/utils/helpers/dashboardContractFilters';
 
 	function translateOrFallback(
 		translate: (key: string) => string,
@@ -74,20 +72,8 @@
 	</div>
 {/if}
 
-<div id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts">
-	<DashboardContractsPanelNDK
-		initialType={contractsType}
-		initialStatus={(activeStatus ?? 'all') as DashboardContractStatusFilter}
-		showRoleFilters={false}
-		fixedRole="freelancer"
-		showServiceFilter={true}
-		{selectedServiceAddress}
-		onServiceFilterChange={handleContractsServiceFilterChange}
-		onClearFilters={handleContractsFiltersReset}
-		emptyStateActionLabel={translateOrFallback($t, 'dashboard.find_task', 'Find Tasks')}
-		emptyStateActionHref="/tasks"
-		highlightEscrowId={currentContractsHighlight}
-		onHighlightConsumed={handleContractsHighlightConsumed}
-		onHighlightMissing={handleContractsHighlightMissing}
-	/>
+<div id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" class="py-8 text-center">
+	<p class="text-base-content/70 text-sm">
+		{$t('dashboard.contracts.empty', { default: 'Native contract activity will appear here.' })}
+	</p>
 </div>

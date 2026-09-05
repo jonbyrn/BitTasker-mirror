@@ -26,7 +26,7 @@ import {
 } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
-import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+import { syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
 import { restorePersistedE2EBiometricData } from '$lib/utils/helpers/e2eBiometricState';
 
 /**

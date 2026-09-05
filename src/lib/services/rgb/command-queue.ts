@@ -18,17 +18,7 @@
 import { browser } from '$app/environment';
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
 import { WasmRgbSealBackend } from './wasm-backend';
-import type {
-	CommitCommandInput,
-	RgbCommandQueue,
-	RgbCommandResult,
-	RgbSeal,
-	SpendCommandInput,
-	ValidateConsignmentInput,
-	ValidateConsignmentResult,
-	WitnessCommandInput
-} from './types';
-
+import type { CommitCommandInput, RgbCommandQueue, RgbCommandResult, RgbSeal, SpendCommandInput, ValidateConsignmentInput, ValidateConsignmentResult, WitnessCommandInput } from './types';
 /**
  * Backend contract the queue delegates actual stash mutation to. Implemented
  * against the real WASM SDK once its seal-lifecycle API is confirmed (see
@@ -140,3 +130,4 @@ export async function getBrowserRgbCommandQueue(
 	browserQueue = createRgbCommandQueue(backend);
 	return browserQueue;
 }
+

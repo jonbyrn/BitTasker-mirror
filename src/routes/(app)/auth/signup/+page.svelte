@@ -34,7 +34,7 @@
 		if (!turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
+			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY || '1x00000000000000000000AA',
 			theme: 'auto',
 			size: 'normal' as const,
 			retry: 'never' as const,

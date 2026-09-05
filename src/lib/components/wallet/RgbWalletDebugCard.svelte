@@ -1,62 +1,16 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import type { Unspent } from '@utexo/rgb-sdk-web';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { walletStore } from '$lib/stores/wallet.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	let qrCodeData = $state('');
 	let addressCopied = $state(false);
-	let utxos = $state<Unspent[]>([]);
-	let isLoadingUtxos = $state(false);
 
 	const address = $derived($walletStore.wdk?.btcOnchain?.address ?? '');
 	const isInitialized = $derived($walletStore.wdk?.initialized ?? false);
 	const walletError = $derived($walletStore.wdk?.error ?? null);
-
-	async function refreshUtxos() {
-		isLoadingUtxos = true;
-		try {
-			utxos = await walletManager.listWdkUtxos();
-		} finally {
-			isLoadingUtxos = false;
-		}
-	}
-
-	let sendAddress = $state('');
-	let sendAmountSats = $state('');
-	let isSending = $state(false);
-	let sendResult = $state<{ txid: string } | { error: string } | null>(null);
-
-	async function handleSendTestSats() {
-		const amount = parseInt(sendAmountSats, 10);
-		if (!sendAddress.trim() || !Number.isFinite(amount) || amount <= 0) {
-			sendResult = { error: 'Enter a destination address and a positive sat amount.' };
-			return;
-		}
-		isSending = true;
-		sendResult = null;
-		try {
-			const txid = await walletManager.sendWdkTestSats(sendAddress.trim(), amount);
-			sendResult = { txid };
-			sendAddress = '';
-			sendAmountSats = '';
-			await refreshUtxos();
-		} catch (err) {
-			sendResult = { error: err instanceof Error ? err.message : 'Send failed' };
-		} finally {
-			isSending = false;
-		}
-	}
-
-	$effect(() => {
-		if (!isInitialized) {
-			utxos = [];
-			return;
-		}
-		void refreshUtxos();
-	});
 
 	$effect(() => {
 		if (!address) {
@@ -122,69 +76,6 @@
 				>
 					Get testnet BTC from a faucet
 				</a>
-
-				<div class="w-full">
-					<div class="mb-1 flex items-center justify-between text-xs opacity-70">
-						<span>Unspent outputs ({utxos.length})</span>
-						<button type="button" class="link" onclick={refreshUtxos} disabled={isLoadingUtxos}>
-							{isLoadingUtxos ? 'Loading…' : 'Refresh'}
-						</button>
-					</div>
-					{#if utxos.length === 0}
-						<p class="text-base-content/60 text-xs">
-							No confirmed UTXOs yet — fund the address above.
-						</p>
-					{:else}
-						<ul class="space-y-1">
-							{#each utxos as unspent (unspent.utxo.outpoint.txid + unspent.utxo.outpoint.vout)}
-								<li class="border-base-300 rounded border p-2 text-xs">
-									<div class="truncate">
-										{unspent.utxo.outpoint.txid}:{unspent.utxo.outpoint.vout}
-									</div>
-									<div class="text-base-content/60">
-										{unspent.utxo.btcAmount.toLocaleString()} sats · {unspent.utxo.colorable
-											? 'colorable'
-											: 'vanilla'}
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
-
-				<div class="w-full space-y-2 border-t border-dashed pt-3">
-					<div class="text-xs opacity-70">Send test sats (testnet only)</div>
-					<input
-						type="text"
-						bind:value={sendAddress}
-						placeholder="Destination address (tb1p...)"
-						class="input input-bordered input-xs w-full"
-						disabled={isSending}
-					/>
-					<input
-						type="number"
-						bind:value={sendAmountSats}
-						placeholder="Amount (sats)"
-						min="1"
-						class="input input-bordered input-xs w-full"
-						disabled={isSending}
-					/>
-					<button
-						type="button"
-						class="btn btn-warning btn-xs w-full"
-						onclick={handleSendTestSats}
-						disabled={isSending}
-					>
-						{isSending ? 'Sending…' : 'Send'}
-					</button>
-					{#if sendResult}
-						{#if 'txid' in sendResult}
-							<p class="text-success truncate text-xs">Broadcast: {sendResult.txid}</p>
-						{:else}
-							<p class="text-error text-xs">{sendResult.error}</p>
-						{/if}
-					{/if}
-				</div>
 			</div>
 		{/if}
 	</div>

@@ -24,7 +24,7 @@ import { rgbProjection } from '$lib/services/rgb/rgb-state.svelte';
 import type { WalletStateExtended } from './wallet-types';
 import type { RgbStateProjection } from '$lib/services/rgb/types';
 
-export type WalletWithRgbProjection = WalletStateExtended & {
+export type WalletWithRgbProjection = Omit<WalletStateExtended, 'rgb'> & {
 	rgb: RgbStateProjection;
 };
 

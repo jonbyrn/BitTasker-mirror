@@ -6,12 +6,12 @@
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 
 	let {
-		/** Total amount funded (RBTC string) for success message */
-		totalAmountRbtc,
+		/** Total amount funded (BTC string) for success message */
+		totalAmountBtc,
 		/** After tx broadcast: chain confirm + Nostr follow-up */
 		followUpStatus
 	}: {
-		totalAmountRbtc: string;
+		totalAmountBtc: string;
 		followUpStatus: 'mining' | 'done' | 'failed';
 	} = $props();
 
@@ -61,8 +61,8 @@
 			<p class="text-base-content/70">
 				{$t('dashboard.bids.bid_acceptance.success_message', {
 					values: {
-						amount: totalAmountRbtc
-							? formatConvertedAmount(totalAmountRbtc, 'RBTC', { suffix: '' })
+						amount: totalAmountBtc
+							? formatConvertedAmount(totalAmountBtc, 'BTC', { suffix: '' })
 							: '0'
 					}
 				})}

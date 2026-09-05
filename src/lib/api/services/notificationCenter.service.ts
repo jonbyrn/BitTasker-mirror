@@ -75,8 +75,13 @@ export class NotificationCenterService extends BaseApiService {
 		);
 		const data = response.data;
 
-		const parseData: <T>(field: T | string) => T = (field) => {
-			return typeof field === 'string' ? JSON.parse(field) : field || {};
+		const parseData = <T>(field: T | string | null | undefined): T => {
+			if (typeof field !== 'string') return field ?? ({} as T);
+			try {
+				return JSON.parse(field) as T;
+			} catch {
+				return {} as T;
+			}
 		};
 
 		return {

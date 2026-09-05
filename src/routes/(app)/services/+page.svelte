@@ -20,7 +20,8 @@
 	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import type RequestQuoteModalComponent from '$lib/components/service/RequestQuoteModal.svelte';
 	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
-	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
+	import { generateServiceQuoteEntityId } from '$lib/utils/service-quote/protocol';
+	import { publishServiceQuoteRequest } from '$lib/utils/service-quote/publish';
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		loadPersistedServiceSearchFilters,
@@ -609,21 +610,22 @@
 			};
 		}
 
-		const result = await serviceQuoteUiStore.submitQuoteRequest({
+		const result = await publishServiceQuoteRequest({
 			service: serviceForQuote,
-			payload
+			payload,
+			quoteRequestId: generateServiceQuoteEntityId('qr')
 		});
 
-		if (!result.success || !result.quoteRequestId) {
+		if (!result.event || !result.event.content.quoteRequestId) {
 			return {
 				success: false,
-				error: result.error || $t('dashboard.services.browse.quote_request_submit_error')
+				error: $t('dashboard.services.browse.quote_request_submit_error')
 			};
 		}
 
 		appStore.showSuccessToast($t('dashboard.services.browse.quote_request_submitted'));
 		await goto(
-			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.event.content.quoteRequestId)}`
 		);
 		serviceForQuote = null;
 		return { success: true };

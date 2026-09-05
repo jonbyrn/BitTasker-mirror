@@ -1,5 +1,8 @@
 import { browser } from '$app/environment';
 import { NDKPrivateKeySigner, NDKRelaySet } from '@nostr-dev-kit/ndk';
+import { bytesToHex } from '@noble/hashes/utils';
+import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/app.store';
 import { createDebug } from '$lib/utils/debug';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -74,6 +77,20 @@ export async function ndkLogout(): Promise<void> {
 export async function setNDKSigner(): Promise<void> {
 	if (ndk.$currentPubkey) return;
 	await getNostrKeyPair();
+}
+
+/** Apply a decrypted Nostr private key to the active NDK instance. */
+export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
+	const signer = new NDKPrivateKeySigner(bytesToHex(nsec));
+	ndk.signer = signer;
+	ndk.activeUser = await signer.user();
+}
+
+/** Synchronize NDK with keys already decrypted into appStore. */
+export async function syncNdkSignerFromAppStore(): Promise<void> {
+	const keys = get(appStore).nostrKeys;
+	if (!keys.nsec) return;
+	await applyNdkSignerFromNsec(keys.nsec);
 }
 
 async function stopUnpublishedEventsRetry(): Promise<void> {

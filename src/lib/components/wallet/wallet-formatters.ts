@@ -4,15 +4,12 @@
  */
 
 /**
- * Map from balance row keys (used in wallet.balances) to cache keys
- * (used in lastKnownWalletBalances). The cache stores short names
- * ('usdt', 'tbtc') while balance keys use chain-suffixed names
- * ('usdt0-arb', 'tbtc-arb').
+ * Map native balance row keys to the cache keys used by legacy persisted
+ * snapshots while wallets transition to the native asset identifiers.
  */
 const BALANCE_TO_CACHE_KEY: Record<string, string> = {
-	'usdt0-arb': 'usdt',
-	usdt: 'usdt',
-	'tbtc-arb': 'tbtc'
+	usdt_rgb: 'usdt',
+	btc_lightning: 'btc'
 };
 
 /**
@@ -42,7 +39,7 @@ export function formatSatsWithUsd(
  * Stable inner balance format — falls back to cached per-asset raw when live is zero.
  * Prevents balance flickering to zero during refresh gaps.
  * @param wallet - Wallet with balances
- * @param key - Balance key (e.g. 'btc', 'rbtc', 'usdt0-arb', 'wbtc')
+ * @param key - Native balance key (e.g. 'btc', 'btc_lightning', 'usdt_rgb')
  * @param lastKnownWalletBalances - Per-wallet last-known balances cache
  * @param satsFormatter - Intl.NumberFormat for sats display
  * @param usdFormatter - Intl.NumberFormat for USD display
@@ -66,11 +63,7 @@ export function stableInnerFormat(
 	const bal = wallet.balances?.[key];
 	const raw = Number(bal?.raw ?? 0);
 	if (raw > 0) {
-		if (key === 'usdt0-arb' || key === 'usdt') return `$${(raw / 1e6).toFixed(2)}`;
-		if (key === 'tbtc-arb') {
-			const sats = Math.round(raw / 10_000_000_000);
-			return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
-		}
+		if (key === 'usdt_rgb') return `$${(raw / 1e6).toFixed(2)}`;
 		return formatSatsWithUsd(raw, satsFormatter, usdFormatter, btcPrice);
 	}
 	const cached = lastKnownWalletBalances[wallet.id];
@@ -78,15 +71,11 @@ export function stableInnerFormat(
 		const cacheKey = BALANCE_TO_CACHE_KEY[key] ?? key;
 		const cachedRaw = Number((cached as Record<string, string>)[cacheKey] ?? 0);
 		if (cachedRaw > 0) {
-			if (key === 'usdt0-arb' || key === 'usdt') return `$${(cachedRaw / 1e6).toFixed(2)}`;
-			if (key === 'tbtc-arb') {
-				const sats = Math.round(cachedRaw / 10_000_000_000);
-				return sats > 0 ? `${satsFormatter.format(sats)} Sats` : '0 Sats';
-			}
+			if (key === 'usdt_rgb') return `$${(cachedRaw / 1e6).toFixed(2)}`;
 			return formatSatsWithUsd(cachedRaw, satsFormatter, usdFormatter, btcPrice);
 		}
 	}
-	if (key === 'usdt0-arb' || key === 'usdt') return '$0.00';
+	if (key === 'usdt_rgb') return '$0.00';
 	return '0 Sats';
 }
 
@@ -113,21 +102,18 @@ export function stableWalletAvailableUsd(
 ): string {
 	const cur = wallet.balances;
 	if (cur) {
-		const btcSats =
-			Number(cur.btc?.raw ?? 0) + Number(cur.rbtc?.raw ?? 0) + Number(cur.wbtc?.raw ?? 0);
-		const tbtcSats = Math.round(Number(cur['tbtc-arb']?.raw ?? 0) / 10_000_000_000);
-		const usdtRaw = Number(cur['usdt0-arb']?.raw ?? 0);
-		if (btcSats > 0 || usdtRaw > 0 || tbtcSats > 0) {
-			return usdFormatter.format(((btcSats + tbtcSats) / 100_000_000) * btcPrice + usdtRaw / 1e6);
+		const btcSats = Number(cur.btc?.raw ?? 0);
+		const lightningSats = Number(cur.btc_lightning?.raw ?? 0);
+		const usdtRaw = Number(cur.usdt_rgb?.raw ?? 0);
+		if (btcSats > 0 || lightningSats > 0 || usdtRaw > 0) {
+			return usdFormatter.format(
+				((btcSats + lightningSats) / 100_000_000) * btcPrice + usdtRaw / 1e6
+			);
 		}
 	}
 	const cached = lastKnownWalletBalances[wallet.id];
 	if (cached) {
-		const tbtcSats = Math.round(Number(cached.tbtc ?? 0) / 10_000_000_000);
-		const usd =
-			((Number(cached.rbtc) + Number(cached.btc) + Number(cached.wbtc) + tbtcSats) / 100_000_000) *
-				btcPrice +
-			Number(cached.usdt) / 1e6;
+		const usd = (Number(cached.btc) / 100_000_000) * btcPrice + Number(cached.usdt) / 1e6;
 		if (usd > 0) return usdFormatter.format(usd);
 	}
 	return usdFormatter.format(0);

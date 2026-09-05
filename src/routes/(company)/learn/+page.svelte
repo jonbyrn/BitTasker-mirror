@@ -36,12 +36,6 @@
 			href: '/learn/bitcoin-freelancing/get-paid-in-bitcoin/'
 		},
 		{
-			icon: '⛓️',
-			titleKey: 'learn.category_rootstock',
-			descKey: 'learn.desc_rootstock',
-			href: '/learn/rootstock/what-is-rootstock/'
-		},
-		{
 			icon: '🔗',
 			titleKey: 'learn.category_layer2',
 			descKey: 'learn.desc_layer2',

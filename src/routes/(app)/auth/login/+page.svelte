@@ -33,7 +33,7 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import { createDebug } from '$lib/utils/debug';
@@ -153,6 +153,8 @@
 				isPasskeyError = true;
 				return;
 			}
+
+			await applyNdkSignerFromNsec(decodeNsec(nsec));
 
 			if (!response.access_token) {
 				throw new Error($t('login.errors.no_token'));
@@ -437,41 +439,36 @@
 					credentialId: credentialData.credentialId
 				};
 
-				authState
-					.setupAuthData(
-						res.access_token,
-						'passkey',
-						npub,
-						res.user,
-						biometricData,
-						false,
-						res.refresh_token
-					)
-					.then(async () => {
-						await applyNdkSignerFromNsec(privateKey);
-						appStore.update((state) => ({
-							...state,
-							nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub }
-						}));
-						// If the account was pending deletion and the user just logged in,
-						// the backend automatically cancels the deletion. Show a welcome-back toast.
-						if (res.accountRestored) {
-							appStore.showSuccessToast($t('login.account_restored_message'));
-						}
-						if (res.isNewUser) {
-							await goto('/auth/onboarding');
-						} else {
-							const deepLink = await consumeDeepLink();
-							const params = new URLSearchParams(window.location.search);
-							const returnTo = params.get('returnTo');
-							const target =
-								returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
-							await goto(target);
-						}
-						if ($passkeyMigration.isOpen) {
-							resetMigration();
-						}
-					});
+				await authState.setupAuthData(
+					res.access_token,
+					'passkey',
+					npub,
+					res.user,
+					biometricData,
+					false,
+					res.refresh_token
+				);
+				await applyNdkSignerFromNsec(privateKey);
+				appStore.update((state) => ({
+					...state,
+					nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub }
+				}));
+				if (res.accountRestored) {
+					appStore.showSuccessToast($t('login.account_restored_message'));
+				}
+				if (res.isNewUser) {
+					await goto('/auth/onboarding');
+				} else {
+					const deepLink = await consumeDeepLink();
+					const params = new URLSearchParams(window.location.search);
+					const returnTo = params.get('returnTo');
+					const target =
+						returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
+					await goto(target);
+				}
+				if ($passkeyMigration.isOpen) {
+					resetMigration();
+				}
 			}
 		} catch (err) {
 			console.error('Error:', err);

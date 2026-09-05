@@ -1,3 +1,15 @@
+import { Buffer } from 'buffer';
+import process from 'process';
+
+if (typeof window !== 'undefined') {
+	if (!window.Buffer) (window as any).Buffer = Buffer;
+	(window as any).process = process;
+}
+if (typeof globalThis !== 'undefined') {
+	if (!(globalThis as any).Buffer) (globalThis as any).Buffer = Buffer;
+	(globalThis as any).process = process;
+}
+
 import type { HandleClientError } from '@sveltejs/kit';
 import { init, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
 // Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully

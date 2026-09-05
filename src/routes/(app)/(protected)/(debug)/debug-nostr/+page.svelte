@@ -26,7 +26,6 @@
 		30002: 'Availability',
 
 		30063: 'ProfileImg',
-		30078: 'BoltzSwap',
 		6420: 'ServiceQuoteReq',
 		10002: 'RelayList',
 		1063: 'FileMeta'

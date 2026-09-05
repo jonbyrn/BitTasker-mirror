@@ -1,5 +1,21 @@
-import type { ServiceContractAgreementSnapshot, ServiceContractPricingSnapshot } from '$lib/types/contract';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+
+export interface ServiceContractAgreementSnapshot {
+	selectedTierId?: string;
+	selectedAddOns?: string[];
+	rushDelivery?: boolean;
+	deliverables?: string;
+	inquiryAnswers?: Record<string, unknown>;
+	priceSnapshotLabel?: string;
+}
+
+export interface ServiceContractPricingSnapshot {
+	serviceVersionRef: string;
+	priceSnapshotLabel?: string;
+	tierId?: string;
+	selectedAddOns?: string[];
+	rushDelivery?: boolean;
+}
 
 export interface ServiceQuoteAgreementSummary {
 	quoteRequestId: string;

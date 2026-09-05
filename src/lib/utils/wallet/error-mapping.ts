@@ -17,7 +17,6 @@ const ERROR_KEY_MAP: Record<string, string> = {
 	'timed out': 'wallet.toast.error.timeout',
 	network: 'wallet.toast.error.network_error',
 	offline: 'wallet.toast.error.network_error',
-	boltz: 'wallet.toast.error.boltz_unavailable',
 	rejected: 'wallet.toast.error.user_rejected'
 };
 

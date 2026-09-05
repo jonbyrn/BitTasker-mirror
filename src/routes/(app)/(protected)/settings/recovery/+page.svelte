@@ -5,7 +5,6 @@
 	import { t } from 'svelte-i18n';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale } from 'svelte-i18n';
@@ -35,6 +34,18 @@
 	let copySuccess = $state('');
 
 	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
+
+	function validateEmail(value: string): { isValid: boolean; error?: string } {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+			? { isValid: true }
+			: { isValid: false, error: $t('settings.validation.emailInvalid') };
+	}
+
+	function validatePassword(value: string): { isValid: boolean; error?: string } {
+		return value.length >= 12
+			? { isValid: true }
+			: { isValid: false, error: $t('settings.validation.passwordTooShort') };
+	}
 
 	function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
 		const length = password.length;

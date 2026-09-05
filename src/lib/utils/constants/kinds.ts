@@ -69,9 +69,6 @@ const KINDS = {
 	/** User relay list (NIP-65) - replaceable */
 	NIP_65_RELAY_LIST: 10002,
 
-	/** Boltz swap management - parameterized replaceable */
-	PENDING_SWAPS: 30078,
-
 	/** User-to-user chat messages (NIP-04/NIP-44) */
 	DIRECT_MESSAGES: 4,
 

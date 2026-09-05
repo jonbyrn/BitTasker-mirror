@@ -30,7 +30,7 @@ export async function load({ url }) {
 					name: 'How does BitTasker\'s secure payment contract system work?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'Our Bitcoin secure payment contract system uses smart contracts on the Rootstock network to hold payments until tasks are completed satisfactorily, protecting both task posters and workers.'
+							text: 'Our Bitcoin secure payment contract system uses RGB protocol on Bitcoin to hold payments until tasks are completed satisfactorily, protecting both task posters and workers.'
 					}
 				},
 				{

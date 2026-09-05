@@ -5,7 +5,6 @@
 	import type { Service } from '$lib/types/service';
 	import type { ServiceProposalEvent, ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import { fetchContractProfile } from '$lib/nostr/profile';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
@@ -73,26 +72,7 @@
 			return;
 		}
 
-		let cancelled = false;
-		void fetchContractProfile(pubkey)
-			.then((profile) => {
-				if (cancelled) return;
-				requesterProfile = {
-					averageRating: profile.averageRating ?? 0,
-					tasksCompleted: profile.tasksCompleted ?? 0
-				};
-			})
-			.catch(() => {
-				if (cancelled) return;
-				requesterProfile = {
-					averageRating: 0,
-					tasksCompleted: 0
-				};
-			});
-
-		return () => {
-			cancelled = true;
-		};
+		requesterProfile = { averageRating: 0, tasksCompleted: 0 };
 	});
 
 	async function handleSubmit(payload: ServiceProposalComposerSubmitPayload) {

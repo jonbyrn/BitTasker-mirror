@@ -4,7 +4,7 @@
  *
  * The review CTA is shown only for terminal money-moving outcomes (e.g. funds released, funds claimed, dispute resolved), not for `Completed` alone (work marked done before payout).
  */
-import { ContractStatus } from '$lib/utils/contract/types';
+import { ContractStatus } from '$lib/nostr/events/contractStatus';
 
 /** Contract statuses that allow review submission (string values - case insensitive matching) */
 const REVIEWABLE_STATUS_STRINGS = new Set([
@@ -25,9 +25,9 @@ const REVIEWABLE_STATUS_STRINGS = new Set([
  * Reviews are allowed only after funds have moved or a dispute outcome is final — not merely `Completed` (work marked done).
  */
 const REVIEWABLE_STATUS_NUMBERS = new Set([
-	ContractStatus.DisputeResolved, // 2
-	ContractStatus.FundsReleased, // 7
-	ContractStatus.FundsClaimed // 8
+	ContractStatus.Resolved,
+	ContractStatus.Completed,
+	ContractStatus.Disputed
 ]);
 
 /** Status events that constitute a confirmed completion for review purposes */

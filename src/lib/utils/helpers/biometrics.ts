@@ -126,6 +126,9 @@ export async function setBiometricKey({
 
 		// Decode challenge from base64url
 		const _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+		if (!_challenge) {
+			throw new Error('Invalid biometric challenge received from server.');
+		}
 
 		// Helper to convert base64url string to ArrayBuffer
 		const base64urlToBuffer = (base64url: string): ArrayBuffer => {
@@ -315,8 +318,11 @@ async function executeBiometricData(
 		if (!isNative || isTestEnv) {
 			// Browser/CDP environment: use native WebAuthn API with virtual authenticator
 			const { challenge } = await authService.getChallenge();
+						if (!challenge) {
+							throw new Error('Invalid biometric challenge received from server.');
+						}
 
-			// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
+						// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
 			const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
 			const padded = challengeBase64 + '='.repeat((4 - (challengeBase64.length % 4)) % 4);
 			const challengeArrayBuffer = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)).buffer;
@@ -404,7 +410,10 @@ async function executeBiometricData(
 		}
 
 		const { challenge } = await authService.getChallenge();
-		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
+				if (!challenge) {
+					throw new Error('Invalid biometric challenge received from server.');
+				}
+				const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
 		const options: PublicKeyCredentialRequestOptionsJSON = {
 			challenge: challengeBuffer,

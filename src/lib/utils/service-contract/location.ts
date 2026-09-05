@@ -1,11 +1,17 @@
-import type {
-	ServiceContractAgreementSnapshot,
-	ServiceContractLocationSnapshot
-} from '$lib/types/contract';
 import type { Service } from '$lib/types/service.d';
 import type { Location } from '$lib/types/task.d';
 import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 import { formatLocationAddress, generateGoogleMapsLink } from '$lib/utils/location/maps';
+
+export interface ServiceContractLocationSnapshot {
+	mode: 'tasker_location' | 'taskee_location';
+	label: string;
+	location?: Location;
+}
+
+export interface ServiceContractAgreementSnapshot {
+	serviceLocation?: ServiceContractLocationSnapshot;
+}
 
 export interface ServiceContractLocationPresentation {
 	label: string;

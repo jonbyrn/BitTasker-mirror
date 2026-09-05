@@ -6,12 +6,16 @@
 	let {
 		totalAmountUsd,
 		btcPriceUsd = 0,
+		primaryAsset = 'usdt_rgb',
+		secondaryAsset = 'btc_lightning',
 		onSplitChange
 	}: {
 		/** Total contract amount in USD, used to compute both split shares. */
 		totalAmountUsd: number;
 		/** Current BTC/USD price, used to render the secondary share in sats. Omit to hide the sats readout. */
 		btcPriceUsd?: number;
+		primaryAsset?: PaymentSplitConfig['primaryAsset'];
+		secondaryAsset?: PaymentSplitConfig['secondaryAsset'];
 		/** Called whenever the split changes — preview only, not wired to contract submission. */
 		onSplitChange?: (config: PaymentSplitConfig) => void;
 	} = $props();
@@ -35,9 +39,9 @@
 	// Notifies the parent of the computed split — the parent decides whether/how to use it.
 	$effect(() => {
 		onSplitChange?.({
-			primaryAsset: 'usdt_rgb',
+			primaryAsset,
 			primaryPercentage,
-			secondaryAsset: 'btc_onchain',
+			secondaryAsset,
 			secondaryPercentage,
 			secondaryPayoutAddress: effectiveSecondaryAddress || undefined
 		});
@@ -46,7 +50,9 @@
 
 <div class="bg-base-100 border-primary/30 space-y-4 rounded-lg border p-4">
 	<div class="flex items-center justify-between gap-2">
-		<span class="badge badge-warning badge-sm">{$t('dashboard.bids.bid_acceptance.payment_split.preview_badge')}</span>
+		<span class="badge badge-warning badge-sm"
+			>{$t('dashboard.bids.bid_acceptance.payment_split.preview_badge')}</span
+		>
 		<h4 class="text-base-content text-sm font-semibold">
 			{$t('dashboard.bids.bid_acceptance.payment_split.title')}
 		</h4>
@@ -55,14 +61,14 @@
 	<div class="space-y-2">
 		<div class="text-base-content/80 flex justify-between text-xs sm:text-sm">
 			<span
-				>{$t('dashboard.bids.bid_acceptance.payment_split.primary_label')}: <strong
-					>{primaryPercentage}%</strong
-				> (${primaryUsdAmount.toFixed(2)})</span
+				>{$t('dashboard.bids.bid_acceptance.payment_split.primary_label')}:
+				<strong>{primaryPercentage}%</strong>
+				(${primaryUsdAmount.toFixed(2)})</span
 			>
 			<span
-				>{$t('dashboard.bids.bid_acceptance.payment_split.secondary_label')}: <strong
-					>{secondaryPercentage}%</strong
-				> (${secondaryUsdAmount.toFixed(2)})</span
+				>{$t('dashboard.bids.bid_acceptance.payment_split.secondary_label')}:
+				<strong>{secondaryPercentage}%</strong>
+				(${secondaryUsdAmount.toFixed(2)})</span
 			>
 		</div>
 
@@ -104,7 +110,8 @@
 				<p class="text-base-content/60 text-xs">
 					{$t('dashboard.bids.bid_acceptance.payment_split.default_payout_note')}
 					<code class="text-primary text-xs"
-						>{defaultBtcAddress || $t('dashboard.bids.bid_acceptance.payment_split.wallet_not_connected')}</code
+						>{defaultBtcAddress ||
+							$t('dashboard.bids.bid_acceptance.payment_split.wallet_not_connected')}</code
 					>
 				</p>
 			{/if}

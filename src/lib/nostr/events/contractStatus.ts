@@ -3,7 +3,46 @@ import { RgbContractState } from '$lib/types/rgb';
 import { createDebug } from '$lib/utils/debug';
 import KINDS from '$lib/utils/constants/kinds';
 import NDK, { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import type { NDKTag, NostrEvent } from '@nostr-dev-kit/ndk';
 const d = createDebug('ndk:events:contract-status');
+
+/**
+ * Contract status enum values (v2 flow)
+ */
+export enum ContractStatus {
+	Created = 0,
+	Funded = 1,
+	InProgress = 2,
+	Submitted = 3,
+	Approved = 4,
+	Completed = 5,
+	Disputed = 6,
+	Resolved = 7,
+	Cancelled = 8,
+	Refunded = 9,
+	Expired = 10,
+	Failed = 11
+}
+
+/**
+ * Check if a value is a valid ContractStatus enum value
+ */
+export function isValidContractStatusEnumValue(value: number): value is ContractStatus {
+	return Number.isInteger(value) && value >= 0 && value <= 11;
+}
+
+/**
+ * Wire version strings that indicate legacy contract status format
+ */
+const LEGACY_WIRE_VERSIONS = new Set(['v1', '0.0.1']);
+
+/**
+ * Check if a wire version string indicates legacy contract status format
+ */
+export function isLegacyContractStatusWireVersion(version: string | undefined): boolean {
+	if (version === undefined) return false;
+	return LEGACY_WIRE_VERSIONS.has(version);
+}
 
 /**
  * Single-char + message-type tags that stay on the wire (outside the encrypted blob).

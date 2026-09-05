@@ -4,6 +4,9 @@
 	import { FEE_TIERS } from '@bittasker/wallet-core';
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
+	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
+	import { ContractRune } from '$lib/runes/contract.svelte';
+	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import LocationPicker from '$lib/components/LocationPicker.svelte';
@@ -12,12 +15,20 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
-	import type {
-		ServiceContractAgreementSnapshot,
-		ServiceContractPricingSnapshot
-	} from '$lib/types/contract';
 	import type { Location } from '$lib/types/task';
 	import type { RadiusValidationResult } from '$lib/utils/location/distance';
+
+	type ServiceContractAgreementSnapshot = {
+		deliverables?: string;
+		selectedAddOns?: string[];
+		priceSnapshotLabel?: string;
+	};
+	type ServiceContractPricingSnapshot = {
+		serviceVersionRef?: string;
+		tierId?: string;
+		selectedAddOns?: string[];
+		rushDelivery?: boolean;
+	};
 
 	let {
 		open = false,
@@ -27,6 +38,9 @@
 		providerAvatar = null,
 		providerRating = null,
 		providerPubkey = null,
+		contractId = null,
+		instantOrderId = null,
+		contractRune = undefined,
 		amountUsd = null,
 		selectedTierLabel = null,
 		agreementSnapshot = null,
@@ -72,6 +86,8 @@
 		providerAvatar?: string | null;
 		providerRating?: number | null;
 		providerPubkey?: string | null;
+		contractId?: string | null;
+		contractRune?: ContractRune;
 		amountUsd?: number | null;
 		selectedTierLabel?: string | null;
 		agreementSnapshot?: ServiceContractAgreementSnapshot | null;
@@ -106,7 +122,7 @@
 		taskerLocation?: Location | null;
 		locationValidation?: RadiusValidationResult | null;
 		onTaskerLocationSelect?: (location: Location) => void;
-		onConfirm?: () => void;
+		onConfirm?: () => void | Promise<void>;
 		onRetry?: () => void;
 		onRefresh?: () => void;
 		onAddFunds?: (amountUsd: number) => void;
@@ -116,13 +132,22 @@
 	const DEFAULT_CLIENT_FEE_TIER = 1;
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
 	const USDT_PLATFORM_FEE_RATE = 0.1; // 10% for USDT payments
-	const RBTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
+	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
 
-	let selectedSource = $state<'rbtc' | 'usdt'>('rbtc');
+	let selectedSource = $state<'btc' | 'usdt'>('btc');
 	let sourceExpanded = $state(false);
+	let paymentSplit = $state<PaymentSplitConfig>({
+		primaryAsset: 'btc_onchain',
+		primaryPercentage: 95,
+		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 5
+	});
+	let localContractRune = $state<ContractRune | null>(null);
+	let isFunding = $state(false);
+	let runeError = $state('');
 
 	let platformFeeRate = $derived(
-		selectedSource === 'usdt' ? USDT_PLATFORM_FEE_RATE : RBTC_PLATFORM_FEE_RATE
+		selectedSource === 'usdt' ? USDT_PLATFORM_FEE_RATE : BTC_PLATFORM_FEE_RATE
 	);
 	const PLATFORM_FEE_PERCENT_LABEL = $derived(`${(platformFeeRate * 100).toFixed(1)}%`);
 
@@ -154,7 +179,7 @@
 	const usdtPlatformFeeLabel = $derived(formatUsdLabel(usdtPlatformFeeValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
 	const savingsValue = $derived.by(() => {
-		if (usdtPlatformFeeValue != null && platformFeeValue != null && selectedSource === 'rbtc') {
+		if (usdtPlatformFeeValue != null && platformFeeValue != null && selectedSource === 'btc') {
 			return usdtPlatformFeeValue - platformFeeValue;
 		}
 		return null;
@@ -162,7 +187,7 @@
 	const savingsLabel = $derived(formatUsdLabel(savingsValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
-	const resolvedErrorMessage = $derived(errorMessage);
+	const resolvedErrorMessage = $derived(runeError || errorMessage);
 
 	// Wallet card props — switch based on selected source
 	let walletCardBalancePrimary = $derived(
@@ -256,7 +281,7 @@
 	}
 
 	function handleDrawerConfirmClick() {
-		if (!canConfirm || isPreparing || isOffline || isSubmitting) {
+		if (!canConfirm || isPreparing || isOffline || isSubmitting || isFunding) {
 			return;
 		}
 
@@ -267,9 +292,44 @@
 		confirmModalOpen = false;
 	}
 
-	function handleConfirmEscrow() {
+	function updatePaymentSplit(config: PaymentSplitConfig): void {
+		paymentSplit = config;
+	}
+
+	function syncSplitForSource(source: 'btc' | 'usdt'): void {
+		paymentSplit = {
+			...paymentSplit,
+			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain'
+		};
+	}
+
+	async function handleConfirmEscrow() {
 		confirmModalOpen = false;
-		onConfirm();
+		runeError = '';
+		isFunding = true;
+		try {
+			const activeContractRune = contractRune ?? localContractRune;
+			if (!activeContractRune) {
+				const id = contractId ?? instantOrderId ?? `service-${serviceTitle}`;
+				if (!id || totalPaymentValue == null) {
+					throw new Error('Service contract details are incomplete');
+				}
+				localContractRune = new ContractRune({
+					contractId: id,
+					totalAmountUsd: totalPaymentValue,
+					split: paymentSplit,
+					partyPubkeys: providerPubkey ? [providerPubkey] : []
+				});
+			}
+			const runeToFund = contractRune ?? localContractRune;
+			if (!runeToFund) throw new Error('Contract funding state is unavailable');
+			await runeToFund.fund();
+			await onConfirm();
+		} catch (error) {
+			runeError = error instanceof Error ? error.message : 'Escrow funding failed';
+		} finally {
+			isFunding = false;
+		}
 	}
 </script>
 
@@ -278,10 +338,10 @@
 		{open}
 		title={resolvedTitle}
 		confirmLabel={$t('dashboard.services.detail.book_now_drawer.confirm_cta')}
-		canConfirm={canConfirm && !isPreparing && !isOffline}
+		canConfirm={canConfirm && !isPreparing && !isOffline && !isFunding}
 		hideFooter={showingContractCreationProgress}
 		allowCloseWhileSubmitting={showingContractCreationProgress}
-		{isSubmitting}
+		isSubmitting={isSubmitting || isFunding}
 		errorMessage={walletVerificationErrorCode === 'insufficient_funds' ? '' : resolvedErrorMessage}
 		errorHint={walletVerificationErrorCode === 'insufficient_funds' ? '' : resolvedErrorHint}
 		drawerTestId="service-instant-buy-modal"
@@ -569,9 +629,9 @@
 										onclick={() => (sourceExpanded = !sourceExpanded)}
 									>
 										<span class="text-base-content/60">{$t('wallet.from')}:</span>
-										{#if selectedSource === 'rbtc'}
+										{#if selectedSource === 'btc'}
 											<img
-												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												src="/images/chains/Bitcoin.svg"
 												alt="Bitcoin"
 												class="h-5 w-5"
 											/>
@@ -590,16 +650,17 @@
 											<button
 												type="button"
 												class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg p-2 transition-colors {selectedSource ===
-												'rbtc'
+												'btc'
 													? 'bg-primary/10'
 													: ''}"
 												onclick={() => {
-													selectedSource = 'rbtc';
+													selectedSource = 'btc';
+													syncSplitForSource('btc');
 													sourceExpanded = false;
 												}}
 											>
 												<img
-													src="/images/chains/Bitcoin-Rootstock-logo.webp"
+													src="/images/chains/Bitcoin.svg"
 													alt="Bitcoin"
 													class="h-5 w-5"
 												/>
@@ -614,6 +675,7 @@
 													: ''}"
 												onclick={() => {
 													selectedSource = 'usdt';
+													syncSplitForSource('usdt');
 													sourceExpanded = false;
 												}}
 											>
@@ -665,6 +727,13 @@
 									: '/images/chains/Bitcoin.svg'}
 							/>
 
+							<PaymentSplitSlider
+								totalAmountUsd={totalPaymentValue ?? 0}
+								primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_onchain'}
+								secondaryAsset={selectedSource === 'usdt' ? 'btc_lightning' : 'usdt_rgb'}
+								onSplitChange={updatePaymentSplit}
+							/>
+
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">
 								<div class="min-w-0 flex-1">
@@ -680,21 +749,21 @@
 											<div class="flex items-center justify-between gap-3 text-xs">
 												<span
 													class="text-base-content/70"
-													class:line-through={selectedSource === 'rbtc'}
+													class:line-through={selectedSource === 'btc'}
 												>
 													{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
 														values: { fee: '10.0%' }
 													}) || 'Platform Fee (10.0%)'}
 												</span>
 												<span
-													class:line-through={selectedSource === 'rbtc'}
+													class:line-through={selectedSource === 'btc'}
 													data-testid="service-agreement-usdt-platform-fee"
 												>
 													{usdtPlatformFeeLabel}
 												</span>
 											</div>
 											<!-- Bitcoin platform fee (hidden when paying USDT) -->
-											{#if selectedSource === 'rbtc'}
+											{#if selectedSource === 'btc'}
 												<div class="flex items-center justify-between gap-3 text-xs">
 													<span class="text-base-content/70">
 														{$t('dashboard.services.detail.book_now_drawer.platform_fee', {

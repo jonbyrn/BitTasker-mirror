@@ -8,6 +8,7 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
 import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
@@ -16,21 +17,201 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
-const cryptoShim = resolve(projectRoot, 'src/lib/shims/crypto.ts');
 
-// bitcoinjs-lib is a transitive dependency (via @utexo/rgb-sdk-web and the ledger/trezor
-// connectors' dynamic imports) that's never hoisted to the project root under pnpm's strict
-// node_modules layout. Resolve its real path via @utexo/rgb-sdk-web's isolated pnpm node_modules
-// (found by following that package's symlink, so this stays correct across version bumps) so
-// `resolve.alias` can point the bare specifier there directly.
 const require = createRequire(import.meta.url);
 const rgbSdkWebIsolatedModules = dirname(
 	dirname(realpathSync(resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web')))
 );
 const bitcoinjsLibPath = require.resolve('bitcoinjs-lib', { paths: [rgbSdkWebIsolatedModules] });
 
-// Vite plugin to ensure browser condition is prioritized during tests
-// This fixes the "mount(...) is not available on the server" error
+const walletCoreIsolatedModules = dirname(
+	dirname(realpathSync(resolve(projectRoot, 'node_modules/@bittasker/wallet-core')))
+);
+const boltzCoreLiquidPath = require.resolve('boltz-core/dist/lib/liquid/index.js', {
+	paths: [walletCoreIsolatedModules]
+});
+const bitcoinjsLibTypesPath = require.resolve('bitcoinjs-lib/src/types.js', {
+	paths: [walletCoreIsolatedModules]
+});
+
+const CJS_PACKAGES = [
+	'bitcoinjs-lib',
+	'bip32',
+	'bip39',
+	'bip174',
+	'ecpair',
+	'tiny-secp256k1',
+	'varuint-bitcoin',
+	'typeforce',
+	'wif',
+	'bitcoin-ops',
+	'pushdata-bitcoin',
+	'boltz-core',
+	'bn.js',
+	'ripemd160',
+	'sha256',
+	'bs58check',
+];
+
+const ESM_PACKAGES = ['@noble/hashes'];
+
+function buildImportPattern(packages: string[]): RegExp {
+	const escaped = packages.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+	return new RegExp(`(import\\s+)(\\w+)(\\s+from\\s*["'])(${escaped.join('|')})([^"']*["'])`, 'g');
+}
+
+function cjsEsmInterop(): Plugin {
+	const cjsPattern = buildImportPattern(CJS_PACKAGES);
+	const esmPattern = buildImportPattern(ESM_PACKAGES);
+
+	return {
+		name: 'cjs-esm-interop',
+		enforce: 'post',
+		generateBundle(_options, bundle) {
+			for (const [, chunk] of Object.entries(bundle)) {
+				if (chunk.type !== 'chunk') continue;
+				let code = chunk.code;
+				let modified = false;
+
+				if (cjsPattern.test(code)) {
+					code = code.replace(cjsPattern, ';import * as _$2 $3$4$5; const $2 = _$2.default ?? _$2;');
+					modified = true;
+				}
+
+				if (esmPattern.test(code)) {
+					code = code.replace(esmPattern, ';import * as _$2 $3$4$5; const $2 = _$2;');
+					modified = true;
+				}
+
+				if (modified) {
+					chunk.code = code;
+				}
+			}
+		},
+	};
+}
+
+function clientOnlyNodePolyfills(options: Parameters<typeof nodePolyfills>[0]): Plugin {
+	const inner = nodePolyfills(options) as Plugin;
+	return {
+		...inner,
+		name: 'client-only-node-polyfills',
+		config(_config, _env) {
+			return undefined;
+		},
+		transform(code, id, opts) {
+			if (opts?.ssr) return null;
+			return typeof inner.transform === 'function'
+				? inner.transform.call(this, code, id, opts)
+				: // @ts-expect-error
+				  inner.transform?.handler?.call(this, code, id, opts);
+		},
+		resolveId(source, importer, opts) {
+			if (opts?.ssr) return null;
+			return typeof inner.resolveId === 'function'
+				? inner.resolveId.call(this, source, importer, opts)
+				: // @ts-expect-error
+				  inner.resolveId?.handler?.call(this, source, importer, opts);
+		},
+	};
+}
+
+function clientResolveAliases(): Plugin {
+	const bitcoinjsShim = resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts');
+	const packageRoots: Record<string, string> = {
+		'bitcoinjs-lib': dirname(require.resolve('bitcoinjs-lib/package.json', { paths: [rgbSdkWebIsolatedModules] })),
+		'boltz-core': dirname(require.resolve('boltz-core/package.json', { paths: [walletCoreIsolatedModules] })),
+	};
+	return {
+		name: 'client-resolve-aliases',
+		enforce: 'pre',
+		resolveId(source, importer, options) {
+			// Never intercept virtual modules, icon imports, or WASM files
+			if (source.startsWith('~icons/') || source.startsWith('\0') || source.endsWith('.wasm')) return null;
+			if (options?.ssr) return null;
+
+			// Intercept nested file-path imports of bitcoinjs-lib from excluded
+			// dependencies (e.g. @utexo/rgb-sdk-web/node_modules/bitcoinjs-lib/src/index.js).
+			// These bypass bare-specifier matching because Vite processes excluded
+			// packages through a different resolution path. Route them through
+			// the CJS-ESM shim so getter-based exports (Psbt, etc.) are accessible.
+			const isFromShim = importer && importer.includes('shims/bitcoinjs-lib');
+			if (!isFromShim && (source.includes('bitcoinjs-lib/src/index.js') || source.includes('bitcoinjs-lib/src/index.ts'))) {
+				return { id: bitcoinjsShim };
+			}
+
+			for (const [pkg, root] of Object.entries(packageRoots)) {
+				if (source === pkg) {
+					// Bare bitcoinjs-lib imports route through the CJS-ESM shim
+					if (pkg === 'bitcoinjs-lib') {
+						return { id: bitcoinjsShim };
+					}
+					try {
+						return { id: require.resolve(source, { paths: [root] }) };
+					} catch {
+						return undefined;
+					}
+				}
+				if (source.startsWith(pkg + '/')) {
+					// Subpath imports (e.g. bitcoinjs-lib/src/types, boltz-core/dist/lib/liquid)
+					// resolve directly to real files — no shim needed for non-index paths
+					try {
+						return { id: require.resolve(source, { paths: [root] }) };
+					} catch {
+						const subPath = source.slice(pkg.length + 1);
+						return { id: resolve(root, subPath) };
+					}
+				}
+			}
+			return undefined;
+		},
+	};
+}
+
+function ssrNodeBuiltins(): Plugin {
+	const NODE_BUILTINS: Record<string, string> = {
+		'crypto': 'node:crypto',
+		'buffer': 'node:buffer',
+		'stream': 'node:stream',
+		'util': 'node:util',
+		'process': 'node:process',
+	};
+	const SSR_EXTERNALS: Record<string, string> = {
+		'bitcoinjs-lib': bitcoinjsLibPath,
+		'bitcoinjs-lib/src/types': bitcoinjsLibTypesPath,
+		'boltz-core/dist/lib/liquid': boltzCoreLiquidPath,
+	};
+	for (const pkg of CJS_PACKAGES) {
+		if (!SSR_EXTERNALS[pkg]) SSR_EXTERNALS[pkg] = pkg;
+	}
+	return {
+		name: 'ssr-node-builtins',
+		enforce: 'pre',
+		resolveId(source, importer, options) {
+			if (source.endsWith('.wasm')) return null;
+			if (!options?.ssr) return undefined;
+			if (NODE_BUILTINS[source]) {
+				return { id: NODE_BUILTINS[source], external: true };
+			}
+			if (SSR_EXTERNALS[source]) {
+				return { id: SSR_EXTERNALS[source], external: true };
+			}
+			for (const [pkg] of Object.entries(SSR_EXTERNALS)) {
+				if (source.startsWith(pkg + '/')) {
+					try {
+						const pkgRoot = dirname(require.resolve(pkg + '/package.json', { paths: [walletCoreIsolatedModules, rgbSdkWebIsolatedModules] }));
+						const subPath = source.slice(pkg.length + 1);
+						return { id: resolve(pkgRoot, subPath), external: true };
+					} catch {
+						return { id: source, external: true };
+					}
+				}
+			}
+			return undefined;
+		},
+	};
+}
+
 const addBrowserCondition: Plugin = {
 	name: 'vite-plugin-browser-condition',
 	config(config, { mode }) {
@@ -41,7 +222,6 @@ const addBrowserCondition: Plugin = {
 				}
 				config.resolve.conditions = [];
 			}
-			// Prioritize 'browser' condition for client-side rendering in tests
 			if (!config.resolve.conditions.includes('browser')) {
 				config.resolve.conditions.unshift('browser');
 			}
@@ -50,10 +230,6 @@ const addBrowserCondition: Plugin = {
 };
 
 export default defineConfig(({ mode }) => {
-	// Load .env file variables into process.env so build-time plugins (e.g. Sentry)
-	// can read them via process.env. Vite only exposes .env to import.meta.env inside
-	// source files — it does NOT populate process.env before evaluating vite.config.ts.
-	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
 	Object.assign(process.env, env);
 	const sentryUploadRequested =
@@ -106,74 +282,82 @@ export default defineConfig(({ mode }) => {
 				]
 			}
 		},
+		assetsInclude: ['**/*.wasm'],
 		resolve: {
-			conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
-			alias: {
-				bolt11: bolt11Shim,
-				crypto: cryptoShim,
-				buffer: 'buffer',
-				stream: 'stream-browserify',
-				process: 'process/browser',
-				// Not a direct dependency, so pnpm never hoists it to the root — alias to its
-				// real resolved path (see bitcoinjsLibPath above) instead of a bare specifier.
-				'bitcoinjs-lib': bitcoinjsLibPath,
-				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
-			}
+			...(process.env.VITEST ? { conditions: ['browser', 'development'] } : {}),
+			environments: {
+				client: {
+					resolve: {
+						conditions: ['browser', 'development'],
+					},
+				},
+				ssr: {
+					resolve: {
+						conditions: ['node', 'development'],
+						externalConditions: ['node', 'development'],
+					},
+				},
+			},
+			alias: [
+				{ find: /^bolt11$/, replacement: bolt11Shim },
+				{ find: /^util$/, replacement: 'util/' },
+				{ find: /^stream$/, replacement: 'stream-browserify' },
+				{ find: /^events$/, replacement: 'events' },
+				{ find: /^process$/, replacement: 'process/browser' },
+				...(process.env.VITEST
+					? [{ find: /^\$app\/environment$/, replacement: new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname }]
+					: []),
+			]
 		},
 		ssr: {
-			// Bundle wallet-core through Vite's SSR pipeline so Vite handles its
-			// JSON imports (boltz-core/out/EtherSwap.sol/EtherSwap.json) natively.
-			// Without this, Node.js v26 loads the package directly and requires
-			// `import ... with { type: 'json' }` assertions that aren't present.
-			noExternal: ['@bittasker/wallet-core']
+			noExternal: [
+				'@bittasker/wallet-core',
+			],
+			external: [
+				'@noble/hashes',
+				'bitcoinjs-lib',
+				'boltz-core',
+				'crypto-browserify',
+				'buffer',
+				'stream-browserify',
+				'process/browser',
+				'@utexo/rgb-sdk-web',
+			],
+			resolve: {
+				conditions: ['node', 'development'],
+				externalConditions: ['node', 'development'],
+				alias: [
+					{ find: /^crypto$/, replacement: 'node:crypto' },
+					{ find: /^buffer$/, replacement: 'node:buffer' },
+					{ find: /^stream$/, replacement: 'node:stream' },
+					{ find: /^util$/, replacement: 'node:util' },
+					{ find: /^process$/, replacement: 'node:process' },
+				],
+			},
 		},
 		plugins: [
-			// 1. Framework core — must come first to establish the SvelteKit transform pipeline
+			ssrNodeBuiltins(),
+			clientResolveAliases(),
+			cjsEsmInterop(),
 			sveltekit(),
-
-			// 2. Tailwind — CSS processing, needs to see the component files SvelteKit exposes
 			tailwindcss(),
-
-			// 3. WASM — sets up WASM module handling before polyfills run
 			wasm(),
-
-			// 4. Top-level await — transforms must happen before polyfills
 			topLevelAwait(),
-
-			// 5. Node polyfills — replaces Node built-ins after all transforms are done
-			nodePolyfills({
-				// Whether to polyfill `node:` protocol imports.
-				protocolImports: true,
-				// Enable polyfills for specific globals and modules.
+			clientOnlyNodePolyfills({
+				include: ['buffer', 'process', 'stream', 'util', 'crypto'],
 				globals: {
 					Buffer: true,
 					global: true,
-					process: true
 				},
-				// Add specific polyfills for modules required by wallet SDK
-				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
-				include: ['stream', 'buffer', 'util', 'process', 'events'],
-				// Explicitly exclude modules that should not be polyfilled
-				// IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
-				exclude: ['fs', 'path']
+				protocolImports: true,
 			}),
-
-			// 6. Icons — asset resolution, late in the pipeline
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
 				scale: 1.5,
-				// defaultStyle: 'width: 1.5em; height: 1.5em;',
 				defaultClass: ''
 			}),
-
-			// 7. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
 			addBrowserCondition,
-
-			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
-			//    and uploads after the adapter runs (closeBundle hook)
-			//    Keep it last only when a real upload is configured;
-			//    local/CI preview builds should not pay the source-map/upload cost without credentials.
 			...(sentryEnabled
 				? [
 						sentrySvelteKit({
@@ -183,7 +367,7 @@ export default defineConfig(({ mode }) => {
 							sentryUrl: process.env.SENTRY_URL ?? 'https://gt.bittasker.com',
 							telemetry: false,
 							autoInstrument: {
-								load: false, // Disable auto-instrumentation for client-side only app
+								load: false,
 								serverLoad: false
 							}
 						})
@@ -192,47 +376,25 @@ export default defineConfig(({ mode }) => {
 		],
 		define: {
 			__APP_VERSION__: JSON.stringify(pkg.version),
-			// Unique per-build identifier for version-scoped sessionStorage keys.
-			// Priority: Workers Builds → GitLab CI → timestamp fallback.
 			__BUILD_VERSION__: JSON.stringify(
 				process.env.WORKERS_CI_COMMIT_SHA ?? process.env.CI_COMMIT_SHA ?? Date.now().toString()
 			),
 			global: 'globalThis'
 		},
 		build: {
-			// esnext: native top-level await for secp256k1 WASM (vite-plugin-wasm).
-			// Setting "esnext" tells vite-plugin-top-level-await to skip its esbuild
-			// re-transform step, which breaks cross-chunk references (e.g. ProviderRpcError
-			// from dependencies). The plugin still wraps TLA in async IIFEs via SWC for Safari/iOS
-			// compatibility, but avoids the esbuild minify that mangles dependency references.
 			target: 'esnext',
-
-			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
-			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
 			minify: sentryEnabled ? ('oxc' as boolean | 'esbuild' | 'terser' | undefined) : 'esbuild',
-			// Hidden source maps are only needed for Sentry uploads; skip them when no upload is configured.
 			sourcemap: sentryEnabled ? 'hidden' : false,
-			cssCodeSplit: true, // Enable CSS code splitting
-			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
-			// secp256k1 WASM (~1.2 MB) and split vendor chunks (firebase, nostr-ndk) exceed 1 MB by design.
-			// Aggressive manualChunks splitting breaks SvelteKit chunk ordering ("kit.start is not a function").
+			cssCodeSplit: true,
+			cssMinify: true,
 			chunkSizeWarningLimit: 2500,
-			// bitcoinjs-lib is pure CJS and only reached transitively (via @utexo/rgb-sdk-web,
-			// ledger/trezor connectors); without this Rollup's commonjs plugin skips it and
-			// named exports like `Psbt` fail to resolve in the production build.
 			commonjsOptions: {
-				include: [/bitcoinjs-lib/, /node_modules/]
+				include: [/bitcoinjs-lib/, /node_modules/],
+				transformMixedEsModules: true
 			},
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
-						// Isolate BaseApiService into its own chunk.
-						// This prevents Vite from co-locating it with other modules that
-						// transitively import service subclasses, which creates a circular
-						// chunk dependency and causes "Class extends value undefined" at runtime.
-						// apiService.ts has no imports from any service file so this chunk
-						// is guaranteed to have no circular dependencies and will always be
-						// fully evaluated before any subclass chunk executes.
 						if (id.includes('src/lib/api/apiService')) {
 							return 'api-base';
 						}
@@ -245,20 +407,9 @@ export default defineConfig(({ mode }) => {
 						if (id.includes('node_modules/bip39')) {
 							return 'bip39';
 						}
-						// Isolate the `debug` CJS module into its own chunk.
-						// When merged with NDK/Dexie into a single chunk, Rollup's
-						// `getDefaultExportFromCjs` returns the raw `exports` object
-						// instead of the `createDebug` function, causing "b is not a
-						// function" at runtime on every page.
 						if (id.includes('node_modules/debug/')) {
 							return 'debug';
 						}
-						// Isolate Svelte internals into their own chunk.
-						// Without this, Vite merges Svelte's onMount/onDestroy/state/etc. with
-						// NDK and axios code that has top-level await. The topLevelAwait plugin
-						// then cascades __tla wrapping to the merged chunk, putting onMount inside
-						// an async IIFE. On WebKit, this makes onMount undefined when SvelteKit's
-						// runtime checks onMount.toString() — breaking the app on Safari/iPhone.
 						if (id.includes('node_modules/svelte/src/internal')) {
 							return 'svelte-internal';
 						}
@@ -267,18 +418,15 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		optimizeDeps: {
-			// bitcoinjs-lib is only ever reached transitively (via @utexo/rgb-sdk-web, which
-			// is excluded below, and the dynamic imports in ledger/trezor connectors). It's aliased
-			// to its resolved path above rather than included here — `optimizeDeps.include` requires
-			// the name to resolve as a direct dependency from the project root, which fails under
-			// pnpm's strict node_modules layout since it's not in package.json.
-			include: ['date-fns', 'axios', 'buffer', 'bip39'],
-			// bitcoinjs-lib re-exports `Psbt`/`Block`/etc. via `Object.defineProperty(exports, ..., { get })`
-			// instead of a plain `exports.Psbt = ...` assignment — cjs-module-lexer's static scan can miss
-			// these getter-based exports, so force Vite to derive them at runtime instead.
+			include: [
+				'date-fns',
+				'axios',
+				'buffer',
+				'bip39',
+				'process/browser',
+				'stream-browserify'
+			],
 			needsInterop: ['bitcoinjs-lib'],
-			// @utexo/rgb-sdk-web's WASM module initializes asynchronously — must be excluded
-			// from dependency pre-bundling per its own Vite setup instructions.
 			exclude: [
 				'firebase',
 				'@capacitor/device',
@@ -288,24 +436,14 @@ export default defineConfig(({ mode }) => {
 			]
 		},
 		server: {
-			// For mobile live-reload (Capacitor on device) we typically load the dev server via:
-			// - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
-			// - http://localhost:3000 with `adb reverse`
-			// Allowing all hosts prevents Vite from blocking these.
+			port: 3000,
+			strictPort: true,
 			allowedHosts: true,
-			// Proxy Cloudflare Stream/Images API calls to the deployed Worker.
-			// These endpoints don't exist in the SvelteKit dev server — they only
-			// run on the Worker. Without the proxy, local uploads fall back to the
-			// NestJS backend and video keys are not valid Stream UIDs.
 			proxy: {
-				// Forward versioned REST API calls to the local NestJS backend.
-				// Without this, requests fall back to relative URLs resolved against
-				// the Vite dev server's own origin (localhost:3000/5173), producing 404s.
 				'/api/v1': {
-					target: process.env.VITE_API_URL?.startsWith('http://localhost')
-						? process.env.VITE_API_URL
-						: 'http://localhost:8000',
-					changeOrigin: true
+					target: process.env.VITE_API_URL || 'https://api-dev.bittasker.com',
+					changeOrigin: true,
+					secure: false,
 				},
 				'/api/cloudflare/stream': {
 					target: 'https://dev.bittasker.com',
@@ -317,14 +455,7 @@ export default defineConfig(({ mode }) => {
 					changeOrigin: true,
 					secure: true
 				},
-				'/api/explorer': {
-					target: 'https://dev.bittasker.com',
-					changeOrigin: true,
-					secure: true
-				},
-				// RSK RPC proxy — public-node.rsk.co blocks browser CORS;
-				// in production (Capacitor) native HTTP bypasses this, but in dev mode
-				// the proxy is needed for balance fetches to succeed.
+				'/api/explorer': { target: 'https://dev.bittasker.com', changeOrigin: true, secure: true },
 				'/rpc/rsk': {
 					target: 'https://public-node.rsk.co',
 					changeOrigin: true,
@@ -350,7 +481,6 @@ export default defineConfig(({ mode }) => {
 					'android/**',
 					'ios/**',
 					'requirements/**',
-					// Tooling directories — prevent hot reloads from Claude/Ruflo/IDE writes
 					'**/.claude-flow/**',
 					'**/.swarm/**',
 					'**/.gitnexus/**',
@@ -367,19 +497,13 @@ export default defineConfig(({ mode }) => {
 					'**/.claude-plugin/**',
 					'**/.gitlab/**',
 					'**/.husky/**',
-					// Actively written during Claude sessions
 					'**/data/memory/**',
-					// Claude project-local config (hooks, skills, settings)
 					'**/.claude/**',
-					// E2E test artifacts (generated while dev server runs)
 					'**/playwright-report/**',
-					// Kilo Code / OpenCode tooling — prevent hot reloads from agent writes
 					'**/.kilo/**',
 					'**/.kilocode/**',
 					'**/.opencode/**',
-					// Kilo config file (frequently written by agent)
 					'**/kilo.json',
-					// Other tooling configs at project root
 					'**/claude-flow.config.json',
 					'**/.mcp.json'
 				]
@@ -387,3 +511,4 @@ export default defineConfig(({ mode }) => {
 		}
 	};
 });
+

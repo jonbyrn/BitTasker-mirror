@@ -323,11 +323,6 @@
 				>
 				<span class="text-base-content/30">·</span>
 				<a
-					href="/learn/rootstock/bittasker-escrow-contracts/"
-					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_escrow')}</a
-				>
-				<span class="text-base-content/30">·</span>
-				<a
 					href="/learn/security/is-bittasker-safe/"
 					class="hover:text-primary text-sm transition-colors">{$t('footer.learn_is_safe')}</a
 				>

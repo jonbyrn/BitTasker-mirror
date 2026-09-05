@@ -49,7 +49,6 @@ const PILLAR_OG: Record<string, string> = {
 	freelancing: 'learn-freelancing',
 	'bitcoin-freelancing': 'learn-btc-freelancing',
 	bitcoin: 'learn-bitcoin',
-	rootstock: 'learn-rootstock',
 	'bitcoin-layer-2': 'learn-btc-l2',
 	'future-of-work': 'learn-future'
 };
@@ -60,7 +59,6 @@ const BREADCRUMB_LABELS: Record<string, Record<string, string>> = {
 	freelancing: { en: 'Freelancing', es: 'Freelance' },
 	'bitcoin-freelancing': { en: 'Bitcoin Freelancing', es: 'Freelance Bitcoin' },
 	bitcoin: { en: 'Bitcoin', es: 'Bitcoin' },
-	rootstock: { en: 'Rootstock', es: 'Rootstock' },
 	'bitcoin-layer-2': { en: 'Bitcoin Layer 2', es: 'Bitcoin Capa 2' },
 	'future-of-work': { en: 'Future of Work', es: 'Futuro del Trabajo' }
 };

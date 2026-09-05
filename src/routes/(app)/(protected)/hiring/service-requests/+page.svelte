@@ -4,7 +4,6 @@
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { slide } from 'svelte/transition';
-	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 	import {
 		serviceQuoteUiStore,
 		getTaskerTimelines,
@@ -72,20 +71,6 @@
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	function handleTaskerRequestClear() {
-		serviceQuoteUiStore.setNonBlockingMessage(null);
-		const nextUrl = createDashboardUrl(page.url, {
-			tab: 'service-requests',
-			view: 'tasker',
-			requestId: null,
-			status: activeStatus
-		});
-		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-	}
-
-	function handleInvalidFocusedRequest() {
-		handleTaskerRequestFocus(null);
-	}
 </script>
 
 {#if nonBlockingMessageCode}
@@ -111,19 +96,25 @@
 	</div>
 {/if}
 
-<div transition:slide={{ duration: 300 }}>
-	<MyQuotesPanel
-		timelines={taskerTimelines}
-		{focusedRequestId}
-		restoreFocusedRequest={true}
-		isSyncing={taskerQuotesSyncing}
-		hasLoaded={taskerQuotesLoaded}
-		loadError={taskerQuotesError}
-		onRetry={() => {
-			void serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {});
-		}}
-		onRequestFocusChange={handleTaskerRequestFocus}
-		onRequestClear={handleTaskerRequestClear}
-		onInvalidFocusedRequest={handleInvalidFocusedRequest}
-	/>
+<div class="space-y-3" transition:slide={{ duration: 300 }}>
+	{#if taskerQuotesError}
+		<div class="alert alert-error text-sm">{taskerQuotesError}</div>
+	{:else if !taskerQuotesLoaded || taskerQuotesSyncing}
+		<div class="flex justify-center py-8"><span class="loading loading-spinner"></span></div>
+	{:else if taskerTimelines.length === 0}
+		<div class="py-8 text-center text-sm opacity-70">
+			{$t('dashboard.services.requests.empty', { default: 'No service requests yet.' })}
+		</div>
+	{:else}
+		{#each taskerTimelines as timeline (timeline.request.content.quoteRequestId)}
+			<button
+				type="button"
+				class="border-base-300 hover:bg-base-200 w-full rounded-lg border p-4 text-left"
+				onclick={() => handleTaskerRequestFocus(timeline.request.content.quoteRequestId)}
+			>
+				<strong>{timeline.request.content.inquiry.title}</strong>
+				<p class="text-base-content/60 text-sm">{timeline.request.content.inquiry.description}</p>
+			</button>
+		{/each}
+	{/if}
 </div>

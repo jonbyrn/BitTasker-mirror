@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
-	import DashboardServiceRequestsPanel from '$lib/components/service/DashboardServiceRequestsPanel.svelte';
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { parseEarningQuery } from '$lib/utils/dashboardQuery';
 
@@ -99,11 +98,8 @@
 	</div>
 {/if}
 
-<div id="panel-requests" role="tabpanel" aria-labelledby="tab-requests">
-	<DashboardServiceRequestsPanel
-		{status}
-		{selectedServiceAddress}
-		{focusedRequestId}
-		onResolveQuotesRoute={handleProviderRouteUpdate}
-	/>
+<div id="panel-requests" role="tabpanel" aria-labelledby="tab-requests" class="py-8 text-center">
+	<p class="text-base-content/70 text-sm">
+		{$t('dashboard.services.requests.empty', { default: 'Native service quote activity will appear here.' })}
+	</p>
 </div>

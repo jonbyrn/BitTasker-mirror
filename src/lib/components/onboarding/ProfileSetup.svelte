@@ -10,12 +10,12 @@
 		publishSkillsUpdate,
 		generateProfileTranslations,
 		fetchKind0Profile,
-		loadAuthProfileSnapshot,
+		fetchProfileMetadata,
 		resolveDisplayNameFromProfileMetadataContent,
 		NdkSignerNotConfiguredError,
 		type ProfileSetupMode
 	} from '$lib/nostr/profile';
-	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { hexToBytes } from '$lib/utils/helpers/encoding';
 	import Uploader from '$lib/components/Uploader.svelte';
@@ -120,12 +120,11 @@
 		try {
 			isInitialLoading = true;
 			await ensureNdkSigner();
-			const snapshot = await loadAuthProfileSnapshot(authorHex);
-			if (snapshot.picture) {
-				picture = snapshot.picture;
+			const metadata = await fetchProfileMetadata(authorHex);
+			if (metadata.picture) {
+				picture = { url: metadata.picture, type: 'image/*', alt: 'Profile image', key: '' };
 			}
-			imageEventId = snapshot.imageEventId;
-			applySnapshotToForm(snapshot.metadata, snapshot.skills);
+			applySnapshotToForm(metadata, []);
 		} catch (err) {
 			console.error('Failed to load profile snapshot:', err);
 			error = $t('onboarding_auth.form.failed_process_profile_update');
@@ -478,5 +477,3 @@
 		</div>
 	</div>
 {/if}
-
-

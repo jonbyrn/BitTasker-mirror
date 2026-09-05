@@ -6,7 +6,6 @@ import { goto } from '$app/navigation';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 import { ndkLogout } from '$lib/nostr/ndk';
-import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 import { user } from '$lib/stores/user.store';
@@ -25,9 +24,8 @@ async function initNotifications() {
 	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 	await notificationCenterStore.fetchUnreadCount();
 
-	const { connectNotificationSocket } = await import(
-		'$lib/api/services/notificationSocket.service'
-	);
+	const { connectNotificationSocket } =
+		await import('$lib/api/services/notificationSocket.service');
 	await connectNotificationSocket();
 }
 
@@ -40,13 +38,11 @@ const createAuthStore = () => {
 		await authService.logout();
 
 		// Disconnect notification WebSocket before clearing auth state
-		const { disconnectNotificationSocket } = await import(
-			'$lib/api/services/notificationSocket.service'
-		);
+		const { disconnectNotificationSocket } =
+			await import('$lib/api/services/notificationSocket.service');
 		disconnectNotificationSocket();
 
 		await ndkLogout();
-		ndkIdentity.reset();
 
 		// Dismiss any open banners
 		appStore.update((state) => ({

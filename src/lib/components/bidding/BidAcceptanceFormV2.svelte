@@ -1,1210 +1,219 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import {
-		createContract,
-		deriveContractCreationParams,
-		// estimateGasCostForCreatePaymentContract
-	} from '$lib/utils/contract/v2/creation';
-	import { goto } from '$app/navigation';
-	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
-	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
-	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
-	import { locale } from 'svelte-i18n';
-	import { browser } from '$app/environment';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { ContractRune } from '$lib/runes/contract.svelte';
+	import { sendConsignmentToPeer } from '$lib/services/rgb/consignment-exchange';
+	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { appStore } from '$lib/stores/app.store';
-	import { fly } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
-	import { onMount } from 'svelte';
-	import IconContentCopy from '~icons/mdi/content-copy';
-	import IconMessage from '~icons/mdi/message';
-	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
-	import IconRefresh from '~icons/mdi/refresh';
-	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
-	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
-	import MessageModal from '$lib/components/messages/MessageModal.svelte';
-	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
+	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
 	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
-	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
-	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import { createDebug } from '$lib/utils/debug';
-
-	const d = createDebug('bidding:BidAcceptanceForm');
 
 	let {
 		bid,
 		task,
-		onCancel,
-		onAddFunds
+		onCancel = () => {},
+		onFunded = (_contractId: string) => {}
 	}: {
 		bid: NDKBid;
 		task: NDKTask;
-		onCancel: () => void;
-		onAddFunds?: (amountUsd: number) => void;
+		onCancel?: () => void;
+		onFunded?: (contractId: string) => void;
 	} = $props();
 
+	const PLATFORM_FEE_RATE = 0.025; // 2.5% client fee (tier 1)
+
 	const bidContent = $derived(bid.bidContent);
-	const taskContent = $derived(task.taskContent);
+	const bidAmountUsd = $derived(bidContent?.amount ?? 0);
+	const platformFeeUsd = $derived(bidAmountUsd * PLATFORM_FEE_RATE);
+	const totalUsd = $derived(bidAmountUsd + platformFeeUsd);
+	const totalSats = $derived(
+		btcPrice.price > 0 ? Math.round((totalUsd / btcPrice.price) * 100_000_000) : null
+	);
 
-	let estimatedGasCost = $state<string>('');
+	const walletSats = $derived($walletStore.rgb?.balanceSats ?? 0);
+	const walletConnected = $derived($walletStore.isConnected && $walletStore.rgb?.initialized);
+	const requiredSats = $derived(totalSats ?? 0);
+	const hasInsufficientFunds = $derived(
+		walletConnected && totalSats !== null && walletSats < requiredSats
+	);
 
-	let isSubmitting = $state(false);
+	let split = $state<PaymentSplitConfig>({
+		primaryAsset: 'btc_onchain',
+		primaryPercentage: 95,
+		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 5
+	});
 
-	async function handleRefresh() {
-		if (!bidContent) return;
-		isLoading = true;
-		try {
-			await walletManager.loadAssets();
-			estimatedGasCost = 0;
-		} finally {
-			isLoading = false;
-		}
-	}
-	let currentScreen = $state<'form' | 'success' | 'rgb_success'>('form');
-	/** After broadcast: single phase until chain + Nostr follow-up finish */
-	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
-	let additionalNotes = $state<string>('');
-	let additionalNotesExpanded = $state(false);
+	let isProcessing = $state(false);
+	let processingStep = $state<'idle' | 'funding' | 'attesting' | 'notifying'>('idle');
+	let errorMessage = $state('');
 
-	// Preview only — not read by handleSubmit/createContract until an RGB protocol client exists.
-	let previewPaymentSplit = $state<PaymentSplitConfig | null>(null);
-	let rgbCommitmentData = $state<any>(null);
-	let isLoading = $state(false);
-	let showContractModal = $state(false);
+	const canConfirm = $derived(
+		walletConnected && !hasInsufficientFunds && !isProcessing && bidContent !== null
+	);
 
-	// Bitcoin accordion state
-	let bitcoinExpanded = $state(false);
-	let balancesHidden = $state(false); // Always show actual balances
-
-	// Get Bitcoin asset (RBTC)
-	let bitcoinAsset = $derived($allAssets.find((a) => a.assetId === 'rbtc'));
-
-	// Message modal state
-	let showMessageModal = $state(false);
-
-	// Fund Contract confirmation modal state
-	let showFundConfirmationModal = $state(false);
-
-	// Ensure wallet, bids and dashboard translations are loaded
-	if (browser && $locale) {
-		// Load namespaces asynchronously - they'll be available when needed
-		loadNamespace($locale as SupportedLanguage, 'dashboard/wallet').catch(console.error);
-		loadNamespace($locale as SupportedLanguage, 'dashboard/bids').catch(console.error);
-		loadNamespace($locale as SupportedLanguage, 'dashboard/dashboard').catch(console.error);
+	function updateSplit(config: PaymentSplitConfig): void {
+		split = config;
 	}
 
-	// v2 display (contract params are derived separately where needed)
-	let contractDetails = $derived.by(() => {
-		if (!bidContent) return null;
-		try {
-			const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
-			return display;
-		} catch {
-			return null;
-		}
-	});
-
-	// Adjusted times — v2 derivation already adjusts past start; expose for UI
-	let adjustedTimes = $derived.by(() => {
-		if (!contractDetails) return null;
-		return {
-			startTime: contractDetails.startTime,
-			completionTime: contractDetails.completionTime,
-			wasAdjusted: contractDetails.wasTimeAdjusted
-		};
-	});
-
-	// Contract amount = base (escrow for the task; taskee fee deducted from it inside contract)
-	const baseAmountUsdFormatted = $derived(
-		contractDetails
-			? formatConvertedAmount(contractDetails.baseAmount, 'RBTC', {
-					toCurrency: 'USD',
-					btcPrice: btcPrice.price
-				})
-			: '$0.00'
-	);
-	// BitTasker fee = tasker fee (platform fee)
-	const taskerFeeUsdFormatted = $derived(
-		contractDetails
-			? formatConvertedAmount(contractDetails.taskerFee, 'RBTC', {
-					toCurrency: 'USD',
-					btcPrice: btcPrice.price
-				})
-			: '$0.00'
-	);
-
-	const totalEstimatedGasCostRBTC: number = $derived.by(() => {
-		// this should add contractDetails.gasReimbursementAmount and calulated estimatedGasCost
-		const gasReimbursementRbtc = parseFloat(contractDetails?.gasReimbursementAmount ?? '0') || 0;
-		const creationGasRbtc = parseFloat(estimatedGasCost ?? '0') || 0;
-		return gasReimbursementRbtc + creationGasRbtc;
-	});
-
-	const displayEstimatedGasCostUSD: string = $derived.by(() => {
-		return formatConvertedAmount(totalEstimatedGasCostRBTC, 'RBTC', {
-			toCurrency: 'USD',
-			btcPrice: btcPrice.price
-		});
-	});
-
-	const totalPaymentRBTC = $derived.by(() => {
-		// this should add contractDetails.totalAmount and estimatedGasCost
-		const contractTotal = parseFloat(contractDetails?.totalAmount ?? '0') || 0;
-		const creationGasRbtc = parseFloat(estimatedGasCost ?? '0') || 0;
-		return contractTotal + creationGasRbtc;
-	});
-
-	const totalPaymentUsdFormatted = $derived(
-		formatConvertedAmount(totalPaymentRBTC, 'RBTC', { toCurrency: 'USD', btcPrice: btcPrice.price })
-	);
-	const totalPaymentSatsFormatted = $derived(
-		formatConvertedAmount(totalPaymentRBTC, 'RBTC', {
-			toCurrency: 'SATS',
-			btcPrice: btcPrice.price
-		})
-	);
-	const btcPriceFormatted = $derived(
-		formatConvertedAmount(btcPrice.price, 'USD', { fractionDigits: 0, suffix: '' })
-	);
-	const feePercentageLabel = $derived('2.5%');
-
-	/** Same RBTC total as the “Total payment” line — compared to L2 RBTC balance in the accordion. */
-	const isBalanceInsufficient = $derived.by(() => {
-		if (isLoading || !$walletStore.rsk.connected || !estimatedGasCost) return false;
-		const available = bitcoinAsset?.balance ?? 0;
-		return totalPaymentRBTC > available;
-	});
-
-	// Open message modal for the taskee
-	function openMessageModal() {
-		if (bidContent?.bidderId) {
-			showMessageModal = true;
-		}
-	}
-
-	async function initializeWallet() {
-		try {
-			isLoading = true;
-			if (!$walletStore.rsk.connected) {
-				await walletManager.initialize();
-			}
-			// Load fresh balances
-			await walletManager.loadAssets();
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	onMount(async () => {
+	async function handleAcceptAndFund(): Promise<void> {
 		if (!bidContent) {
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.create_contract_failed'));
-			onCancel();
+			errorMessage = 'Bid content is unavailable';
 			return;
 		}
+		const bidderPubkey = bidContent.bidderId;
+		if (!bidderPubkey) {
+			errorMessage = 'Bidder pubkey is unavailable';
+			return;
+		}
+
+		isProcessing = true;
+		errorMessage = '';
+
 		try {
-			deriveContractCreationParams(bidContent, btcPrice.price);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			if (msg.includes('Completion time must be after start time')) {
-				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_deadline_expired'), 3000);
-			} else {
-				appStore.showErrorToast(msg);
-			}
-			onCancel();
-			return;
-		}
-		await initializeWallet();
-		estimatedGasCost = 0;
-	});
+			// Step 1-2: Create ContractRune and initialize escrow state
+			const contractId = `contract-${task.id}-${bid.id}`;
+			processingStep = 'funding';
+			const rune = new ContractRune({
+				contractId,
+				totalAmountUsd: totalUsd,
+				split,
+				partyPubkeys: [bidderPubkey, task.pubkey].filter(Boolean)
+			});
 
-	async function handleSubmit() {
-		if (isBalanceInsufficient) {
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'), 3000);
-			return;
-		}
-		isSubmitting = true;
-		try {
-			const input = {
-contractId: task.id ?? bid.id,
-totalAmountUsd: bidContent.amount,
-split: previewPaymentSplit ?? {
-primaryAsset: 'usdt_rgb',
-primaryPercentage: 100,
-secondaryAsset: 'btc_onchain',
-secondaryPercentage: 0
-}
-};
-const result = await createContract(input);
+			// Step 3-5: Enqueue RGB commands, sign via @utexo/rgb-sdk-web, execute on BTC/LN/USDT layer
+			await rune.fund();
 
-			if (!result.success) {
-				const msg = result.error ?? $t('dashboard.bids.bid_acceptance.create_contract_failed');
-				appStore.showErrorToast(msg);
-				return;
-			}
+			// Step 6: Nostr transport attests state + delivers consignment to the bidder
+			processingStep = 'attesting';
+			await sendConsignmentToPeer(bidderPubkey, {
+				contractId,
+				assetId: split.primaryAsset,
+				invoice: contractId,
+				transferId: rune.seals[0]?.id
+			});
 
-			if (result.mode === 'rgb_escrow') {
-				rgbCommitmentData = result.commitment;
-				currentScreen = 'rgb_success';
-			} else {
-				currentScreen = 'success';
-			}
-			followUpStatus = 'mining';
-
-			void (async () => {
-				try {
-					await Promise.all([
-						result.afterBroadcast.then((report) => {
-							if (report.failures.length) {
-								d.warn('handleSubmit: afterBroadcast partial failures', report.failures);
-							}
-						}),
-						(async () => {
-							const receipt = await result.tx.wait();
-							if (!receipt) throw new Error('No receipt');
-							await result.afterConfirmed(receipt);
-						})()
-					]);
-					followUpStatus = 'done';
-				} catch (err) {
-					d.warn('handleSubmit: follow-up failed', err);
-					followUpStatus = 'failed';
-					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
-					try {
-						await result.afterFailed(result.transactionHash);
-					} catch (cleanupErr) {
-						d.warn('handleSubmit: afterFailed cleanup error', cleanupErr);
-					}
-				}
-			})();
-		} catch (e) {
-			d.error('handleSubmit', e);
-			appStore.showErrorToast(
-				e instanceof Error ? e.message : $t('dashboard.bids.bid_acceptance.create_contract_failed')
+			processingStep = 'notifying';
+			await sendBidStatusUpdate(
+				bid.id,
+				bidContent.taskId || task.id,
+				bidderPubkey,
+				BidStatusEnum.ACCEPTED,
+				undefined,
+				contractId
 			);
+
+			appStore.showSuccessToast($t('dashboard.bids.bid_acceptance.success_subtitle'));
+			onFunded(contractId);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
-			isSubmitting = false;
+			isProcessing = false;
+			processingStep = 'idle';
 		}
-	}
-
-	function formatDuration(startTime: number, endTime: number): string {
-		const start = new Date(startTime);
-		const end = new Date(endTime);
-		const diffMs = end.getTime() - start.getTime();
-
-		const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-		const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-		const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-		if (days > 0) {
-			return `${days} ${days !== 1 ? $t('dashboard.bids.bid_acceptance.days') : $t('dashboard.bids.bid_acceptance.day')} ${hours} ${hours !== 1 ? $t('dashboard.bids.bid_acceptance.hours') : $t('dashboard.bids.bid_acceptance.hour')}`;
-		} else if (hours > 0) {
-			return `${hours} ${hours !== 1 ? $t('dashboard.bids.bid_acceptance.hours') : $t('dashboard.bids.bid_acceptance.hour')} ${minutes} ${minutes !== 1 ? $t('dashboard.bids.bid_acceptance.minutes') : $t('dashboard.bids.bid_acceptance.minute')}`;
-		} else {
-			return `${minutes} ${minutes !== 1 ? $t('dashboard.bids.bid_acceptance.minutes') : $t('dashboard.bids.bid_acceptance.minute')}`;
-		}
-	}
-
-	/** Called when user clicks Fund in the confirmation modal. Re-checks balance, then closes and submits. */
-	async function handleFundClick() {
-		d.log('handleFundClick: user confirmed Fund, closing modal and submitting');
-		triggerHaptic(ImpactStyle.Light);
-		if (isBalanceInsufficient) {
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'));
-			return;
-		}
-		showFundConfirmationModal = false;
-		await handleSubmit();
 	}
 </script>
 
-{#if !bidContent || !taskContent}
-	<div class="flex items-center justify-center py-12">
-		<div class="text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-				/>
-			</svg>
-			<p class="text-base-content/60 mt-2 text-sm">
-				{$t('dashboard.no_data_available')}
-			</p>
+<div class="flex h-full flex-col gap-4 p-4" data-testid="bid-acceptance-form">
+	<!-- Bid summary -->
+	<div class="bg-base-200 rounded-lg p-4">
+		<h4 class="mb-2 text-sm font-semibold">
+			{$t('dashboard.bids.bid_acceptance.contract_information')}
+		</h4>
+		<div class="space-y-1 text-sm">
+			<div class="flex justify-between">
+				<span class="text-base-content/70">{$t('dashboard.bids.bid_acceptance.base_amount')}</span>
+				<span data-testid="bid-base-amount">${bidAmountUsd.toFixed(2)}</span>
+			</div>
+			<div class="flex justify-between">
+				<span class="text-base-content/70">
+					{$t('dashboard.bids.bid_acceptance.client_fee', {
+						values: { fee: `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%` }
+					})}
+				</span>
+				<span data-testid="bid-platform-fee">${platformFeeUsd.toFixed(2)}</span>
+			</div>
+			<div class="border-base-300 flex justify-between border-t pt-1 font-semibold">
+				<span>{$t('dashboard.bids.bid_acceptance.total_payment')}</span>
+				<span data-testid="bid-total-payment">${totalUsd.toFixed(2)}</span>
+			</div>
+			{#if totalSats !== null}
+				<div class="text-base-content/60 flex justify-between text-xs">
+					<span>{$t('dashboard.bids.bid_acceptance.btc_price')}</span>
+					<span data-testid="bid-total-sats">{totalSats.toLocaleString()} sats</span>
+				</div>
+			{/if}
 		</div>
 	</div>
-{:else if currentScreen === 'form'}
-	<!-- Layout like dashboard modals: content flows naturally inside Drawer's scroll area -->
-	<div
-		class="flex min-h-0 flex-col"
-		in:fly={{
-			duration: 200,
-			easing: linear,
-			y: 0,
-			x: -20
-		}}
-	>
-		<!-- Content (no inner scroll — Drawer's .drawer-scroll-area handles scrolling) -->
-		<div class="flex-1">
-			<!-- Container with gap for even spacing -->
-			<div class="flex flex-col gap-4">
-				<!-- Unified Responsive Layout -->
-				<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
-					<!-- Task Title Row -->
-					<div class="flex items-start justify-between gap-2 px-6 pt-3">
-						<div class="min-w-0 flex-1">
-							<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">
-								{taskContent.title}
-							</h5>
-						</div>
-						<button
-							type="button"
-							class="btn btn-ghost btn-md btn-circle -mt-2 -mr-2 shrink-0"
-							onclick={(e) => {
-								e.stopPropagation();
-								void handleRefresh();
-							}}
-							disabled={isLoading}
-							aria-label={$t('common.buttons.refresh')}
-						>
-							<IconRefresh class="h-6 w-6 {isLoading ? 'animate-spin' : ''}" />
-						</button>
-					</div>
 
-					<!-- Divider (Desktop only) -->
-					<div class="divider text-base-content/60 mx-6 my-2 text-sm">
-						{$t('dashboard.bids.bid_acceptance.contract_information')}
-					</div>
+	<!-- Payment split (RGB escrow allocation) -->
+	<PaymentSplitSlider
+		totalAmountUsd={totalUsd}
+		btcPriceUsd={btcPrice.price}
+		onSplitChange={updateSplit}
+	/>
 
-					<!-- User Info and Pricing Layout -->
-					<div class="flex flex-col gap-4 px-3 pb-4 lg:flex-row">
-						<!-- Left Column: Bidder Information -->
-						<div class="min-w-0 flex-1">
-							<div class="rounded-lg px-3 pt-3">
-								<UserInfoDisplay
-									avatar={bidContent.bidderAvatar}
-									username={bidContent.bidderName ?? ''}
-									rating={bidContent.bidderRating ?? null}
-									size="sm"
-									pubkey={bidContent.bidderId ?? null}
-									profileLink={bidContent.bidderId ?? null}
-								/>
-
-								<!-- Start and end times -->
-								<div class="mt-4 block space-y-2">
-									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-										<span class="text-base-content/60 shrink-0"
-											>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
-										>
-										<span class="text-base-content/80 truncate text-right">
-											{adjustedTimes
-												? formatStandardDateTime(new Date(adjustedTimes.startTime * 1000))
-												: 'N/A'}
-										</span>
-									</div>
-									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-										<span class="text-base-content/60 shrink-0"
-											>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
-										>
-										<span class="text-base-content/80 truncate text-right">
-											{adjustedTimes
-												? formatStandardDateTime(new Date(adjustedTimes.completionTime * 1000))
-												: 'N/A'}
-										</span>
-									</div>
-									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-										<span class="text-base-content/60 shrink-0"
-											>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
-										>
-										<span class="text-base-content/80 truncate text-right"
-											>{adjustedTimes
-												? formatDuration(
-														adjustedTimes.startTime * 1000,
-														adjustedTimes.completionTime * 1000
-													)
-												: 'N/A'}</span
-										>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- Pricing Section -->
-						<div class="min-w-0 flex-1">
-							<div class="bg-base-100 mt-3 rounded-lg p-3 lg:mt-0 lg:bg-transparent">
-								<div class="space-y-2">
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<div class="flex min-w-0 items-center gap-1">
-											<span class="truncate text-xs font-medium"
-												>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
-											>
-											<div
-												class="tooltip tooltip-top shrink-0"
-												data-tip={$t('dashboard.bids.bid_acceptance.base_amount_tooltip')}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-base-content/60 h-3 w-3"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-													/>
-												</svg>
-											</div>
-										</div>
-										<span class="shrink-0 text-xs font-bold">
-											{baseAmountUsdFormatted}
-										</span>
-									</div>
-
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<div class="flex min-w-0 items-center gap-1">
-											<span class="truncate text-xs font-medium"
-												>{$t('dashboard.bids.bid_acceptance.client_fee', {
-													values: {
-														fee: feePercentageLabel
-													}
-												})}</span
-											>
-											<div
-												class="tooltip tooltip-top shrink-0"
-												data-tip={$t('dashboard.bids.bid_acceptance.fee_tooltip')}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-base-content/60 h-3 w-3"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-													/>
-												</svg>
-											</div>
-										</div>
-										<span class="shrink-0 text-xs font-bold">
-											{taskerFeeUsdFormatted}
-										</span>
-									</div>
-
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<div class="flex min-w-0 items-center gap-1">
-											<span class="truncate text-xs font-medium italic"
-												>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
-											>
-											<div
-												class="tooltip tooltip-top shrink-0"
-												data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-base-content/60 h-3 w-3"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-													/>
-												</svg>
-											</div>
-										</div>
-										{#if estimatedGasCost}
-											<span class="shrink-0 text-xs font-bold italic">
-												{displayEstimatedGasCostUSD}
-											</span>
-										{:else}
-											<span class="loading loading-spinner loading-xs"></span>
-										{/if}
-									</div>
-
-									<div class="border-base-200 border-t pt-2">
-										<div class="flex min-w-0 items-center justify-between gap-2">
-											<span class="truncate text-base font-bold"
-												>{$t('dashboard.bids.bid_acceptance.total_payment')}</span
-											>
-											<span class="text-primary shrink-0 text-base font-bold">
-												{totalPaymentUsdFormatted}</span
-											>
-										</div>
-									</div>
-
-									<!-- BTC Price and Sats on same row -->
-									<div class="">
-										<div class="flex min-w-0 items-center justify-between gap-2">
-											<span class="text-base-content/60 truncate text-xs font-medium italic">
-												{$t('dashboard.bids.bid_acceptance.btc_price')}
-												{btcPriceFormatted}
-											</span>
-											<span class="text-base-content/60 shrink-0 text-xs font-medium italic">
-												{totalPaymentSatsFormatted}
-											</span>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Past start time warning (v2 adjusts times automatically) -->
-				{#if contractDetails?.wasTimeAdjusted}
-					<div class="alert alert-outline alert-warning">
-						<div class="flex w-full items-center gap-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-								/>
-							</svg>
-							<div class="flex min-w-0 flex-1 items-center gap-2">
-								<p class="word-break-words min-w-0 flex-1">
-									{$t('dashboard.bids.bid_acceptance.warning.past_start_time', {
-										values: { timeText: 'in the past' }
-									})}
-								</p>
-								{#if bidContent.bidderId}
-									<button
-										type="button"
-										class="btn btn-primary btn-sm shrink-0"
-										onclick={openMessageModal}
-										title={$t('dashboard.bids.bid_acceptance.message_taskee')}
-										aria-label={$t('dashboard.bids.bid_acceptance.message_taskee')}
-									>
-										<IconMessage class="h-5 w-5" />
-									</button>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Bitcoin Balance Accordion -->
-				<div>
-					<div
-						class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-						class:collapse-open={bitcoinExpanded}
-					>
-						<button
-							type="button"
-							class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-							onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
-						>
-							<div class="flex min-w-0 flex-1 items-center gap-2">
-								<img
-									src="/images/chains/Bitcoin.svg"
-									alt={$t('wallet.bitcoin')}
-									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-								/>
-								<div class="flex items-center gap-1.5 overflow-hidden">
-									<span class="truncate">{$t('wallet.bitcoin')}</span>
-								</div>
-							</div>
-							<div class="ml-2 shrink-0 text-right">
-								{#if isLoading || $walletStore.rsk.connecting}
-									<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
-										<span class="loading loading-spinner loading-md"></span>
-									</div>
-								{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
-									<div class="text-error text-sm font-semibold sm:text-base">
-										{$walletStore.rsk.error
-											? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
-											: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-									</div>
-								{:else if balancesHidden}
-									<div class="text-sm font-semibold sm:text-base">
-										•••• {$t('wallet.sats')}
-									</div>
-									<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
-								{:else}
-									<div class="text-sm font-semibold sm:text-base">
-										{formatSats($totalBalances.sats)}
-										{$t('wallet.sats')}
-									</div>
-									{#if bitcoinAsset?.usdValue}
-										<div class="text-xs opacity-70 sm:text-sm">
-											≈ ${bitcoinAsset.usdValue.toFixed(2)}
-										</div>
-									{/if}
-								{/if}
-							</div>
-						</button>
-						<div class="collapse-content">
-							<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-								<!-- L2 BTC Entry with Lightning Bolt Icon -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M13 10V3L4 14h7v7l9-11h-7z"
-											/>
-										</svg>
-										<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
-									</div>
-									<div class="text-right">
-										{#if balancesHidden}
-											<div class="text-sm font-semibold sm:text-base">
-												•••• {$t('wallet.sats')}
-											</div>
-											<div class="text-xs opacity-70">$••••</div>
-										{:else if bitcoinAsset}
-											{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
-											<div class="text-sm font-semibold sm:text-base">
-												{formatSats(balanceInSats)}
-												{$t('wallet.sats')}
-											</div>
-											{#if bitcoinAsset.usdValue > 0}
-												<div class="text-xs opacity-70">
-													${bitcoinAsset.usdValue.toFixed(2)}
-												</div>
-											{/if}
-										{:else}
-											<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
-										{/if}
-									</div>
-								</div>
-
-								<!-- BTC Entry (Coming Soon) -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<img
-											src="/images/chains/Bitcoin.svg"
-											alt="BTC"
-											class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-										/>
-										<span class="text-base-content/50 text-sm font-medium sm:text-base"
-											>{$t('wallet.btc')}</span
-										>
-									</div>
-									<div class="text-right">
-										<span class="text-base-content/50 text-sm font-semibold sm:text-base"
-											>{$t('wallet.coming_soon')}</span
-										>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Additional Notes Section -->
-				<div
-					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2 py-2"
-					class:collapse-open={additionalNotesExpanded}
-				>
-					<button
-						type="button"
-						class="collapse-title text-base-content/80 min-h-0 px-3 py-1 text-left text-sm font-medium"
-						onclick={() => {
-							additionalNotesExpanded = !additionalNotesExpanded;
-						}}
-					>
-						{$t('dashboard.bids.bid_acceptance.additional_notes_label')} ({$t('common.optional')})
-					</button>
-					<div class="collapse-content">
-						<div class="form-control">
-							<textarea
-								class="textarea textarea-bordered w-full text-sm sm:text-base"
-								placeholder={$t('dashboard.bids.bid_acceptance.additional_notes_placeholder')}
-								bind:value={additionalNotes}
-								rows="4"
-							></textarea>
-						</div>
-					</div>
-				</div>
-
-				<PaymentSplitSlider
-					totalAmountUsd={totalPaymentRBTC * (btcPrice.price ?? 0)}
-					btcPriceUsd={btcPrice.price ?? 0}
-					onSplitChange={(config) => (previewPaymentSplit = config)}
-				/>
-
-				{#if currentScreen === 'rgb_success'}
-<div class="space-y-6 text-center">
-<div class="inline-flex items-center gap-2 rounded-full bg-success/10 px-4 py-1.5 text-sm font-semibold text-success">
-<span>2-of-2 Taproot Single-Use Seal Escrow Created</span>
-</div>
-
-<div class="rounded-xl border border-base-300 bg-base-200/50 p-4 text-left space-y-3">
-<h4 class="text-xs font-bold uppercase tracking-wider text-base-content/70">RGB Blinded UTXO Invoice</h4>
-<div class="flex items-center gap-2">
-<input type="text" readonly value={rgbCommitmentData?.primaryInvoice ?? ''} class="input input-sm input-bordered w-full font-mono text-xs" />
-<button class="btn btn-sm btn-outline" onclick={() => navigator.clipboard.writeText(rgbCommitmentData?.primaryInvoice ?? '')}>Copy</button>
-</div>
-</div>
-
-{#if rgbCommitmentData?.taprootMetadata}
-<div class="rounded-xl border border-base-300 bg-base-200/30 p-4 text-left text-xs space-y-2 font-mono">
-<div class="flex justify-between"><span class="text-base-content/60">Internal Key:</span> <span>{rgbCommitmentData.taprootMetadata.internalKey}</span></div>
-<div class="flex justify-between"><span class="text-base-content/60">Merkle Root:</span> <span>{rgbCommitmentData.taprootMetadata.merkleRoot}</span></div>
-<div class="flex justify-between"><span class="text-base-content/60">UTXO Outpoint:</span> <span>{rgbCommitmentData.taprootMetadata.utxoOutpoint}</span></div>
-</div>
-{/if}
-
-<button class="btn btn-primary w-full" onclick={() => (currentScreen = 'form')}>Done</button>
-</div>
-{/if}
-
-<!-- Escrow Information -->
-				<button
-					type="button"
-					class="alert alert-info alert-outline hover:bg-base-200 w-full cursor-pointer text-left transition-colors"
-					onclick={() => (showContractModal = true)}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						class="h-5 w-5 shrink-0 stroke-current"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<small class="text-xs md:text-sm">
-						<strong>{$t('dashboard.bids.bid_acceptance.note')}</strong>
-						{$t('dashboard.bids.bid_acceptance.contract_note')}
-					</small>
-				</button>
-
-				<!-- Rootstock Escrow Contract Details -->
-				<div>
-					<!-- Wallet Connection Error (only show if connection failed after attempting) -->
-					{#if $walletStore.rsk.error}
-						<div
-							class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
-						>
-							<div class="flex items-center">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="mr-2 h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-									/>
-								</svg>
-								<span>
-									{$walletStore.rsk.error
-										? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
-										: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-								</span>
-							</div>
-							<button
-								class="btn btn-sm btn-primary ml-auto"
-								onclick={async () => await initializeWallet()}
-								disabled={$walletStore.rsk.connecting}
-							>
-								{$t('dashboard.bids.bid_acceptance.connect_wallet')}
-							</button>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Insufficient Balance Error -->
-				{#if isBalanceInsufficient}
-					<div class="alert alert-error alert-outline mt-2 shadow-sm">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<div class="flex-1 text-left">
-							<span class="text-sm">
-								{$t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
-									values: {
-										sats: (() => {
-											const requiredSats = Math.floor(totalPaymentRBTC * 100_000_000);
-											const availableSats = Math.floor((bitcoinAsset?.balance ?? 0) * 100_000_000);
-											const shortfall = Math.max(0, requiredSats - availableSats);
-											return formatSats(shortfall);
-										})(),
-										usd: (() => {
-											const requiredUsd = totalPaymentRBTC * btcPrice.price;
-											const availableUsd = (bitcoinAsset?.balance ?? 0) * btcPrice.price;
-											const shortfall = Math.max(0, requiredUsd - availableUsd);
-											return `$${shortfall.toFixed(2)}`;
-										})()
-									}
-								})}
-							</span>
-						</div>
-						<div class="flex-none">
-							<button
-								type="button"
-								class="btn btn-primary btn-sm"
-								onclick={() => {
-									if (onAddFunds) {
-										const requiredUsd = totalPaymentRBTC * btcPrice.price;
-										const availableUsd = (bitcoinAsset?.balance ?? 0) * btcPrice.price;
-										const shortfallUsd = Math.max(0, requiredUsd - availableUsd);
-										onAddFunds(shortfallUsd);
-									} else {
-										goto('/wallet?tab=receive');
-									}
-								}}
-							>
-								{$t('dashboard.services.detail.book_now_drawer.add_funds')}
-							</button>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Testnet Warning Alert -->
-				{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
-					<div class="alert alert-outline alert-warning">
-						<div class="flex items-center">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="mr-3 h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-								/>
-							</svg>
-							<div class="flex-1">
-								<div class="text-warning text-center font-bold">
-									{$t('wallet.testnet_warning.title')}
-								</div>
-								<div class="text-sm">
-									<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
-									{$t('wallet.testnet_warning.description')}
-								</div>
-
-								<!-- User's Testnet Address -->
-								{#if $walletStore.rsk.address}
-									<div class="bg-base-200 mt-3 rounded-lg p-3">
-										<div class="mb-2 text-sm font-medium">
-											{$t('wallet.testnet_warning.your_address')}
-										</div>
-										<div class="flex items-center gap-2">
-											<input
-												type="text"
-												value={$walletStore.rsk.address}
-												readonly
-												class="input input-sm flex-1 font-mono text-xs"
-											/>
-											<button
-												class="btn btn-sm btn-outline"
-												onclick={() => {
-													copyToClipboard($walletStore.rsk.address || '');
-													appStore.showSuccessToast($t('wallet.address_copied'));
-												}}
-												title={$t('wallet.testnet_warning.copy_address')}
-												aria-label={$t('wallet.testnet_warning.copy_address')}
-											>
-												<IconContentCopy class="h-4 w-4" />
-											</button>
-										</div>
-									</div>
-								{/if}
-
-								<div class="mt-2 text-sm">
-									{$t('wallet.testnet_warning.faucet_instruction')}
-									<a
-										href="https://faucet.rootstock.io/"
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link link-primary font-semibold"
-									>
-										{$t('wallet.testnet_warning.faucet_link_text')}
-									</a>
-									{$t('wallet.testnet_warning.faucet_instruction_end')}
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
+	<!-- Wallet state -->
+	{#if !walletConnected}
+		<div class="alert alert-warning text-sm" role="alert" data-testid="wallet-disconnected">
+			{$t('dashboard.bids.bid_acceptance.my_wallet')} — {$t('wallet.error.no_connection')}
 		</div>
-		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
+	{:else if hasInsufficientFunds}
+		<div class="alert alert-error text-sm" role="alert" data-testid="insufficient-funds">
+			{$t('dashboard.services.detail.book_now_drawer.required_balance')}: {requiredSats.toLocaleString()}
+			sats
+		</div>
+	{/if}
+
+	{#if errorMessage}
+		<div class="alert alert-error text-sm" role="alert" data-testid="funding-error">
+			{errorMessage}
+		</div>
+	{/if}
+
+	{#if isProcessing}
 		<div
-			class="border-base-300 bg-base-100 flex shrink-0 flex-row justify-end gap-3 border-t py-4 md:py-3"
+			class="text-base-content/70 flex items-center gap-2 text-sm"
+			data-testid="processing-state"
 		>
-			<button
-				type="button"
-				class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
-				onclick={onCancel}
-				disabled={isSubmitting}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M6 18L18 6M6 6l12 12"
-					/>
-				</svg>
-				{$t('dashboard.bids.bid_acceptance.cancel')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
-				disabled={isSubmitting ||
-					isBalanceInsufficient ||
-					!estimatedGasCost ||
-					!$walletStore.rsk.connected}
-				onclick={() => (showFundConfirmationModal = true)}
-			>
-				{#if isSubmitting}
-					<span class="loading loading-spinner loading-sm"></span>
-					<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.creating_escrow')}</span
-					>
-					<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.creating')}</span>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-					{$t('dashboard.bids.bid_acceptance.accept')}
-				{/if}
-			</button>
+			<span class="loading loading-spinner loading-sm"></span>
+			{#if processingStep === 'funding'}
+				{$t('dashboard.bids.bid_acceptance.processing')} — RGB escrow
+			{:else if processingStep === 'attesting'}
+				{$t('dashboard.bids.bid_acceptance.follow_up_in_progress')}
+			{:else}
+				{$t('dashboard.bids.bid_acceptance.processing')}
+			{/if}
 		</div>
-	</div>
-{:else if currentScreen === 'success'}
-	<BidAcceptanceSuccessScreen
-		totalAmountRbtc={contractDetails?.totalAmount ?? '0'}
-		followUpStatus={followUpStatus === 'idle' ? 'mining' : followUpStatus}
-	/>
-{/if}
+	{/if}
 
-<!-- Message Modal -->
-{#if bidContent?.bidderId}
-	<MessageModal
-		isOpen={showMessageModal}
-		recipientName={bidContent.bidderName ?? ''}
-		recipientPubkey={bidContent.bidderId}
-		onClose={() => {
-			showMessageModal = false;
-		}}
-	/>
-{/if}
-
-<!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
-{#if showFundConfirmationModal}
-	<div
-		class="modal modal-open modal-middle z-120"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="fund-modal-title"
-	>
-		<div class="modal-box flex max-h-[90vh] max-w-md flex-col p-4">
-			<h3 id="fund-modal-title" class="shrink-0 text-lg font-bold">
-				{$t('dashboard.bids.bid_acceptance.fund_contract_title')}
-			</h3>
-			<div class="min-h-0 flex-1 space-y-6 overflow-y-auto py-3">
-				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
-				<div class="flex min-w-0 items-center justify-between gap-3">
-					<div class="min-w-0 flex-1">
-						{#if bidContent}
-							<UserInfoDisplay
-								avatar={bidContent.bidderAvatar}
-								username={bidContent.bidderName}
-								rating={bidContent.bidderRating ?? null}
-								size="sm"
-								pubkey={bidContent.bidderId ?? null}
-							/>
-						{/if}
-					</div>
-					{#if true}
-						<div class="shrink-0 text-right">
-							<div class="text-xs font-medium opacity-70">
-								{$t('dashboard.bids.bid_acceptance.total_payment')}
-							</div>
-							<div class="text-lg font-bold">
-								{totalPaymentUsdFormatted}
-							</div>
-							<div class="text-base-content/60 text-sm">
-								{totalPaymentSatsFormatted}
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Start + Duration (one row: date left, duration right; short month) -->
-				{#if adjustedTimes}
-					<div class="flex flex-col gap-2">
-						<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
-							<span class="flex min-w-0 items-center gap-1">
-								<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
-								<span class="truncate">
-									{formatDate(new Date(adjustedTimes.startTime * 1000))}
-								</span>
-							</span>
-							<span class="flex shrink-0 items-center gap-1">
-								<span class="truncate">
-									{formatDate(new Date(adjustedTimes.completionTime * 1000))}
-								</span>
-								<IconTruckDeliveryOutline class="text-primary h-6 w-6 shrink-0" />
-							</span>
-						</div>
-
-						<div class="flex items-center px-2">
-							<div
-								class="bg-primary/20 border-primary/30 relative h-0.5 flex-1 border-t-2 border-dashed"
-							>
-								<div class="absolute inset-0 -top-3 flex items-center justify-center">
-									<span
-										class="bg-base-300 text-primary px-2 text-[10px] font-bold tracking-tight uppercase"
-									>
-										{formatDurationBetweenDates(
-											new Date(adjustedTimes.startTime * 1000),
-											new Date(adjustedTimes.completionTime * 1000),
-											$t
-										)}
-									</span>
-								</div>
-								<div
-									class="border-l-primary/40 absolute -top-1 -right-1 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
-								></div>
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				{#if isBalanceInsufficient}
-					<p class="text-error text-sm">
-						{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
-					</p>
-				{/if}
-
-				<!-- Warning -->
-				<div class="alert alert-outline alert-warning mt-2 py-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
-				</div>
-			</div>
-			<!-- Action buttons (like dashboard modals) -->
-			<div class="modal-action border-base-300 shrink-0 gap-3 border-t pt-4">
-				<button
-					type="button"
-					class="btn btn-ghost flex-1"
-					onclick={() => (showFundConfirmationModal = false)}
-				>
-					{$t('common.cancel')}
-				</button>
-				<button
-					type="button"
-					class="btn btn-primary flex-1"
-					onclick={handleFundClick}
-					disabled={isSubmitting}
-				>
-					{$t('dashboard.bids.bid_acceptance.fund')}
-				</button>
-			</div>
-		</div>
+	<!-- Actions -->
+	<div class="mt-auto flex gap-3 pt-2">
 		<button
 			type="button"
-			class="modal-backdrop"
-			onclick={() => (showFundConfirmationModal = false)}
-			aria-label="Close modal"
-		></button>
+			class="btn btn-ghost flex-1"
+			onclick={onCancel}
+			disabled={isProcessing}
+			data-testid="cancel-button"
+		>
+			{$t('dashboard.bids.bid_acceptance.cancel')}
+		</button>
+		<button
+			type="button"
+			class="btn btn-primary flex-1"
+			onclick={handleAcceptAndFund}
+			disabled={!canConfirm}
+			data-testid="accept-fund-button"
+		>
+			{#if isProcessing}
+				<span class="loading loading-spinner loading-sm"></span>
+			{/if}
+			{$t('dashboard.bids.bid_acceptance.accept_fund')}
+		</button>
 	</div>
-{/if}
-
-<!-- Secure Payment Contract Modal -->
-<SecurePaymentContractModal
-	isOpen={showContractModal}
-	onClose={() => (showContractModal = false)}
-/>
-
-<style>
-	:global(.tooltip-top::before) {
-		max-width: 200px;
-		white-space: normal;
-		word-wrap: break-word;
-	}
-</style>
-
-
-
+</div>

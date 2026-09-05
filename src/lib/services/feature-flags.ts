@@ -1,11 +1,12 @@
 /**
  * Feature Flags Service — Phase 1.1 (Add-on)
  *
- * Centralised feature flag gating for Changelly integration.
- * All flags are backed by build-time VITE_ environment variables.
+ * Centralised feature flag gating for retired EVM and third-party flows.
+ * Native Bitcoin/RGB/Nostr flows do not require feature flags.
  *
- * This module re-exports from the kill-switch implementation while providing
- * a canonical public API surface for feature flag checks throughout the app.
+ * This module provides the canonical public API surface for feature flag
+ * checks throughout the app. Retired EVM and third-party flows remain
+ * disabled; Changelly fiat is controlled by its explicit environment flag.
  *
  * Usage:
  * ```typescript
@@ -17,26 +18,37 @@
  * ```
  *
  * @see requirements/usdt-integration-plan.md §1.1
- * @see src/lib/services/kill-switch.ts
  */
 
-import {
-	FeatureFlagService,
-	FEATURE_FLAGS,
-	isChangeallySwapsEnabled,
-	isChangeallyFiatEnabled,
-	isLifiEnabled,
-	isSymbiosisEnabled
-} from './kill-switch';
+export const FEATURE_FLAGS = {
+	CHANGELLY_SWAPS: 'CHANGELLY_SWAPS',
+	CHANGELLY_FIAT: 'CHANGELLY_FIAT',
+	LIFI: 'LIFI',
+	SYMBIOSIS: 'SYMBIOSIS',
+	LOAN_FLOW: 'LOAN_FLOW',
+	CONNECTED_METAMASK: 'CONNECTED_METAMASK',
+	CONNECTED_TREZOR: 'CONNECTED_TREZOR',
+	CONNECTED_LEDGER: 'CONNECTED_LEDGER'
+} as const;
 
-export {
-	FEATURE_FLAGS,
-	isChangeallySwapsEnabled,
-	isChangeallyFiatEnabled,
-	isLifiEnabled,
-	isSymbiosisEnabled,
-	FeatureFlagService
+export const FeatureFlagService = {
+	isEnabled: (_feature: string): boolean => false
 };
+
+function isEnvFlagEnabled(value: unknown): boolean {
+	return value === true || value === 'true' || value === '1';
+}
+
+export const isChangeallySwapsEnabled = (): boolean => false;
+
+/** Changelly fiat on/off-ramp remains available behind its explicit env flag. */
+export const isChangellyFiatEnabled = (): boolean =>
+	isEnvFlagEnabled(import.meta.env.VITE_CHANGELLY_FIAT_ENABLED);
+
+/** @deprecated Use the correctly spelled isChangellyFiatEnabled export. */
+export const isChangeallyFiatEnabled = isChangellyFiatEnabled;
+export const isLifiEnabled = (): boolean => false;
+export const isSymbiosisEnabled = (): boolean => false;
 
 /**
  * Convenience wrapper to check if any named feature is enabled.

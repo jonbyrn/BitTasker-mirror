@@ -3,7 +3,15 @@
  *
  * Pending review detection and role resolution.
  */
-import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
+interface IContractForReview {
+	contractId: string;
+	paymentId: string;
+	clientPubkey: string;
+	freelancerPubkey: string;
+	status: string | number | undefined;
+	isReviewable(): boolean;
+	getReviewableParty(pubkey: string): 'client' | 'freelancer' | null;
+}
 import {
 	isReviewableStatus as isReviewable,
 	isConfirmedCompletionAction as isCompletion,
@@ -14,11 +22,7 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { fetchProfileMetadata } from '$lib/nostr/profile';
 import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
 import { ndk } from '$lib/nostr/ndk';
-import {
-	fetchNdkPaymentContractsForUser,
-	fetchLatestStatusFromNostr,
-	buildIContractForReviewFromNdkWithNostrStatus
-} from '$lib/utils/contract/reviewContractsFromNdk';
+import { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { createDebug } from '$lib/utils/debug';
 import { StorageKeys } from '../constants/storage';
 import { Preferences } from '@capacitor/preferences';
@@ -93,23 +97,57 @@ export function getOtherPartyPubkey(
  */
 async function fetchUserContracts(): Promise<IContractForReview[]> {
 	try {
-		const ndkContracts = await fetchNdkPaymentContractsForUser(100);
+		const currentPubkey = await getNpub();
+		const events = await ndk.fetchEvents(
+			{ kinds: [KINDS.CONTRACT], '#p': [currentPubkey], limit: 100 },
+			{ closeOnEose: true }
+		);
+		const ndkContracts = [];
+		for (const event of events) {
+			const contract = await NDKPaymentContract.from(event);
+			if (contract) ndkContracts.push(contract);
+		}
 		d.log('fetchUserContracts: Fetched NDK contracts:', ndkContracts.length);
 		if (ndkContracts.length === 0) return [];
 
-		const contractIds = ndkContracts.map((c) => c.id).filter(Boolean);
-		const statusMap = await fetchLatestStatusFromNostr(contractIds);
-
 		const results: IContractForReview[] = [];
 		for (const c of ndkContracts) {
-			const adapted = await buildIContractForReviewFromNdkWithNostrStatus(c, statusMap);
-			if (adapted) results.push(adapted);
+			const clientPubkey = c.taskeePubkey ?? '';
+			const freelancerPubkey = c.taskerPubkey ?? '';
+			results.push({
+				contractId: c.id,
+				paymentId: c.paymentId,
+				clientPubkey,
+				freelancerPubkey,
+				status: c.status ?? '',
+				isReviewable: () => isReviewableStatus(c.status),
+				getReviewableParty: (pubkey: string) =>
+					nostrPubkeysMatch(pubkey, clientPubkey)
+						? 'client'
+						: nostrPubkeysMatch(pubkey, freelancerPubkey)
+							? 'freelancer'
+							: null
+			} as IContractForReview);
 		}
 		return results;
 	} catch (err) {
 		d.error('fetchUserContracts: Error fetching contracts:', err);
 		return [];
 	}
+}
+
+async function fetchNativeContractsForUser(limit: number): Promise<NDKPaymentContract[]> {
+	const pubkey = await getNpub();
+	const events = await ndk.fetchEvents(
+		{ kinds: [KINDS.CONTRACT], '#p': [pubkey], limit },
+		{ closeOnEose: true }
+	);
+	const contracts: NDKPaymentContract[] = [];
+	for (const event of events) {
+		const contract = await NDKPaymentContract.from(event);
+		if (contract) contracts.push(contract);
+	}
+	return contracts;
 }
 
 /**
@@ -135,7 +173,7 @@ export async function getPendingReviewCount(): Promise<{ count: number; contract
 		if (!currentUserPubkey) return { count: 0, contractIds: [] };
 
 		// 1. Fetch user's contracts (Kind 30006)
-		const ndkContracts = await fetchNdkPaymentContractsForUser(100);
+		const ndkContracts = await fetchNativeContractsForUser(100);
 		if (ndkContracts.length === 0) return { count: 0, contractIds: [] };
 
 		const contractIds = ndkContracts.map((c) => c.id).filter(Boolean);
@@ -176,12 +214,11 @@ export async function getPendingReviewCount(): Promise<{ count: number; contract
 		const unreviewedIds = contractIds.filter((id) => !reviewedContractIds.has(id));
 		if (unreviewedIds.length === 0) return { count: 0, contractIds: [] };
 
-		const statusMap = await fetchLatestStatusFromNostr(unreviewedIds);
-
 		let count = 0;
 		const reviewableIds: string[] = [];
-		for (const [contractId, status] of statusMap) {
-			if (isReviewableStatus(status)) {
+		for (const contractId of unreviewedIds) {
+			const contract = ndkContracts.find((entry) => entry.id === contractId);
+			if (contract && isReviewableStatus(contract.status)) {
 				count++;
 				reviewableIds.push(contractId);
 			}

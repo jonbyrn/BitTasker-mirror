@@ -1,6 +1,6 @@
 import { mergeTranslations } from '$lib/i18n/ssr';
-export const prerender = true;
-export const ssr = true;
+export const prerender = false;
+export const ssr = false;
 
 export async function load({ fetch }) {
 	const [homeResponse, commonResponse] = await Promise.all([

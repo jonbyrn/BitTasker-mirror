@@ -3,28 +3,28 @@ export async function load({ url }) {
 
 	return {
 		title: 'Secure Payment Contracts - Protected Payments | BitTasker',
-		description: 'Learn about BitTasker\'s secure payment contracts powered by Rootstock smart contracts. Protected payments between clients and freelancers with built-in safeguards, automatic fee handling, and transparent blockchain transactions.',
-		keywords: 'secure payment contracts, Rootstock smart contracts, Bitcoin payments, secure task payments, blockchain secure payments, RBTC payments, smart contract payments, protected payments, Bitcoin task payments, cryptocurrency contracts',
+		description: 'Learn about BitTasker\'s secure payment contracts powered by RGB on Bitcoin. Protected payments between clients and freelancers with built-in safeguards, automatic fee handling, and transparent on-chain transactions.',
+		keywords: 'secure payment contracts, Bitcoin RGB, Bitcoin payments, secure task payments, blockchain secure payments, protected payments, Bitcoin task payments',
 		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Secure Payment Contracts - Protected Payments',
-		ogDescription: 'BitTasker\'s secure payment contracts protect both clients and freelancers using Rootstock smart contracts. Built-in safeguards, automatic payments, and transparent blockchain transactions.',
+		ogDescription: 'BitTasker\'s secure payment contracts protect both clients and freelancers using RGB on Bitcoin. Built-in safeguards, automatic payments, and transparent on-chain transactions.',
 		twitterTitle: 'Secure Payment Contracts - Protected Payments on BitTasker',
-		twitterDescription: 'Learn how BitTasker\'s secure payment contracts use Rootstock smart contracts to protect payments between clients and freelancers with automatic safeguards.',
+		twitterDescription: 'Learn how BitTasker\'s secure payment contracts use RGB on Bitcoin to protect payments between clients and freelancers with automatic safeguards.',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
 			name: 'How BitTasker\'s Secure Payment Contracts Work',
-			description: 'Learn how BitTasker\'s secure payment contracts protect both clients and freelancers using Rootstock smart contracts with built-in safeguards.',
+			description: 'Learn how BitTasker\'s secure payment contracts protect both clients and freelancers using RGB on Bitcoin with built-in safeguards.',
 			url: `${baseUrl}${url.pathname}`,
 			mainEntity: {
 				'@type': 'HowTo',
 				name: 'Understanding the BitTasker Secure Payment Contract System',
-				description: 'A guide to how BitTasker secures payments through its Rootstock smart contract system.',
+				description: 'A guide to how BitTasker secures payments through its RGB on Bitcoin system.',
 				step: [
 					{
 						'@type': 'HowToStep',
 						name: 'Create Your Contract',
-						text: 'Client creates a contract with the freelancer, funds it with RBTC, and sets when work should start and finish. Funds are held securely until the task is done.'
+						text: 'Client creates a contract with the freelancer, funds it with Bitcoin, and sets when work should start and finish. Funds are held securely until the task is done.'
 					},
 					{
 						'@type': 'HowToStep',

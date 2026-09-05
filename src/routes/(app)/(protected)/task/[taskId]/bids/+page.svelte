@@ -12,73 +12,14 @@
 	import { createDebug } from '$lib/utils/debug';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import { NDKTask } from '$lib/nostr/events/task';
-	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
-	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
-	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
-	import IconClose from '~icons/mdi/close';
 	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { bidStore } from '$lib/stores/bid.store';
 	import { appStore } from '$lib/stores/app.store';
 
-	type ReceiveFormState = {
-		amount: string;
-		unit: 'sats' | 'usd';
-		mathExpression: string;
-		memo: string;
-		selectedNetwork: string;
-		chargeFeesToPayer: boolean;
-		currentStep?: 1 | 2;
-	};
-
 	// State
 	let showAcceptanceForm = $state(false);
 	let bidToAccept = $state<NDKBid | null>(null);
-	let isReceiveModalOpen = $state(false);
-	let receiveInitialState = $state<ReceiveFormState | null>(null);
-
-	// Centralized Payment Request Modal state
-	let paymentRequestModal = $state<{
-		isOpen: boolean;
-		swapId?: string | null;
-		address?: string | null;
-		network?: string | null;
-		amount?: number | null;
-		memo?: string | null;
-		chargeFeesToPayer?: boolean;
-		totalFees?: number | null;
-		formState?: ReceiveFormState | null;
-	}>({
-		isOpen: false,
-		swapId: null,
-		address: null,
-		network: null,
-		amount: null,
-		memo: null,
-		chargeFeesToPayer: false,
-		totalFees: null,
-		formState: null
-	});
-
-	function openPaymentRequestModal(data: {
-		swapId?: string;
-		address?: string;
-		network?: string;
-		amount?: number;
-		memo?: string;
-		chargeFeesToPayer?: boolean;
-		totalFees?: number;
-		formState?: ReceiveFormState | null;
-	}) {
-		paymentRequestModal = {
-			isOpen: true,
-			...data
-		};
-	}
-
-	function closePaymentRequestModal() {
-		paymentRequestModal.isOpen = false;
-	}
 
 	const d = createDebug('BidsPage');
 
@@ -226,16 +167,9 @@
 		showMessageModal = true;
 	}
 
-	function handleAddFunds(amountUsd: number) {
-		receiveInitialState = {
-			amount: amountUsd.toFixed(2),
-			unit: 'usd',
-			mathExpression: amountUsd.toFixed(2),
-			memo: `Fund task: ${task?.taskContent.title.slice(0, 50) || 'Task'}`,
-			selectedNetwork: 'lightning-bitcoin',
-			chargeFeesToPayer: true
-		};
-		isReceiveModalOpen = true;
+	function handleFunded(_contractId: string) {
+		showAcceptanceForm = false;
+		bidToAccept = null;
 	}
 
 	function closeMessageModal() {
@@ -310,7 +244,7 @@
 			bid={bidToAccept}
 			{task}
 			onCancel={handleCloseBid}
-			onAddFunds={handleAddFunds}
+			onFunded={handleFunded}
 		/>
 	{/if}
 </Drawer>
@@ -362,47 +296,4 @@
 		<button type="button" class="modal-backdrop" onclick={closeRejectModal} aria-label="Close modal"
 		></button>
 	</div>
-{/if}
-
-<WalletPaymentModal isOpen={isReceiveModalOpen} onClose={() => (isReceiveModalOpen = false)}>
-	<div class="flex h-full flex-col p-4">
-		<div class="mb-4 flex items-center justify-between">
-			<h3 class="text-lg font-bold">{$t('wallet.receive.receive_funds')}</h3>
-			<button class="btn btn-ghost btn-sm" onclick={() => (isReceiveModalOpen = false)}>
-				<IconClose class="h-5 w-5" />
-			</button>
-		</div>
-		<ReceivePaymentForm
-			initialFormState={receiveInitialState ?? undefined}
-			onCancel={() => (isReceiveModalOpen = false)}
-			onOpenPaymentRequest={(data) => {
-				isReceiveModalOpen = false;
-				openPaymentRequestModal(data);
-			}}
-		/>
-	</div>
-</WalletPaymentModal>
-
-<!-- Centralized Payment Request Modal -->
-{#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
-	<WalletPaymentModal isOpen={paymentRequestModal.isOpen} onClose={closePaymentRequestModal}>
-		<PaymentRequestModal
-			isOpen={paymentRequestModal.isOpen}
-			swapId={paymentRequestModal.swapId ?? undefined}
-			address={paymentRequestModal.address ?? undefined}
-			network={paymentRequestModal.network ?? undefined}
-			amount={paymentRequestModal.amount ?? undefined}
-			memo={paymentRequestModal.memo ?? undefined}
-			chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
-			totalFees={paymentRequestModal.totalFees ?? undefined}
-			onClose={closePaymentRequestModal}
-			onEdit={() => {
-				if (paymentRequestModal.formState) {
-					receiveInitialState = paymentRequestModal.formState;
-				}
-				closePaymentRequestModal();
-				isReceiveModalOpen = true;
-			}}
-		/>
-	</WalletPaymentModal>
 {/if}

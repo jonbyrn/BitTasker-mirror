@@ -1,336 +1,55 @@
 <script lang="ts">
-	/* eslint-disable svelte/prefer-svelte-reactivity -- legacy component uses mutable Date objects for local time math */
-	import { t } from 'svelte-i18n';
-
-	interface _Props {
-		value: Date | null;
-		onChange: (value: Date | null) => void;
-		type?: 'single' | 'range' | 'datetime' | 'time' | 'date';
-		minDate?: Date | string;
-		maxDate?: Date | string;
-		labelKey?: string;
-		placeholderKey?: string;
-		disabled?: boolean;
-		required?: boolean;
-		className?: string;
-		timeStep?: number; // Step in minutes for time inputs (default: 15)
-		/** When true, hides the "times will be rounded to X-minute intervals" hint (e.g. in bid form) */
-		hideTimeRoundedHint?: boolean;
-	}
-
 	let {
-		value = $bindable(),
-		onChange,
+		value = $bindable(''),
 		type = 'single',
-		minDate,
-		maxDate,
-		labelKey = '',
-		placeholderKey = '',
+		min = undefined,
+		max = undefined,
+		maxDate = undefined,
+		placeholderKey = undefined,
+		minDate = undefined,
+		labelKey = undefined,
 		disabled = false,
-		required = false,
-		className = '',
-		timeStep = 15, // Default to 15-minute intervals
-		hideTimeRoundedHint = false
+		onchange = () => {},
+		onChange = undefined
+	}: {
+		value?: string | Date | null;
+		type?: 'single' | 'range';
+		min?: string;
+		max?: string;
+		maxDate?: string;
+		placeholderKey?: string;
+		minDate?: string;
+		labelKey?: string;
+		disabled?: boolean;
+		onchange?: (event: Event) => void;
+		onChange?: (value: Date | null) => void;
 	} = $props();
 
-	// Reactive localized text
-	let localizedLabel = $derived(!labelKey ? '' : $t(labelKey));
+	const inputValue = $derived(
+		value instanceof Date ? value.toISOString().slice(0, 10) : (value ?? '')
+	);
+	const inputMax = $derived(max ?? maxDate);
+	const inputMin = $derived(min ?? minDate);
+	void type;
+	void placeholderKey;
+	void labelKey;
 
-	let localizedPlaceholder = $derived(!placeholderKey ? '' : $t(placeholderKey));
-
-	// Convert value to HTML5 input format
-	function getInputValue() {
-		if (!value) return '';
-
-		if (type === 'range' && typeof value === 'object' && value.start && value.end) {
-			return value.start instanceof Date
-				? value.start.toISOString().split('T')[0]
-				: value.start.split('T')[0];
+	function handleChange(event: Event): void {
+		onchange(event);
+		if (onChange && event.currentTarget instanceof HTMLInputElement) {
+			onChange(
+				event.currentTarget.value ? new Date(`${event.currentTarget.value}T00:00:00`) : null
+			);
 		}
-
-		if (value instanceof Date) {
-			if (type === 'datetime' || type === 'time') {
-				// For datetime-local, we need to format as YYYY-MM-DDTHH:MM
-				const year = value.getFullYear();
-				const month = String(value.getMonth() + 1).padStart(2, '0');
-				const day = String(value.getDate()).padStart(2, '0');
-				const hours = String(value.getHours()).padStart(2, '0');
-				const minutes = String(value.getMinutes()).padStart(2, '0');
-				return `${year}-${month}-${day}T${hours}:${minutes}`;
-			} else {
-				// For date inputs, use local date components to avoid timezone shifts
-				// This ensures the displayed date matches what the user selected
-				const year = value.getFullYear();
-				const month = String(value.getMonth() + 1).padStart(2, '0');
-				const day = String(value.getDate()).padStart(2, '0');
-				return `${year}-${month}-${day}`;
-			}
-		}
-
-		if (typeof value === 'string' && value.trim()) {
-			if (type === 'datetime' || type === 'time') {
-				const date = new Date(value);
-				if (!isNaN(date.getTime())) {
-					const year = date.getFullYear();
-					const month = String(date.getMonth() + 1).padStart(2, '0');
-					const day = String(date.getDate()).padStart(2, '0');
-					const hours = String(date.getHours()).padStart(2, '0');
-					const minutes = String(date.getMinutes()).padStart(2, '0');
-					return `${year}-${month}-${day}T${hours}:${minutes}`;
-				}
-			} else {
-				// For date inputs, extract the date part (YYYY-MM-DD) directly from the string
-				// This avoids timezone conversion - we want to display the date as stored
-				const datePart = value.split('T')[0];
-				// If it's already in YYYY-MM-DD format, return it directly
-				if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-					return datePart;
-				}
-				// If it's an ISO string, extract the date part
-				return datePart;
-			}
-		}
-
-		return '';
-	}
-
-	// Convert HTML5 input value back to Date or range object
-	function handleInputChange(event: Event) {
-		const target = event.target as HTMLInputElement;
-		let inputValue = target.value;
-
-		if (!inputValue) {
-			onChange?.(null);
-			return;
-		}
-
-		// Round time to 15-minute intervals for time and datetime inputs
-		if ((type === 'time' || type === 'datetime') && timeStep) {
-			const originalValue = inputValue;
-			inputValue = roundTimeToStep(inputValue, timeStep);
-			if (originalValue !== inputValue) {
-				target.value = inputValue; // Update the input with rounded value
-				console.log(`Time rounded from ${originalValue} to ${inputValue}`);
-			}
-		}
-
-		if (type === 'range') {
-			// For range, we need to handle start and end separately
-			// This is a simplified version - you might need to handle this differently
-			const date = new Date(inputValue);
-			if (!isNaN(date.getTime())) {
-				onChange?.({ start: date, end: date });
-			}
-		} else if (type === 'single' || type === 'date') {
-			// For date inputs, the inputValue is in YYYY-MM-DD format
-			// We need to extract the date components and create a Date at local midnight
-			// to preserve the selected date regardless of timezone
-			const parts = inputValue.split('-');
-			if (parts.length === 3) {
-				const year = parseInt(parts[0], 10);
-				const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-				const day = parseInt(parts[2], 10);
-
-				if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-					// Create date at local midnight to preserve the selected date
-					// This ensures Nov 12 stays Nov 12, not Nov 11
-					const date = new Date(year, month, day, 0, 0, 0, 0);
-					onChange?.(date);
-					return;
-				}
-			}
-			// Fallback to standard Date parsing
-			const date = new Date(inputValue);
-			if (!isNaN(date.getTime())) {
-				onChange?.(date);
-			}
-		} else {
-			// For datetime and time inputs, use standard Date parsing
-			const date = new Date(inputValue);
-			if (!isNaN(date.getTime())) {
-				onChange?.(date);
-			}
-		}
-	}
-
-	// Round time UP to the nearest step interval
-	function roundTimeToStep(timeValue: string, stepMinutes: number): string {
-		const now = new Date();
-
-		if (type === 'time') {
-			const timeParts = timeValue.split(':');
-			if (timeParts.length !== 2) return timeValue;
-
-			let hours = parseInt(timeParts[0], 10);
-			let minutes = parseInt(timeParts[1], 10);
-
-			if (isNaN(hours) || isNaN(minutes)) return timeValue;
-
-			// Build a Date for today with user input
-			let candidate = new Date(now);
-			candidate.setHours(hours, minutes, 0, 0);
-
-			// Round UP based on user-entered minutes
-			let roundedMinutes = Math.ceil(minutes / stepMinutes) * stepMinutes;
-			if (roundedMinutes >= 60) {
-				hours = (hours + 1) % 24;
-				roundedMinutes = 0;
-			}
-			candidate.setHours(hours, roundedMinutes, 0, 0);
-
-			// Ensure candidate is not before "now"
-			if (candidate < now) {
-				const nextStep = new Date(now.getTime() + stepMinutes * 60000);
-				nextStep.setMinutes(Math.ceil(nextStep.getMinutes() / stepMinutes) * stepMinutes, 0, 0);
-				candidate = nextStep;
-			}
-
-			return `${candidate.getHours().toString().padStart(2, '0')}:${candidate.getMinutes().toString().padStart(2, '0')}`;
-		} else if (type === 'datetime') {
-			const [datePart, timePart] = timeValue.split('T');
-			if (!timePart) return timeValue;
-
-			const timeParts = timePart.split(':');
-			if (timeParts.length !== 2) return timeValue;
-
-			let hours = parseInt(timeParts[0], 10);
-			let minutes = parseInt(timeParts[1], 10);
-
-			if (isNaN(hours) || isNaN(minutes)) return timeValue;
-
-			let candidate = new Date(`${datePart}T${timePart}`);
-
-			// Round UP
-			let roundedMinutes = Math.ceil(minutes / stepMinutes) * stepMinutes;
-			if (roundedMinutes >= 60) {
-				hours = (hours + 1) % 24;
-				roundedMinutes = 0;
-			}
-			candidate.setHours(hours, roundedMinutes, 0, 0);
-
-			// Ensure candidate is not before "now"
-			const now = new Date();
-			if (candidate < now) {
-				const nextStep = new Date(now.getTime() + stepMinutes * 60000);
-				nextStep.setMinutes(Math.ceil(nextStep.getMinutes() / stepMinutes) * stepMinutes, 0, 0);
-				candidate = nextStep;
-			}
-
-			return `${datePart}T${candidate.getHours().toString().padStart(2, '0')}:${candidate.getMinutes().toString().padStart(2, '0')}`;
-		}
-
-		return timeValue;
-	}
-	// Get input type based on component type
-	function getInputType() {
-		switch (type) {
-			case 'datetime':
-				return 'datetime-local';
-			case 'time':
-				return 'time';
-			case 'range':
-				return 'date';
-			default:
-				return 'date';
-		}
-	}
-
-	// Get min/max attributes using local date components to avoid timezone shift
-	function getMinValue() {
-		if (!minDate) return '';
-		try {
-			const date = minDate instanceof Date ? minDate : new Date(minDate);
-			const y = date.getFullYear();
-			const m = String(date.getMonth() + 1).padStart(2, '0');
-			const d = String(date.getDate()).padStart(2, '0');
-			return `${y}-${m}-${d}`;
-		} catch {
-			return '';
-		}
-	}
-
-	function getMaxValue() {
-		if (!maxDate) return '';
-		try {
-			const date = maxDate instanceof Date ? maxDate : new Date(maxDate);
-			const y = date.getFullYear();
-			const m = String(date.getMonth() + 1).padStart(2, '0');
-			const d = String(date.getDate()).padStart(2, '0');
-			return `${y}-${m}-${d}`;
-		} catch {
-			return '';
-		}
-	}
-
-	// Get step attribute for time inputs
-	function getStepValue() {
-		if (type === 'time' || type === 'datetime') {
-			// Convert minutes to seconds for HTML5 step attribute
-			return timeStep * 60;
-		}
-		return undefined; // No step for date inputs
 	}
 </script>
 
-{#if localizedLabel}
-	<label for="date-input" class="block text-sm font-medium select-none">
-		{localizedLabel}
-		{#if required}
-			<span class="text-error">*</span>
-		{/if}
-	</label>
-{/if}
-
-<div class="date-input-container {className}">
-	<input
-		id="date-input"
-		type={getInputType()}
-		value={getInputValue()}
-		onchange={handleInputChange}
-		oninput={handleInputChange}
-		onblur={handleInputChange}
-		{disabled}
-		{required}
-		min={getMinValue()}
-		max={getMaxValue()}
-		step={getStepValue()}
-		placeholder={localizedPlaceholder}
-		class="input input-bordered w-full"
-	/>
-	{#if !hideTimeRoundedHint && (type === 'time' || type === 'datetime') && timeStep && timeStep !== 1}
-		<div class="text-base-content/60 mt-1 text-xs">
-			{$t('common.components.date_input.time_rounded_intervals', { values: { timeStep } })}
-		</div>
-	{/if}
-</div>
-
-<style>
-	/* Custom styling for HTML5 date inputs to match project theme */
-	.date-input-container input[type='date'],
-	.date-input-container input[type='datetime-local'],
-	.date-input-container input[type='time'] {
-		background-color: var(--color-base-100);
-		color: var(--color-base-content);
-		border-color: var(--color-base-300);
-		border-radius: var(--radius-box);
-		font-family: var(--font-sans);
-	}
-
-	.date-input-container input[type='date']:focus,
-	.date-input-container input[type='datetime-local']:focus,
-	.date-input-container input[type='time']:focus {
-		border-color: var(--color-primary);
-		outline: none;
-		box-shadow: 0 0 0 2px rgba(from var(--color-primary) r g b / 0.2);
-	}
-
-	/* Error state */
-	.date-input-container.input-error input {
-		border-color: var(--color-error);
-	}
-
-	.date-input-container.input-error input:focus {
-		border-color: var(--color-error);
-		box-shadow: 0 0 0 2px rgba(from var(--color-error) r g b / 0.2);
-	}
-</style>
+<input
+	type="date"
+	class="input input-bordered w-full"
+	value={inputValue}
+	min={inputMin}
+	max={inputMax}
+	{disabled}
+	onchange={handleChange}
+/>

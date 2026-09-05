@@ -4,29 +4,40 @@
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconAccountKey from '~icons/mdi/account-key';
 	import IconLockAlert from '~icons/mdi/lock-alert';
-	import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
+	import { ndk, setNDKSigner } from '$lib/nostr/ndk';
 
 	let { children }: { children: Snippet } = $props();
 
 	let retrying = $state(false);
+	let unlockError = $state<string | null>(null);
+	let isUnlocking = $state(false);
+	const hasSigner = $derived(Boolean(ndk.$currentPubkey));
 
 	async function loadKeys() {
-		await ndkIdentity.ensureSigner();
+		isUnlocking = true;
+		unlockError = null;
+		try {
+			await setNDKSigner();
+		} catch (error) {
+			unlockError = error instanceof Error ? error.message : 'Unable to unlock Nostr identity';
+		} finally {
+			isUnlocking = false;
+		}
 	}
 
 	async function retry() {
 		retrying = true;
 		try {
-			await ndkIdentity.ensureSigner();
+			await loadKeys();
 		} finally {
 			retrying = false;
 		}
 	}
 </script>
 
-{#if ndkIdentity.hasSigner}
+{#if hasSigner}
 	{@render children()}
-{:else if ndkIdentity.unlockError}
+{:else if unlockError}
 	<div class="flex justify-center py-10 sm:py-14">
 		<div
 			class="card bg-base-100 border-error/25 w-full max-w-md border shadow-lg"
@@ -43,9 +54,9 @@
 					<h3 class="text-lg font-semibold">
 						{$t('dashboard.contracts.ndk_identity.error_title')}
 					</h3>
-					{#if ndkIdentity.unlockError}
+					{#if unlockError}
 						<p class="text-error/90 text-sm leading-relaxed wrap-break-word">
-							{ndkIdentity.unlockError}
+							{unlockError}
 						</p>
 					{/if}
 				</div>
@@ -66,7 +77,7 @@
 			</div>
 		</div>
 	</div>
-{:else if ndkIdentity.isUnlocking}
+{:else if isUnlocking}
 	<div class="flex justify-center py-10 sm:py-14">
 		<div
 			class="card bg-base-100 border-base-300/70 w-full max-w-md border shadow-md"

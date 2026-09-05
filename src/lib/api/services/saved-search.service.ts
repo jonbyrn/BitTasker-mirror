@@ -1,4 +1,3 @@
-import type { TaskBody } from '$lib/types/task';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 
@@ -62,14 +61,22 @@ export class SavedSearchService extends BaseApiService {
 				taskBody
 			);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 401) {
+		} catch (error: unknown) {
+			const status =
+				typeof error === 'object' && error !== null && 'status' in error
+					? (error.status as number)
+					: undefined;
+			if (status === 401) {
 				throw new Error('Unauthorized. Please login again.');
 			}
-			if (error?.status === 500) {
+			if (status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
-			throw new Error(error || 'Failed to trigger saved search check. Please try again.');
+			throw new Error(
+				error instanceof Error
+					? error.message
+					: 'Failed to trigger saved search check. Please try again.'
+			);
 		}
 	}
 }
