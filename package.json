@@ -111,6 +111,7 @@
 		"@tailwindcss/typography": "^0.5.16",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.4",
+		"@testing-library/user-event": "^14.6.7",
 		"@typechain/ethers-v6": "^0.5.1",
 		"@types/debug": "^4.1.12",
 		"@types/qrcode": "^1.5.5",

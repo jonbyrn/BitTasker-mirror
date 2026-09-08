@@ -389,8 +389,8 @@ test.describe('bottom navbar drawer z-order', () => {
 		expect(dockInfo!.dockZ).toBeGreaterThan(dockInfo!.backdropZ);
 
 		// Close drawer
-		const backdrop = page.locator('.drawer-backdrop');
-		await backdrop.click({ position: { x: 10, y: 10 } });
+		const drawerBackdrop = page.locator('.drawer-backdrop');
+		await drawerBackdrop.click({ position: { x: 10, y: 10 } });
 		await page.waitForTimeout(500);
 	});
 

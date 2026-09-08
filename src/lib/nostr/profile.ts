@@ -26,7 +26,10 @@ export async function fetchProfileMetadata(pubkey: string): Promise<NostrProfile
 	const event = await fetchKind0Event(hex);
 	if (!event?.content) return {};
 	try {
-		const profile = JSON.parse(event.content) as NostrProfile;
+		const raw = JSON.parse(event.content) as NostrProfile;
+		// Normalize: prefer display_name for the canonical name field so consumers
+		// reading `name` get the richest available value.
+		const profile: NostrProfile = { ...raw, name: raw.display_name ?? raw.name };
 		await profileCache.cacheProfile(hex, profile);
 		return profile;
 	} catch {

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -167,7 +166,6 @@ describe('ServiceCard', () => {
 		});
 
 		it('card is activated on Enter key press without errors', async () => {
-			const user = userEvent.setup();
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
@@ -175,7 +173,7 @@ describe('ServiceCard', () => {
 
 			const card = screen.getByRole('button', { name: /Logo Refresh/i });
 			card.focus();
-			await user.keyboard('{Enter}');
+			await fireEvent.keyDown(card, { key: 'Enter' });
 			expect(card).toHaveFocus();
 		});
 	});

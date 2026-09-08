@@ -328,7 +328,6 @@ test.describe('Bid decline flow', () => {
 				!text.includes('WebAuthn') &&
 				!text.includes('biometric') &&
 				!text.includes('WALLET-STORE') &&
-				!text.includes('rskWallet') &&
 				!text.includes('status of 404') &&
 				!text.includes('404')
 				) {

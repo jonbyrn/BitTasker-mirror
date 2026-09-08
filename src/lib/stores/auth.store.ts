@@ -6,6 +6,7 @@ import { goto } from '$app/navigation';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 import { ndkLogout } from '$lib/nostr/ndk';
+import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 import { user } from '$lib/stores/user.store';
@@ -43,6 +44,9 @@ const createAuthStore = () => {
 		disconnectNotificationSocket();
 
 		await ndkLogout();
+
+		// Reset the cached NDK identity after logout so a new login starts fresh
+		ndkIdentity.reset();
 
 		// Dismiss any open banners
 		appStore.update((state) => ({

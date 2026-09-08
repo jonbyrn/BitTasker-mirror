@@ -42,6 +42,32 @@ function toTask(event: Event): Task {
 	return { ...content, id: dTag ?? event.id, npub: event.pubkey, createdAt: event.created_at };
 }
 
+/**
+ * Deduplicate replaceable task events by their d-tag id. Nostr addressable
+ * events are replaceable, so relays may return multiple versions of the same
+ * task. Per Nostr coordinate ownership semantics, the first publisher (oldest
+ * created_at) owns the d-tag; a later event with the same d-tag from a
+ * different pubkey is a zombie and is discarded.
+ */
+function deduplicateById(tasks: Task[]): Task[] {
+	const byId = new Map<string, Task>();
+	for (const task of tasks) {
+		const existing = byId.get(task.id);
+		if (!existing) {
+			byId.set(task.id, task);
+			continue;
+		}
+		if (task.npub === existing.npub) {
+			// Same author republishing an update — keep the newest version.
+			if (task.createdAt >= existing.createdAt) byId.set(task.id, task);
+		} else if (task.createdAt < existing.createdAt) {
+			// Different pubkey claiming the d-tag — earliest publisher owns it.
+			byId.set(task.id, task);
+		}
+	}
+	return [...byId.values()];
+}
+
 function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 	const search = params.search?.trim().toLowerCase();
 	const muted = get(muteStore).mutedPubkeys;
@@ -77,6 +103,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 					return [];
 				}
 			});
+			tasks = deduplicateById(tasks);
 			tasks.sort((left, right) => right.createdAt - left.createdAt);
 			cache.set(cacheKey, { tasks, timestamp: Date.now() });
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
