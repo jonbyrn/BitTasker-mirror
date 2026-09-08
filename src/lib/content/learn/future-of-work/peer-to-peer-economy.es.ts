@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Cómo Bitcoin y las plataformas descentralizadas están eliminando intermediarios de la contratación, pagos y escrow.'
 	},
 	answerBlock:
-		'La economía par a par (P2P) es un sistema donde los individuos transaccionan directamente entre sí — sin bancos, procesadores de pagos o intermediarios de plataforma extrayendo comisiones y controlando acceso. Bitcoin es dinero P2P: los pagos van directamente de la billetera del cliente a la billetera del freelancer a través de la Red Lightning en segundos. Plataformas como BitTasker agregan infraestructura P2P para emparejamiento de trabajo y escrow de contratos inteligentes en Rootstock, mientras mantienen la transacción central entre pares. El resultado: los freelancers conservan más de sus ganancias (5–10% vs. 20%), cobran instantáneamente y llegan a clientes globalmente sin permiso de ningún intermediario.',
+		'La economía par a par (P2P) es un sistema donde los individuos transaccionan directamente entre sí — sin bancos, procesadores de pagos o intermediarios de plataforma extrayendo comisiones y controlando acceso. Bitcoin es dinero P2P: los pagos van directamente de la billetera del cliente a la billetera del freelancer a través de la Red Lightning en segundos. Plataformas como BitTasker agregan infraestructura P2P para emparejamiento de trabajo y escrow de contratos inteligentes en RGB, mientras mantienen la transacción central entre pares. El resultado: los freelancers conservan más de sus ganancias (5–10% vs. 20%), cobran instantáneamente y llegan a clientes globalmente sin permiso de ningún intermediario.',
 	sections: [
 		{
 			heading: '¿Qué es la economía par a par?',
@@ -19,7 +19,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué son los mercados P2P y cómo funcionan?',
-			body: 'Los mercados P2P son plataformas que facilitan transacciones directas entre usuarios sin controlar la capa de fondos o identidad. BitTasker es un mercado freelance P2P: ayuda a freelancers y clientes a encontrarse, proporciona escrow de contratos inteligentes en Rootstock y soporta seguimiento de entregas y resolución de disputas. Pero no sostiene tu dinero (los pagos son Lightning), no posee tu identidad (está basada en Nostr) y no bloquea tu reputación en sus servidores. Comparado con Upwork, que sostiene fondos en su sistema interno, posee tu cuenta y puede deshabilitar tu perfil en cualquier momento. Un mercado P2P es un facilitador, no un guardián.'
+			body: 'Los mercados P2P son plataformas que facilitan transacciones directas entre usuarios sin controlar la capa de fondos o identidad. BitTasker es un mercado freelance P2P: ayuda a freelancers y clientes a encontrarse, proporciona escrow de contratos inteligentes en RGB y soporta seguimiento de entregas y resolución de disputas. Pero no sostiene tu dinero (los pagos son Lightning), no posee tu identidad (está basada en Nostr) y no bloquea tu reputación en sus servidores. Comparado con Upwork, que sostiene fondos en su sistema interno, posee tu cuenta y puede deshabilitar tu perfil en cualquier momento. Un mercado P2P es un facilitador, no un guardián.'
 		},
 		{
 			heading: '¿Cuáles son los beneficios del freelancing P2P?',
@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo habilita BitTasker la economía P2P para el trabajo?',
-			body: 'BitTasker elimina los intermediarios que imponen las plataformas tradicionales. La identidad es tuya (Nostr). Los pagos son directos (Lightning). El escrow es sin confianza (contratos inteligentes de Rootstock). La plataforma proporciona las herramientas — publicaciones de trabajo, búsqueda, flujos de entrega, resolución de disputas — pero no se interpone entre tú y tu dinero. Cuando un cliente paga a un freelancer en BitTasker, el Bitcoin se mueve de una billetera a otra. Sin saldo de cuenta de plataforma. Sin solicitud de retención. Sin espera de 14 días. Esto es la economía P2P aplicada al trabajo profesional: directo, rápido y controlado por los participantes, no por la plataforma.'
+			body: 'BitTasker elimina los intermediarios que imponen las plataformas tradicionales. La identidad es tuya (Nostr). Los pagos son directos (Lightning). El escrow es sin confianza (contratos inteligentes de RGB). La plataforma proporciona las herramientas — publicaciones de trabajo, búsqueda, flujos de entrega, resolución de disputas — pero no se interpone entre tú y tu dinero. Cuando un cliente paga a un freelancer en BitTasker, el Bitcoin se mueve de una billetera a otra. Sin saldo de cuenta de plataforma. Sin solicitud de retención. Sin espera de 14 días. Esto es la economía P2P aplicada al trabajo profesional: directo, rápido y controlado por los participantes, no por la plataforma.'
 		},
 		{
 			heading: '¿Cuáles son los desafíos de la economía P2P?',
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Es segura la economía P2P?',
 			answer:
-				'La seguridad en la economía P2P viene de garantías criptográficas en lugar de confianza corporativa. Los pagos Bitcoin son irreversibles y verificables en cadena. La identidad Nostr está firmada con tu clave privada. Los contratos de escrow de Rootstock son auditables. El riesgo se traslada de "confiar en una empresa" a "asegurar tus propias claves" — un tipo diferente de responsabilidad, pero una que te da más control.'
+				'La seguridad en la economía P2P viene de garantías criptográficas en lugar de confianza corporativa. Los pagos Bitcoin son irreversibles y verificables en cadena. La identidad Nostr está firmada con tu clave privada. Los contratos de escrow de RGB son auditables. El riesgo se traslada de "confiar en una empresa" a "asegurar tus propias claves" — un tipo diferente de responsabilidad, pero una que te da más control.'
 		},
 		{
 			question: '¿Puedo ganar en moneda fiat en una plataforma P2P?',

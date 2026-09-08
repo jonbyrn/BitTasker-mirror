@@ -80,11 +80,15 @@ function toRgbSeal(
 	transfer: Transfer,
 	recipientId: SealId,
 	contractId: CommitCommandInput['contractId'],
-	assetId: string
+	assetId: string,
+	contractTitle?: string,
+	bidderComments?: string
 ): RgbSeal {
 	return {
 		id: recipientId,
 		contractId,
+		contractTitle,
+		bidderComments,
 		state: toRgbSealState(transfer.status),
 		utxo: transfer.receiveUtxo
 			? { txid: transfer.receiveUtxo.txid, vout: transfer.receiveUtxo.vout }
@@ -108,6 +112,9 @@ export class WasmRgbSealBackend implements RgbSealBackend {
 		return {
 			id: invoice.recipientId as SealId,
 			contractId: input.contractId,
+			invoice: invoice.invoice,
+			contractTitle: input.contractTitle,
+			bidderComments: input.bidderComments,
 			state: 'INITIATED',
 			assetId: input.assetId,
 			amount: input.amount,

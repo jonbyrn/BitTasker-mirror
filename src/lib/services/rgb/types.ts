@@ -49,6 +49,9 @@ export interface SealUtxoBinding {
 export interface RgbSeal {
 	readonly id: SealId;
 	readonly contractId: ContractId;
+	readonly invoice?: string;
+	readonly contractTitle?: string;
+	readonly bidderComments?: string;
 	readonly state: RgbSealState;
 	readonly utxo?: SealUtxoBinding;
 	readonly assetId: string;
@@ -74,6 +77,8 @@ export interface RgbCommandResult<T> {
  */
 export interface CommitCommandInput {
 	readonly contractId: ContractId;
+	readonly contractTitle?: string;
+	readonly bidderComments?: string;
 	readonly assetId: string;
 	readonly amount: number;
 }

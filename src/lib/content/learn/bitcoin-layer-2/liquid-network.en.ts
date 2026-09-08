@@ -11,7 +11,7 @@ export const content: LearnPageContent = {
 	sections: [
 		{
 			heading: 'What is Liquid Network?',
-			body: "Liquid Network is a federated sidechain of Bitcoin, launched in 2018 by Blockstream. It runs as a separate blockchain connected to Bitcoin via a two-way peg, where BTC is locked on Bitcoin's main chain and L-BTC is issued on Liquid. Unlike Rootstock or Stacks, Liquid focuses on transaction speed, privacy, and asset issuance rather than general-purpose smart contracts. The network uses a federation of functionaries — a consortium of known entities — to validate transactions and manage the peg. This federated model trades some decentralization for significantly faster block times (~2 minutes) and confidential transaction support."
+			body: "Liquid Network is a federated sidechain of Bitcoin, launched in 2018 by Blockstream. It runs as a separate blockchain connected to Bitcoin via a two-way peg, where BTC is locked on Bitcoin's main chain and L-BTC is issued on Liquid. Unlike RGB or Stacks, Liquid focuses on transaction speed, privacy, and asset issuance rather than general-purpose smart contracts. The network uses a federation of functionaries — a consortium of known entities — to validate transactions and manage the peg. This federated model trades some decentralization for significantly faster block times (~2 minutes) and confidential transaction support."
 		},
 		{
 			heading: 'What are confidential transactions?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does Liquid Network compare to other Bitcoin Layer 2s?',
-			body: "Liquid takes a different approach than other Bitcoin Layer 2s. While Rootstock and Stacks focus on general-purpose smart contracts and DeFi, Liquid specializes in fast, private transactions and asset issuance. Liquid uses a federation model (faster but more centralized) versus Rootstock's merged mining or Stacks' Proof of Transfer. Liquid's confidential transactions are unique — no other Bitcoin Layer 2 offers hidden amounts by default. The tradeoff is that Liquid's federation model requires trusting the functionaries, while Rootstock and Stacks derive security more directly from Bitcoin's consensus mechanism."
+			body: "Liquid takes a different approach than other Bitcoin Layer 2s. While RGB and Stacks focus on general-purpose smart contracts and DeFi, Liquid specializes in fast, private transactions and asset issuance. Liquid uses a federation model (faster but more centralized) versus RGB's merged mining or Stacks' Proof of Transfer. Liquid's confidential transactions are unique — no other Bitcoin Layer 2 offers hidden amounts by default. The tradeoff is that Liquid's federation model requires trusting the functionaries, while RGB and Stacks derive security more directly from Bitcoin's consensus mechanism."
 		}
 	],
 	faq: [
@@ -67,7 +67,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Is Liquid Network decentralized?',
 			answer:
-				'Liquid uses a federation model — a consortium of known entities validates transactions and manages the peg. This provides faster block times and confidential transactions but is more centralized than Bitcoin mainnet or merged-mined sidechains like Rootstock. The federation members are publicly known and auditable.'
+				'Liquid uses a federation model — a consortium of known entities validates transactions and manages the peg. This provides faster block times and confidential transactions but is more centralized than Bitcoin mainnet or merged-mined sidechains like RGB. The federation members are publicly known and auditable.'
 		},
 		{
 			question: 'How fast are Liquid transactions?',

@@ -27,7 +27,7 @@ vi.mock('$lib/stores/user.store', () => ({
 }));
 
 vi.mock('$lib/stores/wallet.store', () => ({
-	getRSKAddress: vi.fn().mockResolvedValue('0xabc')
+	getRGBAddress: vi.fn().mockResolvedValue('0xabc')
 }));
 
 vi.mock('$lib/nostr/bid', () => ({

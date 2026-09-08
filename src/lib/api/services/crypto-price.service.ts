@@ -9,7 +9,7 @@ class CryptoPriceService {
 
 	/**
 	 * Get the exchange rate between two cryptocurrencies
-	 * @param fromSymbol The base cryptocurrency symbol (e.g., RBTC)
+	 * @param fromSymbol The base cryptocurrency symbol (e.g., BTC)
 	 * @param toSymbol The quote cryptocurrency symbol (e.g., BTC)
 	 * @returns Promise resolving to the exchange rate
 	 */
@@ -27,10 +27,10 @@ class CryptoPriceService {
 		}
 
 		try {
-			// For rBTC pairs, use BTC prices from Coinbase (RBTC is pegged 1:1 with BTC)
-			if (upperFromSymbol === 'RBTC') {
+			// For BTC pairs, use BTC prices from Coinbase (BTC is pegged 1:1 with BTC)
+			if (upperFromSymbol === 'BTC') {
 				if (upperToSymbol === 'BTC') {
-					// RBTC to BTC is 1:1 pegged
+					// BTC to BTC is 1:1 pegged
 					const rate = 1.0;
 					this.cache[cacheKey] = {
 						price: rate,
@@ -38,7 +38,7 @@ class CryptoPriceService {
 					};
 					return rate;
 				} else {
-					// For RBTC to other currencies, get BTC price and target currency price
+					// For BTC to other currencies, get BTC price and target currency price
 					// Get BTC price (check cache first to avoid recursion)
 					let btcPrice: number;
 					const btcCacheKey = 'BTC';
@@ -111,8 +111,8 @@ class CryptoPriceService {
 		}
 
 		try {
-			// For RBTC, use BTC price from Coinbase (RBTC is pegged 1:1 with BTC)
-			if (upperSymbol === 'RBTC') {
+			// For BTC, use BTC price from Coinbase (BTC is pegged 1:1 with BTC)
+			if (upperSymbol === 'BTC') {
 				// Check if BTC price is already cached
 				const btcCacheKey = 'BTC';
 				if (
@@ -120,7 +120,7 @@ class CryptoPriceService {
 					Date.now() - this.cache[btcCacheKey].timestamp < this.cacheExpiration
 				) {
 					const btcPrice = this.cache[btcCacheKey].price;
-					// Update cache with RBTC price (same as BTC)
+					// Update cache with BTC price (same as BTC)
 					this.cache[cacheKey] = {
 						price: btcPrice,
 						timestamp: Date.now()
@@ -134,7 +134,7 @@ class CryptoPriceService {
 				if (response.data && response.data.data && response.data.data.amount) {
 					const btcPrice = parseFloat(response.data.data.amount);
 
-					// Cache both BTC and RBTC prices
+					// Cache both BTC and BTC prices
 					this.cache[btcCacheKey] = {
 						price: btcPrice,
 						timestamp: Date.now()

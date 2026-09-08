@@ -30,9 +30,6 @@
 	);
 	const inputMax = $derived(max ?? maxDate);
 	const inputMin = $derived(min ?? minDate);
-	void type;
-	void placeholderKey;
-	void labelKey;
 
 	function handleChange(event: Event): void {
 		onchange(event);

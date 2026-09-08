@@ -15,6 +15,7 @@
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
 	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
+	import { isNotFoundError } from '$lib/api/apiService';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -196,6 +197,16 @@
 			error = null;
 			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
 		} catch (err) {
+			if (isNotFoundError(err)) {
+				myTasksStore.update((state) => ({
+					...state,
+					items: [],
+					loading: false,
+					error: null,
+					hasMore: false
+				}));
+				return;
+			}
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
 		} finally {

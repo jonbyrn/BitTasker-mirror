@@ -13,7 +13,7 @@
 
 The gasless relay is an **ERC-4337 Account Abstraction** infrastructure that allows BitTasker users to send tokens (USDT0, WBTC, tBTC) on Arbitrum **without holding ETH for gas**. The system uses a paymaster to sponsor gas fees, charging users a small token-denominated fee buffer instead.
 
-The relay runs as a **Cloudflare Worker** (not a NestJS server). It handles both the legacy SecurePayment meta-tx relay (Rootstock) and the new gasless ERC-4337 relay (Arbitrum) in a single worker.
+The relay runs as a **Cloudflare Worker** (not a NestJS server). It handles both the legacy SecurePayment meta-tx relay (RGB) and the new gasless ERC-4337 relay (Arbitrum) in a single worker.
 
 ### High-Level Flow
 
@@ -158,9 +158,9 @@ npm run deploy:testnet
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `RPC_URL` | Yes | Rootstock RPC endpoint | `https://public-node.rsk.co` |
+| `RPC_URL` | Yes | RGB RPC endpoint | `https://public-node.rgb.co` |
 | `ESCROW_ADDRESS` | Yes | SecurePaymentContract address | `0x...` |
-| `CHAIN_ID` | Yes | Rootstock chain ID | `30` (mainnet), `31` (testnet) |
+| `CHAIN_ID` | Yes | RGB chain ID | `30` (mainnet), `31` (testnet) |
 | `ARBITRUM_RPC_URL` | Yes | Arbitrum RPC for gasless relay | `https://arb1.arbitrum.io/rpc` |
 | `GAS_TREASURY` | Yes | Address collecting fee buffers | `0x...` |
 | `PAYMASTER_ADDRESS` | Yes | ERC-4337 paymaster contract | `0x...` |
@@ -170,7 +170,7 @@ npm run deploy:testnet
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `PRIVATE_KEY` | Yes | Relay wallet private key (Rootstock) |
+| `PRIVATE_KEY` | Yes | Relay wallet private key (RGB) |
 | `JWT_SECRET` | Yes | JWT HMAC-SHA256 signing secret (min 32 chars) |
 | `PAYMASTER_SIGNER_KEY` | Yes | ECDSA private key for paymaster signing |
 
@@ -368,11 +368,11 @@ The backend re-estimates gas at relay time and rejects if the actual tier exceed
 | `src/utils/response.js` | 62 | JSON/error response helpers with CORS headers |
 | `src/utils/helpers.js` | 69 | Relay request validation |
 | `src/utils/revertParser.js` | 53 | Revert reason parsing |
-| `src/config.js` | 78 | Rootstock config (RPC_URL, ESCROW_ADDRESS, etc.) |
-| `src/services/blockchain.js` | 107 | Rootstock blockchain service (meta-tx relay) |
+| `src/config.js` | 78 | RGB config (RPC_URL, ESCROW_ADDRESS, etc.) |
+| `src/services/blockchain.js` | 107 | RGB blockchain service (meta-tx relay) |
 | `src/controllers/healthController.js` | 17 | Health check (no wallet address exposed) |
 | `src/controllers/infoController.js` | 31 | Chain info endpoint |
-| `src/controllers/relayController.js` | 55 | Rootstock meta-tx relay controller |
+| `src/controllers/relayController.js` | 55 | RGB meta-tx relay controller |
 | `contracts/` | — | Hardhat contracts (MockEntryPoint, VerifyingPaymaster, MockERC20, Simple7702Account) |
 | `wrangler.toml` | 75 | CF Worker config (local, testnet, mainnet envs) |
 | `package.json` | 24 | Dependencies: ethers v6.14.0, vitest, wrangler |
@@ -404,7 +404,7 @@ The backend re-estimates gas at relay time and rejects if the actual tier exceed
 |--------|------|------|------------|-------------|
 | GET | `/health` | No | None | Health check |
 | GET | `/info` | No | None | Chain and contract info |
-| POST | `/relay` | No | None | Rootstock meta-tx relay |
+| POST | `/relay` | No | None | RGB meta-tx relay |
 | POST | `/gasless/estimate` | JWT | 30/min | Fee estimation |
 | POST | `/gasless/relay` | JWT | 10/min | Relay UserOperation |
 | POST | `/gasless/balance` | Optional JWT | 60/min | Token balance check |

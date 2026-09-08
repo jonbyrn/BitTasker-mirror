@@ -137,7 +137,7 @@ Plaintext (before encryption) is JSON with discriminator `type: 'contract-status
 | `action`                   | `EscrowStatus`      | yes      | Enum (serialized as number in JSON)                       |
 | `timestamp`                | number              | yes      | Typically `Date.now()` (ms)                               |
 | `message`                  | string              | no       | Human-readable; often from i18n via `publishEscrowStatus` |
-| `transactionHash`          | string              | no       | RSK tx when relevant                                      |
+| `transactionHash`          | string              | no       | RGB tx when relevant                                      |
 | `proposedClientAmount`     | string              | no       | Dispute resolution hints                                  |
 | `proposedFreelancerAmount` | string              | no       | Dispute resolution hints                                  |
 | `completionAttachments`    | `Attachment[]`      | no       | Evidence when completing work                             |

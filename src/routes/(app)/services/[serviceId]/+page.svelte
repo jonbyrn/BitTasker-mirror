@@ -92,8 +92,8 @@
 	</div>
 {:else if $authState.isAuthenticated}
 	<ProtectedLayout>
-		{@render View()}
+		{@render View?.()}
 	</ProtectedLayout>
 {:else}
-	{@render View()}
+	{@render View?.()}
 {/if}

@@ -26,7 +26,7 @@ export interface BookNowOutboxEntry {
 	lockOwnerId?: string;
 	lockExpiresAtMs?: number;
 	instantOrderId?: string;
-	amountRbtc?: string;
+	amountBtc?: string;
 	transactionHash?: string;
 	escrowId?: string;
 	needsCleanup?: boolean;
@@ -45,7 +45,7 @@ export interface UpdateBookNowOutboxEntryInput {
 	lockOwnerId?: string;
 	lockTtlMs?: number;
 	instantOrderId?: string | null;
-	amountRbtc?: string | null;
+	amountBtc?: string | null;
 	transactionHash?: string | null;
 	escrowId?: string | null;
 	needsCleanup?: boolean | null;
@@ -137,7 +137,7 @@ function normalizeEntry(entry: unknown): BookNowOutboxEntry | null {
 		lockOwnerId,
 		lockExpiresAtMs,
 		instantOrderId: normalizeOptionalString(candidate.instantOrderId),
-		amountRbtc: normalizeOptionalString(candidate.amountRbtc),
+		amountBtc: normalizeOptionalString(candidate.amountBtc),
 		transactionHash: normalizeOptionalString(candidate.transactionHash)?.toLowerCase(),
 		escrowId: normalizeOptionalString(candidate.escrowId)
 	};
@@ -454,10 +454,10 @@ export function updateBookNowOutboxEntry(
 			input.instantOrderId === null
 				? undefined
 				: (normalizeOptionalString(input.instantOrderId) ?? existingEntry?.instantOrderId),
-		amountRbtc:
-			input.amountRbtc === null
+		amountBtc:
+			input.amountBtc === null
 				? undefined
-				: (normalizeOptionalString(input.amountRbtc) ?? existingEntry?.amountRbtc),
+				: (normalizeOptionalString(input.amountBtc) ?? existingEntry?.amountBtc),
 		transactionHash:
 			input.transactionHash === null
 				? undefined

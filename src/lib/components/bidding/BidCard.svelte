@@ -69,6 +69,8 @@
 
 <div
 	class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:shadow-md"
+	data-testid="bid-card"
+	data-bid-id={bid.id}
 >
 	{#if !bidContent}
 		<div class="alert alert-error">
@@ -263,7 +265,7 @@
 						class="border-base-200 space-y-4 border-t pt-4 sm:hidden"
 						aria-label={$t('dashboard.bids.bid_acceptance.show_details')}
 					>
-						{@render expandedDetails()}
+						{@render expandedDetails?.()}
 					</div>
 				{/if}
 			</div>
@@ -380,7 +382,7 @@
 				class="border-base-200 mt-4 hidden space-y-4 border-t pt-4 sm:mt-6 sm:block sm:space-y-6 sm:pt-6"
 				aria-label={$t('dashboard.bids.bid_acceptance.show_details')}
 			>
-				{@render expandedDetails()}
+				{@render expandedDetails?.()}
 			</div>
 		{/if}
 	{/if}

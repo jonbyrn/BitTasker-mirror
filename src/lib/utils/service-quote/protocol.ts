@@ -543,7 +543,7 @@ function hasPublishableAcceptedSnapshot(
 
 	// Native RGB/Taproot escrow: acceptance requires a contract id and the
 	// funding transaction hash. The legacy EVM acceptanceSnapshot fields
-	// (clientRskAddress, weiAmount, chainId, …) are no longer produced by the
+	// (clientBtcAddress, amountSats, chainId, ...) are no longer produced by the
 	// UTXEO SDK flow, so they are not enforced here.
 	return (
 		typeof content.escrowId === 'string' &&

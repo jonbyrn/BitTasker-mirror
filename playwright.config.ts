@@ -128,7 +128,10 @@ export default defineConfig({
 					reuseExistingServer: true,
 					timeout: 60 * 1000,
 					env: {
+						VITE_API_URL: 'http://localhost:8000',
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
+						VITE_BITCOIN_NETWORK: 'testnet',
+						VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
 						...process.env
 					}
 				}
@@ -139,7 +142,10 @@ export default defineConfig({
 						reuseExistingServer: false,
 						timeout: PREVIEW_START_TIMEOUT_MS,
 						env: {
+							VITE_API_URL: 'http://localhost:8000',
 							VITE_E2E_TURNSTILE_BYPASS: 'true',
+							VITE_BITCOIN_NETWORK: 'testnet',
+							VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
 							...process.env
 						}
 					}
@@ -149,7 +155,10 @@ export default defineConfig({
 						reuseExistingServer: !process.env.CI,
 						timeout: 600 * 1000, // 10 min: full SvelteKit preview build is slow in CI/local CI-shaped runs
 						env: {
+							VITE_API_URL: 'http://localhost:8000',
 							VITE_E2E_TURNSTILE_BYPASS: 'true',
+							VITE_BITCOIN_NETWORK: 'testnet',
+							VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
 							...process.env
 						}
 					}

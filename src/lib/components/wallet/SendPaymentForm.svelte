@@ -3,6 +3,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
+	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
@@ -105,7 +106,7 @@
 			} else if (asset === 'usdt_rgb') {
 				const result = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
-					assetId: 'usdt_rgb',
+					assetId: getConfiguredRgbUsdtAssetId(),
 					amount: amountSats
 				});
 				txid = result.txid;

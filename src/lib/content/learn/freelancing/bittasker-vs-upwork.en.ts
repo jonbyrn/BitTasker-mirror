@@ -23,11 +23,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What about escrow and payment protection?',
-			body: "Both platforms offer escrow to protect freelancers and clients. Upwork's escrow is fully controlled by their internal systems — disputes go through their support team, and resolution times can stretch for weeks. BitTasker uses smart contracts on Rootstock (a Bitcoin sidechain) for escrow. Funds are locked in auditable smart contracts, and dispute resolution follows transparent on-chain rules. You don't have to trust a company — you trust code."
+			body: "Both platforms offer escrow to protect freelancers and clients. Upwork's escrow is fully controlled by their internal systems — disputes go through their support team, and resolution times can stretch for weeks. BitTasker uses smart contracts on RGB (a Bitcoin sidechain) for escrow. Funds are locked in auditable smart contracts, and dispute resolution follows transparent on-chain rules. You don't have to trust a company — you trust code."
 		},
 		{
 			heading: 'What does the BitTasker vs Upwork comparison table show?',
-			body: '| Feature | BitTasker | Upwork |\n| --- | --- | --- |\n| Service fee | 5–10% (tiered) | 10% flat |\n| Payout speed | Instant (Lightning) | Net-14 + bank transfer |\n| Identity | Nostr (decentralized) | Centralized account |\n| Escrow | Rootstock smart contracts | Internal systems |\n| Account portability | Full — you own your data | Locked to platform |\n| Crypto payments | Native BTC + Lightning | Not supported |\n| Geographic restrictions | Global, open access | Restricted in some countries |'
+			body: '| Feature | BitTasker | Upwork |\n| --- | --- | --- |\n| Service fee | 5–10% (tiered) | 10% flat |\n| Payout speed | Instant (Lightning) | Net-14 + bank transfer |\n| Identity | Nostr (decentralized) | Centralized account |\n| Escrow | RGB smart contracts | Internal systems |\n| Account portability | Full — you own your data | Locked to platform |\n| Crypto payments | Native BTC + Lightning | Not supported |\n| Geographic restrictions | Global, open access | Restricted in some countries |'
 		},
 		{
 			heading: 'When is Upwork the better choice?',
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'What happens if there is a dispute on BitTasker?',
 			answer:
-				"BitTasker uses Rootstock smart contracts for escrow. If a dispute arises, both parties present evidence and the resolution follows transparent on-chain rules. Funds are never held by BitTasker — they're locked in the smart contract until both parties agree or a resolution is reached."
+				"BitTasker uses RGB smart contracts for escrow. If a dispute arises, both parties present evidence and the resolution follows transparent on-chain rules. Funds are never held by BitTasker — they're locked in the smart contract until both parties agree or a resolution is reached."
 		},
 		{
 			question: 'Is my Upwork reputation transferable to BitTasker?',

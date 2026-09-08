@@ -56,7 +56,7 @@
 	<div
 		class="border-base-300/60 bg-base-100/40 mx-3 mt-3 shrink-0 rounded-3xl border p-2 shadow-sm sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6"
 	>
-		{@render filters()}
+		{@render filters?.()}
 	</div>
 
 	<!-- Total transactions count -->
@@ -124,7 +124,7 @@
 					{/each}
 				</div>
 			{:else}
-				{@render content()}
+				{@render content?.()}
 			{/if}
 		</div>
 	</div>

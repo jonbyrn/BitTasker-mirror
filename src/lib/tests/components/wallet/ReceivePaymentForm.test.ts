@@ -37,7 +37,10 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 });
 
 describe('ReceivePaymentForm', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+	});
 
 	it('shows the stored on-chain BTC address without amount input', async () => {
 		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
@@ -75,7 +78,7 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(receiveRgbInvoice).toHaveBeenCalledTimes(1));
 		expect(receiveRgbInvoice).toHaveBeenCalledWith({
 			amount: 100000,
-			assetId: 'usdt_rgb',
+			assetId: 'rgb1testusdtasset',
 			witness: true
 		});
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));

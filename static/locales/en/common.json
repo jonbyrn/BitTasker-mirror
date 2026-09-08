@@ -107,6 +107,7 @@
 		"profile": {
 			"performance_stats": "Performance Stats",
 			"tasks_completed": "Tasks Completed",
+			"contracts_completed": "Contracts Completed",
 			"rating": "Rating",
 			"skills": "Skills",
 			"portfolio_items": "Portfolio Items",

@@ -189,7 +189,7 @@
 		<!-- Personal Information -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body p-4">
-				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
+				{@render cardTitle?.($t('profile.page.sections.personal_info'), 'personalInfo')}
 				<div
 					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.personalInfo ? '0' : '200rem'}
@@ -206,7 +206,7 @@
 		<!-- Skills -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body p-4">
-				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
+				{@render cardTitle?.($t('profile.page.sections.skills'), 'skills')}
 				<div
 					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.skills ? '0' : '200rem'}
@@ -223,7 +223,7 @@
 		<!-- Portfolio -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body p-4">
-				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
+				{@render cardTitle?.($t('profile.page.sections.portfolio'), 'portfolio')}
 				<div
 					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.portfolio ? '0' : '200rem'}
@@ -240,7 +240,7 @@
 		<!-- Video Introduction -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body p-4">
-				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
+				{@render cardTitle?.($t('profile.page.sections.video'), 'videoIntro')}
 				<div
 					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.videoIntro ? '0' : '200rem'}
@@ -257,7 +257,7 @@
 		<!-- Availability Calendar -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body p-4">
-				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
+				{@render cardTitle?.($t('profile.page.sections.availability'), 'availability')}
 				<div
 					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.availability ? '0' : '200rem'}

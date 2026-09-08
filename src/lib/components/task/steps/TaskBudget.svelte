@@ -367,6 +367,7 @@
 		</label>
 		<textarea
 			id="description"
+			data-testid="task-description-input"
 			value={$store.task.description}
 			oninput={(e) => {
 				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });

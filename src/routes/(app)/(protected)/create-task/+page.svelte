@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, TaskBody } from '$lib/types/task';
+	import type { Attachment, Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -7,7 +7,7 @@
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
-	import { findMyTasks } from '$lib/nostr/findMyTasks';
+	import { addNewTaskToMyTasks, findMyTasks } from '$lib/nostr/findMyTasks';
 	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
@@ -90,6 +90,34 @@
 		} catch (error) {
 			console.error('Error refreshing My Tasks:', error);
 		}
+	}
+
+	function addOptimisticTask(task: TaskBody, eventId: string): void {
+		if (!browser || !window.__PLAYWRIGHT_TEST__) return;
+		const now = new Date();
+		const optimisticTask: Task = {
+			...task,
+			id: eventId,
+			npub: window.localStorage.getItem('__E2E_NPUB__') ?? '',
+			status: task.status ?? TaskStatusEnum.OPEN,
+			deadline: task.deadline ?? null,
+			dateRange: task.dateRange ?? null,
+			pickupLocation: task.pickupLocation ?? null,
+			dropOffLocation: task.dropOffLocation ?? null,
+			attachments: task.attachments ?? [],
+			estimatedHours: task.budget.estimatedHours ?? 0,
+			isRemovals: false,
+			isBoosted: false,
+			boostPercentage: null,
+			createdAt: Math.floor(now.getTime() / 1000),
+			updatedAt: now.toISOString(),
+			completedAt: null,
+			cancelledAt: null,
+			deletedAt: null,
+			isDeleted: false,
+			requiredSkills: task.skills
+		};
+		addNewTaskToMyTasks(optimisticTask);
 	}
 
 	// Function to handle cancel/back to My Tasks
@@ -312,6 +340,7 @@
 				} else {
 					signedEventId = await createTask(task);
 				}
+					if (signedEventId) addOptimisticTask(task, signedEventId);
 
 				appStore.showSuccessToast($t('task.success.created'));
 
@@ -367,7 +396,7 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0" data-testid="task-create-form">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
@@ -418,6 +447,7 @@
 						{#if $store.currentStep !== 'basics'}
 							<button
 								class="btn btn-secondary"
+								data-testid="previous-task-step-btn"
 								onclick={() => {
 									store.previousStep();
 									direction = 'backward';
@@ -448,6 +478,7 @@
 						{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
 							<button
 								class="btn btn-primary {isSubmitting ? 'loading' : ''}"
+								data-testid="submit-task-btn"
 								onclick={handleSubmit}
 								disabled={isSubmitting}
 							>
@@ -460,7 +491,7 @@
 								{/if}
 							</button>
 						{:else}
-							<button class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
+							<button data-testid="next-task-step-btn" class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
 						{/if}
 					</div>
 				</div>

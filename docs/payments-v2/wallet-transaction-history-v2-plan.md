@@ -1,6 +1,6 @@
 # Wallet transaction history — V1 vs V2 and relay (plan)
 
-This document explains how Rootstock transaction history is built today, why V2 contracts and gasless relay flows do not show up the same way as V1, and a concrete plan to make the wallet history accurate and understandable for payments V2.
+This document explains how RGB transaction history is built today, why V2 contracts and gasless relay flows do not show up the same way as V1, and a concrete plan to make the wallet history accurate and understandable for payments V2.
 
 ---
 
@@ -18,9 +18,9 @@ This document explains how Rootstock transaction history is built today, why V2 
 
 ### 2.1 End-to-end data flow
 
-1. **`wallet.store` → `loadTransactions()`** loads raw chain data via `@bittasker/wallet-core` (`manager.rskWallet.loadTransactions()`).
+1. **`wallet.store` → `loadTransactions()`** loads raw chain data via `@bittasker/wallet-core` (`manager.rgbWallet.loadTransactions()`).
 2. **`processTransactions()`** in `src/lib/utils/wallet/transactionHistory.ts`:
-   - Resolves “known” contract addresses (Boltz EtherSwap from API + **static** escrow list).
+   - Resolves “known” contract addresses (RGB EtherSwap from API + **static** escrow list).
    - Fetches **internal transactions** from Blockscout: `GET /api/v2/addresses/{address}/internal-transactions`.
    - Merges normal + internal txs, dedupes, classifies each row, computes running `balanceAfter`, titles, icons, borders.
 3. **UI** (`TransactionHistory.svelte`) renders `ProcessedTransaction` rows using `title` as a translation key (`$t(tx.title)`).
@@ -63,7 +63,7 @@ Per `v2-gasless-relay-integration-plan.md`, post-creation writes are often sent 
 Implications for history:
 
 - **Top-level txs** from `loadTransactions()` are typically **from the user’s address**. Relay-executed calls may **not** appear as outgoing txs from the user at all.
-- **Balance changes** (e.g. native RBTC transfer to the user) still appear on-chain and may surface as **internal txs** to the user’s address—**if** the contract address is treated as escrow (§2.4) and Blockscout indexes the transfer.
+- **Balance changes** (e.g. native BTC transfer to the user) still appear on-chain and may surface as **internal txs** to the user’s address—**if** the contract address is treated as escrow (§2.4) and Blockscout indexes the transfer.
 
 So relay alone does not prevent indexing, but **combined** with wrong/missing escrow addresses and lack of an off-chain ledger, the UI can look empty.
 
@@ -93,9 +93,9 @@ We only need a **small set** of user-visible outcomes. We do **not** aim to list
 | Scenario                                        | Who acts on-chain (typical)                                           | Who should see a wallet row                                                  | How it usually appears                                                                                                                                        |
 | ----------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1. Contract creation**                        | Taskee — **direct** tx (not gasless), `createPaymentContract` + value | **Taskee**                                                                   | Normal tx: user `from` → payment contract. Map like V1 “Contract Funded.”                                                                                     |
-| **2. Accept task / payout to taskee**           | Tasker triggers; **relay** executes                                   | **Taskee** receives RBTC; **tasker** often has **no** incoming row (correct) | **Internal tx:** payment contract → taskee. Tasker may see **nothing** for this step if they did not receive funds — that is OK.                              |
+| **2. Accept task / payout to taskee**           | Tasker triggers; **relay** executes                                   | **Taskee** receives BTC; **tasker** often has **no** incoming row (correct) | **Internal tx:** payment contract → taskee. Tasker may see **nothing** for this step if they did not receive funds — that is OK.                              |
 | **3. Cancel / refund to tasker**                | Gasless                                                               | **Tasker**                                                                   | **Internal tx:** payment contract → tasker. Label e.g. refund / “Refund processed.”                                                                           |
-| **4. Dispute with proposed resolution (split)** | Gasless                                                               | **Both** parties that receive RBTC                                           | **Two** internal transfers (same outer `tx` hash, distinct internal indices): contract → A, contract → B. Each address’s history shows **their** inbound row. |
+| **4. Dispute with proposed resolution (split)** | Gasless                                                               | **Both** parties that receive BTC                                           | **Two** internal transfers (same outer `tx` hash, distinct internal indices): contract → A, contract → B. Each address’s history shows **their** inbound row. |
 
 ### 4.3 Data sources
 
@@ -108,7 +108,7 @@ We only need a **small set** of user-visible outcomes. We do **not** aim to list
 
 2. **Optional (copy only):** **Nostr kind 31006** (or app state) keyed by `transactionHash` + status to choose labels (**Funds released** vs **Refund** vs **Dispute resolved**) when internal txs **do not** expose calldata/method name. Not required for “something appears,” only for **distinct wording**.
 
-3. **Out of scope for v1 of this work:** In-between relay transactions, failed simulations, or any tx that does not move RBTC to/from the user in a way Blockscout exposes on that address.
+3. **Out of scope for v1 of this work:** In-between relay transactions, failed simulations, or any tx that does not move BTC to/from the user in a way Blockscout exposes on that address.
 
 ### 4.4 Labeling when internal txs lack a method name
 
@@ -170,7 +170,7 @@ This matches §4 and is the **starting point** for implementation.
 ## 7. Open questions (resolve during implementation)
 
 1. How to track **multiple** historical payment contract deployments in `ESCROW_CONTRACT_ADDRESSES` when upgrades roll out (keep old + new entries).
-2. Blockscout spot-check: do **internal** RBTC transfers always appear for recipients after relay `executeMetaTransaction` on testnet/mainnet (real tx hashes).
+2. Blockscout spot-check: do **internal** BTC transfers always appear for recipients after relay `executeMetaTransaction` on testnet/mainnet (real tx hashes).
 3. **Phase C only:** mapping from **31006** status (or equivalent) to wallet title for refund vs accept vs dispute when we add Nostr-assisted labels.
 
 ---

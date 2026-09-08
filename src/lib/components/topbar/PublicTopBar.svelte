@@ -129,7 +129,7 @@
 				>
 					<ul>
 						{#each section.items as item (item.label)}
-							{@render menuItem(item)}
+							{@render menuItem?.(item)}
 						{/each}
 					</ul>
 				</div>
@@ -167,7 +167,7 @@
 				</a>
 			</li>
 			{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
-				{@render menuSection(section)}
+				{@render menuSection?.(section)}
 			{/each}
 		</ul>
 	</div>

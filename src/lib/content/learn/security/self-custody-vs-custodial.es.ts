@@ -34,7 +34,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Cómo BitTasker soporta la autocustodia',
-			body: 'BitTasker está construido sobre principios de autocustodia. Tu identidad es un keypair Nostr que tú controlas — no un email/password en una base de datos de una empresa. Los pagos fluyen vía Lightning Network directamente a tu wallet conectada. La plataforma nunca custodia tus fondos. Para escrow, los smart contracts de Rootstock bloquean Bitcoin en código, no en cuentas bancarias de una empresa. Esto significa que BitTasker opera como una plataforma de autocustodia: tú controlas tu identidad, tus claves y tus fondos. El compromiso es responsabilidad — debes gestionar tu seed phrase de forma segura. Pero el beneficio es libertad: sin congelación de cuentas, sin retrasos de retiro, sin riesgo de contraparte de la plataforma.'
+			body: 'BitTasker está construido sobre principios de autocustodia. Tu identidad es un keypair Nostr que tú controlas — no un email/password en una base de datos de una empresa. Los pagos fluyen vía Lightning Network directamente a tu wallet conectada. La plataforma nunca custodia tus fondos. Para escrow, los smart contracts de RGB bloquean Bitcoin en código, no en cuentas bancarias de una empresa. Esto significa que BitTasker opera como una plataforma de autocustodia: tú controlas tu identidad, tus claves y tus fondos. El compromiso es responsabilidad — debes gestionar tu seed phrase de forma segura. Pero el beneficio es libertad: sin congelación de cuentas, sin retrasos de retiro, sin riesgo de contraparte de la plataforma.'
 		}
 	],
 	faq: [
@@ -66,7 +66,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿BitTasker mantiene mi Bitcoin?',
 			answer:
-				'No. BitTasker usa identidad Nostr (tú controlas tus claves) y pagos Lightning (los fondos fluyen directamente a tu wallet). Los fondos en escrow están bloqueados en smart contracts de Rootstock.'
+				'No. BitTasker usa identidad Nostr (tú controlas tus claves) y pagos Lightning (los fondos fluyen directamente a tu wallet). Los fondos en escrow están bloqueados en smart contracts de RGB.'
 		},
 		{
 			question: '¿Cuál es la diferencia entre wallets Lightning autocustodiales y custodiales?',

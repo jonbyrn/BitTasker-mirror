@@ -39,7 +39,6 @@ export const BITTASKER_ORG_JSONLD = {
 		'Freelance Services',
 		'Smart Contracts',
 		'Nostr Protocol',
-		'Rootstock',
 		'Liquid Network',
 		'Cryptocurrency Payments',
 		'Peer-to-Peer Transactions'

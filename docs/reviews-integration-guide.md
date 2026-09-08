@@ -35,7 +35,7 @@ await initializeReviewSDK();
 ### 2. Configure Services
 
 The SDK is automatically configured with:
-- Ethers.js blockchain provider (Rootstock)
+- Ethers.js blockchain provider (RGB)
 - IndexedDB storage provider
 - Background tree updates for mobile
 

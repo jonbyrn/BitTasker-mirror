@@ -22,7 +22,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is decentralized freelancing on the Nostr ecosystem?',
-			body: "Decentralized freelancing platforms like BitTasker use the Nostr protocol for identity and the Rootstock blockchain for escrow. This eliminates the central points of failure that plague traditional platforms: no company can freeze your account, no central database can be breached, and no intermediary controls your payments. Your identity is a cryptographic keypair — not an email/password in a company database. Escrow is enforced by smart contract code, not by a company's promises. Dispute resolution is transparent and governed by code. The tradeoff: you must manage your own keys and be comfortable with Bitcoin. But the benefit is freedom — true ownership of your identity, earnings, and professional reputation."
+			body: "Decentralized freelancing platforms like BitTasker use the Nostr protocol for identity and the RGB blockchain for escrow. This eliminates the central points of failure that plague traditional platforms: no company can freeze your account, no central database can be breached, and no intermediary controls your payments. Your identity is a cryptographic keypair — not an email/password in a company database. Escrow is enforced by smart contract code, not by a company's promises. Dispute resolution is transparent and governed by code. The tradeoff: you must manage your own keys and be comfortable with Bitcoin. But the benefit is freedom — true ownership of your identity, earnings, and professional reputation."
 		},
 		{
 			heading: 'Which freelance platform is best for your skill type?',

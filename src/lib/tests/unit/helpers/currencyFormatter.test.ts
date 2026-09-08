@@ -47,8 +47,8 @@ describe('Currency Formatter', () => {
 			expect(formatCurrency(100, 'EUR')).toBe('100 EUR');
 		});
 
-		it('should format RBTC in sats when isAmountInSats is true', () => {
-			expect(formatCurrency(100_000_000, 'RBTC', true)).toBe('RBTC 1.00000000');
+		it('should format BTC in sats when isAmountInSats is true', () => {
+			expect(formatCurrency(100_000_000, 'BTC', true)).toBe('BTC 1.00000000');
 		});
 	});
 
@@ -107,9 +107,9 @@ describe('Currency Formatter', () => {
 			expect(formatConvertedAmount(12345, 'SATS')).toBe('12,345 Sats');
 		});
 
-		it('formats RBTC to RBTC with trimmed decimals and default suffix', () => {
-			expect(formatConvertedAmount(0.00123, 'RBTC')).toBe('0.00123 rBTC');
-			expect(formatConvertedAmount('0.00123', 'RBTC')).toBe('0.00123 rBTC');
+		it('formats BTC to BTC with trimmed decimals and default suffix', () => {
+			expect(formatConvertedAmount(0.00123, 'BTC')).toBe('0.00123 BTC');
+			expect(formatConvertedAmount('0.00123', 'BTC')).toBe('0.00123 BTC');
 		});
 
 		it('converts USD to SATS using btcPrice', () => {
@@ -124,15 +124,15 @@ describe('Currency Formatter', () => {
 			);
 		});
 
-		it('converts RBTC to USD using btcPrice', () => {
-			expect(formatConvertedAmount(0.5, 'RBTC', { toCurrency: 'USD', btcPrice })).toBe(
+		it('converts BTC to USD using btcPrice', () => {
+			expect(formatConvertedAmount(0.5, 'BTC', { toCurrency: 'USD', btcPrice })).toBe(
 				'$50,000.00 USD'
 			);
 		});
 
-		it('converts between SATS and RBTC without btcPrice', () => {
-			expect(formatConvertedAmount(100_000_000, 'SATS', { toCurrency: 'RBTC' })).toBe('1 rBTC');
-			expect(formatConvertedAmount(1, 'RBTC', { toCurrency: 'SATS' })).toBe('100,000,000 Sats');
+		it('converts between SATS and BTC without btcPrice', () => {
+			expect(formatConvertedAmount(100_000_000, 'SATS', { toCurrency: 'BTC' })).toBe('1 BTC');
+			expect(formatConvertedAmount(1, 'BTC', { toCurrency: 'SATS' })).toBe('100,000,000 Sats');
 		});
 
 		it('returns zero output when USD conversion is requested without btcPrice', () => {
@@ -166,27 +166,27 @@ describe('Currency Formatter', () => {
 		it('accepts case-insensitive currency codes', () => {
 			expect(formatConvertedAmount(1, 'usd')).toBe('$1.00 USD');
 			expect(formatConvertedAmount(1_000_000, 'sats')).toBe('1,000,000 Sats');
-			expect(formatConvertedAmount(0.1, 'rbtc')).toBe('0.1 rBTC');
+			expect(formatConvertedAmount(0.1, 'btc')).toBe('0.1 BTC');
 		});
 
-		it('formats USD and RBTC with fixed fractionDigits', () => {
+		it('formats USD and BTC with fixed fractionDigits', () => {
 			expect(formatConvertedAmount(10.53, 'USD', { fractionDigits: 0 })).toBe('$11 USD');
 			expect(formatConvertedAmount(10.5, 'USD', { fractionDigits: 4 })).toBe('$10.5000 USD');
-			expect(formatConvertedAmount(0.00123, 'RBTC', { fractionDigits: 6 })).toBe('0.001230 rBTC');
+			expect(formatConvertedAmount(0.00123, 'BTC', { fractionDigits: 6 })).toBe('0.001230 BTC');
 		});
 
-		it('formats USD and RBTC with minimumFractionDigits / maximumFractionDigits', () => {
+		it('formats USD and BTC with minimumFractionDigits / maximumFractionDigits', () => {
 			expect(
 				formatConvertedAmount(10, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 			).toBe('$10 USD');
 			expect(
-				formatConvertedAmount(0.00123, 'RBTC', {
+				formatConvertedAmount(0.00123, 'BTC', {
 					minimumFractionDigits: 6,
 					maximumFractionDigits: 6
 				})
-			).toBe('0.001230 rBTC');
-			expect(formatConvertedAmount(0.001234567, 'RBTC', { maximumFractionDigits: 4 })).toBe(
-				'0.0012 rBTC'
+			).toBe('0.001230 BTC');
+			expect(formatConvertedAmount(0.001234567, 'BTC', { maximumFractionDigits: 4 })).toBe(
+				'0.0012 BTC'
 			);
 		});
 

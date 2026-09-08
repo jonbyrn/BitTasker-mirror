@@ -1,6 +1,6 @@
 # BitTasker Gasless Transactions — Frontend Integration Guide
 
-This document provides everything the BitTasker frontend needs to integrate with the meta-transaction relay for gasless transactions on SecurePaymentContract (Rootstock).
+This document provides everything the BitTasker frontend needs to integrate with the meta-transaction relay for gasless transactions on SecurePaymentContract (RGB).
 
 ---
 
@@ -8,7 +8,7 @@ This document provides everything the BitTasker frontend needs to integrate with
 
 - **abi.json** — A complete copy of the compiled SecurePaymentContract ABI (full JSON including constructor, functions, events, errors). Use this for building calldata and creating the contract instance.
 - **ethers.js v6** (or compatible)
-- User wallet (MetaMask, etc.) connected to Rootstock
+- User wallet (MetaMask, etc.) connected to RGB
 
 ---
 
@@ -32,8 +32,8 @@ There is no ERC2771 TrustedForwarder — the contract has inlined meta-tx suppor
 
 | Environment | Base URL                                    | Chain                           |
 | ----------- | ------------------------------------------- | ------------------------------- |
-| **Testnet** | `https://tx-relay.testnet.bittasker.com`    | Rootstock Testnet (chainId: 31) |
-| **Mainnet** | `https://tx-relay.bittasker.com`            | Rootstock Mainnet (chainId: 30) |
+| **Testnet** | `https://tx-relay.testnet.bittasker.com`    | RGB Testnet (chainId: 31) |
+| **Mainnet** | `https://tx-relay.bittasker.com`            | RGB Mainnet (chainId: 30) |
 | **Local**   | `http://localhost:8787` (via `npm run dev`) | Hardhat (31337) or Testnet      |
 
 ---
@@ -315,7 +315,7 @@ All 12 lifecycle functions can be invoked via the relay. The relay does **not** 
 | 5    | Receive 202 + `txHash`                      | "Submitted! Confirmations pending." |
 | 6    | (Optional) Poll `eth_getTransactionReceipt` | "Confirmed" after 1+ blocks         |
 
-**Timing (Rootstock):**
+**Timing (RGB):**
 
 - Relay processing: ~2–10 seconds
 - Block time: ~14–30 seconds
@@ -344,7 +344,7 @@ async function waitForConfirmation(provider, txHash, maxAttempts = 30) {
 
 ## Retries and Idempotency
 
-- **Retry on 5xx or timeout:** Use a generous timeout (60–90 s). Rootstock RPC can be slow.
+- **Retry on 5xx or timeout:** Use a generous timeout (60–90 s). RGB RPC can be slow.
 - **Do not retry on 400:** `SIMULATION_FAILED` means the tx would revert — retrying with the same payload won't help.
 - **Same payload = same tx:** If the user retries after a timeout, they may resend the same `(sender, data, signature)`. The relay does not currently enforce idempotency — submitting twice could cause the second to revert (state already changed). For critical flows, consider tracking `txHash` per user action to avoid duplicate submissions.
 

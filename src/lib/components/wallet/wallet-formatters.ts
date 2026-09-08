@@ -54,7 +54,7 @@ export function stableInnerFormat(
 	key: string,
 	lastKnownWalletBalances: Record<
 		string,
-		{ rbtc: string; btc: string; usdt: string; wbtc: string; tbtc: string }
+		{ btc: string; usdt: string; wbtc: string; tbtc: string }
 	>,
 	satsFormatter: Intl.NumberFormat,
 	usdFormatter: Intl.NumberFormat,
@@ -95,7 +95,7 @@ export function stableWalletAvailableUsd(
 	},
 	lastKnownWalletBalances: Record<
 		string,
-		{ rbtc: string; btc: string; usdt: string; wbtc: string; tbtc: string }
+		{ btc: string; usdt: string; wbtc: string; tbtc: string }
 	>,
 	usdFormatter: Intl.NumberFormat,
 	btcPrice: number

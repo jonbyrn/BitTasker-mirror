@@ -3,7 +3,7 @@ import cryptoPriceService from '$lib/api/services/crypto-price.service';
 /**
  * Format a currency amount based on the currency type
  * @param amount - The amount to format
- * @param currency - The currency type (BTC, L-BTC, LN, USD, RBTC)
+ * @param currency - The currency type (BTC, L-BTC, LN, USD)
  * @param isAmountInSats - Whether the amount is in satoshis (for BTC/L-BTC/LN)
  * @returns Formatted currency string
  */
@@ -20,7 +20,6 @@ export function formatCurrency(
 		case 'BTC':
 		case 'L-BTC':
 		case 'LN':
-		case 'RBTC':
 			if (isAmountInSats) {
 				// Convert sats to BTC for display
 				const btcAmount = amount / 100_000_000;
@@ -133,50 +132,48 @@ export async function satsToUsd(sats: number): Promise<number> {
 
 /**
  * Format amount in the requested format: $USD (Sats) using real-time prices
- * @param rbtcAmount - Amount in RBTC
+ * @param btcAmountInput - Amount in BTC
  * @param btcPrice - Optional BTC price (if not provided, will fetch real-time)
  * @returns Promise resolving to formatted string like "$10.50 (9,700 Sats)"
  */
 export async function formatUSDWithSats(
-	rbtcAmount: string | number,
+	btcAmountInput: string | number,
 	btcPrice?: number
 ): Promise<string> {
-	const rbtc = typeof rbtcAmount === 'string' ? parseFloat(rbtcAmount) : rbtcAmount;
-	if (isNaN(rbtc)) return '$0.00 (0 Sats)';
+	const btcAmount = typeof btcAmountInput === 'string' ? parseFloat(btcAmountInput) : btcAmountInput;
+	if (isNaN(btcAmount)) return '$0.00 (0 Sats)';
 
 	try {
 		// Get BTC price if not provided
 		const price = btcPrice || (await cryptoPriceService.getCurrentPrice('BTC'));
-		if (price <= 0) return `${rbtc.toFixed(4)} RBTC`;
+		if (price <= 0) return `${btcAmount.toFixed(4)} BTC`;
 
-		// Convert RBTC to USD (assuming RBTC ≈ BTC)
-		const usdAmount = rbtc * price;
+		const usdAmount = btcAmount * price;
 
 		// Convert to sats
-		const sats = Math.round(rbtc * 100_000_000);
+		const sats = Math.round(btcAmount * 100_000_000);
 
 		return `$${usdAmount.toFixed(2)} (${sats.toLocaleString('en-US')} Sats)`;
 	} catch (error) {
 		console.error('Failed to format USD with sats:', error);
-		return `${rbtc.toFixed(4)} RBTC`;
+		return `${btcAmount.toFixed(4)} BTC`;
 	}
 }
 
 /**
  * Synchronous version of formatUSDWithSats for when BTC price is already available
- * @param rbtcAmount - Amount in RBTC
+ * @param btcAmountInput - Amount in BTC
  * @param btcPrice - Current BTC price in USD
  * @returns Formatted string like "$10.50 (9,700 Sats)"
  */
-export function formatUSDWithSatsSync(rbtcAmount: string | number, btcPrice: number): string {
-	const rbtc = typeof rbtcAmount === 'string' ? parseFloat(rbtcAmount) : rbtcAmount;
-	if (isNaN(rbtc) || btcPrice <= 0) return '$0.00 (0 Sats)';
+export function formatUSDWithSatsSync(btcAmountInput: string | number, btcPrice: number): string {
+	const btcAmount = typeof btcAmountInput === 'string' ? parseFloat(btcAmountInput) : btcAmountInput;
+	if (isNaN(btcAmount) || btcPrice <= 0) return '$0.00 (0 Sats)';
 
-	// Convert RBTC to USD (assuming RBTC ≈ BTC)
-	const usdAmount = rbtc * btcPrice;
+	const usdAmount = btcAmount * btcPrice;
 
 	// Convert to sats
-	const sats = Math.round(rbtc * 100_000_000);
+	const sats = Math.round(btcAmount * 100_000_000);
 
 	return `$${usdAmount.toFixed(2)} (${sats.toLocaleString('en-US')} Sats)`;
 }
@@ -199,32 +196,32 @@ export function formatInteger(num: number): string {
 }
 
 /** Supported units for {@link formatConvertedAmount}. */
-export type CurrencyConversionCode = 'USD' | 'RBTC' | 'SATS';
+export type CurrencyConversionCode = 'USD' | 'BTC' | 'SATS';
 
 export type FormatConvertedAmountOptions = {
 	/** Target unit; defaults to `fromCurrency` (format only). */
 	toCurrency?: CurrencyConversionCode;
-	/** BTC price in USD per 1 BTC/RBTC. Required for any conversion involving USD. */
+	/** BTC price in USD per 1 BTC. Required for any conversion involving USD. */
 	btcPrice?: number;
-	/** Overrides default prefix (`$` for USD, empty for Sats/rBTC). */
+	/** Overrides default prefix (`$` for USD, empty for Sats/BTC). */
 	prefix?: string;
-	/** Overrides default suffix (` USD`, ` Sats`, ` rBTC`). Pass `''` to omit. */
+	/** Overrides default suffix (` USD`, ` Sats`, ` BTC`). Pass `''` to omit. */
 	suffix?: string;
 	/** BCP 47 locale for number grouping and decimals. */
 	locale?: string;
 	/**
-	 * Fixed fraction digits for USD/RBTC (`Intl` min and max both set to this value).
+	 * Fixed fraction digits for USD/BTC (`Intl` min and max both set to this value).
 	 * Takes precedence over `minimumFractionDigits` / `maximumFractionDigits`. Ignored for SATS.
 	 */
 	fractionDigits?: number;
 	/**
-	 * Minimum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
-	 * Defaults: USD 2, RBTC 0.
+	 * Minimum fraction digits for USD/BTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, BTC 0.
 	 */
 	minimumFractionDigits?: number;
 	/**
-	 * Maximum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
-	 * Defaults: USD 2, RBTC 8 (trailing zeros stripped unless min/max are set).
+	 * Maximum fraction digits for USD/BTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, BTC 8 (trailing zeros stripped unless min/max are set).
 	 */
 	maximumFractionDigits?: number;
 };
@@ -233,7 +230,7 @@ const SATS_PER_BTC = 100_000_000;
 
 function normalizeConversionCurrency(code: string): CurrencyConversionCode | null {
 	const u = code.trim().toUpperCase();
-	if (u === 'USD' || u === 'RBTC' || u === 'SATS') return u;
+	if (u === 'USD' || u === 'BTC' || u === 'SATS') return u;
 	return null;
 }
 
@@ -262,11 +259,11 @@ function clampFractionDigits(n: number): number {
  * Convert `amount` in `fromCurrency` to an equivalent value expressed in `toCurrency`,
  * then format for display with locale-aware grouping and default or custom prefix/suffix.
  *
- * Defaults: USD → prefix `$`, suffix ` USD`; SATS → suffix ` Sats`; RBTC → suffix ` rBTC`.
+ * Defaults: USD → prefix `$`, suffix ` USD`; SATS → suffix ` Sats`; BTC → suffix ` BTC`.
  *
  * @param amount - Value in the source unit (e.g. `10.53`, `"123400"`).
- * @param fromCurrency - `USD`, `RBTC`, or `SATS` (case-insensitive).
- * @param options - `toCurrency` (default: same as from), `btcPrice` for USD ↔ BTC/Sats, `prefix`, `suffix`, `locale`, optional `fractionDigits` / `minimumFractionDigits` / `maximumFractionDigits` for USD and RBTC display.
+ * @param fromCurrency - `USD`, `BTC`, or `SATS` (case-insensitive).
+ * @param options - `toCurrency` (default: same as from), `btcPrice` for USD ↔ BTC/Sats, `prefix`, `suffix`, `locale`, optional `fractionDigits` / `minimumFractionDigits` / `maximumFractionDigits` for USD and BTC display.
  */
 export function formatConvertedAmount(
 	amount: number | string,
@@ -296,29 +293,29 @@ export function formatConvertedAmount(
 		return buildFormattedOutput(0, to, locale, options);
 	}
 
-	let rbtc: number;
+	let btcAmount: number;
 	switch (from) {
 		case 'USD':
-			rbtc = parsed / price!;
+			btcAmount = parsed / price!;
 			break;
-		case 'RBTC':
-			rbtc = parsed;
+		case 'BTC':
+			btcAmount = parsed;
 			break;
 		case 'SATS':
-			rbtc = parsed / SATS_PER_BTC;
+			btcAmount = parsed / SATS_PER_BTC;
 			break;
 	}
 
 	let valueInTarget: number;
 	switch (to) {
-		case 'RBTC':
-			valueInTarget = rbtc;
+		case 'BTC':
+			valueInTarget = btcAmount;
 			break;
 		case 'SATS':
-			valueInTarget = Math.round(rbtc * SATS_PER_BTC);
+			valueInTarget = Math.round(btcAmount * SATS_PER_BTC);
 			break;
 		case 'USD':
-			valueInTarget = rbtc * price!;
+			valueInTarget = btcAmount * price!;
 			break;
 	}
 
@@ -332,7 +329,7 @@ function buildFormattedOutput(
 	options: FormatConvertedAmountOptions
 ): string {
 	const defaultPrefix: string = displayAs === 'USD' ? '$' : '';
-	const defaultSuffix = displayAs === 'USD' ? ' USD' : displayAs === 'SATS' ? ' Sats' : ' rBTC';
+	const defaultSuffix = displayAs === 'USD' ? ' USD' : displayAs === 'SATS' ? ' Sats' : ' BTC';
 
 	const prefix = options.prefix !== undefined ? options.prefix : defaultPrefix;
 	const suffix = options.suffix !== undefined ? options.suffix : defaultSuffix;

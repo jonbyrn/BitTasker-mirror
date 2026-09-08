@@ -338,7 +338,7 @@
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
 		>
-			{@render hamburgerIcon()}
+			{@render hamburgerIcon?.()}
 		</button>
 		<DockIcon
 			href="/wallet"
@@ -372,7 +372,7 @@
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
 		>
-			{@render hamburgerIcon()}
+			{@render hamburgerIcon?.()}
 		</button>
 		<DockIcon
 			href="/how-it-works"

@@ -38,7 +38,10 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 });
 
 describe('SendPaymentForm', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+	});
 
 	it('sends on-chain BTC via walletManager.sendBtc with validated address and sats', async () => {
 		const onSent = vi.fn();
@@ -91,7 +94,7 @@ describe('SendPaymentForm', () => {
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
 		expect(sendRgbAsset).toHaveBeenCalledWith({
 			invoice: 'rgb1invoice-abc',
-			assetId: 'usdt_rgb',
+			assetId: 'rgb1testusdtasset',
 			amount: 25_500_000
 		});
 		expect(onSent).toHaveBeenCalledWith('txid-rgb');

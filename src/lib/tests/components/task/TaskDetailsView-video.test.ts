@@ -90,6 +90,13 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	}
 }));
 
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		fetchEvent: (...args: unknown[]) => hoisted.mockFindEventById(...args)
+	},
+	getTaskRelay: vi.fn()
+}));
+
 vi.mock('$lib/api/services/crypto-price.service', () => ({
 	default: {
 		getCurrentPrice: (...args: unknown[]) => hoisted.mockGetCurrentPrice(...args)
@@ -209,6 +216,12 @@ function createMockEvent(attachments: Attachment[]) {
 				pickupLocation: null,
 				dropOffLocation: null
 			}),
+			address: `30078:${'b'.repeat(64)}:task-${EVENT_ID}`,
+			rawEvent: {
+				tags: [['d', `task-${EVENT_ID}`]],
+				tagValue: (name: string) => (name === 'd' ? `task-${EVENT_ID}` : undefined),
+				getMatchingTags: (name: string) => (name === 'd' ? [['d', `task-${EVENT_ID}`]] : [])
+			},
 			tags: [],
 			kind: 1,
 			created_at: Math.floor(Date.now() / 1000),
@@ -218,7 +231,10 @@ function createMockEvent(attachments: Attachment[]) {
 }
 
 async function renderWithAttachments(attachments: Attachment[]) {
-	hoisted.mockFindEventById.mockResolvedValue(createMockEvent(attachments));
+	hoisted.mockFindEventById.mockResolvedValue({
+		...createMockEvent(attachments).data,
+		toNostrEvent: async () => createMockEvent(attachments).data
+	});
 	const { default: TaskDetailsView } = await import('$lib/components/task/TaskDetailsView.svelte');
 	return render(TaskDetailsView, { taskId: EVENT_ID });
 }

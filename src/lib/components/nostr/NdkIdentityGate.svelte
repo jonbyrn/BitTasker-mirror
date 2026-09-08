@@ -36,7 +36,7 @@
 </script>
 
 {#if hasSigner}
-	{@render children()}
+	{@render children?.()}
 {:else if unlockError}
 	<div class="flex justify-center py-10 sm:py-14">
 		<div

@@ -134,18 +134,18 @@ The content is a JSON object (`NostrContract`) serialized and then encrypted wit
 | `taskDescription`         | string       | Task description                                     |
 | `freelancerPubkey`        | string       | Freelancer's public key (hex)                        |
 | `clientPubkey`            | string       | Client's public key (hex) – task creator             |
-| `amount`                  | string       | Escrow amount in RBTC (wei string or decimal)        |
-| `currency`                | string       | `"RBTC"`                                             |
+| `amount`                  | string       | Escrow amount in BTC (wei string or decimal)        |
+| `currency`                | string       | `"BTC"`                                             |
 | `status`                  | EscrowStatus | `EscrowStatus.Funded` – contract created when funded |
 | `estimatedStartTime`      | number       | Unix timestamp – estimated start                     |
 | `estimatedCompletionTime` | number       | Unix timestamp – estimated completion                |
-| `contractAddress`         | string       | RSK escrow contract address (from env)               |
+| `contractAddress`         | string       | RGB escrow contract address (from env)               |
 
 #### Optional fields
 
 | Field             | Type   | Description                               |
 | ----------------- | ------ | ----------------------------------------- |
-| `transactionHash` | string | RSK transaction hash from escrow creation |
+| `transactionHash` | string | RGB transaction hash from escrow creation |
 
 **Code reference:** `src/lib/types/contract.d.ts` (NostrContract), `src/lib/utils/escrow/v1/nostrContract.ts` (lines 46–62)
 
@@ -180,8 +180,8 @@ interface NostrContract {
 	taskDescription: string;
 	freelancerPubkey: string;
 	clientPubkey: string;
-	amount: string; // RBTC amount
-	currency: string; // 'RBTC'
+	amount: string; // BTC amount
+	currency: string; // 'BTC'
 	status: EscrowStatus; // EscrowStatus.Funded at creation
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;

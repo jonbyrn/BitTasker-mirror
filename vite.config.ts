@@ -7,7 +7,9 @@ import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
+import commonjs from 'vite-plugin-commonjs';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
@@ -19,6 +21,19 @@ const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
 
 const require = createRequire(import.meta.url);
+function resolvePackageRoot(packageName: string): string {
+	try {
+		return dirname(realpathSync(require.resolve(`${packageName}/package.json`)));
+	} catch {
+		return realpathSync(resolve(projectRoot, 'node_modules', packageName));
+	}
+}
+
+const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
+const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm');
+const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm');
+const rlnWasmFile = resolve(rlnWasmRoot, 'rln_wasm_sdk_bg.wasm');
+const rgbLibWasmFile = resolve(rgbLibWasmRoot, 'rgb_lib_wasm_bindings_bg.wasm');
 const rgbSdkWebIsolatedModules = dirname(
 	dirname(realpathSync(resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web')))
 );
@@ -91,28 +106,14 @@ function cjsEsmInterop(): Plugin {
 	};
 }
 
-function clientOnlyNodePolyfills(options: Parameters<typeof nodePolyfills>[0]): Plugin {
-	const inner = nodePolyfills(options) as Plugin;
+function clientOnlyTopLevelAwait(): Plugin {
+	const inner = topLevelAwait() as Plugin;
 	return {
 		...inner,
-		name: 'client-only-node-polyfills',
-		config(_config, _env) {
-			return undefined;
-		},
-		transform(code, id, opts) {
-			if (opts?.ssr) return null;
-			return typeof inner.transform === 'function'
-				? inner.transform.call(this, code, id, opts)
-				: // @ts-expect-error
-				  inner.transform?.handler?.call(this, code, id, opts);
-		},
-		resolveId(source, importer, opts) {
-			if (opts?.ssr) return null;
-			return typeof inner.resolveId === 'function'
-				? inner.resolveId.call(this, source, importer, opts)
-				: // @ts-expect-error
-				  inner.resolveId?.handler?.call(this, source, importer, opts);
-		},
+		name: 'client-only-top-level-await',
+		applyToEnvironment(environment) {
+			return environment.name !== 'ssr';
+		}
 	};
 }
 
@@ -142,10 +143,8 @@ function clientResolveAliases(): Plugin {
 
 			for (const [pkg, root] of Object.entries(packageRoots)) {
 				if (source === pkg) {
-					// Bare bitcoinjs-lib imports route through the CJS-ESM shim
-					if (pkg === 'bitcoinjs-lib') {
-						return { id: bitcoinjsShim };
-					}
+					// Let Vite optimize the bare bitcoinjs-lib package entry.
+					if (pkg === 'bitcoinjs-lib') return undefined;
 					try {
 						return { id: require.resolve(source, { paths: [root] }) };
 					} catch {
@@ -209,6 +208,30 @@ function ssrNodeBuiltins(): Plugin {
 			}
 			return undefined;
 		},
+	};
+}
+
+function rewriteUtexoWasmUrls(): Plugin {
+	return {
+		name: 'rewrite-utexo-wasm-urls',
+		enforce: 'pre',
+		transform(code, id) {
+			if (!id.includes('@utexo')) return null;
+			let updatedCode = code;
+			if (code.includes('rln_wasm_sdk_bg.wasm')) {
+				updatedCode = updatedCode.replace(
+					/new\s+URL\(\s*['"]rln_wasm_sdk_bg\.wasm['"]\s*,\s*import\.meta\.url\s*\)/g,
+					"'/wasm/rln_wasm_sdk_bg.wasm'"
+				);
+			}
+			if (code.includes('rgb_lib_wasm_bindings_bg.wasm')) {
+				updatedCode = updatedCode.replace(
+					/new\s+URL\(\s*['"]rgb_lib_wasm_bindings_bg\.wasm['"]\s*,\s*import\.meta\.url\s*\)/g,
+					"'/wasm/rgb_lib_wasm_bindings_bg.wasm'"
+				);
+			}
+			return { code: updatedCode, map: null };
+		}
 	};
 }
 
@@ -300,6 +323,10 @@ export default defineConfig(({ mode }) => {
 			},
 			alias: [
 				{ find: /^bolt11$/, replacement: bolt11Shim },
+				{
+					find: '@utexo/rgb-sdk-web',
+					replacement: resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web/dist/index.mjs')
+				},
 				{ find: /^util$/, replacement: 'util/' },
 				{ find: /^stream$/, replacement: 'stream-browserify' },
 				{ find: /^events$/, replacement: 'events' },
@@ -339,18 +366,46 @@ export default defineConfig(({ mode }) => {
 			ssrNodeBuiltins(),
 			clientResolveAliases(),
 			cjsEsmInterop(),
-			sveltekit(),
-			tailwindcss(),
-			wasm(),
-			topLevelAwait(),
-			clientOnlyNodePolyfills({
-				include: ['buffer', 'process', 'stream', 'util', 'crypto'],
+			rewriteUtexoWasmUrls(),
+			viteStaticCopy({
+				targets: [
+					{
+						src: 'node_modules/@utexo/rln-wasm/rln_wasm_sdk_bg.wasm',
+						dest: 'wasm',
+						noErrorOnMissing: true
+					} as Parameters<typeof viteStaticCopy>[0]['targets'][number] & { noErrorOnMissing: true },
+					{
+						src: 'node_modules/@utexo/rgb-lib-wasm/rgb_lib_wasm_bindings_bg.wasm',
+						dest: 'wasm',
+						noErrorOnMissing: true
+					} as Parameters<typeof viteStaticCopy>[0]['targets'][number] & { noErrorOnMissing: true }
+				]
+			}),
+			commonjs({
+				filter: (id) => {
+					const p = id.replace(/\\/g, '/');
+					return (
+						p.includes('/@utexo/') ||
+						p.includes('/bip32/') ||
+						p.includes('/ecpair/') ||
+						p.includes('/bs58check/') ||
+						p.includes('/bip174/') ||
+						p.includes('/varuint-bitcoin/')
+					);
+				}
+			}),
+			nodePolyfills({
+				include: ['crypto', 'buffer', 'stream', 'util', 'vm'],
 				globals: {
 					Buffer: true,
 					global: true,
-				},
-				protocolImports: true,
+					process: true
+				}
 			}),
+			sveltekit(),
+			tailwindcss(),
+			wasm(),
+			clientOnlyTopLevelAwait(),
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
@@ -375,6 +430,8 @@ export default defineConfig(({ mode }) => {
 				: [])
 		],
 		define: {
+			'process.env': {},
+			exports: {},
 			__APP_VERSION__: JSON.stringify(pkg.version),
 			__BUILD_VERSION__: JSON.stringify(
 				process.env.WORKERS_CI_COMMIT_SHA ?? process.env.CI_COMMIT_SHA ?? Date.now().toString()
@@ -389,7 +446,7 @@ export default defineConfig(({ mode }) => {
 			cssMinify: true,
 			chunkSizeWarningLimit: 2500,
 			commonjsOptions: {
-				include: [/bitcoinjs-lib/, /node_modules/],
+				include: [/node_modules\/@utexo\/rgb-sdk-web/, /bitcoinjs-lib/, /@utexo/, /node_modules/],
 				transformMixedEsModules: true
 			},
 			rollupOptions: {
@@ -418,27 +475,29 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		optimizeDeps: {
-			include: [
-				'date-fns',
-				'axios',
-				'buffer',
-				'bip39',
-				'process/browser',
-				'stream-browserify'
-			],
-			needsInterop: ['bitcoinjs-lib'],
+			include: ['buffer', 'bip39', 'bitcoinjs-lib', 'bip32', 'ecpair'],
+			needsInterop: ['bitcoinjs-lib', 'bip32', 'ecpair', 'boltz-core'],
+			// rln-wasm/rgb-lib-wasm must stay unbundled: esbuild pre-bundling rewrites
+			// their wasm-bindgen `import.meta.url` wasm lookups to node_modules/.vite/deps,
+			// which isn't served. rewriteUtexoWasmUrls() patches any remaining
+			// import.meta.url references to the /wasm/ static copy as a backstop.
 			exclude: [
 				'firebase',
 				'@capacitor/device',
 				'@capacitor/preferences',
 				'@capacitor/haptics',
-				'@utexo/rgb-sdk-web'
+				'@utexo/rgb-sdk-web',
+				'@utexo/rln-wasm',
+				'@utexo/rgb-lib-wasm'
 			]
 		},
 		server: {
 			port: 3000,
 			strictPort: true,
 			allowedHosts: true,
+			fs: {
+				allow: [projectRoot, rgbSdkWebRoot, rlnWasmRoot, rgbLibWasmRoot]
+			},
 			proxy: {
 				'/api/v1': {
 					target: process.env.VITE_API_URL || 'https://api-dev.bittasker.com',
@@ -455,13 +514,7 @@ export default defineConfig(({ mode }) => {
 					changeOrigin: true,
 					secure: true
 				},
-				'/api/explorer': { target: 'https://dev.bittasker.com', changeOrigin: true, secure: true },
-				'/rpc/rsk': {
-					target: 'https://public-node.rsk.co',
-					changeOrigin: true,
-					secure: true,
-					rewrite: (path) => path.replace(/^\/rpc\/rsk/, '')
-				}
+				'/api/explorer': { target: 'https://dev.bittasker.com', changeOrigin: true, secure: true }
 			},
 			watch: {
 				ignored: [

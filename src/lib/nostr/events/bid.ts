@@ -49,7 +49,31 @@ export class NDKBid extends NDKEvent {
 			return JSON.parse(this.content) as unknown as NostrBidContent;
 		} catch (e) {
 			d.error('Failed to parse bid content', { error: e, content: this.content });
-			return null;
+			const taskId = this.tagValue('t') ?? '';
+			const bidId = this.tagValue('d') ?? this.id;
+			const status = this.tagValue('s') as NostrBidContent['status'];
+			const paymentType = (this.tagValue('y') ?? 'FIXED') as NostrBidContent['paymentType'];
+			const timestamp = this.created_at ?? Math.floor(Date.now() / 1000);
+
+			return {
+				type: 'bid',
+				taskId,
+				taskTitle: '',
+				taskDescription: '',
+				amount: 0,
+				currency: 'USD',
+				paymentType,
+				description: 'Bid details are encrypted and unavailable in this session.',
+				estimatedDuration: '',
+				proposedApproach: '',
+				coverLetter: '',
+				timestamp,
+				bidId,
+				startDateTime: timestamp,
+				endDateTime: timestamp,
+				bidderId: this.pubkey,
+				status
+			};
 		}
 	}
 }

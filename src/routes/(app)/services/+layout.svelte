@@ -45,5 +45,5 @@
 	activeBasePath="/services"
 	isDetailsRoute={isServiceDetailsRoute}
 >
-	{@render children()}
+	{@render children?.()}
 </PublicListingLayoutShell>

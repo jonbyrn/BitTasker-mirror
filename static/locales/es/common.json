@@ -107,6 +107,7 @@
 		"profile": {
 			"performance_stats": "Estadísticas de Rendimiento",
 			"tasks_completed": "Tareas Completadas",
+			"contracts_completed": "Contratos Completados",
 			"rating": "Calificación",
 			"skills": "Habilidades",
 			"portfolio_items": "Elementos del Portafolio",

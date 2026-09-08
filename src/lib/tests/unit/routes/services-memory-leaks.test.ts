@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
+import { cleanup, render, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { tick } from 'svelte';
+
+afterEach(() => cleanup());
 
 const hoisted = vi.hoisted(() => {
 	const _storeSubscribers = new Set<(value: unknown) => void>();

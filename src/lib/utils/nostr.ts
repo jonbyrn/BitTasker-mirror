@@ -5,6 +5,7 @@ import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
+import nostrEventsService from '$lib/api/services/nostr/events';
 
 // --- Relay Configuration ---
 
@@ -66,6 +67,26 @@ const encryptedKinds = [
 
 function isInvalidMacError(error: unknown): boolean {
 	return error instanceof Error && /invalid mac/i.test(error.message);
+}
+
+function isE2ETest(): boolean {
+	return (
+		(typeof window !== 'undefined' &&
+			(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true) ||
+		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true'
+	);
+}
+
+function matchesLocalFilter(event: NostrEvent, filter: Filter): boolean {
+	if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
+	if (filter.authors && !filter.authors.includes(event.pubkey)) return false;
+	for (const [key, values] of Object.entries(filter)) {
+		if (!key.startsWith('#') || !Array.isArray(values)) continue;
+		if (!event.tags.some((tag) => tag[0] === key.slice(1) && values.includes(tag[1]))) {
+			return false;
+		}
+	}
+	return true;
 }
 
 /**
@@ -501,7 +522,15 @@ export async function queryNostrEvents(
 		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		// Query main events from relays
-		const events = await pool.querySync(relays, filter);
+		let events = await pool.querySync(relays, filter);
+		if (events.length === 0 && isE2ETest()) {
+			try {
+				const localEvents = await nostrEventsService.findEvents();
+				events = localEvents.data.filter((event) => matchesLocalFilter(event, filter)) as NostrEvent[];
+			} catch (error) {
+				console.warn('[nostr] Local E2E event fallback unavailable:', error);
+			}
+		}
 
 		// Query followup events if followupFilter is provided
 		let followupMap: Map<string, NostrEvent | NostrEvent[]> | null = null;

@@ -337,7 +337,7 @@ export class NDKPaymentContract extends NDKEvent {
 	}
 
 	get currency(): string {
-		return this.tagValue('currency') ?? 'RBTC';
+		return this.tagValue('currency') ?? 'BTC';
 	}
 
 	set currency(value: string) {

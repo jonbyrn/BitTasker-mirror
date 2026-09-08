@@ -23,11 +23,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué pasa con el escrow y la protección de pagos?',
-			body: 'Ambas plataformas ofrecen escrow para proteger a freelancers y clientes. El escrow de Upwork está completamente controlado por sus sistemas internos — las disputas pasan por su equipo de soporte, y los tiempos de resolución pueden extenderse durante semanas. BitTasker usa contratos inteligentes en Rootstock (una sidechain de Bitcoin) para el escrow. Los fondos se bloquean en contratos inteligentes auditables, y la resolución de disputas sigue reglas transparentes en cadena. No tienes que confiar en una empresa — confías en código.'
+			body: 'Ambas plataformas ofrecen escrow para proteger a freelancers y clientes. El escrow de Upwork está completamente controlado por sus sistemas internos — las disputas pasan por su equipo de soporte, y los tiempos de resolución pueden extenderse durante semanas. BitTasker usa contratos inteligentes en RGB (una sidechain de Bitcoin) para el escrow. Los fondos se bloquean en contratos inteligentes auditables, y la resolución de disputas sigue reglas transparentes en cadena. No tienes que confiar en una empresa — confías en código.'
 		},
 		{
 			heading: 'Tabla comparativa BitTasker vs Upwork',
-			body: '| Característica | BitTasker | Upwork |\n| --- | --- | --- |\n| Tarifa de servicio | 5–10% (escalonada) | 20% fija |\n| Velocidad de pago | Instantáneo (Lightning) | Net-14 + transferencia bancaria |\n| Identidad | Nostr (descentralizada) | Cuenta centralizada |\n| Escrow | Contratos inteligentes Rootstock | Sistemas internos |\n| Portabilidad de cuenta | Total — posees tus datos | Bloqueada en la plataforma |\n| Pagos en cripto | BTC nativo + Lightning | No soportado |\n| Restricciones geográficas | Global, sin permisos | Restringido en algunos países |'
+			body: '| Característica | BitTasker | Upwork |\n| --- | --- | --- |\n| Tarifa de servicio | 5–10% (escalonada) | 20% fija |\n| Velocidad de pago | Instantáneo (Lightning) | Net-14 + transferencia bancaria |\n| Identidad | Nostr (descentralizada) | Cuenta centralizada |\n| Escrow | Contratos inteligentes RGB | Sistemas internos |\n| Portabilidad de cuenta | Total — posees tus datos | Bloqueada en la plataforma |\n| Pagos en cripto | BTC nativo + Lightning | No soportado |\n| Restricciones geográficas | Global, sin permisos | Restringido en algunos países |'
 		},
 		{
 			heading: '¿Cuándo es Upwork la mejor opción?',
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Qué pasa si hay una disputa en BitTasker?',
 			answer:
-				'BitTasker usa contratos inteligentes de Rootstock para el escrow. Si surge una disputa, ambas partes presentan evidencia y la resolución sigue reglas transparentes en cadena. Los fondos nunca son retenidos por BitTasker — están bloqueados en el contrato inteligente hasta que ambas partes acuerden o se alcance una resolución.'
+				'BitTasker usa contratos inteligentes de RGB para el escrow. Si surge una disputa, ambas partes presentan evidencia y la resolución sigue reglas transparentes en cadena. Los fondos nunca son retenidos por BitTasker — están bloqueados en el contrato inteligente hasta que ambas partes acuerden o se alcance una resolución.'
 		},
 		{
 			question: '¿Mi reputación de Upwork se puede transferir a BitTasker?',

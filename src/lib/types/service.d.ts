@@ -267,7 +267,7 @@ export interface ServiceBody {
 	pricing: ServicePricing; // Includes tiers, simple add-ons, inquiry forms, delivery times
 	instantBuyLeadHours?: number; // Optional lead time for instant-buy listings (hours)
 	instantBuyDeliveryHours?: number; // Optional delivery time for instant-buy fixed pricing (hours)
-	providerWalletAddress?: string; // Provider Rootstock wallet used for Book Now / service contracts
+	providerWalletAddress?: string; // Provider RGB wallet used for Book Now / service contracts
 	skills: string[];
 	categories: Category[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads

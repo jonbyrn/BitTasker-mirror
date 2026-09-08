@@ -1,10 +1,10 @@
 import type { PageLoad } from './$types';
-import nostrEventsService from '$lib/api/services/nostr/events';
 import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
-import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NostrEvent } from '$lib/types/nostr';
+import { getTaskRelay, ndk } from '$lib/nostr/ndk';
+import type { NDKFilter } from '@nostr-dev-kit/ndk';
 
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
@@ -27,26 +27,16 @@ type SeoData = {
 	task: Task | null;
 };
 
-/**
- * Check if a string is a Nostr event ID (64-character hex string)
- */
-function isEventId(str: string): boolean {
-	return /^[0-9a-fA-F]{64}$/.test(str);
-}
+type TaskAddressPointer = {
+	dTag: string;
+	author?: string;
+};
 
 /**
  * Check if a string is an npub (bech32 encoded public key)
  */
 function isNpub(str: string): boolean {
 	return str.startsWith('npub1');
-}
-
-/**
- * Check if a string is a UUID (unique ID format)
- */
-function isUuid(str: string): boolean {
-	// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
 /**
@@ -66,49 +56,47 @@ function npubToHex(npub: string): string {
 	}
 }
 
-/**
- * Find task event by author (npub or hex pubkey)
- */
-async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | null> {
-	try {
-		// Query events by author with task creation kind
-		const response = await nostrEventsService.findEvents({
-			kinds: [KINDS.TASK_CREATION],
-			authors: [pubkey],
-			limit: 1
-		});
+function normalizeAuthorParam(author: string | null): string | undefined {
+	if (!author) return undefined;
+	if (/^[0-9a-fA-F]{64}$/.test(author)) return author.toLowerCase();
+	if (isNpub(author)) return npubToHex(author);
+	return undefined;
+}
 
-		if (response.data && response.data.length > 0) {
-			// Return the most recent task
-			return { data: response.data[0] };
-		}
-		return null;
-	} catch (error) {
-		console.error('Error finding task by author:', error);
-		return null;
-	}
+function parseTaskAddressPointer(value: string): TaskAddressPointer | null {
+	const decodedValue = decodeURIComponent(value);
+	const [kind, author, ...dTagParts] = decodedValue.split(':');
+	if (kind !== String(KINDS.TASK_CREATION) || !author || dTagParts.length === 0) return null;
+	const normalizedAuthor = normalizeAuthorParam(author);
+	const dTag = dTagParts.join(':');
+	if (!normalizedAuthor || !dTag) return null;
+	return { dTag, author: normalizedAuthor };
 }
 
 /**
  * Find task event by d-tag (Addressable Event: kind:pubkey:d-tag).
- * Supports legacy task-{uuid} and readable d-tag (slug-timestamp-suffix).
  */
-async function findTaskByDTag(dTagValue: string): Promise<{ data: NostrEvent } | null> {
+async function findTaskByDTag(
+	dTagValue: string,
+	author?: string
+): Promise<{ data: NostrEvent } | null> {
 	try {
-		const filter = {
+		const filter: NDKFilter = {
 			kinds: [KINDS.TASK_CREATION],
 			'#d': [dTagValue],
 			limit: 1
 		};
-		const response = await nostrEventsService.requestEvents({
-			filters: [filter]
-		});
-		if (response.data && response.data.length > 0) {
-			const event = response.data[0];
-			const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
-			if (dTag) {
-				return { data: event };
-			}
+		if (author) {
+			filter.authors = [author];
+		}
+
+		const ndkEvent = await ndk.fetchEvent(
+			filter,
+			{ closeOnEose: true },
+			getTaskRelay()
+		);
+		if (ndkEvent) {
+			return { data: (await ndkEvent.toNostrEvent()) as NostrEvent };
 		}
 		return null;
 	} catch (error) {
@@ -117,117 +105,14 @@ async function findTaskByDTag(dTagValue: string): Promise<{ data: NostrEvent } |
 	}
 }
 
-export const load: PageLoad = async ({ params }) => {
-	const taskId = params.taskId;
-	let uniqueId = taskId; // Default to using taskId as uniqueId
-	let shouldRedirect = false;
-
-	// Determine if taskId is an event ID, UUID, or npub/pubkey
-	let event = null;
-
-	if (isEventId(taskId)) {
-		// It's an event ID, load the event and extract uniqueId for redirect
-		try {
-			const result = await nostrEventsService.findEventById(taskId);
-			event = result.data;
-
-			if (event) {
-				// Extract uniqueId from the event content
-				try {
-					const taskData = JSON.parse(event.content) as TaskEventContent;
-					if (taskData.uniqueId) {
-						uniqueId = taskData.uniqueId;
-						shouldRedirect = true; // Redirect to UUID URL for stability
-					}
-				} catch (parseError) {
-					console.error('Error parsing task data from event:', parseError);
-				}
-			}
-		} catch (error) {
-			console.error('Error loading task by event ID:', error);
-		}
-	} else if (isUuid(taskId)) {
-		// Legacy: UUID in URL → d-tag was task-{uuid}
-		try {
-			const result = await findTaskByDTag(`task-${taskId}`);
-			if (result?.data) {
-				event = result.data;
-			}
-		} catch (error) {
-			console.error('Error loading task by unique ID:', error);
-		}
-	} else if (isNpub(taskId)) {
-		// It's an npub, convert to hex and find task by author
-		try {
-			const hexPubkey = npubToHex(taskId);
-			const result = await findTaskByAuthor(hexPubkey);
-			if (result?.data) {
-				event = result.data;
-				// Extract uniqueId for redirect
-				try {
-					const taskData = JSON.parse(event.content) as TaskEventContent;
-					if (taskData.uniqueId) {
-						uniqueId = taskData.uniqueId;
-						shouldRedirect = true; // Redirect to UUID URL for stability
-					}
-				} catch (parseError) {
-					console.error('Error parsing task data from event:', parseError);
-				}
-			}
-		} catch (error) {
-			console.error('Error loading task by npub:', error);
-		}
-	} else if (/^[0-9a-fA-F]{64}$/.test(taskId)) {
-		// It's a hex pubkey, try to find task by author
-		try {
-			const result = await findTaskByAuthor(taskId);
-			if (result?.data) {
-				event = result.data;
-				// Extract uniqueId for redirect
-				try {
-					const taskData = JSON.parse(event.content) as TaskEventContent;
-					if (taskData.uniqueId) {
-						uniqueId = taskData.uniqueId;
-						shouldRedirect = true; // Redirect to UUID URL for stability
-					}
-				} catch (parseError) {
-					console.error('Error parsing task data from event:', parseError);
-				}
-			}
-		} catch (error) {
-			console.error('Error loading task by pubkey:', error);
-		}
-	} else {
-		// Readable d-tag (slug-timestamp-suffix): query by d-tag
-		try {
-			const result = await findTaskByDTag(taskId);
-			if (result?.data) {
-				event = result.data;
-			}
-		} catch (error) {
-			console.error('Error loading task by d-tag:', error);
-		}
-		if (!event) {
-			try {
-				const result = await nostrEventsService.findEventById(taskId);
-				event = result.data;
-				if (event) {
-					const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
-					if (dTag && dTag !== taskId) {
-						uniqueId = dTag;
-						shouldRedirect = true;
-					}
-				}
-			} catch {
-				// Ignore
-			}
-		}
-	}
-
-	// Redirect to UUID URL if we accessed via event ID, npub, or pubkey
-	if (shouldRedirect && uniqueId !== taskId && uniqueId) {
-		throw redirect(301, `/tasks/${uniqueId}`);
-	}
+export const load: PageLoad = async ({ params, url }) => {
+	const addressPointer = parseTaskAddressPointer(params.taskId);
+	const queryAuthor = normalizeAuthorParam(url.searchParams.get('author'));
+	const taskId = addressPointer?.dTag ?? params.taskId;
+	const taskAuthor = addressPointer?.author ?? queryAuthor;
+	const result = await findTaskByDTag(taskId, taskAuthor);
+	const event = result?.data ?? null;
+	const uniqueId = taskId;
 	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
 
 	// Default SEO data

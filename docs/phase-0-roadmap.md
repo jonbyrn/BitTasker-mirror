@@ -55,7 +55,7 @@ for the architectural decision this plan implements.
       consume RGB balances/seals via `$derived`/`$derived.by` only — no
       setters into the RGB projection anywhere in the wallet store.
 - [ ] Add the dedicated read-only selector that reconciles RGB balances with
-      legacy RSK/Arbitrum balances for shared UI surfaces, per the ADR's
+      legacy RGB/Arbitrum balances for shared UI surfaces, per the ADR's
       "explicit reconciliation seam" rule — do not let the two stores write
       into a shared object.
 - [ ] Run `mcp__svelte__svelte-autofixer` against every new/edited `.svelte`

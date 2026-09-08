@@ -7,15 +7,15 @@ export const content: LearnPageContent = {
 			'Cómo contratos inteligentes auditados, identidad Nostr y autocustodia protegen tus ganancias'
 	},
 	answerBlock:
-		'BitTasker está construido sobre contratos inteligentes Rootstock auditados, identidad descentralizada basada en Nostr y pagos de autocustodia Bitcoin/Lightning — lo que significa que la plataforma nunca mantiene tu dinero. El escrow es ejecutado por código en la blockchain Rootstock, no por la cuenta bancaria de una empresa. Tu identidad es un par de claves Nostr que controlas, no un email/contraseña atado a una base de datos central. Los pagos fluyen directamente entre clientes y freelancers vía Lightning Network, sin intermediario fiduciario. Esto es fundamentalmente más seguro que plataformas tradicionales (Upwork, Fiverr) donde la empresa custodia fondos y controla el acceso a cuentas. Sin embargo, BitTasker tiene riesgos específicos de crypto: volatilidad del Bitcoin, riesgo de ejecución de contratos inteligentes e irreversibilidad de transacciones.',
+		'BitTasker está construido sobre contratos inteligentes RGB auditados, identidad descentralizada basada en Nostr y pagos de autocustodia Bitcoin/Lightning — lo que significa que la plataforma nunca mantiene tu dinero. El escrow es ejecutado por código en la blockchain RGB, no por la cuenta bancaria de una empresa. Tu identidad es un par de claves Nostr que controlas, no un email/contraseña atado a una base de datos central. Los pagos fluyen directamente entre clientes y freelancers vía Lightning Network, sin intermediario fiduciario. Esto es fundamentalmente más seguro que plataformas tradicionales (Upwork, Fiverr) donde la empresa custodia fondos y controla el acceso a cuentas. Sin embargo, BitTasker tiene riesgos específicos de crypto: volatilidad del Bitcoin, riesgo de ejecución de contratos inteligentes e irreversibilidad de transacciones.',
 	sections: [
 		{
 			heading: '¿Cómo protege BitTasker tus ganancias?',
-			body: 'BitTasker usa un modelo de seguridad de tres capas. Capa 1: Escrow por contrato inteligente Rootstock. Cuando un cliente te contrata y financia una tarea, el Bitcoin se bloquea en un contrato inteligente auditado en la blockchain Rootstock — no en la cuenta bancaria de BitTasker. El contrato aplica los términos acordados: los fondos se liberan al freelancer cuando se aprueba el trabajo, o se devuelven al cliente si la tarea se cancela. Ninguna parte (incluyendo BitTasker) puede mover los fondos en escrow unilateralmente. Capa 2: Identidad Nostr. Tu cuenta es un par de claves criptográficas, no un email/contraseña almacenado en una base de datos central. No hay base de datos central que hackear. Capa 3: Pagos Lightning Network. Cuando el cliente libera el pago, el Bitcoin fluye directamente a tu wallet vía Lightning — liquidándose en segundos.'
+			body: 'BitTasker usa un modelo de seguridad de tres capas. Capa 1: Escrow por contrato inteligente RGB. Cuando un cliente te contrata y financia una tarea, el Bitcoin se bloquea en un contrato inteligente auditado en la blockchain RGB — no en la cuenta bancaria de BitTasker. El contrato aplica los términos acordados: los fondos se liberan al freelancer cuando se aprueba el trabajo, o se devuelven al cliente si la tarea se cancela. Ninguna parte (incluyendo BitTasker) puede mover los fondos en escrow unilateralmente. Capa 2: Identidad Nostr. Tu cuenta es un par de claves criptográficas, no un email/contraseña almacenado en una base de datos central. No hay base de datos central que hackear. Capa 3: Pagos Lightning Network. Cuando el cliente libera el pago, el Bitcoin fluye directamente a tu wallet vía Lightning — liquidándose en segundos.'
 		},
 		{
 			heading: '¿El contrato inteligente de BitTasker está auditado?',
-			body: 'Sí, los contratos de escrow Rootstock de BitTasker han sido auditados por firmas de seguridad independientes. Las auditorías examinan la lógica del contrato buscando vulnerabilidades incluyendo ataques de reentrancy, desbordamiento de enteros, retiro no autorizado de fondos y casos extremos del ciclo de vida del escrow. Los reportes de auditoría se publican por transparencia. Rootstock mismo es una sidechain de Bitcoin asegurada por merged mining con mineros de Bitcoin, heredando el modelo de seguridad de Bitcoin.'
+			body: 'Sí, los contratos de escrow RGB de BitTasker han sido auditados por firmas de seguridad independientes. Las auditorías examinan la lógica del contrato buscando vulnerabilidades incluyendo ataques de reentrancy, desbordamiento de enteros, retiro no autorizado de fondos y casos extremos del ciclo de vida del escrow. Los reportes de auditoría se publican por transparencia. RGB mismo es una sidechain de Bitcoin asegurada por merged mining con mineros de Bitcoin, heredando el modelo de seguridad de Bitcoin.'
 		},
 		{
 			heading: '¿Cómo se compara BitTasker con Upwork y Fiverr?',
@@ -31,18 +31,18 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo se manejan las disputas en BitTasker?',
-			body: 'Las disputas se resuelven a través del mecanismo de escrow incorporado en el contrato inteligente. Cuando se crea una tarea, ambas partes acuerdan términos que se codifican en el contrato. Si el cliente aprueba el trabajo, los fondos se liberan al freelancer. Si hay un desacuerdo, el contrato soporta un proceso de resolución de disputas. A diferencia de Upwork, donde la resolución involucra árbitros de la empresa que pueden tardar semanas, el proceso de BitTasker es transparente y gobernado por código en la blockchain Rootstock.'
+			body: 'Las disputas se resuelven a través del mecanismo de escrow incorporado en el contrato inteligente. Cuando se crea una tarea, ambas partes acuerdan términos que se codifican en el contrato. Si el cliente aprueba el trabajo, los fondos se liberan al freelancer. Si hay un desacuerdo, el contrato soporta un proceso de resolución de disputas. A diferencia de Upwork, donde la resolución involucra árbitros de la empresa que pueden tardar semanas, el proceso de BitTasker es transparente y gobernado por código en la blockchain RGB.'
 		},
 		{
 			heading: '¿Mis datos personales están seguros en BitTasker?',
-			body: 'BitTasker recopila datos personales mínimos por diseño. Tu identidad es un par de claves Nostr — no se requiere email para funcionalidad básica. El historial de pagos es on-chain (pseudónimo por diseño en Bitcoin/Rootstock). La plataforma no almacena tus claves privadas, seed phrases o credenciales financieras. No se requiere KYC para uso básico de la plataforma. Esto es una ventaja de privacidad sobre plataformas tradicionales que recopilan información personal extensa.'
+			body: 'BitTasker recopila datos personales mínimos por diseño. Tu identidad es un par de claves Nostr — no se requiere email para funcionalidad básica. El historial de pagos es on-chain (pseudónimo por diseño en Bitcoin/RGB). La plataforma no almacena tus claves privadas, seed phrases o credenciales financieras. No se requiere KYC para uso básico de la plataforma. Esto es una ventaja de privacidad sobre plataformas tradicionales que recopilan información personal extensa.'
 		}
 	],
 	faq: [
 		{
 			question: '¿Es BitTasker legítimo?',
 			answer:
-				'Sí, BitTasker es una plataforma de freelance real construida sobre Bitcoin, contratos inteligentes Rootstock y el protocolo Nostr. Cobra 5% y usa escrow descentralizado para proteger a freelancers y clientes.'
+				'Sí, BitTasker es una plataforma de freelance real construida sobre Bitcoin, contratos inteligentes RGB y el protocolo Nostr. Cobra 5% y usa escrow descentralizado para proteger a freelancers y clientes.'
 		},
 		{
 			question: '¿BitTasker puede congelar mi cuenta?',
@@ -52,7 +52,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Qué pasa si BitTasker cierra?',
 			answer:
-				'Tu Bitcoin está seguro. Los fondos en escrow están bloqueados en contratos inteligentes Rootstock, no en cuentas bancarias de BitTasker. Los contratos continúan operando en la blockchain Rootstock.'
+				'Tu Bitcoin está seguro. Los fondos en escrow están bloqueados en contratos inteligentes RGB, no en cuentas bancarias de BitTasker. Los contratos continúan operando en la blockchain RGB.'
 		},
 		{
 			question: '¿Necesito saber de Bitcoin para usar BitTasker?',
@@ -67,7 +67,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Mi dinero está seguro en el escrow de BitTasker?',
 			answer:
-				'Los fondos en escrow están bloqueados en contratos inteligentes Rootstock auditados y asegurados por merged mining de Bitcoin. Ninguna parte puede mover los fondos unilateralmente.'
+				'Los fondos en escrow están bloqueados en contratos inteligentes RGB auditados y asegurados por merged mining de Bitcoin. Ninguna parte puede mover los fondos unilateralmente.'
 		},
 		{
 			question: '¿Qué pasa si un cliente no libera el pago?',

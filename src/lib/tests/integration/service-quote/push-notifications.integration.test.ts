@@ -202,7 +202,7 @@ describe('service quote publish integration notifications', () => {
 				expirationDays: 2,
 				expirationHours: 0,
 				expirationTimestamp: 0,
-				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 				freelancerFeeTier: 1,
 				pricingSnapshot: {
 					serviceVersionRef: 'service-event-id'

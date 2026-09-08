@@ -38,6 +38,8 @@ describe('LocationPicker — no false "no places found" on focus', () => {
 	let mockMapInstance: any;
 
 	beforeEach(() => {
+		vi.stubEnv('VITE_E2E_TURNSTILE_BYPASS', 'false');
+		vi.stubEnv('VITE_GOOGLE_MAPS_API_KEY', 'test-key');
 		mockFetchSuggestions = vi.fn().mockResolvedValue({ suggestions: [] });
 
 		mockMapInstance = {
@@ -120,7 +122,7 @@ describe('LocationPicker — no false "no places found" on focus', () => {
 			expect(screen.getByRole('textbox')).toBeTruthy();
 		});
 
-		const input = screen.getByRole('textbox');
+		const input = screen.getByRole('textbox', { name: '' });
 		await fireEvent.focus(input);
 
 		// "No places found" should NOT appear on focus
@@ -141,7 +143,8 @@ describe('LocationPicker — no false "no places found" on focus', () => {
 			expect(screen.getByRole('textbox')).toBeTruthy();
 		});
 
-		const input = screen.getByRole('textbox');
+		const input = screen.getByRole('textbox', { name: '' });
+		await new Promise((resolve) => setTimeout(resolve, 600));
 
 		// Type to trigger search
 		await fireEvent.input(input, { target: { value: 'xyznonexistent' } });

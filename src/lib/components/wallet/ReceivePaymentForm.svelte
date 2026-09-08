@@ -3,6 +3,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
+	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
 
@@ -49,7 +50,7 @@
 			} else {
 				const result = await walletManager.receiveRgbInvoice({
 					amount: parsedAmount,
-					assetId: 'usdt_rgb',
+					assetId: getConfiguredRgbUsdtAssetId(),
 					witness: true
 				});
 				receiveValue = result.invoice;

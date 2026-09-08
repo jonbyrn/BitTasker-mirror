@@ -11,7 +11,7 @@ export const content: LearnPageContent = {
 	sections: [
 		{
 			heading: '¿Es seguro BitTasker?',
-			body: 'BitTasker está construido sobre tres pilares de seguridad: escrow con contratos inteligentes de Rootstock minados junto con Bitcoin, identidad descentralizada basada en Nostr y pagos de autocustodia vía Lightning. Los fondos de escrow están bloqueados en contratos inteligentes auditables — no en la cuenta bancaria de BitTasker. Tu identidad es un par de claves criptográficas que tú controlas, no un email/contraseña vinculado a una base de datos central. Los pagos fluyen directamente a tu billetera vía Lightning. La plataforma cobra una tarifa del 5% y usa reglas transparentes enforceadas por código. BitTasker no puede congelar tu cuenta ni retener tus fondos. Sin embargo, la cripto conlleva riesgos inherentes: volatilidad del precio de Bitcoin, riesgo de ejecución de contratos inteligentes e irreversibilidad de transacciones.'
+			body: 'BitTasker está construido sobre tres pilares de seguridad: escrow con contratos inteligentes de RGB minados junto con Bitcoin, identidad descentralizada basada en Nostr y pagos de autocustodia vía Lightning. Los fondos de escrow están bloqueados en contratos inteligentes auditables — no en la cuenta bancaria de BitTasker. Tu identidad es un par de claves criptográficas que tú controlas, no un email/contraseña vinculado a una base de datos central. Los pagos fluyen directamente a tu billetera vía Lightning. La plataforma cobra una tarifa del 5% y usa reglas transparentes enforceadas por código. BitTasker no puede congelar tu cuenta ni retener tus fondos. Sin embargo, la cripto conlleva riesgos inherentes: volatilidad del precio de Bitcoin, riesgo de ejecución de contratos inteligentes e irreversibilidad de transacciones.'
 		},
 		{
 			heading: 'Fundamentos de seguridad de billeteras',
@@ -31,14 +31,14 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Cómo se compara la seguridad de BitTasker con plataformas tradicionales',
-			body: 'Las plataformas tradicionales de freelancing (Upwork, Fiverr) custodian tus fondos en cuentas bancarias de la empresa — pueden congelar cuentas, retrasar retiros y cobrar 10–20% en comisiones. BitTasker usa escrow descentralizado en Rootstock, pagos de autocustodia vía Lightning e identidad Nostr. Tus fondos existen en contratos inteligentes, no en cuentas corporativas. Tu identidad es un par de claves, no un email/contraseña. La comparación es clara: las plataformas tradicionales ofrecen conveniencia y soporte fiat; BitTasker ofrece soberanía, comisiones más bajas (5%) y pagos instantáneos. La elección depende de si priorizas la conveniencia custodial o el control descentralizado.'
+			body: 'Las plataformas tradicionales de freelancing (Upwork, Fiverr) custodian tus fondos en cuentas bancarias de la empresa — pueden congelar cuentas, retrasar retiros y cobrar 10–20% en comisiones. BitTasker usa escrow descentralizado en RGB, pagos de autocustodia vía Lightning e identidad Nostr. Tus fondos existen en contratos inteligentes, no en cuentas corporativas. Tu identidad es un par de claves, no un email/contraseña. La comparación es clara: las plataformas tradicionales ofrecen conveniencia y soporte fiat; BitTasker ofrece soberanía, comisiones más bajas (5%) y pagos instantáneos. La elección depende de si priorizas la conveniencia custodial o el control descentralizado.'
 		}
 	],
 	faq: [
 		{
 			question: '¿Es seguro BitTasker para freelancers?',
 			answer:
-				'Sí. BitTasker usa contratos inteligentes de Rootstock auditados para escrow, Nostr para identidad y Lightning para pagos. Los fondos de escrow están bloqueados en código, no retenidos por BitTasker. Tu identidad es un par de claves que tú controlas. Sin embargo, eres responsable de la seguridad de tu propia billetera.'
+				'Sí. BitTasker usa contratos inteligentes de RGB auditados para escrow, Nostr para identidad y Lightning para pagos. Los fondos de escrow están bloqueados en código, no retenidos por BitTasker. Tu identidad es un par de claves que tú controlas. Sin embargo, eres responsable de la seguridad de tu propia billetera.'
 		},
 		{
 			question: '¿Cuál es la práctica de seguridad más importante para Bitcoin?',
@@ -63,7 +63,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Qué pasa si BitTasker cierra?',
 			answer:
-				'Tu Bitcoin está seguro. Los fondos en escrow están en contratos inteligentes de Rootstock, no en la cuenta bancaria de BitTasker. Tu identidad y datos de reputación en Nostr persisten en relays descentralizados. Puedes interactuar con los contratos inteligentes directamente o importar tu identidad a otra plataforma.'
+				'Tu Bitcoin está seguro. Los fondos en escrow están en contratos inteligentes de RGB, no en la cuenta bancaria de BitTasker. Tu identidad y datos de reputación en Nostr persisten en relays descentralizados. Puedes interactuar con los contratos inteligentes directamente o importar tu identidad a otra plataforma.'
 		}
 	],
 	bitTaskerCta: {

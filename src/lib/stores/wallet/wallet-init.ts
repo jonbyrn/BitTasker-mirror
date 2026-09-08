@@ -15,29 +15,82 @@ async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
 	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function ensureWasmAssetAvailable(): Promise<void> {
+	if (!browser || typeof fetch !== 'function') return;
+
+	const assets = ['/wasm/rln_wasm_sdk_bg.wasm', '/wasm/rgb_lib_wasm_bindings_bg.wasm'];
+	for (const asset of assets) {
+		let response: Response;
+		try {
+			response = await fetch(asset, { method: 'HEAD' });
+		} catch {
+			response = await fetch(asset);
+		}
+
+		if (!response.ok) {
+			response = await fetch(asset);
+		}
+		if (!response.ok) {
+			throw new Error(`RGB WASM asset unavailable: ${asset} (HTTP ${response.status})`);
+		}
+	}
+}
+
 async function initializeRgbWallet(mnemonic: string): Promise<void> {
+	if (!browser) return;
 	const indexerUrl = import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined;
 	if (!indexerUrl) {
 		walletStore.update((s) => ({
 			...s,
+			isInitializing: false,
 			rgb: { ...s.rgb, initialized: false, error: 'Electrum missing' }
 		}));
-		return;
+		throw new Error('Bitcoin Electrum indexer URL is not configured.');
 	}
 
 	try {
-		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
+		await ensureWasmAssetAvailable();
+		const rgbSdk = await import('@utexo/rgb-sdk-web');
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG SDK] keys:', Object.keys(rgbSdk).filter((k) => k !== 'default'));
+		}
+		const Ctor =
+			rgbSdk.UTEXOWallet ??
+			(rgbSdk as { RgbWallet?: unknown }).RgbWallet ??
+			(rgbSdk as { Wallet?: unknown }).Wallet;
+
+		const create =
+			typeof (Ctor as { create?: unknown })?.create === 'function'
+				? (Ctor as { create: Function }).create.bind(Ctor)
+				: typeof Ctor === 'function'
+					? (args: unknown) => new (Ctor as new (a: unknown) => unknown)(args)
+					: null;
+
+		if (!create) {
+			throw new Error(
+				`UTEXOWallet export unavailable. keys=${Object.keys(rgbSdk)
+					.filter((k) => k !== 'default')
+					.join(', ')}`
+			);
+		}
 		const network = (import.meta.env.VITE_BITCOIN_NETWORK || 'testnet') as
 			| 'mainnet'
 			| 'testnet'
 			| 'regtest';
 		const password = await deriveUtexoWalletPassword(mnemonic);
 
-		const wallet = await UTEXOWallet.create({
+		const wallet = await create({
 			mnemonic,
 			password,
 			network,
-			indexerUrl
+			indexerUrl,
+			transportEndpoint:
+				(import.meta.env.VITE_RGB_TRANSPORT_ENDPOINT as string | undefined) ??
+				'https://rgb-proxy.utexo.com/json-rpc',
+			proxyUrl:
+				(import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined) ??
+				'wss://ln-gateway-signet.utexo.com',
+			vssUrl: (import.meta.env.VITE_UTEXO_VSS_URL as string | undefined) ?? null
 		});
 		state.utexoWallet = wallet;
 
@@ -51,6 +104,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			rgbAssets = unwrapListAssets(rawAssets).map((a) => ({
 				assetId: a.id,
 				name: a.name ?? 'RGB Asset',
+				symbol: a.ticker,
 				balance: Number(a.balance ?? 0),
 				formattedBalance: String(a.balance ?? 0)
 			}));
@@ -80,13 +134,18 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			totalBalances: {
 				...s.totalBalances,
 				sats: balanceSats,
-				usdt: rgbAssets.find((a) => a.assetId === 'usdt_rgb')?.balance ?? 0
+				usdt:
+					rgbAssets.find(
+						(a) => a.assetId === (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)
+					)?.balance ?? 0
 			}
 		}));
 		if (browser) {
-			void rgbConsignmentSubscription.start({
-				onError: (error) => console.warn('[wallet-init] RGB consignment ignored:', error)
-			});
+			void rgbConsignmentSubscription
+				.start({
+					onError: (error) => console.warn('[wallet-init] RGB consignment ignored:', error)
+				})
+				.catch((error) => console.warn('[wallet-init] RGB consignment startup ignored:', error));
 		}
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
@@ -95,7 +154,24 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			isInitializing: false,
 			rgb: { ...s.rgb, initialized: false, error: 'Init failed' }
 		}));
+		throw err;
 	}
+}
+
+function isWasmGlobalError(error: unknown): boolean {
+		if (!(error instanceof Error)) return false;
+		const message = error.message.toLowerCase();
+		return (
+			message.includes('exports is not defined') ||
+			message.includes('module is not defined') ||
+			message.includes('.wasm') ||
+			message.includes('wasm')
+		);
+}
+
+async function waitForWasmGlobals(): Promise<void> {
+		if (!browser) return;
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
 
 export async function getRgbAddress(): Promise<string> {
@@ -110,26 +186,44 @@ export async function getRgbAddress(): Promise<string> {
 }
 
 export async function initialize(): Promise<void> {
+	if (!browser) return;
 	const storeState = get(walletStore);
 	if (storeState.isInitializing) return;
 
 	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
 
+	if (state.utexoWallet && storeState.rgb?.initialized) {
+		walletStore.update((s) => ({ ...s, isInitializing: false }));
+		return;
+	}
+
 	try {
-		if (state.utexoWallet && storeState.rgb?.initialized) {
-			walletStore.update((s) => ({ ...s, isInitializing: false }));
-			return;
+		const mnemonic = await getMnemonic();
+		let lastError: unknown;
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			try {
+				await initializeRgbWallet(mnemonic);
+				return;
+			} catch (error) {
+				lastError = error;
+				if (!isWasmGlobalError(error) || attempt === 1) break;
+				await waitForWasmGlobals();
+			}
 		}
 
-		const mnemonic = await getMnemonic();
-		await initializeRgbWallet(mnemonic);
-	} catch (error) {
+		console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
 		walletStore.update((s) => ({
 			...s,
 			isInitializing: false,
-			error: 'Failed to initialize wallet'
+			error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
 		}));
-		throw error;
+	} catch (error) {
+		console.warn('[wallet-init] Wallet initialization setup failed:', error);
+		walletStore.update((s) => ({
+			...s,
+			isInitializing: false,
+			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+		}));
 	}
 }
 
@@ -153,7 +247,3 @@ export const markExpectingInbound = (_ttlMs?: number) => {};
 
 export const softCleanup = () => {};
 
-export const getRSKAddress = async (): Promise<string> => {
-	console.warn('[wallet-init] getRSKAddress() is deprecated. Use getRgbAddress().');
-	return getRgbAddress();
-};

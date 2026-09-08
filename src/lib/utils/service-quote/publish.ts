@@ -527,7 +527,7 @@ async function getAuthorPubkey(): Promise<string> {
 }
 
 function getCurrentNetwork(): string {
-	return import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	return import.meta.env.VITE_BITCOIN_NETWORK || 'testnet';
 }
 
 function getDefaultRelays(relays?: string[]): string[] {

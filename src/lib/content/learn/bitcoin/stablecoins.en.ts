@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker support stablecoin payments?',
-			body: "BitTasker accepts stablecoin payments alongside Bitcoin and Lightning, giving freelancers and clients flexibility in how they transact. Clients can fund escrow in USDC or other supported stablecoins, providing price predictability for project budgets. Freelancers can choose to receive payouts in stablecoins to avoid Bitcoin volatility, or in BTC to benefit from potential appreciation. The escrow smart contracts on Rootstock support multiple asset types, meaning the same trustless escrow mechanism works whether you're holding BTC, RBTC, or stablecoins. For freelancers in volatile economies, the option to receive payment in a dollar-pegged asset while still benefiting from blockchain-based escrow and instant settlement is a powerful combination."
+			body: "BitTasker accepts stablecoin payments alongside Bitcoin and Lightning, giving freelancers and clients flexibility in how they transact. Clients can fund escrow in USDC or other supported stablecoins, providing price predictability for project budgets. Freelancers can choose to receive payouts in stablecoins to avoid Bitcoin volatility, or in BTC to benefit from potential appreciation. The escrow smart contracts on RGB support multiple asset types, meaning the same trustless escrow mechanism works whether you're holding BTC, BTC, or stablecoins. For freelancers in volatile economies, the option to receive payment in a dollar-pegged asset while still benefiting from blockchain-based escrow and instant settlement is a powerful combination."
 		}
 	],
 	faq: [
@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Do stablecoins have fees?',
 			answer:
-				'Stablecoin transaction fees depend on the network. Ethereum USDC transfers cost $0.50-5+ in gas fees. Tron USDT transfers cost under $1. BitTasker uses Rootstock for smart contracts, where transaction fees are under $0.01. There are typically no fees for receiving stablecoins, though converting to local currency may involve exchange fees.'
+				'Stablecoin transaction fees depend on the network. Ethereum USDC transfers cost $0.50-5+ in gas fees. Tron USDT transfers cost under $1. BitTasker uses RGB for smart contracts, where transaction fees are under $0.01. There are typically no fees for receiving stablecoins, though converting to local currency may involve exchange fees.'
 		},
 		{
 			question: 'Which stablecoin is best for freelancers?',

@@ -8,7 +8,7 @@ import { ContractRune } from '$lib/runes/contract.svelte';
 
 export interface ConsignmentSubscriptionOptions {
 	onApplied?: (contractId: string) => void;
-	onError?: (error: unknown, event: NDKEvent) => void;
+	onError?: (error: unknown, event?: NDKEvent) => void;
 }
 
 /** Receives encrypted RGB consignment DMs and applies confirmed transfers to local runes. */
@@ -18,10 +18,18 @@ export class RgbConsignmentSubscription {
 
 	async start(options: ConsignmentSubscriptionOptions = {}): Promise<void> {
 		if (!browser || this.subscription) return;
-		const npub = await getNpub();
-		const decoded = nip19.decode(npub);
+		let decoded: ReturnType<typeof nip19.decode>;
+		try {
+			const npub = await getNpub();
+			if (!npub) return;
+			decoded = nip19.decode(npub);
+		} catch (error) {
+			options.onError?.(error);
+			return;
+		}
 		if (decoded.type !== 'npub' || typeof decoded.data !== 'string') {
-			throw new Error('Unable to derive the active Nostr public key');
+			options.onError?.(new Error('Unable to derive the active Nostr public key'));
+			return;
 		}
 		this.subscription = ndk.subscribe(
 			{ kinds: [4], '#p': [decoded.data] },

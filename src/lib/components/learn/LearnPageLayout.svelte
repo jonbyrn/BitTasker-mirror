@@ -119,7 +119,7 @@
 
 	<!-- Slot for page-specific content (comparison tables, custom sections) -->
 	{#if children}
-		{@render children()}
+		{@render children?.()}
 	{/if}
 
 	<!-- BitTasker CTA -->

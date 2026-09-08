@@ -96,7 +96,7 @@ describe('stableInnerFormat', () => {
 		const w = makeWallet('w1', {
 			btc: { raw: '0', formatted: '0', loading: false }
 		});
-		const cache = { w1: { rbtc: '0', btc: '200000', usdt: '0', wbtc: '0', tbtc: '0' } };
+		const cache = { w1: { btc: '200000', usdt: '0', wbtc: '0', tbtc: '0' } };
 		const result = stableInnerFormat(w, 'btc', cache, satsFormatter, usdFormatter, btcPrice);
 		expect(result).toContain('200,000');
 		expect(result).toContain('Sats');
@@ -108,7 +108,7 @@ describe('stableInnerFormat', () => {
 		});
 		// Cache btc raw = 100,000,000 sats = 1 BTC
 		const cache = {
-			w1: { rbtc: '0', btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
+			w1: { btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
 		};
 		const result = stableInnerFormat(w, 'btc_lightning', cache, satsFormatter, usdFormatter, btcPrice);
 		expect(result).toContain('100,000,000');
@@ -159,7 +159,7 @@ describe('stableWalletAvailableUsd', () => {
 	it('falls back to cache with btc when live is empty', () => {
 		const w = makeWallet('w1', undefined);
 		const cache = {
-			w1: { rbtc: '0', btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
+			w1: { btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
 		};
 		const result = stableWalletAvailableUsd(w, cache, usdFormatter, btcPrice);
 		expect(result).toContain('50,000');

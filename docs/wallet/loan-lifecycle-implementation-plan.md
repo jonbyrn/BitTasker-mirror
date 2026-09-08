@@ -63,7 +63,7 @@ The borrow drawer (BorrowFlowDrawer + BorrowStep) and HealthFactorGauge were swa
 - Mainnet/Ethereum Aave deployment or other reserves.
 - Full position history or P&L charts (basic current state sufficient).
 - Gasless or meta-tx relays for these flows (future payments-v2 work can integrate).
-- Any changes to unrelated wallet flows (bolt12, Lightning, RSK, etc.) beyond what's needed for DeFi parity.
+- Any changes to unrelated wallet flows (bolt12, Lightning, RGB, etc.) beyond what's needed for DeFi parity.
 
 **Assumptions (to be validated in Phase 0 spike if not already confirmed)**:
 - ERC-20 approve UX/patterns already exist in the app (for USDT0/wBTC on Arbitrum) or are simple enough to add following existing send/approve flows.

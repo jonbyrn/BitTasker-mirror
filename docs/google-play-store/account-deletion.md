@@ -156,7 +156,7 @@ For replaceable and parameterized replaceable events (kinds 10000–39999), NIP-
 | `30007` | `BIDS`                      | Bid submissions                            |
 | `30008` | `BID_STATUS`                | Bid status updates                         |
 | `30063` | `PROFILE_IMAGES`            | Profile image collection                   |
-| `30078` | `PENDING_SWAPS`             | Boltz swap management                      |
+| `30078` | `PENDING_SWAPS`             | RGB swap management                      |
 | `31000` | `TASK_CREATION`             | Task creation and updates                  |
 | `31001` | `SAVED_SEARCHES`            | Saved task searches                        |
 | `31002` | `RECURRING_TASK`            | Recurring task definitions                 |

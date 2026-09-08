@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo te protege BitTasker de las estafas?',
-			body: 'BitTasker mitiga vectores comunes de estafa a través de su arquitectura. Los pagos fluyen vía Lightning Network a tu wallet conectada — BitTasker nunca custodia tus fondos ni solicita tu seed phrase. La plataforma usa identidad Nostr, sin credenciales de email/password que phishear. El escrow de smart contracts en Rootstock asegura que ambas partes cumplan sus obligaciones antes de que se muevan los fondos. Sin embargo, ninguna plataforma puede eliminar todo el riesgo. Siempre verifica URLs, nunca compartas tu seed phrase y trata los DMs no solicitados con sospecha.'
+			body: 'BitTasker mitiga vectores comunes de estafa a través de su arquitectura. Los pagos fluyen vía Lightning Network a tu wallet conectada — BitTasker nunca custodia tus fondos ni solicita tu seed phrase. La plataforma usa identidad Nostr, sin credenciales de email/password que phishear. El escrow de smart contracts en RGB asegura que ambas partes cumplan sus obligaciones antes de que se muevan los fondos. Sin embargo, ninguna plataforma puede eliminar todo el riesgo. Siempre verifica URLs, nunca compartas tu seed phrase y trata los DMs no solicitados con sospecha.'
 		}
 	],
 	faq: [

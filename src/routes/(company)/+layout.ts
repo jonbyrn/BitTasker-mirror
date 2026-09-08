@@ -1,6 +1,9 @@
 import { mergeTranslations } from '$lib/i18n/ssr';
+import { addMessages, init } from 'svelte-i18n';
 export const prerender = false;
-export const ssr = false;
+export const ssr = true;
+
+void init({ fallbackLocale: 'en', initialLocale: 'en', loadingDelay: 0 });
 
 export async function load({ fetch }) {
 	const [homeResponse, commonResponse] = await Promise.all([
@@ -19,6 +22,8 @@ export async function load({ fetch }) {
 	]);
 
 	const translations = mergeTranslations(homeTranslations, commonTranslations);
+	addMessages('en', translations);
+	await init({ fallbackLocale: 'en', initialLocale: 'en', loadingDelay: 0 });
 
 	return { translations };
 }

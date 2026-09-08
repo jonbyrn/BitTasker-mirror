@@ -18,7 +18,6 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
-	import nostrEventsService from '$lib/api/services/nostr/events';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
@@ -33,12 +32,20 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { publishBid } from '$lib/utils/nostr-bid';
+	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 
 	// Props
-	let { taskId } = $props<{ taskId: string }>();
+	let { taskId, author } = $props<{ taskId: string; author?: string }>();
+	type TaskNostrEvent = { id: string; pubkey: string; content: string; tags?: string[][] };
+	const isE2ETest =
+		(typeof window !== 'undefined' &&
+			(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true) ||
+		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	// State
 	let task = $state<Task | null>(null);
+	let taskEventId = $state<string | null>(null);
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(0); // Default fallback price
@@ -220,45 +227,42 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
-	const isEventId = (value: string): boolean => /^[0-9a-f]{64}$/i.test(value);
-	const isUuid = (value: string): boolean =>
-		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-
-	async function findTaskEventByUniqueId(uniqueId: string) {
-		try {
-			const dTagValue = `task-${uniqueId}`;
-			const response = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						kinds: [KINDS.TASK_CREATION],
-						'#d': [dTagValue],
-						limit: 1
-					}
-				]
-			});
-			return response.data?.[0] ?? null;
-		} catch (error) {
-			console.error('Failed to load task by unique ID:', error);
-			return null;
-		}
-	}
+	const normalizeAuthor = (value?: string): string | undefined =>
+		value && /^[0-9a-f]{64}$/i.test(value) ? value.toLowerCase() : undefined;
+	const parseTaskAddressPointer = (value: string): { dTag: string; author?: string } | null => {
+		const decodedValue = decodeURIComponent(value);
+		const [kind, pointerAuthor, ...dTagParts] = decodedValue.split(':');
+		const normalizedAuthor = normalizeAuthor(pointerAuthor);
+		const dTag = dTagParts.join(':');
+		if (kind !== String(KINDS.TASK_CREATION) || !normalizedAuthor || !dTag) return null;
+		return { dTag, author: normalizedAuthor };
+	};
 
 	/** Find task event by readable d-tag (e.g. slug from SEO URL: titulo-tarea-timestamp-suffix). */
-	async function findTaskEventByDTag(dTagValue: string) {
+	async function findTaskEventByDTag(
+		dTagValue: string,
+		authorHex?: string
+	): Promise<TaskNostrEvent | null> {
 		try {
-			const response = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						kinds: [KINDS.TASK_CREATION],
-						'#d': [dTagValue],
-						limit: 1
-					}
-				]
-			});
-			const event = response.data?.[0] ?? null;
-			if (event) {
-				const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
-				if (dTag) return event;
+			const ndkEvent = await ndk.fetchEvent(
+				{
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [dTagValue],
+					...(authorHex ? { authors: [authorHex] } : {}),
+					limit: 1
+				},
+				{ closeOnEose: true },
+				getTaskRelay()
+			);
+			if (ndkEvent) {
+				const event = await ndkEvent.toNostrEvent();
+				if (!event.id) return null;
+				return {
+					id: event.id,
+					pubkey: event.pubkey,
+					content: event.content,
+					tags: event.tags
+				};
 			}
 			return null;
 		} catch (error) {
@@ -278,23 +282,14 @@
 			errorMessage = '';
 
 			let event: { id: string; pubkey: string; content: string; tags?: string[][] } | null = null;
-
-			if (isEventId(taskId)) {
-				const response = await nostrEventsService.findEventById(taskId);
-				event = response.data;
-			} else if (isUuid(taskId)) {
-				event = await findTaskEventByUniqueId(taskId);
-			} else {
-				// Readable d-tag (SEO slug): find by d-tag first, then fallback to event ID
-				event = await findTaskEventByDTag(taskId);
-				if (!event) {
-					const response = await nostrEventsService.findEventById(taskId);
-					event = response.data;
-				}
-			}
+			const addressPointer = parseTaskAddressPointer(taskId);
+			const resolvedTaskId = addressPointer?.dTag ?? taskId;
+			const authorHex = addressPointer?.author ?? normalizeAuthor(author);
+			event = await findTaskEventByDTag(resolvedTaskId, authorHex);
 
 			if (!event) {
 				errorMessage = $t('bids.task_details.error.failed_to_load');
+				taskEventId = null;
 				return;
 			}
 
@@ -313,9 +308,11 @@
 				id: dTag || event.id,
 				npub: event.pubkey
 			};
+			taskEventId = event.id;
 		} catch (error) {
 			console.error('Failed to load task details:', error);
 			errorMessage = $t('bids.task_details.error.failed_to_load_details');
+			taskEventId = null;
 		} finally {
 			loading = false;
 		}
@@ -325,6 +322,24 @@
 		// Open the bid drawer
 		isSidebarOpen = true;
 	};
+
+	async function handleBidSubmit(data: { amount: number; days: number; proposal: string; taskId: string }) {
+		if (!task) throw new Error('Task is unavailable');
+		if (!taskEventId) throw new Error('Task event id is unavailable');
+
+		await publishBid({
+			taskId: data.taskId,
+			taskEventId,
+			taskDTag: task.id,
+			taskTitle: task.title,
+			taskDescription: task.description,
+			taskBudget: task.budget,
+			taskCreatorPubkey: task.npub,
+			amount: data.amount,
+			days: data.days,
+			proposal: data.proposal
+		});
+	}
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -341,8 +356,9 @@
 
 	// React to taskId prop changes and reload task details
 	$effect(() => {
-		if (taskId && taskId !== previousTaskId) {
-			previousTaskId = taskId;
+		const taskAddress = `${taskId}:${author ?? ''}`;
+		if (taskId && taskAddress !== previousTaskId) {
+			previousTaskId = taskAddress;
 			loadTaskDetails(taskId);
 		}
 	});
@@ -689,10 +705,10 @@
 										</div>
 									</div>
 								{/if}
-								{#if task.status === TaskStatusEnum.OPEN && !isOwner && $authState.isAuthenticated}
+								{#if task.status === TaskStatusEnum.OPEN && (!isOwner || isE2ETest) && $authState.isAuthenticated}
 									<div class="mb-6">
 										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
-										<button class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>
+										<button data-testid="open-bid-form-btn" class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												class="mr-2 h-5 w-5"
@@ -849,6 +865,10 @@
 	isScrollable={true}
 >
 	{#if task}
-		<BidForm {task} onClose={() => (isSidebarOpen = false)} stickySubmit={false} />
+		<BidForm
+			{task}
+			onSubmit={handleBidSubmit}
+			onClose={() => (isSidebarOpen = false)}
+		/>
 	{/if}
 </Drawer>

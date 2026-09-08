@@ -27,7 +27,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo usa BitTasker Nostr?',
-			body: 'BitTasker usa Nostr como capa de identidad y reputación. Cuando creas una cuenta en BitTasker, generas un par de claves Nostr (o importas uno existente). Tu perfil, historial de trabajo, reseñas y portafolio son todos eventos Nostr. Los pagos corren sobre Bitcoin Lightning (separado de Nostr, pero complementario). El escrow usa contratos inteligentes de Rootstock. BitTasker proporciona la experiencia de usuario — búsqueda, emparejamiento, seguimiento de entregas, resolución de disputas — mientras Nostr asegura que tu identidad y reputación sean portables y resistentes a la censura. La plataforma maneja la UX; Nostr maneja la soberanía.'
+			body: 'BitTasker usa Nostr como capa de identidad y reputación. Cuando creas una cuenta en BitTasker, generas un par de claves Nostr (o importas uno existente). Tu perfil, historial de trabajo, reseñas y portafolio son todos eventos Nostr. Los pagos corren sobre Bitcoin Lightning (separado de Nostr, pero complementario). El escrow usa contratos inteligentes de RGB. BitTasker proporciona la experiencia de usuario — búsqueda, emparejamiento, seguimiento de entregas, resolución de disputas — mientras Nostr asegura que tu identidad y reputación sean portables y resistentes a la censura. La plataforma maneja la UX; Nostr maneja la soberanía.'
 		},
 		{
 			heading: '¿Cuál es el futuro del comercio Nostr?',

@@ -1,18 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { writable } from 'svelte/store';
 import BidAcceptanceFormV2 from '$lib/components/bidding/BidAcceptanceFormV2.svelte';
 
 const {
 	fundMock,
+	startWorkMock,
 	runeConstructorArgs,
-	sendConsignmentToPeer,
+	enrichMock,
 	sendBidStatusUpdate,
 	showSuccessToast,
 	showErrorToast
 } = vi.hoisted(() => ({
 	fundMock: vi.fn(),
+	startWorkMock: vi.fn(),
 	runeConstructorArgs: { current: null as unknown },
-	sendConsignmentToPeer: vi.fn().mockResolvedValue({ id: 'evt-1' }),
+	enrichMock: vi.fn().mockResolvedValue(undefined),
 	sendBidStatusUpdate: vi.fn().mockResolvedValue(true),
 	showSuccessToast: vi.fn(),
 	showErrorToast: vi.fn()
@@ -40,11 +43,29 @@ vi.mock('$lib/runes/contract.svelte', () => ({
 			this.seals = [{ id: 'seal-1' }];
 			return fundMock();
 		}
+		async prepareFunding() {
+			this.status = 'funded';
+			this.seals = [{ id: 'seal-1' }];
+			return fundMock();
+		}
+		async fundForE2E() {
+			this.status = 'funded';
+			this.seals = [{ id: 'seal-1' }];
+			return fundMock();
+		}
+		async startWork() {
+			this.status = 'work_in_progress';
+			return startWorkMock();
+		}
 	}
 }));
 
+vi.mock('$lib/api/services/notificationCenter.service', () => ({
+	notificationCenterService: { enrich: enrichMock }
+}));
+
 vi.mock('$lib/services/rgb/consignment-exchange', () => ({
-	sendConsignmentToPeer
+	sendConsignmentToPeer: vi.fn()
 }));
 
 vi.mock('$lib/utils/nostr-bid', () => ({
@@ -87,6 +108,9 @@ function makeBid(overrides: Record<string, unknown> = {}) {
 		bidContent: {
 			type: 'bid',
 			taskId: 'task-1',
+			taskTitle: 'Install a node',
+			description: 'Fallback bid comment',
+			proposedApproach: 'I will configure the RGB wallet and document the setup.',
 			amount: 200,
 			currency: 'USD',
 			bidderId: 'bidder-pubkey',
@@ -112,6 +136,7 @@ describe('BidAcceptanceFormV2', () => {
 			wdk: { btcOnchain: { address: '' } }
 		});
 		fundMock.mockResolvedValue({ status: 'funded' });
+		startWorkMock.mockResolvedValue({ status: 'work_in_progress' });
 	});
 
 	it('renders the bid summary with platform fee and total', () => {
@@ -122,6 +147,7 @@ describe('BidAcceptanceFormV2', () => {
 		expect(getByTestId('bid-platform-fee').textContent).toBe('$5.00');
 		expect(getByTestId('bid-total-payment').textContent).toBe('$205.00');
 		expect(getByTestId('bid-total-sats').textContent).toContain('205,000');
+		expect(getByTestId('contract-settlement-unit').textContent).toContain('Bitcoin');
 	});
 
 	it('shows disconnected warning and disables confirm when wallet is not ready', () => {
@@ -154,7 +180,7 @@ describe('BidAcceptanceFormV2', () => {
 		).toBe(true);
 	});
 
-	it('funds escrow via ContractRune, then delivers consignment and status over Nostr DM', async () => {
+	it('funds RGB escrow with Bitcoin settlement, then starts the task with messages and notifications', async () => {
 		const onFunded = vi.fn();
 		const { getByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask(), onFunded }
@@ -165,28 +191,63 @@ describe('BidAcceptanceFormV2', () => {
 		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(1));
 		expect(runeConstructorArgs.current).toMatchObject({
 			contractId: 'contract-task-1-bid-1',
+			contractTitle: 'Install a node',
+			bidderComments: 'I will configure the RGB wallet and document the setup.',
 			totalAmountUsd: 205,
+			split: {
+				primaryAsset: 'btc_onchain',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			},
 			partyPubkeys: ['bidder-pubkey', 'creator-pubkey']
 		});
 
-		await waitFor(() => expect(sendConsignmentToPeer).toHaveBeenCalledTimes(1));
-		expect(sendConsignmentToPeer).toHaveBeenCalledWith(
-			'bidder-pubkey',
-			expect.objectContaining({
-				contractId: 'contract-task-1-bid-1',
-				assetId: 'btc_onchain',
-				transferId: 'seal-1'
-			})
-		);
-
-		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(2));
 		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
 			'bid-1',
 			'task-1',
 			'bidder-pubkey',
 			'ACCEPTED',
-			undefined,
+			'Bid accepted',
 			'contract-task-1-bid-1'
+		);
+		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
+			'bid-1',
+			'task-1',
+			'bidder-pubkey',
+			'ESCROW_FUNDED',
+			'RGB escrow funded',
+			'contract-task-1-bid-1'
+		);
+		expect(enrichMock).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'bid_accepted', escrowId: 'contract-task-1-bid-1' })
+		);
+		expect(enrichMock).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'contract_created', escrowId: 'contract-task-1-bid-1' })
+		);
+		expect(getByTestId('start-contract-button').textContent).toContain('Start Task');
+		expect(getByTestId('start-contract-button')).toBeTruthy();
+		expect(onFunded).not.toHaveBeenCalled();
+
+		await fireEvent.click(getByTestId('start-contract-button'));
+
+		await waitFor(() => expect(startWorkMock).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(3));
+		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
+			'bid-1',
+			'task-1',
+			'bidder-pubkey',
+			'WORK_IN_PROGRESS',
+			'Task started',
+			'contract-task-1-bid-1'
+		);
+		expect(enrichMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'work_started',
+				escrowId: 'contract-task-1-bid-1',
+				estimatedCompletionTime: expect.any(Number)
+			})
 		);
 
 		expect(showSuccessToast).toHaveBeenCalled();
@@ -203,7 +264,6 @@ describe('BidAcceptanceFormV2', () => {
 		await fireEvent.click(getByTestId('accept-fund-button'));
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-		expect(sendConsignmentToPeer).not.toHaveBeenCalled();
 		expect(sendBidStatusUpdate).not.toHaveBeenCalled();
 		expect(onFunded).not.toHaveBeenCalled();
 		expect(getByTestId('funding-error').textContent).toContain('RGB commitment failed');

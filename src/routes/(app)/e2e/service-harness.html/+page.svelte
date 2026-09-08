@@ -5,7 +5,7 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { ContractStatus } from '$lib/utils/contract/types';
+	import { ContractStatus } from '$lib/nostr/events/contractStatus';
 
 	type HarnessResult = Record<string, unknown>;
 
@@ -102,7 +102,7 @@
 					},
 					status: ContractStatus.Funded,
 					type: 'contract',
-					currency: 'RBTC'
+					currency: 'BTC'
 				}
 			} as unknown as ContractWithEvents['contractEvent']
 		} satisfies Omit<ContractWithEvents, 'contractEvent' | 'escrowData'> & {

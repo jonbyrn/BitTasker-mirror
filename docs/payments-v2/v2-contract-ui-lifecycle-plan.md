@@ -120,7 +120,7 @@ Dedupe by **event `id`**. If the same `transactionHash` appears twice, ignore du
 
 - **`SecurePaymentLegacy`** (`state`, times, `timelockEnd`, `noShowMarked`, addresses, fees).
 - **Side:** **`isTasker`** boolean — **UI:** `PaymentContractRune.isTasker` (Nostr pubkey === `taskerPubkey`); otherwise permissions use the **taskee** branch. **Tests / wallet-only:** map `inferParticipantRole` → `isTasker: role === 'tasker'` when you only have chain addresses.
-- **`now`:** **Unix seconds** for SECURE-PAYMENT predicates — product choice here is **device time + ~30s** (RSK block cadence) via `PaymentContractRune` / `permissionsNowSeconds()`, not `getBlock('latest')`.
+- **`now`:** **Unix seconds** for SECURE-PAYMENT predicates — product choice here is **device time + ~30s** (RGB block cadence) via `PaymentContractRune` / `permissionsNowSeconds()`, not `getBlock('latest')`.
 - **`awaitingTx`:** if true, UI **disables** all actions regardless of chain `can*`.
 
 **Output:** `{ canCompleteTask, canAcceptTask, … }` plus optional **reason** strings.
@@ -228,13 +228,13 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 - [x] **`start()`** loads **blockchain** before **`setupSubscription()`** so EOSE compares against fresh chain.
 - [x] **`statusHistoryReady`** set on **first EOSE**; until then **`onEvent`** only appends; **no** reconcile. After that, **`onEvent`** runs reconcile.
 - [x] After **first EOSE** (`statusHistoryReady`): reconcile **newest** historical row via same path as live (**v2**, **`!chainIsTerminal`**, **tx hash** → **`awaitStatusTxThenReload`**). Each **subsequent** live event uses the same guards.
-- [x] **`isPending`** during **`waitForTransaction`** + reload; single **`reconcileLatestStatusIfNeeded()`** (no lock/queue). **`getProvider('rsk')`** from **`$lib/utils/contract`** for waits.
+- [x] **`isPending`** during **`waitForTransaction`** + reload; single **`reconcileLatestStatusIfNeeded()`** (no lock/queue). **`getProvider('rgb')`** from **`$lib/utils/contract`** for waits.
 - [x] On receipt **revert** (`status === 0`): warn + reload chain anyway; **`processedStatusTxHashes`** still records hash.
 - [x] **`isPending`** also used for **`resolvePaymentIdFromTxHash`** (creation path).
 
 **Checklist**
 
-- [x] Provider via **`walletManager` / `getProvider('rsk')`** (same pattern as `resolvePaymentIdFromTxHash`).
+- [x] Provider via **`walletManager` / `getProvider('rgb')`** (same pattern as `resolvePaymentIdFromTxHash`).
 - [ ] Unsubscribe on destroy / payment change (caller still calls **`stopSubscription`** when wiring UI).
 - [x] Errors during wait: **`error`** state + reload attempt + **`isPending`** cleared in **`finally`**.
 - [x] **Reactive:** **`statusEvents`**, **`statusEventsByNewest`**, **`chainIsTerminal`**, **`statusHistoryReady`**, **`blockchainData`**, **`isPending`**.

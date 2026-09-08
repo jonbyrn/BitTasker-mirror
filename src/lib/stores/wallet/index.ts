@@ -39,18 +39,3 @@ export const totalBalances = derived(
 );
 
 export { walletStore } from './wallet-state';
-
-/** @deprecated - Bitcoin/RGB only, no EVM provider */
-export const getProvider = () => null;
-/** @deprecated - Bitcoin/RGB only, no EVM wallet */
-export const getWallet = () => null;
-/** @deprecated - EVM removed */
-export const getRSKWallet = () => null;
-/** @deprecated - EVM removed */
-export const getRSKProvider = () => null;
-/** @deprecated - EVM removed */
-export const loadRSKTokenBalances = async (): Promise<never[]> => [];
-/** @deprecated - EVM removed */
-export const getTokenBalance = async () => null;
-/** @deprecated - EVM removed */
-export const loadRbtcExchangeRate = async () => 0;

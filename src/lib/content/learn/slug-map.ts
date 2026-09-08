@@ -25,7 +25,6 @@ export const SLUG_MAP: Record<string, SlugEntry> = {
 	freelancing: { en: 'freelancing', es: 'freelance' },
 	'bitcoin-freelancing': { en: 'bitcoin-freelancing', es: 'freelance-bitcoin' },
 	bitcoin: { en: 'bitcoin', es: 'bitcoin' },
-	rootstock: { en: 'rootstock', es: 'rootstock' },
 	'bitcoin-layer-2': { en: 'bitcoin-layer-2', es: 'bitcoin-capa-2' },
 	'future-of-work': { en: 'future-of-work', es: 'futuro-del-trabajo' },
 
@@ -182,32 +181,7 @@ export const SLUG_MAP: Record<string, SlugEntry> = {
 	'bitcoin/stablecoins': { en: 'bitcoin/stablecoins', es: 'bitcoin/stablecoins' },
 	'bitcoin/bittasker-payments': { en: 'bitcoin/bittasker-payments', es: 'bitcoin/pagos-bittasker' },
 
-	// ─── Rootstock ────────────────────────────────────────────────────
-	'rootstock/what-is-rootstock': {
-		en: 'rootstock/what-is-rootstock',
-		es: 'rootstock/que-es-rootstock'
-	},
-	'rootstock/rootstock-vs-stacks': {
-		en: 'rootstock/rootstock-vs-stacks',
-		es: 'rootstock/rootstock-vs-stacks'
-	},
-	'rootstock/bitcoin-smart-contracts': {
-		en: 'rootstock/bitcoin-smart-contracts',
-		es: 'rootstock/contratos-inteligentes-bitcoin'
-	},
-	'rootstock/bitcoin-defi': { en: 'rootstock/bitcoin-defi', es: 'rootstock/defi-bitcoin' },
-	'rootstock/rootstock-vs-ethereum': {
-		en: 'rootstock/rootstock-vs-ethereum',
-		es: 'rootstock/rootstock-vs-ethereum'
-	},
-	'rootstock/bittasker-escrow-contracts': {
-		en: 'rootstock/bittasker-escrow-contracts',
-		es: 'rootstock/contratos-escrow-bittasker'
-	},
-	'rootstock/rbtc-guide': { en: 'rootstock/rbtc-guide', es: 'rootstock/guia-rbtc' },
-
 	// ─── Bitcoin Layer 2s ─────────────────────────────────────────────
-	'bitcoin-layer-2/rootstock': { en: 'bitcoin-layer-2/rootstock', es: 'bitcoin-capa-2/rootstock' },
 	'bitcoin-layer-2/stacks': { en: 'bitcoin-layer-2/stacks', es: 'bitcoin-capa-2/stacks' },
 	'bitcoin-layer-2/liquid-network': {
 		en: 'bitcoin-layer-2/liquid-network',

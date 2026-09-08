@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo se compromete BitTasker con la resistencia a la censura?',
-			body: 'BitTasker está diseñado para que ningún punto de fallo pueda cerrar el trabajo de un freelancer. La identidad está basada en Nostr y es portable. Los pagos son Bitcoin Lightning — entre pares e irreversibles. El escrow son contratos inteligentes de Rootstock — en cadena y auditables. BitTasker proporciona la experiencia del mercado pero no sostiene tus fondos, no controla tu identidad y no posee tu reputación. La plataforma es una herramienta que usas, no un guardián del que dependes. Esto no es una afirmación de marketing — es un compromiso arquitectónico forjado por protocolos abiertos.'
+			body: 'BitTasker está diseñado para que ningún punto de fallo pueda cerrar el trabajo de un freelancer. La identidad está basada en Nostr y es portable. Los pagos son Bitcoin Lightning — entre pares e irreversibles. El escrow son contratos inteligentes de RGB — en cadena y auditables. BitTasker proporciona la experiencia del mercado pero no sostiene tus fondos, no controla tu identidad y no posee tu reputación. La plataforma es una herramienta que usas, no un guardián del que dependes. Esto no es una afirmación de marketing — es un compromiso arquitectónico forjado por protocolos abiertos.'
 		}
 	],
 	faq: [
@@ -53,7 +53,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo sé que BitTasker no se convertirá en otra plataforma centralizada?',
 			answer:
-				'La arquitectura de BitTasker previene la centralización a nivel de infraestructura. La identidad es Nostr (protocolo descentralizado). Los pagos son Bitcoin Lightning (entre pares). El escrow son contratos inteligentes de Rootstock (en cadena). BitTasker controla la capa de UX pero no la identidad subyacente, los pagos ni el escrow. Incluso si la empresa de BitTasker desapareciera, tu identidad Nostr y tus fondos Bitcoin seguirían siendo accesibles.'
+				'La arquitectura de BitTasker previene la centralización a nivel de infraestructura. La identidad es Nostr (protocolo descentralizado). Los pagos son Bitcoin Lightning (entre pares). El escrow son contratos inteligentes de RGB (en cadena). BitTasker controla la capa de UX pero no la identidad subyacente, los pagos ni el escrow. Incluso si la empresa de BitTasker desapareciera, tu identidad Nostr y tus fondos Bitcoin seguirían siendo accesibles.'
 		},
 		{
 			question: '¿Hay riesgos legales de usar plataformas resistentes a la censura?',

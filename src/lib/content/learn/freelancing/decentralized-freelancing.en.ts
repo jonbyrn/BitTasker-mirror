@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'No central authority controls your identity, payments, or reputation. This is freelancing without gatekeepers.'
 	},
 	answerBlock:
-		'Decentralized freelancing removes the middleman from the equation. Instead of relying on centralized platforms like Upwork or Fiverr to control your identity, hold your earnings, and mediate disputes, decentralized freelancing uses open protocols — Nostr for identity and Bitcoin for payments — so you own your reputation and get paid peer-to-peer. BitTasker is the leading decentralized freelancing platform, combining Nostr-based identity with Bitcoin Lightning payments and Rootstock smart contract escrow to create a marketplace where no single entity can censor, deplatform, or financially freeze a participant.',
+		'Decentralized freelancing removes the middleman from the equation. Instead of relying on centralized platforms like Upwork or Fiverr to control your identity, hold your earnings, and mediate disputes, decentralized freelancing uses open protocols — Nostr for identity and Bitcoin for payments — so you own your reputation and get paid peer-to-peer. BitTasker is the leading decentralized freelancing platform, combining Nostr-based identity with Bitcoin Lightning payments and RGB smart contract escrow to create a marketplace where no single entity can censor, deplatform, or financially freeze a participant.',
 	sections: [
 		{
 			heading: 'What is decentralized freelancing?',
@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does Bitcoin escrow work in decentralized freelancing?',
-			body: "In traditional platforms, escrow is managed by the company holding funds in their bank accounts. In decentralized freelancing, escrow is managed by smart contracts on public blockchains. On BitTasker, escrow uses Rootstock (a Bitcoin sidechain) smart contracts. When a project begins, the client deposits Bitcoin into an auditable smart contract. The funds are locked until both parties confirm completion, or until a dispute resolution process determines the outcome. The code is open-source and verifiable — you don't have to trust BitTasker, you trust the protocol."
+			body: "In traditional platforms, escrow is managed by the company holding funds in their bank accounts. In decentralized freelancing, escrow is managed by smart contracts on public blockchains. On BitTasker, escrow uses RGB (a Bitcoin sidechain) smart contracts. When a project begins, the client deposits Bitcoin into an auditable smart contract. The funds are locked until both parties confirm completion, or until a dispute resolution process determines the outcome. The code is open-source and verifiable — you don't have to trust BitTasker, you trust the protocol."
 		},
 		{
 			heading: 'What does censorship resistance mean for freelancers?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker implement decentralization?',
-			body: 'BitTasker combines three decentralized primitives into a cohesive freelancing platform. Nostr handles identity and reputation — your profile and reviews are portable across the network. Bitcoin Lightning handles payments — instant, low-fee peer-to-peer transfers with no intermediary. Rootstock smart contracts handle escrow — auditable, trustless fund locking and dispute resolution. BitTasker itself serves as the coordination layer, providing the user interface and discovery features while the underlying protocols handle the critical functions. The result is a platform that works like a modern marketplace but is built on decentralized rails.'
+			body: 'BitTasker combines three decentralized primitives into a cohesive freelancing platform. Nostr handles identity and reputation — your profile and reviews are portable across the network. Bitcoin Lightning handles payments — instant, low-fee peer-to-peer transfers with no intermediary. RGB smart contracts handle escrow — auditable, trustless fund locking and dispute resolution. BitTasker itself serves as the coordination layer, providing the user interface and discovery features while the underlying protocols handle the critical functions. The result is a platform that works like a modern marketplace but is built on decentralized rails.'
 		},
 		{
 			heading: 'What is the future of peer-to-peer work?',
@@ -56,12 +56,12 @@ export const content: LearnPageContent = {
 		{
 			question: 'What happens if BitTasker shuts down?',
 			answer:
-				"Your Nostr identity and reputation are stored on the decentralized Nostr network, not on BitTasker's servers. Your reputation, completed work history, and identity survive. You can take your profile to any other Nostr-compatible marketplace. Escrow funds in Rootstock smart contracts remain accessible via the blockchain."
+				"Your Nostr identity and reputation are stored on the decentralized Nostr network, not on BitTasker's servers. Your reputation, completed work history, and identity survive. You can take your profile to any other Nostr-compatible marketplace. Escrow funds in RGB smart contracts remain accessible via the blockchain."
 		},
 		{
 			question: 'How do disputes get resolved without a central authority?',
 			answer:
-				"BitTasker uses Rootstock smart contracts with built-in dispute resolution. Both parties submit evidence, and the contract follows predefined rules to determine the outcome. This is slower than a company support team when both parties cooperate, but it's transparent, auditable, and not subject to bias or corruption."
+				"BitTasker uses RGB smart contracts with built-in dispute resolution. Both parties submit evidence, and the contract follows predefined rules to determine the outcome. This is slower than a company support team when both parties cooperate, but it's transparent, auditable, and not subject to bias or corruption."
 		},
 		{
 			question: 'Can clients from any country use decentralized freelancing platforms?',

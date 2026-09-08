@@ -15,7 +15,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is Clarity and why does it matter?',
-			body: "Clarity is the smart contract language used on Stacks, designed specifically for safety and predictability. Unlike Solidity (used on Ethereum and Rootstock), Clarity is decidable — the language guarantees that any contract's execution path can be determined at compile time without running it. This eliminates entire categories of bugs like reentrancy attacks, integer overflow, and unbounded loops that plague Solidity contracts. Clarity is also interpreted rather than compiled, meaning the source code is stored on-chain and auditable by anyone. For financial applications where bugs can mean loss of funds, Clarity's safety guarantees provide significant risk reduction."
+			body: "Clarity is the smart contract language used on Stacks, designed specifically for safety and predictability. Unlike Solidity (used on Ethereum and RGB), Clarity is decidable — the language guarantees that any contract's execution path can be determined at compile time without running it. This eliminates entire categories of bugs like reentrancy attacks, integer overflow, and unbounded loops that plague Solidity contracts. Clarity is also interpreted rather than compiled, meaning the source code is stored on-chain and auditable by anyone. For financial applications where bugs can mean loss of funds, Clarity's safety guarantees provide significant risk reduction."
 		},
 		{
 			heading: 'What is Proof of Transfer (PoX)?',
@@ -34,8 +34,8 @@ export const content: LearnPageContent = {
 			body: "Stacks supports a growing ecosystem of decentralized applications. DeFi platforms like ALEX and Arkadiko offer lending, borrowing, and AMM trading. The NFT ecosystem on Stacks includes marketplaces like Gamma and HeyAlfred. DAOs use Stacks for governance and treasury management. Because Stacks settles on Bitcoin, all of these applications benefit from Bitcoin's security model. The Clarity language makes Stacks particularly suited for financial applications where contract correctness is critical. The combination of Bitcoin security, Clarity safety, and sBTC programmability creates a unique value proposition for building on Bitcoin."
 		},
 		{
-			heading: 'How does Stacks compare to Rootstock for Bitcoin smart contracts?',
-			body: 'Both Stacks and Rootstock bring smart contracts to Bitcoin, but with different approaches. Stacks settles transactions directly on Bitcoin and uses its own language (Clarity) designed for safety. Rootstock runs as a parallel sidechain with EVM compatibility and merged mining. Stacks has the Nakamoto upgrade for faster blocks and sBTC for programmable Bitcoin. Rootstock has EVM tooling and a larger existing TVL. For developers, the choice often comes down to language preference (Clarity vs Solidity), consensus model (PoX vs merged mining), and specific feature needs like sBTC.'
+			heading: 'How does Stacks compare to RGB for Bitcoin smart contracts?',
+			body: 'Both Stacks and RGB bring smart contracts to Bitcoin, but with different approaches. Stacks settles transactions directly on Bitcoin and uses its own language (Clarity) designed for safety. RGB runs as a parallel sidechain with EVM compatibility and merged mining. Stacks has the Nakamoto upgrade for faster blocks and sBTC for programmable Bitcoin. RGB has EVM tooling and a larger existing TVL. For developers, the choice often comes down to language preference (Clarity vs Solidity), consensus model (PoX vs merged mining), and specific feature needs like sBTC.'
 		}
 	],
 	faq: [

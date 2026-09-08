@@ -214,7 +214,7 @@
 				>
 					<ul>
 						{#each section.items as item (item.label)}
-							{@render menuItem(item)}
+							{@render menuItem?.(item)}
 						{/each}
 					</ul>
 				</div>
@@ -247,7 +247,7 @@
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
 			{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
-				{@render menuSection(section)}
+				{@render menuSection?.(section)}
 			{/each}
 		</ul>
 	</div>
@@ -296,7 +296,7 @@
 							</li>
 						{/if}
 						{#each AVATAR_MENU_ITEMS as item (item.label)}
-							{@render menuItem(item)}
+							{@render menuItem?.(item)}
 						{/each}
 					</ul>
 				</div>

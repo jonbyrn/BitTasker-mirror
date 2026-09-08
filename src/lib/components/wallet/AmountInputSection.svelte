@@ -31,7 +31,7 @@
 		// === Phase 1b Amount Unification (additive, per design in swapform-phase1-logic-extraction-design.md) ===
 		/** 'calculator' (default, current for Send/Receive): full keypad+display+units+memo. 'direct': simple join input+MAX+optional % slider (for Swap, BuySell sell, Borrow etc). */
 		variant?: 'calculator' | 'direct';
-		/** For variant=direct: e.g. '$' for USDT; omitted for rBTC (sats label in parent). Renders leading non-interactive span. */
+		/** For variant=direct: e.g. '$' for USDT; omitted for BTC (sats label in parent). Renders leading non-interactive span. */
 		tokenPrefix?: string;
 		/** Show controlled % slider below input (for swap etc). */
 		showPercentSlider?: boolean;
@@ -40,7 +40,7 @@
 		/** Callback for slider change. */
 		onPercentChange?: (pct: number) => void;
 
-		/** For direct variant + BTC asset sources (e.g. rBTC in swap): show a compact toggle button left of input to switch between native (₿) and USD input. */
+		/** For direct variant + BTC asset sources (e.g. BTC in swap): show a compact toggle button left of input to switch between native (₿) and USD input. */
 		supportsBtcUsdToggle?: boolean;
 		/** Whether currently in USD input mode (for the toggle). */
 		btcUsdMode?: boolean;
@@ -128,7 +128,7 @@
 	const isMaxDisabled = $derived.by(() => {
 		if (variant === 'direct') {
 			// Direct variant (Swap/Borrow etc): parent passes explicit maxDisabled for asset-specific balance (e.g. USDT0 vs sats).
-			// Avoids !network (not always passed) and global sats check (irrelevant for non-rbtc sources).
+			// Avoids !network (not always passed) and global sats check (irrelevant for non-Bitcoin sources).
 			// Balance=0 guard + setMax skip live inside caller rune (e.g. swapCalc); button disabled here for UX.
 			return maxDisabled ?? false;
 		}

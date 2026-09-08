@@ -290,7 +290,7 @@
 						<div class="divide-base-300 -mx-2 divide-y">
 							{#if currentDevice}
 								<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-3">
-									{@render deviceRow(currentDevice)}
+									{@render deviceRow?.(currentDevice)}
 								</div>
 							{/if}
 
@@ -328,7 +328,7 @@
 									</div>
 									{#each activeDevices as device (device.id)}
 										<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
-											{@render deviceRow(device)}
+											{@render deviceRow?.(device)}
 										</div>
 									{/each}
 								</div>
@@ -366,7 +366,7 @@
 										<div class="collapse-content px-0 pb-0">
 											{#each inactiveDevices as device (device.id)}
 												<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
-													{@render deviceRow(device)}
+													{@render deviceRow?.(device)}
 												</div>
 											{/each}
 										</div>

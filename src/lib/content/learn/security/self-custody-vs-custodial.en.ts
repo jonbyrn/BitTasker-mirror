@@ -34,7 +34,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker support self-custody?',
-			body: 'BitTasker is built on self-custody principles. Your identity is a Nostr keypair you control — not an email/password in a company database. Payments flow via Lightning Network directly to your connected wallet. The platform never custodies your funds. For escrow, Rootstock smart contracts lock Bitcoin in code, not in a company bank account. This means BitTasker operates as a self-custodial-first platform: you control your identity, your keys, and your funds. The tradeoff is responsibility — you must manage your seed phrase securely. But the benefit is freedom: no account freezes, no withdrawal delays, no counterparty risk from the platform itself.'
+			body: 'BitTasker is built on self-custody principles. Your identity is a Nostr keypair you control — not an email/password in a company database. Payments flow via Lightning Network directly to your connected wallet. The platform never custodies your funds. For escrow, RGB smart contracts lock Bitcoin in code, not in a company bank account. This means BitTasker operates as a self-custodial-first platform: you control your identity, your keys, and your funds. The tradeoff is responsibility — you must manage your seed phrase securely. But the benefit is freedom: no account freezes, no withdrawal delays, no counterparty risk from the platform itself.'
 		}
 	],
 	faq: [
@@ -66,7 +66,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Does BitTasker hold my Bitcoin?',
 			answer:
-				'No. BitTasker uses Nostr identity (you control your keys) and Lightning payments (funds flow directly to your wallet). Escrowed funds are locked in Rootstock smart contracts, not BitTasker bank accounts.'
+				'No. BitTasker uses Nostr identity (you control your keys) and Lightning payments (funds flow directly to your wallet). Escrowed funds are locked in RGB smart contracts, not BitTasker bank accounts.'
 		},
 		{
 			question: 'What is the difference between self-custodial and custodial Lightning wallets?',

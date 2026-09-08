@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FEE_TIERS } from '@bittasker/wallet-core';
+	import { FEE_TIERS } from '$lib/utils/fees';
 	import { goto } from '$app/navigation';
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';

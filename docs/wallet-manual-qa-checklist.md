@@ -9,21 +9,21 @@
 ## Pre-Test Setup
 
 - [ ] Dev server running at `localhost:5173` (or `dev.bittasker.com`)
-- [ ] Test wallet has RBTC balance on RSK (>0.001 RBTC)
+- [ ] Test wallet has BTC balance on RGB (>0.001 BTC)
 - [ ] Test wallet has USDT0 balance on Arbitrum (>$1)
 - [ ] Test wallet has ETH on Arbitrum (>0.001 ETH) for gasless relay
 - [ ] Browser DevTools open (Console tab) — watch for errors throughout
 
 ---
 
-## 1. Send Flow — RBTC (RSK)
+## 1. Send Flow — BTC (RGB)
 
 Covers: BUG-001, BUG-002, BUG-004, MED-004, MED-007
 
 ### 1.1 Basic Send
 
 - [ ] Open wallet → click **Send**
-- [ ] Select RBTC as source
+- [ ] Select BTC as source
 - [ ] Enter amount (e.g., 1000 sats)
 - [ ] Enter recipient address
 - [ ] Click **Send** → verify confirmation dialog appears
@@ -125,13 +125,13 @@ Covers: BUG-001, BUG-002, UX-001, UX-002, UX-003, MED-001, MED-002, MED-003
 
 ---
 
-## 3. Send Flow — Swap Chain (RBTC → USDT0)
+## 3. Send Flow — Swap Chain (BTC → USDT0)
 
 Covers: BUG-003, BUG-002
 
 ### 3.1 Multi-Hop Swap
 
-- [ ] Select RBTC as source, USDT0 (Arbitrum) as destination
+- [ ] Select BTC as source, USDT0 (Arbitrum) as destination
 - [ ] Enter amount
 - [ ] **VERIFY:** Fee breakdown shows: amount, fee (sats + USD), and "You Receive" — *relates to MED-008*
 - [ ] Click **Send** → Confirm
@@ -141,19 +141,19 @@ Covers: BUG-003, BUG-002
 
 ### 3.2 Swap Form Fee Display
 
-- [ ] Select RBTC → USDT0 (Arbitrum) route
+- [ ] Select BTC → USDT0 (Arbitrum) route
 - [ ] Enter amount
 - [ ] **VERIFY:** "Total Sent" shows the actual swap amount (not double-subtracted)
 - [ ] **VERIFY:** "Fee" shows sats + USD equivalent
 - [ ] **VERIFY:** "You Receive" shows the estimated output
 - [ ] **VERIFY:** Gasless fee reserve notice shows correct amounts — *relates to MED-008*
 
-### 3.3 RSK Gas Reserve
+### 3.3 RGB Gas Reserve
 
-- [ ] Click **MAX** with RBTC source
+- [ ] Click **MAX** with BTC source
 - [ ] **VERIFY:** Max amount is less than full balance (gas reserved)
 - [ ] **VERIFY:** Remaining balance covers swap + gas
-- [ ] **VERIFY:** No "insufficient RBTC for gas" error on confirmation
+- [ ] **VERIFY:** No "insufficient BTC for gas" error on confirmation
 
 ---
 
@@ -165,17 +165,17 @@ Covers: GAP-004, MED-006
 
 - [ ] Open wallet → click **Receive**
 - [ ] Select USDT0 (Arbitrum) tab
-- [ ] **VERIFY:** Address is displayed (same as RSK address — `0x...` format)
+- [ ] **VERIFY:** Address is displayed (same as RGB address — `0x...` format)
 - [ ] **VERIFY:** QR code is shown
 - [ ] **VERIFY:** Copy button works (copies address to clipboard)
 - [ ] **VERIFY:** Address is a valid EVM address (`0x...`)
 
-### 4.2 RSK Receive QR
+### 4.2 RGB Receive QR
 
-- [ ] Select RSK/RBTC receive tab
+- [ ] Select RGB/BTC receive tab
 - [ ] **VERIFY:** QR code is shown
 - [ ] **VERIFY:** Address is displayed and copyable — *relates to MED-006*
-- [ ] If QR uses `rsk:` URI, note this may not be recognized by generic Ethereum wallets
+- [ ] If QR uses `rgb:` URI, note this may not be recognized by generic Ethereum wallets
 
 ### 4.3 Multi-Network Payer Sources
 
@@ -227,7 +227,7 @@ Run through all flows above with DevTools Console open. Note any errors:
 
 | Flow | Console Errors? | Details |
 |------|----------------|---------|
-| RBTC Send | | |
+| BTC Send | | |
 | USDT0 Gasless Send | | |
 | Swap Chain Send | | |
 | Receive Flow | | |
@@ -239,10 +239,10 @@ Run through all flows above with DevTools Console open. Note any errors:
 
 | # | Test | Pass | Fail | Notes |
 |---|------|------|------|-------|
-| 1.1 | Basic Send (RBTC) | | | |
-| 1.2 | Max Button (RBTC) | | | |
+| 1.1 | Basic Send (BTC) | | | |
+| 1.2 | Max Button (BTC) | | | |
 | 1.3 | Insufficient Balance | | | |
-| 1.4 | Error Handling (RBTC) | | | |
+| 1.4 | Error Handling (BTC) | | | |
 | 1.5 | QR Scan Confirmation | | | |
 | 2.1 | Basic Send (Gasless) | | | |
 | 2.2 | Max Button (Gasless) | | | |
@@ -252,9 +252,9 @@ Run through all flows above with DevTools Console open. Note any errors:
 | 2.6 | Error Message i18n | | | |
 | 3.1 | Multi-Hop Swap | | | |
 | 3.2 | Swap Form Fee Display | | | |
-| 3.3 | RSK Gas Reserve | | | |
+| 3.3 | RGB Gas Reserve | | | |
 | 4.1 | Basic Receive | | | |
-| 4.2 | RSK Receive QR | | | |
+| 4.2 | RGB Receive QR | | | |
 | 4.3 | Multi-Network Payer | | | |
 | 5.1 | Zero Amount | | | |
 | 5.2 | Network Disconnection | | | |

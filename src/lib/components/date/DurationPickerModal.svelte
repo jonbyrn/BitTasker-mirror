@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 
 	let {
@@ -15,9 +16,9 @@
 		onSelect?: (value: { days: number; hours: number; minutes: number }) => void;
 	} = $props();
 
-	let days = $state(value?.days ?? 0);
-	let hours = $state(value?.hours ?? 1);
-	let minutes = $state(value?.minutes ?? 0);
+	let days = $state(untrack(() => value?.days ?? 0));
+	let hours = $state(untrack(() => value?.hours ?? 1));
+	let minutes = $state(untrack(() => value?.minutes ?? 0));
 
 	// Re-sync when the caller opens the modal with a new value.
 	let lastOpen = false;

@@ -8,6 +8,9 @@
 	import { tick } from 'svelte';
 
 	const google = window.google as NonNullable<typeof window.google>;
+	const mapsDisabled =
+		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' ||
+		!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 	function getLocationPickerTranslation(key: string): string {
 		const servicesKey = `dashboard.services.create.location.location_picker.${key}`;
@@ -195,6 +198,11 @@
 	async function loadGoogleMapsScript() {
 		return new Promise<void>((resolve, reject) => {
 			try {
+				if (mapsDisabled) {
+					resolve();
+					return;
+				}
+
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
 					googleMapsReady = true;
@@ -344,6 +352,11 @@
 	}
 
 	onMount(async () => {
+		if (mapsDisabled) {
+			isLoading = false;
+			return;
+		}
+
 		try {
 			isLoading = true;
 			await loadGoogleMapsScript();
@@ -1025,7 +1038,11 @@
 				class="h-full w-full overflow-hidden rounded-lg"
 				style="height: {mapHeight}; min-height: {mapHeight};"
 			>
-				{#if !isMapLoaded}
+				{#if mapsDisabled}
+					<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+						{currentLocation.displayName || placeholder}
+					</div>
+				{:else if !isMapLoaded}
 					<div class="bg-base-200 flex h-full w-full items-center justify-center">
 						<span class="loading loading-spinner loading-lg"></span>
 					</div>
@@ -1033,7 +1050,8 @@
 			</div>
 
 			<!-- Custom Zoom Controls in lower left corner -->
-			<div class="absolute bottom-4 left-4 z-1 flex flex-col gap-2">
+			{#if !mapsDisabled}
+				<div class="absolute bottom-4 left-4 z-1 flex flex-col gap-2">
 				<button
 					onclick={zoomIn}
 					class="btn btn-square btn-secondary btn-sm shadow-md"
@@ -1068,11 +1086,12 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
 					</svg>
 				</button>
-			</div>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Service radius panel -->
-		{#if showServiceRadius}
+		{#if showServiceRadius && !mapsDisabled}
 			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
@@ -1097,7 +1116,7 @@
 		{/if}
 	</div>
 
-	{#if error}
+	{#if error && !mapsDisabled}
 		<div class="alert alert-error alert-outline mx-4 mt-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -1137,7 +1156,7 @@
 	{/if}
 
 	<!-- Retry button shown when map failed to load -->
-	{#if hasError && !isMapLoaded}
+	{#if hasError && !isMapLoaded && !mapsDisabled}
 		<div class="alert alert-warning alert-outline mx-4 mt-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

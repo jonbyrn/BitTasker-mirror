@@ -199,6 +199,10 @@ Extend existing visual regression tests.
 14. Accessibility tests
 15. Clean up legacy `src/lib/tests/e2e/` directory
 
+### E2E Contract Flow TODO
+- [ ] Default escrow settlement to 100% BTC-only during E2E testing (disable default RGB USDT split).
+- [ ] Add fallback `VITE_RGB_USDT_ASSET_ID` string check to prevent modal validation crashes.
+
 ## Auth Approach for Tests
 
 ### Public Routes (No Auth)

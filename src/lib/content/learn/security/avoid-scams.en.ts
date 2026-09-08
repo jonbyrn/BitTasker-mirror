@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker protect you from scams?',
-			body: "BitTasker mitigates common scam vectors through its architecture. Payments flow via Lightning Network to your connected wallet — BitTasker never custodies your funds or asks for your seed phrase. The platform uses Nostr identity, meaning there are no email/password credentials to phish. Smart contract escrow on Rootstock ensures that both parties fulfill their obligations before funds move. However, no platform can eliminate all risk. Always verify URLs, never share your seed phrase, and treat unsolicited DMs with suspicion. BitTasker's support will never ask for your private key or seed phrase."
+			body: "BitTasker mitigates common scam vectors through its architecture. Payments flow via Lightning Network to your connected wallet — BitTasker never custodies your funds or asks for your seed phrase. The platform uses Nostr identity, meaning there are no email/password credentials to phish. Smart contract escrow on RGB ensures that both parties fulfill their obligations before funds move. However, no platform can eliminate all risk. Always verify URLs, never share your seed phrase, and treat unsolicited DMs with suspicion. BitTasker's support will never ask for your private key or seed phrase."
 		}
 	],
 	faq: [

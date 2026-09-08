@@ -9,7 +9,7 @@ const HIRING_TAB_MAP: Record<string, string> = {
 	'service-requests': '/hiring/service-requests'
 };
 
-const EARNING_TABS = new Set(['bids', 'my-services', 'requests', 'saved-searches']);
+	const EARNING_TABS = new Set(['bids', 'my-services', 'requests', 'saved-searches']);
 
 export function load({ url }: { url: URL }) {
 	const rawTab = url.searchParams.get('tab');
@@ -20,7 +20,8 @@ export function load({ url }: { url: URL }) {
 
 	if (EARNING_TABS.has(rawTab)) {
 		const parsed = parseEarningQuery(url);
-		const targetUrl = new URL(`/earning/${parsed.tab}`, url.origin);
+		const targetTab = rawTab === 'saved-searches' ? 'alerts' : parsed.tab;
+		const targetUrl = new URL(`/earning/${targetTab}`, url.origin);
 
 		if (parsed.service) {
 			targetUrl.searchParams.set('service', parsed.service);

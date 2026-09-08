@@ -95,7 +95,7 @@ describe('RGB consignment exchange over Nostr DM', () => {
 			contractId: 'contract-1',
 			totalAmountUsd: 100,
 			split: {
-				primaryAsset: 'usdt_rgb',
+				primaryAsset: 'btc_onchain',
 				primaryPercentage: 100,
 				secondaryAsset: 'btc_lightning',
 				secondaryPercentage: 0
@@ -138,6 +138,35 @@ describe('RGB consignment exchange over Nostr DM', () => {
 		expect(rune.status).toBe('funded');
 
 		subscription.stop();
+	});
+
+	it('keeps escrow awaiting payment until the RGB transfer is witnessed', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-funding-state',
+			contractTitle: 'Fund a task',
+			totalAmountUsd: 100,
+			split: {
+				primaryAsset: 'btc_onchain',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			},
+			partyPubkeys: ['tasker-pubkey', 'taskee-pubkey']
+		});
+
+		const prepared = await rune.prepareFunding();
+		expect(prepared.status).toBe('funding');
+		expect(prepared.fundingState).toBe('awaiting_payment');
+		expect(rune.snapshot.status).not.toBe('funded');
+
+		const confirmed = await rune.confirmFunding();
+		expect(confirmed.status).toBe('funded');
+		expect(confirmed.fundingState).toBe('funded');
+		expect(mocks.witness).toHaveBeenCalledWith({
+			recipientId: sampleSeal.id,
+			contractId: 'contract-funding-state',
+			assetId: 'usdt_rgb'
+		});
 	});
 
 	it('ignores DMs for unknown contracts and malformed consignment payloads', async () => {

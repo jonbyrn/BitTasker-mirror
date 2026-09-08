@@ -11,7 +11,7 @@ export const content: LearnPageContent = {
 	sections: [
 		{
 			heading: '¿Qué es Liquid Network?',
-			body: 'Liquid Network es una sidechain federada de Bitcoin, lanzada en 2018 por Blockstream. Funciona como una blockchain separada conectada a Bitcoin a través de un peg bidireccional, donde BTC se bloquea en la cadena principal de Bitcoin y L-BTC se emite en Liquid. A diferencia de Rootstock o Stacks, Liquid se enfoca en velocidad de transacción, privacidad e emisión de activos en lugar de contratos inteligentes de propósito general. La red utiliza una federación de functionaries — un consorcio de entidades conocidas — para validar transacciones y gestionar el peg. Este modelo federado intercambia algo de descentralización por tiempos de bloque significativamente más rápidos (~2 minutos) y soporte de transacciones confidenciales.'
+			body: 'Liquid Network es una sidechain federada de Bitcoin, lanzada en 2018 por Blockstream. Funciona como una blockchain separada conectada a Bitcoin a través de un peg bidireccional, donde BTC se bloquea en la cadena principal de Bitcoin y L-BTC se emite en Liquid. A diferencia de RGB o Stacks, Liquid se enfoca en velocidad de transacción, privacidad e emisión de activos en lugar de contratos inteligentes de propósito general. La red utiliza una federación de functionaries — un consorcio de entidades conocidas — para validar transacciones y gestionar el peg. Este modelo federado intercambia algo de descentralización por tiempos de bloque significativamente más rápidos (~2 minutos) y soporte de transacciones confidenciales.'
 		},
 		{
 			heading: '¿Qué son las transacciones confidenciales?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Liquid Network vs otras Bitcoin Layer 2s',
-			body: 'Liquid toma un enfoque diferente que otras Bitcoin Layer 2s. Mientras Rootstock y Stacks se enfocan en contratos inteligentes de propósito general y DeFi, Liquid se especializa en transacciones rápidas y privadas y emisión de activos. Liquid usa un modelo federado (más rápido pero más centralizado) versus el merged mining de Rootstock o el Proof of Transfer de Stacks. Las transacciones confidenciales de Liquid son únicas — ninguna otra Bitcoin Layer 2 ofrece montos ocultos por defecto. El compromiso es que el modelo federado de Liquid requiere confiar en los functionaries, mientras que Rootstock y Stacks derivan seguridad más directamente del mecanismo de consenso de Bitcoin.'
+			body: 'Liquid toma un enfoque diferente que otras Bitcoin Layer 2s. Mientras RGB y Stacks se enfocan en contratos inteligentes de propósito general y DeFi, Liquid se especializa en transacciones rápidas y privadas y emisión de activos. Liquid usa un modelo federado (más rápido pero más centralizado) versus el merged mining de RGB o el Proof of Transfer de Stacks. Las transacciones confidenciales de Liquid son únicas — ninguna otra Bitcoin Layer 2 ofrece montos ocultos por defecto. El compromiso es que el modelo federado de Liquid requiere confiar en los functionaries, mientras que RGB y Stacks derivan seguridad más directamente del mecanismo de consenso de Bitcoin.'
 		}
 	],
 	faq: [
@@ -67,7 +67,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Liquid Network es descentralizado?',
 			answer:
-				'Liquid usa un modelo federado — un consorcio de entidades conocidas valida transacciones y gestiona el peg. Esto proporciona tiempos de bloque más rápidos y transacciones confidenciales pero es más centralizado que la red principal de Bitcoin o sidechains con merged mining como Rootstock. Los miembros de la federación son públicamente conocidos y auditables.'
+				'Liquid usa un modelo federado — un consorcio de entidades conocidas valida transacciones y gestiona el peg. Esto proporciona tiempos de bloque más rápidos y transacciones confidenciales pero es más centralizado que la red principal de Bitcoin o sidechains con merged mining como RGB. Los miembros de la federación son públicamente conocidos y auditables.'
 		},
 		{
 			question: '¿Qué tan rápidas son las transacciones de Liquid?',

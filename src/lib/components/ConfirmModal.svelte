@@ -36,7 +36,7 @@
 			<p class="py-4">{message}</p>
 			{#if children}
 				<div class="mb-4 min-w-0">
-					{@render children()}
+					{@render children?.()}
 				</div>
 			{/if}
 			<div class="modal-action">

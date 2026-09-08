@@ -309,6 +309,6 @@ Review comments are automatically translated using the `TranslationStore`.
 
 - [Merkle Tree Documentation](https://en.wikipedia.org/wiki/Merkle_tree)
 - [Nostr Protocol](https://nostr.com/)
-- [Rootstock Documentation](https://developers.rsk.co/)
+- [RGB Documentation](https://developers.rgb.co/)
 - [SDK README](../packages/merkle-review-sdk/README.md)
 

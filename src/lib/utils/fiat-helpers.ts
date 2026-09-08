@@ -8,8 +8,6 @@ import type { ChangellyOfferSuccess } from '$lib/services/fiat-ramp.service';
 /** Friendly display name for an asset (not a Changelly ticker). */
 export function friendlyAssetName(assetId: string): string {
 	switch (assetId) {
-		case 'rbtc':
-			return 'rBTC';
 		case 'usdt0-arb':
 			return 'USDT0 on Arbitrum';
 		case 'wbtc-arb':

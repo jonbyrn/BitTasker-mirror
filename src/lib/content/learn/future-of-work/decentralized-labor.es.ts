@@ -7,11 +7,11 @@ export const content: LearnPageContent = {
 			'Cómo Bitcoin y Nostr están habilitando una nueva economía donde los trabajadores poseen su identidad, pagos y reputación.'
 	},
 	answerBlock:
-		'El trabajo descentralizado es labor donde ninguna autoridad central controla tu identidad, pagos o reputación profesional. En lugar de depender de plataformas como Upwork o Fiverr para guardar tus ganancias y avalar tus habilidades, el trabajo descentralizado usa Bitcoin para pagos instantáneos entre pares y Nostr para una identidad portable y resistente a la censura. Los contratos inteligentes en sidechains de Bitcoin como Rootstock reemplazan el escrow tradicional con acuerdos sin confianza y auditables. El resultado es un mercado laboral global donde freelancers en El Salvador, Nigeria o Argentina pueden trabajar para cualquiera, cobrar en segundos y nunca perder su reputación por una prohibición de plataforma.',
+		'El trabajo descentralizado es labor donde ninguna autoridad central controla tu identidad, pagos o reputación profesional. En lugar de depender de plataformas como Upwork o Fiverr para guardar tus ganancias y avalar tus habilidades, el trabajo descentralizado usa Bitcoin para pagos instantáneos entre pares y Nostr para una identidad portable y resistente a la censura. Los contratos inteligentes en sidechains de Bitcoin como RGB reemplazan el escrow tradicional con acuerdos sin confianza y auditables. El resultado es un mercado laboral global donde freelancers en El Salvador, Nigeria o Argentina pueden trabajar para cualquiera, cobrar en segundos y nunca perder su reputación por una prohibición de plataforma.',
 	sections: [
 		{
 			heading: '¿Qué es el trabajo descentralizado?',
-			body: 'El trabajo descentralizado es freelancing sin un guardián central. En las plataformas tradicionales de gig, la empresa controla tu cuenta, guarda tu dinero en escrow, decide tu estructura de comisiones y puede prohibirte en cualquier momento. En un modelo descentralizado, los trabajadores usan claves criptográficas para identidad (Nostr), reciben pagos directamente a través de la Red Lightning de Bitcoin y participan en escrow basado en contratos inteligentes en sidechains como Rootstock. Ninguna entidad puede congelar tus ganancias, borrar tu reputación o sacarte del mercado.'
+			body: 'El trabajo descentralizado es freelancing sin un guardián central. En las plataformas tradicionales de gig, la empresa controla tu cuenta, guarda tu dinero en escrow, decide tu estructura de comisiones y puede prohibirte en cualquier momento. En un modelo descentralizado, los trabajadores usan claves criptográficas para identidad (Nostr), reciben pagos directamente a través de la Red Lightning de Bitcoin y participan en escrow basado en contratos inteligentes en sidechains como RGB. Ninguna entidad puede congelar tus ganancias, borrar tu reputación o sacarte del mercado.'
 		},
 		{
 			heading: '¿Cómo funciona la identidad descentralizada para freelancers?',
@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué es el escrow sin confianza y por qué importa?',
-			body: 'El escrow tradicional significa confiar en una plataforma para guardar tu dinero de manera justa. El escrow sin confianza usa contratos inteligentes en una sidechain de Bitcoin (como Rootstock) donde los fondos están bloqueados en código, no en la cuenta bancaria de una empresa. Tanto el freelancer como el cliente pueden verificar los términos del contrato en cadena. La resolución de disputas sigue reglas transparentes escritas en el contrato. Ninguna parte necesita confiar en BitTasker o en otra empresa — confían en código auditables. Esto elimina el riesgo de que una plataforma se incline arbitrariamente por una parte o retenga fondos durante una disputa.'
+			body: 'El escrow tradicional significa confiar en una plataforma para guardar tu dinero de manera justa. El escrow sin confianza usa contratos inteligentes en una sidechain de Bitcoin (como RGB) donde los fondos están bloqueados en código, no en la cuenta bancaria de una empresa. Tanto el freelancer como el cliente pueden verificar los términos del contrato en cadena. La resolución de disputas sigue reglas transparentes escritas en el contrato. Ninguna parte necesita confiar en BitTasker o en otra empresa — confían en código auditables. Esto elimina el riesgo de que una plataforma se incline arbitrariamente por una parte o retenga fondos durante una disputa.'
 		},
 		{
 			heading: '¿Cuáles son los beneficios del trabajo descentralizado?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo implementa BitTasker el trabajo descentralizado?',
-			body: 'BitTasker combina tres pilares del trabajo descentralizado en una sola plataforma. La identidad está construida sobre Nostr — tu clave pública es tu cuenta, y tu reputación está firmada criptográficamente y es portable. Los pagos funcionan con la Red Lightning de Bitcoin para una liquidación instantánea y de bajos costos. El escrow usa contratos inteligentes de Rootstock para acuerdos sin confianza y en cadena. BitTasker maneja la capa de experiencia de usuario — búsqueda de empleo, seguimiento de entregas, flujos de resolución de disputas — mientras mantiene la infraestructura subyacente descentralizada. El resultado es una plataforma que se siente tan fácil como Upwork pero te da la soberanía del trabajo entre pares.'
+			body: 'BitTasker combina tres pilares del trabajo descentralizado en una sola plataforma. La identidad está construida sobre Nostr — tu clave pública es tu cuenta, y tu reputación está firmada criptográficamente y es portable. Los pagos funcionan con la Red Lightning de Bitcoin para una liquidación instantánea y de bajos costos. El escrow usa contratos inteligentes de RGB para acuerdos sin confianza y en cadena. BitTasker maneja la capa de experiencia de usuario — búsqueda de empleo, seguimiento de entregas, flujos de resolución de disputas — mientras mantiene la infraestructura subyacente descentralizada. El resultado es una plataforma que se siente tan fácil como Upwork pero te da la soberanía del trabajo entre pares.'
 		}
 	],
 	faq: [
@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo funcionan las disputas sin una autoridad central?',
 			answer:
-				'BitTasker usa contratos inteligentes de Rootstock para el escrow. Cuando surge una disputa, ambas partes presentan evidencia dentro del flujo de trabajo de disputas de la plataforma. La resolución sigue reglas transparentes codificadas en el contrato inteligente. Los fondos nunca son retenidos por BitTasker — están bloqueados en el contrato hasta que ambas partes acuerden o el mecanismo de resolución del contrato resuelva el problema. Esto elimina el riesgo de parcialidad de la plataforma.'
+				'BitTasker usa contratos inteligentes de RGB para el escrow. Cuando surge una disputa, ambas partes presentan evidencia dentro del flujo de trabajo de disputas de la plataforma. La resolución sigue reglas transparentes codificadas en el contrato inteligente. Los fondos nunca son retenidos por BitTasker — están bloqueados en el contrato hasta que ambas partes acuerden o el mecanismo de resolución del contrato resuelva el problema. Esto elimina el riesgo de parcialidad de la plataforma.'
 		},
 		{
 			question: '¿Es legal el trabajo descentralizado?',
@@ -72,7 +72,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'Posee tu trabajo. Posee tu identidad. Cobra en Bitcoin.',
-		body: 'BitTasker es la plataforma de freelancing descentralizada construida con identidad Nostr, pagos Lightning en Bitcoin y contratos inteligentes de Rootstock. Sin guardianes, sin cuentas congeladas, sin pagos a 14 días. Tu reputación es tuya para siempre.',
+		body: 'BitTasker es la plataforma de freelancing descentralizada construida con identidad Nostr, pagos Lightning en Bitcoin y contratos inteligentes de RGB. Sin guardianes, sin cuentas congeladas, sin pagos a 14 días. Tu reputación es tuya para siempre.',
 		buttonText: 'Únete a BitTasker',
 		buttonHref: '/auth/signup'
 	}

@@ -7,6 +7,7 @@
 	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
 
 	const taskId = page.params.taskId;
+	const taskAuthor = $derived(page.url.searchParams.get('author') ?? undefined);
 
 	let { data }: { data: PageData } = $props();
 
@@ -66,7 +67,7 @@
 
 {#snippet View()}
 	<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-		<TaskDetailsView {taskId} />
+		<TaskDetailsView {taskId} author={taskAuthor} />
 	</div>
 {/snippet}
 
@@ -77,8 +78,8 @@
 	</div>
 {:else if $authState.isAuthenticated}
 	<ProtectedLayout>
-		{@render View()}
+		{@render View?.()}
 	</ProtectedLayout>
 {:else}
-	{@render View()}
+	{@render View?.()}
 {/if}

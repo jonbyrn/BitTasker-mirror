@@ -54,13 +54,13 @@ export interface NostrLoginArgs {
 	event: NostrEvent;
 	challenge: string;
 	deviceId: string;
-	authMethod: 'passkey';
+	authMethod: 'passkey' | 'nsec';
 	encryptedData: EncryptedData;
 	deviceName: string;
-	credentialId: string;
-	passkeyPubkey: string;
-	clientDataJSON: string;
-	attestationObject: string;
+	credentialId?: string;
+	passkeyPubkey?: string;
+	clientDataJSON?: string;
+	attestationObject?: string;
 	platform: string;
 	appVersion: string;
 	timezoneOffset?: number;

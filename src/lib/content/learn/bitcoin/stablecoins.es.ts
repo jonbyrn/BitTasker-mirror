@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Cómo BitTasker soporta pagos en stablecoins',
-			body: 'BitTasker acepta pagos en stablecoins junto con Bitcoin y Lightning, dando flexibilidad a freelancers y clientes en cómo transaccionan. Los clientes pueden fondar escrow en USDC u otros stablecoins compatibles, proporcionando predecibilidad de precio para presupuestos de proyectos. Los freelancers pueden elegir recibir pagos en stablecoins para evitar la volatilidad de Bitcoin, o en BTC para beneficiarse de potencial apreciación. Los contratos inteligentes de escrow en Rootstock soportan múltiples tipos de activo, significando que el mismo mecanismo de escrow sin necesidad de confianza funciona tanto si mantienes BTC, RBTC o stablecoins. Para freelancers en economías volátiles, la opción de recibir pagos en un activo anclado al dólar mientras aún se benefician de escrow basado en blockchain y liquidación instantánea es una combinación poderosa.'
+			body: 'BitTasker acepta pagos en stablecoins junto con Bitcoin y Lightning, dando flexibilidad a freelancers y clientes en cómo transaccionan. Los clientes pueden fondar escrow en USDC u otros stablecoins compatibles, proporcionando predecibilidad de precio para presupuestos de proyectos. Los freelancers pueden elegir recibir pagos en stablecoins para evitar la volatilidad de Bitcoin, o en BTC para beneficiarse de potencial apreciación. Los contratos inteligentes de escrow en RGB soportan múltiples tipos de activo, significando que el mismo mecanismo de escrow sin necesidad de confianza funciona tanto si mantienes BTC, BTC o stablecoins. Para freelancers en economías volátiles, la opción de recibir pagos en un activo anclado al dólar mientras aún se benefician de escrow basado en blockchain y liquidación instantánea es una combinación poderosa.'
 		}
 	],
 	faq: [
@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Los stablecoins tienen comisiones?',
 			answer:
-				'Las comisiones de transacción de stablecoins dependen de la red. Las transferencias de USDC en Ethereum cuestan $0.50-5+ en comisiones de gas. Las transferencias de USDT en Tron cuestan menos de $1. BitTasker usa Rootstock para contratos inteligentes, donde las comisiones de transacción son menores a $0.01. Típicamente no hay comisiones por recibir stablecoins, aunque convertir a moneda local puede involucrar comisiones de cambio.'
+				'Las comisiones de transacción de stablecoins dependen de la red. Las transferencias de USDC en Ethereum cuestan $0.50-5+ en comisiones de gas. Las transferencias de USDT en Tron cuestan menos de $1. BitTasker usa RGB para contratos inteligentes, donde las comisiones de transacción son menores a $0.01. Típicamente no hay comisiones por recibir stablecoins, aunque convertir a moneda local puede involucrar comisiones de cambio.'
 		},
 		{
 			question: '¿Cuál es el mejor stablecoin para freelancers?',

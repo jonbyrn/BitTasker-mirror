@@ -117,6 +117,7 @@
 			</button>
 			<button
 				class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
+				data-testid="remote-task-btn"
 				onclick={() => {
 					const defaultLocation = {
 						displayName: '',

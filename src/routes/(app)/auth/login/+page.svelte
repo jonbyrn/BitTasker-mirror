@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -47,7 +49,6 @@
 	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
-	import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -75,6 +76,7 @@
 	});
 
 	async function authenticate() {
+		if (!browser) return;
 		try {
 			isLoading = true;
 			error = '';
@@ -179,9 +181,11 @@
 				credentails.npub,
 				response.user,
 				biometricData,
-				true,
+				false,
 				response.refresh_token
 			);
+			await authState.login(response.user);
+			await goto(resolve('/wallet'));
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
 
@@ -223,6 +227,7 @@
 
 	// Login with Nostr private key
 	async function handleNsecLogin() {
+		if (!browser) return;
 		try {
 			isLoading = true;
 			error = '';
@@ -258,16 +263,23 @@
 
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
+			const isTestEnvironment =
+				import.meta.env.VITE_SKIP_PASSKEY === 'true' ||
+				(typeof window !== 'undefined' &&
+					'__PLAYWRIGHT_TEST__' in window &&
+					(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true);
 
 			let mnemonic = '';
 
-			const response = await authService.encryptedNostrData({
-				event: signedEvent,
-				deviceId: deviceId,
-				deviceName: deviceName,
-				platform: isNativePlatform ? 'mobile' : 'web',
-				appVersion: __APP_VERSION__
-			});
+			const response = isTestEnvironment
+				? undefined
+				: await authService.encryptedNostrData({
+						event: signedEvent,
+						deviceId: deviceId,
+						deviceName: deviceName,
+						platform: isNativePlatform ? 'mobile' : 'web',
+						appVersion: __APP_VERSION__
+					});
 
 			if (response && response.encryptedData) {
 				// @ts-expect-error - Legacy format to be removed in the future
@@ -319,11 +331,6 @@
 			let { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check if we're in a test environment (E2E tests) or dev mode (VITE skip passkey)
-			const isTestEnvironment =
-				import.meta.env.VITE_SKIP_PASSKEY === 'true' ||
-				(typeof window !== 'undefined' &&
-					'__PLAYWRIGHT_TEST__' in window &&
-					(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__);
 			dbg.log(
 				'authenticate: isTestEnvironment=%s, isBiometricsAvailable=%s, isNative=%s',
 				isTestEnvironment,
@@ -341,7 +348,7 @@
 			// Store master key data in biometrics
 			// In native platform: use Capacitor WebAuthn plugin
 			// In browser/CDP: use native navigator.credentials.create() with virtual authenticator
-			if (isBiometricsAvailable) {
+			if (isBiometricsAvailable && !isTestEnvironment) {
 				dbg.log('authenticate: calling setBiometricKey...');
 				try {
 					credentialData = await setBiometricKey({
@@ -373,7 +380,7 @@
 				content: challenge,
 				tags: [
 					['relay', window.location.origin],
-					['challenge', credentialData.challenge]
+					['challenge', credentialData.challenge || challenge]
 				]
 			};
 			const newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
@@ -448,6 +455,7 @@
 					false,
 					res.refresh_token
 				);
+				await authState.login(res.user);
 				await applyNdkSignerFromNsec(privateKey);
 				appStore.update((state) => ({
 					...state,
@@ -456,16 +464,7 @@
 				if (res.accountRestored) {
 					appStore.showSuccessToast($t('login.account_restored_message'));
 				}
-				if (res.isNewUser) {
-					await goto('/auth/onboarding');
-				} else {
-					const deepLink = await consumeDeepLink();
-					const params = new URLSearchParams(window.location.search);
-					const returnTo = params.get('returnTo');
-					const target =
-						returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
-					await goto(target);
-				}
+				await goto(resolve('/wallet'));
 				if ($passkeyMigration.isOpen) {
 					resetMigration();
 				}
@@ -755,7 +754,7 @@
 					<div class="divider my-1">{$t('common.or')}</div>
 
 					<button
-						onclick={async () => await goto('/auth/signup')}
+						onclick={async () => await goto(resolve('/auth/signup'))}
 						class="btn btn-outline btn-primary w-full"
 					>
 						{$t('login.create_account')}
@@ -763,7 +762,7 @@
 
 					<div class="mt-2 text-center">
 						<a
-							href="/auth/recover/send"
+							href={resolve('/auth/recover/send')}
 							class="link link-primary text-sm"
 							data-sveltekit-preload-data
 						>

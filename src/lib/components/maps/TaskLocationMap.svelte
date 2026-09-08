@@ -58,6 +58,10 @@
 		loadDrawerComponents?: () => Promise<void>;
 	}>();
 
+	const mapsDisabled =
+		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' ||
+		!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
 	const isServicesMode = $derived(services?.length > 0);
 
 	function translateMapText(primaryKey: string, secondaryKey: string, fallback: string): string {
@@ -1973,6 +1977,11 @@
 	});
 
 	onMount(async () => {
+		if (mapsDisabled) {
+			isLoading = false;
+			return;
+		}
+
 		try {
 			// Load Google Maps script (don't auto-request user location — let them
 			// tap "My location" button instead, per Google Play policy compliance)
@@ -2037,7 +2046,15 @@
 
 <div bind:this={mapContainerDiv} class="task-location-map relative w-full">
 	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
-		{#if isLoading}
+		{#if mapsDisabled}
+			<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+				{translateMapText(
+					'dashboard.bids.components.maps.task_location_map.map_unavailable',
+					'common.task.location_viewer.map_unavailable',
+					'Map unavailable'
+				)}
+			</div>
+		{:else if isLoading}
 			<div class="bg-base-200 flex h-full w-full items-center justify-center">
 				<div class="text-center">
 					<span class="loading loading-spinner loading-lg mb-2"></span>

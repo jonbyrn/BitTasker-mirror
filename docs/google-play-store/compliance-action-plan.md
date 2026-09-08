@@ -134,8 +134,8 @@ This form **must be completed before any app update can be published**. As of Oc
 | Feature Category                                             | Declare? | Reasoning                                                                                          |
 | ------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------- |
 | Payments and transfers → Mobile payments and digital wallets | **Yes**  | Bitcoin payments flow between Taskers and Taskees through the in-app wallet                        |
-| Trading and funds → Cryptocurrency wallet                    | **Yes**  | App includes a multi-network Bitcoin wallet (Lightning, Rootstock, Liquid, BSC)                    |
-| Trading and funds → Cryptocurrency exchange                  | **No**   | BitTasker does not operate as an exchange; Boltz swaps are user-initiated non-custodial operations |
+| Trading and funds → Cryptocurrency wallet                    | **Yes**  | App includes a multi-network Bitcoin wallet (Lightning, RGB, Liquid, BSC)                    |
+| Trading and funds → Cryptocurrency exchange                  | **No**   | BitTasker does not operate as an exchange; RGB swaps are user-initiated non-custodial operations |
 | Banking and loans                                            | **No**   | Not applicable                                                                                     |
 | All other categories                                         | **No**   | Not applicable                                                                                     |
 
@@ -372,7 +372,7 @@ See the corrected Blocker 1 section above. No action needed.
 
 **Current state:** The full description and short description for the Play Store listing have not yet been written (see Section 5 checklist). When written, they must clearly state:
 
-- BitTasker is a gig economy marketplace where payments are made in **Bitcoin** (Lightning, Rootstock, Liquid) or stablecoin (USDT)
+- BitTasker is a gig economy marketplace where payments are made in **Bitcoin** (Lightning, RGB, Liquid) or stablecoin (USDT)
 - The app includes a **self-custody (non-custodial) Bitcoin wallet**
 - Users control their own keys
 
@@ -541,7 +541,7 @@ BitTasker's wallet uses a **server-encrypted key storage** model:
 
 #### Escrow Smart Contracts
 
-BitTasker uses on-chain escrow smart contracts (deployed on Rootstock/RSK) to hold task payments during execution. This is **blockchain-side self-custody** — the smart contract code (not BitTasker's servers) holds the funds according to immutable rules. This is not company custody and does not change the non-custodial classification.
+BitTasker uses on-chain escrow smart contracts (deployed on RGB/RGB) to hold task payments during execution. This is **blockchain-side self-custody** — the smart contract code (not BitTasker's servers) holds the funds according to immutable rules. This is not company custody and does not change the non-custodial classification.
 
 #### Actions Required
 

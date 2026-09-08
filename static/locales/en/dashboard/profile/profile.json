@@ -214,6 +214,7 @@
 	},
 	"stats": {
 		"tasksCompleted": "Tasks Completed",
+		"contractsCompleted": "Contracts Completed",
 		"activeServices": "Active Services",
 		"rating": "Rating",
 		"responseRate": "Response Rate",

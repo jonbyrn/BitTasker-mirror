@@ -1,6 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render } from '@testing-library/svelte';
+import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
+
+const { runeConstructorArgs, runeFund } = vi.hoisted(() => ({
+	runeConstructorArgs: { current: null as unknown },
+	runeFund: vi.fn().mockResolvedValue({ status: 'funded' })
+}));
+
+vi.mock('$lib/runes/contract.svelte', () => ({
+	ContractRune: class {
+		constructor(input: unknown) {
+			runeConstructorArgs.current = input;
+		}
+
+		async fund() {
+			return runeFund();
+		}
+	}
+}));
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -79,6 +96,36 @@ vi.mock('svelte-i18n', async () => {
 });
 
 describe('ServiceInstantBuyModal', () => {
+	it('creates an RGB contract with service title and proposal scope', async () => {
+		const onConfirm = vi.fn();
+		const { getByTestId, getByText } = render(ServiceInstantBuyModal, {
+			open: true,
+			serviceTitle: 'Brand Identity Sprint',
+			providerPubkey: 'a'.repeat(64),
+			amountUsd: 250,
+			agreementSnapshot: {
+				deliverables: 'Logo system and social avatar pack.',
+				priceSnapshotLabel: '$250.00'
+			},
+			walletConnected: true,
+			walletVerificationStatus: 'ready',
+			canConfirm: true,
+			onConfirm
+		});
+
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await fireEvent.click(getByText('dashboard.services.detail.book_now_confirm_modal.confirm'));
+
+		await waitFor(() => expect(runeFund).toHaveBeenCalledTimes(1));
+		expect(runeConstructorArgs.current).toMatchObject({
+			contractTitle: 'Brand Identity Sprint',
+			bidderComments: 'Logo system and social avatar pack.',
+			totalAmountUsd: 256.75,
+			partyPubkeys: ['a'.repeat(64)]
+		});
+		expect(onConfirm).toHaveBeenCalledTimes(1);
+	});
+
 	it('renders the purchase summary when open', () => {
 		const { getByText, getByTestId } = render(ServiceInstantBuyModal, {
 			open: true,

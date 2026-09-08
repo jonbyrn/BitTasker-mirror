@@ -38,6 +38,7 @@ static/robots.txt
 
 # Test authentication state (contains session data)
 tests/e2e/.auth/
+tests/e2e/auth/
 *.auth.json
 
 # Test artifacts (regenerate locally as needed)

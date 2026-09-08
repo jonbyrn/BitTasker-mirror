@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Cómo cobrar, plataformas de trabajo, escrow y nómina — todo sobre freelancing con Bitcoin.'
 	},
 	answerBlock:
-		'El freelancing con Bitcoin te permite ganar, mantener y gastar Bitcoin por tu trabajo — sin depender de bancos tradicionales, procesadores de pagos o plataformas centralizadas. Cobras instantáneamente vía Red Lightning, tu identidad es un par de claves Nostr que posees, y el escrow es enforced por contratos inteligentes auditables en Rootstock. Esta guía cubre el panorama completo: cómo cobrar en Bitcoin, las mejores plataformas de trabajo cripto, cómo funciona el escrow sin confianza y cómo la nómina en cripto está transformando la contratación global. Ya seas desarrollador, diseñador, escritor o proveedor de servicios locales, la economía de Bitcoin tiene trabajo para ti.',
+		'El freelancing con Bitcoin te permite ganar, mantener y gastar Bitcoin por tu trabajo — sin depender de bancos tradicionales, procesadores de pagos o plataformas centralizadas. Cobras instantáneamente vía Red Lightning, tu identidad es un par de claves Nostr que posees, y el escrow es enforced por contratos inteligentes auditables en RGB. Esta guía cubre el panorama completo: cómo cobrar en Bitcoin, las mejores plataformas de trabajo cripto, cómo funciona el escrow sin confianza y cómo la nómina en cripto está transformando la contratación global. Ya seas desarrollador, diseñador, escritor o proveedor de servicios locales, la economía de Bitcoin tiene trabajo para ti.',
 	sections: [
 		{
 			heading: '¿Cómo cobran los freelancers en Bitcoin?',
@@ -15,11 +15,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Mejores plataformas de trabajo Bitcoin en 2026',
-			body: 'El ecosistema de freelancing con Bitcoin incluye varias plataformas. BitTasker se enfoca en el mercado latinoamericano con identidad Nostr, escrow de Rootstock y pagos por Lightning — cobrando 5% con recompensas escalonadas de lealtad. LaborX ofrece un mercado amplio para trabajos que pagan en Bitcoin en desarrollo, diseño y trabajo creativo. CryptoJobsList agrega ofertas remotas de trabajo cripto. AngelList aloja roles de startups que a veces pagan en Bitcoin. Bitwage te permite recibir cualquier salario en Bitcoin, incluso de empleadores tradicionales. Para la mejor combinación de comisiones bajas, pagos rápidos e identidad descentralizada, BitTasker está diseñado específicamente para freelancing con Bitcoin. Nuestra guía de trabajos Bitcoin compara cada plataforma en detalle.'
+			body: 'El ecosistema de freelancing con Bitcoin incluye varias plataformas. BitTasker se enfoca en el mercado latinoamericano con identidad Nostr, escrow de RGB y pagos por Lightning — cobrando 5% con recompensas escalonadas de lealtad. LaborX ofrece un mercado amplio para trabajos que pagan en Bitcoin en desarrollo, diseño y trabajo creativo. CryptoJobsList agrega ofertas remotas de trabajo cripto. AngelList aloja roles de startups que a veces pagan en Bitcoin. Bitwage te permite recibir cualquier salario en Bitcoin, incluso de empleadores tradicionales. Para la mejor combinación de comisiones bajas, pagos rápidos e identidad descentralizada, BitTasker está diseñado específicamente para freelancing con Bitcoin. Nuestra guía de trabajos Bitcoin compara cada plataforma en detalle.'
 		},
 		{
 			heading: 'Cómo funciona el escrow con Bitcoin para freelancers',
-			body: 'El escrow con Bitcoin protege tanto a freelancers como a clientes bloqueando fondos en un contrato inteligente hasta que el trabajo sea completado y aprobado. En BitTasker, el escrow usa contratos inteligentes de Rootstock minados junto con Bitcoin para seguridad. Cuando un cliente financia un proyecto, el pago va a un contrato inteligente — no a la cuenta bancaria de BitTasker. El contrato aplica los términos acordados: los fondos se liberan cuando se aprueban los hitos, o regresan al cliente si el proyecto se cancela. Las disputas siguen reglas transparentes de resolución codificadas en el contrato. Ninguna entidad — incluyendo BitTasker — puede mover los fondos unilateralmente. Esto es fundamentalmente diferente del escrow tradicional de plataformas, donde la empresa controla el dinero. Nuestra guía de escrow con Bitcoin explica cada aspecto del mecanismo.'
+			body: 'El escrow con Bitcoin protege tanto a freelancers como a clientes bloqueando fondos en un contrato inteligente hasta que el trabajo sea completado y aprobado. En BitTasker, el escrow usa contratos inteligentes de RGB minados junto con Bitcoin para seguridad. Cuando un cliente financia un proyecto, el pago va a un contrato inteligente — no a la cuenta bancaria de BitTasker. El contrato aplica los términos acordados: los fondos se liberan cuando se aprueban los hitos, o regresan al cliente si el proyecto se cancela. Las disputas siguen reglas transparentes de resolución codificadas en el contrato. Ninguna entidad — incluyendo BitTasker — puede mover los fondos unilateralmente. Esto es fundamentalmente diferente del escrow tradicional de plataformas, donde la empresa controla el dinero. Nuestra guía de escrow con Bitcoin explica cada aspecto del mecanismo.'
 		},
 		{
 			heading: 'Nómina en cripto: cómo pagan las empresas a sus equipos en Bitcoin',
@@ -53,7 +53,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo protejo mis ganancias en Bitcoin?',
 			answer:
-				'Usa un enfoque de dos billeteras: una billetera móvil Lightning para recibir pagos, y una wallet hardware (Coldcard, Trezor) para ahorros a largo plazo. Respalda tu seed phrase en acero. Nunca compartas tus claves privadas. Para seguridad en plataformas, BitTasker usa escrow de Rootstock — tus fondos están bloqueados en contratos inteligentes, no en cuentas bancarias de la empresa.'
+				'Usa un enfoque de dos billeteras: una billetera móvil Lightning para recibir pagos, y una wallet hardware (Coldcard, Trezor) para ahorros a largo plazo. Respalda tu seed phrase en acero. Nunca compartas tus claves privadas. Para seguridad en plataformas, BitTasker usa escrow de RGB — tus fondos están bloqueados en contratos inteligentes, no en cuentas bancarias de la empresa.'
 		},
 		{
 			question: '¿Qué pasa si el precio de Bitcoin cae?',
@@ -68,7 +68,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo me protege el escrow como freelancer?',
 			answer:
-				'BitTasker usa contratos inteligentes de Rootstock para escrow. Tu pago está bloqueado en código hasta que el cliente apruebe el trabajo. Ni el cliente, ni BitTasker, ni ningún tercero pueden mover los fondos unilateralmente. Las disputas siguen reglas de resolución transparentes en cadena.'
+				'BitTasker usa contratos inteligentes de RGB para escrow. Tu pago está bloqueado en código hasta que el cliente apruebe el trabajo. Ni el cliente, ni BitTasker, ni ningún tercero pueden mover los fondos unilateralmente. Las disputas siguen reglas de resolución transparentes en cadena.'
 		}
 	],
 	bitTaskerCta: {

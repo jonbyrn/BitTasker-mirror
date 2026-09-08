@@ -3,22 +3,42 @@ import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
-import type { ContractPaymentAsset, PaymentSplitConfig } from '$lib/types/rgb-contract';
+import {
+	type ContractPaymentAsset,
+	type PaymentSplitConfig,
+	getConfiguredRgbUsdtAssetId
+} from '$lib/types/rgb-contract';
 import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-exchange';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
+import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 export type ContractRuneStatus =
 	| 'draft'
 	| 'funding'
 	| 'funded'
+	| 'work_in_progress'
+	| 'work_submitted'
 	| 'releasing'
 	| 'released'
+	| 'cancelling'
+	| 'cancelled'
 	| 'disputed'
+	| 'failed';
+
+export type ContractFundingState =
+	| 'idle'
+	| 'checking_wallet'
+	| 'creating_request'
+	| 'awaiting_payment'
+	| 'verifying_transfer'
+	| 'funded'
 	| 'failed';
 
 export interface ContractRuneInput {
 	contractId: string;
+	contractTitle?: string;
+	bidderComments?: string;
 	totalAmountUsd: number;
 	split: PaymentSplitConfig;
 	partyPubkeys?: string[];
@@ -26,20 +46,19 @@ export interface ContractRuneInput {
 
 export interface ContractRuneSnapshot {
 	contractId: string;
+	contractTitle?: string;
+	bidderComments?: string;
+	totalAmountUsd: number;
 	status: ContractRuneStatus;
+	fundingState: ContractFundingState;
+	fundingInvoice?: string;
 	seals: readonly RgbSeal[];
 	split: PaymentSplitConfig;
 	lastAttestationId?: string;
 	error?: string;
 }
 
-const RELAYS = (import.meta.env.VITE_NOSTR_RELAY_URL ?? '')
-	.split(',')
-	.map((relay: string) => relay.trim())
-	.filter(Boolean)
-	.map((relay: string) =>
-		relay.startsWith('ws://') || relay.startsWith('wss://') ? relay : `wss://${relay}`
-	);
+const RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
 
 function assertPercentage(value: number, name: string): void {
 	if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -65,11 +84,26 @@ function assetAmount(
 	return Math.round(amountUsd * 100_000_000);
 }
 
+function isE2ERun(): boolean {
+	return import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+}
+
+function resolveAssetId(asset: ContractPaymentAsset): string {
+	if (asset !== 'usdt_rgb') return asset;
+	if (isE2ERun()) {
+		return import.meta.env.VITE_RGB_USDT_ASSET_ID ?? 'rgb:mock_e2e_usdt_asset_id';
+	}
+	return getConfiguredRgbUsdtAssetId();
+}
+
 async function publishAttestation(
 	contractId: string,
 	status: ContractRuneStatus,
 	seals: readonly RgbSeal[],
-	partyPubkeys: readonly string[]
+	partyPubkeys: readonly string[],
+	snapshot: ContractRuneSnapshot,
+	message?: string,
+	proofUrl?: string
 ): Promise<NostrEvent> {
 	const event = await getSignedEvent({
 		kind: KINDS.CONTRACT_STATUS,
@@ -77,12 +111,30 @@ async function publishAttestation(
 			type: 'contract-status',
 			contractId,
 			status,
-			seals: seals.map((seal) => ({ id: seal.id, assetId: seal.assetId, amount: seal.amount }))
+			contractTitle: snapshot.contractTitle,
+			bidderComments: snapshot.bidderComments,
+			totalAmountUsd: snapshot.totalAmountUsd,
+			split: snapshot.split,
+			seals: seals.map((seal) => ({
+				id: seal.id,
+				contractId: seal.contractId,
+				assetId: seal.assetId,
+				amount: seal.amount,
+				state: seal.state,
+				utxo: seal.utxo,
+				contractTitle: seal.contractTitle,
+				bidderComments: seal.bidderComments,
+				createdAt: seal.createdAt,
+				updatedAt: seal.updatedAt
+			})),
+			message,
+			proofUrl
 		}),
 		tags: [
 			['m', 'contract-status'],
 			['r', contractId],
 			['s', status],
+			...(proofUrl ? [['proof_url', proofUrl]] : []),
 			...partyPubkeys.map((pubkey) => ['p', pubkey])
 		]
 	});
@@ -96,11 +148,14 @@ async function publishAttestation(
 export class ContractRune {
 	private static readonly registry = new SvelteMap<string, ContractRune>();
 	readonly contractId: string;
+	readonly contractTitle?: string;
+	readonly bidderComments?: string;
 	readonly totalAmountUsd: number;
 	readonly split: PaymentSplitConfig;
 	readonly partyPubkeys: readonly string[];
 
 	status = $state<ContractRuneStatus>('draft');
+	fundingState = $state<ContractFundingState>('idle');
 	seals = $state<RgbSeal[]>([]);
 	isBusy = $state(false);
 	error = $state<string | null>(null);
@@ -113,6 +168,8 @@ export class ContractRune {
 		}
 		validateSplit(input.split);
 		this.contractId = input.contractId;
+		this.contractTitle = input.contractTitle;
+		this.bidderComments = input.bidderComments;
 		this.totalAmountUsd = input.totalAmountUsd;
 		this.split = input.split;
 		this.partyPubkeys = input.partyPubkeys ?? [];
@@ -140,7 +197,12 @@ export class ContractRune {
 	get snapshot(): ContractRuneSnapshot {
 		return {
 			contractId: this.contractId,
+			contractTitle: this.contractTitle,
+			bidderComments: this.bidderComments,
+			totalAmountUsd: this.totalAmountUsd,
 			status: this.status,
+			fundingState: this.fundingState,
+			fundingInvoice: this.seals.find((seal) => seal.invoice)?.invoice,
 			seals: this.seals,
 			split: this.split,
 			lastAttestationId: this.lastAttestationId ?? undefined,
@@ -148,14 +210,39 @@ export class ContractRune {
 		};
 	}
 
-	async fund(): Promise<ContractRuneSnapshot> {
+	async fundForE2E(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'draft' && this.status !== 'failed') {
+			throw new Error(`Cannot fund contract from ${this.status} state`);
+		}
+		const amount = Math.max(1, Math.round(this.totalAmountUsd * 100));
+		this.status = 'funding';
+		this.fundingState = 'creating_request';
+		this.seals = [
+			{
+				id: `e2e-seal-${this.contractId}`,
+				contractId: this.contractId,
+				contractTitle: this.contractTitle,
+				bidderComments: this.bidderComments,
+				assetId: resolveAssetId(this.split.primaryAsset),
+				amount
+			}
+		];
+		this.status = 'funded';
+		this.fundingState = 'funded';
+		await this.attest('funded');
+		return this.snapshot;
+	}
+
+	async prepareFunding(): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'draft' && this.status !== 'failed') {
 			throw new Error(`Cannot fund contract from ${this.status} state`);
 		}
 		return this.runTransition('funding', async () => {
+			this.fundingState = 'checking_wallet';
 			const wallet = state.utexoWallet;
 			if (!wallet) throw new Error('RGB wallet is not initialized');
 			const queue = await getBrowserRgbCommandQueue(wallet);
+			this.fundingState = 'creating_request';
 			const splitEntries = [
 				{ asset: this.split.primaryAsset, percentage: this.split.primaryPercentage },
 				{ asset: this.split.secondaryAsset, percentage: this.split.secondaryPercentage }
@@ -164,55 +251,190 @@ export class ContractRune {
 			for (const entry of splitEntries) {
 				const result = await queue.commit({
 					contractId: this.contractId as RgbSeal['contractId'],
-					assetId: entry.asset,
+					contractTitle: this.contractTitle,
+					bidderComments: this.bidderComments,
+					assetId: resolveAssetId(entry.asset),
 					amount: assetAmount(this.totalAmountUsd, entry.percentage, entry.asset)
 				});
 				if (!result.ok || !result.value) throw new Error(result.error ?? 'Escrow funding failed');
 				fundedSeals.push(result.value);
 			}
 			this.seals = fundedSeals;
-			this.status = 'funded';
-			await this.attest('funded');
+			this.fundingState = 'awaiting_payment';
+			await this.attest('funding', 'Funding request created');
 			return this.snapshot;
 		});
 	}
 
-	async release(): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded')
-			throw new Error(`Cannot release contract from ${this.status} state`);
-		return this.runTransition('releasing', async () => {
+	async fund(): Promise<ContractRuneSnapshot> {
+		const prepared = await this.prepareFunding();
+		return this.confirmFundingFromPrepared(prepared);
+	}
+
+	async confirmFunding(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funding') {
+			throw new Error(`Cannot verify funding from ${this.status} state`);
+		}
+		return this.confirmFundingFromPrepared(this.snapshot);
+	}
+
+	private async confirmFundingFromPrepared(
+		prepared: ContractRuneSnapshot
+	): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funding') return prepared;
+		if (this.isBusy) throw new Error('Contract transition already in progress');
+		this.isBusy = true;
+		this.error = null;
+		try {
+			this.fundingState = 'verifying_transfer';
 			const wallet = state.utexoWallet;
 			if (!wallet) throw new Error('RGB wallet is not initialized');
 			const queue = await getBrowserRgbCommandQueue(wallet);
+			const witnessedSeals: RgbSeal[] = [];
 			for (const seal of this.seals) {
-				const result = await queue.spend({
-					recipientId: seal.id as SealId,
+				const result = await queue.witness({
+					recipientId: seal.id,
 					contractId: this.contractId as RgbSeal['contractId'],
 					assetId: seal.assetId
 				});
-				if (!result.ok) throw new Error(result.error ?? 'Escrow release failed');
+				if (!result.ok || !result.value) {
+					this.fundingState = 'awaiting_payment';
+					throw new Error(result.error ?? 'Payment has not been detected yet');
+				}
+				witnessedSeals.push({ ...seal, ...result.value });
 			}
+			this.seals = witnessedSeals;
+			this.status = 'funded';
+			this.fundingState = 'funded';
+			await this.attest('funded', 'Escrow payment verified');
+			return this.snapshot;
+		} catch (error) {
+			this.fundingState = 'awaiting_payment';
+			this.error = error instanceof Error ? error.message : String(error);
+			throw error;
+		} finally {
+			this.isBusy = false;
+		}
+	}
+
+	async startWork(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funded') {
+			throw new Error(`Cannot start contract from ${this.status} state`);
+		}
+		this.status = 'work_in_progress';
+		await this.attest('work_in_progress');
+		return this.snapshot;
+	}
+
+	async submitWork(message: string, proofUrl?: string): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funded' && this.status !== 'work_in_progress') {
+			throw new Error(`Cannot submit work from ${this.status} state`);
+		}
+		this.status = 'work_submitted';
+		this.error = null;
+		await this.attest('work_submitted', message, proofUrl);
+		return this.snapshot;
+	}
+
+	private async sendToInvoice(invoice: string): Promise<void> {
+		const normalizedInvoice = invoice.trim();
+		if (!normalizedInvoice.startsWith('rgb1')) {
+			throw new Error('Recipient RGB invoice must start with rgb1.');
+		}
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('RGB wallet is not initialized');
+
+		for (const seal of this.seals) {
+			let decoded: Awaited<ReturnType<typeof wallet.decodeRGBInvoice>>;
+			try {
+				decoded = await wallet.decodeRGBInvoice({ invoice: normalizedInvoice });
+			} catch (error) {
+				throw new Error(
+					`Recipient RGB invoice could not be decoded: ${
+						error instanceof Error ? error.message : String(error)
+					}`
+				);
+			}
+			if (decoded.assetId !== seal.assetId) {
+				throw new Error(
+					`Recipient RGB invoice asset ${decoded.assetId} does not match escrow asset ${seal.assetId}.`
+				);
+			}
+			try {
+				await wallet.onchainSend({
+					invoice: normalizedInvoice,
+					assetId: seal.assetId,
+					amount: seal.amount
+				});
+			} catch (error) {
+				throw new Error(
+					`RGB transfer to recipient invoice failed: ${
+						error instanceof Error ? error.message : String(error)
+					}`
+				);
+			}
+		}
+	}
+
+	async release(invoice: string): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funded' && this.status !== 'work_submitted') {
+			throw new Error(`Cannot release contract from ${this.status} state`);
+		}
+		return this.runTransition('releasing', async () => {
+			await this.sendToInvoice(invoice);
 			this.status = 'released';
 			await this.attest('released');
 			return this.snapshot;
 		});
 	}
 
+	async releaseRgbEscrow(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'work_submitted') {
+			throw new Error(`Cannot release contract from ${this.status} state`);
+		}
+		return this.runTransition('releasing', async () => {
+			if (!isE2ERun()) {
+				const wallet = state.utexoWallet;
+				if (!wallet) throw new Error('RGB wallet is not initialized');
+				const queue = await getBrowserRgbCommandQueue(wallet);
+				for (const seal of this.seals) {
+					const result = await queue.spend({
+						recipientId: seal.id as SealId,
+						contractId: this.contractId as RgbSeal['contractId'],
+						assetId: seal.assetId
+					});
+					if (!result.ok) throw new Error(result.error ?? 'RGB escrow release failed');
+				}
+			}
+			this.status = 'released';
+			await this.attest('released', 'Funds released');
+			return this.snapshot;
+		});
+	}
+
+	async cancel(invoice: string): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'funded') {
+			throw new Error(`Cannot cancel contract from ${this.status} state`);
+		}
+		return this.runTransition('cancelling', async () => {
+			await this.sendToInvoice(invoice);
+			this.status = 'cancelled';
+			await this.attest('cancelled');
+			return this.snapshot;
+		});
+	}
+
 	async dispute(reason: string): Promise<ContractRuneSnapshot> {
 		if (!reason.trim()) throw new Error('A dispute reason is required');
-		if (this.status !== 'funded')
+		if (this.status !== 'funded') {
 			throw new Error(`Cannot dispute contract from ${this.status} state`);
+		}
 		this.status = 'disputed';
 		this.error = null;
 		await this.attest('disputed', reason);
 		return this.snapshot;
 	}
 
-	/**
-	 * Applies an incoming RGB proof only after the serialized queue confirms the
-	 * matching transfer. A message without a transfer id is retained as a
-	 * transport-level notification but cannot change balances.
-	 */
 	async applyIncomingConsignment(
 		message: ConsignmentExchangeMessage
 	): Promise<ContractRuneSnapshot> {
@@ -249,8 +471,16 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	private async attest(status: ContractRuneStatus, reason?: string): Promise<void> {
-		const event = await publishAttestation(this.contractId, status, this.seals, this.partyPubkeys);
+	private async attest(status: ContractRuneStatus, reason?: string, proofUrl?: string): Promise<void> {
+		const event = await publishAttestation(
+			this.contractId,
+			status,
+			this.seals,
+			this.partyPubkeys,
+			this.snapshot,
+			reason,
+			proofUrl
+		);
 		this.lastAttestationId = event.id;
 		if (reason) this.error = reason;
 	}
@@ -267,6 +497,7 @@ export class ContractRune {
 			return await operation();
 		} catch (error) {
 			this.status = 'failed';
+			if (pendingStatus === 'funding') this.fundingState = 'failed';
 			this.error = error instanceof Error ? error.message : String(error);
 			throw error;
 		} finally {

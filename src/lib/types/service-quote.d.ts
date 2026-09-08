@@ -85,7 +85,7 @@ export interface ServiceProposalContent {
 	expirationDays: number;
 	expirationHours: number;
 	expirationTimestamp: number;
-	freelancerRskAddress: string;
+	freelancerBitcoinAddress: string;
 	freelancerFeeTier: 0 | 1 | 2;
 	pricingSnapshot: ServiceProposalPricingSnapshot;
 	timestamp: number;
@@ -94,9 +94,9 @@ export interface ServiceProposalContent {
 }
 
 export interface ServiceAcceptanceSnapshot {
-	clientRskAddress: string;
+	clientBtcAddress: string;
 	clientFeeTier: 0 | 1 | 2;
-	freelancerRskAddress: string;
+	freelancerBitcoinAddress: string;
 	freelancerFeeTier: 0 | 1 | 2;
 	chainId: number;
 	contractAddress: string;

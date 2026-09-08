@@ -110,7 +110,7 @@
 
 				{#if props.children}
 					<div class="mt-6">
-						{@render props.children()}
+						{@render props.children?.()}
 					</div>
 				{/if}
 

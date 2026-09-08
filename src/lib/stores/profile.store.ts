@@ -5,7 +5,7 @@ import { writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
 import { loadCurrentProfileServices } from '$lib/utils/profile/services-loader';
 import KINDS from '$lib/utils/constants/kinds';
-import { getReviewsForUser } from '$lib/utils/reviews/queries';
+import { getReviewsByReviewer, getReviewsForUser } from '$lib/utils/reviews/queries';
 import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 import { getNpub } from '$lib/utils/nostrKeys';
 
@@ -19,6 +19,7 @@ type ProfileState = {
 	services: Service[];
 	stats: {
 		tasksCompleted: number;
+		contractsCompleted: number;
 		activeServices: number;
 		rating: number;
 		responseRate: number;
@@ -53,6 +54,7 @@ const initialState: ProfileState = {
 	services: [],
 	stats: {
 		tasksCompleted: 0,
+		contractsCompleted: 0,
 		activeServices: 0,
 		rating: 0,
 		responseRate: 0,
@@ -92,18 +94,23 @@ function createProfileStore() {
 				return;
 			}
 
-			const reviews = await getReviewsForUser(currentUserPubkey, 100);
-			if (reviews.length === 0) {
-				return;
+			const [reviewsReceived, reviewsGiven] = await Promise.all([
+				getReviewsForUser(currentUserPubkey, 100),
+				getReviewsByReviewer(currentUserPubkey, 100)
+			]);
+			const uniqueContractIds = new Set<string>();
+			for (const review of [...reviewsReceived, ...reviewsGiven]) {
+				uniqueContractIds.add(review.contractId ?? review.attestationEventId);
 			}
 
-			const stats = calculateReviewStats(reviews);
+			const stats = calculateReviewStats(reviewsReceived);
 			update((state) => ({
 				...state,
 				stats: {
 					...state.stats,
-					tasksCompleted: stats.totalReviews,
-					rating: Math.round(stats.averageRating * 10) / 10
+					tasksCompleted: uniqueContractIds.size,
+					contractsCompleted: uniqueContractIds.size,
+					rating: reviewsReceived.length > 0 ? Math.round(stats.averageRating * 10) / 10 : 0
 				}
 			}));
 		} catch (error) {
@@ -281,8 +288,8 @@ function createProfileStore() {
 					servicesError: null
 				});
 
-				// Load services and review stats in parallel
-				await Promise.all([loadProfileServices(), loadReviewStats()]);
+				// Profile metadata remains usable while optional backend/relay enrichments fail.
+				await Promise.allSettled([loadProfileServices(), loadReviewStats()]);
 			} catch (error) {
 				console.error('Failed to initialize profile store:', error);
 				set({

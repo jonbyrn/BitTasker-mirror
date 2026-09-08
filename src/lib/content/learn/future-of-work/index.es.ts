@@ -11,7 +11,7 @@ export const content: LearnPageContent = {
 	sections: [
 		{
 			heading: '¿Qué es el trabajo descentralizado?',
-			body: 'El trabajo descentralizado es labor donde ninguna autoridad central controla tu identidad, pagos o reputación profesional. En lugar de depender de plataformas como Upwork o Fiverr para guardar tus ganancias y avalar tus habilidades, el trabajo descentralizado usa Bitcoin para pagos instantáneos entre pares y Nostr para identidad portable y resistente a la censura. Los contratos inteligentes en sidechains de Bitcoin como Rootstock reemplazan el escrow tradicional con acuerdos sin confianza y auditables. El resultado es un mercado laboral global donde freelancers en El Salvador, Nigeria o Argentina pueden trabajar para cualquiera, cobrar en segundos y nunca perder su reputación por una prohibición de plataforma.'
+			body: 'El trabajo descentralizado es labor donde ninguna autoridad central controla tu identidad, pagos o reputación profesional. En lugar de depender de plataformas como Upwork o Fiverr para guardar tus ganancias y avalar tus habilidades, el trabajo descentralizado usa Bitcoin para pagos instantáneos entre pares y Nostr para identidad portable y resistente a la censura. Los contratos inteligentes en sidechains de Bitcoin como RGB reemplazan el escrow tradicional con acuerdos sin confianza y auditables. El resultado es un mercado laboral global donde freelancers en El Salvador, Nigeria o Argentina pueden trabajar para cualquiera, cobrar en segundos y nunca perder su reputación por una prohibición de plataforma.'
 		},
 		{
 			heading: '¿Cómo está evolucionando la economía gig en 2026?',
@@ -27,11 +27,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué es la economía entre pares?',
-			body: 'La economía entre pares es actividad económica entre individuos sin intermediarios. En freelancing, esto significa que un cliente en Nueva York paga directamente a un desarrollador en Buenos Aires — sin banco, sin procesador de pagos, sin plataforma llevándose una comisión. La Lightning Network de Bitcoin hace los pagos P2P instantáneos y casi gratuitos. Los contratos inteligentes en Rootstock hacen los acuerdos P2P sin confianza y auditables. Nostr hace la identidad P2P portable y resistente a la censura. La economía P2P no es teórica — está operando a escala en El Salvador, en toda América Latina y en comunidades nativas de cripto en todo el mundo. La infraestructura existe; la adopción está acelerándose.'
+			body: 'La economía entre pares es actividad económica entre individuos sin intermediarios. En freelancing, esto significa que un cliente en Nueva York paga directamente a un desarrollador en Buenos Aires — sin banco, sin procesador de pagos, sin plataforma llevándose una comisión. La Lightning Network de Bitcoin hace los pagos P2P instantáneos y casi gratuitos. Los contratos inteligentes en RGB hacen los acuerdos P2P sin confianza y auditables. Nostr hace la identidad P2P portable y resistente a la censura. La economía P2P no es teórica — está operando a escala en El Salvador, en toda América Latina y en comunidades nativas de cripto en todo el mundo. La infraestructura existe; la adopción está acelerándose.'
 		},
 		{
 			heading: '¿Cómo se integra BitTasker en el futuro del trabajo?',
-			body: 'BitTasker combina los tres pilares del trabajo descentralizado en una sola plataforma. Identidad: par de claves Nostr — tu clave pública es tu cuenta, tu reputación está firmada criptográficamente y es portable. Pagos: Bitcoin Lightning — liquidación instantánea y de bajos costos, sin banco requerido. Escrow: contratos inteligentes de Rootstock — acuerdos sin confianza y en cadena asegurados por la tasa de hash de Bitcoin. BitTasker maneja la capa de UX — búsqueda de empleo, seguimiento de entregas, flujos de resolución de disputas — mientras mantiene la infraestructura subyacente descentralizada. El resultado es una plataforma que se siente tan fácil como Upwork pero te da la soberanía del trabajo entre pares.'
+			body: 'BitTasker combina los tres pilares del trabajo descentralizado en una sola plataforma. Identidad: par de claves Nostr — tu clave pública es tu cuenta, tu reputación está firmada criptográficamente y es portable. Pagos: Bitcoin Lightning — liquidación instantánea y de bajos costos, sin banco requerido. Escrow: contratos inteligentes de RGB — acuerdos sin confianza y en cadena asegurados por la tasa de hash de Bitcoin. BitTasker maneja la capa de UX — búsqueda de empleo, seguimiento de entregas, flujos de resolución de disputas — mientras mantiene la infraestructura subyacente descentralizada. El resultado es una plataforma que se siente tan fácil como Upwork pero te da la soberanía del trabajo entre pares.'
 		}
 	],
 	faq: [
@@ -58,7 +58,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo funcionan las disputas sin autoridad central?',
 			answer:
-				'BitTasker usa contratos inteligentes de Rootstock para escrow. Las disputas siguen reglas transparentes codificadas en el contrato. Los fondos están bloqueados en código, no retenidos por BitTasker. La resolución se determina por la lógica predefinida del contrato.'
+				'BitTasker usa contratos inteligentes de RGB para escrow. Las disputas siguen reglas transparentes codificadas en el contrato. Los fondos están bloqueados en código, no retenidos por BitTasker. La resolución se determina por la lógica predefinida del contrato.'
 		},
 		{
 			question: '¿Puedo ganar en stablecoins en lugar de Bitcoin?',
@@ -73,7 +73,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'Posee Tu Trabajo. Posee Tu Identidad. Cobra en Bitcoin.',
-		body: 'BitTasker es la plataforma de freelancing descentralizada construida con identidad Nostr, pagos Lightning en Bitcoin y contratos inteligentes de Rootstock. Sin guardianes, sin cuentas congeladas, sin pagos a 14 días.',
+		body: 'BitTasker es la plataforma de freelancing descentralizada construida con identidad Nostr, pagos Lightning en Bitcoin y contratos inteligentes de RGB. Sin guardianes, sin cuentas congeladas, sin pagos a 14 días.',
 		buttonText: 'Únete a BitTasker',
 		buttonHref: '/auth/signup'
 	}

@@ -7,11 +7,11 @@ export const content: LearnPageContent = {
 			'How Bitcoin and Nostr are enabling a new economy where workers own their identity, payments, and reputation.'
 	},
 	answerBlock:
-		'Decentralized labor is work where no single authority controls your identity, payments, or professional reputation. Instead of relying on platforms like Upwork or Fiverr to hold your earnings and vouch for your skills, decentralized work uses Bitcoin for instant peer-to-peer payments and Nostr for portable, censorship-resistant identity. Smart contracts on Bitcoin sidechains like Rootstock replace traditional escrow with trustless, auditable agreements. The result is a global labor market where freelancers in El Salvador, Nigeria, or Argentina can work for anyone, get paid in seconds, and never lose their reputation to a platform ban.',
+		'Decentralized labor is work where no single authority controls your identity, payments, or professional reputation. Instead of relying on platforms like Upwork or Fiverr to hold your earnings and vouch for your skills, decentralized work uses Bitcoin for instant peer-to-peer payments and Nostr for portable, censorship-resistant identity. Smart contracts on Bitcoin sidechains like RGB replace traditional escrow with trustless, auditable agreements. The result is a global labor market where freelancers in El Salvador, Nigeria, or Argentina can work for anyone, get paid in seconds, and never lose their reputation to a platform ban.',
 	sections: [
 		{
 			heading: 'What is decentralized work?',
-			body: 'Decentralized work is freelancing without a central gatekeeper. In traditional gig platforms, the company controls your account, holds your funds in escrow, decides your fee structure, and can ban you at any time. In a decentralized model, workers use cryptographic keys for identity (Nostr), receive payments directly over the Bitcoin Lightning Network, and participate in smart-contract escrow on sidechains like Rootstock. No single entity can freeze your earnings, erase your reputation, or shut you out of the marketplace.'
+			body: 'Decentralized work is freelancing without a central gatekeeper. In traditional gig platforms, the company controls your account, holds your funds in escrow, decides your fee structure, and can ban you at any time. In a decentralized model, workers use cryptographic keys for identity (Nostr), receive payments directly over the Bitcoin Lightning Network, and participate in smart-contract escrow on sidechains like RGB. No single entity can freeze your earnings, erase your reputation, or shut you out of the marketplace.'
 		},
 		{
 			heading: 'How does decentralized identity work for freelancers?',
@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is trustless escrow and why does it matter?',
-			body: "Traditional escrow means trusting a platform to hold your money fairly. Trustless escrow uses smart contracts on a Bitcoin sidechain (like Rootstock) where funds are locked in code, not in a company's bank account. Both the freelancer and client can verify the contract's terms on-chain. Dispute resolution follows transparent rules written into the contract. Neither party needs to trust BitTasker or any other company — they trust auditable code. This eliminates the risk of a platform arbitrarily siding with one party or holding funds during a dispute."
+			body: "Traditional escrow means trusting a platform to hold your money fairly. Trustless escrow uses smart contracts on a Bitcoin sidechain (like RGB) where funds are locked in code, not in a company's bank account. Both the freelancer and client can verify the contract's terms on-chain. Dispute resolution follows transparent rules written into the contract. Neither party needs to trust BitTasker or any other company — they trust auditable code. This eliminates the risk of a platform arbitrarily siding with one party or holding funds during a dispute."
 		},
 		{
 			heading: 'What are the benefits of decentralized labor?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker implement decentralized labor?',
-			body: 'BitTasker combines three pillars of decentralized work into one platform. Identity is built on Nostr — your public key is your account, and your reputation is cryptographically signed and portable. Payments run on the Bitcoin Lightning Network for instant, low-fee settlement. Escrow uses Rootstock smart contracts for trustless, on-chain agreements. BitTasker handles the UX layer — job matching, delivery tracking, dispute workflows — while keeping the underlying infrastructure decentralized. The result is a platform that feels as easy as Upwork but gives you the sovereignty of working peer-to-peer.'
+			body: 'BitTasker combines three pillars of decentralized work into one platform. Identity is built on Nostr — your public key is your account, and your reputation is cryptographically signed and portable. Payments run on the Bitcoin Lightning Network for instant, low-fee settlement. Escrow uses RGB smart contracts for trustless, on-chain agreements. BitTasker handles the UX layer — job matching, delivery tracking, dispute workflows — while keeping the underlying infrastructure decentralized. The result is a platform that feels as easy as Upwork but gives you the sovereignty of working peer-to-peer.'
 		}
 	],
 	faq: [
@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How do disputes work without a central authority?',
 			answer:
-				"BitTasker uses Rootstock smart contracts for escrow. When a dispute arises, both parties present evidence within the platform's dispute workflow. Resolution follows transparent rules coded into the smart contract. Funds are never held by BitTasker — they are locked in the contract until both parties agree or the contract's dispute mechanism resolves the issue. This eliminates the risk of platform bias."
+				"BitTasker uses RGB smart contracts for escrow. When a dispute arises, both parties present evidence within the platform's dispute workflow. Resolution follows transparent rules coded into the smart contract. Funds are never held by BitTasker — they are locked in the contract until both parties agree or the contract's dispute mechanism resolves the issue. This eliminates the risk of platform bias."
 		},
 		{
 			question: 'Is decentralized work legal?',
@@ -72,7 +72,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'Own your work. Own your identity. Get paid in Bitcoin.',
-		body: 'BitTasker is the decentralized freelancing platform built on Nostr identity, Bitcoin Lightning payments, and Rootstock smart contracts. No gatekeepers, no frozen accounts, no 14-day payouts. Your reputation is yours forever.',
+		body: 'BitTasker is the decentralized freelancing platform built on Nostr identity, Bitcoin Lightning payments, and RGB smart contracts. No gatekeepers, no frozen accounts, no 14-day payouts. Your reputation is yours forever.',
 		buttonText: 'Join BitTasker',
 		buttonHref: '/auth/signup'
 	}

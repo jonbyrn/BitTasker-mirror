@@ -8,7 +8,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
+	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import { createDebug } from '$lib/utils/debug';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import { NDKTask } from '$lib/nostr/events/task';
@@ -23,12 +23,22 @@
 
 	const d = createDebug('BidsPage');
 
+	$effect(() => {
+		if (ndk.$currentPubkey) return;
+		void setNDKSigner().catch((error) => {
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+				console.warn('[bids] signer init failed', error);
+			}
+		});
+	});
+
 	// Task lives on a separate relay — must be its own subscription.
 	const taskSub = ndk.$subscribe<NDKTask>(() => {
-		if (!ndk.$currentPubkey) return undefined;
+		const taskAuthor = page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? ndk.$currentPubkey;
+		if (!taskAuthor) return undefined;
 		return {
 			filters: [
-				{ kinds: [KINDS.TASK_CREATION], authors: [ndk.$currentPubkey], '#d': [page.params.taskId] }
+				{ kinds: [KINDS.TASK_CREATION], authors: [taskAuthor], '#d': [page.params.taskId] }
 			],
 			wrap: true,
 			relaySet: getTaskRelay(),
@@ -37,21 +47,46 @@
 	});
 
 	let task = $derived(taskSub.events[0]);
+	const routeTaskEventId = $derived(page.url.searchParams.get('event') ?? undefined);
+	const routeClientHex = $derived(
+		page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? undefined
+	);
+	const bidRecipientPubkey = $derived(routeClientHex ?? ndk.$currentPubkey);
+	const taskEventId = $derived(routeTaskEventId ?? task?.id);
+	const bidFilter = $derived.by(() => {
+		if (!bidRecipientPubkey || !taskEventId) return undefined;
+		return { kinds: [KINDS.BIDS], '#p': [bidRecipientPubkey], '#e': [taskEventId], limit: 50 };
+	});
 
 	// Single subscription for both bids (30007) and their status events (30008).
 	// Both use the same relay pool and the same task tag — no reason for two subscriptions.
 	// wrap: true is required so NDK calls NDKBid.from() which decrypts bid content.
 	// Kind 30008 has no registered event class so it stays as raw NDKEvent.
 	const bidsAndStatusSub = ndk.$subscribe(() => {
-		if (!ndk.$currentPubkey) return undefined;
+		if (!bidFilter) return undefined;
 		return {
 			filters: [
-				{ kinds: [KINDS.BIDS], '#p': [ndk.$currentPubkey], '#t': [page.params.taskId], limit: 50 },
+				bidFilter,
 				{ kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }
 			],
-			wrap: true
+			wrap: true,
+			relaySet: getTaskRelay()
 		};
 	});
+
+	const rawBidsSub = ndk.$subscribe(() => {
+		if (!bidFilter) return undefined;
+		return {
+			filters: [bidFilter],
+			relaySet: getTaskRelay(),
+			noDedupe: true
+		};
+	});
+	const rawBidEvents = $derived(
+		(rawBidsSub.events as import('@nostr-dev-kit/ndk').NDKEvent[]).filter(
+			(e) => e.kind === KINDS.BIDS
+		)
+	);
 
 	// Bid events (kind 30007) — already wrapped as NDKBid by NDK's event class registry.
 	const bids = $derived(
@@ -59,6 +94,18 @@
 			(e) => e.kind === KINDS.BIDS
 		) as NDKBid[]
 	);
+
+	$effect(() => {
+		if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
+		console.log('[bids]', {
+			filter: bidFilter ?? null,
+			currentPubkey: ndk.$currentPubkey ?? null,
+			bidRecipientPubkey: bidRecipientPubkey ?? null,
+			taskEventId: taskEventId ?? null,
+			raw: rawBidEvents.length,
+			cards: bids.length
+		});
+	});
 
 	// Status map: bid event id → latest status string, derived from kind 30008 tags (plaintext).
 	// Keeps only the most recent status per bid.
@@ -206,15 +253,7 @@
 			</button>
 		</div>
 	</div>
-	{#if !bidsAndStatusSub.eosed}
-		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
-		<div class="flex items-center justify-center py-6">
-			<div class="loading loading-spinner loading-md"></div>
-			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
-		</div>
-	{:else if bids.length === 0}
-		<NoBids onRetry={() => {}} />
-	{:else}
+	{#if bids.length > 0}
 		<div class="space-y-4">
 			{#each bids as bid (bid.id)}
 				{@const status = getBidStatus(bid.id)}
@@ -229,6 +268,14 @@
 				/>
 			{/each}
 		</div>
+	{:else if !bidsAndStatusSub.eosed}
+		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
+		<div class="flex items-center justify-center py-6">
+			<div class="loading loading-spinner loading-md"></div>
+			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
+		</div>
+	{:else if bids.length === 0}
+		<NoBids onRetry={() => {}} />
 	{/if}
 </div>
 

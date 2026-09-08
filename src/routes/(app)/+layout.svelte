@@ -51,8 +51,8 @@
 	// Fetch notification unread count and connect WebSocket for ALL authenticated routes.
 	// The bell icon renders in ProtectedTopBar for any authenticated user, so the count
 	// must be available even on non-protected routes like /tasks and /services.
-	// Note: re-login also triggers this via setupAuthData() in auth.store.ts, since
-	// onMount only fires once per component lifecycle.
+	// Note: re-login also triggers this from setupAuthData(), since onMount only
+	// fires once per component lifecycle.
 	async function fetchNotificationCount() {
 		if (!$authState.isAuthenticated) return;
 
@@ -247,7 +247,9 @@
 	<header class="app-shell__header">
 		<!-- ProtectedTopBar only for authenticated users (avoids passkey prompt on public/auth routes).
 		     Unauthenticated users on public routes (tasks, services, auth) see PublicTopBar. -->
-		{#if $authState.isAuthenticated}
+		{#if $authState.isLoading}
+			<div class="h-16 w-full bg-transparent"></div>
+		{:else if $authState?.isAuthenticated}
 			<ProtectedTopBar />
 		{:else}
 			<PublicTopBar />
@@ -258,7 +260,7 @@
 <!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 <div bind:this={scrollEl} class="app-shell__content bg-base-200">
 	<div class="bg-base-200 flex shrink-0 grow basis-auto flex-col">
-		{@render children()}
+		{@render children?.()}
 	</div>
 </div>
 

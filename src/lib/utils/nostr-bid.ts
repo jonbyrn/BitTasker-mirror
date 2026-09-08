@@ -11,6 +11,89 @@ import { get } from 'svelte/store';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
+import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+
+const BID_RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+
+export interface PublishBidParams {
+	taskId: string;
+	taskEventId: string;
+	taskDTag: string;
+	taskTitle: string;
+	taskDescription: string;
+	taskBudget?: { amount: number; currency?: string };
+	taskCreatorPubkey: string;
+	amount: number;
+	days: number;
+	proposal: string;
+}
+
+type LastPublishedBid = {
+	bidEventId: string;
+	bidderHex: string;
+	taskEventId: string;
+	taskDTag: string;
+};
+
+function pubkeyToHex(pubkey: string): string {
+	if (/^[0-9a-f]{64}$/i.test(pubkey)) return pubkey.toLowerCase();
+	const decoded = nip19.decode(pubkey);
+	if (decoded.type !== 'npub') throw new Error(`Expected npub public key, received ${decoded.type}`);
+	return decoded.data as string;
+}
+
+function exposeLastPublishedBid(event: NostrEvent, params: PublishBidParams): void {
+	if (!import.meta.env.DEV && import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
+	if (typeof window === 'undefined') return;
+
+	(window as Window & { __lastPublishedBid?: LastPublishedBid }).__lastPublishedBid = {
+		bidEventId: event.id,
+		bidderHex: event.pubkey,
+		taskEventId: params.taskEventId,
+		taskDTag: params.taskDTag
+	};
+}
+
+export async function publishBid(params: PublishBidParams): Promise<NostrEvent> {
+	const now = Math.floor(Date.now() / 1000);
+	const bidderId = await getNpub();
+	const bidderHex = pubkeyToHex(bidderId);
+	const bidId = `${params.taskDTag}-${bidderHex}`;
+	const content = {
+		type: 'bid' as const,
+		taskId: params.taskDTag,
+		taskTitle: params.taskTitle,
+		taskDescription: params.taskDescription,
+		taskBudget: params.taskBudget,
+		amount: params.amount,
+		currency: 'USD',
+		paymentType: 'FIXED' as const,
+		description: params.proposal,
+		estimatedDuration: `${params.days} days`,
+		proposedApproach: params.proposal,
+		coverLetter: params.proposal,
+		timestamp: now,
+		bidId,
+		startDateTime: now,
+		endDateTime: now + params.days * 24 * 60 * 60,
+		bidderId
+	};
+
+	const result = await publishNostrEvent(
+		KINDS.BIDS,
+		JSON.stringify(content),
+		params.taskCreatorPubkey,
+		[
+			...TAG_PATTERNS.bid(bidId, params.taskDTag, params.taskCreatorPubkey, 'FIXED'),
+			['e', params.taskEventId]
+		],
+		BID_RELAYS
+	);
+
+	exposeLastPublishedBid(result.event, params);
+	clearBidCache(params.taskDTag);
+	return result.event;
+}
 
 /**
  * Clear bid cache (call this when bids are created, updated, or deleted)
@@ -342,7 +425,7 @@ export async function sendBidStatusUpdate(
 		// Send as encrypted DM to the bidder
 		const statusMessage = JSON.stringify(statusData);
 		const tags = TAG_PATTERNS.bidStatus(bidEventId, taskId, status, bidderPubkey);
-		await publishNostrEvent(KINDS.BID_STATUS, statusMessage, bidderPubkey, tags);
+		await publishNostrEvent(KINDS.BID_STATUS, statusMessage, bidderPubkey, tags, BID_RELAYS);
 
 		// Clear bid cache for this specific task and bidder to ensure fresh data
 		// This is more efficient than clearing all caches

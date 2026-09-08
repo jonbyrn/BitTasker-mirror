@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+
+afterEach(() => cleanup());
 
 interface StoreApi<T> {
 	set(nextValue: T): void;

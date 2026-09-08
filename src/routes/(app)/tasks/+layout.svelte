@@ -22,5 +22,5 @@ const isTaskDetailsRoute = $derived(
 	activeBasePath="/tasks"
 	isDetailsRoute={isTaskDetailsRoute}
 >
-	{@render children()}
+	{@render children?.()}
 </PublicListingLayoutShell>

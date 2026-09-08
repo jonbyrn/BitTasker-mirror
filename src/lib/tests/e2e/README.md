@@ -225,7 +225,6 @@ Create `.env.test` (based on `.env.test.example`) with:
 
 - `TEST_NOSTR_KEY` - Test Nostr private key
 - `TEST_BACKEND_URL` - Test backend URL
-- `TEST_RSK_NETWORK` - RSK network (testnet/mainnet)
 
 ## CI/CD Integration
 

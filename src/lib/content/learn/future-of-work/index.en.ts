@@ -11,7 +11,7 @@ export const content: LearnPageContent = {
 	sections: [
 		{
 			heading: 'What is decentralized labor?',
-			body: 'Decentralized labor is work where no single authority controls your identity, payments, or professional reputation. Instead of relying on platforms like Upwork or Fiverr to hold your earnings and vouch for your skills, decentralized work uses Bitcoin for instant peer-to-peer payments and Nostr for portable, censorship-resistant identity. Smart contracts on Bitcoin sidechains like Rootstock replace traditional escrow with trustless, auditable agreements. The result is a global labor market where freelancers in El Salvador, Nigeria, or Argentina can work for anyone, get paid in seconds, and never lose their reputation to a platform ban. Our decentralized labor guide explains the full architecture and benefits.'
+			body: 'Decentralized labor is work where no single authority controls your identity, payments, or professional reputation. Instead of relying on platforms like Upwork or Fiverr to hold your earnings and vouch for your skills, decentralized work uses Bitcoin for instant peer-to-peer payments and Nostr for portable, censorship-resistant identity. Smart contracts on Bitcoin sidechains like RGB replace traditional escrow with trustless, auditable agreements. The result is a global labor market where freelancers in El Salvador, Nigeria, or Argentina can work for anyone, get paid in seconds, and never lose their reputation to a platform ban. Our decentralized labor guide explains the full architecture and benefits.'
 		},
 		{
 			heading: 'How is the gig economy evolving in 2026?',
@@ -27,11 +27,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is the peer-to-peer economy?',
-			body: "The peer-to-peer economy is economic activity between individuals without intermediaries. In freelancing, this means a client in New York directly pays a developer in Buenos Aires — no bank, no payment processor, no platform taking a cut. Bitcoin's Lightning Network makes P2P payments instant and nearly free. Smart contracts on Rootstock make P2P agreements trustless and auditable. Nostr makes P2P identity portable and censorship-resistant. The P2P economy is not theoretical — it is operating at scale in El Salvador, across Latin America, and in crypto-native communities worldwide. The infrastructure exists; adoption is accelerating. Our P2P economy guide covers the full landscape."
+			body: "The peer-to-peer economy is economic activity between individuals without intermediaries. In freelancing, this means a client in New York directly pays a developer in Buenos Aires — no bank, no payment processor, no platform taking a cut. Bitcoin's Lightning Network makes P2P payments instant and nearly free. Smart contracts on RGB make P2P agreements trustless and auditable. Nostr makes P2P identity portable and censorship-resistant. The P2P economy is not theoretical — it is operating at scale in El Salvador, across Latin America, and in crypto-native communities worldwide. The infrastructure exists; adoption is accelerating. Our P2P economy guide covers the full landscape."
 		},
 		{
 			heading: 'How does BitTasker fit into the future of work?',
-			body: "BitTasker combines the three pillars of decentralized work into one platform. Identity: Nostr keypair — your public key is your account, your reputation is cryptographically signed and portable. Payments: Bitcoin Lightning — instant, low-fee settlement, no bank required. Escrow: Rootstock smart contracts — trustless, on-chain agreements secured by Bitcoin's hash rate. BitTasker handles the UX layer — job matching, delivery tracking, dispute workflows — while keeping the underlying infrastructure decentralized. The result is a platform that feels as easy as Upwork but gives you the sovereignty of working peer-to-peer. In the future of work, BitTasker is where decentralized labor meets practical usability."
+			body: "BitTasker combines the three pillars of decentralized work into one platform. Identity: Nostr keypair — your public key is your account, your reputation is cryptographically signed and portable. Payments: Bitcoin Lightning — instant, low-fee settlement, no bank required. Escrow: RGB smart contracts — trustless, on-chain agreements secured by Bitcoin's hash rate. BitTasker handles the UX layer — job matching, delivery tracking, dispute workflows — while keeping the underlying infrastructure decentralized. The result is a platform that feels as easy as Upwork but gives you the sovereignty of working peer-to-peer. In the future of work, BitTasker is where decentralized labor meets practical usability."
 		}
 	],
 	faq: [
@@ -58,7 +58,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How do disputes work without a central authority?',
 			answer:
-				"BitTasker uses Rootstock smart contracts for escrow. Disputes follow transparent rules coded into the contract. Funds are locked in code, not held by BitTasker. Resolution is determined by the contract's predefined logic."
+				"BitTasker uses RGB smart contracts for escrow. Disputes follow transparent rules coded into the contract. Funds are locked in code, not held by BitTasker. Resolution is determined by the contract's predefined logic."
 		},
 		{
 			question: 'Can I earn in stablecoins instead of Bitcoin?',
@@ -73,7 +73,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'Own Your Work. Own Your Identity. Get Paid in Bitcoin.',
-		body: 'BitTasker is the decentralized freelancing platform built on Nostr identity, Bitcoin Lightning payments, and Rootstock smart contracts. No gatekeepers, no frozen accounts, no 14-day payouts.',
+		body: 'BitTasker is the decentralized freelancing platform built on Nostr identity, Bitcoin Lightning payments, and RGB smart contracts. No gatekeepers, no frozen accounts, no 14-day payouts.',
 		buttonText: 'Join BitTasker',
 		buttonHref: '/auth/signup'
 	}

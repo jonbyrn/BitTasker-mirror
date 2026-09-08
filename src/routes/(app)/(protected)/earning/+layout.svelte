@@ -161,7 +161,7 @@
 
 				<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 
-				{@render children()}
+				{@render children?.()}
 			</div>
 		</div>
 	</div>

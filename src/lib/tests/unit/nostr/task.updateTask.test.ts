@@ -57,10 +57,11 @@ vi.mock('$lib/utils/nostr', () => ({
 		pubkey: 'a'.repeat(64),
 		kind: 30078,
 		content: '{}',
-		tags: [],
+		tags: [['d', 'test-task-1700000000-abc123']],
 		sig: '',
 		created_at: 1700000000
-	})
+	}),
+	publishToMultipleRelays: vi.fn().mockResolvedValue([{ relay: 'wss://relay.test', success: true }])
 }));
 
 vi.mock('$lib/nostr', () => ({

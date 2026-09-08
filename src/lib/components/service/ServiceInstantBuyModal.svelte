@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { FEE_TIERS } from '@bittasker/wallet-core';
+	import { FEE_TIERS } from '$lib/utils/fees';
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
@@ -316,6 +316,8 @@
 				}
 				localContractRune = new ContractRune({
 					contractId: id,
+					contractTitle: serviceTitle || resolvedTitle,
+					bidderComments: includedScope,
 					totalAmountUsd: totalPaymentValue,
 					split: paymentSplit,
 					partyPubkeys: providerPubkey ? [providerPubkey] : []

@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Getting paid, job platforms, escrow, and payroll — everything about freelancing with Bitcoin.'
 	},
 	answerBlock:
-		'Bitcoin freelancing lets you earn, hold, and spend Bitcoin for your work — without relying on traditional banks, payment processors, or centralized platforms. You get paid instantly via Lightning Network, your identity is a Nostr keypair you own, and escrow is enforced by audited smart contracts on Rootstock. This guide covers the full landscape: how to get paid in Bitcoin, the best platforms for crypto jobs, how trustless escrow works, and how crypto payroll is transforming global hiring. Whether you are a developer, designer, writer, or local service provider, the Bitcoin economy has work for you.',
+		'Bitcoin freelancing lets you earn, hold, and spend Bitcoin for your work — without relying on traditional banks, payment processors, or centralized platforms. You get paid instantly via Lightning Network, your identity is a Nostr keypair you own, and escrow is enforced by audited smart contracts on RGB. This guide covers the full landscape: how to get paid in Bitcoin, the best platforms for crypto jobs, how trustless escrow works, and how crypto payroll is transforming global hiring. Whether you are a developer, designer, writer, or local service provider, the Bitcoin economy has work for you.',
 	sections: [
 		{
 			heading: 'How do freelancers get paid in Bitcoin?',
@@ -15,11 +15,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What are the best Bitcoin job platforms in 2026?',
-			body: 'The Bitcoin freelancing ecosystem includes several platforms. BitTasker focuses on the Latin American market with Nostr identity, Rootstock escrow, and Lightning payouts — charging 5% with tiered loyalty rewards. LaborX offers a broad marketplace for Bitcoin-paying jobs across development, design, and creative work. CryptoJobsList aggregates remote crypto job listings. AngelList hosts startup roles that sometimes pay in Bitcoin. Bitwage lets you receive any salary in Bitcoin, even from traditional employers. For the best combination of low fees, fast payments, and decentralized identity, BitTasker is purpose-built for Bitcoin freelancing. Our Bitcoin jobs guide compares every platform in detail.'
+			body: 'The Bitcoin freelancing ecosystem includes several platforms. BitTasker focuses on the Latin American market with Nostr identity, RGB escrow, and Lightning payouts — charging 5% with tiered loyalty rewards. LaborX offers a broad marketplace for Bitcoin-paying jobs across development, design, and creative work. CryptoJobsList aggregates remote crypto job listings. AngelList hosts startup roles that sometimes pay in Bitcoin. Bitwage lets you receive any salary in Bitcoin, even from traditional employers. For the best combination of low fees, fast payments, and decentralized identity, BitTasker is purpose-built for Bitcoin freelancing. Our Bitcoin jobs guide compares every platform in detail.'
 		},
 		{
 			heading: 'How does Bitcoin escrow work for freelancers?',
-			body: "Bitcoin escrow protects both freelancers and clients by locking funds in a smart contract until work is completed and approved. On BitTasker, escrow uses Rootstock smart contracts merged-mined with Bitcoin for security. When a client funds a project, the payment goes into a smart contract — not BitTasker's bank account. The contract enforces agreed terms: funds release when milestones are approved, or return to the client if the project is cancelled. Disputes follow transparent resolution rules coded into the contract. No single party — including BitTasker — can move the funds unilaterally. This is fundamentally different from traditional platform escrow, where the company controls the money. Our Bitcoin escrow guide explains every aspect of the mechanism."
+			body: "Bitcoin escrow protects both freelancers and clients by locking funds in a smart contract until work is completed and approved. On BitTasker, escrow uses RGB smart contracts merged-mined with Bitcoin for security. When a client funds a project, the payment goes into a smart contract — not BitTasker's bank account. The contract enforces agreed terms: funds release when milestones are approved, or return to the client if the project is cancelled. Disputes follow transparent resolution rules coded into the contract. No single party — including BitTasker — can move the funds unilaterally. This is fundamentally different from traditional platform escrow, where the company controls the money. Our Bitcoin escrow guide explains every aspect of the mechanism."
 		},
 		{
 			heading: 'How does crypto payroll work for paying teams in Bitcoin?',
@@ -53,7 +53,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How do I protect my Bitcoin earnings?',
 			answer:
-				'Use a two-tier wallet approach: a mobile Lightning wallet for receiving payments, and a hardware wallet (Coldcard, Trezor) for long-term savings. Back up your seed phrase on steel. Never share your private keys. For platform security, BitTasker uses Rootstock escrow — your funds are locked in smart contracts, not company bank accounts.'
+				'Use a two-tier wallet approach: a mobile Lightning wallet for receiving payments, and a hardware wallet (Coldcard, Trezor) for long-term savings. Back up your seed phrase on steel. Never share your private keys. For platform security, BitTasker uses RGB escrow — your funds are locked in smart contracts, not company bank accounts.'
 		},
 		{
 			question: "What happens if Bitcoin's price drops?",
@@ -68,7 +68,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How does escrow protect me as a freelancer?',
 			answer:
-				'BitTasker uses Rootstock smart contracts for escrow. Your payment is locked in code until the client approves the work. Neither the client, BitTasker, nor any third party can move the funds unilaterally. Disputes follow transparent, on-chain resolution rules.'
+				'BitTasker uses RGB smart contracts for escrow. Your payment is locked in code until the client approves the work. Neither the client, BitTasker, nor any third party can move the funds unilaterally. Disputes follow transparent, on-chain resolution rules.'
 		}
 	],
 	bitTaskerCta: {

@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker fit into the 2026 gig economy?',
-			body: 'BitTasker positions itself at the intersection of mainstream gig economy UX and decentralized infrastructure. It offers the familiar experience of posting jobs, bidding on projects, and tracking deliverables — but underneath, identity runs on Nostr, payments run on Bitcoin Lightning, and escrow uses Rootstock smart contracts. This means freelancers get the usability of Upwork with the sovereignty of peer-to-peer work: lower fees, instant payments, portable reputation, and zero risk of deplatforming. For the growing population of freelancers who want platform convenience without platform control, BitTasker is the bridge.'
+			body: 'BitTasker positions itself at the intersection of mainstream gig economy UX and decentralized infrastructure. It offers the familiar experience of posting jobs, bidding on projects, and tracking deliverables — but underneath, identity runs on Nostr, payments run on Bitcoin Lightning, and escrow uses RGB smart contracts. This means freelancers get the usability of Upwork with the sovereignty of peer-to-peer work: lower fees, instant payments, portable reputation, and zero risk of deplatforming. For the growing population of freelancers who want platform convenience without platform control, BitTasker is the bridge.'
 		},
 		{
 			heading: 'What trends will define freelancing beyond 2026?',

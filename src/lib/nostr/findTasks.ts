@@ -6,6 +6,8 @@ import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
+import { appStore } from '$lib/stores/app.store';
+import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
 	totalOperations: number;
@@ -84,6 +86,12 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 	});
 }
 
+async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
+	const relays = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+	if (!relays.length) return [];
+	return get(appStore).pool.querySync(relays, filter);
+}
+
 export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const limit = params.limit ?? 10;
 	const cacheKey = JSON.stringify({ ...params, until: undefined });
@@ -95,8 +103,12 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 			tasks = cached.tasks;
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else {
-			const response = await nostrEventsService.findEvents(createTaskFilter(params));
-			tasks = (Array.isArray(response.data) ? response.data : []).flatMap((event) => {
+			const filter = createTaskFilter(params);
+			const response = await nostrEventsService.findEvents(filter);
+			const events = Array.isArray(response.data) && response.data.length
+				? response.data
+				: await findTasksFromRelays(filter);
+			tasks = events.flatMap((event) => {
 				try {
 					return [toTask(event as Event)];
 				} catch {

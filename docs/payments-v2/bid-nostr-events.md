@@ -148,7 +148,7 @@ The content is a JSON object (`NostrBidContent`) serialized and then encrypted w
 | `bidderName`          | string | Bidder's display name                            |
 | `bidderAvatar`        | string | Bidder's avatar URL                              |
 | `bidderRating`        | number | Bidder's rating                                  |
-| `bidderWalletAddress` | string | RSK wallet address for escrow                    |
+| `bidderWalletAddress` | string | RGB wallet address for escrow                    |
 | `translations`        | object | `BidTranslations` for description/approach/cover |
 
 #### HOURLY-only (when `paymentType === "HOURLY"`)

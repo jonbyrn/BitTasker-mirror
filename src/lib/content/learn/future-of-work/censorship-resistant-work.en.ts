@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker commit to censorship resistance?',
-			body: "BitTasker is designed so that no single point of failure can shut down a freelancer's work. Identity is Nostr-based and portable. Payments are Bitcoin Lightning — peer-to-peer and irreversible. Escrow is Rootstock smart contracts — on-chain and auditable. BitTasker provides the marketplace UX but does not hold your funds, control your identity, or own your reputation. The platform is a tool you use, not a gatekeeper you depend on. This is not a marketing claim — it is an architectural commitment enforced by open protocols."
+			body: "BitTasker is designed so that no single point of failure can shut down a freelancer's work. Identity is Nostr-based and portable. Payments are Bitcoin Lightning — peer-to-peer and irreversible. Escrow is RGB smart contracts — on-chain and auditable. BitTasker provides the marketplace UX but does not hold your funds, control your identity, or own your reputation. The platform is a tool you use, not a gatekeeper you depend on. This is not a marketing claim — it is an architectural commitment enforced by open protocols."
 		}
 	],
 	faq: [
@@ -53,7 +53,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How do I know BitTasker will not just become another centralized platform?',
 			answer:
-				"BitTasker's architecture prevents centralization at the infrastructure level. Identity is Nostr (decentralized protocol). Payments are Bitcoin Lightning (peer-to-peer). Escrow is Rootstock smart contracts (on-chain). BitTasker controls the UX layer but not the underlying identity, payments, or escrow. Even if BitTasker's company disappeared, your Nostr identity and Bitcoin funds would remain accessible."
+				"BitTasker's architecture prevents centralization at the infrastructure level. Identity is Nostr (decentralized protocol). Payments are Bitcoin Lightning (peer-to-peer). Escrow is RGB smart contracts (on-chain). BitTasker controls the UX layer but not the underlying identity, payments, or escrow. Even if BitTasker's company disappeared, your Nostr identity and Bitcoin funds would remain accessible."
 		},
 		{
 			question: 'Are there legal risks to using censorship-resistant platforms?',

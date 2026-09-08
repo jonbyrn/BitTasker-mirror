@@ -200,10 +200,15 @@
 
 	// ── Data fetching ──────────────────────────────────────────────────────────
 	async function findServicesWithTimeout(params: SearchServicesParams): Promise<void> {
+		let timeoutId: ReturnType<typeof setTimeout> | null = null;
 		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
+			timeoutId = setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
 		});
-		await Promise.race([findServices(params), timeoutPromise]);
+		try {
+			await Promise.race([findServices(params), timeoutPromise]);
+		} finally {
+			if (timeoutId) clearTimeout(timeoutId);
+		}
 	}
 
 	async function loadNostrData(): Promise<void> {
@@ -461,10 +466,15 @@
 			}
 		}
 		try {
+			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
-				setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
+				timeoutId = setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
 			});
-			btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
+			try {
+				btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
+			} finally {
+				if (timeoutId) clearTimeout(timeoutId);
+			}
 			if (browser) {
 				sessionStorage.setItem(
 					BTC_PRICE_CACHE_KEY,
