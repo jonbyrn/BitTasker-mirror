@@ -19,10 +19,10 @@ export default defineConfig({
 		topLevelAwait(),
 		Icons({
 			compiler: 'svelte',
-		autoInstall: false,
-		scale: 1.5,
-		defaultClass: ''
-	})
+			autoInstall: false,
+			scale: 1.5,
+			defaultClass: ''
+		})
 	],
 	test: {
 		environment: 'jsdom',
@@ -32,21 +32,54 @@ export default defineConfig({
 			}
 		},
 		setupFiles: ['./vitest-setup-client.ts'],
-		include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}', 'src/**/__tests__/**/*.{js,ts,jsx,tsx}'],
-		exclude: [
-			'node_modules',
-			'dist',
-			'.idea',
-			'.git',
-			'.svelte-kit',
-			'build',
-			'src/lib/tests/e2e',
-			'src/lib/tests/_pending'
-		],
 		globals: true,
 		env: {
 			BROWSER: 'true'
 		},
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'unit-parallel',
+					include: ['src/lib/tests/**/*.test.ts'],
+					exclude: [
+						'**/nostr/**',
+						'**/helpers/nostr.query.test.ts',
+						'**/service-quote/notifications.test.ts',
+						'**/stores/auth.store.test.ts',
+						'**/routes/services-network-failure.test.ts',
+						'**/services-page.edge-cases.test.ts',
+						'**/services-page.major-fixes.test.ts',
+						'**/services-perf.smoke.test.ts'
+					],
+					pool: 'threads',
+					poolOptions: {
+						threads: {
+							maxThreads: 2,
+							minThreads: 1
+						}
+					}
+				}
+			},
+			{
+				extends: true,
+				test: {
+					name: 'nostr-serial',
+					testTimeout: 30000,
+					include: [
+						'src/lib/tests/**/nostr/**/*.test.ts',
+						'src/lib/tests/**/helpers/nostr.query.test.ts',
+						'src/lib/tests/**/service-quote/notifications.test.ts',
+						'src/lib/tests/**/stores/auth.store.test.ts',
+						'src/lib/tests/**/routes/services-network-failure.test.ts',
+						'src/lib/tests/**/services-page.edge-cases.test.ts',
+						'src/lib/tests/**/services-page.major-fixes.test.ts'
+					],
+					fileParallelism: false,
+					maxConcurrency: 1
+				}
+			}
+		],
 		server: {
 			deps: {
 				inline: ['@testing-library/svelte', '@sentry/sveltekit']
@@ -80,9 +113,15 @@ export default defineConfig({
 		conditions: ['browser', 'development'],
 		alias: [
 			// SvelteKit app mocks
-			{ find: '$app/environment', replacement: resolve(__dirname, './src/lib/mocks/app-environment.ts') },
+			{
+				find: '$app/environment',
+				replacement: resolve(__dirname, './src/lib/mocks/app-environment.ts')
+			},
 			{ find: '$app/stores', replacement: resolve(__dirname, './src/lib/mocks/app-stores.ts') },
-			{ find: '$app/navigation', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
+			{
+				find: '$app/navigation',
+				replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts')
+			},
 			{ find: '$app/state', replacement: resolve(__dirname, './src/lib/mocks/app-state.ts') },
 			{ find: '$app/forms', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
 			{ find: '$app/paths', replacement: resolve(__dirname, './src/lib/mocks/app-navigation.ts') },
@@ -90,8 +129,7 @@ export default defineConfig({
 			// Project aliases
 			{ find: '$lib', replacement: resolve(__dirname, './src/lib') },
 			{ find: 'bolt11', replacement: resolve(__dirname, './src/lib/shims/bolt11.ts') },
-			{ find: 'crypto', replacement: resolve(__dirname, './src/lib/shims/crypto.ts') },
-
+			{ find: 'crypto', replacement: resolve(__dirname, './src/lib/shims/crypto.ts') }
 		]
 	},
 	ssr: {
