@@ -32,8 +32,6 @@ function resolvePackageRoot(packageName: string): string {
 const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
 const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm');
 const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm');
-const rlnWasmFile = resolve(rlnWasmRoot, 'rln_wasm_sdk_bg.wasm');
-const rgbLibWasmFile = resolve(rgbLibWasmRoot, 'rgb_lib_wasm_bindings_bg.wasm');
 const rgbSdkWebIsolatedModules = dirname(
 	dirname(realpathSync(resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web')))
 );
@@ -327,8 +325,11 @@ export default defineConfig(({ mode }) => {
 					find: '@utexo/rgb-sdk-web',
 					replacement: resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web/dist/index.mjs')
 				},
-				{ find: /^util$/, replacement: 'util/' },
+				{ find: /^crypto$/, replacement: 'crypto-browserify' },
 				{ find: /^stream$/, replacement: 'stream-browserify' },
+				{ find: /^buffer$/, replacement: 'buffer' },
+				{ find: /^util$/, replacement: 'util/' },
+				{ find: /^vm$/, replacement: 'vm-browserify' },
 				{ find: /^events$/, replacement: 'events' },
 				{ find: /^process$/, replacement: 'process/browser' },
 				...(process.env.VITEST
@@ -396,6 +397,7 @@ export default defineConfig(({ mode }) => {
 			}),
 			nodePolyfills({
 				include: ['crypto', 'buffer', 'stream', 'util', 'vm'],
+				protocolImports: true,
 				globals: {
 					Buffer: true,
 					global: true,
@@ -475,6 +477,11 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		optimizeDeps: {
+			esbuildOptions: {
+				define: {
+					global: 'globalThis'
+				}
+			},
 			include: ['buffer', 'bip39', 'bitcoinjs-lib', 'bip32', 'ecpair'],
 			needsInterop: ['bitcoinjs-lib', 'bip32', 'ecpair', 'boltz-core'],
 			// rln-wasm/rgb-lib-wasm must stay unbundled: esbuild pre-bundling rewrites
