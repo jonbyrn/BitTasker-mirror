@@ -7,6 +7,20 @@ import type { RgbAsset } from './wallet-types';
 import { unwrapListAssets } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 
+const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12';
+
+async function sha256Hex(value: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(value));
+	return Array.from(new Uint8Array(hashBuffer))
+		.map((byte) => byte.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+async function hashPrefix(value: string | null | undefined): Promise<string | null> {
+	return value ? (await sha256Hex(value)).slice(0, 16) : null;
+}
+
 async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(`bittasker-utexo-rgb-wallet:${mnemonic}`);
@@ -49,6 +63,13 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 	}
 
 	try {
+		const transportEndpoint =
+			(import.meta.env.VITE_RGB_TRANSPORT_ENDPOINT as string | undefined) ??
+			'https://rgb-proxy.utexo.com/json-rpc';
+		const proxyUrl =
+			(import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined) ??
+			'wss://ln-gateway-signet.utexo.com';
+		const vssUrl = (import.meta.env.VITE_UTEXO_VSS_URL as string | undefined) ?? null;
 		await ensureWasmAssetAvailable();
 		const rgbSdk = await import('@utexo/rgb-sdk-web');
 		if (import.meta.env.DEV) {
@@ -78,25 +99,46 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			| 'testnet'
 			| 'regtest';
 		const password = await deriveUtexoWalletPassword(mnemonic);
+		const mnemonicHash = await sha256Hex(mnemonic);
+		const passwordHash = await sha256Hex(password);
+		const walletFingerprint = await sha256Hex(
+			`${mnemonicHash}:${passwordHash}:${network}:${RGB_SDK_VERSION}`
+		);
+
+		console.info('[wallet-diagnostic:init]', {
+			mnemonic_hash: mnemonicHash.slice(0, 16),
+			password_hash: passwordHash.slice(0, 16),
+			fingerprint: walletFingerprint.slice(0, 16),
+			network,
+			sdk_version: RGB_SDK_VERSION,
+			indexer_hash: await hashPrefix(indexerUrl),
+			transport_hash: await hashPrefix(transportEndpoint),
+			ln_proxy_hash: await hashPrefix(proxyUrl),
+			vss_hash: await hashPrefix(vssUrl),
+			vss_configured: Boolean(vssUrl)
+		});
 
 		const wallet = await create({
 			mnemonic,
 			password,
 			network,
 			indexerUrl,
-			transportEndpoint:
-				(import.meta.env.VITE_RGB_TRANSPORT_ENDPOINT as string | undefined) ??
-				'https://rgb-proxy.utexo.com/json-rpc',
-			proxyUrl:
-				(import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined) ??
-				'wss://ln-gateway-signet.utexo.com',
-			vssUrl: (import.meta.env.VITE_UTEXO_VSS_URL as string | undefined) ?? null
+			transportEndpoint,
+			proxyUrl,
+			vssUrl
 		});
 		state.utexoWallet = wallet;
 
 		const address = await wallet.getAddress();
 		const btcBalance = await wallet.getBtcBalance();
 		const balanceSats = btcBalance.vanilla.spendable + btcBalance.colored.spendable;
+
+		console.info('[wallet-diagnostic:ready]', {
+			fingerprint: walletFingerprint.slice(0, 16),
+			network,
+			address,
+			balance_sats: balanceSats
+		});
 
 		let rgbAssets: RgbAsset[] = [];
 		try {
