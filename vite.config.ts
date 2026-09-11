@@ -1,7 +1,7 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { realpathSync } from 'node:fs';
+import { realpathSync, existsSync, readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -15,10 +15,13 @@ import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
+
+function norm(p: string): string {
+	return p.replaceAll('\\', '/');
+}
 
 const require = createRequire(import.meta.url);
 function resolvePackageRoot(packageName: string): string {
@@ -32,6 +35,63 @@ function resolvePackageRoot(packageName: string): string {
 const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
 const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm');
 const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm');
+
+// @noble/hashes ships CJS at its package root and ESM under esm/. Bare specifiers
+// like "@noble/hashes/sha256" need redirecting to the esm/ files — otherwise
+// @rollup/plugin-commonjs wraps the CJS copy in a lazy require() wrapper whose
+// init call gets eliminated by minifiers (see qrcode's identical bug below).
+//
+// Multiple @noble/hashes versions coexist in this dependency tree (pnpm nests a
+// different version per consumer when semver ranges diverge — v1.x and v2.x have
+// incompatible abytes() signatures). A naive global redirect to one resolved
+// package root would silently swap a different version into some importers,
+// producing generic "Uint8Array expected of length ,message" assertion failures.
+// Resolving through `this.resolve(source, importer)` first lets Rollup/pnpm pick
+// the correct version for THAT importer; only then do we redirect within that
+// same version's directory to its esm/ counterpart.
+function nobleHashesEsm(): Plugin {
+	return {
+		name: 'noble-hashes-esm',
+		enforce: 'pre',
+		load(id) {
+			const normalized = norm(id).split('?')[0];
+			if (normalized.includes('\0')) return null;
+			if (!normalized.includes('/@noble/hashes/') || normalized.includes('/@noble/hashes/esm/')) {
+				return null;
+			}
+			if (!normalized.endsWith('.js')) return null;
+
+			const esmPath = normalized.replace(/\/\@noble\/hashes\//, '/@noble/hashes/esm/');
+			return existsSync(esmPath) ? readFileSync(esmPath, 'utf-8') : null;
+		}
+	};
+}
+
+
+function nobleRelativeEsm(): Plugin {
+	return {
+		name: 'noble-relative-esm',
+		enforce: 'pre',
+		resolveId(source, importer) {
+			if (!importer) return null;
+
+			const normalizedImporter = norm(importer).split('?')[0];
+			if (
+				!source.startsWith('.') ||
+				!normalizedImporter.includes('/@noble/hashes/') ||
+				normalizedImporter.includes('/@noble/hashes/esm/')
+			) {
+				return null;
+			}
+
+			const absolutePath = norm(resolve(dirname(importer), source));
+			const esmPath = absolutePath.replace(/\/\@noble\/hashes\//, '/@noble/hashes/esm/');
+			const esmFile = esmPath.endsWith('.js') ? esmPath : `${esmPath}.js`;
+			return existsSync(esmFile) ? esmFile : null;
+		}
+	};
+}
+
 const rgbSdkWebIsolatedModules = dirname(
 	dirname(realpathSync(resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web')))
 );
@@ -104,19 +164,10 @@ function cjsEsmInterop(): Plugin {
 	};
 }
 
-function clientOnlyTopLevelAwait(): Plugin {
-	const inner = topLevelAwait() as Plugin;
-	return {
-		...inner,
-		name: 'client-only-top-level-await',
-		applyToEnvironment(environment) {
-			return environment.name !== 'ssr';
-		}
-	};
-}
-
 function clientResolveAliases(): Plugin {
 	const bitcoinjsShim = resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts');
+	const eventsShim = resolve(projectRoot, 'src/lib/shims/events.ts');
+	const lruCacheShim = resolve(projectRoot, 'src/lib/shims/typescript-lru-cache.ts');
 	const packageRoots: Record<string, string> = {
 		'bitcoinjs-lib': dirname(require.resolve('bitcoinjs-lib/package.json', { paths: [rgbSdkWebIsolatedModules] })),
 		'boltz-core': dirname(require.resolve('boltz-core/package.json', { paths: [walletCoreIsolatedModules] })),
@@ -128,6 +179,20 @@ function clientResolveAliases(): Plugin {
 			// Never intercept virtual modules, icon imports, or WASM files
 			if (source.startsWith('~icons/') || source.startsWith('\0') || source.endsWith('.wasm')) return null;
 			if (options?.ssr) return null;
+
+			// Force bare 'events' (and 'node:events') to the ESM shim so NDK's
+			// `class NDKRelay extends EventEmitter` binds a real constructor at
+			// module-init time, not the lazily-populated CJS interop namespace.
+			// Must run enforce:'pre' to beat nodePolyfills and commonjs interop.
+			if (source === 'events' || source === 'node:events') {
+				return { id: eventsShim };
+			}
+			if (source === 'tseep') {
+				return { id: eventsShim };
+			}
+			if (source === 'typescript-lru-cache') {
+				return { id: lruCacheShim };
+			}
 
 			// Intercept nested file-path imports of bitcoinjs-lib from excluded
 			// dependencies (e.g. @utexo/rgb-sdk-web/node_modules/bitcoinjs-lib/src/index.js).
@@ -233,6 +298,39 @@ function rewriteUtexoWasmUrls(): Plugin {
 	};
 }
 
+// qrcode's format-info.js/version.js compute a BCH digit via a cross-module
+// CJS singleton (Utils.getBCHDigit) at module-init time. esbuild/oxc/terser
+// all strip that singleton's init call as dead code once bundled, leaving
+// Utils.getBCHDigit undefined at runtime. These patched copies inline the
+// (tiny, pure) getBCHDigit function instead. resolve.alias can't target
+// these — it matches the specifier as written ("./format-info"), not the
+// resolved absolute path — so a resolveId hook is used instead.
+function patchQrcodeBCHDigit(): Plugin {
+	const shimDir = resolve(projectRoot, 'src/lib/shims');
+	const patches: Record<string, string> = {
+		'format-info': resolve(shimDir, 'qrcode-format-info.js'),
+		version: resolve(shimDir, 'qrcode-version.js')
+	};
+	// The shims live outside node_modules (real ESM, not CJS-transformed), but
+	// still need to import qrcode's other lib/core/*.js files by relative
+	// specifier. Resolve those against qrcode's actual installed location.
+	const qrcodeCoreDir = dirname(require.resolve('qrcode/lib/core/utils.js'));
+	return {
+		name: 'patch-qrcode-bch-digit',
+		enforce: 'pre',
+		resolveId(source, importer) {
+			if (importer && Object.values(patches).includes(importer) && source.startsWith('./')) {
+				return resolve(qrcodeCoreDir, source);
+			}
+			if (!importer || !/[\\/]qrcode[\\/]lib[\\/]core[\\/]/.test(importer)) return null;
+			for (const [name, shimPath] of Object.entries(patches)) {
+				if (source === `./${name}`) return shimPath;
+			}
+			return null;
+		}
+	};
+}
+
 const addBrowserCondition: Plugin = {
 	name: 'vite-plugin-browser-condition',
 	config(config, { mode }) {
@@ -327,10 +425,16 @@ export default defineConfig(({ mode }) => {
 				},
 				{ find: /^crypto$/, replacement: 'crypto-browserify' },
 				{ find: /^stream$/, replacement: 'stream-browserify' },
-				{ find: /^buffer$/, replacement: 'buffer' },
+				{ find: /^buffer$/, replacement: resolve(projectRoot, 'src/lib/shims/buffer-pkg.js') },
+				{ find: /^safe-buffer$/, replacement: resolve(projectRoot, 'src/lib/shims/buffer-pkg.js') },
+				{ find: /bitcoinjs-lib[\\/]src[\\/]ops\.js$/, replacement: resolve(projectRoot, 'src/lib/shims/bitcoinjs-ops.cjs') },
+				{ find: /^bitcoin-ops$/, replacement: resolve(projectRoot, 'src/lib/shims/bitcoin-ops.cjs') },
 				{ find: /^util$/, replacement: 'util/' },
 				{ find: /^vm$/, replacement: 'vm-browserify' },
-				{ find: /^events$/, replacement: 'events' },
+				{ find: /^events$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
+				{ find: /^node:events$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
+				{ find: /^tseep$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
+				{ find: /^typescript-lru-cache$/, replacement: resolve(projectRoot, 'src/lib/shims/typescript-lru-cache.ts') },
 				{ find: /^process$/, replacement: 'process/browser' },
 				...(process.env.VITEST
 					? [{ find: /^\$app\/environment$/, replacement: new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname }]
@@ -340,9 +444,11 @@ export default defineConfig(({ mode }) => {
 		ssr: {
 			noExternal: [
 				'@bittasker/wallet-core',
+				'@noble/curves',
+				'@noble/secp256k1',
+				'@noble/hashes',
 			],
 			external: [
-				'@noble/hashes',
 				'bitcoinjs-lib',
 				'boltz-core',
 				'crypto-browserify',
@@ -364,10 +470,68 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		plugins: [
+			{
+				name: 'script-ops-patch',
+				enforce: 'pre',
+				transform(code, id) {
+					const n = String(id).replaceAll('\\', '/').split('?')[0];
+					if (!n.includes('/bitcoinjs-lib/')) return null;
+					const isScript = n.endsWith('/src/script.js');
+					const isOps = n.endsWith('/src/ops.js');
+					if (!isScript && !isOps) return null;
+					const opsPath = resolve(projectRoot, 'src/lib/shims/bitcoin-ops.cjs');
+					const opsModule = require(opsPath);
+					const ops = {};
+					const src = opsModule.OPS && opsModule.OPS.OP_RESERVED == null ? opsModule.OPS : opsModule;
+					for (const [key, value] of Object.entries(src)) {
+						if (typeof value === 'number' || typeof value === 'string') ops[key] = value;
+					}
+					const opsJson = JSON.stringify(ops);
+					if (isOps) {
+						const epilogue =
+							'\nvar __OPS_LITERAL = ' + opsJson + ';\n' +
+							'exports.OPS = __OPS_LITERAL;\n' +
+							'exports.SCRIPT_OPS_PATCH = true;\n' +
+							'if (typeof module !== "undefined" && module.exports) {\n' +
+							'  module.exports.OPS = __OPS_LITERAL;\n' +
+							'}\n';
+						return { code: code + epilogue, map: null };
+					}
+
+					const epilogue =
+						'\nvar __OPS_LITERAL_S = ' + opsJson + ';\n' +
+						'Object.defineProperty(exports, "OPS", { value: __OPS_LITERAL_S, writable: true, enumerable: true, configurable: true });\n' +
+						'if (typeof module !== "undefined" && module.exports) {\n' +
+						'  Object.defineProperty(module.exports, "OPS", { value: __OPS_LITERAL_S, writable: true, enumerable: true, configurable: true });\n' +
+						'}\n';
+					return { code: code + epilogue, map: null };
+				}
+			},
 			ssrNodeBuiltins(),
 			clientResolveAliases(),
 			cjsEsmInterop(),
+			{
+				name: 'buffer-real-impl',
+				enforce: 'pre',
+				resolveId(source) {
+					if (source === 'buffer-real-impl') {
+						return require.resolve('buffer/index.js');
+					}
+					return null;
+				},
+				load(id) {
+					const n = id.replaceAll('\\', '/').split('?')[0];
+					if (n.includes('\0')) return null;
+					if (n.includes('/node_modules/buffer/index.js') && !n.includes('/polyfill')) {
+						return readFileSync(n, 'utf8');
+					}
+					return null;
+				}
+			},
 			rewriteUtexoWasmUrls(),
+			nobleHashesEsm(),
+			nobleRelativeEsm(),
+			patchQrcodeBCHDigit(),
 			viteStaticCopy({
 				targets: [
 					{
@@ -387,6 +551,7 @@ export default defineConfig(({ mode }) => {
 					const p = id.replace(/\\/g, '/');
 					return (
 						p.includes('/@utexo/') ||
+						p.includes('/node_modules/buffer/') ||
 						p.includes('/bip32/') ||
 						p.includes('/ecpair/') ||
 						p.includes('/bs58check/') ||
@@ -396,7 +561,7 @@ export default defineConfig(({ mode }) => {
 				}
 			}),
 			nodePolyfills({
-				include: ['crypto', 'buffer', 'stream', 'util', 'vm'],
+				include: ['crypto', 'stream', 'util', 'vm'],
 				protocolImports: true,
 				globals: {
 					Buffer: true,
@@ -407,7 +572,6 @@ export default defineConfig(({ mode }) => {
 			sveltekit(),
 			tailwindcss(),
 			wasm(),
-			clientOnlyTopLevelAwait(),
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
@@ -448,12 +612,25 @@ export default defineConfig(({ mode }) => {
 			cssMinify: true,
 			chunkSizeWarningLimit: 2500,
 			commonjsOptions: {
-				include: [/node_modules\/@utexo\/rgb-sdk-web/, /bitcoinjs-lib/, /@utexo/, /node_modules/],
+				include: [/node_modules/],
+				exclude: [/tseep/, /@nostr-dev-kit/, /@noble\/hashes/],
 				transformMixedEsModules: true
 			},
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
+						const normalizedId = String(id).replaceAll('\\', '/');
+						if (
+							normalizedId.includes('bitcoinjs-lib') ||
+							normalizedId.includes('bitcoinjs-ops.cjs') ||
+							normalizedId.includes('bitcoin-ops.cjs') ||
+							normalizedId.includes('/bitcoin-ops/') ||
+							normalizedId.includes('/bitcoin-ops@') ||
+							normalizedId.includes('/shims/bitcoin') ||
+							/bitcoin-ops/.test(normalizedId)
+						) {
+							return 'bitcoinjs';
+						}
 						if (id.includes('src/lib/api/apiService')) {
 							return 'api-base';
 						}

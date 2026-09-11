@@ -1,5 +1,6 @@
 import type { CryptoEncryptedData } from '$lib/types/auth';
-import { entropyToMnemonic } from 'bip39';
+import { entropyToMnemonic } from '@scure/bip39';
+import { wordlist as englishWordlist } from '@scure/bip39/wordlists/english.js';
 import { bytesToBase64, base64ToBytes } from './encoding';
 
 /**
@@ -208,12 +209,5 @@ export async function deriveWalletFromNostr(nsec: string): Promise<string> {
 	);
 	const entropy = new Uint8Array(hash).slice(0, 16); // 128 bits = 12 word mnemonic
 
-	// Convert entropy to hex string for BIP39
-	const entropyHex = Array.from(entropy)
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-
-	// Convert to mnemonic using BIP39
-	const mnemonic = entropyToMnemonic(entropyHex);
-	return mnemonic;
+	return entropyToMnemonic(entropy, englishWordlist);
 }

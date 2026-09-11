@@ -169,6 +169,8 @@ crons = ["0 3 * * SUN"]
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
 VITE_ROBOTS_TXT = "prod"
+VITE_API_URL = "https://api-staging.bittasker.com"
+VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_BSC_NETWORK = "mainnet"

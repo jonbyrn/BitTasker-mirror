@@ -13,7 +13,7 @@
 	let captchaFailed = $state(false);
 	let tosAccepted = $state(false);
 
-	onMount(async () => {
+	onMount(() => {
 		try {
 			const isLocalhost =
 				location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -24,8 +24,28 @@
 				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
-			// Setup callback for Turnstile
-			window.onloadTurnstileCallback = renderTurnstile;
+
+			const turnstileScriptSelector =
+				'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]';
+			const existingScript = document.querySelector<HTMLScriptElement>(turnstileScriptSelector);
+			if (window.turnstile) {
+				renderTurnstile();
+				return;
+			}
+
+			if (existingScript) {
+				existingScript.addEventListener('load', renderTurnstile, { once: true });
+				return () => existingScript.removeEventListener('load', renderTurnstile);
+			}
+
+			const script = document.createElement('script');
+			script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+			script.async = true;
+			script.defer = true;
+			script.dataset.bittaskerTurnstile = 'true';
+			script.addEventListener('load', renderTurnstile, { once: true });
+			document.head.appendChild(script);
+			return () => script.removeEventListener('load', renderTurnstile);
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -92,15 +112,6 @@
 		}
 	}
 </script>
-
-<!-- Cloudflare Turnstile Script -->
-<svelte:head>
-	<script
-		src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
-		async
-		defer
-	></script>
-</svelte:head>
 
 <div
 	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"

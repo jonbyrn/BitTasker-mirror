@@ -618,8 +618,12 @@
 							</button>
 						</div>
 					{:else}
-						<div
+						<form
 							class="flex flex-col gap-3"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void handleNsecLogin();
+							}}
 							in:fly={{
 								duration: 200,
 								easing: linear,
@@ -683,6 +687,7 @@
 							</div>
 							<div class="mt-2 flex gap-3">
 								<button
+									type="button"
 									class="btn btn-secondary flex-1"
 									onclick={() => {
 										error = '';
@@ -695,9 +700,9 @@
 									{$t('login.cancel_button')}
 								</button>
 								<button
+									type="submit"
 									class="btn btn-primary flex-1"
 									data-testid="login-submit"
-									onclick={handleNsecLogin}
 									disabled={isLoading}
 								>
 									{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
@@ -727,7 +732,7 @@
 									{/snippet}
 								</QrCodeScanner>
 							{/if}
-						</div>
+						</form>
 					{/if}
 
 					{#if error}

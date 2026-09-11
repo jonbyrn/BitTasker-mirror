@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as bip39 from 'bip39';
+import { wordlist as englishWordlist } from '@scure/bip39/wordlists/english.js';
+import { wordlist as spanishWordlist } from '@scure/bip39/wordlists/spanish.js';
 import {
 	generatePassword,
 	generateSpanishPassword,
@@ -25,7 +26,7 @@ describe('password', () => {
 		});
 
 		it('should use words from English wordlist when language is en', () => {
-			const englishWords = new Set(bip39.wordlists.english);
+			const englishWords = new Set(englishWordlist);
 			const result = generatePassword('english');
 			const words = result.split(' ');
 			words.forEach((word) => {
@@ -34,7 +35,7 @@ describe('password', () => {
 		});
 
 		it('should use words from Spanish wordlist when language is spanish', () => {
-			const spanishWords = new Set(bip39.wordlists.spanish);
+			const spanishWords = new Set(spanishWordlist);
 			const result = generatePassword('spanish');
 			const words = result.split(' ');
 			words.forEach((word) => {
@@ -43,7 +44,7 @@ describe('password', () => {
 		});
 
 		it('should accept language code "en" and use English wordlist', () => {
-			const englishWords = new Set(bip39.wordlists.english);
+			const englishWords = new Set(englishWordlist);
 			const result = generatePassword('en');
 			const words = result.split(' ');
 			words.forEach((word) => {
@@ -53,7 +54,7 @@ describe('password', () => {
 
 		it('should fall back to English for unsupported language', () => {
 			const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-			const englishWords = new Set(bip39.wordlists.english);
+			const englishWords = new Set(englishWordlist);
 			const result = generatePassword('unsupported');
 			const words = result.split(' ');
 			words.forEach((word) => {
@@ -68,7 +69,7 @@ describe('password', () => {
 
 	describe('generateSpanishPassword', () => {
 		it('should return four words from Spanish wordlist', () => {
-			const spanishWords = new Set(bip39.wordlists.spanish);
+			const spanishWords = new Set(spanishWordlist);
 			const result = generateSpanishPassword();
 			const words = result.split(' ');
 			expect(words).toHaveLength(4);
@@ -80,7 +81,7 @@ describe('password', () => {
 
 	describe('generateEnglishPassword', () => {
 		it('should return four words from English wordlist', () => {
-			const englishWords = new Set(bip39.wordlists.english);
+			const englishWords = new Set(englishWordlist);
 			const result = generateEnglishPassword();
 			const words = result.split(' ');
 			expect(words).toHaveLength(4);
