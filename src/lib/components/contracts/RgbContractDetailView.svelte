@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ContractRune, type ContractRuneSnapshot, type ContractRuneStatus } from '$lib/runes/contract.svelte';
+	import {
+		ContractRune,
+		type ContractRuneSnapshot,
+		type ContractRuneStatus
+	} from '$lib/runes/contract.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import type { RgbSeal } from '$lib/services/rgb/types';
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { initWasm } from '$lib/wasm/init-wasm';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -45,8 +50,8 @@
 	);
 	const canSubmitDeliverable = $derived(
 		role === 'taskee' &&
-		(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress') &&
-		!isSubmitting
+			(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress') &&
+			!isSubmitting
 	);
 	const canRelease = $derived(
 		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
@@ -107,7 +112,10 @@
 			const ordered = [...events].sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
 			const parsedEntries = ordered
 				.map((event) => ({ event, content: parseStatusContent(event.content) }))
-				.filter((entry): entry is { event: (typeof ordered)[number]; content: ContractStatusContent } => Boolean(entry.content));
+				.filter(
+					(entry): entry is { event: (typeof ordered)[number]; content: ContractStatusContent } =>
+						Boolean(entry.content)
+				);
 			const latest = parsedEntries.at(-1);
 			if (!latest) {
 				errorMessage = 'Contract status has not propagated yet.';
@@ -116,15 +124,22 @@
 
 			const content = latest.content;
 			const split = normalizeSplit(content.split);
-			const nextRune = ContractRune.get(contractId) ?? new ContractRune({
-				contractId,
-				contractTitle: content.contractTitle,
-				bidderComments: content.bidderComments,
-				totalAmountUsd: content.totalAmountUsd ?? 1,
-				split,
-				partyPubkeys: latest.event.tags.filter((tag) => tag[0] === 'p').map((tag) => tag[1]).filter(Boolean)
-			});
-			nextRune.status = (content.status ?? latest.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded') as ContractRuneStatus;
+			const nextRune =
+				ContractRune.get(contractId) ??
+				new ContractRune({
+					contractId,
+					contractTitle: content.contractTitle,
+					bidderComments: content.bidderComments,
+					totalAmountUsd: content.totalAmountUsd ?? 1,
+					split,
+					partyPubkeys: latest.event.tags
+						.filter((tag) => tag[0] === 'p')
+						.map((tag) => tag[1])
+						.filter(Boolean)
+				});
+			nextRune.status = (content.status ??
+				latest.event.tags.find((tag) => tag[0] === 's')?.[1] ??
+				'funded') as ContractRuneStatus;
 			nextRune.seals = normalizeSeals(content, contractId);
 			rune = nextRune;
 			timeline = parsedEntries.map(({ event, content: item }) => ({
@@ -160,6 +175,7 @@
 		isReleasing = true;
 		errorMessage = '';
 		try {
+			await initWasm();
 			await rune.releaseRgbEscrow();
 			await loadContract();
 		} catch (error) {
@@ -170,7 +186,13 @@
 	}
 
 	onMount(() => {
-		void loadContract();
+		void initWasm()
+			.catch((error) => {
+				console.warn('[contract] initWasm failed:', error);
+			})
+			.finally(() => {
+				void loadContract();
+			});
 	});
 </script>
 
@@ -185,8 +207,12 @@
 				<p class="text-base-content/70 mt-1 text-sm break-all">{contractId}</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<span class="badge badge-primary badge-lg" data-testid="contract-settlement-unit">{settlementUnit}</span>
-				<span class="badge badge-outline badge-lg" data-testid="contract-status">{snapshot?.status ?? 'loading'}</span>
+				<span class="badge badge-primary badge-lg" data-testid="contract-settlement-unit"
+					>{settlementUnit}</span
+				>
+				<span class="badge badge-outline badge-lg" data-testid="contract-status"
+					>{snapshot?.status ?? 'loading'}</span
+				>
 			</div>
 		</div>
 	</div>
@@ -200,7 +226,10 @@
 	{:else if snapshot}
 		<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm">
 			<h2 class="font-semibold">Bid details</h2>
-			<p class="text-base-content/70 mt-2 whitespace-pre-line" data-testid="contract-bidder-comments">
+			<p
+				class="text-base-content/70 mt-2 whitespace-pre-line"
+				data-testid="contract-bidder-comments"
+			>
 				{snapshot.bidderComments || 'No bidder comments provided.'}
 			</p>
 		</div>
@@ -215,20 +244,43 @@
 							<div class="text-base-content/70 text-sm">{entry.message}</div>
 						{/if}
 						{#if entry.proofUrl}
-							<button class="link link-primary text-sm" type="button" onclick={() => openProof(entry.proofUrl ?? '')}>Proof</button>
+							<button
+								class="link link-primary text-sm"
+								type="button"
+								onclick={() => openProof(entry.proofUrl ?? '')}>Proof</button
+							>
 						{/if}
-						<div class="text-base-content/50 text-xs">{new Date(entry.createdAt).toLocaleString()}</div>
+						<div class="text-base-content/50 text-xs">
+							{new Date(entry.createdAt).toLocaleString()}
+						</div>
 					</div>
 				{/each}
 			</div>
 		</div>
 
 		{#if canSubmitDeliverable}
-			<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm" data-testid="submit-deliverable-panel">
+			<div
+				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+				data-testid="submit-deliverable-panel"
+			>
 				<h2 class="font-semibold">Submit Deliverable</h2>
-				<textarea class="textarea textarea-bordered mt-3 w-full" bind:value={workMessage} data-testid="deliverable-message-input"></textarea>
-				<input class="input input-bordered mt-3 w-full" bind:value={proofUrl} placeholder="Proof URL" data-testid="deliverable-proof-url-input" />
-				<button class="btn btn-primary mt-3" onclick={handleSubmitDeliverable} disabled={isSubmitting} data-testid="submit-deliverable-button">
+				<textarea
+					class="textarea textarea-bordered mt-3 w-full"
+					bind:value={workMessage}
+					data-testid="deliverable-message-input"
+				></textarea>
+				<input
+					class="input input-bordered mt-3 w-full"
+					bind:value={proofUrl}
+					placeholder="Proof URL"
+					data-testid="deliverable-proof-url-input"
+				/>
+				<button
+					class="btn btn-primary mt-3"
+					onclick={handleSubmitDeliverable}
+					disabled={isSubmitting}
+					data-testid="submit-deliverable-button"
+				>
 					{#if isSubmitting}<span class="loading loading-spinner loading-xs"></span>{/if}
 					Submit Deliverable
 				</button>
@@ -236,10 +288,20 @@
 		{/if}
 
 		{#if canRelease}
-			<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm" data-testid="release-funds-panel">
+			<div
+				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+				data-testid="release-funds-panel"
+			>
 				<h2 class="font-semibold">Approve & Release Funds</h2>
-				<p class="text-base-content/70 mt-2 text-sm">Review the Taskee deliverable, then release the RGB escrow.</p>
-				<button class="btn btn-success mt-3" onclick={handleRelease} disabled={isReleasing} data-testid="approve-release-funds-button">
+				<p class="text-base-content/70 mt-2 text-sm">
+					Review the Taskee deliverable, then release the RGB escrow.
+				</p>
+				<button
+					class="btn btn-success mt-3"
+					onclick={handleRelease}
+					disabled={isReleasing}
+					data-testid="approve-release-funds-button"
+				>
 					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
 					Approve & Release Funds
 				</button>

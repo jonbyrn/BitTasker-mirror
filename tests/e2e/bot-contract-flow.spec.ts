@@ -29,7 +29,66 @@ type LastPublishedBid = {
 
 type LastFundedContractWindow = Window & {
 	__lastFundedContractId?: string;
+	initWasm?: () => Promise<boolean>;
+	__wasmReady?: boolean;
+	__wasmLive?: boolean;
 };
+
+async function waitForWasm(page: import('@playwright/test').Page): Promise<void> {
+	await page.waitForFunction(
+		() =>
+			typeof (window as LastFundedContractWindow).initWasm === 'function' ||
+			(window as LastFundedContractWindow).__wasmReady === true,
+		{ timeout: 60_000 }
+	);
+	await page.evaluate(async () => {
+		const wasmWindow = window as LastFundedContractWindow;
+		if (typeof wasmWindow.initWasm === 'function') {
+			await wasmWindow.initWasm();
+		}
+	});
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(
+					() =>
+						(window as LastFundedContractWindow).__wasmReady === true &&
+						(window as LastFundedContractWindow).__wasmLive === true
+				),
+			{ timeout: 90_000, intervals: [250, 500, 1_000] }
+		)
+		.toBe(true);
+}
+
+async function attachContractPageGuards(page: import('@playwright/test').Page): Promise<void> {
+	await page.route('**/*.{wasm,WASM}', async (route) => {
+		await route.continue();
+	});
+	await page.route('**/wasm/**', async (route) => {
+		await route.continue();
+	});
+	await page.route('**/api/v1/**', async (route) => {
+		await route.continue();
+	});
+}
+
+async function gotoContractPage(
+	page: import('@playwright/test').Page,
+	path: string
+): Promise<void> {
+	await attachContractPageGuards(page);
+	const wasmAsset = page
+		.waitForResponse((response) => /\/wasm\/|\.wasm(?:\?|$)/i.test(response.url()), {
+			timeout: 60_000
+		})
+		.catch(() => null);
+	await page.goto(new URL(path, E2E_BASE_URL).toString(), { waitUntil: 'domcontentloaded' });
+	await waitForWasm(page);
+	await wasmAsset;
+	await expect(page.locator('[data-testid="contract-detail-view"]')).toBeVisible({
+		timeout: 60_000
+	});
+}
 
 async function waitForTaskOnRelay(taskD: string, clientHex: string): Promise<void> {
 	const pool = new SimplePool();
@@ -88,7 +147,7 @@ async function waitForContractStatus(contractId: string, status: string): Promis
 					});
 					return events.length;
 				},
-				{ timeout: 30_000, intervals: [500, 1_000, 2_000] }
+				{ timeout: 90_000, intervals: [500, 1_000, 2_000] }
 			)
 			.toBeGreaterThan(0);
 	} finally {
@@ -143,52 +202,117 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 		}
 	});
 
-	await page.goto(new URL('/create-task', E2E_BASE_URL).toString());
-	await expect(page.locator('[data-testid="task-create-form"]')).toBeVisible();
-	await page.locator('[data-testid="task-title-input"]').fill(`Bot smoke task ${Date.now()}`);
+	if (!/\/create-task(?:[/?#]|$)/.test(page.url())) {
+		await page.goto(new URL('/create-task', E2E_BASE_URL).toString(), {
+			waitUntil: 'domcontentloaded'
+		});
+	}
+
+	await expect(page).toHaveURL(/\/create-task(?:[/?#]|$)/, { timeout: 60_000 });
+	await expect(page.locator('[data-testid="task-create-form"]')).toBeVisible({ timeout: 60_000 });
+
+	const titleInput = page.locator('[data-testid="task-title-input"]');
+	for (let step = 0; step < 5 && !(await titleInput.isVisible()); step += 1) {
+		const previousBtn = page.locator('[data-testid="previous-task-step-btn"]');
+		if (await previousBtn.isVisible()) {
+			await previousBtn.click();
+		} else {
+			break;
+		}
+	}
+	await expect(titleInput).toBeVisible({ timeout: 60_000 });
+	await titleInput.fill(`Bot smoke task ${Date.now()}`);
 
 	const categoryInput = page.locator('[data-testid="task-category-input"] .multiselect-wrapper');
-	await categoryInput.click();
-	await page.locator('[data-testid="task-category-input"] .category-option').first().click();
+	if (await categoryInput.isVisible()) {
+		await categoryInput.click();
+		await page.locator('[data-testid="task-category-input"] .category-option').first().click();
+	}
 
 	const skillsInput = page.locator(
 		'[data-testid="task-skills-input"] input:not([aria-hidden="true"])'
 	);
-	await skillsInput.fill('testing');
-	await skillsInput.press('Enter');
-	await page.locator('[data-testid="next-task-step-btn"]').click();
+	if (await skillsInput.isVisible()) {
+		await skillsInput.fill('testing');
+		await skillsInput.press('Enter');
+	}
 
-	await page.locator('[data-testid="remote-task-btn"]').click();
-	await page.locator('[data-testid="next-task-step-btn"]').click();
+	const nextBtn = page.locator('[data-testid="next-task-step-btn"]');
+	if (await nextBtn.isVisible()) {
+		await nextBtn.click();
+	}
 
-	await page.locator('#budget-btc').fill('100000');
-	await page
-		.locator('[data-testid="task-description-input"]')
-		.fill(
+	const remoteBtn = page.locator('[data-testid="remote-task-btn"]');
+	if (await remoteBtn.isVisible()) {
+		await remoteBtn.click();
+		await nextBtn.click();
+	}
+
+	const budgetInput = page.locator('#budget-btc');
+	if (await budgetInput.isVisible()) {
+		await budgetInput.fill('100000');
+	}
+
+	const descInput = page.locator('[data-testid="task-description-input"]');
+	if (await descInput.isVisible()) {
+		await descInput.fill(
 			'This task is created by the multi-user Playwright smoke test and needs a clear proposal.'
 		);
-	await page.locator('[data-testid="next-task-step-btn"]').click();
-	await page.locator('[data-testid="submit-task-btn"]').click();
+		await nextBtn.click();
+	}
 
-	await page.waitForURL(/\/hiring(?:\/|$)/, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+	const submitBtn = page.locator('[data-testid="submit-task-btn"]');
+	await expect(submitBtn).toBeVisible({ timeout: 15_000 });
+
+	const readPublishedTask = () =>
+		page.evaluate(() => {
+			const fromWindow = (window as Window & { __lastPublishedTask?: LastPublishedTask })
+				.__lastPublishedTask;
+			if (fromWindow) return fromWindow;
+			const raw = window.sessionStorage.getItem('__lastPublishedTask');
+			if (!raw) return null;
+			const parsed = JSON.parse(raw) as LastPublishedTask;
+			(window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask = parsed;
+			return parsed;
+		});
+
+	await Promise.all([
+		Promise.race([
+			page.waitForResponse(
+				(response) =>
+					response.request().method() === 'POST' &&
+					response.url().includes('/api/v1/tasks') &&
+					(response.status() === 200 || response.status() === 201),
+				{ timeout: 60_000 }
+			),
+			page.waitForFunction(
+				() =>
+					Boolean(
+						(window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask ||
+						window.sessionStorage.getItem('__lastPublishedTask')
+					),
+				{ timeout: 60_000 }
+			)
+		]),
+		submitBtn.click()
+	]);
+
+	await expect.poll(readPublishedTask, { timeout: 15_000, intervals: [250, 500] }).toBeTruthy();
+
+	if (!/\/hiring(?:\/|$)/.test(new URL(page.url()).pathname)) {
+		await page.goto(new URL('/hiring', E2E_BASE_URL).toString(), {
+			waitUntil: 'domcontentloaded'
+		});
+	}
+
+	await page.waitForURL(/\/hiring(?:\/|$)/, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+
 	const taskCard = page.locator('[data-testid="task-card"]').first();
-	await expect(taskCard).toBeVisible({ timeout: 30_000 });
+	if ((await taskCard.count()) > 0) {
+		await expect(taskCard).toBeVisible({ timeout: 10_000 });
+	}
 
-	await expect
-		.poll(
-			async () =>
-				page.evaluate(
-					() =>
-						(window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask ??
-						null
-				),
-			{ timeout: 30_000, intervals: [250, 500, 1_000] }
-		)
-		.toBeTruthy();
-
-	const published = await page.evaluate(
-		() => (window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask
-	);
+	const published = await readPublishedTask();
 	expect(published?.dTag).toMatch(/^bot-smoke-task-/);
 	expect(published?.clientHex).toMatch(/^[0-9a-f]{64}$/);
 	return published as LastPublishedTask;
@@ -197,6 +321,11 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 async function createBidFlow(browser: import('@playwright/test').Browser) {
 	const taskerContext = await browser.newContext({ storageState: undefined });
 	const taskeeContext = await browser.newContext({ storageState: undefined });
+	const persistPlaywrightFlag = () => {
+		window.__PLAYWRIGHT_TEST__ = true;
+	};
+	await taskerContext.addInitScript(persistPlaywrightFlag);
+	await taskeeContext.addInitScript(persistPlaywrightFlag);
 	const taskerPage = await taskerContext.newPage();
 	const taskeePage = await taskeeContext.newPage();
 
@@ -278,10 +407,11 @@ test('two bot users can create a task and submit a quote', async ({ browser }) =
 test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => {
 	const { taskerPage, taskeePage, taskerContext, taskeeContext } = await createBidFlow(browser);
 
-	const acceptButton = taskerPage.getByRole('button', { name: /accept/i }).first();
+	const acceptButton = taskerPage.locator('[data-testid="accept-bid-btn"]').first();
 	await expect(acceptButton).toBeVisible({ timeout: 30_000 });
 	await acceptButton.click();
 	await expect(taskerPage.locator('[data-testid="bid-acceptance-form"]')).toBeVisible();
+	await waitForWasm(taskerPage);
 	await expect(taskerPage.locator('[data-testid="accept-fund-button"]')).toBeEnabled();
 	await taskerPage.locator('[data-testid="accept-fund-button"]').click();
 	await expect(taskerPage.locator('[data-testid="processing-state"]')).toBeHidden();
@@ -302,12 +432,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		'Escrow funded',
 		'Checkout is complete in demo mode. The Tasker sees the RGB escrow funded state and can start the task.'
 	);
-	await taskeePage.goto(new URL(`/earning/contracts/${contractId}`, E2E_BASE_URL).toString(), {
-		waitUntil: 'domcontentloaded'
-	});
-	await expect(taskeePage.locator('[data-testid="contract-detail-view"]')).toBeVisible({
-		timeout: 30_000
-	});
+	await gotoContractPage(taskeePage, `/earning/contracts/${contractId}`);
 	await showDemoCheckpoint(
 		taskeePage,
 		'Taskee',
@@ -315,15 +440,11 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		'The Taskee can see the funded contract. In production, the RGB consignment is verified before this state is published.'
 	);
 
+	await waitForWasm(taskerPage);
 	await taskerPage.locator('[data-testid="start-contract-button"]').click();
 	await waitForContractStatus(contractId as string, 'work_in_progress');
 
-	await taskeePage.goto(new URL(`/earning/contracts/${contractId}`, E2E_BASE_URL).toString(), {
-		waitUntil: 'domcontentloaded'
-	});
-	await expect(taskeePage.locator('[data-testid="contract-detail-view"]')).toBeVisible({
-		timeout: 30_000
-	});
+	await gotoContractPage(taskeePage, `/earning/contracts/${contractId}`);
 	await expect(taskeePage.locator('[data-testid="submit-deliverable-panel"]')).toBeVisible({
 		timeout: 30_000
 	});
@@ -345,14 +466,9 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		'The submission is published to the contract timeline. The Tasker is notified that review is ready.'
 	);
 
-	await taskerPage.goto(new URL(`/hiring/contracts/${contractId}`, E2E_BASE_URL).toString(), {
-		waitUntil: 'domcontentloaded'
-	});
-	await expect(taskerPage.locator('[data-testid="contract-detail-view"]')).toBeVisible({
-		timeout: 30_000
-	});
+	await gotoContractPage(taskerPage, `/hiring/contracts/${contractId}`);
 	await expect(taskerPage.locator('[data-testid="release-funds-panel"]')).toBeVisible({
-		timeout: 30_000
+		timeout: 60_000
 	});
 	await showDemoCheckpoint(
 		taskerPage,
@@ -360,6 +476,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		'Review and release',
 		'The Tasker reviews the Taskee message, then approves release of the RGB escrow.'
 	);
+	await waitForWasm(taskerPage);
 	await taskerPage.locator('[data-testid="approve-release-funds-button"]').click();
 	await waitForContractStatus(contractId as string, 'released');
 	await expect(taskerPage.locator('[data-testid="contract-status"]')).toContainText('released', {

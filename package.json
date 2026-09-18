@@ -205,6 +205,7 @@
 		"bip174": "^3.0.0",
 		"bip32": "^5.0.1",
 		"bitcoin-ops": "^1.4.1",
+		"bitcoinjs-lib": "6.1.7",
 		"bn.js": "^5.2.5",
 		"browser-image-compression": "^2.0.2",
 		"bs58check": "^4.0.0",
@@ -248,6 +249,7 @@
 		"vite-plugin-top-level-await": "^1.5.0",
 		"vite-plugin-wasm": "^3.4.1",
 		"wif": "^5.0.0",
+		"ws": "^8.21.3",
 		"zod": "^4.4.3"
 	},
 	"overrides": {

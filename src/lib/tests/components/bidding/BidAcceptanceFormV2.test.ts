@@ -80,6 +80,11 @@ vi.mock('$lib/runes/btcPrice.svelte', () => ({
 	btcPrice: { price: 100_000 }
 }));
 
+vi.mock('$lib/wasm/init-wasm', () => ({
+	initWasm: vi.fn().mockResolvedValue(true),
+	exposeInitWasm: vi.fn()
+}));
+
 vi.mock('$lib/components/contracts/PaymentSplitSlider.svelte', () => ({
 	default: () => null
 }));
@@ -130,6 +135,8 @@ function makeTask() {
 describe('BidAcceptanceFormV2', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		delete window.__PLAYWRIGHT_TEST__;
+		vi.stubEnv('VITE_E2E_TURNSTILE_BYPASS', '');
 		walletState.set({
 			isConnected: true,
 			rgb: { initialized: true, balanceSats: 500_000 },
@@ -160,9 +167,7 @@ describe('BidAcceptanceFormV2', () => {
 			props: { bid: makeBid(), task: makeTask() }
 		});
 		expect(getByTestId('wallet-disconnected')).toBeTruthy();
-		expect(
-			(getByTestId('accept-fund-button') as HTMLButtonElement).disabled
-		).toBe(true);
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('shows insufficient-funds error when balance is below required sats', () => {
@@ -175,9 +180,7 @@ describe('BidAcceptanceFormV2', () => {
 			props: { bid: makeBid(), task: makeTask() }
 		});
 		expect(getByTestId('insufficient-funds')).toBeTruthy();
-		expect(
-			(getByTestId('accept-fund-button') as HTMLButtonElement).disabled
-		).toBe(true);
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('funds RGB escrow with Bitcoin settlement, then starts the task with messages and notifications', async () => {

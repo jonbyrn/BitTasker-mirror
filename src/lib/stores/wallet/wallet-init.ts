@@ -1,11 +1,15 @@
+import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
+import type { RgbAsset } from './wallet-types';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
-import type { RgbAsset } from './wallet-types';
 import { unwrapListAssets } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
+
+type WalletFactory = (args: Record<string, unknown>) => Promise<UTEXOWallet> | UTEXOWallet;
 
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12';
 
@@ -29,27 +33,6 @@ async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
 	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function ensureWasmAssetAvailable(): Promise<void> {
-	if (!browser || typeof fetch !== 'function') return;
-
-	const assets = ['/wasm/rln_wasm_sdk_bg.wasm', '/wasm/rgb_lib_wasm_bindings_bg.wasm'];
-	for (const asset of assets) {
-		let response: Response;
-		try {
-			response = await fetch(asset, { method: 'HEAD' });
-		} catch {
-			response = await fetch(asset);
-		}
-
-		if (!response.ok) {
-			response = await fetch(asset);
-		}
-		if (!response.ok) {
-			throw new Error(`RGB WASM asset unavailable: ${asset} (HTTP ${response.status})`);
-		}
-	}
-}
-
 async function initializeRgbWallet(mnemonic: string): Promise<void> {
 	if (!browser) return;
 	const indexerUrl = import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined;
@@ -66,25 +49,27 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 		const transportEndpoint =
 			(import.meta.env.VITE_RGB_TRANSPORT_ENDPOINT as string | undefined) ??
 			'https://rgb-proxy.utexo.com/json-rpc';
-		const proxyUrl =
-			(import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined) ??
-			'wss://ln-gateway-signet.utexo.com';
+		const proxyUrl = import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined;
 		const vssUrl = (import.meta.env.VITE_UTEXO_VSS_URL as string | undefined) ?? null;
-		await ensureWasmAssetAvailable();
+		await initWasm();
 		const rgbSdk = await import('@utexo/rgb-sdk-web');
 		if (import.meta.env.DEV) {
-			console.log('[DEBUG SDK] keys:', Object.keys(rgbSdk).filter((k) => k !== 'default'));
+			console.log(
+				'[DEBUG SDK] keys:',
+				Object.keys(rgbSdk).filter((k) => k !== 'default')
+			);
 		}
 		const Ctor =
 			rgbSdk.UTEXOWallet ??
 			(rgbSdk as { RgbWallet?: unknown }).RgbWallet ??
 			(rgbSdk as { Wallet?: unknown }).Wallet;
 
-		const create =
+		const create: WalletFactory | null =
 			typeof (Ctor as { create?: unknown })?.create === 'function'
-				? (Ctor as { create: Function }).create.bind(Ctor)
+				? ((Ctor as { create: WalletFactory }).create.bind(Ctor) as WalletFactory)
 				: typeof Ctor === 'function'
-					? (args: unknown) => new (Ctor as new (a: unknown) => unknown)(args)
+					? (args: Record<string, unknown>) =>
+							new (Ctor as new (input: Record<string, unknown>) => UTEXOWallet)(args)
 					: null;
 
 		if (!create) {
@@ -124,8 +109,8 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			network,
 			indexerUrl,
 			transportEndpoint,
-			proxyUrl,
-			vssUrl
+			vssUrl,
+			...(proxyUrl ? { proxyUrl } : {})
 		});
 		state.utexoWallet = wallet;
 
@@ -201,19 +186,19 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 }
 
 function isWasmGlobalError(error: unknown): boolean {
-		if (!(error instanceof Error)) return false;
-		const message = error.message.toLowerCase();
-		return (
-			message.includes('exports is not defined') ||
-			message.includes('module is not defined') ||
-			message.includes('.wasm') ||
-			message.includes('wasm')
-		);
+	if (!(error instanceof Error)) return false;
+	const message = error.message.toLowerCase();
+	return (
+		message.includes('exports is not defined') ||
+		message.includes('module is not defined') ||
+		message.includes('.wasm') ||
+		message.includes('wasm')
+	);
 }
 
 async function waitForWasmGlobals(): Promise<void> {
-		if (!browser) return;
-		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+	if (!browser) return;
+	await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
 
 export async function getRgbAddress(): Promise<string> {
@@ -240,6 +225,7 @@ export async function initialize(): Promise<void> {
 	}
 
 	try {
+		await initWasm();
 		const mnemonic = await getMnemonic();
 		let lastError: unknown;
 		for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -288,4 +274,3 @@ export function disconnectWallet(): void {
 export const markExpectingInbound = (_ttlMs?: number) => {};
 
 export const softCleanup = () => {};
-

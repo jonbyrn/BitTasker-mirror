@@ -1,17 +1,26 @@
 import { Buffer } from 'buffer';
 import process from 'process';
 
+type NodeGlobals = {
+	Buffer?: typeof Buffer;
+	process?: typeof process;
+};
+
+function assignNodeGlobals(target: NodeGlobals): void {
+	if (!target.Buffer) target.Buffer = Buffer;
+	target.process = process;
+}
+
 if (typeof window !== 'undefined') {
-	if (!window.Buffer) (window as any).Buffer = Buffer;
-	(window as any).process = process;
+	assignNodeGlobals(window as Window & NodeGlobals);
 }
 if (typeof globalThis !== 'undefined') {
-	if (!(globalThis as any).Buffer) (globalThis as any).Buffer = Buffer;
-	(globalThis as any).process = process;
+	assignNodeGlobals(globalThis as typeof globalThis & NodeGlobals);
 }
 
 import type { HandleClientError } from '@sveltejs/kit';
 import { init as initSentry, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
+import { exposeInitWasm } from '$lib/wasm/init-wasm';
 // Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully
 // evaluated before any route chunk that extends it. This, combined with the
 // manualChunks isolation in vite.config.ts, eliminates the circular chunk dependency
@@ -58,7 +67,7 @@ if (process.env.NODE_ENV !== 'development') {
  * expected `init` hook contract.
  */
 export function init(): void {
-	// Client init is handled at module scope above (Buffer/process polyfills + Sentry).
+	exposeInitWasm();
 }
 
 export const handleError: HandleClientError = handleErrorWithSentry(({ error }) => {

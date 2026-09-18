@@ -36,19 +36,6 @@ const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
 const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm');
 const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm');
 
-// @noble/hashes ships CJS at its package root and ESM under esm/. Bare specifiers
-// like "@noble/hashes/sha256" need redirecting to the esm/ files — otherwise
-// @rollup/plugin-commonjs wraps the CJS copy in a lazy require() wrapper whose
-// init call gets eliminated by minifiers (see qrcode's identical bug below).
-//
-// Multiple @noble/hashes versions coexist in this dependency tree (pnpm nests a
-// different version per consumer when semver ranges diverge — v1.x and v2.x have
-// incompatible abytes() signatures). A naive global redirect to one resolved
-// package root would silently swap a different version into some importers,
-// producing generic "Uint8Array expected of length ,message" assertion failures.
-// Resolving through `this.resolve(source, importer)` first lets Rollup/pnpm pick
-// the correct version for THAT importer; only then do we redirect within that
-// same version's directory to its esm/ counterpart.
 function nobleHashesEsm(): Plugin {
 	return {
 		name: 'noble-hashes-esm',
@@ -61,12 +48,11 @@ function nobleHashesEsm(): Plugin {
 			}
 			if (!normalized.endsWith('.js')) return null;
 
-			const esmPath = normalized.replace(/\/\@noble\/hashes\//, '/@noble/hashes/esm/');
+			const esmPath = normalized.replace(/\/@noble\/hashes\//, '/@noble/hashes/esm/');
 			return existsSync(esmPath) ? readFileSync(esmPath, 'utf-8') : null;
 		}
 	};
 }
-
 
 function nobleRelativeEsm(): Plugin {
 	return {
@@ -85,7 +71,7 @@ function nobleRelativeEsm(): Plugin {
 			}
 
 			const absolutePath = norm(resolve(dirname(importer), source));
-			const esmPath = absolutePath.replace(/\/\@noble\/hashes\//, '/@noble/hashes/esm/');
+			const esmPath = absolutePath.replace(/\/@noble\/hashes\//, '/@noble/hashes/esm/');
 			const esmFile = esmPath.endsWith('.js') ? esmPath : `${esmPath}.js`;
 			return existsSync(esmFile) ? esmFile : null;
 		}
@@ -123,7 +109,7 @@ const CJS_PACKAGES = [
 	'bn.js',
 	'ripemd160',
 	'sha256',
-	'bs58check',
+	'bs58check'
 ];
 
 const ESM_PACKAGES = ['@noble/hashes'];
@@ -147,7 +133,10 @@ function cjsEsmInterop(): Plugin {
 				let modified = false;
 
 				if (cjsPattern.test(code)) {
-					code = code.replace(cjsPattern, ';import * as _$2 $3$4$5; const $2 = _$2.default ?? _$2;');
+					code = code.replace(
+						cjsPattern,
+						';import * as _$2 $3$4$5; const $2 = _$2.default ?? _$2;'
+					);
 					modified = true;
 				}
 
@@ -160,7 +149,40 @@ function cjsEsmInterop(): Plugin {
 					chunk.code = code;
 				}
 			}
-		},
+		}
+	};
+}
+
+function bitcoinjsCjsInterop(): Plugin {
+	const bitcoinjsShim = resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts');
+	const isShimImporter = (importer?: string): boolean =>
+		Boolean(importer && /[\\/]shims[\\/]bitcoinjs-(lib|cjs)/.test(importer.replaceAll('\\', '/')));
+	const isBitcoinjsEntry = (source: string): boolean => {
+		const normalized = norm(source).split('?')[0];
+		return (
+			source === 'bitcoinjs-lib' ||
+			normalized.endsWith('/bitcoinjs-lib/src/index.js') ||
+			normalized.endsWith('/bitcoinjs-lib/src/index.ts')
+		);
+	};
+
+	return {
+		name: 'bitcoinjs-cjs-interop',
+		enforce: 'pre',
+		resolveId(source, importer, options) {
+			if (options?.ssr) return null;
+			if (
+				isShimImporter(importer) &&
+				(source === './bitcoinjs-cjs' || source === 'bitcoinjs-lib-cjs')
+			) {
+				return bitcoinjsLibPath;
+			}
+			if (isShimImporter(importer) || source === 'bitcoinjs-lib-cjs') {
+				return null;
+			}
+			if (isBitcoinjsEntry(source)) return bitcoinjsShim;
+			return null;
+		}
 	};
 }
 
@@ -169,21 +191,25 @@ function clientResolveAliases(): Plugin {
 	const eventsShim = resolve(projectRoot, 'src/lib/shims/events.ts');
 	const lruCacheShim = resolve(projectRoot, 'src/lib/shims/typescript-lru-cache.ts');
 	const packageRoots: Record<string, string> = {
-		'bitcoinjs-lib': dirname(require.resolve('bitcoinjs-lib/package.json', { paths: [rgbSdkWebIsolatedModules] })),
-		'boltz-core': dirname(require.resolve('boltz-core/package.json', { paths: [walletCoreIsolatedModules] })),
+		'bitcoinjs-lib': dirname(
+			require.resolve('bitcoinjs-lib/package.json', { paths: [rgbSdkWebIsolatedModules] })
+		),
+		'boltz-core': dirname(
+			require.resolve('boltz-core/package.json', { paths: [walletCoreIsolatedModules] })
+		)
 	};
 	return {
 		name: 'client-resolve-aliases',
 		enforce: 'pre',
 		resolveId(source, importer, options) {
-			// Never intercept virtual modules, icon imports, or WASM files
-			if (source.startsWith('~icons/') || source.startsWith('\0') || source.endsWith('.wasm')) return null;
+			if (source.startsWith('~icons/') || source.startsWith('\0') || source.endsWith('.wasm'))
+				return null;
 			if (options?.ssr) return null;
 
-			// Force bare 'events' (and 'node:events') to the ESM shim so NDK's
-			// `class NDKRelay extends EventEmitter` binds a real constructor at
-			// module-init time, not the lazily-populated CJS interop namespace.
-			// Must run enforce:'pre' to beat nodePolyfills and commonjs interop.
+			if (source === 'crypto' || source === 'node:crypto') {
+				return { id: require.resolve('crypto-browserify') };
+			}
+
 			if (source === 'events' || source === 'node:events') {
 				return { id: eventsShim };
 			}
@@ -194,19 +220,26 @@ function clientResolveAliases(): Plugin {
 				return { id: lruCacheShim };
 			}
 
-			// Intercept nested file-path imports of bitcoinjs-lib from excluded
-			// dependencies (e.g. @utexo/rgb-sdk-web/node_modules/bitcoinjs-lib/src/index.js).
-			// These bypass bare-specifier matching because Vite processes excluded
-			// packages through a different resolution path. Route them through
-			// the CJS-ESM shim so getter-based exports (Psbt, etc.) are accessible.
-			const isFromShim = importer && importer.includes('shims/bitcoinjs-lib');
-			if (!isFromShim && (source.includes('bitcoinjs-lib/src/index.js') || source.includes('bitcoinjs-lib/src/index.ts'))) {
+			const isFromShim =
+				importer && /[\\/]shims[\\/]bitcoinjs-(lib|cjs)/.test(importer.replaceAll('\\', '/'));
+			if (
+				source === 'bitcoinjs-lib-cjs' ||
+				source === './bitcoinjs-cjs' ||
+				source.endsWith('/shims/bitcoinjs-cjs')
+			) {
+				return { id: bitcoinjsLibPath };
+			}
+			if (
+				!isFromShim &&
+				(source === 'bitcoinjs-lib' ||
+					source.includes('bitcoinjs-lib/src/index.js') ||
+					source.includes('bitcoinjs-lib/src/index.ts'))
+			) {
 				return { id: bitcoinjsShim };
 			}
 
 			for (const [pkg, root] of Object.entries(packageRoots)) {
 				if (source === pkg) {
-					// Let Vite optimize the bare bitcoinjs-lib package entry.
 					if (pkg === 'bitcoinjs-lib') return undefined;
 					try {
 						return { id: require.resolve(source, { paths: [root] }) };
@@ -215,8 +248,6 @@ function clientResolveAliases(): Plugin {
 					}
 				}
 				if (source.startsWith(pkg + '/')) {
-					// Subpath imports (e.g. bitcoinjs-lib/src/types, boltz-core/dist/lib/liquid)
-					// resolve directly to real files — no shim needed for non-index paths
 					try {
 						return { id: require.resolve(source, { paths: [root] }) };
 					} catch {
@@ -226,32 +257,78 @@ function clientResolveAliases(): Plugin {
 				}
 			}
 			return undefined;
-		},
+		}
 	};
 }
 
 function ssrNodeBuiltins(): Plugin {
 	const NODE_BUILTINS: Record<string, string> = {
-		'crypto': 'node:crypto',
-		'buffer': 'node:buffer',
-		'stream': 'node:stream',
-		'util': 'node:util',
-		'process': 'node:process',
+		crypto: 'node:crypto',
+		'node:crypto': 'node:crypto',
+		'crypto-browserify': 'node:crypto',
+		buffer: 'node:buffer',
+		stream: 'node:stream',
+		util: 'node:util',
+		process: 'node:process'
 	};
+	const CRYPTO_ALIASES = [
+		{ find: /^crypto$/, replacement: '\0ssr-node-crypto' },
+		{ find: /^node:crypto$/, replacement: '\0ssr-node-crypto' },
+		{ find: /^crypto-browserify$/, replacement: '\0ssr-node-crypto' }
+	];
 	const SSR_EXTERNALS: Record<string, string> = {
 		'bitcoinjs-lib': bitcoinjsLibPath,
 		'bitcoinjs-lib/src/types': bitcoinjsLibTypesPath,
-		'boltz-core/dist/lib/liquid': boltzCoreLiquidPath,
+		'boltz-core/dist/lib/liquid': boltzCoreLiquidPath
 	};
 	for (const pkg of CJS_PACKAGES) {
 		if (!SSR_EXTERNALS[pkg]) SSR_EXTERNALS[pkg] = pkg;
 	}
+
+	const isCryptoAlias = (find: string | RegExp): boolean => /crypto/i.test(String(find));
+
+	const aliasEntries = (alias: unknown): Array<{ find: string | RegExp; replacement: string }> => {
+		if (!alias) return [];
+		if (Array.isArray(alias)) {
+			return alias.filter(
+				(entry): entry is { find: string | RegExp; replacement: string } =>
+					Boolean(entry) && typeof entry === 'object' && 'find' in entry && 'replacement' in entry
+			);
+		}
+		if (typeof alias === 'object') {
+			return Object.entries(alias as Record<string, string>).map(([find, replacement]) => ({
+				find,
+				replacement
+			}));
+		}
+		return [];
+	};
+
 	return {
 		name: 'ssr-node-builtins',
 		enforce: 'pre',
-		resolveId(source, importer, options) {
+		applyToEnvironment(environment) {
+			return environment.name === 'ssr';
+		},
+		configResolved(config) {
+			const ssrEnv = config.environments?.ssr;
+			if (!ssrEnv?.resolve) return;
+			const existing = aliasEntries(ssrEnv.resolve.alias).filter(
+				(entry) => !isCryptoAlias(entry.find)
+			);
+			ssrEnv.resolve.alias = [...CRYPTO_ALIASES, ...existing];
+		},
+		resolveId(source) {
 			if (source.endsWith('.wasm')) return null;
-			if (!options?.ssr) return undefined;
+			if (source === '\0ssr-node-crypto') return source;
+			if (
+				source === 'crypto' ||
+				source === 'node:crypto' ||
+				source === 'crypto-browserify' ||
+				norm(source).includes('crypto-browserify')
+			) {
+				return '\0ssr-node-crypto';
+			}
 			if (NODE_BUILTINS[source]) {
 				return { id: NODE_BUILTINS[source], external: true };
 			}
@@ -261,7 +338,11 @@ function ssrNodeBuiltins(): Plugin {
 			for (const [pkg] of Object.entries(SSR_EXTERNALS)) {
 				if (source.startsWith(pkg + '/')) {
 					try {
-						const pkgRoot = dirname(require.resolve(pkg + '/package.json', { paths: [walletCoreIsolatedModules, rgbSdkWebIsolatedModules] }));
+						const pkgRoot = dirname(
+							require.resolve(pkg + '/package.json', {
+								paths: [walletCoreIsolatedModules, rgbSdkWebIsolatedModules]
+							})
+						);
 						const subPath = source.slice(pkg.length + 1);
 						return { id: resolve(pkgRoot, subPath), external: true };
 					} catch {
@@ -271,6 +352,16 @@ function ssrNodeBuiltins(): Plugin {
 			}
 			return undefined;
 		},
+		load(id) {
+			if (id !== '\0ssr-node-crypto') return null;
+			return `
+import { createRequire } from 'node:module';
+const nodeCrypto = createRequire(import.meta.url)('crypto');
+export const webcrypto = nodeCrypto.webcrypto;
+export const randomBytes = nodeCrypto.randomBytes;
+export default nodeCrypto;
+`;
+		}
 	};
 }
 
@@ -298,22 +389,12 @@ function rewriteUtexoWasmUrls(): Plugin {
 	};
 }
 
-// qrcode's format-info.js/version.js compute a BCH digit via a cross-module
-// CJS singleton (Utils.getBCHDigit) at module-init time. esbuild/oxc/terser
-// all strip that singleton's init call as dead code once bundled, leaving
-// Utils.getBCHDigit undefined at runtime. These patched copies inline the
-// (tiny, pure) getBCHDigit function instead. resolve.alias can't target
-// these — it matches the specifier as written ("./format-info"), not the
-// resolved absolute path — so a resolveId hook is used instead.
 function patchQrcodeBCHDigit(): Plugin {
 	const shimDir = resolve(projectRoot, 'src/lib/shims');
 	const patches: Record<string, string> = {
 		'format-info': resolve(shimDir, 'qrcode-format-info.js'),
 		version: resolve(shimDir, 'qrcode-version.js')
 	};
-	// The shims live outside node_modules (real ESM, not CJS-transformed), but
-	// still need to import qrcode's other lib/core/*.js files by relative
-	// specifier. Resolve those against qrcode's actual installed location.
 	const qrcodeCoreDir = dirname(require.resolve('qrcode/lib/core/utils.js'));
 	return {
 		name: 'patch-qrcode-bch-digit',
@@ -355,9 +436,9 @@ export default defineConfig(({ mode }) => {
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
 		sentryUploadRequested &&
-			process.env.SENTRY_AUTH_TOKEN &&
-			process.env.SENTRY_ORG &&
-			process.env.SENTRY_PROJECT
+		process.env.SENTRY_AUTH_TOKEN &&
+		process.env.SENTRY_ORG &&
+		process.env.SENTRY_PROJECT
 	);
 
 	return {
@@ -407,47 +488,62 @@ export default defineConfig(({ mode }) => {
 			environments: {
 				client: {
 					resolve: {
-						conditions: ['browser', 'development'],
-					},
+						conditions: ['browser', 'development']
+					}
 				},
 				ssr: {
 					resolve: {
 						conditions: ['node', 'development'],
-						externalConditions: ['node', 'development'],
-					},
-				},
+						externalConditions: ['node', 'development']
+					}
+				}
 			},
 			alias: [
+				{ find: 'buffer-real-impl', replacement: require.resolve('buffer/index.js') },
 				{ find: /^bolt11$/, replacement: bolt11Shim },
+				{ find: /[\\/]shims[\\/]bitcoinjs-cjs$/, replacement: bitcoinjsLibPath },
+				{ find: /^bitcoinjs-lib-cjs$/, replacement: bitcoinjsLibPath },
+				{
+					find: /^bitcoinjs-lib$/,
+					replacement: resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts')
+				},
 				{
 					find: '@utexo/rgb-sdk-web',
 					replacement: resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web/dist/index.mjs')
 				},
-				{ find: /^crypto$/, replacement: 'crypto-browserify' },
 				{ find: /^stream$/, replacement: 'stream-browserify' },
 				{ find: /^buffer$/, replacement: resolve(projectRoot, 'src/lib/shims/buffer-pkg.js') },
 				{ find: /^safe-buffer$/, replacement: resolve(projectRoot, 'src/lib/shims/buffer-pkg.js') },
-				{ find: /bitcoinjs-lib[\\/]src[\\/]ops\.js$/, replacement: resolve(projectRoot, 'src/lib/shims/bitcoinjs-ops.cjs') },
-				{ find: /^bitcoin-ops$/, replacement: resolve(projectRoot, 'src/lib/shims/bitcoin-ops.cjs') },
+				{
+					find: /bitcoinjs-lib[\\/]src[\\/]ops\.js$/,
+					replacement: resolve(projectRoot, 'src/lib/shims/bitcoinjs-ops.cjs')
+				},
+				{
+					find: /^bitcoin-ops$/,
+					replacement: resolve(projectRoot, 'src/lib/shims/bitcoin-ops.cjs')
+				},
 				{ find: /^util$/, replacement: 'util/' },
 				{ find: /^vm$/, replacement: 'vm-browserify' },
 				{ find: /^events$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
 				{ find: /^node:events$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
 				{ find: /^tseep$/, replacement: resolve(projectRoot, 'src/lib/shims/events.ts') },
-				{ find: /^typescript-lru-cache$/, replacement: resolve(projectRoot, 'src/lib/shims/typescript-lru-cache.ts') },
+				{
+					find: /^typescript-lru-cache$/,
+					replacement: resolve(projectRoot, 'src/lib/shims/typescript-lru-cache.ts')
+				},
 				{ find: /^process$/, replacement: 'process/browser' },
 				...(process.env.VITEST
-					? [{ find: /^\$app\/environment$/, replacement: new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname }]
-					: []),
+					? [
+							{
+								find: /^\$app\/environment$/,
+								replacement: new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
+							}
+						]
+					: [])
 			]
 		},
 		ssr: {
-			noExternal: [
-				'@bittasker/wallet-core',
-				'@noble/curves',
-				'@noble/secp256k1',
-				'@noble/hashes',
-			],
+			noExternal: ['@bittasker/wallet-core', '@noble/curves', '@noble/secp256k1', '@noble/hashes'],
 			external: [
 				'bitcoinjs-lib',
 				'boltz-core',
@@ -455,19 +551,26 @@ export default defineConfig(({ mode }) => {
 				'buffer',
 				'stream-browserify',
 				'process/browser',
-				'@utexo/rgb-sdk-web',
+				'@utexo/rgb-sdk-web'
 			],
 			resolve: {
 				conditions: ['node', 'development'],
 				externalConditions: ['node', 'development'],
 				alias: [
-					{ find: /^crypto$/, replacement: 'node:crypto' },
 					{ find: /^buffer$/, replacement: 'node:buffer' },
 					{ find: /^stream$/, replacement: 'node:stream' },
 					{ find: /^util$/, replacement: 'node:util' },
-					{ find: /^process$/, replacement: 'node:process' },
-				],
-			},
+					{ find: /^process$/, replacement: 'node:process' }
+				]
+			}
+		},
+		environments: {
+			ssr: {
+				resolve: {
+					conditions: ['node', 'development'],
+					externalConditions: ['node', 'development']
+				}
+			}
 		},
 		plugins: [
 			{
@@ -482,14 +585,17 @@ export default defineConfig(({ mode }) => {
 					const opsPath = resolve(projectRoot, 'src/lib/shims/bitcoin-ops.cjs');
 					const opsModule = require(opsPath);
 					const ops = {};
-					const src = opsModule.OPS && opsModule.OPS.OP_RESERVED == null ? opsModule.OPS : opsModule;
+					const src =
+						opsModule.OPS && opsModule.OPS.OP_RESERVED == null ? opsModule.OPS : opsModule;
 					for (const [key, value] of Object.entries(src)) {
 						if (typeof value === 'number' || typeof value === 'string') ops[key] = value;
 					}
 					const opsJson = JSON.stringify(ops);
 					if (isOps) {
 						const epilogue =
-							'\nvar __OPS_LITERAL = ' + opsJson + ';\n' +
+							'\nvar __OPS_LITERAL = ' +
+							opsJson +
+							';\n' +
 							'exports.OPS = __OPS_LITERAL;\n' +
 							'exports.SCRIPT_OPS_PATCH = true;\n' +
 							'if (typeof module !== "undefined" && module.exports) {\n' +
@@ -499,7 +605,9 @@ export default defineConfig(({ mode }) => {
 					}
 
 					const epilogue =
-						'\nvar __OPS_LITERAL_S = ' + opsJson + ';\n' +
+						'\nvar __OPS_LITERAL_S = ' +
+						opsJson +
+						';\n' +
 						'Object.defineProperty(exports, "OPS", { value: __OPS_LITERAL_S, writable: true, enumerable: true, configurable: true });\n' +
 						'if (typeof module !== "undefined" && module.exports) {\n' +
 						'  Object.defineProperty(module.exports, "OPS", { value: __OPS_LITERAL_S, writable: true, enumerable: true, configurable: true });\n' +
@@ -508,6 +616,7 @@ export default defineConfig(({ mode }) => {
 				}
 			},
 			ssrNodeBuiltins(),
+			bitcoinjsCjsInterop(),
 			clientResolveAliases(),
 			cjsEsmInterop(),
 			{
@@ -552,6 +661,7 @@ export default defineConfig(({ mode }) => {
 					return (
 						p.includes('/@utexo/') ||
 						p.includes('/node_modules/buffer/') ||
+						p.includes('/bitcoinjs-lib/') ||
 						p.includes('/bip32/') ||
 						p.includes('/ecpair/') ||
 						p.includes('/bs58check/') ||
@@ -561,7 +671,7 @@ export default defineConfig(({ mode }) => {
 				}
 			}),
 			nodePolyfills({
-				include: ['crypto', 'stream', 'util', 'vm'],
+				include: ['stream', 'util', 'vm'],
 				protocolImports: true,
 				globals: {
 					Buffer: true,
@@ -659,13 +769,11 @@ export default defineConfig(({ mode }) => {
 					global: 'globalThis'
 				}
 			},
-			include: ['buffer', 'bip39', 'bitcoinjs-lib', 'bip32', 'ecpair'],
+			include: ['buffer', 'bip32', 'ecpair'],
 			needsInterop: ['bitcoinjs-lib', 'bip32', 'ecpair', 'boltz-core'],
-			// rln-wasm/rgb-lib-wasm must stay unbundled: esbuild pre-bundling rewrites
-			// their wasm-bindgen `import.meta.url` wasm lookups to node_modules/.vite/deps,
-			// which isn't served. rewriteUtexoWasmUrls() patches any remaining
-			// import.meta.url references to the /wasm/ static copy as a backstop.
 			exclude: [
+				'buffer-real-impl',
+				'bitcoinjs-lib',
 				'firebase',
 				'@capacitor/device',
 				'@capacitor/preferences',
@@ -686,7 +794,7 @@ export default defineConfig(({ mode }) => {
 				'/api/v1': {
 					target: process.env.VITE_API_URL || 'https://api-dev.bittasker.com',
 					changeOrigin: true,
-					secure: false,
+					secure: false
 				},
 				'/api/cloudflare/stream': {
 					target: 'https://dev.bittasker.com',
@@ -748,4 +856,3 @@ export default defineConfig(({ mode }) => {
 		}
 	};
 });
-

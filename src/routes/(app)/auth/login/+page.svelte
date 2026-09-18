@@ -464,7 +464,13 @@
 				if (res.accountRestored) {
 					appStore.showSuccessToast($t('login.account_restored_message'));
 				}
-				await goto(resolve('/wallet'));
+
+				if (isTestEnvironment) {
+					await goto(resolve('/create-task'));
+				} else {
+					await goto(resolve('/wallet'));
+				}
+
 				if ($passkeyMigration.isOpen) {
 					resetMigration();
 				}

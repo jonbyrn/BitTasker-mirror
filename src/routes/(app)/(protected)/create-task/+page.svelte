@@ -340,7 +340,7 @@
 				} else {
 					signedEventId = await createTask(task);
 				}
-					if (signedEventId) addOptimisticTask(task, signedEventId);
+				if (signedEventId) addOptimisticTask(task, signedEventId);
 
 				appStore.showSuccessToast($t('task.success.created'));
 
@@ -378,13 +378,13 @@
 				triggerSavedSearchChecks(currentTask, signedEventId);
 			}
 
-			// Clear the appropriate draft (creation or edit)
-			await store.clearDraft(isUpdating);
-
-			// Refresh My Tasks list to show new task
-			await refreshMyTasks();
-
+			// Navigate first so draft reset / Nostr refresh cannot stall the /hiring redirect.
 			await goto('/hiring');
+
+			await store.clearDraft(isUpdating);
+			refreshMyTasks().catch((error) => {
+				console.error('Error refreshing My Tasks:', error);
+			});
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;
@@ -491,7 +491,9 @@
 								{/if}
 							</button>
 						{:else}
-							<button data-testid="next-task-step-btn" class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
+							<button data-testid="next-task-step-btn" class="btn btn-primary" onclick={handleNext}
+								>{$t('task.next')}</button
+							>
 						{/if}
 					</div>
 				</div>

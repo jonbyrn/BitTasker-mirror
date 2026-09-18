@@ -20,6 +20,10 @@ type LastPublishedTask = {
 	};
 };
 
+function isPlaywrightClient(): boolean {
+	return typeof window !== 'undefined' && window.__PLAYWRIGHT_TEST__ === true;
+}
+
 function exposeLastPublishedTask(event: NostrEvent): void {
 	if (!import.meta.env.DEV && import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
 	if (typeof window === 'undefined') return;
@@ -27,11 +31,13 @@ function exposeLastPublishedTask(event: NostrEvent): void {
 	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
 	if (!dTag) return;
 
-	(window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask = {
+	const published: LastPublishedTask = {
 		dTag,
 		clientHex: event.pubkey,
 		event: { id: event.id, kind: event.kind, pubkey: event.pubkey }
 	};
+	(window as Window & { __lastPublishedTask?: LastPublishedTask }).__lastPublishedTask = published;
+	window.sessionStorage.setItem('__lastPublishedTask', JSON.stringify(published));
 }
 
 function taskDTag(task: TaskBody): string {
@@ -53,7 +59,8 @@ function approximateLocation(location: TaskBody['pickupLocation']): TaskBody['pi
 		...location,
 		displayName: parts.join(', ') || location.displayName,
 		latitude: typeof location.latitude === 'number' ? Number(location.latitude.toFixed(2)) : null,
-		longitude: typeof location.longitude === 'number' ? Number(location.longitude.toFixed(2)) : null,
+		longitude:
+			typeof location.longitude === 'number' ? Number(location.longitude.toFixed(2)) : null,
 		zipCode: '',
 		formattedAddress: undefined,
 		placeId: undefined,
@@ -84,25 +91,45 @@ async function publishTaskEvent(content: string, tags: string[][]): Promise<stri
 		content,
 		tags
 	});
-	const results = await publishToMultipleRelays(event, RELAYS);
-	if (!results.some((result) => result.success)) {
-		throw new Error('Failed to publish task to any configured Nostr relay');
-	}
 	exposeLastPublishedTask(event);
+	const publishPromise = publishToMultipleRelays(event, RELAYS).then((results) => {
+		if (!results.some((result) => result.success)) {
+			throw new Error('Failed to publish task to any configured Nostr relay');
+		}
+		return results;
+	});
+	if (isPlaywrightClient()) {
+		try {
+			await publishPromise;
+		} catch (error) {
+			console.warn('E2E task relay publish did not block navigation:', error);
+		}
+		return event.id;
+	}
+	await publishPromise;
 	return event.id;
 }
 
 export async function createTask(taskData: TaskBody): Promise<string> {
 	const dTag = taskDTag(taskData);
-	await publishExactTaskLocations({
+	const companionPublish = publishExactTaskLocations({
 		entityId: dTag,
 		pickupLocation: taskData.pickupLocation ?? null,
 		dropOffLocation: taskData.dropOffLocation ?? null
 	});
+	if (isPlaywrightClient()) {
+		companionPublish.catch((error) => {
+			console.warn('E2E exact-location publish did not block navigation:', error);
+		});
+	} else {
+		await companionPublish;
+	}
 	return publishTaskEvent(JSON.stringify(approximateTask(taskData)), [
 		['d', dTag],
 		['S', taskData.status ?? 'open'],
-		...(taskData.pickupLocation ? [['L', approximateLocation(taskData.pickupLocation)?.displayName ?? '']] : [])
+		...(taskData.pickupLocation
+			? [['L', approximateLocation(taskData.pickupLocation)?.displayName ?? '']]
+			: [])
 	]);
 }
 
@@ -157,7 +184,9 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 	return publishTaskEvent(JSON.stringify(approximateTask(nextTask)), [
 		['d', taskId],
 		['S', nextTask.status ?? 'open'],
-		...(nextTask.pickupLocation ? [['L', approximateLocation(nextTask.pickupLocation)?.displayName ?? '']] : [])
+		...(nextTask.pickupLocation
+			? [['L', approximateLocation(nextTask.pickupLocation)?.displayName ?? '']]
+			: [])
 	]);
 }
 

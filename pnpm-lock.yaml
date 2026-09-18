@@ -280,6 +280,9 @@ importers:
       bitcoin-ops:
         specifier: ^1.4.1
         version: 1.4.1
+      bitcoinjs-lib:
+        specifier: 6.1.7
+        version: 6.1.7
       bn.js:
         specifier: ^5.2.5
         version: 5.2.5
@@ -409,6 +412,9 @@ importers:
       wif:
         specifier: ^5.0.0
         version: 5.0.0
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3

@@ -9,6 +9,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { initWasm } from '$lib/wasm/init-wasm';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
 
@@ -54,7 +55,9 @@
 		!isE2ETest && walletConnected && totalSats !== null && walletSats < requiredSats
 	);
 	const contractTitle = $derived(
-		bidContent?.taskTitle || task.taskContent?.title || $t('dashboard.bids.bid_acceptance.contract_information')
+		bidContent?.taskTitle ||
+			task.taskContent?.title ||
+			$t('dashboard.bids.bid_acceptance.contract_information')
 	);
 	const bidderComments = $derived(
 		bidContent?.proposedApproach || bidContent?.coverLetter || bidContent?.description || ''
@@ -153,12 +156,8 @@
 				partyPubkeys: [bidderPubkey, task.pubkey].filter(Boolean)
 			});
 
-			// Test mode completes deterministically; production creates a request and waits for payment.
-			if (isE2ETest) {
-				await rune.fundForE2E();
-			} else {
-				await rune.prepareFunding();
-			}
+			await initWasm();
+			await rune.prepareFunding();
 
 			processingStep = 'notifying';
 			await publishContractStep({
@@ -335,12 +334,17 @@
 		</button>
 		{#if awaitingFunding}
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
-				<div class="flex items-center gap-2 text-xs text-base-content/70">
+				<div class="text-base-content/70 flex items-center gap-2 text-xs">
 					<span class="badge badge-warning badge-sm">Waiting for payment</span>
 					<span class="truncate">Copy the request into your RGB wallet</span>
 				</div>
 				<div class="join w-full">
-					<input class="input input-bordered join-item min-w-0 flex-1 text-xs" readonly value={fundingInvoice} aria-label="Escrow funding request" />
+					<input
+						class="input input-bordered join-item min-w-0 flex-1 text-xs"
+						readonly
+						value={fundingInvoice}
+						aria-label="Escrow funding request"
+					/>
 					<button
 						type="button"
 						class="btn btn-outline join-item"
@@ -350,7 +354,13 @@
 						Copy
 					</button>
 				</div>
-				<button type="button" class="btn btn-primary w-full" onclick={handleCheckFunding} disabled={isProcessing} data-testid="check-funding-button">
+				<button
+					type="button"
+					class="btn btn-primary w-full"
+					onclick={handleCheckFunding}
+					disabled={isProcessing}
+					data-testid="check-funding-button"
+				>
 					{#if isProcessing}<span class="loading loading-spinner loading-sm"></span>{/if}
 					I have paid, check payment
 				</button>
