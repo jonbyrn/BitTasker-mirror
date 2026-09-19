@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { ContractRune } from '$lib/runes/contract.svelte';
-	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+	import { resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+	import { formatInteger } from '$lib/utils/helpers/currencyFormatter';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
+	import { onMount } from 'svelte';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -39,16 +42,24 @@
 		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	const bidContent = $derived(bid.bidContent);
-	const bidAmountUsd = $derived(bidContent?.amount ?? 0);
-	const platformFeeUsd = $derived(bidAmountUsd * PLATFORM_FEE_RATE);
-	const totalUsd = $derived(bidAmountUsd + platformFeeUsd);
+	const bidAmountSats = $derived(
+		resolveBidSats(bidContent?.amount ?? 0, bidContent?.currency, btcPrice.price)
+	);
+	const platformFeeSats = $derived(
+		bidAmountSats === null ? null : Math.max(1, Math.round(bidAmountSats * PLATFORM_FEE_RATE))
+	);
 	const totalSats = $derived(
-		btcPrice.price > 0 ? Math.round((totalUsd / btcPrice.price) * 100_000_000) : null
+		bidAmountSats === null || platformFeeSats === null ? null : bidAmountSats + platformFeeSats
+	);
+	const totalUsd = $derived(
+		totalSats === null
+			? null
+			: (totalSats * (btcPrice.price > 0 ? btcPrice.price : 1)) / 100_000_000
 	);
 
 	const walletSats = $derived($walletStore.rgb?.balanceSats ?? 0);
 	const walletConnected = $derived(
-		isE2ETest || ($walletStore.isConnected && $walletStore.rgb?.initialized)
+		$walletStore.isConnected && $walletStore.rgb?.initialized === true
 	);
 	const requiredSats = $derived(totalSats ?? 0);
 	const hasInsufficientFunds = $derived(
@@ -69,19 +80,22 @@
 
 	let isProcessing = $state(false);
 	let processingStep = $state<
-		'idle' | 'funding' | 'verifying' | 'attesting' | 'notifying' | 'starting'
+		'idle' | 'funding' | 'paying' | 'verifying' | 'attesting' | 'notifying' | 'starting'
 	>('idle');
 	let errorMessage = $state('');
 	let fundedRune = $state<ContractRune | null>(null);
 	let fundedContractId = $state<string | null>(null);
+	let escrowReady = $state(false);
 
 	const canConfirm = $derived(
-		walletConnected && !hasInsufficientFunds && !isProcessing && bidContent !== null
+		walletConnected &&
+			!hasInsufficientFunds &&
+			!isProcessing &&
+			bidContent !== null &&
+			totalSats !== null
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
-	const awaitingFunding = $derived(
-		Boolean(fundedRune && fundedRune.status === 'funding' && fundingInvoice)
-	);
+	const awaitingFunding = $derived(Boolean(fundedRune && !escrowReady && fundingInvoice));
 
 	async function notifyFunded(contractId: string, bidderPubkey: string): Promise<void> {
 		processingStep = 'notifying';
@@ -93,6 +107,7 @@
 			message: 'RGB escrow funded'
 		});
 		fundedContractId = contractId;
+		escrowReady = true;
 		if (isE2ETest && typeof window !== 'undefined') {
 			(window as Window & { __lastFundedContractId?: string }).__lastFundedContractId = contractId;
 		}
@@ -151,12 +166,14 @@
 				contractId,
 				contractTitle,
 				bidderComments,
-				totalAmountUsd: totalUsd,
+				totalAmountUsd: totalUsd ?? 1,
+				amountSats: totalSats ?? undefined,
 				split,
 				partyPubkeys: [bidderPubkey, task.pubkey].filter(Boolean)
 			});
 
 			await initWasm();
+			await walletManager.initialize();
 			await rune.prepareFunding();
 
 			processingStep = 'notifying';
@@ -177,9 +194,31 @@
 			if (isE2ETest) {
 				console.error('[accept-fund] failed', error);
 			}
+			fundedRune = null;
+			fundedContractId = null;
+			escrowReady = false;
 			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
+			await walletManager.releaseRgbLock();
+			isProcessing = false;
+			processingStep = 'idle';
+		}
+	}
+
+	async function handlePayFromWallet(): Promise<void> {
+		if (!fundedRune || !fundedContractId || !bidContent?.bidderId) return;
+		isProcessing = true;
+		errorMessage = '';
+		processingStep = 'paying';
+		try {
+			await fundedRune.payFundingFromWallet();
+			await notifyFunded(fundedContractId, bidContent.bidderId);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Wallet payment failed';
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+		} finally {
+			await walletManager.releaseRgbLock();
 			isProcessing = false;
 			processingStep = 'idle';
 		}
@@ -196,6 +235,7 @@
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Payment has not been detected yet';
 		} finally {
+			await walletManager.releaseRgbLock();
 			isProcessing = false;
 			processingStep = 'idle';
 		}
@@ -234,6 +274,12 @@
 			processingStep = 'idle';
 		}
 	}
+
+	onMount(() => {
+		walletManager.initialize().catch((error: unknown) => {
+			console.warn('[bid-acceptance] wallet init failed', error);
+		});
+	});
 </script>
 
 <div class="flex h-full flex-col gap-4 p-4" data-testid="bid-acceptance-form">
@@ -245,7 +291,9 @@
 		<div class="space-y-1 text-sm">
 			<div class="flex justify-between">
 				<span class="text-base-content/70">{$t('dashboard.bids.bid_acceptance.base_amount')}</span>
-				<span data-testid="bid-base-amount">${bidAmountUsd.toFixed(2)}</span>
+				<span data-testid="bid-base-amount">
+					{bidAmountSats === null ? '—' : `${formatInteger(bidAmountSats)} sats`}
+				</span>
 			</div>
 			<div class="flex justify-between">
 				<span class="text-base-content/70">
@@ -253,16 +301,20 @@
 						values: { fee: `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%` }
 					})}
 				</span>
-				<span data-testid="bid-platform-fee">${platformFeeUsd.toFixed(2)}</span>
+				<span data-testid="bid-platform-fee">
+					{platformFeeSats === null ? '—' : `${formatInteger(platformFeeSats)} sats`}
+				</span>
 			</div>
 			<div class="border-base-300 flex justify-between border-t pt-1 font-semibold">
 				<span>{$t('dashboard.bids.bid_acceptance.total_payment')}</span>
-				<span data-testid="bid-total-payment">${totalUsd.toFixed(2)}</span>
+				<span data-testid="bid-total-payment">
+					{totalSats === null ? '—' : `${formatInteger(totalSats)} sats`}
+				</span>
 			</div>
 			{#if totalSats !== null}
 				<div class="text-base-content/60 flex justify-between text-xs">
 					<span>{$t('dashboard.bids.bid_acceptance.btc_price')}</span>
-					<span data-testid="bid-total-sats">{totalSats.toLocaleString()} sats</span>
+					<span data-testid="bid-total-sats">{formatInteger(totalSats)} sats</span>
 				</div>
 			{/if}
 		</div>
@@ -288,7 +340,18 @@
 		<div class="alert alert-warning text-sm" role="alert" data-testid="wallet-disconnected">
 			{$t('dashboard.bids.bid_acceptance.my_wallet')} — {$t('wallet.error.no_connection')}
 		</div>
-	{:else if hasInsufficientFunds}
+	{:else}
+		<div
+			class="alert alert-outline alert-success text-sm"
+			role="status"
+			data-testid="wallet-connected"
+		>
+			<span class="status status-success"></span>
+			{$t('dashboard.bids.bid_acceptance.my_wallet')} —
+			{$t('dashboard.bids.bid_acceptance.wallet_connected')}
+		</div>
+	{/if}
+	{#if hasInsufficientFunds}
 		<div class="alert alert-error text-sm" role="alert" data-testid="insufficient-funds">
 			{$t('dashboard.services.detail.book_now_drawer.required_balance')}: {requiredSats.toLocaleString()}
 			sats
@@ -309,12 +372,14 @@
 			<span class="loading loading-spinner loading-sm"></span>
 			{#if processingStep === 'funding'}
 				{$t('dashboard.bids.bid_acceptance.processing')} — RGB escrow
+			{:else if processingStep === 'paying'}
+				{$t('dashboard.bids.bid_acceptance.paying')}
 			{:else if processingStep === 'attesting'}
 				{$t('dashboard.bids.bid_acceptance.follow_up_in_progress')}
 			{:else if processingStep === 'starting'}
-				Starting task
+				{$t('dashboard.bids.bid_acceptance.starting_task')}
 			{:else if processingStep === 'verifying'}
-				Checking your payment
+				{$t('dashboard.bids.bid_acceptance.check_payment')}
 			{:else}
 				{$t('dashboard.bids.bid_acceptance.processing')}
 			{/if}
@@ -335,15 +400,17 @@
 		{#if awaitingFunding}
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<div class="text-base-content/70 flex items-center gap-2 text-xs">
-					<span class="badge badge-warning badge-sm">Waiting for payment</span>
-					<span class="truncate">Copy the request into your RGB wallet</span>
+					<span class="badge badge-warning badge-sm">
+						{$t('dashboard.bids.bid_acceptance.waiting_for_payment')}
+					</span>
+					<span class="truncate">{$t('dashboard.bids.bid_acceptance.copy_funding_hint')}</span>
 				</div>
 				<div class="join w-full">
 					<input
 						class="input input-bordered join-item min-w-0 flex-1 text-xs"
 						readonly
 						value={fundingInvoice}
-						aria-label="Escrow funding request"
+						aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
 					/>
 					<button
 						type="button"
@@ -351,21 +418,35 @@
 						onclick={() => copyToClipboard(fundingInvoice)}
 						data-testid="copy-funding-invoice"
 					>
-						Copy
+						{$t('dashboard.bids.bid_acceptance.copy')}
 					</button>
 				</div>
 				<button
 					type="button"
 					class="btn btn-primary w-full"
+					onclick={handlePayFromWallet}
+					disabled={isProcessing}
+					data-testid="pay-funding-from-wallet"
+				>
+					{#if isProcessing && processingStep === 'paying'}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{$t('dashboard.bids.bid_acceptance.pay_from_wallet')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-outline w-full"
 					onclick={handleCheckFunding}
 					disabled={isProcessing}
 					data-testid="check-funding-button"
 				>
-					{#if isProcessing}<span class="loading loading-spinner loading-sm"></span>{/if}
-					I have paid, check payment
+					{#if isProcessing && processingStep === 'verifying'}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{$t('dashboard.bids.bid_acceptance.check_payment')}
 				</button>
 			</div>
-		{:else if fundedRune}
+		{:else if fundedRune && escrowReady}
 			<button
 				type="button"
 				class="btn btn-primary flex-1"

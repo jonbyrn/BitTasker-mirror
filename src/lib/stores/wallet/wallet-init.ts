@@ -1,12 +1,18 @@
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
-import type { RgbAsset } from './wallet-types';
+import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
-import { unwrapListAssets } from './wallet-balances';
+import {
+	browserIndexers,
+	installEsploraRetryFetch,
+	loadAssets,
+	scanBtcBalance,
+	unwrapListAssets
+} from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 
 type WalletFactory = (args: Record<string, unknown>) => Promise<UTEXOWallet> | UTEXOWallet;
@@ -52,6 +58,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 		const proxyUrl = import.meta.env.VITE_RGB_LN_PROXY_URL as string | undefined;
 		const vssUrl = (import.meta.env.VITE_UTEXO_VSS_URL as string | undefined) ?? null;
 		await initWasm();
+		installEsploraRetryFetch();
 		const rgbSdk = await import('@utexo/rgb-sdk-web');
 		if (import.meta.env.DEV) {
 			console.log(
@@ -103,27 +110,65 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			vss_configured: Boolean(vssUrl)
 		});
 
-		const wallet = await create({
-			mnemonic,
-			password,
-			network,
-			indexerUrl,
-			transportEndpoint,
-			vssUrl,
-			...(proxyUrl ? { proxyUrl } : {})
-		});
+		const indexers = browserIndexers(indexerUrl, network);
+		let wallet: UTEXOWallet | undefined;
+		let lastIndexerError: unknown;
+		for (const resolvedIndexer of indexers) {
+			try {
+				wallet = await create({
+					mnemonic,
+					password,
+					network,
+					indexerUrl: resolvedIndexer,
+					transportEndpoint,
+					vssUrl,
+					...(proxyUrl ? { proxyUrl } : {})
+				});
+				console.info('[wallet-init] esplora indexer ready', resolvedIndexer);
+				lastIndexerError = undefined;
+				break;
+			} catch (error) {
+				lastIndexerError = error;
+				console.warn('[wallet-init] esplora indexer rejected', resolvedIndexer, error);
+			}
+		}
+		if (!wallet) {
+			throw lastIndexerError instanceof Error
+				? lastIndexerError
+				: new Error('Invalid indexer: not a valid esplora server');
+		}
 		state.utexoWallet = wallet;
 
-		const address = await wallet.getAddress();
-		const btcBalance = await wallet.getBtcBalance();
-		const balanceSats = btcBalance.vanilla.spendable + btcBalance.colored.spendable;
+		const scanned = await scanBtcBalance(wallet);
+		const address = scanned.address;
+		const balanceSats = scanned.balanceSats;
 
 		console.info('[wallet-diagnostic:ready]', {
 			fingerprint: walletFingerprint.slice(0, 16),
 			network,
 			address,
-			balance_sats: balanceSats
+			balance_sats: balanceSats,
+			utxo_count: scanned.utxoCount
 		});
+		if (browser) {
+			const probeWindow = window as WalletProbeWindow;
+			if (
+				probeWindow.__PLAYWRIGHT_TEST__ === true ||
+				import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true'
+			) {
+				probeWindow.__btcAddress = address;
+				probeWindow.__btcBalanceSats = balanceSats;
+				probeWindow.__btcUtxoCount = scanned.utxoCount;
+				probeWindow.__btcWalletSynced = true;
+				probeWindow.__refreshBtcBalance = () => loadAssets();
+				probeWindow.__sendBtc = (params) =>
+					wallet.sendBtc({
+						address: params.address,
+						amount: params.amountSats,
+						feeRate: params.feeRate ?? 1
+					});
+			}
+		}
 
 		let rgbAssets: RgbAsset[] = [];
 		try {
@@ -214,6 +259,13 @@ export async function getRgbAddress(): Promise<string> {
 
 export async function initialize(): Promise<void> {
 	if (!browser) return;
+	const probeWindow = window as WalletProbeWindow;
+	if (
+		probeWindow.__PLAYWRIGHT_TEST__ === true ||
+		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true'
+	) {
+		probeWindow.__connectWallet = () => initialize();
+	}
 	const storeState = get(walletStore);
 	if (storeState.isInitializing) return;
 

@@ -27,7 +27,9 @@
 
 	function formatNumber(value: unknown, fallback = '0'): string {
 		const numeric = typeof value === 'number' ? value : Number(value);
-		return Number.isFinite(numeric) ? new Intl.NumberFormat().format(Math.max(0, numeric)) : fallback;
+		return Number.isFinite(numeric)
+			? new Intl.NumberFormat().format(Math.max(0, numeric))
+			: fallback;
 	}
 
 	async function initializeWallet(): Promise<void> {
@@ -36,9 +38,10 @@
 			await walletManager.initialize();
 			await Promise.allSettled([walletManager.loadAssets(), walletManager.loadTransactions()]);
 		} catch (error) {
-			initializationError = error instanceof Error
-				? error.message
-				: text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
+			initializationError =
+				error instanceof Error
+					? error.message
+					: text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
 			console.error('[wallet-page] Wallet initialization failed:', error);
 		}
 	}
@@ -75,15 +78,19 @@
 			<p class="text-base-content/60 text-sm">{translate('wallet.title', 'Wallet')}</p>
 			<h1 class="text-2xl font-bold sm:text-3xl">{translate('wallet.tab_balance', 'Balance')}</h1>
 		</div>
-		{#if $walletStore.isConnected}
-			<span class="badge badge-success gap-2">{translate('wallet.connected', 'Connected')}</span>
+		{#if $walletStore.isConnected && $walletStore.rgb?.initialized}
+			<span class="badge badge-success gap-2" data-testid="wallet-connected"
+				>{translate('wallet.connected', 'Connected')}</span
+			>
 		{:else if $walletStore.isInitializing}
 			<span class="badge badge-warning gap-2">
 				<span class="loading loading-spinner loading-xs"></span>
 				{translate('wallet.loading', 'Loading wallet')}
 			</span>
 		{:else}
-			<span class="badge badge-ghost">{translate('wallet.error.no_connection', 'Wallet offline')}</span>
+			<span class="badge badge-ghost"
+				>{translate('wallet.error.no_connection', 'Wallet offline')}</span
+			>
 		{/if}
 	</div>
 
@@ -117,10 +124,22 @@
 	</section>
 
 	<section class="bg-base-100 border-base-300 rounded-2xl border p-4 shadow-sm sm:p-6">
-		<p class="text-base-content/60 text-sm">{translate('wallet.available_balance', 'Available balance')}</p>
+		<p class="text-base-content/60 text-sm">
+			{translate('wallet.available_balance', 'Available balance')}
+		</p>
 		<div class="mt-4 flex flex-wrap gap-2 text-sm">
-			<button class:badge-primary={activeAsset === 'btc'} class="badge badge-outline" type="button" onclick={() => (activeAsset = 'btc')}>Bitcoin</button>
-			<button class:badge-primary={activeAsset === 'usd'} class="badge badge-outline" type="button" onclick={() => (activeAsset = 'usd')}>USD / USDT</button>
+			<button
+				class:badge-primary={activeAsset === 'btc'}
+				class="badge badge-outline"
+				type="button"
+				onclick={() => (activeAsset = 'btc')}>Bitcoin</button
+			>
+			<button
+				class:badge-primary={activeAsset === 'usd'}
+				class="badge badge-outline"
+				type="button"
+				onclick={() => (activeAsset = 'usd')}>USD / USDT</button
+			>
 			{#if $walletStore.rgb.address}
 				<span class="badge badge-ghost max-w-full truncate">{$walletStore.rgb.address}</span>
 			{/if}
@@ -154,7 +173,7 @@
 		{#if $walletStore.transactions.length === 0}
 			<p class="text-base-content/60 mt-4 text-sm">No transactions yet.</p>
 		{:else}
-			<div class="mt-3 divide-y divide-base-300">
+			<div class="divide-base-300 mt-3 divide-y">
 				{#each $walletStore.transactions.slice(0, 5) as transaction (transaction.id)}
 					<div class="flex items-center justify-between gap-3 py-3 text-sm">
 						<span class="capitalize">{text(transaction.type, 'transaction')}</span>
@@ -166,12 +185,16 @@
 	</section>
 
 	<section class="grid gap-4 sm:grid-cols-2">
-			<button class="btn btn-primary min-h-24 text-lg" type="button" onclick={openSend}>
-				{translate('wallet.tab_send', 'Send')}
-			</button>
-			<button class="btn btn-outline min-h-24 text-lg" type="button" onclick={() => (isReceiveOpen = true)}>
-				{translate('wallet.tab_receive', 'Receive')}
-			</button>
+		<button class="btn btn-primary min-h-24 text-lg" type="button" onclick={openSend}>
+			{translate('wallet.tab_send', 'Send')}
+		</button>
+		<button
+			class="btn btn-outline min-h-24 text-lg"
+			type="button"
+			onclick={() => (isReceiveOpen = true)}
+		>
+			{translate('wallet.tab_receive', 'Receive')}
+		</button>
 	</section>
 
 	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend}>

@@ -34,22 +34,32 @@ vi.mock('svelte-i18n', async () => {
 vi.mock('$lib/runes/contract.svelte', () => ({
 	ContractRune: class {
 		status = 'draft';
+		snapshot = { fundingInvoice: '', status: 'draft' };
 		seals: Array<{ id: string }> = [];
 		constructor(input: unknown) {
 			runeConstructorArgs.current = input;
 		}
 		async fund() {
 			this.status = 'funded';
+			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funded' };
 			this.seals = [{ id: 'seal-1' }];
 			return fundMock();
 		}
 		async prepareFunding() {
+			this.status = 'funding';
+			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funding' };
+			this.seals = [{ id: 'seal-1' }];
+			return fundMock();
+		}
+		async payFundingFromWallet() {
 			this.status = 'funded';
+			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funded' };
 			this.seals = [{ id: 'seal-1' }];
 			return fundMock();
 		}
 		async fundForE2E() {
 			this.status = 'funded';
+			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funded' };
 			this.seals = [{ id: 'seal-1' }];
 			return fundMock();
 		}
@@ -68,9 +78,13 @@ vi.mock('$lib/services/rgb/consignment-exchange', () => ({
 	sendConsignmentToPeer: vi.fn()
 }));
 
-vi.mock('$lib/utils/nostr-bid', () => ({
-	sendBidStatusUpdate
-}));
+vi.mock('$lib/utils/nostr-bid', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/utils/nostr-bid')>();
+	return {
+		...actual,
+		sendBidStatusUpdate
+	};
+});
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: { showSuccessToast, showErrorToast }
@@ -83,6 +97,13 @@ vi.mock('$lib/runes/btcPrice.svelte', () => ({
 vi.mock('$lib/wasm/init-wasm', () => ({
 	initWasm: vi.fn().mockResolvedValue(true),
 	exposeInitWasm: vi.fn()
+}));
+
+vi.mock('$lib/stores/wallet/wallet-manager', () => ({
+	walletManager: {
+		initialize: vi.fn().mockResolvedValue(undefined),
+		releaseRgbLock: vi.fn().mockResolvedValue(undefined)
+	}
 }));
 
 vi.mock('$lib/components/contracts/PaymentSplitSlider.svelte', () => ({
@@ -150,11 +171,21 @@ describe('BidAcceptanceFormV2', () => {
 		const { getByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask() }
 		});
-		expect(getByTestId('bid-base-amount').textContent).toBe('$200.00');
-		expect(getByTestId('bid-platform-fee').textContent).toBe('$5.00');
-		expect(getByTestId('bid-total-payment').textContent).toBe('$205.00');
+		expect(getByTestId('bid-base-amount').textContent).toBe('200,000 sats');
+		expect(getByTestId('bid-platform-fee').textContent).toBe('5,000 sats');
+		expect(getByTestId('bid-total-payment').textContent).toBe('205,000 sats');
 		expect(getByTestId('bid-total-sats').textContent).toContain('205,000');
 		expect(getByTestId('contract-settlement-unit').textContent).toContain('Bitcoin');
+	});
+
+	it('uses sat totals from SATS bids without converting through USD', () => {
+		const { getByTestId } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid({ amount: 3000, currency: 'SATS' }), task: makeTask() }
+		});
+		expect(getByTestId('bid-base-amount').textContent).toBe('3,000 sats');
+		expect(getByTestId('bid-platform-fee').textContent).toBe('75 sats');
+		expect(getByTestId('bid-total-payment').textContent).toBe('3,075 sats');
+		expect(getByTestId('bid-total-sats').textContent).toContain('3,075');
 	});
 
 	it('shows disconnected warning and disables confirm when wallet is not ready', () => {
@@ -168,6 +199,20 @@ describe('BidAcceptanceFormV2', () => {
 		});
 		expect(getByTestId('wallet-disconnected')).toBeTruthy();
 		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('shows a green connected status when the RGB wallet is online', () => {
+		walletState.set({
+			isConnected: true,
+			rgb: { initialized: true, balanceSats: 500_000 },
+			wdk: { btcOnchain: { address: '' } }
+		});
+		const { getByTestId, queryByTestId } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid(), task: makeTask() }
+		});
+		expect(getByTestId('wallet-connected')).toBeTruthy();
+		expect(queryByTestId('wallet-disconnected')).toBeNull();
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('shows insufficient-funds error when balance is below required sats', () => {
@@ -192,11 +237,14 @@ describe('BidAcceptanceFormV2', () => {
 		await fireEvent.click(getByTestId('accept-fund-button'));
 
 		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(getByTestId('pay-funding-from-wallet')).toBeTruthy());
+		expect(getByTestId('check-funding-button')).toBeTruthy();
 		expect(runeConstructorArgs.current).toMatchObject({
 			contractId: 'contract-task-1-bid-1',
 			contractTitle: 'Install a node',
 			bidderComments: 'I will configure the RGB wallet and document the setup.',
 			totalAmountUsd: 205,
+			amountSats: 205_000,
 			split: {
 				primaryAsset: 'btc_onchain',
 				primaryPercentage: 100,
@@ -206,7 +254,7 @@ describe('BidAcceptanceFormV2', () => {
 			partyPubkeys: ['bidder-pubkey', 'creator-pubkey']
 		});
 
-		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(2));
+		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(1));
 		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
 			'bid-1',
 			'task-1',
@@ -215,6 +263,13 @@ describe('BidAcceptanceFormV2', () => {
 			'Bid accepted',
 			'contract-task-1-bid-1'
 		);
+		expect(enrichMock).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'bid_accepted', escrowId: 'contract-task-1-bid-1' })
+		);
+
+		await fireEvent.click(getByTestId('pay-funding-from-wallet'));
+		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(2));
+		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(2));
 		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
 			'bid-1',
 			'task-1',
@@ -224,11 +279,9 @@ describe('BidAcceptanceFormV2', () => {
 			'contract-task-1-bid-1'
 		);
 		expect(enrichMock).toHaveBeenCalledWith(
-			expect.objectContaining({ action: 'bid_accepted', escrowId: 'contract-task-1-bid-1' })
-		);
-		expect(enrichMock).toHaveBeenCalledWith(
 			expect.objectContaining({ action: 'contract_created', escrowId: 'contract-task-1-bid-1' })
 		);
+		await waitFor(() => expect(getByTestId('start-contract-button')).toBeTruthy());
 		expect(getByTestId('start-contract-button').textContent).toContain('Start Task');
 		expect(getByTestId('start-contract-button')).toBeTruthy();
 		expect(onFunded).not.toHaveBeenCalled();

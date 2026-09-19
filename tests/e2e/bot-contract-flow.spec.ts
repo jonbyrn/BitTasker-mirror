@@ -1,14 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { SimplePool } from 'nostr-tools';
 import { signUpBot } from './fixtures/bot-auth';
+import { fundTestnetAddress } from './fixtures/treasury';
 
-test.use({ headless: false, launchOptions: { slowMo: 500 } });
+test.use({ headless: false, launchOptions: { slowMo: 1_000 } });
 test.describe.configure({ timeout: 600_000 });
 
 const E2E_BASE_URL = process.env.PW_E2E_BASE_URL || 'http://localhost:3000';
 const E2E_TASK_RELAY_URL = process.env.VITE_NOSTR_TASK_RELAY_URL || 'ws://localhost:7777';
 const E2E_HOLD_OPEN_MS = Number(process.env.PW_E2E_HOLD_OPEN_MS ?? 0);
 const E2E_CHECKPOINT_MS = Number(process.env.PW_E2E_CHECKPOINT_MS ?? 30_000);
+const TESTNET_CONFIRM_MS = 300_000;
+const WALLET_CONNECT_MS = 10_000;
 
 type LastPublishedTask = {
 	dTag: string;
@@ -32,6 +35,12 @@ type LastFundedContractWindow = Window & {
 	initWasm?: () => Promise<boolean>;
 	__wasmReady?: boolean;
 	__wasmLive?: boolean;
+	__btcAddress?: string;
+	__btcBalanceSats?: number;
+	__btcUtxoCount?: number;
+	__btcWalletSynced?: boolean;
+	__connectWallet?: () => Promise<void>;
+	__refreshBtcBalance?: () => Promise<void>;
 };
 
 async function waitForWasm(page: import('@playwright/test').Page): Promise<void> {
@@ -133,7 +142,69 @@ async function waitForBidOnRelay(taskEventId: string): Promise<void> {
 	}
 }
 
-async function waitForContractStatus(contractId: string, status: string): Promise<void> {
+async function waitForTaskerWallet(page: import('@playwright/test').Page): Promise<void> {
+	await page.waitForTimeout(WALLET_CONNECT_MS);
+	await page.evaluate(async () => {
+		const probe = window as LastFundedContractWindow;
+		if (probe.__btcWalletSynced) return;
+		if (typeof probe.__connectWallet === 'function') {
+			await probe.__connectWallet();
+		}
+	});
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(
+					() =>
+						Boolean((window as LastFundedContractWindow).__btcAddress) &&
+						(window as LastFundedContractWindow).__btcWalletSynced === true
+				),
+			{ timeout: TESTNET_CONFIRM_MS, intervals: [10_000] }
+		)
+		.toBe(true);
+	await expect(page.locator('[data-testid="wallet-connected"]')).toBeVisible({
+		timeout: TESTNET_CONFIRM_MS
+	});
+}
+
+async function ensureTaskerSats(
+	page: import('@playwright/test').Page,
+	browser: import('@playwright/test').Browser,
+	minSats: number
+): Promise<void> {
+	await waitForTaskerWallet(page);
+	await page.evaluate(async () => {
+		const refresh = (window as LastFundedContractWindow).__refreshBtcBalance;
+		if (refresh) await refresh();
+	});
+	const snapshot = await page.evaluate(() => ({
+		address: (window as LastFundedContractWindow).__btcAddress ?? '',
+		balance: (window as LastFundedContractWindow).__btcBalanceSats ?? 0
+	}));
+	if (snapshot.balance >= minSats) return;
+	if (!snapshot.address.startsWith('tb1')) {
+		throw new Error(`Tasker wallet address is not testnet: ${snapshot.address || '(empty)'}`);
+	}
+	await fundTestnetAddress(browser, snapshot.address, minSats + 5_000);
+	await expect
+		.poll(
+			async () => {
+				await page.evaluate(async () => {
+					const refresh = (window as LastFundedContractWindow).__refreshBtcBalance;
+					if (refresh) await refresh();
+				});
+				return page.evaluate(() => (window as LastFundedContractWindow).__btcBalanceSats ?? 0);
+			},
+			{ timeout: TESTNET_CONFIRM_MS, intervals: [5_000, 10_000] }
+		)
+		.toBeGreaterThanOrEqual(minSats);
+}
+
+async function waitForContractStatus(
+	contractId: string,
+	status: string,
+	timeout = TESTNET_CONFIRM_MS
+): Promise<void> {
 	const pool = new SimplePool();
 	try {
 		await expect
@@ -147,7 +218,7 @@ async function waitForContractStatus(contractId: string, status: string): Promis
 					});
 					return events.length;
 				},
-				{ timeout: 90_000, intervals: [500, 1_000, 2_000] }
+				{ timeout, intervals: [500, 1_000, 2_000] }
 			)
 			.toBeGreaterThan(0);
 	} finally {
@@ -203,9 +274,10 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 	});
 
 	if (!/\/create-task(?:[/?#]|$)/.test(page.url())) {
-		await page.goto(new URL('/create-task', E2E_BASE_URL).toString(), {
-			waitUntil: 'domcontentloaded'
-		});
+		await expect(async () => {
+			const res = await page.goto('/create-task', { waitUntil: 'domcontentloaded' });
+			if (!res || res.status() >= 500) throw new Error('create-task not ready');
+		}).toPass({ timeout: 60_000 });
 	}
 
 	await expect(page).toHaveURL(/\/create-task(?:[/?#]|$)/, { timeout: 60_000 });
@@ -237,16 +309,21 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 		await skillsInput.press('Enter');
 	}
 
+	const flexibleDateBtn = page.locator('[data-testid="flexible-date-btn"]');
+	await expect(flexibleDateBtn).toBeVisible({ timeout: 15_000 });
+	await flexibleDateBtn.click();
+	await expect(page.locator('[data-testid="specific-date-btn"]')).toBeVisible();
+
 	const nextBtn = page.locator('[data-testid="next-task-step-btn"]');
 	if (await nextBtn.isVisible()) {
 		await nextBtn.click();
 	}
 
 	const remoteBtn = page.locator('[data-testid="remote-task-btn"]');
-	if (await remoteBtn.isVisible()) {
-		await remoteBtn.click();
-		await nextBtn.click();
-	}
+	await expect(remoteBtn).toBeVisible({ timeout: 15_000 });
+	await remoteBtn.click();
+	await expect(page.locator('[data-testid="in-person-task-btn"]')).toBeVisible();
+	await nextBtn.click();
 
 	const budgetInput = page.locator('#budget-btc');
 	if (await budgetInput.isVisible()) {
@@ -350,13 +427,11 @@ async function createBidFlow(browser: import('@playwright/test').Browser) {
 		}
 	});
 	await taskeePage.goto(new URL(`/tasks/${taskD}?author=${taskerHex}`, E2E_BASE_URL).toString());
-	await expect(taskeePage.getByRole('heading', { name: /task details/i })).toBeVisible({
-		timeout: 30_000
-	});
+	await expect(taskeePage).toHaveURL(new RegExp(`/tasks/${taskD}`));
 	const bidTrigger = taskeePage.getByRole('button', { name: /bid|proposal|quote/i }).first();
-	await expect(bidTrigger).toBeVisible({ timeout: 10_000 });
+	await expect(bidTrigger).toBeVisible({ timeout: 60_000 });
 	await bidTrigger.click();
-	await taskeePage.locator('[data-testid="bid-amount-input"]').fill('20');
+	await taskeePage.locator('[data-testid="bid-amount-input"]').fill('3000');
 	await taskeePage.locator('[data-testid="bid-delivery-days-input"]').fill('3');
 	await taskeePage
 		.locator('[data-testid="bid-proposal-input"]')
@@ -405,6 +480,7 @@ test('two bot users can create a task and submit a quote', async ({ browser }) =
 });
 
 test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => {
+	test.setTimeout(1_800_000);
 	const { taskerPage, taskeePage, taskerContext, taskeeContext } = await createBidFlow(browser);
 
 	const acceptButton = taskerPage.locator('[data-testid="accept-bid-btn"]').first();
@@ -412,20 +488,32 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	await acceptButton.click();
 	await expect(taskerPage.locator('[data-testid="bid-acceptance-form"]')).toBeVisible();
 	await waitForWasm(taskerPage);
-	await expect(taskerPage.locator('[data-testid="accept-fund-button"]')).toBeEnabled();
-	await taskerPage.locator('[data-testid="accept-fund-button"]').click();
-	await expect(taskerPage.locator('[data-testid="processing-state"]')).toBeHidden();
-	await expect(taskerPage.locator('[data-testid="funding-error"]')).toHaveCount(0);
-	await expect(taskerPage.locator('[data-testid="start-contract-button"]')).toBeVisible({
+	await waitForTaskerWallet(taskerPage);
+	const totalSatsLabel = taskerPage.locator('[data-testid="bid-total-sats"]');
+	await expect(totalSatsLabel).toBeVisible({
 		timeout: 30_000
 	});
+	const invoiceSats = Number((await totalSatsLabel.innerText()).replace(/[^\d]/g, ''));
+	expect(invoiceSats).toBe(3075);
+	await ensureTaskerSats(taskerPage, browser, invoiceSats + 5_000);
+	await expect(taskerPage.locator('[data-testid="accept-fund-button"]')).toBeEnabled();
+	await taskerPage.locator('[data-testid="accept-fund-button"]').click();
+	await expect(taskerPage.locator('[data-testid="pay-funding-from-wallet"]')).toBeVisible({
+		timeout: TESTNET_CONFIRM_MS
+	});
+	await expect(taskerPage.locator('[data-testid="funding-error"]')).toHaveCount(0);
+	await taskerPage.locator('[data-testid="pay-funding-from-wallet"]').click();
+	await expect(taskerPage.locator('[data-testid="start-contract-button"]')).toBeVisible({
+		timeout: TESTNET_CONFIRM_MS
+	});
+	await expect(taskerPage.locator('[data-testid="funding-error"]')).toHaveCount(0);
 
 	const contractId = await taskerPage.evaluate(
 		() => (window as LastFundedContractWindow).__lastFundedContractId
 	);
 	expect(contractId).toMatch(/^contract-/);
 	await expect(taskerPage.locator('[data-testid="bid-acceptance-form"]')).toBeVisible();
-	await waitForContractStatus(contractId as string, 'funded');
+	await waitForContractStatus(contractId as string, 'funded', TESTNET_CONFIRM_MS);
 	await showDemoCheckpoint(
 		taskerPage,
 		'Tasker',
@@ -478,7 +566,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	);
 	await waitForWasm(taskerPage);
 	await taskerPage.locator('[data-testid="approve-release-funds-button"]').click();
-	await waitForContractStatus(contractId as string, 'released');
+	await waitForContractStatus(contractId as string, 'released', TESTNET_CONFIRM_MS);
 	await expect(taskerPage.locator('[data-testid="contract-status"]')).toContainText('released', {
 		timeout: 30_000
 	});

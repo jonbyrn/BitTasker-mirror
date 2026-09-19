@@ -10,6 +10,8 @@ import {
 import { loadAssets } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
 import { sendBtc, type SendBtcParams } from './wallet-send';
+import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
+import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
 import type { RgbAsset } from './wallet-types';
 
 export const walletManager = {
@@ -65,15 +67,32 @@ export const walletManager = {
 	}): Promise<{ invoice: string; recipientId: string; expirationTimestamp: number | null }> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
+		const receiveParams = {
+			amount: params.amount,
+			witness: params.witness !== false,
+			...(params.minConfirmations === undefined
+				? {}
+				: { minConfirmations: params.minConfirmations }),
+			...(params.durationSeconds === undefined ? {} : { durationSeconds: params.durationSeconds }),
+			...(isNativeBitcoinAsset(params.assetId) ? {} : { assetId: params.assetId })
+		};
 		const receive =
-			params.witness === false
-				? await wallet.blindReceive(params)
-				: await wallet.witnessReceive(params);
+			typeof wallet.onchainReceive === 'function'
+				? await wallet.onchainReceive(receiveParams)
+				: receiveParams.witness === false
+					? await wallet.blindReceive(receiveParams)
+					: await wallet.witnessReceive(receiveParams);
 		return {
 			invoice: receive.invoice,
 			recipientId: receive.recipientId,
 			expirationTimestamp: receive.expirationTimestamp
 		};
+	},
+
+	async releaseRgbLock(): Promise<void> {
+		const wallet = state.utexoWallet;
+		if (!wallet) return;
+		await releaseWalletMutex(wallet);
 	},
 
 	async sendRgbAsset(params: {
@@ -84,9 +103,9 @@ export const walletManager = {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
 		return wallet.onchainSend({
-			assetId: params.assetId,
 			invoice: params.invoice,
-			...(params.amount === undefined ? {} : { amount: params.amount })
+			...(params.amount === undefined ? {} : { amount: params.amount }),
+			...(isNativeBitcoinAsset(params.assetId) ? {} : { assetId: params.assetId })
 		});
 	},
 

@@ -10,6 +10,14 @@ export const CONTRACT_PAYMENT_ASSETS: Record<ContractPaymentAsset, string> = {
 	usdt_rgb: 'USDT'
 };
 
+const NATIVE_BITCOIN_IDS = new Set(['', 'BTC', 'btc', 'bitcoin', 'btc_onchain', 'btc_lightning']);
+
+/** UTEXO `onchainReceive` / `onchainSend` omit `assetId` for native BTC. */
+export function isNativeBitcoinAsset(assetId: string | null | undefined): boolean {
+	if (assetId == null) return true;
+	return NATIVE_BITCOIN_IDS.has(assetId.trim());
+}
+
 export function getConfiguredRgbUsdtAssetId(): string {
 	const assetId = import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined;
 	if (!assetId?.trim()) {

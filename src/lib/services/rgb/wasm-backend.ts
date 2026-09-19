@@ -7,9 +7,8 @@
  * `refreshWallet()`/`listTransfers()` rather than imperative per-seal calls.
  * `types.ts`'s `RgbSealState` mirrors that status machine directly:
  *
- * - `commit()`  -> `witnessReceive()` (creates the receive invoice/seal;
- *                  the SDK derives the UTXO internally, so `CommitCommandInput`
- *                  has no `utxo` field to pass through).
+ * - `commit()`  -> `onchainReceive()` (UTEXO single receive entry; omits
+ *                  `assetId` for native BTC). Falls back to `witnessReceive()`.
  * - `witness()` -> `refreshWallet()` + `listTransfers()`, fail-closed: rejects
  *                  unless the matching transfer has reached at least
  *                  `WAITING_CONFIRMATIONS`.
@@ -19,6 +18,7 @@
  */
 
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
+import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
 import type { RgbSealBackend } from './command-queue';
 import type {
 	CommitCommandInput,
@@ -61,6 +61,55 @@ export function toRgbSealState(status: TransferStatus): RgbSealState {
 	}
 }
 
+type ReceiveInvoiceParams = {
+	amount: number;
+	assetId?: string;
+	witness?: boolean;
+};
+
+function receiveInvoiceParams(input: CommitCommandInput): ReceiveInvoiceParams {
+	const params: ReceiveInvoiceParams = { amount: input.amount, witness: true };
+	if (!isNativeBitcoinAsset(input.assetId)) {
+		params.assetId = input.assetId;
+	}
+	return params;
+}
+
+async function receiveInvoice(
+	wallet: UTEXOWallet,
+	params: ReceiveInvoiceParams
+): Promise<{ invoice: string; recipientId: string }> {
+	if (typeof wallet.onchainReceive === 'function') {
+		return wallet.onchainReceive(params);
+	}
+	return wallet.witnessReceive(params);
+}
+
+async function assertUncoloredReceive(wallet: UTEXOWallet, invoice: string): Promise<void> {
+	if (!invoice.startsWith('rgb1')) return;
+	const decoded = await wallet.decodeRGBInvoice({ invoice }).catch(() => null);
+	if (decoded?.assetId && !isNativeBitcoinAsset(decoded.assetId)) {
+		throw new Error(`Native BTC receive encoded a colored asset ${decoded.assetId}`);
+	}
+}
+
+export async function releaseWalletMutex(wallet: UTEXOWallet): Promise<void> {
+	try {
+		await wallet.refreshWallet();
+	} catch {
+		// Mutex may still be held; the next user action can retry.
+	}
+}
+
+async function withWalletMutex<T>(wallet: UTEXOWallet, work: () => Promise<T>): Promise<T> {
+	try {
+		return await work();
+	} catch (error) {
+		await releaseWalletMutex(wallet);
+		throw error;
+	}
+}
+
 /** Refreshes wallet state and finds the transfer matching `recipientId`. Fail-closed: throws if absent. */
 async function findTransfer(
 	wallet: UTEXOWallet,
@@ -68,7 +117,9 @@ async function findTransfer(
 	assetId: string
 ): Promise<Transfer> {
 	await wallet.refreshWallet();
-	const transfers = await wallet.listTransfers(assetId);
+	const transfers = isNativeBitcoinAsset(assetId)
+		? await wallet.listTransfers()
+		: await wallet.listTransfers(assetId);
 	const match = transfers.find((t) => t.recipientId === recipientId);
 	if (!match) {
 		throw new Error(`No transfer found for recipientId ${recipientId}`);
@@ -104,28 +155,31 @@ export class WasmRgbSealBackend implements RgbSealBackend {
 	constructor(private readonly wallet: UTEXOWallet) {}
 
 	async commit(input: CommitCommandInput): Promise<RgbSeal> {
-		const invoice = await this.wallet.witnessReceive({
-			amount: input.amount,
-			assetId: input.assetId
+		return withWalletMutex(this.wallet, async () => {
+			const invoice = await receiveInvoice(this.wallet, receiveInvoiceParams(input));
+			if (isNativeBitcoinAsset(input.assetId)) {
+				await assertUncoloredReceive(this.wallet, invoice.invoice);
+			}
+			return {
+				id: invoice.recipientId as SealId,
+				contractId: input.contractId,
+				invoice: invoice.invoice,
+				contractTitle: input.contractTitle,
+				bidderComments: input.bidderComments,
+				state: 'INITIATED',
+				assetId: input.assetId,
+				amount: input.amount,
+				createdAt: nowMs(),
+				updatedAt: nowMs()
+			};
 		});
-
-		return {
-			id: invoice.recipientId as SealId,
-			contractId: input.contractId,
-			invoice: invoice.invoice,
-			contractTitle: input.contractTitle,
-			bidderComments: input.bidderComments,
-			state: 'INITIATED',
-			assetId: input.assetId,
-			amount: input.amount,
-			createdAt: nowMs(),
-			updatedAt: nowMs()
-		};
 	}
 
 	/** Fail-closed: rejects unless the SDK confirms the transfer has reached WAITING_CONFIRMATIONS or SETTLED. */
 	async witness(input: WitnessCommandInput): Promise<RgbSeal> {
-		const transfer = await findTransfer(this.wallet, input.recipientId, input.assetId);
+		const transfer = await withWalletMutex(this.wallet, () =>
+			findTransfer(this.wallet, input.recipientId, input.assetId)
+		);
 		const state = toRgbSealState(transfer.status);
 		if (state !== 'WAITING_CONFIRMATIONS' && state !== 'SETTLED') {
 			throw new Error(
@@ -137,7 +191,9 @@ export class WasmRgbSealBackend implements RgbSealBackend {
 
 	/** Fail-closed: rejects unless the SDK confirms the transfer has reached SETTLED. */
 	async spend(input: SpendCommandInput): Promise<RgbSeal> {
-		const transfer = await findTransfer(this.wallet, input.recipientId, input.assetId);
+		const transfer = await withWalletMutex(this.wallet, () =>
+			findTransfer(this.wallet, input.recipientId, input.assetId)
+		);
 		if (toRgbSealState(transfer.status) !== 'SETTLED') {
 			throw new Error(`Seal ${input.recipientId} is not yet settled (status: ${transfer.status})`);
 		}
@@ -164,4 +220,3 @@ export class WasmRgbSealBackend implements RgbSealBackend {
 		}
 	}
 }
-
