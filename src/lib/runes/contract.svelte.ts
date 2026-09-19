@@ -393,18 +393,16 @@ export class ContractRune {
 			throw new Error(`Cannot release contract from ${this.status} state`);
 		}
 		return this.runTransition('releasing', async () => {
-			if (!isE2ERun()) {
-				const wallet = state.utexoWallet;
-				if (!wallet) throw new Error('RGB wallet is not initialized');
-				const queue = await getBrowserRgbCommandQueue(wallet);
-				for (const seal of this.seals) {
-					const result = await queue.spend({
-						recipientId: seal.id as SealId,
-						contractId: this.contractId as RgbSeal['contractId'],
-						assetId: seal.assetId
-					});
-					if (!result.ok) throw new Error(result.error ?? 'RGB escrow release failed');
-				}
+			const wallet = state.utexoWallet;
+			if (!wallet) throw new Error('RGB wallet is not initialized');
+			const queue = await getBrowserRgbCommandQueue(wallet);
+			for (const seal of this.seals) {
+				const result = await queue.spend({
+					recipientId: seal.id as SealId,
+					contractId: this.contractId as RgbSeal['contractId'],
+					assetId: seal.assetId
+				});
+				if (!result.ok) throw new Error(result.error ?? 'RGB escrow release failed');
 			}
 			this.status = 'released';
 			await this.attest('released', 'Funds released');
