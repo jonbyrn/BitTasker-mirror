@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import * as bitcoinjs from '$lib/shims/bitcoinjs-lib';
 
 const WASM_ASSETS = ['/wasm/rln_wasm_sdk_bg.wasm', '/wasm/rgb_lib_wasm_bindings_bg.wasm'] as const;
 const WASM_INIT_MS = 60_000;
@@ -7,11 +8,6 @@ type WasmWindow = Window & {
 	initWasm?: () => Promise<boolean>;
 	__wasmReady?: boolean;
 	__wasmLive?: boolean;
-};
-
-type RgbSdkWeb = {
-	UTEXOWallet?: unknown;
-	initRlnWasm?: () => Promise<unknown>;
 };
 
 let wasmInitPromise: Promise<boolean> | null = null;
@@ -46,15 +42,9 @@ async function ensureWasmAssets(): Promise<void> {
 	}
 }
 
-function assertLiveSdk(rgbSdk: RgbSdkWeb): void {
-	if (!rgbSdk.UTEXOWallet && typeof rgbSdk.initRlnWasm !== 'function') {
-		throw new Error('RGB SDK loaded without UTEXOWallet or initRlnWasm');
-	}
-}
-
 /**
- * Loads RGB/Bitcoin Wasm bindings before wallet, contract, or escrow signing.
- * Ready is only set after the live `@utexo/rgb-sdk-web` module imports.
+ * Checks RGB/Bitcoin Wasm assets and bitcoinjs before wallet or escrow signing.
+ * Does not import `@utexo/rgb-sdk-web` — that must wait until URL patches apply.
  */
 export async function initWasm(): Promise<boolean> {
 	if (!browser) return false;
@@ -65,8 +55,9 @@ export async function initWasm(): Promise<boolean> {
 			await Promise.race([
 				(async () => {
 					await ensureWasmAssets();
-					const rgbSdk = (await import('@utexo/rgb-sdk-web')) as RgbSdkWeb;
-					assertLiveSdk(rgbSdk);
+					if (typeof bitcoinjs.Psbt !== 'function') {
+						throw new Error('bitcoinjs-lib shim loaded without Psbt');
+					}
 				})(),
 				new Promise<never>((_, reject) => {
 					setTimeout(() => reject(new Error('initWasm timed out')), WASM_INIT_MS);

@@ -15,6 +15,7 @@ type TreasuryWalletWindow = Window & {
 	__btcAddress?: string;
 	__btcBalanceSats?: number;
 	__btcUtxoCount?: number;
+	__btcFingerprint?: string;
 	__btcWalletSynced?: boolean;
 	__connectWallet?: () => Promise<void>;
 	__refreshBtcBalance?: () => Promise<void>;
@@ -87,10 +88,20 @@ async function waitForTreasuryWallet(page: Page): Promise<void> {
 	await expect(page.locator('[data-testid="wallet-connected"]')).toBeVisible({
 		timeout: TESTNET_CONFIRM_MS
 	});
+	const snapshot = await refreshTreasurySnapshot(page);
+	console.info('[e2e-keychain:treasury]', {
+		addressPrefix: snapshot.addressPrefix,
+		fingerprint: snapshot.fingerprint,
+		balance: snapshot.balance,
+		utxoCount: snapshot.utxoCount,
+		synced: snapshot.synced
+	});
 }
 
 async function refreshTreasurySnapshot(page: Page): Promise<{
 	address: string;
+	addressPrefix: string;
+	fingerprint: string;
 	balance: number;
 	utxoCount: number;
 	synced: boolean;
@@ -99,12 +110,17 @@ async function refreshTreasurySnapshot(page: Page): Promise<{
 		const refresh = (window as TreasuryWalletWindow).__refreshBtcBalance;
 		if (refresh) await refresh();
 	});
-	return page.evaluate(() => ({
-		address: (window as TreasuryWalletWindow).__btcAddress ?? '',
-		balance: (window as TreasuryWalletWindow).__btcBalanceSats ?? 0,
-		utxoCount: (window as TreasuryWalletWindow).__btcUtxoCount ?? 0,
-		synced: (window as TreasuryWalletWindow).__btcWalletSynced === true
-	}));
+	return page.evaluate(() => {
+		const address = (window as TreasuryWalletWindow).__btcAddress ?? '';
+		return {
+			address,
+			addressPrefix: address.slice(0, 16),
+			fingerprint: (window as TreasuryWalletWindow).__btcFingerprint ?? '',
+			balance: (window as TreasuryWalletWindow).__btcBalanceSats ?? 0,
+			utxoCount: (window as TreasuryWalletWindow).__btcUtxoCount ?? 0,
+			synced: (window as TreasuryWalletWindow).__btcWalletSynced === true
+		};
+	});
 }
 
 async function sendFromTreasuryPage(

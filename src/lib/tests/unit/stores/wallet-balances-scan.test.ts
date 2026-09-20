@@ -1,12 +1,76 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	clearRlnRuntime,
 	installEsploraRetryFetch,
+	isMnemonicError,
+	isRlnUrlParseError,
+	isWssGateway,
+	rlnCreateUrls,
+	rlnProxyUrl,
+	resetEsploraFetchState,
 	resolveBrowserIndexer,
 	scanBtcBalance,
+	setEsploraBackoffMs,
 	sumSpendableSats
 } from '$lib/stores/wallet/wallet-balances';
 
 describe('scanBtcBalance', () => {
+	it('does not treat a bip39 reject as an indexer failure', () => {
+		expect(
+			isMnemonicError(
+				new Error('Invalid mnemonic error: mnemonic contains an unknown word (word 6)')
+			)
+		).toBe(true);
+		expect(isMnemonicError('Invalid mnemonic error: mnemonic contains an unknown word (word 6)')).toBe(
+			true
+		);
+		expect(isMnemonicError(new Error('Invalid indexer: not a valid esplora server'))).toBe(false);
+	});
+
+	it('does not reuse the rgb https transport as an rln proxy', () => {
+		expect(rlnProxyUrl('https://rgb-proxy.utexo.com/json-rpc')).toBe('');
+		expect(rlnProxyUrl('ssl://electrum.blockstream.info:60002')).toBe('');
+		expect(rlnProxyUrl(undefined)).toBe('');
+		expect(rlnProxyUrl('wss://ln-gateway.example/')).toBe('wss://ln-gateway.example/');
+	});
+
+	it('does not default the rln node to the staging lightning gateway', () => {
+		const urls = rlnCreateUrls({
+			indexer: 'ssl://electrum.blockstream.info:60002',
+			transport: 'https://rgb-proxy.utexo.com/json-rpc',
+			network: 'testnet'
+		});
+		expect(urls.indexerUrl).toBe('https://blockstream.info/testnet/api');
+		expect(urls.transportEndpoint).toBe('https://rgb-proxy.utexo.com/json-rpc');
+		expect(urls.proxyUrl).toBe('');
+		expect(urls.proxyUrl).toBe(''); // LN node skipped on testnet
+	});
+
+	it('detects rln rust url parse throws', () => {
+		expect(isRlnUrlParseError(new Error('url parse'))).toBe(true);
+		expect(isRlnUrlParseError('Error: url parse')).toBe(true);
+		expect(isRlnUrlParseError(new Error('Invalid mnemonic'))).toBe(false);
+	});
+
+	it('clears the rln runtime idb store', async () => {
+		const deleteDatabase = vi.fn(() => {
+			const request: { onsuccess: (() => void) | null } = { onsuccess: null };
+			queueMicrotask(() => request.onsuccess?.());
+			return request;
+		});
+		vi.stubGlobal('indexedDB', { deleteDatabase });
+		await clearRlnRuntime();
+		expect(deleteDatabase).toHaveBeenCalledWith('rln_wasm_sdk_runtime');
+		vi.unstubAllGlobals();
+	});
+
+	it('accepts only a real wss lightning gateway', () => {
+		expect(isWssGateway('wss://ln-gateway.example/')).toBe(true);
+		expect(isWssGateway('')).toBe(false);
+		expect(isWssGateway('ssl://electrum.blockstream.info:60002')).toBe(false);
+		expect(isWssGateway('https://blockstream.info/testnet/api')).toBe(false);
+	});
+
 	it('maps electrum ssl urls to esplora https on testnet', () => {
 		expect(resolveBrowserIndexer('ssl://electrum.blockstream.info:60002', 'testnet')).toBe(
 			'https://blockstream.info/testnet/api'
@@ -57,8 +121,10 @@ describe('scanBtcBalance', () => {
 		expect(scanned.address).toBe('tb1ptestreceive');
 	});
 
-	it('retries Blockstream tip-height polls after 429', async () => {
+	it('retries Blockstream tip-height once when the cache is empty', async () => {
 		const originalFetch = window.fetch;
+		resetEsploraFetchState();
+		setEsploraBackoffMs(0);
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(new Response('rate limited', { status: 429 }))
@@ -72,8 +138,37 @@ describe('scanBtcBalance', () => {
 			expect(response.status).toBe(200);
 			expect(fetchMock).toHaveBeenCalledTimes(2);
 		} finally {
+			setEsploraBackoffMs(8_000);
+			resetEsploraFetchState();
+			window.fetch = originalFetch;
+			delete (window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch;
+		}
+	});
+
+	it('serves cached tip-height instead of retrying 429', async () => {
+		const originalFetch = window.fetch;
+		resetEsploraFetchState();
+		setEsploraBackoffMs(0);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(new Response('5149184', { status: 200 }))
+			.mockResolvedValueOnce(new Response('rate limited', { status: 429 }));
+		window.fetch = fetchMock;
+		(window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch = false;
+
+		try {
+			installEsploraRetryFetch();
+			const first = await window.fetch('https://blockstream.info/testnet/api/blocks/tip/height');
+			const second = await window.fetch('https://blockstream.info/testnet/api/blocks/tip/height');
+			expect(first.status).toBe(200);
+			expect(await second.text()).toBe('5149184');
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		} finally {
+			setEsploraBackoffMs(8_000);
+			resetEsploraFetchState();
 			window.fetch = originalFetch;
 			delete (window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch;
 		}
 	});
 });
+

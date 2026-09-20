@@ -73,6 +73,7 @@
 		"build-storybook": "storybook build",
 		"sitemap:generate": "node scripts/generate-sitemap.js",
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
+		"postinstall": "node scripts/patch-rgb-sdk.mjs",
 		"postbuild": "node scripts/purge-cache.js",
 		"test:cache-purge": "node scripts/test-cache-purge.js",
 		"test:android:ci": "bash scripts/test-android-ci-setup.sh",

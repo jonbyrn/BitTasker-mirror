@@ -45,7 +45,7 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 
 import { appStore } from '$lib/stores/app.store';
-import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+import { describeMnemonicSeed, getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { get } from 'svelte/store';
 
 const TEST_MNEMONIC =
@@ -65,10 +65,33 @@ function resetAppStore() {
 	});
 }
 
+describe('describeMnemonicSeed', () => {
+	it('reports word 6 as index 5 and detects an nsec seed', () => {
+		expect(
+			describeMnemonicSeed(
+				'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+			)
+		).toEqual({
+			wordCount: 12,
+			word6Len: 7,
+			word6Lower: true,
+			hasNsecPrefix: false
+		});
+		expect(describeMnemonicSeed('nsec1notahdseed')).toEqual({
+			wordCount: 1,
+			word6Len: 0,
+			word6Lower: true,
+			hasNsecPrefix: true
+		});
+	});
+});
+
 describe('getMnemonic', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		resetAppStore();
+		vi.mocked(localStorage.getItem).mockReset();
+		vi.mocked(localStorage.getItem).mockReturnValue(null);
 	});
 
 	it('should return mnemonic from appStore.nostrKeys (Tier 1) without biometric call', async () => {
@@ -159,5 +182,22 @@ describe('getMnemonic', () => {
 		mockGetBiometricData.mockResolvedValue(null);
 
 		await expect(getMnemonic()).rejects.toThrow('No biometric data found');
+	});
+
+	it('does not return an nsec stored as the e2e mnemonic', async () => {
+		vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+			key === '__E2E_MNEMONIC__' ? 'nsec1notahdseed' : null
+		);
+
+		await expect(getMnemonic()).rejects.toThrow('Invalid mnemonic');
+	});
+
+	it('does not return an nsec from the app store', async () => {
+		appStore.update((s) => ({
+			...s,
+			nostrKeys: { ...s.nostrKeys, mnemonic: 'nsec1notahdseed' }
+		}));
+
+		await expect(getMnemonic()).rejects.toThrow('Invalid mnemonic');
 	});
 });

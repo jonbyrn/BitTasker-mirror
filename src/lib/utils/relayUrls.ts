@@ -4,7 +4,12 @@ const d = createDebug('relayUrls');
 const E2E_TASK_RELAY_URL = 'ws://localhost:7777';
 
 function isE2ERun(): boolean {
-	return import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+	// Only consider E2E mode when both the bypass is set AND we're in a test environment
+	const hasBypass = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+	const isTestEnv = typeof window !== 'undefined' && 
+		(window as any).__PLAYWRIGHT_TEST__ === true;
+	
+	return hasBypass && isTestEnv;
 }
 
 function includeE2ETaskRelay(urls: string[]): string[] {

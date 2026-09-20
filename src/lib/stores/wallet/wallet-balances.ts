@@ -26,6 +26,77 @@ export function resolveBrowserIndexer(url: string | undefined, network: string):
 	return 'https://mempool.space/api';
 }
 
+const DEFAULT_RGB_TRANSPORT = 'https://rgb-proxy.utexo.com/json-rpc';
+
+/** Path A is on-chain only. Pass `proxyUrl` solely for a real wss LN gateway. */
+export function isWssGateway(url: string | undefined): url is string {
+	return typeof url === 'string' && url.trim().startsWith('wss://');
+}
+
+/**
+ * Resolve indexer URL for the RGB SDK's browser WASM runtime.
+ * The SDK's JS bridge calls fetch(indexerUrl + '/block-height/0'), which only
+ * accepts http:// / https:// schemes. ssl:// Electrum URLs must NOT be passed here.
+ * Use HTTPS Esplora URLs — the SDK internally handles conversion for Rust's URL parser.
+ */
+export function resolveRgbIndexerUrl(url: string | undefined, network: string): string {
+	if (url?.startsWith('http://') || url?.startsWith('https://')) return url;
+	if (network === 'mainnet') return 'https://blockstream.info/api';
+	if (network === 'regtest') return url || 'http://127.0.0.1:3002';
+	return 'https://blockstream.info/testnet/api';
+}
+
+/**
+ * beta.12 SDK uses `params.proxyUrl ?? params.transportEndpoint` for the LN node.
+ * When `proxyUrl` is `undefined` or `""`, it falls back to `transportEndpoint`
+ * (https://rgb-proxy.utexo.com/json-rpc). Passing an `https://` scheme into the
+ * RLN WebSocket node parameter triggers Rust's `Url::parse` panic.
+ * 
+ * FIX: Always return a valid `wss://` URI when disabled, preventing the `??` 
+ * fallback operator from firing and avoiding the HTTPS transport URL being 
+ * passed to the RLN WebSocket node.
+ */
+export function rlnProxyUrl(url: string | undefined): string {
+	if (typeof url === 'string' && url.trim().startsWith('wss://')) {
+		return url.trim();
+	}
+	// Use a real LN gateway URL for testnet
+	return 'wss://ln-gateway-signet.utexo.com';
+}
+
+export function rlnCreateUrls(input: {
+	indexer?: string;
+	transport?: string;
+	proxy?: string;
+	network: string;
+
+}): { indexerUrl: string; transportEndpoint: string; proxyUrl: string | undefined } {
+	const transportEndpoint = input.transport?.trim() || DEFAULT_RGB_TRANSPORT;
+	return {
+		indexerUrl: resolveRgbIndexerUrl(input.indexer, input.network),
+		transportEndpoint,
+		proxyUrl: rlnProxyUrl(input.proxy)
+	};
+}
+
+export function isRlnUrlParseError(error: unknown): boolean {
+	return String(error).toLowerCase().includes('url parse');
+}
+
+export async function clearRlnRuntime(): Promise<void> {
+	if (!browser || typeof indexedDB === 'undefined') return;
+	await new Promise<void>((resolve) => {
+		const request = indexedDB.deleteDatabase('rln_wasm_sdk_runtime');
+		request.onsuccess = () => resolve();
+		request.onerror = () => resolve();
+		request.onblocked = () => resolve();
+	});
+}
+
+export function isMnemonicError(error: unknown): boolean {
+	return String(error).includes('Invalid mnemonic');
+}
+
 export function browserIndexers(url: string | undefined, network: string): string[] {
 	const preferred = resolveBrowserIndexer(url, network);
 	if (network !== 'testnet') return [preferred];
@@ -33,8 +104,15 @@ export function browserIndexers(url: string | undefined, network: string): strin
 }
 
 const ESPLORA_HOST = /blockstream\.info|mempool\.space/;
+const DISABLED_VSS_HOST = /127\.0\.0\.1\/disabled-vss/;
 
 type EsploraFetchWindow = Window & { __btEsploraRetryFetch?: boolean };
+
+type CachedEsplora = { status: number; body: string; expires: number };
+
+const esploraCache = new Map<string, CachedEsplora>();
+const esploraInflight = new Map<string, Promise<Response>>();
+let esploraBackoffMs = 8_000;
 
 async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,7 +124,26 @@ function requestUrl(input: RequestInfo | URL): string {
 	return input.url;
 }
 
-/** WASM polls Esplora `blocks/tip/height`; Blockstream 429s under bot load. */
+function esploraCacheKey(url: string): string | null {
+	if (!ESPLORA_HOST.test(url)) return null;
+	const match = url.match(/\/(?:testnet\/)?api(\/.*)$/i);
+	return match?.[1] ?? null;
+}
+
+function cachedResponse(entry: CachedEsplora): Response {
+	return new Response(entry.body, { status: entry.status });
+}
+
+export function setEsploraBackoffMs(ms: number): void {
+	esploraBackoffMs = ms;
+}
+
+export function resetEsploraFetchState(): void {
+	esploraCache.clear();
+	esploraInflight.clear();
+}
+
+/** Coalesce WASM Esplora polls. Do not retry 429 quickly — that trips Blockstream. */
 export function installEsploraRetryFetch(): void {
 	if (!browser) return;
 	const target = window as EsploraFetchWindow;
@@ -55,18 +152,54 @@ export function installEsploraRetryFetch(): void {
 	target.__btEsploraRetryFetch = true;
 	window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
 		const url = requestUrl(input);
-		if (!ESPLORA_HOST.test(url)) return originalFetch(input, init);
-		let response = await originalFetch(input, init);
-		for (
-			let attempt = 0;
-			attempt < 3 && (response.status === 429 || response.status >= 500);
-			attempt++
-		) {
-			await sleep(1_000 * 2 ** attempt);
-			response = await originalFetch(input, init);
+		// Intercept disabled VSS: stub before network to prevent Rust Url::parse panic
+		if (DISABLED_VSS_HOST.test(url)) {
+			return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
 		}
-		return response;
+		const key = esploraCacheKey(url);
+		if (!key) return originalFetch(input, init);
+		const cached = esploraCache.get(key);
+		if (cached && cached.expires > Date.now()) return cachedResponse(cached);
+		const pending = esploraInflight.get(key);
+		if (pending) return (await pending).clone();
+
+		const run = (async (): Promise<Response> => {
+			let response = await originalFetch(input, init);
+			if ((response.status === 429 || response.status >= 500) && cached) {
+				return cachedResponse(cached);
+			}
+			if (response.status === 429 || response.status >= 500) {
+				await sleep(esploraBackoffMs);
+				response = await originalFetch(input, init);
+			}
+			if (response.ok) {
+				const body = await response.text();
+				const ttl = key.includes('blocks/tip') ? 45_000 : 15_000;
+				esploraCache.set(key, { status: response.status, body, expires: Date.now() + ttl });
+				return new Response(body, { status: response.status });
+			}
+			return response;
+		})();
+		esploraInflight.set(key, run);
+		try {
+			return await run;
+		} finally {
+			esploraInflight.delete(key);
+		}
 	};
+}
+
+export async function warmEsploraCache(indexers: readonly string[]): Promise<string | null> {
+	installEsploraRetryFetch();
+	for (const indexer of indexers) {
+		try {
+			const response = await fetch(`${indexer.replace(/\/$/, '')}/blocks/tip/height`);
+			if (response.ok) return indexer;
+		} catch {
+			// try the next public Esplora
+		}
+	}
+	return null;
 }
 
 function isE2ERun(): boolean {

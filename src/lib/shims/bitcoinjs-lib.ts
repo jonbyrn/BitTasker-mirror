@@ -1,22 +1,21 @@
 /**
- * ESM surface for bitcoinjs-lib v6 (CJS). Vite cannot named-import `Psbt`
- * from `src/index.js`; this shim re-exports from the CJS interop module.
+ * ESM surface for bitcoinjs-lib v6. The Vite shim importer resolves
+ * `bitcoinjs-lib` to the real CJS package so this file cannot alias-loop.
  */
-import bitcoinjsCjs from './bitcoinjs-cjs.cjs';
+import * as raw from 'bitcoinjs-lib';
 
 type BitcoinjsLib = typeof import('bitcoinjs-lib');
 
-const bitcoinjs = ((bitcoinjsCjs as { default?: BitcoinjsLib }).default ??
-	bitcoinjsCjs) as BitcoinjsLib;
+const bitcoin = ((raw as { default?: BitcoinjsLib }).default ?? raw) as BitcoinjsLib;
 
-export const Psbt = bitcoinjs.Psbt;
-export const payments = bitcoinjs.payments;
-export const script = bitcoinjs.script;
-export const crypto = bitcoinjs.crypto;
-export const initEccLib = bitcoinjs.initEccLib;
-export const address = bitcoinjs.address;
-export const networks = bitcoinjs.networks;
-export const Transaction = bitcoinjs.Transaction;
-export const Block = bitcoinjs.Block;
+export const Psbt = bitcoin.Psbt;
+export const payments = bitcoin.payments;
+export const script = bitcoin.script;
+export const crypto = bitcoin.crypto;
+export const initEccLib = bitcoin.initEccLib;
+export const address = bitcoin.address;
+export const networks = bitcoin.networks;
+export const Transaction = bitcoin.Transaction;
+export const Block = bitcoin.Block;
 
-export default bitcoinjs;
+export default bitcoin;

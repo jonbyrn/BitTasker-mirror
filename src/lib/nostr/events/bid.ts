@@ -61,7 +61,7 @@ export class NDKBid extends NDKEvent {
 				taskTitle: '',
 				taskDescription: '',
 				amount: 0,
-				currency: 'USD',
+				currency: 'SATS',
 				paymentType,
 				description: 'Bid details are encrypted and unavailable in this session.',
 				estimatedDuration: '',

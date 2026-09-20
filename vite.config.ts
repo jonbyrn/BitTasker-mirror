@@ -153,6 +153,62 @@ function cjsEsmInterop(): Plugin {
 	};
 }
 
+function bitcoinjsSingleGraph(): Plugin {
+	const virtualId = '\0bitcoinjs-single-graph';
+	const esbuild = require('esbuild') as typeof import('esbuild');
+	const result = esbuild.buildSync({
+		entryPoints: [bitcoinjsLibPath],
+		bundle: true,
+		format: 'iife',
+		globalName: '__BT_BITCOINJS__',
+		platform: 'browser',
+		write: false,
+		absWorkingDir: projectRoot,
+		define: { global: 'globalThis' },
+		mainFields: ['main', 'browser', 'module']
+	});
+	if (result.errors.length > 0) {
+		throw new Error(result.errors.map((error) => error.text).join('; '));
+	}
+	const graph = `${result.outputFiles[0]?.text ?? ''}
+const bitcoinjs = typeof __BT_BITCOINJS__ !== 'undefined' ? __BT_BITCOINJS__ : globalThis.__BT_BITCOINJS__;
+if (typeof bitcoinjs?.Psbt !== 'function') {
+	throw new Error('bitcoinjs IIFE loaded without Psbt');
+}
+export const Psbt = bitcoinjs.Psbt;
+export const payments = bitcoinjs.payments;
+export const script = bitcoinjs.script;
+export const crypto = bitcoinjs.crypto;
+export const initEccLib = bitcoinjs.initEccLib;
+export const address = bitcoinjs.address;
+export const networks = bitcoinjs.networks;
+export const Transaction = bitcoinjs.Transaction;
+export const Block = bitcoinjs.Block;
+`;
+	const isBitcoinjsId = (id: string): boolean => {
+		const normalized = norm(id).split('?')[0];
+		return (
+			normalized === 'bitcoinjs-lib' ||
+			normalized.startsWith('bitcoinjs-lib/') ||
+			normalized.includes('/bitcoinjs-lib/') ||
+			normalized.endsWith('/shims/bitcoinjs-cjs.cjs')
+		);
+	};
+	return {
+		name: 'bitcoinjs-single-graph',
+		enforce: 'pre',
+		resolveId(source, importer, options) {
+			if (options?.ssr) return null;
+			if (source === virtualId || isBitcoinjsId(source)) return virtualId;
+			if (importer && isBitcoinjsId(importer) && source.startsWith('.')) return virtualId;
+			return null;
+		},
+		load(id) {
+			return id === virtualId || isBitcoinjsId(id) ? graph : null;
+		}
+	};
+}
+
 function bitcoinjsCjsInterop(): Plugin {
 	const bitcoinjsShim = resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts');
 	const isShimImporter = (importer?: string): boolean =>
@@ -171,14 +227,16 @@ function bitcoinjsCjsInterop(): Plugin {
 		enforce: 'pre',
 		resolveId(source, importer, options) {
 			if (options?.ssr) return null;
-			if (
-				isShimImporter(importer) &&
-				(source === './bitcoinjs-cjs' || source === 'bitcoinjs-lib-cjs')
-			) {
+			if (isShimImporter(importer) && isBitcoinjsEntry(source)) {
 				return bitcoinjsLibPath;
 			}
-			if (isShimImporter(importer) || source === 'bitcoinjs-lib-cjs') {
-				return null;
+			if (
+				source === './bitcoinjs-cjs' ||
+				source === './bitcoinjs-cjs.cjs' ||
+				source === 'bitcoinjs-lib-cjs' ||
+				norm(source).endsWith('/shims/bitcoinjs-cjs.cjs')
+			) {
+				return bitcoinjsLibPath;
 			}
 			if (isBitcoinjsEntry(source)) return bitcoinjsShim;
 			return null;
@@ -223,9 +281,10 @@ function clientResolveAliases(): Plugin {
 			const isFromShim =
 				importer && /[\\/]shims[\\/]bitcoinjs-(lib|cjs)/.test(importer.replaceAll('\\', '/'));
 			if (
-				source === 'bitcoinjs-lib-cjs' ||
-				source === './bitcoinjs-cjs' ||
-				source.endsWith('/shims/bitcoinjs-cjs')
+				isFromShim &&
+				(source === 'bitcoinjs-lib' ||
+					source.includes('bitcoinjs-lib/src/index.js') ||
+					source.includes('bitcoinjs-lib/src/index.ts'))
 			) {
 				return { id: bitcoinjsLibPath };
 			}
@@ -375,14 +434,46 @@ function rewriteUtexoWasmUrls(): Plugin {
 			if (code.includes('rln_wasm_sdk_bg.wasm')) {
 				updatedCode = updatedCode.replace(
 					/new\s+URL\(\s*['"]rln_wasm_sdk_bg\.wasm['"]\s*,\s*import\.meta\.url\s*\)/g,
-					"'/wasm/rln_wasm_sdk_bg.wasm'"
+					"new URL('/wasm/rln_wasm_sdk_bg.wasm', window.location.origin).href"
 				);
 			}
 			if (code.includes('rgb_lib_wasm_bindings_bg.wasm')) {
 				updatedCode = updatedCode.replace(
 					/new\s+URL\(\s*['"]rgb_lib_wasm_bindings_bg\.wasm['"]\s*,\s*import\.meta\.url\s*\)/g,
-					"'/wasm/rgb_lib_wasm_bindings_bg.wasm'"
+					"new URL('/wasm/rgb_lib_wasm_bindings_bg.wasm', window.location.origin).href"
 				);
+			}
+			if (id.includes('rln_wasm_sdk.js') && code.includes('__wbg___wbindgen_throw_81fc77679af83bc6')) {
+				updatedCode = updatedCode.replace(
+					'throw new Error(getStringFromWasm0(arg0, arg1));',
+					`const __btMsg = getStringFromWasm0(arg0, arg1);
+            console.error('[wallet-diagnostic:rln-throw]', __btMsg, new Error('rln-throw').stack);
+            throw new Error(__btMsg);`
+				);
+			}
+			if (id.includes('rln_wasm_sdk.js') && code.includes('newWithNodeRuntimeId')) {
+				updatedCode += `
+const __btRlnNew = RlnWasmNode.newWithNodeRuntimeId.bind(RlnWasmNode);
+RlnWasmNode.newWithNodeRuntimeId = function(proxy_url, node_runtime_id, network) {
+  console.error('[wallet-diagnostic:rln-node]', { proxyUrl: proxy_url, nodeRuntimeId: node_runtime_id, network });
+  return __btRlnNew(proxy_url, node_runtime_id, network);
+};
+const __btRlnTransport = RlnWasmSdk.prototype.setDefaultRgbProxyTransport;
+RlnWasmSdk.prototype.setDefaultRgbProxyTransport = function(endpoint, auth_token, node_id) {
+  console.error('[wallet-diagnostic:rln-transport]', { endpoint, authToken: auth_token, nodeId: node_id });
+  return __btRlnTransport.call(this, endpoint, auth_token, node_id);
+};
+const __btRlnInit = RlnWasmSdk.prototype.initValue;
+RlnWasmSdk.prototype.initValue = function(password, mnemonic) {
+  console.error('[wallet-diagnostic:rln-initValue]');
+  return __btRlnInit.call(this, password, mnemonic);
+};
+const __btRlnWalletCreate = RlnWasmWallet.create.bind(RlnWasmWallet);
+RlnWasmWallet.create = function(wallet_data) {
+  console.error('[wallet-diagnostic:rln-wallet]', wallet_data);
+  return __btRlnWalletCreate(wallet_data);
+};
+`;
 			}
 			return { code: updatedCode, map: null };
 		}
@@ -431,7 +522,9 @@ const addBrowserCondition: Plugin = {
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
-	Object.assign(process.env, env);
+	for (const [key, value] of Object.entries(env)) {
+		if (process.env[key] === undefined) process.env[key] = value;
+	}
 	const sentryUploadRequested =
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
@@ -501,12 +594,7 @@ export default defineConfig(({ mode }) => {
 			alias: [
 				{ find: 'buffer-real-impl', replacement: require.resolve('buffer/index.js') },
 				{ find: /^bolt11$/, replacement: bolt11Shim },
-				{ find: /[\\/]shims[\\/]bitcoinjs-cjs$/, replacement: bitcoinjsLibPath },
 				{ find: /^bitcoinjs-lib-cjs$/, replacement: bitcoinjsLibPath },
-				{
-					find: /^bitcoinjs-lib$/,
-					replacement: resolve(projectRoot, 'src/lib/shims/bitcoinjs-lib.ts')
-				},
 				{
 					find: '@utexo/rgb-sdk-web',
 					replacement: resolve(projectRoot, 'node_modules/@utexo/rgb-sdk-web/dist/index.mjs')
@@ -616,6 +704,7 @@ export default defineConfig(({ mode }) => {
 				}
 			},
 			ssrNodeBuiltins(),
+			bitcoinjsSingleGraph(),
 			bitcoinjsCjsInterop(),
 			clientResolveAliases(),
 			cjsEsmInterop(),
@@ -644,15 +733,13 @@ export default defineConfig(({ mode }) => {
 			viteStaticCopy({
 				targets: [
 					{
-						src: 'node_modules/@utexo/rln-wasm/rln_wasm_sdk_bg.wasm',
-						dest: 'wasm',
-						noErrorOnMissing: true
-					} as Parameters<typeof viteStaticCopy>[0]['targets'][number] & { noErrorOnMissing: true },
+						src: 'node_modules/.pnpm/@utexo+rln-wasm@0.10.0-beta.3/node_modules/@utexo/rln-wasm/rln_wasm_sdk_bg.wasm',
+						dest: 'wasm'
+					},
 					{
-						src: 'node_modules/@utexo/rgb-lib-wasm/rgb_lib_wasm_bindings_bg.wasm',
-						dest: 'wasm',
-						noErrorOnMissing: true
-					} as Parameters<typeof viteStaticCopy>[0]['targets'][number] & { noErrorOnMissing: true }
+						src: 'node_modules/.pnpm/@utexo+rgb-lib-wasm@1.0.0-beta.3/node_modules/@utexo/rgb-lib-wasm/rgb_lib_wasm_bindings_bg.wasm',
+						dest: 'wasm'
+					}
 				]
 			}),
 			commonjs({
@@ -661,12 +748,15 @@ export default defineConfig(({ mode }) => {
 					return (
 						p.includes('/@utexo/') ||
 						p.includes('/node_modules/buffer/') ||
-						p.includes('/bitcoinjs-lib/') ||
+						p.includes('/base64-js/') ||
+						p.includes('/ieee754/') ||
+						p.includes('/safe-buffer/') ||
 						p.includes('/bip32/') ||
 						p.includes('/ecpair/') ||
 						p.includes('/bs58check/') ||
 						p.includes('/bip174/') ||
-						p.includes('/varuint-bitcoin/')
+						p.includes('/varuint-bitcoin/') ||
+						p.includes('/typeforce/')
 					);
 				}
 			}),
@@ -770,20 +860,18 @@ export default defineConfig(({ mode }) => {
 				}
 			},
 			include: ['buffer', 'bip32', 'ecpair'],
-			needsInterop: ['bitcoinjs-lib', 'bip32', 'ecpair', 'boltz-core'],
+			needsInterop: ['bitcoinjs-lib', 'bitcoinjs-cjs', 'bip32', 'ecpair', 'boltz-core'],
 			exclude: [
-				'buffer-real-impl',
 				'bitcoinjs-lib',
-				'firebase',
-				'@capacitor/device',
-				'@capacitor/preferences',
-				'@capacitor/haptics',
-				'@utexo/rgb-sdk-web',
-				'@utexo/rln-wasm',
-				'@utexo/rgb-lib-wasm'
-			]
-		},
-		server: {
+				'bitcoin-ops',
+				'typeforce',
+				'bip66',
+				'buffer-real-impl',
+							'@utexo/rgb-sdk-web',
+							'@utexo/rln-wasm'
+						]
+					},
+					server: {
 			port: 3000,
 			strictPort: true,
 			allowedHosts: true,

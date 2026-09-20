@@ -78,7 +78,7 @@
 	<form onsubmit={handleSubmit} class="space-y-6">
 		<div class="form-control">
 			<label class="label font-medium" for="bidAmount">
-				<span class="label-text">Your Bid Amount ($ USD / Sats)</span>
+				<span class="label-text">{$t('bids.your_bid_amount_sats')}</span>
 			</label>
 			<input
 				id="bidAmount"
@@ -86,12 +86,15 @@
 				type="number"
 				bind:value={bidAmount}
 				min="1"
+				step="1"
 				class="input input-bordered focus:input-primary w-full text-lg"
-				placeholder="Enter bid amount"
+				placeholder={$t('bids.your_bid_amount_sats')}
 				required
 			/>
 			{#if formattedBudget}
-				<p class="label-text-alt mt-1 opacity-70">Task Budget: ${formattedBudget}</p>
+				<p class="label-text-alt mt-1 opacity-70">
+					{$t('bids.task_budget_sats', { values: { amount: formattedBudget } })}
+				</p>
 			{/if}
 		</div>
 

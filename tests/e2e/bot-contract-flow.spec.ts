@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { SimplePool } from 'nostr-tools';
-import { signUpBot } from './fixtures/bot-auth';
+import { inspectBotKeychains, signUpBot } from './fixtures/bot-auth';
 import { fundTestnetAddress } from './fixtures/treasury';
 
 test.use({ headless: false, launchOptions: { slowMo: 1_000 } });
@@ -12,6 +12,7 @@ const E2E_HOLD_OPEN_MS = Number(process.env.PW_E2E_HOLD_OPEN_MS ?? 0);
 const E2E_CHECKPOINT_MS = Number(process.env.PW_E2E_CHECKPOINT_MS ?? 30_000);
 const TESTNET_CONFIRM_MS = 300_000;
 const WALLET_CONNECT_MS = 10_000;
+const WALLET_SYNC_MS = 60_000;
 
 type LastPublishedTask = {
 	dTag: string;
@@ -38,6 +39,7 @@ type LastFundedContractWindow = Window & {
 	__btcAddress?: string;
 	__btcBalanceSats?: number;
 	__btcUtxoCount?: number;
+	__btcFingerprint?: string;
 	__btcWalletSynced?: boolean;
 	__connectWallet?: () => Promise<void>;
 	__refreshBtcBalance?: () => Promise<void>;
@@ -142,7 +144,10 @@ async function waitForBidOnRelay(taskEventId: string): Promise<void> {
 	}
 }
 
-async function waitForTaskerWallet(page: import('@playwright/test').Page): Promise<void> {
+async function syncConnectedWallet(
+	page: import('@playwright/test').Page,
+	role: 'tasker' | 'taskee'
+): Promise<void> {
 	await page.waitForTimeout(WALLET_CONNECT_MS);
 	await page.evaluate(async () => {
 		const probe = window as LastFundedContractWindow;
@@ -159,12 +164,38 @@ async function waitForTaskerWallet(page: import('@playwright/test').Page): Promi
 						Boolean((window as LastFundedContractWindow).__btcAddress) &&
 						(window as LastFundedContractWindow).__btcWalletSynced === true
 				),
-			{ timeout: TESTNET_CONFIRM_MS, intervals: [10_000] }
+			{ timeout: WALLET_SYNC_MS, intervals: [10_000] }
 		)
 		.toBe(true);
 	await expect(page.locator('[data-testid="wallet-connected"]')).toBeVisible({
-		timeout: TESTNET_CONFIRM_MS
+		timeout: WALLET_SYNC_MS
 	});
+	console.info(
+		`[e2e-keychain:${role}]`,
+		await page.evaluate(() => {
+			const address = (window as LastFundedContractWindow).__btcAddress ?? '';
+			return {
+				addressPrefix: address.slice(0, 16),
+				fingerprint: (window as LastFundedContractWindow).__btcFingerprint ?? '',
+				balance: (window as LastFundedContractWindow).__btcBalanceSats ?? 0,
+				utxos: (window as LastFundedContractWindow).__btcUtxoCount ?? 0,
+				synced: (window as LastFundedContractWindow).__btcWalletSynced === true
+			};
+		})
+	);
+}
+
+async function waitForConnectedWallet(
+	page: import('@playwright/test').Page,
+	role: 'tasker' | 'taskee'
+): Promise<void> {
+	await page.goto(new URL('/wallet', E2E_BASE_URL).toString(), { waitUntil: 'domcontentloaded' });
+	await expect(page).toHaveURL(/\/wallet(?:[/?#]|$)/);
+	await syncConnectedWallet(page, role);
+}
+
+async function waitForTaskerWallet(page: import('@playwright/test').Page): Promise<void> {
+	await syncConnectedWallet(page, 'tasker');
 }
 
 async function ensureTaskerSats(
@@ -260,19 +291,6 @@ async function showDemoCheckpoint(
 }
 
 async function createTask(page: import('@playwright/test').Page): Promise<LastPublishedTask> {
-	page.on('pageerror', (error) => {
-		console.error(`[E2E pageerror] ${error.stack ?? error.message}`);
-	});
-	page.on('console', (message) => {
-		if (
-			message.type() === 'error' ||
-			message.type() === 'warning' ||
-			message.text().startsWith('[bids]')
-		) {
-			console.error(`[E2E console:${message.type()}] ${message.text()}`);
-		}
-	});
-
 	if (!/\/create-task(?:[/?#]|$)/.test(page.url())) {
 		await expect(async () => {
 			const res = await page.goto('/create-task', { waitUntil: 'domcontentloaded' });
@@ -395,7 +413,10 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 	return published as LastPublishedTask;
 }
 
-async function createBidFlow(browser: import('@playwright/test').Browser) {
+async function createBidFlow(
+	browser: import('@playwright/test').Browser,
+	{ requireWallets = false }: { requireWallets?: boolean } = {}
+) {
 	const taskerContext = await browser.newContext({ storageState: undefined });
 	const taskeeContext = await browser.newContext({ storageState: undefined });
 	const persistPlaywrightFlag = () => {
@@ -405,27 +426,42 @@ async function createBidFlow(browser: import('@playwright/test').Browser) {
 	await taskeeContext.addInitScript(persistPlaywrightFlag);
 	const taskerPage = await taskerContext.newPage();
 	const taskeePage = await taskeeContext.newPage();
+	const attachWalletLogs = (
+		page: import('@playwright/test').Page,
+		label: 'console' | 'taskee console'
+	) => {
+		page.on('pageerror', (error) => {
+			console.error(`[E2E ${label === 'console' ? 'pageerror' : 'taskee pageerror'}] ${error.stack ?? error.message}`);
+		});
+		page.on('console', (message) => {
+			if (
+				message.type() === 'error' ||
+				message.type() === 'warning' ||
+				message.text().startsWith('[bids]') ||
+				message.text().includes('[wallet-diagnostic:mnemonic]') ||
+				message.text().includes('[wallet-diagnostic:rln')
+			) {
+				console.error(`[E2E ${label}:${message.type()}] ${message.text()}`);
+			}
+		});
+	};
+	attachWalletLogs(taskerPage, 'console');
+	attachWalletLogs(taskeePage, 'taskee console');
 
 	await signUpBot(taskerPage, 'client');
+	if (requireWallets) {
+		await waitForConnectedWallet(taskerPage, 'tasker');
+	}
+	await signUpBot(taskeePage, 'freelancer');
+	if (requireWallets) {
+		await waitForConnectedWallet(taskeePage, 'taskee');
+	}
 	const publishedTask = await createTask(taskerPage);
 	const taskD = publishedTask.dTag;
 	const taskerHex = publishedTask.clientHex;
 	const taskEventId = publishedTask.event.id;
 	await waitForTaskOnRelay(taskD, taskerHex);
 
-	await signUpBot(taskeePage, 'freelancer');
-	taskeePage.on('pageerror', (error) => {
-		console.error(`[E2E taskee pageerror] ${error.stack ?? error.message}`);
-	});
-	taskeePage.on('console', (message) => {
-		if (
-			message.type() === 'error' ||
-			message.type() === 'warning' ||
-			message.text().startsWith('[bids]')
-		) {
-			console.error(`[E2E taskee console:${message.type()}] ${message.text()}`);
-		}
-	});
 	await taskeePage.goto(new URL(`/tasks/${taskD}?author=${taskerHex}`, E2E_BASE_URL).toString());
 	await expect(taskeePage).toHaveURL(new RegExp(`/tasks/${taskD}`));
 	const bidTrigger = taskeePage.getByRole('button', { name: /bid|proposal|quote/i }).first();
@@ -481,7 +517,16 @@ test('two bot users can create a task and submit a quote', async ({ browser }) =
 
 test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => {
 	test.setTimeout(1_800_000);
-	const { taskerPage, taskeePage, taskerContext, taskeeContext } = await createBidFlow(browser);
+	const keychains = inspectBotKeychains();
+	console.info('[e2e-keychain]', keychains);
+	for (const report of keychains) {
+		expect(report.mnemonicWords, `${report.bot} mnemonic`).toBeGreaterThanOrEqual(12);
+		expect(report.source, `${report.bot} keychain source`).not.toBe('missing');
+	}
+	expect(keychains.find((report) => report.bot === 'treasury')?.live).toBe(true);
+	const { taskerPage, taskeePage, taskerContext, taskeeContext } = await createBidFlow(browser, {
+		requireWallets: true
+	});
 
 	const acceptButton = taskerPage.locator('[data-testid="accept-bid-btn"]').first();
 	await expect(acceptButton).toBeVisible({ timeout: 30_000 });

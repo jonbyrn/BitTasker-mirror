@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
 import { get as _get } from 'svelte/store';
@@ -71,6 +71,18 @@ vi.mock('$lib/stores/task.store', () => ({
 import { publishNostrEvent } from '$lib/utils/nostr';
 import { smartCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
+
+describe('resolveBidSats', () => {
+	it('reads SATS bids as sat totals without a USD price', () => {
+		expect(resolveBidSats(3000, 'SATS', 0)).toBe(3000);
+		expect(resolveBidSats(3000, 'BTC', 0)).toBe(3000);
+	});
+
+	it('converts legacy USD bids through the spot price', () => {
+		expect(resolveBidSats(200, 'USD', 100_000)).toBe(200_000);
+		expect(resolveBidSats(200, 'USD', 0)).toBeNull();
+	});
+});
 
 describe('sendBidStatusUpdate', () => {
 	beforeEach(() => {

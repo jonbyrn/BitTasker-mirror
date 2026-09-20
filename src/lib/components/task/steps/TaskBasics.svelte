@@ -158,7 +158,9 @@
 
 		<div class="flex flex-wrap gap-4">
 			<button
+				type="button"
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+				data-testid="specific-date-btn"
 				onclick={() => {
 					const defaultDeadline = getDefaultDeadlineDate();
 
@@ -172,7 +174,9 @@
 				{$t('task.specific_date')}
 			</button>
 			<button
+				type="button"
 				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
+				data-testid="flexible-date-btn"
 				onclick={() => {
 					const defaultRange = getDefaultDateRange();
 

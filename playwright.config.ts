@@ -141,7 +141,7 @@ export default defineConfig({
 									VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 									VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
 									VITE_BITCOIN_NETWORK: 'testnet',
-									VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
+									VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
 									VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
 									...process.env
 								}
@@ -158,7 +158,7 @@ export default defineConfig({
 										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
 										VITE_BITCOIN_NETWORK: 'testnet',
-										VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
+										VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
 										VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
 										...process.env
 									}
@@ -174,7 +174,7 @@ export default defineConfig({
 										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
 										VITE_BITCOIN_NETWORK: 'testnet',
-										VITE_BITCOIN_ELECTRUM_URL: 'ssl://electrum.blockstream.info:60002',
+										VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
 										VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
 										...process.env
 									}

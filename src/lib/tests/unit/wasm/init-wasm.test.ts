@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/environment', () => ({ browser: true, dev: true }));
 
-vi.mock('@utexo/rgb-sdk-web', () => ({
-	UTEXOWallet: { create: vi.fn() }
-}));
-
 describe('initWasm', () => {
 	beforeEach(() => {
 		vi.resetModules();
@@ -30,7 +26,7 @@ describe('initWasm', () => {
 		expect(window.__wasmLive).toBe(false);
 	});
 
-	it('marks ready after the live RGB SDK import succeeds', async () => {
+	it('marks ready after wasm assets and bitcoinjs are available', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
 		const { initWasm } = await import('$lib/wasm/init-wasm');
 		await expect(initWasm()).resolves.toBe(true);

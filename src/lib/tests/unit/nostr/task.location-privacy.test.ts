@@ -212,6 +212,27 @@ describe('task publish location privacy', () => {
 		expect(publicEvent.tags).toContainEqual(['L', 'Denver, CO, US']);
 	});
 
+	it('skips exact companion publish for remote tasks without coordinates', async () => {
+		const { createTask } = await import('$lib/nostr/task');
+		await createTask(
+			createTaskBody({
+				taskType: TaskTypeEnum.REMOTE,
+				pickupLocation: {
+					displayName: '',
+					longitude: null,
+					latitude: null,
+					zipCode: '',
+					locationLoaded: false
+				}
+			})
+		);
+
+		expect(hoisted.mockPublishExactTaskLocations).not.toHaveBeenCalled();
+		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
+		const publicEvent = hoisted.mockPublishEvent.mock.calls[0]?.[0] as { tags: string[][] };
+		expect(publicEvent.tags.some((tag) => tag[0] === 'L')).toBe(false);
+	});
+
 	it('fails closed when publishing the exact task companion fails during create', async () => {
 		hoisted.mockPublishExactTaskLocations.mockRejectedValueOnce(
 			new Error('exact companion publish failed')

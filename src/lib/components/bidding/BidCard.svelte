@@ -31,6 +31,9 @@
 	let detailsExpanded = $state(false);
 
 	const bidContent = $derived(bid.bidContent);
+	const bidAmountCurrency = $derived(
+		bidContent?.currency?.toUpperCase() === 'USD' ? 'USD' : 'SATS'
+	);
 
 	let profileUrl = $derived(bid.author.npub ? `/npub/${bid.author.npub}` : '#');
 
@@ -184,12 +187,12 @@
 				{/if}
 				<div class="shrink-0 text-right">
 					<div class="text-xl font-bold sm:text-2xl">
-						{formatConvertedAmount(bidContent.amount, 'USD')}
+						{formatConvertedAmount(bidContent.amount, bidAmountCurrency)}
 					</div>
 					<div class="sm:text-md text-base-content/60 text-sm font-bold">
-						{formatConvertedAmount(bidContent.amount, 'USD', {
+						{formatConvertedAmount(bidContent.amount, bidAmountCurrency, {
 							btcPrice: btcPrice.price,
-							toCurrency: 'SATS'
+							toCurrency: bidAmountCurrency === 'SATS' ? 'USD' : 'SATS'
 						})}
 					</div>
 				</div>

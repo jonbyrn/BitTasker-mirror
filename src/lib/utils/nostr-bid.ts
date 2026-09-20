@@ -15,6 +15,20 @@ import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 const BID_RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
 
+const SATS_CURRENCY_CODES = new Set(['SATS', 'SAT', 'BTC']);
+
+export function resolveBidSats(
+	amount: number,
+	currency: string | undefined,
+	btcUsdPrice: number
+): number | null {
+	if (!Number.isFinite(amount) || amount <= 0) return null;
+	const code = (currency ?? 'SATS').trim().toUpperCase();
+	if (SATS_CURRENCY_CODES.has(code)) return Math.max(1, Math.round(amount));
+	if (btcUsdPrice > 0) return Math.max(1, Math.round((amount / btcUsdPrice) * 100_000_000));
+	return null;
+}
+
 export interface PublishBidParams {
 	taskId: string;
 	taskEventId: string;
@@ -66,7 +80,7 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 		taskDescription: params.taskDescription,
 		taskBudget: params.taskBudget,
 		amount: params.amount,
-		currency: 'USD',
+		currency: 'SATS',
 		paymentType: 'FIXED' as const,
 		description: params.proposal,
 		estimatedDuration: `${params.days} days`,

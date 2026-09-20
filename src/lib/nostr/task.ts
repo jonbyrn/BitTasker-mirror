@@ -24,6 +24,10 @@ function isPlaywrightClient(): boolean {
 	return typeof window !== 'undefined' && window.__PLAYWRIGHT_TEST__ === true;
 }
 
+function hasExactCoords(location: TaskBody['pickupLocation'] | null | undefined): boolean {
+	return typeof location?.latitude === 'number' && typeof location?.longitude === 'number';
+}
+
 function exposeLastPublishedTask(event: NostrEvent): void {
 	if (!import.meta.env.DEV && import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
 	if (typeof window === 'undefined') return;
@@ -112,22 +116,27 @@ async function publishTaskEvent(content: string, tags: string[][]): Promise<stri
 
 export async function createTask(taskData: TaskBody): Promise<string> {
 	const dTag = taskDTag(taskData);
-	const companionPublish = publishExactTaskLocations({
-		entityId: dTag,
-		pickupLocation: taskData.pickupLocation ?? null,
-		dropOffLocation: taskData.dropOffLocation ?? null
-	});
-	if (isPlaywrightClient()) {
-		companionPublish.catch((error) => {
-			console.warn('E2E exact-location publish did not block navigation:', error);
+	if (
+		hasExactCoords(taskData.pickupLocation) ||
+		hasExactCoords(taskData.dropOffLocation)
+	) {
+		const companionPublish = publishExactTaskLocations({
+			entityId: dTag,
+			pickupLocation: taskData.pickupLocation ?? null,
+			dropOffLocation: taskData.dropOffLocation ?? null
 		});
-	} else {
-		await companionPublish;
+		if (isPlaywrightClient()) {
+			companionPublish.catch((error) => {
+				console.warn('E2E exact-location publish did not block navigation:', error);
+			});
+		} else {
+			await companionPublish;
+		}
 	}
 	return publishTaskEvent(JSON.stringify(approximateTask(taskData)), [
 		['d', dTag],
 		['S', taskData.status ?? 'open'],
-		...(taskData.pickupLocation
+		...(hasExactCoords(taskData.pickupLocation)
 			? [['L', approximateLocation(taskData.pickupLocation)?.displayName ?? '']]
 			: [])
 	]);
@@ -174,7 +183,11 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// A companion read failure must not block a public update.
 	}
 	const nextTask = { ...currentTask, ...updates };
-	if (exactLocations) {
+	if (
+		exactLocations ||
+		hasExactCoords(updates.pickupLocation) ||
+		hasExactCoords(updates.dropOffLocation)
+	) {
 		await publishExactTaskLocations({
 			entityId: taskId,
 			pickupLocation: nextTask.pickupLocation ?? null,

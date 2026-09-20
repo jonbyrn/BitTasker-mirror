@@ -324,8 +324,13 @@
 					}
 				}
 			} else {
-				// Account does not exist, generate new wallet mnemonic
-				mnemonic = await deriveWalletFromNostr(nsec);
+				const e2eMnemonic =
+					typeof window !== 'undefined' ? window.localStorage.getItem('__E2E_MNEMONIC__') : null;
+				const e2eWords = e2eMnemonic?.trim().split(/\s+/).filter(Boolean) ?? [];
+				mnemonic =
+					e2eMnemonic && !e2eMnemonic.trim().startsWith('nsec') && e2eWords.length >= 12
+						? e2eMnemonic
+						: await deriveWalletFromNostr(nsec);
 			}
 
 			let { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
@@ -459,7 +464,7 @@
 				await applyNdkSignerFromNsec(privateKey);
 				appStore.update((state) => ({
 					...state,
-					nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub }
+					nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub, mnemonic }
 				}));
 				if (res.accountRestored) {
 					appStore.showSuccessToast($t('login.account_restored_message'));

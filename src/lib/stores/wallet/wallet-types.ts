@@ -1,3 +1,21 @@
+export type WalletFactory = (args: Record<string, unknown>) => Promise<import('@utexo/rgb-sdk-web').UTEXOWallet> | import('@utexo/rgb-sdk-web').UTEXOWallet;
+
+export type WalletProbeWindow = Window & {
+	__PLAYWRIGHT_TEST__?: boolean;
+	__btcAddress?: string;
+	__btcBalanceSats?: number;
+	__btcUtxoCount?: number;
+	__btcFingerprint?: string;
+	__btcWalletSynced?: boolean;
+	__connectWallet?: () => Promise<void>;
+	__refreshBtcBalance?: () => Promise<void>;
+	__sendBtc?: (params: {
+		address: string;
+		amountSats: number;
+		feeRate?: number;
+	}) => Promise<string>;
+};
+
 export interface RgbAsset {
 	assetId: string;
 	name: string;
