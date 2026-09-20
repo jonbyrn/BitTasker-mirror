@@ -47,7 +47,11 @@
 	}
 
 	onMount(() => {
-		void initializeWallet();
+		try {
+			void initializeWallet();
+		} catch (err) {
+			console.error('[wallet-page-init-error]', err);
+		}
 	});
 
 	function handleSent(txid: string): void {

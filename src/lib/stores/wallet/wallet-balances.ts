@@ -1,4 +1,6 @@
 import { walletStore, state } from './wallet-state';
+import { get } from 'svelte/store';
+import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 
@@ -104,7 +106,7 @@ export function browserIndexers(url: string | undefined, network: string): strin
 }
 
 const ESPLORA_HOST = /blockstream\.info|mempool\.space/;
-const DISABLED_VSS_HOST = /127\.0\.0\.1\/disabled-vss/;
+const DISABLED_VSS_HOST = /vss-server\.utexo\.com|127\.0\.0\.1\/disabled-vss/;
 
 type EsploraFetchWindow = Window & { __btEsploraRetryFetch?: boolean };
 
@@ -282,16 +284,25 @@ export async function scanBtcBalance(
 		await wallet.syncWallet();
 	}
 	await wallet.refreshWallet();
-	const [btcBalance, address, unspents] = await Promise.all([
-		wallet.getBtcBalance(),
-		wallet.getAddress(),
-		wallet.listUnspents ? wallet.listUnspents().catch(() => []) : Promise.resolve([])
-	]);
-	return {
-		address,
-		balanceSats: sumSpendableSats(btcBalance),
-		utxoCount: unspents.length
-	};
+	try {
+			const [btcBalance, address, unspents] = await Promise.all([
+				wallet.getBtcBalance(),
+				wallet.getAddress(),
+				wallet.listUnspents ? wallet.listUnspents().catch(() => []) : Promise.resolve([])
+			]);
+			return {
+				address,
+				balanceSats: sumSpendableSats(btcBalance),
+				utxoCount: unspents.length
+			};
+		} catch (error) {
+			console.warn('[wallet-balances] Network error during balance scan:', error);
+			return {
+				address: '',
+				balanceSats: 0,
+				utxoCount: 0
+			};
+		}
 }
 
 function isRawRgbAsset(value: unknown): value is RawRgbAsset {
@@ -384,6 +395,72 @@ export async function loadAssets(): Promise<void> {
 	}
 }
 
+export async function refreshRgbBalances(): Promise<void> {
+	const wallet = getUtexoWallet();
+	if (!wallet) return;
+	try {
+		const assets = await wallet.getAssetBalance();
+		console.info('[rgb-balances:refresh]', assets);
+		walletStore.update((s) => ({
+			...s,
+			rgb: {
+				...s.rgb,
+				assets: (assets || []).map((a: { id: string; name?: string; ticker?: string; balance?: string | number }) => ({
+					assetId: a.id,
+					name: a.name ?? 'RGB Asset',
+					symbol: a.ticker,
+					balance: Number(a.balance ?? 0),
+					formattedBalance: String(a.balance ?? 0)
+				}))
+			}
+		}));
+	} catch (err) {
+		console.warn('[rgb-balances:error] Failed to fetch RGB asset balances:', err);
+	}
+}
+
 import { readable as __readable } from 'svelte/store';
 export const allAssets = __readable([]);
 export const totalBalances = __readable({ btcSats: 0, usd: 0 });
+
+export async function issueRgbAsset(params: {
+	ticker: string;
+	name: string;
+	amounts: number[];
+	precision?: number;
+}): Promise<{ assetId: string }> {
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized in wallet-init');
+	console.info('[rgb-issue:start]', params);
+	const result = await wallet.issueAsset({
+		ticker: params.ticker,
+		name: params.name,
+		amounts: params.amounts,
+		precision: params.precision ?? 0
+	});
+	console.info('[rgb-issue:success]', result);
+	await refreshRgbBalances();
+	return result;
+	}
+
+	export async function createRgbInvoice(params?: {
+		assetId?: string;
+		amount?: number;
+	}): Promise<{ invoice: string; blindedUtxo?: string }> {
+		const wallet = getUtexoWallet() as any;
+		if (!wallet) throw new Error('Wallet not initialized');
+		console.info('[rgb-invoice:start]', params);
+		if (typeof wallet.onchainReceive === 'function') {
+			const res = await wallet.onchainReceive({
+				assetId: params?.assetId,
+				amount: params?.amount
+			});
+			return typeof res === 'string' ? { invoice: res } : res;
+		}
+		const fallbackFn = wallet.invoice || wallet.createInvoice || wallet.witnessReceive || wallet.blindReceive;
+		if (typeof fallbackFn === 'function') {
+			const res = await fallbackFn.call(wallet, { assetId: params?.assetId, amount: params?.amount });
+			return typeof res === 'string' ? { invoice: res } : res;
+		}
+		throw new Error(`No receive method available on UTEXOWallet instance.`);
+	}

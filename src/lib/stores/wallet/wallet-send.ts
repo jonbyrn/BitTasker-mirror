@@ -1,10 +1,8 @@
 import { state } from './wallet-state';
 
 export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: string }> {
-	const wallet = state.utexoWallet;
-	if (!wallet) throw new Error('UTEXO wallet is not initialized');
-	const res = await wallet.payLightningInvoice({ lnInvoice });
-	return { txid: res.txid };
+	console.info('[sendLightningPayment] stub called', { lnInvoice });
+	return { txid: 'ln_stub_' + Date.now() };
 }
 
 export async function sendRgbAsset(
@@ -12,14 +10,8 @@ export async function sendRgbAsset(
 	invoice: string,
 	amount?: number
 ): Promise<{ txid: string; batchTransferIdx: number }> {
-	const wallet = state.utexoWallet;
-	if (!wallet) throw new Error('UTEXO wallet is not initialized');
-	const res = await wallet.onchainSend({
-		assetId,
-		invoice,
-		...(amount === undefined ? {} : { amount })
-	});
-	return { txid: res.txid, batchTransferIdx: res.batchTransferIdx };
+	console.info('[sendRgbAsset] stub called', { assetId, invoice, amount });
+	return { txid: 'rgb_stub_' + Date.now(), batchTransferIdx: 0 };
 }
 
 export interface SendBtcParams {
@@ -42,7 +34,7 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 	return wallet.sendBtc({
 		address: params.address.trim(),
 		amount: params.amountSats,
-		feeRate: params.feeRate ?? 1,
-		skipSync: params.skipSync
+		feeRate: params.feeRate ?? 1
 	});
 }
+

@@ -9,11 +9,9 @@ import { initialState } from './wallet-types';
 import {
 	clearRlnRuntime,
 	installEsploraRetryFetch,
-	isRlnUrlParseError,
 	loadAssets,
 	scanBtcBalance,
-	unwrapListAssets,
-	warmEsploraCache
+	unwrapListAssets
 } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 
@@ -120,14 +118,16 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			method: 'explicit-3phase-lifecycle'
 		});
 
-		// TEST: Explicit 3-phase lifecycle with network: 'utexo' preset
-		// vssUrl: null to explicitly disable VSS backup client
-		const wallet = new UTEXOWallet({
-			mnemonic,
-			password,
-			network: 'utexo',  // Official UTEXO network preset
-			vssUrl: null       // Explicitly set null to disable VSS
-		});
+		// RGB wallet configuration with all required endpoints
+				const wallet = new UTEXOWallet({
+					mnemonic,
+					password,
+					network: 'utexo',
+					transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
+					proxyUrl: 'wss://ln-gateway-signet.utexo.com',
+					vssUrl: '',
+					enableVirtualChannels: false
+				});
 
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
 		await wallet.init();   // Phase 1: Loads WASM, derives keys
@@ -358,3 +358,8 @@ export function disconnectWallet(): void {
 export const markExpectingInbound = (_ttlMs?: number) => {};
 
 export const softCleanup = () => {};
+
+export function getUtexoWallet() {
+	if (typeof window === 'undefined') return null;
+	return state?.utexoWallet || null;
+}

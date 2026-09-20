@@ -1,0 +1,384 @@
+{
+	"/(company)": [
+		"src/routes/(company)/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/": [
+		"src/routes/+layout.ts"
+	],
+	"/(app)/404": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/_taproot": [
+		"src/routes/(company)/_taproot/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/_taproot/[...slug]": [
+		"src/routes/(company)/_taproot/[...slug]/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/ab-25-contest": [
+		"src/routes/(app)/ab-25-contest/+page.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/about": [
+		"src/routes/(company)/about/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth": [
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth/login": [
+		"src/routes/(app)/auth/login/+page.ts",
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth/onboarding": [
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth/recover/send": [
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth/recover/[npub]": [
+		"src/routes/(app)/auth/recover/[npub]/+page.ts",
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/auth/signup": [
+		"src/routes/(app)/auth/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/bids": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/careers": [
+		"src/routes/(company)/careers/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/community-guidelines": [
+		"src/routes/(company)/community-guidelines/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/contact": [
+		"src/routes/(company)/contact/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/create-task": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/(debug)/debug-nostr": [
+		"src/routes/(app)/(protected)/(debug)/debug-nostr/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/(debug)/debug-smart-contract": [
+		"src/routes/(app)/(protected)/(debug)/debug-smart-contract/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/(debug)/debug-wallet": [
+		"src/routes/(app)/(protected)/(debug)/debug-wallet/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/delete-account": [
+		"src/routes/(company)/delete-account/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/e2e/service-harness.html": [
+		"src/routes/(app)/e2e/service-harness.html/+page.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning": [
+		"src/routes/(app)/(protected)/earning/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/alerts": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/bids": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/contracts": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/contracts/[contractId]": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/my-services": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/earning/requests": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/faq": [
+		"src/routes/(company)/faq/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/feedback": [
+		"src/routes/(app)/(protected)/feedback/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/firebase-config.json": [
+		"src/routes/(app)/firebase-config.json/+server.ts"
+	],
+	"/(app)/(protected)/hiring": [
+		"src/routes/(app)/(protected)/hiring/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/hiring/contracts": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/hiring/contracts/[contractId]": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/hiring/my-tasks": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/hiring/service-requests": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/how-it-works": [
+		"src/routes/(company)/how-it-works/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/messages": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/messages/to/[pubkey]": [
+		"src/routes/(app)/(protected)/messages/to/[pubkey]/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/notifications": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/npub/[npub]": [
+		"src/routes/(app)/npub/[npub]/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/npub/[npub]/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/press": [
+		"src/routes/(company)/press/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/privacy": [
+		"src/routes/(company)/privacy/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/profile": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/profile/edit": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/reviews": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/secure-payments": [
+		"src/routes/(company)/secure-payments/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/security": [
+		"src/routes/(company)/security/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/services": [
+		"src/routes/(app)/services/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/services/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/services/[serviceId]": [
+		"src/routes/(app)/services/[serviceId]/+page.ts",
+		"src/routes/(app)/services/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/actions": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/devices": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/muted": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/nostr": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/notifications": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/settings/recovery": [
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/taskee-fees": [
+		"src/routes/(company)/taskee-fees/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/tasker-fees": [
+		"src/routes/(company)/tasker-fees/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/tasker-principles": [
+		"src/routes/(company)/tasker-principles/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/tasks": [
+		"src/routes/(app)/tasks/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/tasks/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/tasks/[taskId]": [
+		"src/routes/(app)/tasks/[taskId]/+page.ts",
+		"src/routes/(app)/tasks/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/task/[taskId]/bids": [
+		"src/routes/(app)/(protected)/task/[taskId]/bids/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(company)/terms": [
+		"src/routes/(company)/terms/+page.ts",
+		"src/routes/(company)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/verify-email": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/(protected)/wallet": [
+		"src/routes/(app)/(protected)/wallet/+page.ts",
+		"src/routes/(app)/(protected)/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	]
+}

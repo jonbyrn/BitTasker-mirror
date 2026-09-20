@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/(app)/(protected)/earning/my-services/+page.svelte";
