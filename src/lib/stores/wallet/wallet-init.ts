@@ -1,5 +1,6 @@
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
-import type { RgbAsset, WalletProbeWindow, WalletFactory } from './wallet-types';
+import type { RgbAsset, WalletProbeWindow } from './wallet-types';
+import { ContractRune } from '$lib/services/rgb/contract-rune';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
@@ -7,9 +8,10 @@ import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
 import {
-	clearRlnRuntime,
 	installEsploraRetryFetch,
+	isE2eWalletReset,
 	loadAssets,
+	purgeE2eRgbStorage,
 	scanBtcBalance,
 	unwrapListAssets
 } from './wallet-balances';
@@ -44,33 +46,17 @@ async function waitForWasmGlobals(): Promise<void> {
 	await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
 
-// RGB Wallet Factory
-async function resolveWalletFactory(): Promise<WalletFactory> {
-	const rgbSdk = await import('@utexo/rgb-sdk-web');
-	console.info(
-		'[wallet-diagnostic] SDK imported, keys:',
-		Object.keys(rgbSdk).filter((k) => k !== 'default').length
-	);
+type ProbeWindow = WalletProbeWindow & {
+	__utexoWallet?: UTEXOWallet | null;
+	__createRgbUtxos?: (count?: number, sizeSats?: number) => Promise<number | undefined>;
+	E2E?: {
+		escrowStatus: () => string;
+		refreshRgb: () => Promise<void>;
+	};
+};
 
-	const Ctor =
-		rgbSdk.UTEXOWallet ??
-		(rgbSdk as { RgbWallet?: unknown }).RgbWallet ??
-		(rgbSdk as { Wallet?: unknown }).Wallet;
-
-	if (typeof (Ctor as { create?: unknown })?.create === 'function') {
-		return (Ctor as { create: WalletFactory }).create.bind(Ctor) as WalletFactory;
-	}
-
-	if (typeof Ctor === 'function') {
-		return (args: Record<string, unknown>) =>
-			new (Ctor as new (input: Record<string, unknown>) => UTEXOWallet)(args);
-	}
-
-	throw new Error(
-		`UTEXOWallet export unavailable. keys=${Object.keys(rgbSdk)
-			.filter((k) => k !== 'default')
-			.join(', ')}`
-	);
+function probeWindow(): ProbeWindow {
+	return window as ProbeWindow;
 }
 
 // Wallet initialization core logic
@@ -81,35 +67,15 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 	// Tests if bypassing create() and using native preset avoids the vssUrl url-parse panic.
 	const network = 'utexo' as const;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	try {
 		await initWasm();
 		installEsploraRetryFetch();
-		await clearRlnRuntime();
+		await purgeE2eRgbStorage();
 
 		// Import UTEXOWallet directly for explicit 3-phase lifecycle
 		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
 		const password = await deriveUtexoWalletPassword(mnemonic);
+		const e2eReset = isE2eWalletReset();
 
 		// Diagnostic logging (redacted - no mnemonic, xpub, fingerprint, or tokens)
 		console.info('[wallet-diagnostic:init]', {
@@ -117,34 +83,48 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			sdk_version: RGB_SDK_VERSION,
 			method: 'explicit-3phase-lifecycle'
 		});
+		if (e2eReset) {
+			console.info('[wallet-init] initializing RLN node on /rln_e2e_signet...');
+		}
 
-		// RGB wallet configuration with all required endpoints
-				const wallet = new UTEXOWallet({
-					mnemonic,
-					password,
-					network: 'utexo',
-					transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
-					proxyUrl: 'wss://ln-gateway-signet.utexo.com',
-					vssUrl: '',
-					enableVirtualChannels: false
-				});
+		const wallet = new UTEXOWallet({
+			mnemonic,
+			password,
+			network: 'utexo',
+			indexerUrl: 'https://esplora-api.utexo.com',
+			transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
+			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
+			vssUrl: '',
+			enableVirtualChannels: false,
+			...(e2eReset ? { dataDir: '/rln_e2e_signet' } : {})
+		});
 
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
-		await wallet.init();   // Phase 1: Loads WASM, derives keys
-
-		console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
-		await wallet.unlock(); // Phase 2: Unlocks local storage
+		try {
+			await wallet.init();
+			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
+			await wallet.unlock();
+		} catch (connectError) {
+			console.warn('[wallet-init] RLN handshake failed:', connectError);
+			throw connectError;
+		}
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
 
 		state.utexoWallet = wallet;
+		if (typeof window !== 'undefined' && wallet) {
+			probeWindow().__utexoWallet = wallet;
+			console.info('[wallet-init] exposed __utexoWallet on window');
+		}
+		markWalletReady();
 
-		// Scan and update balances
-		await scanAndUpdateBalances(wallet, network);
+		try {
+			await scanAndUpdateBalances(wallet, network);
+		} catch (scanError) {
+			console.warn('[wallet-init] balance scan deferred:', scanError);
+		}
 
-		// Start RGB consignment subscription
 		startConsignmentSubscription();
-
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
 		walletStore.update((s) => ({
@@ -158,10 +138,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 
 // tryIndexers removed — wallet creation now uses hardcoded testnet config directly in initializeRgbWallet
 
-async function scanAndUpdateBalances(
-	wallet: UTEXOWallet,
-	network: string
-): Promise<void> {
+async function scanAndUpdateBalances(wallet: UTEXOWallet, network: string): Promise<void> {
 	const scanned = await scanBtcBalance(wallet);
 	const { address, balanceSats, utxoCount } = scanned;
 
@@ -186,23 +163,45 @@ function updateProbeWindow(
 ): void {
 	if (!browser) return;
 
-	const probeWindow = window as WalletProbeWindow;
+	const probe = probeWindow();
 	const isTestEnvironment =
-		probeWindow.__PLAYWRIGHT_TEST__ === true ||
-		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	if (isTestEnvironment) {
-		probeWindow.__btcAddress = address;
-		probeWindow.__btcBalanceSats = balanceSats;
-		probeWindow.__btcUtxoCount = utxoCount;
-		probeWindow.__btcWalletSynced = true;
-		probeWindow.__refreshBtcBalance = () => loadAssets();
-		probeWindow.__sendBtc = (params) =>
+		probe.__btcAddress = address;
+		probe.__btcBalanceSats = balanceSats;
+		probe.__btcUtxoCount = utxoCount;
+		probe.__btcWalletSynced = true;
+		probe.__refreshBtcBalance = () => loadAssets();
+		probe.__sendBtc = (params) =>
 			wallet.sendBtc({
 				address: params.address,
 				amount: params.amountSats,
 				feeRate: params.feeRate ?? 1
 			});
+		probe.__createRgbUtxos = async (count = 5, sizeSats = 2500) => {
+			try {
+				return await wallet.createUtxos({ num: count, size: sizeSats, feeRate: 1, upTo: true });
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : String(err);
+				if (msg.includes('Allocations already available')) {
+					console.info('[wallet-init] Allocations already available, skipping UTXO creation');
+					return;
+				}
+				throw err;
+			}
+		};
+		probe.E2E = {
+			escrowStatus: () => {
+				const snapshots = ContractRune.snapshots();
+				const s = snapshots[0];
+				return s?.fundingState ?? s?.status ?? '';
+			},
+			refreshRgb: async () => {
+				const w = state.utexoWallet;
+				if (w) await w.refreshWallet();
+			}
+		};
 	}
 }
 
@@ -220,6 +219,20 @@ async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
 		console.warn('[wallet-init] listAssets skipped or failed:', err);
 		return [];
 	}
+}
+
+function markWalletReady(): void {
+	walletStore.update((current) => ({
+		...current,
+		isConnected: true,
+		isInitializing: false,
+		error: null,
+		rgb: {
+			...current.rgb,
+			initialized: true,
+			error: null
+		}
+	}));
 }
 
 function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
@@ -280,13 +293,12 @@ export async function getRgbAddress(): Promise<string> {
 export async function initialize(): Promise<void> {
 	if (!browser) return;
 
-	const probeWindow = window as WalletProbeWindow;
+	const probe = probeWindow();
 	const isTestEnvironment =
-		probeWindow.__PLAYWRIGHT_TEST__ === true ||
-		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	if (isTestEnvironment) {
-		probeWindow.__connectWallet = () => initialize();
+		probe.__connectWallet = () => initialize();
 	}
 
 	const storeState = get(walletStore);
@@ -349,6 +361,10 @@ export function disconnectWallet(): void {
 	}
 
 	state.utexoWallet = null;
+	if (typeof window !== 'undefined') {
+		probeWindow().__utexoWallet = null;
+		console.info('[wallet-init] cleared __utexoWallet from window');
+	}
 	clearRefreshTimers();
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
@@ -361,5 +377,11 @@ export const softCleanup = () => {};
 
 export function getUtexoWallet() {
 	if (typeof window === 'undefined') return null;
-	return state?.utexoWallet || null;
+	const w = state?.utexoWallet || null;
+	// Re-expose on window if we have a wallet but window doesn't have it
+	if (w && !probeWindow().__utexoWallet) {
+		probeWindow().__utexoWallet = w;
+		console.info('[wallet-init] re-exposed __utexoWallet on window via getUtexoWallet');
+	}
+	return w;
 }

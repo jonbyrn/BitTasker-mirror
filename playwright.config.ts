@@ -136,7 +136,7 @@ export default defineConfig({
 								reuseExistingServer: true,
 								timeout: 60 * 1000,
 								env: {
-									VITE_API_URL: 'http://localhost:8000',
+									VITE_API_URL: 'http://127.0.0.1:8000',
 									VITE_E2E_TURNSTILE_BYPASS: 'true',
 									VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 									VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
@@ -153,7 +153,7 @@ export default defineConfig({
 									reuseExistingServer: false,
 									timeout: PREVIEW_START_TIMEOUT_MS,
 									env: {
-										VITE_API_URL: 'http://localhost:8000',
+										VITE_API_URL: 'http://127.0.0.1:8000',
 										VITE_E2E_TURNSTILE_BYPASS: 'true',
 										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
@@ -169,7 +169,7 @@ export default defineConfig({
 									reuseExistingServer: !process.env.CI,
 									timeout: 600 * 1000,
 									env: {
-										VITE_API_URL: 'http://localhost:8000',
+										VITE_API_URL: 'http://127.0.0.1:8000',
 										VITE_E2E_TURNSTILE_BYPASS: 'true',
 										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
 										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',

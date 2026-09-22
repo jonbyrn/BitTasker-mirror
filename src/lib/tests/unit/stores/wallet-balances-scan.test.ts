@@ -4,6 +4,7 @@ import {
 	installEsploraRetryFetch,
 	isMnemonicError,
 	isRlnUrlParseError,
+	rgbDatabasesToDelete,
 	isWssGateway,
 	rlnCreateUrls,
 	rlnProxyUrl,
@@ -21,20 +22,24 @@ describe('scanBtcBalance', () => {
 				new Error('Invalid mnemonic error: mnemonic contains an unknown word (word 6)')
 			)
 		).toBe(true);
-		expect(isMnemonicError('Invalid mnemonic error: mnemonic contains an unknown word (word 6)')).toBe(
-			true
-		);
+		expect(
+			isMnemonicError('Invalid mnemonic error: mnemonic contains an unknown word (word 6)')
+		).toBe(true);
 		expect(isMnemonicError(new Error('Invalid indexer: not a valid esplora server'))).toBe(false);
 	});
 
-	it('does not reuse the rgb https transport as an rln proxy', () => {
-		expect(rlnProxyUrl('https://rgb-proxy.utexo.com/json-rpc')).toBe('');
-		expect(rlnProxyUrl('ssl://electrum.blockstream.info:60002')).toBe('');
-		expect(rlnProxyUrl(undefined)).toBe('');
+	it('uses the signet lightning gateway when no wss proxy is set', () => {
+		expect(rlnProxyUrl('https://rgb-proxy.utexo.com/json-rpc')).toBe(
+			'wss://ln-gateway-signet.utexo.com'
+		);
+		expect(rlnProxyUrl('ssl://electrum.blockstream.info:60002')).toBe(
+			'wss://ln-gateway-signet.utexo.com'
+		);
+		expect(rlnProxyUrl(undefined)).toBe('wss://ln-gateway-signet.utexo.com');
 		expect(rlnProxyUrl('wss://ln-gateway.example/')).toBe('wss://ln-gateway.example/');
 	});
 
-	it('does not default the rln node to the staging lightning gateway', () => {
+	it('defaults the rln node to the signet lightning gateway', () => {
 		const urls = rlnCreateUrls({
 			indexer: 'ssl://electrum.blockstream.info:60002',
 			transport: 'https://rgb-proxy.utexo.com/json-rpc',
@@ -42,14 +47,20 @@ describe('scanBtcBalance', () => {
 		});
 		expect(urls.indexerUrl).toBe('https://blockstream.info/testnet/api');
 		expect(urls.transportEndpoint).toBe('https://rgb-proxy.utexo.com/json-rpc');
-		expect(urls.proxyUrl).toBe('');
-		expect(urls.proxyUrl).toBe(''); // LN node skipped on testnet
+		expect(urls.proxyUrl).toBe('wss://ln-gateway-signet.utexo.com');
 	});
 
 	it('detects rln rust url parse throws', () => {
 		expect(isRlnUrlParseError(new Error('url parse'))).toBe(true);
 		expect(isRlnUrlParseError('Error: url parse')).toBe(true);
 		expect(isRlnUrlParseError(new Error('Invalid mnemonic'))).toBe(false);
+	});
+
+	it('purges the ghost signet database and any other rln stores', () => {
+		expect(rgbDatabasesToDelete(['rln_73c5da0a_signet', 'app-cache', undefined])).toEqual(
+			expect.arrayContaining(['rln_wasm_sdk_runtime', 'rln_73c5da0a_signet'])
+		);
+		expect(rgbDatabasesToDelete(['app-cache'])).not.toContain('app-cache');
 	});
 
 	it('clears the rln runtime idb store', async () => {
@@ -171,4 +182,3 @@ describe('scanBtcBalance', () => {
 		}
 	});
 });
-

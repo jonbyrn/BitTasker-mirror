@@ -16,7 +16,9 @@ export interface BotIdentity {
 
 export type StaticBotName = 'treasury' | 'client' | 'freelancer';
 
-const NEST_BASE_URL = (process.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+const NEST_BASE_URL = (process.env.VITE_API_URL || 'http://127.0.0.1:8000')
+	.replace(/\/$/, '')
+	.replace('://localhost:8000', '://127.0.0.1:8000');
 
 export async function waitForNestReady(page: Page): Promise<void> {
 	await expect(async () => {
@@ -376,7 +378,7 @@ export async function loginWithNsec(
 		throw new Error('Nostr login did not return a response from Nest');
 	}
 
-	const loginJson = await loginResponse.json().catch(() => null);
+	const loginJson: unknown = await loginResponse.json().catch(() => null);
 	const tokens =
 		parseLoginTokens(loginJson) ??
 		parseLoginTokens(

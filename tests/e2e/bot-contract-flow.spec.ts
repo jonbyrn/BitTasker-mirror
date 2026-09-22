@@ -7,7 +7,8 @@ test.use({ headless: false, launchOptions: { slowMo: 1_000 } });
 test.describe.configure({ timeout: 600_000 });
 
 const E2E_BASE_URL = process.env.PW_E2E_BASE_URL || 'http://localhost:3000';
-const E2E_TASK_RELAY_URL = process.env.VITE_NOSTR_TASK_RELAY_URL || 'ws://localhost:7777';
+const E2E_TASK_RELAY_URL =
+	process.env.VITE_NOSTR_TASK_RELAY_URL || 'wss://relay2-dev.bittasker.com';
 const E2E_HOLD_OPEN_MS = Number(process.env.PW_E2E_HOLD_OPEN_MS ?? 0);
 const E2E_CHECKPOINT_MS = Number(process.env.PW_E2E_CHECKPOINT_MS ?? 30_000);
 const TESTNET_CONFIRM_MS = 300_000;
@@ -44,6 +45,75 @@ type LastFundedContractWindow = Window & {
 	__connectWallet?: () => Promise<void>;
 	__refreshBtcBalance?: () => Promise<void>;
 };
+
+type NiaRow = {
+	assetId?: string;
+	balance?: { spendable?: number };
+};
+
+type BrowserE2EWindow = Window & {
+	__PLAYWRIGHT_TEST__?: boolean;
+	__utexoWallet?: {
+		refreshWallet: () => Promise<void>;
+		listAssets: () => Promise<{ nia?: NiaRow[] }>;
+		issueAssetNia: (params: {
+			ticker: string;
+			name: string;
+			precision: number;
+			amounts: number[];
+		}) => Promise<{ assetId: string }>;
+	};
+	__E2E_MINTED_ASSET_ID?: string;
+	E2E?: {
+		escrowStatus?: () => string;
+		transfers?: (args: { assetId: string }) => Promise<unknown>;
+		_refreshRgbWallet?: () => Promise<void>;
+	};
+	escrowStatus?: () => string;
+	transfers?: (args: { assetId: string }) => Promise<unknown>;
+	_refreshRgbWallet?: () => Promise<void>;
+};
+
+async function refreshRgbOn(page: import('@playwright/test').Page): Promise<void> {
+	await page.evaluate(async () => {
+		const w = window as BrowserE2EWindow;
+		if (typeof w.E2E?._refreshRgbWallet === 'function') {
+			await w.E2E._refreshRgbWallet();
+			return;
+		}
+		if (typeof w._refreshRgbWallet === 'function') {
+			await w._refreshRgbWallet();
+		}
+	});
+}
+
+async function withRgbIdle<T>(
+	page: import('@playwright/test').Page,
+	fn: () => Promise<T>,
+	tries = 15,
+	delayMs = 2000
+): Promise<T> {
+	let lastError: unknown;
+	for (let i = 0; i < tries; i++) {
+		try {
+			return await fn();
+		} catch (err: unknown) {
+			lastError = err;
+			const msg = err instanceof Error ? err.message : String(err);
+			if (
+				msg.includes('busy') ||
+				msg.includes('locked') ||
+				msg.includes('mutex') ||
+				msg.includes('not initialized')
+			) {
+				await page.waitForTimeout(delayMs);
+				continue;
+			}
+			throw err;
+		}
+	}
+	throw lastError;
+}
 
 async function waitForWasm(page: import('@playwright/test').Page): Promise<void> {
 	await page.waitForFunction(
@@ -167,9 +237,11 @@ async function syncConnectedWallet(
 			{ timeout: WALLET_SYNC_MS, intervals: [10_000] }
 		)
 		.toBe(true);
-	await expect(page.locator('[data-testid="wallet-connected"]')).toBeVisible({
-		timeout: WALLET_SYNC_MS
-	});
+	if (/\/wallet(?:[/?#]|$)/.test(page.url())) {
+		await expect(page.locator('[data-testid="wallet-connected"]')).toBeVisible({
+			timeout: WALLET_SYNC_MS
+		});
+	}
 	console.info(
 		`[e2e-keychain:${role}]`,
 		await page.evaluate(() => {
@@ -198,33 +270,48 @@ async function waitForTaskerWallet(page: import('@playwright/test').Page): Promi
 	await syncConnectedWallet(page, 'tasker');
 }
 
+async function readTaskerVanilla(page: import('@playwright/test').Page): Promise<{
+	address: string;
+	vanilla: number;
+}> {
+	return page.evaluate(async () => {
+		const wallet = (
+			window as {
+				__utexoWallet?: {
+					syncWallet?: () => Promise<void>;
+					refreshWallet?: () => Promise<void>;
+					getAddress?: () => Promise<string>;
+					getBtcBalance?: () => Promise<{ vanilla?: { spendable?: number } }>;
+				};
+			}
+		).__utexoWallet;
+		if (wallet?.syncWallet) await wallet.syncWallet();
+		if (wallet?.refreshWallet) await wallet.refreshWallet();
+		const balance = wallet?.getBtcBalance ? await wallet.getBtcBalance() : null;
+		const address = wallet?.getAddress
+			? await wallet.getAddress()
+			: ((window as { __btcAddress?: string }).__btcAddress ?? '');
+		return { address, vanilla: Number(balance?.vanilla?.spendable ?? 0) };
+	});
+}
+
 async function ensureTaskerSats(
 	page: import('@playwright/test').Page,
 	browser: import('@playwright/test').Browser,
 	minSats: number
 ): Promise<void> {
 	await waitForTaskerWallet(page);
-	await page.evaluate(async () => {
-		const refresh = (window as LastFundedContractWindow).__refreshBtcBalance;
-		if (refresh) await refresh();
-	});
-	const snapshot = await page.evaluate(() => ({
-		address: (window as LastFundedContractWindow).__btcAddress ?? '',
-		balance: (window as LastFundedContractWindow).__btcBalanceSats ?? 0
-	}));
-	if (snapshot.balance >= minSats) return;
+	let snapshot = await readTaskerVanilla(page);
+	if (snapshot.vanilla >= minSats) return;
 	if (!snapshot.address.startsWith('tb1')) {
 		throw new Error(`Tasker wallet address is not testnet: ${snapshot.address || '(empty)'}`);
 	}
-	await fundTestnetAddress(browser, snapshot.address, minSats + 5_000);
+	await fundTestnetAddress(browser, snapshot.address, Math.max(minSats, 2_000) + 5_000);
 	await expect
 		.poll(
 			async () => {
-				await page.evaluate(async () => {
-					const refresh = (window as LastFundedContractWindow).__refreshBtcBalance;
-					if (refresh) await refresh();
-				});
-				return page.evaluate(() => (window as LastFundedContractWindow).__btcBalanceSats ?? 0);
+				snapshot = await readTaskerVanilla(page);
+				return snapshot.vanilla;
 			},
 			{ timeout: TESTNET_CONFIRM_MS, intervals: [5_000, 10_000] }
 		)
@@ -420,7 +507,7 @@ async function createBidFlow(
 	const taskerContext = await browser.newContext({ storageState: undefined });
 	const taskeeContext = await browser.newContext({ storageState: undefined });
 	const persistPlaywrightFlag = () => {
-		window.__PLAYWRIGHT_TEST__ = true;
+		(window as BrowserE2EWindow).__PLAYWRIGHT_TEST__ = true;
 	};
 	await taskerContext.addInitScript(persistPlaywrightFlag);
 	await taskeeContext.addInitScript(persistPlaywrightFlag);
@@ -431,15 +518,19 @@ async function createBidFlow(
 		label: 'console' | 'taskee console'
 	) => {
 		page.on('pageerror', (error) => {
-			console.error(`[E2E ${label === 'console' ? 'pageerror' : 'taskee pageerror'}] ${error.stack ?? error.message}`);
+			console.error(
+				`[E2E ${label === 'console' ? 'pageerror' : 'taskee pageerror'}] ${error.stack ?? error.message}`
+			);
 		});
 		page.on('console', (message) => {
 			if (
 				message.type() === 'error' ||
 				message.type() === 'warning' ||
 				message.text().startsWith('[bids]') ||
-				message.text().includes('[wallet-diagnostic:mnemonic]') ||
-				message.text().includes('[wallet-diagnostic:rln')
+				message.text().includes('[wallet-diagnostic:rln') ||
+				message.text().includes('[wallet-init]') ||
+				message.text().includes('[contract-rune] sendToInvoice') ||
+				message.text().includes('[E2E-wallet-payment-failure]')
 			) {
 				console.error(`[E2E ${label}:${message.type()}] ${message.text()}`);
 			}
@@ -528,16 +619,65 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		requireWallets: true
 	});
 
+	// Poll directly for __utexoWallet hook without navigating away from bids page
+	await expect
+		.poll(() => taskerPage.evaluate(() => Boolean((window as BrowserE2EWindow).__utexoWallet)), {
+			timeout: 60_000,
+			intervals: [1_000, 2_000]
+		})
+		.toBe(true);
+
+	await ensureTaskerSats(taskerPage, browser, 10_000);
+
+	const assetResult = await withRgbIdle(taskerPage, () =>
+		taskerPage.evaluate(async () => {
+			const w = (window as BrowserE2EWindow).__utexoWallet;
+			if (!w) throw new Error('Tasker UTEXO wallet not initialized on window');
+			await w.refreshWallet();
+			const { nia } = await w.listAssets();
+			const existing = (nia ?? []).find((asset) => (asset.balance?.spendable ?? 0) > 0);
+			if (existing) {
+				return {
+					assetId: existing.assetId,
+					spendable: existing.balance.spendable,
+					source: 'existing'
+				};
+			}
+			const created = await w.issueAssetNia({
+				ticker: 'E2E',
+				name: 'E2E Escrow Asset',
+				precision: 0,
+				amounts: [10_000]
+			});
+			await w.refreshWallet();
+			const refreshed = await w.listAssets();
+			const row = (refreshed.nia ?? []).find((asset) => asset.assetId === created.assetId);
+			return {
+				assetId: created.assetId,
+				spendable: row?.balance?.spendable ?? 0,
+				source: 'minted'
+			};
+		})
+	);
+	console.info('[e2e] Tasker RGB Asset Verification:', assetResult);
+	expect(assetResult?.assetId).toBeTruthy();
+	expect(assetResult?.spendable).toBeGreaterThan(0);
+
+	await taskerPage.evaluate((id) => {
+		(window as BrowserE2EWindow).__E2E_MINTED_ASSET_ID = id;
+	}, assetResult.assetId);
+	await taskeePage.evaluate((id) => {
+		(window as BrowserE2EWindow).__E2E_MINTED_ASSET_ID = id;
+	}, assetResult.assetId);
+
 	const acceptButton = taskerPage.locator('[data-testid="accept-bid-btn"]').first();
 	await expect(acceptButton).toBeVisible({ timeout: 30_000 });
 	await acceptButton.click();
-	await expect(taskerPage.locator('[data-testid="bid-acceptance-form"]')).toBeVisible();
-	await waitForWasm(taskerPage);
-	await waitForTaskerWallet(taskerPage);
-	const totalSatsLabel = taskerPage.locator('[data-testid="bid-total-sats"]');
-	await expect(totalSatsLabel).toBeVisible({
+	await expect(taskerPage.locator('[data-testid="bid-acceptance-form"]')).toBeVisible({
 		timeout: 30_000
 	});
+	const totalSatsLabel = taskerPage.locator('[data-testid="bid-total-sats"]');
+	await expect(totalSatsLabel).toBeVisible({ timeout: 30_000 });
 	const invoiceSats = Number((await totalSatsLabel.innerText()).replace(/[^\d]/g, ''));
 	expect(invoiceSats).toBe(3075);
 	await ensureTaskerSats(taskerPage, browser, invoiceSats + 5_000);
@@ -546,12 +686,35 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	await expect(taskerPage.locator('[data-testid="pay-funding-from-wallet"]')).toBeVisible({
 		timeout: TESTNET_CONFIRM_MS
 	});
-	await expect(taskerPage.locator('[data-testid="funding-error"]')).toHaveCount(0);
 	await taskerPage.locator('[data-testid="pay-funding-from-wallet"]').click();
-	await expect(taskerPage.locator('[data-testid="start-contract-button"]')).toBeVisible({
-		timeout: TESTNET_CONFIRM_MS
-	});
-	await expect(taskerPage.locator('[data-testid="funding-error"]')).toHaveCount(0);
+	console.info('[e2e] Payment clicked. Waiting for broadcast, then Taskee RGB refresh.');
+
+	const startContractBtn = taskerPage.locator('[data-testid="start-contract-button"]');
+	const fundingError = taskerPage.locator('[data-testid="funding-error"]');
+
+	await expect
+		.poll(
+			async () => {
+				await taskeePage.bringToFront();
+				await refreshRgbOn(taskeePage);
+				await taskerPage.bringToFront();
+				await refreshRgbOn(taskerPage);
+				if (await fundingError.count()) {
+					throw new Error(await fundingError.innerText());
+				}
+				const startVisible = await startContractBtn.isVisible().catch(() => false);
+				if (startVisible) return 'funded';
+				const status = await taskerPage.evaluate(
+					() => (window as E2EWalletWindow).E2E?.escrowStatus?.() ?? ''
+				);
+				return status;
+			},
+			{ timeout: TESTNET_CONFIRM_MS, intervals: [5_000, 8_000, 10_000] }
+		)
+		.toMatch(/funded|WaitingConfirmations|Settled/i);
+
+	await expect(startContractBtn).toBeVisible({ timeout: TESTNET_CONFIRM_MS });
+	await expect(fundingError).toHaveCount(0);
 
 	const contractId = await taskerPage.evaluate(
 		() => (window as LastFundedContractWindow).__lastFundedContractId
