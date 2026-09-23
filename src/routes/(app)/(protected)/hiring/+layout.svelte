@@ -6,8 +6,6 @@
 
 	let { children } = $props();
 
-	let width = $state(375);
-
 	function translateOrFallback(key: string, fallback: string): string {
 		const translated = $t(key);
 		return translated === key ? fallback : translated;
@@ -74,79 +72,61 @@
 
 <svelte:head>
 	<title>{translateOrFallback('dashboard.hiring.page_title', 'Hiring')} - BitTasker</title>
-	<meta name="description" content={translateOrFallback('dashboard.hiring.page_description', 'Manage your tasks, contracts, and service requests')} />
+	<meta
+		name="description"
+		content={translateOrFallback(
+			'dashboard.hiring.page_description',
+			'Manage your tasks, contracts, and service requests'
+		)}
+	/>
 </svelte:head>
 
-<svelte:window bind:innerWidth={width} />
-
-<div
-	class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden md:py-4"
->
-	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
-		<!-- Main Content -->
-		<div class="min-h-0 w-full flex-1 overflow-hidden">
-			<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
-				<!-- Hiring Header -->
-				<div class="mb-2 flex items-center justify-between gap-3 md:mb-6">
-					<div class="min-w-0">
-						<h3 class="font-bold">
-							{translateOrFallback('dashboard.hiring.title', 'Hiring')}
-						</h3>
-					</div>
-					<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
-						{#if activeTab.icon === 'search'}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								aria-label={translateOrFallback('dashboard.page.search_icon_alt', 'Search')}
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-								/>
-							</svg>
-						{:else}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								aria-label={translateOrFallback('dashboard.page.plus_icon_alt', 'Create')}
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/>
-							</svg>
-						{/if}
-						<span>{activeTab.buttonLabel}</span>
-					</a>
-				</div>
-
-				<!-- Hiring Tabs -->
-				<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
-
-				{@render children?.()}
-			</div>
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-4 p-3 sm:p-6">
+	<div class="flex items-center justify-between gap-3">
+		<div class="min-w-0">
+			<h2 class="text-2xl font-semibold sm:text-3xl">
+				{translateOrFallback('dashboard.hiring.title', 'Hiring')}
+			</h2>
 		</div>
+		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+			{#if activeTab.icon === 'search'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					aria-label={translateOrFallback('dashboard.page.search_icon_alt', 'Search')}
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+					/>
+				</svg>
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					aria-label={translateOrFallback('dashboard.page.plus_icon_alt', 'Create')}
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 4v16m8-8H4"
+					/>
+				</svg>
+			{/if}
+			<span>{activeTab.buttonLabel}</span>
+		</a>
 	</div>
-</div>
 
-<style>
-	/* Ensure dashboard layout fills available space without causing scroll */
-	.dashboard-layout {
-		height: 100%;
-		max-height: 100%;
-		overflow: hidden;
-		flex: 1;
-		min-height: 0;
-	}
-</style>
+	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
+
+	{@render children?.()}
+</div>

@@ -146,7 +146,7 @@
 
 	const currentSection = $derived.by(() => {
 		const path = page.url.pathname;
-		if (path === '/hiring' || path === '/earning' || path === '/') return 'home';
+		if (path === '/' || path.startsWith('/hiring') || path.startsWith('/earning')) return 'home';
 		if (path === '/tasks' || path.startsWith('/tasks/')) return 'find-tasks';
 		if (path.includes('/create-task')) return 'create-task';
 		if (path.includes('/wallet')) return 'wallet';

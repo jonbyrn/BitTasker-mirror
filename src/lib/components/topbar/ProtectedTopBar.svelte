@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
@@ -135,6 +136,26 @@
 		showLogoutModal = false;
 	}
 
+	function pathMatches(href: string): boolean {
+		const path = page.url.pathname;
+		if (href === '/hiring' || href === '/earning' || href === '/wallet') {
+			return path === href || path.startsWith(`${href}/`);
+		}
+		return path === href;
+	}
+
+	function activeItemHref(items: MenuItem[]): string | null {
+		const matches = items
+			.map((item) => item.href)
+			.filter((href): href is string => Boolean(href) && pathMatches(href));
+		if (matches.length === 0) return null;
+		return matches.sort((left, right) => right.length - left.length)[0];
+	}
+
+	function activeHref(section: MenuSection): string | null {
+		return activeItemHref(section.items);
+	}
+
 	function showNpubQrCode() {
 		showNpubQrModal = true;
 	}
@@ -145,7 +166,7 @@
 </script>
 
 <!-- Snippet for rendering a menu item -->
-{#snippet menuItem(item: MenuItem)}
+{#snippet menuItem(item: MenuItem, active: boolean)}
 	<li>
 		{#if item.action}
 			<!-- Action button (like logout) -->
@@ -164,6 +185,8 @@
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 				class="flex items-center gap-2 whitespace-nowrap"
+				class:font-semibold={active}
+				aria-current={active ? 'page' : undefined}
 			>
 				<item.icon class="text-primary" />
 				<span>{$t(item.label)}</span>
@@ -179,6 +202,7 @@
 		<button
 			id={buttonId}
 			class="btn btn-ghost flex items-center gap-2 hover:shadow-none"
+			class:btn-active={activeHref(section) !== null}
 			onclick={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
@@ -214,7 +238,7 @@
 				>
 					<ul>
 						{#each section.items as item (item.label)}
-							{@render menuItem?.(item)}
+							{@render menuItem?.(item, activeHref(section) === item.href)}
 						{/each}
 					</ul>
 				</div>
@@ -291,12 +315,13 @@
 									class="flex w-full items-center gap-2 whitespace-nowrap"
 								>
 									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span>
+									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span
+									>
 								</button>
 							</li>
 						{/if}
 						{#each AVATAR_MENU_ITEMS as item (item.label)}
-							{@render menuItem?.(item)}
+							{@render menuItem?.(item, activeItemHref(AVATAR_MENU_ITEMS) === item.href)}
 						{/each}
 					</ul>
 				</div>
