@@ -2,14 +2,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
-const { getRgbAddress, createLightningInvoice, receiveRgbInvoice } = vi.hoisted(() => ({
+const { getRgbAddress, createLightningInvoice, onchainReceive } = vi.hoisted(() => ({
 	getRgbAddress: vi.fn().mockResolvedValue('bc1qreceive'),
 	createLightningInvoice: vi.fn().mockResolvedValue({ lnInvoice: 'lnbc500n1test' }),
-	receiveRgbInvoice: vi.fn().mockResolvedValue({
-		invoice: 'rgb1receive',
-		recipientId: 'rcp-1',
-		expirationTimestamp: null
-	})
+	onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' })
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -18,7 +14,7 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
-	walletManager: { getRgbAddress, createLightningInvoice, receiveRgbInvoice }
+	walletManager: { getRgbAddress, createLightningInvoice }
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -32,7 +28,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 			rgb: { address: 'bc1qstored', initialized: true },
 			wdk: { btcOnchain: { address: 'bc1qwdk' } }
 		}),
-		state: { utexoWallet: {} }
+		state: { utexoWallet: { onchainReceive } }
 	};
 });
 
@@ -48,38 +44,36 @@ describe('ReceivePaymentForm', () => {
 		expect(queryByTestId('receive-amount')).toBeNull();
 		await fireEvent.click(getByTestId('receive-generate'));
 
-		await waitFor(() =>
-			expect(getByTestId('receive-value').textContent).toContain('bc1qstored')
-		);
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
 		expect(getRgbAddress).not.toHaveBeenCalled();
 	});
 
-	it('creates a Lightning invoice with the requested sats amount', async () => {
+	it('marks Lightning receive as pending', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '50000' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
-		await waitFor(() => expect(createLightningInvoice).toHaveBeenCalledTimes(1));
-		expect(createLightningInvoice).toHaveBeenCalledWith({ amountSats: 50000 });
 		await waitFor(() =>
-			expect(getByTestId('receive-value').textContent).toContain('lnbc500n1test')
+			expect(getByTestId('receive-value').textContent).toContain('Pending implementation')
 		);
+		expect(createLightningInvoice).not.toHaveBeenCalled();
 	});
 
-	it('creates a witness RGB invoice for USDT receives', async () => {
+	it('creates an RGB invoice for USDT receives', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100000' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
-		await waitFor(() => expect(receiveRgbInvoice).toHaveBeenCalledTimes(1));
-		expect(receiveRgbInvoice).toHaveBeenCalledWith({
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		expect(onchainReceive).toHaveBeenCalledWith({
 			amount: 100000,
 			assetId: 'rgb1testusdtasset',
-			witness: true
+			blind: true,
+			blinded: true
 		});
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
@@ -98,10 +92,10 @@ describe('ReceivePaymentForm', () => {
 	});
 
 	it('surfaces invoice generation errors', async () => {
-		createLightningInvoice.mockRejectedValueOnce(new Error('No channels'));
+		onchainReceive.mockRejectedValueOnce(new Error('No channels'));
 		const { getByTestId } = render(ReceivePaymentForm);
 
-		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '1000' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 

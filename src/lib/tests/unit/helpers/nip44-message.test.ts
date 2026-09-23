@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { publishNostrEvent } = vi.hoisted(() => ({
+const { publishNostrEvent, decryptDM } = vi.hoisted(() => ({
 	publishNostrEvent: vi.fn().mockResolvedValue({
 		event: {
 			id: 'test-event-id',
@@ -11,29 +11,20 @@ const { publishNostrEvent } = vi.hoisted(() => ({
 			tags: [['p', 'recipient-pubkey']],
 			sig: 'test-signature'
 		}
-	})
+	}),
+	decryptDM: vi.fn().mockResolvedValue('decrypted_content')
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
-	publishNostrEvent
+	publishNostrEvent,
+	decryptDM
 }));
 
-const { decryptMock } = vi.hoisted(() => ({ decryptMock: vi.fn() }));
-
-vi.mock('@nostr-dev-kit/ndk', () => ({
-	NDKUser: class {
-		constructor(public opts: { pubkey: string }) {}
-	},
-	NDKEvent: class {
-		content: string;
-		constructor(
-			_ndk: unknown,
-			public event: { pubkey: string; content: string }
-		) {
-			this.content = event.content;
-		}
-		decrypt = decryptMock;
-	}
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNostrKeyPair: vi.fn().mockResolvedValue({
+		nsec: new Uint8Array(32),
+		npub: 'our-npub'
+	})
 }));
 
 vi.mock('$lib/nostr/ndk', () => ({
@@ -46,6 +37,7 @@ vi.mock('$lib/nostr/ndk', () => ({
 describe('direct-messages (NIP-44 via NDK signer)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		decryptDM.mockResolvedValue('decrypted_content');
 		publishNostrEvent.mockResolvedValue({
 			event: {
 				id: 'test-event-id',
@@ -68,12 +60,9 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 
 		const event = await sendDirectMessage('Hello World', 'recipient-pubkey-hex');
 
-		expect(publishNostrEvent).toHaveBeenCalledWith(
-			4,
-			'Hello World',
-			'recipient-pubkey-hex',
-			[['p', 'recipient-pubkey-hex']]
-		);
+		expect(publishNostrEvent).toHaveBeenCalledWith(4, 'Hello World', 'recipient-pubkey-hex', [
+			['p', 'recipient-pubkey-hex']
+		]);
 		expect(event.id).toBe('test-event-id');
 	});
 
@@ -84,15 +73,10 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 			['e', 'thread-root-id', '', 'root']
 		]);
 
-		expect(publishNostrEvent).toHaveBeenCalledWith(
-			4,
-			'Reply',
-			'recipient-pubkey-hex',
-			[
-				['p', 'recipient-pubkey-hex'],
-				['e', 'thread-root-id', '', 'root']
-			]
-		);
+		expect(publishNostrEvent).toHaveBeenCalledWith(4, 'Reply', 'recipient-pubkey-hex', [
+			['p', 'recipient-pubkey-hex'],
+			['e', 'thread-root-id', '', 'root']
+		]);
 	});
 
 	it('sendDirectMessage rejects empty messages before publishing', async () => {
@@ -113,10 +97,7 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 		);
 	});
 
-	it('parseDMEvent decrypts content via NDK NIP-44 with the sender pubkey', async () => {
-		decryptMock.mockImplementation(async function (this: { content: string }) {
-			this.content = 'decrypted_content';
-		});
+	it('parseDMEvent decrypts content with the sender pubkey', async () => {
 		const { parseDMEvent } = await import('$lib/nostr/direct-messages');
 
 		const result = await parseDMEvent(
@@ -132,10 +113,11 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 			new Uint8Array(32)
 		);
 
-		expect(decryptMock).toHaveBeenCalled();
-		const [senderArg, , scheme] = decryptMock.mock.calls[0];
-		expect((senderArg as { opts: { pubkey: string } }).opts.pubkey).toBe('sender-pubkey');
-		expect(scheme).toBe('nip44');
+		expect(decryptDM).toHaveBeenCalledWith(
+			expect.any(Uint8Array),
+			'encrypted_content',
+			'sender-pubkey'
+		);
 		expect(result.plaintext).toBe('decrypted_content');
 		expect(result.senderPubkey).toBe('sender-pubkey');
 	});

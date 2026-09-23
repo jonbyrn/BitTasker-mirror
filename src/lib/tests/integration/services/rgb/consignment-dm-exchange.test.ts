@@ -17,11 +17,18 @@ vi.mock('$lib/nostr/ndk', () => ({
 vi.mock('$lib/utils/nostr', () => ({
 	publishNostrEvent: vi.fn().mockResolvedValue({ event: { id: 'dm-event-1' } }),
 	getSignedEvent: vi.fn().mockResolvedValue({ id: 'attestation-1' }),
-	publishToMultipleRelays: vi.fn().mockResolvedValue([{ success: true }])
+	publishToMultipleRelays: vi.fn().mockResolvedValue([{ success: true }]),
+	decryptDM: vi.fn(async (_nsec: Uint8Array, content: string) => content)
 }));
 
 vi.mock('$lib/utils/nostrKeys', () => ({
-	getNpub: vi.fn().mockResolvedValue('npub1hwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwasxw04hu')
+	getNpub: vi
+		.fn()
+		.mockResolvedValue('npub1hwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwasxw04hu'),
+	getNostrKeyPair: vi.fn().mockResolvedValue({
+		nsec: new Uint8Array(32),
+		npub: 'recipient-hex'
+	})
 }));
 
 vi.mock('$app/environment', () => ({
