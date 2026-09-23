@@ -424,8 +424,8 @@
 				{#each filteredBids as bidEvent (bidEvent.id)}
 					{@const bid = bidEvent.content as unknown as NostrBidContent}
 					{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
-					<div class="card bg-base-100 border-base-300 rounded-xl border shadow-md">
-						<div class="card-body rounded-xl p-4 md:p-4">
+					<div class="card bg-base-100 border-base-300 border shadow-sm">
+						<div class="card-body gap-3 p-5">
 							<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 							<div class="border-base-200 border-b pb-4">
 								<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
@@ -448,7 +448,7 @@
 										class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1"
 									>
 										<span
-											class="badge badge-sm {StatusRender[status ?? '']?.badge ??
+											class="badge badge-lg {StatusRender[status ?? '']?.badge ??
 												'badge-warning'} max-w-full truncate text-center"
 										>
 											{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
