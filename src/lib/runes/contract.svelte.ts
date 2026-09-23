@@ -20,8 +20,10 @@ export type ContractRuneStatus =
 	| 'funded'
 	| 'work_in_progress'
 	| 'work_submitted'
+	| 'approved'
 	| 'releasing'
 	| 'released'
+	| 'settled'
 	| 'cancelling'
 	| 'cancelled'
 	| 'disputed'
@@ -54,6 +56,9 @@ export interface ContractRuneSnapshot {
 	status: ContractRuneStatus;
 	fundingState: ContractFundingState;
 	fundingInvoice?: string;
+	workMessage?: string;
+	proofUrl?: string;
+	payoutInvoice?: string;
 	seals: readonly RgbSeal[];
 	split: PaymentSplitConfig;
 	lastAttestationId?: string;
@@ -187,7 +192,9 @@ async function publishAttestation(
 				updatedAt: seal.updatedAt
 			})),
 			message,
-			proofUrl
+			proofUrl,
+			workMessage: snapshot.workMessage,
+			payoutInvoice: snapshot.payoutInvoice
 		}),
 		tags: [
 			['m', 'contract-status'],
@@ -220,6 +227,9 @@ export class ContractRune {
 	isBusy = $state(false);
 	error = $state<string | null>(null);
 	lastAttestationId = $state<string | null>(null);
+	workMessage = $state<string | undefined>(undefined);
+	proofUrl = $state<string | undefined>(undefined);
+	payoutInvoice = $state<string | undefined>(undefined);
 
 	constructor(input: ContractRuneInput) {
 		if (!input.contractId.trim()) throw new Error('Contract id is required');
@@ -264,6 +274,9 @@ export class ContractRune {
 			status: this.status,
 			fundingState: this.fundingState,
 			fundingInvoice: this.seals.find((seal) => seal.invoice)?.invoice,
+			workMessage: this.workMessage,
+			proofUrl: this.proofUrl,
+			payoutInvoice: this.payoutInvoice,
 			seals: this.seals,
 			split: this.split,
 			lastAttestationId: this.lastAttestationId ?? undefined,
@@ -467,9 +480,84 @@ export class ContractRune {
 		if (this.status !== 'funded' && this.status !== 'work_in_progress') {
 			throw new Error(`Cannot submit work from ${this.status} state`);
 		}
+		const deliverable = message.trim();
+		if (!deliverable && !proofUrl?.trim()) {
+			throw new Error('Deliverable proof is required');
+		}
+		this.workMessage = deliverable || undefined;
+		this.proofUrl = proofUrl?.trim() || undefined;
 		this.status = 'work_submitted';
 		this.error = null;
-		await this.attest('work_submitted', message, proofUrl);
+		await this.attest('work_submitted', this.workMessage, this.proofUrl);
+		this.error = null;
+		return this.snapshot;
+	}
+
+	async approveWork(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'work_submitted') {
+			throw new Error(`Cannot approve work from ${this.status} state`);
+		}
+		this.status = 'approved';
+		this.error = null;
+		await this.attest('approved', 'Work approved');
+		this.error = null;
+		return this.snapshot;
+	}
+
+	async createPayoutInvoice(): Promise<string> {
+		if (this.status !== 'approved') {
+			throw new Error(`Cannot create a payout invoice from ${this.status} state`);
+		}
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('RGB wallet is not initialized');
+		const received = await wallet.onchainReceive({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+		const invoice = received.invoice?.trim() ?? '';
+		if (!invoice) throw new Error('Taskee payout invoice was empty');
+		this.payoutInvoice = invoice;
+		await this.attest('approved', 'Payout invoice created');
+		this.error = null;
+		return invoice;
+	}
+
+	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'approved') {
+			throw new Error(`Cannot release escrow from ${this.status} state`);
+		}
+		const payout = (invoice ?? this.payoutInvoice)?.trim() ?? '';
+		if (!payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
+			throw new Error('Payout destination must be an rgb: invoice.');
+		}
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('RGB wallet is not initialized');
+		const { nia } = await wallet.listAssets();
+		const assetId = escrowAssetId(nia ?? []);
+		const spendable = nia?.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0;
+		if (!assetId || spendable <= 0) {
+			throw new Error('No spendable RGB balance to release escrow');
+		}
+		console.info('[contract-rune] releaseEscrow', {
+			assetId,
+			amount: spendable,
+			invoicePrefix: payout.slice(0, 40)
+		});
+		await prepareRgbOnchainSend(wallet, assetId);
+		await wallet.onchainSend({
+			invoice: payout,
+			assetId,
+			amount: spendable,
+			feeRate: 2,
+			minConfirmations: 1
+		});
+		await wallet.refreshWallet();
+		this.payoutInvoice = payout;
+		this.status = 'settled';
+		this.error = null;
+		await this.attest('settled', 'Escrow settled');
+		this.error = null;
 		return this.snapshot;
 	}
 

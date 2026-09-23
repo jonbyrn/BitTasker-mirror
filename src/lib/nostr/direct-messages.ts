@@ -1,6 +1,7 @@
-import { NDKEvent, NDKUser, type NostrEvent } from '@nostr-dev-kit/ndk';
+import { type NostrEvent } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
-import { publishNostrEvent } from '$lib/utils/nostr';
+import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
 
 export interface ParsedDirectMessage {
@@ -27,9 +28,27 @@ export async function parseDMEvent(
 	event: NostrEvent,
 	_nsec: Uint8Array | string
 ): Promise<ParsedDirectMessage> {
-	const ndkEvent = new NDKEvent(ndk, event);
-	await ndkEvent.decrypt(new NDKUser({ pubkey: event.pubkey }), undefined, 'nip44');
-	return { plaintext: ndkEvent.content, senderPubkey: event.pubkey, event };
+	try {
+		const { nsec, npub } = await getNostrKeyPair();
+
+		let plaintext: string;
+		if (event.pubkey === npub) {
+			// We are the sender, decrypt with recipient's pubkey from tags
+			const recipientTag = event.tags.find((t) => t[0] === 'p');
+			if (!recipientTag || !recipientTag[1]) {
+				throw new Error('No recipient found in DM tags');
+			}
+			plaintext = await decryptDM(nsec, event.content, recipientTag[1]);
+		} else {
+			// We are the recipient, decrypt with sender's pubkey
+			plaintext = await decryptDM(nsec, event.content, event.pubkey);
+		}
+
+		return { plaintext, senderPubkey: event.pubkey, event };
+	} catch (error) {
+		console.error('Failed to parse DM event:', error);
+		throw error;
+	}
 }
 
 export function listenForIncomingMessages(

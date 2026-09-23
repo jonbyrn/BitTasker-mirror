@@ -60,12 +60,24 @@
 			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 			await notificationCenterStore.fetchUnreadCount();
 
-			const { connectNotificationSocket } = await import(
-				'$lib/api/services/notificationSocket.service'
-			);
+			const { connectNotificationSocket } =
+				await import('$lib/api/services/notificationSocket.service');
 			await connectNotificationSocket();
 		} catch {
 			// Notification init is non-critical — don't break the layout
+		}
+	}
+
+	// Ensure wallet is initialized for protected routes.
+	// This re-exposes __utexoWallet on window after page navigation/refresh.
+	async function ensureWalletInitialized() {
+		if (!$authState.isAuthenticated || !isProtectedRoute) return;
+
+		try {
+			const { initialize } = await import('$lib/stores/wallet/wallet-init');
+			await initialize();
+		} catch {
+			// Wallet init is non-critical for layout rendering
 		}
 	}
 
@@ -81,7 +93,8 @@
 			if (cancelled) return;
 			await Promise.all([
 				deviceModule.initializeDevicePlatform(),
-				deviceModule.getOnboardingCompleted()
+				deviceModule.getOnboardingCompleted(),
+				ensureWalletInitialized()
 			]);
 		};
 
@@ -276,7 +289,6 @@
 		<BottomNavBar />
 	</footer>
 {/if}
-
 
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->

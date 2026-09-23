@@ -266,7 +266,7 @@ async function encryptDM(
  * @param senderNpub - The public key of the sender
  * @returns The decrypted message
  */
-async function decryptDM(
+export async function decryptDM(
 	nsec: Uint8Array,
 	ciphertext: string,
 	senderNpub: string
@@ -526,7 +526,9 @@ export async function queryNostrEvents(
 		if (events.length === 0 && isE2ETest()) {
 			try {
 				const localEvents = await nostrEventsService.findEvents();
-				events = localEvents.data.filter((event) => matchesLocalFilter(event, filter)) as NostrEvent[];
+				events = localEvents.data.filter((event) =>
+					matchesLocalFilter(event, filter)
+				) as NostrEvent[];
 			} catch (error) {
 				console.warn('[nostr] Local E2E event fallback unavailable:', error);
 			}

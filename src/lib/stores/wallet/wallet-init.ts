@@ -11,7 +11,6 @@ import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	loadAssets,
-	purgeE2eRgbStorage,
 	scanBtcBalance,
 	unwrapListAssets
 } from './wallet-balances';
@@ -70,7 +69,6 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 	try {
 		await initWasm();
 		installEsploraRetryFetch();
-		await purgeE2eRgbStorage();
 
 		// Import UTEXOWallet directly for explicit 3-phase lifecycle
 		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
@@ -83,8 +81,9 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			sdk_version: RGB_SDK_VERSION,
 			method: 'explicit-3phase-lifecycle'
 		});
+		const taskerDataDir = 'rln_73c5da0a_signet';
 		if (e2eReset) {
-			console.info('[wallet-init] initializing RLN node on /rln_e2e_signet...');
+			console.info('[wallet-init] pinned data dir', taskerDataDir);
 		}
 
 		const wallet = new UTEXOWallet({
@@ -96,7 +95,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
 			vssUrl: '',
 			enableVirtualChannels: false,
-			...(e2eReset ? { dataDir: '/rln_e2e_signet' } : {})
+			...(e2eReset ? { dataDir: taskerDataDir } : {})
 		});
 
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
@@ -306,8 +305,9 @@ export async function initialize(): Promise<void> {
 
 	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
 
-	if (state.utexoWallet && storeState.rgb?.initialized) {
-		walletStore.update((s) => ({ ...s, isInitializing: false }));
+	if (state.utexoWallet) {
+		walletStore.update((s) => ({ ...s, isInitializing: false, isConnected: true }));
+		probeWindow().__utexoWallet = state.utexoWallet;
 		return;
 	}
 

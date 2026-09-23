@@ -1,10 +1,12 @@
 import { browser } from '$app/environment';
 import { nip19 } from 'nostr-tools';
-import { NDKUser, type NDKEvent, type NDKSubscription } from '@nostr-dev-kit/ndk';
+import type { NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 import { ndk } from '$lib/nostr/ndk';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { parseConsignmentMessage } from './consignment-exchange';
 import { ContractRune } from '$lib/runes/contract.svelte';
+import { decryptDM } from '$lib/utils/nostr';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 export interface ConsignmentSubscriptionOptions {
 	onApplied?: (contractId: string) => void;
@@ -55,8 +57,23 @@ export class RgbConsignmentSubscription {
 		if (this.seenEventIds.has(event.id)) return;
 		this.seenEventIds.add(event.id);
 		try {
-			await event.decrypt(new NDKUser({ pubkey: event.pubkey }), undefined, 'nip44');
-			const message = parseConsignmentMessage(event.content);
+			// Use nostr-tools nip44 for decryption (matches sender's encryption)
+			const { nsec } = await getNostrKeyPair();
+			const decoded = nip19.decode(await getNpub());
+			const ourPubkey = decoded.data as string;
+
+			let decryptedContent: string;
+			if (event.pubkey === ourPubkey) {
+				// We are the sender, decrypt with recipient's pubkey
+				const recipientTag = event.tags.find((t: string[]) => t[0] === 'p');
+				if (!recipientTag || !recipientTag[1]) return;
+				decryptedContent = await decryptDM(nsec, event.content, recipientTag[1]);
+			} else {
+				// We are the recipient, decrypt with sender's pubkey
+				decryptedContent = await decryptDM(nsec, event.content, event.pubkey);
+			}
+
+			const message = parseConsignmentMessage(decryptedContent);
 			if (!message) return;
 			const rune = ContractRune.get(message.contractId);
 			if (!rune) return;

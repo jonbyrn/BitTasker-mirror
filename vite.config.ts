@@ -33,8 +33,8 @@ function resolvePackageRoot(packageName: string): string {
 }
 
 const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
-const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm');
-const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm');
+const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm').replaceAll('\\', '/');
+const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm').replaceAll('\\', '/');
 
 function nobleHashesEsm(): Plugin {
 	return {
@@ -443,7 +443,10 @@ function rewriteUtexoWasmUrls(): Plugin {
 					"new URL('/wasm/rgb_lib_wasm_bindings_bg.wasm', window.location.origin).href"
 				);
 			}
-			if (id.includes('rln_wasm_sdk.js') && code.includes('__wbg___wbindgen_throw_81fc77679af83bc6')) {
+			if (
+				id.includes('rln_wasm_sdk.js') &&
+				code.includes('__wbg___wbindgen_throw_81fc77679af83bc6')
+			) {
 				updatedCode = updatedCode.replace(
 					'throw new Error(getStringFromWasm0(arg0, arg1));',
 					`const __btMsg = getStringFromWasm0(arg0, arg1);
@@ -733,12 +736,14 @@ export default defineConfig(({ mode }) => {
 			viteStaticCopy({
 				targets: [
 					{
-						src: 'node_modules/.pnpm/@utexo+rln-wasm@0.10.0-beta.3/node_modules/@utexo/rln-wasm/rln_wasm_sdk_bg.wasm',
-						dest: 'wasm'
+						src: rlnWasmRoot + '/rln_wasm_sdk_bg.wasm',
+						dest: 'wasm',
+						noErrorOnMissing: true
 					},
 					{
-						src: 'node_modules/.pnpm/@utexo+rgb-lib-wasm@1.0.0-beta.3/node_modules/@utexo/rgb-lib-wasm/rgb_lib_wasm_bindings_bg.wasm',
-						dest: 'wasm'
+						src: rgbLibWasmRoot + '/rgb_lib_wasm_bindings_bg.wasm',
+						dest: 'wasm',
+						noErrorOnMissing: true
 					}
 				]
 			}),
@@ -867,11 +872,11 @@ export default defineConfig(({ mode }) => {
 				'typeforce',
 				'bip66',
 				'buffer-real-impl',
-							'@utexo/rgb-sdk-web',
-							'@utexo/rln-wasm'
-						]
-					},
-					server: {
+				'@utexo/rgb-sdk-web',
+				'@utexo/rln-wasm'
+			]
+		},
+		server: {
 			port: 3000,
 			strictPort: true,
 			allowedHosts: true,

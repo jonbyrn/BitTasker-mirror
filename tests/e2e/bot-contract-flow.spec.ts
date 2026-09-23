@@ -118,6 +118,7 @@ type BrowserE2EWindow = Window & {
 		onchainSendEnd?: (params: { signedPsbt: string; skipSync?: boolean }) => Promise<unknown>;
 	};
 	__E2E_MINTED_ASSET_ID?: string;
+	__E2E_TASKEE_INVOICE?: string;
 	__E2E_SAFE_OUTPOINTS?: string[];
 	__E2E_SPLIT_TXID?: string;
 	__E2E_TRANSFERS?: E2ETransfer[];
@@ -130,34 +131,6 @@ type BrowserE2EWindow = Window & {
 	transfers?: (args: { assetId: string }) => Promise<unknown>;
 	_refreshRgbWallet?: () => Promise<void>;
 };
-
-async function withRgbIdle<T>(
-	page: import('@playwright/test').Page,
-	fn: () => Promise<T>,
-	tries = 15,
-	delayMs = 2000
-): Promise<T> {
-	let lastError: unknown;
-	for (let i = 0; i < tries; i++) {
-		try {
-			return await fn();
-		} catch (err: unknown) {
-			lastError = err;
-			const msg = err instanceof Error ? err.message : String(err);
-			if (
-				msg.includes('busy') ||
-				msg.includes('locked') ||
-				msg.includes('mutex') ||
-				msg.includes('not initialized')
-			) {
-				await page.waitForTimeout(delayMs);
-				continue;
-			}
-			throw err;
-		}
-	}
-	throw lastError;
-}
 
 async function countRelayEvents(
 	pool: SimplePool,
@@ -806,74 +779,36 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	console.info('[e2e] Taskee Blank Invoice:', invoice.slice(0, 80));
 	if (!invoice) throw new Error('Taskee blank invoice was empty');
 
-	const beginResult = await withRgbIdle(taskerPage, () =>
-		taskerPage.evaluate(
-			async (args: { assetId: string; invoice: string }) => {
-				const w = (window as BrowserE2EWindow).__utexoWallet;
-				if (!w?.onchainSendBegin) {
-					return { success: false, error: 'onchainSendBegin missing', psbtPrefix: '', psbt: '' };
-				}
-				try {
-					const psbt = await w.onchainSendBegin({
-						invoice: args.invoice,
-						assetId: args.assetId,
-						amount: 10_000,
-						feeRate: 2,
-						minConfirmations: 1
-					});
-					const text = typeof psbt === 'string' ? psbt : '';
-					return {
-						success: text.length > 0,
-						error: text.length > 0 ? '' : 'sendBegin did not return a PSBT',
-						psbtPrefix: text.slice(0, 80),
-						psbt: text
-					};
-				} catch (error: unknown) {
-					const message = error instanceof Error ? error.message : String(error);
-					return { success: false, error: message, psbtPrefix: '', psbt: '' };
-				}
-			},
-			{ assetId: minted.assetId, invoice }
-		)
-	);
-	console.info(
-		'[e2e] onchainSendBegin Result:',
-		JSON.stringify({
-			success: beginResult.success,
-			error: beginResult.error,
-			psbtPrefix: beginResult.psbtPrefix
-		})
-	);
+	await taskerPage.evaluate((text: string) => {
+		(window as BrowserE2EWindow).__E2E_TASKEE_INVOICE = text;
+	}, invoice);
 
-	const unknownUtxo = /unknownutxo|utxo not found/i.test(beginResult.error);
-	if (beginResult.success && beginResult.psbt.length > 0 && !unknownUtxo) {
-		const sendResult = await withRgbIdle(taskerPage, () =>
-			taskerPage.evaluate(async (psbt: string) => {
-				const w = (window as BrowserE2EWindow).__utexoWallet;
-				if (!w?.signPsbt || !w.onchainSendEnd) {
-					return { success: false, txid: '', error: 'sign or end missing' };
-				}
-				try {
-					const signed = await w.signPsbt(psbt);
-					const end = await w.onchainSendEnd({ signedPsbt: signed });
-					const text = typeof end === 'string' ? end : JSON.stringify(end);
-					return {
-						success: true,
-						txid: text.match(/[0-9a-f]{64}/i)?.[0] ?? '',
-						error: ''
-					};
-				} catch (error: unknown) {
-					const message = error instanceof Error ? error.message : String(error);
-					return { success: false, txid: '', error: message };
-				}
-			}, beginResult.psbt)
-		);
-		console.info('[e2e] sendResult:', JSON.stringify(sendResult));
-		if (sendResult.txid) {
-			console.info(`[e2e] send txid: ${sendResult.txid}`);
-			console.info(`[e2e] MEMPOOL LIVE: https://esplora-api.utexo.com/tx/${sendResult.txid}`);
-		}
-	}
+	const acceptFund = taskerPage.locator('[data-testid="accept-fund-button"]');
+	await expect(acceptFund).toBeEnabled({ timeout: 30_000 });
+	await acceptFund.click();
+	const payFromWallet = taskerPage.locator('[data-testid="pay-funding-from-wallet"]');
+	await expect(payFromWallet).toBeEnabled({ timeout: 120_000 });
+
+	const sendLogged = taskerPage.waitForEvent('console', {
+		timeout: 240_000,
+		predicate: (msg) => msg.text().includes('[contract-rune] sendToInvoice completed')
+	});
+	const payFailed = taskerPage.waitForEvent('console', {
+		timeout: 240_000,
+		predicate: (msg) =>
+			msg.text().includes('[E2E-wallet-payment-failure]') ||
+			msg.text().includes('[accept-fund] failed')
+	});
+	await payFromWallet.click();
+	const outcome = await Promise.race([
+		sendLogged.then((msg) => ({ ok: true as const, text: msg.text() })),
+		payFailed.then((msg) => ({ ok: false as const, text: msg.text() }))
+	]);
+	sendLogged.catch(() => undefined);
+	payFailed.catch(() => undefined);
+	console.info(outcome.text);
+	if (!outcome.ok) throw new Error(outcome.text);
+	expect(outcome.text).toContain('https://esplora-api.utexo.com/tx/');
 	await holdOpenForInspection();
 	await taskerContext.close();
 	await taskeeContext.close();

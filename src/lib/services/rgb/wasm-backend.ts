@@ -7,8 +7,10 @@
  * `refreshWallet()`/`listTransfers()` rather than imperative per-seal calls.
  * `types.ts`'s `RgbSealState` mirrors that status machine directly:
  *
- * - `commit()`  -> `onchainReceive()` (UTEXO single receive entry; omits
- *                  `assetId` for native BTC). Falls back to `witnessReceive()`.
+ * - `commit()`  -> `onchainReceive()` with a blinded invoice (omits `assetId`
+ *                  for native BTC). A witness/`wvout` invoice makes the payer
+ *                  add a foreign UTXO that BDK does not have. Falls back to
+ *                  `witnessReceive()`.
  * - `witness()` -> `refreshWallet()` + `listTransfers()`, fail-closed: rejects
  *                  unless the matching transfer has reached at least
  *                  `WAITING_CONFIRMATIONS`.
@@ -68,7 +70,7 @@ type ReceiveInvoiceParams = {
 };
 
 function receiveInvoiceParams(input: CommitCommandInput): ReceiveInvoiceParams {
-	const params: ReceiveInvoiceParams = { amount: input.amount, witness: true };
+	const params: ReceiveInvoiceParams = { amount: input.amount, witness: false };
 	if (!isNativeBitcoinAsset(input.assetId)) {
 		params.assetId = input.assetId;
 	}
@@ -152,7 +154,12 @@ function toRgbSeal(
 }
 
 export class WasmRgbSealBackend implements RgbSealBackend {
-	constructor(private readonly wallet: UTEXOWallet) {}
+	constructor(private readonly wallet: UTEXOWallet) {
+		// Expose wallet for E2E USDT verification
+		if (import.meta.env.VITE_E2E_TEST) {
+			(window as Window & { __utexoWallet?: UTEXOWallet }).__utexoWallet = wallet;
+		}
+	}
 
 	async commit(input: CommitCommandInput): Promise<RgbSeal> {
 		return withWalletMutex(this.wallet, async () => {

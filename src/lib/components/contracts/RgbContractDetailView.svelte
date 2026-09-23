@@ -23,6 +23,8 @@
 		type?: string;
 		message?: string;
 		proofUrl?: string;
+		workMessage?: string;
+		payoutInvoice?: string;
 		seals?: Partial<RgbSeal>[];
 	};
 	type TimelineEntry = {
@@ -53,8 +55,17 @@
 			(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress') &&
 			!isSubmitting
 	);
-	const canRelease = $derived(
+	const canApprove = $derived(
 		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
+	);
+	const canCreatePayout = $derived(
+		role === 'taskee' && snapshot?.status === 'approved' && !snapshot.payoutInvoice && !isReleasing
+	);
+	const canRelease = $derived(
+		role === 'tasker' &&
+			snapshot?.status === 'approved' &&
+			Boolean(snapshot.payoutInvoice) &&
+			!isReleasing
 	);
 
 	function parseStatusContent(content: string): ContractStatusContent | null {
@@ -141,6 +152,9 @@
 				latest.event.tags.find((tag) => tag[0] === 's')?.[1] ??
 				'funded') as ContractRuneStatus;
 			nextRune.seals = normalizeSeals(content, contractId);
+			nextRune.workMessage = content.workMessage ?? content.message;
+			nextRune.proofUrl = content.proofUrl;
+			nextRune.payoutInvoice = content.payoutInvoice;
 			rune = nextRune;
 			timeline = parsedEntries.map(({ event, content: item }) => ({
 				id: event.id ?? `${event.created_at}-${item.status}`,
@@ -170,13 +184,42 @@
 		}
 	}
 
+	async function handleApprove(): Promise<void> {
+		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await rune.approveWork();
+			await loadContract();
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to approve work.';
+		} finally {
+			isReleasing = false;
+		}
+	}
+
+	async function handleCreatePayout(): Promise<void> {
+		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await initWasm();
+			await rune.createPayoutInvoice();
+			await loadContract();
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to create payout invoice.';
+		} finally {
+			isReleasing = false;
+		}
+	}
+
 	async function handleRelease(): Promise<void> {
 		if (!rune) return;
 		isReleasing = true;
 		errorMessage = '';
 		try {
 			await initWasm();
-			await rune.releaseRgbEscrow();
+			await rune.releaseEscrow();
 			await loadContract();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to release funds.';
@@ -287,14 +330,56 @@
 			</div>
 		{/if}
 
+		{#if canApprove}
+			<div
+				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+				data-testid="approve-work-panel"
+			>
+				<h2 class="font-semibold">Approve work</h2>
+				<p class="text-base-content/70 mt-2 text-sm">
+					Approve the deliverable so the Taskee can create a payout invoice.
+				</p>
+				<button
+					class="btn btn-primary mt-3"
+					onclick={handleApprove}
+					disabled={isReleasing}
+					data-testid="approve-work-button"
+				>
+					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+					Approve work
+				</button>
+			</div>
+		{/if}
+
+		{#if canCreatePayout}
+			<div
+				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+				data-testid="payout-invoice-panel"
+			>
+				<h2 class="font-semibold">Payout invoice</h2>
+				<p class="text-base-content/70 mt-2 text-sm">
+					Create a blank invoice for the escrowed RGB asset.
+				</p>
+				<button
+					class="btn btn-primary mt-3"
+					onclick={handleCreatePayout}
+					disabled={isReleasing}
+					data-testid="create-payout-invoice-button"
+				>
+					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+					Create payout invoice
+				</button>
+			</div>
+		{/if}
+
 		{#if canRelease}
 			<div
 				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
 				data-testid="release-funds-panel"
 			>
-				<h2 class="font-semibold">Approve & Release Funds</h2>
-				<p class="text-base-content/70 mt-2 text-sm">
-					Review the Taskee deliverable, then release the RGB escrow.
+				<h2 class="font-semibold">Release escrow</h2>
+				<p class="text-base-content/70 mt-2 text-sm break-all" data-testid="payout-invoice">
+					{snapshot.payoutInvoice}
 				</p>
 				<button
 					class="btn btn-success mt-3"
@@ -303,7 +388,7 @@
 					data-testid="approve-release-funds-button"
 				>
 					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
-					Approve & Release Funds
+					Release escrow
 				</button>
 			</div>
 		{/if}

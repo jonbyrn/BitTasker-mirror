@@ -265,6 +265,7 @@
 			const deviceName = await createUserDeviceShortName(npub);
 			const isTestEnvironment =
 				import.meta.env.VITE_SKIP_PASSKEY === 'true' ||
+				import.meta.env.VITE_E2E_TEST === 'true' ||
 				(typeof window !== 'undefined' &&
 					'__PLAYWRIGHT_TEST__' in window &&
 					(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true);
@@ -393,8 +394,8 @@
 			// Login with nostr, register user if it does not exist
 			const res = await authService.nostrLogin({
 				event: newSignedEvent,
-				challenge: credentialData.challenge,
-				authMethod: (isTestEnvironment ? 'nsec' : 'passkey') as 'passkey',
+				challenge: credentialData.challenge || challenge,
+				authMethod: 'nsec',
 				deviceId,
 				encryptedData,
 				deviceName,

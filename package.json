@@ -111,6 +111,7 @@
 		"@testing-library/user-event": "^14.6.7",
 		"@typechain/ethers-v6": "^0.5.1",
 		"@types/debug": "^4.1.12",
+		"@types/node": "^26.6.2",
 		"@types/qrcode": "^1.5.5",
 		"@vitest/browser": "^4.1.8",
 		"@vitest/coverage-v8": "^4.1.8",
@@ -146,7 +147,8 @@
 		"vite-plugin-node-polyfills": "^0.24.0",
 		"vite-plugin-static-copy": "^4.1.1",
 		"vitest": "^4.1.8",
-		"wrangler": "^4.90.0"
+		"wrangler": "^4.90.0",
+		"ws": "^8.21.3"
 	},
 	"dependencies": {
 		"@bittasker/reviews-contracts": "^0.0.2",
@@ -250,14 +252,12 @@
 		"vite-plugin-top-level-await": "^1.5.0",
 		"vite-plugin-wasm": "^3.4.1",
 		"wif": "^5.0.0",
-		"ws": "^8.21.3",
 		"zod": "^4.4.3"
 	},
 	"overrides": {
 		"bolt11": "file:./src/lib/shims/bolt11-package",
 		"crypto-browserify": "file:./src/lib/shims/crypto-browserify-package",
 		"cookie": "^0.7.2",
-		"ws": "^8.21.0",
 		"svelte-i18n": {
 			"esbuild": "^0.25.12"
 		},

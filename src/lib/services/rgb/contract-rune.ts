@@ -12,7 +12,9 @@ export type ContractStatus =
 	| 'funded'
 	| 'work_in_progress'
 	| 'work_submitted'
+	| 'approved'
 	| 'released'
+	| 'settled'
 	| 'failed'
 	| 'disputed'
 	| 'cancelled';
@@ -31,6 +33,9 @@ export interface ContractRuneSnapshot {
 	error: string | null;
 	assetId: string | null;
 	amount: number;
+	workMessage: string | null;
+	proofUrl: string | null;
+	payoutInvoice: string | null;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -44,6 +49,9 @@ export class ContractRune {
 	private _error: string | null = null;
 	private _assetId: string | null = null;
 	private _amount: number = 0;
+	private _workMessage: string | null = null;
+	private _proofUrl: string | null = null;
+	private _payoutInvoice: string | null = null;
 	private _createdAt: number = Date.now();
 	private _updatedAt: number = Date.now();
 
@@ -69,6 +77,9 @@ export class ContractRune {
 			error: this._error,
 			assetId: this._assetId,
 			amount: this._amount,
+			workMessage: this._workMessage,
+			proofUrl: this._proofUrl,
+			payoutInvoice: this._payoutInvoice,
 			createdAt: this._createdAt,
 			updatedAt: this._updatedAt
 		};
@@ -95,7 +106,9 @@ export class ContractRune {
 			'funded',
 			'work_in_progress',
 			'work_submitted',
+			'approved',
 			'released',
+			'settled',
 			'failed',
 			'disputed',
 			'cancelled'
@@ -203,6 +216,101 @@ export class ContractRune {
 		await this.sendToInvoice(invoice);
 		this._status = 'funded';
 		this._fundingState = 'confirmed';
+		this._updateTimestamp();
+		return this.snapshot;
+	}
+
+	submitWork(message: string, proofUrl?: string): ContractRuneSnapshot {
+		if (this._status !== 'funded' && this._status !== 'work_in_progress') {
+			throw new Error(`Cannot submit work from ${this._status} state`);
+		}
+		const deliverable = message.trim();
+		const proof = proofUrl?.trim() ?? '';
+		if (!deliverable && !proof) throw new Error('Deliverable proof is required');
+		this._workMessage = deliverable || null;
+		this._proofUrl = proof || null;
+		this._status = 'work_submitted';
+		this._error = null;
+		this._updateTimestamp();
+		return this.snapshot;
+	}
+
+	approveWork(): ContractRuneSnapshot {
+		if (this._status !== 'work_submitted') {
+			throw new Error(`Cannot approve work from ${this._status} state`);
+		}
+		this._status = 'approved';
+		this._error = null;
+		this._updateTimestamp();
+		return this.snapshot;
+	}
+
+	async createPayoutInvoice(): Promise<string> {
+		if (this._status !== 'approved') {
+			throw new Error(`Cannot create a payout invoice from ${this._status} state`);
+		}
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('UTEXO wallet not initialized');
+		const received = await wallet.onchainReceive({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+		const invoice = received.invoice?.trim() ?? '';
+		if (!invoice) throw new Error('Taskee payout invoice was empty');
+		this._payoutInvoice = invoice;
+		this._updateTimestamp();
+		return invoice;
+	}
+
+	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
+		if (this._status !== 'approved') {
+			throw new Error(`Cannot release escrow from ${this._status} state`);
+		}
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('UTEXO wallet not initialized');
+		const payout = (invoice ?? this._payoutInvoice)?.trim() ?? '';
+		if (!payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
+			throw new Error('Payout destination must be an rgb: invoice.');
+		}
+
+		const { nia } = await wallet.listAssets();
+		const mintedAssetId =
+			typeof window !== 'undefined'
+				? (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID
+				: undefined;
+		const assetId =
+			mintedAssetId ||
+			this._assetId ||
+			import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
+			nia.find((asset: { ticker?: string }) => asset.ticker === 'USDT')?.assetId;
+		const listed = nia.find((asset: { assetId?: string }) => asset.assetId === assetId);
+		const amount = Number(
+			(listed as { balance?: { spendable?: number } } | undefined)?.balance?.spendable ?? 0
+		);
+		if (!assetId || amount <= 0) {
+			throw new Error('No spendable RGB balance to release escrow');
+		}
+
+		console.info('[contract-rune] releaseEscrow', {
+			assetId,
+			amount,
+			invoicePrefix: payout.slice(0, 40)
+		});
+		await prepareRgbOnchainSend(wallet, assetId);
+		await wallet.onchainSend({
+			invoice: payout,
+			assetId,
+			amount,
+			feeRate: 2,
+			minConfirmations: 1
+		});
+		await wallet.refreshWallet();
+		this._assetId = assetId;
+		this._amount = amount;
+		this._payoutInvoice = payout;
+		this._status = 'settled';
+		this._error = null;
 		this._updateTimestamp();
 		return this.snapshot;
 	}

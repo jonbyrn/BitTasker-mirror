@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { resolveContentKey, SLUG_MAP, getHreflangLinks } from '$lib/content/learn/slug-map';
+import { resolveContentKey, SLUG_MAP, getHreflangLinks } from '$lib/content/taproot/slug-map';
 import type { PageLoad } from './$types';
 import type { LearnPageContent, LearnPageSeo } from '$lib/types/learn';
 
@@ -13,7 +13,9 @@ const esModules = import.meta.glob('$lib/content/learn/**/*.es.ts', { eager: fal
 
 type ContentModule = { content: LearnPageContent };
 
-function buildContentMap(modules: Record<string, unknown>): Record<string, () => Promise<ContentModule>> {
+function buildContentMap(
+	modules: Record<string, unknown>
+): Record<string, () => Promise<ContentModule>> {
 	const map: Record<string, () => Promise<ContentModule>> = {};
 	for (const [path, importFn] of Object.entries(modules)) {
 		const match = path.match(/content\/learn\/(.+)\.(en|es)\.ts$/);
@@ -63,11 +65,7 @@ const BREADCRUMB_LABELS: Record<string, Record<string, string>> = {
 	'future-of-work': { en: 'Future of Work', es: 'Futuro del Trabajo' }
 };
 
-function buildSeo(
-	contentKey: string,
-	slug: string,
-	content: LearnPageContent
-): LearnPageSeo {
+function buildSeo(contentKey: string, slug: string, content: LearnPageContent): LearnPageSeo {
 	const canonical = `${BASE_URL}/learn/${slug}/`;
 	const description = content.answerBlock.slice(0, 155);
 	const pillar = contentKey.split('/')[0];
@@ -120,7 +118,11 @@ function buildSeo(
 			datePublished: lastUpdated,
 			dateModified: lastUpdated
 		},
-		{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: breadcrumbItems }
+		{
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: breadcrumbItems
+		}
 	];
 
 	if (content.faq.length > 0) {

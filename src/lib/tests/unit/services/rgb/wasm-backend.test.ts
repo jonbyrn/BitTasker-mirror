@@ -52,7 +52,7 @@ describe('WasmRgbSealBackend.commit', () => {
 
 		const seal = await backend.commit(BTC_COMMIT);
 
-		expect(wallet.onchainReceive).toHaveBeenCalledWith({ amount: 3075, witness: true });
+		expect(wallet.onchainReceive).toHaveBeenCalledWith({ amount: 3075, witness: false });
 		expect(wallet.onchainReceive).not.toHaveBeenCalledWith(
 			expect.objectContaining({ assetId: 'btc_onchain' })
 		);
@@ -80,7 +80,7 @@ describe('WasmRgbSealBackend.commit', () => {
 		expect(wallet.onchainReceive).toHaveBeenCalledWith({
 			amount: 10,
 			assetId: 'rgb:usdt',
-			witness: true
+			witness: false
 		});
 	});
 

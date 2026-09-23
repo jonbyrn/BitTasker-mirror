@@ -1,5 +1,4 @@
 import { walletStore, state } from './wallet-state';
-import { get } from 'svelte/store';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
@@ -53,9 +52,9 @@ export function resolveRgbIndexerUrl(url: string | undefined, network: string): 
  * When `proxyUrl` is `undefined` or `""`, it falls back to `transportEndpoint`
  * (https://rgb-proxy.utexo.com/json-rpc). Passing an `https://` scheme into the
  * RLN WebSocket node parameter triggers Rust's `Url::parse` panic.
- * 
- * FIX: Always return a valid `wss://` URI when disabled, preventing the `??` 
- * fallback operator from firing and avoiding the HTTPS transport URL being 
+ *
+ * FIX: Always return a valid `wss://` URI when disabled, preventing the `??`
+ * fallback operator from firing and avoiding the HTTPS transport URL being
  * passed to the RLN WebSocket node.
  */
 export function rlnProxyUrl(url: string | undefined): string {
@@ -71,7 +70,6 @@ export function rlnCreateUrls(input: {
 	transport?: string;
 	proxy?: string;
 	network: string;
-
 }): { indexerUrl: string; transportEndpoint: string; proxyUrl: string | undefined } {
 	const transportEndpoint = input.transport?.trim() || DEFAULT_RGB_TRANSPORT;
 	return {
@@ -87,12 +85,53 @@ export function isRlnUrlParseError(error: unknown): boolean {
 
 export async function clearRlnRuntime(): Promise<void> {
 	if (!browser || typeof indexedDB === 'undefined') return;
-	await new Promise<void>((resolve) => {
-		const request = indexedDB.deleteDatabase('rln_wasm_sdk_runtime');
+	await deleteIndexedDatabase('rln_wasm_sdk_runtime');
+}
+
+const E2E_RGB_DATABASES = ['rln_wasm_sdk_runtime', 'rln_73c5da0a_signet'] as const;
+
+export function isE2eWalletReset(): boolean {
+	return import.meta.env.VITE_E2E_TEST === 'true';
+}
+
+/** IndexedDB names that hold the poisoned Signet RGB/BDK snapshot. */
+export function rgbDatabasesToDelete(existing: Array<string | undefined>): string[] {
+	const names = new Set<string>(E2E_RGB_DATABASES);
+	for (const name of existing) {
+		if (name && /rln_/i.test(name)) names.add(name);
+	}
+	return [...names];
+}
+
+function deleteIndexedDatabase(name: string): Promise<void> {
+	return new Promise((resolve) => {
+		const request = indexedDB.deleteDatabase(name);
 		request.onsuccess = () => resolve();
 		request.onerror = () => resolve();
 		request.onblocked = () => resolve();
 	});
+}
+
+/** Drop the ghost `rln_*_signet` snapshot before a new E2E wallet is created. */
+export async function purgeE2eRgbStorage(): Promise<void> {
+	if (!browser || !isE2eWalletReset() || typeof indexedDB === 'undefined') return;
+	const listed = typeof indexedDB.databases === 'function' ? await indexedDB.databases() : [];
+	const names = rgbDatabasesToDelete(listed.map((entry) => entry.name));
+	await Promise.all(names.map((name) => deleteIndexedDatabase(name)));
+	for (const storage of [localStorage, sessionStorage]) {
+		for (const key of Object.keys(storage)) {
+			if (/rln_/i.test(key)) storage.removeItem(key);
+		}
+	}
+	const root = await navigator.storage?.getDirectory?.().catch(() => null);
+	if (!root) return;
+	const entries: string[] = [];
+	for await (const [name] of root.entries()) entries.push(name);
+	await Promise.all(
+		entries
+			.filter((name) => /rln_/i.test(name))
+			.map((name) => root.removeEntry(name, { recursive: true }).catch(() => undefined))
+	);
 }
 
 export function isMnemonicError(error: unknown): boolean {
@@ -285,24 +324,24 @@ export async function scanBtcBalance(
 	}
 	await wallet.refreshWallet();
 	try {
-			const [btcBalance, address, unspents] = await Promise.all([
-				wallet.getBtcBalance(),
-				wallet.getAddress(),
-				wallet.listUnspents ? wallet.listUnspents().catch(() => []) : Promise.resolve([])
-			]);
-			return {
-				address,
-				balanceSats: sumSpendableSats(btcBalance),
-				utxoCount: unspents.length
-			};
-		} catch (error) {
-			console.warn('[wallet-balances] Network error during balance scan:', error);
-			return {
-				address: '',
-				balanceSats: 0,
-				utxoCount: 0
-			};
-		}
+		const [btcBalance, address, unspents] = await Promise.all([
+			wallet.getBtcBalance(),
+			wallet.getAddress(),
+			wallet.listUnspents ? wallet.listUnspents().catch(() => []) : Promise.resolve([])
+		]);
+		return {
+			address,
+			balanceSats: sumSpendableSats(btcBalance),
+			utxoCount: unspents.length
+		};
+	} catch (error) {
+		console.warn('[wallet-balances] Network error during balance scan:', error);
+		return {
+			address: '',
+			balanceSats: 0,
+			utxoCount: 0
+		};
+	}
 }
 
 function isRawRgbAsset(value: unknown): value is RawRgbAsset {
@@ -405,13 +444,15 @@ export async function refreshRgbBalances(): Promise<void> {
 			...s,
 			rgb: {
 				...s.rgb,
-				assets: (assets || []).map((a: { id: string; name?: string; ticker?: string; balance?: string | number }) => ({
-					assetId: a.id,
-					name: a.name ?? 'RGB Asset',
-					symbol: a.ticker,
-					balance: Number(a.balance ?? 0),
-					formattedBalance: String(a.balance ?? 0)
-				}))
+				assets: (assets || []).map(
+					(a: { id: string; name?: string; ticker?: string; balance?: string | number }) => ({
+						assetId: a.id,
+						name: a.name ?? 'RGB Asset',
+						symbol: a.ticker,
+						balance: Number(a.balance ?? 0),
+						formattedBalance: String(a.balance ?? 0)
+					})
+				)
 			}
 		}));
 	} catch (err) {
@@ -422,6 +463,41 @@ export async function refreshRgbBalances(): Promise<void> {
 import { readable as __readable } from 'svelte/store';
 export const allAssets = __readable([]);
 export const totalBalances = __readable({ btcSats: 0, usd: 0 });
+
+export async function createAllocations() {
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized');
+	console.info('[rgb-allocations:start] Splitting BTC into UTXOs for RGB...');
+	const res = await wallet.createUtxos({ upTo: true, num: 5, feeRate: 2 });
+	console.info('[rgb-allocations:success]', res);
+	return res;
+}
+
+// Expose for DevTools console testing
+if (typeof window !== 'undefined') {
+	const probe = window as Window & {
+		getWalletInstance?: typeof getUtexoWallet;
+		createAllocations?: typeof createAllocations;
+		testSendBtc?: () => Promise<void>;
+	};
+	probe.getWalletInstance = getUtexoWallet;
+	probe.createAllocations = createAllocations;
+	probe.testSendBtc = async () => {
+		const wallet = getUtexoWallet();
+		if (!wallet) return;
+		try {
+			const sendFn = wallet.sendBtc;
+			const txid = await sendFn.call(wallet, {
+				address: 'tb1pxqpq9v0zxkrwcduyw74kducvvvyv4uugjradcmprwk91aeh74scse0e54s',
+				amount: 3000,
+				feeRate: 1
+			});
+			console.log('Success! TXID:', txid);
+		} catch (error) {
+			console.error('ACTUAL SEND ERROR:', error);
+		}
+	};
+}
 
 export async function issueRgbAsset(params: {
 	ticker: string;
@@ -441,26 +517,37 @@ export async function issueRgbAsset(params: {
 	console.info('[rgb-issue:success]', result);
 	await refreshRgbBalances();
 	return result;
-	}
+}
 
-	export async function createRgbInvoice(params?: {
-		assetId?: string;
-		amount?: number;
-	}): Promise<{ invoice: string; blindedUtxo?: string }> {
-		const wallet = getUtexoWallet() as any;
-		if (!wallet) throw new Error('Wallet not initialized');
-		console.info('[rgb-invoice:start]', params);
-		if (typeof wallet.onchainReceive === 'function') {
-			const res = await wallet.onchainReceive({
-				assetId: params?.assetId,
-				amount: params?.amount
-			});
-			return typeof res === 'string' ? { invoice: res } : res;
-		}
-		const fallbackFn = wallet.invoice || wallet.createInvoice || wallet.witnessReceive || wallet.blindReceive;
-		if (typeof fallbackFn === 'function') {
-			const res = await fallbackFn.call(wallet, { assetId: params?.assetId, amount: params?.amount });
-			return typeof res === 'string' ? { invoice: res } : res;
-		}
-		throw new Error(`No receive method available on UTEXOWallet instance.`);
+export async function createRgbInvoice(params?: {
+	assetId?: string;
+	amount?: number;
+}): Promise<{ invoice: string; blindedUtxo?: string }> {
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized');
+	console.info('[rgb-invoice:start]', params);
+	// Explicitly call blindReceive for Blind Mode invoices (UTOB / blinded UTXOs)
+	if (typeof wallet.blindReceive === 'function') {
+		const res = await wallet.blindReceive({
+			assetId: params?.assetId,
+			amount: params?.amount
+		});
+		return typeof res === 'string' ? { invoice: res } : res;
 	}
+	if (typeof wallet.onchainReceive === 'function') {
+		const res = await wallet.onchainReceive({
+			assetId: params?.assetId,
+			amount: params?.amount,
+			blind: true,
+			blinded: true
+		});
+		return typeof res === 'string' ? { invoice: res } : res;
+	}
+	const fallbackFn =
+		wallet.invoice || wallet.createInvoice || wallet.witnessReceive || wallet.blindReceive;
+	if (typeof fallbackFn === 'function') {
+		const res = await fallbackFn.call(wallet, { assetId: params?.assetId, amount: params?.amount });
+		return typeof res === 'string' ? { invoice: res } : res;
+	}
+	throw new Error(`No receive method available on UTEXOWallet instance.`);
+}
