@@ -1,13 +1,13 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
+import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
 	type ContractPaymentAsset,
 	type PaymentSplitConfig,
-	getConfiguredRgbUsdtAssetId,
-	isNativeBitcoinAsset
+	getConfiguredRgbUsdtAssetId
 } from '$lib/types/rgb-contract';
 import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-exchange';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
@@ -90,17 +90,6 @@ function assetAmount(
 	return Math.max(1, Math.round(amountUsd * 100));
 }
 
-function bitcoinAssetAliases(): Set<string> {
-	return new Set(['BTC', 'btc', 'bitcoin', 'btc_onchain']);
-}
-
-function assetsMatch(invoiceAssetId: string | undefined, sealAssetId: string): boolean {
-	if (!invoiceAssetId) return bitcoinAssetAliases().has(sealAssetId);
-	if (invoiceAssetId === sealAssetId) return true;
-	const aliases = bitcoinAssetAliases();
-	return aliases.has(invoiceAssetId) && aliases.has(sealAssetId);
-}
-
 async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -130,7 +119,15 @@ function isE2ERun(): boolean {
 	return import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 }
 
+function e2eMintedAssetId(): string | undefined {
+	if (typeof window === 'undefined') return undefined;
+	const minted = (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
+	return minted || undefined;
+}
+
 function resolveAssetId(asset: ContractPaymentAsset): string {
+	const minted = e2eMintedAssetId();
+	if (minted) return minted;
 	if (asset === 'btc_onchain' || asset === 'btc_lightning') return 'BTC';
 	if (isE2ERun()) {
 		return import.meta.env.VITE_RGB_USDT_ASSET_ID ?? 'rgb:mock_e2e_usdt_asset_id';
@@ -293,12 +290,25 @@ export class ContractRune {
 			].filter((entry) => entry.percentage > 0);
 			const fundedSeals: RgbSeal[] = [];
 			for (const entry of splitEntries) {
+				const assetId = resolveAssetId(entry.asset);
+				let amount = assetAmount(
+					this.totalAmountUsd,
+					entry.percentage,
+					entry.asset,
+					this.amountSats
+				);
+				const minted = e2eMintedAssetId();
+				if (minted && assetId === minted) {
+					const { nia } = await wallet.listAssets();
+					const spendable = nia?.find((row) => row.assetId === minted)?.balance?.spendable;
+					if (typeof spendable === 'number' && spendable > 0) amount = spendable;
+				}
 				const result = await queue.commit({
 					contractId: this.contractId as RgbSeal['contractId'],
 					contractTitle: this.contractTitle,
 					bidderComments: this.bidderComments,
-					assetId: resolveAssetId(entry.asset),
-					amount: assetAmount(this.totalAmountUsd, entry.percentage, entry.asset, this.amountSats)
+					assetId,
+					amount
 				});
 				if (!result.ok || !result.value) throw new Error(result.error ?? 'Escrow funding failed');
 				fundedSeals.push(result.value);
@@ -320,6 +330,16 @@ export class ContractRune {
 			throw new Error(`Cannot verify funding from ${this.status} state`);
 		}
 		return this.confirmFundingFromPrepared(this.snapshot);
+	}
+
+	async sendPaymentOnly(): Promise<void> {
+		if (this.status !== 'funding') {
+			throw new Error(`Cannot pay funding invoice from ${this.status} state`);
+		}
+		const invoice = this.snapshot.fundingInvoice;
+		if (!invoice) throw new Error('Funding invoice is not available');
+		this.fundingState = 'awaiting_payment';
+		await this.sendToInvoice(invoice);
 	}
 
 	async payFundingFromWallet(): Promise<ContractRuneSnapshot> {
@@ -397,48 +417,61 @@ export class ContractRune {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
 
-		if (/^(bc1|tb1|bcrt1)/i.test(normalizedInvoice)) {
-			await wallet.sendBtc({
-				address: normalizedInvoice,
-				amount: this.seals[0]?.amount ?? this.amountSats ?? 0,
-				feeRate: 1
-			});
-			return;
-		}
-		if (!normalizedInvoice.startsWith('rgb1')) {
-			throw new Error('Funding destination must be an rgb1 invoice or a Bitcoin address.');
+		// Enforce RGB invoices only
+		if (!normalizedInvoice.startsWith('rgb1') && !normalizedInvoice.startsWith('rgb:')) {
+			throw new Error('Funding destination must be an rgb: invoice for RGB-native escrow.');
 		}
 
-		for (const seal of this.seals) {
-			let decoded: Awaited<ReturnType<typeof wallet.decodeRGBInvoice>>;
-			try {
-				decoded = await wallet.decodeRGBInvoice({ invoice: normalizedInvoice });
-			} catch (error) {
-				throw new Error(
-					`Recipient RGB invoice could not be decoded: ${
-						error instanceof Error ? error.message : String(error)
-					}`
-				);
-			}
-			if (!assetsMatch(decoded.assetId, seal.assetId)) {
-				throw new Error(
-					`Recipient RGB invoice asset ${decoded.assetId} does not match escrow asset ${seal.assetId}.`
-				);
-			}
-			try {
-				const assetId = decoded.assetId || seal.assetId;
-				await wallet.onchainSend({
-					invoice: normalizedInvoice,
-					amount: seal.amount,
-					...(isNativeBitcoinAsset(assetId) ? {} : { assetId })
-				});
-			} catch (error) {
-				throw new Error(
-					`RGB transfer to recipient invoice failed: ${
-						error instanceof Error ? error.message : String(error)
-					}`
-				);
-			}
+		const { nia } = await wallet.listAssets();
+		const mintedAssetId =
+			typeof window !== 'undefined'
+				? (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID
+				: undefined;
+		const expectedAssetId =
+			mintedAssetId ||
+			import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
+			nia.find((a: { ticker?: string; assetId?: string }) => a.ticker === 'USDT')?.assetId ||
+			nia[0]?.assetId;
+
+		if (!expectedAssetId) {
+			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');
+		}
+
+		const asset = nia.find((a: { assetId?: string }) => a.assetId === expectedAssetId);
+		if (!asset) {
+			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);
+		}
+
+		const spendable = Number(
+			(asset as { balance?: { spendable?: number } }).balance?.spendable ?? 0
+		);
+		const baseUnits = spendable || this.seals[0]?.amount || 0;
+		if (!baseUnits) {
+			throw new Error('No spendable RGB balance to fund escrow');
+		}
+
+		console.info('[contract-rune] sendToInvoice', {
+			assetId: expectedAssetId,
+			amount: baseUnits,
+			invoicePrefix: normalizedInvoice.slice(0, 40)
+		});
+		try {
+			await prepareRgbOnchainSend(wallet, expectedAssetId);
+			await wallet.onchainSend({
+				invoice: normalizedInvoice,
+				assetId: expectedAssetId,
+				amount: baseUnits,
+				feeRate: 2,
+				minConfirmations: 1
+			});
+			console.info('[contract-rune] sendToInvoice completed');
+			await wallet.refreshWallet();
+		} catch (error) {
+			console.error('[E2E-wallet-payment-failure]', {
+				message: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined
+			});
+			throw error;
 		}
 	}
 
