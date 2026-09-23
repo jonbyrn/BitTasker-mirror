@@ -7,15 +7,11 @@
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 
-	type AssetTab = 'btc' | 'usd';
-
-	let activeAsset = $state<AssetTab>('btc');
 	let initializationError = $state<string | null>(null);
 	let operationMessage = $state<string | null>(null);
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
-	const chartRanges = ['24h', '7d', '30d'] as const;
-	const chartBars = [24, 41, 29, 55, 38, 64, 48, 73, 52, 81, 67, 92];
+	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 
 	function text(value: unknown, fallback: string): string {
 		return typeof value === 'string' && value.trim() ? value : fallback;
@@ -47,11 +43,9 @@
 	}
 
 	onMount(() => {
-		try {
-			void initializeWallet();
-		} catch (err) {
+		initializeWallet().catch((err: unknown) => {
 			console.error('[wallet-page-init-error]', err);
-		}
+		});
 	});
 
 	function handleSent(txid: string): void {
@@ -76,116 +70,119 @@
 	<title>{translate('wallet.title', 'Wallet')}</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-5xl flex-col gap-4 p-3 sm:gap-6 sm:p-6">
-	<div class="flex items-center justify-between gap-3">
-		<div>
-			<p class="text-base-content/60 text-sm">{translate('wallet.title', 'Wallet')}</p>
-			<h1 class="text-2xl font-bold sm:text-3xl">{translate('wallet.tab_balance', 'Balance')}</h1>
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-4 p-3 sm:p-6">
+	<div class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body flex-row items-start justify-between gap-3 p-5">
+			<div class="min-w-0">
+				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
+					{translate('wallet.title', 'Wallet')}
+				</p>
+				<h2 class="text-2xl font-semibold sm:text-3xl">
+					{translate('wallet.tab_balance', 'Balance')}
+				</h2>
+			</div>
+			{#if $walletStore.isConnected && $walletStore.rgb?.initialized}
+				<span class="badge badge-success badge-lg" data-testid="wallet-connected">
+					{translate('wallet.tab_connected', 'Connected')}
+				</span>
+			{:else if $walletStore.isInitializing}
+				<span class="badge badge-warning badge-lg gap-2">
+					<span class="loading loading-spinner loading-xs"></span>
+					{translate('wallet.loading', 'Loading wallet')}
+				</span>
+			{:else}
+				<span class="badge badge-ghost badge-lg">
+					{translate('wallet.error.no_connection', 'Wallet offline')}
+				</span>
+			{/if}
 		</div>
-		{#if $walletStore.isConnected && $walletStore.rgb?.initialized}
-			<span class="badge badge-success gap-2" data-testid="wallet-connected"
-				>{translate('wallet.connected', 'Connected')}</span
-			>
-		{:else if $walletStore.isInitializing}
-			<span class="badge badge-warning gap-2">
-				<span class="loading loading-spinner loading-xs"></span>
-				{translate('wallet.loading', 'Loading wallet')}
-			</span>
-		{:else}
-			<span class="badge badge-ghost"
-				>{translate('wallet.error.no_connection', 'Wallet offline')}</span
-			>
-		{/if}
 	</div>
 
 	{#if initializationError || $walletStore.error}
-		<div class="alert alert-error" role="alert">
+		<div class="alert alert-outline alert-error" role="alert">
 			<span>{text(initializationError ?? $walletStore.error, 'Wallet initialization failed')}</span>
-			<button class="btn btn-sm" type="button" onclick={() => void initializeWallet()}>
+			<button
+				class="btn btn-sm"
+				type="button"
+				onclick={() => {
+					initializeWallet().catch((err: unknown) => {
+						console.error('[wallet-page] Wallet initialization failed:', err);
+					});
+				}}
+			>
 				{translate('wallet.error.retry', 'Retry')}
 			</button>
 		</div>
 	{/if}
 
 	{#if operationMessage}
-		<div class="alert alert-success" role="status">{operationMessage}</div>
+		<div class="alert alert-outline alert-success" role="status">{operationMessage}</div>
 	{/if}
 
-	<section class="grid gap-4 sm:grid-cols-2">
-		<div class="bg-base-100 border-base-300 rounded-2xl border p-5 shadow-sm sm:p-8">
-			<p class="text-base-content/60 text-sm">Sats balance</p>
-			<p class="mt-2 text-4xl font-bold tabular-nums sm:text-5xl">
-				{formatNumber($walletStore.totalBalances.sats)}
-				<span class="text-base-content/60 text-lg font-medium">sats</span>
-			</p>
-		</div>
-		<div class="bg-base-100 border-base-300 rounded-2xl border p-5 shadow-sm sm:p-8">
-			<p class="text-base-content/60 text-sm">USD / USDT balance</p>
-			<p class="mt-2 text-4xl font-bold tabular-nums sm:text-5xl">
-				${formatNumber($walletStore.totalBalances.usdt, '0.00')}
-			</p>
-		</div>
-	</section>
-
-	<section class="bg-base-100 border-base-300 rounded-2xl border p-4 shadow-sm sm:p-6">
-		<p class="text-base-content/60 text-sm">
-			{translate('wallet.available_balance', 'Available balance')}
-		</p>
-		<div class="mt-4 flex flex-wrap gap-2 text-sm">
-			<button
-				class:badge-primary={activeAsset === 'btc'}
-				class="badge badge-outline"
-				type="button"
-				onclick={() => (activeAsset = 'btc')}>Bitcoin</button
-			>
-			<button
-				class:badge-primary={activeAsset === 'usd'}
-				class="badge badge-outline"
-				type="button"
-				onclick={() => (activeAsset = 'usd')}>USD / USDT</button
-			>
-			{#if $walletStore.rgb.address}
-				<span class="badge badge-ghost max-w-full truncate">{$walletStore.rgb.address}</span>
-			{/if}
-		</div>
-	</section>
-
-	<section class="bg-base-100 border-base-300 rounded-2xl border p-4 shadow-sm sm:p-6">
-		<div class="flex items-center justify-between gap-3">
-			<h2 class="font-semibold">Balance history</h2>
-			<span class="text-base-content/50 text-xs">{activeAsset === 'btc' ? 'BTC' : 'USD'}</span>
-		</div>
-		<div class="mt-5 grid grid-cols-3 gap-3">
-			{#each chartRanges as range, rangeIndex (range)}
-				<div class="border-base-300 rounded-xl border p-3">
-					<div class="text-base-content/60 text-xs">{range}</div>
-					<div class="mt-3 flex h-16 items-end gap-1" aria-label={`${range} balance chart`}>
-						{#each chartBars.slice(rangeIndex * 2, rangeIndex * 2 + 6) as height (height)}
-							<div class="bg-primary/70 min-w-0 flex-1 rounded-t" style:height={`${height}%`}></div>
-						{/each}
+	<section class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body gap-0 p-0">
+			<div class="flex items-center justify-between gap-3 px-5 py-4">
+				<div class="min-w-0">
+					<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
+						{translate('wallet.bitcoin', 'Bitcoin')}
+					</p>
+					<p class="text-base font-semibold">{translate('wallet.btc', 'BTC')}</p>
+				</div>
+				<p class="text-lg font-semibold tabular-nums">
+					{formatNumber($walletStore.totalBalances.sats)}
+					<span class="text-base-content/60 text-sm font-medium">
+						{translate('wallet.sats', 'sats')}
+					</span>
+				</p>
+			</div>
+			{#each rgbAssets as asset (asset.assetId)}
+				<div class="border-base-300 flex items-center justify-between gap-3 border-t px-5 py-4">
+					<div class="min-w-0">
+						{#if asset.symbol}
+							<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
+								{asset.symbol}
+							</p>
+						{/if}
+						<p class="truncate text-base font-semibold">{asset.name}</p>
 					</div>
+					<p class="text-lg font-semibold tabular-nums">
+						{asset.formattedBalance || formatNumber(asset.balance)}
+					</p>
+				</div>
+			{:else}
+				<div class="border-base-300 border-t px-5 py-4">
+					<p class="text-base-content/60 text-sm">{translate('wallet.no_assets', 'No assets')}</p>
 				</div>
 			{/each}
 		</div>
 	</section>
 
-	<section class="bg-base-100 border-base-300 rounded-2xl border p-4 shadow-sm sm:p-6">
-		<div class="flex items-center justify-between">
-			<h2 class="font-semibold">Recent transactions</h2>
-			<span class="text-base-content/50 text-xs">{$walletStore.transactions.length}</span>
-		</div>
-		{#if $walletStore.transactions.length === 0}
-			<p class="text-base-content/60 mt-4 text-sm">No transactions yet.</p>
-		{:else}
-			<div class="divide-base-300 mt-3 divide-y">
-				{#each $walletStore.transactions.slice(0, 5) as transaction (transaction.id)}
-					<div class="flex items-center justify-between gap-3 py-3 text-sm">
-						<span class="capitalize">{text(transaction.type, 'transaction')}</span>
-						<span class="font-semibold">{formatNumber(transaction.amountSats)} sats</span>
-					</div>
-				{/each}
+	<section class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body gap-3 p-5">
+			<div class="flex items-center justify-between gap-3">
+				<p class="text-base font-semibold">
+					{translate('wallet.transaction_history', 'Transaction History')}
+				</p>
+				<span class="badge badge-ghost">{$walletStore.transactions.length}</span>
 			</div>
-		{/if}
+			{#if $walletStore.transactions.length === 0}
+				<p class="text-base-content/60 text-sm">
+					{translate('wallet.no_transactions', 'No transactions found.')}
+				</p>
+			{:else}
+				<div class="divide-base-300 divide-y">
+					{#each $walletStore.transactions.slice(0, 5) as transaction (transaction.id)}
+						<div class="flex items-center justify-between gap-3 py-3 text-sm">
+							<span class="capitalize">{text(transaction.type, 'transaction')}</span>
+							<span class="font-semibold">
+								{formatNumber(transaction.amountSats)}
+								{translate('wallet.sats', 'sats')}
+							</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</section>
 
 	<section class="grid gap-4 sm:grid-cols-2">
