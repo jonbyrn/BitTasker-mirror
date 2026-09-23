@@ -159,7 +159,7 @@ VITE_NOSTR_RELAY_NESTJS = "https://api-staging.bittasker.com"
 VITE_API_URL = "https://api-staging.bittasker.com"
 VITE_API_BASE_URL = "https://api-staging.bittasker.com"
 VITE_RGB_USDT_ASSET_ID = "rgb:2s69152-rg39309-8438210-usdt_testnet"
-VITE_E2E_TURNSTILE_BYPASS = "true"
+VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
 
 # ============================================
 # STAGING Environment

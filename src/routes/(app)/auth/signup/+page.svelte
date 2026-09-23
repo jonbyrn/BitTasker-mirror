@@ -15,7 +15,7 @@
 
 	onMount(() => {
 		try {
-			// Sandbox and localhost have no production captcha. Production still requires Turnstile.
+			// Localhost uses no production captcha service; production still requires Turnstile.
 			if (skipSignupCaptcha()) {
 				isCaptchaVerified.set(true);
 				return;
@@ -49,10 +49,12 @@
 
 	// Render Turnstile widget
 	function renderTurnstile() {
-		if (!turnstileWidget || !window.turnstile) return;
+		const sitekey = import.meta.env.VITE_CLOUDFLARE_SITEKEY;
+		if (!sitekey || !turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY || '1x00000000000000000000AA',
+			sitekey,
+			action: 'signup',
 			theme: 'auto',
 			size: 'normal' as const,
 			retry: 'never' as const,

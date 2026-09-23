@@ -194,5 +194,5 @@ export function skipSignupCaptcha(): boolean {
 	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') return true;
 	if (typeof location === 'undefined') return false;
 	const host = location.hostname;
-	return host === 'localhost' || host === '127.0.0.1' || host === 'rgb.bittasker.com';
+	return host === 'localhost' || host === '127.0.0.1';
 }
