@@ -117,8 +117,7 @@
 				}}
 			>
 				<div
-					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
-					style="transform-origin: top left;"
+					class="menu dropdown-content bg-base-100 border-base-300 rounded-box z-100 mt-1 w-auto min-w-48 origin-top-left border p-2 whitespace-nowrap shadow-sm"
 					role="menu"
 					tabindex="-1"
 					onclick={(e) => e.stopPropagation()}
@@ -145,12 +144,11 @@
 	<div class="navbar-start ml-2 flex-1 sm:flex">
 		<a href="/" class="block">
 			<img
-			src="/images/logos/bittasker-logomark.svg"
-			alt={t('common.components.topbar.logo_alt')}
-			class="mx-auto block max-h-10"
-			width="40"
-			height="40"
-			style="aspect-ratio: 1/1;"
+				src="/images/logos/bittasker-logomark.svg"
+				alt={t('common.components.topbar.logo_alt')}
+				class="mx-auto block aspect-square max-h-10"
+				width="40"
+				height="40"
 			/>
 		</a>
 		{#if browser}

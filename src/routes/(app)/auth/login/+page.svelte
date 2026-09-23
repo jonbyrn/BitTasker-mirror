@@ -508,25 +508,16 @@
 	}
 </script>
 
-<div
-	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
->
-	<div class="card bg-base-100 w-full p-4 shadow-xl">
-		<div class="">
+<div class="mx-auto flex w-full max-w-md grow flex-col justify-center p-3 sm:p-6">
+	<div class="card bg-base-100 border-base-300 w-full border shadow-sm">
+		<div class="card-body gap-4 p-5">
 			{#if !$passkeyMigration.isOpen}
-				<div class="flex flex-col items-center justify-center">
-					<Logo
-						class="mx-auto mt-0 mb-4 block w-full max-w-xs sm:mt-6 sm:mb-6 sm:max-w-sm md:max-w-md"
-					/>
-					<h3 class="mt-2 text-center font-bold sm:mt-4">{$t('login.title')}</h3>
-					<br />
-					<p class="mx-auto space-y-2 text-center">
-						<span class="text-base-content text-md block text-center">
-							{$t('login.subtitle')}
-						</span>
-					</p>
+				<div class="flex flex-col items-center gap-2 text-center">
+					<Logo class="mx-auto block w-28 sm:w-36" />
+					<h2 class="text-2xl font-semibold">{$t('login.title')}</h2>
+					<p class="text-base-content/70 text-sm">{$t('login.subtitle')}</p>
 				</div>
-				<div class="mt-4 flex flex-col gap-4">
+				<div class="flex flex-col gap-3">
 					{#if !isNostrLogin}
 						<div
 							class="flex flex-col gap-4"
@@ -566,11 +557,7 @@
 							{#if isNativePlatform}
 								<QrCodeScanner onScan={handleLoginWithQrCode}>
 									{#snippet scanBtn({ disabled, onStartScan })}
-										<button
-											class="btn btn-secondary btn-sm md:btn-md py-5"
-											onclick={onStartScan}
-											{disabled}
-										>
+										<button class="btn btn-secondary w-full" onclick={onStartScan} {disabled}>
 											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
 												<path
 													fill="none"
@@ -591,7 +578,7 @@
 									onScan={(result: string) => handleLoginWithQrCode(result)}
 								>
 									{#snippet scanBtn({ onStartScan })}
-										<button class="btn btn-secondary btn-sm md:btn-md py-5" onclick={onStartScan}>
+										<button class="btn btn-secondary w-full" onclick={onStartScan}>
 											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
 												<path
 													fill="none"
@@ -608,7 +595,7 @@
 							{/if}
 
 							<button
-								class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+								class="btn btn-secondary w-full"
 								data-testid="login-with-nsec"
 								onclick={() => {
 									error = '';
@@ -725,11 +712,7 @@
 							{#if isNativePlatform}
 								<QrCodeScanner onScan={handleLoginWithQrCode}>
 									{#snippet scanBtn({ disabled, onStartScan })}
-										<button
-											class="btn btn-secondary btn-sm md:btn-md mt-2 py-5"
-											onclick={onStartScan}
-											{disabled}
-										>
+										<button class="btn btn-secondary mt-2 w-full" onclick={onStartScan} {disabled}>
 											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
 												<path
 													fill="none"
