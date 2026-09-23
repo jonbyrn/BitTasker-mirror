@@ -66,7 +66,7 @@ stages:
 # WORKERS BUILD/DEPLOY (PRIMARY)
 # ============================================
 # Workers is the primary deployment method for all environments.
-# Routes are configured in wrangler.toml (dev.bittasker.com, bittasker.com).
+# Routes are configured in wrangler.toml (dev.bittasker.com, rgb.bittasker.com, bittasker.com).
 #
 # These jobs use GitLab's environment-scoped variables:
 #   - Jobs with environment: development get VITE_* scoped to "development"
@@ -250,6 +250,52 @@ deploy-development:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_BRANCH == "dev"
+
+# ============================================
+# DEPLOY SANDBOX (rgb.bittasker.com)
+# Branch sandbox/rgb-wasm-phase0 only. Does not use the development
+# environment, so GitLab does not inject relay1-dev into this build.
+# ============================================
+deploy-sandbox:
+  image: node:24-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  variables:
+    CLOUDFLARE_API_TOKEN:
+      value: $CLOUDFLARE_API_TOKEN
+      expand: false
+    CLOUDFLARE_ACCOUNT_ID:
+      value: $CLOUDFLARE_ACCOUNT_ID
+      expand: false
+    VITE_CLIENT_HOSTNAME: rgb.bittasker.com
+    VITE_NOSTR_RELAY_URL: wss://nos.lol
+    VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
+    VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
+    VITE_API_URL: https://api-staging.bittasker.com
+    VITE_API_BASE_URL: https://api-staging.bittasker.com
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler deploy --env sandbox
+    - ENVIRONMENT=sandbox node scripts/purge-cache.js
+  environment:
+    name: sandbox
+    url: https://rgb.bittasker.com
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
 
 # ============================================
 # DEPLOY PRODUCTION (worker.prod.bittasker.com)

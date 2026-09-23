@@ -18,6 +18,7 @@
 		"build": "npx --yes svelte-kit sync && vite build && node scripts/fix-sveltekit-preview-manifest.mjs && npm run sitemap:generate",
 		"build:production": "npx --yes svelte-kit sync && vite build && npm run sitemap:generate",
 		"build:dev": "npx --yes svelte-kit sync --mode development && vite build --mode development",
+		"build:sandbox": "node scripts/build-sandbox.mjs",
 		"preview": "vite preview",
 		"cap:sync": "npx cap sync",
 		"ios": "npx cap run --live-reload ios",

@@ -11,7 +11,7 @@ import type { Event, Filter } from 'nostr-tools';
 import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
 
-const RELAY_URLS = (import.meta.env.VITE_NOSTR_RELAY_URL || 'wss://relay1.bittasker.com')
+const RELAY_URLS = (import.meta.env.VITE_NOSTR_RELAY_URL ?? '')
 	.split(',')
 	.map((s: string) => s.trim())
 	.filter(Boolean);
@@ -167,6 +167,10 @@ function fetchEventsWithTimeout(
 }
 
 export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
+	if (RELAY_URLS.length === 0) {
+		return { tasks: [], services: [] };
+	}
+
 	const pool = new SimplePool();
 
 	try {

@@ -137,6 +137,29 @@ CHANGELLY_FIAT_API_SECRET = "dev-placeholder"
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================
+# SANDBOX Environment (rgb.bittasker.com)
+# Public Nostr relays so task traffic stays off relay1-dev / relay2-dev.
+# Vite reads these from the process environment during [env.sandbox.build].
+# ============================================
+[env.sandbox]
+name = "bittasker-sandbox"
+workers_dev = false
+routes = [
+  { pattern = "rgb.bittasker.com", custom_domain = true }
+]
+
+[env.sandbox.build]
+command = "npm run build:sandbox"
+
+[env.sandbox.vars]
+VITE_CLIENT_HOSTNAME = "rgb.bittasker.com"
+VITE_NOSTR_RELAY_URL = "wss://nos.lol"
+VITE_NOSTR_TASK_RELAY_URL = "wss://relay.primal.net"
+VITE_NOSTR_RELAY_NESTJS = "https://api-staging.bittasker.com"
+VITE_API_URL = "https://api-staging.bittasker.com"
+VITE_API_BASE_URL = "https://api-staging.bittasker.com"
+
+# ============================================
 # STAGING Environment
 # ============================================
 [env.staging]
