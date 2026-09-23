@@ -58,13 +58,9 @@
 	const canApprove = $derived(
 		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
 	);
-	const canCreatePayout = $derived(
-		role === 'taskee' && snapshot?.status === 'approved' && !snapshot.payoutInvoice && !isReleasing
-	);
 	const canRelease = $derived(
 		role === 'tasker' &&
-			snapshot?.status === 'approved' &&
-			Boolean(snapshot.payoutInvoice) &&
+			(snapshot?.status === 'work_submitted' || snapshot?.status === 'approved') &&
 			!isReleasing
 	);
 
@@ -151,6 +147,7 @@
 			nextRune.status = (content.status ??
 				latest.event.tags.find((tag) => tag[0] === 's')?.[1] ??
 				'funded') as ContractRuneStatus;
+			if (content.fundingState) nextRune.fundingState = content.fundingState;
 			nextRune.seals = normalizeSeals(content, contractId);
 			nextRune.workMessage = content.workMessage ?? content.message;
 			nextRune.proofUrl = content.proofUrl;
@@ -198,21 +195,6 @@
 		}
 	}
 
-	async function handleCreatePayout(): Promise<void> {
-		if (!rune) return;
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await initWasm();
-			await rune.createPayoutInvoice();
-			await loadContract();
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to create payout invoice.';
-		} finally {
-			isReleasing = false;
-		}
-	}
-
 	async function handleRelease(): Promise<void> {
 		if (!rune) return;
 		isReleasing = true;
@@ -227,6 +209,20 @@
 			isReleasing = false;
 		}
 	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const e2e =
+			(window as Window & { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true ||
+			import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+		if (!e2e) return;
+		const probe = window as Window & {
+			__e2eContractSnapshot?: ContractRuneSnapshot | null;
+			__e2eReleaseEscrow?: () => Promise<ContractRuneSnapshot>;
+		};
+		probe.__e2eContractSnapshot = snapshot;
+		probe.__e2eReleaseEscrow = rune ? () => rune.releaseEscrow() : undefined;
+	});
 
 	onMount(() => {
 		void initWasm()
@@ -337,7 +333,7 @@
 			>
 				<h2 class="font-semibold">Approve work</h2>
 				<p class="text-base-content/70 mt-2 text-sm">
-					Approve the deliverable so the Taskee can create a payout invoice.
+					Approve the deliverable. The fund send already paid the Taskee.
 				</p>
 				<button
 					class="btn btn-primary mt-3"
@@ -351,35 +347,14 @@
 			</div>
 		{/if}
 
-		{#if canCreatePayout}
-			<div
-				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
-				data-testid="payout-invoice-panel"
-			>
-				<h2 class="font-semibold">Payout invoice</h2>
-				<p class="text-base-content/70 mt-2 text-sm">
-					Create a blank invoice for the escrowed RGB asset.
-				</p>
-				<button
-					class="btn btn-primary mt-3"
-					onclick={handleCreatePayout}
-					disabled={isReleasing}
-					data-testid="create-payout-invoice-button"
-				>
-					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
-					Create payout invoice
-				</button>
-			</div>
-		{/if}
-
 		{#if canRelease}
 			<div
 				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
 				data-testid="release-funds-panel"
 			>
 				<h2 class="font-semibold">Release escrow</h2>
-				<p class="text-base-content/70 mt-2 text-sm break-all" data-testid="payout-invoice">
-					{snapshot.payoutInvoice}
+				<p class="text-base-content/70 mt-2 text-sm">
+					Record release. The RGB asset was already sent when the contract was funded.
 				</p>
 				<button
 					class="btn btn-success mt-3"

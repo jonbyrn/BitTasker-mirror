@@ -61,25 +61,16 @@ describe('escrow lifecycle', () => {
 		expect(wallet.onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
 		expect(wallet.onchainReceive.mock.calls[0][0]).not.toHaveProperty('amount');
 
-		const settled = await rune.releaseEscrow();
-		expect(wallet.onchainSend).toHaveBeenCalledWith({
-			invoice: PAYOUT,
-			assetId: ASSET_ID,
-			amount: 10_000,
-			feeRate: 2,
-			minConfirmations: 1
-		});
-		expect(wallet.onchainSend.mock.calls[0][0]).not.toHaveProperty('witnessData');
-		expect(wallet.refreshWallet).toHaveBeenCalled();
-		expect(settled.status).toBe('settled');
-		expect(settled.amount).toBe(10_000);
+		const released = await rune.releaseEscrow();
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect(released.status).toBe('released');
+		expect(released.payoutInvoice).toBe(PAYOUT);
 	});
 
 	it('rejects release before approval', async () => {
 		const rune = new ServiceRune(ASSET_ID, 10_000);
 		rune.attest('funded');
-		rune.submitWork('Done');
-		await expect(rune.releaseEscrow()).rejects.toThrow('Cannot release escrow from work_submitted');
+		await expect(rune.releaseEscrow()).rejects.toThrow('Cannot release escrow from funded');
 	});
 
 	it('stores deliverable metadata and settles through the contract rune', async () => {
@@ -111,15 +102,10 @@ describe('escrow lifecycle', () => {
 			durationSeconds: 3600
 		});
 
-		const settled = await rune.releaseEscrow();
-		expect(wallet.onchainSend).toHaveBeenCalledWith({
-			invoice: PAYOUT,
-			assetId: ASSET_ID,
-			amount: 10_000,
-			feeRate: 2,
-			minConfirmations: 1
-		});
-		expect(settled.status).toBe('settled');
+		const released = await rune.releaseEscrow();
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect(released.status).toBe('released');
+		expect(released.payoutInvoice).toBe(PAYOUT);
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
 	});
 });

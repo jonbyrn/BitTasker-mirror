@@ -414,18 +414,17 @@ export class ContractRune {
 		if (!invoice) throw new Error('Funding invoice is not available');
 		this.fundingState = 'awaiting_payment';
 		await this.sendToInvoice(invoice);
+		this.status = 'funded';
+		this.fundingState = 'funded';
+		this.error = null;
+		await this.attest('funded');
+		this.error = null;
 	}
 
+	// Model B: full RGB payout. releaseEscrow attests released and does not send.
 	async payFundingFromWallet(): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funding') {
-			throw new Error(`Cannot pay funding invoice from ${this.status} state`);
-		}
-		const invoice = this.snapshot.fundingInvoice;
-		if (!invoice) throw new Error('Funding invoice is not available');
-		this.fundingState = 'awaiting_payment';
-		await this.sendToInvoice(invoice);
-		const timeoutMs = isE2ERun() ? E2E_CONFIRM_MS : LIVE_CONFIRM_MS;
-		return pollUntil(() => this.confirmFunding(), timeoutMs, 5_000);
+		await this.sendPaymentOnly();
+		return this.snapshot;
 	}
 
 	private async confirmFundingFromPrepared(
@@ -523,40 +522,20 @@ export class ContractRune {
 		return invoice;
 	}
 
+	// Model B: fund already sent the asset. Release attests released and does not send.
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'approved') {
+		if (this.status !== 'work_submitted' && this.status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
 		const payout = (invoice ?? this.payoutInvoice)?.trim() ?? '';
-		if (!payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
+		if (payout && !payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
 			throw new Error('Payout destination must be an rgb: invoice.');
 		}
-		const wallet = state.utexoWallet;
-		if (!wallet) throw new Error('RGB wallet is not initialized');
-		const { nia } = await wallet.listAssets();
-		const assetId = escrowAssetId(nia ?? []);
-		const spendable = nia?.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0;
-		if (!assetId || spendable <= 0) {
-			throw new Error('No spendable RGB balance to release escrow');
-		}
-		console.info('[contract-rune] releaseEscrow', {
-			assetId,
-			amount: spendable,
-			invoicePrefix: payout.slice(0, 40)
-		});
-		await prepareRgbOnchainSend(wallet, assetId);
-		await wallet.onchainSend({
-			invoice: payout,
-			assetId,
-			amount: spendable,
-			feeRate: 2,
-			minConfirmations: 1
-		});
-		await wallet.refreshWallet();
-		this.payoutInvoice = payout;
-		this.status = 'settled';
+		if (payout) this.payoutInvoice = payout;
+		this.status = 'released';
 		this.error = null;
-		await this.attest('settled', 'Escrow settled');
+		console.info('[contract-rune] releaseEscrow', { attested: 'released' });
+		await this.attest('released', 'Escrow released');
 		this.error = null;
 		return this.snapshot;
 	}

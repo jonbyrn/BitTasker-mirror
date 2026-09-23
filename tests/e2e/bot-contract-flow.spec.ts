@@ -79,7 +79,12 @@ type BrowserE2EWindow = Window & {
 			amounts: number[];
 		}) => Promise<{ assetId: string }>;
 		listTransfers?: (assetId?: string) => Promise<E2ETransfer[]>;
-		createUtxos?: (params: { upTo?: boolean; num?: number; feeRate?: number }) => Promise<number>;
+		createUtxos?: (params: {
+			upTo?: boolean;
+			num?: number;
+			size?: number;
+			feeRate?: number;
+		}) => Promise<number>;
 		listUnspents?: () => Promise<
 			Array<{
 				rgbAllocations?: Array<{
@@ -300,6 +305,12 @@ async function ensureTaskerSats(
 			{ timeout: TESTNET_CONFIRM_MS, intervals: [5_000, 10_000] }
 		)
 		.toBeGreaterThanOrEqual(minSats);
+}
+
+async function readContractError(page: import('@playwright/test').Page): Promise<string> {
+	const error = page.locator('[data-testid="contract-error"]');
+	if (!(await error.isVisible().catch(() => false))) return '';
+	return (await error.innerText()).trim();
 }
 
 async function holdOpenForInspection(): Promise<void> {
@@ -651,9 +662,19 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	});
 
 	const minted = await taskerPage.evaluate(async () => {
-		const badPrefixes = ['f4148f9d', '779e9977', '16ce3623', '197084da'];
+		const spentPrefixes = [
+			'a0dc2b65',
+			'f4148f9d',
+			'779e9977',
+			'16ce3623',
+			'197084da',
+			'186da7b6',
+			'1a331fcb',
+			'7669ccde'
+		];
+		const isKnownSpent = (txid: string) => spentPrefixes.some((prefix) => txid.startsWith(prefix));
 		const w = (window as BrowserE2EWindow).__utexoWallet;
-		if (!w?.listUnspents || !w.issueAssetNia || !w.syncWallet) {
+		if (!w?.listUnspents || !w.issueAssetNia || !w.syncWallet || !w.createUtxos) {
 			throw new Error('Tasker wallet missing');
 		}
 		const outpointOf = (row: {
@@ -663,80 +684,80 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 			const vout = row.utxo?.outpoint?.vout;
 			return { txid, outpoint: txid ? `${txid}:${vout ?? ''}` : '' };
 		};
-		const unspents = await w.listUnspents();
-		const before = new Set<string>();
-		for (const row of unspents) {
-			if (row.utxo?.colorable !== true) continue;
-			const txid = row.utxo.outpoint?.txid ?? '';
-			if (txid) before.add(txid);
+		const listed = async () => (await w.listUnspents()) ?? [];
+		for (const row of await listed()) {
+			const { txid, outpoint } = outpointOf(row);
+			if (row.utxo?.colorable !== true || !isKnownSpent(txid)) continue;
+			const holdsMint = row.rgbAllocations?.some(
+				(allocation) => allocation.assignment?.amount === 10_000
+			);
+			if (holdsMint) console.info('[e2e] skip spent 10000', outpoint);
 		}
-		const withAmount = unspents.filter((row) =>
-			row.rgbAllocations?.some((allocation) => allocation.assignment?.amount === 10_000)
-		);
-		const existing =
-			withAmount.find((row) => outpointOf(row).txid.startsWith('3364e40f')) ??
-			withAmount.find((row) => {
-				const { txid } = outpointOf(row);
-				return !badPrefixes.some((prefix) => txid.startsWith(prefix));
-			});
-		let assetId = '';
-		let outpoint = '';
-		let txid = '';
-		if (existing) {
-			const allocation = existing.rgbAllocations?.find((row) => row.assignment?.amount === 10_000);
-			assetId = allocation?.assetId ?? '';
-			({ txid, outpoint } = outpointOf(existing));
-			console.info('[e2e] fill slots: 0');
-		} else {
-			let freeSlots = 0;
-			for (const row of unspents) {
-				const candidate = row.utxo?.outpoint?.txid ?? '';
-				if (row.utxo?.colorable !== true) continue;
-				if (!badPrefixes.some((prefix) => candidate.startsWith(prefix))) continue;
-				freeSlots += Math.max(0, 5 - (row.rgbAllocations?.length ?? 0));
-			}
-			const capped = Math.min(freeSlots, 20);
-			console.info('[e2e] fill slots:', capped);
-			for (let offset = 0; offset < capped; offset += 10) {
-				const count = Math.min(10, capped - offset);
-				await w.issueAssetNia({
-					ticker: 'FILL',
-					name: 'Fill',
-					precision: 0,
-					amounts: Array(count).fill(1)
-				});
-				await w.syncWallet();
-				await w.refreshWallet();
-			}
-			const result = await w.issueAssetNia({
-				ticker: 'E2E',
-				name: 'E2E Escrow',
+		let priorFree = 0;
+		for (const row of await listed()) {
+			if (row.utxo?.colorable !== true) continue;
+			priorFree += Math.max(0, 5 - (row.rgbAllocations?.length ?? 0));
+		}
+		console.info('[e2e] fill slots:', priorFree);
+		for (let offset = 0; offset < priorFree; offset += 10) {
+			const count = Math.min(10, priorFree - offset);
+			await w.issueAssetNia({
+				ticker: 'FILL',
+				name: 'Fill',
 				precision: 0,
-				amounts: [10_000]
+				amounts: Array(count).fill(1)
 			});
 			await w.syncWallet();
 			await w.refreshWallet();
-			const sealed = (await w.listUnspents()).find((row) =>
-				row.rgbAllocations?.some((allocation) => allocation.assetId === result.assetId)
-			);
-			assetId = result.assetId;
-			if (sealed) ({ txid, outpoint } = outpointOf(sealed));
 		}
-		const onSplit = txid.startsWith('226e315e');
-		const fresh = txid.length > 0 && !before.has(txid);
-		const ok = onSplit || fresh || txid.startsWith('3364e40f');
-		const onBad = badPrefixes.some((prefix) => txid.startsWith(prefix));
+		const occupied = new Set<string>();
+		for (const row of (await w.listUnspents()) ?? []) {
+			const { txid } = outpointOf(row);
+			if (txid) occupied.add(txid);
+		}
+		console.info('[e2e] createUtxos');
+		let created: number | string = 'skipped';
+		try {
+			created = await w.createUtxos({ num: 1, size: 1000, feeRate: 2, upTo: false });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			if (!message.includes('Allocations already available')) throw error;
+			created = message;
+		}
+		console.info('[e2e] createUtxos raw', created);
+		await w.syncWallet();
+		await w.refreshWallet();
+		const freshTxids = new Set<string>();
+		for (const row of (await w.listUnspents()) ?? []) {
+			const { txid } = outpointOf(row);
+			if (txid && !occupied.has(txid) && !isKnownSpent(txid)) freshTxids.add(txid);
+		}
+		console.info('[e2e] fresh txids', [...freshTxids]);
+		const result = await w.issueAssetNia({
+			ticker: 'E2E',
+			name: 'E2E Escrow',
+			precision: 0,
+			amounts: [10_000]
+		});
+		console.info('[e2e] issueAssetNia', result.assetId);
+		await w.syncWallet();
+		await w.refreshWallet();
+		const sealed = (await w.listUnspents()).find((row) =>
+			row.rgbAllocations?.some((allocation) => allocation.assetId === result.assetId)
+		);
+		const { txid, outpoint } = sealed ? outpointOf(sealed) : { txid: '', outpoint: '' };
+		const fresh = freshTxids.has(txid);
+		const onBad = isKnownSpent(txid) || occupied.has(txid);
 		console.info('[e2e] 10000 on:', outpoint);
-		console.info('[e2e] on 226e315e?', onSplit);
 		console.info('[e2e] fresh tx?', fresh);
-		return { outpoint, assetId, onBad, ok };
+		return { outpoint, assetId: result.assetId, onBad, ok: fresh && !onBad };
 	});
 	console.info('[e2e] 10000 on:', minted.outpoint);
 	console.info('[e2e] on 226e315e?', minted.outpoint.startsWith('226e315e'));
 	await taskerPage.evaluate((assetId: string) => {
 		(window as BrowserE2EWindow).__E2E_MINTED_ASSET_ID = assetId;
 	}, minted.assetId);
-	if (minted.onBad || !minted.assetId) {
+	if (minted.onBad || !minted.ok || !minted.assetId) {
 		throw new Error(`10000 sealed on old outpoint ${minted.outpoint || 'missing'}`);
 	}
 
@@ -809,6 +830,66 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	console.info(outcome.text);
 	if (!outcome.ok) throw new Error(outcome.text);
 	expect(outcome.text).toContain('https://esplora-api.utexo.com/tx/');
+	await expect(payFromWallet).toBeEnabled({ timeout: 120_000 });
+
+	const contractId = await taskerPage.evaluate(
+		() => (window as LastFundedContractWindow).__lastFundedContractId ?? ''
+	);
+	if (!contractId) throw new Error('Funded contract id was not published');
+	console.info('[e2e] contract', contractId);
+	taskerPage.setDefaultTimeout(30_000);
+	taskeePage.setDefaultTimeout(30_000);
+	taskerPage.setDefaultNavigationTimeout(30_000);
+	taskeePage.setDefaultNavigationTimeout(30_000);
+
+	await taskeePage.evaluate(async () => {
+		const w = (window as BrowserE2EWindow).__utexoWallet;
+		if (!w?.refreshWallet) throw new Error('Taskee refreshWallet missing');
+		await w.refreshWallet();
+	});
+	const taskeeUrl = new URL(`/earning/contracts/${contractId}`, E2E_BASE_URL).toString();
+	await taskeePage.goto(taskeeUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+	const taskeeStatus = taskeePage.locator('[data-testid="contract-status"]');
+	await expect(taskeeStatus).toContainText('funded', { timeout: 90_000 });
+	console.info('[e2e] taskee status', (await taskeeStatus.innerText()).trim());
+	const taskeeError = await readContractError(taskeePage);
+	if (taskeeError) {
+		console.info('[e2e] contract-error', taskeeError);
+		throw new Error(taskeeError);
+	}
+	const deliverable = taskeePage.locator('[data-testid="deliverable-message-input"]');
+	const submit = taskeePage.locator('[data-testid="submit-deliverable-button"]');
+	await expect(deliverable).toBeVisible({ timeout: 30_000 });
+	await expect(submit).toBeVisible({ timeout: 30_000 });
+	await deliverable.fill('Work completed for escrow settlement.');
+	await taskeePage
+		.locator('[data-testid="deliverable-proof-url-input"]')
+		.fill('https://example.com/e2e-proof');
+	await submit.click();
+	await expect(taskeeStatus).toHaveText('work_submitted', { timeout: 90_000 });
+
+	const taskerUrl = new URL(`/hiring/contracts/${contractId}`, E2E_BASE_URL).toString();
+	await taskerPage.goto(taskerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+	const taskerStatus = taskerPage.locator('[data-testid="contract-status"]');
+	await expect(taskerStatus).toBeVisible({ timeout: 90_000 });
+	await expect(taskerStatus).toContainText('work_submitted', { timeout: 90_000 });
+	const taskerError = await readContractError(taskerPage);
+	if (taskerError) {
+		console.info('[e2e] contract-error', taskerError);
+		throw new Error(taskerError);
+	}
+	const releaseButton = taskerPage.locator('[data-testid="approve-release-funds-button"]');
+	if ((await releaseButton.count()) > 0) {
+		await releaseButton.click();
+	} else {
+		await taskerPage.evaluate(async () => {
+			const release = (window as Window & { __e2eReleaseEscrow?: () => Promise<unknown> })
+				.__e2eReleaseEscrow;
+			if (!release) throw new Error('release control missing');
+			await release();
+		});
+	}
+	await expect(taskerStatus).toHaveText('released', { timeout: TESTNET_CONFIRM_MS });
 	await holdOpenForInspection();
 	await taskerContext.close();
 	await taskeeContext.close();

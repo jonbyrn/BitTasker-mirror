@@ -187,6 +187,10 @@
 
 			fundedRune = rune;
 			fundedContractId = contractId;
+			if (isE2ETest && typeof window !== 'undefined') {
+				(window as Window & { __lastFundedContractId?: string }).__lastFundedContractId =
+					contractId;
+			}
 			if (rune.status === 'funded') {
 				await notifyFunded(contractId, bidderPubkey);
 			}
@@ -212,7 +216,7 @@
 		errorMessage = '';
 		processingStep = 'paying';
 		try {
-			await fundedRune.sendPaymentOnly();
+			await fundedRune.payFundingFromWallet();
 			// Payment broadcast succeeded — unlock UI so user can click Check Payment
 			isProcessing = false;
 			processingStep = 'idle';

@@ -263,55 +263,20 @@ export class ContractRune {
 		return invoice;
 	}
 
+	// Model B: fund already sent the asset. Release attests released and does not send.
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
-		if (this._status !== 'approved') {
+		if (this._status !== 'work_submitted' && this._status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this._status} state`);
 		}
-		const wallet = state.utexoWallet;
-		if (!wallet) throw new Error('UTEXO wallet not initialized');
 		const payout = (invoice ?? this._payoutInvoice)?.trim() ?? '';
-		if (!payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
+		if (payout && !payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
 			throw new Error('Payout destination must be an rgb: invoice.');
 		}
-
-		const { nia } = await wallet.listAssets();
-		const mintedAssetId =
-			typeof window !== 'undefined'
-				? (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID
-				: undefined;
-		const assetId =
-			mintedAssetId ||
-			this._assetId ||
-			import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
-			nia.find((asset: { ticker?: string }) => asset.ticker === 'USDT')?.assetId;
-		const listed = nia.find((asset: { assetId?: string }) => asset.assetId === assetId);
-		const amount = Number(
-			(listed as { balance?: { spendable?: number } } | undefined)?.balance?.spendable ?? 0
-		);
-		if (!assetId || amount <= 0) {
-			throw new Error('No spendable RGB balance to release escrow');
-		}
-
-		console.info('[contract-rune] releaseEscrow', {
-			assetId,
-			amount,
-			invoicePrefix: payout.slice(0, 40)
-		});
-		await prepareRgbOnchainSend(wallet, assetId);
-		await wallet.onchainSend({
-			invoice: payout,
-			assetId,
-			amount,
-			feeRate: 2,
-			minConfirmations: 1
-		});
-		await wallet.refreshWallet();
-		this._assetId = assetId;
-		this._amount = amount;
-		this._payoutInvoice = payout;
-		this._status = 'settled';
+		if (payout) this._payoutInvoice = payout;
+		this._status = 'released';
 		this._error = null;
 		this._updateTimestamp();
+		console.info('[contract-rune] releaseEscrow', { attested: 'released' });
 		return this.snapshot;
 	}
 }
