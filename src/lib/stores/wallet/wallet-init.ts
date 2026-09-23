@@ -15,6 +15,7 @@ import {
 	unwrapListAssets
 } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
+import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
@@ -235,7 +236,7 @@ function markWalletReady(): void {
 }
 
 function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
-	const usdtAssetId = import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined;
+	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	const usdtBalance = rgbAssets.find((a) => a.assetId === usdtAssetId)?.balance ?? 0;
 
 	walletStore.update((s) => ({

@@ -18,12 +18,15 @@ export function isNativeBitcoinAsset(assetId: string | null | undefined): boolea
 	return NATIVE_BITCOIN_IDS.has(assetId.trim());
 }
 
+const FALLBACK_RGB_USDT_ASSET_ID = 'rgb:2s69152-rg39309-8438210-usdt_testnet';
+
+export const RGB_USDT_ASSET_ID =
+	(import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim() ||
+	FALLBACK_RGB_USDT_ASSET_ID;
+
 export function getConfiguredRgbUsdtAssetId(): string {
-	const assetId = import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined;
-	if (!assetId?.trim()) {
-		throw new Error('VITE_RGB_USDT_ASSET_ID is required for RGB USDT payments.');
-	}
-	return assetId.trim();
+	const assetId = (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim();
+	return assetId || FALLBACK_RGB_USDT_ASSET_ID;
 }
 
 export interface PaymentSplitConfig {

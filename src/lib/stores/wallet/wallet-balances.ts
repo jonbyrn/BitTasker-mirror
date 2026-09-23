@@ -2,6 +2,7 @@ import { walletStore, state } from './wallet-state';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
+import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 
 interface RawRgbAsset {
 	id: string;
@@ -401,9 +402,7 @@ export async function loadAssets(): Promise<void> {
 		}
 
 		const usdtBalance =
-			rgbAssets.find(
-				(a) => a.assetId === (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)
-			)?.balance ?? 0;
+			rgbAssets.find((a) => a.assetId === getConfiguredRgbUsdtAssetId())?.balance ?? 0;
 
 		walletStore.update((s) => ({
 			...s,
