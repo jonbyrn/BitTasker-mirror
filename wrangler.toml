@@ -148,8 +148,8 @@ routes = [
   { pattern = "rgb.bittasker.com", custom_domain = true }
 ]
 
-[env.sandbox.build]
-command = "npm run build:sandbox"
+# Build runs in GitLab deploy-sandbox via npm run build:dev.
+# No custom build command here, so wrangler deploy does not call a wrapper script.
 
 [env.sandbox.vars]
 VITE_CLIENT_HOSTNAME = "rgb.bittasker.com"
