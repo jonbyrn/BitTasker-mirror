@@ -395,38 +395,39 @@
 	}
 </script>
 
-<!-- Mismas dimensiones que Mi Panel: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0" data-testid="task-create-form">
-	<!-- Page Header -->
-	<div class="mb-6">
-		<h3 class="">
+<div
+	class="mx-auto flex h-full w-full max-w-6xl flex-col gap-4 px-2 pt-6 pb-24 md:px-0 md:pb-6"
+	data-testid="task-create-form"
+>
+	<div>
+		<h2 class="text-2xl font-semibold sm:text-3xl">
 			{$page.url.searchParams.get('edit') === 'true'
 				? $t('task.edit_title')
 				: $t('task.create_title')}
-		</h3>
+		</h2>
 		<p class="text-base-content/70">
 			{$page.url.searchParams.get('edit') === 'true'
 				? $t('task.edit_description')
 				: $t('task.create_description')}
 		</p>
 	</div>
-	<div class=" bg-base-100 rounded-xl">
-		<div class="card-body">
-			<div class="mb-4 flex items-center justify-between">
-				<div class="text-sm">
+	<div class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body gap-4 p-5">
+			<div class="flex items-center justify-between">
+				<span class="badge badge-outline">
 					{$t('task.step')}
 					{$STEPS.indexOf($store.currentStep) + 1}
 					{$t('task.of')}
 					{$STEPS.length}
-				</div>
+				</span>
 			</div>
 
 			{#if isLoading || !isEditDataLoaded}
-				<div class="flex justify-center">
+				<div class="flex justify-center py-6">
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
 			{:else}
-				<div class="space-y-6">
+				<div class="flex flex-col gap-4">
 					<!-- Always mount TaskBudget component to keep taskBudgetRef available -->
 					<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
 						<TaskBudget {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
@@ -443,7 +444,9 @@
 					{/if}
 
 					<!-- Control buttons -->
-					<div class="mt-6 flex justify-between">
+					<div
+						class="border-base-300 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between"
+					>
 						{#if $store.currentStep !== 'basics'}
 							<button
 								class="btn btn-secondary"
@@ -499,7 +502,7 @@
 				</div>
 
 				{#if errors.general}
-					<div class="alert alert-error alert-outline mt-6 shadow-lg">
+					<div class="alert alert-outline alert-error">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"

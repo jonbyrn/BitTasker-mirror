@@ -145,6 +145,21 @@
 		return todayDateStr > deadlineDateStr;
 	});
 
+	function statusBadgeClass(status: string): string {
+		if (status === TaskStatusEnum.COMPLETED) return 'badge-success';
+		if (status === TaskStatusEnum.CANCELLED || status === TaskStatusEnum.DISPUTED)
+			return 'badge-error';
+		if (status === TaskStatusEnum.OPEN) return 'badge-info';
+		if (
+			status === TaskStatusEnum.BID_ACCEPTED ||
+			status === TaskStatusEnum.ESCROW_FUNDED ||
+			status === TaskStatusEnum.IN_PROGRESS
+		) {
+			return 'badge-warning';
+		}
+		return 'badge-outline';
+	}
+
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
 		if (!date) return '';
@@ -323,7 +338,12 @@
 		isSidebarOpen = true;
 	};
 
-	async function handleBidSubmit(data: { amount: number; days: number; proposal: string; taskId: string }) {
+	async function handleBidSubmit(data: {
+		amount: number;
+		days: number;
+		proposal: string;
+		taskId: string;
+	}) {
 		if (!task) throw new Error('Task is unavailable');
 		if (!taskEventId) throw new Error('Task event id is unavailable');
 
@@ -385,9 +405,9 @@
 	<title>{pageTitle}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
-	<div class="rounded-xl pt-4 md:pt-0">
-		<div class="mb-6 flex items-center gap-3">
+<div class="mx-auto flex max-w-6xl flex-col gap-4 px-2 pb-24 md:px-0 md:pb-0">
+	<div class="flex flex-col gap-4 pt-4 md:pt-0">
+		<div class="flex items-center gap-3">
 			<div class="flex-1 text-left">
 				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
@@ -438,416 +458,427 @@
 			<!-- Task header -->
 
 			<!-- Details Tab -->
-			<div id="panel-details" role="tabpanel" aria-labelledby="tab-details" class="mt-3">
+			<div id="panel-details" role="tabpanel" aria-labelledby="tab-details">
 				<!-- Task details -->
-				<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+				<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
 					<!-- Main content -->
-					<div class="space-y-4 lg:col-span-2">
+					<div class="flex flex-col gap-4 lg:col-span-2">
 						<!-- Main task info card -->
-						<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
-							<!-- Header row with title and posted date -->
-							<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-								<div class="">
-									<div class="pb-1">
-										<TranslatableTask
-											{task}
-											showTitle={true}
-											showDescription={false}
-											titleClass="card-title line-clamp-2 text-lg"
-										/>
-									</div>
-									<div class="text-base-content/60 text-start">
-										{#if task}
+						<div class="card bg-base-100 border-base-300 border shadow-sm">
+							<div class="card-body gap-4 p-5">
+								<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+									<div class="min-w-0">
+										<div class="pb-1">
 											<TranslatableTask
 												{task}
-												showTitle={false}
-												showDescription={true}
-												showToggle={false}
-												descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+												showTitle={true}
+												showDescription={false}
+												titleClass="card-title line-clamp-2 text-lg"
 											/>
-										{/if}
-									</div>
-								</div>
-								<!-- <div class="flex flex-col text-center">
-								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-							</div> -->
-							</div>
-
-							<div class="divider"></div>
-
-							<!-- Description section -->
-							<div class="mb-6 flex w-full flex-col gap-4">
-								<div
-									class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8"
-								>
-									<div class="flex flex-col gap-2 md:w-full md:flex-1">
-										{#if task.deadline || task.dateRange}
-											{#if task.deadline}
-												<div class="flex flex-col">
-													<div class="text-base-content/60 flex items-center gap-2 text-sm">
-														<IconCalendarClock class="h-4 w-4" />
-														<span>{$t('dashboard.task_details_by_task.deadline')}</span>
-													</div>
-													<div class="font-semibold">
-														{formatDateTimeReactive(task.deadline)}
-													</div>
-												</div>
-											{:else if task.dateRange}
-												<div class="flex flex-col">
-													<div class="text-base-content/60 flex items-center gap-2 text-sm">
-														<IconCalendarClock class="h-4 w-4" />
-														<span>{$t('dashboard.task_details_by_task.date_range')}</span>
-													</div>
-													<div class="font-semibold">
-														{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
-													</div>
-												</div>
+										</div>
+										<div class="text-base-content/60 text-start">
+											{#if task}
+												<TranslatableTask
+													{task}
+													showTitle={false}
+													showDescription={true}
+													showToggle={false}
+													descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+												/>
 											{/if}
-										{/if}
+										</div>
 									</div>
-									<div class="flex flex-col gap-2">
-										<!-- <div class="flex items-center gap-2 text-base-content/60 text-sm md:justify-end">
+									<span class="badge badge-lg {statusBadgeClass(task.status)}">{task.status}</span>
+								</div>
+
+								<div class="divider"></div>
+
+								<!-- Description section -->
+								<div class="mb-6 flex w-full flex-col gap-4">
+									<div
+										class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8"
+									>
+										<div class="flex flex-col gap-2 md:w-full md:flex-1">
+											{#if task.deadline || task.dateRange}
+												{#if task.deadline}
+													<div class="flex flex-col">
+														<div class="text-base-content/60 flex items-center gap-2 text-sm">
+															<IconCalendarClock class="h-4 w-4" />
+															<span>{$t('dashboard.task_details_by_task.deadline')}</span>
+														</div>
+														<div class="font-semibold">
+															{formatDateTimeReactive(task.deadline)}
+														</div>
+													</div>
+												{:else if task.dateRange}
+													<div class="flex flex-col">
+														<div class="text-base-content/60 flex items-center gap-2 text-sm">
+															<IconCalendarClock class="h-4 w-4" />
+															<span>{$t('dashboard.task_details_by_task.date_range')}</span>
+														</div>
+														<div class="font-semibold">
+															{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
+														</div>
+													</div>
+												{/if}
+											{/if}
+										</div>
+										<div class="flex flex-col gap-2">
+											<!-- <div class="flex items-center gap-2 text-base-content/60 text-sm md:justify-end">
 										<IconWalletOutline class="h-4 w-4" />
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
-										<div class="tracking-tight">
-											<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- Timeline and Requirements in same row -->
-							<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:justify-between">
-								<!-- Location information -->
-								{#if shouldShowLocationInfo()}
-									<div class="mb-2">
-										<div class="grid grid-cols-1">
-											{#if isRemoteTask()}
-												<div class="mb-2">
-													<div class="text-base-content/60 flex items-center gap-2 text-sm">
-														<IconMapMarker class="h-4 w-4" />
-														<span>{$t('dashboard.task_details_by_task.remote')}</span>
-													</div>
-												</div>
-											{:else}
-												{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
-													<div class="mb-2">
-														<div class="text-base-content/60 flex items-center gap-2 text-sm">
-															<IconMapMarker class="h-4 w-4" />
-															<span>{$t('dashboard.task_details_by_task.pickup_location')}</span>
-														</div>
-														<div>{task.pickupLocation.displayName}</div>
-													</div>
-												{/if}
-												{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
-													<div class="mt-3">
-														<div class="text-base-content/60 flex items-center gap-2 text-sm">
-															<IconMapMarkerCheck class="h-4 w-4" />
-															<span>{$t('dashboard.task_details_by_task.dropoff_location')}</span>
-														</div>
-														<div>{task.dropOffLocation.displayName}</div>
-													</div>
-												{/if}
-												{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
-													<div class="text-base-content/60 text-sm">
-														{$t('dashboard.task_details_by_task.remote')}
-													</div>
-												{/if}
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</div>
-
-							<!-- Requirements section moved to the end -->
-							{#if task.skills?.length > 0}
-								<div class="border-base-300 border-t pt-6">
-									<div class="space-y-3">
-										<div>
-											<h4 class="mb-3 font-semibold">
-												{$t('dashboard.task_details_by_task.required_skills')}
-											</h4>
-											<div class="flex flex-wrap gap-2 pb-4">
-												{#each task.skills as skill (skill)}
-													<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
-												{/each}
+											<div class="tracking-tight">
+												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
 											</div>
 										</div>
 									</div>
 								</div>
-							{/if}
 
-							<!-- Tasker profile -->
-							{#if task.npub}
-								<div class="flex flex-col gap-2">
-									<UserInfoDisplay
-										avatar={task.creator?.avatar}
-										username={task.creator?.username}
-										pubkey={task.npub}
-										size="md"
-										showReviewCount={true}
-									/>
-									<a
-										href="/profile?user={task.npub}&tab=reviews"
-										class="text-primary text-xs hover:underline"
-									>
-										{$t('reviews.view_all')}
-									</a>
-								</div>
-							{:else}
-								<div class="flex flex-col">
-									<span class="text-base font-medium">
-										{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
-									</span>
-									<div class="flex items-center">
-										{#each Array(5) as _, i (i)}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="text-base-content/30 h-4 w-4"
-												fill="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-												/>
-											</svg>
-										{/each}
-										<span class="text-base-content/60 ml-2 text-sm">0</span>
-									</div>
-								</div>
-							{/if}
-
-							<!-- Categories -->
-							{#if task.categories?.length > 0}
-								<div class="border-base-300 border-t pt-6">
-									<h4 class="mb-3 font-semibold">
-										{$t('dashboard.task_details_by_task.categories')}
-									</h4>
-									<div class="mt-2 flex flex-wrap gap-2">
-										{#each translatedCategories as category (category)}
-											<span class="badge badge-primary badge-outline badge-sm">
-												{category}
-											</span>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Attachments -->
-							{#if task.attachments && task.attachments.length > 0}
-								<div class="border-base-300 mt-4 border-t pt-6">
-									<h4 class="mb-1 font-semibold">
-										{$t('dashboard.task_details_by_task.attachments')}
-									</h4>
-
-									{#if task.attachments.filter((att) => !isVideoFile(att.url)).length > 0}
-										<div class="mb-6">
-											{#await prepareGalleryImages(task.attachments) then galleryImages}
-												<Gallery
-													galleryID="task-images-gallery"
-													images={galleryImages}
-													thumbnailSize="h-40 w-40"
-												/>
-											{/await}
+								<!-- Timeline and Requirements in same row -->
+								<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:justify-between">
+									<!-- Location information -->
+									{#if shouldShowLocationInfo()}
+										<div class="mb-2">
+											<div class="grid grid-cols-1">
+												{#if isRemoteTask()}
+													<div class="mb-2">
+														<div class="text-base-content/60 flex items-center gap-2 text-sm">
+															<IconMapMarker class="h-4 w-4" />
+															<span>{$t('dashboard.task_details_by_task.remote')}</span>
+														</div>
+													</div>
+												{:else}
+													{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
+														<div class="mb-2">
+															<div class="text-base-content/60 flex items-center gap-2 text-sm">
+																<IconMapMarker class="h-4 w-4" />
+																<span>{$t('dashboard.task_details_by_task.pickup_location')}</span>
+															</div>
+															<div>{task.pickupLocation.displayName}</div>
+														</div>
+													{/if}
+													{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
+														<div class="mt-3">
+															<div class="text-base-content/60 flex items-center gap-2 text-sm">
+																<IconMapMarkerCheck class="h-4 w-4" />
+																<span>{$t('dashboard.task_details_by_task.dropoff_location')}</span>
+															</div>
+															<div>{task.dropOffLocation.displayName}</div>
+														</div>
+													{/if}
+													{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
+														<div class="text-base-content/60 text-sm">
+															{$t('dashboard.task_details_by_task.remote')}
+														</div>
+													{/if}
+												{/if}
+											</div>
 										</div>
 									{/if}
+								</div>
 
-									<!-- Only show non-image attachments (videos, documents, etc.) -->
-									{#if task.attachments.filter((att) => isVideoFile(att.url)).length > 0}
-										<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-											{#each task.attachments.filter( (att) => isVideoFile(att.url) ) as attachment (attachment.key)}
-												<div class="bg-base-200 overflow-hidden rounded-lg">
-													{#if isStreamVideo(attachment)}
-														<StreamPlayer
-															videoUid={attachment.cloudflareId!}
-															private={false}
-															controls={true}
-														/>
-													{:else}
-														<video class="h-48 w-full object-cover" controls preload="metadata">
-															<source src={attachment.url} type={attachment.type} />
-															{$t('dashboard.task_details_by_task.video_not_supported')}
-														</video>
-													{/if}
-													<div class="p-3">
-														<p class="truncate text-sm font-medium">
-															{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-														</p>
-														<p class="text-base-content/60 text-xs">
-															{(attachment.size / 1024 / 1024).toFixed(2)} MB
-														</p>
-													</div>
+								<!-- Requirements section moved to the end -->
+								{#if task.skills?.length > 0}
+									<div class="border-base-300 border-t pt-6">
+										<div class="space-y-3">
+											<div>
+												<h4 class="mb-3 font-semibold">
+													{$t('dashboard.task_details_by_task.required_skills')}
+												</h4>
+												<div class="flex flex-wrap gap-2 pb-4">
+													{#each task.skills as skill (skill)}
+														<span class="badge badge-outline">{skill}</span>
+													{/each}
 												</div>
+											</div>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Tasker profile -->
+								{#if task.npub}
+									<div class="flex flex-col gap-2">
+										<UserInfoDisplay
+											avatar={task.creator?.avatar}
+											username={task.creator?.username}
+											pubkey={task.npub}
+											size="md"
+											showReviewCount={true}
+										/>
+										<a
+											href="/profile?user={task.npub}&tab=reviews"
+											class="text-primary text-xs hover:underline"
+										>
+											{$t('reviews.view_all')}
+										</a>
+									</div>
+								{:else}
+									<div class="flex flex-col">
+										<span class="text-base font-medium">
+											{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
+										</span>
+										<div class="flex items-center">
+											{#each Array(5) as _, i (i)}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-base-content/30 h-4 w-4"
+													fill="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+													/>
+												</svg>
+											{/each}
+											<span class="text-base-content/60 ml-2 text-sm">0</span>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Categories -->
+								{#if task.categories?.length > 0}
+									<div class="border-base-300 border-t pt-6">
+										<h4 class="mb-3 font-semibold">
+											{$t('dashboard.task_details_by_task.categories')}
+										</h4>
+										<div class="mt-2 flex flex-wrap gap-2">
+											{#each translatedCategories as category (category)}
+												<span class="badge badge-outline">
+													{category}
+												</span>
 											{/each}
 										</div>
-									{/if}
-								</div>
-							{/if}
+									</div>
+								{/if}
+
+								<!-- Attachments -->
+								{#if task.attachments && task.attachments.length > 0}
+									<div class="border-base-300 mt-4 border-t pt-6">
+										<h4 class="mb-1 font-semibold">
+											{$t('dashboard.task_details_by_task.attachments')}
+										</h4>
+
+										{#if task.attachments.filter((att) => !isVideoFile(att.url)).length > 0}
+											<div class="mb-6">
+												{#await prepareGalleryImages(task.attachments) then galleryImages}
+													<Gallery
+														galleryID="task-images-gallery"
+														images={galleryImages}
+														thumbnailSize="h-40 w-40"
+													/>
+												{/await}
+											</div>
+										{/if}
+
+										<!-- Only show non-image attachments (videos, documents, etc.) -->
+										{#if task.attachments.filter((att) => isVideoFile(att.url)).length > 0}
+											<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+												{#each task.attachments.filter( (att) => isVideoFile(att.url) ) as attachment (attachment.key)}
+													<div class="bg-base-200 overflow-hidden rounded-lg">
+														{#if isStreamVideo(attachment)}
+															<StreamPlayer
+																videoUid={attachment.cloudflareId!}
+																private={false}
+																controls={true}
+															/>
+														{:else}
+															<video class="h-48 w-full object-cover" controls preload="metadata">
+																<source src={attachment.url} type={attachment.type} />
+																{$t('dashboard.task_details_by_task.video_not_supported')}
+															</video>
+														{/if}
+														<div class="p-3">
+															<p class="truncate text-sm font-medium">
+																{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+															</p>
+															<p class="text-base-content/60 text-xs">
+																{(attachment.size / 1024 / 1024).toFixed(2)} MB
+															</p>
+														</div>
+													</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 
 					<!-- Sidebar -->
 					<div class="lg:col-span-1">
-						<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
-							<!-- Action buttons -->
-							<div>
-								{#if isDeadlineExpired() && task.status === TaskStatusEnum.OPEN}
-									<div class="alert alert-warning alert-outline">
-										<IconAlertCircle class="h-6 w-6 shrink-0" />
-										<div>
-											<span class="font-bold"
-												>{$t('dashboard.task_details_by_task.deadline_expired')}</span
-											>
-											<div class="text-xs">
-												{$t('dashboard.task_details_by_task.deadline_expired_message')}
+						<div class="card bg-base-100 border-base-300 sticky top-6 border shadow-sm">
+							<div class="card-body gap-4 p-5">
+								<!-- Action buttons -->
+								<div>
+									{#if isDeadlineExpired() && task.status === TaskStatusEnum.OPEN}
+										<div class="alert alert-warning alert-outline">
+											<IconAlertCircle class="h-6 w-6 shrink-0" />
+											<div>
+												<span class="font-bold"
+													>{$t('dashboard.task_details_by_task.deadline_expired')}</span
+												>
+												<div class="text-xs">
+													{$t('dashboard.task_details_by_task.deadline_expired_message')}
+												</div>
 											</div>
 										</div>
-									</div>
-								{/if}
-								{#if task.status === TaskStatusEnum.OPEN && (!isOwner || isE2ETest) && $authState.isAuthenticated}
-									<div class="mb-6">
-										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
-										<button data-testid="open-bid-form-btn" class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>
+									{/if}
+									{#if task.status === TaskStatusEnum.OPEN && (!isOwner || isE2ETest) && $authState.isAuthenticated}
+										<div class="mb-6">
+											<h4 class="mb-4">
+												{$t('dashboard.task_details_by_task.interested_in_task')}
+											</h4>
+											<button
+												data-testid="open-bid-form-btn"
+												class="btn btn-primary btn-sm w-full"
+												onclick={handleBidNow}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="mr-2 h-5 w-5"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M12 4v16m8-8H4"
+													/>
+												</svg>
+												{$t('dashboard.task_details_by_task.bid_now')}
+											</button>
+										</div>
+									{:else if task.status === TaskStatusEnum.OPEN && !isOwner && !$authState.isAuthenticated}
+										<div class="mb-6">
+											<h4 class="mb-4">
+												{$t('dashboard.task_details_by_task.interested_in_task')}
+											</h4>
+
+											<button
+												class="btn btn-primary btn-sm w-full"
+												onclick={() =>
+													goto(
+														`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`
+													)}
+											>
+												{$t('dashboard.task_details_by_task.login')}
+											</button>
+										</div>
+									{:else if task.status !== TaskStatusEnum.OPEN}
+										<div class="alert alert-warning alert-outline">
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="mr-2 h-5 w-5"
+												class="h-6 w-6 shrink-0 stroke-current"
 												fill="none"
 												viewBox="0 0 24 24"
-												stroke="currentColor"
 											>
 												<path
 													stroke-linecap="round"
 													stroke-linejoin="round"
 													stroke-width="2"
-													d="M12 4v16m8-8H4"
+													d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
 												/>
 											</svg>
-											{$t('dashboard.task_details_by_task.bid_now')}
-										</button>
-									</div>
-								{:else if task.status === TaskStatusEnum.OPEN && !isOwner && !$authState.isAuthenticated}
-									<div class="mb-6">
-										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
-
-										<button
-											class="btn btn-primary btn-sm w-full"
-											onclick={() =>
-												goto(
-													`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`
-												)}
-										>
-											{$t('dashboard.task_details_by_task.login')}
-										</button>
-									</div>
-								{:else if task.status !== TaskStatusEnum.OPEN}
-									<div class="alert alert-warning alert-outline">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-6 w-6 shrink-0 stroke-current"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
-											/>
-										</svg>
-										<span>{$t('dashboard.task_details_by_task.task_not_open_bidding')}</span>
-									</div>
-								{:else if isOwner}
-									<div class="alert alert-info alert-outline">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-6 w-6 shrink-0 stroke-current"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-											/>
-										</svg>
-										<span>{$t('dashboard.task_details_by_task.you_are_owner')}</span>
-									</div>
-								{/if}
-							</div>
-
-							<!-- Task creator info -->
-							{#if task.creator}
-								<div class="border-base-300 mt-4 border-t pt-4">
-									<h4 class="mb-3 font-semibold">{$t('dashboard.task_details_by_task.tasker')}</h4>
-									{#if task.npub}
-										<UserInfoDisplay
-											avatar={task.creator.avatar}
-											username={task.creator.username}
-											pubkey={task.npub}
-											size="md"
-											showReviewCount={true}
-										/>
-									{:else}
-										<div class="flex items-center gap-3">
-											<div class="avatar">
-												<div
-													class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
-												>
-													{#if task.creator.avatar}
-														<img
-															src={task.creator.avatar}
-															alt={$t('dashboard.task_details_by_task.avatar_alt')}
-															class="h-12 w-12 rounded-full object-cover"
-														/>
-													{:else}
-														<div
-															class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
-														>
-															{#if task.creator.username}
-																<span class="text-xl font-semibold">
-																	{task.creator.username.charAt(0).toUpperCase()}
-																</span>
-															{:else}
-																<svg
-																	xmlns="http://www.w3.org/2000/svg"
-																	class="text-base-content/60 h-8 w-8"
-																	fill="none"
-																	viewBox="0 0 24 24"
-																	stroke="currentColor"
-																>
-																	<path
-																		stroke-linecap="round"
-																		stroke-linejoin="round"
-																		stroke-width="2"
-																		d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-																	/>
-																</svg>
-															{/if}
-														</div>
-													{/if}
-												</div>
-											</div>
-											<div class="flex flex-col">
-												<span class="text-base font-medium">{task.creator.username}</span>
-											</div>
+											<span>{$t('dashboard.task_details_by_task.task_not_open_bidding')}</span>
+										</div>
+									{:else if isOwner}
+										<div class="alert alert-info alert-outline">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-6 w-6 shrink-0 stroke-current"
+												fill="none"
+												viewBox="0 0 24 24"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+												/>
+											</svg>
+											<span>{$t('dashboard.task_details_by_task.you_are_owner')}</span>
 										</div>
 									{/if}
 								</div>
-							{/if}
-							<!-- Task Location Map - Only show pickup location -->
-							{#if task.pickupLocation && !isRemoteTask()}
-								<div class="border-base-300 mt-4 border-t pt-4">
-									<h4 class="mt-3 mb-2 font-semibold">
-										{$t('dashboard.task_details_by_task.pickup_location')}
-									</h4>
-									<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
-									<div class="text-base-content/60 px-1 pt-2 text-sm">
-										{$t('dashboard.task_details_by_task.location_map_description')}
+
+								<!-- Task creator info -->
+								{#if task.creator}
+									<div class="border-base-300 mt-4 border-t pt-4">
+										<h4 class="mb-3 font-semibold">
+											{$t('dashboard.task_details_by_task.tasker')}
+										</h4>
+										{#if task.npub}
+											<UserInfoDisplay
+												avatar={task.creator.avatar}
+												username={task.creator.username}
+												pubkey={task.npub}
+												size="md"
+												showReviewCount={true}
+											/>
+										{:else}
+											<div class="flex items-center gap-3">
+												<div class="avatar">
+													<div
+														class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
+													>
+														{#if task.creator.avatar}
+															<img
+																src={task.creator.avatar}
+																alt={$t('dashboard.task_details_by_task.avatar_alt')}
+																class="h-12 w-12 rounded-full object-cover"
+															/>
+														{:else}
+															<div
+																class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
+															>
+																{#if task.creator.username}
+																	<span class="text-xl font-semibold">
+																		{task.creator.username.charAt(0).toUpperCase()}
+																	</span>
+																{:else}
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		class="text-base-content/60 h-8 w-8"
+																		fill="none"
+																		viewBox="0 0 24 24"
+																		stroke="currentColor"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+																		/>
+																	</svg>
+																{/if}
+															</div>
+														{/if}
+													</div>
+												</div>
+												<div class="flex flex-col">
+													<span class="text-base font-medium">{task.creator.username}</span>
+												</div>
+											</div>
+										{/if}
 									</div>
-								</div>
-							{/if}
+								{/if}
+								<!-- Task Location Map - Only show pickup location -->
+								{#if task.pickupLocation && !isRemoteTask()}
+									<div class="border-base-300 mt-4 border-t pt-4">
+										<h4 class="mt-3 mb-2 font-semibold">
+											{$t('dashboard.task_details_by_task.pickup_location')}
+										</h4>
+										<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
+										<div class="text-base-content/60 px-1 pt-2 text-sm">
+											{$t('dashboard.task_details_by_task.location_map_description')}
+										</div>
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				</div>
@@ -865,10 +896,6 @@
 	isScrollable={true}
 >
 	{#if task}
-		<BidForm
-			{task}
-			onSubmit={handleBidSubmit}
-			onClose={() => (isSidebarOpen = false)}
-		/>
+		<BidForm {task} onSubmit={handleBidSubmit} onClose={() => (isSidebarOpen = false)} />
 	{/if}
 </Drawer>
