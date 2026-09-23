@@ -63,6 +63,27 @@
 			(snapshot?.status === 'work_submitted' || snapshot?.status === 'approved') &&
 			!isReleasing
 	);
+	const statusLabel = $derived(snapshot?.status ?? 'loading');
+	const statusClass = $derived.by(() => {
+		if (statusLabel === 'funded') return 'badge-warning';
+		if (
+			statusLabel === 'work_submitted' ||
+			statusLabel === 'work_in_progress' ||
+			statusLabel === 'approved'
+		) {
+			return 'badge-info';
+		}
+		if (statusLabel === 'released') return 'badge-success';
+		return 'badge-outline';
+	});
+	const fundIsPaid = $derived(
+		statusLabel === 'funded' ||
+			statusLabel === 'work_in_progress' ||
+			statusLabel === 'work_submitted' ||
+			statusLabel === 'approved' ||
+			statusLabel === 'releasing' ||
+			statusLabel === 'released'
+	);
 
 	function parseStatusContent(content: string): ContractStatusContent | null {
 		try {
@@ -235,137 +256,162 @@
 	});
 </script>
 
-<div class="mx-auto max-w-4xl space-y-4 p-4" data-testid="contract-detail-view">
-	<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm">
-		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<div class="min-w-0">
-				<p class="text-base-content/60 text-sm">RGB Contract</p>
-				<h1 class="text-2xl font-bold" data-testid="contract-title">
-					{snapshot?.contractTitle ?? contractId}
-				</h1>
-				<p class="text-base-content/70 mt-1 text-sm break-all">{contractId}</p>
+<div
+	class="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6"
+	data-testid="contract-detail-view"
+>
+	<header class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body gap-3 p-5">
+			<div class="flex items-center justify-between gap-3">
+				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
+					{role === 'tasker' ? 'Tasker' : 'Taskee'}
+				</p>
+				<span class="badge badge-lg {statusClass}" data-testid="contract-status">{statusLabel}</span
+				>
 			</div>
-			<div class="flex flex-wrap gap-2">
-				<span class="badge badge-primary badge-lg" data-testid="contract-settlement-unit"
+			<h1 class="text-2xl font-bold sm:text-3xl" data-testid="contract-title">
+				{snapshot?.contractTitle ?? 'Contract'}
+			</h1>
+			<div class="flex flex-wrap items-center gap-2">
+				<span class="badge badge-primary" data-testid="contract-settlement-unit"
 					>{settlementUnit}</span
 				>
-				<span class="badge badge-outline badge-lg" data-testid="contract-status"
-					>{snapshot?.status ?? 'loading'}</span
-				>
 			</div>
 		</div>
-	</div>
+	</header>
 
 	{#if loading}
-		<div class="rounded-box bg-base-100 border-base-300 border p-6 text-center" role="status">
-			<span class="loading loading-spinner loading-md"></span>
+		<div class="card bg-base-100 border-base-300 border shadow-sm" role="status">
+			<div class="card-body items-center p-6">
+				<span class="loading loading-spinner loading-md text-primary"></span>
+			</div>
 		</div>
 	{:else if errorMessage}
-		<div class="alert alert-error" data-testid="contract-error">{errorMessage}</div>
+		<div class="alert alert-outline alert-error" data-testid="contract-error">{errorMessage}</div>
 	{:else if snapshot}
-		<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm">
-			<h2 class="font-semibold">Bid details</h2>
-			<p
-				class="text-base-content/70 mt-2 whitespace-pre-line"
-				data-testid="contract-bidder-comments"
-			>
-				{snapshot.bidderComments || 'No bidder comments provided.'}
-			</p>
-		</div>
-
-		<div class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm">
-			<h2 class="font-semibold">Status timeline</h2>
-			<div class="mt-3 space-y-3" data-testid="contract-status-timeline">
-				{#each timeline as entry (entry.id)}
-					<div class="border-base-200 border-l-2 pl-3">
-						<div class="font-medium">{entry.status}</div>
-						{#if entry.message}
-							<div class="text-base-content/70 text-sm">{entry.message}</div>
-						{/if}
-						{#if entry.proofUrl}
-							<button
-								class="link link-primary text-sm"
-								type="button"
-								onclick={() => openProof(entry.proofUrl ?? '')}>Proof</button
-							>
-						{/if}
-						<div class="text-base-content/50 text-xs">
-							{new Date(entry.createdAt).toLocaleString()}
-						</div>
-					</div>
-				{/each}
+		<section
+			class="card bg-base-100 border-base-300 border shadow-sm"
+			data-testid="contract-fund-panel"
+		>
+			<div class="card-body gap-1 p-5">
+				<h2 class="text-base font-semibold">Payment</h2>
+				<p class="text-base-content/80 text-sm">
+					{fundIsPaid ? 'Paid on fund. Release confirms the work.' : 'Waiting for the fund send.'}
+				</p>
 			</div>
-		</div>
+		</section>
 
 		{#if canSubmitDeliverable}
-			<div
-				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+			<section
+				class="card bg-base-100 border-base-300 border shadow-sm"
 				data-testid="submit-deliverable-panel"
 			>
-				<h2 class="font-semibold">Submit Deliverable</h2>
-				<textarea
-					class="textarea textarea-bordered mt-3 w-full"
-					bind:value={workMessage}
-					data-testid="deliverable-message-input"
-				></textarea>
-				<input
-					class="input input-bordered mt-3 w-full"
-					bind:value={proofUrl}
-					placeholder="Proof URL"
-					data-testid="deliverable-proof-url-input"
-				/>
-				<button
-					class="btn btn-primary mt-3"
-					onclick={handleSubmitDeliverable}
-					disabled={isSubmitting}
-					data-testid="submit-deliverable-button"
-				>
-					{#if isSubmitting}<span class="loading loading-spinner loading-xs"></span>{/if}
-					Submit Deliverable
-				</button>
-			</div>
+				<div class="card-body gap-3 p-5">
+					<h2 class="text-base font-semibold">Deliverable</h2>
+					<textarea
+						class="textarea textarea-bordered w-full"
+						bind:value={workMessage}
+						data-testid="deliverable-message-input"
+					></textarea>
+					<input
+						class="input input-bordered w-full"
+						bind:value={proofUrl}
+						placeholder="Proof URL"
+						data-testid="deliverable-proof-url-input"
+					/>
+					<button
+						class="btn btn-primary"
+						onclick={handleSubmitDeliverable}
+						disabled={isSubmitting}
+						data-testid="submit-deliverable-button"
+					>
+						{#if isSubmitting}<span class="loading loading-spinner loading-xs"></span>{/if}
+						Submit deliverable
+					</button>
+				</div>
+			</section>
 		{/if}
 
 		{#if canApprove}
-			<div
-				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+			<section
+				class="card bg-base-100 border-base-300 border shadow-sm"
 				data-testid="approve-work-panel"
 			>
-				<h2 class="font-semibold">Approve work</h2>
-				<p class="text-base-content/70 mt-2 text-sm">
-					Approve the deliverable. The fund send already paid the Taskee.
-				</p>
-				<button
-					class="btn btn-primary mt-3"
-					onclick={handleApprove}
-					disabled={isReleasing}
-					data-testid="approve-work-button"
-				>
-					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
-					Approve work
-				</button>
-			</div>
+				<div class="card-body gap-3 p-5">
+					<h2 class="text-base font-semibold">Review</h2>
+					<p class="text-base-content/70 text-sm">Paid on fund. Release confirms the work.</p>
+					<button
+						class="btn btn-outline"
+						onclick={handleApprove}
+						disabled={isReleasing}
+						data-testid="approve-work-button"
+					>
+						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+						Approve work
+					</button>
+				</div>
+			</section>
 		{/if}
 
 		{#if canRelease}
-			<div
-				class="rounded-box bg-base-100 border-base-300 border p-5 shadow-sm"
+			<section
+				class="card bg-base-100 border-base-300 border shadow-sm"
 				data-testid="release-funds-panel"
 			>
-				<h2 class="font-semibold">Release escrow</h2>
-				<p class="text-base-content/70 mt-2 text-sm">
-					Record release. The RGB asset was already sent when the contract was funded.
-				</p>
-				<button
-					class="btn btn-success mt-3"
-					onclick={handleRelease}
-					disabled={isReleasing}
-					data-testid="approve-release-funds-button"
-				>
-					{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
-					Release escrow
-				</button>
-			</div>
+				<div class="card-body gap-3 p-5">
+					<h2 class="text-base font-semibold">Release</h2>
+					<p class="text-base-content/70 text-sm">Paid on fund. Release confirms the work.</p>
+					<button
+						class="btn btn-success"
+						onclick={handleRelease}
+						disabled={isReleasing}
+						data-testid="approve-release-funds-button"
+					>
+						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+						Release
+					</button>
+				</div>
+			</section>
 		{/if}
+
+		<section class="card bg-base-200 border-base-300 border shadow-sm">
+			<div class="card-body gap-2 p-5">
+				<h2 class="text-base font-semibold">Bid</h2>
+				<p
+					class="text-base-content/80 text-sm whitespace-pre-line"
+					data-testid="contract-bidder-comments"
+				>
+					{snapshot.bidderComments || 'No bidder comments provided.'}
+				</p>
+			</div>
+		</section>
+
+		<section class="card bg-base-100 border-base-300 border shadow-sm">
+			<div class="card-body gap-3 p-5">
+				<h2 class="text-base font-semibold">History</h2>
+				<ol class="flex flex-col gap-3" data-testid="contract-status-timeline">
+					{#each timeline as entry (entry.id)}
+						<li class="border-base-300 border-l-2 pl-3">
+							<div class="text-sm font-medium">{entry.status}</div>
+							{#if entry.message}
+								<div class="text-base-content/70 text-sm">{entry.message}</div>
+							{/if}
+							{#if entry.proofUrl}
+								<button
+									class="link link-primary text-sm"
+									type="button"
+									onclick={() => openProof(entry.proofUrl ?? '')}>Proof</button
+								>
+							{/if}
+							<div class="text-base-content/50 text-xs">
+								{new Date(entry.createdAt).toLocaleString()}
+							</div>
+						</li>
+					{/each}
+				</ol>
+			</div>
+		</section>
+
+		<p class="text-base-content/40 px-1 font-mono text-xs break-all">{contractId}</p>
 	{/if}
 </div>
