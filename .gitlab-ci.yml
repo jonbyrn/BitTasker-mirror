@@ -283,6 +283,7 @@ deploy-sandbox:
     VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
+    VITE_RGB_USDT_ASSET_ID: rgb:2s69152-rg39309-8438210-usdt_testnet
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
