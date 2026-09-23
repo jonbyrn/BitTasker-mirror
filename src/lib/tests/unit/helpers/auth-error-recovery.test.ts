@@ -145,10 +145,7 @@ vi.mock('$lib/nostr/ndk', () => ({
 		signer: null,
 		cacheAdapter: null,
 		addExplicitRelay: vi.fn()
-	}
-}));
-
-vi.mock('$lib/nostr/ndkSigner', () => ({
+	},
 	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
 	applyNdkSignerFromNsec: vi.fn().mockResolvedValue(undefined)
 }));

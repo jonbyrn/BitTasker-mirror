@@ -1,0 +1,32 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "1. E2E: Seed Auth State",
+			"type": "shell",
+			"command": "New-Item -ItemType Directory -Force -Path 'tests/e2e/auth' | Out-Null; @'{\n  \"access_token\": \"e2e-bypass-token\",\n  \"refresh_token\": \"e2e-bypass-refresh\",\n  \"npub\": \"npub1800sfl8c2v369axy68p8v6ua9554ccawx24myw0296607822p4cq6388gr\",\n  \"nsec\": \"nsec104q6cve4l3k7kzxv3smy2nlj09j3gfgp45k00000000000000000000000\",\n  \"mnemonic\": \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n}' | Set-Content -Path 'tests/e2e/auth/test-seed.json' -Encoding UTF8; corepack pnpm run test:e2e:seed",
+			"problemMatcher": []
+		},
+		{
+			"label": "2. E2E: Start Vite Server (Port 3004)",
+			"type": "shell",
+			"command": "$env:NODE_ENV='development'; $env:VITE_API_URL='http://localhost:8000'; $env:VITE_E2E_TURNSTILE_BYPASS='true'; $env:VITE_NOSTR_RELAY_URL='ws://localhost:7777'; $env:VITE_NOSTR_TASK_RELAY_URL='ws://localhost:7777'; $env:VITE_BITCOIN_NETWORK='testnet'; corepack pnpm dev -- --port 3004 --strictPort",
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "custom",
+				"pattern": { "regexp": "^$" },
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".*vite.*",
+					"endsPattern": ".*Local:.*3004.*"
+				}
+			}
+		},
+		{
+			"label": "3. E2E: Escrow Bot Test",
+			"type": "shell",
+			"command": "$env:PW_E2E_BASE_URL='http://localhost:3004'; $env:VITE_API_URL='http://localhost:8000'; $env:VITE_E2E_TURNSTILE_BYPASS='true'; $env:VITE_NOSTR_RELAY_URL='ws://localhost:7777'; $env:VITE_NOSTR_TASK_RELAY_URL='ws://localhost:7777'; $env:VITE_BITCOIN_NETWORK='testnet'; $env:PW_E2E_HOLD_OPEN_MS='0'; $env:PW_E2E_CHECKPOINT_MS='30000'; corepack pnpm exec playwright test tests/e2e/bot-contract-flow.spec.ts --project=chromium --headed --workers=1 --grep 'funded bot escrow acceptance'",
+			"problemMatcher": []
+		}
+	]
+}

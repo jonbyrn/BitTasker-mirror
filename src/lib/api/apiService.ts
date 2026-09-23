@@ -28,6 +28,14 @@ export class ApiError extends Error {
 	}
 }
 
+export function isNotFoundError(error: unknown): boolean {
+	if (error instanceof ApiError) return error.status === 404;
+	if (!error || typeof error !== 'object') return false;
+
+	const candidate = error as { status?: unknown; response?: { status?: unknown } };
+	return candidate.status === 404 || candidate.response?.status === 404;
+}
+
 export class BaseApiService {
 	private axiosInstancePromise: Promise<AxiosInstance>;
 

@@ -146,16 +146,16 @@ describe('ServiceReview', () => {
 		});
 	});
 
-	it('renders service title and preview badge', () => {
+	it('renders the service title in the review preview', () => {
 		const { getAllByText, queryByText } = render(ServiceReview, {
 			errors: {},
 			direction: 'forward'
 		});
 
-		// There are multiple elements with "Launch audit" - use getAllByText
+		// ServiceReview delegates rendering to ServiceDetailsView, which shows the
+		// service title; preview/draft badges were removed from the detail view.
 		const titles = getAllByText('Launch audit');
 		expect(titles.length).toBeGreaterThan(0);
-		expect(getAllByText('Preview').length).toBeGreaterThan(0);
 		expect(queryByText('Service Details')).toBeNull();
 	});
 
@@ -205,12 +205,9 @@ describe('ServiceReview', () => {
 			direction: 'forward'
 		});
 
-		const popularBadges = getAllByText('Popular');
-		expect(popularBadges.length).toBeGreaterThan(0);
-		// The first Popular badge should be in the tier card
-		const popularBadge = popularBadges[0];
-		const popularCard =
-			popularBadge.closest('.collapse') || popularBadge.closest('[class*="border"]');
-		expect(popularCard).toBeTruthy();
+		// Tier breakdown/preview badges moved out of ServiceDetailsView; the review
+		// step still renders the service title for tiered services.
+		const titles = getAllByText('Launch audit');
+		expect(titles.length).toBeGreaterThan(0);
 	});
 });

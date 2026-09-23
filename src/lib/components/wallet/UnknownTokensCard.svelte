@@ -5,14 +5,14 @@
 	 * in the total wallet balance.
 	 *
 	 * Tier 2 tokens use the key format `chainId-SYMBOL` (e.g., "56-USDT", "137-USDC").
-	 * Known Tier 1 keys (rbtc, btc, wbtc, usdt, usdt0-arb) are explicitly excluded.
+	 * Known native asset keys (btc, btc_lightning, usdt_rgb) are explicitly excluded.
 	 *
 	 * Hidden when no Tier 2 tokens are detected.
 	 */
 	import { t } from 'svelte-i18n';
 
 	const TIER2_KEY_RE = /^\d+-[A-Z]+$/;
-	const TIER1_KEYS = new Set(['rbtc', 'btc', 'wbtc', 'usdt', 'usdt0-arb']);
+	const TIER1_KEYS = new Set(['btc', 'btc_lightning', 'usdt_rgb']);
 
 	let {
 		wallets

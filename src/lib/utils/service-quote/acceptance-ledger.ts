@@ -245,9 +245,9 @@ function sanitizeAcceptanceSnapshot(value: unknown): ServiceAcceptanceSnapshot |
 
 	const candidate = value as Record<string, unknown>;
 	if (
-		typeof candidate.clientRskAddress !== 'string' ||
+		typeof candidate.clientBtcAddress !== 'string' ||
 		typeof candidate.clientFeeTier !== 'number' ||
-		typeof candidate.freelancerRskAddress !== 'string' ||
+		typeof candidate.freelancerBitcoinAddress !== 'string' ||
 		typeof candidate.freelancerFeeTier !== 'number' ||
 		typeof candidate.chainId !== 'number' ||
 		typeof candidate.contractAddress !== 'string' ||

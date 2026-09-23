@@ -1,5 +1,26 @@
+import { Buffer } from 'buffer';
+import process from 'process';
+
+type NodeGlobals = {
+	Buffer?: typeof Buffer;
+	process?: typeof process;
+};
+
+function assignNodeGlobals(target: NodeGlobals): void {
+	if (!target.Buffer) target.Buffer = Buffer;
+	target.process = process;
+}
+
+if (typeof window !== 'undefined') {
+	assignNodeGlobals(window as Window & NodeGlobals);
+}
+if (typeof globalThis !== 'undefined') {
+	assignNodeGlobals(globalThis as typeof globalThis & NodeGlobals);
+}
+
 import type { HandleClientError } from '@sveltejs/kit';
-import { init, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
+import { init as initSentry, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
+import { exposeInitWasm } from '$lib/wasm/init-wasm';
 // Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully
 // evaluated before any route chunk that extends it. This, combined with the
 // manualChunks isolation in vite.config.ts, eliminates the circular chunk dependency
@@ -7,7 +28,7 @@ import { init, replayIntegration, handleErrorWithSentry } from '@sentry/svelteki
 import '$lib/api/apiService';
 
 if (process.env.NODE_ENV !== 'development') {
-	init({
+	initSentry({
 		dsn: import.meta.env.VITE_SENTRY_DSN,
 
 		tracesSampleRate: 1.0,
@@ -39,7 +60,22 @@ if (process.env.NODE_ENV !== 'development') {
  * The same version-scoped sessionStorage key used in +layout.svelte ensures
  * that the two layers never conflict: whichever fires first sets the flag.
  */
+
+/**
+ * SvelteKit client init hook — runs before the app hydrates. Sentry is already
+ * initialized above at module scope; this export satisfies the client app's
+ * expected `init` hook contract.
+ */
+export function init(): void {
+	exposeInitWasm();
+}
+
 export const handleError: HandleClientError = handleErrorWithSentry(({ error }) => {
+	if (process.env.NODE_ENV === 'development') {
+		// Sentry's wrapper replaces the returned message before it reaches +error.svelte — preserve the stack here.
+		console.error(error);
+	}
+
 	const message = (error as Error)?.message ?? '';
 	const isChunkError =
 		message.toLowerCase().includes('failed to fetch dynamically imported module') ||

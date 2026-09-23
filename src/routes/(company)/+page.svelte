@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import { t as i18nT } from 'svelte-i18n';
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
@@ -175,20 +176,25 @@
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
 					<div class="flex flex-col justify-center gap-4 sm:flex-row">
-						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+						<a href={resolve('/tasks')} class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{t('navbar.browse_tasks')}</a
 						>
-						<a href="/services" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+						<a href={resolve('/services')} class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{t('navbar.browse_services')}</a
 						>
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
-						<a
-							href="/auth/signup"
-							class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
-							data-testid="signup-link">{t('homepage.v2.hero.cta')}</a
-						>
+						<div class="flex flex-col justify-center gap-3 sm:flex-row">
+							<a
+								href={resolve('/auth/signup')}
+								class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
+								data-testid="signup-link">{t('homepage.v2.hero.cta')}</a
+							>
+							<a href={resolve('/auth/login')} class="btn btn-outline btn-lg w-64 sm:w-auto">
+								{t('navbar.login')}
+							</a>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -295,7 +301,7 @@
 
 			<!-- Learn More Button -->
 			<div class="mt-12 text-center">
-				<a href="/how-it-works" class="btn btn-primary">{t('homepage.v2.howitworks.learnMore')}</a>
+				<a href={resolve('/how-it-works')} class="btn btn-primary">{t('homepage.v2.howitworks.learnMore')}</a>
 			</div>
 		</div>
 	</section>

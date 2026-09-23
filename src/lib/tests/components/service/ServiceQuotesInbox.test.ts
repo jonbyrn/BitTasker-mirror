@@ -355,7 +355,7 @@ describe('ServiceQuotesInbox', () => {
 				expirationDays: 5,
 				expirationHours: 0,
 				expirationTimestamp: 1_700_300_000,
-				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 				freelancerFeeTier: 1 as const,
 				pricingSnapshot: {
 					serviceVersionRef: 'service-event-1'
@@ -414,7 +414,7 @@ describe('ServiceQuotesInbox', () => {
 					expirationDays: 5,
 					expirationHours: 0,
 					expirationTimestamp: 1_700_300_000,
-					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+					freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 					freelancerFeeTier: 1 as const,
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
@@ -468,7 +468,7 @@ describe('ServiceQuotesInbox', () => {
 				expirationDays: 5,
 				expirationHours: 0,
 				expirationTimestamp: 1_700_300_000,
-				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 				freelancerFeeTier: 1 as const,
 				pricingSnapshot: {
 					serviceVersionRef: 'service-event-1'
@@ -656,7 +656,7 @@ describe('ServiceQuotesInbox', () => {
 				expirationDays: 5,
 				expirationHours: 0,
 				expirationTimestamp: 1_700_300_000,
-				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 				freelancerFeeTier: 1 as const,
 				pricingSnapshot: {
 					serviceVersionRef: 'service-event-1'
@@ -1048,7 +1048,7 @@ describe('ServiceQuotesInbox', () => {
 							expirationDays: 5,
 							expirationHours: 0,
 							expirationTimestamp: 1_700_300_000,
-							freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+							freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 							freelancerFeeTier: 1,
 							pricingSnapshot: {
 								serviceVersionRef: 'service-event-1'
@@ -1117,7 +1117,7 @@ describe('ServiceQuotesInbox', () => {
 					expirationDays: 5,
 					expirationHours: 0,
 					expirationTimestamp: 1_700_300_000,
-					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+					freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 					freelancerFeeTier: 1,
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
@@ -1179,7 +1179,7 @@ describe('ServiceQuotesInbox', () => {
 					expirationDays: 3,
 					expirationHours: 0,
 					expirationTimestamp: 1_700_259_200,
-					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+					freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 					freelancerFeeTier: 1 as const,
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
@@ -1228,7 +1228,7 @@ describe('ServiceQuotesInbox', () => {
 					expirationDays: 3,
 					expirationHours: 0,
 					expirationTimestamp: 1_700_259_200,
-					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+					freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 					freelancerFeeTier: 1 as const,
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'

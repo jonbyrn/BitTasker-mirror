@@ -1,4 +1,4 @@
-import type { ContractPurchaseMode } from '$lib/types/contract';
+export type ContractPurchaseMode = 'quote' | 'instant_buy';
 
 export type InstantBuyPricingType = 'FIXED' | 'HOURLY' | 'TIERED' | 'INQUIRY_REQUIRED';
 export type DeliveryUnit = 'hour' | 'day' | 'week' | 'month';

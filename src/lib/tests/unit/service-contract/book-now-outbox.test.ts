@@ -233,7 +233,7 @@ describe('book now outbox', () => {
 				state: 'funding_submitted',
 				nowMs: 1_700_000_005_000,
 				expectedLockOwnerId: 'session-a',
-				amountRbtc: '0.00001450',
+				amountBtc: '0.00001450',
 				transactionHash: '0xAbC123',
 				instantOrderId: 'sib_1234567890abcd'
 			})
@@ -243,7 +243,7 @@ describe('book now outbox', () => {
 			createdAtMs: 1_700_000_000_000,
 			updatedAtMs: 1_700_000_005_000,
 			instantOrderId: 'sib_1234567890abcd',
-			amountRbtc: '0.00001450',
+			amountBtc: '0.00001450',
 			transactionHash: '0xabc123'
 		});
 
@@ -261,7 +261,7 @@ describe('book now outbox', () => {
 			createdAtMs: 1_700_000_000_000,
 			updatedAtMs: 1_700_000_010_000,
 			instantOrderId: 'sib_1234567890abcd',
-			amountRbtc: '0.00001450',
+			amountBtc: '0.00001450',
 			transactionHash: '0xabc123',
 			escrowId: 'svc-escrow-123'
 		});
@@ -273,7 +273,7 @@ describe('book now outbox', () => {
 				createdAtMs: 1_700_000_000_000,
 				updatedAtMs: 1_700_000_010_000,
 				instantOrderId: 'sib_1234567890abcd',
-				amountRbtc: '0.00001450',
+				amountBtc: '0.00001450',
 				transactionHash: '0xabc123',
 				escrowId: 'svc-escrow-123'
 			}

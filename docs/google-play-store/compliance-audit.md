@@ -62,7 +62,7 @@ The privacy policy at `/privacy` (`static/locales/en/company/privacy_policy.json
 - **Location Data** — Discloses foreground-only device location for task features
 - **Email Address** — Discloses optional email collection for account recovery
 - **Device Identifiers** — Discloses random device ID for session security
-- **Third-Party Services** — Names and describes all 7 services: Sentry, Firebase Cloud Messaging, Google Maps, Google Translate, Cloudflare Turnstile, Umami Analytics, Boltz swaps
+- **Third-Party Services** — Names and describes all 7 services: Sentry, Firebase Cloud Messaging, Google Maps, Google Translate, Cloudflare Turnstile, Umami Analytics, RGB swaps
 
 ### Current Status
 
@@ -142,10 +142,10 @@ would fill this out. However, the development team needs to ensure that:
 
 | Feature                     | Implementation                                 | Declaration Category                   |
 | --------------------------- | ---------------------------------------------- | -------------------------------------- |
-| Non-custodial crypto wallet | RSK + BSC wallets from local mnemonic          | "Cryptocurrency wallet"                |
-| Atomic swaps                | Boltz swaps (Lightning ↔ RBTC, L-BTC ↔ RBTC) | May be considered exchange-adjacent    |
-| On-chain escrow             | Rootstock smart contract for task payments     | Payment processing via smart contracts |
-| Send/receive crypto         | RBTC, Lightning, BSC USDT                      | Cryptocurrency transfers               |
+| Non-custodial crypto wallet | RGB + BSC wallets from local mnemonic          | "Cryptocurrency wallet"                |
+| Atomic swaps                | RGB swaps (Lightning ↔ BTC, L-BTC ↔ BTC) | May be considered exchange-adjacent    |
+| On-chain escrow             | RGB smart contract for task payments     | Payment processing via smart contracts |
+| Send/receive crypto         | BTC, Lightning, BSC USDT                      | Cryptocurrency transfers               |
 
 ### Why It Matters
 

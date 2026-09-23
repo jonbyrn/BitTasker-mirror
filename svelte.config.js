@@ -31,6 +31,7 @@ const config = {
 	},
 
 	kit: {
+		prerender: { handleHttpError: 'ignore' },
 		// Configure the adapter with fallback for SPA navigation
 		adapter: adapter({
 			// Single-page app mode — index.html serves as the SPA shell for all

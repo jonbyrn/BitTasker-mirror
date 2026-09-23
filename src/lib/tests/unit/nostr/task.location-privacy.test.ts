@@ -32,7 +32,11 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: (...args: Parameters<typeof hoisted.mockGetSignedEvent>) =>
-		hoisted.mockGetSignedEvent(...args)
+		hoisted.mockGetSignedEvent(...args),
+	publishToMultipleRelays: async (...args: Parameters<typeof hoisted.mockPublishEvent>) => {
+		await hoisted.mockPublishEvent(...args);
+		return [{ relay: 'wss://relay.test', success: true }];
+	}
 }));
 
 vi.mock('$lib/nostr', () => ({
@@ -206,6 +210,27 @@ describe('task publish location privacy', () => {
 		);
 		expect(publicContent.pickupLocation.placeId).not.toBe(createExactTaskLocation().placeId);
 		expect(publicEvent.tags).toContainEqual(['L', 'Denver, CO, US']);
+	});
+
+	it('skips exact companion publish for remote tasks without coordinates', async () => {
+		const { createTask } = await import('$lib/nostr/task');
+		await createTask(
+			createTaskBody({
+				taskType: TaskTypeEnum.REMOTE,
+				pickupLocation: {
+					displayName: '',
+					longitude: null,
+					latitude: null,
+					zipCode: '',
+					locationLoaded: false
+				}
+			})
+		);
+
+		expect(hoisted.mockPublishExactTaskLocations).not.toHaveBeenCalled();
+		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
+		const publicEvent = hoisted.mockPublishEvent.mock.calls[0]?.[0] as { tags: string[][] };
+		expect(publicEvent.tags.some((tag) => tag[0] === 'L')).toBe(false);
 	});
 
 	it('fails closed when publishing the exact task companion fails during create', async () => {

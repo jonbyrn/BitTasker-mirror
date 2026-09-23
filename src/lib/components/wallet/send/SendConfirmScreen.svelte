@@ -15,7 +15,6 @@
 		address: string;
 		hasInsufficientBalance: boolean;
 		isSending: boolean;
-		isBelowSwapMinimum: boolean;
 		showAmountInput: boolean;
 		showLargeAmountWarning?: boolean;
 		largeAmountWarningText?: string;
@@ -47,7 +46,6 @@
 		address,
 		hasInsufficientBalance,
 		isSending,
-		isBelowSwapMinimum,
 		showAmountInput,
 		showLargeAmountWarning = false,
 		largeAmountWarningText = '',
@@ -144,7 +142,7 @@
 		<button
 			class="btn btn-primary flex-1"
 			onclick={onSend}
-			disabled={isSending || hasInsufficientBalance || isBelowSwapMinimum}
+			disabled={isSending || hasInsufficientBalance}
 		>
 			{#if isSending}
 				<span class="loading loading-spinner loading-sm"></span>

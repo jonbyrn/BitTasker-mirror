@@ -226,6 +226,7 @@
 	// State for attestation-based review stats
 	let reviewStats = $state<ReviewStats | null>(null);
 	let tasksCompleted = $state(0); // Unique contracts where user participated
+	let contractsCompleted = $state(0);
 	let isLoadingReviews = $state(false);
 	let allReviews = $state<AttestedReview[]>([]);
 	let reviewSort = $state<'newest' | 'highest_rating' | 'lowest_rating'>('newest');
@@ -368,6 +369,7 @@
 			}
 
 			tasksCompleted = uniqueContractIds.size;
+			contractsCompleted = uniqueContractIds.size;
 
 			// Rating stats are calculated ONLY from reviews received (where user is reviewee)
 			// This represents their reputation based on how others rated them
@@ -382,6 +384,7 @@
 			console.error('Failed to load user reviews:', error);
 			reviewStats = null;
 			tasksCompleted = 0;
+			contractsCompleted = 0;
 		} finally {
 			isLoadingReviews = false;
 		}
@@ -1172,6 +1175,18 @@
 											<span class="loading loading-spinner loading-xs"></span>
 										{:else}
 											{tasksCompleted}
+										{/if}
+									</span>
+								</div>
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm"
+										>{$t('common.profile.contracts_completed')}</span
+									>
+									<span class="text-primary text-lg font-bold" data-testid="profile-contracts-completed">
+										{#if isLoadingReviews}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											{contractsCompleted}
 										{/if}
 									</span>
 								</div>

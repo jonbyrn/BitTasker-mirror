@@ -1,15 +1,48 @@
-import type { Attachment } from '$lib/types/task';
+import type { Attachment } from '$lib/types/attachment';
+import { RgbContractState } from '$lib/types/rgb';
 import { createDebug } from '$lib/utils/debug';
 import KINDS from '$lib/utils/constants/kinds';
-import NDK, { NDKEvent, NDKUser, type NDKTag, type NostrEvent } from '@nostr-dev-kit/ndk';
-import type { ContractStatus } from '$lib/utils/contract/types';
-import {
-	isLegacyContractStatusWireVersion,
-	isValidContractStatusEnumValue,
-	normalizeLegacyEscrowStatusTagToContractStatus
-} from '$lib/utils/contract/v1/legacyEscrowStatusToContractStatus';
-
+import NDK, { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import type { NDKTag, NostrEvent } from '@nostr-dev-kit/ndk';
 const d = createDebug('ndk:events:contract-status');
+
+/**
+ * Contract status enum values (v2 flow)
+ */
+export enum ContractStatus {
+	Created = 0,
+	Funded = 1,
+	InProgress = 2,
+	Submitted = 3,
+	Approved = 4,
+	Completed = 5,
+	Disputed = 6,
+	Resolved = 7,
+	Cancelled = 8,
+	Refunded = 9,
+	Expired = 10,
+	Failed = 11
+}
+
+/**
+ * Check if a value is a valid ContractStatus enum value
+ */
+export function isValidContractStatusEnumValue(value: number): value is ContractStatus {
+	return Number.isInteger(value) && value >= 0 && value <= 11;
+}
+
+/**
+ * Wire version strings that indicate legacy contract status format
+ */
+const LEGACY_WIRE_VERSIONS = new Set(['v1', '0.0.1']);
+
+/**
+ * Check if a wire version string indicates legacy contract status format
+ */
+export function isLegacyContractStatusWireVersion(version: string | undefined): boolean {
+	if (version === undefined) return false;
+	return LEGACY_WIRE_VERSIONS.has(version);
+}
 
 /**
  * Single-char + message-type tags that stay on the wire (outside the encrypted blob).
@@ -252,7 +285,6 @@ export class NDKContractStatus extends NDKEvent {
 	/**
 	 * Canonical {@link ContractStatus} for this event’s `s` tag.
 	 * - **`v` = `v2`** (or missing `v` without legacy JSON): `s` is already `ContractStatus` (0–11).
-	 * - **Legacy** (`v` = `v1` / `0.0.1`, or missing `v` when parsed from legacy JSON body): `s` was **`EscrowStatus`** — normalized here (see `legacyEscrowStatusToContractStatus.ts`).
 	 */
 	get status(): ContractStatus | undefined {
 		const raw = this.tagValue('s');
@@ -265,7 +297,7 @@ export class NDKContractStatus extends NDKEvent {
 			(this.version === undefined && this._legacyContent !== undefined);
 
 		if (useLegacyWire) {
-			return normalizeLegacyEscrowStatusTagToContractStatus(n, undefined);
+			return null;
 		}
 
 		if (isValidContractStatusEnumValue(n)) {

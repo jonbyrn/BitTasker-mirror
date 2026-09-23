@@ -8,26 +8,46 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
 
+export function describeMnemonicSeed(mnemonic: string) {
+	const words = mnemonic.trim().split(/\s+/);
+	return {
+		wordCount: words.length,
+		word6Len: words[5]?.length ?? 0,
+		word6Lower: words[5]?.toLowerCase() === words[5],
+		hasNsecPrefix: mnemonic.trim().startsWith('nsec')
+	};
+}
+
+function assertHdSeed(mnemonic: string): string {
+	if (mnemonic.trim().startsWith('nsec')) {
+		throw new Error('Invalid mnemonic: seed source returned an nsec');
+	}
+	return mnemonic;
+}
+
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
 	if (import.meta.env.VITE_TEST_MNEMONIC) {
-		return import.meta.env.VITE_TEST_MNEMONIC;
+		return assertHdSeed(import.meta.env.VITE_TEST_MNEMONIC);
 	}
 
 	// E2E test bypass: read mnemonic directly from localStorage
 	if (typeof window !== 'undefined') {
+		const stored = localStorage.getItem('__E2E_MNEMONIC__');
+		if (stored?.trim().startsWith('nsec')) {
+			throw new Error('Invalid mnemonic: seed source returned an nsec');
+		}
 		const isPlaywright = '__PLAYWRIGHT_TEST__' in window;
-		const isDevE2E = import.meta.env.DEV && localStorage.getItem('__E2E_MNEMONIC__');
-		if (isPlaywright || isDevE2E) {
-			const mnemonic = localStorage.getItem('__E2E_MNEMONIC__');
-			if (mnemonic) return mnemonic;
+		const isDevE2E = import.meta.env.DEV && Boolean(stored);
+		if ((isPlaywright || isDevE2E) && stored) {
+			return assertHdSeed(stored);
 		}
 	}
 
 	// Tier 1: Check if mnemonic is already decrypted in store
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.mnemonic) {
-		return currentState.nostrKeys.mnemonic;
+		return assertHdSeed(currentState.nostrKeys.mnemonic);
 	}
 
 	try {
@@ -36,9 +56,11 @@ export async function getMnemonic(): Promise<string> {
 		// Re-read after restore — biometricData may have been hydrated from E2E persistence
 		const biometricData = get(appStore).biometricData;
 		if (biometricData && biometricData.encryptedData) {
-			return await decryptWalletMnemonicWithBiometrics(
-				biometricData.encryptedData,
-				biometricData.exportedKey
+			return assertHdSeed(
+				await decryptWalletMnemonicWithBiometrics(
+					biometricData.encryptedData,
+					biometricData.exportedKey
+				)
 			);
 		} else {
 			const biometricsAvailable = await checkBiometricAvailability();
@@ -74,9 +96,11 @@ export async function getMnemonic(): Promise<string> {
 				}
 			}));
 
-			return await decryptWalletMnemonicWithBiometrics(
-				response.encryptedData,
-				credentialData.exportedKey
+			return assertHdSeed(
+				await decryptWalletMnemonicWithBiometrics(
+					response.encryptedData,
+					credentialData.exportedKey
+				)
 			);
 		}
 	} catch (error) {

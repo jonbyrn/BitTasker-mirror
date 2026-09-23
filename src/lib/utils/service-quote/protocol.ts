@@ -16,10 +16,14 @@ import type {
 	ServiceQuoteRequestEvent
 } from '$lib/types/service-quote';
 import type { Service, ServiceStatus } from '$lib/types/service.d';
-import {
-	SERVICE_ACCEPTANCE_FINALITY_POLICY_VERSION,
-	SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS
-} from '$lib/utils/service-contract/finality';
+
+/**
+ * Native RGB/Taproot escrow finality policy. On Bitcoin, 3 confirmations is the
+ * standard reorg-safe threshold for accepting a service contract as funded.
+ * Inlined here after the EVM service-contract/finality module was removed.
+ */
+export const SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS = 3;
+export const SERVICE_ACCEPTANCE_FINALITY_POLICY_VERSION = 'native-rgb-v1';
 
 export const SERVICE_QUOTE_SCHEMA_VERSION = 'v1' as const;
 
@@ -537,37 +541,15 @@ function hasPublishableAcceptedSnapshot(
 		return true;
 	}
 
-	const snapshot = content.acceptanceSnapshot;
-	if (!snapshot) {
-		return false;
-	}
+	// Native RGB/Taproot escrow: acceptance requires a contract id and the
+	// funding transaction hash. The legacy EVM acceptanceSnapshot fields
+	// (clientBtcAddress, amountSats, chainId, ...) are no longer produced by the
+	// UTXEO SDK flow, so they are not enforced here.
 	return (
 		typeof content.escrowId === 'string' &&
 		content.escrowId.trim().length > 0 &&
 		typeof content.transactionHash === 'string' &&
-		TRANSACTION_HASH_RE.test(content.transactionHash) &&
-		EVM_ADDRESS_RE.test(snapshot.clientRskAddress) &&
-		([0, 1, 2] as number[]).includes(snapshot.clientFeeTier) &&
-		EVM_ADDRESS_RE.test(snapshot.freelancerRskAddress) &&
-		([0, 1, 2] as number[]).includes(snapshot.freelancerFeeTier) &&
-		Number.isInteger(snapshot.chainId) &&
-		snapshot.chainId > 0 &&
-		EVM_ADDRESS_RE.test(snapshot.contractAddress) &&
-		snapshot.conversionFormulaVersion === 'v1' &&
-		typeof snapshot.conversionSnapshotId === 'string' &&
-		snapshot.conversionSnapshotId.trim().length > 0 &&
-		Number.isInteger(snapshot.btcUsdRateMicros) &&
-		snapshot.btcUsdRateMicros > 0 &&
-		Number.isInteger(snapshot.sourceTimestamp) &&
-		snapshot.sourceTimestamp > 0 &&
-		snapshot.requiredConfirmations === SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS &&
-		snapshot.finalityPolicyVersion === SERVICE_ACCEPTANCE_FINALITY_POLICY_VERSION &&
-		INTEGER_STRING_RE.test(snapshot.sats) &&
-		INTEGER_STRING_RE.test(snapshot.weiAmount) &&
-		Number.isInteger(snapshot.confirmationsAtVerification) &&
-		snapshot.confirmationsAtVerification >= snapshot.requiredConfirmations &&
-		typeof snapshot.verificationRpc === 'string' &&
-		snapshot.verificationRpc.trim().length > 0
+		TRANSACTION_HASH_RE.test(content.transactionHash)
 	);
 }
 

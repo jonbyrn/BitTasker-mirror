@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	// Completion status
 	let isRedirecting = $state(false);
@@ -39,7 +40,7 @@
 				data-testid="onboarding-go-to-dashboard"
 				onclick={() => {
 					isRedirecting = true;
-					goto('/hiring').finally(() => {
+					goto(resolve('/wallet')).finally(() => {
 						isRedirecting = false;
 					});
 				}}

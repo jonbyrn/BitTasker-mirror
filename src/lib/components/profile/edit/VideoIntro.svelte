@@ -1,183 +1,78 @@
 <script lang="ts">
-	import type { VideoIntroMetadata } from '$lib/types/profile';
 	import { t } from 'svelte-i18n';
-	import { onDestroy, onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { getSignedEvent, publishEvent } from '$lib/utils/nostr';
-	import { subscribeToProfileUpdates, deleteNostrEvent } from '$lib/nostr/profile';
-	import VideoUploader from '$lib/components/VideoUploader.svelte';
+	import { publishProfileMetadata, fetchProfileMetadata } from '$lib/nostr/profile';
+	import { appStore } from '$lib/stores/app.store';
+	import { user } from '$lib/stores/user.store';
 
-	interface VideoUploadResult {
-		uid: string;
-		thumbnailUrl: string;
-		hlsUrl: string;
-		duration: number;
-		size: number;
-		filename: string;
-	}
+	let {
+		onComplete = (_completed: boolean, _fromSave?: boolean) => {}
+	}: {
+		onComplete?: (completed: boolean, fromSave?: boolean) => void;
+	} = $props();
 
-	let { onComplete } = $props<{
-		onComplete: (completed: boolean, fromSave?: boolean) => void;
-	}>();
+	let videoUrl = $state('');
+	let isSaving = $state(false);
+	let errorMessage = $state('');
+	let loaded = $state(false);
 
-	// State
-	let videoData = $state<VideoIntroMetadata | null>(null);
-	let error = $state('');
-	let videoEventId = $state<string | null>(null);
-	let isInitialLoading = $state(false);
-	let cleanup: (() => void) | null = null;
-
-	// Build VideoIntroMetadata from upload result
-	function buildVideoMetadata(result: VideoUploadResult): VideoIntroMetadata {
-		return {
-			video: {
-				key: result.uid,
-				url: result.hlsUrl,
-				type: 'video/mp4',
-				alt: result.filename || 'Profile video',
-				size: result.size,
-				duration: result.duration
-			},
-			thumbnail: {
-				url: result.thumbnailUrl,
-				key: `${result.uid}/thumbnails/thumbnail.jpg`,
-				type: 'image/jpeg',
-				alt: (result.filename || 'video').replace(/\.[^/.]+$/, '') + ' thumbnail'
-			}
-		};
-	}
-
-	// Publish video event to Nostr
-	async function publishVideoEvent(metadata: VideoIntroMetadata, relay = import.meta.env.VITE_NOSTR_RELAY_URL) {
-		const event = {
-			kind: 21,
-			created_at: Math.floor(Date.now() / 1000),
-			tags: [
-				['url', metadata.video.url],
-				['x', metadata.video.key],
-				['m', metadata.video.type],
-				['thumb', metadata.thumbnail.url],
-				['duration', metadata.video.duration?.toString()],
-				['size', metadata.video.size?.toString()],
-				['t', 'profile-video']
-			],
-			content: JSON.stringify({
-				video: metadata.video,
-				thumbnail: metadata.thumbnail,
-				type: 'profile-intro'
+	$effect(() => {
+		if (loaded) return;
+		loaded = true;
+		const npub = $user?.npub;
+		if (!npub) return;
+		void fetchProfileMetadata(npub)
+			.then((profile) => {
+				videoUrl = (profile as { video?: string }).video ?? '';
 			})
-		};
+			.catch(() => undefined);
+	});
 
-		const signedEvent = await getSignedEvent(event);
-		await publishEvent(signedEvent, relay);
-	}
+	const isComplete = $derived(videoUrl.trim().length > 0);
 
-	// Remove video from Nostr and clear state
-	async function removeVideo() {
-		if (!videoData) return;
+	async function handleSubmit(): Promise<void> {
+		isSaving = true;
+		errorMessage = '';
 		try {
-			error = '';
-			if (videoEventId) {
-				await deleteNostrEvent(videoEventId, '21');
-			}
-			videoData = null;
-			videoEventId = null;
-		} catch (err) {
-			console.error('Failed to remove video:', err);
-			error = $t('profile.video.failed_to_remove');
+			await publishProfileMetadata({ video: videoUrl.trim() } as never, {});
+			appStore.showSuccessToast($t('profile.page.sections.video'));
+			onComplete(isComplete, true);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to save video introduction';
+			appStore.showErrorToast(errorMessage);
+		} finally {
+			isSaving = false;
 		}
 	}
-
-	// Subscribe to profile updates to load existing video
-	onMount(async () => {
-		if (!browser) return;
-		cleanup = await subscribeToProfileUpdates(
-			async (event) => {
-				try {
-					isInitialLoading = true;
-					if (event.kind === 21) {
-						videoEventId = event.id;
-						const metadata = JSON.parse(event.content);
-						const videoUrl = event.tags.find((t) => t[0] === 'url')?.[1];
-						const thumbnailUrl = event.tags.find((t) => t[0] === 'thumb')?.[1];
-						const duration = Number(event.tags.find((t) => t[0] === 'duration')?.[1]) || 0;
-						const videoKey = event.tags.find((t) => t[0] === 'x')?.[1] || '';
-
-						if (videoUrl && thumbnailUrl) {
-							videoData = {
-								video: {
-									url: videoUrl,
-									key: videoKey,
-									type: 'video/webm',
-									alt: 'Profile video',
-									size: metadata.video.size,
-									duration
-								},
-								thumbnail: metadata.thumbnail
-							};
-							onComplete(true);
-						}
-					}
-				} catch (err) {
-					console.error('Failed to process video update:', err);
-					error = $t('profile.video.failed_to_connect');
-				} finally {
-					isInitialLoading = false;
-				}
-			},
-			{ 21: null }
-		);
-	});
-
-	onDestroy(() => {
-		if (cleanup) cleanup();
-	});
 </script>
-{#if isInitialLoading}
-	<div class="space-y-6">
-		<div class="space-y-4">
-			<div>
-				<div class="skeleton h-6 w-48 rounded"></div>
-				<div class="skeleton mt-1 h-4 w-64 rounded"></div>
-			</div>
-			<div class="skeleton h-48 w-full rounded-lg"></div>
-		</div>
-	</div>
-{:else}
-	<div class="space-y-6">
-		<div class="space-y-4">
-			<p class="text-base-content/70">{$t('profile.video.description')}</p>
 
-			{#if error}
-				<div class="alert alert-error alert-outline whitespace-normal">{error}</div>
-			{/if}
+<form
+	data-testid="video-intro-form"
+	onsubmit={(e) => {
+		e.preventDefault();
+		void handleSubmit();
+	}}
+>
+	<div class="space-y-3">
+		<label class="form-control">
+			<span class="label-text mb-1"
+				>{$t('profile.page.fields.video_url', { default: 'Video introduction URL' })}</span
+			>
+			<input
+				class="input input-bordered w-full"
+				type="url"
+				bind:value={videoUrl}
+				oninput={() => onComplete(videoUrl.trim().length > 0, false)}
+				data-testid="video-url"
+			/>
+		</label>
 
-			<div class="space-y-4 pr-4">
-				<VideoUploader
-					existingVideoUid={videoData?.video.key}
-					existingPoster={videoData?.thumbnail?.url || null}
-					videoUrl={videoData?.video.url || null}
-					maxDuration={180}
-					maxFileSize={100 * 1024 * 1024}
-					private={false}
-					controls={true}
-					onUploadComplete={async (result) => {
-						// Publish to Nostr (fire-and-forget, don't block UI)
-						const metadata = buildVideoMetadata(result);
-						await publishVideoEvent(metadata);
-					}}
-					onReady={() => {
-						onComplete(true);
-					}}
-					onError={(msg) => {
-						error = msg;
-					}}
-					onRemove={async (_uid) => {
-						await removeVideo();
-					}}
-					showRemoveButton={!!videoData}
-				/>
-			</div>
-		</div>
+		{#if errorMessage}
+			<div class="alert alert-error text-sm" role="alert">{errorMessage}</div>
+		{/if}
+
+		<button type="submit" class="btn btn-primary" disabled={isSaving} data-testid="save-video">
+			{#if isSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
+			{$t('common.save', { default: 'Save' })}
+		</button>
 	</div>
-{/if}
+</form>

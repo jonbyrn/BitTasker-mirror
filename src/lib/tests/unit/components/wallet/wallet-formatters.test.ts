@@ -51,39 +51,38 @@ describe('stableInnerFormat', () => {
 		return { id, balances };
 	}
 
-	it('returns "0 Sats" for rbtc with no balance and no cache', () => {
-		const w = makeWallet('w1', { rbtc: { raw: '0', formatted: '0', loading: false } });
-		expect(stableInnerFormat(w, 'rbtc', emptyCache, satsFormatter, usdFormatter, btcPrice)).toBe(
+	it('returns "0 Sats" for btc with no balance and no cache', () => {
+		const w = makeWallet('w1', { btc: { raw: '0', formatted: '0', loading: false } });
+		expect(stableInnerFormat(w, 'btc', emptyCache, satsFormatter, usdFormatter, btcPrice)).toBe(
 			'0 Sats'
 		);
 	});
 
-	it('formats rbtc balance as sats with USD', () => {
+	it('formats btc balance as sats with USD', () => {
 		const w = makeWallet('w1', {
-			rbtc: { raw: '100000', formatted: '0.001', loading: false }
+			btc: { raw: '100000', formatted: '0.001', loading: false }
 		});
-		const result = stableInnerFormat(w, 'rbtc', emptyCache, satsFormatter, usdFormatter, btcPrice);
+		const result = stableInnerFormat(w, 'btc', emptyCache, satsFormatter, usdFormatter, btcPrice);
 		expect(result).toContain('100,000');
 		expect(result).toContain('Sats');
 	});
 
-	it('formats usdt0-arb as dollar amount', () => {
+	it('formats usdt_rgb as dollar amount', () => {
 		const w = makeWallet('w1', {
-			'usdt0-arb': { raw: '5000000', formatted: '5.00', loading: false }
+			usdt_rgb: { raw: '5000000', formatted: '5.00', loading: false }
 		});
-		expect(
-			stableInnerFormat(w, 'usdt0-arb', emptyCache, satsFormatter, usdFormatter, btcPrice)
-		).toBe('$5.00');
+		expect(stableInnerFormat(w, 'usdt_rgb', emptyCache, satsFormatter, usdFormatter, btcPrice)).toBe(
+			'$5.00'
+		);
 	});
 
-	it('formats tbtc-arb by dividing by 1e10 to get sats', () => {
-		// tBTC has 18 decimals. 10^18 raw = 1 tBTC = 100,000,000 sats
+	it('formats btc_lightning balance as sats with USD', () => {
 		const w = makeWallet('w1', {
-			'tbtc-arb': { raw: '1000000000000000000', formatted: '1.0', loading: false }
+			btc_lightning: { raw: '100000000', formatted: '1.0', loading: false }
 		});
 		const result = stableInnerFormat(
 			w,
-			'tbtc-arb',
+			'btc_lightning',
 			emptyCache,
 			satsFormatter,
 			usdFormatter,
@@ -95,31 +94,31 @@ describe('stableInnerFormat', () => {
 
 	it('falls back to cache when live balance is zero', () => {
 		const w = makeWallet('w1', {
-			rbtc: { raw: '0', formatted: '0', loading: false }
+			btc: { raw: '0', formatted: '0', loading: false }
 		});
-		const cache = { w1: { rbtc: '200000', btc: '0', usdt: '0', wbtc: '0', tbtc: '0' } };
-		const result = stableInnerFormat(w, 'rbtc', cache, satsFormatter, usdFormatter, btcPrice);
+		const cache = { w1: { btc: '200000', usdt: '0', wbtc: '0', tbtc: '0' } };
+		const result = stableInnerFormat(w, 'btc', cache, satsFormatter, usdFormatter, btcPrice);
 		expect(result).toContain('200,000');
 		expect(result).toContain('Sats');
 	});
 
-	it('falls back to cache for tbtc-arb when live is zero', () => {
+	it('falls back to cache for btc_lightning when live is zero', () => {
 		const w = makeWallet('w1', {
-			'tbtc-arb': { raw: '0', formatted: '0', loading: false }
+			btc_lightning: { raw: '0', formatted: '0', loading: false }
 		});
-		// Cache tbtc raw = 10^18 = 1 tBTC = 100,000,000 sats
+		// Cache btc raw = 100,000,000 sats = 1 BTC
 		const cache = {
-			w1: { rbtc: '0', btc: '0', usdt: '0', wbtc: '0', tbtc: '1000000000000000000' }
+			w1: { btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
 		};
-		const result = stableInnerFormat(w, 'tbtc-arb', cache, satsFormatter, usdFormatter, btcPrice);
+		const result = stableInnerFormat(w, 'btc_lightning', cache, satsFormatter, usdFormatter, btcPrice);
 		expect(result).toContain('100,000,000');
 		expect(result).toContain('Sats');
 	});
 
-	it('returns "$0.00" for usdt0-arb when no balance and no cache', () => {
+	it('returns "$0.00" for usdt_rgb when no balance and no cache', () => {
 		const w = makeWallet('w1', undefined);
 		expect(
-			stableInnerFormat(w, 'usdt0-arb', emptyCache, satsFormatter, usdFormatter, btcPrice)
+			stableInnerFormat(w, 'usdt_rgb', emptyCache, satsFormatter, usdFormatter, btcPrice)
 		).toBe('$0.00');
 	});
 });
@@ -139,28 +138,28 @@ describe('stableWalletAvailableUsd', () => {
 		expect(stableWalletAvailableUsd(w, emptyCache, usdFormatter, btcPrice)).toBe('$0.00');
 	});
 
-	it('computes USD from rbtc balance', () => {
+	it('computes USD from btc balance', () => {
 		// 100,000,000 sats = 1 BTC = $50,000 at $50k/BTC
 		const w = makeWallet('w1', {
-			rbtc: { raw: '100000000', formatted: '1.0', loading: false }
+			btc: { raw: '100000000', formatted: '1.0', loading: false }
 		});
 		const result = stableWalletAvailableUsd(w, emptyCache, usdFormatter, btcPrice);
 		expect(result).toContain('50,000');
 	});
 
-	it('includes tbtc-arb in total USD', () => {
-		// tBTC has 18 decimals. 10^18 raw = 1 tBTC = 100,000,000 sats = $50,000 at $50k/BTC
+	it('includes btc_lightning in total USD', () => {
+		// 100,000,000 sats of Lightning BTC = 1 BTC = $50,000 at $50k/BTC
 		const w = makeWallet('w1', {
-			'tbtc-arb': { raw: '1000000000000000000', formatted: '1.0', loading: false }
+			btc_lightning: { raw: '100000000', formatted: '1.0', loading: false }
 		});
 		const result = stableWalletAvailableUsd(w, emptyCache, usdFormatter, btcPrice);
 		expect(result).toContain('50,000');
 	});
 
-	it('falls back to cache with tbtc when live is empty', () => {
+	it('falls back to cache with btc when live is empty', () => {
 		const w = makeWallet('w1', undefined);
 		const cache = {
-			w1: { rbtc: '0', btc: '0', usdt: '0', wbtc: '0', tbtc: '1000000000000000000' }
+			w1: { btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
 		};
 		const result = stableWalletAvailableUsd(w, cache, usdFormatter, btcPrice);
 		expect(result).toContain('50,000');

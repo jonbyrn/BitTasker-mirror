@@ -30,6 +30,7 @@
 	{href}
 	class="dock-link hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
 	class:dock-active={isActive}
+	aria-current={isActive ? 'page' : undefined}
 	data-sveltekit-reload="off"
 >
 	<Icon class="text-primary-content" />

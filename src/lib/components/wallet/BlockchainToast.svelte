@@ -4,7 +4,6 @@
 	import { cubicOut } from 'svelte/easing';
 	import { beforeNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { getNetworkDisplay } from '$lib/utils/send-network-mapping';
 	import {
 		blockchainToastStore,
 		type BlockchainToastItem
@@ -52,10 +51,6 @@
 
 	function formatCollapsedDescription(item: BlockchainToastItem): string {
 		const formatted = formatSats(item.amount);
-		if (item.type === 'swap')
-			return $t('wallet.toast.swapping', { values: { amount: formatted, asset: item.asset } });
-		if (item.type === 'defi')
-			return $t('wallet.toast.swapping', { values: { amount: formatted, asset: item.asset } });
 		return $t('wallet.toast.sending', { values: { amount: formatted, asset: item.asset } });
 	}
 
@@ -67,12 +62,8 @@
 		return $t('wallet.toast.confirming');
 	}
 
-	function getBlockExplorerUrl(item: BlockchainToastItem): string | null {
-		if (!item.txHash || !item.network) return null;
-		const display = getNetworkDisplay(item.network);
-		if (!display?.explorerUrl) return null;
-		const baseUrl = display.explorerUrl.replace(/\/address\/?$/, '');
-		return `${baseUrl}/tx/${item.txHash}`;
+	function getBlockExplorerUrl(_item: BlockchainToastItem): string | null {
+		return null;
 	}
 
 	function toggleExpand() {

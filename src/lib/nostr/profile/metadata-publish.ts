@@ -12,7 +12,7 @@ import {
 	mergeProfileMetadata,
 	resolveDisplayNameFromProfileMetadataContent
 } from '$lib/nostr/profile/metadata-wire';
-import { fetchProfileName } from '$lib/nostr/profile/ndk';
+import { fetchProfileName, NdkSignerNotConfiguredError } from '$lib/nostr/profile/ndk';
 import type { ProfileMetadataVerifyOptions } from '$lib/nostr/profile/types';
 
 const PROFILE_VERIFY_TIMEOUT_MS = 15_000;
@@ -74,7 +74,7 @@ export async function publishProfileMetadata(
 	const wireMetadata = buildProfileMetadataWire(mergedMetadata);
 
 	if (!ndk.signer) {
-		throw new Error('NDK signer not configured — unlock keys before publishing profile metadata');
+		throw new NdkSignerNotConfiguredError();
 	}
 
 	if (relays.length === 0) {
@@ -118,3 +118,4 @@ export async function publishProfileMetadata(
 
 	return signedEvent;
 }
+

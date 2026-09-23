@@ -2,6 +2,7 @@
 	import type { NostrRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -226,15 +227,17 @@
 					exportedKey,
 					credentialId: credentialData.credentialId
 				};
-				authState.setupAuthData(
+					await authState.setupAuthData(
 					access_token,
 					'passkey',
 					npub,
 					user,
 					biometricData,
-					true,
+					false,
 					refresh_token
 				);
+				await authState.login(user);
+				await goto(resolve('/wallet'));
 			}
 		} catch (err: unknown) {
 			error = err instanceof Error ? err.message : $t('recovery_npub.errors.recovery_failed');

@@ -208,7 +208,7 @@
 				"description": "Recibe pagos Lightning y conviértelos automáticamente a rBTC. Tarifa de servicio de Boltz: ~0.4-0.5% más tarifas de transacción de red.",
 				"invoice_created": "¡Factura Lightning creada!",
 				"rbtc_received": "✅ ¡RBTC recibido!",
-				"claiming_gasless": "Reclamando RBTC...",
+				"claiming": "Reclamando RBTC...",
 				"claimed_success": "✅ ¡RBTC reclamado exitosamente!",
 				"generate_invoice": "Generar Factura Lightning",
 				"view_invoice": "Ver Factura",
@@ -303,38 +303,15 @@
 				"fallback_routes_available": "Rutas de respaldo disponibles",
 				"use_fallback": "Usar {provider}"
 			},
-			"gasless_fee_reserved": "{fee} de tu saldo está reservado para comisiones de red y relé. El monto real del swap es {amount}.",
-			"amount_too_small_for_gasless": "Monto demasiado pequeño para transferencia sin gas",
 			"cross_chain_delivery_note": "Entrega entre cadenas",
 			"cross_chain_delivery_desc": "Tus fondos están siendo puenteados a la cadena de destino. Esto puede tardar unos minutos. Tu saldo se actualizará automáticamente.",
 			"cancel_warning": "Tu intercambio aún está en progreso. Revisa Intercambios Pendientes para ver el estado.",
-			"relay_unavailable": "El relé sin gas no está disponible temporalmente. Por favor inténtalo de nuevo en unos minutos.",
-			"high_fee_warning": "La comisión excede el 50% del monto del intercambio",
-			"bridge_in_progress": "Puentando tus fondos a la cadena de destino...",
-			"bridge_taking_longer": "Esto está tardando más de lo habitual. Tus fondos están seguros.",
-			"bridging_title": "Puente en Progreso",
-			"source_sent": "Enviado",
-			"dest_expected": "Recibiendo",
-			"elapsed": "Transcurrido",
-			"bridge_safe_to_close": "Puedes cerrar esta pantalla con seguridad. Tus fondos están en tránsito en la blockchain.",
-			"bridge_received": "Recibí mis fondos",
-			"bridge_banner_active": "Puentando {sourceAmount} {sourceAsset} → {destAsset}",
-			"bridge_banner_eta": "Estimado ~{minutes} min",
-			"bridge_banner_elapsed": "{time} transcurrido",
-			"bridge_timeout": "El puente está tardando mucho más de lo esperado. Tus fondos están seguros en la cadena de origen. Consulta Swaps Pendientes para el estado.",
-			"bridge_failed": "La transferencia por puente falló. Tus fondos están seguros en la cadena de origen. Consulta Swaps Pendientes para opciones de recuperación.",
 			"bridge_delayed": "Puente Tardando Más",
 			"bridge_offline": "Parece que estás sin conexión. Tus fondos están seguros en la blockchain. Reconectando...",
 			"source_tx": "TX Origen",
 			"route_steps": "Pasos de la ruta",
 			"partial_delivery": "Entrega parcial",
 			"partial_delivery_desc": "Recibido {actual} (esperado {expected}). La diferencia se debe a comisiones del puente y deslizamiento."
-		},
-		"gasless_send": {
-			"insufficient_balance_with_fee": "Saldo insuficiente para cubrir la transferencia + comisión de red.",
-			"fee_estimation_failed": "Error al estimar la comisión",
-			"direct_transaction_failed": "Error en la transacción directa",
-			"relay_unavailable_no_eth": "El relé sin gas no está disponible y no tienes ETH para gas. Deposita una pequeña cantidad de ETH en Arbitrum para enviar directamente, o inténtalo más tarde."
 		}
 	}
 }

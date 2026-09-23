@@ -1,0 +1,296 @@
+=================== SRC/LIB/STORES/WALLET/WALLET-MANAGER.TS ===================
+import { get } from 'svelte/store';
+import { walletStore, state, isRgbWalletReady, clearRefreshTimers } from './wallet-state';
+import { initialize, disconnectWallet, softCleanup, markExpectingInbound, getRgbAddress } from './wallet-init';
+import { loadAssets, scheduleBalanceRefresh } from './wallet-balances';
+import { loadTransactions } from './wallet-transactions';
+import { sendBtc } from './wallet-send';
+import type { RgbAsset } from './wallet-types';
+
+const d = { log: console.log, warn: console.warn, error: console.error };
+
+export const walletManager = {
+async initialize(): Promise<void> {
+return initialize();
+},
+
+cleanup(): void {
+disconnectWallet();
+},
+
+softCleanup(): void {
+softCleanup();
+},
+
+async loadAssets(): Promise<void> {
+return loadAssets();
+},
+
+async loadTransactions(): Promise<void> {
+return loadTransactions();
+},
+
+async getRgbAddress(): Promise<string> {
+return getRgbAddress();
+},
+
+getBtcBalanceSats(): number {
+const store = get(walletStore);
+return store.rgb?.balanceSats ?? store.wdk?.btcOnchain?.balanceSats ?? 0;
+},
+
+getRgbAssetBalance(assetId: string): RgbAsset | null {
+const store = get(walletStore);
+return store.rgb?.assets?.find((a) => a.assetId === assetId) ?? null;
+},
+
+getRgbAssets(): RgbAsset[] {
+const store = get(walletStore);
+return store.rgb?.assets ?? [];
+},
+
+async sendBtc(params: { address: string; amountSats: number; feeRate?: number }): Promise<string> {
+return sendBtc(params);
+},
+
+async sendRgbAsset(params: {
+invoice: string;
+assetId: string;
+amount: number;
+}): Promise<{ txid: string; status: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.onchainSend(params);
+},
+
+async createLightningInvoice(params: {
+amountSats: number;
+expirySeconds?: number;
+}): Promise<{ lnInvoice: string; paymentHash: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.createLightningInvoice(params);
+},
+
+async payLightningInvoice(params: {
+lnInvoice: string;
+}): Promise<{ txid: string; status: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.payLightningInvoice(params);
+},
+
+async createHodlInvoice(params: {
+amountSats: number;
+expirySeconds?: number;
+}): Promise<{ lnInvoice: string; paymentHash: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.createHodlInvoice(params);
+},
+
+async claimHodlInvoice(paymentHash: string, preimage: string): Promise<void> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+await wallet.claimHodlInvoice(paymentHash, preimage);
+},
+
+async cancelHodlInvoice(paymentHash: string): Promise<void> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+await wallet.cancelHodlInvoice(paymentHash);
+},
+
+async listChannels(): Promise<unknown[]> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.listChannels();
+},
+
+async openChannel(params: {
+peerUri: string;
+amountSats: number;
+pushSats?: number;
+}): Promise<{ channelId: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.openChannel(params);
+},
+
+async closeChannel(params: {
+channelId: string;
+force?: boolean;
+}): Promise<{ txid: string }> {
+const wallet = state.utexoWallet;
+if (!wallet) throw new Error('RGB wallet is not initialized.');
+return wallet.closeChannel(params);
+},
+
+isReady(): boolean {
+return isRgbWalletReady();
+},
+
+isInitializing(): boolean {
+return get(walletStore).isInitializing;
+},
+
+getState() {
+return get(walletStore);
+},
+
+markExpectingInbound(ttlMs?: number): void {
+markExpectingInbound(ttlMs);
+},
+
+async refreshBalances(): Promise<void> {
+return loadAssets();
+},
+
+getRSKWallet() {
+return null;
+},
+
+getRSKProvider() {
+return null;
+},
+
+async getRSKAddress(): Promise<string> {
+console.warn('[wallet-manager] getRSKAddress() is deprecated. Use getRgbAddress().');
+return getRgbAddress();
+},
+
+clearSwapPairsCache(): void {},
+
+clearPersistedChainSortHints(): void {},
+
+getWallet() {
+return null;
+},
+
+getProvider() {
+return null;
+},
+
+async loadRSKTokenBalances(): Promise<never[]> {
+return [];
+},
+
+async sendRSKToken(): Promise<never> {
+throw new Error('RSK removed � use sendBtc() or sendRgbAsset()');
+},
+
+async getTokenBalance(): Promise<null> {
+return null;
+},
+
+onSwapUpdate(): () => void {
+return () => {};
+},
+
+submarineSwapService: { recoverPendingSwaps: () => Promise.resolve([]) },
+reverseSwapService: { recoverPendingSwaps: () => Promise.resolve([]) },
+chainSwapService: { recoverPendingSwaps: () => Promise.resolve([]) },
+};
+
+=================== SRC/ROUTES/(APP)/(PROTECTED)/+LAYOUT.SVELTE ===================
+<script lang="ts">
+	import { authState } from '$lib/stores/auth.store';
+	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
+	import { user } from '$lib/stores/user.store';
+	import { page } from '$app/state';
+	import { createDebug } from '$lib/utils/debug';
+	import { triggerPendingReviewBanner } from '$lib/utils/reviews';
+	import ProtectedLayout from '$lib/components/ProtectedLayout.svelte';
+
+	const { children } = $props();
+
+	onMount(async () => {
+		try {
+			if (!$authState.isAuthenticated) return;
+
+			await user.getUserData();
+
+			// Eagerly load all keys — caches in appStore for all child routes.
+			// This MUST happen before wallet init so getMnemonic()/getNostrKeyPair()
+			// hit Tier 1 cache and never race with each other.
+			const { getAllKeys } = await import('$lib/utils/nostrKeys');
+			await getAllKeys();
+
+			// Initialize wallet — keys are now cached, so getMnemonic() and
+			// getNostrKeyPair() inside walletManager.initialize() return instantly.
+			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { get } = await import('svelte/store');
+			let walletState = get(walletStore);
+
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				await walletManager.initialize();
+				walletState = get(walletStore);
+			}
+
+			// Start activity tracking for re-engagement reminders
+			const { initActivityTracking } = await import('$lib/utils/activityTracker');
+			initActivityTracking();
+
+			// Trigger pending review banner (skip on /reviews)
+			if (page.url.pathname !== '/reviews') {
+				triggerPendingReviewBanner('reviews.pending.review_now', 'reviews.pending.dismiss');
+			}
+		} catch (error) {
+			const d = createDebug('layout');
+			d.error('Error initializing wallet', error);
+			// Continue anyway - contracts will handle wallet initialization individually
+		}
+	});
+</script>
+
+=================== SUBMODULE EXPORTS (COLLISION SCAN) ===================
+
+--- wallet-balances.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-balances.ts:3:export function scheduleBalanceRefresh(): void {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-balances.ts:53:export const allAssets = __readable([]);
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-balances.ts:54:export const totalBalances = __readable({ btcSats: 0, usd: 0 });
+
+--- wallet-init.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-init.ts:113:export function disconnectWallet(): void {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-init.ts:124:export const markExpectingInbound = (_ttlMs?: number) => {};
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-init.ts:126:export const softCleanup = () => {};
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-init.ts:128:export const getRSKAddress = async (): Promise<string> => getRgbAddress();
+
+--- wallet-manager.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-manager.ts:11:export const walletManager = {
+
+--- wallet-rgb-projection.svelte.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-rgb-projection.svelte.ts:27:export type WalletWithRgbProjection = WalletStateExtended & {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-rgb-projection.svelte.ts:33:export function buildWalletWithRgb(wallet: WalletStateExtended): WalletWithRgbProjection {
+
+--- wallet-send.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-send.ts:17:export const sendBtc = async (_params?: any): Promise<string> => {
+
+--- wallet-state.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-state.ts:6:export const walletStore = writable<WalletStateExtended>(initialState);
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-state.ts:14:export const state = {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-state.ts:23:export function isRgbWalletReady(): boolean {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-state.ts:27:export function clearRefreshTimers(): void {
+
+--- wallet-swaps.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-swaps.ts:2:export const SWAP_PAIRS_CACHE_TTL = 0;
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-swaps.ts:5:export function clearSwapPairsCache(): void {}
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-swaps.ts:6:export function clearPersistedChainSortHints(): void {}
+
+--- wallet-transactions.ts ---
+
+--- wallet-types.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:3:export interface RgbAsset {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:12:export interface RgbState {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:21:export interface BtcOnchainState {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:27:export interface WdkState {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:33:export interface TotalBalances {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:39:export interface Transaction {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:52:export interface WalletStateExtended {
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-types.ts:63:export const initialState: WalletStateExtended = {
+
+--- wallet-utils.ts ---
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-utils.ts:1:export const formatSats = (sats: number | bigint = 0): string => Number(sats || 0).toLocaleString();
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-utils.ts:2:export const formatUsd = (amount: number = 0): string => `$${(amount || 0).toFixed(2)}`;
+C:\Users\jonat\Documents\BitTasker\src\lib\stores\wallet\wallet-utils.ts:3:export const formatAddress = (addr: string = '', start = 6, end = 4): string => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, TaskBody } from '$lib/types/task';
+	import type { Attachment, Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -7,7 +7,7 @@
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
-	import { findMyTasks } from '$lib/nostr/findMyTasks';
+	import { addNewTaskToMyTasks, findMyTasks } from '$lib/nostr/findMyTasks';
 	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
@@ -90,6 +90,34 @@
 		} catch (error) {
 			console.error('Error refreshing My Tasks:', error);
 		}
+	}
+
+	function addOptimisticTask(task: TaskBody, eventId: string): void {
+		if (!browser || !window.__PLAYWRIGHT_TEST__) return;
+		const now = new Date();
+		const optimisticTask: Task = {
+			...task,
+			id: eventId,
+			npub: window.localStorage.getItem('__E2E_NPUB__') ?? '',
+			status: task.status ?? TaskStatusEnum.OPEN,
+			deadline: task.deadline ?? null,
+			dateRange: task.dateRange ?? null,
+			pickupLocation: task.pickupLocation ?? null,
+			dropOffLocation: task.dropOffLocation ?? null,
+			attachments: task.attachments ?? [],
+			estimatedHours: task.budget.estimatedHours ?? 0,
+			isRemovals: false,
+			isBoosted: false,
+			boostPercentage: null,
+			createdAt: Math.floor(now.getTime() / 1000),
+			updatedAt: now.toISOString(),
+			completedAt: null,
+			cancelledAt: null,
+			deletedAt: null,
+			isDeleted: false,
+			requiredSkills: task.skills
+		};
+		addNewTaskToMyTasks(optimisticTask);
 	}
 
 	// Function to handle cancel/back to My Tasks
@@ -312,6 +340,7 @@
 				} else {
 					signedEventId = await createTask(task);
 				}
+				if (signedEventId) addOptimisticTask(task, signedEventId);
 
 				appStore.showSuccessToast($t('task.success.created'));
 
@@ -349,13 +378,13 @@
 				triggerSavedSearchChecks(currentTask, signedEventId);
 			}
 
-			// Clear the appropriate draft (creation or edit)
-			await store.clearDraft(isUpdating);
-
-			// Refresh My Tasks list to show new task
-			await refreshMyTasks();
-
+			// Navigate first so draft reset / Nostr refresh cannot stall the /hiring redirect.
 			await goto('/hiring');
+
+			await store.clearDraft(isUpdating);
+			refreshMyTasks().catch((error) => {
+				console.error('Error refreshing My Tasks:', error);
+			});
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;
@@ -366,38 +395,39 @@
 	}
 </script>
 
-<!-- Mismas dimensiones que Mi Panel: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<!-- Page Header -->
-	<div class="mb-6">
-		<h3 class="">
+<div
+	class="mx-auto flex h-full w-full max-w-6xl flex-col gap-4 px-2 pt-6 pb-24 md:px-0 md:pb-6"
+	data-testid="task-create-form"
+>
+	<div>
+		<h2 class="text-2xl font-semibold sm:text-3xl">
 			{$page.url.searchParams.get('edit') === 'true'
 				? $t('task.edit_title')
 				: $t('task.create_title')}
-		</h3>
+		</h2>
 		<p class="text-base-content/70">
 			{$page.url.searchParams.get('edit') === 'true'
 				? $t('task.edit_description')
 				: $t('task.create_description')}
 		</p>
 	</div>
-	<div class=" bg-base-100 rounded-xl">
-		<div class="card-body">
-			<div class="mb-4 flex items-center justify-between">
-				<div class="text-sm">
+	<div class="card bg-base-100 border-base-300 border shadow-sm">
+		<div class="card-body gap-4 p-5">
+			<div class="flex items-center justify-between">
+				<span class="badge badge-outline">
 					{$t('task.step')}
 					{$STEPS.indexOf($store.currentStep) + 1}
 					{$t('task.of')}
 					{$STEPS.length}
-				</div>
+				</span>
 			</div>
 
 			{#if isLoading || !isEditDataLoaded}
-				<div class="flex justify-center">
+				<div class="flex justify-center py-6">
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
 			{:else}
-				<div class="space-y-6">
+				<div class="flex flex-col gap-4">
 					<!-- Always mount TaskBudget component to keep taskBudgetRef available -->
 					<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
 						<TaskBudget {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
@@ -414,10 +444,13 @@
 					{/if}
 
 					<!-- Control buttons -->
-					<div class="mt-6 flex justify-between">
+					<div
+						class="border-base-300 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between"
+					>
 						{#if $store.currentStep !== 'basics'}
 							<button
 								class="btn btn-secondary"
+								data-testid="previous-task-step-btn"
 								onclick={() => {
 									store.previousStep();
 									direction = 'backward';
@@ -448,6 +481,7 @@
 						{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
 							<button
 								class="btn btn-primary {isSubmitting ? 'loading' : ''}"
+								data-testid="submit-task-btn"
 								onclick={handleSubmit}
 								disabled={isSubmitting}
 							>
@@ -460,13 +494,15 @@
 								{/if}
 							</button>
 						{:else}
-							<button class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
+							<button data-testid="next-task-step-btn" class="btn btn-primary" onclick={handleNext}
+								>{$t('task.next')}</button
+							>
 						{/if}
 					</div>
 				</div>
 
 				{#if errors.general}
-					<div class="alert alert-error alert-outline mt-6 shadow-lg">
+					<div class="alert alert-outline alert-error">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"

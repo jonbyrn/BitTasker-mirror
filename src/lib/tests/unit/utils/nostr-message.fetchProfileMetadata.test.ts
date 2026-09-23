@@ -18,7 +18,12 @@ const mockCacheProfile = vi.hoisted(() =>
 
 vi.mock('$lib/nostr/ndk', () => ({
 	ndk: {
-		fetchEvents: (...args: Parameters<typeof mockFetchEvents>) => mockFetchEvents(...args)
+		fetchEvents: (...args: Parameters<typeof mockFetchEvents>) => mockFetchEvents(...args),
+		// profile/ndk.ts uses ndk.fetchEvent (singular) — resolve to the first Set entry.
+		fetchEvent: async (...args: Parameters<typeof mockFetchEvents>) => {
+			const set = (await mockFetchEvents(...args)) as Set<unknown> | null | undefined;
+			return set && set.size > 0 ? [...set][0] : null;
+		}
 	}
 }));
 

@@ -31,7 +31,7 @@ The BitTasker Verified Review System provides a **privacy-preserving, blockchain
 - **Merkle Trees**: Cryptographic data structure for efficient proof generation
 - **Cryptographic Commitments**: Hash-based commitments that hide escrow details
 - **Nostr Protocol**: Decentralized social network for review storage
-- **Blockchain Integration**: Rootstock (RSK) for escrow verification
+- **Blockchain Integration**: RGB (RGB) for escrow verification
 
 ### Bidirectional Review System
 

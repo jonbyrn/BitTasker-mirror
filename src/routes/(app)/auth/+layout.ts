@@ -5,7 +5,10 @@ import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
-import { consumeDeepLink } from '$lib/utils/deep-link';
+import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
+
+const isStaleAuthRedirect = (target: string): boolean =>
+	target === '/hiring' || target === '/hiring/my-tasks';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
@@ -17,12 +20,14 @@ export const load: LayoutLoad = async ({ url }) => {
 		if (url.pathname.includes('/onboarding')) {
 			return { currentStep: 2 };
 		} else {
-			// Check for a pending deep link before defaulting to /hiring
+			// Check for a pending deep link or redirect parameter before defaulting to the wallet.
 			const deepLink = await consumeDeepLink();
-			if (deepLink) {
-				redirect(303, deepLink);
-			}
-			redirect(303, '/hiring');
+			const redirectTo = url.searchParams.get('redirectTo');
+			const target = [deepLink, redirectTo].find(
+			(candidate): candidate is string =>
+				Boolean(candidate) && isValidInternalPath(candidate) && !isStaleAuthRedirect(candidate)
+			);
+			redirect(303, target ?? '/wallet');
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
@@ -31,15 +36,17 @@ export const load: LayoutLoad = async ({ url }) => {
 			const e2eBypass =
 				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
 			if (!verified && !e2eBypass) {
-				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
-				console.warn(
-					'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
-				);
+				if (import.meta.env.DEV) {
+					console.warn(
+						'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
+					);
+				}
 				redirect(303, '/auth/signup');
 			}
-			// Diagnostic: when we allow onboarding
-			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
-			else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
+			if (import.meta.env.DEV) {
+				if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
+				else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
+			}
 		}
 	}
 };

@@ -279,9 +279,9 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="flex flex-col gap-4">
 	{#if loading}
-		<div class="space-y-4">
+		<div class="flex flex-col gap-4">
 			{#each Array(1) as __placeholder, i (i)}
 				<div
 					class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm"
@@ -370,13 +370,8 @@
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
-			<svg
-				class="mx-auto mb-4 h-12 w-12 text-red-400"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-			>
+		<div class="alert alert-outline alert-error">
+			<svg class="mx-auto h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path
 					stroke-linecap="round"
 					stroke-linejoin="round"
@@ -384,7 +379,7 @@
 					d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">{$t('bids.error_loading_bids')}</h3>
+			<p class="text-base font-semibold">{$t('bids.error_loading_bids')}</p>
 			<p class="text-base-content/60 mt-2 mb-4">{error}</p>
 			<button onclick={loadMyBids} class="btn btn-outline rounded-lg px-4 py-2">
 				{$t('bids.retry')}
@@ -392,7 +387,7 @@
 		</div>
 	{:else if myBids.length === 0}
 		<!-- Empty State -->
-		<div class="card bg-base-100 rounded-xl p-4">
+		<div class="card bg-base-100 border-base-300 border shadow-sm">
 			<DashboardEmptyState
 				icon={IconMagnify}
 				title={$t('bids.no_bids_yet')}
@@ -413,7 +408,7 @@
 		</DashboardFilterBar>
 
 		{#if filteredBids.length === 0}
-			<div class="card bg-base-100 rounded-xl p-4">
+			<div class="card bg-base-100 border-base-300 border shadow-sm">
 				<DashboardEmptyState
 					icon={IconMagnify}
 					title={$t('dashboard.tasks.no_filtered_tasks')}
@@ -424,13 +419,13 @@
 			</div>
 		{:else}
 			<!-- Bids List -->
-			<div class="min-w-0 space-y-4 overflow-x-hidden">
+			<div class="flex min-w-0 flex-col gap-4 overflow-x-hidden">
 				<!-- bid.content (NostrBidContent) incluye taskTitle, taskDescription, taskBudget, etc. enviados al crear la bid -->
 				{#each filteredBids as bidEvent (bidEvent.id)}
 					{@const bid = bidEvent.content as unknown as NostrBidContent}
 					{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
-					<div class="card bg-base-100 border-base-300 rounded-xl border shadow-md">
-						<div class="card-body rounded-xl p-4 md:p-4">
+					<div class="card bg-base-100 border-base-300 border shadow-sm">
+						<div class="card-body gap-3 p-5">
 							<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 							<div class="border-base-200 border-b pb-4">
 								<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
@@ -453,7 +448,7 @@
 										class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1"
 									>
 										<span
-											class="badge badge-sm {StatusRender[status ?? '']?.badge ??
+											class="badge badge-lg {StatusRender[status ?? '']?.badge ??
 												'badge-warning'} max-w-full truncate text-center"
 										>
 											{StatusRender[status ?? '']?.label ?? $t('bids.pending')}

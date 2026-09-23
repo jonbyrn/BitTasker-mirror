@@ -1,8 +1,13 @@
-import { dev } from '$app/environment';
+
+
+
+
+
+
+
+/** @deprecated - EVM debug removed. Redirects to dashboard. */
 import { redirect } from '@sveltejs/kit';
 
 export function load() {
-	if (!dev) {
-		redirect(307, '/hiring');
-	}
+	redirect(307, '/hiring');
 }

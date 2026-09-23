@@ -35,7 +35,6 @@
 			"rbtc": "rBTC",
 			"swap_preview": "Swap Preview",
 			"confirm_swap": "Confirm Swap",
-			"arb_eth_warning": "ETH is required on Arbitrum for this swap. Your balance: {balance} ETH. The app will try the gasless relay first, then fall back to using your ETH for gas (~0.001 ETH).",
 			"gas_data_unavailable": "Gas data unavailable",
 			"high_value_warning": "You are swapping {amount} — this is a large amount. Are you sure?",
 			"copy_id": "Copy Swap ID",
@@ -299,7 +298,7 @@
 				"description": "Receive Lightning payments and automatically convert them to rBTC. Boltz service fee: ~0.4-0.5% plus network transaction fees.",
 				"invoice_created": "Lightning invoice created!",
 				"rbtc_received": "✅ RBTC received!",
-				"claiming_gasless": "Claiming RBTC...",
+			"claiming": "Claiming RBTC...",
 				"claimed_success": "✅ RBTC claimed successfully!",
 				"generate_invoice": "Generate Lightning Invoice",
 				"view_invoice": "View Invoice",
@@ -392,40 +391,17 @@
 				"route_unavailable_desc": "The cheapest route isn't available right now. Here's the next best option:",
 				"use_this_route": "Use this route",
 				"fallback_routes_available": "Fallback routes available",
-				"use_fallback": "Use {provider}"
+			"use_fallback": "Use {provider}"
 			},
-			"gasless_fee_reserved": "{fee} of your balance is reserved for network and relay fees. The actual swap amount is {amount}.",
-			"amount_too_small_for_gasless": "Amount too small for gasless transfer",
 			"cross_chain_delivery_note": "Cross-chain delivery",
 			"cross_chain_delivery_desc": "Your funds are being bridged to the destination chain. This may take a few minutes to complete. Your balance will update automatically.",
 			"cancel_warning": "Your swap is still in progress. Check Pending Swaps for status.",
-			"relay_unavailable": "The gasless relay is temporarily unavailable. Please try again in a few minutes.",
-			"high_fee_warning": "Fee exceeds 50% of swap amount",
-			"bridge_in_progress": "Bridging your funds to the destination chain...",
-			"bridge_taking_longer": "This is taking longer than usual. Your funds are safe.",
-			"bridging_title": "Bridging in Progress",
-			"source_sent": "Sent",
-			"dest_expected": "Receiving",
-			"elapsed": "Elapsed",
-			"bridge_safe_to_close": "You can safely close this screen. Your funds are in transit on the blockchain.",
-			"bridge_received": "I received my funds",
-			"bridge_banner_active": "Bridging {sourceAmount} {sourceAsset} → {destAsset}",
-			"bridge_banner_eta": "Estimated ~{minutes} min",
-			"bridge_banner_elapsed": "{time} elapsed",
-			"bridge_timeout": "The bridge is taking much longer than expected. Your funds are safe on the source chain. Check Pending Swaps for status.",
-			"bridge_failed": "The bridge transfer failed. Your funds are safe on the source chain. Check Pending Swaps for recovery options.",
 			"bridge_delayed": "Bridge Taking Longer",
 			"bridge_offline": "You appear to be offline. Your funds are safe on the blockchain. Reconnecting...",
 			"source_tx": "Source TX",
 			"route_steps": "Route steps",
 			"partial_delivery": "Partial delivery",
 			"partial_delivery_desc": "Received {actual} (expected {expected}). The difference is due to bridge fees and slippage."
-		},
-		"gasless_send": {
-			"insufficient_balance_with_fee": "Insufficient balance to cover transfer + network fee.",
-			"fee_estimation_failed": "Fee estimation failed",
-			"direct_transaction_failed": "Direct transaction failed",
-			"relay_unavailable_no_eth": "The gasless relay is unavailable and you have no ETH for gas. Please deposit a small amount of ETH on Arbitrum to send directly, or try again later."
 		}
 	}
 }

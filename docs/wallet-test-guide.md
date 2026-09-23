@@ -69,15 +69,15 @@ MetaMask is only needed for the "Connected External Wallet" tests below. All oth
 4. Expand the USD accordion
 5. Verify these rows appear:
    - USDT0 on Arbitrum with balance and USD value
-   - USDT0 on Rootstock with balance (if you have any)
-   - DOC on Rootstock with balance (if you have any)
+   - USDT0 on RGB with balance (if you have any)
+   - DOC on RGB with balance (if you have any)
    - tBTC on Arbitrum with balance
    - WBTC on Arbitrum with balance
 
 **What to look for:**
 - Balances should be non-zero if Hardhat fork is running and you have test tokens
 - USD values should be calculated correctly (not $0.00)
-- Network labels should show "Arbitrum" for Arbitrum tokens (not "RSK" or "BSC")
+- Network labels should show "Arbitrum" for Arbitrum tokens (not "RGB" or "BSC")
 
 **E2E test:** `tests/e2e/wallet/usdt-implementation.spec.ts` — "USDT Balance Display" suite
 
@@ -187,23 +187,23 @@ MetaMask is only needed for the "Connected External Wallet" tests below. All oth
 
 ---
 
-## How to Test: Send USDT0 on RSK
+## How to Test: Send USDT0 on RGB
 
-**What it tests:** RSK USDT0 send handler registration.
+**What it tests:** RGB USDT0 send handler registration.
 
-**Requires:** Built-in wallet only (no MetaMask). USDT0 deployed on your RSK regtest node.
+**Requires:** Built-in wallet only (no MetaMask). USDT0 deployed on your RGB regtest node.
 
 **Steps:**
 1. Navigate to `/wallet` → tap "Send"
-2. Select USDT0 on RSK as the asset
+2. Select USDT0 on RGB as the asset
 3. Enter recipient and amount
 4. Confirm the transaction
 
 **What to look for:**
-- The send handler should be registered (`usdt0-rsk` is in `SUPPORTED_NETWORKS`)
-- If USDT0 on RSK is not available, the option may not appear
+- The send handler should be registered (`usdt0-rgb` is in `SUPPORTED_NETWORKS`)
+- If USDT0 on RGB is not available, the option may not appear
 
-**E2E test:** `tests/e2e/wallet/usdt-implementation.spec.ts` — "Send USDT0 RSK Handler" suite
+**E2E test:** `tests/e2e/wallet/usdt-implementation.spec.ts` — "Send USDT0 RGB Handler" suite
 
 ---
 
@@ -216,13 +216,13 @@ MetaMask is only needed for the "Connected External Wallet" tests below. All oth
 **Steps:**
 1. Navigate to `/wallet` → tap "Swap"
 2. Test these pairs:
-   - BTC → USDT0-Arb (expect Boltz two-hop, LI.FI, possibly Changelly)
+   - BTC → USDT0-Arb (expect RGB two-hop, LI.FI, possibly Changelly)
    - USDT0-Arb → BTC (reverse)
    - USDT0-Arb → WBTC-Arb (same-chain Uniswap V3)
-   - DOC-RSK → USDT0-RSK (OpenOcean or Sovryn DEX)
+   - DOC-RGB → USDT0-RGB (OpenOcean or Sovryn DEX)
 3. Verify route picker shows estimated amounts and fees for each route
 4. Verify routes are ranked by cost (cheapest first)
-5. Verify OpenOcean routes appear for RSK DOC↔USDT0 pairs
+5. Verify OpenOcean routes appear for RGB DOC↔USDT0 pairs
 6. Enter a very small amount (e.g., `0.01`) — should show minimum warning and disable preview
 7. Verify fee percentage is reasonable (< 10% of total)
 8. Verify estimated time is displayed
@@ -230,7 +230,7 @@ MetaMask is only needed for the "Connected External Wallet" tests below. All oth
 **What to look for:**
 - Multiple routes appear for common pairs
 - Routes are ranked by total cost
-- OpenOcean routes appear for RSK stablecoin swaps
+- OpenOcean routes appear for RGB stablecoin swaps
 - Uniswap V3 routes appear for Arbitrum same-chain swaps
 - Below-minimum amounts show a warning and disable the Swap Preview button
 - Fee, receive amount, and estimated time are all populated
@@ -256,7 +256,7 @@ MetaMask is only needed for the "Connected External Wallet" tests below. All oth
 6. Verify quote shows estimated output, fees, and timing (5-40 min)
 7. Confirm the swap
 
-**Without API keys:** No Changelly routes will appear. The route engine will still show Boltz and LI.FI routes.
+**Without API keys:** No Changelly routes will appear. The route engine will still show RGB and LI.FI routes.
 
 **Verify backend is ready:**
 ```bash
@@ -266,7 +266,7 @@ curl http://localhost:8000/api/v1/changelly/swap/currencies \
 ```
 
 **What to look for:**
-- Changelly routes appear alongside Boltz and LI.FI routes
+- Changelly routes appear alongside RGB and LI.FI routes
 - Quote shows correct estimated output and fees
 - Swap progress updates correctly
 
@@ -294,7 +294,7 @@ curl http://localhost:8000/api/v1/changelly/fiat/providers
 
 ---
 
-## How to Test: Loan Flow (rBTC → DOC → USDT0 → Arbitrum)
+## How to Test: Loan Flow (BTC → DOC → USDT0 → Arbitrum)
 
 **What it tests:** Full loan flow orchestrator, MoC minting, DEX swap, LayerZero bridge.
 
@@ -303,8 +303,8 @@ curl http://localhost:8000/api/v1/changelly/fiat/providers
 **Steps:**
 1. Navigate to `/wallet`
 2. In the DeFi section, click "Convert" button
-3. Verify LoanFlowDrawer opens with title "Convert rBTC → USDT0"
-4. Enter an rBTC amount (e.g., `0.001`)
+3. Verify LoanFlowDrawer opens with title "Convert BTC → USDT0"
+4. Enter an BTC amount (e.g., `0.001`)
 5. Click "Get Quote"
 6. Verify quote shows:
    - Estimated USDT0 output on Arbitrum
@@ -316,7 +316,7 @@ curl http://localhost:8000/api/v1/changelly/fiat/providers
 **On regtest:** The MoC and Sovryn DEX contracts need to be mocked or deployed. The bridge requires LayerZero endpoints. Without these, the flow will fail at the first step — but you can verify the UI states work correctly.
 
 **What to look for:**
-- Drawer opens and shows input field for rBTC amount
+- Drawer opens and shows input field for BTC amount
 - Quote loads and shows estimated output
 - Progress screen shows step-by-step execution
 - Error states display correctly when contracts are unavailable
@@ -397,7 +397,7 @@ curl http://localhost:8000/api/v1/changelly/fiat/providers
 
 1. After connecting MetaMask, verify the Connected tab shows balances
 2. Verify USDT0-Arbitrum balance shows correctly (6 decimals, not ~$0)
-3. Verify BTC/RBTC balances show correctly
+3. Verify BTC/BTC balances show correctly
 4. Verify balance matches what MetaMask shows
 
 **What to look for:**

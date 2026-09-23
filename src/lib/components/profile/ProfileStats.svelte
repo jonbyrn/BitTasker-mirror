@@ -5,6 +5,7 @@
 	let { stats, serviceCountState = 'ready' } = $props<{
 		stats: {
 			tasksCompleted: number;
+			contractsCompleted: number;
 			activeServices: number;
 			rating: number;
 			responseRate: number;
@@ -15,12 +16,20 @@
 </script>
 
 <!-- Stats Cards -->
-<div class="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
+<div class="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-6">
 	<div class="card bg-base-200 w-full rounded-2xl shadow-lg">
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-sm">{$t('stats.tasksCompleted')}</span>
 				<span class="text-primary text-lg font-bold">{stats.tasksCompleted}</span>
+			</div>
+		</div>
+	</div>
+	<div class="card bg-base-200 w-full rounded-2xl shadow-lg">
+		<div class="card-body p-4">
+			<div class="flex items-center justify-between">
+				<span class="text-base-content/70 text-sm">{$t('stats.contractsCompleted')}</span>
+				<span class="text-primary text-lg font-bold" data-testid="profile-stats-contracts-completed">{stats.contractsCompleted}</span>
 			</div>
 		</div>
 	</div>

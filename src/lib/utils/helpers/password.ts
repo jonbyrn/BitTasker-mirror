@@ -1,4 +1,5 @@
-import * as bip39 from 'bip39';
+import { wordlist as englishWordlist } from '@scure/bip39/wordlists/english.js';
+import { wordlist as spanishWordlist } from '@scure/bip39/wordlists/spanish.js';
 
 // Map language codes to bip39 wordlists
 const languageMap: Record<string, string> = {
@@ -6,9 +7,14 @@ const languageMap: Record<string, string> = {
 	'es': 'spanish'
 };
 
+const wordlists: Record<string, string[]> = {
+	english: englishWordlist,
+	spanish: spanishWordlist
+};
+
 export const generatePassword = (language: string = 'english'): string => {
 	const wordlistName = languageMap[language] || language;
-	const wordList = bip39.wordlists[wordlistName as keyof typeof bip39.wordlists];
+	const wordList = wordlists[wordlistName];
 	
 	if (!wordList) {
 		console.warn(`Language '${language}' not supported, falling back to English`);

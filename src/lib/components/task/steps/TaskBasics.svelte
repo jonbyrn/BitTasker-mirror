@@ -141,6 +141,7 @@
 		<input
 			type="text"
 			id="title"
+			data-testid="task-title-input"
 			value={$store.task.title}
 			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
@@ -157,7 +158,9 @@
 
 		<div class="flex flex-wrap gap-4">
 			<button
+				type="button"
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+				data-testid="specific-date-btn"
 				onclick={() => {
 					const defaultDeadline = getDefaultDeadlineDate();
 
@@ -171,7 +174,9 @@
 				{$t('task.specific_date')}
 			</button>
 			<button
+				type="button"
 				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
+				data-testid="flexible-date-btn"
 				onclick={() => {
 					const defaultRange = getDefaultDateRange();
 
@@ -252,6 +257,7 @@
 
 	<div class="w-full">
 		<label for="category" class="label">{$t('task.category')}</label>
+		<div data-testid="task-category-input">
 		<CategoryMultiselect
 			bind:externalCategoryIds={selectedCategoryIds}
 			onChange={handleCategoryChange}
@@ -259,6 +265,7 @@
 			placeholder="Add tags..."
 			className="w-full"
 		/>
+		</div>
 
 		{#if errors.category}
 			<span class="label-text-alt text-error">{errors.category}</span>
@@ -270,6 +277,7 @@
 			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
+		<div data-testid="task-skills-input">
 		<SkillsMultiselect
 			bind:selectedSkills={$store.task.skills}
 			maxSelections={10}
@@ -277,6 +285,7 @@
 			className="w-full"
 			bind:this={skillsMultiselectRef}
 		/>
+		</div>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>
 		{/if}

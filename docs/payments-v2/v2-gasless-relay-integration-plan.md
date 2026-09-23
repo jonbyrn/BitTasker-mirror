@@ -50,7 +50,7 @@ This document describes how to integrate BitTasker’s **meta-transaction relay*
 
 ## 3. Product intent
 
-- **Taskees** (and others) may have **no RBTC** until they earn on-platform; **all lifecycle writes after creation** should **prefer gasless** so participation does not depend on a funded hot wallet.
+- **Taskees** (and others) may have **no BTC** until they earn on-platform; **all lifecycle writes after creation** should **prefer gasless** so participation does not depend on a funded hot wallet.
 - **Taskers** may still benefit from gasless UX; policy can be “gasless for everyone on these 12 methods” for consistency.
 - **Contract creation** funds the escrow and is **not** in the relay’s meta-callable table in the integration guide; treat it as **always direct** unless a future spec adds it.
 
@@ -58,16 +58,16 @@ This document describes how to integrate BitTasker’s **meta-transaction relay*
 
 ## 4. Static call, zero balance, and duplicate simulation
 
-### 4.1 Does `estimateGas` / `staticCall` fail for users with no RBTC?
+### 4.1 Does `estimateGas` / `staticCall` fail for users with no BTC?
 
 For standard JSON-RPC:
 
-- **`eth_estimateGas`** and **`eth_call`** (what `staticCall` uses) **do not require** the sender account to hold ETH/RBTC to pay for a future transaction. They execute against state **without** deducting gas from the user’s balance.
+- **`eth_estimateGas`** and **`eth_call`** (what `staticCall` uses) **do not require** the sender account to hold ETH/BTC to pay for a future transaction. They execute against state **without** deducting gas from the user’s balance.
 - **Failure** for a correct lifecycle call usually means **revert** (wrong role, wrong state, bad signature path not applicable here) — same as on-chain.
 
 The step that **requires** balance is **broadcasting** a **direct** transaction (`fn(...)` in `executeWrite`).
 
-So: **zero RBTC does not, by itself, make `staticCall` fail** for these non-payable methods. If product observed failures, they were likely **reverts** or **RPC issues**, not “insufficient funds” during simulation.
+So: **zero BTC does not, by itself, make `staticCall` fail** for these non-payable methods. If product observed failures, they were likely **reverts** or **RPC issues**, not “insufficient funds” during simulation.
 
 ### 4.2 Should we skip `estimateGas` + `staticCall` on the gasless path?
 
@@ -141,8 +141,8 @@ Lifecycle only uses **`tx.hash`** (as `transactionHash`). **`estimatedCostFormat
 
 | Condition                                            | HTTP / code                                 | Meaning                                          | Fallback to direct?                                                                                                          |
 | ---------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Relay down / timeout / DNS                           | fetch error                                 | Transport                                        | **Yes**, if user can pay gas; if user has **no RBTC**, show **clear error** + retry relay (product decision).                |
-| **502** `SUBMISSION_FAILED`                          | RPC failure after simulation                | Relay could not submit                           | **Yes** (same caveat for zero RBTC).                                                                                         |
+| Relay down / timeout / DNS                           | fetch error                                 | Transport                                        | **Yes**, if user can pay gas; if user has **no BTC**, show **clear error** + retry relay (product decision).                |
+| **502** `SUBMISSION_FAILED`                          | RPC failure after simulation                | Relay could not submit                           | **Yes** (same caveat for zero BTC).                                                                                         |
 | **400** `SIMULATION_FAILED`                          | `message` e.g. `OnlyTaskee`, `InvalidState` | Would revert on-chain                            | **No** — same failure would occur after direct `staticCall` / broadcast. Show **`message`** (mapped to i18n where possible). |
 | **400** validation (bad sender, calldata, signature) | Bug or wrong `/info`                        | **No** fallback until inputs fixed — log loudly. |
 | **202** success                                      | `txHash`                                    | Submitted                                        | **No** fallback.                                                                                                             |
@@ -191,5 +191,5 @@ Replace Phase F TODOs in **`v2-contract-ui-lifecycle-plan.md`** with a pointer t
 
 - Implement **relay-first + `executeWrite` fallback** in a **thin layer** beside **`blockchainWrites.ts`**, reusing **identical calldata** and **`WriteTxResult`** shape (**`tx.hash`** + cost string).
 - **SIMULATION_FAILED** → user-facing error, **no** fallback; **transport / 502** → fallback when **direct** is viable.
-- **Zero RBTC** does not block **`staticCall`**; relay simulation is sufficient on the gasless path; **skipping client staticCall** on gasless is an **optimization** aligned with relay behavior.
+- **Zero BTC** does not block **`staticCall`**; relay simulation is sufficient on the gasless path; **skipping client staticCall** on gasless is an **optimization** aligned with relay behavior.
 - **Creation** stays **direct**; **lifecycle** stays **orchestrated** the same way, with **minimal** rune changes.

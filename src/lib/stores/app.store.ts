@@ -69,7 +69,7 @@ const createAppStore = () => {
 		error: null,
 		toasts: [],
 		biometricData: null,
-		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
+		network: import.meta.env.VITE_BITCOIN_NETWORK || 'testnet',
 		pool: lazyPool,
 		relays: resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL)
 	});

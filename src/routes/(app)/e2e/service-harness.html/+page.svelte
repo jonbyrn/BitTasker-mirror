@@ -1,15 +1,11 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import type { Component } from 'svelte';
-	import type { NDKFilter, NDKSubscription, NDKSubscriptionOptions } from '@nostr-dev-kit/ndk';
 	import type { Service } from '$lib/types/service.d';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { ContractStatus, type SecurePaymentLegacy } from '$lib/utils/contract/types';
-	import { ndk } from '$lib/nostr/ndk';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
-	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+	import { ContractStatus } from '$lib/nostr/events/contractStatus';
 
 	type HarnessResult = Record<string, unknown>;
 
@@ -18,8 +14,6 @@
 	let ready = $state(false);
 	let surfaceComponent = $state<Component<Record<string, unknown>> | null>(null);
 	let surfaceProps = $state<Record<string, unknown>>({});
-	/** Route-local stale banner for NDK contracts harness (not part of production contracts UI). */
-	let contractsHarnessStaleBanner = $state(false);
 	let requestsHarnessState = $state<{
 		services: Service[];
 		timelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
@@ -108,7 +102,7 @@
 					},
 					status: ContractStatus.Funded,
 					type: 'contract',
-					currency: 'RBTC'
+					currency: 'BTC'
 				}
 			} as unknown as ContractWithEvents['contractEvent']
 		} satisfies Omit<ContractWithEvents, 'contractEvent' | 'escrowData'> & {
@@ -133,175 +127,6 @@
 				}
 			}
 		} as ContractWithEvents;
-	}
-
-	type BittaskerContractsHarnessGlobals = {
-		ndk: typeof ndk;
-		PaymentContractRune: typeof PaymentContractRune;
-		origSubscribe: (filters: NDKFilter | NDKFilter[], opts: NDKSubscriptionOptions) => unknown;
-		origRuneStart: (
-			this: import('$lib/runes/contractRune.svelte').PaymentContractRune
-		) => Promise<void>;
-		synthetic30006: import('$lib/nostr/events/contract').NDKPaymentContract[];
-		chainByPaymentId: Record<string, SecurePaymentLegacy>;
-	};
-
-	function getContractsHarnessGlobals(): BittaskerContractsHarnessGlobals | undefined {
-		return (
-			globalThis as unknown as { __bittaskerContractsHarness?: BittaskerContractsHarnessGlobals }
-		).__bittaskerContractsHarness;
-	}
-
-	function setContractsHarnessGlobals(next: BittaskerContractsHarnessGlobals | undefined): void {
-		(
-			globalThis as unknown as { __bittaskerContractsHarness?: BittaskerContractsHarnessGlobals }
-		).__bittaskerContractsHarness = next;
-	}
-
-	async function buildHarnessNdkPaymentContract(args: {
-		authorSk: Uint8Array;
-		taskerPubkeyHex: string;
-		taskeePubkeyHex: string;
-	}): Promise<import('$lib/nostr/events/contract').NDKPaymentContract> {
-		const { NDKEvent } = await import('@nostr-dev-kit/ndk');
-		const { NDKPaymentContract } = await import('$lib/nostr/events/contract');
-		const { getPublicKey } = await import('nostr-tools/pure');
-		const template = createHarnessServiceContract().contractEvent.content;
-		const legacy: Record<string, unknown> = {
-			type: 'contract',
-			escrowId: template.escrowId,
-			contextType: template.contextType,
-			contextTitle: template.contextTitle,
-			contextDescription: template.contextDescription,
-			clientPubkey: args.taskerPubkeyHex,
-			freelancerPubkey: args.taskeePubkeyHex,
-			taskTitle: template.taskTitle,
-			taskDescription: template.taskDescription,
-			amount: template.amount,
-			purchaseMode: template.purchaseMode,
-			quoteRequestId: template.quoteRequestId,
-			proposalId: template.proposalId,
-			selectedTierId: template.selectedTierId,
-			estimatedStartTime: template.estimatedStartTime,
-			estimatedCompletionTime: template.estimatedCompletionTime,
-			agreementSnapshot: template.agreementSnapshot,
-			pricingSnapshot: template.pricingSnapshot,
-			status: template.status,
-			currency: template.currency,
-			network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
-			contractAddress: `0x${'b'.repeat(40)}`,
-			version: 'v2'
-		};
-		delete legacy.taskId;
-		const authorPk = getPublicKey(args.authorSk);
-		const raw = new NDKEvent(ndk, {
-			kind: 30006,
-			pubkey: authorPk,
-			created_at: 1_700_000_000,
-			tags: [['n', String(import.meta.env.VITE_RSK_NETWORK || 'testnet')]],
-			content: JSON.stringify(legacy),
-			id: 'ef'.repeat(32),
-			sig: 'ab'.repeat(64)
-		});
-		const parsed = await NDKPaymentContract.from(raw);
-		if (!parsed) {
-			throw new Error('Harness could not parse Kind 30006 payment contract');
-		}
-		return parsed;
-	}
-
-	async function installNdkContractsHarnessPlugins(
-		synthetic30006: import('$lib/nostr/events/contract').NDKPaymentContract[],
-		chainByPaymentId: Record<string, SecurePaymentLegacy>
-	): Promise<void> {
-		const existing = getContractsHarnessGlobals();
-		const origSubscribe = existing?.origSubscribe ?? ndk.subscribe.bind(ndk);
-		const origRuneStart =
-			existing?.origRuneStart ??
-			(PaymentContractRune.prototype.start as (
-				this: InstanceType<typeof PaymentContractRune>
-			) => Promise<void>);
-
-		const bag: BittaskerContractsHarnessGlobals = {
-			ndk,
-			PaymentContractRune,
-			origSubscribe,
-			origRuneStart,
-			synthetic30006,
-			chainByPaymentId
-		};
-		setContractsHarnessGlobals(bag);
-
-		ndk.subscribe = ((filters: NDKFilter | NDKFilter[], subOpts: NDKSubscriptionOptions) => {
-			const list = Array.isArray(filters) ? filters : [filters];
-			const kindsRaw = list.flatMap((f) => [...(f.kinds ?? [])] as number[]);
-			const noopSub = {} as NDKSubscription;
-			if (kindsRaw.includes(30006) && bag.synthetic30006.length > 0) {
-				queueMicrotask(() => {
-					if (subOpts.onEvents) {
-						subOpts.onEvents(bag.synthetic30006);
-					} else {
-						for (const ev of bag.synthetic30006) {
-							subOpts.onEvent?.(ev);
-						}
-					}
-					subOpts.onEose?.(noopSub);
-				});
-				return { stop: () => {}, start: () => {} };
-			}
-			if (kindsRaw.includes(31006)) {
-				queueMicrotask(() => {
-					subOpts.onEvents?.([]);
-					subOpts.onEose?.(noopSub);
-				});
-				return { stop: () => {}, start: () => {} };
-			}
-			return bag.origSubscribe(filters, subOpts);
-		}) as typeof ndk.subscribe;
-
-		PaymentContractRune.prototype.start = async function (
-			this: import('$lib/runes/contractRune.svelte').PaymentContractRune
-		) {
-			await bag.origRuneStart.call(this);
-			const pid = this.paymentId?.trim();
-			const snap = pid ? bag.chainByPaymentId[pid] : undefined;
-			if (snap) {
-				this.blockchainData = snap;
-				this.error = null;
-			}
-		};
-	}
-
-	function harnessChainTaskerAccept(): SecurePaymentLegacy {
-		return {
-			tasker: '0x1111111111111111111111111111111111111111',
-			taskee: '0x2222222222222222222222222222222222222222',
-			amount: '1000000',
-			estimatedStartTime: 0,
-			estimatedCompletionTime: 2_000_000_000,
-			timelockEnd: 0,
-			createdAt: 0,
-			taskerFeeTier: 1,
-			taskeeFeeTier: 1,
-			state: ContractStatus.Completed,
-			noShowMarked: false
-		};
-	}
-
-	function harnessChainTaskeeComplete(): SecurePaymentLegacy {
-		return {
-			tasker: '0x1111111111111111111111111111111111111111',
-			taskee: '0x2222222222222222222222222222222222222222',
-			amount: '1000000',
-			estimatedStartTime: 0,
-			estimatedCompletionTime: 2_000_000_000,
-			timelockEnd: 0,
-			createdAt: 0,
-			taskerFeeTier: 1,
-			taskeeFeeTier: 1,
-			state: ContractStatus.Funded,
-			noShowMarked: false
-		};
 	}
 
 	function createHarnessService(overrides: Partial<Service> = {}): Service {
@@ -369,7 +194,6 @@
 						expirationDays: 5,
 						expirationHours: 0,
 						expirationTimestamp: createdAt + 300_000,
-						freelancerRskAddress: '0x1111111111111111111111111111111111111111',
 						freelancerFeeTier: 1 as const,
 						pricingSnapshot: {
 							serviceVersionRef: service.id
@@ -537,16 +361,14 @@
 
 	onMount(async () => {
 		const scenario = new URL(window.location.href).searchParams.get('case') ?? 'tasker-quotes';
-		contractsHarnessStaleBanner = false;
 
 		try {
 			let result: HarnessResult;
 
 			switch (scenario) {
 				case 'tasker-quotes': {
-					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams('tab=service-requests&view=default&request=bad!'),
 						emptyDashboardRouteContext
@@ -574,9 +396,8 @@
 					break;
 				}
 				case 'tasker-quotes-sync-active': {
-					const { parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams('tab=service-requests&view=tasker&request=qr_valid123'),
 						{
@@ -600,9 +421,8 @@
 					break;
 				}
 				case 'tasker-quotes-sync-expired': {
-					const { parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams('tab=service-requests&view=tasker&request=qr_valid123'),
 						{
@@ -626,9 +446,8 @@
 					break;
 				}
 				case 'taskee-quotes': {
-					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const serviceAddress = `30402:${'a'.repeat(64)}:service-1234`;
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams(
@@ -645,9 +464,8 @@
 					break;
 				}
 				case 'taskee-quotes-sync-active': {
-					const { parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const serviceAddress = `30402:${'a'.repeat(64)}:service-1234`;
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams(
@@ -680,9 +498,8 @@
 					break;
 				}
 				case 'tasker-quotes-partial-surface': {
-					const { default: MyQuotesPanel } = await import(
-						'$lib/components/dashboard/quotes/MyQuotesPanel.svelte'
-					);
+					const { default: MyQuotesPanel } =
+						await import('$lib/components/dashboard/quotes/MyQuotesPanel.svelte');
 
 					surfaceComponent = MyQuotesPanel;
 					surfaceProps = {
@@ -714,9 +531,8 @@
 					break;
 				}
 				case 'taskee-quotes-partial-surface': {
-					const { default: ServiceQuotesInbox } = await import(
-						'$lib/components/service/quotes/ServiceQuotesInbox.svelte'
-					);
+					const { default: ServiceQuotesInbox } =
+						await import('$lib/components/service/quotes/ServiceQuotesInbox.svelte');
 
 					surfaceComponent = ServiceQuotesInbox;
 					surfaceProps = {
@@ -766,9 +582,8 @@
 					break;
 				}
 				case 'my-services-panel-requests': {
-					const { default: DashboardMyServicesPanel } = await import(
-						'$lib/components/service/DashboardMyServicesPanel.svelte'
-					);
+					const { default: DashboardMyServicesPanel } =
+						await import('$lib/components/service/DashboardMyServicesPanel.svelte');
 					const service = createHarnessService({
 						uniqueId: 'service-123',
 						title: 'Brand Identity Sprint',
@@ -802,9 +617,8 @@
 					break;
 				}
 				case 'my-services-panel-contracts': {
-					const { default: DashboardMyServicesPanel } = await import(
-						'$lib/components/service/DashboardMyServicesPanel.svelte'
-					);
+					const { default: DashboardMyServicesPanel } =
+						await import('$lib/components/service/DashboardMyServicesPanel.svelte');
 					const service = createHarnessService({
 						uniqueId: 'service-123',
 						title: 'Brand Identity Sprint',
@@ -854,9 +668,8 @@
 					break;
 				}
 				case 'earning-requests-regression': {
-					const { default: ServiceQuotesInbox } = await import(
-						'$lib/components/service/quotes/ServiceQuotesInbox.svelte'
-					);
+					const { default: ServiceQuotesInbox } =
+						await import('$lib/components/service/quotes/ServiceQuotesInbox.svelte');
 					const primaryService = createHarnessService();
 					const secondaryService = createHarnessService({
 						id: 'service-event-2',
@@ -945,9 +758,8 @@
 					break;
 				}
 				case 'contracts-highlight-valid': {
-					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					const { emptyDashboardRouteContext, parseServiceQuoteDashboardQuery } =
+						await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
 						new URLSearchParams('tab=contracts&type=services&highlight=svc-escrow_123'),
 						emptyDashboardRouteContext
@@ -1091,197 +903,13 @@
 					};
 					break;
 				}
-				case 'contracts-surface-highlighted-service': {
-					const { default: DashboardContractsPanelNDK } = await import(
-						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
-					);
-					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-
-					const taskerSk = generateSecretKey();
-					const taskeeSk = generateSecretKey();
-					const taskerPk = getPublicKey(taskerSk);
-					const taskeePk = getPublicKey(taskeeSk);
-
-					await applyNdkSignerFromNsec(taskerSk);
-					const paymentContract = await buildHarnessNdkPaymentContract({
-						authorSk: taskerSk,
-						taskerPubkeyHex: taskerPk,
-						taskeePubkeyHex: taskeePk
-					});
-					const pid = paymentContract.paymentId || 'svc-escrow_123';
-					const chain = harnessChainTaskerAccept();
-					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
-						[pid]: chain,
-						'svc-escrow_123': chain
-					};
-					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
-
-					surfaceComponent = DashboardContractsPanelNDK;
-					surfaceProps = {
-						initialType: 'services',
-						highlightEscrowId: 'svc-escrow_123'
-					};
-
-					await waitForSurfaceReady(() => {
-						const root = document.querySelector('[data-testid="service-harness-surface"]');
-						if (!root?.textContent?.includes('Premium Logo Package')) return false;
-						const txt = root.textContent ?? '';
-						return (
-							txt.includes('Approve') ||
-							txt.includes('Approve Service') ||
-							txt.includes('Accept Service')
-						);
-					});
-
-					const body = document.body.textContent ?? '';
-					result = {
-						serviceCardPresent: Boolean(
-							document
-								.querySelector('[data-testid="service-harness-surface"]')
-								?.textContent?.includes('Premium Logo Package')
-						),
-						serviceScopePresent: body.includes('Logo system and brand guide'),
-						quotedServiceBadgePresent:
-							body.includes('Quoted Service') ||
-							body.includes('Quote request') ||
-							body.includes('qr_valid123'),
-						actionLabelPresent:
-							body.includes('Accept Service') ||
-							body.includes('Approve Service') ||
-							/\bApprove\b/.test(body)
-					};
-					break;
-				}
-				case 'contracts-surface-stale-data': {
-					const { default: DashboardContractsPanelNDK } = await import(
-						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
-					);
-					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-
-					const taskerSk = generateSecretKey();
-					const taskeeSk = generateSecretKey();
-					const taskerPk = getPublicKey(taskerSk);
-					const taskeePk = getPublicKey(taskeeSk);
-
-					await applyNdkSignerFromNsec(taskerSk);
-					const paymentContract = await buildHarnessNdkPaymentContract({
-						authorSk: taskerSk,
-						taskerPubkeyHex: taskerPk,
-						taskeePubkeyHex: taskeePk
-					});
-					const pid = paymentContract.paymentId || 'svc-escrow_123';
-					const chain = harnessChainTaskerAccept();
-					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
-						[pid]: chain,
-						'svc-escrow_123': chain
-					};
-					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
-
-					contractsHarnessStaleBanner = true;
-					surfaceComponent = DashboardContractsPanelNDK;
-					surfaceProps = {
-						initialType: 'services'
-					};
-
-					await waitForSurfaceReady(() => {
-						return Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-testid="contracts-panel-stale-alert"]'
-							)
-						);
-					});
-
-					const body = document.body.textContent ?? '';
-					result = {
-						staleAlertPresent: Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-testid="contracts-panel-stale-alert"]'
-							)
-						),
-						serviceCardPresent: Boolean(
-							document
-								.querySelector('[data-testid="service-harness-surface"]')
-								?.textContent?.includes('Premium Logo Package')
-						),
-						staleMessagePresent: body.includes('Showing last known contract data.')
-					};
-					break;
-				}
-				case 'contracts-surface-completable-service': {
-					const { default: DashboardContractsPanelNDK } = await import(
-						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
-					);
-					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
-
-					const taskerSk = generateSecretKey();
-					const taskeeSk = generateSecretKey();
-					const taskerPk = getPublicKey(taskerSk);
-					const taskeePk = getPublicKey(taskeeSk);
-
-					await applyNdkSignerFromNsec(taskeeSk);
-					const paymentContract = await buildHarnessNdkPaymentContract({
-						authorSk: taskeeSk,
-						taskerPubkeyHex: taskerPk,
-						taskeePubkeyHex: taskeePk
-					});
-					const pid = paymentContract.paymentId || 'svc-escrow_123';
-					const chain = harnessChainTaskeeComplete();
-					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
-						[pid]: chain,
-						'svc-escrow_123': chain
-					};
-					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
-
-					surfaceComponent = DashboardContractsPanelNDK;
-					surfaceProps = {
-						initialType: 'services',
-						highlightEscrowId: 'svc-escrow_123'
-					};
-
-					await waitForSurfaceReady(() => {
-						const root = document.querySelector('[data-testid="service-harness-surface"]');
-						if (!root?.textContent?.includes('Premium Logo Package')) return false;
-						return Array.from(root.querySelectorAll('button')).some((btn) => {
-							const label = (btn.textContent ?? '').replace(/\s+/g, ' ').trim();
-							return label === 'Complete' || label.includes('Mark Service Complete');
-						});
-					});
-
-					const body = document.body.textContent ?? '';
-					const surfaceRoot = document.querySelector('[data-testid="service-harness-surface"]');
-					const completeActionPresent = surfaceRoot
-						? Array.from(surfaceRoot.querySelectorAll('button')).some((btn) => {
-								const label = (btn.textContent ?? '').replace(/\s+/g, ' ').trim();
-								return label === 'Complete' || label.includes('Mark Service Complete');
-							})
-						: false;
-					result = {
-						serviceCardPresent: Boolean(surfaceRoot?.textContent?.includes('Premium Logo Package')),
-						highlightedDrawerPresent: Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [role="dialog"][aria-modal="true"]'
-							)
-						),
-						serviceScopePresent: body.includes('Logo system and brand guide'),
-						quotedServiceBadgePresent:
-							body.includes('Quoted Service') ||
-							body.includes('Quote request') ||
-							body.includes('qr_valid123'),
-						completeActionPresent,
-						agreementSchedulePresent: body.includes('Agreement schedule')
-					};
-					break;
-				}
 				case 'instant-buy': {
-					const { createInstantBuySnapshot } = await import(
-						'$lib/utils/service-instant-buy/create'
-					);
-					const { getInstantBuyEligibility } = await import(
-						'$lib/utils/service-instant-buy/eligibility'
-					);
-					const { deriveServiceInstantBuySchedule } = await import(
-						'$lib/utils/service-instant-buy/time-derivation'
-					);
+					const { createInstantBuySnapshot } =
+						await import('$lib/utils/service-instant-buy/create');
+					const { getInstantBuyEligibility } =
+						await import('$lib/utils/service-instant-buy/eligibility');
+					const { deriveServiceInstantBuySchedule } =
+						await import('$lib/utils/service-instant-buy/time-derivation');
 
 					const service = {
 						status: 'active',
@@ -1306,58 +934,6 @@
 						selectedTierId: snapshot.selectedTierId,
 						instantOrderId: snapshot.instantOrderId,
 						purchaseKeyLength: snapshot.purchaseKey.length
-					};
-					break;
-				}
-				case 'instant-buy-contract-mapping': {
-					const { createInstantBuySnapshot } = await import(
-						'$lib/utils/service-instant-buy/create'
-					);
-					const { createServiceContractFromSnapshot } = await import(
-						'$lib/utils/service-contract/create-from-snapshot'
-					);
-					const { buildServiceAddress } = await import('$lib/utils/service-quote/protocol');
-
-					const service = {
-						id: 'service-event-1',
-						uniqueId: 'service-123',
-						npub: 'a'.repeat(64),
-						status: 'active',
-						instantBuyLeadHours: 24,
-						pricing: {
-							type: 'FIXED',
-							amount: 150,
-							deliveryTime: { value: 3, unit: 'day' }
-						}
-					} as const;
-
-					const snapshot = createInstantBuySnapshot({
-						service,
-						nowSeconds: 1_700_000_000
-					});
-
-					const contract = createServiceContractFromSnapshot({
-						escrowId: snapshot.purchaseKey,
-						freelancerPubkey: service.npub,
-						amount: '0.00150000',
-						estimatedStartTime: snapshot.estimatedStartTime,
-						estimatedCompletionTime: snapshot.estimatedEndTime,
-						serviceId: service.uniqueId,
-						serviceAddress: buildServiceAddress(service),
-						serviceTitle: 'Brand Identity Sprint',
-						contextVersionRef: service.id,
-						purchaseMode: 'instant_buy',
-						instantOrderId: snapshot.instantOrderId,
-						pricingSnapshot: {
-							serviceVersionRef: service.id
-						}
-					});
-
-					result = {
-						contextType: contract.contextType,
-						contextId: contract.contextId,
-						purchaseMode: contract.purchaseMode,
-						instantOrderId: contract.instantOrderId
 					};
 					break;
 				}
@@ -1420,17 +996,6 @@
 				</button>
 			</div>
 			<pre data-testid="requests-harness-state">{buildRequestsHarnessStateSnapshot()}</pre>
-		{/if}
-		{#if contractsHarnessStaleBanner}
-			<div
-				class="alert alert-outline alert-warning mb-4"
-				data-testid="contracts-panel-stale-alert"
-				role="status"
-			>
-				<span>
-					Showing last known contract data. Retry refresh to load the latest contracts from relays.
-				</span>
-			</div>
 		{/if}
 		<SurfaceComponent {...surfaceProps} />
 	</div>

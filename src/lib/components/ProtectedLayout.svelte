@@ -86,7 +86,7 @@
 		{/if}
 
 		<div class="min-h-0 w-full flex-1">
-			{@render children()}
+			{@render children?.()}
 			<NotificationPermissionBanner />
 		</div>
 	</div>

@@ -59,7 +59,7 @@ export function getSupportedAssets(network: 'mainnet' | 'testnet'): AssetMetadat
  * Detect current network based on environment or asset ID
  */
 export function getCurrentNetwork(): 'mainnet' | 'testnet' {
-	return import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+	return import.meta.env.VITE_BITCOIN_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
 /**

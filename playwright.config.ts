@@ -119,38 +119,66 @@ export default defineConfig({
 	],
 
 	/* Local: dev server. Managed CI artifact reuse: preview only. Otherwise: build + preview. */
-	webServer: overrideBaseURL
-		? undefined
-		: useDevServer
-			? {
-					command: 'npm run dev:dev',
-					url: DEV_URL,
-					reuseExistingServer: true,
-					timeout: 60 * 1000,
-					env: {
-						VITE_E2E_TURNSTILE_BYPASS: 'true',
-						...process.env
-					}
-				}
-			: previewOnly
-				? {
-						command: `npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
-						url: PREVIEW_URL,
-						reuseExistingServer: false,
-						timeout: PREVIEW_START_TIMEOUT_MS,
-						env: {
-							VITE_E2E_TURNSTILE_BYPASS: 'true',
-							...process.env
-						}
-					}
-				: {
-						command: `npm run build && npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
-						url: PREVIEW_URL,
-						reuseExistingServer: !process.env.CI,
-						timeout: 600 * 1000, // 10 min: full SvelteKit preview build is slow in CI/local CI-shaped runs
-						env: {
-							VITE_E2E_TURNSTILE_BYPASS: 'true',
-							...process.env
-						}
-					}
+	webServer: [
+		{
+			command: 'node tests/e2e/helpers/nostr-relay-server.mjs',
+			url: 'http://127.0.0.1:7777/health',
+			reuseExistingServer: !process.env.CI,
+			timeout: 15 * 1000
+		},
+		...(overrideBaseURL
+			? []
+			: [
+					useDevServer
+						? {
+								command: 'npm run dev:dev',
+								url: DEV_URL,
+								reuseExistingServer: true,
+								timeout: 60 * 1000,
+								env: {
+									VITE_API_URL: 'http://127.0.0.1:8000',
+									VITE_E2E_TURNSTILE_BYPASS: 'true',
+									VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
+									VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
+									VITE_BITCOIN_NETWORK: 'testnet',
+									VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
+									VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
+									...process.env
+								}
+							}
+						: previewOnly
+							? {
+									command: `npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
+									url: PREVIEW_URL,
+									reuseExistingServer: false,
+									timeout: PREVIEW_START_TIMEOUT_MS,
+									env: {
+										VITE_API_URL: 'http://127.0.0.1:8000',
+										VITE_E2E_TURNSTILE_BYPASS: 'true',
+										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
+										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
+										VITE_BITCOIN_NETWORK: 'testnet',
+										VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
+										VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
+										...process.env
+									}
+								}
+							: {
+									command: `npm run build && npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
+									url: PREVIEW_URL,
+									reuseExistingServer: !process.env.CI,
+									timeout: 600 * 1000,
+									env: {
+										VITE_API_URL: 'http://127.0.0.1:8000',
+										VITE_E2E_TURNSTILE_BYPASS: 'true',
+										VITE_NOSTR_RELAY_URL: 'ws://localhost:7777',
+										VITE_NOSTR_TASK_RELAY_URL: 'ws://localhost:7777',
+										VITE_BITCOIN_NETWORK: 'testnet',
+										VITE_BITCOIN_ELECTRUM_URL: 'https://blockstream.info/testnet/api',
+										VITE_RGB_TRANSPORT_ENDPOINT: 'https://rgb-proxy.utexo.com/json-rpc',
+										...process.env
+									}
+								}
+				])
+	]
 });

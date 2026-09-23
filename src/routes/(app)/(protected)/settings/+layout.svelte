@@ -93,6 +93,6 @@
 			</button>
 		</div>
 	{:else}
-		{@render children()}
+		{@render children?.()}
 	{/if}
 </div>

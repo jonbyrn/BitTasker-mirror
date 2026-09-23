@@ -170,7 +170,7 @@ Copy these from `wrangler.toml` `[env.staging.vars]` and `[env.production.vars]`
 - `VITE_CLIENT_URL`
 - `VITE_NOSTR_RELAY_URL`
 - `VITE_NOSTR_RELAY_NESTJS`
-- `VITE_RSK_NETWORK`
+- `VITE_RGB_NETWORK`
 - `VITE_BSC_NETWORK`
 - `VITE_STREAM_CUSTOMER_CODE`
 

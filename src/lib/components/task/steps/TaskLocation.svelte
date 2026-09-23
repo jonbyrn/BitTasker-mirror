@@ -108,15 +108,18 @@
 
 		<div class="flex gap-4">
 			<button
+				type="button"
 				class="btn {$store.task?.taskType === TaskTypeEnum.IN_PERSON
 					? 'btn-primary'
 					: 'btn-outline'}"
+				data-testid="in-person-task-btn"
 				onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 			>
 				{$t('task.in_person')}
 			</button>
 			<button
 				class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
+				data-testid="remote-task-btn"
 				onclick={() => {
 					const defaultLocation = {
 						displayName: '',

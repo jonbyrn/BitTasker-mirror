@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service.d';
 	import { locale, t } from 'svelte-i18n';
-	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
+	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 

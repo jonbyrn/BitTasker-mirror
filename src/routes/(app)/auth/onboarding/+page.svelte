@@ -6,10 +6,13 @@
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
+	import { nip19 } from 'nostr-tools';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
+	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import { publishProfileMetadata } from '$lib/nostr/profile/metadata-publish';
+	import { appStore } from '$lib/stores/app.store';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
@@ -57,9 +60,22 @@
 					formData.nsec = bytesToHex(sk);
 					formData.npub = getPublicKey(sk);
 
+					if (typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window) {
+						const appNsec = nip19.nsecEncode(sk);
+						const appMnemonic = await deriveWalletFromNostr(appNsec);
+						window.localStorage.setItem('__E2E_NSEC__', appNsec);
+						window.localStorage.setItem('__E2E_NPUB__', nip19.npubEncode(formData.npub));
+						window.localStorage.setItem('__E2E_MNEMONIC__', appMnemonic);
+					}
+
 					// generate username from display name and npub
 					formData.username = await resolveHandle(formData.displayName, formData.npub);
 					await applyNdkSignerFromNsec(sk);
+					// Ensures ProfileSetup can recover the signer via syncNdkSignerFromAppStore if reached without the nsec prop
+					appStore.update((s) => ({
+						...s,
+						nostrKeys: { ...s.nostrKeys, nsec: sk, npub: formData.npub }
+					}));
 				}
 
 				const displayName = formData.displayName.trim();

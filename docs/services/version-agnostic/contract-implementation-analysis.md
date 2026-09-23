@@ -94,7 +94,7 @@ BitTasker has **two parallel implementations** for handling blockchain escrow pa
 └─────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         BLOCKCHAIN LAYER (RSK)                               │
+│                         BLOCKCHAIN LAYER (RGB)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  V1 Smart Contract             │  V2 Smart Contract (SecurePayment)          │
 │  (EscrowContract)              │  ────────────────────────────────           │
@@ -622,7 +622,7 @@ type SecurePaymentLegacy = {
 	["t", "task-id-456"], // Task ID
 	["p", "tasker-pubkey"], // Tasker
 	["p", "taskee-pubkey"], // Taskee
-	["n", "rsk-testnet"], // Network
+	["n", "rgb-testnet"], // Network
 	["v", "v2"], // VERSION TAG - determines which lifecycle to use
 	["s", "0"], // Status (ContractStatus enum)
 	["m", "contract"] // Message type

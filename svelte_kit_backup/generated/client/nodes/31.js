@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/(app)/(protected)/hiring/service-requests/+page.svelte";

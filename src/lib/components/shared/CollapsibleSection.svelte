@@ -53,7 +53,7 @@
 			in:slide={{ duration: 200, easing: linear }}
 			out:slide={{ duration: 200, easing: linear }}
 		>
-			{@render children()}
+			{@render children?.()}
 		</div>
 	{/if}
 </div>

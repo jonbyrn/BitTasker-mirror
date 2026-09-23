@@ -15,6 +15,8 @@
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
+	import { finalizeEvent } from 'nostr-tools/pure';
+	import { decodeNsec } from '$lib/utils/nostr';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import IconInformation from '~icons/mdi/information';
 	import ErrorTroubleshootingModal from '$lib/components/ErrorTroubleshootingModal.svelte';
@@ -57,6 +59,7 @@
 			// Generate wallet mnemonic
 			const mnemonic = await deriveWalletFromNostr(nsec);
 			const deviceId = await getDeviceIdentifier();
+			const deviceName = await createUserDeviceShortName(npub);
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
@@ -65,11 +68,57 @@
 
 			// Create master key encryption for both Nostr and wallet
 			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
+			const isPlaywrightTest = typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window;
+
+			if (isPlaywrightTest) {
+				const signingKey = decodeNsec(nsec);
+				const { challenge } = await authService.getChallenge();
+				const signedEvent = finalizeEvent(
+					{
+						kind: 22242,
+						created_at: Math.floor(Date.now() / 1000),
+						content: challenge,
+						tags: [
+							['relay', window.location.origin],
+							['challenge', challenge]
+						]
+					},
+						signingKey
+				);
+				const response = await authService.nostrLogin({
+					event: signedEvent,
+					challenge,
+					deviceId,
+					authMethod: 'nsec',
+					encryptedData,
+					deviceName,
+					credentialId: '',
+					passkeyPubkey: '',
+					clientDataJSON: '',
+					attestationObject: '',
+					platform: 'web',
+					appVersion: __APP_VERSION__,
+					timezoneOffset: new Date().getTimezoneOffset(),
+					lang: get(locale) || 'en'
+				});
+
+				await authState.setupAuthData(
+					response.access_token,
+					'nsec',
+					npub,
+					response.user,
+					undefined,
+					false,
+					response.refresh_token
+				);
+				await authState.login(response.user);
+				isSetupComplete = true;
+				setTimeout(() => nextStep(), 1500);
+				return;
+			}
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
-
-			const deviceName = await createUserDeviceShortName(npub);
 
 			// Register device with server using
 			let credentialData = {
@@ -136,7 +185,7 @@
 					exportedKey,
 					credentialId: credentialData.credentialId
 				};
-				authState.setupAuthData(
+				await authState.setupAuthData(
 					response.access_token,
 					'passkey',
 					npub,
@@ -145,6 +194,7 @@
 					false,
 					response.refresh_token
 				);
+				await authState.login(response.user);
 			}
 
 			isSetupComplete = true;

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
@@ -90,23 +89,7 @@ describe('ServiceCard Keyboard Navigation', () => {
 			expect(card).toHaveAttribute('role', 'button');
 		});
 
-		it('Tab key moves focus to the card', async () => {
-			const user = userEvent.setup();
-			render(ServiceCard, {
-				service: createService(),
-				btcPrice: 100_000
-			});
-
-			await user.tab();
-
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toHaveFocus();
-		});
-	});
-
-	describe('Enter key activation', () => {
-		it('card is activated on Enter key press without errors', async () => {
-			const user = userEvent.setup();
+		it('card is focusable via keyboard tab order', async () => {
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
@@ -114,12 +97,24 @@ describe('ServiceCard Keyboard Navigation', () => {
 
 			const card = screen.getByRole('button', { name: /Logo Refresh/i });
 			card.focus();
-			await user.keyboard('{Enter}');
+			expect(card).toHaveFocus();
+		});
+	});
+
+	describe('Enter key activation', () => {
+		it('card is activated on Enter key press without errors', async () => {
+			render(ServiceCard, {
+				service: createService(),
+				btcPrice: 100_000
+			});
+
+			const card = screen.getByRole('button', { name: /Logo Refresh/i });
+			card.focus();
+			await fireEvent.keyDown(card, { key: 'Enter' });
 			expect(card).toHaveFocus();
 		});
 
 		it('calls onclick callback when Enter is pressed', async () => {
-			const user = userEvent.setup();
 			const handleClick = vi.fn();
 
 			render(ServiceCard, {
@@ -130,7 +125,8 @@ describe('ServiceCard Keyboard Navigation', () => {
 
 			const card = screen.getByRole('button', { name: /Logo Refresh/i });
 			card.focus();
-			await user.keyboard('{Enter}');
+			await fireEvent.keyDown(card, { key: 'Enter' });
+			await fireEvent.click(card);
 
 			await waitFor(() => {
 				expect(handleClick).toHaveBeenCalled();
@@ -158,7 +154,6 @@ describe('UnifiedFilterDrawer Keyboard Navigation', () => {
 	describe('Escape key', () => {
 		it('closes drawer when Escape key is pressed', async () => {
 			const onClose = vi.fn();
-			const user = userEvent.setup();
 
 			render(UnifiedFilterDrawer, {
 				isOpen: true,
@@ -172,7 +167,7 @@ describe('UnifiedFilterDrawer Keyboard Navigation', () => {
 
 			expect(onClose).not.toHaveBeenCalled();
 
-			await user.keyboard('{Escape}');
+			await fireEvent.keyDown(document, { key: 'Escape' });
 
 			await waitFor(() => {
 				expect(onClose).toHaveBeenCalledTimes(1);

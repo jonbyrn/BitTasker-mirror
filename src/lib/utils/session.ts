@@ -19,7 +19,7 @@ import { profileStore } from '$lib/stores/profile.store';
 // Import cache utilities
 import { nostrEventCache, user } from '$lib/stores/user.store';
 import { profileCache } from '$lib/utils/profile-cache';
-import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
+import { ContractRune } from '$lib/runes/contract.svelte';
 
 // Import nostr cleanup functions
 import { cleanup as cleanupFindTasks } from '$lib/nostr/findTasks';
@@ -75,9 +75,8 @@ function clearAllCaches(): void {
 	// Profile cache (24-hour TTL cache)
 	profileCache.clear();
 
-	// Bid and contract caches
-	smartCache.clearAll();
-	currencyCache.clear();
+	// Native ContractRune registry
+	ContractRune.clearRegistry();
 
 	// Task search caches
 	cleanupFindTasks();

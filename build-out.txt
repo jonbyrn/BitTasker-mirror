@@ -1,0 +1,7 @@
+
+> BitTasker@0.0.1 build
+> npx --yes svelte-kit sync && vite build && node scripts/fix-sveltekit-preview-manifest.mjs && npm run sitemap:generate
+
+[36mvite v7.3.2 [32mbuilding ssr environment for production...[36m[39m
+transforming...
+[32m✓[39m 84 modules transformed.

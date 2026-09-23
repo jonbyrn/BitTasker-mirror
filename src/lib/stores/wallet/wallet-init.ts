@@ -1,405 +1,387 @@
-/**
- * Wallet Initialization, Cleanup & Health Checks
- */
-
+import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
+import type { RgbAsset, WalletProbeWindow } from './wallet-types';
+import { ContractRune } from '$lib/services/rgb/contract-rune';
 import { browser } from '$app/environment';
-import {
-	WalletManager,
-	type WalletManagerConfig,
-	type NetworkType,
-	type SwapUpdateEvent
-} from '@bittasker/wallet-core';
 import { get } from 'svelte/store';
-import { Capacitor } from '@capacitor/core';
-import { Preferences } from '@capacitor/preferences';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
-import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { NostrSwapStorage } from '$lib/utils/swapAdapter';
-import { ethers } from 'ethers';
-import { clearPersistedChainSortHints } from '$lib/utils/wallet/chainSortHints';
-import { formatSats } from '$lib/utils/wallet/format';
-import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { walletStore, state, clearRefreshTimers, isProviderHealthy } from './wallet-state';
+import { initWasm } from '$lib/wasm/init-wasm';
+import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
-import { updateSwapTransaction } from './wallet-transactions';
-import { scheduleBalanceRefresh, loadAssets } from './wallet-balances';
-import { getSwapType } from '$lib/utils/wallet/swapTransaction';
-import { browserNetworkStatus } from '$lib/utils/network-status';
-import { blockchainToastStore } from './blockchain-toast.store';
+import {
+	installEsploraRetryFetch,
+	isE2eWalletReset,
+	loadAssets,
+	scanBtcBalance,
+	unwrapListAssets
+} from './wallet-balances';
+import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 
-// ─── Internal helpers ────────────────────────────────────────────────────────
+// Constants
+const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
 
-function ensureBlockWatch(): void {
-	if (!state.sdkWalletManager?.rskWallet || state.unsubscribeBlockWatch) return;
-	if (typeof state.sdkWalletManager.rskWallet.onBlock !== 'function') return;
-
-	state.unsubscribeBlockWatch = state.sdkWalletManager.rskWallet.onBlock((_blockNumber) => {
-		try {
-			scheduleBalanceRefresh();
-			blockchainToastStore.onBlock('rsk', _blockNumber);
-		} catch (err) {
-			console.error('[wallet-init] Block callback error:', err);
-		}
-	});
-
-	ensureArbitrumBlockWatch();
+// Helper functions
+async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(`bittasker-utexo-rgb-wallet:${mnemonic}`);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-let _arbBalanceTimer: ReturnType<typeof setTimeout> | null = null;
-
-function ensureArbitrumBlockWatch(): void {
-	if (state.unsubscribeArbBlockWatch) return;
-
-	const arbWallet = state.sdkWalletManager?.arbWallet;
-	if (!arbWallet || typeof arbWallet.onBlock !== 'function') return;
-
-	const arbProvider = arbWallet.getProvider();
-	if (!arbProvider) return;
-
-	state.unsubscribeArbBlockWatch = arbWallet.onBlock((_blockNumber) => {
-		try {
-			if (_arbBalanceTimer) clearTimeout(_arbBalanceTimer);
-			_arbBalanceTimer = setTimeout(() => {
-				_arbBalanceTimer = null;
-				scheduleBalanceRefresh();
-			}, 7000);
-			blockchainToastStore.onBlock('arb', _blockNumber);
-		} catch (err) {
-			console.error('[wallet-init] Arbitrum block watch error:', err);
-		}
-	});
+// Utility functions
+function isWasmGlobalError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+	const message = error.message.toLowerCase();
+	return (
+		message.includes('exports is not defined') ||
+		message.includes('module is not defined') ||
+		message.includes('.wasm') ||
+		message.includes('wasm')
+	);
 }
 
-function wireSwapUpdates(): void {
-	if (!state.sdkWalletManager || typeof state.sdkWalletManager.onSwapUpdate !== 'function') {
-		return;
-	}
-
-	state.unsubscribeSwapUpdates?.();
-	state.unsubscribeSwapUpdates = state.sdkWalletManager.onSwapUpdate((event: SwapUpdateEvent) => {
-		const swapType = getSwapType(event.swapData);
-		updateSwapTransaction(event.swapId, event.swapData, swapType);
-	});
+async function waitForWasmGlobals(): Promise<void> {
+	if (!browser) return;
+	await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
 
-// ─── App Resume + Network Reconnect ────────────────────────────────────────────
+type ProbeWindow = WalletProbeWindow & {
+	__utexoWallet?: UTEXOWallet | null;
+	__createRgbUtxos?: (count?: number, sizeSats?: number) => Promise<number | undefined>;
+	E2E?: {
+		escrowStatus: () => string;
+		refreshRgb: () => Promise<void>;
+	};
+};
 
-let resumeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleResumeRefresh(): void {
-	if (resumeRefreshTimer) clearTimeout(resumeRefreshTimer);
-	resumeRefreshTimer = setTimeout(async () => {
-		resumeRefreshTimer = null;
-		try {
-			ensureBlockWatch(); // Re-establish if softCleanup disposed it
-
-			// Read persisted balance (survives app kills, unlike in-memory store)
-			let persistedBalance: number | null = null;
-			try {
-				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
-				if (stored !== null) {
-					const parsed = parseInt(stored, 10);
-					if (!isNaN(parsed)) persistedBalance = parsed;
-				}
-			} catch {
-				// Preferences unavailable
-			}
-
-			await loadAssets();
-
-			// Show toast if balance increased from persisted value
-			// persistedBalance === null means first open ever — skip toast (save baseline)
-			const newBalanceSats = get(walletStore).totalBalances.sats;
-
-			if (persistedBalance !== null) {
-				const appStore = await import('$lib/stores/app.store').then(({ appStore }) => appStore);
-				if (newBalanceSats > persistedBalance) {
-					const delta = newBalanceSats - persistedBalance;
-					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
-						dedupKey: `received-balance-${newBalanceSats}`
-					});
-				}
-			}
-
-			// Lightweight swap recovery (Nostr queries only, no blockchain RPC)
-			// loadTransactions() is intentionally NOT called on resume — it's too
-			// heavy and is only needed when the TransactionHistory UI opens.
-			if (state.sdkWalletManager) {
-				try {
-					await Promise.all([
-						state.sdkWalletManager.submarineSwapService.recoverPendingSwaps().catch(() => []),
-						state.sdkWalletManager.reverseSwapService.recoverPendingSwaps().catch(() => []),
-						state.sdkWalletManager.chainSwapService.recoverPendingSwaps().catch(() => [])
-					]);
-				} catch {
-					// Swap recovery failure is non-critical
-				}
-			}
-
-			blockchainToastStore.checkPendingReceipts();
-		} catch (err) {
-			console.error('[wallet-init] Resume refresh error:', err);
-		}
-	}, 1000); // 1s debounce to coalesce resume + reconnect
+function probeWindow(): ProbeWindow {
+	return window as ProbeWindow;
 }
 
-function setupAppLifecycleHandlers(): void {
+// Wallet initialization core logic
+async function initializeRgbWallet(mnemonic: string): Promise<void> {
 	if (!browser) return;
 
-	// Capacitor app resume — dynamic import, platform guard (matches activityTracker.ts)
-	if (Capacitor.isNativePlatform()) {
-		import('@capacitor/app').then(({ App }) => {
-			App.addListener('appStateChange', ({ isActive }) => {
-				if (isActive) scheduleResumeRefresh();
-			});
+	// TEST: Explicit 3-phase lifecycle with network: 'utexo' + vssUrl: null
+	// Tests if bypassing create() and using native preset avoids the vssUrl url-parse panic.
+	const network = 'utexo' as const;
+
+	try {
+		await initWasm();
+		installEsploraRetryFetch();
+
+		// Import UTEXOWallet directly for explicit 3-phase lifecycle
+		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
+		const password = await deriveUtexoWalletPassword(mnemonic);
+		const e2eReset = isE2eWalletReset();
+
+		// Diagnostic logging (redacted - no mnemonic, xpub, fingerprint, or tokens)
+		console.info('[wallet-diagnostic:init]', {
+			network: 'utexo',
+			sdk_version: RGB_SDK_VERSION,
+			method: 'explicit-3phase-lifecycle'
 		});
-	}
-
-	// Network reconnect — use existing browserNetworkStatus store
-	browserNetworkStatus.subscribe((status) => {
-		if (status.lastTransition === 'online' && state.sdkWalletManager) {
-			scheduleResumeRefresh();
-		}
-	});
-}
-
-// ─── Exported functions ──────────────────────────────────────────────────────
-
-/**
- * Extend inbound balance watch (receive flows, pending reverse/chain swaps).
- */
-export function markExpectingInbound(ttlMs = 30 * 60 * 1000): void {
-	state.expectingInboundUntil = Date.now() + ttlMs;
-	ensureBlockWatch();
-}
-
-/**
- * Get RSK wallet address, initializing only RSK wallet if needed.
- * This is a lightweight operation that doesn't require full wallet initialization.
- */
-export async function getRSKAddress(): Promise<string> {
-	const storeState = get(walletStore);
-
-	// If address already exists, return it
-	if (storeState.rsk.address) {
-		return storeState.rsk.address;
-	}
-
-	try {
-		await initialize();
-	} catch (err) {
-		console.error('[wallet-init] Initialization failed in getRSKAddress:', err);
-		return '';
-	}
-
-	return get(walletStore).rsk.address || '';
-}
-
-/**
- * Initialize wallet using SDK.
- */
-export async function initialize(): Promise<void> {
-	const storeState = get(walletStore);
-
-	// Skip if already initializing - prevent race conditions
-	if (storeState.isInitializing) return;
-
-	// Set initializing FIRST before any other state mutations to prevent race conditions
-	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
-
-	try {
-		// Check if already fully initialized with healthy provider
-		if (state.sdkWalletManager && storeState.isConnected) {
-			const provider = storeState.rsk?.provider;
-			if (provider && (await isProviderHealthy(provider))) {
-				// Provider is healthy, skip reinitialization
-				walletStore.update((s) => ({ ...s, isInitializing: false }));
-				return;
-			}
-			// Provider unhealthy - continue with reinitialization
-			if (import.meta.env.DEV) {
-				console.warn('[WALLET-STORE] Provider unhealthy, reinitializing...');
-			}
+		const taskerDataDir = 'rln_73c5da0a_signet';
+		if (e2eReset) {
+			console.info('[wallet-init] pinned data dir', taskerDataDir);
 		}
 
-		// Get mnemonic
-		const mnemonic = await getMnemonic();
-
-		// Get network from environment
-		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
-
-		// NDK signer + cache before swap recovery
-		await syncNdkSignerFromAppStore();
-
-		// Create or reuse swap storage instances
-		if (!state.cachedSwapStorages) {
-			const { nsec } = await getNostrKeyPair();
-			state.cachedSwapStorages = {
-				reverse: new NostrSwapStorage(nsec, 'boltz-swap-reverse'),
-				chain: new NostrSwapStorage(nsec, 'boltz-swap-chain'),
-				submarine: new NostrSwapStorage(nsec, 'boltz-swap-submarine')
-			};
-		}
-
-		state.recoverSwapsOnNextLoad = true;
-
-		// Dispose old manager if exists (but don't reset store state)
-		if (state.sdkWalletManager) {
-			try {
-				state.sdkWalletManager.dispose();
-			} catch (err) {
-				console.warn('[wallet-init] Disposal error:', err);
-			}
-		}
-
-		// Initialize wallet manager
-		const config: WalletManagerConfig = {
-			network,
+		const wallet = new UTEXOWallet({
 			mnemonic,
-			swapStorages: state.cachedSwapStorages
-		};
+			password,
+			network: 'utexo',
+			indexerUrl: 'https://esplora-api.utexo.com',
+			transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
+			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
+			vssUrl: '',
+			enableVirtualChannels: false,
+			...(e2eReset ? { dataDir: taskerDataDir } : {})
+		});
 
-		state.sdkWalletManager = new WalletManager(config);
-		await state.sdkWalletManager.initialize();
-
-		wireSwapUpdates();
-		ensureBlockWatch();
-		setupAppLifecycleHandlers();
-
-		// Update store with wallet info — set each chain independently so a
-		// failure in one doesn't prevent the others from getting addresses.
-		const rskWallet = state.sdkWalletManager.rskWallet;
-		const bscWallet = state.sdkWalletManager.bscWallet;
-
-		const rskUpdate: Partial<typeof initialState.rsk> = {};
-		const bscUpdate: Partial<typeof initialState.bsc> = {};
-		const arbUpdate: Partial<typeof initialState.arb> = {};
-
-		if (rskWallet) {
-			rskUpdate.connected = true;
-			rskUpdate.connecting = false;
-			rskUpdate.error = null;
-			rskUpdate.address = rskWallet.getAddress();
-			rskUpdate.wallet = rskWallet.getWallet() as ethers.Wallet;
-			rskUpdate.provider = rskWallet.getProvider() as ethers.JsonRpcProvider;
-			// Arbitrum uses the same EVM address as RSK
-			arbUpdate.address = rskWallet.getAddress();
+		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
+		try {
+			await wallet.init();
+			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
+			await wallet.unlock();
+		} catch (connectError) {
+			console.warn('[wallet-init] RLN handshake failed:', connectError);
+			throw connectError;
 		}
 
-		if (bscWallet) {
-			bscUpdate.connected = true;
-			bscUpdate.connecting = false;
-			bscUpdate.error = null;
-			bscUpdate.address = bscWallet.getAddress();
-			bscUpdate.wallet = bscWallet.getWallet() as ethers.Wallet;
-			bscUpdate.provider = bscWallet.getProvider() as ethers.JsonRpcProvider;
+		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
+
+		state.utexoWallet = wallet;
+		if (typeof window !== 'undefined' && wallet) {
+			probeWindow().__utexoWallet = wallet;
+			console.info('[wallet-init] exposed __utexoWallet on window');
+		}
+		markWalletReady();
+
+		try {
+			await scanAndUpdateBalances(wallet, network);
+		} catch (scanError) {
+			console.warn('[wallet-init] balance scan deferred:', scanError);
 		}
 
-		if (rskWallet || bscWallet) {
-			walletStore.update((s) => ({
-				...s,
-				isConnected: true,
-				isInitializing: false,
-				error: null,
-				rsk: { ...s.rsk, ...rskUpdate },
-				bsc: { ...s.bsc, ...bscUpdate },
-				arb: { ...s.arb, ...arbUpdate }
-			}));
-
-			// Initialize the EIP-7702 gasless wallet (non-blocking).
-			// This creates the smart account on Arbitrum needed for gasless transactions.
-			// If it fails, the direct fallback path will be used instead.
-			if (rskWallet) {
-				try {
-					// Fetch gasless config from backend BEFORE initializing the wallet.
-					// This ensures gas bounds, fee tiers, and buffer bounds are in sync
-					// with the backend — prevents "preVerificationGas exceeds maximum" errors.
-					const { fetchGaslessConfig } = await import('$lib/wallet/gasless.config');
-					await fetchGaslessConfig();
-
-					const { initWallet } = await import('$lib/wallet/gasless-store');
-					const ethersWallet = rskWallet.getWallet() as ethers.Wallet;
-					// ethers v6 Wallet has privateKey as a hex string
-					const ownerKey = ethersWallet.privateKey as `0x${string}`;
-					await initWallet(ownerKey);
-					if (import.meta.env.DEV) {
-						console.log('[wallet-init] Gasless wallet initialized');
-					}
-				} catch (gaslessErr) {
-					// Non-critical — gasless is optional, direct fallback is available
-					console.warn('[wallet-init] Gasless wallet init failed (non-critical):', gaslessErr);
-				}
-			}
-		}
-	} catch (error) {
-		console.error('[WALLET-STORE] initializeWallet() - Failed to initialize wallet:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Failed to initialize wallet';
+		startConsignmentSubscription();
+	} catch (err) {
+		console.warn('[wallet-init] RGB wallet init failed:', err);
 		walletStore.update((s) => ({
 			...s,
 			isInitializing: false,
-			error: errorMessage
+			rgb: { ...s.rgb, initialized: false, error: 'Init failed' }
 		}));
-		throw error;
+		throw err;
 	}
 }
 
-/**
- * Disconnect wallet completely — only called on explicit logout.
- * Resets all wallet state to initial values.
- */
+// tryIndexers removed — wallet creation now uses hardcoded testnet config directly in initializeRgbWallet
+
+async function scanAndUpdateBalances(wallet: UTEXOWallet, network: string): Promise<void> {
+	const scanned = await scanBtcBalance(wallet);
+	const { address, balanceSats, utxoCount } = scanned;
+
+	// Diagnostic logging (redacted - no sensitive data)
+	console.info('[wallet-diagnostic:ready]', {
+		network,
+		hasAddress: !!address,
+		balanceSats,
+		utxoCount
+	});
+
+	updateProbeWindow(address, balanceSats, utxoCount, wallet);
+	const rgbAssets = await loadRgbAssets(wallet);
+	updateWalletStore(address, balanceSats, rgbAssets);
+}
+
+function updateProbeWindow(
+	address: string,
+	balanceSats: number,
+	utxoCount: number,
+	wallet: UTEXOWallet
+): void {
+	if (!browser) return;
+
+	const probe = probeWindow();
+	const isTestEnvironment =
+		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+
+	if (isTestEnvironment) {
+		probe.__btcAddress = address;
+		probe.__btcBalanceSats = balanceSats;
+		probe.__btcUtxoCount = utxoCount;
+		probe.__btcWalletSynced = true;
+		probe.__refreshBtcBalance = () => loadAssets();
+		probe.__sendBtc = (params) =>
+			wallet.sendBtc({
+				address: params.address,
+				amount: params.amountSats,
+				feeRate: params.feeRate ?? 1
+			});
+		probe.__createRgbUtxos = async (count = 5, sizeSats = 2500) => {
+			try {
+				return await wallet.createUtxos({ num: count, size: sizeSats, feeRate: 1, upTo: true });
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : String(err);
+				if (msg.includes('Allocations already available')) {
+					console.info('[wallet-init] Allocations already available, skipping UTXO creation');
+					return;
+				}
+				throw err;
+			}
+		};
+		probe.E2E = {
+			escrowStatus: () => {
+				const snapshots = ContractRune.snapshots();
+				const s = snapshots[0];
+				return s?.fundingState ?? s?.status ?? '';
+			},
+			refreshRgb: async () => {
+				const w = state.utexoWallet;
+				if (w) await w.refreshWallet();
+			}
+		};
+	}
+}
+
+async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
+	try {
+		const rawAssets = await wallet.listAssets();
+		return unwrapListAssets(rawAssets).map((a) => ({
+			assetId: a.id,
+			name: a.name ?? 'RGB Asset',
+			symbol: a.ticker,
+			balance: Number(a.balance ?? 0),
+			formattedBalance: String(a.balance ?? 0)
+		}));
+	} catch (err) {
+		console.warn('[wallet-init] listAssets skipped or failed:', err);
+		return [];
+	}
+}
+
+function markWalletReady(): void {
+	walletStore.update((current) => ({
+		...current,
+		isConnected: true,
+		isInitializing: false,
+		error: null,
+		rgb: {
+			...current.rgb,
+			initialized: true,
+			error: null
+		}
+	}));
+}
+
+function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
+	const usdtAssetId = import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined;
+	const usdtBalance = rgbAssets.find((a) => a.assetId === usdtAssetId)?.balance ?? 0;
+
+	walletStore.update((s) => ({
+		...s,
+		isConnected: true,
+		isInitializing: false,
+		error: null,
+		rgb: {
+			initialized: true,
+			error: null,
+			address,
+			balanceSats,
+			formattedBalance: (balanceSats / 1e8).toFixed(8),
+			assets: rgbAssets
+		},
+		wdk: {
+			...s.wdk,
+			initialized: true,
+			error: null,
+			btcOnchain: { address, balanceSats, formattedBalance: (balanceSats / 1e8).toFixed(8) }
+		},
+		totalBalances: {
+			...s.totalBalances,
+			sats: balanceSats,
+			usdt: usdtBalance
+		}
+	}));
+}
+
+function startConsignmentSubscription(): void {
+	if (!browser) return;
+
+	void rgbConsignmentSubscription
+		.start({
+			onError: (error) => console.warn('[wallet-init] RGB consignment ignored:', error)
+		})
+		.catch((error) => console.warn('[wallet-init] RGB consignment startup ignored:', error));
+}
+
+// Exported functions
+export async function getRgbAddress(): Promise<string> {
+	const storeState = get(walletStore);
+	if (storeState.rgb?.address) return storeState.rgb.address;
+
+	try {
+		await initialize();
+	} catch {
+		return '';
+	}
+
+	return get(walletStore).rgb?.address || '';
+}
+
+export async function initialize(): Promise<void> {
+	if (!browser) return;
+
+	const probe = probeWindow();
+	const isTestEnvironment =
+		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+
+	if (isTestEnvironment) {
+		probe.__connectWallet = () => initialize();
+	}
+
+	const storeState = get(walletStore);
+	if (storeState.isInitializing) return;
+
+	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
+
+	if (state.utexoWallet) {
+		walletStore.update((s) => ({ ...s, isInitializing: false, isConnected: true }));
+		probeWindow().__utexoWallet = state.utexoWallet;
+		return;
+	}
+
+	try {
+		await initWasm();
+		const mnemonic = await getMnemonic();
+
+		// Diagnostic logging (redacted - no mnemonic data)
+		console.info('[wallet-diagnostic:mnemonic]', {
+			wordCount: mnemonic.trim().split(/\s+/).length
+		});
+
+		let lastError: unknown;
+
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			try {
+				await initializeRgbWallet(mnemonic);
+				return;
+			} catch (error) {
+				lastError = error;
+				if (!isWasmGlobalError(error) || attempt === 1) break;
+				await waitForWasmGlobals();
+			}
+		}
+
+		console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
+		walletStore.update((s) => ({
+			...s,
+			isInitializing: false,
+			error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
+		}));
+	} catch (error) {
+		console.warn('[wallet-init] Wallet initialization setup failed:', error);
+		walletStore.update((s) => ({
+			...s,
+			isInitializing: false,
+			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+		}));
+	}
+}
+
 export function disconnectWallet(): void {
-	if (state.sdkWalletManager) {
+	rgbConsignmentSubscription.stop();
+
+	if (state.utexoWallet && typeof state.utexoWallet.dispose === 'function') {
 		try {
-			state.sdkWalletManager.dispose();
+			void state.utexoWallet.dispose();
 		} catch (error) {
-			console.warn('[WALLET-STORE] Error disposing wallet manager:', error);
+			console.warn('[wallet-init] Wallet dispose failed:', error);
 		}
-		state.sdkWalletManager = null;
 	}
 
-	// Clear cached swap storages
-	state.cachedSwapStorages = null;
-	state.terminalSwapIds.clear();
-	state.chainSortHints.clear();
+	state.utexoWallet = null;
+	if (typeof window !== 'undefined') {
+		probeWindow().__utexoWallet = null;
+		console.info('[wallet-init] cleared __utexoWallet from window');
+	}
 	clearRefreshTimers();
-	state.unsubscribeSwapUpdates?.();
-	state.unsubscribeSwapUpdates = null;
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
-	state.unsubscribeArbBlockWatch?.();
-	state.unsubscribeArbBlockWatch = null;
-	state.expectingInboundUntil = 0;
-	void clearPersistedChainSortHints();
-	state.recoverSwapsOnNextLoad = true;
-	state.loadTransactionsPromise = null;
-
-	// Clear swap pairs cache
-	state.cachedSwapPairs = {
-		submarine: null,
-		reverse: null,
-		chain: null
-	};
-
-	walletStore.set(initialState);
+	walletStore.set(structuredClone(initialState));
 }
 
-/**
- * Soft cleanup — disposes resources but preserves cached balance data.
- * Use this for temporary disconnects (e.g., backgrounding the app).
- */
-export function softCleanup(): void {
-	state.unsubscribeBlockWatch?.();
-	state.unsubscribeBlockWatch = null;
-	state.unsubscribeArbBlockWatch?.();
-	state.unsubscribeArbBlockWatch = null;
+export const markExpectingInbound = (_ttlMs?: number) => {};
 
-	if (state.sdkWalletManager) {
-		try {
-			state.sdkWalletManager.dispose();
-		} catch (err) {
-			console.warn('[wallet-init] softCleanup disposal error:', err);
-		}
-		state.sdkWalletManager = null;
+export const softCleanup = () => {};
+
+export function getUtexoWallet() {
+	if (typeof window === 'undefined') return null;
+	const w = state?.utexoWallet || null;
+	// Re-expose on window if we have a wallet but window doesn't have it
+	if (w && !probeWindow().__utexoWallet) {
+		probeWindow().__utexoWallet = w;
+		console.info('[wallet-init] re-exposed __utexoWallet on window via getUtexoWallet');
 	}
+	return w;
 }

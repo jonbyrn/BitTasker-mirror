@@ -1,13 +1,12 @@
 /**
- * Blockchain Toast Store — Global persistent toast for all blockchain operations.
+ * Blockchain Toast Store — Global persistent toast for blockchain transactions.
  *
- * Tracks pending sends, swaps, and DeFi transactions in a single unified bar.
+ * Tracks pending sends in a single unified bar.
  * Replaces full-screen PendingTransactionScreen/TransactionSuccessScreen with
  * a floating toast that persists across page navigations.
  */
 
 import { writable } from 'svelte/store';
-import type { SwapType } from '$lib/utils/wallet/swapStatusMap';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,22 +19,20 @@ export interface BlockchainToastAction {
 
 export interface BlockchainToastItem {
 	id: string;
-	type: 'send' | 'swap' | 'defi';
+	type: 'send';
 	status: 'pending' | 'confirming' | 'success' | 'error' | 'stale';
 	network: string;
-	/** Amount in base units (sats, wei, etc.) */
+	/** Amount in base units (sats) */
 	amount: number;
 	/** USD value at time of creation */
 	amountUSD: number;
-	/** Display asset name — 'rBTC', 'USDT', 'BTC' */
+	/** Display asset name — 'BTC', 'USDT' */
 	asset: string;
 	/** Recipient address (shortened for display) */
 	recipient: string;
 	/** User's wallet address — used for disconnect matching */
 	sourceAddress: string | null;
 	txHash: string | null;
-	swapId: string | null;
-	swapType: SwapType | null;
 	currentBlock: number | null;
 	/** Required confirmations from chain config (not time-derived) */
 	requiredConfirmations: number;

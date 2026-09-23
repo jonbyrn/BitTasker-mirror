@@ -9,7 +9,6 @@
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import BlockchainToast from '$lib/components/wallet/BlockchainToast.svelte';
-	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	const { children } = $props();
 
@@ -52,8 +51,8 @@
 	// Fetch notification unread count and connect WebSocket for ALL authenticated routes.
 	// The bell icon renders in ProtectedTopBar for any authenticated user, so the count
 	// must be available even on non-protected routes like /tasks and /services.
-	// Note: re-login also triggers this via setupAuthData() in auth.store.ts, since
-	// onMount only fires once per component lifecycle.
+	// Note: re-login also triggers this from setupAuthData(), since onMount only
+	// fires once per component lifecycle.
 	async function fetchNotificationCount() {
 		if (!$authState.isAuthenticated) return;
 
@@ -61,12 +60,24 @@
 			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 			await notificationCenterStore.fetchUnreadCount();
 
-			const { connectNotificationSocket } = await import(
-				'$lib/api/services/notificationSocket.service'
-			);
+			const { connectNotificationSocket } =
+				await import('$lib/api/services/notificationSocket.service');
 			await connectNotificationSocket();
 		} catch {
 			// Notification init is non-critical — don't break the layout
+		}
+	}
+
+	// Ensure wallet is initialized for protected routes.
+	// This re-exposes __utexoWallet on window after page navigation/refresh.
+	async function ensureWalletInitialized() {
+		if (!$authState.isAuthenticated || !isProtectedRoute) return;
+
+		try {
+			const { initialize } = await import('$lib/stores/wallet/wallet-init');
+			await initialize();
+		} catch {
+			// Wallet init is non-critical for layout rendering
 		}
 	}
 
@@ -82,7 +93,8 @@
 			if (cancelled) return;
 			await Promise.all([
 				deviceModule.initializeDevicePlatform(),
-				deviceModule.getOnboardingCompleted()
+				deviceModule.getOnboardingCompleted(),
+				ensureWalletInitialized()
 			]);
 		};
 
@@ -248,7 +260,9 @@
 	<header class="app-shell__header">
 		<!-- ProtectedTopBar only for authenticated users (avoids passkey prompt on public/auth routes).
 		     Unauthenticated users on public routes (tasks, services, auth) see PublicTopBar. -->
-		{#if $authState.isAuthenticated}
+		{#if $authState.isLoading}
+			<div class="h-16 w-full bg-transparent"></div>
+		{:else if $authState?.isAuthenticated}
 			<ProtectedTopBar />
 		{:else}
 			<PublicTopBar />
@@ -259,7 +273,7 @@
 <!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 <div bind:this={scrollEl} class="app-shell__content bg-base-200">
 	<div class="bg-base-200 flex shrink-0 grow basis-auto flex-col">
-		{@render children()}
+		{@render children?.()}
 	</div>
 </div>
 
@@ -275,8 +289,6 @@
 		<BottomNavBar />
 	</footer>
 {/if}
-
-<InfiniteScroll />
 
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->

@@ -5,20 +5,6 @@ import type { HomepageData } from '$lib/services/homepageFetch';
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 export async function load() {
-	if (browser) {
-		try {
-			const { Preferences } = await import('@capacitor/preferences');
-			const { StorageKeys } = await import('$lib/utils/constants/storage');
-			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			if (token) {
-				const { redirect } = await import('@sveltejs/kit');
-				redirect(303, '/hiring');
-			}
-		} catch (e) {
-			if (e && typeof e === 'object' && 'status' in e) throw e;
-		}
-	}
-
 	let homepageData: HomepageData = { tasks: [], services: [] };
 	if (!browser) {
 		try {

@@ -13,7 +13,7 @@
 
 import { tryCatch } from '$lib/utils/tryCatch';
 import { createDebug } from '$lib/utils/debug';
-import { isChangeallyFiatEnabled } from '$lib/services/kill-switch';
+import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 import * as Sentry from '@sentry/sveltekit';
 
 const debug = createDebug('fiat-ramp-service');
@@ -190,7 +190,7 @@ function clearCache(): void {
  * Guard: throw a descriptive error when the fiat feature flag is disabled.
  */
 function requireFiatEnabled(): void {
-	if (!isChangeallyFiatEnabled()) {
+	if (!isChangellyFiatEnabled()) {
 		throw new Error(
 			'Changelly fiat ramp is not enabled. ' +
 				'Set VITE_CHANGELLY_FIAT_ENABLED=true to use this feature.'

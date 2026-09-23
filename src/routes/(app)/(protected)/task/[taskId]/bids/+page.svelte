@@ -8,86 +8,40 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
+	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import { createDebug } from '$lib/utils/debug';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import { NDKTask } from '$lib/nostr/events/task';
-	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
-	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
-	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
-	import IconClose from '~icons/mdi/close';
 	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { bidStore } from '$lib/stores/bid.store';
 	import { appStore } from '$lib/stores/app.store';
 
-	type ReceiveFormState = {
-		amount: string;
-		unit: 'sats' | 'usd';
-		mathExpression: string;
-		memo: string;
-		selectedNetwork: string;
-		chargeFeesToPayer: boolean;
-		currentStep?: 1 | 2;
-	};
-
 	// State
 	let showAcceptanceForm = $state(false);
 	let bidToAccept = $state<NDKBid | null>(null);
-	let isReceiveModalOpen = $state(false);
-	let receiveInitialState = $state<ReceiveFormState | null>(null);
-
-	// Centralized Payment Request Modal state
-	let paymentRequestModal = $state<{
-		isOpen: boolean;
-		swapId?: string | null;
-		address?: string | null;
-		network?: string | null;
-		amount?: number | null;
-		memo?: string | null;
-		chargeFeesToPayer?: boolean;
-		totalFees?: number | null;
-		formState?: ReceiveFormState | null;
-	}>({
-		isOpen: false,
-		swapId: null,
-		address: null,
-		network: null,
-		amount: null,
-		memo: null,
-		chargeFeesToPayer: false,
-		totalFees: null,
-		formState: null
-	});
-
-	function openPaymentRequestModal(data: {
-		swapId?: string;
-		address?: string;
-		network?: string;
-		amount?: number;
-		memo?: string;
-		chargeFeesToPayer?: boolean;
-		totalFees?: number;
-		formState?: ReceiveFormState | null;
-	}) {
-		paymentRequestModal = {
-			isOpen: true,
-			...data
-		};
-	}
-
-	function closePaymentRequestModal() {
-		paymentRequestModal.isOpen = false;
-	}
 
 	const d = createDebug('BidsPage');
 
+	$effect(() => {
+		if (ndk.$currentPubkey) return;
+		void setNDKSigner().catch((error) => {
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+				console.warn('[bids] signer init failed', error);
+			}
+		});
+	});
+
 	// Task lives on a separate relay — must be its own subscription.
 	const taskSub = ndk.$subscribe<NDKTask>(() => {
-		if (!ndk.$currentPubkey) return undefined;
+		const taskAuthor =
+			page.url.searchParams.get('author') ??
+			page.url.searchParams.get('client') ??
+			ndk.$currentPubkey;
+		if (!taskAuthor) return undefined;
 		return {
 			filters: [
-				{ kinds: [KINDS.TASK_CREATION], authors: [ndk.$currentPubkey], '#d': [page.params.taskId] }
+				{ kinds: [KINDS.TASK_CREATION], authors: [taskAuthor], '#d': [page.params.taskId] }
 			],
 			wrap: true,
 			relaySet: getTaskRelay(),
@@ -96,21 +50,43 @@
 	});
 
 	let task = $derived(taskSub.events[0]);
+	const routeTaskEventId = $derived(page.url.searchParams.get('event') ?? undefined);
+	const routeClientHex = $derived(
+		page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? undefined
+	);
+	const bidRecipientPubkey = $derived(routeClientHex ?? ndk.$currentPubkey);
+	const taskEventId = $derived(routeTaskEventId ?? task?.id);
+	const bidFilter = $derived.by(() => {
+		if (!bidRecipientPubkey || !taskEventId) return undefined;
+		return { kinds: [KINDS.BIDS], '#p': [bidRecipientPubkey], '#e': [taskEventId], limit: 50 };
+	});
 
 	// Single subscription for both bids (30007) and their status events (30008).
 	// Both use the same relay pool and the same task tag — no reason for two subscriptions.
 	// wrap: true is required so NDK calls NDKBid.from() which decrypts bid content.
 	// Kind 30008 has no registered event class so it stays as raw NDKEvent.
 	const bidsAndStatusSub = ndk.$subscribe(() => {
-		if (!ndk.$currentPubkey) return undefined;
+		if (!bidFilter) return undefined;
 		return {
-			filters: [
-				{ kinds: [KINDS.BIDS], '#p': [ndk.$currentPubkey], '#t': [page.params.taskId], limit: 50 },
-				{ kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }
-			],
-			wrap: true
+			filters: [bidFilter, { kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }],
+			wrap: true,
+			relaySet: getTaskRelay()
 		};
 	});
+
+	const rawBidsSub = ndk.$subscribe(() => {
+		if (!bidFilter) return undefined;
+		return {
+			filters: [bidFilter],
+			relaySet: getTaskRelay(),
+			noDedupe: true
+		};
+	});
+	const rawBidEvents = $derived(
+		(rawBidsSub.events as import('@nostr-dev-kit/ndk').NDKEvent[]).filter(
+			(e) => e.kind === KINDS.BIDS
+		)
+	);
 
 	// Bid events (kind 30007) — already wrapped as NDKBid by NDK's event class registry.
 	const bids = $derived(
@@ -118,6 +94,18 @@
 			(e) => e.kind === KINDS.BIDS
 		) as NDKBid[]
 	);
+
+	$effect(() => {
+		if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
+		console.log('[bids]', {
+			filter: bidFilter ?? null,
+			currentPubkey: ndk.$currentPubkey ?? null,
+			bidRecipientPubkey: bidRecipientPubkey ?? null,
+			taskEventId: taskEventId ?? null,
+			raw: rawBidEvents.length,
+			cards: bids.length
+		});
+	});
 
 	// Status map: bid event id → latest status string, derived from kind 30008 tags (plaintext).
 	// Keeps only the most recent status per bid.
@@ -226,16 +214,9 @@
 		showMessageModal = true;
 	}
 
-	function handleAddFunds(amountUsd: number) {
-		receiveInitialState = {
-			amount: amountUsd.toFixed(2),
-			unit: 'usd',
-			mathExpression: amountUsd.toFixed(2),
-			memo: `Fund task: ${task?.taskContent.title.slice(0, 50) || 'Task'}`,
-			selectedNetwork: 'lightning-bitcoin',
-			chargeFeesToPayer: true
-		};
-		isReceiveModalOpen = true;
+	function handleFunded(_contractId: string) {
+		showAcceptanceForm = false;
+		bidToAccept = null;
 	}
 
 	function closeMessageModal() {
@@ -272,16 +253,8 @@
 			</button>
 		</div>
 	</div>
-	{#if !bidsAndStatusSub.eosed}
-		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
-		<div class="flex items-center justify-center py-6">
-			<div class="loading loading-spinner loading-md"></div>
-			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
-		</div>
-	{:else if bids.length === 0}
-		<NoBids onRetry={() => {}} />
-	{:else}
-		<div class="space-y-4">
+	{#if bids.length > 0}
+		<div class="flex flex-col gap-4">
 			{#each bids as bid (bid.id)}
 				{@const status = getBidStatus(bid.id)}
 				<BidCard
@@ -295,6 +268,18 @@
 				/>
 			{/each}
 		</div>
+	{:else if !bidsAndStatusSub.eosed}
+		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
+		<div class="flex items-center justify-center py-6">
+			<div class="loading loading-spinner loading-md"></div>
+			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
+		</div>
+	{:else if bids.length === 0}
+		<div class="card bg-base-100 border-base-300 border shadow-sm">
+			<div class="card-body p-5">
+				<NoBids onRetry={() => {}} />
+			</div>
+		</div>
 	{/if}
 </div>
 
@@ -306,12 +291,14 @@
 	isScrollable={true}
 >
 	{#if showAcceptanceForm && bidToAccept && task}
-		<BidAcceptanceFormV2
-			bid={bidToAccept}
-			{task}
-			onCancel={handleCloseBid}
-			onAddFunds={handleAddFunds}
-		/>
+		<div class="flex flex-col gap-4 px-2 py-2">
+			<BidAcceptanceFormV2
+				bid={bidToAccept}
+				{task}
+				onCancel={handleCloseBid}
+				onFunded={handleFunded}
+			/>
+		</div>
 	{/if}
 </Drawer>
 
@@ -362,47 +349,4 @@
 		<button type="button" class="modal-backdrop" onclick={closeRejectModal} aria-label="Close modal"
 		></button>
 	</div>
-{/if}
-
-<WalletPaymentModal isOpen={isReceiveModalOpen} onClose={() => (isReceiveModalOpen = false)}>
-	<div class="flex h-full flex-col p-4">
-		<div class="mb-4 flex items-center justify-between">
-			<h3 class="text-lg font-bold">{$t('wallet.receive.receive_funds')}</h3>
-			<button class="btn btn-ghost btn-sm" onclick={() => (isReceiveModalOpen = false)}>
-				<IconClose class="h-5 w-5" />
-			</button>
-		</div>
-		<ReceivePaymentForm
-			initialFormState={receiveInitialState ?? undefined}
-			onCancel={() => (isReceiveModalOpen = false)}
-			onOpenPaymentRequest={(data) => {
-				isReceiveModalOpen = false;
-				openPaymentRequestModal(data);
-			}}
-		/>
-	</div>
-</WalletPaymentModal>
-
-<!-- Centralized Payment Request Modal -->
-{#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
-	<WalletPaymentModal isOpen={paymentRequestModal.isOpen} onClose={closePaymentRequestModal}>
-		<PaymentRequestModal
-			isOpen={paymentRequestModal.isOpen}
-			swapId={paymentRequestModal.swapId ?? undefined}
-			address={paymentRequestModal.address ?? undefined}
-			network={paymentRequestModal.network ?? undefined}
-			amount={paymentRequestModal.amount ?? undefined}
-			memo={paymentRequestModal.memo ?? undefined}
-			chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
-			totalFees={paymentRequestModal.totalFees ?? undefined}
-			onClose={closePaymentRequestModal}
-			onEdit={() => {
-				if (paymentRequestModal.formState) {
-					receiveInitialState = paymentRequestModal.formState;
-				}
-				closePaymentRequestModal();
-				isReceiveModalOpen = true;
-			}}
-		/>
-	</WalletPaymentModal>
 {/if}

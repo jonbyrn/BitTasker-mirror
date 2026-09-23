@@ -54,7 +54,7 @@ const timeline: ServiceQuoteTimelineEntry = {
 			expirationDays: 3,
 			expirationHours: 0,
 			expirationTimestamp: 1_700_500_000,
-			freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+			freelancerBitcoinAddress: 'tb1qfreelanceraddress0000000000000000000000000',
 			freelancerFeeTier: 1,
 			pricingSnapshot: {
 				serviceVersionRef: 'service-event-1',

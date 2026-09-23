@@ -185,7 +185,8 @@ describe('MAJOR #8: Error recovery should not reload entire page', () => {
 		const refreshButton = screen.getByRole('button', { name: /refresh/i });
 		fireEvent.click(refreshButton);
 
-		await vi.runAllTimersAsync();
+		await vi.advanceTimersByTimeAsync(1);
+		await Promise.resolve();
 
 		expect(consoleErrorSpy).not.toHaveBeenCalledWith(
 			expect.stringContaining('window.location.reload')

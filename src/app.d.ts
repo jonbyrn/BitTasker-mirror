@@ -57,6 +57,10 @@ declare global {
 		onloadTurnstileCallback: () => void;
 		/** Set by Playwright for E2E tests (e.g. virtual WebAuthn). */
 		__PLAYWRIGHT_TEST__?: boolean;
+		/** Resolves after live RGB/Bitcoin Wasm bindings are loaded. */
+		initWasm?: () => Promise<boolean>;
+		__wasmReady?: boolean;
+		__wasmLive?: boolean;
 	}
 
 	const __APP_VERSION__: string;
@@ -80,6 +84,11 @@ declare module '~icons/mdi/*' {
 	import type { Component } from 'svelte';
 	const component: Component<{ class?: string }>;
 	export default component;
+}
+
+declare module '*bitcoinjs-cjs.cjs' {
+	import bitcoinjs from 'bitcoinjs-lib';
+	export default bitcoinjs;
 }
 
 export {};

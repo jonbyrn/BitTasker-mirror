@@ -1,0 +1,30 @@
+﻿---MATCH 0---
+throw new Error("S value is negative");if(a>1&&s[0]===0&&!(s[1]&128))throw new Error("R value excessively padded");if(_>1&&o[0]===0&&!(o[1]&128))throw new Error("S value excessively padded");const c=B.allocUnsafe(6+a+_);return c[0]=48,c[1]=c.length-2,c[2]=2,c[3]=s.length,s.copy(c,4),c[4+a]=2,c[5+a]=o.length,o.copy(c,6+a),c}return n.encode=r,Ai}var Bi={},Ri;function So(){if(Ri)return Bi;Ri=1;var n={};Obj
+
+---MATCH 1---
+ l=0;l<_;++l)c|=s[l]<<8*l;return s[_-1]&128?-(c&~(128<<8*(_-1))):c}n.decode=e;function t(s){return s>2147483647?5:s>8388607?4:s>32767?3:s>127?2:s>0?1:0}function r(s){let o=Math.abs(s);const a=t(o),_=B.allocUnsafe(a),c=s<0;for(let l=0;l<a;++l)_.writeUInt8(o&255,l),o>>=8;return _[a-1]&128?_.writeUInt8(c?128:0,a-1):c&&(_[a-1]|=128),_}return n.encode=r,Vi}var Fi={},Hi={},As,Li;function xo(){if(Li)return As;
+
+---MATCH 2---
+ray=n.Number=n.Hash256bit=n.Hash160bit=n.Buffer256bit=n.isTaptree=n.isTapleaf=n.TAPLEAF_VERSION_MASK=n.Satoshi=n.isPoint=n.stacksEqual=n.typeforce=void 0;const e=po();n.typeforce=mh();const t=e.Buffer.alloc(32,0),r=e.Buffer.from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f","hex");function s(f,d){return f.length!==d.length?!1:f.every((p,w)=>p.equals(d[w]))}n.stacksEqual=s;function o
+
+---MATCH 3---
+n.oneOf=n.typeforce.oneOf,Hi}var Di;function vh(){if(Di)return Fi;Di=1;var n={};Object.defineProperty(n,"__esModule",{value:!0}),n.encode=n.decode=void 0;const e=Cc(),t=Je(),r=Ue(),{typeforce:s}=r,o=B.alloc(1,0);function a(f){let d=0;for(;f[d]===0;)++d;return d===f.length?o:(f=f.slice(d),f[0]&128?B.concat([o,f],1+f.length):f)}function _(f){f[0]===0&&(f=f.slice(1));const d=B.alloc(32,0),p=Math.max(0,32-f
+
+---MATCH 4---
+([w,h],64),hashType:d}}n.decode=c;function l(f,d){if(s({signature:r.BufferN(64),hashType:r.UInt8},{signature:f,hashType:d}),!(0,t.isDefinedHashType)(d))throw new Error("Invalid hashType "+d);const p=B.allocUnsafe(1);p.writeUInt8(d,0);const w=a(f.slice(0,32)),h=a(f.slice(32,64));return B.concat([e.encode(w,h),p])}return n.encode=l,Fi}var Wi;function Je(){if(Wi)return Pi;Wi=1;var n={};Object.definePropert
+
+---MATCH 5---
+}function v(M){return B.isBuffer(M)}function A(M){if(h(M))return M;_(a.Array,M);const Q=M.reduce((_e,me)=>v(me)?me.length===1&&w(me)!==void 0?_e+1:_e+r.encodingLength(me.length)+me.length:_e+1,0),ne=B.allocUnsafe(Q);let ie=0;if(M.forEach(_e=>{if(v(_e)){const me=w(_e);if(me!==void 0){ne.writeUInt8(me,ie),ie+=1;return}ie+=r.encode(ne,_e.length,ie),_e.copy(ne,ie),ie+=_e.length}else ne.writeUInt8(_e,ie),ie+
+
+---MATCH 6---
+ASM=C;function O(M){return _(a.String,M),A(M.split(" ").map(Q=>t.OPS[Q]!==void 0?t.OPS[Q]:(_(a.Hex,Q),B.from(Q,"hex"))))}n.fromASM=O;function T(M){return M=E(M),_(d,M),M.map(Q=>v(Q)?Q:Q===t.OPS.OP_0?B.allocUnsafe(0):s.encode(Q-c))}n.toStack=T;function R(M){return a.isPoint(M)}n.isCanonicalPubKey=R;function H(M){const Q=M&-129;return Q>0&&Q<4}n.isDefinedHashType=H;function q(M){return!B.isBuffer(M)||!H(M
+
+---MATCH 7---
+)),v=k.readUInt8(0),A=k.slice(1);return{version:v,hash:A}}),p=o.value(()=>r.decompile(l.input)),w=l.network||t.bitcoin,h={name:"p2pkh",network:w};if(o.prop(h,"address",()=>{if(!h.hash)return;const k=B.allocUnsafe(21);return k.writeUInt8(w.pubKeyHash,0),h.hash.copy(k,1),a.encode(k)}),o.prop(h,"hash",()=>{if(l.output)return l.output.slice(3,23);if(l.address)return d().hash;if(l.pubkey||h.pubkey)return e.h
+
+---MATCH 8---
+alue(()=>{const v=h(),A=v[v.length-1];return{network:d,output:A===_.OP_FALSE?B.from([]):A,input:r.compile(v.slice(0,-1)),witness:l.witness||[]}});if(o.prop(p,"address",()=>{if(!p.hash)return;const v=B.allocUnsafe(21);return v.writeUInt8(p.network.scriptHash,0),p.hash.copy(v,1),a.encode(v)}),o.prop(p,"hash",()=>{if(l.output)return l.output.slice(2,22);if(l.address)return w().hash;if(p.redeem&&p.redeem.ou
+
+---MATCH 9---
+.bech32m=l("bech32m"),la}var da;function rw(){if(da)return ca;da=1;var n={};Object.defineProperty(n,"__esModule",{value:!0}),n.p2wpkh=void 0;const e=Pt(),t=ut(),r=Je(),s=Ue(),o=Ht(),a=ns(),_=r.OPS,c=B.alloc(0);function l(f,d){if(!f.address&&!f.hash&&!f.output&&!f.pubkey&&!f.witness)throw new TypeError("Not enough data");d=Object.assign({validate:!0},d||{}),(0,s.typeforce)({address:s.typeforce.maybe(s.ty
+

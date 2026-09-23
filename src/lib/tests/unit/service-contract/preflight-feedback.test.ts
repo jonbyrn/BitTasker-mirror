@@ -33,8 +33,8 @@ describe('service contract preflight feedback', () => {
 		});
 
 		expect(describeServiceContractPreflightFailure('wrong_network')).toEqual({
-			message: 'Switch your wallet to the required Rootstock network before continuing.',
-			hint: 'Switch to the required Rootstock network in your wallet, then retry.'
+			message: 'Switch your wallet to the required RGB network before continuing.',
+			hint: 'Switch to the required RGB network in your wallet, then retry.'
 		});
 
 		expect(describeServiceContractPreflightFailure('preflight_failed')).toEqual({

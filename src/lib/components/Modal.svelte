@@ -228,7 +228,7 @@
 				<!-- Modal Footer (Optional) -->
 				{#if props.footer}
 					<div class="card-actions mt-6 shrink-0 justify-end">
-						{@render props.footer()}
+						{@render props.footer?.()}
 					</div>
 				{/if}
 			</div>

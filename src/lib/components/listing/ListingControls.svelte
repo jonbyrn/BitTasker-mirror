@@ -150,7 +150,7 @@
 			</span>
 		</button>
 		{#if children}
-			{@render children()}
+			{@render children?.()}
 		{/if}
 	</nav>
 </section>

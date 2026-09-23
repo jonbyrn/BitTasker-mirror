@@ -11,7 +11,7 @@
 |---|---|---|---|
 | BSC USDT address | `networkConfig.ts` | `swap-chain/utils.ts`, `chain-utils.ts`, `stablecoin-registry.ts`, `abi.ts` (~5 places) | ✅ Consistent, duplicated |
 | Arbitrum USDT0 address | `networkConfig.ts` | `gasless.config.ts`, `swap-chain/utils.ts`, `abi.ts`, `aave.service.ts`, `uniswap.service.ts` (~6 places) | ✅ Consistent, duplicated |
-| RSK USDT0 address | `networkConfig.ts` | `openocean.service.ts` | ✅ Consistent |
+| RGB USDT0 address | `networkConfig.ts` | `openocean.service.ts` | ✅ Consistent |
 | ERC20 ABI | `networkConfig.ts` | `swap-chain/abi.ts`, `chain-utils.ts`, `arbitrum-wallet.ts` (4 copies) | ⚠️ Multiple copies in app |
 | `ERC20Token` type | `core/types.ts` | `src/lib/types/wallet.d.ts` | ⚠️ Type duplication |
 | `PaymasterConfig` type | `core/types.ts` | `src/lib/types/wallet.d.ts` | ⚠️ Type duplication |
@@ -41,7 +41,7 @@ BitTasker imports these from `@bittasker/wallet-core`:
 - `ArbitrumWallet` — USDT0 balance/send (exists but not wired in WalletManager)
 - `Usdt0BridgeService` — LayerZero OFT bridge (exists but not wired)
 - `MoCMintingService` — DOC minting (has bugs)
-- `getUSDTToken()`, `getRSKToken()`, `getArbConfig()` — token config getters
+- `getUSDTToken()`, `getRGBToken()`, `getArbConfig()` — token config getters
 - `ERC20_ABI`, `PAYMASTER_ABI` — ABI constants
 - `loadBSCTransactions()` — includes USDT token txs
 - Core types: `WalletState`, `GasEstimation`, `Usdt0BridgeParams`, `LoanPhase`, `LoanFlowState`
@@ -72,7 +72,7 @@ BitTasker imports these from `@bittasker/wallet-core`:
 
 | What | Why |
 |---|---|
-| Route resolver (1400+ lines) | Tightly coupled to LI.FI/Symbiosis/Changelly/Boltz providers |
+| Route resolver (1400+ lines) | Tightly coupled to LI.FI/Symbiosis/Changelly/RGB providers |
 | Smart Router | App-specific orchestration |
 | Off-ramp / fiat orchestrators | App-specific flows |
 | Svelte stores, runes, components | UI layer |

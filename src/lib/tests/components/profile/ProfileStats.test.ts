@@ -11,6 +11,7 @@ vi.mock('svelte-i18n', async () => {
 
 const stats = {
 	tasksCompleted: 12,
+	contractsCompleted: 8,
 	activeServices: 4,
 	rating: 4.9,
 	responseRate: 96,
@@ -18,6 +19,15 @@ const stats = {
 };
 
 describe('ProfileStats', () => {
+	it('renders the completed contract count', () => {
+		const { getByTestId } = render(ProfileStats, {
+			stats,
+			serviceCountState: 'ready'
+		});
+
+		expect(getByTestId('profile-stats-contracts-completed').textContent).toBe('8');
+	});
+
 	it('renders the active services count when the service metric is ready', () => {
 		const { getByTestId } = render(ProfileStats, {
 			stats,

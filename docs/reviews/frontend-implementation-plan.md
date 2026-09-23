@@ -184,7 +184,7 @@ export interface IContractForReview {
 	readonly clientPubkey: string;
 	readonly freelancerPubkey: string;
 	readonly settlementType: 'escrow' | 'service_quote_contract' | 'instant_buy_contract';
-	readonly chain: 'rsk' | 'bsc';
+	readonly chain: 'rgb' | 'bsc';
 	readonly contractAddress: string;
 	readonly contractVersion: string;
 

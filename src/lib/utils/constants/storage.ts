@@ -34,6 +34,7 @@ export const StorageKeys = {
 
 	NPUB: 'npub',
 	AUTH_METHOD: 'auth_method', // alby | passkey | biometrics
+	USER_PROFILE: 'user_profile',
 
 	// Translation
 	TRANSLATION_CACHE: 'bittasker_translation_cache',

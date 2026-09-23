@@ -92,7 +92,7 @@ Same structural rule as `NDKPaymentContract`:
 | Tag name                | Content                       | Notes                                                                                                                      |
 | ----------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `message`               | User-facing status text       | Today often i18n-filled.                                                                                                   |
-| `transactionHash`       | RSK tx                        | Needed for recovery / correlation.                                                                                         |
+| `transactionHash`       | RGB tx                        | Needed for recovery / correlation.                                                                                         |
 | `proposedTaskerAmount`  | string                        | Dispute flow (NDK naming; legacy JSON used `proposedClientAmount`).                                                        |
 | `proposedTaskeeAmount`  | string                        | Dispute flow (NDK naming; legacy JSON used `proposedFreelancerAmount`).                                                    |
 | `completionAttachments` | JSON string of `Attachment[]` | Large; single tag value is simplest.                                                                                       |

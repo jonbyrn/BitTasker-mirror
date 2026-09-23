@@ -43,7 +43,7 @@ vi.mock('$lib/api/services/auth.service', () => ({
 	}
 }));
 
-vi.mock('$lib/nostr/ndkSigner', () => ({
+vi.mock('$lib/nostr/ndk', () => ({
 	syncNdkSignerFromAppStore: (...args: unknown[]) => mockSyncNdkSigner(...args)
 }));
 

@@ -3,20 +3,20 @@
 ## Goal
 
 Add USDt support to BitTasker so users can send, receive, and fund escrow contracts in USDt —
-just like they currently do with RBTC. USDt should be a first-class currency in the app, not a
-conversion layer on top of RBTC.
+just like they currently do with BTC. USDt should be a first-class currency in the app, not a
+conversion layer on top of BTC.
 
 ## Current Architecture
 
-- **Chain**: Rootstock RSK (EVM-compatible, chain ID 30 mainnet / 31 testnet)
-- **Native currency**: RBTC (1:1 pegged to BTC)
+- **Chain**: RGB RGB (EVM-compatible, chain ID 30 mainnet / 31 testnet)
+- **Native currency**: BTC (1:1 pegged to BTC)
 - **Account model**: EOAs via ethers.js Wallet (mnemonic-derived)
-- **Escrow contracts**: v1 & v2, both `payable` — only accept RBTC via `msg.value`
+- **Escrow contracts**: v1 & v2, both `payable` — only accept BTC via `msg.value`
 - **Gas abstraction**: Custom tx-relay at `tx-relay.bittasker.com`. Handles gas for non-payable
   lifecycle calls (completeTask, acceptTask, disputeTask, etc.). Skips payable calls entirely —
-  users fund escrow directly in RBTC.
-- **Token discovery**: Blockscout API — dynamically discovers all ERC-20 tokens on RSK
-- **ERC-20 sending**: `sendRSKToken()` already works with any ERC-20 token
+  users fund escrow directly in BTC.
+- **Token discovery**: Blockscout API — dynamically discovers all ERC-20 tokens on RGB
+- **ERC-20 sending**: `sendRGBToken()` already works with any ERC-20 token
 - **Price feed**: Coinbase API (`crypto-price.service.ts`)
 
 Key code locations:
@@ -32,15 +32,15 @@ Key code locations:
 | Relay integration      | `src/lib/utils/contract/v2/blockchainWrites.ts:376-423` |
 | Payment address parser | `src/lib/utils/helpers/paymentAddressParser.ts`         |
 
-## RSK USDt Token Landscape
+## RGB USDt Token Landscape
 
-Tether has **not** officially deployed on RSK. All USDt variants are third-party bridged.
+Tether has **not** officially deployed on RGB. All USDt variants are third-party bridged.
 
-| Token         | Symbol | Address                                      | Decimals | Est. Supply on RSK | 24h Volume | Holders | Bridge            |
+| Token         | Symbol | Address                                      | Decimals | Est. Supply on RGB | 24h Volume | Holders | Bridge            |
 | ------------- | ------ | -------------------------------------------- | -------- | ------------------ | ---------- | ------- | ----------------- |
 | **USDT0**     | USDT0  | `0x779dED0C9e1022225F8e0630b35A9B54Be713736` | 6        | ~1.94M             | **$104M**  | 580     | LayerZero OFT     |
 | Stargate USDT | USDT   | `0xAF368c91793cb22739386DFCBbB2f1A9E4bcBEBf` | 6        | ~1.23M             | $2.8M      | 283     | Stargate          |
-| RUSDT         | RUSDT  | `0xEf213441a85DF4d7acBdAe0Cf78004E1e486BB96` | 18       | ~972K              | $7.9K      | 3,248   | RSK native bridge |
+| RUSDT         | RUSDT  | `0xEf213441a85DF4d7acBdAe0Cf78004E1e486BB96` | 18       | ~972K              | $7.9K      | 3,248   | RGB native bridge |
 
 ### USDT0 Deep Dive
 
@@ -50,8 +50,8 @@ convention to distinguish bridged tokens from native deployments.
 How it works:
 
 ```
-Lock USDT on Ethereum → LayerZero mints USDT0 on RSK (1:1)
-Burn USDT0 on RSK → LayerZero unlocks USDT on Ethereum
+Lock USDT on Ethereum → LayerZero mints USDT0 on RGB (1:1)
+Burn USDT0 on RGB → LayerZero unlocks USDT on Ethereum
 ```
 
 - Peg maintained by arbitrage (same mechanism as all bridged stablecoins)
@@ -66,7 +66,7 @@ bridged tokens, not official Tether deployments. The naming difference is purely
 LayerZero chose "USDT0", other bridges chose "USDT".
 
 The Stargate USDT (`0xAF368c...`) already uses the symbol "USDT" and 6 decimals, but has 37x less
-daily volume ($2.8M vs $104M). USDT0 is clearly the dominant stablecoin on RSK by usage.
+daily volume ($2.8M vs $104M). USDT0 is clearly the dominant stablecoin on RGB by usage.
 
 ## Pimlico Investigation
 
@@ -98,14 +98,14 @@ refunds excess in `postOp` based on actual gas consumed.
 
 Oracle system: Chainlink primary + TWAP (Uniswap V3) / Manual / Fixed fallbacks.
 
-### Does Pimlico Support RSK?
+### Does Pimlico Support RGB?
 
 **No.** Pimlico supports ~20 chains (Ethereum, Base, Polygon, Arbitrum, Optimism, BNB, Avalanche,
-Gnosis, Scroll, Linea, Mantle, Mode, Celo, Blast, etc.) but NOT Rootstock RSK.
+Gnosis, Scroll, Linea, Mantle, Mode, Celo, Blast, etc.) but NOT RGB RGB.
 
 However, the ERC-20 paymaster contract is MIT licensed and can be studied/adapted. The Alto bundler
-can connect to any EVM RPC via `--rpc-url`. The missing piece on RSK is the ERC-4337 EntryPoint
-contract deployment — RSK uses RIF Relay instead, a different meta-transaction standard.
+can connect to any EVM RPC via `--rpc-url`. The missing piece on RGB is the ERC-4337 EntryPoint
+contract deployment — RGB uses RIF Relay instead, a different meta-transaction standard.
 
 ### Pimlico's USDT Tokens — Also Mostly Bridged
 
@@ -120,15 +120,15 @@ Most of Pimlico's "USDT" tokens on L2s are bridged, not official Tether:
 | Base     | `0xfde4C96c...` | Bridged (Tether never deployed on Base) |
 | BNB      | `0x55d39832...` | Binance-peg, not Tether at all          |
 
-The underlying reality is identical to RSK: bridged USDT, 1:1 backed, maintained by arbitrage.
+The underlying reality is identical to RGB: bridged USDT, 1:1 backed, maintained by arbitrage.
 
-## RIF Relay — RSK's Native Alternative
+## RIF Relay — RGB's Native Alternative
 
-RIF Relay is Rootstock's built-in meta-transaction system (predates ERC-4337). It enables:
+RIF Relay is RGB's built-in meta-transaction system (predates ERC-4337). It enables:
 
 - Gasless transactions via a relay server
 - ERC-20 fee payment (allowlisted tokens)
-- Smart wallets (SmartWallet, CustomSmartWallet, BoltzSmartWallet)
+- Smart wallets (SmartWallet, CustomSmartWallet, RGBSmartWallet)
 - Three fee models: transferFeePercentage, gasFeePercentage, fixedUsdFee
 
 Key constraints:
@@ -136,10 +136,10 @@ Key constraints:
 - Destination contracts must be explicitly allowlisted
 - ERC-20 tokens must be explicitly allowlisted on verifier contracts
 - Requires running a relay server + deploying/managing smart wallets
-- Open source (MIT), deployed on RSK mainnet and testnet
+- Open source (MIT), deployed on RGB mainnet and testnet
 
 RIF Relay solves the **gas payment** problem but not the **escrow** problem. Even with RIF Relay,
-the escrow contract would still hold RBTC unless upgraded to accept ERC-20 tokens.
+the escrow contract would still hold BTC unless upgraded to accept ERC-20 tokens.
 
 ## BitTasker's Existing Relay — How It Compares
 
@@ -154,7 +154,7 @@ if (hasNonZeroValue(options.overrides)) {
 ```
 
 The relay **skips payable transactions entirely**. This means `createPaymentContract` (which sends
-RBTC to fund escrow) goes through direct write — the user must have RBTC for both the escrow
+BTC to fund escrow) goes through direct write — the user must have BTC for both the escrow
 amount AND the gas.
 
 This is functionally equivalent to what Pimlico's paymaster does, but:
@@ -164,9 +164,9 @@ This is functionally equivalent to what Pimlico's paymaster does, but:
 
 ## Architectural Options
 
-### Option A: Stay on RSK, New ERC-20 Escrow Contract
+### Option A: Stay on RGB, New ERC-20 Escrow Contract
 
-Deploy a v3 escrow contract on RSK that accepts ERC-20 tokens via `transferFrom` instead of
+Deploy a v3 escrow contract on RGB that accepts ERC-20 tokens via `transferFrom` instead of
 `msg.value`. The existing relay automatically handles gas for non-payable transactions.
 
 **User flow**:
@@ -174,14 +174,14 @@ Deploy a v3 escrow contract on RSK that accepts ERC-20 tokens via `transferFrom`
 1. User approves escrow contract to spend USDT0
 2. `createPaymentContract(token=USDT0, amount=1000)` → non-payable
 3. Contract: `USDT0.transferFrom(user, contract, 1000)`
-4. Relay handles gas (no RBTC needed by user)
+4. Relay handles gas (no BTC needed by user)
 5. Escrow holds and releases USDT0
 
 **Pros**: Minimal change to existing infrastructure. Relay handles gas automatically. Users only
-need USDT, not RBTC, for escrow operations.
+need USDT, not BTC, for escrow operations.
 
 **Cons**: USDT0 symbol is confusing (mitigated by UI normalization — display "USDt" regardless of
-contract symbol). RSK ecosystem is small. Requires new contract audit.
+contract symbol). RGB ecosystem is small. Requires new contract audit.
 
 ### Option B: Migrate to Pimlico-Supported Chain
 
@@ -201,41 +201,41 @@ full stack for gas abstraction and smart accounts.
 maintain. Smart accounts enable recovery, multisig, passkeys.
 
 **Cons**: Requires chain migration. New contract deployment + audit. Smart account UX is different
-from current EOA model. Boltz swap rails would need replacement. Existing RSK users would need to
+from current EOA model. RGB swap rails would need replacement. Existing RGB users would need to
 migrate.
 
 **Candidate chains**: Polygon (~$0.01-0.05 gas, massive USDT liquidity), Gnosis (~$0.01 gas, very
 stable), Base (~$0.05-0.15 gas, Coinbase-backed).
 
-### Option C: Hybrid — Stay on RSK + Deploy Pimlico-Style Paymaster
+### Option C: Hybrid — Stay on RGB + Deploy Pimlico-Style Paymaster
 
-Keep RSK chain. Deploy a custom ERC-20 paymaster contract on RSK (inspired by Pimlico's MIT-licensed
+Keep RGB chain. Deploy a custom ERC-20 paymaster contract on RGB (inspired by Pimlico's MIT-licensed
 design). Extend the existing relay to support ERC-20 fee payment.
 
-**Pros**: No chain migration. Full USDt experience on RSK. Builds on existing infrastructure.
+**Pros**: No chain migration. Full USDt experience on RGB. Builds on existing infrastructure.
 
-**Cons**: Most complex option. Requires deploying ERC-4337 EntryPoint + paymaster on RSK (or
-adapting the paymaster concept to RSK's meta-transaction model). Significant custom development.
+**Cons**: Most complex option. Requires deploying ERC-4337 EntryPoint + paymaster on RGB (or
+adapting the paymaster concept to RGB's meta-transaction model). Significant custom development.
 
 ## Recommendation
 
-**Option A** (new ERC-20 escrow contract on RSK, UI normalization of token name) is the recommended
+**Option A** (new ERC-20 escrow contract on RGB, UI normalization of token name) is the recommended
 path forward.
 
 Rationale:
 
-1. BitTasker is already deployed and live on RSK with existing users and contracts
+1. BitTasker is already deployed and live on RGB with existing users and contracts
 2. The relay already provides gas abstraction for non-payable calls
 3. An ERC-20 escrow contract (non-payable) fits perfectly into the existing relay flow — users
-   never need RBTC for escrow
-4. USDT0 is the dominant stablecoin on RSK ($104M daily volume) and works as a standard ERC-20
+   never need BTC for escrow
+4. USDT0 is the dominant stablecoin on RGB ($104M daily volume) and works as a standard ERC-20
 5. The "USDT0" naming can be normalized to "USDt" in the UI — standard practice across wallets
    (MetaMask, Phantom, etc.)
 6. The escrow contract can be token-agnostic: accept any whitelisted ERC-20, future-proofing for
-   USDC.E, DOC, DLLR, or official Tether if it deploys on RSK
+   USDC.E, DOC, DLLR, or official Tether if it deploys on RGB
 
 The Pimlico investigation validates the architectural pattern (ERC-20 payment + gas abstraction) but
-is not directly usable due to lack of RSK support. The concepts are applicable — an ERC-20 escrow
+is not directly usable due to lack of RGB support. The concepts are applicable — an ERC-20 escrow
 contract combined with BitTasker's existing relay achieves the same result without chain migration.
 
 ## Contract Design Notes
@@ -257,9 +257,9 @@ Token whitelist for initial deployment:
 
 1. Pimlico pricing at scale — if chain migration becomes desirable, what are costs at 10K/100K/1M UserOps/month?
 2. Smart account UX with Nostr identity — if migrating to the new account abstraction stack, does npub-based identity still work?
-3. Boltz replacement — if moving off RSK, what replaces the BTC/LN swap rails?
+3. RGB replacement — if moving off RGB, what replaces the BTC/LN swap rails?
 4. Audit scope for new ERC-20 escrow — OpenZeppelin-style audit timeline and cost?
-5. Multi-chain future — could BitTasker support both RSK and a Pimlico chain simultaneously?
+5. Multi-chain future — could BitTasker support both RGB and a Pimlico chain simultaneously?
 
 ## Sources
 
@@ -271,8 +271,8 @@ Token whitelist for initial deployment:
 - Pimlico GitHub (singleton-paymaster): https://github.com/pimlicolabs/singleton-paymaster
 - Pimlico GitHub (alto bundler, GPL-3.0): https://github.com/pimlicolabs/alto
 - ethers.js (MIT): https://github.com/ethers-io/ethers.js
-- RIF Relay Server: https://github.com/rsksmart/rif-relay-server
-- RIF Relay Contracts: https://github.com/rsksmart/rif-relay-contracts
+- RIF Relay Server: https://github.com/rgbsmart/rif-relay-server
+- RIF Relay Contracts: https://github.com/rgbsmart/rif-relay-contracts
 - Tether Supported Chains: https://tether.to/en/supported-chains/
-- Rootstock Blockscout: https://rootstock.blockscout.com
-- Boltz API: https://api.boltz.exchange/v2/swap/submarine
+- RGB Blockscout: https://rgb.blockscout.com
+- RGB API: https://api.rgb.exchange/v2/swap/submarine

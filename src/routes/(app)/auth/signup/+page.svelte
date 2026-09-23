@@ -13,17 +13,39 @@
 	let captchaFailed = $state(false);
 	let tosAccepted = $state(false);
 
-	onMount(async () => {
+	onMount(() => {
 		try {
-			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
-			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+			const isLocalhost =
+				location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+			// Localhost uses no production captcha service; production still requires Turnstile.
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' || isLocalhost) {
 				isCaptchaVerified.set(true);
 				// Diagnostic: visible in Playwright page console and CI attachments
 				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
-			// Setup callback for Turnstile
-			window.onloadTurnstileCallback = renderTurnstile;
+
+			const turnstileScriptSelector =
+				'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]';
+			const existingScript = document.querySelector<HTMLScriptElement>(turnstileScriptSelector);
+			if (window.turnstile) {
+				renderTurnstile();
+				return;
+			}
+
+			if (existingScript) {
+				existingScript.addEventListener('load', renderTurnstile, { once: true });
+				return () => existingScript.removeEventListener('load', renderTurnstile);
+			}
+
+			const script = document.createElement('script');
+			script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+			script.async = true;
+			script.defer = true;
+			script.dataset.bittaskerTurnstile = 'true';
+			script.addEventListener('load', renderTurnstile, { once: true });
+			document.head.appendChild(script);
+			return () => script.removeEventListener('load', renderTurnstile);
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -34,7 +56,7 @@
 		if (!turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
+			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY || '1x00000000000000000000AA',
 			theme: 'auto',
 			size: 'normal' as const,
 			retry: 'never' as const,
@@ -90,15 +112,6 @@
 		}
 	}
 </script>
-
-<!-- Cloudflare Turnstile Script -->
-<svelte:head>
-	<script
-		src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
-		async
-		defer
-	></script>
-</svelte:head>
 
 <div
 	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"

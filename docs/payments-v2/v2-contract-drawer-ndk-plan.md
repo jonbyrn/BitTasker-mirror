@@ -85,7 +85,7 @@ btcPrice: number
 - **Title** (drawer header): `contractRune.contract.taskTitle` (same as card).
 - **Role badge:** align with **`ContractCardNDK`**: **`contractRune.isTasker`** → Tasker uses **`dashboard.client`**, Taskee uses **`dashboard.freelancer`** (same mapping as the card today).
 - **Status badge:** **`contractRune.displayStatus`** (and pending spinner) + **`getStatusColorClass` / `getStatusTranslationKey`** from **`contractStatusFormatterV2`**.
-- **Amount:** **`UsdSatsDisplay`** with **`contract.amount`**, **`contract.currency`**, **`btcPrice`** — mirror **`ContractCardNDK`** / legacy RBTC fallback when **`btcPrice <= 0`** using the same formatting approach as the legacy drawer ( **`formatRBTC`** on string amount if needed).
+- **Amount:** **`UsdSatsDisplay`** with **`contract.amount`**, **`contract.currency`**, **`btcPrice`** — mirror **`ContractCardNDK`** / legacy BTC fallback when **`btcPrice <= 0`** using the same formatting approach as the legacy drawer ( **`formatBTC`** on string amount if needed).
 - **Deadlines:** **`TaskDeadlineDisplay`** — NDK contract exposes **`estimatedStartTime`** / **`estimatedCompletionTime`**; use the same “both present” guard as legacy when wiring date range props.
 - **Counterparty:** **`UserInfoDisplay`** (legacy drawer) with **`npub` / `profileLink`** from **`contract.otherPartyNpub`** (or **`UserNostrBadge`** if we ever want full parity with the card — product can choose; **layout** should stay as legacy drawer).
 - **Actions:** **`ContractActionsNDK`** with **`contractRune`**, **`btcPrice`**, same container classes as legacy **`ContractActions`** block.

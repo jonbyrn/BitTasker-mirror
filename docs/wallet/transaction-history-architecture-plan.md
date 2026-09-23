@@ -3,7 +3,7 @@
 **Date:** 2026-06-05 (revised with user feedback)  
 **Status:** Analysis complete — ready for single-pass implementation  
 **Scope:** Logic and data layer only; **UI markup/styling unchanged** (`TransactionHistory.svelte`, `PendingTransactionScreen.svelte` layout).  
-**Confidence:** ≥95% on root causes, swap-type mapping, and implementation strategy (verified against source, [Boltz lifecycle docs](https://api.docs.boltz.exchange/lifecycle.html), Blockscout API, production stack traces, and web research).
+**Confidence:** ≥95% on root causes, swap-type mapping, and implementation strategy (verified against source, [RGB lifecycle docs](https://api.docs.rgb.exchange/lifecycle.html), Blockscout API, production stack traces, and web research).
 
 ---
 
@@ -15,8 +15,8 @@ Production failures cluster around **three interacting bugs** plus **one long-st
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Infinite reload / UI freeze when Transactions modal open during swap                                                       | **P0**                     | `updateSwapTransaction()` triggers full `loadTransactions()` without terminal-state guards; store `rawStatus` never updated on completed branch → every WS event re-triggers reload                                                                                                                                                                                                                                                          |
 | Console spam `Unknown swap status: transaction.claim.failed` + title flicker (“Receive in progress” ↔ “Awaiting payment”) | **P0**                     | `transaction.claim.failed` missing from status constants → mapped as **pending**; each `loadTransactions()` **replaces** entire list from Nostr recovery (stale `swap.created`) then WS overwrites → oscillation                                                                                                                                                                                                                             |
-| Duplicate “Received” rows (+3,332 sats, failed X + success ✓)                                                              | **P1**                     | Failed EtherSwap `claim()` on-chain ([tx `0x784b6e…](https://rootstock.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)`) + later successful claim; hash-only dedup; swap claim rows always titled `wallet.received`even when`status: error`                                                                                                                                                            |
-| Blockscout CORS / 503 console noise                                                                                        | **P1** (amplified by loop) | Browser `fetch` to `rootstock.blockscout.com` from `bittasker.com`; **infinite loop multiplies requests** → rate limits (429/503) often surface as CORS errors when error responses omit `Access-Control-Allow-Origin` ([Blockscout limits](https://docs.blockscout.com/devs/apis/requests-and-limits), [SO #59439345](https://stackoverflow.com/questions/59439345/catch-javascript-fetch-failing-with-cloudflare-429-missing-cors-header)) |
+| Duplicate “Received” rows (+3,332 sats, failed X + success ✓)                                                              | **P1**                     | Failed EtherSwap `claim()` on-chain ([tx `0x784b6e…](https://rgb.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)`) + later successful claim; hash-only dedup; swap claim rows always titled `wallet.received`even when`status: error`                                                                                                                                                            |
+| Blockscout CORS / 503 console noise                                                                                        | **P1** (amplified by loop) | Browser `fetch` to `rgb.blockscout.com` from `bittasker.com`; **infinite loop multiplies requests** → rate limits (429/503) often surface as CORS errors when error responses omit `Access-Control-Allow-Origin` ([Blockscout limits](https://docs.blockscout.com/devs/apis/requests-and-limits), [SO #59439345](https://stackoverflow.com/questions/59439345/catch-javascript-fetch-failing-with-cloudflare-429-missing-cors-header)) |
 | Pending send modal countdown disconnected from reality                                                                     | **P1** (UX)                | `PendingTransactionScreen` uses fixed timer; swap monitoring code **commented out**; `SendPaymentForm` stores `pendingSwapId` but **never passes it** to the modal                                                                                                                                                                                                                                                                           |
 | Wrong `balanceAfter` on swap cards                                                                                         | **P1**                     | Swaps use live wallet balance, not unified running balance                                                                                                                                                                                                                                                                                                                                                                                   |
 
@@ -28,15 +28,15 @@ Production failures cluster around **three interacting bugs** plus **one long-st
 
 ## 2. Swap types — terminology (read this first)
 
-Boltz defines exactly **three** atomic swap types ([lifecycle docs](https://api.docs.boltz.exchange/lifecycle.html)). There is **no** “Lightning → Lightning” Boltz swap.
+RGB defines exactly **three** atomic swap types ([lifecycle docs](https://api.docs.rgb.exchange/lifecycle.html)). There is **no** “Lightning → Lightning” RGB swap.
 
-| What the user experiences                                          | Boltz / BitTasker type                                   | On-chain role                                                               | Who calls `EtherSwap.claim()`?                                  |
+| What the user experiences                                          | RGB / BitTasker type                                   | On-chain role                                                               | Who calls `EtherSwap.claim()`?                                  |
 | ------------------------------------------------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Pay a Lightning invoice** (e.g. send $2 to Blink from BitTasker) | **Submarine** (Normal Submarine Swap: Chain → Lightning) | User locks **RBTC** in `EtherSwap.lock()` on RSK; Boltz pays the LN invoice | **Boltz** (after `invoice.paid`); user does **not** claim       |
-| **Receive Lightning** (e.g. generate invoice, Blink pays you)      | **Reverse** (Reverse Submarine Swap: Lightning → Chain)  | Boltz locks RBTC after user pays hold invoice                               | **User** (auto-claim in wallet-core on `transaction.confirmed`) |
-| **L-BTC ↔ RBTC**                                                  | **Chain**                                                | Both sides on-chain                                                         | User                                                            |
+| **Pay a Lightning invoice** (e.g. send $2 to Blink from BitTasker) | **Submarine** (Normal Submarine Swap: Chain → Lightning) | User locks **BTC** in `EtherSwap.lock()` on RGB; RGB pays the LN invoice | **RGB** (after `invoice.paid`); user does **not** claim       |
+| **Receive Lightning** (e.g. generate invoice, Blink pays you)      | **Reverse** (Reverse Submarine Swap: Lightning → Chain)  | RGB locks BTC after user pays hold invoice                               | **User** (auto-claim in wallet-core on `transaction.confirmed`) |
+| **L-BTC ↔ BTC**                                                  | **Chain**                                                | Both sides on-chain                                                         | User                                                            |
 
-**User phrase “Lightning to Lightning”** maps to **paying an external Lightning invoice** — in BitTasker that is always a **submarine send** (`createSubmarineSwap` + `lockSubmarineSwapFunds` in `SendPaymentForm.svelte`), even though both wallets are Lightning-facing. RBTC on RSK is the chain leg Boltz requires.
+**User phrase “Lightning to Lightning”** maps to **paying an external Lightning invoice** — in BitTasker that is always a **submarine send** (`createSubmarineSwap` + `lockSubmarineSwapFunds` in `SendPaymentForm.svelte`), even though both wallets are Lightning-facing. BTC on RGB is the chain leg RGB requires.
 
 **BitTasker code mapping:**
 
@@ -47,7 +47,7 @@ Boltz defines exactly **three** atomic swap types ([lifecycle docs](https://api.
 // else → chain
 ```
 
-**Critical:** `transaction.claim.failed` is **not** a Boltz API status. It is a **wallet-core internal status** set only in `ReverseSwapService.claimRBTC()` / `claimRBTCViaRifRelay()` catch blocks when **user claim** fails. It **never** applies to submarine swaps (Boltz claims on submarine; see `SubmarineSwapService.js` — no `claim.failed` path).
+**Critical:** `transaction.claim.failed` is **not** a RGB API status. It is a **wallet-core internal status** set only in `ReverseSwapService.claimBTC()` / `claimBTCViaRifRelay()` catch blocks when **user claim** fails. It **never** applies to submarine swaps (RGB claims on submarine; see `SubmarineSwapService.js` — no `claim.failed` path).
 
 If the console shows `transaction.claim.failed` and titles like “Receive in progress” / “Awaiting payment”, an active **reverse (receive)** swap exists in memory — typically from receiving funds from Blink — **in addition to** any submarine send.
 
@@ -55,7 +55,7 @@ If the console shows `transaction.claim.failed` and titles like “Receive in pr
 
 ## 3. Forensics — Blockscout tx `0x784b6e6e…`
 
-Verified via [Blockscout API](https://rootstock.blockscout.com/api/v2/transactions/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499):
+Verified via [Blockscout API](https://rgb.blockscout.com/api/v2/transactions/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499):
 
 | Field         | Value                                                                              |
 | ------------- | ---------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ A **second** successful claim tx (or different hash) produces the duplicate **�
 sequenceDiagram
     participant Nostr as Nostr kind 30078
     participant LT as loadTransactions()
-    participant WS as Boltz WebSocket
+    participant WS as RGB WebSocket
     participant UST as updateSwapTransaction()
     participant UI as Transaction card
 
@@ -111,7 +111,7 @@ sequenceDiagram
 
 ### 4.3 Title mapping reference (reverse swap)
 
-| Boltz / SDK status                                   | Title key                                                |
+| RGB / SDK status                                   | Title key                                                |
 | ---------------------------------------------------- | -------------------------------------------------------- |
 | `swap.created`                                       | `wallet.swap.awaiting_payment`                           |
 | `transaction.mempool`, `minerfee.paid`               | `wallet.swap.pending_receive`                            |
@@ -141,36 +141,36 @@ On `invoice.paid` / `invoice.settled` / `transaction.claimed`:
 
 ### 6.1 What we verified
 
-- Normal Rootstock Blockscout API responses include `access-control-allow-origin: `\* (curl verification).
+- Normal RGB Blockscout API responses include `access-control-allow-origin: `\* (curl verification).
 - [Blockscout request limits](https://docs.blockscout.com/devs/apis/requests-and-limits): ~300 req/min/IP without API key; **429** when exceeded.
 - Browsers often report **429/503 without CORS headers** as “blocked by CORS policy” — indistinguishable from true CORS blocks in `fetch()` ([Blockscout PRO blog](https://www.blog.blockscout.com/build-a-multichain-wallet-portfolio-tracker-with-blockscout-pro-api/), [CORS proxy for Pages](https://www.brachkow.com/notes/cors-proxy-for-cloudflare-pages/)).
 
 ### 6.2 Role of the infinite loop
 
-The loop fires **multiple parallel** Blockscout calls per iteration (`loadRSKTransactions` tries 3 fallback URLs + internal txs + token balances). That can trigger rate limits **even when** baseline CORS would work. **Fix the loop first**; CORS noise should drop sharply.
+The loop fires **multiple parallel** Blockscout calls per iteration (`loadRGBTransactions` tries 3 fallback URLs + internal txs + token balances). That can trigger rate limits **even when** baseline CORS would work. **Fix the loop first**; CORS noise should drop sharply.
 
 ### 6.3 Production today: Cloudflare **Pages**, not Workers
 
 - Current prod: static **Pages** deployment (`bittasker.com`).
 - In-progress migration: `workers-site/` Worker with `run_worker_first` for `/api/`\* — **not yet production** for the main app.
 - **Worker migration is not the cause** of Blockscout failures on Pages today.
-- **Required for production (Pages):** [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/) middleware to proxy `/api/explorer/rsk/`\* → `rootstock.blockscout.com` (same pattern as [brachkow CORS proxy](https://www.brachkow.com/notes/cors-proxy-for-cloudflare-pages/)).
+- **Required for production (Pages):** [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/) middleware to proxy `/api/explorer/rgb/`\* → `rgb.blockscout.com` (same pattern as [brachkow CORS proxy](https://www.brachkow.com/notes/cors-proxy-for-cloudflare-pages/)).
 - **Required for post-migration (Workers):** mirror route in `workers-site/index.js` (already has Stream handlers).
 
-Both targets share one client config: `VITE_EXPLORER_PROXY_BASE=/api/explorer/rsk`.
+Both targets share one client config: `VITE_EXPLORER_PROXY_BASE=/api/explorer/rgb`.
 
 ---
 
 ## 7. RIF Relay & fees (verified)
 
-Per [Boltz lifecycle](https://api.docs.boltz.exchange/lifecycle.html) and wallet-core:
+Per [RGB lifecycle](https://api.docs.rgb.exchange/lifecycle.html) and wallet-core:
 
 | Topic                       | Fact                                                                                                                                                                                                  |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RIF Relay scope**         | Used for **gasless RBTC claims** on **reverse** and **chain** swaps when user lacks gas or swap was created for Smart Wallet claim address — **not** submarine sends (user pays gas to `lock()` RBTC) |
-| **Reverse success (Boltz)** | Final Boltz status: `invoice.settled` after user supplies preimage via claim API                                                                                                                      |
+| **RIF Relay scope**         | Used for **gasless BTC claims** on **reverse** and **chain** swaps when user lacks gas or swap was created for Smart Wallet claim address — **not** submarine sends (user pays gas to `lock()` BTC) |
+| **Reverse success (RGB)** | Final RGB status: `invoice.settled` after user supplies preimage via claim API                                                                                                                      |
 | **Reverse claim (user)**    | Client broadcasts `EtherSwap.claim()` — wallet-core on `transaction.confirmed`                                                                                                                        |
-| **Submarine success**       | `invoice.paid` then Boltz `transaction.claimed` — user never calls `claim()`                                                                                                                          |
+| **Submarine success**       | `invoice.paid` then RGB `transaction.claimed` — user never calls `claim()`                                                                                                                          |
 | **Fees in UI**              | Submarine: `invoiceAmount` / lockup amount; Reverse display should use **net receive** (`onchainAmount - claimMinerFee`) per [Zeus #3969](https://github.com/ZeusLN/zeus/pull/3969)                   |
 | **Failed claim**            | Revert when lockup not indexed / wrong amount / already claimed — matches Blockscout tx above                                                                                                         |
 
@@ -194,8 +194,8 @@ Single delivery replacing ad-hoc merge. **UI components unchanged**; data pipeli
 ```
 src/lib/utils/wallet/transactionLedger.ts    — project(), dedup(), unified balance
 src/lib/utils/wallet/swapEventLog.ts         — optional audit trail per swapId
-src/lib/utils/wallet/swapStatusMap.ts        — all Boltz + wallet-core statuses typed
-src/lib/nostr/events/boltzSwap.ts            — NDK kind 30078 event class
+src/lib/utils/wallet/swapStatusMap.ts        — all RGB + wallet-core statuses typed
+src/lib/nostr/events/rgbSwap.ts            — NDK kind 30078 event class
 src/lib/utils/swapAdapter.ts                 — NDK transport (replaces SimplePool)
 src/lib/stores/wallet.store.ts               — thin orchestration
 functions/api/explorer/[[path]].ts           — Pages Functions proxy (production)
@@ -208,7 +208,7 @@ workers-site/handlers/explorer.js            — Worker proxy (post-migration)
 flowchart LR
     CH[Chain txs via proxy]
     NDK[NDK cache + kind 30078]
-    WS[Boltz WS patches]
+    WS[RGB WS patches]
     PR[TransactionLedger.project]
     OUT[walletStore.transactions]
 
@@ -277,7 +277,7 @@ Swaps **must** move from `nostr-tools` `SimplePool` to global **NDK** with exist
 3. **Save:** `NDKEvent` kind `30078`, same NIP-44 ciphertext + tags (`#d`, `#t`, `#s`) → `publishReplaceable()`.
 4. **Load:** `ndk.fetchEvents({ authors, kinds: [30078], '#t': [swapType] })` — dedup by `#d`, max `created_at`.
 5. **Delete:** `publishDeletionEventNdk()` (existing pattern in `profile/ndk.ts`).
-6. Add `NDKBoltzSwap` event class + register in `ndkInstance.ts` (align with `NDKBid`).
+6. Add `NDKRGBSwap` event class + register in `ndkInstance.ts` (align with `NDKBid`).
 7. Wire `NostrSwapStorage` to use signer-only (drop constructor `nsec` when signer ready).
 
 **Wire format unchanged** — existing relay events remain readable.
@@ -317,7 +317,7 @@ Receive flows (`LightningReceive.svelte`, `LBTCReceive.svelte`, chain) should pa
 
 ```mermaid
 flowchart TB
-    WS[Boltz WebSocket]
+    WS[RGB WebSocket]
     SDK[swapService.activeSwaps]
     Store[walletStore.transactions]
     Modal[PendingTransactionScreen]
@@ -331,9 +331,9 @@ flowchart TB
 Primary: `$transactions.find(tx => tx.swap?.id === swapId)` — already updated by `updateSwapTransaction`.  
 Fallback: `walletManager.{submarine|reverse|chain}SwapService.getSwap(swapId)`.
 
-### 10.3 Map Boltz status → modal `TransactionStatus`
+### 10.3 Map RGB status → modal `TransactionStatus`
 
-| Swap type            | Boltz statuses                                                    | Modal status              |
+| Swap type            | RGB statuses                                                    | Modal status              |
 | -------------------- | ----------------------------------------------------------------- | ------------------------- |
 | **Submarine**        | `swap.created`…`transaction.confirmed`                            | `confirming`              |
 | **Submarine**        | `invoice.pending`                                                 | `confirming`              |
@@ -348,8 +348,8 @@ Fallback: `walletManager.{submarine|reverse|chain}SwapService.getSwap(swapId)`.
 | **Chain**            | `transaction.claimed`                                             | `success`                 |
 | **Chain**            | `transaction.lockupFailed` (renegotiate eligible)                 | `confirming` + action     |
 | **Chain**            | `swap.expired`, `transaction.failed`                              | `error`                   |
-| **RBTC direct send** | tx receipt `status === 1`                                         | `success`                 |
-| **RBTC direct send** | reverted receipt                                                  | `error`                   |
+| **BTC direct send** | tx receipt `status === 1`                                         | `success`                 |
+| **BTC direct send** | reverted receipt                                                  | `error`                   |
 
 ### 10.4 Real countdown (keep visual, fix logic)
 
@@ -359,19 +359,19 @@ Replace fixed timer with **status-derived ETA** via `$derived` + `onMount` inter
 | ----------------------------------------------------- | ------------------------------------------ |
 | Submarine `swap.created` / `invoice.set`              | 30 (awaiting lockup confirm)               |
 | Submarine `transaction.mempool`                       | 30                                         |
-| Submarine `transaction.confirmed` / `invoice.pending` | 60 (Boltz paying invoice)                  |
+| Submarine `transaction.confirmed` / `invoice.pending` | 60 (RGB paying invoice)                  |
 | Reverse `swap.created`                                | 60 (awaiting payer)                        |
 | Reverse `transaction.mempool`                         | 45                                         |
 | Reverse `transaction.confirmed` / claim pending       | 30                                         |
 | Chain server lockup phases                            | 90                                         |
-| RBTC direct                                           | `networkOptions[network].confirmationTime` |
+| BTC direct                                           | `networkOptions[network].confirmationTime` |
 
 Implementation (Svelte 5 — **no `$effect` / `store.subscribe`** in `.svelte`):
 
 - `$derived.by` on `$transactions.find(tx => tx.swap?.id === swapId)` + `rawStatus` fallback from `getSwap()`.
-- `status` and `displayTimeRemaining` are `$derived` from `mapBoltzModalStatus()` + `getSwapEtaSeconds()` − `elapsed`.
+- `status` and `displayTimeRemaining` are `$derived` from `mapRGBModalStatus()` + `getSwapEtaSeconds()` − `elapsed`.
 - `onMount` interval increments `elapsed`; resets when `rawStatus` phase changes (closure `lastRawStatus`, not `$effect`).
-- RBTC/BSC direct sends: `pollForConfirmation()` updates `receiptStatus` only.
+- BTC/BSC direct sends: `pollForConfirmation()` updates `receiptStatus` only.
 - Side effects (toasts, `loadAssets`) stay on wallet page `onSwapUpdate`, not in the modal.
 
 ### 10.5 `PaymentRequestModal` (receive / QR flows)
@@ -382,9 +382,9 @@ Already reactive via `$transactions` + `swapId` (`PaymentRequestModal.svelte` li
 - On `transaction.claim.failed`: show error state (not infinite QR wait).
 - Wire `onSwapUpdate` to close modal on terminal success (already partial via `status.label === confirmed`).
 
-### 10.6 Chain / RBTC / BSC
+### 10.6 Chain / BTC / BSC
 
-- **RBTC send:** keep `pollForConfirmation()` on `txHash` (already active).
+- **BTC send:** keep `pollForConfirmation()` on `txHash` (already active).
 - **BSC USDT:** same receipt polling pattern.
 - **Chain swap:** subscribe via `swapId` like submarine/reverse.
 
@@ -396,14 +396,14 @@ Already reactive via `$transactions` + `swapId` (`PaymentRequestModal.svelte` li
 
 Create `functions/api/explorer/[[path]].ts`:
 
-- Proxy `GET` to `https://rootstock.blockscout.com/api/v2/{path}` (or testnet).
+- Proxy `GET` to `https://rgb.blockscout.com/api/v2/{path}` (or testnet).
 - Handle `OPTIONS` preflight.
 - Set `Access-Control-Allow-Origin` for `https://bittasker.com`, `https://dev.bittasker.com`.
 - `Cache-Control: public, max-age=15` on list endpoints.
 
 ### 11.2 Client changes
 
-- `getExplorerApiUrl()` in `transactionHistory.ts`, `token-balance.service.ts`, `blockscoutTransactionStatus.ts`, and wallet-core config override → `${origin}/api/explorer/rsk/v2` on web.
+- `getExplorerApiUrl()` in `transactionHistory.ts`, `token-balance.service.ts`, `blockscoutTransactionStatus.ts`, and wallet-core config override → `${origin}/api/explorer/rgb/v2` on web.
 - Capacitor: use same proxy URL via `VITE_PUBLIC_APP_URL` or direct Blockscout (native has no CORS).
 
 ### 11.3 Worker (now)
@@ -419,7 +419,7 @@ All items ship together in one PR/release.
 ### 12.1 Transaction ledger & store
 
 - Implement `TransactionLedger` projector with dedup rules (§8.4)
-- Implement `swapStatusMap.ts` — exhaustive Boltz + wallet-core statuses
+- Implement `swapStatusMap.ts` — exhaustive RGB + wallet-core statuses
 - Rewrite `updateSwapTransaction` (§8.6)
 - Rewrite `loadTransactions` with single-flight mutex (§8.7)
 - Fix `balanceAfter` — unified running balance after merge
@@ -432,7 +432,7 @@ All items ship together in one PR/release.
 - Add `transaction.claim.failed` to failed/final constants + titles
 - Extend Nostr `finalStates`
 - Migrate `swapAdapter.ts` to NDK (`publishReplaceable`, `fetchEvents`)
-- Add `NDKBoltzSwap` + register in `ndkInstance.ts`
+- Add `NDKRGBSwap` + register in `ndkInstance.ts`
 - `ensureNdkReady()` before swap recovery in wallet init
 
 ### 12.3 Infrastructure
@@ -471,12 +471,12 @@ All items ship together in one PR/release.
 
 | Screenshot row                | Explanation                                                                                                                                                                              |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Received +3,332 failed        | Blockscout reverted `claim()` — [tx `0x784b6e…](https://rootstock.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)` (reverse receive claim failure) |
+| Received +3,332 failed        | Blockscout reverted `claim()` — [tx `0x784b6e…](https://rgb.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)` (reverse receive claim failure) |
 | Received +3,332 success       | Later successful EtherSwap `claim` on-chain                                                                                                                                              |
 | Receive in progress (flicker) | Reverse swap row with `transaction.claim.failed` or stale Nostr `swap.created` / `transaction.mempool` oscillation                                                                       |
 | Finalizing payment −3,275     | **Submarine send** to Blink (`wallet.swap.send_finalizing`) — separate swap                                                                                                              |
 
-User session likely contains **both directions** ($2 to Blink + $2 back), not a single “LN→LN” Boltz type.
+User session likely contains **both directions** ($2 to Blink + $2 back), not a single “LN→LN” RGB type.
 
 ---
 
@@ -486,7 +486,7 @@ User session likely contains **both directions** ($2 to Blink + $2 back), not a 
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Ledger          | `transactionLedger.ts` (new), `swapStatusMap.ts` (new), `wallet.store.ts`                                                                  |
 | Swap UI mapping | `swapTransaction.ts`, `transactionHistory.ts`                                                                                              |
-| NDK             | `swapAdapter.ts`, `nostr/events/boltzSwap.ts` (new), `ndkInstance.ts`, `ndkSigner.ts`                                                      |
+| NDK             | `swapAdapter.ts`, `nostr/events/rgbSwap.ts` (new), `ndkInstance.ts`, `ndkSigner.ts`                                                      |
 | Proxy           | `functions/api/explorer/[[path]].ts` (new), `workers-site/handlers/explorer.js` (new), `workers-site/index.js`                             |
 | Pending modal   | `PendingTransactionScreen.svelte`, `SendPaymentForm.svelte`, `LightningReceive.svelte`, `LBTCReceive.svelte`, `PaymentRequestModal.svelte` |
 | Config          | `.env.example`, `vite.config.ts`                                                                                                           |
@@ -501,21 +501,21 @@ User session likely contains **both directions** ($2 to Blink + $2 back), not a 
 - Submarine: pay Blink invoice — pending modal reaches success on `invoice.paid`; Transactions shows **send** titles, no flicker
 - Reverse: receive from Blink — claim failure shows **one** failed row; retry → single success row
 - Open Transactions during active swap — no infinite console, no freeze
-- Web `bittasker.com` — Blockscout via `/api/explorer/rsk`, no CORS spam
+- Web `bittasker.com` — Blockscout via `/api/explorer/rgb`, no CORS spam
 - Refresh mid-swap — NDK cache recovers correct status (not `swap.created` flash)
 - Logout/login — swap state via NDK + kind 30078 on second device
-- RBTC direct send — pending modal via receipt polling unchanged
+- BTC direct send — pending modal via receipt polling unchanged
 
 ---
 
 ## 16. References
 
-- [Boltz swap types & states](https://api.docs.boltz.exchange/lifecycle.html)
-- [Boltz API v2 WebSocket](https://api.docs.boltz.exchange/api-v2.html#websocket)
+- [RGB swap types & states](https://api.docs.rgb.exchange/lifecycle.html)
+- [RGB API v2 WebSocket](https://api.docs.rgb.exchange/api-v2.html#websocket)
 - [Blockscout API limits](https://docs.blockscout.com/devs/apis/requests-and-limits)
 - [Blockscout portfolio tracker / CORS note](https://www.blog.blockscout.com/build-a-multichain-wallet-portfolio-tracker-with-blockscout-pro-api/)
 - [Cloudflare Pages CORS proxy pattern](https://www.brachkow.com/notes/cors-proxy-for-cloudflare-pages/)
-- [Failed claim tx on Blockscout](https://rootstock.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)
+- [Failed claim tx on Blockscout](https://rgb.blockscout.com/tx/0x784b6e6e59fdfa0d09b9e467284e6ac7e0c2256a429b91ff0e825f4b689f5499)
 - [Zeus swap history v0.12](https://zeusln.com/blog/new-release-zeus-v0-12-0/)
 - [Breez SDK list_payments](https://sdk-doc-liquid-prerelease.breez.technology/guide/list_payments.html)
 - BitTasker: `wallet.store.ts`, `swapTransaction.ts`, `swapAdapter.ts`, `PendingTransactionScreen.svelte`, `SendPaymentForm.svelte`
@@ -527,10 +527,10 @@ User session likely contains **both directions** ($2 to Blink + $2 back), not a 
 
 | Misconception                      | Correction                                                                                    |
 | ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| “Lightning → Lightning” Boltz swap | **Submarine send** (RBTC lock → Boltz pays LN invoice)                                        |
+| “Lightning → Lightning” RGB swap | **Submarine send** (BTC lock → RGB pays LN invoice)                                        |
 | `transaction.claim.failed` on send | **Reverse receive only** (wallet-core); indicates failed `EtherSwap.claim()`                  |
 | CORS caused by Worker migration    | **Pages browser fetch** + **loop-amplified rate limits**; fix loop + add Pages Function proxy |
 | NDK migration optional             | **Required** — swaps must use NDK IndexedDB cache like rest of app                            |
 | Phased rollout acceptable          | **Single full implementation** per this document                                              |
 
-The highest-impact code paths are: treat `transaction.claim.failed` as **terminal failed** (stops warn + flicker), stop `loadTransactions` inside the WS hot path, and wire `PendingTransactionScreen` to `swapId` with real Boltz status mapping.
+The highest-impact code paths are: treat `transaction.claim.failed` as **terminal failed** (stops warn + flicker), stop `loadTransactions` inside the WS hot path, and wire `PendingTransactionScreen` to `swapId` with real RGB status mapping.

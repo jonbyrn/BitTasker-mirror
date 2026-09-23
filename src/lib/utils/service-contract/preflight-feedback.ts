@@ -23,7 +23,7 @@ function fallbackMessage(errorCode?: ServiceContractPreflightErrorCode): string 
 		case 'wallet_not_ready':
 			return 'Your wallet is not ready yet. Retry after it finishes connecting.';
 		case 'wrong_network':
-			return 'Switch your wallet to the required Rootstock network before continuing.';
+			return 'Switch your wallet to the required RGB network before continuing.';
 		case 'invalid_provider_wallet':
 			return 'Provider wallet is unavailable for this service.';
 		case 'invalid_provider_pubkey':
@@ -52,7 +52,7 @@ function resolveHint(errorCode?: ServiceContractPreflightErrorCode): string | nu
 		case 'wallet_not_ready':
 			return 'Keep your wallet open until it finishes connecting, then retry.';
 		case 'wrong_network':
-			return 'Switch to the required Rootstock network in your wallet, then retry.';
+			return 'Switch to the required RGB network in your wallet, then retry.';
 		case 'insufficient_funds':
 			return 'Add funds to your wallet, then retry.';
 		case 'relay_unavailable':

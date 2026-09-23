@@ -1,51 +1,22 @@
-import type { ethers } from 'ethers';
-
-export type ContractChain = 'rsk' | 'bsc';
-
-// Return values from contract call
-export type SecurePaymentLegacy = {
-	tasker: string;
-	taskee: string;
-	amount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	timelockEnd: number;
-	createdAt: number;
-	taskerFeeTier: number;
-	taskeeFeeTier: number;
-	state: number;
-	noShowMarked: boolean;
-};
-
 export enum ContractStatus {
-	// ============================================
-	// BLOCKCHAIN STATES (0-11) - Source of Truth
-	// ============================================
-	Funded = 0, // Escrow created and funded on blockchain
-	InDispute = 1, // Client disputed the completed task (blockchain state)
-	DisputeResolved = 2, // Dispute resolved via proposal acceptance (FINAL)
-	DisputeUnresolved = 3, // Dispute timelock expired, client refunded (FINAL)
-	Completed = 4, // Taskee marked task complete (blockchain state)
-	Cancelled = 5, // Escrow cancelled, funds returned to Tasker (FINAL)
-	Refunded = 6, // Escrow refunded, funds returned to Tasker (FINAL)
-	FundsReleased = 7, // AFTER acceptTask() confirms - task accepted, funds released (FINAL)
-	FundsClaimed = 8, // AFTER claimNoShowRefund() confirms - funds claimed (FINAL)
-	NoShow = 9, // Tasker marked freelancer as no-show (FINAL)
-	WorkInProgress = 10, // Work actively in progress (blockchain state)
-	InDisputeWorkInProgress = 11 // In dispute from Work in progress
+	Funded = 0,
+	InDispute = 1,
+	DisputeResolved = 2,
+	DisputeUnresolved = 3,
+	Completed = 4,
+	Cancelled = 5,
+	Refunded = 6,
+	FundsReleased = 7,
+	FundsClaimed = 8,
+	NoShow = 9,
+	WorkInProgress = 10,
+	InDisputeWorkInProgress = 11
 }
 
-/** Values must not overlap {@link ContractStatus} (0–11). */
 export enum DisplayOnlyStatus {
-	InProgress = 13, // Nostr-only: work started — not chain state 11 (InDisputeWorkInProgress)
-	DisputeResolutionProposed = 12, // Proposal exists (Nostr-only, blockchain stays InDispute)
-	Failed = 14 // On-chain transaction reverted — escrow was never created
+	InProgress = 'in_progress',
+	DisputeResolutionProposed = 'dispute_resolution_proposed',
+	Failed = 'failed'
 }
 
 export type ContractDisplayStatus = ContractStatus | DisplayOnlyStatus;
-
-export type InitializedContract = {
-	contract: ethers.Contract;
-	wallet: ethers.Wallet;
-	provider: ethers.JsonRpcProvider;
-};

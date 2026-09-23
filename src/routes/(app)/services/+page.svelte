@@ -20,7 +20,8 @@
 	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import type RequestQuoteModalComponent from '$lib/components/service/RequestQuoteModal.svelte';
 	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
-	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
+	import { generateServiceQuoteEntityId } from '$lib/utils/service-quote/protocol';
+	import { publishServiceQuoteRequest } from '$lib/utils/service-quote/publish';
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		loadPersistedServiceSearchFilters,
@@ -199,10 +200,15 @@
 
 	// ── Data fetching ──────────────────────────────────────────────────────────
 	async function findServicesWithTimeout(params: SearchServicesParams): Promise<void> {
+		let timeoutId: ReturnType<typeof setTimeout> | null = null;
 		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
+			timeoutId = setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
 		});
-		await Promise.race([findServices(params), timeoutPromise]);
+		try {
+			await Promise.race([findServices(params), timeoutPromise]);
+		} finally {
+			if (timeoutId) clearTimeout(timeoutId);
+		}
 	}
 
 	async function loadNostrData(): Promise<void> {
@@ -460,10 +466,15 @@
 			}
 		}
 		try {
+			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
-				setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
+				timeoutId = setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
 			});
-			btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
+			try {
+				btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
+			} finally {
+				if (timeoutId) clearTimeout(timeoutId);
+			}
 			if (browser) {
 				sessionStorage.setItem(
 					BTC_PRICE_CACHE_KEY,
@@ -609,21 +620,22 @@
 			};
 		}
 
-		const result = await serviceQuoteUiStore.submitQuoteRequest({
+		const result = await publishServiceQuoteRequest({
 			service: serviceForQuote,
-			payload
+			payload,
+			quoteRequestId: generateServiceQuoteEntityId('qr')
 		});
 
-		if (!result.success || !result.quoteRequestId) {
+		if (!result.event || !result.event.content.quoteRequestId) {
 			return {
 				success: false,
-				error: result.error || $t('dashboard.services.browse.quote_request_submit_error')
+				error: $t('dashboard.services.browse.quote_request_submit_error')
 			};
 		}
 
 		appStore.showSuccessToast($t('dashboard.services.browse.quote_request_submitted'));
 		await goto(
-			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+			`/hiring/service-requests?view=tasker&request=${encodeURIComponent(result.event.content.quoteRequestId)}`
 		);
 		serviceForQuote = null;
 		return { success: true };

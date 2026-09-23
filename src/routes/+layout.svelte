@@ -45,7 +45,9 @@
 				type: 'error',
 				timestamp: new Date().toISOString()
 			});
-			event.preventDefault();
+			if (!/url parse|wasm/i.test(errorMessage)) {
+				event.preventDefault();
+			}
 		};
 
 		const onUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -102,5 +104,5 @@
 </svelte:head>
 
 <main id="main" class="app-shell bg-base-200">
-	{@render children()}
+	{@render children?.()}
 </main>

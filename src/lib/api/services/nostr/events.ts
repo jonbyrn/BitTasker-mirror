@@ -11,7 +11,7 @@
  */
 import type { NostrEvent } from 'nostr-tools';
 import { ENDPOINTS } from '$lib/api/endpoints';
-import { BaseApiService } from '$lib/api/apiService';
+import { BaseApiService, isNotFoundError } from '$lib/api/apiService';
 
 // Types for API responses (from swagger)
 interface EventEntity {
@@ -42,7 +42,12 @@ interface RequestEventsVo {
 
 class NostrEventsService extends BaseApiService {
 	constructor() {
-		super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);
+		const isE2ETest = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+		super(
+			isE2ETest
+				? import.meta.env.VITE_API_URL
+				: import.meta.env.VITE_NOSTR_RELAY_NESTJS
+		);
 	}
 
 	// POST /events
@@ -53,14 +58,22 @@ class NostrEventsService extends BaseApiService {
 
 	// GET /events
 	async findEvents(params?: Record<string, unknown>): Promise<FindEventsVo> {
-		const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, { params });
-		return response.data;
+		try {
+			const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, { params });
+			return response.data;
+		} catch (error) {
+			if (isNotFoundError(error)) return { data: [] };
+			throw error;
+		}
 	}
 
 	// GET /events/{id}
 	async findEventById(id: string): Promise<FindEventByIdVo> {
-		const response = await this.get<FindEventByIdVo>(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));
-		return response.data;
+		const response = await this.get<FindEventByIdVo | EventEntity>(
+			ENDPOINTS.NOSTR.EVENTS_BY_ID(id)
+		);
+		const event = 'data' in response.data ? response.data.data : response.data;
+		return { data: event };
 	}
 
 	// POST /events/request

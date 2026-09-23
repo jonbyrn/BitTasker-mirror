@@ -40,7 +40,7 @@ The current escrow creation flow spans **6+ modules** with tight coupling betwee
 | -------- | --------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | P0       | **Publish Kind 30006** (`NDKPaymentContract`) | Done    | `publishV2ContractEvent` calls `await contract.publish()` so the payment contract event actually hits relays.                                                                                                                                                                                                |
 | P0       | **Task `acceptedBid` + `IN_PROGRESS`**        | Done    | Orchestrator calls `publishTaskAcceptedBid(task, bid.id)` in `escrow/v2/creation.ts`: `task.acceptedBid`, `task.status = IN_PROGRESS`, `task.publishReplaceable()`. **Do not** use `updateTask()` from `nostr/task.ts` for this path — keeps the live task event’s tags/body intact except for those fields. |
-| P0       | **Nostr prerequisites before RSK broadcast**  | Done    | Resolve taskee pubkey and NDK signer **before** `createPaymentContract` so we never broadcast on-chain without being able to run side effects.                                                                                                                                                               |
+| P0       | **Nostr prerequisites before RGB broadcast**  | Done    | Resolve taskee pubkey and NDK signer **before** `createPaymentContract` so we never broadcast on-chain without being able to run side effects.                                                                                                                                                               |
 | P1       | **Simulation / fake broadcast**               | Removed | Orchestrator always broadcasts `createPaymentContract`. `paymentId` comes only from the mined receipt (`PaymentContractCreated`), not `staticCall`.                                                                                                                                                          |
 | P1       | **Push notification copy**                    | Todo    | Replace hardcoded English title/body with i18n keys and backend-accepted `type` values.                                                                                                                                                                                                                      |
 | P2       | **Task list / cache coherence**               | Todo    | `updateTask()` previously patched `tasksStore` / `myTasksStore`. After `publishReplaceable()` only, consider invalidating or merging the updated task into local stores so dashboard lists refresh without a full reload.                                                                                    |
@@ -65,15 +65,15 @@ For v2, we can simplify significantly since:
 | 2    | `escrow.bidOps.validateSufficientBalance()`                          | Re-validates balance                     |
 | 3    | `handleSubmit()`                                                     | Form submission handler                  |
 | 4    | `bidStore.addProcessingBid(bid.id)`                                  | Prevents duplicate submissions           |
-| 5    | `escrow.bidOps.acceptBidAndCreateEscrow(bid, task, btcPrice, 'RSK')` | **Main entry point**                     |
+| 5    | `escrow.bidOps.acceptBidAndCreateEscrow(bid, task, btcPrice, 'RGB')` | **Main entry point**                     |
 
 ### Phase 2: Bid Acceptance & Escrow Creation (v1/escrowBid.ts)
 
 | Step | Location                                                       | What Happens                                |
 | ---- | -------------------------------------------------------------- | ------------------------------------------- |
-| 6    | `calculateBidEscrowDetails(bidContent, taskContent, btcPrice)` | Converts USD→RBTC, computes fees, times     |
+| 6    | `calculateBidEscrowDetails(bidContent, taskContent, btcPrice)` | Converts USD→BTC, computes fees, times     |
 | 7    | `validateEscrowDetails(escrowDetails)`                         | Validates address, amount, timing           |
-| 8    | `get(walletStore)`                                             | Checks RSK wallet connected                 |
+| 8    | `get(walletStore)`                                             | Checks RGB wallet connected                 |
 | 9    | `escrow.ensureEscrowReady()`                                   | Connects to v1 contract (from v1/escrow.ts) |
 | 10   | Time adjustment                                                | If start time in past → adjust to now+1h    |
 | 11   | `escrow.createEscrow(...)`                                     | **Blockchain transaction** (v1/escrow.ts)   |
@@ -183,7 +183,7 @@ EscrowManager (singleton)
 
 The global `escrow` object re-exports v1 functions but:
 
-- `validateEscrowDetails`, `validateSufficientBalance`, `getFeePercentageDisplay`, `formatRBTCAmount` are **directly imported from v1/escrowBid** in index.ts (TODO comment: "Refactor implementation to avoid imports from v1 folder")
+- `validateEscrowDetails`, `validateSufficientBalance`, `getFeePercentageDisplay`, `formatBTCAmount` are **directly imported from v1/escrowBid** in index.ts (TODO comment: "Refactor implementation to avoid imports from v1 folder")
 - bidOps always uses LATEST_ESCROW_VERSION for creation; version routing only matters for **post-creation** operations (loadEscrowDetails, completeTask, etc.)
 
 ---
@@ -199,7 +199,7 @@ The global `escrow` object re-exports v1 functions but:
   - `escrow.bidOps.validateSufficientBalance`
   - `escrow.bidOps.acceptBidAndCreateEscrow`
   - `escrow.bidOps.getFeePercentageDisplay`
-  - `escrow.bidOps.formatRBTCAmount`
+  - `escrow.bidOps.formatBTCAmount`
   - `escrow.eventOps.getContractCreationStore()`
 
 - **Problem**: UI needs to know about contract creation store to show "Creating Nostr contract..." / "Nostr contract success" on success screen. This ties UI to internal event plumbing.
@@ -389,7 +389,7 @@ interface PaymentContractCreatedEvent {
 }
 ```
 
-**Contract address**: `VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET` (mainnet: `VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET` when available)
+**Contract address**: `VITE_RGB_CONTRACT_ADDRESS_V2_TESTNET` (mainnet: `VITE_RGB_CONTRACT_ADDRESS_V2_MAINNET` when available)
 
 ### 7. Migration Path
 
@@ -509,7 +509,7 @@ This roadmap breaks the work into phases. **Phase 1** (implemented) delivers val
 | **Fee tier mapping**                 | v1 tiers map directly: taskerFeeTier = clientFeeTier, taskeeFeeTier = freelancerFeeTier                  |
 | **Total payable value**              | base + taskerFee + taskeeFee + upfrontDeposit + (2 × GAS_REIMBURSEMENT_PER_OP)                           |
 | **GAS_REIMBURSEMENT_PER_OP**         | `2_523_514_500_000` (~252 sats wei). Use as constant; do not fetch from contract.                        |
-| **Contract address**                 | `VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET` (mainnet: `VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET` when available)  |
+| **Contract address**                 | `VITE_RGB_CONTRACT_ADDRESS_V2_TESTNET` (mainnet: `VITE_RGB_CONTRACT_ADDRESS_V2_MAINNET` when available)  |
 | **Simulation assumption**            | If staticCall succeeds, broadcast will succeed. Always run validate → gas → staticCall before broadcast. |
 | **Side effects on tx hash**          | Publish contract, update task (acceptedBid), push notification — immediately on tx hash, no tx.wait.     |
 | **No bid status update**             | Task's `acceptedBid` tag is sufficient; do not call `sendBidStatusUpdate`.                               |

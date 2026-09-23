@@ -4,7 +4,7 @@
 
 ## Problem
 
-RSK (chain 30), Arbitrum (chain 42161), Ethereum (chain 1), BSC (chain 56), Base (chain 8453) all use identical `0x`-prefixed 40-hex-char addresses derived from the same private key. Without a chain ID or scheme prefix, the parser cannot distinguish which chain a bare `0x` address belongs to, and defaults to RSK.
+RGB (chain 30), Arbitrum (chain 42161), Ethereum (chain 1), BSC (chain 56), Base (chain 8453) all use identical `0x`-prefixed 40-hex-char addresses derived from the same private key. Without a chain ID or scheme prefix, the parser cannot distinguish which chain a bare `0x` address belongs to, and defaults to RGB.
 
 ## Standards Used by Popular Wallets
 
@@ -19,7 +19,7 @@ ethereum:<address>[@<chainId>][/<function_name>][?<parameters>]
 
 **Examples:**
 - `ethereum:0xfb6916095ca1df60bb79Ce92ce3ea74c37c5d359?value=2.014e18`
-- `ethereum:0xfb69...@30?value=1e18` (RSK mainnet)
+- `ethereum:0xfb69...@30?value=1e18` (RGB mainnet)
 - `ethereum:0xfb69...@42161?value=1e18` (Arbitrum One)
 - `ethereum:<tokenContract>/transfer?address=<recipient>&uint256=<amount>`
 
@@ -60,7 +60,7 @@ bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr
 | Chain | CAIP-2 ID |
 |-------|-----------|
 | Ethereum Mainnet | `eip155:1` |
-| RSK Mainnet | `eip155:30` |
+| RGB Mainnet | `eip155:30` |
 | BSC Mainnet | `eip155:56` |
 | Arbitrum One | `eip155:42161` |
 | Bitcoin Mainnet | `bip122:000000000019d6689c085ae165831e93` |
@@ -77,7 +77,7 @@ bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr
 **Examples:**
 ```
 eip155:1:0xab16a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb       # Ethereum
-eip155:30:0xab16a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb      # RSK
+eip155:30:0xab16a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb      # RGB
 eip155:42161:0xab16a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb   # Arbitrum
 ```
 
@@ -93,7 +93,7 @@ function addr(bytes32 node, uint coinType) external view returns(bytes memory);
 ```
 
 - Coin type 60: Ethereum
-- Coin type 137: RSK
+- Coin type 137: RGB
 - Coin type 0: Bitcoin
 
 A single ENS name (e.g., `vitalik.eth`) can resolve to different addresses on different chains.
@@ -136,7 +136,7 @@ A single ENS name (e.g., `vitalik.eth`) can resolve to different addresses on di
 ### Immediate (P0)
 
 1. **Generate EIP-681 QR codes on receive:**
-   - RSK: `ethereum:<address>@30`
+   - RGB: `ethereum:<address>@30`
    - Arbitrum: `ethereum:<address>@42161`
    - BSC: `ethereum:<address>@56`
 
@@ -148,7 +148,7 @@ A single ENS name (e.g., `vitalik.eth`) can resolve to different addresses on di
 
 3. **CAIP-10 identifiers in APIs/payloads:**
    - `eip155:42161:<address>` for Arbitrum
-   - `eip155:30:<address>` for RSK
+   - `eip155:30:<address>` for RGB
    - Use in payment request payloads and inter-service communication
 
 4. **Chain selector always visible on send:**

@@ -2,7 +2,12 @@ import { test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const NSEC = readFileSync(join(process.cwd(), 'test-nsec.txt'), 'utf8').trim();
+let NSEC = '';
+try {
+	NSEC = readFileSync(join(process.cwd(), 'test-nsec.txt'), 'utf8').trim();
+} catch {
+	NSEC = '';
+}
 
 async function loginViaNsec(page: import('@playwright/test').Page) {
 	await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded' });
@@ -14,6 +19,10 @@ async function loginViaNsec(page: import('@playwright/test').Page) {
 }
 
 test.describe('Connected Wallets — Visual Test', () => {
+	test.beforeEach(({}, testInfo) => {
+		if (!NSEC) testInfo.skip(true, 'test-nsec.txt is not configured');
+	});
+
 	test('Connected tab + connect modal + MetaMask error', async ({ page }) => {
 		await loginViaNsec(page);
 		await page.goto('http://localhost:3000/dashboard/wallet', {

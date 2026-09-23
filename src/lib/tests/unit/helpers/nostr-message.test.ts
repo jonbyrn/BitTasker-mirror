@@ -3,6 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockFetchEvents = vi.hoisted(() => vi.fn());
 const mockSubscribe = vi.hoisted(() => vi.fn(() => ({ stop: vi.fn() })));
 const mockPublishSignedNdkEvent = vi.hoisted(() => vi.fn());
+const mockPublishNostrEvent = vi.hoisted(() =>
+	vi.fn().mockResolvedValue({
+		event: {
+			id: 'event-id',
+			kind: 4,
+			content: 'encrypted',
+			tags: [],
+			created_at: 1,
+			pubkey: 'a'.repeat(64),
+			sig: 'sig'
+		}
+	})
+);
 const mockNip44 = vi.hoisted(() => ({
 	encrypt: vi.fn().mockResolvedValue('encrypted'),
 	decrypt: vi.fn().mockResolvedValue('plaintext'),
@@ -33,6 +46,11 @@ vi.mock('@nostr-dev-kit/ndk', () => ({
 vi.mock('$lib/nostr/profile/ndk', () => ({
 	publishSignedNdkEvent: (...args: Parameters<typeof mockPublishSignedNdkEvent>) =>
 		mockPublishSignedNdkEvent(...args)
+}));
+
+vi.mock('$lib/utils/nostr', () => ({
+	publishNostrEvent: (...args: Parameters<typeof mockPublishNostrEvent>) =>
+		mockPublishNostrEvent(...args)
 }));
 
 vi.mock('$lib/nostr/nip44', () => ({
@@ -120,9 +138,14 @@ describe('direct-messages', () => {
 		expect(listenForIncomingMessages).toBeDefined();
 	});
 
-	it('sendDirectMessage publishes via NDK', async () => {
+	it('sendDirectMessage publishes an encrypted kind-4 DM', async () => {
 		await sendDirectMessage('hello', 'b'.repeat(64));
-		expect(mockPublishSignedNdkEvent).toHaveBeenCalled();
+		expect(mockPublishNostrEvent).toHaveBeenCalledWith(
+			4,
+			'hello',
+			'b'.repeat(64),
+			[['p', 'b'.repeat(64)]]
+		);
 	});
 
 	it('getMessageHistory returns an array', async () => {
