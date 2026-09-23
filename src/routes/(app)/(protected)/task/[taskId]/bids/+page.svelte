@@ -275,7 +275,11 @@
 			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
 		</div>
 	{:else if bids.length === 0}
-		<NoBids onRetry={() => {}} />
+		<div class="card bg-base-100 border-base-300 border shadow-sm">
+			<div class="card-body p-5">
+				<NoBids onRetry={() => {}} />
+			</div>
+		</div>
 	{/if}
 </div>
 
