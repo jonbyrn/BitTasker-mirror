@@ -212,10 +212,14 @@
 		errorMessage = '';
 		processingStep = 'paying';
 		try {
-			await fundedRune.payFundingFromWallet();
-			await notifyFunded(fundedContractId, bidContent.bidderId);
+			await fundedRune.sendPaymentOnly();
+			// Payment broadcast succeeded — unlock UI so user can click Check Payment
+			isProcessing = false;
+			processingStep = 'idle';
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Wallet payment failed';
+			const cause = error instanceof Error ? error.cause : undefined;
+			const causeMessage = cause instanceof Error ? cause.message : undefined;
+			errorMessage = causeMessage || (error instanceof Error ? error.message : String(error));
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
 			await walletManager.releaseRgbLock();

@@ -125,6 +125,26 @@ function e2eMintedAssetId(): string | undefined {
 	return minted || undefined;
 }
 
+function readTaskeeInvoice(): string | undefined {
+	if (typeof window === 'undefined') return undefined;
+	const invoice = (
+		window as Window & { __E2E_TASKEE_INVOICE?: string }
+	).__E2E_TASKEE_INVOICE?.trim();
+	if (!invoice || (!invoice.startsWith('rgb:') && !invoice.startsWith('rgb1'))) return undefined;
+	return invoice;
+}
+
+function escrowAssetId(
+	nia: ReadonlyArray<{ ticker?: string; assetId?: string }>
+): string | undefined {
+	return (
+		e2eMintedAssetId() ||
+		import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
+		nia.find((asset) => asset.ticker === 'USDT')?.assetId ||
+		nia[0]?.assetId
+	);
+}
+
 function resolveAssetId(asset: ContractPaymentAsset): string {
 	const minted = e2eMintedAssetId();
 	if (minted) return minted;
@@ -284,6 +304,47 @@ export class ContractRune {
 			if (!wallet) throw new Error('RGB wallet is not initialized');
 			const queue = await getBrowserRgbCommandQueue(wallet);
 			this.fundingState = 'creating_request';
+			const taskeeInvoice = readTaskeeInvoice();
+			const canBlankReceive =
+				typeof wallet.onchainReceive === 'function' && typeof wallet.listAssets === 'function';
+			if (taskeeInvoice || canBlankReceive) {
+				const { nia } = await wallet.listAssets();
+				const assetId = escrowAssetId(nia ?? []);
+				const spendable = nia?.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0;
+				if (!assetId || spendable <= 0) {
+					throw new Error('No spendable RGB balance to fund escrow');
+				}
+				let invoice = taskeeInvoice;
+				let recipientId = `funding-${this.contractId}`;
+				if (!invoice) {
+					const received = await wallet.onchainReceive({
+						witness: false,
+						minConfirmations: 1,
+						durationSeconds: 3600
+					});
+					invoice = received.invoice;
+					if (received.recipientId) recipientId = received.recipientId;
+				}
+				if (!invoice) throw new Error('Funding invoice is not available');
+				const now = Date.now();
+				this.seals = [
+					{
+						id: recipientId as RgbSeal['id'],
+						contractId: this.contractId as RgbSeal['contractId'],
+						invoice,
+						contractTitle: this.contractTitle,
+						bidderComments: this.bidderComments,
+						state: 'INITIATED',
+						assetId,
+						amount: spendable,
+						createdAt: now,
+						updatedAt: now
+					}
+				];
+				this.fundingState = 'awaiting_payment';
+				await this.attest('funding', 'Funding request created');
+				return this.snapshot;
+			}
 			const splitEntries = [
 				{ asset: this.split.primaryAsset, percentage: this.split.primaryPercentage },
 				{ asset: this.split.secondaryAsset, percentage: this.split.secondaryPercentage }
@@ -437,18 +498,16 @@ export class ContractRune {
 			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');
 		}
 
-		const asset = nia.find((a: { assetId?: string }) => a.assetId === expectedAssetId);
+		const asset = nia.find((row) => row.assetId === expectedAssetId);
 		if (!asset) {
 			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);
 		}
 
-		const spendable = Number(
-			(asset as { balance?: { spendable?: number } }).balance?.spendable ?? 0
-		);
-		const baseUnits = spendable || this.seals[0]?.amount || 0;
-		if (!baseUnits) {
+		const spendable = asset.balance?.spendable ?? 0;
+		if (spendable <= 0) {
 			throw new Error('No spendable RGB balance to fund escrow');
 		}
+		const baseUnits = spendable;
 
 		console.info('[contract-rune] sendToInvoice', {
 			assetId: expectedAssetId,
@@ -457,14 +516,18 @@ export class ContractRune {
 		});
 		try {
 			await prepareRgbOnchainSend(wallet, expectedAssetId);
-			await wallet.onchainSend({
+			const sent = await wallet.onchainSend({
 				invoice: normalizedInvoice,
 				assetId: expectedAssetId,
 				amount: baseUnits,
 				feeRate: 2,
 				minConfirmations: 1
 			});
-			console.info('[contract-rune] sendToInvoice completed');
+			console.info('[contract-rune] sendToInvoice completed', {
+				assetId: expectedAssetId,
+				amount: baseUnits,
+				tx: sent.txid ? `https://esplora-api.utexo.com/tx/${sent.txid}` : ''
+			});
 			await wallet.refreshWallet();
 		} catch (error) {
 			console.error('[E2E-wallet-payment-failure]', {
