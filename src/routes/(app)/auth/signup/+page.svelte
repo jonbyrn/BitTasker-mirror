@@ -2,7 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isCaptchaVerified } from '$lib/stores/auth.store';
+	import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -15,13 +15,9 @@
 
 	onMount(() => {
 		try {
-			const isLocalhost =
-				location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-			// Localhost uses no production captcha service; production still requires Turnstile.
-			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' || isLocalhost) {
+			// Sandbox and localhost have no production captcha. Production still requires Turnstile.
+			if (skipSignupCaptcha()) {
 				isCaptchaVerified.set(true);
-				// Diagnostic: visible in Playwright page console and CI attachments
-				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
 

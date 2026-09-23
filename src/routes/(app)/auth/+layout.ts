@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { isCaptchaVerified } from '$lib/stores/auth.store';
+import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
@@ -24,18 +24,16 @@ export const load: LayoutLoad = async ({ url }) => {
 			const deepLink = await consumeDeepLink();
 			const redirectTo = url.searchParams.get('redirectTo');
 			const target = [deepLink, redirectTo].find(
-			(candidate): candidate is string =>
-				Boolean(candidate) && isValidInternalPath(candidate) && !isStaleAuthRedirect(candidate)
+				(candidate): candidate is string =>
+					Boolean(candidate) && isValidInternalPath(candidate) && !isStaleAuthRedirect(candidate)
 			);
 			redirect(303, target ?? '/wallet');
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
 			const verified = get(isCaptchaVerified);
-			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
-			const e2eBypass =
-				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
-			if (!verified && !e2eBypass) {
+			const captchaSkipped = skipSignupCaptcha();
+			if (!verified && !captchaSkipped) {
 				if (import.meta.env.DEV) {
 					console.warn(
 						'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
@@ -44,7 +42,7 @@ export const load: LayoutLoad = async ({ url }) => {
 				redirect(303, '/auth/signup');
 			}
 			if (import.meta.env.DEV) {
-				if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
+				if (captchaSkipped) console.log('[E2E] Auth layout: allowing onboarding (captcha skipped)');
 				else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
 			}
 		}

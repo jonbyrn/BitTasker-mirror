@@ -153,7 +153,8 @@ const createAuthStore = () => {
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
-			const target = returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/wallet');
+			const target =
+				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/wallet');
 			await goto(target);
 			// Close modal and reset migration state
 			resetMigration();
@@ -188,3 +189,10 @@ const createAuthStore = () => {
 
 export const authState = createAuthStore();
 export const isCaptchaVerified = writable(false);
+
+export function skipSignupCaptcha(): boolean {
+	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') return true;
+	if (typeof location === 'undefined') return false;
+	const host = location.hostname;
+	return host === 'localhost' || host === '127.0.0.1' || host === 'rgb.bittasker.com';
+}
