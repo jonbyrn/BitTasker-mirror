@@ -57,6 +57,11 @@ vi.mock('$lib/runes/contract.svelte', () => ({
 			this.seals = [{ id: 'seal-1' }];
 			return fundMock();
 		}
+		async confirmFunding() {
+			this.status = 'funded';
+			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funded' };
+			return this.snapshot;
+		}
 		async fundForE2E() {
 			this.status = 'funded';
 			this.snapshot = { fundingInvoice: 'rgb1invoice', status: 'funded' };
@@ -269,6 +274,8 @@ describe('BidAcceptanceFormV2', () => {
 
 		await fireEvent.click(getByTestId('pay-funding-from-wallet'));
 		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(2));
+		expect(sendBidStatusUpdate).toHaveBeenCalledTimes(1);
+		await fireEvent.click(getByTestId('check-funding-button'));
 		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(2));
 		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
 			'bid-1',

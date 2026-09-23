@@ -34,7 +34,10 @@
 
 	// Task lives on a separate relay — must be its own subscription.
 	const taskSub = ndk.$subscribe<NDKTask>(() => {
-		const taskAuthor = page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? ndk.$currentPubkey;
+		const taskAuthor =
+			page.url.searchParams.get('author') ??
+			page.url.searchParams.get('client') ??
+			ndk.$currentPubkey;
 		if (!taskAuthor) return undefined;
 		return {
 			filters: [
@@ -65,10 +68,7 @@
 	const bidsAndStatusSub = ndk.$subscribe(() => {
 		if (!bidFilter) return undefined;
 		return {
-			filters: [
-				bidFilter,
-				{ kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }
-			],
+			filters: [bidFilter, { kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }],
 			wrap: true,
 			relaySet: getTaskRelay()
 		};
@@ -254,7 +254,7 @@
 		</div>
 	</div>
 	{#if bids.length > 0}
-		<div class="space-y-4">
+		<div class="flex flex-col gap-4">
 			{#each bids as bid (bid.id)}
 				{@const status = getBidStatus(bid.id)}
 				<BidCard
@@ -287,12 +287,14 @@
 	isScrollable={true}
 >
 	{#if showAcceptanceForm && bidToAccept && task}
-		<BidAcceptanceFormV2
-			bid={bidToAccept}
-			{task}
-			onCancel={handleCloseBid}
-			onFunded={handleFunded}
-		/>
+		<div class="flex flex-col gap-4 px-2 py-2">
+			<BidAcceptanceFormV2
+				bid={bidToAccept}
+				{task}
+				onCancel={handleCloseBid}
+				onFunded={handleFunded}
+			/>
+		</div>
 	{/if}
 </Drawer>
 
