@@ -37,6 +37,8 @@ describe('escrow lifecycle', () => {
 		ServiceRune.clearRegistry();
 		ContractRune.clearRegistry();
 		state.utexoWallet = walletDouble() as never;
+		delete (window as Window & { __E2E_TASKEE_INVOICE?: string }).__E2E_TASKEE_INVOICE;
+		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
 	});
 
 	it('submits work, invoices a blank payout, and releases the full asset', async () => {
@@ -71,6 +73,68 @@ describe('escrow lifecycle', () => {
 		const rune = new ServiceRune(ASSET_ID, 10_000);
 		rune.attest('funded');
 		await expect(rune.releaseEscrow()).rejects.toThrow('Cannot release escrow from funded');
+	});
+
+	it('pays the taskee blank invoice and does not invoice the tasker wallet', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-taskee-invoice',
+			totalAmountUsd: 3.588,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		const prepared = await rune.prepareFunding(invoice);
+		expect(wallet.onchainReceive).not.toHaveBeenCalled();
+		expect(prepared.fundingInvoice).toBe(invoice);
+		expect(prepared.seals[0]?.amount).toBe(4);
+
+		(window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID = ASSET_ID;
+		await rune.payFundingFromWallet();
+		expect(wallet.onchainSend).toHaveBeenCalledWith(
+			expect.objectContaining({
+				invoice,
+				assetId: ASSET_ID,
+				amount: 10_000,
+				feeRate: 2,
+				minConfirmations: 1
+			})
+		);
+	});
+
+	it('refuses to create the escrow invoice on the tasker wallet', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-self-invoice',
+			totalAmountUsd: 10,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		await expect(rune.prepareFunding()).rejects.toThrow('Taskee escrow invoice is not ready');
+	});
+
+	it('lets check payment continue after pay has already marked the contract funded', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-already-funded',
+			totalAmountUsd: 10,
+			split: {
+				primaryAsset: 'btc_onchain',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'funded';
+
+		const checked = await rune.confirmFunding();
+		expect(checked.status).toBe('funded');
 	});
 
 	it('stores deliverable metadata and settles through the contract rune', async () => {

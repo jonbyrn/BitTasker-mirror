@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { readFundingInvoice, resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
 import { get as _get } from 'svelte/store';
@@ -143,5 +143,29 @@ describe('sendBidStatusUpdate', () => {
 
 		// Should have attempted cleanup (may be called multiple times, which is fine)
 		expect(bidStore.removeProcessingBid).toHaveBeenCalled();
+	});
+
+	it('stores a blank invoice without treating it as a new bid status toast', async () => {
+		vi.mocked(publishNostrEvent).mockResolvedValue(
+			undefined as unknown as Awaited<ReturnType<typeof publishNostrEvent>>
+		);
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		const result = await sendBidStatusUpdate(
+			'bid-123',
+			'task-123',
+			'tasker-pubkey',
+			BidStatusEnum.ACCEPTED,
+			'Escrow invoice created',
+			undefined,
+			undefined,
+			invoice
+		);
+		expect(result).toBe(true);
+		expect(appStore.showInfoToast).not.toHaveBeenCalled();
+		const payload = JSON.parse(String(vi.mocked(publishNostrEvent).mock.calls[0][1]));
+		expect(payload.invoice).toBe(invoice);
+		expect(payload.status).toBe(BidStatusEnum.ACCEPTED);
+		expect(readFundingInvoice(payload)).toBe(invoice);
+		expect(readFundingInvoice({ ...payload, invoice: 'not-rgb' })).toBeUndefined();
 	});
 });

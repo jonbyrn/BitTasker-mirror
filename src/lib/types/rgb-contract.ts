@@ -21,6 +21,85 @@ export function isNativeBitcoinAsset(assetId: string | null | undefined): boolea
 const REJECTED_RGB_USDT_PREFIX = 'rgb:2s69152';
 const HEX_64 = /^[0-9a-fA-F]{64}$/;
 
+export interface SpendableNia {
+	ticker?: string;
+	assetId?: string;
+	precision?: number;
+	balance?: { spendable?: number };
+}
+
+/** USDT base units for a bid priced in dollars. Never the whole wallet. */
+export function usdtEscrowUnits(amountUsd: number, precision: number, spendable: number): number {
+	if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+		throw new Error('Bid amount cannot be converted to USDT');
+	}
+	if (!Number.isInteger(precision) || precision < 0 || precision > 18) {
+		throw new Error('USDT precision is not valid');
+	}
+	const units = Math.round(amountUsd * 10 ** precision);
+	if (!Number.isSafeInteger(units) || units <= 0) {
+		throw new Error('Bid amount cannot be converted to USDT');
+	}
+	if (units > spendable) {
+		throw new Error('Not enough USDT to fund this escrow');
+	}
+	return units;
+}
+
+export function usdtPrecision(ticker: string | undefined, precision: number | undefined): number {
+	if (
+		typeof precision === 'number' &&
+		Number.isInteger(precision) &&
+		precision >= 0 &&
+		precision <= 18
+	) {
+		return precision;
+	}
+	return (ticker ?? '').toUpperCase() === 'USDT' ? 6 : 0;
+}
+
+export function escrowSendAmount(input: {
+	spendable: number;
+	totalAmountUsd: number;
+	precision: number;
+	fullSpendable: boolean;
+}): number {
+	if (!Number.isFinite(input.spendable) || input.spendable <= 0) {
+		throw new Error('No spendable RGB balance to fund escrow');
+	}
+	if (input.fullSpendable) return input.spendable;
+	return usdtEscrowUnits(input.totalAmountUsd, input.precision, input.spendable);
+}
+
+function heldSpendable(
+	nia: readonly SpendableNia[],
+	assetId: string | null | undefined
+): string | undefined {
+	const id = assetId?.trim();
+	if (!id) return undefined;
+	const row = nia.find((item) => item.assetId === id);
+	const spendable = Number(row?.balance?.spendable ?? 0);
+	return Number.isFinite(spendable) && spendable > 0 ? id : undefined;
+}
+
+/** First preferred id that this wallet can spend, then USDT, then any spendable NIA. */
+export function selectEscrowAsset(
+	nia: readonly SpendableNia[],
+	preferredIds: readonly (string | null | undefined)[] = []
+): string | undefined {
+	for (const id of preferredIds) {
+		const held = heldSpendable(nia, id);
+		if (held) return held;
+	}
+	const usdt = heldSpendable(nia, nia.find((item) => item.ticker === 'USDT')?.assetId);
+	if (usdt) return usdt;
+	for (const item of nia) {
+		const held = heldSpendable(nia, item.assetId);
+		if (held) return held;
+	}
+	return undefined;
+}
+
 /** Configured RGB USDT id, or null when unset or not safe to pass into the wallet. */
 export function getConfiguredRgbUsdtAssetId(): string | null {
 	const assetId = (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim() ?? '';

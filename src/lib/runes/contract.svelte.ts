@@ -7,7 +7,11 @@ import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
 	type ContractPaymentAsset,
 	type PaymentSplitConfig,
-	getConfiguredRgbUsdtAssetId
+	escrowSendAmount,
+	getConfiguredRgbUsdtAssetId,
+	selectEscrowAsset,
+	usdtPrecision,
+	type SpendableNia
 } from '$lib/types/rgb-contract';
 import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-exchange';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
@@ -130,6 +134,28 @@ function e2eMintedAssetId(): string | undefined {
 	return minted || undefined;
 }
 
+export class TaskeeInvoiceRequired extends Error {
+	constructor() {
+		super('Taskee escrow invoice is not ready');
+		this.name = 'TaskeeInvoiceRequired';
+	}
+}
+
+function unitsForAsset(
+	assets: readonly SpendableNia[],
+	assetId: string,
+	totalAmountUsd: number
+): number {
+	const row = assets.find((item) => item.assetId === assetId);
+	const spendable = Number(row?.balance?.spendable ?? 0);
+	return escrowSendAmount({
+		spendable,
+		totalAmountUsd,
+		precision: usdtPrecision(row?.ticker, row?.precision),
+		fullSpendable: e2eMintedAssetId() === assetId
+	});
+}
+
 function readTaskeeInvoice(): string | undefined {
 	if (typeof window === 'undefined') return undefined;
 	const invoice = (
@@ -139,15 +165,12 @@ function readTaskeeInvoice(): string | undefined {
 	return invoice;
 }
 
-function escrowAssetId(
-	nia: ReadonlyArray<{ ticker?: string; assetId?: string }>
-): string | undefined {
-	return (
-		e2eMintedAssetId() ||
-		import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
-		nia.find((asset) => asset.ticker === 'USDT')?.assetId ||
-		nia[0]?.assetId
-	);
+function escrowAssetId(nia: readonly SpendableNia[]): string | undefined {
+	return selectEscrowAsset(nia, [
+		e2eMintedAssetId(),
+		getConfiguredRgbUsdtAssetId(),
+		import.meta.env.VITE_RGB_ESCROW_ASSET_ID as string | undefined
+	]);
 }
 
 function resolveAssetId(asset: ContractPaymentAsset): string {
@@ -309,7 +332,7 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	async prepareFunding(): Promise<ContractRuneSnapshot> {
+	async prepareFunding(externalInvoice?: string): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'draft' && this.status !== 'failed') {
 			throw new Error(`Cannot fund contract from ${this.status} state`);
 		}
@@ -317,30 +340,19 @@ export class ContractRune {
 			this.fundingState = 'checking_wallet';
 			const wallet = state.utexoWallet;
 			if (!wallet) throw new Error('RGB wallet is not initialized');
-			const queue = await getBrowserRgbCommandQueue(wallet);
 			this.fundingState = 'creating_request';
-			const taskeeInvoice = readTaskeeInvoice();
-			const canBlankReceive =
+			const taskeeInvoice = externalInvoice?.trim() || readTaskeeInvoice();
+			const canSendRgb =
 				typeof wallet.onchainReceive === 'function' && typeof wallet.listAssets === 'function';
-			if (taskeeInvoice || canBlankReceive) {
+			if (taskeeInvoice || canSendRgb) {
+				if (!taskeeInvoice) throw new TaskeeInvoiceRequired();
 				const { nia } = await wallet.listAssets();
-				const assetId = escrowAssetId(nia ?? []);
-				const spendable = nia?.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0;
-				if (!assetId || spendable <= 0) {
-					throw new Error('No spendable RGB balance to fund escrow');
-				}
-				let invoice = taskeeInvoice;
-				let recipientId = `funding-${this.contractId}`;
-				if (!invoice) {
-					const received = await wallet.onchainReceive({
-						witness: false,
-						minConfirmations: 1,
-						durationSeconds: 3600
-					});
-					invoice = received.invoice;
-					if (received.recipientId) recipientId = received.recipientId;
-				}
-				if (!invoice) throw new Error('Funding invoice is not available');
+				const assets = (nia ?? []) as SpendableNia[];
+				const assetId = escrowAssetId(assets);
+				if (!assetId) throw new Error('No spendable RGB balance to fund escrow');
+				const amount = unitsForAsset(assets, assetId, this.totalAmountUsd);
+				const invoice = taskeeInvoice;
+				const recipientId = `funding-${this.contractId}`;
 				const now = Date.now();
 				this.seals = [
 					{
@@ -351,7 +363,7 @@ export class ContractRune {
 						bidderComments: this.bidderComments,
 						state: 'INITIATED',
 						assetId,
-						amount: spendable,
+						amount,
 						createdAt: now,
 						updatedAt: now
 					}
@@ -360,6 +372,7 @@ export class ContractRune {
 				await this.attest('funding', 'Funding request created');
 				return this.snapshot;
 			}
+			const queue = await getBrowserRgbCommandQueue(wallet);
 			const splitEntries = [
 				{ asset: this.split.primaryAsset, percentage: this.split.primaryPercentage },
 				{ asset: this.split.secondaryAsset, percentage: this.split.secondaryPercentage }
@@ -402,6 +415,9 @@ export class ContractRune {
 	}
 
 	async confirmFunding(): Promise<ContractRuneSnapshot> {
+		// Pay already attests funded and does not notify the taskee. Check must
+		// still succeed from that state so the contract can be published to both parties.
+		if (this.status === 'funded') return this.snapshot;
 		if (this.status !== 'funding') {
 			throw new Error(`Cannot verify funding from ${this.status} state`);
 		}
@@ -553,30 +569,18 @@ export class ContractRune {
 		}
 
 		const { nia } = await wallet.listAssets();
-		const mintedAssetId =
-			typeof window !== 'undefined'
-				? (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID
-				: undefined;
-		const expectedAssetId =
-			mintedAssetId ||
-			import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
-			nia.find((a: { ticker?: string; assetId?: string }) => a.ticker === 'USDT')?.assetId ||
-			nia[0]?.assetId;
+		const expectedAssetId = escrowAssetId((nia ?? []) as SpendableNia[]);
 
 		if (!expectedAssetId) {
 			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');
 		}
 
-		const asset = nia.find((row) => row.assetId === expectedAssetId);
+		const assets = (nia ?? []) as SpendableNia[];
+		const asset = assets.find((row) => row.assetId === expectedAssetId);
 		if (!asset) {
 			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);
 		}
-
-		const spendable = asset.balance?.spendable ?? 0;
-		if (spendable <= 0) {
-			throw new Error('No spendable RGB balance to fund escrow');
-		}
-		const baseUnits = spendable;
+		const baseUnits = unitsForAsset(assets, expectedAssetId, this.totalAmountUsd);
 
 		console.info('[contract-rune] sendToInvoice', {
 			assetId: expectedAssetId,

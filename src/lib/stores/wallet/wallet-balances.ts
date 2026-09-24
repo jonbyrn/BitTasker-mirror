@@ -5,11 +5,18 @@ import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { receiveWithAllocations } from './rgb-allocations';
 
+interface RgbAmount {
+	settled?: number;
+	spendable?: number;
+	future?: number;
+}
+
 interface RawRgbAsset {
-	id: string;
+	id?: string;
+	assetId?: string;
 	name?: string;
 	ticker?: string;
-	balance?: string | number;
+	balance?: string | number | RgbAmount;
 }
 
 interface AddressStatsResponse {
@@ -347,18 +354,52 @@ export async function scanBtcBalance(
 }
 
 function isRawRgbAsset(value: unknown): value is RawRgbAsset {
-	return (
-		value !== null && typeof value === 'object' && 'id' in value && typeof value.id === 'string'
-	);
+	if (value === null || typeof value !== 'object') return false;
+	const row = value as RawRgbAsset;
+	return typeof row.id === 'string' || typeof row.assetId === 'string';
 }
+
+function assetAmount(balance: RawRgbAsset['balance']): number {
+	if (typeof balance === 'number' && Number.isFinite(balance)) return balance;
+	if (typeof balance === 'string') {
+		const parsed = Number(balance);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	if (balance && typeof balance === 'object') {
+		const spendable = Number(balance.spendable);
+		if (Number.isFinite(spendable)) return spendable;
+		const settled = Number(balance.settled);
+		return Number.isFinite(settled) ? settled : 0;
+	}
+	return 0;
+}
+
+const ASSET_GROUPS = ['nia', 'cfa', 'uda', 'ifa'] as const;
 
 export function unwrapListAssets(raw: unknown): RawRgbAsset[] {
 	if (Array.isArray(raw)) return raw.filter(isRawRgbAsset);
-	if (raw !== null && typeof raw === 'object' && 'assets' in raw) {
-		const assets = raw.assets;
-		return Array.isArray(assets) ? assets.filter(isRawRgbAsset) : [];
-	}
-	return [];
+	if (raw === null || typeof raw !== 'object') return [];
+	const record = raw as Record<string, unknown>;
+	if (Array.isArray(record.assets)) return record.assets.filter(isRawRgbAsset);
+	return ASSET_GROUPS.flatMap((group) =>
+		Array.isArray(record[group]) ? record[group].filter(isRawRgbAsset) : []
+	);
+}
+
+export function parseRgbAssets(raw: unknown): RgbAsset[] {
+	return unwrapListAssets(raw)
+		.map((asset) => {
+			const balance = assetAmount(asset.balance);
+			const assetId = asset.assetId ?? asset.id ?? '';
+			return {
+				assetId,
+				name: asset.name ?? asset.ticker ?? 'RGB Asset',
+				symbol: asset.ticker,
+				balance,
+				formattedBalance: new Intl.NumberFormat().format(balance)
+			};
+		})
+		.filter((asset) => asset.assetId !== '');
 }
 
 export function scheduleBalanceRefresh(): void {
@@ -392,12 +433,7 @@ export async function loadAssets(): Promise<void> {
 		let rgbAssets: RgbAsset[] = [];
 		try {
 			const rawAssets = await wallet.listAssets();
-			rgbAssets = unwrapListAssets(rawAssets).map((a) => ({
-				assetId: a.id,
-				name: a.name ?? 'RGB Asset',
-				balance: Number(a.balance ?? 0),
-				formattedBalance: String(a.balance ?? 0)
-			}));
+			rgbAssets = parseRgbAssets(rawAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 		}
@@ -446,15 +482,7 @@ export async function refreshRgbBalances(): Promise<void> {
 			...s,
 			rgb: {
 				...s.rgb,
-				assets: (assets || []).map(
-					(a: { id: string; name?: string; ticker?: string; balance?: string | number }) => ({
-						assetId: a.id,
-						name: a.name ?? 'RGB Asset',
-						symbol: a.ticker,
-						balance: Number(a.balance ?? 0),
-						formattedBalance: String(a.balance ?? 0)
-					})
-				)
+				assets: parseRgbAssets(assets)
 			}
 		}));
 	} catch (err) {
@@ -519,6 +547,28 @@ export async function issueRgbAsset(params: {
 	console.info('[rgb-issue:success]', result);
 	await refreshRgbBalances();
 	return result;
+}
+
+/** Pull a paid blank invoice into this wallet. The sender already chose the asset. */
+export async function acceptIncomingPayment(): Promise<void> {
+	const wallet = getUtexoWallet();
+	if (!wallet?.refreshWallet) throw new Error('Wallet not initialized');
+	await wallet.refreshWallet();
+	await loadAssets();
+}
+
+/** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */
+export async function receiveBlankInvoice(): Promise<{ invoice: string }> {
+	const wallet = getUtexoWallet();
+	if (!wallet?.onchainReceive) throw new Error('Wallet not initialized');
+	const received = await wallet.onchainReceive({
+		witness: false,
+		minConfirmations: 1,
+		durationSeconds: 3600
+	});
+	const invoice = (typeof received === 'string' ? received : received.invoice)?.trim() ?? '';
+	if (!invoice) throw new Error('RGB invoice was empty');
+	return { invoice };
 }
 
 export async function createRgbInvoice(params?: {

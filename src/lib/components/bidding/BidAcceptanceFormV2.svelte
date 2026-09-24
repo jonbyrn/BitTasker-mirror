@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { ContractRune } from '$lib/runes/contract.svelte';
-	import { resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+	import { fetchFundingInvoice, resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	import { formatInteger } from '$lib/utils/helpers/currencyFormatter';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { appStore } from '$lib/stores/app.store';
@@ -52,9 +52,7 @@
 		bidAmountSats === null || platformFeeSats === null ? null : bidAmountSats + platformFeeSats
 	);
 	const totalUsd = $derived(
-		totalSats === null
-			? null
-			: (totalSats * (btcPrice.price > 0 ? btcPrice.price : 1)) / 100_000_000
+		totalSats === null || btcPrice.price <= 0 ? null : (totalSats * btcPrice.price) / 100_000_000
 	);
 
 	const walletSats = $derived($walletStore.rgb?.balanceSats ?? 0);
@@ -86,16 +84,19 @@
 	let fundedRune = $state<ContractRune | null>(null);
 	let fundedContractId = $state<string | null>(null);
 	let escrowReady = $state(false);
+	let awaitingTaskeeInvoice = $state(false);
 
 	const canConfirm = $derived(
 		walletConnected &&
 			!hasInsufficientFunds &&
 			!isProcessing &&
 			bidContent !== null &&
-			totalSats !== null
+			totalSats !== null &&
+			totalUsd !== null
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
 	const awaitingFunding = $derived(Boolean(fundedRune && !escrowReady && fundingInvoice));
+	const fundingStep = $derived(escrowReady ? 3 : awaitingFunding ? 2 : 1);
 
 	async function notifyFunded(contractId: string, bidderPubkey: string): Promise<void> {
 		processingStep = 'notifying';
@@ -144,6 +145,18 @@
 		});
 	}
 
+	function contractInput(bidderPubkey: string) {
+		return {
+			contractId: `contract-${task.id}-${bid.id}`,
+			contractTitle,
+			bidderComments,
+			totalAmountUsd: totalUsd ?? 0,
+			amountSats: totalSats ?? undefined,
+			split,
+			partyPubkeys: [bidderPubkey, task.pubkey].filter((key): key is string => Boolean(key))
+		};
+	}
+
 	async function handleAcceptAndFund(): Promise<void> {
 		if (!bidContent) {
 			errorMessage = 'Bid content is unavailable';
@@ -159,18 +172,9 @@
 		errorMessage = '';
 
 		try {
-			// Step 1-2: Create ContractRune and initialize escrow state
 			const contractId = `contract-${task.id}-${bid.id}`;
 			processingStep = 'funding';
-			const rune = new ContractRune({
-				contractId,
-				contractTitle,
-				bidderComments,
-				totalAmountUsd: totalUsd ?? 1,
-				amountSats: totalSats ?? undefined,
-				split,
-				partyPubkeys: [bidderPubkey, task.pubkey].filter(Boolean)
-			});
+			const rune = new ContractRune(contractInput(bidderPubkey));
 
 			await initWasm();
 			await walletManager.initialize();
@@ -195,12 +199,53 @@
 				await notifyFunded(contractId, bidderPubkey);
 			}
 		} catch (error) {
+			if (error instanceof Error && error.name === 'TaskeeInvoiceRequired') {
+				const contractId = `contract-${task.id}-${bid.id}`;
+				await publishContractStep({
+					status: BidStatusEnum.ACCEPTED,
+					action: 'bid_accepted',
+					contractId,
+					bidderPubkey,
+					message: 'Bid accepted'
+				});
+				awaitingTaskeeInvoice = true;
+				errorMessage = '';
+				return;
+			}
 			if (isE2ETest) {
 				console.error('[accept-fund] failed', error);
 			}
 			fundedRune = null;
 			fundedContractId = null;
 			escrowReady = false;
+			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+		} finally {
+			await walletManager.releaseRgbLock();
+			isProcessing = false;
+			processingStep = 'idle';
+		}
+	}
+
+	async function handleLoadTaskeeInvoice(): Promise<void> {
+		if (!bidContent?.bidderId) return;
+		isProcessing = true;
+		errorMessage = '';
+		processingStep = 'funding';
+		try {
+			const invoice = await fetchFundingInvoice(bidContent.taskId || task.id, bid.id);
+			if (!invoice) {
+				errorMessage = $t('dashboard.bids.bid_acceptance.invoice_missing');
+				return;
+			}
+			const rune = new ContractRune(contractInput(bidContent.bidderId));
+			await initWasm();
+			await walletManager.initialize();
+			await rune.prepareFunding(invoice);
+			fundedRune = rune;
+			fundedContractId = rune.snapshot.contractId;
+			awaitingTaskeeInvoice = false;
+		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
@@ -289,52 +334,61 @@
 	});
 </script>
 
-<div class="flex h-full flex-col gap-4 p-4" data-testid="bid-acceptance-form">
-	<section class="card bg-base-100 border-base-300 border shadow-sm">
-		<div class="card-body gap-3 p-5">
+<div class="flex h-full min-h-0 flex-col gap-3" data-testid="bid-acceptance-form">
+	<section class="card bg-base-100 border-base-300 shrink-0 border shadow-sm">
+		<div class="card-body gap-2 p-3">
 			<div class="flex items-center justify-between gap-3">
-				<h2 class="text-base font-semibold">
+				<h2 class="text-sm font-semibold">
 					{$t('dashboard.bids.bid_acceptance.contract_information')}
 				</h2>
-				<span class="badge badge-primary shrink-0" data-testid="contract-settlement-unit">
+				<span class="badge badge-primary badge-sm shrink-0" data-testid="contract-settlement-unit">
 					{settlementUnit}
 				</span>
 			</div>
 			<div class="flex flex-col gap-1 text-sm">
-				<div class="flex justify-between gap-3">
+				<div class="flex items-center justify-between gap-3">
 					<span class="text-base-content/70">{$t('dashboard.bids.bid_acceptance.base_amount')}</span
 					>
-					<span data-testid="bid-base-amount">
+					<span class="tabular-nums" data-testid="bid-base-amount">
 						{bidAmountSats === null ? '—' : `${formatInteger(bidAmountSats)} sats`}
 					</span>
 				</div>
-				<div class="flex justify-between gap-3">
+				<div class="flex items-center justify-between gap-3">
 					<span class="text-base-content/70">
 						{$t('dashboard.bids.bid_acceptance.client_fee', {
 							values: { fee: `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%` }
 						})}
 					</span>
-					<span data-testid="bid-platform-fee">
+					<span class="tabular-nums" data-testid="bid-platform-fee">
 						{platformFeeSats === null ? '—' : `${formatInteger(platformFeeSats)} sats`}
 					</span>
 				</div>
-				<div class="border-base-300 flex justify-between gap-3 border-t pt-2 font-semibold">
+				<div
+					class="border-base-300 flex items-center justify-between gap-3 border-t pt-2 font-semibold"
+				>
 					<span>{$t('dashboard.bids.bid_acceptance.total_payment')}</span>
-					<span data-testid="bid-total-payment">
-						{totalSats === null ? '—' : `${formatInteger(totalSats)} sats`}
+					<span class="tabular-nums" data-testid="bid-total-payment">
+						<span data-testid="bid-total-sats"
+							>{totalSats === null ? '—' : `${formatInteger(totalSats)} sats`}</span
+						>
 					</span>
 				</div>
-			</div>
-			{#if totalSats !== null}
-				<p class="text-lg font-semibold" data-testid="bid-total-sats">
-					{formatInteger(totalSats)} sats
+				<p class="text-base-content/60 text-xs" data-testid="sats-usdt-note">
+					{$t('dashboard.bids.bid_acceptance.sats_usdt_note')}
 				</p>
-			{/if}
-			<p class="text-base-content/70 text-sm" data-testid="rgb-btc-settlement">
-				Pay from wallet funds the escrow.
-			</p>
+			</div>
 		</div>
 	</section>
+
+	<ul class="steps steps-horizontal w-full shrink-0 text-xs" data-testid="funding-steps">
+		<li class="step step-primary">{$t('dashboard.bids.bid_acceptance.step_accept')}</li>
+		<li class="step" class:step-primary={fundingStep >= 2}>
+			{$t('dashboard.bids.bid_acceptance.step_pay')}
+		</li>
+		<li class="step" class:step-primary={fundingStep >= 3}>
+			{$t('dashboard.bids.bid_acceptance.step_start')}
+		</li>
+	</ul>
 
 	{#if !walletConnected}
 		<div
@@ -346,13 +400,15 @@
 		</div>
 	{:else}
 		<div
-			class="alert alert-outline alert-success text-sm"
+			class="border-base-300 rounded-box flex shrink-0 items-center justify-between gap-3 border px-3 py-2 text-sm"
 			role="status"
 			data-testid="wallet-connected"
 		>
-			<span class="status status-success"></span>
-			{$t('dashboard.bids.bid_acceptance.my_wallet')} —
-			{$t('dashboard.bids.bid_acceptance.wallet_connected')}
+			<span>{$t('dashboard.bids.bid_acceptance.my_wallet')}</span>
+			<span class="badge badge-success badge-sm gap-1">
+				<span class="status status-success"></span>
+				{$t('dashboard.bids.bid_acceptance.wallet_connected')}
+			</span>
 		</div>
 	{/if}
 	{#if hasInsufficientFunds}
@@ -394,9 +450,27 @@
 		</div>
 	{/if}
 
-	<div class="mt-auto flex flex-col gap-3">
+	<div class="mt-auto flex shrink-0 flex-col gap-2">
 		{#if awaitingFunding}
-			<p class="text-base-content/70 text-sm">Pay from wallet funds the escrow.</p>
+			<p class="text-base-content/70 text-xs" data-testid="rgb-btc-settlement">
+				{$t('dashboard.bids.bid_acceptance.waiting_for_payment')}
+			</p>
+			<div class="flex items-center gap-2">
+				<input
+					class="input input-bordered input-sm min-w-0 flex-1 font-mono text-xs"
+					readonly
+					value={fundingInvoice}
+					aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
+				/>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm shrink-0"
+					onclick={() => copyToClipboard(fundingInvoice)}
+					data-testid="copy-funding-invoice"
+				>
+					{$t('dashboard.bids.bid_acceptance.copy')}
+				</button>
+			</div>
 			<button
 				type="button"
 				class="btn btn-primary w-full"
@@ -411,7 +485,7 @@
 			</button>
 			<button
 				type="button"
-				class="btn btn-outline w-full"
+				class="btn btn-outline btn-sm w-full"
 				onclick={handleCheckFunding}
 				disabled={isProcessing}
 				data-testid="check-funding-button"
@@ -421,22 +495,22 @@
 				{/if}
 				{$t('dashboard.bids.bid_acceptance.check_payment')}
 			</button>
-			<div class="join w-full">
-				<input
-					class="input input-bordered join-item min-w-0 flex-1 text-xs"
-					readonly
-					value={fundingInvoice}
-					aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
-				/>
-				<button
-					type="button"
-					class="btn btn-outline join-item"
-					onclick={() => copyToClipboard(fundingInvoice)}
-					data-testid="copy-funding-invoice"
-				>
-					{$t('dashboard.bids.bid_acceptance.copy')}
-				</button>
-			</div>
+		{:else if awaitingTaskeeInvoice}
+			<p class="text-base-content/70 text-xs" data-testid="waiting-taskee-invoice">
+				{$t('dashboard.bids.bid_acceptance.waiting_taskee_invoice')}
+			</p>
+			<button
+				type="button"
+				class="btn btn-primary w-full"
+				onclick={handleLoadTaskeeInvoice}
+				disabled={isProcessing}
+				data-testid="load-taskee-invoice"
+			>
+				{#if isProcessing}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				{$t('dashboard.bids.bid_acceptance.load_taskee_invoice')}
+			</button>
 		{:else if fundedRune && escrowReady}
 			<button
 				type="button"
@@ -448,7 +522,7 @@
 				{#if isProcessing && processingStep === 'starting'}
 					<span class="loading loading-spinner loading-sm"></span>
 				{/if}
-				Start Task
+				{$t('dashboard.bids.bid_acceptance.start_task')}
 			</button>
 		{:else}
 			<button

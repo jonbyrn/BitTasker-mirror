@@ -1,3 +1,4 @@
+import type { NostrEvent } from 'nostr-tools';
 import type { TaskTranslations } from './task.d';
 import type { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import type { BidTranslations } from '$lib/nostr/bid';
@@ -53,6 +54,22 @@ export interface CounterOffer {
 	createdAt: string;
 	status: 'pending' | 'accepted' | 'rejected';
 }
+
+export interface NostrBidStatus {
+	type: 'bid-status';
+	taskId: string;
+	status: BidStatusEnum;
+	message?: string;
+	timestamp: number;
+	escrowId?: string;
+	transactionHash?: string;
+	/** Blank RGB invoice created by the Taskee. The Tasker pays this, not a self-invoice. */
+	invoice?: string;
+}
+
+export type NostrEventWithFollowup = NostrEvent & {
+	latestStatus?: NostrEvent & { content: NostrBidStatus | string };
+};
 
 export interface Bid {
 	id: string;

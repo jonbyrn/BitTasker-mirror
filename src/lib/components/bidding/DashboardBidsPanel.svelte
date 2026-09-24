@@ -33,6 +33,7 @@
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconCheckAll from '~icons/mdi/check-all';
+	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
 
 	/** Build a task-like object from bid for TranslatableTask (title + description) */
 	function taskFromBid(bid: NostrBidContent): Task {
@@ -475,6 +476,12 @@
 									/>
 									<TaskLocationDisplay />
 								</div>
+								<EscrowInvoiceActions
+									bidId={bidEvent.id}
+									taskId={bid.taskId}
+									taskerPubkey={bid.taskCreatorPubkey}
+									{status}
+								/>
 								<div>
 									<UserInfoDisplay
 										avatar={bid.taskCreatorAvatar}

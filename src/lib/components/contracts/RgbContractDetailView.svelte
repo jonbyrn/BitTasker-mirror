@@ -10,6 +10,10 @@
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { initWasm } from '$lib/wasm/init-wasm';
+	import { t } from 'svelte-i18n';
+	import { appStore } from '$lib/stores/app.store';
+	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { acceptIncomingPayment } from '$lib/stores/wallet/wallet-balances';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -45,6 +49,7 @@
 	let proofUrl = $state('');
 	let isSubmitting = $state(false);
 	let isReleasing = $state(false);
+	let isAccepting = $state(false);
 
 	const snapshot = $derived(rune?.snapshot ?? null);
 	const settlementUnit = $derived(
@@ -188,6 +193,21 @@
 		}
 	}
 
+	async function handleAcceptPayment(): Promise<void> {
+		isAccepting = true;
+		errorMessage = '';
+		try {
+			await walletManager.initialize();
+			await acceptIncomingPayment();
+			appStore.showSuccessToast($t('bids.incoming_payment_accepted'));
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : $t('bids.escrow_invoice_failed');
+		} finally {
+			await walletManager.releaseRgbLock();
+			isAccepting = false;
+		}
+	}
+
 	async function handleSubmitDeliverable(): Promise<void> {
 		if (!rune) return;
 		isSubmitting = true;
@@ -298,6 +318,18 @@
 				<p class="text-base-content/80 text-sm">
 					{fundIsPaid ? 'Paid on fund. Release confirms the work.' : 'Waiting for the fund send.'}
 				</p>
+				{#if role === 'taskee'}
+					<button
+						type="button"
+						class="btn btn-outline btn-sm mt-2"
+						onclick={handleAcceptPayment}
+						disabled={isAccepting}
+						data-testid="accept-incoming-payment"
+					>
+						{#if isAccepting}<span class="loading loading-spinner loading-xs"></span>{/if}
+						{$t('bids.accept_incoming_payment')}
+					</button>
+				{/if}
 			</div>
 		</section>
 

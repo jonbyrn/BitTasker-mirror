@@ -1,4 +1,4 @@
-import type { BidStatusEnum } from './enums/bid.enum';
+import { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
 import type { NostrBidStatus, NostrEventWithFollowup } from '$lib/types/bid';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -11,9 +11,9 @@ import { get } from 'svelte/store';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
-import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { resolveSharedRelays } from '$lib/utils/relayUrls';
 
-const BID_RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+const BID_RELAYS = resolveSharedRelays();
 
 const SATS_CURRENCY_CODES = new Set(['SATS', 'SAT', 'BTC']);
 
@@ -52,7 +52,8 @@ type LastPublishedBid = {
 function pubkeyToHex(pubkey: string): string {
 	if (/^[0-9a-f]{64}$/i.test(pubkey)) return pubkey.toLowerCase();
 	const decoded = nip19.decode(pubkey);
-	if (decoded.type !== 'npub') throw new Error(`Expected npub public key, received ${decoded.type}`);
+	if (decoded.type !== 'npub')
+		throw new Error(`Expected npub public key, received ${decoded.type}`);
 	return decoded.data as string;
 }
 
@@ -160,7 +161,10 @@ export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] 
  * @param events - Events to filter (e.g. bids)
  * @returns Events with deleted ones removed
  */
-async function filterNip09DeletedEvents(events: NostrEvent[]): Promise<NostrEvent[]> {
+async function filterNip09DeletedEvents(
+	events: NostrEvent[],
+	relays: string[]
+): Promise<NostrEvent[]> {
 	if (events.length === 0) return events;
 
 	const authors = [...new Set(events.map((e) => e.pubkey))];
@@ -170,7 +174,7 @@ async function filterNip09DeletedEvents(events: NostrEvent[]): Promise<NostrEven
 		limit: 500
 	};
 
-	const deletions = await queryNostrEvents(deletionFilter);
+	const deletions = await queryNostrEvents(deletionFilter, undefined, undefined, relays);
 	const deletedIds = new Set<string>();
 
 	for (const d of deletions) {
@@ -248,11 +252,12 @@ export async function getBidsForTask(
 						attachAs: 'latestStatus', // Attach as 'latestStatus' property
 						keepLatest: true // Only keep the most recent status per bid
 					}
-				: undefined
+				: undefined,
+			BID_RELAYS
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
-		bids = await filterNip09DeletedEvents(bids);
+		bids = await filterNip09DeletedEvents(bids, BID_RELAYS);
 
 		// Filter out bids from muted users — applied before caching so cache stays clean.
 		const currentMutes = get(muteStore);
@@ -322,11 +327,12 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 						attachAs: 'latestStatus', // Attach as 'latestStatus' property
 						keepLatest: true // Only keep the most recent status per bid
 					}
-				: undefined
+				: undefined,
+			BID_RELAYS
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
-		bids = await filterNip09DeletedEvents(bids);
+		bids = await filterNip09DeletedEvents(bids, BID_RELAYS);
 
 		// Cache the results
 		smartCache.setBidsByUser(npub, bids, 5);
@@ -416,6 +422,47 @@ export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | n
  * Send a bid status update (acceptance or rejection) via encrypted DM.
  * Returns `true` on success, `false` on failure. Never throws.
  */
+export function readFundingInvoice(status: NostrBidStatus | null): string | undefined {
+	const invoice = status?.invoice?.trim() ?? '';
+	if (!invoice.startsWith('rgb:') && !invoice.startsWith('rgb1')) return undefined;
+	return invoice;
+}
+
+/** Latest blank invoice the Taskee published for this bid. */
+export async function fetchFundingInvoice(
+	taskId: string,
+	bidId: string
+): Promise<string | undefined> {
+	clearBidCache(taskId);
+	const bids = await getBidsForTask(taskId, true);
+	const match = bids.find((event) => event.id === bidId);
+	if (!match) return undefined;
+	return readFundingInvoice(getBidStatus(match as NostrEventWithFollowup));
+}
+
+/** Taskee hands a blank RGB invoice to the Tasker. Status stays accepted. */
+export async function publishFundingInvoice(
+	bidEventId: string,
+	taskId: string,
+	taskerPubkey: string,
+	invoice: string
+): Promise<boolean> {
+	const trimmed = invoice.trim();
+	if (!trimmed.startsWith('rgb:') && !trimmed.startsWith('rgb1')) {
+		throw new Error('Escrow invoice must be an rgb invoice');
+	}
+	return sendBidStatusUpdate(
+		bidEventId,
+		taskId,
+		taskerPubkey,
+		BidStatusEnum.ACCEPTED,
+		'Escrow invoice created',
+		undefined,
+		undefined,
+		trimmed
+	);
+}
+
 export async function sendBidStatusUpdate(
 	bidEventId: string,
 	taskId: string,
@@ -423,7 +470,8 @@ export async function sendBidStatusUpdate(
 	status: BidStatusEnum,
 	message?: string,
 	escrowId?: string,
-	transactionHash?: string
+	transactionHash?: string,
+	invoice?: string
 ): Promise<boolean> {
 	try {
 		const statusData: NostrBidStatus = {
@@ -433,7 +481,8 @@ export async function sendBidStatusUpdate(
 			message,
 			timestamp: Date.now(),
 			escrowId,
-			transactionHash
+			transactionHash,
+			...(invoice ? { invoice } : {})
 		};
 
 		// Send as encrypted DM to the bidder
@@ -445,7 +494,7 @@ export async function sendBidStatusUpdate(
 		// This is more efficient than clearing all caches
 		clearBidCache(taskId);
 
-		appStore.showInfoToast(`Bid status updated to ${status}`);
+		if (!invoice) appStore.showInfoToast(`Bid status updated to ${status}`);
 		return true;
 	} catch (error) {
 		console.warn('Error sending bid status update:', error);
