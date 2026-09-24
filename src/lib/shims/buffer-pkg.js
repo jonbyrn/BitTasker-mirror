@@ -13,6 +13,9 @@ if (!Buffer) {
 
 Buffer.Buffer = Buffer;
 Buffer.default = Buffer;
+if (typeof globalThis.Buffer === 'undefined') {
+	globalThis.Buffer = Buffer;
+}
 
 export default Buffer;
 export { Buffer };

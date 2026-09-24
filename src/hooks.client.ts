@@ -1,3 +1,4 @@
+import '$lib/polyfills';
 import { Buffer } from 'buffer';
 import process from 'process';
 

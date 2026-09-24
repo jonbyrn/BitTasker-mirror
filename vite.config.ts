@@ -170,7 +170,9 @@ function bitcoinjsSingleGraph(): Plugin {
 	if (result.errors.length > 0) {
 		throw new Error(result.errors.map((error) => error.text).join('; '));
 	}
-	const graph = `${result.outputFiles[0]?.text ?? ''}
+	const graph = `import { Buffer } from 'buffer';
+if (typeof globalThis.Buffer === 'undefined') globalThis.Buffer = Buffer;
+${result.outputFiles[0]?.text ?? ''}
 const bitcoinjs = typeof __BT_BITCOINJS__ !== 'undefined' ? __BT_BITCOINJS__ : globalThis.__BT_BITCOINJS__;
 if (typeof bitcoinjs?.Psbt !== 'function') {
 	throw new Error('bitcoinjs IIFE loaded without Psbt');
@@ -766,7 +768,7 @@ export default defineConfig(({ mode }) => {
 				}
 			}),
 			nodePolyfills({
-				include: ['stream', 'util', 'vm'],
+				include: ['buffer', 'stream', 'util', 'vm'],
 				protocolImports: true,
 				globals: {
 					Buffer: true,
