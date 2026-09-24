@@ -58,6 +58,10 @@ run_worker_first = [
 # Non-inheritable — defined per-environment below.
 # Created via: wrangler kv namespace create VIDEO_STATUS / VIDEO_AUTH
 
+# Default Worker vars. Named environments do not inherit this table.
+[vars]
+VITE_RGB_USDT_ASSET_ID = "rgb:2s69152-rg39309-8438210-usdt_testnet"
+
 # ============================================
 # DEV Environment (default)
 # ============================================
