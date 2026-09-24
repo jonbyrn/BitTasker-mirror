@@ -289,7 +289,9 @@ describe('BidAcceptanceFormV2', () => {
 			expect.objectContaining({ action: 'contract_created', escrowId: 'contract-task-1-bid-1' })
 		);
 		await waitFor(() => expect(getByTestId('start-contract-button')).toBeTruthy());
-		expect(getByTestId('start-contract-button').textContent).toContain('Start Task');
+		expect(getByTestId('start-contract-button').textContent).toContain(
+			'dashboard.bids.bid_acceptance.start_task'
+		);
 		expect(getByTestId('start-contract-button')).toBeTruthy();
 		expect(onFunded).not.toHaveBeenCalled();
 
