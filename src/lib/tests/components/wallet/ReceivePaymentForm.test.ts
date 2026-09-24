@@ -61,6 +61,19 @@ describe('ReceivePaymentForm', () => {
 		expect(createLightningInvoice).not.toHaveBeenCalled();
 	});
 
+	it('does not request a USDT invoice when the asset id is not configured', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+
+		expect(getByTestId('receive-usdt-unconfigured').textContent).toContain(
+			'wallet.taproot.usdt_not_configured'
+		);
+		expect(queryByTestId('receive-generate')).toBeNull();
+		expect(onchainReceive).not.toHaveBeenCalled();
+	});
+
 	it('creates an RGB invoice for USDT receives', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 

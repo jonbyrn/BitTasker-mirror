@@ -244,7 +244,12 @@ function markWalletReady(): void {
 
 function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
-	const usdtBalance = rgbAssets.find((a) => a.assetId === usdtAssetId)?.balance ?? 0;
+	if (!usdtAssetId) {
+		console.warn('[wallet-init] No active RGB_USDT_ASSET_ID');
+	}
+	const usdtBalance = usdtAssetId
+		? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0)
+		: 0;
 
 	walletStore.update((s) => ({
 		...s,

@@ -104,9 +104,14 @@
 				});
 				txid = result.txid;
 			} else if (asset === 'usdt_rgb') {
+				const assetId = getConfiguredRgbUsdtAssetId();
+				if (!assetId) {
+					errorMessage = $t('wallet.taproot.usdt_not_configured');
+					return;
+				}
 				const result = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
-					assetId: getConfiguredRgbUsdtAssetId(),
+					assetId,
 					amount: amountSats
 				});
 				txid = result.txid;

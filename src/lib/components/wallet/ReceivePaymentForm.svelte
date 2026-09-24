@@ -13,10 +13,8 @@
 	let asset = $state<ReceiveAsset>('btc_onchain');
 	let amountSats = $state('');
 	let isGenerating = $state(false);
-		let isGeneratingRgbInvoice = $state(false);
-		let rgbInvoiceString = $state('');
-		let receiveValue = $state('');
-		let errorMessage = $state('');
+	let receiveValue = $state('');
+	let errorMessage = $state('');
 
 	const assets: Array<{ id: ReceiveAsset; labelKey: string }> = [
 		{ id: 'btc_onchain', labelKey: 'wallet.send_form.asset.bitcoin' },
@@ -34,42 +32,45 @@
 		const parsed = Number(amountSats);
 		return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 	});
+	const usdtAssetId = getConfiguredRgbUsdtAssetId();
+	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
 	const canGenerate = $derived(
-		asset === 'btc_onchain' ? onchainAddress !== '' : parsedAmount !== null && !isGenerating
+		usdtUnconfigured
+			? false
+			: asset === 'btc_onchain'
+				? onchainAddress !== ''
+				: parsedAmount !== null && !isGenerating
 	);
 
 	async function handleGenerate(): Promise<void> {
-			errorMessage = '';
-			if (asset === 'btc_onchain') {
-				receiveValue = onchainAddress || (await walletManager.getRgbAddress());
+		errorMessage = '';
+		if (asset === 'btc_onchain') {
+			receiveValue = onchainAddress || (await walletManager.getRgbAddress());
+			return;
+		}
+		if (asset === 'usdt_rgb') {
+			if (!usdtAssetId) {
+				errorMessage = $t('wallet.taproot.usdt_not_configured');
 				return;
 			}
-			if (asset === 'usdt_rgb') {
-							isGeneratingRgbInvoice = true;
-							try {
-								let targetAssetId: string | undefined = undefined;
-								try {
-									targetAssetId = getConfiguredRgbUsdtAssetId();
-								} catch {
-									console.info('[receive-modal] No predefined USDT Asset ID configured, generating generic RGB invoice.');
-								}
-								const result = await createRgbInvoice({
-									assetId: targetAssetId,
-									amount: parsedAmount ?? undefined
-								});
-								rgbInvoiceString = result.invoice;
-								receiveValue = result.invoice;
-							} catch (err) {
-								errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
-								console.error('[receive-modal] RGB invoice error:', err);
-							} finally {
-								isGeneratingRgbInvoice = false;
-							}
-							return;
-						}
-			// Lightning invoice generation deferred
-			receiveValue = 'Pending implementation';
+			isGenerating = true;
+			try {
+				const result = await createRgbInvoice({
+					assetId: usdtAssetId,
+					amount: parsedAmount ?? undefined
+				});
+				receiveValue = result.invoice;
+			} catch (err) {
+				errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
+				console.error('[receive-modal] RGB invoice error:', err);
+			} finally {
+				isGenerating = false;
+			}
+			return;
 		}
+		// Lightning invoice generation deferred
+		receiveValue = 'Pending implementation';
+	}
 
 	async function handleCopy(): Promise<void> {
 		if (!receiveValue) return;
@@ -105,7 +106,9 @@
 
 	{#if requiresAmount}
 		<label class="form-control">
-			<span class="label-text mb-1">{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' ? 'USDT' : 'sats'})</span>
+			<span class="label-text mb-1"
+				>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' ? 'USDT' : 'sats'})</span
+			>
 			<input
 				class="input input-bordered w-full"
 				inputmode="numeric"
@@ -116,7 +119,15 @@
 		</label>
 	{/if}
 
-	{#if !receiveValue}
+	{#if usdtUnconfigured}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="receive-usdt-unconfigured"
+		>
+			<span>{$t('wallet.taproot.usdt_not_configured')}</span>
+		</div>
+	{:else if !receiveValue}
 		<button
 			type="button"
 			class="btn btn-primary w-full"

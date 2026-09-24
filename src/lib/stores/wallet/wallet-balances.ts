@@ -402,8 +402,10 @@ export async function loadAssets(): Promise<void> {
 			console.warn('[wallet-balances] listAssets error:', err);
 		}
 
-		const usdtBalance =
-			rgbAssets.find((a) => a.assetId === getConfiguredRgbUsdtAssetId())?.balance ?? 0;
+		const usdtAssetId = getConfiguredRgbUsdtAssetId();
+		const usdtBalance = usdtAssetId
+			? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0)
+			: 0;
 
 		walletStore.update((s) => ({
 			...s,

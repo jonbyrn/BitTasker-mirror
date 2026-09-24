@@ -311,6 +311,7 @@
 			"send_usdt": "Send USDT",
 			"receive_btc": "Receive BTC",
 			"receive_usdt": "Receive USDT",
+			"usdt_not_configured": "USDT asset not configured",
 			"receive_token": "Receive {token}",
 			"tether_usd": "Tether USD (RGB)",
 			"token": "Token",

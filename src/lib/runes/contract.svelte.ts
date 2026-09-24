@@ -155,9 +155,11 @@ function resolveAssetId(asset: ContractPaymentAsset): string {
 	if (minted) return minted;
 	if (asset === 'btc_onchain' || asset === 'btc_lightning') return 'BTC';
 	if (isE2ERun()) {
-		return import.meta.env.VITE_RGB_USDT_ASSET_ID ?? 'rgb:mock_e2e_usdt_asset_id';
+		return getConfiguredRgbUsdtAssetId() ?? 'rgb:mock_e2e_usdt_asset_id';
 	}
-	return getConfiguredRgbUsdtAssetId();
+	const configured = getConfiguredRgbUsdtAssetId();
+	if (!configured) throw new Error('USDT asset not configured');
+	return configured;
 }
 
 async function publishAttestation(

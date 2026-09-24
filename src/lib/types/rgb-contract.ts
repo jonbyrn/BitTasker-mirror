@@ -18,15 +18,16 @@ export function isNativeBitcoinAsset(assetId: string | null | undefined): boolea
 	return NATIVE_BITCOIN_IDS.has(assetId.trim());
 }
 
-const FALLBACK_RGB_USDT_ASSET_ID = 'rgb:2s69152-rg39309-8438210-usdt_testnet';
+const REJECTED_RGB_USDT_PREFIX = 'rgb:2s69152';
+const HEX_64 = /^[0-9a-fA-F]{64}$/;
 
-export const RGB_USDT_ASSET_ID =
-	(import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim() ||
-	FALLBACK_RGB_USDT_ASSET_ID;
-
-export function getConfiguredRgbUsdtAssetId(): string {
-	const assetId = (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim();
-	return assetId || FALLBACK_RGB_USDT_ASSET_ID;
+/** Configured RGB USDT id, or null when unset or not safe to pass into the wallet. */
+export function getConfiguredRgbUsdtAssetId(): string | null {
+	const assetId = (import.meta.env.VITE_RGB_USDT_ASSET_ID as string | undefined)?.trim() ?? '';
+	if (!assetId || assetId.startsWith(REJECTED_RGB_USDT_PREFIX) || HEX_64.test(assetId)) {
+		return null;
+	}
+	return assetId;
 }
 
 export interface PaymentSplitConfig {
