@@ -3,6 +3,7 @@ import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+import { receiveWithAllocations } from './rgb-allocations';
 
 interface RawRgbAsset {
 	id: string;
@@ -525,6 +526,13 @@ export async function createRgbInvoice(params?: {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	console.info('[rgb-invoice:start]', params);
+	return receiveWithAllocations(wallet, () => requestRgbInvoice(wallet, params));
+}
+
+async function requestRgbInvoice(
+	wallet: NonNullable<ReturnType<typeof getUtexoWallet>>,
+	params?: { assetId?: string; amount?: number }
+): Promise<{ invoice: string; blindedUtxo?: string }> {
 	// Explicitly call blindReceive for Blind Mode invoices (UTOB / blinded UTXOs)
 	if (typeof wallet.blindReceive === 'function') {
 		const res = await wallet.blindReceive({

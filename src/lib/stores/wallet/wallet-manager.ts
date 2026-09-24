@@ -12,6 +12,7 @@ import { loadTransactions } from './wallet-transactions';
 import { sendBtc, type SendBtcParams } from './wallet-send';
 import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
 import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
+import { receiveWithAllocations } from './rgb-allocations';
 import type { RgbAsset } from './wallet-types';
 
 export const walletManager = {
@@ -76,12 +77,13 @@ export const walletManager = {
 			...(params.durationSeconds === undefined ? {} : { durationSeconds: params.durationSeconds }),
 			...(isNativeBitcoinAsset(params.assetId) ? {} : { assetId: params.assetId })
 		};
-		const receive =
+		const receive = await receiveWithAllocations(wallet, () =>
 			typeof wallet.onchainReceive === 'function'
-				? await wallet.onchainReceive(receiveParams)
+				? wallet.onchainReceive(receiveParams)
 				: receiveParams.witness === false
-					? await wallet.blindReceive(receiveParams)
-					: await wallet.witnessReceive(receiveParams);
+					? wallet.blindReceive(receiveParams)
+					: wallet.witnessReceive(receiveParams)
+		);
 		return {
 			invoice: receive.invoice,
 			recipientId: receive.recipientId,

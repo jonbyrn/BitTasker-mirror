@@ -16,6 +16,7 @@ import {
 } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+import { ensureRgbAllocations } from './rgb-allocations';
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
@@ -122,6 +123,12 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			await scanAndUpdateBalances(wallet, network);
 		} catch (scanError) {
 			console.warn('[wallet-init] balance scan deferred:', scanError);
+		}
+
+		try {
+			await ensureRgbAllocations(wallet);
+		} catch (allocationError) {
+			console.warn('[wallet-init] RGB allocation setup skipped:', allocationError);
 		}
 
 		startConsignmentSubscription();
