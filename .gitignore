@@ -140,6 +140,9 @@ static/images/chains/.svelte-kit/
 wallet-core/
 wallet-core.zip
 
+# Local Nest checkout. Not part of the static frontend build.
+bittasker-nestjs/
+
 # Agent/tool caches
 .mimocode/
 .ts-errors.txt
