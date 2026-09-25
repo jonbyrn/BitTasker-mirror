@@ -1,0 +1,3 @@
+[submodule "bittasker-nestjs"]
+	path = bittasker-nestjs
+	url = https://gitlab.com/bittasker/bittasker-nestjs.git
