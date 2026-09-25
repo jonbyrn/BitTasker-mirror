@@ -2,13 +2,33 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('relayUrls');
 const E2E_TASK_RELAY_URL = 'ws://localhost:7777';
+const socketsClosing = new WeakSet<WebSocket>();
+
+/** Node's WebSocket re-enters onerror when close() runs from onerror, which overflows the stack. */
+export function guardRelaySocket(): void {
+	if (typeof WebSocket === 'undefined') return;
+	const proto = WebSocket.prototype as WebSocket & { __btCloseGuarded?: boolean };
+	if (proto.__btCloseGuarded) return;
+	const close = proto.close;
+	proto.close = function (code?: number, reason?: string) {
+		if (socketsClosing.has(this)) return;
+		socketsClosing.add(this);
+		try {
+			close.call(this, code, reason);
+		} finally {
+			socketsClosing.delete(this);
+		}
+	};
+	proto.__btCloseGuarded = true;
+}
 
 function isE2ERun(): boolean {
 	// Only consider E2E mode when both the bypass is set AND we're in a test environment
 	const hasBypass = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
-	const isTestEnv = typeof window !== 'undefined' && 
-		(window as any).__PLAYWRIGHT_TEST__ === true;
-	
+	const isTestEnv =
+		typeof window !== 'undefined' &&
+		(window as Window & { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true;
+
 	return hasBypass && isTestEnv;
 }
 
@@ -29,11 +49,7 @@ export function sanitizeRelayUrls(input: string | string[] | undefined): string[
 	return rawUrls
 		.map((url) => (typeof url === 'string' ? url.trim() : ''))
 		.filter(
-			(url) =>
-				url.length > 0 &&
-				url !== 'undefined' &&
-				url !== 'null' &&
-				url !== '[object Object]'
+			(url) => url.length > 0 && url !== 'undefined' && url !== 'null' && url !== '[object Object]'
 		)
 		.map((url) => {
 			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
@@ -76,4 +92,13 @@ export function resolveTaskRelayUrls(envValue: string | undefined): string[] {
 
 	d.warn('VITE_NOSTR_TASK_RELAY_URL not set, falling back to VITE_NOSTR_RELAY_URL');
 	return resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+}
+
+/** Relays that both publish and read tasks and bids. */
+export function resolveSharedRelays(): string[] {
+	const urls = [
+		...resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL),
+		...resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL)
+	];
+	return [...new Set(urls)];
 }

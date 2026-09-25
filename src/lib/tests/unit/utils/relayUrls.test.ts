@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	resolveExplicitRelayUrls,
+	resolveSharedRelays,
 	resolveTaskRelayUrls,
 	sanitizeRelayUrls
 } from '$lib/utils/relayUrls';
@@ -72,5 +73,14 @@ describe('resolveTaskRelayUrls', () => {
 		const result = resolveTaskRelayUrls(undefined);
 		// Either returns the fallback relay URLs or empty array if neither is set
 		expect(Array.isArray(result)).toBe(true);
+	});
+});
+
+describe('resolveSharedRelays', () => {
+	it('reads tasks and bids from the publish relay and the task relay', () => {
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		vi.stubEnv('VITE_NOSTR_TASK_RELAY_URL', 'wss://relay.primal.net');
+		expect(resolveSharedRelays()).toEqual(['wss://nos.lol', 'wss://relay.primal.net']);
+		vi.unstubAllEnvs();
 	});
 });
