@@ -229,6 +229,9 @@ importers:
       '@nostr-dev-kit/wot':
         specifier: ^1.0.0
         version: 1.0.0(@nostr-dev-kit/ndk@3.0.3(nostr-tools@2.23.3(typescript@5.9.3))(supports-color@10.2.2))(@nostr-dev-kit/sync@1.0.0(@nostr-dev-kit/ndk@3.0.3(nostr-tools@2.23.3(typescript@5.9.3))(supports-color@10.2.2))(typescript@5.9.3))(supports-color@10.2.2)
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
       '@scure/bip39':
         specifier: ^2.4.0
         version: 2.4.0
@@ -307,6 +310,9 @@ importers:
       coinselect:
         specifier: ^3.1.13
         version: 3.1.13
+      cookie:
+        specifier: ^0.6.0
+        version: 0.6.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
