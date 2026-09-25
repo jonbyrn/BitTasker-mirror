@@ -250,11 +250,12 @@ async function filterNip09DeletedEvents(
  */
 export async function getBidsForTask(
 	taskId: string,
-	includeStatus: boolean = true
+	includeStatus: boolean = true,
+	allStatuses: boolean = false
 ): Promise<NostrEvent[]> {
 	try {
-		// Check smartCache first
-		const cachedBids = smartCache.getBidsForTask(taskId);
+		// The invoice lookup needs every status. The shared cache only stores the latest one.
+		const cachedBids = allStatuses ? undefined : smartCache.getBidsForTask(taskId);
 		if (cachedBids) {
 			if (import.meta.env.DEV) {
 				console.debug('Using cached task bid data');
@@ -292,8 +293,8 @@ export async function getBidsForTask(
 			followupFilter,
 			followupFilter
 				? {
-						attachAs: 'latestStatus', // Attach as 'latestStatus' property
-						keepLatest: true // Only keep the most recent status per bid
+						attachAs: 'latestStatus',
+						keepLatest: !allStatuses
 					}
 				: undefined,
 			BID_RELAYS
@@ -308,8 +309,7 @@ export async function getBidsForTask(
 			bids = bids.filter((bid) => !currentMutes.mutedPubkeys.has(bid.pubkey));
 		}
 
-		// Cache the results
-		smartCache.setBidsForTask(taskId, bids, 5);
+		if (!allStatuses) smartCache.setBidsForTask(taskId, bids, 5);
 
 		return bids;
 	} catch (error) {
@@ -471,16 +471,39 @@ export function readFundingInvoice(status: NostrBidStatus | null): string | unde
 	return invoice;
 }
 
+function statusTimestamp(status: NostrBidStatus, createdAt: number): number {
+	return typeof status.timestamp === 'number' ? status.timestamp : createdAt;
+}
+
+/** Newest RGB invoice on the bid, including one hidden by a later status. */
+export function readBidInvoice(event: { latestStatus?: unknown }): string | undefined {
+	const attached = event.latestStatus;
+	const events = Array.isArray(attached) ? attached : attached ? [attached] : [];
+	let chosen: { invoice: string; at: number } | undefined;
+	for (const statusEvent of events) {
+		if (!statusEvent || typeof statusEvent !== 'object') continue;
+		const record = statusEvent as { content?: unknown; created_at?: number };
+		const content = record.content;
+		if (!content || typeof content !== 'object') continue;
+		const status = content as NostrBidStatus;
+		const invoice = readFundingInvoice(status);
+		if (!invoice) continue;
+		const at = statusTimestamp(status, record.created_at ?? 0);
+		if (!chosen || at >= chosen.at) chosen = { invoice, at };
+	}
+	return chosen?.invoice;
+}
+
 /** Latest blank invoice the Taskee published for this bid. */
 export async function fetchFundingInvoice(
 	taskId: string,
 	bidId: string
 ): Promise<string | undefined> {
 	clearBidCache(taskId);
-	const bids = await getBidsForTask(taskId, true);
+	const bids = await getBidsForTask(taskId, true, true);
 	const match = bids.find((event) => event.id === bidId);
 	if (!match) return undefined;
-	return readFundingInvoice(getBidStatus(match as NostrEventWithFollowup));
+	return readBidInvoice(match as NostrEventWithFollowup);
 }
 
 /** Taskee hands a blank RGB invoice to the Tasker. Status stays accepted. */

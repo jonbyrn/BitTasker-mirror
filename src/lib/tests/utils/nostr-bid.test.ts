@@ -3,6 +3,7 @@ import {
 	buildBidContent,
 	isSatBid,
 	lockBidAmount,
+	readBidInvoice,
 	readFundingInvoice,
 	readTaskerPubkey,
 	resolveBidSats,
@@ -228,5 +229,23 @@ describe('sendBidStatusUpdate', () => {
 		expect(payload.status).toBe(BidStatusEnum.ACCEPTED);
 		expect(readFundingInvoice(payload)).toBe(invoice);
 		expect(readFundingInvoice({ ...payload, invoice: 'not-rgb' })).toBeUndefined();
+	});
+
+	it('keeps the escrow invoice when a newer status omits it', () => {
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		expect(
+			readBidInvoice({
+				latestStatus: [
+					{
+						created_at: 10,
+						content: { invoice, timestamp: 10, status: BidStatusEnum.ACCEPTED }
+					},
+					{
+						created_at: 20,
+						content: { timestamp: 20, status: BidStatusEnum.ACCEPTED, message: 'Bid accepted' }
+					}
+				]
+			})
+		).toBe(invoice);
 	});
 });
