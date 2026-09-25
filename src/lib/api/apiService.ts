@@ -39,7 +39,7 @@ export function isNotFoundError(error: unknown): boolean {
 export class BaseApiService {
 	private axiosInstancePromise: Promise<AxiosInstance>;
 
-	constructor(baseURL: string = import.meta.env.VITE_API_URL) {
+	constructor(baseURL: string = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL) {
 		this.axiosInstancePromise = createAxiosInstance({ baseURL });
 	}
 

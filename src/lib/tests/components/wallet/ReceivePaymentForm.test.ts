@@ -61,17 +61,25 @@ describe('ReceivePaymentForm', () => {
 		expect(createLightningInvoice).not.toHaveBeenCalled();
 	});
 
-	it('does not request a USDT invoice when the asset id is not configured', async () => {
+	it('creates a blank RGB invoice when USDT is not configured', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
-		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
 
 		expect(getByTestId('receive-usdt-unconfigured').textContent).toContain(
 			'wallet.taproot.usdt_not_configured'
 		);
-		expect(queryByTestId('receive-generate')).toBeNull();
-		expect(onchainReceive).not.toHaveBeenCalled();
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
 	it('creates an RGB invoice for USDT receives', async () => {

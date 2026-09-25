@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import BidAcceptanceFormV2 from '$lib/components/bidding/BidAcceptanceFormV2.svelte';
 	import BidCard from '$lib/components/bidding/BidCard.svelte';
@@ -22,6 +23,14 @@
 	let bidToAccept = $state<NDKBid | null>(null);
 
 	const d = createDebug('BidsPage');
+	// One relay set for the page. Building a new set inside each subscription
+	// reconnects relays on every config pass and resets the end-of-stored-events flag.
+	let taskRelay: ReturnType<typeof getTaskRelay> | undefined;
+
+	function sharedTaskRelay() {
+		taskRelay ??= getTaskRelay();
+		return taskRelay;
+	}
 
 	$effect(() => {
 		if (ndk.$currentPubkey) return;
@@ -44,7 +53,7 @@
 				{ kinds: [KINDS.TASK_CREATION], authors: [taskAuthor], '#d': [page.params.taskId] }
 			],
 			wrap: true,
-			relaySet: getTaskRelay(),
+			relaySet: sharedTaskRelay(),
 			noDedupe: true
 		};
 	});
@@ -56,9 +65,12 @@
 	);
 	const bidRecipientPubkey = $derived(routeClientHex ?? ndk.$currentPubkey);
 	const taskEventId = $derived(routeTaskEventId ?? task?.id);
+	// The route already has the task d-tag. Bids are tagged with that id, so the
+	// list can start before the task event itself is found.
 	const bidFilter = $derived.by(() => {
-		if (!bidRecipientPubkey || !taskEventId) return undefined;
-		return { kinds: [KINDS.BIDS], '#p': [bidRecipientPubkey], '#e': [taskEventId], limit: 50 };
+		const taskId = page.params.taskId;
+		if (!bidRecipientPubkey || !taskId) return undefined;
+		return { kinds: [KINDS.BIDS], '#p': [bidRecipientPubkey], '#t': [taskId], limit: 50 };
 	});
 
 	// Single subscription for both bids (30007) and their status events (30008).
@@ -70,7 +82,7 @@
 		return {
 			filters: [bidFilter, { kinds: [KINDS.BID_STATUS], '#t': [page.params.taskId], limit: 500 }],
 			wrap: true,
-			relaySet: getTaskRelay()
+			relaySet: sharedTaskRelay()
 		};
 	});
 
@@ -78,7 +90,7 @@
 		if (!bidFilter) return undefined;
 		return {
 			filters: [bidFilter],
-			relaySet: getTaskRelay(),
+			relaySet: sharedTaskRelay(),
 			noDedupe: true
 		};
 	});
@@ -214,9 +226,12 @@
 		showMessageModal = true;
 	}
 
-	function handleFunded(_contractId: string) {
+	function handleFunded(contractId: string) {
 		showAcceptanceForm = false;
 		bidToAccept = null;
+		goto(`/hiring/contracts/${encodeURIComponent(contractId)}`).catch((error: unknown) => {
+			console.error('[bids] contract navigation failed', error);
+		});
 	}
 
 	function closeMessageModal() {
@@ -268,13 +283,7 @@
 				/>
 			{/each}
 		</div>
-	{:else if !bidsAndStatusSub.eosed}
-		<!-- Still waiting for the initial relay batch — don't show bids with stale status -->
-		<div class="flex items-center justify-center py-6">
-			<div class="loading loading-spinner loading-md"></div>
-			<span class="text-base-content/60 ml-2">{$t('common.loading')}</span>
-		</div>
-	{:else if bids.length === 0}
+	{:else}
 		<div class="card bg-base-100 border-base-300 border shadow-sm">
 			<div class="card-body p-5">
 				<NoBids onRetry={() => {}} />
@@ -291,7 +300,7 @@
 	isScrollable={true}
 >
 	{#if showAcceptanceForm && bidToAccept && task}
-		<div class="flex flex-col gap-4 px-2 py-2">
+		<div class="flex h-full min-h-0 flex-col">
 			<BidAcceptanceFormV2
 				bid={bidToAccept}
 				{task}

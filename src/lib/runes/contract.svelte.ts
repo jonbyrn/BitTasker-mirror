@@ -17,6 +17,7 @@ import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-e
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import type { LockedBidCurrency } from '$lib/types/bid';
 
 export type ContractRuneStatus =
 	| 'draft'
@@ -48,6 +49,8 @@ export interface ContractRuneInput {
 	bidderComments?: string;
 	totalAmountUsd: number;
 	amountSats?: number;
+	lockedAmount?: number;
+	lockedCurrency?: LockedBidCurrency;
 	split: PaymentSplitConfig;
 	partyPubkeys?: string[];
 }
@@ -57,6 +60,8 @@ export interface ContractRuneSnapshot {
 	contractTitle?: string;
 	bidderComments?: string;
 	totalAmountUsd: number;
+	lockedAmount: number;
+	lockedCurrency: LockedBidCurrency;
 	status: ContractRuneStatus;
 	fundingState: ContractFundingState;
 	fundingInvoice?: string;
@@ -203,6 +208,8 @@ async function publishAttestation(
 			contractTitle: snapshot.contractTitle,
 			bidderComments: snapshot.bidderComments,
 			totalAmountUsd: snapshot.totalAmountUsd,
+			lockedAmount: snapshot.lockedAmount,
+			lockedCurrency: snapshot.lockedCurrency,
 			split: snapshot.split,
 			seals: seals.map((seal) => ({
 				id: seal.id,
@@ -243,6 +250,8 @@ export class ContractRune {
 	readonly bidderComments?: string;
 	readonly totalAmountUsd: number;
 	readonly amountSats?: number;
+	readonly lockedAmount: number;
+	readonly lockedCurrency: LockedBidCurrency;
 	readonly split: PaymentSplitConfig;
 	readonly partyPubkeys: readonly string[];
 
@@ -267,6 +276,8 @@ export class ContractRune {
 		this.bidderComments = input.bidderComments;
 		this.totalAmountUsd = input.totalAmountUsd;
 		this.amountSats = input.amountSats;
+		this.lockedAmount = input.lockedAmount ?? input.totalAmountUsd;
+		this.lockedCurrency = input.lockedCurrency ?? 'USD';
 		this.split = input.split;
 		this.partyPubkeys = input.partyPubkeys ?? [];
 		ContractRune.registry.set(this.contractId, this);
@@ -296,6 +307,8 @@ export class ContractRune {
 			contractTitle: this.contractTitle,
 			bidderComments: this.bidderComments,
 			totalAmountUsd: this.totalAmountUsd,
+			lockedAmount: this.lockedAmount,
+			lockedCurrency: this.lockedCurrency,
 			status: this.status,
 			fundingState: this.fundingState,
 			fundingInvoice: this.seals.find((seal) => seal.invoice)?.invoice,

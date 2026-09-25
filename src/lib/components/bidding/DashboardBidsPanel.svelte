@@ -7,7 +7,7 @@
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
+	import { getMyBids, getBidStatus, cachedSatsFromUsd, isSatBid } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
@@ -548,11 +548,23 @@
 												</div>
 											</div>
 											<div class="min-w-0 text-right">
-												<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
-												<p class="text-base-content/60 text-sm">
-													{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice))}
-													{$t('bids.sats')}
-												</p>
+												{#if isSatBid(bid.currency)}
+													<p class="text-xl font-bold">
+														{formatInteger(bid.amount)}
+														{$t('bids.sats')}
+													</p>
+												{:else}
+													<p class="text-xl font-bold">
+														${formatNumberWithTwoDecimals(bid.amount)}
+													</p>
+													<p class="text-base-content/60 text-sm">
+														{$t('bids.sats_estimate', {
+															values: {
+																amount: formatInteger(cachedSatsFromUsd(bid.amount, btcPrice))
+															}
+														})}
+													</p>
+												{/if}
 											</div>
 										</div>
 										{#if bid.startDateTime && bid.endDateTime}

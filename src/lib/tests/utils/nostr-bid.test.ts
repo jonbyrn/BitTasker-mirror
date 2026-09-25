@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readFundingInvoice, resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import {
+	buildBidContent,
+	isSatBid,
+	lockBidAmount,
+	readFundingInvoice,
+	resolveBidSats,
+	sendBidStatusUpdate
+} from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
 import { get as _get } from 'svelte/store';
@@ -71,6 +78,42 @@ vi.mock('$lib/stores/task.store', () => ({
 import { publishNostrEvent } from '$lib/utils/nostr';
 import { smartCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
+
+describe('USD bid quotes', () => {
+	const bidderId = 'ab'.repeat(32);
+
+	it('publishes new bids in USD', () => {
+		const content = buildBidContent(
+			{
+				taskId: 'task-1',
+				taskEventId: 'event-1',
+				taskDTag: 'task-1',
+				taskTitle: 'Install a node',
+				taskDescription: 'Set up the wallet',
+				amount: 3500,
+				days: 3,
+				proposal: 'I can do this'
+			},
+			bidderId,
+			1_700_000_000
+		);
+		expect(content.currency).toBe('USD');
+		expect(content.amount).toBe(3500);
+	});
+
+	it('treats sats quotes as sats and everything else as dollars', () => {
+		expect(isSatBid('sats')).toBe(true);
+		expect(isSatBid('SATS')).toBe(true);
+		expect(isSatBid(undefined)).toBe(true);
+		expect(isSatBid('USD')).toBe(false);
+		expect(lockBidAmount(3500, 'USD')).toEqual({ lockedAmount: 3500, lockedCurrency: 'USD' });
+		expect(lockBidAmount(4_148_119, 'sats')).toEqual({
+			lockedAmount: 4_148_119,
+			lockedCurrency: 'SATS'
+		});
+		expect(lockBidAmount(0, 'USD')).toBeNull();
+	});
+});
 
 describe('resolveBidSats', () => {
 	it('reads SATS bids as sat totals without a USD price', () => {

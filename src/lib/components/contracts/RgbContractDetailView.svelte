@@ -11,9 +11,13 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
+	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import { acceptIncomingPayment } from '$lib/stores/wallet/wallet-balances';
+	import {
+		acceptIncomingPayment,
+		IncomingPaymentPending
+	} from '$lib/stores/wallet/wallet-balances';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -50,8 +54,26 @@
 	let isSubmitting = $state(false);
 	let isReleasing = $state(false);
 	let isAccepting = $state(false);
+	let acceptError = $state('');
 
 	const snapshot = $derived(rune?.snapshot ?? null);
+	const FUNDED_STATUSES = new Set([
+		'funded',
+		'work_in_progress',
+		'work_submitted',
+		'approved',
+		'releasing',
+		'released',
+		'settled'
+	]);
+	const contractIsFunded = $derived(snapshot ? FUNDED_STATUSES.has(snapshot.status) : false);
+	const lockedAmountLabel = $derived.by(() => {
+		if (!snapshot) return '';
+		if (snapshot.lockedCurrency === 'SATS') {
+			return `${formatInteger(snapshot.lockedAmount)} sats`;
+		}
+		return `$${formatNumberWithTwoDecimals(snapshot.lockedAmount)}`;
+	});
 	const settlementUnit = $derived(
 		snapshot ? CONTRACT_PAYMENT_ASSETS[snapshot.split.primaryAsset] : 'Bitcoin'
 	);
@@ -164,6 +186,8 @@
 					contractTitle: content.contractTitle,
 					bidderComments: content.bidderComments,
 					totalAmountUsd: content.totalAmountUsd ?? 1,
+					lockedAmount: content.lockedAmount ?? content.totalAmountUsd ?? 1,
+					lockedCurrency: content.lockedCurrency ?? 'USD',
 					split,
 					partyPubkeys: latest.event.tags
 						.filter((tag) => tag[0] === 'p')
@@ -195,13 +219,18 @@
 
 	async function handleAcceptPayment(): Promise<void> {
 		isAccepting = true;
-		errorMessage = '';
+		acceptError = '';
 		try {
 			await walletManager.initialize();
 			await acceptIncomingPayment();
 			appStore.showSuccessToast($t('bids.incoming_payment_accepted'));
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : $t('bids.escrow_invoice_failed');
+			acceptError =
+				error instanceof IncomingPaymentPending
+					? $t('bids.incoming_payment_waiting')
+					: error instanceof Error
+						? error.message
+						: $t('bids.escrow_invoice_failed');
 		} finally {
 			await walletManager.releaseRgbLock();
 			isAccepting = false;
@@ -315,10 +344,22 @@
 		>
 			<div class="card-body gap-1 p-5">
 				<h2 class="text-base font-semibold">Payment</h2>
+				<p class="text-base-content/60 text-sm">
+					{contractIsFunded ? $t('bids.contract_funded_label') : $t('bids.contract_waiting')}
+				</p>
+				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm">
 					{fundIsPaid ? 'Paid on fund. Release confirms the work.' : 'Waiting for the fund send.'}
 				</p>
 				{#if role === 'taskee'}
+					{#if acceptError}
+						<div
+							class="alert alert-outline alert-error mt-2 py-2 text-sm"
+							data-testid="accept-payment-error"
+						>
+							{acceptError}
+						</div>
+					{/if}
 					<button
 						type="button"
 						class="btn btn-outline btn-sm mt-2"

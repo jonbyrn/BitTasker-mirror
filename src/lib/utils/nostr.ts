@@ -6,6 +6,7 @@ import { get } from 'svelte/store';
 import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { queryRelayEvents } from '$lib/nostr/relayQuery';
 
 // --- Relay Configuration ---
 
@@ -52,6 +53,25 @@ function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
 }
 
 const DEFAULT_RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+const POOL_QUERY_MS = 4000;
+
+async function readPoolEvents(
+	pool: { querySync: (relays: string[], filter: Filter) => Promise<NostrEvent[]> },
+	relays: string[],
+	filter: Filter
+): Promise<NostrEvent[]> {
+	const fromPool = await Promise.race([
+		pool
+			.querySync(relays, filter)
+			.then((found) => ({ events: found, timedOut: false }))
+			.catch(() => ({ events: [] as NostrEvent[], timedOut: true })),
+		new Promise<{ events: NostrEvent[]; timedOut: true }>((resolve) => {
+			setTimeout(() => resolve({ events: [], timedOut: true }), POOL_QUERY_MS);
+		})
+	]);
+	if (!fromPool.timedOut) return fromPool.events;
+	return (await queryRelayEvents(relays, filter)) as NostrEvent[];
+}
 
 // Determine if events need decryption based on event kinds
 const encryptedKinds = [
@@ -521,8 +541,8 @@ export async function queryNostrEvents(
 		const npub = await getNpub();
 		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		// Query main events from relays
-		let events = await pool.querySync(relays, filter);
+		// The shared pool can leave this query open. Read the relay directly when it does.
+		let events = await readPoolEvents(pool, relays, filter);
 		if (events.length === 0 && isE2ETest()) {
 			try {
 				const localEvents = await nostrEventsService.findEvents();
@@ -548,7 +568,7 @@ export async function queryNostrEvents(
 			};
 
 			// Query followup events
-			let followupEvents = await pool.querySync(relays, completeFollowupFilter);
+			let followupEvents = await readPoolEvents(pool, relays, completeFollowupFilter);
 
 			const followupNeedsDecryption =
 				followupFilter.kinds?.some((kind) => encryptedKinds.includes(kind)) ?? false;

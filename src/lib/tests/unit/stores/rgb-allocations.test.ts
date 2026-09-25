@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	ensureRgbAllocations,
 	freeAllocationCount,
+	parseWalletUtxos,
 	receiveWithAllocations
 } from '$lib/stores/wallet/rgb-allocations';
 
@@ -25,6 +26,37 @@ const vanilla = {
 	rgbAllocations: [],
 	pendingBlinded: 0
 };
+
+describe('parseWalletUtxos', () => {
+	it('keeps existing coins and labels free, colored, locked, and vanilla rows', () => {
+		const rows = parseWalletUtxos([
+			{
+				utxo: { exists: true, colorable: true, btcAmount: 1000, outpoint: { txid: 'aa', vout: 1 } },
+				rgbAllocations: [],
+				pendingBlinded: 0
+			},
+			{
+				utxo: { exists: true, colorable: true, btcAmount: 2000, outpoint: { txid: 'bb', vout: 0 } },
+				rgbAllocations: [{ assetId: 'rgb:used' }],
+				pendingBlinded: 0
+			},
+			locked,
+			{
+				...vanilla,
+				utxo: { exists: true, colorable: false, btcAmount: 500, outpoint: { txid: 'cc', vout: 2 } }
+			},
+			{ utxo: { exists: false, colorable: true }, rgbAllocations: [] }
+		]);
+		expect(rows.map((row) => row.kind)).toEqual(['free', 'colored', 'locked', 'vanilla']);
+		expect(rows[0]).toMatchObject({ outpoint: 'aa:1', sats: 1000, allocations: 0 });
+		expect(rows[1]?.allocations).toBe(1);
+	});
+
+	it('returns an empty list for a malformed payload', () => {
+		expect(parseWalletUtxos(null)).toEqual([]);
+		expect(parseWalletUtxos([{ utxo: 'nope' }])).toEqual([]);
+	});
+});
 
 describe('freeAllocationCount', () => {
 	it('counts unlocked uncolored colorable utxos', () => {

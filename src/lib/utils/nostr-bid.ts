@@ -1,6 +1,11 @@
 import { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
-import type { NostrBidStatus, NostrEventWithFollowup } from '$lib/types/bid';
+import type {
+	LockedBidCurrency,
+	NostrBidContent,
+	NostrBidStatus,
+	NostrEventWithFollowup
+} from '$lib/types/bid';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
@@ -16,6 +21,23 @@ import { resolveSharedRelays } from '$lib/utils/relayUrls';
 const BID_RELAYS = resolveSharedRelays();
 
 const SATS_CURRENCY_CODES = new Set(['SATS', 'SAT', 'BTC']);
+
+/** True when the stored quote is a sat amount. Missing currency is a legacy sat bid. */
+export function isSatBid(currency: string | undefined): boolean {
+	const code = (currency ?? 'SATS').trim().toUpperCase();
+	return SATS_CURRENCY_CODES.has(code);
+}
+
+export function lockBidAmount(
+	amount: number,
+	currency: string | undefined
+): { lockedAmount: number; lockedCurrency: LockedBidCurrency } | null {
+	if (!Number.isFinite(amount) || amount <= 0) return null;
+	if (isSatBid(currency)) {
+		return { lockedAmount: Math.max(1, Math.round(amount)), lockedCurrency: 'SATS' };
+	}
+	return { lockedAmount: amount, lockedCurrency: 'USD' };
+}
 
 export function resolveBidSats(
 	amount: number,
@@ -40,6 +62,34 @@ export interface PublishBidParams {
 	amount: number;
 	days: number;
 	proposal: string;
+}
+
+export function buildBidContent(
+	params: PublishBidParams,
+	bidderId: string,
+	now: number
+): NostrBidContent {
+	const bidderHex = pubkeyToHex(bidderId);
+	const bidId = `${params.taskDTag}-${bidderHex}`;
+	return {
+		type: 'bid',
+		taskId: params.taskDTag,
+		taskTitle: params.taskTitle,
+		taskDescription: params.taskDescription,
+		taskBudget: params.taskBudget,
+		amount: params.amount,
+		currency: 'USD',
+		paymentType: 'FIXED',
+		description: params.proposal,
+		estimatedDuration: `${params.days} days`,
+		proposedApproach: params.proposal,
+		coverLetter: params.proposal,
+		timestamp: now,
+		bidId,
+		startDateTime: now,
+		endDateTime: now + params.days * 24 * 60 * 60,
+		bidderId
+	};
 }
 
 type LastPublishedBid = {
@@ -72,27 +122,8 @@ function exposeLastPublishedBid(event: NostrEvent, params: PublishBidParams): vo
 export async function publishBid(params: PublishBidParams): Promise<NostrEvent> {
 	const now = Math.floor(Date.now() / 1000);
 	const bidderId = await getNpub();
-	const bidderHex = pubkeyToHex(bidderId);
-	const bidId = `${params.taskDTag}-${bidderHex}`;
-	const content = {
-		type: 'bid' as const,
-		taskId: params.taskDTag,
-		taskTitle: params.taskTitle,
-		taskDescription: params.taskDescription,
-		taskBudget: params.taskBudget,
-		amount: params.amount,
-		currency: 'SATS',
-		paymentType: 'FIXED' as const,
-		description: params.proposal,
-		estimatedDuration: `${params.days} days`,
-		proposedApproach: params.proposal,
-		coverLetter: params.proposal,
-		timestamp: now,
-		bidId,
-		startDateTime: now,
-		endDateTime: now + params.days * 24 * 60 * 60,
-		bidderId
-	};
+	const content = buildBidContent(params, bidderId, now);
+	const bidId = content.bidId;
 
 	const result = await publishNostrEvent(
 		KINDS.BIDS,

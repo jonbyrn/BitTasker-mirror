@@ -126,7 +126,9 @@
 				/>
 			</div>
 			<div class="shrink-0 text-right">
-				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				{#if typeof task.budget?.amount === 'number'}
+					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				{/if}
 			</div>
 		</div>
 

@@ -10,6 +10,8 @@ import {
 	rlnProxyUrl,
 	resetEsploraFetchState,
 	resolveBrowserIndexer,
+	incomingReceiveReady,
+	parseRgbAssets,
 	scanBtcBalance,
 	setEsploraBackoffMs,
 	sumSpendableSats
@@ -180,5 +182,57 @@ describe('scanBtcBalance', () => {
 			window.fetch = originalFetch;
 			delete (window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch;
 		}
+	});
+});
+
+describe('incomingReceiveReady', () => {
+	it('accepts a blind or witness receive once it has left the counterparty', () => {
+		expect(
+			incomingReceiveReady([
+				{ kind: 'Send', status: 'Settled' },
+				{ kind: 'ReceiveBlind', status: 'WaitingConfirmations' }
+			])
+		).toBe(true);
+		expect(incomingReceiveReady([{ kind: 'ReceiveWitness', status: 'Settled' }])).toBe(true);
+		expect(incomingReceiveReady([{ kind: 'ReceiveBlind', status: 'WaitingSafeHeight' }])).toBe(
+			true
+		);
+	});
+
+	it('rejects an unpaid invoice and a send', () => {
+		expect(incomingReceiveReady([])).toBe(false);
+		expect(incomingReceiveReady([{ kind: 'ReceiveBlind', status: 'WaitingCounterparty' }])).toBe(
+			false
+		);
+		expect(incomingReceiveReady([{ kind: 'ReceiveBlind', status: 'Failed' }])).toBe(false);
+		expect(incomingReceiveReady([{ kind: 'Send', status: 'Settled' }])).toBe(false);
+	});
+});
+
+describe('parseRgbAssets', () => {
+	it('reads spendable NIA balances from grouped listAssets', () => {
+		const assets = parseRgbAssets({
+			nia: [
+				{
+					assetId: 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs',
+					ticker: 'USDT',
+					name: 'Tether USD',
+					balance: { settled: 100_000_000, spendable: 100_000_000, future: 100_000_000 }
+				}
+			],
+			ifa: [],
+			cfa: [],
+			uda: []
+		});
+
+		expect(assets).toEqual([
+			{
+				assetId: 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs',
+				name: 'Tether USD',
+				symbol: 'USDT',
+				balance: 100_000_000,
+				formattedBalance: '100,000,000'
+			}
+		]);
 	});
 });

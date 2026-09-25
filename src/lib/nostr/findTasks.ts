@@ -6,7 +6,7 @@ import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
-import { appStore } from '$lib/stores/app.store';
+import { queryRelayEvents } from '$lib/nostr/relayQuery';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
@@ -28,20 +28,42 @@ let metrics: TaskMetrics = {
 function createTaskFilter(params: SearchTasksParams): Filter {
 	const filter: Filter & Record<string, unknown> = {
 		kinds: params.kinds ?? [KINDS.TASK_CREATION],
-		limit: params.limit ?? 10,
-		until: params.until
+		limit: params.limit ?? 10
 	};
+	if (params.until !== undefined) filter.until = params.until;
 	if (params.since !== undefined) filter.since = params.since;
-	if (params.search?.trim()) filter.search = params.search.trim();
 	if (params.status?.length) filter['S'] = params.status;
 	if (params.taskType) filter['T'] = [params.taskType];
 	return filter;
 }
 
-function toTask(event: Event): Task {
-	const content = JSON.parse(event.content) as Omit<Task, 'id' | 'npub' | 'createdAt'>;
+function isTaskContent(value: unknown): value is Omit<Task, 'id' | 'npub' | 'createdAt'> {
+	if (typeof value !== 'object' || value === null) return false;
+	const task = value as { title?: unknown; budget?: { amount?: unknown } };
+	return (
+		typeof task.title === 'string' &&
+		task.title.trim().length > 0 &&
+		typeof task.budget?.amount === 'number' &&
+		typeof (task as { status?: unknown }).status === 'string'
+	);
+}
+
+function toTask(event: Event): Task | null {
+	let content: unknown;
+	try {
+		content = JSON.parse(event.content);
+	} catch {
+		return null;
+	}
+	if (!isTaskContent(content)) return null;
 	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
-	return { ...content, id: dTag ?? event.id, npub: event.pubkey, createdAt: event.created_at };
+	return {
+		...content,
+		id: dTag ?? event.id,
+		eventId: event.id,
+		npub: event.pubkey,
+		createdAt: event.created_at
+	};
 }
 
 /**
@@ -77,9 +99,17 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 		if (muted.has(task.npub)) return false;
 		if (params.taskType && task.taskType !== params.taskType) return false;
 		if (params.status?.length && !params.status.includes(task.status)) return false;
-		if (params.categories?.length && !params.categories.some((id) => task.categories?.some((category) =>
-			(typeof category === 'string' ? category : category.id) === id))) return false;
-		if (params.skills?.length && !params.skills.some((skill) => task.skills?.includes(skill))) return false;
+		if (
+			params.categories?.length &&
+			!params.categories.some((id) =>
+				task.categories?.some(
+					(category) => (typeof category === 'string' ? category : category.id) === id
+				)
+			)
+		)
+			return false;
+		if (params.skills?.length && !params.skills.some((skill) => task.skills?.includes(skill)))
+			return false;
 		if (!search) return true;
 		const haystack = [task.title, task.description, ...(task.skills ?? [])].join(' ').toLowerCase();
 		return haystack.includes(search);
@@ -87,12 +117,12 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 }
 
 async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
-	const relays = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
-	if (!relays.length) return [];
-	return get(appStore).pool.querySync(relays, filter);
+	return queryRelayEvents(resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL), filter);
 }
 
-export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
+export async function findTasks(
+	params: SearchTasksParams
+): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const limit = params.limit ?? 10;
 	const cacheKey = JSON.stringify({ ...params, until: undefined });
 	const cached = !params.until ? cache.get(cacheKey) : undefined;
@@ -104,16 +134,19 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else {
 			const filter = createTaskFilter(params);
-			const response = await nostrEventsService.findEvents(filter);
-			const events = Array.isArray(response.data) && response.data.length
-				? response.data
-				: await findTasksFromRelays(filter);
+			const response = await Promise.race([
+				nostrEventsService.findEvents(filter).catch(() => ({ data: [] })),
+				new Promise<{ data: [] }>((resolve) => {
+					setTimeout(() => resolve({ data: [] }), 4000);
+				})
+			]);
+			const events =
+				Array.isArray(response.data) && response.data.length
+					? response.data
+					: await findTasksFromRelays(filter);
 			tasks = events.flatMap((event) => {
-				try {
-					return [toTask(event as Event)];
-				} catch {
-					return [];
-				}
+				const task = toTask(event as Event);
+				return task ? [task] : [];
 			});
 			tasks = deduplicateById(tasks);
 			tasks.sort((left, right) => right.createdAt - left.createdAt);
@@ -131,7 +164,11 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 			hasMore: tasks.length > visibleTasks.length,
 			lastRelayTimestamp: visibleTasks.at(-1)?.createdAt ?? state.lastRelayTimestamp
 		}));
-		return { tasks: visibleTasks, total: visibleTasks.length, hasMore: tasks.length > visibleTasks.length };
+		return {
+			tasks: visibleTasks,
+			total: visibleTasks.length,
+			hasMore: tasks.length > visibleTasks.length
+		};
 	} catch (error) {
 		tasksStore.update((state) => ({
 			...state,
@@ -153,4 +190,3 @@ export function getFilterPerformanceReport(): TaskMetrics {
 if (browser) {
 	window.addEventListener('beforeunload', cleanup);
 }
-

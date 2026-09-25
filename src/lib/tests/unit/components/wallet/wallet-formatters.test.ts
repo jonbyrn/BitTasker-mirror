@@ -3,9 +3,15 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+	formatRelativeTime,
 	formatSatsWithUsd,
+	isBrandPicture,
+	isRgbMovement,
+	pickHeroAsset,
+	shortOutpoint,
 	stableInnerFormat,
-	stableWalletAvailableUsd
+	stableWalletAvailableUsd,
+	summarizeUtxoKinds
 } from '$lib/components/wallet/wallet-formatters';
 
 const satsFormatter = new Intl.NumberFormat('en');
@@ -71,9 +77,9 @@ describe('stableInnerFormat', () => {
 		const w = makeWallet('w1', {
 			usdt_rgb: { raw: '5000000', formatted: '5.00', loading: false }
 		});
-		expect(stableInnerFormat(w, 'usdt_rgb', emptyCache, satsFormatter, usdFormatter, btcPrice)).toBe(
-			'$5.00'
-		);
+		expect(
+			stableInnerFormat(w, 'usdt_rgb', emptyCache, satsFormatter, usdFormatter, btcPrice)
+		).toBe('$5.00');
 	});
 
 	it('formats btc_lightning balance as sats with USD', () => {
@@ -110,7 +116,14 @@ describe('stableInnerFormat', () => {
 		const cache = {
 			w1: { btc: '100000000', usdt: '0', wbtc: '0', tbtc: '0' }
 		};
-		const result = stableInnerFormat(w, 'btc_lightning', cache, satsFormatter, usdFormatter, btcPrice);
+		const result = stableInnerFormat(
+			w,
+			'btc_lightning',
+			cache,
+			satsFormatter,
+			usdFormatter,
+			btcPrice
+		);
 		expect(result).toContain('100,000,000');
 		expect(result).toContain('Sats');
 	});
@@ -163,5 +176,39 @@ describe('stableWalletAvailableUsd', () => {
 		};
 		const result = stableWalletAvailableUsd(w, cache, usdFormatter, btcPrice);
 		expect(result).toContain('50,000');
+	});
+});
+
+describe('wallet dashboard display', () => {
+	it('counts colored, locked, and available coins', () => {
+		expect(summarizeUtxoKinds(['colored', 'colored', 'locked', 'free', 'vanilla'])).toEqual({
+			colored: 2,
+			locked: 1,
+			available: 2
+		});
+	});
+
+	it('shortens a txid and keeps the output index', () => {
+		expect(
+			shortOutpoint('2af94a3e123bf2ca5d66f3f085ac75f3badd19c951fe82f997a8d59c038966e1:4')
+		).toBe('2af9…66e1:4');
+	});
+
+	it('puts USDT first and describes recent movement', () => {
+		const now = Date.UTC(2026, 8, 24, 12, 0, 0);
+		expect(
+			pickHeroAsset([
+				{ assetId: 'e2e', symbol: 'E2E' },
+				{ assetId: 'usdt', symbol: 'USDT' }
+			])
+		).toEqual({
+			hero: { assetId: 'usdt', symbol: 'USDT' },
+			rest: [{ assetId: 'e2e', symbol: 'E2E' }]
+		});
+		expect(formatRelativeTime(now - 2 * 60_000, now, 'en')).toBe('2 minutes ago');
+		expect(isRgbMovement('RGB transfer')).toBe(true);
+		expect(isRgbMovement('Bitcoin transfer')).toBe(false);
+		expect(isBrandPicture('/images/logos/bittasker-logomark.svg')).toBe(true);
+		expect(isBrandPicture('https://cdn.example/avatar.png')).toBe(false);
 	});
 });

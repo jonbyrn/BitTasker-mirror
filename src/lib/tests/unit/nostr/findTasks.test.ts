@@ -254,6 +254,59 @@ describe('findTasks', () => {
 		});
 	});
 
+	it('drops relay events that are not tasks', async () => {
+		const task = createTaskEvent('aabbccdd' + '0'.repeat(56), 'solve-the-mystery', OTHER_NPUB, {
+			title: 'Solve the mystery'
+		});
+		const agentProfile = createTaskEvent('b'.repeat(64), 'agent-profile', OTHER_NPUB);
+		agentProfile.content = JSON.stringify({ node_id: 'agent_9bc0', name: '本灵' });
+		const encrypted = createTaskEvent('c'.repeat(64), 'encrypted', OTHER_NPUB);
+		encrypted.content = 'enc1:not-json';
+
+		mockFindEvents.mockResolvedValueOnce({ data: [agentProfile, task, encrypted] });
+
+		const result = await findTasks({ page: 1, search: 'mystery' });
+
+		expect(result.tasks.map((item) => item.title)).toEqual(['Solve the mystery']);
+	});
+
+	it('reads the publish relay when the indexer returns no tasks', async () => {
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		const event = createTaskEvent('aabbccdd' + '0'.repeat(56), 'solve-the-mystery', OTHER_NPUB, {
+			title: 'Solve the mystery'
+		});
+		mockFindEvents.mockResolvedValueOnce({ data: [] });
+		const opened: string[] = [];
+
+		const requested: unknown[] = [];
+		class FakeSocket {
+			onopen: (() => void) | null = null;
+			onmessage: ((message: { data: string }) => void) | null = null;
+			onerror: (() => void) | null = null;
+			readyState = 1;
+			constructor(url: string) {
+				opened.push(url);
+				queueMicrotask(() => this.onopen?.());
+			}
+			send(payload: string) {
+				const frame = JSON.parse(payload) as [string, string, unknown];
+				requested.push(frame[2]);
+				this.onmessage?.({ data: JSON.stringify(['EVENT', frame[1], event]) });
+				this.onmessage?.({ data: JSON.stringify(['EOSE', frame[1]]) });
+			}
+			close() {
+				this.readyState = 3;
+			}
+		}
+
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const result = await findTasks({ page: 1, search: 'mystery' });
+
+		expect(opened).toEqual(['wss://nos.lol']);
+		expect(requested).toEqual([{ kinds: [KINDS.TASK_CREATION], limit: 10 }]);
+		expect(result.tasks.map((task) => task.title)).toEqual(['Solve the mystery']);
+	});
+
 	// The NIP-50 iterative relay fallback loop (multi-round fetch, fill-loop, and
 	// MAX_CONSECUTIVE_EMPTY early-exit) was removed from findTasks during the native
 	// migration. findTasks now performs a single findEvents query per call. The

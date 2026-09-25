@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	// import { getProfileUrl } from '$lib/utils/helpers/profile';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
+	import { isSatBid } from '$lib/utils/nostr-bid';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 
 	let {
@@ -28,9 +29,7 @@
 	let detailsExpanded = $state(false);
 
 	const bidContent = $derived(bid.bidContent);
-	const bidAmountCurrency = $derived(
-		bidContent?.currency?.toUpperCase() === 'USD' ? 'USD' : 'SATS'
-	);
+	const bidAmountCurrency = $derived(isSatBid(bidContent?.currency) ? 'SATS' : 'USD');
 
 	let profileUrl = $derived(bid.author.npub ? `/npub/${bid.author.npub}` : '#');
 

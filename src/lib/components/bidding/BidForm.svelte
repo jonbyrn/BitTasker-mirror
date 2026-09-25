@@ -1,6 +1,10 @@
 ﻿<script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { appStore } from '$lib/stores/app.store';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { resolveBidSats } from '$lib/utils/nostr-bid';
 
 	interface BidSubmission {
 		amount: number;
@@ -25,32 +29,36 @@
 		return task.budget;
 	});
 
-	let bidAmount = $state(0);
+	let bidAmount = $state<number | null>(null);
+	const satsEstimate = $derived(
+		bidAmount && bidAmount > 0 ? resolveBidSats(bidAmount, 'USD', btcPrice.price) : null
+	);
+	const budgetSats = $derived(
+		typeof formattedBudget === 'number'
+			? resolveBidSats(formattedBudget, 'USD', btcPrice.price)
+			: null
+	);
 	let deliveryDays = $state(3);
 	let proposal = $state('');
 	let isSubmitting = $state(false);
-
-	$effect(() => {
-		if (formattedBudget && !bidAmount) {
-			bidAmount = Number(formattedBudget) || 0;
-		}
-	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		isSubmitting = true;
 		try {
-			if (onSubmit && task?.id) {
-				await onSubmit({
-					amount: bidAmount,
-					days: deliveryDays,
-					proposal,
-					taskId: task.id
-				});
+			if (!onSubmit || !task?.id || !bidAmount) {
+				throw new Error('Bid form is not ready');
 			}
-			if (onClose) onClose();
+			await onSubmit({
+				amount: bidAmount,
+				days: deliveryDays,
+				proposal,
+				taskId: task.id
+			});
+			onClose();
 		} catch (err) {
 			console.error('Bid submission failed', err);
+			appStore.showErrorToast($t('bid_creation.failed_to_submit_bid'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -78,22 +86,33 @@
 	<form onsubmit={handleSubmit} class="space-y-6">
 		<div class="form-control">
 			<label class="label font-medium" for="bidAmount">
-				<span class="label-text">{$t('bids.your_bid_amount_sats')}</span>
+				<span class="label-text">{$t('bids.your_bid_amount_usd')}</span>
 			</label>
 			<input
 				id="bidAmount"
 				data-testid="bid-amount-input"
 				type="number"
 				bind:value={bidAmount}
-				min="1"
-				step="1"
+				min="0.01"
+				step="0.01"
 				class="input input-bordered focus:input-primary w-full text-lg"
-				placeholder={$t('bids.your_bid_amount_sats')}
+				placeholder={$t('bids.your_bid_amount_usd')}
 				required
 			/>
-			{#if formattedBudget}
-				<p class="label-text-alt mt-1 opacity-70">
-					{$t('bids.task_budget_sats', { values: { amount: formattedBudget } })}
+			{#if satsEstimate !== null}
+				<p class="text-base-content/60 mt-1 text-sm" data-testid="bid-sats-estimate">
+					{$t('bids.sats_estimate', { values: { amount: formatInteger(satsEstimate) } })}
+				</p>
+			{/if}
+			{#if typeof formattedBudget === 'number'}
+				<p class="mt-2 text-sm" data-testid="task-budget">
+					<span class="text-base-content/70">{$t('bids.task_budget')}</span>
+					<span class="font-semibold">${formatNumberWithTwoDecimals(formattedBudget)}</span>
+					{#if budgetSats !== null}
+						<span class="text-base-content/60">
+							{$t('bids.sats_estimate', { values: { amount: formatInteger(budgetSats) } })}
+						</span>
+					{/if}
 				</p>
 			{/if}
 		</div>

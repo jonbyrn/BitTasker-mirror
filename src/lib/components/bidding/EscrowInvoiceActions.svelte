@@ -3,7 +3,11 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import { acceptIncomingPayment, receiveBlankInvoice } from '$lib/stores/wallet/wallet-balances';
+	import {
+		acceptIncomingPayment,
+		IncomingPaymentPending,
+		receiveBlankInvoice
+	} from '$lib/stores/wallet/wallet-balances';
 	import { publishFundingInvoice } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
@@ -65,7 +69,12 @@
 			await acceptIncomingPayment();
 			appStore.showSuccessToast($t('bids.incoming_payment_accepted'));
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : $t('bids.escrow_invoice_failed');
+			errorMessage =
+				error instanceof IncomingPaymentPending
+					? $t('bids.incoming_payment_waiting')
+					: error instanceof Error
+						? error.message
+						: $t('bids.escrow_invoice_failed');
 		} finally {
 			await walletManager.releaseRgbLock();
 			busy = false;

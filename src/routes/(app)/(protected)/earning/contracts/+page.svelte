@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import type { NDKEvent } from '@nostr-dev-kit/ndk';
-	import { ndk } from '$lib/nostr/ndk';
+	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
@@ -75,7 +75,8 @@
 			}
 			const events = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT_STATUS], '#p': [pubkey], limit: 100 },
-				{ closeOnEose: true }
+				{ closeOnEose: true },
+				getTaskRelay()
 			);
 			const byId: Record<string, ContractListRow> = {};
 			for (const event of events) {

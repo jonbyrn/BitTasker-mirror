@@ -549,23 +549,48 @@ export async function issueRgbAsset(params: {
 	return result;
 }
 
+const RECEIVE_KINDS = new Set(['ReceiveBlind', 'ReceiveWitness']);
+const RECEIVE_READY = new Set(['WaitingConfirmations', 'WaitingSafeHeight', 'Settled']);
+const RGB_INDEXER = 'https://esplora-api.utexo.com';
+
+export class IncomingPaymentPending extends Error {
+	constructor() {
+		super('Incoming RGB payment has not arrived yet');
+		this.name = 'IncomingPaymentPending';
+	}
+}
+
+export function incomingReceiveReady(transfers: { kind?: string; status?: string }[]): boolean {
+	return transfers.some(
+		(transfer) => RECEIVE_KINDS.has(transfer.kind ?? '') && RECEIVE_READY.has(transfer.status ?? '')
+	);
+}
+
 /** Pull a paid blank invoice into this wallet. The sender already chose the asset. */
 export async function acceptIncomingPayment(): Promise<void> {
 	const wallet = getUtexoWallet();
 	if (!wallet?.refreshWallet) throw new Error('Wallet not initialized');
+	if (wallet.goOnline && wallet.isOnline?.() !== true) {
+		await wallet.goOnline(RGB_INDEXER);
+	}
+	if (wallet.syncWallet) await wallet.syncWallet();
 	await wallet.refreshWallet();
+	const transfers = wallet.listTransfers ? await wallet.listTransfers().catch(() => []) : [];
 	await loadAssets();
+	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */
 export async function receiveBlankInvoice(): Promise<{ invoice: string }> {
 	const wallet = getUtexoWallet();
 	if (!wallet?.onchainReceive) throw new Error('Wallet not initialized');
-	const received = await wallet.onchainReceive({
-		witness: false,
-		minConfirmations: 1,
-		durationSeconds: 3600
-	});
+	const received = await receiveWithAllocations(wallet, () =>
+		wallet.onchainReceive({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		})
+	);
 	const invoice = (typeof received === 'string' ? received : received.invoice)?.trim() ?? '';
 	if (!invoice) throw new Error('RGB invoice was empty');
 	return { invoice };

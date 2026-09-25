@@ -4,7 +4,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { createDebug } from '$lib/utils/debug';
-import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { resolveSharedRelays } from '$lib/utils/relayUrls';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 export { ndk, ndkCacheDbBaseName } from './ndkInstance';
@@ -100,7 +100,7 @@ async function stopUnpublishedEventsRetry(): Promise<void> {
 }
 
 export function getTaskRelay(): NDKRelaySet {
-	const urls = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+	const urls = resolveSharedRelays();
 
 	if (urls.length === 0) {
 		d.warn(

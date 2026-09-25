@@ -1,5 +1,5 @@
 import type { BiometricData } from '$lib/types/auth';
-import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+import { guardRelaySocket, resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { Preferences } from '@capacitor/preferences';
 import { SimplePool } from 'nostr-tools';
 import { get, writable } from 'svelte/store';
@@ -45,6 +45,7 @@ const createAppStore = () => {
 
 	const ensurePool = (): SimplePool => {
 		if (!pool) {
+			guardRelaySocket();
 			pool = new SimplePool();
 		}
 

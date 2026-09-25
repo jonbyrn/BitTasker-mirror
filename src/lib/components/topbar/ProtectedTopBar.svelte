@@ -9,6 +9,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { isBrandPicture } from '$lib/components/wallet/wallet-formatters';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
@@ -92,6 +93,8 @@
 		}
 		return '';
 	});
+
+	const avatarPicture = $derived(isBrandPicture(userPicture()) ? '' : userPicture());
 
 	// Derived values for user display name
 	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
@@ -292,7 +295,7 @@
 				aria-haspopup="true"
 				aria-expanded={isAvatarDropdownOpen}
 			>
-				<Avatar name={$user.name} picture={userPicture()} size="sm" />
+				<Avatar name={$user.name || userDisplayName} picture={avatarPicture} size="sm" />
 			</button>
 			{#if isAvatarDropdownOpen}
 				<div

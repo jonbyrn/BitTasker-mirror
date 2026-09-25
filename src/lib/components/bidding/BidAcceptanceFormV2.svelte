@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { ContractRune } from '$lib/runes/contract.svelte';
-	import { fetchFundingInvoice, resolveBidSats, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-	import { formatInteger } from '$lib/utils/helpers/currencyFormatter';
+	import {
+		fetchFundingInvoice,
+		isSatBid,
+		lockBidAmount,
+		resolveBidSats,
+		sendBidStatusUpdate
+	} from '$lib/utils/nostr-bid';
+	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
@@ -18,6 +24,12 @@
 
 	const BTC_ONLY_SPLIT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
+		primaryPercentage: 100,
+		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 0
+	};
+	const USDT_SPLIT: PaymentSplitConfig = {
+		primaryAsset: 'usdt_rgb',
 		primaryPercentage: 100,
 		secondaryAsset: 'btc_lightning',
 		secondaryPercentage: 0
@@ -42,6 +54,14 @@
 		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	const bidContent = $derived(bid.bidContent);
+	const dollarBid = $derived(bidContent ? !isSatBid(bidContent.currency) : false);
+	const lockedBid = $derived(
+		bidContent ? lockBidAmount(bidContent.amount, bidContent.currency) : null
+	);
+	let fundRail = $state<'usdt_rgb' | 'btc_lightning'>('usdt_rgb');
+	const lightningSats = $derived(
+		dollarBid && lockedBid ? resolveBidSats(lockedBid.lockedAmount, 'USD', btcPrice.price) : null
+	);
 	const bidAmountSats = $derived(
 		resolveBidSats(bidContent?.amount ?? 0, bidContent?.currency, btcPrice.price)
 	);
@@ -61,7 +81,7 @@
 	);
 	const requiredSats = $derived(totalSats ?? 0);
 	const hasInsufficientFunds = $derived(
-		!isE2ETest && walletConnected && totalSats !== null && walletSats < requiredSats
+		!dollarBid && !isE2ETest && walletConnected && totalSats !== null && walletSats < requiredSats
 	);
 	const contractTitle = $derived(
 		bidContent?.taskTitle ||
@@ -72,8 +92,7 @@
 		bidContent?.proposedApproach || bidContent?.coverLetter || bidContent?.description || ''
 	);
 
-	// TODO: Re-enable split settlement after RGB USDT configuration is wired for this flow.
-	const split = BTC_ONLY_SPLIT;
+	const split = $derived(dollarBid ? USDT_SPLIT : BTC_ONLY_SPLIT);
 	const settlementUnit = $derived(CONTRACT_PAYMENT_ASSETS[split.primaryAsset]);
 
 	let isProcessing = $state(false);
@@ -91,8 +110,8 @@
 			!hasInsufficientFunds &&
 			!isProcessing &&
 			bidContent !== null &&
-			totalSats !== null &&
-			totalUsd !== null
+			lockedBid !== null &&
+			(dollarBid ? fundRail === 'usdt_rgb' : totalSats !== null && totalUsd !== null)
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
 	const awaitingFunding = $derived(Boolean(fundedRune && !escrowReady && fundingInvoice));
@@ -138,7 +157,7 @@
 			bidEventId: bid.id,
 			taskId: bidContent.taskId || task.id,
 			taskTitle: contractTitle,
-			amount: String(requiredSats),
+			amount: String(dollarBid && lockedBid ? lockedBid.lockedAmount : requiredSats),
 			...(params.estimatedCompletionTime
 				? { estimatedCompletionTime: params.estimatedCompletionTime }
 				: {})
@@ -146,18 +165,37 @@
 	}
 
 	function contractInput(bidderPubkey: string) {
+		const partyPubkeys = [bidderPubkey, task.pubkey].filter((key): key is string => Boolean(key));
+		if (dollarBid && lockedBid?.lockedCurrency === 'USD') {
+			return {
+				contractId: `contract-${task.id}-${bid.id}`,
+				contractTitle,
+				bidderComments,
+				totalAmountUsd: lockedBid.lockedAmount,
+				lockedAmount: lockedBid.lockedAmount,
+				lockedCurrency: lockedBid.lockedCurrency,
+				split,
+				partyPubkeys
+			};
+		}
 		return {
 			contractId: `contract-${task.id}-${bid.id}`,
 			contractTitle,
 			bidderComments,
 			totalAmountUsd: totalUsd ?? 0,
 			amountSats: totalSats ?? undefined,
+			lockedAmount: lockedBid?.lockedAmount ?? totalSats ?? 0,
+			lockedCurrency: 'SATS' as const,
 			split,
-			partyPubkeys: [bidderPubkey, task.pubkey].filter((key): key is string => Boolean(key))
+			partyPubkeys
 		};
 	}
 
 	async function handleAcceptAndFund(): Promise<void> {
+		if (dollarBid && fundRail === 'btc_lightning') {
+			errorMessage = $t('dashboard.bids.bid_acceptance.lightning_pending');
+			return;
+		}
 		if (!bidContent) {
 			errorMessage = 'Bid content is unavailable';
 			return;
@@ -346,37 +384,89 @@
 				</span>
 			</div>
 			<div class="flex flex-col gap-1 text-sm">
-				<div class="flex items-center justify-between gap-3">
-					<span class="text-base-content/70">{$t('dashboard.bids.bid_acceptance.base_amount')}</span
-					>
-					<span class="tabular-nums" data-testid="bid-base-amount">
-						{bidAmountSats === null ? '—' : `${formatInteger(bidAmountSats)} sats`}
-					</span>
-				</div>
-				<div class="flex items-center justify-between gap-3">
-					<span class="text-base-content/70">
-						{$t('dashboard.bids.bid_acceptance.client_fee', {
-							values: { fee: `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%` }
-						})}
-					</span>
-					<span class="tabular-nums" data-testid="bid-platform-fee">
-						{platformFeeSats === null ? '—' : `${formatInteger(platformFeeSats)} sats`}
-					</span>
-				</div>
-				<div
-					class="border-base-300 flex items-center justify-between gap-3 border-t pt-2 font-semibold"
-				>
-					<span>{$t('dashboard.bids.bid_acceptance.total_payment')}</span>
-					<span class="tabular-nums" data-testid="bid-total-payment">
-						<span data-testid="bid-total-sats"
-							>{totalSats === null ? '—' : `${formatInteger(totalSats)} sats`}</span
+				{#if dollarBid}
+					<div class="flex items-center justify-between gap-3 font-semibold">
+						<span>{$t('dashboard.bids.bid_acceptance.base_amount')}</span>
+						<span class="tabular-nums" data-testid="bid-base-amount">
+							{lockedBid ? `$${formatNumberWithTwoDecimals(lockedBid.lockedAmount)}` : '—'}
+						</span>
+					</div>
+					<p class="text-base-content/60 text-xs" data-testid="usd-escrow-note">
+						{$t('dashboard.bids.bid_acceptance.usd_escrow_note')}
+					</p>
+				{:else}
+					<div class="flex items-center justify-between gap-3">
+						<span class="text-base-content/70"
+							>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
 						>
-					</span>
-				</div>
-				<p class="text-base-content/60 text-xs" data-testid="sats-usdt-note">
-					{$t('dashboard.bids.bid_acceptance.sats_usdt_note')}
-				</p>
+						<span class="tabular-nums" data-testid="bid-base-amount">
+							{bidAmountSats === null ? '—' : `${formatInteger(bidAmountSats)} sats`}
+						</span>
+					</div>
+					<div class="flex items-center justify-between gap-3">
+						<span class="text-base-content/70">
+							{$t('dashboard.bids.bid_acceptance.client_fee', {
+								values: { fee: `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%` }
+							})}
+						</span>
+						<span class="tabular-nums" data-testid="bid-platform-fee">
+							{platformFeeSats === null ? '—' : `${formatInteger(platformFeeSats)} sats`}
+						</span>
+					</div>
+					<div
+						class="border-base-300 flex items-center justify-between gap-3 border-t pt-2 font-semibold"
+					>
+						<span>{$t('dashboard.bids.bid_acceptance.total_payment')}</span>
+						<span class="tabular-nums" data-testid="bid-total-payment">
+							<span data-testid="bid-total-sats"
+								>{totalSats === null ? '—' : `${formatInteger(totalSats)} sats`}</span
+							>
+						</span>
+					</div>
+					<p class="text-base-content/60 text-xs" data-testid="sats-usdt-note">
+						{$t('dashboard.bids.bid_acceptance.sats_usdt_note')}
+					</p>
+				{/if}
 			</div>
+			{#if dollarBid && !fundedRune}
+				<div class="mt-2 flex flex-col gap-2" data-testid="fund-rail">
+					<p class="text-sm font-medium">{$t('dashboard.bids.bid_acceptance.fund_rail_prompt')}</p>
+					<label class="flex items-center gap-2 text-sm">
+						<input
+							type="radio"
+							name="fund-rail"
+							class="radio radio-primary radio-sm"
+							bind:group={fundRail}
+							value="usdt_rgb"
+							data-testid="fund-rail-usdt"
+						/>
+						{$t('dashboard.bids.bid_acceptance.fund_rail_usdt')}
+					</label>
+					<label class="flex items-center gap-2 text-sm">
+						<input
+							type="radio"
+							name="fund-rail"
+							class="radio radio-sm"
+							bind:group={fundRail}
+							value="btc_lightning"
+							data-testid="fund-rail-lightning"
+						/>
+						{$t('dashboard.bids.bid_acceptance.fund_rail_lightning')}
+					</label>
+					{#if fundRail === 'btc_lightning'}
+						<p class="text-base-content/70 text-xs" data-testid="lightning-sats">
+							{lightningSats === null
+								? '—'
+								: $t('dashboard.bids.bid_acceptance.lightning_sats', {
+										values: { amount: formatInteger(lightningSats) }
+									})}
+						</p>
+						<p class="text-base-content/60 text-xs">
+							{$t('dashboard.bids.bid_acceptance.lightning_pending')}
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</section>
 

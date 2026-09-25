@@ -218,7 +218,7 @@
 		try {
 			isLoading = true;
 			error = null;
-			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
+			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE, refresh: true });
 			// Show success message only if no error occurred
 			if (!error) {
 				appStore.showSuccessToast($t('dashboard.tasks.refresh_success'), 3000);

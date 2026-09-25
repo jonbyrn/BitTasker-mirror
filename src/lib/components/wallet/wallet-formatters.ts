@@ -118,3 +118,57 @@ export function stableWalletAvailableUsd(
 	}
 	return usdFormatter.format(0);
 }
+
+export function summarizeUtxoKinds(kinds: readonly string[]): {
+	colored: number;
+	locked: number;
+	available: number;
+} {
+	const colored = kinds.filter((kind) => kind === 'colored').length;
+	const locked = kinds.filter((kind) => kind === 'locked').length;
+	return { colored, locked, available: kinds.length - colored - locked };
+}
+
+/** `txid:vout` with the txid cut to four characters on each side. */
+export function shortOutpoint(outpoint: string): string {
+	const splitAt = outpoint.lastIndexOf(':');
+	const txid = splitAt === -1 ? outpoint : outpoint.slice(0, splitAt);
+	const vout = splitAt === -1 ? '' : outpoint.slice(splitAt + 1);
+	const short = txid.length <= 12 ? txid : `${txid.slice(0, 4)}…${txid.slice(-4)}`;
+	return vout ? `${short}:${vout}` : short;
+}
+
+export function formatRelativeTime(timestamp: number, now: number, language: string): string {
+	const locale = language || 'en';
+	const deltaMs = timestamp - now;
+	const absSec = Math.abs(deltaMs) / 1000;
+	if (absSec >= 86_400 * 7) {
+		return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(timestamp);
+	}
+	const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+	if (absSec < 60) return rtf.format(Math.round(deltaMs / 1000), 'second');
+	if (absSec < 3_600) return rtf.format(Math.round(deltaMs / 60_000), 'minute');
+	if (absSec < 86_400) return rtf.format(Math.round(deltaMs / 3_600_000), 'hour');
+	return rtf.format(Math.round(deltaMs / 86_400_000), 'day');
+}
+
+export function pickHeroAsset<T extends { symbol?: string; assetId: string }>(
+	assets: readonly T[]
+): { hero: T | null; rest: T[] } {
+	const hero = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? assets[0] ?? null;
+	if (!hero) return { hero: null, rest: [] };
+	return { hero, rest: assets.filter((asset) => asset.assetId !== hero.assetId) };
+}
+
+export function isRgbMovement(description: string | undefined): boolean {
+	return (description ?? '').toLowerCase().includes('rgb');
+}
+
+export function isBrandPicture(url: string): boolean {
+	const value = url.toLowerCase();
+	return (
+		value.includes('bittasker-logo') ||
+		value.includes('logomark') ||
+		value.includes('/images/logos/')
+	);
+}

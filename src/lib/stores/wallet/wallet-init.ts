@@ -12,7 +12,7 @@ import {
 	isE2eWalletReset,
 	loadAssets,
 	scanBtcBalance,
-	unwrapListAssets
+	parseRgbAssets
 } from './wallet-balances';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
@@ -215,13 +215,7 @@ function updateProbeWindow(
 async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
 	try {
 		const rawAssets = await wallet.listAssets();
-		return unwrapListAssets(rawAssets).map((a) => ({
-			assetId: a.id,
-			name: a.name ?? 'RGB Asset',
-			symbol: a.ticker,
-			balance: Number(a.balance ?? 0),
-			formattedBalance: String(a.balance ?? 0)
-		}));
+		return parseRgbAssets(rawAssets);
 	} catch (err) {
 		console.warn('[wallet-init] listAssets skipped or failed:', err);
 		return [];

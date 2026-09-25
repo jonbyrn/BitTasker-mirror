@@ -15,6 +15,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
+	import { publishBid } from '$lib/utils/nostr-bid';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -917,6 +918,30 @@
 		isBidOpen = true;
 	};
 
+	async function handleBidSubmit(data: {
+		amount: number;
+		days: number;
+		proposal: string;
+		taskId: string;
+	}) {
+		const task = selectedTaskForBid;
+		if (!task?.eventId) throw new Error('Task event id is unavailable');
+
+		await publishBid({
+			taskId: data.taskId,
+			taskEventId: task.eventId,
+			taskDTag: task.id,
+			taskTitle: task.title,
+			taskDescription: task.description,
+			taskBudget: task.budget,
+			taskCreatorPubkey: task.npub,
+			amount: data.amount,
+			days: data.days,
+			proposal: data.proposal
+		});
+		appStore.showSuccessToast($t('bids.task_details.bid_submitted'));
+	}
+
 	const onViewTask = async (task: Task) => {
 		if (isTaskDetailsOpen) return;
 		if (!drawersLoaded) await loadDrawerComponents();
@@ -1275,7 +1300,7 @@
 	isScrollable={true}
 >
 	{#if drawersLoaded && BidForm && selectedTaskForBid}
-		<BidForm task={selectedTaskForBid} onClose={closeBidDrawer} stickySubmit={false} />
+		<BidForm task={selectedTaskForBid} onSubmit={handleBidSubmit} onClose={closeBidDrawer} />
 	{:else if isBidOpen}
 		<div class="flex items-center justify-center p-8">
 			<span class="loading loading-spinner loading-md"></span>

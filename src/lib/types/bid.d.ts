@@ -5,6 +5,8 @@ import type { BidTranslations } from '$lib/nostr/bid';
 
 export type PaymentType = 'FIXED' | 'HOURLY';
 export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN' | 'SATS';
+/** New bids lock in USD. Older relay events may still quote SATS. */
+export type LockedBidCurrency = 'USD' | 'SATS';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
 
 export interface NostrBidContent {
@@ -18,7 +20,9 @@ export interface NostrBidContent {
 	taskCreatorRating?: number;
 	taskCreatorPubkey?: string;
 	taskTranslations?: TaskTranslations;
+	/** Quote in `currency` units. Outbound bids use USD. */
 	amount: number;
+	/** `USD` for new bids. Historical bids use `SATS`. */
 	currency: string;
 	paymentType: PaymentType;
 	hourlyRate?: number | null;

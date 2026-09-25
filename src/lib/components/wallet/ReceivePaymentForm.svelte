@@ -4,7 +4,7 @@
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
 	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
-	import { createRgbInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { createRgbInvoice, receiveBlankInvoice } from '$lib/stores/wallet/wallet-balances';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
 
@@ -35,11 +35,13 @@
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
 	const canGenerate = $derived(
-		usdtUnconfigured
+		isGenerating
 			? false
 			: asset === 'btc_onchain'
 				? onchainAddress !== ''
-				: parsedAmount !== null && !isGenerating
+				: usdtUnconfigured
+					? true
+					: parsedAmount !== null
 	);
 
 	async function handleGenerate(): Promise<void> {
@@ -49,11 +51,19 @@
 			return;
 		}
 		if (asset === 'usdt_rgb') {
+			isGenerating = true;
 			if (!usdtAssetId) {
-				errorMessage = $t('wallet.taproot.usdt_not_configured');
+				try {
+					const result = await receiveBlankInvoice();
+					receiveValue = result.invoice;
+				} catch (err) {
+					errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
+					console.error('[receive-modal] blank RGB invoice error:', err);
+				} finally {
+					isGenerating = false;
+				}
 				return;
 			}
-			isGenerating = true;
 			try {
 				const result = await createRgbInvoice({
 					assetId: usdtAssetId,
@@ -104,7 +114,7 @@
 		{/each}
 	</div>
 
-	{#if requiresAmount}
+	{#if requiresAmount && !usdtUnconfigured}
 		<label class="form-control">
 			<span class="label-text mb-1"
 				>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' ? 'USDT' : 'sats'})</span
@@ -127,7 +137,10 @@
 		>
 			<span>{$t('wallet.taproot.usdt_not_configured')}</span>
 		</div>
-	{:else if !receiveValue}
+		<p class="text-base-content/70 text-sm">{$t('wallet.taproot.utexo_bot_hint')}</p>
+	{/if}
+
+	{#if !receiveValue}
 		<button
 			type="button"
 			class="btn btn-primary w-full"

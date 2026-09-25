@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+import { test, expect, type Page } from '@playwright/test';
 import { SimplePool } from 'nostr-tools';
 import { inspectBotKeychains, signUpBot } from './fixtures/bot-auth';
 import { fundTestnetAddress } from './fixtures/treasury';
@@ -313,6 +314,12 @@ async function readContractError(page: import('@playwright/test').Page): Promise
 	return (await error.innerText()).trim();
 }
 
+async function shot(page: Page, name: string): Promise<void> {
+	const dir = 'Screenshots/escrow-flow';
+	await mkdir(dir, { recursive: true });
+	await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+}
+
 async function holdOpenForInspection(): Promise<void> {
 	if (!Number.isFinite(E2E_HOLD_OPEN_MS) || E2E_HOLD_OPEN_MS <= 0) return;
 	await new Promise((resolve) => setTimeout(resolve, E2E_HOLD_OPEN_MS));
@@ -386,6 +393,7 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 
 	const submitBtn = page.locator('[data-testid="submit-task-btn"]');
 	await expect(submitBtn).toBeVisible({ timeout: 15_000 });
+	await shot(page, '01-create-task');
 
 	const readPublishedTask = () =>
 		page.evaluate(() => {
@@ -434,6 +442,7 @@ async function createTask(page: import('@playwright/test').Page): Promise<LastPu
 	if ((await taskCard.count()) > 0) {
 		await expect(taskCard).toBeVisible({ timeout: 10_000 });
 	}
+	await shot(page, '02-hiring-task');
 
 	const published = await readPublishedTask();
 	expect(published?.dTag).toMatch(/^bot-smoke-task-/);
@@ -571,6 +580,7 @@ async function createBidFlow(
 	await taskeePage
 		.locator('[data-testid="bid-proposal-input"]')
 		.fill('I can complete this task with a tested and documented implementation.');
+	await shot(taskeePage, '03-bid-form');
 	await taskeePage.locator('[data-testid="submit-bid-btn"]').click();
 	await expect(taskeePage.locator('[data-testid="bid-form"]')).toBeHidden();
 	await expect
@@ -603,6 +613,7 @@ async function createBidFlow(
 	await expect(taskerPage.locator('[data-testid="bid-card"]').first()).toBeVisible({
 		timeout: 30_000
 	});
+	await shot(taskerPage, '04-bids-list');
 
 	return { taskerPage, taskeePage, taskerContext, taskeeContext, taskId: taskD };
 }
@@ -645,6 +656,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	});
 	const totalSatsLabel = taskerPage.locator('[data-testid="bid-total-sats"]');
 	await expect(totalSatsLabel).toBeVisible({ timeout: 30_000 });
+	await shot(taskerPage, '05-accept-pay');
 	const invoiceSats = Number((await totalSatsLabel.innerText()).replace(/[^\d]/g, ''));
 	expect(invoiceSats).toBe(3075);
 	await ensureTaskerSats(taskerPage, browser, invoiceSats + 5_000);
@@ -809,6 +821,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	await acceptFund.click();
 	const payFromWallet = taskerPage.locator('[data-testid="pay-funding-from-wallet"]');
 	await expect(payFromWallet).toBeEnabled({ timeout: 120_000 });
+	await shot(taskerPage, '06-pay-from-wallet');
 
 	const sendLogged = taskerPage.waitForEvent('console', {
 		timeout: 240_000,
@@ -851,6 +864,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	await taskeePage.goto(taskeeUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 	const taskeeStatus = taskeePage.locator('[data-testid="contract-status"]');
 	await expect(taskeeStatus).toContainText('funded', { timeout: 90_000 });
+	await shot(taskeePage, '07-contract-funded');
 	console.info('[e2e] taskee status', (await taskeeStatus.innerText()).trim());
 	const taskeeError = await readContractError(taskeePage);
 	if (taskeeError) {
@@ -865,6 +879,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 	await taskeePage
 		.locator('[data-testid="deliverable-proof-url-input"]')
 		.fill('https://example.com/e2e-proof');
+	await shot(taskeePage, '08-submit-work');
 	await submit.click();
 	await expect(taskeeStatus).toHaveText('work_submitted', { timeout: 90_000 });
 
@@ -879,6 +894,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		throw new Error(taskerError);
 	}
 	const releaseButton = taskerPage.locator('[data-testid="approve-release-funds-button"]');
+	await shot(taskerPage, '09-release');
 	if ((await releaseButton.count()) > 0) {
 		await releaseButton.click();
 	} else {
@@ -890,6 +906,7 @@ test('funded bot escrow acceptance with BTC settlement', async ({ browser }) => 
 		});
 	}
 	await expect(taskerStatus).toHaveText('released', { timeout: TESTNET_CONFIRM_MS });
+	await shot(taskerPage, '10-released');
 	await holdOpenForInspection();
 	await taskerContext.close();
 	await taskeeContext.close();

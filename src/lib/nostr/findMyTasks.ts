@@ -1,5 +1,5 @@
 import type { Task } from '$lib/types/task.d';
-import { SimplePool, type Event, type Filter } from 'nostr-tools';
+import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { myTasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
@@ -8,7 +8,8 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { isNotFoundError } from '$lib/api/apiService';
-import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { queryRelayEvents } from '$lib/nostr/relayQuery';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -27,21 +28,20 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
 /**
  * Convert a Nostr event to a Task
  */
+async function queryTaskRelays(relays: string[], filter: Filter): Promise<Event[]> {
+	return queryRelayEvents(relays, filter);
+}
+
 async function fetchMyTaskEvents(filter: Filter): Promise<Event[]> {
 	if (isE2ETest()) {
-		const relays = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
-		if (relays.length > 0) {
-			const pool = new SimplePool();
-			try {
-				return await pool.querySync(relays, filter);
-			} finally {
-				pool.close(relays);
-			}
-		}
+		return queryTaskRelays(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter);
 	}
 
 	const response = await nostrEventsService.findEvents(filter);
-	return Array.isArray(response?.data) ? response.data : [];
+	const events = Array.isArray(response?.data) ? response.data : [];
+	if (events.length > 0) return events;
+
+	return queryTaskRelays(resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL), filter);
 }
 
 function convertEventToTask(event: Event): Task & { eventId?: string } {

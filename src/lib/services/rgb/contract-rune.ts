@@ -4,6 +4,7 @@
 
 import { state } from '$lib/stores/wallet/wallet-state';
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { getConfiguredRgbUsdtAssetId, selectEscrowAsset } from '$lib/types/rgb-contract';
 
 export type ContractStatus =
 	| 'idle'
@@ -151,11 +152,12 @@ export class ContractRune {
 			typeof window !== 'undefined'
 				? (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID
 				: undefined;
-		const expectedAssetId =
-			mintedAssetId ||
-			this._assetId ||
-			import.meta.env.VITE_RGB_ESCROW_ASSET_ID ||
-			nia.find((a: { ticker?: string }) => a.ticker === 'USDT')?.assetId;
+		const expectedAssetId = selectEscrowAsset(nia ?? [], [
+			mintedAssetId,
+			this._assetId,
+			getConfiguredRgbUsdtAssetId(),
+			import.meta.env.VITE_RGB_ESCROW_ASSET_ID as string | undefined
+		]);
 
 		if (!expectedAssetId) {
 			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');

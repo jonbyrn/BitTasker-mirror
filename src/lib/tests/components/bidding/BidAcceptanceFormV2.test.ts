@@ -172,15 +172,15 @@ describe('BidAcceptanceFormV2', () => {
 		startWorkMock.mockResolvedValue({ status: 'work_in_progress' });
 	});
 
-	it('renders the bid summary with platform fee and total', () => {
-		const { getByTestId } = render(BidAcceptanceFormV2, {
+	it('locks a USD bid as dollars and offers USDT funding', () => {
+		const { getByTestId, queryByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask() }
 		});
-		expect(getByTestId('bid-base-amount').textContent).toBe('200,000 sats');
-		expect(getByTestId('bid-platform-fee').textContent).toBe('5,000 sats');
-		expect(getByTestId('bid-total-payment').textContent).toBe('205,000 sats');
-		expect(getByTestId('bid-total-sats').textContent).toContain('205,000');
-		expect(getByTestId('contract-settlement-unit').textContent).toContain('Bitcoin');
+		expect(getByTestId('bid-base-amount').textContent).toBe('$200.00');
+		expect(queryByTestId('bid-platform-fee')).toBeNull();
+		expect(getByTestId('contract-settlement-unit').textContent).toContain('USDT');
+		expect(getByTestId('fund-rail-usdt')).toBeTruthy();
+		expect((getByTestId('fund-rail-usdt') as HTMLInputElement).checked).toBe(true);
 	});
 
 	it('uses sat totals from SATS bids without converting through USD', () => {
@@ -220,17 +220,30 @@ describe('BidAcceptanceFormV2', () => {
 		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(false);
 	});
 
-	it('shows insufficient-funds error when balance is below required sats', () => {
+	it('shows insufficient-funds error when a sat bid exceeds the wallet', () => {
 		walletState.set({
 			isConnected: true,
 			rgb: { initialized: true, balanceSats: 1_000 },
 			wdk: { btcOnchain: { address: '' } }
 		});
 		const { getByTestId } = render(BidAcceptanceFormV2, {
-			props: { bid: makeBid(), task: makeTask() }
+			props: { bid: makeBid({ amount: 3000, currency: 'SATS' }), task: makeTask() }
 		});
 		expect(getByTestId('insufficient-funds')).toBeTruthy();
 		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('accepts a USD bid when the sat balance is below the dollar quote', () => {
+		walletState.set({
+			isConnected: true,
+			rgb: { initialized: true, balanceSats: 1_000 },
+			wdk: { btcOnchain: { address: '' } }
+		});
+		const { getByTestId, queryByTestId } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid(), task: makeTask() }
+		});
+		expect(queryByTestId('insufficient-funds')).toBeNull();
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('funds RGB escrow with Bitcoin settlement, then starts the task with messages and notifications', async () => {
@@ -248,10 +261,11 @@ describe('BidAcceptanceFormV2', () => {
 			contractId: 'contract-task-1-bid-1',
 			contractTitle: 'Install a node',
 			bidderComments: 'I will configure the RGB wallet and document the setup.',
-			totalAmountUsd: 205,
-			amountSats: 205_000,
+			totalAmountUsd: 200,
+			lockedAmount: 200,
+			lockedCurrency: 'USD',
 			split: {
-				primaryAsset: 'btc_onchain',
+				primaryAsset: 'usdt_rgb',
 				primaryPercentage: 100,
 				secondaryAsset: 'btc_lightning',
 				secondaryPercentage: 0

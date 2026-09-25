@@ -109,7 +109,8 @@ const CJS_PACKAGES = [
 	'bn.js',
 	'ripemd160',
 	'sha256',
-	'bs58check'
+	'bs58check',
+	'cookie'
 ];
 
 const ESM_PACKAGES = ['@noble/hashes'];
@@ -465,7 +466,7 @@ RlnWasmNode.newWithNodeRuntimeId = function(proxy_url, node_runtime_id, network)
 };
 const __btRlnTransport = RlnWasmSdk.prototype.setDefaultRgbProxyTransport;
 RlnWasmSdk.prototype.setDefaultRgbProxyTransport = function(endpoint, auth_token, node_id) {
-  console.error('[wallet-diagnostic:rln-transport]', { endpoint, authToken: auth_token, nodeId: node_id });
+  console.error('[wallet-diagnostic:rln-transport]', { endpoint, hasAuth: Boolean(auth_token), nodeId: node_id });
   return __btRlnTransport.call(this, endpoint, auth_token, node_id);
 };
 const __btRlnInit = RlnWasmSdk.prototype.initValue;
@@ -475,7 +476,13 @@ RlnWasmSdk.prototype.initValue = function(password, mnemonic) {
 };
 const __btRlnWalletCreate = RlnWasmWallet.create.bind(RlnWasmWallet);
 RlnWasmWallet.create = function(wallet_data) {
-  console.error('[wallet-diagnostic:rln-wallet]', wallet_data);
+  const data = wallet_data || {};
+  console.error('[wallet-diagnostic:rln-wallet]', {
+    dataDir: data.data_dir,
+    network: data.bitcoin_network,
+    databaseType: data.database_type,
+    schemas: data.supported_schemas
+  });
   return __btRlnWalletCreate(wallet_data);
 };
 `;
@@ -644,7 +651,8 @@ export default defineConfig(({ mode }) => {
 				'buffer',
 				'stream-browserify',
 				'process/browser',
-				'@utexo/rgb-sdk-web'
+				'@utexo/rgb-sdk-web',
+				'cookie'
 			],
 			resolve: {
 				conditions: ['node', 'development'],
@@ -666,6 +674,24 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		plugins: [
+			{
+				name: 'cookie-named-exports',
+				enforce: 'pre',
+				transform(code, id) {
+					const file = String(id).replaceAll('\\', '/').split('?')[0];
+					if (!file.endsWith('/node_modules/cookie/index.js')) return null;
+					if (!code.includes('exports.parse = parse')) return null;
+					const body = code
+						.replace('exports.parse = parse;\r\n', '')
+						.replace('exports.parse = parse;\n', '')
+						.replace('exports.serialize = serialize;\r\n', '')
+						.replace('exports.serialize = serialize;\n', '');
+					return {
+						code: `${body}\nexport { parse, serialize };\n`,
+						map: null
+					};
+				}
+			},
 			{
 				name: 'script-ops-patch',
 				enforce: 'pre',

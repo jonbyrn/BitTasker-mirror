@@ -5,6 +5,7 @@
  * Works in both Node.js (SSR/prerendering) and browser.
  */
 
+import { guardRelaySocket } from '$lib/utils/relayUrls';
 import { SimplePool } from 'nostr-tools/pool';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { Event, Filter } from 'nostr-tools';
@@ -171,6 +172,7 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 		return { tasks: [], services: [] };
 	}
 
+	guardRelaySocket();
 	const pool = new SimplePool();
 
 	try {

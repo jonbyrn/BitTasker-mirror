@@ -71,6 +71,8 @@ export interface TaskBody {
 export interface Task {
 	estimatedHours: number;
 	id: string;
+	/** Nostr event id of the task creation event. Required to publish a bid. */
+	eventId?: string;
 	npub: string;
 	status: TaskStatusEnum;
 	title: string;

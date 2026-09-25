@@ -2,7 +2,8 @@
 	import type { CounterOffer, Currency, PaymentType, NostrBidContent } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { isSatBid } from '$lib/utils/nostr-bid';
 	import { t, locale } from 'svelte-i18n';
 	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
 	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
@@ -363,12 +364,19 @@
 				>
 			</div>
 			<div class="text-right">
-				<div class="text-lg font-bold">
-					${formatNumberWithTwoDecimals(props.bid.amount)}
-				</div>
-				<div class="text-base-content/60 text-sm">
-					{satsFromUsd(props.bid.amount, btcPrice)}
-				</div>
+				{#if isSatBid(props.bid.currency)}
+					<div class="text-lg font-bold">
+						{formatInteger(props.bid.amount)}
+						{$t('bids.sats')}
+					</div>
+				{:else}
+					<div class="text-lg font-bold">
+						${formatNumberWithTwoDecimals(props.bid.amount)}
+					</div>
+					<div class="text-base-content/60 text-sm">
+						{satsFromUsd(props.bid.amount, btcPrice)}
+					</div>
+				{/if}
 			</div>
 		</div>
 

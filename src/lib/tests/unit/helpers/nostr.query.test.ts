@@ -174,4 +174,49 @@ describe('queryNostrEvents', () => {
 		);
 		errorSpy.mockRestore();
 	});
+
+	it('reads the relay when the pool query does not finish', async () => {
+		vi.useFakeTimers();
+		mockPool.querySync.mockReturnValue(new Promise(() => undefined));
+		const event = {
+			id: 'bid-1',
+			kind: 1,
+			pubkey: 'b'.repeat(64),
+			created_at: 1,
+			tags: [] as string[][],
+			content: 'plain',
+			sig: 'sig'
+		};
+
+		class FakeSocket {
+			onopen: (() => void) | null = null;
+			onmessage: ((message: { data: string }) => void) | null = null;
+			onerror: (() => void) | null = null;
+			readyState = 1;
+			constructor() {
+				queueMicrotask(() => this.onopen?.());
+			}
+			send(payload: string) {
+				const frame = JSON.parse(payload) as [string, string];
+				this.onmessage?.({ data: JSON.stringify(['EVENT', frame[1], event]) });
+				this.onmessage?.({ data: JSON.stringify(['EOSE', frame[1]]) });
+			}
+			close() {
+				this.readyState = 3;
+			}
+		}
+
+		vi.stubGlobal('WebSocket', FakeSocket);
+		try {
+			const { queryNostrEvents } = await import('$lib/utils/nostr');
+			const pending = queryNostrEvents({ kinds: [1], limit: 1 }, undefined, undefined, [
+				'wss://nos.lol'
+			]);
+			await vi.advanceTimersByTimeAsync(4000);
+			await expect(pending).resolves.toEqual([expect.objectContaining({ id: 'bid-1' })]);
+		} finally {
+			vi.useRealTimers();
+			vi.unstubAllGlobals();
+		}
+	});
 });

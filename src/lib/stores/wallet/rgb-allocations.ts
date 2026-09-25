@@ -4,6 +4,18 @@ export interface AllocationUtxo {
 	pendingBlinded?: number;
 }
 
+export type WalletUtxoKind = 'free' | 'locked' | 'colored' | 'vanilla';
+
+export interface WalletUtxoRow {
+	id: string;
+	outpoint: string;
+	sats: number;
+	colorable: boolean;
+	allocations: number;
+	pendingBlinded: number;
+	kind: WalletUtxoKind;
+}
+
 export interface AllocationWallet {
 	listUnspents?: () => Promise<AllocationUtxo[]>;
 	createUtxos?: (params: {
@@ -16,6 +28,42 @@ export interface AllocationWallet {
 
 const SPLIT_UTXOS = { upTo: true, num: 5, feeRate: 2 } as const;
 const ONE_UTXO = { upTo: false, num: 1, feeRate: 2 } as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function utxoKind(colorable: boolean, allocations: number, pendingBlinded: number): WalletUtxoKind {
+	if (pendingBlinded > 0) return 'locked';
+	if (allocations > 0) return 'colored';
+	return colorable ? 'free' : 'vanilla';
+}
+
+/** Rows safe to render from `listUnspents`. */
+export function parseWalletUtxos(rows: unknown): WalletUtxoRow[] {
+	if (!Array.isArray(rows)) return [];
+	const parsed: WalletUtxoRow[] = [];
+	for (const [index, row] of rows.entries()) {
+		if (!isRecord(row) || !isRecord(row.utxo) || row.utxo.exists === false) continue;
+		const outpoint = isRecord(row.utxo.outpoint) ? row.utxo.outpoint : {};
+		const txid = typeof outpoint.txid === 'string' ? outpoint.txid : '';
+		const vout = typeof outpoint.vout === 'number' ? outpoint.vout : 0;
+		const allocations = Array.isArray(row.rgbAllocations) ? row.rgbAllocations.length : 0;
+		const pendingBlinded = typeof row.pendingBlinded === 'number' ? row.pendingBlinded : 0;
+		const colorable = row.utxo.colorable === true;
+		const sats = typeof row.utxo.btcAmount === 'number' ? row.utxo.btcAmount : 0;
+		parsed.push({
+			id: txid ? `${txid}:${vout}` : `utxo-${index}`,
+			outpoint: txid ? `${txid}:${vout}` : `utxo-${index}`,
+			sats,
+			colorable,
+			allocations,
+			pendingBlinded,
+			kind: utxoKind(colorable, allocations, pendingBlinded)
+		});
+	}
+	return parsed;
+}
 
 /** Colorable UTXOs that can take a new RGB state transition. */
 export function freeAllocationCount(unspents: AllocationUtxo[]): number {
