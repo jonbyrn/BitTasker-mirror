@@ -23,6 +23,7 @@ export interface RgbAllocationRef {
 
 export interface RgbUnspentRef {
 	rgbAllocations: RgbAllocationRef[];
+	pendingBlinded?: number;
 	utxo: {
 		exists: boolean;
 		outpoint?: { txid?: string; vout?: number };
@@ -65,13 +66,27 @@ export function isBdkAddUtxoError(error: unknown): boolean {
 	return String(error).toLowerCase().includes('adding utxos');
 }
 
-/** Colorable outputs that actually hold `assetId`. */
+function holdsAsset(unspent: RgbUnspentRef, assetId: string): boolean {
+	return unspent.rgbAllocations.some((allocation) => allocation.assetId === assetId);
+}
+
+/** RGB row this wallet must not spend. BDK does not own it, or a blank invoice locked it. */
+export function strandedSeal(unspent: RgbUnspentRef, assetId: string): boolean {
+	if (!holdsAsset(unspent, assetId)) return false;
+	if (!unspent.utxo.exists) return true;
+	if ((unspent.pendingBlinded ?? 0) > 0) return true;
+	return unspent.utxo.outpoint?.txid === ORPHAN_TXID;
+}
+
+/** Colorable outputs this wallet session can spend. A blank invoice lock is not one of them. */
 export function allocatedSealRows(unspents: RgbUnspentRef[], assetId: string): RgbUnspentRef[] {
 	return unspents.filter(
 		(unspent) =>
 			unspent.utxo.exists &&
 			unspent.utxo.colorable === true &&
-			unspent.rgbAllocations.some((allocation) => allocation.assetId === assetId)
+			(unspent.pendingBlinded ?? 0) === 0 &&
+			unspent.utxo.outpoint?.txid !== ORPHAN_TXID &&
+			holdsAsset(unspent, assetId)
 	);
 }
 
@@ -96,10 +111,15 @@ export function sealSendBlocker(
 	assetId: string,
 	spendable: number
 ): string | null {
-	const seals = allocatedSealRows(unspents, assetId);
-	if (seals.some((unspent) => unspent.utxo.outpoint?.txid === ORPHAN_TXID)) {
-		return `Refusing onchainSend: ${assetId} is sealed on ${ORPHAN_TXID}, which this BDK store does not own`;
+	const stranded = unspents.find((unspent) => strandedSeal(unspent, assetId));
+	if (stranded) {
+		if ((stranded.pendingBlinded ?? 0) > 0) {
+			return `Refusing onchainSend: ${assetId} is locked by a blank invoice. The payment arrives as a new UTXO.`;
+		}
+		const txid = stranded.utxo.outpoint?.txid ?? 'unknown';
+		return `Refusing onchainSend: ${assetId} is sealed on ${txid}, which this BDK store does not own`;
 	}
+	const seals = allocatedSealRows(unspents, assetId);
 	const anyAllocated = unspents.some((unspent) => unspent.rgbAllocations.length > 0);
 	if (!anyAllocated && spendable === UNSEALED_MINT_UNITS) {
 		return 'Refusing onchainSend: spendable 10000 has no seal in listUnspents';

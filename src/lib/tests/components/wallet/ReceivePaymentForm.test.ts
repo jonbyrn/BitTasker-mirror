@@ -2,10 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
-const { getRgbAddress, createLightningInvoice, onchainReceive } = vi.hoisted(() => ({
+const { getRgbAddress, createLightningInvoice, onchainReceive, listAssets } = vi.hoisted(() => ({
 	getRgbAddress: vi.fn().mockResolvedValue('bc1qreceive'),
 	createLightningInvoice: vi.fn().mockResolvedValue({ lnInvoice: 'lnbc500n1test' }),
-	onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' })
+	onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' }),
+	listAssets: vi.fn().mockResolvedValue({ nia: [] })
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -28,7 +29,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 			rgb: { address: 'bc1qstored', initialized: true },
 			wdk: { btcOnchain: { address: 'bc1qwdk' } }
 		}),
-		state: { utexoWallet: { onchainReceive } }
+		state: { utexoWallet: { onchainReceive, listAssets } }
 	};
 });
 
@@ -82,7 +83,8 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
-	it('creates an RGB invoice for USDT receives', async () => {
+	it('creates a named RGB invoice when this wallet already lists USDT', async () => {
+		listAssets.mockResolvedValueOnce({ nia: [{ assetId: 'rgb1testusdtasset' }] });
 		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
@@ -99,6 +101,27 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
+	it('creates a blank RGB invoice when the configured USDT id is not in this wallet', async () => {
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100000' } });
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
+		await waitFor(() =>
+			expect(getByTestId('receive-usdt-blank-hint').textContent).toContain(
+				'wallet.taproot.utexo_bot_hint'
+			)
+		);
+	});
+
 	it('keeps generate disabled until a valid amount is entered for invoice assets', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 
@@ -113,6 +136,7 @@ describe('ReceivePaymentForm', () => {
 	});
 
 	it('surfaces invoice generation errors', async () => {
+		listAssets.mockResolvedValueOnce({ nia: [{ assetId: 'rgb1testusdtasset' }] });
 		onchainReceive.mockRejectedValueOnce(new Error('No channels'));
 		const { getByTestId } = render(ReceivePaymentForm);
 

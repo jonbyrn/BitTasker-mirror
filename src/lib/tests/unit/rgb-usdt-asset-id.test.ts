@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	escrowSendAmount,
 	getConfiguredRgbUsdtAssetId,
+	listsRgbAsset,
 	selectEscrowAsset,
 	usdtEscrowUnits,
 	usdtPrecision
@@ -26,6 +27,15 @@ describe('getConfiguredRgbUsdtAssetId', () => {
 
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'a'.repeat(64));
 		expect(getConfiguredRgbUsdtAssetId()).toBeNull();
+	});
+});
+
+describe('listsRgbAsset', () => {
+	it('matches only an asset id already in this wallet', () => {
+		const nia = [{ assetId: 'rgb:held' }];
+		expect(listsRgbAsset(nia, 'rgb:held')).toBe(true);
+		expect(listsRgbAsset(nia, 'rgb:missing')).toBe(false);
+		expect(listsRgbAsset(nia, null)).toBe(false);
 	});
 });
 

@@ -6,6 +6,7 @@ import {
 	listsLocalOutpoint,
 	needsVanillaFeeUtxo,
 	sealSendBlocker,
+	strandedSeal,
 	stuckSendBatchIndexes
 } from '$lib/stores/wallet/prepare-rgb-send';
 
@@ -95,6 +96,34 @@ describe('prepareRgbOnchainSend helpers', () => {
 			}
 		];
 		expect(sealSendBlocker(unspents, assetId, 1000)).toContain(orphan);
+	});
+
+	it('refuses a seal the BDK store does not list', () => {
+		const assetId = 'rgb:held';
+		const unspents = [
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 1000 } }],
+				utxo: { exists: false, colorable: true, outpoint: { txid: 'stranded', vout: 2 } }
+			}
+		];
+		expect(strandedSeal(unspents[0], assetId)).toBe(true);
+		expect(sealSendBlocker(unspents, assetId, 1000)).toContain('stranded');
+	});
+
+	it('refuses the blank-invoice lock and waits for the payment UTXO', () => {
+		const assetId = 'rgb:held';
+		const unspents = [
+			{
+				pendingBlinded: 1,
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 1000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: 'invoice-lock', vout: 2 } }
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+			}
+		];
+		expect(sealSendBlocker(unspents, assetId, 1000)).toContain('blank invoice');
 	});
 
 	it('allows send when the colorable seal matches spendable and a fee coin remains', () => {

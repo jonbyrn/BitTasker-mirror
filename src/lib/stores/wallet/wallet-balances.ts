@@ -2,7 +2,7 @@ import { walletStore, state } from './wallet-state';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
-import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+import { getConfiguredRgbUsdtAssetId, listsRgbAsset } from '$lib/types/rgb-contract';
 import { receiveWithAllocations } from './rgb-allocations';
 
 interface RgbAmount {
@@ -578,6 +578,26 @@ export async function acceptIncomingPayment(): Promise<void> {
 	const transfers = wallet.listTransfers ? await wallet.listTransfers().catch(() => []) : [];
 	await loadAssets();
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
+}
+
+/**
+ * Named USDT receive when this wallet already lists the configured contract.
+ * Otherwise a blank invoice, because blindReceive of an unknown id throws.
+ */
+export async function receiveUsdtInvoice(
+	amount?: number
+): Promise<{ invoice: string; blank: boolean }> {
+	const configured = getConfiguredRgbUsdtAssetId();
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized');
+	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+	const nia = listed && Array.isArray(listed.nia) ? listed.nia : [];
+	if (configured && listsRgbAsset(nia, configured)) {
+		const named = await createRgbInvoice({ assetId: configured, amount });
+		return { invoice: named.invoice, blank: false };
+	}
+	const blank = await receiveBlankInvoice();
+	return { invoice: blank.invoice, blank: true };
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */

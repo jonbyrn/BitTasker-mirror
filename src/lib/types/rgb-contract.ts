@@ -82,6 +82,16 @@ function heldSpendable(
 	return Number.isFinite(spendable) && spendable > 0 ? id : undefined;
 }
 
+/** True when this wallet's NIA list already contains the contract. */
+export function listsRgbAsset(
+	nia: readonly { assetId?: string }[] | undefined,
+	assetId: string | null | undefined
+): boolean {
+	const id = assetId?.trim();
+	if (!id) return false;
+	return (nia ?? []).some((row) => row.assetId === id);
+}
+
 /** First preferred id that this wallet can spend, then USDT, then any spendable NIA. */
 export function selectEscrowAsset(
 	nia: readonly SpendableNia[],

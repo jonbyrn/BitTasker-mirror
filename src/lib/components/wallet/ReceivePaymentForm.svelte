@@ -4,7 +4,7 @@
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
 	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
-	import { createRgbInvoice, receiveBlankInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
 
@@ -15,6 +15,7 @@
 	let isGenerating = $state(false);
 	let receiveValue = $state('');
 	let errorMessage = $state('');
+	let usedBlank = $state(false);
 
 	const assets: Array<{ id: ReceiveAsset; labelKey: string }> = [
 		{ id: 'btc_onchain', labelKey: 'wallet.send_form.asset.bitcoin' },
@@ -52,24 +53,11 @@
 		}
 		if (asset === 'usdt_rgb') {
 			isGenerating = true;
-			if (!usdtAssetId) {
-				try {
-					const result = await receiveBlankInvoice();
-					receiveValue = result.invoice;
-				} catch (err) {
-					errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
-					console.error('[receive-modal] blank RGB invoice error:', err);
-				} finally {
-					isGenerating = false;
-				}
-				return;
-			}
+			usedBlank = false;
 			try {
-				const result = await createRgbInvoice({
-					assetId: usdtAssetId,
-					amount: parsedAmount ?? undefined
-				});
+				const result = await receiveUsdtInvoice(parsedAmount ?? undefined);
 				receiveValue = result.invoice;
+				usedBlank = result.blank;
 			} catch (err) {
 				errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
 				console.error('[receive-modal] RGB invoice error:', err);
@@ -106,6 +94,7 @@
 					asset = option.id;
 					receiveValue = '';
 					errorMessage = '';
+					usedBlank = false;
 				}}
 				data-testid={`receive-asset-${option.id}`}
 			>
@@ -137,7 +126,11 @@
 		>
 			<span>{$t('wallet.taproot.usdt_not_configured')}</span>
 		</div>
-		<p class="text-base-content/70 text-sm">{$t('wallet.taproot.utexo_bot_hint')}</p>
+	{/if}
+	{#if usdtUnconfigured || usedBlank}
+		<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
+			{$t('wallet.taproot.utexo_bot_hint')}
+		</p>
 	{/if}
 
 	{#if !receiveValue}
