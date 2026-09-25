@@ -24,6 +24,30 @@ describe('AuthService', () => {
 		authService = new AuthService();
 	});
 
+	describe('encryptedNostrData', () => {
+		it('continues to passkey setup when the account lookup fails', async () => {
+			mockPost.mockRejectedValueOnce(Object.assign(new Error('fail'), { status: 500 }));
+
+			const result = await authService.encryptedNostrData({
+				event: {
+					kind: 22242,
+					created_at: 1,
+					content: 'challenge',
+					tags: [],
+					pubkey: 'a'.repeat(64),
+					id: 'b'.repeat(64),
+					sig: 'c'.repeat(128)
+				},
+				deviceId: 'device',
+				deviceName: 'browser',
+				platform: 'web',
+				appVersion: '0.0.1'
+			});
+
+			expect(result).toBeUndefined();
+		});
+	});
+
 	describe('updateLanguage', () => {
 		it('should call PATCH /api/v1/auth/language with the lang parameter', async () => {
 			await authService.updateLanguage('es');

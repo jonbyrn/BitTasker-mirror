@@ -336,6 +336,9 @@
 
 			let { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
+			isBiometricsAvailable = await checkBiometricAvailability();
+			isNativePlatform = checkNativePlatform();
+
 			// Check if we're in a test environment (E2E tests) or dev mode (VITE skip passkey)
 			dbg.log(
 				'authenticate: isTestEnvironment=%s, isBiometricsAvailable=%s, isNative=%s',

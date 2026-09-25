@@ -200,10 +200,9 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: unknown) {
-			const err = error as { status?: number };
-			if (err?.status === 500) {
-				throw new Error('Internal server error. Please try again later.');
-			}
+			const status = (error as { status?: number }).status;
+			console.warn('Nostr encrypted data lookup did not return an account', status);
+			return undefined;
 		}
 	}
 
