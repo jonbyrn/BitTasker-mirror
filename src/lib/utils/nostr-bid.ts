@@ -88,8 +88,20 @@ export function buildBidContent(
 		bidId,
 		startDateTime: now,
 		endDateTime: now + params.days * 24 * 60 * 60,
-		bidderId
+		bidderId,
+		taskCreatorPubkey: params.taskCreatorPubkey
 	};
+}
+
+/** Tasker hex from bid content, or from the bid's `p` tag when older bids omitted it. */
+export function readTaskerPubkey(event: NostrEvent): string {
+	const content = event.content as unknown;
+	if (content && typeof content === 'object' && 'taskCreatorPubkey' in content) {
+		const stored = (content as { taskCreatorPubkey?: unknown }).taskCreatorPubkey;
+		if (typeof stored === 'string' && stored.trim()) return stored.trim();
+	}
+	const tagged = event.tags.find((tag) => tag[0] === 'p' && tag[1]?.trim());
+	return tagged?.[1]?.trim() ?? '';
 }
 
 type LastPublishedBid = {
@@ -482,10 +494,12 @@ export async function publishFundingInvoice(
 	if (!trimmed.startsWith('rgb:') && !trimmed.startsWith('rgb1')) {
 		throw new Error('Escrow invoice must be an rgb invoice');
 	}
+	const tasker = taskerPubkey.trim();
+	if (!tasker) return false;
 	return sendBidStatusUpdate(
 		bidEventId,
 		taskId,
-		taskerPubkey,
+		tasker,
 		BidStatusEnum.ACCEPTED,
 		'Escrow invoice created',
 		undefined,

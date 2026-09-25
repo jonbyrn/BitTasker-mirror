@@ -265,15 +265,17 @@
 		}
 	}
 
-	async function handleLoadTaskeeInvoice(): Promise<void> {
+	async function loadPostedInvoice(quiet = false): Promise<void> {
 		if (!bidContent?.bidderId) return;
-		isProcessing = true;
-		errorMessage = '';
-		processingStep = 'funding';
+		if (!quiet) {
+			isProcessing = true;
+			errorMessage = '';
+			processingStep = 'funding';
+		}
 		try {
 			const invoice = await fetchFundingInvoice(bidContent.taskId || task.id, bid.id);
 			if (!invoice) {
-				errorMessage = $t('dashboard.bids.bid_acceptance.invoice_missing');
+				if (!quiet) errorMessage = $t('dashboard.bids.bid_acceptance.invoice_missing');
 				return;
 			}
 			const rune = new ContractRune(contractInput(bidContent.bidderId));
@@ -284,14 +286,25 @@
 			fundedContractId = rune.snapshot.contractId;
 			awaitingTaskeeInvoice = false;
 		} catch (error) {
+			if (quiet) return;
 			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
 			await walletManager.releaseRgbLock();
-			isProcessing = false;
-			processingStep = 'idle';
+			if (!quiet) {
+				isProcessing = false;
+				processingStep = 'idle';
+			}
 		}
 	}
+
+	$effect(() => {
+		if (!awaitingTaskeeInvoice) return;
+		const timer = setInterval(() => {
+			void loadPostedInvoice(true);
+		}, 5000);
+		return () => clearInterval(timer);
+	});
 
 	async function handlePayFromWallet(): Promise<void> {
 		if (!fundedRune || !fundedContractId || !bidContent?.bidderId) return;
@@ -592,7 +605,7 @@
 			<button
 				type="button"
 				class="btn btn-primary w-full"
-				onclick={handleLoadTaskeeInvoice}
+				onclick={() => loadPostedInvoice(false)}
 				disabled={isProcessing}
 				data-testid="load-taskee-invoice"
 			>

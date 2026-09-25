@@ -4,6 +4,7 @@ import {
 	isSatBid,
 	lockBidAmount,
 	readFundingInvoice,
+	readTaskerPubkey,
 	resolveBidSats,
 	sendBidStatusUpdate
 } from '$lib/utils/nostr-bid';
@@ -92,13 +93,30 @@ describe('USD bid quotes', () => {
 				taskDescription: 'Set up the wallet',
 				amount: 3500,
 				days: 3,
-				proposal: 'I can do this'
+				proposal: 'I can do this',
+				taskCreatorPubkey: 'cd'.repeat(32)
 			},
 			bidderId,
 			1_700_000_000
 		);
 		expect(content.currency).toBe('USD');
 		expect(content.amount).toBe(3500);
+		expect(content.taskCreatorPubkey).toBe('cd'.repeat(32));
+	});
+
+	it('reads the tasker pubkey from the bid p tag when the content omitted it', () => {
+		const tasker = 'ef'.repeat(32);
+		expect(
+			readTaskerPubkey({
+				id: 'bid-1',
+				pubkey: 'ab'.repeat(32),
+				created_at: 1,
+				kind: 1,
+				tags: [['p', tasker]],
+				content: { type: 'bid', amount: 11, currency: 'USD' },
+				sig: ''
+			})
+		).toBe(tasker);
 	});
 
 	it('treats sats quotes as sats and everything else as dollars', () => {

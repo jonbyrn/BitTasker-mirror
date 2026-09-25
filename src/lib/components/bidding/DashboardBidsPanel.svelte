@@ -7,7 +7,14 @@
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import { getMyBids, getBidStatus, cachedSatsFromUsd, isSatBid } from '$lib/utils/nostr-bid';
+	import {
+		getMyBids,
+		getBidStatus,
+		cachedSatsFromUsd,
+		isSatBid,
+		readFundingInvoice,
+		readTaskerPubkey
+	} from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
@@ -479,7 +486,8 @@
 								<EscrowInvoiceActions
 									bidId={bidEvent.id}
 									taskId={bid.taskId}
-									taskerPubkey={bid.taskCreatorPubkey}
+									taskerPubkey={readTaskerPubkey(bidEvent)}
+									existingInvoice={readFundingInvoice(getBidStatus(bidEvent)) ?? ''}
 									{status}
 								/>
 								<div>

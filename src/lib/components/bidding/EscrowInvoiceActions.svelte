@@ -15,11 +15,13 @@
 		bidId,
 		taskId,
 		taskerPubkey,
+		existingInvoice = '',
 		status
 	}: {
 		bidId: string;
 		taskId: string;
 		taskerPubkey?: string;
+		existingInvoice?: string;
 		status?: string;
 	} = $props();
 
@@ -28,7 +30,7 @@
 		browser ? (sessionStorage.getItem(`rgb-escrow-invoice:${bidId}`) ?? '') : ''
 	);
 	let createdInvoice = $state('');
-	const invoice = $derived(createdInvoice || storedInvoice);
+	const invoice = $derived(createdInvoice || storedInvoice || existingInvoice);
 	let busy = $state(false);
 	let errorMessage = $state('');
 
@@ -106,6 +108,13 @@
 			<span class="loading loading-spinner loading-sm text-primary"></span>
 		{/if}
 		{#if invoice}
+			<input
+				class="input input-bordered input-sm w-full font-mono text-xs"
+				readonly
+				value={invoice}
+				aria-label={$t('bids.escrow_invoice_sent')}
+				data-testid="escrow-invoice-value"
+			/>
 			<p class="text-success text-xs" data-testid="escrow-invoice-ready">
 				{$t('bids.escrow_invoice_sent')}
 			</p>
