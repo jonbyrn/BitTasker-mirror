@@ -1,3 +1,6 @@
+overrides:
+  '@utexo/rln-wasm': 0.11.0-beta.3
+
 allowBuilds:
   '@firebase/util': true
   '@reown/appkit': true
