@@ -106,6 +106,83 @@ describe('escrow lifecycle', () => {
 		);
 	});
 
+	it('attaches a blank taskee invoice without spendable USDT', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		wallet.listAssets.mockResolvedValueOnce({ nia: [] });
+		const rune = new ContractRune({
+			contractId: 'contract-lock-only',
+			totalAmountUsd: 11,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		const prepared = await rune.prepareFunding(invoice);
+		expect(prepared.fundingInvoice).toBe(invoice);
+		expect(prepared.fundingState).toBe('awaiting_payment');
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect(wallet.onchainReceive).not.toHaveBeenCalled();
+	});
+
+	it('pays an eleven dollar bid in USDT base units, not sats', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		wallet.listAssets.mockResolvedValue({
+			nia: [
+				{
+					assetId: 'rgb:usdt-signet',
+					ticker: 'USDT',
+					precision: 6,
+					balance: { spendable: 20_000_000, settled: 20_000_000, future: 0 }
+				}
+			]
+		});
+		const rune = new ContractRune({
+			contractId: 'contract-usd-units',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		await rune.prepareFunding(invoice);
+		await rune.payFundingFromWallet();
+		expect(wallet.onchainSend).toHaveBeenCalledWith(
+			expect.objectContaining({ invoice, amount: 11_000_000 })
+		);
+		expect(wallet.onchainSend.mock.calls[0][0].amount).not.toBe(3075);
+	});
+
+	it('pays a sat-labeled bid as the asset spendable units', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-sat-units',
+			totalAmountUsd: 11,
+			amountSats: 3075,
+			lockedAmount: 3075,
+			lockedCurrency: 'SATS',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		await rune.prepareFunding(invoice);
+		await rune.payFundingFromWallet();
+		expect(wallet.onchainSend).toHaveBeenCalledWith(
+			expect.objectContaining({ invoice, amount: 10_000 })
+		);
+	});
+
 	it('refuses to create the escrow invoice on the tasker wallet', async () => {
 		const rune = new ContractRune({
 			contractId: 'contract-self-invoice',

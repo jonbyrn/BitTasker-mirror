@@ -359,11 +359,24 @@ export class ContractRune {
 				typeof wallet.onchainReceive === 'function' && typeof wallet.listAssets === 'function';
 			if (taskeeInvoice || canSendRgb) {
 				if (!taskeeInvoice) throw new TaskeeInvoiceRequired();
-				const { nia } = await wallet.listAssets();
-				const assets = (nia ?? []) as SpendableNia[];
-				const assetId = escrowAssetId(assets);
-				if (!assetId) throw new Error('No spendable RGB balance to fund escrow');
-				const amount = unitsForAsset(assets, assetId, this.totalAmountUsd);
+				// The blank invoice is the contract lock. Spendable USDT is checked on Pay.
+				const listed =
+					typeof wallet.listAssets === 'function'
+						? await wallet.listAssets().catch(() => undefined)
+						: undefined;
+				const assets = (listed?.nia ?? []) as SpendableNia[];
+				const selected = escrowAssetId(assets);
+				let assetId = '';
+				let amount = 0;
+				if (selected) {
+					try {
+						assetId = selected;
+						amount = unitsForAsset(assets, selected, this.totalAmountUsd);
+					} catch {
+						assetId = '';
+						amount = 0;
+					}
+				}
 				const invoice = taskeeInvoice;
 				const recipientId = `funding-${this.contractId}`;
 				const now = Date.now();
@@ -593,7 +606,16 @@ export class ContractRune {
 		if (!asset) {
 			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);
 		}
-		const baseUnits = unitsForAsset(assets, expectedAssetId, this.totalAmountUsd);
+		const spendable = Number(asset.balance?.spendable ?? 0);
+		const baseUnits =
+			this.lockedCurrency === 'SATS'
+				? escrowSendAmount({
+						spendable,
+						totalAmountUsd: this.totalAmountUsd,
+						precision: usdtPrecision(asset.ticker, asset.precision),
+						fullSpendable: true
+					})
+				: unitsForAsset(assets, expectedAssetId, this.totalAmountUsd);
 
 		console.info('[contract-rune] sendToInvoice', {
 			assetId: expectedAssetId,
