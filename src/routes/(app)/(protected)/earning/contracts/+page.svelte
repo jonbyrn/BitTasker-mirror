@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import type { NDKEvent } from '@nostr-dev-kit/ndk';
+	import { leadingContractStatus } from '$lib/runes/contract.svelte';
 	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { getNpub } from '$lib/utils/nostrKeys';
@@ -83,7 +84,17 @@
 				const row = readContractRow(event, pubkey);
 				if (!row) continue;
 				const current = byId[row.contractId];
-				if (!current || row.updatedAt >= current.updatedAt) byId[row.contractId] = row;
+				if (!current) {
+					byId[row.contractId] = row;
+					continue;
+				}
+				const status = leadingContractStatus([current.status, row.status]);
+				const source = status === row.status ? row : current;
+				byId[row.contractId] = {
+					...source,
+					status,
+					updatedAt: Math.max(current.updatedAt, row.updatedAt)
+				};
 			}
 			rows = Object.values(byId).sort((left, right) => right.updatedAt - left.updatedAt);
 		} catch (error) {

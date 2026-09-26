@@ -35,6 +35,35 @@ export type ContractRuneStatus =
 	| 'disputed'
 	| 'failed';
 
+const CONTRACT_STATUS_ORDER = [
+	'draft',
+	'funding',
+	'funded',
+	'work_in_progress',
+	'work_submitted',
+	'approved',
+	'releasing',
+	'released',
+	'settled'
+] as const;
+
+const CONTRACT_STATUS_RANK = new Map<string, number>(
+	CONTRACT_STATUS_ORDER.map((status, index) => [status, index])
+);
+
+/** Furthest lifecycle status. A later funding attestation must not hide submitted work. */
+export function leadingContractStatus(statuses: readonly string[]): string {
+	let leading = '';
+	let rank = -1;
+	for (const status of statuses) {
+		const next = CONTRACT_STATUS_RANK.get(status);
+		if (next === undefined || next < rank) continue;
+		leading = status;
+		rank = next;
+	}
+	return leading;
+}
+
 export type ContractFundingState =
 	| 'idle'
 	| 'checking_wallet'

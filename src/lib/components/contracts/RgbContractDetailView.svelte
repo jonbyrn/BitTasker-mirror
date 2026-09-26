@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import {
 		ContractRune,
+		leadingContractStatus,
 		type ContractRuneSnapshot,
 		type ContractRuneStatus
 	} from '$lib/runes/contract.svelte';
@@ -171,7 +172,17 @@
 					(entry): entry is { event: (typeof ordered)[number]; content: ContractStatusContent } =>
 						Boolean(entry.content)
 				);
-			const latest = parsedEntries.at(-1);
+			if (parsedEntries.length === 0) {
+				errorMessage = 'Contract status has not propagated yet.';
+				return;
+			}
+
+			const entryStatus = (entry: (typeof parsedEntries)[number]): string =>
+				entry.content.status ?? entry.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded';
+			const leading = leadingContractStatus(parsedEntries.map(entryStatus));
+			const latest =
+				[...parsedEntries].reverse().find((entry) => entryStatus(entry) === leading) ??
+				parsedEntries.at(-1);
 			if (!latest) {
 				errorMessage = 'Contract status has not propagated yet.';
 				return;
@@ -412,6 +423,20 @@
 			>
 				<div class="card-body gap-3 p-5">
 					<h2 class="text-base font-semibold">Review</h2>
+					{#if snapshot.workMessage}
+						<p class="text-sm whitespace-pre-line" data-testid="submitted-work-message">
+							{snapshot.workMessage}
+						</p>
+					{/if}
+					{#if snapshot.proofUrl}
+						<button
+							class="link link-primary text-sm"
+							type="button"
+							onclick={() => openProof(snapshot.proofUrl ?? '')}
+						>
+							Proof
+						</button>
+					{/if}
 					<p class="text-base-content/70 text-sm">Paid on fund. Release confirms the work.</p>
 					<button
 						class="btn btn-outline"

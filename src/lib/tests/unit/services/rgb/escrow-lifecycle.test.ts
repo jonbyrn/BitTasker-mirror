@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { ContractRune as ServiceRune } from '$lib/services/rgb/contract-rune';
-import { ContractRune } from '$lib/runes/contract.svelte';
+import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
 
 vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
 	prepareRgbOnchainSend: vi.fn().mockResolvedValue(undefined)
@@ -31,6 +31,24 @@ function walletDouble() {
 		})
 	};
 }
+
+describe('leadingContractStatus', () => {
+	it('keeps submitted work when a later funding attestation arrives', () => {
+		expect(leadingContractStatus(['work_submitted', 'funding'])).toBe('work_submitted');
+	});
+
+	it('moves forward to released', () => {
+		expect(leadingContractStatus(['funding', 'funded', 'work_submitted', 'released'])).toBe(
+			'released'
+		);
+	});
+
+	it('ignores failed, cancelled, and disputed', () => {
+		expect(
+			leadingContractStatus(['work_submitted', 'funding', 'failed', 'cancelled', 'disputed'])
+		).toBe('work_submitted');
+	});
+});
 
 describe('escrow lifecycle', () => {
 	beforeEach(() => {
