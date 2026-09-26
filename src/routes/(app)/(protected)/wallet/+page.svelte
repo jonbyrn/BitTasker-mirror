@@ -15,7 +15,6 @@
 	import {
 		formatRelativeTime,
 		isRgbMovement,
-		pickHeroAsset,
 		shortOutpoint,
 		summarizeUtxoKinds
 	} from '$lib/components/wallet/wallet-formatters';
@@ -27,8 +26,15 @@
 	let utxos = $state<WalletUtxoRow[]>([]);
 	let utxoError = $state<string | null>(null);
 	let showUtxoDetails = $state(false);
+	let showAllHistory = $state(false);
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
-	const heroAssets = $derived(pickHeroAsset(rgbAssets));
+	const usdtAsset = $derived(
+		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
+	);
+	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
+	const visibleTransactions = $derived(
+		showAllHistory ? $walletStore.transactions : $walletStore.transactions.slice(0, 5)
+	);
 	const utxoSummary = $derived(summarizeUtxoKinds(utxos.map((utxo) => utxo.kind)));
 
 	function text(value: unknown, fallback: string): string {
@@ -101,18 +107,26 @@
 		isReceiveOpen = false;
 	}
 
-	function historyLabel(type: string, description: string | undefined, amount: string): string {
+	function assetLabel(symbol: string | undefined, name: string | undefined): string {
+		const label = (symbol || name || '').trim();
+		if (!label || /^(nia|ifa|utxob|consignment)$/i.test(label)) {
+			return translate('wallet.asset', 'Asset');
+		}
+		return label;
+	}
+
+	function historyLabel(type: string, description: string | undefined): string {
 		const incoming = type === 'receive';
 		if (isRgbMovement(description)) {
 			return translate(
 				incoming ? 'wallet.received_rgb' : 'wallet.sent_rgb',
-				incoming ? 'Received RGB' : 'Sent RGB'
+				incoming ? 'Received USDT' : 'Sent USDT'
 			);
 		}
-		const key = incoming ? 'wallet.received_sats' : 'wallet.sent_sats';
-		const fallback = incoming ? `Received ${amount} sats` : `Sent ${amount} sats`;
-		const translated = $t(key, { values: { amount } });
-		return text(translated, fallback);
+		return translate(
+			incoming ? 'wallet.received_sats' : 'wallet.sent_sats',
+			incoming ? 'Received bitcoin' : 'Sent bitcoin'
+		);
 	}
 
 	function openSend(): void {
@@ -128,7 +142,7 @@
 	<title>{translate('wallet.title', 'Wallet')}</title>
 </svelte:head>
 
-<div class="wallet-screen bg-base-200 absolute inset-0 flex flex-col gap-2 overflow-hidden p-3">
+<div class="wallet-screen mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6">
 	{#if initializationError || $walletStore.error}
 		<div class="alert alert-outline alert-error" role="alert">
 			<span>{text(initializationError ?? $walletStore.error, 'Wallet initialization failed')}</span>
@@ -169,17 +183,11 @@
 		</span>
 	{/snippet}
 
-	{#snippet balanceRow(symbol: string, label: string, amount: string, emphasized: boolean)}
-		<div class="border-base-300 flex w-full items-center gap-3 border-t px-3 py-2">
+	{#snippet balanceRow(symbol: string, label: string, amount: string)}
+		<div class="border-base-300 flex w-full items-center gap-3 border-t px-4 py-3">
 			{@render assetMark(symbol)}
-			<div class="min-w-0">
-				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">{label}</p>
-			</div>
-			<p
-				class={emphasized ? 'ml-auto text-right text-2xl font-bold tabular-nums' : 'wallet-amount'}
-			>
-				{amount}
-			</p>
+			<p class="text-base-content/60 min-w-0 text-sm">{label}</p>
+			<p class="ml-auto text-right text-2xl font-bold tabular-nums">{amount}</p>
 		</div>
 	{/snippet}
 
@@ -202,75 +210,57 @@
 					</span>
 				{/if}
 			</div>
-			{#if heroAssets.hero}
-				<div class="border-base-300 flex items-center gap-3 border-t px-4 py-4">
-					{@render assetMark(heroAssets.hero.symbol || heroAssets.hero.name)}
-					<div class="min-w-0">
-						<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
-							{heroAssets.hero.symbol || heroAssets.hero.name}
-						</p>
-						<p class="truncate text-2xl font-bold tabular-nums">
-							{heroAssets.hero.formattedBalance || formatNumber(heroAssets.hero.balance)}
-						</p>
-					</div>
-				</div>
+			{#if usdtAsset}
+				{@render balanceRow(
+					'USDT',
+					assetLabel(usdtAsset.symbol, usdtAsset.name),
+					usdtAsset.formattedBalance || formatNumber(usdtAsset.balance)
+				)}
 			{/if}
 			{@render balanceRow(
 				'BTC',
 				translate('wallet.bitcoin', 'Bitcoin'),
-				`${formatNumber($walletStore.totalBalances.sats)} ${translate('wallet.sats', 'sats')}`,
-				!heroAssets.hero
+				`${formatNumber($walletStore.totalBalances.sats)} ${translate('wallet.sats', 'sats')}`
 			)}
-			{#each heroAssets.rest as asset (asset.assetId)}
+			{#each otherAssets as asset (asset.assetId)}
 				{@render balanceRow(
 					asset.symbol || asset.name,
-					asset.name,
-					asset.formattedBalance || formatNumber(asset.balance),
-					false
+					assetLabel(asset.symbol, asset.name),
+					asset.formattedBalance || formatNumber(asset.balance)
 				)}
 			{/each}
 		</div>
 	</section>
 
-	<div
-		class="flex min-h-0 flex-1 flex-col gap-2 {showUtxoDetails
-			? 'overflow-y-auto'
-			: 'overflow-hidden'}"
-	>
-		<section
-			class="card bg-base-100 border-base-300 shrink-0 border shadow-sm"
-			data-testid="wallet-utxos"
-		>
-			<div class="card-body gap-1 p-3">
-				<div class="flex items-center justify-between gap-3">
-					<p class="text-sm font-semibold">
-						{translate('wallet.utxo_state', 'RGB state and UTXOs')}
-					</p>
-					<span class="badge badge-ghost badge-sm">{utxos.length}</span>
-				</div>
-				{#if utxoError}
-					<p class="text-error text-sm">{utxoError}</p>
-				{:else if utxos.length === 0}
-					<p class="text-base-content/60 text-sm">{translate('wallet.no_utxos', 'No UTXOs')}</p>
-				{:else}
-					<ul class="text-sm">
-						<li>
-							{$t('wallet.utxo_asset_bearing', { values: { count: utxoSummary.colored } })}
-						</li>
-						<li>{$t('wallet.utxo_in_escrow', { values: { count: utxoSummary.locked } })}</li>
-						<li>
-							{$t('wallet.utxo_available_btc', { values: { count: utxoSummary.available } })}
-						</li>
-					</ul>
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm w-full"
-						aria-expanded={showUtxoDetails}
-						onclick={() => (showUtxoDetails = !showUtxoDetails)}
-					>
-						{translate('wallet.utxo_advanced', 'Advanced details')}
-					</button>
-					{#if showUtxoDetails}
+	<div class="flex flex-col gap-4">
+		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="wallet-utxos">
+			<div class="card-body gap-2 p-4">
+				<p class="text-base-content/60 text-sm">
+					{translate('wallet.utxo_state', 'Assets on Bitcoin')}
+				</p>
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm text-base-content/50 w-full"
+					aria-expanded={showUtxoDetails}
+					onclick={() => (showUtxoDetails = !showUtxoDetails)}
+				>
+					{translate('wallet.utxo_advanced', 'Show coin details')}
+				</button>
+				{#if showUtxoDetails}
+					{#if utxoError}
+						<p class="text-error text-sm">{utxoError}</p>
+					{:else if utxos.length === 0}
+						<p class="text-base-content/60 text-sm">{translate('wallet.no_utxos', 'No UTXOs')}</p>
+					{:else}
+						<ul class="text-sm">
+							<li>
+								{$t('wallet.utxo_asset_bearing', { values: { count: utxoSummary.colored } })}
+							</li>
+							<li>{$t('wallet.utxo_in_escrow', { values: { count: utxoSummary.locked } })}</li>
+							<li>
+								{$t('wallet.utxo_available_btc', { values: { count: utxoSummary.available } })}
+							</li>
+						</ul>
 						<ul class="divide-base-300 divide-y">
 							{#each utxos as utxo (utxo.id)}
 								<li class="flex flex-col gap-0.5 py-1.5">
@@ -317,8 +307,8 @@
 						{translate('wallet.no_transactions', 'No transactions found.')}
 					</p>
 				{:else}
-					<div class="min-h-0 flex-1 overflow-y-auto">
-						{#each $walletStore.transactions as transaction (transaction.id)}
+					<div class="flex flex-col">
+						{#each visibleTransactions as transaction (transaction.id)}
 							{@const incoming = transaction.type === 'receive'}
 							<div class="flex items-center gap-3 py-2">
 								<span
@@ -347,32 +337,31 @@
 								</span>
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-sm font-medium">
-										{historyLabel(
-											transaction.type,
-											transaction.description,
-											formatNumber(transaction.amountSats)
-										)}
+										{historyLabel(transaction.type, transaction.description)}
 									</p>
 									<p class="text-base-content/60 text-xs">
 										{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
 									</p>
 								</div>
-								{#if isRgbMovement(transaction.description)}
-									<p class="wallet-amount">
-										{formatNumber(transaction.amountSats)}
-										{translate('wallet.sats', 'sats')}
-									</p>
-								{/if}
 							</div>
 						{/each}
 					</div>
+					{#if $walletStore.transactions.length > 5 && !showAllHistory}
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm text-base-content/50 w-full"
+							onclick={() => (showAllHistory = true)}
+						>
+							{translate('wallet.see_all', 'See all')}
+						</button>
+					{/if}
 				{/if}
 			</div>
 		</section>
 	</div>
 
 	<div class="grid shrink-0 grid-cols-2 gap-2 pt-1">
-		<button class="btn btn-primary gap-2" type="button" onclick={openSend}>
+		<button class="btn btn-primary glow-soft gap-2" type="button" onclick={openSend}>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 				<path
 					fill-rule="evenodd"
@@ -401,21 +390,3 @@
 		<ReceivePaymentForm onClose={handleReceiveClose} />
 	</WalletPaymentModal>
 </div>
-
-<style>
-	/* Keep this page inside the content viewport so Send/Receive stay above the dock. */
-	:global(.app-shell__content:has(.wallet-screen)) {
-		overflow: hidden;
-	}
-
-	.wallet-amount {
-		flex: none;
-		margin-left: auto;
-		text-align: right;
-		font-size: 0.875rem;
-		font-weight: 600;
-		font-variant-numeric: tabular-nums;
-		line-height: 1.25rem;
-		white-space: nowrap;
-	}
-</style>

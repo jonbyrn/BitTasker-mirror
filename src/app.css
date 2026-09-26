@@ -180,6 +180,11 @@
 	font-family: var(--font-display);
 }
 
+/* 12px wash of the existing primary. Send, Pay, and Release only. */
+.glow-soft {
+	box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+
 * {
 	box-sizing: border-box;
 }

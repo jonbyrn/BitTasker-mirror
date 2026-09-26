@@ -525,10 +525,10 @@
 						<div
 							class="flex flex-col gap-4"
 							in:fly={{
-								duration: 200,
+								duration: 160,
 								easing: linear,
-								y: 0,
-								x: isNostrLogin ? 20 : -20
+								y: 4,
+								x: 0
 							}}
 						>
 							<div class="flex flex-col gap-2">
@@ -627,10 +627,10 @@
 								void handleNsecLogin();
 							}}
 							in:fly={{
-								duration: 200,
+								duration: 160,
 								easing: linear,
-								y: 0,
-								x: isNostrLogin ? 20 : -20
+								y: 4,
+								x: 0
 							}}
 						>
 							<div class="relative">

@@ -254,7 +254,7 @@
 {/snippet}
 
 {#if isMenuOpen}
-	<div class="drawer-overlay" transition:fade|global={{ duration: 200, easing: cubicOut }}>
+	<div class="drawer-overlay" transition:fade|global={{ duration: 160, easing: cubicOut }}>
 		<button
 			type="button"
 			class="drawer-backdrop"
@@ -267,10 +267,10 @@
 			aria-modal="true"
 			tabindex="-1"
 			class="drawer-panel"
-			transition:fly|global={{ y: '80%', duration: 300, easing: cubicOut }}
+			transition:fly|global={{ x: -4, duration: 160, easing: cubicOut }}
 			bind:this={drawerPanelEl}
 		>
-			<div class="drawer-content bg-base-100 border-base-300 rounded-t-2xl border-t shadow-lg">
+			<div class="drawer-content bg-base-100 border-base-300 h-full border-r shadow-sm">
 				<div class="drawer-scroll">
 					<div class="drawer-inner" bind:this={gridContainerEl}>
 						{#if $authState.isAuthenticated}
@@ -423,12 +423,12 @@
 		min-width: 48px;
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.75rem;
-		transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
+		transition: opacity 160ms cubic-bezier(0.2, 0, 0, 1);
 		-webkit-tap-highlight-color: transparent;
 	}
 
 	.dock-menu-btn:active {
-		transform: scale(0.88);
+		opacity: 0.7;
 	}
 
 	.dock-menu-btn:hover {
@@ -445,7 +445,7 @@
 	.drawer-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 70;
+		z-index: 90;
 	}
 
 	.drawer-backdrop {
@@ -456,15 +456,12 @@
 
 	.drawer-panel {
 		position: absolute;
+		top: 0;
 		bottom: 0;
 		left: 0;
-		right: 0;
+		width: min(20rem, 86vw);
 		background: hsl(var(--b1));
 		will-change: transform;
-		max-height: calc(
-			52rem + var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)))
-		);
-		padding-bottom: var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)));
 	}
 
 	.drawer-content {
@@ -472,7 +469,7 @@
 	}
 
 	.drawer-scroll {
-		max-height: 70vh;
+		max-height: 100%;
 		overflow-y: auto;
 		overflow-x: hidden;
 		overscroll-behavior: contain;

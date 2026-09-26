@@ -317,7 +317,7 @@
 </script>
 
 <div
-	class="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6"
+	class="mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6"
 	data-testid="contract-detail-view"
 >
 	<header class="card bg-base-100 border-base-300 border shadow-sm">
@@ -360,7 +360,9 @@
 				</p>
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm">
-					{fundIsPaid ? 'Paid on fund. Release confirms the work.' : 'Waiting for the fund send.'}
+					{fundIsPaid
+						? 'Paid when you fund. Release only confirms the work.'
+						: 'Waiting for the fund send.'}
 				</p>
 				{#if role === 'taskee'}
 					{#if acceptError}
@@ -437,7 +439,9 @@
 							Proof
 						</button>
 					{/if}
-					<p class="text-base-content/70 text-sm">Paid on fund. Release confirms the work.</p>
+					<p class="text-base-content/70 text-sm">
+						Paid when you fund. Release only confirms the work.
+					</p>
 					<button
 						class="btn btn-outline"
 						onclick={handleApprove}
@@ -458,9 +462,11 @@
 			>
 				<div class="card-body gap-3 p-5">
 					<h2 class="text-base font-semibold">Release</h2>
-					<p class="text-base-content/70 text-sm">Paid on fund. Release confirms the work.</p>
+					<p class="text-base-content/70 text-sm">
+						Paid when you fund. Release only confirms the work.
+					</p>
 					<button
-						class="btn btn-success"
+						class="btn btn-success glow-soft w-full"
 						onclick={handleRelease}
 						disabled={isReleasing}
 						data-testid="approve-release-funds-button"

@@ -385,7 +385,10 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3" data-testid="bid-acceptance-form">
+<div
+	class="mx-auto flex h-full min-h-0 w-full max-w-md flex-col gap-4"
+	data-testid="bid-acceptance-form"
+>
 	<section class="card bg-base-100 border-base-300 shrink-0 border shadow-sm">
 		<div class="card-body gap-2 p-3">
 			<div class="flex items-center justify-between gap-3">
@@ -576,7 +579,7 @@
 			</div>
 			<button
 				type="button"
-				class="btn btn-primary w-full"
+				class="btn btn-primary glow-soft w-full"
 				onclick={handlePayFromWallet}
 				disabled={isProcessing}
 				data-testid="pay-funding-from-wallet"
