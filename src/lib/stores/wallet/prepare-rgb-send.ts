@@ -164,7 +164,7 @@ type PrepareWallet = {
 		noAssetOnly?: boolean;
 	}) => Promise<boolean>;
 	listUnspents?: () => Promise<RgbUnspentRef[]>;
-	listAssets?: () => Promise<{ nia?: RgbNiaRef[] }>;
+	listAssets?: () => Promise<{ nia?: RgbNiaRef[]; ifa?: RgbNiaRef[] }>;
 	getBtcBalance?: () => Promise<{ vanilla: { spendable: number } }>;
 	getAddress?: () => Promise<string>;
 	sendBtc?: (params: { address: string; amount: number; feeRate: number }) => Promise<string>;
@@ -216,10 +216,10 @@ export async function prepareRgbOnchainSend(wallet: PrepareWallet, assetId: stri
 	}
 	const unspents = await readUnspents(wallet);
 	const listed = await wallet.listAssets();
-	const nia = listed.nia ?? [];
-	if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(nia, unspents);
+	const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
+	if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);
 
-	const spendable = nia.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
+	const spendable = assets.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
 	const blocker = sealSendBlocker(unspents, assetId, spendable);
 	if (blocker) throw new Error(blocker);
 }

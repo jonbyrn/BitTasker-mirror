@@ -94,6 +94,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			network: 'utexo',
 			indexerUrl: 'https://esplora-api.utexo.com',
 			transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
+			supportedSchemas: ['Nia', 'Ifa'],
 			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
 			vssUrl: '',
 			enableVirtualChannels: false,

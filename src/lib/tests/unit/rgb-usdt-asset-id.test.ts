@@ -4,6 +4,7 @@ import {
 	getConfiguredRgbUsdtAssetId,
 	listsRgbAsset,
 	selectEscrowAsset,
+	spendableRgbAssets,
 	usdtEscrowUnits,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
@@ -36,6 +37,16 @@ describe('listsRgbAsset', () => {
 		expect(listsRgbAsset(nia, 'rgb:held')).toBe(true);
 		expect(listsRgbAsset(nia, 'rgb:missing')).toBe(false);
 		expect(listsRgbAsset(nia, null)).toBe(false);
+	});
+});
+
+describe('spendableRgbAssets', () => {
+	it('keeps IFA rows when nia is empty', () => {
+		const ifa = [
+			{ assetId: 'rgb:f~9F4X0C-signet-usdt', ticker: 'USDT', balance: { spendable: 100_000_000 } }
+		];
+		expect(spendableRgbAssets({ nia: [], ifa })).toEqual(ifa);
+		expect(selectEscrowAsset(spendableRgbAssets({ nia: [], ifa }))).toBe(ifa[0].assetId);
 	});
 });
 

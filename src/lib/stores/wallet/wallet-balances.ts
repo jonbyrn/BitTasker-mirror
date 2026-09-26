@@ -566,7 +566,61 @@ export function incomingReceiveReady(transfers: { kind?: string; status?: string
 	);
 }
 
-/** Pull a paid blank invoice into this wallet. The sender already chose the asset. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+/** rgb-lib `Wallet::refresh(online, asset_id, filter, skip_sync)`. Empty filter refreshes every waiting transfer. */
+type RefreshValue = (
+	online: unknown,
+	assetId: string | null,
+	filter: readonly unknown[],
+	skipSync: boolean
+) => Promise<unknown>;
+
+interface RefreshEntry {
+	failure?: unknown;
+}
+
+function isRefreshValue(value: unknown): value is RefreshValue {
+	return typeof value === 'function';
+}
+
+function rawRefresh(wallet: unknown): { online: unknown; refresh: RefreshValue } | null {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager)) return null;
+	const binding = manager.rlnBinding;
+	if (!isRecord(binding) || binding.online == null) return null;
+	const raw = binding._wallet;
+	if (!isRecord(raw) || !isRefreshValue(raw.refreshValue)) return null;
+	return { online: binding.online, refresh: raw.refreshValue };
+}
+
+function refreshEntries(result: unknown): RefreshEntry[] {
+	if (result instanceof Map) {
+		return [...result.values()].filter(isRecord);
+	}
+	if (!isRecord(result)) return [];
+	return Object.values(result).filter(isRecord);
+}
+
+/** First hard error from a refresh result. `refreshWallet` drops this field. */
+export function readRefreshFailure(failure: unknown): string | null {
+	if (!isRecord(failure)) return null;
+	const schema = failure.UnknownRgbSchema;
+	if (isRecord(schema) && typeof schema.schema_id === 'string' && schema.schema_id.length > 0) {
+		return `Unknown RGB schema ${schema.schema_id}`;
+	}
+	const [name] = Object.keys(failure);
+	return name ?? null;
+}
+
+/**
+ * Pull pending ReceiveBlind rows from the default https proxy.
+ * `refreshValue(online, null, [], false)` — empty filter, skip_sync false.
+ * A wasm `failure` is thrown. Still waiting stays `IncomingPaymentPending`.
+ */
 export async function acceptIncomingPayment(): Promise<void> {
 	const wallet = getUtexoWallet();
 	if (!wallet?.refreshWallet) throw new Error('Wallet not initialized');
@@ -574,7 +628,16 @@ export async function acceptIncomingPayment(): Promise<void> {
 		await wallet.goOnline(RGB_INDEXER);
 	}
 	if (wallet.syncWallet) await wallet.syncWallet();
-	await wallet.refreshWallet();
+	const pulled = rawRefresh(wallet);
+	if (pulled) {
+		const result = await pulled.refresh(pulled.online, null, [], false);
+		const failure = refreshEntries(result)
+			.map((entry) => readRefreshFailure(entry.failure))
+			.find((message) => message != null);
+		if (failure) throw new Error(failure);
+	} else {
+		await wallet.refreshWallet();
+	}
 	const transfers = wallet.listTransfers ? await wallet.listTransfers().catch(() => []) : [];
 	await loadAssets();
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();

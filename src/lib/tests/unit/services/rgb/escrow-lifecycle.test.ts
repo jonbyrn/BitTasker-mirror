@@ -160,6 +160,40 @@ describe('escrow lifecycle', () => {
 		expect(wallet.onchainSend.mock.calls[0][0].amount).not.toBe(3075);
 	});
 
+	it('pays an eleven dollar bid from IFA USDT when nia is empty', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const ifaId = 'rgb:f~9F4X0C-signet-usdt';
+		wallet.listAssets.mockResolvedValue({
+			nia: [],
+			ifa: [
+				{
+					assetId: ifaId,
+					ticker: 'USDT',
+					precision: 6,
+					balance: { spendable: 100_000_000, settled: 100_000_000, future: 0 }
+				}
+			]
+		});
+		const rune = new ContractRune({
+			contractId: 'contract-ifa-units',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
+		await rune.prepareFunding(invoice);
+		await rune.payFundingFromWallet();
+		expect(wallet.onchainSend).toHaveBeenCalledWith(
+			expect.objectContaining({ invoice, assetId: ifaId, amount: 11_000_000 })
+		);
+	});
+
 	it('pays a sat-labeled bid as the asset spendable units', async () => {
 		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
 		const rune = new ContractRune({

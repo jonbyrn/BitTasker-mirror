@@ -10,6 +10,7 @@ import {
 	escrowSendAmount,
 	getConfiguredRgbUsdtAssetId,
 	selectEscrowAsset,
+	spendableRgbAssets,
 	usdtPrecision,
 	type SpendableNia
 } from '$lib/types/rgb-contract';
@@ -364,7 +365,7 @@ export class ContractRune {
 					typeof wallet.listAssets === 'function'
 						? await wallet.listAssets().catch(() => undefined)
 						: undefined;
-				const assets = (listed?.nia ?? []) as SpendableNia[];
+				const assets = spendableRgbAssets(listed);
 				const selected = escrowAssetId(assets);
 				let assetId = '';
 				let amount = 0;
@@ -414,8 +415,9 @@ export class ContractRune {
 				);
 				const minted = e2eMintedAssetId();
 				if (minted && assetId === minted) {
-					const { nia } = await wallet.listAssets();
-					const spendable = nia?.find((row) => row.assetId === minted)?.balance?.spendable;
+					const listed = await wallet.listAssets();
+					const spendable = spendableRgbAssets(listed).find((row) => row.assetId === minted)
+						?.balance?.spendable;
 					if (typeof spendable === 'number' && spendable > 0) amount = spendable;
 				}
 				const result = await queue.commit({
@@ -594,14 +596,11 @@ export class ContractRune {
 			throw new Error('Funding destination must be an rgb: invoice for RGB-native escrow.');
 		}
 
-		const { nia } = await wallet.listAssets();
-		const expectedAssetId = escrowAssetId((nia ?? []) as SpendableNia[]);
-
+		const assets = spendableRgbAssets(await wallet.listAssets());
+		const expectedAssetId = escrowAssetId(assets);
 		if (!expectedAssetId) {
 			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');
 		}
-
-		const assets = (nia ?? []) as SpendableNia[];
 		const asset = assets.find((row) => row.assetId === expectedAssetId);
 		if (!asset) {
 			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);

@@ -92,7 +92,20 @@ export function listsRgbAsset(
 	return (nia ?? []).some((row) => row.assetId === id);
 }
 
-/** First preferred id that this wallet can spend, then USDT, then any spendable NIA. */
+/** NIA and IFA rows. UTEXO Signet USDT is IFA, not NIA. */
+export function spendableRgbAssets(
+	listed:
+		| {
+				nia?: readonly SpendableNia[] | null;
+				ifa?: readonly SpendableNia[] | null;
+		  }
+		| null
+		| undefined
+): SpendableNia[] {
+	return [...(listed?.nia ?? []), ...(listed?.ifa ?? [])];
+}
+
+/** First preferred id that this wallet can spend, then USDT, then any spendable row. */
 export function selectEscrowAsset(
 	nia: readonly SpendableNia[],
 	preferredIds: readonly (string | null | undefined)[] = []

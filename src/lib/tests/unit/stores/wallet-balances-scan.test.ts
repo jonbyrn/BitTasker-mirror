@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import {
+	acceptIncomingPayment,
 	clearRlnRuntime,
+	IncomingPaymentPending,
 	installEsploraRetryFetch,
 	isMnemonicError,
 	isRlnUrlParseError,
@@ -12,10 +15,15 @@ import {
 	resolveBrowserIndexer,
 	incomingReceiveReady,
 	parseRgbAssets,
+	readRefreshFailure,
 	scanBtcBalance,
 	setEsploraBackoffMs,
 	sumSpendableSats
 } from '$lib/stores/wallet/wallet-balances';
+
+vi.mock('$lib/stores/wallet/wallet-init', () => ({
+	getUtexoWallet: vi.fn()
+}));
 
 describe('scanBtcBalance', () => {
 	it('does not treat a bip39 reject as an indexer failure', () => {
@@ -206,6 +214,47 @@ describe('incomingReceiveReady', () => {
 		);
 		expect(incomingReceiveReady([{ kind: 'ReceiveBlind', status: 'Failed' }])).toBe(false);
 		expect(incomingReceiveReady([{ kind: 'Send', status: 'Settled' }])).toBe(false);
+	});
+});
+
+describe('acceptIncomingPayment', () => {
+	const schemaId = 'rgb:sch:IpjJhFLz3oywYKQxO3KmFgR0Aa415nlTNrNyEFqMZCE#shoe-colombo-mango';
+
+	it('reads an unknown schema as a hard refresh failure', () => {
+		expect(readRefreshFailure({ UnknownRgbSchema: { schema_id: schemaId } })).toBe(
+			`Unknown RGB schema ${schemaId}`
+		);
+		expect(readRefreshFailure(null)).toBeNull();
+	});
+
+	it('throws the wasm failure from refreshValue and does not treat it as pending', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(
+			async () => new Map([[3, { failure: { UnknownRgbSchema: { schema_id: schemaId } } }]])
+		);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			refreshWallet: vi.fn(),
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			listTransfers: vi.fn(async () => [{ kind: 'ReceiveBlind', status: 'WaitingCounterparty' }]),
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+
+		await expect(acceptIncomingPayment()).rejects.toThrow(`Unknown RGB schema ${schemaId}`);
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+	});
+
+	it('stays pending when refresh reports no failure and the receive is still waiting', async () => {
+		const refreshValue = vi.fn(async () => new Map([[3, { failure: null }]]));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			refreshWallet: vi.fn(),
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			listTransfers: vi.fn(async () => [{ kind: 'ReceiveBlind', status: 'WaitingCounterparty' }]),
+			_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
+		} as never);
+
+		await expect(acceptIncomingPayment()).rejects.toBeInstanceOf(IncomingPaymentPending);
 	});
 });
 
