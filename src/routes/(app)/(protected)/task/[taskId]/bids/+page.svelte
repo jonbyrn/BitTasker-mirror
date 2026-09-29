@@ -41,24 +41,60 @@
 		});
 	});
 
+	const taskAuthor = $derived(
+		page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? ndk.$currentPubkey
+	);
+
 	// Task lives on a separate relay — must be its own subscription.
 	const taskSub = ndk.$subscribe<NDKTask>(() => {
-		const taskAuthor =
-			page.url.searchParams.get('author') ??
-			page.url.searchParams.get('client') ??
-			ndk.$currentPubkey;
-		if (!taskAuthor) return undefined;
+		const id = page.params.taskId;
+		if (!taskAuthor || !id) return undefined;
 		return {
-			filters: [
-				{ kinds: [KINDS.TASK_CREATION], authors: [taskAuthor], '#d': [page.params.taskId] }
-			],
+			filters: [{ kinds: [KINDS.TASK_CREATION], authors: [taskAuthor], '#d': [id] }],
 			wrap: true,
 			relaySet: sharedTaskRelay(),
 			noDedupe: true
 		};
 	});
 
-	let task = $derived(taskSub.events[0]);
+	let fetchedTask = $state<NDKTask | null>(null);
+	let taskLoading = $state(false);
+	let taskMissing = $state(false);
+	const task = $derived(taskSub.events[0] ?? fetchedTask);
+
+	async function loadAcceptTask(): Promise<void> {
+		const id = page.params.taskId;
+		if (!id || !taskAuthor || taskSub.events[0] || fetchedTask || taskLoading || taskMissing)
+			return;
+		taskLoading = true;
+		taskMissing = false;
+		try {
+			const found = await ndk.fetchEvents({
+				kinds: [KINDS.TASK_CREATION],
+				authors: [taskAuthor],
+				'#d': [id]
+			});
+			const event = [...found][0];
+			if (!event) {
+				taskMissing = true;
+				return;
+			}
+			fetchedTask = (await NDKTask.from(event)) ?? null;
+			taskMissing = fetchedTask === null;
+		} catch (error) {
+			taskMissing = true;
+			console.warn('[bids] task load failed', error);
+		} finally {
+			taskLoading = false;
+		}
+	}
+
+	$effect(() => {
+		if (!showAcceptanceForm || task) return;
+		loadAcceptTask().catch((error) => {
+			console.warn('[bids] task load failed', error);
+		});
+	});
 	const routeTaskEventId = $derived(page.url.searchParams.get('event') ?? undefined);
 	const routeClientHex = $derived(
 		page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? undefined
@@ -161,6 +197,7 @@
 		d.log('accepting bid', bid);
 		bidToAccept = bid;
 		showAcceptanceForm = true;
+		await loadAcceptTask();
 	}
 
 	async function handleRejectBid(bid: NDKBid) {
@@ -307,6 +344,16 @@
 				onCancel={handleCloseBid}
 				onFunded={handleFunded}
 			/>
+		</div>
+	{:else if showAcceptanceForm}
+		<div class="flex h-full items-center justify-center">
+			{#if taskLoading}
+				<span class="loading loading-spinner loading-md text-primary"></span>
+			{:else if taskMissing}
+				<p class="text-base-content/70 text-sm">
+					{$t('dashboard.bids.task_details.task_not_found')}
+				</p>
+			{/if}
 		</div>
 	{/if}
 </Drawer>
