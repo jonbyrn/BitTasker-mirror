@@ -284,14 +284,14 @@ deploy-sandbox:
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
     VITE_RGB_USDT_ASSET_ID: rgb:2s69152-rg39309-8438210-usdt_testnet
-    VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAAABboTbbIVmXVwEvm
+    VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm ci --cache .npm --prefer-offline
     - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
     - export VITE_RGB_USDT_ASSET_ID=rgb:2s69152-rg39309-8438210-usdt_testnet
-    - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAAABboTbbIVmXVwEvm
+    - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
     - export VITE_NOSTR_RELAY_URL=wss://nos.lol
     - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
     - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
