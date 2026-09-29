@@ -17,10 +17,21 @@ export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: s
 	return { txid: 'ln_stub_' + Date.now() };
 }
 
+function ifaUnits(row: SpendableNia | undefined): number {
+	const balance = row?.balance as { spendable?: number; settled?: number } | undefined;
+	const spendable = Number(balance?.spendable ?? 0);
+	if (Number.isFinite(spendable) && spendable > 0) return spendable;
+	const settled = Number(balance?.settled ?? 0);
+	return Number.isFinite(settled) && settled > 0 ? settled : 0;
+}
+
 function ifaUsdtId(rows: readonly SpendableNia[]): string | undefined {
+	if (rows.length === 1) {
+		const only = rows[0]?.assetId?.trim();
+		if (only && ifaUnits(rows[0]) > 0) return only;
+	}
 	const held = rows.find((row) => (row.ticker ?? '').toUpperCase() === 'USDT' && row.assetId);
-	const spendable = Number(held?.balance?.spendable ?? 0);
-	return held?.assetId && Number.isFinite(spendable) && spendable > 0 ? held.assetId : undefined;
+	return held?.assetId && ifaUnits(held) > 0 ? held.assetId : undefined;
 }
 
 function recordSentUsdt(txid: string, units: number): void {
@@ -69,7 +80,7 @@ export async function sendRgbAsset(params: {
 				: 'Select the funded IFA USDT. This invoice names no contract.'
 		);
 	}
-	const spendable = Number(held.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0);
+	const spendable = ifaUnits(held.find((row) => row.assetId === assetId));
 	if (units > spendable) throw new Error('USDT amount is larger than the spendable balance.');
 	await prepareRgbOnchainSend(wallet, assetId);
 	const signer = requireEscrowSigner(wallet);

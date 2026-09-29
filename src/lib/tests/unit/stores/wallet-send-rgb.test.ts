@@ -118,6 +118,30 @@ describe('sendRgbAsset', () => {
 		expect(updateWallet).not.toHaveBeenCalled();
 	});
 
+	it('uses the only IFA row on a blank invoice', async () => {
+		listAssets.mockResolvedValueOnce({
+			nia: [],
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-held-usdt',
+					ticker: '',
+					balance: { spendable: 0, settled: 100_000_000 }
+				}
+			]
+		});
+		await sendRgbAsset({
+			invoice: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa',
+			assetId: 'rgb:not-the-ifa',
+			amount: 1111
+		});
+		expect(onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetId: 'rgb:f~9F4X0C-held-usdt',
+				amount: 1111
+			})
+		);
+	});
+
 	it('refuses a zero amount and a NIA-only wallet', async () => {
 		await expect(
 			sendRgbAsset({

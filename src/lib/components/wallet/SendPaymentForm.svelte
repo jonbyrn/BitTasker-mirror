@@ -106,7 +106,7 @@
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_rgb') {
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
-			if (!decodedInvoice.contract && usdtAsset === null) return false;
+			if (!decodedInvoice.contract && !usdtAsset?.assetId) return false;
 			return (
 				destinationValid &&
 				rgbAmount !== null &&
@@ -230,16 +230,32 @@
 					? $t('wallet.taproot.recipient_invoice')
 					: $t('wallet.taproot.recipient_address')}
 		</span>
-		<input
-			class="input input-bordered w-full font-mono text-sm"
-			class:input-error={destination.trim() !== '' && !destinationValid}
-			placeholder={assets.find((a) => a.id === asset)?.placeholder}
-			bind:value={destination}
-			oninput={() => {
-				applyInvoice(destination.trim());
-			}}
-			data-testid="send-destination"
-		/>
+		{#if asset === 'usdt_rgb'}
+			<textarea
+				class="textarea textarea-bordered min-h-24 w-full font-mono text-xs break-all"
+				class:textarea-error={destination.trim() !== '' && !destinationValid}
+				rows="4"
+				placeholder={assets.find((item) => item.id === asset)?.placeholder}
+				bind:value={destination}
+				oninput={() => {
+					errorMessage = '';
+					applyInvoice(destination.trim());
+				}}
+				data-testid="send-destination"
+			></textarea>
+		{:else}
+			<input
+				class="input input-bordered w-full font-mono text-sm"
+				class:input-error={destination.trim() !== '' && !destinationValid}
+				placeholder={assets.find((item) => item.id === asset)?.placeholder}
+				bind:value={destination}
+				oninput={() => {
+					errorMessage = '';
+					applyInvoice(destination.trim());
+				}}
+				data-testid="send-destination"
+			/>
+		{/if}
 	</label>
 
 	<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
@@ -295,6 +311,9 @@
 			<p>
 				{decodedInvoice.contract ?? $t('wallet.send_unspecified')}
 			</p>
+			{#if !decodedInvoice.contract && usdtAsset?.assetId}
+				<p class="font-mono text-xs break-all" data-testid="send-ifa-asset">{usdtAsset.assetId}</p>
+			{/if}
 			{#if decodedInvoice.expiry}
 				<p class="font-mono text-xs">{decodedInvoice.expiry}</p>
 			{/if}
@@ -351,7 +370,7 @@
 		<button
 			type="submit"
 			class="btn btn-primary flex-1"
-			disabled={!canSubmit}
+			disabled={!canSubmit || errorMessage !== ''}
 			data-testid="send-submit"
 		>
 			{#if isSending}

@@ -102,6 +102,8 @@ describe('SendPaymentForm', () => {
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
 
+		expect((getByTestId('send-destination') as HTMLTextAreaElement).value).toBe(invoice);
+		expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt');
 		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('1111');
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		await fireEvent.click(getByTestId('send-submit'));
@@ -129,6 +131,7 @@ describe('SendPaymentForm', () => {
 		await fireEvent.click(getByTestId('send-submit'));
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		expect(showSuccessToast).not.toHaveBeenCalled();
 		expect(onSent).not.toHaveBeenCalled();
 	});
