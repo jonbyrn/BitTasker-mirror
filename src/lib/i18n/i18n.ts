@@ -285,6 +285,8 @@ export function getNamespacesForRoute(route: string): string[] {
 
 	if (route.includes('/services')) {
 		namespaces.push(
+			'dashboard/dashboard',
+			'dashboard/wallet',
 			'dashboard/services/browse',
 			'dashboard/services/create',
 			'dashboard/services/detail',
