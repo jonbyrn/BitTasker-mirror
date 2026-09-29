@@ -690,6 +690,7 @@ const RGB_BACKUP_STORE = 'bytes';
 
 interface SnapshotWallet {
 	listAssets?: () => Promise<unknown>;
+	listTransfers?: (assetId?: string) => Promise<unknown[]>;
 	createBackup?: (params: { backupPath: string; password: string }) => Promise<unknown>;
 	restoreFromBackupBytes?: (bytes: Uint8Array, password: string) => void;
 }
@@ -831,6 +832,11 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 	const password = backupPassword(wallet);
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
+	const live = settledReceiveKeys(await listReceiveRows(wallet));
+	if (live.length > 0) {
+		console.warn('[wallet-persist] skip restore; live receive kept');
+		return false;
+	}
 	const bytes = await loadRgbBackup(fingerprint);
 	if (!bytes) return false;
 	wallet.restoreFromBackupBytes(bytes, password);
@@ -916,8 +922,64 @@ function refreshCap(timeoutMs: number): Promise<'timeout'> {
 	});
 }
 
+/** Txid, or the blinded seal when the payer has not published one yet. */
+function settledReceiveKeys(rows: unknown): string[] {
+	if (!Array.isArray(rows)) return [];
+	const keys: string[] = [];
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		const status = typeof value.status === 'string' ? value.status : '';
+		if (!RECEIVE_KINDS.has(kind) || !RECEIVE_READY.has(status)) continue;
+		const txid = typeof value.txid === 'string' ? value.txid : '';
+		const invoice = typeof value.invoiceString === 'string' ? value.invoiceString : '';
+		const seal = invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
+		const key = txid || seal;
+		if (key) keys.push(key);
+	}
+	return keys;
+}
+
+async function listReceiveRows(wallet: SnapshotWallet): Promise<unknown[]> {
+	if (!wallet.listTransfers) return [];
+	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+	const ids: string[] = [];
+	if (isRecord(listed)) {
+		for (const group of ['ifa', 'nia', 'cfa', 'uda'] as const) {
+			const rows = listed[group];
+			if (!Array.isArray(rows)) continue;
+			for (const row of rows) {
+				if (!isRecord(row)) continue;
+				const id = row.assetId ?? row.id;
+				if (typeof id === 'string' && id.length > 0) ids.push(id);
+			}
+		}
+	}
+	if (ids.length === 0) {
+		const fallback = await wallet.listTransfers().catch(() => []);
+		return Array.isArray(fallback) ? fallback : [];
+	}
+	const batches = await Promise.all(
+		ids.map(async (id) => {
+			try {
+				const listed = await wallet.listTransfers?.(id);
+				return Array.isArray(listed) ? listed : [];
+			} catch {
+				return [];
+			}
+		})
+	);
+	return batches.flat();
+}
+
+function lostSettledReceive(before: readonly string[], after: readonly string[]): boolean {
+	const next = new Set(after);
+	return before.some((key) => !next.has(key));
+}
+
 async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promise<void> {
 	console.info('[wallet-refresh] start');
+	const before = settledReceiveKeys(await listReceiveRows(wallet));
 	const timeout = refreshCap(timeoutMs);
 	const refresh = pullIncomingTransfers(wallet, { skipSync: true }).catch((error: unknown) => {
 		console.warn('[wallet-refresh] failed', error instanceof Error ? error.message : String(error));
@@ -933,6 +995,12 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 				error instanceof Error ? error.message : String(error)
 			);
 		});
+	}
+	const afterPull = settledReceiveKeys(await listReceiveRows(wallet));
+	if (lostSettledReceive(before, afterPull)) {
+		console.warn('[wallet-refresh] settled receive missing; backup skipped');
+		await loadAssets({ pull: false });
+		return;
 	}
 	await persistWalletSnapshot(wallet);
 	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
@@ -959,6 +1027,12 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 					error instanceof Error ? error.message : String(error)
 				);
 			});
+		}
+		const afterFollow = settledReceiveKeys(await listReceiveRows(wallet));
+		if (lostSettledReceive(before, afterFollow)) {
+			console.warn('[wallet-refresh] settled receive missing; backup skipped');
+			await loadAssets({ pull: false });
+			return;
 		}
 		await persistWalletSnapshot(wallet);
 	}

@@ -311,6 +311,60 @@ describe('acceptIncomingPayment', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('does not back up when a settled receive disappears', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const createBackup = vi.fn(async () => ({ message: 'ok' }));
+		const settled = {
+			kind: 'ReceiveBlind',
+			status: 'Settled',
+			txid: '62425ebc1d0c6da591375f4251504ae6fd1de8891018268aca2d373fb85b1238',
+			invoiceString:
+				'rgb:~/~/nWca/sb:utxob:HNc3NsZw-rest?assignment_name=assetOwner&expiry=1'
+		};
+		let reads = 0;
+		const listTransfers = vi.fn(async () => {
+			reads += 1;
+			return reads === 1 ? [settled] : [];
+		});
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const wallet = {
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			createBackup,
+			listAssets: vi.fn(async () => ({
+				ifa: [
+					{
+						assetId: 'rgb:usdt',
+						ticker: 'USDT',
+						balance: { spendable: 100000000, settled: 100000000, future: 100000000 }
+					}
+				]
+			})),
+			listTransfers,
+			_manager: {
+				rlnBinding: {
+					online,
+					password: 'test-password',
+					walletData: { master_fingerprint: 'a56d0ea6' },
+					_wallet: { refreshValue, backupInfo: () => false }
+				}
+			}
+		};
+		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		await vi.waitFor(() => {
+			expect(warn).toHaveBeenCalledWith(
+				'[wallet-refresh] settled receive missing; backup skipped'
+			);
+		});
+		expect(createBackup).not.toHaveBeenCalled();
+		expect(refreshValue).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
+		info.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
 	it('restores the encrypted export for this fingerprint', async () => {
 		const stored = new Map<string, Uint8Array>();
 		const bytes = new Uint8Array([4, 11, 22, 33]);
@@ -329,6 +383,39 @@ describe('acceptIncomingPayment', () => {
 		});
 		expect(restored).toBe(true);
 		expect(restoreFromBackupBytes).toHaveBeenCalledWith(bytes, 'test-password');
+		vi.unstubAllGlobals();
+	});
+
+	it('skips restore when a settled receive is already live', async () => {
+		const stored = new Map<string, Uint8Array>();
+		stored.set('__store__', new Uint8Array());
+		stored.set('a56d0ea6', new Uint8Array([1, 2, 3]));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const restored = await restoreStoredBackup({
+			listAssets: async () => ({
+				ifa: [{ assetId: 'rgb:usdt', ticker: 'USDT', balance: { spendable: 100000000 } }]
+			}),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'Settled',
+					txid: '62425ebc1d0c6da591375f4251504ae6fd1de8891018268aca2d373fb85b1238'
+				}
+			],
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: 'a56d0ea6' }
+				}
+			}
+		});
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; live receive kept');
+		warn.mockRestore();
 		vi.unstubAllGlobals();
 	});
 
