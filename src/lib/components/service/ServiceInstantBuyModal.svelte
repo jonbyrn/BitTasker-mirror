@@ -5,7 +5,9 @@
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
-	import { ContractRune } from '$lib/runes/contract.svelte';
+	import { ContractRune, TaskeeInvoiceRequired } from '$lib/runes/contract.svelte';
+	import { initWasm } from '$lib/wasm/init-wasm';
+	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -42,6 +44,7 @@
 		instantOrderId = null,
 		contractRune = undefined,
 		amountUsd = null,
+		escrowInvoice = null,
 		selectedTierLabel = null,
 		agreementSnapshot = null,
 		estimatedStartTime = null,
@@ -89,6 +92,7 @@
 		contractId?: string | null;
 		contractRune?: ContractRune;
 		amountUsd?: number | null;
+		escrowInvoice?: string | null;
 		selectedTierLabel?: string | null;
 		agreementSnapshot?: ServiceContractAgreementSnapshot | null;
 		pricingSnapshot?: ServiceContractPricingSnapshot | null;
@@ -134,14 +138,16 @@
 	const USDT_PLATFORM_FEE_RATE = 0.1; // 10% for USDT payments
 	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
 
-	let selectedSource = $state<'btc' | 'usdt'>('btc');
+	let selectedSource = $state<'btc' | 'usdt'>('usdt');
 	let sourceExpanded = $state(false);
+	const paymentSplitEnabled = false;
 	let paymentSplit = $state<PaymentSplitConfig>({
-		primaryAsset: 'btc_onchain',
-		primaryPercentage: 95,
-		secondaryAsset: 'btc_lightning',
-		secondaryPercentage: 5
+		primaryAsset: 'usdt_rgb',
+		primaryPercentage: 100,
+		secondaryAsset: 'btc_onchain',
+		secondaryPercentage: 0
 	});
+	let readyToPay = $state(false);
 	let localContractRune = $state<ContractRune | null>(null);
 	let isFunding = $state(false);
 	let runeError = $state('');
@@ -285,51 +291,100 @@
 			return;
 		}
 
+		if (!readyToPay) {
+			attachEscrow().catch((error) => {
+				runeError = error instanceof Error ? error.message : 'Escrow funding failed';
+			});
+			return;
+		}
+
 		confirmModalOpen = true;
+	}
+
+	async function attachEscrow(): Promise<void> {
+		runeError = '';
+		isFunding = true;
+		try {
+			const id = contractId ?? instantOrderId ?? `service-${serviceTitle}`;
+			if (!id || totalPaymentValue == null) {
+				throw new Error('Service contract details are incomplete');
+			}
+			await initWasm();
+			await walletManager.initialize();
+			const rune =
+				contractRune ??
+				localContractRune ??
+				new ContractRune({
+					contractId: id,
+					contractTitle: serviceTitle || resolvedTitle,
+					bidderComments: includedScope,
+					totalAmountUsd: totalPaymentValue,
+					split: singleAssetSplit(selectedSource),
+					partyPubkeys: providerPubkey ? [providerPubkey] : []
+				});
+			localContractRune = rune;
+			await rune.prepareFunding(escrowInvoice?.trim() || undefined);
+			readyToPay = Boolean(rune.snapshot.fundingInvoice);
+			if (!readyToPay) {
+				runeError = $t('dashboard.services.detail.escrow_missing');
+			}
+		} catch (error) {
+			readyToPay = false;
+			runeError =
+				error instanceof TaskeeInvoiceRequired
+					? $t('dashboard.services.detail.escrow_missing')
+					: error instanceof Error
+						? error.message
+						: 'Escrow funding failed';
+		} finally {
+			await walletManager.releaseRgbLock();
+			isFunding = false;
+		}
 	}
 
 	function handleCancelConfirmation() {
 		confirmModalOpen = false;
 	}
 
+	function singleAssetSplit(source: 'btc' | 'usdt'): PaymentSplitConfig {
+		return {
+			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain',
+			primaryPercentage: 100,
+			secondaryAsset: source === 'usdt' ? 'btc_onchain' : 'usdt_rgb',
+			secondaryPercentage: 0
+		};
+	}
+
 	function updatePaymentSplit(config: PaymentSplitConfig): void {
+		if (!paymentSplitEnabled) return;
 		paymentSplit = config;
 	}
 
 	function syncSplitForSource(source: 'btc' | 'usdt'): void {
-		paymentSplit = {
-			...paymentSplit,
-			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain'
-		};
+		paymentSplit = paymentSplitEnabled
+			? {
+					...paymentSplit,
+					primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain'
+				}
+			: singleAssetSplit(source);
 	}
 
 	async function handleConfirmEscrow() {
 		confirmModalOpen = false;
 		runeError = '';
+		const runeToPay = contractRune ?? localContractRune;
+		if (!runeToPay) {
+			runeError = $t('dashboard.services.detail.escrow_missing');
+			return;
+		}
 		isFunding = true;
 		try {
-			const activeContractRune = contractRune ?? localContractRune;
-			if (!activeContractRune) {
-				const id = contractId ?? instantOrderId ?? `service-${serviceTitle}`;
-				if (!id || totalPaymentValue == null) {
-					throw new Error('Service contract details are incomplete');
-				}
-				localContractRune = new ContractRune({
-					contractId: id,
-					contractTitle: serviceTitle || resolvedTitle,
-					bidderComments: includedScope,
-					totalAmountUsd: totalPaymentValue,
-					split: paymentSplit,
-					partyPubkeys: providerPubkey ? [providerPubkey] : []
-				});
-			}
-			const runeToFund = contractRune ?? localContractRune;
-			if (!runeToFund) throw new Error('Contract funding state is unavailable');
-			await runeToFund.fund();
+			await runeToPay.payFundingFromWallet();
 			await onConfirm();
 		} catch (error) {
 			runeError = error instanceof Error ? error.message : 'Escrow funding failed';
 		} finally {
+			await walletManager.releaseRgbLock();
 			isFunding = false;
 		}
 	}
@@ -339,7 +394,9 @@
 	<ContractInitiationDrawer
 		{open}
 		title={resolvedTitle}
-		confirmLabel={$t('dashboard.services.detail.book_now_drawer.confirm_cta')}
+		confirmLabel={readyToPay
+			? $t('dashboard.bids.bid_acceptance.step_pay')
+			: $t('dashboard.services.detail.book_now_drawer.confirm_cta')}
 		canConfirm={canConfirm && !isPreparing && !isOffline && !isFunding}
 		hideFooter={showingContractCreationProgress}
 		allowCloseWhileSubmitting={showingContractCreationProgress}
@@ -632,11 +689,7 @@
 									>
 										<span class="text-base-content/60">{$t('wallet.from')}:</span>
 										{#if selectedSource === 'btc'}
-											<img
-												src="/images/chains/Bitcoin.svg"
-												alt="Bitcoin"
-												class="h-5 w-5"
-											/>
+											<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-5 w-5" />
 											<span>{$t('wallet.bitcoin')}</span>
 											<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 										{:else}
@@ -661,11 +714,7 @@
 													sourceExpanded = false;
 												}}
 											>
-												<img
-													src="/images/chains/Bitcoin.svg"
-													alt="Bitcoin"
-													class="h-5 w-5"
-												/>
+												<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-5 w-5" />
 												<span>{$t('wallet.bitcoin')}</span>
 												<span class="ml-auto text-xs opacity-70">{walletBalanceSats} Sats</span>
 											</button>
@@ -729,12 +778,14 @@
 									: '/images/chains/Bitcoin.svg'}
 							/>
 
-							<PaymentSplitSlider
-								totalAmountUsd={totalPaymentValue ?? 0}
-								primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_onchain'}
-								secondaryAsset={selectedSource === 'usdt' ? 'btc_lightning' : 'usdt_rgb'}
-								onSplitChange={updatePaymentSplit}
-							/>
+							{#if paymentSplitEnabled}
+								<PaymentSplitSlider
+									totalAmountUsd={totalPaymentValue ?? 0}
+									primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_onchain'}
+									secondaryAsset={selectedSource === 'usdt' ? 'btc_lightning' : 'usdt_rgb'}
+									onSplitChange={updatePaymentSplit}
+								/>
+							{/if}
 
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">

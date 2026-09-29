@@ -42,6 +42,7 @@
 					"tiered_pricing": "Precios por niveles",
 					"quote_required": "Cotización requerida"
 				},
+				"pricing": "Precio",
 				"interested": "¿Te interesa este servicio?",
 				"contact_taskee": "Contactar Taskee",
 				"request_quote": "Consultar",
@@ -52,6 +53,9 @@
 				"self_book_now_blocked": "No puedes reservar tu propio servicio.",
 				"self_contact_blocked": "No puedes contactarte contigo mismo desde tu propio listado de servicio.",
 				"book_now": "Reservar",
+				"open_escrow": "Abrir factura de depósito",
+				"escrow_missing": "El proveedor aún no abrió la factura del depósito.",
+				"escrow_ready": "La factura de depósito está abierta. El comprador puede reservar y pagar.",
 				"service_runtime_unavailable": "El servicio no está disponible.",
 				"seo": {
 					"page_title": "Detalles del Servicio - BitTasker",

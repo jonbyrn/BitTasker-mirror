@@ -2,8 +2,12 @@
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
+	import { appStore } from '$lib/stores/app.store';
 	import ProtectedLayout from '$lib/components/ProtectedLayout.svelte';
 	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
+	import { publishServiceQuoteRequest } from '$lib/utils/service-quote/publish';
+	import { generateServiceQuoteEntityId } from '$lib/utils/service-quote/protocol';
+	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import type { PageData } from './$types';
 
 	// Get serviceId from route params
@@ -36,6 +40,31 @@
 			jsonLd: null
 		}
 	);
+	async function handleQuoteSubmit(
+		payload: QuoteRequestPayload
+	): Promise<{ success: boolean; error?: string }> {
+		const service = data.service;
+		if (!service) {
+			return { success: false, error: $t('dashboard.services.detail.not_found') };
+		}
+
+		const result = await publishServiceQuoteRequest({
+			service,
+			payload,
+			quoteRequestId: generateServiceQuoteEntityId('qr'),
+			sideEffects: { dmMirror: true }
+		});
+		if (!result.event?.content?.quoteRequestId) {
+			return {
+				success: false,
+				error: $t('dashboard.services.detail.quote_request_submit_error')
+			};
+		}
+
+		appStore.showSuccessToast($t('dashboard.services.detail.quote_submitted'));
+		return { success: true };
+	}
+
 	const jsonLdScript = $derived(
 		seo.jsonLd
 			? `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</sc` + `ript>`
@@ -81,7 +110,11 @@
 
 {#snippet View()}
 	<div class="mx-auto h-full py-6 md:px-0 md:py-0">
-		<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
+		<ServiceDetailsView
+			service={data.service ?? null}
+			serviceId={data.serviceId ?? serviceId}
+			onQuoteSubmit={handleQuoteSubmit}
+		/>
 	</div>
 {/snippet}
 

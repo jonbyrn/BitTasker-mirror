@@ -523,7 +523,8 @@
 					class: 'btn-outline btn-sm',
 					icon: 'view' as const,
 					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
-				}
+				},
+				messageAction(timeline)
 			];
 		}
 
@@ -538,8 +539,20 @@
 				icon: 'proposal' as const,
 				disabled: Boolean(proposalAuthoringBlockedReason),
 				onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'compose')
-			}
+			},
+			messageAction(timeline)
 		];
+	}
+
+	function messageAction(timeline: ServiceQuoteTimelineEntry) {
+		return {
+			label: tr('dashboard.services.my_services.quote_inbox.message_short', 'Message'),
+			class: 'btn-outline btn-sm',
+			icon: 'view' as const,
+			onclick: () => {
+				goto(`/messages/to/${timeline.request.pubkey}`);
+			}
+		};
 	}
 
 	async function handleProposalDelete() {

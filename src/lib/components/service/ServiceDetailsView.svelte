@@ -173,6 +173,7 @@
 			providerAvatar={service.creator?.avatar ?? null}
 			providerPubkey={service.npub ?? null}
 			amountUsd={checkoutAmountUsd}
+			escrowInvoice={service.escrowInvoice ?? null}
 			selectedTierLabel={cheapestTierLabel}
 			agreementSnapshot={{
 				deliverables: service.description,

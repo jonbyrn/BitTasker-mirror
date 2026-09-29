@@ -268,6 +268,7 @@ export interface ServiceBody {
 	instantBuyLeadHours?: number; // Optional lead time for instant-buy listings (hours)
 	instantBuyDeliveryHours?: number; // Optional delivery time for instant-buy fixed pricing (hours)
 	providerWalletAddress?: string; // Provider RGB wallet used for Book Now / service contracts
+	escrowInvoice?: string; // Blank RGB invoice the buyer attaches before Pay
 	skills: string[];
 	categories: Category[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
@@ -303,6 +304,7 @@ export interface Service {
 	instantBuyLeadHours?: number; // From content when instant-buy is enabled
 	instantBuyDeliveryHours?: number; // From content for instant-buy fixed pricing delivery time
 	providerWalletAddress?: string; // From content when Book Now funding should pay the provider wallet
+	escrowInvoice?: string; // Blank RGB invoice published by the provider
 	skills: string[]; // From content
 	categories: Category[]; // From content
 	portfolio?: Attachment[]; // From content

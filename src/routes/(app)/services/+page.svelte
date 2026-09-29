@@ -468,7 +468,10 @@
 		try {
 			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
-				timeoutId = setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
+				timeoutId = setTimeout(
+					() => reject(new Error('BTC price fetch timed out')),
+					BTC_PRICE_TIMEOUT_MS
+				);
 			});
 			try {
 				btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
@@ -623,7 +626,8 @@
 		const result = await publishServiceQuoteRequest({
 			service: serviceForQuote,
 			payload,
-			quoteRequestId: generateServiceQuoteEntityId('qr')
+			quoteRequestId: generateServiceQuoteEntityId('qr'),
+			sideEffects: { dmMirror: true }
 		});
 
 		if (!result.event || !result.event.content.quoteRequestId) {

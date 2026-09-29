@@ -17,7 +17,7 @@
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
-	import { getRSKAddress, walletStore } from '$lib/stores/wallet.store';
+	import { getRgbAddress, walletStore } from '$lib/stores/wallet.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 	import {
@@ -368,12 +368,12 @@
 
 			// Prefer current wallet if connected, otherwise use stored address (from previous versions/drafts)
 			let providerWalletAddress =
-				$walletStore.rsk?.address || $store.service.providerWalletAddress || undefined;
+				$walletStore.rgb?.address || $store.service.providerWalletAddress || undefined;
 
 			// If Book Now is enabled but we don't have a wallet address yet, attempt to connect
 			if (requiresProviderWallet && !providerWalletAddress) {
 				try {
-					providerWalletAddress = await getRSKAddress();
+					providerWalletAddress = await getRgbAddress();
 				} catch {
 					// Graceful reuse: If editing an existing Book Now service, we should already have the address
 					// in $store.service.providerWalletAddress (from loadServiceForEdit).

@@ -96,6 +96,7 @@
 					"reviews_count": "{count} reviews",
 					"send_proposal": "Send Proposal",
 					"send_proposal_short": "Send",
+					"message_short": "Message",
 					"view_proposal": "View Proposal",
 					"view_proposal_short": "View",
 					"delete_proposal": "Delete Proposal",

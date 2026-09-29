@@ -6,7 +6,8 @@ import type {
 	ServiceQuoteThread
 } from '$lib/types/service-quote';
 import { queryNostrEvents } from '$lib/utils/nostr';
-import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { nip19, nip44, type Event as NostrEvent, type Filter } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
@@ -117,7 +118,7 @@ async function queryServiceQuoteRequestsByAuthorDetailed(
 	};
 	const events = await queryNostrEvents(filter, undefined, undefined, await getReadRelays());
 
-	const requests = dedupeById(events)
+	const requests = dedupeById(await plainQuoteEvents(events))
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
@@ -165,7 +166,7 @@ async function queryServiceQuoteRequestsForServiceDetailed(
 	};
 	const events = await queryNostrEvents(filter, undefined, undefined, await getReadRelays());
 
-	const requests = dedupeById(events)
+	const requests = dedupeById(await plainQuoteEvents(events))
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
@@ -203,7 +204,7 @@ async function queryServiceProposalsForTaskerDetailed(
 		await getReadRelays()
 	);
 
-	const proposals = dedupeById(events)
+	const proposals = dedupeById(await plainQuoteEvents(events))
 		.map(safelyValidateProposal)
 		.filter((event): event is ServiceProposalEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
@@ -246,7 +247,7 @@ async function queryServiceProposalsByRequestIdsDetailed(
 		await getReadRelays()
 	);
 
-	const proposals = dedupeById(events)
+	const proposals = dedupeById(await plainQuoteEvents(events))
 		.map(safelyValidateProposal)
 		.filter((event): event is ServiceProposalEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
@@ -295,7 +296,7 @@ async function queryStatusesForProposalsDetailed(
 		await getReadRelays(proposals)
 	);
 	return {
-		items: dedupeById(events)
+		items: dedupeById(await plainQuoteEvents(events))
 			.map(safelyValidateStatus)
 			.filter((event): event is ServiceProposalStatusEvent => Boolean(event))
 			.sort((left, right) => left.created_at - right.created_at),
@@ -458,6 +459,37 @@ async function queryDeletedEventIdsDetailed(
 		),
 		isPartial: deleteEvents.length >= deleteLimit
 	};
+}
+
+function pubkeyHex(value: string): string {
+	const trimmed = value.trim();
+	if (/^[0-9a-f]{64}$/i.test(trimmed)) return trimmed.toLowerCase();
+	if (trimmed.startsWith('npub')) {
+		const decoded = nip19.decode(trimmed);
+		if (decoded.type === 'npub' && typeof decoded.data === 'string') return decoded.data;
+	}
+	return trimmed.toLowerCase();
+}
+
+async function openQuoteContent(event: NostrEvent): Promise<NostrEvent> {
+	const content = typeof event.content === 'string' ? event.content.trim() : '';
+	if (!content || content.startsWith('{') || content.startsWith('[')) return event;
+	try {
+		const { nsec, npub } = await getNostrKeyPair();
+		const mine = pubkeyHex(npub);
+		const recipient = event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '';
+		const other = mine === event.pubkey.toLowerCase() ? recipient : event.pubkey;
+		if (!other) return event;
+		const key = await nip44.getConversationKey(nsec, pubkeyHex(other));
+		const plain = await nip44.decrypt(content, key);
+		return { ...event, content: plain };
+	} catch {
+		return event;
+	}
+}
+
+async function plainQuoteEvents(events: NostrEvent[]): Promise<NostrEvent[]> {
+	return Promise.all(events.map((event) => openQuoteContent(event)));
 }
 
 function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {

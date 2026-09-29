@@ -42,6 +42,7 @@
 					"tiered_pricing": "Tiered pricing",
 					"quote_required": "Quote required"
 				},
+				"pricing": "Pricing",
 				"interested": "Interested in this service?",
 				"contact_taskee": "Contact Taskee",
 				"request_quote": "Inquire",
@@ -52,6 +53,9 @@
 				"self_book_now_blocked": "You can't book your own service.",
 				"self_contact_blocked": "You can't contact yourself from your own service listing.",
 				"book_now": "Book",
+				"open_escrow": "Open escrow invoice",
+				"escrow_missing": "The provider has not opened the escrow invoice yet.",
+				"escrow_ready": "Escrow invoice is open. The buyer can book and pay.",
 				"service_runtime_unavailable": "Service is unavailable.",
 				"seo": {
 					"page_title": "Service Details - BitTasker",
