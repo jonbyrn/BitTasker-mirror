@@ -1,17 +1,94 @@
-import { state } from './wallet-state';
+import {
+	broadcastEscrowPsbt,
+	buildEscrowPsbt,
+	requireEscrowSigner,
+	signEscrowPsbt
+} from '$lib/services/rgb/psbt-escrow';
+import { spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
+import { decodeRgbInvoice } from './decode-rgb-invoice';
+import { loadAssets, persistWalletSnapshot } from './wallet-balances';
+import { prepareRgbOnchainSend } from './prepare-rgb-send';
+import { state, walletStore } from './wallet-state';
+import type { Transaction } from './wallet-types';
 
 export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: string }> {
 	console.info('[sendLightningPayment] stub called', { lnInvoice });
 	return { txid: 'ln_stub_' + Date.now() };
 }
 
-export async function sendRgbAsset(
-	assetId: string,
-	invoice: string,
-	amount?: number
-): Promise<{ txid: string; batchTransferIdx: number }> {
-	console.info('[sendRgbAsset] stub called', { assetId, invoice, amount });
-	return { txid: 'rgb_stub_' + Date.now(), batchTransferIdx: 0 };
+function ifaUsdtId(rows: readonly SpendableNia[]): string | undefined {
+	const held = rows.find((row) => (row.ticker ?? '').toUpperCase() === 'USDT' && row.assetId);
+	const spendable = Number(held?.balance?.spendable ?? 0);
+	return held?.assetId && Number.isFinite(spendable) && spendable > 0 ? held.assetId : undefined;
+}
+
+function recordSentUsdt(txid: string, units: number): void {
+	const row: Transaction = {
+		id: txid,
+		type: 'send',
+		amountSats: 0,
+		assetUnits: units,
+		timestamp: Date.now(),
+		status: 'pending',
+		txHash: txid,
+		description: 'rgb usdt'
+	};
+	walletStore.update((current) => ({
+		...current,
+		transactions: [
+			row,
+			...current.transactions.filter((item) => item.txHash !== txid && item.id !== txid)
+		]
+	}));
+}
+
+export async function sendRgbAsset(params: {
+	invoice: string;
+	assetId: string;
+	amount?: number;
+}): Promise<{ txid: string; batchTransferIdx: number }> {
+	const wallet = state.utexoWallet;
+	if (!wallet) throw new Error('RGB wallet is not initialized.');
+	const decoded = decodeRgbInvoice(params.invoice);
+	const amount = decoded.amount === null ? params.amount : decoded.amount;
+	if (amount === undefined || !Number.isSafeInteger(amount) || amount <= 0) {
+		throw new Error('RGB invoice amount is zero');
+	}
+	const units = amount;
+	const listed = await wallet.listAssets();
+	const held = spendableRgbAssets(listed);
+	const ifaRows = listed?.ifa ?? [];
+	const assetId = decoded.contract
+		? held.find((row) => row.assetId === decoded.contract)?.assetId
+		: ifaUsdtId(ifaRows);
+	if (!assetId) {
+		throw new Error(
+			decoded.contract
+				? 'This wallet has no spendable USDT.'
+				: 'Select the funded IFA USDT. This invoice names no contract.'
+		);
+	}
+	const spendable = Number(held.find((row) => row.assetId === assetId)?.balance?.spendable ?? 0);
+	if (units > spendable) throw new Error('USDT amount is larger than the spendable balance.');
+	await prepareRgbOnchainSend(wallet, assetId);
+	const signer = requireEscrowSigner(wallet);
+	const psbt = await buildEscrowPsbt(signer, {
+		invoice: params.invoice.trim(),
+		assetId,
+		amount: units,
+		feeRate: 2
+	});
+	const signed = await signEscrowPsbt(signer, psbt);
+	const txid = await broadcastEscrowPsbt(signer, signed);
+	await persistWalletSnapshot(wallet).catch((error: unknown) => {
+		console.warn(
+			'[wallet-send] backup after send failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
+	recordSentUsdt(txid, units);
+	await loadAssets();
+	return { txid, batchTransferIdx: 0 };
 }
 
 export interface SendBtcParams {
@@ -37,4 +114,3 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 		feeRate: params.feeRate ?? 1
 	});
 }
-

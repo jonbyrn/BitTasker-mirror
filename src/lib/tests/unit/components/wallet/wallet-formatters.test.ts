@@ -3,12 +3,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+	formatHistoryAmount,
 	formatRelativeTime,
 	formatSatsWithUsd,
 	isBrandPicture,
 	isRgbMovement,
 	pickHeroAsset,
+	rgbHistoryRows,
+	transferMovements,
+	walletHistoryRows,
 	shortOutpoint,
+	signetTxUrl,
 	stableInnerFormat,
 	stableWalletAvailableUsd,
 	summarizeUtxoKinds
@@ -208,7 +213,143 @@ describe('wallet dashboard display', () => {
 		expect(formatRelativeTime(now - 2 * 60_000, now, 'en')).toBe('2 minutes ago');
 		expect(isRgbMovement('RGB transfer')).toBe(true);
 		expect(isRgbMovement('Bitcoin transfer')).toBe(false);
+		const amounts = new Intl.NumberFormat();
+		expect(formatHistoryAmount('Bitcoin transfer', 12500, undefined, 'sats')).toBe(
+			`${amounts.format(12500)} sats`
+		);
+		expect(formatHistoryAmount('RGB transfer', 1000, 11_000_000, 'sats')).toBe(
+			amounts.format(11_000_000)
+		);
+		expect(formatHistoryAmount('RGB transfer', 1000, undefined, 'sats')).toBe(
+			`${amounts.format(1000)} sats`
+		);
+		expect(signetTxUrl('4fe2244f0120fc67c4d0575dc6e6112f2a7dfb20392983f7536209fad157b99d')).toBe(
+			'https://esplora-api.utexo.com/tx/4fe2244f0120fc67c4d0575dc6e6112f2a7dfb20392983f7536209fad157b99d'
+		);
+		expect(signetTxUrl('not-a-txid')).toBeNull();
+		const units = transferMovements([
+			{
+				kind: 'Send',
+				txid: '4fe2244f',
+				requestedAssignment: { amount: 11_000_000 },
+				assignments: [{ amount: 89_000_000 }]
+			},
+			{
+				kind: 'ReceiveBlind',
+				txid: '59602401',
+				requestedAssignment: { amount: 0 },
+				assignments: [{ amount: 100_000_000 }],
+				receiveUtxo: { txid: '2af94a3e' }
+			}
+		]);
+		expect(units.get('4fe2244f')).toEqual({ units: 11_000_000, incoming: false });
+		expect(units.get('2af94a3e')).toEqual({ units: 100_000_000, incoming: true });
+		expect(units.get('59602401')).toEqual({ units: 100_000_000, incoming: true });
+		expect(
+			rgbHistoryRows([
+				{
+					kind: 'ReceiveBlind',
+					status: 'Settled',
+					txid: '853587782a64325e57e142087f153b5505a73610ae45d16523499576d4b44556',
+					requestedAssignment: { amount: 1_111_111 },
+					assignments: [{ amount: 100_000_000 }],
+					updatedAt: 1_790_627_891
+				},
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					requestedAssignment: { amount: 1_111_111 }
+				}
+			])
+		).toEqual([
+			{
+				ids: ['853587782a64325e57e142087f153b5505a73610ae45d16523499576d4b44556'],
+				type: 'receive',
+				assetUnits: 100_000_000,
+				timestamp: 1_790_627_891_000,
+				status: 'confirmed'
+			}
+		]);
+		expect(
+			rgbHistoryRows([
+				{
+					kind: 'Send',
+					status: 'WaitingCounterparty',
+					txid: 'cf2bf9b98d965d71419f9f1cc526ec4f42248504f517751c6abdce3f6622f545',
+					requestedAssignment: { amount: 9_000 },
+					assignments: [{ amount: 88_991_000 }],
+					updatedAt: 1_790_633_902
+				}
+			])
+		).toEqual([
+			{
+				ids: ['cf2bf9b98d965d71419f9f1cc526ec4f42248504f517751c6abdce3f6622f545'],
+				type: 'send',
+				assetUnits: 9_000,
+				timestamp: 1_790_633_902_000,
+				status: 'pending'
+			}
+		]);
 		expect(isBrandPicture('/images/logos/bittasker-logomark.svg')).toBe(true);
 		expect(isBrandPicture('https://cdn.example/avatar.png')).toBe(false);
+	});
+
+	it('lists USDT from RGB transfers and leaves Bitcoin rows unchanged', () => {
+		const rows = walletHistoryRows(
+			[
+				{
+					txid: '4fe2244f0120fc67c4d0575dc6e6112f2a7dfb20392983f7536209fad157b99d',
+					received: 691,
+					sent: 1000,
+					confirmationTime: { timestamp: 1_790_391_348 },
+					transactionType: 'User'
+				},
+				{
+					txid: '2af94a3e123bf2ca5d66f3f085ac75f3badd19c951fe82f997a8d59c038966e1',
+					received: 1000,
+					sent: 0,
+					confirmationTime: { timestamp: 1_790_300_000 },
+					transactionType: 'User'
+				}
+			],
+			[
+				{
+					kind: 'Send',
+					status: 'Settled',
+					txid: '4fe2244f0120fc67c4d0575dc6e6112f2a7dfb20392983f7536209fad157b99d',
+					requestedAssignment: { amount: 11_000_000 },
+					assignments: [{ amount: 89_000_000 }],
+					updatedAt: 1_790_391_348
+				},
+				{
+					kind: 'ReceiveBlind',
+					status: 'Settled',
+					txid: '59602401ba7abf8b',
+					assignments: [{ amount: 100_000_000 }],
+					receiveUtxo: {
+						txid: '2af94a3e123bf2ca5d66f3f085ac75f3badd19c951fe82f997a8d59c038966e1'
+					},
+					updatedAt: 1_790_200_000
+				}
+			]
+		);
+		const bitcoinSend = rows.find((row) => row.id.startsWith('4fe2244f'));
+		const bitcoinReceive = rows.find((row) => row.id.startsWith('2af94a3e'));
+		const usdtSend = rows.find((row) => row.id.startsWith('usdt:4fe2244f'));
+		const usdtReceive = rows.find((row) => row.id.startsWith('usdt:59602401'));
+		expect(bitcoinSend?.description).toBe('Bitcoin transfer');
+		expect(bitcoinSend?.assetUnits).toBeUndefined();
+		expect(bitcoinReceive?.description).toBe('Bitcoin transfer');
+		expect(usdtSend).toMatchObject({
+			type: 'send',
+			assetUnits: 11_000_000,
+			description: 'RGB transfer'
+		});
+		expect(usdtReceive).toMatchObject({
+			type: 'receive',
+			assetUnits: 100_000_000,
+			description: 'RGB transfer',
+			txHash: '59602401ba7abf8b'
+		});
 	});
 });

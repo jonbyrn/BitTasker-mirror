@@ -105,6 +105,23 @@ export function spendableRgbAssets(
 	return [...(listed?.nia ?? []), ...(listed?.ifa ?? [])];
 }
 
+/** Asset id for a named USDT invoice: the held IFA or NIA contract, never an id this wallet cannot spend. */
+export function usdtInvoiceAsset(
+	listed:
+		| {
+				nia?: readonly SpendableNia[] | null;
+				ifa?: readonly SpendableNia[] | null;
+		  }
+		| null
+		| undefined,
+	configured: string | null | undefined
+): string | undefined {
+	const rows = spendableRgbAssets(listed);
+	const configuredId = configured?.trim();
+	if (configuredId && rows.some((item) => item.assetId === configuredId)) return configuredId;
+	return rows.find((item) => item.ticker === 'USDT')?.assetId;
+}
+
 /** First preferred id that this wallet can spend, then USDT, then any spendable row. */
 export function selectEscrowAsset(
 	nia: readonly SpendableNia[],

@@ -11,9 +11,12 @@ import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	loadAssets,
+	restoreStoredBackup,
+	scheduleRgbRefresh,
 	scanBtcBalance,
 	parseRgbAssets
 } from './wallet-balances';
+import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
@@ -112,6 +115,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 		}
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
+		await restoreStoredBackup(wallet);
 
 		state.utexoWallet = wallet;
 		if (typeof window !== 'undefined' && wallet) {
@@ -130,6 +134,17 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			await ensureRgbAllocations(wallet);
 		} catch (allocationError) {
 			console.warn('[wallet-init] RGB allocation setup skipped:', allocationError);
+		}
+
+		try {
+			const rgbAssets = await loadRgbAssets(wallet);
+			const current = get(walletStore).rgb;
+			updateWalletStore(current?.address ?? '', current?.balanceSats ?? 0, rgbAssets);
+			await loadTransactions();
+			// Light poll, then one full refresh if IFA USDT is still missing. Not awaited.
+			scheduleRgbRefresh(wallet);
+		} catch (incomingError) {
+			console.warn('[wallet-init] incoming USDT pull skipped:', incomingError);
 		}
 
 		startConsignmentSubscription();
@@ -238,13 +253,14 @@ function markWalletReady(): void {
 }
 
 function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
+	const heldUsdt = rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT');
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
-	if (!usdtAssetId) {
+	if (!usdtAssetId && !heldUsdt) {
 		console.warn('[wallet-init] No active RGB_USDT_ASSET_ID');
 	}
-	const usdtBalance = usdtAssetId
-		? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0)
-		: 0;
+	const usdtBalance =
+		heldUsdt?.balance ??
+		(usdtAssetId ? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0) : 0);
 
 	walletStore.update((s) => ({
 		...s,

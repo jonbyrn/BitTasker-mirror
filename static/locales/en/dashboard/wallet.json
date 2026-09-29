@@ -103,6 +103,8 @@
 		"show": "Show",
 		"liquid_balance": "Liquid Balance",
 		"send_button": "Send",
+		"send_unspecified": "Unspecified → selected IFA",
+		"receive_waiting": "Waiting for txid",
 		"more_options": "More",
 		"recent_transactions": "Recent Transactions",
 		"type": "Type",
@@ -927,7 +929,7 @@
 				"boltz_unavailable": "Boltz swap service is temporarily unavailable"
 			},
 			"network_offline": "Waiting for connection...",
-			"sent_successfully": "Sent successfully",
+			"sent_successfully": "Sent {txid}",
 			"updated_ago": "Updated {time} ago",
 			"just_now": "Just now",
 			"minutes_ago": "{n}m ago",

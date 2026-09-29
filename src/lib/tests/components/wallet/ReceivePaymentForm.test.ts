@@ -77,7 +77,8 @@ describe('ReceivePaymentForm', () => {
 		expect(onchainReceive).toHaveBeenCalledWith({
 			witness: false,
 			minConfirmations: 1,
-			durationSeconds: 3600
+			durationSeconds: 3600,
+			amount: 1111
 		});
 		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
@@ -112,7 +113,8 @@ describe('ReceivePaymentForm', () => {
 		expect(onchainReceive).toHaveBeenCalledWith({
 			witness: false,
 			minConfirmations: 1,
-			durationSeconds: 3600
+			durationSeconds: 3600,
+			amount: 1111
 		});
 		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
 		await waitFor(() =>

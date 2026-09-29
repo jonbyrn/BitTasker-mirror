@@ -102,6 +102,8 @@
 		"show": "Mira",
 		"liquid_balance": "Saldo Liquid",
 		"send_button": "Enviar",
+		"send_unspecified": "Sin contrato → IFA seleccionado",
+		"receive_waiting": "Esperando el txid",
 		"more_options": "Más",
 		"recent_transactions": "Transacciones recientes",
 		"type": "Tipo",
@@ -887,7 +889,7 @@
 				"boltz_unavailable": "El servicio de swap de Boltz no está disponible temporalmente"
 			},
 			"network_offline": "Esperando conexión...",
-			"sent_successfully": "Enviado exitosamente",
+			"sent_successfully": "Enviado {txid}",
 			"updated_ago": "Actualizado hace {time}",
 			"just_now": "Ahora mismo",
 			"minutes_ago": "Hace {n}m",

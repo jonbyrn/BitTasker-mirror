@@ -5,6 +5,9 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
+	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
+	import { readRefreshFailure } from '$lib/stores/wallet/wallet-balances';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
 	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
@@ -19,22 +22,15 @@
 		onCancel?: () => void;
 	} = $props();
 
-	let asset = $state<SendAsset>('btc_onchain');
+	let picked = $state<SendAsset | null>(null);
+	const asset = $derived(picked ?? initialAsset);
 	let destination = $state('');
-
-	// Sync initial asset exactly once when it differs from the default.
-	let initialAssetApplied = false;
-	$effect(() => {
-		if (!initialAssetApplied && initialAsset !== 'btc_onchain') {
-			asset = initialAsset;
-			initialAssetApplied = true;
-		}
-	});
 	let amountInput = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
 	let isSending = $state(false);
 	let errorMessage = $state('');
+	let sentTxid = $state('');
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
 		{
@@ -50,16 +46,19 @@
 		{
 			id: 'usdt_rgb',
 			labelKey: 'wallet.taproot.tether_usd',
-			placeholder: 'rgb1...'
+			placeholder: 'rgb:~/~/nWca/sb:utxob:...'
 		}
 	];
 
 	const walletSats = $derived($walletStore.rgb?.balanceSats ?? 0);
+	const usdtAsset = $derived(
+		($walletStore.rgb?.assets ?? []).find((item) => item.symbol?.toUpperCase() === 'USDT') ?? null
+	);
 
 	const amountSats = $derived.by(() => {
 		const parsed = Number(amountInput);
 		if (!Number.isFinite(parsed) || parsed <= 0) return null;
-		if (asset === 'usdt_rgb') return Math.round(parsed * 1_000_000);
+		if (asset === 'usdt_rgb') return Math.round(parsed);
 		if (unit === 'usd') {
 			if (btcPrice.price <= 0) return null;
 			return Math.round((parsed / btcPrice.price) * 100_000_000);
@@ -67,33 +66,83 @@
 		return Math.round(parsed);
 	});
 
-	const hasInsufficientBalance = $derived(
-		asset !== 'usdt_rgb' && amountSats !== null && amountSats > walletSats
+	const hasInsufficientBalance = $derived.by(() => {
+		if (amountSats === null) return false;
+		if (asset === 'usdt_rgb') return usdtAsset !== null && amountSats > usdtAsset.balance;
+		return amountSats > walletSats;
+	});
+
+	const decodedInvoice = $derived.by((): DecodedRgbInvoice | null => {
+		if (asset !== 'usdt_rgb') return null;
+		const value = destination.trim();
+		if (!value.startsWith('rgb:')) return null;
+		try {
+			return decodeRgbInvoice(value);
+		} catch {
+			return null;
+		}
+	});
+
+	const lockedAmount = $derived(
+		decodedInvoice && decodedInvoice.amount !== null && decodedInvoice.amount > 0
+			? decodedInvoice.amount
+			: null
 	);
+
+	const rgbAmount = $derived(lockedAmount ?? amountSats);
 
 	const destinationValid = $derived.by(() => {
 		const value = destination.trim();
 		if (!value) return false;
 		if (asset === 'btc_onchain') return /^(bc1|tb1|bcrt1)[a-z0-9]{10,}$/i.test(value);
 		if (asset === 'btc_lightning') return value.toLowerCase().startsWith('ln');
-		return value.length > 8;
+		if (!value.startsWith('rgb:')) return false;
+		return decodedInvoice !== null && decodedInvoice.amount !== 0;
 	});
 
 	// Lightning invoices embed their own amount — only a valid invoice is required.
 	const canSubmit = $derived.by(() => {
-		if (asset === 'btc_lightning') return destinationValid && !isSending;
-		return (
-			destinationValid &&
-			amountSats !== null &&
-			amountSats > 0 &&
-			!hasInsufficientBalance &&
-			!isSending
-		);
+		if (isSending || sentTxid) return false;
+		if (asset === 'btc_lightning') return destinationValid;
+		if (asset === 'usdt_rgb') {
+			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
+			if (!decodedInvoice.contract && usdtAsset === null) return false;
+			return (
+				destinationValid &&
+				rgbAmount !== null &&
+				rgbAmount > 0 &&
+				usdtAsset !== null &&
+				rgbAmount <= usdtAsset.balance
+			);
+		}
+		return destinationValid && amountSats !== null && amountSats > 0 && !hasInsufficientBalance;
 	});
+
+	function applyInvoice(value: string): void {
+		if (!value.startsWith('rgb:')) return;
+		picked = 'usdt_rgb';
+		sentTxid = '';
+		try {
+			const decoded = decodeRgbInvoice(value);
+			if (decoded.amount !== null && decoded.amount > 0) amountInput = String(decoded.amount);
+		} catch {
+			errorMessage = '';
+		}
+	}
+
+	async function copyTxid(): Promise<void> {
+		if (!sentTxid) return;
+		try {
+			await navigator.clipboard.writeText(sentTxid);
+		} catch {
+			appStore.showErrorToast($t('common.error'));
+		}
+	}
 
 	async function handleSubmit(): Promise<void> {
 		if (!canSubmit) return;
-		if (asset !== 'btc_lightning' && amountSats === null) return;
+		if (asset === 'btc_onchain' && (amountSats === null || amountSats <= 0)) return;
+		if (asset === 'usdt_rgb' && (rgbAmount === null || rgbAmount <= 0)) return;
 		isSending = true;
 		errorMessage = '';
 		try {
@@ -104,28 +153,37 @@
 				});
 				txid = result.txid;
 			} else if (asset === 'usdt_rgb') {
-				const assetId = getConfiguredRgbUsdtAssetId();
-				if (!assetId) {
-					errorMessage = $t('wallet.taproot.usdt_not_configured');
-					return;
-				}
+				if (rgbAmount === null || rgbAmount <= 0) throw new Error('RGB invoice amount is zero');
 				const result = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
-					assetId,
-					amount: amountSats
+					assetId: usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '',
+					amount: rgbAmount
 				});
 				txid = result.txid;
+				if (!/^[0-9a-f]{64}$/i.test(txid)) throw new Error('sendEnd did not return a txid');
 			} else {
+				const sats = amountSats;
+				if (sats === null) return;
 				txid = await walletManager.sendBtc({
 					address: destination.trim(),
-					amountSats,
+					amountSats: sats,
 					feeRate
 				});
 			}
-			appStore.showSuccessToast($t('wallet.sent_successfully'));
+			if (!txid) throw new Error('Send did not return a txid');
+			sentTxid = txid;
+			appStore.showSuccessToast($t('wallet.toast.sent_successfully', { values: { txid } }));
 			onSent(txid);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Send failed';
+			const named = readRefreshFailure(error);
+			errorMessage =
+				error instanceof Error && error.message
+					? error.message
+					: named
+						? named
+						: typeof error === 'string' && error
+							? error
+							: 'Send failed';
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -146,13 +204,15 @@
 		{#each assets as option (option.id)}
 			<button
 				type="button"
-				class="btn btn-sm join-item flex-1"
-				class:btn-primary={asset === option.id}
-				class:btn-outline={asset !== option.id}
+				class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
+				class:ring-2={asset === option.id}
+				class:ring-base-content={asset === option.id}
 				onclick={() => {
-					asset = option.id;
+					picked = option.id;
 					destination = '';
 					errorMessage = '';
+					sentTxid = '';
+					amountInput = '';
 				}}
 				data-testid={`asset-${option.id}`}
 			>
@@ -175,11 +235,14 @@
 			class:input-error={destination.trim() !== '' && !destinationValid}
 			placeholder={assets.find((a) => a.id === asset)?.placeholder}
 			bind:value={destination}
+			oninput={() => {
+				applyInvoice(destination.trim());
+			}}
 			data-testid="send-destination"
 		/>
 	</label>
 
-	<!-- Amount (Lightning reads the invoice amount; RGB uses USD decimals) -->
+	<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
 	{#if asset !== 'btc_lightning'}
 		<label class="form-control">
 			<span class="label-text mb-1">{$t('wallet.taproot.amount')}</span>
@@ -190,6 +253,7 @@
 					inputmode="decimal"
 					placeholder="0"
 					bind:value={amountInput}
+					disabled={lockedAmount !== null}
 					data-testid="send-amount"
 				/>
 				{#if asset === 'btc_onchain'}
@@ -221,13 +285,51 @@
 		{/if}
 	{/if}
 
+	{#if decodedInvoice}
+		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-decoded">
+			<p class="font-mono">{decodedInvoice.seal}</p>
+			<p>
+				{$t('wallet.amount')}:
+				{decodedInvoice.amount === null ? '—' : decodedInvoice.amount}
+			</p>
+			<p>
+				{decodedInvoice.contract ?? $t('wallet.send_unspecified')}
+			</p>
+			{#if decodedInvoice.expiry}
+				<p class="font-mono text-xs">{decodedInvoice.expiry}</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if sentTxid}
+		<div class="flex flex-col gap-2" data-testid="send-txid">
+			<p class="font-mono text-xs break-all">{sentTxid}</p>
+			{#if signetTxUrl(sentTxid)}
+				<a
+					class="link text-sm"
+					href={signetTxUrl(sentTxid)}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					{$t('wallet.toast.view_explorer')}
+				</a>
+			{/if}
+			<button type="button" class="btn btn-outline btn-sm" onclick={copyTxid}>
+				{$t('wallet.toast.copy_tx')}
+			</button>
+		</div>
+	{/if}
+
 	<div class="text-base-content/60 text-xs" data-testid="available-balance">
-		{$t('dashboard.services.detail.book_now_drawer.available_balance')}: {formatSats(walletSats)}
+		{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
+		{asset === 'usdt_rgb'
+			? `${new Intl.NumberFormat().format(usdtAsset?.balance ?? 0)} USDT`
+			: formatSats(walletSats)}
 	</div>
 
 	{#if hasInsufficientBalance}
 		<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
-			{$t('wallet.taproot.insufficient_balance')}
+			{$t('wallet.insufficient_balance')}
 		</div>
 	{/if}
 	{#if errorMessage}

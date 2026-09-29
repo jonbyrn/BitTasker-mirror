@@ -1,8 +1,10 @@
+import { get } from 'svelte/store';
 import { walletStore, state } from './wallet-state';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
-import { getConfiguredRgbUsdtAssetId, listsRgbAsset } from '$lib/types/rgb-contract';
+import { getConfiguredRgbUsdtAssetId, usdtInvoiceAsset } from '$lib/types/rgb-contract';
+import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 
 interface RgbAmount {
@@ -16,6 +18,7 @@ interface RawRgbAsset {
 	assetId?: string;
 	name?: string;
 	ticker?: string;
+	precision?: number;
 	balance?: string | number | RgbAmount;
 }
 
@@ -331,7 +334,6 @@ export async function scanBtcBalance(
 	if (wallet.syncWallet) {
 		await wallet.syncWallet();
 	}
-	await wallet.refreshWallet();
 	try {
 		const [btcBalance, address, unspents] = await Promise.all([
 			wallet.getBtcBalance(),
@@ -359,17 +361,23 @@ function isRawRgbAsset(value: unknown): value is RawRgbAsset {
 	return typeof row.id === 'string' || typeof row.assetId === 'string';
 }
 
+function positiveAmount(value: unknown): number | null {
+	const numeric =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+/** Spendable when it is funded, otherwise settled, otherwise incoming. A zero spendable field must not hide settled USDT. */
 function assetAmount(balance: RawRgbAsset['balance']): number {
-	if (typeof balance === 'number' && Number.isFinite(balance)) return balance;
-	if (typeof balance === 'string') {
-		const parsed = Number(balance);
-		return Number.isFinite(parsed) ? parsed : 0;
-	}
+	if (typeof balance === 'number' && Number.isFinite(balance)) return Math.max(0, balance);
+	if (typeof balance === 'string') return positiveAmount(balance) ?? 0;
 	if (balance && typeof balance === 'object') {
-		const spendable = Number(balance.spendable);
-		if (Number.isFinite(spendable)) return spendable;
-		const settled = Number(balance.settled);
-		return Number.isFinite(settled) ? settled : 0;
+		return (
+			positiveAmount(balance.spendable) ??
+			positiveAmount(balance.settled) ??
+			positiveAmount(balance.future) ??
+			0
+		);
 	}
 	return 0;
 }
@@ -395,6 +403,7 @@ export function parseRgbAssets(raw: unknown): RgbAsset[] {
 				assetId,
 				name: asset.name ?? asset.ticker ?? 'RGB Asset',
 				symbol: asset.ticker,
+				precision: typeof asset.precision === 'number' ? asset.precision : undefined,
 				balance,
 				formattedBalance: new Intl.NumberFormat().format(balance)
 			};
@@ -409,7 +418,7 @@ export function scheduleBalanceRefresh(): void {
 	}, 500);
 }
 
-export async function loadAssets(): Promise<void> {
+export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 	const wallet = state.utexoWallet;
 	if (!wallet) return;
 
@@ -430,18 +439,21 @@ export async function loadAssets(): Promise<void> {
 		}
 		const balanceSats = isE2ETest && resolvedBalanceSats === 0 ? 100_000 : resolvedBalanceSats;
 
-		let rgbAssets: RgbAsset[] = [];
+		const previousAssets = get(walletStore).rgb.assets ?? [];
+		let rgbAssets: RgbAsset[] = previousAssets;
 		try {
-			const rawAssets = await wallet.listAssets();
-			rgbAssets = parseRgbAssets(rawAssets);
+			rgbAssets = parseRgbAssets(await wallet.listAssets());
+			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
+			rgbAssets = previousAssets;
 		}
 
+		const heldUsdt = rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT');
 		const usdtAssetId = getConfiguredRgbUsdtAssetId();
-		const usdtBalance = usdtAssetId
-			? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0)
-			: 0;
+		const usdtBalance =
+			heldUsdt?.balance ??
+			(usdtAssetId ? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0) : 0);
 
 		walletStore.update((s) => ({
 			...s,
@@ -467,6 +479,10 @@ export async function loadAssets(): Promise<void> {
 				usdt: usdtBalance
 			}
 		}));
+		await loadTransactions();
+		if (options?.pull !== false && usdtBalance <= 0) {
+			scheduleRgbRefresh(wallet);
+		}
 	} catch (err) {
 		console.error('[wallet-balances] Error loading assets:', err);
 	}
@@ -616,36 +632,346 @@ export function readRefreshFailure(failure: unknown): string | null {
 	return name ?? null;
 }
 
+/** A refresh that drops the USDT row must not replace a balance the wallet already showed. */
+function keepHeldUsdt(next: readonly RgbAsset[], previous: readonly RgbAsset[]): RgbAsset[] {
+	const prior = previous.find(
+		(asset) => asset.symbol?.toUpperCase() === 'USDT' && asset.balance > 0
+	);
+	if (!prior) return [...next];
+	if (next.some((asset) => asset.assetId === prior.assetId && asset.balance > 0)) return [...next];
+	if (next.some((asset) => asset.assetId === prior.assetId)) return [...next];
+	return [...next, prior];
+}
+
 /**
  * Pull pending ReceiveBlind rows from the default https proxy.
- * `refreshValue(online, null, [], false)` — empty filter, skip_sync false.
- * A wasm `failure` is thrown. Still waiting stays `IncomingPaymentPending`.
+ * After `scanBtcBalance` has synced, pass `skipSync: true` so this does not
+ * run a second chain sync. `refreshValue(online, null, [], skipSync)`.
  */
-export async function acceptIncomingPayment(): Promise<void> {
-	const wallet = getUtexoWallet();
-	if (!wallet?.refreshWallet) throw new Error('Wallet not initialized');
+export async function pullIncomingTransfers(
+	wallet: {
+		goOnline?: (indexer: string) => Promise<unknown>;
+		isOnline?: () => boolean;
+		syncWallet?: () => Promise<unknown>;
+		refreshWallet?: () => Promise<unknown>;
+	},
+	options?: { skipSync?: boolean; assetId?: string | null }
+): Promise<void> {
 	if (wallet.goOnline && wallet.isOnline?.() !== true) {
 		await wallet.goOnline(RGB_INDEXER);
 	}
-	if (wallet.syncWallet) await wallet.syncWallet();
+	if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
 	const pulled = rawRefresh(wallet);
 	if (pulled) {
-		const result = await pulled.refresh(pulled.online, null, [], false);
+		const assetId = options?.assetId ?? null;
+		const result = await pulled.refresh(pulled.online, assetId, [], options?.skipSync === true);
 		const failure = refreshEntries(result)
 			.map((entry) => readRefreshFailure(entry.failure))
 			.find((message) => message != null);
 		if (failure) throw new Error(failure);
-	} else {
-		await wallet.refreshWallet();
+		return;
 	}
+	if (wallet.refreshWallet) await wallet.refreshWallet();
+}
+
+const REFRESH_LIMIT_MS = 45_000;
+
+let rgbRefreshTask: Promise<void> | null = null;
+
+function externalRefreshPending(): boolean {
+	if (!browser) return false;
+	const probe = (window as { __btPersist?: { started?: boolean; done?: boolean } }).__btPersist;
+	return Boolean(probe?.started && probe.done !== true);
+}
+
+const RGB_BACKUP_DB = 'rgb_backup_bytes';
+const RGB_BACKUP_STORE = 'bytes';
+
+interface SnapshotWallet {
+	listAssets?: () => Promise<unknown>;
+	createBackup?: (params: { backupPath: string; password: string }) => Promise<unknown>;
+	restoreFromBackupBytes?: (bytes: Uint8Array, password: string) => void;
+}
+
+function backupPassword(wallet: unknown): string | null {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager)) return null;
+	const binding = manager.rlnBinding;
+	if (!isRecord(binding) || typeof binding.password !== 'string' || binding.password.length === 0) {
+		return null;
+	}
+	return binding.password;
+}
+
+function callRawBackup(wallet: unknown, password: string): boolean {
+	if (!isRecord(wallet)) return false;
+	const manager = wallet._manager;
+	if (!isRecord(manager)) return false;
+	const binding = manager.rlnBinding;
+	if (!isRecord(binding)) return false;
+	const raw = binding._wallet;
+	if (!isRecord(raw) || typeof raw.backup !== 'function') return false;
+	Reflect.apply(raw.backup, raw, [password]);
+	return true;
+}
+
+/** IFA USDT from listAssets. Ignores the configured NIA id. */
+function ifaUsdtRow(raw: unknown): { assetId: string | null; balance: number } | null {
+	if (!isRecord(raw) || !Array.isArray(raw.ifa)) return null;
+	for (const item of raw.ifa) {
+		if (!isRawRgbAsset(item)) continue;
+		if ((item.ticker ?? '').toUpperCase() !== 'USDT') continue;
+		const assetId = item.assetId ?? item.id ?? null;
+		return { assetId, balance: assetAmount(item.balance) };
+	}
+	return null;
+}
+
+function walletFingerprint(wallet: unknown): string | null {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager)) return null;
+	const binding = manager.rlnBinding;
+	if (!isRecord(binding) || !isRecord(binding.walletData)) return null;
+	const fingerprint = binding.walletData.master_fingerprint;
+	return typeof fingerprint === 'string' && fingerprint.length > 0 ? fingerprint : null;
+}
+
+function readBackupBytes(wallet: unknown): Uint8Array | null {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return null;
+	const bytes = manager.rlnBinding.lastBackupBytes;
+	return bytes instanceof Uint8Array && bytes.byteLength > 0 ? bytes : null;
+}
+
+function backupInfoDirty(wallet: unknown): boolean {
+	if (!isRecord(wallet)) return false;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return false;
+	const raw = manager.rlnBinding._wallet;
+	if (!isRecord(raw) || typeof raw.backupInfo !== 'function') return false;
+	return Reflect.apply(raw.backupInfo, raw, []) === true;
+}
+
+function callWalletFlush(wallet: unknown): void {
+	if (!isRecord(wallet)) return;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return;
+	const raw = manager.rlnBinding._wallet;
+	if (!isRecord(raw) || typeof raw.flush !== 'function') return;
+	Reflect.apply(raw.flush, raw, []);
+	console.info('[wallet-persist] wallet.flush');
+}
+
+function asBackupBytes(value: unknown): Uint8Array | null {
+	if (value instanceof Uint8Array && value.byteLength > 0) return value;
+	if (value instanceof ArrayBuffer && value.byteLength > 0) return new Uint8Array(value);
+	return null;
+}
+
+function openBackupDb(): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open(RGB_BACKUP_DB, 1);
+		request.onupgradeneeded = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains(RGB_BACKUP_STORE)) db.createObjectStore(RGB_BACKUP_STORE);
+		};
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error ?? new Error('backup db open failed'));
+	});
+}
+
+/** App-owned encrypted export. Not the wasm JSON snapshot. */
+export async function loadRgbBackup(fingerprint: string): Promise<Uint8Array | null> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return null;
+	const db = await openBackupDb();
+	try {
+		return await new Promise((resolve, reject) => {
+			const request = db
+				.transaction(RGB_BACKUP_STORE)
+				.objectStore(RGB_BACKUP_STORE)
+				.get(fingerprint);
+			request.onsuccess = () => resolve(asBackupBytes(request.result));
+			request.onerror = () => reject(request.error ?? new Error('backup get failed'));
+		});
+	} finally {
+		db.close();
+	}
+}
+
+/** Writes the encrypted export and returns the readback length. */
+export async function storeRgbBackup(fingerprint: string, bytes: Uint8Array): Promise<number> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return 0;
+	const db = await openBackupDb();
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const request = db
+				.transaction(RGB_BACKUP_STORE, 'readwrite')
+				.objectStore(RGB_BACKUP_STORE)
+				.put(bytes, fingerprint);
+			request.onsuccess = () => resolve();
+			request.onerror = () => reject(request.error ?? new Error('backup put failed'));
+		});
+	} finally {
+		db.close();
+	}
+	const readback = await loadRgbBackup(fingerprint);
+	return readback?.byteLength ?? 0;
+}
+
+/**
+ * After unlock and before the first refresh, restore the encrypted export
+ * for this fingerprint. Leaves the wasm JSON snapshot alone.
+ */
+export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
+	const fingerprint = walletFingerprint(wallet);
+	const password = backupPassword(wallet);
+	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
+		return false;
+	const bytes = await loadRgbBackup(fingerprint);
+	if (!bytes) return false;
+	wallet.restoreFromBackupBytes(bytes, password);
+	console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	return true;
+}
+
+/**
+ * Keeps the encrypted export from createBackup in rgb_backup_bytes/{fingerprint}.
+ * Does not write those bytes onto the wasm JSON snapshot.
+ */
+export async function persistWalletSnapshot(wallet: SnapshotWallet): Promise<void> {
+	const password = backupPassword(wallet);
+	if (!password) {
+		console.warn('[wallet-persist] backup password missing');
+		return;
+	}
+	if (typeof wallet.createBackup === 'function') {
+		await wallet.createBackup({ backupPath: '', password });
+	} else if (!callRawBackup(wallet, password)) {
+		console.warn('[wallet-persist] UTEXOWallet.createBackup missing');
+		return;
+	}
+	const bytes = readBackupBytes(wallet);
+	const fingerprint = walletFingerprint(wallet);
+	if (!bytes || !fingerprint) {
+		if (backupInfoDirty(wallet)) {
+			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
+		}
+		console.warn('[wallet-persist] backup bytes missing');
+		return;
+	}
+	let readback = 0;
+	try {
+		readback = await storeRgbBackup(fingerprint, bytes);
+	} catch (error) {
+		console.warn(
+			'[wallet-persist] backup store failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	if (readback !== bytes.byteLength) {
+		console.warn('[wallet-persist] backup readback mismatch', bytes.byteLength, readback);
+		if (backupInfoDirty(wallet)) {
+			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
+		}
+		return;
+	}
+	console.info('[wallet-persist] stored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	try {
+		callWalletFlush(wallet);
+	} catch (error) {
+		console.warn(
+			'[wallet-persist] wallet.flush failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
+type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWallet;
+
+/**
+ * Bitcoin history is already on screen. The 45s cap is armed before the light
+ * poll is awaited. On timeout the running flag drops, then one backup runs,
+ * then one full refresh if IFA USDT is still missing.
+ */
+export function scheduleRgbRefresh(wallet: RefreshWallet, options?: { timeoutMs?: number }): void {
+	if (rgbRefreshTask || externalRefreshPending()) {
+		console.warn('[wallet-refresh] already running');
+		return;
+	}
+	const timeoutMs = options?.timeoutMs ?? REFRESH_LIMIT_MS;
+	const run = finishRgbRefresh(wallet, timeoutMs);
+	rgbRefreshTask = run;
+	void run.finally(() => {
+		if (rgbRefreshTask === run) rgbRefreshTask = null;
+	});
+}
+
+function refreshCap(timeoutMs: number): Promise<'timeout'> {
+	return new Promise((resolve) => {
+		setTimeout(() => resolve('timeout'), timeoutMs);
+	});
+}
+
+async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promise<void> {
+	console.info('[wallet-refresh] start');
+	const timeout = refreshCap(timeoutMs);
+	const refresh = pullIncomingTransfers(wallet, { skipSync: true }).catch((error: unknown) => {
+		console.warn('[wallet-refresh] failed', error instanceof Error ? error.message : String(error));
+	});
+	const outcome = await Promise.race([refresh.then(() => 'done' as const), timeout]);
+	if (outcome === 'timeout') {
+		console.warn('[wallet-refresh] stopped after 45s');
+		rgbRefreshTask = null;
+	}
+	await persistWalletSnapshot(wallet);
+	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+	const held = ifaUsdtRow(listed);
+	if (!held || held.balance <= 0) {
+		const followTimeout = refreshCap(timeoutMs);
+		const follow = pullIncomingTransfers(wallet, {
+			skipSync: false,
+			assetId: held?.assetId ?? null
+		}).catch((error: unknown) => {
+			console.warn(
+				'[wallet-refresh] failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
+		const followOutcome = await Promise.race([follow.then(() => 'done' as const), followTimeout]);
+		if (followOutcome === 'timeout') {
+			console.warn('[wallet-refresh] stopped after 45s');
+			rgbRefreshTask = null;
+		}
+		await persistWalletSnapshot(wallet);
+	}
+	await loadAssets({ pull: false });
+}
+
+export async function acceptIncomingPayment(): Promise<void> {
+	const wallet = getUtexoWallet();
+	if (!wallet?.refreshWallet) throw new Error('Wallet not initialized');
+	if (rgbRefreshTask || externalRefreshPending()) {
+		throw new Error('RGB refresh already running');
+	}
+	await pullIncomingTransfers(wallet);
 	const transfers = wallet.listTransfers ? await wallet.listTransfers().catch(() => []) : [];
-	await loadAssets();
+	await loadAssets({ pull: false });
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
 }
 
 /**
- * Named USDT receive when this wallet already lists the configured contract.
- * Otherwise a blank invoice, because blindReceive of an unknown id throws.
+ * rgb-lib encodes this fungible amount as the invoice path segment `nWca`.
+ * That is the only amount the UTEXO bot has paid. `0` encodes as `aa` and
+ * `100000000` encodes as `adFZnbk`; the bot rejected both.
+ */
+const NWCA_AMOUNT = 1111;
+
+/**
+ * Named invoice for the USDT contract this wallet already holds (NIA or IFA).
+ * A blank `nWca` invoice when it holds none, so the bot can pay the shape it already accepted.
  */
 export async function receiveUsdtInvoice(
 	amount?: number
@@ -654,24 +980,28 @@ export async function receiveUsdtInvoice(
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	const nia = listed && Array.isArray(listed.nia) ? listed.nia : [];
-	if (configured && listsRgbAsset(nia, configured)) {
-		const named = await createRgbInvoice({ assetId: configured, amount });
+	const assetId = usdtInvoiceAsset(listed, configured);
+	if (assetId) {
+		const named = await createRgbInvoice({ assetId, amount });
 		return { invoice: named.invoice, blank: false };
 	}
-	const blank = await receiveBlankInvoice();
+	const blank = await receiveBlankInvoice(NWCA_AMOUNT);
 	return { invoice: blank.invoice, blank: true };
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */
-export async function receiveBlankInvoice(): Promise<{ invoice: string }> {
+export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: string }> {
+	if (amount !== undefined && (!Number.isSafeInteger(amount) || amount <= 0)) {
+		throw new Error('USDT amount must be a positive whole number');
+	}
 	const wallet = getUtexoWallet();
 	if (!wallet?.onchainReceive) throw new Error('Wallet not initialized');
 	const received = await receiveWithAllocations(wallet, () =>
 		wallet.onchainReceive({
 			witness: false,
 			minConfirmations: 1,
-			durationSeconds: 3600
+			durationSeconds: 3600,
+			...(amount === undefined ? {} : { amount })
 		})
 	);
 	const invoice = (typeof received === 'string' ? received : received.invoice)?.trim() ?? '';

@@ -7,6 +7,13 @@
  * Map native balance row keys to the cache keys used by legacy persisted
  * snapshots while wallets transition to the native asset identifiers.
  */
+/** Bitcoin stays orange, Tether stays green, Lightning stays light gray. */
+export function assetButtonTone(id: 'btc_onchain' | 'btc_lightning' | 'usdt_rgb'): string {
+	if (id === 'btc_onchain') return 'btn-primary';
+	if (id === 'usdt_rgb') return 'btn-success';
+	return 'border-base-content/20 bg-base-content/20 text-base-content hover:bg-base-content/30';
+}
+
 const BALANCE_TO_CACHE_KEY: Record<string, string> = {
 	usdt_rgb: 'usdt',
 	btc_lightning: 'btc'
@@ -129,6 +136,15 @@ export function summarizeUtxoKinds(kinds: readonly string[]): {
 	return { colored, locked, available: kinds.length - colored - locked };
 }
 
+const SIGNET_TX_BASE = 'https://esplora-api.utexo.com/tx/';
+
+/** UTEXO Signet transaction, same host as the confirmed Pay send. */
+export function signetTxUrl(txid: string | undefined): string | null {
+	const id = (txid ?? '').trim().toLowerCase();
+	if (!/^[0-9a-f]{64}$/.test(id)) return null;
+	return `${SIGNET_TX_BASE}${id}`;
+}
+
 /** `txid:vout` with the txid cut to four characters on each side. */
 export function shortOutpoint(outpoint: string): string {
 	const splitAt = outpoint.lastIndexOf(':');
@@ -162,6 +178,184 @@ export function pickHeroAsset<T extends { symbol?: string; assetId: string }>(
 
 export function isRgbMovement(description: string | undefined): boolean {
 	return (description ?? '').toLowerCase().includes('rgb');
+}
+
+function assignmentAmount(value: unknown): number | null {
+	if (!value || typeof value !== 'object') return null;
+	const amount = (value as { amount?: unknown }).amount;
+	const numeric =
+		typeof amount === 'number' ? amount : typeof amount === 'string' ? Number(amount) : NaN;
+	return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function assignmentTotal(value: unknown): number {
+	if (!Array.isArray(value)) return 0;
+	return value.reduce((sum, assignment) => sum + (assignmentAmount(assignment) ?? 0), 0);
+}
+
+function txidValue(value: unknown): string | null {
+	return typeof value === 'string' && value.length > 0 ? value.toLowerCase() : null;
+}
+
+export interface RgbHistoryMove {
+	units: number;
+	incoming: boolean;
+}
+
+/**
+ * RGB units keyed by the bitcoin txid shown in history.
+ * A blank receive stores the amount on assignments and the wallet tx on receiveUtxo.
+ * A send stores the moved amount on requestedAssignment; the assignment is the change.
+ */
+export interface RgbHistoryRow {
+	ids: string[];
+	type: 'send' | 'receive';
+	assetUnits: number;
+	timestamp: number;
+	status: 'pending' | 'confirmed';
+}
+
+const RGB_HISTORY_STATUS = new Set(['Settled', 'WaitingConfirmations', 'WaitingSafeHeight']);
+
+function historyTimestamp(value: unknown): number {
+	const numeric =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	if (!Number.isFinite(numeric) || numeric <= 0) return Date.now();
+	return numeric > 1e12 ? numeric : numeric * 1000;
+}
+
+/** Settled, confirming, and outgoing RGB transfers still waiting on the recipient. */
+export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
+	if (!Array.isArray(transfers)) return [];
+	const rows: RgbHistoryRow[] = [];
+	for (const item of transfers) {
+		if (!item || typeof item !== 'object') continue;
+		const row = item as Record<string, unknown>;
+		const status = typeof row.status === 'string' ? row.status : '';
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		const incoming = kind.includes('receive');
+		const waitingSend = status === 'WaitingCounterparty' && !incoming;
+		if (!RGB_HISTORY_STATUS.has(status) && !waitingSend) continue;
+		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
+		const assigned = assignmentTotal(row.assignments);
+		const units = incoming ? assigned || requested : requested || assigned;
+		if (units <= 0) continue;
+		const receive = row.receiveUtxo;
+		const ids = [
+			txidValue(row.txid),
+			receive && typeof receive === 'object'
+				? txidValue((receive as { txid?: unknown }).txid)
+				: null
+		].filter((id): id is string => id != null);
+		rows.push({
+			ids,
+			type: incoming ? 'receive' : 'send',
+			assetUnits: units,
+			timestamp: historyTimestamp(row.updatedAt ?? row.createdAt),
+			status: status === 'Settled' ? 'confirmed' : 'pending'
+		});
+	}
+	return rows;
+}
+
+export interface BitcoinHistoryRecord {
+	txid: string;
+	received: number;
+	sent: number;
+	confirmationTime?: { timestamp?: number } | null;
+	transactionType: string;
+}
+
+export interface WalletHistoryRow {
+	id: string;
+	type: 'send' | 'receive';
+	amountSats: number;
+	assetUnits?: number;
+	timestamp: number;
+	status: 'pending' | 'confirmed';
+	txHash?: string;
+	description: string;
+}
+
+/**
+ * Bitcoin rows come from the Bitcoin wallet. USDT rows come from RGB transfers.
+ * A shared txid must not turn the Bitcoin row into the USDT row.
+ */
+export function walletHistoryRows(
+	records: BitcoinHistoryRecord[],
+	transfers: unknown
+): WalletHistoryRow[] {
+	const bitcoin: WalletHistoryRow[] = records.map((record) => {
+		const incoming = record.received > 0 && record.sent === 0;
+		const timestamp = record.confirmationTime?.timestamp
+			? record.confirmationTime.timestamp * 1000
+			: Date.now();
+		return {
+			id: record.txid,
+			type: incoming ? 'receive' : 'send',
+			amountSats: Math.max(record.received, record.sent),
+			timestamp,
+			status: record.confirmationTime ? 'confirmed' : 'pending',
+			txHash: record.txid,
+			description: 'Bitcoin transfer'
+		};
+	});
+	const usdt: WalletHistoryRow[] = rgbHistoryRows(transfers).map((row) => {
+		const txHash = row.ids[0];
+		return {
+			id: `usdt:${txHash ?? row.timestamp}:${row.type}`,
+			type: row.type,
+			amountSats: 0,
+			assetUnits: row.assetUnits,
+			timestamp: row.timestamp,
+			status: row.status,
+			txHash,
+			description: 'RGB transfer'
+		};
+	});
+	return [...bitcoin, ...usdt].sort((left, right) => right.timestamp - left.timestamp);
+}
+
+export function transferMovements(transfers: unknown): Map<string, RgbHistoryMove> {
+	const movements = new Map<string, RgbHistoryMove>();
+	if (!Array.isArray(transfers)) return movements;
+	for (const item of transfers) {
+		if (!item || typeof item !== 'object') continue;
+		const row = item as Record<string, unknown>;
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		const incoming = kind.includes('receive');
+		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
+		const assigned = assignmentTotal(row.assignments);
+		const units = incoming ? assigned || requested : requested || assigned;
+		if (units <= 0) continue;
+		const movement = { units, incoming };
+		const receive = row.receiveUtxo;
+		const keys = [
+			txidValue(row.txid),
+			receive && typeof receive === 'object'
+				? txidValue((receive as { txid?: unknown }).txid)
+				: null
+		];
+		for (const key of keys) {
+			if (key) movements.set(key, movement);
+		}
+	}
+	return movements;
+}
+
+/** USDT rows use asset units. Every row has an amount. Bitcoin rows use sats. */
+export function formatHistoryAmount(
+	description: string | undefined,
+	amountSats: number,
+	assetUnits: number | undefined,
+	satsLabel: string
+): string {
+	if (isRgbMovement(description)) {
+		const units = typeof assetUnits === 'number' && Number.isFinite(assetUnits) ? assetUnits : 0;
+		if (units > 0) return new Intl.NumberFormat().format(units);
+	}
+	const sats = Number.isFinite(amountSats) ? Math.max(0, Math.trunc(amountSats)) : 0;
+	return `${new Intl.NumberFormat().format(sats)} ${satsLabel}`;
 }
 
 export function isBrandPicture(url: string): boolean {

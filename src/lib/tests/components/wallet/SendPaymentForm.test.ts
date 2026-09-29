@@ -6,7 +6,7 @@ const { sendBtc, payLightningInvoice, sendRgbAsset, showSuccessToast, showErrorT
 	() => ({
 		sendBtc: vi.fn().mockResolvedValue('txid-btc'),
 		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
-		sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'txid-rgb', batchTransferIdx: 0 }),
+		sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
 		showSuccessToast: vi.fn(),
 		showErrorToast: vi.fn()
 	})
@@ -32,7 +32,21 @@ vi.mock('$lib/runes/btcPrice.svelte', () => ({
 vi.mock('$lib/stores/wallet/wallet-state', async () => {
 	const { readable } = await import('svelte/store');
 	return {
-		walletStore: readable({ rgb: { balanceSats: 500_000, initialized: true } }),
+		walletStore: readable({
+			rgb: {
+				balanceSats: 500_000,
+				initialized: true,
+				assets: [
+					{
+						assetId: 'rgb:f~held-usdt',
+						symbol: 'USDT',
+						precision: 6,
+						balance: 100_000_000,
+						name: 'USDT Token'
+					}
+				]
+			}
+		}),
 		state: { utexoWallet: {} }
 	};
 });
@@ -80,24 +94,82 @@ describe('SendPaymentForm', () => {
 		expect(onSent).toHaveBeenCalledWith('txid-ln');
 	});
 
-	it('sends USDT over RGB via walletManager.sendRgbAsset with USD-decimal amount', async () => {
+	it('locks nWca to 1111 and toasts only after a 64-hex txid', async () => {
+		const onSent = vi.fn();
+		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
+		const invoice = 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa?expiry=1790661182';
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+
+		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('1111');
+		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
+		await fireEvent.click(getByTestId('send-submit'));
+
+		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
+		expect(sendRgbAsset).toHaveBeenCalledWith({
+			invoice,
+			assetId: 'rgb:f~held-usdt',
+			amount: 1111
+		});
+		expect(onSent).toHaveBeenCalledWith('ab'.repeat(32));
+		expect(showSuccessToast).toHaveBeenCalledWith('wallet.toast.sent_successfully');
+		expect(showErrorToast).not.toHaveBeenCalled();
+	});
+
+	it('does not toast success when send returns no txid', async () => {
+		sendRgbAsset.mockResolvedValueOnce({ txid: '', batchTransferIdx: 0 });
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), {
-			target: { value: 'rgb1invoice-abc' }
+			target: { value: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa' }
 		});
-		await fireEvent.input(getByTestId('send-amount'), { target: { value: '25.5' } });
 		await fireEvent.click(getByTestId('send-submit'));
 
-		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
-		expect(sendRgbAsset).toHaveBeenCalledWith({
-			invoice: 'rgb1invoice-abc',
-			assetId: 'rgb1testusdtasset',
-			amount: 25_500_000
+		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+		expect(showSuccessToast).not.toHaveBeenCalled();
+		expect(onSent).not.toHaveBeenCalled();
+	});
+
+	it('keeps Send disabled when the invoice amount is zero', async () => {
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/aa/sb:utxob:example' }
 		});
-		expect(onSent).toHaveBeenCalledWith('txid-rgb');
+
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(sendRgbAsset).not.toHaveBeenCalled();
+	});
+
+	it('allows a USDT amount inside the balance shown on the wallet', async () => {
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/~/sb:utxob:example' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '4000' } });
+
+		expect(queryByTestId('send-insufficient')).toBeNull();
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('blocks a USDT amount above the balance shown on the wallet', async () => {
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/~/sb:utxob:example' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '200000000' } });
+
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(getByTestId('send-insufficient')).toBeTruthy();
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('blocks submission and shows error when balance is insufficient', async () => {

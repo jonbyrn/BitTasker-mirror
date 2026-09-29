@@ -15,6 +15,9 @@ import {
 	resolveBrowserIndexer,
 	incomingReceiveReady,
 	parseRgbAssets,
+	pullIncomingTransfers,
+	restoreStoredBackup,
+	scheduleRgbRefresh,
 	readRefreshFailure,
 	scanBtcBalance,
 	setEsploraBackoffMs,
@@ -107,7 +110,7 @@ describe('scanBtcBalance', () => {
 		).toBe(8075);
 	});
 
-	it('syncs and refreshes before reading spendable', async () => {
+	it('syncs before reading spendable', async () => {
 		const order: string[] = [];
 		const wallet = {
 			isOnline: () => false,
@@ -136,7 +139,8 @@ describe('scanBtcBalance', () => {
 
 		const scanned = await scanBtcBalance(wallet);
 
-		expect(order.slice(0, 3)).toEqual(['goOnline', 'syncWallet', 'refreshWallet']);
+		expect(order.slice(0, 3)).toEqual(['goOnline', 'syncWallet', 'getBtcBalance']);
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
 		expect(scanned.balanceSats).toBe(5000);
 		expect(scanned.utxoCount).toBe(2);
 		expect(scanned.address).toBe('tb1ptestreceive');
@@ -244,6 +248,106 @@ describe('acceptIncomingPayment', () => {
 		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
+	it('backs up when the light poll misses the cap, then runs one full refresh', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(() => {
+			if (refreshValue.mock.calls.length === 1)
+				return new Promise<Map<number, unknown>>(() => undefined);
+			return Promise.resolve(new Map());
+		});
+		const syncWallet = vi.fn();
+		const createBackup = vi.fn(async () => ({ message: 'ok' }));
+		const listAssets = vi.fn(async () => ({
+			ifa: [],
+			nia: [{ assetId: 'rgb:buHqKXhJ-configured-usdt', ticker: 'USDT', balance: { spendable: 1 } }]
+		}));
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const stored = new Map<string, Uint8Array>();
+		const backupBytes = new Uint8Array([4, 11, 22, 33]);
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const wallet = {
+			isOnline: () => true,
+			syncWallet,
+			createBackup,
+			listAssets,
+			restoreFromBackupBytes: vi.fn(),
+			_manager: {
+				rlnBinding: {
+					online,
+					password: 'test-password',
+					lastBackupBytes: backupBytes,
+					walletData: { master_fingerprint: '4bfb7ab5' },
+					_wallet: { refreshValue, flush: vi.fn(), backupInfo: () => true }
+				}
+			}
+		};
+		scheduleRgbRefresh(wallet, { timeoutMs: 15 });
+		expect(info).toHaveBeenCalledWith('[wallet-refresh] start');
+		scheduleRgbRefresh(wallet, { timeoutMs: 15 });
+		expect(warn).toHaveBeenCalledWith('[wallet-refresh] already running');
+		await vi.waitFor(() => {
+			expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
+			expect(createBackup).toHaveBeenCalledTimes(2);
+			expect(refreshValue).toHaveBeenCalledTimes(2);
+		});
+		expect(createBackup).toHaveBeenCalledWith({
+			backupPath: '',
+			password: 'test-password'
+		});
+		expect(stored.get('4bfb7ab5')?.byteLength).toBe(backupBytes.byteLength);
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], true);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], false);
+		expect(syncWallet).toHaveBeenCalledTimes(1);
+		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		await vi.waitFor(() => {
+			expect(info.mock.calls.filter((call) => call[0] === '[wallet-refresh] start')).toHaveLength(
+				2
+			);
+			expect(createBackup).toHaveBeenCalledTimes(4);
+		});
+		info.mockRestore();
+		warn.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('restores the encrypted export for this fingerprint', async () => {
+		const stored = new Map<string, Uint8Array>();
+		const bytes = new Uint8Array([4, 11, 22, 33]);
+		stored.set('__store__', new Uint8Array());
+		stored.set('4bfb7ab5', bytes);
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const restored = await restoreStoredBackup({
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: '4bfb7ab5' }
+				}
+			}
+		});
+		expect(restored).toBe(true);
+		expect(restoreFromBackupBytes).toHaveBeenCalledWith(bytes, 'test-password');
+		vi.unstubAllGlobals();
+	});
+
+	it('pulls a new wallet without a second chain sync', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const syncWallet = vi.fn();
+		await pullIncomingTransfers(
+			{
+				isOnline: () => true,
+				syncWallet,
+				_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+			},
+			{ skipSync: true }
+		);
+		expect(syncWallet).not.toHaveBeenCalled();
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], true);
+	});
+
 	it('stays pending when refresh reports no failure and the receive is still waiting', async () => {
 		const refreshValue = vi.fn(async () => new Map([[3, { failure: null }]]));
 		vi.mocked(getUtexoWallet).mockReturnValue({
@@ -284,4 +388,111 @@ describe('parseRgbAssets', () => {
 			}
 		]);
 	});
+
+	it('reads the bot IFA USDT contract into the balance row', () => {
+		const assets = parseRgbAssets({
+			nia: [],
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+					ticker: 'USDT',
+					name: 'Tether USD',
+					balance: { settled: 100_000_000, spendable: 100_000_000 }
+				}
+			]
+		});
+
+		expect(assets[0]?.symbol).toBe('USDT');
+		expect(assets[0]?.balance).toBe(100_000_000);
+		expect(assets[0]?.assetId).toBe('rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y');
+	});
+
+	it('keeps settled USDT when a refresh reports spendable zero', () => {
+		const assets = parseRgbAssets({
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+					ticker: 'USDT',
+					name: 'USDT Token',
+					balance: { spendable: 0, settled: 100_000_000, future: 100_000_000 }
+				}
+			]
+		});
+
+		expect(assets[0]?.balance).toBe(100_000_000);
+	});
 });
+
+function fakeBackupDb(stored: Map<string, Uint8Array>) {
+	return {
+		open() {
+			const request: {
+				result: {
+					objectStoreNames: { contains: (name: string) => boolean };
+					createObjectStore: (name: string) => void;
+					close: () => void;
+					transaction: () => {
+						objectStore: () => {
+							put: (
+								value: Uint8Array,
+								key: string
+							) => { onsuccess: (() => void) | null; onerror: (() => void) | null };
+							get: (key: string) => {
+								onsuccess: (() => void) | null;
+								onerror: (() => void) | null;
+								result?: Uint8Array;
+							};
+						};
+					};
+				};
+				onupgradeneeded: (() => void) | null;
+				onsuccess: (() => void) | null;
+				onerror: (() => void) | null;
+			} = {
+				result: {
+					objectStoreNames: { contains: () => stored.has('__store__') },
+					createObjectStore: () => {
+						stored.set('__store__', new Uint8Array());
+					},
+					close: () => undefined,
+					transaction: () => ({
+						objectStore: () => ({
+							put: (value, key) => {
+								const putRequest: { onsuccess: (() => void) | null; onerror: (() => void) | null } =
+									{
+										onsuccess: null,
+										onerror: null
+									};
+								queueMicrotask(() => {
+									stored.set(key, value);
+									putRequest.onsuccess?.();
+								});
+								return putRequest;
+							},
+							get: (key) => {
+								const getRequest: {
+									onsuccess: (() => void) | null;
+									onerror: (() => void) | null;
+									result?: Uint8Array;
+								} = { onsuccess: null, onerror: null };
+								queueMicrotask(() => {
+									getRequest.result = stored.get(key);
+									getRequest.onsuccess?.();
+								});
+								return getRequest;
+							}
+						})
+					})
+				},
+				onupgradeneeded: null,
+				onsuccess: null,
+				onerror: null
+			};
+			queueMicrotask(() => {
+				if (!request.result.objectStoreNames.contains('bytes')) request.onupgradeneeded?.();
+				request.onsuccess?.();
+			});
+			return request;
+		}
+	};
+}

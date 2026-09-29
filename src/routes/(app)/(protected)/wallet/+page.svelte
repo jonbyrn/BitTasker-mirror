@@ -7,15 +7,19 @@
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
+	import { scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
+	import { blindReceiveRows, type BlindReceiveRow } from '$lib/stores/wallet/decode-rgb-invoice';
 	import {
 		parseWalletUtxos,
 		type WalletUtxoKind,
 		type WalletUtxoRow
 	} from '$lib/stores/wallet/rgb-allocations';
 	import {
+		formatHistoryAmount,
 		formatRelativeTime,
 		isRgbMovement,
 		shortOutpoint,
+		signetTxUrl,
 		summarizeUtxoKinds
 	} from '$lib/components/wallet/wallet-formatters';
 
@@ -27,6 +31,9 @@
 	let utxoError = $state<string | null>(null);
 	let showUtxoDetails = $state(false);
 	let showAllHistory = $state(false);
+	let blindReceives = $state<BlindReceiveRow[]>([]);
+	let refreshedSeal = $state('');
+	const receiveLocked = $derived(blindReceives.some((row) => !row.txid));
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -56,11 +63,9 @@
 		initializationError = null;
 		try {
 			await walletManager.initialize();
-			await Promise.allSettled([
-				walletManager.loadAssets(),
-				walletManager.loadTransactions(),
-				loadUtxos()
-			]);
+			await walletManager.loadAssets();
+			await loadUtxos();
+			await loadBlindReceives();
 		} catch (error) {
 			initializationError =
 				error instanceof Error
@@ -91,6 +96,25 @@
 		}
 	}
 
+	async function loadBlindReceives(): Promise<void> {
+		const wallet = getUtexoWallet();
+		if (!wallet?.listTransfers) {
+			blindReceives = [];
+			return;
+		}
+		try {
+			blindReceives = blindReceiveRows(await wallet.listTransfers());
+		} catch (error) {
+			blindReceives = [];
+			console.error('[wallet-page] receive list failed:', error);
+		}
+		const paid = blindReceives.find((row) => row.txid);
+		if (paid?.txid && refreshedSeal !== paid.seal) {
+			refreshedSeal = paid.seal;
+			scheduleRgbRefresh(wallet);
+		}
+	}
+
 	function utxoKindLabel(kind: WalletUtxoKind): string {
 		if (kind === 'free') return translate('wallet.utxo_free', 'Free');
 		if (kind === 'colored') return translate('wallet.utxo_colored', 'Colored');
@@ -99,8 +123,13 @@
 	}
 
 	function handleSent(txid: string): void {
-		operationMessage = txid ? translate('wallet.sent_successfully', 'Payment sent') : null;
-		isSendOpen = false;
+		if (!txid) {
+			operationMessage = null;
+			return;
+		}
+		operationMessage = /^[0-9a-f]{64}$/i.test(txid)
+			? text($t('wallet.toast.sent_successfully', { values: { txid } }), `Sent ${txid}`)
+			: translate('wallet.toast.sent_successfully', 'Sent');
 	}
 
 	function handleReceiveClose(): void {
@@ -210,17 +239,15 @@
 					</span>
 				{/if}
 			</div>
-			{#if usdtAsset}
-				{@render balanceRow(
-					'USDT',
-					assetLabel(usdtAsset.symbol, usdtAsset.name),
-					usdtAsset.formattedBalance || formatNumber(usdtAsset.balance)
-				)}
-			{/if}
 			{@render balanceRow(
 				'BTC',
 				translate('wallet.bitcoin', 'Bitcoin'),
 				`${formatNumber($walletStore.totalBalances.sats)} ${translate('wallet.sats', 'sats')}`
+			)}
+			{@render balanceRow(
+				'USDT',
+				usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
+				usdtAsset ? usdtAsset.formattedBalance || formatNumber(usdtAsset.balance) : formatNumber(0)
 			)}
 			{#each otherAssets as asset (asset.assetId)}
 				{@render balanceRow(
@@ -295,55 +322,62 @@
 		<section
 			class="card bg-base-100 border-base-300 flex min-h-0 flex-1 flex-col overflow-hidden border shadow-sm"
 		>
-			<div class="card-body min-h-0 flex-1 gap-1 overflow-hidden p-3">
-				<div class="flex shrink-0 items-center justify-between gap-3">
+			<div class="card-body min-h-0 flex-1 gap-0 overflow-hidden p-0">
+				<div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
 					<p class="text-sm font-semibold">
 						{translate('wallet.transaction_history', 'Transaction History')}
 					</p>
 					<span class="badge badge-ghost badge-sm">{$walletStore.transactions.length}</span>
 				</div>
 				{#if $walletStore.transactions.length === 0}
-					<p class="text-base-content/60 text-sm">
+					<p class="text-base-content/60 px-4 pb-3 text-sm">
 						{translate('wallet.no_transactions', 'No transactions found.')}
 					</p>
 				{:else}
 					<div class="flex flex-col">
 						{#each visibleTransactions as transaction (transaction.id)}
-							{@const incoming = transaction.type === 'receive'}
-							<div class="flex items-center gap-3 py-2">
-								<span
-									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-									class:bg-success={incoming}
-									class:text-success-content={incoming}
-									class:bg-primary={!incoming}
-									class:text-primary-content={!incoming}
-									aria-hidden="true"
-								>
-									<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-										{#if incoming}
-											<path
-												fill-rule="evenodd"
-												d="M5.22 9.22a.75.75 0 011.06 0L9.25 12.19V3.75a.75.75 0 011.5 0v8.44l2.97-2.97a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 10.28a.75.75 0 010-1.06z"
-												clip-rule="evenodd"
-											/>
-										{:else}
-											<path
-												fill-rule="evenodd"
-												d="M14.78 10.78a.75.75 0 01-1.06 0L10.75 7.81v8.44a.75.75 0 01-1.5 0V7.81L6.28 10.78a.75.75 0 11-1.06-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06z"
-												clip-rule="evenodd"
-											/>
-										{/if}
-									</svg>
-								</span>
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium">
+							{@const txid = transaction.txHash || transaction.id}
+							{@const explorerUrl = signetTxUrl(txid)}
+							{@const rgb = isRgbMovement(transaction.description)}
+							{@const rowClass =
+								'border-base-300 text-base-content hover:bg-base-200 flex w-full items-center gap-3 border-t px-4 py-3 no-underline'}
+							{#snippet historyBody()}
+								{@render assetMark(rgb ? 'USDT' : 'BTC')}
+								<div class="min-w-0">
+									<p class="text-base-content/60 truncate text-sm">
 										{historyLabel(transaction.type, transaction.description)}
 									</p>
-									<p class="text-base-content/60 text-xs">
+									<p class="truncate font-mono text-xs" title={txid}>
+										{shortOutpoint(txid)}
+									</p>
+									<p class="text-base-content/50 text-xs">
 										{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
 									</p>
 								</div>
-							</div>
+								<p class="text-base-content/70 ml-auto shrink-0 text-right text-xs tabular-nums">
+									{formatHistoryAmount(
+										transaction.description,
+										transaction.amountSats,
+										transaction.assetUnits,
+										translate('wallet.sats', 'sats')
+									)}
+								</p>
+							{/snippet}
+							{#if explorerUrl}
+								<a
+									class={rowClass}
+									href={explorerUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									title={txid}
+								>
+									{@render historyBody()}
+								</a>
+							{:else}
+								<div class={rowClass} title={txid}>
+									{@render historyBody()}
+								</div>
+							{/if}
 						{/each}
 					</div>
 					{#if $walletStore.transactions.length > 5 && !showAllHistory}
@@ -360,6 +394,18 @@
 		</section>
 	</div>
 
+	{#if blindReceives.length > 0}
+		<div class="alert alert-outline flex flex-col items-start gap-1" data-testid="receive-waiting">
+			{#each blindReceives as row (row.seal)}
+				<p class="font-mono text-xs">{row.seal}</p>
+				{#if row.expiry}<p class="text-xs">{row.expiry}</p>{/if}
+				<p class="font-mono text-xs break-all">
+					{row.txid ?? translate('wallet.receive_waiting', 'Waiting for txid')}
+				</p>
+			{/each}
+		</div>
+	{/if}
+
 	<div class="grid shrink-0 grid-cols-2 gap-2 pt-1">
 		<button class="btn btn-primary glow-soft gap-2" type="button" onclick={openSend}>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -371,7 +417,12 @@
 			</svg>
 			{translate('wallet.tab_send', 'Send')}
 		</button>
-		<button class="btn btn-neutral gap-2" type="button" onclick={() => (isReceiveOpen = true)}>
+		<button
+			class="btn btn-neutral gap-2"
+			type="button"
+			disabled={receiveLocked}
+			onclick={() => (isReceiveOpen = true)}
+		>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 				<path
 					fill-rule="evenodd"
@@ -384,7 +435,11 @@
 	</div>
 
 	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend}>
-		<SendPaymentForm onSent={handleSent} onCancel={closeSend} />
+		<SendPaymentForm
+			initialAsset={usdtAsset && usdtAsset.balance > 0 ? 'usdt_rgb' : 'btc_onchain'}
+			onSent={handleSent}
+			onCancel={closeSend}
+		/>
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
 		<ReceivePaymentForm onClose={handleReceiveClose} />

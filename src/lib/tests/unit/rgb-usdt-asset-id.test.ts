@@ -5,6 +5,7 @@ import {
 	listsRgbAsset,
 	selectEscrowAsset,
 	spendableRgbAssets,
+	usdtInvoiceAsset,
 	usdtEscrowUnits,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
@@ -47,6 +48,46 @@ describe('spendableRgbAssets', () => {
 		];
 		expect(spendableRgbAssets({ nia: [], ifa })).toEqual(ifa);
 		expect(selectEscrowAsset(spendableRgbAssets({ nia: [], ifa }))).toBe(ifa[0].assetId);
+	});
+});
+
+describe('usdtInvoiceAsset', () => {
+	const ifaId = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+
+	it('uses the held IFA USDT contract when the configured id is a different asset', () => {
+		expect(
+			usdtInvoiceAsset(
+				{
+					nia: [],
+					ifa: [{ assetId: ifaId, ticker: 'USDT', balance: { spendable: 89_000_000 } }]
+				},
+				'rgb:buHqKXhJ-configured'
+			)
+		).toBe(ifaId);
+	});
+
+	it('keeps a listed USDT contract when its spendable balance is zero', () => {
+		expect(
+			usdtInvoiceAsset(
+				{
+					nia: [],
+					ifa: [{ assetId: ifaId, ticker: 'USDT', balance: { spendable: 0 } }]
+				},
+				null
+			)
+		).toBe(ifaId);
+	});
+
+	it('returns undefined when this wallet has no spendable USDT', () => {
+		expect(
+			usdtInvoiceAsset(
+				{
+					nia: [{ assetId: 'rgb:e2e', ticker: 'E2E', balance: { spendable: 10_000 } }],
+					ifa: []
+				},
+				'rgb:buHqKXhJ-configured'
+			)
+		).toBeUndefined();
 	});
 });
 
