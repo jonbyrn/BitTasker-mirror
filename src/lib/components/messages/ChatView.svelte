@@ -4,8 +4,10 @@
 	import { nip19 } from 'nostr-tools';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import {
+		getMessageHistory,
 		sendDirectMessage,
 		listenForIncomingMessages,
+		parseDMEvent,
 		type ParsedDirectMessage
 	} from '$lib/nostr/direct-messages';
 	import { appStore } from '$lib/stores/app.store';
@@ -86,8 +88,16 @@
 		try {
 			// Resolve our own keypair to decrypt incoming DMs for this thread.
 			const { nsec, npub } = await getNostrKeyPair();
-			const decoded = nip19.decode(npub);
-			const ourHex = typeof decoded.data === 'string' ? decoded.data : npub;
+			const decoded = npub.startsWith('npub1') ? nip19.decode(npub) : null;
+			const ourHex = decoded && typeof decoded.data === 'string' ? decoded.data : npub;
+			const history = await getMessageHistory(recipientHex);
+			for (const event of history) {
+				try {
+					pushMessage(await parseDMEvent(event, nsec));
+				} catch {
+					// Leave a message this key cannot open out of the thread.
+				}
+			}
 			stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');

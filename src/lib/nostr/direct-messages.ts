@@ -1,5 +1,8 @@
 import { type NostrEvent } from '@nostr-dev-kit/ndk';
+import { bytesToHex } from '@noble/hashes/utils';
+import { nip04, nip19 } from 'nostr-tools';
 import { ndk } from './ndk';
+import { fetchProfileMetadata } from './profile';
 import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
@@ -30,18 +33,17 @@ export async function parseDMEvent(
 ): Promise<ParsedDirectMessage> {
 	try {
 		const { nsec, npub } = await getNostrKeyPair();
+		const mine = hexPubkey(npub);
 
 		let plaintext: string;
-		if (event.pubkey === npub) {
-			// We are the sender, decrypt with recipient's pubkey from tags
+		if (event.pubkey === mine) {
 			const recipientTag = event.tags.find((t) => t[0] === 'p');
 			if (!recipientTag || !recipientTag[1]) {
 				throw new Error('No recipient found in DM tags');
 			}
-			plaintext = await decryptDM(nsec, event.content, recipientTag[1]);
+			plaintext = await openDirectMessage(nsec, event.content, recipientTag[1]);
 		} else {
-			// We are the recipient, decrypt with sender's pubkey
-			plaintext = await decryptDM(nsec, event.content, event.pubkey);
+			plaintext = await openDirectMessage(nsec, event.content, event.pubkey);
 		}
 
 		return { plaintext, senderPubkey: event.pubkey, event };
@@ -51,13 +53,67 @@ export async function parseDMEvent(
 	}
 }
 
+async function openDirectMessage(
+	nsec: Uint8Array,
+	ciphertext: string,
+	otherPubkey: string
+): Promise<string> {
+	try {
+		return await decryptDM(nsec, ciphertext, otherPubkey);
+	} catch {
+		return nip04.decrypt(bytesToHex(nsec), otherPubkey, ciphertext);
+	}
+}
+
+function hexPubkey(value: string): string {
+	if (!value.startsWith('npub')) return value;
+	try {
+		const decoded = nip19.decode(value);
+		return typeof decoded.data === 'string' ? decoded.data : value;
+	} catch {
+		return value;
+	}
+}
+
+function otherParty(event: NostrEvent, mine: string): string {
+	if (event.pubkey === mine) {
+		return event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '';
+	}
+	return event.pubkey;
+}
+
+async function loadDirectMessages(): Promise<NostrEvent[]> {
+	const { npub } = await getNostrKeyPair();
+	const mine = hexPubkey(npub);
+	const [received, sent] = await Promise.all([
+		ndk.fetchEvents(
+			{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine], limit: 100 },
+			{ closeOnEose: true }
+		),
+		ndk.fetchEvents(
+			{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine], limit: 100 },
+			{ closeOnEose: true }
+		)
+	]);
+	const seen = new Set<string>();
+	const events: NostrEvent[] = [];
+	for (const event of [...received, ...sent]) {
+		const raw = event.rawEvent();
+		if (seen.has(raw.id)) continue;
+		seen.add(raw.id);
+		events.push(raw);
+	}
+	return events.sort((left, right) => right.created_at - left.created_at);
+}
+
 export function listenForIncomingMessages(
 	npub: string,
 	nsec: Uint8Array,
 	callback: (message: ParsedDirectMessage) => void
 ): () => void {
+	const mine = hexPubkey(npub);
 	const subscription = ndk.subscribe(
-		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [npub] },
+		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine] },
 		{
 			closeOnEose: false,
 			onEvent: (event) => {
@@ -71,14 +127,43 @@ export function listenForIncomingMessages(
 }
 
 export async function getMessageHistory(
-	_withPubkey: string,
-	_options: { limit?: number; since?: number; until?: number } = {}
+	withPubkey: string,
+	options: { limit?: number; since?: number; until?: number } = {}
 ): Promise<NostrEvent[]> {
-	return [];
+	const { npub } = await getNostrKeyPair();
+	const mine = hexPubkey(npub);
+	const other = hexPubkey(withPubkey);
+	const limit = options.limit ?? 100;
+	const history = (await loadDirectMessages()).filter((event) => {
+		if (otherParty(event, mine) !== other) return false;
+		if (options.since != null && event.created_at < options.since) return false;
+		if (options.until != null && event.created_at > options.until) return false;
+		return true;
+	});
+	return history.slice(0, limit).sort((left, right) => left.created_at - right.created_at);
 }
 
 export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
-	return [];
+	const { npub } = await getNostrKeyPair();
+	const mine = hexPubkey(npub);
+	const latest = new Map<string, NostrEvent>();
+	for (const event of await loadDirectMessages()) {
+		const pubkey = otherParty(event, mine);
+		if (!pubkey || pubkey === mine || latest.has(pubkey)) continue;
+		latest.set(pubkey, event);
+	}
+
+	const people = await Promise.all(
+		[...latest.entries()].map(async ([pubkey, lastEvent]) => {
+			try {
+				const profile = await fetchProfileMetadata(pubkey);
+				return { pubkey, lastEvent, profile: profile ?? {} };
+			} catch {
+				return { pubkey, lastEvent, profile: {} };
+			}
+		})
+	);
+	return people;
 }
