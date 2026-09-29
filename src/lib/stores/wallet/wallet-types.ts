@@ -1,4 +1,6 @@
-export type WalletFactory = (args: Record<string, unknown>) => Promise<import('@utexo/rgb-sdk-web').UTEXOWallet> | import('@utexo/rgb-sdk-web').UTEXOWallet;
+export type WalletFactory = (
+	args: Record<string, unknown>
+) => Promise<import('@utexo/rgb-sdk-web').UTEXOWallet> | import('@utexo/rgb-sdk-web').UTEXOWallet;
 
 export type WalletProbeWindow = Window & {
 	__PLAYWRIGHT_TEST__?: boolean;
@@ -20,6 +22,7 @@ export interface RgbAsset {
 	assetId: string;
 	name: string;
 	symbol?: string;
+	precision?: number;
 	balance: number;
 	formattedBalance: string;
 	usdValue?: number;
@@ -62,6 +65,8 @@ export interface Transaction {
 	id: string;
 	type: 'send' | 'receive' | 'escrow_lock' | 'escrow_release' | 'escrow_cancel';
 	amountSats: number;
+	/** RGB base units when this row is an asset transfer. Fee sats stay in amountSats. */
+	assetUnits?: number;
 	amountUsd?: number;
 	timestamp: number;
 	status: 'pending' | 'confirmed' | 'failed';

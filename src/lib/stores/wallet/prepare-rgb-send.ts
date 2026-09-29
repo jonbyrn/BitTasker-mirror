@@ -1,9 +1,5 @@
-const STUCK_SEND_STATUS = new Set([
-	'Failed',
-	'WaitingCounterparty',
-	'WaitingConfirmations',
-	'Initiated'
-]);
+/** Outbound sends that are dead. A WaitingCounterparty receive or send may still be broadcasting. */
+const STUCK_SEND_STATUS = new Set(['Failed', 'Initiated']);
 
 const FEE_VOUTS = new Set([0, 1]);
 const UTEXO_INDEXER = 'https://esplora-api.utexo.com';

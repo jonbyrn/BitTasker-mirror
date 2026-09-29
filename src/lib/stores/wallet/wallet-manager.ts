@@ -9,7 +9,7 @@ import {
 } from './wallet-init';
 import { loadAssets } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
-import { sendBtc, type SendBtcParams } from './wallet-send';
+import { sendBtc, sendRgbAsset as payRgbInvoice, type SendBtcParams } from './wallet-send';
 import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
 import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
 import { receiveWithAllocations } from './rgb-allocations';
@@ -102,13 +102,7 @@ export const walletManager = {
 		assetId: string;
 		amount?: number;
 	}): Promise<{ txid: string; batchTransferIdx: number }> {
-		const wallet = state.utexoWallet;
-		if (!wallet) throw new Error('RGB wallet is not initialized.');
-		return wallet.onchainSend({
-			invoice: params.invoice,
-			...(params.amount === undefined ? {} : { amount: params.amount }),
-			...(isNativeBitcoinAsset(params.assetId) ? {} : { assetId: params.assetId })
-		});
+		return payRgbInvoice(params);
 	},
 
 	async createLightningInvoice(params: {

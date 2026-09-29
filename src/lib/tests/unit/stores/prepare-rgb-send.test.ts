@@ -11,16 +11,18 @@ import {
 } from '$lib/stores/wallet/prepare-rgb-send';
 
 describe('prepareRgbOnchainSend helpers', () => {
-	it('fails only stuck RGB sends', () => {
+	it('fails only dead outbound sends', () => {
 		expect(
 			stuckSendBatchIndexes([
+				{ kind: 'ReceiveBlind', status: 'WaitingCounterparty', batchTransferIdx: 1 },
 				{ kind: 'Issuance', status: 'WaitingConfirmations', batchTransferIdx: 1 },
 				{ kind: 'Send', status: 'Settled', batchTransferIdx: 2 },
 				{ kind: 'Send', status: 'WaitingCounterparty', batchTransferIdx: 3 },
 				{ kind: 'Send', status: 'WaitingConfirmations', batchTransferIdx: 4 },
-				{ kind: 'Send', status: 'Failed', batchTransferIdx: 3 }
+				{ kind: 'Send', status: 'Failed', batchTransferIdx: 5 },
+				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 6 }
 			])
-		).toEqual([3, 4]);
+		).toEqual([5, 6]);
 	});
 
 	it('asks for a vanilla fee utxo unless vout 0 or 1 is uncolored', () => {

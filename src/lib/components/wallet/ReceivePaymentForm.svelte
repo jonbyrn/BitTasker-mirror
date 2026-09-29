@@ -4,6 +4,7 @@
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
 	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
@@ -87,9 +88,9 @@
 		{#each assets as option (option.id)}
 			<button
 				type="button"
-				class="btn btn-sm join-item flex-1"
-				class:btn-primary={asset === option.id}
-				class:btn-outline={asset !== option.id}
+				class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
+				class:ring-2={asset === option.id}
+				class:ring-base-content={asset === option.id}
 				onclick={() => {
 					asset = option.id;
 					receiveValue = '';
