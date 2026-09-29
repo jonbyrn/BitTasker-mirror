@@ -2,20 +2,39 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 
-const { runeConstructorArgs, runeFund } = vi.hoisted(() => ({
+const { runeConstructorArgs, prepareFunding, payFundingFromWallet } = vi.hoisted(() => ({
 	runeConstructorArgs: { current: null as unknown },
-	runeFund: vi.fn().mockResolvedValue({ status: 'funded' })
+	prepareFunding: vi.fn().mockResolvedValue(undefined),
+	payFundingFromWallet: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/runes/contract.svelte', () => ({
+	TaskeeInvoiceRequired: class TaskeeInvoiceRequired extends Error {},
 	ContractRune: class {
+		snapshot = { fundingInvoice: 'rgb:~/~/aa/sb:utxob:taskee-blank' };
+
 		constructor(input: unknown) {
 			runeConstructorArgs.current = input;
 		}
 
-		async fund() {
-			return runeFund();
+		async prepareFunding(invoice?: string) {
+			return prepareFunding(invoice);
 		}
+
+		async payFundingFromWallet() {
+			return payFundingFromWallet();
+		}
+	}
+}));
+
+vi.mock('$lib/wasm/init-wasm', () => ({
+	initWasm: vi.fn().mockResolvedValue(true)
+}));
+
+vi.mock('$lib/stores/wallet/wallet-manager', () => ({
+	walletManager: {
+		initialize: vi.fn().mockResolvedValue(undefined),
+		releaseRgbLock: vi.fn().mockResolvedValue(undefined)
 	}
 }));
 
@@ -107,6 +126,7 @@ describe('ServiceInstantBuyModal', () => {
 				deliverables: 'Logo system and social avatar pack.',
 				priceSnapshotLabel: '$250.00'
 			},
+			escrowInvoice: 'rgb:~/~/aa/sb:utxob:taskee-blank',
 			walletConnected: true,
 			walletVerificationStatus: 'ready',
 			canConfirm: true,
@@ -114,15 +134,30 @@ describe('ServiceInstantBuyModal', () => {
 		});
 
 		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
-		await fireEvent.click(getByText('dashboard.services.detail.book_now_confirm_modal.confirm'));
-
-		await waitFor(() => expect(runeFund).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(prepareFunding).toHaveBeenCalledTimes(1));
+		expect(prepareFunding).toHaveBeenCalledWith('rgb:~/~/aa/sb:utxob:taskee-blank');
 		expect(runeConstructorArgs.current).toMatchObject({
 			contractTitle: 'Brand Identity Sprint',
 			bidderComments: 'Logo system and social avatar pack.',
-			totalAmountUsd: 256.75,
-			partyPubkeys: ['a'.repeat(64)]
+			totalAmountUsd: 275.5,
+			partyPubkeys: ['a'.repeat(64)],
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_onchain',
+				secondaryPercentage: 0
+			}
 		});
+
+		await waitFor(() =>
+			expect(getByTestId('service-instant-buy-confirm').textContent).toContain(
+				'dashboard.bids.bid_acceptance.step_pay'
+			)
+		);
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await fireEvent.click(getByText('dashboard.services.detail.book_now_confirm_modal.confirm'));
+
+		await waitFor(() => expect(payFundingFromWallet).toHaveBeenCalledTimes(1));
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 
@@ -147,6 +182,7 @@ describe('ServiceInstantBuyModal', () => {
 			walletConnected: true,
 			walletBalanceSats: '500,000',
 			walletBalanceUsd: '$250.00',
+			usdtBalanceUsd: '$250.00',
 			requiredBalanceSats: '411,000',
 			requiredBalanceUsd: '$205.50',
 			walletVerificationStatus: 'ready',
@@ -157,9 +193,9 @@ describe('ServiceInstantBuyModal', () => {
 		expect(getByText('Brand Identity Sprint')).toBeTruthy();
 		expect(getByTestId('service-agreement-provider').textContent).toContain('Designer');
 		expect(getByTestId('service-agreement-base-amount').textContent).toContain('$250.00');
-		expect(getByTestId('service-agreement-platform-fee').textContent).toContain('$6.25');
+		expect(getByTestId('service-agreement-usdt-platform-fee').textContent).toContain('$25.00');
 		expect(getByTestId('service-agreement-gas-fee').textContent).toContain('$0.50');
-		expect(getByTestId('service-agreement-price').textContent).toContain('$256.75');
+		expect(getByTestId('service-agreement-price').textContent).toContain('$275.50');
 		expect(getByTestId('service-agreement-start').textContent).toContain('Start date');
 		expect(getByTestId('service-agreement-start').textContent).toContain('Nov');
 		expect(getByTestId('service-agreement-delivery').textContent).toContain('Delivery date');
