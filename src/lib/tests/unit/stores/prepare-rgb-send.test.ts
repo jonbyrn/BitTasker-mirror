@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	fungibleAllocationSum,
 	hasUncoloredFeeUtxo,
 	isBdkAddUtxoError,
 	listsLocalOutpoint,
 	needsVanillaFeeUtxo,
+	PHANTOM_BROADCAST_TXID,
+	phantomSendBatches,
+	releasePhantomSends,
 	sealSendBlocker,
 	strandedSeal,
 	stuckSendBatchIndexes
@@ -23,6 +26,121 @@ describe('prepareRgbOnchainSend helpers', () => {
 				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 6 }
 			])
 		).toEqual([5, 6]);
+	});
+
+	it('selects only the unbroadcast send batch', () => {
+		expect(
+			phantomSendBatches([
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					batchTransferIdx: 1,
+					txid: PHANTOM_BROADCAST_TXID
+				},
+				{
+					kind: 'Send',
+					status: 'WaitingConfirmations',
+					batchTransferIdx: 4,
+					txid: PHANTOM_BROADCAST_TXID
+				},
+				{
+					kind: 'Send',
+					status: 'Failed',
+					batchTransferIdx: 5,
+					txid: PHANTOM_BROADCAST_TXID
+				},
+				{
+					kind: 'Send',
+					status: 'Settled',
+					batchTransferIdx: 2,
+					txid: 'a'.repeat(64)
+				}
+			])
+		).toEqual([4]);
+	});
+
+	it('fails the unbroadcast batch and leaves the backup in place when the seal stays', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const cleared = await releasePhantomSends(
+			{
+				listTransfers: async () => [
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						batchTransferIdx: 4,
+						txid: PHANTOM_BROADCAST_TXID
+					}
+				],
+				failTransfers,
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId: 'rgb:f~ifa' }],
+						utxo: { exists: false, outpoint: { txid: PHANTOM_BROADCAST_TXID, vout: 2 } }
+					}
+				],
+				syncWallet: async () => undefined,
+				refreshWallet: async () => undefined
+			},
+			async () => false
+		);
+		expect(cleared).toBe(false);
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
+		expect(warn).toHaveBeenCalledWith(
+			'[wallet-send] phantom seal remains; not restoring rgb_backup_bytes'
+		);
+		warn.mockRestore();
+	});
+
+	it('does not fail the batch when Esplora already has the transaction', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const cleared = await releasePhantomSends(
+			{
+				listTransfers: async () => [
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						batchTransferIdx: 4,
+						txid: PHANTOM_BROADCAST_TXID
+					}
+				],
+				failTransfers
+			},
+			async () => true
+		);
+		expect(cleared).toBe(false);
+		expect(failTransfers).not.toHaveBeenCalled();
+	});
+
+	it('records a wasm refusal without throwing', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const cleared = await releasePhantomSends(
+			{
+				listTransfers: async () => [
+					{
+						kind: 'Send',
+						status: 'Settled',
+						batchTransferIdx: 4,
+						txid: PHANTOM_BROADCAST_TXID
+					}
+				],
+				failTransfers: async () => {
+					throw new Error('Batch transfer cannot be set to failed status');
+				},
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId: 'rgb:f~ifa' }],
+						utxo: { exists: false, outpoint: { txid: PHANTOM_BROADCAST_TXID, vout: 2 } }
+					}
+				]
+			},
+			async () => false
+		);
+		expect(cleared).toBe(false);
+		expect(warn.mock.calls.some((call) => call[0] === '[wallet-send] failTransfers refused')).toBe(
+			true
+		);
+		warn.mockRestore();
 	});
 
 	it('asks for a vanilla fee utxo unless vout 0 or 1 is uncolored', () => {

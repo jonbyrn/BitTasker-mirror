@@ -1,5 +1,14 @@
+import { esploraHasTx } from '$lib/stores/wallet/signet-broadcast';
+
 /** Outbound sends that are dead. A WaitingCounterparty receive or send may still be broadcasting. */
 const STUCK_SEND_STATUS = new Set(['Failed', 'Initiated']);
+
+/**
+ * Local sendEnd id from the unbroadcast USDT attempt. Esplora has no such
+ * transaction, so the IFA seal on it is not a coin this BDK store can sign.
+ */
+export const PHANTOM_BROADCAST_TXID =
+	'72787a4abb9e2abad7fb03c4f5242a3a323e5df6342351101ec973f78418fadf';
 
 const FEE_VOUTS = new Set([0, 1]);
 const UTEXO_INDEXER = 'https://esplora-api.utexo.com';
@@ -10,6 +19,7 @@ export interface RgbTransferRef {
 	kind: string;
 	status: string;
 	batchTransferIdx: number;
+	txid?: string;
 }
 
 export interface RgbAllocationRef {
@@ -35,6 +45,19 @@ export interface RgbNiaRef {
 export function stuckSendBatchIndexes(transfers: RgbTransferRef[]): number[] {
 	const indexes = transfers
 		.filter((transfer) => transfer.kind === 'Send' && STUCK_SEND_STATUS.has(transfer.status))
+		.map((transfer) => transfer.batchTransferIdx);
+	return [...new Set(indexes)];
+}
+
+/** Send batches whose txid is the unbroadcast 72787a… id. Receives stay. */
+export function phantomSendBatches(transfers: RgbTransferRef[]): number[] {
+	const indexes = transfers
+		.filter(
+			(transfer) =>
+				transfer.kind === 'Send' &&
+				transfer.status !== 'Failed' &&
+				transfer.txid?.toLowerCase() === PHANTOM_BROADCAST_TXID
+		)
 		.map((transfer) => transfer.batchTransferIdx);
 	return [...new Set(indexes)];
 }
@@ -187,6 +210,82 @@ async function releaseStuckSends(wallet: PrepareWallet): Promise<void> {
 	if (stuck.length > 0) await syncWalletState(wallet);
 }
 
+type PhantomWallet = {
+	listTransfers?: () => Promise<RgbTransferRef[]>;
+	failTransfers?: PrepareWallet['failTransfers'];
+	listUnspents?: () => Promise<RgbUnspentRef[]>;
+	syncWallet?: () => Promise<void>;
+	refreshWallet?: () => Promise<unknown>;
+};
+
+function sealStillPhantom(unspents: RgbUnspentRef[]): boolean {
+	return unspents.some(
+		(unspent) => unspent.utxo.outpoint?.txid?.toLowerCase() === PHANTOM_BROADCAST_TXID
+	);
+}
+
+/**
+ * Drop the send batch that sealed IFA onto the unbroadcast 72787a… id.
+ * Does not restore rgb_backup_bytes: the stored export was taken after that send.
+ * Returns true only when the seal is gone afterwards.
+ */
+export async function releasePhantomSends(
+	wallet: PhantomWallet,
+	probe: (txid: string) => Promise<boolean> = esploraHasTx
+): Promise<boolean> {
+	if (!wallet.listTransfers || !wallet.failTransfers) return false;
+	const transfers = await wallet.listTransfers().catch(() => []);
+	const batches = phantomSendBatches(transfers);
+	if (batches.length === 0) return false;
+	let seen = false;
+	try {
+		seen = await probe(PHANTOM_BROADCAST_TXID);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-send] signet lookup failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return false;
+	}
+	if (seen) return false;
+	let failed = false;
+	for (const batchTransferIdx of batches) {
+		try {
+			await wallet.failTransfers({ batchTransferIdx, skipSync: true });
+			failed = true;
+			console.info('[wallet-send] failed unbroadcast batch', batchTransferIdx);
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-send] failTransfers refused',
+				batchTransferIdx,
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+	if (wallet.syncWallet) await wallet.syncWallet().catch(() => undefined);
+	if (wallet.refreshWallet) await wallet.refreshWallet().catch(() => undefined);
+	const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
+	if (!failed || sealStillPhantom(unspents)) {
+		console.warn('[wallet-send] phantom seal remains; not restoring rgb_backup_bytes');
+		return false;
+	}
+	for (const unspent of unspents) {
+		if (!unspent.utxo.exists || unspent.rgbAllocations.length === 0) continue;
+		const txid = unspent.utxo.outpoint?.txid;
+		if (!txid) continue;
+		try {
+			const listed = await probe(txid);
+			console.info('[wallet-send] ifa outpoint', txid, listed);
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-send] signet lookup failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+	return true;
+}
+
 async function readUnspents(wallet: PrepareWallet): Promise<RgbUnspentRef[]> {
 	if (!wallet.listUnspents) return [];
 	return wallet.listUnspents().catch(() => []);
@@ -205,6 +304,7 @@ export async function prepareRgbOnchainSend(wallet: PrepareWallet, assetId: stri
 	}
 	if (wallet.syncWallet) await wallet.syncWallet();
 	await releaseStuckSends(wallet);
+	await releasePhantomSends(wallet);
 	if (wallet.syncWallet) await wallet.syncWallet();
 
 	if (!wallet.listAssets || !wallet.listUnspents) {

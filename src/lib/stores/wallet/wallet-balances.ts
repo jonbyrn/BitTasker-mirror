@@ -6,6 +6,7 @@ import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 import { getConfiguredRgbUsdtAssetId, usdtInvoiceAsset } from '$lib/types/rgb-contract';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
+import { releasePhantomSends } from './prepare-rgb-send';
 
 interface RgbAmount {
 	settled?: number;
@@ -925,6 +926,13 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 	if (outcome === 'timeout') {
 		console.warn('[wallet-refresh] stopped after 45s');
 		rgbRefreshTask = null;
+	} else {
+		await releasePhantomSends(wallet).catch((error: unknown) => {
+			console.warn(
+				'[wallet-send] phantom release failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
 	}
 	await persistWalletSnapshot(wallet);
 	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
@@ -944,6 +952,13 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 		if (followOutcome === 'timeout') {
 			console.warn('[wallet-refresh] stopped after 45s');
 			rgbRefreshTask = null;
+		} else {
+			await releasePhantomSends(wallet).catch((error: unknown) => {
+				console.warn(
+					'[wallet-send] phantom release failed',
+					error instanceof Error ? error.message : String(error)
+				);
+			});
 		}
 		await persistWalletSnapshot(wallet);
 	}
