@@ -11,7 +11,7 @@ import { loadAssets } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
 import { sendBtc, sendRgbAsset as payRgbInvoice, type SendBtcParams } from './wallet-send';
 import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
-import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
+import { isNativeBitcoinAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { receiveWithAllocations } from './rgb-allocations';
 import type { RgbAsset } from './wallet-types';
 
@@ -53,6 +53,22 @@ export const walletManager = {
 	getRgbAssets(): RgbAsset[] {
 		const store = get(walletStore);
 		return store.rgb?.assets ?? [];
+	},
+
+	async listRgbAssets(): Promise<{ ifa: SpendableNia[] }> {
+		const wallet = state.utexoWallet;
+		if (!wallet) return { ifa: [] };
+		const listed = await wallet.listAssets();
+		return {
+			ifa: (listed.ifa ?? []).map((row) => {
+				const balance = row.balance as { spendable?: number; settled?: number } | undefined;
+				return {
+					assetId: row.assetId,
+					ticker: row.ticker,
+					balance: { spendable: balance?.spendable, settled: balance?.settled }
+				};
+			})
+		};
 	},
 
 	async sendBtc(params: SendBtcParams): Promise<string> {

@@ -103,6 +103,7 @@
 		"liquid_balance": "Saldo Liquid",
 		"send_button": "Enviar",
 		"send_unspecified": "Sin contrato → IFA seleccionado",
+		"send_select_ifa": "Selecciona el USDT IFA con saldo. Esta factura no nombra un contrato.",
 		"receive_waiting": "Esperando el txid",
 		"more_options": "Más",
 		"recent_transactions": "Transacciones recientes",

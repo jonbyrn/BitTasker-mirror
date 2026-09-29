@@ -4,7 +4,7 @@ import {
 	requireEscrowSigner,
 	signEscrowPsbt
 } from '$lib/services/rgb/psbt-escrow';
-import { spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
+import { soleIfaAsset, spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
 import { decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx } from './signet-broadcast';
 import { loadAssets, persistWalletSnapshot } from './wallet-balances';
@@ -18,18 +18,12 @@ export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: s
 }
 
 function ifaUnits(row: SpendableNia | undefined): number {
-	const balance = row?.balance as { spendable?: number; settled?: number } | undefined;
-	const spendable = Number(balance?.spendable ?? 0);
-	if (Number.isFinite(spendable) && spendable > 0) return spendable;
-	const settled = Number(balance?.settled ?? 0);
-	return Number.isFinite(settled) && settled > 0 ? settled : 0;
+	return soleIfaAsset(row ? [row] : [])?.units ?? 0;
 }
 
 function ifaUsdtId(rows: readonly SpendableNia[]): string | undefined {
-	if (rows.length === 1) {
-		const only = rows[0]?.assetId?.trim();
-		if (only && ifaUnits(rows[0]) > 0) return only;
-	}
+	const sole = soleIfaAsset(rows);
+	if (sole) return sole.assetId;
 	const held = rows.find((row) => (row.ticker ?? '').toUpperCase() === 'USDT' && row.assetId);
 	return held?.assetId && ifaUnits(held) > 0 ? held.assetId : undefined;
 }

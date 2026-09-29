@@ -104,6 +104,7 @@
 		"liquid_balance": "Liquid Balance",
 		"send_button": "Send",
 		"send_unspecified": "Unspecified → selected IFA",
+		"send_select_ifa": "Select the funded IFA USDT. This invoice names no contract.",
 		"receive_waiting": "Waiting for txid",
 		"more_options": "More",
 		"recent_transactions": "Recent Transactions",

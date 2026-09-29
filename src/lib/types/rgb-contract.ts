@@ -25,7 +25,25 @@ export interface SpendableNia {
 	ticker?: string;
 	assetId?: string;
 	precision?: number;
-	balance?: { spendable?: number };
+	balance?: { spendable?: number; settled?: number };
+}
+
+function ifaUnits(row: SpendableNia | undefined): number {
+	const spendable = Number(row?.balance?.spendable ?? 0);
+	if (Number.isFinite(spendable) && spendable > 0) return spendable;
+	const settled = Number(row?.balance?.settled ?? 0);
+	return Number.isFinite(settled) && settled > 0 ? settled : 0;
+}
+
+/** The only funded IFA row. A blank invoice spends this asset and no other. */
+export function soleIfaAsset(
+	rows: readonly SpendableNia[]
+): { assetId: string; units: number } | null {
+	if (rows.length !== 1) return null;
+	const assetId = rows[0]?.assetId?.trim();
+	const units = ifaUnits(rows[0]);
+	if (!assetId || units <= 0) return null;
+	return { assetId, units };
 }
 
 /** USDT base units for a bid priced in dollars. Never the whole wallet. */

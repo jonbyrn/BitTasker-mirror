@@ -3,7 +3,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
-	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+	import { getConfiguredRgbUsdtAssetId, soleIfaAsset } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
 	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
@@ -31,6 +31,9 @@
 	let isSending = $state(false);
 	let errorMessage = $state('');
 	let sentTxid = $state('');
+	let boundIfa = $state<{ assetId: string; units: number } | null>(null);
+	let ifaLookup = $state<'idle' | 'pending' | 'ready' | 'missing'>('idle');
+	let ifaRequest = 0;
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
 		{
@@ -66,12 +69,6 @@
 		return Math.round(parsed);
 	});
 
-	const hasInsufficientBalance = $derived.by(() => {
-		if (amountSats === null) return false;
-		if (asset === 'usdt_rgb') return usdtAsset !== null && amountSats > usdtAsset.balance;
-		return amountSats > walletSats;
-	});
-
 	const decodedInvoice = $derived.by((): DecodedRgbInvoice | null => {
 		if (asset !== 'usdt_rgb') return null;
 		const value = destination.trim();
@@ -91,6 +88,16 @@
 
 	const rgbAmount = $derived(lockedAmount ?? amountSats);
 
+	const rgbBalance = $derived(
+		decodedInvoice && !decodedInvoice.contract ? (boundIfa?.units ?? 0) : (usdtAsset?.balance ?? 0)
+	);
+
+	const hasInsufficientBalance = $derived.by(() => {
+		if (amountSats === null) return false;
+		if (asset === 'usdt_rgb') return rgbBalance > 0 && amountSats > rgbBalance;
+		return amountSats > walletSats;
+	});
+
 	const destinationValid = $derived.by(() => {
 		const value = destination.trim();
 		if (!value) return false;
@@ -106,17 +113,25 @@
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_rgb') {
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
-			if (!decodedInvoice.contract && !usdtAsset?.assetId) return false;
+			if (!decodedInvoice.contract && !boundIfa) return false;
+			const balance = decodedInvoice.contract ? (usdtAsset?.balance ?? 0) : rgbBalance;
 			return (
 				destinationValid &&
 				rgbAmount !== null &&
 				rgbAmount > 0 &&
-				usdtAsset !== null &&
-				rgbAmount <= usdtAsset.balance
+				balance > 0 &&
+				rgbAmount <= balance
 			);
 		}
 		return destinationValid && amountSats !== null && amountSats > 0 && !hasInsufficientBalance;
 	});
+
+	const blankMissingIfa = $derived(
+		asset === 'usdt_rgb' &&
+			decodedInvoice !== null &&
+			!decodedInvoice.contract &&
+			ifaLookup === 'missing'
+	);
 
 	function applyInvoice(value: string): void {
 		if (!value.startsWith('rgb:')) return;
@@ -128,6 +143,41 @@
 		} catch {
 			errorMessage = '';
 		}
+	}
+
+	function onDestinationInput(event: Event): void {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLInputElement)) return;
+		destination = target.value;
+		errorMessage = '';
+		applyInvoice(destination.trim());
+		void bindBlankIfa(destination.trim());
+	}
+
+	async function bindBlankIfa(value: string): Promise<void> {
+		const request = ++ifaRequest;
+		boundIfa = null;
+		if (!value.startsWith('rgb:')) {
+			ifaLookup = 'idle';
+			return;
+		}
+		let decoded: DecodedRgbInvoice;
+		try {
+			decoded = decodeRgbInvoice(value);
+		} catch {
+			ifaLookup = 'idle';
+			return;
+		}
+		if (decoded.contract) {
+			ifaLookup = 'idle';
+			return;
+		}
+		ifaLookup = 'pending';
+		const listed = await walletManager.listRgbAssets();
+		if (request !== ifaRequest || destination.trim() !== value) return;
+		const sole = soleIfaAsset(listed.ifa);
+		boundIfa = sole;
+		ifaLookup = sole ? 'ready' : 'missing';
 	}
 
 	async function copyTxid(): Promise<void> {
@@ -156,7 +206,7 @@
 				if (rgbAmount === null || rgbAmount <= 0) throw new Error('RGB invoice amount is zero');
 				const result = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
-					assetId: usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '',
+					assetId: boundIfa?.assetId || usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '',
 					amount: rgbAmount
 				});
 				txid = result.txid;
@@ -236,11 +286,8 @@
 				class:textarea-error={destination.trim() !== '' && !destinationValid}
 				rows="4"
 				placeholder={assets.find((item) => item.id === asset)?.placeholder}
-				bind:value={destination}
-				oninput={() => {
-					errorMessage = '';
-					applyInvoice(destination.trim());
-				}}
+				value={destination}
+				oninput={onDestinationInput}
 				data-testid="send-destination"
 			></textarea>
 		{:else}
@@ -248,11 +295,8 @@
 				class="input input-bordered w-full font-mono text-sm"
 				class:input-error={destination.trim() !== '' && !destinationValid}
 				placeholder={assets.find((item) => item.id === asset)?.placeholder}
-				bind:value={destination}
-				oninput={() => {
-					errorMessage = '';
-					applyInvoice(destination.trim());
-				}}
+				value={destination}
+				oninput={onDestinationInput}
 				data-testid="send-destination"
 			/>
 		{/if}
@@ -311,8 +355,8 @@
 			<p>
 				{decodedInvoice.contract ?? $t('wallet.send_unspecified')}
 			</p>
-			{#if !decodedInvoice.contract && usdtAsset?.assetId}
-				<p class="font-mono text-xs break-all" data-testid="send-ifa-asset">{usdtAsset.assetId}</p>
+			{#if !decodedInvoice.contract && boundIfa}
+				<p class="font-mono text-xs break-all" data-testid="send-ifa-asset">{boundIfa.assetId}</p>
 			{/if}
 			{#if decodedInvoice.expiry}
 				<p class="font-mono text-xs">{decodedInvoice.expiry}</p>
@@ -349,6 +393,15 @@
 	{#if hasInsufficientBalance}
 		<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
 			{$t('wallet.insufficient_balance')}
+		</div>
+	{/if}
+	{#if blankMissingIfa}
+		<div
+			class="alert alert-outline alert-error text-sm"
+			role="alert"
+			data-testid="send-ifa-missing"
+		>
+			{$t('wallet.send_select_ifa')}
 		</div>
 	{/if}
 	{#if errorMessage}

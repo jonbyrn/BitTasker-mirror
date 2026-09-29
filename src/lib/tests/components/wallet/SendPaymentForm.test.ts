@@ -2,15 +2,29 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 
-const { sendBtc, payLightningInvoice, sendRgbAsset, showSuccessToast, showErrorToast } = vi.hoisted(
-	() => ({
-		sendBtc: vi.fn().mockResolvedValue('txid-btc'),
-		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
-		sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
-		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn()
-	})
-);
+const {
+	sendBtc,
+	payLightningInvoice,
+	sendRgbAsset,
+	listRgbAssets,
+	showSuccessToast,
+	showErrorToast
+} = vi.hoisted(() => ({
+	sendBtc: vi.fn().mockResolvedValue('txid-btc'),
+	payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
+	sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
+	listRgbAssets: vi.fn().mockResolvedValue({
+		ifa: [
+			{
+				assetId: 'rgb:f~held-usdt',
+				ticker: 'USDT',
+				balance: { spendable: 100_000_000 }
+			}
+		]
+	}),
+	showSuccessToast: vi.fn(),
+	showErrorToast: vi.fn()
+}));
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -18,7 +32,7 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
-	walletManager: { sendBtc, payLightningInvoice, sendRgbAsset }
+	walletManager: { sendBtc, payLightningInvoice, sendRgbAsset, listRgbAssets }
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -55,6 +69,15 @@ describe('SendPaymentForm', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+		listRgbAssets.mockResolvedValue({
+			ifa: [
+				{
+					assetId: 'rgb:f~held-usdt',
+					ticker: 'USDT',
+					balance: { spendable: 100_000_000 }
+				}
+			]
+		});
 	});
 
 	it('sends on-chain BTC via walletManager.sendBtc with validated address and sats', async () => {
@@ -97,13 +120,18 @@ describe('SendPaymentForm', () => {
 	it('locks nWca to 1111 and toasts only after a 64-hex txid', async () => {
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
-		const invoice = 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa?expiry=1790661182';
+		const invoice =
+			'rgb:~/~/nWca/sb:utxob:aqQFQkg2-2hUMrAn-IjmPmTr-MsdNpju-gG8r~FV-XP4F_Za-8FBTG?assignment_name=assetOwner&expiry=1790711217&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
 
-		expect((getByTestId('send-destination') as HTMLTextAreaElement).value).toBe(invoice);
-		expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt');
+		const field = getByTestId('send-destination') as HTMLTextAreaElement;
+		expect(field.value).toBe(invoice);
+		expect(field.value.endsWith('endpoints=rpcs://rgb-proxy.utexo.com/json-rpc')).toBe(true);
+		await waitFor(() =>
+			expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt')
+		);
 		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('1111');
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		await fireEvent.click(getByTestId('send-submit'));
@@ -128,12 +156,30 @@ describe('SendPaymentForm', () => {
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa' }
 		});
+		await waitFor(() =>
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
+		);
 		await fireEvent.click(getByTestId('send-submit'));
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
 		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		expect(showSuccessToast).not.toHaveBeenCalled();
 		expect(onSent).not.toHaveBeenCalled();
+	});
+
+	it('keeps Send disabled on a blank invoice when listAssets has no single IFA', async () => {
+		listRgbAssets.mockResolvedValueOnce({ ifa: [] });
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/nWca/sb:utxob:aqQFQkg2-aaaa' }
+		});
+
+		await waitFor(() => expect(getByTestId('send-ifa-missing')).toBeTruthy());
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(getByTestId('send-ifa-missing').textContent).toContain('wallet.send_select_ifa');
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('keeps Send disabled when the invoice amount is zero', async () => {
@@ -157,8 +203,10 @@ describe('SendPaymentForm', () => {
 		});
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '4000' } });
 
+		await waitFor(() =>
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
+		);
 		expect(queryByTestId('send-insufficient')).toBeNull();
-		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('blocks a USDT amount above the balance shown on the wallet', async () => {
@@ -170,6 +218,7 @@ describe('SendPaymentForm', () => {
 		});
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '200000000' } });
 
+		await waitFor(() => expect(getByTestId('send-insufficient')).toBeTruthy());
 		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		expect(getByTestId('send-insufficient')).toBeTruthy();
 		expect(sendRgbAsset).not.toHaveBeenCalled();
