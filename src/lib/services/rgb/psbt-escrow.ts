@@ -131,11 +131,24 @@ export async function signEscrowPsbt(wallet: EscrowSigner, psbt: string): Promis
 	return signed;
 }
 
+function describeSendEnd(value: unknown): Record<string, unknown> {
+	if (typeof value !== 'object' || value === null) {
+		return { type: typeof value, txid: txidFromSend(value) || null };
+	}
+	const row = value as Record<string, unknown>;
+	return {
+		keys: Object.keys(row),
+		txid: txidFromSend(value) || null,
+		batchTransferIdx: row.batchTransferIdx ?? row.batch_transfer_idx ?? null
+	};
+}
+
 export async function broadcastEscrowPsbt(
 	wallet: EscrowSigner,
 	signedPsbt: string
 ): Promise<string> {
 	const result = await wallet.onchainSendEnd({ signedPsbt });
+	console.info('[wallet-send] sendEnd', describeSendEnd(result));
 	const txid = txidFromSend(result);
 	if (!txid) throw new Error('sendEnd did not return a txid');
 	return txid;

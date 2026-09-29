@@ -8,7 +8,8 @@ const {
 	prepareRgbOnchainSend,
 	loadAssets,
 	persistWalletSnapshot,
-	updateWallet
+	updateWallet,
+	confirmSignetTx
 } = vi.hoisted(() => ({
 	onchainSendBegin: vi.fn().mockResolvedValue('cHNidP-unsigned'),
 	signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
@@ -17,7 +18,8 @@ const {
 	prepareRgbOnchainSend: vi.fn().mockResolvedValue(undefined),
 	loadAssets: vi.fn().mockResolvedValue(undefined),
 	persistWalletSnapshot: vi.fn().mockResolvedValue(undefined),
-	updateWallet: vi.fn()
+	updateWallet: vi.fn(),
+	confirmSignetTx: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/stores/wallet/wallet-state', () => ({
@@ -32,6 +34,10 @@ vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
 vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 	loadAssets,
 	persistWalletSnapshot
+}));
+
+vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
+	confirmSignetTx
 }));
 
 import { sendRgbAsset } from '$lib/stores/wallet/wallet-send';
@@ -54,6 +60,7 @@ describe('sendRgbAsset', () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-configured-usdt');
 		listAssets.mockResolvedValue(heldIfa);
 		onchainSendEnd.mockResolvedValue({ txid: 'ab'.repeat(32) });
+		confirmSignetTx.mockResolvedValue(undefined);
 	});
 
 	it('pays nWca as 1111 IFA units and persists only after sendEnd', async () => {
@@ -74,10 +81,28 @@ describe('sendRgbAsset', () => {
 		});
 		expect(signPsbt).toHaveBeenCalledWith('cHNidP-unsigned');
 		expect(onchainSendEnd).toHaveBeenCalledWith({ signedPsbt: 'cHNidP-signed' });
+		expect(confirmSignetTx).toHaveBeenCalledWith('ab'.repeat(32));
 		expect(persistWalletSnapshot).toHaveBeenCalledOnce();
 		expect(sent.txid).toHaveLength(64);
 		expect(loadAssets).toHaveBeenCalledOnce();
 		expect(updateWallet).toHaveBeenCalledOnce();
+	});
+
+	it('does not record a send when the indexer has no transaction', async () => {
+		confirmSignetTx.mockRejectedValueOnce(
+			new Error(`Signet indexer has no transaction ${'ab'.repeat(32)}`)
+		);
+		await expect(
+			sendRgbAsset({
+				invoice: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa',
+				assetId: '',
+				amount: 1111
+			})
+		).rejects.toThrow('Signet indexer has no transaction');
+		expect(onchainSendEnd).toHaveBeenCalledOnce();
+		expect(persistWalletSnapshot).not.toHaveBeenCalled();
+		expect(updateWallet).not.toHaveBeenCalled();
+		expect(loadAssets).not.toHaveBeenCalled();
 	});
 
 	it('does not report success when sendEnd has no txid', async () => {
