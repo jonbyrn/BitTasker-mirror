@@ -382,22 +382,22 @@
 			} else {
 				dbg.log('authenticate: isBiometricsAvailable=false, skipping setBiometricKey');
 			}
-			// sign a new event with the new challenge
+			// The passkey ceremony takes a fresh challenge. Sign and submit that same value.
+			const loginChallenge = credentialData.challenge || challenge;
 			const loginEventPayload = {
 				kind: 22242,
 				created_at: Math.floor(Date.now() / 1000),
-				content: challenge,
+				content: loginChallenge,
 				tags: [
 					['relay', window.location.origin],
-					['challenge', credentialData.challenge || challenge]
+					['challenge', loginChallenge]
 				]
 			};
 			const newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
 
-			// Login with nostr, register user if it does not exist
 			const res = await authService.nostrLogin({
 				event: newSignedEvent,
-				challenge: credentialData.challenge || challenge,
+				challenge: loginChallenge,
 				authMethod: 'nsec',
 				deviceId,
 				encryptedData,

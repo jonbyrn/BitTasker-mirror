@@ -173,7 +173,7 @@ export class AuthService extends BaseApiService {
 				);
 			}
 			if (err?.status === 401) {
-				throw new Error('Invalid signature or unauthorized access');
+				throw new Error(err.data?.message || 'Invalid signature or unauthorized access');
 			}
 			if (err?.status === 500) {
 				throw new Error('Internal server error. Please try again later.');

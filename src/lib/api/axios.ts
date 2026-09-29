@@ -76,8 +76,20 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				return Promise.reject(error);
 			}
 
-			// Don't retry refresh or logout endpoints — just force re-login
 			const url = originalRequest.url ?? '';
+			// A 401 from login or registration is a bad credential, not an expired access token.
+			if (
+				url.includes(ENDPOINTS.AUTH.NOSTR_LOGIN) ||
+				url.includes(ENDPOINTS.AUTH.PASSKEY_LOGIN) ||
+				url.includes(ENDPOINTS.AUTH.REGISTER) ||
+				url.includes(ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA) ||
+				url.includes(ENDPOINTS.AUTH.ENCRYPTED_PASSKEY_DATA) ||
+				url.includes(ENDPOINTS.AUTH.NOSTR_CHALLENGE)
+			) {
+				return Promise.reject(error);
+			}
+
+			// Don't retry refresh or logout endpoints — just force re-login
 			if (url.includes(ENDPOINTS.AUTH.REFRESH) || url.includes(ENDPOINTS.AUTH.LOGOUT)) {
 				await clearTokensAndRedirect();
 				return Promise.reject(error);
