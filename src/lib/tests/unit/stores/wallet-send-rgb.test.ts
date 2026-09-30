@@ -84,7 +84,7 @@ describe('sendRgbAsset', () => {
 		expect(confirmSignetTx).toHaveBeenCalledWith('ab'.repeat(32));
 		expect(persistWalletSnapshot).toHaveBeenCalledOnce();
 		expect(sent.txid).toHaveLength(64);
-		expect(loadAssets).toHaveBeenCalledOnce();
+		expect(loadAssets).not.toHaveBeenCalled();
 		expect(updateWallet).toHaveBeenCalledOnce();
 	});
 

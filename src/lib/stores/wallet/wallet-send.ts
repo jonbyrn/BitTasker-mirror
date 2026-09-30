@@ -7,7 +7,7 @@ import {
 import { soleIfaAsset, spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
 import { decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx } from './signet-broadcast';
-import { loadAssets, persistWalletSnapshot } from './wallet-balances';
+import { persistWalletSnapshot } from './wallet-balances';
 import { prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import type { Transaction } from './wallet-types';
@@ -94,7 +94,6 @@ export async function sendRgbAsset(params: {
 		);
 	});
 	recordSentUsdt(txid, units);
-	await loadAssets();
 	return { txid, batchTransferIdx: 0 };
 }
 
