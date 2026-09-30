@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { locale, t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
@@ -259,6 +260,64 @@
 		</div>
 	</section>
 
+	<section
+		class="card bg-base-100 border-base-300 shrink-0 border shadow-sm"
+		data-testid="lightning-wallet"
+	>
+		<div class="card-body gap-2 p-4">
+			<div class="flex items-center justify-between gap-3">
+				<p class="text-sm font-semibold">{translate('wallet.lightning_title', 'Lightning')}</p>
+				{#if $lightningStore.ready}
+					<span class="badge badge-success badge-sm" data-testid="lightning-ready">
+						{translate('wallet.lightning_ready', 'Ready')}
+					</span>
+				{:else}
+					<span class="badge badge-ghost badge-sm" data-testid="lightning-offline">
+						{translate('wallet.lightning_offline', 'Not ready')}
+					</span>
+				{/if}
+			</div>
+			<p class="text-base-content/70 text-sm">
+				{translate(
+					'wallet.lightning_hint',
+					'USDT payments to another wallet use this Lightning LSP.'
+				)}
+			</p>
+			{#if $lightningStore.peerHost}
+				<p class="font-mono text-xs" data-testid="lightning-peer">{$lightningStore.peerHost}</p>
+			{/if}
+			{#if $lightningStore.channel === 'waiting'}
+				<p class="text-sm" data-testid="lightning-channel">
+					{translate('wallet.lightning_channel_waiting', 'Waiting for an LSP channel')}
+				</p>
+			{:else if $lightningStore.channel === 'open'}
+				<p class="text-success text-sm" data-testid="lightning-channel">
+					{translate('wallet.lightning_channel_open', 'LSP channel is open')}
+				</p>
+			{:else if $lightningStore.channel === 'missing'}
+				<p class="text-sm" data-testid="lightning-channel">
+					{translate('wallet.lightning_channel_missing', 'No LSP channel yet')}
+				</p>
+			{:else}
+				<p class="text-sm" data-testid="lightning-channel">
+					{translate('wallet.lightning_channel_closed', 'LSP channel not open')}
+				</p>
+			{/if}
+			{#if $lightningStore.rgbInvoice}
+				<p class="text-xs">{translate('wallet.lightning_rgb_invoice', 'On-chain RGB invoice')}</p>
+				<p class="font-mono text-xs break-all" data-testid="lightning-rgb-invoice">
+					{$lightningStore.rgbInvoice}
+				</p>
+			{/if}
+			{#if $lightningStore.lnInvoice}
+				<p class="text-xs">{translate('wallet.lightning_ln_invoice', 'Lightning invoice')}</p>
+				<p class="font-mono text-xs break-all" data-testid="lightning-ln-invoice">
+					{$lightningStore.lnInvoice}
+				</p>
+			{/if}
+		</div>
+	</section>
+
 	<div class="flex flex-col gap-4">
 		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="wallet-utxos">
 			<div class="card-body gap-2 p-4">
@@ -442,6 +501,6 @@
 		/>
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
-		<ReceivePaymentForm onClose={handleReceiveClose} />
+		<ReceivePaymentForm onClose={handleReceiveClose} onchainLocked={receiveLocked} />
 	</WalletPaymentModal>
 </div>

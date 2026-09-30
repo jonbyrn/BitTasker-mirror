@@ -10,16 +10,43 @@ const {
 	enrichMock,
 	sendBidStatusUpdate,
 	showSuccessToast,
-	showErrorToast
-} = vi.hoisted(() => ({
-	fundMock: vi.fn(),
-	startWorkMock: vi.fn(),
-	runeConstructorArgs: { current: null as unknown },
-	enrichMock: vi.fn().mockResolvedValue(undefined),
-	sendBidStatusUpdate: vi.fn().mockResolvedValue(true),
-	showSuccessToast: vi.fn(),
-	showErrorToast: vi.fn()
-}));
+	showErrorToast,
+	lightningState
+} = vi.hoisted(() => {
+	function writable<T>(initial: T) {
+		let value = initial;
+		const subscribers = new Set<(next: T) => void>();
+		return {
+			set(next: T) {
+				value = next;
+				for (const run of subscribers) run(value);
+			},
+			subscribe(run: (next: T) => void) {
+				subscribers.add(run);
+				run(value);
+				return () => {
+					subscribers.delete(run);
+				};
+			}
+		};
+	}
+	return {
+		fundMock: vi.fn(),
+		startWorkMock: vi.fn(),
+		runeConstructorArgs: { current: null as unknown },
+		enrichMock: vi.fn().mockResolvedValue(undefined),
+		sendBidStatusUpdate: vi.fn().mockResolvedValue(true),
+		showSuccessToast: vi.fn(),
+		showErrorToast: vi.fn(),
+		lightningState: writable({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open' as const,
+			lnInvoice: '',
+			rgbInvoice: ''
+		})
+	};
+});
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -30,6 +57,10 @@ vi.mock('svelte-i18n', async () => {
 		locale: readable('en')
 	};
 });
+
+vi.mock('$lib/stores/wallet/signet-lsp', () => ({
+	lightningStore: lightningState
+}));
 
 vi.mock('$lib/runes/contract.svelte', () => ({
 	ContractRune: class {
@@ -170,6 +201,13 @@ describe('BidAcceptanceFormV2', () => {
 		});
 		fundMock.mockResolvedValue({ status: 'funded' });
 		startWorkMock.mockResolvedValue({ status: 'work_in_progress' });
+		lightningState.set({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
 	});
 
 	it('locks a USD bid as dollars and offers USDT funding', () => {
@@ -230,6 +268,23 @@ describe('BidAcceptanceFormV2', () => {
 			props: { bid: makeBid({ amount: 3000, currency: 'SATS' }), task: makeTask() }
 		});
 		expect(getByTestId('insufficient-funds')).toBeTruthy();
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('disables fund when the LSP channel is not open', () => {
+		lightningState.set({
+			ready: false,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'missing',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
+		const { getByTestId } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid(), task: makeTask() }
+		});
+		expect(getByTestId('lsp-channel-closed').textContent).toContain(
+			'wallet.lightning_channel_closed'
+		);
 		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
 	});
 

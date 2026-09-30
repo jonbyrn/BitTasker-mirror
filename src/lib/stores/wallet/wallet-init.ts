@@ -20,6 +20,7 @@ import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
+import { discoverSignetLsp, signetLspParams } from './signet-lsp';
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
@@ -91,16 +92,18 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			console.info('[wallet-init] pinned data dir', taskerDataDir);
 		}
 
+		const lsp = signetLspParams(null);
 		const wallet = new UTEXOWallet({
 			mnemonic,
 			password,
 			network: 'utexo',
-			indexerUrl: 'https://esplora-api.utexo.com',
-			transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
+			indexerUrl: lsp.indexerUrl,
+			transportEndpoint: lsp.transportEndpoint,
 			supportedSchemas: ['Nia', 'Ifa'],
-			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
+			proxyUrl: lsp.proxyUrl,
+			lspBaseUrl: lsp.lspBaseUrl,
 			vssUrl: '',
-			enableVirtualChannels: false,
+			enableVirtualChannels: lsp.enableVirtualChannels,
 			...(e2eReset ? { dataDir: taskerDataDir } : {})
 		});
 
@@ -116,6 +119,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
 		await restoreStoredBackup(wallet);
+		await discoverSignetLsp(wallet);
 
 		state.utexoWallet = wallet;
 		if (typeof window !== 'undefined' && wallet) {

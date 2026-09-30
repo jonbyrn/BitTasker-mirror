@@ -7,6 +7,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
 	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
+	import { lightningStore, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 	import { readRefreshFailure } from '$lib/stores/wallet/wallet-balances';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
@@ -92,7 +93,10 @@
 		decodedInvoice && !decodedInvoice.contract ? (boundIfa?.units ?? 0) : (usdtAsset?.balance ?? 0)
 	);
 
+	const payingLsp = $derived(asset === 'usdt_rgb' && $lightningStore.ready);
+
 	const hasInsufficientBalance = $derived.by(() => {
+		if (payingLsp) return false;
 		if (amountSats === null) return false;
 		if (asset === 'usdt_rgb') return rgbBalance > 0 && amountSats > rgbBalance;
 		return amountSats > walletSats;
@@ -112,9 +116,13 @@
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_rgb') {
+			if (!payingLsp) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
-			if (!decodedInvoice.contract && !boundIfa) return false;
+			if (!decodedInvoice.contract && !boundIfa && !payingLsp) return false;
 			const balance = decodedInvoice.contract ? (usdtAsset?.balance ?? 0) : rgbBalance;
+			if (payingLsp) {
+				return destinationValid && rgbAmount !== null && rgbAmount > 0;
+			}
 			return (
 				destinationValid &&
 				rgbAmount !== null &&
@@ -204,13 +212,10 @@
 				txid = result.txid;
 			} else if (asset === 'usdt_rgb') {
 				if (rgbAmount === null || rgbAmount <= 0) throw new Error('RGB invoice amount is zero');
-				const result = await walletManager.sendRgbAsset({
-					invoice: destination.trim(),
-					assetId: boundIfa?.assetId || usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '',
-					amount: rgbAmount
-				});
-				txid = result.txid;
-				if (!/^[0-9a-f]{64}$/i.test(txid)) throw new Error('onchainSendEnd did not return a txid');
+				const assetId =
+					boundIfa?.assetId || usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '';
+				txid = await payEscrowLightning(destination.trim(), assetId, rgbAmount);
+				if (!txid) throw new Error('Lightning payment did not return an id');
 			} else {
 				const sats = amountSats;
 				if (sats === null) return;
@@ -390,6 +395,15 @@
 			: formatSats(walletSats)}
 	</div>
 
+	{#if asset === 'usdt_rgb' && !$lightningStore.ready}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="lsp-channel-closed"
+		>
+			{$t('wallet.lightning_channel_closed')}
+		</div>
+	{/if}
 	{#if hasInsufficientBalance}
 		<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
 			{$t('wallet.insufficient_balance')}

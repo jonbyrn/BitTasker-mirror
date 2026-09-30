@@ -2,12 +2,46 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
-const { getRgbAddress, createLightningInvoice, onchainReceive, listAssets } = vi.hoisted(() => ({
-	getRgbAddress: vi.fn().mockResolvedValue('bc1qreceive'),
-	createLightningInvoice: vi.fn().mockResolvedValue({ lnInvoice: 'lnbc500n1test' }),
-	onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' }),
-	listAssets: vi.fn().mockResolvedValue({ nia: [] })
-}));
+const {
+	getRgbAddress,
+	createLightningInvoice,
+	onchainReceive,
+	listAssets,
+	requestLspInbound,
+	lightningState
+} = vi.hoisted(() => {
+	function writable<T>(initial: T) {
+		let value = initial;
+		const subscribers = new Set<(next: T) => void>();
+		return {
+			set(next: T) {
+				value = next;
+				for (const run of subscribers) run(value);
+			},
+			subscribe(run: (next: T) => void) {
+				subscribers.add(run);
+				run(value);
+				return () => {
+					subscribers.delete(run);
+				};
+			}
+		};
+	}
+	return {
+		getRgbAddress: vi.fn().mockResolvedValue('bc1qreceive'),
+		createLightningInvoice: vi.fn().mockResolvedValue({ lnInvoice: 'lnbc500n1test' }),
+		onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' }),
+		listAssets: vi.fn().mockResolvedValue({ nia: [] }),
+		requestLspInbound: vi.fn().mockResolvedValue('lnbc500n1test'),
+		lightningState: writable({
+			ready: false,
+			peerHost: '',
+			channel: 'idle' as const,
+			lnInvoice: 'lnbc500n1test',
+			rgbInvoice: 'rgb:inbound'
+		})
+	};
+});
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -16,6 +50,11 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 	walletManager: { getRgbAddress, createLightningInvoice }
+}));
+
+vi.mock('$lib/stores/wallet/signet-lsp', () => ({
+	requestLspInbound,
+	lightningStore: lightningState
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -49,17 +88,31 @@ describe('ReceivePaymentForm', () => {
 		expect(getRgbAddress).not.toHaveBeenCalled();
 	});
 
-	it('marks Lightning receive as pending', async () => {
+	it('asks the LSP for a Lightning invoice and does not mint an on-chain one', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '50000' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
+		await waitFor(() => expect(requestLspInbound).toHaveBeenCalledTimes(1));
 		await waitFor(() =>
-			expect(getByTestId('receive-value').textContent).toContain('Pending implementation')
+			expect(getByTestId('receive-value').textContent).toContain('lnbc500n1test')
 		);
+		expect(getByTestId('receive-rgb-invoice').textContent).toContain('rgb:inbound');
 		expect(createLightningInvoice).not.toHaveBeenCalled();
+		expect(onchainReceive).not.toHaveBeenCalled();
+	});
+
+	it('keeps the on-chain RGB tab disabled while a receive is waiting', async () => {
+		const { getByTestId } = render(ReceivePaymentForm, { props: { onchainLocked: true } });
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '1000' } });
+
+		expect(getByTestId('receive-onchain-locked')).toBeTruthy();
+		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(true);
+		expect(onchainReceive).not.toHaveBeenCalled();
 	});
 
 	it('creates a blank RGB invoice when USDT is not configured', async () => {

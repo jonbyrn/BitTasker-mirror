@@ -7,24 +7,53 @@ const {
 	payLightningInvoice,
 	sendRgbAsset,
 	listRgbAssets,
+	payEscrowLightning,
+	lightningState,
 	showSuccessToast,
 	showErrorToast
-} = vi.hoisted(() => ({
-	sendBtc: vi.fn().mockResolvedValue('txid-btc'),
-	payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
-	sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
-	listRgbAssets: vi.fn().mockResolvedValue({
-		ifa: [
-			{
-				assetId: 'rgb:f~held-usdt',
-				ticker: 'USDT',
-				balance: { spendable: 100_000_000 }
+} = vi.hoisted(() => {
+	function writable<T>(initial: T) {
+		let value = initial;
+		const subscribers = new Set<(next: T) => void>();
+		return {
+			set(next: T) {
+				value = next;
+				for (const run of subscribers) run(value);
+			},
+			subscribe(run: (next: T) => void) {
+				subscribers.add(run);
+				run(value);
+				return () => {
+					subscribers.delete(run);
+				};
 			}
-		]
-	}),
-	showSuccessToast: vi.fn(),
-	showErrorToast: vi.fn()
-}));
+		};
+	}
+	return {
+		sendBtc: vi.fn().mockResolvedValue('txid-btc'),
+		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
+		sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
+		payEscrowLightning: vi.fn().mockResolvedValue('ab'.repeat(32)),
+		lightningState: writable({
+			ready: false,
+			peerHost: '',
+			channel: 'idle' as const,
+			lnInvoice: '',
+			rgbInvoice: ''
+		}),
+		listRgbAssets: vi.fn().mockResolvedValue({
+			ifa: [
+				{
+					assetId: 'rgb:f~held-usdt',
+					ticker: 'USDT',
+					balance: { spendable: 100_000_000 }
+				}
+			]
+		}),
+		showSuccessToast: vi.fn(),
+		showErrorToast: vi.fn()
+	};
+});
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -33,6 +62,11 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 	walletManager: { sendBtc, payLightningInvoice, sendRgbAsset, listRgbAssets }
+}));
+
+vi.mock('$lib/stores/wallet/signet-lsp', () => ({
+	payEscrowLightning,
+	lightningStore: lightningState
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -68,6 +102,13 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 describe('SendPaymentForm', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		lightningState.set({
+			ready: false,
+			peerHost: '',
+			channel: 'idle',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
 		listRgbAssets.mockResolvedValue({
 			ifa: [
@@ -117,7 +158,14 @@ describe('SendPaymentForm', () => {
 		expect(onSent).toHaveBeenCalledWith('txid-ln');
 	});
 
-	it('locks nWca to 1111 and toasts only after a 64-hex txid', async () => {
+	it('pays a USDT invoice through the LSP and keeps the rpcs endpoint', async () => {
+		lightningState.set({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
 		const invoice =
@@ -136,19 +184,23 @@ describe('SendPaymentForm', () => {
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		await fireEvent.click(getByTestId('send-submit'));
 
-		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
-		expect(sendRgbAsset).toHaveBeenCalledWith({
-			invoice,
-			assetId: 'rgb:f~held-usdt',
-			amount: 1111
-		});
+		await waitFor(() => expect(payEscrowLightning).toHaveBeenCalledTimes(1));
+		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, 'rgb:f~held-usdt', 1111);
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 		expect(onSent).toHaveBeenCalledWith('ab'.repeat(32));
 		expect(showSuccessToast).toHaveBeenCalledWith('wallet.toast.sent_successfully');
 		expect(showErrorToast).not.toHaveBeenCalled();
 	});
 
-	it('does not toast success when send returns no txid', async () => {
-		sendRgbAsset.mockResolvedValueOnce({ txid: '', batchTransferIdx: 0 });
+	it('does not toast success when the LSP payment returns no id', async () => {
+		lightningState.set({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
+		payEscrowLightning.mockResolvedValueOnce('');
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
 
@@ -194,7 +246,31 @@ describe('SendPaymentForm', () => {
 		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
+	it('disables USDT Lightning send until the LSP channel is open', async () => {
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/~/sb:utxob:example' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '4000' } });
+
+		expect(getByTestId('lsp-channel-closed').textContent).toContain(
+			'wallet.lightning_channel_closed'
+		);
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		expect(sendRgbAsset).not.toHaveBeenCalled();
+	});
+
 	it('allows a USDT amount inside the balance shown on the wallet', async () => {
+		lightningState.set({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
 		const { getByTestId, queryByTestId } = render(SendPaymentForm);
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));

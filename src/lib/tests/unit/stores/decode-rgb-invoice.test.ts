@@ -46,18 +46,38 @@ describe('decodeRgbInvoice', () => {
 describe('blindReceiveRows', () => {
 	it('keeps waiting blinded receives', () => {
 		expect(
-			blindReceiveRows([
-				{
-					kind: 'ReceiveBlind',
-					status: 'WaitingCounterparty',
-					invoiceString: 'rgb:~/~/nWca/sb:utxob:77UiY8iS-rest',
-					expiration: 1790661182,
-					txid: null
-				},
-				{ kind: 'Send', status: 'Settled', invoiceString: 'rgb:~/~/nWca/sb:utxob:other-rest' }
-			])
+			blindReceiveRows(
+				[
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						invoiceString: 'rgb:~/~/nWca/sb:utxob:77UiY8iS-rest',
+						expiration: 1790661182,
+						txid: null
+					},
+					{ kind: 'Send', status: 'Settled', invoiceString: 'rgb:~/~/nWca/sb:utxob:other-rest' }
+				],
+				1790661181
+			)
 		).toEqual([
 			{ seal: '77UiY8iS', expiry: 1790661182, txid: null, status: 'WaitingCounterparty' }
 		]);
+	});
+
+	it('ignores an expired waiting seal', () => {
+		expect(
+			blindReceiveRows(
+				[
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						invoiceString: 'rgb:~/~/nWca/sb:utxob:70AvntJE-rest',
+						expiration: 1790745443,
+						txid: null
+					}
+				],
+				1790745444
+			)
+		).toEqual([]);
 	});
 });

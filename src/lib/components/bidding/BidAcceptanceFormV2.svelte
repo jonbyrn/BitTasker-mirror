@@ -14,6 +14,7 @@
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { onMount } from 'svelte';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
@@ -111,7 +112,9 @@
 			!isProcessing &&
 			bidContent !== null &&
 			lockedBid !== null &&
-			(dollarBid ? fundRail === 'usdt_rgb' : totalSats !== null && totalUsd !== null)
+			(dollarBid
+				? fundRail === 'usdt_rgb' && $lightningStore.ready
+				: totalSats !== null && totalUsd !== null)
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
 	const awaitingFunding = $derived(Boolean(fundedRune && !escrowReady && fundingInvoice));
@@ -515,6 +518,15 @@
 				<span class="status status-success"></span>
 				{$t('dashboard.bids.bid_acceptance.wallet_connected')}
 			</span>
+		</div>
+	{/if}
+	{#if dollarBid && !$lightningStore.ready}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="lsp-channel-closed"
+		>
+			{$t('wallet.lightning_channel_closed')}
 		</div>
 	{/if}
 	{#if hasInsufficientFunds}

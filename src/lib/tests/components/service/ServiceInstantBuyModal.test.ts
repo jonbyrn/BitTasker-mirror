@@ -1,11 +1,43 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 
-const { runeConstructorArgs, prepareFunding, payFundingFromWallet } = vi.hoisted(() => ({
-	runeConstructorArgs: { current: null as unknown },
-	prepareFunding: vi.fn().mockResolvedValue(undefined),
-	payFundingFromWallet: vi.fn().mockResolvedValue(undefined)
+const { runeConstructorArgs, prepareFunding, payFundingFromWallet, lightningState } = vi.hoisted(
+	() => {
+		function writable<T>(initial: T) {
+			let value = initial;
+			const subscribers = new Set<(next: T) => void>();
+			return {
+				set(next: T) {
+					value = next;
+					for (const run of subscribers) run(value);
+				},
+				subscribe(run: (next: T) => void) {
+					subscribers.add(run);
+					run(value);
+					return () => {
+						subscribers.delete(run);
+					};
+				}
+			};
+		}
+		return {
+			runeConstructorArgs: { current: null as unknown },
+			prepareFunding: vi.fn().mockResolvedValue(undefined),
+			payFundingFromWallet: vi.fn().mockResolvedValue(undefined),
+			lightningState: writable({
+				ready: true,
+				peerHost: 'lsp-signet.utexo.com',
+				channel: 'open' as const,
+				lnInvoice: '',
+				rgbInvoice: ''
+			})
+		};
+	}
+);
+
+vi.mock('$lib/stores/wallet/signet-lsp', () => ({
+	lightningStore: lightningState
 }));
 
 vi.mock('$lib/runes/contract.svelte', () => ({
@@ -115,6 +147,15 @@ vi.mock('svelte-i18n', async () => {
 });
 
 describe('ServiceInstantBuyModal', () => {
+	beforeEach(() => {
+		lightningState.set({
+			ready: true,
+			peerHost: 'lsp-signet.utexo.com',
+			channel: 'open',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
+	});
 	it('creates an RGB contract with service title and proposal scope', async () => {
 		const onConfirm = vi.fn();
 		const { getByTestId, getByText } = render(ServiceInstantBuyModal, {
@@ -326,6 +367,26 @@ describe('ServiceInstantBuyModal', () => {
 		expect(queryByTestId('service-instant-buy-confirm')).toBeNull();
 		expect(queryByTestId('contract-funding-wallet-card')).toBeNull();
 		expect(queryByTestId('service-instant-buy-confirm-warning')).toBeNull();
+	});
+
+	it('disables instant buy while the LSP channel is closed', () => {
+		lightningState.set({
+			ready: false,
+			peerHost: '',
+			channel: 'missing',
+			lnInvoice: '',
+			rgbInvoice: ''
+		});
+		const { getByTestId } = render(ServiceInstantBuyModal, {
+			open: true,
+			serviceTitle: 'Landing Page Build',
+			amountUsd: 120,
+			canConfirm: true
+		});
+		expect(getByTestId('lsp-channel-closed').textContent).toContain(
+			'wallet.lightning_channel_closed'
+		);
+		expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('shows reconnect guidance after the browser comes back online', () => {

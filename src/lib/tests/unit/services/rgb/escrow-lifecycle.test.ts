@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { ContractRune as ServiceRune } from '$lib/services/rgb/contract-rune';
 import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
+import { lspChannelOpen, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 
-vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
-	prepareRgbOnchainSend: vi.fn().mockResolvedValue(undefined)
+vi.mock('$lib/stores/wallet/signet-lsp', () => ({
+	payEscrowLightning: vi.fn().mockResolvedValue(undefined),
+	lspChannelOpen: vi.fn(() => true)
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
@@ -54,6 +56,8 @@ describe('escrow lifecycle', () => {
 	beforeEach(() => {
 		ServiceRune.clearRegistry();
 		ContractRune.clearRegistry();
+		vi.mocked(payEscrowLightning).mockClear();
+		vi.mocked(lspChannelOpen).mockReturnValue(true);
 		state.utexoWallet = walletDouble() as never;
 		delete (window as Window & { __E2E_TASKEE_INVOICE?: string }).__E2E_TASKEE_INVOICE;
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
@@ -113,15 +117,27 @@ describe('escrow lifecycle', () => {
 
 		(window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID = ASSET_ID;
 		await rune.payFundingFromWallet();
-		expect(wallet.onchainSend).toHaveBeenCalledWith(
-			expect.objectContaining({
-				invoice,
-				assetId: ASSET_ID,
-				amount: 10_000,
-				feeRate: 2,
-				minConfirmations: 1
-			})
-		);
+		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ASSET_ID, 10_000);
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+	});
+
+	it('does not call onchainSend when the LSP channel is closed', async () => {
+		vi.mocked(lspChannelOpen).mockReturnValue(false);
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-channel-closed',
+			totalAmountUsd: 11,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		await rune.prepareFunding('rgb:~/~/aa/sb:utxob:taskee-blank');
+		await expect(rune.payFundingFromWallet()).rejects.toThrow('LSP channel is not open');
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
 	it('attaches a blank taskee invoice without spendable USDT', async () => {
@@ -172,10 +188,9 @@ describe('escrow lifecycle', () => {
 		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
 		await rune.prepareFunding(invoice);
 		await rune.payFundingFromWallet();
-		expect(wallet.onchainSend).toHaveBeenCalledWith(
-			expect.objectContaining({ invoice, amount: 11_000_000 })
-		);
-		expect(wallet.onchainSend.mock.calls[0][0].amount).not.toBe(3075);
+		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, 'rgb:usdt-signet', 11_000_000);
+		expect(payEscrowLightning).not.toHaveBeenCalledWith(invoice, 'rgb:usdt-signet', 3075);
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
 	it('pays an eleven dollar bid from IFA USDT when nia is empty', async () => {
@@ -207,9 +222,8 @@ describe('escrow lifecycle', () => {
 		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
 		await rune.prepareFunding(invoice);
 		await rune.payFundingFromWallet();
-		expect(wallet.onchainSend).toHaveBeenCalledWith(
-			expect.objectContaining({ invoice, assetId: ifaId, amount: 11_000_000 })
-		);
+		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ifaId, 11_000_000);
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
 	it('pays a sat-labeled bid as the asset spendable units', async () => {
@@ -230,9 +244,8 @@ describe('escrow lifecycle', () => {
 		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
 		await rune.prepareFunding(invoice);
 		await rune.payFundingFromWallet();
-		expect(wallet.onchainSend).toHaveBeenCalledWith(
-			expect.objectContaining({ invoice, amount: 10_000 })
-		);
+		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ASSET_ID, 10_000);
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
 	it('refuses to create the escrow invoice on the tasker wallet', async () => {

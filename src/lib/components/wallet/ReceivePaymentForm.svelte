@@ -6,10 +6,14 @@
 	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { lightningStore, requestLspInbound } from '$lib/stores/wallet/signet-lsp';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
 
-	let { onClose = () => {} }: { onClose?: () => void } = $props();
+	let {
+		onClose = () => {},
+		onchainLocked = false
+	}: { onClose?: () => void; onchainLocked?: boolean } = $props();
 
 	let asset = $state<ReceiveAsset>('btc_onchain');
 	let amountSats = $state('');
@@ -36,8 +40,9 @@
 	});
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
+	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
 	const canGenerate = $derived(
-		isGenerating
+		isGenerating || rgbReceiveLocked
 			? false
 			: asset === 'btc_onchain'
 				? onchainAddress !== ''
@@ -67,8 +72,17 @@
 			}
 			return;
 		}
-		// Lightning invoice generation deferred
-		receiveValue = 'Pending implementation';
+		isGenerating = true;
+		try {
+			const invoice = await requestLspInbound();
+			if (!invoice) throw new Error('Lightning invoice was not created');
+			receiveValue = invoice;
+		} catch (err) {
+			errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
+			console.error('[receive-modal] Lightning invoice error:', err);
+		} finally {
+			isGenerating = false;
+		}
 	}
 
 	async function handleCopy(): Promise<void> {
@@ -119,6 +133,21 @@
 		</label>
 	{/if}
 
+	{#if rgbReceiveLocked}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="receive-onchain-locked"
+		>
+			{$t('wallet.receive_waiting')}
+		</div>
+	{/if}
+	{#if asset === 'btc_lightning' && $lightningStore.rgbInvoice}
+		<p class="text-xs">{$t('wallet.lightning_rgb_invoice')}</p>
+		<p class="font-mono text-xs break-all" data-testid="receive-rgb-invoice">
+			{$lightningStore.rgbInvoice}
+		</p>
+	{/if}
 	{#if usdtUnconfigured}
 		<div
 			class="alert alert-outline alert-warning text-sm"

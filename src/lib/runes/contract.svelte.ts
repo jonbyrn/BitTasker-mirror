@@ -1,7 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { lspChannelOpen, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
@@ -624,6 +624,7 @@ export class ContractRune {
 		if (!normalizedInvoice.startsWith('rgb1') && !normalizedInvoice.startsWith('rgb:')) {
 			throw new Error('Funding destination must be an rgb: invoice for RGB-native escrow.');
 		}
+		if (!lspChannelOpen()) throw new Error('LSP channel is not open');
 
 		const assets = spendableRgbAssets(await wallet.listAssets());
 		const expectedAssetId = escrowAssetId(assets);
@@ -651,20 +652,11 @@ export class ContractRune {
 			invoicePrefix: normalizedInvoice.slice(0, 40)
 		});
 		try {
-			await prepareRgbOnchainSend(wallet, expectedAssetId);
-			const sent = await wallet.onchainSend({
-				invoice: normalizedInvoice,
-				assetId: expectedAssetId,
-				amount: baseUnits,
-				feeRate: 2,
-				minConfirmations: 1
-			});
+			await payEscrowLightning(normalizedInvoice, expectedAssetId, baseUnits);
 			console.info('[contract-rune] sendToInvoice completed', {
 				assetId: expectedAssetId,
-				amount: baseUnits,
-				tx: sent.txid ? `https://esplora-api.utexo.com/tx/${sent.txid}` : ''
+				amount: baseUnits
 			});
-			await wallet.refreshWallet();
 		} catch (error) {
 			console.error('[E2E-wallet-payment-failure]', {
 				message: error instanceof Error ? error.message : String(error),

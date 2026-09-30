@@ -8,6 +8,7 @@
 	import { ContractRune, TaskeeInvoiceRequired } from '$lib/runes/contract.svelte';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -139,6 +140,7 @@
 	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
 
 	let selectedSource = $state<'btc' | 'usdt'>('usdt');
+	const lspPayReady = $derived(selectedSource !== 'usdt' || $lightningStore.ready);
 	let sourceExpanded = $state(false);
 	const paymentSplitEnabled = false;
 	let paymentSplit = $state<PaymentSplitConfig>({
@@ -287,7 +289,7 @@
 	}
 
 	function handleDrawerConfirmClick() {
-		if (!canConfirm || isPreparing || isOffline || isSubmitting || isFunding) {
+		if (!canConfirm || isPreparing || isOffline || isSubmitting || isFunding || !lspPayReady) {
 			return;
 		}
 
@@ -372,6 +374,10 @@
 	async function handleConfirmEscrow() {
 		confirmModalOpen = false;
 		runeError = '';
+		if (selectedSource === 'usdt' && !$lightningStore.ready) {
+			runeError = $t('wallet.lightning_channel_closed');
+			return;
+		}
 		const runeToPay = contractRune ?? localContractRune;
 		if (!runeToPay) {
 			runeError = $t('dashboard.services.detail.escrow_missing');
@@ -397,7 +403,7 @@
 		confirmLabel={readyToPay
 			? $t('dashboard.bids.bid_acceptance.step_pay')
 			: $t('dashboard.services.detail.book_now_drawer.confirm_cta')}
-		canConfirm={canConfirm && !isPreparing && !isOffline && !isFunding}
+		canConfirm={canConfirm && !isPreparing && !isOffline && !isFunding && lspPayReady}
 		hideFooter={showingContractCreationProgress}
 		allowCloseWhileSubmitting={showingContractCreationProgress}
 		isSubmitting={isSubmitting || isFunding}
@@ -675,6 +681,16 @@
 								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
+
+							{#if selectedSource === 'usdt' && !$lightningStore.ready}
+								<div
+									class="alert alert-outline alert-warning text-sm"
+									role="status"
+									data-testid="lsp-channel-closed"
+								>
+									{$t('wallet.lightning_channel_closed')}
+								</div>
+							{/if}
 
 							<!-- Source Wallet Selector -->
 							<div class="form-control">

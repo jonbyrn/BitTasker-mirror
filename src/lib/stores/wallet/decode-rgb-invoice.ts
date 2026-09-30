@@ -110,8 +110,11 @@ function rowRecord(value: unknown): Record<string, unknown> | null {
 	return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
-/** ReceiveBlind rows still waiting on a counterparty. */
-export function blindReceiveRows(rows: unknown): BlindReceiveRow[] {
+/** ReceiveBlind rows still waiting on a counterparty. Expired seals are ignored. */
+export function blindReceiveRows(
+	rows: unknown,
+	nowSec = Math.floor(Date.now() / 1000)
+): BlindReceiveRow[] {
 	if (!Array.isArray(rows)) return [];
 	const pending: BlindReceiveRow[] = [];
 	for (const value of rows) {
@@ -122,6 +125,7 @@ export function blindReceiveRows(rows: unknown): BlindReceiveRow[] {
 		const seal = invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
 		if (!seal) continue;
 		const expiry = typeof row.expiration === 'number' ? row.expiration : null;
+		if (expiry !== null && expiry <= nowSec) continue;
 		const txid = typeof row.txid === 'string' && row.txid.length > 0 ? row.txid : null;
 		pending.push({ seal, expiry, txid, status: 'WaitingCounterparty' });
 	}
