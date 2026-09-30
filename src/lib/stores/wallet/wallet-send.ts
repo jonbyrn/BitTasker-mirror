@@ -78,19 +78,45 @@ export async function sendRgbAsset(params: {
 	if (units > spendable) throw new Error('USDT amount is larger than the spendable balance.');
 	await prepareRgbOnchainSend(wallet, assetId);
 	const signer = requireEscrowSigner(wallet);
-	const psbt = await buildEscrowPsbt(signer, {
-		invoice: params.invoice.trim(),
+	const invoice = params.invoice.trim();
+	const beginArgs = {
+		invoice,
 		assetId,
 		amount: units,
-		feeRate: 2
+		feeRate: 2,
+		minConfirmations: 1
+	};
+	console.info('[wallet-send] onchainSendBegin', {
+		method: 'onchainSendBegin',
+		decoded: {
+			endpoints: decoded.endpoints,
+			amount: decoded.amount,
+			seal: decoded.seal
+		},
+		args: beginArgs
 	});
+	let psbt: string;
+	try {
+		psbt = await buildEscrowPsbt(signer, {
+			invoice,
+			assetId,
+			amount: units,
+			feeRate: 2
+		});
+	} catch (error: unknown) {
+		console.warn('[wallet-send] onchainSendBegin rejected', {
+			method: 'onchainSendBegin',
+			message: error instanceof Error ? error.message : String(error)
+		});
+		throw error;
+	}
 	const signed = await signEscrowPsbt(signer, psbt);
-	console.info('[wallet-send] sendBegin', { psbtChars: psbt.length });
+	console.info('[wallet-send] onchainSendBegin psbt', { psbtChars: psbt.length });
 	const claimed = await broadcastEscrowPsbt(signer, signed);
 	const raw = extractSignedTx(signed);
 	if (raw.txid !== claimed) {
-		console.warn('[wallet-send] sendEnd txid is not the signed transaction', {
-			sendEnd: claimed,
+		console.warn('[wallet-send] onchainSendEnd txid is not the signed transaction', {
+			onchainSendEnd: claimed,
 			signed: raw.txid
 		});
 	}

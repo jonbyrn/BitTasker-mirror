@@ -118,7 +118,7 @@ export async function buildEscrowPsbt(
 		minConfirmations: 1
 	});
 	if (typeof psbt !== 'string' || psbt.length === 0) {
-		throw new Error('sendBegin did not return a PSBT');
+		throw new Error('onchainSendBegin did not return a PSBT');
 	}
 	return psbt;
 }
@@ -148,9 +148,9 @@ export async function broadcastEscrowPsbt(
 	signedPsbt: string
 ): Promise<string> {
 	const result = await wallet.onchainSendEnd({ signedPsbt });
-	console.info('[wallet-send] sendEnd', describeSendEnd(result));
+	console.info('[wallet-send] onchainSendEnd', describeSendEnd(result));
 	const txid = txidFromSend(result);
-	if (!txid) throw new Error('sendEnd did not return a txid');
+	if (!txid) throw new Error('onchainSendEnd did not return a txid');
 	return txid;
 }
 

@@ -210,7 +210,7 @@
 					amount: rgbAmount
 				});
 				txid = result.txid;
-				if (!/^[0-9a-f]{64}$/i.test(txid)) throw new Error('sendEnd did not return a txid');
+				if (!/^[0-9a-f]{64}$/i.test(txid)) throw new Error('onchainSendEnd did not return a txid');
 			} else {
 				const sats = amountSats;
 				if (sats === null) return;

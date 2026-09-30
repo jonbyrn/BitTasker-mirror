@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
 	onchainSendBegin,
+	sendBegin,
 	signPsbt,
 	onchainSendEnd,
 	listAssets,
@@ -14,6 +15,7 @@ const {
 	publishSignetTx
 } = vi.hoisted(() => ({
 	onchainSendBegin: vi.fn().mockResolvedValue('cHNidP-unsigned'),
+	sendBegin: vi.fn().mockResolvedValue('cHNidP-sendBegin'),
 	signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
 	onchainSendEnd: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32) }),
 	listAssets: vi.fn(),
@@ -27,7 +29,7 @@ const {
 }));
 
 vi.mock('$lib/stores/wallet/wallet-state', () => ({
-	state: { utexoWallet: { listAssets, onchainSendBegin, signPsbt, onchainSendEnd } },
+	state: { utexoWallet: { listAssets, onchainSendBegin, sendBegin, signPsbt, onchainSendEnd } },
 	walletStore: { subscribe: () => () => {}, update: updateWallet }
 }));
 
@@ -69,22 +71,26 @@ describe('sendRgbAsset', () => {
 		confirmSignetTx.mockResolvedValue(undefined);
 	});
 
+	const NWCA_RPCS =
+		'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa?assignment_name=assetOwner&expiry=1790661182&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+
 	it('pays nWca as 1111 IFA units and persists only after sendEnd', async () => {
 		const sent = await sendRgbAsset({
-			invoice:
-				'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa?assignment_name=assetOwner&expiry=1790661182&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc',
+			invoice: NWCA_RPCS,
 			assetId: 'rgb:buHqKXhJ-configured-usdt',
 			amount: 100_000_000
 		});
 
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(expect.anything(), 'rgb:f~9F4X0C-held-usdt');
 		expect(onchainSendBegin).toHaveBeenCalledWith({
-			invoice: expect.stringContaining('nWca'),
+			invoice: NWCA_RPCS,
 			assetId: 'rgb:f~9F4X0C-held-usdt',
 			amount: 1111,
 			feeRate: 2,
 			minConfirmations: 1
 		});
+		expect(onchainSendBegin.mock.calls[0][0]).not.toHaveProperty('witnessData');
+		expect(sendBegin).not.toHaveBeenCalled();
 		expect(signPsbt).toHaveBeenCalledWith('cHNidP-unsigned');
 		expect(onchainSendEnd).toHaveBeenCalledWith({ signedPsbt: 'cHNidP-signed' });
 		expect(extractSignedTx).toHaveBeenCalledWith('cHNidP-signed');
@@ -97,6 +103,50 @@ describe('sendRgbAsset', () => {
 		expect(sent.txid).toHaveLength(64);
 		expect(loadAssets).not.toHaveBeenCalled();
 		expect(updateWallet).toHaveBeenCalledOnce();
+	});
+
+	it('calls onchainSendBegin and not sendBegin', async () => {
+		await sendRgbAsset({
+			invoice: NWCA_RPCS,
+			assetId: 'rgb:buHqKXhJ-configured-usdt',
+			amount: 1111
+		});
+		expect(onchainSendBegin).toHaveBeenCalledWith({
+			invoice: NWCA_RPCS,
+			assetId: 'rgb:f~9F4X0C-held-usdt',
+			amount: 1111,
+			feeRate: 2,
+			minConfirmations: 1
+		});
+		expect(sendBegin).not.toHaveBeenCalled();
+		expect(signPsbt).toHaveBeenCalledWith('cHNidP-unsigned');
+		expect(onchainSendEnd).toHaveBeenCalledWith({ signedPsbt: 'cHNidP-signed' });
+		expect(onchainSendBegin.mock.invocationCallOrder[0]).toBeLessThan(
+			signPsbt.mock.invocationCallOrder[0]
+		);
+		expect(signPsbt.mock.invocationCallOrder[0]).toBeLessThan(
+			onchainSendEnd.mock.invocationCallOrder[0]
+		);
+		expect(publishSignetTx.mock.invocationCallOrder[0]).toBeLessThan(
+			persistWalletSnapshot.mock.invocationCallOrder[0]
+		);
+	});
+
+	it('keeps rpcs endpoints when onchainSendBegin rejects the transport', async () => {
+		onchainSendBegin.mockRejectedValueOnce(new Error('No valid transport endpoint found'));
+		await expect(
+			sendRgbAsset({
+				invoice: NWCA_RPCS,
+				assetId: 'rgb:buHqKXhJ-configured-usdt',
+				amount: 1111
+			})
+		).rejects.toThrow('No valid transport endpoint found');
+		expect(onchainSendBegin).toHaveBeenCalledOnce();
+		expect(onchainSendBegin.mock.calls[0][0].invoice).toBe(NWCA_RPCS);
+		expect(String(onchainSendBegin.mock.calls[0][0].invoice)).not.toContain('https://');
+		expect(signPsbt).not.toHaveBeenCalled();
+		expect(onchainSendEnd).not.toHaveBeenCalled();
+		expect(publishSignetTx).not.toHaveBeenCalled();
 	});
 
 	it('does not record a send when the indexer has no transaction', async () => {
@@ -139,7 +189,7 @@ describe('sendRgbAsset', () => {
 				assetId: '',
 				amount: 1111
 			})
-		).rejects.toThrow('sendEnd did not return a txid');
+		).rejects.toThrow('onchainSendEnd did not return a txid');
 		expect(publishSignetTx).not.toHaveBeenCalled();
 		expect(persistWalletSnapshot).not.toHaveBeenCalled();
 		expect(updateWallet).not.toHaveBeenCalled();
