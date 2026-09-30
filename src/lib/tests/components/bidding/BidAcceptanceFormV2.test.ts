@@ -151,6 +151,10 @@ const walletState = vi.hoisted(() => ({
 		isConnected: true,
 		rgb: { initialized: true, balanceSats: 500_000 },
 		wdk: { btcOnchain: { address: '' } }
+	},
+	utexoWallet: null as null | {
+		listPeers: () => Promise<unknown[]>;
+		listChannels: () => Promise<unknown[]>;
 	}
 }));
 
@@ -159,7 +163,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 	walletState.set = (next: typeof walletState.value) => inner.set(next);
 	return {
 		walletStore: { subscribe: inner.subscribe },
-		state: { utexoWallet: null }
+		state: walletState
 	};
 });
 
@@ -208,6 +212,7 @@ describe('BidAcceptanceFormV2', () => {
 			lnInvoice: '',
 			rgbInvoice: ''
 		});
+		walletState.utexoWallet = null;
 	});
 
 	it('locks a USD bid as dollars and offers USDT funding', () => {
@@ -411,5 +416,47 @@ describe('BidAcceptanceFormV2', () => {
 		await fireEvent.click(getByTestId('cancel-button'));
 		expect(onCancel).toHaveBeenCalledTimes(1);
 		expect(fundMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps lightning fund off when the node has no peer and does not show pending', async () => {
+		const { getByTestId, queryByText } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid(), task: makeTask() }
+		});
+		await fireEvent.click(getByTestId('fund-rail-lightning'));
+		expect(queryByText('dashboard.bids.bid_acceptance.lightning_pending')).toBeNull();
+		expect(getByTestId('lightning-no-peer').textContent).toContain('wallet.lightning_no_peer');
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
+		expect(showSuccessToast).not.toHaveBeenCalled();
+	});
+
+	it('locks a lightning dollar bid in sats and disables pay when the invoice is rgb', async () => {
+		walletState.utexoWallet = {
+			listPeers: () => Promise.resolve([{ pubkey: '02aa' }]),
+			listChannels: () => Promise.resolve([])
+		};
+		const { getByTestId } = render(BidAcceptanceFormV2, {
+			props: { bid: makeBid(), task: makeTask() }
+		});
+		await fireEvent.click(getByTestId('fund-rail-lightning'));
+		await waitFor(() =>
+			expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(false)
+		);
+		await fireEvent.click(getByTestId('accept-fund-button'));
+		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(1));
+		expect(runeConstructorArgs.current).toMatchObject({
+			lockedCurrency: 'SATS',
+			lockedAmount: 205_000,
+			amountSats: 205_000,
+			split: {
+				primaryAsset: 'btc_lightning',
+				primaryPercentage: 100,
+				secondaryAsset: 'usdt_rgb',
+				secondaryPercentage: 0
+			}
+		});
+		await waitFor(() =>
+			expect((getByTestId('pay-funding-from-wallet') as HTMLButtonElement).disabled).toBe(true)
+		);
+		expect(showSuccessToast).not.toHaveBeenCalled();
 	});
 });

@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { ContractRune as ServiceRune } from '$lib/services/rgb/contract-rune';
 import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
-import { lspChannelOpen, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
+import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
+import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 
 vi.mock('$lib/stores/wallet/signet-lsp', () => ({
-	payEscrowLightning: vi.fn().mockResolvedValue(undefined),
-	lspChannelOpen: vi.fn(() => true)
+	payEscrowLightning: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
@@ -22,6 +22,10 @@ function walletDouble() {
 		onchainReceive: vi.fn().mockResolvedValue({ invoice: PAYOUT, recipientId: 'recv-1' }),
 		onchainSend: vi.fn().mockResolvedValue({ txid: 'a'.repeat(64), batchTransferIdx: 0 }),
 		refreshWallet: vi.fn().mockResolvedValue(undefined),
+		listChannels: vi.fn().mockResolvedValue([{ isUsable: true, assetId: ESCROW_LNUSDT }]),
+		listPeers: vi.fn().mockResolvedValue([{ pubkey: '02aa' }]),
+		decodeLnInvoice: vi.fn(),
+		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'ln-paid', status: 'settled' }),
 		listAssets: vi.fn().mockResolvedValue({
 			nia: [
 				{
@@ -57,7 +61,6 @@ describe('escrow lifecycle', () => {
 		ServiceRune.clearRegistry();
 		ContractRune.clearRegistry();
 		vi.mocked(payEscrowLightning).mockClear();
-		vi.mocked(lspChannelOpen).mockReturnValue(true);
 		state.utexoWallet = walletDouble() as never;
 		delete (window as Window & { __E2E_TASKEE_INVOICE?: string }).__E2E_TASKEE_INVOICE;
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
@@ -121,9 +124,9 @@ describe('escrow lifecycle', () => {
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
-	it('does not call onchainSend when the LSP channel is closed', async () => {
-		vi.mocked(lspChannelOpen).mockReturnValue(false);
+	it('does not call sendAsset when the LSP channel is closed', async () => {
 		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		wallet.listChannels.mockResolvedValue([]);
 		const rune = new ContractRune({
 			contractId: 'contract-channel-closed',
 			totalAmountUsd: 11,
@@ -138,6 +141,7 @@ describe('escrow lifecycle', () => {
 		await expect(rune.payFundingFromWallet()).rejects.toThrow('LSP channel is not open');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 	});
 
 	it('attaches a blank taskee invoice without spendable USDT', async () => {
@@ -313,5 +317,138 @@ describe('escrow lifecycle', () => {
 		expect(released.status).toBe('released');
 		expect(released.payoutInvoice).toBe(PAYOUT);
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
+	});
+
+	function lightningContract(id: string) {
+		return new ContractRune({
+			contractId: id,
+			totalAmountUsd: 11,
+			amountSats: 3075,
+			lockedAmount: 3075,
+			lockedCurrency: 'SATS',
+			split: {
+				primaryAsset: 'btc_lightning',
+				primaryPercentage: 100,
+				secondaryAsset: 'usdt_rgb',
+				secondaryPercentage: 0
+			}
+		});
+	}
+
+	function liveBolt11(sats = 3075, payee = '02aa') {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const nowSec = Math.floor(Date.now() / 1000);
+		wallet.decodeLnInvoice.mockResolvedValue({
+			paymentHash: 'aa',
+			amtMsat: sats * 1000,
+			timestamp: nowSec,
+			expirySeconds: 3600,
+			payee
+		});
+		return wallet;
+	}
+
+	it('pays a lightning dollar bid with payLightningInvoice and never sendAsset', async () => {
+		const wallet = liveBolt11();
+		const invoice = 'lntbs30u1dollar';
+		const rune = lightningContract('contract-lightning-dollar');
+		await rune.prepareFunding(invoice);
+		await rune.payFundingFromWallet();
+		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: invoice });
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+	});
+
+	it('pays a service bitcoin escrow with payLightningInvoice and never sendAsset', async () => {
+		const wallet = liveBolt11();
+		const invoice = 'lntbs30u1service';
+		const rune = lightningContract('contract-service-bitcoin');
+		await rune.prepareFunding(invoice);
+		await rune.payFundingFromWallet();
+		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: invoice });
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
+	it('rejects an rgb invoice on the sats rail and a bolt11 on the RGB rail', async () => {
+		const rune = lightningContract('contract-wrong-prefix');
+		await expect(rune.prepareFunding('rgb:~/~/aa/sb:utxob:taskee-blank')).rejects.toThrow(
+			'Sats escrow requires a Lightning invoice'
+		);
+		const usdt = new ContractRune({
+			contractId: 'contract-wrong-ln',
+			totalAmountUsd: 11,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		await expect(usdt.prepareFunding('lntbs30u1example')).rejects.toThrow(
+			'USDT escrow requires an rgb: invoice'
+		);
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
+	it('blocks sats fund when peers and channels are both empty', async () => {
+		const wallet = liveBolt11();
+		wallet.listPeers.mockResolvedValue([]);
+		wallet.listChannels.mockResolvedValue([]);
+		const rune = lightningContract('contract-no-peer');
+		await rune.prepareFunding('lntbs30u1empty');
+		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning node has no peer');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		expect(rune.status).not.toBe('funded');
+	});
+
+	it('refuses a bolt11 paid to the bot pubkey', async () => {
+		const wallet = liveBolt11(
+			3075,
+			'023bafd0d9d2a72958ff8332b9a36972152b410c91e332da1716d3f7ea0831b650'
+		);
+		const rune = lightningContract('contract-bot-bolt11');
+		await rune.prepareFunding('lntbs30u1bot');
+		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning peer is refused');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
+	it('rejects a bolt11 whose amount or expiry does not match the locked sats', async () => {
+		const wallet = liveBolt11(1000);
+		const mismatch = lightningContract('contract-amount-mismatch');
+		await mismatch.prepareFunding('lntbs30u1mismatch');
+		await expect(mismatch.payFundingFromWallet()).rejects.toThrow(
+			'Lightning invoice amount does not match the locked sats'
+		);
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+
+		const expired = lightningContract('contract-expired');
+		wallet.decodeLnInvoice.mockResolvedValue({
+			paymentHash: 'aa',
+			amtMsat: 3_075_000,
+			timestamp: 1_000,
+			expirySeconds: 60,
+			payee: '02aa'
+		});
+		await expired.prepareFunding('lntbs30u1expired');
+		await expect(expired.payFundingFromWallet()).rejects.toThrow('Lightning invoice is expired');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+	});
+
+	it('attests a lightning release without paying again', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = lightningContract('contract-ln-release');
+		rune.status = 'approved';
+		const released = await rune.releaseEscrow('lntbs30u1payout');
+		expect(released.status).toBe('released');
+		expect(released.payoutInvoice).toBe('lntbs30u1payout');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		const wrong = lightningContract('contract-ln-release-rgb');
+		wrong.status = 'approved';
+		await expect(wrong.releaseEscrow('rgb:~/~/aa/sb:utxob:payout')).rejects.toThrow(
+			'Sats escrow requires a Lightning invoice'
+		);
 	});
 });

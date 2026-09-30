@@ -1,7 +1,19 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { lspChannelOpen, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
+import { walletManager } from '$lib/stores/wallet/wallet-manager';
+import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
+import {
+	assertInvoiceRail,
+	bolt11Expired,
+	bolt11MatchesSats,
+	isEscrowBolt11,
+	isLightningRail,
+	isRgbInvoice,
+	lightningNodeEmpty,
+	lnUsdtOpen,
+	refusedBotPayee
+} from '$lib/services/rgb/escrow-rail';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
@@ -196,8 +208,9 @@ function readTaskeeInvoice(): string | undefined {
 	const invoice = (
 		window as Window & { __E2E_TASKEE_INVOICE?: string }
 	).__E2E_TASKEE_INVOICE?.trim();
-	if (!invoice || (!invoice.startsWith('rgb:') && !invoice.startsWith('rgb1'))) return undefined;
-	return invoice;
+	if (!invoice) return undefined;
+	if (isRgbInvoice(invoice) || isEscrowBolt11(invoice)) return invoice;
+	return undefined;
 }
 
 function escrowAssetId(nia: readonly SpendableNia[]): string | undefined {
@@ -389,6 +402,7 @@ export class ContractRune {
 				typeof wallet.onchainReceive === 'function' && typeof wallet.listAssets === 'function';
 			if (taskeeInvoice || canSendRgb) {
 				if (!taskeeInvoice) throw new TaskeeInvoiceRequired();
+				assertInvoiceRail(this.split.primaryAsset, taskeeInvoice);
 				// The blank invoice is the contract lock. Spendable USDT is checked on Pay.
 				const listed =
 					typeof wallet.listAssets === 'function'
@@ -603,9 +617,7 @@ export class ContractRune {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
 		const payout = (invoice ?? this.payoutInvoice)?.trim() ?? '';
-		if (payout && !payout.startsWith('rgb:') && !payout.startsWith('rgb1')) {
-			throw new Error('Payout destination must be an rgb: invoice.');
-		}
+		if (payout) assertInvoiceRail(this.split.primaryAsset, payout);
 		if (payout) this.payoutInvoice = payout;
 		this.status = 'released';
 		this.error = null;
@@ -615,16 +627,35 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	private async sendToInvoice(invoice: string): Promise<void> {
-		const normalizedInvoice = invoice.trim();
+	private lockedSats(): number {
+		if (this.lockedCurrency === 'SATS' && this.lockedAmount > 0) return this.lockedAmount;
+		if (this.amountSats && this.amountSats > 0) return this.amountSats;
+		throw new Error('Lightning invoice amount does not match the locked sats');
+	}
+
+	private async payBolt11(invoice: string): Promise<void> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
-
-		// Enforce RGB invoices only
-		if (!normalizedInvoice.startsWith('rgb1') && !normalizedInvoice.startsWith('rgb:')) {
-			throw new Error('Funding destination must be an rgb: invoice for RGB-native escrow.');
+		const peers = typeof wallet.listPeers === 'function' ? await wallet.listPeers() : [];
+		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
+		if (lightningNodeEmpty(peers, channels)) throw new Error('Lightning node has no peer');
+		const decoded = await wallet.decodeLnInvoice(invoice);
+		if (refusedBotPayee(decoded.payee)) throw new Error('Lightning peer is refused');
+		if (!bolt11MatchesSats(decoded.amtMsat, this.lockedSats())) {
+			throw new Error('Lightning invoice amount does not match the locked sats');
 		}
-		if (!lspChannelOpen()) throw new Error('LSP channel is not open');
+		const nowSec = Math.floor(Date.now() / 1000);
+		if (bolt11Expired(decoded.timestamp, decoded.expirySeconds, nowSec)) {
+			throw new Error('Lightning invoice is expired');
+		}
+		await walletManager.payLightningInvoice({ lnInvoice: invoice });
+	}
+
+	private async payRgbInvoice(invoice: string): Promise<void> {
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('RGB wallet is not initialized');
+		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
+		if (!lnUsdtOpen(channels)) throw new Error('LSP channel is not open');
 
 		const assets = spendableRgbAssets(await wallet.listAssets());
 		const expectedAssetId = escrowAssetId(assets);
@@ -649,10 +680,10 @@ export class ContractRune {
 		console.info('[contract-rune] sendToInvoice', {
 			assetId: expectedAssetId,
 			amount: baseUnits,
-			invoicePrefix: normalizedInvoice.slice(0, 40)
+			invoicePrefix: invoice.slice(0, 40)
 		});
 		try {
-			await payEscrowLightning(normalizedInvoice, expectedAssetId, baseUnits);
+			await payEscrowLightning(invoice, expectedAssetId, baseUnits);
 			console.info('[contract-rune] sendToInvoice completed', {
 				assetId: expectedAssetId,
 				amount: baseUnits
@@ -666,12 +697,24 @@ export class ContractRune {
 		}
 	}
 
+	private async sendToInvoice(invoice: string): Promise<void> {
+		const normalizedInvoice = invoice.trim();
+		if (!state.utexoWallet) throw new Error('RGB wallet is not initialized');
+		assertInvoiceRail(this.split.primaryAsset, normalizedInvoice);
+		if (isLightningRail(this.split.primaryAsset)) {
+			await this.payBolt11(normalizedInvoice);
+			return;
+		}
+		await this.payRgbInvoice(normalizedInvoice);
+	}
+
 	async release(invoice: string): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'funded' && this.status !== 'work_submitted') {
 			throw new Error(`Cannot release contract from ${this.status} state`);
 		}
 		return this.runTransition('releasing', async () => {
-			await this.sendToInvoice(invoice);
+			assertInvoiceRail(this.split.primaryAsset, invoice);
+			this.payoutInvoice = invoice;
 			this.status = 'released';
 			await this.attest('released');
 			return this.snapshot;

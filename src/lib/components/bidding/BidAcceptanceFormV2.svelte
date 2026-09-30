@@ -13,8 +13,9 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { onMount } from 'svelte';
-	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { walletStore, state as walletState } from '$lib/stores/wallet/wallet-state';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
+	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
@@ -33,6 +34,12 @@
 		primaryAsset: 'usdt_rgb',
 		primaryPercentage: 100,
 		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 0
+	};
+	const LIGHTNING_SPLIT: PaymentSplitConfig = {
+		primaryAsset: 'btc_lightning',
+		primaryPercentage: 100,
+		secondaryAsset: 'usdt_rgb',
 		secondaryPercentage: 0
 	};
 
@@ -60,6 +67,7 @@
 		bidContent ? lockBidAmount(bidContent.amount, bidContent.currency) : null
 	);
 	let fundRail = $state<'usdt_rgb' | 'btc_lightning'>('usdt_rgb');
+	let nodeEmpty = $state(true);
 	const lightningSats = $derived(
 		dollarBid && lockedBid ? resolveBidSats(lockedBid.lockedAmount, 'USD', btcPrice.price) : null
 	);
@@ -93,7 +101,9 @@
 		bidContent?.proposedApproach || bidContent?.coverLetter || bidContent?.description || ''
 	);
 
-	const split = $derived(dollarBid ? USDT_SPLIT : BTC_ONLY_SPLIT);
+	const split = $derived(
+		!dollarBid ? BTC_ONLY_SPLIT : fundRail === 'btc_lightning' ? LIGHTNING_SPLIT : USDT_SPLIT
+	);
 	const settlementUnit = $derived(CONTRACT_PAYMENT_ASSETS[split.primaryAsset]);
 
 	let isProcessing = $state(false);
@@ -113,10 +123,15 @@
 			bidContent !== null &&
 			lockedBid !== null &&
 			(dollarBid
-				? fundRail === 'usdt_rgb' && $lightningStore.ready
+				? fundRail === 'btc_lightning'
+					? !nodeEmpty && totalSats !== null
+					: $lightningStore.ready
 				: totalSats !== null && totalUsd !== null)
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
+	const payMatchesRail = $derived(
+		fundingInvoice.length > 0 && invoiceMatchesRail(split.primaryAsset, fundingInvoice)
+	);
 	const awaitingFunding = $derived(Boolean(fundedRune && !escrowReady && fundingInvoice));
 	const fundingStep = $derived(escrowReady ? 3 : awaitingFunding ? 2 : 1);
 
@@ -169,6 +184,19 @@
 
 	function contractInput(bidderPubkey: string) {
 		const partyPubkeys = [bidderPubkey, task.pubkey].filter((key): key is string => Boolean(key));
+		if (dollarBid && fundRail === 'btc_lightning') {
+			return {
+				contractId: `contract-${task.id}-${bid.id}`,
+				contractTitle,
+				bidderComments,
+				totalAmountUsd: totalUsd ?? 0,
+				amountSats: totalSats ?? undefined,
+				lockedAmount: totalSats ?? 0,
+				lockedCurrency: 'SATS' as const,
+				split,
+				partyPubkeys
+			};
+		}
 		if (dollarBid && lockedBid?.lockedCurrency === 'USD') {
 			return {
 				contractId: `contract-${task.id}-${bid.id}`,
@@ -195,10 +223,6 @@
 	}
 
 	async function handleAcceptAndFund(): Promise<void> {
-		if (dollarBid && fundRail === 'btc_lightning') {
-			errorMessage = $t('dashboard.bids.bid_acceptance.lightning_pending');
-			return;
-		}
 		if (!bidContent) {
 			errorMessage = 'Bid content is unavailable';
 			return;
@@ -310,7 +334,11 @@
 	});
 
 	async function handlePayFromWallet(): Promise<void> {
-		if (!fundedRune || !fundedContractId || !bidContent?.bidderId) return;
+		if (!fundedRune || !fundedContractId || !bidContent?.bidderId || !payMatchesRail) return;
+		if (dollarBid && fundRail === 'btc_lightning' && nodeEmpty) {
+			errorMessage = $t('wallet.lightning_no_peer');
+			return;
+		}
 		isProcessing = true;
 		errorMessage = '';
 		processingStep = 'paying';
@@ -382,9 +410,16 @@
 	}
 
 	onMount(() => {
-		walletManager.initialize().catch((error: unknown) => {
-			console.warn('[bid-acceptance] wallet init failed', error);
-		});
+		walletManager
+			.initialize()
+			.then(() => satsRailBlocked(walletState.utexoWallet))
+			.then((blocked) => {
+				nodeEmpty = blocked;
+			})
+			.catch((error: unknown) => {
+				nodeEmpty = true;
+				console.warn('[bid-acceptance] wallet init failed', error);
+			});
 	});
 </script>
 
@@ -480,9 +515,6 @@
 										values: { amount: formatInteger(lightningSats) }
 									})}
 						</p>
-						<p class="text-base-content/60 text-xs">
-							{$t('dashboard.bids.bid_acceptance.lightning_pending')}
-						</p>
 					{/if}
 				</div>
 			{/if}
@@ -520,13 +552,22 @@
 			</span>
 		</div>
 	{/if}
-	{#if dollarBid && !$lightningStore.ready}
+	{#if dollarBid && fundRail === 'usdt_rgb' && !$lightningStore.ready}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"
 			data-testid="lsp-channel-closed"
 		>
 			{$t('wallet.lightning_channel_closed')}
+		</div>
+	{/if}
+	{#if dollarBid && fundRail === 'btc_lightning' && nodeEmpty}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="lightning-no-peer"
+		>
+			{$t('wallet.lightning_no_peer')}
 		</div>
 	{/if}
 	{#if hasInsufficientFunds}
@@ -593,7 +634,7 @@
 				type="button"
 				class="btn btn-primary glow-soft w-full"
 				onclick={handlePayFromWallet}
-				disabled={isProcessing}
+				disabled={isProcessing || !payMatchesRail}
 				data-testid="pay-funding-from-wallet"
 			>
 				{#if isProcessing && processingStep === 'paying'}

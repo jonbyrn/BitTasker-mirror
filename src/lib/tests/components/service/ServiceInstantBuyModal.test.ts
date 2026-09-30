@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
+import { state } from '$lib/stores/wallet/wallet-state';
 
 const { runeConstructorArgs, prepareFunding, payFundingFromWallet, lightningState } = vi.hoisted(
 	() => {
@@ -68,6 +69,10 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 		initialize: vi.fn().mockResolvedValue(undefined),
 		releaseRgbLock: vi.fn().mockResolvedValue(undefined)
 	}
+}));
+
+vi.mock('$lib/runes/btcPrice.svelte', () => ({
+	btcPrice: { price: 100_000 }
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -148,6 +153,7 @@ vi.mock('svelte-i18n', async () => {
 
 describe('ServiceInstantBuyModal', () => {
 	beforeEach(() => {
+		state.utexoWallet = null;
 		lightningState.set({
 			ready: true,
 			peerHost: 'lsp-signet.utexo.com',
@@ -406,5 +412,60 @@ describe('ServiceInstantBuyModal', () => {
 
 		expect(getByTestId('service-instant-buy-reconnect-alert')).toBeTruthy();
 		expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('builds a bitcoin service escrow on the sats rail', async () => {
+		state.utexoWallet = {
+			listPeers: () => Promise.resolve([{ pubkey: '02aa' }]),
+			listChannels: () => Promise.resolve([])
+		} as never;
+		const { getByTestId } = render(ServiceInstantBuyModal, {
+			open: true,
+			serviceTitle: 'Brand Identity Sprint',
+			providerPubkey: 'a'.repeat(64),
+			amountUsd: 250,
+			escrowInvoice: 'lntbs30u1service',
+			agreementSnapshot: {
+				deliverables: 'Logo system and social avatar pack.',
+				priceSnapshotLabel: '$250.00'
+			},
+			canConfirm: true
+		});
+		await fireEvent.click(getByTestId('service-source-btc'));
+		await waitFor(() =>
+			expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(false)
+		);
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await waitFor(() => expect(prepareFunding).toHaveBeenCalledWith('lntbs30u1service'));
+		expect(runeConstructorArgs.current).toMatchObject({
+			lockedCurrency: 'SATS',
+			lockedAmount: 256_750,
+			amountSats: 256_750,
+			split: {
+				primaryAsset: 'btc_lightning',
+				primaryPercentage: 100,
+				secondaryAsset: 'usdt_rgb',
+				secondaryPercentage: 0
+			}
+		});
+	});
+
+	it('does not fund a bitcoin service when the invoice is rgb', async () => {
+		payFundingFromWallet.mockClear();
+		state.utexoWallet = {
+			listPeers: () => Promise.resolve([{ pubkey: '02aa' }]),
+			listChannels: () => Promise.resolve([])
+		} as never;
+		const { getByTestId } = render(ServiceInstantBuyModal, {
+			open: true,
+			serviceTitle: 'Brand Identity Sprint',
+			amountUsd: 250,
+			escrowInvoice: 'rgb:~/~/aa/sb:utxob:taskee-blank',
+			canConfirm: true
+		});
+		await fireEvent.click(getByTestId('service-source-btc'));
+		await waitFor(() => expect(getByTestId('service-instant-buy-confirm')).toBeTruthy());
+		expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(true);
+		expect(payFundingFromWallet).not.toHaveBeenCalled();
 	});
 });

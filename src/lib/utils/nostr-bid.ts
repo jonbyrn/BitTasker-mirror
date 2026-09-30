@@ -17,6 +17,7 @@ import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveSharedRelays } from '$lib/utils/relayUrls';
+import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 
 const BID_RELAYS = resolveSharedRelays();
 
@@ -467,7 +468,7 @@ export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | n
  */
 export function readFundingInvoice(status: NostrBidStatus | null): string | undefined {
 	const invoice = status?.invoice?.trim() ?? '';
-	if (!invoice.startsWith('rgb:') && !invoice.startsWith('rgb1')) return undefined;
+	if (!isRgbInvoice(invoice) && !isEscrowBolt11(invoice)) return undefined;
 	return invoice;
 }
 
@@ -514,8 +515,8 @@ export async function publishFundingInvoice(
 	invoice: string
 ): Promise<boolean> {
 	const trimmed = invoice.trim();
-	if (!trimmed.startsWith('rgb:') && !trimmed.startsWith('rgb1')) {
-		throw new Error('Escrow invoice must be an rgb invoice');
+	if (!isRgbInvoice(trimmed) && !isEscrowBolt11(trimmed)) {
+		throw new Error('Escrow invoice must be an rgb or lightning invoice');
 	}
 	const tasker = taskerPubkey.trim();
 	if (!tasker) return false;

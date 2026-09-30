@@ -9,6 +9,10 @@
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
+	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
+	import { state as walletState } from '$lib/stores/wallet/wallet-state';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { resolveBidSats } from '$lib/utils/nostr-bid';
 	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -140,7 +144,8 @@
 	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
 
 	let selectedSource = $state<'btc' | 'usdt'>('usdt');
-	const lspPayReady = $derived(selectedSource !== 'usdt' || $lightningStore.ready);
+	let nodeEmpty = $state(true);
+	const lspPayReady = $derived(selectedSource === 'usdt' ? $lightningStore.ready : !nodeEmpty);
 	let sourceExpanded = $state(false);
 	const paymentSplitEnabled = false;
 	let paymentSplit = $state<PaymentSplitConfig>({
@@ -195,6 +200,16 @@
 	const savingsLabel = $derived(formatUsdLabel(savingsValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
+	const lockedSats = $derived(
+		totalPaymentValue == null ? null : resolveBidSats(totalPaymentValue, 'USD', btcPrice.price)
+	);
+	const escrowRail = $derived<'usdt_rgb' | 'btc_lightning'>(
+		selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_lightning'
+	);
+	const postedInvoice = $derived(escrowInvoice?.trim() ?? '');
+	const invoiceReady = $derived(
+		postedInvoice.length === 0 || invoiceMatchesRail(escrowRail, postedInvoice)
+	);
 	const resolvedErrorMessage = $derived(runeError || errorMessage);
 
 	// Wallet card props — switch based on selected source
@@ -232,6 +247,21 @@
 		const requiredNum = parseUsdString(effectiveRequired);
 		if (isNaN(walletNum) || isNaN(requiredNum)) return false;
 		return walletNum < requiredNum;
+	});
+
+	$effect(() => {
+		if (!open || selectedSource !== 'btc') return;
+		let stale = false;
+		satsRailBlocked(walletState.utexoWallet)
+			.then((blocked) => {
+				if (!stale) nodeEmpty = blocked;
+			})
+			.catch(() => {
+				if (!stale) nodeEmpty = true;
+			});
+		return () => {
+			stale = true;
+		};
 	});
 
 	let showFullIncludedScope = $state(false);
@@ -289,7 +319,15 @@
 	}
 
 	function handleDrawerConfirmClick() {
-		if (!canConfirm || isPreparing || isOffline || isSubmitting || isFunding || !lspPayReady) {
+		if (
+			!canConfirm ||
+			isPreparing ||
+			isOffline ||
+			isSubmitting ||
+			isFunding ||
+			!lspPayReady ||
+			!invoiceReady
+		) {
 			return;
 		}
 
@@ -321,6 +359,13 @@
 					contractTitle: serviceTitle || resolvedTitle,
 					bidderComments: includedScope,
 					totalAmountUsd: totalPaymentValue,
+					...(selectedSource === 'btc' && lockedSats
+						? {
+								amountSats: lockedSats,
+								lockedAmount: lockedSats,
+								lockedCurrency: 'SATS' as const
+							}
+						: {}),
 					split: singleAssetSplit(selectedSource),
 					partyPubkeys: providerPubkey ? [providerPubkey] : []
 				});
@@ -350,7 +395,7 @@
 
 	function singleAssetSplit(source: 'btc' | 'usdt'): PaymentSplitConfig {
 		return {
-			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain',
+			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_lightning',
 			primaryPercentage: 100,
 			secondaryAsset: source === 'usdt' ? 'btc_onchain' : 'usdt_rgb',
 			secondaryPercentage: 0
@@ -366,7 +411,7 @@
 		paymentSplit = paymentSplitEnabled
 			? {
 					...paymentSplit,
-					primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_onchain'
+					primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_lightning'
 				}
 			: singleAssetSplit(source);
 	}
@@ -376,6 +421,17 @@
 		runeError = '';
 		if (selectedSource === 'usdt' && !$lightningStore.ready) {
 			runeError = $t('wallet.lightning_channel_closed');
+			return;
+		}
+		if (selectedSource === 'btc' && nodeEmpty) {
+			runeError = $t('wallet.lightning_no_peer');
+			return;
+		}
+		if (postedInvoice && !invoiceMatchesRail(escrowRail, postedInvoice)) {
+			runeError =
+				selectedSource === 'btc'
+					? 'Sats escrow requires a Lightning invoice'
+					: 'USDT escrow requires an rgb: invoice';
 			return;
 		}
 		const runeToPay = contractRune ?? localContractRune;
@@ -403,7 +459,12 @@
 		confirmLabel={readyToPay
 			? $t('dashboard.bids.bid_acceptance.step_pay')
 			: $t('dashboard.services.detail.book_now_drawer.confirm_cta')}
-		canConfirm={canConfirm && !isPreparing && !isOffline && !isFunding && lspPayReady}
+		canConfirm={canConfirm &&
+			!isPreparing &&
+			!isOffline &&
+			!isFunding &&
+			lspPayReady &&
+			invoiceReady}
 		hideFooter={showingContractCreationProgress}
 		allowCloseWhileSubmitting={showingContractCreationProgress}
 		isSubmitting={isSubmitting || isFunding}
@@ -691,6 +752,15 @@
 									{$t('wallet.lightning_channel_closed')}
 								</div>
 							{/if}
+							{#if selectedSource === 'btc' && nodeEmpty}
+								<div
+									class="alert alert-outline alert-warning text-sm"
+									role="status"
+									data-testid="lightning-no-peer"
+								>
+									{$t('wallet.lightning_no_peer')}
+								</div>
+							{/if}
 
 							<!-- Source Wallet Selector -->
 							<div class="form-control">
@@ -729,6 +799,7 @@
 													syncSplitForSource('btc');
 													sourceExpanded = false;
 												}}
+												data-testid="service-source-btc"
 											>
 												<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-5 w-5" />
 												<span>{$t('wallet.bitcoin')}</span>
@@ -797,7 +868,7 @@
 							{#if paymentSplitEnabled}
 								<PaymentSplitSlider
 									totalAmountUsd={totalPaymentValue ?? 0}
-									primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_onchain'}
+									primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_lightning'}
 									secondaryAsset={selectedSource === 'usdt' ? 'btc_lightning' : 'usdt_rgb'}
 									onSplitChange={updatePaymentSplit}
 								/>

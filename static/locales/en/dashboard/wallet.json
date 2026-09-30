@@ -512,6 +512,7 @@
 		"lightning_channel_open": "LSP channel is open",
 		"lightning_channel_missing": "No LSP channel yet",
 		"lightning_channel_closed": "LSP channel not open",
+		"lightning_no_peer": "Lightning node has no peer",
 		"lightning_rgb_invoice": "On-chain RGB invoice",
 		"lightning_ln_invoice": "Lightning invoice",
 		"utxo_state": "Assets on Bitcoin",

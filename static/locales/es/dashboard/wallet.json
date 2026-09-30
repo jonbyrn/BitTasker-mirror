@@ -511,6 +511,7 @@
 		"lightning_channel_open": "El canal LSP está abierto",
 		"lightning_channel_missing": "Aún no hay canal LSP",
 		"lightning_channel_closed": "El canal LSP no está abierto",
+		"lightning_no_peer": "El nodo Lightning no tiene un par",
 		"lightning_rgb_invoice": "Factura RGB en cadena",
 		"lightning_ln_invoice": "Factura Lightning",
 		"utxo_state": "Activos en Bitcoin",

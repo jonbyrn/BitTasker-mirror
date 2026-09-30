@@ -229,6 +229,9 @@ describe('sendBidStatusUpdate', () => {
 		expect(payload.status).toBe(BidStatusEnum.ACCEPTED);
 		expect(readFundingInvoice(payload)).toBe(invoice);
 		expect(readFundingInvoice({ ...payload, invoice: 'not-rgb' })).toBeUndefined();
+		expect(readFundingInvoice({ ...payload, invoice: 'lntbs30u1example' })).toBe(
+			'lntbs30u1example'
+		);
 	});
 
 	it('keeps the escrow invoice when a newer status omits it', () => {
