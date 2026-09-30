@@ -6,7 +6,7 @@ import {
 } from '$lib/services/rgb/psbt-escrow';
 import { soleIfaAsset, spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
 import { decodeRgbInvoice } from './decode-rgb-invoice';
-import { confirmSignetTx } from './signet-broadcast';
+import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
 import { persistWalletSnapshot } from './wallet-balances';
 import { prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
@@ -85,8 +85,18 @@ export async function sendRgbAsset(params: {
 		feeRate: 2
 	});
 	const signed = await signEscrowPsbt(signer, psbt);
-	const txid = await broadcastEscrowPsbt(signer, signed);
-	await confirmSignetTx(txid);
+	console.info('[wallet-send] sendBegin', { psbtChars: psbt.length });
+	const claimed = await broadcastEscrowPsbt(signer, signed);
+	const raw = extractSignedTx(signed);
+	if (raw.txid !== claimed) {
+		console.warn('[wallet-send] sendEnd txid is not the signed transaction', {
+			sendEnd: claimed,
+			signed: raw.txid
+		});
+	}
+	await publishSignetTx(raw.hex);
+	await confirmSignetTx(raw.txid);
+	const txid = raw.txid;
 	await persistWalletSnapshot(wallet).catch((error: unknown) => {
 		console.warn(
 			'[wallet-send] backup after send failed',

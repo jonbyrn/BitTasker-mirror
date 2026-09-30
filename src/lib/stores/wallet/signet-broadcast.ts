@@ -1,11 +1,46 @@
 import { signetTxUrl } from '$lib/components/wallet/wallet-formatters';
+import { Psbt } from '$lib/shims/bitcoinjs-lib';
 
 const SIGNET_TX_PAUSES = [0, 2000, 2000, 2000, 2000] as const;
+const SIGNET_BROADCAST_URL = 'https://esplora-api.utexo.com/tx';
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
 	});
+}
+
+/** Raw transaction from a signed PSBT. sendEnd's hex is not used in its place. */
+export function extractSignedTx(signedPsbt: string): { txid: string; hex: string } {
+	const psbt = Psbt.fromBase64(signedPsbt);
+	let tx: { toHex(): string; getId(): string };
+	try {
+		tx = psbt.extractTransaction();
+	} catch {
+		psbt.finalizeAllInputs();
+		tx = psbt.extractTransaction();
+	}
+	const hex = tx.toHex();
+	const txid = tx.getId();
+	if (!/^[0-9a-f]{64}$/i.test(txid) || !/^[0-9a-f]+$/i.test(hex)) {
+		throw new Error('Signed PSBT did not produce a transaction');
+	}
+	return { txid, hex };
+}
+
+/** POST the raw transaction. A non-OK response is the send error. */
+export async function publishSignetTx(rawHex: string): Promise<void> {
+	if (!/^[0-9a-f]+$/i.test(rawHex) || rawHex.length < 20) {
+		throw new Error('Signed PSBT did not produce a transaction');
+	}
+	const response = await fetch(SIGNET_BROADCAST_URL, {
+		method: 'POST',
+		headers: { 'content-type': 'text/plain' },
+		body: rawHex
+	});
+	if (response.ok) return;
+	const detail = (await response.text()).trim();
+	throw new Error(detail || `Esplora refused the transaction (${response.status})`);
 }
 
 /** True when UTEXO Signet Esplora already has this transaction. */

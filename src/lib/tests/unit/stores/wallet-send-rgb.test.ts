@@ -9,7 +9,9 @@ const {
 	loadAssets,
 	persistWalletSnapshot,
 	updateWallet,
-	confirmSignetTx
+	confirmSignetTx,
+	extractSignedTx,
+	publishSignetTx
 } = vi.hoisted(() => ({
 	onchainSendBegin: vi.fn().mockResolvedValue('cHNidP-unsigned'),
 	signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
@@ -19,7 +21,9 @@ const {
 	loadAssets: vi.fn().mockResolvedValue(undefined),
 	persistWalletSnapshot: vi.fn().mockResolvedValue(undefined),
 	updateWallet: vi.fn(),
-	confirmSignetTx: vi.fn().mockResolvedValue(undefined)
+	confirmSignetTx: vi.fn().mockResolvedValue(undefined),
+	extractSignedTx: vi.fn(() => ({ txid: 'ab'.repeat(32), hex: '0200000001' })),
+	publishSignetTx: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/stores/wallet/wallet-state', () => ({
@@ -37,7 +41,9 @@ vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 }));
 
 vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
-	confirmSignetTx
+	confirmSignetTx,
+	extractSignedTx,
+	publishSignetTx
 }));
 
 import { sendRgbAsset } from '$lib/stores/wallet/wallet-send';
@@ -81,7 +87,12 @@ describe('sendRgbAsset', () => {
 		});
 		expect(signPsbt).toHaveBeenCalledWith('cHNidP-unsigned');
 		expect(onchainSendEnd).toHaveBeenCalledWith({ signedPsbt: 'cHNidP-signed' });
+		expect(extractSignedTx).toHaveBeenCalledWith('cHNidP-signed');
+		expect(publishSignetTx).toHaveBeenCalledWith('0200000001');
 		expect(confirmSignetTx).toHaveBeenCalledWith('ab'.repeat(32));
+		expect(publishSignetTx.mock.invocationCallOrder[0]).toBeLessThan(
+			confirmSignetTx.mock.invocationCallOrder[0]
+		);
 		expect(persistWalletSnapshot).toHaveBeenCalledOnce();
 		expect(sent.txid).toHaveLength(64);
 		expect(loadAssets).not.toHaveBeenCalled();
@@ -100,9 +111,24 @@ describe('sendRgbAsset', () => {
 			})
 		).rejects.toThrow('Signet indexer has no transaction');
 		expect(onchainSendEnd).toHaveBeenCalledOnce();
+		expect(publishSignetTx).toHaveBeenCalledOnce();
 		expect(persistWalletSnapshot).not.toHaveBeenCalled();
 		expect(updateWallet).not.toHaveBeenCalled();
 		expect(loadAssets).not.toHaveBeenCalled();
+	});
+
+	it('does not treat a sendEnd hash as sent when Esplora refuses the broadcast', async () => {
+		publishSignetTx.mockRejectedValueOnce(new Error('send tx: no inputs'));
+		await expect(
+			sendRgbAsset({
+				invoice: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa',
+				assetId: '',
+				amount: 1111
+			})
+		).rejects.toThrow('send tx: no inputs');
+		expect(confirmSignetTx).not.toHaveBeenCalled();
+		expect(persistWalletSnapshot).not.toHaveBeenCalled();
+		expect(updateWallet).not.toHaveBeenCalled();
 	});
 
 	it('does not report success when sendEnd has no txid', async () => {
@@ -114,6 +140,7 @@ describe('sendRgbAsset', () => {
 				amount: 1111
 			})
 		).rejects.toThrow('sendEnd did not return a txid');
+		expect(publishSignetTx).not.toHaveBeenCalled();
 		expect(persistWalletSnapshot).not.toHaveBeenCalled();
 		expect(updateWallet).not.toHaveBeenCalled();
 	});
