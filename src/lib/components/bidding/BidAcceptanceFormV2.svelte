@@ -343,7 +343,10 @@
 		errorMessage = '';
 		processingStep = 'paying';
 		try {
-			await fundedRune.payFundingFromWallet();
+			const paid = await fundedRune.payFundingFromWallet();
+			if (paid.status === 'funded') {
+				await notifyFunded(fundedContractId, bidContent.bidderId);
+			}
 			isProcessing = false;
 			processingStep = 'idle';
 		} catch (error) {
@@ -446,7 +449,11 @@
 						</span>
 					</div>
 					<p class="text-base-content/60 text-xs" data-testid="usd-escrow-note">
-						{$t('dashboard.bids.bid_acceptance.usd_escrow_note')}
+						{$t(
+							fundRail === 'btc_lightning'
+								? 'dashboard.bids.bid_acceptance.lightning_escrow_note'
+								: 'dashboard.bids.bid_acceptance.usd_escrow_note'
+						)}
 					</p>
 				{:else}
 					<div class="flex items-center justify-between gap-3">
@@ -513,6 +520,13 @@
 								? '—'
 								: $t('dashboard.bids.bid_acceptance.lightning_sats', {
 										values: { amount: formatInteger(lightningSats) }
+									})}
+						</p>
+						<p class="text-base-content/70 text-xs" data-testid="lightning-lock-note">
+							{platformFeeSats === null
+								? '—'
+								: $t('dashboard.bids.bid_acceptance.lightning_lock_note', {
+										values: { lock: formatInteger(platformFeeSats) }
 									})}
 						</p>
 					{/if}
@@ -656,7 +670,11 @@
 			</button>
 		{:else if awaitingTaskeeInvoice}
 			<p class="text-base-content/70 text-xs" data-testid="waiting-taskee-invoice">
-				{$t('dashboard.bids.bid_acceptance.waiting_taskee_invoice')}
+				{$t(
+					fundRail === 'btc_lightning'
+						? 'dashboard.bids.bid_acceptance.waiting_lightning_invoice'
+						: 'dashboard.bids.bid_acceptance.waiting_taskee_invoice'
+				)}
 			</p>
 			<button
 				type="button"

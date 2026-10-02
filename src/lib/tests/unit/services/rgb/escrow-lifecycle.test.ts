@@ -15,6 +15,9 @@ vi.mock('$lib/utils/nostr', () => ({
 }));
 
 const PAYOUT = 'rgb:~/~/aa/sb:utxob:payout-invoice';
+const BLANK_LOCK =
+	'rgb:~/~/aa/sb:utxob:taskee-blank?assignment_name=assetOwner&expiry=1790968181&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+const PRICED = 'rgb:~/~/nWca/sb:utxob:priced-send?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 const ASSET_ID = 'rgb:h95CRali-KmzB~7j-minted';
 
 function walletDouble() {
@@ -112,15 +115,35 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
-		const prepared = await rune.prepareFunding(invoice);
+		const prepared = await rune.prepareFunding(BLANK_LOCK);
 		expect(wallet.onchainReceive).not.toHaveBeenCalled();
-		expect(prepared.fundingInvoice).toBe(invoice);
+		expect(prepared.fundingInvoice).toBe(BLANK_LOCK);
 		expect(prepared.seals[0]?.amount).toBe(4);
 
-		(window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID = ASSET_ID;
-		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ASSET_ID, 10_000);
+		const paid = await rune.payFundingFromWallet();
+		expect(paid.status).toBe('funded');
+		expect(paid.fundingInvoice).toBe(BLANK_LOCK);
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		expect(wallet.onchainSend).not.toHaveBeenCalled();
+	});
+
+	it('funds a zero invoice without an LSP channel', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		wallet.listChannels.mockResolvedValue([]);
+		const rune = new ContractRune({
+			contractId: 'contract-blank-lock',
+			totalAmountUsd: 1,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		await rune.prepareFunding(BLANK_LOCK);
+		const paid = await rune.payFundingFromWallet();
+		expect(paid.status).toBe('funded');
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
@@ -137,7 +160,7 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding('rgb:~/~/aa/sb:utxob:taskee-blank');
+		await rune.prepareFunding(PRICED);
 		await expect(rune.payFundingFromWallet()).rejects.toThrow('LSP channel is not open');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
@@ -189,11 +212,10 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
-		await rune.prepareFunding(invoice);
+		await rune.prepareFunding(PRICED);
 		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, 'rgb:usdt-signet', 11_000_000);
-		expect(payEscrowLightning).not.toHaveBeenCalledWith(invoice, 'rgb:usdt-signet', 3075);
+		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, 'rgb:usdt-signet', 11_000_000);
+		expect(payEscrowLightning).not.toHaveBeenCalledWith(PRICED, 'rgb:usdt-signet', 3075);
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
@@ -223,10 +245,9 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
-		await rune.prepareFunding(invoice);
+		await rune.prepareFunding(PRICED);
 		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ifaId, 11_000_000);
+		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ifaId, 11_000_000);
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
@@ -245,10 +266,9 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
-		await rune.prepareFunding(invoice);
+		await rune.prepareFunding(PRICED);
 		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, ASSET_ID, 10_000);
+		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ASSET_ID, 10_000);
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
@@ -345,6 +365,7 @@ describe('escrow lifecycle', () => {
 			expirySeconds: 3600,
 			payee
 		});
+		wallet.listChannels.mockResolvedValue([{ isUsable: true }]);
 		return wallet;
 	}
 
@@ -400,6 +421,16 @@ describe('escrow lifecycle', () => {
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(rune.status).not.toBe('funded');
+	});
+
+	it('refuses a bolt11 when the only channel is LNUSDT', async () => {
+		const wallet = liveBolt11();
+		wallet.listChannels.mockResolvedValue([{ isUsable: true, assetId: ESCROW_LNUSDT }]);
+		const rune = lightningContract('contract-lnusdt-only');
+		await rune.prepareFunding('lntbs30u1lnusdt');
+		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning node has no channel');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
 	it('refuses a bolt11 paid to the bot pubkey', async () => {

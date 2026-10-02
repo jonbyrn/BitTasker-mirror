@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	blankLockInvoice,
 	blindReceiveRows,
 	decodeRgbAmount,
 	decodeRgbInvoice,
@@ -40,6 +41,24 @@ describe('decodeRgbInvoice', () => {
 		const decoded = decodeRgbInvoice('rgb:~/~/~/sb:utxob:sealTok-rest');
 		expect(decoded.amount).toBeNull();
 		expect(decoded.contract).toBeNull();
+	});
+
+	it('accepts the Taskee zero Signet invoice', () => {
+		const invoice =
+			'rgb:~/~/aa/sb:utxob:6vnJE9Vp-rest?assignment_name=assetOwner&expiry=1790968181&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		expect(decodeRgbInvoice(invoice).amount).toBe(0);
+		expect(decodeRgbInvoice(invoice).network).toBe('sb');
+		expect(blankLockInvoice(invoice)).toBe(true);
+		expect(blankLockInvoice(NWCA)).toBe(false);
+	});
+
+	it('refuses a zero invoice that is not Signet or has no proxy', () => {
+		expect(() => blankLockInvoice('rgb:~/~/aa/bc:utxob:seal-rest')).toThrow(
+			'Escrow invoice network must be Signet'
+		);
+		expect(() => blankLockInvoice('rgb:~/~/aa/sb:utxob:seal-rest')).toThrow(
+			'Escrow invoice is missing the RGB proxy'
+		);
 	});
 });
 

@@ -348,8 +348,6 @@ describe('BidAcceptanceFormV2', () => {
 
 		await fireEvent.click(getByTestId('pay-funding-from-wallet'));
 		await waitFor(() => expect(fundMock).toHaveBeenCalledTimes(2));
-		expect(sendBidStatusUpdate).toHaveBeenCalledTimes(1);
-		await fireEvent.click(getByTestId('check-funding-button'));
 		await waitFor(() => expect(sendBidStatusUpdate).toHaveBeenCalledTimes(2));
 		expect(sendBidStatusUpdate).toHaveBeenCalledWith(
 			'bid-1',
@@ -432,7 +430,7 @@ describe('BidAcceptanceFormV2', () => {
 	it('locks a lightning dollar bid in sats and disables pay when the invoice is rgb', async () => {
 		walletState.utexoWallet = {
 			listPeers: () => Promise.resolve([{ pubkey: '02aa' }]),
-			listChannels: () => Promise.resolve([])
+			listChannels: () => Promise.resolve([{ isUsable: true }])
 		};
 		const { getByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask() }

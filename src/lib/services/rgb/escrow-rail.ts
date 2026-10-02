@@ -43,6 +43,9 @@ export function lnUsdtOpen(channels: unknown): boolean {
 	});
 }
 
+/** Signet will not route a native Lightning payment under this size. */
+export const LIGHTNING_MIN_LOCK_SATS = 3000;
+
 /** True when the Lightning node has neither a peer nor a channel. */
 export function lightningNodeEmpty(peers: unknown, channels: unknown): boolean {
 	const peerCount = Array.isArray(peers) ? peers.length : 0;
@@ -68,15 +71,44 @@ export function bolt11MatchesSats(
 	}
 }
 
+const FEE_RATE = 0.025;
+
+/** A usable channel that can carry sats. An LNUSDT channel is not this rail. */
+export function satsChannelOpen(channels: unknown): boolean {
+	if (!Array.isArray(channels)) return false;
+	return channels.some((row) => {
+		if (typeof row !== 'object' || row === null) return false;
+		const channel = row as { isUsable?: unknown; assetId?: unknown };
+		return channel.isUsable === true && channel.assetId !== ESCROW_LNUSDT;
+	});
+}
+
+/**
+ * Sat amounts a Lightning escrow may pay against one locked total.
+ * The lock is the fee, raised to the network minimum when that still fits the total.
+ * The balance is whatever remains of that total.
+ */
+export function escrowStageSats(lockedSats: number): number[] {
+	if (!Number.isSafeInteger(lockedSats) || lockedSats <= 0) return [];
+	const fee = Math.max(1, Math.round((lockedSats * FEE_RATE) / (1 + FEE_RATE)));
+	const quote = Math.max(0, lockedSats - fee);
+	const amounts = [lockedSats, fee, quote, Math.max(0, quote - fee)];
+	for (const total of [lockedSats, quote]) {
+		if (total <= 0) continue;
+		const lock = Math.min(total, Math.max(fee, LIGHTNING_MIN_LOCK_SATS));
+		amounts.push(lock, total - lock);
+	}
+	return [...new Set(amounts.filter((sats) => sats > 0))];
+}
+
 export function bolt11Expired(
 	timestamp: number | undefined,
 	expirySeconds: number | undefined,
 	nowSec: number
 ): boolean {
-	if (timestamp == null || expirySeconds == null) return true;
-	if (!Number.isFinite(timestamp) || !Number.isFinite(expirySeconds) || expirySeconds < 0) {
-		return true;
-	}
+	if (expirySeconds == null || !Number.isFinite(expirySeconds) || expirySeconds < 0) return true;
+	// The wallet decoder omits the invoice creation time. Expiry is checked only when it is present.
+	if (timestamp == null || !Number.isFinite(timestamp)) return false;
 	return timestamp + expirySeconds <= nowSec;
 }
 
@@ -89,8 +121,8 @@ interface NodeWallet {
 export async function satsRailBlocked(wallet: NodeWallet | null): Promise<boolean> {
 	if (!wallet?.listPeers || !wallet.listChannels) return true;
 	try {
-		const [peers, channels] = await Promise.all([wallet.listPeers(), wallet.listChannels()]);
-		return lightningNodeEmpty(peers, channels);
+		const channels = await wallet.listChannels();
+		return !satsChannelOpen(channels);
 	} catch {
 		return true;
 	}

@@ -106,6 +106,24 @@ export function decodeRgbInvoice(invoice: string): DecodedRgbInvoice {
 	};
 }
 
+/**
+ * Taskee escrow lock: amount `aa` (0), unnamed contract, Signet (`sb`).
+ * A zero invoice on another network or without the RGB proxy is refused.
+ * A positive amount returns false so the payer sends that invoice as usual.
+ */
+export function blankLockInvoice(invoice: string): boolean {
+	const decoded = decodeRgbInvoice(invoice);
+	if (decoded.amount !== 0 || decoded.contract !== null) return false;
+	if (decoded.network !== 'sb') {
+		throw new Error('Escrow invoice network must be Signet');
+	}
+	const endpoint = decoded.endpoints[0] ?? '';
+	if (!endpoint.startsWith('rpcs://')) {
+		throw new Error('Escrow invoice is missing the RGB proxy');
+	}
+	return true;
+}
+
 function rowRecord(value: unknown): Record<string, unknown> | null {
 	return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }

@@ -4,6 +4,8 @@ import {
 	ESCROW_LNUSDT,
 	assertInvoiceRail,
 	bolt11Expired,
+	escrowStageSats,
+	satsChannelOpen,
 	bolt11MatchesSats,
 	invoiceMatchesRail,
 	lightningNodeEmpty,
@@ -55,6 +57,23 @@ describe('escrow rail', () => {
 		expect(bolt11MatchesSats(undefined, 3075)).toBe(false);
 		expect(bolt11Expired(1_000, 60, 1_060)).toBe(true);
 		expect(bolt11Expired(1_000, 60, 1_059)).toBe(false);
-		expect(bolt11Expired(undefined, 60, 1_000)).toBe(true);
+		expect(bolt11Expired(undefined, 60, 1_000)).toBe(false);
+		expect(bolt11Expired(undefined, undefined, 1_000)).toBe(true);
+	});
+
+	it('accepts the fee lock, the balance, or the full locked total', () => {
+		expect(escrowStageSats(1345)).toEqual([1345, 33, 1312, 1279]);
+		expect(escrowStageSats(3075)).toEqual([3075, 75, 3000, 2925]);
+		expect(escrowStageSats(0)).toEqual([]);
+		expect(escrowStageSats(102_500)).toEqual([
+			102_500, 2500, 100_000, 97_500, 3000, 99_500, 97_000
+		]);
+	});
+
+	it('treats only a usable non-LNUSDT channel as a sats route', () => {
+		expect(satsChannelOpen([])).toBe(false);
+		expect(satsChannelOpen([{ isUsable: true, assetId: ESCROW_LNUSDT }])).toBe(false);
+		expect(satsChannelOpen([{ isUsable: false }])).toBe(false);
+		expect(satsChannelOpen([{ isUsable: true }])).toBe(true);
 	});
 });

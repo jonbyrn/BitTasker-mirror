@@ -2,16 +2,19 @@ import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { walletManager } from '$lib/stores/wallet/wallet-manager';
+import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import {
 	assertInvoiceRail,
 	bolt11Expired,
 	bolt11MatchesSats,
+	escrowStageSats,
 	isEscrowBolt11,
 	isLightningRail,
 	isRgbInvoice,
 	lightningNodeEmpty,
 	lnUsdtOpen,
+	satsChannelOpen,
 	refusedBotPayee
 } from '$lib/services/rgb/escrow-rail';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
@@ -638,10 +641,20 @@ export class ContractRune {
 		if (!wallet) throw new Error('RGB wallet is not initialized');
 		const peers = typeof wallet.listPeers === 'function' ? await wallet.listPeers() : [];
 		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
-		if (lightningNodeEmpty(peers, channels)) throw new Error('Lightning node has no peer');
+		if (!satsChannelOpen(channels)) {
+			throw new Error(
+				lightningNodeEmpty(peers, channels)
+					? 'Lightning node has no peer'
+					: 'Lightning node has no channel'
+			);
+		}
 		const decoded = await wallet.decodeLnInvoice(invoice);
 		if (refusedBotPayee(decoded.payee)) throw new Error('Lightning peer is refused');
-		if (!bolt11MatchesSats(decoded.amtMsat, this.lockedSats())) {
+		const locked = this.lockedSats();
+		const matchesStage = escrowStageSats(locked).some((sats) =>
+			bolt11MatchesSats(decoded.amtMsat, sats)
+		);
+		if (!matchesStage) {
 			throw new Error('Lightning invoice amount does not match the locked sats');
 		}
 		const nowSec = Math.floor(Date.now() / 1000);
@@ -652,6 +665,10 @@ export class ContractRune {
 	}
 
 	private async payRgbInvoice(invoice: string): Promise<void> {
+		if (blankLockInvoice(invoice)) {
+			console.info('[contract-rune] blank lock', { amount: 0, network: 'sb' });
+			return;
+		}
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
 		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
