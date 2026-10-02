@@ -276,7 +276,7 @@ describe('BidAcceptanceFormV2', () => {
 		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('disables fund when the LSP channel is not open', () => {
+	it('keeps USDT fund enabled when the LSP channel is closed', () => {
 		lightningState.set({
 			ready: false,
 			peerHost: 'lsp-signet.utexo.com',
@@ -284,13 +284,11 @@ describe('BidAcceptanceFormV2', () => {
 			lnInvoice: '',
 			rgbInvoice: ''
 		});
-		const { getByTestId } = render(BidAcceptanceFormV2, {
+		const { getByTestId, queryByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask() }
 		});
-		expect(getByTestId('lsp-channel-closed').textContent).toContain(
-			'wallet.lightning_channel_closed'
-		);
-		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(true);
+		expect(queryByTestId('lsp-channel-closed')).toBeNull();
+		expect((getByTestId('accept-fund-button') as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('accepts a USD bid when the sat balance is below the dollar quote', () => {

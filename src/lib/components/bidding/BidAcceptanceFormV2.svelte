@@ -14,7 +14,6 @@
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { onMount } from 'svelte';
 	import { walletStore, state as walletState } from '$lib/stores/wallet/wallet-state';
-	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -116,17 +115,16 @@
 	let escrowReady = $state(false);
 	let awaitingTaskeeInvoice = $state(false);
 
+	const lightningFundReady = $derived(
+		fundRail !== 'btc_lightning' || (!nodeEmpty && totalSats !== null)
+	);
 	const canConfirm = $derived(
 		walletConnected &&
 			!hasInsufficientFunds &&
 			!isProcessing &&
 			bidContent !== null &&
 			lockedBid !== null &&
-			(dollarBid
-				? fundRail === 'btc_lightning'
-					? !nodeEmpty && totalSats !== null
-					: $lightningStore.ready
-				: totalSats !== null && totalUsd !== null)
+			(dollarBid ? lightningFundReady : totalSats !== null && totalUsd !== null)
 	);
 	const fundingInvoice = $derived(fundedRune?.snapshot?.fundingInvoice ?? '');
 	const payMatchesRail = $derived(
@@ -564,15 +562,6 @@
 				<span class="status status-success"></span>
 				{$t('dashboard.bids.bid_acceptance.wallet_connected')}
 			</span>
-		</div>
-	{/if}
-	{#if dollarBid && fundRail === 'usdt_rgb' && !$lightningStore.ready}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="lsp-channel-closed"
-		>
-			{$t('wallet.lightning_channel_closed')}
 		</div>
 	{/if}
 	{#if dollarBid && fundRail === 'btc_lightning' && nodeEmpty}
