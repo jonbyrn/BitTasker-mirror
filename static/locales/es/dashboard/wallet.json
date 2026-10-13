@@ -315,6 +315,7 @@
 			"send_usdt": "Enviar USDT",
 			"receive_btc": "Recibir BTC",
 			"receive_usdt": "Recibir USDT",
+			"invoice_usdt": "{amount} USDT",
 			"usdt_not_configured": "El activo USDT no está configurado",
 			"utexo_bot_hint": "Crea una factura RGB en blanco y envíala a @UTEXO_RLN_BOT para recibir USDT.",
 			"receive_token": "Recibir {token}",

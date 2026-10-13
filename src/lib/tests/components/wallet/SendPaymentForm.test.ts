@@ -180,7 +180,7 @@ describe('SendPaymentForm', () => {
 		await waitFor(() =>
 			expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt')
 		);
-		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('1111');
+		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('0.001111');
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		await fireEvent.click(getByTestId('send-submit'));
 

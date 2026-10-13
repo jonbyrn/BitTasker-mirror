@@ -3,7 +3,12 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
-	import { getConfiguredRgbUsdtAssetId, soleIfaAsset } from '$lib/types/rgb-contract';
+	import {
+		formatUsdtUnits,
+		getConfiguredRgbUsdtAssetId,
+		soleIfaAsset,
+		usdtPrecision
+	} from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
 	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
@@ -58,6 +63,7 @@
 	const usdtAsset = $derived(
 		($walletStore.rgb?.assets ?? []).find((item) => item.symbol?.toUpperCase() === 'USDT') ?? null
 	);
+	const usdtScale = $derived(usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision));
 
 	const amountSats = $derived.by(() => {
 		const parsed = Number(amountInput);
@@ -147,7 +153,9 @@
 		sentTxid = '';
 		try {
 			const decoded = decodeRgbInvoice(value);
-			if (decoded.amount !== null && decoded.amount > 0) amountInput = String(decoded.amount);
+			if (decoded.amount !== null && decoded.amount > 0) {
+				amountInput = formatUsdtUnits(decoded.amount, usdtScale);
+			}
 		} catch {
 			errorMessage = '';
 		}
@@ -355,7 +363,7 @@
 			<p class="font-mono">{decodedInvoice.seal}</p>
 			<p>
 				{$t('wallet.amount')}:
-				{decodedInvoice.amount === null ? '—' : decodedInvoice.amount}
+				{decodedInvoice.amount === null ? '—' : formatUsdtUnits(decodedInvoice.amount, usdtScale)}
 			</p>
 			<p>
 				{decodedInvoice.contract ?? $t('wallet.send_unspecified')}

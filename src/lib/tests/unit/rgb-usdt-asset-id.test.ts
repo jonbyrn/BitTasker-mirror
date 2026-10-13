@@ -6,6 +6,8 @@ import {
 	selectEscrowAsset,
 	spendableRgbAssets,
 	usdtInvoiceAsset,
+	formatUsdtUnits,
+	usdtBaseUnits,
 	usdtEscrowUnits,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
@@ -115,6 +117,15 @@ describe('selectEscrowAsset', () => {
 		expect(
 			selectEscrowAsset([{ ...usdt, balance: { spendable: 0 } }], ['rgb:KF0H4ytS-missing'])
 		).toBeUndefined();
+	});
+});
+
+describe('usdtBaseUnits', () => {
+	it('turns 10 USDT into 6-decimal base units and prints them back', () => {
+		expect(usdtBaseUnits(10, 6)).toBe(10_000_000);
+		expect(formatUsdtUnits(10, 6)).toBe('0.00001');
+		expect(formatUsdtUnits(10_000_000, 6)).toBe('10');
+		expect(formatUsdtUnits(1111, 6)).toBe('0.001111');
 	});
 });
 

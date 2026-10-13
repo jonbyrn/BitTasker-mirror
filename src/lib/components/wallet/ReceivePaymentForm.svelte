@@ -3,7 +3,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
-	import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+	import { formatUsdtUnits, getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { lightningStore, requestLspInbound } from '$lib/stores/wallet/signet-lsp';
@@ -19,6 +19,7 @@
 	let amountSats = $state('');
 	let isGenerating = $state(false);
 	let receiveValue = $state('');
+	let invoiceAmount = $state('');
 	let errorMessage = $state('');
 	let usedBlank = $state(false);
 
@@ -35,8 +36,10 @@
 	const requiresAmount = $derived(asset !== 'btc_onchain');
 	const parsedAmount = $derived.by(() => {
 		if (!requiresAmount) return 0;
-		const parsed = Number(amountSats);
-		return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+		const parsed = Number(amountSats.trim());
+		if (!Number.isFinite(parsed) || parsed <= 0) return null;
+		if (asset === 'usdt_rgb') return parsed;
+		return Number.isSafeInteger(parsed) ? parsed : null;
 	});
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
@@ -64,6 +67,8 @@
 				const result = await receiveUsdtInvoice(parsedAmount ?? undefined);
 				receiveValue = result.invoice;
 				usedBlank = result.blank;
+				invoiceAmount =
+					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
 				errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
 				console.error('[receive-modal] RGB invoice error:', err);
@@ -108,6 +113,7 @@
 				onclick={() => {
 					asset = option.id;
 					receiveValue = '';
+					invoiceAmount = '';
 					errorMessage = '';
 					usedBlank = false;
 				}}
@@ -125,7 +131,7 @@
 			>
 			<input
 				class="input input-bordered w-full"
-				inputmode="numeric"
+				inputmode={asset === 'usdt_rgb' ? 'decimal' : 'numeric'}
 				placeholder="0"
 				bind:value={amountSats}
 				data-testid="receive-amount"
@@ -184,6 +190,11 @@
 		<div class="bg-base-200 rounded-lg p-3 font-mono text-xs break-all" data-testid="receive-value">
 			{receiveValue}
 		</div>
+		{#if invoiceAmount}
+			<p class="text-sm" data-testid="receive-usdt-amount">
+				{$t('wallet.taproot.invoice_usdt', { values: { amount: invoiceAmount } })}
+			</p>
+		{/if}
 		<button
 			type="button"
 			class="btn btn-outline w-full"

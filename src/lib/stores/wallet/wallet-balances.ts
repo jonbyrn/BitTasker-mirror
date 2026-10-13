@@ -3,7 +3,13 @@ import { walletStore, state } from './wallet-state';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
-import { getConfiguredRgbUsdtAssetId, usdtInvoiceAsset } from '$lib/types/rgb-contract';
+import {
+	getConfiguredRgbUsdtAssetId,
+	spendableRgbAssets,
+	usdtBaseUnits,
+	usdtInvoiceAsset,
+	usdtPrecision
+} from '$lib/types/rgb-contract';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { releasePhantomSends } from './prepare-rgb-send';
@@ -1062,20 +1068,26 @@ const NWCA_AMOUNT = 1111;
  * Named invoice for the USDT contract this wallet already holds (NIA or IFA).
  * A blank `nWca` invoice when it holds none, so the bot can pay the shape it already accepted.
  */
-export async function receiveUsdtInvoice(
-	amount?: number
-): Promise<{ invoice: string; blank: boolean }> {
+export async function receiveUsdtInvoice(amount?: number): Promise<{
+	invoice: string;
+	blank: boolean;
+	units: number | null;
+	precision: number;
+}> {
 	const configured = getConfiguredRgbUsdtAssetId();
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
 	const assetId = usdtInvoiceAsset(listed, configured);
 	if (assetId) {
-		const named = await createRgbInvoice({ assetId, amount });
-		return { invoice: named.invoice, blank: false };
+		const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
+		const precision = usdtPrecision(row?.ticker, row?.precision);
+		const units = amount === undefined ? undefined : usdtBaseUnits(amount, precision);
+		const named = await createRgbInvoice({ assetId, amount: units });
+		return { invoice: named.invoice, blank: false, units: units ?? null, precision };
 	}
 	const blank = await receiveBlankInvoice(NWCA_AMOUNT);
-	return { invoice: blank.invoice, blank: true };
+	return { invoice: blank.invoice, blank: true, units: null, precision: 0 };
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */

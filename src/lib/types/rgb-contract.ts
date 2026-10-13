@@ -46,18 +46,36 @@ export function soleIfaAsset(
 	return { assetId, units };
 }
 
-/** USDT base units for a bid priced in dollars. Never the whole wallet. */
-export function usdtEscrowUnits(amountUsd: number, precision: number, spendable: number): number {
-	if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
-		throw new Error('Bid amount cannot be converted to USDT');
+/** Human USDT, such as 10, in the asset's base units. */
+export function usdtBaseUnits(amount: number, precision: number): number {
+	if (!Number.isFinite(amount) || amount <= 0) {
+		throw new Error('USDT amount is not valid');
 	}
 	if (!Number.isInteger(precision) || precision < 0 || precision > 18) {
 		throw new Error('USDT precision is not valid');
 	}
-	const units = Math.round(amountUsd * 10 ** precision);
+	const units = Math.round(amount * 10 ** precision);
 	if (!Number.isSafeInteger(units) || units <= 0) {
-		throw new Error('Bid amount cannot be converted to USDT');
+		throw new Error('USDT amount is not valid');
 	}
+	return units;
+}
+
+/** Base units shown the way they were entered, such as 10000000 → "10". */
+export function formatUsdtUnits(units: number, precision: number): string {
+	if (!Number.isSafeInteger(units) || units < 0) return '0';
+	if (!Number.isInteger(precision) || precision <= 0 || precision > 18) return String(units);
+	const scale = 10 ** precision;
+	const whole = Math.floor(units / scale);
+	const fraction = String(units % scale)
+		.padStart(precision, '0')
+		.replace(/0+$/, '');
+	return fraction ? `${whole}.${fraction}` : String(whole);
+}
+
+/** USDT base units for a bid priced in dollars. Never the whole wallet. */
+export function usdtEscrowUnits(amountUsd: number, precision: number, spendable: number): number {
+	const units = usdtBaseUnits(amountUsd, precision);
 	if (units > spendable) {
 		throw new Error('Not enough USDT to fund this escrow');
 	}

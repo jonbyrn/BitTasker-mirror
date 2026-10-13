@@ -137,6 +137,33 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
+	it('scales an entered USDT amount by the asset precision', async () => {
+		listAssets.mockResolvedValueOnce({
+			ifa: [
+				{
+					assetId: 'rgb1testusdtasset',
+					ticker: 'USDT',
+					precision: 6,
+					balance: { spendable: 100_000_000 }
+				}
+			]
+		});
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '10' } });
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		expect(onchainReceive).toHaveBeenCalledWith({
+			amount: 10_000_000,
+			assetId: 'rgb1testusdtasset',
+			blind: true,
+			blinded: true
+		});
+		await waitFor(() => expect(getByTestId('receive-usdt-amount')).toBeTruthy());
+	});
+
 	it('creates a named RGB invoice when this wallet already lists USDT', async () => {
 		listAssets.mockResolvedValueOnce({ nia: [{ assetId: 'rgb1testusdtasset' }] });
 		const { getByTestId } = render(ReceivePaymentForm);
