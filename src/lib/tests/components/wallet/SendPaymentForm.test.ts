@@ -1,12 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
+import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
 const {
 	sendBtc,
 	payLightningInvoice,
 	sendRgbAsset,
 	listRgbAssets,
+	quoteSpendable,
+	pendingReceives,
 	payEscrowLightning,
 	lightningState,
 	showSuccessToast,
@@ -41,6 +44,8 @@ const {
 			lnInvoice: '',
 			rgbInvoice: ''
 		}),
+		quoteSpendable: vi.fn().mockResolvedValue(100_000_000),
+		pendingReceives: vi.fn().mockResolvedValue(0),
 		listRgbAssets: vi.fn().mockResolvedValue({
 			ifa: [
 				{
@@ -61,7 +66,14 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
-	walletManager: { sendBtc, payLightningInvoice, sendRgbAsset, listRgbAssets }
+	walletManager: {
+		sendBtc,
+		payLightningInvoice,
+		sendRgbAsset,
+		listRgbAssets,
+		quoteSpendable,
+		pendingReceives
+	}
 }));
 
 vi.mock('$lib/stores/wallet/signet-lsp', () => ({
@@ -90,6 +102,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 						symbol: 'USDT',
 						precision: 6,
 						balance: 100_000_000,
+						spendable: 0,
 						name: 'USDT Token'
 					}
 				]
@@ -110,6 +123,8 @@ describe('SendPaymentForm', () => {
 			rgbInvoice: ''
 		});
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+		quoteSpendable.mockResolvedValue(100_000_000);
+		pendingReceives.mockResolvedValue(0);
 		listRgbAssets.mockResolvedValue({
 			ifa: [
 				{
@@ -290,10 +305,28 @@ describe('SendPaymentForm', () => {
 		});
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '200000000' } });
 
-		await waitFor(() => expect(getByTestId('send-insufficient')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('send-not-spendable')).toBeTruthy());
 		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
-		expect(getByTestId('send-insufficient')).toBeTruthy();
+		expect(getByTestId('send-not-spendable').textContent).toContain('wallet.send_below_spendable');
 		expect(sendRgbAsset).not.toHaveBeenCalled();
+	});
+
+	it('enables Send for 10 USDT when spendable is 100 and a receive is stuck', async () => {
+		quoteSpendable.mockResolvedValue(100_000_000);
+		pendingReceives.mockResolvedValue(1);
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+		const invoice = `rgb:~/-/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`;
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+
+		await waitFor(() => {
+			expect(getByTestId('available-balance').textContent).toContain('100.00 USDT');
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
+		});
+		expect(getByTestId('send-pending-info').textContent).toContain('wallet.send_pending_info');
+		expect(queryByTestId('send-not-spendable')).toBeNull();
+		expect(quoteSpendable).toHaveBeenCalled();
 	});
 
 	it('blocks submission and shows error when balance is insufficient', async () => {

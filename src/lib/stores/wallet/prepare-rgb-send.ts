@@ -164,13 +164,19 @@ export function sealSendBlocker(
 	assetId: string,
 	spendable: number
 ): string | null {
-	const stranded = unspents.find((unspent) => strandedSeal(unspent, assetId));
+	const spendableSeals = allocatedSealRows(unspents, assetId);
+	const stranded = unspents.find(
+		(unspent) => strandedSeal(unspent, assetId) && (unspent.pendingBlinded ?? 0) === 0
+	);
 	if (stranded) {
-		if ((stranded.pendingBlinded ?? 0) > 0) {
-			return `Refusing onchainSend: ${assetId} is locked by a blank invoice. The payment arrives as a new UTXO.`;
-		}
 		const txid = stranded.utxo.outpoint?.txid ?? 'unknown';
 		return `Refusing onchainSend: ${assetId} is sealed on ${txid}, which this BDK store does not own`;
+	}
+	const pendingLock = unspents.some(
+		(unspent) => holdsAsset(unspent, assetId) && (unspent.pendingBlinded ?? 0) > 0
+	);
+	if (pendingLock && spendableSeals.length === 0) {
+		return `Refusing onchainSend: ${assetId} is locked by a blank invoice. The payment arrives as a new UTXO.`;
 	}
 	const seals = allocatedSealRows(unspents, assetId);
 	const anyAllocated = unspents.some((unspent) => unspent.rgbAllocations.length > 0);
@@ -332,7 +338,11 @@ function logSealState(nia: RgbNiaRef[], unspents: RgbUnspentRef[]): void {
 }
 
 /** Sync BDK, then refuse send until this asset is sealed on a colorable UTXO. */
-export async function prepareRgbOnchainSend(wallet: PrepareWallet, assetId: string): Promise<void> {
+export async function prepareRgbOnchainSend(
+	wallet: PrepareWallet,
+	assetId: string,
+	knownSpendable?: number
+): Promise<void> {
 	if (wallet.goOnline && wallet.isOnline?.() !== true) {
 		await wallet.goOnline(UTEXO_INDEXER);
 	}
@@ -349,7 +359,12 @@ export async function prepareRgbOnchainSend(wallet: PrepareWallet, assetId: stri
 	const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
 	if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);
 
-	const spendable = assets.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
+	const listedSpendable =
+		assets.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
+	const spendable =
+		typeof knownSpendable === 'number' && Number.isSafeInteger(knownSpendable)
+			? knownSpendable
+			: listedSpendable;
 	const blocker = sealSendBlocker(unspents, assetId, spendable);
 	if (blocker) throw new Error(blocker);
 }

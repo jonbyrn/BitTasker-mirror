@@ -18,9 +18,73 @@ export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: s
 	return { txid: 'ln_stub_' + Date.now() };
 }
 
-function rowSpendable(row: SpendableNia | undefined): number {
-	const value = Number(row?.balance?.spendable ?? 0);
-	return Number.isFinite(value) && value > 0 ? value : 0;
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+/** rgb-lib `spendable` only. Settled, future, and pending receives are not spendable. */
+export function balanceSpendable(raw: unknown, assetId = ''): number | null {
+	if (Array.isArray(raw)) {
+		const row = raw.find(
+			(item) =>
+				isRecord(item) &&
+				(!assetId || item.assetId === assetId || String(item.ticker ?? '').toUpperCase() === 'USDT')
+		);
+		return row ? balanceSpendable(row, assetId) : null;
+	}
+	if (!isRecord(raw)) return null;
+	if (
+		typeof raw.spendable === 'number' &&
+		Number.isSafeInteger(raw.spendable) &&
+		raw.spendable >= 0
+	) {
+		return raw.spendable;
+	}
+	if (isRecord(raw.balance)) return balanceSpendable(raw.balance, assetId);
+	for (const group of ['ifa', 'nia', 'cfa', 'uda'] as const) {
+		if (!Array.isArray(raw[group])) continue;
+		const row = raw[group].find(
+			(item) =>
+				isRecord(item) &&
+				(item.assetId === assetId || String(item.ticker ?? '').toUpperCase() === 'USDT')
+		);
+		if (isRecord(row)) return balanceSpendable(row, assetId);
+	}
+	return null;
+}
+
+/** True when spendable covers the invoice. Pending receives are not an input. */
+export function sendEnabled(spendable: number, invoiceUnits: number): boolean {
+	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(invoiceUnits)) return false;
+	return invoiceUnits > 0 && spendable >= invoiceUnits;
+}
+
+interface SpendableWallet {
+	getAssetBalance?: (assetId: string) => Promise<unknown>;
+	listAssets?: () => Promise<unknown>;
+	listTransfers?: (assetId?: string) => Promise<unknown>;
+}
+
+/** `getAssetBalance(assetId).spendable`, then listAssets. Never `future`. */
+export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
+	if (assetId && typeof wallet.getAssetBalance === 'function') {
+		const units = balanceSpendable(await wallet.getAssetBalance(assetId), assetId);
+		if (units !== null) return units;
+	}
+	if (typeof wallet.listAssets === 'function') {
+		const units = balanceSpendable(await wallet.listAssets(), assetId);
+		if (units !== null) return units;
+	}
+	return 0;
+}
+
+export function pendingReceiveCount(rows: unknown): number {
+	if (!Array.isArray(rows)) return 0;
+	return rows.filter((row) => {
+		if (!isRecord(row) || row.kind !== 'ReceiveBlind') return false;
+		const status = typeof row.status === 'string' ? row.status : '';
+		return status !== '' && status !== 'Settled' && status !== 'Failed';
+	}).length;
 }
 
 /** Wallet and wasm failures often arrive with an empty Error.message. */
@@ -105,10 +169,13 @@ export async function sendRgbAsset(params: {
 				: 'Select the funded IFA USDT. This invoice names no contract.'
 		);
 	}
-	const spendable = rowSpendable(held.find((row) => row.assetId === assetId));
-	if (spendable <= 0) throw new Error('Not spendable yet');
-	if (units > spendable) throw new Error('USDT amount is larger than the spendable balance.');
-	await prepareRgbOnchainSend(wallet, assetId);
+	const spendable = await quoteSpendable(wallet, assetId);
+	if (!sendEnabled(spendable, units)) {
+		throw new Error(
+			spendable <= 0 ? 'Not spendable yet' : 'USDT amount is larger than the spendable balance.'
+		);
+	}
+	await prepareRgbOnchainSend(wallet, assetId, spendable);
 	const signer = requireEscrowSigner(wallet);
 	const invoice = params.invoice.trim();
 	const beginArgs = {

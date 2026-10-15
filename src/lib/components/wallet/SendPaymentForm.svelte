@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
@@ -14,7 +15,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
 	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
-	import { describeThrown } from '$lib/stores/wallet/wallet-send';
+	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
 	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
@@ -41,6 +42,8 @@
 	let boundIfa = $state<{ assetId: string; units: number } | null>(null);
 	let ifaLookup = $state<'idle' | 'pending' | 'ready' | 'missing'>('idle');
 	let ifaRequest = 0;
+	let spendableUnits = $state<number | null>(null);
+	let pendingReceives = $state(0);
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
 		{
@@ -104,20 +107,19 @@
 		}
 	});
 
-	const usdtSpendable = $derived(
-		typeof usdtAsset?.spendable === 'number' ? usdtAsset.spendable : (usdtAsset?.balance ?? 0)
-	);
+	const usdtSpendable = $derived(spendableUnits ?? 0);
 
-	const notSpendableYet = $derived(
-		asset === 'usdt_rgb' && rgbAmount !== null && rgbAmount > 0 && usdtSpendable <= 0
+	const belowSpendable = $derived(
+		asset === 'usdt_rgb' &&
+			spendableUnits !== null &&
+			rgbAmount !== null &&
+			rgbAmount > 0 &&
+			!sendEnabled(usdtSpendable, rgbAmount)
 	);
 
 	const hasInsufficientBalance = $derived.by(() => {
 		if (amountSats === null) return false;
-		if (asset === 'usdt_rgb') {
-			if (rgbAmount === null) return amountInput.trim() !== '';
-			return usdtSpendable > 0 && rgbAmount > usdtSpendable;
-		}
+		if (asset === 'usdt_rgb') return belowSpendable;
 		return amountSats > walletSats;
 	});
 
@@ -135,10 +137,11 @@
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_rgb') {
+			if (spendableUnits === null) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
 			if (!decodedInvoice.contract && !boundIfa) return false;
-			if (notSpendableYet || hasInsufficientBalance) return false;
-			return destinationValid && rgbAmount !== null && rgbAmount > 0 && rgbAmount <= usdtSpendable;
+			if (rgbAmount === null || !sendEnabled(usdtSpendable, rgbAmount)) return false;
+			return destinationValid;
 		}
 		return destinationValid && amountSats !== null && amountSats > 0 && !hasInsufficientBalance;
 	});
@@ -149,6 +152,25 @@
 			!decodedInvoice.contract &&
 			ifaLookup === 'missing'
 	);
+
+	async function loadSpendable(): Promise<void> {
+		const assetId = usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '';
+		try {
+			const [quoted, pending] = await Promise.all([
+				walletManager.quoteSpendable(assetId),
+				walletManager.pendingReceives(assetId)
+			]);
+			spendableUnits = quoted;
+			pendingReceives = pending;
+		} catch (error) {
+			spendableUnits = null;
+			errorMessage = describeThrown(error);
+		}
+	}
+
+	onMount(() => {
+		void loadSpendable();
+	});
 
 	function applyInvoice(value: string): void {
 		if (!value.startsWith('rgb:')) return;
@@ -223,7 +245,9 @@
 				txid = result.txid;
 			} else if (asset === 'usdt_rgb') {
 				if (rgbAmount === null || rgbAmount <= 0) throw new Error('RGB invoice amount is zero');
-				if (usdtSpendable < rgbAmount) throw new Error('Not spendable yet');
+				if (spendableUnits === null || !sendEnabled(spendableUnits, rgbAmount)) {
+					throw new Error('USDT amount is larger than the spendable balance.');
+				}
 				const assetId =
 					boundIfa?.assetId || usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '';
 				const sent = await walletManager.sendRgbAsset({
@@ -277,6 +301,7 @@
 					errorMessage = '';
 					sentTxid = '';
 					amountInput = '';
+					if (option.id === 'usdt_rgb') void loadSpendable();
 				}}
 				data-testid={`asset-${option.id}`}
 			>
@@ -400,20 +425,31 @@
 	<div class="text-base-content/60 text-xs" data-testid="available-balance">
 		{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
 		{asset === 'usdt_rgb'
-			? `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
+			? spendableUnits === null
+				? '…'
+				: `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
 			: formatSats(walletSats)}
 	</div>
 
-	{#if notSpendableYet}
+	{#if pendingReceives > 0 && asset === 'usdt_rgb'}
+		<div
+			class="alert alert-outline alert-info text-sm"
+			role="status"
+			data-testid="send-pending-info"
+		>
+			{$t('wallet.send_pending_info')}
+		</div>
+	{/if}
+	{#if belowSpendable}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"
 			data-testid="send-not-spendable"
 		>
-			{$t('wallet.not_spendable_yet')}
+			{$t('wallet.send_below_spendable')}
 		</div>
 	{/if}
-	{#if hasInsufficientBalance}
+	{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
 		<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
 			{$t('wallet.insufficient_balance')}
 		</div>

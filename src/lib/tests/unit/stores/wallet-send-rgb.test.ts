@@ -6,6 +6,7 @@ const {
 	signPsbt,
 	onchainSendEnd,
 	listAssets,
+	getAssetBalance,
 	prepareRgbOnchainSend,
 	loadAssets,
 	persistWalletSnapshot,
@@ -19,6 +20,7 @@ const {
 	signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
 	onchainSendEnd: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32) }),
 	listAssets: vi.fn(),
+	getAssetBalance: vi.fn(),
 	prepareRgbOnchainSend: vi.fn().mockResolvedValue(undefined),
 	loadAssets: vi.fn().mockResolvedValue(undefined),
 	persistWalletSnapshot: vi.fn().mockResolvedValue(undefined),
@@ -29,7 +31,16 @@ const {
 }));
 
 vi.mock('$lib/stores/wallet/wallet-state', () => ({
-	state: { utexoWallet: { listAssets, onchainSendBegin, sendBegin, signPsbt, onchainSendEnd } },
+	state: {
+		utexoWallet: {
+			listAssets,
+			getAssetBalance,
+			onchainSendBegin,
+			sendBegin,
+			signPsbt,
+			onchainSendEnd
+		}
+	},
 	walletStore: { subscribe: () => () => {}, update: updateWallet }
 }));
 
@@ -49,7 +60,8 @@ vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
 	publishSignetTx
 }));
 
-import { sendRgbAsset } from '$lib/stores/wallet/wallet-send';
+import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
+import { balanceSpendable, sendEnabled, sendRgbAsset } from '$lib/stores/wallet/wallet-send';
 
 const heldIfa = {
 	nia: [],
@@ -68,6 +80,7 @@ describe('sendRgbAsset', () => {
 		vi.clearAllMocks();
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-configured-usdt');
 		listAssets.mockResolvedValue(heldIfa);
+		getAssetBalance.mockReset();
 		onchainSendEnd.mockResolvedValue({ txid: 'ab'.repeat(32) });
 		confirmSignetTx.mockResolvedValue(undefined);
 	});
@@ -82,7 +95,11 @@ describe('sendRgbAsset', () => {
 			amount: 100_000_000
 		});
 
-		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(expect.anything(), 'rgb:f~9F4X0C-held-usdt');
+		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
+			expect.anything(),
+			'rgb:f~9F4X0C-held-usdt',
+			100_000_000
+		);
 		expect(onchainSendBegin).toHaveBeenCalledWith({
 			invoice: NWCA_RPCS,
 			assetId: 'rgb:f~9F4X0C-held-usdt',
@@ -243,8 +260,54 @@ describe('sendRgbAsset', () => {
 		expect(onchainSendBegin).not.toHaveBeenCalled();
 	});
 
-	it('refuses a send while spendable is still zero', async () => {
+	it('enables a 10 USDT invoice when spendable is 100 and a receive is stuck', () => {
+		const transfers = [
+			{ kind: 'ReceiveBlind', status: 'WaitingConfirmations' },
+			{ kind: 'ReceiveBlind', status: 'Settled' }
+		];
+		expect(transfers.some((row) => row.status === 'WaitingConfirmations')).toBe(true);
+		expect(
+			balanceSpendable({
+				spendable: 100_000_000,
+				settled: 100_000_000,
+				future: 200_000_000
+			})
+		).toBe(100_000_000);
+		expect(sendEnabled(100_000_000, 10_000_000)).toBe(true);
+		expect(sendEnabled(100_000_000, 200_000_000)).toBe(false);
+	});
+
+	it('pays from getAssetBalance spendable when listAssets spendable is zero', async () => {
+		getAssetBalance.mockResolvedValueOnce({
+			spendable: 100_000_000,
+			settled: 100_000_000,
+			future: 200_000_000
+		});
 		listAssets.mockResolvedValueOnce({
+			nia: [],
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-held-usdt',
+					ticker: 'USDT',
+					precision: 6,
+					balance: { spendable: 0, settled: 100_000_000, future: 200_000_000 }
+				}
+			]
+		});
+		await sendRgbAsset({
+			invoice: `rgb:~/-/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`,
+			assetId: '',
+			amount: 10_000_000
+		});
+		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
+			expect.anything(),
+			'rgb:f~9F4X0C-held-usdt',
+			100_000_000
+		);
+	});
+
+	it('refuses a send while spendable is still zero', async () => {
+		listAssets.mockResolvedValue({
 			nia: [],
 			ifa: [
 				{
@@ -266,7 +329,7 @@ describe('sendRgbAsset', () => {
 	});
 
 	it('refuses an amount above the spendable USDT and does not broadcast', async () => {
-		listAssets.mockResolvedValueOnce({
+		listAssets.mockResolvedValue({
 			nia: [],
 			ifa: [
 				{

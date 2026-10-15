@@ -260,6 +260,27 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(sealSendBlocker(unspents, assetId, 1000)).toContain('blank invoice');
 	});
 
+	it('allows the settled seal while another receive stays pending', () => {
+		const assetId = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const unspents = [
+			{
+				pendingBlinded: 0,
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: 'a66f7313', vout: 1 } }
+			},
+			{
+				pendingBlinded: 1,
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: 'c67397ba', vout: 3 } }
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+			}
+		];
+		expect(sealSendBlocker(unspents, assetId, 100_000_000)).toBeNull();
+	});
+
 	it('allows send when the colorable seal matches spendable and a fee coin remains', () => {
 		const assetId = 'rgb:minted';
 		const unspents = [
