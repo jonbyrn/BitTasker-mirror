@@ -23,6 +23,7 @@ import {
 	pullIncomingTransfers,
 	restoreOnUnlock,
 	restoreStoredBackup,
+	snapshotCovers,
 	rgbDatabasePresent,
 	scheduleRgbRefresh,
 	readRefreshFailure,
@@ -484,6 +485,91 @@ describe('acceptIncomingPayment', () => {
 		walletStore.set(structuredClone(initialState));
 		warn.mockRestore();
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it('keeps a stored snapshot ahead of an older backup', () => {
+		expect(
+			snapshotCovers([{ key: '/rln_037153fd_signet/037153fd', bytes: 481_097 }], '037153fd')
+		).toBe(true);
+		expect(snapshotCovers([{ key: '/rln_eb259f1f_signet/eb259f1f', bytes: 100 }], '037153fd')).toBe(
+			false
+		);
+		expect(snapshotCovers([{ key: '/rln_037153fd_signet/037153fd', bytes: 0 }], '037153fd')).toBe(
+			false
+		);
+	});
+
+	it('does not restore over a snapshot that is already stored', async () => {
+		const fingerprint = '037153fd';
+		const snapshots = [{ key: `/rln_${fingerprint}_signet/${fingerprint}`, value: 'snapshot' }];
+		vi.stubGlobal('indexedDB', {
+			open() {
+				const request: {
+					result: {
+						objectStoreNames: { contains: (name: string) => boolean };
+						close: () => void;
+						transaction: () => {
+							objectStore: () => {
+								getAllKeys: () => { result: IDBValidKey[] };
+								getAll: () => { result: string[] };
+							};
+							oncomplete: (() => void) | null;
+							onerror: (() => void) | null;
+						};
+					};
+					onsuccess: (() => void) | null;
+					onerror: (() => void) | null;
+				} = {
+					result: {
+						objectStoreNames: { contains: (name: string) => name === 'snapshots' },
+						close: () => undefined,
+						transaction: () => {
+							const tx: {
+								objectStore: () => {
+									getAllKeys: () => { result: IDBValidKey[] };
+									getAll: () => { result: string[] };
+								};
+								oncomplete: (() => void) | null;
+								onerror: (() => void) | null;
+							} = {
+								oncomplete: null,
+								onerror: null,
+								objectStore: () => ({
+									getAllKeys: () => ({ result: snapshots.map((row) => row.key) }),
+									getAll: () => ({ result: snapshots.map((row) => row.value) })
+								})
+							};
+							queueMicrotask(() => {
+								tx.oncomplete?.();
+							});
+							return tx;
+						}
+					},
+					onsuccess: null,
+					onerror: null
+				};
+				queueMicrotask(() => {
+					request.onsuccess?.();
+				});
+				return request;
+			}
+		});
+		const restoreFromBackupBytes = vi.fn();
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const restored = await restoreStoredBackup({
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: fingerprint }
+				}
+			}
+		});
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(info).toHaveBeenCalledWith('[wallet-persist] skip restore; latest snapshot kept');
+		info.mockRestore();
 		vi.unstubAllGlobals();
 	});
 

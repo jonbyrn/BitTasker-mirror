@@ -263,8 +263,24 @@ export interface BitcoinHistoryRecord {
 	txid: string;
 	received: number;
 	sent: number;
+	fee?: number;
 	confirmationTime?: { timestamp?: number } | null;
 	transactionType: string;
+}
+
+/** Sats that actually left or arrived. `sent` is the input total, not the payment. */
+export function bitcoinHistoryAmount(
+	record: Pick<BitcoinHistoryRecord, 'received' | 'sent' | 'fee'>
+): number {
+	const received = Number.isFinite(record.received) ? Math.max(0, Math.trunc(record.received)) : 0;
+	const sent = Number.isFinite(record.sent) ? Math.max(0, Math.trunc(record.sent)) : 0;
+	if (sent === 0) return received;
+	const fee =
+		typeof record.fee === 'number' && Number.isFinite(record.fee) && record.fee > 0
+			? Math.trunc(record.fee)
+			: 0;
+	const net = sent - received - fee;
+	return net > 0 ? net : Math.max(received, sent);
 }
 
 export interface WalletHistoryRow {
@@ -294,7 +310,7 @@ export function walletHistoryRows(
 		return {
 			id: record.txid,
 			type: incoming ? 'receive' : 'send',
-			amountSats: Math.max(record.received, record.sent),
+			amountSats: bitcoinHistoryAmount(record),
 			timestamp,
 			status: record.confirmationTime ? 'confirmed' : 'pending',
 			txHash: record.txid,

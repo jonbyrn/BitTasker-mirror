@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { networks, Psbt } from 'bitcoinjs-lib';
 import {
 	confirmSignetTx,
+	esploraOutputSpent,
 	extractSignedTx,
 	publishSignetTx
 } from '$lib/stores/wallet/signet-broadcast';
@@ -86,6 +87,27 @@ describe('publishSignetTx', () => {
 		});
 		vi.stubGlobal('fetch', fetchMock);
 		await expect(publishSignetTx('aa'.repeat(20))).rejects.toThrow('send tx: no inputs');
+		vi.unstubAllGlobals();
+	});
+});
+
+describe('esploraOutputSpent', () => {
+	it('reads spent and the spending txid', async () => {
+		const spentBy = 'cd'.repeat(32);
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ spent: true, txid: spentBy })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		await expect(esploraOutputSpent(txid, 2)).resolves.toEqual({ spent: true, txid: spentBy });
+		expect(fetchMock).toHaveBeenCalledWith(`https://esplora-api.utexo.com/tx/${txid}/outspend/2`);
+		vi.unstubAllGlobals();
+	});
+
+	it('returns null when the indexer does not answer', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+		await expect(esploraOutputSpent(txid, 3)).resolves.toBeNull();
+		await expect(esploraOutputSpent('short', 0)).resolves.toBeNull();
 		vi.unstubAllGlobals();
 	});
 });

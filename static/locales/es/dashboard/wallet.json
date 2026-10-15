@@ -90,6 +90,7 @@
 			"pending_swap_warning": "Tienes intercambios en progreso. Desconectarte no los cancelará — revisa Intercambios Pendientes para ver el estado."
 		},
 		"tab_balance": "Saldo",
+		"chain_balance_gap": "RGB informa {reported} USDT, pero solo {chain} está en salidas que siguen sin gastar.",
 		"loading": "Cargando billetera",
 		"tab_receive": "Recibir",
 		"tab_send": "Enviar",

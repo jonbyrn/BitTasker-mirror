@@ -14,7 +14,8 @@ import {
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
-import { releasePhantomSends } from './prepare-rgb-send';
+import { chainAllocation, releasePhantomSends, type RgbUnspentRef } from './prepare-rgb-send';
+import { esploraOutputSpent } from './signet-broadcast';
 
 interface RgbAmount {
 	settled?: number;
@@ -492,6 +493,47 @@ export async function fillUsdtBalance(
 	return assets.map((asset) => (asset.assetId === assetId ? { ...asset, ...row } : asset));
 }
 
+function unspentRows(value: unknown): RgbUnspentRef[] | null {
+	if (!Array.isArray(value)) return null;
+	const rows = value.filter((row): row is RgbUnspentRef => {
+		if (!row || typeof row !== 'object') return false;
+		const record = row as RgbUnspentRef;
+		return (
+			Array.isArray(record.rgbAllocations) &&
+			typeof record.utxo === 'object' &&
+			record.utxo !== null &&
+			typeof record.utxo.exists === 'boolean'
+		);
+	});
+	return rows.length === value.length ? rows : null;
+}
+
+/** Set chainSpendable when Esplora answered for at least one allocation. */
+export async function attachChainSpendable(
+	wallet: { listUnspents?: () => Promise<unknown> },
+	assets: RgbAsset[]
+): Promise<RgbAsset[]> {
+	const usdt = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT' && asset.assetId);
+	if (!usdt || typeof wallet.listUnspents !== 'function') return assets;
+	let listed: unknown;
+	try {
+		listed = await wallet.listUnspents();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-balances] listUnspents failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return assets;
+	}
+	const unspents = unspentRows(listed);
+	if (!unspents) return assets;
+	const chain = await chainAllocation(unspents, usdt.assetId, esploraOutputSpent);
+	if (chain.checked === 0) return assets;
+	return assets.map((asset) =>
+		asset.assetId === usdt.assetId ? { ...asset, chainSpendable: chain.live } : asset
+	);
+}
+
 export function scheduleBalanceRefresh(): void {
 	if (state.balanceRefreshTimer) clearTimeout(state.balanceRefreshTimer);
 	state.balanceRefreshTimer = setTimeout(() => {
@@ -526,6 +568,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = parseRgbAssets(await wallet.listAssets());
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
+			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -1073,16 +1116,69 @@ export async function storeRgbBackup(fingerprint: string, bytes: Uint8Array): Pr
 	return readback?.byteLength ?? 0;
 }
 
+/** True when this fingerprint already has a non-empty rgb-lib snapshot. */
+export function snapshotCovers(
+	rows: readonly { key: string; bytes: number }[],
+	fingerprint: string
+): boolean {
+	if (!/^[0-9a-f]{8}$/i.test(fingerprint)) return false;
+	const needle = fingerprint.toLowerCase();
+	return rows.some((row) => row.bytes > 0 && row.key.toLowerCase().includes(needle));
+}
+
+async function snapshotAlreadyKept(fingerprint: string): Promise<boolean> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return false;
+	let db: IDBDatabase;
+	try {
+		db = await openNamedDb('rgb_lib_wallet');
+	} catch {
+		return false;
+	}
+	try {
+		if (!db.objectStoreNames.contains('snapshots')) return false;
+		const tx = db.transaction('snapshots', 'readonly');
+		const store = tx.objectStore('snapshots');
+		if (typeof store.getAllKeys !== 'function' || typeof store.getAll !== 'function') return false;
+		const rows = await new Promise<{ key: string; bytes: number }[]>((resolve, reject) => {
+			const keysReq = store.getAllKeys();
+			const valsReq = store.getAll();
+			tx.oncomplete = () => {
+				const keys = keysReq.result ?? [];
+				const vals = valsReq.result ?? [];
+				resolve(
+					keys.map((key, index) => {
+						const value = vals[index];
+						return {
+							key: String(key),
+							bytes: typeof value === 'string' ? value.length : 0
+						};
+					})
+				);
+			};
+			tx.onerror = () => reject(tx.error ?? new Error('snapshot read failed'));
+		});
+		return snapshotCovers(rows, fingerprint);
+	} catch {
+		return false;
+	} finally {
+		db.close();
+	}
+}
+
 /**
  * Restores the encrypted export for this fingerprint.
  * Unlock calls this only for a fresh device. An explicit caller may use it directly.
- * A live receive, a positive balance, or a failed transfer list skips the restore.
+ * A stored snapshot, a live receive, a positive balance, or a failed transfer list skips the restore.
  */
 export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
 	const fingerprint = walletFingerprint(wallet);
 	const password = backupPassword(wallet);
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
+	if (await snapshotAlreadyKept(fingerprint)) {
+		console.info('[wallet-persist] skip restore; latest snapshot kept');
+		return false;
+	}
 	const block = await restoreBlock(wallet);
 	if (block !== 'clear') {
 		console.warn(

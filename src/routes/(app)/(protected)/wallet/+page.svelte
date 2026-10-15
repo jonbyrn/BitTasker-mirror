@@ -44,6 +44,16 @@
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
 	);
+	const chainGap = $derived.by(() => {
+		if (!usdtAsset || usdtAsset.chainSpendable == null) return null;
+		const reported = usdtAsset.spendable ?? usdtAsset.balance;
+		if (reported <= usdtAsset.chainSpendable) return null;
+		const precision = usdtPrecision(usdtAsset.symbol, usdtAsset.precision);
+		return {
+			reported: formatUsdtBalance(reported, precision),
+			chain: formatUsdtBalance(usdtAsset.chainSpendable, precision)
+		};
+	});
 	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
 	const visibleTransactions = $derived(
 		showAllHistory ? $walletStore.transactions : $walletStore.transactions.slice(0, 5)
@@ -313,6 +323,15 @@
 						)
 					: formatUsdtBalance(0, 6)
 			)}
+			{#if chainGap}
+				<div class="alert alert-outline alert-warning mx-4 my-2" role="status">
+					<span>
+						{$t('wallet.chain_balance_gap', {
+							values: { reported: chainGap.reported, chain: chainGap.chain }
+						})}
+					</span>
+				</div>
+			{/if}
 			{#each otherAssets as asset (asset.assetId)}
 				{@render balanceRow(
 					asset.symbol || asset.name,

@@ -337,8 +337,10 @@ describe('wallet dashboard display', () => {
 		const usdtSend = rows.find((row) => row.id.startsWith('usdt:4fe2244f'));
 		const usdtReceive = rows.find((row) => row.id.startsWith('usdt:59602401'));
 		expect(bitcoinSend?.description).toBe('Bitcoin transfer');
+		expect(bitcoinSend?.amountSats).toBe(309);
 		expect(bitcoinSend?.assetUnits).toBeUndefined();
 		expect(bitcoinReceive?.description).toBe('Bitcoin transfer');
+		expect(bitcoinReceive?.amountSats).toBe(1000);
 		expect(usdtSend).toMatchObject({
 			type: 'send',
 			assetUnits: 11_000_000,
@@ -350,5 +352,22 @@ describe('wallet dashboard display', () => {
 			description: 'RGB transfer',
 			txHash: '59602401ba7abf8b'
 		});
+	});
+
+	it('shows the sats that left the wallet, not the input or change total', () => {
+		const rows = walletHistoryRows(
+			[
+				{
+					txid: 'aa'.repeat(32),
+					received: 84_076,
+					sent: 94_231,
+					fee: 155,
+					confirmationTime: { timestamp: 1_790_000_000 },
+					transactionType: 'User'
+				}
+			],
+			[]
+		);
+		expect(rows[0]?.amountSats).toBe(10_000);
 	});
 });

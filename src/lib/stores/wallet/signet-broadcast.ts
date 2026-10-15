@@ -51,6 +51,26 @@ export async function esploraHasTx(txid: string): Promise<boolean> {
 	return response.ok;
 }
 
+/** Whether this output is spent. Null when the indexer cannot answer. */
+export async function esploraOutputSpent(
+	txid: string,
+	vout: number
+): Promise<{ spent: boolean; txid?: string } | null> {
+	if (!/^[0-9a-f]{64}$/i.test(txid) || !Number.isSafeInteger(vout) || vout < 0) return null;
+	const response = await fetch(
+		`https://esplora-api.utexo.com/tx/${txid.toLowerCase()}/outspend/${vout}`
+	);
+	if (!response.ok) return null;
+	const body: unknown = await response.json();
+	if (!body || typeof body !== 'object') return null;
+	const record = body as { spent?: unknown; txid?: unknown };
+	if (typeof record.spent !== 'boolean') return null;
+	return {
+		spent: record.spent,
+		txid: typeof record.txid === 'string' ? record.txid : undefined
+	};
+}
+
 /**
  * A 64-hex sendEnd value is not a send. Esplora must return the transaction.
  * The first look is immediate; later looks cover a broadcast that is still propagating.

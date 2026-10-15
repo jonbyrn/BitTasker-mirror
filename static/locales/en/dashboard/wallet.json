@@ -6,6 +6,7 @@
 		"builtin_wallet": "BitTasker Wallet",
 		"tab_connected": "Connected",
 		"tab_balance": "Balance",
+		"chain_balance_gap": "RGB reports {reported} USDT, but only {chain} is on outputs that are still unspent.",
 		"loading": "Loading wallet",
 		"tab_receive": "Receive",
 		"tab_send": "Send",

@@ -26,6 +26,8 @@ export interface RgbAsset {
 	balance: number;
 	/** Units rgb-lib will sign. Zero while a receive is still confirming. */
 	spendable?: number;
+	/** Units whose outputs Esplora still lists as unspent. */
+	chainSpendable?: number;
 	formattedBalance: string;
 	usdValue?: number;
 }

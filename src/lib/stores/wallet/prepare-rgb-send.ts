@@ -1,4 +1,4 @@
-import { esploraHasTx } from '$lib/stores/wallet/signet-broadcast';
+import { esploraHasTx, esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
 
 /** Outbound sends that are dead. A WaitingCounterparty receive or send may still be broadcasting. */
 const STUCK_SEND_STATUS = new Set(['Failed', 'Initiated']);
@@ -125,6 +125,94 @@ export function changeUnits(spendable: number, sent: number): number {
 	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(sent)) return 0;
 	if (sent <= 0 || sent >= spendable) return 0;
 	return spendable - sent;
+}
+
+export interface SpentSeal {
+	txid: string;
+	vout: number;
+	amount: number;
+	spentBy: string | null;
+}
+
+export interface ChainAllocation {
+	live: number;
+	spent: SpentSeal[];
+	checked: number;
+	unknown: boolean;
+}
+
+export type OutputSpendProbe = (
+	txid: string,
+	vout: number
+) => Promise<{ spent: boolean; txid?: string } | null>;
+
+function sealOutpoint(unspent: RgbUnspentRef): { txid: string; vout: number } | null {
+	const txid = unspent.utxo.outpoint?.txid?.trim().toLowerCase();
+	const vout = unspent.utxo.outpoint?.vout;
+	if (!txid || !/^[0-9a-f]+$/i.test(txid)) return null;
+	if (!Number.isSafeInteger(vout) || vout == null || vout < 0) return null;
+	return { txid, vout };
+}
+
+/**
+ * Units whose output Esplora still lists as unspent.
+ * A spent allocation is dropped. A failed lookup stays in `live` and sets `unknown`.
+ */
+export async function chainAllocation(
+	unspents: RgbUnspentRef[],
+	assetId: string,
+	probe: OutputSpendProbe
+): Promise<ChainAllocation> {
+	let live = 0;
+	let checked = 0;
+	let unknown = false;
+	const spent: SpentSeal[] = [];
+	for (const unspent of unspents) {
+		if (!unspent.utxo.exists || !holdsAsset(unspent, assetId)) continue;
+		const amount = allocationUnits(unspent, assetId);
+		if (amount <= 0) continue;
+		const outpoint = sealOutpoint(unspent);
+		if (!outpoint) {
+			unknown = true;
+			continue;
+		}
+		let result: { spent: boolean; txid?: string } | null = null;
+		try {
+			result = await probe(outpoint.txid, outpoint.vout);
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-send] outspend lookup failed',
+				outpoint.txid,
+				outpoint.vout,
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+		if (!result) {
+			unknown = true;
+			live += amount;
+			continue;
+		}
+		checked += 1;
+		if (result.spent) {
+			spent.push({
+				txid: outpoint.txid,
+				vout: outpoint.vout,
+				amount,
+				spentBy: result.txid ?? null
+			});
+			continue;
+		}
+		live += amount;
+	}
+	return { live, spent, checked, unknown };
+}
+
+/** Clear refusal when RGB still lists an output the chain already spent. */
+export function spentSealMessage(spent: SpentSeal[]): string | null {
+	if (spent.length === 0) return null;
+	const first = spent[0];
+	const by = first.spentBy ? ` by ${first.spentBy}` : '';
+	return `Refusing onchainSend: ${first.txid}:${first.vout} was already spent on-chain${by}. RGB still lists that USDT, so this send is blocked.`;
 }
 
 function allocationUnits(unspent: RgbUnspentRef, assetId: string): number {
@@ -341,7 +429,8 @@ function logSealState(nia: RgbNiaRef[], unspents: RgbUnspentRef[]): void {
 export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
 	assetId: string,
-	knownSpendable?: number
+	knownSpendable?: number,
+	outputSpent: OutputSpendProbe = esploraOutputSpent
 ): Promise<void> {
 	if (wallet.goOnline && wallet.isOnline?.() !== true) {
 		await wallet.goOnline(UTEXO_INDEXER);
@@ -355,6 +444,9 @@ export async function prepareRgbOnchainSend(
 		throw new Error('Refusing onchainSend: wallet cannot list seals');
 	}
 	const unspents = await readUnspents(wallet);
+	const chain = await chainAllocation(unspents, assetId, outputSpent);
+	const spentMessage = spentSealMessage(chain.spent);
+	if (spentMessage) throw new Error(spentMessage);
 	const listed = await wallet.listAssets();
 	const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
 	if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	chainAllocation,
 	fungibleAllocationSum,
 	hasUncoloredFeeUtxo,
 	isBdkAddUtxoError,
@@ -7,9 +8,11 @@ import {
 	needsVanillaFeeUtxo,
 	PHANTOM_BROADCAST_TXID,
 	phantomSendBatches,
+	prepareRgbOnchainSend,
 	releasePhantomSends,
 	sealSendBlocker,
 	spentSealBooked,
+	spentSealMessage,
 	strandedSeal,
 	stuckSendBatchIndexes
 } from '$lib/stores/wallet/prepare-rgb-send';
@@ -295,6 +298,58 @@ describe('prepareRgbOnchainSend helpers', () => {
 		];
 		expect(fungibleAllocationSum(unspents, assetId)).toBe(10_000);
 		expect(sealSendBlocker(unspents, assetId, 10_000)).toBeNull();
+	});
+
+	it('drops a spent allocation and names the output', async () => {
+		const assetId = 'rgb:f~usdt';
+		const seal = '9115e570'.padEnd(64, 'b');
+		const spentBy = '05ff07f8'.padEnd(64, 'a');
+		const unspents = [
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 2 } }
+			},
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 10_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 0 } }
+			}
+		];
+		const chain = await chainAllocation(unspents, assetId, async (_txid, vout) =>
+			vout === 2 ? { spent: true, txid: spentBy } : { spent: false }
+		);
+		expect(chain.live).toBe(10_000_000);
+		expect(chain.spent).toEqual([{ txid: seal, vout: 2, amount: 100_000_000, spentBy }]);
+		expect(spentSealMessage(chain.spent)).toBe(
+			`Refusing onchainSend: ${seal}:2 was already spent on-chain by ${spentBy}. RGB still lists that USDT, so this send is blocked.`
+		);
+	});
+
+	it('refuses the send when an allocation output is already spent', async () => {
+		const assetId = 'rgb:f~usdt';
+		const seal = 'c67397ba'.padEnd(64, 'c');
+		const spentBy = '368d36e6'.padEnd(64, 'd');
+		const failTransfers = vi.fn();
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 200_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 3 } }
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 200_000_000 } }]
+					}),
+					failTransfers
+				},
+				assetId,
+				200_000_000,
+				async () => ({ spent: true, txid: spentBy })
+			)
+		).rejects.toThrow(`${seal}:3 was already spent on-chain by ${spentBy}`);
+		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
 	it('detects the bdk add-utxo failure', () => {
