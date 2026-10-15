@@ -11,6 +11,7 @@ import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	fillUsdtBalance,
+	installPersistHooks,
 	loadAssets,
 	restoreOnUnlock,
 	rgbDatabasePresent,
@@ -125,6 +126,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 		await discoverSignetLsp(wallet);
 
 		state.utexoWallet = wallet;
+		installPersistHooks();
 		if (typeof window !== 'undefined' && wallet) {
 			probeWindow().__utexoWallet = wallet;
 			console.info('[wallet-init] exposed __utexoWallet on window');

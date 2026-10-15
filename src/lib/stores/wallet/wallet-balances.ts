@@ -599,6 +599,7 @@ export async function createAllocations() {
 	console.info('[rgb-allocations:start] Splitting BTC into UTXOs for RGB...');
 	const res = await wallet.createUtxos({ upTo: true, num: 5, feeRate: 2 });
 	console.info('[rgb-allocations:success]', res);
+	await flushWalletState(wallet);
 	return res;
 }
 
@@ -644,6 +645,7 @@ export async function issueRgbAsset(params: {
 		precision: params.precision ?? 0
 	});
 	console.info('[rgb-issue:success]', result);
+	await flushWalletState(wallet);
 	await refreshRgbBalances();
 	return result;
 }
@@ -685,15 +687,23 @@ function isRefreshValue(value: unknown): value is RefreshValue {
 	return typeof value === 'function';
 }
 
-function rawRefresh(wallet: unknown): { online: unknown; refresh: RefreshValue } | null {
+function rawWasmWallet(wallet: unknown): Record<string, unknown> | null {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return null;
+	const raw = manager.rlnBinding._wallet;
+	return isRecord(raw) ? raw : null;
+}
+
+function rawRefresh(wallet: unknown): { online: unknown; raw: Record<string, unknown> } | null {
 	if (!isRecord(wallet)) return null;
 	const manager = wallet._manager;
 	if (!isRecord(manager)) return null;
 	const binding = manager.rlnBinding;
 	if (!isRecord(binding) || binding.online == null) return null;
-	const raw = binding._wallet;
-	if (!isRecord(raw) || !isRefreshValue(raw.refreshValue)) return null;
-	return { online: binding.online, refresh: raw.refreshValue };
+	const raw = rawWasmWallet(wallet);
+	if (!raw || !isRefreshValue(raw.refreshValue)) return null;
+	return { online: binding.online, raw };
 }
 
 function refreshEntries(result: unknown): RefreshEntry[] {
@@ -760,19 +770,30 @@ async function pullIncomingOnce(
 		await wallet.goOnline(RGB_INDEXER);
 	}
 	const pulled = rawRefresh(wallet);
-	if (pulled) {
-		// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
-		// beside it overlaps the same wasm wallet and throws a null pointer.
-		const assetId = options?.assetId ?? null;
-		const result = await pulled.refresh(pulled.online, assetId, [], options?.skipSync === true);
-		const failure = refreshEntries(result)
-			.map((entry) => readRefreshFailure(entry.failure))
-			.find((message) => message != null);
-		if (failure) throw new Error(failure);
-		return;
+	try {
+		if (pulled) {
+			// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
+			// beside it overlaps the same wasm wallet and throws a null pointer.
+			// The method must keep the wasm wallet as `this`; a detached call throws
+			// "null pointer passed to rust".
+			const assetId = options?.assetId ?? null;
+			const result = await Reflect.apply(pulled.raw.refreshValue as RefreshValue, pulled.raw, [
+				pulled.online,
+				assetId,
+				[],
+				options?.skipSync === true
+			]);
+			const failure = refreshEntries(result)
+				.map((entry) => readRefreshFailure(entry.failure))
+				.find((message) => message != null);
+			if (failure) throw new Error(failure);
+			return;
+		}
+		if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
+		if (wallet.refreshWallet) await wallet.refreshWallet();
+	} finally {
+		await flushWalletState(wallet);
 	}
-	if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
-	if (wallet.refreshWallet) await wallet.refreshWallet();
 }
 
 const REFRESH_LIMIT_MS = 45_000;
@@ -862,14 +883,138 @@ function backupInfoDirty(wallet: unknown): boolean {
 	return Reflect.apply(raw.backupInfo, raw, []) === true;
 }
 
-function callWalletFlush(wallet: unknown): void {
-	if (!isRecord(wallet)) return;
-	const manager = wallet._manager;
-	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return;
-	const raw = manager.rlnBinding._wallet;
-	if (!isRecord(raw) || typeof raw.flush !== 'function') return;
-	Reflect.apply(raw.flush, raw, []);
+let persistHooksInstalled = false;
+
+function openNamedDb(name: string): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open(name);
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error ?? new Error('indexedDB open failed'));
+	});
+}
+
+async function snapshotRows(name: string): Promise<{ key: string; bytes: number }[]> {
+	const db = await openNamedDb(name);
+	try {
+		if (!db.objectStoreNames.contains('snapshots')) return [];
+		return await new Promise((resolve, reject) => {
+			const tx = db.transaction('snapshots', 'readonly');
+			const store = tx.objectStore('snapshots');
+			const keysReq = store.getAllKeys();
+			const valsReq = store.getAll();
+			tx.oncomplete = () => {
+				const keys = keysReq.result ?? [];
+				const vals = valsReq.result ?? [];
+				resolve(
+					keys.map((key, index) => {
+						const value = vals[index];
+						return {
+							key: String(key),
+							bytes: typeof value === 'string' ? value.length : 0
+						};
+					})
+				);
+			};
+			tx.onerror = () => reject(tx.error ?? new Error('snapshot read failed'));
+		});
+	} finally {
+		db.close();
+	}
+}
+
+async function storeCounts(name: string): Promise<{ store: string; count: number }[]> {
+	const db = await openNamedDb(name);
+	try {
+		const names = [...db.objectStoreNames];
+		const rows: { store: string; count: number }[] = [];
+		for (const store of names) {
+			const count = await new Promise<number>((resolve, reject) => {
+				const tx = db.transaction(store, 'readonly');
+				const request = tx.objectStore(store).count();
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error ?? new Error('store count failed'));
+			});
+			rows.push({ store, count });
+		}
+		return rows;
+	} finally {
+		db.close();
+	}
+}
+
+/** Log which IndexedDB holds the RGB snapshot. Values stay out of the log. */
+async function logWalletStores(fingerprint: string | null): Promise<void> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
+	const listed = await indexedDB.databases();
+	const names = listed
+		.map((row) => row.name)
+		.filter(
+			(name): name is string =>
+				typeof name === 'string' && (name === 'rgb_lib_wallet' || name.startsWith('rln_'))
+		);
+	console.info('[wallet-persist] indexeddb', names);
+	if (names.includes('rgb_lib_wallet')) {
+		console.info('[wallet-persist] rgb_lib_wallet snapshots', await snapshotRows('rgb_lib_wallet'));
+	}
+	const wanted = fingerprint ? `rln_${fingerprint}_signet` : '';
+	for (const name of names) {
+		if (!name.startsWith('rln_')) continue;
+		if (wanted && name !== wanted && !name.includes(fingerprint ?? '')) continue;
+		console.info('[wallet-persist] wallet db', name, await storeCounts(name));
+	}
+}
+
+/**
+ * Await the wasm wallet's IndexedDB commit. A detached `flush` throws
+ * "null pointer passed to rust", the same way a detached `refreshValue` does.
+ */
+export async function flushWalletState(wallet: unknown): Promise<boolean> {
+	const raw = rawWasmWallet(wallet);
+	if (!raw) return false;
+	const flush = raw.flush ?? raw.flushValue;
+	if (typeof flush !== 'function') {
+		console.warn('[wallet-persist] wallet.flush missing');
+		await logWalletStores(walletFingerprint(wallet)).catch((error: unknown) => {
+			console.warn(
+				'[wallet-persist] indexeddb read failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
+		return false;
+	}
+	try {
+		const result: unknown = Reflect.apply(flush as (...args: unknown[]) => unknown, raw, []);
+		if (result instanceof Promise) await result;
+	} catch (error) {
+		console.warn(
+			'[wallet-persist] wallet.flush failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return false;
+	}
 	console.info('[wallet-persist] wallet.flush');
+	await logWalletStores(walletFingerprint(wallet)).catch((error: unknown) => {
+		console.warn(
+			'[wallet-persist] indexeddb read failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
+	return true;
+}
+
+/** Flush when the tab is hidden. The awaited flush after refresh is the durable path. */
+export function installPersistHooks(): void {
+	if (!browser || persistHooksInstalled) return;
+	persistHooksInstalled = true;
+	const flushHidden = (): void => {
+		if (document.visibilityState === 'hidden') {
+			void flushWalletState(state.utexoWallet);
+		}
+	};
+	document.addEventListener('visibilitychange', flushHidden);
+	window.addEventListener('pagehide', () => {
+		void flushWalletState(state.utexoWallet);
+	});
 }
 
 function asBackupBytes(value: unknown): Uint8Array | null {
@@ -971,6 +1116,14 @@ export async function restoreOnUnlock(
  * Does not write those bytes onto the wasm JSON snapshot.
  */
 export async function persistWalletSnapshot(wallet: SnapshotWallet): Promise<void> {
+	try {
+		await writeWalletBackup(wallet);
+	} finally {
+		await flushWalletState(wallet);
+	}
+}
+
+async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	const password = backupPassword(wallet);
 	if (!password) {
 		console.warn('[wallet-persist] backup password missing');
@@ -1008,14 +1161,6 @@ export async function persistWalletSnapshot(wallet: SnapshotWallet): Promise<voi
 		return;
 	}
 	console.info('[wallet-persist] stored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
-	try {
-		callWalletFlush(wallet);
-	} catch (error) {
-		console.warn(
-			'[wallet-persist] wallet.flush failed',
-			error instanceof Error ? error.message : String(error)
-		);
-	}
 }
 
 type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWallet;
@@ -1362,7 +1507,9 @@ export async function createRgbInvoice(params?: {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	console.info('[rgb-invoice:start]', params);
-	return receiveWithAllocations(wallet, () => requestRgbInvoice(wallet, params));
+	const invoice = await receiveWithAllocations(wallet, () => requestRgbInvoice(wallet, params));
+	await flushWalletState(wallet);
+	return invoice;
 }
 
 async function requestRgbInvoice(

@@ -7,7 +7,7 @@ import {
 import { soleIfaAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { contractAssetId, decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
-import { persistWalletSnapshot, pullIncomingTransfers } from './wallet-balances';
+import { flushWalletState, persistWalletSnapshot, pullIncomingTransfers } from './wallet-balances';
 import { changeUnits, prepareRgbOnchainSend, spentSealBooked } from './prepare-rgb-send';
 import type { RgbUnspentRef } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
@@ -269,9 +269,11 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 	}
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('UTEXO wallet is not initialized');
-	return wallet.sendBtc({
+	const txid = await wallet.sendBtc({
 		address: params.address.trim(),
 		amount: params.amountSats,
 		feeRate: params.feeRate ?? 1
 	});
+	await flushWalletState(wallet);
+	return txid;
 }

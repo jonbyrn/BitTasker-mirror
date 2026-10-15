@@ -51,6 +51,7 @@ vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
 vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 	loadAssets,
 	persistWalletSnapshot,
+	flushWalletState: vi.fn().mockResolvedValue(false),
 	pullIncomingTransfers: vi.fn().mockResolvedValue(undefined)
 }));
 

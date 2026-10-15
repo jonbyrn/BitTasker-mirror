@@ -18,6 +18,7 @@ import {
 	resolveBrowserIndexer,
 	incomingReceiveReady,
 	fillUsdtBalance,
+	flushWalletState,
 	parseRgbAssets,
 	pullIncomingTransfers,
 	restoreOnUnlock,
@@ -235,6 +236,44 @@ describe('acceptIncomingPayment', () => {
 			`Unknown RGB schema ${schemaId}`
 		);
 		expect(readRefreshFailure(null)).toBeNull();
+	});
+
+	it('keeps the wasm wallet as this when refreshing and flushing', async () => {
+		const online = { connected: true };
+		const raw = {
+			refreshValue: vi.fn(function (this: unknown) {
+				if (this == null) throw new Error('null pointer passed to rust');
+				return new Map();
+			}),
+			flush: vi.fn(function (this: unknown) {
+				if (this == null) throw new Error('null pointer passed to rust');
+				return Promise.resolve();
+			})
+		};
+		const wallet = {
+			isOnline: () => true,
+			_manager: { rlnBinding: { online, _wallet: raw } }
+		};
+		await pullIncomingTransfers(wallet);
+		expect(raw.refreshValue.mock.instances[0]).toBe(raw);
+		expect(raw.flush.mock.instances[0]).toBe(raw);
+		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
+	});
+
+	it('reports a missing flush without throwing', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const wallet = {
+			isOnline: () => true,
+			_manager: {
+				rlnBinding: {
+					online: { connected: true },
+					_wallet: { refreshValue: vi.fn(async () => new Map()) }
+				}
+			}
+		};
+		await expect(flushWalletState(wallet)).resolves.toBe(false);
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] wallet.flush missing');
+		warn.mockRestore();
 	});
 
 	it('throws the wasm failure from refreshValue and does not treat it as pending', async () => {

@@ -7,7 +7,7 @@ import {
 	markExpectingInbound,
 	getRgbAddress
 } from './wallet-init';
-import { loadAssets } from './wallet-balances';
+import { flushWalletState, loadAssets } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
 import {
 	pendingReceiveCount,
@@ -106,6 +106,7 @@ export const walletManager = {
 					? wallet.blindReceive(receiveParams)
 					: wallet.witnessReceive(receiveParams)
 		);
+		await flushWalletState(wallet);
 		return {
 			invoice: receive.invoice,
 			recipientId: receive.recipientId,
