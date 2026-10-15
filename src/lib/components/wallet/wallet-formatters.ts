@@ -283,6 +283,11 @@ export function bitcoinHistoryAmount(
 	return net > 0 ? net : Math.max(received, sent);
 }
 
+/** RGB setup spends bitcoin into colorable outputs. It is not a payment. */
+export function walletSetup(transactionType: string): boolean {
+	return /create/i.test(transactionType) && /utxo/i.test(transactionType);
+}
+
 export interface WalletHistoryRow {
 	id: string;
 	type: 'send' | 'receive';
@@ -296,28 +301,33 @@ export interface WalletHistoryRow {
 
 /**
  * Bitcoin rows come from the Bitcoin wallet. USDT rows come from RGB transfers.
- * A shared txid must not turn the Bitcoin row into the USDT row.
+ * A bitcoin row that shares a txid with an RGB transfer is the anchor, not a second payment.
  */
 export function walletHistoryRows(
 	records: BitcoinHistoryRecord[],
 	transfers: unknown
 ): WalletHistoryRow[] {
-	const bitcoin: WalletHistoryRow[] = records.map((record) => {
-		const incoming = record.received > 0 && record.sent === 0;
-		const timestamp = record.confirmationTime?.timestamp
-			? record.confirmationTime.timestamp * 1000
-			: Date.now();
-		return {
-			id: record.txid,
-			type: incoming ? 'receive' : 'send',
-			amountSats: bitcoinHistoryAmount(record),
-			timestamp,
-			status: record.confirmationTime ? 'confirmed' : 'pending',
-			txHash: record.txid,
-			description: 'Bitcoin transfer'
-		};
-	});
-	const usdt: WalletHistoryRow[] = rgbHistoryRows(transfers).map((row) => {
+	const moves = rgbHistoryRows(transfers);
+	const rgbTx = new Set(moves.flatMap((row) => row.ids.map((id) => id.toLowerCase())));
+	const bitcoin: WalletHistoryRow[] = records
+		.filter((record) => !rgbTx.has(record.txid.toLowerCase()))
+		.map((record) => {
+			const incoming = record.received > 0 && record.sent === 0;
+			const timestamp = record.confirmationTime?.timestamp
+				? record.confirmationTime.timestamp * 1000
+				: Date.now();
+			const setup = walletSetup(record.transactionType);
+			return {
+				id: record.txid,
+				type: incoming ? 'receive' : 'send',
+				amountSats: bitcoinHistoryAmount(record),
+				timestamp,
+				status: record.confirmationTime ? 'confirmed' : 'pending',
+				txHash: record.txid,
+				description: setup ? 'Wallet setup' : 'Bitcoin transfer'
+			};
+		});
+	const usdt: WalletHistoryRow[] = moves.map((row) => {
 		const txHash = row.ids[0];
 		return {
 			id: `usdt:${txHash ?? row.timestamp}:${row.type}`,

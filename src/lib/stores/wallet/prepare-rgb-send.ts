@@ -127,6 +127,13 @@ export function changeUnits(spendable: number, sent: number): number {
 	return spendable - sent;
 }
 
+/** True only when a partial send left the old full balance spendable. */
+export function changeStillBooked(spendableAfter: number, previous: number, sent: number): boolean {
+	if (!Number.isSafeInteger(spendableAfter) || !Number.isSafeInteger(previous)) return false;
+	if (changeUnits(previous, sent) <= 0) return false;
+	return spendableAfter >= previous;
+}
+
 export interface SpentSeal {
 	txid: string;
 	vout: number;

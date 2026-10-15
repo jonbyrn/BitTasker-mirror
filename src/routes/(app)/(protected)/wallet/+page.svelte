@@ -8,7 +8,7 @@
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
-	import { scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
+	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import {
 		pendingBlindReceives,
@@ -191,14 +191,41 @@
 		return translate('wallet.utxo_vanilla', 'Vanilla');
 	}
 
+	let sentNotice = 0;
+
 	function handleSent(txid: string): void {
 		if (!txid) {
 			operationMessage = null;
 			return;
 		}
+		const notice = ++sentNotice;
 		operationMessage = /^[0-9a-f]{64}$/i.test(txid)
 			? text($t('wallet.toast.sent_successfully', { values: { txid } }), `Sent ${txid}`)
 			: translate('wallet.toast.sent_successfully', 'Sent');
+		setTimeout(() => {
+			if (sentNotice === notice) operationMessage = null;
+		}, 8000);
+		walletManager.loadAssets().catch((error: unknown) => {
+			console.error('[wallet-page] balance reload failed:', error);
+		});
+	}
+
+	async function copyInvoice(invoice: string): Promise<void> {
+		if (!invoice) return;
+		try {
+			await navigator.clipboard.writeText(invoice);
+		} catch (error) {
+			console.error('[wallet-page] copy invoice failed:', error);
+		}
+	}
+
+	async function dropInvoice(): Promise<void> {
+		try {
+			await cancelUnpaidInvoices();
+			await loadBlindReceives();
+		} catch (error) {
+			console.error('[wallet-page] cancel invoice failed:', error);
+		}
 	}
 
 	function handleReceiveClose(): void {
@@ -215,6 +242,7 @@
 
 	function historyLabel(type: string, description: string | undefined): string {
 		const incoming = type === 'receive';
+		if (description === 'Wallet setup') return translate('wallet.wallet_setup', 'Wallet setup');
 		if (isRgbMovement(description)) {
 			return translate(
 				incoming ? 'wallet.received_rgb' : 'wallet.sent_rgb',
@@ -228,6 +256,7 @@
 	}
 
 	function openSend(): void {
+		operationMessage = null;
 		isSendOpen = true;
 	}
 
@@ -550,14 +579,37 @@
 	</div>
 
 	{#if blindReceives.length > 0}
-		<div class="alert alert-outline flex flex-col items-start gap-1" data-testid="receive-waiting">
-			{#each blindReceives as row (`${row.seal}-${row.status}`)}
-				<p class="font-mono text-xs">{row.seal}</p>
-				<p class="text-xs">{row.status}</p>
-				{#if row.expiry}<p class="text-xs">{row.expiry}</p>{/if}
-				<p class="font-mono text-xs break-all">
-					{row.txid ?? translate('wallet.receive_waiting', 'Waiting for txid')}
-				</p>
+		<div class="alert alert-outline flex flex-col items-start gap-2" data-testid="receive-waiting">
+			{#each blindReceives as row (`${row.seal}-${row.status}-${row.batch ?? ''}`)}
+				<div class="flex w-full flex-col gap-1">
+					{#if row.invoice}
+						<p class="font-mono text-xs break-all">{row.invoice}</p>
+					{/if}
+					<p class="text-xs">{row.status}</p>
+					{#if row.expiry}
+						<p class="text-xs">
+							{translate('wallet.invoice_expires', 'Expires')}
+							{new Date(row.expiry * 1000).toLocaleString($locale || 'en')}
+						</p>
+					{/if}
+					<p class="font-mono text-xs break-all">
+						{row.txid ?? translate('wallet.receive_waiting', 'Waiting for txid')}
+					</p>
+					{#if !row.txid}
+						<div class="flex gap-2">
+							<button
+								type="button"
+								class="btn btn-outline btn-xs"
+								onclick={() => copyInvoice(row.invoice)}
+							>
+								{translate('wallet.taproot.copy_invoice', 'Copy invoice')}
+							</button>
+							<button type="button" class="btn btn-ghost btn-xs" onclick={dropInvoice}>
+								{translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
+							</button>
+						</div>
+					{/if}
+				</div>
 			{/each}
 		</div>
 	{/if}

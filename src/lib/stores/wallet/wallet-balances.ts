@@ -14,6 +14,7 @@ import {
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
+import { unpaidReceiveBatches } from './decode-rgb-invoice';
 import { chainAllocation, releasePhantomSends, type RgbUnspentRef } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
 
@@ -615,21 +616,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 }
 
 export async function refreshRgbBalances(): Promise<void> {
-	const wallet = getUtexoWallet();
-	if (!wallet) return;
-	try {
-		const assets = await wallet.getAssetBalance();
-		console.info('[rgb-balances:refresh]', assets);
-		walletStore.update((s) => ({
-			...s,
-			rgb: {
-				...s.rgb,
-				assets: parseRgbAssets(assets)
-			}
-		}));
-	} catch (err) {
-		console.warn('[rgb-balances:error] Failed to fetch RGB asset balances:', err);
-	}
+	await loadAssets({ pull: false });
 }
 
 import { readable as __readable } from 'svelte/store';
@@ -1541,6 +1528,30 @@ export async function acceptIncomingPayment(): Promise<void> {
 	const transfers = wallet.listTransfers ? await wallet.listTransfers().catch(() => []) : [];
 	await loadAssets({ pull: false });
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
+}
+
+/** Fail every unpaid RGB receive so a new invoice replaces the cancelled one. */
+export async function cancelUnpaidInvoices(): Promise<number> {
+	const wallet = getUtexoWallet();
+	const fail = wallet as {
+		failTransfers?: (params: { batchTransferIdx: number; skipSync: boolean }) => Promise<unknown>;
+		listTransfers?: (assetId?: string) => Promise<unknown>;
+		listAssets?: () => Promise<unknown>;
+	} | null;
+	if (!fail?.failTransfers || !fail.listTransfers) return 0;
+	const rows: unknown[] = [];
+	const plain = await fail.listTransfers().catch(() => []);
+	if (Array.isArray(plain)) rows.push(...plain);
+	const ids = listedAssetIds(fail.listAssets ? await fail.listAssets().catch(() => null) : null);
+	const named = await Promise.all(ids.map((id) => fail.listTransfers?.(id).catch(() => [])));
+	for (const batch of named) {
+		if (Array.isArray(batch)) rows.push(...batch);
+	}
+	const indexes = unpaidReceiveBatches(rows);
+	for (const batchTransferIdx of indexes) {
+		await fail.failTransfers({ batchTransferIdx, skipSync: true });
+	}
+	return indexes.length;
 }
 
 /**

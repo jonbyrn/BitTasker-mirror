@@ -12,7 +12,7 @@
 	} from '$lib/types/rgb-contract';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
-	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { cancelUnpaidInvoices, receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
@@ -52,6 +52,17 @@
 		($walletStore.rgb?.assets ?? []).find((item) => item.symbol?.toUpperCase() === 'USDT') ?? null
 	);
 	const usdtScale = $derived(usdtPrecision(heldUsdt?.symbol ?? 'USDT', heldUsdt?.precision));
+	const shownAmount = $derived.by(() => {
+		if (invoiceAmount) return invoiceAmount;
+		if (!receiveValue.startsWith('rgb:')) return '';
+		try {
+			const decoded = decodeRgbInvoice(receiveValue);
+			if (decoded.amount === null || decoded.amount <= 0) return '';
+			return formatUsdtUnits(decoded.amount, usdtScale);
+		} catch {
+			return '';
+		}
+	});
 	const previewRaw = $derived.by(() => {
 		if (asset !== 'usdt_rgb' || parsedAmount === null) return null;
 		try {
@@ -82,7 +93,10 @@
 		if (asset === 'usdt_rgb') {
 			isGenerating = true;
 			usedBlank = false;
+			receiveValue = '';
+			invoiceAmount = '';
 			try {
+				await cancelUnpaidInvoices();
 				const result = await receiveUsdtInvoice(parsedAmount ?? undefined);
 				if (!result.blank && result.invoice.startsWith('rgb:')) {
 					const decoded = decodeRgbInvoice(result.invoice);
@@ -121,10 +135,16 @@
 		}
 	}
 
-	function cancelReceive(): void {
+	async function cancelReceive(): Promise<void> {
+		errorMessage = '';
+		try {
+			await cancelUnpaidInvoices();
+		} catch (err) {
+			errorMessage = err instanceof Error ? err.message : 'Failed to cancel the RGB invoice';
+			return;
+		}
 		receiveValue = '';
 		invoiceAmount = '';
-		errorMessage = '';
 		usedBlank = false;
 	}
 
@@ -234,21 +254,21 @@
 					: $t('wallet.taproot.receive_usdt')}
 		</button>
 	{:else}
-		<div class="bg-base-200 rounded-lg p-3 font-mono text-xs break-all" data-testid="receive-value">
-			{receiveValue}
+		<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
+			{#if shownAmount}
+				<p class="mb-2 text-sm" data-testid="receive-usdt-amount">
+					{$t('wallet.taproot.invoice_usdt', { values: { amount: shownAmount } })}
+				</p>
+			{/if}
+			<p class="font-mono">{receiveValue}</p>
 		</div>
-		{#if invoiceAmount}
-			<p class="text-sm" data-testid="receive-usdt-amount">
-				{$t('wallet.taproot.invoice_usdt', { values: { amount: invoiceAmount } })}
-			</p>
-		{/if}
 		<button
 			type="button"
 			class="btn btn-outline w-full"
 			onclick={handleCopy}
 			data-testid="receive-copy"
 		>
-			{$t('wallet.taproot.copy_address')}
+			{$t(asset === 'btc_onchain' ? 'wallet.taproot.copy_address' : 'wallet.taproot.copy_invoice')}
 		</button>
 		<button
 			type="button"

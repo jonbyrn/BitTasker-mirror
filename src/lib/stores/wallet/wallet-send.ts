@@ -7,9 +7,13 @@ import {
 import { soleIfaAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { contractAssetId, decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
-import { flushWalletState, persistWalletSnapshot, pullIncomingTransfers } from './wallet-balances';
-import { changeUnits, prepareRgbOnchainSend, spentSealBooked } from './prepare-rgb-send';
-import type { RgbUnspentRef } from './prepare-rgb-send';
+import {
+	flushWalletState,
+	loadAssets,
+	persistWalletSnapshot,
+	pullIncomingTransfers
+} from './wallet-balances';
+import { changeStillBooked, prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import type { Transaction } from './wallet-types';
 
@@ -68,7 +72,7 @@ interface SpendableWallet {
 /** `getAssetBalance(assetId).spendable`, then listAssets. Never `future`. */
 function assetMissing(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
-	return /not found/i.test(message);
+	return /not found|memory access out of bounds|null pointer/i.test(message);
 }
 
 export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
@@ -234,14 +238,20 @@ export async function sendRgbAsset(params: {
 	await pullIncomingTransfers(wallet, { skipSync: false, assetId }).catch((error: unknown) => {
 		console.warn('[wallet-send] refresh after send failed', describeThrown(error));
 	});
-	const lister = wallet as { listUnspents?: () => Promise<RgbUnspentRef[]> };
-	if (lister.listUnspents && changeUnits(spendable, units) > 0) {
-		const unspents = await lister.listUnspents().catch(() => []);
-		if (spentSealBooked(unspents, assetId, txid, spendable)) {
-			throw new Error(
-				`RGB change was not assigned after ${txid}. Do not send again. Refresh transfers and check the balance.`
-			);
+	let after: number | null = null;
+	if (typeof wallet.getAssetBalance === 'function') {
+		try {
+			after = balanceSpendable(await wallet.getAssetBalance(assetId), assetId);
+		} catch (error: unknown) {
+			if (!assetMissing(error)) {
+				console.warn('[wallet-send] balance after send failed', describeThrown(error));
+			}
 		}
+	}
+	if (after !== null && changeStillBooked(after, spendable, units)) {
+		throw new Error(
+			`RGB still shows the full balance after ${txid}. Refresh transfers before sending again.`
+		);
 	}
 	await persistWalletSnapshot(wallet).catch((error: unknown) => {
 		console.warn(
@@ -250,6 +260,9 @@ export async function sendRgbAsset(params: {
 		);
 	});
 	recordSentUsdt(txid, units);
+	await loadAssets().catch((error: unknown) => {
+		console.warn('[wallet-send] balance reload failed', describeThrown(error));
+	});
 	return { txid, batchTransferIdx: 0 };
 }
 
@@ -276,5 +289,14 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 		feeRate: params.feeRate ?? 1
 	});
 	await flushWalletState(wallet);
+	const sync = wallet as { syncWallet?: () => Promise<unknown> };
+	if (typeof sync.syncWallet === 'function') {
+		await sync.syncWallet().catch((error: unknown) => {
+			console.warn('[wallet-send] sync after send failed', describeThrown(error));
+		});
+	}
+	await loadAssets().catch((error: unknown) => {
+		console.warn('[wallet-send] balance reload failed', describeThrown(error));
+	});
 	return txid;
 }

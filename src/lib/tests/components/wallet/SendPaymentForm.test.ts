@@ -146,6 +146,7 @@ describe('SendPaymentForm', () => {
 		});
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '21000' } });
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(sendBtc).toHaveBeenCalledTimes(1));
 		expect(sendBtc).toHaveBeenCalledWith({
@@ -167,6 +168,7 @@ describe('SendPaymentForm', () => {
 			target: { value: 'lnbc210n1pjexample' }
 		});
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(payLightningInvoice).toHaveBeenCalledTimes(1));
 		expect(payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: 'lnbc210n1pjexample' });
@@ -194,6 +196,7 @@ describe('SendPaymentForm', () => {
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		expect(queryByTestId('lsp-channel-closed')).toBeNull();
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
 		expect(sendRgbAsset).toHaveBeenCalledWith({
@@ -220,9 +223,10 @@ describe('SendPaymentForm', () => {
 			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
 		);
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect((getByTestId('send-confirm') as HTMLButtonElement).disabled).toBe(true);
 		expect(showSuccessToast).not.toHaveBeenCalled();
 		expect(onSent).not.toHaveBeenCalled();
 	});
@@ -268,6 +272,7 @@ describe('SendPaymentForm', () => {
 			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
 		);
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
 		expect(sendRgbAsset).toHaveBeenCalledWith(
 			expect.objectContaining({ amount: 10_000_000, assetId: 'rgb:f~held-usdt' })
@@ -331,6 +336,7 @@ describe('SendPaymentForm', () => {
 		);
 		expect(getByTestId('available-balance').textContent).toContain('200.00 USDT');
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 		await waitFor(() =>
 			expect(sendRgbAsset).toHaveBeenCalledWith(
 				expect.objectContaining({ assetId: faucet, amount: 10_000_000, invoice })
@@ -391,6 +397,7 @@ describe('SendPaymentForm', () => {
 		});
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '21000' } });
 		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
 		expect(onSent).not.toHaveBeenCalled();

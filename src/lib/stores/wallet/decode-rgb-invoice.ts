@@ -16,6 +16,8 @@ export interface BlindReceiveRow {
 	expiry: number | null;
 	txid: string | null;
 	status: string;
+	invoice: string;
+	batch: number | null;
 }
 
 /** Little-endian u64, trailing zero bytes removed, base32 with no digits. */
@@ -146,13 +148,11 @@ export function blindReceiveRows(
 		const row = rowRecord(value);
 		if (!row) continue;
 		if (row.kind !== 'ReceiveBlind' || row.status !== 'WaitingCounterparty') continue;
-		const invoice = typeof row.invoiceString === 'string' ? row.invoiceString : '';
-		const seal = invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
-		if (!seal) continue;
-		const expiry = typeof row.expiration === 'number' ? row.expiration : null;
-		if (expiry !== null && expiry <= nowSec) continue;
+		const built = receiveRow(row, 'WaitingCounterparty', null);
+		if (!built) continue;
+		if (built.expiry !== null && built.expiry <= nowSec) continue;
 		const txid = typeof row.txid === 'string' && row.txid.length > 0 ? row.txid : null;
-		pending.push({ seal, expiry, txid, status: 'WaitingCounterparty' });
+		pending.push({ ...built, txid });
 	}
 	return pending;
 }
@@ -165,6 +165,19 @@ function invoiceSeal(row: Record<string, unknown>): string {
 	return invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
 }
 
+function receiveRow(
+	row: Record<string, unknown>,
+	status: string,
+	txid: string | null
+): BlindReceiveRow | null {
+	const invoice = typeof row.invoiceString === 'string' ? row.invoiceString : '';
+	const seal = invoiceSeal(row);
+	if (!seal) return null;
+	const expiry = typeof row.expiration === 'number' ? row.expiration : null;
+	const batch = typeof row.batchTransferIdx === 'number' ? row.batchTransferIdx : null;
+	return { seal, expiry, txid, status, invoice, batch };
+}
+
 function confirmingRows(rows: readonly unknown[]): BlindReceiveRow[] {
 	const confirming: BlindReceiveRow[] = [];
 	for (const value of rows) {
@@ -172,12 +185,25 @@ function confirmingRows(rows: readonly unknown[]): BlindReceiveRow[] {
 		if (!row || row.kind !== 'ReceiveBlind') continue;
 		const status = typeof row.status === 'string' ? row.status : '';
 		if (!CONFIRMING_RECEIVE.has(status)) continue;
-		const seal = invoiceSeal(row);
-		if (!seal) continue;
 		const txid = typeof row.txid === 'string' && row.txid.length > 0 ? row.txid : null;
-		confirming.push({ seal, expiry: null, txid, status });
+		const built = receiveRow(row, status, txid);
+		if (built) confirming.push(built);
 	}
 	return confirming;
+}
+
+/** Waiting receives with no payment yet. These are the invoices the UI can cancel. */
+export function unpaidReceiveBatches(rows: unknown): number[] {
+	if (!Array.isArray(rows)) return [];
+	const indexes: number[] = [];
+	for (const value of rows) {
+		const row = rowRecord(value);
+		if (!row || row.kind !== 'ReceiveBlind' || row.status !== 'WaitingCounterparty') continue;
+		if (typeof row.txid === 'string' && row.txid.length > 0) continue;
+		if (typeof row.batchTransferIdx !== 'number') continue;
+		indexes.push(row.batchTransferIdx);
+	}
+	return [...new Set(indexes)];
 }
 
 /**

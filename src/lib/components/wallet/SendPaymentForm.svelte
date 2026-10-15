@@ -42,6 +42,7 @@
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
 	let isSending = $state(false);
+	let reviewing = $state(false);
 	let errorMessage = $state('');
 	let sentTxid = $state('');
 	let boundIfa = $state<{ assetId: string; units: number } | null>(null);
@@ -140,6 +141,14 @@
 	});
 
 	// Lightning invoices embed their own amount — only a valid invoice is required.
+	const reviewAmount = $derived.by(() => {
+		if (asset === 'usdt_rgb') {
+			return rgbAmount === null ? '' : `${formatUsdtBalance(rgbAmount, usdtScale)} USDT`;
+		}
+		if (asset === 'btc_onchain') return amountSats === null ? '' : `${amountSats} sats`;
+		return $t('wallet.networks.lightning');
+	});
+	const reviewFee = $derived(asset === 'usdt_rgb' ? 2 : feeRate);
 	const canSubmit = $derived.by(() => {
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
@@ -173,6 +182,11 @@
 		return usdtAsset?.assetId || FAUCET_IFA_ASSET;
 	}
 
+	function balanceMissing(error: unknown): boolean {
+		const message = describeThrown(error);
+		return /not found|memory access out of bounds|null pointer/i.test(message);
+	}
+
 	async function loadSpendable(): Promise<void> {
 		const request = ++spendRequest;
 		const assetId = await spendAssetId();
@@ -195,13 +209,18 @@
 			if (errorMessage.toLowerCase().includes('not found')) errorMessage = '';
 		} catch (error) {
 			if (request !== spendRequest) return;
+			if (balanceMissing(error)) {
+				spendableUnits = 0;
+				pendingReceives = 0;
+				return;
+			}
 			spendableUnits = null;
 			errorMessage = describeThrown(error);
 		}
 	}
 
 	onMount(() => {
-		void loadSpendable();
+		if (asset === 'usdt_rgb') void loadSpendable();
 	});
 
 	function applyInvoice(value: string): void {
@@ -265,6 +284,10 @@
 
 	async function handleSubmit(): Promise<void> {
 		if (!canSubmit) return;
+		if (!reviewing) {
+			reviewing = true;
+			return;
+		}
 		if (asset === 'btc_onchain' && (amountSats === null || amountSats <= 0)) return;
 		if (asset === 'usdt_rgb' && (rgbAmount === null || rgbAmount <= 0)) return;
 		isSending = true;
@@ -333,6 +356,7 @@
 					errorMessage = '';
 					sentTxid = '';
 					amountInput = '';
+					reviewing = false;
 					if (option.id === 'usdt_rgb') void loadSpendable();
 				}}
 				data-testid={`asset-${option.id}`}
@@ -501,26 +525,42 @@
 		</div>
 	{/if}
 
+	{#if reviewing}
+		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-review">
+			<p>{reviewAmount}</p>
+			<p class="font-mono text-xs break-all">{destination.trim()}</p>
+			{#if asset !== 'btc_lightning'}
+				<p>{$t('wallet.send_fee_rate', { values: { rate: reviewFee } })}</p>
+			{/if}
+		</div>
+	{/if}
+
 	<div class="flex gap-3">
 		<button
 			type="button"
 			class="btn btn-ghost flex-1"
-			onclick={onCancel}
+			onclick={() => {
+				if (reviewing) {
+					reviewing = false;
+					return;
+				}
+				onCancel();
+			}}
 			disabled={isSending}
 			data-testid="send-cancel"
 		>
-			{$t('common.cancel')}
+			{$t(reviewing ? 'common.back' : 'common.cancel')}
 		</button>
 		<button
 			type="submit"
 			class="btn btn-primary flex-1"
 			disabled={!canSubmit || errorMessage !== ''}
-			data-testid="send-submit"
+			data-testid={reviewing ? 'send-confirm' : 'send-submit'}
 		>
 			{#if isSending}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{$t('wallet.send.send')}
+			{$t(reviewing ? 'wallet.send_confirm' : 'wallet.send.send')}
 		</button>
 	</div>
 </form>

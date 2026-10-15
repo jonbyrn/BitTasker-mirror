@@ -334,13 +334,10 @@ describe('wallet dashboard display', () => {
 		);
 		const bitcoinSend = rows.find((row) => row.id.startsWith('4fe2244f'));
 		const bitcoinReceive = rows.find((row) => row.id.startsWith('2af94a3e'));
+		expect(bitcoinSend).toBeUndefined();
+		expect(bitcoinReceive).toBeUndefined();
 		const usdtSend = rows.find((row) => row.id.startsWith('usdt:4fe2244f'));
 		const usdtReceive = rows.find((row) => row.id.startsWith('usdt:59602401'));
-		expect(bitcoinSend?.description).toBe('Bitcoin transfer');
-		expect(bitcoinSend?.amountSats).toBe(309);
-		expect(bitcoinSend?.assetUnits).toBeUndefined();
-		expect(bitcoinReceive?.description).toBe('Bitcoin transfer');
-		expect(bitcoinReceive?.amountSats).toBe(1000);
 		expect(usdtSend).toMatchObject({
 			type: 'send',
 			assetUnits: 11_000_000,
@@ -369,5 +366,21 @@ describe('wallet dashboard display', () => {
 			[]
 		);
 		expect(rows[0]?.amountSats).toBe(10_000);
+	});
+
+	it('labels an RGB setup transaction instead of a bitcoin send', () => {
+		const rows = walletHistoryRows(
+			[
+				{
+					txid: 'bb'.repeat(32),
+					received: 0,
+					sent: 50_000,
+					confirmationTime: { timestamp: 1_790_000_000 },
+					transactionType: 'CreateUtxos'
+				}
+			],
+			[]
+		);
+		expect(rows[0]).toMatchObject({ description: 'Wallet setup', amountSats: 50_000 });
 	});
 });

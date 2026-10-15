@@ -91,7 +91,14 @@ describe('blindReceiveRows', () => {
 				1790661181
 			)
 		).toEqual([
-			{ seal: '77UiY8iS', expiry: 1790661182, txid: null, status: 'WaitingCounterparty' }
+			{
+				seal: '77UiY8iS',
+				expiry: 1790661182,
+				txid: null,
+				status: 'WaitingCounterparty',
+				invoice: 'rgb:~/~/nWca/sb:utxob:77UiY8iS-rest',
+				batch: null
+			}
 		]);
 	});
 
@@ -124,7 +131,9 @@ describe('blindReceiveRows', () => {
 				seal: 'otherSeal',
 				expiry: null,
 				txid: 'c53f8ff2028aa756130eb4db26dca7aa3f11e3fa797631ddfc87812f345ffcbc',
-				status: 'WaitingConfirmations'
+				status: 'WaitingConfirmations',
+				invoice: paid,
+				batch: null
 			}
 		]);
 	});

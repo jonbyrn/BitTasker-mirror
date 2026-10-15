@@ -45,7 +45,17 @@ export async function loadTransactions(): Promise<void> {
 		]);
 		const transactions: Transaction[] = walletHistoryRows(records, listed);
 
-		walletStore.update((s) => ({ ...s, transactions }));
+		walletStore.update((current) => {
+			const seen = new Set(transactions.map((row) => (row.txHash || row.id).toLowerCase()));
+			const kept = current.transactions.filter((row) => {
+				const id = (row.txHash || row.id).toLowerCase();
+				return row.status === 'pending' && id.length > 0 && !seen.has(id);
+			});
+			const merged = [...kept, ...transactions].sort(
+				(left, right) => right.timestamp - left.timestamp
+			);
+			return { ...current, transactions: merged };
+		});
 	} catch (error) {
 		console.warn('[wallet-transactions] listTransactions skipped:', error);
 	}

@@ -11,6 +11,7 @@ import {
 	prepareRgbOnchainSend,
 	releasePhantomSends,
 	sealSendBlocker,
+	changeStillBooked,
 	spentSealBooked,
 	spentSealMessage,
 	strandedSeal,
@@ -190,6 +191,12 @@ describe('prepareRgbOnchainSend helpers', () => {
 				5
 			)
 		).toBe(true);
+	});
+
+	it('warns only when the full balance is still spendable after a partial send', () => {
+		expect(changeStillBooked(100_000_000, 110_000_000, 10_000_000)).toBe(false);
+		expect(changeStillBooked(110_000_000, 110_000_000, 10_000_000)).toBe(true);
+		expect(changeStillBooked(0, 110_000_000, 110_000_000)).toBe(false);
 	});
 
 	it('flags a full allocation that stayed on an output the send already spent', () => {

@@ -44,9 +44,10 @@ vi.mock('$lib/stores/wallet/wallet-state', () => ({
 	walletStore: { subscribe: () => () => {}, update: updateWallet }
 }));
 
-vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
-	prepareRgbOnchainSend
-}));
+vi.mock('$lib/stores/wallet/prepare-rgb-send', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/wallet/prepare-rgb-send')>();
+	return { ...actual, prepareRgbOnchainSend };
+});
 
 vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 	loadAssets,
@@ -126,7 +127,7 @@ describe('sendRgbAsset', () => {
 		);
 		expect(persistWalletSnapshot).toHaveBeenCalledOnce();
 		expect(sent.txid).toHaveLength(64);
-		expect(loadAssets).not.toHaveBeenCalled();
+		expect(loadAssets).toHaveBeenCalledOnce();
 		expect(updateWallet).toHaveBeenCalledOnce();
 	});
 
@@ -314,11 +315,17 @@ describe('sendRgbAsset', () => {
 
 	it('sends the invoice asset when the configured id is not in the wallet', async () => {
 		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
-		getAssetBalance.mockResolvedValue({
-			spendable: 200_000_000,
-			settled: 200_000_000,
-			future: 200_000_000
-		});
+		getAssetBalance
+			.mockResolvedValueOnce({
+				spendable: 200_000_000,
+				settled: 200_000_000,
+				future: 200_000_000
+			})
+			.mockResolvedValue({
+				spendable: 190_000_000,
+				settled: 190_000_000,
+				future: 190_000_000
+			});
 		listAssets.mockResolvedValue({ nia: [], ifa: [] });
 		await sendRgbAsset({
 			invoice: `rgb:${faucet.slice(4)}/~/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`,
