@@ -11,6 +11,7 @@ import {
 	usdtInvoiceAsset,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
+import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { releasePhantomSends } from './prepare-rgb-send';
@@ -445,6 +446,52 @@ export function parseRgbAssets(raw: unknown): RgbAsset[] {
 		.filter((asset) => asset.assetId !== '');
 }
 
+function balanceRecord(raw: unknown): RawRgbAsset['balance'] | null {
+	if (raw === null || typeof raw !== 'object') return null;
+	const record = raw as Record<string, unknown>;
+	const nested = record.balance;
+	if (nested && typeof nested === 'object') return nested as RawRgbAsset['balance'];
+	if ('spendable' in record || 'settled' in record || 'future' in record) {
+		return record as RawRgbAsset['balance'];
+	}
+	return null;
+}
+
+/** Replace the USDT row with getAssetBalance. A missing row uses the faucet IFA, not the env id. */
+export async function fillUsdtBalance(
+	wallet: { getAssetBalance?: (assetId: string) => Promise<unknown> },
+	assets: RgbAsset[]
+): Promise<RgbAsset[]> {
+	const held = assets.find(
+		(asset) => (asset.symbol ?? '').toUpperCase() === 'USDT' && asset.assetId
+	);
+	const assetId = held?.assetId || FAUCET_IFA_ASSET;
+	if (typeof wallet.getAssetBalance !== 'function') return assets;
+	let raw: unknown;
+	try {
+		raw = await wallet.getAssetBalance(assetId);
+	} catch {
+		return assets;
+	}
+	const balance = balanceRecord(raw);
+	if (!balance) return assets;
+	const shown = assetAmount(balance);
+	const spendable = spendableAmount(balance);
+	if (!held && shown <= 0 && spendable <= 0) return assets;
+	const precision = usdtPrecision(held?.symbol ?? 'USDT', held?.precision ?? 6);
+	const row: RgbAsset = {
+		assetId,
+		name: held?.name ?? 'Tether USD',
+		symbol: 'USDT',
+		precision,
+		balance: shown,
+		spendable,
+		formattedBalance: formatUsdtBalance(shown, precision)
+	};
+	if (!held) return [...assets, row];
+	return assets.map((asset) => (asset.assetId === assetId ? { ...asset, ...row } : asset));
+}
+
 export function scheduleBalanceRefresh(): void {
 	if (state.balanceRefreshTimer) clearTimeout(state.balanceRefreshTimer);
 	state.balanceRefreshTimer = setTimeout(() => {
@@ -478,6 +525,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 		try {
 			rgbAssets = parseRgbAssets(await wallet.listAssets());
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
+			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;

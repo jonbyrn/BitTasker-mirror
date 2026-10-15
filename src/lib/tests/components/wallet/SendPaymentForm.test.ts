@@ -78,7 +78,8 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 
 vi.mock('$lib/stores/wallet/signet-lsp', () => ({
 	payEscrowLightning,
-	lightningStore: lightningState
+	lightningStore: lightningState,
+	FAUCET_IFA_ASSET: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y'
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -227,7 +228,7 @@ describe('SendPaymentForm', () => {
 	});
 
 	it('keeps Send disabled on a blank invoice when listAssets has no single IFA', async () => {
-		listRgbAssets.mockResolvedValueOnce({ ifa: [] });
+		listRgbAssets.mockResolvedValue({ ifa: [] });
 		const { getByTestId } = render(SendPaymentForm);
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
@@ -309,6 +310,32 @@ describe('SendPaymentForm', () => {
 		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		expect(getByTestId('send-not-spendable').textContent).toContain('wallet.send_below_spendable');
 		expect(sendRgbAsset).not.toHaveBeenCalled();
+	});
+
+	it('quotes the invoice asset instead of the configured USDT id', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs');
+		quoteSpendable.mockResolvedValue(200_000_000);
+		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const invoice = `rgb:${faucet.slice(4)}/~/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`;
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+
+		await waitFor(() => {
+			expect(quoteSpendable).toHaveBeenLastCalledWith(faucet);
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
+		});
+		expect(quoteSpendable).not.toHaveBeenCalledWith(
+			'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs'
+		);
+		expect(getByTestId('available-balance').textContent).toContain('200.00 USDT');
+		await fireEvent.click(getByTestId('send-submit'));
+		await waitFor(() =>
+			expect(sendRgbAsset).toHaveBeenCalledWith(
+				expect.objectContaining({ assetId: faucet, amount: 10_000_000, invoice })
+			)
+		);
 	});
 
 	it('enables Send for 10 USDT when spendable is 100 and a receive is stuck', async () => {

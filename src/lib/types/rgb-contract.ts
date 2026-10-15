@@ -163,7 +163,7 @@ export function usdtInvoiceAsset(
 	const rows = spendableRgbAssets(listed);
 	const configuredId = configured?.trim();
 	if (configuredId && rows.some((item) => item.assetId === configuredId)) return configuredId;
-	return rows.find((item) => item.ticker === 'USDT')?.assetId;
+	return rows.find((item) => (item.ticker ?? '').toUpperCase() === 'USDT')?.assetId;
 }
 
 /** First preferred id that this wallet can spend, then USDT, then any spendable row. */

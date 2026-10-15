@@ -81,6 +81,18 @@ describe('usdtInvoiceAsset', () => {
 		).toBe(ifaId);
 	});
 
+	it('matches a lowercase USDT ticker', () => {
+		expect(
+			usdtInvoiceAsset(
+				{
+					nia: [],
+					ifa: [{ assetId: ifaId, ticker: 'usdt', balance: { spendable: 200_000_000 } }]
+				},
+				'rgb:buHqKXhJ-configured'
+			)
+		).toBe(ifaId);
+	});
+
 	it('returns undefined when this wallet has no spendable USDT', () => {
 		expect(
 			usdtInvoiceAsset(

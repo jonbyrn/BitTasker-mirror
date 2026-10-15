@@ -17,6 +17,7 @@ import {
 	resetEsploraFetchState,
 	resolveBrowserIndexer,
 	incomingReceiveReady,
+	fillUsdtBalance,
 	parseRgbAssets,
 	pullIncomingTransfers,
 	restoreOnUnlock,
@@ -726,6 +727,43 @@ describe('parseRgbAssets', () => {
 		});
 
 		expect(assets[0]?.balance).toBe(100_000_000);
+	});
+});
+
+describe('fillUsdtBalance', () => {
+	it('shows the faucet USDT balance when listAssets has no USDT row', async () => {
+		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const assets = await fillUsdtBalance(
+			{
+				getAssetBalance: vi.fn().mockResolvedValue({
+					spendable: 200_000_000,
+					settled: 200_000_000,
+					future: 200_000_000
+				})
+			},
+			[]
+		);
+		expect(assets).toEqual([
+			expect.objectContaining({
+				assetId: faucet,
+				symbol: 'USDT',
+				balance: 200_000_000,
+				spendable: 200_000_000,
+				formattedBalance: '200.00'
+			})
+		]);
+	});
+
+	it('leaves the list unchanged when the faucet asset is missing', async () => {
+		const assets = await fillUsdtBalance(
+			{
+				getAssetBalance: vi
+					.fn()
+					.mockRejectedValue(new Error('Asset with id rgb:f~9F4X0C not found'))
+			},
+			[]
+		);
+		expect(assets).toEqual([]);
 	});
 });
 

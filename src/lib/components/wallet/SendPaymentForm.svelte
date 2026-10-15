@@ -7,14 +7,19 @@
 	import {
 		formatUsdtBalance,
 		formatUsdtUnits,
-		getConfiguredRgbUsdtAssetId,
 		soleIfaAsset,
 		usdtBaseUnits,
+		usdtInvoiceAsset,
 		usdtPrecision
 	} from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { assetButtonTone, signetTxUrl } from '$lib/components/wallet/wallet-formatters';
-	import { decodeRgbInvoice, type DecodedRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
+	import {
+		contractAssetId,
+		decodeRgbInvoice,
+		type DecodedRgbInvoice
+	} from '$lib/stores/wallet/decode-rgb-invoice';
+	import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
@@ -44,6 +49,8 @@
 	let ifaRequest = 0;
 	let spendableUnits = $state<number | null>(null);
 	let pendingReceives = $state(0);
+	let spendAsset = $state('');
+	let spendRequest = 0;
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
 		{
@@ -153,16 +160,41 @@
 			ifaLookup === 'missing'
 	);
 
+	async function spendAssetId(): Promise<string> {
+		const named = contractAssetId(decodedInvoice?.contract ?? null);
+		if (named) return named;
+		try {
+			const listed = await walletManager.listRgbAssets();
+			const held = usdtInvoiceAsset(listed, null);
+			if (held) return held;
+		} catch {
+			// The invoice asset and the faucet id remain available.
+		}
+		return usdtAsset?.assetId || FAUCET_IFA_ASSET;
+	}
+
 	async function loadSpendable(): Promise<void> {
-		const assetId = usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '';
+		const request = ++spendRequest;
+		const assetId = await spendAssetId();
+		if (request !== spendRequest) return;
+		if (!assetId) {
+			spendAsset = '';
+			spendableUnits = 0;
+			pendingReceives = 0;
+			return;
+		}
 		try {
 			const [quoted, pending] = await Promise.all([
 				walletManager.quoteSpendable(assetId),
 				walletManager.pendingReceives(assetId)
 			]);
+			if (request !== spendRequest) return;
+			spendAsset = assetId;
 			spendableUnits = quoted;
 			pendingReceives = pending;
+			if (errorMessage.toLowerCase().includes('not found')) errorMessage = '';
 		} catch (error) {
+			if (request !== spendRequest) return;
 			spendableUnits = null;
 			errorMessage = describeThrown(error);
 		}
@@ -193,6 +225,7 @@
 		errorMessage = '';
 		applyInvoice(destination.trim());
 		void bindBlankIfa(destination.trim());
+		if (asset === 'usdt_rgb') void loadSpendable();
 	}
 
 	async function bindBlankIfa(value: string): Promise<void> {
@@ -248,8 +281,7 @@
 				if (spendableUnits === null || !sendEnabled(spendableUnits, rgbAmount)) {
 					throw new Error('USDT amount is larger than the spendable balance.');
 				}
-				const assetId =
-					boundIfa?.assetId || usdtAsset?.assetId || getConfiguredRgbUsdtAssetId() || '';
+				const assetId = boundIfa?.assetId || spendAsset || (await spendAssetId());
 				const sent = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
 					assetId,

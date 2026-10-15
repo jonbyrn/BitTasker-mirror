@@ -78,6 +78,13 @@ function absent(segment: string): string | null {
 	return segment === '~' ? null : segment;
 }
 
+/** Invoice contract segment as an asset id. The `rgb:` scheme is not part of that segment. */
+export function contractAssetId(contract: string | null): string {
+	const trimmed = contract?.trim() ?? '';
+	if (!trimmed) return '';
+	return trimmed.startsWith('rgb:') ? trimmed : `rgb:${trimmed}`;
+}
+
 /** `rgb:contract/schema/amount/network:utxob:seal`. */
 export function decodeRgbInvoice(invoice: string): DecodedRgbInvoice {
 	const trimmed = invoice.trim();

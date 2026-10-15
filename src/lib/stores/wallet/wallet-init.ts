@@ -10,6 +10,7 @@ import { initialState } from './wallet-types';
 import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
+	fillUsdtBalance,
 	loadAssets,
 	restoreOnUnlock,
 	rgbDatabasePresent,
@@ -237,7 +238,7 @@ function updateProbeWindow(
 async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
 	try {
 		const rawAssets = await wallet.listAssets();
-		return parseRgbAssets(rawAssets);
+		return fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
 	} catch (err) {
 		console.warn('[wallet-init] listAssets skipped or failed:', err);
 		return [];

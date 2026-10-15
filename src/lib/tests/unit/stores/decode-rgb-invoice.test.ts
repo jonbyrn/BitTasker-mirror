@@ -3,6 +3,7 @@ import {
 	blankLockInvoice,
 	pendingBlindReceives,
 	blindReceiveRows,
+	contractAssetId,
 	decodeRgbAmount,
 	decodeRgbInvoice,
 	encodeRgbAmount
@@ -22,6 +23,16 @@ describe('decodeRgbAmount', () => {
 		expect(decodeRgbAmount('BF')).toBe(100);
 		expect(decodeRgbAmount('adFZnbk')).toBe(100_000_000);
 		expect(encodeRgbAmount(100_000_000)).toBe('adFZnbk');
+	});
+});
+
+describe('contractAssetId', () => {
+	it('prefixes the invoice contract segment', () => {
+		expect(contractAssetId('f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y')).toBe(
+			'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y'
+		);
+		expect(contractAssetId(null)).toBe('');
+		expect(contractAssetId('rgb:already')).toBe('rgb:already');
 	});
 });
 

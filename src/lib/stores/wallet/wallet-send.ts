@@ -4,8 +4,8 @@ import {
 	requireEscrowSigner,
 	signEscrowPsbt
 } from '$lib/services/rgb/psbt-escrow';
-import { soleIfaAsset, spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
-import { decodeRgbInvoice } from './decode-rgb-invoice';
+import { soleIfaAsset, type SpendableNia } from '$lib/types/rgb-contract';
+import { contractAssetId, decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
 import { persistWalletSnapshot, pullIncomingTransfers } from './wallet-balances';
 import { changeUnits, prepareRgbOnchainSend, spentSealBooked } from './prepare-rgb-send';
@@ -66,10 +66,19 @@ interface SpendableWallet {
 }
 
 /** `getAssetBalance(assetId).spendable`, then listAssets. Never `future`. */
+function assetMissing(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /not found/i.test(message);
+}
+
 export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
 	if (assetId && typeof wallet.getAssetBalance === 'function') {
-		const units = balanceSpendable(await wallet.getAssetBalance(assetId), assetId);
-		if (units !== null) return units;
+		try {
+			const units = balanceSpendable(await wallet.getAssetBalance(assetId), assetId);
+			if (units !== null) return units;
+		} catch (error) {
+			if (!assetMissing(error)) throw error;
+		}
 	}
 	if (typeof wallet.listAssets === 'function') {
 		const units = balanceSpendable(await wallet.listAssets(), assetId);
@@ -157,11 +166,8 @@ export async function sendRgbAsset(params: {
 	}
 	const units = amount;
 	const listed = await wallet.listAssets();
-	const held = spendableRgbAssets(listed);
 	const ifaRows = listed?.ifa ?? [];
-	const assetId = decoded.contract
-		? held.find((row) => row.assetId === decoded.contract)?.assetId
-		: ifaUsdtId(ifaRows);
+	const assetId = contractAssetId(decoded.contract) || ifaUsdtId(ifaRows);
 	if (!assetId) {
 		throw new Error(
 			decoded.contract

@@ -61,7 +61,13 @@ vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
 }));
 
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
-import { balanceSpendable, sendEnabled, sendRgbAsset } from '$lib/stores/wallet/wallet-send';
+import {
+	balanceSpendable,
+	quoteSpendable,
+	sendEnabled,
+	sendRgbAsset
+} from '$lib/stores/wallet/wallet-send';
+import { state } from '$lib/stores/wallet/wallet-state';
 
 const heldIfa = {
 	nia: [],
@@ -275,6 +281,39 @@ describe('sendRgbAsset', () => {
 		).toBe(100_000_000);
 		expect(sendEnabled(100_000_000, 10_000_000)).toBe(true);
 		expect(sendEnabled(100_000_000, 200_000_000)).toBe(false);
+	});
+
+	it('sends the invoice asset when the configured id is not in the wallet', async () => {
+		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		getAssetBalance.mockResolvedValue({
+			spendable: 200_000_000,
+			settled: 200_000_000,
+			future: 200_000_000
+		});
+		listAssets.mockResolvedValue({ nia: [], ifa: [] });
+		await sendRgbAsset({
+			invoice: `rgb:${faucet.slice(4)}/~/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`,
+			assetId: 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs',
+			amount: 10_000_000
+		});
+		expect(getAssetBalance).toHaveBeenCalledWith(faucet);
+		expect(onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ assetId: faucet, amount: 10_000_000 })
+		);
+		expect(onchainSendBegin).not.toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetId: 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs'
+			})
+		);
+	});
+
+	it('uses listAssets spendable when getAssetBalance does not know the id', async () => {
+		getAssetBalance.mockRejectedValueOnce(
+			new Error('Asset with id rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs not found')
+		);
+		await expect(
+			quoteSpendable(state.utexoWallet, 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs')
+		).resolves.toBe(100_000_000);
 	});
 
 	it('pays from getAssetBalance spendable when listAssets spendable is zero', async () => {
