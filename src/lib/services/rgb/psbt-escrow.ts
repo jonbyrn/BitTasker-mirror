@@ -147,7 +147,16 @@ export async function broadcastEscrowPsbt(
 	wallet: EscrowSigner,
 	signedPsbt: string
 ): Promise<string> {
-	const result = await wallet.onchainSendEnd({ signedPsbt });
+	let result: unknown;
+	try {
+		result = await wallet.onchainSendEnd({ signedPsbt });
+	} catch (error: unknown) {
+		console.error(
+			'[wallet-send] onchainSendEnd failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		throw error;
+	}
 	console.info('[wallet-send] onchainSendEnd', describeSendEnd(result));
 	const txid = txidFromSend(result);
 	if (!txid) throw new Error('onchainSendEnd did not return a txid');

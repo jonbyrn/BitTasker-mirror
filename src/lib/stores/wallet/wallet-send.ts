@@ -222,10 +222,11 @@ export async function sendRgbAsset(params: {
 	const claimed = await broadcastEscrowPsbt(signer, signed);
 	const raw = extractSignedTx(signed);
 	if (raw.txid !== claimed) {
-		console.warn('[wallet-send] onchainSendEnd txid is not the signed transaction', {
+		console.error('[wallet-send] onchainSendEnd txid is not the signed transaction', {
 			onchainSendEnd: claimed,
 			signed: raw.txid
 		});
+		throw new Error('onchainSendEnd txid is not the signed transaction');
 	}
 	await publishSignetTx(raw.hex);
 	await confirmSignetTx(raw.txid);

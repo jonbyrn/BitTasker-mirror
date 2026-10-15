@@ -206,6 +206,34 @@ describe('sendRgbAsset', () => {
 		expect(updateWallet).not.toHaveBeenCalled();
 	});
 
+	it('does not broadcast when onchainSendEnd fails', async () => {
+		onchainSendEnd.mockRejectedValueOnce(new Error('end failed after broadcast'));
+		await expect(
+			sendRgbAsset({
+				invoice: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa',
+				assetId: '',
+				amount: 1111
+			})
+		).rejects.toThrow('end failed after broadcast');
+		expect(publishSignetTx).not.toHaveBeenCalled();
+		expect(confirmSignetTx).not.toHaveBeenCalled();
+		expect(persistWalletSnapshot).not.toHaveBeenCalled();
+	});
+
+	it('does not broadcast when onchainSendEnd txid is not the signed transaction', async () => {
+		onchainSendEnd.mockResolvedValueOnce({ txid: 'cd'.repeat(32) });
+		await expect(
+			sendRgbAsset({
+				invoice: 'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa',
+				assetId: '',
+				amount: 1111
+			})
+		).rejects.toThrow('onchainSendEnd txid is not the signed transaction');
+		expect(publishSignetTx).not.toHaveBeenCalled();
+		expect(confirmSignetTx).not.toHaveBeenCalled();
+		expect(persistWalletSnapshot).not.toHaveBeenCalled();
+	});
+
 	it('does not report success when sendEnd has no txid', async () => {
 		onchainSendEnd.mockResolvedValueOnce({ created: 4 });
 		await expect(
