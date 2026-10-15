@@ -11,7 +11,8 @@ import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	loadAssets,
-	restoreStoredBackup,
+	restoreOnUnlock,
+	rgbDatabasePresent,
 	scheduleRgbRefresh,
 	scanBtcBalance,
 	parseRgbAssets
@@ -92,6 +93,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 			console.info('[wallet-init] pinned data dir', taskerDataDir);
 		}
 
+		const databasePresent = await rgbDatabasePresent();
 		const lsp = signetLspParams(null);
 		const wallet = new UTEXOWallet({
 			mnemonic,
@@ -118,7 +120,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 		}
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
-		await restoreStoredBackup(wallet);
+		await restoreOnUnlock(wallet, databasePresent);
 		await discoverSignetLsp(wallet);
 
 		state.utexoWallet = wallet;

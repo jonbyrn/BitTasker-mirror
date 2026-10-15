@@ -19,7 +19,9 @@ import {
 	incomingReceiveReady,
 	parseRgbAssets,
 	pullIncomingTransfers,
+	restoreOnUnlock,
 	restoreStoredBackup,
+	rgbDatabasePresent,
 	scheduleRgbRefresh,
 	readRefreshFailure,
 	scanBtcBalance,
@@ -494,6 +496,141 @@ describe('acceptIncomingPayment', () => {
 		});
 		expect(restored).toBe(false);
 		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; live receive kept');
+		warn.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('does not restore on unlock when an rln database already exists', async () => {
+		const stored = new Map<string, Uint8Array>();
+		stored.set('__store__', new Uint8Array());
+		stored.set('2b3173cc', new Uint8Array([9, 8, 7]));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const restored = await restoreOnUnlock(
+			{
+				restoreFromBackupBytes,
+				_manager: {
+					rlnBinding: {
+						password: 'test-password',
+						walletData: { master_fingerprint: '2b3173cc' }
+					}
+				}
+			},
+			true
+		);
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(info).toHaveBeenCalledWith('[wallet-persist] skip restore; indexeddb wallet kept');
+		info.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('treats an rln database as local wallet state and a backup db as fresh', async () => {
+		vi.stubGlobal('indexedDB', {
+			databases: async () => [{ name: 'rln_2b3173cc_signet' }, { name: 'rgb_backup_bytes' }]
+		});
+		await expect(rgbDatabasePresent()).resolves.toBe(true);
+		vi.stubGlobal('indexedDB', {
+			databases: async () => [{ name: 'rgb_backup_bytes' }]
+		});
+		await expect(rgbDatabasePresent()).resolves.toBe(false);
+		vi.unstubAllGlobals();
+	});
+
+	it('skips restore when listAssets throws instead of treating the wallet as empty', async () => {
+		const stored = new Map<string, Uint8Array>();
+		stored.set('__store__', new Uint8Array());
+		stored.set('2b3173cc', new Uint8Array([9, 8, 7]));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const restored = await restoreStoredBackup({
+			listAssets: async () => {
+				throw new Error('null pointer passed to rust');
+			},
+			listTransfers: async () => [{ kind: 'ReceiveBlind', status: 'Settled', txid: 'a66f7313' }],
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: '2b3173cc' }
+				}
+			}
+		});
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; transfer list failed');
+		warn.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('skips restore when the asset balance is future-only and the unfiltered transfer list is empty', async () => {
+		const stored = new Map<string, Uint8Array>();
+		stored.set('__store__', new Uint8Array());
+		stored.set('2b3173cc', new Uint8Array([9, 8, 7]));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const listTransfers = vi.fn(async (assetId?: string) =>
+			assetId ? [{ kind: 'ReceiveBlind', status: 'WaitingConfirmations', txid: 'c53f8ff2' }] : []
+		);
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const restored = await restoreStoredBackup({
+			listAssets: async () => ({
+				ifa: [
+					{
+						assetId: 'rgb:usdt',
+						ticker: 'USDT',
+						balance: { spendable: 0, settled: 0, future: 100000000 }
+					}
+				]
+			}),
+			listTransfers,
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: '2b3173cc' }
+				}
+			}
+		});
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(listTransfers).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; live receive kept');
+		warn.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('queries asset-tied transfers when the unfiltered list would miss them', async () => {
+		const stored = new Map<string, Uint8Array>();
+		stored.set('__store__', new Uint8Array());
+		stored.set('2b3173cc', new Uint8Array([9, 8, 7]));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const restoreFromBackupBytes = vi.fn();
+		const listTransfers = vi.fn(async (assetId?: string) =>
+			assetId === 'rgb:usdt' ? [{ kind: 'ReceiveBlind', status: 'Settled', txid: 'a66f7313' }] : []
+		);
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const restored = await restoreStoredBackup({
+			listAssets: async () => ({
+				ifa: [
+					{ assetId: 'rgb:usdt', ticker: 'USDT', balance: { spendable: 0, settled: 0, future: 0 } }
+				]
+			}),
+			listTransfers,
+			restoreFromBackupBytes,
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: '2b3173cc' }
+				}
+			}
+		});
+		expect(restored).toBe(false);
+		expect(restoreFromBackupBytes).not.toHaveBeenCalled();
+		expect(listTransfers).toHaveBeenCalledWith('rgb:usdt');
 		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; live receive kept');
 		warn.mockRestore();
 		vi.unstubAllGlobals();

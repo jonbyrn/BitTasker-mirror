@@ -37,6 +37,7 @@ vi.mock('$app/environment', () => ({
 
 const { publishNostrEvent } = await import('$lib/utils/nostr');
 const { ndk } = await import('$lib/nostr/ndk');
+const { getNpub } = await import('$lib/utils/nostrKeys');
 
 const sampleSeal: RgbSeal = {
 	id: 'seal-xyz' as RgbSeal['id'],
@@ -214,6 +215,16 @@ describe('RGB consignment exchange over Nostr DM', () => {
 		expect(onApplied).not.toHaveBeenCalled();
 		expect(onError).not.toHaveBeenCalled();
 
+		subscription.stop();
+	});
+
+	it('does not bech32-decode an RGB recipient id', async () => {
+		vi.mocked(getNpub).mockResolvedValueOnce('sb:utxob:_Rxn90FH-aaaa');
+		const onError = vi.fn();
+		const subscription = new RgbConsignmentSubscription();
+		await subscription.start({ onError });
+		expect(onError).not.toHaveBeenCalled();
+		expect(ndk.subscribe).not.toHaveBeenCalled();
 		subscription.stop();
 	});
 });

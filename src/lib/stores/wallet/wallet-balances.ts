@@ -132,6 +132,21 @@ function deleteIndexedDatabase(name: string): Promise<void> {
 	});
 }
 
+/**
+ * True when this browser already has a wasm wallet database.
+ * Checked before `wallet.init()`, which creates `rln_*` on a fresh device.
+ * A missing `databases()` listing is treated as present so unlock does not restore.
+ */
+export async function rgbDatabasePresent(): Promise<boolean> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return true;
+	try {
+		const listed = await indexedDB.databases();
+		return listed.some((entry) => typeof entry.name === 'string' && /rln_/i.test(entry.name));
+	} catch {
+		return true;
+	}
+}
+
 /** Drop the ghost `rln_*_signet` snapshot before a new E2E wallet is created. */
 export async function purgeE2eRgbStorage(): Promise<void> {
 	if (!browser || !isE2eWalletReset() || typeof indexedDB === 'undefined') return;
@@ -866,17 +881,22 @@ export async function storeRgbBackup(fingerprint: string, bytes: Uint8Array): Pr
 }
 
 /**
- * After unlock and before the first refresh, restore the encrypted export
- * for this fingerprint. Leaves the wasm JSON snapshot alone.
+ * Restores the encrypted export for this fingerprint.
+ * Unlock calls this only for a fresh device. An explicit caller may use it directly.
+ * A live receive, a positive balance, or a failed transfer list skips the restore.
  */
 export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
 	const fingerprint = walletFingerprint(wallet);
 	const password = backupPassword(wallet);
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
-	const live = await readReceiveSnap(wallet);
-	if (live.keys.length > 0) {
-		console.warn('[wallet-persist] skip restore; live receive kept');
+	const block = await restoreBlock(wallet);
+	if (block !== 'clear') {
+		console.warn(
+			block === 'list-failed'
+				? '[wallet-persist] skip restore; transfer list failed'
+				: '[wallet-persist] skip restore; live receive kept'
+		);
 		return false;
 	}
 	const bytes = await loadRgbBackup(fingerprint);
@@ -884,6 +904,18 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 	wallet.restoreFromBackupBytes(bytes, password);
 	console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
 	return true;
+}
+
+/** Unlock must not restore over a wallet IndexedDB that already exists. */
+export async function restoreOnUnlock(
+	wallet: SnapshotWallet,
+	databasePresent: boolean
+): Promise<boolean> {
+	if (databasePresent) {
+		console.info('[wallet-persist] skip restore; indexeddb wallet kept');
+		return false;
+	}
+	return restoreStoredBackup(wallet);
 }
 
 /**
@@ -1010,6 +1042,68 @@ function snapSettled(rows: readonly unknown[]): boolean {
 		const kind = typeof value.kind === 'string' ? value.kind : '';
 		return RECEIVE_KINDS.has(kind) && value.status === 'Settled';
 	});
+}
+
+type RestoreBlock = 'clear' | 'live' | 'list-failed';
+
+function listedAssetIds(listed: unknown): string[] {
+	const ids: string[] = [];
+	if (!isRecord(listed)) return ids;
+	for (const group of ['ifa', 'nia', 'cfa', 'uda'] as const) {
+		const rows = listed[group];
+		if (!Array.isArray(rows)) continue;
+		for (const row of rows) {
+			if (!isRecord(row)) continue;
+			const id = row.assetId ?? row.id;
+			if (typeof id === 'string' && id.length > 0) ids.push(id);
+		}
+	}
+	return ids;
+}
+
+function positiveBalance(listed: unknown): boolean {
+	if (!isRecord(listed)) return false;
+	for (const group of ['ifa', 'nia', 'cfa', 'uda'] as const) {
+		const rows = listed[group];
+		if (!Array.isArray(rows)) continue;
+		for (const row of rows) {
+			if (!isRecord(row)) continue;
+			const balance = isRecord(row.balance) ? row.balance : row;
+			for (const field of ['spendable', 'settled', 'future'] as const) {
+				const amount = balance[field];
+				if (typeof amount === 'number' && amount > 0) return true;
+			}
+		}
+	}
+	return false;
+}
+
+/** Fail closed: a thrown list is not an empty wallet. Asset-tied rows are queried by id. */
+async function restoreBlock(wallet: SnapshotWallet): Promise<RestoreBlock> {
+	if (!wallet.listAssets && !wallet.listTransfers) return 'clear';
+	let listed: unknown = null;
+	if (wallet.listAssets) {
+		try {
+			listed = await wallet.listAssets();
+		} catch {
+			return 'list-failed';
+		}
+	}
+	if (positiveBalance(listed)) return 'live';
+	if (!wallet.listTransfers) return 'clear';
+	const ids = listedAssetIds(listed);
+	const queries: Array<string | undefined> = ids.length > 0 ? ids : [undefined];
+	const rows: unknown[] = [];
+	for (const id of queries) {
+		try {
+			const batch =
+				id === undefined ? await wallet.listTransfers() : await wallet.listTransfers(id);
+			if (Array.isArray(batch)) rows.push(...batch);
+		} catch {
+			return 'list-failed';
+		}
+	}
+	return settledReceiveKeys(rows).length > 0 ? 'live' : 'clear';
 }
 
 async function readReceiveSnap(wallet: SnapshotWallet): Promise<ReceiveSnap> {
