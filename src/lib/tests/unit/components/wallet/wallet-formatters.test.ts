@@ -217,9 +217,8 @@ describe('wallet dashboard display', () => {
 		expect(formatHistoryAmount('Bitcoin transfer', 12500, undefined, 'sats')).toBe(
 			`${amounts.format(12500)} sats`
 		);
-		expect(formatHistoryAmount('RGB transfer', 1000, 11_000_000, 'sats')).toBe(
-			amounts.format(11_000_000)
-		);
+		expect(formatHistoryAmount('RGB transfer', 1000, 11_000_000, 'sats')).toBe('11.00');
+		expect(formatHistoryAmount('RGB transfer', 1000, 1111, 'sats')).toBe('0.001111');
 		expect(formatHistoryAmount('RGB transfer', 1000, undefined, 'sats')).toBe(
 			`${amounts.format(1000)} sats`
 		);

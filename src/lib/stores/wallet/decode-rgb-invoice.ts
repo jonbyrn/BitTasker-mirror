@@ -149,3 +149,51 @@ export function blindReceiveRows(
 	}
 	return pending;
 }
+
+const CONFIRMING_RECEIVE = new Set(['WaitingConfirmations', 'WaitingSafeHeight']);
+const SETTLED_RECEIVE = new Set(['Settled', 'WaitingConfirmations', 'WaitingSafeHeight']);
+
+function invoiceSeal(row: Record<string, unknown>): string {
+	const invoice = typeof row.invoiceString === 'string' ? row.invoiceString : '';
+	return invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
+}
+
+function confirmingRows(rows: readonly unknown[]): BlindReceiveRow[] {
+	const confirming: BlindReceiveRow[] = [];
+	for (const value of rows) {
+		const row = rowRecord(value);
+		if (!row || row.kind !== 'ReceiveBlind') continue;
+		const status = typeof row.status === 'string' ? row.status : '';
+		if (!CONFIRMING_RECEIVE.has(status)) continue;
+		const seal = invoiceSeal(row);
+		if (!seal) continue;
+		const txid = typeof row.txid === 'string' && row.txid.length > 0 ? row.txid : null;
+		confirming.push({ seal, expiry: null, txid, status });
+	}
+	return confirming;
+}
+
+/**
+ * Receives that are not Settled yet.
+ * A blank WaitingCounterparty row is dropped once listTransfers has a txid
+ * for that seal, or once any receive is already confirming.
+ */
+export function pendingBlindReceives(
+	rows: unknown,
+	nowSec = Math.floor(Date.now() / 1000)
+): BlindReceiveRow[] {
+	if (!Array.isArray(rows)) return [];
+	const settled = new Set<string>();
+	for (const value of rows) {
+		const row = rowRecord(value);
+		if (!row || row.kind !== 'ReceiveBlind') continue;
+		const status = typeof row.status === 'string' ? row.status : '';
+		if (!SETTLED_RECEIVE.has(status)) continue;
+		const seal = invoiceSeal(row);
+		if (seal) settled.add(seal);
+	}
+	const confirming = confirmingRows(rows);
+	const waiting = blindReceiveRows(rows, nowSec).filter((row) => !settled.has(row.seal));
+	if (confirming.length === 0) return waiting;
+	return [...confirming, ...waiting.filter((row) => row.txid !== null)];
+}

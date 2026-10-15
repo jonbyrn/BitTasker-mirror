@@ -24,6 +24,8 @@ export interface RgbAsset {
 	symbol?: string;
 	precision?: number;
 	balance: number;
+	/** Units rgb-lib will sign. Zero while a receive is still confirming. */
+	spendable?: number;
 	formattedBalance: string;
 	usdValue?: number;
 }

@@ -120,6 +120,40 @@ export function fungibleAllocationSum(unspents: RgbUnspentRef[], assetId: string
 	}, 0);
 }
 
+/** Remainder that must land on the send transaction after a partial spend. */
+export function changeUnits(spendable: number, sent: number): number {
+	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(sent)) return 0;
+	if (sent <= 0 || sent >= spendable) return 0;
+	return spendable - sent;
+}
+
+function allocationUnits(unspent: RgbUnspentRef, assetId: string): number {
+	return unspent.rgbAllocations.reduce((sum, allocation) => {
+		if (allocation.assetId !== assetId) return sum;
+		if (allocation.assignment?.type && allocation.assignment.type !== 'Fungible') return sum;
+		return sum + (allocation.assignment?.amount ?? 0);
+	}, 0);
+}
+
+/**
+ * The pre-send seal is still booked after sendEnd. The next spend then fails
+ * with "BDK: UTXO not found" because that output is already spent.
+ */
+export function spentSealBooked(
+	unspents: RgbUnspentRef[],
+	assetId: string,
+	sendTxid: string,
+	previousSpendable: number
+): boolean {
+	if (previousSpendable <= 0) return false;
+	return unspents.some(
+		(unspent) =>
+			unspent.utxo.exists &&
+			unspent.utxo.outpoint?.txid !== sendTxid &&
+			allocationUnits(unspent, assetId) === previousSpendable
+	);
+}
+
 export function hasUncoloredFeeUtxo(unspents: RgbUnspentRef[]): boolean {
 	return unspents.some((unspent) => unspent.utxo.exists && unspent.utxo.colorable === false);
 }

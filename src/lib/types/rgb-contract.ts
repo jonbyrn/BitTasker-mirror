@@ -73,6 +73,14 @@ export function formatUsdtUnits(units: number, precision: number): string {
 	return fraction ? `${whole}.${fraction}` : String(whole);
 }
 
+/** Balance text for a USDT row, such as 100000000 → "100.00". */
+export function formatUsdtBalance(units: number, precision: number): string {
+	const shown = formatUsdtUnits(units, precision);
+	if (!shown.includes('.')) return `${shown}.00`;
+	const fraction = shown.split('.')[1] ?? '';
+	return fraction.length >= 2 ? shown : `${shown}${'0'.repeat(2 - fraction.length)}`;
+}
+
 /** USDT base units for a bid priced in dollars. Never the whole wallet. */
 export function usdtEscrowUnits(amountUsd: number, precision: number, spendable: number): number {
 	const units = usdtBaseUnits(amountUsd, precision);

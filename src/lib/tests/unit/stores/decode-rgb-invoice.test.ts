@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	blankLockInvoice,
+	pendingBlindReceives,
 	blindReceiveRows,
 	decodeRgbAmount,
 	decodeRgbInvoice,
@@ -81,6 +82,65 @@ describe('blindReceiveRows', () => {
 		).toEqual([
 			{ seal: '77UiY8iS', expiry: 1790661182, txid: null, status: 'WaitingCounterparty' }
 		]);
+	});
+
+	it('shows a confirming receive and drops the unpaid waiting card', () => {
+		const waiting =
+			'rgb:~/~/nWca/sb:utxob:77UiY8iS-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const paid =
+			'rgb:~/~/adFZnbk/sb:utxob:otherSeal-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		expect(
+			pendingBlindReceives(
+				[
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						invoiceString: waiting,
+						expiration: 1790661182,
+						txid: null
+					},
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingConfirmations',
+						invoiceString: paid,
+						txid: 'c53f8ff2028aa756130eb4db26dca7aa3f11e3fa797631ddfc87812f345ffcbc'
+					}
+				],
+				1790661181
+			)
+		).toEqual([
+			{
+				seal: 'otherSeal',
+				expiry: null,
+				txid: 'c53f8ff2028aa756130eb4db26dca7aa3f11e3fa797631ddfc87812f345ffcbc',
+				status: 'WaitingConfirmations'
+			}
+		]);
+	});
+
+	it('hides a waiting invoice once that seal has settled', () => {
+		const invoice =
+			'rgb:~/~/nWca/sb:utxob:77UiY8iS-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		expect(
+			pendingBlindReceives(
+				[
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						invoiceString: invoice,
+						expiration: 1790661182,
+						txid: null
+					},
+					{
+						kind: 'ReceiveBlind',
+						status: 'Settled',
+						invoiceString: invoice,
+						txid: 'c53f8ff2028aa756130eb4db26dca7aa3f11e3fa797631ddfc87812f345ffcbc'
+					}
+				],
+				1790661181
+			)
+		).toEqual([]);
 	});
 
 	it('ignores an expired waiting seal', () => {

@@ -158,16 +158,9 @@ describe('SendPaymentForm', () => {
 		expect(onSent).toHaveBeenCalledWith('txid-ln');
 	});
 
-	it('pays a USDT invoice through the LSP and keeps the rpcs endpoint', async () => {
-		lightningState.set({
-			ready: true,
-			peerHost: 'lsp-signet.utexo.com',
-			channel: 'open',
-			lnInvoice: '',
-			rgbInvoice: ''
-		});
+	it('pays an on-chain RGB invoice without an LSP channel and keeps the rpcs endpoint', async () => {
 		const onSent = vi.fn();
-		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
+		const { getByTestId, queryByTestId } = render(SendPaymentForm, { props: { onSent } });
 		const invoice =
 			'rgb:~/~/nWca/sb:utxob:aqQFQkg2-2hUMrAn-IjmPmTr-MsdNpju-gG8r~FV-XP4F_Za-8FBTG?assignment_name=assetOwner&expiry=1790711217&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 
@@ -176,31 +169,30 @@ describe('SendPaymentForm', () => {
 
 		const field = getByTestId('send-destination') as HTMLTextAreaElement;
 		expect(field.value).toBe(invoice);
+		expect(field.placeholder).toContain('rgb:');
 		expect(field.value.endsWith('endpoints=rpcs://rgb-proxy.utexo.com/json-rpc')).toBe(true);
 		await waitFor(() =>
 			expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt')
 		);
 		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('0.001111');
 		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
+		expect(queryByTestId('lsp-channel-closed')).toBeNull();
 		await fireEvent.click(getByTestId('send-submit'));
 
-		await waitFor(() => expect(payEscrowLightning).toHaveBeenCalledTimes(1));
-		expect(payEscrowLightning).toHaveBeenCalledWith(invoice, 'rgb:f~held-usdt', 1111);
-		expect(sendRgbAsset).not.toHaveBeenCalled();
+		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
+		expect(sendRgbAsset).toHaveBeenCalledWith({
+			invoice,
+			assetId: 'rgb:f~held-usdt',
+			amount: 1111
+		});
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(onSent).toHaveBeenCalledWith('ab'.repeat(32));
 		expect(showSuccessToast).toHaveBeenCalledWith('wallet.toast.sent_successfully');
 		expect(showErrorToast).not.toHaveBeenCalled();
 	});
 
-	it('does not toast success when the LSP payment returns no id', async () => {
-		lightningState.set({
-			ready: true,
-			peerHost: 'lsp-signet.utexo.com',
-			channel: 'open',
-			lnInvoice: '',
-			rgbInvoice: ''
-		});
-		payEscrowLightning.mockResolvedValueOnce('');
+	it('does not toast success when the on-chain payment returns no id', async () => {
+		sendRgbAsset.mockResolvedValueOnce({ txid: '', batchTransferIdx: 0 });
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
 
@@ -246,21 +238,25 @@ describe('SendPaymentForm', () => {
 		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
-	it('disables USDT Lightning send until the LSP channel is open', async () => {
-		const { getByTestId } = render(SendPaymentForm);
+	it('sends a typed USDT amount on-chain when the LSP channel is closed', async () => {
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:~/~/~/sb:utxob:example' }
 		});
-		await fireEvent.input(getByTestId('send-amount'), { target: { value: '4000' } });
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '10' } });
 
-		expect(getByTestId('lsp-channel-closed').textContent).toContain(
-			'wallet.lightning_channel_closed'
+		expect(queryByTestId('lsp-channel-closed')).toBeNull();
+		await waitFor(() =>
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
 		);
-		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(getByTestId('send-submit'));
+		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
+		expect(sendRgbAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: 10_000_000, assetId: 'rgb:f~held-usdt' })
+		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
-		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('allows a USDT amount inside the balance shown on the wallet', async () => {
@@ -277,7 +273,7 @@ describe('SendPaymentForm', () => {
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:~/~/~/sb:utxob:example' }
 		});
-		await fireEvent.input(getByTestId('send-amount'), { target: { value: '4000' } });
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '10' } });
 
 		await waitFor(() =>
 			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)

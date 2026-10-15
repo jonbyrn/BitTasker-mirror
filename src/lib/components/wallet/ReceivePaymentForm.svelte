@@ -3,10 +3,17 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
-	import { formatUsdtUnits, getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
+	import {
+		formatUsdtBalance,
+		formatUsdtUnits,
+		getConfiguredRgbUsdtAssetId,
+		usdtBaseUnits,
+		usdtPrecision
+	} from '$lib/types/rgb-contract';
+	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
-	import { lightningStore, requestLspInbound } from '$lib/stores/wallet/signet-lsp';
+	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
 
@@ -41,6 +48,18 @@
 		if (asset === 'usdt_rgb') return parsed;
 		return Number.isSafeInteger(parsed) ? parsed : null;
 	});
+	const heldUsdt = $derived(
+		($walletStore.rgb?.assets ?? []).find((item) => item.symbol?.toUpperCase() === 'USDT') ?? null
+	);
+	const usdtScale = $derived(usdtPrecision(heldUsdt?.symbol ?? 'USDT', heldUsdt?.precision));
+	const previewRaw = $derived.by(() => {
+		if (asset !== 'usdt_rgb' || parsedAmount === null) return null;
+		try {
+			return usdtBaseUnits(parsedAmount, usdtScale);
+		} catch {
+			return null;
+		}
+	});
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
 	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
@@ -65,6 +84,12 @@
 			usedBlank = false;
 			try {
 				const result = await receiveUsdtInvoice(parsedAmount ?? undefined);
+				if (!result.blank && result.invoice.startsWith('rgb:')) {
+					const decoded = decodeRgbInvoice(result.invoice);
+					if (decoded.amount !== result.units) {
+						throw new Error('Invoice amount does not match the amount entered');
+					}
+				}
 				receiveValue = result.invoice;
 				usedBlank = result.blank;
 				invoiceAmount =
@@ -77,10 +102,16 @@
 			}
 			return;
 		}
+		if (parsedAmount === null) return;
 		isGenerating = true;
 		try {
-			const invoice = await requestLspInbound();
-			if (!invoice) throw new Error('Lightning invoice was not created');
+			await walletManager.initialize();
+			const created = await walletManager.createLightningInvoice({
+				amountSats: parsedAmount,
+				expirySeconds: 3600
+			});
+			const invoice = created.lnInvoice?.trim() ?? '';
+			if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
 			receiveValue = invoice;
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
@@ -88,6 +119,13 @@
 		} finally {
 			isGenerating = false;
 		}
+	}
+
+	function cancelReceive(): void {
+		receiveValue = '';
+		invoiceAmount = '';
+		errorMessage = '';
+		usedBlank = false;
 	}
 
 	async function handleCopy(): Promise<void> {
@@ -137,6 +175,15 @@
 				data-testid="receive-amount"
 			/>
 		</label>
+	{/if}
+
+	{#if asset === 'usdt_rgb' && previewRaw !== null && !receiveValue}
+		<p class="text-sm" data-testid="receive-usdt-preview">
+			{$t('wallet.taproot.invoice_preview', {
+				values: { amount: formatUsdtBalance(previewRaw, usdtScale), raw: String(previewRaw) }
+			})}
+			<span data-testid="receive-usdt-raw">{previewRaw}</span>
+		</p>
 	{/if}
 
 	{#if rgbReceiveLocked}
@@ -202,6 +249,14 @@
 			data-testid="receive-copy"
 		>
 			{$t('wallet.taproot.copy_address')}
+		</button>
+		<button
+			type="button"
+			class="btn btn-ghost w-full"
+			onclick={cancelReceive}
+			data-testid="receive-cancel"
+		>
+			{$t('wallet.taproot.cancel_invoice')}
 		</button>
 	{/if}
 

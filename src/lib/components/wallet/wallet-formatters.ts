@@ -1,7 +1,8 @@
 /**
  * Wallet formatting utilities — pure functions with no side effects.
- * All dependencies are passed as parameters. No store or module imports.
+ * All dependencies are passed as parameters. No store imports.
  */
+import { formatUsdtBalance } from '$lib/types/rgb-contract';
 
 /**
  * Map native balance row keys to the cache keys used by legacy persisted
@@ -352,7 +353,7 @@ export function formatHistoryAmount(
 ): string {
 	if (isRgbMovement(description)) {
 		const units = typeof assetUnits === 'number' && Number.isFinite(assetUnits) ? assetUnits : 0;
-		if (units > 0) return new Intl.NumberFormat().format(units);
+		if (units > 0) return formatUsdtBalance(units, 6);
 	}
 	const sats = Number.isFinite(amountSats) ? Math.max(0, Math.trunc(amountSats)) : 0;
 	return `${new Intl.NumberFormat().format(sats)} ${satsLabel}`;

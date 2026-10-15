@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
+import { state, walletStore } from '$lib/stores/wallet/wallet-state';
+import { initialState, type RgbAsset } from '$lib/stores/wallet/wallet-types';
 import {
 	acceptIncomingPayment,
 	clearRlnRuntime,
@@ -248,13 +251,11 @@ describe('acceptIncomingPayment', () => {
 		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
-	it('backs up when the light poll misses the cap, then runs one full refresh', async () => {
+	it('does not start a second refresh while the first wasm call is still running', async () => {
 		const online = { connected: true };
-		const refreshValue = vi.fn(() => {
-			if (refreshValue.mock.calls.length === 1)
-				return new Promise<Map<number, unknown>>(() => undefined);
-			return Promise.resolve(new Map());
-		});
+		const refreshValue = vi.fn(
+			() => new Promise<Map<number, unknown>>((resolve) => setTimeout(() => resolve(new Map()), 40))
+		);
 		const syncWallet = vi.fn();
 		const createBackup = vi.fn(async () => ({ message: 'ok' }));
 		const listAssets = vi.fn(async () => ({
@@ -288,23 +289,16 @@ describe('acceptIncomingPayment', () => {
 		expect(warn).toHaveBeenCalledWith('[wallet-refresh] already running');
 		await vi.waitFor(() => {
 			expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
-			expect(createBackup).toHaveBeenCalledTimes(2);
-			expect(refreshValue).toHaveBeenCalledTimes(2);
+			expect(refreshValue).toHaveBeenCalledTimes(1);
 		});
-		expect(createBackup).toHaveBeenCalledWith({
-			backupPath: '',
-			password: 'test-password'
-		});
-		expect(stored.get('4bfb7ab5')?.byteLength).toBe(backupBytes.byteLength);
-		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], true);
-		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], false);
-		expect(syncWallet).toHaveBeenCalledTimes(1);
-		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+		expect(syncWallet).not.toHaveBeenCalled();
+		await refreshValue.mock.results[0]?.value;
+		expect(refreshValue).toHaveBeenCalledTimes(1);
 		await vi.waitFor(() => {
 			expect(info.mock.calls.filter((call) => call[0] === '[wallet-refresh] start')).toHaveLength(
-				2
+				1
 			);
-			expect(createBackup).toHaveBeenCalledTimes(4);
 		});
 		info.mockRestore();
 		warn.mockRestore();
@@ -319,8 +313,7 @@ describe('acceptIncomingPayment', () => {
 			kind: 'ReceiveBlind',
 			status: 'Settled',
 			txid: '62425ebc1d0c6da591375f4251504ae6fd1de8891018268aca2d373fb85b1238',
-			invoiceString:
-				'rgb:~/~/nWca/sb:utxob:HNc3NsZw-rest?assignment_name=assetOwner&expiry=1'
+			invoiceString: 'rgb:~/~/nWca/sb:utxob:HNc3NsZw-rest?assignment_name=assetOwner&expiry=1'
 		};
 		let reads = 0;
 		const listTransfers = vi.fn(async () => {
@@ -354,14 +347,101 @@ describe('acceptIncomingPayment', () => {
 		};
 		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
 		await vi.waitFor(() => {
-			expect(warn).toHaveBeenCalledWith(
-				'[wallet-refresh] settled receive missing; backup skipped'
-			);
+			expect(warn).toHaveBeenCalledWith('[wallet-refresh] refused empty overwrite');
 		});
 		expect(createBackup).not.toHaveBeenCalled();
 		expect(refreshValue).toHaveBeenCalledTimes(1);
 		warn.mockRestore();
 		info.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it('keeps the store when a settled 100000000 receive disappears', async () => {
+		const online = { connected: true };
+		const assetId = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const held: RgbAsset = {
+			assetId,
+			name: 'Tether USD',
+			symbol: 'USDT',
+			balance: 100_000_000,
+			formattedBalance: '100000000'
+		};
+		const starting = structuredClone(initialState);
+		starting.rgb.balanceSats = 49347;
+		starting.rgb.assets = [held];
+		starting.assets = [held];
+		starting.totalBalances.usdt = 100_000_000;
+		walletStore.set(starting);
+		const beforeStore = structuredClone(get(walletStore));
+		const refreshValue = vi.fn(async () => new Map());
+		const createBackup = vi.fn(async () => ({ message: 'ok' }));
+		const failTransfers = vi.fn(async () => true);
+		const settled = {
+			kind: 'ReceiveBlind',
+			status: 'Settled',
+			txid: '62425ebc1d0c6da591375f4251504ae6fd1de8891018268aca2d373fb85b1238',
+			invoiceString: 'rgb:~/~/nWca/sb:utxob:HNc3NsZw-rest?assignment_name=assetOwner&expiry=1'
+		};
+		let transferReads = 0;
+		let assetReads = 0;
+		const wallet = {
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			getBtcBalance: vi.fn(async () => ({
+				vanilla: { spendable: 44347 },
+				colored: { spendable: 5000 }
+			})),
+			getAddress: vi.fn(async () => 'tb1p-test'),
+			createBackup,
+			failTransfers,
+			listAssets: vi.fn(async () => {
+				assetReads += 1;
+				if (assetReads === 1) {
+					return {
+						ifa: [
+							{
+								assetId,
+								ticker: 'USDT',
+								balance: { spendable: 100_000_000, settled: 100_000_000, future: 100_000_000 }
+							}
+						]
+					};
+				}
+				return { ifa: [] };
+			}),
+			listTransfers: vi.fn(async () => {
+				transferReads += 1;
+				return transferReads === 1 ? [settled] : [];
+			}),
+			_manager: {
+				rlnBinding: {
+					online,
+					password: 'test-password',
+					walletData: { master_fingerprint: 'a56d0ea6' },
+					_wallet: { refreshValue, backupInfo: () => false }
+				}
+			}
+		};
+		state.utexoWallet = wallet as never;
+		const stored = new Map<string, Uint8Array>();
+		const backupBytes = new Uint8Array([7, 8, 6]);
+		stored.set('a56d0ea6', backupBytes);
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		await vi.waitFor(() => {
+			expect(warn).toHaveBeenCalledWith('[wallet-refresh] refused empty overwrite');
+		});
+		expect(get(walletStore)).toEqual(beforeStore);
+		expect(createBackup).not.toHaveBeenCalled();
+		expect(failTransfers).not.toHaveBeenCalled();
+		expect(stored.get('a56d0ea6')).toEqual(backupBytes);
+		expect(refreshValue.mock.calls.map((call) => call[3])).toEqual([true]);
+		state.utexoWallet = null;
+		walletStore.set(structuredClone(initialState));
+		warn.mockRestore();
+		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 	});
 
@@ -471,7 +551,9 @@ describe('parseRgbAssets', () => {
 				name: 'Tether USD',
 				symbol: 'USDT',
 				balance: 100_000_000,
-				formattedBalance: '100,000,000'
+				spendable: 100_000_000,
+				precision: undefined,
+				formattedBalance: '100.00'
 			}
 		]);
 	});

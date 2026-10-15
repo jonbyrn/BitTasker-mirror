@@ -6,6 +6,7 @@ import type { RgbAsset, WalletProbeWindow } from './wallet-types';
 import {
 	getConfiguredRgbUsdtAssetId,
 	spendableRgbAssets,
+	formatUsdtBalance,
 	usdtBaseUnits,
 	usdtInvoiceAsset,
 	usdtPrecision
@@ -374,6 +375,11 @@ function positiveAmount(value: unknown): number | null {
 	return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
+function spendableAmount(balance: RawRgbAsset['balance']): number {
+	if (!balance || typeof balance !== 'object') return 0;
+	return positiveAmount(balance.spendable) ?? 0;
+}
+
 /** Spendable when it is funded, otherwise settled, otherwise incoming. A zero spendable field must not hide settled USDT. */
 function assetAmount(balance: RawRgbAsset['balance']): number {
 	if (typeof balance === 'number' && Number.isFinite(balance)) return Math.max(0, balance);
@@ -406,13 +412,19 @@ export function parseRgbAssets(raw: unknown): RgbAsset[] {
 		.map((asset) => {
 			const balance = assetAmount(asset.balance);
 			const assetId = asset.assetId ?? asset.id ?? '';
+			const symbol = asset.ticker;
+			const precision = typeof asset.precision === 'number' ? asset.precision : undefined;
+			const usdt = (symbol ?? '').toUpperCase() === 'USDT';
 			return {
 				assetId,
 				name: asset.name ?? asset.ticker ?? 'RGB Asset',
-				symbol: asset.ticker,
-				precision: typeof asset.precision === 'number' ? asset.precision : undefined,
+				symbol,
+				precision,
 				balance,
-				formattedBalance: new Intl.NumberFormat().format(balance)
+				spendable: spendableAmount(asset.balance),
+				formattedBalance: usdt
+					? formatUsdtBalance(balance, usdtPrecision(symbol, precision))
+					: new Intl.NumberFormat().format(balance)
 			};
 		})
 		.filter((asset) => asset.assetId !== '');
@@ -487,7 +499,8 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			}
 		}));
 		await loadTransactions();
-		if (options?.pull !== false && usdtBalance <= 0) {
+		const incomingOnly = (heldUsdt?.balance ?? 0) > 0 && (heldUsdt?.spendable ?? 0) <= 0;
+		if (options?.pull !== false && (usdtBalance <= 0 || incomingOnly)) {
 			scheduleRgbRefresh(wallet);
 		}
 	} catch (err) {
@@ -650,26 +663,43 @@ function keepHeldUsdt(next: readonly RgbAsset[], previous: readonly RgbAsset[]):
 	return [...next, prior];
 }
 
+type PullWallet = {
+	goOnline?: (indexer: string) => Promise<unknown>;
+	isOnline?: () => boolean;
+	syncWallet?: () => Promise<unknown>;
+	refreshWallet?: () => Promise<unknown>;
+};
+
+let pullTail: Promise<void> = Promise.resolve();
+
 /**
  * Pull pending ReceiveBlind rows from the default https proxy.
- * After `scanBtcBalance` has synced, pass `skipSync: true` so this does not
- * run a second chain sync. `refreshValue(online, null, [], skipSync)`.
+ * One wasm refresh at a time. `refreshValue(online, null, [], false)` is the
+ * call that imports a consignment and notices new confirmations.
  */
-export async function pullIncomingTransfers(
-	wallet: {
-		goOnline?: (indexer: string) => Promise<unknown>;
-		isOnline?: () => boolean;
-		syncWallet?: () => Promise<unknown>;
-		refreshWallet?: () => Promise<unknown>;
-	},
+export function pullIncomingTransfers(
+	wallet: PullWallet,
+	options?: { skipSync?: boolean; assetId?: string | null }
+): Promise<void> {
+	const run = pullTail.then(() => pullIncomingOnce(wallet, options));
+	pullTail = run.then(
+		() => undefined,
+		() => undefined
+	);
+	return run;
+}
+
+async function pullIncomingOnce(
+	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
 	if (wallet.goOnline && wallet.isOnline?.() !== true) {
 		await wallet.goOnline(RGB_INDEXER);
 	}
-	if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
 	const pulled = rawRefresh(wallet);
 	if (pulled) {
+		// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
+		// beside it overlaps the same wasm wallet and throws a null pointer.
 		const assetId = options?.assetId ?? null;
 		const result = await pulled.refresh(pulled.online, assetId, [], options?.skipSync === true);
 		const failure = refreshEntries(result)
@@ -678,6 +708,7 @@ export async function pullIncomingTransfers(
 		if (failure) throw new Error(failure);
 		return;
 	}
+	if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
 	if (wallet.refreshWallet) await wallet.refreshWallet();
 }
 
@@ -697,6 +728,11 @@ const RGB_BACKUP_STORE = 'bytes';
 interface SnapshotWallet {
 	listAssets?: () => Promise<unknown>;
 	listTransfers?: (assetId?: string) => Promise<unknown[]>;
+	failTransfers?: (params: {
+		batchTransferIdx?: number;
+		skipSync?: boolean;
+		noAssetOnly?: boolean;
+	}) => Promise<boolean>;
 	createBackup?: (params: { backupPath: string; password: string }) => Promise<unknown>;
 	restoreFromBackupBytes?: (bytes: Uint8Array, password: string) => void;
 }
@@ -838,8 +874,8 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 	const password = backupPassword(wallet);
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
-	const live = settledReceiveKeys(await listReceiveRows(wallet));
-	if (live.length > 0) {
+	const live = await readReceiveSnap(wallet);
+	if (live.keys.length > 0) {
 		console.warn('[wallet-persist] skip restore; live receive kept');
 		return false;
 	}
@@ -909,10 +945,13 @@ type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWalle
  * poll is awaited. On timeout the running flag drops, then one backup runs,
  * then one full refresh if IFA USDT is still missing.
  */
-export function scheduleRgbRefresh(wallet: RefreshWallet, options?: { timeoutMs?: number }): void {
+export function scheduleRgbRefresh(
+	wallet: RefreshWallet,
+	options?: { timeoutMs?: number }
+): Promise<void> {
 	if (rgbRefreshTask || externalRefreshPending()) {
 		console.warn('[wallet-refresh] already running');
-		return;
+		return rgbRefreshTask ?? Promise.resolve();
 	}
 	const timeoutMs = options?.timeoutMs ?? REFRESH_LIMIT_MS;
 	const run = finishRgbRefresh(wallet, timeoutMs);
@@ -920,6 +959,7 @@ export function scheduleRgbRefresh(wallet: RefreshWallet, options?: { timeoutMs?
 	void run.finally(() => {
 		if (rgbRefreshTask === run) rgbRefreshTask = null;
 	});
+	return run;
 }
 
 function refreshCap(timeoutMs: number): Promise<'timeout'> {
@@ -946,8 +986,35 @@ function settledReceiveKeys(rows: unknown): string[] {
 	return keys;
 }
 
-async function listReceiveRows(wallet: SnapshotWallet): Promise<unknown[]> {
-	if (!wallet.listTransfers) return [];
+interface ReceiveSnap {
+	keys: string[];
+	settled: boolean;
+	spendable: number;
+}
+
+function ifaSpendable(raw: unknown): number {
+	if (!isRecord(raw) || !Array.isArray(raw.ifa)) return 0;
+	for (const item of raw.ifa) {
+		if (!isRecord(item)) continue;
+		if (String(item.ticker ?? '').toUpperCase() !== 'USDT') continue;
+		const balance = item.balance;
+		if (!isRecord(balance) || typeof balance.spendable !== 'number') return 0;
+		return balance.spendable;
+	}
+	return 0;
+}
+
+function snapSettled(rows: readonly unknown[]): boolean {
+	return rows.some((value) => {
+		if (!isRecord(value)) return false;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		return RECEIVE_KINDS.has(kind) && value.status === 'Settled';
+	});
+}
+
+async function readReceiveSnap(wallet: SnapshotWallet): Promise<ReceiveSnap> {
+	const empty: ReceiveSnap = { keys: [], settled: false, spendable: 0 };
+	if (!wallet.listTransfers) return empty;
 	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
 	const ids: string[] = [];
 	if (isRecord(listed)) {
@@ -961,21 +1028,28 @@ async function listReceiveRows(wallet: SnapshotWallet): Promise<unknown[]> {
 			}
 		}
 	}
+	let rows: unknown[] = [];
 	if (ids.length === 0) {
 		const fallback = await wallet.listTransfers().catch(() => []);
-		return Array.isArray(fallback) ? fallback : [];
+		rows = Array.isArray(fallback) ? fallback : [];
+	} else {
+		const batches = await Promise.all(
+			ids.map(async (id) => {
+				try {
+					const batch = await wallet.listTransfers?.(id);
+					return Array.isArray(batch) ? batch : [];
+				} catch {
+					return [];
+				}
+			})
+		);
+		rows = batches.flat();
 	}
-	const batches = await Promise.all(
-		ids.map(async (id) => {
-			try {
-				const listed = await wallet.listTransfers?.(id);
-				return Array.isArray(listed) ? listed : [];
-			} catch {
-				return [];
-			}
-		})
-	);
-	return batches.flat();
+	return {
+		keys: settledReceiveKeys(rows),
+		settled: snapSettled(rows),
+		spendable: ifaSpendable(listed)
+	};
 }
 
 function lostSettledReceive(before: readonly string[], after: readonly string[]): boolean {
@@ -983,49 +1057,41 @@ function lostSettledReceive(before: readonly string[], after: readonly string[])
 	return before.some((key) => !next.has(key));
 }
 
+function emptyOverwrite(
+	before: ReceiveSnap,
+	after: ReceiveSnap,
+	failedOnPurpose: boolean
+): boolean {
+	if (lostSettledReceive(before.keys, after.keys)) return true;
+	return before.spendable > 0 && after.spendable === 0 && !failedOnPurpose;
+}
+
 async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promise<void> {
 	console.info('[wallet-refresh] start');
-	const before = settledReceiveKeys(await listReceiveRows(wallet));
-	const timeout = refreshCap(timeoutMs);
-	const refresh = pullIncomingTransfers(wallet, { skipSync: true }).catch((error: unknown) => {
-		console.warn('[wallet-refresh] failed', error instanceof Error ? error.message : String(error));
-	});
-	const outcome = await Promise.race([refresh.then(() => 'done' as const), timeout]);
-	if (outcome === 'timeout') {
-		console.warn('[wallet-refresh] stopped after 45s');
-		rgbRefreshTask = null;
-	} else {
-		await releasePhantomSends(wallet).catch((error: unknown) => {
-			console.warn(
-				'[wallet-send] phantom release failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		});
+	const before = await readReceiveSnap(wallet);
+	let failedOnPurpose = false;
+	const originalFail = wallet.failTransfers;
+	if (typeof originalFail === 'function') {
+		wallet.failTransfers = async (params) => {
+			failedOnPurpose = true;
+			return originalFail(params);
+		};
 	}
-	const afterPull = settledReceiveKeys(await listReceiveRows(wallet));
-	if (lostSettledReceive(before, afterPull)) {
-		console.warn('[wallet-refresh] settled receive missing; backup skipped');
-		await loadAssets({ pull: false });
-		return;
-	}
-	await persistWalletSnapshot(wallet);
-	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
-	const held = ifaUsdtRow(listed);
-	if (!held || held.balance <= 0) {
-		const followTimeout = refreshCap(timeoutMs);
-		const follow = pullIncomingTransfers(wallet, {
-			skipSync: false,
-			assetId: held?.assetId ?? null
-		}).catch((error: unknown) => {
-			console.warn(
-				'[wallet-refresh] failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		});
-		const followOutcome = await Promise.race([follow.then(() => 'done' as const), followTimeout]);
-		if (followOutcome === 'timeout') {
+	try {
+		const needsConsignment = !before.settled && before.spendable <= 0;
+		const timeout = refreshCap(timeoutMs);
+		const refresh = pullIncomingTransfers(wallet, { skipSync: !needsConsignment }).catch(
+			(error: unknown) => {
+				console.warn(
+					'[wallet-refresh] failed',
+					error instanceof Error ? error.message : String(error)
+				);
+			}
+		);
+		const outcome = await Promise.race([refresh.then(() => 'done' as const), timeout]);
+		if (outcome === 'timeout') {
 			console.warn('[wallet-refresh] stopped after 45s');
-			rgbRefreshTask = null;
+			await refresh;
 		} else {
 			await releasePhantomSends(wallet).catch((error: unknown) => {
 				console.warn(
@@ -1034,15 +1100,52 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 				);
 			});
 		}
-		const afterFollow = settledReceiveKeys(await listReceiveRows(wallet));
-		if (lostSettledReceive(before, afterFollow)) {
-			console.warn('[wallet-refresh] settled receive missing; backup skipped');
-			await loadAssets({ pull: false });
+		const afterPull = await readReceiveSnap(wallet);
+		if (emptyOverwrite(before, afterPull, failedOnPurpose)) {
+			console.warn('[wallet-refresh] refused empty overwrite');
 			return;
 		}
 		await persistWalletSnapshot(wallet);
+		if (before.settled || needsConsignment) {
+			await loadAssets({ pull: false });
+			return;
+		}
+		const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+		const held = ifaUsdtRow(listed);
+		if (!held || held.balance <= 0) {
+			const followTimeout = refreshCap(timeoutMs);
+			const follow = pullIncomingTransfers(wallet, {
+				skipSync: false,
+				assetId: held?.assetId ?? null
+			}).catch((error: unknown) => {
+				console.warn(
+					'[wallet-refresh] failed',
+					error instanceof Error ? error.message : String(error)
+				);
+			});
+			const followOutcome = await Promise.race([follow.then(() => 'done' as const), followTimeout]);
+			if (followOutcome === 'timeout') {
+				console.warn('[wallet-refresh] stopped after 45s');
+				await follow;
+			} else {
+				await releasePhantomSends(wallet).catch((error: unknown) => {
+					console.warn(
+						'[wallet-send] phantom release failed',
+						error instanceof Error ? error.message : String(error)
+					);
+				});
+			}
+			const afterFollow = await readReceiveSnap(wallet);
+			if (emptyOverwrite(before, afterFollow, failedOnPurpose)) {
+				console.warn('[wallet-refresh] refused empty overwrite');
+				return;
+			}
+			await persistWalletSnapshot(wallet);
+		}
+		await loadAssets({ pull: false });
+	} finally {
+		if (originalFail) wallet.failTransfers = originalFail;
 	}
-	await loadAssets({ pull: false });
 }
 
 export async function acceptIncomingPayment(): Promise<void> {
@@ -1081,7 +1184,7 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const assetId = usdtInvoiceAsset(listed, configured);
 	if (assetId) {
 		const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
-		const precision = usdtPrecision(row?.ticker, row?.precision);
+		const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
 		const units = amount === undefined ? undefined : usdtBaseUnits(amount, precision);
 		const named = await createRgbInvoice({ assetId, amount: units });
 		return { invoice: named.invoice, blank: false, units: units ?? null, precision };

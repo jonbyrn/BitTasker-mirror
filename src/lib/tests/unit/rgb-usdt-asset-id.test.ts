@@ -6,6 +6,7 @@ import {
 	selectEscrowAsset,
 	spendableRgbAssets,
 	usdtInvoiceAsset,
+	formatUsdtBalance,
 	formatUsdtUnits,
 	usdtBaseUnits,
 	usdtEscrowUnits,
@@ -126,6 +127,7 @@ describe('usdtBaseUnits', () => {
 		expect(formatUsdtUnits(10, 6)).toBe('0.00001');
 		expect(formatUsdtUnits(10_000_000, 6)).toBe('10');
 		expect(formatUsdtUnits(1111, 6)).toBe('0.001111');
+		expect(formatUsdtBalance(100_000_000, 6)).toBe('100.00');
 	});
 });
 

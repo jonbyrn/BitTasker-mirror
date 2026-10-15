@@ -39,7 +39,8 @@ vi.mock('$lib/stores/wallet/prepare-rgb-send', () => ({
 
 vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 	loadAssets,
-	persistWalletSnapshot
+	persistWalletSnapshot,
+	pullIncomingTransfers: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
@@ -202,7 +203,7 @@ describe('sendRgbAsset', () => {
 				{
 					assetId: 'rgb:f~9F4X0C-held-usdt',
 					ticker: '',
-					balance: { spendable: 0, settled: 100_000_000 }
+					balance: { spendable: 100_000_000, settled: 100_000_000 }
 				}
 			]
 		});
@@ -239,6 +240,28 @@ describe('sendRgbAsset', () => {
 				assetId: 'rgb:buHqKXhJ-configured-usdt'
 			})
 		).rejects.toThrow('Select the funded IFA USDT');
+		expect(onchainSendBegin).not.toHaveBeenCalled();
+	});
+
+	it('refuses a send while spendable is still zero', async () => {
+		listAssets.mockResolvedValueOnce({
+			nia: [],
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-held-usdt',
+					ticker: 'USDT',
+					precision: 6,
+					balance: { spendable: 0, settled: 0, future: 100_000_000 }
+				}
+			]
+		});
+		await expect(
+			sendRgbAsset({
+				invoice: 'rgb:~/~/nWca/sb:utxob:example-invoice',
+				assetId: '',
+				amount: 1111
+			})
+		).rejects.toThrow('Not spendable yet');
 		expect(onchainSendBegin).not.toHaveBeenCalled();
 	});
 

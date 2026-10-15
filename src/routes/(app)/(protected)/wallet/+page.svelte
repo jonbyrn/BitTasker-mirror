@@ -9,7 +9,11 @@
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
-	import { blindReceiveRows, type BlindReceiveRow } from '$lib/stores/wallet/decode-rgb-invoice';
+	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
+	import {
+		pendingBlindReceives,
+		type BlindReceiveRow
+	} from '$lib/stores/wallet/decode-rgb-invoice';
 	import {
 		parseWalletUtxos,
 		type WalletUtxoKind,
@@ -34,6 +38,7 @@
 	let showAllHistory = $state(false);
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
+	let refreshing = $state(false);
 	const receiveLocked = $derived(blindReceives.some((row) => !row.txid));
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
@@ -65,6 +70,8 @@
 		try {
 			await walletManager.initialize();
 			await walletManager.loadAssets();
+			const wallet = getUtexoWallet();
+			if (wallet) scheduleRgbRefresh(wallet);
 			await loadUtxos();
 			await loadBlindReceives();
 		} catch (error) {
@@ -79,6 +86,14 @@
 	onMount(() => {
 		initializeWallet().catch((err: unknown) => {
 			console.error('[wallet-page-init-error]', err);
+		});
+	});
+
+	$effect(() => {
+		const balance = usdtAsset?.balance ?? null;
+		if (balance === null && usdtAsset) return;
+		loadBlindReceives().catch((error: unknown) => {
+			console.error('[wallet-page] receive list failed:', error);
 		});
 	});
 
@@ -104,7 +119,34 @@
 			return;
 		}
 		try {
-			blindReceives = blindReceiveRows(await wallet.listTransfers());
+			const plain = await wallet.listTransfers();
+			const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+			const ids: string[] = [];
+			if (listed && typeof listed === 'object') {
+				const groups = listed as { ifa?: unknown; nia?: unknown };
+				for (const rows of [groups.ifa, groups.nia]) {
+					if (!Array.isArray(rows)) continue;
+					for (const row of rows) {
+						if (!row || typeof row !== 'object') continue;
+						const assetId = (row as { assetId?: unknown }).assetId;
+						if (typeof assetId === 'string' && assetId.length > 0) ids.push(assetId);
+					}
+				}
+			}
+			const named = await Promise.all(
+				ids.map(async (id) => {
+					try {
+						const batch = await wallet.listTransfers?.(id);
+						return Array.isArray(batch) ? batch : [];
+					} catch {
+						return [];
+					}
+				})
+			);
+			blindReceives = pendingBlindReceives([
+				...(Array.isArray(plain) ? plain : []),
+				...named.flat()
+			]);
 		} catch (error) {
 			blindReceives = [];
 			console.error('[wallet-page] receive list failed:', error);
@@ -113,6 +155,22 @@
 		if (paid?.txid && refreshedSeal !== paid.seal) {
 			refreshedSeal = paid.seal;
 			scheduleRgbRefresh(wallet);
+		}
+	}
+
+	async function refreshTransfers(): Promise<void> {
+		const wallet = getUtexoWallet();
+		if (!wallet || refreshing) return;
+		refreshing = true;
+		try {
+			await scheduleRgbRefresh(wallet);
+			await walletManager.loadAssets();
+			await loadUtxos();
+			await loadBlindReceives();
+		} catch (error) {
+			console.error('[wallet-page] refresh failed:', error);
+		} finally {
+			refreshing = false;
 		}
 	}
 
@@ -248,7 +306,12 @@
 			{@render balanceRow(
 				'USDT',
 				usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
-				usdtAsset ? usdtAsset.formattedBalance || formatNumber(usdtAsset.balance) : formatNumber(0)
+				usdtAsset
+					? formatUsdtBalance(
+							usdtAsset.balance,
+							usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
+						)
+					: formatUsdtBalance(0, 6)
 			)}
 			{#each otherAssets as asset (asset.assetId)}
 				{@render balanceRow(
@@ -280,7 +343,7 @@
 			<p class="text-base-content/70 text-sm">
 				{translate(
 					'wallet.lightning_hint',
-					'USDT payments to another wallet use this Lightning LSP.'
+					'On-chain USDT does not need a Lightning channel. Lightning here is for bitcoin sats.'
 				)}
 			</p>
 			{#if $lightningStore.peerHost}
@@ -386,6 +449,20 @@
 					<p class="text-sm font-semibold">
 						{translate('wallet.transaction_history', 'Transaction History')}
 					</p>
+					<button
+						type="button"
+						class="btn btn-outline btn-sm"
+						data-testid="refresh-transfers"
+						disabled={refreshing}
+						onclick={() => {
+							void refreshTransfers();
+						}}
+					>
+						{#if refreshing}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{translate('wallet.refresh_transfers', 'Refresh transfers')}
+					</button>
 					<span class="badge badge-ghost badge-sm">{$walletStore.transactions.length}</span>
 				</div>
 				{#if $walletStore.transactions.length === 0}
@@ -455,8 +532,9 @@
 
 	{#if blindReceives.length > 0}
 		<div class="alert alert-outline flex flex-col items-start gap-1" data-testid="receive-waiting">
-			{#each blindReceives as row (row.seal)}
+			{#each blindReceives as row (`${row.seal}-${row.status}`)}
 				<p class="font-mono text-xs">{row.seal}</p>
+				<p class="text-xs">{row.status}</p>
 				{#if row.expiry}<p class="text-xs">{row.expiry}</p>{/if}
 				<p class="font-mono text-xs break-all">
 					{row.txid ?? translate('wallet.receive_waiting', 'Waiting for txid')}

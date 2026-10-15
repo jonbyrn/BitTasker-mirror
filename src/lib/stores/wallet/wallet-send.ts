@@ -7,8 +7,9 @@ import {
 import { soleIfaAsset, spendableRgbAssets, type SpendableNia } from '$lib/types/rgb-contract';
 import { decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
-import { persistWalletSnapshot } from './wallet-balances';
-import { prepareRgbOnchainSend } from './prepare-rgb-send';
+import { persistWalletSnapshot, pullIncomingTransfers } from './wallet-balances';
+import { changeUnits, prepareRgbOnchainSend, spentSealBooked } from './prepare-rgb-send';
+import type { RgbUnspentRef } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import type { Transaction } from './wallet-types';
 
@@ -17,15 +18,45 @@ export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: s
 	return { txid: 'ln_stub_' + Date.now() };
 }
 
-function ifaUnits(row: SpendableNia | undefined): number {
-	return soleIfaAsset(row ? [row] : [])?.units ?? 0;
+function rowSpendable(row: SpendableNia | undefined): number {
+	const value = Number(row?.balance?.spendable ?? 0);
+	return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/** Wallet and wasm failures often arrive with an empty Error.message. */
+export function describeThrown(error: unknown): string {
+	if (error instanceof Error) {
+		const message = error.message.trim();
+		if (message) return message;
+		const frame = error.stack
+			?.split('\n')
+			.map((line) => line.trim())
+			.find((line) => line.length > 0);
+		return frame || error.name || 'Send failed';
+	}
+	if (typeof error === 'string' && error.trim()) return error.trim();
+	if (typeof error === 'object' && error !== null) {
+		const record = error as Record<string, unknown>;
+		if (typeof record.message === 'string' && record.message.trim()) return record.message.trim();
+		try {
+			const json = JSON.stringify(error);
+			if (json && json !== '{}') return json;
+		} catch (stringifyError: unknown) {
+			console.warn(
+				'[wallet-send] error stringify failed',
+				stringifyError instanceof Error ? stringifyError.message : String(stringifyError)
+			);
+		}
+	}
+	const text = String(error);
+	return text === '[object Object]' ? 'Send failed' : text;
 }
 
 function ifaUsdtId(rows: readonly SpendableNia[]): string | undefined {
 	const sole = soleIfaAsset(rows);
 	if (sole) return sole.assetId;
 	const held = rows.find((row) => (row.ticker ?? '').toUpperCase() === 'USDT' && row.assetId);
-	return held?.assetId && ifaUnits(held) > 0 ? held.assetId : undefined;
+	return held?.assetId;
 }
 
 function recordSentUsdt(txid: string, units: number): void {
@@ -74,7 +105,8 @@ export async function sendRgbAsset(params: {
 				: 'Select the funded IFA USDT. This invoice names no contract.'
 		);
 	}
-	const spendable = ifaUnits(held.find((row) => row.assetId === assetId));
+	const spendable = rowSpendable(held.find((row) => row.assetId === assetId));
+	if (spendable <= 0) throw new Error('Not spendable yet');
 	if (units > spendable) throw new Error('USDT amount is larger than the spendable balance.');
 	await prepareRgbOnchainSend(wallet, assetId);
 	const signer = requireEscrowSigner(wallet);
@@ -104,11 +136,13 @@ export async function sendRgbAsset(params: {
 			feeRate: 2
 		});
 	} catch (error: unknown) {
-		console.warn('[wallet-send] onchainSendBegin rejected', {
-			method: 'onchainSendBegin',
-			message: error instanceof Error ? error.message : String(error)
-		});
-		throw error;
+		const message = describeThrown(error);
+		console.error(
+			'[wallet-send] onchainSendBegin rejected',
+			message,
+			error instanceof Error ? error.stack : error
+		);
+		throw new Error(message);
 	}
 	const signed = await signEscrowPsbt(signer, psbt);
 	console.info('[wallet-send] onchainSendBegin psbt', { psbtChars: psbt.length });
@@ -123,6 +157,18 @@ export async function sendRgbAsset(params: {
 	await publishSignetTx(raw.hex);
 	await confirmSignetTx(raw.txid);
 	const txid = raw.txid;
+	await pullIncomingTransfers(wallet, { skipSync: false, assetId }).catch((error: unknown) => {
+		console.warn('[wallet-send] refresh after send failed', describeThrown(error));
+	});
+	const lister = wallet as { listUnspents?: () => Promise<RgbUnspentRef[]> };
+	if (lister.listUnspents && changeUnits(spendable, units) > 0) {
+		const unspents = await lister.listUnspents().catch(() => []);
+		if (spentSealBooked(unspents, assetId, txid, spendable)) {
+			throw new Error(
+				`RGB change was not assigned after ${txid}. Do not send again. Refresh transfers and check the balance.`
+			);
+		}
+	}
 	await persistWalletSnapshot(wallet).catch((error: unknown) => {
 		console.warn(
 			'[wallet-send] backup after send failed',

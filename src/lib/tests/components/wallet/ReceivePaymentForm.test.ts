@@ -49,7 +49,11 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
-	walletManager: { getRgbAddress, createLightningInvoice }
+	walletManager: {
+		getRgbAddress,
+		createLightningInvoice,
+		initialize: vi.fn().mockResolvedValue(undefined)
+	}
 }));
 
 vi.mock('$lib/stores/wallet/signet-lsp', () => ({
@@ -88,19 +92,23 @@ describe('ReceivePaymentForm', () => {
 		expect(getRgbAddress).not.toHaveBeenCalled();
 	});
 
-	it('asks the LSP for a Lightning invoice and does not mint an on-chain one', async () => {
+	it('creates a Bolt11 for the entered sats and does not mint an inbound', async () => {
 		const { getByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '50000' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
-		await waitFor(() => expect(requestLspInbound).toHaveBeenCalledTimes(1));
+		await waitFor(() =>
+			expect(createLightningInvoice).toHaveBeenCalledWith({
+				amountSats: 50000,
+				expirySeconds: 3600
+			})
+		);
 		await waitFor(() =>
 			expect(getByTestId('receive-value').textContent).toContain('lnbc500n1test')
 		);
-		expect(getByTestId('receive-rgb-invoice').textContent).toContain('rgb:inbound');
-		expect(createLightningInvoice).not.toHaveBeenCalled();
+		expect(requestLspInbound).not.toHaveBeenCalled();
 		expect(onchainReceive).not.toHaveBeenCalled();
 	});
 
@@ -152,6 +160,7 @@ describe('ReceivePaymentForm', () => {
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '10' } });
+		expect(getByTestId('receive-usdt-raw').textContent).toBe('10000000');
 		await fireEvent.click(getByTestId('receive-generate'));
 
 		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
@@ -174,7 +183,7 @@ describe('ReceivePaymentForm', () => {
 
 		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
 		expect(onchainReceive).toHaveBeenCalledWith({
-			amount: 100000,
+			amount: 100_000_000_000,
 			assetId: 'rgb1testusdtasset',
 			blind: true,
 			blinded: true

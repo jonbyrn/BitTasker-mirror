@@ -9,6 +9,7 @@ import {
 	phantomSendBatches,
 	releasePhantomSends,
 	sealSendBlocker,
+	spentSealBooked,
 	strandedSeal,
 	stuckSendBatchIndexes
 } from '$lib/stores/wallet/prepare-rgb-send';
@@ -186,6 +187,19 @@ describe('prepareRgbOnchainSend helpers', () => {
 				5
 			)
 		).toBe(true);
+	});
+
+	it('flags a full allocation that stayed on an output the send already spent', () => {
+		const assetId = 'rgb:f~usdt';
+		const sendTxid = '05ff07f8';
+		const unspents = [
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: { exists: true, outpoint: { txid: '9115e570', vout: 2 } }
+			}
+		];
+		expect(spentSealBooked(unspents, assetId, sendTxid, 100_000_000)).toBe(true);
+		expect(spentSealBooked(unspents, assetId, '9115e570', 100_000_000)).toBe(false);
 	});
 
 	it('blocks send when spendable 10000 has no seal', () => {
