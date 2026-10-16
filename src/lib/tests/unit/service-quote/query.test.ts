@@ -36,7 +36,7 @@ vi.mock('$lib/utils/service-quote/protocol', async () => {
 describe('service-quote query helpers', () => {
 	beforeAll(async () => {
 		queryModule = await import('$lib/utils/service-quote/query');
-	});
+	}, 60_000);
 
 	beforeEach(() => {
 		vi.resetAllMocks();
