@@ -8,6 +8,7 @@ import {
 	needsVanillaFeeUtxo,
 	PHANTOM_BROADCAST_TXID,
 	phantomSendBatches,
+	enqueueWallet,
 	prepareRgbOnchainSend,
 	releasePhantomSends,
 	sealSendBlocker,
@@ -380,6 +381,20 @@ describe('prepareRgbOnchainSend helpers', () => {
 		).rejects.toThrow('no colorable allocation');
 		expect(refreshWallet).toHaveBeenCalledTimes(2);
 		expect(walletSendPending()).toBe(false);
+	});
+
+	it('runs wallet work one at a time', async () => {
+		let active = 0;
+		let peak = 0;
+		const turn = async (): Promise<void> => {
+			active += 1;
+			peak = Math.max(peak, active);
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			active -= 1;
+		};
+		await Promise.all([enqueueWallet(turn), enqueueWallet(turn)]);
+		expect(peak).toBe(1);
+		expect(active).toBe(0);
 	});
 
 	it('detects the bdk add-utxo failure', () => {

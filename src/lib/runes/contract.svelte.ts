@@ -1,6 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
+import { enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import { assertInvoiceRail, isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { payLnBtc } from '$lib/services/rgb/escrow-rails/ln-btc';
@@ -775,14 +776,17 @@ export class ContractRune {
 			const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
 			return payLnUsdt(channels, invoice, this.settlementAmount || this.agreedUnits());
 		}
-		const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-		const held = selectEscrowAsset(spendableRgbAssets(listed), [
-			e2eMintedAssetId(),
-			getConfiguredRgbUsdtAssetId()
-		]);
-		const assetId = onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
-		const amount = this.settlementAmount || this.agreedUnits();
-		return payOnchainUsdt(wallet, invoice, assetId, amount);
+		return enqueueSend(async () => {
+			const listed =
+				typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+			const held = selectEscrowAsset(spendableRgbAssets(listed), [
+				e2eMintedAssetId(),
+				getConfiguredRgbUsdtAssetId()
+			]);
+			const assetId = onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
+			const amount = this.settlementAmount || this.agreedUnits();
+			return payOnchainUsdt(wallet, invoice, assetId, amount);
+		});
 	}
 
 	private agreedUnits(): number {

@@ -18,6 +18,8 @@ import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveBatches } from './decode-rgb-invoice';
 import {
 	chainAllocation,
+	enqueueWallet,
+	inWalletTurn,
 	releasePhantomSends,
 	walletSendPending,
 	type RgbUnspentRef
@@ -581,6 +583,8 @@ export function scheduleBalanceRefresh(): void {
 }
 
 export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
+	if (walletSendPending()) return;
+	if (!inWalletTurn()) return enqueueWallet(() => loadAssets(options));
 	const wallet = state.utexoWallet;
 	if (!wallet) return;
 
@@ -813,8 +817,6 @@ type PullWallet = {
 	refreshWallet?: () => Promise<unknown>;
 };
 
-let pullTail: Promise<void> = Promise.resolve();
-
 /**
  * Pull pending ReceiveBlind rows from the default https proxy.
  * One wasm refresh at a time. `refreshValue(online, null, [], false)` is the
@@ -824,12 +826,8 @@ export function pullIncomingTransfers(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
-	const run = pullTail.then(() => pullIncomingOnce(wallet, options));
-	pullTail = run.then(
-		() => undefined,
-		() => undefined
-	);
-	return run;
+	if (inWalletTurn()) return pullIncomingOnce(wallet, options);
+	return enqueueWallet(() => pullIncomingOnce(wallet, options));
 }
 
 async function pullIncomingOnce(
@@ -1319,12 +1317,13 @@ export function scheduleRgbRefresh(
 	wallet: RefreshWallet,
 	options?: { timeoutMs?: number }
 ): Promise<void> {
+	if (walletSendPending()) return Promise.resolve();
 	if (rgbRefreshTask || externalRefreshPending()) {
 		console.warn('[wallet-refresh] already running');
 		return rgbRefreshTask ?? Promise.resolve();
 	}
 	const timeoutMs = options?.timeoutMs ?? REFRESH_LIMIT_MS;
-	const run = finishRgbRefresh(wallet, timeoutMs);
+	const run = enqueueWallet(() => finishRgbRefresh(wallet, timeoutMs));
 	rgbRefreshTask = run;
 	void run.finally(() => {
 		if (rgbRefreshTask === run) rgbRefreshTask = null;

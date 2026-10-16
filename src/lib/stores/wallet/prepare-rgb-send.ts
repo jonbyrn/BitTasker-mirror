@@ -438,10 +438,58 @@ function logSealState(nia: RgbNiaRef[], unspents: RgbUnspentRef[]): void {
 }
 
 let sendDepth = 0;
+let turn = 0;
+let pendingTurns = 0;
+let turnTail: Promise<void> = Promise.resolve();
 
 /** True while an on-chain send is using the wasm wallet. */
 export function walletSendPending(): boolean {
 	return sendDepth > 0;
+}
+
+/** True while this tab is inside the single wasm wallet turn. */
+export function inWalletTurn(): boolean {
+	return turn > 0;
+}
+
+/** Run wasm wallet work one call at a time. An idle wallet starts the work immediately. */
+export function enqueueWallet<T>(work: () => Promise<T>): Promise<T> {
+	const execute = async (): Promise<T> => {
+		turn += 1;
+		try {
+			return await work();
+		} finally {
+			turn -= 1;
+			pendingTurns -= 1;
+		}
+	};
+	pendingTurns += 1;
+	if (pendingTurns === 1 && turn === 0) {
+		const current = execute();
+		turnTail = current.then(
+			() => undefined,
+			() => undefined
+		);
+		return current;
+	}
+	const current = turnTail.then(execute);
+	turnTail = current.then(
+		() => undefined,
+		() => undefined
+	);
+	return current;
+}
+
+/** Hold the wallet turn and tell balance polling to stay out until send finishes. */
+export function enqueueSend<T>(work: () => Promise<T>): Promise<T> {
+	return enqueueWallet(async () => {
+		sendDepth += 1;
+		try {
+			return await work();
+		} finally {
+			sendDepth -= 1;
+		}
+	});
 }
 
 function walletIsBusy(error: unknown): boolean {
@@ -474,15 +522,21 @@ export async function prepareRgbOnchainSend(
 	knownSpendable?: number,
 	outputSpent: OutputSpendProbe = esploraOutputSpent
 ): Promise<void> {
+	if (sendDepth === 0) {
+		await enqueueSend(() => prepareRgbOnchainSend(wallet, assetId, knownSpendable, outputSpent));
+		return;
+	}
 	sendDepth += 1;
 	try {
-		if (wallet.goOnline && wallet.isOnline?.() !== true) {
-			await wallet.goOnline(UTEXO_INDEXER);
-		}
-		await retryBusy(() => syncWhenPresent(wallet));
-		await retryBusy(() => wallet.refreshWallet());
-		await releaseStuckSends(wallet);
-		await releasePhantomSends(wallet);
+		await retryBusy(async () => {
+			if (wallet.goOnline && wallet.isOnline?.() !== true) {
+				await wallet.goOnline(UTEXO_INDEXER);
+			}
+			await syncWhenPresent(wallet);
+			await wallet.refreshWallet();
+		});
+		await retryBusy(() => releaseStuckSends(wallet));
+		await retryBusy(() => releasePhantomSends(wallet));
 		await retryBusy(() => syncWhenPresent(wallet));
 
 		if (!wallet.listAssets || !wallet.listUnspents) {
