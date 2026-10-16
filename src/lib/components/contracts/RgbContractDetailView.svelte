@@ -15,6 +15,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -182,9 +183,42 @@
 		window.open(href, '_blank', 'noopener,noreferrer');
 	}
 
+	function noteEscrowRow(status: string, title: string | undefined): void {
+		const locked = [
+			'locked',
+			'funded',
+			'work_in_progress',
+			'work_submitted',
+			'approved',
+			'settlement_requested',
+			'releasing',
+			'released_pending',
+			'released',
+			'settled'
+		];
+		if (!locked.includes(status)) return;
+		recordEscrowHistory({
+			contractId,
+			title: title || contractId,
+			kind: 'lock'
+		});
+		if (status === 'released' || status === 'settled' || status === 'released_pending') {
+			recordEscrowHistory({
+				contractId,
+				title: title || contractId,
+				kind: 'released'
+			});
+		}
+		walletManager.loadTransactions().catch((error: unknown) => {
+			console.warn('[contract] escrow history skipped', error);
+		});
+	}
+
 	async function loadContract(quiet = false): Promise<void> {
-		if (!quiet) loading = true;
-		errorMessage = '';
+		if (!quiet) {
+			loading = true;
+			errorMessage = '';
+		}
 		try {
 			await setNDKSigner();
 			const events = await ndk.fetchEvents(
@@ -200,13 +234,17 @@
 						Boolean(entry.content)
 				);
 			if (parsedEntries.length === 0) {
-				errorMessage = 'Contract status has not propagated yet.';
+				if (!quiet) errorMessage = 'Contract status has not propagated yet.';
 				return;
 			}
 
 			const entryStatus = (entry: (typeof parsedEntries)[number]): string =>
 				entry.content.status ?? entry.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded';
-			const leading = leadingContractStatus(parsedEntries.map(entryStatus));
+			const current = ContractRune.get(contractId)?.status;
+			const leading = leadingContractStatus([
+				...parsedEntries.map(entryStatus),
+				...(current ? [current] : [])
+			]);
 			const latest =
 				[...parsedEntries].reverse().find((entry) => entryStatus(entry) === leading) ??
 				parsedEntries.at(-1);
@@ -232,18 +270,19 @@
 						.map((tag) => tag[1])
 						.filter(Boolean)
 				});
-			nextRune.status = (content.status ??
-				latest.event.tags.find((tag) => tag[0] === 's')?.[1] ??
-				'funded') as ContractRuneStatus;
-			if (content.fundingState) nextRune.fundingState = content.fundingState;
-			nextRune.seals = normalizeSeals(content, contractId);
-			nextRune.workMessage = content.workMessage ?? content.message;
-			nextRune.proofUrl = content.proofUrl;
-			nextRune.payoutInvoice = content.payoutInvoice;
-			nextRune.settlementInvoice = content.settlementInvoice ?? content.payoutInvoice;
-			nextRune.settlementAmount = content.settlementAmount ?? 0;
-			nextRune.proofs = content.proofs ?? [];
+			nextRune.status = leading as ContractRuneStatus;
+			if (entryStatus(latest) === leading) {
+				if (content.fundingState) nextRune.fundingState = content.fundingState;
+				nextRune.seals = normalizeSeals(content, contractId);
+				nextRune.workMessage = content.workMessage ?? content.message;
+				nextRune.proofUrl = content.proofUrl;
+				nextRune.payoutInvoice = content.payoutInvoice;
+				nextRune.settlementInvoice = content.settlementInvoice ?? content.payoutInvoice;
+				nextRune.settlementAmount = content.settlementAmount ?? 0;
+				nextRune.proofs = content.proofs ?? [];
+			}
 			rune = nextRune;
+			noteEscrowRow(leading, content.contractTitle ?? nextRune.snapshot.contractTitle);
 			timeline = parsedEntries.map(({ event, content: item }) => ({
 				id: event.id ?? `${event.created_at}-${item.status}`,
 				status: String(item.status ?? event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'unknown'),
@@ -291,7 +330,10 @@
 		isReleasing = true;
 		errorMessage = '';
 		try {
-			await walletManager.initialize();
+			const rail = rune.snapshot.split.primaryAsset;
+			await walletManager.initialize({
+				skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
+			});
 			await rune.createPayoutInvoice();
 			await loadContract(true);
 		} catch (error) {
@@ -414,14 +456,15 @@
 		</div>
 	</header>
 
+	{#if errorMessage}
+		<div class="alert alert-outline alert-error" data-testid="contract-error">{errorMessage}</div>
+	{/if}
 	{#if loading}
 		<div class="card bg-base-100 border-base-300 border shadow-sm" role="status">
 			<div class="card-body items-center p-6">
 				<span class="loading loading-spinner loading-md text-primary"></span>
 			</div>
 		</div>
-	{:else if errorMessage}
-		<div class="alert alert-outline alert-error" data-testid="contract-error">{errorMessage}</div>
 	{:else if snapshot}
 		<section
 			class="card bg-base-100 border-base-300 border shadow-sm"

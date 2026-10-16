@@ -509,6 +509,32 @@ function unspentRows(value: unknown): RgbUnspentRef[] | null {
 	return rows.length === value.length ? rows : null;
 }
 
+function chainGap(assets: RgbAsset[]): RgbAsset | undefined {
+	return assets.find((asset) => {
+		if (asset.symbol?.toUpperCase() !== 'USDT' || asset.chainSpendable == null) return false;
+		return (asset.spendable ?? asset.balance) > asset.chainSpendable;
+	});
+}
+
+/** Refresh transfers once when the reported USDT is above the unspent outputs. */
+async function resyncChainGap(
+	wallet: Parameters<typeof pullIncomingTransfers>[0],
+	assets: RgbAsset[],
+	pull: boolean
+): Promise<RgbAsset[]> {
+	const gapped = chainGap(assets);
+	if (!gapped || !pull) return assets;
+	await pullIncomingTransfers(wallet, { skipSync: false, assetId: gapped.assetId }).catch(
+		(error: unknown) => {
+			console.warn(
+				'[wallet-balances] chain resync failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	);
+	return attachChainSpendable(wallet, assets);
+}
+
 /** Set chainSpendable when Esplora answered for at least one allocation. */
 export async function attachChainSpendable(
 	wallet: { listUnspents?: () => Promise<unknown> },
@@ -570,6 +596,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
 			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
+			rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -998,11 +1025,33 @@ async function logWalletStores(fingerprint: string | null): Promise<void> {
  * Await the wasm wallet's IndexedDB commit. A detached `flush` throws
  * "null pointer passed to rust", the same way a detached `refreshValue` does.
  */
+async function backupWalletBytes(wallet: unknown): Promise<boolean> {
+	const raw = rawWasmWallet(wallet);
+	const password = backupPassword(wallet);
+	const fingerprint = walletFingerprint(wallet);
+	if (!raw || !password || !fingerprint || typeof raw.backup !== 'function') return false;
+	const bytes = asBackupBytes(Reflect.apply(raw.backup, raw, [password]));
+	if (!bytes) return false;
+	await storeRgbBackup(fingerprint, bytes);
+	return true;
+}
+
 export async function flushWalletState(wallet: unknown): Promise<boolean> {
 	const raw = rawWasmWallet(wallet);
 	if (!raw) return false;
 	const flush = raw.flush ?? raw.flushValue;
 	if (typeof flush !== 'function') {
+		try {
+			if (await backupWalletBytes(wallet)) {
+				console.info('[wallet-persist] wallet.backup');
+				return true;
+			}
+		} catch (error) {
+			console.warn(
+				'[wallet-persist] wallet.backup failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
 		console.warn('[wallet-persist] wallet.flush missing');
 		await logWalletStores(walletFingerprint(wallet)).catch((error: unknown) => {
 			console.warn(

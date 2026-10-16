@@ -261,6 +261,32 @@ describe('acceptIncomingPayment', () => {
 		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
+	it('stores a wasm backup when flush is missing', async () => {
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const stored = new Map<string, Uint8Array>();
+		const bytes = new Uint8Array([9, 8, 7]);
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const wallet = {
+			_manager: {
+				rlnBinding: {
+					password: 'wallet-password',
+					walletData: { master_fingerprint: '037153fd' },
+					_wallet: {
+						backup(this: unknown, password: string) {
+							if (this == null) throw new Error('null pointer passed to rust');
+							if (password !== 'wallet-password') throw new Error('bad password');
+							return bytes;
+						}
+					}
+				}
+			}
+		};
+		await expect(flushWalletState(wallet)).resolves.toBe(true);
+		expect(stored.get('037153fd')).toEqual(bytes);
+		expect(info).toHaveBeenCalledWith('[wallet-persist] wallet.backup');
+		info.mockRestore();
+	});
+
 	it('reports a missing flush without throwing', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const wallet = {

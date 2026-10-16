@@ -198,6 +198,39 @@ function txidValue(value: unknown): string | null {
 	return typeof value === 'string' && value.length > 0 ? value.toLowerCase() : null;
 }
 
+function transferTxids(row: Record<string, unknown>): string[] {
+	const receive = row.receiveUtxo;
+	return [
+		txidValue(row.txid),
+		receive && typeof receive === 'object' ? txidValue((receive as { txid?: unknown }).txid) : null
+	].filter((id): id is string => id != null);
+}
+
+/** 64-hex txids nested on an RGB transfer, including the bitcoin anchor. */
+function nestedTxids(value: unknown, depth = 0): string[] {
+	if (depth > 5 || !value || typeof value !== 'object') return [];
+	if (Array.isArray(value)) return value.flatMap((item) => nestedTxids(item, depth + 1));
+	const ids: string[] = [];
+	for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+		if (/txid/i.test(key)) {
+			const id = txidValue(child);
+			if (id && /^[0-9a-f]{64}$/.test(id)) ids.push(id);
+		} else {
+			ids.push(...nestedTxids(child, depth + 1));
+		}
+	}
+	return ids;
+}
+
+/** A 1,000 sat send at the same time as an RGB send is the color anchor. */
+function rgbAnchor(record: BitcoinHistoryRecord, moves: RgbHistoryRow[]): boolean {
+	if (bitcoinHistoryAmount(record) !== 1000) return false;
+	const stamp = record.confirmationTime?.timestamp;
+	if (!stamp) return false;
+	const ms = stamp * 1000;
+	return moves.some((row) => row.type === 'send' && Math.abs(row.timestamp - ms) <= 120_000);
+}
+
 export interface RgbHistoryMove {
 	units: number;
 	incoming: boolean;
@@ -241,13 +274,7 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 		const assigned = assignmentTotal(row.assignments);
 		const units = incoming ? assigned || requested : requested || assigned;
 		if (units <= 0) continue;
-		const receive = row.receiveUtxo;
-		const ids = [
-			txidValue(row.txid),
-			receive && typeof receive === 'object'
-				? txidValue((receive as { txid?: unknown }).txid)
-				: null
-		].filter((id): id is string => id != null);
+		const ids = [...new Set([...transferTxids(row), ...nestedTxids(row)])];
 		rows.push({
 			ids,
 			type: incoming ? 'receive' : 'send',
@@ -309,8 +336,14 @@ export function walletHistoryRows(
 ): WalletHistoryRow[] {
 	const moves = rgbHistoryRows(transfers);
 	const rgbTx = new Set(moves.flatMap((row) => row.ids.map((id) => id.toLowerCase())));
+	const seen = new Set<string>();
 	const bitcoin: WalletHistoryRow[] = records
-		.filter((record) => !rgbTx.has(record.txid.toLowerCase()))
+		.filter((record) => {
+			const id = record.txid.toLowerCase();
+			if (seen.has(id) || rgbTx.has(id) || rgbAnchor(record, moves)) return false;
+			seen.add(id);
+			return true;
+		})
 		.map((record) => {
 			const incoming = record.received > 0 && record.sent === 0;
 			const timestamp = record.confirmationTime?.timestamp

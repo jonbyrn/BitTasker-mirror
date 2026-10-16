@@ -368,6 +368,39 @@ describe('wallet dashboard display', () => {
 		expect(rows[0]?.amountSats).toBe(10_000);
 	});
 
+	it('hides a duplicate 1,000 sat anchor that does not share the RGB txid', () => {
+		const anchor = 'cc'.repeat(32);
+		const rows = walletHistoryRows(
+			[
+				{
+					txid: anchor,
+					received: 0,
+					sent: 1000,
+					confirmationTime: { timestamp: 1_790_391_348 },
+					transactionType: 'User'
+				},
+				{
+					txid: anchor,
+					received: 0,
+					sent: 1000,
+					confirmationTime: { timestamp: 1_790_391_348 },
+					transactionType: 'User'
+				}
+			],
+			[
+				{
+					kind: 'Send',
+					status: 'Settled',
+					txid: 'dd'.repeat(32),
+					requestedAssignment: { amount: 10_000_000 },
+					updatedAt: 1_790_391_348
+				}
+			]
+		);
+		expect(rows.some((row) => row.amountSats === 1000)).toBe(false);
+		expect(rows.some((row) => row.assetUnits === 10_000_000)).toBe(true);
+	});
+
 	it('labels an RGB setup transaction instead of a bitcoin send', () => {
 		const rows = walletHistoryRows(
 			[

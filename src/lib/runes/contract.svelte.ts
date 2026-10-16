@@ -8,7 +8,7 @@ import { payLnUsdt } from '$lib/services/rgb/escrow-rails/ln-usdt';
 import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rgb-onchain';
 import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
 import { proofReady } from '$lib/services/rgb/escrow-rails/types';
-import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
+import { ESCROW_LNUSDT, lnUsdtOpen } from '$lib/services/rgb/escrow-rail';
 import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
@@ -601,42 +601,59 @@ export class ContractRune {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
 		const asset = this.split.primaryAsset;
-		let invoice = '';
-		let amount = 0;
-		if (asset === 'btc_lightning') {
-			amount = this.lockedSats();
-			if (typeof wallet.createLightningInvoice !== 'function') {
-				throw new Error('Wallet cannot create a Lightning invoice');
-			}
-			const created = await wallet.createLightningInvoice({
-				amountSats: amount,
-				expirySeconds: 3600
-			});
-			invoice = created.lnInvoice?.trim() ?? '';
-		} else {
-			amount = this.agreedUnits();
-			const listed =
-				typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-			const held = selectEscrowAsset(spendableRgbAssets(listed), [
-				e2eMintedAssetId(),
-				getConfiguredRgbUsdtAssetId()
-			]);
-			const assetId =
-				asset === 'usdt_ln'
-					? ESCROW_LNUSDT
-					: onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
-			const received = await wallet.onchainReceive({
-				witness: false,
-				minConfirmations: 1,
-				durationSeconds: 3600,
-				assetId,
-				amount
-			});
-			invoice = received.invoice?.trim() ?? '';
-		}
+		const invoice = await this.payoutInvoiceFor(wallet, asset);
+		const amount = asset === 'btc_lightning' ? this.lockedSats() : this.agreedUnits();
 		if (!invoice) throw new Error('Taskee payout invoice was empty');
 		await this.requestSettlement(invoice, amount);
 		return invoice;
+	}
+
+	private async payoutInvoiceFor(
+		wallet: NonNullable<typeof state.utexoWallet>,
+		asset: PaymentSplitConfig['primaryAsset']
+	): Promise<string> {
+		if (asset === 'btc_lightning') return this.lightningPayout(wallet);
+		if (asset === 'usdt_ln') return this.lnUsdtPayout(wallet);
+		return this.rgbPayout(wallet, onchainUsdtId(undefined));
+	}
+
+	private async lightningPayout(wallet: NonNullable<typeof state.utexoWallet>): Promise<string> {
+		if (typeof wallet.createLightningInvoice !== 'function') {
+			throw new Error('Lightning not ready');
+		}
+		try {
+			const created = await wallet.createLightningInvoice({
+				amountSats: this.lockedSats(),
+				expirySeconds: 3600
+			});
+			return created.lnInvoice?.trim() ?? '';
+		} catch (error) {
+			if (error instanceof TypeError) throw new Error('Lightning not ready');
+			throw error;
+		}
+	}
+
+	private async lnUsdtPayout(wallet: NonNullable<typeof state.utexoWallet>): Promise<string> {
+		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
+		if (!lnUsdtOpen(channels)) throw new Error('Lightning not ready');
+		return this.rgbPayout(wallet, ESCROW_LNUSDT);
+	}
+
+	private async rgbPayout(
+		wallet: NonNullable<typeof state.utexoWallet>,
+		assetId: string
+	): Promise<string> {
+		if (typeof wallet.onchainReceive !== 'function') {
+			throw new Error('RGB wallet cannot create an invoice');
+		}
+		const received = await wallet.onchainReceive({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600,
+			assetId,
+			amount: this.agreedUnits()
+		});
+		return received.invoice?.trim() ?? '';
 	}
 
 	async requestSettlement(invoice: string, amount: number): Promise<ContractRuneSnapshot> {

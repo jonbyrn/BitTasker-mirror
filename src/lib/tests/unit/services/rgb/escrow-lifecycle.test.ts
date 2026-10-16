@@ -3,6 +3,7 @@ import { state } from '$lib/stores/wallet/wallet-state';
 import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
 import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
+import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
@@ -26,6 +27,7 @@ const ASSET_ID = 'rgb:h95CRali-KmzB~7j-minted';
 function walletDouble() {
 	return {
 		onchainReceive: vi.fn().mockResolvedValue({ invoice: PAYOUT, recipientId: 'recv-1' }),
+		createLightningInvoice: vi.fn(),
 		onchainSend: vi.fn().mockResolvedValue({ txid: 'a'.repeat(64), batchTransferIdx: 0 }),
 		refreshWallet: vi.fn().mockResolvedValue(undefined),
 		listChannels: vi.fn().mockResolvedValue([{ isUsable: true, assetId: ESCROW_LNUSDT }]),
@@ -218,6 +220,43 @@ describe('escrow lifecycle', () => {
 			expect.objectContaining({ invoice: PRICED, assetId: 'rgb:usdt-signet', amount: 11_000_000 })
 		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
+	it('creates a faucet RGB invoice for an approved ten dollar contract', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-request-payment',
+			totalAmountUsd: 10,
+			lockedAmount: 10,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		wallet.onchainReceive.mockResolvedValueOnce({ invoice: PRICED, recipientId: 'recv-1' });
+		await expect(rune.createPayoutInvoice()).resolves.toBe(PRICED);
+		expect(wallet.onchainReceive).toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetId: FAUCET_IFA_ASSET,
+				amount: 10_000_000,
+				witness: false
+			})
+		);
+		expect(wallet.createLightningInvoice).not.toHaveBeenCalled();
+		expect(rune.snapshot.status).toBe('settlement_requested');
+	});
+
+	it('says lightning is not ready instead of calling a missing invoice method', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		delete (wallet as { createLightningInvoice?: unknown }).createLightningInvoice;
+		const rune = lightningContract('contract-lightning-missing');
+		rune.status = 'approved';
+		await expect(rune.createPayoutInvoice()).rejects.toThrow('Lightning not ready');
+		expect(wallet.onchainReceive).not.toHaveBeenCalled();
 	});
 
 	it('pays an eleven dollar bid from IFA USDT when nia is empty', async () => {

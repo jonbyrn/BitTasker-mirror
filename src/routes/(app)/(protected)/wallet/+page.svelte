@@ -205,7 +205,7 @@
 		setTimeout(() => {
 			if (sentNotice === notice) operationMessage = null;
 		}, 8000);
-		walletManager.loadAssets().catch((error: unknown) => {
+		refreshTransfers().catch((error: unknown) => {
 			console.error('[wallet-page] balance reload failed:', error);
 		});
 	}
@@ -223,7 +223,9 @@
 		try {
 			await cancelUnpaidInvoices();
 			await loadBlindReceives();
+			await walletManager.loadAssets();
 		} catch (error) {
+			operationMessage = error instanceof Error ? error.message : 'Failed to cancel the invoice';
 			console.error('[wallet-page] cancel invoice failed:', error);
 		}
 	}

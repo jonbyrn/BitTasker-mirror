@@ -3,6 +3,7 @@
 	import type { NostrBidContent } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -41,6 +42,8 @@
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconCheckAll from '~icons/mdi/check-all';
 	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
+	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
+	import { loadTransactions } from '$lib/stores/wallet/wallet-transactions';
 
 	/** Build a task-like object from bid for TranslatableTask (title + description) */
 	function taskFromBid(bid: NostrBidContent): Task {
@@ -159,10 +162,7 @@
 
 	onMount(async () => {
 		try {
-			// Fetch BTC price for USDT conversion
 			fetchBtcPrice();
-
-			// Load user's bids
 			await loadMyBids();
 		} catch (err) {
 			console.error('Error loading user data:', err);
@@ -172,11 +172,47 @@
 		}
 	});
 
-	async function loadMyBids() {
+	onMount(() => {
+		if (!browser) return;
+		const refresh = (): void => {
+			if (document.visibilityState !== 'visible') return;
+			loadMyBids(true).catch((loadError: unknown) => {
+				console.warn('[bids] refresh failed', loadError);
+			});
+		};
+		document.addEventListener('visibilitychange', refresh);
+		return () => document.removeEventListener('visibilitychange', refresh);
+	});
+
+	function rememberEscrowLocks(events: NostrEvent[]): void {
+		let noted = false;
+		for (const event of events) {
+			const status = getBidStatus(event)?.status?.toUpperCase();
+			if (status !== BidStatusEnum.ESCROW_FUNDED && status !== BidStatusEnum.WORK_IN_PROGRESS) {
+				continue;
+			}
+			const bid = event.content as unknown as NostrBidContent;
+			if (!bid?.taskId) continue;
+			recordEscrowHistory({
+				contractId: `contract-${bid.taskId}-${event.id}`,
+				title: bid.taskTitle || bid.taskId,
+				kind: 'lock'
+			});
+			noted = true;
+		}
+		if (!noted) return;
+		loadTransactions().catch((error: unknown) => {
+			console.warn('[bids] escrow history skipped', error);
+		});
+	}
+
+	async function loadMyBids(quiet = false) {
 		try {
-			loading = true;
-			error = ''; // Clear any previous error
+			if (!quiet) loading = true;
+			error = '';
+			clearBidCacheUtil();
 			myBids = await getMyBids();
+			rememberEscrowLocks(myBids);
 		} catch (err) {
 			console.error('Error loading bids:', err);
 			error = $t('bids.error.loading');

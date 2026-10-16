@@ -15,7 +15,8 @@
 		onRejectBid,
 		onOpenMessage,
 		isRejecting = false,
-		isRejected = false
+		isRejected = false,
+		status = ''
 	}: {
 		bid: NDKBid;
 		acceptedBidId?: string | null;
@@ -24,12 +25,20 @@
 		onOpenMessage: (bidderId: string, bidderName: string) => void;
 		isRejecting?: boolean;
 		isRejected?: boolean;
+		status?: string;
 	} = $props();
 
 	let detailsExpanded = $state(false);
 
 	const bidContent = $derived(bid.bidContent);
 	const bidAmountCurrency = $derived(isSatBid(bidContent?.currency) ? 'SATS' : 'USD');
+	const connected = $derived(
+		acceptedBidId === bid.id ||
+			bidContent?.status === 'ACCEPTED' ||
+			status === 'ACCEPTED' ||
+			status === 'ESCROW_FUNDED' ||
+			status === 'WORK_IN_PROGRESS'
+	);
 
 	let profileUrl = $derived(bid.author.npub ? `/npub/${bid.author.npub}` : '#');
 
@@ -99,7 +108,7 @@
 						</button>
 					{/if}
 				</div>
-				{#if acceptedBidId === bid.id || bidContent.status === 'ACCEPTED'}
+				{#if connected}
 					<span class="badge badge-success badge-lg"
 						>{$t('dashboard.bids.bid_acceptance.accepted')}</span
 					>
@@ -203,11 +212,7 @@
 					<button
 						class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 						onclick={() => onRejectBid(bid)}
-						disabled={isRejecting ||
-							isRejected ||
-							bidContent.status === 'REJECTED' ||
-							bidContent.status === 'ACCEPTED' ||
-							acceptedBidId === bid.id}
+						disabled={isRejecting || isRejected || bidContent.status === 'REJECTED' || connected}
 					>
 						{#if isRejecting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -262,7 +267,7 @@
 						</button>
 					{/if}
 
-					{#if bid.id === acceptedBidId || bidContent.status === 'ACCEPTED'}
+					{#if connected}
 						<button
 							type="button"
 							class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"

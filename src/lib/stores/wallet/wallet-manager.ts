@@ -22,8 +22,8 @@ import { receiveWithAllocations } from './rgb-allocations';
 import type { RgbAsset } from './wallet-types';
 
 export const walletManager = {
-	async initialize(): Promise<void> {
-		return initialize();
+	async initialize(options?: { skipLsp?: boolean }): Promise<void> {
+		return initialize(options);
 	},
 
 	cleanup(): void {
@@ -147,7 +147,15 @@ export const walletManager = {
 	}): Promise<{ lnInvoice: string; requestId?: string }> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
-		return wallet.createLightningInvoice(params);
+		if (typeof wallet.createLightningInvoice !== 'function') {
+			throw new Error('Lightning not ready');
+		}
+		try {
+			return await wallet.createLightningInvoice(params);
+		} catch (error) {
+			if (error instanceof TypeError) throw new Error('Lightning not ready');
+			throw error;
+		}
 	},
 
 	async payLightningInvoice(params: {

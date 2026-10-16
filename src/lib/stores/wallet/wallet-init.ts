@@ -68,7 +68,7 @@ function probeWindow(): ProbeWindow {
 }
 
 // Wallet initialization core logic
-async function initializeRgbWallet(mnemonic: string): Promise<void> {
+async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<void> {
 	if (!browser) return;
 
 	// TEST: Explicit 3-phase lifecycle with network: 'utexo' + vssUrl: null
@@ -123,7 +123,7 @@ async function initializeRgbWallet(mnemonic: string): Promise<void> {
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
 		await restoreOnUnlock(wallet, databasePresent);
-		await discoverSignetLsp(wallet);
+		if (!skipLsp) await discoverSignetLsp(wallet);
 
 		state.utexoWallet = wallet;
 		installPersistHooks();
@@ -322,7 +322,7 @@ export async function getRgbAddress(): Promise<string> {
 	return get(walletStore).rgb?.address || '';
 }
 
-export async function initialize(): Promise<void> {
+export async function initialize(options?: { skipLsp?: boolean }): Promise<void> {
 	if (!browser) return;
 
 	const probe = probeWindow();
@@ -357,7 +357,7 @@ export async function initialize(): Promise<void> {
 
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			try {
-				await initializeRgbWallet(mnemonic);
+				await initializeRgbWallet(mnemonic, options?.skipLsp === true);
 				return;
 			} catch (error) {
 				lastError = error;

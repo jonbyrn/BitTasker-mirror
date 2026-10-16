@@ -317,6 +317,7 @@
 					onOpenMessage={openMessageModal}
 					isRejecting={rejectingBidId === bid.id}
 					isRejected={status === BidStatusEnum.REJECTED}
+					{status}
 				/>
 			{/each}
 		</div>
