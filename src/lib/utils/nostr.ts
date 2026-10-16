@@ -73,6 +73,21 @@ async function readPoolEvents(
 	return (await queryRelayEvents(relays, filter)) as NostrEvent[];
 }
 
+/** True when a relay still has this event. A publish OK is not enough. */
+export async function findStoredEvent(eventId: string, relays: string[]): Promise<boolean> {
+	if (!eventId || relays.length === 0) return false;
+	const filter: Filter = { ids: [eventId] };
+	const pool = getPool();
+	const queried = pool.querySync(relays, filter).catch(() => [] as NostrEvent[]);
+	const fromPool = await Promise.race([
+		queried,
+		new Promise<NostrEvent[]>((resolve) => setTimeout(() => resolve([]), POOL_QUERY_MS))
+	]);
+	if (fromPool.some((event) => event.id === eventId)) return true;
+	const direct = await queryRelayEvents(relays, filter);
+	return direct.some((event) => event.id === eventId);
+}
+
 // Determine if events need decryption based on event kinds
 const encryptedKinds = [
 	KINDS.DIRECT_MESSAGES,

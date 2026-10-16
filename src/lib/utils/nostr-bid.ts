@@ -7,7 +7,7 @@ import type {
 	NostrEventWithFollowup
 } from '$lib/types/bid';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
+import { findStoredEvent, queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
@@ -155,21 +155,10 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 	return result.event;
 }
 
-function publishedId(saved: unknown): string {
-	if (!saved || typeof saved !== 'object') return '';
-	const row = saved as { id?: unknown; data?: unknown };
-	if (typeof row.id === 'string') return row.id;
-	if (!row.data || typeof row.data !== 'object') return '';
-	const nested = (row.data as { id?: unknown }).id;
-	return typeof nested === 'string' ? nested : '';
-}
-
-/** The bid toast waits on this. A relay write alone is not confirmation. */
+/** The bid toast waits on this. The event must be readable from a relay. */
 export async function confirmBidEvent(event: NostrEvent): Promise<void> {
-	const { default: events } = await import('$lib/api/services/nostr/events');
-	const saved = await events.publishEvent(event);
-	const id = publishedId(saved);
-	if (!id || id !== event.id) throw new Error('Bid was not confirmed');
+	const stored = await findStoredEvent(event.id, BID_RELAYS);
+	if (!stored) throw new Error('Bid was not confirmed');
 }
 
 /**

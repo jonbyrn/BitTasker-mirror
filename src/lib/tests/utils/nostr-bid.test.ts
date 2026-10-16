@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { publishEvent } = vi.hoisted(() => ({ publishEvent: vi.fn() }));
-
-vi.mock('$lib/api/services/nostr/events', () => ({
-	default: { publishEvent }
-}));
+const { findStoredEvent } = vi.hoisted(() => ({ findStoredEvent: vi.fn() }));
 
 import {
 	buildBidContent,
@@ -24,7 +20,8 @@ import { get as _get } from 'svelte/store';
 // Mock dependencies
 vi.mock('$lib/utils/nostr', () => ({
 	publishNostrEvent: vi.fn(),
-	queryNostrEvents: vi.fn()
+	queryNostrEvents: vi.fn(),
+	findStoredEvent
 }));
 
 vi.mock('$lib/utils/constants/tags', () => ({
@@ -85,7 +82,7 @@ vi.mock('$lib/stores/task.store', () => ({
 	}
 }));
 
-import { publishNostrEvent } from '$lib/utils/nostr';
+import { findStoredEvent as readStoredEvent, publishNostrEvent } from '$lib/utils/nostr';
 import { smartCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
 
@@ -101,17 +98,17 @@ describe('confirmBidEvent', () => {
 	};
 
 	beforeEach(() => {
-		publishEvent.mockReset();
+		vi.mocked(readStoredEvent).mockReset();
 	});
 
-	it('resolves only after the server returns the same event id', async () => {
-		publishEvent.mockResolvedValue({ id: 'bid-event' });
+	it('resolves only after a relay still has the bid', async () => {
+		vi.mocked(readStoredEvent).mockResolvedValue(true);
 		await expect(confirmBidEvent(event)).resolves.toBeUndefined();
-		expect(publishEvent).toHaveBeenCalledWith(event);
+		expect(readStoredEvent).toHaveBeenCalledWith('bid-event', expect.any(Array));
 	});
 
-	it('rejects when the server does not confirm the bid', async () => {
-		publishEvent.mockResolvedValue({ id: '' });
+	it('rejects when no relay returns the bid', async () => {
+		vi.mocked(readStoredEvent).mockResolvedValue(false);
 		await expect(confirmBidEvent(event)).rejects.toThrow('Bid was not confirmed');
 	});
 });
