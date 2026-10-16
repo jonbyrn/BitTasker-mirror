@@ -437,6 +437,36 @@ function logSealState(nia: RgbNiaRef[], unspents: RgbUnspentRef[]): void {
 	console.info('[e2e] allocated', JSON.stringify(allocated));
 }
 
+let sendDepth = 0;
+
+/** True while an on-chain send is using the wasm wallet. */
+export function walletSendPending(): boolean {
+	return sendDepth > 0;
+}
+
+function walletIsBusy(error: unknown): boolean {
+	return String(error).toLowerCase().includes('busy with another operation');
+}
+
+async function retryBusy<T>(work: () => Promise<T>): Promise<T> {
+	let last: unknown;
+	for (let attempt = 0; attempt < 8; attempt += 1) {
+		try {
+			return await work();
+		} catch (error: unknown) {
+			last = error;
+			if (!walletIsBusy(error) || attempt === 7) throw error;
+			await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+		}
+	}
+	throw last instanceof Error ? last : new Error(String(last));
+}
+
+async function syncWhenPresent(wallet: PrepareWallet): Promise<void> {
+	if (!wallet.syncWallet) return;
+	await wallet.syncWallet();
+}
+
 /** Sync BDK, then refuse send until this asset is sealed on a colorable UTXO. */
 export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
@@ -444,32 +474,37 @@ export async function prepareRgbOnchainSend(
 	knownSpendable?: number,
 	outputSpent: OutputSpendProbe = esploraOutputSpent
 ): Promise<void> {
-	if (wallet.goOnline && wallet.isOnline?.() !== true) {
-		await wallet.goOnline(UTEXO_INDEXER);
-	}
-	if (wallet.syncWallet) await wallet.syncWallet();
-	await wallet.refreshWallet();
-	await releaseStuckSends(wallet);
-	await releasePhantomSends(wallet);
-	if (wallet.syncWallet) await wallet.syncWallet();
+	sendDepth += 1;
+	try {
+		if (wallet.goOnline && wallet.isOnline?.() !== true) {
+			await wallet.goOnline(UTEXO_INDEXER);
+		}
+		await retryBusy(() => syncWhenPresent(wallet));
+		await retryBusy(() => wallet.refreshWallet());
+		await releaseStuckSends(wallet);
+		await releasePhantomSends(wallet);
+		await retryBusy(() => syncWhenPresent(wallet));
 
-	if (!wallet.listAssets || !wallet.listUnspents) {
-		throw new Error('Refusing onchainSend: wallet cannot list seals');
-	}
-	const unspents = await readUnspents(wallet);
-	const chain = await chainAllocation(unspents, assetId, outputSpent);
-	const spentMessage = spentSealMessage(chain.spent);
-	if (spentMessage) throw new Error(spentMessage);
-	const listed = await wallet.listAssets();
-	const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
-	if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);
+		if (!wallet.listAssets || !wallet.listUnspents) {
+			throw new Error('Refusing onchainSend: wallet cannot list seals');
+		}
+		const unspents = await readUnspents(wallet);
+		const chain = await chainAllocation(unspents, assetId, outputSpent);
+		const spentMessage = spentSealMessage(chain.spent);
+		if (spentMessage) throw new Error(spentMessage);
+		const listed = await wallet.listAssets();
+		const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
+		if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);
 
-	const listedSpendable =
-		assets.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
-	const spendable =
-		typeof knownSpendable === 'number' && Number.isSafeInteger(knownSpendable)
-			? knownSpendable
-			: listedSpendable;
-	const blocker = sealSendBlocker(unspents, assetId, spendable);
-	if (blocker) throw new Error(blocker);
+		const listedSpendable =
+			assets.find((asset) => asset.assetId === assetId)?.balance?.spendable ?? 0;
+		const spendable =
+			typeof knownSpendable === 'number' && Number.isSafeInteger(knownSpendable)
+				? knownSpendable
+				: listedSpendable;
+		const blocker = sealSendBlocker(unspents, assetId, spendable);
+		if (blocker) throw new Error(blocker);
+	} finally {
+		sendDepth -= 1;
+	}
 }

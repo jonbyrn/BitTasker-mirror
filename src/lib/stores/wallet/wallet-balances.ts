@@ -16,7 +16,12 @@ import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveBatches } from './decode-rgb-invoice';
-import { chainAllocation, releasePhantomSends, type RgbUnspentRef } from './prepare-rgb-send';
+import {
+	chainAllocation,
+	releasePhantomSends,
+	walletSendPending,
+	type RgbUnspentRef
+} from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
 
 interface RgbAmount {
@@ -1345,7 +1350,7 @@ function armContractRefresh(): void {
 	if (contractRefreshTimer || typeof setInterval === 'undefined') return;
 	contractRefreshTimer = setInterval(() => {
 		const pending = ContractRune.snapshots().some((row) => PENDING_CONTRACT.has(row.status));
-		if (!pending || !state.utexoWallet) return;
+		if (!pending || !state.utexoWallet || walletSendPending()) return;
 		void loadAssets({ pull: true }).catch((error: unknown) => {
 			console.warn('[wallet-refresh] pending contract refresh failed', error);
 		});

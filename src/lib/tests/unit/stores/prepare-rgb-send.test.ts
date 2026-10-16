@@ -12,6 +12,7 @@ import {
 	releasePhantomSends,
 	sealSendBlocker,
 	changeStillBooked,
+	walletSendPending,
 	spentSealBooked,
 	spentSealMessage,
 	strandedSeal,
@@ -357,6 +358,28 @@ describe('prepareRgbOnchainSend helpers', () => {
 			)
 		).rejects.toThrow(`${seal}:3 was already spent on-chain by ${spentBy}`);
 		expect(failTransfers).not.toHaveBeenCalled();
+	});
+
+	it('retries a refresh while the wallet is busy', async () => {
+		const refreshWallet = vi
+			.fn()
+			.mockRejectedValueOnce('RGB wallet is busy with another operation; retry shortly')
+			.mockResolvedValueOnce(undefined);
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet,
+					listUnspents: async () => {
+						expect(walletSendPending()).toBe(true);
+						return [];
+					},
+					listAssets: async () => ({ ifa: [] })
+				},
+				'rgb:f~usdt'
+			)
+		).rejects.toThrow('no colorable allocation');
+		expect(refreshWallet).toHaveBeenCalledTimes(2);
+		expect(walletSendPending()).toBe(false);
 	});
 
 	it('detects the bdk add-utxo failure', () => {
