@@ -6,7 +6,11 @@
 		type ContractRuneSnapshot,
 		type ContractRuneStatus
 	} from '$lib/runes/contract.svelte';
-	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
+	import {
+		CONTRACT_PAYMENT_ASSETS,
+		formatPayAmount,
+		type PaymentSplitConfig
+	} from '$lib/types/rgb-contract';
 	import type { RgbSeal } from '$lib/services/rgb/types';
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import { subscribeContract } from '$lib/services/contracts/contract-sync';
@@ -16,6 +20,7 @@
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { describeThrown } from '$lib/stores/wallet/wallet-send';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 
@@ -208,6 +213,11 @@
 		}));
 	}
 
+	function errorText(error: unknown, fallback: string): string {
+		const message = describeThrown(error);
+		return message === 'Send failed' ? fallback : message;
+	}
+
 	function openProof(href: string): void {
 		window.open(href, '_blank', 'noopener,noreferrer');
 	}
@@ -350,7 +360,7 @@
 			await rune.submitWork(workMessage, proofUrl.trim() || undefined);
 			await loadContract();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to submit deliverable.';
+			errorMessage = errorText(error, 'Failed to submit deliverable.');
 		} finally {
 			isSubmitting = false;
 		}
@@ -364,7 +374,7 @@
 			await rune.approveWork();
 			await loadContract();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to approve work.';
+			errorMessage = errorText(error, 'Failed to approve work.');
 		} finally {
 			isReleasing = false;
 		}
@@ -384,7 +394,7 @@
 			await rune.createPayoutInvoice();
 			await loadContract(true);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to request payment.';
+			errorMessage = errorText(error, 'Failed to request payment.');
 		} finally {
 			await walletManager.releaseRgbLock();
 			isReleasing = false;
@@ -399,7 +409,7 @@
 			await rune.cancel();
 			await loadContract(true);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to cancel the contract.';
+			errorMessage = errorText(error, 'Failed to cancel the contract.');
 		} finally {
 			isReleasing = false;
 		}
@@ -414,7 +424,7 @@
 			await rune.refund(refundInvoice);
 			await loadContract(true);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to refund the contract.';
+			errorMessage = errorText(error, 'Failed to refund the contract.');
 		} finally {
 			await walletManager.releaseRgbLock();
 			isReleasing = false;
@@ -433,7 +443,7 @@
 			await rune.askReissue();
 			await loadContract(true);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to ask for a new invoice.';
+			errorMessage = errorText(error, 'Failed to ask for a new invoice.');
 		} finally {
 			isReleasing = false;
 		}
@@ -449,7 +459,7 @@
 			await rune.releaseEscrow();
 			await loadContract();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to release funds.';
+			errorMessage = errorText(error, 'Failed to release funds.');
 		} finally {
 			isReleasing = false;
 			reviewingPay = false;
@@ -674,8 +684,12 @@
 									: $t('bids.contract_waiting')}
 							</p>
 							<p>
-								{$t('bids.pay_review_amount')}: {decodedPay?.amount ?? lockedAmountLabel}
-								{settlementUnit}
+								{$t('bids.pay_review_amount')}: {formatPayAmount(
+									snapshot.split.primaryAsset,
+									decodedPay?.amount,
+									settlementUnit,
+									`${lockedAmountLabel} ${settlementUnit}`
+								)}
 							</p>
 							{#if decodedPay}
 								<p class="break-all">

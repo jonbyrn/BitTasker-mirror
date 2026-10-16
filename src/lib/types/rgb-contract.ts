@@ -74,6 +74,25 @@ export function formatUsdtUnits(units: number, precision: number): string {
 	return fraction ? `${whole}.${fraction}` : String(whole);
 }
 
+/** Review line for a settlement. RGB USDT invoices store 6-decimal base units. */
+export function formatPayAmount(
+	asset: string,
+	units: number | null | undefined,
+	unitLabel: string,
+	fallback: string
+): string {
+	if (
+		asset === 'usdt_rgb' &&
+		typeof units === 'number' &&
+		Number.isSafeInteger(units) &&
+		units > 0
+	) {
+		return `${formatUsdtBalance(units, 6)} ${unitLabel}`;
+	}
+	if (typeof units === 'number' && Number.isFinite(units)) return `${units} ${unitLabel}`;
+	return fallback;
+}
+
 /** Balance text for a USDT row, such as 100000000 → "100.00". */
 export function formatUsdtBalance(units: number, precision: number): string {
 	const shown = formatUsdtUnits(units, precision);

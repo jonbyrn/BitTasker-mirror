@@ -448,6 +448,7 @@ export async function prepareRgbOnchainSend(
 		await wallet.goOnline(UTEXO_INDEXER);
 	}
 	if (wallet.syncWallet) await wallet.syncWallet();
+	await wallet.refreshWallet();
 	await releaseStuckSends(wallet);
 	await releasePhantomSends(wallet);
 	if (wallet.syncWallet) await wallet.syncWallet();

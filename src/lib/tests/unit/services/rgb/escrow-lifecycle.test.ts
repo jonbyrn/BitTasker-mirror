@@ -4,6 +4,7 @@ import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte'
 import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
+import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
@@ -17,6 +18,14 @@ vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn().mockResolvedValue({ id: 'evt-lifecycle' }),
 	publishToMultipleRelays: vi.fn().mockResolvedValue([{ success: true }])
 }));
+
+vi.mock('$lib/stores/wallet/prepare-rgb-send', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/wallet/prepare-rgb-send')>();
+	return {
+		...actual,
+		prepareRgbOnchainSend: vi.fn(async () => undefined)
+	};
+});
 
 const PAYOUT = 'rgb:~/~/aa/sb:utxob:payout-invoice';
 const BLANK_LOCK =
@@ -216,6 +225,7 @@ describe('escrow lifecycle', () => {
 		await rune.requestSettlement(PRICED, 11_000_000);
 		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
+		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(wallet, 'rgb:usdt-signet');
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
 			expect.objectContaining({ invoice: PRICED, assetId: 'rgb:usdt-signet', amount: 11_000_000 })
 		);

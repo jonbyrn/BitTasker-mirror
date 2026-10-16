@@ -7,6 +7,7 @@ import {
 	spendableRgbAssets,
 	usdtInvoiceAsset,
 	formatUsdtBalance,
+	formatPayAmount,
 	formatUsdtUnits,
 	usdtBaseUnits,
 	usdtEscrowUnits,
@@ -140,6 +141,9 @@ describe('usdtBaseUnits', () => {
 		expect(formatUsdtUnits(10_000_000, 6)).toBe('10');
 		expect(formatUsdtUnits(1111, 6)).toBe('0.001111');
 		expect(formatUsdtBalance(100_000_000, 6)).toBe('100.00');
+		expect(formatPayAmount('usdt_rgb', 1_000_000, 'USDT', '$1.00 USDT')).toBe('1.00 USDT');
+		expect(formatPayAmount('btc_lightning', 33, 'sats', 'fallback')).toBe('33 sats');
+		expect(formatPayAmount('usdt_rgb', null, 'USDT', '$1.00 USDT')).toBe('$1.00 USDT');
 	});
 });
 
