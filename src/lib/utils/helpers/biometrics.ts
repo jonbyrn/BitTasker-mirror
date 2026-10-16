@@ -288,13 +288,15 @@ let pendingBiometricRequest: Promise<Credentials | null> | null = null;
  */
 export async function getBiometricData(
 	checkNpub: boolean = false,
-	allowCredentials: PublicKeyCredentialDescriptorJSON[] = []
+	allowCredentials: PublicKeyCredentialDescriptorJSON[] = [],
+	signal?: AbortSignal
 ): Promise<Credentials | null> {
+	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
 	if (pendingBiometricRequest) {
 		return pendingBiometricRequest;
 	}
 
-	pendingBiometricRequest = executeBiometricData(checkNpub, allowCredentials);
+	pendingBiometricRequest = executeBiometricData(checkNpub, allowCredentials, signal);
 
 	try {
 		return await pendingBiometricRequest;
@@ -305,7 +307,8 @@ export async function getBiometricData(
 
 async function executeBiometricData(
 	checkNpub: boolean,
-	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	signal?: AbortSignal
 ): Promise<Credentials | null> {
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
@@ -318,11 +321,11 @@ async function executeBiometricData(
 		if (!isNative || isTestEnv) {
 			// Browser/CDP environment: use native WebAuthn API with virtual authenticator
 			const { challenge } = await authService.getChallenge();
-						if (!challenge) {
-							throw new Error('Invalid biometric challenge received from server.');
-						}
+			if (!challenge) {
+				throw new Error('Invalid biometric challenge received from server.');
+			}
 
-						// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
+			// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
 			const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
 			const padded = challengeBase64 + '='.repeat((4 - (challengeBase64.length % 4)) % 4);
 			const challengeArrayBuffer = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)).buffer;
@@ -347,7 +350,7 @@ async function executeBiometricData(
 				}))
 			};
 
-			const credential = await navigator.credentials.get({ publicKey: options });
+			const credential = await navigator.credentials.get({ publicKey: options, signal });
 			if (!credential) throw new Error('No credentials found');
 
 			const pubKeyCred = credential as PublicKeyCredential;
@@ -410,10 +413,10 @@ async function executeBiometricData(
 		}
 
 		const { challenge } = await authService.getChallenge();
-				if (!challenge) {
-					throw new Error('Invalid biometric challenge received from server.');
-				}
-				const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
+		if (!challenge) {
+			throw new Error('Invalid biometric challenge received from server.');
+		}
+		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
 		const options: PublicKeyCredentialRequestOptionsJSON = {
 			challenge: challengeBuffer,
@@ -454,6 +457,12 @@ async function executeBiometricData(
 			challenge: challenge
 		};
 	} catch (err) {
+		if (
+			err instanceof DOMException &&
+			(err.name === 'NotAllowedError' || err.name === 'AbortError')
+		) {
+			throw new DOMException('unlock cancelled, tap to retry', err.name);
+		}
 		const platform = 'mobile-webauthn';
 
 		// Silently ignore "A request is already pending" errors

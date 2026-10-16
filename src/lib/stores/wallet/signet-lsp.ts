@@ -162,19 +162,41 @@ export function clearLightningWallet(): void {
 	});
 }
 
+function bound<T>(fn: unknown, owner: object): T | undefined {
+	if (typeof fn !== 'function') return undefined;
+	return (fn as (...args: never[]) => unknown).bind(owner) as T;
+}
+
+/** Keep LSP methods on the SDK instance so `this` is not lost. */
+export function bindLspClient(lsp: object): {
+	client: object;
+	connect?: () => Promise<void>;
+	waitForChannel?: ChannelWait;
+	receiveAsset?: ActiveLightning['receiveAsset'];
+	awaitReceiveSettlement?: ActiveLightning['awaitReceiveSettlement'];
+	sendAsset?: ActiveLightning['sendAsset'];
+} {
+	const row = lsp as Record<string, unknown>;
+	return {
+		client: lsp,
+		connect: bound<() => Promise<void>>(row.connect, lsp),
+		waitForChannel: bound<ChannelWait>(row.waitForChannel, lsp),
+		receiveAsset: bound<NonNullable<ActiveLightning['receiveAsset']>>(row.receiveAsset, lsp),
+		awaitReceiveSettlement: bound<NonNullable<ActiveLightning['awaitReceiveSettlement']>>(
+			row.awaitReceiveSettlement,
+			lsp
+		),
+		sendAsset: bound<ActiveLightning['sendAsset']>(row.sendAsset, lsp)
+	};
+}
+
 function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 	if (typeof lsp !== 'object' || lsp === null) {
 		clearLightningWallet();
 		return;
 	}
-	const row = lsp as {
-		sendAsset?: unknown;
-		connect?: unknown;
-		waitForChannel?: unknown;
-		receiveAsset?: unknown;
-		awaitReceiveSettlement?: unknown;
-	};
-	if (typeof row.sendAsset !== 'function') {
+	const boundClient = bindLspClient(lsp);
+	if (!boundClient.sendAsset) {
 		clearLightningWallet();
 		return;
 	}
@@ -184,19 +206,12 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		assetId: '',
 		lnInvoice: '',
 		rgbInvoice: '',
-		sendAsset: row.sendAsset as ActiveLightning['sendAsset'],
-		...(typeof row.connect === 'function' ? { connect: row.connect as () => Promise<void> } : {}),
-		...(typeof row.waitForChannel === 'function'
-			? { waitForChannel: row.waitForChannel as ChannelWait }
-			: {}),
-		...(typeof row.receiveAsset === 'function'
-			? { receiveAsset: row.receiveAsset as ActiveLightning['receiveAsset'] }
-			: {}),
-		...(typeof row.awaitReceiveSettlement === 'function'
-			? {
-					awaitReceiveSettlement:
-						row.awaitReceiveSettlement as ActiveLightning['awaitReceiveSettlement']
-				}
+		sendAsset: boundClient.sendAsset,
+		...(boundClient.connect ? { connect: boundClient.connect } : {}),
+		...(boundClient.waitForChannel ? { waitForChannel: boundClient.waitForChannel } : {}),
+		...(boundClient.receiveAsset ? { receiveAsset: boundClient.receiveAsset } : {}),
+		...(boundClient.awaitReceiveSettlement
+			? { awaitReceiveSettlement: boundClient.awaitReceiveSettlement }
 			: {})
 	};
 	lightningStore.set({

@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { walletStore, state, isRgbWalletReady } from './wallet-state';
 import {
 	initialize,
+	unlockWallet,
 	disconnectWallet,
 	softCleanup,
 	markExpectingInbound,
@@ -24,6 +25,10 @@ import type { RgbAsset } from './wallet-types';
 export const walletManager = {
 	async initialize(options?: { skipLsp?: boolean }): Promise<void> {
 		return initialize(options);
+	},
+
+	async unlock(signal?: AbortSignal): Promise<void> {
+		return unlockWallet(signal);
 	},
 
 	cleanup(): void {

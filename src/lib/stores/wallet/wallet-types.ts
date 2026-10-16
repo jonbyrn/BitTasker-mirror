@@ -28,6 +28,10 @@ export interface RgbAsset {
 	spendable?: number;
 	/** Units whose outputs Esplora still lists as unspent. */
 	chainSpendable?: number;
+	/** An outspend lookup failed, so the unspent warning stays hidden. */
+	chainUnknown?: boolean;
+	/** Allocation is on an output that has not confirmed yet. */
+	pendingConfirm?: boolean;
 	formattedBalance: string;
 	usdValue?: number;
 }
@@ -83,6 +87,10 @@ export interface Transaction {
 export interface WalletStateExtended {
 	isInitializing: boolean;
 	isConnected: boolean;
+	/** Passkey session is missing. Unlock is a click, not an automatic prompt. */
+	locked: boolean;
+	/** Balances are the last known values until the first scan finishes. */
+	syncing: boolean;
 	error: string | null;
 	arb: ArbState;
 	rgb: RgbState;
@@ -98,6 +106,8 @@ export interface WalletStateExtended {
 export const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
+	locked: false,
+	syncing: false,
 	error: null,
 	arb: {
 		formattedUsdt0Balance: '0.00',

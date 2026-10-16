@@ -4,6 +4,7 @@ import { ContractRune } from '$lib/runes/contract.svelte';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+import { clearMnemonicSession, readMnemonicSession } from '$lib/utils/helpers/session-mnemonic';
 import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
@@ -16,6 +17,7 @@ import {
 	restoreOnUnlock,
 	rgbDatabasePresent,
 	scheduleRgbRefresh,
+	stopContractRefresh,
 	scanBtcBalance,
 	parseRgbAssets
 } from './wallet-balances';
@@ -24,6 +26,11 @@ import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscr
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
 import { discoverSignetLsp, signetLspParams } from './signet-lsp';
+import { shareInit } from './init-gate';
+import { applyBalanceUpdate } from './balance-merge';
+import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
+
+const initSlot: { current: Promise<void> | null } = { current: null };
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
@@ -123,7 +130,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
 		await restoreOnUnlock(wallet, databasePresent);
-		if (!skipLsp) await discoverSignetLsp(wallet);
 
 		state.utexoWallet = wallet;
 		installPersistHooks();
@@ -131,31 +137,23 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			probeWindow().__utexoWallet = wallet;
 			console.info('[wallet-init] exposed __utexoWallet on window');
 		}
-		markWalletReady();
+		walletStore.update((current) => ({
+			...current,
+			locked: false,
+			syncing: true,
+			isConnected: true,
+			error: null
+		}));
 
 		try {
 			await scanAndUpdateBalances(wallet, network);
+			markWalletReady();
 		} catch (scanError) {
 			console.warn('[wallet-init] balance scan deferred:', scanError);
+			void retryScan(wallet, network);
 		}
 
-		try {
-			await ensureRgbAllocations(wallet);
-		} catch (allocationError) {
-			console.warn('[wallet-init] RGB allocation setup skipped:', allocationError);
-		}
-
-		try {
-			const rgbAssets = await loadRgbAssets(wallet);
-			const current = get(walletStore).rgb;
-			updateWalletStore(current?.address ?? '', current?.balanceSats ?? 0, rgbAssets);
-			await loadTransactions();
-			// Light poll, then one full refresh if IFA USDT is still missing. Not awaited.
-			scheduleRgbRefresh(wallet);
-		} catch (incomingError) {
-			console.warn('[wallet-init] incoming USDT pull skipped:', incomingError);
-		}
-
+		void finishUnlock(wallet, skipLsp);
 		startConsignmentSubscription();
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
@@ -170,8 +168,46 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 // tryIndexers removed — wallet creation now uses hardcoded testnet config directly in initializeRgbWallet
 
+async function finishUnlock(wallet: UTEXOWallet, skipLsp: boolean): Promise<void> {
+	const started = Date.now();
+	const step = async (run: () => Promise<unknown>): Promise<void> => {
+		if (Date.now() - started > 45_000) return;
+		await Promise.race([
+			run().then(() => undefined),
+			new Promise<void>((resolve) => setTimeout(resolve, 15_000))
+		]);
+	};
+	await step(() => wallet.refreshWallet());
+	await step(() => loadAssets({ pull: true }));
+	await step(() => loadTransactions());
+	scheduleRgbRefresh(wallet);
+	if (!skipLsp) {
+		discoverSignetLsp(wallet).catch((error: unknown) => {
+			console.warn('[wallet-init] LSP discovery skipped', error);
+		});
+	}
+	ensureRgbAllocations(wallet).catch((error: unknown) => {
+		console.warn('[wallet-init] RGB allocation setup skipped', error);
+	});
+}
+
+async function retryScan(wallet: UTEXOWallet, network: string): Promise<void> {
+	for (let attempt = 0; attempt < 4; attempt += 1) {
+		await new Promise((resolve) => setTimeout(resolve, Math.min(30_000, 2_000 * 2 ** attempt)));
+		try {
+			await scanAndUpdateBalances(wallet, network);
+			markWalletReady();
+			return;
+		} catch (error: unknown) {
+			console.warn('[wallet-init] balance retry failed', error);
+		}
+	}
+	walletStore.update((current) => ({ ...current, syncing: false }));
+}
+
 async function scanAndUpdateBalances(wallet: UTEXOWallet, network: string): Promise<void> {
 	const scanned = await scanBtcBalance(wallet);
+	if (!scanned) throw new Error('Balance scan failed');
 	const { address, balanceSats, utxoCount } = scanned;
 
 	// Diagnostic logging (redacted - no sensitive data)
@@ -183,7 +219,12 @@ async function scanAndUpdateBalances(wallet: UTEXOWallet, network: string): Prom
 	});
 
 	updateProbeWindow(address, balanceSats, utxoCount, wallet);
-	const rgbAssets = await loadRgbAssets(wallet);
+	let rgbAssets: RgbAsset[] | null = null;
+	try {
+		rgbAssets = await loadRgbAssets(wallet);
+	} catch (error: unknown) {
+		console.warn('[wallet-init] listAssets skipped or failed:', error);
+	}
 	updateWalletStore(address, balanceSats, rgbAssets);
 }
 
@@ -238,13 +279,8 @@ function updateProbeWindow(
 }
 
 async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
-	try {
-		const rawAssets = await wallet.listAssets();
-		return fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
-	} catch (err) {
-		console.warn('[wallet-init] listAssets skipped or failed:', err);
-		return [];
-	}
+	const rawAssets = await wallet.listAssets();
+	return fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
 }
 
 function markWalletReady(): void {
@@ -252,6 +288,8 @@ function markWalletReady(): void {
 		...current,
 		isConnected: true,
 		isInitializing: false,
+		locked: false,
+		syncing: false,
 		error: null,
 		rgb: {
 			...current.rgb,
@@ -261,41 +299,71 @@ function markWalletReady(): void {
 	}));
 }
 
-function updateWalletStore(address: string, balanceSats: number, rgbAssets: RgbAsset[]): void {
-	const heldUsdt = rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT');
+function updateWalletStore(
+	address: string,
+	balanceSats: number | null,
+	rgbAssets: RgbAsset[] | null
+): void {
+	const heldUsdt = (rgbAssets ?? get(walletStore).rgb.assets).find(
+		(asset) => asset.symbol?.toUpperCase() === 'USDT'
+	);
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 	if (!usdtAssetId && !heldUsdt) {
 		console.warn('[wallet-init] No active RGB_USDT_ASSET_ID');
 	}
+	const listed = rgbAssets ?? get(walletStore).rgb.assets;
 	const usdtBalance =
 		heldUsdt?.balance ??
-		(usdtAssetId ? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0) : 0);
+		(usdtAssetId ? (listed.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0) : 0);
 
-	walletStore.update((s) => ({
-		...s,
-		isConnected: true,
-		isInitializing: false,
-		error: null,
-		rgb: {
-			initialized: true,
+	walletStore.update((s) => {
+		const merged = applyBalanceUpdate(
+			{ balanceSats: s.rgb.balanceSats, assets: s.rgb.assets },
+			{ balanceSats, assets: rgbAssets }
+		);
+		const nextSats = merged.balanceSats;
+		const nextAssets = merged.assets as RgbAsset[];
+		const nextAddress = address || s.rgb.address;
+		return {
+			...s,
+			isConnected: true,
+			locked: false,
 			error: null,
-			address,
-			balanceSats,
-			formattedBalance: (balanceSats / 1e8).toFixed(8),
-			assets: rgbAssets
-		},
-		wdk: {
-			...s.wdk,
-			initialized: true,
-			error: null,
-			btcOnchain: { address, balanceSats, formattedBalance: (balanceSats / 1e8).toFixed(8) }
-		},
-		totalBalances: {
-			...s.totalBalances,
-			sats: balanceSats,
-			usdt: usdtBalance
-		}
-	}));
+			rgb: {
+				...s.rgb,
+				initialized: true,
+				error: null,
+				address: nextAddress,
+				balanceSats: nextSats,
+				formattedBalance: (nextSats / 1e8).toFixed(8),
+				assets: nextAssets
+			},
+			wdk: {
+				...s.wdk,
+				initialized: true,
+				error: null,
+				btcOnchain: {
+					address: nextAddress ?? '',
+					balanceSats: nextSats,
+					formattedBalance: (nextSats / 1e8).toFixed(8)
+				}
+			},
+			totalBalances: {
+				...s.totalBalances,
+				sats: nextSats,
+				usdt: rgbAssets === null ? s.totalBalances.usdt : usdtBalance
+			}
+		};
+	});
+	const saved = get(walletStore);
+	void saveWalletSnapshot({
+		address: saved.rgb.address,
+		balanceSats: saved.rgb.balanceSats,
+		formattedBalance: saved.rgb.formattedBalance,
+		usdt: saved.totalBalances.usdt,
+		assets: saved.rgb.assets,
+		transactions: saved.transactions
+	}).catch(() => undefined);
 }
 
 function startConsignmentSubscription(): void {
@@ -322,64 +390,72 @@ export async function getRgbAddress(): Promise<string> {
 	return get(walletStore).rgb?.address || '';
 }
 
-export async function initialize(options?: { skipLsp?: boolean }): Promise<void> {
-	if (!browser) return;
-
+async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	const probe = probeWindow();
 	const isTestEnvironment =
 		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
-
-	if (isTestEnvironment) {
-		probe.__connectWallet = () => initialize();
-	}
-
-	const storeState = get(walletStore);
-	if (storeState.isInitializing) return;
-
-	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
+	if (isTestEnvironment) probe.__connectWallet = () => initialize();
 
 	if (state.utexoWallet) {
-		walletStore.update((s) => ({ ...s, isInitializing: false, isConnected: true }));
-		probeWindow().__utexoWallet = state.utexoWallet;
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			isConnected: true,
+			locked: false
+		}));
+		probe.__utexoWallet = state.utexoWallet;
 		return;
 	}
 
-	try {
-		await initWasm();
-		const mnemonic = await getMnemonic();
-
-		// Diagnostic logging (redacted - no mnemonic data)
-		console.info('[wallet-diagnostic:mnemonic]', {
-			wordCount: mnemonic.trim().split(/\s+/).length
-		});
-
-		let lastError: unknown;
-
-		for (let attempt = 0; attempt < 2; attempt += 1) {
-			try {
-				await initializeRgbWallet(mnemonic, options?.skipLsp === true);
-				return;
-			} catch (error) {
-				lastError = error;
-				if (!isWasmGlobalError(error) || attempt === 1) break;
-				await waitForWasmGlobals();
-			}
-		}
-
-		console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
-		walletStore.update((s) => ({
-			...s,
+	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
+	await hydrateWalletSnapshot();
+	const mnemonic = await readMnemonicSession();
+	if (!mnemonic) {
+		walletStore.update((current) => ({
+			...current,
 			isInitializing: false,
-			error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
+			locked: true,
+			syncing: false
 		}));
-	} catch (error) {
-		console.warn('[wallet-init] Wallet initialization setup failed:', error);
-		walletStore.update((s) => ({
-			...s,
-			isInitializing: false,
-			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
-		}));
+		return;
 	}
+
+	console.info('[wallet-diagnostic:mnemonic]', {
+		wordCount: mnemonic.trim().split(/\s+/).length
+	});
+
+	let lastError: unknown;
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		try {
+			await initWasm();
+			await initializeRgbWallet(mnemonic, options?.skipLsp === true);
+			return;
+		} catch (error) {
+			lastError = error;
+			if (!isWasmGlobalError(error) || attempt === 1) break;
+			await waitForWasmGlobals();
+		}
+	}
+	console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
+	walletStore.update((current) => ({
+		...current,
+		isInitializing: false,
+		syncing: false,
+		error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
+	}));
+	throw lastError instanceof Error ? lastError : new Error('Failed to initialize wallet');
+}
+
+export function initialize(options?: { skipLsp?: boolean }): Promise<void> {
+	if (!browser) return Promise.resolve();
+	return shareInit(initSlot, () => runInitialize(options));
+}
+
+/** WebAuthn runs only from this click. A cached session skips the prompt. */
+export async function unlockWallet(signal?: AbortSignal): Promise<void> {
+	await getMnemonic({ signal });
+	initSlot.current = null;
+	await initialize();
 }
 
 export function disconnectWallet(): void {
@@ -393,12 +469,14 @@ export function disconnectWallet(): void {
 		}
 	}
 
+	void clearMnemonicSession();
 	state.utexoWallet = null;
 	if (typeof window !== 'undefined') {
 		probeWindow().__utexoWallet = null;
 		console.info('[wallet-init] cleared __utexoWallet from window');
 	}
 	clearRefreshTimers();
+	stopContractRefresh();
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
 	walletStore.set(structuredClone(initialState));

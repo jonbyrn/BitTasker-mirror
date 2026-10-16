@@ -45,9 +45,11 @@
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
 	);
 	const chainGap = $derived.by(() => {
-		if (!usdtAsset || usdtAsset.chainSpendable == null) return null;
-		const reported = usdtAsset.spendable ?? usdtAsset.balance;
-		if (reported <= usdtAsset.chainSpendable) return null;
+		if ($walletStore.syncing || $walletStore.locked) return null;
+		if (!usdtAsset || usdtAsset.pendingConfirm) return null;
+		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return null;
+		const reported = usdtAsset.spendable;
+		if (reported == null || reported <= usdtAsset.chainSpendable) return null;
 		const precision = usdtPrecision(usdtAsset.symbol, usdtAsset.precision);
 		return {
 			reported: formatUsdtBalance(reported, precision),
@@ -75,10 +77,28 @@
 			: fallback;
 	}
 
+	let unlockAbort: AbortController | null = null;
+
+	async function unlockFromClick(): Promise<void> {
+		initializationError = null;
+		try {
+			await walletManager.unlock(unlockAbort?.signal);
+			await initializeWallet();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : '';
+			initializationError =
+				message === 'unlock cancelled, tap to retry'
+					? translate('wallet.unlock_cancelled', 'Unlock cancelled, tap to retry')
+					: message ||
+						text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
+		}
+	}
+
 	async function initializeWallet(): Promise<void> {
 		initializationError = null;
 		try {
 			await walletManager.initialize();
+			if ($walletStore.locked) return;
 			await walletManager.loadAssets();
 			const wallet = getUtexoWallet();
 			if (wallet) scheduleRgbRefresh(wallet);
@@ -94,9 +114,11 @@
 	}
 
 	onMount(() => {
+		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
 			console.error('[wallet-page-init-error]', err);
 		});
+		return () => unlockAbort?.abort();
 	});
 
 	$effect(() => {
@@ -324,7 +346,15 @@
 		<div class="card-body gap-0 p-0">
 			<div class="flex items-center justify-between gap-3 px-4 py-2">
 				<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
-				{#if $walletStore.isConnected && $walletStore.rgb?.initialized}
+				{#if $walletStore.locked}
+					<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
+						{translate('wallet.locked', 'Locked')}
+					</span>
+				{:else if $walletStore.syncing}
+					<span class="badge badge-info badge-sm" data-testid="wallet-syncing">
+						{translate('wallet.syncing', 'Syncing')}
+					</span>
+				{:else if $walletStore.isConnected && $walletStore.rgb?.initialized}
 					<span class="badge badge-success badge-sm" data-testid="wallet-connected">
 						{translate('wallet.tab_connected', 'Connected')}
 					</span>
@@ -354,6 +384,23 @@
 						)
 					: formatUsdtBalance(0, 6)
 			)}
+			{#if $walletStore.locked}
+				<div class="px-4 py-3">
+					<button
+						class="btn btn-primary w-full"
+						type="button"
+						onclick={unlockFromClick}
+						data-testid="unlock-wallet"
+					>
+						{translate('wallet.unlock', 'Unlock wallet')}
+					</button>
+				</div>
+			{/if}
+			{#if usdtAsset?.pendingConfirm}
+				<p class="text-warning px-4 py-2 text-sm" data-testid="pending-confirmation">
+					{translate('wallet.pending_confirmation', 'Pending confirmation')}
+				</p>
+			{/if}
 			{#if chainGap}
 				<div class="alert alert-outline alert-warning mx-4 my-2" role="status">
 					<span>

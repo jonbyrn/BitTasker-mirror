@@ -7,6 +7,7 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
+import { readMnemonicSession, saveMnemonicSession } from './session-mnemonic';
 
 export function describeMnemonicSeed(mnemonic: string) {
 	const words = mnemonic.trim().split(/\s+/);
@@ -25,8 +26,23 @@ function assertHdSeed(mnemonic: string): string {
 	return mnemonic;
 }
 
+async function rememberSeed(mnemonic: string): Promise<string> {
+	const seed = assertHdSeed(mnemonic);
+	await saveMnemonicSession(seed).catch(() => undefined);
+	return seed;
+}
+
+export function unlockCancelled(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+	return (
+		error.name === 'NotAllowedError' ||
+		error.name === 'AbortError' ||
+		error.message === 'unlock cancelled, tap to retry'
+	);
+}
+
 // Helper function to get mnemonic using the same logic as wallet.store.ts
-export async function getMnemonic(): Promise<string> {
+export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<string> {
 	if (import.meta.env.VITE_TEST_MNEMONIC) {
 		return assertHdSeed(import.meta.env.VITE_TEST_MNEMONIC);
 	}
@@ -44,10 +60,15 @@ export async function getMnemonic(): Promise<string> {
 		}
 	}
 
+	const cached = await readMnemonicSession();
+	if (cached) return assertHdSeed(cached);
+
 	// Tier 1: Check if mnemonic is already decrypted in store
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.mnemonic) {
-		return assertHdSeed(currentState.nostrKeys.mnemonic);
+		const mnemonic = assertHdSeed(currentState.nostrKeys.mnemonic);
+		await saveMnemonicSession(mnemonic).catch(() => undefined);
+		return mnemonic;
 	}
 
 	try {
@@ -56,12 +77,14 @@ export async function getMnemonic(): Promise<string> {
 		// Re-read after restore — biometricData may have been hydrated from E2E persistence
 		const biometricData = get(appStore).biometricData;
 		if (biometricData && biometricData.encryptedData) {
-			return assertHdSeed(
+			const mnemonic = assertHdSeed(
 				await decryptWalletMnemonicWithBiometrics(
 					biometricData.encryptedData,
 					biometricData.exportedKey
 				)
 			);
+			await saveMnemonicSession(mnemonic).catch(() => undefined);
+			return mnemonic;
 		} else {
 			const biometricsAvailable = await checkBiometricAvailability();
 			let credentialData = null;
@@ -72,7 +95,7 @@ export async function getMnemonic(): Promise<string> {
 				const allowCredentials: PublicKeyCredentialDescriptorJSON[] = credentialId
 					? [{ id: credentialId, type: 'public-key' }]
 					: [];
-				credentialData = await getBiometricData(true, allowCredentials);
+				credentialData = await getBiometricData(true, allowCredentials, options?.signal);
 			}
 
 			if (!credentialData) throw new Error('No biometric data found');
@@ -96,7 +119,7 @@ export async function getMnemonic(): Promise<string> {
 				}
 			}));
 
-			return assertHdSeed(
+			return rememberSeed(
 				await decryptWalletMnemonicWithBiometrics(
 					response.encryptedData,
 					credentialData.exportedKey
@@ -104,6 +127,7 @@ export async function getMnemonic(): Promise<string> {
 			);
 		}
 	} catch (error) {
+		if (unlockCancelled(error)) throw new Error('unlock cancelled, tap to retry');
 		throw new Error(error instanceof Error ? error.message : 'Failed to get mnemonic');
 	}
 }

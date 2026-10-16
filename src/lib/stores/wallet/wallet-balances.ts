@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import { ContractRune } from '$lib/runes/contract.svelte';
 import { walletStore, state } from './wallet-state';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { browser } from '$app/environment';
@@ -338,7 +339,7 @@ export function sumSpendableSats(balance: SpendableBalance): number {
 
 export async function scanBtcBalance(
 	wallet: ScanableWallet
-): Promise<{ address: string; balanceSats: number; utxoCount: number }> {
+): Promise<{ address: string; balanceSats: number; utxoCount: number } | null> {
 	if (wallet.isOnline?.() === false && wallet.goOnline) {
 		const network = (import.meta.env.VITE_BITCOIN_NETWORK || 'testnet') as string;
 		const indexers = browserIndexers(
@@ -355,7 +356,7 @@ export async function scanBtcBalance(
 				lastError = error;
 			}
 		}
-		if (lastError) throw lastError;
+		if (lastError) return null;
 	}
 	if (wallet.syncWallet) {
 		await wallet.syncWallet();
@@ -373,11 +374,7 @@ export async function scanBtcBalance(
 		};
 	} catch (error) {
 		console.warn('[wallet-balances] Network error during balance scan:', error);
-		return {
-			address: '',
-			balanceSats: 0,
-			utxoCount: 0
-		};
+		return null;
 	}
 }
 
@@ -509,10 +506,14 @@ function unspentRows(value: unknown): RgbUnspentRef[] | null {
 	return rows.length === value.length ? rows : null;
 }
 
-function chainGap(assets: RgbAsset[]): RgbAsset | undefined {
+/** Warn only when spendable USDT exceeds confirmed unspent outputs. Settled-only rows do not warn. */
+export function chainGap(assets: RgbAsset[], ready = true): RgbAsset | undefined {
+	if (!ready) return undefined;
 	return assets.find((asset) => {
 		if (asset.symbol?.toUpperCase() !== 'USDT' || asset.chainSpendable == null) return false;
-		return (asset.spendable ?? asset.balance) > asset.chainSpendable;
+		if (asset.chainUnknown || asset.pendingConfirm) return false;
+		if (asset.spendable == null) return false;
+		return asset.spendable > asset.chainSpendable;
 	});
 }
 
@@ -555,10 +556,16 @@ export async function attachChainSpendable(
 	const unspents = unspentRows(listed);
 	if (!unspents) return assets;
 	const chain = await chainAllocation(unspents, usdt.assetId, esploraOutputSpent);
-	if (chain.checked === 0) return assets;
-	return assets.map((asset) =>
-		asset.assetId === usdt.assetId ? { ...asset, chainSpendable: chain.live } : asset
-	);
+	if (chain.checked === 0 && !chain.unknown && chain.pending === 0) return assets;
+	return assets.map((asset) => {
+		if (asset.assetId !== usdt.assetId) return asset;
+		return {
+			...asset,
+			chainUnknown: chain.unknown,
+			pendingConfirm: chain.pending > 0,
+			...(chain.unknown || chain.checked === 0 ? {} : { chainSpendable: chain.live })
+		};
+	});
 }
 
 export function scheduleBalanceRefresh(): void {
@@ -574,6 +581,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 
 	try {
 		const scanned = await scanBtcBalance(wallet);
+		if (!scanned) return;
 		const isE2ETest = isE2ERun();
 		const indexerBalanceSats =
 			scanned.balanceSats === 0 ? await getIndexerAddressBalance(scanned.address) : null;
@@ -1316,7 +1324,38 @@ export function scheduleRgbRefresh(
 	void run.finally(() => {
 		if (rgbRefreshTask === run) rgbRefreshTask = null;
 	});
+	armContractRefresh();
 	return run;
+}
+
+const PENDING_CONTRACT = new Set([
+	'locked',
+	'funded',
+	'work_in_progress',
+	'work_submitted',
+	'approved',
+	'settlement_requested',
+	'releasing',
+	'released_pending'
+]);
+
+let contractRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+function armContractRefresh(): void {
+	if (contractRefreshTimer || typeof setInterval === 'undefined') return;
+	contractRefreshTimer = setInterval(() => {
+		const pending = ContractRune.snapshots().some((row) => PENDING_CONTRACT.has(row.status));
+		if (!pending || !state.utexoWallet) return;
+		void loadAssets({ pull: true }).catch((error: unknown) => {
+			console.warn('[wallet-refresh] pending contract refresh failed', error);
+		});
+	}, 20_000);
+}
+
+export function stopContractRefresh(): void {
+	if (!contractRefreshTimer) return;
+	clearInterval(contractRefreshTimer);
+	contractRefreshTimer = null;
 }
 
 function refreshCap(timeoutMs: number): Promise<'timeout'> {

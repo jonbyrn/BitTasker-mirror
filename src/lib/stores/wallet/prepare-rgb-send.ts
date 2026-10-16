@@ -146,12 +146,13 @@ export interface ChainAllocation {
 	spent: SpentSeal[];
 	checked: number;
 	unknown: boolean;
+	pending: number;
 }
 
 export type OutputSpendProbe = (
 	txid: string,
 	vout: number
-) => Promise<{ spent: boolean; txid?: string } | null>;
+) => Promise<{ spent: boolean; txid?: string; confirmed?: boolean } | null>;
 
 function sealOutpoint(unspent: RgbUnspentRef): { txid: string; vout: number } | null {
 	const txid = unspent.utxo.outpoint?.txid?.trim().toLowerCase();
@@ -163,7 +164,7 @@ function sealOutpoint(unspent: RgbUnspentRef): { txid: string; vout: number } | 
 
 /**
  * Units whose output Esplora still lists as unspent.
- * A spent allocation is dropped. A failed lookup stays in `live` and sets `unknown`.
+ * A spent allocation is dropped. A failed or unconfirmed lookup is ignored.
  */
 export async function chainAllocation(
 	unspents: RgbUnspentRef[],
@@ -172,6 +173,7 @@ export async function chainAllocation(
 ): Promise<ChainAllocation> {
 	let live = 0;
 	let checked = 0;
+	let pending = 0;
 	let unknown = false;
 	const spent: SpentSeal[] = [];
 	for (const unspent of unspents) {
@@ -183,7 +185,7 @@ export async function chainAllocation(
 			unknown = true;
 			continue;
 		}
-		let result: { spent: boolean; txid?: string } | null = null;
+		let result: { spent: boolean; txid?: string; confirmed?: boolean } | null = null;
 		try {
 			result = await probe(outpoint.txid, outpoint.vout);
 		} catch (error: unknown) {
@@ -196,7 +198,10 @@ export async function chainAllocation(
 		}
 		if (!result) {
 			unknown = true;
-			live += amount;
+			continue;
+		}
+		if (result.confirmed === false) {
+			pending += amount;
 			continue;
 		}
 		checked += 1;
@@ -211,7 +216,7 @@ export async function chainAllocation(
 		}
 		live += amount;
 	}
-	return { live, spent, checked, unknown };
+	return { live, spent, checked, unknown, pending };
 }
 
 /** Clear refusal when RGB still lists an output the chain already spent. */
