@@ -12,6 +12,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 import pkg from './package.json';
+import { assertRlnPin, copyPinnedWasm } from './scripts/pin-rln-wasm.mjs';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
@@ -34,6 +35,10 @@ function resolvePackageRoot(packageName: string): string {
 
 const rgbSdkWebRoot = resolvePackageRoot('@utexo/rgb-sdk-web');
 const rlnWasmRoot = resolvePackageRoot('@utexo/rln-wasm').replaceAll('\\', '/');
+const installedRln = JSON.parse(readFileSync(`${rlnWasmRoot}/package.json`, 'utf8')) as {
+	version?: unknown;
+};
+assertRlnPin(installedRln.version);
 const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm').replaceAll('\\', '/');
 
 function nobleHashesEsm(): Plugin {
@@ -839,7 +844,14 @@ export default defineConfig(({ mode }) => {
 							}
 						})
 					]
-				: [])
+				: []),
+			{
+				name: 'copy-rln-wasm',
+				apply: 'build',
+				closeBundle() {
+					copyPinnedWasm(rlnWasmRoot, resolve(projectRoot, 'build/wasm/rln_wasm_sdk_bg.wasm'));
+				}
+			}
 		],
 		define: {
 			'process.env': {},
