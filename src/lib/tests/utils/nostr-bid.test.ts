@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const { publishEvent } = vi.hoisted(() => ({ publishEvent: vi.fn() }));
+
+vi.mock('$lib/api/services/nostr/events', () => ({
+	default: { publishEvent }
+}));
+
 import {
 	buildBidContent,
+	confirmBidEvent,
 	isSatBid,
 	lockBidAmount,
 	readBidInvoice,
@@ -80,6 +88,33 @@ vi.mock('$lib/stores/task.store', () => ({
 import { publishNostrEvent } from '$lib/utils/nostr';
 import { smartCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
+
+describe('confirmBidEvent', () => {
+	const event = {
+		id: 'bid-event',
+		pubkey: 'ab'.repeat(32),
+		created_at: 1,
+		kind: 1,
+		tags: [],
+		content: '{}',
+		sig: 'sig'
+	};
+
+	beforeEach(() => {
+		publishEvent.mockReset();
+	});
+
+	it('resolves only after the server returns the same event id', async () => {
+		publishEvent.mockResolvedValue({ id: 'bid-event' });
+		await expect(confirmBidEvent(event)).resolves.toBeUndefined();
+		expect(publishEvent).toHaveBeenCalledWith(event);
+	});
+
+	it('rejects when the server does not confirm the bid', async () => {
+		publishEvent.mockResolvedValue({ id: '' });
+		await expect(confirmBidEvent(event)).rejects.toThrow('Bid was not confirmed');
+	});
+});
 
 describe('USD bid quotes', () => {
 	const bidderId = 'ab'.repeat(32);

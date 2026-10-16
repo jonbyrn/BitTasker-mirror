@@ -11,6 +11,7 @@
 		"locked": "Locked",
 		"syncing": "Syncing",
 		"unlock_cancelled": "Unlock cancelled, tap to retry",
+		"init_timeout": "Wallet setup timed out. Tap Unlock to try again.",
 		"pending_confirmation": "Pending confirmation",
 		"loading": "Loading wallet",
 		"tab_receive": "Receive",

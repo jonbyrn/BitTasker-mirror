@@ -13,6 +13,11 @@
 import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { browser } from '$app/environment';
 import type { Credentials } from '$lib/types/auth';
+import {
+	readSignerSession,
+	saveSignerSession,
+	signerCached
+} from '$lib/utils/helpers/session-mnemonic';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -139,7 +144,29 @@ export const getNpub = async (): Promise<string> => {
  * // Use nsec for signing operations
  * ```
  */
-export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: string }> => {
+async function rememberSigner(nsec: string, npub: string): Promise<void> {
+	await saveSignerSession(nsec, npub).catch(() => undefined);
+}
+
+/**
+ * Start a passkey prompt in the click turn when no session key is cached.
+ * Later signing reads that cache and does not call WebAuthn again.
+ */
+export function prepareSigner(): Promise<{ nsec: Uint8Array; npub: string }> {
+	const current = get(appStore);
+	if (current.nostrKeys.nsec && current.nostrKeys.npub) {
+		return Promise.resolve({ nsec: current.nostrKeys.nsec, npub: current.nostrKeys.npub });
+	}
+	if (!signerCached()) {
+		const prompted = getBiometricData(true, []);
+		return getNostrKeyPair({ prompted });
+	}
+	return getNostrKeyPair();
+}
+
+export const getNostrKeyPair = async (options?: {
+	prompted?: Promise<Credentials | null>;
+}): Promise<{ nsec: Uint8Array; npub: string }> => {
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
 		const result = {
@@ -172,6 +199,18 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		}
 	}
 
+	const cachedSigner = await readSignerSession().catch(() => null);
+	if (cachedSigner) {
+		const nsec = decodeNsec(cachedSigner.nsec);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, nsec, npub: cachedSigner.npub }
+		}));
+		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
+		await notifyNdkSignerFromUnlockedKeys();
+		return { nsec, npub: cachedSigner.npub };
+	}
+
 	if (process.env.NODE_ENV === 'development') {
 		// const npub = "ceda26d39d2e9aeee53c2a475b6b056145213ec6ac6acdb183357f66f8de76b2";
 		// Preferences.set({ key: StorageKeys.NPUB, value: npub });
@@ -194,11 +233,14 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		const npub = currentStateAfterRestore.biometricData.npub;
 		appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub } }));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await rememberSigner(sk, npub);
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub };
 	}
 
-	const credentialData: Credentials | null = await getBiometrics();
+	const credentialData: Credentials | null = options?.prompted
+		? await options.prompted
+		: await getBiometrics();
 
 	if (!credentialData) throw new Error('No biometric data found');
 
@@ -233,6 +275,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await rememberSigner(sk, npub);
 	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub };
 };

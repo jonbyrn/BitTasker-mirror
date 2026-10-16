@@ -2,12 +2,12 @@ import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { checkBiometricAvailability, getBiometricData } from './biometrics';
-import { decryptWalletMnemonicWithBiometrics } from './auth';
+import { decryptNsecWithBiometrics, decryptWalletMnemonicWithBiometrics } from './auth';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
-import { readMnemonicSession, saveMnemonicSession } from './session-mnemonic';
+import { readMnemonicSession, saveMnemonicSession, saveSignerSession } from './session-mnemonic';
 
 export function describeMnemonicSeed(mnemonic: string) {
 	const words = mnemonic.trim().split(/\s+/);
@@ -30,6 +30,19 @@ async function rememberSeed(mnemonic: string): Promise<string> {
 	const seed = assertHdSeed(mnemonic);
 	await saveMnemonicSession(seed).catch(() => undefined);
 	return seed;
+}
+
+async function cacheSigner(
+	encryptedData: Parameters<typeof decryptNsecWithBiometrics>[0],
+	exportedKey: string,
+	npub: string
+): Promise<void> {
+	try {
+		const nsec = await decryptNsecWithBiometrics(encryptedData, exportedKey);
+		await saveSignerSession(nsec, npub);
+	} catch {
+		return;
+	}
 }
 
 export function unlockCancelled(error: unknown): boolean {
@@ -84,6 +97,7 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 				)
 			);
 			await saveMnemonicSession(mnemonic).catch(() => undefined);
+			await cacheSigner(biometricData.encryptedData, biometricData.exportedKey, biometricData.npub);
 			return mnemonic;
 		} else {
 			const biometricsAvailable = await checkBiometricAvailability();
@@ -119,12 +133,14 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 				}
 			}));
 
-			return rememberSeed(
+			const mnemonic = await rememberSeed(
 				await decryptWalletMnemonicWithBiometrics(
 					response.encryptedData,
 					credentialData.exportedKey
 				)
 			);
+			await cacheSigner(response.encryptedData, credentialData.exportedKey, credentialData.npub);
+			return mnemonic;
 		}
 	} catch (error) {
 		if (unlockCancelled(error)) throw new Error('unlock cancelled, tap to retry');

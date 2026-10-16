@@ -89,8 +89,10 @@
 			initializationError =
 				message === 'unlock cancelled, tap to retry'
 					? translate('wallet.unlock_cancelled', 'Unlock cancelled, tap to retry')
-					: message ||
-						text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
+					: message === 'Wallet init timed out' || message === 'Wallet unlock timed out'
+						? translate('wallet.init_timeout', 'Wallet setup timed out. Tap Unlock to try again.')
+						: message ||
+							text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
 		}
 	}
 

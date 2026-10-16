@@ -2,6 +2,7 @@ const DB_NAME = 'bittasker-wallet-session';
 const STORE = 'keys';
 const KEY_ID = 'mnemonic-key';
 const CIPHER_KEY = 'bittasker.mnemonic.cipher';
+const SIGNER_KEY = 'bittasker.signer.cipher';
 
 export const SESSION_TTL_MS = 30 * 60 * 1000;
 
@@ -60,9 +61,9 @@ async function writeKey(key: CryptoKey): Promise<void> {
 	});
 }
 
-function readPack(): CipherPack | null {
+function readPack(storageKey = CIPHER_KEY): CipherPack | null {
 	if (typeof sessionStorage === 'undefined') return null;
-	const raw = sessionStorage.getItem(CIPHER_KEY);
+	const raw = sessionStorage.getItem(storageKey);
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);
@@ -77,28 +78,50 @@ function readPack(): CipherPack | null {
 	}
 }
 
-function writePack(pack: CipherPack): void {
-	sessionStorage.setItem(CIPHER_KEY, JSON.stringify(pack));
+function writePack(pack: CipherPack, storageKey = CIPHER_KEY): void {
+	sessionStorage.setItem(storageKey, JSON.stringify(pack));
 }
 
-/** Encrypt the mnemonic with a non-extractable key. The key stays in IndexedDB. */
-export async function saveMnemonicSession(mnemonic: string): Promise<void> {
+async function sessionKey(): Promise<CryptoKey> {
+	const existing = await readKey();
+	if (existing) return existing;
 	const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
 		'encrypt',
 		'decrypt'
 	]);
+	await writeKey(key);
+	return key;
+}
+
+async function encryptText(text: string): Promise<CipherPack> {
+	const key = await sessionKey();
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const cipher = await crypto.subtle.encrypt(
 		{ name: 'AES-GCM', iv },
 		key,
-		new TextEncoder().encode(mnemonic)
+		new TextEncoder().encode(text)
 	);
-	await writeKey(key);
-	writePack({
+	return {
 		iv: bytesToBase64(iv),
 		data: bytesToBase64(new Uint8Array(cipher)),
 		at: Date.now()
-	});
+	};
+}
+
+async function decryptPack(pack: CipherPack): Promise<string | null> {
+	const key = await readKey();
+	if (!key) return null;
+	const plain = await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: base64ToBytes(pack.iv) },
+		key,
+		base64ToBytes(pack.data)
+	);
+	return new TextDecoder().decode(plain);
+}
+
+/** Encrypt the mnemonic with a non-extractable key. The key stays in IndexedDB. */
+export async function saveMnemonicSession(mnemonic: string): Promise<void> {
+	writePack(await encryptText(mnemonic));
 }
 
 /** Decrypt the session mnemonic. Returns null when the cache is missing or idle. */
@@ -108,19 +131,53 @@ export async function readMnemonicSession(now = Date.now()): Promise<string | nu
 		if (pack) await clearMnemonicSession();
 		return null;
 	}
-	const key = await readKey();
-	if (!key) return null;
-	const plain = await crypto.subtle.decrypt(
-		{ name: 'AES-GCM', iv: base64ToBytes(pack.iv) },
-		key,
-		base64ToBytes(pack.data)
-	);
+	const plain = await decryptPack(pack);
+	if (!plain) return null;
 	writePack({ ...pack, at: now });
-	return new TextDecoder().decode(plain);
+	return plain;
+}
+
+export function signerCached(now = Date.now()): boolean {
+	const pack = readPack(SIGNER_KEY);
+	return Boolean(pack && sessionFresh(pack.at, now));
+}
+
+/** Encrypt the Nostr secret with the same session key as the mnemonic. */
+export async function saveSignerSession(nsec: string, npub: string): Promise<void> {
+	if (!nsec || !npub) return;
+	writePack(await encryptText(JSON.stringify({ nsec, npub })), SIGNER_KEY);
+}
+
+/** Decrypt the cached Nostr key. Returns null when the cache is missing or idle. */
+export async function readSignerSession(
+	now = Date.now()
+): Promise<{ nsec: string; npub: string } | null> {
+	const pack = readPack(SIGNER_KEY);
+	if (!pack || !sessionFresh(pack.at, now)) {
+		if (pack && typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
+		return null;
+	}
+	try {
+		const plain = await decryptPack(pack);
+		if (!plain) return null;
+		const parsed: unknown = JSON.parse(plain);
+		if (!parsed || typeof parsed !== 'object') return null;
+		const row = parsed as { nsec?: unknown; npub?: unknown };
+		if (typeof row.nsec !== 'string' || typeof row.npub !== 'string' || !row.nsec || !row.npub) {
+			return null;
+		}
+		writePack({ ...pack, at: now }, SIGNER_KEY);
+		return { nsec: row.nsec, npub: row.npub };
+	} catch {
+		return null;
+	}
 }
 
 export async function clearMnemonicSession(): Promise<void> {
-	if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CIPHER_KEY);
+	if (typeof sessionStorage !== 'undefined') {
+		sessionStorage.removeItem(CIPHER_KEY);
+		sessionStorage.removeItem(SIGNER_KEY);
+	}
 	if (typeof indexedDB === 'undefined') return;
 	const db = await openDb();
 	await new Promise<void>((resolve, reject) => {

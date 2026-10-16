@@ -26,6 +26,7 @@ import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscr
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
 import { discoverSignetLsp, signetLspParams } from './signet-lsp';
+import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
 import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
@@ -70,6 +71,22 @@ type ProbeWindow = WalletProbeWindow & {
 	};
 };
 
+function limitWait<T>(run: Promise<T>, ms: number, message: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(message)), ms);
+		run.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error: unknown) => {
+				clearTimeout(timer);
+				reject(error);
+			}
+		);
+	});
+}
+
 function probeWindow(): ProbeWindow {
 	return window as ProbeWindow;
 }
@@ -87,9 +104,13 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		installEsploraRetryFetch();
 
 		// Import UTEXOWallet directly for explicit 3-phase lifecycle
-		const { UTEXOWallet } = await import('@utexo/rgb-sdk-web');
+		const { UTEXOWallet, getRlnUrls } = await import('@utexo/rgb-sdk-web');
 		const password = await deriveUtexoWalletPassword(mnemonic);
 		const e2eReset = isE2eWalletReset();
+		const urls = getRlnUrls('utexo');
+		if (!urls?.relayAuthToken || !urls.relayNodeId) {
+			throw new Error('Wallet transport auth is missing');
+		}
 
 		// Diagnostic logging (redacted - no mnemonic, xpub, fingerprint, or tokens)
 		console.info('[wallet-diagnostic:init]', {
@@ -104,25 +125,26 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 		const databasePresent = await rgbDatabasePresent();
 		const lsp = signetLspParams(null);
-		const wallet = new UTEXOWallet({
-			mnemonic,
-			password,
-			network: 'utexo',
-			indexerUrl: lsp.indexerUrl,
-			transportEndpoint: lsp.transportEndpoint,
-			supportedSchemas: ['Nia', 'Ifa'],
-			proxyUrl: lsp.proxyUrl,
-			lspBaseUrl: lsp.lspBaseUrl,
-			vssUrl: '',
-			enableVirtualChannels: lsp.enableVirtualChannels,
-			...(e2eReset ? { dataDir: taskerDataDir } : {})
-		});
+		const wallet = new UTEXOWallet(
+			rgbWalletConfig({
+				mnemonic,
+				password,
+				indexerUrl: lsp.indexerUrl,
+				transportEndpoint: lsp.transportEndpoint,
+				proxyUrl: lsp.proxyUrl,
+				relayAuthToken: urls.relayAuthToken,
+				relayNodeId: urls.relayNodeId,
+				enableVirtualChannels: lsp.enableVirtualChannels,
+				lspBaseUrl: lsp.lspBaseUrl,
+				...(e2eReset ? { dataDir: taskerDataDir } : {})
+			})
+		);
 
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
 		try {
-			await wallet.init();
+			await limitWait(wallet.init(), 20_000, 'Wallet init timed out');
 			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
-			await wallet.unlock();
+			await limitWait(wallet.unlock(), 20_000, 'Wallet unlock timed out');
 		} catch (connectError) {
 			console.warn('[wallet-init] RLN handshake failed:', connectError);
 			throw connectError;

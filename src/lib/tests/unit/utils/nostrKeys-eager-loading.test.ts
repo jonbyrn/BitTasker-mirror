@@ -37,6 +37,12 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 	getBiometricData: (...args: unknown[]) => mockGetBiometricData(...args)
 }));
 
+vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
+	readSignerSession: vi.fn().mockResolvedValue(null),
+	saveSignerSession: vi.fn(),
+	signerCached: vi.fn().mockReturnValue(false)
+}));
+
 vi.mock('$lib/api/services/auth.service', () => ({
 	default: {
 		getPasskeyEncryptedData: (...args: unknown[]) => mockGetPasskeyEncryptedData(...args)
@@ -55,7 +61,8 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 
 import { appStore } from '$lib/stores/app.store';
-import { getAllKeys, getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { getAllKeys, getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
+import { readSignerSession, signerCached } from '$lib/utils/helpers/session-mnemonic';
 
 const TEST_NPUB = 'aabbccddee11223344556677889900aabbccddee11223344556677889900aabb';
 const TEST_NSEC_HEX = '1122334455667788990011223344556677889900112233445566778899001122';
@@ -172,6 +179,29 @@ describe('getNostrKeyPair', () => {
 		vi.clearAllMocks();
 		resetAppStore();
 		mockSyncNdkSigner.mockResolvedValue(undefined);
+		vi.mocked(readSignerSession).mockResolvedValue(null);
+		vi.mocked(signerCached).mockReturnValue(false);
+	});
+
+	it('signs with the cached session key and does not prompt WebAuthn', async () => {
+		vi.mocked(readSignerSession).mockResolvedValueOnce({
+			nsec: 'ab'.repeat(32),
+			npub: TEST_NPUB
+		});
+
+		const result = await getNostrKeyPair();
+
+		expect(result.npub).toBe(TEST_NPUB);
+		expect(result.nsec).toHaveLength(32);
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
+	});
+
+	it('starts the passkey prompt in the click when no session key is cached', () => {
+		mockGetBiometricData.mockReturnValue(new Promise(() => undefined));
+
+		prepareSigner();
+
+		expect(mockGetBiometricData).toHaveBeenCalledTimes(1);
 	});
 
 	it('should return cached keys from appStore without biometric call (Tier 1)', async () => {

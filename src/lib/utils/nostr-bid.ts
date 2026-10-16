@@ -149,9 +149,27 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 		BID_RELAYS
 	);
 
+	await confirmBidEvent(result.event);
 	exposeLastPublishedBid(result.event, params);
 	clearBidCache(params.taskDTag);
 	return result.event;
+}
+
+function publishedId(saved: unknown): string {
+	if (!saved || typeof saved !== 'object') return '';
+	const row = saved as { id?: unknown; data?: unknown };
+	if (typeof row.id === 'string') return row.id;
+	if (!row.data || typeof row.data !== 'object') return '';
+	const nested = (row.data as { id?: unknown }).id;
+	return typeof nested === 'string' ? nested : '';
+}
+
+/** The bid toast waits on this. A relay write alone is not confirmation. */
+export async function confirmBidEvent(event: NostrEvent): Promise<void> {
+	const { default: events } = await import('$lib/api/services/nostr/events');
+	const saved = await events.publishEvent(event);
+	const id = publishedId(saved);
+	if (!id || id !== event.id) throw new Error('Bid was not confirmed');
 }
 
 /**

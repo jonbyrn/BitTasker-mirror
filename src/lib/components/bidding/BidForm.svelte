@@ -5,6 +5,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { resolveBidSats } from '$lib/utils/nostr-bid';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
 
 	interface BidSubmission {
 		amount: number;
@@ -49,6 +50,8 @@
 			if (!onSubmit || !task?.id || !bidAmount) {
 				throw new Error('Bid form is not ready');
 			}
+			const signing = prepareSigner();
+			await signing;
 			await onSubmit({
 				amount: bidAmount,
 				days: deliveryDays,

@@ -457,6 +457,14 @@ function rewriteUtexoWasmUrls(): Plugin {
             throw new Error(__btMsg);`
 				);
 			}
+			if (
+				updatedCode.includes('setDefaultRgbProxyTransport(params.transportEndpoint, null, null)')
+			) {
+				updatedCode = updatedCode.replace(
+					'sdk.setDefaultRgbProxyTransport(params.transportEndpoint, null, null);',
+					'sdk.setDefaultRgbProxyTransport(params.transportEndpoint, params.relayAuthToken ?? null, params.relayNodeId ?? null);'
+				);
+			}
 			if (id.includes('rln_wasm_sdk.js') && code.includes('newWithNodeRuntimeId')) {
 				updatedCode += `
 const __btRlnNew = RlnWasmNode.newWithNodeRuntimeId.bind(RlnWasmNode);
@@ -476,7 +484,12 @@ RlnWasmSdk.prototype.initValue = function(password, mnemonic) {
 };
 const __btRlnWalletCreate = RlnWasmWallet.create.bind(RlnWasmWallet);
 RlnWasmWallet.create = function(wallet_data) {
-  const data = wallet_data || {};
+  let data = {};
+  try {
+    data = typeof wallet_data === 'string' ? JSON.parse(wallet_data) : (wallet_data || {});
+  } catch {
+    data = {};
+  }
   console.error('[wallet-diagnostic:rln-wallet]', {
     dataDir: data.data_dir,
     network: data.bitcoin_network,

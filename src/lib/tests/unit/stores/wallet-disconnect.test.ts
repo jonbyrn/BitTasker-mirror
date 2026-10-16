@@ -10,7 +10,8 @@ import { readMnemonicSession } from '$lib/utils/helpers/session-mnemonic';
 
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readMnemonicSession: vi.fn(),
-	saveMnemonicSession: vi.fn()
+	saveMnemonicSession: vi.fn(),
+	saveSignerSession: vi.fn()
 }));
 
 vi.mock('$lib/utils/helpers/biometrics', () => ({

@@ -95,6 +95,7 @@
 		"locked": "Bloqueada",
 		"syncing": "Sincronizando",
 		"unlock_cancelled": "Desbloqueo cancelado, toca para reintentar",
+		"init_timeout": "La configuración de la billetera tardó demasiado. Toca Desbloquear para reintentar.",
 		"pending_confirmation": "Confirmación pendiente",
 		"loading": "Cargando billetera",
 		"tab_receive": "Recibir",
