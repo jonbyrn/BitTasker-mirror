@@ -1,4 +1,5 @@
 import { walletHistoryRows } from '$lib/components/wallet/wallet-formatters';
+import { escrowHistoryEntries } from './escrow-history';
 import { walletStore } from './wallet-state';
 import { state } from './wallet-state';
 import type { Transaction } from './wallet-types';
@@ -43,7 +44,10 @@ export async function loadTransactions(): Promise<void> {
 			wallet.listTransactions(),
 			collectTransfers(wallet)
 		]);
-		const transactions: Transaction[] = walletHistoryRows(records, listed);
+		const transactions: Transaction[] = [
+			...walletHistoryRows(records, listed),
+			...escrowHistoryEntries()
+		];
 
 		walletStore.update((current) => {
 			const seen = new Set(transactions.map((row) => (row.txHash || row.id).toLowerCase()));

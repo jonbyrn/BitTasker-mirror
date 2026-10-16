@@ -2,12 +2,13 @@
  * Types for UTEXO SDK powered RGB contract settlement rails.
  */
 
-export type ContractPaymentAsset = 'usdt_rgb' | 'btc_onchain' | 'btc_lightning';
+export type ContractPaymentAsset = 'usdt_rgb' | 'usdt_ln' | 'btc_onchain' | 'btc_lightning';
 
 export const CONTRACT_PAYMENT_ASSETS: Record<ContractPaymentAsset, string> = {
 	btc_onchain: 'Bitcoin',
 	btc_lightning: 'Lightning',
-	usdt_rgb: 'USDT'
+	usdt_rgb: 'USDT',
+	usdt_ln: 'LN USDT'
 };
 
 const NATIVE_BITCOIN_IDS = new Set(['', 'BTC', 'btc', 'bitcoin', 'btc_onchain', 'btc_lightning']);

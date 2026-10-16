@@ -8,7 +8,6 @@
 	import { ContractRune, TaskeeInvoiceRequired } from '$lib/runes/contract.svelte';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
 	import { state as walletState } from '$lib/stores/wallet/wallet-state';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -145,7 +144,7 @@
 
 	let selectedSource = $state<'btc' | 'usdt'>('usdt');
 	let nodeEmpty = $state(true);
-	const lspPayReady = $derived(selectedSource === 'usdt' ? $lightningStore.ready : !nodeEmpty);
+	const lspPayReady = $derived(selectedSource === 'btc' ? !nodeEmpty : true);
 	let sourceExpanded = $state(false);
 	const paymentSplitEnabled = false;
 	let paymentSplit = $state<PaymentSplitConfig>({
@@ -419,10 +418,6 @@
 	async function handleConfirmEscrow() {
 		confirmModalOpen = false;
 		runeError = '';
-		if (selectedSource === 'usdt' && !$lightningStore.ready) {
-			runeError = $t('wallet.lightning_channel_closed');
-			return;
-		}
 		if (selectedSource === 'btc' && nodeEmpty) {
 			runeError = $t('wallet.lightning_no_peer');
 			return;
@@ -743,15 +738,6 @@
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
 
-							{#if selectedSource === 'usdt' && !$lightningStore.ready}
-								<div
-									class="alert alert-outline alert-warning text-sm"
-									role="status"
-									data-testid="lsp-channel-closed"
-								>
-									{$t('wallet.lightning_channel_closed')}
-								</div>
-							{/if}
 							{#if selectedSource === 'btc' && nodeEmpty}
 								<div
 									class="alert alert-outline alert-warning text-sm"

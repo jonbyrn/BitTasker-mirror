@@ -3,11 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import {
-		acceptIncomingPayment,
-		IncomingPaymentPending,
-		receiveBlankInvoice
-	} from '$lib/stores/wallet/wallet-balances';
+	import { receiveBlankInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { publishFundingInvoice } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
@@ -38,7 +34,6 @@
 		status === BidStatusEnum.ACCEPTED || status === BidStatusEnum.ESCROW_FUNDED
 	);
 	const canCreate = $derived(status === BidStatusEnum.ACCEPTED && !invoice && !busy);
-	const canAccept = $derived(!busy && (Boolean(invoice) || status === BidStatusEnum.ESCROW_FUNDED));
 
 	async function createInvoice(): Promise<void> {
 		if (!taskerPubkey) {
@@ -57,26 +52,6 @@
 			appStore.showSuccessToast($t('bids.escrow_invoice_sent'));
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : $t('bids.escrow_invoice_failed');
-		} finally {
-			await walletManager.releaseRgbLock();
-			busy = false;
-		}
-	}
-
-	async function acceptPayment(): Promise<void> {
-		busy = true;
-		errorMessage = '';
-		try {
-			await walletManager.initialize();
-			await acceptIncomingPayment();
-			appStore.showSuccessToast($t('bids.incoming_payment_accepted'));
-		} catch (error) {
-			errorMessage =
-				error instanceof IncomingPaymentPending
-					? $t('bids.incoming_payment_waiting')
-					: error instanceof Error
-						? error.message
-						: $t('bids.escrow_invoice_failed');
 		} finally {
 			await walletManager.releaseRgbLock();
 			busy = false;
@@ -118,17 +93,6 @@
 			<p class="text-success text-xs" data-testid="escrow-invoice-ready">
 				{$t('bids.escrow_invoice_sent')}
 			</p>
-		{/if}
-		{#if canAccept}
-			<button
-				type="button"
-				class="btn btn-outline btn-sm w-full"
-				onclick={acceptPayment}
-				data-testid="accept-incoming-payment"
-			>
-				{#if busy}<span class="loading loading-spinner loading-xs"></span>{/if}
-				{$t('bids.accept_incoming_payment')}
-			</button>
 		{/if}
 	</div>
 {/if}

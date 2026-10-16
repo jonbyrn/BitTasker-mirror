@@ -10,6 +10,11 @@ export function isLightningRail(asset: ContractPaymentAsset): boolean {
 	return asset === 'btc_lightning';
 }
 
+/** Platform fee in the same unit as `amount`. Phase 1 returns 0. */
+export function feeHook(_amount: number, _side: 'tasker' | 'taskee'): number {
+	return 0;
+}
+
 export function isRgbInvoice(invoice: string): boolean {
 	const value = invoice.trim();
 	return value.startsWith('rgb:') || value.startsWith('rgb1');
@@ -71,8 +76,6 @@ export function bolt11MatchesSats(
 	}
 }
 
-const FEE_RATE = 0.025;
-
 /** A usable channel that can carry sats. An LNUSDT channel is not this rail. */
 export function satsChannelOpen(channels: unknown): boolean {
 	if (!Array.isArray(channels)) return false;
@@ -90,7 +93,7 @@ export function satsChannelOpen(channels: unknown): boolean {
  */
 export function escrowStageSats(lockedSats: number): number[] {
 	if (!Number.isSafeInteger(lockedSats) || lockedSats <= 0) return [];
-	const fee = Math.max(1, Math.round((lockedSats * FEE_RATE) / (1 + FEE_RATE)));
+	const fee = feeHook(lockedSats, 'tasker');
 	const quote = Math.max(0, lockedSats - fee);
 	const amounts = [lockedSats, fee, quote, Math.max(0, quote - fee)];
 	for (const total of [lockedSats, quote]) {

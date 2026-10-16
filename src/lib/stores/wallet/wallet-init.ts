@@ -1,6 +1,6 @@
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
 import type { RgbAsset, WalletProbeWindow } from './wallet-types';
-import { ContractRune } from '$lib/services/rgb/contract-rune';
+import { ContractRune } from '$lib/runes/contract.svelte';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';

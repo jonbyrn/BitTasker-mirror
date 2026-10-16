@@ -342,7 +342,7 @@
 		processingStep = 'paying';
 		try {
 			const paid = await fundedRune.payFundingFromWallet();
-			if (paid.status === 'funded') {
+			if (paid.status === 'locked' || paid.status === 'funded') {
 				await notifyFunded(fundedContractId, bidContent.bidderId);
 			}
 			isProcessing = false;

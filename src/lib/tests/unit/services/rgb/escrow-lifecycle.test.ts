@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { ContractRune as ServiceRune } from '$lib/services/rgb/contract-rune';
 import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
 import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 
-vi.mock('$lib/stores/wallet/signet-lsp', () => ({
-	payEscrowLightning: vi.fn().mockResolvedValue(undefined)
-}));
+vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
+	return {
+		...actual,
+		payEscrowLightning: vi.fn().mockResolvedValue('mapping-1')
+	};
+});
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn().mockResolvedValue({ id: 'evt-lifecycle' }),
@@ -28,7 +31,15 @@ function walletDouble() {
 		listChannels: vi.fn().mockResolvedValue([{ isUsable: true, assetId: ESCROW_LNUSDT }]),
 		listPeers: vi.fn().mockResolvedValue([{ pubkey: '02aa' }]),
 		decodeLnInvoice: vi.fn(),
-		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'ln-paid', status: 'settled' }),
+		payLightningInvoice: vi.fn().mockResolvedValue({
+			txid: 'ln-paid',
+			status: 'settled',
+			preimage: 'preimage-1',
+			paymentHash: 'hash-1'
+		}),
+		onchainSendBegin: vi.fn().mockResolvedValue('cHNidP'),
+		signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
+		onchainSendEnd: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32) }),
 		listAssets: vi.fn().mockResolvedValue({
 			nia: [
 				{
@@ -52,16 +63,17 @@ describe('leadingContractStatus', () => {
 		);
 	});
 
-	it('ignores failed, cancelled, and disputed', () => {
-		expect(
-			leadingContractStatus(['work_submitted', 'funding', 'failed', 'cancelled', 'disputed'])
-		).toBe('work_submitted');
+	it('lets a terminal cancel beat in-progress work and ignores failed or disputed', () => {
+		expect(leadingContractStatus(['work_submitted', 'funding', 'failed', 'disputed'])).toBe(
+			'work_submitted'
+		);
+		expect(leadingContractStatus(['work_submitted', 'cancelled'])).toBe('cancelled');
+		expect(leadingContractStatus(['cancelled', 'settled'])).toBe('settled');
 	});
 });
 
 describe('escrow lifecycle', () => {
 	beforeEach(() => {
-		ServiceRune.clearRegistry();
 		ContractRune.clearRegistry();
 		vi.mocked(payEscrowLightning).mockClear();
 		state.utexoWallet = walletDouble() as never;
@@ -69,38 +81,20 @@ describe('escrow lifecycle', () => {
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
 	});
 
-	it('submits work, invoices a blank payout, and releases the full asset', async () => {
-		const rune = new ServiceRune(ASSET_ID, 10_000);
-		rune.attest('funded');
-
-		const submitted = rune.submitWork('Photos of the finished work', 'https://example.com/proof');
-		expect(submitted.status).toBe('work_submitted');
-		expect(submitted.workMessage).toBe('Photos of the finished work');
-		expect(submitted.proofUrl).toBe('https://example.com/proof');
-
-		expect(rune.approveWork().status).toBe('approved');
-
-		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
-		const invoice = await rune.createPayoutInvoice();
-		expect(invoice).toBe(PAYOUT);
-		expect(wallet.onchainReceive).toHaveBeenCalledWith({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600
+	it('rejects release before a settlement invoice exists', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-release-early',
+			totalAmountUsd: 10,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
 		});
-		expect(wallet.onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
-		expect(wallet.onchainReceive.mock.calls[0][0]).not.toHaveProperty('amount');
-
-		const released = await rune.releaseEscrow();
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
-		expect(released.status).toBe('released');
-		expect(released.payoutInvoice).toBe(PAYOUT);
-	});
-
-	it('rejects release before approval', async () => {
-		const rune = new ServiceRune(ASSET_ID, 10_000);
-		rune.attest('funded');
+		rune.status = 'funded';
 		await expect(rune.releaseEscrow()).rejects.toThrow('Cannot release escrow from funded');
+		expect(rune.status).toBe('funded');
 	});
 
 	it('pays the taskee blank invoice and does not invoice the tasker wallet', async () => {
@@ -121,7 +115,7 @@ describe('escrow lifecycle', () => {
 		expect(prepared.seals[0]?.amount).toBe(4);
 
 		const paid = await rune.payFundingFromWallet();
-		expect(paid.status).toBe('funded');
+		expect(paid.status).toBe('locked');
 		expect(paid.fundingInvoice).toBe(BLANK_LOCK);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
@@ -142,7 +136,7 @@ describe('escrow lifecycle', () => {
 		});
 		await rune.prepareFunding(BLANK_LOCK);
 		const paid = await rune.payFundingFromWallet();
-		expect(paid.status).toBe('funded');
+		expect(paid.status).toBe('locked');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
@@ -161,7 +155,8 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		await rune.prepareFunding(PRICED);
-		await expect(rune.payFundingFromWallet()).rejects.toThrow('LSP channel is not open');
+		const paid = await rune.payFundingFromWallet();
+		expect(paid.status).toBe('locked');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
@@ -213,10 +208,16 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		await rune.prepareFunding(PRICED);
-		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, 'rgb:usdt-signet', 11_000_000);
-		expect(payEscrowLightning).not.toHaveBeenCalledWith(PRICED, 'rgb:usdt-signet', 3075);
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect((await rune.payFundingFromWallet()).status).toBe('locked');
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+		rune.status = 'approved';
+		await rune.requestSettlement(PRICED, 11_000_000);
+		const released = await rune.releaseEscrow();
+		expect(released.status).toBe('released');
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ invoice: PRICED, assetId: 'rgb:usdt-signet', amount: 11_000_000 })
+		);
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
 	it('pays an eleven dollar bid from IFA USDT when nia is empty', async () => {
@@ -246,9 +247,14 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		await rune.prepareFunding(PRICED);
-		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ifaId, 11_000_000);
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect((await rune.payFundingFromWallet()).status).toBe('locked');
+		rune.status = 'approved';
+		await rune.requestSettlement(PRICED, 11_000_000);
+		await rune.releaseEscrow();
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ assetId: ifaId, amount: 11_000_000 })
+		);
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
 	it('pays a sat-labeled bid as the asset spendable units', async () => {
@@ -267,9 +273,14 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		await rune.prepareFunding(PRICED);
-		await rune.payFundingFromWallet();
-		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ASSET_ID, 10_000);
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect((await rune.payFundingFromWallet()).status).toBe('locked');
+		rune.status = 'approved';
+		await rune.requestSettlement(PRICED, 10_000);
+		await rune.releaseEscrow();
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ assetId: ASSET_ID, amount: 10_000 })
+		);
+		expect(String(wallet.onchainSendBegin.mock.calls[0]?.[0]?.assetId)).not.toBe(ESCROW_LNUSDT);
 	});
 
 	it('refuses to create the escrow invoice on the tasker wallet', async () => {
@@ -303,40 +314,29 @@ describe('escrow lifecycle', () => {
 		expect(checked.status).toBe('funded');
 	});
 
-	it('stores deliverable metadata and settles through the contract rune', async () => {
+	it('stores deliverable metadata and pays the settlement invoice on release', async () => {
 		const rune = new ContractRune({
 			contractId: 'contract-lifecycle',
 			totalAmountUsd: 10,
 			split: {
-				primaryAsset: 'btc_onchain',
+				primaryAsset: 'usdt_rgb',
 				primaryPercentage: 100,
 				secondaryAsset: 'btc_lightning',
 				secondaryPercentage: 0
 			}
 		});
-		rune.status = 'funded';
+		rune.status = 'locked';
 
 		const submitted = await rune.submitWork('Finished', 'https://example.com/proof');
 		expect(submitted.status).toBe('work_submitted');
 		expect(submitted.workMessage).toBe('Finished');
 		expect(submitted.proofUrl).toBe('https://example.com/proof');
-
 		expect((await rune.approveWork()).status).toBe('approved');
-
-		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
-		(window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID = ASSET_ID;
-		await rune.createPayoutInvoice();
-		expect(wallet.onchainReceive).toHaveBeenCalledWith({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600
-		});
-
+		await rune.requestSettlement(PRICED, 10_000_000);
 		const released = await rune.releaseEscrow();
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
 		expect(released.status).toBe('released');
-		expect(released.payoutInvoice).toBe(PAYOUT);
-		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
+		expect(released.proofs[0]?.kind).toBe('txid');
+		expect(released.payoutInvoice).toBe(PRICED);
 	});
 
 	function lightningContract(id: string) {
@@ -369,23 +369,31 @@ describe('escrow lifecycle', () => {
 		return wallet;
 	}
 
-	it('pays a lightning dollar bid with payLightningInvoice and never sendAsset', async () => {
+	it('locks a lightning bid without paying, then pays on release', async () => {
 		const wallet = liveBolt11();
 		const invoice = 'lntbs30u1dollar';
 		const rune = lightningContract('contract-lightning-dollar');
 		await rune.prepareFunding(invoice);
-		await rune.payFundingFromWallet();
+		expect((await rune.payFundingFromWallet()).status).toBe('locked');
+		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		rune.status = 'approved';
+		await rune.requestSettlement(invoice, 3075);
+		const released = await rune.releaseEscrow();
 		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: invoice });
+		expect(released.status).toBe('released');
+		expect(released.proofs[0]).toMatchObject({ kind: 'preimage', value: 'preimage-1' });
 		expect(payEscrowLightning).not.toHaveBeenCalled();
-		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
 
-	it('pays a service bitcoin escrow with payLightningInvoice and never sendAsset', async () => {
+	it('pays a service bitcoin escrow on release and never sendAsset', async () => {
 		const wallet = liveBolt11();
 		const invoice = 'lntbs30u1service';
 		const rune = lightningContract('contract-service-bitcoin');
 		await rune.prepareFunding(invoice);
 		await rune.payFundingFromWallet();
+		rune.status = 'approved';
+		await rune.requestSettlement(invoice, 3075);
+		await rune.releaseEscrow();
 		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: invoice });
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
@@ -417,7 +425,11 @@ describe('escrow lifecycle', () => {
 		wallet.listChannels.mockResolvedValue([]);
 		const rune = lightningContract('contract-no-peer');
 		await rune.prepareFunding('lntbs30u1empty');
-		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning node has no peer');
+		await rune.payFundingFromWallet();
+		rune.status = 'approved';
+		await rune.requestSettlement('lntbs30u1empty', 3075);
+		await expect(rune.releaseEscrow()).rejects.toThrow('Lightning node has no peer');
+		expect(rune.status).toBe('settlement_requested');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(rune.status).not.toBe('funded');
@@ -428,7 +440,11 @@ describe('escrow lifecycle', () => {
 		wallet.listChannels.mockResolvedValue([{ isUsable: true, assetId: ESCROW_LNUSDT }]);
 		const rune = lightningContract('contract-lnusdt-only');
 		await rune.prepareFunding('lntbs30u1lnusdt');
-		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning node has no channel');
+		await rune.payFundingFromWallet();
+		rune.status = 'approved';
+		await rune.requestSettlement('lntbs30u1lnusdt', 3075);
+		await expect(rune.releaseEscrow()).rejects.toThrow('Lightning node has no channel');
+		expect(rune.status).toBe('settlement_requested');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
@@ -440,7 +456,11 @@ describe('escrow lifecycle', () => {
 		);
 		const rune = lightningContract('contract-bot-bolt11');
 		await rune.prepareFunding('lntbs30u1bot');
-		await expect(rune.payFundingFromWallet()).rejects.toThrow('Lightning peer is refused');
+		await rune.payFundingFromWallet();
+		rune.status = 'approved';
+		await rune.requestSettlement('lntbs30u1bot', 3075);
+		await expect(rune.releaseEscrow()).rejects.toThrow('Lightning peer is refused');
+		expect(rune.status).toBe('settlement_requested');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
@@ -449,9 +469,13 @@ describe('escrow lifecycle', () => {
 		const wallet = liveBolt11(1000);
 		const mismatch = lightningContract('contract-amount-mismatch');
 		await mismatch.prepareFunding('lntbs30u1mismatch');
-		await expect(mismatch.payFundingFromWallet()).rejects.toThrow(
+		await mismatch.payFundingFromWallet();
+		mismatch.status = 'approved';
+		await mismatch.requestSettlement('lntbs30u1mismatch', 3075);
+		await expect(mismatch.releaseEscrow()).rejects.toThrow(
 			'Lightning invoice amount does not match the locked sats'
 		);
+		expect(mismatch.status).toBe('settlement_requested');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 
 		const expired = lightningContract('contract-expired');
@@ -463,23 +487,70 @@ describe('escrow lifecycle', () => {
 			payee: '02aa'
 		});
 		await expired.prepareFunding('lntbs30u1expired');
-		await expect(expired.payFundingFromWallet()).rejects.toThrow('Lightning invoice is expired');
+		await expired.payFundingFromWallet();
+		expired.status = 'approved';
+		await expired.requestSettlement('lntbs30u1expired', 3075);
+		await expect(expired.releaseEscrow()).rejects.toThrow('Lightning invoice is expired');
+		expect(expired.status).toBe('settlement_requested');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
 	});
 
-	it('attests a lightning release without paying again', async () => {
-		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+	it('pays a lightning release and keeps the preimage', async () => {
+		const wallet = liveBolt11();
 		const rune = lightningContract('contract-ln-release');
 		rune.status = 'approved';
-		const released = await rune.releaseEscrow('lntbs30u1payout');
+		await rune.requestSettlement('lntbs30u1payout', 3075);
+		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
 		expect(released.payoutInvoice).toBe('lntbs30u1payout');
-		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(wallet.payLightningInvoice).toHaveBeenCalled();
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		const wrong = lightningContract('contract-ln-release-rgb');
 		wrong.status = 'approved';
 		await expect(wrong.releaseEscrow('rgb:~/~/aa/sb:utxob:payout')).rejects.toThrow(
 			'Sats escrow requires a Lightning invoice'
 		);
+	});
+
+	it('pays LN USDT through the LSP asset and leaves the faucet IFA on chain', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-ln-usdt',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_ln',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		await rune.requestSettlement(PRICED, 11_000_000);
+		const released = await rune.releaseEscrow();
+		expect(released.status).toBe('released');
+		expect(released.proofs[0]).toMatchObject({ kind: 'lsp_mapping', value: 'mapping-1' });
+		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ESCROW_LNUSDT, 11_000_000);
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
+	it('cancels an agreed contract without sending', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-cancel',
+			totalAmountUsd: 10,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'locked';
+		const cancelled = await rune.cancel();
+		expect(cancelled.status).toBe('cancelled');
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 });

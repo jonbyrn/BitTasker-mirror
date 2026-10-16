@@ -152,11 +152,17 @@ export const walletManager = {
 
 	async payLightningInvoice(params: {
 		lnInvoice: string;
-	}): Promise<{ txid: string; status: string }> {
+	}): Promise<{ txid: string; status: string; paymentHash?: string; preimage?: string }> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
 		const result = await wallet.payLightningInvoice(params);
-		return { txid: result.txid, status: result.status ?? 'unknown' };
+		const extra = result as { paymentHash?: unknown; preimage?: unknown };
+		return {
+			txid: result.txid,
+			status: result.status ?? 'unknown',
+			...(typeof extra.paymentHash === 'string' ? { paymentHash: extra.paymentHash } : {}),
+			...(typeof extra.preimage === 'string' ? { preimage: extra.preimage } : {})
+		};
 	},
 
 	async createHodlInvoice(params: {

@@ -1,22 +1,15 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { walletManager } from '$lib/stores/wallet/wallet-manager';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
-import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
-import {
-	assertInvoiceRail,
-	bolt11Expired,
-	bolt11MatchesSats,
-	escrowStageSats,
-	isEscrowBolt11,
-	isLightningRail,
-	isRgbInvoice,
-	lightningNodeEmpty,
-	lnUsdtOpen,
-	satsChannelOpen,
-	refusedBotPayee
-} from '$lib/services/rgb/escrow-rail';
+import { assertInvoiceRail, isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
+import { payLnBtc } from '$lib/services/rgb/escrow-rails/ln-btc';
+import { payLnUsdt } from '$lib/services/rgb/escrow-rails/ln-usdt';
+import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rgb-onchain';
+import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
+import { proofReady } from '$lib/services/rgb/escrow-rails/types';
+import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
+import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
@@ -38,27 +31,38 @@ import type { LockedBidCurrency } from '$lib/types/bid';
 export type ContractRuneStatus =
 	| 'draft'
 	| 'funding'
+	| 'locking'
+	| 'locked'
 	| 'funded'
 	| 'work_in_progress'
 	| 'work_submitted'
 	| 'approved'
+	| 'settlement_requested'
 	| 'releasing'
+	| 'released_pending'
 	| 'released'
 	| 'settled'
 	| 'cancelling'
 	| 'cancelled'
+	| 'refunded'
 	| 'disputed'
 	| 'failed';
 
 const CONTRACT_STATUS_ORDER = [
 	'draft',
 	'funding',
+	'locking',
+	'locked',
 	'funded',
 	'work_in_progress',
 	'work_submitted',
 	'approved',
+	'settlement_requested',
 	'releasing',
+	'released_pending',
 	'released',
+	'cancelled',
+	'refunded',
 	'settled'
 ] as const;
 
@@ -113,6 +117,9 @@ export interface ContractRuneSnapshot {
 	workMessage?: string;
 	proofUrl?: string;
 	payoutInvoice?: string;
+	settlementInvoice?: string;
+	settlementAmount?: number;
+	proofs: readonly EscrowProof[];
 	seals: readonly RgbSeal[];
 	split: PaymentSplitConfig;
 	lastAttestationId?: string;
@@ -142,36 +149,11 @@ function assetAmount(
 	amountSats?: number
 ): number {
 	const amountUsd = totalAmountUsd * (percentage / 100);
-	if (asset === 'usdt_rgb') return Math.round(amountUsd * 1_000_000);
+	if (asset === 'usdt_rgb' || asset === 'usdt_ln') return Math.round(amountUsd * 1_000_000);
 	if (amountSats && amountSats > 0) {
 		return Math.max(1, Math.round(amountSats * (percentage / 100)));
 	}
 	return Math.max(1, Math.round(amountUsd * 100));
-}
-
-async function sleep(ms: number): Promise<void> {
-	await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const E2E_CONFIRM_MS = 5 * 60_000;
-const LIVE_CONFIRM_MS = 10 * 60_000;
-
-async function pollUntil<T>(
-	work: () => Promise<T>,
-	timeoutMs: number,
-	intervalMs: number
-): Promise<T> {
-	const deadline = Date.now() + timeoutMs;
-	let lastError = new Error('Timed out');
-	while (Date.now() < deadline) {
-		try {
-			return await work();
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error(String(error));
-			await sleep(intervalMs);
-		}
-	}
-	throw lastError;
 }
 
 function isE2ERun(): boolean {
@@ -272,7 +254,10 @@ async function publishAttestation(
 			message,
 			proofUrl,
 			workMessage: snapshot.workMessage,
-			payoutInvoice: snapshot.payoutInvoice
+			payoutInvoice: snapshot.payoutInvoice,
+			settlementInvoice: snapshot.settlementInvoice,
+			settlementAmount: snapshot.settlementAmount,
+			proofs: snapshot.proofs
 		}),
 		tags: [
 			['m', 'contract-status'],
@@ -310,6 +295,9 @@ export class ContractRune {
 	workMessage = $state<string | undefined>(undefined);
 	proofUrl = $state<string | undefined>(undefined);
 	payoutInvoice = $state<string | undefined>(undefined);
+	settlementInvoice = $state<string | undefined>(undefined);
+	settlementAmount = $state(0);
+	proofs = $state<EscrowProof[]>([]);
 
 	constructor(input: ContractRuneInput) {
 		if (!input.contractId.trim()) throw new Error('Contract id is required');
@@ -361,6 +349,9 @@ export class ContractRune {
 			workMessage: this.workMessage,
 			proofUrl: this.proofUrl,
 			payoutInvoice: this.payoutInvoice,
+			settlementInvoice: this.settlementInvoice,
+			settlementAmount: this.settlementAmount,
+			proofs: this.proofs,
 			seals: this.seals,
 			split: this.split,
 			lastAttestationId: this.lastAttestationId ?? undefined,
@@ -491,7 +482,7 @@ export class ContractRune {
 	async confirmFunding(): Promise<ContractRuneSnapshot> {
 		// Pay already attests funded and does not notify the taskee. Check must
 		// still succeed from that state so the contract can be published to both parties.
-		if (this.status === 'funded') return this.snapshot;
+		if (this.status === 'funded' || this.status === 'locked') return this.snapshot;
 		if (this.status !== 'funding') {
 			throw new Error(`Cannot verify funding from ${this.status} state`);
 		}
@@ -505,15 +496,19 @@ export class ContractRune {
 		const invoice = this.snapshot.fundingInvoice;
 		if (!invoice) throw new Error('Funding invoice is not available');
 		this.fundingState = 'awaiting_payment';
-		await this.sendToInvoice(invoice);
-		this.status = 'funded';
-		this.fundingState = 'funded';
+		assertInvoiceRail(this.split.primaryAsset, invoice);
+		this.status = 'locked';
+		this.fundingState = 'awaiting_payment';
 		this.error = null;
-		await this.attest('funded');
+		recordEscrowHistory({
+			contractId: this.contractId,
+			title: this.contractTitle ?? this.contractId,
+			kind: 'lock'
+		});
+		await this.attest('locked');
 		this.error = null;
 	}
 
-	// Model B: full RGB payout. releaseEscrow attests released and does not send.
 	async payFundingFromWallet(): Promise<ContractRuneSnapshot> {
 		await this.sendPaymentOnly();
 		return this.snapshot;
@@ -559,7 +554,7 @@ export class ContractRune {
 	}
 
 	async startWork(): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded') {
+		if (this.status !== 'funded' && this.status !== 'locked') {
 			throw new Error(`Cannot start contract from ${this.status} state`);
 		}
 		this.status = 'work_in_progress';
@@ -568,7 +563,11 @@ export class ContractRune {
 	}
 
 	async submitWork(message: string, proofUrl?: string): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded' && this.status !== 'work_in_progress') {
+		if (
+			this.status !== 'funded' &&
+			this.status !== 'locked' &&
+			this.status !== 'work_in_progress'
+		) {
 			throw new Error(`Cannot submit work from ${this.status} state`);
 		}
 		const deliverable = message.trim();
@@ -601,33 +600,169 @@ export class ContractRune {
 		}
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
-		const received = await wallet.onchainReceive({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600
-		});
-		const invoice = received.invoice?.trim() ?? '';
+		const asset = this.split.primaryAsset;
+		let invoice = '';
+		let amount = 0;
+		if (asset === 'btc_lightning') {
+			amount = this.lockedSats();
+			if (typeof wallet.createLightningInvoice !== 'function') {
+				throw new Error('Wallet cannot create a Lightning invoice');
+			}
+			const created = await wallet.createLightningInvoice({
+				amountSats: amount,
+				expirySeconds: 3600
+			});
+			invoice = created.lnInvoice?.trim() ?? '';
+		} else {
+			amount = this.agreedUnits();
+			const listed =
+				typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+			const held = selectEscrowAsset(spendableRgbAssets(listed), [
+				e2eMintedAssetId(),
+				getConfiguredRgbUsdtAssetId()
+			]);
+			const assetId =
+				asset === 'usdt_ln'
+					? ESCROW_LNUSDT
+					: onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
+			const received = await wallet.onchainReceive({
+				witness: false,
+				minConfirmations: 1,
+				durationSeconds: 3600,
+				assetId,
+				amount
+			});
+			invoice = received.invoice?.trim() ?? '';
+		}
 		if (!invoice) throw new Error('Taskee payout invoice was empty');
-		this.payoutInvoice = invoice;
-		await this.attest('approved', 'Payout invoice created');
-		this.error = null;
+		await this.requestSettlement(invoice, amount);
 		return invoice;
 	}
 
-	// Model B: fund already sent the asset. Release attests released and does not send.
+	async requestSettlement(invoice: string, amount: number): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'approved') {
+			throw new Error(`Cannot request settlement from ${this.status} state`);
+		}
+		const next = invoice.trim();
+		assertInvoiceRail(this.split.primaryAsset, next);
+		if (isRgbInvoice(next) && blankLockInvoice(next)) {
+			throw new Error('Settlement invoice must include an amount');
+		}
+		if (!Number.isSafeInteger(amount) || amount <= 0) {
+			throw new Error('Settlement amount must be a positive whole number');
+		}
+		this.settlementInvoice = next;
+		this.settlementAmount = amount;
+		this.payoutInvoice = next;
+		this.status = 'settlement_requested';
+		this.error = null;
+		await this.attest('settlement_requested');
+		return this.snapshot;
+	}
+
+	async reissueSettlement(invoice: string, amount: number): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
+			throw new Error(`Cannot reissue settlement from ${this.status} state`);
+		}
+		if (this.settlementAmount > 0 && amount > this.settlementAmount) {
+			throw new Error('Reissued amount cannot exceed the agreed amount');
+		}
+		const previous = this.status;
+		this.status = 'approved';
+		const next = await this.requestSettlement(invoice, amount);
+		if (next.status !== 'settlement_requested') this.status = previous;
+		return this.snapshot;
+	}
+
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'work_submitted' && this.status !== 'approved') {
+		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
-		const payout = (invoice ?? this.payoutInvoice)?.trim() ?? '';
-		if (payout) assertInvoiceRail(this.split.primaryAsset, payout);
-		if (payout) this.payoutInvoice = payout;
-		this.status = 'released';
+		const payout = (invoice ?? this.settlementInvoice ?? this.payoutInvoice)?.trim() ?? '';
+		if (!payout) throw new Error('Settlement invoice is required');
+		assertInvoiceRail(this.split.primaryAsset, payout);
+		if (isRgbInvoice(payout) && blankLockInvoice(payout)) {
+			throw new Error('Settlement invoice must include an amount');
+		}
+		const previous = this.status;
+		this.payoutInvoice = payout;
+		this.settlementInvoice = payout;
+		this.status = 'releasing';
 		this.error = null;
-		console.info('[contract-rune] releaseEscrow', { attested: 'released' });
-		await this.attest('released', 'Escrow released');
-		this.error = null;
+		try {
+			const proof = await this.paySettlement(payout);
+			if (!proofReady(proof)) throw new Error('Settlement proof is missing');
+			this.proofs = [...this.proofs, proof];
+			this.status = 'released';
+			recordEscrowHistory({
+				contractId: this.contractId,
+				title: this.contractTitle ?? this.contractId,
+				kind: 'released',
+				proof: proof.value
+			});
+			await this.attest('released', 'Escrow released');
+			return this.snapshot;
+		} catch (error) {
+			this.status = previous;
+			this.error = error instanceof Error ? error.message : String(error);
+			throw error;
+		}
+	}
+
+	async confirmSettled(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'released') {
+			throw new Error(`Cannot settle contract from ${this.status} state`);
+		}
+		if (!this.proofs.some((proof) => proofReady(proof))) {
+			throw new Error('Settlement proof is missing');
+		}
+		this.status = 'settled';
+		await this.attest('settled');
 		return this.snapshot;
+	}
+
+	async refund(invoice: string): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'released' && this.status !== 'released_pending') {
+			throw new Error(`Cannot refund contract from ${this.status} state`);
+		}
+		const destination = invoice.trim();
+		assertInvoiceRail(this.split.primaryAsset, destination);
+		const proof = await this.paySettlement(destination);
+		if (!proofReady(proof)) throw new Error('Settlement proof is missing');
+		this.proofs = [...this.proofs, proof];
+		this.status = 'refunded';
+		recordEscrowHistory({
+			contractId: this.contractId,
+			title: this.contractTitle ?? this.contractId,
+			kind: 'refund',
+			proof: proof.value
+		});
+		await this.attest('refunded');
+		return this.snapshot;
+	}
+
+	private async paySettlement(invoice: string): Promise<EscrowProof> {
+		const wallet = state.utexoWallet;
+		if (!wallet) throw new Error('RGB wallet is not initialized');
+		const asset = this.split.primaryAsset;
+		if (asset === 'btc_lightning') return payLnBtc(wallet, invoice, this.lockedSats());
+		if (asset === 'usdt_ln') {
+			const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
+			return payLnUsdt(channels, invoice, this.settlementAmount || this.agreedUnits());
+		}
+		const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+		const held = selectEscrowAsset(spendableRgbAssets(listed), [
+			e2eMintedAssetId(),
+			getConfiguredRgbUsdtAssetId()
+		]);
+		const assetId = onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
+		const amount = this.settlementAmount || this.agreedUnits();
+		return payOnchainUsdt(wallet, invoice, assetId, amount);
+	}
+
+	private agreedUnits(): number {
+		if (this.lockedCurrency === 'SATS' && this.lockedAmount > 0) return this.lockedAmount;
+		return Math.max(1, Math.round(this.totalAmountUsd * 1_000_000));
 	}
 
 	private lockedSats(): number {
@@ -636,148 +771,29 @@ export class ContractRune {
 		throw new Error('Lightning invoice amount does not match the locked sats');
 	}
 
-	private async payBolt11(invoice: string): Promise<void> {
-		const wallet = state.utexoWallet;
-		if (!wallet) throw new Error('RGB wallet is not initialized');
-		const peers = typeof wallet.listPeers === 'function' ? await wallet.listPeers() : [];
-		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
-		if (!satsChannelOpen(channels)) {
-			throw new Error(
-				lightningNodeEmpty(peers, channels)
-					? 'Lightning node has no peer'
-					: 'Lightning node has no channel'
-			);
-		}
-		const decoded = await wallet.decodeLnInvoice(invoice);
-		if (refusedBotPayee(decoded.payee)) throw new Error('Lightning peer is refused');
-		const locked = this.lockedSats();
-		const matchesStage = escrowStageSats(locked).some((sats) =>
-			bolt11MatchesSats(decoded.amtMsat, sats)
-		);
-		if (!matchesStage) {
-			throw new Error('Lightning invoice amount does not match the locked sats');
-		}
-		const nowSec = Math.floor(Date.now() / 1000);
-		if (bolt11Expired(decoded.timestamp, decoded.expirySeconds, nowSec)) {
-			throw new Error('Lightning invoice is expired');
-		}
-		await walletManager.payLightningInvoice({ lnInvoice: invoice });
-	}
-
-	private async payRgbInvoice(invoice: string): Promise<void> {
-		if (blankLockInvoice(invoice)) {
-			console.info('[contract-rune] blank lock', { amount: 0, network: 'sb' });
-			return;
-		}
-		const wallet = state.utexoWallet;
-		if (!wallet) throw new Error('RGB wallet is not initialized');
-		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
-		if (!lnUsdtOpen(channels)) throw new Error('LSP channel is not open');
-
-		const assets = spendableRgbAssets(await wallet.listAssets());
-		const expectedAssetId = escrowAssetId(assets);
-		if (!expectedAssetId) {
-			throw new Error('Tasker wallet has no escrow RGB asset. Fund the wallet with RGB tokens.');
-		}
-		const asset = assets.find((row) => row.assetId === expectedAssetId);
-		if (!asset) {
-			throw new Error(`Escrow asset ${expectedAssetId} not found in wallet.`);
-		}
-		const spendable = Number(asset.balance?.spendable ?? 0);
-		const baseUnits =
-			this.lockedCurrency === 'SATS'
-				? escrowSendAmount({
-						spendable,
-						totalAmountUsd: this.totalAmountUsd,
-						precision: usdtPrecision(asset.ticker, asset.precision),
-						fullSpendable: true
-					})
-				: unitsForAsset(assets, expectedAssetId, this.totalAmountUsd);
-
-		console.info('[contract-rune] sendToInvoice', {
-			assetId: expectedAssetId,
-			amount: baseUnits,
-			invoicePrefix: invoice.slice(0, 40)
-		});
-		try {
-			await payEscrowLightning(invoice, expectedAssetId, baseUnits);
-			console.info('[contract-rune] sendToInvoice completed', {
-				assetId: expectedAssetId,
-				amount: baseUnits
-			});
-		} catch (error) {
-			console.error('[E2E-wallet-payment-failure]', {
-				message: error instanceof Error ? error.message : String(error),
-				stack: error instanceof Error ? error.stack : undefined
-			});
-			throw error;
-		}
-	}
-
-	private async sendToInvoice(invoice: string): Promise<void> {
-		const normalizedInvoice = invoice.trim();
-		if (!state.utexoWallet) throw new Error('RGB wallet is not initialized');
-		assertInvoiceRail(this.split.primaryAsset, normalizedInvoice);
-		if (isLightningRail(this.split.primaryAsset)) {
-			await this.payBolt11(normalizedInvoice);
-			return;
-		}
-		await this.payRgbInvoice(normalizedInvoice);
-	}
-
-	async release(invoice: string): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded' && this.status !== 'work_submitted') {
-			throw new Error(`Cannot release contract from ${this.status} state`);
-		}
-		return this.runTransition('releasing', async () => {
-			assertInvoiceRail(this.split.primaryAsset, invoice);
-			this.payoutInvoice = invoice;
-			this.status = 'released';
-			await this.attest('released');
-			return this.snapshot;
-		});
-	}
-
-	async releaseRgbEscrow(): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'work_submitted') {
-			throw new Error(`Cannot release contract from ${this.status} state`);
-		}
-		return this.runTransition('releasing', async () => {
-			const wallet = state.utexoWallet;
-			if (!wallet) throw new Error('RGB wallet is not initialized');
-			const queue = await getBrowserRgbCommandQueue(wallet);
-			const timeoutMs = isE2ERun() ? E2E_CONFIRM_MS : LIVE_CONFIRM_MS;
-			for (const seal of this.seals) {
-				await pollUntil(
-					async () => {
-						const result = await queue.spend({
-							recipientId: seal.id as SealId,
-							contractId: this.contractId as RgbSeal['contractId'],
-							assetId: seal.assetId
-						});
-						if (!result.ok) throw new Error(result.error ?? 'RGB escrow release failed');
-						return result;
-					},
-					timeoutMs,
-					10_000
-				);
-			}
-			this.status = 'released';
-			await this.attest('released', 'Funds released');
-			return this.snapshot;
-		});
-	}
-
-	async cancel(invoice: string): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded') {
+	async cancel(): Promise<ContractRuneSnapshot> {
+		const open = [
+			'draft',
+			'funding',
+			'locking',
+			'locked',
+			'work_in_progress',
+			'work_submitted',
+			'approved',
+			'settlement_requested'
+		];
+		if (!open.includes(this.status)) {
 			throw new Error(`Cannot cancel contract from ${this.status} state`);
 		}
-		return this.runTransition('cancelling', async () => {
-			await this.sendToInvoice(invoice);
-			this.status = 'cancelled';
-			await this.attest('cancelled');
-			return this.snapshot;
+		this.status = 'cancelled';
+		this.error = null;
+		recordEscrowHistory({
+			contractId: this.contractId,
+			title: this.contractTitle ?? this.contractId,
+			kind: 'cancelled'
 		});
+		await this.attest('cancelled');
+		return this.snapshot;
 	}
 
 	async dispute(reason: string): Promise<ContractRuneSnapshot> {

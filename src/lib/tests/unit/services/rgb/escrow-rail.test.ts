@@ -5,6 +5,7 @@ import {
 	assertInvoiceRail,
 	bolt11Expired,
 	escrowStageSats,
+	feeHook,
 	satsChannelOpen,
 	bolt11MatchesSats,
 	invoiceMatchesRail,
@@ -61,13 +62,13 @@ describe('escrow rail', () => {
 		expect(bolt11Expired(undefined, undefined, 1_000)).toBe(true);
 	});
 
-	it('accepts the fee lock, the balance, or the full locked total', () => {
-		expect(escrowStageSats(1345)).toEqual([1345, 33, 1312, 1279]);
-		expect(escrowStageSats(3075)).toEqual([3075, 75, 3000, 2925]);
+	it('keeps the fee hook at zero until a platform fee is enabled', () => {
+		expect(feeHook(10_000, 'tasker')).toBe(0);
+		expect(feeHook(10_000, 'taskee')).toBe(0);
+		expect(escrowStageSats(1345)).toEqual([1345]);
+		expect(escrowStageSats(3075)).toEqual([3075, 3000, 75]);
 		expect(escrowStageSats(0)).toEqual([]);
-		expect(escrowStageSats(102_500)).toEqual([
-			102_500, 2500, 100_000, 97_500, 3000, 99_500, 97_000
-		]);
+		expect(escrowStageSats(102_500)).toEqual([102_500, 3000, 99_500]);
 	});
 
 	it('treats only a usable non-LNUSDT channel as a sats route', () => {

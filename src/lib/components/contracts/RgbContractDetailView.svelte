@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		ContractRune,
 		leadingContractStatus,
@@ -9,16 +9,12 @@
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import type { RgbSeal } from '$lib/services/rgb/types';
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
+	import { subscribeContract } from '$lib/services/contracts/contract-sync';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import {
-		acceptIncomingPayment,
-		IncomingPaymentPending
-	} from '$lib/stores/wallet/wallet-balances';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -54,15 +50,18 @@
 	let proofUrl = $state('');
 	let isSubmitting = $state(false);
 	let isReleasing = $state(false);
-	let isAccepting = $state(false);
-	let acceptError = $state('');
+	let reviewingPay = $state(false);
+	let refundInvoice = $state('');
+	let stopSubscription: (() => void) | undefined;
 
 	const snapshot = $derived(rune?.snapshot ?? null);
 	const FUNDED_STATUSES = new Set([
+		'locked',
 		'funded',
 		'work_in_progress',
 		'work_submitted',
 		'approved',
+		'settlement_requested',
 		'releasing',
 		'released',
 		'settled'
@@ -80,20 +79,57 @@
 	);
 	const canSubmitDeliverable = $derived(
 		role === 'taskee' &&
-			(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress') &&
+			(snapshot?.status === 'locked' ||
+				snapshot?.status === 'funded' ||
+				snapshot?.status === 'work_in_progress') &&
 			!isSubmitting
 	);
 	const canApprove = $derived(
 		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
 	);
+	const canRequestPayment = $derived(
+		role === 'taskee' && snapshot?.status === 'approved' && !isReleasing
+	);
 	const canRelease = $derived(
-		role === 'tasker' &&
-			(snapshot?.status === 'work_submitted' || snapshot?.status === 'approved') &&
+		role === 'tasker' && snapshot?.status === 'settlement_requested' && !isReleasing
+	);
+	const canCancel = $derived(
+		snapshot != null &&
+			[
+				'draft',
+				'funding',
+				'locking',
+				'locked',
+				'work_in_progress',
+				'work_submitted',
+				'approved',
+				'settlement_requested'
+			].includes(snapshot.status) &&
 			!isReleasing
 	);
+	const canRefund = $derived(role === 'tasker' && snapshot?.status === 'released' && !isReleasing);
+	const stepIndex = $derived.by(() => {
+		const status = snapshot?.status;
+		if (status === 'released' || status === 'released_pending' || status === 'settled') return 3;
+		if (status === 'approved' || status === 'settlement_requested' || status === 'releasing')
+			return 2;
+		if (status === 'work_in_progress' || status === 'work_submitted') return 1;
+		return 0;
+	});
+	const nextAction = $derived.by(() => {
+		const status = snapshot?.status;
+		if (status === 'released' || status === 'settled') return $t('bids.escrow_next_done');
+		if (status === 'settlement_requested') return $t('bids.escrow_next_pay');
+		if (status === 'approved') return $t('bids.escrow_next_request');
+		if (status === 'work_submitted') return $t('bids.escrow_next_review');
+		if (status === 'locked' || status === 'funded' || status === 'work_in_progress') {
+			return $t('bids.escrow_next_work');
+		}
+		return $t('bids.contract_waiting');
+	});
 	const statusLabel = $derived(snapshot?.status ?? 'loading');
 	const statusClass = $derived.by(() => {
-		if (statusLabel === 'funded') return 'badge-warning';
+		if (statusLabel === 'funded' || statusLabel === 'locked') return 'badge-warning';
 		if (
 			statusLabel === 'work_submitted' ||
 			statusLabel === 'work_in_progress' ||
@@ -104,15 +140,6 @@
 		if (statusLabel === 'released') return 'badge-success';
 		return 'badge-outline';
 	});
-	const fundIsPaid = $derived(
-		statusLabel === 'funded' ||
-			statusLabel === 'work_in_progress' ||
-			statusLabel === 'work_submitted' ||
-			statusLabel === 'approved' ||
-			statusLabel === 'releasing' ||
-			statusLabel === 'released'
-	);
-
 	function parseStatusContent(content: string): ContractStatusContent | null {
 		try {
 			const parsed = JSON.parse(content) as ContractStatusContent;
@@ -155,8 +182,8 @@
 		window.open(href, '_blank', 'noopener,noreferrer');
 	}
 
-	async function loadContract(): Promise<void> {
-		loading = true;
+	async function loadContract(quiet = false): Promise<void> {
+		if (!quiet) loading = true;
 		errorMessage = '';
 		try {
 			await setNDKSigner();
@@ -213,6 +240,9 @@
 			nextRune.workMessage = content.workMessage ?? content.message;
 			nextRune.proofUrl = content.proofUrl;
 			nextRune.payoutInvoice = content.payoutInvoice;
+			nextRune.settlementInvoice = content.settlementInvoice ?? content.payoutInvoice;
+			nextRune.settlementAmount = content.settlementAmount ?? 0;
+			nextRune.proofs = content.proofs ?? [];
 			rune = nextRune;
 			timeline = parsedEntries.map(({ event, content: item }) => ({
 				id: event.id ?? `${event.created_at}-${item.status}`,
@@ -225,26 +255,6 @@
 			errorMessage = error instanceof Error ? error.message : 'Failed to load contract.';
 		} finally {
 			loading = false;
-		}
-	}
-
-	async function handleAcceptPayment(): Promise<void> {
-		isAccepting = true;
-		acceptError = '';
-		try {
-			await walletManager.initialize();
-			await acceptIncomingPayment();
-			appStore.showSuccessToast($t('bids.incoming_payment_accepted'));
-		} catch (error) {
-			acceptError =
-				error instanceof IncomingPaymentPending
-					? $t('bids.incoming_payment_waiting')
-					: error instanceof Error
-						? error.message
-						: $t('bids.escrow_invoice_failed');
-		} finally {
-			await walletManager.releaseRgbLock();
-			isAccepting = false;
 		}
 	}
 
@@ -276,7 +286,57 @@
 		}
 	}
 
-	async function handleRelease(): Promise<void> {
+	async function handleRequestPayment(): Promise<void> {
+		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await walletManager.initialize();
+			await rune.createPayoutInvoice();
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to request payment.';
+		} finally {
+			await walletManager.releaseRgbLock();
+			isReleasing = false;
+		}
+	}
+
+	async function handleCancel(): Promise<void> {
+		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await rune.cancel();
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to cancel the contract.';
+		} finally {
+			isReleasing = false;
+		}
+	}
+
+	async function handleRefund(): Promise<void> {
+		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await walletManager.initialize();
+			await rune.refund(refundInvoice);
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to refund the contract.';
+		} finally {
+			await walletManager.releaseRgbLock();
+			isReleasing = false;
+		}
+	}
+
+	function handleRelease(): void {
+		reviewingPay = true;
+	}
+
+	async function confirmRelease(): Promise<void> {
 		if (!rune) return;
 		isReleasing = true;
 		errorMessage = '';
@@ -288,6 +348,7 @@
 			errorMessage = error instanceof Error ? error.message : 'Failed to release funds.';
 		} finally {
 			isReleasing = false;
+			reviewingPay = false;
 		}
 	}
 
@@ -306,6 +367,9 @@
 	});
 
 	onMount(() => {
+		stopSubscription = subscribeContract(contractId, () => {
+			void loadContract(true);
+		});
 		void initWasm()
 			.catch((error) => {
 				console.warn('[contract] initWasm failed:', error);
@@ -313,6 +377,10 @@
 			.finally(() => {
 				void loadContract();
 			});
+	});
+
+	onDestroy(() => {
+		stopSubscription?.();
 	});
 </script>
 
@@ -322,6 +390,12 @@
 >
 	<header class="card bg-base-100 border-base-300 border shadow-sm">
 		<div class="card-body gap-3 p-5">
+			<ul class="steps steps-horizontal w-full text-xs" data-testid="contract-steps">
+				<li class="step" class:step-primary={stepIndex >= 0}>{$t('bids.escrow_step_agreed')}</li>
+				<li class="step" class:step-primary={stepIndex >= 1}>{$t('bids.escrow_step_work')}</li>
+				<li class="step" class:step-primary={stepIndex >= 2}>{$t('bids.escrow_step_approved')}</li>
+				<li class="step" class:step-primary={stepIndex >= 3}>{$t('bids.escrow_step_paid')}</li>
+			</ul>
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
 					{role === 'tasker' ? 'Tasker' : 'Taskee'}
@@ -359,31 +433,7 @@
 					{contractIsFunded ? $t('bids.contract_funded_label') : $t('bids.contract_waiting')}
 				</p>
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
-				<p class="text-base-content/80 text-sm">
-					{fundIsPaid
-						? 'Paid when you fund. Release only confirms the work.'
-						: 'Waiting for the fund send.'}
-				</p>
-				{#if role === 'taskee'}
-					{#if acceptError}
-						<div
-							class="alert alert-outline alert-error mt-2 py-2 text-sm"
-							data-testid="accept-payment-error"
-						>
-							{acceptError}
-						</div>
-					{/if}
-					<button
-						type="button"
-						class="btn btn-outline btn-sm mt-2"
-						onclick={handleAcceptPayment}
-						disabled={isAccepting}
-						data-testid="accept-incoming-payment"
-					>
-						{#if isAccepting}<span class="loading loading-spinner loading-xs"></span>{/if}
-						{$t('bids.accept_incoming_payment')}
-					</button>
-				{/if}
+				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
 			</div>
 		</section>
 
@@ -439,9 +489,7 @@
 							Proof
 						</button>
 					{/if}
-					<p class="text-base-content/70 text-sm">
-						Paid when you fund. Release only confirms the work.
-					</p>
+					<p class="text-base-content/70 text-sm">{$t('bids.escrow_next_review')}</p>
 					<button
 						class="btn btn-outline"
 						onclick={handleApprove}
@@ -455,27 +503,93 @@
 			</section>
 		{/if}
 
+		{#if canRequestPayment}
+			<section
+				class="card bg-base-100 border-base-300 border shadow-sm"
+				data-testid="request-payment-panel"
+			>
+				<div class="card-body gap-3 p-5">
+					<h2 class="text-base font-semibold">{$t('bids.request_payment')}</h2>
+					<p class="text-base-content/70 text-sm">{$t('bids.escrow_next_request')}</p>
+					<button
+						class="btn btn-primary w-full"
+						onclick={handleRequestPayment}
+						disabled={isReleasing}
+						data-testid="request-payment-button"
+					>
+						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+						{$t('bids.request_payment')}
+					</button>
+				</div>
+			</section>
+		{/if}
+
 		{#if canRelease}
 			<section
 				class="card bg-base-100 border-base-300 border shadow-sm"
 				data-testid="release-funds-panel"
 			>
 				<div class="card-body gap-3 p-5">
-					<h2 class="text-base font-semibold">Release</h2>
-					<p class="text-base-content/70 text-sm">
-						Paid when you fund. Release only confirms the work.
-					</p>
+					<h2 class="text-base font-semibold">{$t('bids.pay_on_approval')}</h2>
+					<p class="text-base-content/70 text-sm">{$t('bids.release_pays')}</p>
+					{#if reviewingPay}
+						<p class="text-sm" data-testid="escrow-pay-review">
+							{lockedAmountLabel}
+							{settlementUnit}
+						</p>
+						<button
+							class="btn btn-success glow-soft w-full"
+							onclick={confirmRelease}
+							disabled={isReleasing}
+							data-testid="approve-release-funds-button"
+						>
+							{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
+							{$t('bids.confirm_pay')}
+						</button>
+					{:else}
+						<button
+							class="btn btn-primary w-full"
+							onclick={handleRelease}
+							disabled={isReleasing}
+							data-testid="review-release-funds-button"
+						>
+							{$t('bids.pay_on_approval')}
+						</button>
+					{/if}
+				</div>
+			</section>
+		{/if}
+
+		{#if canRefund}
+			<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="refund-panel">
+				<div class="card-body gap-3 p-5">
+					<h2 class="text-base font-semibold">{$t('bids.refund_contract')}</h2>
+					<input
+						class="input input-bordered w-full font-mono text-xs"
+						bind:value={refundInvoice}
+						data-testid="refund-invoice-input"
+					/>
 					<button
-						class="btn btn-success glow-soft w-full"
-						onclick={handleRelease}
-						disabled={isReleasing}
-						data-testid="approve-release-funds-button"
+						class="btn btn-outline w-full"
+						onclick={handleRefund}
+						disabled={isReleasing || !refundInvoice.trim()}
+						data-testid="refund-button"
 					>
-						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
-						Release
+						{$t('bids.refund_contract')}
 					</button>
 				</div>
 			</section>
+		{/if}
+
+		{#if canCancel}
+			<button
+				class="btn btn-ghost btn-sm"
+				onclick={handleCancel}
+				disabled={isReleasing}
+				data-testid="cancel-contract-button"
+			>
+				{$t('bids.cancel_contract')}
+			</button>
 		{/if}
 
 		<section class="card bg-base-200 border-base-300 border shadow-sm">

@@ -375,7 +375,7 @@ describe('ServiceInstantBuyModal', () => {
 		expect(queryByTestId('service-instant-buy-confirm-warning')).toBeNull();
 	});
 
-	it('disables instant buy while the LSP channel is closed', () => {
+	it('keeps on-chain USDT available when the LSP channel is closed', () => {
 		lightningState.set({
 			ready: false,
 			peerHost: '',
@@ -383,16 +383,13 @@ describe('ServiceInstantBuyModal', () => {
 			lnInvoice: '',
 			rgbInvoice: ''
 		});
-		const { getByTestId } = render(ServiceInstantBuyModal, {
+		const { queryByTestId } = render(ServiceInstantBuyModal, {
 			open: true,
 			serviceTitle: 'Landing Page Build',
 			amountUsd: 120,
 			canConfirm: true
 		});
-		expect(getByTestId('lsp-channel-closed').textContent).toContain(
-			'wallet.lightning_channel_closed'
-		);
-		expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(true);
+		expect(queryByTestId('lsp-channel-closed')).toBeNull();
 	});
 
 	it('shows reconnect guidance after the browser comes back online', () => {
@@ -417,7 +414,7 @@ describe('ServiceInstantBuyModal', () => {
 	it('builds a bitcoin service escrow on the sats rail', async () => {
 		state.utexoWallet = {
 			listPeers: () => Promise.resolve([{ pubkey: '02aa' }]),
-			listChannels: () => Promise.resolve([])
+			listChannels: () => Promise.resolve([{ isUsable: true }])
 		} as never;
 		const { getByTestId } = render(ServiceInstantBuyModal, {
 			open: true,
