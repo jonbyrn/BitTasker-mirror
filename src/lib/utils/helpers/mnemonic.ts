@@ -32,6 +32,18 @@ async function rememberSeed(mnemonic: string): Promise<string> {
 	return seed;
 }
 
+/** Keep the seed from a successful login so the wallet can load balances. */
+export async function rememberLoginSeed(
+	mnemonic: string,
+	nsec: string,
+	npub: string
+): Promise<void> {
+	if (!mnemonic.trim() || !nsec || !npub) return;
+	const seed = assertHdSeed(mnemonic);
+	await saveMnemonicSession(seed).catch(() => undefined);
+	await saveSignerSession(nsec, npub).catch(() => undefined);
+}
+
 async function cacheSigner(
 	encryptedData: Parameters<typeof decryptNsecWithBiometrics>[0],
 	exportedKey: string,

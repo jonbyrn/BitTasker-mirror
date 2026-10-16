@@ -36,6 +36,7 @@
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
+	import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import { createDebug } from '$lib/utils/debug';
@@ -157,6 +158,7 @@
 			}
 
 			await applyNdkSignerFromNsec(decodeNsec(nsec));
+			await rememberLoginSeed(mnemonic, nsec, credentails.npub);
 
 			if (!response.access_token) {
 				throw new Error($t('login.errors.no_token'));
@@ -466,6 +468,7 @@
 				);
 				await authState.login(res.user);
 				await applyNdkSignerFromNsec(privateKey);
+				await rememberLoginSeed(mnemonic, nsec, npub);
 				appStore.update((state) => ({
 					...state,
 					nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub, mnemonic }

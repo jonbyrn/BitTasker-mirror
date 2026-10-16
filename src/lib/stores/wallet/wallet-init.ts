@@ -439,6 +439,7 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 			locked: true,
 			syncing: false
 		}));
+		initSlot.current = null;
 		return;
 	}
 
@@ -481,6 +482,7 @@ export async function unlockWallet(signal?: AbortSignal): Promise<void> {
 }
 
 export function disconnectWallet(): void {
+	initSlot.current = null;
 	rgbConsignmentSubscription.stop();
 
 	if (state.utexoWallet && typeof state.utexoWallet.dispose === 'function') {

@@ -384,7 +384,7 @@
 							usdtAsset.balance,
 							usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
 						)
-					: formatUsdtBalance(0, 6)
+					: formatUsdtBalance($walletStore.totalBalances.usdt, 6)
 			)}
 			{#if $walletStore.locked}
 				<div class="px-4 py-3">

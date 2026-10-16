@@ -6,7 +6,12 @@ import { bindLspClient } from '$lib/stores/wallet/signet-lsp';
 import type { RgbAsset } from '$lib/stores/wallet/wallet-types';
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
-import { readMnemonicSession } from '$lib/utils/helpers/session-mnemonic';
+import {
+	readMnemonicSession,
+	saveMnemonicSession,
+	saveSignerSession
+} from '$lib/utils/helpers/session-mnemonic';
+import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readMnemonicSession: vi.fn(),
@@ -36,6 +41,10 @@ describe('wallet disconnect guards', () => {
 	beforeEach(() => {
 		vi.mocked(readMnemonicSession).mockReset();
 		vi.mocked(getBiometricData).mockReset();
+		vi.mocked(saveMnemonicSession).mockReset();
+		vi.mocked(saveSignerSession).mockReset();
+		vi.mocked(saveMnemonicSession).mockResolvedValue(undefined);
+		vi.mocked(saveSignerSession).mockResolvedValue(undefined);
 	});
 
 	it('does not call WebAuthn when a session mnemonic is cached', async () => {
@@ -79,6 +88,19 @@ describe('wallet disconnect guards', () => {
 				ln: { amtMsat: 1, expirySec: 1, assetId: 'a', assetAmount: 1 }
 			})
 		).toBe('bound');
+	});
+
+	it('stores the login seed so balances can load', async () => {
+		await rememberLoginSeed(SEED, 'nsec1example', 'npub1example');
+		expect(saveMnemonicSession).toHaveBeenCalledWith(SEED);
+		expect(saveSignerSession).toHaveBeenCalledWith('nsec1example', 'npub1example');
+	});
+
+	it('runs init again after the slot is cleared', async () => {
+		const slot: { current: Promise<number> | null } = { current: null };
+		await expect(shareInit(slot, async () => 1)).resolves.toBe(1);
+		slot.current = null;
+		await expect(shareInit(slot, async () => 2)).resolves.toBe(2);
 	});
 
 	it('shares one init and retries after a failure', async () => {
