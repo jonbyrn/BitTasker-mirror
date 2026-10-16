@@ -11,6 +11,31 @@ import { foregroundNotificationCoordinator } from '$lib/utils/helpers/foreground
 import type { NotificationCenterItem } from '$lib/types/notification';
 
 let socket: Socket | null = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Exponential backoff with jitter, capped at 30s. */
+export function nextRetryDelay(attempt: number, random = Math.random()): number {
+	const capped = Math.min(attempt, 5);
+	const base = Math.min(30_000, 1000 * 2 ** capped);
+	const jitter = Math.floor(random * base * 0.3);
+	return base + jitter;
+}
+
+function startDisconnectPoll(): void {
+	if (pollTimer || !browser) return;
+	pollTimer = setInterval(() => {
+		if (socket?.connected) return;
+		void import('$lib/stores/notificationCenter.store')
+			.then(({ notificationCenterStore }) => notificationCenterStore.fetchUnreadCount())
+			.catch(() => undefined);
+	}, 20_000);
+}
+
+function stopDisconnectPoll(): void {
+	if (!pollTimer) return;
+	clearInterval(pollTimer);
+	pollTimer = null;
+}
 
 /**
  * Connect to the backend's notification WebSocket gateway.
@@ -34,9 +59,16 @@ export async function connectNotificationSocket(): Promise<void> {
 		auth: { token: `Bearer ${token}` },
 		transports: ['websocket', 'polling'],
 		reconnection: true,
-		reconnectionDelay: 1000,
+		reconnectionDelay: nextRetryDelay(0, 0),
 		reconnectionDelayMax: 30000,
 		reconnectionAttempts: Infinity
+	});
+	startDisconnectPoll();
+	socket.io.on('reconnect_attempt', (attempt) => {
+		if (socket) socket.io.reconnectionDelay(nextRetryDelay(attempt));
+	});
+	socket.on('connect', () => {
+		stopDisconnectPoll();
 	});
 
 	socket.on('notification:new', (notification: NotificationCenterItem) => {
@@ -66,10 +98,12 @@ export async function connectNotificationSocket(): Promise<void> {
 
 	socket.on('disconnect', (reason) => {
 		console.log('[NotificationSocket] Disconnected:', reason);
+		startDisconnectPoll();
 	});
 }
 
 export function disconnectNotificationSocket(): void {
+	stopDisconnectPoll();
 	if (socket) {
 		socket.disconnect();
 		socket = null;

@@ -677,6 +677,14 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
+	async askReissue(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'settlement_requested') {
+			throw new Error(`Cannot ask for a new invoice from ${this.status} state`);
+		}
+		await this.attest(this.status, 'reissue-requested');
+		return this.snapshot;
+	}
+
 	async reissueSettlement(invoice: string, amount: number): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
 			throw new Error(`Cannot reissue settlement from ${this.status} state`);

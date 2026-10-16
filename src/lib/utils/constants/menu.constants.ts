@@ -148,7 +148,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.earning',
 				icon: IconInvoiceTextSendOutline,
-				href: '/earning'
+				href: '/earning/bids'
 			},
 			{
 				label: 'navbar.find_tasks',
@@ -434,7 +434,7 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.earning',
 		icon: IconInvoiceTextSendOutline,
-		href: '/earning'
+		href: '/earning/bids'
 	},
 	{
 		label: 'navbar.messages',

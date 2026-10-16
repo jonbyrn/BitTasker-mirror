@@ -15,6 +15,8 @@
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
@@ -53,6 +55,8 @@
 	let isReleasing = $state(false);
 	let reviewingPay = $state(false);
 	let refundInvoice = $state('');
+	let taskeePubkey = $state('');
+	let loadTimedOut = $state(false);
 	let stopSubscription: (() => void) | undefined;
 
 	const snapshot = $derived(rune?.snapshot ?? null);
@@ -88,8 +92,33 @@
 	const canApprove = $derived(
 		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
 	);
+	const payInvoice = $derived(
+		(snapshot?.settlementInvoice || snapshot?.payoutInvoice || '').trim()
+	);
+	const decodedPay = $derived.by(() => {
+		if (!payInvoice.startsWith('rgb:')) return null;
+		try {
+			return decodeRgbInvoice(payInvoice);
+		} catch {
+			return null;
+		}
+	});
+	const legacyRequest = $derived.by(() => {
+		if (snapshot?.status !== 'settlement_requested') return false;
+		if (!payInvoice) return true;
+		if (snapshot.split.primaryAsset === 'btc_lightning') return !payInvoice.startsWith('ln');
+		return !decodedPay || decodedPay.amount === null || decodedPay.amount <= 0;
+	});
+	const payReady = $derived.by(() => {
+		if (!snapshot || legacyRequest) return false;
+		if (snapshot.split.primaryAsset === 'btc_lightning') return payInvoice.startsWith('ln');
+		return Boolean(decodedPay && decodedPay.amount && decodedPay.amount > 0);
+	});
 	const canRequestPayment = $derived(
-		role === 'taskee' && snapshot?.status === 'approved' && !isReleasing
+		role === 'taskee' &&
+			(snapshot?.status === 'approved' ||
+				(snapshot?.status === 'settlement_requested' && legacyRequest)) &&
+			!isReleasing
 	);
 	const canRelease = $derived(
 		role === 'tasker' && snapshot?.status === 'settlement_requested' && !isReleasing
@@ -221,11 +250,17 @@
 		}
 		try {
 			await setNDKSigner();
-			const events = await ndk.fetchEvents(
-				{ kinds: [KINDS.CONTRACT_STATUS], '#r': [contractId], limit: 100 },
-				{ closeOnEose: true },
-				getTaskRelay()
-			);
+			loadTimedOut = false;
+			const events = await Promise.race([
+				ndk.fetchEvents(
+					{ kinds: [KINDS.CONTRACT_STATUS], '#r': [contractId], limit: 100 },
+					{ closeOnEose: true },
+					getTaskRelay()
+				),
+				new Promise<never>((_, reject) => {
+					setTimeout(() => reject(new Error('Contract load timed out')), 15_000);
+				})
+			]);
 			const ordered = [...events].sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
 			const parsedEntries = ordered
 				.map((event) => ({ event, content: parseStatusContent(event.content) }))
@@ -237,6 +272,14 @@
 				if (!quiet) errorMessage = 'Contract status has not propagated yet.';
 				return;
 			}
+			const taskeeEvent = [...parsedEntries]
+				.reverse()
+				.find((entry) =>
+					['work_submitted', 'settlement_requested', 'funding', 'work_in_progress'].includes(
+						entry.content.status ?? ''
+					)
+				);
+			if (taskeeEvent?.event.pubkey) taskeePubkey = taskeeEvent.event.pubkey;
 
 			const entryStatus = (entry: (typeof parsedEntries)[number]): string =>
 				entry.content.status ?? entry.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded';
@@ -291,7 +334,9 @@
 				proofUrl: item.proofUrl
 			}));
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to load contract.';
+			const message = error instanceof Error ? error.message : 'Failed to load contract.';
+			loadTimedOut = message === 'Contract load timed out';
+			errorMessage = loadTimedOut ? $t('bids.contract_load_timeout') : message;
 		} finally {
 			loading = false;
 		}
@@ -334,6 +379,8 @@
 			await walletManager.initialize({
 				skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
 			});
+			if ($walletStore.locked) await walletManager.unlock();
+			if (rune.status === 'settlement_requested') rune.status = 'approved';
 			await rune.createPayoutInvoice();
 			await loadContract(true);
 		} catch (error) {
@@ -378,8 +425,23 @@
 		reviewingPay = true;
 	}
 
-	async function confirmRelease(): Promise<void> {
+	async function handleAskReissue(): Promise<void> {
 		if (!rune) return;
+		isReleasing = true;
+		errorMessage = '';
+		try {
+			await rune.askReissue();
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to ask for a new invoice.';
+		} finally {
+			isReleasing = false;
+		}
+	}
+
+	async function confirmRelease(): Promise<void> {
+		if (!rune || !payReady) return;
+		if ($walletStore.locked) await walletManager.unlock();
 		isReleasing = true;
 		errorMessage = '';
 		try {
@@ -412,13 +474,19 @@
 		stopSubscription = subscribeContract(contractId, () => {
 			void loadContract(true);
 		});
-		void initWasm()
-			.catch((error) => {
-				console.warn('[contract] initWasm failed:', error);
-			})
-			.finally(() => {
-				void loadContract();
-			});
+		void loadContract();
+		void initWasm().catch((error) => {
+			console.warn('[contract] initWasm failed:', error);
+		});
+		const refresh = () => {
+			if (document.visibilityState === 'visible') void loadContract(true);
+		};
+		document.addEventListener('visibilitychange', refresh);
+		window.addEventListener('focus', refresh);
+		return () => {
+			document.removeEventListener('visibilitychange', refresh);
+			window.removeEventListener('focus', refresh);
+		};
 	});
 
 	onDestroy(() => {
@@ -458,6 +526,16 @@
 
 	{#if errorMessage}
 		<div class="alert alert-outline alert-error" data-testid="contract-error">{errorMessage}</div>
+		{#if !snapshot}
+			<button
+				class="btn btn-outline"
+				type="button"
+				onclick={() => loadContract()}
+				data-testid="contract-retry"
+			>
+				{$t('bids.retry')}
+			</button>
+		{/if}
 	{/if}
 	{#if loading}
 		<div class="card bg-base-100 border-base-300 border shadow-sm" role="status">
@@ -575,15 +653,43 @@
 				<div class="card-body gap-3 p-5">
 					<h2 class="text-base font-semibold">{$t('bids.pay_on_approval')}</h2>
 					<p class="text-base-content/70 text-sm">{$t('bids.release_pays')}</p>
-					{#if reviewingPay}
-						<p class="text-sm" data-testid="escrow-pay-review">
-							{lockedAmountLabel}
-							{settlementUnit}
-						</p>
+					{#if legacyRequest}
+						<p class="text-sm" data-testid="legacy-settlement">{$t('bids.legacy_settlement')}</p>
+						<button
+							class="btn btn-outline w-full"
+							onclick={handleAskReissue}
+							disabled={isReleasing}
+							data-testid="request-new-invoice"
+						>
+							{$t('bids.request_new_invoice')}
+						</button>
+					{:else if reviewingPay}
+						<div class="flex flex-col gap-1 text-sm" data-testid="escrow-pay-review">
+							<p>
+								{$t('bids.pay_review_rail')}: {snapshot.split.primaryAsset}
+							</p>
+							<p>
+								{$t('bids.pay_review_recipient')}: {taskeePubkey
+									? `${taskeePubkey.slice(0, 8)}…${taskeePubkey.slice(-4)}`
+									: $t('bids.contract_waiting')}
+							</p>
+							<p>
+								{$t('bids.pay_review_amount')}: {decodedPay?.amount ?? lockedAmountLabel}
+								{settlementUnit}
+							</p>
+							{#if decodedPay}
+								<p class="break-all">
+									{$t('bids.pay_review_invoice')}: {decodedPay.seal}
+									{#if decodedPay.expiry}
+										· {$t('wallet.invoice_expires')} {decodedPay.expiry}
+									{/if}
+								</p>
+							{/if}
+						</div>
 						<button
 							class="btn btn-success glow-soft w-full"
 							onclick={confirmRelease}
-							disabled={isReleasing}
+							disabled={isReleasing || !payReady}
 							data-testid="approve-release-funds-button"
 						>
 							{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}

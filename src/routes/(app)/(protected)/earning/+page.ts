@@ -32,5 +32,5 @@ export function load({ url }: { url: URL }) {
 		targetUrl.searchParams.set('bidStatus', parsed.bidStatus);
 	}
 
-	throw redirect(301, targetUrl.toString());
+	throw redirect(307, `${targetUrl.pathname}${targetUrl.search}`);
 }
