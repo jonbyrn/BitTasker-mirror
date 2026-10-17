@@ -474,17 +474,17 @@ function rewriteUtexoWasmUrls(): Plugin {
 				updatedCode += `
 const __btRlnNew = RlnWasmNode.newWithNodeRuntimeId.bind(RlnWasmNode);
 RlnWasmNode.newWithNodeRuntimeId = function(proxy_url, node_runtime_id, network) {
-  console.error('[wallet-diagnostic:rln-node]', { proxyUrl: proxy_url, nodeRuntimeId: node_runtime_id, network });
+  console.info('[wallet-diagnostic:rln-node]', { proxyUrl: proxy_url, nodeRuntimeId: node_runtime_id, network });
   return __btRlnNew(proxy_url, node_runtime_id, network);
 };
 const __btRlnTransport = RlnWasmSdk.prototype.setDefaultRgbProxyTransport;
 RlnWasmSdk.prototype.setDefaultRgbProxyTransport = function(endpoint, auth_token, node_id) {
-  console.error('[wallet-diagnostic:rln-transport]', { endpoint, hasAuth: Boolean(auth_token), nodeId: node_id });
+  console.info('[wallet-diagnostic:rln-transport]', { endpoint, hasAuth: Boolean(auth_token), nodeId: node_id });
   return __btRlnTransport.call(this, endpoint, auth_token, node_id);
 };
 const __btRlnInit = RlnWasmSdk.prototype.initValue;
 RlnWasmSdk.prototype.initValue = function(password, mnemonic) {
-  console.error('[wallet-diagnostic:rln-initValue]');
+  console.info('[wallet-diagnostic:rln-initValue]');
   return __btRlnInit.call(this, password, mnemonic);
 };
 const __btRlnWalletCreate = RlnWasmWallet.create.bind(RlnWasmWallet);
@@ -495,7 +495,7 @@ RlnWasmWallet.create = function(wallet_data) {
   } catch {
     data = {};
   }
-  console.error('[wallet-diagnostic:rln-wallet]', {
+  console.info('[wallet-diagnostic:rln-wallet]', {
     dataDir: data.data_dir,
     network: data.bitcoin_network,
     databaseType: data.database_type,
