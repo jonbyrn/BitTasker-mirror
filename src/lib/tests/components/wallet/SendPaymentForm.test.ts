@@ -157,6 +157,24 @@ describe('SendPaymentForm', () => {
 		expect(onSent).toHaveBeenCalledWith('txid-btc');
 	});
 
+	it('pays a Lightning USDT invoice with the entered amount and asset id', async () => {
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_ln'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: 'lntb1usdtpay' } });
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '100' } });
+		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
+
+		await waitFor(() => expect(payLightningInvoice).toHaveBeenCalledTimes(1));
+		expect(payLightningInvoice).toHaveBeenCalledWith({
+			lnInvoice: 'lntb1usdtpay',
+			assetId: 'rgb:vDU5IB7L-ZJFyqM3-5KrG84e-L0Q4kzi-eg3y0nH-JzoBylw',
+			assetAmount: 100_000_000
+		});
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
 	it('pays a Lightning invoice via walletManager.payLightningInvoice without an amount field', async () => {
 		const onSent = vi.fn();
 		const { getByTestId, queryByTestId } = render(SendPaymentForm, { props: { onSent } });

@@ -21,6 +21,7 @@
 
 import type { UTEXOWallet } from '@utexo/rgb-sdk-web';
 import { isNativeBitcoinAsset } from '$lib/types/rgb-contract';
+import { withWasm } from '$lib/stores/wallet/wasm-lock';
 import type { RgbSealBackend } from './command-queue';
 import type {
 	CommitCommandInput,
@@ -95,21 +96,35 @@ async function assertUncoloredReceive(wallet: UTEXOWallet, invoice: string): Pro
 	}
 }
 
-export async function releaseWalletMutex(wallet: UTEXOWallet): Promise<void> {
-	try {
-		await wallet.refreshWallet();
-	} catch {
-		// Mutex may still be held; the next user action can retry.
-	}
+const WALLET_BUSY = /busy with another operation/i;
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withWalletMutex<T>(wallet: UTEXOWallet, work: () => Promise<T>): Promise<T> {
-	try {
-		return await work();
-	} catch (error) {
-		await releaseWalletMutex(wallet);
-		throw error;
-	}
+/**
+ * There is no JS mutex to release. `refreshWallet()` here only adds another
+ * overlapping wasm borrow, so a failed seal call is not followed by one.
+ */
+export async function releaseWalletMutex(_wallet: UTEXOWallet): Promise<void> {
+	// No JS mutex exists. Refreshing here would borrow the wasm wallet again.
+}
+
+async function withWalletMutex<T>(_wallet: UTEXOWallet, work: () => Promise<T>): Promise<T> {
+	return withWasm('rgb-seal', async () => {
+		let last: unknown;
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			try {
+				return await work();
+			} catch (error) {
+				last = error;
+				const message = error instanceof Error ? error.message : String(error);
+				if (!WALLET_BUSY.test(message) || attempt === 2) throw error;
+				await sleep(200 * 2 ** attempt);
+			}
+		}
+		throw last instanceof Error ? last : new Error('RGB wallet is busy with another operation');
+	});
 }
 
 /** Refreshes wallet state and finds the transfer matching `recipientId`. Fail-closed: throws if absent. */

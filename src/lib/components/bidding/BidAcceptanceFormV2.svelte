@@ -41,6 +41,12 @@
 		secondaryAsset: 'usdt_rgb',
 		secondaryPercentage: 0
 	};
+	const LN_USDT_SPLIT: PaymentSplitConfig = {
+		primaryAsset: 'usdt_ln',
+		primaryPercentage: 100,
+		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 0
+	};
 
 	let {
 		bid,
@@ -65,7 +71,7 @@
 	const lockedBid = $derived(
 		bidContent ? lockBidAmount(bidContent.amount, bidContent.currency) : null
 	);
-	let fundRail = $state<'usdt_rgb' | 'btc_lightning'>('usdt_rgb');
+	let fundRail = $state<'usdt_rgb' | 'btc_lightning' | 'usdt_ln'>('usdt_rgb');
 	let nodeEmpty = $state(true);
 	const lightningSats = $derived(
 		dollarBid && lockedBid ? resolveBidSats(lockedBid.lockedAmount, 'USD', btcPrice.price) : null
@@ -101,7 +107,13 @@
 	);
 
 	const split = $derived(
-		!dollarBid ? BTC_ONLY_SPLIT : fundRail === 'btc_lightning' ? LIGHTNING_SPLIT : USDT_SPLIT
+		!dollarBid
+			? BTC_ONLY_SPLIT
+			: fundRail === 'btc_lightning'
+				? LIGHTNING_SPLIT
+				: fundRail === 'usdt_ln'
+					? LN_USDT_SPLIT
+					: USDT_SPLIT
 	);
 	const settlementUnit = $derived(CONTRACT_PAYMENT_ASSETS[split.primaryAsset]);
 
@@ -511,6 +523,17 @@
 							data-testid="fund-rail-lightning"
 						/>
 						{$t('dashboard.bids.bid_acceptance.fund_rail_lightning')}
+					</label>
+					<label class="flex items-center gap-2 text-sm">
+						<input
+							type="radio"
+							name="fund-rail"
+							class="radio radio-sm"
+							bind:group={fundRail}
+							value="usdt_ln"
+							data-testid="fund-rail-usdt-ln"
+						/>
+						{$t('dashboard.bids.bid_acceptance.fund_rail_usdt_ln')}
 					</label>
 					{#if fundRail === 'btc_lightning'}
 						<p class="text-base-content/70 text-xs" data-testid="lightning-sats">
