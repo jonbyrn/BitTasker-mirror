@@ -147,8 +147,9 @@ export const walletManager = {
 	},
 
 	async createLightningInvoice(params: {
-		amountSats: number;
+		amountSats?: number;
 		expirySeconds?: number;
+		asset?: { assetId: string; amount: number };
 	}): Promise<{ lnInvoice: string; requestId?: string }> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
@@ -165,6 +166,8 @@ export const walletManager = {
 
 	async payLightningInvoice(params: {
 		lnInvoice: string;
+		assetId?: string;
+		assetAmount?: number;
 	}): Promise<{ txid: string; status: string; paymentHash?: string; preimage?: string }> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
