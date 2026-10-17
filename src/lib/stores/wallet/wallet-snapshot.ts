@@ -1,5 +1,11 @@
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import {
+	IndexedDbTimeoutError,
+	idbRequest,
+	openIndexedDb,
+	withIndexedDb
+} from '$lib/utils/helpers/indexed-db-open';
 import { walletStore } from './wallet-state';
 import type { RgbAsset, Transaction } from './wallet-types';
 
@@ -20,41 +26,51 @@ function userKey(): string {
 }
 
 function openDb(): Promise<IDBDatabase> {
-	return new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB_NAME, 1);
-		request.onupgradeneeded = () => {
-			if (!request.result.objectStoreNames.contains(STORE)) {
-				request.result.createObjectStore(STORE);
-			}
-		};
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error ?? new Error('snapshot db failed'));
+	return openIndexedDb(DB_NAME, 1, (db) => {
+		if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
 	});
 }
 
 export async function saveWalletSnapshot(snapshot: WalletSnapshot, key = userKey()): Promise<void> {
 	if (typeof indexedDB === 'undefined') return;
-	const db = await openDb();
-	await new Promise<void>((resolve, reject) => {
-		const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(snapshot, key);
-		request.onsuccess = () => resolve();
-		request.onerror = () => reject(request.error ?? new Error('snapshot write failed'));
-	});
+	await withIndexedDb(openDb(), (db) =>
+		idbRequest(
+			db.transaction(STORE, 'readwrite').objectStore(STORE).put(snapshot, key),
+			'snapshot write'
+		).then(() => undefined)
+	);
 }
 
 export async function readWalletSnapshot(key = userKey()): Promise<WalletSnapshot | null> {
 	if (typeof indexedDB === 'undefined') return null;
-	const db = await openDb();
-	return new Promise((resolve, reject) => {
-		const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
-		request.onsuccess = () => resolve((request.result as WalletSnapshot | undefined) ?? null);
-		request.onerror = () => reject(request.error ?? new Error('snapshot read failed'));
+	return withIndexedDb(openDb(), async (db) => {
+		const result = await idbRequest<WalletSnapshot | undefined>(
+			db.transaction(STORE, 'readonly').objectStore(STORE).get(key),
+			'snapshot read'
+		);
+		return result ?? null;
 	});
 }
 
 /** Show the last good balances while the wallet is locked or still syncing. */
 export async function hydrateWalletSnapshot(): Promise<void> {
-	const saved = await readWalletSnapshot().catch(() => null);
+	let saved: WalletSnapshot | null = null;
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		try {
+			saved = await readWalletSnapshot();
+			break;
+		} catch (error) {
+			const timedOut = error instanceof IndexedDbTimeoutError;
+			if (!timedOut || attempt === 1) {
+				console.warn(
+					'[wallet-init] snapshot skipped',
+					error instanceof Error ? error.message : String(error)
+				);
+				return;
+			}
+			console.warn('[wallet-init] snapshot timed out, retrying');
+		}
+	}
 	if (!saved) return;
 	walletStore.update((current) => ({
 		...current,

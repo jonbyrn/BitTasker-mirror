@@ -19,11 +19,12 @@
 		decodeRgbInvoice,
 		type DecodedRgbInvoice
 	} from '$lib/stores/wallet/decode-rgb-invoice';
-	import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
+	import { FAUCET_IFA_ASSET, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
+	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 
-	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
+	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
 	let {
 		initialAsset = 'btc_onchain',
@@ -68,6 +69,11 @@
 			id: 'usdt_rgb',
 			labelKey: 'wallet.taproot.tether_usd',
 			placeholder: 'rgb:~/~/nWca/sb:utxob:...'
+		},
+		{
+			id: 'usdt_ln',
+			labelKey: 'wallet.lightning_usdt_balance',
+			placeholder: 'lnbc... or rgb:...'
 		}
 	];
 
@@ -80,7 +86,7 @@
 	const amountSats = $derived.by(() => {
 		const parsed = Number(amountInput);
 		if (!Number.isFinite(parsed) || parsed <= 0) return null;
-		if (asset === 'usdt_rgb') return parsed;
+		if (asset === 'usdt_rgb' || asset === 'usdt_ln') return parsed;
 		if (unit === 'usd') {
 			if (btcPrice.price <= 0) return null;
 			return Math.round((parsed / btcPrice.price) * 100_000_000);
@@ -128,6 +134,7 @@
 	const hasInsufficientBalance = $derived.by(() => {
 		if (amountSats === null) return false;
 		if (asset === 'usdt_rgb') return belowSpendable;
+		if (asset === 'usdt_ln') return false;
 		return amountSats > walletSats;
 	});
 
@@ -136,6 +143,9 @@
 		if (!value) return false;
 		if (asset === 'btc_onchain') return /^(bc1|tb1|bcrt1)[a-z0-9]{10,}$/i.test(value);
 		if (asset === 'btc_lightning') return value.toLowerCase().startsWith('ln');
+		if (asset === 'usdt_ln') {
+			return value.toLowerCase().startsWith('ln') || value.startsWith('rgb:');
+		}
 		if (!value.startsWith('rgb:')) return false;
 		return decodedInvoice !== null && decodedInvoice.amount !== 0;
 	});
@@ -152,6 +162,7 @@
 	const canSubmit = $derived.by(() => {
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
+		if (asset === 'usdt_ln') return destinationValid && amountSats !== null && amountSats > 0;
 		if (asset === 'usdt_rgb') {
 			if (spendableUnits === null) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
@@ -225,6 +236,7 @@
 
 	function applyInvoice(value: string): void {
 		if (!value.startsWith('rgb:')) return;
+		if (asset === 'usdt_ln') return;
 		picked = 'usdt_rgb';
 		sentTxid = '';
 		try {
@@ -299,6 +311,20 @@
 					lnInvoice: destination.trim()
 				});
 				txid = result.txid;
+			} else if (asset === 'usdt_ln') {
+				if (amountSats === null || amountSats <= 0) throw new Error('USDT amount is zero');
+				const units = usdtBaseUnits(amountSats, usdtScale);
+				const dest = destination.trim();
+				if (dest.toLowerCase().startsWith('ln')) {
+					const result = await walletManager.payLightningInvoice({
+						lnInvoice: dest,
+						assetId: ESCROW_LNUSDT,
+						assetAmount: units
+					});
+					txid = result.txid;
+				} else {
+					txid = await payEscrowLightning(dest, ESCROW_LNUSDT, units);
+				}
 			} else if (asset === 'usdt_rgb') {
 				if (rgbAmount === null || rgbAmount <= 0) throw new Error('RGB invoice amount is zero');
 				if (spendableUnits === null || !sendEnabled(spendableUnits, rgbAmount)) {

@@ -1,4 +1,11 @@
 import { writable } from 'svelte/store';
+import {
+	gatewaySocketsCapped,
+	installGatewayGuard,
+	resetGatewayGuardForTests
+} from './gateway-guard';
+import type { LightningFailure } from './lightning-status';
+import { isWasmPanic, wasmBusy, withWasm, wasmCrashed } from './wasm-lock';
 
 /** Funded RGB wallet. LSP discovery must not run on this fingerprint. */
 export const FROZEN_RGB_FINGERPRINT = '1e192df5';
@@ -17,8 +24,19 @@ export const FAUCET_IFA_ASSET = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Al
  * The SDK `getInfo()` drops that list, and UtexoLsp has no `listPayableAssets`.
  */
 export const SIGNET_USDT_ASSET = 'rgb:vDU5IB7L-ZJFyqM3-5KrG84e-L0Q4kzi-eg3y0nH-JzoBylw';
-/** Sandbox channel wait. Run only after the on-chain inbound settles. */
+/** Sandbox channel wait. The LSP cron opens the channel; this only polls. */
 export const SIGNET_CHANNEL_WAIT_MS = 30 * 60 * 1000;
+/**
+ * Shared by waitForChannel and awaitReceiveSettlement.
+ * The SDK default is 2s, which overlaps syncWallet. The hosted LSP opens
+ * channels about every 30s, so 15s is enough and keeps one poller off the wasm lock.
+ */
+export const SIGNET_CHANNEL_POLL_MS = 15_000;
+/** Sandbox MERCHANT_KEEPALIVE_MS. The LSP only auto-opens for a connected peer. */
+export const SIGNET_KEEPALIVE_MS = 15_000;
+/** Stop reconnecting after this many failed handshakes. The gap doubles each time. */
+export const SIGNET_KEEPALIVE_CAP = 4;
+const SIGNET_KEEPALIVE_MAX_MS = 120_000;
 /** LSP `min_payment_size_msat` is 3_000_000. This is that minimum in sats. */
 export const SIGNET_INBOUND_SATS = 3_000;
 export const SIGNET_INBOUND_RGB = 1111;
@@ -40,11 +58,22 @@ export interface LspPeerInfo {
 	peerPort: number;
 }
 
+interface NodeStop {
+	reconnectManagerStopValue?: () => unknown;
+	closeAllPeers?: () => Promise<void> | void;
+	disconnectPeer?: (pubkey: string) => Promise<void> | void;
+}
+
 interface LspWallet {
 	getLspConfig?: () => { baseUrl: string | null; bearerToken: string | null };
 	createLsp?: () => Promise<unknown>;
+	getLightningNode?: () => unknown;
+	disconnectPeer?: (pubkey: string) => Promise<void> | void;
 	_manager?: {
-		rlnBinding?: { walletData?: { master_fingerprint?: unknown } };
+		rlnBinding?: {
+			walletData?: { master_fingerprint?: unknown };
+			nodeHandle?: NodeStop;
+		};
 	};
 }
 
@@ -120,7 +149,12 @@ interface InboundResult {
 interface ChannelWait {
 	(
 		assetId: string,
-		opts?: { timeoutMs?: number; onProgress?: (message: string) => void }
+		opts?: {
+			timeoutMs?: number;
+			pollIntervalMs?: number;
+			signal?: AbortSignal;
+			onProgress?: (message: string) => void;
+		}
 	): Promise<unknown>;
 }
 
@@ -131,9 +165,13 @@ interface ActiveLightning {
 	lnInvoice: string;
 	rgbInvoice: string;
 	connect?: () => Promise<void>;
+	listPeers?: () => Promise<unknown>;
 	waitForChannel?: ChannelWait;
 	receiveAsset?: (opts: InboundReceive) => Promise<InboundResult>;
-	awaitReceiveSettlement?: (lnInvoice: string, opts?: { timeoutMs?: number }) => Promise<unknown>;
+	awaitReceiveSettlement?: (
+		lnInvoice: string,
+		opts?: { timeoutMs?: number; pollIntervalMs?: number }
+	) => Promise<unknown>;
 	sendAsset: (opts: LightningPay) => Promise<unknown>;
 }
 
@@ -142,7 +180,8 @@ export const lightningStore = writable({
 	peerHost: '',
 	channel: 'idle' as 'idle' | 'waiting' | 'open' | 'missing',
 	lnInvoice: '',
-	rgbInvoice: ''
+	rgbInvoice: '',
+	failure: '' as LightningFailure
 });
 
 export function lspChannelOpen(): boolean {
@@ -158,7 +197,8 @@ export function clearLightningWallet(): void {
 		peerHost: '',
 		channel: 'idle',
 		lnInvoice: '',
-		rgbInvoice: ''
+		rgbInvoice: '',
+		failure: ''
 	});
 }
 
@@ -200,6 +240,8 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		clearLightningWallet();
 		return;
 	}
+	const wallet = (lsp as { wallet?: { listPeers?: unknown } }).wallet;
+	const listPeers = bound<() => Promise<unknown>>(wallet?.listPeers, wallet ?? lsp);
 	activeLightning = {
 		peer,
 		channelReady: false,
@@ -207,6 +249,7 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		lnInvoice: '',
 		rgbInvoice: '',
 		sendAsset: boundClient.sendAsset,
+		...(listPeers ? { listPeers } : {}),
 		...(boundClient.connect ? { connect: boundClient.connect } : {}),
 		...(boundClient.waitForChannel ? { waitForChannel: boundClient.waitForChannel } : {}),
 		...(boundClient.receiveAsset ? { receiveAsset: boundClient.receiveAsset } : {}),
@@ -219,7 +262,8 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		peerHost: peer.peerHost,
 		channel: 'idle',
 		lnInvoice: '',
-		rgbInvoice: ''
+		rgbInvoice: '',
+		failure: ''
 	});
 }
 
@@ -247,10 +291,12 @@ export async function payEscrowLightning(
 		amount,
 		peerHost: lsp.peer.peerHost
 	});
-	const paid = await lsp.sendAsset({
-		rgbInvoice,
-		ln: { amtMsat: MIN_PAY_MSAT, expirySec: LN_EXPIRY_SEC, assetId, assetAmount: amount }
-	});
+	const paid = await withWasm('lsp-send', () =>
+		lsp.sendAsset({
+			rgbInvoice,
+			ln: { amtMsat: MIN_PAY_MSAT, expirySec: LN_EXPIRY_SEC, assetId, assetAmount: amount }
+		})
+	);
 	return paymentId(paid);
 }
 
@@ -262,17 +308,56 @@ function paymentId(paid: unknown): string {
 	return '';
 }
 
-async function connectStoredLsp(): Promise<void> {
+/** True when listPeers already shows this LSP. Missing listPeers means "unknown". */
+export function peerListedConnected(peers: unknown, pubkey: string): boolean {
+	if (!Array.isArray(peers) || !pubkey) return false;
+	return peers.some((row) => {
+		if (typeof row !== 'object' || row === null) return false;
+		const peer = row as { pubkey?: unknown; isConnected?: unknown };
+		if (typeof peer.pubkey !== 'string' || peer.pubkey.toLowerCase() !== pubkey.toLowerCase()) {
+			return false;
+		}
+		return peer.isConnected !== false;
+	});
+}
+
+async function peerAlreadyConnected(): Promise<boolean> {
 	const lsp = activeLightning;
-	if (!lsp?.connect || refusedBotPeer(lsp.peer)) return;
+	const listPeers = lsp?.listPeers;
+	const pubkey = lsp?.peer.peerPubkey ?? '';
+	if (typeof listPeers !== 'function' || !pubkey) return false;
+	try {
+		return peerListedConnected(await listPeers(), pubkey);
+	} catch (error: unknown) {
+		if (isWasmPanic(error)) throw error;
+		console.warn(
+			'[wallet-lsp] listPeers failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return false;
+	}
+}
+
+async function connectStoredLsp(): Promise<boolean> {
+	const lsp = activeLightning;
+	if (!lightningAttachConfirmed || lspHalted || wasmCrashed()) return false;
+	if (!lsp?.connect || refusedBotPeer(lsp.peer)) return false;
+	if (connectPeerUsed || connectInFlight || gatewaySocketsCapped()) return false;
+	connectPeerUsed = true;
+	connectInFlight = true;
+	installLightningGuard();
 	try {
 		await lsp.connect();
 		console.info('[wallet-lsp] connected', { peerHost: lsp.peer.peerHost });
+		return true;
 	} catch (error: unknown) {
 		console.warn(
 			'[wallet-lsp] connect failed',
 			error instanceof Error ? error.message : String(error)
 		);
+		return false;
+	} finally {
+		connectInFlight = false;
 	}
 }
 
@@ -287,14 +372,13 @@ async function readLspAssets(): Promise<string[]> {
 async function ensureLspAsset(): Promise<string | null> {
 	const lsp = activeLightning;
 	if (!lsp || refusedBotPeer(lsp.peer)) return null;
-	if (lsp.assetId) return lsp.assetId;
-	const [assetId] = await readLspAssets();
-	if (!assetId) {
-		console.warn('[wallet-lsp] no payable asset');
+	const ids = await readLspAssets();
+	if (!ids.includes(SIGNET_USDT_ASSET)) {
+		console.warn('[wallet-lsp] signet USDT not in supported_assets', { assetIds: ids });
 		return null;
 	}
-	lsp.assetId = assetId;
-	return assetId;
+	lsp.assetId = SIGNET_USDT_ASSET;
+	return SIGNET_USDT_ASSET;
 }
 
 /** Remember invoices already returned by receiveAsset. Does not mint another. */
@@ -355,46 +439,275 @@ export async function requestLspInbound(): Promise<string> {
 	}
 }
 
-async function watchLspSettlement(lnInvoice: string): Promise<void> {
-	const lsp = activeLightning;
-	if (!lsp?.awaitReceiveSettlement || refusedBotPeer(lsp.peer)) return;
-	const outcome = await lsp.awaitReceiveSettlement(lnInvoice, {
-		timeoutMs: SIGNET_CHANNEL_WAIT_MS
-	});
-	if (outcome !== 'settled') {
-		console.info('[wallet-lsp] inbound pending', { outcome: String(outcome) });
-		return;
-	}
-	await waitSignetChannel();
+let lspHalted = false;
+let pollChain: Promise<void> = Promise.resolve();
+let channelWait: Promise<void> | null = null;
+let channelAbort: AbortController | null = null;
+let keepaliveTimer: ReturnType<typeof setTimeout> | null = null;
+let connectInFlight = false;
+let connectPeerUsed = false;
+let lightningAttachConfirmed = false;
+let peerWallet: LspWallet | null = null;
+let keepaliveFailures = 0;
+let keepaliveDelay = SIGNET_KEEPALIVE_MS;
+
+/** Wallet init calls this only after attachLightningNode returns. */
+export function confirmLightningAttached(): void {
+	lightningAttachConfirmed = true;
 }
 
-/** Poll until the Signet LSP has a usable USDT channel. Does not send. */
-export async function waitSignetChannel(): Promise<void> {
+/** Remember the wallet so a socket cap can disconnect the peer once wasm is idle. */
+export function watchLightningPeer(wallet: LspWallet): void {
+	peerWallet = wallet;
+}
+
+function schedulePeerRelease(): void {
+	const wallet = peerWallet;
+	const pubkey = activeLightning?.peer.peerPubkey ?? '';
+	let tries = 0;
+	const run = () => {
+		if (!wallet || !pubkey || tries >= 20) return;
+		tries += 1;
+		if (wasmBusy()) {
+			setTimeout(run, 50);
+			return;
+		}
+		void releaseLightningPeer(wallet, pubkey);
+	};
+	setTimeout(run, 0);
+}
+
+async function releaseLightningPeer(wallet: LspWallet, pubkey: string): Promise<void> {
+	const handle = wallet._manager?.rlnBinding?.nodeHandle;
+	try {
+		handle?.reconnectManagerStopValue?.();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] reconnect stop failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	try {
+		if (typeof wallet.disconnectPeer === 'function') await wallet.disconnectPeer(pubkey);
+		else await handle?.disconnectPeer?.(pubkey);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] disconnectPeer failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	try {
+		await handle?.closeAllPeers?.();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] close peers failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
+function onGatewayCap(): void {
+	lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+	stopLspPolling();
+	schedulePeerRelease();
+}
+
+/** Cap gateway sockets before any connectPeer. Logs for that storm collapse. */
+export function installLightningGuard(): void {
+	installGatewayGuard(onGatewayCap);
+}
+
+function stopKeepalive(): void {
+	if (keepaliveTimer === null) return;
+	clearTimeout(keepaliveTimer);
+	keepaliveTimer = null;
+}
+
+function resetKeepaliveState(): void {
+	connectInFlight = false;
+	keepaliveFailures = 0;
+	keepaliveDelay = SIGNET_KEEPALIVE_MS;
+}
+
+function scheduleKeepalive(): void {
+	stopKeepalive();
+	if (lspHalted || wasmCrashed()) return;
+	keepaliveTimer = setTimeout(() => {
+		keepaliveTimer = null;
+		void runKeepalive();
+	}, keepaliveDelay);
+}
+
+/** One connect at a time. Failures back off, then stop. A dropped node is not retried. */
+function startKeepalive(): void {
+	stopKeepalive();
+	keepaliveFailures = 0;
+	keepaliveDelay = SIGNET_KEEPALIVE_MS;
+	scheduleKeepalive();
+}
+
+async function runKeepalive(): Promise<void> {
+	if (lspHalted || wasmCrashed()) {
+		stopKeepalive();
+		return;
+	}
+	if (connectInFlight) {
+		scheduleKeepalive();
+		return;
+	}
+	if (connectPeerUsed) {
+		const stillUp = await withWasm('lsp-keepalive', async () => {
+			if (lspHalted || wasmCrashed()) return false;
+			if (!activeLightning?.listPeers) return true;
+			return peerAlreadyConnected();
+		}).catch(() => false);
+		if (lspHalted || wasmCrashed()) return;
+		if (stillUp && !gatewaySocketsCapped()) {
+			keepaliveFailures = 0;
+			keepaliveDelay = SIGNET_KEEPALIVE_MS;
+			scheduleKeepalive();
+			return;
+		}
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+		stopLspPolling();
+		return;
+	}
+	let ok = false;
+	try {
+		ok = await withWasm('lsp-keepalive', async () => {
+			if (lspHalted || wasmCrashed()) return false;
+			if (await peerAlreadyConnected()) return true;
+			return connectStoredLsp();
+		});
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] keepalive failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		ok = false;
+	}
+	if (lspHalted || wasmCrashed()) return;
+	if (ok) {
+		keepaliveFailures = 0;
+		keepaliveDelay = SIGNET_KEEPALIVE_MS;
+		scheduleKeepalive();
+		return;
+	}
+	keepaliveFailures += 1;
+	keepaliveDelay = Math.min(
+		SIGNET_KEEPALIVE_MAX_MS,
+		SIGNET_KEEPALIVE_MS * 2 ** (keepaliveFailures - 1)
+	);
+	console.warn('[wallet-lsp] keepalive backoff', {
+		failures: keepaliveFailures,
+		delayMs: keepaliveDelay
+	});
+	if (keepaliveFailures >= SIGNET_KEEPALIVE_CAP) {
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+		stopLspPolling();
+		return;
+	}
+	scheduleKeepalive();
+}
+
+/** Stop LSP polling after a wasm panic. In-flight SDK calls are not reused. */
+export function stopLspPolling(): void {
+	lspHalted = true;
+	channelAbort?.abort();
+	channelAbort = null;
+	channelWait = null;
+	stopKeepalive();
+}
+
+/** Drops the poll chain between unit tests. */
+export function resetSignetLspForTests(): void {
+	stopKeepalive();
+	resetKeepaliveState();
+	channelAbort?.abort();
+	channelAbort = null;
+	lspHalted = false;
+	connectPeerUsed = false;
+	lightningAttachConfirmed = false;
+	peerWallet = null;
+	pollChain = Promise.resolve();
+	channelWait = null;
+	resetGatewayGuardForTests();
+	clearLightningWallet();
+}
+
+function enqueuePoll(run: () => Promise<void>): Promise<void> {
+	if (lspHalted) return Promise.resolve();
+	const next = pollChain.then(run, run);
+	pollChain = next.then(
+		() => undefined,
+		() => undefined
+	);
+	return next;
+}
+
+async function watchLspSettlement(lnInvoice: string): Promise<void> {
+	await enqueuePoll(async () => {
+		const lsp = activeLightning;
+		if (lspHalted || !lsp?.awaitReceiveSettlement || refusedBotPeer(lsp.peer)) return;
+		const outcome = await lsp.awaitReceiveSettlement(lnInvoice, {
+			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+			pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+		});
+		if (outcome !== 'settled') {
+			console.info('[wallet-lsp] inbound pending', { outcome: String(outcome) });
+		}
+	});
+}
+
+async function pollSignetChannel(): Promise<void> {
 	const lsp = activeLightning;
-	if (!lsp?.waitForChannel || refusedBotPeer(lsp.peer)) return;
+	if (lspHalted || !lsp?.waitForChannel || refusedBotPeer(lsp.peer)) return;
 	const assetId = await ensureLspAsset();
-	if (!assetId) return;
-	lightningStore.update((row) => ({ ...row, channel: 'waiting' }));
+	if (!assetId || lspHalted) return;
+	if (wasmCrashed()) return;
+	lightningStore.update((row) => ({ ...row, channel: 'waiting', failure: '' }));
+	channelAbort?.abort();
+	channelAbort = new AbortController();
+	const signal = channelAbort.signal;
 	try {
 		const info = await lsp.waitForChannel(assetId, {
 			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+			pollIntervalMs: SIGNET_CHANNEL_POLL_MS,
+			signal,
 			onProgress: (message) => console.info('[wallet-lsp] waitForChannel', message)
 		});
+		if (lspHalted) return;
 		lsp.channelReady = true;
-		lightningStore.update((row) => ({ ...row, ready: true, channel: 'open' }));
+		lightningStore.update((row) => ({ ...row, ready: true, channel: 'open', failure: '' }));
 		console.info('[wallet-lsp] channel', info);
 	} catch (error: unknown) {
+		if (lspHalted) return;
 		lsp.channelReady = false;
-		lightningStore.update((row) => ({ ...row, ready: false, channel: 'missing' }));
+		lightningStore.update((row) => ({
+			...row,
+			ready: false,
+			channel: 'missing',
+			failure: 'channel'
+		}));
 		console.warn('[wallet-lsp] no channel', error instanceof Error ? error.message : String(error));
 	}
+}
+
+/** Poll until the Signet LSP has a usable USDT channel. Does not open or fund one. */
+export function waitSignetChannel(): Promise<void> {
+	if (lspHalted) return Promise.resolve();
+	if (channelWait) return channelWait;
+	channelWait = enqueuePoll(pollSignetChannel).finally(() => {
+		channelWait = null;
+	});
+	return channelWait;
 }
 
 /**
  * GET /get_info via createLsp() with no peer. beta.12 createLsp calls
  * getNetwork(), which throws until init(), so this runs after unlock.
- * Then lsp.connect(). Does not call connectPeer, openChannel, or waitForChannel.
- * A channel wait waits until receiveAsset has an on-chain payer. Pay refuses the old receiver.
+ * Then lsp.connect(). The LSP cron opens the channel; this client does not.
+ * Does not call openChannel, failTransfers, or a client-funded channel open.
  */
 export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 	const fingerprint = walletFingerprint(wallet);
@@ -405,6 +718,7 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 	}
 	if (typeof wallet.createLsp !== 'function') {
 		clearLightningWallet();
+		lightningStore.update((row) => ({ ...row, failure: 'attach' }));
 		console.warn('[wallet-lsp] createLsp missing');
 		return;
 	}
@@ -415,23 +729,32 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 		const peer = lspPeer(lsp);
 		if (!peer) {
 			clearLightningWallet();
+			lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 			console.info('[wallet-lsp] get_info', { peer: null });
 			return;
 		}
 		if (refusedBotPeer(peer)) {
 			clearLightningWallet();
+			lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 			console.warn('[wallet-lsp] refused bot peer', {
 				peerHost: peer.peerHost,
 				peerPort: peer.peerPort
 			});
 			return;
 		}
+		watchLightningPeer(wallet);
 		rememberLightning(lsp, peer);
 		console.info('[wallet-lsp] get_info', peer);
-		await connectStoredLsp();
-		await requestLspInbound();
+		const connected = await connectStoredLsp();
+		if (!connected || gatewaySocketsCapped()) {
+			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'connect' }));
+			return;
+		}
+		startKeepalive();
+		void waitSignetChannel();
 	} catch (error: unknown) {
 		clearLightningWallet();
+		lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 		console.warn(
 			'[wallet-lsp] get_info failed',
 			error instanceof Error ? error.message : String(error)

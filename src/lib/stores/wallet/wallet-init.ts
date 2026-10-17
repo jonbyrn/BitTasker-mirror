@@ -25,16 +25,45 @@ import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
-import { discoverSignetLsp, signetLspParams } from './signet-lsp';
+import { chainSyncPlan } from './chain-sync';
+import {
+	confirmLightningAttached,
+	discoverSignetLsp,
+	installLightningGuard,
+	lightningStore,
+	signetLspParams,
+	stopLspPolling,
+	watchLightningPeer
+} from './signet-lsp';
+import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
+import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
+import {
+	WASM_CRASH_MESSAGE,
+	installWasmPanicListener,
+	isWasmPanic,
+	lockedWallet,
+	markWasmCrashed,
+	onWasmCrash,
+	wasmBusy,
+	wasmCrashed,
+	withWasm
+} from './wasm-lock';
 
 const initSlot: { current: Promise<void> | null } = { current: null };
+/** wallet.init() has run. A second call on this page overlaps a live or dead instance. */
+let initInvoked = false;
+let nodeChainSyncStarted = false;
+let panicHooksReady = false;
+let tabClaim: WalletTabClaim | null = null;
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
+/** Shown when the session store never answers. The wallet page already translates this string. */
+export const WALLET_INIT_TIMEOUT = 'Wallet init timed out';
 
 // Helper functions
 async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
@@ -61,6 +90,11 @@ async function waitForWasmGlobals(): Promise<void> {
 	if (!browser) return;
 	await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
+
+type LightningRuntime = UTEXOWallet & {
+	attachLightningNode?: () => void | Promise<void>;
+	startNodeChainSync?: (indexerUrl?: string, pollMs?: number) => void | Promise<void>;
+};
 
 type ProbeWindow = WalletProbeWindow & {
 	__utexoWallet?: UTEXOWallet | null;
@@ -117,8 +151,27 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	const network = 'utexo' as const;
 
 	try {
+		const tab = await claimWalletTab(
+			typeof navigator === 'undefined' || !navigator.locks
+				? null
+				: (navigator.locks as unknown as Parameters<typeof claimWalletTab>[0])
+		);
+		if (!tab) {
+			walletStore.update((current) => ({
+				...current,
+				isInitializing: false,
+				syncing: false,
+				locked: false,
+				error: WALLET_TAB_BUSY
+			}));
+			lightningStore.update((row) => ({ ...row, ready: false, failure: 'tab' }));
+			console.warn('[wallet-init] wallet tab lock busy');
+			throw new Error(WALLET_TAB_BUSY);
+		}
+		tabClaim = tab;
 		await initWasm();
 		installEsploraRetryFetch();
+		armWasmPanicHooks();
 
 		// Import UTEXOWallet directly for explicit 3-phase lifecycle
 		const { UTEXOWallet, getRlnUrls } = await import('@utexo/rgb-sdk-web');
@@ -142,34 +195,37 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 		const databasePresent = await rgbDatabasePresent();
 		const lsp = signetLspParams(null);
-		const wallet = new UTEXOWallet(
-			rgbWalletConfig({
-				mnemonic,
-				password,
-				indexerUrl: lsp.indexerUrl,
-				transportEndpoint: lsp.transportEndpoint,
-				proxyUrl: lsp.proxyUrl,
-				relayAuthToken: urls.relayAuthToken,
-				relayNodeId: urls.relayNodeId,
-				enableVirtualChannels: lsp.enableVirtualChannels,
-				lspBaseUrl: lsp.lspBaseUrl,
-				...(e2eReset ? { dataDir: taskerDataDir } : {})
-			})
+		const wallet = lockedWallet(
+			new UTEXOWallet(
+				rgbWalletConfig({
+					mnemonic,
+					password,
+					indexerUrl: lsp.indexerUrl,
+					transportEndpoint: lsp.transportEndpoint,
+					proxyUrl: lsp.proxyUrl,
+					relayAuthToken: urls.relayAuthToken,
+					relayNodeId: urls.relayNodeId,
+					enableVirtualChannels: lsp.enableVirtualChannels,
+					lspBaseUrl: lsp.lspBaseUrl,
+					...(e2eReset ? { dataDir: taskerDataDir } : {})
+				})
+			)
 		);
 
 		console.info('[wallet-init] start');
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
+		initInvoked = true;
 		try {
-			await probeWalletInit(wallet);
+			await withWasm('init', () => probeWalletInit(wallet));
 			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
-			await wallet.unlock();
+			await withWasm('unlock', () => wallet.unlock());
 		} catch (connectError) {
 			console.warn('[wallet-init] RLN handshake failed:', connectError);
 			throw connectError;
 		}
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
-		await restoreOnUnlock(wallet, databasePresent);
+		await withWasm('restore', () => restoreOnUnlock(wallet, databasePresent));
 
 		state.utexoWallet = wallet;
 		installPersistHooks();
@@ -185,57 +241,152 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			error: null
 		}));
 
+		let scanFailed = false;
+		await withWasm('on-chain-setup', async () => {
+			await wallet.refreshWallet();
+			try {
+				await scanAndUpdateBalances(wallet, network);
+			} catch (scanError) {
+				scanFailed = true;
+				console.warn('[wallet-init] balance scan deferred:', scanError);
+			}
+			try {
+				await ensureRgbAllocations(wallet);
+			} catch (error: unknown) {
+				console.warn('[wallet-init] RGB allocation setup skipped', error);
+			}
+		});
+		let lightningAttached = false;
 		try {
-			await scanAndUpdateBalances(wallet, network);
-			markWalletReady();
-		} catch (scanError) {
-			console.warn('[wallet-init] balance scan deferred:', scanError);
-			void retryScan(wallet, network);
+			console.info('[wallet-init] attachLightningNode');
+			await attachLightning(wallet);
+			console.info('[wallet-init] startNodeChainSync');
+			await startNodeChainSync(wallet);
+			lightningAttached = true;
+			console.info('[wallet-init] lightning node attached');
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-init] lightning attach failed',
+				error instanceof Error ? error.message : String(error)
+			);
+			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'attach' }));
 		}
-
-		void finishUnlock(wallet, skipLsp);
+		if (scanFailed) void retryScan(wallet, network);
+		else markWalletReady();
+		await loadTransactions().catch((error: unknown) => {
+			console.warn('[wallet-init] transaction load skipped', error);
+		});
+		if (!skipLsp && lightningAttached && !wasmCrashed()) {
+			confirmLightningAttached();
+			watchLightningPeer(wallet);
+			setTimeout(() => {
+				if (wasmCrashed()) return;
+				installLightningGuard();
+				void discoverSignetLsp(wallet).catch((error: unknown) => {
+					console.warn('[wallet-init] LSP discovery skipped', error);
+				});
+			}, 0);
+		} else if (!lightningAttached) {
+			console.warn('[wallet-init] LSP discovery skipped after attach failure');
+		}
+		scheduleRgbRefresh(wallet);
 		startConsignmentSubscription();
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
+		if (isWasmPanic(err)) markWasmCrashed();
+		if (!initInvoked && !wasmCrashed()) {
+			tabClaim?.release();
+			tabClaim = null;
+		}
 		walletStore.update((s) => ({
 			...s,
 			isInitializing: false,
-			rgb: { ...s.rgb, initialized: false, error: 'Init failed' }
+			syncing: false,
+			error: initInvoked || wasmCrashed() ? WASM_CRASH_MESSAGE : s.error,
+			rgb: {
+				...s.rgb,
+				initialized: false,
+				error: initInvoked || wasmCrashed() ? WASM_CRASH_MESSAGE : 'Init failed'
+			}
 		}));
 		throw err;
 	}
 }
 
-// tryIndexers removed — wallet creation now uses hardcoded testnet config directly in initializeRgbWallet
+function armWasmPanicHooks(): void {
+	installWasmPanicListener();
+	if (panicHooksReady) return;
+	panicHooksReady = true;
+	onWasmCrash(() => {
+		clearRefreshTimers();
+		stopContractRefresh();
+		stopLspPolling();
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'attach' }));
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			syncing: false,
+			error: WASM_CRASH_MESSAGE
+		}));
+	});
+}
 
-async function finishUnlock(wallet: UTEXOWallet, skipLsp: boolean): Promise<void> {
-	const started = Date.now();
-	const step = async (run: () => Promise<unknown>): Promise<void> => {
-		if (Date.now() - started > 45_000) return;
-		await Promise.race([
-			run().then(() => undefined),
-			new Promise<void>((resolve) => setTimeout(resolve, 15_000))
-		]);
-	};
-	await step(() => wallet.refreshWallet());
-	await step(() => loadAssets({ pull: true }));
-	await step(() => loadTransactions());
-	scheduleRgbRefresh(wallet);
-	if (!skipLsp) {
-		discoverSignetLsp(wallet).catch((error: unknown) => {
-			console.warn('[wallet-init] LSP discovery skipped', error);
-		});
+async function attachLightning(wallet: LightningRuntime): Promise<void> {
+	if (typeof wallet.attachLightningNode !== 'function') {
+		throw new Error('Lightning node attach is missing');
 	}
-	ensureRgbAllocations(wallet).catch((error: unknown) => {
-		console.warn('[wallet-init] RGB allocation setup skipped', error);
+	await wallet.attachLightningNode();
+}
+
+interface ChainSyncBinding {
+	startNodeChainSync?: (indexerUrl?: string, pollMs?: number) => void | Promise<void>;
+	nodeHandle?: { chainSyncStatusValue?: () => unknown };
+	defaultIndexerUrl?: string;
+}
+
+function chainSyncBinding(wallet: LightningRuntime): ChainSyncBinding | null {
+	const manager = (wallet as { _manager?: { rlnBinding?: ChainSyncBinding } })._manager;
+	return manager?.rlnBinding ?? null;
+}
+
+async function startNodeChainSync(wallet: LightningRuntime): Promise<void> {
+	if (nodeChainSyncStarted) return;
+	await withWasm('startNodeChainSync', async () => {
+		if (nodeChainSyncStarted) return;
+		const binding = chainSyncBinding(wallet);
+		let status: unknown;
+		const readStatus = binding?.nodeHandle?.chainSyncStatusValue;
+		if (typeof readStatus === 'function') {
+			try {
+				status = readStatus.call(binding?.nodeHandle);
+			} catch (error: unknown) {
+				console.warn(
+					'[wallet-init] chain sync status unread',
+					error instanceof Error ? error.message : String(error)
+				);
+			}
+		}
+		const hasStart =
+			typeof wallet.startNodeChainSync === 'function' ||
+			typeof binding?.startNodeChainSync === 'function';
+		const plan = chainSyncPlan(status, hasStart);
+		console.info('[wallet-init] chain sync', plan);
+		nodeChainSyncStarted = true;
+		if (plan !== 'start') return;
+		const start = wallet.startNodeChainSync ?? binding?.startNodeChainSync;
+		if (typeof start !== 'function') return;
+		const owner = typeof wallet.startNodeChainSync === 'function' ? wallet : binding;
+		await start.call(owner, binding?.defaultIndexerUrl);
 	});
 }
 
 async function retryScan(wallet: UTEXOWallet, network: string): Promise<void> {
 	for (let attempt = 0; attempt < 4; attempt += 1) {
 		await new Promise((resolve) => setTimeout(resolve, Math.min(30_000, 2_000 * 2 ** attempt)));
+		if (wasmCrashed()) return;
+		if (wasmBusy()) continue;
 		try {
-			await scanAndUpdateBalances(wallet, network);
+			await withWasm('retry-scan', () => scanAndUpdateBalances(wallet, network));
 			markWalletReady();
 			return;
 		} catch (error: unknown) {
@@ -430,6 +581,12 @@ export async function getRgbAddress(): Promise<string> {
 	return get(walletStore).rgb?.address || '';
 }
 
+function startFailureMessage(error: unknown): string {
+	if (error instanceof IndexedDbTimeoutError) return WALLET_INIT_TIMEOUT;
+	if (error instanceof Error && error.message) return error.message;
+	return 'Wallet setup could not start. Reload the page.';
+}
+
 async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	console.info('[wallet-init] start');
 	const probe = probeWindow();
@@ -449,8 +606,31 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	}
 
 	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
-	await hydrateWalletSnapshot();
-	const mnemonic = await readMnemonicSession();
+	let mnemonic: string | null = null;
+	try {
+		await hydrateWalletSnapshot();
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			try {
+				mnemonic = await readMnemonicSession();
+				break;
+			} catch (error) {
+				const timedOut = error instanceof IndexedDbTimeoutError;
+				if (!timedOut || attempt === 1) throw error;
+				console.warn('[wallet-init] session open timed out, retrying');
+			}
+		}
+	} catch (error) {
+		const message = startFailureMessage(error);
+		console.warn('[wallet-init] start failed', message);
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			syncing: false,
+			locked: true,
+			error: message
+		}));
+		throw new Error(message);
+	}
 	if (!mnemonic) {
 		walletStore.update((current) => ({
 			...current,
@@ -468,16 +648,23 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 
 	let lastError: unknown;
 	for (let attempt = 0; attempt < 2; attempt += 1) {
+		if (initInvoked || wasmCrashed()) break;
 		try {
 			await initWasm();
 			await initializeRgbWallet(mnemonic, options?.skipLsp === true);
 			return;
 		} catch (error) {
 			lastError = error;
-			if (!isWasmGlobalError(error) || attempt === 1) break;
+			if (initInvoked || wasmCrashed() || !isWasmGlobalError(error) || attempt === 1) break;
 			await waitForWasmGlobals();
 		}
 	}
+	const reload = initInvoked || wasmCrashed();
+	const message = reload
+		? WASM_CRASH_MESSAGE
+		: lastError instanceof Error
+			? lastError.message
+			: 'Failed to initialize wallet';
 	console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
 	if (!state.utexoWallet) {
 		await clearMnemonicSession().catch(() => undefined);
@@ -487,19 +674,33 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 		isInitializing: false,
 		syncing: false,
 		locked: state.utexoWallet ? current.locked : true,
-		error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
+		error: message
 	}));
-	throw lastError instanceof Error ? lastError : new Error('Failed to initialize wallet');
+	throw new Error(message);
 }
 
 export function initialize(options?: { skipLsp?: boolean }): Promise<void> {
 	if (!browser) return Promise.resolve();
+	if (initSlot.current) return initSlot.current;
+	if (wasmCrashed() || (initInvoked && !state.utexoWallet)) {
+		return Promise.reject(new Error(WASM_CRASH_MESSAGE));
+	}
+	if (initInvoked && state.utexoWallet) return Promise.resolve();
 	return shareInit(initSlot, () => runInitialize(options));
 }
 
 /** WebAuthn runs only from this click. A cached session skips the prompt. */
 export async function unlockWallet(signal?: AbortSignal): Promise<void> {
 	await getMnemonic({ signal });
+	if (initInvoked || wasmCrashed()) {
+		if (initSlot.current) await initSlot.current;
+		if (!state.utexoWallet) throw new Error(WASM_CRASH_MESSAGE);
+		return;
+	}
+	if (initSlot.current) {
+		await initSlot.current;
+		if (state.utexoWallet || initInvoked) return;
+	}
 	initSlot.current = null;
 	await initialize();
 }
@@ -517,6 +718,9 @@ export function disconnectWallet(): void {
 	}
 
 	void clearMnemonicSession();
+	stopLspPolling();
+	tabClaim?.release();
+	tabClaim = null;
 	state.utexoWallet = null;
 	if (typeof window !== 'undefined') {
 		probeWindow().__utexoWallet = null;

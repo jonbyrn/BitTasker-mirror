@@ -9,9 +9,9 @@ import { formatUsdtBalance } from '$lib/types/rgb-contract';
  * snapshots while wallets transition to the native asset identifiers.
  */
 /** Bitcoin stays orange, Tether stays green, Lightning stays light gray. */
-export function assetButtonTone(id: 'btc_onchain' | 'btc_lightning' | 'usdt_rgb'): string {
+export function assetButtonTone(id: string): string {
 	if (id === 'btc_onchain') return 'btn-primary';
-	if (id === 'usdt_rgb') return 'btn-success';
+	if (id === 'usdt_rgb' || id === 'usdt_ln') return 'btn-success';
 	return 'border-base-content/20 bg-base-content/20 text-base-content hover:bg-base-content/30';
 }
 

@@ -10,6 +10,10 @@ export function isLightningRail(asset: ContractPaymentAsset): boolean {
 	return asset === 'btc_lightning';
 }
 
+export function isLnUsdtRail(asset: ContractPaymentAsset): boolean {
+	return asset === 'usdt_ln';
+}
+
 /** Platform fee in the same unit as `amount`. Phase 1 returns 0. */
 export function feeHook(_amount: number, _side: 'tasker' | 'taskee'): number {
 	return 0;
@@ -30,12 +34,16 @@ export function isEscrowBolt11(invoice: string): boolean {
 
 export function invoiceMatchesRail(asset: ContractPaymentAsset, invoice: string): boolean {
 	if (isLightningRail(asset)) return isEscrowBolt11(invoice);
+	if (isLnUsdtRail(asset)) return isEscrowBolt11(invoice) || isRgbInvoice(invoice);
 	return isRgbInvoice(invoice);
 }
 
 export function assertInvoiceRail(asset: ContractPaymentAsset, invoice: string): void {
 	if (invoiceMatchesRail(asset, invoice)) return;
 	if (isLightningRail(asset)) throw new Error('Sats escrow requires a Lightning invoice');
+	if (isLnUsdtRail(asset)) {
+		throw new Error('LN-USDT escrow requires a Lightning invoice or an rgb: invoice');
+	}
 	throw new Error('USDT escrow requires an rgb: invoice');
 }
 

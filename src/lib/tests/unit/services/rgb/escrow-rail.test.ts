@@ -36,6 +36,9 @@ describe('escrow rail', () => {
 		expect(() => assertInvoiceRail('usdt_rgb', 'lntbs30u1example')).toThrow(
 			'USDT escrow requires an rgb: invoice'
 		);
+		expect(invoiceMatchesRail('usdt_ln', 'lntbs30u1example')).toBe(true);
+		expect(invoiceMatchesRail('usdt_ln', 'rgb:~/~/nWca/sb:utxob:taskee')).toBe(true);
+		expect(invoiceMatchesRail('usdt_ln', 'bc1qexample')).toBe(false);
 	});
 
 	it('treats LNUSDT as open only when listChannels marks that asset usable', () => {

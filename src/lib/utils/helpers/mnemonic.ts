@@ -7,7 +7,12 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
-import { readMnemonicSession, saveMnemonicSession, saveSignerSession } from './session-mnemonic';
+import {
+	clearMnemonicSession,
+	readMnemonicSession,
+	saveMnemonicSession,
+	saveSignerSession
+} from './session-mnemonic';
 
 export function describeMnemonicSeed(mnemonic: string) {
 	const words = mnemonic.trim().split(/\s+/);
@@ -85,7 +90,12 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 		}
 	}
 
-	const cached = await readMnemonicSession();
+	let cached: string | null = null;
+	try {
+		cached = await readMnemonicSession(Date.now(), 0);
+	} catch {
+		await clearMnemonicSession().catch(() => undefined);
+	}
 	if (cached) return assertHdSeed(cached);
 
 	// Tier 1: Check if mnemonic is already decrypted in store

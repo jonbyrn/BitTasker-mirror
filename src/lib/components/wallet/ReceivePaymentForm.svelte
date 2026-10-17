@@ -14,8 +14,9 @@
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { cancelUnpaidInvoices, receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
+	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 
-	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb';
+	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
 	let {
 		onClose = () => {},
@@ -33,7 +34,8 @@
 	const assets: Array<{ id: ReceiveAsset; labelKey: string }> = [
 		{ id: 'btc_onchain', labelKey: 'wallet.send_form.asset.bitcoin' },
 		{ id: 'btc_lightning', labelKey: 'wallet.networks.lightning' },
-		{ id: 'usdt_rgb', labelKey: 'wallet.taproot.tether_usd' }
+		{ id: 'usdt_rgb', labelKey: 'wallet.taproot.tether_usd' },
+		{ id: 'usdt_ln', labelKey: 'wallet.lightning_usdt_balance' }
 	];
 
 	const onchainAddress = $derived(
@@ -64,7 +66,7 @@
 		}
 	});
 	const previewRaw = $derived.by(() => {
-		if (asset !== 'usdt_rgb' || parsedAmount === null) return null;
+		if ((asset !== 'usdt_rgb' && asset !== 'usdt_ln') || parsedAmount === null) return null;
 		try {
 			return usdtBaseUnits(parsedAmount, usdtScale);
 		} catch {
@@ -120,6 +122,18 @@
 		isGenerating = true;
 		try {
 			await walletManager.initialize();
+			if (asset === 'usdt_ln') {
+				const units = usdtBaseUnits(parsedAmount, usdtScale);
+				const created = await walletManager.createLightningInvoice({
+					expirySeconds: 3600,
+					asset: { assetId: ESCROW_LNUSDT, amount: units }
+				});
+				const invoice = created.lnInvoice?.trim() ?? '';
+				if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
+				receiveValue = invoice;
+				invoiceAmount = formatUsdtUnits(units, usdtScale);
+				return;
+			}
 			const created = await walletManager.createLightningInvoice({
 				amountSats: parsedAmount,
 				expirySeconds: 3600
@@ -185,11 +199,13 @@
 	{#if requiresAmount && !usdtUnconfigured}
 		<label class="form-control">
 			<span class="label-text mb-1"
-				>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' ? 'USDT' : 'sats'})</span
+				>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' || asset === 'usdt_ln'
+					? 'USDT'
+					: 'sats'})</span
 			>
 			<input
 				class="input input-bordered w-full"
-				inputmode={asset === 'usdt_rgb' ? 'decimal' : 'numeric'}
+				inputmode={asset === 'usdt_rgb' || asset === 'usdt_ln' ? 'decimal' : 'numeric'}
 				placeholder="0"
 				bind:value={amountSats}
 				data-testid="receive-amount"

@@ -6,14 +6,21 @@ import {
 	FROZEN_RGB_FINGERPRINT,
 	SIGNET_LSP_URL,
 	SIGNET_USDT_ASSET,
+	SIGNET_CHANNEL_POLL_MS,
 	SIGNET_CHANNEL_WAIT_MS,
+	SIGNET_KEEPALIVE_CAP,
+	SIGNET_KEEPALIVE_MS,
 	SIGNET_INBOUND_RGB,
 	SIGNET_INBOUND_SATS,
+	confirmLightningAttached,
 	discoverSignetLsp,
 	keepLspInbound,
 	lightningStore,
 	payEscrowLightning,
 	payableAssetIds,
+	peerListedConnected,
+	requestLspInbound,
+	resetSignetLspForTests,
 	signetLspParams,
 	waitSignetChannel,
 	BLOCKED_LSP_PAYER
@@ -126,17 +133,20 @@ describe('payEscrowLightning', () => {
 	const invoice = 'rgb:~/~/aa/sb:utxob:escrow-lock';
 
 	beforeEach(() => {
+		resetSignetLspForTests();
+		confirmLightningAttached();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(lspBook([SIGNET_USDT_ASSET])));
 	});
 
 	afterEach(() => {
+		resetSignetLspForTests();
 		vi.unstubAllGlobals();
 	});
 
 	it('stays not ready when channels are empty', async () => {
 		const sendAsset = vi.fn();
 		const connect = vi.fn().mockResolvedValue(undefined);
-		const waitForChannel = vi.fn();
+		const waitForChannel = vi.fn().mockRejectedValue(new Error('no channel'));
 		const receiveAsset = vi.fn().mockResolvedValue({
 			lnInvoice: 'lnbc1inbound',
 			rgbInvoice: 'rgb:inbound',
@@ -155,21 +165,37 @@ describe('payEscrowLightning', () => {
 				awaitReceiveSettlement
 			})
 		});
+		await vi.waitFor(() => expect(get(lightningStore).channel).toBe('missing'));
 		expect(get(lightningStore).ready).toBe(false);
-		expect(get(lightningStore).lnInvoice).toBe('lnbc1inbound');
-		expect(get(lightningStore).rgbInvoice).toBe('rgb:inbound');
+		expect(get(lightningStore).failure).toBe('channel');
+		expect(receiveAsset).not.toHaveBeenCalled();
+		expect(awaitReceiveSettlement).not.toHaveBeenCalled();
+		await expect(payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000)).rejects.toThrow(
+			'LSP channel is not open'
+		);
+		expect(connect).toHaveBeenCalledOnce();
+		expect(waitForChannel).toHaveBeenCalledWith(
+			SIGNET_USDT_ASSET,
+			expect.objectContaining({
+				timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+				pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+			})
+		);
+		expect(sendAsset).not.toHaveBeenCalled();
+		const inbound = await requestLspInbound();
+		expect(inbound).toBe('lnbc1inbound');
 		expect(receiveAsset).toHaveBeenCalledWith({
 			assetId: SIGNET_USDT_ASSET,
 			amountSats: SIGNET_INBOUND_SATS,
 			amountRgb: SIGNET_INBOUND_RGB
 		});
-		await expect(payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000)).rejects.toThrow(
-			'LSP channel is not open'
-		);
-		expect(connect).toHaveBeenCalledOnce();
-		expect(waitForChannel).not.toHaveBeenCalled();
-		expect(sendAsset).not.toHaveBeenCalled();
 		expect(FAUCET_IFA_ASSET).not.toBe(receiveAsset.mock.calls[0]?.[0]?.assetId);
+		await vi.waitFor(() => expect(awaitReceiveSettlement).toHaveBeenCalled());
+		expect(awaitReceiveSettlement).toHaveBeenCalledWith('lnbc1inbound', {
+			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+			pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+		});
+		expect(SIGNET_CHANNEL_POLL_MS).toBe(15_000);
 	});
 
 	it('does not call receiveAsset when get_info only lists the faucet IFA', async () => {
@@ -192,6 +218,76 @@ describe('payEscrowLightning', () => {
 		expect(get(lightningStore).ready).toBe(false);
 	});
 
+	it('calls connectPeer once per page', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi.fn().mockResolvedValue(undefined);
+			const waitForChannel = vi.fn().mockResolvedValue({ ready: true });
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect, waitForChannel })
+			});
+			expect(connect).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
+			expect(connect).toHaveBeenCalledOnce();
+			expect(SIGNET_KEEPALIVE_MS).toBe(15_000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not open another socket while listPeers still shows the LSP', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi.fn().mockResolvedValue(undefined);
+			const listPeers = vi.fn().mockResolvedValue([{ pubkey: peer.peerPubkey, isConnected: true }]);
+			const waitForChannel = vi.fn().mockResolvedValue({ ready: true });
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({
+					peer,
+					sendAsset,
+					connect,
+					waitForChannel,
+					wallet: { listPeers }
+				})
+			});
+			expect(connect).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
+			await vi.waitFor(() => expect(listPeers).toHaveBeenCalled());
+			expect(connect).toHaveBeenCalledOnce();
+			expect(
+				peerListedConnected([{ pubkey: peer.peerPubkey, isConnected: false }], peer.peerPubkey)
+			).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not open a second socket after the handshake fails', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi
+				.fn()
+				.mockRejectedValue(new Error('peer handshake did not complete within timeout'));
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect })
+			});
+			expect(get(lightningStore).failure).toBe('connect');
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS * SIGNET_KEEPALIVE_CAP);
+			expect(connect).toHaveBeenCalledOnce();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('pays only after waitForChannel returns', async () => {
 		const sendAsset = vi
 			.fn()
@@ -207,7 +303,10 @@ describe('payEscrowLightning', () => {
 		await payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000);
 		expect(waitForChannel).toHaveBeenCalledWith(
 			SIGNET_USDT_ASSET,
-			expect.objectContaining({ timeoutMs: SIGNET_CHANNEL_WAIT_MS })
+			expect.objectContaining({
+				timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+				pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+			})
 		);
 		expect(sendAsset).toHaveBeenCalledWith({
 			rgbInvoice: invoice,
@@ -218,6 +317,23 @@ describe('payEscrowLightning', () => {
 				assetAmount: 11_000_000
 			}
 		});
+	});
+
+	it('records a connect failure instead of staying on setting up', async () => {
+		const sendAsset = vi.fn();
+		const connect = vi
+			.fn()
+			.mockRejectedValue(new TypeError('this.requireNode(...).connectPeer is not a function'));
+		await discoverSignetLsp({
+			_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+			getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+			createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect })
+		});
+		expect(connect).toHaveBeenCalledOnce();
+		expect(get(lightningStore).failure).toBe('connect');
+		expect(get(lightningStore).ready).toBe(false);
+		expect(get(lightningStore).channel).toBe('idle');
+		expect(sendAsset).not.toHaveBeenCalled();
 	});
 
 	it('does not connect or pay the bot node', async () => {

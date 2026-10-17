@@ -5,7 +5,7 @@ import { enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import { assertInvoiceRail, isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { payLnBtc } from '$lib/services/rgb/escrow-rails/ln-btc';
-import { payLnUsdt } from '$lib/services/rgb/escrow-rails/ln-usdt';
+import { payLnUsdt, payLnUsdtBolt11 } from '$lib/services/rgb/escrow-rails/ln-usdt';
 import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rgb-onchain';
 import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
 import { proofReady } from '$lib/services/rgb/escrow-rails/types';
@@ -637,7 +637,14 @@ export class ContractRune {
 	private async lnUsdtPayout(wallet: NonNullable<typeof state.utexoWallet>): Promise<string> {
 		const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
 		if (!lnUsdtOpen(channels)) throw new Error('Lightning not ready');
-		return this.rgbPayout(wallet, ESCROW_LNUSDT);
+		if (typeof wallet.createLightningInvoice !== 'function') {
+			throw new Error('Lightning not ready');
+		}
+		const created = await wallet.createLightningInvoice({
+			expirySeconds: 3600,
+			asset: { assetId: ESCROW_LNUSDT, amount: this.agreedUnits() }
+		});
+		return created.lnInvoice?.trim() ?? '';
 	}
 
 	private async rgbPayout(
@@ -773,8 +780,10 @@ export class ContractRune {
 		const asset = this.split.primaryAsset;
 		if (asset === 'btc_lightning') return payLnBtc(wallet, invoice, this.lockedSats());
 		if (asset === 'usdt_ln') {
+			const amount = this.settlementAmount || this.agreedUnits();
+			if (isEscrowBolt11(invoice)) return payLnUsdtBolt11(wallet, invoice, amount);
 			const channels = typeof wallet.listChannels === 'function' ? await wallet.listChannels() : [];
-			return payLnUsdt(channels, invoice, this.settlementAmount || this.agreedUnits());
+			return payLnUsdt(channels, invoice, amount);
 		}
 		return enqueueSend(async () => {
 			const listed =

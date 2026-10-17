@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyBalanceUpdate } from '$lib/stores/wallet/balance-merge';
 import { shareInit } from '$lib/stores/wallet/init-gate';
-import { chainGap, scanBtcBalance } from '$lib/stores/wallet/wallet-balances';
+import { attachChainSpendable, chainGap, scanBtcBalance } from '$lib/stores/wallet/wallet-balances';
+import { parseWalletUtxos } from '$lib/stores/wallet/rgb-allocations';
 import { bindLspClient } from '$lib/stores/wallet/signet-lsp';
 import type { RgbAsset } from '$lib/stores/wallet/wallet-types';
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
@@ -140,5 +141,55 @@ describe('wallet disconnect guards', () => {
 		const spendableGap = usdt({ balance: 100, spendable: 50, chainSpendable: 10 });
 		expect(chainGap([spendableGap])?.assetId).toBe('rgb:usdt');
 		expect(chainGap([spendableGap], false)).toBeUndefined();
+	});
+
+	it('does not treat an empty unspent list as 0.00 USDT on chain', async () => {
+		const held = usdt({ balance: 100_000_000, spendable: 100_000_000, precision: 6 });
+		const next = await attachChainSpendable({ listUnspents: async () => [] }, [held]);
+		expect(next[0]?.chainSpendable).toBeUndefined();
+		expect(chainGap(next)).toBeUndefined();
+		expect(parseWalletUtxos([])).toEqual([]);
+	});
+
+	it('hides exists:false rows and does not count them as unspent USDT', async () => {
+		const txid = 'ab'.repeat(32);
+		const hidden = [
+			{
+				utxo: { exists: false, outpoint: { txid, vout: 0 }, colorable: true, btcAmount: 5000 },
+				rgbAllocations: [
+					{ assetId: 'rgb:usdt', assignment: { type: 'Fungible', amount: 100_000_000 } }
+				],
+				pendingBlinded: 0
+			}
+		];
+		const held = usdt({ balance: 100_000_000, spendable: 100_000_000, precision: 6 });
+		const next = await attachChainSpendable({ listUnspents: async () => hidden }, [held]);
+		expect(next[0]?.chainSpendable).toBeUndefined();
+		expect(parseWalletUtxos(hidden)).toEqual([]);
+	});
+
+	it('keeps a spent allocation visible and reports zero live units', async () => {
+		const txid = 'cd'.repeat(32);
+		const row = {
+			utxo: { exists: true, outpoint: { txid, vout: 1 }, colorable: true, btcAmount: 5000 },
+			rgbAllocations: [
+				{ assetId: 'rgb:usdt', assignment: { type: 'Fungible', amount: 100_000_000 } }
+			],
+			pendingBlinded: 0
+		};
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ spent: true, txid: 'ee'.repeat(32) })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		try {
+			const held = usdt({ balance: 100_000_000, spendable: 100_000_000, precision: 6 });
+			const next = await attachChainSpendable({ listUnspents: async () => [row] }, [held]);
+			expect(next[0]?.chainSpendable).toBe(0);
+			expect(chainGap(next)?.assetId).toBe('rgb:usdt');
+			expect(parseWalletUtxos([row])).toHaveLength(1);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 });
