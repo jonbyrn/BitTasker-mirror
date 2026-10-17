@@ -22,6 +22,8 @@
 	import {
 		combinedSats,
 		formatUsd,
+		heldUsdt,
+		isUsdtHistory,
 		usdFromSats,
 		walletChip
 	} from '$lib/stores/wallet/plain-wallet';
@@ -79,9 +81,17 @@
 		};
 	});
 	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
+	const usdtHistory = $derived(
+		$walletStore.transactions.filter((row) => isUsdtHistory(row.description, row.assetUnits))
+	);
+	const bitcoinHistory = $derived(
+		$walletStore.transactions.filter((row) => !isUsdtHistory(row.description, row.assetUnits))
+	);
 	const visibleTransactions = $derived(
 		showAllHistory ? $walletStore.transactions : $walletStore.transactions.slice(0, 5)
 	);
+	const visibleUsdt = $derived(showAllHistory ? usdtHistory : usdtHistory.slice(0, 5));
+	const visibleBitcoin = $derived(showAllHistory ? bitcoinHistory : bitcoinHistory.slice(0, 5));
 	const utxoSummary = $derived(summarizeUtxoKinds(utxos.map((utxo) => utxo.kind)));
 	const lightningUx = $derived(
 		lightningUxStatus({
@@ -138,9 +148,7 @@
 		return dollars === null ? '—' : formatUsd(dollars);
 	});
 	const dollarUnits = $derived.by(() => {
-		const chain =
-			usdtAsset?.spendable ?? usdtAsset?.balance ?? $walletStore.totalBalances?.usdt ?? 0;
-		const units = (Number.isFinite(chain) ? chain : 0) + lightningUsdtUnits;
+		const units = heldUsdt(usdtAsset, $walletStore.totalBalances?.usdt ?? 0, lightningUsdtUnits);
 		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
 		return formatUsdtBalance(units, precision);
 	});
@@ -545,8 +553,9 @@
 			</div>
 			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
 				<div class="card-body gap-1 p-4">
-					<p class="text-sm">{$t('wallet.simple.dollars')}</p>
-					<p class="text-3xl font-bold tabular-nums">${dollarUnits}</p>
+					<p class="text-sm">{$t('wallet.simple.usdt')}</p>
+					<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${dollarUnits}</p>
+					<p class="text-base-content/60 text-sm tabular-nums">{dollarUnits} USDT</p>
 				</div>
 			</div>
 		</section>
@@ -817,13 +826,114 @@
 			</section>
 		{/if}
 
+		{#snippet historyList(rows)}
+			<div class="flex flex-col">
+				{#each rows as transaction (transaction.id)}
+					{@const txid = transaction.txHash || transaction.id}
+					{@const explorerUrl = signetTxUrl(txid)}
+					{@const rgb = isUsdtHistory(transaction.description, transaction.assetUnits)}
+					{@const amount = formatHistoryAmount(
+						transaction.description,
+						transaction.amountSats,
+						transaction.assetUnits,
+						translate('wallet.sats', 'sats')
+					)}
+					{@const rowClass =
+						'border-base-300 text-base-content hover:bg-base-200 flex w-full items-center gap-3 border-t px-4 py-3 no-underline'}
+					{#snippet historyBody()}
+						{@render assetMark(rgb ? 'USDT' : 'BTC')}
+						<div class="min-w-0">
+							<p class="text-base-content/60 truncate text-sm">
+								{historyLabel(transaction.type, transaction.description)}
+							</p>
+							{#if advanced || openHistory === transaction.id}
+								<p class="truncate font-mono text-xs" title={txid}>
+									{shortOutpoint(txid)}
+								</p>
+							{/if}
+							<p class="text-base-content/50 text-xs">
+								{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
+							</p>
+						</div>
+						<p class="text-base-content/70 ml-auto shrink-0 text-right text-xs tabular-nums">
+							{rgb ? `$${amount}` : amount}
+						</p>
+					{/snippet}
+					{#if advanced && explorerUrl}
+						<a
+							class={rowClass}
+							href={explorerUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							title={txid}
+						>
+							{@render historyBody()}
+						</a>
+					{:else}
+						<button
+							type="button"
+							class="{rowClass} min-h-12 text-left"
+							onclick={() => {
+								openHistory = openHistory === transaction.id ? null : transaction.id;
+							}}
+						>
+							{@render historyBody()}
+						</button>
+					{/if}
+				{/each}
+			</div>
+		{/snippet}
+
+		{#if !advanced}
+			<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="usdt-history">
+				<div class="card-body gap-0 p-0">
+					<div class="flex items-center justify-between gap-3 px-4 py-2">
+						<p class="text-sm font-semibold">{$t('wallet.simple.usdt_history')}</p>
+						<button
+							type="button"
+							class="btn btn-outline btn-sm min-h-12"
+							data-testid="refresh-usdt"
+							disabled={refreshing || $walletStore.locked}
+							onclick={() => {
+								void refreshTransfers();
+							}}
+						>
+							{#if refreshing}
+								<span class="loading loading-spinner loading-xs"></span>
+							{/if}
+							{translate('wallet.refresh_transfers', 'Refresh transfers')}
+						</button>
+						<span class="badge badge-ghost badge-sm">{usdtHistory.length}</span>
+					</div>
+					{#if usdtHistory.length === 0}
+						<p class="text-base-content/60 px-4 pb-3 text-sm" data-testid="usdt-history-empty">
+							{$t('wallet.simple.no_usdt')}
+						</p>
+					{:else}
+						{@render historyList(visibleUsdt)}
+						{#if usdtHistory.length > 5 && !showAllHistory}
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm text-base-content/50 w-full"
+								onclick={() => (showAllHistory = true)}
+							>
+								{translate('wallet.see_all', 'See all')}
+							</button>
+						{/if}
+					{/if}
+				</div>
+			</section>
+		{/if}
+
 		<section
 			class="card bg-base-100 border-base-300 flex min-h-0 flex-1 flex-col overflow-hidden border shadow-sm"
 		>
 			<div class="card-body min-h-0 flex-1 gap-0 overflow-hidden p-0">
 				<div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
 					<p class="text-sm font-semibold">
-						{translate('wallet.transaction_history', 'Transaction History')}
+						{advanced
+							? translate('wallet.transaction_history', 'Transaction History')
+							: $t('wallet.simple.bitcoin')}
 					</p>
 					{#if advanced}
 						<button
@@ -841,68 +951,17 @@
 							{translate('wallet.refresh_transfers', 'Refresh transfers')}
 						</button>
 					{/if}
-					<span class="badge badge-ghost badge-sm">{$walletStore.transactions.length}</span>
+					<span class="badge badge-ghost badge-sm">
+						{advanced ? $walletStore.transactions.length : bitcoinHistory.length}
+					</span>
 				</div>
-				{#if $walletStore.transactions.length === 0}
+				{#if (advanced ? $walletStore.transactions.length : bitcoinHistory.length) === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm">
 						{translate('wallet.no_transactions', 'No transactions found.')}
 					</p>
 				{:else}
-					<div class="flex flex-col">
-						{#each visibleTransactions as transaction (transaction.id)}
-							{@const txid = transaction.txHash || transaction.id}
-							{@const explorerUrl = signetTxUrl(txid)}
-							{@const rgb = isRgbMovement(transaction.description)}
-							{@const rowClass =
-								'border-base-300 text-base-content hover:bg-base-200 flex w-full items-center gap-3 border-t px-4 py-3 no-underline'}
-							{#snippet historyBody()}
-								{@render assetMark(rgb ? 'USDT' : 'BTC')}
-								<div class="min-w-0">
-									<p class="text-base-content/60 truncate text-sm">
-										{historyLabel(transaction.type, transaction.description)}
-									</p>
-									{#if advanced || openHistory === transaction.id}
-										<p class="truncate font-mono text-xs" title={txid}>
-											{shortOutpoint(txid)}
-										</p>
-									{/if}
-									<p class="text-base-content/50 text-xs">
-										{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
-									</p>
-								</div>
-								<p class="text-base-content/70 ml-auto shrink-0 text-right text-xs tabular-nums">
-									{formatHistoryAmount(
-										transaction.description,
-										transaction.amountSats,
-										transaction.assetUnits,
-										translate('wallet.sats', 'sats')
-									)}
-								</p>
-							{/snippet}
-							{#if advanced && explorerUrl}
-								<a
-									class={rowClass}
-									href={explorerUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									title={txid}
-								>
-									{@render historyBody()}
-								</a>
-							{:else}
-								<button
-									type="button"
-									class="{rowClass} min-h-12 text-left"
-									onclick={() => {
-										openHistory = openHistory === transaction.id ? null : transaction.id;
-									}}
-								>
-									{@render historyBody()}
-								</button>
-							{/if}
-						{/each}
-					</div>
-					{#if $walletStore.transactions.length > 5 && !showAllHistory}
+					{@render historyList(advanced ? visibleTransactions : visibleBitcoin)}
+					{#if (advanced ? $walletStore.transactions.length : bitcoinHistory.length) > 5 && !showAllHistory}
 						<button
 							type="button"
 							class="btn btn-ghost btn-sm text-base-content/50 w-full"

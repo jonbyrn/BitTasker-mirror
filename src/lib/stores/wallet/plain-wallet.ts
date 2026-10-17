@@ -19,6 +19,34 @@ export function combinedSats(onchain: number, lightning: number): number {
 	return chain + channel;
 }
 
+/** Spendable USDT when it is funded. A zero spendable field must not hide settled USDT. */
+export function heldUsdt(
+	asset: { spendable?: number | null; balance?: number | null } | null,
+	fallback: number,
+	lightning: number
+): number {
+	const spendable = asset?.spendable;
+	const balance = asset?.balance;
+	const chain =
+		typeof spendable === 'number' && spendable > 0
+			? spendable
+			: typeof balance === 'number' && Number.isFinite(balance) && balance > 0
+				? balance
+				: Number.isFinite(fallback)
+					? Math.max(0, fallback)
+					: 0;
+	const channel = Number.isFinite(lightning) ? Math.max(0, lightning) : 0;
+	return chain + channel;
+}
+
+export function isUsdtHistory(
+	description: string | undefined,
+	assetUnits: number | undefined
+): boolean {
+	if ((description ?? '').toLowerCase().includes('rgb')) return true;
+	return typeof assetUnits === 'number' && Number.isFinite(assetUnits) && assetUnits > 0;
+}
+
 export function usdFromSats(sats: number, btcUsd: number): number | null {
 	if (!Number.isFinite(sats) || sats < 0 || !Number.isFinite(btcUsd) || btcUsd <= 0) return null;
 	return (sats / 100_000_000) * btcUsd;

@@ -4,6 +4,8 @@ import {
 	detectPayment,
 	feeEstimateSats,
 	formatUsd,
+	heldUsdt,
+	isUsdtHistory,
 	usdFromSats,
 	walletChip
 } from '$lib/stores/wallet/plain-wallet';
@@ -59,6 +61,18 @@ describe('combined balances', () => {
 	it('adds both rails and ignores junk numbers', () => {
 		expect(combinedSats(100, 25)).toBe(125);
 		expect(combinedSats(Number.NaN, 10)).toBe(10);
+	});
+
+	it('keeps settled USDT when spendable is zero', () => {
+		expect(heldUsdt({ spendable: 0, balance: 1_000_000 }, 0, 0)).toBe(1_000_000);
+		expect(heldUsdt({ spendable: 500_000, balance: 1_000_000 }, 0, 250_000)).toBe(750_000);
+		expect(heldUsdt(null, 0, Number.NaN)).toBe(0);
+	});
+
+	it('treats RGB rows and asset units as USDT history', () => {
+		expect(isUsdtHistory('RGB transfer', undefined)).toBe(true);
+		expect(isUsdtHistory('Bitcoin transfer', 1_000_000)).toBe(true);
+		expect(isUsdtHistory('Bitcoin transfer', 0)).toBe(false);
 	});
 
 	it('turns sats into dollars', () => {
