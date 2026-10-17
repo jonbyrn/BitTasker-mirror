@@ -210,6 +210,10 @@
 			"notifications": {
 				"title": "Notifications",
 				"description": "Manage push, email, and quiet hours settings"
+			},
+			"advanced": {
+				"title": "Advanced mode",
+				"description": "Shows extra wallet details. Leave this off."
 			}
 		},
 		"back": "Back to Settings"

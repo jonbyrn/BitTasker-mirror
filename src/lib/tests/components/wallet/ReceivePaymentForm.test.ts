@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
@@ -80,6 +81,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 describe('ReceivePaymentForm', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		setAdvancedMode(true);
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
 	});
 
@@ -243,6 +245,15 @@ describe('ReceivePaymentForm', () => {
 
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '1000' } });
 		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('asks for dollars or bitcoin before any rail', async () => {
+		setAdvancedMode(false);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+		expect(getByTestId('get-dollars')).toBeTruthy();
+		expect(getByTestId('get-bitcoin')).toBeTruthy();
+		expect(queryByTestId('receive-asset-usdt_rgb')).toBeNull();
+		setAdvancedMode(true);
 	});
 
 	it('surfaces invoice generation errors', async () => {

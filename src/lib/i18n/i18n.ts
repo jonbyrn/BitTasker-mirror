@@ -10,7 +10,7 @@ import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { authState } from '$lib/stores/auth.store';
 
-export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
+export const SUPPORTED_LANGUAGES = ['en', 'es', 'pt', 'fr', 'sw'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 // Track loaded namespaces to avoid duplicate loads

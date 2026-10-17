@@ -15,13 +15,31 @@
 	import { cancelUnpaidInvoices, receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
+	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
 	let {
 		onClose = () => {},
-		onchainLocked = false
-	}: { onClose?: () => void; onchainLocked?: boolean } = $props();
+		onchainLocked = false,
+		lightningReady = false,
+		lightningUsdtReady = false
+	}: {
+		onClose?: () => void;
+		onchainLocked?: boolean;
+		lightningReady?: boolean;
+		lightningUsdtReady?: boolean;
+	} = $props();
+
+	let shownDollars = $state('');
+	let simpleKind = $state<'dollars' | 'bitcoin' | null>(null);
+	let simpleStep = $state<'choose' | 'amount' | 'ready'>('choose');
+	let qrUrl = $state('');
+	const testMoney = $derived(
+		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
+	);
 
 	let asset = $state<ReceiveAsset>('btc_onchain');
 	let amountSats = $state('');
@@ -96,6 +114,7 @@
 		errorMessage = '';
 		if (asset === 'btc_onchain') {
 			receiveValue = onchainAddress || (await walletManager.getRgbAddress());
+			await paintQr(receiveValue);
 			return;
 		}
 		if (asset === 'usdt_rgb') {
@@ -113,12 +132,13 @@
 					}
 				}
 				receiveValue = result.invoice;
+				await paintQr(receiveValue);
 				usedBlank = result.blank;
 				invoiceAmount =
 					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
-				errorMessage = invoiceFailure(err);
 				console.error('[receive-modal] RGB invoice error:', err);
+				errorMessage = $advancedWallet ? invoiceFailure(err) : 'plain';
 			} finally {
 				isGenerating = false;
 			}
@@ -137,6 +157,7 @@
 				const invoice = created.lnInvoice?.trim() ?? '';
 				if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
 				receiveValue = invoice;
+				await paintQr(receiveValue);
 				invoiceAmount = formatUsdtUnits(units, usdtScale);
 				return;
 			}
@@ -147,9 +168,14 @@
 			const invoice = created.lnInvoice?.trim() ?? '';
 			if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
 			receiveValue = invoice;
+			await paintQr(receiveValue);
 		} catch (err) {
-			errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
 			console.error('[receive-modal] Lightning invoice error:', err);
+			errorMessage = $advancedWallet
+				? err instanceof Error
+					? err.message
+					: 'Failed to generate Lightning invoice'
+				: 'plain';
 		} finally {
 			isGenerating = false;
 		}
@@ -168,6 +194,75 @@
 		usedBlank = false;
 	}
 
+	async function paintQr(value: string): Promise<void> {
+		if (!value) {
+			qrUrl = '';
+			return;
+		}
+		try {
+			qrUrl = await generateQrCodeUrl(value);
+		} catch (error: unknown) {
+			qrUrl = '';
+			console.error('[receive-modal] QR failed', error);
+		}
+	}
+
+	async function simpleCreate(skip: boolean): Promise<void> {
+		errorMessage = '';
+		receiveValue = '';
+		qrUrl = '';
+		const dollars = Number(amountSats);
+		const hasAmount = !skip && Number.isFinite(dollars) && dollars > 0;
+		shownDollars = hasAmount ? `$${dollars.toFixed(2)}` : '';
+		if (simpleKind === 'bitcoin') {
+			if (hasAmount && lightningReady && btcPrice.price > 0) {
+				asset = 'btc_lightning';
+				amountSats = String(Math.max(1, Math.round((dollars / btcPrice.price) * 100_000_000)));
+				await handleGenerate();
+				if (receiveValue) {
+					simpleStep = 'ready';
+					await paintQr(receiveValue);
+					return;
+				}
+			}
+			asset = 'btc_onchain';
+			await handleGenerate();
+		} else {
+			if (hasAmount && lightningUsdtReady) {
+				asset = 'usdt_ln';
+				amountSats = String(dollars);
+				await handleGenerate();
+				if (receiveValue) {
+					simpleStep = 'ready';
+					await paintQr(receiveValue);
+					return;
+				}
+			}
+			asset = 'usdt_rgb';
+			amountSats = hasAmount ? String(dollars) : '';
+			await handleGenerate();
+		}
+		if (!receiveValue) {
+			errorMessage = 'plain';
+			return;
+		}
+		simpleStep = 'ready';
+		await paintQr(receiveValue);
+	}
+
+	async function shareReceive(): Promise<void> {
+		if (!receiveValue) return;
+		if (typeof navigator.share === 'function') {
+			try {
+				await navigator.share({ text: receiveValue });
+				return;
+			} catch (error: unknown) {
+				console.error('[receive-modal] share failed', error);
+			}
+		}
+		await handleCopy();
+	}
+
 	async function handleCopy(): Promise<void> {
 		if (!receiveValue) return;
 		try {
@@ -180,139 +275,272 @@
 </script>
 
 <div class="flex flex-col gap-4" data-testid="receive-payment-form">
-	<!-- Asset selector -->
-	<div class="join w-full" role="group" aria-label={$t('wallet.taproot.token')}>
-		{#each assets as option (option.id)}
+	{#if !$advancedWallet}
+		{#if testMoney}
+			<span class="badge badge-warning badge-sm w-fit" data-testid="test-money">
+				{$t('wallet.simple.test_money')}
+			</span>
+		{/if}
+		{#if simpleStep === 'choose'}
 			<button
 				type="button"
-				class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
-				class:ring-2={asset === option.id}
-				class:ring-base-content={asset === option.id}
+				class="btn btn-primary min-h-12 w-full text-lg"
+				data-testid="get-dollars"
 				onclick={() => {
-					asset = option.id;
-					receiveValue = '';
-					invoiceAmount = '';
+					simpleKind = 'dollars';
+					simpleStep = 'amount';
+					asset = 'usdt_rgb';
+					amountSats = '';
 					errorMessage = '';
-					usedBlank = false;
+					receiveValue = '';
 				}}
-				data-testid={`receive-asset-${option.id}`}
 			>
-				{$t(option.labelKey)}
+				{$t('wallet.simple.get_dollars')}
 			</button>
-		{/each}
-	</div>
-
-	{#if requiresAmount && !usdtUnconfigured}
-		<label class="form-control">
-			<span class="label-text mb-1"
-				>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' || asset === 'usdt_ln'
-					? 'USDT'
-					: 'sats'})</span
+			<button
+				type="button"
+				class="btn btn-neutral min-h-12 w-full text-lg"
+				data-testid="get-bitcoin"
+				onclick={() => {
+					simpleKind = 'bitcoin';
+					simpleStep = 'amount';
+					asset = 'btc_onchain';
+					amountSats = '';
+					errorMessage = '';
+					receiveValue = '';
+				}}
 			>
-			<input
-				class="input input-bordered w-full"
-				inputmode={asset === 'usdt_rgb' || asset === 'usdt_ln' ? 'decimal' : 'numeric'}
-				placeholder="0"
-				bind:value={amountSats}
-				data-testid="receive-amount"
-			/>
-		</label>
-	{/if}
-
-	{#if asset === 'usdt_rgb' && previewRaw !== null && !receiveValue}
-		<p class="text-sm" data-testid="receive-usdt-preview">
-			{$t('wallet.taproot.invoice_preview', {
-				values: { amount: formatUsdtBalance(previewRaw, usdtScale), raw: String(previewRaw) }
-			})}
-			<span data-testid="receive-usdt-raw">{previewRaw}</span>
-		</p>
-	{/if}
-
-	{#if rgbReceiveLocked}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="receive-onchain-locked"
-		>
-			{$t('wallet.receive_waiting')}
-		</div>
-	{/if}
-	{#if asset === 'btc_lightning' && $lightningStore.rgbInvoice}
-		<p class="text-xs">{$t('wallet.lightning_rgb_invoice')}</p>
-		<p class="font-mono text-xs break-all" data-testid="receive-rgb-invoice">
-			{$lightningStore.rgbInvoice}
-		</p>
-	{/if}
-	{#if usdtUnconfigured}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="receive-usdt-unconfigured"
-		>
-			<span>{$t('wallet.taproot.usdt_not_configured')}</span>
-		</div>
-	{/if}
-	{#if usdtUnconfigured || usedBlank}
-		<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
-			{$t('wallet.taproot.utexo_bot_hint')}
-		</p>
-	{/if}
-
-	{#if !receiveValue}
-		<button
-			type="button"
-			class="btn btn-primary w-full"
-			onclick={handleGenerate}
-			disabled={!canGenerate}
-			data-testid="receive-generate"
-		>
-			{#if isGenerating}
-				<span class="loading loading-spinner loading-sm"></span>
+				{$t('wallet.simple.get_bitcoin')}
+			</button>
+		{:else if simpleStep === 'amount'}
+			<label class="form-control">
+				<span class="label-text mb-1 text-base">{$t('wallet.simple.how_much')}</span>
+				<input
+					class="input input-bordered min-h-12 w-full text-2xl"
+					inputmode="decimal"
+					placeholder="$0"
+					bind:value={amountSats}
+					data-testid="receive-amount"
+				/>
+			</label>
+			<button
+				type="button"
+				class="btn btn-primary min-h-12 w-full"
+				disabled={isGenerating}
+				data-testid="receive-generate"
+				onclick={() => {
+					void simpleCreate(false);
+				}}
+			>
+				{$t('wallet.simple.continue')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost min-h-12 w-full"
+				data-testid="receive-skip"
+				onclick={() => {
+					void simpleCreate(true);
+				}}
+			>
+				{$t('wallet.simple.skip')}
+			</button>
+		{:else}
+			{#if qrUrl}
+				<img
+					src={qrUrl}
+					alt={$t('wallet.simple.show_payer')}
+					class="mx-auto w-full max-w-xs"
+					data-testid="receive-qr"
+				/>
 			{/if}
-			{asset === 'btc_onchain'
-				? $t('wallet.taproot.receive_btc')
-				: asset === 'btc_lightning'
-					? $t('wallet.invoice.share_title')
-					: $t('wallet.taproot.receive_usdt')}
-		</button>
-	{:else}
-		<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
-			{#if shownAmount}
-				<p class="mb-2 text-sm" data-testid="receive-usdt-amount">
-					{$t('wallet.taproot.invoice_usdt', { values: { amount: shownAmount } })}
+			{#if shownDollars}
+				<p class="text-center text-3xl font-bold" data-testid="receive-usdt-amount">
+					{shownDollars}
 				</p>
 			{/if}
-			<p class="font-mono">{receiveValue}</p>
+			<p class="text-center text-sm">{$t('wallet.simple.show_payer')}</p>
+			<p class="text-center text-sm" data-testid="receive-waiting">{$t('wallet.simple.waiting')}</p>
+			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
+				<p class="font-mono">{receiveValue}</p>
+			</div>
+			<button type="button" class="btn btn-primary min-h-12 w-full" onclick={shareReceive}>
+				{$t('wallet.simple.share')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-outline min-h-12 w-full"
+				onclick={handleCopy}
+				data-testid="receive-copy"
+			>
+				{$t('wallet.simple.copy')}
+			</button>
+		{/if}
+		{#if errorMessage}
+			<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="receive-error">
+				<span>{$t('wallet.simple.request_failed')}</span>
+				<button
+					type="button"
+					class="btn btn-sm min-h-12"
+					onclick={() => {
+						void simpleCreate(simpleStep === 'amount' && !amountSats);
+					}}
+				>
+					{$t('wallet.simple.try_again')}
+				</button>
+			</div>
+		{/if}
+	{:else}
+		<!-- Asset selector -->
+		<div class="join w-full" role="group" aria-label={$t('wallet.taproot.token')}>
+			{#each assets as option (option.id)}
+				<button
+					type="button"
+					class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
+					class:ring-2={asset === option.id}
+					class:ring-base-content={asset === option.id}
+					onclick={() => {
+						asset = option.id;
+						receiveValue = '';
+						invoiceAmount = '';
+						errorMessage = '';
+						usedBlank = false;
+					}}
+					data-testid={`receive-asset-${option.id}`}
+				>
+					{$t(option.labelKey)}
+				</button>
+			{/each}
 		</div>
-		<button
-			type="button"
-			class="btn btn-outline w-full"
-			onclick={handleCopy}
-			data-testid="receive-copy"
-		>
-			{$t(asset === 'btc_onchain' ? 'wallet.taproot.copy_address' : 'wallet.taproot.copy_invoice')}
-		</button>
-		<button
-			type="button"
-			class="btn btn-ghost w-full"
-			onclick={cancelReceive}
-			data-testid="receive-cancel"
-		>
-			{$t('wallet.taproot.cancel_invoice')}
-		</button>
+
+		{#if requiresAmount && !usdtUnconfigured}
+			<label class="form-control">
+				<span class="label-text mb-1"
+					>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' || asset === 'usdt_ln'
+						? 'USDT'
+						: 'sats'})</span
+				>
+				<input
+					class="input input-bordered w-full"
+					inputmode={asset === 'usdt_rgb' || asset === 'usdt_ln' ? 'decimal' : 'numeric'}
+					placeholder="0"
+					bind:value={amountSats}
+					data-testid="receive-amount"
+				/>
+			</label>
+		{/if}
+
+		{#if asset === 'usdt_rgb' && previewRaw !== null && !receiveValue}
+			<p class="text-sm" data-testid="receive-usdt-preview">
+				{$t('wallet.taproot.invoice_preview', {
+					values: { amount: formatUsdtBalance(previewRaw, usdtScale), raw: String(previewRaw) }
+				})}
+				<span data-testid="receive-usdt-raw">{previewRaw}</span>
+			</p>
+		{/if}
+
+		{#if rgbReceiveLocked}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid="receive-onchain-locked"
+			>
+				{$t('wallet.receive_waiting')}
+			</div>
+		{/if}
+		{#if asset === 'btc_lightning' && $lightningStore.rgbInvoice}
+			<p class="text-xs">{$t('wallet.lightning_rgb_invoice')}</p>
+			<p class="font-mono text-xs break-all" data-testid="receive-rgb-invoice">
+				{$lightningStore.rgbInvoice}
+			</p>
+		{/if}
+		{#if usdtUnconfigured}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid="receive-usdt-unconfigured"
+			>
+				<span>{$t('wallet.taproot.usdt_not_configured')}</span>
+			</div>
+		{/if}
+		{#if usdtUnconfigured || usedBlank}
+			<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
+				{$t('wallet.taproot.utexo_bot_hint')}
+			</p>
+		{/if}
+
+		{#if !receiveValue}
+			<button
+				type="button"
+				class="btn btn-primary w-full"
+				onclick={handleGenerate}
+				disabled={!canGenerate}
+				data-testid="receive-generate"
+			>
+				{#if isGenerating}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				{asset === 'btc_onchain'
+					? $t('wallet.taproot.receive_btc')
+					: asset === 'btc_lightning'
+						? $t('wallet.invoice.share_title')
+						: $t('wallet.taproot.receive_usdt')}
+			</button>
+		{:else}
+			{#if qrUrl}
+				<img
+					src={qrUrl}
+					alt={$t('wallet.simple.show_payer')}
+					class="mx-auto w-full max-w-xs"
+					data-testid="receive-qr"
+				/>
+			{/if}
+			{#if testMoney}
+				<p class="text-base-content/60 text-xs">{$t('wallet.simple.test_money')}</p>
+			{/if}
+			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
+				{#if shownAmount}
+					<p class="mb-2 text-sm" data-testid="receive-usdt-amount">
+						{$t('wallet.taproot.invoice_usdt', { values: { amount: shownAmount } })}
+					</p>
+				{/if}
+				<p class="font-mono">{receiveValue}</p>
+			</div>
+			<button
+				type="button"
+				class="btn btn-outline w-full"
+				onclick={handleCopy}
+				data-testid="receive-copy"
+			>
+				{$t(
+					asset === 'btc_onchain' ? 'wallet.taproot.copy_address' : 'wallet.taproot.copy_invoice'
+				)}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost w-full"
+				onclick={cancelReceive}
+				data-testid="receive-cancel"
+			>
+				{$t('wallet.taproot.cancel_invoice')}
+			</button>
+		{/if}
+
+		{#if errorMessage}
+			<div class="alert alert-error text-sm" role="alert" data-testid="receive-error">
+				{errorMessage}
+			</div>
+		{/if}
+
+		<p class="text-base-content/60 text-xs">
+			{$t('wallet.taproot.make_sure_network')}
+		</p>
 	{/if}
-
-	{#if errorMessage}
-		<div class="alert alert-error text-sm" role="alert" data-testid="receive-error">
-			{errorMessage}
-		</div>
-	{/if}
-
-	<p class="text-base-content/60 text-xs">
-		{$t('wallet.taproot.make_sure_network')}
-	</p>
-
-	<button type="button" class="btn btn-ghost w-full" onclick={onClose} data-testid="receive-close">
+	<button
+		type="button"
+		class="btn btn-ghost min-h-12 w-full"
+		onclick={onClose}
+		data-testid="receive-close"
+	>
 		{$t('common.close')}
 	</button>
 </div>

@@ -9,7 +9,10 @@
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
-		{ code: 'es', name: 'Español' }
+		{ code: 'es', name: 'Español' },
+		{ code: 'pt', name: 'Português' },
+		{ code: 'fr', name: 'Français' },
+		{ code: 'sw', name: 'Kiswahili' }
 	];
 
 	let {
@@ -21,7 +24,7 @@
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
-	const FLAG_IMAGES: Record<SupportedLanguage, string> = {
+	const FLAG_IMAGES: Partial<Record<SupportedLanguage, string>> = {
 		en: '/images/flags/us.webp',
 		es: '/images/flags/sv.webp'
 	};
@@ -58,7 +61,13 @@
 		}
 	};
 
-	const LOCALE_TO_LANGUAGE_KEY: Record<string, string> = { en: 'English', es: 'Español' };
+	const LOCALE_TO_LANGUAGE_KEY: Record<string, string> = {
+		en: 'English',
+		es: 'Español',
+		pt: 'Português',
+		fr: 'Français',
+		sw: 'Kiswahili'
+	};
 
 	// Svelte 5 derived state for current language name (uses $derived.by for reactive re-evaluation)
 	const currentLanguageName = $derived.by(() => {
@@ -81,13 +90,17 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
-		<img
-			src={FLAG_IMAGES[$locale as SupportedLanguage]}
-			alt={`${currentLanguageName} flag`}
-			class="h-4.5 w-6 rounded-sm object-cover"
-			width="24"
-			height="18"
-		/>
+		{#if FLAG_IMAGES[$locale as SupportedLanguage]}
+			<img
+				src={FLAG_IMAGES[$locale as SupportedLanguage]}
+				alt={`${currentLanguageName} flag`}
+				class="h-4.5 w-6 rounded-sm object-cover"
+				width="24"
+				height="18"
+			/>
+		{:else}
+			<span class="badge badge-ghost badge-sm uppercase">{$locale}</span>
+		{/if}
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -122,13 +135,17 @@
 						}}
 						class:bg-base-200={code === $locale}
 					>
-						<img
-							src={FLAG_IMAGES[code as SupportedLanguage]}
-							alt={`${name} flag`}
-							class="h-4.5 w-6 rounded-sm object-cover"
-							width="24"
-							height="18"
-						/>
+						{#if FLAG_IMAGES[code as SupportedLanguage]}
+							<img
+								src={FLAG_IMAGES[code as SupportedLanguage]}
+								alt={`${name} flag`}
+								class="h-4.5 w-6 rounded-sm object-cover"
+								width="24"
+								height="18"
+							/>
+						{:else}
+							<span class="badge badge-ghost badge-sm uppercase">{code}</span>
+						{/if}
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
 							<IconCheck class="text-primary ml-auto h-4 w-4" />

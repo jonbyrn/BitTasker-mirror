@@ -13,7 +13,20 @@
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
+		advancedWallet,
+		loadAdvancedMode,
+		setAdvancedMode
+	} from '$lib/stores/wallet/wallet-mode';
+	import {
+		combinedSats,
+		formatUsd,
+		usdFromSats,
+		walletChip
+	} from '$lib/stores/wallet/plain-wallet';
+	import {
+		decodeRgbInvoice,
 		pendingBlindReceives,
 		type BlindReceiveRow
 	} from '$lib/stores/wallet/decode-rgb-invoice';
@@ -41,6 +54,8 @@
 	let lightningBtcSats = $state(0);
 	let lightningUsdtUnits = $state(0);
 	let showAllHistory = $state(false);
+	let showDetails = $state(false);
+	let openHistory = $state<string | null>(null);
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
@@ -99,6 +114,56 @@
 	});
 	const shownError = $derived(initializationError ?? $walletStore.error);
 	const reloadRequired = $derived(walletReloadRequired(shownError));
+	const advanced = $derived($advancedWallet);
+	const testMoney = $derived(
+		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
+	);
+	const statusChip = $derived(
+		walletChip({
+			locked: $walletStore.locked,
+			syncing: $walletStore.syncing,
+			initializing: $walletStore.isInitializing,
+			connected: $walletStore.isConnected && Boolean($walletStore.rgb?.initialized),
+			hasError: Boolean(shownError)
+		})
+	);
+	const bitcoinSats = $derived(
+		combinedSats(
+			$walletStore.totalBalances?.sats ?? $walletStore.rgb?.balanceSats ?? 0,
+			lightningBtcSats
+		)
+	);
+	const bitcoinFiat = $derived.by(() => {
+		const dollars = usdFromSats(bitcoinSats, btcPrice.price);
+		return dollars === null ? '—' : formatUsd(dollars);
+	});
+	const dollarUnits = $derived.by(() => {
+		const chain =
+			usdtAsset?.spendable ?? usdtAsset?.balance ?? $walletStore.totalBalances?.usdt ?? 0;
+		const units = (Number.isFinite(chain) ? chain : 0) + lightningUsdtUnits;
+		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
+		return formatUsdtBalance(units, precision);
+	});
+	const arrivingText = $derived.by(() => {
+		let units = 0;
+		let waiting = false;
+		for (const row of blindReceives) {
+			if (row.txid) continue;
+			waiting = true;
+			try {
+				const amount = decodeRgbInvoice(row.invoice).amount;
+				if (amount && amount > 0) units += amount;
+			} catch (error: unknown) {
+				console.error('[wallet-page] arriving amount failed', error);
+			}
+		}
+		if (!waiting) return '';
+		if (units <= 0) return translate('wallet.simple.arriving_soon', 'Money is arriving');
+		return translate('wallet.simple.arriving', '+ {amount} arriving').replaceAll(
+			'{amount}',
+			`$${formatUsdtBalance(units, 6)}`
+		);
+	});
 
 	function text(value: unknown, fallback: string): string {
 		return typeof value === 'string' && value.trim() ? value : fallback;
@@ -158,6 +223,7 @@
 	}
 
 	onMount(() => {
+		loadAdvancedMode();
 		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
 			console.error('[wallet-page-init-error]', err);
@@ -371,7 +437,26 @@
 </svelte:head>
 
 <div class="wallet-screen mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6">
-	{#if shownError}
+	{#if shownError && !advanced}
+		<div class="alert alert-outline alert-error" role="alert" data-testid="wallet-error">
+			<span>{$t('wallet.simple.offline_help')}</span>
+			<button
+				class="btn btn-sm min-h-12"
+				type="button"
+				onclick={() => {
+					if (reloadRequired) {
+						window.location.reload();
+						return;
+					}
+					initializeWallet().catch((err: unknown) => {
+						console.error('[wallet-page] Wallet initialization failed:', err);
+					});
+				}}
+			>
+				{$t('wallet.simple.try_again')}
+			</button>
+		</div>
+	{:else if shownError}
 		<div class="alert alert-outline alert-error" role="alert">
 			<span>{text(shownError, 'Wallet initialization failed')}</span>
 			{#if reloadRequired}
@@ -425,219 +510,312 @@
 		</div>
 	{/snippet}
 
-	<section class="card bg-base-100 border-base-300 shrink-0 border shadow-sm">
-		<div class="card-body gap-0 p-0">
-			<div class="flex items-center justify-between gap-3 px-4 py-2">
-				<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
-				{#if $walletStore.locked}
-					<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
-						{translate('wallet.locked', 'Locked')}
-					</span>
-				{:else if $walletStore.syncing}
-					<span class="badge badge-info badge-sm" data-testid="wallet-syncing">
-						{translate('wallet.syncing', 'Syncing')}
-					</span>
-				{:else if $walletStore.isConnected && $walletStore.rgb?.initialized}
-					<span class="badge badge-success badge-sm" data-testid="wallet-connected">
-						{translate('wallet.tab_connected', 'Connected')}
-					</span>
-				{:else if $walletStore.isInitializing}
-					<span class="badge badge-warning badge-sm gap-2">
-						<span class="loading loading-spinner loading-xs"></span>
-						{translate('wallet.loading', 'Loading wallet')}
-					</span>
-				{:else}
-					<span class="badge badge-ghost badge-sm">
-						{translate('wallet.error.no_connection', 'Wallet offline')}
-					</span>
-				{/if}
-			</div>
-			{@render balanceRow(
-				'BTC',
-				translate('wallet.bitcoin', 'Bitcoin'),
-				`${formatNumber($walletStore.totalBalances.sats)} ${translate('wallet.sats', 'sats')}`
-			)}
-			{@render balanceRow(
-				'USDT',
-				usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
-				usdtAsset
-					? formatUsdtBalance(
-							usdtAsset.balance,
-							usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
-						)
-					: formatUsdtBalance($walletStore.totalBalances.usdt, 6)
-			)}
-			{#if $walletStore.locked}
-				<div class="px-4 py-3">
-					<button
-						class="btn btn-primary w-full"
-						type="button"
-						onclick={unlockFromClick}
-						data-testid="unlock-wallet"
-					>
-						{translate('wallet.unlock', 'Unlock wallet')}
-					</button>
-				</div>
+	{#if !advanced}
+		<div class="flex items-center gap-2" data-testid="wallet-status">
+			{#if testMoney}
+				<span class="badge badge-warning badge-sm" data-testid="test-money">
+					{$t('wallet.simple.test_money')}
+				</span>
 			{/if}
-			{#if usdtAsset?.pendingConfirm}
-				<p class="text-warning px-4 py-2 text-sm" data-testid="pending-confirmation">
-					{translate('wallet.pending_confirmation', 'Pending confirmation')}
-				</p>
-			{/if}
-			{#if chainGap}
-				<div class="alert alert-outline alert-warning mx-4 my-2" role="status">
-					<span>
-						{$t('wallet.chain_balance_gap', {
-							values: { reported: chainGap.reported, chain: chainGap.chain }
-						})}
-					</span>
-				</div>
-			{/if}
-			{#each otherAssets as asset (asset.assetId)}
-				{@render balanceRow(
-					asset.symbol || asset.name,
-					assetLabel(asset.symbol, asset.name),
-					asset.formattedBalance || formatNumber(asset.balance)
-				)}
-			{/each}
-		</div>
-	</section>
-
-	<section
-		class="card bg-base-100 border-base-300 shrink-0 border shadow-sm"
-		data-testid="lightning-wallet"
-	>
-		<div class="card-body gap-2 p-4">
-			<div class="flex items-center justify-between gap-3">
-				<p class="text-sm font-semibold">{translate('wallet.lightning_title', 'Lightning')}</p>
-				{#if $walletStore.locked}
-					<span class="badge badge-warning badge-sm" data-testid="lightning-locked">
-						{translate('wallet.lightning_locked', 'Wallet locked')}
-					</span>
-				{:else if lightningUx.status === 'ready'}
-					<span class="badge badge-success badge-sm" data-testid="lightning-ready">
-						{translate('wallet.lightning_ready', 'Ready')}
-					</span>
-				{:else if lightningUx.status === 'needs_funding'}
-					<span class="badge badge-warning badge-sm" data-testid="lightning-needs-funding">
-						{translate('wallet.lightning_needs_funding', 'Needs funding')}
-					</span>
-				{:else if lightningUx.status === 'failed'}
-					<span class="badge badge-error badge-sm" data-testid="lightning-failed">
-						{translate('wallet.lightning_failed', 'Lightning unavailable')}
-					</span>
-				{:else}
-					<span class="badge badge-ghost badge-sm" data-testid="lightning-setting-up">
-						{translate('wallet.lightning_setting_up', 'Setting up Lightning')}
-					</span>
-				{/if}
-			</div>
-			{#if $walletStore.locked}
-				<p class="text-base-content/70 text-sm" data-testid="lightning-locked-hint">
-					{translate('wallet.lightning_locked', 'Wallet locked')}
-				</p>
+			{#if statusChip === 'ready'}
+				<span class="badge badge-success gap-2" data-testid="wallet-ready">
+					<span class="bg-success inline-block h-2 w-2 rounded-full"></span>
+					{$t('wallet.simple.ready')}
+				</span>
+			{:else if statusChip === 'getting_ready'}
+				<span class="badge badge-ghost gap-2" data-testid="wallet-getting-ready">
+					<span class="loading loading-spinner loading-xs"></span>
+					{$t('wallet.simple.getting_ready')}
+				</span>
 			{:else}
-				<p class="text-base-content/70 text-sm" data-testid="lightning-status">
-					{#if lightningUx.status === 'failed'}
-						{lightningFailureText}
-					{:else if lightningUx.status === 'needs_funding'}
-						{translate(
-							'wallet.lightning_needs_funding_amount',
-							'Add {sats} sats to finish Lightning.'
-						).replaceAll('{sats}', lightningUx.satsNeeded.toLocaleString())}
-					{:else if lightningUx.status === 'ready'}
-						{translate(
-							'wallet.lightning_ready_hint',
-							'You can send and receive Lightning payments.'
-						)}
-					{:else}
-						{translate(
-							'wallet.lightning_setting_up_hint',
-							'Setting up Lightning. This can take a few minutes.'
-						)}
-					{/if}
-				</p>
-				<div class="flex flex-col gap-1 text-sm" data-testid="lightning-balances">
-					<p>
-						{translate('wallet.lightning_btc_balance', 'Lightning Bitcoin')}:
-						{formatNumber(lightningBtcSats)}
-						{translate('wallet.sats', 'sats')}
-					</p>
-					<p>
-						{translate('wallet.lightning_usdt_balance', 'Lightning USDT')}:
-						{formatUsdtBalance(lightningUsdtUnits, 6)} USDT
-					</p>
-				</div>
-				<p class="text-base-content/60 text-xs">
-					{translate(
-						'wallet.lightning_onchain_separate',
-						'On-chain balances above are separate from Lightning.'
-					)}
-				</p>
-				<AdvancedLightning />
+				<span class="badge badge-error" data-testid="wallet-offline">
+					{$t('wallet.simple.offline')}
+				</span>
 			{/if}
 		</div>
-	</section>
+		<section class="grid grid-cols-1 gap-3">
+			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-bitcoin">
+				<div class="card-body gap-1 p-4">
+					<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
+					<p class="text-3xl font-bold tabular-nums">{bitcoinFiat}</p>
+					<p class="text-base-content/60 text-sm tabular-nums">
+						{formatNumber(bitcoinSats)}
+					</p>
+				</div>
+			</div>
+			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
+				<div class="card-body gap-1 p-4">
+					<p class="text-sm">{$t('wallet.simple.dollars')}</p>
+					<p class="text-3xl font-bold tabular-nums">${dollarUnits}</p>
+				</div>
+			</div>
+		</section>
+		{#if arrivingText}
+			<p class="text-success text-sm" data-testid="funds-arriving">{arrivingText}</p>
+		{/if}
+		{#if utxoSummary.locked > 0}
+			<p class="text-sm" data-testid="funds-escrow">
+				{$t('wallet.simple.in_escrow', { values: { count: utxoSummary.locked } })}
+			</p>
+		{/if}
+		{#if $walletStore.locked}
+			<button
+				class="btn btn-primary min-h-12 w-full"
+				type="button"
+				onclick={unlockFromClick}
+				data-testid="unlock-wallet"
+			>
+				{$t('wallet.simple.unlock')}
+			</button>
+		{/if}
+		<button
+			class="btn btn-ghost min-h-12"
+			type="button"
+			data-testid="wallet-details"
+			onclick={() => (showDetails = !showDetails)}
+		>
+			{$t(showDetails ? 'wallet.simple.hide_details' : 'wallet.simple.details')}
+		</button>
+		{#if showDetails}
+			<label class="flex min-h-12 items-center justify-between gap-3">
+				<span>
+					<span class="block text-sm">{$t('wallet.simple.advanced')}</span>
+					<span class="text-base-content/60 block text-xs">{$t('wallet.simple.advanced_help')}</span
+					>
+				</span>
+				<input
+					type="checkbox"
+					class="toggle toggle-primary"
+					checked={advanced}
+					onchange={(event) => {
+						const input = event.currentTarget;
+						if (input instanceof HTMLInputElement) setAdvancedMode(input.checked);
+					}}
+				/>
+			</label>
+			{#if shownError}
+				<p class="font-mono text-xs break-all" data-testid="wallet-error-detail">{shownError}</p>
+			{/if}
+		{/if}
+	{/if}
 
-	<div class="flex flex-col gap-4">
-		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="wallet-utxos">
-			<div class="card-body gap-2 p-4">
-				<p class="text-base-content/60 text-sm">
-					{translate('wallet.utxo_state', 'Assets on Bitcoin')}
-				</p>
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm text-base-content/50 w-full"
-					aria-expanded={showUtxoDetails}
-					onclick={() => (showUtxoDetails = !showUtxoDetails)}
-				>
-					{translate('wallet.utxo_advanced', 'Show coin details')}
-				</button>
-				{#if showUtxoDetails}
-					{#if utxoError}
-						<p class="text-error text-sm">{utxoError}</p>
-					{:else if utxos.length === 0}
-						<p class="text-base-content/60 text-sm">{translate('wallet.no_utxos', 'No UTXOs')}</p>
+	{#if advanced || showDetails}
+		<section class="card bg-base-100 border-base-300 shrink-0 border shadow-sm">
+			<div class="card-body gap-0 p-0">
+				<div class="flex items-center justify-between gap-3 px-4 py-2">
+					<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
+					{#if $walletStore.locked}
+						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
+							{translate('wallet.locked', 'Locked')}
+						</span>
+					{:else if $walletStore.syncing}
+						<span class="badge badge-info badge-sm" data-testid="wallet-syncing">
+							{translate('wallet.syncing', 'Syncing')}
+						</span>
+					{:else if $walletStore.isConnected && $walletStore.rgb?.initialized}
+						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
+							{translate('wallet.tab_connected', 'Connected')}
+						</span>
+					{:else if $walletStore.isInitializing}
+						<span class="badge badge-warning badge-sm gap-2">
+							<span class="loading loading-spinner loading-xs"></span>
+							{translate('wallet.loading', 'Loading wallet')}
+						</span>
 					{:else}
-						<ul class="text-sm">
-							<li>
-								{$t('wallet.utxo_asset_bearing', { values: { count: utxoSummary.colored } })}
-							</li>
-							<li>{$t('wallet.utxo_in_escrow', { values: { count: utxoSummary.locked } })}</li>
-							<li>
-								{$t('wallet.utxo_available_btc', { values: { count: utxoSummary.available } })}
-							</li>
-						</ul>
-						<ul class="divide-base-300 divide-y">
-							{#each utxos as utxo (utxo.id)}
-								<li class="flex flex-col gap-0.5 py-1.5">
-									<div class="flex items-center gap-2">
-										<p class="min-w-0 flex-1 truncate font-mono text-xs" title={utxo.outpoint}>
-											{shortOutpoint(utxo.outpoint)}
-										</p>
-										<span
-											class="badge badge-sm shrink-0"
-											class:badge-success={utxo.kind === 'free'}
-											class:badge-info={utxo.kind === 'colored'}
-											class:badge-warning={utxo.kind === 'locked'}
-											class:badge-ghost={utxo.kind === 'vanilla'}
-										>
-											{utxoKindLabel(utxo.kind)}
-										</span>
-									</div>
-									<p class="text-base-content/70 text-xs tabular-nums">
-										{formatNumber(utxo.sats)}
-										{translate('wallet.sats', 'sats')}
-										·
-										{$t('wallet.utxo_allocations', { values: { count: utxo.allocations } })}
-									</p>
-								</li>
-							{/each}
-						</ul>
+						<span class="badge badge-ghost badge-sm">
+							{translate('wallet.error.no_connection', 'Wallet offline')}
+						</span>
 					{/if}
+				</div>
+				{@render balanceRow(
+					'BTC',
+					translate('wallet.bitcoin', 'Bitcoin'),
+					`${formatNumber($walletStore.totalBalances.sats)} ${translate('wallet.sats', 'sats')}`
+				)}
+				{@render balanceRow(
+					'USDT',
+					usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
+					usdtAsset
+						? formatUsdtBalance(
+								usdtAsset.balance,
+								usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
+							)
+						: formatUsdtBalance($walletStore.totalBalances.usdt, 6)
+				)}
+				{#if $walletStore.locked}
+					<div class="px-4 py-3">
+						<button
+							class="btn btn-primary w-full"
+							type="button"
+							onclick={unlockFromClick}
+							data-testid="unlock-wallet"
+						>
+							{translate('wallet.unlock', 'Unlock wallet')}
+						</button>
+					</div>
+				{/if}
+				{#if usdtAsset?.pendingConfirm}
+					<p class="text-warning px-4 py-2 text-sm" data-testid="pending-confirmation">
+						{translate('wallet.pending_confirmation', 'Pending confirmation')}
+					</p>
+				{/if}
+				{#if chainGap}
+					<div class="alert alert-outline alert-warning mx-4 my-2" role="status">
+						<span>
+							{$t('wallet.chain_balance_gap', {
+								values: { reported: chainGap.reported, chain: chainGap.chain }
+							})}
+						</span>
+					</div>
+				{/if}
+				{#each otherAssets as asset (asset.assetId)}
+					{@render balanceRow(
+						asset.symbol || asset.name,
+						assetLabel(asset.symbol, asset.name),
+						asset.formattedBalance || formatNumber(asset.balance)
+					)}
+				{/each}
+			</div>
+		</section>
+
+		<section
+			class="card bg-base-100 border-base-300 shrink-0 border shadow-sm"
+			data-testid="lightning-wallet"
+		>
+			<div class="card-body gap-2 p-4">
+				<div class="flex items-center justify-between gap-3">
+					<p class="text-sm font-semibold">{translate('wallet.lightning_title', 'Lightning')}</p>
+					{#if $walletStore.locked}
+						<span class="badge badge-warning badge-sm" data-testid="lightning-locked">
+							{translate('wallet.lightning_locked', 'Wallet locked')}
+						</span>
+					{:else if lightningUx.status === 'ready'}
+						<span class="badge badge-success badge-sm" data-testid="lightning-ready">
+							{translate('wallet.lightning_ready', 'Ready')}
+						</span>
+					{:else if lightningUx.status === 'needs_funding'}
+						<span class="badge badge-warning badge-sm" data-testid="lightning-needs-funding">
+							{translate('wallet.lightning_needs_funding', 'Needs funding')}
+						</span>
+					{:else if lightningUx.status === 'failed'}
+						<span class="badge badge-error badge-sm" data-testid="lightning-failed">
+							{translate('wallet.lightning_failed', 'Lightning unavailable')}
+						</span>
+					{:else}
+						<span class="badge badge-ghost badge-sm" data-testid="lightning-setting-up">
+							{translate('wallet.lightning_setting_up', 'Setting up Lightning')}
+						</span>
+					{/if}
+				</div>
+				{#if $walletStore.locked}
+					<p class="text-base-content/70 text-sm" data-testid="lightning-locked-hint">
+						{translate('wallet.lightning_locked', 'Wallet locked')}
+					</p>
+				{:else}
+					<p class="text-base-content/70 text-sm" data-testid="lightning-status">
+						{#if lightningUx.status === 'failed'}
+							{lightningFailureText}
+						{:else if lightningUx.status === 'needs_funding'}
+							{translate(
+								'wallet.lightning_needs_funding_amount',
+								'Add {sats} sats to finish Lightning.'
+							).replaceAll('{sats}', lightningUx.satsNeeded.toLocaleString())}
+						{:else if lightningUx.status === 'ready'}
+							{translate(
+								'wallet.lightning_ready_hint',
+								'You can send and receive Lightning payments.'
+							)}
+						{:else}
+							{translate(
+								'wallet.lightning_setting_up_hint',
+								'Setting up Lightning. This can take a few minutes.'
+							)}
+						{/if}
+					</p>
+					<div class="flex flex-col gap-1 text-sm" data-testid="lightning-balances">
+						<p>
+							{translate('wallet.lightning_btc_balance', 'Lightning Bitcoin')}:
+							{formatNumber(lightningBtcSats)}
+							{translate('wallet.sats', 'sats')}
+						</p>
+						<p>
+							{translate('wallet.lightning_usdt_balance', 'Lightning USDT')}:
+							{formatUsdtBalance(lightningUsdtUnits, 6)} USDT
+						</p>
+					</div>
+					<p class="text-base-content/60 text-xs">
+						{translate(
+							'wallet.lightning_onchain_separate',
+							'On-chain balances above are separate from Lightning.'
+						)}
+					</p>
+					<AdvancedLightning />
 				{/if}
 			</div>
 		</section>
+	{/if}
+
+	<div class="flex flex-col gap-4">
+		{#if advanced || showDetails}
+			<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="wallet-utxos">
+				<div class="card-body gap-2 p-4">
+					<p class="text-base-content/60 text-sm">
+						{translate('wallet.utxo_state', 'Assets on Bitcoin')}
+					</p>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm text-base-content/50 w-full"
+						aria-expanded={showUtxoDetails}
+						onclick={() => (showUtxoDetails = !showUtxoDetails)}
+					>
+						{translate('wallet.utxo_advanced', 'Show coin details')}
+					</button>
+					{#if showUtxoDetails}
+						{#if utxoError}
+							<p class="text-error text-sm">{utxoError}</p>
+						{:else if utxos.length === 0}
+							<p class="text-base-content/60 text-sm">{translate('wallet.no_utxos', 'No UTXOs')}</p>
+						{:else}
+							<ul class="text-sm">
+								<li>
+									{$t('wallet.utxo_asset_bearing', { values: { count: utxoSummary.colored } })}
+								</li>
+								<li>{$t('wallet.utxo_in_escrow', { values: { count: utxoSummary.locked } })}</li>
+								<li>
+									{$t('wallet.utxo_available_btc', { values: { count: utxoSummary.available } })}
+								</li>
+							</ul>
+							<ul class="divide-base-300 divide-y">
+								{#each utxos as utxo (utxo.id)}
+									<li class="flex flex-col gap-0.5 py-1.5">
+										<div class="flex items-center gap-2">
+											<p class="min-w-0 flex-1 truncate font-mono text-xs" title={utxo.outpoint}>
+												{shortOutpoint(utxo.outpoint)}
+											</p>
+											<span
+												class="badge badge-sm shrink-0"
+												class:badge-success={utxo.kind === 'free'}
+												class:badge-info={utxo.kind === 'colored'}
+												class:badge-warning={utxo.kind === 'locked'}
+												class:badge-ghost={utxo.kind === 'vanilla'}
+											>
+												{utxoKindLabel(utxo.kind)}
+											</span>
+										</div>
+										<p class="text-base-content/70 text-xs tabular-nums">
+											{formatNumber(utxo.sats)}
+											{translate('wallet.sats', 'sats')}
+											·
+											{$t('wallet.utxo_allocations', { values: { count: utxo.allocations } })}
+										</p>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{/if}
+				</div>
+			</section>
+		{/if}
 
 		<section
 			class="card bg-base-100 border-base-300 flex min-h-0 flex-1 flex-col overflow-hidden border shadow-sm"
@@ -647,20 +825,22 @@
 					<p class="text-sm font-semibold">
 						{translate('wallet.transaction_history', 'Transaction History')}
 					</p>
-					<button
-						type="button"
-						class="btn btn-outline btn-sm"
-						data-testid="refresh-transfers"
-						disabled={refreshing}
-						onclick={() => {
-							void refreshTransfers();
-						}}
-					>
-						{#if refreshing}
-							<span class="loading loading-spinner loading-xs"></span>
-						{/if}
-						{translate('wallet.refresh_transfers', 'Refresh transfers')}
-					</button>
+					{#if advanced}
+						<button
+							type="button"
+							class="btn btn-outline btn-sm"
+							data-testid="refresh-transfers"
+							disabled={refreshing}
+							onclick={() => {
+								void refreshTransfers();
+							}}
+						>
+							{#if refreshing}
+								<span class="loading loading-spinner loading-xs"></span>
+							{/if}
+							{translate('wallet.refresh_transfers', 'Refresh transfers')}
+						</button>
+					{/if}
 					<span class="badge badge-ghost badge-sm">{$walletStore.transactions.length}</span>
 				</div>
 				{#if $walletStore.transactions.length === 0}
@@ -681,9 +861,11 @@
 									<p class="text-base-content/60 truncate text-sm">
 										{historyLabel(transaction.type, transaction.description)}
 									</p>
-									<p class="truncate font-mono text-xs" title={txid}>
-										{shortOutpoint(txid)}
-									</p>
+									{#if advanced || openHistory === transaction.id}
+										<p class="truncate font-mono text-xs" title={txid}>
+											{shortOutpoint(txid)}
+										</p>
+									{/if}
 									<p class="text-base-content/50 text-xs">
 										{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
 									</p>
@@ -697,7 +879,7 @@
 									)}
 								</p>
 							{/snippet}
-							{#if explorerUrl}
+							{#if advanced && explorerUrl}
 								<a
 									class={rowClass}
 									href={explorerUrl}
@@ -708,9 +890,15 @@
 									{@render historyBody()}
 								</a>
 							{:else}
-								<div class={rowClass} title={txid}>
+								<button
+									type="button"
+									class="{rowClass} min-h-12 text-left"
+									onclick={() => {
+										openHistory = openHistory === transaction.id ? null : transaction.id;
+									}}
+								>
 									{@render historyBody()}
-								</div>
+								</button>
 							{/if}
 						{/each}
 					</div>
@@ -728,7 +916,7 @@
 		</section>
 	</div>
 
-	{#if blindReceives.length > 0}
+	{#if (advanced || showDetails) && blindReceives.length > 0}
 		<div class="alert alert-outline flex flex-col items-start gap-2" data-testid="receive-waiting">
 			{#each blindReceives as row (`${row.seal}-${row.status}-${row.batch ?? ''}`)}
 				<div class="flex w-full flex-col gap-1">
@@ -765,7 +953,7 @@
 	{/if}
 
 	<div class="grid shrink-0 grid-cols-2 gap-2 pt-1">
-		<button class="btn btn-primary glow-soft gap-2" type="button" onclick={openSend}>
+		<button class="btn btn-primary glow-soft min-h-12 gap-2" type="button" onclick={openSend}>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 				<path
 					fill-rule="evenodd"
@@ -776,7 +964,7 @@
 			{translate('wallet.tab_send', 'Send')}
 		</button>
 		<button
-			class="btn btn-neutral gap-2"
+			class="btn btn-neutral min-h-12 gap-2"
 			type="button"
 			disabled={receiveLocked}
 			onclick={() => (isReceiveOpen = true)}
@@ -800,6 +988,11 @@
 		/>
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
-		<ReceivePaymentForm onClose={handleReceiveClose} onchainLocked={receiveLocked} />
+		<ReceivePaymentForm
+			onClose={handleReceiveClose}
+			onchainLocked={receiveLocked}
+			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}
+			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
+		/>
 	</WalletPaymentModal>
 </div>

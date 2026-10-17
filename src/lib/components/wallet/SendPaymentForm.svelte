@@ -23,6 +23,13 @@
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
+	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
+	import {
+		detectPayment,
+		feeEstimateSats,
+		formatUsd,
+		usdFromSats
+	} from '$lib/stores/wallet/plain-wallet';
 
 	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
@@ -159,6 +166,10 @@
 		return $t('wallet.networks.lightning');
 	});
 	const reviewFee = $derived(asset === 'usdt_rgb' ? 2 : feeRate);
+	const simpleFee = $derived.by(() => {
+		const dollars = usdFromSats(feeEstimateSats(reviewFee), btcPrice.price);
+		return dollars === null ? null : formatUsd(dollars);
+	});
 	const canSubmit = $derived.by(() => {
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
@@ -231,6 +242,7 @@
 	}
 
 	onMount(() => {
+		if (!$advancedWallet) unit = 'usd';
 		if (asset === 'usdt_rgb') void loadSpendable();
 	});
 
@@ -254,6 +266,13 @@
 		if (!(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLInputElement)) return;
 		destination = target.value;
 		errorMessage = '';
+		if (!$advancedWallet) {
+			const rail = detectPayment(destination);
+			if (rail) {
+				picked = rail;
+				if (rail === 'usdt_rgb') void loadSpendable();
+			}
+		}
 		applyInvoice(destination.trim());
 		void bindBlankIfa(destination.trim());
 		if (asset === 'usdt_rgb') void loadSpendable();
@@ -302,6 +321,16 @@
 		}
 		if (asset === 'btc_onchain' && (amountSats === null || amountSats <= 0)) return;
 		if (asset === 'usdt_rgb' && (rgbAmount === null || rgbAmount <= 0)) return;
+		if (
+			decodedInvoice?.amount &&
+			decodedInvoice.amount > 0 &&
+			rgbAmount !== null &&
+			rgbAmount !== decodedInvoice.amount
+		) {
+			errorMessage = $advancedWallet ? 'Invoice amount does not match' : 'plain';
+			reviewing = false;
+			return;
+		}
 		isSending = true;
 		errorMessage = '';
 		try {
@@ -352,7 +381,7 @@
 			onSent(txid);
 		} catch (error) {
 			console.error('[wallet-send] failed', error instanceof Error ? error.stack : error);
-			errorMessage = describeThrown(error);
+			errorMessage = $advancedWallet ? describeThrown(error) : 'plain';
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -369,37 +398,43 @@
 	}}
 >
 	<!-- Asset selector: BTC on-chain / Lightning / USDT RGB -->
-	<div class="join w-full" role="group" aria-label={$t('wallet.taproot.token')}>
-		{#each assets as option (option.id)}
-			<button
-				type="button"
-				class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
-				class:ring-2={asset === option.id}
-				class:ring-base-content={asset === option.id}
-				onclick={() => {
-					picked = option.id;
-					destination = '';
-					errorMessage = '';
-					sentTxid = '';
-					amountInput = '';
-					reviewing = false;
-					if (option.id === 'usdt_rgb') void loadSpendable();
-				}}
-				data-testid={`asset-${option.id}`}
-			>
-				{$t(option.labelKey)}
-			</button>
-		{/each}
-	</div>
+	{#if $advancedWallet}
+		<div class="join w-full" role="group" aria-label={$t('wallet.taproot.token')}>
+			{#each assets as option (option.id)}
+				<button
+					type="button"
+					class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
+					class:ring-2={asset === option.id}
+					class:ring-base-content={asset === option.id}
+					onclick={() => {
+						picked = option.id;
+						destination = '';
+						errorMessage = '';
+						sentTxid = '';
+						amountInput = '';
+						reviewing = false;
+						if (option.id === 'usdt_rgb') void loadSpendable();
+					}}
+					data-testid={`asset-${option.id}`}
+				>
+					{$t(option.labelKey)}
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Destination -->
 	<label class="form-control">
 		<span class="label-text mb-1">
-			{asset === 'btc_lightning'
-				? $t('wallet.send_form.network.lightning_bitcoin')
-				: asset === 'usdt_rgb'
-					? $t('wallet.taproot.recipient_invoice')
-					: $t('wallet.taproot.recipient_address')}
+			{#if !$advancedWallet}
+				{$t('wallet.simple.paste')}
+			{:else if asset === 'btc_lightning'}
+				{$t('wallet.send_form.network.lightning_bitcoin')}
+			{:else if asset === 'usdt_rgb'}
+				{$t('wallet.taproot.recipient_invoice')}
+			{:else}
+				{$t('wallet.taproot.recipient_address')}
+			{/if}
 		</span>
 		{#if asset === 'usdt_rgb'}
 			<textarea
@@ -452,7 +487,7 @@
 			</div>
 		</label>
 
-		{#if asset === 'btc_onchain'}
+		{#if asset === 'btc_onchain' && $advancedWallet}
 			<label class="form-control">
 				<span class="label-text mb-1">{$t('wallet.taproot.fee_rate')}</span>
 				<input
@@ -466,7 +501,7 @@
 		{/if}
 	{/if}
 
-	{#if decodedInvoice}
+	{#if decodedInvoice && $advancedWallet}
 		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-decoded">
 			<p class="font-mono">{decodedInvoice.seal}</p>
 			<p>
@@ -504,48 +539,63 @@
 		</div>
 	{/if}
 
-	<div class="text-base-content/60 text-xs" data-testid="available-balance">
-		{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
-		{asset === 'usdt_rgb'
-			? spendableUnits === null
-				? '…'
-				: `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
-			: formatSats(walletSats)}
-	</div>
-
-	{#if pendingReceives > 0 && asset === 'usdt_rgb'}
-		<div
-			class="alert alert-outline alert-info text-sm"
-			role="status"
-			data-testid="send-pending-info"
-		>
-			{$t('wallet.send_pending_info')}
+	{#if $advancedWallet}
+		<div class="text-base-content/60 text-xs" data-testid="available-balance">
+			{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
+			{asset === 'usdt_rgb'
+				? spendableUnits === null
+					? '…'
+					: `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
+				: formatSats(walletSats)}
 		</div>
+
+		{#if pendingReceives > 0 && asset === 'usdt_rgb'}
+			<div
+				class="alert alert-outline alert-info text-sm"
+				role="status"
+				data-testid="send-pending-info"
+			>
+				{$t('wallet.send_pending_info')}
+			</div>
+		{/if}
+		{#if belowSpendable}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid="send-not-spendable"
+			>
+				{$t('wallet.send_below_spendable')}
+			</div>
+		{/if}
+		{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
+			<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
+				{$t('wallet.insufficient_balance')}
+			</div>
+		{/if}
+		{#if blankMissingIfa}
+			<div
+				class="alert alert-outline alert-error text-sm"
+				role="alert"
+				data-testid="send-ifa-missing"
+			>
+				{$t('wallet.send_select_ifa')}
+			</div>
+		{/if}
 	{/if}
-	{#if belowSpendable}
+	{#if !$advancedWallet && (belowSpendable || hasInsufficientBalance)}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"
-			data-testid="send-not-spendable"
+			data-testid="send-not-enough"
 		>
-			{$t('wallet.send_below_spendable')}
+			{$t('wallet.simple.not_enough')}
 		</div>
 	{/if}
-	{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
-		<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
-			{$t('wallet.insufficient_balance')}
+	{#if errorMessage === 'plain'}
+		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
+			{$t('wallet.simple.request_failed')}
 		</div>
-	{/if}
-	{#if blankMissingIfa}
-		<div
-			class="alert alert-outline alert-error text-sm"
-			role="alert"
-			data-testid="send-ifa-missing"
-		>
-			{$t('wallet.send_select_ifa')}
-		</div>
-	{/if}
-	{#if errorMessage}
+	{:else if errorMessage}
 		<div class="alert alert-error text-sm" role="alert" data-testid="send-error">
 			{errorMessage}
 		</div>
@@ -553,10 +603,17 @@
 
 	{#if reviewing}
 		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-review">
-			<p>{reviewAmount}</p>
-			<p class="font-mono text-xs break-all">{destination.trim()}</p>
-			{#if asset !== 'btc_lightning'}
-				<p>{$t('wallet.send_fee_rate', { values: { rate: reviewFee } })}</p>
+			{#if !$advancedWallet}
+				<p>{$t('wallet.simple.sending', { values: { amount: reviewAmount } })}</p>
+				{#if simpleFee}
+					<p>{$t('wallet.simple.fee', { values: { amount: simpleFee } })}</p>
+				{/if}
+			{:else}
+				<p>{reviewAmount}</p>
+				<p class="font-mono text-xs break-all">{destination.trim()}</p>
+				{#if asset !== 'btc_lightning'}
+					<p>{$t('wallet.send_fee_rate', { values: { rate: reviewFee } })}</p>
+				{/if}
 			{/if}
 		</div>
 	{/if}
@@ -586,7 +643,13 @@
 			{#if isSending}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{$t(reviewing ? 'wallet.send_confirm' : 'wallet.send.send')}
+			{$t(
+				reviewing
+					? $advancedWallet
+						? 'wallet.send_confirm'
+						: 'wallet.simple.send'
+					: 'wallet.send.send'
+			)}
 		</button>
 	</div>
 </form>

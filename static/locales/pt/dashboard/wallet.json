@@ -1,0 +1,38 @@
+{
+	"wallet": {
+		"simple": {
+			"ready": "Pronto",
+			"getting_ready": "Preparando…",
+			"offline": "Sem rede",
+			"offline_help": "Sem rede. Tente de novo.",
+			"try_again": "Tente de novo",
+			"bitcoin": "Bitcoin",
+			"dollars": "Dólares",
+			"details": "Detalhes",
+			"hide_details": "Ocultar",
+			"unlock": "Abrir com digital",
+			"get_dollars": "Receber dólares",
+			"get_bitcoin": "Receber Bitcoin",
+			"how_much": "Quanto?",
+			"skip": "Pular",
+			"continue": "Continuar",
+			"show_payer": "Mostre isto para quem vai pagar.",
+			"waiting": "Esperando o pagamento…",
+			"got_money": "Você recebeu {amount}!",
+			"request_failed": "Não deu para criar o pedido agora.",
+			"test_money": "DINHEIRO DE TESTE",
+			"copy": "Copiar",
+			"share": "Enviar",
+			"paste": "Cole ou escaneie",
+			"not_enough": "Dinheiro insuficiente",
+			"sending": "Você envia {amount}",
+			"fee": "Taxa: {amount}",
+			"send": "Enviar",
+			"arriving": "+ {amount} a caminho",
+			"arriving_soon": "Dinheiro a caminho",
+			"advanced": "Modo avançado",
+			"advanced_help": "Mostra mais detalhes. Deixe desligado.",
+			"in_escrow": "No contrato: {count}"
+		}
+	}
+}

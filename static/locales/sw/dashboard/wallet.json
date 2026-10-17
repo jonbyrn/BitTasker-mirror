@@ -1,0 +1,38 @@
+{
+	"wallet": {
+		"simple": {
+			"ready": "Tayari",
+			"getting_ready": "Inaandaliwa…",
+			"offline": "Nje ya mtandao",
+			"offline_help": "Hakuna mtandao. Jaribu tena.",
+			"try_again": "Jaribu tena",
+			"bitcoin": "Bitcoin",
+			"dollars": "Dola",
+			"details": "Maelezo",
+			"hide_details": "Ficha",
+			"unlock": "Fungua kwa alama ya kidole",
+			"get_dollars": "Pokea dola",
+			"get_bitcoin": "Pokea Bitcoin",
+			"how_much": "Kiasi gani?",
+			"skip": "Ruka",
+			"continue": "Endelea",
+			"show_payer": "Onyesha hii kwa anayekulipa.",
+			"waiting": "Inasubiri malipo…",
+			"got_money": "Umepokea {amount}!",
+			"request_failed": "Haiwezekani kuunda ombi sasa.",
+			"test_money": "PESA YA MAJARIBIO",
+			"copy": "Nakili",
+			"share": "Shiriki",
+			"paste": "Bandika au skani",
+			"not_enough": "Pesa haitoshi",
+			"sending": "Unatuma {amount}",
+			"fee": "Ada: {amount}",
+			"send": "Tuma",
+			"arriving": "+ {amount} inakuja",
+			"arriving_soon": "Pesa inakuja",
+			"advanced": "Hali ya juu",
+			"advanced_help": "Inaonyesha maelezo zaidi. Iache imezimwa.",
+			"in_escrow": "Kwa kazi: {count}"
+		}
+	}
+}

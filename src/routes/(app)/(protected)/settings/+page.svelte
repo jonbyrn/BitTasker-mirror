@@ -2,6 +2,11 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { animate, stagger } from 'motion';
+	import {
+		advancedWallet,
+		loadAdvancedMode,
+		setAdvancedMode
+	} from '$lib/stores/wallet/wallet-mode';
 
 	let reduced = $state(false);
 
@@ -53,6 +58,7 @@
 	let gridEl = $state<HTMLElement | null>(null);
 
 	onMount(() => {
+		loadAdvancedMode();
 		reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (!gridEl || reduced) return;
 		const items = gridEl.querySelectorAll('.settings-card');
@@ -79,6 +85,27 @@
 		card.style.setProperty('--spotlight-y', '50%');
 	}
 </script>
+
+<label
+	class="border-base-300 bg-base-100 mb-4 flex min-h-12 items-center justify-between gap-3 rounded-2xl border p-4"
+	data-testid="advanced-mode"
+>
+	<span>
+		<span class="block text-sm font-semibold">{$t('settings.cards.advanced.title')}</span>
+		<span class="text-base-content/60 block text-xs"
+			>{$t('settings.cards.advanced.description')}</span
+		>
+	</span>
+	<input
+		type="checkbox"
+		class="toggle toggle-primary"
+		checked={$advancedWallet}
+		onchange={(event) => {
+			const input = event.currentTarget;
+			if (input instanceof HTMLInputElement) setAdvancedMode(input.checked);
+		}}
+	/>
+</label>
 
 <div bind:this={gridEl} class="settings-grid grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
 	{#each cards as card (card.slug)}

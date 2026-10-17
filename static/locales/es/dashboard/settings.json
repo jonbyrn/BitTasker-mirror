@@ -210,6 +210,10 @@
 			"notifications": {
 				"title": "Notificaciones",
 				"description": "Gestionar push, email y horario silencioso"
+			},
+			"advanced": {
+				"title": "Modo avanzado",
+				"description": "Muestra más detalles de la billetera. Déjalo apagado."
 			}
 		},
 		"back": "Volver a Configuración"

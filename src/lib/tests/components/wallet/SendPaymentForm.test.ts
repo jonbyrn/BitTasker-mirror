@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
@@ -115,6 +116,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 
 describe('SendPaymentForm', () => {
 	beforeEach(() => {
+		setAdvancedMode(true);
 		vi.clearAllMocks();
 		lightningState.set({
 			ready: false,

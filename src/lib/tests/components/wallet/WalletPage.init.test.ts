@@ -59,6 +59,6 @@ describe('wallet page init', () => {
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
 			.default;
 		const { findByRole } = render(component);
-		expect(await findByRole('alert')).toHaveTextContent('Wallet init timed out');
+		expect(await findByRole('alert')).toHaveTextContent('wallet.simple.offline_help');
 	}, 30_000);
 });
