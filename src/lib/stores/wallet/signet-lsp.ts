@@ -1,6 +1,11 @@
 import { writable } from 'svelte/store';
+import {
+	gatewaySocketsCapped,
+	installGatewayGuard,
+	resetGatewayGuardForTests
+} from './gateway-guard';
 import type { LightningFailure } from './lightning-status';
-import { isWasmPanic, withWasm, wasmCrashed } from './wasm-lock';
+import { isWasmPanic, wasmBusy, withWasm, wasmCrashed } from './wasm-lock';
 
 /** Funded RGB wallet. LSP discovery must not run on this fingerprint. */
 export const FROZEN_RGB_FINGERPRINT = '1e192df5';
@@ -53,12 +58,22 @@ export interface LspPeerInfo {
 	peerPort: number;
 }
 
+interface NodeStop {
+	reconnectManagerStopValue?: () => unknown;
+	closeAllPeers?: () => Promise<void> | void;
+	disconnectPeer?: (pubkey: string) => Promise<void> | void;
+}
+
 interface LspWallet {
 	getLspConfig?: () => { baseUrl: string | null; bearerToken: string | null };
 	createLsp?: () => Promise<unknown>;
 	getLightningNode?: () => unknown;
+	disconnectPeer?: (pubkey: string) => Promise<void> | void;
 	_manager?: {
-		rlnBinding?: { walletData?: { master_fingerprint?: unknown } };
+		rlnBinding?: {
+			walletData?: { master_fingerprint?: unknown };
+			nodeHandle?: NodeStop;
+		};
 	};
 }
 
@@ -325,10 +340,12 @@ async function peerAlreadyConnected(): Promise<boolean> {
 
 async function connectStoredLsp(): Promise<boolean> {
 	const lsp = activeLightning;
-	if (lspHalted || wasmCrashed()) return false;
+	if (!lightningAttachConfirmed || lspHalted || wasmCrashed()) return false;
 	if (!lsp?.connect || refusedBotPeer(lsp.peer)) return false;
-	if (connectInFlight) return false;
+	if (connectPeerUsed || connectInFlight || gatewaySocketsCapped()) return false;
+	connectPeerUsed = true;
 	connectInFlight = true;
+	installLightningGuard();
 	try {
 		await lsp.connect();
 		console.info('[wallet-lsp] connected', { peerHost: lsp.peer.peerHost });
@@ -342,14 +359,6 @@ async function connectStoredLsp(): Promise<boolean> {
 	} finally {
 		connectInFlight = false;
 	}
-}
-
-function keepPeerAlive(wallet: LspWallet): void {
-	const node = wallet.getLightningNode?.();
-	if (typeof node !== 'object' || node === null) return;
-	const start = (node as { reconnectManagerStart?: (intervalMs?: number) => void })
-		.reconnectManagerStart;
-	if (typeof start === 'function') start.call(node);
 }
 
 async function readLspAssets(): Promise<string[]> {
@@ -436,8 +445,77 @@ let channelWait: Promise<void> | null = null;
 let channelAbort: AbortController | null = null;
 let keepaliveTimer: ReturnType<typeof setTimeout> | null = null;
 let connectInFlight = false;
+let connectPeerUsed = false;
+let lightningAttachConfirmed = false;
+let peerWallet: LspWallet | null = null;
 let keepaliveFailures = 0;
 let keepaliveDelay = SIGNET_KEEPALIVE_MS;
+
+/** Wallet init calls this only after attachLightningNode returns. */
+export function confirmLightningAttached(): void {
+	lightningAttachConfirmed = true;
+}
+
+/** Remember the wallet so a socket cap can disconnect the peer once wasm is idle. */
+export function watchLightningPeer(wallet: LspWallet): void {
+	peerWallet = wallet;
+}
+
+function schedulePeerRelease(): void {
+	const wallet = peerWallet;
+	const pubkey = activeLightning?.peer.peerPubkey ?? '';
+	let tries = 0;
+	const run = () => {
+		if (!wallet || !pubkey || tries >= 20) return;
+		tries += 1;
+		if (wasmBusy()) {
+			setTimeout(run, 50);
+			return;
+		}
+		void releaseLightningPeer(wallet, pubkey);
+	};
+	setTimeout(run, 0);
+}
+
+async function releaseLightningPeer(wallet: LspWallet, pubkey: string): Promise<void> {
+	const handle = wallet._manager?.rlnBinding?.nodeHandle;
+	try {
+		handle?.reconnectManagerStopValue?.();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] reconnect stop failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	try {
+		if (typeof wallet.disconnectPeer === 'function') await wallet.disconnectPeer(pubkey);
+		else await handle?.disconnectPeer?.(pubkey);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] disconnectPeer failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	try {
+		await handle?.closeAllPeers?.();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] close peers failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
+function onGatewayCap(): void {
+	lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+	stopLspPolling();
+	schedulePeerRelease();
+}
+
+/** Cap gateway sockets before any connectPeer. Logs for that storm collapse. */
+export function installLightningGuard(): void {
+	installGatewayGuard(onGatewayCap);
+}
 
 function stopKeepalive(): void {
 	if (keepaliveTimer === null) return;
@@ -475,6 +553,23 @@ async function runKeepalive(): Promise<void> {
 	}
 	if (connectInFlight) {
 		scheduleKeepalive();
+		return;
+	}
+	if (connectPeerUsed) {
+		const stillUp = await withWasm('lsp-keepalive', async () => {
+			if (lspHalted || wasmCrashed()) return false;
+			if (!activeLightning?.listPeers) return true;
+			return peerAlreadyConnected();
+		}).catch(() => false);
+		if (lspHalted || wasmCrashed()) return;
+		if (stillUp && !gatewaySocketsCapped()) {
+			keepaliveFailures = 0;
+			keepaliveDelay = SIGNET_KEEPALIVE_MS;
+			scheduleKeepalive();
+			return;
+		}
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+		stopLspPolling();
 		return;
 	}
 	let ok = false;
@@ -531,8 +626,12 @@ export function resetSignetLspForTests(): void {
 	channelAbort?.abort();
 	channelAbort = null;
 	lspHalted = false;
+	connectPeerUsed = false;
+	lightningAttachConfirmed = false;
+	peerWallet = null;
 	pollChain = Promise.resolve();
 	channelWait = null;
+	resetGatewayGuardForTests();
 	clearLightningWallet();
 }
 
@@ -643,14 +742,14 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 			});
 			return;
 		}
+		watchLightningPeer(wallet);
 		rememberLightning(lsp, peer);
 		console.info('[wallet-lsp] get_info', peer);
 		const connected = await connectStoredLsp();
-		if (!connected) {
+		if (!connected || gatewaySocketsCapped()) {
 			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'connect' }));
 			return;
 		}
-		keepPeerAlive(wallet);
 		startKeepalive();
 		void waitSignetChannel();
 	} catch (error: unknown) {
