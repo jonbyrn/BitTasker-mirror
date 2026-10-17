@@ -355,6 +355,7 @@
 				"fund_rail_prompt": "¿Cómo quieres fondear este contrato?",
 				"fund_rail_usdt": "USDT en RGB",
 				"fund_rail_lightning": "Bitcoin en Lightning",
+				"fund_rail_usdt_ln": "USDT en Lightning",
 				"lightning_sats": "{amount} sats al precio actual de Bitcoin",
 				"lightning_pending": "El fondeo por Lightning pedirá al Taskee una factura por esta cantidad de sats.",
 				"start_task": "Iniciar tarea",
