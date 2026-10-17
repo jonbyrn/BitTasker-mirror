@@ -1591,8 +1591,8 @@ export async function cancelUnpaidInvoices(): Promise<number> {
 const NWCA_AMOUNT = 1111;
 
 /**
- * Named invoice for the configured or held USDT id, with the entered amount in base units.
- * A blank `nWca` invoice (1111 units) only when no asset id is configured and no amount was entered.
+ * Named invoice for USDT this wallet already lists, otherwise the signet faucet IFA.
+ * A configured id that rgb-lib does not know becomes a blank invoice for the entered amount.
  */
 export async function receiveUsdtInvoice(amount?: number): Promise<{
 	invoice: string;
@@ -1604,13 +1604,27 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	const assetId = usdtInvoiceAsset(listed, configured) ?? configured ?? undefined;
-	if (assetId) {
-		const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
-		const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
-		const units = amount === undefined ? undefined : usdtBaseUnits(amount, precision);
+	const listedId = usdtInvoiceAsset(listed, configured);
+	if (!listedId && !configured) {
+		const blankUnits = amount === undefined ? NWCA_AMOUNT : usdtBaseUnits(amount, 6);
+		const blank = await receiveBlankInvoice(blankUnits);
+		return {
+			invoice: blank.invoice,
+			blank: true,
+			units: amount === undefined ? null : blankUnits,
+			precision: amount === undefined ? 0 : 6
+		};
+	}
+	// The Pages env id is not in every wallet. rgb-lib rejects it with "asset not found".
+	const assetId = listedId ?? FAUCET_IFA_ASSET;
+	const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
+	const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
+	const units = amount === undefined ? undefined : usdtBaseUnits(amount, precision);
+	try {
 		const named = await createRgbInvoice({ assetId, amount: units });
 		return { invoice: named.invoice, blank: false, units: units ?? null, precision };
+	} catch (error) {
+		if (listedId || !assetUnknown(error)) throw invoiceError(error);
 	}
 	const blankUnits = amount === undefined ? NWCA_AMOUNT : usdtBaseUnits(amount, 6);
 	const blank = await receiveBlankInvoice(blankUnits);
@@ -1654,7 +1668,32 @@ export async function createRgbInvoice(params?: {
 	return invoice;
 }
 
+function thrownText(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function assetUnknown(error: unknown): boolean {
+	return /asset with id .+ not found/i.test(thrownText(error));
+}
+
+function invoiceError(error: unknown): Error {
+	if (error instanceof Error && error.message.trim()) return error;
+	const text = thrownText(error).trim();
+	return new Error(text || 'Failed to generate RGB invoice');
+}
+
 async function requestRgbInvoice(
+	wallet: NonNullable<ReturnType<typeof getUtexoWallet>>,
+	params?: { assetId?: string; amount?: number }
+): Promise<{ invoice: string; blindedUtxo?: string }> {
+	try {
+		return await callRgbInvoice(wallet, params);
+	} catch (error) {
+		throw invoiceError(error);
+	}
+}
+
+async function callRgbInvoice(
 	wallet: NonNullable<ReturnType<typeof getUtexoWallet>>,
 	params?: { assetId?: string; amount?: number }
 ): Promise<{ invoice: string; blindedUtxo?: string }> {

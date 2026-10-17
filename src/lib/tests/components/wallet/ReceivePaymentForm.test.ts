@@ -58,7 +58,8 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 
 vi.mock('$lib/stores/wallet/signet-lsp', () => ({
 	requestLspInbound,
-	lightningStore: lightningState
+	lightningStore: lightningState,
+	FAUCET_IFA_ASSET: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y'
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
@@ -191,7 +192,7 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
-	it('invoices the configured USDT id and the entered amount when the wallet has not listed it yet', async () => {
+	it('invoices the signet faucet when the configured id is not in the wallet', async () => {
 		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
@@ -201,10 +202,13 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
 		expect(onchainReceive).toHaveBeenCalledWith({
 			amount: 100_000_000,
-			assetId: 'rgb1testusdtasset',
+			assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
 			blind: true,
 			blinded: true
 		});
+		expect(onchainReceive).not.toHaveBeenCalledWith(
+			expect.objectContaining({ assetId: 'rgb1testusdtasset' })
+		);
 		await waitFor(() => expect(getByTestId('receive-usdt-amount')).toBeTruthy());
 		expect(queryByTestId('receive-usdt-blank-hint')).toBeNull();
 	});

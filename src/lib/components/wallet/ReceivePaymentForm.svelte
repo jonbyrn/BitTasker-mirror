@@ -74,6 +74,12 @@
 		}
 	});
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
+
+	function invoiceFailure(err: unknown): string {
+		if (err instanceof Error && err.message.trim()) return err.message;
+		if (typeof err === 'string' && err.trim()) return err.trim();
+		return 'Failed to generate RGB invoice';
+	}
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
 	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
 	const canGenerate = $derived(
@@ -111,7 +117,7 @@
 				invoiceAmount =
 					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
-				errorMessage = err instanceof Error ? err.message : 'Failed to generate RGB invoice';
+				errorMessage = invoiceFailure(err);
 				console.error('[receive-modal] RGB invoice error:', err);
 			} finally {
 				isGenerating = false;

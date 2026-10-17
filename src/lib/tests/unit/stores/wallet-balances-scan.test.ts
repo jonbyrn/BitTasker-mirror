@@ -29,8 +29,10 @@ import {
 	readRefreshFailure,
 	scanBtcBalance,
 	setEsploraBackoffMs,
-	sumSpendableSats
+	sumSpendableSats,
+	receiveUsdtInvoice
 } from '$lib/stores/wallet/wallet-balances';
+import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 
 vi.mock('$lib/stores/wallet/wallet-init', () => ({
 	getUtexoWallet: vi.fn()
@@ -1011,3 +1013,57 @@ function fakeBackupDb(stored: Map<string, Uint8Array>) {
 		}
 	};
 }
+
+describe('receiveUsdtInvoice', () => {
+	const configured = 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs';
+
+	it('invoices the signet faucet when the configured id is not in the wallet', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-faucet' }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive
+		} as never);
+		const result = await receiveUsdtInvoice(100);
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
+		expect(blindReceive).not.toHaveBeenCalledWith(expect.objectContaining({ assetId: configured }));
+		expect(result).toMatchObject({ invoice: 'rgb:named-faucet', blank: false, units: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('creates a blank invoice when the wallet does not know the faucet asset', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const blindReceive = vi.fn(async () => {
+			throw 'Asset with id rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y not found';
+		});
+		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:blank-receive' }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive
+		} as never);
+		const result = await receiveUsdtInvoice(100);
+		expect(onchainReceive).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: 100_000_000, witness: false })
+		);
+		expect(result).toMatchObject({ invoice: 'rgb:blank-receive', blank: true, units: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('keeps a listed USDT contract instead of the faucet', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const held = 'rgb:f~held-usdt';
+		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-held' }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: held, ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+			}),
+			blindReceive
+		} as never);
+		const result = await receiveUsdtInvoice(1);
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 1_000_000 });
+		expect(result.blank).toBe(false);
+		vi.unstubAllEnvs();
+	});
+});
