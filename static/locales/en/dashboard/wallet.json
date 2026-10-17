@@ -532,6 +532,7 @@
 		"lightning_failed_attach": "Lightning did not start. Reload the page.",
 		"lightning_failed_connect": "Lightning could not connect. Reload the page.",
 		"lightning_failed_channel": "The Lightning channel did not open.",
+		"lightning_failed_tab": "This wallet is already open in another tab. Close that tab and tap Unlock.",
 		"lightning_btc_balance": "Lightning Bitcoin",
 		"lightning_usdt_balance": "Lightning USDT",
 		"lightning_onchain_separate": "On-chain balances above are separate from Lightning.",

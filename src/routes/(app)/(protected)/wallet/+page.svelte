@@ -89,6 +89,12 @@
 				'Lightning could not connect. Reload the page.'
 			);
 		}
+		if ($lightningStore.failure === 'tab') {
+			return translate(
+				'wallet.lightning_failed_tab',
+				'This wallet is already open in another tab. Close that tab and tap Unlock.'
+			);
+		}
 		return translate('wallet.lightning_failed_channel', 'The Lightning channel did not open.');
 	});
 	const shownError = $derived(initializationError ?? $walletStore.error);
