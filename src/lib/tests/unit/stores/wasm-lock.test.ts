@@ -59,6 +59,7 @@ describe('withWasm', () => {
 		).rejects.toThrow('already mutably borrowed');
 		expect(wasmCrashed()).toBe(true);
 		expect(isWasmPanic('RuntimeError: unreachable')).toBe(true);
+		expect(isWasmPanic('closure invoked recursively or after being dropped')).toBe(true);
 		await expect(withWasm('listChannels', async () => 'nope')).rejects.toThrow(WASM_CRASH_MESSAGE);
 		expect(walletReloadRequired(WASM_CRASH_MESSAGE)).toBe(true);
 		warn.mockRestore();

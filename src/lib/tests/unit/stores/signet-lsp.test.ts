@@ -8,6 +8,7 @@ import {
 	SIGNET_USDT_ASSET,
 	SIGNET_CHANNEL_POLL_MS,
 	SIGNET_CHANNEL_WAIT_MS,
+	SIGNET_KEEPALIVE_CAP,
 	SIGNET_KEEPALIVE_MS,
 	SIGNET_INBOUND_RGB,
 	SIGNET_INBOUND_SATS,
@@ -16,6 +17,7 @@ import {
 	lightningStore,
 	payEscrowLightning,
 	payableAssetIds,
+	peerListedConnected,
 	requestLspInbound,
 	resetSignetLspForTests,
 	signetLspParams,
@@ -215,7 +217,7 @@ describe('payEscrowLightning', () => {
 	});
 
 	it('reconnects through the wasm queue on the keepalive interval', async () => {
-		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		try {
 			const sendAsset = vi.fn();
 			const connect = vi.fn().mockResolvedValue(undefined);
@@ -229,6 +231,64 @@ describe('payEscrowLightning', () => {
 			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
 			await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
 			expect(SIGNET_KEEPALIVE_MS).toBe(15_000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not open another socket while listPeers still shows the LSP', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi.fn().mockResolvedValue(undefined);
+			const listPeers = vi.fn().mockResolvedValue([{ pubkey: peer.peerPubkey, isConnected: true }]);
+			const waitForChannel = vi.fn().mockResolvedValue({ ready: true });
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({
+					peer,
+					sendAsset,
+					connect,
+					waitForChannel,
+					wallet: { listPeers }
+				})
+			});
+			expect(connect).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
+			await vi.waitFor(() => expect(listPeers).toHaveBeenCalled());
+			expect(connect).toHaveBeenCalledOnce();
+			expect(
+				peerListedConnected([{ pubkey: peer.peerPubkey, isConnected: false }], peer.peerPubkey)
+			).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('backs off and stops after repeated handshake failures', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi
+				.fn()
+				.mockResolvedValueOnce(undefined)
+				.mockRejectedValue(new Error('peer handshake did not complete within timeout'));
+			const waitForChannel = vi.fn().mockReturnValue(new Promise(() => undefined));
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect, waitForChannel })
+			});
+			await vi.advanceTimersByTimeAsync(15_000);
+			await vi.advanceTimersByTimeAsync(15_000);
+			await vi.advanceTimersByTimeAsync(30_000);
+			await vi.advanceTimersByTimeAsync(60_000);
+			await vi.waitFor(() => expect(get(lightningStore).failure).toBe('connect'));
+			expect(connect).toHaveBeenCalledTimes(1 + SIGNET_KEEPALIVE_CAP);
+			const calls = connect.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(120_000);
+			expect(connect).toHaveBeenCalledTimes(calls);
 		} finally {
 			vi.useRealTimers();
 		}

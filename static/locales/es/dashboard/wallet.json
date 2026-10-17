@@ -531,6 +531,7 @@
 		"lightning_failed_attach": "Lightning no arrancó. Recarga la página.",
 		"lightning_failed_connect": "Lightning no pudo conectar. Recarga la página.",
 		"lightning_failed_channel": "El canal Lightning no se abrió.",
+		"lightning_failed_tab": "Esta billetera ya está abierta en otra pestaña. Ciérrala y toca Desbloquear.",
 		"lightning_btc_balance": "Bitcoin en Lightning",
 		"lightning_usdt_balance": "USDT en Lightning",
 		"lightning_onchain_separate": "Los saldos on-chain de arriba son aparte de Lightning.",
