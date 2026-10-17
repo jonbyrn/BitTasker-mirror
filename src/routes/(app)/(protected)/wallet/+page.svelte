@@ -2,12 +2,15 @@
 	import { onMount } from 'svelte';
 	import { locale, t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
-	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
+	import { lightningStore, SIGNET_USDT_ASSET } from '$lib/stores/wallet/signet-lsp';
+	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
+	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import {
@@ -35,6 +38,8 @@
 	let utxos = $state<WalletUtxoRow[]>([]);
 	let utxoError = $state<string | null>(null);
 	let showUtxoDetails = $state(false);
+	let lightningBtcSats = $state(0);
+	let lightningUsdtUnits = $state(0);
 	let showAllHistory = $state(false);
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
@@ -46,6 +51,8 @@
 	);
 	const chainGap = $derived.by(() => {
 		if ($walletStore.syncing || $walletStore.locked) return null;
+		// "No UTXOs" and "0.00 still unspent" cannot both be true for one listUnspents snapshot.
+		if (utxos.length === 0 && utxoError === null) return null;
 		if (!usdtAsset || usdtAsset.pendingConfirm) return null;
 		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return null;
 		const reported = usdtAsset.spendable;
@@ -61,6 +68,15 @@
 		showAllHistory ? $walletStore.transactions : $walletStore.transactions.slice(0, 5)
 	);
 	const utxoSummary = $derived(summarizeUtxoKinds(utxos.map((utxo) => utxo.kind)));
+	const lightningUx = $derived(
+		lightningUxStatus({
+			ready: $lightningStore.ready,
+			channel: $lightningStore.channel,
+			onchainSats: $walletStore.rgb?.balanceSats ?? 0
+		})
+	);
+	const shownError = $derived(initializationError ?? $walletStore.error);
+	const reloadRequired = $derived(walletReloadRequired(shownError));
 
 	function text(value: unknown, fallback: string): string {
 		return typeof value === 'string' && value.trim() ? value : fallback;
@@ -90,7 +106,10 @@
 				message === 'unlock cancelled, tap to retry'
 					? translate('wallet.unlock_cancelled', 'Unlock cancelled, tap to retry')
 					: message === 'Wallet init timed out' || message === 'Wallet unlock timed out'
-						? translate('wallet.init_timeout', 'Wallet setup timed out. Tap Unlock to try again.')
+						? translate(
+								'wallet.init_timeout',
+								'Wallet setup timed out. Reload the page to try again.'
+							)
 						: message ||
 							text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
 		}
@@ -130,6 +149,33 @@
 			console.error('[wallet-page] receive list failed:', error);
 		});
 	});
+
+	let lastUtxoMarker = '';
+	$effect(() => {
+		const locked = $walletStore.locked;
+		const syncing = $walletStore.syncing;
+		const marker = `${usdtAsset?.assetId ?? ''}:${usdtAsset?.spendable ?? ''}:${usdtAsset?.balance ?? ''}`;
+		if (locked || syncing || marker === lastUtxoMarker) return;
+		lastUtxoMarker = marker;
+		loadUtxos().catch((error: unknown) => {
+			console.error('[wallet-page] UTXO list failed:', error);
+		});
+		loadChannelBalances().catch((error: unknown) => {
+			console.error('[wallet-page] channel balance failed:', error);
+		});
+	});
+
+	async function loadChannelBalances(): Promise<void> {
+		const wallet = getUtexoWallet();
+		if (!wallet?.listChannels) return;
+		try {
+			const summary = summarizeChannelBalances(await wallet.listChannels(), SIGNET_USDT_ASSET);
+			lightningBtcSats = summary.btcSats;
+			lightningUsdtUnits = summary.usdtUnits;
+		} catch (error) {
+			console.error('[wallet-page] channel balance failed:', error);
+		}
+	}
 
 	async function loadUtxos(): Promise<void> {
 		const wallet = getUtexoWallet();
@@ -296,20 +342,26 @@
 </svelte:head>
 
 <div class="wallet-screen mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6">
-	{#if initializationError || $walletStore.error}
+	{#if shownError}
 		<div class="alert alert-outline alert-error" role="alert">
-			<span>{text(initializationError ?? $walletStore.error, 'Wallet initialization failed')}</span>
-			<button
-				class="btn btn-sm"
-				type="button"
-				onclick={() => {
-					initializeWallet().catch((err: unknown) => {
-						console.error('[wallet-page] Wallet initialization failed:', err);
-					});
-				}}
-			>
-				{translate('wallet.error.retry', 'Retry')}
-			</button>
+			<span>{text(shownError, 'Wallet initialization failed')}</span>
+			{#if reloadRequired}
+				<button class="btn btn-sm" type="button" onclick={() => window.location.reload()}>
+					{translate('wallet.error.reload', 'Reload')}
+				</button>
+			{:else}
+				<button
+					class="btn btn-sm"
+					type="button"
+					onclick={() => {
+						initializeWallet().catch((err: unknown) => {
+							console.error('[wallet-page] Wallet initialization failed:', err);
+						});
+					}}
+				>
+					{translate('wallet.error.retry', 'Retry')}
+				</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -429,54 +481,53 @@
 		<div class="card-body gap-2 p-4">
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-sm font-semibold">{translate('wallet.lightning_title', 'Lightning')}</p>
-				{#if $lightningStore.ready}
+				{#if lightningUx.status === 'ready'}
 					<span class="badge badge-success badge-sm" data-testid="lightning-ready">
 						{translate('wallet.lightning_ready', 'Ready')}
 					</span>
+				{:else if lightningUx.status === 'needs_funding'}
+					<span class="badge badge-warning badge-sm" data-testid="lightning-needs-funding">
+						{translate('wallet.lightning_needs_funding', 'Needs funding')}
+					</span>
 				{:else}
-					<span class="badge badge-ghost badge-sm" data-testid="lightning-offline">
-						{translate('wallet.lightning_offline', 'Not ready')}
+					<span class="badge badge-ghost badge-sm" data-testid="lightning-setting-up">
+						{translate('wallet.lightning_setting_up', 'Setting up Lightning')}
 					</span>
 				{/if}
 			</div>
-			<p class="text-base-content/70 text-sm">
+			<p class="text-base-content/70 text-sm" data-testid="lightning-status">
+				{#if lightningUx.status === 'needs_funding'}
+					{translate(
+						'wallet.lightning_needs_funding_amount',
+						'Add {sats} sats to finish Lightning.'
+					).replaceAll('{sats}', lightningUx.satsNeeded.toLocaleString())}
+				{:else if lightningUx.status === 'ready'}
+					{translate('wallet.lightning_ready_hint', 'You can send and receive Lightning payments.')}
+				{:else}
+					{translate(
+						'wallet.lightning_setting_up_hint',
+						'Setting up Lightning. This can take a few minutes.'
+					)}
+				{/if}
+			</p>
+			<div class="flex flex-col gap-1 text-sm" data-testid="lightning-balances">
+				<p>
+					{translate('wallet.lightning_btc_balance', 'Lightning Bitcoin')}:
+					{formatNumber(lightningBtcSats)}
+					{translate('wallet.sats', 'sats')}
+				</p>
+				<p>
+					{translate('wallet.lightning_usdt_balance', 'Lightning USDT')}:
+					{formatUsdtBalance(lightningUsdtUnits, 6)} USDT
+				</p>
+			</div>
+			<p class="text-base-content/60 text-xs">
 				{translate(
-					'wallet.lightning_hint',
-					'On-chain USDT does not need a Lightning channel. Lightning here is for bitcoin sats.'
+					'wallet.lightning_onchain_separate',
+					'On-chain balances above are separate from Lightning.'
 				)}
 			</p>
-			{#if $lightningStore.peerHost}
-				<p class="font-mono text-xs" data-testid="lightning-peer">{$lightningStore.peerHost}</p>
-			{/if}
-			{#if $lightningStore.channel === 'waiting'}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_waiting', 'Waiting for an LSP channel')}
-				</p>
-			{:else if $lightningStore.channel === 'open'}
-				<p class="text-success text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_open', 'LSP channel is open')}
-				</p>
-			{:else if $lightningStore.channel === 'missing'}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_missing', 'No LSP channel yet')}
-				</p>
-			{:else}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_closed', 'LSP channel not open')}
-				</p>
-			{/if}
-			{#if $lightningStore.rgbInvoice}
-				<p class="text-xs">{translate('wallet.lightning_rgb_invoice', 'On-chain RGB invoice')}</p>
-				<p class="font-mono text-xs break-all" data-testid="lightning-rgb-invoice">
-					{$lightningStore.rgbInvoice}
-				</p>
-			{/if}
-			{#if $lightningStore.lnInvoice}
-				<p class="text-xs">{translate('wallet.lightning_ln_invoice', 'Lightning invoice')}</p>
-				<p class="font-mono text-xs break-all" data-testid="lightning-ln-invoice">
-					{$lightningStore.lnInvoice}
-				</p>
-			{/if}
+			<AdvancedLightning />
 		</div>
 	</section>
 
