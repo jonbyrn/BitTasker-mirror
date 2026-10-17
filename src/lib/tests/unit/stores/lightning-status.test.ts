@@ -30,6 +30,21 @@ describe('lightningUxStatus', () => {
 			satsNeeded: 0
 		});
 	});
+
+	it('stops saying setting up when attach or the channel fails', () => {
+		expect(
+			lightningUxStatus({
+				ready: false,
+				channel: 'idle',
+				onchainSats: 299_245,
+				failure: 'connect'
+			})
+		).toEqual({ status: 'failed', satsNeeded: 0 });
+		expect(lightningUxStatus({ ready: false, channel: 'missing', onchainSats: 299_245 })).toEqual({
+			status: 'failed',
+			satsNeeded: 0
+		});
+	});
 });
 
 describe('summarizeChannelBalances', () => {

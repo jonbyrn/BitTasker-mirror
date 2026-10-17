@@ -25,7 +25,7 @@ import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
-import { discoverSignetLsp, signetLspParams, stopLspPolling } from './signet-lsp';
+import { discoverSignetLsp, lightningStore, signetLspParams, stopLspPolling } from './signet-lsp';
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
@@ -180,7 +180,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			await wallet.refreshWallet();
 			try {
 				await scanAndUpdateBalances(wallet, network);
-				markWalletReady();
 			} catch (scanError) {
 				scanFailed = true;
 				console.warn('[wallet-init] balance scan deferred:', scanError);
@@ -191,9 +190,21 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 				console.warn('[wallet-init] RGB allocation setup skipped', error);
 			}
 		});
+		try {
+			console.info('[wallet-init] attachLightningNode');
+			await attachLightning(wallet);
+			console.info('[wallet-init] startNodeChainSync');
+			await startNodeChainSync(wallet);
+			console.info('[wallet-init] lightning node attached');
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-init] lightning attach failed',
+				error instanceof Error ? error.message : String(error)
+			);
+			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'attach' }));
+		}
 		if (scanFailed) void retryScan(wallet, network);
-		await attachLightning(wallet);
-		await startNodeChainSync(wallet);
+		else markWalletReady();
 		await loadTransactions().catch((error: unknown) => {
 			console.warn('[wallet-init] transaction load skipped', error);
 		});
@@ -240,12 +251,17 @@ function armWasmPanicHooks(): void {
 }
 
 async function attachLightning(wallet: LightningRuntime): Promise<void> {
-	if (typeof wallet.attachLightningNode !== 'function') return;
+	if (typeof wallet.attachLightningNode !== 'function') {
+		throw new Error('Lightning node attach is missing');
+	}
 	await wallet.attachLightningNode();
 }
 
 async function startNodeChainSync(wallet: LightningRuntime): Promise<void> {
-	if (nodeChainSyncStarted || typeof wallet.startNodeChainSync !== 'function') return;
+	if (nodeChainSyncStarted) return;
+	if (typeof wallet.startNodeChainSync !== 'function') {
+		throw new Error('Lightning chain sync is missing');
+	}
 	nodeChainSyncStarted = true;
 	await wallet.startNodeChainSync();
 }

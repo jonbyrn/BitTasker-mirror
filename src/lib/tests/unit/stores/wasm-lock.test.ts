@@ -99,4 +99,36 @@ describe('lockedWallet', () => {
 		expect(order).toEqual(['refresh-start', 'refresh-end', 'channels']);
 		await expect(wallet.createLsp()).resolves.toBe(wallet);
 	});
+
+	it('keeps requireNode on the raw wallet so listChannels is a real method', async () => {
+		const node = {
+			listChannels: () => Promise.resolve(['open']),
+			connectPeer: () => Promise.resolve()
+		};
+		const wallet = lockedWallet({
+			requireNode() {
+				return node;
+			},
+			listChannels(this: { requireNode: () => typeof node }) {
+				const found = this.requireNode();
+				return found.listChannels();
+			},
+			connectPeer(this: { requireNode: () => typeof node }, uri: string) {
+				return foundPeer(this, uri);
+			}
+		});
+		await expect(wallet.listChannels()).resolves.toEqual(['open']);
+		await expect(wallet.connectPeer('02aa@host:9735')).resolves.toBe('02aa@host:9735');
+	});
 });
+
+function foundPeer(
+	wallet: { requireNode: () => { connectPeer: () => Promise<void> } },
+	uri: string
+): Promise<string> {
+	const node = wallet.requireNode();
+	if (typeof node.connectPeer !== 'function') {
+		return Promise.reject(new TypeError('connectPeer is not a function'));
+	}
+	return node.connectPeer().then(() => uri);
+}
