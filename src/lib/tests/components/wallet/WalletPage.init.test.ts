@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 
 const hoisted = vi.hoisted(() => ({
 	initialize: vi.fn(),
@@ -40,8 +41,14 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 }));
 
 describe('wallet page init', () => {
+	beforeEach(() => {
+		localStorage.removeItem('bittasker.wallet-advanced');
+		setAdvancedMode(false);
+	});
+
 	afterEach(() => {
 		cleanup();
+		setAdvancedMode(false);
 		vi.clearAllMocks();
 	});
 
@@ -52,6 +59,22 @@ describe('wallet page init', () => {
 			.default;
 		render(component);
 		await waitFor(() => expect(hoisted.initialize).toHaveBeenCalled());
+	}, 30_000);
+
+	it('keeps a switch between simple and advanced', async () => {
+		hoisted.initialize.mockResolvedValue(undefined);
+		hoisted.loadAssets.mockResolvedValue(undefined);
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId } = render(component);
+		const simple = getByTestId('mode-simple');
+		const advanced = getByTestId('mode-advanced');
+		expect(simple).toHaveAttribute('aria-pressed', 'true');
+		await fireEvent.click(advanced);
+		expect(advanced).toHaveAttribute('aria-pressed', 'true');
+		expect(getByTestId('mode-simple')).toHaveAttribute('aria-pressed', 'false');
+		await fireEvent.click(simple);
+		expect(simple).toHaveAttribute('aria-pressed', 'true');
 	}, 30_000);
 
 	it('shows the error when init throws', async () => {

@@ -33,6 +33,8 @@
 			"send": "Envoyer",
 			"arriving": "+ {amount} en route",
 			"arriving_soon": "L'argent arrive",
+			"mode_simple": "Simple",
+			"mode_advanced": "Avancé",
 			"advanced": "Mode avancé",
 			"advanced_help": "Montre plus de détails. Laissez désactivé.",
 			"in_escrow": "En dépôt : {count}"

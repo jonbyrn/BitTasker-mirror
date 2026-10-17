@@ -33,6 +33,8 @@
 			"send": "Tuma",
 			"arriving": "+ {amount} inakuja",
 			"arriving_soon": "Pesa inakuja",
+			"mode_simple": "Rahisi",
+			"mode_advanced": "Ya juu",
 			"advanced": "Hali ya juu",
 			"advanced_help": "Inaonyesha maelezo zaidi. Iache imezimwa.",
 			"in_escrow": "Kwa kazi: {count}"

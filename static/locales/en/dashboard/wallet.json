@@ -49,6 +49,8 @@
 			"send": "Send",
 			"arriving": "+ {amount} arriving",
 			"arriving_soon": "Money is arriving",
+			"mode_simple": "Simple",
+			"mode_advanced": "Advanced",
 			"advanced": "Advanced mode",
 			"advanced_help": "Shows extra wallet details. Leave this off.",
 			"in_escrow": "In escrow: {count}"

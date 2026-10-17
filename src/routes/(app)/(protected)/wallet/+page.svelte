@@ -87,9 +87,6 @@
 	const bitcoinHistory = $derived(
 		$walletStore.transactions.filter((row) => !isUsdtHistory(row.description, row.assetUnits))
 	);
-	const visibleTransactions = $derived(
-		showAllHistory ? $walletStore.transactions : $walletStore.transactions.slice(0, 5)
-	);
 	const visibleUsdt = $derived(showAllHistory ? usdtHistory : usdtHistory.slice(0, 5));
 	const visibleBitcoin = $derived(showAllHistory ? bitcoinHistory : bitcoinHistory.slice(0, 5));
 	const utxoSummary = $derived(summarizeUtxoKinds(utxos.map((utxo) => utxo.kind)));
@@ -491,6 +488,31 @@
 		<div class="alert alert-outline alert-success" role="status">{operationMessage}</div>
 	{/if}
 
+	<div class="join grid grid-cols-2" role="group" data-testid="wallet-mode">
+		<button
+			type="button"
+			class="btn join-item min-h-12"
+			class:btn-primary={!advanced}
+			class:btn-ghost={advanced}
+			aria-pressed={!advanced}
+			data-testid="mode-simple"
+			onclick={() => setAdvancedMode(false)}
+		>
+			{$t('wallet.simple.mode_simple')}
+		</button>
+		<button
+			type="button"
+			class="btn join-item min-h-12"
+			class:btn-primary={advanced}
+			class:btn-ghost={!advanced}
+			aria-pressed={advanced}
+			data-testid="mode-advanced"
+			onclick={() => setAdvancedMode(true)}
+		>
+			{$t('wallet.simple.mode_advanced')}
+		</button>
+	</div>
+
 	{#snippet assetMark(symbol: string)}
 		{@const ticker = symbol.toUpperCase()}
 		<span
@@ -517,6 +539,14 @@
 			<p class="ml-auto text-right text-2xl font-bold tabular-nums">{amount}</p>
 		</div>
 	{/snippet}
+
+	<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
+		<div class="card-body gap-1 p-4">
+			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
+			<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${dollarUnits}</p>
+			<p class="text-base-content/60 text-sm tabular-nums">{dollarUnits} USDT</p>
+		</div>
+	</div>
 
 	{#if !advanced}
 		<div class="flex items-center gap-2" data-testid="wallet-status">
@@ -551,13 +581,6 @@
 					</p>
 				</div>
 			</div>
-			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
-				<div class="card-body gap-1 p-4">
-					<p class="text-sm">{$t('wallet.simple.usdt')}</p>
-					<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${dollarUnits}</p>
-					<p class="text-base-content/60 text-sm tabular-nums">{dollarUnits} USDT</p>
-				</div>
-			</div>
 		</section>
 		{#if arrivingText}
 			<p class="text-success text-sm" data-testid="funds-arriving">{arrivingText}</p>
@@ -585,26 +608,8 @@
 		>
 			{$t(showDetails ? 'wallet.simple.hide_details' : 'wallet.simple.details')}
 		</button>
-		{#if showDetails}
-			<label class="flex min-h-12 items-center justify-between gap-3">
-				<span>
-					<span class="block text-sm">{$t('wallet.simple.advanced')}</span>
-					<span class="text-base-content/60 block text-xs">{$t('wallet.simple.advanced_help')}</span
-					>
-				</span>
-				<input
-					type="checkbox"
-					class="toggle toggle-primary"
-					checked={advanced}
-					onchange={(event) => {
-						const input = event.currentTarget;
-						if (input instanceof HTMLInputElement) setAdvancedMode(input.checked);
-					}}
-				/>
-			</label>
-			{#if shownError}
-				<p class="font-mono text-xs break-all" data-testid="wallet-error-detail">{shownError}</p>
-			{/if}
+		{#if showDetails && shownError}
+			<p class="font-mono text-xs break-all" data-testid="wallet-error-detail">{shownError}</p>
 		{/if}
 	{/if}
 
@@ -884,57 +889,51 @@
 			</div>
 		{/snippet}
 
-		{#if !advanced}
-			<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="usdt-history">
-				<div class="card-body gap-0 p-0">
-					<div class="flex items-center justify-between gap-3 px-4 py-2">
-						<p class="text-sm font-semibold">{$t('wallet.simple.usdt_history')}</p>
+		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="usdt-history">
+			<div class="card-body gap-0 p-0">
+				<div class="flex items-center justify-between gap-3 px-4 py-2">
+					<p class="text-sm font-semibold">{$t('wallet.simple.usdt_history')}</p>
+					<button
+						type="button"
+						class="btn btn-outline btn-sm min-h-12"
+						data-testid="refresh-usdt"
+						disabled={refreshing || $walletStore.locked}
+						onclick={() => {
+							void refreshTransfers();
+						}}
+					>
+						{#if refreshing}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{translate('wallet.refresh_transfers', 'Refresh transfers')}
+					</button>
+					<span class="badge badge-ghost badge-sm">{usdtHistory.length}</span>
+				</div>
+				{#if usdtHistory.length === 0}
+					<p class="text-base-content/60 px-4 pb-3 text-sm" data-testid="usdt-history-empty">
+						{$t('wallet.simple.no_usdt')}
+					</p>
+				{:else}
+					{@render historyList(visibleUsdt)}
+					{#if usdtHistory.length > 5 && !showAllHistory}
 						<button
 							type="button"
-							class="btn btn-outline btn-sm min-h-12"
-							data-testid="refresh-usdt"
-							disabled={refreshing || $walletStore.locked}
-							onclick={() => {
-								void refreshTransfers();
-							}}
+							class="btn btn-ghost btn-sm text-base-content/50 w-full"
+							onclick={() => (showAllHistory = true)}
 						>
-							{#if refreshing}
-								<span class="loading loading-spinner loading-xs"></span>
-							{/if}
-							{translate('wallet.refresh_transfers', 'Refresh transfers')}
+							{translate('wallet.see_all', 'See all')}
 						</button>
-						<span class="badge badge-ghost badge-sm">{usdtHistory.length}</span>
-					</div>
-					{#if usdtHistory.length === 0}
-						<p class="text-base-content/60 px-4 pb-3 text-sm" data-testid="usdt-history-empty">
-							{$t('wallet.simple.no_usdt')}
-						</p>
-					{:else}
-						{@render historyList(visibleUsdt)}
-						{#if usdtHistory.length > 5 && !showAllHistory}
-							<button
-								type="button"
-								class="btn btn-ghost btn-sm text-base-content/50 w-full"
-								onclick={() => (showAllHistory = true)}
-							>
-								{translate('wallet.see_all', 'See all')}
-							</button>
-						{/if}
 					{/if}
-				</div>
-			</section>
-		{/if}
+				{/if}
+			</div>
+		</section>
 
 		<section
 			class="card bg-base-100 border-base-300 flex min-h-0 flex-1 flex-col overflow-hidden border shadow-sm"
 		>
 			<div class="card-body min-h-0 flex-1 gap-0 overflow-hidden p-0">
 				<div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-					<p class="text-sm font-semibold">
-						{advanced
-							? translate('wallet.transaction_history', 'Transaction History')
-							: $t('wallet.simple.bitcoin')}
-					</p>
+					<p class="text-sm font-semibold">{$t('wallet.simple.bitcoin')}</p>
 					{#if advanced}
 						<button
 							type="button"
@@ -951,17 +950,15 @@
 							{translate('wallet.refresh_transfers', 'Refresh transfers')}
 						</button>
 					{/if}
-					<span class="badge badge-ghost badge-sm">
-						{advanced ? $walletStore.transactions.length : bitcoinHistory.length}
-					</span>
+					<span class="badge badge-ghost badge-sm">{bitcoinHistory.length}</span>
 				</div>
-				{#if (advanced ? $walletStore.transactions.length : bitcoinHistory.length) === 0}
+				{#if bitcoinHistory.length === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm">
 						{translate('wallet.no_transactions', 'No transactions found.')}
 					</p>
 				{:else}
-					{@render historyList(advanced ? visibleTransactions : visibleBitcoin)}
-					{#if (advanced ? $walletStore.transactions.length : bitcoinHistory.length) > 5 && !showAllHistory}
+					{@render historyList(visibleBitcoin)}
+					{#if bitcoinHistory.length > 5 && !showAllHistory}
 						<button
 							type="button"
 							class="btn btn-ghost btn-sm text-base-content/50 w-full"

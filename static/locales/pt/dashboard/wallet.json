@@ -33,6 +33,8 @@
 			"send": "Enviar",
 			"arriving": "+ {amount} a caminho",
 			"arriving_soon": "Dinheiro a caminho",
+			"mode_simple": "Simples",
+			"mode_advanced": "Avançado",
 			"advanced": "Modo avançado",
 			"advanced_help": "Mostra mais detalhes. Deixe desligado.",
 			"in_escrow": "No contrato: {count}"

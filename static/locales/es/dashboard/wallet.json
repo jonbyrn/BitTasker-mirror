@@ -133,6 +133,8 @@
 			"send": "Enviar",
 			"arriving": "+ {amount} en camino",
 			"arriving_soon": "El dinero va en camino",
+			"mode_simple": "Simple",
+			"mode_advanced": "Avanzado",
 			"advanced": "Modo avanzado",
 			"advanced_help": "Muestra más detalles. Déjalo apagado.",
 			"in_escrow": "En un trabajo: {count}"
