@@ -6,14 +6,18 @@ export const HOSTED_LSP_CHANNEL_SATS = 200_000;
 /** Smallest self-funded channel the advanced form will submit. */
 export const MIN_MANUAL_CHANNEL_SATS = 20_000;
 
-export type LightningUxStatus = 'setting_up' | 'ready' | 'needs_funding';
+export type LightningUxStatus = 'setting_up' | 'ready' | 'needs_funding' | 'failed';
+
+export type LightningFailure = '' | 'attach' | 'connect' | 'channel';
 
 export function lightningUxStatus(input: {
 	ready: boolean;
 	channel: 'idle' | 'waiting' | 'open' | 'missing';
 	onchainSats: number;
+	failure?: LightningFailure;
 }): { status: LightningUxStatus; satsNeeded: number } {
 	if (input.ready || input.channel === 'open') return { status: 'ready', satsNeeded: 0 };
+	if (input.failure || input.channel === 'missing') return { status: 'failed', satsNeeded: 0 };
 	const onchain = Number.isFinite(input.onchainSats)
 		? Math.max(0, Math.floor(input.onchainSats))
 		: 0;
