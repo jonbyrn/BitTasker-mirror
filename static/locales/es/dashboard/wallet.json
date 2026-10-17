@@ -522,6 +522,7 @@
 		"lightning_title": "Lightning",
 		"lightning_ready": "Lista",
 		"lightning_offline": "No lista",
+		"lightning_locked": "Billetera bloqueada",
 		"lightning_hint": "El USDT on-chain no necesita un canal Lightning. Lightning aquí es para sats de bitcoin.",
 		"lightning_channel_waiting": "Esperando un canal LSP",
 		"lightning_channel_open": "El canal LSP está abierto",

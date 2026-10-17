@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	allocationCoversSpendable,
 	chainAllocation,
 	fungibleAllocationSum,
 	hasUncoloredFeeUtxo,
@@ -331,6 +332,20 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(spentSealMessage(chain.spent)).toBe(
 			`Refusing onchainSend: ${seal}:2 was already spent on-chain by ${spentBy}. RGB still lists that USDT, so this send is blocked.`
 		);
+	});
+
+	it('hides the unspent warning when the allocation list is short', () => {
+		const empty = { live: 0, spent: [], checked: 0, unknown: false, pending: 0 };
+		expect(allocationCoversSpendable(empty, 100_000_000)).toBe(false);
+		const spentOnly = {
+			live: 0,
+			spent: [{ txid: 'aa', vout: 0, amount: 100_000_000, spentBy: 'bb' }],
+			checked: 1,
+			unknown: false,
+			pending: 0
+		};
+		expect(allocationCoversSpendable(spentOnly, 100_000_000)).toBe(true);
+		expect(allocationCoversSpendable({ ...spentOnly, unknown: true }, 100_000_000)).toBe(false);
 	});
 
 	it('refuses the send when an allocation output is already spent', async () => {

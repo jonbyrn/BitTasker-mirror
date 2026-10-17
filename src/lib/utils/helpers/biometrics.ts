@@ -280,6 +280,7 @@ export async function setBiometricKey({
  * instead of racing and hitting "A request is already pending".
  */
 let pendingBiometricRequest: Promise<Credentials | null> | null = null;
+let pendingSignal: AbortSignal | undefined;
 
 /**
  * Get biometric data using shared unPackKeys format
@@ -292,16 +293,21 @@ export async function getBiometricData(
 	signal?: AbortSignal
 ): Promise<Credentials | null> {
 	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
-	if (pendingBiometricRequest) {
+	if (pendingBiometricRequest && (!pendingSignal || !pendingSignal.aborted)) {
 		return pendingBiometricRequest;
 	}
 
-	pendingBiometricRequest = executeBiometricData(checkNpub, allowCredentials, signal);
+	pendingSignal = signal;
+	const run = executeBiometricData(checkNpub, allowCredentials, signal);
+	pendingBiometricRequest = run;
 
 	try {
-		return await pendingBiometricRequest;
+		return await run;
 	} finally {
-		pendingBiometricRequest = null;
+		if (pendingBiometricRequest === run) {
+			pendingBiometricRequest = null;
+			pendingSignal = undefined;
+		}
 	}
 }
 

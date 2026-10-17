@@ -81,8 +81,9 @@
 
 	async function unlockFromClick(): Promise<void> {
 		initializationError = null;
+		const clickAbort = new AbortController();
 		try {
-			await walletManager.unlock(unlockAbort?.signal);
+			await walletManager.unlock(clickAbort.signal);
 			await initializeWallet();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : '';
@@ -429,7 +430,11 @@
 		<div class="card-body gap-2 p-4">
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-sm font-semibold">{translate('wallet.lightning_title', 'Lightning')}</p>
-				{#if $lightningStore.ready}
+				{#if $walletStore.locked}
+					<span class="badge badge-warning badge-sm" data-testid="lightning-locked">
+						{translate('wallet.lightning_locked', 'Wallet locked')}
+					</span>
+				{:else if $lightningStore.ready}
 					<span class="badge badge-success badge-sm" data-testid="lightning-ready">
 						{translate('wallet.lightning_ready', 'Ready')}
 					</span>
@@ -439,43 +444,49 @@
 					</span>
 				{/if}
 			</div>
-			<p class="text-base-content/70 text-sm">
-				{translate(
-					'wallet.lightning_hint',
-					'On-chain USDT does not need a Lightning channel. Lightning here is for bitcoin sats.'
-				)}
-			</p>
-			{#if $lightningStore.peerHost}
-				<p class="font-mono text-xs" data-testid="lightning-peer">{$lightningStore.peerHost}</p>
-			{/if}
-			{#if $lightningStore.channel === 'waiting'}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_waiting', 'Waiting for an LSP channel')}
-				</p>
-			{:else if $lightningStore.channel === 'open'}
-				<p class="text-success text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_open', 'LSP channel is open')}
-				</p>
-			{:else if $lightningStore.channel === 'missing'}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_missing', 'No LSP channel yet')}
+			{#if $walletStore.locked}
+				<p class="text-base-content/70 text-sm" data-testid="lightning-locked-hint">
+					{translate('wallet.lightning_locked', 'Wallet locked')}
 				</p>
 			{:else}
-				<p class="text-sm" data-testid="lightning-channel">
-					{translate('wallet.lightning_channel_closed', 'LSP channel not open')}
+				<p class="text-base-content/70 text-sm">
+					{translate(
+						'wallet.lightning_hint',
+						'On-chain USDT does not need a Lightning channel. Lightning here is for bitcoin sats.'
+					)}
 				</p>
-			{/if}
-			{#if $lightningStore.rgbInvoice}
-				<p class="text-xs">{translate('wallet.lightning_rgb_invoice', 'On-chain RGB invoice')}</p>
-				<p class="font-mono text-xs break-all" data-testid="lightning-rgb-invoice">
-					{$lightningStore.rgbInvoice}
-				</p>
-			{/if}
-			{#if $lightningStore.lnInvoice}
-				<p class="text-xs">{translate('wallet.lightning_ln_invoice', 'Lightning invoice')}</p>
-				<p class="font-mono text-xs break-all" data-testid="lightning-ln-invoice">
-					{$lightningStore.lnInvoice}
-				</p>
+				{#if $lightningStore.peerHost}
+					<p class="font-mono text-xs" data-testid="lightning-peer">{$lightningStore.peerHost}</p>
+				{/if}
+				{#if $lightningStore.channel === 'waiting'}
+					<p class="text-sm" data-testid="lightning-channel">
+						{translate('wallet.lightning_channel_waiting', 'Waiting for an LSP channel')}
+					</p>
+				{:else if $lightningStore.channel === 'open'}
+					<p class="text-success text-sm" data-testid="lightning-channel">
+						{translate('wallet.lightning_channel_open', 'LSP channel is open')}
+					</p>
+				{:else if $lightningStore.channel === 'missing'}
+					<p class="text-sm" data-testid="lightning-channel">
+						{translate('wallet.lightning_channel_missing', 'No LSP channel yet')}
+					</p>
+				{:else}
+					<p class="text-sm" data-testid="lightning-channel">
+						{translate('wallet.lightning_channel_closed', 'LSP channel not open')}
+					</p>
+				{/if}
+				{#if $lightningStore.rgbInvoice}
+					<p class="text-xs">{translate('wallet.lightning_rgb_invoice', 'On-chain RGB invoice')}</p>
+					<p class="font-mono text-xs break-all" data-testid="lightning-rgb-invoice">
+						{$lightningStore.rgbInvoice}
+					</p>
+				{/if}
+				{#if $lightningStore.lnInvoice}
+					<p class="text-xs">{translate('wallet.lightning_ln_invoice', 'Lightning invoice')}</p>
+					<p class="font-mono text-xs break-all" data-testid="lightning-ln-invoice">
+						{$lightningStore.lnInvoice}
+					</p>
+				{/if}
 			{/if}
 		</div>
 	</section>

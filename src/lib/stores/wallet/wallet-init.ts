@@ -71,6 +71,23 @@ type ProbeWindow = WalletProbeWindow & {
 	};
 };
 
+/** Time out the chain probe only. Unlock is left to finish. */
+async function probeWalletInit(wallet: { init: () => Promise<unknown> }): Promise<void> {
+	let last: unknown;
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		try {
+			await limitWait(wallet.init(), 20_000, 'Wallet init timed out');
+			return;
+		} catch (error: unknown) {
+			last = error;
+			const timedOut = error instanceof Error && error.message === 'Wallet init timed out';
+			if (!timedOut || attempt === 1) throw error;
+			console.warn('[wallet-init] init timed out, retrying');
+		}
+	}
+	throw last instanceof Error ? last : new Error('Wallet init timed out');
+}
+
 function limitWait<T>(run: Promise<T>, ms: number, message: string): Promise<T> {
 	return new Promise((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error(message)), ms);
@@ -140,11 +157,12 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			})
 		);
 
+		console.info('[wallet-init] start');
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
 		try {
-			await limitWait(wallet.init(), 20_000, 'Wallet init timed out');
+			await probeWalletInit(wallet);
 			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
-			await limitWait(wallet.unlock(), 20_000, 'Wallet unlock timed out');
+			await wallet.unlock();
 		} catch (connectError) {
 			console.warn('[wallet-init] RLN handshake failed:', connectError);
 			throw connectError;
@@ -413,6 +431,7 @@ export async function getRgbAddress(): Promise<string> {
 }
 
 async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
+	console.info('[wallet-init] start');
 	const probe = probeWindow();
 	const isTestEnvironment =
 		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
@@ -460,10 +479,14 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 		}
 	}
 	console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
+	if (!state.utexoWallet) {
+		await clearMnemonicSession().catch(() => undefined);
+	}
 	walletStore.update((current) => ({
 		...current,
 		isInitializing: false,
 		syncing: false,
+		locked: state.utexoWallet ? current.locked : true,
 		error: lastError instanceof Error ? lastError.message : 'Failed to initialize wallet'
 	}));
 	throw lastError instanceof Error ? lastError : new Error('Failed to initialize wallet');

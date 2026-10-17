@@ -34,7 +34,7 @@ vi.mock('@sentry/sveltekit', () => ({
 	captureException: vi.fn()
 }));
 
-import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+import { notificationCenterStore, sandboxPagesHost } from '$lib/stores/notificationCenter.store';
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 import { syncBadge } from '$lib/utils/badgeSync';
 import type {
@@ -373,6 +373,17 @@ describe('notification-center.store', () => {
 			expect(state.unreadCount).toBe(5);
 		});
 
+		it('skips the staging unread API on the RGB sandbox', async () => {
+			vi.mocked(notificationCenterService.getUnreadCount).mockClear();
+			vi.spyOn(window, 'location', 'get').mockReturnValue({
+				hostname: 'rgb.bittasker.com'
+			} as Location);
+
+			await notificationCenterStore.fetchUnreadCount();
+
+			expect(notificationCenterService.getUnreadCount).not.toHaveBeenCalled();
+		});
+
 		it('silently fails on error', async () => {
 			vi.mocked(notificationCenterService.getUnreadCount).mockRejectedValueOnce(
 				new Error('Network error')
@@ -383,6 +394,17 @@ describe('notification-center.store', () => {
 			// Should not throw, state unchanged
 			const state = get(notificationCenterStore);
 			expect(state.unreadCount).toBe(0);
+		});
+	});
+
+	describe('sandboxPagesHost', () => {
+		it('matches the RGB sandbox hosts only', () => {
+			expect(sandboxPagesHost('rgb.bittasker.com')).toBe(true);
+			expect(sandboxPagesHost('bittasker-rgb.pages.dev')).toBe(true);
+			expect(sandboxPagesHost('a9496a82.bittasker-rgb.pages.dev')).toBe(true);
+			expect(sandboxPagesHost('staging.bittasker.com')).toBe(false);
+			expect(sandboxPagesHost('bittasker.com')).toBe(false);
+			expect(sandboxPagesHost('localhost')).toBe(false);
 		});
 	});
 

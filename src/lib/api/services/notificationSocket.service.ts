@@ -4,7 +4,7 @@ import { Preferences } from '@capacitor/preferences';
 import { get } from 'svelte/store';
 import * as Sentry from '@sentry/sveltekit';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+import { notificationCenterStore, sandboxPagesHost } from '$lib/stores/notificationCenter.store';
 import { appStore } from '$lib/stores/app.store';
 import { authState } from '$lib/stores/auth.store';
 import { foregroundNotificationCoordinator } from '$lib/utils/helpers/foreground-notification-coordinator';
@@ -43,7 +43,7 @@ function stopDisconnectPoll(): void {
  * Works on both web and native (Capacitor WebView supports WebSocket natively).
  */
 export async function connectNotificationSocket(): Promise<void> {
-	if (!browser || socket?.connected) return;
+	if (!browser || socket?.connected || sandboxPagesHost()) return;
 
 	const auth = get(authState);
 	if (!auth.isAuthenticated) return;

@@ -5,6 +5,16 @@ import { notificationCenterService } from '$lib/api/services/notificationCenter.
 import { browserNetworkStatus } from '$lib/utils/network-status';
 import { syncBadge } from '$lib/utils/badgeSync';
 
+/** RGB sandbox Pages has no staging notification service. */
+export function sandboxPagesHost(hostname = ''): boolean {
+	const host = hostname || (typeof window === 'undefined' ? '' : window.location.hostname);
+	return (
+		host === 'rgb.bittasker.com' ||
+		host === 'bittasker-rgb.pages.dev' ||
+		host.endsWith('.bittasker-rgb.pages.dev')
+	);
+}
+
 interface PendingMutation {
 	id: string;
 	type: 'markRead' | 'markAllRead' | 'delete' | 'clearAll';
@@ -125,6 +135,7 @@ function createNotificationCenterStore() {
 		},
 
 		async fetchUnreadCount() {
+			if (sandboxPagesHost()) return;
 			const network = get(browserNetworkStatus);
 			if (!network.online) return;
 

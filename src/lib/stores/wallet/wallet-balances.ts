@@ -18,6 +18,7 @@ import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveBatches } from './decode-rgb-invoice';
 import {
 	chainAllocation,
+	allocationCoversSpendable,
 	enqueueWallet,
 	inWalletTurn,
 	releasePhantomSends,
@@ -563,6 +564,12 @@ export async function attachChainSpendable(
 	const unspents = unspentRows(listed);
 	if (!unspents) return assets;
 	const chain = await chainAllocation(unspents, usdt.assetId, esploraOutputSpent);
+	const spendable = usdt.spendable ?? usdt.balance;
+	if (!allocationCoversSpendable(chain, spendable)) {
+		return assets.map((asset) =>
+			asset.assetId === usdt.assetId ? { ...asset, chainUnknown: true } : asset
+		);
+	}
 	if (chain.checked === 0 && !chain.unknown && chain.pending === 0) return assets;
 	return assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;

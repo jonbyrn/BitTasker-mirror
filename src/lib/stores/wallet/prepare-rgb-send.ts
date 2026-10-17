@@ -219,6 +219,14 @@ export async function chainAllocation(
 	return { live, spent, checked, unknown, pending };
 }
 
+/** True when the listed outputs account for the spendable balance. */
+export function allocationCoversSpendable(chain: ChainAllocation, spendable: number): boolean {
+	if (chain.unknown || !Number.isSafeInteger(spendable) || spendable < 0) return false;
+	const spent = chain.spent.reduce((sum, row) => sum + row.amount, 0);
+	const accounted = chain.live + spent + chain.pending;
+	return accounted >= spendable && (chain.checked > 0 || chain.pending > 0 || spendable === 0);
+}
+
 /** Clear refusal when RGB still lists an output the chain already spent. */
 export function spentSealMessage(spent: SpentSeal[]): string | null {
 	if (spent.length === 0) return null;
