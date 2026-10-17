@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { LightningFailure } from './lightning-status';
 import { withWasm, wasmCrashed } from './wasm-lock';
 
 /** Funded RGB wallet. LSP discovery must not run on this fingerprint. */
@@ -159,7 +160,8 @@ export const lightningStore = writable({
 	peerHost: '',
 	channel: 'idle' as 'idle' | 'waiting' | 'open' | 'missing',
 	lnInvoice: '',
-	rgbInvoice: ''
+	rgbInvoice: '',
+	failure: '' as LightningFailure
 });
 
 export function lspChannelOpen(): boolean {
@@ -175,7 +177,8 @@ export function clearLightningWallet(): void {
 		peerHost: '',
 		channel: 'idle',
 		lnInvoice: '',
-		rgbInvoice: ''
+		rgbInvoice: '',
+		failure: ''
 	});
 }
 
@@ -236,7 +239,8 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		peerHost: peer.peerHost,
 		channel: 'idle',
 		lnInvoice: '',
-		rgbInvoice: ''
+		rgbInvoice: '',
+		failure: ''
 	});
 }
 
@@ -459,7 +463,7 @@ async function pollSignetChannel(): Promise<void> {
 	if (lspHalted || !lsp?.waitForChannel || refusedBotPeer(lsp.peer)) return;
 	const assetId = await ensureLspAsset();
 	if (!assetId || lspHalted) return;
-	lightningStore.update((row) => ({ ...row, channel: 'waiting' }));
+	lightningStore.update((row) => ({ ...row, channel: 'waiting', failure: '' }));
 	try {
 		const info = await lsp.waitForChannel(assetId, {
 			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
@@ -468,12 +472,17 @@ async function pollSignetChannel(): Promise<void> {
 		});
 		if (lspHalted) return;
 		lsp.channelReady = true;
-		lightningStore.update((row) => ({ ...row, ready: true, channel: 'open' }));
+		lightningStore.update((row) => ({ ...row, ready: true, channel: 'open', failure: '' }));
 		console.info('[wallet-lsp] channel', info);
 	} catch (error: unknown) {
 		if (lspHalted) return;
 		lsp.channelReady = false;
-		lightningStore.update((row) => ({ ...row, ready: false, channel: 'missing' }));
+		lightningStore.update((row) => ({
+			...row,
+			ready: false,
+			channel: 'missing',
+			failure: 'channel'
+		}));
 		console.warn('[wallet-lsp] no channel', error instanceof Error ? error.message : String(error));
 	}
 }
@@ -503,6 +512,7 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 	}
 	if (typeof wallet.createLsp !== 'function') {
 		clearLightningWallet();
+		lightningStore.update((row) => ({ ...row, failure: 'attach' }));
 		console.warn('[wallet-lsp] createLsp missing');
 		return;
 	}
@@ -513,11 +523,13 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 		const peer = lspPeer(lsp);
 		if (!peer) {
 			clearLightningWallet();
+			lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 			console.info('[wallet-lsp] get_info', { peer: null });
 			return;
 		}
 		if (refusedBotPeer(peer)) {
 			clearLightningWallet();
+			lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 			console.warn('[wallet-lsp] refused bot peer', {
 				peerHost: peer.peerHost,
 				peerPort: peer.peerPort
@@ -527,12 +539,16 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 		rememberLightning(lsp, peer);
 		console.info('[wallet-lsp] get_info', peer);
 		const connected = await connectStoredLsp();
-		if (!connected) return;
+		if (!connected) {
+			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'connect' }));
+			return;
+		}
 		keepPeerAlive(wallet);
 		startKeepalive();
 		void waitSignetChannel();
 	} catch (error: unknown) {
 		clearLightningWallet();
+		lightningStore.update((row) => ({ ...row, failure: 'connect' }));
 		console.warn(
 			'[wallet-lsp] get_info failed',
 			error instanceof Error ? error.message : String(error)

@@ -12,6 +12,14 @@ export const WASM_CRASH_MESSAGE = 'Wallet engine crashed – reload required';
 const PANIC_TEXT = /unreachable|already (mutably )?borrowed|RuntimeError/i;
 
 const SYNC_WALLET_METHODS = new Set(['isOnline', 'getLspConfig', 'getLightningNode']);
+/**
+ * createLsp stores `this` on UtexoLsp. That reference must be the proxy so later
+ * connectPeer / listChannels / syncWallet calls stay on the queue.
+ * Every other method must run with the raw wallet as `this`. beta.12 does
+ * `this.requireNode().connectPeer()` / `.listChannels()`. If `this` is the proxy,
+ * requireNode is queued and returns a Promise, and those methods are missing.
+ */
+const PROXY_RECEIVER_METHODS = new Set(['createLsp']);
 
 let tail: Promise<unknown> = Promise.resolve();
 let depth = 0;
@@ -117,7 +125,11 @@ export function lockedWallet<W extends object>(wallet: W): W {
 			}
 			return (...args: unknown[]) =>
 				withWasm(String(prop), async () =>
-					Reflect.apply(value as (...a: unknown[]) => unknown, receiver, args)
+					Reflect.apply(
+						value as (...a: unknown[]) => unknown,
+						PROXY_RECEIVER_METHODS.has(String(prop)) ? receiver : target,
+						args
+					)
 				);
 		}
 	});
