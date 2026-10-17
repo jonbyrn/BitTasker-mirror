@@ -39,6 +39,7 @@ import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-t
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
+import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
 import {
 	WASM_CRASH_MESSAGE,
@@ -61,6 +62,8 @@ let tabClaim: WalletTabClaim | null = null;
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
+/** Shown when the session store never answers. The wallet page already translates this string. */
+export const WALLET_INIT_TIMEOUT = 'Wallet init timed out';
 
 // Helper functions
 async function deriveUtexoWalletPassword(mnemonic: string): Promise<string> {
@@ -115,7 +118,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	const network = 'utexo' as const;
 
 	try {
-		installLightningGuard();
 		const tab = await claimWalletTab(
 			typeof navigator === 'undefined' || !navigator.locks
 				? null
@@ -245,6 +247,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			watchLightningPeer(wallet);
 			setTimeout(() => {
 				if (wasmCrashed()) return;
+				installLightningGuard();
 				void discoverSignetLsp(wallet).catch((error: unknown) => {
 					console.warn('[wallet-init] LSP discovery skipped', error);
 				});
@@ -544,7 +547,14 @@ export async function getRgbAddress(): Promise<string> {
 	return get(walletStore).rgb?.address || '';
 }
 
+function startFailureMessage(error: unknown): string {
+	if (error instanceof IndexedDbTimeoutError) return WALLET_INIT_TIMEOUT;
+	if (error instanceof Error && error.message) return error.message;
+	return 'Wallet setup could not start. Reload the page.';
+}
+
 async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
+	console.info('[wallet-init] start');
 	const probe = probeWindow();
 	const isTestEnvironment =
 		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
@@ -562,8 +572,21 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	}
 
 	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
-	await hydrateWalletSnapshot();
-	const mnemonic = await readMnemonicSession();
+	let mnemonic: string | null;
+	try {
+		await hydrateWalletSnapshot();
+		mnemonic = await readMnemonicSession();
+	} catch (error) {
+		const message = startFailureMessage(error);
+		console.warn('[wallet-init] start failed', message);
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			syncing: false,
+			error: message
+		}));
+		throw new Error(message);
+	}
 	if (!mnemonic) {
 		walletStore.update((current) => ({
 			...current,

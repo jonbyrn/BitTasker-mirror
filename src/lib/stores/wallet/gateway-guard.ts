@@ -15,6 +15,8 @@ export const GATEWAY_SOCKET_CAP = 2;
 const GATEWAY_HOST = 'ln-gateway-signet.utexo.com';
 const COLLAPSE =
 	/rln-wasm-sdk peer-session|ln-gateway-signet\.utexo\.com|wallet-lsp\] connect failed|Lightning gateway socket cap/;
+/** Wallet diagnostics must stay visible even when they mention the gateway. */
+const KEEP_LOG = /\[wallet-init\]|\[wallet-diagnostic\]|\[wallet-page|\[wallet-log\]/;
 
 const logCounts = new Map<string, number>();
 
@@ -40,9 +42,9 @@ export function isGatewaySocketUrl(url: string): boolean {
 	return url.includes(GATEWAY_HOST);
 }
 
-/** First copy of a noisy gateway line is kept. Later copies are dropped. */
+/** First copy of a noisy gateway line is kept. Later copies are dropped. Wallet lines always pass. */
 export function allowRepeatedLog(text: string): boolean {
-	if (!COLLAPSE.test(text)) return true;
+	if (KEEP_LOG.test(text) || !COLLAPSE.test(text)) return true;
 	const key = text.replace(/auth_token=[^&\s]+/gi, 'auth_token').slice(0, 180);
 	const count = (logCounts.get(key) ?? 0) + 1;
 	logCounts.set(key, count);
@@ -64,19 +66,24 @@ function noteCap(): void {
 }
 
 function wrapLog(method: 'error' | 'warn'): void {
-	const original = console[method];
+	const original = console[method].bind(console);
 	if (method === 'error') state.error = original;
 	else state.warn = original;
 	console[method] = (...args: unknown[]) => {
-		const text = args.map((arg) => (typeof arg === 'string' ? arg : String(arg))).join(' ');
-		if (!allowRepeatedLog(text)) {
-			const key = text.replace(/auth_token=[^&\s]+/gi, 'auth_token').slice(0, 180);
-			if (logCounts.get(key) === 2) {
-				original.call(console, '[wallet-log] suppressing repeated gateway logs');
+		try {
+			const text = args.map((arg) => (typeof arg === 'string' ? arg : String(arg))).join(' ');
+			if (!allowRepeatedLog(text)) {
+				const key = text.replace(/auth_token=[^&\s]+/gi, 'auth_token').slice(0, 180);
+				if (logCounts.get(key) === 2) {
+					original('[wallet-log] suppressing repeated gateway logs');
+				}
+				return;
 			}
+		} catch {
+			original(...args);
 			return;
 		}
-		original.apply(console, args);
+		original(...args);
 	};
 }
 

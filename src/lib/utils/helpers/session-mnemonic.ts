@@ -1,3 +1,5 @@
+import { idbRequest, openIndexedDb, withIndexedDb } from '$lib/utils/helpers/indexed-db-open';
+
 const DB_NAME = 'bittasker-wallet-session';
 const STORE = 'keys';
 const KEY_ID = 'mnemonic-key';
@@ -30,35 +32,29 @@ export function sessionFresh(savedAt: number, now: number, ttl = SESSION_TTL_MS)
 }
 
 function openDb(): Promise<IDBDatabase> {
-	return new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB_NAME, 1);
-		request.onupgradeneeded = () => {
-			if (!request.result.objectStoreNames.contains(STORE)) {
-				request.result.createObjectStore(STORE);
-			}
-		};
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error ?? new Error('session db failed'));
+	return openIndexedDb(DB_NAME, 1, (db) => {
+		if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
 	});
 }
 
 async function readKey(): Promise<CryptoKey | null> {
 	if (typeof indexedDB === 'undefined') return null;
-	const db = await openDb();
-	return new Promise((resolve, reject) => {
-		const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY_ID);
-		request.onsuccess = () => resolve((request.result as CryptoKey | undefined) ?? null);
-		request.onerror = () => reject(request.error ?? new Error('session key read failed'));
+	return withIndexedDb(openDb(), async (db) => {
+		const result = await idbRequest<CryptoKey | undefined>(
+			db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY_ID),
+			'session key read'
+		);
+		return result ?? null;
 	});
 }
 
 async function writeKey(key: CryptoKey): Promise<void> {
-	const db = await openDb();
-	await new Promise<void>((resolve, reject) => {
-		const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(key, KEY_ID);
-		request.onsuccess = () => resolve();
-		request.onerror = () => reject(request.error ?? new Error('session key write failed'));
-	});
+	await withIndexedDb(openDb(), (db) =>
+		idbRequest(
+			db.transaction(STORE, 'readwrite').objectStore(STORE).put(key, KEY_ID),
+			'session key write'
+		).then(() => undefined)
+	);
 }
 
 function readPack(storageKey = CIPHER_KEY): CipherPack | null {
@@ -179,10 +175,10 @@ export async function clearMnemonicSession(): Promise<void> {
 		sessionStorage.removeItem(SIGNER_KEY);
 	}
 	if (typeof indexedDB === 'undefined') return;
-	const db = await openDb();
-	await new Promise<void>((resolve, reject) => {
-		const request = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(KEY_ID);
-		request.onsuccess = () => resolve();
-		request.onerror = () => reject(request.error ?? new Error('session key delete failed'));
-	});
+	await withIndexedDb(openDb(), (db) =>
+		idbRequest(
+			db.transaction(STORE, 'readwrite').objectStore(STORE).delete(KEY_ID),
+			'session key delete'
+		).then(() => undefined)
+	);
 }
