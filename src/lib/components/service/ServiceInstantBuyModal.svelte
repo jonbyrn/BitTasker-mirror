@@ -10,6 +10,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
 	import { state as walletState } from '$lib/stores/wallet/wallet-state';
+	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { resolveBidSats } from '$lib/utils/nostr-bid';
 	import type { PaymentSplitConfig } from '$lib/types/rgb-contract';
@@ -143,8 +144,15 @@
 	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
 
 	let selectedSource = $state<'btc' | 'usdt'>('usdt');
+	let usdtOverLightning = $state(false);
 	let nodeEmpty = $state(true);
-	const lspPayReady = $derived(selectedSource === 'btc' ? !nodeEmpty : true);
+	const lspPayReady = $derived(
+		selectedSource === 'btc'
+			? !nodeEmpty
+			: usdtOverLightning
+				? $lightningStore.ready || !nodeEmpty
+				: true
+	);
 	let sourceExpanded = $state(false);
 	const paymentSplitEnabled = false;
 	let paymentSplit = $state<PaymentSplitConfig>({
@@ -202,8 +210,8 @@
 	const lockedSats = $derived(
 		totalPaymentValue == null ? null : resolveBidSats(totalPaymentValue, 'USD', btcPrice.price)
 	);
-	const escrowRail = $derived<'usdt_rgb' | 'btc_lightning'>(
-		selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_lightning'
+	const escrowRail = $derived<'usdt_rgb' | 'usdt_ln' | 'btc_lightning'>(
+		selectedSource === 'usdt' ? (usdtOverLightning ? 'usdt_ln' : 'usdt_rgb') : 'btc_lightning'
 	);
 	const postedInvoice = $derived(escrowInvoice?.trim() ?? '');
 	const invoiceReady = $derived(
@@ -394,7 +402,8 @@
 
 	function singleAssetSplit(source: 'btc' | 'usdt'): PaymentSplitConfig {
 		return {
-			primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_lightning',
+			primaryAsset:
+				source === 'usdt' ? (usdtOverLightning ? 'usdt_ln' : 'usdt_rgb') : 'btc_lightning',
 			primaryPercentage: 100,
 			secondaryAsset: source === 'usdt' ? 'btc_onchain' : 'usdt_rgb',
 			secondaryPercentage: 0
@@ -410,7 +419,8 @@
 		paymentSplit = paymentSplitEnabled
 			? {
 					...paymentSplit,
-					primaryAsset: source === 'usdt' ? 'usdt_rgb' : 'btc_lightning'
+					primaryAsset:
+						source === 'usdt' ? (usdtOverLightning ? 'usdt_ln' : 'usdt_rgb') : 'btc_lightning'
 				}
 			: singleAssetSplit(source);
 	}
@@ -813,6 +823,20 @@
 									</div>
 								</div>
 							</div>
+							{#if selectedSource === 'usdt'}
+								<label
+									class="mt-2 flex items-center gap-2 text-sm"
+									data-testid="usdt-over-lightning"
+								>
+									<input
+										type="checkbox"
+										class="checkbox checkbox-sm"
+										bind:checked={usdtOverLightning}
+										onchange={() => syncSplitForSource('usdt')}
+									/>
+									{$t('dashboard.bids.bid_acceptance.fund_rail_usdt_ln')}
+								</label>
+							{/if}
 
 							<!-- Wallet Balance Accordion -->
 							<ContractFundingWalletCard
@@ -854,7 +878,11 @@
 							{#if paymentSplitEnabled}
 								<PaymentSplitSlider
 									totalAmountUsd={totalPaymentValue ?? 0}
-									primaryAsset={selectedSource === 'usdt' ? 'usdt_rgb' : 'btc_lightning'}
+									primaryAsset={selectedSource === 'usdt'
+										? usdtOverLightning
+											? 'usdt_ln'
+											: 'usdt_rgb'
+										: 'btc_lightning'}
 									secondaryAsset={selectedSource === 'usdt' ? 'btc_lightning' : 'usdt_rgb'}
 									onSplitChange={updatePaymentSplit}
 								/>

@@ -191,26 +191,41 @@ describe('ReceivePaymentForm', () => {
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 
-	it('creates a blank RGB invoice when the configured USDT id is not in this wallet', async () => {
-		const { getByTestId } = render(ReceivePaymentForm);
+	it('invoices the configured USDT id and the entered amount when the wallet has not listed it yet', async () => {
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
-		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100000' } });
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
 		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
 		expect(onchainReceive).toHaveBeenCalledWith({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600,
-			amount: 1111
+			amount: 100_000_000,
+			assetId: 'rgb1testusdtasset',
+			blind: true,
+			blinded: true
 		});
-		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
+		await waitFor(() => expect(getByTestId('receive-usdt-amount')).toBeTruthy());
+		expect(queryByTestId('receive-usdt-blank-hint')).toBeNull();
+	});
+
+	it('creates a Lightning USDT invoice for the entered amount and asset', async () => {
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_ln'));
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100' } });
+		await fireEvent.click(getByTestId('receive-generate'));
+
 		await waitFor(() =>
-			expect(getByTestId('receive-usdt-blank-hint').textContent).toContain(
-				'wallet.taproot.utexo_bot_hint'
-			)
+			expect(createLightningInvoice).toHaveBeenCalledWith({
+				expirySeconds: 3600,
+				asset: {
+					assetId: 'rgb:vDU5IB7L-ZJFyqM3-5KrG84e-L0Q4kzi-eg3y0nH-JzoBylw',
+					amount: 100_000_000
+				}
+			})
 		);
+		expect(onchainReceive).not.toHaveBeenCalled();
 	});
 
 	it('keeps generate disabled until a valid amount is entered for invoice assets', async () => {

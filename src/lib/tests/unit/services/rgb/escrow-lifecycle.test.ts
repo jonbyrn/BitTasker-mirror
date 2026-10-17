@@ -584,6 +584,45 @@ describe('escrow lifecycle', () => {
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
+	it('creates an LN-USDT Lightning invoice for the agreed amount and pays it once', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-ln-usdt-invoice',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_ln',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		wallet.createLightningInvoice.mockResolvedValue({ lnInvoice: 'lntb1usdtamount' });
+		wallet.decodeLnInvoice.mockResolvedValue({
+			payee: '02aa',
+			assetId: ESCROW_LNUSDT,
+			assetAmount: 11_000_000,
+			expirySeconds: 3600
+		});
+		rune.status = 'approved';
+		const invoice = await rune.createPayoutInvoice();
+		expect(invoice).toBe('lntb1usdtamount');
+		expect(wallet.createLightningInvoice).toHaveBeenCalledWith({
+			expirySeconds: 3600,
+			asset: { assetId: ESCROW_LNUSDT, amount: 11_000_000 }
+		});
+		const released = await rune.releaseEscrow();
+		expect(released.status).toBe('released');
+		expect(wallet.payLightningInvoice).toHaveBeenCalledOnce();
+		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({
+			lnInvoice: 'lntb1usdtamount',
+			assetId: ESCROW_LNUSDT,
+			assetAmount: 11_000_000
+		});
+		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
 	it('cancels an agreed contract without sending', async () => {
 		const rune = new ContractRune({
 			contractId: 'contract-cancel',

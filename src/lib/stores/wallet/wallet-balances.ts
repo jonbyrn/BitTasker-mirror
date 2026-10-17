@@ -23,6 +23,7 @@ import {
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
+import { wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
 
 interface RgbAmount {
 	settled?: number;
@@ -209,6 +210,16 @@ function requestUrl(input: RequestInfo | URL): string {
 	return input.url;
 }
 
+function requestMethod(input: RequestInfo | URL, init?: RequestInit): string {
+	if (init?.method) return init.method.toUpperCase();
+	if (typeof Request !== 'undefined' && input instanceof Request) return input.method.toUpperCase();
+	return 'GET';
+}
+
+function isTxBroadcast(url: string, method: string): boolean {
+	return method === 'POST' && /\/tx\/?(?:\?|#|$)/.test(url);
+}
+
 function esploraCacheKey(url: string): string | null {
 	if (!ESPLORA_HOST.test(url)) return null;
 	const match = url.match(/\/(?:testnet\/)?api(\/.*)$/i);
@@ -240,6 +251,14 @@ export function installEsploraRetryFetch(): void {
 		// Intercept disabled VSS: stub before network to prevent Rust Url::parse panic
 		if (DISABLED_VSS_HOST.test(url)) {
 			return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+		}
+		if (isTxBroadcast(url, requestMethod(input, init))) {
+			const response = await originalFetch(input, init);
+			if (response.status === 400) {
+				const body = await response.clone().text();
+				console.warn('[esplora] POST /tx rejected', body);
+			}
+			return response;
 		}
 		const key = esploraCacheKey(url);
 		if (!key) return originalFetch(input, init);
@@ -561,6 +580,8 @@ export async function attachChainSpendable(
 	const unspents = unspentRows(listed);
 	if (!unspents) return assets;
 	const chain = await chainAllocation(unspents, usdt.assetId, esploraOutputSpent);
+	// An empty list, or rows RGB marks exists:false, never checked an output.
+	// Leaving chainSpendable unset avoids "0.00 unspent" next to "No UTXOs".
 	if (chain.checked === 0 && !chain.unknown && chain.pending === 0) return assets;
 	return assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;
@@ -836,11 +857,12 @@ async function pullIncomingOnce(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
-	if (wallet.goOnline && wallet.isOnline?.() !== true) {
-		await wallet.goOnline(RGB_INDEXER);
-	}
-	const pulled = rawRefresh(wallet);
-	try {
+	await withWasm('pull-transfers', async () => {
+		if (wasmCrashed()) return;
+		if (wallet.goOnline && wallet.isOnline?.() !== true) {
+			await wallet.goOnline(RGB_INDEXER);
+		}
+		const pulled = rawRefresh(wallet);
 		if (pulled) {
 			// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
 			// beside it overlaps the same wasm wallet and throws a null pointer.
@@ -861,9 +883,7 @@ async function pullIncomingOnce(
 		}
 		if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
 		if (wallet.refreshWallet) await wallet.refreshWallet();
-	} finally {
-		await flushWalletState(wallet);
-	}
+	});
 }
 
 const REFRESH_LIMIT_MS = 45_000;
@@ -902,7 +922,7 @@ function backupPassword(wallet: unknown): string | null {
 	return binding.password;
 }
 
-function callRawBackup(wallet: unknown, password: string): boolean {
+async function callRawBackup(wallet: unknown, password: string): Promise<boolean> {
 	if (!isRecord(wallet)) return false;
 	const manager = wallet._manager;
 	if (!isRecord(manager)) return false;
@@ -910,7 +930,9 @@ function callRawBackup(wallet: unknown, password: string): boolean {
 	if (!isRecord(binding)) return false;
 	const raw = binding._wallet;
 	if (!isRecord(raw) || typeof raw.backup !== 'function') return false;
-	Reflect.apply(raw.backup, raw, [password]);
+	await withWasm('raw-backup', async () => {
+		Reflect.apply(raw.backup as (password: string) => unknown, raw, [password]);
+	});
 	return true;
 }
 
@@ -963,135 +985,39 @@ function openNamedDb(name: string): Promise<IDBDatabase> {
 	});
 }
 
-async function snapshotRows(name: string): Promise<{ key: string; bytes: number }[]> {
-	const db = await openNamedDb(name);
-	try {
-		if (!db.objectStoreNames.contains('snapshots')) return [];
-		return await new Promise((resolve, reject) => {
-			const tx = db.transaction('snapshots', 'readonly');
-			const store = tx.objectStore('snapshots');
-			const keysReq = store.getAllKeys();
-			const valsReq = store.getAll();
-			tx.oncomplete = () => {
-				const keys = keysReq.result ?? [];
-				const vals = valsReq.result ?? [];
-				resolve(
-					keys.map((key, index) => {
-						const value = vals[index];
-						return {
-							key: String(key),
-							bytes: typeof value === 'string' ? value.length : 0
-						};
-					})
-				);
-			};
-			tx.onerror = () => reject(tx.error ?? new Error('snapshot read failed'));
-		});
-	} finally {
-		db.close();
-	}
-}
-
-async function storeCounts(name: string): Promise<{ store: string; count: number }[]> {
-	const db = await openNamedDb(name);
-	try {
-		const names = [...db.objectStoreNames];
-		const rows: { store: string; count: number }[] = [];
-		for (const store of names) {
-			const count = await new Promise<number>((resolve, reject) => {
-				const tx = db.transaction(store, 'readonly');
-				const request = tx.objectStore(store).count();
-				request.onsuccess = () => resolve(request.result);
-				request.onerror = () => reject(request.error ?? new Error('store count failed'));
-			});
-			rows.push({ store, count });
-		}
-		return rows;
-	} finally {
-		db.close();
-	}
-}
-
-/** Log which IndexedDB holds the RGB snapshot. Values stay out of the log. */
-async function logWalletStores(fingerprint: string | null): Promise<void> {
-	if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
-	const listed = await indexedDB.databases();
-	const names = listed
-		.map((row) => row.name)
-		.filter(
-			(name): name is string =>
-				typeof name === 'string' && (name === 'rgb_lib_wallet' || name.startsWith('rln_'))
-		);
-	console.info('[wallet-persist] indexeddb', names);
-	if (names.includes('rgb_lib_wallet')) {
-		console.info('[wallet-persist] rgb_lib_wallet snapshots', await snapshotRows('rgb_lib_wallet'));
-	}
-	const wanted = fingerprint ? `rln_${fingerprint}_signet` : '';
-	for (const name of names) {
-		if (!name.startsWith('rln_')) continue;
-		if (wanted && name !== wanted && !name.includes(fingerprint ?? '')) continue;
-		console.info('[wallet-persist] wallet db', name, await storeCounts(name));
-	}
+interface DurableWallet {
+	backupNow?: () => Promise<unknown>;
+	createBackup?: (params: { backupPath: string; password: string }) => Promise<unknown>;
 }
 
 /**
- * Await the wasm wallet's IndexedDB commit. A detached `flush` throws
- * "null pointer passed to rust", the same way a detached `refreshValue` does.
+ * beta.12 has no `flush` / `flushValue`. Persist with VSS `backupNow` or
+ * `createBackup`. Never call the raw wasm `backup()` from a visibility hook.
  */
-async function backupWalletBytes(wallet: unknown): Promise<boolean> {
-	const raw = rawWasmWallet(wallet);
-	const password = backupPassword(wallet);
-	const fingerprint = walletFingerprint(wallet);
-	if (!raw || !password || !fingerprint || typeof raw.backup !== 'function') return false;
-	const bytes = asBackupBytes(Reflect.apply(raw.backup, raw, [password]));
-	if (!bytes) return false;
-	await storeRgbBackup(fingerprint, bytes);
-	return true;
-}
-
 export async function flushWalletState(wallet: unknown): Promise<boolean> {
-	const raw = rawWasmWallet(wallet);
-	if (!raw) return false;
-	const flush = raw.flush ?? raw.flushValue;
-	if (typeof flush !== 'function') {
-		try {
-			if (await backupWalletBytes(wallet)) {
-				console.info('[wallet-persist] wallet.backup');
-				return true;
-			}
-		} catch (error) {
-			console.warn(
-				'[wallet-persist] wallet.backup failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		}
-		console.warn('[wallet-persist] wallet.flush missing');
-		await logWalletStores(walletFingerprint(wallet)).catch((error: unknown) => {
-			console.warn(
-				'[wallet-persist] indexeddb read failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		});
-		return false;
-	}
+	if (!isRecord(wallet) || wasmCrashed()) return false;
+	const durable = wallet as DurableWallet;
+	const password = backupPassword(wallet);
 	try {
-		const result: unknown = Reflect.apply(flush as (...args: unknown[]) => unknown, raw, []);
-		if (result instanceof Promise) await result;
+		if (typeof durable.backupNow === 'function') {
+			await durable.backupNow();
+			console.info('[wallet-persist] wallet.backupNow');
+			return true;
+		}
+		if (typeof durable.createBackup === 'function' && password) {
+			await durable.createBackup({ backupPath: '', password });
+			console.info('[wallet-persist] wallet.createBackup');
+			return true;
+		}
 	} catch (error) {
 		console.warn(
-			'[wallet-persist] wallet.flush failed',
+			'[wallet-persist] backup failed',
 			error instanceof Error ? error.message : String(error)
 		);
 		return false;
 	}
-	console.info('[wallet-persist] wallet.flush');
-	await logWalletStores(walletFingerprint(wallet)).catch((error: unknown) => {
-		console.warn(
-			'[wallet-persist] indexeddb read failed',
-			error instanceof Error ? error.message : String(error)
-		);
-	});
-	return true;
+	console.warn('[wallet-persist] backup method missing');
+	return false;
 }
 
 /** Flush when the tab is hidden. The awaited flush after refresh is the durable path. */
@@ -1099,14 +1025,13 @@ export function installPersistHooks(): void {
 	if (!browser || persistHooksInstalled) return;
 	persistHooksInstalled = true;
 	const flushHidden = (): void => {
-		if (document.visibilityState === 'hidden') {
-			void flushWalletState(state.utexoWallet);
-		}
+		if (wasmCrashed() || wasmBusy()) return;
+		void withWasm('persist', () => flushWalletState(state.utexoWallet));
 	};
-	document.addEventListener('visibilitychange', flushHidden);
-	window.addEventListener('pagehide', () => {
-		void flushWalletState(state.utexoWallet);
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') flushHidden();
 	});
+	window.addEventListener('pagehide', flushHidden);
 }
 
 function asBackupBytes(value: unknown): Uint8Array | null {
@@ -1276,7 +1201,7 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	}
 	if (typeof wallet.createBackup === 'function') {
 		await wallet.createBackup({ backupPath: '', password });
-	} else if (!callRawBackup(wallet, password)) {
+	} else if (!(await callRawBackup(wallet, password))) {
 		console.warn('[wallet-persist] UTEXOWallet.createBackup missing');
 		return;
 	}
@@ -1345,15 +1270,22 @@ const PENDING_CONTRACT = new Set([
 ]);
 
 let contractRefreshTimer: ReturnType<typeof setInterval> | null = null;
+let contractRefreshPending = false;
 
 function armContractRefresh(): void {
 	if (contractRefreshTimer || typeof setInterval === 'undefined') return;
 	contractRefreshTimer = setInterval(() => {
+		if (contractRefreshPending || wasmBusy() || wasmCrashed()) return;
 		const pending = ContractRune.snapshots().some((row) => PENDING_CONTRACT.has(row.status));
 		if (!pending || !state.utexoWallet || walletSendPending()) return;
-		void loadAssets({ pull: true }).catch((error: unknown) => {
-			console.warn('[wallet-refresh] pending contract refresh failed', error);
-		});
+		contractRefreshPending = true;
+		withWasm('contract-refresh', () => loadAssets({ pull: true }))
+			.catch((error: unknown) => {
+				console.warn('[wallet-refresh] pending contract refresh failed', error);
+			})
+			.finally(() => {
+				contractRefreshPending = false;
+			});
 	}, 20_000);
 }
 
@@ -1655,8 +1587,8 @@ export async function cancelUnpaidInvoices(): Promise<number> {
 const NWCA_AMOUNT = 1111;
 
 /**
- * Named invoice for the USDT contract this wallet already holds (NIA or IFA).
- * A blank `nWca` invoice when it holds none, so the bot can pay the shape it already accepted.
+ * Named invoice for the configured or held USDT id, with the entered amount in base units.
+ * A blank `nWca` invoice (1111 units) only when no asset id is configured and no amount was entered.
  */
 export async function receiveUsdtInvoice(amount?: number): Promise<{
 	invoice: string;
@@ -1668,7 +1600,7 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	const assetId = usdtInvoiceAsset(listed, configured);
+	const assetId = usdtInvoiceAsset(listed, configured) ?? configured ?? undefined;
 	if (assetId) {
 		const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
 		const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
@@ -1676,8 +1608,14 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 		const named = await createRgbInvoice({ assetId, amount: units });
 		return { invoice: named.invoice, blank: false, units: units ?? null, precision };
 	}
-	const blank = await receiveBlankInvoice(NWCA_AMOUNT);
-	return { invoice: blank.invoice, blank: true, units: null, precision: 0 };
+	const blankUnits = amount === undefined ? NWCA_AMOUNT : usdtBaseUnits(amount, 6);
+	const blank = await receiveBlankInvoice(blankUnits);
+	return {
+		invoice: blank.invoice,
+		blank: true,
+		units: amount === undefined ? null : blankUnits,
+		precision: amount === undefined ? 0 : 6
+	};
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */
