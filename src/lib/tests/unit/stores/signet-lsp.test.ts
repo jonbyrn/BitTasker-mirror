@@ -163,6 +163,7 @@ describe('payEscrowLightning', () => {
 		});
 		await vi.waitFor(() => expect(get(lightningStore).channel).toBe('missing'));
 		expect(get(lightningStore).ready).toBe(false);
+		expect(get(lightningStore).failure).toBe('channel');
 		expect(receiveAsset).not.toHaveBeenCalled();
 		expect(awaitReceiveSettlement).not.toHaveBeenCalled();
 		await expect(payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000)).rejects.toThrow(
@@ -262,6 +263,23 @@ describe('payEscrowLightning', () => {
 				assetAmount: 11_000_000
 			}
 		});
+	});
+
+	it('records a connect failure instead of staying on setting up', async () => {
+		const sendAsset = vi.fn();
+		const connect = vi
+			.fn()
+			.mockRejectedValue(new TypeError('this.requireNode(...).connectPeer is not a function'));
+		await discoverSignetLsp({
+			_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+			getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+			createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect })
+		});
+		expect(connect).toHaveBeenCalledOnce();
+		expect(get(lightningStore).failure).toBe('connect');
+		expect(get(lightningStore).ready).toBe(false);
+		expect(get(lightningStore).channel).toBe('idle');
+		expect(sendAsset).not.toHaveBeenCalled();
 	});
 
 	it('does not connect or pay the bot node', async () => {

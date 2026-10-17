@@ -51,8 +51,8 @@
 	);
 	const chainGap = $derived.by(() => {
 		if ($walletStore.syncing || $walletStore.locked) return null;
-		// "No UTXOs" and "0.00 still unspent" cannot both be true for one listUnspents snapshot.
-		if (utxos.length === 0 && utxoError === null) return null;
+		// An empty coin list cannot support "0.00 still unspent", including when the list failed to load.
+		if (utxos.length === 0) return null;
 		if (!usdtAsset || usdtAsset.pendingConfirm) return null;
 		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return null;
 		const reported = usdtAsset.spendable;
@@ -72,9 +72,25 @@
 		lightningUxStatus({
 			ready: $lightningStore.ready,
 			channel: $lightningStore.channel,
-			onchainSats: $walletStore.rgb?.balanceSats ?? 0
+			onchainSats: $walletStore.rgb?.balanceSats ?? 0,
+			failure: $lightningStore.failure
 		})
 	);
+	const lightningFailureText = $derived.by(() => {
+		if ($lightningStore.failure === 'attach') {
+			return translate(
+				'wallet.lightning_failed_attach',
+				'Lightning did not start. Reload the page.'
+			);
+		}
+		if ($lightningStore.failure === 'connect') {
+			return translate(
+				'wallet.lightning_failed_connect',
+				'Lightning could not connect. Reload the page.'
+			);
+		}
+		return translate('wallet.lightning_failed_channel', 'The Lightning channel did not open.');
+	});
 	const shownError = $derived(initializationError ?? $walletStore.error);
 	const reloadRequired = $derived(walletReloadRequired(shownError));
 
@@ -173,7 +189,13 @@
 			lightningBtcSats = summary.btcSats;
 			lightningUsdtUnits = summary.usdtUnits;
 		} catch (error) {
-			console.error('[wallet-page] channel balance failed:', error);
+			const message = error instanceof Error ? error.message : String(error);
+			console.error('[wallet-page] channel balance failed:', message);
+			if (/not a function|not configured/i.test(message)) {
+				lightningStore.update((row) =>
+					row.ready || row.failure ? row : { ...row, failure: 'attach' }
+				);
+			}
 		}
 	}
 
@@ -489,6 +511,10 @@
 					<span class="badge badge-warning badge-sm" data-testid="lightning-needs-funding">
 						{translate('wallet.lightning_needs_funding', 'Needs funding')}
 					</span>
+				{:else if lightningUx.status === 'failed'}
+					<span class="badge badge-error badge-sm" data-testid="lightning-failed">
+						{translate('wallet.lightning_failed', 'Lightning unavailable')}
+					</span>
 				{:else}
 					<span class="badge badge-ghost badge-sm" data-testid="lightning-setting-up">
 						{translate('wallet.lightning_setting_up', 'Setting up Lightning')}
@@ -496,7 +522,9 @@
 				{/if}
 			</div>
 			<p class="text-base-content/70 text-sm" data-testid="lightning-status">
-				{#if lightningUx.status === 'needs_funding'}
+				{#if lightningUx.status === 'failed'}
+					{lightningFailureText}
+				{:else if lightningUx.status === 'needs_funding'}
 					{translate(
 						'wallet.lightning_needs_funding_amount',
 						'Add {sats} sats to finish Lightning.'
