@@ -26,7 +26,15 @@ import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscr
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
 import { chainSyncPlan } from './chain-sync';
-import { discoverSignetLsp, lightningStore, signetLspParams, stopLspPolling } from './signet-lsp';
+import {
+	confirmLightningAttached,
+	discoverSignetLsp,
+	installLightningGuard,
+	lightningStore,
+	signetLspParams,
+	stopLspPolling,
+	watchLightningPeer
+} from './signet-lsp';
 import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
@@ -107,6 +115,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	const network = 'utexo' as const;
 
 	try {
+		installLightningGuard();
 		const tab = await claimWalletTab(
 			typeof navigator === 'undefined' || !navigator.locks
 				? null
@@ -232,9 +241,14 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			console.warn('[wallet-init] transaction load skipped', error);
 		});
 		if (!skipLsp && lightningAttached && !wasmCrashed()) {
-			await discoverSignetLsp(wallet).catch((error: unknown) => {
-				console.warn('[wallet-init] LSP discovery skipped', error);
-			});
+			confirmLightningAttached();
+			watchLightningPeer(wallet);
+			setTimeout(() => {
+				if (wasmCrashed()) return;
+				void discoverSignetLsp(wallet).catch((error: unknown) => {
+					console.warn('[wallet-init] LSP discovery skipped', error);
+				});
+			}, 0);
 		} else if (!lightningAttached) {
 			console.warn('[wallet-init] LSP discovery skipped after attach failure');
 		}
