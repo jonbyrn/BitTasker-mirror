@@ -12,6 +12,7 @@ import {
 	SIGNET_KEEPALIVE_MS,
 	SIGNET_INBOUND_RGB,
 	SIGNET_INBOUND_SATS,
+	confirmLightningAttached,
 	discoverSignetLsp,
 	keepLspInbound,
 	lightningStore,
@@ -133,6 +134,7 @@ describe('payEscrowLightning', () => {
 
 	beforeEach(() => {
 		resetSignetLspForTests();
+		confirmLightningAttached();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(lspBook([SIGNET_USDT_ASSET])));
 	});
 
@@ -216,7 +218,7 @@ describe('payEscrowLightning', () => {
 		expect(get(lightningStore).ready).toBe(false);
 	});
 
-	it('reconnects through the wasm queue on the keepalive interval', async () => {
+	it('calls connectPeer once per page', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		try {
 			const sendAsset = vi.fn();
@@ -229,7 +231,7 @@ describe('payEscrowLightning', () => {
 			});
 			expect(connect).toHaveBeenCalledOnce();
 			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
-			await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
+			expect(connect).toHaveBeenCalledOnce();
 			expect(SIGNET_KEEPALIVE_MS).toBe(15_000);
 		} finally {
 			vi.useRealTimers();
@@ -266,29 +268,21 @@ describe('payEscrowLightning', () => {
 		}
 	});
 
-	it('backs off and stops after repeated handshake failures', async () => {
+	it('does not open a second socket after the handshake fails', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		try {
 			const sendAsset = vi.fn();
 			const connect = vi
 				.fn()
-				.mockResolvedValueOnce(undefined)
 				.mockRejectedValue(new Error('peer handshake did not complete within timeout'));
-			const waitForChannel = vi.fn().mockReturnValue(new Promise(() => undefined));
 			await discoverSignetLsp({
 				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
 				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
-				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect, waitForChannel })
+				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect })
 			});
-			await vi.advanceTimersByTimeAsync(15_000);
-			await vi.advanceTimersByTimeAsync(15_000);
-			await vi.advanceTimersByTimeAsync(30_000);
-			await vi.advanceTimersByTimeAsync(60_000);
-			await vi.waitFor(() => expect(get(lightningStore).failure).toBe('connect'));
-			expect(connect).toHaveBeenCalledTimes(1 + SIGNET_KEEPALIVE_CAP);
-			const calls = connect.mock.calls.length;
-			await vi.advanceTimersByTimeAsync(120_000);
-			expect(connect).toHaveBeenCalledTimes(calls);
+			expect(get(lightningStore).failure).toBe('connect');
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS * SIGNET_KEEPALIVE_CAP);
+			expect(connect).toHaveBeenCalledOnce();
 		} finally {
 			vi.useRealTimers();
 		}
