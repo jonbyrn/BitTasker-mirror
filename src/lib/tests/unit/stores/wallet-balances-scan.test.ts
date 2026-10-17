@@ -203,6 +203,37 @@ describe('scanBtcBalance', () => {
 			delete (window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch;
 		}
 	});
+
+	it('does not retry a rejected transaction broadcast', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const originalFetch = window.fetch;
+		resetEsploraFetchState();
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(new Response('bad-txns-inputs-missingorspent', { status: 400 }));
+		window.fetch = fetchMock;
+		(window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch = false;
+
+		try {
+			installEsploraRetryFetch();
+			const response = await window.fetch('https://esplora-api.utexo.com/tx', {
+				method: 'POST',
+				body: '00'
+			});
+			expect(response.status).toBe(400);
+			expect(await response.text()).toBe('bad-txns-inputs-missingorspent');
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(warn).toHaveBeenCalledWith(
+				'[esplora] POST /tx rejected',
+				'bad-txns-inputs-missingorspent'
+			);
+		} finally {
+			resetEsploraFetchState();
+			window.fetch = originalFetch;
+			delete (window as Window & { __btEsploraRetryFetch?: boolean }).__btEsploraRetryFetch;
+			warn.mockRestore();
+		}
+	});
 });
 
 describe('incomingReceiveReady', () => {
@@ -257,37 +288,26 @@ describe('acceptIncomingPayment', () => {
 		};
 		await pullIncomingTransfers(wallet);
 		expect(raw.refreshValue.mock.instances[0]).toBe(raw);
-		expect(raw.flush.mock.instances[0]).toBe(raw);
+		expect(raw.flush).not.toHaveBeenCalled();
 		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
-	it('stores a wasm backup when flush is missing', async () => {
+	it('persists with backupNow and does not call flush', async () => {
 		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
-		const stored = new Map<string, Uint8Array>();
-		const bytes = new Uint8Array([9, 8, 7]);
-		vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+		const backupNow = vi.fn(async () => undefined);
+		const flush = vi.fn();
 		const wallet = {
-			_manager: {
-				rlnBinding: {
-					password: 'wallet-password',
-					walletData: { master_fingerprint: '037153fd' },
-					_wallet: {
-						backup(this: unknown, password: string) {
-							if (this == null) throw new Error('null pointer passed to rust');
-							if (password !== 'wallet-password') throw new Error('bad password');
-							return bytes;
-						}
-					}
-				}
-			}
+			backupNow,
+			_manager: { rlnBinding: { _wallet: { flush } } }
 		};
 		await expect(flushWalletState(wallet)).resolves.toBe(true);
-		expect(stored.get('037153fd')).toEqual(bytes);
-		expect(info).toHaveBeenCalledWith('[wallet-persist] wallet.backup');
+		expect(backupNow).toHaveBeenCalledOnce();
+		expect(flush).not.toHaveBeenCalled();
+		expect(info).toHaveBeenCalledWith('[wallet-persist] wallet.backupNow');
 		info.mockRestore();
 	});
 
-	it('reports a missing flush without throwing', async () => {
+	it('reports a missing backup method without throwing', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const wallet = {
 			isOnline: () => true,
@@ -299,7 +319,7 @@ describe('acceptIncomingPayment', () => {
 			}
 		};
 		await expect(flushWalletState(wallet)).resolves.toBe(false);
-		expect(warn).toHaveBeenCalledWith('[wallet-persist] wallet.flush missing');
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] backup method missing');
 		warn.mockRestore();
 	});
 
