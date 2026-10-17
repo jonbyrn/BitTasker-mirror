@@ -6,7 +6,9 @@ import {
 	FROZEN_RGB_FINGERPRINT,
 	SIGNET_LSP_URL,
 	SIGNET_USDT_ASSET,
+	SIGNET_CHANNEL_POLL_MS,
 	SIGNET_CHANNEL_WAIT_MS,
+	SIGNET_KEEPALIVE_MS,
 	SIGNET_INBOUND_RGB,
 	SIGNET_INBOUND_SATS,
 	discoverSignetLsp,
@@ -14,6 +16,8 @@ import {
 	lightningStore,
 	payEscrowLightning,
 	payableAssetIds,
+	requestLspInbound,
+	resetSignetLspForTests,
 	signetLspParams,
 	waitSignetChannel,
 	BLOCKED_LSP_PAYER
@@ -126,17 +130,19 @@ describe('payEscrowLightning', () => {
 	const invoice = 'rgb:~/~/aa/sb:utxob:escrow-lock';
 
 	beforeEach(() => {
+		resetSignetLspForTests();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(lspBook([SIGNET_USDT_ASSET])));
 	});
 
 	afterEach(() => {
+		resetSignetLspForTests();
 		vi.unstubAllGlobals();
 	});
 
 	it('stays not ready when channels are empty', async () => {
 		const sendAsset = vi.fn();
 		const connect = vi.fn().mockResolvedValue(undefined);
-		const waitForChannel = vi.fn();
+		const waitForChannel = vi.fn().mockRejectedValue(new Error('no channel'));
 		const receiveAsset = vi.fn().mockResolvedValue({
 			lnInvoice: 'lnbc1inbound',
 			rgbInvoice: 'rgb:inbound',
@@ -155,21 +161,36 @@ describe('payEscrowLightning', () => {
 				awaitReceiveSettlement
 			})
 		});
+		await vi.waitFor(() => expect(get(lightningStore).channel).toBe('missing'));
 		expect(get(lightningStore).ready).toBe(false);
-		expect(get(lightningStore).lnInvoice).toBe('lnbc1inbound');
-		expect(get(lightningStore).rgbInvoice).toBe('rgb:inbound');
+		expect(receiveAsset).not.toHaveBeenCalled();
+		expect(awaitReceiveSettlement).not.toHaveBeenCalled();
+		await expect(payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000)).rejects.toThrow(
+			'LSP channel is not open'
+		);
+		expect(connect).toHaveBeenCalledOnce();
+		expect(waitForChannel).toHaveBeenCalledWith(
+			SIGNET_USDT_ASSET,
+			expect.objectContaining({
+				timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+				pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+			})
+		);
+		expect(sendAsset).not.toHaveBeenCalled();
+		const inbound = await requestLspInbound();
+		expect(inbound).toBe('lnbc1inbound');
 		expect(receiveAsset).toHaveBeenCalledWith({
 			assetId: SIGNET_USDT_ASSET,
 			amountSats: SIGNET_INBOUND_SATS,
 			amountRgb: SIGNET_INBOUND_RGB
 		});
-		await expect(payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000)).rejects.toThrow(
-			'LSP channel is not open'
-		);
-		expect(connect).toHaveBeenCalledOnce();
-		expect(waitForChannel).not.toHaveBeenCalled();
-		expect(sendAsset).not.toHaveBeenCalled();
 		expect(FAUCET_IFA_ASSET).not.toBe(receiveAsset.mock.calls[0]?.[0]?.assetId);
+		await vi.waitFor(() => expect(awaitReceiveSettlement).toHaveBeenCalled());
+		expect(awaitReceiveSettlement).toHaveBeenCalledWith('lnbc1inbound', {
+			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+			pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+		});
+		expect(SIGNET_CHANNEL_POLL_MS).toBe(15_000);
 	});
 
 	it('does not call receiveAsset when get_info only lists the faucet IFA', async () => {
@@ -192,6 +213,26 @@ describe('payEscrowLightning', () => {
 		expect(get(lightningStore).ready).toBe(false);
 	});
 
+	it('reconnects through the wasm queue on the keepalive interval', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		try {
+			const sendAsset = vi.fn();
+			const connect = vi.fn().mockResolvedValue(undefined);
+			const waitForChannel = vi.fn().mockResolvedValue({ ready: true });
+			await discoverSignetLsp({
+				_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+				getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+				createLsp: vi.fn().mockResolvedValue({ peer, sendAsset, connect, waitForChannel })
+			});
+			expect(connect).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(SIGNET_KEEPALIVE_MS);
+			await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
+			expect(SIGNET_KEEPALIVE_MS).toBe(15_000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('pays only after waitForChannel returns', async () => {
 		const sendAsset = vi
 			.fn()
@@ -207,7 +248,10 @@ describe('payEscrowLightning', () => {
 		await payEscrowLightning(invoice, 'rgb:usdt-signet', 11_000_000);
 		expect(waitForChannel).toHaveBeenCalledWith(
 			SIGNET_USDT_ASSET,
-			expect.objectContaining({ timeoutMs: SIGNET_CHANNEL_WAIT_MS })
+			expect.objectContaining({
+				timeoutMs: SIGNET_CHANNEL_WAIT_MS,
+				pollIntervalMs: SIGNET_CHANNEL_POLL_MS
+			})
 		);
 		expect(sendAsset).toHaveBeenCalledWith({
 			rgbInvoice: invoice,

@@ -68,7 +68,7 @@ describe('WasmRgbSealBackend.commit', () => {
 		const backend = new WasmRgbSealBackend(wallet);
 
 		await expect(backend.commit(BTC_COMMIT)).rejects.toThrow('colored asset rgb:usdt');
-		expect(wallet.refreshWallet).toHaveBeenCalled();
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
 	});
 
 	it('passes issued RGB asset ids through to onchainReceive', async () => {
@@ -84,13 +84,31 @@ describe('WasmRgbSealBackend.commit', () => {
 		});
 	});
 
-	it('refreshes the wallet after a failed receive so the SDK mutex can clear', async () => {
+	it('does not refresh the wallet after a failed receive', async () => {
 		const wallet = makeWallet({
 			onchainReceive: vi.fn().mockRejectedValue(new Error('Asset with id btc_onchain not found'))
 		});
 		const backend = new WasmRgbSealBackend(wallet);
 
 		await expect(backend.commit(BTC_COMMIT)).rejects.toThrow('Asset with id btc_onchain not found');
-		expect(wallet.refreshWallet).toHaveBeenCalledTimes(1);
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
+	});
+
+	it('retries a busy wallet without an extra refresh', async () => {
+		const wallet = makeWallet({
+			onchainReceive: vi
+				.fn()
+				.mockRejectedValueOnce(
+					new Error('RGB wallet is busy with another operation; retry shortly')
+				)
+				.mockResolvedValueOnce({ invoice: 'rgb1invoice', recipientId: 'recv-1' })
+		});
+		const backend = new WasmRgbSealBackend(wallet);
+
+		const seal = await backend.commit(BTC_COMMIT);
+
+		expect(seal.invoice).toBe('rgb1invoice');
+		expect(wallet.onchainReceive).toHaveBeenCalledTimes(2);
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
 	});
 });
