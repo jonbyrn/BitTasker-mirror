@@ -11,6 +11,7 @@ import {
 describe('gateway socket cap', () => {
 	afterEach(() => {
 		resetGatewayGuardForTests();
+		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 	});
 
@@ -53,5 +54,27 @@ describe('gateway socket cap', () => {
 		expect(allowRepeatedLog(line)).toBe(true);
 		expect(allowRepeatedLog(line.replace('secret', 'other'))).toBe(false);
 		expect(allowRepeatedLog('[wallet-lsp] connected')).toBe(true);
+	});
+
+	it('never hides the first gateway line or any wallet diagnostic', () => {
+		const seen: unknown[][] = [];
+		vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+			seen.push(args);
+		});
+		installGatewayGuard(() => undefined);
+		const gateway = '[rln-wasm-sdk peer-session] start auth_token=one';
+		console.error(gateway);
+		console.error(gateway);
+		console.error(gateway);
+		const wallet = '[wallet-init] attach failed at ln-gateway-signet.utexo.com';
+		console.error(wallet);
+		console.error(wallet);
+		expect(seen[0]).toEqual([gateway]);
+		expect(seen.filter((args) => args[0] === wallet)).toHaveLength(2);
+		expect(seen.some((args) => args[0] === '[wallet-log] suppressing repeated gateway logs')).toBe(
+			true
+		);
+		expect(allowRepeatedLog('[wallet-diagnostic:mnemonic] wordCount')).toBe(true);
+		expect(allowRepeatedLog('[wallet-page] Wallet initialization failed')).toBe(true);
 	});
 });
