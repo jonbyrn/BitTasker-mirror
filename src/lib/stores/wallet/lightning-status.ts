@@ -8,7 +8,7 @@ export const MIN_MANUAL_CHANNEL_SATS = 20_000;
 
 export type LightningUxStatus = 'setting_up' | 'ready' | 'needs_funding' | 'failed';
 
-export type LightningFailure = '' | 'attach' | 'connect' | 'channel';
+export type LightningFailure = '' | 'attach' | 'connect' | 'channel' | 'tab';
 
 export function lightningUxStatus(input: {
 	ready: boolean;

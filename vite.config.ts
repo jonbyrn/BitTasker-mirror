@@ -459,6 +459,8 @@ function rewriteUtexoWasmUrls(): Plugin {
 					'throw new Error(getStringFromWasm0(arg0, arg1));',
 					`const __btMsg = getStringFromWasm0(arg0, arg1);
             console.error('[wallet-diagnostic:rln-throw]', __btMsg, new Error('rln-throw').stack);
+            const __btNotify = globalThis.__bittaskerOnRlnThrow;
+            if (typeof __btNotify === 'function') { try { __btNotify(__btMsg); } catch (_e) {} }
             throw new Error(__btMsg);`
 				);
 			}

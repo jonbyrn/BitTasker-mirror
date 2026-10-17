@@ -9,7 +9,8 @@
 
 export const WASM_CRASH_MESSAGE = 'Wallet engine crashed – reload required';
 
-const PANIC_TEXT = /unreachable|already (mutably )?borrowed|RuntimeError/i;
+const PANIC_TEXT =
+	/unreachable|already (mutably )?borrowed|RuntimeError|closure invoked recursively|after being dropped/i;
 
 const SYNC_WALLET_METHODS = new Set(['isOnline', 'getLspConfig', 'getLightningNode']);
 /**
@@ -144,11 +145,17 @@ export function installWasmPanicListener(): void {
 	const onRejection = (event: PromiseRejectionEvent): void => {
 		notePanic('rejection', event.reason);
 	};
+	const onRlnThrow = (message: unknown): void => {
+		notePanic('rln-throw', message instanceof Error ? message : new Error(String(message ?? '')));
+	};
+	const host = window as Window & { __bittaskerOnRlnThrow?: (message: unknown) => void };
+	host.__bittaskerOnRlnThrow = onRlnThrow;
 	window.addEventListener('error', onError);
 	window.addEventListener('unhandledrejection', onRejection);
 	removePanicListener = () => {
 		window.removeEventListener('error', onError);
 		window.removeEventListener('unhandledrejection', onRejection);
+		if (host.__bittaskerOnRlnThrow === onRlnThrow) delete host.__bittaskerOnRlnThrow;
 		removePanicListener = null;
 	};
 }

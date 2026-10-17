@@ -25,7 +25,9 @@ import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { ensureRgbAllocations } from './rgb-allocations';
+import { chainSyncPlan } from './chain-sync';
 import { discoverSignetLsp, lightningStore, signetLspParams, stopLspPolling } from './signet-lsp';
+import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
@@ -47,6 +49,7 @@ const initSlot: { current: Promise<void> | null } = { current: null };
 let initInvoked = false;
 let nodeChainSyncStarted = false;
 let panicHooksReady = false;
+let tabClaim: WalletTabClaim | null = null;
 
 // Constants
 const RGB_SDK_VERSION = '@utexo/rgb-sdk-web@1.0.0-beta.12' as const;
@@ -104,6 +107,24 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	const network = 'utexo' as const;
 
 	try {
+		const tab = await claimWalletTab(
+			typeof navigator === 'undefined' || !navigator.locks
+				? null
+				: (navigator.locks as unknown as Parameters<typeof claimWalletTab>[0])
+		);
+		if (!tab) {
+			walletStore.update((current) => ({
+				...current,
+				isInitializing: false,
+				syncing: false,
+				locked: false,
+				error: WALLET_TAB_BUSY
+			}));
+			lightningStore.update((row) => ({ ...row, ready: false, failure: 'tab' }));
+			console.warn('[wallet-init] wallet tab lock busy');
+			throw new Error(WALLET_TAB_BUSY);
+		}
+		tabClaim = tab;
 		await initWasm();
 		installEsploraRetryFetch();
 		armWasmPanicHooks();
@@ -190,11 +211,13 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 				console.warn('[wallet-init] RGB allocation setup skipped', error);
 			}
 		});
+		let lightningAttached = false;
 		try {
 			console.info('[wallet-init] attachLightningNode');
 			await attachLightning(wallet);
 			console.info('[wallet-init] startNodeChainSync');
 			await startNodeChainSync(wallet);
+			lightningAttached = true;
 			console.info('[wallet-init] lightning node attached');
 		} catch (error: unknown) {
 			console.warn(
@@ -208,16 +231,22 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		await loadTransactions().catch((error: unknown) => {
 			console.warn('[wallet-init] transaction load skipped', error);
 		});
-		if (!skipLsp) {
+		if (!skipLsp && lightningAttached && !wasmCrashed()) {
 			await discoverSignetLsp(wallet).catch((error: unknown) => {
 				console.warn('[wallet-init] LSP discovery skipped', error);
 			});
+		} else if (!lightningAttached) {
+			console.warn('[wallet-init] LSP discovery skipped after attach failure');
 		}
 		scheduleRgbRefresh(wallet);
 		startConsignmentSubscription();
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
 		if (isWasmPanic(err)) markWasmCrashed();
+		if (!initInvoked && !wasmCrashed()) {
+			tabClaim?.release();
+			tabClaim = null;
+		}
 		walletStore.update((s) => ({
 			...s,
 			isInitializing: false,
@@ -241,6 +270,7 @@ function armWasmPanicHooks(): void {
 		clearRefreshTimers();
 		stopContractRefresh();
 		stopLspPolling();
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'attach' }));
 		walletStore.update((current) => ({
 			...current,
 			isInitializing: false,
@@ -257,13 +287,46 @@ async function attachLightning(wallet: LightningRuntime): Promise<void> {
 	await wallet.attachLightningNode();
 }
 
+interface ChainSyncBinding {
+	startNodeChainSync?: (indexerUrl?: string, pollMs?: number) => void | Promise<void>;
+	nodeHandle?: { chainSyncStatusValue?: () => unknown };
+	defaultIndexerUrl?: string;
+}
+
+function chainSyncBinding(wallet: LightningRuntime): ChainSyncBinding | null {
+	const manager = (wallet as { _manager?: { rlnBinding?: ChainSyncBinding } })._manager;
+	return manager?.rlnBinding ?? null;
+}
+
 async function startNodeChainSync(wallet: LightningRuntime): Promise<void> {
 	if (nodeChainSyncStarted) return;
-	if (typeof wallet.startNodeChainSync !== 'function') {
-		throw new Error('Lightning chain sync is missing');
-	}
-	nodeChainSyncStarted = true;
-	await wallet.startNodeChainSync();
+	await withWasm('startNodeChainSync', async () => {
+		if (nodeChainSyncStarted) return;
+		const binding = chainSyncBinding(wallet);
+		let status: unknown;
+		const readStatus = binding?.nodeHandle?.chainSyncStatusValue;
+		if (typeof readStatus === 'function') {
+			try {
+				status = readStatus.call(binding?.nodeHandle);
+			} catch (error: unknown) {
+				console.warn(
+					'[wallet-init] chain sync status unread',
+					error instanceof Error ? error.message : String(error)
+				);
+			}
+		}
+		const hasStart =
+			typeof wallet.startNodeChainSync === 'function' ||
+			typeof binding?.startNodeChainSync === 'function';
+		const plan = chainSyncPlan(status, hasStart);
+		console.info('[wallet-init] chain sync', plan);
+		nodeChainSyncStarted = true;
+		if (plan !== 'start') return;
+		const start = wallet.startNodeChainSync ?? binding?.startNodeChainSync;
+		if (typeof start !== 'function') return;
+		const owner = typeof wallet.startNodeChainSync === 'function' ? wallet : binding;
+		await start.call(owner, binding?.defaultIndexerUrl);
+	});
 }
 
 async function retryScan(wallet: UTEXOWallet, network: string): Promise<void> {
@@ -571,6 +634,8 @@ export function disconnectWallet(): void {
 
 	void clearMnemonicSession();
 	stopLspPolling();
+	tabClaim?.release();
+	tabClaim = null;
 	state.utexoWallet = null;
 	if (typeof window !== 'undefined') {
 		probeWindow().__utexoWallet = null;
