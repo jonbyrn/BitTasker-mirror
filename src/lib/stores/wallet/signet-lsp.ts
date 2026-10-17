@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { LightningFailure } from './lightning-status';
-import { withWasm, wasmCrashed } from './wasm-lock';
+import { isWasmPanic, withWasm, wasmCrashed } from './wasm-lock';
 
 /** Funded RGB wallet. LSP discovery must not run on this fingerprint. */
 export const FROZEN_RGB_FINGERPRINT = '1e192df5';
@@ -29,6 +29,9 @@ export const SIGNET_CHANNEL_WAIT_MS = 30 * 60 * 1000;
 export const SIGNET_CHANNEL_POLL_MS = 15_000;
 /** Sandbox MERCHANT_KEEPALIVE_MS. The LSP only auto-opens for a connected peer. */
 export const SIGNET_KEEPALIVE_MS = 15_000;
+/** Stop reconnecting after this many failed handshakes. The gap doubles each time. */
+export const SIGNET_KEEPALIVE_CAP = 4;
+const SIGNET_KEEPALIVE_MAX_MS = 120_000;
 /** LSP `min_payment_size_msat` is 3_000_000. This is that minimum in sats. */
 export const SIGNET_INBOUND_SATS = 3_000;
 export const SIGNET_INBOUND_RGB = 1111;
@@ -134,6 +137,7 @@ interface ChannelWait {
 		opts?: {
 			timeoutMs?: number;
 			pollIntervalMs?: number;
+			signal?: AbortSignal;
 			onProgress?: (message: string) => void;
 		}
 	): Promise<unknown>;
@@ -146,6 +150,7 @@ interface ActiveLightning {
 	lnInvoice: string;
 	rgbInvoice: string;
 	connect?: () => Promise<void>;
+	listPeers?: () => Promise<unknown>;
 	waitForChannel?: ChannelWait;
 	receiveAsset?: (opts: InboundReceive) => Promise<InboundResult>;
 	awaitReceiveSettlement?: (
@@ -220,6 +225,8 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		clearLightningWallet();
 		return;
 	}
+	const wallet = (lsp as { wallet?: { listPeers?: unknown } }).wallet;
+	const listPeers = bound<() => Promise<unknown>>(wallet?.listPeers, wallet ?? lsp);
 	activeLightning = {
 		peer,
 		channelReady: false,
@@ -227,6 +234,7 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 		lnInvoice: '',
 		rgbInvoice: '',
 		sendAsset: boundClient.sendAsset,
+		...(listPeers ? { listPeers } : {}),
 		...(boundClient.connect ? { connect: boundClient.connect } : {}),
 		...(boundClient.waitForChannel ? { waitForChannel: boundClient.waitForChannel } : {}),
 		...(boundClient.receiveAsset ? { receiveAsset: boundClient.receiveAsset } : {}),
@@ -285,9 +293,42 @@ function paymentId(paid: unknown): string {
 	return '';
 }
 
+/** True when listPeers already shows this LSP. Missing listPeers means "unknown". */
+export function peerListedConnected(peers: unknown, pubkey: string): boolean {
+	if (!Array.isArray(peers) || !pubkey) return false;
+	return peers.some((row) => {
+		if (typeof row !== 'object' || row === null) return false;
+		const peer = row as { pubkey?: unknown; isConnected?: unknown };
+		if (typeof peer.pubkey !== 'string' || peer.pubkey.toLowerCase() !== pubkey.toLowerCase()) {
+			return false;
+		}
+		return peer.isConnected !== false;
+	});
+}
+
+async function peerAlreadyConnected(): Promise<boolean> {
+	const lsp = activeLightning;
+	const listPeers = lsp?.listPeers;
+	const pubkey = lsp?.peer.peerPubkey ?? '';
+	if (typeof listPeers !== 'function' || !pubkey) return false;
+	try {
+		return peerListedConnected(await listPeers(), pubkey);
+	} catch (error: unknown) {
+		if (isWasmPanic(error)) throw error;
+		console.warn(
+			'[wallet-lsp] listPeers failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return false;
+	}
+}
+
 async function connectStoredLsp(): Promise<boolean> {
 	const lsp = activeLightning;
+	if (lspHalted || wasmCrashed()) return false;
 	if (!lsp?.connect || refusedBotPeer(lsp.peer)) return false;
+	if (connectInFlight) return false;
+	connectInFlight = true;
 	try {
 		await lsp.connect();
 		console.info('[wallet-lsp] connected', { peerHost: lsp.peer.peerHost });
@@ -298,6 +339,8 @@ async function connectStoredLsp(): Promise<boolean> {
 			error instanceof Error ? error.message : String(error)
 		);
 		return false;
+	} finally {
+		connectInFlight = false;
 	}
 }
 
@@ -390,37 +433,93 @@ export async function requestLspInbound(): Promise<string> {
 let lspHalted = false;
 let pollChain: Promise<void> = Promise.resolve();
 let channelWait: Promise<void> | null = null;
-let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+let channelAbort: AbortController | null = null;
+let keepaliveTimer: ReturnType<typeof setTimeout> | null = null;
+let connectInFlight = false;
+let keepaliveFailures = 0;
+let keepaliveDelay = SIGNET_KEEPALIVE_MS;
 
 function stopKeepalive(): void {
 	if (keepaliveTimer === null) return;
-	clearInterval(keepaliveTimer);
+	clearTimeout(keepaliveTimer);
 	keepaliveTimer = null;
 }
 
-/** One connect loop. Stopped on lock, logout, and wasm panic. */
+function resetKeepaliveState(): void {
+	connectInFlight = false;
+	keepaliveFailures = 0;
+	keepaliveDelay = SIGNET_KEEPALIVE_MS;
+}
+
+function scheduleKeepalive(): void {
+	stopKeepalive();
+	if (lspHalted || wasmCrashed()) return;
+	keepaliveTimer = setTimeout(() => {
+		keepaliveTimer = null;
+		void runKeepalive();
+	}, keepaliveDelay);
+}
+
+/** One connect at a time. Failures back off, then stop. A dropped node is not retried. */
 function startKeepalive(): void {
 	stopKeepalive();
-	keepaliveTimer = setInterval(() => {
-		if (lspHalted || wasmCrashed()) {
-			stopKeepalive();
-			return;
-		}
-		void withWasm('lsp-keepalive', async () => {
-			if (lspHalted || wasmCrashed()) return;
-			await connectStoredLsp();
-		}).catch((error: unknown) => {
-			console.warn(
-				'[wallet-lsp] keepalive failed',
-				error instanceof Error ? error.message : String(error)
-			);
+	keepaliveFailures = 0;
+	keepaliveDelay = SIGNET_KEEPALIVE_MS;
+	scheduleKeepalive();
+}
+
+async function runKeepalive(): Promise<void> {
+	if (lspHalted || wasmCrashed()) {
+		stopKeepalive();
+		return;
+	}
+	if (connectInFlight) {
+		scheduleKeepalive();
+		return;
+	}
+	let ok = false;
+	try {
+		ok = await withWasm('lsp-keepalive', async () => {
+			if (lspHalted || wasmCrashed()) return false;
+			if (await peerAlreadyConnected()) return true;
+			return connectStoredLsp();
 		});
-	}, SIGNET_KEEPALIVE_MS);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-lsp] keepalive failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		ok = false;
+	}
+	if (lspHalted || wasmCrashed()) return;
+	if (ok) {
+		keepaliveFailures = 0;
+		keepaliveDelay = SIGNET_KEEPALIVE_MS;
+		scheduleKeepalive();
+		return;
+	}
+	keepaliveFailures += 1;
+	keepaliveDelay = Math.min(
+		SIGNET_KEEPALIVE_MAX_MS,
+		SIGNET_KEEPALIVE_MS * 2 ** (keepaliveFailures - 1)
+	);
+	console.warn('[wallet-lsp] keepalive backoff', {
+		failures: keepaliveFailures,
+		delayMs: keepaliveDelay
+	});
+	if (keepaliveFailures >= SIGNET_KEEPALIVE_CAP) {
+		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'connect' }));
+		stopLspPolling();
+		return;
+	}
+	scheduleKeepalive();
 }
 
 /** Stop LSP polling after a wasm panic. In-flight SDK calls are not reused. */
 export function stopLspPolling(): void {
 	lspHalted = true;
+	channelAbort?.abort();
+	channelAbort = null;
 	channelWait = null;
 	stopKeepalive();
 }
@@ -428,6 +527,9 @@ export function stopLspPolling(): void {
 /** Drops the poll chain between unit tests. */
 export function resetSignetLspForTests(): void {
 	stopKeepalive();
+	resetKeepaliveState();
+	channelAbort?.abort();
+	channelAbort = null;
 	lspHalted = false;
 	pollChain = Promise.resolve();
 	channelWait = null;
@@ -463,11 +565,16 @@ async function pollSignetChannel(): Promise<void> {
 	if (lspHalted || !lsp?.waitForChannel || refusedBotPeer(lsp.peer)) return;
 	const assetId = await ensureLspAsset();
 	if (!assetId || lspHalted) return;
+	if (wasmCrashed()) return;
 	lightningStore.update((row) => ({ ...row, channel: 'waiting', failure: '' }));
+	channelAbort?.abort();
+	channelAbort = new AbortController();
+	const signal = channelAbort.signal;
 	try {
 		const info = await lsp.waitForChannel(assetId, {
 			timeoutMs: SIGNET_CHANNEL_WAIT_MS,
 			pollIntervalMs: SIGNET_CHANNEL_POLL_MS,
+			signal,
 			onProgress: (message) => console.info('[wallet-lsp] waitForChannel', message)
 		});
 		if (lspHalted) return;
