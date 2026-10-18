@@ -39,7 +39,7 @@ import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
 import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
-import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
+import { saveWalletSnapshot } from './wallet-snapshot';
 import {
 	WASM_CRASH_MESSAGE,
 	installWasmPanicListener,
@@ -672,7 +672,6 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
 	let mnemonic: string | null = null;
 	try {
-		await hydrateWalletSnapshot();
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			try {
 				mnemonic = await readMnemonicSession();
@@ -700,7 +699,19 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 			...current,
 			isInitializing: false,
 			locked: true,
-			syncing: false
+			syncing: false,
+			transactions: [],
+			rgb: {
+				...current.rgb,
+				balanceSats: 0,
+				formattedBalance: '0.00000000',
+				assets: []
+			},
+			totalBalances: {
+				...current.totalBalances,
+				sats: 0,
+				usdt: 0
+			}
 		}));
 		initSlot.current = null;
 		return;

@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
-import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+import ReceivePaymentForm, {
+	resetHeldInvoice
+} from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
 const {
 	getRgbAddress,
@@ -80,6 +82,7 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 
 describe('ReceivePaymentForm', () => {
 	beforeEach(() => {
+		resetHeldInvoice();
 		vi.clearAllMocks();
 		setAdvancedMode(true);
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');

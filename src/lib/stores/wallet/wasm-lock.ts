@@ -30,6 +30,7 @@ let syncNest = false;
 let epoch = 0;
 const crashListeners = new Set<() => void>();
 let removePanicListener: (() => void) | null = null;
+let crashTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function isWasmPanic(error: unknown): boolean {
 	const text = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? '');
@@ -61,6 +62,10 @@ export function clearWasmCrash(): void {
 
 /** Drop a panicked turn so the next wallet can take the queue. */
 export function releaseWasmQueue(): void {
+	if (crashTimer !== null) {
+		clearTimeout(crashTimer);
+		crashTimer = null;
+	}
 	epoch += 1;
 	tail = Promise.resolve();
 	depth = 0;
@@ -81,13 +86,33 @@ export function markWasmCrashed(): void {
 	}
 }
 
+function noticeCrash(): void {
+	crashTimer = null;
+	const listeners = [...crashListeners];
+	for (const listener of listeners) {
+		try {
+			listener();
+		} catch (error) {
+			console.warn('[wasm-lock] crash listener failed', error);
+		}
+	}
+}
+
+/**
+ * Mark the engine dead now, but restart it only after this stack unwinds.
+ * The rln throw hook runs inside the panicked closure. Restarting there
+ * calls wasm again after that closure was dropped.
+ */
 function notePanic(label: string, error: unknown): void {
 	if (!isWasmPanic(error)) return;
 	console.warn(
 		`[wasm-lock] ${label} panicked`,
 		error instanceof Error ? error.message : String(error)
 	);
-	markWasmCrashed();
+	if (crashed) return;
+	crashed = true;
+	if (crashTimer !== null) return;
+	crashTimer = setTimeout(noticeCrash, 0);
 }
 
 /**
@@ -99,15 +124,18 @@ export function withWasm<T>(label: string, fn: () => Promise<T>): Promise<T> {
 	if (crashed) return Promise.reject(new Error(WASM_CRASH_MESSAGE));
 	if (syncNest) {
 		const ticket = epoch;
-		return Promise.resolve()
-			.then(fn)
-			.then(
+		try {
+			return Promise.resolve(fn()).then(
 				(value) => value,
 				(error: unknown) => {
 					if (ticket === epoch) notePanic(label, error);
 					throw error;
 				}
 			);
+		} catch (error) {
+			if (ticket === epoch) notePanic(label, error);
+			return Promise.reject(error);
+		}
 	}
 	const ticket = epoch;
 	queued += 1;
@@ -200,6 +228,10 @@ export function installWasmPanicListener(): void {
 /** Test isolation. Production startup never clears a crash; the page has to reload. */
 export function resetWasmLockForTests(): void {
 	removePanicListener?.();
+	if (crashTimer !== null) {
+		clearTimeout(crashTimer);
+		crashTimer = null;
+	}
 	tail = Promise.resolve();
 	depth = 0;
 	queued = 0;

@@ -4,6 +4,7 @@ import {
 	clearWasmCrash,
 	isWasmPanic,
 	lockedWallet,
+	onWasmCrash,
 	releaseWasmQueue,
 	resetWasmLockForTests,
 	walletReloadRequired,
@@ -80,6 +81,28 @@ describe('withWasm', () => {
 			});
 		});
 		expect(order).toEqual(['outer', 'inner']);
+	});
+
+	it('restarts only after the panicked stack unwinds', async () => {
+		vi.useFakeTimers();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		try {
+			let restarted = false;
+			onWasmCrash(() => {
+				restarted = true;
+			});
+			const failed = withWasm('sendBtc', async () => {
+				throw new Error('closure invoked recursively or after being dropped');
+			});
+			await expect(failed).rejects.toThrow('closure invoked recursively');
+			expect(restarted).toBe(false);
+			expect(wasmCrashed()).toBe(true);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(restarted).toBe(true);
+		} finally {
+			warn.mockRestore();
+			vi.useRealTimers();
+		}
 	});
 
 	it('rejects later calls after a borrow panic', async () => {

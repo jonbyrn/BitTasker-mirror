@@ -444,7 +444,7 @@
 <div class="wallet-screen mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6">
 	{#if shownError && !advanced}
 		<div class="alert alert-outline alert-error" role="alert" data-testid="wallet-error">
-			<span>{$t('wallet.simple.offline_help')}</span>
+			<span>{text(shownError, $t('wallet.simple.offline_help'))}</span>
 			<button
 				class="btn btn-sm min-h-12"
 				type="button"
@@ -559,6 +559,10 @@
 				<span class="badge badge-success gap-2" data-testid="wallet-ready">
 					<span class="bg-success inline-block h-2 w-2 rounded-full"></span>
 					{$t('wallet.simple.ready')}
+				</span>
+			{:else if statusChip === 'locked'}
+				<span class="badge badge-warning" data-testid="wallet-locked">
+					{$t('wallet.locked')}
 				</span>
 			{:else if statusChip === 'getting_ready'}
 				<span class="badge badge-ghost gap-2" data-testid="wallet-getting-ready">

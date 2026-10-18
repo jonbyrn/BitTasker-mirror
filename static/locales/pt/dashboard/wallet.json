@@ -3,6 +3,7 @@
 		"simple": {
 			"ready": "Pronto",
 			"getting_ready": "Preparando…",
+			"preparing": "Preparando…",
 			"offline": "Sem rede",
 			"offline_help": "Sem rede. Tente de novo.",
 			"try_again": "Tente de novo",

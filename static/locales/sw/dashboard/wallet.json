@@ -3,6 +3,7 @@
 		"simple": {
 			"ready": "Tayari",
 			"getting_ready": "Inaandaliwa…",
+			"preparing": "Inaandaliwa…",
 			"offline": "Nje ya mtandao",
 			"offline_help": "Hakuna mtandao. Jaribu tena.",
 			"try_again": "Jaribu tena",

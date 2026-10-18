@@ -333,7 +333,12 @@
 			rgbAmount !== null &&
 			rgbAmount !== decodedInvoice.amount
 		) {
-			errorMessage = $advancedWallet ? 'Invoice amount does not match' : 'plain';
+			errorMessage = $t('wallet.send_amount_mismatch', {
+				values: {
+					invoice: formatUsdtUnits(decodedInvoice.amount, usdtScale),
+					entered: amountInput
+				}
+			});
 			reviewing = false;
 			return;
 		}
@@ -385,9 +390,10 @@
 			sentTxid = txid;
 			appStore.showSuccessToast($t('wallet.toast.sent_successfully', { values: { txid } }));
 			onSent(txid);
+			onCancel();
 		} catch (error) {
 			console.error('[wallet-send] failed', error instanceof Error ? error.stack : error);
-			errorMessage = $advancedWallet ? describeThrown(error) : 'plain';
+			errorMessage = describeThrown(error);
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -610,12 +616,14 @@
 			{$t('wallet.simple.not_enough')}
 		</div>
 	{/if}
-	{#if errorMessage === 'plain'}
-		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
-			{$t('wallet.simple.request_failed')}
+	{#if asset === 'usdt_rgb' && (spendableUnits === null || ifaLookup === 'pending') && !errorMessage}
+		<div class="alert alert-outline alert-info text-sm" role="status" data-testid="send-preparing">
+			<span class="loading loading-spinner loading-xs"></span>
+			{$t('wallet.simple.preparing')}
 		</div>
-	{:else if errorMessage}
-		<div class="alert alert-error text-sm" role="alert" data-testid="send-error">
+	{/if}
+	{#if errorMessage}
+		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
 			{errorMessage}
 		</div>
 	{/if}

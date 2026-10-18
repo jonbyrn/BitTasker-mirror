@@ -1,4 +1,15 @@
+<script lang="ts" module>
+	let heldInvoice = '';
+	let heldDollars = '';
+
+	export function resetHeldInvoice(): void {
+		heldInvoice = '';
+		heldDollars = '';
+	}
+</script>
+
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
@@ -13,6 +24,7 @@
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
 	import { cancelUnpaidInvoices, receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
@@ -33,9 +45,9 @@
 		lightningUsdtReady?: boolean;
 	} = $props();
 
-	let shownDollars = $state('');
-	let simpleKind = $state<'dollars' | 'bitcoin' | null>(null);
-	let simpleStep = $state<'choose' | 'amount' | 'ready'>('choose');
+	let shownDollars = $state(heldDollars);
+	let simpleKind = $state<'dollars' | 'bitcoin' | null>(heldInvoice ? 'dollars' : null);
+	let simpleStep = $state<'choose' | 'amount' | 'ready'>(heldInvoice ? 'ready' : 'choose');
 	let qrUrl = $state('');
 	const testMoney = $derived(
 		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
@@ -44,7 +56,7 @@
 	let asset = $state<ReceiveAsset>('btc_onchain');
 	let amountSats = $state('');
 	let isGenerating = $state(false);
-	let receiveValue = $state('');
+	let receiveValue = $state(heldInvoice);
 	let invoiceAmount = $state('');
 	let errorMessage = $state('');
 	let usedBlank = $state(false);
@@ -124,7 +136,11 @@
 			invoiceAmount = '';
 			try {
 				await cancelUnpaidInvoices();
-				const result = await receiveUsdtInvoice(parsedAmount ?? undefined);
+				const result = await callWithDeadline(
+					receiveUsdtInvoice(parsedAmount ?? undefined),
+					45_000,
+					'The invoice timed out before it was created.'
+				);
 				if (!result.blank && result.invoice.startsWith('rgb:')) {
 					const decoded = decodeRgbInvoice(result.invoice);
 					if (decoded.amount !== result.units) {
@@ -132,13 +148,14 @@
 					}
 				}
 				receiveValue = result.invoice;
-				await paintQr(receiveValue);
+				heldInvoice = result.invoice;
+				void paintQr(receiveValue);
 				usedBlank = result.blank;
 				invoiceAmount =
 					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
 				console.error('[receive-modal] RGB invoice error:', err);
-				errorMessage = $advancedWallet ? invoiceFailure(err) : 'plain';
+				errorMessage = invoiceFailure(err);
 			} finally {
 				isGenerating = false;
 			}
@@ -171,11 +188,7 @@
 			await paintQr(receiveValue);
 		} catch (err) {
 			console.error('[receive-modal] Lightning invoice error:', err);
-			errorMessage = $advancedWallet
-				? err instanceof Error
-					? err.message
-					: 'Failed to generate Lightning invoice'
-				: 'plain';
+			errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
 		} finally {
 			isGenerating = false;
 		}
@@ -243,12 +256,18 @@
 			await handleGenerate();
 		}
 		if (!receiveValue) {
-			errorMessage = 'plain';
+			errorMessage = errorMessage || 'The invoice was not created.';
 			return;
 		}
+		heldInvoice = receiveValue;
+		heldDollars = shownDollars;
 		simpleStep = 'ready';
-		await paintQr(receiveValue);
+		void paintQr(receiveValue);
 	}
+
+	onMount(() => {
+		if (receiveValue) void paintQr(receiveValue);
+	});
 
 	async function shareReceive(): Promise<void> {
 		if (!receiveValue) return;
@@ -332,7 +351,12 @@
 					void simpleCreate(false);
 				}}
 			>
-				{$t('wallet.simple.continue')}
+				{#if isGenerating}
+					<span class="loading loading-spinner loading-sm"></span>
+					{$t('wallet.simple.preparing')}
+				{:else}
+					{$t('wallet.simple.continue')}
+				{/if}
 			</button>
 			<button
 				type="button"
@@ -377,7 +401,7 @@
 		{/if}
 		{#if errorMessage}
 			<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="receive-error">
-				<span>{$t('wallet.simple.request_failed')}</span>
+				<span>{errorMessage === 'plain' ? $t('wallet.simple.request_failed') : errorMessage}</span>
 				<button
 					type="button"
 					class="btn btn-sm min-h-12"

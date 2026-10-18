@@ -103,6 +103,7 @@
 		"simple": {
 			"ready": "Listo",
 			"getting_ready": "Preparando…",
+			"preparing": "Preparando…",
 			"offline": "Sin conexión",
 			"offline_help": "Estás sin conexión. Inténtalo de nuevo.",
 			"try_again": "Inténtalo de nuevo",

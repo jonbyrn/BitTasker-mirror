@@ -108,7 +108,7 @@ describe('discoverSignetLsp', () => {
 		expect(connect).not.toHaveBeenCalled();
 	});
 
-	it('creates five utxos after get_info and before connect', async () => {
+	it('creates one colorable utxo after get_info and before connect', async () => {
 		resetSignetLspForTests();
 		confirmLightningAttached();
 		const order: string[] = [];
@@ -136,8 +136,35 @@ describe('discoverSignetLsp', () => {
 			}),
 			createUtxos
 		});
-		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 5, feeRate: 2 });
+		expect(createUtxos).toHaveBeenCalledWith({ upTo: true, num: 1, feeRate: 2 });
 		expect(order).toEqual(['get_info', 'utxos', 'connect']);
+		resetSignetLspForTests();
+	});
+
+	it('does not create another utxo when a free one already exists', async () => {
+		resetSignetLspForTests();
+		confirmLightningAttached();
+		const createUtxos = vi.fn(async () => 1);
+		const wallet = {
+			_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+			getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+			createLsp: vi.fn(async () => ({
+				peer: {
+					peerPubkey: '02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+					peerHost: 'lsp-signet.utexo.com',
+					peerPort: 9735
+				},
+				connect: vi.fn(async () => undefined),
+				sendAsset: vi.fn()
+			})),
+			createUtxos,
+			listUnspents: async () => [
+				{ utxo: { exists: true, colorable: true }, rgbAllocations: [], pendingBlinded: 0 }
+			]
+		};
+		await discoverSignetLsp(wallet);
+		await discoverSignetLsp(wallet);
+		expect(createUtxos).not.toHaveBeenCalled();
 		resetSignetLspForTests();
 	});
 });

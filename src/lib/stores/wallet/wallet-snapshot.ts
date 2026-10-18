@@ -52,7 +52,7 @@ export async function readWalletSnapshot(key = userKey()): Promise<WalletSnapsho
 	});
 }
 
-/** Show the last good balances while the wallet is locked or still syncing. */
+/** Read the last saved balances. The locked screen does not apply this. */
 export async function hydrateWalletSnapshot(): Promise<void> {
 	let saved: WalletSnapshot | null = null;
 	for (let attempt = 0; attempt < 2; attempt += 1) {

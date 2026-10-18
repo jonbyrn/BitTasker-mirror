@@ -5,6 +5,7 @@ import {
 	resetGatewayGuardForTests
 } from './gateway-guard';
 import type { LightningFailure } from './lightning-status';
+import { freeAllocationCount, type AllocationUtxo } from './rgb-allocations';
 import { isWasmPanic, wasmBusy, withWasm, wasmCrashed } from './wasm-lock';
 
 /** Funded RGB wallet. LSP discovery must not run on this fingerprint. */
@@ -68,6 +69,7 @@ interface LspWallet {
 	getLspConfig?: () => { baseUrl: string | null; bearerToken: string | null };
 	createLsp?: () => Promise<unknown>;
 	createUtxos?: (params: { upTo: boolean; num: number; feeRate: number }) => Promise<number>;
+	listUnspents?: () => Promise<AllocationUtxo[]>;
 	getLightningNode?: () => unknown;
 	disconnectPeer?: (pubkey: string) => Promise<void> | void;
 	_manager?: {
@@ -514,16 +516,31 @@ function onGatewayCap(): void {
 	schedulePeerRelease();
 }
 
-const CHANNEL_UTXOS = { upTo: false, num: 5, feeRate: 2 } as const;
+const CHANNEL_UTXO = { upTo: true, num: 1, feeRate: 2 } as const;
+let channelUtxosReady = false;
 
-/** Five colorable UTXOs, then the LSP opens the channel. Matches the signet screen. */
+/**
+ * One colorable output is enough for a later RGB send.
+ * `upTo: false` with `num: 5` built a new self-transfer on every unlock.
+ */
 async function fundChannelUtxos(wallet: LspWallet): Promise<void> {
-	if (typeof wallet.createUtxos !== 'function') return;
+	if (channelUtxosReady || typeof wallet.createUtxos !== 'function') return;
+	if (typeof wallet.listUnspents === 'function') {
+		const rows = await wallet.listUnspents().catch(() => [] as AllocationUtxo[]);
+		if (freeAllocationCount(rows) > 0) {
+			channelUtxosReady = true;
+			return;
+		}
+	}
 	try {
-		await wallet.createUtxos(CHANNEL_UTXOS);
+		await wallet.createUtxos(CHANNEL_UTXO);
+		channelUtxosReady = true;
 	} catch (error: unknown) {
 		const message = error instanceof Error ? error.message : String(error);
-		if (message.includes('Allocations already available')) return;
+		if (message.includes('Allocations already available')) {
+			channelUtxosReady = true;
+			return;
+		}
 		console.warn('[wallet-lsp] createUtxos failed', message);
 	}
 }
@@ -636,6 +653,7 @@ export function resetSignetLspForTests(): void {
 	channelAbort = null;
 	lspHalted = false;
 	connectPeerUsed = false;
+	channelUtxosReady = false;
 	lightningAttachConfirmed = false;
 	peerWallet = null;
 	pollChain = Promise.resolve();

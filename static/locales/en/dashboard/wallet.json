@@ -19,6 +19,7 @@
 		"simple": {
 			"ready": "Ready",
 			"getting_ready": "Getting ready…",
+			"preparing": "Preparing…",
 			"offline": "Offline",
 			"offline_help": "You are offline. Try again.",
 			"try_again": "Try again",

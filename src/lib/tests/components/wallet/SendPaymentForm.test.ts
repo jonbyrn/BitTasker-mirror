@@ -141,7 +141,8 @@ describe('SendPaymentForm', () => {
 
 	it('sends on-chain BTC via walletManager.sendBtc with validated address and sats', async () => {
 		const onSent = vi.fn();
-		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
+		const onCancel = vi.fn();
+		const { getByTestId } = render(SendPaymentForm, { props: { onSent, onCancel } });
 
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
@@ -156,6 +157,7 @@ describe('SendPaymentForm', () => {
 			amountSats: 21000,
 			feeRate: 1
 		});
+		expect(onCancel).toHaveBeenCalled();
 		expect(onSent).toHaveBeenCalledWith('txid-btc');
 	});
 

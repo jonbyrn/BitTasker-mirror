@@ -11,7 +11,7 @@ import {
 } from '$lib/stores/wallet/plain-wallet';
 
 describe('walletChip', () => {
-	it('stays on getting ready while the wallet is locked or syncing', () => {
+	it('says locked while the wallet still needs a fingerprint', () => {
 		expect(
 			walletChip({
 				locked: true,
@@ -20,7 +20,7 @@ describe('walletChip', () => {
 				connected: false,
 				hasError: true
 			})
-		).toBe('getting_ready');
+		).toBe('locked');
 		expect(
 			walletChip({
 				locked: false,

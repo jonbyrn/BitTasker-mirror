@@ -17,6 +17,7 @@ import { changeStillBooked, prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import { rememberUsdtSend } from './wallet-transactions';
 import type { Transaction } from './wallet-types';
+import { wasmBusy } from './wasm-lock';
 
 export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: string }> {
 	console.info('[sendLightningPayment] stub called', { lnInvoice });
@@ -275,6 +276,36 @@ export interface SendBtcParams {
 	skipSync?: boolean;
 }
 
+/** On-chain send must not sit on a spinner with no txid. */
+export const BTC_SEND_MS = 45_000;
+const IDLE_WAIT_MS = 8_000;
+
+export function callWithDeadline<T>(work: Promise<T>, ms: number, message: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(message)), ms);
+		work.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error: unknown) => {
+				clearTimeout(timer);
+				reject(error);
+			}
+		);
+	});
+}
+
+async function waitUntilIdle(): Promise<void> {
+	const start = Date.now();
+	while (wasmBusy()) {
+		if (Date.now() - start >= IDLE_WAIT_MS) {
+			throw new Error('Wallet is busy. Wait until it says Ready, then send once.');
+		}
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	}
+}
+
 export async function sendBtc(params: SendBtcParams): Promise<string> {
 	if (!params.address.trim()) throw new Error('Bitcoin destination address is required');
 	if (!Number.isSafeInteger(params.amountSats) || params.amountSats <= 0) {
@@ -285,11 +316,16 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 	}
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('UTEXO wallet is not initialized');
-	const txid = await wallet.sendBtc({
-		address: params.address.trim(),
-		amount: params.amountSats,
-		feeRate: params.feeRate ?? 1
-	});
+	await waitUntilIdle();
+	const txid = await callWithDeadline(
+		wallet.sendBtc({
+			address: params.address.trim(),
+			amount: params.amountSats,
+			feeRate: params.feeRate ?? 1
+		}),
+		BTC_SEND_MS,
+		'Bitcoin send timed out before broadcast. Nothing was sent.'
+	);
 	await flushWalletState(wallet);
 	const sync = wallet as { syncWallet?: () => Promise<unknown> };
 	if (typeof sync.syncWallet === 'function') {

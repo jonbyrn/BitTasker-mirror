@@ -1,4 +1,4 @@
-export type WalletChip = 'ready' | 'getting_ready' | 'offline';
+export type WalletChip = 'ready' | 'getting_ready' | 'locked' | 'offline';
 export type PaymentRail = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
 export function walletChip(input: {
@@ -8,7 +8,8 @@ export function walletChip(input: {
 	connected: boolean;
 	hasError: boolean;
 }): WalletChip {
-	if (input.locked || input.syncing || input.initializing) return 'getting_ready';
+	if (input.locked) return 'locked';
+	if (input.syncing || input.initializing) return 'getting_ready';
 	if (input.hasError || !input.connected) return 'offline';
 	return 'ready';
 }
