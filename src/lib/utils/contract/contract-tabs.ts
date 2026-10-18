@@ -47,7 +47,8 @@ export function contractStatusTab(status: string): Exclude<ContractListTab, 'all
 
 export function contractStatusKey(status: string): string {
 	if (status === 'refunded') return 'dashboard.contracts.status.refunded';
-	if (status === 'settlement_requested' || status === 'releasing') {
+	if (status === 'releasing') return 'dashboard.contracts.status.releasing';
+	if (status === 'settlement_requested') {
 		return 'dashboard.contracts.status.pending_completion';
 	}
 	switch (contractStatusTab(status)) {

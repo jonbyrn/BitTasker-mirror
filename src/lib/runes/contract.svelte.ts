@@ -2,6 +2,7 @@ import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { esploraTxConfirmed } from '$lib/stores/wallet/signet-broadcast';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import {
 	assertInvoiceRail,
@@ -767,18 +768,10 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	private notePaid(proof: EscrowProof): void {
+	private notePaid(proof: EscrowProof, confirmed: boolean): void {
 		savePaidProof(this.contractId, proof);
 		const known = this.proofs.some((row) => row.kind === proof.kind && row.value === proof.value);
-		if (!known) {
-			this.proofs = [...this.proofs, proof];
-			recordEscrowHistory({
-				contractId: this.contractId,
-				title: this.contractTitle ?? this.contractId,
-				kind: 'released',
-				proof: proof.value
-			});
-		}
+		if (!known) this.proofs = [...this.proofs, proof];
 		const stillOpen = [
 			'draft',
 			'funding',
@@ -791,7 +784,32 @@ export class ContractRune {
 			'settlement_requested',
 			'releasing'
 		];
+		if (!confirmed) {
+			if (this.status !== 'released' && this.status !== 'settled') this.status = 'releasing';
+			return;
+		}
+		if (this.status !== 'released' && this.status !== 'settled') {
+			recordEscrowHistory({
+				contractId: this.contractId,
+				title: this.contractTitle ?? this.contractId,
+				kind: 'released',
+				proof: proof.value
+			});
+		}
 		if (stillOpen.includes(this.status)) this.status = 'released';
+	}
+
+	private async broadcastConfirmed(proof: EscrowProof): Promise<boolean> {
+		if (proof.kind !== 'txid') return true;
+		try {
+			return await esploraTxConfirmed(proof.value);
+		} catch (error: unknown) {
+			console.warn(
+				'[contract] payout confirmation failed',
+				error instanceof Error ? error.message : String(error)
+			);
+			return false;
+		}
 	}
 
 	private async finishPaid(): Promise<ContractRuneSnapshot> {
@@ -811,12 +829,30 @@ export class ContractRune {
 	restorePaid(): string | null {
 		const proof = readPaidProof(this.contractId);
 		if (!proof) return null;
-		this.notePaid(proof);
+		if (this.status === 'released' || this.status === 'settled') return proof.value;
+		this.notePaid(proof, proof.kind !== 'txid');
 		return proof.value;
 	}
 
+	/** Move a broadcast payout to Released once the block confirms it. */
+	async confirmBroadcast(): Promise<ContractRuneSnapshot> {
+		if (this.status !== 'releasing') return this.snapshot;
+		const proof = readPaidProof(this.contractId);
+		if (!proof) return this.snapshot;
+		const confirmed = await this.broadcastConfirmed(proof);
+		this.notePaid(proof, confirmed);
+		if (!confirmed) return this.snapshot;
+		return this.finishPaid();
+	}
+
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
-		if (this.restorePaid()) return this.finishPaid();
+		const saved = readPaidProof(this.contractId);
+		if (saved) {
+			const confirmed = await this.broadcastConfirmed(saved);
+			this.notePaid(saved, confirmed);
+			if (!confirmed) return this.snapshot;
+			return this.finishPaid();
+		}
 		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
@@ -837,7 +873,9 @@ export class ContractRune {
 		try {
 			const proof = await this.paySettlement(payout);
 			if (!proofReady(proof)) throw new Error('Settlement proof is missing');
-			this.notePaid(proof);
+			const confirmed = await this.broadcastConfirmed(proof);
+			this.notePaid(proof, confirmed);
+			if (!confirmed) return this.snapshot;
 			return await this.finishPaid();
 		} catch (error) {
 			if (!readPaidProof(this.contractId)) this.status = previous;

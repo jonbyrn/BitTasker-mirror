@@ -28,7 +28,7 @@
 
 	const storageKey = $derived(`rgb-escrow-invoice:${bidId}`);
 	const storedInvoice = $derived(
-		browser ? (sessionStorage.getItem(`rgb-escrow-invoice:${bidId}`) ?? '') : ''
+		browser ? (localStorage.getItem(`rgb-escrow-invoice:${bidId}`) ?? '') : ''
 	);
 	let createdInvoice = $state('');
 	const invoice = $derived(createdInvoice || storedInvoice || existingInvoice);
@@ -79,7 +79,7 @@
 			}
 			await publishInvoice(created.invoice);
 			createdInvoice = created.invoice;
-			if (browser) sessionStorage.setItem(storageKey, created.invoice);
+			if (browser) localStorage.setItem(storageKey, created.invoice);
 		} catch (error) {
 			relayAck = false;
 			errorMessage = error instanceof Error ? error.message : $t('bids.escrow_invoice_failed');

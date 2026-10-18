@@ -235,6 +235,22 @@ export function spentSealMessage(spent: SpentSeal[]): string | null {
 	return `Refusing onchainSend: ${first.txid}:${first.vout} was already spent on-chain${by}. RGB still lists that USDT, so this send is blocked.`;
 }
 
+/** True when the unspent allocations cannot cover this send. */
+export function spentBlocksSend(chain: ChainAllocation, amount: number): boolean {
+	if (chain.spent.length === 0 || chain.unknown) return false;
+	if (!Number.isSafeInteger(amount) || amount < 0) return true;
+	return chain.live < amount;
+}
+
+function withoutSpentSeals(unspents: RgbUnspentRef[], spent: SpentSeal[]): RgbUnspentRef[] {
+	const gone = new Set(spent.map((row) => `${row.txid.toLowerCase()}:${row.vout}`));
+	return unspents.filter((row) => {
+		const outpoint = sealOutpoint(row);
+		if (!outpoint) return true;
+		return !gone.has(`${outpoint.txid}:${outpoint.vout}`);
+	});
+}
+
 function allocationUnits(unspent: RgbUnspentRef, assetId: string): number {
 	return unspent.rgbAllocations.reduce((sum, allocation) => {
 		if (allocation.assetId !== assetId) return sum;
@@ -528,10 +544,14 @@ export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
 	assetId: string,
 	knownSpendable?: number,
-	outputSpent: OutputSpendProbe = esploraOutputSpent
+	outputSpent?: OutputSpendProbe,
+	sendAmount?: number
 ): Promise<void> {
+	const probe = outputSpent ?? esploraOutputSpent;
 	if (sendDepth === 0) {
-		await enqueueSend(() => prepareRgbOnchainSend(wallet, assetId, knownSpendable, outputSpent));
+		await enqueueSend(() =>
+			prepareRgbOnchainSend(wallet, assetId, knownSpendable, probe, sendAmount)
+		);
 		return;
 	}
 	sendDepth += 1;
@@ -551,9 +571,7 @@ export async function prepareRgbOnchainSend(
 			throw new Error('Refusing onchainSend: wallet cannot list seals');
 		}
 		const unspents = await readUnspents(wallet);
-		const chain = await chainAllocation(unspents, assetId, outputSpent);
-		const spentMessage = spentSealMessage(chain.spent);
-		if (spentMessage) throw new Error(spentMessage);
+		const chain = await chainAllocation(unspents, assetId, probe);
 		const listed = await wallet.listAssets();
 		const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
 		if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);
@@ -564,7 +582,21 @@ export async function prepareRgbOnchainSend(
 			typeof knownSpendable === 'number' && Number.isSafeInteger(knownSpendable)
 				? knownSpendable
 				: listedSpendable;
-		const blocker = sealSendBlocker(unspents, assetId, spendable);
+		const needed =
+			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
+				? sendAmount
+				: spendable;
+		if (spentBlocksSend(chain, needed)) {
+			throw new Error(
+				spentSealMessage(chain.spent) ?? 'Refusing onchainSend: USDT output is already spent'
+			);
+		}
+		const rows =
+			chain.spent.length > 0 && !chain.unknown
+				? withoutSpentSeals(unspents, chain.spent)
+				: unspents;
+		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
+		const blocker = sealSendBlocker(rows, assetId, usable);
 		if (blocker) throw new Error(blocker);
 	} finally {
 		sendDepth -= 1;

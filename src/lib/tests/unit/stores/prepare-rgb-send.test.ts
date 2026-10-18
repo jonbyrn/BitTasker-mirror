@@ -348,6 +348,41 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(allocationCoversSpendable({ ...spentOnly, unknown: true }, 100_000_000)).toBe(false);
 	});
 
+	it('spends a live seal when another listed seal is already spent', async () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = 'c67397ba'.padEnd(64, 'c');
+		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 0 } }
+						},
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 1 } }
+						},
+						{
+							rgbAllocations: [],
+							utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 130_000_000 } }]
+					})
+				},
+				assetId,
+				130_000_000,
+				async (_txid, vout) =>
+					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
+				30_000_000
+			)
+		).resolves.toBeUndefined();
+	});
+
 	it('refuses the send when an allocation output is already spent', async () => {
 		const assetId = 'rgb:f~usdt';
 		const seal = 'c67397ba'.padEnd(64, 'c');

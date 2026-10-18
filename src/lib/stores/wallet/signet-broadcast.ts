@@ -43,6 +43,17 @@ export async function publishSignetTx(rawHex: string): Promise<void> {
 	throw new Error(detail || `Esplora refused the transaction (${response.status})`);
 }
 
+/** True when the Signet transaction is in a block. */
+export async function esploraTxConfirmed(txid: string): Promise<boolean> {
+	if (!/^[0-9a-f]{64}$/i.test(txid)) return false;
+	const response = await fetch(`https://esplora-api.utexo.com/tx/${txid.toLowerCase()}`);
+	if (!response.ok) return false;
+	const body: unknown = await response.json();
+	if (!body || typeof body !== 'object') return false;
+	const status = (body as { status?: { confirmed?: unknown } }).status;
+	return status?.confirmed === true;
+}
+
 /** True when UTEXO Signet Esplora already has this transaction. */
 export async function esploraHasTx(txid: string): Promise<boolean> {
 	const url = signetTxUrl(txid);

@@ -637,7 +637,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
 			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
-			rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
+			rgbAssets = capUnspentUsdt(await resyncChainGap(wallet, rgbAssets, options?.pull !== false));
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -821,6 +821,23 @@ export function readRefreshFailure(failure: unknown): string | null {
 	}
 	const [name] = Object.keys(failure);
 	return name ?? null;
+}
+
+/** Show the unspent amount when RGB still lists a seal the chain already spent. */
+export function capUnspentUsdt(assets: readonly RgbAsset[]): RgbAsset[] {
+	return assets.map((asset) => {
+		if (asset.symbol?.toUpperCase() !== 'USDT') return asset;
+		if (asset.chainUnknown || asset.pendingConfirm || asset.chainSpendable == null) return asset;
+		const reported = asset.spendable ?? asset.balance;
+		if (reported <= asset.chainSpendable) return asset;
+		const precision = usdtPrecision(asset.symbol, asset.precision);
+		return {
+			...asset,
+			balance: asset.chainSpendable,
+			spendable: asset.chainSpendable,
+			formattedBalance: formatUsdtBalance(asset.chainSpendable, precision)
+		};
+	});
 }
 
 /** A refresh that drops the USDT row must not replace a balance the wallet already showed. */

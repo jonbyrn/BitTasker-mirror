@@ -119,7 +119,6 @@
 	);
 
 	const rgbAmount = $derived.by(() => {
-		if (lockedAmount !== null) return lockedAmount;
 		if (asset !== 'usdt_rgb' || amountSats === null) return amountSats;
 		try {
 			return usdtBaseUnits(amountSats, usdtScale);
@@ -127,6 +126,12 @@
 			return null;
 		}
 	});
+	const invoiceMismatch = $derived(
+		asset === 'usdt_rgb' &&
+			lockedAmount !== null &&
+			rgbAmount !== null &&
+			rgbAmount !== lockedAmount
+	);
 
 	const usdtSpendable = $derived(spendableUnits ?? 0);
 
@@ -175,6 +180,7 @@
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_ln') return destinationValid && amountSats !== null && amountSats > 0;
 		if (asset === 'usdt_rgb') {
+			if (invoiceMismatch) return false;
 			if (spendableUnits === null) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
 			if (!decodedInvoice.contract && !boundIfa) return false;
@@ -253,7 +259,7 @@
 		sentTxid = '';
 		try {
 			const decoded = decodeRgbInvoice(value);
-			if (decoded.amount !== null && decoded.amount > 0) {
+			if (decoded.amount !== null && decoded.amount > 0 && amountInput.trim() === '') {
 				amountInput = formatUsdtUnits(decoded.amount, usdtScale);
 			}
 		} catch {
@@ -469,7 +475,6 @@
 					inputmode="decimal"
 					placeholder="0"
 					bind:value={amountInput}
-					disabled={lockedAmount !== null}
 					data-testid="send-amount"
 				/>
 				{#if asset === 'btc_onchain'}
@@ -581,6 +586,20 @@
 				{$t('wallet.send_select_ifa')}
 			</div>
 		{/if}
+	{/if}
+	{#if invoiceMismatch}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="send-amount-mismatch"
+		>
+			{$t('wallet.send_amount_mismatch', {
+				values: {
+					invoice: formatUsdtUnits(lockedAmount ?? 0, usdtScale),
+					entered: amountInput
+				}
+			})}
+		</div>
 	{/if}
 	{#if !$advancedWallet && (belowSpendable || hasInsufficientBalance)}
 		<div

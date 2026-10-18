@@ -106,7 +106,9 @@ describe('sendRgbAsset', () => {
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
 			expect.anything(),
 			'rgb:f~9F4X0C-held-usdt',
-			100_000_000
+			100_000_000,
+			undefined,
+			1111
 		);
 		expect(onchainSendBegin).toHaveBeenCalledWith({
 			invoice: NWCA_RPCS,
@@ -377,7 +379,9 @@ describe('sendRgbAsset', () => {
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
 			expect.anything(),
 			'rgb:f~9F4X0C-held-usdt',
-			100_000_000
+			100_000_000,
+			undefined,
+			10_000_000
 		);
 	});
 

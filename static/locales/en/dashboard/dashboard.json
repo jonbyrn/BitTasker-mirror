@@ -851,6 +851,7 @@
 				"pending_cancellation": "Pending Cancellation",
 				"pending_refund": "Pending Refund",
 				"funds_released": "Funds Released",
+				"releasing": "Releasing…",
 				"funds_claimed": "Funds claimed",
 				"no_show": "No-show",
 				"work_in_progress": "Work in progress",

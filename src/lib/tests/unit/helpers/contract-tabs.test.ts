@@ -15,6 +15,11 @@ describe('contract tabs', () => {
 		expect(contractTaskId('contract-lifecycle')).toBeNull();
 	});
 
+	it('names an unconfirmed payout as releasing', () => {
+		expect(contractStatusKey('releasing')).toBe('dashboard.contracts.status.releasing');
+		expect(contractStatusTab('releasing')).toBe('in_progress');
+	});
+
 	it('names a settlement request as pending completion', () => {
 		expect(contractStatusKey('settlement_requested')).toBe(
 			'dashboard.contracts.status.pending_completion'

@@ -10,6 +10,7 @@ import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { esploraTxConfirmed } from '$lib/stores/wallet/signet-broadcast';
 import { publishToMultipleRelays } from '$lib/utils/nostr';
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
@@ -25,6 +26,14 @@ vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn().mockResolvedValue({ id: 'evt-lifecycle' }),
 	publishToMultipleRelays: vi.fn().mockResolvedValue([{ success: true }])
 }));
+
+vi.mock('$lib/stores/wallet/signet-broadcast', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-broadcast')>();
+	return {
+		...actual,
+		esploraTxConfirmed: vi.fn(async () => true)
+	};
+});
 
 vi.mock('$lib/stores/wallet/prepare-rgb-send', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/prepare-rgb-send')>();
@@ -95,6 +104,8 @@ describe('leadingContractStatus', () => {
 describe('escrow lifecycle', () => {
 	beforeEach(() => {
 		clearPaidProofs();
+		vi.mocked(esploraTxConfirmed).mockReset();
+		vi.mocked(esploraTxConfirmed).mockResolvedValue(true);
 		ContractRune.clearRegistry();
 		vi.mocked(payEscrowLightning).mockClear();
 		state.utexoWallet = walletDouble() as never;
@@ -234,7 +245,13 @@ describe('escrow lifecycle', () => {
 		await rune.requestSettlement(unitsInvoice(11_000_000), 11_000_000);
 		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
-		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(wallet, 'rgb:usdt-signet');
+		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
+			wallet,
+			'rgb:usdt-signet',
+			undefined,
+			expect.any(Function),
+			11_000_000
+		);
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
 			expect.objectContaining({
 				invoice: unitsInvoice(11_000_000),
@@ -273,6 +290,32 @@ describe('escrow lifecycle', () => {
 		rune.status = 'settlement_requested';
 		const again = await rune.releaseEscrow();
 		expect(again.status).toBe('released');
+		expect(wallet.onchainSendEnd.mock.calls.length).toBe(sends);
+	});
+
+	it('stays releasing until the payout transaction is confirmed', async () => {
+		vi.mocked(esploraTxConfirmed).mockResolvedValue(false);
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-releasing',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		await rune.requestSettlement(unitsInvoice(11_000_000), 11_000_000);
+		const pending = await rune.releaseEscrow();
+		expect(pending.status).toBe('releasing');
+		expect(wallet.onchainSendEnd).toHaveBeenCalledOnce();
+		const sends = wallet.onchainSendEnd.mock.calls.length;
+		const again = await rune.releaseEscrow();
+		expect(again.status).toBe('releasing');
 		expect(wallet.onchainSendEnd.mock.calls.length).toBe(sends);
 	});
 

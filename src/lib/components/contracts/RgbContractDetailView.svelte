@@ -65,6 +65,7 @@
 	let refundInvoice = $state('');
 	let taskeePubkey = $state('');
 	let loadTimedOut = $state(false);
+	let waitingContract = $state(false);
 	let stopSubscription: (() => void) | undefined;
 
 	const snapshot = $derived(rune?.snapshot ?? null);
@@ -147,8 +148,8 @@
 	);
 	const canRefund = $derived(role === 'tasker' && snapshot?.status === 'released' && !isReleasing);
 	const stepIndex = $derived.by(() => {
-		if (paidTxid) return 3;
 		const status = snapshot?.status;
+		if (paidTxid && status !== 'releasing') return 3;
 		if (status === 'released' || status === 'released_pending' || status === 'settled') return 3;
 		if (status === 'approved' || status === 'settlement_requested' || status === 'releasing')
 			return 2;
@@ -156,8 +157,9 @@
 		return 0;
 	});
 	const nextAction = $derived.by(() => {
-		if (paidTxid) return $t('bids.escrow_next_done');
 		const status = snapshot?.status;
+		if (status === 'releasing') return $t('dashboard.contracts.status.releasing');
+		if (paidTxid) return $t('bids.escrow_next_done');
 		if (status === 'released' || status === 'settled') return $t('bids.escrow_next_done');
 		if (status === 'settlement_requested') {
 			return role === 'tasker' ? $t('bids.escrow_next_pay') : $t('bids.contract_waiting');
@@ -267,6 +269,7 @@
 		if (!quiet) {
 			loading = true;
 			errorMessage = '';
+			waitingContract = false;
 		}
 		try {
 			await setNDKSigner();
@@ -289,9 +292,11 @@
 						Boolean(entry.content)
 				);
 			if (parsedEntries.length === 0) {
+				waitingContract = true;
 				if (!quiet) errorMessage = $t('bids.contract_waiting');
 				return;
 			}
+			waitingContract = false;
 			const taskeeEvent = [...parsedEntries]
 				.reverse()
 				.find((entry) =>
@@ -342,6 +347,11 @@
 			}
 			rune = nextRune;
 			paidTxid = nextRune.restorePaid() ?? '';
+			if (nextRune.status === 'releasing') {
+				void nextRune.confirmBroadcast().catch((error: unknown) => {
+					console.warn('[contract] payout confirm failed', error);
+				});
+			}
 			noteEscrowRow(leading, content.contractTitle ?? nextRune.snapshot.contractTitle);
 			timeline = parsedEntries.map(({ event, content: item }) => ({
 				id: event.id ?? `${event.created_at}-${item.status}`,
@@ -549,8 +559,13 @@
 	</header>
 
 	{#if errorMessage}
-		<div class="alert alert-outline alert-error" data-testid="contract-error">{errorMessage}</div>
-		{#if !snapshot}
+		<div
+			class="alert alert-outline {waitingContract ? 'alert-info' : 'alert-error'}"
+			data-testid="contract-error"
+		>
+			{errorMessage}
+		</div>
+		{#if !snapshot && !waitingContract}
 			<button
 				class="btn btn-outline"
 				type="button"

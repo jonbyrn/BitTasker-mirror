@@ -15,6 +15,7 @@ import {
 } from './wallet-balances';
 import { changeStillBooked, prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
+import { rememberUsdtSend } from './wallet-transactions';
 import type { Transaction } from './wallet-types';
 
 export async function sendLightningPayment(lnInvoice: string): Promise<{ txid: string }> {
@@ -147,11 +148,12 @@ function recordSentUsdt(txid: string, units: number): void {
 		txHash: txid,
 		description: 'rgb usdt'
 	};
+	rememberUsdtSend(row);
 	walletStore.update((current) => ({
 		...current,
 		transactions: [
 			row,
-			...current.transactions.filter((item) => item.txHash !== txid && item.id !== txid)
+			...(current.transactions ?? []).filter((item) => item.txHash !== txid && item.id !== txid)
 		]
 	}));
 }
@@ -185,7 +187,7 @@ export async function sendRgbAsset(params: {
 			spendable <= 0 ? 'Not spendable yet' : 'USDT amount is larger than the spendable balance.'
 		);
 	}
-	await prepareRgbOnchainSend(wallet, assetId, spendable);
+	await prepareRgbOnchainSend(wallet, assetId, spendable, undefined, units);
 	const signer = requireEscrowSigner(wallet);
 	const invoice = params.invoice.trim();
 	const beginArgs = {

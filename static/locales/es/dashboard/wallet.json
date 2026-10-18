@@ -155,6 +155,7 @@
 		"refresh_failed": "Falló la actualización de la transferencia",
 		"not_spendable_yet": "Todavía no se puede gastar",
 		"send_below_spendable": "El saldo gastable es menor que esta factura.",
+		"send_amount_mismatch": "Esta factura es por {invoice} USDT. Ingresaste {entered}. Cambia el monto para que coincidan.",
 		"send_pending_info": "Un cobro sigue confirmándose. El saldo ya liquidado se puede enviar.",
 		"more_options": "Más",
 		"recent_transactions": "Transacciones recientes",

@@ -273,6 +273,17 @@ describe('wallet dashboard display', () => {
 			rgbHistoryRows([
 				{
 					kind: 'Send',
+					status: 'Initiated',
+					txid: 'aa'.repeat(32),
+					requestedAssignment: { amount: 1_000_000 },
+					updatedAt: 1_790_633_000
+				}
+			])
+		).toMatchObject([{ type: 'send', assetUnits: 1_000_000, status: 'pending' }]);
+		expect(
+			rgbHistoryRows([
+				{
+					kind: 'Send',
 					status: 'WaitingCounterparty',
 					txid: 'cf2bf9b98d965d71419f9f1cc526ec4f42248504f517751c6abdce3f6622f545',
 					requestedAssignment: { amount: 9_000 },

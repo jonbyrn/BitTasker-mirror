@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyBalanceUpdate } from '$lib/stores/wallet/balance-merge';
 import { shareInit } from '$lib/stores/wallet/init-gate';
-import { attachChainSpendable, chainGap, scanBtcBalance } from '$lib/stores/wallet/wallet-balances';
+import {
+	attachChainSpendable,
+	capUnspentUsdt,
+	chainGap,
+	scanBtcBalance
+} from '$lib/stores/wallet/wallet-balances';
 import { parseWalletUtxos } from '$lib/stores/wallet/rgb-allocations';
 import { bindLspClient } from '$lib/stores/wallet/signet-lsp';
 import type { RgbAsset } from '$lib/stores/wallet/wallet-types';
@@ -141,6 +146,27 @@ describe('wallet disconnect guards', () => {
 		const spendableGap = usdt({ balance: 100, spendable: 50, chainSpendable: 10 });
 		expect(chainGap([spendableGap])?.assetId).toBe('rgb:usdt');
 		expect(chainGap([spendableGap], false)).toBeUndefined();
+	});
+
+	it('shows the unspent amount when RGB still lists a spent seal', () => {
+		const held = usdt({
+			balance: 30_000_000,
+			spendable: 30_000_000,
+			chainSpendable: 0,
+			precision: 6
+		});
+		const [next] = capUnspentUsdt([held]);
+		expect(next?.balance).toBe(0);
+		expect(next?.spendable).toBe(0);
+		expect(next?.formattedBalance).toBe('0.00');
+		const pending = usdt({
+			balance: 30_000_000,
+			spendable: 30_000_000,
+			chainSpendable: 0,
+			pendingConfirm: true,
+			precision: 6
+		});
+		expect(capUnspentUsdt([pending])[0]?.balance).toBe(30_000_000);
 	});
 
 	it('does not treat an empty unspent list as 0.00 USDT on chain', async () => {

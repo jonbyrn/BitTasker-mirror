@@ -268,8 +268,8 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 		const status = typeof row.status === 'string' ? row.status : '';
 		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
 		const incoming = kind.includes('receive');
-		const waitingSend = status === 'WaitingCounterparty' && !incoming;
-		if (!RGB_HISTORY_STATUS.has(status) && !waitingSend) continue;
+		const outgoingStart = !incoming && (status === 'WaitingCounterparty' || status === 'Initiated');
+		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart) continue;
 		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
 		const assigned = assignmentTotal(row.assignments);
 		const units = incoming ? assigned || requested : requested || assigned;

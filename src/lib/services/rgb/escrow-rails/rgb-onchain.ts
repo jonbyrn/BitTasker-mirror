@@ -1,4 +1,5 @@
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '../escrow-rail';
 import { requireEscrowSigner, runEscrowSend } from '../psbt-escrow';
@@ -22,7 +23,13 @@ export async function payOnchainUsdt(
 	if (!Number.isSafeInteger(amount) || amount <= 0) {
 		throw new Error('USDT amount must be a positive whole number');
 	}
-	await prepareRgbOnchainSend(wallet as Parameters<typeof prepareRgbOnchainSend>[0], assetId);
+	await prepareRgbOnchainSend(
+		wallet as Parameters<typeof prepareRgbOnchainSend>[0],
+		assetId,
+		undefined,
+		esploraOutputSpent,
+		amount
+	);
 	const sent = await runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice });
 	if (!sent.txid) throw new Error('On-chain RGB send did not return a txid');
 	return { kind: 'txid', value: sent.txid };
