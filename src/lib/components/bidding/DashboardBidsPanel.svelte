@@ -524,6 +524,8 @@
 									taskId={bid.taskId}
 									taskerPubkey={readTaskerPubkey(bidEvent)}
 									existingInvoice={readFundingInvoice(getBidStatus(bidEvent)) ?? ''}
+									amount={bid.amount}
+									currency={bid.currency}
 									{status}
 								/>
 								<div>

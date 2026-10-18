@@ -6,6 +6,7 @@ import {
 	buildBidContent,
 	confirmBidEvent,
 	isSatBid,
+	contractUsdtUnits,
 	lockBidAmount,
 	readBidInvoice,
 	readFundingInvoice,
@@ -163,6 +164,9 @@ describe('USD bid quotes', () => {
 			lockedCurrency: 'SATS'
 		});
 		expect(lockBidAmount(0, 'USD')).toBeNull();
+		expect(contractUsdtUnits(11, 'USD')).toBe(11_000_000);
+		expect(contractUsdtUnits(3.588, 'USDT')).toBe(3_588_000);
+		expect(() => contractUsdtUnits(3075, 'SATS')).toThrow('Escrow invoice needs a USDT amount');
 	});
 });
 

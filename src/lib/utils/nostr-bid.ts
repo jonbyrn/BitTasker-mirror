@@ -18,6 +18,7 @@ import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveSharedRelays } from '$lib/utils/relayUrls';
 import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
+import { usdtBaseUnits } from '$lib/types/rgb-contract';
 
 const BID_RELAYS = resolveSharedRelays();
 
@@ -38,6 +39,12 @@ export function lockBidAmount(
 		return { lockedAmount: Math.max(1, Math.round(amount)), lockedCurrency: 'SATS' };
 	}
 	return { lockedAmount: amount, lockedCurrency: 'USD' };
+}
+
+/** USDT base units for a dollar bid. Sat quotes are not an escrow invoice amount. */
+export function contractUsdtUnits(amount: number, currency: string | undefined): number {
+	if (isSatBid(currency)) throw new Error('Escrow invoice needs a USDT amount');
+	return usdtBaseUnits(amount, 6);
 }
 
 export function resolveBidSats(

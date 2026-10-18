@@ -6,6 +6,7 @@ import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { publishToMultipleRelays } from '$lib/utils/nostr';
+import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
@@ -31,7 +32,9 @@ vi.mock('$lib/stores/wallet/prepare-rgb-send', async (importOriginal) => {
 const PAYOUT = 'rgb:~/~/aa/sb:utxob:payout-invoice';
 const BLANK_LOCK =
 	'rgb:~/~/aa/sb:utxob:taskee-blank?assignment_name=assetOwner&expiry=1790968181&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
-const PRICED = 'rgb:~/~/nWca/sb:utxob:priced-send?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+function unitsInvoice(units: number): string {
+	return `rgb:~/~/${encodeRgbAmount(units)}/sb:utxob:priced-send?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+}
 const ASSET_ID = 'rgb:h95CRali-KmzB~7j-minted';
 
 function walletDouble() {
@@ -109,7 +112,7 @@ describe('escrow lifecycle', () => {
 		expect(rune.status).toBe('funded');
 	});
 
-	it('pays the taskee blank invoice and does not invoice the tasker wallet', async () => {
+	it('refuses a blank taskee invoice before any lock', async () => {
 		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
 		const rune = new ContractRune({
 			contractId: 'contract-taskee-invoice',
@@ -121,16 +124,13 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		const prepared = await rune.prepareFunding(BLANK_LOCK);
+		await expect(rune.prepareFunding(BLANK_LOCK)).rejects.toThrow(
+			'Invoice amount does not match the contract'
+		);
+		expect(rune.status).toBe('failed');
 		expect(wallet.onchainReceive).not.toHaveBeenCalled();
-		expect(prepared.fundingInvoice).toBe(BLANK_LOCK);
-		expect(prepared.seals[0]?.amount).toBe(4);
-
-		const paid = await rune.payFundingFromWallet();
-		expect(paid.status).toBe('locked');
-		expect(paid.fundingInvoice).toBe(BLANK_LOCK);
-		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
+		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
 	it('funds a zero invoice without an LSP channel', async () => {
@@ -146,9 +146,10 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding(BLANK_LOCK);
-		const paid = await rune.payFundingFromWallet();
-		expect(paid.status).toBe('locked');
+		await expect(rune.prepareFunding(BLANK_LOCK)).rejects.toThrow(
+			'Invoice amount does not match the contract'
+		);
+		expect(rune.status).toBe('failed');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 	});
@@ -166,7 +167,7 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding(PRICED);
+		await rune.prepareFunding(unitsInvoice(11_000_000));
 		const paid = await rune.payFundingFromWallet();
 		expect(paid.status).toBe('locked');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
@@ -188,9 +189,10 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		const invoice = 'rgb:~/~/aa/sb:utxob:taskee-blank';
-		const prepared = await rune.prepareFunding(invoice);
-		expect(prepared.fundingInvoice).toBe(invoice);
-		expect(prepared.fundingState).toBe('awaiting_payment');
+		await expect(rune.prepareFunding(invoice)).rejects.toThrow(
+			'Invoice amount does not match the contract'
+		);
+		expect(rune.status).toBe('failed');
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 		expect(wallet.onchainReceive).not.toHaveBeenCalled();
 	});
@@ -219,16 +221,20 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding(PRICED);
+		await rune.prepareFunding(unitsInvoice(11_000_000));
 		expect((await rune.payFundingFromWallet()).status).toBe('locked');
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		rune.status = 'approved';
-		await rune.requestSettlement(PRICED, 11_000_000);
+		await rune.requestSettlement(unitsInvoice(11_000_000), 11_000_000);
 		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(wallet, 'rgb:usdt-signet');
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
-			expect.objectContaining({ invoice: PRICED, assetId: 'rgb:usdt-signet', amount: 11_000_000 })
+			expect.objectContaining({
+				invoice: unitsInvoice(11_000_000),
+				assetId: 'rgb:usdt-signet',
+				amount: 11_000_000
+			})
 		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
@@ -248,8 +254,9 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		rune.status = 'approved';
-		wallet.onchainReceive.mockResolvedValueOnce({ invoice: PRICED, recipientId: 'recv-1' });
-		await expect(rune.createPayoutInvoice()).resolves.toBe(PRICED);
+		const payout = unitsInvoice(10_000_000);
+		wallet.onchainReceive.mockResolvedValueOnce({ invoice: payout, recipientId: 'recv-1' });
+		await expect(rune.createPayoutInvoice()).resolves.toBe(payout);
 		expect(wallet.onchainReceive).toHaveBeenCalledWith(
 			expect.objectContaining({
 				assetId: FAUCET_IFA_ASSET,
@@ -296,10 +303,10 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding(PRICED);
+		await rune.prepareFunding(unitsInvoice(11_000_000));
 		expect((await rune.payFundingFromWallet()).status).toBe('locked');
 		rune.status = 'approved';
-		await rune.requestSettlement(PRICED, 11_000_000);
+		await rune.requestSettlement(unitsInvoice(11_000_000), 11_000_000);
 		await rune.releaseEscrow();
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
 			expect.objectContaining({ assetId: ifaId, amount: 11_000_000 })
@@ -322,10 +329,10 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		await rune.prepareFunding(PRICED);
+		await rune.prepareFunding(unitsInvoice(3075));
 		expect((await rune.payFundingFromWallet()).status).toBe('locked');
 		rune.status = 'approved';
-		await rune.requestSettlement(PRICED, 10_000);
+		await rune.requestSettlement(unitsInvoice(10_000), 10_000);
 		await rune.releaseEscrow();
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
 			expect.objectContaining({ assetId: ASSET_ID, amount: 10_000 })
@@ -382,11 +389,11 @@ describe('escrow lifecycle', () => {
 		expect(submitted.workMessage).toBe('Finished');
 		expect(submitted.proofUrl).toBe('https://example.com/proof');
 		expect((await rune.approveWork()).status).toBe('approved');
-		await rune.requestSettlement(PRICED, 10_000_000);
+		await rune.requestSettlement(unitsInvoice(10_000_000), 10_000_000);
 		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
 		expect(released.proofs[0]?.kind).toBe('txid');
-		expect(released.payoutInvoice).toBe(PRICED);
+		expect(released.payoutInvoice).toBe(unitsInvoice(10_000_000));
 	});
 
 	it('keeps the last shared status when the relay does not acknowledge a settlement', async () => {
@@ -402,7 +409,7 @@ describe('escrow lifecycle', () => {
 		});
 		rune.status = 'approved';
 		vi.mocked(publishToMultipleRelays).mockResolvedValueOnce([]);
-		await expect(rune.requestSettlement(PRICED, 10_000_000)).rejects.toThrow(
+		await expect(rune.requestSettlement(unitsInvoice(10_000_000), 10_000_000)).rejects.toThrow(
 			/could not be published/
 		);
 		expect(rune.snapshot.status).toBe('approved');
@@ -595,11 +602,15 @@ describe('escrow lifecycle', () => {
 			}
 		});
 		rune.status = 'approved';
-		await rune.requestSettlement(PRICED, 11_000_000);
+		await rune.requestSettlement(unitsInvoice(11_000_000), 11_000_000);
 		const released = await rune.releaseEscrow();
 		expect(released.status).toBe('released');
 		expect(released.proofs[0]).toMatchObject({ kind: 'lsp_mapping', value: 'mapping-1' });
-		expect(payEscrowLightning).toHaveBeenCalledWith(PRICED, ESCROW_LNUSDT, 11_000_000);
+		expect(payEscrowLightning).toHaveBeenCalledWith(
+			unitsInvoice(11_000_000),
+			ESCROW_LNUSDT,
+			11_000_000
+		);
 		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});

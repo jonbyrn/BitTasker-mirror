@@ -8,6 +8,7 @@ import {
 	feeHook,
 	satsChannelOpen,
 	bolt11MatchesSats,
+	invoiceMatchesAmount,
 	invoiceMatchesRail,
 	lightningNodeEmpty,
 	lnUsdtOpen,
@@ -39,6 +40,17 @@ describe('escrow rail', () => {
 		expect(invoiceMatchesRail('usdt_ln', 'lntbs30u1example')).toBe(true);
 		expect(invoiceMatchesRail('usdt_ln', 'rgb:~/~/nWca/sb:utxob:taskee')).toBe(true);
 		expect(invoiceMatchesRail('usdt_ln', 'bc1qexample')).toBe(false);
+	});
+
+	it('accepts an RGB invoice only when its amount is the contract amount', () => {
+		expect(invoiceMatchesAmount('usdt_rgb', 'rgb:~/~/adFZnbk/sb:utxob:taskee', 100_000_000)).toBe(
+			true
+		);
+		expect(invoiceMatchesAmount('usdt_rgb', 'rgb:~/~/aa/sb:utxob:taskee', 11_000_000)).toBe(false);
+		expect(invoiceMatchesAmount('usdt_rgb', 'rgb:~/~/nWca/sb:utxob:taskee', 11_000_000)).toBe(
+			false
+		);
+		expect(invoiceMatchesAmount('btc_lightning', 'lntbs30u1example', 3075)).toBe(false);
 	});
 
 	it('treats LNUSDT as open only when listChannels marks that asset usable', () => {

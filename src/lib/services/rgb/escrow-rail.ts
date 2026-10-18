@@ -1,3 +1,4 @@
+import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import type { ContractPaymentAsset } from '$lib/types/rgb-contract';
 
 /** Signet LSP LNUSDT. Fund sends this asset only when a channel lists it as usable. */
@@ -36,6 +37,22 @@ export function invoiceMatchesRail(asset: ContractPaymentAsset, invoice: string)
 	if (isLightningRail(asset)) return isEscrowBolt11(invoice);
 	if (isLnUsdtRail(asset)) return isEscrowBolt11(invoice) || isRgbInvoice(invoice);
 	return isRgbInvoice(invoice);
+}
+
+/** True when an RGB invoice states the contract amount. A blank invoice does not. */
+export function invoiceMatchesAmount(
+	asset: ContractPaymentAsset,
+	invoice: string,
+	units: number
+): boolean {
+	if (!Number.isSafeInteger(units) || units <= 0) return false;
+	const value = invoice.trim();
+	if (!isRgbInvoice(value) || !value.startsWith('rgb:') || isLightningRail(asset)) return false;
+	try {
+		return decodeRgbInvoice(value).amount === units;
+	} catch {
+		return false;
+	}
 }
 
 export function assertInvoiceRail(asset: ContractPaymentAsset, invoice: string): void {

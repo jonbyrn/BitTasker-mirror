@@ -14,7 +14,12 @@
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { onMount } from 'svelte';
 	import { walletStore, state as walletState } from '$lib/stores/wallet/wallet-state';
-	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
+	import {
+		invoiceMatchesAmount,
+		invoiceMatchesRail,
+		satsRailBlocked
+	} from '$lib/services/rgb/escrow-rail';
+	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
@@ -116,7 +121,25 @@
 					? LN_USDT_SPLIT
 					: USDT_SPLIT
 	);
-	const settlementUnit = $derived(CONTRACT_PAYMENT_ASSETS[split.primaryAsset]);
+	const usdtContract = $derived(fundRail === 'usdt_rgb' || fundRail === 'usdt_ln');
+	const settlementUnit = $derived(
+		usdtContract ? 'USDT' : CONTRACT_PAYMENT_ASSETS[split.primaryAsset]
+	);
+	const contractUnits = $derived(
+		usdtContract && lockedBid ? Math.round(lockedBid.lockedAmount * 1_000_000) : (totalSats ?? 0)
+	);
+	const postedAmount = $derived.by(() => {
+		if (!postedInvoice.startsWith('rgb:')) return null;
+		try {
+			return decodeRgbInvoice(postedInvoice).amount;
+		} catch {
+			return null;
+		}
+	});
+	const invoiceReady = $derived(
+		postedInvoice.length > 0 &&
+			invoiceMatchesAmount(split.primaryAsset, postedInvoice, contractUnits)
+	);
 
 	let isProcessing = $state(false);
 	let processingStep = $state<
@@ -127,6 +150,7 @@
 	let fundedContractId = $state<string | null>(null);
 	let escrowReady = $state(false);
 	let awaitingTaskeeInvoice = $state(false);
+	let postedInvoice = $state('');
 
 	const lightningFundReady = $derived(
 		fundRail !== 'btc_lightning' || (!nodeEmpty && totalSats !== null)
@@ -323,34 +347,38 @@
 
 	async function loadPostedInvoice(quiet = false): Promise<void> {
 		if (!bidContent?.bidderId) return;
-		if (!quiet) {
-			isProcessing = true;
-			errorMessage = '';
-			processingStep = 'funding';
-		}
 		try {
 			const invoice = await fetchFundingInvoice(bidContent.taskId || task.id, bid.id);
-			if (!invoice) {
-				if (!quiet) errorMessage = $t('dashboard.bids.bid_acceptance.invoice_missing');
-				return;
+			postedInvoice = invoice ?? '';
+			if (!invoice && !quiet) {
+				errorMessage = $t('dashboard.bids.bid_acceptance.invoice_missing');
 			}
+		} catch (error) {
+			if (quiet) return;
+			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
+		}
+	}
+
+	async function usePostedInvoice(): Promise<void> {
+		if (!bidContent?.bidderId || !invoiceReady) return;
+		isProcessing = true;
+		errorMessage = '';
+		processingStep = 'funding';
+		try {
 			const rune = new ContractRune(contractInput(bidContent.bidderId));
 			await initWasm();
 			await walletManager.initialize();
-			await rune.prepareFunding(invoice);
+			await rune.prepareFunding(postedInvoice);
 			fundedRune = rune;
 			fundedContractId = rune.snapshot.contractId;
 			awaitingTaskeeInvoice = false;
 		} catch (error) {
-			if (quiet) return;
 			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
 		} finally {
 			await walletManager.releaseRgbLock();
-			if (!quiet) {
-				isProcessing = false;
-				processingStep = 'idle';
-			}
+			isProcessing = false;
+			processingStep = 'idle';
 		}
 	}
 
@@ -474,7 +502,11 @@
 					<div class="flex items-center justify-between gap-3 font-semibold">
 						<span>{$t('dashboard.bids.bid_acceptance.base_amount')}</span>
 						<span class="tabular-nums" data-testid="bid-base-amount">
-							{lockedBid ? `$${formatNumberWithTwoDecimals(lockedBid.lockedAmount)}` : '—'}
+							{lockedBid
+								? usdtContract
+									? `${formatNumberWithTwoDecimals(lockedBid.lockedAmount)} USDT`
+									: `$${formatNumberWithTwoDecimals(lockedBid.lockedAmount)}`
+								: '—'}
 						</span>
 					</div>
 					<p class="text-base-content/60 text-xs" data-testid="usd-escrow-note">
@@ -707,11 +739,23 @@
 						: 'dashboard.bids.bid_acceptance.waiting_taskee_invoice'
 				)}
 			</p>
+			{#if postedInvoice}
+				<input
+					class="input input-bordered input-sm w-full font-mono text-xs"
+					readonly
+					value={postedInvoice}
+					aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
+					data-testid="posted-taskee-invoice"
+				/>
+				<p class="text-xs" data-testid="posted-invoice-amount">
+					{postedAmount === null ? '—' : postedAmount.toLocaleString()} / {contractUnits.toLocaleString()}
+				</p>
+			{/if}
 			<button
 				type="button"
 				class="btn btn-primary w-full"
-				onclick={() => loadPostedInvoice(false)}
-				disabled={isProcessing}
+				onclick={usePostedInvoice}
+				disabled={isProcessing || !invoiceReady}
 				data-testid="load-taskee-invoice"
 			>
 				{#if isProcessing}

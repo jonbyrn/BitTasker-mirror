@@ -3,7 +3,12 @@ import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
 import { enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
-import { assertInvoiceRail, isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
+import {
+	assertInvoiceRail,
+	invoiceMatchesAmount,
+	isEscrowBolt11,
+	isRgbInvoice
+} from '$lib/services/rgb/escrow-rail';
 import { payLnBtc } from '$lib/services/rgb/escrow-rails/ln-btc';
 import { payLnUsdt, payLnUsdtBolt11 } from '$lib/services/rgb/escrow-rails/ln-usdt';
 import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rgb-onchain';
@@ -400,6 +405,7 @@ export class ContractRune {
 			if (taskeeInvoice || canSendRgb) {
 				if (!taskeeInvoice) throw new TaskeeInvoiceRequired();
 				assertInvoiceRail(this.split.primaryAsset, taskeeInvoice);
+				this.assertRgbAmount(taskeeInvoice, this.agreedUnits());
 				// The blank invoice is the contract lock. Spendable USDT is checked on Pay.
 				const listed =
 					typeof wallet.listAssets === 'function'
@@ -500,6 +506,7 @@ export class ContractRune {
 		if (!invoice) throw new Error('Funding invoice is not available');
 		this.fundingState = 'awaiting_payment';
 		assertInvoiceRail(this.split.primaryAsset, invoice);
+		this.assertRgbAmount(invoice, this.agreedUnits());
 		this.status = 'locked';
 		this.fundingState = 'awaiting_payment';
 		this.error = null;
@@ -665,6 +672,7 @@ export class ContractRune {
 		}
 		const next = invoice.trim();
 		assertInvoiceRail(this.split.primaryAsset, next);
+		this.assertRgbAmount(next, amount);
 		if (isRgbInvoice(next) && blankLockInvoice(next)) {
 			throw new Error('Settlement invoice must include an amount');
 		}
@@ -707,6 +715,10 @@ export class ContractRune {
 		const payout = (invoice ?? this.settlementInvoice ?? this.payoutInvoice)?.trim() ?? '';
 		if (!payout) throw new Error('Settlement invoice is required');
 		assertInvoiceRail(this.split.primaryAsset, payout);
+		this.assertRgbAmount(
+			payout,
+			this.settlementAmount > 0 ? this.settlementAmount : this.agreedUnits()
+		);
 		if (isRgbInvoice(payout) && blankLockInvoice(payout)) {
 			throw new Error('Settlement invoice must include an amount');
 		}
@@ -797,6 +809,12 @@ export class ContractRune {
 			const amount = this.settlementAmount || this.agreedUnits();
 			return payOnchainUsdt(wallet, invoice, assetId, amount);
 		});
+	}
+
+	private assertRgbAmount(invoice: string, units: number): void {
+		if (!isRgbInvoice(invoice) || this.split.primaryAsset === 'btc_lightning') return;
+		if (invoiceMatchesAmount(this.split.primaryAsset, invoice, units)) return;
+		throw new Error('Invoice amount does not match the contract');
 	}
 
 	private agreedUnits(): number {
