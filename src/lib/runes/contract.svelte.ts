@@ -135,6 +135,65 @@ export interface ContractRuneSnapshot {
 }
 
 const RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+const PAID_TX_KEY = 'bittasker.contract-paid';
+const paidMemory = new SvelteMap<string, EscrowProof>();
+
+function storedPaidMap(): Record<string, EscrowProof> {
+	if (typeof localStorage === 'undefined') return {};
+	try {
+		const parsed: unknown = JSON.parse(localStorage.getItem(PAID_TX_KEY) ?? '{}');
+		if (!parsed || typeof parsed !== 'object') return {};
+		const map: Record<string, EscrowProof> = {};
+		for (const [contractId, proof] of Object.entries(parsed)) {
+			if (!proof || typeof proof !== 'object') continue;
+			const row = proof as Partial<EscrowProof>;
+			if (
+				(row.kind === 'txid' || row.kind === 'preimage' || row.kind === 'lsp_mapping') &&
+				typeof row.value === 'string' &&
+				row.value.trim()
+			) {
+				map[contractId] = { kind: row.kind, value: row.value };
+			}
+		}
+		return map;
+	} catch {
+		return {};
+	}
+}
+
+/** First broadcast proof for this contract. Later sends must not replace it. */
+export function readPaidProof(contractId: string): EscrowProof | null {
+	const memory = paidMemory.get(contractId);
+	if (memory) return memory;
+	const stored = storedPaidMap()[contractId];
+	if (!stored) return null;
+	paidMemory.set(contractId, stored);
+	return stored;
+}
+
+export function readPaidTxid(contractId: string): string | null {
+	return readPaidProof(contractId)?.value ?? null;
+}
+
+export function savePaidProof(contractId: string, proof: EscrowProof): void {
+	if (!proof.value.trim() || paidMemory.has(contractId)) return;
+	paidMemory.set(contractId, proof);
+	if (typeof localStorage === 'undefined') return;
+	try {
+		const map = storedPaidMap();
+		if (map[contractId]) return;
+		map[contractId] = proof;
+		localStorage.setItem(PAID_TX_KEY, JSON.stringify(map));
+	} catch {
+		// The in-memory lock still stops another send in this tab.
+	}
+}
+
+export function clearPaidProofs(): void {
+	paidMemory.clear();
+	if (typeof localStorage === 'undefined') return;
+	localStorage.removeItem(PAID_TX_KEY);
+}
 
 function assertPercentage(value: number, name: string): void {
 	if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -708,7 +767,56 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
+	private notePaid(proof: EscrowProof): void {
+		savePaidProof(this.contractId, proof);
+		const known = this.proofs.some((row) => row.kind === proof.kind && row.value === proof.value);
+		if (!known) {
+			this.proofs = [...this.proofs, proof];
+			recordEscrowHistory({
+				contractId: this.contractId,
+				title: this.contractTitle ?? this.contractId,
+				kind: 'released',
+				proof: proof.value
+			});
+		}
+		const stillOpen = [
+			'draft',
+			'funding',
+			'locking',
+			'locked',
+			'funded',
+			'work_in_progress',
+			'work_submitted',
+			'approved',
+			'settlement_requested',
+			'releasing'
+		];
+		if (stillOpen.includes(this.status)) this.status = 'released';
+	}
+
+	private async finishPaid(): Promise<ContractRuneSnapshot> {
+		await this.attest('released', 'Escrow released');
+		const taskId = contractTaskId(this.contractId);
+		if (taskId) {
+			try {
+				await completeTask(taskId);
+			} catch (error) {
+				console.warn('[contract] task close failed', error);
+			}
+		}
+		return this.snapshot;
+	}
+
+	/** Keep a broadcast txid and leave the contract paid, even if Nostr publish fails. */
+	restorePaid(): string | null {
+		const proof = readPaidProof(this.contractId);
+		if (!proof) return null;
+		this.notePaid(proof);
+		return proof.value;
+	}
+
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
+		if (this.restorePaid()) return this.finishPaid();
 		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
@@ -725,31 +833,14 @@ export class ContractRune {
 		const previous = this.status;
 		this.payoutInvoice = payout;
 		this.settlementInvoice = payout;
-		this.status = 'releasing';
 		this.error = null;
 		try {
 			const proof = await this.paySettlement(payout);
 			if (!proofReady(proof)) throw new Error('Settlement proof is missing');
-			this.proofs = [...this.proofs, proof];
-			this.status = 'released';
-			recordEscrowHistory({
-				contractId: this.contractId,
-				title: this.contractTitle ?? this.contractId,
-				kind: 'released',
-				proof: proof.value
-			});
-			await this.attest('released', 'Escrow released');
-			const taskId = contractTaskId(this.contractId);
-			if (taskId) {
-				try {
-					await completeTask(taskId);
-				} catch (error) {
-					console.warn('[contract] task close failed', error);
-				}
-			}
-			return this.snapshot;
+			this.notePaid(proof);
+			return await this.finishPaid();
 		} catch (error) {
-			this.status = previous;
+			if (!readPaidProof(this.contractId)) this.status = previous;
 			this.error = error instanceof Error ? error.message : String(error);
 			throw error;
 		}

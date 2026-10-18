@@ -46,6 +46,7 @@
 		"escrow_next_request": "Next: request payment.",
 		"escrow_next_pay": "Next: pay the settlement invoice.",
 		"escrow_next_done": "Settlement is complete.",
+		"paid_txid": "Paid in {txid}",
 		"contract_load_timeout": "The contract took too long to load.",
 		"legacy_settlement": "This request was made on an older version; ask the Taskee to re-request payment.",
 		"request_new_invoice": "Request new invoice",

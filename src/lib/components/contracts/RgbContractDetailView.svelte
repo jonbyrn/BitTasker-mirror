@@ -3,6 +3,7 @@
 	import {
 		ContractRune,
 		leadingContractStatus,
+		readPaidTxid,
 		type ContractRuneSnapshot,
 		type ContractRuneStatus
 	} from '$lib/runes/contract.svelte';
@@ -54,6 +55,7 @@
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let rune = $state<ContractRune | null>(null);
+	let paidTxid = $state(readPaidTxid(contractId) ?? '');
 	let timeline = $state<TimelineEntry[]>([]);
 	let workMessage = $state('Work completed and ready for review.');
 	let proofUrl = $state('');
@@ -127,7 +129,7 @@
 			!isReleasing
 	);
 	const canRelease = $derived(
-		role === 'tasker' && snapshot?.status === 'settlement_requested' && !isReleasing
+		role === 'tasker' && snapshot?.status === 'settlement_requested' && !isReleasing && !paidTxid
 	);
 	const canCancel = $derived(
 		snapshot != null &&
@@ -145,6 +147,7 @@
 	);
 	const canRefund = $derived(role === 'tasker' && snapshot?.status === 'released' && !isReleasing);
 	const stepIndex = $derived.by(() => {
+		if (paidTxid) return 3;
 		const status = snapshot?.status;
 		if (status === 'released' || status === 'released_pending' || status === 'settled') return 3;
 		if (status === 'approved' || status === 'settlement_requested' || status === 'releasing')
@@ -153,6 +156,7 @@
 		return 0;
 	});
 	const nextAction = $derived.by(() => {
+		if (paidTxid) return $t('bids.escrow_next_done');
 		const status = snapshot?.status;
 		if (status === 'released' || status === 'settled') return $t('bids.escrow_next_done');
 		if (status === 'settlement_requested') {
@@ -337,6 +341,7 @@
 				nextRune.proofs = content.proofs ?? [];
 			}
 			rune = nextRune;
+			paidTxid = nextRune.restorePaid() ?? '';
 			noteEscrowRow(leading, content.contractTitle ?? nextRune.snapshot.contractTitle);
 			timeline = parsedEntries.map(({ event, content: item }) => ({
 				id: event.id ?? `${event.created_at}-${item.status}`,
@@ -459,12 +464,15 @@
 		try {
 			await initWasm();
 			await rune.releaseEscrow();
+			paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
 			await loadContract();
 		} catch (error) {
-			errorMessage = errorText(error, 'Failed to release funds.');
+			paidTxid = readPaidTxid(contractId) ?? '';
+			if (rune) paidTxid = rune.restorePaid() ?? paidTxid;
+			errorMessage = paidTxid ? '' : errorText(error, 'Failed to release funds.');
 		} finally {
 			isReleasing = false;
-			reviewingPay = false;
+			if (!paidTxid) reviewingPay = false;
 		}
 	}
 
@@ -571,6 +579,11 @@
 				</p>
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
+				{#if paidTxid}
+					<p class="font-mono text-xs break-all" data-testid="paid-txid">
+						{$t('bids.paid_txid', { values: { txid: paidTxid } })}
+					</p>
+				{/if}
 			</div>
 		</section>
 

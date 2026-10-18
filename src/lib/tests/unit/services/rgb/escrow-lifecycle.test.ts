@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { ContractRune, leadingContractStatus } from '$lib/runes/contract.svelte';
+import {
+	clearPaidProofs,
+	ContractRune,
+	leadingContractStatus,
+	readPaidTxid
+} from '$lib/runes/contract.svelte';
 import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
@@ -89,6 +94,7 @@ describe('leadingContractStatus', () => {
 
 describe('escrow lifecycle', () => {
 	beforeEach(() => {
+		clearPaidProofs();
 		ContractRune.clearRegistry();
 		vi.mocked(payEscrowLightning).mockClear();
 		state.utexoWallet = walletDouble() as never;
@@ -237,6 +243,37 @@ describe('escrow lifecycle', () => {
 			})
 		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
+	});
+
+	it('locks the contract paid when the broadcast txid exists and the relay rejects it', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
+		const rune = new ContractRune({
+			contractId: 'contract-paid-lock',
+			totalAmountUsd: 13,
+			lockedAmount: 13,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		await rune.requestSettlement(unitsInvoice(13_000_000), 13_000_000);
+		vi.mocked(publishToMultipleRelays).mockResolvedValueOnce([]);
+		await expect(rune.releaseEscrow()).rejects.toThrow(
+			'Contract status could not be published to any Nostr relay'
+		);
+		const txid = 'ab'.repeat(32);
+		expect(rune.status).toBe('released');
+		expect(readPaidTxid(rune.contractId)).toBe(txid);
+		expect(rune.snapshot.proofs).toEqual([expect.objectContaining({ kind: 'txid', value: txid })]);
+		const sends = wallet.onchainSendEnd.mock.calls.length;
+		rune.status = 'settlement_requested';
+		const again = await rune.releaseEscrow();
+		expect(again.status).toBe('released');
+		expect(wallet.onchainSendEnd.mock.calls.length).toBe(sends);
 	});
 
 	it('creates a faucet RGB invoice for an approved ten dollar contract', async () => {
