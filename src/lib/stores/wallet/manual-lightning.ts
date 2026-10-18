@@ -1,4 +1,3 @@
-import { withWasm } from './wasm-lock';
 import type { ManualChannelPlan } from './lightning-status';
 
 interface ManualNode {
@@ -20,16 +19,14 @@ export async function openManualChannel(
 	wallet: ManualNode,
 	plan: ManualChannelPlan
 ): Promise<{ temporaryChannelId: string }> {
-	return withWasm('manual-channel', async () => {
-		if (plan.peerUri && typeof wallet.connectPeer === 'function') {
-			await wallet.connectPeer(plan.peerUri);
-		}
-		// openChannel takes the 66-char pubkey. The host:port is only for connectPeer.
-		return wallet.openChannel({
-			peerPubkey: plan.peerPubkey,
-			capacitySat: plan.capacitySat,
-			isPublic: false,
-			...(plan.assetId ? { assetId: plan.assetId, assetLocalAmount: plan.assetLocalAmount } : {})
-		});
+	if (plan.peerUri && typeof wallet.connectPeer === 'function') {
+		await wallet.connectPeer(plan.peerUri);
+	}
+	// openChannel takes the 66-char pubkey. The host:port is only for connectPeer.
+	return wallet.openChannel({
+		peerPubkey: plan.peerPubkey,
+		capacitySat: plan.capacitySat,
+		isPublic: false,
+		...(plan.assetId ? { assetId: plan.assetId, assetLocalAmount: plan.assetLocalAmount } : {})
 	});
 }

@@ -556,11 +556,7 @@ async function runKeepalive(): Promise<void> {
 		return;
 	}
 	if (connectPeerUsed) {
-		const stillUp = await withWasm('lsp-keepalive', async () => {
-			if (lspHalted || wasmCrashed()) return false;
-			if (!activeLightning?.listPeers) return true;
-			return peerAlreadyConnected();
-		}).catch(() => false);
+		const stillUp = await peerAlreadyConnected().catch(() => false);
 		if (lspHalted || wasmCrashed()) return;
 		if (stillUp && !gatewaySocketsCapped()) {
 			keepaliveFailures = 0;
@@ -574,11 +570,8 @@ async function runKeepalive(): Promise<void> {
 	}
 	let ok = false;
 	try {
-		ok = await withWasm('lsp-keepalive', async () => {
-			if (lspHalted || wasmCrashed()) return false;
-			if (await peerAlreadyConnected()) return true;
-			return connectStoredLsp();
-		});
+		if (lspHalted || wasmCrashed()) return;
+		ok = (await peerAlreadyConnected()) || (await connectStoredLsp());
 	} catch (error: unknown) {
 		console.warn(
 			'[wallet-lsp] keepalive failed',

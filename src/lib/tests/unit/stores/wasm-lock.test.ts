@@ -4,6 +4,7 @@ import {
 	clearWasmCrash,
 	isWasmPanic,
 	lockedWallet,
+	releaseWasmQueue,
 	resetWasmLockForTests,
 	walletReloadRequired,
 	wasmCrashed,
@@ -36,6 +37,38 @@ describe('withWasm', () => {
 		await first;
 		await second;
 		expect(order).toEqual(['start-first', 'end-first', 'second']);
+	});
+
+	it('does not start a second call while the first is still running', async () => {
+		const order: string[] = [];
+		let release: () => void = () => undefined;
+		const first = withWasm('refresh', () => {
+			order.push('start-refresh');
+			return new Promise<void>((resolve) => {
+				release = () => {
+					order.push('end-refresh');
+					resolve();
+				};
+			});
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const second = withWasm('listUnspents', async () => {
+			order.push('utxos');
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(order).toEqual(['start-refresh']);
+		release();
+		await first;
+		await second;
+		expect(order).toEqual(['start-refresh', 'end-refresh', 'utxos']);
+	});
+
+	it('releases a panicked turn before the next call', async () => {
+		const hung = withWasm('refresh', () => new Promise<void>(() => undefined));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		releaseWasmQueue();
+		await expect(withWasm('connectPeer', async () => 'peer')).resolves.toBe('peer');
+		void hung;
 	});
 
 	it('runs a nested call inline', async () => {

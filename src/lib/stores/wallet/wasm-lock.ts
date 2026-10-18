@@ -25,6 +25,9 @@ let tail: Promise<unknown> = Promise.resolve();
 let depth = 0;
 let queued = 0;
 let crashed = false;
+/** True only during the synchronous start of the call that holds the queue. */
+let syncNest = false;
+let epoch = 0;
 const crashListeners = new Set<() => void>();
 let removePanicListener: (() => void) | null = null;
 
@@ -56,6 +59,16 @@ export function clearWasmCrash(): void {
 	crashed = false;
 }
 
+/** Drop a panicked turn so the next wallet can take the queue. */
+export function releaseWasmQueue(): void {
+	epoch += 1;
+	tail = Promise.resolve();
+	depth = 0;
+	queued = 0;
+	syncNest = false;
+	clearWasmCrash();
+}
+
 export function markWasmCrashed(): void {
 	if (crashed) return;
 	crashed = true;
@@ -79,37 +92,57 @@ function notePanic(label: string, error: unknown): void {
 
 /**
  * Run `fn` only after every earlier wasm call has settled.
- * A call made while one is already on the stack runs inline so SDK methods
- * that call back into the wallet cannot deadlock the queue.
+ * A nested call may run during the synchronous start of the holder.
+ * A call that arrives while the holder is awaiting waits until it finishes.
  */
 export function withWasm<T>(label: string, fn: () => Promise<T>): Promise<T> {
 	if (crashed) return Promise.reject(new Error(WASM_CRASH_MESSAGE));
-	if (depth > 0) {
+	if (syncNest) {
+		const ticket = epoch;
 		return Promise.resolve()
 			.then(fn)
 			.then(
 				(value) => value,
 				(error: unknown) => {
-					notePanic(label, error);
+					if (ticket === epoch) notePanic(label, error);
 					throw error;
 				}
 			);
 	}
+	const ticket = epoch;
 	queued += 1;
 	const run = tail.then(async () => {
+		if (ticket !== epoch) {
+			queued = Math.max(0, queued - 1);
+			throw new Error(WASM_CRASH_MESSAGE);
+		}
 		if (crashed) {
 			queued -= 1;
 			throw new Error(WASM_CRASH_MESSAGE);
 		}
 		depth += 1;
+		syncNest = true;
+		let pending: Promise<T>;
 		try {
-			return await fn();
+			pending = fn();
 		} catch (error) {
-			notePanic(label, error);
-			throw error;
-		} finally {
+			syncNest = false;
 			depth -= 1;
 			queued -= 1;
+			if (ticket === epoch) notePanic(label, error);
+			throw error;
+		}
+		syncNest = false;
+		try {
+			return await pending;
+		} catch (error) {
+			if (ticket === epoch) notePanic(label, error);
+			throw error;
+		} finally {
+			if (ticket === epoch) {
+				depth -= 1;
+				queued -= 1;
+			}
 		}
 	});
 	tail = run.then(
@@ -170,6 +203,8 @@ export function resetWasmLockForTests(): void {
 	tail = Promise.resolve();
 	depth = 0;
 	queued = 0;
+	syncNest = false;
+	epoch = 0;
 	crashed = false;
 	crashListeners.clear();
 }

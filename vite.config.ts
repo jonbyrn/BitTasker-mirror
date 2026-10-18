@@ -472,24 +472,25 @@ function rewriteUtexoWasmUrls(): Plugin {
       virtualPeerPubkeys: params.virtualPeerPubkeys,`
 				);
 			}
-			const virtualArm =
-				'nodeHandle.setRelaySessionAuth(\n          params.relayAuthToken ?? null,\n          params.relayNodeId ?? null\n        );\n      }';
-			if (updatedCode.includes(virtualArm)) {
-				updatedCode = updatedCode.replace(
-					virtualArm,
-					`${virtualArm}
-      if (nodeHandle && (params.enableVirtualChannelsV0 ?? params.enableVirtualChannels)) {
+			const runningVirtual = `      if (this.enableVirtualChannels) {
         try {
-          nodeHandle.setEnableVirtualChannelsV0(true);
-          const virtualPeers = params.virtualPeerPubkeys;
-          if (Array.isArray(virtualPeers) && typeof nodeHandle.setVirtualPeerPubkeys === "function") {
-            nodeHandle.setVirtualPeerPubkeys(virtualPeers);
-          }
+          this.nodeHandle.setEnableVirtualChannelsV0(true);
         } catch (e) {
-          logger.warn("RlnWasmBinding: virtual channels before start failed", e);
+          logger.warn("RlnWasmBinding: setEnableVirtualChannelsV0 failed", e);
         }
-      }`
-				);
+      }
+`;
+			if (updatedCode.includes(runningVirtual)) {
+				updatedCode = updatedCode.replace(runningVirtual, '');
+			}
+			const attachSync = `      try {
+        this.nodeHandle.chainSyncStartValue(this.defaultIndexerUrl, 36e5);
+      } catch (e) {
+        logger.warn("RlnWasmBinding: chainSyncStart on attach failed", e);
+      }
+`;
+			if (updatedCode.includes(attachSync)) {
+				updatedCode = updatedCode.replace(attachSync, '');
 			}
 			if (
 				updatedCode.includes('setDefaultRgbProxyTransport(params.transportEndpoint, null, null)')

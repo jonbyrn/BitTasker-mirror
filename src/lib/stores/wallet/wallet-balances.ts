@@ -389,11 +389,9 @@ export async function scanBtcBalance(
 		await wallet.syncWallet();
 	}
 	try {
-		const [btcBalance, address, unspents] = await Promise.all([
-			wallet.getBtcBalance(),
-			wallet.getAddress(),
-			wallet.listUnspents ? wallet.listUnspents().catch(() => []) : Promise.resolve([])
-		]);
+		const btcBalance = await wallet.getBtcBalance();
+		const address = await wallet.getAddress();
+		const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
 		return {
 			address,
 			balanceSats: sumSpendableSats(btcBalance),
@@ -860,32 +858,33 @@ async function pullIncomingOnce(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
-	await withWasm('pull-transfers', async () => {
-		if (wasmCrashed()) return;
-		if (wallet.goOnline && wallet.isOnline?.() !== true) {
-			await wallet.goOnline(RGB_INDEXER);
-		}
-		const pulled = rawRefresh(wallet);
-		if (pulled) {
-			// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
-			// beside it overlaps the same wasm wallet and throws a null pointer.
-			// The method must keep the wasm wallet as `this`; a detached call throws
-			// "null pointer passed to rust".
-			const assetId = options?.assetId ?? null;
-			const result = await Reflect.apply(pulled.raw.refreshValue as RefreshValue, pulled.raw, [
-				pulled.online,
-				assetId,
-				[],
-				options?.skipSync === true
-			]);
-			const failure = refreshEntries(result)
-				.map((entry) => readRefreshFailure(entry.failure))
-				.find((message) => message != null);
-			if (failure) throw new Error(failure);
-			return;
-		}
+	if (wasmCrashed()) return;
+	if (wallet.goOnline && wallet.isOnline?.() !== true) {
+		await wallet.goOnline(RGB_INDEXER);
+	}
+	const pulled = rawRefresh(wallet);
+	if (!pulled) {
 		if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
 		if (wallet.refreshWallet) await wallet.refreshWallet();
+		return;
+	}
+	await withWasm('pull-transfers', async () => {
+		if (wasmCrashed()) return;
+		// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
+		// beside it overlaps the same wasm wallet and throws a null pointer.
+		// The method must keep the wasm wallet as `this`; a detached call throws
+		// "null pointer passed to rust".
+		const assetId = options?.assetId ?? null;
+		const result = await Reflect.apply(pulled.raw.refreshValue as RefreshValue, pulled.raw, [
+			pulled.online,
+			assetId,
+			[],
+			options?.skipSync === true
+		]);
+		const failure = refreshEntries(result)
+			.map((entry) => readRefreshFailure(entry.failure))
+			.find((message) => message != null);
+		if (failure) throw new Error(failure);
 	});
 }
 
@@ -1283,7 +1282,7 @@ function armContractRefresh(): void {
 		const pending = ContractRune.snapshots().some((row) => PENDING_CONTRACT.has(row.status));
 		if (!pending || !state.utexoWallet || walletSendPending()) return;
 		contractRefreshPending = true;
-		withWasm('contract-refresh', () => loadAssets({ pull: true }))
+		loadAssets({ pull: true })
 			.catch((error: unknown) => {
 				console.warn('[wallet-refresh] pending contract refresh failed', error);
 			})
