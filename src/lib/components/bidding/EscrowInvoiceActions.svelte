@@ -3,8 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
-	import { receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
+	import { receiveEscrowInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { contractUsdtUnits, publishFundingInvoice } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
@@ -73,10 +72,7 @@
 			await walletManager.initialize();
 			const units = invoiceUnits;
 			if (units === null) throw new Error($t('bids.escrow_invoice_amount'));
-			const created = await receiveUsdtInvoice(amount);
-			if (created.blank || !invoiceMatchesAmount('usdt_rgb', created.invoice, units)) {
-				throw new Error($t('bids.escrow_invoice_amount'));
-			}
+			const created = await receiveEscrowInvoice(units);
 			await publishInvoice(created.invoice);
 			createdInvoice = created.invoice;
 			if (browser) localStorage.setItem(storageKey, created.invoice);

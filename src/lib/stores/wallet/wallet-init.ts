@@ -18,6 +18,7 @@ import {
 	rgbDatabasePresent,
 	scheduleRgbRefresh,
 	stopContractRefresh,
+	stopReceivePull,
 	scanBtcBalance,
 	parseRgbAssets
 } from './wallet-balances';
@@ -383,6 +384,7 @@ function armWasmPanicHooks(): void {
 	onWasmCrash(() => {
 		clearRefreshTimers();
 		stopContractRefresh();
+		stopReceivePull();
 		stopLspPolling();
 		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'attach' }));
 		walletStore.update((current) => ({
@@ -803,6 +805,7 @@ export function disconnectWallet(): void {
 	}
 	clearRefreshTimers();
 	stopContractRefresh();
+	stopReceivePull();
 	state.unsubscribeBlockWatch?.();
 	state.unsubscribeBlockWatch = null;
 	walletStore.set(structuredClone(initialState));

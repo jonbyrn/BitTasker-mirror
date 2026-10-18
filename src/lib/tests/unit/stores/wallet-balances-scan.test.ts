@@ -30,7 +30,8 @@ import {
 	scanBtcBalance,
 	setEsploraBackoffMs,
 	sumSpendableSats,
-	receiveUsdtInvoice
+	receiveUsdtInvoice,
+	receiveEscrowInvoice
 } from '$lib/stores/wallet/wallet-balances';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 
@@ -528,7 +529,7 @@ describe('acceptIncomingPayment', () => {
 		expect(createBackup).not.toHaveBeenCalled();
 		expect(failTransfers).not.toHaveBeenCalled();
 		expect(stored.get('a56d0ea6')).toEqual(backupBytes);
-		expect(refreshValue.mock.calls.map((call) => call[3])).toEqual([true]);
+		expect(refreshValue.mock.calls.map((call) => call[3])).toEqual([false]);
 		state.utexoWallet = null;
 		walletStore.set(structuredClone(initialState));
 		warn.mockRestore();
@@ -1013,6 +1014,24 @@ function fakeBackupDb(stored: Map<string, Uint8Array>) {
 		}
 	};
 }
+
+describe('receiveEscrowInvoice', () => {
+	it('asks for the accepted bid units and does not scale them again', async () => {
+		const held = 'rgb:f~held-usdt';
+		const invoice =
+			'rgb:f~held-usdt/~/adFZnbk/sb:utxob:taskee?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				ifa: [{ assetId: held, ticker: 'USDT', precision: 0, balance: { spendable: 1 } }]
+			}),
+			blindReceive
+		} as never);
+		const result = await receiveEscrowInvoice(100_000_000);
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 100_000_000 });
+		expect(result).toEqual({ invoice, units: 100_000_000 });
+	});
+});
 
 describe('receiveUsdtInvoice', () => {
 	const configured = 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs';

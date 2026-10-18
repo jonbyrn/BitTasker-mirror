@@ -16,6 +16,7 @@ import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveBatches } from './decode-rgb-invoice';
+import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
 import {
 	chainAllocation,
 	allocationCoversSpendable,
@@ -676,8 +677,11 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 		}));
 		await loadTransactions();
 		const incomingOnly = (heldUsdt?.balance ?? 0) > 0 && (heldUsdt?.spendable ?? 0) <= 0;
-		if (options?.pull !== false && (usdtBalance <= 0 || incomingOnly)) {
-			scheduleRgbRefresh(wallet);
+		if (options?.pull !== false) {
+			armReceivePull();
+			if (usdtBalance <= 0 || incomingOnly || receivePullDue()) {
+				scheduleRgbRefresh(wallet);
+			}
 		}
 	} catch (err) {
 		console.error('[wallet-balances] Error loading assets:', err);
@@ -1320,6 +1324,35 @@ const PENDING_CONTRACT = new Set([
 
 let contractRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let contractRefreshPending = false;
+let receivePullTimer: ReturnType<typeof setInterval> | null = null;
+let lastReceivePull = 0;
+
+const RECEIVE_PULL_MS = 20_000;
+
+/** A wallet that already holds USDT still has to ask the proxy for the next payment. */
+function receivePullDue(): boolean {
+	const now = Date.now();
+	if (now - lastReceivePull < RECEIVE_PULL_MS) return false;
+	lastReceivePull = now;
+	return true;
+}
+
+export function armReceivePull(): void {
+	if (receivePullTimer || typeof setInterval === 'undefined') return;
+	receivePullTimer = setInterval(() => {
+		if (wasmBusy() || wasmCrashed() || walletSendPending() || rgbRefreshTask) return;
+		const wallet = state.utexoWallet;
+		if (!wallet) return;
+		lastReceivePull = Date.now();
+		scheduleRgbRefresh(wallet);
+	}, RECEIVE_PULL_MS);
+}
+
+export function stopReceivePull(): void {
+	if (!receivePullTimer) return;
+	clearInterval(receivePullTimer);
+	receivePullTimer = null;
+}
 
 function armContractRefresh(): void {
 	if (contractRefreshTimer || typeof setInterval === 'undefined') return;
@@ -1524,14 +1557,12 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 	try {
 		const needsConsignment = !before.settled && before.spendable <= 0;
 		const timeout = refreshCap(timeoutMs);
-		const refresh = pullIncomingTransfers(wallet, { skipSync: !needsConsignment }).catch(
-			(error: unknown) => {
-				console.warn(
-					'[wallet-refresh] failed',
-					error instanceof Error ? error.message : String(error)
-				);
-			}
-		);
+		const refresh = pullIncomingTransfers(wallet, { skipSync: false }).catch((error: unknown) => {
+			console.warn(
+				'[wallet-refresh] failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
 		const outcome = await Promise.race([refresh.then(() => 'done' as const), timeout]);
 		if (outcome === 'timeout') {
 			console.warn('[wallet-refresh] stopped after 45s');
@@ -1634,6 +1665,29 @@ export async function cancelUnpaidInvoices(): Promise<number> {
  * `100000000` encodes as `adFZnbk`; the bot rejected both.
  */
 const NWCA_AMOUNT = 1111;
+
+/**
+ * Named USDT invoice for an accepted bid. `units` is already the contract amount.
+ * It is not scaled again by the asset precision.
+ */
+export async function receiveEscrowInvoice(units: number): Promise<{
+	invoice: string;
+	units: number;
+}> {
+	if (!Number.isSafeInteger(units) || units <= 0) {
+		throw new Error('Invoice amount does not match the contract');
+	}
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized');
+	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+	const assetId = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
+	if (!assetId) throw new Error('This wallet has no USDT to invoice');
+	const named = await createRgbInvoice({ assetId, amount: units });
+	if (!invoiceMatchesAmount('usdt_rgb', named.invoice, units)) {
+		throw new Error('Invoice amount does not match the contract');
+	}
+	return { invoice: named.invoice, units };
+}
 
 /**
  * Named invoice for USDT this wallet already lists, otherwise the signet faucet IFA.
