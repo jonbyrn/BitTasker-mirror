@@ -4,6 +4,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import TaskDeadlineDisplay from './TaskDeadlineDisplay.svelte';
@@ -38,7 +39,12 @@
 	const statusBadge = $derived(getStatusBadge(task.status));
 </script>
 
-<div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg" data-testid="task-card" data-task-id={task.id}>
+<div
+	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	class:opacity-60={task.status === TaskStatusEnum.COMPLETED}
+	data-testid="task-card"
+	data-task-id={task.id}
+>
 	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share (right) -->
 		<div class="flex items-start justify-between gap-2">

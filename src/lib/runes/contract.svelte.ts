@@ -24,6 +24,8 @@ import {
 	type SpendableNia
 } from '$lib/types/rgb-contract';
 import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-exchange';
+import { contractTaskId } from '$lib/utils/contract/contract-tabs';
+import { completeTask } from '$lib/nostr/task';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
@@ -734,6 +736,14 @@ export class ContractRune {
 				proof: proof.value
 			});
 			await this.attest('released', 'Escrow released');
+			const taskId = contractTaskId(this.contractId);
+			if (taskId) {
+				try {
+					await completeTask(taskId);
+				} catch (error) {
+					console.warn('[contract] task close failed', error);
+				}
+			}
 			return this.snapshot;
 		} catch (error) {
 			this.status = previous;

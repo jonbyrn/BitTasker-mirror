@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { updateTask } from '$lib/nostr/task';
+import { completeTask, updateTask } from '$lib/nostr/task';
+import { getSignedEvent } from '$lib/utils/nostr';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -144,5 +145,45 @@ describe('updateTask', () => {
 
 			expect(result).toBeDefined();
 		});
+	});
+});
+
+describe('completeTask', () => {
+	const eventId = 'c'.repeat(64);
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('publishes COMPLETED for the task behind a contract event id', async () => {
+		const { getNpub } = await import('$lib/utils/nostrKeys');
+		vi.mocked(getNpub).mockResolvedValue(TASK_AUTHOR_PUBKEY);
+		vi.mocked(nostrEventsService.requestEvents)
+			.mockResolvedValueOnce({ data: [] } as unknown as Awaited<
+				ReturnType<typeof nostrEventsService.requestEvents>
+			>)
+			.mockResolvedValueOnce({
+				data: [createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG)]
+			} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
+		vi.mocked(nostrEventsService.findEventById).mockResolvedValue({
+			data: { ...createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG), id: eventId }
+		} as unknown as Awaited<ReturnType<typeof nostrEventsService.findEventById>>);
+
+		await expect(completeTask(eventId)).resolves.toBe(true);
+
+		const signed = vi.mocked(getSignedEvent).mock.calls[0]?.[0];
+		expect(signed?.tags).toEqual(expect.arrayContaining([['S', TaskStatusEnum.COMPLETED]]));
+		expect(signed?.content).toContain(TaskStatusEnum.COMPLETED);
+	});
+
+	it('does not republish a task that is already completed', async () => {
+		const done = createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG);
+		done.content = JSON.stringify(createTaskContent({ status: TaskStatusEnum.COMPLETED }));
+		vi.mocked(nostrEventsService.requestEvents).mockResolvedValue({
+			data: [done]
+		} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
+
+		await expect(completeTask(D_TAG)).resolves.toBe(true);
+		expect(getSignedEvent).not.toHaveBeenCalled();
 	});
 });

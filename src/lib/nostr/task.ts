@@ -1,5 +1,6 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { TaskBody } from '$lib/types/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -116,10 +117,7 @@ async function publishTaskEvent(content: string, tags: string[][]): Promise<stri
 
 export async function createTask(taskData: TaskBody): Promise<string> {
 	const dTag = taskDTag(taskData);
-	if (
-		hasExactCoords(taskData.pickupLocation) ||
-		hasExactCoords(taskData.dropOffLocation)
-	) {
+	if (hasExactCoords(taskData.pickupLocation) || hasExactCoords(taskData.dropOffLocation)) {
 		const companionPublish = publishExactTaskLocations({
 			entityId: dTag,
 			pickupLocation: taskData.pickupLocation ?? null,
@@ -201,6 +199,45 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			? [['L', approximateLocation(nextTask.pickupLocation)?.displayName ?? '']]
 			: [])
 	]);
+}
+
+async function findTaskByKey(taskKey: string): Promise<NostrEvent> {
+	try {
+		return await findTaskEvent(taskKey);
+	} catch (error) {
+		if (!(error instanceof Error) || error.message !== 'Task not found') throw error;
+	}
+	if (!/^[0-9a-f]{64}$/i.test(taskKey)) throw new Error('Task not found');
+	const found = await nostrEventsService.findEventById(taskKey);
+	if (!found.data) throw new Error('Task not found');
+	return found.data;
+}
+
+/**
+ * Mark the task COMPLETED after escrow release.
+ * Same rule as production: the tasker publishes the replaceable, which closes bidding.
+ */
+export async function completeTask(taskKey: string): Promise<boolean> {
+	const key = taskKey.trim();
+	if (!key) return false;
+	let event: NostrEvent;
+	try {
+		event = await findTaskByKey(key);
+	} catch (error) {
+		console.warn('[task] complete lookup failed', error);
+		return false;
+	}
+	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+	if (!dTag) return false;
+	let current: TaskBody;
+	try {
+		current = JSON.parse(event.content) as TaskBody;
+	} catch {
+		return false;
+	}
+	if (current.status === TaskStatusEnum.COMPLETED) return true;
+	await updateTask(dTag, { status: TaskStatusEnum.COMPLETED });
+	return true;
 }
 
 export async function deleteTask(taskId: string, eventId?: string): Promise<string> {
