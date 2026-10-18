@@ -62,6 +62,10 @@ vi.mock('$lib/stores/wallet/signet-lsp', () => ({
 	lightningStore: lightningState
 }));
 
+vi.mock('$lib/nostr/task', () => ({
+	assignTask: vi.fn().mockResolvedValue(true)
+}));
+
 vi.mock('$lib/runes/contract.svelte', () => ({
 	ContractRune: class {
 		status = 'draft';

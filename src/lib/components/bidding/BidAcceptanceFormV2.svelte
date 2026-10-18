@@ -233,6 +233,12 @@
 		};
 	}
 
+	function acceptedTaskKey(current: NDKTask): string {
+		const readTag = current.tagValue;
+		if (typeof readTag !== 'function') return current.id;
+		return readTag.call(current, 'd') || current.id;
+	}
+
 	async function handleAcceptAndFund(): Promise<void> {
 		if (!bidContent) {
 			errorMessage = 'Bid content is unavailable';
@@ -264,7 +270,7 @@
 				bidderPubkey,
 				message: 'Bid accepted'
 			});
-			const taskKey = task.tagValue('d') || task.id;
+			const taskKey = acceptedTaskKey(task);
 			if (taskKey) {
 				assignTask(taskKey).catch((error: unknown) => {
 					console.warn('[accept-fund] task assign failed', error);
@@ -290,7 +296,7 @@
 					bidderPubkey,
 					message: 'Bid accepted'
 				});
-				const taskKey = task.tagValue('d') || task.id;
+				const taskKey = acceptedTaskKey(task);
 				if (taskKey) {
 					assignTask(taskKey).catch((error: unknown) => {
 						console.warn('[accept-fund] task assign failed', error);
