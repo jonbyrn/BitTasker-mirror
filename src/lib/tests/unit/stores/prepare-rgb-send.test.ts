@@ -348,9 +348,9 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(allocationCoversSpendable({ ...spentOnly, unknown: true }, 100_000_000)).toBe(false);
 	});
 
-	it('spends a live seal when another listed seal is already spent', async () => {
+	it('refuses before building when a spent seal is still listed', async () => {
 		const assetId = 'rgb:f~usdt';
-		const spentTx = 'c67397ba'.padEnd(64, 'c');
+		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
 		await expect(
 			prepareRgbOnchainSend(
@@ -380,7 +380,61 @@ describe('prepareRgbOnchainSend helpers', () => {
 					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
+		).rejects.toThrow(`${spentTx}:0 was already spent`);
+	});
+
+	it('voids a non-settled send on a spent seal and then continues', async () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = 'c42971b1'.padEnd(64, 'c');
+		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		const failTransfers = vi.fn(async () => true);
+		let listed = true;
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listTransfers: async () => [
+						{ kind: 'Send', status: 'WaitingConfirmations', batchTransferIdx: 7, txid: spentTx }
+					],
+					failTransfers,
+					listUnspents: async () => {
+						const spent = listed
+							? [
+									{
+										rgbAllocations: [
+											{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }
+										],
+										utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 0 } }
+									}
+								]
+							: [];
+						listed = false;
+						return [
+							...spent,
+							{
+								rgbAllocations: [
+									{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }
+								],
+								utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 1 } }
+							},
+							{
+								rgbAllocations: [],
+								utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+							}
+						];
+					},
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 130_000_000 } }]
+					})
+				},
+				assetId,
+				130_000_000,
+				async (txid) =>
+					txid === spentTx ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
+				30_000_000
+			)
 		).resolves.toBeUndefined();
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 7, skipSync: true });
 	});
 
 	it('refuses the send when an allocation output is already spent', async () => {

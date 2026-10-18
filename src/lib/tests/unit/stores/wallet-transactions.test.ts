@@ -35,6 +35,11 @@ describe('mergeHistory', () => {
 		expect(merged.some((item) => item.description === 'rgb usdt')).toBe(true);
 	});
 
+	it('keeps the last history when a reload lists nothing', () => {
+		const kept = row({ status: 'confirmed', description: 'RGB transfer' });
+		expect(mergeHistory([kept], [])).toEqual([kept]);
+	});
+
 	it('drops the pending USDT send once the RGB transfer is listed', () => {
 		const merged = mergeHistory(
 			[row({})],

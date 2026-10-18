@@ -134,7 +134,8 @@ export function summarizeUtxoKinds(kinds: readonly string[]): {
 } {
 	const colored = kinds.filter((kind) => kind === 'colored').length;
 	const locked = kinds.filter((kind) => kind === 'locked').length;
-	return { colored, locked, available: kinds.length - colored - locked };
+	const receiving = kinds.filter((kind) => kind === 'receiving').length;
+	return { colored, locked, available: kinds.length - colored - locked - receiving };
 }
 
 const SIGNET_TX_BASE = 'https://esplora-api.utexo.com/tx/';

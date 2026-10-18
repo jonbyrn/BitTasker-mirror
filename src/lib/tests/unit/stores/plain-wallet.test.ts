@@ -29,7 +29,7 @@ describe('walletChip', () => {
 				connected: true,
 				hasError: false
 			})
-		).toBe('getting_ready');
+		).toBe('ready');
 	});
 
 	it('is ready only when the wallet is open and quiet', () => {

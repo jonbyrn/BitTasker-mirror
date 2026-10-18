@@ -8,12 +8,13 @@ import { soleIfaAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { contractAssetId, decodeRgbInvoice } from './decode-rgb-invoice';
 import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
 import {
+	acceptNextUsdtDrop,
 	flushWalletState,
 	loadAssets,
 	persistWalletSnapshot,
 	pullIncomingTransfers
 } from './wallet-balances';
-import { changeStillBooked, prepareRgbOnchainSend } from './prepare-rgb-send';
+import { changeStillBooked, isBdkAddUtxoError, prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import { rememberUsdtSend } from './wallet-transactions';
 import type { Transaction } from './wallet-types';
@@ -149,6 +150,7 @@ function recordSentUsdt(txid: string, units: number): void {
 		txHash: txid,
 		description: 'rgb usdt'
 	};
+	acceptNextUsdtDrop();
 	rememberUsdtSend(row);
 	walletStore.update((current) => ({
 		...current,
@@ -209,14 +211,20 @@ export async function sendRgbAsset(params: {
 	});
 	let psbt: string;
 	try {
-		psbt = await buildEscrowPsbt(signer, {
-			invoice,
-			assetId,
-			amount: units,
-			feeRate: 2
-		});
+		psbt = await callWithDeadline(
+			buildEscrowPsbt(signer, {
+				invoice,
+				assetId,
+				amount: units,
+				feeRate: 2
+			}),
+			RGB_BUILD_MS,
+			'USDT send stopped before it was built. Nothing was sent.'
+		);
 	} catch (error: unknown) {
-		const message = describeThrown(error);
+		const message = isBdkAddUtxoError(error)
+			? 'This USDT output was already spent. Nothing was sent.'
+			: describeThrown(error);
 		console.error(
 			'[wallet-send] onchainSendBegin rejected',
 			message,
@@ -276,8 +284,11 @@ export interface SendBtcParams {
 	skipSync?: boolean;
 }
 
-/** On-chain send must not sit on a spinner with no txid. */
-export const BTC_SEND_MS = 45_000;
+/** On-chain send must not sit on a spinner with no txid. A real send can take about 70s. */
+export const BTC_SEND_MS = 120_000;
+
+/** RGB PSBT build must fail in seconds when a spent seal is still listed. */
+export const RGB_BUILD_MS = 20_000;
 const IDLE_WAIT_MS = 8_000;
 
 export function callWithDeadline<T>(work: Promise<T>, ms: number, message: string): Promise<T> {

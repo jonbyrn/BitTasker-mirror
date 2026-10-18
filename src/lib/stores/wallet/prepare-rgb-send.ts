@@ -242,13 +242,22 @@ export function spentBlocksSend(chain: ChainAllocation, amount: number): boolean
 	return chain.live < amount;
 }
 
-function withoutSpentSeals(unspents: RgbUnspentRef[], spent: SpentSeal[]): RgbUnspentRef[] {
-	const gone = new Set(spent.map((row) => `${row.txid.toLowerCase()}:${row.vout}`));
-	return unspents.filter((row) => {
-		const outpoint = sealOutpoint(row);
-		if (!outpoint) return true;
-		return !gone.has(`${outpoint.txid}:${outpoint.vout}`);
-	});
+/** Non-settled sends sitting on an outpoint Esplora already spent. Settled receives stay. */
+export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]): number[] {
+	const ids = new Set(spent.map((row) => row.txid.toLowerCase()));
+	const indexes = transfers
+		.filter((transfer) => {
+			const txid = transfer.txid?.toLowerCase();
+			return (
+				transfer.kind === 'Send' &&
+				transfer.status !== 'Settled' &&
+				transfer.status !== 'Failed' &&
+				Boolean(txid) &&
+				ids.has(txid)
+			);
+		})
+		.map((transfer) => transfer.batchTransferIdx);
+	return [...new Set(indexes)];
 }
 
 function allocationUnits(unspent: RgbUnspentRef, assetId: string): number {
@@ -358,6 +367,16 @@ type PrepareWallet = {
 		feeRate?: number;
 	}) => Promise<number>;
 };
+
+/** Drop a non-settled send whose outpoint Esplora already spent, then the caller re-lists seals. */
+async function voidSpentSeals(wallet: PrepareWallet, spent: SpentSeal[]): Promise<void> {
+	if (!wallet.listTransfers || !wallet.failTransfers || spent.length === 0) return;
+	const transfers = await wallet.listTransfers().catch(() => []);
+	const batches = spentSealBatches(transfers, spent);
+	for (const batchTransferIdx of batches) {
+		await wallet.failTransfers({ batchTransferIdx, skipSync: true }).catch(() => false);
+	}
+}
 
 async function syncWalletState(wallet: PrepareWallet): Promise<void> {
 	if (wallet.syncWallet) await wallet.syncWallet();
@@ -586,15 +605,18 @@ export async function prepareRgbOnchainSend(
 			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
 				? sendAmount
 				: spendable;
-		if (spentBlocksSend(chain, needed)) {
-			throw new Error(
-				spentSealMessage(chain.spent) ?? 'Refusing onchainSend: USDT output is already spent'
-			);
+		let rows = unspents;
+		if (chain.spent.length > 0 && !chain.unknown) {
+			await voidSpentSeals(wallet, chain.spent);
+			rows = await readUnspents(wallet);
+			const after = await chainAllocation(rows, assetId, probe);
+			if (after.spent.length > 0 || spentBlocksSend(after, needed)) {
+				throw new Error(
+					spentSealMessage(after.spent) ??
+						'Refusing onchainSend: USDT output is already spent. Nothing was sent.'
+				);
+			}
 		}
-		const rows =
-			chain.spent.length > 0 && !chain.unknown
-				? withoutSpentSeals(unspents, chain.spent)
-				: unspents;
 		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
 		const blocker = sealSendBlocker(rows, assetId, usable);
 		if (blocker) throw new Error(blocker);

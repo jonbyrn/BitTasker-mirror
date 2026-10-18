@@ -9,6 +9,7 @@ export function walletChip(input: {
 	hasError: boolean;
 }): WalletChip {
 	if (input.locked) return 'locked';
+	if (input.connected && !input.hasError) return 'ready';
 	if (input.syncing || input.initializing) return 'getting_ready';
 	if (input.hasError || !input.connected) return 'offline';
 	return 'ready';

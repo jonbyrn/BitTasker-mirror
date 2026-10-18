@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
@@ -131,6 +131,7 @@
 		}
 		if (asset === 'usdt_rgb') {
 			isGenerating = true;
+			await tick();
 			usedBlank = false;
 			receiveValue = '';
 			invoiceAmount = '';
@@ -224,45 +225,51 @@
 		errorMessage = '';
 		receiveValue = '';
 		qrUrl = '';
+		isGenerating = true;
+		await tick();
 		const dollars = Number(amountSats);
 		const hasAmount = !skip && Number.isFinite(dollars) && dollars > 0;
 		shownDollars = hasAmount ? `$${dollars.toFixed(2)}` : '';
-		if (simpleKind === 'bitcoin') {
-			if (hasAmount && lightningReady && btcPrice.price > 0) {
-				asset = 'btc_lightning';
-				amountSats = String(Math.max(1, Math.round((dollars / btcPrice.price) * 100_000_000)));
-				await handleGenerate();
-				if (receiveValue) {
-					simpleStep = 'ready';
-					await paintQr(receiveValue);
-					return;
+		try {
+			if (simpleKind === 'bitcoin') {
+				if (hasAmount && lightningReady && btcPrice.price > 0) {
+					asset = 'btc_lightning';
+					amountSats = String(Math.max(1, Math.round((dollars / btcPrice.price) * 100_000_000)));
+					await handleGenerate();
+					if (receiveValue) {
+						simpleStep = 'ready';
+						await paintQr(receiveValue);
+						return;
+					}
 				}
-			}
-			asset = 'btc_onchain';
-			await handleGenerate();
-		} else {
-			if (hasAmount && lightningUsdtReady) {
-				asset = 'usdt_ln';
-				amountSats = String(dollars);
+				asset = 'btc_onchain';
 				await handleGenerate();
-				if (receiveValue) {
-					simpleStep = 'ready';
-					await paintQr(receiveValue);
-					return;
+			} else {
+				if (hasAmount && lightningUsdtReady) {
+					asset = 'usdt_ln';
+					amountSats = String(dollars);
+					await handleGenerate();
+					if (receiveValue) {
+						simpleStep = 'ready';
+						await paintQr(receiveValue);
+						return;
+					}
 				}
+				asset = 'usdt_rgb';
+				amountSats = hasAmount ? String(dollars) : '';
+				await handleGenerate();
 			}
-			asset = 'usdt_rgb';
-			amountSats = hasAmount ? String(dollars) : '';
-			await handleGenerate();
+			if (!receiveValue) {
+				errorMessage = errorMessage || 'The invoice was not created.';
+				return;
+			}
+			heldInvoice = receiveValue;
+			heldDollars = shownDollars;
+			simpleStep = 'ready';
+			void paintQr(receiveValue);
+		} finally {
+			isGenerating = false;
 		}
-		if (!receiveValue) {
-			errorMessage = errorMessage || 'The invoice was not created.';
-			return;
-		}
-		heldInvoice = receiveValue;
-		heldDollars = shownDollars;
-		simpleStep = 'ready';
-		void paintQr(receiveValue);
 	}
 
 	onMount(() => {
@@ -455,10 +462,10 @@
 
 		{#if asset === 'usdt_rgb' && previewRaw !== null && !receiveValue}
 			<p class="text-sm" data-testid="receive-usdt-preview">
-				{$t('wallet.taproot.invoice_preview', {
-					values: { amount: formatUsdtBalance(previewRaw, usdtScale), raw: String(previewRaw) }
+				{$t('wallet.taproot.invoice_usdt', {
+					values: { amount: formatUsdtBalance(previewRaw, usdtScale) }
 				})}
-				<span data-testid="receive-usdt-raw">{previewRaw}</span>
+				<span class="sr-only" data-testid="receive-usdt-raw">{previewRaw}</span>
 			</p>
 		{/if}
 
@@ -489,6 +496,13 @@
 		{#if usdtUnconfigured || usedBlank}
 			<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
 				{$t('wallet.taproot.utexo_bot_hint')}
+			</p>
+		{/if}
+
+		{#if isGenerating}
+			<p class="flex items-center gap-2 text-sm" role="status" data-testid="receive-creating">
+				<span class="loading loading-spinner loading-sm"></span>
+				{$t('wallet.simple.preparing')}
 			</p>
 		{/if}
 

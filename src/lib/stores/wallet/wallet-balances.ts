@@ -637,7 +637,8 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
 			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
-			rgbAssets = capUnspentUsdt(await resyncChainGap(wallet, rgbAssets, options?.pull !== false));
+			rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
+			rgbAssets = holdUsdtBalance(rgbAssets, previousAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -821,6 +822,34 @@ export function readRefreshFailure(failure: unknown): string | null {
 	}
 	const [name] = Object.keys(failure);
 	return name ?? null;
+}
+
+let acceptUsdtDrop = false;
+
+/** The next balance read may show a lower USDT figure. A failed send must not. */
+export function acceptNextUsdtDrop(): void {
+	acceptUsdtDrop = true;
+}
+
+/** Keep the last USDT figure until a send has succeeded. */
+export function holdUsdtBalance(
+	next: readonly RgbAsset[],
+	previous: readonly RgbAsset[]
+): RgbAsset[] {
+	const allowDrop = acceptUsdtDrop;
+	acceptUsdtDrop = false;
+	if (allowDrop) return [...next];
+	return next.map((asset) => {
+		if (asset.symbol?.toUpperCase() !== 'USDT') return asset;
+		const prior = previous.find((row) => row.assetId === asset.assetId && row.balance > 0);
+		if (!prior || prior.balance <= asset.balance) return asset;
+		return {
+			...asset,
+			balance: prior.balance,
+			spendable: prior.spendable ?? prior.balance,
+			formattedBalance: prior.formattedBalance
+		};
+	});
 }
 
 /** Show the unspent amount when RGB still lists a seal the chain already spent. */

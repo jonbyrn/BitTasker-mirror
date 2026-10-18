@@ -48,6 +48,7 @@
 
 	let initializationError = $state<string | null>(null);
 	let operationMessage = $state<string | null>(null);
+	let sentHref = $state<string | null>(null);
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
 	let utxos = $state<WalletUtxoRow[]>([]);
@@ -57,11 +58,9 @@
 	let lightningUsdtUnits = $state(0);
 	let showAllHistory = $state(false);
 	let showDetails = $state(false);
-	let openHistory = $state<string | null>(null);
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
-	const receiveLocked = $derived(blindReceives.some((row) => !row.txid));
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -153,7 +152,7 @@
 		let units = 0;
 		let waiting = false;
 		for (const row of blindReceives) {
-			if (row.txid) continue;
+			if (!row.txid) continue;
 			waiting = true;
 			try {
 				const amount = decodeRgbInvoice(row.invoice).amount;
@@ -366,15 +365,20 @@
 	function handleSent(txid: string): void {
 		if (!txid) {
 			operationMessage = null;
+			sentHref = null;
 			return;
 		}
 		const notice = ++sentNotice;
+		sentHref = signetTxUrl(txid);
 		operationMessage = /^[0-9a-f]{64}$/i.test(txid)
 			? text($t('wallet.toast.sent_successfully', { values: { txid } }), `Sent ${txid}`)
 			: translate('wallet.toast.sent_successfully', 'Sent');
 		setTimeout(() => {
-			if (sentNotice === notice) operationMessage = null;
-		}, 8000);
+			if (sentNotice === notice) {
+				operationMessage = null;
+				sentHref = null;
+			}
+		}, 60_000);
 		refreshTransfers().catch((error: unknown) => {
 			console.error('[wallet-page] balance reload failed:', error);
 		});
@@ -485,7 +489,17 @@
 	{/if}
 
 	{#if operationMessage}
-		<div class="alert alert-outline alert-success" role="status">{operationMessage}</div>
+		<div
+			class="alert alert-outline alert-success break-all"
+			role="status"
+			data-testid="sent-notice"
+		>
+			{#if sentHref}
+				<a href={sentHref} target="_blank" rel="noopener noreferrer">{operationMessage}</a>
+			{:else}
+				<span>{operationMessage}</span>
+			{/if}
+		</div>
 	{/if}
 
 	<div class="join grid grid-cols-2" role="group" data-testid="wallet-mode">
@@ -622,22 +636,18 @@
 			<div class="card-body gap-0 p-0">
 				<div class="flex items-center justify-between gap-3 px-4 py-2">
 					<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
-					{#if $walletStore.locked}
+					{#if statusChip === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
 							{translate('wallet.locked', 'Locked')}
 						</span>
-					{:else if $walletStore.syncing}
-						<span class="badge badge-info badge-sm" data-testid="wallet-syncing">
-							{translate('wallet.syncing', 'Syncing')}
-						</span>
-					{:else if $walletStore.isConnected && $walletStore.rgb?.initialized}
+					{:else if statusChip === 'ready'}
 						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
 							{translate('wallet.tab_connected', 'Connected')}
 						</span>
-					{:else if $walletStore.isInitializing}
-						<span class="badge badge-warning badge-sm gap-2">
+					{:else if statusChip === 'getting_ready'}
+						<span class="badge badge-ghost badge-sm gap-2" data-testid="wallet-getting-ready">
 							<span class="loading loading-spinner loading-xs"></span>
-							{translate('wallet.loading', 'Loading wallet')}
+							{$t('wallet.simple.getting_ready')}
 						</span>
 					{:else}
 						<span class="badge badge-ghost badge-sm">
@@ -855,10 +865,8 @@
 							<p class="text-base-content/60 truncate text-sm">
 								{historyLabel(transaction.type, transaction.description)}
 							</p>
-							{#if advanced || openHistory === transaction.id}
-								<p class="truncate font-mono text-xs" title={txid}>
-									{shortOutpoint(txid)}
-								</p>
+							{#if txid}
+								<p class="font-mono text-xs break-all" title={txid}>{txid}</p>
 							{/if}
 							<p class="text-base-content/50 text-xs">
 								{formatRelativeTime(transaction.timestamp, Date.now(), $locale || 'en')}
@@ -868,7 +876,7 @@
 							{rgb ? `$${amount}` : amount}
 						</p>
 					{/snippet}
-					{#if advanced && explorerUrl}
+					{#if explorerUrl}
 						<a
 							class={rowClass}
 							href={explorerUrl}
@@ -879,15 +887,9 @@
 							{@render historyBody()}
 						</a>
 					{:else}
-						<button
-							type="button"
-							class="{rowClass} min-h-12 text-left"
-							onclick={() => {
-								openHistory = openHistory === transaction.id ? null : transaction.id;
-							}}
-						>
+						<div class="{rowClass} min-h-12 text-left">
 							{@render historyBody()}
-						</button>
+						</div>
 					{/if}
 				{/each}
 			</div>
@@ -1026,7 +1028,6 @@
 		<button
 			class="btn btn-neutral min-h-12 gap-2"
 			type="button"
-			disabled={receiveLocked}
 			onclick={() => (isReceiveOpen = true)}
 		>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -1050,7 +1051,6 @@
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
 		<ReceivePaymentForm
 			onClose={handleReceiveClose}
-			onchainLocked={receiveLocked}
 			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}
 			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
 		/>

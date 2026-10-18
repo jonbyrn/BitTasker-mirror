@@ -4,7 +4,7 @@ export interface AllocationUtxo {
 	pendingBlinded?: number;
 }
 
-export type WalletUtxoKind = 'free' | 'locked' | 'colored' | 'vanilla';
+export type WalletUtxoKind = 'free' | 'locked' | 'colored' | 'vanilla' | 'receiving';
 
 export interface WalletUtxoRow {
 	id: string;
@@ -34,7 +34,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function utxoKind(colorable: boolean, allocations: number, pendingBlinded: number): WalletUtxoKind {
-	if (pendingBlinded > 0) return 'locked';
+	if (pendingBlinded > 0) return 'receiving';
 	if (allocations > 0) return 'colored';
 	return colorable ? 'free' : 'vanilla';
 }

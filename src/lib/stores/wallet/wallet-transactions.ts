@@ -3,6 +3,7 @@ import { escrowHistoryEntries } from './escrow-history';
 import { isUsdtHistory } from './plain-wallet';
 import { walletStore } from './wallet-state';
 import { state } from './wallet-state';
+import { restoreKnownHistory } from './wallet-snapshot';
 import type { Transaction } from './wallet-types';
 
 function rgbAssetIds(raw: unknown): string[] {
@@ -102,6 +103,9 @@ export function mergeHistory(
 	current: readonly Transaction[],
 	next: readonly Transaction[]
 ): Transaction[] {
+	if (next.length === 0) {
+		return [...current].sort((left, right) => right.timestamp - left.timestamp);
+	}
 	const seen = new Set(next.map((row) => (row.txHash || row.id).toLowerCase()));
 	const usdtSeen = new Set(
 		next
@@ -121,6 +125,12 @@ export function mergeHistory(
 export async function loadTransactions(): Promise<void> {
 	const wallet = state.utexoWallet;
 	if (!wallet) return;
+	await restoreKnownHistory().catch((error: unknown) => {
+		console.warn(
+			'[wallet-transactions] history restore skipped',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
 
 	try {
 		const [records, listed] = await Promise.all([

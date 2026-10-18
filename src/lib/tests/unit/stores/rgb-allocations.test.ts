@@ -47,7 +47,7 @@ describe('parseWalletUtxos', () => {
 			},
 			{ utxo: { exists: false, colorable: true }, rgbAllocations: [] }
 		]);
-		expect(rows.map((row) => row.kind)).toEqual(['free', 'colored', 'locked', 'vanilla']);
+		expect(rows.map((row) => row.kind)).toEqual(['free', 'colored', 'receiving', 'vanilla']);
 		expect(rows[0]).toMatchObject({ outpoint: 'aa:1', sats: 1000, allocations: 0 });
 		expect(rows[1]?.allocations).toBe(1);
 	});

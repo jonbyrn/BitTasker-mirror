@@ -52,6 +52,17 @@ export async function readWalletSnapshot(key = userKey()): Promise<WalletSnapsho
 	});
 }
 
+/** Show the last saved transfers when a reload has not listed any yet. */
+export async function restoreKnownHistory(): Promise<void> {
+	if (get(walletStore).transactions.length > 0) return;
+	const saved = await readWalletSnapshot();
+	if (!saved?.transactions?.length) return;
+	walletStore.update((current) => {
+		if (current.transactions.length > 0) return current;
+		return { ...current, transactions: saved.transactions };
+	});
+}
+
 /** Read the last saved balances. The locked screen does not apply this. */
 export async function hydrateWalletSnapshot(): Promise<void> {
 	let saved: WalletSnapshot | null = null;
