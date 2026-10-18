@@ -217,6 +217,35 @@ async function findTaskByKey(taskKey: string): Promise<NostrEvent> {
  * Mark the task COMPLETED after escrow release.
  * Same rule as production: the tasker publishes the replaceable, which closes bidding.
  */
+/** Mark the task in progress when a bid is accepted so bidding closes. */
+export async function assignTask(taskKey: string): Promise<boolean> {
+	const key = taskKey.trim();
+	if (!key) return false;
+	let event: NostrEvent;
+	try {
+		event = await findTaskByKey(key);
+	} catch (error) {
+		console.warn('[task] assign lookup failed', error);
+		return false;
+	}
+	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+	if (!dTag) return false;
+	let current: TaskBody;
+	try {
+		current = JSON.parse(event.content) as TaskBody;
+	} catch {
+		return false;
+	}
+	if (
+		current.status === TaskStatusEnum.IN_PROGRESS ||
+		current.status === TaskStatusEnum.COMPLETED
+	) {
+		return true;
+	}
+	await updateTask(dTag, { status: TaskStatusEnum.IN_PROGRESS });
+	return true;
+}
+
 export async function completeTask(taskKey: string): Promise<boolean> {
 	const key = taskKey.trim();
 	if (!key) return false;

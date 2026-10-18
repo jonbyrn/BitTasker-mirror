@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	WASM_CRASH_MESSAGE,
+	clearWasmCrash,
 	isWasmPanic,
 	lockedWallet,
 	resetWasmLockForTests,
@@ -62,6 +63,9 @@ describe('withWasm', () => {
 		expect(isWasmPanic('closure invoked recursively or after being dropped')).toBe(true);
 		await expect(withWasm('listChannels', async () => 'nope')).rejects.toThrow(WASM_CRASH_MESSAGE);
 		expect(walletReloadRequired(WASM_CRASH_MESSAGE)).toBe(true);
+		clearWasmCrash();
+		await expect(withWasm('listChannels', async () => 'ok')).resolves.toBe('ok');
+		expect(wasmCrashed()).toBe(false);
 		warn.mockRestore();
 	});
 });

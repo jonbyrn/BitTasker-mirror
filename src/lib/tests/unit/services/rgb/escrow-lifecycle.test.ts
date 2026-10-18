@@ -5,6 +5,7 @@ import { payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { publishToMultipleRelays } from '$lib/utils/nostr';
 
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
@@ -386,6 +387,25 @@ describe('escrow lifecycle', () => {
 		expect(released.status).toBe('released');
 		expect(released.proofs[0]?.kind).toBe('txid');
 		expect(released.payoutInvoice).toBe(PRICED);
+	});
+
+	it('keeps the last shared status when the relay does not acknowledge a settlement', async () => {
+		const rune = new ContractRune({
+			contractId: 'contract-lifecycle',
+			totalAmountUsd: 10,
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		vi.mocked(publishToMultipleRelays).mockResolvedValueOnce([]);
+		await expect(rune.requestSettlement(PRICED, 10_000_000)).rejects.toThrow(
+			/could not be published/
+		);
+		expect(rune.snapshot.status).toBe('approved');
 	});
 
 	function lightningContract(id: string) {

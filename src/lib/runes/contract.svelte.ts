@@ -560,8 +560,7 @@ export class ContractRune {
 		if (this.status !== 'funded' && this.status !== 'locked') {
 			throw new Error(`Cannot start contract from ${this.status} state`);
 		}
-		this.status = 'work_in_progress';
-		await this.attest('work_in_progress');
+		await this.commitStatus('work_in_progress');
 		return this.snapshot;
 	}
 
@@ -579,10 +578,7 @@ export class ContractRune {
 		}
 		this.workMessage = deliverable || undefined;
 		this.proofUrl = proofUrl?.trim() || undefined;
-		this.status = 'work_submitted';
-		this.error = null;
-		await this.attest('work_submitted', this.workMessage, this.proofUrl);
-		this.error = null;
+		await this.commitStatus('work_submitted', this.workMessage, this.proofUrl);
 		return this.snapshot;
 	}
 
@@ -590,10 +586,7 @@ export class ContractRune {
 		if (this.status !== 'work_submitted') {
 			throw new Error(`Cannot approve work from ${this.status} state`);
 		}
-		this.status = 'approved';
-		this.error = null;
-		await this.attest('approved', 'Work approved');
-		this.error = null;
+		await this.commitStatus('approved', 'Work approved');
 		return this.snapshot;
 	}
 
@@ -681,9 +674,7 @@ export class ContractRune {
 		this.settlementInvoice = next;
 		this.settlementAmount = amount;
 		this.payoutInvoice = next;
-		this.status = 'settlement_requested';
-		this.error = null;
-		await this.attest('settlement_requested');
+		await this.commitStatus('settlement_requested');
 		return this.snapshot;
 	}
 
@@ -889,6 +880,23 @@ export class ContractRune {
 		this.status = 'funded';
 		this.error = null;
 		return this.snapshot;
+	}
+
+	/** Publish first. The shared history is the only status the other party can see. */
+	private async commitStatus(
+		status: ContractRuneStatus,
+		reason?: string,
+		proofUrl?: string
+	): Promise<void> {
+		const previous = this.status;
+		this.status = status;
+		try {
+			await this.attest(status, reason, proofUrl);
+			this.error = null;
+		} catch (error) {
+			this.status = previous;
+			throw error;
+		}
 	}
 
 	private async attest(

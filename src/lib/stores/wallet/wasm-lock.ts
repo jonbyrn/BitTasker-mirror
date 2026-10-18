@@ -52,6 +52,11 @@ export function onWasmCrash(listener: () => void): () => void {
 	return () => crashListeners.delete(listener);
 }
 
+/** Allow a new engine after the dead instance has been dropped. */
+export function clearWasmCrash(): void {
+	crashed = false;
+}
+
 export function markWasmCrashed(): void {
 	if (crashed) return;
 	crashed = true;

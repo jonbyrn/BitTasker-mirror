@@ -15,6 +15,7 @@
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import { subscribeContract } from '$lib/services/contracts/contract-sync';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { contractStatusKey } from '$lib/utils/contract/contract-tabs';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -85,7 +86,7 @@
 		return `$${formatNumberWithTwoDecimals(snapshot.lockedAmount)}`;
 	});
 	const settlementUnit = $derived(
-		snapshot ? CONTRACT_PAYMENT_ASSETS[snapshot.split.primaryAsset] : 'Bitcoin'
+		snapshot ? CONTRACT_PAYMENT_ASSETS[snapshot.split.primaryAsset] : ''
 	);
 	const canSubmitDeliverable = $derived(
 		role === 'taskee' &&
@@ -154,25 +155,30 @@
 	const nextAction = $derived.by(() => {
 		const status = snapshot?.status;
 		if (status === 'released' || status === 'settled') return $t('bids.escrow_next_done');
-		if (status === 'settlement_requested') return $t('bids.escrow_next_pay');
-		if (status === 'approved') return $t('bids.escrow_next_request');
-		if (status === 'work_submitted') return $t('bids.escrow_next_review');
+		if (status === 'settlement_requested') {
+			return role === 'tasker' ? $t('bids.escrow_next_pay') : $t('bids.contract_waiting');
+		}
+		if (status === 'approved') {
+			return role === 'taskee' ? $t('bids.escrow_next_request') : $t('bids.contract_waiting');
+		}
+		if (status === 'work_submitted') {
+			return role === 'tasker' ? $t('bids.escrow_next_review') : $t('bids.contract_waiting');
+		}
 		if (status === 'locked' || status === 'funded' || status === 'work_in_progress') {
-			return $t('bids.escrow_next_work');
+			return role === 'taskee' ? $t('bids.escrow_next_work') : $t('bids.contract_waiting');
 		}
 		return $t('bids.contract_waiting');
 	});
-	const statusLabel = $derived(snapshot?.status ?? 'loading');
+	const statusLabel = $derived(
+		snapshot ? $t(contractStatusKey(snapshot.status)) : $t('bids.contract_waiting')
+	);
 	const statusClass = $derived.by(() => {
-		if (statusLabel === 'funded' || statusLabel === 'locked') return 'badge-warning';
-		if (
-			statusLabel === 'work_submitted' ||
-			statusLabel === 'work_in_progress' ||
-			statusLabel === 'approved'
-		) {
+		const status = snapshot?.status;
+		if (status === 'funded' || status === 'locked') return 'badge-warning';
+		if (status === 'work_submitted' || status === 'work_in_progress' || status === 'approved') {
 			return 'badge-info';
 		}
-		if (statusLabel === 'released') return 'badge-success';
+		if (status === 'released' || status === 'settled') return 'badge-success';
 		return 'badge-outline';
 	});
 	function parseStatusContent(content: string): ContractStatusContent | null {
@@ -279,7 +285,7 @@
 						Boolean(entry.content)
 				);
 			if (parsedEntries.length === 0) {
-				if (!quiet) errorMessage = 'Contract status has not propagated yet.';
+				if (!quiet) errorMessage = $t('bids.contract_waiting');
 				return;
 			}
 			const taskeeEvent = [...parsedEntries]
@@ -293,16 +299,12 @@
 
 			const entryStatus = (entry: (typeof parsedEntries)[number]): string =>
 				entry.content.status ?? entry.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded';
-			const current = ContractRune.get(contractId)?.status;
-			const leading = leadingContractStatus([
-				...parsedEntries.map(entryStatus),
-				...(current ? [current] : [])
-			]);
+			const leading = leadingContractStatus(parsedEntries.map(entryStatus));
 			const latest =
 				[...parsedEntries].reverse().find((entry) => entryStatus(entry) === leading) ??
 				parsedEntries.at(-1);
 			if (!latest) {
-				errorMessage = 'Contract status has not propagated yet.';
+				errorMessage = $t('bids.contract_waiting');
 				return;
 			}
 
@@ -511,7 +513,9 @@
 	<header class="card bg-base-100 border-base-300 border shadow-sm">
 		<div class="card-body gap-3 p-5">
 			<ul class="steps steps-horizontal w-full text-xs" data-testid="contract-steps">
-				<li class="step" class:step-primary={stepIndex >= 0}>{$t('bids.escrow_step_agreed')}</li>
+				<li class="step" class:step-primary={Boolean(snapshot) && stepIndex >= 0}>
+					{$t('bids.escrow_step_agreed')}
+				</li>
 				<li class="step" class:step-primary={stepIndex >= 1}>{$t('bids.escrow_step_work')}</li>
 				<li class="step" class:step-primary={stepIndex >= 2}>{$t('bids.escrow_step_approved')}</li>
 				<li class="step" class:step-primary={stepIndex >= 3}>{$t('bids.escrow_step_paid')}</li>
@@ -526,11 +530,13 @@
 			<h1 class="text-2xl font-bold sm:text-3xl" data-testid="contract-title">
 				{snapshot?.contractTitle ?? 'Contract'}
 			</h1>
-			<div class="flex flex-wrap items-center gap-2">
-				<span class="badge badge-primary" data-testid="contract-settlement-unit"
-					>{settlementUnit}</span
-				>
-			</div>
+			{#if settlementUnit}
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="badge badge-primary" data-testid="contract-settlement-unit"
+						>{settlementUnit}</span
+					>
+				</div>
+			{/if}
 		</div>
 	</header>
 

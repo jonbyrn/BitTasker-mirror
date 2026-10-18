@@ -22,6 +22,7 @@
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
+	import { assignTask } from '$lib/nostr/task';
 
 	const BTC_ONLY_SPLIT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -263,6 +264,12 @@
 				bidderPubkey,
 				message: 'Bid accepted'
 			});
+			const taskKey = task.tagValue('d') || task.id;
+			if (taskKey) {
+				assignTask(taskKey).catch((error: unknown) => {
+					console.warn('[accept-fund] task assign failed', error);
+				});
+			}
 
 			fundedRune = rune;
 			fundedContractId = contractId;
@@ -283,6 +290,12 @@
 					bidderPubkey,
 					message: 'Bid accepted'
 				});
+				const taskKey = task.tagValue('d') || task.id;
+				if (taskKey) {
+					assignTask(taskKey).catch((error: unknown) => {
+						console.warn('[accept-fund] task assign failed', error);
+					});
+				}
 				awaitingTaskeeInvoice = true;
 				errorMessage = '';
 				return;

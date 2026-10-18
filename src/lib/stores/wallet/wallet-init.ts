@@ -43,6 +43,7 @@ import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import { hydrateWalletSnapshot, saveWalletSnapshot } from './wallet-snapshot';
 import {
 	WASM_CRASH_MESSAGE,
+	clearWasmCrash,
 	installWasmPanicListener,
 	isWasmPanic,
 	lockedWallet,
@@ -313,6 +314,67 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	}
 }
 
+let reviveCount = 0;
+let reviving = false;
+
+async function dropDeadWallet(): Promise<void> {
+	const wallet = state.utexoWallet;
+	state.utexoWallet = null;
+	initInvoked = false;
+	initSlot.current = null;
+	if (wallet && typeof wallet.dispose === 'function') {
+		try {
+			wallet.dispose();
+		} catch (error) {
+			console.warn('[wallet-init] dispose after panic failed', error);
+		}
+	}
+	clearWasmCrash();
+}
+
+/** Rebuild the engine from the cached session. Never prompts for a passkey. */
+async function reviveWallet(): Promise<void> {
+	if (reviving || reviveCount >= 3) return;
+	reviving = true;
+	reviveCount += 1;
+	walletStore.update((current) => ({
+		...current,
+		isInitializing: true,
+		syncing: false,
+		error: null
+	}));
+	const cached = await readMnemonicSession(Date.now(), 0).catch(() => null);
+	if (!cached) {
+		reviving = false;
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			locked: true,
+			error: null
+		}));
+		return;
+	}
+	await dropDeadWallet();
+	await new Promise((resolve) => setTimeout(resolve, 400 * reviveCount));
+	try {
+		await initialize({ skipLsp: true });
+		reviveCount = 0;
+	} catch (error) {
+		console.warn('[wallet-init] revive failed', error);
+	} finally {
+		reviving = false;
+	}
+	if (wasmCrashed() && reviveCount < 3) await reviveWallet();
+	if (wasmCrashed()) {
+		walletStore.update((current) => ({
+			...current,
+			isInitializing: false,
+			locked: !state.utexoWallet,
+			error: null
+		}));
+	}
+}
+
 function armWasmPanicHooks(): void {
 	installWasmPanicListener();
 	if (panicHooksReady) return;
@@ -324,10 +386,11 @@ function armWasmPanicHooks(): void {
 		lightningStore.update((row) => ({ ...row, ready: false, failure: row.failure || 'attach' }));
 		walletStore.update((current) => ({
 			...current,
-			isInitializing: false,
+			isInitializing: true,
 			syncing: false,
-			error: WASM_CRASH_MESSAGE
+			error: null
 		}));
+		void reviveWallet();
 	});
 }
 

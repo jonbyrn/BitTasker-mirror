@@ -15,6 +15,12 @@ describe('contract tabs', () => {
 		expect(contractTaskId('contract-lifecycle')).toBeNull();
 	});
 
+	it('names a settlement request as pending completion', () => {
+		expect(contractStatusKey('settlement_requested')).toBe(
+			'dashboard.contracts.status.pending_completion'
+		);
+	});
+
 	it('files a released escrow under paid', () => {
 		expect(contractStatusTab('released')).toBe('paid');
 		expect(contractStatusTab('settled')).toBe('paid');
