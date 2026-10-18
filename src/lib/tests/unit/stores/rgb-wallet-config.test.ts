@@ -10,7 +10,7 @@ const input = {
 	proxyUrl: 'wss://ln-gateway-signet.utexo.com',
 	relayAuthToken: 'relay-token',
 	relayNodeId: '0311',
-	enableVirtualChannels: true,
+	enableVirtualChannels: false,
 	lspBaseUrl: 'https://lsp-signet.utexo.com'
 };
 
@@ -23,8 +23,9 @@ describe('rgbWalletConfig', () => {
 		expect(config.relayNodeId).toBe('0311');
 		expect(config.transportEndpoint).toBe(input.transportEndpoint);
 		expect(config.indexerUrl).toBe(input.indexerUrl);
-		expect(config.enableVirtualChannelsV0).toBe(true);
-		expect(config.virtualPeerPubkeys).toEqual([]);
+		expect(config.enableVirtualChannels).toBe(false);
+		expect(config).not.toHaveProperty('enableVirtualChannelsV0');
+		expect(config).not.toHaveProperty('virtualPeerPubkeys');
 		expect(config.vssUrl).toBeNull();
 		expect(config.skipConsistencyCheck).toBe(true);
 		expect(config.dataDir).toBe('rln_037153fd_signet');

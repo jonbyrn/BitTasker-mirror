@@ -464,14 +464,6 @@ function rewriteUtexoWasmUrls(): Plugin {
             throw new Error(__btMsg);`
 				);
 			}
-			if (updatedCode.includes('enableVirtualChannels: params.enableVirtualChannels,')) {
-				updatedCode = updatedCode.replace(
-					'enableVirtualChannels: params.enableVirtualChannels,',
-					`enableVirtualChannels: params.enableVirtualChannelsV0 ?? params.enableVirtualChannels,
-      enableVirtualChannelsV0: params.enableVirtualChannelsV0 ?? params.enableVirtualChannels,
-      virtualPeerPubkeys: params.virtualPeerPubkeys,`
-				);
-			}
 			const runningVirtual = `      if (this.enableVirtualChannels) {
         try {
           this.nodeHandle.setEnableVirtualChannelsV0(true);

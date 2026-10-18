@@ -67,6 +67,7 @@ interface NodeStop {
 interface LspWallet {
 	getLspConfig?: () => { baseUrl: string | null; bearerToken: string | null };
 	createLsp?: () => Promise<unknown>;
+	createUtxos?: (params: { upTo: boolean; num: number; feeRate: number }) => Promise<number>;
 	getLightningNode?: () => unknown;
 	disconnectPeer?: (pubkey: string) => Promise<void> | void;
 	_manager?: {
@@ -80,18 +81,19 @@ interface LspWallet {
 /**
  * Signet defaults. `nodeRuntimeId` is omitted: beta.12 init uses
  * `keys.master_fingerprint` when the field is absent.
- * The frozen fingerprint keeps virtual channels off and has no LSP URL.
+ * Virtual channels stay off. The signet LSP screen does not set them, and the
+ * web SDK turns them on when this field is omitted.
+ * The frozen fingerprint has no LSP URL.
  */
 export function signetLspParams(fingerprint: string | null): SignetLspFields {
 	const shared = {
 		transportEndpoint: 'https://rgb-proxy.utexo.com/json-rpc',
 		indexerUrl: 'https://esplora-api.utexo.com',
-		proxyUrl: 'wss://ln-gateway-signet.utexo.com'
+		proxyUrl: 'wss://ln-gateway-signet.utexo.com',
+		enableVirtualChannels: false
 	};
-	if (fingerprint === FROZEN_RGB_FINGERPRINT) {
-		return { ...shared, enableVirtualChannels: false };
-	}
-	return { ...shared, enableVirtualChannels: true, lspBaseUrl: SIGNET_LSP_URL };
+	if (fingerprint === FROZEN_RGB_FINGERPRINT) return shared;
+	return { ...shared, lspBaseUrl: SIGNET_LSP_URL };
 }
 
 function walletFingerprint(wallet: LspWallet): string | null {
@@ -512,6 +514,20 @@ function onGatewayCap(): void {
 	schedulePeerRelease();
 }
 
+const CHANNEL_UTXOS = { upTo: false, num: 5, feeRate: 2 } as const;
+
+/** Five colorable UTXOs, then the LSP opens the channel. Matches the signet screen. */
+async function fundChannelUtxos(wallet: LspWallet): Promise<void> {
+	if (typeof wallet.createUtxos !== 'function') return;
+	try {
+		await wallet.createUtxos(CHANNEL_UTXOS);
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.includes('Allocations already available')) return;
+		console.warn('[wallet-lsp] createUtxos failed', message);
+	}
+}
+
 /** Cap gateway sockets before any connectPeer. Logs for that storm collapse. */
 export function installLightningGuard(): void {
 	installGatewayGuard(onGatewayCap);
@@ -699,7 +715,7 @@ export function waitSignetChannel(): Promise<void> {
 /**
  * GET /get_info via createLsp() with no peer. beta.12 createLsp calls
  * getNetwork(), which throws until init(), so this runs after unlock.
- * Then lsp.connect(). The LSP cron opens the channel; this client does not.
+ * Then createUtxos and lsp.connect(). The LSP cron opens the channel; this client does not.
  * Does not call openChannel, failTransfers, or a client-funded channel open.
  */
 export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
@@ -738,6 +754,7 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 		watchLightningPeer(wallet);
 		rememberLightning(lsp, peer);
 		console.info('[wallet-lsp] get_info', peer);
+		await fundChannelUtxos(wallet);
 		const connected = await connectStoredLsp();
 		if (!connected || gatewaySocketsCapped()) {
 			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'connect' }));

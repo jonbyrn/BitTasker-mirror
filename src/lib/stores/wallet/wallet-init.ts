@@ -24,7 +24,6 @@ import {
 import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
-import { ensureRgbAllocations } from './rgb-allocations';
 import { chainSyncPlan } from './chain-sync';
 import {
 	confirmLightningAttached,
@@ -37,7 +36,6 @@ import {
 } from './signet-lsp';
 import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
-import { providerVirtualPeers } from './virtual-channels';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
 import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
@@ -197,7 +195,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 		const databasePresent = await rgbDatabasePresent();
 		const lsp = signetLspParams(null);
-		const virtualPeers = lsp.enableVirtualChannels ? await providerVirtualPeers() : [];
 		const wallet = lockedWallet(
 			new UTEXOWallet(
 				rgbWalletConfig({
@@ -209,7 +206,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 					relayAuthToken: urls.relayAuthToken,
 					relayNodeId: urls.relayNodeId,
 					enableVirtualChannels: lsp.enableVirtualChannels,
-					virtualPeerPubkeys: virtualPeers,
 					lspBaseUrl: lsp.lspBaseUrl,
 					...(e2eReset ? { dataDir: taskerDataDir } : {})
 				})
@@ -257,11 +253,6 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		} catch (scanError: unknown) {
 			scanFailed = true;
 			console.warn('[wallet-init] balance scan deferred:', scanError);
-		}
-		try {
-			await ensureRgbAllocations(wallet);
-		} catch (error: unknown) {
-			console.warn('[wallet-init] RGB allocation setup skipped', error);
 		}
 		let lightningAttached = false;
 		try {

@@ -9,8 +9,6 @@ export interface RgbWalletConfig {
 	relayAuthToken: string;
 	relayNodeId: string;
 	enableVirtualChannels: boolean;
-	enableVirtualChannelsV0: boolean;
-	virtualPeerPubkeys: readonly string[];
 	lspBaseUrl?: string;
 	vssUrl: null;
 	skipConsistencyCheck: true;
@@ -26,7 +24,6 @@ export function rgbWalletConfig(input: {
 	relayAuthToken: string;
 	relayNodeId: string;
 	enableVirtualChannels: boolean;
-	virtualPeerPubkeys?: readonly string[];
 	lspBaseUrl?: string;
 	dataDir?: string;
 }): RgbWalletConfig {
@@ -44,8 +41,6 @@ export function rgbWalletConfig(input: {
 		relayAuthToken: input.relayAuthToken,
 		relayNodeId: input.relayNodeId,
 		enableVirtualChannels: input.enableVirtualChannels,
-		enableVirtualChannelsV0: input.enableVirtualChannels,
-		virtualPeerPubkeys: input.virtualPeerPubkeys ?? [],
 		...(input.lspBaseUrl ? { lspBaseUrl: input.lspBaseUrl } : {}),
 		vssUrl: null,
 		skipConsistencyCheck: true,

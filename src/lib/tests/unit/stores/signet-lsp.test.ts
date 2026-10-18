@@ -42,10 +42,10 @@ describe('signetLspParams', () => {
 			indexerUrl: 'https://esplora-api.utexo.com',
 			proxyUrl: 'wss://ln-gateway-signet.utexo.com',
 			lspBaseUrl: SIGNET_LSP_URL,
-			enableVirtualChannels: true
+			enableVirtualChannels: false
 		});
 		expect(signetLspParams(null)).not.toHaveProperty('lspBearerToken');
-		expect(signetLspParams('4bfb7ab5').enableVirtualChannels).toBe(true);
+		expect(signetLspParams('4bfb7ab5').enableVirtualChannels).toBe(false);
 	});
 
 	it('keeps the frozen fingerprint off the LSP', () => {
@@ -106,6 +106,39 @@ describe('discoverSignetLsp', () => {
 		});
 		expect(createLsp).toHaveBeenCalledWith();
 		expect(connect).not.toHaveBeenCalled();
+	});
+
+	it('creates five utxos after get_info and before connect', async () => {
+		resetSignetLspForTests();
+		confirmLightningAttached();
+		const order: string[] = [];
+		const connect = vi.fn(async () => {
+			order.push('connect');
+		});
+		const createUtxos = vi.fn(async () => {
+			order.push('utxos');
+			return 5;
+		});
+		await discoverSignetLsp({
+			_manager: { rlnBinding: { walletData: { master_fingerprint: 'bccd4623' } } },
+			getLspConfig: () => ({ baseUrl: SIGNET_LSP_URL, bearerToken: null }),
+			createLsp: vi.fn(async () => {
+				order.push('get_info');
+				return {
+					peer: {
+						peerPubkey: '02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+						peerHost: 'lsp-signet.utexo.com',
+						peerPort: 9735
+					},
+					connect,
+					sendAsset: vi.fn()
+				};
+			}),
+			createUtxos
+		});
+		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 5, feeRate: 2 });
+		expect(order).toEqual(['get_info', 'utxos', 'connect']);
+		resetSignetLspForTests();
 	});
 });
 
