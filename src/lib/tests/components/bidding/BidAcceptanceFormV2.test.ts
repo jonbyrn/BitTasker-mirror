@@ -223,7 +223,7 @@ describe('BidAcceptanceFormV2', () => {
 		const { getByTestId, queryByTestId } = render(BidAcceptanceFormV2, {
 			props: { bid: makeBid(), task: makeTask() }
 		});
-		expect(getByTestId('bid-base-amount').textContent).toBe('$200.00');
+		expect(getByTestId('bid-base-amount').textContent).toBe('200.00 USDT');
 		expect(queryByTestId('bid-platform-fee')).toBeNull();
 		expect(getByTestId('contract-settlement-unit').textContent).toContain('USDT');
 		expect(getByTestId('fund-rail-usdt')).toBeTruthy();
