@@ -11,10 +11,16 @@ export const CONTRACT_LIST_TABS: readonly { id: ContractListTab; label: string }
 	{ id: 'dispute', label: 'dashboard.contracts.status.in_dispute' }
 ];
 
+const CONTRACT_IDS = /^contract-([0-9a-f]{64})-([0-9a-f]{64})$/i;
+
 /** Task event id stored in `contract-{taskId}-{bidId}`. */
 export function contractTaskId(contractId: string): string | null {
-	const match = /^contract-([0-9a-f]{64})-([0-9a-f]{64})$/i.exec(contractId.trim());
-	return match?.[1] ?? null;
+	return CONTRACT_IDS.exec(contractId.trim())?.[1] ?? null;
+}
+
+/** Bid event id stored in `contract-{taskId}-{bidId}`. */
+export function contractBidId(contractId: string): string | null {
+	return CONTRACT_IDS.exec(contractId.trim())?.[2] ?? null;
 }
 
 /** Production files a released escrow under Paid, not Completed. */

@@ -3,6 +3,7 @@ import {
 	contractBadgeClass,
 	contractStatusKey,
 	contractStatusTab,
+	contractBidId,
 	contractTaskId
 } from '$lib/utils/contract/contract-tabs';
 
@@ -12,7 +13,9 @@ const BID = 'a'.repeat(64);
 describe('contract tabs', () => {
 	it('reads the task id from a contract id', () => {
 		expect(contractTaskId(`contract-${TASK}-${BID}`)).toBe(TASK);
+		expect(contractBidId(`contract-${TASK}-${BID}`)).toBe(BID);
 		expect(contractTaskId('contract-lifecycle')).toBeNull();
+		expect(contractBidId('contract-lifecycle')).toBeNull();
 	});
 
 	it('names an unconfirmed payout as releasing', () => {

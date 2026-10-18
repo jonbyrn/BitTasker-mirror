@@ -42,6 +42,7 @@
 		"refund_contract": "Refund",
 		"release_pays": "Paying sends the agreed amount on this rail.",
 		"escrow_next_work": "Next: complete the work.",
+		"escrow_next_locked": "Escrow is connected. Waiting for the work.",
 		"escrow_next_review": "Next: review the work.",
 		"escrow_next_request": "Next: request payment.",
 		"escrow_next_pay": "Next: pay the settlement invoice.",

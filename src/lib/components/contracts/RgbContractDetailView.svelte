@@ -16,7 +16,15 @@
 	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
 	import { subscribeContract } from '$lib/services/contracts/contract-sync';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { contractStatusKey } from '$lib/utils/contract/contract-tabs';
+	import {
+		contractBidId,
+		contractStatusKey,
+		contractTaskId
+	} from '$lib/utils/contract/contract-tabs';
+	import { fetchContractBid, fetchFundingInvoice, lockBidAmount } from '$lib/utils/nostr-bid';
+	import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
+	import { getNpub } from '$lib/utils/nostrKeys';
+	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -28,6 +36,12 @@
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
+		primaryPercentage: 100,
+		secondaryAsset: 'btc_lightning',
+		secondaryPercentage: 0
+	};
+	const USDT_SETTLEMENT: PaymentSplitConfig = {
+		primaryAsset: 'usdt_rgb',
 		primaryPercentage: 100,
 		secondaryAsset: 'btc_lightning',
 		secondaryPercentage: 0
@@ -66,6 +80,8 @@
 	let taskeePubkey = $state('');
 	let loadTimedOut = $state(false);
 	let waitingContract = $state(false);
+	let postedInvoice = $state('');
+	let joining = $state(false);
 	let stopSubscription: (() => void) | undefined;
 
 	const snapshot = $derived(rune?.snapshot ?? null);
@@ -81,6 +97,32 @@
 		'settled'
 	]);
 	const contractIsFunded = $derived(snapshot ? FUNDED_STATUSES.has(snapshot.status) : false);
+	const openToJoin = $derived(
+		role === 'tasker' &&
+			!contractIsFunded &&
+			(!snapshot ||
+				snapshot.status === 'draft' ||
+				snapshot.status === 'failed' ||
+				snapshot.status === 'funding')
+	);
+	const joinUnits = $derived.by(() => {
+		if (!snapshot) return 0;
+		if (snapshot.lockedCurrency === 'SATS' && snapshot.lockedAmount > 0)
+			return snapshot.lockedAmount;
+		return Math.max(1, Math.round(snapshot.totalAmountUsd * 1_000_000));
+	});
+	const invoiceAttached = $derived(
+		Boolean(snapshot?.fundingInvoice) &&
+			invoiceMatchesAmount(
+				snapshot?.split.primaryAsset ?? 'usdt_rgb',
+				snapshot?.fundingInvoice ?? '',
+				joinUnits
+			)
+	);
+	const invoiceReady = $derived(
+		postedInvoice.length > 0 &&
+			invoiceMatchesAmount(snapshot?.split.primaryAsset ?? 'usdt_rgb', postedInvoice, joinUnits)
+	);
 	const lockedAmountLabel = $derived.by(() => {
 		if (!snapshot) return '';
 		if (snapshot.lockedCurrency === 'SATS') {
@@ -171,7 +213,7 @@
 			return role === 'tasker' ? $t('bids.escrow_next_review') : $t('bids.contract_waiting');
 		}
 		if (status === 'locked' || status === 'funded' || status === 'work_in_progress') {
-			return role === 'taskee' ? $t('bids.escrow_next_work') : $t('bids.contract_waiting');
+			return role === 'taskee' ? $t('bids.escrow_next_work') : $t('bids.escrow_next_locked');
 		}
 		return $t('bids.contract_waiting');
 	});
@@ -216,6 +258,7 @@
 			contractId: nextContractId as RgbSeal['contractId'],
 			contractTitle: seal.contractTitle ?? content.contractTitle,
 			bidderComments: seal.bidderComments ?? content.bidderComments,
+			invoice: seal.invoice,
 			state: seal.state ?? 'INITIATED',
 			utxo: seal.utxo,
 			assetId: seal.assetId ?? 'btc_onchain',
@@ -265,6 +308,46 @@
 		});
 	}
 
+	async function loadPostedInvoice(): Promise<void> {
+		const taskId = contractTaskId(contractId);
+		const bidId = contractBidId(contractId);
+		if (!taskId || !bidId) return;
+		try {
+			const invoice = await fetchFundingInvoice(taskId, bidId);
+			if (invoice) postedInvoice = invoice;
+		} catch (error) {
+			console.warn('[contract] invoice lookup failed', error);
+		}
+	}
+
+	async function ensureDraftRune(): Promise<void> {
+		if (rune || role !== 'tasker') return;
+		const existing = ContractRune.get(contractId);
+		if (existing) {
+			rune = existing;
+			return;
+		}
+		const bid = await fetchContractBid(contractId);
+		if (!bid) return;
+		const locked = lockBidAmount(bid.amount, bid.currency);
+		if (!locked) return;
+		const sat = locked.lockedCurrency === 'SATS';
+		const tasker = normalizeNostrPubkey(await getNpub()) ?? '';
+		const bidder = normalizeNostrPubkey(bid.bidderId) ?? bid.bidderId;
+		rune = new ContractRune({
+			contractId,
+			contractTitle: bid.title,
+			bidderComments: bid.comments,
+			totalAmountUsd: locked.lockedAmount,
+			amountSats: sat ? locked.lockedAmount : undefined,
+			lockedAmount: locked.lockedAmount,
+			lockedCurrency: locked.lockedCurrency,
+			split: sat ? BTC_SETTLEMENT : USDT_SETTLEMENT,
+			partyPubkeys: [bidder, tasker].filter((key) => key.length > 0)
+		});
+		if (bid.invoice) postedInvoice = bid.invoice;
+	}
+
 	async function loadContract(quiet = false): Promise<void> {
 		if (!quiet) {
 			loading = true;
@@ -293,7 +376,8 @@
 				);
 			if (parsedEntries.length === 0) {
 				waitingContract = true;
-				if (!quiet) errorMessage = $t('bids.contract_waiting');
+				if (role === 'tasker') await ensureDraftRune();
+				if (!rune && !quiet) errorMessage = $t('bids.contract_waiting');
 				return;
 			}
 			waitingContract = false;
@@ -337,7 +421,12 @@
 			nextRune.status = leading as ContractRuneStatus;
 			if (entryStatus(latest) === leading) {
 				if (content.fundingState) nextRune.fundingState = content.fundingState;
-				nextRune.seals = normalizeSeals(content, contractId);
+				const restored = normalizeSeals(content, contractId);
+				const remembered = nextRune.seals.find((seal) => seal.invoice)?.invoice;
+				nextRune.seals =
+					remembered && restored[0] && !restored.some((seal) => seal.invoice)
+						? [{ ...restored[0], invoice: remembered }, ...restored.slice(1)]
+						: restored;
 				nextRune.workMessage = content.workMessage ?? content.message;
 				nextRune.proofUrl = content.proofUrl;
 				nextRune.payoutInvoice = content.payoutInvoice;
@@ -366,6 +455,40 @@
 			errorMessage = loadTimedOut ? $t('bids.contract_load_timeout') : message;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleUseInvoice(): Promise<void> {
+		if (!rune || !invoiceReady) return;
+		joining = true;
+		errorMessage = '';
+		try {
+			await initWasm();
+			await walletManager.initialize();
+			await rune.attachFundingInvoice(postedInvoice);
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = errorText(error, $t('bids.escrow_invoice_amount'));
+		} finally {
+			await walletManager.releaseRgbLock();
+			joining = false;
+		}
+	}
+
+	async function handleConnectEscrow(): Promise<void> {
+		if (!rune || !invoiceAttached) return;
+		joining = true;
+		errorMessage = '';
+		try {
+			await initWasm();
+			await walletManager.initialize();
+			await rune.payFundingFromWallet();
+			await loadContract(true);
+		} catch (error) {
+			errorMessage = errorText(error, $t('bids.escrow_invoice_failed'));
+		} finally {
+			await walletManager.releaseRgbLock();
+			joining = false;
 		}
 	}
 
@@ -487,6 +610,15 @@
 	}
 
 	$effect(() => {
+		if (!openToJoin) return;
+		void loadPostedInvoice();
+		const timer = setInterval(() => {
+			void loadPostedInvoice();
+		}, 5_000);
+		return () => clearInterval(timer);
+	});
+
+	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const e2e =
 			(window as Window & { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true ||
@@ -594,6 +726,44 @@
 				</p>
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
+				{#if openToJoin}
+					{#if postedInvoice}
+						<input
+							class="input input-bordered input-sm mt-2 w-full font-mono text-xs"
+							readonly
+							value={postedInvoice}
+							aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
+							data-testid="posted-taskee-invoice"
+						/>
+					{:else}
+						<p class="text-base-content/70 mt-2 text-sm" data-testid="waiting-taskee-invoice">
+							{$t('dashboard.bids.bid_acceptance.waiting_taskee_invoice')}
+						</p>
+					{/if}
+					{#if invoiceAttached}
+						<button
+							class="btn btn-primary mt-3 w-full"
+							type="button"
+							onclick={handleConnectEscrow}
+							disabled={joining}
+							data-testid="pay-funding-from-wallet"
+						>
+							{#if joining}<span class="loading loading-spinner loading-xs"></span>{/if}
+							{$t('dashboard.bids.bid_acceptance.pay_from_wallet')}
+						</button>
+					{:else}
+						<button
+							class="btn btn-primary mt-3 w-full"
+							type="button"
+							onclick={handleUseInvoice}
+							disabled={joining || !invoiceReady}
+							data-testid="load-taskee-invoice"
+						>
+							{#if joining}<span class="loading loading-spinner loading-xs"></span>{/if}
+							{$t('dashboard.bids.bid_acceptance.load_taskee_invoice')}
+						</button>
+					{/if}
+				{/if}
 				{#if paidTxid}
 					<p class="font-mono text-xs break-all" data-testid="paid-txid">
 						{$t('bids.paid_txid', { values: { txid: paidTxid } })}

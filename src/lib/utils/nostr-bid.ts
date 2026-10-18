@@ -19,6 +19,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { resolveSharedRelays } from '$lib/utils/relayUrls';
 import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { usdtBaseUnits } from '$lib/types/rgb-contract';
+import { contractBidId, contractTaskId } from '$lib/utils/contract/contract-tabs';
 
 const BID_RELAYS = resolveSharedRelays();
 
@@ -507,6 +508,42 @@ export function readBidInvoice(event: { latestStatus?: unknown }): string | unde
 		if (!chosen || at >= chosen.at) chosen = { invoice, at };
 	}
 	return chosen?.invoice;
+}
+
+function readBidBody(event: { content?: unknown }): NostrBidContent | null {
+	const content = event.content;
+	if (!content || typeof content !== 'object') return null;
+	const body = content as Partial<NostrBidContent>;
+	if (typeof body.amount !== 'number' || !Number.isFinite(body.amount)) return null;
+	return body as NostrBidContent;
+}
+
+/** Accepted bid behind `contract-{taskId}-{bidId}`, including its escrow invoice. */
+export async function fetchContractBid(contractId: string): Promise<{
+	amount: number;
+	currency: string;
+	title: string;
+	bidderId: string;
+	comments: string;
+	invoice?: string;
+} | null> {
+	const taskId = contractTaskId(contractId);
+	const bidId = contractBidId(contractId);
+	if (!taskId || !bidId) return null;
+	clearBidCache(taskId);
+	const bids = await getBidsForTask(taskId, true, true);
+	const match = bids.find((event) => event.id === bidId);
+	if (!match) return null;
+	const body = readBidBody(match);
+	if (!body) return null;
+	return {
+		amount: body.amount,
+		currency: body.currency ?? 'USD',
+		title: body.taskTitle || contractId,
+		bidderId: body.bidderId || match.pubkey,
+		comments: body.proposedApproach || body.coverLetter || body.description || '',
+		invoice: readBidInvoice(match as NostrEventWithFollowup)
+	};
 }
 
 /** Latest blank invoice the Taskee published for this bid. */

@@ -310,6 +310,7 @@ async function publishAttestation(
 			seals: seals.map((seal) => ({
 				id: seal.id,
 				contractId: seal.contractId,
+				invoice: seal.invoice,
 				assetId: seal.assetId,
 				amount: seal.amount,
 				state: seal.state,
@@ -541,6 +542,42 @@ export class ContractRune {
 			await this.attest('funding', 'Funding request created');
 			return this.snapshot;
 		});
+	}
+
+	/** Attach the Taskee invoice, including after a funding status that omitted it. */
+	async attachFundingInvoice(invoice: string): Promise<ContractRuneSnapshot> {
+		const trimmed = invoice.trim();
+		if (!trimmed) throw new TaskeeInvoiceRequired();
+		if (this.status === 'draft' || this.status === 'failed') {
+			return this.prepareFunding(trimmed);
+		}
+		if (this.status !== 'funding') {
+			throw new Error(`Cannot fund contract from ${this.status} state`);
+		}
+		assertInvoiceRail(this.split.primaryAsset, trimmed);
+		this.assertRgbAmount(trimmed, this.agreedUnits());
+		const current = this.snapshot.fundingInvoice;
+		if (current === trimmed) return this.snapshot;
+		if (current) throw new Error('Invoice amount does not match the contract');
+		const now = Date.now();
+		const existing = this.seals[0];
+		this.seals = [
+			{
+				id: (existing?.id ?? `funding-${this.contractId}`) as RgbSeal['id'],
+				contractId: this.contractId as RgbSeal['contractId'],
+				invoice: trimmed,
+				contractTitle: this.contractTitle,
+				bidderComments: this.bidderComments,
+				state: existing?.state ?? 'INITIATED',
+				utxo: existing?.utxo,
+				assetId: existing?.assetId ?? '',
+				amount: existing?.amount ?? this.agreedUnits(),
+				createdAt: existing?.createdAt ?? now,
+				updatedAt: now
+			}
+		];
+		await this.attest('funding', 'Funding request created');
+		return this.snapshot;
 	}
 
 	async fund(): Promise<ContractRuneSnapshot> {

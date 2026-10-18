@@ -11,7 +11,7 @@ import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { esploraTxConfirmed } from '$lib/stores/wallet/signet-broadcast';
-import { publishToMultipleRelays } from '$lib/utils/nostr';
+import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
@@ -212,6 +212,35 @@ describe('escrow lifecycle', () => {
 		expect(rune.status).toBe('failed');
 		expect(wallet.onchainSend).not.toHaveBeenCalled();
 		expect(wallet.onchainReceive).not.toHaveBeenCalled();
+	});
+
+	it('publishes the taskee invoice so the tasker can connect it later', async () => {
+		vi.mocked(prepareRgbOnchainSend).mockClear();
+		const rune = new ContractRune({
+			contractId: 'contract-invoice-wire',
+			totalAmountUsd: 11,
+			lockedAmount: 11,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		const invoice = unitsInvoice(11_000_000);
+		await rune.prepareFunding(invoice);
+		const signed = vi.mocked(getSignedEvent).mock.calls.at(-1)?.[0] as { content?: string };
+		const published = JSON.parse(signed.content ?? '{}') as {
+			seals?: Array<{ invoice?: string }>;
+		};
+		expect(published.seals?.[0]?.invoice).toBe(invoice);
+		rune.seals = rune.seals.map((seal) => ({ ...seal, invoice: undefined }));
+		expect(rune.snapshot.fundingInvoice).toBeUndefined();
+		await rune.attachFundingInvoice(invoice);
+		expect(rune.snapshot.fundingInvoice).toBe(invoice);
+		expect((await rune.payFundingFromWallet()).status).toBe('locked');
+		expect(prepareRgbOnchainSend).not.toHaveBeenCalled();
 	});
 
 	it('pays an eleven dollar bid in USDT base units, not sats', async () => {
