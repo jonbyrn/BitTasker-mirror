@@ -205,7 +205,7 @@
 		"@uppy/svelte": "^5.2.0",
 		"@uppy/tus": "^5.1.1",
 		"@utexo/rgb-sdk-web": "1.0.0-beta.12",
-		"@utexo/rln-wasm": "0.11.0-beta.3",
+		"@utexo/rln-wasm": "0.17.0-beta.3",
 		"axios": "^1.8.4",
 		"bip174": "^3.0.0",
 		"bip32": "^5.0.1",
@@ -258,7 +258,7 @@
 		"zod": "^4.4.3"
 	},
 	"overrides": {
-		"@utexo/rln-wasm": "0.11.0-beta.3",
+		"@utexo/rln-wasm": "0.17.0-beta.3",
 		"bolt11": "file:./src/lib/shims/bolt11-package",
 		"crypto-browserify": "file:./src/lib/shims/crypto-browserify-package",
 		"cookie": "^0.7.2",

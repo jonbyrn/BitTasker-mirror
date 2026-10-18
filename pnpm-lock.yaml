@@ -106,7 +106,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@utexo/rln-wasm': 0.11.0-beta.3
+  '@utexo/rln-wasm': 0.17.0-beta.3
 
 importers:
 
@@ -275,8 +275,8 @@ importers:
         specifier: 1.0.0-beta.12
         version: 1.0.0-beta.12
       '@utexo/rln-wasm':
-        specifier: 0.11.0-beta.3
-        version: 0.11.0-beta.3
+        specifier: 0.17.0-beta.3
+        version: 0.17.0-beta.3
       axios:
         specifier: ^1.8.4
         version: 1.16.0(debug@4.4.3(supports-color@10.2.2))
@@ -5351,8 +5351,8 @@ packages:
   '@utexo/rgb-sdk-web@1.0.0-beta.12':
     resolution: {integrity: sha512-Gmcgymci6yQ3O73KQdL9/C/b3KyiN4hPlA40p1oLKoIb5QGPZmOTp0Ve7TeSTX5zayGXRNQJV8zqm69EcHzs3A==}
 
-  '@utexo/rln-wasm@0.11.0-beta.3':
-    resolution: {integrity: sha512-EBBaVnl/PLn439okU38Rrhu6+X21TZRSWUsusydHduflkqfF/kp1jLucIV46DUFT3LG3uQxdMZsYMyZ35OFPMA==}
+  '@utexo/rln-wasm@0.17.0-beta.3':
+    resolution: {integrity: sha512-1DwBmHEoNp4pvv++8FgfB78wyzDvOO4nS1t7Y3S6ohb1QRtYlS6LuSSUJUFzv2XFf0TrqMnKqNfvPuGuaBoH3A==}
 
   '@viem/anvil@0.0.7':
     resolution: {integrity: sha512-F+3ljCT1bEt8T4Fzm9gWpIgO3Dc7bzG1TtUtkStkJFMuummqZ8kvYc3UFMo5j3F51fSWZZvEkjs3+i7qf0AOqQ==}
@@ -16414,10 +16414,10 @@ snapshots:
       '@scure/btc-signer': 2.4.1
       '@utexo/rgb-lib-wasm': 1.0.0-beta.3
       '@utexo/rgb-sdk-core': 1.0.1-beta.3
-      '@utexo/rln-wasm': 0.11.0-beta.3
+      '@utexo/rln-wasm': 0.17.0-beta.3
       bitcoinjs-lib: 6.1.7
 
-  '@utexo/rln-wasm@0.11.0-beta.3': {}
+  '@utexo/rln-wasm@0.17.0-beta.3': {}
 
   '@viem/anvil@0.0.7(debug@4.4.3(supports-color@10.2.2))':
     dependencies:

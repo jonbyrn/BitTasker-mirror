@@ -1,5 +1,5 @@
 /**
- * rln-wasm 0.11 peer sessions retry the gateway inside the wasm module.
+ * rln-wasm peer sessions retry the gateway inside the wasm module.
  * `UTEXOWallet.connectPeer` cannot pass `max_reconnect_attempts` (that field
  * exists only on `peerSessionConnectWithOptions`). A failed socket is retried
  * until the tab runs out of memory. This guard allows a few real sockets,

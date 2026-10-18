@@ -1,10 +1,9 @@
 /**
  * One global queue for the browser RGB wasm instance.
  *
- * `@utexo/rgb-sdk-web` 1.0.0-beta.12 pins `@utexo/rln-wasm` 0.10.0-beta.3.
- * That build panics with a Rust RefCell BorrowError when a wallet call overlaps
+ * `@utexo/rgb-sdk-web` 1.0.0-beta.12 is overridden to `@utexo/rln-wasm` 0.17.0-beta.3.
+ * Older builds panic with a Rust RefCell BorrowError when a wallet call overlaps
  * a Lightning node call, and the wasm instance stays dead until a full reload.
- * Do not bump rln-wasm here; a newer sdk pin is a separate change.
  */
 
 export const WASM_CRASH_MESSAGE = 'Wallet engine crashed – reload required';

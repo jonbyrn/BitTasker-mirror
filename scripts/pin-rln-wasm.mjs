@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Installed glue must match static/wasm and the package pin. */
-export const RLN_WASM_PIN = '0.11.0-beta.3';
+export const RLN_WASM_PIN = '0.17.0-beta.3';
 
 export function assertRlnPin(version) {
 	if (version !== RLN_WASM_PIN) {

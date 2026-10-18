@@ -8,7 +8,10 @@ import { assertRlnPin, copyPinnedWasm, RLN_WASM_PIN } from '../../scripts/pin-rl
 
 test('accepts only the pinned rln-wasm release', () => {
 	assert.doesNotThrow(() => assertRlnPin(RLN_WASM_PIN));
-	assert.throws(() => assertRlnPin('0.13.0-beta.3'), /0\.11\.0-beta\.3/);
+	assert.throws(
+		() => assertRlnPin('0.13.0-beta.3'),
+		new RegExp(RLN_WASM_PIN.replaceAll('.', '\\.'))
+	);
 	assert.throws(() => assertRlnPin(undefined), /unknown/);
 });
 

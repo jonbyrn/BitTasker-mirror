@@ -1,5 +1,5 @@
 overrides:
-  '@utexo/rln-wasm': 0.11.0-beta.3
+  '@utexo/rln-wasm': 0.17.0-beta.3
 
 allowBuilds:
   '@firebase/util': true
