@@ -464,6 +464,33 @@ function rewriteUtexoWasmUrls(): Plugin {
             throw new Error(__btMsg);`
 				);
 			}
+			if (updatedCode.includes('enableVirtualChannels: params.enableVirtualChannels,')) {
+				updatedCode = updatedCode.replace(
+					'enableVirtualChannels: params.enableVirtualChannels,',
+					`enableVirtualChannels: params.enableVirtualChannelsV0 ?? params.enableVirtualChannels,
+      enableVirtualChannelsV0: params.enableVirtualChannelsV0 ?? params.enableVirtualChannels,
+      virtualPeerPubkeys: params.virtualPeerPubkeys,`
+				);
+			}
+			const virtualArm =
+				'nodeHandle.setRelaySessionAuth(\n          params.relayAuthToken ?? null,\n          params.relayNodeId ?? null\n        );\n      }';
+			if (updatedCode.includes(virtualArm)) {
+				updatedCode = updatedCode.replace(
+					virtualArm,
+					`${virtualArm}
+      if (nodeHandle && (params.enableVirtualChannelsV0 ?? params.enableVirtualChannels)) {
+        try {
+          nodeHandle.setEnableVirtualChannelsV0(true);
+          const virtualPeers = params.virtualPeerPubkeys;
+          if (Array.isArray(virtualPeers) && typeof nodeHandle.setVirtualPeerPubkeys === "function") {
+            nodeHandle.setVirtualPeerPubkeys(virtualPeers);
+          }
+        } catch (e) {
+          logger.warn("RlnWasmBinding: virtual channels before start failed", e);
+        }
+      }`
+				);
+			}
 			if (
 				updatedCode.includes('setDefaultRgbProxyTransport(params.transportEndpoint, null, null)')
 			) {

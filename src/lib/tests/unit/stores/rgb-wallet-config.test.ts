@@ -23,6 +23,8 @@ describe('rgbWalletConfig', () => {
 		expect(config.relayNodeId).toBe('0311');
 		expect(config.transportEndpoint).toBe(input.transportEndpoint);
 		expect(config.indexerUrl).toBe(input.indexerUrl);
+		expect(config.enableVirtualChannelsV0).toBe(true);
+		expect(config.virtualPeerPubkeys).toEqual([]);
 		expect(config.vssUrl).toBeNull();
 		expect(config.skipConsistencyCheck).toBe(true);
 		expect(config.dataDir).toBe('rln_037153fd_signet');

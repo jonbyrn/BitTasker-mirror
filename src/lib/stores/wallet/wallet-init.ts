@@ -37,6 +37,7 @@ import {
 } from './signet-lsp';
 import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
+import { armVirtualChannels, providerVirtualPeers } from './virtual-channels';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
 import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
@@ -196,6 +197,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 
 		const databasePresent = await rgbDatabasePresent();
 		const lsp = signetLspParams(null);
+		const virtualPeers = lsp.enableVirtualChannels ? await providerVirtualPeers() : [];
 		const wallet = lockedWallet(
 			new UTEXOWallet(
 				rgbWalletConfig({
@@ -207,6 +209,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 					relayAuthToken: urls.relayAuthToken,
 					relayNodeId: urls.relayNodeId,
 					enableVirtualChannels: lsp.enableVirtualChannels,
+					virtualPeerPubkeys: virtualPeers,
 					lspBaseUrl: lsp.lspBaseUrl,
 					...(e2eReset ? { dataDir: taskerDataDir } : {})
 				})
@@ -218,6 +221,9 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		initInvoked = true;
 		try {
 			await withWasm('init', () => probeWalletInit(wallet));
+			await withWasm('virtual-channels', async () => {
+				armVirtualChannels(wallet, virtualPeers);
+			});
 			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
 			await withWasm('unlock', () => wallet.unlock());
 		} catch (connectError) {
