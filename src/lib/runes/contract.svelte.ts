@@ -957,6 +957,14 @@ export class ContractRune {
 		const proof = await this.paySettlement(destination);
 		if (!proofReady(proof)) throw new Error('Settlement proof is missing');
 		this.proofs = [...this.proofs, proof];
+		if (proof.kind === 'txid') {
+			const confirmed = await esploraTxConfirmed(proof.value).catch(() => false);
+			if (!confirmed) {
+				this.status = 'released_pending';
+				await this.attest('released_pending');
+				return this.snapshot;
+			}
+		}
 		this.status = 'refunded';
 		recordEscrowHistory({
 			contractId: this.contractId,

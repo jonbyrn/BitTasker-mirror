@@ -33,6 +33,8 @@
 	import { describeThrown } from '$lib/stores/wallet/wallet-send';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
+	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
+	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -76,12 +78,13 @@
 	let isSubmitting = $state(false);
 	let isReleasing = $state(false);
 	let reviewingPay = $state(false);
-	let refundInvoice = $state('');
 	let taskeePubkey = $state('');
 	let loadTimedOut = $state(false);
 	let waitingContract = $state(false);
 	let postedInvoice = $state('');
 	let joining = $state(false);
+	let partyKeys = $state<string[]>([]);
+	let viewerNpub = $state('');
 	let stopSubscription: (() => void) | undefined;
 
 	const snapshot = $derived(rune?.snapshot ?? null);
@@ -188,7 +191,6 @@
 			].includes(snapshot.status) &&
 			!isReleasing
 	);
-	const canRefund = $derived(role === 'tasker' && snapshot?.status === 'released' && !isReleasing);
 	const stepIndex = $derived.by(() => {
 		const status = snapshot?.status;
 		if (paidTxid && status !== 'releasing') return 3;
@@ -217,9 +219,35 @@
 		}
 		return $t('bids.contract_waiting');
 	});
-	const statusLabel = $derived(
-		snapshot ? $t(contractStatusKey(snapshot.status)) : $t('bids.contract_waiting')
+	const statusLabel = $derived.by(() => {
+		const status = snapshot?.status;
+		if (paidTxid || status === 'released' || status === 'settled') return $t('bids.status_paid');
+		if (status === 'releasing' || status === 'released_pending') return $t('bids.status_paying');
+		if (status === 'approved' || status === 'settlement_requested') {
+			return $t('bids.status_approved');
+		}
+		if (status === 'work_submitted') return $t('bids.status_submitted');
+		if (status === 'work_in_progress') return $t('bids.status_started');
+		if (status === 'locked' || status === 'funded') return $t('bids.status_locked');
+		return snapshot ? $t(contractStatusKey(snapshot.status)) : $t('bids.contract_waiting');
+	});
+	const paymentSlow = $derived(
+		joining ||
+			isReleasing ||
+			snapshot?.status === 'releasing' ||
+			snapshot?.status === 'released_pending' ||
+			snapshot?.status === 'locking'
 	);
+	const escrowBid = $derived(contractBidId(contractId) ?? '');
+	const escrowTask = $derived(contractTaskId(contractId) ?? '');
+	const invoiceTasker = $derived.by(() => {
+		const self = normalizeNostrPubkey(viewerNpub);
+		return (
+			partyKeys
+				.map((key) => normalizeNostrPubkey(key) ?? key)
+				.find((key) => key.length > 0 && key !== self) ?? ''
+		);
+	});
 	const statusClass = $derived.by(() => {
 		const status = snapshot?.status;
 		if (status === 'funded' || status === 'locked') return 'badge-warning';
@@ -381,6 +409,13 @@
 				return;
 			}
 			waitingContract = false;
+			const keys: string[] = [];
+			for (const entry of parsedEntries) {
+				for (const tag of entry.event.tags) {
+					if (tag[0] === 'p' && tag[1] && !keys.includes(tag[1])) keys.push(tag[1]);
+				}
+			}
+			partyKeys = keys;
 			const taskeeEvent = [...parsedEntries]
 				.reverse()
 				.find((entry) =>
@@ -458,30 +493,15 @@
 		}
 	}
 
-	async function handleUseInvoice(): Promise<void> {
-		if (!rune || !invoiceReady) return;
+	async function handleLockEscrow(): Promise<void> {
+		if (!rune || joining) return;
+		if (!invoiceAttached && !invoiceReady) return;
 		joining = true;
 		errorMessage = '';
 		try {
 			await initWasm();
 			await walletManager.initialize();
-			await rune.attachFundingInvoice(postedInvoice);
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, $t('bids.escrow_invoice_amount'));
-		} finally {
-			await walletManager.releaseRgbLock();
-			joining = false;
-		}
-	}
-
-	async function handleConnectEscrow(): Promise<void> {
-		if (!rune || !invoiceAttached) return;
-		joining = true;
-		errorMessage = '';
-		try {
-			await initWasm();
-			await walletManager.initialize();
+			if (!invoiceAttached) await rune.attachFundingInvoice(postedInvoice);
 			await rune.payFundingFromWallet();
 			await loadContract(true);
 		} catch (error) {
@@ -555,22 +575,6 @@
 		}
 	}
 
-	async function handleRefund(): Promise<void> {
-		if (!rune) return;
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await walletManager.initialize();
-			await rune.refund(refundInvoice);
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to refund the contract.');
-		} finally {
-			await walletManager.releaseRgbLock();
-			isReleasing = false;
-		}
-	}
-
 	function handleRelease(): void {
 		reviewingPay = true;
 	}
@@ -633,6 +637,13 @@
 	});
 
 	onMount(() => {
+		getNpub()
+			.then((npub) => {
+				viewerNpub = npub ?? '';
+			})
+			.catch((error: unknown) => {
+				console.warn('[contract] viewer key failed', error);
+			});
 		stopSubscription = subscribeContract(contractId, () => {
 			void loadContract(true);
 		});
@@ -726,43 +737,37 @@
 				</p>
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
+				{#if paymentSlow}
+					<p class="text-sm" data-testid="payment-usually">{$t('bids.usually_minutes')}</p>
+				{/if}
 				{#if openToJoin}
-					{#if postedInvoice}
-						<input
-							class="input input-bordered input-sm mt-2 w-full font-mono text-xs"
-							readonly
-							value={postedInvoice}
-							aria-label={$t('dashboard.bids.bid_acceptance.funding_request_label')}
-							data-testid="posted-taskee-invoice"
-						/>
-					{:else}
-						<p class="text-base-content/70 mt-2 text-sm" data-testid="waiting-taskee-invoice">
-							{$t('dashboard.bids.bid_acceptance.waiting_taskee_invoice')}
-						</p>
-					{/if}
-					{#if invoiceAttached}
+					{#if invoiceReady || invoiceAttached}
 						<button
 							class="btn btn-primary mt-3 w-full"
 							type="button"
-							onclick={handleConnectEscrow}
+							onclick={handleLockEscrow}
 							disabled={joining}
 							data-testid="pay-funding-from-wallet"
 						>
 							{#if joining}<span class="loading loading-spinner loading-xs"></span>{/if}
-							{$t('dashboard.bids.bid_acceptance.pay_from_wallet')}
+							{$t('bids.lock_escrow', { values: { amount: lockedAmountLabel } })}
 						</button>
 					{:else}
-						<button
-							class="btn btn-primary mt-3 w-full"
-							type="button"
-							onclick={handleUseInvoice}
-							disabled={joining || !invoiceReady}
-							data-testid="load-taskee-invoice"
-						>
-							{#if joining}<span class="loading loading-spinner loading-xs"></span>{/if}
-							{$t('dashboard.bids.bid_acceptance.load_taskee_invoice')}
-						</button>
+						<p class="text-base-content/70 mt-2 text-sm" data-testid="waiting-taskee-invoice">
+							{$t('bids.waiting_worker')}
+						</p>
 					{/if}
+				{/if}
+				{#if role === 'taskee' && !contractIsFunded && escrowBid && escrowTask}
+					<EscrowInvoiceActions
+						bidId={escrowBid}
+						taskId={escrowTask}
+						taskerPubkey={invoiceTasker}
+						existingInvoice={snapshot.fundingInvoice ?? postedInvoice}
+						status={BidStatusEnum.ACCEPTED}
+						amount={snapshot.lockedAmount}
+						currency={snapshot.lockedCurrency}
+					/>
 				{/if}
 				{#if paidTxid}
 					<p class="font-mono text-xs break-all" data-testid="paid-txid">
@@ -923,27 +928,6 @@
 							{$t('bids.pay_on_approval')}
 						</button>
 					{/if}
-				</div>
-			</section>
-		{/if}
-
-		{#if canRefund}
-			<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="refund-panel">
-				<div class="card-body gap-3 p-5">
-					<h2 class="text-base font-semibold">{$t('bids.refund_contract')}</h2>
-					<input
-						class="input input-bordered w-full font-mono text-xs"
-						bind:value={refundInvoice}
-						data-testid="refund-invoice-input"
-					/>
-					<button
-						class="btn btn-outline w-full"
-						onclick={handleRefund}
-						disabled={isReleasing || !refundInvoice.trim()}
-						data-testid="refund-button"
-					>
-						{$t('bids.refund_contract')}
-					</button>
 				</div>
 			</section>
 		{/if}

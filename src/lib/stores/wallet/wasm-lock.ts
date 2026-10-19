@@ -6,7 +6,7 @@
  * a Lightning node call, and the wasm instance stays dead until a full reload.
  */
 
-export const WASM_CRASH_MESSAGE = 'Wallet engine crashed – reload required';
+export const WASM_CRASH_MESSAGE = 'Something went wrong. Tap to reopen.';
 
 const PANIC_TEXT =
 	/unreachable|already (mutably )?borrowed|RuntimeError|closure invoked recursively|after being dropped/i;

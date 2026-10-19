@@ -28,6 +28,8 @@
 		detectPayment,
 		feeEstimateSats,
 		formatUsd,
+		plainSendReason,
+		spendCapText,
 		usdFromSats
 	} from '$lib/stores/wallet/plain-wallet';
 
@@ -65,7 +67,10 @@
 		{
 			id: 'btc_onchain',
 			labelKey: 'wallet.send_form.asset.bitcoin',
-			placeholder: 'bc1q...'
+			placeholder:
+				((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') === 'bitcoin'
+					? 'bc1p...'
+					: 'tb1p...'
 		},
 		{
 			id: 'btc_lightning',
@@ -171,6 +176,7 @@
 		return $t('wallet.networks.lightning');
 	});
 	const reviewFee = $derived(asset === 'usdt_rgb' ? 2 : feeRate);
+	const simpleDollar = $derived(amountSats === null ? '' : amountSats.toFixed(2));
 	const simpleFee = $derived.by(() => {
 		const dollars = usdFromSats(feeEstimateSats(reviewFee), btcPrice.price);
 		return dollars === null ? null : formatUsd(dollars);
@@ -310,6 +316,11 @@
 		ifaLookup = sole ? 'ready' : 'missing';
 	}
 
+	function fillMax(): void {
+		if (spendableUnits === null || spendableUnits <= 0) return;
+		amountInput = formatUsdtBalance(spendableUnits, usdtScale);
+	}
+
 	async function copyTxid(): Promise<void> {
 		if (!sentTxid) return;
 		try {
@@ -388,12 +399,18 @@
 			}
 			if (!txid) throw new Error('Send did not return a txid');
 			sentTxid = txid;
-			appStore.showSuccessToast($t('wallet.toast.sent_successfully', { values: { txid } }));
+			appStore.showSuccessToast(
+				$advancedWallet
+					? $t('wallet.toast.sent_successfully', { values: { txid } })
+					: $t('wallet.simple.sent_ok', { values: { amount: simpleDollar || reviewAmount } })
+			);
 			onSent(txid);
 			onCancel();
 		} catch (error) {
 			console.error('[wallet-send] failed', error instanceof Error ? error.stack : error);
-			errorMessage = describeThrown(error);
+			const raw = describeThrown(error);
+			console.error('[wallet-send] send failed', raw);
+			errorMessage = $advancedWallet ? raw : plainSendReason(raw);
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -481,9 +498,25 @@
 					inputmode="decimal"
 					placeholder="0"
 					bind:value={amountInput}
+					onblur={() => {
+						if (asset !== 'usdt_rgb' && asset !== 'usdt_ln') return;
+						const parsed = Number(amountInput);
+						if (!Number.isFinite(parsed) || parsed <= 0) return;
+						amountInput = parsed.toFixed(2);
+					}}
 					data-testid="send-amount"
 				/>
-				{#if asset === 'btc_onchain'}
+				{#if asset === 'usdt_rgb' && !$advancedWallet}
+					<button
+						type="button"
+						class="btn btn-outline join-item"
+						onclick={fillMax}
+						disabled={spendableUnits === null || spendableUnits <= 0}
+						data-testid="send-max"
+					>
+						{$t('wallet.simple.max')}
+					</button>
+				{:else if asset === 'btc_onchain'}
 					<button
 						type="button"
 						class="btn btn-outline join-item"
@@ -575,7 +608,7 @@
 				role="status"
 				data-testid="send-not-spendable"
 			>
-				{$t('wallet.send_below_spendable')}
+				{spendCapText(formatUsdtBalance(usdtSpendable, usdtScale))}
 			</div>
 		{/if}
 		{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
@@ -607,7 +640,18 @@
 			})}
 		</div>
 	{/if}
-	{#if !$advancedWallet && (belowSpendable || hasInsufficientBalance)}
+	{#if !$advancedWallet && belowSpendable}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid="send-not-spendable"
+		>
+			{$t('wallet.simple.spend_cap', {
+				values: { amount: formatUsdtBalance(usdtSpendable, usdtScale) }
+			})}
+		</div>
+	{/if}
+	{#if !$advancedWallet && hasInsufficientBalance && asset !== 'usdt_rgb'}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"
@@ -670,13 +714,13 @@
 			{#if isSending}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{$t(
-				reviewing
-					? $advancedWallet
-						? 'wallet.send_confirm'
-						: 'wallet.simple.send'
-					: 'wallet.send.send'
-			)}
+			{#if isSending}
+				{$t('wallet.simple.sending_now')}
+			{:else if reviewing && !$advancedWallet}
+				{$t('wallet.simple.send_dollars', { values: { amount: simpleDollar || reviewAmount } })}
+			{:else}
+				{$t(reviewing ? 'wallet.send_confirm' : 'wallet.send.send')}
+			{/if}
 		</button>
 	</div>
 </form>

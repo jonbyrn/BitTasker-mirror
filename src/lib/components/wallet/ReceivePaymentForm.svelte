@@ -28,6 +28,7 @@
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
+	import { expiryHours } from '$lib/stores/wallet/plain-wallet';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
@@ -106,10 +107,28 @@
 	const usdtAssetId = getConfiguredRgbUsdtAssetId();
 
 	function invoiceFailure(err: unknown): string {
-		if (err instanceof Error && err.message.trim()) return err.message;
-		if (typeof err === 'string' && err.trim()) return err.trim();
+		const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+		console.error('[receive-modal] invoice failed', message);
+		if (
+			message.startsWith('Add a little bitcoin') ||
+			/insufficient bitcoin|needed ['"]?6000/i.test(message)
+		) {
+			return $t('wallet.simple.need_bitcoin');
+		}
+		if (!$advancedWallet) return $t('wallet.simple.request_failed');
+		if (message.trim()) return message;
 		return 'Failed to generate RGB invoice';
 	}
+	const codeExpiry = $derived.by(() => {
+		if (!receiveValue.startsWith('rgb:')) return null;
+		try {
+			return decodeRgbInvoice(receiveValue).expiry;
+		} catch {
+			return null;
+		}
+	});
+	const hoursLeft = $derived(expiryHours(codeExpiry));
+	const needBitcoin = $derived(errorMessage === $t('wallet.simple.need_bitcoin'));
 	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
 	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
 	const canGenerate = $derived(
@@ -360,7 +379,7 @@
 			>
 				{#if isGenerating}
 					<span class="loading loading-spinner loading-sm"></span>
-					{$t('wallet.simple.preparing')}
+					{$t('wallet.simple.preparing_code')}
 				{:else}
 					{$t('wallet.simple.continue')}
 				{/if}
@@ -391,6 +410,17 @@
 			{/if}
 			<p class="text-center text-sm">{$t('wallet.simple.show_payer')}</p>
 			<p class="text-center text-sm" data-testid="receive-waiting">{$t('wallet.simple.waiting')}</p>
+			{#if hoursLeft !== null}
+				<p class="text-center text-sm" data-testid="receive-expiry">
+					{#if hoursLeft <= 0}
+						{$t('wallet.simple.expires_soon')}
+					{:else if hoursLeft === 1}
+						{$t('wallet.simple.expires_hour')}
+					{:else}
+						{$t('wallet.simple.expires_hours', { values: { hours: hoursLeft } })}
+					{/if}
+				</p>
+			{/if}
 			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
 				<p class="font-mono">{receiveValue}</p>
 			</div>
@@ -409,15 +439,32 @@
 		{#if errorMessage}
 			<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="receive-error">
 				<span>{errorMessage === 'plain' ? $t('wallet.simple.request_failed') : errorMessage}</span>
-				<button
-					type="button"
-					class="btn btn-sm min-h-12"
-					onclick={() => {
-						void simpleCreate(simpleStep === 'amount' && !amountSats);
-					}}
-				>
-					{$t('wallet.simple.try_again')}
-				</button>
+				{#if needBitcoin}
+					<button
+						type="button"
+						class="btn btn-sm min-h-12"
+						data-testid="receive-bitcoin-first"
+						onclick={() => {
+							simpleKind = 'bitcoin';
+							asset = 'btc_onchain';
+							simpleStep = 'amount';
+							errorMessage = '';
+							receiveValue = '';
+						}}
+					>
+						{$t('wallet.simple.get_bitcoin')}
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="btn btn-sm min-h-12"
+						onclick={() => {
+							void simpleCreate(simpleStep === 'amount' && !amountSats);
+						}}
+					>
+						{$t('wallet.simple.try_again')}
+					</button>
+				{/if}
 			</div>
 		{/if}
 	{:else}

@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	combinedSats,
 	detectPayment,
+	expiryHours,
 	feeEstimateSats,
 	formatUsd,
 	heldUsdt,
+	plainSendReason,
+	shownUsdt,
+	spendCapText,
 	isUsdtHistory,
 	usdFromSats,
 	walletChip
@@ -67,6 +71,27 @@ describe('combined balances', () => {
 		expect(heldUsdt({ spendable: 0, balance: 1_000_000 }, 0, 0)).toBe(1_000_000);
 		expect(heldUsdt({ spendable: 500_000, balance: 1_000_000 }, 0, 250_000)).toBe(750_000);
 		expect(heldUsdt(null, 0, Number.NaN)).toBe(0);
+	});
+
+	it('shows only the live spendable amount after a send or release', () => {
+		expect(
+			shownUsdt({ balance: 100_000_000, spendable: 100_000_000, chainSpendable: 10_000_000 }, 0, 0)
+		).toBe(10_000_000);
+		expect(
+			shownUsdt(
+				{ balance: 100_000_000, spendable: 100_000_000, chainUnknown: true, chainSpendable: 0 },
+				0,
+				0
+			)
+		).toBe(100_000_000);
+		expect(spendCapText('10.00')).toBe('You have $10.00 USDT. You can send up to $10.00.');
+		expect(plainSendReason('bdk adding utxos')).toBe('No connection, nothing was sent, try again');
+		expect(plainSendReason('USDT amount is larger than the spendable balance.')).toBe(
+			'Not enough USDT'
+		);
+		expect(expiryHours(1_000, 1_000_000)).toBe(0);
+		expect(expiryHours(3_600, 0)).toBe(1);
+		expect(expiryHours(null)).toBeNull();
 	});
 
 	it('treats RGB rows and asset units as USDT history', () => {

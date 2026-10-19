@@ -11,11 +11,7 @@
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
-	import {
-		cancelUnpaidInvoices,
-		repairUsdtBalance,
-		scheduleRgbRefresh
-	} from '$lib/stores/wallet/wallet-balances';
+	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
@@ -26,8 +22,8 @@
 	import {
 		combinedSats,
 		formatUsd,
-		heldUsdt,
 		isUsdtHistory,
+		shownUsdt,
 		usdFromSats,
 		walletChip
 	} from '$lib/stores/wallet/plain-wallet';
@@ -65,34 +61,10 @@
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
-	let repairing = $state(false);
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
 	);
-	const chainGap = $derived.by(() => {
-		if ($walletStore.syncing || $walletStore.locked) return null;
-		// An empty coin list cannot support "0.00 still unspent", including when the list failed to load.
-		if (utxos.length === 0) return null;
-		if (!usdtAsset || usdtAsset.pendingConfirm) return null;
-		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return null;
-		const reported = usdtAsset.spendable;
-		if (reported == null || reported <= usdtAsset.chainSpendable) return null;
-		const precision = usdtPrecision(usdtAsset.symbol, usdtAsset.precision);
-		return {
-			reported: formatUsdtBalance(reported, precision),
-			chain: formatUsdtBalance(usdtAsset.chainSpendable, precision)
-		};
-	});
-	const usdtSpendableText = $derived.by(() => {
-		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return '';
-		if (usdtAsset.chainSpendable >= usdtAsset.balance) return '';
-		return formatUsdtBalance(
-			usdtAsset.chainSpendable,
-			usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
-		);
-	});
-	const canRepairUsdt = $derived(Boolean(usdtSpendableText));
 	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
 	const usdtHistory = $derived(
 		$walletStore.transactions.filter((row) => isUsdtHistory(row.description, row.assetUnits))
@@ -158,9 +130,23 @@
 		return dollars === null ? '—' : formatUsd(dollars);
 	});
 	const dollarUnits = $derived.by(() => {
-		const units = heldUsdt(usdtAsset, $walletStore.totalBalances?.usdt ?? 0, lightningUsdtUnits);
+		const units = shownUsdt(usdtAsset, $walletStore.totalBalances?.usdt ?? 0, lightningUsdtUnits);
 		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
 		return formatUsdtBalance(units, precision);
+	});
+	let rememberedDollars = $state('');
+	$effect(() => {
+		if ($walletStore.locked) return;
+		if (dollarUnits && dollarUnits !== '0.00' && dollarUnits !== '0') {
+			rememberedDollars = dollarUnits;
+		}
+	});
+	const displayDollars = $derived.by(() => {
+		const syncing = $walletStore.syncing || $walletStore.isInitializing;
+		if (syncing && rememberedDollars && (dollarUnits === '0.00' || dollarUnits === '0')) {
+			return rememberedDollars;
+		}
+		return dollarUnits;
 	});
 	const arrivingText = $derived.by(() => {
 		let units = 0;
@@ -351,18 +337,6 @@
 		}
 	}
 
-	async function repairBalance(): Promise<void> {
-		if (repairing || $walletStore.locked) return;
-		repairing = true;
-		try {
-			await repairUsdtBalance();
-		} catch (error: unknown) {
-			console.error('[wallet-page] repair failed:', error);
-		} finally {
-			repairing = false;
-		}
-	}
-
 	async function refreshTransfers(): Promise<void> {
 		const wallet = getUtexoWallet();
 		if (!wallet || refreshing) return;
@@ -395,10 +369,11 @@
 			return;
 		}
 		const notice = ++sentNotice;
-		sentHref = signetTxUrl(txid);
-		operationMessage = /^[0-9a-f]{64}$/i.test(txid)
-			? text($t('wallet.toast.sent_successfully', { values: { txid } }), `Sent ${txid}`)
-			: translate('wallet.toast.sent_successfully', 'Sent');
+		sentHref = advanced ? signetTxUrl(txid) : null;
+		operationMessage =
+			advanced && /^[0-9a-f]{64}$/i.test(txid)
+				? text($t('wallet.toast.sent_successfully', { values: { txid } }), `Sent ${txid}`)
+				: $t('wallet.simple.sent_done');
 		setTimeout(() => {
 			if (sentNotice === notice) {
 				operationMessage = null;
@@ -447,8 +422,8 @@
 		if (description === 'Wallet setup') return translate('wallet.wallet_setup', 'Wallet setup');
 		if (isRgbMovement(description)) {
 			return translate(
-				incoming ? 'wallet.received_rgb' : 'wallet.sent_rgb',
-				incoming ? 'Received USDT' : 'Sent USDT'
+				incoming ? 'wallet.simple.received_dollars' : 'wallet.simple.sent_dollars',
+				incoming ? 'Received dollars' : 'Sent dollars'
 			);
 		}
 		return translate(
@@ -583,28 +558,13 @@
 	<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
 		<div class="card-body gap-1 p-4">
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
-			<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${dollarUnits}</p>
-			<p class="text-base-content/60 text-sm tabular-nums">{dollarUnits} USDT</p>
-			{#if usdtSpendableText}
-				<p class="text-base-content/60 text-sm tabular-nums" data-testid="usdt-spendable">
-					{$t('wallet.spendable_usdt', { values: { amount: usdtSpendableText } })}
+			{#if $walletStore.locked}
+				<p class="text-xl font-semibold" data-testid="wallet-locked-balance">
+					{$t('wallet.simple.locked_open')}
 				</p>
-				<button
-					type="button"
-					class="btn btn-outline btn-sm mt-2 min-h-12"
-					data-testid="repair-usdt"
-					disabled={repairing || $walletStore.locked || !canRepairUsdt}
-					onclick={() => {
-						repairBalance().catch((error: unknown) => {
-							console.error('[wallet-page] repair failed:', error);
-						});
-					}}
-				>
-					{#if repairing}
-						<span class="loading loading-spinner loading-xs"></span>
-					{/if}
-					{$t('wallet.repair_usdt')}
-				</button>
+			{:else}
+				<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${displayDollars}</p>
+				<p class="text-base-content/60 text-sm tabular-nums">{displayDollars} USDT</p>
 			{/if}
 		</div>
 	</div>
@@ -626,10 +586,14 @@
 					{$t('wallet.locked')}
 				</span>
 			{:else if statusChip === 'getting_ready'}
-				<span class="badge badge-ghost gap-2" data-testid="wallet-getting-ready">
-					<span class="loading loading-spinner loading-xs"></span>
-					{$t('wallet.simple.getting_ready')}
-				</span>
+				<div class="flex w-full flex-col gap-2">
+					<span class="badge badge-ghost gap-2" data-testid="wallet-getting-ready">
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('wallet.simple.getting_ready')}
+					</span>
+					<progress class="progress progress-primary w-full" data-testid="wallet-opening"
+					></progress>
+				</div>
 			{:else}
 				<span class="badge badge-error" data-testid="wallet-offline">
 					{$t('wallet.simple.offline')}
@@ -689,7 +653,7 @@
 						</span>
 					{:else if statusChip === 'ready'}
 						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
-							{translate('wallet.tab_connected', 'Connected')}
+							{$t('wallet.simple.ready')}
 						</span>
 					{:else if statusChip === 'getting_ready'}
 						<span class="badge badge-ghost badge-sm gap-2" data-testid="wallet-getting-ready">
@@ -710,21 +674,8 @@
 				{@render balanceRow(
 					'USDT',
 					usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
-					usdtAsset
-						? formatUsdtBalance(
-								usdtAsset.balance,
-								usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
-							)
-						: formatUsdtBalance($walletStore.totalBalances.usdt, 6)
+					displayDollars
 				)}
-				{#if usdtSpendableText}
-					<p
-						class="text-base-content/60 px-4 pb-2 text-sm tabular-nums"
-						data-testid="usdt-spendable-detail"
-					>
-						{$t('wallet.spendable_usdt', { values: { amount: usdtSpendableText } })}
-					</p>
-				{/if}
 				{#if $walletStore.locked}
 					<div class="px-4 py-3">
 						<button
@@ -741,15 +692,6 @@
 					<p class="text-warning px-4 py-2 text-sm" data-testid="pending-confirmation">
 						{translate('wallet.pending_confirmation', 'Pending confirmation')}
 					</p>
-				{/if}
-				{#if chainGap}
-					<div class="alert alert-outline alert-warning mx-4 my-2" role="status">
-						<span>
-							{$t('wallet.chain_balance_gap', {
-								values: { reported: chainGap.reported, chain: chainGap.chain }
-							})}
-						</span>
-					</div>
 				{/if}
 				{#each otherAssets as asset (asset.assetId)}
 					{@render balanceRow(
@@ -918,9 +860,18 @@
 						{@render assetMark(rgb ? 'USDT' : 'BTC')}
 						<div class="min-w-0">
 							<p class="text-base-content/60 truncate text-sm">
-								{historyLabel(transaction.type, transaction.description)}
+								{#if !advanced && rgb}
+									{$t(
+										transaction.type === 'receive'
+											? 'wallet.simple.received_line'
+											: 'wallet.simple.sent_line',
+										{ values: { amount } }
+									)}
+								{:else}
+									{historyLabel(transaction.type, transaction.description)}
+								{/if}
 							</p>
-							{#if txid}
+							{#if (advanced || showDetails) && txid}
 								<p class="font-mono text-xs break-all" title={txid}>{txid}</p>
 							{/if}
 							<p class="text-base-content/50 text-xs">
@@ -931,7 +882,7 @@
 							{rgb ? `$${amount}` : amount}
 						</p>
 					{/snippet}
-					{#if explorerUrl}
+					{#if explorerUrl && (advanced || showDetails)}
 						<a
 							class={rowClass}
 							href={explorerUrl}
@@ -970,7 +921,9 @@
 					</button>
 					<span class="badge badge-ghost badge-sm">{usdtHistory.length}</span>
 				</div>
-				{#if usdtHistory.length === 0}
+				{#if $walletStore.locked}
+					<p class="text-base-content/60 px-4 pb-3 text-sm">{$t('wallet.simple.locked_open')}</p>
+				{:else if usdtHistory.length === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm" data-testid="usdt-history-empty">
 						{$t('wallet.simple.no_usdt')}
 					</p>
@@ -1013,7 +966,9 @@
 					{/if}
 					<span class="badge badge-ghost badge-sm">{bitcoinHistory.length}</span>
 				</div>
-				{#if bitcoinHistory.length === 0}
+				{#if $walletStore.locked}
+					<p class="text-base-content/60 px-4 pb-3 text-sm">{$t('wallet.simple.locked_open')}</p>
+				{:else if bitcoinHistory.length === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm">
 						{translate('wallet.no_transactions', 'No transactions found.')}
 					</p>

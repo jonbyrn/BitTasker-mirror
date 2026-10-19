@@ -14,6 +14,8 @@ import {
 	persistWalletSnapshot,
 	pullIncomingTransfers
 } from './wallet-balances';
+import { feeEstimateSats } from './plain-wallet';
+import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
 import { changeStillBooked, isBdkAddUtxoError, prepareRgbOnchainSend } from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import { rememberUsdtSend } from './wallet-transactions';
@@ -327,6 +329,16 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 	}
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('UTEXO wallet is not initialized');
+	const coins = wallet as { listUnspents?: () => Promise<unknown> };
+	if (typeof coins.listUnspents === 'function') {
+		const rows = await coins.listUnspents().catch(() => null);
+		const parsed = rows === null ? [] : parseWalletUtxos(rows);
+		const carriesUsdt = parsed.some((row) => row.kind === 'colored' || row.kind === 'receiving');
+		const fee = feeEstimateSats(params.feeRate ?? 1);
+		if (carriesUsdt && uncoloredSats(rows) < params.amountSats + fee) {
+			throw new Error('Not enough bitcoin');
+		}
+	}
 	await waitUntilIdle();
 	const txid = await callWithDeadline(
 		wallet.sendBtc({

@@ -372,6 +372,41 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(allocationCoversSpendable({ ...spentOnly, unknown: true }, 100_000_000)).toBe(false);
 	});
 
+	it('does not start a bitcoin self-transfer while preparing a USDT send', async () => {
+		const assetId = 'rgb:f~usdt';
+		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		const createUtxos = vi.fn();
+		const sendBtc = vi.fn();
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					createUtxos,
+					sendBtc,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 1 } }
+						},
+						{
+							rgbAllocations: [],
+							utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 30_000_000 } }]
+					})
+				},
+				assetId,
+				30_000_000,
+				async () => ({ spent: false }),
+				10_000_000
+			)
+		).resolves.toBeUndefined();
+		expect(createUtxos).not.toHaveBeenCalled();
+		expect(sendBtc).not.toHaveBeenCalled();
+	});
+
 	it('continues when live outputs cover the amount and a spent seal remains', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');

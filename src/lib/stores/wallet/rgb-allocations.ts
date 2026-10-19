@@ -86,16 +86,20 @@ export function isInsufficientAllocations(error: unknown): boolean {
 	return errorText(error).toLowerCase().includes('insufficient allocations');
 }
 
+function holdsRgb(row: AllocationUtxo): boolean {
+	return row.rgbAllocations.length > 0 || (row.pendingBlinded ?? 0) > 0;
+}
+
+/**
+ * A new colorable output is a bitcoin self-transfer. Never build one from an
+ * output that already carries USDT or a waiting receive.
+ */
 function createParams(
 	unspents: AllocationUtxo[]
 ): { upTo: boolean; num: number; feeRate: number } | null {
 	if (freeAllocationCount(unspents) > 0) return null;
 	const existing = unspents.filter((row) => row.utxo.exists);
-	const allLocked = existing.length > 0 && existing.every((row) => (row.pendingBlinded ?? 0) > 0);
-	const occupied = existing.some(
-		(row) => row.utxo.colorable === true && row.rgbAllocations.length > 0
-	);
-	if (allLocked || occupied) return ONE_UTXO;
+	if (existing.some(holdsRgb)) return null;
 	return SPLIT_UTXOS;
 }
 
@@ -114,6 +118,13 @@ export async function ensureRgbAllocations(wallet: AllocationWallet): Promise<vo
 }
 
 /** Ensure a free allocation exists, then run the invoice call. Retries once after a forced UTXO. */
+export class NeedBitcoinError extends Error {
+	constructor() {
+		super('Add a little bitcoin first (about $5) to receive dollars');
+		this.name = 'NeedBitcoinError';
+	}
+}
+
 export async function receiveWithAllocations<T>(
 	wallet: AllocationWallet,
 	receive: () => Promise<T>
@@ -123,7 +134,16 @@ export async function receiveWithAllocations<T>(
 		return await receive();
 	} catch (error) {
 		if (!isInsufficientAllocations(error) || typeof wallet.createUtxos !== 'function') throw error;
+		const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
+		if (unspents.some(holdsRgb)) throw new NeedBitcoinError();
 		await wallet.createUtxos(ONE_UTXO);
 		return await receive();
 	}
+}
+
+/** Sats on outputs that do not carry USDT. Bitcoin sends may use only these. */
+export function uncoloredSats(rows: unknown): number {
+	return parseWalletUtxos(rows)
+		.filter((row) => row.kind === 'free' || row.kind === 'vanilla')
+		.reduce((sum, row) => sum + (Number.isFinite(row.sats) ? row.sats : 0), 0);
 }

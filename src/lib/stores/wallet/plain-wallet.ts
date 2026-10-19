@@ -41,6 +41,61 @@ export function heldUsdt(
 	return chain + channel;
 }
 
+/** The one number on screen: Esplora-live USDT when the check succeeded. */
+export function shownUsdt(
+	asset: {
+		spendable?: number | null;
+		balance?: number | null;
+		chainSpendable?: number | null;
+		chainUnknown?: boolean;
+	} | null,
+	fallback: number,
+	lightning: number
+): number {
+	const channel = Number.isFinite(lightning) ? Math.max(0, lightning) : 0;
+	const live = asset?.chainSpendable;
+	if (asset && asset.chainUnknown !== true && typeof live === 'number' && Number.isFinite(live)) {
+		return Math.max(0, live) + channel;
+	}
+	return heldUsdt(asset, fallback, lightning);
+}
+
+export function spendCapText(amount: string): string {
+	return `You have $${amount} USDT. You can send up to $${amount}.`;
+}
+
+/** Hours left on a payment code. Zero means it has already expired. */
+export function expiryHours(unixSeconds: number | null, nowMs = Date.now()): number | null {
+	if (unixSeconds === null || !Number.isFinite(unixSeconds) || unixSeconds <= 0) return null;
+	const left = unixSeconds * 1000 - nowMs;
+	if (left <= 0) return 0;
+	return Math.ceil(left / 3_600_000);
+}
+
+/** Simple mode never shows engine text. The raw message stays in the console. */
+export function plainSendReason(message: string): string {
+	const text = message.toLowerCase();
+	if (text.includes('expired')) return 'This payment code has expired, ask for a new one';
+	if (
+		text.includes('not enough') ||
+		text.includes('larger than') ||
+		text.includes('spendable') ||
+		text.includes('only ')
+	) {
+		return 'Not enough USDT';
+	}
+	if (
+		text.includes('nothing was sent') ||
+		text.includes('timed out') ||
+		text.includes('no connection') ||
+		text.includes('offline') ||
+		/bdk|utxo|seal|onchainsend|rgb:/.test(text)
+	) {
+		return 'No connection, nothing was sent, try again';
+	}
+	return message;
+}
+
 export function isUsdtHistory(
 	description: string | undefined,
 	assetUnits: number | undefined

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	ensureRgbAllocations,
 	freeAllocationCount,
+	NeedBitcoinError,
 	parseWalletUtxos,
-	receiveWithAllocations
+	receiveWithAllocations,
+	uncoloredSats
 } from '$lib/stores/wallet/rgb-allocations';
 
 const free = {
@@ -73,16 +75,16 @@ describe('ensureRgbAllocations', () => {
 		expect(createUtxos).toHaveBeenCalledWith({ upTo: true, num: 5, feeRate: 2 });
 	});
 
-	it('creates a new utxo when every existing utxo is locked', async () => {
+	it('does not self-transfer when every output is waiting on a receive', async () => {
 		const createUtxos = vi.fn().mockResolvedValue(1);
 		await ensureRgbAllocations({ listUnspents: async () => [locked], createUtxos });
-		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 1, feeRate: 2 });
+		expect(createUtxos).not.toHaveBeenCalled();
 	});
 
-	it('creates a new utxo when colorable utxos are already allocated', async () => {
+	it('does not self-transfer when an output already carries USDT', async () => {
 		const createUtxos = vi.fn().mockResolvedValue(1);
 		await ensureRgbAllocations({ listUnspents: async () => [colored, vanilla], createUtxos });
-		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 1, feeRate: 2 });
+		expect(createUtxos).not.toHaveBeenCalled();
 	});
 
 	it('skips createUtxos when a free allocation exists', async () => {
@@ -111,5 +113,40 @@ describe('receiveWithAllocations', () => {
 		await expect(receiveWithAllocations(wallet, receive)).resolves.toEqual({ invoice: 'rgb:ok' });
 		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 1, feeRate: 2 });
 		expect(receive).toHaveBeenCalledTimes(2);
+	});
+
+	it('refuses a new output when USDT is already on a coin', async () => {
+		const createUtxos = vi.fn();
+		const receive = vi.fn().mockRejectedValue(new Error('Insufficient allocations'));
+		const wallet = { listUnspents: async () => [colored], createUtxos };
+		await expect(receiveWithAllocations(wallet, receive)).rejects.toBeInstanceOf(NeedBitcoinError);
+		expect(createUtxos).not.toHaveBeenCalled();
+	});
+});
+
+describe('uncoloredSats', () => {
+	it('ignores outputs that carry USDT', () => {
+		expect(
+			uncoloredSats([
+				{
+					utxo: {
+						exists: true,
+						colorable: true,
+						btcAmount: 1000,
+						outpoint: { txid: 'aa', vout: 0 }
+					},
+					rgbAllocations: [{}]
+				},
+				{
+					utxo: {
+						exists: true,
+						colorable: false,
+						btcAmount: 5000,
+						outpoint: { txid: 'bb', vout: 1 }
+					},
+					rgbAllocations: []
+				}
+			])
+		).toBe(5000);
 	});
 });

@@ -5,6 +5,8 @@ const {
 	sendBegin,
 	signPsbt,
 	onchainSendEnd,
+	createUtxos,
+	sendBtc,
 	listAssets,
 	getAssetBalance,
 	prepareRgbOnchainSend,
@@ -19,6 +21,8 @@ const {
 	sendBegin: vi.fn().mockResolvedValue('cHNidP-sendBegin'),
 	signPsbt: vi.fn().mockResolvedValue('cHNidP-signed'),
 	onchainSendEnd: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32) }),
+	createUtxos: vi.fn(),
+	sendBtc: vi.fn(),
 	listAssets: vi.fn(),
 	getAssetBalance: vi.fn(),
 	prepareRgbOnchainSend: vi.fn().mockResolvedValue(undefined),
@@ -38,7 +42,9 @@ vi.mock('$lib/stores/wallet/wallet-state', () => ({
 			onchainSendBegin,
 			sendBegin,
 			signPsbt,
-			onchainSendEnd
+			onchainSendEnd,
+			createUtxos,
+			sendBtc
 		}
 	},
 	walletStore: { subscribe: () => () => {}, update: updateWallet }
@@ -120,6 +126,8 @@ describe('sendRgbAsset', () => {
 		});
 		expect(onchainSendBegin.mock.calls[0][0]).not.toHaveProperty('witnessData');
 		expect(sendBegin).not.toHaveBeenCalled();
+		expect(createUtxos).not.toHaveBeenCalled();
+		expect(sendBtc).not.toHaveBeenCalled();
 		expect(signPsbt).toHaveBeenCalledWith('cHNidP-unsigned');
 		expect(onchainSendEnd).toHaveBeenCalledWith({ signedPsbt: 'cHNidP-signed' });
 		expect(extractSignedTx).toHaveBeenCalledWith('cHNidP-signed');
