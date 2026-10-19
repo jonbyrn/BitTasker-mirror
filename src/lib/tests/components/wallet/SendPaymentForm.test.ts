@@ -335,7 +335,7 @@ describe('SendPaymentForm', () => {
 
 		await waitFor(() => expect(getByTestId('send-not-spendable')).toBeTruthy());
 		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
-		expect(getByTestId('send-not-spendable').textContent).toContain('wallet.send_below_spendable');
+		expect(getByTestId('send-not-spendable').textContent).toContain('You can send up to $100.00');
 		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
