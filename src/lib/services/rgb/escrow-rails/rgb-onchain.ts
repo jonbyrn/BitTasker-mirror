@@ -24,17 +24,18 @@ export async function payOnchainUsdt(
 	if (!Number.isSafeInteger(amount) || amount <= 0) {
 		throw new Error('USDT amount must be a positive whole number');
 	}
-	await prepareRgbOnchainSend(
-		wallet as Parameters<typeof prepareRgbOnchainSend>[0],
-		assetId,
-		undefined,
-		esploraOutputSpent,
-		amount
-	);
+	const signerWallet = wallet as Parameters<typeof prepareRgbOnchainSend>[0];
+	await prepareRgbOnchainSend(signerWallet, assetId, undefined, esploraOutputSpent, amount);
+	const listed = signerWallet.listAssets
+		? await signerWallet.listAssets().catch(() => undefined)
+		: undefined;
+	const spendable = [...(listed?.nia ?? []), ...(listed?.ifa ?? [])].find(
+		(row) => row.assetId === assetId
+	)?.balance?.spendable;
 	let sent: Awaited<ReturnType<typeof runEscrowSend>>;
 	try {
 		sent = await callWithDeadline(
-			runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice }),
+			runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice, spendable }),
 			RGB_BUILD_MS,
 			'USDT send stopped before it was built. Nothing was sent.'
 		);

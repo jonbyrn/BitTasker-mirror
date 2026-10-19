@@ -1,3 +1,6 @@
+import { Psbt } from 'bitcoinjs-lib';
+import { openSendBatches, takeChangeConfirmations } from '$lib/stores/wallet/prepare-rgb-send';
+
 const STORAGE_KEY = 'bittasker.escrow-send';
 
 export type EscrowPhase =
@@ -13,6 +16,9 @@ export interface EscrowSendInput {
 	amount: number;
 	invoice: string;
 	feeRate?: number;
+	minConfirmations?: number;
+	/** Units still spendable before this send. Change is required when this is larger than amount. */
+	spendable?: number;
 }
 
 export interface EscrowSendState {
@@ -45,6 +51,10 @@ export interface EscrowSigner {
 	}): Promise<string>;
 	signPsbt(psbt: string, mnemonic?: string): Promise<string>;
 	onchainSendEnd(params: { signedPsbt: string; skipSync?: boolean }): Promise<unknown>;
+	listTransfers?: () => Promise<
+		Array<{ kind: string; status: string; batchTransferIdx: number; txid?: string }>
+	>;
+	failTransfers?: (params: { batchTransferIdx?: number; skipSync?: boolean }) => Promise<boolean>;
 }
 
 export function txidFromSend(value: unknown): string {
@@ -115,7 +125,7 @@ export async function buildEscrowPsbt(
 		assetId: input.assetId,
 		amount: input.amount,
 		feeRate: input.feeRate ?? 2,
-		minConfirmations: 1
+		minConfirmations: input.minConfirmations ?? takeChangeConfirmations()
 	});
 	if (typeof psbt !== 'string' || psbt.length === 0) {
 		throw new Error('onchainSendBegin did not return a PSBT');
@@ -141,6 +151,53 @@ function describeSendEnd(value: unknown): Record<string, unknown> {
 		txid: txidFromSend(value) || null,
 		batchTransferIdx: row.batchTransferIdx ?? row.batch_transfer_idx ?? null
 	};
+}
+
+type PsbtOutput = {
+	bip32Derivation?: readonly unknown[];
+	tapBip32Derivation?: readonly unknown[];
+};
+
+/** True when the PSBT has no output derived from this wallet. Null when the PSBT cannot be read. */
+export function changeOutputMissing(psbtBase64: string): boolean | null {
+	try {
+		const parsed = Psbt.fromBase64(psbtBase64);
+		const outputs = parsed.data.outputs as PsbtOutput[];
+		if (outputs.length === 0) return true;
+		const derived = outputs.some(
+			(output) =>
+				(output.bip32Derivation?.length ?? 0) > 0 || (output.tapBip32Derivation?.length ?? 0) > 0
+		);
+		return !derived;
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-send] change output unreadable',
+			error instanceof Error ? error.message : String(error)
+		);
+		return null;
+	}
+}
+
+/** Stop a partial send whose PSBT would not pay the remainder back to this wallet. */
+export function assertChangeReturns(
+	psbt: string,
+	spendable: number | undefined,
+	amount: number
+): void {
+	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(amount) || amount >= spendable)
+		return;
+	if (changeOutputMissing(psbt) !== true) return;
+	throw new Error(
+		'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.'
+	);
+}
+
+export async function failOpenSend(wallet: EscrowSigner): Promise<void> {
+	if (!wallet.listTransfers || !wallet.failTransfers) return;
+	const transfers = await wallet.listTransfers().catch(() => []);
+	for (const batchTransferIdx of openSendBatches(transfers)) {
+		await wallet.failTransfers({ batchTransferIdx, skipSync: true }).catch(() => false);
+	}
 }
 
 export async function broadcastEscrowPsbt(
@@ -180,6 +237,7 @@ export async function runEscrowSend(
 	saveEscrowSend(next);
 	try {
 		next.psbt = await buildEscrowPsbt(wallet, input);
+		assertChangeReturns(next.psbt, input.spendable, input.amount);
 		next.phase = 'psbt_ready';
 		saveEscrowSend(next);
 		next.phase = 'signing';
@@ -195,6 +253,9 @@ export async function runEscrowSend(
 		next.phase = 'failed';
 		next.lastError = error instanceof Error ? error.message : String(error);
 		saveEscrowSend(next);
+		if (next.psbt && next.lastError.includes('come back')) {
+			await failOpenSend(wallet);
+		}
 		console.info('[contract-rune] psbt phase', next.phase, next.lastError);
 		throw error;
 	}

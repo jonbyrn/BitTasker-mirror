@@ -75,6 +75,9 @@ export function expiryHours(unixSeconds: number | null, nowMs = Date.now()): num
 /** Simple mode never shows engine text. The raw message stays in the console. */
 export function plainSendReason(message: string): string {
 	const text = message.toLowerCase();
+	if (text.includes('come back')) {
+		return 'The rest of the dollars would not come back. Nothing was sent.';
+	}
 	if (text.includes('expired')) return 'This payment code has expired, ask for a new one';
 	if (
 		text.includes('not enough') ||

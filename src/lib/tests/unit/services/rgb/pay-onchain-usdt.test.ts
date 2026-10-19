@@ -82,6 +82,28 @@ describe('payOnchainUsdt', () => {
 		);
 	});
 
+	it('refuses a partial send when the colored coin cannot pay a change output', async () => {
+		const wallet = walletDouble();
+		wallet.listUnspents.mockResolvedValue([
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+				utxo: {
+					exists: true,
+					colorable: true,
+					btcAmount: 691,
+					outpoint: { txid: seal, vout: 1 }
+				}
+			}
+		]);
+		wallet.listAssets.mockResolvedValue({
+			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+		});
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).rejects.toThrow(
+			/come back/
+		);
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
 	it('sends after the seal is still unspent', async () => {
 		const wallet = walletDouble();
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).resolves.toEqual({

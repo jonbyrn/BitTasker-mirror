@@ -35,12 +35,28 @@ export interface RgbUnspentRef {
 		exists: boolean;
 		outpoint?: { txid?: string; vout?: number };
 		colorable?: boolean;
+		/** Sats on this output. Absent means the wallet did not say. */
+		btcAmount?: number;
 	};
 }
 
 export interface RgbNiaRef {
 	assetId?: string;
 	balance?: { spendable?: number };
+}
+
+/** Sends that were built and never broadcast. Safe to fail so the seal is spendable again. */
+export function openSendBatches(transfers: RgbTransferRef[]): number[] {
+	const indexes = transfers
+		.filter(
+			(transfer) =>
+				transfer.kind === 'Send' &&
+				!transfer.txid &&
+				transfer.status !== 'Failed' &&
+				transfer.status !== 'Settled'
+		)
+		.map((transfer) => transfer.batchTransferIdx);
+	return [...new Set(indexes)];
 }
 
 export function stuckSendBatchIndexes(transfers: RgbTransferRef[]): number[] {
@@ -302,6 +318,72 @@ export function hasUncoloredFeeUtxo(unspents: RgbUnspentRef[]): boolean {
 	return unspents.some((unspent) => unspent.utxo.exists && unspent.utxo.colorable === false);
 }
 
+/** Colorable output with no RGB on it. The asset send can spend this; a vanilla coin it cannot. */
+export function freeColorableCoin(unspents: RgbUnspentRef[]): boolean {
+	return unspents.some(
+		(unspent) =>
+			unspent.utxo.exists &&
+			unspent.utxo.colorable === true &&
+			unspent.rgbAllocations.length === 0 &&
+			(unspent.pendingBlinded ?? 0) === 0
+	);
+}
+
+/**
+ * Sats a partial send must have on colorable coins.
+ * Recipient dust 330 + change dust 330 + the 309 sat fee seen on these sends.
+ * A 691 sat coin paid the fee and one output, so the leftover dollars left with the recipient.
+ * A 1000 sat coin still had a change output on the sender.
+ */
+export const CHANGE_ROOM = 330 + 330 + 309;
+
+function coloredBtc(unspents: RgbUnspentRef[], assetId: string): number | null {
+	const colored = allocatedSealRows(unspents, assetId);
+	if (colored.length === 0) return 0;
+	if (colored.some((unspent) => unspent.utxo.btcAmount === undefined)) return null;
+	return colored.reduce((sum, unspent) => sum + (unspent.utxo.btcAmount ?? 0), 0);
+}
+
+function colorableSats(unspents: RgbUnspentRef[], assetId: string): number | null {
+	const held = coloredBtc(unspents, assetId);
+	if (held === null) return null;
+	let total = held;
+	for (const unspent of unspents) {
+		if (!unspent.utxo.exists || unspent.utxo.colorable !== true) continue;
+		if (unspent.rgbAllocations.length > 0 || (unspent.pendingBlinded ?? 0) > 0) continue;
+		if (unspent.utxo.btcAmount === undefined) return null;
+		total += unspent.utxo.btcAmount;
+	}
+	return total;
+}
+
+/** Why a partial send must not start. Null when the remainder can come back, or the sat size is unknown. */
+export function changeRoomBlocker(
+	unspents: RgbUnspentRef[],
+	assetId: string,
+	spendable: number,
+	sendAmount: number
+): string | null {
+	if (!Number.isSafeInteger(sendAmount) || sendAmount <= 0) return null;
+	if (!Number.isSafeInteger(spendable) || sendAmount >= spendable) return null;
+	const sats = colorableSats(unspents, assetId);
+	if (sats === null || sats >= CHANGE_ROOM) return null;
+	return 'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.';
+}
+
+function vanillaSats(unspents: RgbUnspentRef[]): number | null {
+	let total = 0;
+	let seen = false;
+	for (const unspent of unspents) {
+		if (!unspent.utxo.exists || unspent.utxo.colorable !== false) continue;
+		if (unspent.rgbAllocations.length > 0) continue;
+		if (unspent.utxo.btcAmount === undefined) return null;
+		seen = true;
+		total += unspent.utxo.btcAmount;
+	}
+	return seen ? total : 0;
+}
+
 /** Why onchainSend must not run. Null means the seal, fee coin, and spendable agree. */
 export function sealSendBlocker(
 	unspents: RgbUnspentRef[],
@@ -330,7 +412,7 @@ export function sealSendBlocker(
 	if (seals.length === 0) {
 		return `Refusing onchainSend: ${assetId} has no colorable allocation`;
 	}
-	if (!hasUncoloredFeeUtxo(unspents)) {
+	if (!hasUncoloredFeeUtxo(unspents) && !freeColorableCoin(unspents)) {
 		return 'Refusing onchainSend: no uncolored fee UTXO';
 	}
 	const sealed = fungibleAllocationSum(unspents, assetId);
@@ -517,6 +599,19 @@ function logSealState(nia: RgbNiaRef[], unspents: RgbUnspentRef[]): void {
 }
 
 let sendDepth = 0;
+let unconfirmedChange = false;
+
+/** The next asset send may spend the colorable coin just funded in this turn. */
+export function allowUnconfirmedChange(): void {
+	unconfirmedChange = true;
+}
+
+/** 0 only for the send that follows a same-turn funding. Every other send waits for 1 confirmation. */
+export function takeChangeConfirmations(): number {
+	const min = unconfirmedChange ? 0 : 1;
+	unconfirmedChange = false;
+	return min;
+}
 let turn = 0;
 let pendingTurns = 0;
 let turnTail: Promise<void> = Promise.resolve();
@@ -594,6 +689,22 @@ async function syncWhenPresent(wallet: PrepareWallet): Promise<void> {
 	await wallet.syncWallet();
 }
 
+/**
+ * Move vanilla sats onto the colorable address so the asset send can build a change output.
+ * The amount is larger than a dust-sized colored coin, so that coin cannot pay this send by itself.
+ */
+async function fundChangeCoin(wallet: PrepareWallet, unspents: RgbUnspentRef[]): Promise<boolean> {
+	if (!wallet.sendBtc || !wallet.getAddress) return false;
+	const vanilla = vanillaSats(unspents);
+	if (vanilla === null || vanilla < CHANGE_ROOM + 400) return false;
+	const address = (await wallet.getAddress()).trim();
+	if (!address) return false;
+	await wallet.sendBtc({ address, amount: CHANGE_ROOM, feeRate: 2 });
+	if (wallet.syncWallet) await wallet.syncWallet();
+	await wallet.refreshWallet();
+	return true;
+}
+
 /** Sync BDK, then refuse send until this asset is sealed on a colorable UTXO. */
 export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
@@ -659,8 +770,18 @@ export async function prepareRgbOnchainSend(
 			if (short) throw new Error(short);
 		}
 		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
-		const blocker = sealSendBlocker(rows, assetId, usable);
+		let current = rows;
+		let funded = false;
+		if (changeRoomBlocker(current, assetId, usable, needed)) {
+			funded = await fundChangeCoin(wallet, current);
+			if (funded) current = await readUnspents(wallet);
+			const again = changeRoomBlocker(current, assetId, usable, needed);
+			if (again) throw new Error(again);
+		}
+		const blocker = sealSendBlocker(current, assetId, usable);
 		if (blocker) throw new Error(blocker);
+		const held = coloredBtc(current, assetId);
+		if (needed < usable && held !== null && held < CHANGE_ROOM) allowUnconfirmedChange();
 	} finally {
 		sendDepth -= 1;
 	}

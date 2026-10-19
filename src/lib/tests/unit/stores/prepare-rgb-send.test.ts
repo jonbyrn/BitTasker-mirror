@@ -16,7 +16,10 @@ import {
 	spentOutputMessage,
 	spentSealBatches,
 	sealSendBlocker,
+	changeRoomBlocker,
 	changeStillBooked,
+	openSendBatches,
+	takeChangeConfirmations,
 	walletSendPending,
 	spentSealBooked,
 	spentSealMessage,
@@ -568,5 +571,144 @@ describe('prepareRgbOnchainSend helpers', () => {
 			)
 		).toBe(true);
 		expect(isBdkAddUtxoError(new Error('Invalid mnemonic'))).toBe(false);
+	});
+});
+
+describe('change comes back', () => {
+	const assetId = 'rgb:f~usdt';
+
+	function coin(sats: number | undefined, allocations: number, colorable: boolean) {
+		return {
+			rgbAllocations:
+				allocations > 0 ? [{ assetId, assignment: { type: 'Fungible', amount: allocations } }] : [],
+			utxo: {
+				exists: true,
+				colorable,
+				btcAmount: sats,
+				outpoint: { txid: 'aa'.repeat(32), vout: colorable ? 1 : 0 }
+			}
+		};
+	}
+
+	it('allows the 1000 sat coin that still paid change back to the sender', () => {
+		expect(
+			changeRoomBlocker([coin(1000, 70_000_000, true)], assetId, 70_000_000, 2_000_000)
+		).toBeNull();
+	});
+
+	it('blocks the 691 sat coin that spent the whole remainder', () => {
+		expect(
+			changeRoomBlocker([coin(691, 70_000_000, true)], assetId, 70_000_000, 2_000_000)
+		).toMatch(/come back/);
+	});
+
+	it('allows a partial send once a free colorable coin covers the change', () => {
+		expect(
+			changeRoomBlocker(
+				[coin(691, 70_000_000, true), coin(969, 0, true)],
+				assetId,
+				70_000_000,
+				2_000_000
+			)
+		).toBeNull();
+	});
+
+	it('does not ask for change when the send spends the whole balance', () => {
+		expect(
+			changeRoomBlocker([coin(691, 2_000_000, true)], assetId, 2_000_000, 2_000_000)
+		).toBeNull();
+	});
+
+	it('funds a colorable coin from vanilla sats before a short partial send', async () => {
+		const colored = coin(691, 70_000_000, true);
+		const vanilla = {
+			rgbAllocations: [],
+			utxo: {
+				exists: true,
+				colorable: false,
+				btcAmount: 50_000,
+				outpoint: { txid: 'bb'.repeat(32), vout: 0 }
+			}
+		};
+		const free = coin(969, 0, true);
+		let rows = [colored, vanilla];
+		const sendBtc = vi.fn(async () => {
+			rows = [colored, vanilla, free];
+			return 'cc'.repeat(32);
+		});
+		const createUtxos = vi.fn();
+		await prepareRgbOnchainSend(
+			{
+				refreshWallet: async () => undefined,
+				syncWallet: async () => undefined,
+				getAddress: async () => 'tb1pchange',
+				sendBtc,
+				createUtxos,
+				listUnspents: async () => rows,
+				listAssets: async () => ({
+					ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+				})
+			},
+			assetId,
+			70_000_000,
+			async () => ({ spent: false }),
+			2_000_000
+		);
+		expect(createUtxos).not.toHaveBeenCalled();
+		expect(sendBtc).toHaveBeenCalledWith({ address: 'tb1pchange', amount: 969, feeRate: 2 });
+		expect(takeChangeConfirmations()).toBe(0);
+	});
+
+	it('lets a short colored coin spend an existing free coin before it confirms', async () => {
+		const sendBtc = vi.fn();
+		await prepareRgbOnchainSend(
+			{
+				refreshWallet: async () => undefined,
+				sendBtc,
+				listUnspents: async () => [coin(691, 70_000_000, true), coin(969, 0, true)],
+				listAssets: async () => ({
+					ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+				})
+			},
+			assetId,
+			70_000_000,
+			async () => ({ spent: false }),
+			2_000_000
+		);
+		expect(sendBtc).not.toHaveBeenCalled();
+		expect(takeChangeConfirmations()).toBe(0);
+	});
+
+	it('refuses a short coin when vanilla sats cannot fund the change', async () => {
+		const sendBtc = vi.fn();
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					getAddress: async () => 'tb1pchange',
+					sendBtc,
+					listUnspents: async () => [coin(691, 70_000_000, true)],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+					})
+				},
+				assetId,
+				70_000_000,
+				async () => ({ spent: false }),
+				2_000_000
+			)
+		).rejects.toThrow(/come back/);
+		expect(sendBtc).not.toHaveBeenCalled();
+		expect(takeChangeConfirmations()).toBe(1);
+	});
+
+	it('fails an unbroadcast send so the seal can be spent again', () => {
+		expect(
+			openSendBatches([
+				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 4 },
+				{ kind: 'Send', status: 'Settled', batchTransferIdx: 5, txid: 'dd'.repeat(32) },
+				{ kind: 'ReceiveBlind', status: 'WaitingCounterparty', batchTransferIdx: 6 }
+			])
+		).toEqual([4]);
 	});
 });

@@ -1,6 +1,8 @@
 import {
+	assertChangeReturns,
 	broadcastEscrowPsbt,
 	buildEscrowPsbt,
+	failOpenSend,
 	requireEscrowSigner,
 	signEscrowPsbt
 } from '$lib/services/rgb/psbt-escrow';
@@ -233,6 +235,12 @@ export async function sendRgbAsset(params: {
 			error instanceof Error ? error.stack : error
 		);
 		throw new Error(message);
+	}
+	try {
+		assertChangeReturns(psbt, spendable, units);
+	} catch (error) {
+		await failOpenSend(signer);
+		throw error;
 	}
 	const signed = await signEscrowPsbt(signer, psbt);
 	console.info('[wallet-send] onchainSendBegin psbt', { psbtChars: psbt.length });

@@ -89,6 +89,11 @@ describe('combined balances', () => {
 		expect(plainSendReason('USDT amount is larger than the spendable balance.')).toBe(
 			'Not enough USDT'
 		);
+		expect(
+			plainSendReason(
+				'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.'
+			)
+		).toBe('The rest of the dollars would not come back. Nothing was sent.');
 		expect(expiryHours(1_000, 1_000_000)).toBe(0);
 		expect(expiryHours(3_600, 0)).toBe(1);
 		expect(expiryHours(null)).toBeNull();

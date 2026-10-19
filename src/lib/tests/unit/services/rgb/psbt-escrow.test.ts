@@ -1,12 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
+import { networks, Psbt } from 'bitcoinjs-lib';
 import {
+	assertChangeReturns,
 	broadcastEscrowPsbt,
 	buildEscrowPsbt,
+	changeOutputMissing,
 	refundEscrow,
 	runEscrowSend,
 	txidFromSend,
 	type EscrowSigner
 } from '$lib/services/rgb/psbt-escrow';
+
+function outputPsbt(withChange: boolean): string {
+	const psbt = new Psbt({ network: networks.testnet });
+	const script = Buffer.from(`5120${'11'.repeat(32)}`, 'hex');
+	psbt.addInput({
+		hash: 'ab'.repeat(32),
+		index: 0,
+		witnessUtxo: { script, value: 1000 }
+	});
+	psbt.addOutput({ script, value: 382 });
+	if (withChange) {
+		psbt.updateOutput(0, {
+			bip32Derivation: [
+				{
+					masterFingerprint: Buffer.from('037153fd', 'hex'),
+					pubkey: Buffer.from(`02${'ab'.repeat(32)}`, 'hex'),
+					path: "m/86'/1'/0'/1/0"
+				}
+			]
+		});
+	}
+	return psbt.toBase64();
+}
 
 function signer(overrides: Partial<EscrowSigner> = {}): EscrowSigner {
 	return {
@@ -66,6 +92,39 @@ describe('psbt escrow steps', () => {
 			expect.objectContaining({ invoice: 'rgb:self-invoice', amount: 10_000 })
 		);
 		expect(sent.invoice).toBe('rgb:self-invoice');
+	});
+
+	it('reads a change output from the wallet derivation and ignores an unreadable psbt', () => {
+		expect(changeOutputMissing(outputPsbt(true))).toBe(false);
+		expect(changeOutputMissing(outputPsbt(false))).toBe(true);
+		expect(changeOutputMissing('cHNidP-unsigned')).toBeNull();
+		expect(() => assertChangeReturns(outputPsbt(false), 70_000_000, 2_000_000)).toThrow(
+			/come back/
+		);
+		expect(() => assertChangeReturns(outputPsbt(true), 70_000_000, 2_000_000)).not.toThrow();
+		expect(() => assertChangeReturns(outputPsbt(false), 2_000_000, 2_000_000)).not.toThrow();
+	});
+
+	it('does not sign a partial send whose psbt has no change output', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const wallet = signer({
+			onchainSendBegin: vi.fn(async () => outputPsbt(false)),
+			listTransfers: vi.fn(async () => [
+				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 8 }
+			]),
+			failTransfers
+		});
+		await expect(
+			runEscrowSend(wallet, {
+				assetId: 'rgb:test',
+				amount: 2_000_000,
+				spendable: 70_000_000,
+				invoice: 'rgb:invoice'
+			})
+		).rejects.toThrow(/come back/);
+		expect(wallet.signPsbt).not.toHaveBeenCalled();
+		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 8, skipSync: true });
 	});
 
 	it('rejects a broadcast that has no txid', async () => {
