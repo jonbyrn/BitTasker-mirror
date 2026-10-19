@@ -394,14 +394,26 @@
 		}
 	}
 
+	let confirmDrop = $state(false);
+	let droppingInvoice = $state(false);
+
 	async function dropInvoice(): Promise<void> {
+		if (!confirmDrop) {
+			confirmDrop = true;
+			return;
+		}
+		droppingInvoice = true;
 		try {
 			await cancelUnpaidInvoices();
+			confirmDrop = false;
 			await loadBlindReceives();
+			await loadUtxos();
 			await walletManager.loadAssets();
 		} catch (error) {
 			operationMessage = error instanceof Error ? error.message : 'Failed to cancel the invoice';
 			console.error('[wallet-page] cancel invoice failed:', error);
+		} finally {
+			droppingInvoice = false;
 		}
 	}
 
@@ -1014,9 +1026,45 @@
 							>
 								{translate('wallet.taproot.copy_invoice', 'Copy invoice')}
 							</button>
-							<button type="button" class="btn btn-ghost btn-xs" onclick={dropInvoice}>
-								{translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
-							</button>
+							{#if confirmDrop}
+								<p class="text-xs">
+									{translate(
+										'wallet.taproot.cancel_invoice_confirm',
+										'Cancel this receive code? The dollars it is holding will be free to send.'
+									)}
+								</p>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs"
+										onclick={() => (confirmDrop = false)}
+										disabled={droppingInvoice}
+									>
+										{translate('wallet.taproot.cancel_invoice_keep', 'Keep it')}
+									</button>
+									<button
+										type="button"
+										class="btn btn-error btn-xs"
+										onclick={dropInvoice}
+										disabled={droppingInvoice}
+										data-testid="cancel-invoice-confirm"
+									>
+										{#if droppingInvoice}
+											<span class="loading loading-spinner loading-xs"></span>
+										{/if}
+										{translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
+									</button>
+								</div>
+							{:else}
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs"
+									onclick={dropInvoice}
+									data-testid="cancel-invoice"
+								>
+									{translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
+								</button>
+							{/if}
 						</div>
 					{/if}
 				</div>

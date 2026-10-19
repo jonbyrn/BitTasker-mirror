@@ -31,7 +31,8 @@ import {
 	setEsploraBackoffMs,
 	sumSpendableSats,
 	receiveUsdtInvoice,
-	receiveEscrowInvoice
+	receiveEscrowInvoice,
+	cancelUnpaidInvoices
 } from '$lib/stores/wallet/wallet-balances';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 
@@ -1106,5 +1107,49 @@ describe('receiveUsdtInvoice', () => {
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 1_000_000 });
 		expect(result.blank).toBe(false);
 		vi.unstubAllEnvs();
+	});
+});
+
+describe('cancelUnpaidInvoices', () => {
+	it('fails the unpaid receive and then syncs the wallet', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const syncWallet = vi.fn(async () => undefined);
+		const refreshWallet = vi.fn(async () => undefined);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					batchTransferIdx: 4
+				}
+			],
+			listUnspents: async () => [],
+			failTransfers,
+			syncWallet,
+			refreshWallet
+		} as never);
+		await expect(cancelUnpaidInvoices()).resolves.toBe(1);
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
+		expect(syncWallet).toHaveBeenCalledOnce();
+		expect(refreshWallet).toHaveBeenCalledOnce();
+	});
+
+	it('syncs again when the transfer is already failed but the coin stays blinded', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const syncWallet = vi.fn(async () => undefined);
+		const refreshWallet = vi.fn(async () => undefined);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [{ kind: 'ReceiveBlind', status: 'Failed', batchTransferIdx: 4 }],
+			listUnspents: async () => [{ pendingBlinded: 1, rgbAllocations: [] }],
+			failTransfers,
+			syncWallet,
+			refreshWallet
+		} as never);
+		await expect(cancelUnpaidInvoices()).resolves.toBe(0);
+		expect(failTransfers).not.toHaveBeenCalled();
+		expect(syncWallet).toHaveBeenCalledOnce();
+		expect(refreshWallet).toHaveBeenCalledOnce();
 	});
 });

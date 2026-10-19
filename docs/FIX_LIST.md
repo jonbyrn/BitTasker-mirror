@@ -40,12 +40,10 @@ kept elsewhere; anything not listed here wasn't carried over.
 ## Escrow / payment
 
 ### 121. Cancel invoice must release the coin
-- Today Cancel invoice only removes the code from the screen, and the coin stays locked.
-- `cancelReceive` calls `cancelUnpaidInvoices`, which calls `failTransfers` with `skipSync: true`
-  and doesn't refresh.
-- Result: Pay on approval failed with "Refusing onchainSend: rgb:f~9F4X0C... is locked by a
-  blank invoice", even after Cancel invoice. Fail the transfer for real, then sync and refresh.
-- Cancel invoice also runs straight away with no confirm step.
+- Cancel invoice asks first, fails each unpaid receive, then syncs so a blinded coin is spendable
+  again. The wallet list reloads assets and outputs after that.
+- A second cancel still syncs when the transfer is already failed but `pendingBlinded` remains.
+- Plain error text for that refusal is 122. Checking spendable before confirm is 123.
 
 ### 122. Plain error for a locked coin
 - Replace the raw RGB/UTXO refusal with: "Your dollars are still held by an old receive code.

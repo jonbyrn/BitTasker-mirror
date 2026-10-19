@@ -1665,15 +1665,28 @@ export async function acceptIncomingPayment(): Promise<void> {
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
 }
 
-/** Fail every unpaid RGB receive so a new invoice replaces the cancelled one. */
+function blindedLock(rows: unknown): boolean {
+	if (!Array.isArray(rows)) return false;
+	return rows.some((row) => {
+		if (!row || typeof row !== 'object') return false;
+		const pending = (row as { pendingBlinded?: unknown }).pendingBlinded;
+		return typeof pending === 'number' && pending > 0;
+	});
+}
+
+/**
+ * Fail every unpaid RGB receive, then sync so the locked coin is spendable again.
+ * A later call still syncs when the transfer is already failed but the coin stays blinded.
+ */
 export async function cancelUnpaidInvoices(): Promise<number> {
 	const wallet = getUtexoWallet();
 	const fail = wallet as {
 		failTransfers?: (params: { batchTransferIdx: number; skipSync: boolean }) => Promise<unknown>;
 		listTransfers?: (assetId?: string) => Promise<unknown>;
 		listAssets?: () => Promise<unknown>;
+		listUnspents?: () => Promise<unknown>;
 	} | null;
-	if (!fail?.failTransfers || !fail.listTransfers) return 0;
+	if (!fail?.failTransfers || !fail.listTransfers || !wallet) return 0;
 	const rows: unknown[] = [];
 	const plain = await fail.listTransfers().catch(() => []);
 	if (Array.isArray(plain)) rows.push(...plain);
@@ -1686,6 +1699,9 @@ export async function cancelUnpaidInvoices(): Promise<number> {
 	for (const batchTransferIdx of indexes) {
 		await fail.failTransfers({ batchTransferIdx, skipSync: true });
 	}
+	const unspents = fail.listUnspents ? await fail.listUnspents().catch(() => []) : [];
+	if (indexes.length === 0 && !blindedLock(unspents)) return 0;
+	await pullIncomingTransfers(wallet, { skipSync: false });
 	return indexes.length;
 }
 

@@ -61,6 +61,8 @@
 	let invoiceAmount = $state('');
 	let errorMessage = $state('');
 	let usedBlank = $state(false);
+	let confirmCancel = $state(false);
+	let cancelling = $state(false);
 
 	const assets: Array<{ id: ReceiveAsset; labelKey: string }> = [
 		{ id: 'btc_onchain', labelKey: 'wallet.send_form.asset.bitcoin' },
@@ -215,16 +217,25 @@
 	}
 
 	async function cancelReceive(): Promise<void> {
+		if (!confirmCancel) {
+			confirmCancel = true;
+			return;
+		}
+		cancelling = true;
 		errorMessage = '';
 		try {
 			await cancelUnpaidInvoices();
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Failed to cancel the RGB invoice';
 			return;
+		} finally {
+			cancelling = false;
 		}
+		resetHeldInvoice();
 		receiveValue = '';
 		invoiceAmount = '';
 		usedBlank = false;
+		confirmCancel = false;
 	}
 
 	async function paintQr(value: string): Promise<void> {
@@ -600,14 +611,42 @@
 					asset === 'btc_onchain' ? 'wallet.taproot.copy_address' : 'wallet.taproot.copy_invoice'
 				)}
 			</button>
-			<button
-				type="button"
-				class="btn btn-ghost w-full"
-				onclick={cancelReceive}
-				data-testid="receive-cancel"
-			>
-				{$t('wallet.taproot.cancel_invoice')}
-			</button>
+			{#if confirmCancel}
+				<p class="text-sm" data-testid="receive-cancel-confirm">
+					{$t('wallet.taproot.cancel_invoice_confirm')}
+				</p>
+				<div class="flex gap-2">
+					<button
+						type="button"
+						class="btn btn-ghost flex-1"
+						onclick={() => (confirmCancel = false)}
+						disabled={cancelling}
+					>
+						{$t('wallet.taproot.cancel_invoice_keep')}
+					</button>
+					<button
+						type="button"
+						class="btn btn-error flex-1"
+						onclick={cancelReceive}
+						disabled={cancelling}
+						data-testid="receive-cancel"
+					>
+						{#if cancelling}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{$t('wallet.taproot.cancel_invoice')}
+					</button>
+				</div>
+			{:else}
+				<button
+					type="button"
+					class="btn btn-ghost w-full"
+					onclick={cancelReceive}
+					data-testid="receive-cancel"
+				>
+					{$t('wallet.taproot.cancel_invoice')}
+				</button>
+			{/if}
 		{/if}
 
 		{#if errorMessage}

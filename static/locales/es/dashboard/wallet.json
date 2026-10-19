@@ -409,6 +409,8 @@
 			"copy_address": "Copiar Dirección",
 			"copy_invoice": "Copiar factura",
 			"cancel_invoice": "Cancelar factura",
+			"cancel_invoice_confirm": "¿Cancelar este código de cobro? Los dólares que retiene quedarán libres para enviar.",
+			"cancel_invoice_keep": "Conservarlo",
 			"show_qr_code": "Mostrar Código QR",
 			"qr_code": "Código QR",
 			"copy_qr_data": "Copiar Datos QR",

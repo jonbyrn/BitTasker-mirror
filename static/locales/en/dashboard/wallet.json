@@ -409,6 +409,8 @@
 			"copy_address": "Copy Address",
 			"copy_invoice": "Copy Invoice",
 			"cancel_invoice": "Cancel invoice",
+			"cancel_invoice_confirm": "Cancel this receive code? The dollars it is holding will be free to send.",
+			"cancel_invoice_keep": "Keep it",
 			"show_qr_code": "Show QR Code",
 			"qr_code": "QR Code",
 			"copy_qr_data": "Copy QR Data",
