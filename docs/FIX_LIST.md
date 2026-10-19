@@ -44,6 +44,11 @@ kept elsewhere; anything not listed here wasn't carried over.
   again. The wallet list reloads assets and outputs after that.
 - A second cancel still syncs when the transfer is already failed but `pendingBlinded` remains.
 - Plain error text for that refusal is 122. Checking spendable before confirm is 123.
+- Retest 2026-10-19 (sandbox): on Grok Bot Tasker's wallet, Cancel invoice on the receive
+  `rgb:f~9F4X0C-TiLOTvy...` showed no confirm dialog. The receive vanished, then came back as
+  WaitingCounterparty after a reload, and Pay failed again after about 2-3 min with
+  "Refusing onchainSend ... locked by a blank invoice". The tab may have been on a pre-3:33 PM
+  build. The cancel must persist across reloads.
 
 ### 122. Plain error for a locked coin
 - Replace the raw RGB/UTXO refusal with: "Your dollars are still held by an old receive code.
@@ -98,6 +103,12 @@ kept elsewhere; anything not listed here wasn't carried over.
 ### 130. CI deploy job broken
 - GitLab `deploy-sandbox` fails at `npm ci` because there's no package-lock.json on this branch.
   The last 3 pipelines failed. Commit the lockfile so builds are repeatable (audit).
+
+### 131. Bids must show who the Taskee is
+- Bid cards and lists (the Tasker's view of their task's bids, and anywhere a bid is listed) must
+  show the bidder's (Taskee's) display name/handle and avatar, linked to their profile/reputation,
+  so the Tasker knows who they're accepting.
+- Reported by Jon 2026-10-19.
 
 ### 114. Logout shows "Server Error".
 
