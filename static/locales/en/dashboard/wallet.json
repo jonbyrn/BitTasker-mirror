@@ -7,6 +7,8 @@
 		"tab_connected": "Connected",
 		"tab_balance": "Balance",
 		"chain_balance_gap": "RGB reports {reported} USDT, but only {chain} is on outputs that are still unspent.",
+		"spendable_usdt": "Spendable {amount} USDT",
+		"repair_usdt": "Repair USDT balance",
 		"unlock": "Unlock wallet",
 		"locked": "Locked",
 		"syncing": "Syncing",

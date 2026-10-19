@@ -1,6 +1,7 @@
-import { prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { isBdkAddUtxoError, prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
+import { callWithDeadline, RGB_BUILD_MS } from '$lib/stores/wallet/wallet-send';
 import { ESCROW_LNUSDT } from '../escrow-rail';
 import { requireEscrowSigner, runEscrowSend } from '../psbt-escrow';
 import type { EscrowProof } from './types';
@@ -30,7 +31,19 @@ export async function payOnchainUsdt(
 		esploraOutputSpent,
 		amount
 	);
-	const sent = await runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice });
+	let sent: Awaited<ReturnType<typeof runEscrowSend>>;
+	try {
+		sent = await callWithDeadline(
+			runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice }),
+			RGB_BUILD_MS,
+			'USDT send stopped before it was built. Nothing was sent.'
+		);
+	} catch (error: unknown) {
+		if (isBdkAddUtxoError(error)) {
+			throw new Error('This USDT output was already spent. Nothing was sent.');
+		}
+		throw error;
+	}
 	if (!sent.txid) throw new Error('On-chain RGB send did not return a txid');
 	return { kind: 'txid', value: sent.txid };
 }

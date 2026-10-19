@@ -91,6 +91,8 @@
 		},
 		"tab_balance": "Saldo",
 		"chain_balance_gap": "RGB informa {reported} USDT, pero solo {chain} está en salidas que siguen sin gastar.",
+		"spendable_usdt": "Disponible {amount} USDT",
+		"repair_usdt": "Reparar saldo USDT",
 		"unlock": "Desbloquear billetera",
 		"locked": "Bloqueada",
 		"syncing": "Sincronizando",

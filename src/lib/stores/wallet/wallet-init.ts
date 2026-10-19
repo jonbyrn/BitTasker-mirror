@@ -14,6 +14,7 @@ import {
 	fillUsdtBalance,
 	installPersistHooks,
 	loadAssets,
+	repairUsdtBalance,
 	restoreOnUnlock,
 	rgbDatabasePresent,
 	scheduleRgbRefresh,
@@ -255,6 +256,12 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			scanFailed = true;
 			console.warn('[wallet-init] balance scan deferred:', scanError);
 		}
+		repairUsdtBalance().catch((error: unknown) => {
+			console.warn(
+				'[wallet-init] usdt repair skipped',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
 		let lightningAttached = false;
 		try {
 			console.info('[wallet-init] attachLightningNode');

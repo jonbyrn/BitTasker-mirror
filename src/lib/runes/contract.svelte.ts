@@ -1,7 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 import { SvelteMap } from 'svelte/reactivity';
 import { state } from '$lib/stores/wallet/wallet-state';
-import { enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
+import { assertLiveCover, enqueueSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { esploraTxConfirmed } from '$lib/stores/wallet/signet-broadcast';
 import { blankLockInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import {
@@ -617,8 +617,23 @@ export class ContractRune {
 	}
 
 	async payFundingFromWallet(): Promise<ContractRuneSnapshot> {
+		await this.requireLiveUsdt();
 		await this.sendPaymentOnly();
 		return this.snapshot;
+	}
+
+	/** Stop a join when the live outputs cannot cover the contract. */
+	private async requireLiveUsdt(): Promise<void> {
+		if (this.split.primaryAsset !== 'usdt_rgb') return;
+		const wallet = state.utexoWallet;
+		if (!wallet?.listUnspents) return;
+		const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+		const held = selectEscrowAsset(spendableRgbAssets(listed), [
+			e2eMintedAssetId(),
+			getConfiguredRgbUsdtAssetId()
+		]);
+		const assetId = onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
+		await assertLiveCover(wallet, assetId, this.agreedUnits());
 	}
 
 	private async confirmFundingFromPrepared(

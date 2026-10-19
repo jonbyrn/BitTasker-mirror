@@ -12,6 +12,7 @@ import {
 	usdtInvoiceAsset,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
+import { retireListedSeals } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
@@ -551,6 +552,14 @@ async function resyncChainGap(
 ): Promise<RgbAsset[]> {
 	const gapped = chainGap(assets);
 	if (!gapped || !pull) return assets;
+	await retireListedSeals(wallet as Parameters<typeof retireListedSeals>[0], gapped.assetId).catch(
+		(error: unknown) => {
+			console.warn(
+				'[wallet-balances] spent seal cleanup failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	);
 	await pullIncomingTransfers(wallet, { skipSync: false, assetId: gapped.assetId }).catch(
 		(error: unknown) => {
 			console.warn(
@@ -689,6 +698,26 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 }
 
 export async function refreshRgbBalances(): Promise<void> {
+	await loadAssets({ pull: false });
+}
+
+/** Drop allocations Esplora already spent, then reload the balance. */
+export async function repairUsdtBalance(): Promise<void> {
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('RGB wallet is not initialized');
+	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+	const held = ifaUsdtRow(listed);
+	const assetId = held?.assetId ?? FAUCET_IFA_ASSET;
+	await retireListedSeals(wallet, assetId);
+	if (wallet.syncWallet) {
+		await wallet.syncWallet().catch((error: unknown) => {
+			console.warn(
+				'[wallet-balances] repair sync failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
+	}
+	await pullIncomingTransfers(wallet, { skipSync: true, assetId });
 	await loadAssets({ pull: false });
 }
 
@@ -1555,7 +1584,6 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 		};
 	}
 	try {
-		const needsConsignment = !before.settled && before.spendable <= 0;
 		const timeout = refreshCap(timeoutMs);
 		const refresh = pullIncomingTransfers(wallet, { skipSync: false }).catch((error: unknown) => {
 			console.warn(
@@ -1581,7 +1609,7 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			return;
 		}
 		await persistWalletSnapshot(wallet);
-		if (before.settled || needsConsignment) {
+		if (before.settled) {
 			await loadAssets({ pull: false });
 			return;
 		}
@@ -1589,9 +1617,11 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 		const held = ifaUsdtRow(listed);
 		if (!held || held.balance <= 0) {
 			const followTimeout = refreshCap(timeoutMs);
+			// The first pull syncs the chain. The faucet consignment is named by
+			// asset id, and a second sync beside it throws a null pointer.
 			const follow = pullIncomingTransfers(wallet, {
-				skipSync: false,
-				assetId: held?.assetId ?? null
+				skipSync: true,
+				assetId: held?.assetId ?? FAUCET_IFA_ASSET
 			}).catch((error: unknown) => {
 				console.warn(
 					'[wallet-refresh] failed',

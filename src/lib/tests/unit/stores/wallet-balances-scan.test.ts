@@ -375,18 +375,15 @@ describe('acceptIncomingPayment', () => {
 				}
 			}
 		};
-		scheduleRgbRefresh(wallet, { timeoutMs: 15 });
+		const run = scheduleRgbRefresh(wallet, { timeoutMs: 15 });
 		expect(info).toHaveBeenCalledWith('[wallet-refresh] start');
 		scheduleRgbRefresh(wallet, { timeoutMs: 15 });
 		expect(warn).toHaveBeenCalledWith('[wallet-refresh] already running');
-		await vi.waitFor(() => {
-			expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
-			expect(refreshValue).toHaveBeenCalledTimes(1);
-		});
-		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+		await run;
+		expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, FAUCET_IFA_ASSET, [], true);
 		expect(syncWallet).not.toHaveBeenCalled();
-		await refreshValue.mock.results[0]?.value;
-		expect(refreshValue).toHaveBeenCalledTimes(1);
 		await vi.waitFor(() => {
 			expect(info.mock.calls.filter((call) => call[0] === '[wallet-refresh] start')).toHaveLength(
 				1
@@ -809,6 +806,31 @@ describe('acceptIncomingPayment', () => {
 		expect(warn).toHaveBeenCalledWith('[wallet-persist] skip restore; live receive kept');
 		warn.mockRestore();
 		vi.unstubAllGlobals();
+	});
+
+	it('asks the faucet asset when the wallet has no USDT', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const syncWallet = vi.fn();
+		const wallet = {
+			isOnline: () => true,
+			syncWallet,
+			listAssets: vi.fn(async () => ({ ifa: [], nia: [] })),
+			listTransfers: vi.fn(async () => []),
+			_manager: {
+				rlnBinding: {
+					online,
+					_wallet: { refreshValue, backupInfo: () => false }
+				}
+			}
+		};
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		await scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, FAUCET_IFA_ASSET, [], true);
+		expect(syncWallet).not.toHaveBeenCalled();
+		vi.restoreAllMocks();
 	});
 
 	it('pulls a new wallet without a second chain sync', async () => {

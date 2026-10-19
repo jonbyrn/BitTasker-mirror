@@ -44,10 +44,42 @@ describe('payOnchainUsdt', () => {
 		vi.mocked(esploraOutputSpent).mockResolvedValue({ spent: true, txid: spentBy });
 		const wallet = walletDouble();
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).rejects.toThrow(
-			`${seal}:0 was already spent on-chain by ${spentBy}`
+			'Only 0.00 USDT spendable, 110.00 is on spent outputs'
 		);
-		expect(wallet.refreshWallet).toHaveBeenCalled();
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
+	it('pays from the live output when another allocation is already spent', async () => {
+		vi.mocked(esploraOutputSpent).mockImplementation(async (_txid, vout) =>
+			vout === 5 ? { spent: true, txid: spentBy } : { spent: false }
+		);
+		const wallet = walletDouble();
+		const liveTx = 'cd'.repeat(32);
+		wallet.listUnspents.mockResolvedValue([
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 5 } }
+			},
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 11_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 1 } }
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: false, outpoint: { txid: 'ef'.repeat(32), vout: 0 } }
+			}
+		]);
+		wallet.listAssets.mockResolvedValue({
+			ifa: [{ assetId, balance: { spendable: 111_000_000 } }]
+		});
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 11_000_000)).resolves.toEqual({
+			kind: 'txid',
+			value: 'ef'.repeat(32)
+		});
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ assetId, amount: 11_000_000 })
+		);
 	});
 
 	it('sends after the seal is still unspent', async () => {

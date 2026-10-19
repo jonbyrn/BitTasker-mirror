@@ -11,7 +11,11 @@
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
-	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
+	import {
+		cancelUnpaidInvoices,
+		repairUsdtBalance,
+		scheduleRgbRefresh
+	} from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
@@ -61,6 +65,7 @@
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
+	let repairing = $state(false);
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -79,6 +84,15 @@
 			chain: formatUsdtBalance(usdtAsset.chainSpendable, precision)
 		};
 	});
+	const usdtSpendableText = $derived.by(() => {
+		if (!usdtAsset || usdtAsset.chainUnknown || usdtAsset.chainSpendable == null) return '';
+		if (usdtAsset.chainSpendable >= usdtAsset.balance) return '';
+		return formatUsdtBalance(
+			usdtAsset.chainSpendable,
+			usdtPrecision(usdtAsset.symbol, usdtAsset.precision)
+		);
+	});
+	const canRepairUsdt = $derived(Boolean(usdtSpendableText));
 	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
 	const usdtHistory = $derived(
 		$walletStore.transactions.filter((row) => isUsdtHistory(row.description, row.assetUnits))
@@ -337,6 +351,18 @@
 		}
 	}
 
+	async function repairBalance(): Promise<void> {
+		if (repairing || $walletStore.locked) return;
+		repairing = true;
+		try {
+			await repairUsdtBalance();
+		} catch (error: unknown) {
+			console.error('[wallet-page] repair failed:', error);
+		} finally {
+			repairing = false;
+		}
+	}
+
 	async function refreshTransfers(): Promise<void> {
 		const wallet = getUtexoWallet();
 		if (!wallet || refreshing) return;
@@ -559,6 +585,27 @@
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
 			<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${dollarUnits}</p>
 			<p class="text-base-content/60 text-sm tabular-nums">{dollarUnits} USDT</p>
+			{#if usdtSpendableText}
+				<p class="text-base-content/60 text-sm tabular-nums" data-testid="usdt-spendable">
+					{$t('wallet.spendable_usdt', { values: { amount: usdtSpendableText } })}
+				</p>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm mt-2 min-h-12"
+					data-testid="repair-usdt"
+					disabled={repairing || $walletStore.locked || !canRepairUsdt}
+					onclick={() => {
+						repairBalance().catch((error: unknown) => {
+							console.error('[wallet-page] repair failed:', error);
+						});
+					}}
+				>
+					{#if repairing}
+						<span class="loading loading-spinner loading-xs"></span>
+					{/if}
+					{$t('wallet.repair_usdt')}
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -670,6 +717,14 @@
 							)
 						: formatUsdtBalance($walletStore.totalBalances.usdt, 6)
 				)}
+				{#if usdtSpendableText}
+					<p
+						class="text-base-content/60 px-4 pb-2 text-sm tabular-nums"
+						data-testid="usdt-spendable-detail"
+					>
+						{$t('wallet.spendable_usdt', { values: { amount: usdtSpendableText } })}
+					</p>
+				{/if}
 				{#if $walletStore.locked}
 					<div class="px-4 py-3">
 						<button

@@ -1,3 +1,4 @@
+import { formatUsdtBalance } from '$lib/types/rgb-contract';
 import { esploraHasTx, esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
 
 /** Outbound sends that are dead. A WaitingCounterparty receive or send may still be broadcasting. */
@@ -235,22 +236,20 @@ export function spentSealMessage(spent: SpentSeal[]): string | null {
 	return `Refusing onchainSend: ${first.txid}:${first.vout} was already spent on-chain${by}. RGB still lists that USDT, so this send is blocked.`;
 }
 
-/** True when the unspent allocations cannot cover this send. */
-export function spentBlocksSend(chain: ChainAllocation, amount: number): boolean {
-	if (chain.spent.length === 0 || chain.unknown) return false;
-	if (!Number.isSafeInteger(amount) || amount < 0) return true;
-	return chain.live < amount;
-}
+const RETIRE_KINDS = new Set(['Send', 'ReceiveBlind', 'ReceiveWitness']);
 
-/** Non-settled sends sitting on an outpoint Esplora already spent. Settled receives stay. */
+/** Transfers sitting on an outpoint Esplora already spent, including a settled receive. */
 export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]): number[] {
-	const ids = new Set(spent.map((row) => row.txid.toLowerCase()));
+	const ids = new Set<string>();
+	for (const row of spent) {
+		ids.add(row.txid.toLowerCase());
+		if (row.spentBy) ids.add(row.spentBy.toLowerCase());
+	}
 	const indexes = transfers
 		.filter((transfer) => {
 			const txid = transfer.txid?.toLowerCase();
 			return (
-				transfer.kind === 'Send' &&
-				transfer.status !== 'Settled' &&
+				RETIRE_KINDS.has(transfer.kind) &&
 				transfer.status !== 'Failed' &&
 				Boolean(txid) &&
 				ids.has(txid)
@@ -258,6 +257,18 @@ export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]
 		})
 		.map((transfer) => transfer.batchTransferIdx);
 	return [...new Set(indexes)];
+}
+
+/** Shown at once when the live outputs cannot cover the payment. */
+export function spentOutputMessage(live: number, spent: number): string {
+	return `Only ${formatUsdtBalance(live, 6)} USDT spendable, ${formatUsdtBalance(spent, 6)} is on spent outputs`;
+}
+
+export function liveShortfall(chain: ChainAllocation, amount: number): string | null {
+	if (chain.unknown || chain.spent.length === 0) return null;
+	const spent = chain.spent.reduce((sum, row) => sum + row.amount, 0);
+	if (Number.isSafeInteger(amount) && amount >= 0 && chain.live >= amount) return null;
+	return spentOutputMessage(chain.live, spent);
 }
 
 function allocationUnits(unspent: RgbUnspentRef, assetId: string): number {
@@ -368,8 +379,8 @@ type PrepareWallet = {
 	}) => Promise<number>;
 };
 
-/** Drop a non-settled send whose outpoint Esplora already spent, then the caller re-lists seals. */
-async function voidSpentSeals(wallet: PrepareWallet, spent: SpentSeal[]): Promise<void> {
+/** Fail transfers whose bitcoin output Esplora already spent, then the caller re-lists seals. */
+export async function retireSpentSeals(wallet: PrepareWallet, spent: SpentSeal[]): Promise<void> {
 	if (!wallet.listTransfers || !wallet.failTransfers || spent.length === 0) return;
 	const transfers = await wallet.listTransfers().catch(() => []);
 	const batches = spentSealBatches(transfers, spent);
@@ -467,6 +478,31 @@ export async function releasePhantomSends(
 		}
 	}
 	return true;
+}
+
+/** Probe every USDT allocation and retire the ones Esplora already spent. */
+export async function retireListedSeals(wallet: PrepareWallet, assetId: string): Promise<void> {
+	if (!wallet.listUnspents) return;
+	const chain = await chainAllocation(await readUnspents(wallet), assetId, esploraOutputSpent);
+	if (chain.unknown || chain.spent.length === 0) return;
+	await retireSpentSeals(wallet, chain.spent);
+}
+
+/** Throw before a send or escrow join when live outputs cannot cover the amount. */
+export async function assertLiveCover(
+	wallet: PrepareWallet,
+	assetId: string,
+	amount: number,
+	outputSpent?: OutputSpendProbe
+): Promise<void> {
+	if (!wallet.listUnspents) return;
+	const chain = await chainAllocation(
+		await readUnspents(wallet),
+		assetId,
+		outputSpent ?? esploraOutputSpent
+	);
+	const short = liveShortfall(chain, amount);
+	if (short) throw new Error(short);
 }
 
 async function readUnspents(wallet: PrepareWallet): Promise<RgbUnspentRef[]> {
@@ -575,6 +611,15 @@ export async function prepareRgbOnchainSend(
 	}
 	sendDepth += 1;
 	try {
+		const asked =
+			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
+				? sendAmount
+				: 0;
+		if (wallet.listUnspents && asked > 0) {
+			const preview = await chainAllocation(await readUnspents(wallet), assetId, probe);
+			const early = liveShortfall(preview, asked);
+			if (early) throw new Error(early);
+		}
 		await retryBusy(async () => {
 			if (wallet.goOnline && wallet.isOnline?.() !== true) {
 				await wallet.goOnline(UTEXO_INDEXER);
@@ -607,15 +652,11 @@ export async function prepareRgbOnchainSend(
 				: spendable;
 		let rows = unspents;
 		if (chain.spent.length > 0 && !chain.unknown) {
-			await voidSpentSeals(wallet, chain.spent);
+			await retireSpentSeals(wallet, chain.spent);
 			rows = await readUnspents(wallet);
 			const after = await chainAllocation(rows, assetId, probe);
-			if (after.spent.length > 0 || spentBlocksSend(after, needed)) {
-				throw new Error(
-					spentSealMessage(after.spent) ??
-						'Refusing onchainSend: USDT output is already spent. Nothing was sent.'
-				);
-			}
+			const short = liveShortfall(after, needed);
+			if (short) throw new Error(short);
 		}
 		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
 		const blocker = sealSendBlocker(rows, assetId, usable);

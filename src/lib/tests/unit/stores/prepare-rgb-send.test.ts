@@ -10,8 +10,11 @@ import {
 	PHANTOM_BROADCAST_TXID,
 	phantomSendBatches,
 	enqueueWallet,
+	liveShortfall,
 	prepareRgbOnchainSend,
 	releasePhantomSends,
+	spentOutputMessage,
+	spentSealBatches,
 	sealSendBlocker,
 	changeStillBooked,
 	walletSendPending,
@@ -332,6 +335,27 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(spentSealMessage(chain.spent)).toBe(
 			`Refusing onchainSend: ${seal}:2 was already spent on-chain by ${spentBy}. RGB still lists that USDT, so this send is blocked.`
 		);
+		expect(liveShortfall(chain, 11_000_000)).toBe(spentOutputMessage(10_000_000, 100_000_000));
+		expect(spentOutputMessage(10_000_000, 100_000_000)).toBe(
+			'Only 10.00 USDT spendable, 100.00 is on spent outputs'
+		);
+		expect(liveShortfall(chain, 10_000_000)).toBeNull();
+	});
+
+	it('retires a settled receive whose output was already spent', () => {
+		const spentTx = 'cf3e56d7'.padEnd(64, 'a');
+		const spentBy = '7e1bbee7'.padEnd(64, 'b');
+		expect(
+			spentSealBatches(
+				[
+					{ kind: 'ReceiveBlind', status: 'Settled', batchTransferIdx: 2, txid: spentTx },
+					{ kind: 'Send', status: 'Settled', batchTransferIdx: 3, txid: spentBy },
+					{ kind: 'ReceiveBlind', status: 'Settled', batchTransferIdx: 4, txid: 'ab'.repeat(32) },
+					{ kind: 'Send', status: 'Failed', batchTransferIdx: 5, txid: spentTx }
+				],
+				[{ txid: spentTx, vout: 5, amount: 100_000_000, spentBy }]
+			)
+		).toEqual([2, 3]);
 	});
 
 	it('hides the unspent warning when the allocation list is short', () => {
@@ -348,7 +372,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(allocationCoversSpendable({ ...spentOnly, unknown: true }, 100_000_000)).toBe(false);
 	});
 
-	it('refuses before building when a spent seal is still listed', async () => {
+	it('continues when live outputs cover the amount and a spent seal remains', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
@@ -380,7 +404,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).rejects.toThrow(`${spentTx}:0 was already spent`);
+		).resolves.toBeUndefined();
 	});
 
 	it('voids a non-settled send on a spent seal and then continues', async () => {
@@ -388,7 +412,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
 		const failTransfers = vi.fn(async () => true);
-		let listed = true;
+		let reads = 0;
 		await expect(
 			prepareRgbOnchainSend(
 				{
@@ -398,17 +422,18 @@ describe('prepareRgbOnchainSend helpers', () => {
 					],
 					failTransfers,
 					listUnspents: async () => {
-						const spent = listed
-							? [
-									{
-										rgbAllocations: [
-											{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }
-										],
-										utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 0 } }
-									}
-								]
-							: [];
-						listed = false;
+						reads += 1;
+						const spent =
+							reads < 3
+								? [
+										{
+											rgbAllocations: [
+												{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }
+											],
+											utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 0 } }
+										}
+									]
+								: [];
 						return [
 							...spent,
 							{
@@ -461,7 +486,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				200_000_000,
 				async () => ({ spent: true, txid: spentBy })
 			)
-		).rejects.toThrow(`${seal}:3 was already spent on-chain by ${spentBy}`);
+		).rejects.toThrow('Only 0.00 USDT spendable, 200.00 is on spent outputs');
 		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
