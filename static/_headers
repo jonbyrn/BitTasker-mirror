@@ -23,3 +23,13 @@
 # User-facing HTML should revalidate frequently to pick up new deployments.
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Workers must revalidate. An old worker can keep serving the bundle that POSTed /api/v1/events.
+/firebase-messaging-sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/service-worker.js
+  Cache-Control: public, max-age=0, must-revalidate

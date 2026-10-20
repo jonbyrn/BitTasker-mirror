@@ -2,6 +2,27 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<script>
+			(function () {
+				var key = 'bt-client-purge-160';
+				try {
+					if (!window.sessionStorage || sessionStorage.getItem(key)) return;
+					sessionStorage.setItem(key, '1');
+					if (!('serviceWorker' in navigator)) return;
+					var controlling = !!navigator.serviceWorker.controller;
+					navigator.serviceWorker.getRegistrations().then(function (regs) {
+						return Promise.all(regs.map(function (reg) { return reg.unregister(); })).then(function () {
+							if (!('caches' in window)) return;
+							return caches.keys().then(function (keys) {
+								return Promise.all(keys.map(function (name) { return caches.delete(name); }));
+							});
+						});
+					}).then(function () {
+						if (controlling) location.reload();
+					});
+				} catch (e) {}
+			})();
+		</script>
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, minimum-scale=1.0, interactive-widget=resizes-content"

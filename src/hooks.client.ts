@@ -22,6 +22,7 @@ if (typeof globalThis !== 'undefined') {
 import type { HandleClientError } from '@sveltejs/kit';
 import { init as initSentry, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
 import { exposeInitWasm } from '$lib/wasm/init-wasm';
+import { purgeStaleClientInBrowser } from '$lib/utils/purge-stale-client';
 // Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully
 // evaluated before any route chunk that extends it. This, combined with the
 // manualChunks isolation in vite.config.ts, eliminates the circular chunk dependency
@@ -67,8 +68,9 @@ if (process.env.NODE_ENV !== 'development') {
  * initialized above at module scope; this export satisfies the client app's
  * expected `init` hook contract.
  */
-export function init(): void {
+export async function init(): Promise<void> {
 	exposeInitWasm();
+	await purgeStaleClientInBrowser();
 }
 
 export const handleError: HandleClientError = handleErrorWithSentry(({ error }) => {

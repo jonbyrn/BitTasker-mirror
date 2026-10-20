@@ -7,13 +7,13 @@ importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
 
 const _firebaseConfig = {
-	apiKey: "AIzaSyCPvSA-3VNTbj0CeXsVPrr9R3RrnO6N1KY",
-	authDomain: "bittasker-928ff.firebaseapp.com",
-	projectId: "bittasker-928ff",
-	storageBucket: "bittasker-928ff.firebasestorage.app",
-	messagingSenderId: "256658163015",
-	appId: "1:256658163015:web:b220610251f027bf597862"
-}
+	apiKey: 'AIzaSyCPvSA-3VNTbj0CeXsVPrr9R3RrnO6N1KY',
+	authDomain: 'bittasker-928ff.firebaseapp.com',
+	projectId: 'bittasker-928ff',
+	storageBucket: 'bittasker-928ff.firebasestorage.app',
+	messagingSenderId: '256658163015',
+	appId: '1:256658163015:web:b220610251f027bf597862'
+};
 
 let messaging = null;
 let isInitialized = false;
@@ -69,7 +69,6 @@ function setupBackgroundMessageHandler() {
 			const { notification, data } = payload;
 			console.log('🔕 SW: Background message received');
 
-
 			// ⚠️ CRITICAL: If notification object exists, FCM already displayed it
 			// Don't show another one to prevent duplicates
 			if (notification) {
@@ -93,7 +92,7 @@ function setupBackgroundMessageHandler() {
 					{
 						action: 'open',
 						title: 'Open',
-						icon: '/web-app-manifest-192x192.png',
+						icon: '/web-app-manifest-192x192.png'
 					},
 					{
 						action: 'close',
@@ -109,6 +108,26 @@ function setupBackgroundMessageHandler() {
 		console.error('❌ SW: Error setting up background message handler:', error);
 	}
 }
+
+// A previous worker cached the app shell that still POSTed /api/v1/events.
+self.addEventListener('install', (event) => {
+	event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+	event.waitUntil(
+		(async () => {
+			const keys = await caches.keys();
+			await Promise.all(keys.map((key) => caches.delete(key)));
+			await self.clients.claim();
+			if (keys.length === 0) return;
+			const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			await Promise.all(
+				windows.map((client) => (client.navigate ? client.navigate(client.url) : Promise.resolve()))
+			);
+		})()
+	);
+});
 
 // Initialize Firebase when service worker starts
 initializeFirebase().catch((error) => {
@@ -141,7 +160,7 @@ self.addEventListener('notificationclick', (event) => {
 	// Determine the URL to open based on notification type
 	let urlToOpen = '/';
 
-	if(data.clickAction) {
+	if (data.clickAction) {
 		urlToOpen = data.clickAction;
 	} else if (data.click_action) {
 		urlToOpen = data.click_action;
@@ -173,6 +192,6 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // Handle notification close
-self.addEventListener('notificationclose', (event) => {
+self.addEventListener('notificationclose', (_event) => {
 	// You can track notification dismissals here if needed
-}); 
+});
