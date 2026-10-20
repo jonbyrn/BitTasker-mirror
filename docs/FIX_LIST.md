@@ -110,6 +110,20 @@ kept elsewhere; anything not listed here wasn't carried over.
   so the Tasker knows who they're accepting.
 - Reported by Jon 2026-10-19.
 
+### 132. BTC price fetch blocked
+- The browser calls `https://api.coinbase.com/v2/prices/BTC-USD/spot` directly from rgb.bittasker.com.
+  It's blocked by CORS (no Access-Control-Allow-Origin) and returns 403, so `getCurrentPrice` fails
+  ("Failed to get price for BTC") on the wallet and contracts pages, and sats-to-USD values get no price.
+- Fix: serve the price from the BitTasker backend or a CORS-enabled provider, with caching and a
+  graceful fallback.
+- Reported by Jon 2026-10-19 (PC console).
+
+### 133. Sandbox calls the staging API, which returns 404
+- `GET https://api-staging.bittasker.com/api/v1/events?kinds[]=31000&authors[]=059a89cc...&limit=10`
+  returns 404 from rgb.bittasker.com (`findEvents` on /my-tasks).
+- Check that the sandbox points at the right API base, and that the events route exists there.
+- Reported by Jon 2026-10-19 (PC console).
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.
