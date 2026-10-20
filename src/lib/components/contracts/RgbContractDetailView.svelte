@@ -30,7 +30,12 @@
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
-	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { contractDisplayAmount, contractPayUnits } from '$lib/utils/ui/money-display';
+	import { shouldKeepLocalStatus } from '$lib/utils/ui/contract-status-rank';
+	import { createSingleFlight, withNextStep } from '$lib/utils/ui/single-flight';
+	import ActionButton from '$lib/components/design/ActionButton.svelte';
+	import ListRegion from '$lib/components/design/ListRegion.svelte';
+	import TextField from '$lib/components/design/TextField.svelte';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletBlocksAction, walletConnectionStore } from '$lib/stores/wallet/wallet-link';
 	import { paymentCardHeading } from '$lib/stores/wallet/wallet-connection';
@@ -82,8 +87,13 @@
 	let timeline = $state<TimelineEntry[]>([]);
 	let workMessage = $state('Work completed and ready for review.');
 	let proofUrl = $state('');
-	let isSubmitting = $state(false);
 	let isReleasing = $state(false);
+	let pendingAction = $state<
+		'' | 'approve' | 'submit' | 'request' | 'release' | 'cancel' | 'reissue' | 'lock'
+	>('');
+	let holdStatus = $state<ContractRuneStatus | null>(null);
+	let blockRefresh = false;
+	const actionFlight = createSingleFlight();
 	let reviewingPay = $state(false);
 	let taskeePubkey = $state('');
 	let loadTimedOut = $state(false);
@@ -118,9 +128,7 @@
 	);
 	const joinUnits = $derived.by(() => {
 		if (!snapshot) return 0;
-		if (snapshot.lockedCurrency === 'SATS' && snapshot.lockedAmount > 0)
-			return snapshot.lockedAmount;
-		return Math.max(1, Math.round(snapshot.totalAmountUsd * 1_000_000));
+		return contractPayUnits(snapshot);
 	});
 	const invoiceAttached = $derived(
 		Boolean(snapshot?.fundingInvoice) &&
@@ -136,10 +144,12 @@
 	);
 	const lockedAmountLabel = $derived.by(() => {
 		if (!snapshot) return '';
-		if (snapshot.lockedCurrency === 'SATS') {
-			return `${formatInteger(snapshot.lockedAmount)} sats`;
-		}
-		return `$${formatNumberWithTwoDecimals(snapshot.lockedAmount)}`;
+		return contractDisplayAmount({
+			lockedAmount: snapshot.lockedAmount,
+			lockedCurrency: snapshot.lockedCurrency,
+			totalAmountUsd: snapshot.totalAmountUsd,
+			primaryAsset: snapshot.split.primaryAsset
+		});
 	});
 	const settlementUnit = $derived(
 		snapshot ? CONTRACT_PAYMENT_ASSETS[snapshot.split.primaryAsset] : ''
@@ -176,11 +186,10 @@
 	const canRequestPayment = $derived(
 		role === 'taskee' &&
 			(snapshot?.status === 'approved' ||
-				(snapshot?.status === 'settlement_requested' && legacyRequest)) &&
-			!isReleasing
+				(snapshot?.status === 'settlement_requested' && legacyRequest))
 	);
 	const canRelease = $derived(
-		role === 'tasker' && snapshot?.status === 'settlement_requested' && !isReleasing && !paidTxid
+		role === 'tasker' && snapshot?.status === 'settlement_requested' && !paidTxid
 	);
 	const canCancel = $derived(
 		snapshot != null &&
@@ -193,9 +202,9 @@
 				'work_submitted',
 				'approved',
 				'settlement_requested'
-			].includes(snapshot.status) &&
-			!isReleasing
+			].includes(snapshot.status)
 	);
+	const actionPending = $derived(pendingAction !== '');
 	const stepIndex = $derived.by(() => {
 		const status = snapshot?.status;
 		if (paidTxid) return 3;
@@ -315,7 +324,8 @@
 		if (blocked) return blocked;
 		const message = describeThrown(error);
 		console.error('[contract] action failed', message);
-		return message === 'Send failed' ? fallback : settlementSendReason(message);
+		const plain = message === 'Send failed' ? fallback : settlementSendReason(message);
+		return withNextStep(plain, 'Tap Retry.');
 	}
 
 	function openProof(href: string): void {
@@ -461,6 +471,7 @@
 	}
 
 	async function loadContract(quiet = false): Promise<void> {
+		if (blockRefresh) return;
 		if (!quiet) {
 			loading = true;
 			errorMessage = '';
@@ -531,8 +542,9 @@
 
 			const content = latest.content;
 			const split = normalizeSplit(content.split);
+			const existingRune = ContractRune.get(contractId);
 			const nextRune =
-				ContractRune.get(contractId) ??
+				existingRune ??
 				new ContractRune({
 					contractId,
 					contractTitle: content.contractTitle,
@@ -546,7 +558,13 @@
 						.map((tag) => tag[1])
 						.filter(Boolean)
 				});
-			nextRune.status = leading as ContractRuneStatus;
+			const fetchedStatus = leading as ContractRuneStatus;
+			if (holdStatus && shouldKeepLocalStatus(holdStatus, fetchedStatus)) {
+				nextRune.status = holdStatus;
+			} else {
+				nextRune.status = fetchedStatus;
+				if (holdStatus) holdStatus = null;
+			}
 			if (entryStatus(latest) === leading) {
 				if (content.fundingState) nextRune.fundingState = content.fundingState;
 				const restored = normalizeSeals(content, contractId);
@@ -591,102 +609,143 @@
 			}
 			const message = error instanceof Error ? error.message : 'Failed to load contract.';
 			loadTimedOut = message === 'Contract load timed out';
-			errorMessage = loadTimedOut ? $t('bids.contract_load_timeout') : message;
+			errorMessage = withNextStep(
+				loadTimedOut ? $t('bids.contract_load_timeout') : message,
+				'Tap Retry.'
+			);
 		} finally {
 			loading = false;
 		}
 	}
 
 	async function handleLockEscrow(): Promise<void> {
-		if (!rune || joining) return;
-		if (!invoiceAttached && !invoiceReady) return;
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-		joining = true;
-		errorMessage = '';
-		try {
-			await requirePasskeyApproval();
-			await initWasm();
-			await walletManager.initialize();
-			if (!invoiceAttached) await rune.attachFundingInvoice(postedInvoice);
-			await rune.payFundingFromWallet();
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, $t('bids.escrow_invoice_failed'));
-		} finally {
-			await walletManager.releaseRgbLock();
-			joining = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune || joining) return;
+			if (!invoiceAttached && !invoiceReady) return;
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+			pendingAction = 'lock';
+			joining = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await requirePasskeyApproval();
+				await initWasm();
+				await walletManager.initialize();
+				if (!invoiceAttached) await rune.attachFundingInvoice(postedInvoice);
+				await rune.payFundingFromWallet();
+				holdStatus = 'funded';
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, $t('bids.escrow_invoice_failed'));
+			} finally {
+				await walletManager.releaseRgbLock();
+				joining = false;
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	async function handleSubmitDeliverable(): Promise<void> {
-		if (!rune || isSubmitting) return;
-		isSubmitting = true;
-		errorMessage = '';
-		try {
-			await rune.submitWork(workMessage, proofUrl.trim() || undefined);
-			await loadContract();
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to submit deliverable.');
-		} finally {
-			isSubmitting = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune) return;
+			pendingAction = 'submit';
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await rune.submitWork(workMessage, proofUrl.trim() || undefined);
+				holdStatus = 'work_submitted';
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, 'Failed to submit deliverable.');
+			} finally {
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	async function handleApprove(): Promise<void> {
-		if (!rune || isReleasing) return;
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await rune.approveWork();
-			await loadContract();
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to approve work.');
-		} finally {
-			isReleasing = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune) return;
+			pendingAction = 'approve';
+			isReleasing = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await rune.approveWork();
+				holdStatus = 'approved';
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, 'Failed to approve work.');
+			} finally {
+				isReleasing = false;
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	async function handleRequestPayment(): Promise<void> {
-		if (!rune) return;
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			const rail = rune.snapshot.split.primaryAsset;
-			await walletManager.initialize({
-				skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
-			});
-			if (rune.status === 'settlement_requested') rune.status = 'approved';
-			await rune.createPayoutInvoice();
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to request payment.');
-		} finally {
-			await walletManager.releaseRgbLock();
-			isReleasing = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune) return;
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+			pendingAction = 'request';
+			isReleasing = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				const rail = rune.snapshot.split.primaryAsset;
+				await walletManager.initialize({
+					skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
+				});
+				if (rune.status === 'settlement_requested') rune.status = 'approved';
+				await rune.createPayoutInvoice();
+				holdStatus = rune.status;
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, 'Failed to request payment.');
+			} finally {
+				await walletManager.releaseRgbLock();
+				isReleasing = false;
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	async function handleCancel(): Promise<void> {
-		if (!rune) return;
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await rune.cancel();
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to cancel the contract.');
-		} finally {
-			isReleasing = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune) return;
+			pendingAction = 'cancel';
+			isReleasing = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await rune.cancel();
+				holdStatus = 'cancelled';
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, 'Failed to cancel the contract.');
+			} finally {
+				isReleasing = false;
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	function handleRelease(): void {
@@ -694,17 +753,24 @@
 	}
 
 	async function handleAskReissue(): Promise<void> {
-		if (!rune) return;
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await rune.askReissue();
-			await loadContract(true);
-		} catch (error) {
-			errorMessage = errorText(error, 'Failed to ask for a new invoice.');
-		} finally {
-			isReleasing = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune) return;
+			pendingAction = 'reissue';
+			isReleasing = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await rune.askReissue();
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				errorMessage = errorText(error, 'Failed to ask for a new invoice.');
+			} finally {
+				isReleasing = false;
+				blockRefresh = false;
+				pendingAction = '';
+			}
+		});
 	}
 
 	async function rescuePayout(current: ContractRune): Promise<void> {
@@ -718,29 +784,37 @@
 	}
 
 	async function confirmRelease(): Promise<void> {
-		if (!rune || !payReady || isReleasing) return;
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-		isReleasing = true;
-		errorMessage = '';
-		try {
-			await requirePasskeyApproval();
-			await initWasm();
-			await walletManager.initialize();
-			await rune.releaseEscrow();
-			paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
-			await loadContract();
-		} catch (error) {
-			paidTxid = readPaidTxid(contractId) ?? '';
-			if (rune) paidTxid = rune.restorePaid() ?? paidTxid;
-			errorMessage = paidTxid ? '' : errorText(error, 'Failed to release funds.');
-		} finally {
-			isReleasing = false;
-			if (!paidTxid) reviewingPay = false;
-		}
+		await actionFlight.run(async () => {
+			if (!rune || !payReady) return;
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+			pendingAction = 'release';
+			isReleasing = true;
+			blockRefresh = true;
+			errorMessage = '';
+			try {
+				await requirePasskeyApproval();
+				await initWasm();
+				await walletManager.initialize();
+				await rune.releaseEscrow();
+				paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
+				holdStatus = 'released';
+				blockRefresh = false;
+				await loadContract(true);
+			} catch (error) {
+				paidTxid = readPaidTxid(contractId) ?? '';
+				if (rune) paidTxid = rune.restorePaid() ?? paidTxid;
+				errorMessage = paidTxid ? '' : errorText(error, 'Failed to release funds.');
+			} finally {
+				isReleasing = false;
+				blockRefresh = false;
+				pendingAction = '';
+				if (!paidTxid) reviewingPay = false;
+			}
+		});
 	}
 
 	$effect(() => {
@@ -809,7 +883,11 @@
 >
 	<header class="card bg-base-100 border-base-300 border shadow-sm">
 		<div class="card-body gap-3 p-5">
-			<ul class="steps steps-horizontal bt-stepper w-full text-xs" data-testid="contract-steps">
+			<ul
+				class="steps steps-horizontal bt-stepper w-full overflow-x-auto text-xs"
+				data-testid="contract-steps"
+				aria-label="Contract progress"
+			>
 				<li
 					class="step"
 					class:step-primary={Boolean(snapshot) && stepIndex >= 0}
@@ -858,29 +936,19 @@
 	</header>
 
 	{#if errorMessage}
-		<div
-			class="alert alert-outline {waitingContract ? 'alert-info' : 'alert-error'}"
-			data-testid="contract-error"
-		>
-			{errorMessage}
+		<div data-testid="contract-error">
+			<ListRegion
+				status={waitingContract ? 'empty' : 'error'}
+				title={waitingContract ? errorMessage : 'Something went wrong'}
+				message={waitingContract ? '' : errorMessage}
+				actionLabel={!snapshot && !waitingContract ? $t('bids.retry') : ''}
+				pending={pendingAction === 'lock' && loading}
+				onAction={() => loadContract()}
+			/>
 		</div>
-		{#if !snapshot && !waitingContract}
-			<button
-				class="btn btn-outline"
-				type="button"
-				onclick={() => loadContract()}
-				data-testid="contract-retry"
-			>
-				{$t('bids.retry')}
-			</button>
-		{/if}
 	{/if}
 	{#if loading}
-		<div class="card bg-base-100 border-base-300 border shadow-sm" role="status">
-			<div class="card-body items-center p-6">
-				<span class="loading loading-spinner loading-md text-primary"></span>
-			</div>
-		</div>
+		<ListRegion status="loading" title="Loading contract" />
 	{:else if snapshot}
 		<section
 			class="card bg-base-100 border-base-300 border shadow-sm"
@@ -899,16 +967,16 @@
 				{/if}
 				{#if openToJoin}
 					{#if invoiceReady || invoiceAttached}
-						<button
-							class="btn btn-primary mt-3 w-full"
-							type="button"
+						<ActionButton
+							class="mt-3 w-full"
 							onclick={handleLockEscrow}
-							disabled={joining}
+							disabled={actionPending && pendingAction !== 'lock'}
+							pending={pendingAction === 'lock'}
+							pendingLabel="Locking escrow…"
 							data-testid="pay-funding-from-wallet"
 						>
-							{#if joining}<span class="loading loading-spinner loading-xs"></span>{/if}
 							{$t('bids.lock_escrow', { values: { amount: lockedAmountLabel } })}
-						</button>
+						</ActionButton>
 					{:else}
 						<p class="text-base-content/70 mt-2 text-sm" data-testid="waiting-taskee-invoice">
 							{$t('bids.waiting_worker')}
@@ -941,26 +1009,30 @@
 			>
 				<div class="card-body gap-3 p-5">
 					<h2 class="text-base font-semibold">Deliverable</h2>
-					<textarea
-						class="textarea textarea-bordered w-full"
+					<TextField
+						id="deliverable-message"
+						label="What you finished"
+						multiline
 						bind:value={workMessage}
-						data-testid="deliverable-message-input"
-					></textarea>
-					<input
-						class="input input-bordered w-full"
-						bind:value={proofUrl}
-						placeholder="Proof URL"
-						data-testid="deliverable-proof-url-input"
+						testId="deliverable-message-input"
 					/>
-					<button
-						class="btn btn-primary"
+					<TextField
+						id="deliverable-proof"
+						label="Proof link"
+						placeholder="https://"
+						bind:value={proofUrl}
+						testId="deliverable-proof-url-input"
+					/>
+					<ActionButton
+						class="w-full"
 						onclick={handleSubmitDeliverable}
-						disabled={isSubmitting}
+						disabled={actionPending && pendingAction !== 'submit'}
+						pending={pendingAction === 'submit'}
+						pendingLabel="Submitting…"
 						data-testid="submit-deliverable-button"
 					>
-						{#if isSubmitting}<span class="loading loading-spinner loading-xs"></span>{/if}
 						Submit deliverable
-					</button>
+					</ActionButton>
 				</div>
 			</section>
 		{/if}
@@ -987,15 +1059,17 @@
 						</button>
 					{/if}
 					<p class="text-base-content/70 text-sm">{$t('bids.escrow_next_review')}</p>
-					<button
-						class="btn btn-outline"
+					<ActionButton
+						variant="outline"
+						class="w-full"
 						onclick={handleApprove}
-						disabled={isReleasing}
+						disabled={actionPending && pendingAction !== 'approve'}
+						pending={pendingAction === 'approve'}
+						pendingLabel="Approving…"
 						data-testid="approve-work-button"
 					>
-						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
 						Approve work
-					</button>
+					</ActionButton>
 				</div>
 			</section>
 		{/if}
@@ -1008,15 +1082,16 @@
 				<div class="card-body gap-3 p-5">
 					<h2 class="text-base font-semibold">{$t('bids.request_payment')}</h2>
 					<p class="text-base-content/70 text-sm">{$t('bids.escrow_next_request')}</p>
-					<button
-						class="btn btn-primary w-full"
+					<ActionButton
+						class="w-full"
 						onclick={handleRequestPayment}
-						disabled={isReleasing}
+						disabled={actionPending && pendingAction !== 'request'}
+						pending={pendingAction === 'request'}
+						pendingLabel="Requesting payment…"
 						data-testid="request-payment-button"
 					>
-						{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
 						{$t('bids.request_payment')}
-					</button>
+					</ActionButton>
 				</div>
 			</section>
 		{/if}
@@ -1031,14 +1106,17 @@
 					<p class="text-base-content/70 text-sm">{$t('bids.release_pays')}</p>
 					{#if legacyRequest}
 						<p class="text-sm" data-testid="legacy-settlement">{$t('bids.legacy_settlement')}</p>
-						<button
-							class="btn btn-outline w-full"
+						<ActionButton
+							variant="outline"
+							class="w-full"
 							onclick={handleAskReissue}
-							disabled={isReleasing}
+							disabled={actionPending && pendingAction !== 'reissue'}
+							pending={pendingAction === 'reissue'}
+							pendingLabel="Requesting…"
 							data-testid="request-new-invoice"
 						>
 							{$t('bids.request_new_invoice')}
-						</button>
+						</ActionButton>
 					{:else if reviewingPay}
 						<div class="flex flex-col gap-1 text-sm" data-testid="escrow-pay-review">
 							<p>
@@ -1054,7 +1132,7 @@
 									snapshot.split.primaryAsset,
 									decodedPay?.amount,
 									settlementUnit,
-									`${lockedAmountLabel} ${settlementUnit}`
+									lockedAmountLabel
 								)}
 							</p>
 							{#if decodedPay}
@@ -1066,15 +1144,17 @@
 								</p>
 							{/if}
 						</div>
-						<button
-							class="btn btn-success glow-soft w-full"
+						<ActionButton
+							variant="success"
+							class="glow-soft w-full"
 							onclick={confirmRelease}
-							disabled={isReleasing || !payReady}
+							disabled={!payReady || (actionPending && pendingAction !== 'release')}
+							pending={pendingAction === 'release'}
+							pendingLabel="Paying…"
 							data-testid="approve-release-funds-button"
 						>
-							{#if isReleasing}<span class="loading loading-spinner loading-xs"></span>{/if}
 							{$t('bids.confirm_pay')}
-						</button>
+						</ActionButton>
 					{:else}
 						<button
 							class="btn btn-primary w-full"
@@ -1090,14 +1170,17 @@
 		{/if}
 
 		{#if canCancel}
-			<button
-				class="btn btn-ghost btn-sm"
+			<ActionButton
+				variant="ghost"
+				class="w-full"
 				onclick={handleCancel}
-				disabled={isReleasing}
+				disabled={actionPending && pendingAction !== 'cancel'}
+				pending={pendingAction === 'cancel'}
+				pendingLabel="Cancelling…"
 				data-testid="cancel-contract-button"
 			>
 				{$t('bids.cancel_contract')}
-			</button>
+			</ActionButton>
 		{/if}
 
 		<section class="card bg-base-200 border-base-300 border shadow-sm">
@@ -1115,6 +1198,13 @@
 		<section class="card bg-base-100 border-base-300 border shadow-sm">
 			<div class="card-body gap-3 p-5">
 				<h2 class="text-base font-semibold">History</h2>
+				{#if timeline.length === 0}
+					<ListRegion
+						status="empty"
+						title="No contract updates yet"
+						message="Updates appear here after escrow, work, and payment."
+					/>
+				{/if}
 				<ol class="flex flex-col gap-3" data-testid="contract-status-timeline">
 					{#each timeline as entry (entry.id)}
 						<li class="border-base-300 border-l-2 pl-3">

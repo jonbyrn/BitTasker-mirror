@@ -12,6 +12,8 @@
 <div
 	class="toast-container pointer-events-none fixed inset-x-0 bottom-0 z-70 flex flex-col items-center gap-3"
 	style="padding-bottom: calc(var(--app-footer-height, 0px) + 1.25rem);"
+	aria-live="polite"
+	aria-relevant="additions"
 >
 	{#each $appStore.toasts as toast (toast.id)}
 		{@const isBanner = toast.type === 'banner'}
@@ -76,6 +78,7 @@
 						: toast.type === 'error'
 							? 'alert-error'
 							: 'alert-info'} shadow-lg"
+					role={toast.type === 'error' ? 'alert' : 'status'}
 					in:fade={{ duration: 150 }}
 					out:fade={{ duration: 150 }}
 				>

@@ -287,3 +287,23 @@ kept elsewhere; anything not listed here wasn't carried over.
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.
+
+## UI compliance (2026-10-20)
+
+See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still open.
+
+### 160. Approve needed several presses
+- Severity: high. Approve work (and the same pattern on submit, pay, and cancel) hid the button as soon as the tap started, and a slower contract reload put the status back to "work submitted". The button came back looking idle, so people tapped again.
+- Fix: the button stays on screen, shows "Approving…", ignores a second tap, and a stale relay read cannot undo the approval. A failure says what happened and to tap Retry.
+
+### 161. Bid cards showed the task budget as the bid
+- Severity: high. On My Bids the price in the card header was `taskBudget` (for example $2) while the submitted bid (for example $20) was inside a collapsed section. The contract could then invoice `totalAmountUsd` instead of the locked bid.
+- Fix: the header shows the bid amount and currency (USDT, USD, or sats). The task budget, when it differs, is labeled "Task budget". USDT invoices use the locked bid amount.
+
+### 162. Warning, info, success, and error text failed contrast
+- Severity: med. Yellow and light status colors used near-white text, under WCAG 2.2 AA (4.5:1).
+- Fix: the visual redesign colors in `src/app.css` already meet 4.5:1 in light and dark, so they were left as they are. `src/lib/tests/unit/utils/ui-compliance.test.ts` fails if a token pair drops below that.
+
+### 163. Notifications could fail without a message
+- Severity: med. The notifications page never read the store's error. Mark all read and Clear all caught failures and refreshed with no sentence.
+- Fix: the page shows the error and a Retry button. Those two actions say what failed and to tap Retry. Mark all read, Clear all, and Show all ignore a second tap and show a pending label.

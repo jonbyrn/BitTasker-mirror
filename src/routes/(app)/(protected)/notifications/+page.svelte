@@ -7,6 +7,9 @@
 	import NotificationSkeleton from '$lib/components/notifications/NotificationSkeleton.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { createSingleFlight } from '$lib/utils/ui/single-flight';
+	import ActionButton from '$lib/components/design/ActionButton.svelte';
+	import ListRegion from '$lib/components/design/ListRegion.svelte';
 
 	const filterTabs = ['all', 'unread', 'read'];
 
@@ -18,7 +21,10 @@
 	let total = $derived($notificationCenterStore.total);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
 	let isOffline = $derived(!$browserNetworkStatus.online);
+	let loadError = $derived($notificationCenterStore.error);
 	let showClearConfirm = $state(false);
+	let pendingAction = $state<'' | 'read' | 'clear' | 'more' | 'retry'>('');
+	const actionFlight = createSingleFlight();
 
 	onMount(() => {
 		notificationCenterStore.refresh();
@@ -29,11 +35,25 @@
 	}
 
 	function handleLoadMore() {
-		notificationCenterStore.loadMore();
+		void actionFlight.run(async () => {
+			pendingAction = 'more';
+			try {
+				await notificationCenterStore.loadMore();
+			} finally {
+				pendingAction = '';
+			}
+		});
 	}
 
 	function handleMarkAllRead() {
-		notificationCenterStore.markAllRead();
+		void actionFlight.run(async () => {
+			pendingAction = 'read';
+			try {
+				await notificationCenterStore.markAllRead();
+			} finally {
+				pendingAction = '';
+			}
+		});
 	}
 
 	function handleClearAll() {
@@ -42,7 +62,25 @@
 
 	async function confirmClearAll() {
 		showClearConfirm = false;
-		await notificationCenterStore.clearAll();
+		await actionFlight.run(async () => {
+			pendingAction = 'clear';
+			try {
+				await notificationCenterStore.clearAll();
+			} finally {
+				pendingAction = '';
+			}
+		});
+	}
+
+	function retryLoad() {
+		void actionFlight.run(async () => {
+			pendingAction = 'retry';
+			try {
+				await notificationCenterStore.refresh();
+			} finally {
+				pendingAction = '';
+			}
+		});
 	}
 </script>
 
@@ -58,9 +96,15 @@
 		</div>
 		<div class="mt-2 flex justify-end gap-2">
 			{#if unreadCount > 0}
-				<button class="btn btn-ghost btn-sm text-primary" onclick={handleMarkAllRead}>
+				<ActionButton
+					variant="ghost"
+					class="text-primary"
+					onclick={handleMarkAllRead}
+					pending={pendingAction === 'read'}
+					pendingLabel={$t('notifications.working')}
+				>
 					{$t('notifications.mark_all_read')}
-				</button>
+				</ActionButton>
 			{/if}
 			{#if notifications.length > 0}
 				<button class="btn btn-ghost btn-sm text-error" onclick={handleClearAll}>
@@ -80,6 +124,7 @@
 		{#each filterTabs as tab (tab)}
 			<button
 				class="btn btn-sm {activeFilter === tab ? 'btn-primary' : 'btn-ghost'}"
+				aria-pressed={activeFilter === tab}
 				onclick={() => handleFilterChange(tab)}
 			>
 				{$t(`notifications.filters.${tab}`)}
@@ -90,13 +135,26 @@
 		{/each}
 	</div>
 
+	{#if loadError}
+		<div class="mb-4">
+			<ListRegion
+				status="error"
+				title={$t('notifications.load_failed_title')}
+				message={loadError}
+				actionLabel={$t('notifications.retry')}
+				pending={pendingAction === 'retry'}
+				onAction={retryLoad}
+			/>
+		</div>
+	{/if}
+
 	{#if loading}
 		<div class="border-base-300 bg-base-100 divide-base-200 divide-y rounded-xl border">
 			<NotificationSkeleton count={5} />
 		</div>
-	{:else if notifications.length === 0}
+	{:else if notifications.length === 0 && !loadError}
 		<NotificationEmptyState />
-	{:else}
+	{:else if notifications.length > 0}
 		<div class="divide-base-200 border-base-300 bg-base-100 divide-y rounded-xl border">
 			{#each notifications as notification (notification.id)}
 				<NotificationCard {notification} />
@@ -105,12 +163,15 @@
 
 		{#if hasMore}
 			<div class="mt-4 text-center">
-				<button class="btn btn-outline btn-sm" onclick={handleLoadMore} disabled={loadingMore}>
-					{#if loadingMore}
-						<span class="loading loading-spinner loading-xs"></span>
-					{/if}
+				<ActionButton
+					variant="outline"
+					onclick={handleLoadMore}
+					disabled={loadingMore}
+					pending={loadingMore || pendingAction === 'more'}
+					pendingLabel={$t('notifications.working')}
+				>
 					{$t('notifications.show_all')}
-				</button>
+				</ActionButton>
 			</div>
 		{/if}
 

@@ -30,6 +30,7 @@
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
 	import { assignTask } from '$lib/nostr/task';
+	import { createSingleFlight, withNextStep } from '$lib/utils/ui/single-flight';
 
 	const BTC_ONLY_SPLIT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -130,6 +131,8 @@
 	const contractUnits = $derived(
 		usdtContract && lockedBid ? Math.round(lockedBid.lockedAmount * 1_000_000) : (totalSats ?? 0)
 	);
+	let postedInvoice = $state('');
+	const acceptFlight = createSingleFlight();
 	const postedAmount = $derived.by(() => {
 		if (!postedInvoice.startsWith('rgb:')) return null;
 		try {
@@ -152,7 +155,6 @@
 	let fundedContractId = $state<string | null>(null);
 	let escrowReady = $state(false);
 	let awaitingTaskeeInvoice = $state(false);
-	let postedInvoice = $state('');
 
 	const lightningFundReady = $derived(
 		fundRail !== 'btc_lightning' || (!nodeEmpty && totalSats !== null)
@@ -288,56 +290,36 @@
 	}
 
 	async function handleAcceptAndFund(): Promise<void> {
-		if (!bidContent) {
-			errorMessage = 'Bid content is unavailable';
-			return;
-		}
-		const bidderPubkey = bidContent.bidderId;
-		if (!bidderPubkey) {
-			errorMessage = 'Bidder pubkey is unavailable';
-			return;
-		}
-
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-
-		isProcessing = true;
-		errorMessage = '';
-
-		try {
-			const contractId = `contract-${task.id}-${bid.id}`;
-			processingStep = 'funding';
-			const rune = new ContractRune(contractInput(bidderPubkey));
-
-			await initWasm();
-			await walletManager.initialize();
-			await rune.prepareFunding();
-
-			processingStep = 'notifying';
-			await publishContractStep({
-				status: BidStatusEnum.ACCEPTED,
-				action: 'bid_accepted',
-				contractId,
-				bidderPubkey,
-				message: 'Bid accepted'
-			});
-			await closeAcceptedTask();
-
-			fundedRune = rune;
-			fundedContractId = contractId;
-			if (isE2ETest && typeof window !== 'undefined') {
-				(window as Window & { __lastFundedContractId?: string }).__lastFundedContractId =
-					contractId;
+		await acceptFlight.run(async () => {
+			if (!bidContent) {
+				errorMessage = 'Bid content is unavailable. Refresh the bid and try again.';
+				return;
 			}
-			if (rune.status === 'funded') {
-				await notifyFunded(contractId, bidderPubkey);
+			const bidderPubkey = bidContent.bidderId;
+			if (!bidderPubkey) {
+				errorMessage = 'Bidder pubkey is unavailable. Refresh the bid and try again.';
+				return;
 			}
-		} catch (error) {
-			if (error instanceof Error && error.name === 'TaskeeInvoiceRequired') {
+
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+
+			isProcessing = true;
+			errorMessage = '';
+
+			try {
 				const contractId = `contract-${task.id}-${bid.id}`;
+				processingStep = 'funding';
+				const rune = new ContractRune(contractInput(bidderPubkey));
+
+				await initWasm();
+				await walletManager.initialize();
+				await rune.prepareFunding();
+
+				processingStep = 'notifying';
 				await publishContractStep({
 					status: BidStatusEnum.ACCEPTED,
 					action: 'bid_accepted',
@@ -346,23 +328,48 @@
 					message: 'Bid accepted'
 				});
 				await closeAcceptedTask();
-				awaitingTaskeeInvoice = true;
-				errorMessage = '';
-				return;
+
+				fundedRune = rune;
+				fundedContractId = contractId;
+				if (isE2ETest && typeof window !== 'undefined') {
+					(window as Window & { __lastFundedContractId?: string }).__lastFundedContractId =
+						contractId;
+				}
+				if (rune.status === 'funded') {
+					await notifyFunded(contractId, bidderPubkey);
+				}
+			} catch (error) {
+				if (error instanceof Error && error.name === 'TaskeeInvoiceRequired') {
+					const contractId = `contract-${task.id}-${bid.id}`;
+					await publishContractStep({
+						status: BidStatusEnum.ACCEPTED,
+						action: 'bid_accepted',
+						contractId,
+						bidderPubkey,
+						message: 'Bid accepted'
+					});
+					await closeAcceptedTask();
+					awaitingTaskeeInvoice = true;
+					errorMessage = '';
+					return;
+				}
+				if (isE2ETest) {
+					console.error('[accept-fund] failed', error);
+				}
+				fundedRune = null;
+				fundedContractId = null;
+				escrowReady = false;
+				errorMessage = withNextStep(
+					error instanceof Error ? error.message : 'Escrow funding failed',
+					'Tap Accept and fund to try again.'
+				);
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+			} finally {
+				await walletManager.releaseRgbLock();
+				isProcessing = false;
+				processingStep = 'idle';
 			}
-			if (isE2ETest) {
-				console.error('[accept-fund] failed', error);
-			}
-			fundedRune = null;
-			fundedContractId = null;
-			escrowReady = false;
-			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
-		} finally {
-			await walletManager.releaseRgbLock();
-			isProcessing = false;
-			processingStep = 'idle';
-		}
+		});
 	}
 
 	async function loadPostedInvoice(quiet = false): Promise<void> {
@@ -375,36 +382,44 @@
 			}
 		} catch (error) {
 			if (quiet) return;
-			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
+			errorMessage = withNextStep(
+				error instanceof Error ? error.message : 'Escrow funding failed',
+				'Tap Retry.'
+			);
 		}
 	}
 
 	async function usePostedInvoice(): Promise<void> {
-		if (!bidContent?.bidderId || !invoiceReady) return;
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-		isProcessing = true;
-		errorMessage = '';
-		processingStep = 'funding';
-		try {
-			const rune = new ContractRune(contractInput(bidContent.bidderId));
-			await initWasm();
-			await walletManager.initialize();
-			await rune.prepareFunding(postedInvoice);
-			fundedRune = rune;
-			fundedContractId = rune.snapshot.contractId;
-			awaitingTaskeeInvoice = false;
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Escrow funding failed';
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
-		} finally {
-			await walletManager.releaseRgbLock();
-			isProcessing = false;
-			processingStep = 'idle';
-		}
+		await acceptFlight.run(async () => {
+			if (!bidContent?.bidderId || !invoiceReady) return;
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+			isProcessing = true;
+			errorMessage = '';
+			processingStep = 'funding';
+			try {
+				const rune = new ContractRune(contractInput(bidContent.bidderId));
+				await initWasm();
+				await walletManager.initialize();
+				await rune.prepareFunding(postedInvoice);
+				fundedRune = rune;
+				fundedContractId = rune.snapshot.contractId;
+				awaitingTaskeeInvoice = false;
+			} catch (error) {
+				errorMessage = withNextStep(
+					error instanceof Error ? error.message : 'Escrow funding failed',
+					'Tap Retry.'
+				);
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+			} finally {
+				await walletManager.releaseRgbLock();
+				isProcessing = false;
+				processingStep = 'idle';
+			}
+		});
 	}
 
 	$effect(() => {
@@ -416,87 +431,102 @@
 	});
 
 	async function handlePayFromWallet(): Promise<void> {
-		if (!fundedRune || !fundedContractId || !bidContent?.bidderId || !payMatchesRail) return;
-		if (dollarBid && fundRail === 'btc_lightning' && nodeEmpty) {
-			errorMessage = $t('wallet.lightning_no_peer');
-			return;
-		}
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			errorMessage = blocked;
-			return;
-		}
-		isProcessing = true;
-		errorMessage = '';
-		processingStep = 'paying';
-		try {
-			const paid = await fundedRune.payFundingFromWallet();
-			if (paid.status === 'locked' || paid.status === 'funded') {
-				await notifyFunded(fundedContractId, bidContent.bidderId);
+		await acceptFlight.run(async () => {
+			if (!fundedRune || !fundedContractId || !bidContent?.bidderId || !payMatchesRail) return;
+			if (dollarBid && fundRail === 'btc_lightning' && nodeEmpty) {
+				errorMessage = $t('wallet.lightning_no_peer');
+				return;
 			}
-			isProcessing = false;
-			processingStep = 'idle';
-		} catch (error) {
-			const cause = error instanceof Error ? error.cause : undefined;
-			const causeMessage = cause instanceof Error ? cause.message : undefined;
-			errorMessage = causeMessage || (error instanceof Error ? error.message : String(error));
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
-		} finally {
-			await walletManager.releaseRgbLock();
-			isProcessing = false;
-			processingStep = 'idle';
-		}
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				errorMessage = blocked;
+				return;
+			}
+			isProcessing = true;
+			errorMessage = '';
+			processingStep = 'paying';
+			try {
+				const paid = await fundedRune.payFundingFromWallet();
+				if (paid.status === 'locked' || paid.status === 'funded') {
+					await notifyFunded(fundedContractId, bidContent.bidderId);
+				}
+				isProcessing = false;
+				processingStep = 'idle';
+			} catch (error) {
+				const cause = error instanceof Error ? error.cause : undefined;
+				const causeMessage = cause instanceof Error ? cause.message : undefined;
+				errorMessage = withNextStep(
+					causeMessage || (error instanceof Error ? error.message : String(error)),
+					'Tap Pay to try again.'
+				);
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+			} finally {
+				await walletManager.releaseRgbLock();
+				isProcessing = false;
+				processingStep = 'idle';
+			}
+		});
 	}
 
 	async function handleCheckFunding(): Promise<void> {
-		if (!fundedRune || !fundedContractId || !bidContent?.bidderId) return;
-		isProcessing = true;
-		errorMessage = '';
-		processingStep = 'verifying';
-		try {
-			await fundedRune.confirmFunding();
-			await notifyFunded(fundedContractId, bidContent.bidderId);
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Payment has not been detected yet';
-		} finally {
-			await walletManager.releaseRgbLock();
-			isProcessing = false;
-			processingStep = 'idle';
-		}
+		await acceptFlight.run(async () => {
+			if (!fundedRune || !fundedContractId || !bidContent?.bidderId) return;
+			isProcessing = true;
+			errorMessage = '';
+			processingStep = 'verifying';
+			try {
+				await fundedRune.confirmFunding();
+				await notifyFunded(fundedContractId, bidContent.bidderId);
+			} catch (error) {
+				errorMessage = withNextStep(
+					error instanceof Error ? error.message : 'Payment has not been detected yet',
+					'Tap Check payment to try again.'
+				);
+			} finally {
+				await walletManager.releaseRgbLock();
+				isProcessing = false;
+				processingStep = 'idle';
+			}
+		});
 	}
 
 	async function handleStartTask(): Promise<void> {
-		if (!bidContent || !fundedRune || !fundedContractId) return;
-		const bidderPubkey = bidContent.bidderId;
-		if (!bidderPubkey) {
-			errorMessage = 'Bidder pubkey is unavailable';
-			return;
-		}
-
-		isProcessing = true;
-		errorMessage = '';
-		processingStep = 'starting';
-		try {
-			await fundedRune.startWork();
-			await publishContractStep({
-				status: BidStatusEnum.WORK_IN_PROGRESS,
-				action: 'work_started',
-				contractId: fundedContractId,
-				bidderPubkey,
-				message: 'Task started',
-				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60
-			});
-			onFunded(fundedContractId);
-		} catch (error) {
-			if (isE2ETest) {
-				console.error('[start-task] failed', error);
+		await acceptFlight.run(async () => {
+			if (!bidContent || !fundedRune || !fundedContractId) return;
+			const bidderPubkey = bidContent.bidderId;
+			if (!bidderPubkey) {
+				errorMessage = 'Bidder pubkey is unavailable. Refresh the bid and try again.';
+				return;
 			}
-			errorMessage = error instanceof Error ? error.message : 'Task start failed';
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
-		} finally {
-			isProcessing = false;
-			processingStep = 'idle';
-		}
+
+			isProcessing = true;
+			errorMessage = '';
+			processingStep = 'starting';
+			try {
+				await fundedRune.startWork();
+				await publishContractStep({
+					status: BidStatusEnum.WORK_IN_PROGRESS,
+					action: 'work_started',
+					contractId: fundedContractId,
+					bidderPubkey,
+					message: 'Task started',
+					estimatedCompletionTime: Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60
+				});
+				onFunded(fundedContractId);
+			} catch (error) {
+				if (isE2ETest) {
+					console.error('[start-task] failed', error);
+				}
+				errorMessage = withNextStep(
+					error instanceof Error ? error.message : 'Task start failed',
+					'Tap Start task to try again.'
+				);
+				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+			} finally {
+				isProcessing = false;
+				processingStep = 'idle';
+			}
+		});
 	}
 
 	onMount(() => {
@@ -819,8 +849,10 @@
 			>
 				{#if isProcessing}
 					<span class="loading loading-spinner loading-sm"></span>
+					Accepting…
+				{:else}
+					{$t('dashboard.bids.bid_acceptance.accept_fund')}
 				{/if}
-				{$t('dashboard.bids.bid_acceptance.accept_fund')}
 			</button>
 		{/if}
 		<button

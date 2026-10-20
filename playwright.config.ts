@@ -68,6 +68,15 @@ export default defineConfig({
 	/* Configure projects for major browsers */
 	projects: [
 		{
+			name: 'a11y',
+			testMatch: /a11y\/.*\.spec\.ts/,
+			use: {
+				...devices['Desktop Chrome'],
+				viewport: { width: 360, height: 800 },
+				storageState: { cookies: [], origins: [] }
+			}
+		},
+		{
 			name: 'chromium',
 			use: {
 				...devices['Desktop Chrome'],

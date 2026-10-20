@@ -46,6 +46,7 @@
 	}>();
 
 	let windowWidth = $state(0);
+	let dialogEl = $state<HTMLDivElement | null>(null);
 
 	const respectBottomNav = $derived(props.respectBottomNav ?? true);
 	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
@@ -99,6 +100,15 @@
 			delete el.dataset.lockCount;
 		}
 	}
+
+	$effect(() => {
+		if (!props.isOpen || typeof document === 'undefined') return;
+		const previouslyFocused = document.activeElement as HTMLElement | null;
+		queueMicrotask(() => dialogEl?.focus());
+		return () => {
+			previouslyFocused?.focus?.();
+		};
+	});
 
 	// Handle modal state changes, including scroll locking
 	$effect(() => {
@@ -163,6 +173,7 @@
 			aria-modal="true"
 			aria-labelledby="modal-title"
 			tabindex="-1"
+			bind:this={dialogEl}
 			transition:fade={{ duration: 200 }}
 		>
 			<!-- Modal Header -->

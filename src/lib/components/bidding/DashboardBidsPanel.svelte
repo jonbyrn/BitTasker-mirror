@@ -36,6 +36,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { formatNumberWithTwoDecimals, formatInteger } from '$lib/utils/helpers/currencyFormatter';
+	import MoneyAmount from '$lib/components/design/MoneyAmount.svelte';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
@@ -557,23 +558,27 @@
 										</span>
 										{#if bid.amount != null}
 											<div class="text-right" data-testid="bid-offer-amount">
-												<p class="text-xl font-bold">
-													{#if isSatBid(bid.currency)}
-														{formatInteger(bid.amount)}
-													{:else}
-														${formatNumberWithTwoDecimals(bid.amount)}
-													{/if}
-												</p>
-												<p class="text-base-content/60 text-sm">
-													{#if isSatBid(bid.currency)}
-														{$t('bids.sats')}
-													{:else if btcPrice > 0}
-														{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice) ?? 0)}
-														{$t('bids.sats')}
-													{:else}
-														{$t('bids.price_unavailable')}
-													{/if}
-												</p>
+												<MoneyAmount quote={bid} />
+												{#if !isSatBid(bid.currency)}
+													<p class="text-base-content/60 text-sm">
+														{#if btcPrice > 0}
+															{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice) ?? 0)}
+															{$t('bids.sats')}
+														{:else}
+															{$t('bids.price_unavailable')}
+														{/if}
+													</p>
+												{/if}
+												{#if bid.taskBudget != null && bid.taskBudget.amount !== bid.amount}
+													<p
+														class="text-base-content/70 text-xs"
+														data-testid="task-budget-aside"
+													>
+														{$t('bids.task_budget')}: ${formatNumberWithTwoDecimals(
+															bid.taskBudget.amount
+														)}
+													</p>
+												{/if}
 											</div>
 										{/if}
 									</div>
@@ -662,15 +667,8 @@
 												</div>
 											</div>
 											<div class="min-w-0 text-right">
-												{#if isSatBid(bid.currency)}
-													<p class="text-xl font-bold">
-														{formatInteger(bid.amount)}
-														{$t('bids.sats')}
-													</p>
-												{:else}
-													<p class="text-xl font-bold">
-														${formatNumberWithTwoDecimals(bid.amount)}
-													</p>
+												<MoneyAmount quote={bid} size="large" />
+												{#if !isSatBid(bid.currency)}
 													<p class="text-base-content/60 text-sm">
 														{#if btcPrice > 0}
 															{$t('bids.sats_estimate', {

@@ -324,6 +324,10 @@ function createNotificationCenterStore() {
 			} catch {
 				await this.refresh();
 				await this.fetchUnreadCount();
+				update((s) => ({
+					...s,
+					error: "Couldn't mark notifications as read. Tap Retry."
+				}));
 			}
 		},
 
@@ -415,6 +419,10 @@ function createNotificationCenterStore() {
 			} catch {
 				set(prev);
 				await this.fetchUnreadCount();
+				update((s) => ({
+					...s,
+					error: "Couldn't clear notifications. Tap Retry."
+				}));
 			}
 		},
 

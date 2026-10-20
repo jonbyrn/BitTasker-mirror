@@ -24,10 +24,11 @@
 		size?: 'default' | 'compact' | 'large';
 	}>();
 
-	/** Sats computed from USD and BTC price */
+	/** Sats computed from USD and BTC price. A missing price is not zero sats. */
 	const satsFormatted = $derived.by(() => {
-		if (btcPrice <= 0) return '0';
+		if (!(btcPrice > 0) || !Number.isFinite(amount)) return null;
 		const sats = Math.round((amount / btcPrice) * 100_000_000);
+		if (!Number.isFinite(sats)) return null;
 		return formatInteger(sats);
 	});
 
@@ -45,6 +46,10 @@
 			{title}
 		</span>
 	{/if}
-	<p class="{usdColor} {usdSizeClass} font-bold">${formatNumberWithTwoDecimals(amount)}</p>
-	<p class="text-base-content/60 {satsSizeClass}">{satsFormatted} {$t(satsKey)}</p>
+	<p class="{usdColor} {usdSizeClass} font-bold">${formatNumberWithTwoDecimals(amount)} USD</p>
+	{#if satsFormatted === null}
+		<p class="text-base-content/80 {satsSizeClass}">{$t('bids.price_unavailable')}</p>
+	{:else}
+		<p class="text-base-content/80 {satsSizeClass}">{satsFormatted} {$t(satsKey)}</p>
+	{/if}
 </div>

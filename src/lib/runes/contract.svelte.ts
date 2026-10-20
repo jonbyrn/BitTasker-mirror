@@ -16,6 +16,7 @@ import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rg
 import { openPayoutTxid, sentInvoiceTxid } from '$lib/services/rgb/psbt-escrow';
 import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
 import { proofReady } from '$lib/services/rgb/escrow-rails/types';
+import { contractPayUnits } from '$lib/utils/ui/money-display';
 import { ESCROW_LNUSDT, lnUsdtOpen } from '$lib/services/rgb/escrow-rail';
 import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 import { saveEscrowResume } from '$lib/utils/contract/escrow-resume';
@@ -1077,8 +1078,11 @@ export class ContractRune {
 	}
 
 	private agreedUnits(): number {
-		if (this.lockedCurrency === 'SATS' && this.lockedAmount > 0) return this.lockedAmount;
-		return Math.max(1, Math.round(this.totalAmountUsd * 1_000_000));
+		return contractPayUnits({
+			lockedAmount: this.lockedAmount,
+			lockedCurrency: this.lockedCurrency,
+			totalAmountUsd: this.totalAmountUsd
+		});
 	}
 
 	private lockedSats(): number {

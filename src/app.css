@@ -966,3 +966,76 @@ body {
 		background-color: hsl(var(--p) / 0.2);
 	}
 }
+
+/*
+ * WCAG 2.2 AA: visible keyboard focus, 44px touch targets, and list skeletons.
+ * Buttons ignore the browser double-tap zoom delay, which was swallowing taps.
+ */
+:focus-visible {
+	outline: 3px solid var(--color-base-content);
+	outline-offset: 2px;
+}
+
+.skip-link {
+	position: absolute;
+	top: 0.75rem;
+	left: 0.75rem;
+	z-index: 100;
+	transform: translateY(-200%);
+	border-radius: 0.5rem;
+	background: var(--color-base-100);
+	color: var(--color-base-content);
+	padding: 0.75rem 1rem;
+	min-height: 2.75rem;
+}
+
+.skip-link:focus {
+	transform: none;
+}
+
+button,
+a,
+summary,
+[role='button'],
+.btn,
+.input,
+.textarea,
+.select {
+	touch-action: manipulation;
+}
+
+.ui-action,
+.btn,
+.input,
+.select,
+.textarea {
+	min-height: 2.75rem;
+}
+
+.btn-circle,
+.btn-square {
+	min-width: 2.75rem;
+}
+
+.ui-skeleton {
+	border-radius: 0.5rem;
+	background: var(--color-base-300);
+	animation: ui-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ui-skeleton-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.45;
+	}
+}
+
+@media (max-width: 360px) {
+	.card-body {
+		padding: 1rem;
+	}
+}

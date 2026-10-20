@@ -41,6 +41,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write . --ignore-path .prettierignore",
 		"lint": "prettier --check . --ignore-path .prettierignore && eslint .",
+		"lint:tokens": "eslint src/lib/components/design --max-warnings 0",
 		"test:unit": "vitest run",
 		"test": "npm run test:unit",
 		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",

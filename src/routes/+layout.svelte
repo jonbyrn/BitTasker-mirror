@@ -103,6 +103,7 @@
 	{/if}
 </svelte:head>
 
-<main id="main" class="app-shell bg-base-200">
+<a class="skip-link" href="#main">Skip to content</a>
+<main id="main" class="app-shell bg-base-200" tabindex="-1">
 	{@render children?.()}
 </main>

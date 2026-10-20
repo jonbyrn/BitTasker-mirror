@@ -1,4 +1,5 @@
 import prettier from 'eslint-config-prettier';
+import designTokens from './eslint/design-tokens.js';
 import js from '@eslint/js';
 import { includeIgnoreFile } from '@eslint/compat';
 import svelte from 'eslint-plugin-svelte';
@@ -72,6 +73,15 @@ export default ts.config(
 				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
 			],
 			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
+		files: ['src/lib/components/design/**/*.svelte'],
+		plugins: {
+			'design-tokens': designTokens
+		},
+		rules: {
+			'design-tokens/no-raw-color': 'error'
 		}
 	},
 	{

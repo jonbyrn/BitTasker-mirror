@@ -15,6 +15,7 @@
 	} from '$lib/utils/helpers/passkey-prompt';
 	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
 	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
+	import { createSingleFlight, withNextStep } from '$lib/utils/ui/single-flight';
 
 	interface BidSubmission {
 		amount: number;
@@ -53,46 +54,52 @@
 	let isSubmitting = $state(false);
 	let passkeyMessage = $state('');
 	let submitError = $state('');
+	const submitFlight = createSingleFlight();
 
 	onMount(() => {
 		if (!signerReady()) prefetchPasskeyChallenge();
 	});
 
 	async function submitBid(): Promise<void> {
-		submitError = '';
-		const blocked = walletBlocksAction();
-		if (blocked) {
-			submitError = blocked;
-			return;
-		}
-		isSubmitting = true;
-		passkeyMessage = signerReady() ? '' : PASSKEY_APPROVE_MESSAGE;
-		try {
-			if (!onSubmit || !task?.id || !bidAmount) {
-				throw new Error('Bid form is not ready');
+		await submitFlight.run(async () => {
+			submitError = '';
+			const blocked = walletBlocksAction();
+			if (blocked) {
+				submitError = blocked;
+				return;
 			}
-			await prepareSigner();
-			passkeyMessage = '';
-			await onSubmit({
-				amount: bidAmount,
-				days: deliveryDays,
-				proposal,
-				taskId: task.id
-			});
-			onClose();
-		} catch (err) {
-			console.error('Bid submission failed', err);
-			submitError = isPasskeyPromptError(err)
-				? passkeyErrorText(err)
-				: err instanceof Error
-					? err.message
-					: $t('bid_creation.failed_to_submit_bid');
-			appStore.showErrorToast(submitError);
-			if (isPasskeyPromptError(err)) prefetchPasskeyChallenge();
-		} finally {
-			isSubmitting = false;
-			passkeyMessage = '';
-		}
+			isSubmitting = true;
+			passkeyMessage = signerReady() ? '' : PASSKEY_APPROVE_MESSAGE;
+			try {
+				if (!onSubmit || !task?.id || !bidAmount) {
+					throw new Error('Bid form is not ready');
+				}
+				await prepareSigner();
+				passkeyMessage = '';
+				await onSubmit({
+					amount: bidAmount,
+					days: deliveryDays,
+					proposal,
+					taskId: task.id
+				});
+				onClose();
+			} catch (err) {
+				console.error('Bid submission failed', err);
+				submitError = withNextStep(
+					isPasskeyPromptError(err)
+						? passkeyErrorText(err)
+						: err instanceof Error
+							? err.message
+							: $t('bid_creation.failed_to_submit_bid'),
+					'Tap Retry.'
+				);
+				appStore.showErrorToast(submitError);
+				if (isPasskeyPromptError(err)) prefetchPasskeyChallenge();
+			} finally {
+				isSubmitting = false;
+				passkeyMessage = '';
+			}
+		});
 	}
 
 	function handleSubmit(e: Event) {

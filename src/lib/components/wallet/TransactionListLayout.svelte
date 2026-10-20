@@ -71,7 +71,7 @@
 	<div class="mx-3 min-h-0 flex-1 overflow-y-auto sm:mx-4 lg:mx-6">
 		<div class="space-y-3">
 			{#if error}
-				<div class="alert alert-error alert-outline">
+				<div class="alert alert-error alert-outline" role="alert">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"
@@ -85,7 +85,7 @@
 							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span>{error}</span>
+					<span>{error} Tap Refresh to try again.</span>
 				</div>
 			{/if}
 
@@ -136,7 +136,12 @@
 		{#if totalPages > 1 && !isLoading && hasPageItems}
 			<div class="flex justify-center">
 				<div class="join">
-					<button class="join-item btn btn-sm" onclick={prevPage} disabled={currentPage === 0}>
+					<button
+						class="join-item btn btn-sm"
+						onclick={prevPage}
+						disabled={currentPage === 0}
+						aria-label="Previous page"
+					>
 						«
 					</button>
 
@@ -146,6 +151,8 @@
 							<button
 								class="join-item btn btn-sm {currentPage === pageNum ? 'btn-active' : ''}"
 								onclick={() => onPageChange(pageNum)}
+								aria-label="Page {pageNum + 1}"
+								aria-current={currentPage === pageNum ? 'page' : undefined}
 							>
 								{pageNum + 1}
 							</button>
@@ -156,6 +163,7 @@
 						class="join-item btn btn-sm"
 						onclick={nextPage}
 						disabled={currentPage === totalPages - 1}
+						aria-label="Next page"
 					>
 						»
 					</button>
