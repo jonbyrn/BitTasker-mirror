@@ -17,6 +17,7 @@
 	import {
 		cancelUnpaidInvoices,
 		hidesCancelledReceive,
+		repairUsdtBalance,
 		scheduleRgbRefresh,
 		stickCancelledReceives
 	} from '$lib/stores/wallet/wallet-balances';
@@ -31,6 +32,7 @@
 		bitcoinFigures,
 		combinedSats,
 		isUsdtHistory,
+		lockedUnits,
 		shownUsdt,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
@@ -73,6 +75,8 @@
 	let blindReceives = $state<BlindReceiveRow[]>([]);
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
+	let repairing = $state(false);
+	let repairNote = $state('');
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -133,6 +137,16 @@
 		)
 	);
 	const bitcoinCard = $derived(bitcoinFigures(bitcoinSats, btcPrice.price));
+	const lockedCaption = $derived.by(() => {
+		const locked = lockedUnits(usdtAsset);
+		if (locked <= 0) return '';
+		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
+		const amount = `$${formatUsdtBalance(locked, precision)}`;
+		return translate('wallet.locked_or_unconfirmed', '{amount} locked or unconfirmed').replaceAll(
+			'{amount}',
+			amount
+		);
+	});
 	const heldDollars = $derived.by(() => {
 		const hold = usdtOnHold(usdtAsset);
 		if (!hold) return '';
@@ -356,6 +370,25 @@
 		if (paid?.txid && refreshedSeal !== paid.seal) {
 			refreshedSeal = paid.seal;
 			scheduleRgbRefresh(wallet);
+		}
+	}
+
+	async function repairWallet(): Promise<void> {
+		if (repairing || $walletStore.locked) return;
+		repairing = true;
+		repairNote = '';
+		try {
+			await repairUsdtBalance();
+			await loadUtxos();
+			repairNote = translate(
+				'wallet.repair_done',
+				'Wallet checked. The balance is what you can send.'
+			);
+		} catch (error: unknown) {
+			console.error('[wallet-page] repair failed', error);
+			repairNote = translate('wallet.repair_failed', 'Could not check the wallet. Try again.');
+		} finally {
+			repairing = false;
 		}
 	}
 
@@ -592,6 +625,25 @@
 		</span>
 	{/snippet}
 
+	{#snippet repairButton()}
+		<button
+			type="button"
+			class="btn btn-outline btn-sm min-h-12"
+			data-testid="repair-wallet"
+			disabled={repairing || $walletStore.locked}
+			onclick={() => {
+				repairWallet().catch((error: unknown) => {
+					console.error('[wallet-page] repair failed', error);
+				});
+			}}
+		>
+			{#if repairing}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{translate('wallet.repair_wallet', 'Repair wallet')}
+		</button>
+	{/snippet}
+
 	{#snippet balanceRow(symbol: string, label: string, amount: string)}
 		<div class="border-base-300 flex w-full items-center gap-3 border-t px-4 py-3">
 			{@render assetMark(symbol)}
@@ -612,6 +664,13 @@
 				<p class="text-base-content/60 text-sm tabular-nums">{displayDollars} USDT</p>
 				{#if heldDollars}
 					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
+				{/if}
+				{#if lockedCaption}
+					<p class="text-warning text-sm" data-testid="usdt-locked">{lockedCaption}</p>
+					{@render repairButton()}
+				{/if}
+				{#if repairNote}
+					<p class="text-sm" data-testid="repair-note">{repairNote}</p>
 				{/if}
 			{/if}
 		</div>
@@ -743,6 +802,11 @@
 					<p class="text-warning px-4 py-2 text-sm" data-testid="pending-confirmation">
 						{translate('wallet.pending_confirmation', 'Pending confirmation')}
 					</p>
+				{/if}
+				{#if !$walletStore.locked && !lockedCaption}
+					<div class="px-4 py-3">
+						{@render repairButton()}
+					</div>
 				{/if}
 				{#each otherAssets as asset (asset.assetId)}
 					{@render balanceRow(

@@ -75,22 +75,31 @@ export function shownUsdt(
 		chainSpendable?: number | null;
 		chainSpent?: number | null;
 		chainUnknown?: boolean;
-		changeDue?: boolean;
 	} | null,
 	fallback: number,
 	lightning: number
 ): number {
 	const channel = Number.isFinite(lightning) ? Math.max(0, lightning) : 0;
-	if (asset?.changeDue) {
-		const owed = wholeUnits(asset.future) || wholeUnits(asset.balance);
-		if (owed > 0) return owed + channel;
-	}
 	const live = asset?.chainSpendable;
 	if (asset && asset.chainUnknown !== true && typeof live === 'number' && Number.isFinite(live)) {
 		if (live > 0) return live + channel;
 		if (wholeUnits(asset.chainSpent) > 0) return channel;
 	}
 	return heldUsdt(asset, fallback, lightning);
+}
+
+/** Units sitting on outputs the chain already spent. Zero when the check did not prove that. */
+export function lockedUnits(
+	asset: {
+		chainSpendable?: number | null;
+		chainSpent?: number | null;
+		chainUnknown?: boolean;
+	} | null
+): number {
+	if (!asset || asset.chainUnknown === true) return 0;
+	const live = asset.chainSpendable;
+	if (typeof live !== 'number' || !Number.isFinite(live) || live > 0) return 0;
+	return wholeUnits(asset.chainSpent);
 }
 
 export function spendCapText(amount: string): string {
@@ -122,6 +131,7 @@ export function plainSendReason(message: string): string {
 		return 'Your dollars are still held by an old receive code. Cancel it and try again.';
 	}
 	if (text.includes('expired')) return 'This payment code has expired, ask for a new one';
+	if (text.includes('locked or unconfirmed')) return message;
 	if (
 		text.includes('not enough') ||
 		text.includes('larger than') ||

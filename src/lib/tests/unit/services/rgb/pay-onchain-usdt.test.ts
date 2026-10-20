@@ -44,9 +44,9 @@ describe('payOnchainUsdt', () => {
 		vi.mocked(esploraOutputSpent).mockResolvedValue({ spent: true, txid: spentBy });
 		const wallet = walletDouble();
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).rejects.toThrow(
-			'Only 0.00 USDT spendable, 110.00 is on spent outputs'
+			'0.00 USDT can be sent. 110.00 is locked or unconfirmed. Tap Repair wallet, then try again.'
 		);
-		expect(wallet.refreshWallet).not.toHaveBeenCalled();
+		expect(wallet.refreshWallet).toHaveBeenCalled();
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 

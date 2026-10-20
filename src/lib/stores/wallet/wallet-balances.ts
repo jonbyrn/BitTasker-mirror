@@ -12,7 +12,7 @@ import {
 	usdtInvoiceAsset,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
-import { retireListedSeals } from './prepare-rgb-send';
+import { rescanColoredCoins, retireListedSeals } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
@@ -663,12 +663,13 @@ export async function attachChainSpendable(
 				)
 			: (usdt.future ?? 0);
 	const settled = usdt.settled ?? 0;
-	const changeDue = chain.live === 0 && future > 0 && (settled === 0 || future < settled);
+	const booked = Math.max(settled, usdt.balance ?? 0, usdt.spendable ?? 0);
+	const changeDue = chain.live === 0 && future > 0 && booked > future;
 	const precision = usdtPrecision(usdt.symbol, usdt.precision);
 	return assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;
 		const provedSpend = !chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0;
-		const balance = provedSpend ? (changeDue ? future : 0) : asset.balance;
+		const balance = provedSpend ? chain.live : asset.balance;
 		return {
 			...asset,
 			balance,
@@ -777,22 +778,17 @@ export async function refreshRgbBalances(): Promise<void> {
 	await loadAssets({ pull: false });
 }
 
-/** Drop allocations Esplora already spent, then reload the balance. */
+/**
+ * Sync, refresh, fail stale counterparty rows, and drop allocations on spent outputs.
+ * Does not fail the send that spent the coin. Then reloads the balance.
+ */
 export async function repairUsdtBalance(): Promise<void> {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('RGB wallet is not initialized');
 	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
 	const held = ifaUsdtRow(listed);
 	const assetId = held?.assetId ?? FAUCET_IFA_ASSET;
-	await retireListedSeals(wallet, assetId);
-	if (wallet.syncWallet) {
-		await wallet.syncWallet().catch((error: unknown) => {
-			console.warn(
-				'[wallet-balances] repair sync failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		});
-	}
+	await rescanColoredCoins(wallet, assetId);
 	await pullIncomingTransfers(wallet, { skipSync: true, assetId });
 	await loadAssets({ pull: false });
 }

@@ -21,6 +21,8 @@ export interface RgbTransferRef {
 	status: string;
 	batchTransferIdx: number;
 	txid?: string;
+	/** Unix seconds. Absent means the row has not expired. */
+	expiration?: number;
 }
 
 export interface RgbAllocationRef {
@@ -275,6 +277,37 @@ export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]
 	return [...new Set(indexes)];
 }
 
+const COUNTERPARTY_KINDS = new Set(['Send', 'ReceiveBlind', 'ReceiveWitness']);
+
+/**
+ * WaitingCounterparty rows that can no longer settle.
+ * An unexpired unpaid receive stays. The send whose txid spent the coin stays,
+ * even when that row is expired: failing it drops the change.
+ */
+export function staleCounterpartyBatches(
+	transfers: RgbTransferRef[],
+	spent: SpentSeal[],
+	nowSec: number
+): number[] {
+	const dead = new Set(spent.map((row) => row.txid.toLowerCase()));
+	const spending = new Set(
+		spent.map((row) => row.spentBy?.trim().toLowerCase() ?? '').filter((id) => id.length > 0)
+	);
+	const indexes = transfers
+		.filter((transfer) => {
+			if (transfer.status !== 'WaitingCounterparty') return false;
+			if (!COUNTERPARTY_KINDS.has(transfer.kind)) return false;
+			const txid = transfer.txid?.trim().toLowerCase() ?? '';
+			if (txid && spending.has(txid)) return false;
+			if (txid && dead.has(txid)) return true;
+			if (transfer.kind === 'Send' && !txid) return true;
+			const expiration = transfer.expiration;
+			return typeof expiration === 'number' && Number.isFinite(expiration) && expiration <= nowSec;
+		})
+		.map((transfer) => transfer.batchTransferIdx);
+	return [...new Set(indexes)];
+}
+
 function assignmentChange(value: unknown): number {
 	if (!Array.isArray(value)) return 0;
 	return value.reduce((sum, item) => {
@@ -321,9 +354,9 @@ export function changeOwed(
 	return total;
 }
 
-/** Shown at once when the live outputs cannot cover the payment. */
+/** Plain sentence when the live outputs cannot cover the payment. */
 export function spentOutputMessage(live: number, spent: number): string {
-	return `Only ${formatUsdtBalance(live, 6)} USDT spendable, ${formatUsdtBalance(spent, 6)} is on spent outputs`;
+	return `${formatUsdtBalance(live, 6)} USDT can be sent. ${formatUsdtBalance(spent, 6)} is locked or unconfirmed. Tap Repair wallet, then try again.`;
 }
 
 export function liveShortfall(chain: ChainAllocation, amount: number): string | null {
@@ -510,6 +543,49 @@ type PrepareWallet = {
 		feeRate?: number;
 	}) => Promise<number>;
 };
+
+/** Fail expired or never-broadcast counterparty rows. Does not fail the spending send. */
+export async function failStaleCounterparties(
+	wallet: PrepareWallet,
+	spent: SpentSeal[],
+	nowSec = Math.floor(Date.now() / 1000)
+): Promise<boolean> {
+	if (!wallet.listTransfers || !wallet.failTransfers) return false;
+	const transfers = await wallet.listTransfers().catch(() => []);
+	const batches = staleCounterpartyBatches(transfers, spent, nowSec);
+	for (const batchTransferIdx of batches) {
+		await wallet.failTransfers({ batchTransferIdx, skipSync: true }).catch(() => false);
+	}
+	return batches.length > 0;
+}
+
+/**
+ * Sync Bitcoin, refresh RGB, fail stale counterparty rows, then drop allocations
+ * that sit on outputs Esplora already spent. Does not fail the spending send.
+ */
+export async function rescanColoredCoins(
+	wallet: PrepareWallet,
+	assetId: string,
+	outputSpent: OutputSpendProbe = esploraOutputSpent
+): Promise<void> {
+	await retryBusy(async () => {
+		if (wallet.goOnline && wallet.isOnline?.() !== true) {
+			await wallet.goOnline(UTEXO_INDEXER);
+		}
+		await syncWhenPresent(wallet);
+		await wallet.refreshWallet();
+	});
+	if (!wallet.listUnspents) return;
+	const first = await chainAllocation(await readUnspents(wallet), assetId, outputSpent);
+	await failStaleCounterparties(wallet, first.unknown ? [] : first.spent);
+	if (!first.unknown && first.spent.length > 0) {
+		await retireSpentSeals(wallet, first.spent);
+	}
+	await retryBusy(async () => {
+		await syncWhenPresent(wallet);
+		await wallet.refreshWallet();
+	});
+}
 
 /** Fail transfers whose bitcoin output Esplora already spent, then the caller re-lists seals. */
 export async function retireSpentSeals(wallet: PrepareWallet, spent: SpentSeal[]): Promise<void> {
@@ -772,19 +848,10 @@ export async function prepareRgbOnchainSend(
 	}
 	sendDepth += 1;
 	try {
-		const asked =
-			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
-				? sendAmount
-				: 0;
 		if (wallet.listUnspents) {
 			const previewRows = await readUnspents(wallet);
 			const locked = lockedCoinBlocker(previewRows, assetId);
 			if (locked) throw new Error(locked);
-			if (asked > 0) {
-				const preview = await chainAllocation(previewRows, assetId, probe);
-				const early = liveShortfall(preview, asked);
-				if (early) throw new Error(early);
-			}
 		}
 		await retryBusy(async () => {
 			if (wallet.goOnline && wallet.isOnline?.() !== true) {
@@ -816,9 +883,10 @@ export async function prepareRgbOnchainSend(
 			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
 				? sendAmount
 				: spendable;
+		const failedStale = await failStaleCounterparties(wallet, chain.unknown ? [] : chain.spent);
 		let rows = unspents;
-		if (chain.spent.length > 0 && !chain.unknown) {
-			await retireSpentSeals(wallet, chain.spent);
+		if (!chain.unknown && (chain.spent.length > 0 || failedStale)) {
+			if (chain.spent.length > 0) await retireSpentSeals(wallet, chain.spent);
 			rows = await readUnspents(wallet);
 			const after = await chainAllocation(rows, assetId, probe);
 			const short = liveShortfall(after, needed);

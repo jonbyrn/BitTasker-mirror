@@ -8,6 +8,7 @@ import {
 	feeEstimateSats,
 	formatUsd,
 	heldUsdt,
+	lockedUnits,
 	plainSendReason,
 	usdtOnHold,
 	shownUsdt,
@@ -128,13 +129,22 @@ describe('combined balances', () => {
 					spendable: 0,
 					future: 80_000_000,
 					chainSpendable: 0,
-					chainSpent: 100_000_000,
-					changeDue: true
+					chainSpent: 100_000_000
 				},
 				0,
 				0
 			)
-		).toBe(80_000_000);
+		).toBe(0);
+		expect(lockedUnits({ chainSpendable: 0, chainSpent: 100_000_000 })).toBe(100_000_000);
+		expect(lockedUnits({ chainSpendable: 10, chainSpent: 100 })).toBe(0);
+		expect(lockedUnits({ chainUnknown: true, chainSpendable: 0, chainSpent: 100 })).toBe(0);
+		expect(
+			plainSendReason(
+				'0.00 USDT can be sent. 100.00 is locked or unconfirmed. Tap Repair wallet, then try again.'
+			)
+		).toBe(
+			'0.00 USDT can be sent. 100.00 is locked or unconfirmed. Tap Repair wallet, then try again.'
+		);
 		expect(
 			shownUsdt(
 				{

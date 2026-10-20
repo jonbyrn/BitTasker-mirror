@@ -261,11 +261,12 @@ describe('wallet disconnect guards', () => {
 				[held]
 			);
 			expect(next[0]?.changeDue).toBe(true);
-			expect(next[0]?.balance).toBe(80_000_000);
+			expect(next[0]?.balance).toBe(0);
 			expect(next[0]?.chainSpendable).toBe(0);
+			expect(next[0]?.chainSpent).toBe(100_000_000);
 			expect(next[0]?.pendingConfirm).toBe(false);
 			const kept = holdUsdtBalance(next, [held]);
-			expect(kept[0]?.balance).toBe(80_000_000);
+			expect(kept[0]?.balance).toBe(0);
 		} finally {
 			vi.unstubAllGlobals();
 		}

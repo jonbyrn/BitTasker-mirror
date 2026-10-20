@@ -63,11 +63,15 @@ vi.mock('$lib/stores/wallet/wallet-balances', () => ({
 	pullIncomingTransfers: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('$lib/stores/wallet/signet-broadcast', () => ({
-	confirmSignetTx,
-	extractSignedTx,
-	publishSignetTx
-}));
+vi.mock('$lib/stores/wallet/signet-broadcast', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-broadcast')>();
+	return {
+		...actual,
+		confirmSignetTx,
+		extractSignedTx,
+		publishSignetTx
+	};
+});
 
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 import {
@@ -497,6 +501,35 @@ describe('rgbSendBlock', () => {
 			20_000_000
 		);
 		expect(hold).toBe('locked');
+	});
+
+	it('quotes zero when the only allocation is already spent', async () => {
+		const assetId = 'rgb:usdt';
+		const txid = 'ab'.repeat(32);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ spent: true, txid: 'cd'.repeat(32) })
+			})
+		);
+		try {
+			const units = await quoteSpendable(
+				{
+					getAssetBalance: async () => ({ spendable: 100_000_000 }),
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid, vout: 1 } }
+						}
+					]
+				},
+				assetId
+			);
+			expect(units).toBe(0);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it('stays quiet when the whole balance is the payment', async () => {

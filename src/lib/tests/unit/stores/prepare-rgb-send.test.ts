@@ -15,7 +15,9 @@ import {
 	releasePhantomSends,
 	spentOutputMessage,
 	changeOwed,
+	rescanColoredCoins,
 	spentSealBatches,
+	staleCounterpartyBatches,
 	sealSendBlocker,
 	changeRoomBlocker,
 	changeStillBooked,
@@ -341,7 +343,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		);
 		expect(liveShortfall(chain, 11_000_000)).toBe(spentOutputMessage(10_000_000, 100_000_000));
 		expect(spentOutputMessage(10_000_000, 100_000_000)).toBe(
-			'Only 10.00 USDT spendable, 100.00 is on spent outputs'
+			'10.00 USDT can be sent. 100.00 is locked or unconfirmed. Tap Repair wallet, then try again.'
 		);
 		expect(liveShortfall(chain, 10_000_000)).toBeNull();
 	});
@@ -360,6 +362,54 @@ describe('prepareRgbOnchainSend helpers', () => {
 				[{ txid: spentTx, vout: 5, amount: 100_000_000, spentBy }]
 			)
 		).toEqual([2]);
+	});
+
+	it('fails stale counterparty rows and keeps the send that spent the coin', () => {
+		const spentTx = 'aa'.repeat(32);
+		const spentBy = 'bb'.repeat(32);
+		const now = 1_700_000_000;
+		const spent = [{ txid: spentTx, vout: 1, amount: 100_000_000, spentBy }];
+		expect(
+			staleCounterpartyBatches(
+				[
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 1,
+						expiration: now - 1
+					},
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 2,
+						expiration: now + 100
+					},
+					{ kind: 'Send', status: 'WaitingCounterparty', batchTransferIdx: 3 },
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						batchTransferIdx: 4,
+						txid: spentBy
+					},
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 5,
+						txid: spentTx,
+						expiration: now + 100
+					},
+					{
+						kind: 'Send',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 6,
+						txid: spentBy,
+						expiration: now - 10
+					}
+				],
+				spent,
+				now
+			)
+		).toEqual([1, 3, 5]);
 	});
 
 	it('counts change only on the send that spent the coin', () => {
@@ -549,8 +599,96 @@ describe('prepareRgbOnchainSend helpers', () => {
 				200_000_000,
 				async () => ({ spent: true, txid: spentBy })
 			)
-		).rejects.toThrow('Only 0.00 USDT spendable, 200.00 is on spent outputs');
+		).rejects.toThrow(
+			'0.00 USDT can be sent. 200.00 is locked or unconfirmed. Tap Repair wallet, then try again.'
+		);
 		expect(failTransfers).not.toHaveBeenCalled();
+	});
+
+	it('fails an expired counterparty during send prep and keeps the spending send', async () => {
+		const assetId = 'rgb:f~usdt';
+		const seal = 'c67397ba'.padEnd(64, 'c');
+		const spentBy = '368d36e6'.padEnd(64, 'd');
+		const failTransfers = vi.fn(async () => true);
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listTransfers: async () => [
+						{
+							kind: 'ReceiveBlind',
+							status: 'WaitingCounterparty',
+							batchTransferIdx: 4,
+							expiration: 1
+						},
+						{
+							kind: 'Send',
+							status: 'WaitingConfirmations',
+							batchTransferIdx: 9,
+							txid: spentBy
+						}
+					],
+					failTransfers,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 200_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 3 } }
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 200_000_000 } }]
+					})
+				},
+				assetId,
+				200_000_000,
+				async () => ({ spent: true, txid: spentBy })
+			)
+		).rejects.toThrow(/locked or unconfirmed/);
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
+		expect(failTransfers).not.toHaveBeenCalledWith({ batchTransferIdx: 9, skipSync: true });
+	});
+
+	it('rescans without failing the send that spent the coin', async () => {
+		const assetId = 'rgb:f~usdt';
+		const seal = 'ab'.repeat(32);
+		const spentBy = 'cd'.repeat(32);
+		const failTransfers = vi.fn(async () => true);
+		const refreshWallet = vi.fn(async () => undefined);
+		const syncWallet = vi.fn(async () => undefined);
+		await rescanColoredCoins(
+			{
+				refreshWallet,
+				syncWallet,
+				isOnline: () => true,
+				listTransfers: async () => [
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						batchTransferIdx: 2,
+						txid: spentBy
+					},
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 3,
+						expiration: 1
+					}
+				],
+				failTransfers,
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+						utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 1 } }
+					}
+				]
+			},
+			assetId,
+			async () => ({ spent: true, txid: spentBy })
+		);
+		expect(syncWallet).toHaveBeenCalled();
+		expect(refreshWallet.mock.calls.length).toBeGreaterThanOrEqual(2);
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 3, skipSync: true });
+		expect(failTransfers).not.toHaveBeenCalledWith({ batchTransferIdx: 2, skipSync: true });
 	});
 
 	it('retries a refresh while the wallet is busy', async () => {

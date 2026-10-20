@@ -8,7 +8,12 @@ import {
 } from '$lib/services/rgb/psbt-escrow';
 import { soleIfaAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { contractAssetId, decodeRgbInvoice } from './decode-rgb-invoice';
-import { confirmSignetTx, extractSignedTx, publishSignetTx } from './signet-broadcast';
+import {
+	confirmSignetTx,
+	esploraOutputSpent,
+	extractSignedTx,
+	publishSignetTx
+} from './signet-broadcast';
 import {
 	acceptNextUsdtDrop,
 	flushWalletState,
@@ -19,6 +24,7 @@ import {
 import { feeEstimateSats } from './plain-wallet';
 import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
 import {
+	chainAllocation,
 	changeRoomBlocker,
 	changeStillBooked,
 	isBdkAddUtxoError,
@@ -124,6 +130,7 @@ interface SpendableWallet {
 	getAssetBalance?: (assetId: string) => Promise<unknown>;
 	listAssets?: () => Promise<unknown>;
 	listTransfers?: (assetId?: string) => Promise<unknown>;
+	listUnspents?: () => Promise<unknown>;
 }
 
 /** `getAssetBalance(assetId).spendable`, then listAssets. Never `future`. */
@@ -132,7 +139,7 @@ function assetMissing(error: unknown): boolean {
 	return /not found|memory access out of bounds|null pointer/i.test(message);
 }
 
-export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
+async function quotedUnits(wallet: SpendableWallet, assetId: string): Promise<number> {
 	if (assetId && typeof wallet.getAssetBalance === 'function') {
 		try {
 			const units = balanceSpendable(await wallet.getAssetBalance(assetId), assetId);
@@ -146,6 +153,27 @@ export async function quoteSpendable(wallet: SpendableWallet, assetId: string): 
 		if (units !== null) return units;
 	}
 	return 0;
+}
+
+/** Booked spendable, capped to outputs Esplora still lists when that check succeeds. */
+export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
+	const quoted = await quotedUnits(wallet, assetId);
+	if (quoted <= 0 || !assetId || typeof wallet.listUnspents !== 'function') return quoted;
+	try {
+		const chain = await chainAllocation(
+			listedUnspents(await wallet.listUnspents()),
+			assetId,
+			esploraOutputSpent
+		);
+		if (chain.unknown || chain.checked === 0 || chain.spent.length === 0) return quoted;
+		if (chain.live < quoted) return chain.live;
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-send] spendable chain check failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+	return quoted;
 }
 
 export function pendingReceiveCount(rows: unknown): number {
