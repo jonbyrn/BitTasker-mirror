@@ -4,7 +4,9 @@
 	import {
 		getMessageHistory,
 		sendDirectMessage,
-		listenForIncomingMessages
+		listenForIncomingMessages,
+		assertDirectMessageAllowed,
+		isContactBlockedError
 	} from '$lib/nostr/direct-messages';
 	import { fetchProfileMetadata, subscribeUserProfile } from '$lib/nostr/profile';
 	import ChatMessage from './ChatMessage.svelte';
@@ -60,6 +62,7 @@
 	let isLoadingMessages = $state(true);
 	let isSendingMessage = $state(false);
 	let error = $state('');
+	let contactWarning = $state(false);
 	let recipientProfile = $state<{ name?: string; picture?: string }>({});
 	let currentUserProfile = $state<{ name?: string; picture?: string }>({
 		name: $t('dashboard.bids.components.messages.chat_message.you')
@@ -895,8 +898,22 @@
 			messageContent = replyPrefix + messageContent;
 		}
 
-		const tempId = `temp-${currentUserHex()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 		isSendingMessage = true;
+		try {
+			await assertDirectMessageAllowed(messageContent, recipientHex());
+			contactWarning = false;
+		} catch (err) {
+			isSendingMessage = false;
+			if (isContactBlockedError(err)) {
+				contactWarning = true;
+				return;
+			}
+			error = 'messages.failed_send_message';
+			console.error('Error checking message:', err);
+			return;
+		}
+
+		const tempId = `temp-${currentUserHex()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 		try {
 			// Clear the input, draft, and reply state immediately for better UX
@@ -950,6 +967,10 @@
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
+			if (isContactBlockedError(err)) {
+				contactWarning = true;
+				return;
+			}
 			error = 'messages.failed_send_message';
 			console.error('Error sending message:', err);
 
@@ -1081,6 +1102,7 @@
 
 	// Handle input changes for draft saving and auto-resize
 	function handleInputChange() {
+		contactWarning = false;
 		// The $effect will handle saving the draft automatically
 		autoResizeTextarea();
 	}
@@ -1226,6 +1248,11 @@
 
 	<!-- Message Input Area - Fixed at bottom, above navbar -->
 	<div bind:this={inputArea} class="bg-base-100 border-base-300/20 relative shrink-0 px-4 sm:px-6">
+		{#if contactWarning}
+			<div class="alert alert-warning mt-3 text-sm" role="status">
+				<span>{$t('messages.contact_filter_warning')}</span>
+			</div>
+		{/if}
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			{@const replyMessageId = replyingToMessage.event.id}

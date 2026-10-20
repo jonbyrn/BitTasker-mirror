@@ -218,6 +218,7 @@
 	let messageText = $state('');
 	let sendingMessage = $state(false);
 	let messageError = $state('');
+	let messageContactBlocked = $state(false);
 	let messageSuccess = $state(false);
 
 	// Estado para el carrusel de imágenes de cada proyecto
@@ -436,6 +437,7 @@
 		showMessageModal = true;
 		messageText = '';
 		messageError = '';
+		messageContactBlocked = false;
 		messageSuccess = false;
 	}
 
@@ -444,6 +446,7 @@
 		showMessageModal = false;
 		messageText = '';
 		messageError = '';
+		messageContactBlocked = false;
 		messageSuccess = false;
 		sendingMessage = false;
 	}
@@ -457,22 +460,25 @@
 
 		sendingMessage = true;
 		messageError = '';
+		messageContactBlocked = false;
+
+		const { sendDirectMessage, isContactBlockedError } = await import('$lib/nostr/direct-messages');
 
 		try {
-			// Importar la función de envío de mensajes
-			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
-
-			// Enviar el mensaje
 			await sendDirectMessage(messageText.trim(), hexPubkey);
 
 			messageSuccess = true;
 			messageText = '';
 
-			// Cerrar el modal después de 2 segundos
 			setTimeout(() => {
 				closeMessageModal();
 			}, 2000);
 		} catch (error) {
+			if (isContactBlockedError(error)) {
+				messageContactBlocked = true;
+				messageError = '';
+				return;
+			}
 			console.error('Error sending message:', error);
 			messageError = $t('common.profile.message_send_error');
 		} finally {
@@ -1452,6 +1458,12 @@
 							/>
 						</svg>
 						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				{#if messageContactBlocked}
+					<div class="alert alert-warning py-2" role="status">
+						<span class="text-sm">{$t('common.profile.contact_filter_warning')}</span>
 					</div>
 				{/if}
 

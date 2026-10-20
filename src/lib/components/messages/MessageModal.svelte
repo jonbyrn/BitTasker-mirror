@@ -12,6 +12,7 @@
 	let messageText = $state('');
 	let isSubmitting = $state(false);
 	let error = $state('');
+	let contactBlocked = $state(false);
 	let success = $state(false);
 
 	// Reset form when modal opens/closes
@@ -20,6 +21,7 @@
 			messageText = '';
 			isSubmitting = false;
 			error = '';
+			contactBlocked = false;
 			success = false;
 		}
 	});
@@ -34,21 +36,26 @@
 		isSubmitting = true;
 		error = '';
 
-		try {
-			// Import the message sending function
-			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
+		const { sendDirectMessage, isContactBlockedError } = await import('$lib/nostr/direct-messages');
 
-			// Send the message
+		try {
 			await sendDirectMessage(messageText.trim(), props.recipientPubkey);
 
 			success = true;
+			contactBlocked = false;
 			messageText = '';
 			// Close modal after a short delay to show success message
 			setTimeout(() => {
 				props.onClose();
 			}, 1500);
 		} catch (err) {
+			if (isContactBlockedError(err)) {
+				contactBlocked = true;
+				error = '';
+				return;
+			}
 			console.error('Error sending message:', err);
+			contactBlocked = false;
 			error = $t('common.profile.message_send_error');
 		} finally {
 			isSubmitting = false;
@@ -121,6 +128,12 @@
 							/>
 						</svg>
 						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				{#if contactBlocked}
+					<div class="alert alert-warning py-2" role="status">
+						<span class="text-sm">{$t('common.profile.contact_filter_warning')}</span>
 					</div>
 				{/if}
 

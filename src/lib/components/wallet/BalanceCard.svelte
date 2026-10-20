@@ -14,7 +14,6 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
-	import WalletUnlockBanner from '$lib/components/wallet/WalletUnlockBanner.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import { BALANCE_AUTO_HIDE_MS } from '$lib/utils/wallet/balance-visibility';
 
@@ -175,7 +174,6 @@
 {/snippet}
 
 <div class="flex flex-col space-y-3 sm:space-y-4">
-	<WalletUnlockBanner />
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">

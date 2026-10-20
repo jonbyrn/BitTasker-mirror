@@ -38,6 +38,7 @@
 		"you": "You",
 		"failed_load_messages": "Failed to load messages",
 		"failed_send_message": "Failed to send message",
+		"contact_filter_warning": "For your safety, keep chats on BitTasker until escrow is formed. Contact details and outside apps are blocked.",
 		"chat_messages_aria": "Chat messages",
 		"loading_messages": "Loading messages...",
 		"loading_older_messages": "Loading older messages...",

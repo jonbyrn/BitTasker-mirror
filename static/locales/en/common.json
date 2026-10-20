@@ -125,6 +125,7 @@
 			"failed_to_load": "Failed to load profile",
 			"message_required": "Message is required",
 			"message_send_error": "Failed to send message. Please try again.",
+			"contact_filter_warning": "For your safety, keep chats on BitTasker until escrow is formed. Contact details and outside apps are blocked.",
 			"message_sent_successfully": "Message sent successfully!",
 			"no_image_available": "No image available",
 			"no_ratings": "No ratings yet",
