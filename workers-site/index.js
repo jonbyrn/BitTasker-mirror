@@ -19,6 +19,7 @@
 
 import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
+import { handleSearchRoute } from './handlers/search.js';
 
 /**
  * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
@@ -74,6 +75,10 @@ export default {
 
 		if (pathname.startsWith('/api/explorer/')) {
 			return handleExplorerRoute(request);
+		}
+
+		if (pathname.startsWith('/api/search/')) {
+			return handleSearchRoute(request, env);
 		}
 
 		// Future images endpoint

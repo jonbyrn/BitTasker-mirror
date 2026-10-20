@@ -40,6 +40,7 @@ const getInitialState = () => ({
 		instantBuyDeliveryHours: undefined,
 		skills: [],
 		categories: [],
+		tags: [],
 		portfolio: [],
 		faqs: [],
 		status: 'inactive' as const, // Draft status

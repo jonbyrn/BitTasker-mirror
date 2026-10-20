@@ -18,6 +18,7 @@ import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
 import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 import { createDebug } from '$lib/utils/debug';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
+import { queueSearchDelete, queueSearchUpsert, taskToSearchDocument } from '$lib/search/catalog';
 import { sanitizeTaskForPublicPublish } from '$lib/utils/location/public-location';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
@@ -332,6 +333,12 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
+		queueSearchUpsert(
+			'tasks',
+			[taskToSearchDocument({ ...publicTaskData, id: dTagValue, npub })],
+			true
+		);
+
 		// Return d-tag (stable, readable identifier) for URLs and Addressable Event coordinate
 		return dTagValue;
 	} catch (error) {
@@ -566,6 +573,18 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		await nostrEventsService.publishEvent(signedEvent);
 		// await publishToRelays(signedEvent);
 
+		queueSearchUpsert(
+			'tasks',
+			[
+				taskToSearchDocument({
+					...publicUpdatedTaskData,
+					id: dTagValue,
+					npub: signedEvent.pubkey
+				})
+			],
+			true
+		);
+
 		const updatedTask: TaskWithIds = {
 			...(updatedTaskData as Task),
 			id: dTagValue,
@@ -662,6 +681,7 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 		if (response.deleteCount === 0) {
 			throw new Error('Failed to delete task');
 		}
+		queueSearchDelete('tasks', [taskId]);
 		return response.message;
 	} catch (error) {
 		console.error('Failed to delete task:', error);

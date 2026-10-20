@@ -37,6 +37,7 @@ const getInitialState = () => ({
 		dateRange: undefined,
 		categories: [],
 		skills: [],
+		tags: [],
 		pickupLocation: {
 			displayName: '',
 			longitude: null,

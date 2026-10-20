@@ -14,7 +14,14 @@
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { findTasks, cleanup } from '$lib/nostr/findTasks';
+	import { beginTasksSearch, findTasks, isTasksSearchCurrent, cleanup } from '$lib/nostr/findTasks';
+	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
+	import {
+		querySearchIndex,
+		queueSearchUpsert,
+		recordsFromHits,
+		taskToSearchDocument
+	} from '$lib/search/catalog';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -52,8 +59,8 @@
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
 
 	// Search constants
-	const SEARCH_DEBOUNCE_DELAY = 1000; // ms - Delay before executing search
-	const SEARCH_MIN_LENGTH = 3; // Minimum characters for search
+	const SEARCH_DEBOUNCE_DELAY = 250; // ms - search as you type
+	const SEARCH_MIN_LENGTH = 1; // Minimum characters for search
 
 	// Layout constants
 	const DESKTOP_MIN_WIDTH = 1024; // Desktop breakpoint in pixels
@@ -92,12 +99,17 @@
 
 			try {
 				const nextPage = $tasksStore.currentPage + 1;
-				await findTasks({
-					...searchParams,
-					page: nextPage,
-					until: cursorTimestamp - 1,
-					limit: TASKS_PER_PAGE
-				});
+				const epoch = beginTasksSearch();
+				await findTasks(
+					{
+						...searchParams,
+						page: nextPage,
+						until: cursorTimestamp - 1,
+						limit: TASKS_PER_PAGE
+					},
+					epoch
+				);
+				if (!isTasksSearchCurrent(epoch)) return;
 			} catch (error) {
 				console.error('[FindTasks] Error loading more tasks:', error);
 			}
@@ -491,7 +503,9 @@
 				clearTasksStore();
 			}
 
-			await findTasks(searchParams);
+			const epoch = beginTasksSearch();
+			await findTasks(searchParams, epoch);
+			if (!isTasksSearchCurrent(epoch)) return;
 
 			$tasksStore.searchParamsKey = currentSearchKey;
 			loadingState = 'loaded';
@@ -537,7 +551,40 @@
 			limit: TASKS_PER_PAGE
 		};
 
+		if (newSearchValue) {
+			try {
+				const remote = await querySearchIndex(
+					'tasks',
+					newSearchValue,
+					searchAbortController.signal
+				);
+				if (currentVersion !== searchVersion) return;
+				if (remote.available) {
+					beginTasksSearch();
+					const items = recordsFromHits<Task>(remote.hits);
+					tasksStore.update((state) => ({
+						...state,
+						items,
+						loading: false,
+						error: null,
+						currentPage: 1,
+						hasMore: false
+					}));
+					loadingState = 'loaded';
+					return;
+				}
+			} catch (error) {
+				if (error instanceof DOMException && error.name === 'AbortError') return;
+			}
+		}
+
 		await loadNostrData();
+		if (currentVersion === searchVersion) {
+			queueSearchUpsert(
+				'tasks',
+				$tasksStore.items.slice(0, 20).map((task) => taskToSearchDocument(task))
+			);
+		}
 
 		if (currentVersion !== searchVersion) return;
 
@@ -584,7 +631,9 @@
 		searchQuery = filters.search || '';
 
 		try {
-			await findTasks(searchParams);
+			const epoch = beginTasksSearch();
+			await findTasks(searchParams, epoch);
+			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -627,7 +676,9 @@
 		clearTasksStore();
 
 		try {
-			await findTasks(searchParams);
+			const epoch = beginTasksSearch();
+			await findTasks(searchParams, epoch);
+			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -672,7 +723,9 @@
 				limit
 			};
 
-			await findTasks(searchParams);
+			const epoch = beginTasksSearch();
+			await findTasks(searchParams, epoch);
+			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
 		} finally {
@@ -960,9 +1013,6 @@
 
 	// Function to get dynamic placeholder
 	function getSearchPlaceholder(): string {
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			return $t('find_tasks.search_minimum_chars');
-		}
 		return $t('find_tasks.search_placeholder');
 	}
 
@@ -970,9 +1020,7 @@
 	function getSearchInputClass(): string {
 		let baseClass = 'input input-bordered w-full pl-10';
 
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			baseClass += ' input-warning';
-		} else if (searchQuery.length >= 3) {
+		if (searchQuery.trim().length > 0) {
 			baseClass += ' input-success';
 		}
 
@@ -1065,6 +1113,12 @@
 				{loadDrawerComponents}
 			/>
 		</div>
+
+		<SearchResultBar
+			query={searchParams.search || searchQuery}
+			count={$tasksStore.items.length}
+			loading={$tasksStore.loading || loadingState === 'loading'}
+		/>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
 		<section class="min-h-0 flex-1" data-tasks-content-area>
@@ -1167,7 +1221,14 @@
 									<IconMagnify class="mx-auto h-12 w-12" />
 								</div>
 								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
-								<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
+								<p class="text-base-content/70 mb-3">
+									{#if searchQuery.trim()}
+										No tasks match “{searchQuery.trim()}”. Try a category, skill, or a different
+										word.
+									{:else}
+										{$t('find_tasks.no_results_message')}
+									{/if}
+								</p>
 								<button class="btn btn-primary" onclick={clearFilters}>
 									{$t('dashboard.contracts.clear_filters')}
 								</button>

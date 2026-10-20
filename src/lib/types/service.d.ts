@@ -270,6 +270,8 @@ export interface ServiceBody {
 	providerWalletAddress?: string; // Provider Rootstock wallet used for Book Now / service contracts
 	skills: string[];
 	categories: Category[];
+	/** Free-form labels shown on cards and indexed for search. */
+	tags?: string[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
 	faqs?: ServiceFAQ[]; // Frequently asked questions (optional)
 	status: ServiceStatus; // Listing lifecycle status
@@ -305,6 +307,7 @@ export interface Service {
 	providerWalletAddress?: string; // From content when Book Now funding should pay the provider wallet
 	skills: string[]; // From content
 	categories: Category[]; // From content
+	tags?: string[];
 	portfolio?: Attachment[]; // From content
 	faqs?: ServiceFAQ[]; // From content (optional)
 	createdAt: number; // From content (added during creation)

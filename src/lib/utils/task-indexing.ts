@@ -1,4 +1,5 @@
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
+import { textMatchesQuery } from '$lib/search/text-match';
 import { PRIVACY_JITTER_MAX_METERS } from '$lib/utils/location/public-location';
 
 /**
@@ -120,7 +121,8 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 			...locationSearchTerms(task.pickupLocation),
 			...locationSearchTerms(task.dropOffLocation),
 			...Array.from(skillsSet),
-			...Array.from(categoriesSet)
+			...Array.from(categoriesSet),
+			...(task.tags ?? [])
 		].join(' ');
 
 		return {
@@ -220,7 +222,7 @@ export function filterIndexedTasks(
 	// Apply text search filter using pre-computed searchable text
 	if (searchTerm && searchTerm.length > 0) {
 		filteredTasks = filteredTasks.filter((task) => {
-			return task._searchableText?.includes(searchTerm) || false;
+			return textMatchesQuery(task._searchableText ?? '', searchTerm);
 		});
 	}
 

@@ -1,4 +1,5 @@
 import type { Service, SearchServicesParams } from '$lib/types/service.d';
+import { textMatchesQuery } from '$lib/search/text-match';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from './enums/service.enum';
 import { PRIVACY_JITTER_MAX_METERS } from '$lib/utils/location/public-location';
 
@@ -133,7 +134,8 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 				service.locationDetails?.taskeeLocation?.locationDisplayName
 			),
 			...Array.from(skillsSet),
-			...Array.from(categoriesSet)
+			...Array.from(categoriesSet),
+			...(service.tags ?? [])
 		].join(' ');
 
 		// Calculate price range for tiered pricing
@@ -281,7 +283,7 @@ export function filterIndexedServices(
 	// Text search filter (O(n) with pre-normalized text); matches always shown, no case check.
 	if (searchTerm) {
 		filteredServices = filteredServices.filter((service) => {
-			return service._searchableText?.includes(searchTerm) ?? false;
+			return textMatchesQuery(service._searchableText ?? '', searchTerm);
 		});
 	}
 

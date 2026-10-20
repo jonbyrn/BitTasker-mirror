@@ -163,6 +163,17 @@
 			</div>
 		</div>
 
+		{#if (task.categories?.length ?? 0) > 0 || (task.tags?.length ?? 0) > 0}
+			<div class="flex max-h-12 flex-wrap gap-1.5 overflow-hidden">
+				{#each task.categories ?? [] as category (category.id || category.name)}
+					<span class="badge badge-sm badge-info badge-outline">{category.name}</span>
+				{/each}
+				{#each task.tags ?? [] as tag (tag)}
+					<span class="badge badge-sm badge-ghost">{tag}</span>
+				{/each}
+			</div>
+		{/if}
+
 		<!-- Row 4: Location -->
 		<div>
 			<TaskLocationDisplay

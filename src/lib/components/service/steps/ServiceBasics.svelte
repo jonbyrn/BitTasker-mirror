@@ -5,6 +5,7 @@
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import TagInput from '$lib/components/search/TagInput.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import type { Category } from '$lib/types/task.d';
 	import { t } from 'svelte-i18n';
@@ -156,4 +157,10 @@
 			<span class="label-text-alt text-error">{errors.skill}</span>
 		{/if}
 	</div>
+
+	<TagInput
+		tags={$store.service.tags ?? []}
+		onchange={(tags) => store.updateService({ tags })}
+		label="Tags"
+	/>
 </div>

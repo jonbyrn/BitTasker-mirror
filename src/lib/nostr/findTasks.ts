@@ -22,6 +22,18 @@ type MuteState = { mutedPubkeys: Set<string>; mutedEventIds: Set<string>; isLoad
 
 const d = createDebug('findTasks');
 
+/** Monotonic id so an older Find Tasks response cannot overwrite a newer one. */
+let tasksSearchEpoch = 0;
+
+export function beginTasksSearch(): number {
+	tasksSearchEpoch += 1;
+	return tasksSearchEpoch;
+}
+
+export function isTasksSearchCurrent(epoch: number | undefined): boolean {
+	return epoch === undefined || epoch === tasksSearchEpoch;
+}
+
 // Constants
 const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -326,10 +338,14 @@ async function fetchOnePage(
  * requests always go to the relay to get fresh deeper data).
  */
 export async function findTasks(
-	params: SearchTasksParams
+	params: SearchTasksParams,
+	epoch?: number
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const MAX_FILL_ROUNDS = 10; // Safety cap: at most 10 relay round-trips per findTasks call
 	try {
+		if (!isTasksSearchCurrent(epoch)) {
+			return { tasks: [], total: 0, hasMore: false };
+		}
 		tasksStore.update((state) => ({ ...state, loading: true, error: null }));
 
 		const limit = params.limit || BATCH_SIZE;
@@ -372,6 +388,9 @@ export async function findTasks(
 
 				d.log('cache hit', { cached: cached.data.length, visible: slicedTasks.length, hasMore });
 
+				if (!isTasksSearchCurrent(epoch)) {
+					return { tasks: [], total: 0, hasMore: false };
+				}
 				tasksStore.update((state) => ({
 					...state,
 					items: deduplicateTasksById(
@@ -391,7 +410,7 @@ export async function findTasks(
 						// Don't return here — fall through below by clearing cache and re-entering relay loop
 						cache.delete(cacheKey);
 						// Recurse with cursor so we pick up from where cache left off
-						const moreResult = await findTasks({ ...params, until: storeTs - 1, limit });
+						const moreResult = await findTasks({ ...params, until: storeTs - 1, limit }, epoch);
 						// Merge the extra tasks into the store (already done inside recursive call)
 						return {
 							tasks: [...slicedTasks, ...moreResult.tasks],
@@ -475,6 +494,10 @@ export async function findTasks(
 
 		const finalTasks = accumulatedTasks.slice(0, limit);
 
+		if (!isTasksSearchCurrent(epoch)) {
+			return { tasks: [], total: 0, hasMore: false };
+		}
+
 		// Commit to store
 		tasksStore.update((state) => ({
 			...state,
@@ -488,6 +511,9 @@ export async function findTasks(
 		return { tasks: finalTasks, total: finalTasks.length, hasMore };
 	} catch (error) {
 		console.error('[findTasks] Error:', error);
+		if (!isTasksSearchCurrent(epoch)) {
+			return { tasks: [], total: 0, hasMore: false };
+		}
 		tasksStore.update((state) => ({
 			...state,
 			loading: false,
