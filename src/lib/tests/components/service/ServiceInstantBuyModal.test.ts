@@ -1,7 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
-import { state } from '$lib/stores/wallet/wallet-state';
+import { state, walletStore } from '$lib/stores/wallet/wallet-state';
+import { initialState } from '$lib/stores/wallet/wallet-types';
 
 const { runeConstructorArgs, prepareFunding, payFundingFromWallet, lightningState } = vi.hoisted(
 	() => {
@@ -154,6 +155,21 @@ vi.mock('svelte-i18n', async () => {
 describe('ServiceInstantBuyModal', () => {
 	beforeEach(() => {
 		state.utexoWallet = null;
+		walletStore.set({
+			...structuredClone(initialState),
+			isConnected: true,
+			locked: false,
+			isInitializing: false,
+			syncing: false,
+			error: null,
+			rgb: {
+				...structuredClone(initialState.rgb),
+				initialized: true,
+				error: null,
+				address: 'tb1qservicewallet',
+				balanceSats: 500_000
+			}
+		});
 		lightningState.set({
 			ready: true,
 			peerHost: 'lsp-signet.utexo.com',

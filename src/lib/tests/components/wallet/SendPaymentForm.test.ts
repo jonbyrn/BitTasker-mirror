@@ -95,9 +95,15 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		walletStore: readable({
+			isConnected: true,
+			locked: false,
+			isInitializing: false,
+			syncing: false,
+			error: null,
 			rgb: {
 				balanceSats: 500_000,
 				initialized: true,
+				error: null,
 				assets: [
 					{
 						assetId: 'rgb:f~held-usdt',
