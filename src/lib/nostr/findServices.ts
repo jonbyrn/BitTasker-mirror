@@ -43,6 +43,17 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T
 	return Promise.race([promise, timeout]);
 }
 
+async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> {
+	try {
+		return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+	} catch (error) {
+		if (error instanceof Error && error.message === 'Request timeout') {
+			return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+		}
+		throw error;
+	}
+}
+
 // Memory cache with indexed services for better performance
 const cache = new Map<string, { data: IndexedService[]; timestamp: number }>();
 
@@ -310,64 +321,80 @@ export async function findServices(
 			};
 		}
 
-		// Fetch from Nostr (same as Find Tasks: we send search; if relay returns 0, fallback and filter client-side so we always show results)
-		let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
-		let events = response.data || [];
-
+		// NIP-50 first. A miss pages the catalog without the term and keeps only
+		// client-side matches, instead of stopping after a single unfiltered page.
+		const pageLimit = params.limit || SERVICES_PER_PAGE;
+		const MAX_FILL_ROUNDS = 10;
+		let until = params.until;
+		let rounds = 0;
+		let hasMore = true;
 		let usedFallback = false;
-		if (params.search?.trim() && events.length === 0) {
-			usedFallback = true;
-			const fallbackFilter = { ...filter } as Filter & { search?: string };
-			delete fallbackFilter.search;
-			response = await withTimeout(
-				nostrEventsService.findEvents(fallbackFilter),
-				REQUEST_TIMEOUT_MS
-			);
-			events = response.data || [];
-		}
+		let lastRelayTimestamp: number | undefined;
+		const matched: IndexedService[] = [];
+		const seen = new Set<string>();
 
-		// Oldest timestamp from raw relay events — used as the pagination cursor.
-		// Read from the last element (relay returns sorted by created_at desc).
-		const lastRelayTimestamp = events.length > 0 ? events[events.length - 1].created_at : undefined;
+		while (matched.length < pageLimit && hasMore && rounds < MAX_FILL_ROUNDS) {
+			rounds++;
+			const roundFilter = createServiceFilter({ ...params, until, limit: pageLimit });
+			let response = await findEventsWithRetry(roundFilter);
+			let events = response.data || [];
 
-		// Convert events to services (synchronous — profile fetching handled by UserInfoDisplay)
-		const rawServices = events.map((event: Event) => convertEventToService(event));
-
-		// Keep only the latest version per logical listing before applying visibility rules.
-		const latestServices = dedupeServicesByUniqueId(rawServices);
-
-		// Filter out deleted services (only on cache miss, not on hit)
-		const visibleServices = await filterDeletedServices(latestServices);
-
-		// Public browse only surfaces active published listings.
-		const activeServices = visibleServices.filter((service) => service.status === 'active');
-
-		// For public users, exclude own services (if npub available and valid Bech32)
-		let filteredServices = activeServices;
-		try {
-			const npub = await getCachedViewerNpub();
-			if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
-				const decoded = nip19.decode(npub);
-				if (decoded.type === 'npub') {
-					const hexPubkey = decoded.data;
-					filteredServices = activeServices.filter((service) => service.npub !== hexPubkey);
-				}
+			if (params.search?.trim() && events.length === 0) {
+				usedFallback = true;
+				const fallbackFilter = { ...roundFilter } as Filter & { search?: string };
+				delete fallbackFilter.search;
+				response = await findEventsWithRetry(fallbackFilter);
+				events = response.data || [];
 			}
-		} catch (error) {
-			console.error('Error filtering own services:', error);
-			console.debug('NPUB not available or invalid, showing all services');
+
+			hasMore = events.length >= pageLimit;
+			if (events.length > 0) {
+				lastRelayTimestamp = events[events.length - 1].created_at;
+				until = (lastRelayTimestamp ?? 0) - 1;
+			} else {
+				hasMore = false;
+				break;
+			}
+
+			const rawServices = events.map((event: Event) => convertEventToService(event));
+			const latestServices = dedupeServicesByUniqueId(rawServices);
+			const visibleServices = await filterDeletedServices(latestServices);
+			const activeServices = visibleServices.filter((service) => service.status === 'active');
+
+			let filteredServices = activeServices;
+			try {
+				const npub = await getCachedViewerNpub();
+				if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
+					const decoded = nip19.decode(npub);
+					if (decoded.type === 'npub') {
+						const hexPubkey = decoded.data;
+						filteredServices = activeServices.filter((service) => service.npub !== hexPubkey);
+					}
+				}
+			} catch (error) {
+				console.error('Error filtering own services:', error);
+			}
+
+			const indexedServices = indexServiceData(filteredServices);
+			const { services: filteredIndexedServices, metrics } = filterIndexedServices(
+				indexedServices,
+				params
+			);
+			if (performanceMetrics.length >= MAX_PERFORMANCE_METRICS) performanceMetrics.length = 0;
+			performanceMetrics.push(metrics);
+
+			for (const service of filteredIndexedServices) {
+				const key = service.uniqueId || service.id;
+				if (!key || seen.has(key)) continue;
+				seen.add(key);
+				matched.push(service);
+			}
+
+			// A full page of non-matches is not the end of the catalog.
+			if (filteredIndexedServices.length === 0 && !hasMore) break;
 		}
 
-		// Pre-index services for optimized filtering (deletions already filtered)
-		const indexedServices = indexServiceData(filteredServices);
-
-		// Apply optimized frontend filtering
-		const { services: filteredIndexedServices, metrics } = filterIndexedServices(
-			indexedServices,
-			params
-		);
-		if (performanceMetrics.length >= MAX_PERFORMANCE_METRICS) performanceMetrics.length = 0;
-		performanceMetrics.push(metrics);
+		const filteredIndexedServices = matched;
 
 		// Get existing cached data if available
 		const existingCached = cache.get(cacheKey);
@@ -387,16 +414,15 @@ export async function findServices(
 			allCachedServices = allCachedServices.slice(0, MAX_CACHE_SIZE);
 		}
 
-		// Update cache with merged indexed data (already deletion-filtered)
-		// Cache coherence: if fallback fired but frontend filtered everything out,
-		// the search term doesn't exist in the dataset. Skip cache storage so
-		// the next search retries the relay (in case relay adds NIP-50 support).
-		const shouldCache = !(usedFallback && filteredIndexedServices.length === 0);
-		if (shouldCache) {
+		// Cache a finished scan, including a stable empty result. A scan that
+		// stopped at the page cap still has more of the catalog, so leave it
+		// uncached and let the next search continue.
+		const filled = filteredIndexedServices.length >= (params.limit || SERVICES_PER_PAGE);
+		if (!hasMore || filled) {
 			cache.set(cacheKey, { data: allCachedServices, timestamp: Date.now() });
-		} else {
+		} else if (usedFallback) {
 			console.debug(
-				`[FindServices] NIP-50 fallback returned 0 visible results for "${params.search}", skipping cache`
+				`[FindServices] search scan for "${params.search}" hit the page cap with more listings left`
 			);
 		}
 
@@ -405,7 +431,6 @@ export async function findServices(
 
 		const limit = params.limit || SERVICES_PER_PAGE;
 		const limitedServices = cleanServices.slice(0, limit);
-		const hasMore = events.length >= limit;
 
 		// Update store
 		const page = params.page || 1;

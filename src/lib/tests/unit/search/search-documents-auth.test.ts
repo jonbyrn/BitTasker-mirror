@@ -104,6 +104,56 @@ describe('search document authorization', () => {
 		expect(rateLimitWrite(request, pubkey, 1_000)).toBe(false);
 	});
 
+	it('queries the events index by task kind and maps the d-tag to the listing id', async () => {
+		const content = JSON.stringify({
+			title: 'Translate a menu',
+			description: 'English to Spanish',
+			taskType: 'remote',
+			status: 'OPEN'
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, options?: RequestInit) => {
+				expect(String(url)).toBe('https://meili.test/indexes/events/search');
+				expect(options?.method).toBe('POST');
+				const body = JSON.parse(String(options?.body));
+				expect(body.filter).toBe('kind = 31000');
+				expect(body.q).toBe('spanish');
+				expect(body.typoTolerance).toEqual({ enabled: false });
+				expect(body.attributesToSearchOn).toEqual(['content']);
+				return new Response(
+					JSON.stringify({
+						hits: [
+							{
+								id: 'a'.repeat(64),
+								pubkey: pubkey,
+								createdAt: 1700000000,
+								kind: 31000,
+								tags: [['d', 'menu-1']],
+								content,
+								dTagValue: 'menu-1'
+							}
+						],
+						estimatedTotalHits: 1
+					}),
+					{ status: 200 }
+				);
+			})
+		);
+
+		const response = await handleSearchRoute(
+			new Request('https://bittasker.com/api/search/query?index=tasks&q=spanish'),
+			{ MEILI_HOST: 'https://meili.test', MEILI_SEARCH_KEY: 'search-only' }
+		);
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.configured).toBe(true);
+		expect(body.hits[0].id).toBe('menu-1');
+		expect(body.hits[0].title).toBe('Translate a menu');
+		expect(body.hits[0].payload.title).toBe('Translate a menu');
+		expect(body.hits[0].npub).toBe(pubkey);
+	});
+
 	it('refuses to index without a signed event', async () => {
 		const response = await handleSearchRoute(
 			new Request('https://bittasker.com/api/search/documents', {

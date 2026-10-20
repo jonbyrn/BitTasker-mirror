@@ -36,6 +36,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	return Promise.race([promise, timeout]);
 }
 
+async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> {
+	try {
+		return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+	} catch (error) {
+		if (error instanceof Error && error.message === 'Request timeout') {
+			return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+		}
+		throw error;
+	}
+}
+
 // Memory cache with indexed tasks and pagination metadata
 type TaskCacheEntry = {
 	data: IndexedTask[];
@@ -216,16 +227,18 @@ async function fetchOnePage(
 	const filter = createTaskFilter(params);
 	const limit = params.limit || BATCH_SIZE;
 
-	let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+	let response = await findEventsWithRetry(filter);
 	let events = response.data || [];
 
-	// NIP-50 fallback: if relay doesn't support search and returned 0, retry without search
+	// NIP-50 miss: the relay's Meili query returned nothing for this term.
+	// Page the Postgres listing with the term removed and let the client text
+	// filter keep only real matches. One short page is not the whole catalog.
 	let usedFallback = false;
 	if (params.search?.trim() && events.length === 0) {
 		usedFallback = true;
 		const fallbackFilter = { ...filter } as Filter & { search?: string };
 		delete fallbackFilter.search;
-		response = await withTimeout(nostrEventsService.findEvents(fallbackFilter), REQUEST_TIMEOUT_MS);
+		response = await findEventsWithRetry(fallbackFilter);
 		events = response.data || [];
 	}
 
@@ -294,11 +307,9 @@ async function fetchOnePage(
 	performanceMonitor.addMetric(metrics);
 	const visibleTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
 
-	// Cache coherence: if fallback fired but frontend filtered everything out,
-	// the search term doesn't exist in the dataset. Store with hasMore: false
-	// to prevent cache-hit → relay recursion on repeated searches.
-	const cacheHasMore = usedFallback && visibleTasks.length === 0 ? false : hasMore;
-	cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now(), hasMore: cacheHasMore });
+	// Keep the relay's hasMore. A search page with no visible match is not
+	// proof the term is absent — the next page may hold it.
+	cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now(), hasMore });
 
 	d.log('fetchOnePage', {
 		raw: rawTasks.length,
@@ -430,6 +441,7 @@ export async function findTasks(
 		let lastRelayTimestamp: number | undefined;
 		let rounds = 0;
 		let consecutiveEmptyRounds = 0;
+		let lastPageHasMore = false;
 		const MAX_CONSECUTIVE_EMPTY = 2;
 
 		while (accumulatedTasks.length < limit && hasMore && rounds < MAX_FILL_ROUNDS) {
@@ -444,31 +456,20 @@ export async function findTasks(
 			accumulatedTasks.push(...combined);
 			const newTasksAdded = accumulatedTasks.length - prevCount;
 
-			// Early exit: if this round added 0 visible tasks, track it.
-			if (newTasksAdded === 0) {
+			// A NIP-50 miss still has more catalog pages. Keep scanning those
+			// pages instead of treating the first empty page as "no such task".
+			if (newTasksAdded === 0 && !(result.usedFallback && result.hasMore)) {
 				consecutiveEmptyRounds++;
-				// If NIP-50 fallback fired and STILL produced 0 visible tasks,
-				// the search term definitively doesn't exist in the dataset.
-				// No amount of pagination will find it — break immediately.
-				if (result.usedFallback) {
-					d.log('fill loop: fallback returned 0 visible, search term not in dataset', {
-						round: rounds,
-						search: params.search
-					});
-					hasMore = false;
-					break;
-				}
-				// If consecutive rounds with 0 visible (non-fallback scenario,
-				// e.g. all tasks muted or filtered), stop early.
 				if (consecutiveEmptyRounds >= MAX_CONSECUTIVE_EMPTY) {
 					d.log('fill loop: consecutive empty rounds, stopping', { round: rounds });
 					hasMore = false;
 					break;
 				}
-			} else {
+			} else if (newTasksAdded > 0) {
 				consecutiveEmptyRounds = 0;
 			}
 
+			lastPageHasMore = result.hasMore;
 			hasMore = result.hasMore;
 			if (result.lastRelayTimestamp !== undefined) {
 				lastRelayTimestamp = result.lastRelayTimestamp;
@@ -481,10 +482,10 @@ export async function findTasks(
 			d.log('fill loop', { round: rounds, accumulated: accumulatedTasks.length, limit, hasMore });
 		}
 
-		// If the fill-loop exhausted MAX_FILL_ROUNDS without filling the limit,
-		// set hasMore=false to prevent InfiniteScroll from re-triggering.
+		// Hitting the page cap is not the end of the catalog. Leave hasMore set
+		// when the last relay page was full so the next scroll continues the scan.
 		if (rounds >= MAX_FILL_ROUNDS && accumulatedTasks.length < limit) {
-			hasMore = false;
+			hasMore = lastPageHasMore;
 		}
 
 		const finalTasks = accumulatedTasks.slice(0, limit);

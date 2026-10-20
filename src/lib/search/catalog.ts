@@ -137,14 +137,17 @@ export async function querySearchIndex(
 	try {
 		const url = `/api/search/query?index=${encodeURIComponent(index)}&q=${encodeURIComponent(q)}`;
 		const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-		if (response.status === 404 || response.status === 503) {
+		const body = (await response.json().catch(() => ({}))) as QueryResponse;
+		// A configured engine is the answer, including an empty one. Falling
+		// through to the relay on 502 would race that answer with an unfiltered page.
+		if (body.configured === true) {
+			const hits = Array.isArray(body.hits) ? body.hits : [];
+			return { available: true, hits, total: body.estimatedTotalHits ?? hits.length };
+		}
+		if (response.status === 404 || response.status === 503 || !response.ok) {
 			return { available: false, hits: [], total: 0 };
 		}
-		if (!response.ok) return { available: false, hits: [], total: 0 };
-		const body = (await response.json()) as QueryResponse;
-		if (body.configured !== true) return { available: false, hits: [], total: 0 };
-		const hits = Array.isArray(body.hits) ? body.hits : [];
-		return { available: true, hits, total: body.estimatedTotalHits ?? hits.length };
+		return { available: false, hits: [], total: 0 };
 	} catch (error) {
 		if (error instanceof DOMException && error.name === 'AbortError') throw error;
 		return { available: false, hits: [], total: 0 };

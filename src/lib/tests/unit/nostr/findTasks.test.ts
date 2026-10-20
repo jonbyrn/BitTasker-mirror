@@ -255,11 +255,9 @@ describe('findTasks', () => {
 	});
 
 	describe('NIP-50 fallback early exit', () => {
-		it('should break after 1 round when fallback fires and frontend filter removes all results', async () => {
-			// Scenario: user searches for "nonexistent-term"
-			// Relay NIP-50 search returns 0 → fallback fires → returns 10 tasks
-			// Frontend search filter removes all 10 (term not in any task)
-			// Expected: only 1 round (2 relay calls: search + fallback), not 10 rounds (20 calls)
+		it('keeps paging when the first unfiltered page has no literal match', async () => {
+			// Relay NIP-50 search returns 0, so the client scans catalog pages.
+			// A full page with no match must not be cached as "term not found".
 			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
 				createTaskEvent(
 					`event-${index}`.padEnd(64, `${index % 10}`),
@@ -270,10 +268,9 @@ describe('findTasks', () => {
 				)
 			);
 
-			// First call: relay search returns 0 (triggers fallback)
 			mockFindEvents.mockResolvedValueOnce({ data: [] });
-			// Fallback call: returns 10 events (unfiltered)
 			mockFindEvents.mockResolvedValueOnce({ data: events });
+			mockFindEvents.mockResolvedValue({ data: [] });
 
 			const result = await findTasks({
 				page: 1,
@@ -281,20 +278,14 @@ describe('findTasks', () => {
 				search: 'nonexistent-term'
 			});
 
-			// Should return 0 visible tasks
 			expect(result.tasks).toHaveLength(0);
 			expect(result.hasMore).toBe(false);
+			// Page 1 search + unfiltered page, then page 2 search + empty page.
+			expect(mockFindEvents).toHaveBeenCalledTimes(4);
 
-			// Critical: only 2 relay calls made (search + fallback), not 20 (10 rounds × 2)
-			expect(mockFindEvents).toHaveBeenCalledTimes(2);
-
-			// First call was the search request
-			const firstFilter = mockFindEvents.mock.calls[0][0];
-			expect(firstFilter.search).toBe('nonexistent-term');
-
-			// Second call was the fallback (no search)
-			const secondFilter = mockFindEvents.mock.calls[1][0];
-			expect(secondFilter.search).toBeUndefined();
+			expect(mockFindEvents.mock.calls[0][0].search).toBe('nonexistent-term');
+			expect(mockFindEvents.mock.calls[1][0].search).toBeUndefined();
+			expect(mockFindEvents.mock.calls[2][0].search).toBe('nonexistent-term');
 		});
 
 		it('should accumulate visible tasks when fallback returns matches', async () => {
@@ -375,10 +366,8 @@ describe('findTasks', () => {
 	});
 
 	describe('cache coherence with fallback', () => {
-		it('should cache with hasMore: false when fallback fires and 0 visible results', async () => {
-			// Scenario: fallback fires, frontend filter removes all → cache stores hasMore: false
-			// Second call with same params → cache hit → hasMore: false → no relay recursion
-			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
+		it('caches an exhausted scan so the same empty search does not hit the relay again', async () => {
+			const events: Event[] = Array.from({ length: 3 }, (_, index) =>
 				createTaskEvent(
 					`event-${index}`.padEnd(64, `${index % 10}`),
 					`task-${index}-dtag`,
@@ -390,7 +379,7 @@ describe('findTasks', () => {
 
 			const params = { page: 1, limit: 10, search: 'xyz-nonexistent' };
 
-			// First call: search returns 0, fallback returns 10, frontend filters to 0
+			// Search miss, then a short catalog page (shorter than the limit) so the scan ends.
 			mockFindEvents.mockResolvedValueOnce({ data: [] });
 			mockFindEvents.mockResolvedValueOnce({ data: events });
 
