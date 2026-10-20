@@ -14,10 +14,13 @@ import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { browser } from '$app/environment';
 import type { Credentials } from '$lib/types/auth';
 import {
+	readMnemonicSession,
 	readSignerSession,
+	saveMnemonicSession,
 	saveSignerSession,
 	signerCached
 } from '$lib/utils/helpers/session-mnemonic';
+import { SignerLockedError, passkeyPromptSuppressed } from '$lib/utils/helpers/passkey-prompt';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -92,32 +95,19 @@ export const getNpub = async (): Promise<string> => {
 
 	if (value) return value;
 
-	if (currentState.biometricData) {
+	if (currentState.biometricData?.npub) {
 		const npub = currentState.biometricData.npub;
 		appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, npub } }));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 		return npub;
 	}
 
-	// Guard: don't trigger biometric prompt if the session has been cleared
-	// (e.g. after logout). Without this, component onMount handlers that call
-	// getNpub() during Svelte's reactive cascade after set(initialAuthState)
-	// would fall through to Webauthn.startAuthentication() showing a passkey prompt.
+	// Reading a public key must not open the password manager. Logged-out
+	// callers and a missing cache both get an empty string. Signing uses the
+	// session key, and only an explicit unlock calls WebAuthn.
 	const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 	if (!accessToken) return '';
-
-	const credentialData: Credentials | null = await getBiometrics();
-
-	if (!credentialData) throw new Error('No biometric data found');
-
-	const npub = credentialData.npub;
-
-	appStore.update((state) => ({
-		...state,
-		nostrKeys: { ...state.nostrKeys, npub }
-	}));
-	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-	return npub;
+	return '';
 };
 
 /**
@@ -145,27 +135,36 @@ export const getNpub = async (): Promise<string> => {
  * ```
  */
 async function rememberSigner(nsec: string, npub: string): Promise<void> {
-	await saveSignerSession(nsec, npub).catch(() => undefined);
+	await Promise.resolve(saveSignerSession(nsec, npub)).catch(() => undefined);
+}
+
+async function rememberMnemonic(mnemonic: string): Promise<void> {
+	await Promise.resolve(saveMnemonicSession(mnemonic)).catch(() => undefined);
+}
+
+/** True when a routine signature can be made without WebAuthn. */
+export function signerReady(): boolean {
+	const current = get(appStore);
+	if (current.nostrKeys.nsec && current.nostrKeys.npub) return true;
+	const biometric = current.biometricData;
+	if (biometric?.encryptedData && biometric.exportedKey && biometric.npub) return true;
+	return signerCached();
 }
 
 /**
- * Start a passkey prompt in the click turn when no session key is cached.
- * Later signing reads that cache and does not call WebAuthn again.
+ * User-gesture unlock. Starts WebAuthn immediately when nothing is cached so the
+ * password manager stays tied to the click. A warm session does not prompt.
  */
 export function prepareSigner(): Promise<{ nsec: Uint8Array; npub: string }> {
-	const current = get(appStore);
-	if (current.nostrKeys.nsec && current.nostrKeys.npub) {
-		return Promise.resolve({ nsec: current.nostrKeys.nsec, npub: current.nostrKeys.npub });
-	}
-	if (!signerCached()) {
-		const prompted = getBiometricData(true, []);
-		return getNostrKeyPair({ prompted });
-	}
-	return getNostrKeyPair();
+	if (signerReady() || passkeyPromptSuppressed()) return getNostrKeyPair();
+	const prompted = getBiometricData(true, []);
+	return getNostrKeyPair({ prompt: true, prompted });
 }
 
 export const getNostrKeyPair = async (options?: {
 	prompted?: Promise<Credentials | null>;
+	/** Open WebAuthn when every cache misses. Routine callers leave this false. */
+	prompt?: boolean;
 }): Promise<{ nsec: Uint8Array; npub: string }> => {
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
@@ -227,7 +226,13 @@ export const getNostrKeyPair = async (options?: {
 	if (currentStateAfterRestore.biometricData) {
 		const encryptedData = currentStateAfterRestore.biometricData.encryptedData;
 		const exportedKey = currentStateAfterRestore.biometricData.exportedKey;
-		const sk = await decryptNsecWithBiometrics(encryptedData, exportedKey);
+		let sk: string;
+		try {
+			sk = await decryptNsecWithBiometrics(encryptedData, exportedKey);
+		} catch (err) {
+			appStore.update((state) => ({ ...state, biometricData: null }));
+			throw err;
+		}
 		const nsec: Uint8Array = decodeNsec(sk);
 
 		const npub = currentStateAfterRestore.biometricData.npub;
@@ -237,6 +242,8 @@ export const getNostrKeyPair = async (options?: {
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub };
 	}
+
+	if (!options?.prompt && !options?.prompted) throw new SignerLockedError();
 
 	const credentialData: Credentials | null = options?.prompted
 		? await options.prompted
@@ -305,7 +312,10 @@ export const getNostrKeyPair = async (options?: {
  * // Use mnemonic for wallet recovery or backup
  * ```
  */
-export const getAllKeys = async (): Promise<{
+export const getAllKeys = async (options?: {
+	/** Settings export and recovery pass true. Opening a page does not. */
+	prompt?: boolean;
+}): Promise<{
 	npub: string;
 	nsec: Uint8Array;
 	mnemonic: string;
@@ -347,6 +357,19 @@ export const getAllKeys = async (): Promise<{
 		}
 	}
 
+	const cachedSigner = await readSignerSession().catch(() => null);
+	const cachedMnemonic = await readMnemonicSession().catch(() => null);
+	if (cachedSigner && cachedMnemonic) {
+		const nsec = decodeNsec(cachedSigner.nsec);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, nsec, npub: cachedSigner.npub, mnemonic: cachedMnemonic }
+		}));
+		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
+		await notifyNdkSignerFromUnlockedKeys();
+		return { nsec, npub: cachedSigner.npub, mnemonic: cachedMnemonic };
+	}
+
 	// Restore persisted E2E biometric data before attempting a real passkey prompt
 	await restorePersistedE2EBiometricData();
 	const currentStateAfterRestore = get(appStore);
@@ -354,10 +377,16 @@ export const getAllKeys = async (): Promise<{
 	if (currentStateAfterRestore.biometricData) {
 		const encryptedData = currentStateAfterRestore.biometricData.encryptedData;
 		const exportedKey = currentStateAfterRestore.biometricData.exportedKey;
-		const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
-			encryptedData,
-			exportedKey
-		);
+		let sk: string;
+		let mnemonic: string;
+		try {
+			const decrypted = await decryptMasterKeyDataFromBiometrics(encryptedData, exportedKey);
+			sk = decrypted.nsec;
+			mnemonic = decrypted.mnemonic;
+		} catch (err) {
+			appStore.update((state) => ({ ...state, biometricData: null }));
+			throw err;
+		}
 
 		const nsec: Uint8Array = decodeNsec(sk);
 
@@ -367,9 +396,13 @@ export const getAllKeys = async (): Promise<{
 			nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }
 		}));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await rememberMnemonic(mnemonic);
+		await rememberSigner(sk, npub);
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub, mnemonic };
 	}
+
+	if (!options?.prompt) throw new SignerLockedError();
 
 	const credentialData: Credentials | null = await getBiometrics();
 
@@ -409,6 +442,8 @@ export const getAllKeys = async (): Promise<{
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await rememberMnemonic(mnemonic);
+	await rememberSigner(sk, npub);
 	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub, mnemonic };
 };

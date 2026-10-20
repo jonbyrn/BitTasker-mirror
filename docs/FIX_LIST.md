@@ -203,6 +203,23 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Fix: make sure the change output is a wallet-owned colored UTXO, refresh transfers to settle the change, and include pending change in the displayed balance.
 - Status: failing the send whose txid spent the coin was dropping the change allocation. That send is no longer failed. The balance shows `future` (or the send's change assignment) instead of flipping between 0.00 and the old total, and a proved spend is not put back. A wallet that already failed that send can still be missing the allocation. Needs a live signet partial send on a fresh colored coin.
 
+### 148. Submitting a bid asks for the passkey again and then silently resets
+- Severity: high. A logged-in user on rgb.bittasker.com taps Submit Bid and the password manager
+  opens "Log in with passkey?" in a separate popout. The popout times out, the button stays on
+  "Submitting...", then it resets with no error and no bid.
+- Cause: routine Nostr signing (bids, messages, profile, and page loads such as the bids list)
+  called `navigator.credentials.get` whenever the in-memory key was missing. Passkey login did not
+  keep the signer in memory, and a wallet-session clear deleted the signer ciphertext too. The
+  WebAuthn challenge was fetched after the click, so the password-manager popout was no longer tied
+  to the gesture and timed out. The bid form only toasted a generic failure and cleared the spinner.
+- Fix: reuse the signer unlocked at login for 8 hours in this tab (AES-GCM ciphertext in
+  sessionStorage, non-extractable key in IndexedDB, nothing in localStorage). Bids, messages, and
+  profile edits sign with that session. A passkey is requested for login, an explicit unlock, and
+  high-risk actions (send, Lightning pay, escrow lock, escrow release, seed export). When a prompt
+  is required the page says "Approve with your passkey to continue". Cancel or timeout leaves the
+  form filled, shows an error, and offers Retry.
+- Fixed in commit `PENDING_SHA`.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.

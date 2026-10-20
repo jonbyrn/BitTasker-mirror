@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { authState } from '$lib/stores/auth.store';
@@ -9,6 +10,7 @@
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import BlockchainToast from '$lib/components/wallet/BlockchainToast.svelte';
+	import { passkeyPrompt, PASSKEY_APPROVE_MESSAGE } from '$lib/utils/helpers/passkey-prompt';
 
 	const { children } = $props();
 
@@ -43,6 +45,20 @@
 		};
 	});
 
+	let signerWarmed = false;
+
+	$effect(() => {
+		if (!browser || !$authState.isAuthenticated) {
+			signerWarmed = false;
+			return;
+		}
+		if (signerWarmed) return;
+		signerWarmed = true;
+		void import('$lib/utils/nostrKeys')
+			.then(({ getNostrKeyPair }) => getNostrKeyPair())
+			.catch(() => undefined);
+	});
+
 	let scrollEl = $state<HTMLElement | null>(null);
 	let cleanupKb: (() => void) | undefined;
 	let footerEl = $state<HTMLElement | null>(null);
@@ -60,8 +76,9 @@
 			const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 			await notificationCenterStore.fetchUnreadCount();
 
-			const { connectNotificationSocket } =
-				await import('$lib/api/services/notificationSocket.service');
+			const { connectNotificationSocket } = await import(
+				'$lib/api/services/notificationSocket.service'
+			);
 			await connectNotificationSocket();
 		} catch {
 			// Notification init is non-critical — don't break the layout
@@ -273,6 +290,15 @@
 <!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 <div bind:this={scrollEl} class="app-shell__content bg-base-200">
 	<div class="bg-base-200 flex shrink-0 grow basis-auto flex-col">
+		{#if $passkeyPrompt.active}
+			<div
+				class="alert alert-info mx-auto mt-3 w-[min(100%-1.5rem,42rem)]"
+				role="status"
+				data-testid="passkey-approval-banner"
+			>
+				{$t('login.passkey_approval.continue', { default: PASSKEY_APPROVE_MESSAGE })}
+			</div>
+		{/if}
 		{@render children?.()}
 	</div>
 </div>

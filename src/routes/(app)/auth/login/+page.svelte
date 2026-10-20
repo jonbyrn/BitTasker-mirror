@@ -157,8 +157,18 @@
 				return;
 			}
 
-			await applyNdkSignerFromNsec(decodeNsec(nsec));
+			const privateKeyBytes = decodeNsec(nsec);
+			await applyNdkSignerFromNsec(privateKeyBytes);
 			await rememberLoginSeed(mnemonic, nsec, credentails.npub);
+			appStore.update((state) => ({
+				...state,
+				nostrKeys: {
+					...state.nostrKeys,
+					nsec: privateKeyBytes,
+					npub: credentails.npub,
+					mnemonic
+				}
+			}));
 
 			if (!response.access_token) {
 				throw new Error($t('login.errors.no_token'));

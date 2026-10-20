@@ -128,7 +128,7 @@
 		}
 
 		try {
-			const allKeys = await getAllKeys();
+			const allKeys = await getAllKeys({ prompt: true });
 			let nsec = '';
 
 			// Convert the private key (Uint8Array) to nsec format

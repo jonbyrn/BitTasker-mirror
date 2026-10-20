@@ -4,7 +4,11 @@ import { ContractRune } from '$lib/runes/contract.svelte';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
-import { clearMnemonicSession, readMnemonicSession } from '$lib/utils/helpers/session-mnemonic';
+import {
+	clearKeySessions,
+	clearMnemonicSession,
+	readMnemonicSession
+} from '$lib/utils/helpers/session-mnemonic';
 import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
@@ -819,7 +823,7 @@ export function disconnectWallet(): void {
 		}
 	}
 
-	void clearMnemonicSession();
+	void clearKeySessions();
 	stopLspPolling();
 	tabClaim?.release();
 	tabClaim = null;

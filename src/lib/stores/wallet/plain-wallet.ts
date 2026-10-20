@@ -108,6 +108,13 @@ export function expiryHours(unixSeconds: number | null, nowMs = Date.now()): num
 /** Simple mode never shows engine text. The raw message stays in the console. */
 export function plainSendReason(message: string): string {
 	const text = message.toLowerCase();
+	if (
+		text.includes('passkey') ||
+		text.includes('unlock cancelled') ||
+		text.includes('operation either timed out or was not allowed')
+	) {
+		return 'Passkey approval timed out or was cancelled. Your entries are still here. Tap Retry.';
+	}
 	if (text.includes('come back')) {
 		return 'The rest of the dollars would not come back. Nothing was sent.';
 	}

@@ -5,7 +5,14 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { resolveBidSats } from '$lib/utils/nostr-bid';
-	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { onMount } from 'svelte';
+	import { prepareSigner, signerReady } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import {
+		PASSKEY_APPROVE_MESSAGE,
+		isPasskeyPromptError,
+		passkeyErrorText
+	} from '$lib/utils/helpers/passkey-prompt';
 
 	interface BidSubmission {
 		amount: number;
@@ -42,16 +49,23 @@
 	let deliveryDays = $state(3);
 	let proposal = $state('');
 	let isSubmitting = $state(false);
+	let passkeyMessage = $state('');
+	let submitError = $state('');
 
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
+	onMount(() => {
+		if (!signerReady()) prefetchPasskeyChallenge();
+	});
+
+	async function submitBid(): Promise<void> {
+		submitError = '';
 		isSubmitting = true;
+		passkeyMessage = signerReady() ? '' : PASSKEY_APPROVE_MESSAGE;
 		try {
 			if (!onSubmit || !task?.id || !bidAmount) {
 				throw new Error('Bid form is not ready');
 			}
-			const signing = prepareSigner();
-			await signing;
+			await prepareSigner();
+			passkeyMessage = '';
 			await onSubmit({
 				amount: bidAmount,
 				days: deliveryDays,
@@ -61,10 +75,22 @@
 			onClose();
 		} catch (err) {
 			console.error('Bid submission failed', err);
-			appStore.showErrorToast($t('bid_creation.failed_to_submit_bid'));
+			submitError = isPasskeyPromptError(err)
+				? passkeyErrorText(err)
+				: err instanceof Error
+					? err.message
+					: $t('bid_creation.failed_to_submit_bid');
+			appStore.showErrorToast(submitError);
+			if (isPasskeyPromptError(err)) prefetchPasskeyChallenge();
 		} finally {
 			isSubmitting = false;
+			passkeyMessage = '';
 		}
+	}
+
+	function handleSubmit(e: Event) {
+		e.preventDefault();
+		void submitBid();
 	}
 </script>
 
@@ -149,6 +175,18 @@
 			></textarea>
 		</div>
 
+		{#if passkeyMessage}
+			<div class="alert alert-info" role="status" data-testid="passkey-approval-message">
+				{passkeyMessage}
+			</div>
+		{/if}
+		{#if submitError}
+			<div class="alert alert-error" role="alert" data-testid="passkey-approval-error">
+				<span>{submitError}</span>
+				<button type="button" class="btn btn-sm" onclick={() => void submitBid()}>Retry</button>
+			</div>
+		{/if}
+
 		<div class="border-base-200 flex justify-end gap-3 border-t pt-4">
 			<button type="button" class="btn btn-ghost" onclick={onClose}> Cancel </button>
 			<button
@@ -157,7 +195,10 @@
 				disabled={isSubmitting}
 				data-testid="submit-bid-btn"
 			>
-				{#if isSubmitting}
+				{#if isSubmitting && passkeyMessage}
+					<span class="loading loading-spinner loading-xs"></span>
+					{PASSKEY_APPROVE_MESSAGE}
+				{:else if isSubmitting}
 					<span class="loading loading-spinner loading-xs"></span>
 					Submitting...
 				{:else}

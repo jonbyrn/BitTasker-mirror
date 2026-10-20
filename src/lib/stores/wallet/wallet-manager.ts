@@ -23,6 +23,7 @@ import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
 import { isNativeBitcoinAsset, type SpendableNia } from '$lib/types/rgb-contract';
 import { receiveWithAllocations } from './rgb-allocations';
 import type { RgbAsset } from './wallet-types';
+import { requirePasskeyApproval } from '$lib/utils/helpers/passkey-approval';
 
 export const walletManager = {
 	async initialize(options?: { skipLsp?: boolean }): Promise<void> {
@@ -85,6 +86,7 @@ export const walletManager = {
 	},
 
 	async sendBtc(params: SendBtcParams): Promise<string> {
+		await requirePasskeyApproval();
 		return sendBtc(params);
 	},
 
@@ -151,6 +153,7 @@ export const walletManager = {
 		assetId: string;
 		amount?: number;
 	}): Promise<{ txid: string; batchTransferIdx: number }> {
+		await requirePasskeyApproval();
 		return payRgbInvoice(params);
 	},
 
@@ -177,6 +180,7 @@ export const walletManager = {
 		assetId?: string;
 		assetAmount?: number;
 	}): Promise<{ txid: string; status: string; paymentHash?: string; preimage?: string }> {
+		await requirePasskeyApproval();
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
 		const result = await wallet.payLightningInvoice(params);

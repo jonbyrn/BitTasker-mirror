@@ -21,6 +21,33 @@ import { Capacitor } from '@capacitor/core';
 import { createDebug } from '$lib/utils/debug';
 const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
+import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
+
+const CHALLENGE_TTL_MS = 50_000;
+let warmedChallenge: { value: string; at: number } | null = null;
+
+/** Fetch a WebAuthn challenge before the click so credentials.get stays inside the user gesture. */
+export function prefetchPasskeyChallenge(): void {
+	if (warmedChallenge && Date.now() - warmedChallenge.at < CHALLENGE_TTL_MS) return;
+	void authService
+		.getChallenge()
+		.then(({ challenge }) => {
+			if (challenge) warmedChallenge = { value: challenge, at: Date.now() };
+		})
+		.catch(() => undefined);
+}
+
+async function nextChallenge(): Promise<string> {
+	if (warmedChallenge && Date.now() - warmedChallenge.at < CHALLENGE_TTL_MS) {
+		const value = warmedChallenge.value;
+		warmedChallenge = null;
+		prefetchPasskeyChallenge();
+		return value;
+	}
+	const { challenge } = await authService.getChallenge();
+	if (!challenge) throw new Error('Invalid biometric challenge received from server.');
+	return challenge;
+}
 
 export const checkNativePlatform = (): boolean => {
 	const isNative = Capacitor.isNativePlatform();
@@ -316,6 +343,7 @@ async function executeBiometricData(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
 	signal?: AbortSignal
 ): Promise<Credentials | null> {
+	beginPasskeyPrompt();
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
 		const isNative = Capacitor.isNativePlatform();
@@ -326,10 +354,7 @@ async function executeBiometricData(
 
 		if (!isNative || isTestEnv) {
 			// Browser/CDP environment: use native WebAuthn API with virtual authenticator
-			const { challenge } = await authService.getChallenge();
-			if (!challenge) {
-				throw new Error('Invalid biometric challenge received from server.');
-			}
+			const challenge = await nextChallenge();
 
 			// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
 			const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
@@ -418,10 +443,7 @@ async function executeBiometricData(
 			throw new Error('WebAuthn is not available');
 		}
 
-		const { challenge } = await authService.getChallenge();
-		if (!challenge) {
-			throw new Error('Invalid biometric challenge received from server.');
-		}
+		const challenge = await nextChallenge();
 		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
 		const options: PublicKeyCredentialRequestOptionsJSON = {
@@ -489,5 +511,7 @@ async function executeBiometricData(
 			await goto('/auth/login');
 		}
 		throw new Error(await handleBiometricError(err, platform));
+	} finally {
+		endPasskeyPrompt();
 	}
 }

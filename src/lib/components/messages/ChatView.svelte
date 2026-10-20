@@ -2,7 +2,13 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import {
+		PASSKEY_APPROVE_MESSAGE,
+		isPasskeyPromptError,
+		passkeyErrorText
+	} from '$lib/utils/helpers/passkey-prompt';
 	import {
 		getMessageHistory,
 		sendDirectMessage,
@@ -73,11 +79,17 @@
 		isSending = true;
 		errorMessage = '';
 		try {
+			await prepareSigner();
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
+			errorMessage = isPasskeyPromptError(error)
+				? passkeyErrorText(error)
+				: error instanceof Error
+					? error.message
+					: $t('messages.send_failed');
+			if (isPasskeyPromptError(error)) prefetchPasskeyChallenge();
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -100,7 +112,12 @@
 			}
 			stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
+			if (isPasskeyPromptError(error)) {
+				errorMessage = PASSKEY_APPROVE_MESSAGE;
+				prefetchPasskeyChallenge();
+			} else {
+				errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
+			}
 		}
 	});
 

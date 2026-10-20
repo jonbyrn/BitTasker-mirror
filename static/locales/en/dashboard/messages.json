@@ -20,6 +20,8 @@
 		"try_different_search": "Try a different search term",
 		"clear_search": "Clear search",
 		"failed_load_conversations": "Failed to load conversations",
+		"passkey_required": "Approve with your passkey to continue",
+		"passkey_failed": "Passkey approval timed out or was cancelled. Tap Retry.",
 		"invalid_npub_format": "Invalid npub format. Please enter a valid npub (starting with npub1) or a hex public key.",
 		"invalid_pubkey_format": "Invalid public key format. Please enter a valid npub or hex public key.",
 		"failed_fetch_profile": "Failed to fetch profile",

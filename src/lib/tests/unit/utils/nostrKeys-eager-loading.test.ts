@@ -40,7 +40,9 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readSignerSession: vi.fn().mockResolvedValue(null),
 	saveSignerSession: vi.fn(),
-	signerCached: vi.fn().mockReturnValue(false)
+	signerCached: vi.fn().mockReturnValue(false),
+	readMnemonicSession: vi.fn().mockResolvedValue(null),
+	saveMnemonicSession: vi.fn()
 }));
 
 vi.mock('$lib/api/services/auth.service', () => ({
@@ -61,6 +63,7 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 
 import { appStore } from '$lib/stores/app.store';
+import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
 import { getAllKeys, getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
 import { readSignerSession, signerCached } from '$lib/utils/helpers/session-mnemonic';
 
@@ -154,7 +157,7 @@ describe('getAllKeys', () => {
 			mnemonic: TEST_MNEMONIC
 		});
 
-		const result = await getAllKeys();
+		const result = await getAllKeys({ prompt: true });
 
 		expect(result.npub).toBe(TEST_NPUB);
 		expect(result.mnemonic).toBe(TEST_MNEMONIC);
@@ -170,7 +173,12 @@ describe('getAllKeys', () => {
 	it('should throw when biometric returns null (Tier 3 failure)', async () => {
 		mockGetBiometricData.mockResolvedValue(null);
 
-		await expect(getAllKeys()).rejects.toThrow('No biometric data found');
+		await expect(getAllKeys({ prompt: true })).rejects.toThrow('No biometric data found');
+	});
+
+	it('does not open WebAuthn just to read keys already unlocked at login', async () => {
+		await expect(getAllKeys()).rejects.toBeInstanceOf(SignerLockedError);
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 });
 
@@ -202,6 +210,28 @@ describe('getNostrKeyPair', () => {
 		prepareSigner();
 
 		expect(mockGetBiometricData).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not prompt when the login session can already decrypt the signer', async () => {
+		appStore.update((s) => ({
+			...s,
+			biometricData: {
+				npub: TEST_NPUB,
+				exportedKey: TEST_EXPORTED_KEY,
+				encryptedData: { masterSalt: 'salt', nostr: {} as never, wallet: {} as never },
+				credentialId: 'cred-123'
+			}
+		}));
+		mockDecryptNsecWithBiometrics.mockResolvedValue(TEST_NSEC_HEX);
+
+		await prepareSigner();
+
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
+	});
+
+	it('does not call WebAuthn for a routine signature when the session is missing', async () => {
+		await expect(getNostrKeyPair()).rejects.toBeInstanceOf(SignerLockedError);
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should return cached keys from appStore without biometric call (Tier 1)', async () => {

@@ -70,6 +70,14 @@ export async function publishProfileMetadata(
 	relays = get(appStore)?.relays ?? [],
 	verifyOptions: ProfileMetadataVerifyOptions | false = {}
 ): Promise<NostrEvent> {
+	if (!ndk.signer) {
+		const { prepareSigner } = await import('$lib/utils/nostrKeys');
+		await prepareSigner();
+	}
+	if (!ndk.signer) {
+		throw new NdkSignerNotConfiguredError();
+	}
+
 	const mergedMetadata = mergeProfileMetadata(metadata, existingMetadata);
 	const wireMetadata = buildProfileMetadataWire(mergedMetadata);
 
@@ -118,4 +126,3 @@ export async function publishProfileMetadata(
 
 	return signedEvent;
 }
-

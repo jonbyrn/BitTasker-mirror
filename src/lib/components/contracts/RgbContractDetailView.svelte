@@ -24,6 +24,8 @@
 	import { fetchContractBid, fetchFundingInvoice, lockBidAmount } from '$lib/utils/nostr-bid';
 	import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
 	import { getNpub } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { requirePasskeyApproval } from '$lib/utils/helpers/passkey-approval';
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { t } from 'svelte-i18n';
@@ -502,6 +504,7 @@
 		joining = true;
 		errorMessage = '';
 		try {
+			await requirePasskeyApproval();
 			await initWasm();
 			await walletManager.initialize();
 			if (!invoiceAttached) await rune.attachFundingInvoice(postedInvoice);
@@ -612,6 +615,7 @@
 		isReleasing = true;
 		errorMessage = '';
 		try {
+			await requirePasskeyApproval();
 			await initWasm();
 			await rune.releaseEscrow();
 			paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
@@ -650,6 +654,7 @@
 	});
 
 	onMount(() => {
+		prefetchPasskeyChallenge();
 		getNpub()
 			.then((npub) => {
 				viewerNpub = npub ?? '';

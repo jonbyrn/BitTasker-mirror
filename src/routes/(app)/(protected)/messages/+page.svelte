@@ -12,7 +12,9 @@
 		listenForIncomingMessages,
 		parseDMEvent
 	} from '$lib/nostr/direct-messages';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { SignerLockedError, isPasskeyPromptError } from '$lib/utils/helpers/passkey-prompt';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { appStore } from '$lib/stores/app.store';
@@ -97,6 +99,7 @@
 	>([]);
 	let isLoading = $state(true);
 	let error = $state('');
+	let passkeyLocked = $state(false);
 
 	// Search state
 	let searchQuery = $state('');
@@ -246,6 +249,7 @@
 		try {
 			isLoading = true;
 			error = '';
+			passkeyLocked = false;
 
 			const { nsec, npub } = await getNostrKeyPair();
 			setupConversationListListener(npub, nsec);
@@ -282,11 +286,33 @@
 			conversations = results
 				.filter((c) => c !== null)
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
-		} catch {
-			error = 'messages.failed_load_conversations';
+		} catch (err) {
+			if (err instanceof SignerLockedError) {
+				passkeyLocked = true;
+				error = 'messages.passkey_required';
+				prefetchPasskeyChallenge();
+			} else {
+				error = 'messages.failed_load_conversations';
+			}
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	async function retryConversations() {
+		if (passkeyLocked) {
+			try {
+				await prepareSigner();
+				passkeyLocked = false;
+			} catch (err) {
+				error = isPasskeyPromptError(err)
+					? 'messages.passkey_failed'
+					: 'messages.failed_load_conversations';
+				prefetchPasskeyChallenge();
+				return;
+			}
+		}
+		await loadConversations();
 	}
 
 	// Profile subscription removed - using props instead
@@ -1091,7 +1117,7 @@
 						<button
 							aria-label="Retry"
 							class="btn btn-error btn-outline btn-sm"
-							onclick={loadConversations}
+							onclick={retryConversations}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"

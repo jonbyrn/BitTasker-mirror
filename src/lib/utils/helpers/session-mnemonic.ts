@@ -8,10 +8,14 @@ import {
 const DB_NAME = 'bittasker-wallet-session';
 const STORE = 'keys';
 const KEY_ID = 'mnemonic-key';
-const CIPHER_KEY = 'bittasker.mnemonic.cipher';
-const SIGNER_KEY = 'bittasker.signer.cipher';
+export const MNEMONIC_CIPHER_KEY = 'bittasker.mnemonic.cipher';
+export const SIGNER_CIPHER_KEY = 'bittasker.signer.cipher';
+const CIPHER_KEY = MNEMONIC_CIPHER_KEY;
+const SIGNER_KEY = SIGNER_CIPHER_KEY;
 
 export const SESSION_TTL_MS = 30 * 60 * 1000;
+/** Sliding window for routine Nostr signing. sessionStorage drops the ciphertext when the tab closes. */
+export const SIGNER_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface CipherPack {
 	iv: string;
@@ -150,7 +154,7 @@ export async function readMnemonicSession(
 
 export function signerCached(now = Date.now()): boolean {
 	const pack = readPack(SIGNER_KEY);
-	return Boolean(pack && sessionFresh(pack.at, now));
+	return Boolean(pack && sessionFresh(pack.at, now, SIGNER_SESSION_TTL_MS));
 }
 
 /** Encrypt the Nostr secret with the same session key as the mnemonic. */
@@ -164,7 +168,7 @@ export async function readSignerSession(
 	now = Date.now()
 ): Promise<{ nsec: string; npub: string } | null> {
 	const pack = readPack(SIGNER_KEY);
-	if (!pack || !sessionFresh(pack.at, now)) {
+	if (!pack || !sessionFresh(pack.at, now, SIGNER_SESSION_TTL_MS)) {
 		if (pack && typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
 		return null;
 	}
@@ -184,7 +188,17 @@ export async function readSignerSession(
 	}
 }
 
+/** Drop the wallet seed cache. The Nostr signer and its IndexedDB key stay so a bid can still be signed. */
 export async function clearMnemonicSession(): Promise<void> {
+	if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CIPHER_KEY);
+}
+
+export async function clearSignerSession(): Promise<void> {
+	if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
+}
+
+/** Logout. Removes both ciphertexts and the non-extractable AES key. */
+export async function clearKeySessions(): Promise<void> {
 	if (typeof sessionStorage !== 'undefined') {
 		sessionStorage.removeItem(CIPHER_KEY);
 		sessionStorage.removeItem(SIGNER_KEY);

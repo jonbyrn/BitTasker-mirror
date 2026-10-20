@@ -89,6 +89,9 @@ describe('combined balances', () => {
 		).toBe(100_000_000);
 		expect(spendCapText('10.00')).toBe('You have $10.00 USDT. You can send up to $10.00.');
 		expect(plainSendReason('bdk adding utxos')).toBe('No connection, nothing was sent, try again');
+		expect(plainSendReason('The operation either timed out or was not allowed.')).toBe(
+			'Passkey approval timed out or was cancelled. Your entries are still here. Tap Retry.'
+		);
 		expect(plainSendReason('USDT amount is larger than the spendable balance.')).toBe(
 			'Not enough USDT'
 		);
