@@ -167,6 +167,8 @@ VITE_RGB_USDT_ASSET_ID = "rgb:2s69152-rg39309-8438210-usdt_testnet"
 VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
 # Buy with card stays hidden until Jon turns this on and sets the Worker secrets.
 VITE_CHANGELLY_FIAT_ENABLED = "false"
+# Credit beta is sandbox-only. The Vite build reads the CI export; this var documents it.
+VITE_CREDIT_ENABLED = "true"
 
 # ============================================
 # STAGING Environment

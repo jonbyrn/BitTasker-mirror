@@ -26,6 +26,8 @@ export const FEATURE_FLAGS = {
 	LIFI: 'LIFI',
 	SYMBIOSIS: 'SYMBIOSIS',
 	LOAN_FLOW: 'LOAN_FLOW',
+	/** Escrow-backed USDT advances. Off unless VITE_CREDIT_ENABLED is true. */
+	CREDIT_ENABLED: 'CREDIT_ENABLED',
 	CONNECTED_METAMASK: 'CONNECTED_METAMASK',
 	CONNECTED_TREZOR: 'CONNECTED_TREZOR',
 	CONNECTED_LEDGER: 'CONNECTED_LEDGER'
@@ -51,11 +53,21 @@ export const isLifiEnabled = (): boolean => false;
 export const isSymbiosisEnabled = (): boolean => false;
 
 /**
+ * BitTasker Credit beta. Defaults to off. The sandbox build sets
+ * VITE_CREDIT_ENABLED=true. Staging and production leave it unset.
+ */
+export function isCreditEnabled(): boolean {
+	return isEnvFlagEnabled(import.meta.env.VITE_CREDIT_ENABLED);
+}
+
+/**
  * Convenience wrapper to check if any named feature is enabled.
- * Defers to FeatureFlagService.isEnabled() for all evaluation logic.
+ * Credit is the only flag that reads the environment. Retired flags stay off.
  *
  * @param feature - The feature flag key to check
  * @returns true when the feature is enabled, false otherwise
  */
-export const isEnabled: (feature: string) => boolean =
-	FeatureFlagService.isEnabled.bind(FeatureFlagService);
+export const isEnabled = (feature: string): boolean => {
+	if (feature === FEATURE_FLAGS.CREDIT_ENABLED) return isCreditEnabled();
+	return FeatureFlagService.isEnabled(feature);
+};

@@ -425,6 +425,13 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 /**
  * Avatar dropdown menu items
  */
+/** Shown in the account menu only when the credit beta flag is on. */
+export const CREDIT_MENU_ITEM: MenuItem = {
+	label: 'navbar.credit',
+	icon: IconCurrencyUsd,
+	href: '/credit'
+};
+
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.hiring',

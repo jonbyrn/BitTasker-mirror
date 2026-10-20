@@ -102,6 +102,17 @@ const KINDS = {
 	/** Video event (NIP-96) — used for profile video introductions */
 	VIDEO: 21,
 
+	/**
+	 * BitTasker Credit (sandbox beta). Parameterized replaceable.
+	 * Documented in docs/credit-events.md. Not used on mainnet.
+	 */
+	CREDIT_ADVANCE_REQUEST: 31140,
+	CREDIT_ADVANCE_OFFER: 31141,
+	CREDIT_ADVANCE_ACCEPT: 31142,
+	CREDIT_ADVANCE_SETTLED: 31143,
+	/** One receipt per party. A contract counts only when both exist. */
+	CREDIT_JOB_RECEIPT: 31144,
+
 	/** Review System (Attestation-Based Verified Reviews) */
 	REVIEW: 6430, // Review content (signed by reviewer, published by client)
 	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)

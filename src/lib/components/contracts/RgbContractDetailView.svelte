@@ -48,6 +48,7 @@
 	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
 		primaryAsset: 'btc_onchain',
@@ -984,8 +985,10 @@
 				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
 					{role === 'tasker' ? 'Tasker' : 'Taskee'}
 				</p>
-				<span class="badge badge-lg {statusClass}" data-testid="contract-status">{statusLabel}</span
-				>
+				<div class="flex flex-wrap items-center justify-end gap-2">
+					<span class="badge badge-lg {statusClass}" data-testid="contract-status">{statusLabel}</span>
+					<CreditAdvanceBadge jobId={escrowTask} />
+				</div>
 			</div>
 			<h1 class="text-2xl font-bold sm:text-3xl" data-testid="contract-title">
 				{snapshot?.contractTitle ?? 'Contract'}

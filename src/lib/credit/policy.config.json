@@ -1,0 +1,14 @@
+{
+	"version": 1,
+	"feeBps": 100,
+	"maxFeeBps": 500,
+	"minAdvanceCents": 1000,
+	"maxAdvanceCents": 100000,
+	"allowedNetworks": ["signet", "regtest", "mock"],
+	"tiers": [
+		{ "minCompleted": 50, "minRating": 4.8, "maxAdvancePercent": 60 },
+		{ "minCompleted": 20, "minRating": 0, "maxAdvancePercent": 40 },
+		{ "minCompleted": 5, "minRating": 0, "maxAdvancePercent": 20 },
+		{ "minCompleted": 0, "minRating": 0, "maxAdvancePercent": 0 }
+	]
+}

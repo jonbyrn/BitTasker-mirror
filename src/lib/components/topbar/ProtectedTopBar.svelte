@@ -19,13 +19,23 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
+	import { isCreditEnabled } from '$lib/services/feature-flags';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
 		AVATAR_MENU_ITEMS,
+		CREDIT_MENU_ITEM,
 		type MenuItem,
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
+
+	const avatarItems = $derived.by(() => {
+		if (!isCreditEnabled()) return AVATAR_MENU_ITEMS;
+		const items = [...AVATAR_MENU_ITEMS];
+		const walletAt = items.findIndex((item) => item.href === '/wallet');
+		items.splice(walletAt + 1, 0, CREDIT_MENU_ITEM);
+		return items;
+	});
 
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
@@ -320,8 +330,8 @@
 								</button>
 							</li>
 						{/if}
-						{#each AVATAR_MENU_ITEMS as item (item.label)}
-							{@render menuItem?.(item, activeItemHref(AVATAR_MENU_ITEMS) === item.href)}
+						{#each avatarItems as item (item.label)}
+							{@render menuItem?.(item, activeItemHref(avatarItems) === item.href)}
 						{/each}
 					</ul>
 				</div>

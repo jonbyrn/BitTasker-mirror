@@ -34,6 +34,7 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
+	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
 	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 
 	// Props
@@ -489,7 +490,10 @@
 											{/if}
 										</div>
 									</div>
-									<span class="badge badge-lg {statusBadgeClass(task.status)}">{task.status}</span>
+									<div class="flex flex-wrap items-center gap-2">
+										<span class="badge badge-lg {statusBadgeClass(task.status)}">{task.status}</span>
+										<CreditAdvanceBadge jobId={taskId} />
+									</div>
 								</div>
 
 								<div class="divider"></div>
