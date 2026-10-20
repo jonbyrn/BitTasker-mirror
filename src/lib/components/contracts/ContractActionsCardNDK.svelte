@@ -7,6 +7,7 @@
 	import ResolutionProposalSplitDisplay from '$lib/components/contracts/ResolutionProposalSplitDisplay.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import { completeTaskErrorKey } from '$lib/utils/contract/completeTaskFailure';
 	import type { Attachment } from '$lib/types/task';
 	import {
 		ContractModalAction,
@@ -155,8 +156,7 @@
 		try {
 			const res = await contractRune.markTaskComplete(attachments, completionText);
 			if (!res.ok) {
-				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
-				throw new Error('markTaskComplete failed');
+				throw new Error(completeTaskErrorKey(res.errorCode));
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
 			onContractCompleted?.();

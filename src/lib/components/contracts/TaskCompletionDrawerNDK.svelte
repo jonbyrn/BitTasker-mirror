@@ -4,6 +4,7 @@
 	import type { UploadResult } from '$lib/api/services/upload.service';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import { presentCompleteTaskFailure } from '$lib/utils/contract/completeTaskFailure';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { createDebug } from '$lib/utils/debug';
@@ -88,7 +89,18 @@
 			onClose();
 		} catch (error) {
 			d.error('task complete flow failed', error);
-			appStore.showErrorToast($t('dashboard.contracts.actions.task_completed_error'));
+			const key =
+				error instanceof Error && error.message.startsWith('dashboard.')
+					? error.message
+					: 'dashboard.contracts.timeline.completion.error_generic';
+			presentCompleteTaskFailure({
+				showErrorToast: (message, timeout, options) =>
+					appStore.showErrorToast(message, timeout, options),
+				message: $t(key),
+				retry: () => {
+					void handleCompleteTask();
+				}
+			});
 		} finally {
 			isCompleting = false;
 		}

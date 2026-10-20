@@ -40,11 +40,17 @@ import { applyFundedStartedInProgressDisplay } from './displayFundedInProgress';
 import { runV2Preflight } from './v2Preflight';
 import { broadcastThenParallelEffects, getRuneWriteIds } from './writeHelpers';
 import type {
+	CompleteTaskErrorCode,
 	ContractLifecycleResult,
 	PaymentContractLifecycle,
 	PaymentContractRuneLike
 } from './types';
 import { permissionsNowSeconds } from './time';
+import {
+	COMPLETE_TASK_RECEIPT_TIMEOUT_MS,
+	RelayRequestTimeoutError,
+	TaskeeSignerMismatchError
+} from '$lib/utils/contract/v2/completeTaskRelay';
 import type { EnrichmentRequest } from '$lib/types/notification';
 
 const d = createDebug('contract:lifecycle:v2');
@@ -148,18 +154,48 @@ export async function markTaskCompleteV2(
 	try {
 		const { tx } = await completeTask(ids.paymentId, {
 			contractAddress: ids.contractAddress,
-			chain: 'rsk'
+			chain: 'rsk',
+			expectedSender: rune.blockchainData?.taskee
 		});
 		transactionHash = tx.hash;
 	} catch (e) {
 		d.error('markTaskCompleteV2: completeTask failed', e);
-		return { ok: false };
+		console.log('[complete-task] send tx failed', {
+			paymentId: ids.paymentId,
+			message: e instanceof Error ? e.message : 'failed'
+		});
+		return { ok: false, errorCode: completeTaskErrorCodeFrom(e) };
+	}
+
+	try {
+		const receipt = await waitForCompleteReceipt(transactionHash);
+		if (!receipt || receipt.status !== 1) {
+			console.log('[complete-task] receipt', {
+				hash: transactionHash,
+				status: receipt?.status ?? 'missing'
+			});
+			return { ok: false, errorCode: 'reverted', transactionHash };
+		}
+		console.log('[complete-task] receipt', {
+			hash: transactionHash,
+			status: receipt.status,
+			blockNumber: receipt.blockNumber
+		});
+	} catch (e) {
+		d.error('markTaskCompleteV2: receipt timed out', e);
+		console.log('[complete-task] receipt', { hash: transactionHash, status: 'timeout' });
+		return { ok: false, errorCode: 'confirm_timeout', transactionHash };
 	}
 
 	const signer = ndk.activeUser;
 	if (!signer) {
 		d.warn('markTaskCompleteV2: signer missing after broadcast');
-		return { ok: false };
+		console.log('[complete-task] publish Nostr event failed', {
+			paymentId: ids.paymentId,
+			transactionHash,
+			message: 'signer missing'
+		});
+		return { ok: true, transactionHash };
 	}
 
 	const completionAttachments =
@@ -177,20 +213,62 @@ export async function markTaskCompleteV2(
 		});
 	}
 
-	await broadcastThenParallelEffects({
-		logLabel: 'markTaskCompleteV2',
-		ids,
-		signer,
-		transactionHash,
-		recipientPubkey: taskerPk,
-		chainStatus: ContractStatus.Completed,
-		writeMethod: 'completeTask',
-		completionAttachments,
-		completionText,
-		enrichment: buildEnrichment(rune, 'task_completed', ids.paymentId)
+	console.log('[complete-task] publish Nostr event', {
+		paymentId: ids.paymentId,
+		transactionHash
 	});
+	try {
+		await broadcastThenParallelEffects({
+			logLabel: 'markTaskCompleteV2',
+			ids,
+			signer,
+			transactionHash,
+			recipientPubkey: taskerPk,
+			chainStatus: ContractStatus.Completed,
+			writeMethod: 'completeTask',
+			completionAttachments,
+			completionText,
+			enrichment: buildEnrichment(rune, 'task_completed', ids.paymentId)
+		});
+	} catch (e) {
+		d.error('markTaskCompleteV2: Nostr publish failed', e);
+		console.log('[complete-task] publish Nostr event failed', {
+			paymentId: ids.paymentId,
+			transactionHash,
+			message: e instanceof Error ? e.message : 'failed'
+		});
+	}
 
 	return { ok: true, transactionHash };
+}
+
+function completeTaskErrorCodeFrom(error: unknown): CompleteTaskErrorCode {
+	if (error instanceof TaskeeSignerMismatchError) return 'signer_mismatch';
+	if (error instanceof RelayRequestTimeoutError) return 'timeout';
+	const message = error instanceof Error ? error.message : '';
+	if (/timed out/i.test(message)) return 'timeout';
+	return 'failed';
+}
+
+async function waitForCompleteReceipt(transactionHash: string) {
+	const provider = await getProvider('rsk');
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			provider.waitForTransaction(transactionHash),
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => {
+					reject(
+						new Error(
+							`Transaction confirmation timed out after ${Math.round(COMPLETE_TASK_RECEIPT_TIMEOUT_MS / 1000)} seconds`
+						)
+					);
+				}, COMPLETE_TASK_RECEIPT_TIMEOUT_MS);
+			})
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
 }
 
 /**

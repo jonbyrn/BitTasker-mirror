@@ -115,4 +115,7 @@ export type ContractCreationResult =
 			success: false;
 			error: string;
 			validationErrors?: string[];
+			/** Stable reason for the funding form. Absent on older validation failures. */
+			errorCode?: 'timeout' | 'in_flight' | 'pending' | 'already_funded' | 'failed';
+			transactionHash?: string;
 	  };
