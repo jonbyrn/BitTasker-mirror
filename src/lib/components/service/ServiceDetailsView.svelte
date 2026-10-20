@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
