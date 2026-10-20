@@ -7,12 +7,8 @@
 	import { servicesStore } from '$lib/stores/service.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
-	import {
-		beginServicesSearch,
-		findServices,
-		isServicesSearchCurrent,
-		cleanup
-	} from '$lib/nostr/findServices';
+	import { findServices, cleanup } from '$lib/nostr/findServices';
+	import { beginServicesSearch, isServicesSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import {
 		querySearchIndex,
@@ -213,7 +209,7 @@
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
 		});
-		await Promise.race([findServices(params, epoch), timeoutPromise]);
+		await Promise.race([findServices(params), timeoutPromise]);
 		if (!isServicesSearchCurrent(epoch)) return;
 	}
 

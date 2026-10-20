@@ -18,6 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
+import { currentServicesSearchEpoch, isServicesSearchCurrent } from '$lib/search/search-epoch';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -26,18 +27,6 @@ const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
 const MAX_DELETION_CACHE_SIZE = 10; // Maximum deletion cache entries with LRU eviction
 const REQUEST_TIMEOUT_MS = 15000;
-
-/** Monotonic id so an older Find Services response cannot overwrite a newer one. */
-let servicesSearchEpoch = 0;
-
-export function beginServicesSearch(): number {
-	servicesSearchEpoch += 1;
-	return servicesSearchEpoch;
-}
-
-export function isServicesSearchCurrent(epoch: number | undefined): boolean {
-	return epoch === undefined || epoch === servicesSearchEpoch;
-}
 
 function commitServices(
 	epoch: number | undefined,
@@ -250,8 +239,9 @@ export async function findServices(
 	params: SearchServicesParams,
 	epoch?: number
 ): Promise<{ services: Service[]; total: number; hasMore: boolean }> {
+	const activeEpoch = epoch ?? currentServicesSearchEpoch();
 	try {
-		commitServices(epoch, (state) => ({ ...state, loading: true, error: null }));
+		commitServices(activeEpoch, (state) => ({ ...state, loading: true, error: null }));
 
 		const filter = createServiceFilter(params);
 		const { limit: _limit, ...filterWithoutLimit } = filter;
@@ -283,7 +273,7 @@ export async function findServices(
 
 				const hasMore = endIndex < cleanServices.length || cleanServices.length >= MAX_CACHE_SIZE;
 
-				commitServices(epoch, (state) => ({
+				commitServices(activeEpoch, (state) => ({
 					...state,
 					items: [...state.items, ...limitedServices],
 					loading: false,
@@ -305,7 +295,7 @@ export async function findServices(
 			// An extra request returning 0 is better than killing infinite scroll.
 			const hasMore = limitedServices.length >= limit;
 
-			commitServices(epoch, (state) => ({
+			commitServices(activeEpoch, (state) => ({
 				...state,
 				items: params.page === 1 ? limitedServices : [...state.items, ...limitedServices],
 				loading: false,
@@ -424,7 +414,7 @@ export async function findServices(
 			const existingIds = new Set(get(servicesStore).items.map((s) => s.uniqueId));
 			itemsToAdd = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
 		}
-		commitServices(epoch, (state) => ({
+		commitServices(activeEpoch, (state) => ({
 			...state,
 			items: page === 1 ? itemsToAdd : [...state.items, ...itemsToAdd],
 			loading: false,
@@ -440,7 +430,7 @@ export async function findServices(
 		};
 	} catch (error) {
 		console.error('Error finding services:', error);
-		commitServices(epoch, (state) => ({
+		commitServices(activeEpoch, (state) => ({
 			...state,
 			loading: false,
 			error: error instanceof Error ? error.message : 'Unknown error occurred'

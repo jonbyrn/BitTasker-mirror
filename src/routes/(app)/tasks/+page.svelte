@@ -14,7 +14,8 @@
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { beginTasksSearch, findTasks, isTasksSearchCurrent, cleanup } from '$lib/nostr/findTasks';
+	import { findTasks, cleanup } from '$lib/nostr/findTasks';
+	import { beginTasksSearch, isTasksSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import {
 		querySearchIndex,
@@ -100,15 +101,12 @@
 			try {
 				const nextPage = $tasksStore.currentPage + 1;
 				const epoch = beginTasksSearch();
-				await findTasks(
-					{
-						...searchParams,
-						page: nextPage,
-						until: cursorTimestamp - 1,
-						limit: TASKS_PER_PAGE
-					},
-					epoch
-				);
+				await findTasks({
+					...searchParams,
+					page: nextPage,
+					until: cursorTimestamp - 1,
+					limit: TASKS_PER_PAGE
+				});
 				if (!isTasksSearchCurrent(epoch)) return;
 			} catch (error) {
 				console.error('[FindTasks] Error loading more tasks:', error);
@@ -504,7 +502,7 @@
 			}
 
 			const epoch = beginTasksSearch();
-			await findTasks(searchParams, epoch);
+			await findTasks(searchParams);
 			if (!isTasksSearchCurrent(epoch)) return;
 
 			$tasksStore.searchParamsKey = currentSearchKey;
@@ -632,7 +630,7 @@
 
 		try {
 			const epoch = beginTasksSearch();
-			await findTasks(searchParams, epoch);
+			await findTasks(searchParams);
 			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			tasksStore.update((state) => ({
@@ -677,7 +675,7 @@
 
 		try {
 			const epoch = beginTasksSearch();
-			await findTasks(searchParams, epoch);
+			await findTasks(searchParams);
 			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			tasksStore.update((state) => ({
@@ -724,7 +722,7 @@
 			};
 
 			const epoch = beginTasksSearch();
-			await findTasks(searchParams, epoch);
+			await findTasks(searchParams);
 			if (!isTasksSearchCurrent(epoch)) return;
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);

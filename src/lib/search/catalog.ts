@@ -116,7 +116,7 @@ export async function querySearchIndex(
 		}
 		if (!response.ok) return { available: false, hits: [], total: 0 };
 		const body = (await response.json()) as QueryResponse;
-		if (body.configured === false) return { available: false, hits: [], total: 0 };
+		if (body.configured !== true) return { available: false, hits: [], total: 0 };
 		const hits = Array.isArray(body.hits) ? body.hits : [];
 		return { available: true, hits, total: body.estimatedTotalHits ?? hits.length };
 	} catch (error) {

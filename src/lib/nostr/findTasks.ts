@@ -17,22 +17,11 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 import { muteStore } from '$lib/stores/mute.store';
 import { createDebug } from '$lib/utils/debug';
+import { currentTasksSearchEpoch, isTasksSearchCurrent } from '$lib/search/search-epoch';
 
 type MuteState = { mutedPubkeys: Set<string>; mutedEventIds: Set<string>; isLoaded: boolean };
 
 const d = createDebug('findTasks');
-
-/** Monotonic id so an older Find Tasks response cannot overwrite a newer one. */
-let tasksSearchEpoch = 0;
-
-export function beginTasksSearch(): number {
-	tasksSearchEpoch += 1;
-	return tasksSearchEpoch;
-}
-
-export function isTasksSearchCurrent(epoch: number | undefined): boolean {
-	return epoch === undefined || epoch === tasksSearchEpoch;
-}
 
 // Constants
 const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
@@ -342,8 +331,11 @@ export async function findTasks(
 	epoch?: number
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const MAX_FILL_ROUNDS = 10; // Safety cap: at most 10 relay round-trips per findTasks call
+	// Callers that only pass search params still participate in stale-response
+	// cancellation: the page bumps the epoch before calling, and we snapshot it here.
+	const activeEpoch = epoch ?? currentTasksSearchEpoch();
 	try {
-		if (!isTasksSearchCurrent(epoch)) {
+		if (!isTasksSearchCurrent(activeEpoch)) {
 			return { tasks: [], total: 0, hasMore: false };
 		}
 		tasksStore.update((state) => ({ ...state, loading: true, error: null }));
@@ -388,7 +380,7 @@ export async function findTasks(
 
 				d.log('cache hit', { cached: cached.data.length, visible: slicedTasks.length, hasMore });
 
-				if (!isTasksSearchCurrent(epoch)) {
+				if (!isTasksSearchCurrent(activeEpoch)) {
 					return { tasks: [], total: 0, hasMore: false };
 				}
 				tasksStore.update((state) => ({
@@ -410,7 +402,10 @@ export async function findTasks(
 						// Don't return here — fall through below by clearing cache and re-entering relay loop
 						cache.delete(cacheKey);
 						// Recurse with cursor so we pick up from where cache left off
-						const moreResult = await findTasks({ ...params, until: storeTs - 1, limit }, epoch);
+						const moreResult = await findTasks(
+							{ ...params, until: storeTs - 1, limit },
+							activeEpoch
+						);
 						// Merge the extra tasks into the store (already done inside recursive call)
 						return {
 							tasks: [...slicedTasks, ...moreResult.tasks],
@@ -494,7 +489,7 @@ export async function findTasks(
 
 		const finalTasks = accumulatedTasks.slice(0, limit);
 
-		if (!isTasksSearchCurrent(epoch)) {
+		if (!isTasksSearchCurrent(activeEpoch)) {
 			return { tasks: [], total: 0, hasMore: false };
 		}
 
@@ -511,7 +506,7 @@ export async function findTasks(
 		return { tasks: finalTasks, total: finalTasks.length, hasMore };
 	} catch (error) {
 		console.error('[findTasks] Error:', error);
-		if (!isTasksSearchCurrent(epoch)) {
+		if (!isTasksSearchCurrent(activeEpoch)) {
 			return { tasks: [], total: 0, hasMore: false };
 		}
 		tasksStore.update((state) => ({
