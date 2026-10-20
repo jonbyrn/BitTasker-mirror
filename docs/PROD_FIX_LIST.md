@@ -97,3 +97,9 @@ Found Oct 20 2026 on bittasker.com. Task cards show no category or tags. Categor
 - About 10 top-level groups with sub-categories: Writing & Translation; Design & Creative; IT & Web; Marketing & Admin; Home & Trades; Delivery & Moving; Education & Coaching; Events & Food; Care & Wellness; Professional.
 - One shared taxonomy for tasks and services.
 - Category landing pages with counts, and browse by category from the homepage and nav.
+
+### P25. HIGH: Passkey must be optional on prod
+Requested by Jon Oct 20 2026; blocks the 4 prod test accounts. On devices with no authenticator, onboarding step 2 and "Login with Nostr nsec" both fail with "no authenticator". nsec login also asks for a passkey even when no signature is needed. Fix:
+- A Skip option at onboarding step 2.
+- Login with Nostr nsec works with no WebAuthn/passkey.
+- Never ask for a passkey when no signature is needed.
