@@ -152,6 +152,7 @@ describe('sendRgbAsset', () => {
 			invoice: NWCA_RPCS,
 			assetId: 'rgb:f~9F4X0C-held-usdt',
 			amount: 1111,
+			donation: false,
 			feeRate: 2,
 			minConfirmations: 1
 		});
@@ -183,6 +184,7 @@ describe('sendRgbAsset', () => {
 			invoice: NWCA_RPCS,
 			assetId: 'rgb:f~9F4X0C-held-usdt',
 			amount: 1111,
+			donation: false,
 			feeRate: 2,
 			minConfirmations: 1
 		});

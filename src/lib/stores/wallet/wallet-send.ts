@@ -350,7 +350,7 @@ export async function sendRgbAsset(params: {
 		throw new Error(message);
 	}
 	try {
-		assertChangeReturns(psbt, spendable, units, sendInput.remainderAssigned);
+		assertChangeReturns(psbt, spendable, units, sendInput.remainderAssigned, sendInput.feeRate);
 	} catch (error) {
 		await failOpenSend(signer);
 		throw error;

@@ -5,6 +5,7 @@ import {
 	broadcastEscrowPsbt,
 	buildEscrowPsbt,
 	changeOutputMissing,
+	readSendEconomics,
 	refundEscrow,
 	runEscrowSend,
 	keptSendProof,
@@ -124,6 +125,33 @@ function outputPsbt(withChange: boolean): string {
 	return psbt.toBase64();
 }
 
+function taprootScript(): Buffer {
+	return Buffer.from(`5120${'11'.repeat(32)}`, 'hex');
+}
+
+function opReturnScript(): Buffer {
+	return Buffer.from(`6a20${'22'.repeat(32)}`, 'hex');
+}
+
+function fundedPsbt(inputValues: number[], outputs: { script: Buffer; value: number }[]): string {
+	const psbt = new Psbt({ network: networks.testnet });
+	const script = taprootScript();
+	inputValues.forEach((value, index) => {
+		psbt.addInput({
+			hash: (index + 1).toString(16).padStart(2, '0').repeat(32),
+			index: 0,
+			witnessUtxo: { script, value }
+		});
+	});
+	for (const output of outputs) psbt.addOutput(output);
+	return psbt.toBase64();
+}
+
+/** Confirmed send 840a9fb1…: 975 + 20,000 in, one 0-value OP_RETURN, fee 20,975. */
+function burnedOpReturnPsbt(): string {
+	return fundedPsbt([975, 20_000], [{ script: opReturnScript(), value: 0 }]);
+}
+
 function signer(overrides: Partial<EscrowSigner> = {}): EscrowSigner {
 	return {
 		onchainSendBegin: vi.fn(async () => 'cHNidP-unsigned'),
@@ -194,7 +222,78 @@ describe('psbt escrow steps', () => {
 		expect(() => assertChangeReturns(outputPsbt(true), 70_000_000, 2_000_000)).toThrow(
 			/leaves the rest stuck/
 		);
-		expect(() => assertChangeReturns(outputPsbt(false), 2_000_000, 2_000_000)).not.toThrow();
+		expect(() => assertChangeReturns('cHNidP-unsigned', 2_000_000, 2_000_000)).not.toThrow();
+	});
+
+	it('refuses a full send whose only output is a 0-value OP_RETURN', () => {
+		const burned = burnedOpReturnPsbt();
+		const economics = readSendEconomics(burned, 2);
+		expect(economics).toMatchObject({
+			inputSats: 20_975,
+			feeSats: 20_975,
+			weight: 674,
+			vsize: 169,
+			paidSats: 0
+		});
+		expect(economics?.feeCapSats).toBeLessThan(400);
+		expect(() => assertChangeReturns(burned, 100_000_000, 100_000_000, false, 2)).toThrow(
+			/fee must stay within the fee rate/
+		);
+		expect(() => assertChangeReturns(burned, 100_000_000, 100_000_000, true, 2)).toThrow(
+			/fee must stay within the fee rate/
+		);
+	});
+
+	it('accepts the same inputs when change returns inside the fee rate', () => {
+		const returned = fundedPsbt(
+			[975, 20_000],
+			[
+				{ script: opReturnScript(), value: 0 },
+				{ script: taprootScript(), value: 20_551 }
+			]
+		);
+		const economics = readSendEconomics(returned, 2);
+		expect(economics).toMatchObject({ feeSats: 424, weight: 846, vsize: 212, paidSats: 20_551 });
+		expect(economics && economics.feeSats <= economics.feeCapSats).toBe(true);
+		expect(() => assertChangeReturns(returned, 100_000_000, 100_000_000, false, 2)).not.toThrow();
+	});
+
+	it('refuses a change output that still pays the fee rate of 100 sat/vB', () => {
+		const overpaid = fundedPsbt(
+			[20_000, 2_175],
+			[
+				{ script: opReturnScript(), value: 0 },
+				{ script: taprootScript(), value: 975 }
+			]
+		);
+		const economics = readSendEconomics(overpaid, 2);
+		expect(economics).toMatchObject({ feeSats: 21_200, weight: 846, paidSats: 975 });
+		expect(() => assertChangeReturns(overpaid, 100_000_000, 100_000_000, false, 2)).toThrow(
+			/fee must stay within the fee rate/
+		);
+	});
+
+	it('does not sign a send that would give the miner every input sat', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const wallet = signer({
+			onchainSendBegin: vi.fn(async () => burnedOpReturnPsbt()),
+			listTransfers: vi.fn(async () => [
+				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 4 }
+			]),
+			failTransfers
+		});
+		await expect(
+			runEscrowSend(wallet, {
+				assetId: 'rgb:test',
+				amount: 100_000_000,
+				spendable: 100_000_000,
+				feeRate: 2,
+				invoice: 'rgb:invoice'
+			})
+		).rejects.toThrow(/Nothing was sent/);
+		expect(wallet.signPsbt).not.toHaveBeenCalled();
+		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
 	});
 
 	it('does not sign a partial send when the remainder cannot be assigned', async () => {

@@ -53,6 +53,7 @@ export interface EscrowSigner {
 		invoice: string;
 		assetId: string;
 		amount: number;
+		donation?: boolean;
 		feeRate?: number;
 		minConfirmations?: number;
 	}): Promise<string>;
@@ -227,6 +228,7 @@ export async function buildEscrowPsbt(
 		invoice: input.invoice,
 		assetId: input.assetId,
 		amount: input.amount,
+		donation: false,
 		feeRate,
 		minConfirmations
 	});
@@ -287,15 +289,152 @@ export function changeOutputMissing(psbtBase64: string): boolean | null {
  * named the remainder as a witness recipient is allowed through.
  */
 export function assertChangeReturns(
-	_psbt: string,
+	psbt: string,
 	spendable: number | undefined,
 	amount: number,
-	remainderAssigned = false
+	remainderAssigned = false,
+	feeRate = 2
 ): void {
-	if (remainderAssigned) return;
-	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(amount) || amount >= spendable)
-		return;
-	throw new Error(PARTIAL_SEND_BLOCK);
+	if (
+		!remainderAssigned &&
+		Number.isSafeInteger(spendable) &&
+		Number.isSafeInteger(amount) &&
+		amount < spendable
+	) {
+		throw new Error(PARTIAL_SEND_BLOCK);
+	}
+	const economics = readSendEconomics(psbt, feeRate);
+	if (!economics) return;
+	if (!sendFeeWithinCap(economics)) throw new Error(FEE_CHANGE_BLOCK);
+}
+
+/** Taproot dust. A smaller remainder cannot be a change output, so it stays in the fee. */
+const TAPROOT_DUST_SATS = 330;
+
+/**
+ * A blinded USDT send has been built with no bitcoin change and the whole input
+ * sum paid as the fee (840a9fb1…, 20,975 sats). The send before it paid exactly
+ * 100 sat/vB and left a 975 sat change. Refuse that PSBT before it is signed.
+ * The RGB commitment is already sealed, so the outputs are not rewritten.
+ */
+export const FEE_CHANGE_BLOCK =
+	'Refusing onchainSend: bitcoin change must come back and the fee must stay within the fee rate. Nothing was sent.';
+
+export interface SendEconomics {
+	inputSats: number;
+	feeSats: number;
+	weight: number;
+	vsize: number;
+	feeCapSats: number;
+	/** Positive outputs other than the OP_RETURN commitment. */
+	paidSats: number;
+}
+
+function positiveRate(feeRate: number): number {
+	return Number.isFinite(feeRate) && feeRate > 0 ? feeRate : 2;
+}
+
+function isOpReturn(script: Uint8Array): boolean {
+	return script.length > 0 && script[0] === 0x6a;
+}
+
+function scriptLenBytes(length: number): number {
+	if (length < 253) return 1;
+	return length < 65536 ? 3 : 5;
+}
+
+/** Key-path taproot witness is 66 weight units. Other segwit inputs use a p2wpkh witness. */
+function inputWeight(script: Uint8Array): number {
+	const witness = script.length === 34 && script[0] === 0x51 ? 66 : 108;
+	return 41 * 4 + witness;
+}
+
+function outputWeight(script: Uint8Array): number {
+	return (8 + scriptLenBytes(script.length) + script.length) * 4;
+}
+
+function countBytes(count: number): number {
+	return count < 253 ? 1 : 3;
+}
+
+/**
+ * Signed virtual size. The PSBT witness is still empty, so this adds the
+ * key-path witness the wallet will attach. Matches the confirmed 674-weight send.
+ */
+export function signedWeight(inputScripts: Uint8Array[], outputScripts: Uint8Array[]): number {
+	const overhead =
+		(4 + countBytes(inputScripts.length) + countBytes(outputScripts.length) + 4) * 4 + 2;
+	const inputs = inputScripts.reduce((sum, script) => sum + inputWeight(script), 0);
+	const outputs = outputScripts.reduce((sum, script) => sum + outputWeight(script), 0);
+	return overhead + inputs + outputs;
+}
+
+function satsOf(value: unknown): number | null {
+	if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value;
+	if (typeof value === 'bigint' && value >= 0n && value <= BigInt(Number.MAX_SAFE_INTEGER)) {
+		return Number(value);
+	}
+	return null;
+}
+
+/** Fee, weight, and change of an unsigned PSBT. Null when the PSBT cannot be read. */
+export function readSendEconomics(psbtBase64: string, feeRate = 2): SendEconomics | null {
+	let parsed: Psbt;
+	try {
+		parsed = Psbt.fromBase64(psbtBase64);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-send] send fee unreadable',
+			error instanceof Error ? error.message : String(error)
+		);
+		return null;
+	}
+	const inputs = parsed.data.inputs as Array<{
+		witnessUtxo?: { value?: unknown; script?: Uint8Array };
+	}>;
+	const outputs = parsed.txOutputs;
+	if (inputs.length === 0 || outputs.length === 0 || inputs.length !== parsed.txInputs.length) {
+		throw new Error(FEE_CHANGE_BLOCK);
+	}
+	let inputSats = 0;
+	const inputScripts: Uint8Array[] = [];
+	for (const input of inputs) {
+		const value = satsOf(input.witnessUtxo?.value);
+		const script = input.witnessUtxo?.script;
+		if (value === null || !script) throw new Error(FEE_CHANGE_BLOCK);
+		inputSats += value;
+		inputScripts.push(script);
+	}
+	let outputSats = 0;
+	let paidSats = 0;
+	const outputScripts: Uint8Array[] = [];
+	for (const output of outputs) {
+		const value = satsOf(output.value);
+		if (value === null) throw new Error(FEE_CHANGE_BLOCK);
+		outputSats += value;
+		outputScripts.push(output.script);
+		if (value > 0 && !isOpReturn(output.script)) paidSats += value;
+	}
+	if (outputSats > inputSats) throw new Error(FEE_CHANGE_BLOCK);
+	const weight = signedWeight(inputScripts, outputScripts);
+	const vsize = Math.ceil(weight / 4);
+	const rate = positiveRate(feeRate);
+	return {
+		inputSats,
+		feeSats: inputSats - outputSats,
+		weight,
+		vsize,
+		feeCapSats: Math.ceil(rate * vsize) + Math.ceil(rate),
+		paidSats
+	};
+}
+
+/** True when a positive output carries the remainder and the fee stays inside the rate. */
+export function sendFeeWithinCap(economics: SendEconomics): boolean {
+	const room = economics.inputSats - economics.feeCapSats;
+	if (economics.paidSats === 0 && room > TAPROOT_DUST_SATS) return false;
+	const dustSlack = economics.paidSats === 0 ? TAPROOT_DUST_SATS : 0;
+	return economics.feeSats <= economics.feeCapSats + dustSlack;
 }
 
 export async function failOpenSend(wallet: EscrowSigner): Promise<void> {
@@ -343,7 +482,13 @@ export async function runEscrowSend(
 	saveEscrowSend(next);
 	try {
 		next.psbt = await buildEscrowPsbt(wallet, input);
-		assertChangeReturns(next.psbt, input.spendable, input.amount, input.remainderAssigned);
+		assertChangeReturns(
+			next.psbt,
+			input.spendable,
+			input.amount,
+			input.remainderAssigned,
+			input.feeRate
+		);
 		next.phase = 'psbt_ready';
 		saveEscrowSend(next);
 		next.phase = 'signing';
@@ -359,7 +504,11 @@ export async function runEscrowSend(
 		next.phase = 'failed';
 		next.lastError = error instanceof Error ? error.message : String(error);
 		saveEscrowSend(next);
-		if (next.psbt && next.lastError.includes('leaves the rest stuck')) {
+		if (
+			next.psbt &&
+			(next.lastError.includes('leaves the rest stuck') ||
+				next.lastError.includes('fee must stay within the fee rate'))
+		) {
 			await failOpenSend(wallet);
 		}
 		console.info('[contract-rune] psbt phase', next.phase, next.lastError);
