@@ -4,6 +4,7 @@
  * Only supports English and Spanish translation.
  */
 
+import type { AxiosRequestConfig } from 'axios';
 import { BaseApiService } from '$lib/api/apiService';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { Preferences } from '@capacitor/preferences';
@@ -252,11 +253,15 @@ export class TranslationService extends BaseApiService {
 		targetLanguage: string,
 		sourceLanguage?: string
 	): Promise<BackendTranslateResponse> {
-		const response = await this.post<BackendTranslateResponse>(ENDPOINTS.TRANSLATION.TRANSLATE, {
-			texts,
-			targetLanguage,
-			...(sourceLanguage && { sourceLanguage })
-		});
+		const response = await this.post<BackendTranslateResponse>(
+			ENDPOINTS.TRANSLATION.TRANSLATE,
+			{
+				texts,
+				targetLanguage,
+				...(sourceLanguage && { sourceLanguage })
+			},
+			{ skipAuthRedirect: true } as AxiosRequestConfig
+		);
 		return response.data;
 	}
 

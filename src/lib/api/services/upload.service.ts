@@ -2,6 +2,15 @@ import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import cloudflareMediaService from './cloudflare-media.service';
 import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
+import {
+	UPLOAD_TIMEOUT_MS,
+	UploadTimeoutError,
+	assertUsableUploadResult,
+	fileWithResolvedMime,
+	isImageMime,
+	isUploadTimeout,
+	isVideoMime
+} from '$lib/utils/media/upload-file';
 import { addBreadcrumb } from '@sentry/sveltekit';
 
 export interface UploadResult {
@@ -79,13 +88,14 @@ class UploadService extends BaseApiService {
 		// Validate and sanitize folder parameter to prevent path traversal
 		const safeFolder = validateFolderParam(folder);
 
-		let processedFile = file;
+		const normalizedFile = fileWithResolvedMime(file);
+		let processedFile = normalizedFile;
 		let compressed = false;
-		const originalSize = file.size;
+		const originalSize = normalizedFile.size;
 
-		// Determine file type
-		const isImage = file.type.startsWith('image/');
-		const isVideo = file.type.startsWith('video/');
+		// Determine file type from the sniffed MIME, not a blank browser type.
+		const isImage = isImageMime(normalizedFile.type);
+		const isVideo = isVideoMime(normalizedFile.type);
 		const fileType: 'image' | 'video' | 'document' = isImage
 			? 'image'
 			: isVideo
@@ -94,13 +104,13 @@ class UploadService extends BaseApiService {
 
 		// Compress images if enabled and file is an image
 		if (isImage && enableCompression) {
-			const validation = validateImageFile(file);
+			const validation = validateImageFile(normalizedFile);
 			if (!validation.isValid) {
 				throw new Error(validation.error || 'Invalid image file');
 			}
 
 			try {
-				const compressionResult = await compressImage(file, {
+				const compressionResult = await compressImage(normalizedFile, {
 					maxSizeMB: 2,
 					maxWidthOrHeight: 3840,
 					quality: 0.8,
@@ -226,25 +236,34 @@ class UploadService extends BaseApiService {
 		const formData = new FormData();
 		formData.append('file', file);
 
-		// Use the appropriate endpoint with folder query parameter
-		const response = await this.post<{ url: string; key: string }>(
-			`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`,
-			formData,
-			{
-				headers: {
-					'Content-Type': 'multipart/form-data'
+		// Do not set Content-Type. Axios would otherwise send
+		// multipart/form-data with no boundary (or application/json) and the
+		// API parser waits until the client times out.
+		let response: { data: { url?: string; key?: string } };
+		try {
+			response = await this.post<{ url?: string; key?: string }>(
+				`${ENDPOINTS.UPLOADS.SINGLE}?folder=${encodeURIComponent(folder)}`,
+				formData,
+				{
+					timeout: UPLOAD_TIMEOUT_MS,
+					signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS)
 				}
-			}
-		);
+			);
+		} catch (error) {
+			if (isUploadTimeout(error)) throw new UploadTimeoutError();
+			throw error;
+		}
 
-		return {
-			url: response.data.url,
-			key: response.data.key,
+		const result = {
+			url: response.data?.url ?? '',
+			key: response.data?.key ?? '',
 			type: metadata.type,
 			size: metadata.size,
 			originalSize: metadata.originalSize,
 			compressed: metadata.compressed || false
 		};
+		assertUsableUploadResult(result);
+		return result;
 	}
 
 	/**
@@ -274,6 +293,7 @@ class UploadService extends BaseApiService {
 				const result = await this.uploadSingleFile(file, options);
 				results.push(result);
 			} catch (error) {
+				if (isUploadTimeout(error)) throw error;
 				throw new Error(`Failed to upload ${file.name}: ${(error as Error).message}`);
 			}
 		}

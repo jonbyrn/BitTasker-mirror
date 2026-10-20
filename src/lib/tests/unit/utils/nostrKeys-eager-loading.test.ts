@@ -147,7 +147,7 @@ describe('getAllKeys', () => {
 			mnemonic: TEST_MNEMONIC
 		});
 
-		const result = await getAllKeys();
+		const result = await getAllKeys({ interactive: true });
 
 		expect(result.npub).toBe(TEST_NPUB);
 		expect(result.mnemonic).toBe(TEST_MNEMONIC);
@@ -160,10 +160,15 @@ describe('getAllKeys', () => {
 		expect(store.biometricData).not.toBeNull();
 	});
 
+	it('does not open WebAuthn on a page-load read', async () => {
+		await expect(getAllKeys()).rejects.toThrow('PASSKEY_UNLOCK_REQUIRED');
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
+	});
+
 	it('should throw when biometric returns null (Tier 3 failure)', async () => {
 		mockGetBiometricData.mockResolvedValue(null);
 
-		await expect(getAllKeys()).rejects.toThrow('No biometric data found');
+		await expect(getAllKeys({ interactive: true })).rejects.toThrow('No biometric data found');
 	});
 });
 

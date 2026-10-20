@@ -1,4 +1,5 @@
 import imageCompression from 'browser-image-compression';
+import { fileWithResolvedMime, isImageMime, resolveUploadMime } from '$lib/utils/media/upload-file';
 
 /**
  * Image compression utilities for BitTasker
@@ -43,20 +44,22 @@ export async function compressImage(
 	options: Partial<ImageCompressionOptions> = {}
 ): Promise<CompressionResult> {
 	const opts = { ...DEFAULT_OPTIONS, ...options };
-	
+	const source = fileWithResolvedMime(file);
+
 	// Validate input file
-	if (!file.type.startsWith('image/')) {
+	if (!isImageMime(resolveUploadMime(source))) {
 		throw new Error('File must be an image');
 	}
 
-	const originalSize = file.size;
-	
+	const originalSize = source.size;
+
 	try {
-		// Compress the image
-		const compressedFile = await imageCompression(file, {
+		// Stay on the main thread. The library's web worker can stay pending
+		// forever in Chrome, which leaves the upload spinner up with no request.
+		const compressedFile = await imageCompression(source, {
 			maxSizeMB: opts.maxSizeMB!,
 			maxWidthOrHeight: opts.maxWidthOrHeight!,
-			useWebWorker: true, // Use web worker for better performance
+			useWebWorker: false,
 			fileType: opts.fileType!,
 			initialQuality: opts.initialQuality!
 		});
@@ -80,8 +83,9 @@ export async function compressImage(
  * Validates if an image meets the requirements before compression
  */
 export function validateImageFile(file: File): { isValid: boolean; error?: string } {
-	// Check file type
-	if (!file.type.startsWith('image/')) {
+	const mime = resolveUploadMime(file);
+	// Check file type. Linux Chrome can leave image/png as "" or octet-stream.
+	if (!isImageMime(mime)) {
 		return { isValid: false, error: 'File must be an image' };
 	}
 
@@ -92,11 +96,18 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
 	}
 
 	// Check if it's a supported image format
-	const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/bmp', 'image/gif'];
-	if (!supportedFormats.includes(file.type)) {
-		return { 
-			isValid: false, 
-			error: 'Unsupported image format. Supported formats: JPEG, PNG, WEBP, BMP, GIF' 
+	const supportedFormats = [
+		'image/jpeg',
+		'image/jpg',
+		'image/png',
+		'image/webp',
+		'image/bmp',
+		'image/gif'
+	];
+	if (!supportedFormats.includes(mime)) {
+		return {
+			isValid: false,
+			error: 'Unsupported image format. Supported formats: JPEG, PNG, WEBP, BMP, GIF'
 		};
 	}
 
@@ -115,7 +126,7 @@ export async function compressImages(
 
 	for (let i = 0; i < files.length; i++) {
 		const file = files[i];
-		
+
 		// Validate each file
 		const validation = validateImageFile(file);
 		if (!validation.isValid) {
@@ -125,7 +136,7 @@ export async function compressImages(
 		try {
 			const result = await compressImage(file, options);
 			results.push(result);
-			
+
 			// Call progress callback if provided
 			if (onProgress) {
 				onProgress(i + 1, files.length, result);
@@ -157,10 +168,10 @@ export function revokeImagePreview(url: string): void {
  */
 export function formatFileSize(bytes: number): string {
 	if (bytes === 0) return '0 Bytes';
-	
+
 	const k = 1024;
 	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	
+
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }

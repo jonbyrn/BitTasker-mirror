@@ -7,9 +7,10 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { readMnemonicSession, saveMnemonicSession } from '$lib/utils/helpers/signer-session';
+import { mayPromptForPasskey, PASSKEY_UNLOCK_REQUIRED } from '$lib/utils/keys/passkey-policy';
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
-export async function getMnemonic(): Promise<string> {
+export async function getMnemonic(options?: { interactive?: boolean }): Promise<string> {
 	if (process.env.NODE_ENV === 'development') {
 		// return 'draw mobile oven airport ostrich jar fiber motion main move mom firm';
 	}
@@ -54,6 +55,9 @@ export async function getMnemonic(): Promise<string> {
 			await saveMnemonicSession(mnemonic).catch(() => undefined);
 			return mnemonic;
 		} else {
+			if (!mayPromptForPasskey(options?.interactive)) {
+				throw new Error(PASSKEY_UNLOCK_REQUIRED);
+			}
 			const biometricsAvailable = await checkBiometricAvailability();
 			let credentialData = null;
 			if (biometricsAvailable) {

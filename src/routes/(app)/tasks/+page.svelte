@@ -21,6 +21,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -950,10 +951,8 @@
 	};
 
 	const onViewTask = async (task: Task) => {
-		if (isTaskDetailsOpen) return;
-		if (!drawersLoaded) await loadDrawerComponents();
-		selectedTaskForDetails = task;
-		isTaskDetailsOpen = true;
+		if (!task?.id) return;
+		await goto(taskDetailsPath(task.id));
 	};
 
 	function closeTaskDetails() {

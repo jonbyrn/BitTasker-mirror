@@ -33,6 +33,14 @@ import {
 	saveMnemonicSession,
 	saveSignerSession
 } from '$lib/utils/helpers/signer-session';
+import { mayPromptForPasskey, PASSKEY_UNLOCK_REQUIRED } from '$lib/utils/keys/passkey-policy';
+
+export type KeyReadOptions = { interactive?: boolean };
+
+function assertPasskeyPrompt(options?: KeyReadOptions): void {
+	if (mayPromptForPasskey(options?.interactive)) return;
+	throw new Error(PASSKEY_UNLOCK_REQUIRED);
+}
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -167,25 +175,8 @@ export const getNpub = async (): Promise<string> => {
 		return npub;
 	}
 
-	// Guard: don't trigger biometric prompt if the session has been cleared
-	// (e.g. after logout). Without this, component onMount handlers that call
-	// getNpub() during Svelte's reactive cascade after set(initialAuthState)
-	// would fall through to Webauthn.startAuthentication() showing a passkey prompt.
-	const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-	if (!accessToken) return '';
-
-	const credentialData: Credentials | null = await getBiometrics();
-
-	if (!credentialData) throw new Error('No biometric data found');
-
-	const npub = credentialData.npub;
-
-	appStore.update((state) => ({
-		...state,
-		nostrKeys: { ...state.nostrKeys, npub }
-	}));
-	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-	return npub;
+	// Public reads never open WebAuthn. A missing npub is not a logout.
+	return '';
 };
 
 /**
@@ -212,7 +203,9 @@ export const getNpub = async (): Promise<string> => {
  * // Use nsec for signing operations
  * ```
  */
-export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: string }> => {
+export const getNostrKeyPair = async (
+	options?: KeyReadOptions
+): Promise<{ nsec: Uint8Array; npub: string }> => {
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
 		const result = {
@@ -271,6 +264,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		return { nsec, npub };
 	}
 
+	assertPasskeyPrompt(options);
 	const credentialData: Credentials | null = await getBiometrics();
 
 	if (!credentialData) throw new Error('No biometric data found');
@@ -336,7 +330,9 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
  * // Use mnemonic for wallet recovery or backup
  * ```
  */
-export const getAllKeys = async (): Promise<{
+export const getAllKeys = async (
+	options?: KeyReadOptions
+): Promise<{
 	npub: string;
 	nsec: Uint8Array;
 	mnemonic: string;
@@ -413,6 +409,7 @@ export const getAllKeys = async (): Promise<{
 		return { nsec, npub, mnemonic };
 	}
 
+	assertPasskeyPrompt(options);
 	const credentialData: Credentials | null = await getBiometrics();
 
 	if (!credentialData) throw new Error('No biometric data found');

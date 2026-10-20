@@ -13,12 +13,18 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
 	} from '$lib/utils/serviceDisplayTranslation';
 	import { goto } from '$app/navigation';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
+	import {
+		clusterListingPoints,
+		resolveServiceMarkers,
+		resolveTaskMarkers
+	} from '$lib/utils/maps/listing-markers';
 
 	let {
 		tasks = [],
@@ -971,45 +977,33 @@
 			// Determine map center: first task/service location > user location > default (same logic for tasks and services)
 			let centerLocation: Location;
 
-			if (isServicesMode && services.length > 0) {
-				const firstServiceLoc = getServiceLocation(services[0]);
-				if (firstServiceLoc?.latitude != null && firstServiceLoc?.longitude != null) {
-					centerLocation = {
-						displayName: firstServiceLoc.displayName || 'Service Location',
-						latitude: firstServiceLoc.latitude,
-						longitude: firstServiceLoc.longitude,
-						zipCode: firstServiceLoc.zipCode || '',
-						locationLoaded: true
-					};
-				} else {
-					centerLocation = userLocation || {
-						displayName: 'Centroamérica',
-						latitude: 13.6929,
-						longitude: -89.2182,
-						zipCode: '',
-						locationLoaded: false
-					};
-				}
+			const resolvedCenter = isServicesMode
+				? resolveServiceMarkers(services)[0]
+				: resolveTaskMarkers(tasks)[0];
+			if (resolvedCenter) {
+				centerLocation = {
+					displayName: 'Listing',
+					latitude: resolvedCenter.latitude,
+					longitude: resolvedCenter.longitude,
+					zipCode: '',
+					locationLoaded: true
+				};
+			} else if (isServicesMode && services.length > 0) {
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
 			} else if (tasks.length > 0) {
-				// Use first task's pickup location if available
-				const firstTask = tasks[0];
-				if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
-					centerLocation = {
-						displayName: firstTask.pickupLocation.displayName || 'Task Location',
-						latitude: firstTask.pickupLocation.latitude,
-						longitude: firstTask.pickupLocation.longitude,
-						zipCode: firstTask.pickupLocation.zipCode || '',
-						locationLoaded: true
-					};
-				} else {
-					centerLocation = userLocation || {
-						displayName: 'Centroamérica',
-						latitude: 13.6929,
-						longitude: -89.2182,
-						zipCode: '',
-						locationLoaded: false
-					};
-				}
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
 			} else {
 				centerLocation = userLocation || {
 					displayName: 'Centroamérica',
@@ -1192,30 +1186,12 @@
 	}
 
 	function groupServicesByLocation(svc: Service[]) {
-		const groups: Array<{ latitude: number; longitude: number; services: Service[] }> = [];
-		const processed = new SvelteSet<string>();
-		for (const service of svc) {
-			const loc = getServiceLocation(service);
-			if (!loc?.latitude || loc.longitude == null) continue;
-			const key = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
-			if (processed.has(key)) continue;
-			processed.add(key);
-			const nearby = svc.filter((s) => {
-				const l = getServiceLocation(s);
-				return (
-					l?.latitude != null &&
-					l?.longitude != null &&
-					Math.abs(l.latitude - loc.latitude!) < 0.001 &&
-					Math.abs(l.longitude - loc.longitude!) < 0.001
-				);
-			});
-			groups.push({
-				latitude: loc.latitude,
-				longitude: loc.longitude,
-				services: nearby
-			});
-		}
-		return groups;
+		const resolved = resolveServiceMarkers(svc);
+		return clusterListingPoints(resolved).map((cluster) => ({
+			latitude: cluster.latitude,
+			longitude: cluster.longitude,
+			services: cluster.items.map((item) => item.item)
+		}));
 	}
 
 	function getServicePricingDisplay(service: Service): string {
@@ -1417,7 +1393,7 @@
 	async function createServiceMarker(
 		lat: number,
 		lng: number,
-		service: Service
+		grouped: Service[]
 	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
 		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
 		try {
@@ -1431,7 +1407,29 @@
 			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%';
+			if (grouped.length > 1) {
+				const serviceCount = document.createElement('div');
+				serviceCount.style.cssText = `
+					position: absolute;
+					top: -8px;
+					right: -8px;
+					background: linear-gradient(135deg, #EF4444, #DC2626);
+					color: white;
+					border-radius: 50%;
+					width: 20px;
+					height: 20px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 11px;
+					font-weight: bold;
+					border: 2px solid white;
+				`;
+				serviceCount.textContent = grouped.length.toString();
+				markerContainer.appendChild(serviceCount);
+			}
 			markerContainer.appendChild(img);
+			const service = grouped[0];
 			const marker = new AdvancedMarkerElement({
 				position: { lat, lng },
 				map,
@@ -1473,11 +1471,7 @@
 		try {
 			const groups = groupServicesByLocation(services);
 			for (const group of groups) {
-				const marker = await createServiceMarker(
-					group.latitude,
-					group.longitude,
-					group.services[0]
-				);
+				const marker = await createServiceMarker(group.latitude, group.longitude, group.services);
 				if (marker) markers.push(marker);
 			}
 		} catch (error) {
@@ -1486,42 +1480,13 @@
 	}
 
 	// Función para agrupar tareas por ubicación de recogida cercana
-	function groupTasksByLocation(tasks: Task[]) {
-		const groups: Array<{
-			latitude: number;
-			longitude: number;
-			tasks: Task[];
-		}> = [];
-
-		const processedLocations = new SvelteSet<string>();
-
-		for (const task of tasks) {
-			// Solo procesar pickup location
-			if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
-				const locationKey = `${task.pickupLocation.latitude.toFixed(4)},${task.pickupLocation.longitude.toFixed(4)}`;
-
-				if (!processedLocations.has(locationKey)) {
-					processedLocations.add(locationKey);
-
-					// Buscar tareas cercanas en la misma ubicación de recogida
-					const nearbyTasks = tasks.filter(
-						(t) =>
-							t.pickupLocation?.latitude &&
-							t.pickupLocation.longitude &&
-							Math.abs(t.pickupLocation.latitude - (task.pickupLocation?.latitude || 0)) < 0.001 &&
-							Math.abs(t.pickupLocation.longitude - (task.pickupLocation?.longitude || 0)) < 0.001
-					);
-
-					groups.push({
-						latitude: task.pickupLocation.latitude,
-						longitude: task.pickupLocation.longitude,
-						tasks: nearbyTasks
-					});
-				}
-			}
-		}
-
-		return groups;
+	function groupTasksByLocation(taskList: Task[]) {
+		const resolved = resolveTaskMarkers(taskList);
+		return clusterListingPoints(resolved).map((cluster) => ({
+			latitude: cluster.latitude,
+			longitude: cluster.longitude,
+			tasks: cluster.items.map((item) => item.item)
+		}));
 	}
 
 	async function createTaskMarkers() {
@@ -1598,6 +1563,10 @@
 
 			// 🖱️ Evento click en el marcador → mostrar InfoWindow y ajustar zoom
 			marker.addListener('click', () => {
+				if (tasks.length === 1 && tasks[0]?.id) {
+					void goto(taskDetailsPath(tasks[0].id));
+					return;
+				}
 				// Ocultar todos los círculos primero
 				hideAllCircles();
 
