@@ -49,7 +49,7 @@ vi.mock('svelte-i18n', () => ({
 }));
 
 describe('homepage featured services ordering', () => {
-	it('renders featured services before the benefits and featured tasks sections', async () => {
+	it('renders featured tasks, then services, then benefits', async () => {
 		const renderOpts = {
 			props: {
 				data: {
@@ -130,7 +130,7 @@ describe('homepage featured services ordering', () => {
 		expect(nodes.indexOf(servicesSection)).toBeGreaterThan(-1);
 		expect(nodes.indexOf(benefitsSection)).toBeGreaterThan(-1);
 		expect(nodes.indexOf(tasksSection)).toBeGreaterThan(-1);
+		expect(nodes.indexOf(tasksSection)).toBeLessThan(nodes.indexOf(servicesSection));
 		expect(nodes.indexOf(servicesSection)).toBeLessThan(nodes.indexOf(benefitsSection));
-		expect(nodes.indexOf(benefitsSection)).toBeLessThan(nodes.indexOf(tasksSection));
 	});
 });
