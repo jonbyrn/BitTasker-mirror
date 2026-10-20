@@ -2,6 +2,7 @@
 	"settings": {
 		"title": "Settings",
 		"subtitle": "Manage your account settings and Nostr identity",
+		"build_id": "Build {sha}",
 		"nostr": {
 			"title": "Login Info",
 			"description": "Your decentralized identity on the Nostr network. Keep your private key secure!",

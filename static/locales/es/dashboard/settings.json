@@ -2,6 +2,7 @@
 	"settings": {
 		"title": "Configuración",
 		"subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
+		"build_id": "Compilación {sha}",
 		"nostr": {
 			"title": "Información de Acceso",
 			"description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",

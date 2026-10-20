@@ -230,12 +230,6 @@ deploy-development:
   needs:
     - build-development
   variables:
-    CLOUDFLARE_API_TOKEN:
-      value: $CLOUDFLARE_API_TOKEN
-      expand: false
-    CLOUDFLARE_ACCOUNT_ID:
-      value: $CLOUDFLARE_ACCOUNT_ID
-      expand: false
     SENTRY_URL: https://gt.bittasker.com
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
@@ -270,13 +264,10 @@ deploy-sandbox:
       - node_modules/
       - .npm/
     policy: pull
+  # Do not rebind CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN here.
+  # Since GitLab 18.6 that self-reference wins as the literal "$CLOUDFLARE_API_TOKEN",
+  # and Wrangler sends it as the Authorization header (Cloudflare 6111 / 9106).
   variables:
-    CLOUDFLARE_API_TOKEN:
-      value: $CLOUDFLARE_API_TOKEN
-      expand: false
-    CLOUDFLARE_ACCOUNT_ID:
-      value: $CLOUDFLARE_ACCOUNT_ID
-      expand: false
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com
     VITE_NOSTR_RELAY_URL: wss://nos.lol
     VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
@@ -287,8 +278,30 @@ deploy-sandbox:
     VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - |
+      token=$(printf '%s' "${CLOUDFLARE_API_TOKEN-}" | tr -d '\r\n')
+      token=${token#"Bearer "}
+      token=${token#"bearer "}
+      token=$(printf '%s' "$token" | tr -d ' \t')
+      account=$(printf '%s' "${CLOUDFLARE_ACCOUNT_ID-}" | tr -d ' \t\r\n')
+      case "$token" in
+        ''|\$*)
+          echo "Cloudflare token is missing or still an unexpanded CI variable. Deploy stopped."
+          exit 1
+          ;;
+      esac
+      case "$account" in
+        ''|\$*)
+          echo "Cloudflare account id is missing or still an unexpanded CI variable. Deploy stopped."
+          exit 1
+          ;;
+      esac
+      export CLOUDFLARE_API_TOKEN="$token"
+      export CLOUDFLARE_ACCOUNT_ID="$account"
+      echo "Cloudflare token length ${#CLOUDFLARE_API_TOKEN}, account length ${#CLOUDFLARE_ACCOUNT_ID}"
   script:
     - npm ci --cache .npm --prefer-offline
+    - export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
     - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
     - export VITE_RGB_USDT_ASSET_ID=rgb:2s69152-rg39309-8438210-usdt_testnet
     - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
@@ -327,13 +340,6 @@ deploy-production:
     policy: pull
   needs:
     - build-production
-  variables:
-    CLOUDFLARE_API_TOKEN:
-      value: $CLOUDFLARE_API_TOKEN
-      expand: false
-    CLOUDFLARE_ACCOUNT_ID:
-      value: $CLOUDFLARE_ACCOUNT_ID
-      expand: false
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:

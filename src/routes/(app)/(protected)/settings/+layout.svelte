@@ -10,6 +10,9 @@
 		SignerLockedError,
 		isPasskeyPromptError
 	} from '$lib/utils/helpers/passkey-prompt';
+	import { buildLabel } from '$lib/utils/build-label';
+
+	const buildSha = buildLabel(import.meta.env.VITE_BUILD_SHA as string | undefined);
 
 	let { children } = $props();
 
@@ -94,6 +97,9 @@
 	<div class="mb-6">
 		<h3>{$t('settings.title')}</h3>
 		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
+		<p class="text-base-content/50 mt-1 font-mono text-xs" data-testid="build-sha">
+			{$t('settings.build_id', { values: { sha: buildSha } })}
+		</p>
 	</div>
 
 	{#if loading}
