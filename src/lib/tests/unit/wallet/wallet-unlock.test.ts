@@ -22,6 +22,15 @@ describe('wallet passkey unlock', () => {
 		expect(isPasskeyUnlockError(null)).toBe(false);
 	});
 
+	it('mounts the unlock banner once on the wallet page', () => {
+		const page = readFileSync('src/routes/(app)/(protected)/wallet/+page.svelte', 'utf8');
+		const balanceCard = readFileSync('src/lib/components/wallet/BalanceCard.svelte', 'utf8');
+		const mounts = (source: string) => source.match(/<WalletUnlockBanner\b/g)?.length ?? 0;
+		expect(mounts(page)).toBe(1);
+		expect(mounts(balanceCard)).toBe(0);
+		expect(page).toContain('{#if mnemonicMissing}');
+	});
+
 	it('has an obvious unlock label in English and Spanish', () => {
 		const en = JSON.parse(readFileSync('static/locales/en/dashboard/wallet.json', 'utf8'));
 		const es = JSON.parse(readFileSync('static/locales/es/dashboard/wallet.json', 'utf8'));

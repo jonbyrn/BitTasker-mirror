@@ -179,3 +179,7 @@ Outgoing chat is still filtered on the device, in the shared Nostr send path use
 Before escrow, the filter blocks phone numbers (international, spaced, dotted, dashed, 7+ digit runs, and digits spelled in English, Spanish, or Portuguese), emails including "name at gmail dot com", URLs, handles (`@user`, `t.me/`, `wa.me/`), and off-platform words in EN, ES, and PT. A match is not sent. The composer shows: "For your safety, keep chats on BitTasker until escrow is formed. Contact details and outside apps are blocked." Spanish: "Por tu seguridad, mantén los chats en BitTasker hasta que se forme el pago seguro. Los datos de contacto y las apps externas están bloqueados."
 
 After a public contract event shows escrow is formed, phone numbers, ordinary emails, and ordinary URLs can be sent. Handles and off-platform words stay blocked. `wa`, `ig`, and `fb` match only as whole words. Prices (`$25.60`, `1,206 sats`), dates (`10/20/2026`, `Oct 20`), times, short numbers, street addresses, and words such as "water", "big", and "signal strength" still pass. See the tradeoff notes in `contact-filter.ts`.
+
+### P39. /wallet shows the passkey unlock banner twice
+
+`WalletUnlockBanner` was mounted on the wallet page when the seed was locked, and again at the top of `BalanceCard`. Both were on screen, stacked. The page keeps the one banner. The balance card does not mount a second copy.
