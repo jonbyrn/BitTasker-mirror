@@ -5,6 +5,7 @@ import type {
 	ServicePricing
 } from '$lib/types/service.d';
 import { getSignedEvent } from '$lib/utils/nostr';
+import { queueSearchDelete, queueSearchUpsert, serviceToSearchDocument } from '$lib/search/catalog';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -661,6 +662,13 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
+		queueSearchUpsert(
+			'services',
+			[serviceToSearchDocument({ ...publicServiceData, id: dTagValue, npub })],
+			signedEvent,
+			true
+		);
+
 		// Return d-tag (human-readable identifier for URLs and updates)
 		return dTagValue;
 	} catch (error) {
@@ -834,6 +842,19 @@ export async function updateService(
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
+		queueSearchUpsert(
+			'services',
+			[
+				serviceToSearchDocument({
+					...publicUpdatedServiceData,
+					id: dTagValue,
+					npub: signedEvent.pubkey
+				})
+			],
+			signedEvent,
+			true
+		);
+
 		return signedEvent.id;
 	} catch (error) {
 		console.error('Failed to update service:', error);
@@ -912,11 +933,15 @@ export async function deleteService(
 		assertServiceDeletionAllowed(guard);
 		const targetEventIds = await resolveDeleteTargetEventIds(eventId, options);
 
+		const searchId = options.uniqueId || eventId;
 		const event = {
 			kind: 5, // NIP-09 deletion event
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Service deleted',
-			tags: targetEventIds.map((targetEventId) => ['e', targetEventId]) // Delete every known version of the same service identity.
+			tags: [
+				...targetEventIds.map((targetEventId) => ['e', targetEventId]),
+				['d', searchId] // Search document id, so the index write can be authorized
+			]
 		};
 
 		// Sign and publish
@@ -925,6 +950,7 @@ export async function deleteService(
 		if (response.deleteCount === 0) {
 			throw new Error('Failed to delete service');
 		}
+		queueSearchDelete('services', [searchId], signedEvent);
 		return response.message;
 	} catch (error) {
 		console.error('Failed to delete service:', error);

@@ -66,12 +66,15 @@ import {
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
+	/** True after a successful balance load. Stays false while the first load is in flight. */
+	balancesLoaded: boolean;
 };
 
 // Initial state
 const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
+	balancesLoaded: false,
 	error: null,
 
 	rsk: {
@@ -312,6 +315,8 @@ async function initialize(): Promise<void> {
 				walletStore.update((s) => ({ ...s, isInitializing: false }));
 				return;
 			}
+			// A real reinit must not treat the previous balance as ready.
+			walletStore.update((s) => ({ ...s, balancesLoaded: false }));
 			// Provider unhealthy - continue with reinitialization
 			// Don't reset state yet - let successful init replace it
 			if (import.meta.env.DEV) {
@@ -368,7 +373,9 @@ async function initialize(): Promise<void> {
 			// Read persisted balance (survives app kills, unlike in-memory store)
 			let persistedBalance: number | null = null;
 			try {
-				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
+				const { value: stored } = await Preferences.get({
+					key: StorageKeys.WALLET_LAST_BALANCE_SATS
+				});
 				if (stored !== null) {
 					const parsed = parseInt(stored, 10);
 					if (!isNaN(parsed)) persistedBalance = parsed;
@@ -388,11 +395,9 @@ async function initialize(): Promise<void> {
 			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
 				const delta = newBalanceSats - persistedBalance;
 				void import('$lib/stores/app.store').then(({ appStore }) => {
-					appStore.showInfoToast(
-						`Received ${formatSats(delta)} sats`,
-						5000,
-						{ dedupKey: `received-balance-${newBalanceSats}` }
-					);
+					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
+						dedupKey: `received-balance-${newBalanceSats}`
+					});
 				});
 			}
 
@@ -707,6 +712,7 @@ async function loadAssets(): Promise<void> {
 		walletStore.update((s) => ({
 			...s,
 			assets,
+			balancesLoaded: true,
 			totalBalances: {
 				usd: totalUsd,
 				sats: totalSats,
@@ -720,7 +726,10 @@ async function loadAssets(): Promise<void> {
 
 		// Persist balance for incoming fund detection across app kills
 		try {
-			await Preferences.set({ key: StorageKeys.WALLET_LAST_BALANCE_SATS, value: totalSats.toString() });
+			await Preferences.set({
+				key: StorageKeys.WALLET_LAST_BALANCE_SATS,
+				value: totalSats.toString()
+			});
 		} catch {
 			// Preferences unavailable
 		}
@@ -1090,6 +1099,8 @@ export async function loadRSKTokenBalances(forceRefresh = false): Promise<TokenB
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.rskWallet.send(to, amount);
 
@@ -1112,6 +1123,8 @@ export async function sendRSKToken(
 	to: string,
 	amount: string
 ): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet();
 	const provider = manager.rskWallet.getProvider();
@@ -1201,6 +1214,8 @@ export async function getTokenBalance(tokenAddress: string): Promise<TokenBalanc
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet.sendUSDT(to, amount);
 
@@ -1219,6 +1234,8 @@ export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet!.sendBNB(to, amount);
 
@@ -1543,6 +1560,32 @@ export async function estimateRBTCGas(to: string, amount: string): Promise<GasEs
 	}
 }
 
+const BSC_TRANSFER_GAS = 65_000n;
+
+/**
+ * Estimate the BNB network fee for a BSC token transfer.
+ * Returns the fee in BNB (totalCostFormatted). Callers convert to sats.
+ */
+export async function estimateBSCTransferGas(): Promise<GasEstimation> {
+	try {
+		const manager = getWalletManager();
+		const provider = manager.bscWallet.getProvider();
+		const feeData = await provider.getFeeData();
+		const gasPrice = feeData.gasPrice ?? 0n;
+		const gasCost = BSC_TRANSFER_GAS * gasPrice;
+		return {
+			gasLimit: BSC_TRANSFER_GAS.toString(),
+			gasPrice: gasPrice.toString(),
+			totalCost: gasCost.toString(),
+			totalCostFormatted: ethers.formatEther(gasCost)
+		};
+	} catch (error) {
+		throw new Error(
+			`BSC gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
+	}
+}
+
 /**
  * Set active network in UI
  *
@@ -1727,6 +1770,7 @@ export const walletManager = {
 	createReverseSwap,
 	createChainSwap,
 	estimateRBTCGas,
+	estimateBSCTransferGas,
 	createSubmarineSwap,
 	lockSubmarineSwapFunds,
 	getSubmarineSwapLimits,

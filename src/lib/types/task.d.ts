@@ -63,6 +63,8 @@ export interface TaskBody {
 	dropOffLocation?: Location;
 	skills: string[];
 	categories: Category[];
+	/** Free-form labels shown on cards and indexed for search. Distinct from Nostr event tags. */
+	tags?: string[];
 	attachments?: Attachment[];
 	status?: TaskStatusEnum;
 	translations?: TaskTranslations; // Translations for all supported languages
@@ -83,6 +85,7 @@ export interface Task {
 	dropOffLocation: Location | null;
 	skills: string[];
 	categories: Category[];
+	tags?: string[];
 	attachments?: Attachment[];
 
 	isRemovals: boolean;

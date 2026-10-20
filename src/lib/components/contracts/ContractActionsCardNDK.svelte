@@ -24,6 +24,7 @@
 	import IconHandshakeOutline from '~icons/mdi/handshake-outline';
 	import IconTimerOutline from '~icons/mdi/timer-outline';
 	import IconInformationOutline from '~icons/mdi/information-outline';
+	import SubmitWorkLock from '$lib/components/contracts/SubmitWorkLock.svelte';
 
 	const d = createDebug('contracts:actionsCardNDK');
 
@@ -356,27 +357,32 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-row gap-2 md:flex-none md:flex-wrap md:justify-end">
-	{#if primaryAction}
-		<button
-			type="button"
-			class="btn btn-sm flex-1 md:flex-none {primaryAction.btnClass}"
-			disabled={contractRune.isPending || isBusy}
-			onclick={() => openModal(primaryAction.action)}
-		>
-			{#if pendingAction === primaryAction.action}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<primaryAction.icon class="h-4 w-4 shrink-0" />
-			{/if}
-			<span>{$t(primaryAction.labelKey)}</span>
-		</button>
+<div class="flex flex-1 flex-col gap-2 md:flex-none">
+	{#if contractRune.submitWorkLockedUntil}
+		<SubmitWorkLock unlockAt={contractRune.submitWorkLockedUntil} />
 	{/if}
+	<div class="flex flex-row gap-2 md:flex-wrap md:justify-end">
+		{#if primaryAction}
+			<button
+				type="button"
+				class="btn btn-sm flex-1 md:flex-none {primaryAction.btnClass}"
+				disabled={contractRune.isPending || isBusy}
+				onclick={() => openModal(primaryAction.action)}
+			>
+				{#if pendingAction === primaryAction.action}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<primaryAction.icon class="h-4 w-4 shrink-0" />
+				{/if}
+				<span>{$t(primaryAction.labelKey)}</span>
+			</button>
+		{/if}
 
-	<button type="button" class="btn btn-outline btn-sm flex-1 md:flex-none" onclick={onOpenDrawer}>
-		<IconInformationOutline class="h-4 w-4" />
-		<span>{$t('dashboard.contracts.actions.view_details')}</span>
-	</button>
+		<button type="button" class="btn btn-outline btn-sm flex-1 md:flex-none" onclick={onOpenDrawer}>
+			<IconInformationOutline class="h-4 w-4" />
+			<span>{$t('dashboard.contracts.actions.view_details')}</span>
+		</button>
+	</div>
 </div>
 
 {#if activeModal === ContractModalAction.Complete}

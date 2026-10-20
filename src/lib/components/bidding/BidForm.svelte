@@ -15,7 +15,7 @@
 	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
 	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
@@ -253,6 +253,11 @@
 			errors.datetime = $t('bid_form.errors.datetime_required');
 		} else if (startDateTime >= endDateTime) {
 			errors.datetime = $t('bid_form.errors.datetime_invalid');
+		} else if (startDateTime.getTime() < Date.now() + 5 * 60 * 1000) {
+			const earliest = new Date(Date.now() + 5 * 60 * 1000);
+			errors.datetime = $t('bid_form.errors.start_too_soon', {
+				values: { time: formatStandardDateTime(earliest) }
+			});
 		}
 
 		// Validate description - min 20, max 500
@@ -609,7 +614,7 @@
 						<ScheduleDateTimeField
 							bind:value={startDateTime}
 							period="start"
-							minDate={new Date()}
+							minDate={new Date(Date.now() + 5 * 60 * 1000)}
 							headingKey="bid_form.form.schedule_section_start"
 							onChange={(date: Date | null) => {
 								startDateTime = date;
@@ -660,6 +665,9 @@
 							</button>
 						</div>
 					</div>
+					<p class="text-base-content/70 text-xs">
+						{$t('bid_form.form.start_submit_warning')}
+					</p>
 					{#if bidFormErrors.datetime}
 						<div class="label min-h-0 w-full min-w-0">
 							<span

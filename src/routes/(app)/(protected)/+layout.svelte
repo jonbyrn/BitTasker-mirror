@@ -16,19 +16,22 @@
 
 			await user.getUserData();
 
-			// Eagerly load all keys — caches in appStore for all child routes.
-			// This MUST happen before wallet init so getMnemonic()/getNostrKeyPair()
-			// hit Tier 1 cache and never race with each other.
-			const { getAllKeys } = await import('$lib/utils/nostrKeys');
-			await getAllKeys();
+			// Restore the tab session. This does not open WebAuthn.
+			// A passkey is asked on login, an explicit wallet unlock, and funding.
+			const { restoreUnlockedSession } = await import('$lib/utils/nostrKeys');
+			await restoreUnlockedSession();
 
-			// Initialize wallet — keys are now cached, so getMnemonic() and
-			// getNostrKeyPair() inside walletManager.initialize() return instantly.
+			// Initialize wallet only when the seed is already in this tab.
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { appStore } = await import('$lib/stores/app.store');
 			const { get } = await import('svelte/store');
+			const mnemonicReady = Boolean(get(appStore).nostrKeys.mnemonic);
 			let walletState = get(walletStore);
 
-			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+			if (
+				mnemonicReady &&
+				(!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider)
+			) {
 				await walletManager.initialize();
 				walletState = get(walletStore);
 			}

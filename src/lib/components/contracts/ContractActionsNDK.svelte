@@ -14,6 +14,7 @@
 	} from '$lib/utils/constants/contract-modals';
 	import { createDebug } from '$lib/utils/debug';
 	import { portal } from '$lib/utils/portal';
+	import SubmitWorkLock from '$lib/components/contracts/SubmitWorkLock.svelte';
 
 	const d = createDebug('contracts:actionsNDK');
 
@@ -259,6 +260,9 @@
 	}
 </script>
 
+{#if contractRune.submitWorkLockedUntil}
+	<SubmitWorkLock unlockAt={contractRune.submitWorkLockedUntil} />
+{/if}
 <div
 	class="flex w-full flex-row flex-wrap gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
 >

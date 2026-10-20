@@ -171,6 +171,8 @@ export async function estimateWrite(options: ExecuteWriteOptions): Promise<GasEs
  * Does not await confirmation. User pays gas.
  */
 export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<WriteTxResult> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const { fn, args, finalOverrides, gasPrice, logPrefix } = await prepareWrite(options);
 
 	const gasEstimate = await fn.estimateGas(...args, finalOverrides);
@@ -233,6 +235,8 @@ export async function executeWriteWithRelay(
 	options: ExecuteWriteOptions,
 	relayBaseUrl: string
 ): Promise<WriteTxResult> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const prepared = await prepareWrite(options);
 	const { method, args, contract, wallet, logPrefix, resolvedContractAddress } = prepared;
 

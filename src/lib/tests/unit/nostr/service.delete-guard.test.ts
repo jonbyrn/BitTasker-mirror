@@ -103,7 +103,10 @@ describe('deleteService guard enforcement', () => {
 		expect(hoisted.mockGetSignedEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				kind: 5,
-				tags: [['e', 'service-event-1']]
+				tags: [
+					['e', 'service-event-1'],
+					['d', 'service-event-1']
+				]
 			})
 		);
 	});
@@ -158,7 +161,8 @@ describe('deleteService guard enforcement', () => {
 				kind: 5,
 				tags: [
 					['e', 'service-event-1'],
-					['e', 'service-event-old-draft']
+					['e', 'service-event-old-draft'],
+					['d', 'service-123']
 				]
 			})
 		);

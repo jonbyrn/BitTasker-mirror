@@ -57,6 +57,8 @@
 				"cancel": "Cancelar",
 				"propose": "Proponer",
 				"complete": "Completar",
+				"submit_work_from": "Puedes entregar el trabajo desde {time}.",
+				"submit_work_countdown": "Se habilita en {countdown}.",
 				"refund": "Reembolsar",
 				"view_details": "Ver detalles",
 				"resolution_form_title": "Proponer Resolución",

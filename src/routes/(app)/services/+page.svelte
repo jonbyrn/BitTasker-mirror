@@ -8,6 +8,9 @@
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { findServices, cleanup } from '$lib/nostr/findServices';
+	import { beginServicesSearch, isServicesSearchCurrent } from '$lib/search/search-epoch';
+	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
+	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { user } from '$lib/stores/user.store';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -107,9 +110,7 @@
 	const searchInputClass = $derived(
 		(() => {
 			let baseClass = 'input input-bordered w-full pl-10';
-			if (searchQuery.length > 0 && searchQuery.length < 3) {
-				baseClass += ' input-warning';
-			} else if (searchQuery.length >= 3) {
+			if (searchQuery.trim().length > 0) {
 				baseClass += ' input-success';
 			}
 			return baseClass;
@@ -199,10 +200,12 @@
 
 	// ── Data fetching ──────────────────────────────────────────────────────────
 	async function findServicesWithTimeout(params: SearchServicesParams): Promise<void> {
+		const epoch = beginServicesSearch();
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
 		});
 		await Promise.race([findServices(params), timeoutPromise]);
+		if (!isServicesSearchCurrent(epoch)) return;
 	}
 
 	async function loadNostrData(): Promise<void> {
@@ -306,9 +309,38 @@
 			const newParams: SearchServicesParams = {
 				...capturedSearchParams,
 				page: 1,
-				search: capturedSearchQuery.trim().length >= 3 ? capturedSearchQuery.trim() : undefined
+				search: capturedSearchQuery.trim().length >= 1 ? capturedSearchQuery.trim() : undefined
 			};
 			searchParams = { ...capturedSearchParams, ...newParams };
+
+			const activeQuery = capturedSearchQuery.trim();
+			if (activeQuery.length >= 1) {
+				try {
+					const remote = await querySearchIndex(
+						'services',
+						activeQuery,
+						searchAbortController.signal
+					);
+					if (currentVersion !== searchVersion) return;
+					if (remote.available) {
+						beginServicesSearch();
+						const items = recordsFromHits<Service>(remote.hits);
+						servicesStore.update((state) => ({
+							...state,
+							items,
+							loading: false,
+							error: null,
+							currentPage: 1,
+							hasMore: false,
+							searchParamsKey: hashSearchParams(searchParams)
+						}));
+						loadingState = 'loaded';
+						return;
+					}
+				} catch (error) {
+					if (error instanceof DOMException && error.name === 'AbortError') return;
+				}
+			}
 
 			try {
 				await findServicesWithTimeout(searchParams);
@@ -339,7 +371,7 @@
 				loadingState = 'error';
 			}
 		},
-		1000
+		250
 	);
 
 	async function handleFilterApply(filterParams: SearchServicesParams) {
@@ -622,9 +654,6 @@
 	}
 
 	function getSearchPlaceholder(): string {
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			return $t('dashboard.services.browse.search_minimum_chars');
-		}
 		return $t('dashboard.services.browse.search_placeholder');
 	}
 
@@ -860,6 +889,12 @@
 							{/if}
 						</div>
 
+						<SearchResultBar
+							query={searchParams.search || searchQuery}
+							count={$servicesStore.items.length}
+							loading={$servicesStore.loading || loadingState === 'loading'}
+						/>
+
 						{#if showSkeleton}
 							<div class="mb-12 grid grid-cols-1 gap-6">
 								{#each Array.from({ length: INITIAL_SKELETON_COUNT }, (_, index) => index) as index (index)}
@@ -1081,7 +1116,12 @@
 									{$t('dashboard.services.browse.no_services_found')}
 								</h3>
 								<p class="text-base-content/60 text-center text-sm">
-									{$t('dashboard.services.browse.no_services_message')}
+									{#if searchQuery.trim()}
+										No services match “{searchQuery.trim()}”. Search titles, descriptions,
+										categories, skills, and tags.
+									{:else}
+										{$t('dashboard.services.browse.no_services_message')}
+									{/if}
 								</p>
 								{#if hasActiveParams}
 									<button class="btn btn-primary btn-sm mt-4" onclick={clearFilters}>

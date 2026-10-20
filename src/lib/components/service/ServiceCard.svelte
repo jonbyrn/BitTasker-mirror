@@ -420,12 +420,15 @@
 		{/if}
 
 		<!-- Categories -->
-		{#if service.categories && service.categories.length > 0}
+		{#if (service.categories && service.categories.length > 0) || (service.tags?.length ?? 0) > 0}
 			<div class="mb-3 flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
 				{#each service.categories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
 					<span class="badge badge-sm badge-info badge-outline">
 						{typeof category === 'string' ? category : category.name}
 					</span>
+				{/each}
+				{#each service.tags ?? [] as tag (tag)}
+					<span class="badge badge-sm badge-ghost">{tag}</span>
 				{/each}
 			</div>
 		{/if}

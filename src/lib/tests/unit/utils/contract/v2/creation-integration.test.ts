@@ -34,6 +34,25 @@ function makeMockTask(overrides: Record<string, unknown> = {}) {
 	};
 }
 
+function successReceipt(paymentId = 42) {
+	const contractAddress = '0x10169472537Cc354D9E24Aebe221aF15827e6378';
+	const iface = new ethers.Interface([
+		'event PaymentContractCreated(uint32 indexed paymentContractId)'
+	]);
+	const eventFragment = iface.getEvent('PaymentContractCreated')!;
+	const encodedData = iface.encodeEventLog(eventFragment, [paymentId]);
+	return {
+		status: 1,
+		logs: [
+			{
+				address: contractAddress,
+				topics: encodedData.topics as string[],
+				data: encodedData.data
+			}
+		]
+	};
+}
+
 function makeMockBid() {
 	return {
 		id: 'bid-456',
@@ -172,7 +191,6 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 import { createContract } from '$lib/utils/contract/v2/creation';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
-import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 describe('Contract conflict fix — out-of-box verification', () => {
@@ -220,8 +238,9 @@ describe('Contract conflict fix — out-of-box verification', () => {
 				throw new Error(`createContract failed: ${result.error}`);
 			}
 
-			// Verify the afterBroadcast fires (which calls publishTaskAcceptedBid)
 			await result.afterBroadcast;
+			expect(task.status).not.toBe(TaskStatusEnum.IN_PROGRESS);
+			await result.afterConfirmed(successReceipt());
 
 			// Parse the task content that was stringified into content
 			const publishedContent = JSON.parse(task.content);
@@ -264,7 +283,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			const result = await createContract(bid, task, 100000);
 			if (!result.success) throw new Error(result.error);
-			await result.afterBroadcast;
+			await result.afterConfirmed(successReceipt());
 
 			const publishedContent = JSON.parse(task.content);
 			// end should remain unchanged
@@ -283,18 +302,13 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const result = await createContract(bid, task, 100000);
 			if (!result.success) throw new Error(result.error);
 
-			// Simulate broadcast completing
 			await result.afterBroadcast;
+			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
 
-			// Task should now be IN_PROGRESS (afterBroadcast sets it)
+			await result.afterConfirmed(successReceipt());
 			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
 
-			// Now simulate a failure
 			await result.afterFailed('0xabc123');
-
-			// BUG: afterFailed does NOT revert task status
-			// Expected: task.status should be BID_ACCEPTED after failure cleanup
-			// Actual: task.status is still IN_PROGRESS
 			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
 		});
 
@@ -307,7 +321,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 
 			const result = await createContract(bid, task, 100000);
 			if (!result.success) throw new Error(result.error);
-			await result.afterBroadcast;
+			await result.afterConfirmed(successReceipt());
 
 			await result.afterFailed('0xabc123');
 
@@ -382,24 +396,16 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const result = await createContract(bid, task, 100000);
 			if (!result.success) throw new Error(result.error);
 
-			// After broadcast: task is IN_PROGRESS, contract event is 'pending'
 			await result.afterBroadcast;
-			expect(task.status).toBe(TaskStatusEnum.IN_PROGRESS);
+			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
 
-			// Simulate tx.wait() returning a reverted receipt
 			const revertedReceipt = { status: 0, logs: [] };
+			await expect(result.afterConfirmed(revertedReceipt)).rejects.toThrow(
+				/Transaction reverted on-chain/
+			);
+			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
 
-			// afterConfirmed should throw
-			try {
-				await result.afterConfirmed(revertedReceipt);
-			} catch {
-				// Expected
-			}
-
-			// Now call afterFailed for cleanup
 			await result.afterFailed(result.transactionHash);
-
-			// BUG: Task is still IN_PROGRESS — should be BID_ACCEPTED
 			expect(task.status).toBe(TaskStatusEnum.BID_ACCEPTED);
 		});
 	});
@@ -442,7 +448,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 	});
 
 	describe('BUG: bid status event (Kind 30008) must be broadcast when bid is accepted', () => {
-		it('calls sendBidStatusUpdate with ACCEPTED status during afterBroadcast', async () => {
+		it('calls sendBidStatusUpdate with ACCEPTED status after confirmation', async () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
@@ -456,6 +462,8 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			if (!result.success) throw new Error(result.error);
 
 			await result.afterBroadcast;
+			expect(mockSendBidStatusUpdate).not.toHaveBeenCalled();
+			await result.afterConfirmed(successReceipt());
 
 			expect(mockSendBidStatusUpdate).toHaveBeenCalledWith(
 				'bid-456',
@@ -468,7 +476,7 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			);
 		});
 
-		it('afterBroadcast does not fail when sendBidStatusUpdate throws', async () => {
+		it('afterConfirmed still returns when sendBidStatusUpdate throws', async () => {
 			const now = Math.floor(Date.now() / 1000);
 			const task = makeMockTask();
 			const bid = makeMockBid();
@@ -480,11 +488,9 @@ describe('Contract conflict fix — out-of-box verification', () => {
 			const result = await createContract(bid, task, 100000);
 			if (!result.success) throw new Error(result.error);
 
-			// afterBroadcast should complete without throwing even if bid status update fails
-			const report = await result.afterBroadcast;
-			// The failure should be captured in the report
-			expect(report.failures.length).toBeGreaterThanOrEqual(1);
-			expect(report.failures.some((f) => f.name === 'bidStatusUpdate')).toBe(true);
+			const confirmed = await result.afterConfirmed(successReceipt());
+			expect(confirmed.paymentId).toBe(42);
+			expect(mockSendBidStatusUpdate).toHaveBeenCalled();
 		});
 	});
 });

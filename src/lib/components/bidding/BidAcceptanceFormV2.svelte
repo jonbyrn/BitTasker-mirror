@@ -33,6 +33,7 @@
 	import type { NDKTask } from '$lib/nostr/events/task';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { createDebug } from '$lib/utils/debug';
+	import { MINIMUM_START_BUFFER_SECONDS } from '$lib/utils/contract/v2/types';
 
 	const d = createDebug('bidding:BidAcceptanceForm');
 
@@ -67,6 +68,7 @@
 	let currentScreen = $state<'form' | 'success'>('form');
 	/** After broadcast: single phase until chain + Nostr follow-up finish */
 	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
+	let fundingTxHash = $state('');
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -111,6 +113,37 @@
 			completionTime: contractDetails.completionTime,
 			wasAdjusted: contractDetails.wasTimeAdjusted
 		};
+	});
+
+	let fundingClock = $state(Date.now());
+	let proposedStartLocal = $state('');
+
+	function toDatetimeLocalValue(date: Date): string {
+		const pad = (value: number) => String(value).padStart(2, '0');
+		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+	}
+
+	const earliestStartDate = $derived(new Date(fundingClock + MINIMUM_START_BUFFER_SECONDS * 1000));
+	const earliestStartLocal = $derived(toDatetimeLocalValue(earliestStartDate));
+	const chosenStartSeconds = $derived.by(() => {
+		if (!proposedStartLocal) return null;
+		const parsed = new Date(proposedStartLocal).getTime();
+		if (Number.isNaN(parsed)) return null;
+		return Math.floor(parsed / 1000);
+	});
+	const needsExplicitStart = $derived.by(() => {
+		const now = Math.floor(fundingClock / 1000);
+		const start = adjustedTimes?.startTime ?? 0;
+		return (adjustedTimes?.wasAdjusted ?? false) || start < now + MINIMUM_START_BUFFER_SECONDS;
+	});
+	const fundingStartBlocked = $derived.by(() => {
+		if (!needsExplicitStart) return false;
+		const now = Math.floor(fundingClock / 1000);
+		const completion = adjustedTimes?.completionTime ?? 0;
+		if (chosenStartSeconds == null) return true;
+		if (chosenStartSeconds < now + MINIMUM_START_BUFFER_SECONDS) return true;
+		if (completion > 0 && chosenStartSeconds >= completion) return true;
+		return false;
 	});
 
 	// Contract amount = base (escrow for the task; taskee fee deducted from it inside contract)
@@ -194,21 +227,27 @@
 		}
 	}
 
-	onMount(async () => {
-		try {
-			deriveContractCreationParams(bidContent, btcPrice.price);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			if (msg.includes('Completion time must be after start time')) {
-				appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_deadline_expired'), 3000);
-			} else {
-				appStore.showErrorToast(msg);
+	onMount(() => {
+		const clockId = setInterval(() => {
+			fundingClock = Date.now();
+		}, 1000);
+		void (async () => {
+			try {
+				deriveContractCreationParams(bidContent, btcPrice.price);
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				if (msg.includes('Completion time must be after start time')) {
+					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_deadline_expired'), 3000);
+				} else {
+					appStore.showErrorToast(msg);
+				}
+				onCancel();
+				return;
 			}
-			onCancel();
-			return;
-		}
-		await initializeWallet();
-		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+			await initializeWallet();
+			estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+		})();
+		return () => clearInterval(clockId);
 	});
 
 	async function handleSubmit() {
@@ -216,9 +255,19 @@
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'), 3000);
 			return;
 		}
+		if (fundingStartBlocked) {
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.start_too_soon_title'), 4000);
+			return;
+		}
 		isSubmitting = true;
 		try {
-			const result = await createContract(bid, task, btcPrice.price, additionalNotes.trim());
+			const result = await createContract(
+				bid,
+				task,
+				btcPrice.price,
+				additionalNotes.trim(),
+				chosenStartSeconds ?? undefined
+			);
 
 			if (!result.success) {
 				const msg = result.error ?? $t('dashboard.bids.bid_acceptance.create_contract_failed');
@@ -226,24 +275,22 @@
 				return;
 			}
 
+			fundingTxHash = result.transactionHash;
 			currentScreen = 'success';
 			followUpStatus = 'mining';
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.funding_submitted_toast'), 6000);
 
 			void (async () => {
 				try {
-					await Promise.all([
-						result.afterBroadcast.then((report) => {
-							if (report.failures.length) {
-								d.warn('handleSubmit: afterBroadcast partial failures', report.failures);
-							}
-						}),
-						(async () => {
-							const receipt = await result.tx.wait();
-							if (!receipt) throw new Error('No receipt');
-							await result.afterConfirmed(receipt);
-						})()
-					]);
+					await result.afterBroadcast;
+					const receipt = await result.tx.wait();
+					if (!receipt) throw new Error('No receipt');
+					await result.afterConfirmed(receipt);
 					followUpStatus = 'done';
+					appStore.showSuccessToast(
+						$t('dashboard.bids.bid_acceptance.funding_confirmed_toast'),
+						6000
+					);
 				} catch (err) {
 					d.warn('handleSubmit: follow-up failed', err);
 					followUpStatus = 'failed';
@@ -580,6 +627,40 @@
 									</button>
 								{/if}
 							</div>
+						</div>
+					</div>
+				{/if}
+
+				{#if needsExplicitStart}
+					<div class="alert alert-outline alert-warning">
+						<div class="flex w-full flex-col gap-2">
+							<p class="font-semibold">
+								{$t('dashboard.bids.bid_acceptance.start_too_soon_title')}
+							</p>
+							<p>
+								{$t('dashboard.bids.bid_acceptance.start_too_soon_help', {
+									values: { time: formatStandardDateTime(earliestStartDate) }
+								})}
+							</p>
+							<label class="form-control">
+								<span class="label-text">{$t('dashboard.bids.bid_acceptance.new_start_label')}</span
+								>
+								<input
+									type="datetime-local"
+									class="input input-bordered"
+									min={earliestStartLocal}
+									bind:value={proposedStartLocal}
+								/>
+							</label>
+							{#if bidContent.bidderId}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm w-fit"
+									onclick={openMessageModal}
+								>
+									{$t('dashboard.bids.bid_acceptance.message_taskee')}
+								</button>
+							{/if}
 						</div>
 					</div>
 				{/if}
@@ -951,7 +1032,8 @@
 				disabled={isSubmitting ||
 					isBalanceInsufficient ||
 					!estimatedGasCost ||
-					!$walletStore.rsk.connected}
+					!$walletStore.rsk.connected ||
+					fundingStartBlocked}
 				onclick={() => (showFundConfirmationModal = true)}
 			>
 				{#if isSubmitting}
@@ -983,6 +1065,7 @@
 	<BidAcceptanceSuccessScreen
 		totalAmountRbtc={contractDetails?.totalAmount ?? '0'}
 		followUpStatus={followUpStatus === 'idle' ? 'mining' : followUpStatus}
+		transactionHash={fundingTxHash}
 	/>
 {/if}
 
@@ -1115,7 +1198,7 @@
 					type="button"
 					class="btn btn-primary flex-1"
 					onclick={handleFundClick}
-					disabled={isSubmitting}
+					disabled={isSubmitting || fundingStartBlocked}
 				>
 					{$t('dashboard.bids.bid_acceptance.fund')}
 				</button>
