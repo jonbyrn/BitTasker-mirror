@@ -306,7 +306,7 @@
 					"load_failed": "Failed to load service. Please try again.",
 					"instant_buy_lead_hours_invalid": "Book Now lead time must be a whole number from 0 to 720 hours.",
 					"instant_buy_delivery_hours_invalid": "Book Now delivery time must be at least 1 hour.",
-					"instant_buy_pricing_only_fixed_tiered": "Book Now is available only for fixed price and tiered services.",
+					"instant_buy_pricing_only_fixed_tiered": "Book Now is available only for fixed price, hourly, and tiered services.",
 					"wallet_connect_book_now": "Connect your wallet before publishing a Book Now service."
 				},
 				"upload": {

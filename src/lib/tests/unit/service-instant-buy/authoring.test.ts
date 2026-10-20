@@ -8,8 +8,9 @@ import {
 } from '$lib/utils/service-instant-buy/authoring';
 
 describe('service instant-buy authoring helpers', () => {
-	it('supports instant-buy authoring only for fixed and tiered pricing', () => {
+	it('supports instant-buy authoring for fixed, hourly, and tiered pricing', () => {
 		expect(supportsInstantBuyAuthoring(ServicePricingTypeEnum.FIXED)).toBe(true);
+		expect(supportsInstantBuyAuthoring(ServicePricingTypeEnum.HOURLY)).toBe(true);
 		expect(supportsInstantBuyAuthoring(ServicePricingTypeEnum.TIERED)).toBe(true);
 		expect(supportsInstantBuyAuthoring(ServicePricingTypeEnum.INQUIRY_REQUIRED)).toBe(false);
 		expect(supportsInstantBuyAuthoring(undefined)).toBe(false);

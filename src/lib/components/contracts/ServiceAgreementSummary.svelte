@@ -153,6 +153,17 @@
 		</div>
 	{/if}
 
+	{#if agreementSnapshot?.bookedHours}
+		<div>
+			<span class="text-base-content/50 text-xs font-medium">
+				{tr('dashboard.contracts.service_agreement.booked_hours', 'Hours booked')}
+			</span>
+			<p class="text-base-content/80 mt-1" data-testid="service-agreement-hours">
+				{agreementSnapshot.bookedHours}
+			</p>
+		</div>
+	{/if}
+
 	{#if agreementSnapshot?.priceSnapshotLabel || pricingSnapshot?.serviceVersionRef}
 		<div>
 			<span class="text-base-content/50 text-xs font-medium">

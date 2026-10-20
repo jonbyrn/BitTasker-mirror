@@ -33,9 +33,22 @@ describe('ServiceAgreementSummary', () => {
 			'Logo system and brand guide'
 		);
 		expect(screen.getByTestId('service-agreement-price').textContent).toContain('$250.00');
+		expect(screen.queryByTestId('service-agreement-hours')).toBeNull();
 		expect(screen.getByTestId('service-agreement-start').textContent).toContain('Nov');
 		expect(screen.getByTestId('service-agreement-end').textContent).toContain('Nov');
 		expect(screen.getByText('Source files')).toBeInTheDocument();
 		expect(screen.getByText(/Industry:/)).toBeInTheDocument();
+	});
+
+	it('shows the hours booked on an hourly service agreement', () => {
+		render(ServiceAgreementSummary, {
+			providerName: 'Designer',
+			agreementSnapshot: {
+				bookedHours: 3,
+				priceSnapshotLabel: '$30.00'
+			}
+		});
+
+		expect(screen.getByTestId('service-agreement-hours').textContent).toContain('3');
 	});
 });

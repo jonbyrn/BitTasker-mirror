@@ -35,6 +35,8 @@ export interface ServiceContractAgreementSnapshot {
 	deliverables?: string;
 	/** Optional note from the buyer, shown to the seller with the booking. */
 	buyerMessage?: string;
+	/** Whole hours booked for an hourly-rate service. */
+	bookedHours?: number;
 	inquiryAnswers?: Record<string, string | number | boolean | string[]>;
 	priceSnapshotRef?: string;
 	priceSnapshotLabel?: string;

@@ -567,6 +567,16 @@
 								<div class="min-w-0 flex-1">
 									<div class="bg-base-100 rounded-lg p-3 lg:bg-transparent">
 										<div class="space-y-2 text-right">
+											{#if agreementSnapshot?.bookedHours}
+												<div class="flex items-center justify-between gap-3 text-xs">
+													<span class="text-base-content/70">
+														{$t('dashboard.services.detail.hours_label')}
+													</span>
+													<span data-testid="service-instant-buy-hours"
+														>{agreementSnapshot.bookedHours}</span
+													>
+												</div>
+											{/if}
 											<div class="flex items-center justify-between gap-3 text-xs">
 												<span class="text-base-content/70">
 													{$t('dashboard.services.detail.book_now_drawer.base_amount')}

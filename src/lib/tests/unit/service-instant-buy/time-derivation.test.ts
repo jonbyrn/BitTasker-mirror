@@ -81,6 +81,28 @@ describe('service instant-buy time derivation', () => {
 		});
 	});
 
+	it('uses the same delivery schedule for hourly services as fixed price', () => {
+		expect(
+			deriveServiceInstantBuySchedule(
+				{
+					status: 'active',
+					instantBuyLeadHours: 1,
+					instantBuyDeliveryHours: 4,
+					pricing: {
+						type: 'HOURLY',
+						hourlyRate: 10
+					}
+				},
+				undefined,
+				1_700_000_000
+			)
+		).toEqual({
+			estimatedStartTime: 1_700_003_600,
+			estimatedEndTime: 1_700_018_000,
+			deliverySeconds: 14400
+		});
+	});
+
 	it('fails closed when the service is not instant-buy eligible', () => {
 		expect(() =>
 			deriveServiceInstantBuySchedule(

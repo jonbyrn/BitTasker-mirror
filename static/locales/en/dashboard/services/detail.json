@@ -217,6 +217,8 @@
 				"addons_total": "Add-ons",
 				"total_price": "Total",
 				"per_hour": "/ hr",
+				"hours_label": "Hours",
+				"hours_hint": "How many hours to book at this rate.",
 				"request_quote_modal": {
 					"title": "Request Quote",
 					"title_label": "Title",
