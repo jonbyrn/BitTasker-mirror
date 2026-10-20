@@ -110,6 +110,7 @@ describe('sendRgbAsset', () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-configured-usdt');
 		listAssets.mockResolvedValue(heldIfa);
 		getAssetBalance.mockReset();
+		delete (state.utexoWallet as { estimateFeeRate?: unknown }).estimateFeeRate;
 		onchainSendEnd.mockResolvedValue({ txid: 'ab'.repeat(32) });
 		confirmSignetTx.mockResolvedValue(undefined);
 	});
@@ -172,6 +173,36 @@ describe('sendRgbAsset', () => {
 		expect(sent.txid).toHaveLength(64);
 		expect(loadAssets).toHaveBeenCalledOnce();
 		expect(updateWallet).toHaveBeenCalledOnce();
+	});
+
+	it('pays 2 sat/vB when the esplora estimate is 100 or missing', async () => {
+		const wallet = state.utexoWallet as {
+			estimateFeeRate?: (blocks: number) => Promise<{ feeRate: number }>;
+		};
+		wallet.estimateFeeRate = vi.fn(async () => ({ feeRate: 100 }));
+		await sendRgbAsset({
+			invoice: NWCA_RPCS,
+			assetId: 'rgb:buHqKXhJ-configured-usdt',
+			amount: 1111
+		});
+		expect(wallet.estimateFeeRate).toHaveBeenCalledWith(6);
+		expect(onchainSendBegin).toHaveBeenCalledWith(expect.objectContaining({ feeRate: 2 }));
+
+		vi.mocked(wallet.estimateFeeRate).mockRejectedValueOnce(new Error('CannotEstimateFees'));
+		await sendRgbAsset({
+			invoice: NWCA_RPCS,
+			assetId: 'rgb:buHqKXhJ-configured-usdt',
+			amount: 1111
+		});
+		expect(onchainSendBegin).toHaveBeenLastCalledWith(expect.objectContaining({ feeRate: 2 }));
+
+		vi.mocked(wallet.estimateFeeRate).mockResolvedValueOnce({ feeRate: 4 });
+		await sendRgbAsset({
+			invoice: NWCA_RPCS,
+			assetId: 'rgb:buHqKXhJ-configured-usdt',
+			amount: 1111
+		});
+		expect(onchainSendBegin).toHaveBeenLastCalledWith(expect.objectContaining({ feeRate: 4 }));
 	});
 
 	it('calls onchainSendBegin and not sendBegin', async () => {

@@ -1,3 +1,4 @@
+import { resolveSendFeeRate } from '$lib/stores/wallet/fee-rate';
 import { openSendBatches, PARTIAL_SEND_BLOCK } from '$lib/stores/wallet/prepare-rgb-send';
 
 /**
@@ -246,7 +247,7 @@ export async function beginRemainderSend(
 		const psbt = await sendBatch({
 			recipientMap: map,
 			donation: false,
-			feeRate: input.feeRate ?? 2,
+			feeRate: resolveSendFeeRate(input.feeRate),
 			minConfirmations: input.minConfirmations ?? 1
 		});
 		if (typeof psbt !== 'string' || psbt.length === 0) {

@@ -21,6 +21,7 @@ import {
 	persistWalletSnapshot,
 	pullIncomingTransfers
 } from './wallet-balances';
+import { quotedSendFeeRate, resolveSendFeeRate } from './fee-rate';
 import { feeEstimateSats } from './plain-wallet';
 import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
 import {
@@ -306,11 +307,12 @@ export async function sendRgbAsset(params: {
 	await prepareRgbOnchainSend(wallet, assetId, spendable, undefined, units);
 	const signer = requireEscrowSigner(wallet);
 	const invoice = params.invoice.trim();
+	const feeRate = await quotedSendFeeRate(wallet);
 	const beginArgs = {
 		invoice,
 		assetId,
 		amount: units,
-		feeRate: 2,
+		feeRate,
 		minConfirmations: 1,
 		spendable
 	};
@@ -327,7 +329,7 @@ export async function sendRgbAsset(params: {
 		invoice,
 		assetId,
 		amount: units,
-		feeRate: 2,
+		feeRate,
 		minConfirmations: 1,
 		spendable
 	};
@@ -449,6 +451,7 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 	if (params.feeRate !== undefined && (!Number.isFinite(params.feeRate) || params.feeRate <= 0)) {
 		throw new Error('Bitcoin fee rate must be positive');
 	}
+	const feeRate = resolveSendFeeRate(params.feeRate ?? 1);
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('UTEXO wallet is not initialized');
 	const coins = wallet as { listUnspents?: () => Promise<unknown> };
@@ -456,7 +459,7 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 		const rows = await coins.listUnspents().catch(() => null);
 		const parsed = rows === null ? [] : parseWalletUtxos(rows);
 		const carriesUsdt = parsed.some((row) => row.kind === 'colored' || row.kind === 'receiving');
-		const fee = feeEstimateSats(params.feeRate ?? 1);
+		const fee = feeEstimateSats(feeRate);
 		if (carriesUsdt && uncoloredSats(rows) < params.amountSats + fee) {
 			throw new Error('Not enough bitcoin');
 		}
@@ -466,7 +469,7 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 		wallet.sendBtc({
 			address: params.address.trim(),
 			amount: params.amountSats,
-			feeRate: params.feeRate ?? 1
+			feeRate
 		}),
 		BTC_SEND_MS,
 		'Bitcoin send timed out before broadcast. Nothing was sent.'

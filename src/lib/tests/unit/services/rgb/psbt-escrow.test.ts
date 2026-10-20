@@ -267,9 +267,28 @@ describe('psbt escrow steps', () => {
 			]
 		);
 		const economics = readSendEconomics(overpaid, 2);
+		const capped = readSendEconomics(overpaid, 100);
 		expect(economics).toMatchObject({ feeSats: 21_200, weight: 846, paidSats: 975 });
+		expect(capped?.feeCapSats).toBe(economics?.feeCapSats);
 		expect(() => assertChangeReturns(overpaid, 100_000_000, 100_000_000, false, 2)).toThrow(
 			/fee must stay within the fee rate/
+		);
+		expect(() => assertChangeReturns(overpaid, 100_000_000, 100_000_000, false, 100)).toThrow(
+			/fee must stay within the fee rate/
+		);
+	});
+
+	it('asks the wallet for 2 sat/vB when the supplied rate is 100', async () => {
+		const wallet = signer();
+		await buildEscrowPsbt(wallet, {
+			assetId: 'rgb:test',
+			amount: 10_000,
+			spendable: 10_000,
+			invoice: 'rgb:invoice',
+			feeRate: 100
+		});
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ donation: false, feeRate: 2 })
 		);
 	});
 

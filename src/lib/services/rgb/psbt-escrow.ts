@@ -1,4 +1,5 @@
 import { Psbt } from 'bitcoinjs-lib';
+import { resolveSendFeeRate } from '$lib/stores/wallet/fee-rate';
 import { beginRemainderSend } from '$lib/stores/wallet/rgb-remainder';
 import {
 	openSendBatches,
@@ -209,7 +210,7 @@ export async function buildEscrowPsbt(
 	wallet: EscrowSigner,
 	input: EscrowSendInput
 ): Promise<string> {
-	const feeRate = input.feeRate ?? 2;
+	const feeRate = resolveSendFeeRate(input.feeRate);
 	const minConfirmations = input.minConfirmations ?? takeChangeConfirmations();
 	if (Number.isSafeInteger(input.spendable) && input.spendable > input.amount) {
 		const split = await beginRemainderSend(wallet, {
@@ -331,7 +332,7 @@ export interface SendEconomics {
 }
 
 function positiveRate(feeRate: number): number {
-	return Number.isFinite(feeRate) && feeRate > 0 ? feeRate : 2;
+	return resolveSendFeeRate(feeRate);
 }
 
 function isOpReturn(script: Uint8Array): boolean {
