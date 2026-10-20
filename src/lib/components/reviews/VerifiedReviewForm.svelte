@@ -3,6 +3,14 @@
 	import { publishNostrEvent } from '$lib/utils/nostr';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { appStore } from '$lib/stores/app.store';
+	import { getNpub } from '$lib/utils/nostrKeys';
+	import { contractTaskId } from '$lib/utils/contract/contract-tabs';
+	import { resolveSharedRelays } from '$lib/utils/relayUrls';
+	import {
+		loadReviewSourceEvents,
+		reviewGateFor,
+		reviewedContractIds
+	} from '$lib/utils/reviews/settled-escrow';
 	import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
 	import IconStar from '~icons/mdi/star';
 	import IconStarOutline from '~icons/mdi/star-outline';
@@ -31,11 +39,35 @@
 
 	const canSubmit = $derived(rating >= 1 && rating <= 5 && !isSubmitting);
 
+	async function taskSlug(taskEventId: string): Promise<string | null> {
+		const relays = resolveSharedRelays();
+		if (!taskEventId || relays.length === 0 || typeof WebSocket === 'undefined') return null;
+		const { queryRelayEvents } = await import('$lib/nostr/relayQuery');
+		const events = await queryRelayEvents(relays, { ids: [taskEventId], limit: 1 });
+		return events[0]?.tags.find((tag) => tag[0] === 'd')?.[1] ?? null;
+	}
+
 	async function handleSubmit(): Promise<void> {
 		if (!canSubmit) return;
 		isSubmitting = true;
 		errorMessage = '';
 		try {
+			const reviewer = await getNpub();
+			if (!reviewer) {
+				throw new Error('Sign in before leaving a review.');
+			}
+			const source = await loadReviewSourceEvents(reviewer);
+			if (reviewedContractIds(source.reviews).has(escrowId)) {
+				throw new Error('You already reviewed this escrow.');
+			}
+			const gate = reviewGateFor(source.statuses, escrowId, reviewer, revieweePubkey);
+			if (!gate.ok) throw new Error(gate.reason);
+			const subjects = [...gate.subjects];
+			const taskEventId = contractTaskId(escrowId);
+			if (taskEventId) {
+				const slug = await taskSlug(taskEventId);
+				if (slug && !subjects.includes(slug)) subjects.push(slug);
+			}
 			const content = JSON.stringify({
 				type: 'review',
 				escrowId,
@@ -47,7 +79,8 @@
 			});
 			const tags = [
 				['p', revieweePubkey],
-				['e', escrowId]
+				['e', escrowId],
+				...subjects.map((subject) => ['t', subject])
 			];
 			const result = await publishNostrEvent(KINDS.REVIEW, content, revieweePubkey, tags);
 			appStore.showSuccessToast($t('reviews.form.submitted', { default: 'Review submitted' }));

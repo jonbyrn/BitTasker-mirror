@@ -29,6 +29,11 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from '$lib/stores/app.store';
 import KINDS from '$lib/utils/constants/kinds';
+import {
+	loadReviewSourceEvents,
+	reviewedContractIds,
+	settledReviewSlots
+} from '$lib/utils/reviews/settled-escrow';
 
 const d = createDebug('reviews:helpers');
 
@@ -237,6 +242,41 @@ export async function getPendingReviewCount(): Promise<{ count: number; contract
 	}
 }
 
+async function rgbPendingReviews(viewer: string): Promise<PendingReview[]> {
+	try {
+		const source = await loadReviewSourceEvents(viewer);
+		const slots = settledReviewSlots(source.statuses, viewer, reviewedContractIds(source.reviews));
+		const pending: PendingReview[] = [];
+		for (const slot of slots) {
+			pending.push({
+				contract: {
+					contractId: slot.contractId,
+					paymentId: slot.contractId,
+					clientPubkey: viewer,
+					freelancerPubkey: slot.revieweePubkey,
+					status: slot.status,
+					isReviewable: () => true,
+					getReviewableParty: (pubkey: string) =>
+						nostrPubkeysMatch(pubkey, viewer)
+							? 'client'
+							: nostrPubkeysMatch(pubkey, slot.revieweePubkey)
+								? 'freelancer'
+								: null
+				},
+				contractId: slot.contractId,
+				revieweePubkey: slot.revieweePubkey,
+				revieweeName: await resolveRevieweeName(slot.revieweePubkey),
+				completedAt: slot.completedAt * 1000,
+				canReview: true
+			});
+		}
+		return pending;
+	} catch (err) {
+		d.error('rgbPendingReviews failed', err);
+		return [];
+	}
+}
+
 export async function findPendingReviews(
 	contracts?: IContractForReview[]
 ): Promise<PendingReview[]> {
@@ -245,10 +285,17 @@ export async function findPendingReviews(
 		d.log('findPendingReviews: Current user pubkey:', currentUserPubkey?.slice(0, 16));
 		if (!currentUserPubkey) return [];
 
-		// If contracts not provided, fetch them
-		const contractList = contracts ?? (await fetchUserContracts());
+		const rgbPromise = rgbPendingReviews(currentUserPubkey);
+		// If contracts not provided, fetch them. A hung relay must not hide settled RGB escrows.
+		const contractList =
+			contracts ??
+			(await Promise.race([
+				fetchUserContracts(),
+				new Promise<IContractForReview[]>((resolve) => setTimeout(() => resolve([]), 4000))
+			]));
+		const rgb = await rgbPromise;
 		d.log('findPendingReviews: Contract list length:', contractList?.length ?? 0);
-		if (!contractList || contractList.length === 0) return [];
+		if (!contractList || contractList.length === 0) return rgb;
 
 		// Debug each contract's reviewability
 		contractList.forEach((c) => {
@@ -298,7 +345,10 @@ export async function findPendingReviews(
 			)
 		).filter((r): r is PendingReview => r !== null);
 
-		const sorted = pending.sort((a, b) => b.completedAt - a.completedAt);
+		const seen = new Set(pending.map((review) => review.contractId));
+		const sorted = [...pending, ...rgb.filter((review) => !seen.has(review.contractId))].sort(
+			(a, b) => b.completedAt - a.completedAt
+		);
 		if (hadPartialFailure) {
 			throw new PartialPendingReviewsError('Some pending reviews could not be refreshed.', sorted);
 		}

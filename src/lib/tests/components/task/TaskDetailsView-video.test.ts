@@ -134,6 +134,9 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 vi.mock('$lib/components/Drawer.svelte', () => ({
 	default: () => null
 }));
+vi.mock('$lib/components/reviews/SubjectReviews.svelte', () => ({
+	default: () => null
+}));
 vi.mock('$lib/components/bidding/BidForm.svelte', () => ({
 	default: () => null
 }));

@@ -81,7 +81,42 @@ function approximateTask(task: TaskBody): TaskBody {
 	};
 }
 
+function newestTask(events: readonly NostrEvent[]): NostrEvent | null {
+	return (
+		[...events].sort((left, right) => (right.created_at ?? 0) - (left.created_at ?? 0))[0] ?? null
+	);
+}
+
+/** Relay copy first. The staging events API 404s on this sandbox, which left accepted tasks OPEN. */
+async function readTaskFromRelays(taskId: string): Promise<NostrEvent | null> {
+	if (RELAYS.length === 0) return null;
+	try {
+		const { queryRelayEvents } = await import('$lib/nostr/relayQuery');
+		const events = await queryRelayEvents(RELAYS, {
+			kinds: [KINDS.TASK_CREATION],
+			'#d': [taskId],
+			limit: 5
+		});
+		return newestTask(events);
+	} catch {
+		return null;
+	}
+}
+
+async function readEventFromRelays(eventId: string): Promise<NostrEvent | null> {
+	if (RELAYS.length === 0 || !/^[0-9a-f]{64}$/i.test(eventId)) return null;
+	try {
+		const { queryRelayEvents } = await import('$lib/nostr/relayQuery');
+		const events = await queryRelayEvents(RELAYS, { ids: [eventId], limit: 1 });
+		return events.find((event) => event.kind === KINDS.TASK_CREATION) ?? null;
+	} catch {
+		return null;
+	}
+}
+
 async function findTaskEvent(taskId: string): Promise<NostrEvent> {
+	const fromRelay = await readTaskFromRelays(taskId);
+	if (fromRelay) return fromRelay;
 	const response = await nostrEventsService.requestEvents({
 		filters: [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 5 }]
 	});
@@ -158,7 +193,11 @@ export async function createRecurringTask(
 	return event.id;
 }
 
-export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
+export async function updateTask(
+	taskId: string,
+	updates: Partial<TaskBody>,
+	options?: { acceptedBid?: string }
+): Promise<string> {
 	const event = await findTaskEvent(taskId);
 	const currentUser = await getNpub();
 	if (!currentUser) throw new Error('User not authenticated');
@@ -181,6 +220,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// A companion read failure must not block a public update.
 	}
 	const nextTask = { ...currentTask, ...updates };
+	const acceptedBid =
+		options?.acceptedBid || event.tags.find((tag) => tag[0] === 'acceptedBid')?.[1];
 	if (
 		exactLocations ||
 		hasExactCoords(updates.pickupLocation) ||
@@ -195,6 +236,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 	return publishTaskEvent(JSON.stringify(approximateTask(nextTask)), [
 		['d', taskId],
 		['S', nextTask.status ?? 'open'],
+		...(acceptedBid ? [['acceptedBid', acceptedBid]] : []),
 		...(nextTask.pickupLocation
 			? [['L', approximateLocation(nextTask.pickupLocation)?.displayName ?? '']]
 			: [])
@@ -202,6 +244,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 }
 
 async function findTaskByKey(taskKey: string): Promise<NostrEvent> {
+	const fromRelayId = await readEventFromRelays(taskKey);
+	if (fromRelayId) return fromRelayId;
 	try {
 		return await findTaskEvent(taskKey);
 	} catch (error) {
@@ -217,8 +261,11 @@ async function findTaskByKey(taskKey: string): Promise<NostrEvent> {
  * Mark the task COMPLETED after escrow release.
  * Same rule as production: the tasker publishes the replaceable, which closes bidding.
  */
-/** Mark the task in progress when a bid is accepted so bidding closes. */
-export async function assignTask(taskKey: string): Promise<boolean> {
+/**
+ * Close bidding when a bid is accepted.
+ * Production publishes the same replaceable as IN_PROGRESS and records acceptedBid.
+ */
+export async function assignTask(taskKey: string, bidEventId?: string): Promise<boolean> {
 	const key = taskKey.trim();
 	if (!key) return false;
 	let event: NostrEvent;
@@ -236,13 +283,17 @@ export async function assignTask(taskKey: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+	const recordedBid = event.tags.find((tag) => tag[0] === 'acceptedBid')?.[1];
+	const nextBid = bidEventId?.trim() || recordedBid;
 	if (
-		current.status === TaskStatusEnum.IN_PROGRESS ||
-		current.status === TaskStatusEnum.COMPLETED
+		(current.status === TaskStatusEnum.IN_PROGRESS ||
+			current.status === TaskStatusEnum.COMPLETED) &&
+		(!bidEventId || recordedBid === bidEventId)
 	) {
 		return true;
 	}
-	await updateTask(dTag, { status: TaskStatusEnum.IN_PROGRESS });
+	if (current.status === TaskStatusEnum.COMPLETED) return true;
+	await updateTask(dTag, { status: TaskStatusEnum.IN_PROGRESS }, { acceptedBid: nextBid });
 	return true;
 }
 

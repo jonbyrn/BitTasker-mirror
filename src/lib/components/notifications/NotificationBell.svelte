@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+	import { onMount } from 'svelte';
+	import { notificationCenterStore, sandboxPagesHost } from '$lib/stores/notificationCenter.store';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
@@ -10,6 +11,15 @@
 	let showDropdown = $state(false);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
 	let hasUnread = $derived(unreadCount > 0);
+
+	onMount(() => {
+		notificationCenterStore.fetchUnreadCount();
+		if (!sandboxPagesHost()) return;
+		const timer = setInterval(() => {
+			notificationCenterStore.fetchUnreadCount();
+		}, 30_000);
+		return () => clearInterval(timer);
+	});
 
 	function toggleDropdown() {
 		if (page.url.pathname === '/notifications') return;

@@ -6,6 +6,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
+	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
 
 	let {
 		service,
@@ -108,6 +109,10 @@
 				<p class="text-primary text-xl font-semibold">{service.pricing.amount} {pricingLabel}</p>
 			{/if}
 		</section>
+
+		<SubjectReviews
+			subjectIds={[serviceId, service.id, service.uniqueId].filter((id) => id.length > 0)}
+		/>
 
 		{#if service.skills?.length}
 			<section class="space-y-2">

@@ -57,7 +57,20 @@
 		service_expiring_soon: IconAlertCircle,
 		service_expired: IconAlertCircle,
 		service_review_received: IconStar,
-		service_price_changed: IconCash
+		service_price_changed: IconCash,
+		new_bid_on_task: IconGavel,
+		bid_accepted: IconGavel,
+		bid_rejected: IconGavel,
+		escrow_connected: IconHandshake,
+		escrow_funded: IconBitcoin,
+		escrow_locked: IconHandshake,
+		deliverable_submitted: IconClipboardCheck,
+		approved: IconClipboardCheck,
+		payment_requested: IconCash,
+		paid: IconBitcoin,
+		new_message: IconChatOutline,
+		review_received: IconStarOutline,
+		service_ordered: IconBriefcase
 	};
 
 	const CATEGORY_COLORS: Record<string, string> = {
@@ -89,7 +102,20 @@
 		service_expiring_soon: 'text-warning',
 		service_expired: 'text-error',
 		service_review_received: 'text-accent',
-		service_price_changed: 'text-warning'
+		service_price_changed: 'text-warning',
+		new_bid_on_task: 'text-secondary',
+		bid_accepted: 'text-secondary',
+		bid_rejected: 'text-secondary',
+		escrow_connected: 'text-primary',
+		escrow_funded: 'text-warning',
+		escrow_locked: 'text-primary',
+		deliverable_submitted: 'text-success',
+		approved: 'text-success',
+		payment_requested: 'text-warning',
+		paid: 'text-warning',
+		new_message: 'text-info',
+		review_received: 'text-accent',
+		service_ordered: 'text-info'
 	};
 
 	let {

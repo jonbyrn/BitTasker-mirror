@@ -29,6 +29,12 @@ vi.mock('$lib/utils/badgeSync', () => ({
 	syncBadge: vi.fn()
 }));
 
+vi.mock('$lib/utils/notifications/activity-inbox', () => ({
+	loadActivityNotifications: vi.fn().mockResolvedValue([]),
+	markActivityRead: vi.fn(),
+	hideActivity: vi.fn()
+}));
+
 vi.mock('@sentry/sveltekit', () => ({
 	addBreadcrumb: vi.fn(),
 	captureException: vi.fn()

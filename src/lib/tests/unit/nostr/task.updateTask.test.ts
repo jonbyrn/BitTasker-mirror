@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { completeTask, updateTask } from '$lib/nostr/task';
+import { assignTask, completeTask, updateTask } from '$lib/nostr/task';
+import { queryRelayEvents } from '$lib/nostr/relayQuery';
 import { getSignedEvent } from '$lib/utils/nostr';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
@@ -50,6 +51,10 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 		findEventById: vi.fn(),
 		publishEvent: vi.fn()
 	}
+}));
+
+vi.mock('$lib/nostr/relayQuery', () => ({
+	queryRelayEvents: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
@@ -184,6 +189,50 @@ describe('completeTask', () => {
 		} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
 
 		await expect(completeTask(D_TAG)).resolves.toBe(true);
+		expect(getSignedEvent).not.toHaveBeenCalled();
+	});
+});
+
+describe('assignTask', () => {
+	const bidId = 'd'.repeat(64);
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(queryRelayEvents).mockResolvedValue([]);
+	});
+
+	it('publishes IN_PROGRESS and the accepted bid from the relay when the indexer is empty', async () => {
+		const { getNpub } = await import('$lib/utils/nostrKeys');
+		vi.mocked(getNpub).mockResolvedValue(TASK_AUTHOR_PUBKEY);
+		const open = createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG);
+		open.tags = [
+			['d', D_TAG],
+			['S', TaskStatusEnum.OPEN]
+		];
+		vi.mocked(queryRelayEvents).mockResolvedValue([open]);
+
+		await expect(assignTask(D_TAG, bidId)).resolves.toBe(true);
+
+		const taskLookup = vi
+			.mocked(nostrEventsService.requestEvents)
+			.mock.calls.some((call) => JSON.stringify(call[0]).includes(String(KINDS.TASK_CREATION)));
+		expect(taskLookup).toBe(false);
+		const signed = vi.mocked(getSignedEvent).mock.calls[0]?.[0];
+		expect(signed?.tags).toEqual(
+			expect.arrayContaining([
+				['S', TaskStatusEnum.IN_PROGRESS],
+				['acceptedBid', bidId]
+			])
+		);
+		expect(signed?.content).toContain(TaskStatusEnum.IN_PROGRESS);
+	});
+
+	it('returns false when neither the relay nor the indexer has the task', async () => {
+		vi.mocked(nostrEventsService.requestEvents).mockResolvedValue({
+			data: []
+		} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
+
+		await expect(assignTask('missing-task', bidId)).resolves.toBe(false);
 		expect(getSignedEvent).not.toHaveBeenCalled();
 	});
 });

@@ -4,6 +4,11 @@ import type { NotificationCenterItem, NotificationFilters } from '$lib/types/not
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 import { browserNetworkStatus } from '$lib/utils/network-status';
 import { syncBadge } from '$lib/utils/badgeSync';
+import {
+	hideActivity,
+	loadActivityNotifications,
+	markActivityRead
+} from '$lib/utils/notifications/activity-inbox';
 
 /** RGB sandbox Pages has no staging notification service. */
 export function sandboxPagesHost(hostname = ''): boolean {
@@ -74,10 +79,53 @@ function createNotificationCenterStore() {
 		return filters;
 	}
 
+	function visibleItems(items: NotificationCenterItem[], filter: string): NotificationCenterItem[] {
+		if (filter === 'unread') return items.filter((item) => !item.isRead);
+		if (filter === 'read') return items.filter((item) => item.isRead);
+		return items;
+	}
+
 	return {
 		subscribe,
 
+		async fetchRelayNotifications() {
+			const network = get(browserNetworkStatus);
+			if (!network.online) {
+				update((s) => ({ ...s, isOffline: true, loading: false }));
+				return;
+			}
+			update((s) => ({ ...s, loading: !s.initialized, error: null }));
+			try {
+				const all = await loadActivityNotifications();
+				const filter = get({ subscribe }).activeFilter;
+				const notifications = visibleItems(all, filter);
+				const unreadCount = all.filter((item) => !item.isRead).length;
+				update((s) => ({
+					...s,
+					notifications,
+					unreadCount,
+					total: notifications.length,
+					page: 1,
+					totalPages: 1,
+					hasMore: false,
+					loading: false,
+					loadingMore: false,
+					initialized: true,
+					isOffline: false,
+					error: null
+				}));
+				await syncBadge(unreadCount);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : 'Failed to load notifications';
+				update((s) => ({ ...s, loading: false, loadingMore: false, error: message }));
+			}
+		},
+
 		async fetchNotifications(reset = false) {
+			if (sandboxPagesHost()) {
+				await this.fetchRelayNotifications();
+				return;
+			}
 			const state = get({ subscribe });
 			if (state.loading) return;
 
@@ -135,7 +183,23 @@ function createNotificationCenterStore() {
 		},
 
 		async fetchUnreadCount() {
-			if (sandboxPagesHost()) return;
+			if (sandboxPagesHost()) {
+				try {
+					const all = await loadActivityNotifications();
+					const unreadCount = all.filter((item) => !item.isRead).length;
+					update((s) => ({
+						...s,
+						unreadCount,
+						notifications: s.initialized ? visibleItems(all, s.activeFilter) : s.notifications,
+						total: s.initialized ? visibleItems(all, s.activeFilter).length : s.total,
+						isOffline: false
+					}));
+					await syncBadge(unreadCount);
+				} catch {
+					// A relay miss keeps the last badge. It must not ask for a passkey.
+				}
+				return;
+			}
 			const network = get(browserNetworkStatus);
 			if (!network.online) return;
 
@@ -155,6 +219,25 @@ function createNotificationCenterStore() {
 		},
 
 		async markRead(id: string) {
+			if (sandboxPagesHost()) {
+				markActivityRead([id]);
+				let unreadCount = 0;
+				update((s) => {
+					unreadCount = Math.max(
+						0,
+						s.unreadCount - (s.notifications.some((n) => n.id === id && !n.isRead) ? 1 : 0)
+					);
+					return {
+						...s,
+						notifications: s.notifications.map((n) =>
+							n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+						),
+						unreadCount
+					};
+				});
+				await syncBadge(unreadCount);
+				return;
+			}
 			const wasUnread = get({ subscribe }).notifications.find((n) => n.id === id && !n.isRead);
 
 			// Optimistic update — UI responds immediately, server confirms async
@@ -193,6 +276,21 @@ function createNotificationCenterStore() {
 		},
 
 		async markAllRead() {
+			if (sandboxPagesHost()) {
+				const ids = get({ subscribe }).notifications.map((item) => item.id);
+				markActivityRead(ids);
+				update((s) => ({
+					...s,
+					notifications: s.notifications.map((n) => ({
+						...n,
+						isRead: true,
+						readAt: n.readAt ?? new Date().toISOString()
+					})),
+					unreadCount: 0
+				}));
+				await syncBadge(0);
+				return;
+			}
 			update((s) => ({
 				...s,
 				notifications: s.notifications.map((n) => ({
@@ -230,6 +328,22 @@ function createNotificationCenterStore() {
 		},
 
 		async deleteNotification(id: string) {
+			if (sandboxPagesHost()) {
+				hideActivity([id]);
+				let unreadCount = 0;
+				update((s) => {
+					const target = s.notifications.find((n) => n.id === id);
+					unreadCount = target && !target.isRead ? Math.max(0, s.unreadCount - 1) : s.unreadCount;
+					return {
+						...s,
+						notifications: s.notifications.filter((n) => n.id !== id),
+						total: Math.max(0, s.total - 1),
+						unreadCount
+					};
+				});
+				await syncBadge(unreadCount);
+				return;
+			}
 			let wasUnread = false;
 			update((s) => {
 				const target = s.notifications.find((n) => n.id === id);
@@ -269,6 +383,12 @@ function createNotificationCenterStore() {
 		},
 
 		async clearAll() {
+			if (sandboxPagesHost()) {
+				hideActivity(get({ subscribe }).notifications.map((item) => item.id));
+				set({ ...initialState, initialized: true });
+				await syncBadge(0);
+				return;
+			}
 			const prev = get({ subscribe });
 			set({ ...initialState, initialized: true });
 

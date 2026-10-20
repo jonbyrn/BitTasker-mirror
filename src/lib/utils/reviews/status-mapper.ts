@@ -13,6 +13,8 @@ const REVIEWABLE_STATUS_STRINGS = new Set([
 	'fundsreleased',
 	'fundsclaimed',
 	'disputeresolved',
+	'released',
+	'settled',
 	// PascalCase variants
 	'FundsReleased',
 	'FundsClaimed',

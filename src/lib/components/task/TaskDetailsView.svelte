@@ -33,6 +33,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
+	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
 	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 
 	// Props
@@ -867,6 +868,9 @@
 									</div>
 								{/if}
 								<!-- Task Location Map - Only show pickup location -->
+								<SubjectReviews
+									subjectIds={[taskId, task.id, taskEventId ?? ''].filter((id) => id.length > 0)}
+								/>
 								{#if task.pickupLocation && !isRemoteTask()}
 									<div class="border-base-300 mt-4 border-t pt-4">
 										<h4 class="mt-3 mb-2 font-semibold">

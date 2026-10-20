@@ -232,6 +232,15 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Fix: a free DM is allowed only between the hirer and worker of a contract whose escrow is formed. Formed means a public `CONTRACT_STATUS` or `BID_STATUS` `s` tag of connected, locked, funded, or a later state of that contract (`ESCROW_FUNDED` and `WORK_IN_PROGRESS` count; accepted-only and invoice-pending do not). Both pubkeys must be the author or a `p` tag. If those relays cannot be read, chat stays closed. `sendDirectMessage` throws for chat, and the composer stays disabled, with the note "Messaging unlocks once escrow is formed." Bid text is the pre-escrow channel that remains; a proposal with a phone number, email, outside link, or outside handle is rejected with the same note. This repo has no relay policy hook for DMs, and kind 4 is also used for swaps and consignments, so the gate is on the chat send path rather than every kind-4 publish.
 - Fixed in commit `a38c9138393dc9c5ebe193a5bdd6f6376f848f2a`.
 
+### 151. Accepted bid left the task OPEN and sent no notification
+- Severity: high. Accepting a bid published the bid status, then looked up the task through the staging events API. That API 404s on this sandbox (item 133), the lookup failed, and the replaceable task stayed OPEN. The notification bell also skipped the staging notification service, so the bidder saw nothing.
+- Fix: read and republish the task on the shared relays, set it IN_PROGRESS (same as production), and record the accepted bid. The bell and /notifications list are built from public Nostr tags (new bid, bid accepted or rejected, escrow connected, funded or locked, deliverable submitted, approved, payment requested, paid or settled, a new direct message, a new review, a service ordered) with an unread count. A granted browser notification permission shows those while the tab is in the background. Background reads use the cached public key and never ask for a passkey.
+- Differs from production: production's bell is the notification API plus Firebase web push. This host has no notification service, so the inbox is the Nostr events themselves and browser push is the Notification API, not FCM.
+
+### 152. Reviews after a settled escrow
+- Severity: high. A star rating and review (kind 6430, the same kind production signs) can be published only by the hirer or the worker, and only after that escrow's latest public status is released or settled. They show on the profile, the task page, and the service page.
+- Differs from production: production also gets a kind 6431 attestation from the BitTasker verifier, with category ratings and a wallet signature. This sandbox has no attestation issuer, so a review shows from the kind 6430 event after the party check. The verifier badge stays off until that issuer is available.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.

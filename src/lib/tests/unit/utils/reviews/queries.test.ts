@@ -12,6 +12,10 @@ const subscribeMock = vi.hoisted(() =>
 	}))
 );
 
+vi.mock('$lib/nostr/relayQuery', () => ({
+	queryRelayEvents: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock('$lib/nostr/ndk', () => ({
 	ndk: {
 		subscribe: subscribeMock,

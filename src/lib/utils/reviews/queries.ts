@@ -9,6 +9,7 @@ import { ndk } from '$lib/nostr/ndk';
 import type { NDKSubscription, NDKFilter } from '@nostr-dev-kit/ndk';
 import type { AttestedReview } from '$lib/types/review';
 import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
+import { mergeReviews, plainReviewsForReviewee } from '$lib/utils/reviews/plain-reviews';
 import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('reviews:queries');
@@ -378,11 +379,15 @@ export async function getReviewsForUser(
 	}
 
 	// Attestations tag reviewee/reviewer as hex in #p — always query with normalized hex.
-	const reviews = await fetchAttestations(
-		{ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] },
-		limit * 2
-	);
-	return reviews.filter((r) => nostrPubkeysMatch(r.revieweePubkey, hexPubkey)).slice(0, limit);
+	const [attested, plain] = await Promise.all([
+		fetchAttestations({ kinds: [KINDS.ATTESTATION], '#p': [hexPubkey] }, limit * 2).catch(
+			() => [] as AttestedReview[]
+		),
+		plainReviewsForReviewee(hexPubkey).catch(() => [] as AttestedReview[])
+	]);
+	return mergeReviews(attested, plain)
+		.filter((r) => nostrPubkeysMatch(r.revieweePubkey, hexPubkey))
+		.slice(0, limit);
 }
 
 export async function getReviewsByReviewer(

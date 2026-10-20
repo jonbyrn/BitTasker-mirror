@@ -187,6 +187,28 @@
 		appStore.showSuccessToast($t('dashboard.bids.bid_acceptance.success_subtitle'));
 	}
 
+	async function closeAcceptedTask(): Promise<void> {
+		const taskKey = acceptedTaskKey(task);
+		if (!taskKey) return;
+		try {
+			const assigned = await assignTask(taskKey, bid.id);
+			if (!assigned) {
+				appStore.showErrorToast(
+					$t('dashboard.bids.bid_acceptance.task_still_open', {
+						default: 'The bid was accepted, but the task is still open. Refresh and try again.'
+					})
+				);
+			}
+		} catch (error) {
+			console.warn('[accept-fund] task assign failed', error);
+			appStore.showErrorToast(
+				$t('dashboard.bids.bid_acceptance.task_still_open', {
+					default: 'The bid was accepted, but the task is still open. Refresh and try again.'
+				})
+			);
+		}
+	}
+
 	async function publishContractStep(params: {
 		status: BidStatusEnum;
 		action: string;
@@ -294,12 +316,7 @@
 				bidderPubkey,
 				message: 'Bid accepted'
 			});
-			const taskKey = acceptedTaskKey(task);
-			if (taskKey) {
-				assignTask(taskKey).catch((error: unknown) => {
-					console.warn('[accept-fund] task assign failed', error);
-				});
-			}
+			await closeAcceptedTask();
 
 			fundedRune = rune;
 			fundedContractId = contractId;
@@ -320,12 +337,7 @@
 					bidderPubkey,
 					message: 'Bid accepted'
 				});
-				const taskKey = acceptedTaskKey(task);
-				if (taskKey) {
-					assignTask(taskKey).catch((error: unknown) => {
-						console.warn('[accept-fund] task assign failed', error);
-					});
-				}
+				await closeAcceptedTask();
 				awaitingTaskeeInvoice = true;
 				errorMessage = '';
 				return;
