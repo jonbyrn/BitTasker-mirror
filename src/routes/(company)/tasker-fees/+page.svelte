@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-at-html-tags */
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 
@@ -35,9 +36,7 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	<!-- eslint-disable svelte/no-at-html-tags -->
 	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
-	<!-- eslint-enable svelte/no-at-html-tags -->
 </svelte:head>
 
 <div class="w-full">
@@ -102,8 +101,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('tasker.fees.tier1.description')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -112,17 +110,7 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('tasker.fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">12.5%</div>
-							</div>
-						</div>
-					</div>
-					
+
 					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier1.example')}</p>
 					</div>
@@ -144,8 +132,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('tasker.fees.tier2.description')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -154,17 +141,7 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('tasker.fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">10%</div>
-							</div>
-						</div>
-					</div>
-					
+
 					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier2.example')}</p>
 					</div>
@@ -186,8 +163,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('tasker.fees.tier3.description')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -196,17 +172,7 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('tasker.fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">7.5%</div>
-							</div>
-						</div>
-					</div>
-					
+
 					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier3.example')}</p>
 					</div>
@@ -243,24 +209,20 @@
 					<tr>
 						<th>{@html $t('tasker.fees.btc.table.header_1')}</th>
 						<th>{@html $t('tasker.fees.btc.table.header_2')}</th>
-						<th>{@html $t('tasker.fees.btc.table.header_3')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td>{@html $t('fees.tiers.1.title')}</td>
 						<td>2.5%</td>
-						<td>{$t('tasker.fees.btc.table.tier_1_savings')}</td>
 					</tr>
 					<tr>
 						<td>{@html $t('fees.tiers.2.title')}</td>
 						<td>2%</td>
-						<td>{$t('tasker.fees.btc.table.tier_2_savings')}</td>
 					</tr>
 					<tr>
 						<td>{@html $t('fees.tiers.3.title')}</td>
 						<td>1.5%</td>
-						<td>{$t('tasker.fees.btc.table.tier_3_savings')}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -296,7 +258,6 @@
 				<h3 class="card-title mt-4 mb-4">{$t('tasker.fees.rebooking.card_title')}</h3>
 				<p>{$t('tasker.fees.rebooking.card_intro')}</p>
 				<ul>
-					<li>{@html $t('tasker.fees.rebooking.standard_fee')}</li>
 					<li>{@html $t('tasker.fees.rebooking.btc_fee')}</li>
 				</ul>
 				<p class="text-base-content/80 mt-3 text-sm">{$t('tasker.fees.rebooking.example')}</p>
