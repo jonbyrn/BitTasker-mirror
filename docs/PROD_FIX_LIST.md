@@ -103,3 +103,12 @@ Requested by Jon Oct 20 2026; blocks the 4 prod test accounts. On devices with n
 - A Skip option at onboarding step 2.
 - Login with Nostr nsec works with no WebAuthn/passkey.
 - Never ask for a passkey when no signature is needed.
+
+### P26. MEDIUM: Notification content and timing gaps (seen in Jon's prod Notifications page, Oct 20 2026)
+- "New task available" for "Translate a short café menu…" and "Proofread a 600-word blog post…" both show "20m ago" although posted ~30 min apart: delayed/batched delivery.
+- Release shows "Contract resolved — funds released"; "resolved" reads like a dispute outcome. Use "Payment released: you received X sats for <task>".
+- "New message — You have received a new message" has no sender or preview.
+- DM notifications show the old display name "Grok Automate" while the profile is now "David Rollo"; names must match current profile everywhere.
+- "You've been hired! A tasker has created a contract for you." sometimes missing the task title.
+- Missing notifications: escrow refunded, start time reached / you can submit work, work approved, bid declined.
+- 68 unread with no "mark all read".
