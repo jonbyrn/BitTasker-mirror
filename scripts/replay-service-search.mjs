@@ -1,23 +1,23 @@
 /**
- * One-off, idempotent replay of service events into relay2's search index.
+ * One-off, idempotent replay of kind 30402 and 30403 service events into the
+ * Meilisearch `events` index.
  *
- * Preferred path: republish the original signed kind 30402 and 30403 events to
- * wss://relay2.bittasker.com. No key is required. nostr-relay-nestjs only
- * writes Meilisearch after a database insert or replace, so an event it
- * already stored is acknowledged as a duplicate and is not indexed.
+ * Republishing the signed events to relay2 does not index them. The relay
+ * returns before EventSearchRepository.add when the event is already stored,
+ * and the process that is running does not sync kinds 30402 and 30403 until
+ * Railway applies MEILI_SEARCH_SYNC_EVENT_KINDS (deploys are paused). This
+ * script does not treat a relay 201 as an indexed document, and the backfill
+ * does not wait for that env to be live.
  *
- * Fallback, used when --upsert is passed and MEILI_SEARCH_API_KEY is set:
- * add the same document shape EventSearchRepository.toEventDocument writes
- * into the `events` index. addDocuments replaces by event id, so a second run
- * does not create duplicates. This key is the relay admin key. Do not put it
- * in VITE_* or in the Worker search key.
+ * Backfill with --upsert and MEILI_SEARCH_API_KEY, the relay admin key that
+ * can add documents. The body matches EventSearchRepository.toEventDocument.
+ * addDocuments replaces by event id, so a second run does not duplicate.
+ * Do not put that key in VITE_*, and do not use the Worker search key.
  *
- *   node scripts/replay-service-search.mjs
  *   MEILI_SEARCH_API_KEY=... node scripts/replay-service-search.mjs --upsert
  */
 
 const SOURCES = ['wss://relay2.bittasker.com', 'wss://relay1.bittasker.com'];
-const TARGET = 'wss://relay2.bittasker.com';
 const KINDS = [30402, 30403];
 const PAGE_LIMIT = 500;
 const MEILI_HOST = (
@@ -154,27 +154,18 @@ async function fetchKind(url, kind) {
 	return found;
 }
 
-function publishOne(ws, event) {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			ws.removeEventListener('message', onMessage);
-			reject(new Error(`publish timeout ${event.id}`));
-		}, 15000);
-		function onMessage(message) {
-			let frame;
-			try {
-				frame = JSON.parse(message.data);
-			} catch {
-				return;
-			}
-			if (!Array.isArray(frame) || frame[0] !== 'OK' || frame[1] !== event.id) return;
-			clearTimeout(timer);
-			ws.removeEventListener('message', onMessage);
-			resolve({ ok: frame[2] === true, message: String(frame[3] || '') });
-		}
-		ws.addEventListener('message', onMessage);
-		ws.send(JSON.stringify(['EVENT', event]));
+async function publishHttp(event) {
+	const response = await fetch('https://relay2.bittasker.com/api/v1/events', {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			'User-Agent': 'bittasker-replay'
+		},
+		body: JSON.stringify(event)
 	});
+	const text = await response.text();
+	return { status: response.status, text };
 }
 
 async function relaySearchCount(kind, query) {
@@ -224,7 +215,13 @@ async function main() {
 	const events = [...byId.values()].filter((event) => KINDS.includes(event.kind));
 	const sample = events.find((event) => titleOf(event).trim().length > 3);
 	const sampleTitle = sample ? titleOf(sample) : '';
-	const sampleWord = (sampleTitle.match(/[A-Za-z]{5,}/) || [''])[0].toLowerCase();
+	const sampleWord = (
+		sampleTitle
+			.normalize('NFD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.toLowerCase()
+			.match(/[a-z]{5,}/g) || ['']
+	)[0];
 	console.log(`unique events: ${events.length}`);
 	console.log(`sample: ${sampleTitle} word=${sampleWord}`);
 
@@ -234,22 +231,24 @@ async function main() {
 	}
 	console.log('before', JSON.stringify(before));
 
-	const target = await connect(TARGET);
-	const results = { accepted: 0, duplicate: 0, rejected: 0 };
+	// HTTP avoids the websocket EVENT limiter (10 per second, then a 10 minute
+	// block). A 201 with an empty body is what this relay returns for an event
+	// it already stored. That path does not write Meilisearch, so --upsert
+	// skips it and writes the documents itself.
+	const results = { created: 0, alreadyStored: 0, rejected: 0, skipped: upsert };
 	const messages = new Map();
-	try {
+	if (!upsert) {
 		for (const event of events) {
-			const result = await publishOne(target, event);
-			if (result.ok) results.accepted += 1;
-			else if (/duplicate|already/i.test(result.message)) results.duplicate += 1;
+			const result = await publishHttp(event);
+			const label = `${result.status} ${result.text}`.trim();
+			messages.set(label, (messages.get(label) || 0) + 1);
+			if (result.status === 201 && result.text.trim() === '') results.alreadyStored += 1;
+			else if (result.status >= 200 && result.status < 300) results.created += 1;
 			else results.rejected += 1;
-			messages.set(result.message || (result.ok ? 'ok' : 'rejected'), (messages.get(result.message) || 0) + 1);
 		}
-	} finally {
-		target.close();
+		console.log('republish', results);
+		console.log('relay messages', Object.fromEntries(messages));
 	}
-	console.log('republish', results);
-	console.log('relay messages', Object.fromEntries(messages));
 
 	let upserted = 0;
 	if (upsert) {
