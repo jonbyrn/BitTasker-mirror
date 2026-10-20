@@ -1,6 +1,9 @@
 name: Sandbox branch access
 on:
   workflow_dispatch:
+  push:
+    branches: ['sandbox/rgb-wasm-phase0']
+    paths: ['.github/workflows/sandbox-branch-access.yml']
 jobs:
   protect:
     runs-on: ubuntu-latest
