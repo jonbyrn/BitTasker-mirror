@@ -2,7 +2,12 @@ import type { NostrEvent } from 'nostr-tools';
 import type { NostrProfileImage, NostrSkill, NostrReview, Profile } from '$lib/types/profile';
 import type { Service } from '$lib/types/service.d';
 import { writable } from 'svelte/store';
-import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
+import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
+import {
+	subscribeToProfileUpdates,
+	closeNostrPool,
+	fetchProfileMetadata
+} from '$lib/nostr/profile';
 import { loadCurrentProfileServices } from '$lib/utils/profile/services-loader';
 import KINDS from '$lib/utils/constants/kinds';
 import { getReviewsByReviewer, getReviewsForUser } from '$lib/utils/reviews/queries';
@@ -84,6 +89,30 @@ function createProfileStore() {
 				...state.stats,
 				activeServices: result.services.length
 			}
+		}));
+	}
+
+	async function loadKind0Identity(): Promise<void> {
+		const npub = await getNpub();
+		if (!npub) return;
+		const metadata = await fetchProfileMetadata(npub);
+		const label = identityLabel({
+			displayName: metadata.display_name,
+			name: metadata.name
+		});
+		const picture = identityPicture(metadata);
+		update((state) => ({
+			...state,
+			data: state.data
+				? {
+						...state.data,
+						...(label ? { name: label } : {}),
+						...(picture ? { picture } : {}),
+						...(metadata.about ? { about: metadata.about } : {}),
+						...(metadata.website ? { website: metadata.website } : {}),
+						...(metadata.professionalTitle ? { professionalTitle: metadata.professionalTitle } : {})
+					}
+				: state.data
 		}));
 	}
 
@@ -289,7 +318,7 @@ function createProfileStore() {
 				});
 
 				// Profile metadata remains usable while optional backend/relay enrichments fail.
-				await Promise.allSettled([loadProfileServices(), loadReviewStats()]);
+				await Promise.allSettled([loadKind0Identity(), loadProfileServices(), loadReviewStats()]);
 			} catch (error) {
 				console.error('Failed to initialize profile store:', error);
 				set({
@@ -304,6 +333,39 @@ function createProfileStore() {
 
 		async reloadServices() {
 			await loadProfileServices();
+		},
+
+		/** Apply a saved kind-0 display name and picture without reloading the page. */
+		applyIdentity(patch: { name: string; picture: string; about?: string }) {
+			update((state) => {
+				const base = state.data ?? initialState.data;
+				if (!base) return state;
+				const picture = patch.picture.trim();
+				const nextPictures = picture
+					? [
+							{
+								url: picture,
+								type: 'image/jpeg',
+								alt: patch.name || 'profile',
+								key: picture,
+								isPrimary: true
+							},
+							...(base.pictures ?? []).filter((item) => item.url !== picture)
+						]
+					: (base.pictures ?? []);
+				return {
+					...state,
+					isLoading: false,
+					error: null,
+					data: {
+						...base,
+						name: patch.name,
+						picture,
+						about: patch.about ?? base.about,
+						pictures: nextPictures
+					}
+				};
+			});
 		},
 
 		// Cleanup subscriptions

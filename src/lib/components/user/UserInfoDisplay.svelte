@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
 	import { fetchProfileMetadata, getCachedProfile } from '$lib/nostr/profile';
+	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
 	import { ndk } from '$lib/nostr/ndk';
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
@@ -382,6 +383,7 @@
 	const displayRating = $derived(hasExplicitRating ? (ratingProp as number) : calculatedRating);
 
 	$effect(() => {
+		void $profileIdentityRevision;
 		const currentPubkey = normalizedHexPubkey;
 		activeProfileRequestId += 1;
 		const requestId = activeProfileRequestId;

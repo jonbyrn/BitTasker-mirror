@@ -383,3 +383,13 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Cause: the running rgb.bittasker.com bundle was built with `VITE_NOSTR_RELAY_URL` and `VITE_NOSTR_TASK_RELAY_URL` both set to `wss://relay2-dev.bittasker.com`. That relay is nostr-relay-nestjs and sends `["AUTH", challenge]` before it stores or returns a kind-4 event. The client treated that as a failure. The sandbox source config is different and is the intended setup: general `wss://nos.lol`, tasks `wss://relay.primal.net` (`wrangler.toml` `[env.sandbox.vars]` and `deploy-sandbox`). The error card is a DaisyUI alert grid. Extra children became extra columns, and `.alert p` uses `overflow-wrap: anywhere`, so the title column shrank to one character.
 - Fix: on AUTH, sign kind 22242 (`relay` + `challenge`) with the logged-in session key from `getNostrKeyPair()` and send `["AUTH", event]`. After the relay OK, retry the REQ or EVENT. A missing session throws `SignerLockedError` and does not open a passkey prompt per message. Escrow gating of chat is unchanged. The load error is one text column with normal word wrap, sized for 360–412px. A unit test signs the challenge and checks the retried REQ and EVENT.
 - Fixed in commit `d474b6006d213effd99617f0ac6bfe82de91e012`.
+
+### 176. My Profile title and username run off the phone
+- Severity: high. On My Profile the title sat on the left edge, and the account handle (`bitwarden_tester_tnkqu…`) drew past the right edge of the card.
+- Cause: the page wrapper had no horizontal padding. The name was a wrapping heading inside a row whose long handle could grow the card.
+- Fix: the page has side padding. The card clips overflow. The name truncates with an ellipsis inside the card.
+
+### 177. Display name and photo did not follow the user
+- Severity: high. The header, profile, task cards, bids, services, messages, reviews, and notifications kept the generated username and missed the photo after a profile edit.
+- Cause: kind 0 publishes `display_name` and `picture`, but the profile screen preferred the account username and never loaded that event into the signed-in profile. Saving personal info did not update the stores or the profile cache, and the photo field was only a URL. Notifications did not read the sender.
+- Fix: the visible name is kind-0 `display_name`, then the legacy name, then the username. The avatar is the kind-0 `picture`. Profile edit uploads a photo, publishes it on kind 0, and refreshes the header, profile, cards, messages, reviews, and notifications.

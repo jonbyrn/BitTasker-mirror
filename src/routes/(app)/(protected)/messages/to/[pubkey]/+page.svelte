@@ -5,6 +5,7 @@
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
 	import { fetchProfileMetadata } from '$lib/nostr/profile';
+	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { get } from 'svelte/store';
@@ -21,6 +22,18 @@
 	let isLoading = $state(true);
 	let error = $state('');
 	let copySuccess = $state(false);
+
+	$effect(() => {
+		const revision = $profileIdentityRevision;
+		const pubkey = recipientPubkey;
+		if (revision === 0 || !pubkey) return;
+		void fetchProfileMetadata(pubkey).then((profile) => {
+			recipientProfile = {
+				name: profile?.name || undefined,
+				picture: profile?.picture || undefined
+			};
+		});
+	});
 
 	onMount(async () => {
 		try {

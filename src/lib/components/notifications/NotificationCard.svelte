@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { NotificationCenterItem } from '$lib/types/notification';
 	import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import { timeAgo } from '$lib/utils/timeAgo';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
@@ -128,6 +130,38 @@
 		onclose?: () => void;
 	} = $props();
 
+	let senderLabel = $state('');
+	let senderPicture = $state('');
+	let senderNpub = $derived(notification.data?.senderNpub?.trim() || '');
+
+	$effect(() => {
+		void $profileIdentityRevision;
+		const npub = senderNpub;
+		const fallback = notification.data?.senderName?.trim() || '';
+		senderLabel = fallback;
+		senderPicture = '';
+		if (!npub) return;
+		let cancelled = false;
+		void import('$lib/nostr/profile').then(async ({ fetchProfileMetadata }) => {
+			const { identityLabel, identityPicture } = await import('$lib/nostr/profile/identity');
+			try {
+				const profile = await fetchProfileMetadata(npub);
+				if (cancelled) return;
+				senderLabel = identityLabel({
+					displayName: profile.display_name,
+					name: profile.name,
+					username: fallback
+				});
+				senderPicture = identityPicture(profile);
+			} catch {
+				if (!cancelled) senderLabel = fallback;
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	let CategoryIcon = $derived(CATEGORY_ICONS[notification.type] ?? IconBell);
 	let iconColor = $derived(CATEGORY_COLORS[notification.type] ?? 'text-base-content/60');
 	let isUnread = $derived(!notification.isRead);
@@ -183,11 +217,18 @@
 	aria-label={notification.title}
 	tabindex={0}
 >
-	<div class="mt-0.5 shrink-0 {iconColor}">
-		<CategoryIcon class="h-5 w-5" />
+	<div class="mt-0.5 shrink-0 {senderNpub || senderLabel ? '' : iconColor}">
+		{#if senderNpub || senderLabel}
+			<Avatar name={senderLabel || notification.title} picture={senderPicture} size="sm" />
+		{:else}
+			<CategoryIcon class="h-5 w-5" />
+		{/if}
 	</div>
 
 	<div class="min-w-0 flex-1">
+		{#if senderLabel}
+			<p class="max-w-full truncate text-sm font-semibold">{senderLabel}</p>
+		{/if}
 		<div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
 			<p class="text-sm {isUnread ? 'font-semibold' : 'font-medium'} truncate">
 				{notification.title}

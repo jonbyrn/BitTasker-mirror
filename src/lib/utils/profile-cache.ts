@@ -11,7 +11,7 @@ export class ProfileCache {
 	private readonly MAX_CACHE_SIZE = 100; // profiles
 	private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-	async getProfile(pubkey: string): Promise<{ name?: string; picture?: string } | null> {
+	async getProfile(pubkey: string): Promise<NostrProfile | null> {
 		const cached = this.cache.get(pubkey);
 		if (cached && cached.expiresAt > Date.now()) {
 			return cached.profile;
@@ -19,7 +19,7 @@ export class ProfileCache {
 		return null;
 	}
 
-	setProfile(pubkey: string, profile: { name?: string; picture?: string }) {
+	setProfile(pubkey: string, profile: NostrProfile) {
 		if (this.cache.size >= this.MAX_CACHE_SIZE) {
 			// Remove the oldest entry
 			const oldestKey = this.cache.keys().next().value;
@@ -36,7 +36,7 @@ export class ProfileCache {
 	}
 
 	// Backwards-compatible alias expected by existing callers
-	async cacheProfile(pubkey: string, profile: { name?: string; picture?: string }): Promise<void> {
+	async cacheProfile(pubkey: string, profile: NostrProfile): Promise<void> {
 		this.setProfile(pubkey, profile);
 	}
 

@@ -2,6 +2,7 @@ import type { UserData } from '$lib/types/auth';
 import type { NostrEvent } from 'nostr-tools';
 import { writable } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
+import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
 import { fetchProfileMetadata } from '$lib/nostr/profile/display-profile';
 
 // Cache for Nostr events to prevent redundant fetching
@@ -63,10 +64,15 @@ const createUserStore = () => {
 			}));
 
 			const profile = await fetchProfileMetadata(npub);
+			const label = identityLabel({
+				displayName: profile.display_name,
+				name: profile.name
+			});
+			const picture = identityPicture(profile);
 			update((state) => ({
 				...state,
-				name: profile.name ?? state.name,
-				picture: profile.picture ?? state.picture
+				name: label || state.name,
+				picture: picture || state.picture
 			}));
 
 			// Mark data as loaded after successful fetch

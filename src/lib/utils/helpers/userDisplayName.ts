@@ -1,10 +1,8 @@
+import { identityLabel } from '$lib/nostr/profile/identity';
+
 /**
- * Helper function to get the display name for a user
- * Priority: username > name > fallback (never Anonymous or public keys)
- * 
- * @param user - User object with optional username and name
- * @param fallback - Optional fallback string (default: empty string)
- * @returns Display name prioritizing username over name
+ * Visible name for a user.
+ * Priority: display name (`name`) > username > fallback.
  */
 export function getUserDisplayName(
 	user?: {
@@ -14,26 +12,21 @@ export function getUserDisplayName(
 	fallback: string = ''
 ): string {
 	if (!user) return fallback;
-	
-	// Priority: username > name > fallback
-	if (user.username && user.username.trim()) {
-		return user.username.trim();
-	}
-	
-	if (user.name && user.name.trim()) {
-		return user.name.trim();
-	}
-	
-	return fallback;
+	return (
+		identityLabel({
+			displayName: user.name,
+			username: user.username
+		}) || fallback
+	);
 }
 
 /**
  * Helper function to get the display name from userProfile structure
  * Used in bid components where user data is nested in userProfile.user
- * 
+ *
  * @param userProfile - UserProfile object with nested user
  * @param fallback - Optional fallback string (default: empty string)
- * @returns Display name prioritizing username over name
+ * @returns Display name, then username
  */
 export function getUserDisplayNameFromProfile(
 	userProfile?: {
@@ -51,11 +44,11 @@ export function getUserDisplayNameFromProfile(
 /**
  * Helper function to get the display name from bidderName or userProfile
  * Used when we have both bidderName (from Nostr bid) and userProfile (from database)
- * 
+ *
  * @param bidderName - Name from Nostr bid (may be outdated)
  * @param userProfile - UserProfile from database (preferred source)
  * @param fallback - Optional fallback string (default: empty string)
- * @returns Display name prioritizing database username/name over bidderName
+ * @returns Display name from the profile, then the bid name
  */
 export function getBidderDisplayName(
 	bidderName?: string | null,
@@ -72,12 +65,11 @@ export function getBidderDisplayName(
 		const profileName = getUserDisplayNameFromProfile(userProfile, '');
 		if (profileName) return profileName;
 	}
-	
+
 	// Fallback to bidderName if available and not empty
 	if (bidderName && bidderName.trim() && bidderName.trim() !== 'Anonymous') {
 		return bidderName.trim();
 	}
-	
+
 	return fallback;
 }
-

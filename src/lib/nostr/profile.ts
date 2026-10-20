@@ -10,6 +10,7 @@ export {
 export { generateProfileTranslations } from './profile/translations';
 export { publishMultipleImages, publishSkillsUpdate } from './profile/kinds-publish';
 export type { ProfileSetupMode } from './profile/types';
+import { normalizeKind0Profile } from './profile/identity';
 import { profileCache } from '$lib/utils/profile-cache';
 
 function toHex(value: string): string {
@@ -22,14 +23,12 @@ export async function fetchProfileMetadata(pubkey: string): Promise<NostrProfile
 	const hex = toHex(pubkey);
 	if (!hex) return {};
 	const cached = await profileCache.getProfile(hex);
-	if (cached) return cached as NostrProfile;
+	if (cached) return normalizeKind0Profile(cached as Record<string, unknown>);
 	const event = await fetchKind0Event(hex);
 	if (!event?.content) return {};
 	try {
-		const raw = JSON.parse(event.content) as NostrProfile;
-		// Normalize: prefer display_name for the canonical name field so consumers
-		// reading `name` get the richest available value.
-		const profile: NostrProfile = { ...raw, name: raw.display_name ?? raw.name };
+		const raw = JSON.parse(event.content) as Record<string, unknown>;
+		const profile = normalizeKind0Profile(raw);
 		await profileCache.cacheProfile(hex, profile);
 		return profile;
 	} catch {

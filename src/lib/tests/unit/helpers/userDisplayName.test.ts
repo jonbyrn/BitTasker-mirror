@@ -12,18 +12,18 @@ describe('userDisplayName', () => {
 			expect(getUserDisplayName(undefined, 'Guest')).toBe('Guest');
 		});
 
-		it('should return username when present and non-empty', () => {
-			expect(getUserDisplayName({ username: 'alice', name: 'Alice' })).toBe('alice');
+		it('should return the display name when both name and username are present', () => {
+			expect(getUserDisplayName({ username: 'alice', name: 'Alice' })).toBe('Alice');
 			expect(getUserDisplayName({ username: 'bob' })).toBe('bob');
 		});
 
 		it('should trim username and name', () => {
-			expect(getUserDisplayName({ username: '  alice  ', name: 'Alice' })).toBe('alice');
+			expect(getUserDisplayName({ username: '  alice  ', name: 'Alice' })).toBe('Alice');
 			expect(getUserDisplayName({ name: '  Bob  ' })).toBe('Bob');
 		});
 
-		it('should prefer username over name', () => {
-			expect(getUserDisplayName({ username: 'handle', name: 'Full Name' })).toBe('handle');
+		it('should prefer the display name over username', () => {
+			expect(getUserDisplayName({ username: 'handle', name: 'Full Name' })).toBe('Full Name');
 		});
 
 		it('should return name when username is missing or whitespace-only', () => {
@@ -54,7 +54,7 @@ describe('userDisplayName', () => {
 		it('should delegate to getUserDisplayName when user is present', () => {
 			expect(
 				getUserDisplayNameFromProfile({ user: { username: 'alice', name: 'Alice' } }, 'Guest')
-			).toBe('alice');
+			).toBe('Alice');
 			expect(getUserDisplayNameFromProfile({ user: { name: 'Bob' } })).toBe('Bob');
 			expect(getUserDisplayNameFromProfile({ user: {} }, 'Fallback')).toBe('Fallback');
 		});
@@ -68,7 +68,7 @@ describe('userDisplayName', () => {
 					{ user: { username: 'current_user', name: 'Current User' } },
 					'Guest'
 				)
-			).toBe('current_user');
+			).toBe('Current User');
 		});
 
 		it('should return bidderName when userProfile has no usable name', () => {

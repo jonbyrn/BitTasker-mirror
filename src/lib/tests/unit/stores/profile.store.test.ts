@@ -4,11 +4,13 @@ import { get } from 'svelte/store';
 const mockSubscribeToProfileUpdates = vi.fn();
 const mockCloseNostrPool = vi.fn();
 const mockLoadCurrentProfileServices = vi.fn();
+const mockFetchProfileMetadata = vi.fn();
 const mockCleanup = vi.fn();
 
 vi.mock('$lib/nostr/profile', () => ({
 	subscribeToProfileUpdates: (...args: unknown[]) => mockSubscribeToProfileUpdates(...args),
-	closeNostrPool: (...args: unknown[]) => mockCloseNostrPool(...args)
+	closeNostrPool: (...args: unknown[]) => mockCloseNostrPool(...args),
+	fetchProfileMetadata: (...args: unknown[]) => mockFetchProfileMetadata(...args)
 }));
 
 vi.mock('$lib/utils/profile/services-loader', () => ({
@@ -33,6 +35,7 @@ describe('profile.store', () => {
 		vi.resetModules();
 		vi.clearAllMocks();
 		mockSubscribeToProfileUpdates.mockResolvedValue(mockCleanup);
+		mockFetchProfileMetadata.mockResolvedValue({});
 		mockLoadCurrentProfileServices.mockResolvedValue({
 			services: [],
 			error: null
@@ -40,6 +43,21 @@ describe('profile.store', () => {
 
 		const { profileStore } = await import('$lib/stores/profile.store');
 		profileStore.reset();
+	});
+
+	it('loads kind-0 display name and picture during init', async () => {
+		mockFetchProfileMetadata.mockResolvedValue({
+			display_name: 'Ada Lovelace',
+			name: 'ada',
+			picture: 'https://example.com/ada.png'
+		});
+
+		const { profileStore } = await import('$lib/stores/profile.store');
+		await profileStore.init();
+
+		const state = get(profileStore);
+		expect(state.data?.name).toBe('Ada Lovelace');
+		expect(state.data?.picture).toBe('https://example.com/ada.png');
 	});
 
 	it('loads active services and updates the service metric during init', async () => {

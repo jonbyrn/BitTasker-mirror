@@ -9,6 +9,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
 	import { isBrandPicture } from '$lib/components/wallet/wallet-formatters';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
@@ -78,27 +79,18 @@
 		}
 	});
 
-	// Derived values for avatar - prioritize username from database
-	let userPicture = $derived(() => {
-		// First priority: first image from pictures array
-		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
-			return $profileStore.data.pictures[0].url;
-		}
-		// Second priority: user store picture
-		if ($user.picture) {
-			return $user.picture;
-		}
-		// Third priority: profile store picture
-		if ($profileStore.data?.picture) {
-			return $profileStore.data.picture;
-		}
-		return '';
-	});
+	// Kind-0 picture. Brand art is not an avatar.
+	let userPicture = $derived(() => identityPicture($profileStore.data) || identityPicture($user));
 
 	const avatarPicture = $derived(isBrandPicture(userPicture()) ? '' : userPicture());
 
-	// Derived values for user display name
-	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
+	let userDisplayName = $derived(
+		identityLabel({
+			displayName: $profileStore.data?.name,
+			name: $user.name,
+			username: $user.username
+		})
+	);
 
 	// Function to close all dropdown menus
 	function closeDropdowns() {
@@ -290,7 +282,10 @@
 		<NotificationCenter />
 		<WalletStatusIndicator name={userDisplayName} />
 		<!-- Avatar Dropdown - Pure JS controlled for iOS compatibility (no DaisyUI dropdown class) -->
-		<div class="relative shrink-0" use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}>
+		<div
+			class="relative shrink-0"
+			use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+		>
 			<button
 				class="btn btn-ghost shrink-0"
 				onclick={toggleAvatarDropdown}

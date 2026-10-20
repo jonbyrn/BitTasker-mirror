@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { locale, t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import type { AttestedReview } from '$lib/types/review';
 	import { fetchContractProfile } from '$lib/nostr/profile';
+	import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
+	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconStar from '~icons/mdi/star';
 	import IconReply from '~icons/mdi/reply';
@@ -42,22 +44,55 @@
 			: null;
 	});
 
-	// Profile name fetching for reviewee
+	// Kind-0 names and pictures for the reviewer and, when shown, the reviewee.
+	let reviewerName = $state('');
+	let reviewerPicture = $state('');
 	let revieweeName = $state<string | null>(null);
+	let revieweePicture = $state('');
 	let isLoadingProfile = $state(false);
 
-	onMount(async () => {
-		if (showRevieweeContext && review.revieweePubkey) {
+	$effect(() => {
+		void $profileIdentityRevision;
+		const reviewerPubkey = review.reviewerPubkey;
+		const revieweePubkey = showRevieweeContext ? review.revieweePubkey : '';
+		let cancelled = false;
+
+		void (async () => {
+			if (reviewerPubkey) {
+				try {
+					const profile = await fetchContractProfile(reviewerPubkey);
+					if (cancelled) return;
+					reviewerName = identityLabel({
+						displayName: profile.display_name,
+						name: profile.name
+					});
+					reviewerPicture = identityPicture(profile);
+				} catch (error) {
+					d.error('Failed to fetch reviewer profile:', error);
+				}
+			}
+
+			if (!revieweePubkey) return;
 			isLoadingProfile = true;
 			try {
-				const profile = await fetchContractProfile(review.revieweePubkey);
-				revieweeName = profile.name || null;
+				const profile = await fetchContractProfile(revieweePubkey);
+				if (cancelled) return;
+				revieweeName =
+					identityLabel({
+						displayName: profile.display_name,
+						name: profile.name
+					}) || null;
+				revieweePicture = identityPicture(profile);
 			} catch (error) {
 				d.error('Failed to fetch reviewee profile:', error);
 			} finally {
-				isLoadingProfile = false;
+				if (!cancelled) isLoadingProfile = false;
 			}
-		}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Display name: prefer fetched name, fall back to formatted pubkey
@@ -111,6 +146,12 @@
 
 <div class="card bg-base-100 border-base-300 border shadow-md">
 	<div class="card-body p-5">
+		{#if reviewerName || reviewerPicture}
+			<div class="mb-3 flex min-w-0 items-center gap-3">
+				<Avatar name={reviewerName} picture={reviewerPicture} size="sm" />
+				<p class="min-w-0 truncate font-semibold">{reviewerName}</p>
+			</div>
+		{/if}
 		<!-- Header -->
 		<div class="mb-2 flex items-start justify-between">
 			<div class="flex-1">
@@ -160,7 +201,10 @@
 					{#if isLoadingProfile}
 						<span class="loading loading-dots loading-xs"></span>
 					{:else}
-						<span class="font-semibold">{displayName}</span>
+						<span class="inline-flex min-w-0 items-center gap-2 font-semibold">
+							<Avatar name={displayName} picture={revieweePicture} size="xs" />
+							<span class="truncate">{displayName}</span>
+						</span>
 					{/if}
 					{#if roleLabel}
 						<span class="badge badge-sm badge-ghost">{roleLabel}</span>

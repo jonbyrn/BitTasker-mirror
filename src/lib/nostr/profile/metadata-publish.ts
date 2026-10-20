@@ -119,8 +119,15 @@ export async function publishProfileMetadata(
 			pollIntervalMs: verifyOptions.pollIntervalMs
 		});
 
-		if (requiredDisplayName) {
-			await profileCache.cacheProfile(npubHex, { name: requiredDisplayName });
+		const picture = typeof wireMetadata.picture === 'string' ? wireMetadata.picture : undefined;
+		if (requiredDisplayName || picture) {
+			await profileCache.cacheProfile(npubHex, {
+				...(requiredDisplayName
+					? { name: requiredDisplayName, display_name: requiredDisplayName }
+					: {}),
+				...(picture ? { picture } : {}),
+				...(typeof wireMetadata.about === 'string' ? { about: wireMetadata.about } : {})
+			});
 		}
 	}
 

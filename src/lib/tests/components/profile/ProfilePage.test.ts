@@ -68,9 +68,8 @@ describe('dashboard profile page', () => {
 	});
 
 	it('initializes and tears down the profile store on mount/unmount', async () => {
-		const component = (
-			await import('../../../../routes/(app)/(protected)/profile/+page.svelte')
-		).default;
+		const component = (await import('../../../../routes/(app)/(protected)/profile/+page.svelte'))
+			.default;
 		const { unmount } = render(component);
 
 		await waitFor(() => expect(hoisted.init).toHaveBeenCalled());
@@ -80,13 +79,14 @@ describe('dashboard profile page', () => {
 	}, 30_000);
 
 	it('renders the profile page heading', async () => {
-		const component = (
-			await import('../../../../routes/(app)/(protected)/profile/+page.svelte')
-		).default;
+		const component = (await import('../../../../routes/(app)/(protected)/profile/+page.svelte'))
+			.default;
 		const { getByText } = render(component);
 
 		await waitFor(() => {
-			expect(getByText('profile.page.title')).toBeTruthy();
+			const heading = getByText('profile.page.title');
+			expect(heading).toBeTruthy();
+			expect(heading.closest('.px-4')).toBeTruthy();
 		});
 	}, 30_000);
 });

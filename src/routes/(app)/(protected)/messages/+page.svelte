@@ -3,7 +3,8 @@
 	import { t } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
+	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 	import { fetchProfileMetadata } from '$lib/nostr/profile';
@@ -112,6 +113,31 @@
 			? conversations.filter((c) => !$muteStore.mutedPubkeys.has(c.pubkey))
 			: conversations
 	);
+
+	$effect(() => {
+		const revision = $profileIdentityRevision;
+		if (revision === 0) return;
+		const current = untrack(() => conversations);
+		if (current.length === 0) return;
+		void Promise.all(
+			current.map(async (conversation) => {
+				try {
+					const profile = await fetchProfileMetadata(conversation.pubkey);
+					return {
+						...conversation,
+						profile: {
+							name: profile.name,
+							picture: profile.picture
+						}
+					};
+				} catch {
+					return conversation;
+				}
+			})
+		).then((next) => {
+			conversations = next;
+		});
+	});
 
 	let filteredConversations = $derived(
 		searchQuery.trim() === ''

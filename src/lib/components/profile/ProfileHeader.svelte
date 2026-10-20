@@ -5,7 +5,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { t, locale } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+	import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
 
 	// Helper function to get translated profile content
@@ -46,33 +46,17 @@
 		}
 	});
 
-	// Derived values for reactive updates - prioritize username from database over name
+	// Kind-0 display name, then the account username.
 	let userName = $derived(
-		getUserDisplayName(
-			{
-				username: $user.username,
-				name: $profileStore.data?.name || $user.name
-			},
-			''
-		)
+		identityLabel({
+			displayName: $profileStore.data?.name,
+			name: $user.name,
+			username: $user.username
+		})
 	);
 
-	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
-	let userPicture = $derived(() => {
-		// First priority: first image from pictures array
-		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
-			return $profileStore.data.pictures[0].url;
-		}
-		// Second priority: user store picture
-		if ($user.picture) {
-			return $user.picture;
-		}
-		// Third priority: profile store picture
-		if ($profileStore.data?.picture) {
-			return $profileStore.data.picture;
-		}
-		return '';
-	});
+	// Kind-0 picture. Initials stand in when that picture is empty.
+	let userPicture = $derived(() => identityPicture($profileStore.data) || identityPicture($user));
 
 	// Generate share link for profile
 	const _shareLink = $derived(() => {
@@ -137,12 +121,12 @@
 		</div>
 	{:else if $profileStore.data}
 		<!-- User Profile Info -->
-		<div class="mb-4 flex items-center gap-4">
+		<div class="mb-4 flex min-w-0 items-center gap-4">
 			<Avatar name={userName} picture={userPicture()} size="lg" />
-			<div class="min-w-0 flex-1">
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<div class="min-w-0 flex-1">
-						<h3 class="line-clamp-2 min-w-0 wrap-break-word">
+			<div class="min-w-0 flex-1 overflow-hidden">
+				<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
+					<div class="min-w-0 flex-1 overflow-hidden">
+						<h3 class="block max-w-full truncate" title={userName}>
 							{userName}
 						</h3>
 						{#if $profileStore.data.professionalTitle}
@@ -219,10 +203,7 @@
 							</svg>
 							{$t('profile.page.share')}
 						</button>
-						<button
-							class="btn btn-primary btn-md gap-2"
-							onclick={() => goto('/profile/edit')}
-						>
+						<button class="btn btn-primary btn-md gap-2" onclick={() => goto('/profile/edit')}>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-4 w-4"
@@ -267,10 +248,7 @@
 				</svg>
 				{$t('profile.page.share')}
 			</button>
-			<button
-				class="btn btn-primary btn-sm flex-1 gap-2"
-				onclick={() => goto('/profile/edit')}
-			>
+			<button class="btn btn-primary btn-sm flex-1 gap-2" onclick={() => goto('/profile/edit')}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4"
