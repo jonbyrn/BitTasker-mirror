@@ -40,12 +40,16 @@ const conversions = new Map<string, number>();
 export const currencyCache = {
 	getConversion: (usd: number, btcPrice: number): number | null =>
 		conversions.get(`${usd}:${btcPrice}`) ?? null,
-	setConversion: (usd: number, btcPrice: number): number => {
+	setConversion: (usd: number, btcPrice: number): number | null => {
+		if (!Number.isFinite(usd) || usd < 0 || !Number.isFinite(btcPrice) || btcPrice <= 0) {
+			return null;
+		}
 		const sats = Math.round((usd / btcPrice) * 100_000_000);
+		if (!Number.isFinite(sats)) return null;
 		conversions.set(`${usd}:${btcPrice}`, sats);
 		return sats;
 	},
-	batchConvert: (amounts: number[], btcPrice: number): number[] =>
+	batchConvert: (amounts: number[], btcPrice: number): Array<number | null> =>
 		amounts.map((usd) => {
 			const key = `${usd}:${btcPrice}`;
 			return conversions.get(key) ?? currencyCache.setConversion(usd, btcPrice);

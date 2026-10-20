@@ -1,7 +1,44 @@
 import axios from 'axios';
 
+/** Mempool sends Access-Control-Allow-Origin. Coinbase is the fallback. */
+const MEMPOOL_PRICES = 'https://mempool.space/api/v1/prices';
+const COINBASE_SPOT = 'https://api.coinbase.com/v2/prices/BTC-USD/spot';
+
+function positiveNumber(value: unknown): number | null {
+	const price = typeof value === 'number' ? value : Number(value);
+	return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+async function fetchMempoolBtcUsd(): Promise<number | null> {
+	const response = await axios.get(MEMPOOL_PRICES, { timeout: 8000 });
+	return positiveNumber(response.data?.USD);
+}
+
+async function fetchCoinbaseBtcUsd(date?: string): Promise<number | null> {
+	const url = date ? `${COINBASE_SPOT}?date=${date}` : COINBASE_SPOT;
+	const response = await axios.get(url, { timeout: 8000 });
+	return positiveNumber(response.data?.data?.amount);
+}
+
+/** Live BTC-USD. Mempool first, then Coinbase, so a 403 on one feed is not a blank wallet. */
+export async function fetchBtcUsd(): Promise<number> {
+	try {
+		const mempool = await fetchMempoolBtcUsd();
+		if (mempool !== null) return mempool;
+	} catch (error) {
+		console.warn('[crypto-price] mempool price failed', error);
+	}
+	try {
+		const coinbase = await fetchCoinbaseBtcUsd();
+		if (coinbase !== null) return coinbase;
+	} catch (error) {
+		console.warn('[crypto-price] coinbase price failed', error);
+	}
+	throw new Error('Invalid BTC price response');
+}
+
 /**
- * Service for fetching cryptocurrency prices using Coinbase API
+ * Service for fetching cryptocurrency prices using a CORS-enabled feed
  */
 class CryptoPriceService {
 	private cache: Record<string, { price: number; timestamp: number }> = {};
@@ -48,16 +85,11 @@ class CryptoPriceService {
 					) {
 						btcPrice = this.cache[btcCacheKey].price;
 					} else {
-						const btcResponse = await axios.get('https://api.coinbase.com/v2/prices/BTC-USD/spot');
-						if (btcResponse.data && btcResponse.data.data && btcResponse.data.data.amount) {
-							btcPrice = parseFloat(btcResponse.data.data.amount);
-							this.cache[btcCacheKey] = {
-								price: btcPrice,
-								timestamp: Date.now()
-							};
-						} else {
-							throw new Error('Invalid Coinbase response format for BTC');
-						}
+						btcPrice = await fetchBtcUsd();
+						this.cache[btcCacheKey] = {
+							price: btcPrice,
+							timestamp: Date.now()
+						};
 					}
 
 					// Get target currency price
@@ -128,26 +160,16 @@ class CryptoPriceService {
 					return btcPrice;
 				}
 
-				// Fetch BTC price directly from Coinbase
-				const response = await axios.get('https://api.coinbase.com/v2/prices/BTC-USD/spot');
-
-				if (response.data && response.data.data && response.data.data.amount) {
-					const btcPrice = parseFloat(response.data.data.amount);
-
-					// Cache both BTC and BTC prices
-					this.cache[btcCacheKey] = {
-						price: btcPrice,
-						timestamp: Date.now()
-					};
-					this.cache[cacheKey] = {
-						price: btcPrice,
-						timestamp: Date.now()
-					};
-
-					return btcPrice;
-				}
-
-				throw new Error('Invalid Coinbase response format for BTC');
+				const btcPrice = await fetchBtcUsd();
+				this.cache[btcCacheKey] = {
+					price: btcPrice,
+					timestamp: Date.now()
+				};
+				this.cache[cacheKey] = {
+					price: btcPrice,
+					timestamp: Date.now()
+				};
+				return btcPrice;
 			}
 
 			// For other cryptocurrencies, fetch from Coinbase public API
@@ -168,7 +190,10 @@ class CryptoPriceService {
 			}
 
 			throw new Error('Invalid response format');
-		} catch {
+		} catch (error) {
+			const stale = this.cache[cacheKey];
+			if (stale && stale.price > 0) return stale.price;
+			console.warn('[crypto-price] price unavailable', symbol, error);
 			throw new Error(`Failed to get price for ${symbol}`);
 		}
 	}
@@ -187,30 +212,29 @@ class CryptoPriceService {
 		}
 
 		try {
-			// Use Coinbase API which supports historical prices via date parameter
-			// Calculate the target date
 			const targetDate = new Date();
 			targetDate.setDate(targetDate.getDate() - daysAgo);
-			const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-			// Coinbase API: GET /v2/prices/:currency_pair/spot?date=YYYY-MM-DD
-			const response = await axios.get(
-				`https://api.coinbase.com/v2/prices/BTC-USD/spot?date=${dateStr}`
-			);
-
-			if (response.data && response.data.data && response.data.data.amount) {
-				const price = parseFloat(response.data.data.amount);
-
-				// Update cache
-				this.cache[cacheKey] = {
-					price,
-					timestamp: Date.now()
-				};
-
-				return price;
+			const dateStr = targetDate.toISOString().split('T')[0];
+			const timestamp = Math.floor(targetDate.getTime() / 1000);
+			let price: number | null = null;
+			try {
+				const response = await axios.get(
+					`https://mempool.space/api/v1/historical-price?currency=USD&timestamp=${timestamp}`,
+					{ timeout: 8000 }
+				);
+				const rows = response.data?.prices;
+				const latest = Array.isArray(rows) ? rows[rows.length - 1] : null;
+				price = positiveNumber(latest?.USD);
+			} catch (error) {
+				console.warn('[crypto-price] mempool history failed', error);
 			}
-
-			return null;
+			price ??= await fetchCoinbaseBtcUsd(dateStr);
+			if (price === null) return null;
+			this.cache[cacheKey] = {
+				price,
+				timestamp: Date.now()
+			};
+			return price;
 		} catch (error) {
 			console.warn(
 				`[CryptoPriceService] Failed to fetch historical price for ${daysAgo}d ago:`,

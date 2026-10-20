@@ -197,7 +197,8 @@ export function clearBidCache(taskId?: string): void {
 /**
  * Optimized currency conversion with caching
  */
-export function cachedSatsFromUsd(usdAmount: number, btcPrice: number): number {
+export function cachedSatsFromUsd(usdAmount: number, btcPrice: number): number | null {
+	if (!Number.isFinite(btcPrice) || btcPrice <= 0) return null;
 	return (
 		currencyCache.getConversion(usdAmount, btcPrice) ??
 		currencyCache.setConversion(usdAmount, btcPrice)
@@ -207,7 +208,7 @@ export function cachedSatsFromUsd(usdAmount: number, btcPrice: number): number {
 /**
  * Batch convert multiple USD amounts to sats with caching
  */
-export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] {
+export function batchSatsFromUsd(amounts: number[], btcPrice: number): Array<number | null> {
 	return currencyCache.batchConvert(amounts, btcPrice);
 }
 

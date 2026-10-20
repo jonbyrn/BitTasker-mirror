@@ -503,8 +503,12 @@
 													${formatNumberWithTwoDecimals(bid.taskBudget.amount)}
 												</p>
 												<p class="text-base-content/60 text-sm">
-													{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)}
-													{$t('bids.sats')}
+													{#if btcPrice > 0}
+														{formatInteger(cachedSatsFromUsd(bid.taskBudget.amount, btcPrice) ?? 0)}
+														{$t('bids.sats')}
+													{:else}
+														{$t('bids.price_unavailable')}
+													{/if}
 												</p>
 											</div>
 										{/if}
@@ -604,11 +608,17 @@
 														${formatNumberWithTwoDecimals(bid.amount)}
 													</p>
 													<p class="text-base-content/60 text-sm">
-														{$t('bids.sats_estimate', {
-															values: {
-																amount: formatInteger(cachedSatsFromUsd(bid.amount, btcPrice))
-															}
-														})}
+														{#if btcPrice > 0}
+															{$t('bids.sats_estimate', {
+																values: {
+																	amount: formatInteger(
+																		cachedSatsFromUsd(bid.amount, btcPrice) ?? 0
+																	)
+																}
+															})}
+														{:else}
+															{$t('bids.price_unavailable')}
+														{/if}
 													</p>
 												{/if}
 											</div>

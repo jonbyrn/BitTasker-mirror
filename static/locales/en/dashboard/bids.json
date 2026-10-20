@@ -135,6 +135,7 @@
 		"your_bid_amount_sats": "Bid amount (sats)",
 		"your_bid_amount_usd": "Bid amount (USD)",
 		"sats_estimate": "~{amount} sats",
+		"price_unavailable": "price unavailable",
 		"task_budget": "Task budget",
 		"task_budget_sats": "Task budget: {amount} sats",
 		"payment_type": "Payment Type",

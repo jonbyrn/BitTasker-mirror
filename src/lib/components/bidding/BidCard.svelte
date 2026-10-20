@@ -125,10 +125,14 @@
 				{formatConvertedAmount(bidContent.amount, bidAmountCurrency)}
 			</p>
 			<p class="text-base-content/60 text-sm">
-				{formatConvertedAmount(bidContent.amount, bidAmountCurrency, {
-					btcPrice: btcPrice.price,
-					toCurrency: bidAmountCurrency === 'SATS' ? 'USD' : 'SATS'
-				})}
+				{#if btcPrice.price > 0}
+					{formatConvertedAmount(bidContent.amount, bidAmountCurrency, {
+						btcPrice: btcPrice.price,
+						toCurrency: bidAmountCurrency === 'SATS' ? 'USD' : 'SATS'
+					})}
+				{:else}
+					{$t('bids.price_unavailable')}
+				{/if}
 			</p>
 			<p class="text-base-content/80 line-clamp-2 text-sm">
 				{getTranslatedBidContent(bidContent, 'description')}

@@ -138,6 +138,7 @@
 		"your_bid_amount_sats": "Monto de la oferta (sats)",
 		"your_bid_amount_usd": "Monto de la oferta (USD)",
 		"sats_estimate": "~{amount} sats",
+		"price_unavailable": "precio no disponible",
 		"task_budget": "Presupuesto de la tarea",
 		"task_budget_sats": "Presupuesto de la tarea: {amount} sats",
 		"payment_type": "Tipo de Pago",
