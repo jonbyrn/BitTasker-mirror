@@ -472,3 +472,30 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Severity: med. The Accept & fund total changed from $15.79 to $15.98 when the network fee arrived. The poster pays the bid + 2.5% platform fee + about $0.61 network fee, and that is not clear before accepting.
 - Fix: show a breakdown (bid, platform fee, network fee, total) with a loading state for the fee, and keep Accept disabled until the total is final.
 - Sandbox check: not verified. The sandbox escrow is USDT on RGB with a different fee path, so it needs its own check.
+
+## Contract on-chain confirmation (prod, 2026-10-20)
+
+### 194. Contract shown as funded and task moved to In Progress before on-chain confirmation [found on prod 2026-10-20]
+- Severity: high. On prod, Accept & fund showed "Bid Accepted & Contract Funded" and the task went In Progress. The panel still said "Confirming on-chain and syncing your contract…" and showed no tx hash and no confirmation count. The user could leave before the tx confirmed. Funding tx (Rootstock): `0xb8c42a235e7312e7606286eed30676074b79985de754453f09669adbc0aaad36`.
+- Expected: show a pending state with the tx hash. Do not create the contract, mark it funded, or move the task to In Progress until the funding tx confirms. If the tx fails, roll back. Keep the user informed (notification or banner) even after they navigate away.
+- Sandbox check: not handled as far as the list shows. Item 124 still asks for a "Funded / escrow locked" step, and item 120 recorded a contract moving on with no funded step or txid. The RGB funding confirmation gate needs its own check.
+
+### 195. Refunded task shows Completed with no bids [found on prod 2026-10-20]
+- Severity: high. After a refund triggered by the Taskee (refund tx `0x7ade486dff77c1db4fd5eb6f4458255f015e4d0cc552e1d0aef55c4a564982f1`), the task shows "Completed" with a new "Posted 10:18 AM" time, no bids, no Accept, and only a greyed-out Delete.
+- Expected: a refunded task goes back to Open (or offers Repost) with its bids kept. It is never marked Completed.
+- Sandbox check: not handled. The sandbox has a joint cancel in its design (124), but nothing in this list covers the task status after a refund.
+
+### 196. Escrow funding shows no signing prompt, while read-only pages do [found on prod 2026-10-20]
+- Severity: high. Funding escrow raised no passkey or wallet-signing prompt, but read-only pages (messages, profile, bids, contracts) do.
+- Expected: signing prompts the right way round. Prompt for funding, escrow, and sends. No prompt for reads.
+- Sandbox check: handled by design in item 148 (escrow lock and release require the passkey; reads use the session). Retest on rgb.bittasker.com.
+
+### 197. /wallet shows "No Wallet Found / Wallet Connection Error" right after a successful funding tx [found on prod 2026-10-20]
+- Severity: med. Straight after a confirmed funding send, /wallet showed "No Wallet Found" and "Wallet Connection Error".
+- Expected: the wallet stays connected after a send and shows the pending or confirmed tx.
+- Sandbox check: partly. Item 159 made `walletConnection` the single status, with phases and Retry. Not tested right after an escrow lock.
+
+### 198. /hiring/contracts asks "Load signing keys" on every visit and hangs [found on prod 2026-10-20]
+- Severity: high. Every visit to /hiring/contracts asked to "Load signing keys": 3 passkey prompts, one of which timed out with no clear message. The page then stayed on "Unlocking your Nostr identity…" for over a minute.
+- Expected: contracts load with the session signer and no prompt. A timeout shows a plain message with Retry.
+- Sandbox check: handled by items 148 (session signer, Retry on cancel or timeout) and 134 (plain passkey timeout message). Retest /hiring/contracts on sandbox.
